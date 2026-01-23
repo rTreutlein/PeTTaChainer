@@ -1,13 +1,12 @@
 [project]
-name = "pettachainer"
+name = "PeTTaChainer"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "petta",
-    ]
+    "petta>=0.1.0",
+]
 
 [tool.uv.sources]
-petta = { path = "../PeTTa" , editable = true }
-
+petta = { path = "../PeTTa", editable = true }

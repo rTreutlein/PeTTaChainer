@@ -1,0 +1,33 @@
+version = 1
+requires-python = ">=3.10"
+
+[[package]]
+name = "janus-swi"
+version = "1.5.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a4/3e/cb5f1d793c4f13627e57df04ac388de2b9b10797857dcbda749df8f11bfc/janus_swi-1.5.2.tar.gz", hash = "sha256:bfdea2e4933a35744412def927d6e748184a935076e2e51b1fdbbfbdf48d0e47", size = 89652 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f3/05/7d7e634dfa721523e1d95f852db3297d2ef6f1a28047c493eb3b383b589a/janus_swi-1.5.2-cp313-cp313-win_amd64.whl", hash = "sha256:7802fc1d9671ed2341f266ac88d37c75770fdad9c936f3ef17bac2226d4caf81", size = 76540 },
+]
+
+[[package]]
+name = "petta"
+version = "0.1.0"
+source = { editable = "../PeTTa" }
+dependencies = [
+    { name = "janus-swi" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "janus-swi" }]
+
+[[package]]
+name = "pettachainer"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "petta" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "petta", editable = "../PeTTa" }]
