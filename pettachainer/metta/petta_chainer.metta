@@ -24,6 +24,17 @@
 
 (= (chainer $depth (CPU $fun $args $res)) (let $call (cons $fun $args) (let $res (eval $call) (CPU $fun $args $res))))
 
+(= (foldall-eval $fun $acc ()) $acc)
+(= (foldall-eval $fun $acc (cons $elem $tail))
+  (let $call ($fun $acc $elem)
+  (let $nacc (eval $call)
+       (foldall-eval $fun $nacc $tail))))
+
+(= (chainer $depth (FoldAllEval $kb $pattern $init $fun $out $tv))
+  (let $matches (collapse (match &kb (: $kb $prf $pattern $tvin) $pattern))
+  (let $res (foldall-eval $fun $init $matches)
+  (let $out $res (FoldAllEval $kb $pattern $init $fun $out (STV 1.0 1.0))))))
+
 (= (chainer (S $depth) $goal)
   (let $_ (match &kb (rules ($args |- $goal)) (rules ($args |- $goal)))
   (let $args (chain-rec $depth $args)
@@ -61,5 +72,3 @@
   (let (cons (goal $query) $adds) (collapse (mm2compileQuery $kb $stmt))
   (let $_ (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom &kb $sadds)))
        (pretty (chainer $depth $query)))))
-
-!(add-atom &kb (rules (((CPU $f $args $res) Nil) |- (: $kb cpu (Compute $f $args -> $res) (STV 1.0 1.0)))))

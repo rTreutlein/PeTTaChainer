@@ -41,21 +41,24 @@
         (&^& $to-proj $cmp-out (superpose $idtail)))))
       (empty)))
 
-(= (in_map $kb $elem) (: $kb $prf $elem $tv))
+(= (in_map $kb $elem) (prem (: $kb $prf $elem $tv) $elem $tv $prf))
+(= (in_map $kb (Compute $f $args -> $res)) (prem (CPU $f $args $res) (Compute $f $args -> $res) (STV 1.0 1.0) cpu))
+(= (in_map $kb (FoldAll $pattern $init $fun -> $out)) (prem (FoldAllEval $kb $pattern $init $fun $out (STV 1.0 1.0)) (FoldAll $pattern $init $fun -> $out) (STV 1.0 1.0) foldall))
 
 ;Helper to match only on the tv of a statement
 (= (tv $tv) (: $kb $prf $elem $tv))
 (= (tv $tv) (CPU $formula $args $tv))
+(= (tv $tv) (FoldAllEval $kb $pattern $init $fun $out $tv))
 
 (= (in_fold $formula
             ((@ $premises (head (tv $tv))) (: $kb $cclprf $ccltype $ccltv))
-            (: $kb $prfelem $elem $tve))
-         ((cons (CPU $formula ($tv $tve) $ntv) (cons (: $kb $prfelem $elem $tve) $premises))
+            (prem $goal $elem $tve $prfelem))
+         ((cons (CPU $formula ($tv $tve) $ntv) (cons $goal $premises))
           (: $kb (cons $prfelem $cclprf) (cons $elem $ccltype) $ntv)))
 
 (= (inTemplate $kb $formula $head $tail)
- (let* (((cons (@ $fst (: $kb $fstprf $fstelem $fsttv)) $rst) (map-flat (in_map $kb) $tail))
-        ($init (($fst) (: $kb ($fstprf) ($fstelem) $fsttv)))
+ (let* (((cons (@ $fst (prem $fstgoal $fstelem $fsttv $fstprf)) $rst) (map-flat (in_map $kb) $tail))
+        ($init (($fstgoal) (: $kb ($fstprf) ($fstelem) $fsttv)))
         (($resNNprms (: $kb $cclprf $ccltype $ccltv)) (fold-flat (in_fold $formula) $init $rst))
         (($rcclprf $rccltype) ((reverse $cclprf) (reverse $ccltype)))
        )
