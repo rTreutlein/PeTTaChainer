@@ -1,8 +1,10 @@
 import logging
+import multiprocessing as mp
 import os
 import threading
+import traceback
 import uuid
-from typing import List
+from typing import List, Optional
 
 from petta import PeTTa
 
@@ -14,6 +16,16 @@ logger = logging.getLogger(__name__)
 
 LOADEDLIB = False
 LOADED_LOCK = threading.Lock()
+
+
+def _query_worker(handler: PeTTa, kb: str, depth: int, atom: str, conn):
+    try:
+        atoms = handler.process_metta_string(f"!(query (fromNumber {depth}) {kb} {atom})")
+        conn.send(("ok", atoms))
+    except Exception as exc:  # pragma: no cover
+        conn.send(("err", (exc.__class__.__name__, str(exc), traceback.format_exc())))
+    finally:
+        conn.close()
 
 class PeTTaChainer:
     def __init__(self):
@@ -34,48 +46,61 @@ class PeTTaChainer:
     def add_atom(self, atom: str) -> str:
         return self.handler.process_metta_string(f"!(compileadd {self.kb} {atom})")
 
-    def query(self, atom: str, depth: int = 10) -> List[str]:
-        atoms = self.handler.process_metta_string(f"!(query (fromNumber {depth}) {self.kb} {atom})")
-        return atoms
+    def query(self, atom: str, depth: int = 10, timeout_sec: Optional[float] = 10) -> List[str]:
+        if timeout_sec is None or timeout_sec <= 0:
+            return self.handler.process_metta_string(f"!(query (fromNumber {depth}) {self.kb} {atom})")
+
+        # Use a forked process so timeout can actually stop CPU-bound query work.
+        ctx = mp.get_context("fork")
+        parent_conn, child_conn = ctx.Pipe(duplex=False)
+        worker = ctx.Process(
+            target=_query_worker,
+            args=(self.handler, self.kb, depth, atom, child_conn),
+            daemon=True,
+        )
+        worker.start()
+        child_conn.close()
+        worker.join(timeout_sec)
+
+        if worker.is_alive():
+            worker.terminate()
+            worker.join()
+            parent_conn.close()
+            raise TimeoutError(f"PeTTa query timed out after {timeout_sec} seconds")
+
+        if parent_conn.poll():
+            status, payload = parent_conn.recv()
+            parent_conn.close()
+            if status == "ok":
+                return payload
+            err_type, err_msg, err_tb = payload
+            raise RuntimeError(f"PeTTa query worker failed [{err_type}]: {err_msg}\n{err_tb}")
+
+        parent_conn.close()
+        raise RuntimeError("PeTTa query worker exited without returning a result")
 
 if __name__ == '__main__':
     handler = PeTTaChainer()
 
     data = [
-        "(: st1 (Implication (type $x whale) (And (type $x mammal) (attribute $x lives_in_ocean))) (STV 1.0 1.0))",
-        "(: st2 (Implication (And (type $x animal) (attribute $x lives_in_ocean)) (type $x marine_animal)) (STV 1.0 1.0))",
-        "(: st3 (Implication (And (type $x marine_animal) (type $x mammal)) (attribute $x exposed_to_pollutant_P)) (STV 1.0 1.0))",
-        "(: st4 (Implication (attribute $x exposed_to_pollutant_P) (attribute $x increased_risk_disease_Z)) (STV 1.0 1.0))",
-        "(: st5 (Implication (type $x mammal) (type $x animal)) (STV 1.0 1.0))"]
-
-    query = "(: $prf (Implication (type $x whale) (attribute $x lives_in_ocean)) $tv)"
-
-    data1 = ["(: a_b (Implication A B) (STV 1.0 1.0))", "(: a A (STV 1.0 1.0))"]
-    query1 = "(: $prf B $tv)"
-
-    data2 = ["(: prf (Implication (And A B) C) (STV 1.0 1.0))"]
-    query2 = "(: $prf (Implication (And A B) C) $tv)"
-
-    statements=['(: fact1 (Reaches RiverA Bay-1) (STV 1.0 1.0))',
-                '(: fact2 (Implication (Reaches $r $b) (HasRiverRunoff $b)) (STV 1.0 1.0))',
-                '(: fact3 (Implication (HasRiverRunoff $b) (And (HighLevelPollutantP $b) (Implication (LivesIn $a $b) (ExposedTo $a PollutantP)))) (STV 1.0 1.0))',
-                '(: fact4 (Implication (And (MarineAnimal $a) (ExposedTo $a PollutantP)) (IncreasedRisk $a DiseaseZ)) (STV 1.0 1.0))',
-                '(: fact5 (Implication (Dolphin $x) (And (MarineMammal $x) (LivesIn $x CoastalBays))) (STV 1.0  1.0))',
-                '(: fact6 (LivesIn Dolphin Bay-1) (STV 1.0 1.0))',
-                '(: fact7 (Implication (Mollusk $x) (Contains $x SubstanceS)) (STV 1.0 1.0))',
-                '(: fact8 (Implication (Eats $a SubstanceS) (EliminatesRisk $a DiseaseZ)) (STV 1.0 1.0))',
-                '(: fact9 (Implication (And (Dolphin $d) (LivesIn $d Bay-1)) (PredatorOf $d Mollusk)) (STV 1.0 1.0))',
-                '(: fact10 (Implication (PredatorOf $p $y) (Eats $p $y)) (STV 1.0 1.0))',
-                '(: fact11 (Implication (Mammal $x) (Animal $x)) (STV 1.0 1.0))',
-                '(: fact12 (Implication (And (MarineMammal $x) (Animal $x)) (MarineAnimal $x)) (STV 1.0 1.0))']
-    queries='(: $prf (LikelierThan (And (IncreasedRisk $d DiseaseZ) (Dolphin $d) (LivesIn $d Bay-1)) (And (IncreasedRisk $t DiseaseZ) (Tuna $t) (LivesIn $t Bay-1))) $tv)'
+        "(: fact_a (Count A 1) (STV 1.0 1.0))",
+        "(: fact_b (Count B 2) (STV 1.0 1.0))",
+        "(: sum_rule (Implication (Premises (Count A $a) (Count B $b) (Compute + ($a $b) -> $c)) (Conclusions (Count C $c))) (STV 1.0 1.0))",
+    ]
+    queries = ["(: $prf (Count C $c) $tv)"]
 
 
-    data4=['(: st2 (Implication (attribute meeting_1 happening) (agrees everyone)) (STV 1.0 1.0))']
-    query4='(: $prf (Implication (attribute meeting_1 happening) (agrees $x)) $tv)'
+    data2 = ['(: s1 (Cardinality (CatsIn Park) 3) (STV 1 0.9))',
+             '(: s2 (Implication (Premises (And (Cat $x) (In $x Park))) (Conclusions (Cute $x))) (STV 1 0.8))',
+             '(: r_allCatsCute (Implication (Premises (And (Implication (Premises (Cat $x)) (Conclusions (In $x Park))) (Implication (Premises (And (Cat $x) (In $x Park))) (Conclusions (Cute $x))))) (Conclusions (Implication (Premises (Cat $x)) (Conclusions (Cute $x))))) (STV 0.6 0.4))', '(: r_cuteCatsAtLeast2 (Implication (Premises (Cardinality (CatsIn Park) $n) (Compute <= (2 $n) -> True)) (Conclusions (AtLeast2 (CuteCatsIn Park)))) (STV 0.9 0.7))']
+    queries2=['(: $prf (Implication (Premises (Cat $x)) (Conclusions (Cute $x))) $tv)',
+              '(: $prf (And (Cat $x) (In $x Park) (Cute $x)) $tv)',
+              '(: $prf (AtLeast2 (CuteCatsIn Park)) $tv)']
 
-    for elem in data4:
+    for elem in data:
         print(f"Adding {elem}")
         print(handler.add_atom(elem))
 
-    print(handler.query(query4))
+    for q in queries:
+        print("Query result:")
+        print(handler.query(q))

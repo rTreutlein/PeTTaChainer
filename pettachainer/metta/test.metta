@@ -1,11 +1,21 @@
 !(import! &self petta_chainer)
 
-!(add-atom &kb (: kb prf (Count A 1) (STV 1.0 1.0)))
-!(add-atom &kb (: kb prf (Count B 2) (STV 1.0 1.0)))
-!(add-atom &kb (: kb prf (Count C 3) (STV 1.0 1.0)))
-!(add-atom &kb (: kb prf (Score A 1) (STV 1.0 1.0)))
-!(add-atom &kb (: kb prf (Score B 2) (STV 1.0 1.0)))
-!(add-atom &kb (: kb prf (Score C 3) (STV 1.0 1.0)))
+!(compileadd kb (: prf (Count A 1) (STV 1.0 1.0)))
+!(compileadd kb (: prf (Count B 2) (STV 1.0 1.0)))
+!(compileadd kb (: prf (Count C 3) (STV 1.0 1.0)))
+!(compileadd kb (: prf (Score A 1) (STV 1.0 1.0)))
+!(compileadd kb (: prf (Score B 2) (STV 1.0 1.0)))
+!(compileadd kb (: prf (Score C 3) (STV 1.0 1.0)))
+!(compileadd kb (: prf1 (House house1) (STV 1.0 1.0)))
+!(compileadd kb (: prf2 (Room room1) (STV 1.0 1.0)))
+!(compileadd kb (: prf3 (Room room2) (STV 1.0 1.0)))
+!(compileadd kb (: prf4 (PartOf room1 house1) (STV 1.0 1.0)))
+!(compileadd kb (: prf5 (PartOf room2 house1) (STV 1.0 1.0)))
+!(compileadd kb (: prf6 (Cardinality (RoomOf house1) 2) (STV 1.0 1.0)))
+!(compileadd kb (: prf7 (Contains room1 dogs) (STV 1.0 1.0)))
+!(compileadd kb (: prf8 (Cardinality (DogsIn room1) 2) (STV 1.0 1.0)))
+!(compileadd kb (: prf9 (Contains room2 dogs) (STV 1.0 1.0)))
+!(compileadd kb (: prf10 (Cardinality (DogsIn room2) 3) (STV 1.0 1.0)))
 
 (= (KeepAcc $acc $elem) $acc)
 
@@ -19,7 +29,7 @@
 
 !(test
     (query (fromNumber 10) kb (: $prf (ScoreTotal $x) $tv))
-    (: (foldRule foldall) (ScoreTotal 6) (STV 1.0 1.0)))
+    (: (foldRule cpu) (ScoreTotal 6) (STV 1.0 1.0)))
 
 !(compileadd kb (: foldZeroRule
     (Implication
@@ -31,7 +41,7 @@
 
 !(test
     (query (fromNumber 10) kb (: $prf (Count MissingTotal $x) $tv))
-    (: (foldZeroRule foldall) (Count MissingTotal 42) (STV 1.0 1.0)))
+    (: (foldZeroRule cpu) (Count MissingTotal 42) (STV 1.0 1.0)))
 
 !(compileadd kb (: numFromCount
     (Implication
@@ -52,7 +62,20 @@
 
 !(test
     (query (fromNumber 10) kb (: $prf (DerivedTotal $x) $tv))
-    (: (foldDerivedRule foldall) (DerivedTotal 12) (STV 1.0 1.0)))
+    (: (foldDerivedRule cpu) (DerivedTotal 6) (STV 1.0 1.0)))
+
+!(compileadd kb (: dogsInHouseRule
+    (Implication
+        (Premises
+            (House $h)
+            (FoldAll (And (PartOf $room $h) (Cardinality (DogsIn $room) $n)) $n 0 (|-> ($acc $x) (+ $acc $x)) -> $total))
+        (Conclusions
+            (Cardinality (DogsIn $h) $total)))
+    (STV 1.0 1.0)))
+
+!(test
+    (query (fromNumber 20) kb (: $prf (Cardinality (DogsIn house1) 5) $tv))
+    (: (dogsInHouseRule (conjunction prf1 cpu)) (Cardinality (DogsIn house1) 5) (STV 1.0 1.0)))
 
 !(compileadd kb (: apbisc
     (Implication
