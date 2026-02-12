@@ -28,7 +28,7 @@
     (STV 1.0 1.0)))
 
 !(test
-    (query (fromNumber 10) kb (: $prf (ScoreTotal $x) $tv))
+    (query 10 kb (: $prf (ScoreTotal $x) $tv))
     (: (foldRule cpu) (ScoreTotal 6) (STV 1.0 1.0)))
 
 !(compileadd kb (: foldZeroRule
@@ -40,7 +40,7 @@
     (STV 1.0 1.0)))
 
 !(test
-    (query (fromNumber 10) kb (: $prf (Count MissingTotal $x) $tv))
+    (query 10 kb (: $prf (Count MissingTotal $x) $tv))
     (: (foldZeroRule cpu) (Count MissingTotal 42) (STV 1.0 1.0)))
 
 !(compileadd kb (: numFromCount
@@ -61,7 +61,7 @@
     (STV 1.0 1.0)))
 
 !(test
-    (query (fromNumber 10) kb (: $prf (DerivedTotal $x) $tv))
+    (query 10 kb (: $prf (DerivedTotal $x) $tv))
     (: (foldDerivedRule cpu) (DerivedTotal 6) (STV 1.0 1.0)))
 
 !(compileadd kb (: dogsInHouseRule
@@ -74,7 +74,7 @@
     (STV 1.0 1.0)))
 
 !(test
-    (query (fromNumber 20) kb (: $prf (Cardinality (DogsIn house1) 5) $tv))
+    (query 20 kb (: $prf (Cardinality (DogsIn house1) 5) $tv))
     (: (dogsInHouseRule (conjunction prf1 cpu)) (Cardinality (DogsIn house1) 5) (STV 1.0 1.0)))
 
 !(compileadd kb (: apbisc
@@ -88,5 +88,5 @@
     (STV 1.0 1.0)))
 
 !(test
-    (query (fromNumber 10) kb (: prf (Count C $x) $tv))
+    (query 10 kb (: prf (Count C $x) $tv))
     (: prf (Count C 3) (STV 1.0 1.0)))

@@ -18,9 +18,9 @@ LOADEDLIB = False
 LOADED_LOCK = threading.Lock()
 
 
-def _query_worker(handler: PeTTa, kb: str, depth: int, atom: str, conn):
+def _query_worker(handler: PeTTa, kb: str, steps: int, atom: str, conn):
     try:
-        atoms = handler.process_metta_string(f"!(query (fromNumber {depth}) {kb} {atom})")
+        atoms = handler.process_metta_string(f"!(query {steps} {kb} {atom})")
         conn.send(("ok", atoms))
     except Exception as exc:  # pragma: no cover
         conn.send(("err", (exc.__class__.__name__, str(exc), traceback.format_exc())))
@@ -46,16 +46,16 @@ class PeTTaChainer:
     def add_atom(self, atom: str) -> str:
         return self.handler.process_metta_string(f"!(compileadd {self.kb} {atom})")
 
-    def query(self, atom: str, depth: int = 10, timeout_sec: Optional[float] = 10) -> List[str]:
+    def query(self, atom: str, steps: int = 10, timeout_sec: Optional[float] = 10) -> List[str]:
         if timeout_sec is None or timeout_sec <= 0:
-            return self.handler.process_metta_string(f"!(query (fromNumber {depth}) {self.kb} {atom})")
+            return self.handler.process_metta_string(f"!(query {steps} {self.kb} {atom})")
 
         # Use a forked process so timeout can actually stop CPU-bound query work.
         ctx = mp.get_context("fork")
         parent_conn, child_conn = ctx.Pipe(duplex=False)
         worker = ctx.Process(
             target=_query_worker,
-            args=(self.handler, self.kb, depth, atom, child_conn),
+            args=(self.handler, self.kb, steps, atom, child_conn),
             daemon=True,
         )
         worker.start()
