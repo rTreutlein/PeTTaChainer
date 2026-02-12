@@ -1,4 +1,5 @@
 !(import! &self compile)
+!(import! &self mining)
 
 ;;;;;;;;;
 ;; Nat ;;
@@ -107,8 +108,7 @@
 ;; API   ;;
 ;;;;;;;;;;;
 
-(= (compileadd $kb $stmt)
-  (let $atoms (traceid (mm2compile $kb $stmt)) (add-atom &kb $atoms)))
+
 
 ;; Compile query to goal+adds, inject adds, then run goal through chainer.
 (= (query $depth $kb $stmt)
