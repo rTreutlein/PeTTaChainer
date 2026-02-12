@@ -68,7 +68,9 @@
 ;; Best-first over rule applications.
 (= (search-rules $steps $visited ()) ())
 (= (search-rules $steps $visited (cons $item $pq-rest))
-   (try-prioritized-rule $steps $visited $item $pq-rest))
+   (if (<= $steps 0)
+       ()
+       (try-prioritized-rule (- $steps 1) $visited $item $pq-rest)))
 
 (= (first-result (cons $head $_tail)) $head)
 (= (first-result ($head $_tail)) $head)
@@ -104,7 +106,11 @@
    (let $k (goal-key $goal)
    (if (or (<= $steps 0) (is-member $k $visited))
        (empty)
-       (search-rules-dfs-fallback (- $steps 1) (cons $k $visited) $goal)
+       (let $pq (build-initial-pq $goal)
+            (let $results (search-rules $steps (cons $k $visited) $pq)
+                 (if (== $results ())
+                     (search-rules-dfs-fallback $steps (cons $k $visited) $goal)
+                     (superpose $results))))
        )))
 
 (= (chain-rec-v $steps $visited ($goal $dep))
@@ -113,6 +119,14 @@
     ((chainer-v $steps $visited $goal) (chain-rec-v $steps $visited $dep))))
 
 (= (chainer $steps $goal) (chainer-v $steps () $goal))
+
+;; Keep first occurrence order while removing duplicate results.
+(= (ordered-unique-acc () $seen) ())
+(= (ordered-unique-acc (cons $head $tail) $seen)
+   (if (is-member $head $seen)
+       (ordered-unique-acc $tail $seen)
+       (cons $head (ordered-unique-acc $tail (cons $head $seen)))))
+(= (ordered-unique $lst) (ordered-unique-acc $lst ()))
 
 ;;;;;;;;;;;;;;;;;;
 ;; CPU Formulas ;;
@@ -171,4 +185,5 @@
 (= (query $steps $kb $stmt)
   (let (cons (goal $query) $adds) (collapse (mm2compileQuery $kb $stmt))
   (let $_ (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom &kb $sadds)))
-       (pretty (chainer $steps $query)))))
+       (let $results (collapse (pretty (chainer $steps $query)))
+            (superpose (ordered-unique $results))))))

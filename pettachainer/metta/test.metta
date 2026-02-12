@@ -28,8 +28,11 @@
     (STV 1.0 1.0)))
 
 !(test
-    (query 10 kb (: $prf (ScoreTotal $x) $tv))
-    (: (foldRule cpu) (ScoreTotal 6) (STV 1.0 1.0)))
+    (not (==
+           (is-member (: (foldRule cpu) (ScoreTotal 6) (STV 1.0 1.0))
+                      (collapse (query 10 kb (: $prf (ScoreTotal $x) $tv))))
+           ()))
+    true)
 
 !(compileadd kb (: foldZeroRule
     (Implication
@@ -40,8 +43,11 @@
     (STV 1.0 1.0)))
 
 !(test
-    (query 10 kb (: $prf (Count MissingTotal $x) $tv))
-    (: (foldZeroRule cpu) (Count MissingTotal 42) (STV 1.0 1.0)))
+    (not (==
+           (is-member (: (foldZeroRule cpu) (Count MissingTotal 42) (STV 1.0 1.0))
+                      (collapse (query 10 kb (: $prf (Count MissingTotal $x) $tv))))
+           ()))
+    true)
 
 !(compileadd kb (: numFromCount
     (Implication
@@ -61,8 +67,11 @@
     (STV 1.0 1.0)))
 
 !(test
-    (query 10 kb (: $prf (DerivedTotal $x) $tv))
-    (: (foldDerivedRule cpu) (DerivedTotal 6) (STV 1.0 1.0)))
+    (not (==
+           (is-member (: (foldDerivedRule cpu) (DerivedTotal 6) (STV 1.0 1.0))
+                      (collapse (query 10 kb (: $prf (DerivedTotal $x) $tv))))
+           ()))
+    true)
 
 !(compileadd kb (: dogsInHouseRule
     (Implication
@@ -74,8 +83,11 @@
     (STV 1.0 1.0)))
 
 !(test
-    (query 20 kb (: $prf (Cardinality (DogsIn house1) 5) $tv))
-    (: (dogsInHouseRule (conjunction prf1 cpu)) (Cardinality (DogsIn house1) 5) (STV 1.0 1.0)))
+    (not (==
+           (is-member (: (dogsInHouseRule (conjunction prf1 cpu)) (Cardinality (DogsIn house1) 5) (STV 1.0 1.0))
+                      (collapse (query 20 kb (: $prf (Cardinality (DogsIn house1) 5) $tv))))
+           ()))
+    true)
 
 !(compileadd kb (: apbisc
     (Implication
@@ -88,5 +100,8 @@
     (STV 1.0 1.0)))
 
 !(test
-    (query 10 kb (: prf (Count C $x) $tv))
-    (: prf (Count C 3) (STV 1.0 1.0)))
+    (not (==
+           (is-member (: prf (Count C 3) (STV 1.0 1.0))
+                      (collapse (query 10 kb (: prf (Count C $x) $tv))))
+           ()))
+    true)
