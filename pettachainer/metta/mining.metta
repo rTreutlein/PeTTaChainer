@@ -6,10 +6,8 @@
 !(use-module! assoc)
 !(import_prolog_function (superpose (empty_assoc put_assoc get_assoc)))
 
-(= (mining-k) 800.0)
-
 (= (count-to-confidence $count)
-   (/ $count (+ $count (mining-k))))
+   (/ $count (+ $count 800.0)))
 
 (= (impl-strength $alpha $beta)
    (if (> (+ $alpha $beta) 0.0)
@@ -40,10 +38,10 @@
    (cons (generalize-arg-key $h $shared) (generalize-args-key $t $shared)))
 
 (= (generalized-terms-key $pa $argsa $pb $argsb)
-   (let $shared (shared-objects $argsa $argsb)
-   (let $premk (cons $pa (generalize-args-key $argsa $shared))
-   (let $conck (cons $pb (generalize-args-key $argsb $shared))
-        (terms $premk $conck)))))
+   (let* (($shared (shared-objects $argsa $argsb))
+          ($premk (cons $pa (generalize-args-key $argsa $shared)))
+          ($conck (cons $pb (generalize-args-key $argsb $shared))))
+     (terms $premk $conck)))
 
 (= (assoc-get-var $assoc $key)
    (case (get_assoc $key $assoc)
@@ -107,12 +105,12 @@
         (emit-mined-implication $kb $premk $conck $alpha $beta)))
 
 (= (mine-predicate-pair $kb $pa $argsa (STV $sa $ca) $pb $argsb (STV $sb $cb))
-   (let (terms $premab $concab) (generalized-terms-key $pa $argsa $pb $argsb)
-   (let (terms $premba $concba) (generalized-terms-key $pb $argsb $pa $argsa)
-   (if (and (== $premab $concab) (== $premba $concba))
-       (empty)
-       (superpose ((update-and-emit-directional $kb $premab $concab $sa $ca $sb $cb)
-                   (update-and-emit-directional $kb $premba $concba $sb $cb $sa $ca)))))))
+   (let* (((terms $premab $concab) (generalized-terms-key $pa $argsa $pb $argsb))
+          ((terms $premba $concba) (generalized-terms-key $pb $argsb $pa $argsa)))
+     (if (and (== $premab $concab) (== $premba $concba))
+         (empty)
+         (superpose ((update-and-emit-directional $kb $premab $concab $sa $ca $sb $cb)
+                     (update-and-emit-directional $kb $premba $concba $sb $cb $sa $ca))))))
 
 (= (mine-candidate $kb $stmtid $pa $args $tva $cid $pb $argsb $tvb)
    (if (== $cid $stmtid)
