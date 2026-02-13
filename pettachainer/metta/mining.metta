@@ -19,15 +19,11 @@
        $idx
        (index-of-arg $arg $t (+ $idx 1))))
 
-(= (generalize-arg-key $arg $shared)
-   (let $idx (index-of-arg $arg $shared 1)
-        (if (> $idx 0)
-            (V $idx)
-            $arg)))
-
 (= (generalize-args-key () $shared) ())
 (= (generalize-args-key (cons $h $t) $shared)
-   (cons (generalize-arg-key $h $shared) (generalize-args-key $t $shared)))
+   (let $idx (index-of-arg $h $shared 1)
+        (cons (if (> $idx 0) (V $idx) $h)
+              (generalize-args-key $t $shared))))
 
 (= (generalized-terms-key $pa $argsa $pb $argsb)
    (let* (($shared (shared-objects $argsa $argsb))
