@@ -110,11 +110,8 @@
    (let (ab $alpha $beta) (update-directional-by-key $kb $premk $conck $sa $ca $sb $cb)
         (emit-mined-implication $kb $premk $conck $alpha $beta)))
 
-(= (share-any-arg () $argsb) False)
-(= (share-any-arg (cons $h $t) $argsb)
-   (if (is-member $h $argsb)
-       True
-       (share-any-arg $t $argsb)))
+(= (share-any-arg $argsa $argsb)
+   (not (== (shared-objects $argsa $argsb) ())))
 
 (= (mine-predicate-pair $kb $pa $argsa (STV $sa $ca) $pb $argsb (STV $sb $cb))
    (let (terms $premab $concab) (generalized-terms-key $pa $argsa $pb $argsb)
