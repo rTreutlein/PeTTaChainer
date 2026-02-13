@@ -50,3 +50,11 @@
            (rules ($args |- (: (kb MAIN ()) ((mined_implication (Owns (V 1) dog) (Owns (V 1) cat)) $p) (Owns $a cat) $tv)))
            ok)
     ok)
+
+!(compileadd kb (: o3 (Owns bob dog) (STV 1.0 1.0)))
+
+!(test
+    (match &kb
+           (rules ($args |- (: (kb MAIN ()) ((mined_implication (Owns (V 1) dog) (Owns (V 1) cat)) $p) (Owns $x cat) $tv)))
+           (if (is-member (: (kb MAIN ()) $prf (Owns $x dog) $tvin) $args) ok fail))
+    ok)
