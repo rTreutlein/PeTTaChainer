@@ -78,17 +78,16 @@
           ($_ (add-atom &kb (ind-impl-stats $kb $premk $conck $newa $newb))))
         (ab $newa $newb)))
 
-(= (update-and-emit-directional $kb $premk $conck $sa $ca $sb $cb)
-   (let (ab $alpha $beta) (update-directional-by-key $kb $premk $conck $sa $ca $sb $cb)
-        (emit-mined-implication $kb $premk $conck $alpha $beta)))
-
 (= (mine-predicate-pair $kb $pa $argsa (STV $sa $ca) $pb $argsb (STV $sb $cb))
    (let* (((terms $premab $concab) (generalized-terms-key $pa $argsa $pb $argsb))
           ((terms $premba $concba) (generalized-terms-key $pb $argsb $pa $argsa)))
      (if (and (== $premab $concab) (== $premba $concba))
          (empty)
-         (superpose ((update-and-emit-directional $kb $premab $concab $sa $ca $sb $cb)
-                     (update-and-emit-directional $kb $premba $concba $sb $cb $sa $ca))))))
+         (superpose
+           ((let (ab $alpha $beta) (update-directional-by-key $kb $premab $concab $sa $ca $sb $cb)
+              (emit-mined-implication $kb $premab $concab $alpha $beta))
+            (let (ab $alpha $beta) (update-directional-by-key $kb $premba $concba $sb $cb $sa $ca)
+              (emit-mined-implication $kb $premba $concba $alpha $beta)))))))
 
 (= (mine-candidate $kb $stmtid $pa $args $tva $cid $pb $argsb $tvb)
    (if (== $cid $stmtid)
