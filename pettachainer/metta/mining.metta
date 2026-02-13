@@ -94,7 +94,7 @@
           ($_ (clear-mined-implication-rules $kb $premk $conck)))
       (compileadd $kb $stmt))))
 
-(= (bump-directional-by-key $kb $premk $conck $sa $ca $sb $cb)
+(= (update-directional-by-key $kb $premk $conck $sa $ca $sb $cb)
    (let* (($w (min $ca $cb))
           ($ainc (* $w (* $sa $sb)))
           ($binc (* $w (* $sa (- 1.0 $sb))))
@@ -104,12 +104,11 @@
           ($newb (+ $oldb $binc))
           ($_ (clear-impl-stats $kb $premk $conck))
           ($_ (add-atom &kb (ind-impl-stats $kb $premk $conck $newa $newb))))
-       (ab $newa $newb)))
+        (ab $newa $newb)))
 
-(= (refresh-mined-implication $kb $premk $conck)
-   (let $cur (current-impl-stats $kb $premk $conck)
-   (let (ab $alpha $beta) $cur
-        (emit-mined-implication $kb $premk $conck $alpha $beta))))
+(= (update-and-emit-directional $kb $premk $conck $sa $ca $sb $cb)
+   (let (ab $alpha $beta) (update-directional-by-key $kb $premk $conck $sa $ca $sb $cb)
+        (emit-mined-implication $kb $premk $conck $alpha $beta)))
 
 (= (share-any-arg () $argsb) False)
 (= (share-any-arg (cons $h $t) $argsb)
@@ -133,10 +132,8 @@
    (let (terms $premba $concba) (generalized-terms-key $pb $argsb $pa $argsa)
    (if (and (== $premab $concab) (== $premba $concba))
        (empty)
-       (let $_ (superpose ((bump-directional-by-key $kb $premab $concab $sa $ca $sb $cb)
-                           (bump-directional-by-key $kb $premba $concba $sb $cb $sa $ca)))
-            (superpose ((refresh-mined-implication $kb $premab $concab)
-                        (refresh-mined-implication $kb $premba $concba))))))))
+       (superpose ((update-and-emit-directional $kb $premab $concab $sa $ca $sb $cb)
+                   (update-and-emit-directional $kb $premba $concba $sb $cb $sa $ca)))))))
 
 (= (mine-candidate $kb $stmtid $pa $args $tva $cid $pb $argsb $tvb)
    (if (== $cid $stmtid)
