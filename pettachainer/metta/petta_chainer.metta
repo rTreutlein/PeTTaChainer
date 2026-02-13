@@ -66,9 +66,9 @@
    (let $_ (match &kb (rules ($args |- $goal)) (rules ($args |- $goal)))
         (candidate-from-match ($args |- $goal))))
 
-(= (build-initial-pq $goal)
+(= (build-initial-pq $pq $goal)
    (let $items (collapse (initial-candidate $goal))
-        (hpq-insert-all (hpq-empty) $items)))
+        (hpq-insert-all $pq $items)))
 
 (= (qitem-priority-key (qitem $prio $_args $_goal))
    (- 0 $prio))
@@ -97,14 +97,14 @@
             ($item (hpq $rest-heap $seen)))))
 
 ;; Expand one candidate by proving exactly one next premise.
-(= (expand-candidate $steps $visited (qitem $_prio (cand (($prem $rest) |- $goal) $score) $_g))
-   (let $prem (chainer-v $steps $visited $prem)
+(= (expand-candidate $steps $visited $pq (qitem $_prio (cand (($prem $rest) |- $goal) $score) $_g))
+   (let $prem (chainer-v $steps $visited $pq $prem)
         (let $prem-score (min (proof-confidence $prem) (premise-expected-confidence $prem))
         (let $new-score (min $score $prem-score)
              (qitem $new-score (cand ($rest |- $goal) $new-score) $goal)))))
-(= (expand-candidate $steps $visited (qitem $_prio (cand (Nil |- $_goal) $_score) $_g))
+(= (expand-candidate $steps $visited $pq (qitem $_prio (cand (Nil |- $_goal) $_score) $_g))
    (empty))
-(= (expand-candidate $steps $visited (qitem $_prio (cand (() |- $_goal) $_score) $_g))
+(= (expand-candidate $steps $visited $pq (qitem $_prio (cand (() |- $_goal) $_score) $_g))
    (empty))
 
 ;; Best-first over partially-applied rule candidates.
@@ -125,7 +125,7 @@
 (= (search-rules-step $steps $visited (qitem $_prio (cand (($prem $rest) |- $goal) $score) $_g) $pq-rest)
    (if (<= $steps 0)
        ()
-         (let $new-items (collapse (expand-candidate $steps $visited (qitem $_prio (cand (($prem $rest) |- $goal) $score) $_g)))
+         (let $new-items (collapse (expand-candidate $steps $visited $pq-rest (qitem $_prio (cand (($prem $rest) |- $goal) $score) $_g)))
              (if (== $new-items ())
                  (search-rules $steps $visited $pq-rest)
                  (let $new-pq (hpq-insert-all $pq-rest $new-items)
@@ -142,24 +142,24 @@
            (cons $fun $args))
        (reduce (reduce $call))))
 
-(= (chainer-v $steps $visited (CPU $fun $args $res))
+(= (chainer-v $steps $visited $pq (CPU $fun $args $res))
   (if (<= $steps 0)
       (empty)
       (let $res (cpu-call (- $steps 1) $fun $args)
            (CPU $fun $args $res))))
 
-(= (chainer-v $steps $visited $goal)
+(= (chainer-v $steps $visited $pq $goal)
   (match &kb $goal $goal))
 
-(= (chainer-v $steps $visited $goal)
+(= (chainer-v $steps $visited $pq $goal)
    (let $k (goal-key $goal)
-      (if (or (<= $steps 0) (is-member $k $visited))
-          (empty)
-          (let $pq (build-initial-pq $goal)
-               (let $results (search-rules $steps (cons $k $visited) $pq)
-                    (superpose $results))))))
+       (if (or (<= $steps 0) (is-member $k $visited))
+           (empty)
+           (let $pq2 (build-initial-pq $pq $goal)
+                (let $results (search-rules $steps (cons $k $visited) $pq2)
+                     (superpose $results))))))
 
-(= (chainer $steps $goal) (chainer-v $steps () $goal))
+(= (chainer $steps $goal) (chainer-v $steps () (hpq-empty) $goal))
 
 ;;;;;;;;;;;;;;;;;;
 ;; CPU Formulas ;;
