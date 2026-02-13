@@ -112,7 +112,15 @@
 
 (= (hpq-insert-all $pq ()) $pq)
 (= (hpq-insert-all $pq (cons $item $tail))
-   (hpq-insert-all (hpq-insert $pq $item) $tail))
+   (let $next-pq
+        (case $item
+          (
+            ((qitem $_prio (cand (Nil |- $proved-goal) $_score (cons $frame $rest-cont)) $_g)
+             (resume-frame $pq $proved-goal $frame $rest-cont))
+            ($other
+             (hpq-insert $pq $item))
+          ))
+        (hpq-insert-all $next-pq $tail)))
 
 (= (hpq-pop (hpq $heap $seen))
    (if (== (heap_size $heap) 0)
@@ -125,30 +133,22 @@
    (let $prem $proved-goal
         (let $prem-score (min (proof-confidence $proved-goal) (premise-expected-confidence $prem))
              (let $new-score (min $parent-score $prem-score)
-                       (hpq-insert $pq (qitem $new-score (cand ($rest |- $goal) $new-score $cont) $goal))))))
+                  (hpq-insert-all $pq (cons (qitem $new-score (cand ($rest |- $goal) $new-score $cont) $goal) ()))))))
 
 ;; Best-first over partially-applied rule candidates.
 (= (search-rules $steps $visited $pq)
-   (if (== (hpq-size $pq) 0)
+   (if (and (== (hpq-size $pq) 0) (<= $steps 0))
        ()
        (let ($item $pq-rest) (hpq-pop $pq)
-            (search-rules-step $steps $visited $item $pq-rest))))
+            (search-rules-step (- $steps 1) $visited $item $pq-rest))))
 
 (= (search-rules-step $steps $visited (qitem $_prio (cand (Nil |- $goal) $_score ()) $_g) $pq-rest)
-   (if (<= $steps 0)
-       ()
-       (cons $goal (search-rules (- $steps 1) $visited $pq-rest))))
-
-(= (search-rules-step $steps $visited (qitem $_prio (cand (Nil |- $proved-goal) $_score (cons $frame $cont)) $_g) $pq-rest)
-   (let $pq2 (resume-frame $pq-rest $proved-goal $frame $cont)
-        (search-rules $steps $visited $pq2)))
+      (cons $goal (search-rules $steps $visited $pq-rest)))
 
 (= (search-rules-step $steps $visited (qitem $_prio (cand (($prem $rest) |- $goal) $score $cont) $_g) $pq-rest)
-   (if (<= $steps 0)
-       ()
        (let $frame (frame $prem $rest $goal $score)
             (let $new-pq (enqueue-goal-items $steps $pq-rest $score (cons $frame $cont) $prem)
-                 (search-rules $steps $visited $new-pq)))) )
+                 (search-rules $steps $visited $new-pq))))
 
 ;; CPU functions that need the current step budget as first argument.
 (= (cpu-needs-steps $fun) (== $fun FoldAllFormulaCompiled))
