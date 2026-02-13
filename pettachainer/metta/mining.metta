@@ -58,10 +58,6 @@
            (let ($nacc $nassoc) (foldr-flat rewrite-v-step (() $assoc) $expr) ((cons $nacc $accum) $nassoc))
            ((cons $expr $accum) $assoc))))
 
-(= (rewrite-v-terms $premk $conck)
-   (let (($prem $conc) $_assoc) (foldr-flat rewrite-v-step (() (empty_assoc)) ($premk $conck))
-        (terms $prem $conc)))
-
 (= (clear-impl-stats $kb $premk $conck)
    (collapse
      (match &kb
@@ -86,7 +82,7 @@
                  (remove-atom &kb (rules ($args |- (: ($kb MAIN ()) ((inverted (mined_implication $premk $conck) with $x1 $x2 $x3 $x4) $p) $type $tv))))))))
 
 (= (emit-mined-implication $kb $premk $conck $alpha $beta)
-   (let (terms $prem $conc) (rewrite-v-terms $premk $conck)
+   (let ($prem $conc) (fst (foldr-flat rewrite-v-step (() (empty_assoc)) ($premk $conck)))
    (let* (($s (impl-strength $alpha $beta))
           ($c (count-to-confidence (+ $alpha $beta)))
           ($type (Implication (Premises $prem) (Conclusions $conc)))
