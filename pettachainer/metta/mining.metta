@@ -2,6 +2,10 @@
 ;; Inductive Predicate Mining  ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+!(import! &self (library lib_import))
+!(use-module! assoc)
+!(import_prolog_function (superpose (empty_assoc put_assoc get_assoc)))
+
 (= (mining-k) 800.0)
 
 (= (count-to-confidence $count)
@@ -41,34 +45,22 @@
    (let $conck (cons $pb (generalize-args-key $argsb $shared))
         (terms $premk $conck)))))
 
-(= (nth-v 1 (vmap $v1 $v2 $v3 $v4 $v5 $v6 $v7 $v8)) $v1)
-(= (nth-v 2 (vmap $v1 $v2 $v3 $v4 $v5 $v6 $v7 $v8)) $v2)
-(= (nth-v 3 (vmap $v1 $v2 $v3 $v4 $v5 $v6 $v7 $v8)) $v3)
-(= (nth-v 4 (vmap $v1 $v2 $v3 $v4 $v5 $v6 $v7 $v8)) $v4)
-(= (nth-v 5 (vmap $v1 $v2 $v3 $v4 $v5 $v6 $v7 $v8)) $v5)
-(= (nth-v 6 (vmap $v1 $v2 $v3 $v4 $v5 $v6 $v7 $v8)) $v6)
-(= (nth-v 7 (vmap $v1 $v2 $v3 $v4 $v5 $v6 $v7 $v8)) $v7)
-(= (nth-v 8 (vmap $v1 $v2 $v3 $v4 $v5 $v6 $v7 $v8)) $v8)
+(= (assoc-get-var $assoc $key)
+   (case (get_assoc $key $assoc)
+      (($a ($a $assoc))
+       (Empty ($v (put_assoc $key $assoc $v))))) )
 
-(= (rewrite-v-args () $m) ())
-(= (rewrite-v-args $args $m)
-   (cons (rewrite-v-term (car-atom $args) $m)
-         (rewrite-v-args (cdr-atom $args) $m)))
-
-(= (rewrite-v-term-expr $a $m)
-   (if (== (car-atom $a) V)
-       (nth-v (car-atom (cdr-atom $a)) $m)
-       (cons (car-atom $a) (rewrite-v-args (cdr-atom $a) $m))))
-
-(= (rewrite-v-term $a $m)
-   (if (is-expr $a)
-       (rewrite-v-term-expr $a $m)
-       $a))
+(= (rewrite-v-step $expr ($accum $assoc))
+   (if (= $expr (V $n))
+       (let ($v $nassoc) (assoc-get-var $assoc $n)
+            ((cons $v $accum) $nassoc))
+       (if (is-expr $expr)
+           (let ($nacc $nassoc) (foldr-flat rewrite-v-step (() $assoc) $expr) ((cons $nacc $accum) $nassoc))
+           ((cons $expr $accum) $assoc))))
 
 (= (rewrite-v-terms $premk $conck)
-   (let $m (vmap $x1 $x2 $x3 $x4 $x5 $x6 $x7 $x8)
-        (terms (rewrite-v-term $premk $m)
-               (rewrite-v-term $conck $m))))
+   (let (($prem $conc) $_assoc) (foldr-flat rewrite-v-step (() (empty_assoc)) ($premk $conck))
+        (terms $prem $conc)))
 
 (= (clear-impl-stats $kb $premk $conck)
    (collapse
