@@ -105,12 +105,12 @@
         (state-resume-frame (state $pq $goals) $proved-goal $frame $rest-cont))
        ((qitem $_prio (cand (Nil |- $goal) $_score ()) $_g)
         (state $pq (append $goals (cons $goal ()))))
-       ((qitem $_prio (cand ($args |- $goal) $_score $cont) $_g)
+       ((qitem $prio (cand ($args |- $goal) $_score $cont) $_g)
         (if (has-active-premise? $args $goal $cont)
-            (trace! (hpq loop-skip $goal $args) (state $pq $goals))
-            (state (hpq-insert $pq $item) $goals)))
+            (state $pq $goals)
+            (state (add_to_heap $pq (- 0 $prio) $item) $goals)))
        ($other
-        (state (hpq-insert $pq $item) $goals))
+        (state $pq $goals))
      )))
 
 (= (state-enqueue-items $state ()) $state)
@@ -129,30 +129,18 @@
           ($rule-items (collapse (rule-candidate-items $max-score $cont $goal))))
      (state-enqueue-items $state1 $rule-items)))
 
-(= (hpq-insert (hpq $heap) (qitem $prio $args $goal))
-   (let $item (qitem $prio $args $goal)
-        (trace! (hpq push $item (heap_size $heap))
-             (hpq (add_to_heap $heap (- 0 $prio) $item)))) )
-
-(= (hpq-pop (hpq $heap))
-   (if (== (heap_size $heap) 0)
-       ()
-       (let $rest-heap (get_from_heap $heap $_priority $item)
-            (trace! (hpq pop $item (heap_size $rest-heap))
-                 ($item (hpq $rest-heap))))))
-
 ;; Best-first over partially-applied rule candidates.
-(= (search-rules $steps (hpq $heap))
+(= (search-rules $steps $heap)
    (if (or (== (heap_size $heap) 0) (<= $steps 0))
        ()
-       (let* ((($item $pq-rest) (hpq-pop (hpq $heap)))
-              ((qitem $_prio (cand (($prem $rest) |- $goal) $score $cont) $_g) $item)
-              ($frame (frame $prem $rest $goal $score))
-              ((state $new-pq $ready-goals)
-               (enqueue-goal-state $steps (state $pq-rest ()) $score (cons $frame $cont) $prem)))
-         (if (or (== $ready-goals ()) (== $ready-goals Nil))
-             (search-rules $steps $new-pq)
-             (append $ready-goals (search-rules (- $steps 1) $new-pq))))))
+       (let* (($pq-rest (get_from_heap $heap $_priority $item))
+               ((qitem $_prio (cand (($prem $rest) |- $goal) $score $cont) $_g) $item)
+               ($frame (frame $prem $rest $goal $score))
+               ((state $new-pq $ready-goals)
+                (enqueue-goal-state $steps (state $pq-rest ()) $score (cons $frame $cont) $prem)))
+          (if (or (== $ready-goals ()) (== $ready-goals Nil))
+              (search-rules $steps $new-pq)
+              (append $ready-goals (search-rules (- $steps 1) $new-pq))))))
 
 ;; CPU functions that need the current step budget as first argument.
 (= (cpu-needs-steps $fun) (== $fun FoldAllFormulaCompiled))
@@ -166,7 +154,7 @@
        (reduce (reduce $call))))
 
 (= (chainer $steps $goal)
-   (let (state $pq $ready-goals) (enqueue-goal-state $steps (state (hpq (empty_heap)) ()) 1.0 () $goal)
+   (let (state $pq $ready-goals) (enqueue-goal-state $steps (state (empty_heap) ()) 1.0 () $goal)
         (append $ready-goals (search-rules $steps $pq))))
 
 ;;;;;;;;;;;;;;;;;;
@@ -236,7 +224,7 @@
 ;;;;;;;;;;;
 
 (= (compileadd $kb $stmt)
-  (let $atoms (traceid (mm2compile $kb $stmt)) (add-atom &kb $atoms)))
+  (let $atoms (mm2compile $kb $stmt) (add-atom &kb $atoms)))
 
 ;; Compile query to goal+adds, inject adds, then run goal through chainer.
 (= (query $steps $kb $stmt)

@@ -40,29 +40,27 @@
 
 ;; Heap queue ordering and duplicate retention.
 !(test
-    (let $pq (hpq-insert (hpq-insert (hpq (empty_heap)) (qitem 0.5 a goalA))
-                         (qitem 0.8 b goalB))
-         (let ($item $_rest) (hpq-pop $pq)
-              $item))
+    (let* (($pq1 (add_to_heap (empty_heap) -0.5 (qitem 0.5 a goalA)))
+           ($pq (add_to_heap $pq1 -0.8 (qitem 0.8 b goalB))))
+      (let $_rest (get_from_heap $pq $_priority $item)
+           $item))
     (qitem 0.8 b goalB))
 
 !(test
-    (let $pq (hpq-insert (hpq-insert (hpq (empty_heap)) (qitem 0.8 b goalB))
-                         (qitem 0.8 b goalB))
-         (let (hpq $heap) $pq
-              (heap_size $heap)))
+    (let* (($pq1 (add_to_heap (empty_heap) -0.8 (qitem 0.8 b goalB)))
+           ($pq (add_to_heap $pq1 -0.8 (qitem 0.8 b goalB))))
+      (heap_size $pq))
     2)
 
 ;; Nil-proved items are resolved immediately outside the queue.
 !(test
     (let (state $pq $goals)
-         (state-enqueue-item (state (hpq (empty_heap)) ())
+         (state-enqueue-item (state (empty_heap) ())
             (qitem 0.9
                    (cand (Nil |- provedPrem) 0.9
                          (cons (frame $prem Nil resumedGoal 0.6) ()))
                    ignoredGoal))
-         (let (hpq $heap) $pq
-              (cons (heap_size $heap) $goals)))
+         (cons (heap_size $pq) $goals))
     (cons 0 (resumedGoal)))
 
 !(test
@@ -82,13 +80,12 @@
 !(test
     (let (state $pq $goals)
          (state-enqueue-item
-            (state (hpq (empty_heap)) ())
+            (state (empty_heap) ())
             (qitem 0.9
                    (cand (((: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) Nil)
                           |- (: (kb MAIN ()) pGoal (CurrentGoal) (STV 1.0 1.0)))
                          0.9
                          (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
                    ignoredGoal))
-         (let (hpq $heap) $pq
-              (heap_size $heap)))
+         (heap_size $pq))
     0)
