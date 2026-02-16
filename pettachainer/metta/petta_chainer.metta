@@ -60,21 +60,18 @@
           ($score (min $max-score (term-confidence $proof))))
      (qitem $score (cand (Nil |- $proof) $score $cont) $proof)))
 
-(= (list-overlaps? () $_ys) false)
-(= (list-overlaps? (cons $x $xs) $ys)
-   (if (is-member $x $ys)
-       true
-       (list-overlaps? $xs $ys)))
-
-(= (nested-to-list Nil) ())
-(= (nested-to-list ($head $tail)) (cons $head (nested-to-list $tail)))
-
-(= (pf $acc $prem) (if (= $prem (: $_kb $_prf $type $_tv)) (cons $type $acc) $acc))
+(= (premise-goal-keys Nil) ())
+(= (premise-goal-keys ($prem $rest))
+      (if (= $prem (: $_kb $_prf $type $_tv))
+          (cons $type (premise-goal-keys $rest))
+          (premise-goal-keys $rest)
+      ))
 
 (= (has-active-premise? $args $cont)
-   (let* (($prem-keys (fold-flat pf () (nested-to-list $args)))
-          ($cont-keys (map-flat (|-> ((frame $_p $_r (: $_kb $_prf $type $_tv) $_ps)) $type) $cont)))
-      (list-overlaps? $prem-keys $cont-keys)))
+   (let* (($prem-keys (premise-goal-keys $args))
+          ($cont-keys (map-flat (|-> ((frame $_p $_r (: $_kb $_prf $type $_tv) $_ps)) $type) $cont))
+          ($overlap (/=a\ $prem-keys $cont-keys)))
+      (not (== $overlap ()))))
 
 (= (state-enqueue-item (state $pq $goals) $item)
    (case $item
