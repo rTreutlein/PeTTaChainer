@@ -48,13 +48,12 @@
 
 ;; Build initial queue from all matching rule applications.
 (= (candidate-from-match* $max-score $cont ($args |- $goal))
-   (let* (((: $_kb $prf $_type $_tv) $goal)
-          ($score (min $max-score (premises-expected-confidence $args))))
+   (let* (($score (min $max-score (premises-expected-confidence $args))))
      (qitem $score (cand ($args |- $goal) $score $cont) $goal)))
 
 (= (initial-candidate* $max-score $cont $goal)
-   (let $_ (match &kb (rules ($args |- $goal)) (rules ($args |- $goal)))
-        (candidate-from-match* $max-score $cont ($args |- $goal))))
+   (match &kb (rules ($args |- $goal))
+      (candidate-from-match* $max-score $cont ($args |- $goal))))
 
 (= (direct-goal-items $steps $max-score $cont (CPU $fun $args $_res))
    (let* (($res (cpu-call $steps $fun $args))
@@ -159,12 +158,13 @@
    (if (or (== (heap_size $heap) 0) (<= $steps 0))
        ()
        (let* ((($item $pq-rest) (hpq-pop (hpq $heap)))
-              ($steps2 (- $steps 1))
               ((qitem $_prio (cand (($prem $rest) |- $goal) $score $cont) $_g) $item)
               ($frame (frame $prem $rest $goal $score))
               ((state $new-pq $ready-goals)
-               (enqueue-goal-state $steps2 (state $pq-rest ()) $score (cons $frame $cont) $prem)))
-         (append $ready-goals (search-rules $steps2 $new-pq)))))
+               (enqueue-goal-state $steps (state $pq-rest ()) $score (cons $frame $cont) $prem)))
+         (if (== $ready-goals ())
+             (search-rules (- $steps 1) $new-pq)
+             (append $ready-goals (search-rules (- $steps 1) $new-pq))))))
 
 ;; CPU functions that need the current step budget as first argument.
 (= (cpu-needs-steps $fun) (== $fun FoldAllFormulaCompiled))

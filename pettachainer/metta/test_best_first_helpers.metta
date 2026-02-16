@@ -38,9 +38,9 @@
          ((CPU MpFormula ((STV 1.0 0.55) $tv1) $tv2) Nil)))
     0.2)
 
-;; Heap queue ordering and dedupe.
+;; Heap queue ordering and duplicate retention.
 !(test
-    (let $pq (hpq-insert-all (hpq-empty)
+    (let $pq (hpq-insert-all (hpq (empty_heap))
                  (cons (qitem 0.5 a goalA)
                        (cons (qitem 0.8 b goalB) ())))
          (let ($item $_rest) (hpq-pop $pq)
@@ -48,8 +48,49 @@
     (qitem 0.8 b goalB))
 
 !(test
-    (let $pq (hpq-insert-all (hpq-empty)
+    (let $pq (hpq-insert-all (hpq (empty_heap))
                  (cons (qitem 0.8 b goalB)
                        (cons (qitem 0.8 b goalB) ())))
-         (hpq-size $pq))
-    1)
+         (let (hpq $heap) $pq
+              (heap_size $heap)))
+    2)
+
+;; Nil-proved items are resolved immediately outside the queue.
+!(test
+    (let (state $pq $goals)
+         (state-enqueue-item (state (hpq (empty_heap)) ())
+            (qitem 0.9
+                   (cand (Nil |- provedPrem) 0.9
+                         (cons (frame $prem Nil resumedGoal 0.6) ()))
+                   ignoredGoal))
+         (let (hpq $heap) $pq
+              (cons (heap_size $heap) $goals)))
+    (cons 0 (resumedGoal)))
+
+!(test
+    (has-active-premise?
+        ((: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) Nil)
+        (: (kb MAIN ()) pGoal (CurrentGoal) (STV 1.0 1.0))
+        (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
+    true)
+
+!(test
+    (has-active-premise?
+        ((: (kb MAIN ()) pPrem (OtherGoal) (STV 1.0 1.0)) Nil)
+        (: (kb MAIN ()) pGoal (CurrentGoal) (STV 1.0 1.0))
+        (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
+    false)
+
+!(test
+    (let (state $pq $goals)
+         (state-enqueue-item
+            (state (hpq (empty_heap)) ())
+            (qitem 0.9
+                   (cand (((: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) Nil)
+                          |- (: (kb MAIN ()) pGoal (CurrentGoal) (STV 1.0 1.0)))
+                         0.9
+                         (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
+                   ignoredGoal))
+         (let (hpq $heap) $pq
+              (heap_size $heap)))
+    0)
