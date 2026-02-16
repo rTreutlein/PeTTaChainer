@@ -60,30 +60,21 @@
           ($score (min $max-score (term-confidence $proof))))
      (qitem $score (cand (Nil |- $proof) $score $cont) $proof)))
 
-(= (cont-goal-keys $cont)
-   (if (= $cont (cons (frame $_prem $_rest (: $_kb $_prf $type $_tv) $_parent-score) $tail))
-      (cons $type (cont-goal-keys $tail))
-      ()))
-
-(= (premise-goal-keys $args)
-   (case $args
-     (
-       (() ())
-       (Nil ())
-       (((: $_kb $_prf $type $_tv) $rest)
-        (cons $type (premise-goal-keys $rest)))
-       (($prem $rest)
-        (premise-goal-keys $rest))
-     )))
-
 (= (list-overlaps? () $_ys) false)
 (= (list-overlaps? (cons $x $xs) $ys)
    (if (is-member $x $ys)
        true
        (list-overlaps? $xs $ys)))
 
+(= (nested-to-list Nil) ())
+(= (nested-to-list ($head $tail)) (cons $head (nested-to-list $tail)))
+
+(= (pf $acc $prem) (if (= $prem (: $_kb $_prf $type $_tv)) (cons $type $acc) $acc))
+
 (= (has-active-premise? $args $cont)
-   (list-overlaps? (premise-goal-keys $args) (cont-goal-keys $cont)))
+   (let* (($prem-keys (fold-flat pf () (nested-to-list $args)))
+          ($cont-keys (map-flat (|-> ((frame $_p $_r (: $_kb $_prf $type $_tv) $_ps)) $type) $cont)))
+      (list-overlaps? $prem-keys $cont-keys)))
 
 (= (state-enqueue-item (state $pq $goals) $item)
    (case $item
@@ -118,9 +109,7 @@
                ($frame (frame $prem $rest $goal $score))
                ((state $new-pq $ready-goals)
                 (enqueue-goal-state $steps (state $pq-rest ()) $score (cons $frame $cont) $prem)))
-          (if (or (== $ready-goals ()) (== $ready-goals Nil))
-              (search-rules $steps $new-pq)
-              (append $ready-goals (search-rules (- $steps 1) $new-pq))))))
+              (append $ready-goals (search-rules (- $steps 1) $new-pq)))))
 
 ;; CPU functions that need the current step budget as first argument.
 (= (cpu-needs-steps $fun) (== $fun FoldAllFormulaCompiled))
