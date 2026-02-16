@@ -3,9 +3,9 @@
 !(use-module! heaps)
 !(import_prolog_function (superpose (empty_heap add_to_heap get_from_heap heap_size)))
 
-;;;;;;;;;;;;;;;;;;
-;; Chainer Core ;;
-;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;
+;; Chainer Helpers ;;
+;;;;;;;;;;;;;;;;;;;;;
 
 ;; Confidence helpers.
 (= (or-1.0 $x)
@@ -51,6 +51,18 @@
 (= (candidate-item $score $args $goal $cont)
    (qitem $score (cand ($args |- $goal) $cont)))
 
+;;;;;;;;;;;;;;;;;;
+;; Chainer Core ;;
+;;;;;;;;;;;;;;;;;;
+
+(= (chainer $steps $goal)
+   (let (state $pq $ready-goals) (enqueue-goal-state $steps (state (empty_heap) ()) 1.0 () $goal)
+        (append $ready-goals (search-rules $steps $pq))))
+
+(= (enqueue-goal-state $steps $state $max-score $cont $goal)
+   (let $state1 (fold-flat state-enqueue-item $state (collapse (direct-goal-items $steps $max-score $cont $goal)))
+      (fold-flat state-enqueue-item $state1 (collapse (rule-candidate-items $max-score $cont $goal)))))
+
 (= (rule-candidate-items $max-score $cont $goal)
    (match &kb (rules ($args |- $goal))
        (let $score (min $max-score (premises-expected-confidence $args))
@@ -63,17 +75,16 @@
            ($score (min $max-score (term-confidence $proof))))
      (candidate-item $score () $proof $cont)))
 
-(= (premise-goal-keys ()) ())
-(= (premise-goal-keys (cons $prem $rest))
-       (if (= $prem (: $_kb $_prf $type $_tv))
-           (cons $type (premise-goal-keys $rest))
-           (premise-goal-keys $rest)
-       ))
-
-(= (has-active-premise? $args $cont)
-   (let* (($prem-keys (premise-goal-keys $args))
-          ($cont-keys (map-flat (|-> ((resume $_r (: $_kb $_prf $type $_tv) $_ps)) $type) $cont)))
-       (not (== (/=a\ $prem-keys $cont-keys) ()))))
+;; Best-first over partially-applied rule candidates.
+(= (search-rules $steps $heap)
+   (if (or (== (heap_size $heap) 0) (<= $steps 0))
+       ()
+       (let* (($pq-rest (get_from_heap $heap $_priority $item))
+               ((qitem $score (cand ((cons $prem $rest) |- $goal) $cont)) $item)
+               ($resume (resume $rest $goal $score))
+               ((state $new-pq $ready-goals)
+                 (enqueue-goal-state $steps (state $pq-rest ()) $score (cons $resume $cont) $prem)))
+              (append $ready-goals (search-rules (- $steps 1) $new-pq)))))
 
 (= (state-enqueue-item (state $pq $goals) $item)
    (case $item
@@ -91,20 +102,17 @@
         (state $pq $goals))
      )))
 
-(= (enqueue-goal-state $steps $state $max-score $cont $goal)
-   (let $state1 (fold-flat state-enqueue-item $state (collapse (direct-goal-items $steps $max-score $cont $goal)))
-      (fold-flat state-enqueue-item $state1 (collapse (rule-candidate-items $max-score $cont $goal)))))
+(= (premise-goal-keys ()) ())
+(= (premise-goal-keys (cons $prem $rest))
+       (if (= $prem (: $_kb $_prf $type $_tv))
+           (cons $type (premise-goal-keys $rest))
+           (premise-goal-keys $rest)
+       ))
 
-;; Best-first over partially-applied rule candidates.
-(= (search-rules $steps $heap)
-   (if (or (== (heap_size $heap) 0) (<= $steps 0))
-       ()
-       (let* (($pq-rest (get_from_heap $heap $_priority $item))
-               ((qitem $score (cand ((cons $prem $rest) |- $goal) $cont)) $item)
-               ($resume (resume $rest $goal $score))
-               ((state $new-pq $ready-goals)
-                 (enqueue-goal-state $steps (state $pq-rest ()) $score (cons $resume $cont) $prem)))
-              (append $ready-goals (search-rules (- $steps 1) $new-pq)))))
+(= (has-active-premise? $args $cont)
+   (let* (($prem-keys (premise-goal-keys $args))
+          ($cont-keys (map-flat (|-> ((resume $_r (: $_kb $_prf $type $_tv) $_ps)) $type) $cont)))
+       (not (== (/=a\ $prem-keys $cont-keys) ()))))
 
 ;; CPU functions that need the current step budget as first argument.
 (= (cpu-needs-steps $fun) (== $fun FoldAllFormulaCompiled))
@@ -116,10 +124,6 @@
            (cons $fun (cons $steps $args))
            (cons $fun $args))
        (reduce (reduce $call))))
-
-(= (chainer $steps $goal)
-   (let (state $pq $ready-goals) (enqueue-goal-state $steps (state (empty_heap) ()) 1.0 () $goal)
-        (append $ready-goals (search-rules $steps $pq))))
 
 ;;;;;;;;;;;;;;;;;;
 ;; CPU Formulas ;;
