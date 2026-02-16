@@ -113,21 +113,15 @@
         (state $pq $goals))
      )))
 
-(= (state-enqueue-items $state ()) $state)
-(= (state-enqueue-items $state (cons $item $tail))
-   (state-enqueue-items (state-enqueue-item $state $item) $tail))
-
-(= (state-resume-frame $state $proved-goal (frame $prem $rest $goal $parent-score) $cont)
-   (let* (($prem $proved-goal)
-          ($prem-score (min (proof-confidence $proved-goal) (premise-expected-confidence $prem)))
+(= (state-resume-frame $state $proved-goal (frame $proved-goal $rest $goal $parent-score) $cont)
+   (let* (($prem-score (min (proof-confidence $proved-goal) (premise-expected-confidence $proved-goal)))
           ($new-score (min $parent-score $prem-score)))
      (state-enqueue-item $state (qitem $new-score (cand ($rest |- $goal) $new-score $cont) $goal))))
 
 (= (enqueue-goal-state $steps $state $max-score $cont $goal)
    (let* (($direct-items (collapse (direct-goal-items $steps $max-score $cont $goal)))
-          ($state1 (state-enqueue-items $state $direct-items))
           ($rule-items (collapse (rule-candidate-items $max-score $cont $goal))))
-     (state-enqueue-items $state1 $rule-items)))
+     (fold-flat state-enqueue-item $state (append $direct-items $rule-items))))
 
 ;; Best-first over partially-applied rule candidates.
 (= (search-rules $steps $heap)
