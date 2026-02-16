@@ -8,26 +8,26 @@
 ;;;;;;;;;;;;;;;;;;
 
 ;; Confidence helpers.
+(= (or-1.0 $x)
+   (if (is-var $x) 1.0 $x))
+
 (= (tv-confidence $tv)
    (if (= $tv (STV $_s $c))
-       (if (is-var $c) 1.0 $c)
+       (or-1.0 $c)
        1.0))
 
 ;; Rule-native expected confidence extraction from compiled premises.
 (= (normalize-expected-tv $tv)
    (if (= $tv (STV $s $c))
-       (STV (if (is-var $s) 1.0 $s)
-             (if (is-var $c) 1.0 $c))
+       (STV (or-1.0 $s)
+            (or-1.0 $c))
        $tv))
-
-(= (normalize-expected-args ($a $b))
-   ((normalize-expected-tv $a) (normalize-expected-tv $b)))
 
 (= (cpu-expected-confidence $fun $args)
    (if (is-member $fun (() MpFormula AndFormula OrFormula LikelierThanFormula))
-       (let* (($res (reduce (reduce (cons $fun (normalize-expected-args $args)))))
-              ($c (tv-confidence $res)))
-         (if (is-var $c) 1.0 $c))
+       (let* ((($a $b) $args)
+              ($res (reduce (reduce (cons $fun ((normalize-expected-tv $a) (normalize-expected-tv $b)))))))
+         (tv-confidence $res))
        1.0))
 
 ;; Unified confidence extraction for both expected and concrete terms.
@@ -48,17 +48,20 @@
    (min (term-confidence $prem) (premises-expected-confidence $rest)))
 
 ;; Build queue items from rule matches for a goal.
+(= (candidate-item $score $args $goal $cont)
+   (qitem $score (cand ($args |- $goal) $score $cont) $goal))
+
 (= (rule-candidate-items $max-score $cont $goal)
    (match &kb (rules ($args |- $goal))
-      (let $score (min $max-score (premises-expected-confidence $args))
-           (qitem $score (cand ($args |- $goal) $score $cont) $goal))))
+       (let $score (min $max-score (premises-expected-confidence $args))
+            (candidate-item $score $args $goal $cont))))
 
 (= (direct-goal-items $steps $max-score $cont $goal)
    (let* (($proof (if (= $goal (CPU $fun $args $_res))
-                         (CPU $fun $args (cpu-call $steps $fun $args))
-                         (match &kb $goal $goal)))
-          ($score (min $max-score (term-confidence $proof))))
-     (qitem $score (cand (Nil |- $proof) $score $cont) $proof)))
+                          (CPU $fun $args (cpu-call $steps $fun $args))
+                          (match &kb $goal $goal)))
+           ($score (min $max-score (term-confidence $proof))))
+     (candidate-item $score Nil $proof $cont)))
 
 (= (premise-goal-keys Nil) ())
 (= (premise-goal-keys ($prem $rest))
@@ -89,12 +92,11 @@
 
 (= (state-resume-frame $state $proved-goal (frame $proved-goal $rest $goal $parent-score) $cont)
    (let $new-score (min $parent-score (term-confidence $proved-goal))
-     (state-enqueue-item $state (qitem $new-score (cand ($rest |- $goal) $new-score $cont) $goal))))
+     (state-enqueue-item $state (candidate-item $new-score $rest $goal $cont))))
 
 (= (enqueue-goal-state $steps $state $max-score $cont $goal)
-   (let* (($direct-items (collapse (direct-goal-items $steps $max-score $cont $goal)))
-          ($rule-items (collapse (rule-candidate-items $max-score $cont $goal))))
-     (fold-flat state-enqueue-item $state (append $direct-items $rule-items))))
+   (let $state1 (fold-flat state-enqueue-item $state (collapse (direct-goal-items $steps $max-score $cont $goal)))
+      (fold-flat state-enqueue-item $state1 (collapse (rule-candidate-items $max-score $cont $goal)))))
 
 ;; Best-first over partially-applied rule candidates.
 (= (search-rules $steps $heap)
