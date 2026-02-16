@@ -196,10 +196,6 @@
       (collapse (postQuery (compile-inputs (: (kbctx $kb) $prf $Type $tv))))))
   ))
 
-(= (nested ()) Nil)
-(= (nested (cons $head $tail))
-   ($head (nested $tail)))
-
 (= (mm2compile $kb $stmt)
   (progn
     (remove-all-atoms ctx)
@@ -209,7 +205,7 @@
 (= (mm2stmt $stmt)
  (case $stmt
    ( ((() |- ($ccl)) $ccl)
-     (($prms |- ($ccl)) (rules ((nested $prms) |- $ccl)))
+     (($prms |- ($ccl)) (rules ($prms |- $ccl)))
    )))
 
 (= (mm2compileQuery $kb $stmt)

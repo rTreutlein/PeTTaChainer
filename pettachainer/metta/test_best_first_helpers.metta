@@ -34,8 +34,8 @@
 ;; Nested premise list confidence (min over expected premise confidences).
 !(test
     (premises-expected-confidence
-        ((CPU MpFormula ((STV 1.0 0.2) (STV 1.0 1.0)) $tv1)
-         ((CPU MpFormula ((STV 1.0 0.55) $tv1) $tv2) Nil)))
+        (cons (CPU MpFormula ((STV 1.0 0.2) (STV 1.0 1.0)) $tv1)
+              (cons (CPU MpFormula ((STV 1.0 0.55) $tv1) $tv2) ())))
     0.2)
 
 ;; Heap queue ordering and duplicate retention.
@@ -52,47 +52,47 @@
       (heap_size $pq))
     2)
 
-;; Nil-proved items are resolved immediately outside the queue.
+;; Empty-proved items are resolved immediately outside the queue.
 !(test
     (let (state $pq $goals)
          (state-enqueue-item (state (empty_heap) ())
             (qitem 0.9
-                   (cand (Nil |- provedPrem) 0.9
-                         (cons (frame $prem Nil resumedGoal 0.6) ()))
+                   (cand (() |- provedPrem) 0.9
+                         (cons (frame $prem () resumedGoal 0.6) ()))
                    ignoredGoal))
          (cons (heap_size $pq) $goals))
     (cons 0 (resumedGoal)))
 
 !(test
     (has-active-premise?
-        ((: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) Nil)
+        (cons (: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) ())
         (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
     true)
 
 !(test
     (has-active-premise?
-        ((: (kb MAIN ()) pPrem (OtherGoal) (STV 1.0 1.0)) Nil)
+        (cons (: (kb MAIN ()) pPrem (OtherGoal) (STV 1.0 1.0)) ())
         (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
     false)
 
 ;; Alpha-equivalent goals should count as active overlap.
 !(test
     (has-active-premise?
-        ((: (kb MAIN ()) pPrem (LoopGoal $x) (STV 1.0 1.0)) Nil)
+        (cons (: (kb MAIN ()) pPrem (LoopGoal $x) (STV 1.0 1.0)) ())
         (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal $y) (STV 1.0 1.0)) 1.0) ()))
     true)
 
 ;; Non-goal premises are ignored while typed goals are extracted.
 !(test
     (premise-goal-keys
-        ((CPU AndFormula ((STV 1.0 0.9) (STV 1.0 0.8)) $tmp)
-         ((: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) Nil)))
+        (cons (CPU AndFormula ((STV 1.0 0.9) (STV 1.0 0.8)) $tmp)
+              (cons (: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) ())))
     ((LoopGoal)))
 
 !(test
     (has-active-premise?
-        ((CPU AndFormula ((STV 1.0 0.9) (STV 1.0 0.8)) $tmp)
-         ((: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) Nil))
+        (cons (CPU AndFormula ((STV 1.0 0.9) (STV 1.0 0.8)) $tmp)
+              (cons (: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) ()))
         (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
     true)
 
@@ -101,7 +101,7 @@
          (state-enqueue-item
             (state (empty_heap) ())
             (qitem 0.9
-                   (cand (((: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) Nil)
+                   (cand ((cons (: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) ())
                           |- (: (kb MAIN ()) pGoal (CurrentGoal) (STV 1.0 1.0)))
                          0.9
                          (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))

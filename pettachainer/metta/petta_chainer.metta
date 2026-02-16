@@ -43,8 +43,8 @@
         ($other 1.0)
       )))
 
-(= (premises-expected-confidence Nil) 1.0)
-(= (premises-expected-confidence ($prem $rest))
+(= (premises-expected-confidence ()) 1.0)
+(= (premises-expected-confidence (cons $prem $rest))
    (min (term-confidence $prem) (premises-expected-confidence $rest)))
 
 ;; Build queue items from rule matches for a goal.
@@ -61,14 +61,14 @@
                           (CPU $fun $args (cpu-call $steps $fun $args))
                           (match &kb $goal $goal)))
            ($score (min $max-score (term-confidence $proof))))
-     (candidate-item $score Nil $proof $cont)))
+     (candidate-item $score () $proof $cont)))
 
-(= (premise-goal-keys Nil) ())
-(= (premise-goal-keys ($prem $rest))
-      (if (= $prem (: $_kb $_prf $type $_tv))
-          (cons $type (premise-goal-keys $rest))
-          (premise-goal-keys $rest)
-      ))
+(= (premise-goal-keys ()) ())
+(= (premise-goal-keys (cons $prem $rest))
+       (if (= $prem (: $_kb $_prf $type $_tv))
+           (cons $type (premise-goal-keys $rest))
+           (premise-goal-keys $rest)
+       ))
 
 (= (has-active-premise? $args $cont)
    (let* (($prem-keys (premise-goal-keys $args))
@@ -78,9 +78,9 @@
 (= (state-enqueue-item (state $pq $goals) $item)
    (case $item
      (
-       ((qitem $_prio (cand (Nil |- $proved-goal) $_score (cons $frame $rest-cont)) $_g)
+       ((qitem $_prio (cand (() |- $proved-goal) $_score (cons $frame $rest-cont)) $_g)
         (state-resume-frame (state $pq $goals) $proved-goal $frame $rest-cont))
-       ((qitem $_prio (cand (Nil |- $goal) $_score ()) $_g)
+       ((qitem $_prio (cand (() |- $goal) $_score ()) $_g)
         (state $pq (cons $goal $goals)))
        ((qitem $prio (cand ($args |- $goal) $_score $cont) $_g)
         (if (has-active-premise? $args $cont)
@@ -103,7 +103,7 @@
    (if (or (== (heap_size $heap) 0) (<= $steps 0))
        ()
        (let* (($pq-rest (get_from_heap $heap $_priority $item))
-               ((qitem $_prio (cand (($prem $rest) |- $goal) $score $cont) $_g) $item)
+               ((qitem $_prio (cand ((cons $prem $rest) |- $goal) $score $cont) $_g) $item)
                ($frame (frame $prem $rest $goal $score))
                ((state $new-pq $ready-goals)
                 (enqueue-goal-state $steps (state $pq-rest ()) $score (cons $frame $cont) $prem)))
