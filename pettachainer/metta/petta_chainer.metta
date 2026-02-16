@@ -72,19 +72,31 @@
    (let* (($proof (if (= $goal (CPU $fun $args $_res))
                           (CPU $fun $args (cpu-call $steps $fun $args))
                           (match &kb $goal $goal)))
-           ($score (min $max-score (term-confidence $proof))))
+          ($score (min $max-score (term-confidence $proof))))
      (candidate-item $score () $proof $cont)))
 
 ;; Best-first over partially-applied rule candidates.
 (= (search-rules $steps $heap)
    (if (or (== (heap_size $heap) 0) (<= $steps 0))
        ()
-       (let* (($pq-rest (get_from_heap $heap $_priority $item))
-               ((qitem $score (cand ((cons $prem $rest) |- $goal) $cont)) $item)
-               ($resume (resume $rest $goal $score))
-               ((state $new-pq $ready-goals)
-                 (enqueue-goal-state $steps (state $pq-rest ()) $score (cons $resume $cont) $prem)))
-              (append $ready-goals (search-rules (- $steps 1) $new-pq)))))
+       (let* (($pq-rest (get_from_heap $heap $_priority (qitem $score (cand ((cons $prem $rest) |- $goal) $cont))))
+              ((state $new-pq $ready-goals) (enqueue-goal-state $steps (state $pq-rest ()) $score (cons (resume $rest $goal $score) $cont) $prem))
+             )
+             (append $ready-goals (search-rules (- $steps 1) $new-pq)))))
+
+(= (state-enqueue-item (state $pq $goals) (qitem $prio (cand ($args |- $goal) $cont)))
+   (case ($args $cont)
+     (
+       ((() ())
+        (state $pq (cons $goal $goals)))
+       ((() (cons (resume $rest $goal $parent-score) $rest-cont))
+        (let $new-score (min $parent-score (term-confidence $proved-goal))
+          (state-enqueue-item (state $pq $goals) (candidate-item $new-score $rest $goal $rest-cont))))
+       (($args $cont)
+        (if (has-active-premise? $args $cont)
+            (state $pq $goals)
+            (state (add_to_heap $pq (- 0 $prio) $item) $goals)))
+     )))
 
 (= (state-enqueue-item (state $pq $goals) $item)
    (case $item
@@ -98,8 +110,6 @@
         (if (has-active-premise? $args $cont)
             (state $pq $goals)
             (state (add_to_heap $pq (- 0 $prio) $item) $goals)))
-       ($other
-        (state $pq $goals))
      )))
 
 (= (premise-goal-keys ()) ())
