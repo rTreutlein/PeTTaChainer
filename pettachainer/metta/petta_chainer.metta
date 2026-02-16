@@ -78,8 +78,9 @@
 (= (state-enqueue-item (state $pq $goals) $item)
    (case $item
      (
-       ((qitem $_prio (cand (() |- $proved-goal) (cons $resume $rest-cont)))
-        (state-resume-cont (state $pq $goals) $proved-goal $resume $rest-cont))
+       ((qitem $_prio (cand (() |- $proved-goal) (cons (resume $rest $goal $parent-score) $rest-cont)))
+        (let $new-score (min $parent-score (term-confidence $proved-goal))
+          (state-enqueue-item (state $pq $goals) (candidate-item $new-score $rest $goal $rest-cont))))
        ((qitem $_prio (cand (() |- $goal) ()))
         (state $pq (cons $goal $goals)))
        ((qitem $prio (cand ($args |- $goal) $cont))
@@ -89,10 +90,6 @@
        ($other
         (state $pq $goals))
      )))
-
-(= (state-resume-cont $state $proved-goal (resume $rest $goal $parent-score) $cont)
-   (let $new-score (min $parent-score (term-confidence $proved-goal))
-     (state-enqueue-item $state (candidate-item $new-score $rest $goal $cont))))
 
 (= (enqueue-goal-state $steps $state $max-score $cont $goal)
    (let $state1 (fold-flat state-enqueue-item $state (collapse (direct-goal-items $steps $max-score $cont $goal)))
