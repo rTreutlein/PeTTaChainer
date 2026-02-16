@@ -40,15 +40,15 @@
 
 ;; Heap queue ordering and duplicate retention.
 !(test
-    (let* (($pq1 (add_to_heap (empty_heap) -0.5 (qitem 0.5 a goalA)))
-           ($pq (add_to_heap $pq1 -0.8 (qitem 0.8 b goalB))))
+    (let* (($pq1 (add_to_heap (empty_heap) -0.5 (qitem 0.5 a)))
+           ($pq (add_to_heap $pq1 -0.8 (qitem 0.8 b))))
       (let $_rest (get_from_heap $pq $_priority $item)
            $item))
-    (qitem 0.8 b goalB))
+    (qitem 0.8 b))
 
 !(test
-    (let* (($pq1 (add_to_heap (empty_heap) -0.8 (qitem 0.8 b goalB)))
-           ($pq (add_to_heap $pq1 -0.8 (qitem 0.8 b goalB))))
+    (let* (($pq1 (add_to_heap (empty_heap) -0.8 (qitem 0.8 b)))
+           ($pq (add_to_heap $pq1 -0.8 (qitem 0.8 b))))
       (heap_size $pq))
     2)
 
@@ -57,9 +57,8 @@
     (let (state $pq $goals)
          (state-enqueue-item (state (empty_heap) ())
             (qitem 0.9
-                   (cand (() |- provedPrem) 0.9
-                         (cons (resume () resumedGoal 0.6) ()))
-                   ignoredGoal))
+                   (cand (() |- provedPrem)
+                         (cons (resume () resumedGoal 0.6) ()))))
          (cons (heap_size $pq) $goals))
     (cons 0 (resumedGoal)))
 
@@ -103,8 +102,6 @@
             (qitem 0.9
                    (cand ((cons (: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) ())
                           |- (: (kb MAIN ()) pGoal (CurrentGoal) (STV 1.0 1.0)))
-                         0.9
-                         (cons (resume restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
-                   ignoredGoal))
+                         (cons (resume restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))))
          (heap_size $pq))
     0)

@@ -49,7 +49,7 @@
 
 ;; Build queue items from rule matches for a goal.
 (= (candidate-item $score $args $goal $cont)
-   (qitem $score (cand ($args |- $goal) $score $cont) $goal))
+   (qitem $score (cand ($args |- $goal) $cont)))
 
 (= (rule-candidate-items $max-score $cont $goal)
    (match &kb (rules ($args |- $goal))
@@ -78,11 +78,11 @@
 (= (state-enqueue-item (state $pq $goals) $item)
    (case $item
      (
-       ((qitem $_prio (cand (() |- $proved-goal) $_score (cons $resume $rest-cont)) $_g)
+       ((qitem $_prio (cand (() |- $proved-goal) (cons $resume $rest-cont)))
         (state-resume-cont (state $pq $goals) $proved-goal $resume $rest-cont))
-       ((qitem $_prio (cand (() |- $goal) $_score ()) $_g)
+       ((qitem $_prio (cand (() |- $goal) ()))
         (state $pq (cons $goal $goals)))
-       ((qitem $prio (cand ($args |- $goal) $_score $cont) $_g)
+       ((qitem $prio (cand ($args |- $goal) $cont))
         (if (has-active-premise? $args $cont)
             (state $pq $goals)
             (state (add_to_heap $pq (- 0 $prio) $item) $goals)))
@@ -103,10 +103,10 @@
    (if (or (== (heap_size $heap) 0) (<= $steps 0))
        ()
        (let* (($pq-rest (get_from_heap $heap $_priority $item))
-               ((qitem $_prio (cand ((cons $prem $rest) |- $goal) $score $cont) $_g) $item)
+               ((qitem $score (cand ((cons $prem $rest) |- $goal) $cont)) $item)
                ($resume (resume $rest $goal $score))
                ((state $new-pq $ready-goals)
-                (enqueue-goal-state $steps (state $pq-rest ()) $score (cons $resume $cont) $prem)))
+                 (enqueue-goal-state $steps (state $pq-rest ()) $score (cons $resume $cont) $prem)))
               (append $ready-goals (search-rules (- $steps 1) $new-pq)))))
 
 ;; CPU functions that need the current step budget as first argument.
