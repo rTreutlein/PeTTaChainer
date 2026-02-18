@@ -2,18 +2,89 @@
 
 !(test
     (DistGreaterThanFormula (ParticleFromPairs ((0 0.25) (2 0.75))) 1)
-    (STV 0.75 1.0))
+    (STV 0.75 0.07407407407407407))
 
 !(test
     (DistGreaterThanFormula (MpFormula (STV 0.4 1.0) (ParticleFromPairs ((0 0.25) (2 0.75)))) 1)
-    (STV 0.30000000000000004 1.0))
+    (STV 0.30000000000000004 0.07407407407407407))
 
 !(test
     (let* (($pd0 (ParticleFromPairs ((0 1.0))))
            ($pd1 (ParticleAddBernoulliFromSTV $pd0 (STV 0.5 1.0)))
            ($pd2 (ParticleAddBernoulliFromSTV $pd1 (STV 0.5 1.0))))
       (DistGreaterThanFormula $pd2 1))
-    (STV 0.25 1.0))
+    (STV 0.25 0.1176470588235294))
+
+!(test
+    (ParticlePairs (ParticleFromPairs ((170 0.5) (180 0.5))))
+    ((170 0.5) (180 0.5)))
+
+!(test
+    (ParticlePairs (ParticleFromPairs ((175 1.0))))
+    ((175 1.0)))
+
+!(test
+    (DistGreaterThanDistFormula
+        (ParticleFromPairs ((170 0.5) (180 0.5)))
+        (ParticleFromPairs ((175 1.0))))
+    (STV 0.5 0.047619047619047616))
+
+!(test
+    (DistGreaterThanFormula
+        (ParticleMap (|-> ($x) (+ $x 1))
+                     (ParticleFromPairs ((0 0.25) (2 0.75))))
+        2)
+    (STV 0.75 0.07407407407407407))
+
+!(test
+    (DistGreaterThanFormula
+        (ParticleMap2 +
+                      (ParticleFromPairs ((170 0.5) (180 0.5)))
+                      (ParticleFromPairs ((160 1.0))))
+        335)
+    (STV 0.5 0.09090909090909091))
+
+!(test
+    (DistGreaterThanFormula
+        (ParticleMap2 (|-> ($a $b) (/ (+ $a $b) 2))
+                      (ParticleFromPairs ((180 1.0)))
+                      (ParticleFromPairs ((160 1.0))))
+        169)
+    (STV 1.0 0.047619047619047616))
+
+!(test
+    (DistGreaterThanDistFormula
+        (MpFormula (STV 0.5 1.0) (ParticleFromPairs ((170 0.5) (180 0.5))))
+        (MpFormula (STV 0.4 1.0) (ParticleFromPairs ((175 1.0)))))
+    (STV 0.1 0.047619047619047616))
+
+!(compileadd kb (: countryHeightA
+    (CountryHeightDist countryA)
+    (ParticleFromPairs ((170 0.5) (180 0.5)))))
+
+!(compileadd kb (: countryHeightB
+    (CountryHeightDist countryB)
+    (ParticleFromPairs ((175 1.0)))))
+
+!(compileadd kb (: compareHeightsRule
+    (Implication
+        (Premises
+            (GreaterThan (CountryHeightDist countryA) (CountryHeightDist countryB)))
+        (Conclusions
+            (Taller countryA countryB)))
+    (STV 1.0 1.0)))
+
+!(test
+    (let (: $prf (Taller countryA countryB) $tv)
+         (query 40 kb (: $prf (Taller countryA countryB) $tv))
+         (let (STV $s $c) $tv $s))
+    0.5)
+
+!(test
+    (let (: $prf (Taller countryA countryB) $tv)
+         (query 40 kb (: $prf (Taller countryA countryB) $tv))
+         (let (STV $s $c) $tv $c))
+    0.047619047619047616)
 
 !(compileadd kb (: kidp1 (Kid kidp1) (STV 1.0 1.0)))
 !(compileadd kb (: kidp2 (Kid kidp2) (STV 1.0 1.0)))
@@ -46,22 +117,62 @@
     (let (: $prf (CntKidInParticle roomp1) $tv)
          (query 40 kb (: $prf (CntKidInParticle roomp1) $tv))
          (DistGreaterThanFormula $tv 1))
-    (STV 0.2 1.0))
+    (STV 0.2 0.1176470588235294))
 
 !(test
     (let (: $prf (CntKidInParticle roomp2) $tv)
          (query 40 kb (: $prf (CntKidInParticle roomp2) $tv))
          (DistGreaterThanFormula $tv 1))
-    (STV 0.048 1.0))
+    (STV 0.048 0.09773260359655983))
 
 !(test
     (let (: $prf (PlayTogetherParticleIn roomp1) $tv)
          (query 40 kb (: $prf (PlayTogetherParticleIn roomp1) $tv))
-         $tv)
-    (STV 0.2 0.8571428571428571))
+         (let (STV $s $c) $tv $s))
+    0.2)
 
 !(test
     (let (: $prf (PlayTogetherParticleIn roomp2) $tv)
          (query 40 kb (: $prf (PlayTogetherParticleIn roomp2) $tv))
-         $tv)
-    (STV 0.048 0.8571428571428571))
+         (let (STV $s $c) $tv
+              (and (> $s 0.0479) (< $s 0.0481))))
+    true)
+
+!(test
+    (let (: $prf (PlayTogetherParticleIn roomp1) $tv)
+         (query 40 kb (: $prf (PlayTogetherParticleIn roomp1) $tv))
+         (let (STV $s $c) $tv (> $c 0.0)))
+    true)
+
+!(test
+    (let (: $prf (PlayTogetherParticleIn roomp2) $tv)
+         (query 40 kb (: $prf (PlayTogetherParticleIn roomp2) $tv))
+         (let (STV $s $c) $tv (> $c 0.0)))
+    true)
+
+!(test
+    (progn
+        (ParticleStoreClear)
+        (ParticleStoreCount))
+    0)
+
+!(test
+    (progn
+        (ParticleFromPairs ((1 0.6) (2 0.4)))
+        (ParticleFromPairs ((3 1.0)))
+        (ParticleStoreCount))
+    3)
+
+!(test
+    (progn
+        (ParticleStorePruneKB)
+        (ParticleStoreCount))
+    0)
+
+!(compileadd kb (: keptParticleFact (CountryHeightDist keepCountry) (ParticleFromPairs ((170 0.7) (180 0.3)))))
+
+!(test
+    (progn
+        (ParticleFromPairs ((999 1.0)))
+        (ParticleStorePruneKB))
+    2)

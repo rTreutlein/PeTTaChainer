@@ -60,13 +60,11 @@
 (= (inline-premises $kb (cons $h $t))
    (cons (inline-premise $kb $h) (inline-premises $kb $t)))
 
+(= (cpu-premise-tv-formula $f)
+   (is-member $f (() NotFormula DistGreaterThanFormula DistGreaterThanDistFormula FoldAllTVFormulaCompiled FoldAllTVPatternFormula FoldAllTVRuntimeFormula FoldAllValueFormulaCompiled)))
+
 (= (cpu-premise-tv $f $args $res)
-   (if (or (== $f NotFormula)
-           (or (== $f DistGreaterThanFormula)
-               (or (== $f FoldAllTVFormulaCompiled)
-                   (or (== $f FoldAllTVPatternFormula)
-                       (or (== $f FoldAllTVRuntimeFormula)
-                           (== $f FoldAllValueFormulaCompiled))))))
+   (if (cpu-premise-tv-formula $f)
        $res
        (STV 1.0 1.0)))
 
@@ -125,9 +123,14 @@
         (if (and (= $type ($rel $a))
                  (== $rel Not))
             (cons (: $kb $prfa $a $tv_a) (cons (CPU NotFormula ($tv_a) $tv) $accum))
-            (if (and (= $type ($rel $a $b))
-                     (is-member $rel (GreaterThan >)))
-                (cons (: $kb $prfa $a $tv_a) (cons (CPU DistGreaterThanFormula ($tv_a $b) $tv) $accum))
+             (if (and (= $type ($rel $a $b))
+                      (is-member $rel (GreaterThan >)))
+                (if (is-expr $b)
+                    (cons (: $kb $prfb $b $tv_b)
+                          (cons (: $kb $prfa $a $tv_a)
+                                (cons (CPU DistGreaterThanDistFormula ($tv_a $tv_b) $tv) $accum)))
+                    (cons (: $kb $prfa $a $tv_a)
+                          (cons (CPU DistGreaterThanFormula ($tv_a $b) $tv) $accum)))
                 (cons $elem $accum)))
         (cons $elem $accum)))
 

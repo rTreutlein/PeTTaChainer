@@ -217,9 +217,66 @@
       (add-atom &particle_store (particle $pid $x $w))
       (particle-store-pairs $pid $tail)))
 
+(= (ParticleStoreCount)
+   (pair-count (collapse (match &particle_store (particle $pid $x $w) ($pid $x $w)))))
+
+(= (ParticleStoreClear)
+   (progn
+      (remove-all-atoms &particle_store)
+      (change-state! particleid 0)))
+
+(= (particle-tv-id-or-empty (ParticleDist $pid $scale)) $pid)
+(= (particle-tv-id-or-empty (ParticleDist $pid)) $pid)
+(= (particle-tv-id-or-empty $tv) (empty))
+
+(= (kb-particle-ids)
+   (list_to_set (collapse (match &kb (: $_kb $_prf $_type $tv)
+       (particle-tv-id-or-empty $tv)))))
+
+(= (particle-store-prune-list () $keep) ())
+(= (particle-store-prune-list (cons ($pid $x $w) $tail) $keep)
+   (progn
+      (if (is-member $pid $keep)
+          ()
+          (remove-atom &particle_store (particle $pid $x $w)))
+      (particle-store-prune-list $tail $keep)))
+
+(= (max-list () $acc) $acc)
+(= (max-list (cons $x $tail) $acc)
+   (max-list $tail (max $x $acc)))
+
+(= (ParticleStorePruneKB)
+   (let* (($keep (kb-particle-ids))
+          ($atoms (collapse (match &particle_store (particle $pid $x $w) ($pid $x $w))))
+          ($_pruned (particle-store-prune-list $atoms $keep))
+          ($maxid (max-list $keep -1))
+          ($_reset (change-state! particleid (+ $maxid 1))))
+      (ParticleStoreCount)))
+
 (= (pair-weight-sum ()) 0.0)
 (= (pair-weight-sum (cons ($_x $w) $tail))
    (+ $w (pair-weight-sum $tail)))
+
+(= (pair-weight-sumsq ()) 0.0)
+(= (pair-weight-sumsq (cons ($_x $w) $tail))
+   (+ (* $w $w) (pair-weight-sumsq $tail)))
+
+(= (particle-neff-from-pairs $pairs)
+   (let* (($norm (normalize-pairs $pairs))
+          ($sumsq (pair-weight-sumsq $norm)))
+      (if (<= $sumsq 0.0)
+          0.0
+          (/ 1.0 $sumsq))))
+
+(= (particle-confidence-k) 20.0)
+
+(= (particle-confidence-from-neff $neff)
+   (if (<= $neff 0.0)
+       0.0
+       (/ $neff (+ $neff (particle-confidence-k)))))
+
+(= (particle-confidence-from-pairs $pairs)
+   (particle-confidence-from-neff (particle-neff-from-pairs $pairs)))
 
 (= (pair-count ()) 0)
 (= (pair-count (cons $_pair $tail))
@@ -303,6 +360,35 @@
    (+ (if (> $x $threshold) $p 0.0)
       (dist-prob-gt $tail $threshold)))
 
+(= (dist-prob-gt2-inner $xa $wa () $acc) $acc)
+(= (dist-prob-gt2-inner $xa $wa (cons ($xb $wb) $tail) $acc)
+   (let $nacc (+ $acc (if (> $xa $xb) (* $wa $wb) 0.0))
+        (dist-prob-gt2-inner $xa $wa $tail $nacc)))
+
+(= (dist-prob-gt2 () $pairsb $acc) $acc)
+(= (dist-prob-gt2 (cons ($xa $wa) $taila) $pairsb $acc)
+   (let $nacc (dist-prob-gt2-inner $xa $wa $pairsb $acc)
+        (dist-prob-gt2 $taila $pairsb $nacc)))
+
+(= (particle-map-pairs $fun () $acc) $acc)
+(= (particle-map-pairs $fun (cons ($x $w) $tail) $acc)
+   (let* (($call (cons $fun (cons $x ())))
+          ($y (reduce (reduce $call)))
+          ($nacc (dist-add-mass $acc $y $w)))
+      (particle-map-pairs $fun $tail $nacc)))
+
+(= (particle-map2-inner $fun $xa $wa () $acc) $acc)
+(= (particle-map2-inner $fun $xa $wa (cons ($xb $wb) $tail) $acc)
+   (let* (($call (cons $fun (cons $xa (cons $xb ()))))
+          ($y (reduce (reduce $call)))
+          ($nacc (dist-add-mass $acc $y (* $wa $wb))))
+      (particle-map2-inner $fun $xa $wa $tail $nacc)))
+
+(= (particle-map2-pairs $fun () $pairsb $acc) $acc)
+(= (particle-map2-pairs $fun (cons ($xa $wa) $taila) $pairsb $acc)
+   (let $nacc (particle-map2-inner $fun $xa $wa $pairsb $acc)
+        (particle-map2-pairs $fun $taila $pairsb $nacc)))
+
 (= (NatDistAddBernoulliFromSTV (NatDist $pairs) $tv)
    (let $p (tv-probability $tv)
         (NatDist (natdist-convolve-bernoulli $pairs $p))))
@@ -317,6 +403,29 @@
           ($newid (next-particle-id))
           ($_store (particle-store-pairs $newid $compressed)))
       (ParticleDist $newid $scale)))
+
+(= (ParticleMap $fun $pd)
+   (let* (($pid (particle-dist-id $pd))
+          ($scale (particle-dist-scale $pd))
+          ($pairs (particle-fetch-pairs $pid))
+          ($mapped (particle-map-pairs $fun $pairs ()))
+          ($compressed (compress-pairs $mapped))
+          ($newid (next-particle-id))
+          ($_store (particle-store-pairs $newid $compressed)))
+      (ParticleDist $newid $scale)))
+
+(= (ParticleMap2 $fun $pda $pdb)
+   (let* (($pida (particle-dist-id $pda))
+          ($pidb (particle-dist-id $pdb))
+          ($scalea (particle-dist-scale $pda))
+          ($scaleb (particle-dist-scale $pdb))
+          ($pairsa (particle-fetch-pairs $pida))
+          ($pairsb (particle-fetch-pairs $pidb))
+          ($mapped (particle-map2-pairs $fun $pairsa $pairsb ()))
+          ($compressed (compress-pairs $mapped))
+          ($newid (next-particle-id))
+          ($_store (particle-store-pairs $newid $compressed)))
+      (ParticleDist $newid (* $scalea $scaleb))))
 
 ;;;;;;;;;;;;;;;;;;;;;
 ;; Truth Functions ;;
@@ -384,10 +493,26 @@
    (STV (dist-prob-gt $pairs $threshold) 1.0))
 
 (= (DistGreaterThanFormula (ParticleDist $pid $scale) $threshold)
-   (STV (* $scale (dist-prob-gt (particle-fetch-pairs $pid) $threshold)) 1.0))
+   (let $pairs (particle-fetch-pairs $pid)
+      (STV (* $scale (dist-prob-gt $pairs $threshold))
+           (particle-confidence-from-pairs $pairs))))
 
 (= (DistGreaterThanFormula (ParticleDist $pid) $threshold)
-   (STV (dist-prob-gt (particle-fetch-pairs $pid) $threshold) 1.0))
+   (let $pairs (particle-fetch-pairs $pid)
+      (STV (dist-prob-gt $pairs $threshold)
+           (particle-confidence-from-pairs $pairs))))
+
+(= (DistGreaterThanDistFormula $pda $pdb)
+   (let* (($pida (particle-dist-id $pda))
+          ($pidb (particle-dist-id $pdb))
+          ($scalea (particle-dist-scale $pda))
+          ($scaleb (particle-dist-scale $pdb))
+          ($pairsa (particle-fetch-pairs $pida))
+          ($pairsb (particle-fetch-pairs $pidb))
+          ($ca (particle-confidence-from-pairs $pairsa))
+          ($cb (particle-confidence-from-pairs $pairsb)))
+      (STV (* (* $scalea $scaleb) (dist-prob-gt2 $pairsa $pairsb 0.0))
+           (min $ca $cb))))
 
 (= (NotFormula (STV $s $c) (STV (- 1 $s) $c)))
 
