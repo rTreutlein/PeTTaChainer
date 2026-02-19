@@ -339,6 +339,28 @@
           ($_store (particle-store-pairs $pid $compressed)))
       (ParticleDist $pid 1.0)))
 
+(= (PointMass $x)
+   (ParticleFromPairs (($x 1.0))))
+
+(= (normal-kernel-9)
+   ((-2.0 0.027630550638898826)
+    (-1.5 0.0662822452863612)
+    (-1.0 0.1238315368057753)
+    (-0.5 0.18017382291138087)
+    (0.0 0.20416368871516764)
+    (0.5 0.18017382291138087)
+    (1.0 0.1238315368057753)
+    (1.5 0.0662822452863612)
+    (2.0 0.027630550638898826)))
+
+(= (affine-pairs () $mu $sigma) ())
+(= (affine-pairs (cons ($x $w) $tail) $mu $sigma)
+   (cons ((+ $mu (* $sigma $x)) $w)
+         (affine-pairs $tail $mu $sigma)))
+
+(= (ParticleFromNormal $mu $sigma)
+   (ParticleFromPairs (affine-pairs (normal-kernel-9) $mu $sigma)))
+
 (= (ParticlePairs (ParticleDist $pid $scale))
    (scale-dist-pairs (particle-fetch-pairs $pid) $scale))
 

@@ -37,6 +37,10 @@ Simple truth value:
 - `strength` is belief/probability-like mass in `[0,1]`
 - `confidence` is evidence/reliability in `[0,1]`
 
+`STV` is for truth of a proposition, not for numeric value uncertainty.
+For example, `(STV 1.0 0.5)` means low confidence that a fact is true,
+not "value is around X".
+
 ### Distribution TVs
 
 - Exact discrete:
@@ -49,6 +53,27 @@ Simple truth value:
 ```metta
 (ParticleFromPairs ((x1 w1) (x2 w2) ...))
 ```
+
+Useful constructors:
+
+```metta
+(PointMass 160.0)
+(ParticleFromNormal 160.0 2.0)
+```
+
+- `PointMass` encodes an exact value as a degenerate distribution.
+- `ParticleFromNormal` creates a deterministic normal-like particle approximation.
+
+## Truth vs Value Uncertainty
+
+- Truth uncertainty: use `STV`.
+- Value uncertainty: use `Dist` (`ParticleDist`, `FloatDist`, `NatDist`).
+
+Recommended modeling pattern:
+
+- `(HeightDist g1 alice)` with TV `(PointMass 160.0)` for crisp numeric values
+- `(HeightDist g1 alice)` with TV `(ParticleFromNormal 160.0 2.0)` for uncertain values
+- keep membership/existence truth in separate STV facts if needed
 
 ## Fact Syntax
 
@@ -213,40 +238,46 @@ For dist-vs-dist comparisons, confidence is the minimum of both sides.
 !(query 40 kb (: $prf (Taller countryA countryB) $tv))
 ```
 
-## Example: Average Height in a Group
+## Example: Average Height Distribution in a Group
 
 This example computes average height per group using `FoldAllValue`.
-Heights are encoded in STV strength (`(STV height 1.0)`) and folded into a `(Stats sum count)` accumulator.
+Each person height is itself a distribution TV.
 
 ```metta
-(= (AndFormula (STV $s $c) (Stats $sum $count))
-   (STV $s $c))
-(= (AndFormula (Stats $sum $count) (STV $s $c))
-   (STV $s $c))
+(= (SumCountAcc (SumCount $sumdist $count) $hdist)
+   (SumCount (ParticleMap2 + $sumdist $hdist) (+ $count 1)))
 
-(= (AccHeightStats (Stats $sum $count) (STV $h $c))
-   (Stats (+ $sum $h) (+ $count 1)))
-
-(= (AverageFromStats (Stats $sum $count))
-   (/ $sum $count))
+(= (AverageFromSumCount (SumCount $sumdist $count))
+   (ParticleMap (|-> ($x) (/ $x $count)) $sumdist))
 
 !(compileadd kb (: group1 (Group g1) (STV 1.0 1.0)))
-!(compileadd kb (: h11 (Height g1 alice) (STV 160 1.0)))
-!(compileadd kb (: h12 (Height g1 bob) (STV 170 1.0)))
-!(compileadd kb (: h13 (Height g1 carol) (STV 180 1.0)))
+!(compileadd kb (: hd11 (HeightDist g1 alice) (PointMass 160.0)))
+!(compileadd kb (: hd12 (HeightDist g1 bob) (PointMass 170.0)))
+!(compileadd kb (: hd13 (HeightDist g1 carol) (PointMass 180.0)))
 
-!(compileadd kb (: avgHeightRule
-    (Implication
-        (Premises
-            (Group $g)
-            (FoldAllValue (Height $g $person) $tvh (Stats 0 0) AccHeightStats -> $stats))
-        (Conclusions
-            (HeightStats $g $stats)))
-    (STV 1.0 1.0)))
+!(let $avgDist
+      (AverageFromSumCount
+          (FoldAllTVRuntimeFormula 80 kb
+              (HeightDist g1 $person)
+              (SumCount (PointMass 0.0) 0)
+              SumCountAcc))
+      (DistGreaterThanFormula $avgDist 170.0))
+```
 
-!(let (: $prf (HeightStats g1 $stats) $tv)
-      (query 80 kb (: $prf (HeightStats g1 $stats) $tv))
-      (AverageFromStats $stats))
+## Example: Rectangle Area Distribution
+
+Area is the product of length and width distributions.
+
+```metta
+!(compileadd kb (: lenA (LengthDist rectA) (ParticleFromNormal 10.0 1.0)))
+!(compileadd kb (: widA (WidthDist rectA) (ParticleFromNormal 5.0 0.5)))
+
+!(let (: $prfL (LengthDist rectA) $tvL)
+      (query 80 kb (: $prfL (LengthDist rectA) $tvL))
+      (let (: $prfW (WidthDist rectA) $tvW)
+           (query 80 kb (: $prfW (WidthDist rectA) $tvW))
+           (let $areaDist (ParticleMap2 * $tvL $tvW)
+                (DistGreaterThanFormula $areaDist 50.0))))
 ```
 
 ## Notes
