@@ -162,6 +162,20 @@ Compiled to `DistGreaterThanFormula` over the distribution TV.
 
 Compiled to `DistGreaterThanDistFormula`.
 
+### 6) MapDist / Map2Dist / AverageDist
+
+Distribution helper premises (TV-based, LLM-friendly):
+
+```metta
+(MapDist f (DistFactA ...) -> $outDist)
+(Map2Dist f (DistFactA ...) (DistFactB ...) -> $outDist)
+(AverageDist (DistFactPattern ...) -> $outDist)
+```
+
+- `MapDist` compiles to `DistMapFormula`.
+- `Map2Dist` compiles to `DistMap2Formula`.
+- `AverageDist` compiles to `DistAverageFormula`.
+
 ## Distribution Operations
 
 ### Threshold probability
@@ -240,41 +254,28 @@ For dist-vs-dist comparisons, confidence is the minimum of both sides.
 
 ## Example: Average Height Distribution in a Group
 
-This example computes average height distributions via a rule and then queries the derived fact.
+This example computes average height distributions via a rule and queries the derived fact.
 Each person height is stored as a distribution TV.
 
 ```metta
-(= (SumCountAcc (SumCount $sumdist $count) $hdist)
-   (SumCount (ParticleMap2 + $sumdist $hdist) (+ $count 1)))
-
-(= (AverageFromSumCount (SumCount $sumdist $count))
-   (ParticleMap (|-> ($x) (/ $x $count)) $sumdist))
-
 !(compileadd kb (: group1 (Group g1) (STV 1.0 1.0)))
 !(compileadd kb (: hd11 (HeightDist g1 alice) (PointMass 160.0)))
 !(compileadd kb (: hd12 (HeightDist g1 bob) (PointMass 170.0)))
 !(compileadd kb (: hd13 (HeightDist g1 carol) (PointMass 180.0)))
 
-(= (AvgHeightDistFromKB $g)
-   (AverageFromSumCount
-      (FoldAllTVRuntimeFormula 80 kb
-         (HeightDist $g $person)
-         (SumCount (PointMass 0.0) 0)
-         SumCountAcc)))
-
 !(compileadd kb (: avgHeightDistG1Rule
     (Implication
         (Premises
             (Group g1)
-            (Compute AvgHeightDistFromKB (g1) -> $avgDist))
+            (AverageDist (HeightDist g1 $person) -> $avgDist))
         (Conclusions
-            (AvgHeightDist g1 $avgDist)))
+            (AvgHeightDist g1)))
     (STV 1.0 1.0)))
 
 !(query 10 kb
     (: (avgHeightDistG1Rule (conjunction group1 cpu))
-       (AvgHeightDist g1 $avgDist)
-       $tv))
+       (AvgHeightDist g1)
+       $avgDist))
 ```
 
 ## Example: Rectangle Area Distribution
@@ -285,25 +286,18 @@ Area is the product of length and width distributions, derived through a rule.
 !(compileadd kb (: lenA (LengthDist rectA) (ParticleFromNormal 10.0 1.0)))
 !(compileadd kb (: widA (WidthDist rectA) (ParticleFromNormal 5.0 0.5)))
 
-(= (RectAreaDistFromKB $rect)
-   (let (: $prfL (LengthDist $rect) $tvL)
-        (query 80 kb (: $prfL (LengthDist $rect) $tvL))
-        (let (: $prfW (WidthDist $rect) $tvW)
-             (query 80 kb (: $prfW (WidthDist $rect) $tvW))
-             (ParticleMap2 * $tvL $tvW))))
-
 !(compileadd kb (: areaDistRule
     (Implication
         (Premises
             (Rectangle $rect)
-            (Compute RectAreaDistFromKB ($rect) -> $areaDist))
+            (Map2Dist * (LengthDist $rect) (WidthDist $rect) -> $areaDist))
         (Conclusions
-            (AreaDist $rect $areaDist)))
+            (AreaDist $rect)))
     (STV 1.0 1.0)))
 
 !(compileadd kb (: rA (Rectangle rectA) (STV 1.0 1.0)))
 
-!(query 120 kb (: $prf (AreaDist rectA $areaDist) $tv))
+!(query 120 kb (: $prf (AreaDist rectA) $areaDist))
 ```
 
 ## Notes

@@ -109,7 +109,8 @@
        (or (== $fun FoldAllTVFormulaCompiled)
            (or (== $fun FoldAllTVPatternFormula)
                (or (== $fun FoldAllTVRuntimeFormula)
-                   (== $fun FoldAllValueFormulaCompiled))))))
+                   (or (== $fun FoldAllValueFormulaCompiled)
+                       (== $fun DistAverageFormula))))))
 
 ;; Generic CPU dispatcher used by chainer.
 (= (cpu-call $steps $fun $args)
@@ -422,6 +423,22 @@
 (= (NatDistAddBernoulliFromSTV (NatDist $pairs) $tv)
    (let $p (tv-probability $tv)
         (NatDist (natdist-convolve-bernoulli $pairs $p))))
+
+(= (DistMapFormula $fun $dist)
+   (ParticleMap $fun $dist))
+
+(= (DistMap2Formula $fun $dista $distb)
+   (ParticleMap2 $fun $dista $distb))
+
+(= (DistSumCountAcc (SumCount $sumdist $count) $hdist)
+   (SumCount (DistMap2Formula + $sumdist $hdist) (+ $count 1)))
+
+(= (DistAverageFromSumCount (SumCount $sumdist $count))
+   (DistMapFormula (|-> ($x) (/ $x $count)) $sumdist))
+
+(= (DistAverageFormula $steps $kb $pattern)
+   (DistAverageFromSumCount
+      (FoldAllTVRuntimeFormula $steps $kb $pattern (SumCount (PointMass 0.0) 0) DistSumCountAcc)))
 
 (= (ParticleAddBernoulliFromSTV $pd $tv)
    (let* (($pid (particle-dist-id $pd))
