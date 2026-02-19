@@ -240,8 +240,8 @@ For dist-vs-dist comparisons, confidence is the minimum of both sides.
 
 ## Example: Average Height Distribution in a Group
 
-This example computes average height per group using `FoldAllValue`.
-Each person height is itself a distribution TV.
+This example computes average height distributions via a rule and then queries the derived fact.
+Each person height is stored as a distribution TV.
 
 ```metta
 (= (SumCountAcc (SumCount $sumdist $count) $hdist)
@@ -255,29 +255,55 @@ Each person height is itself a distribution TV.
 !(compileadd kb (: hd12 (HeightDist g1 bob) (PointMass 170.0)))
 !(compileadd kb (: hd13 (HeightDist g1 carol) (PointMass 180.0)))
 
-!(let $avgDist
-      (AverageFromSumCount
-          (FoldAllTVRuntimeFormula 80 kb
-              (HeightDist g1 $person)
-              (SumCount (PointMass 0.0) 0)
-              SumCountAcc))
-      (DistGreaterThanFormula $avgDist 170.0))
+(= (AvgHeightDistFromKB $g)
+   (AverageFromSumCount
+      (FoldAllTVRuntimeFormula 80 kb
+         (HeightDist $g $person)
+         (SumCount (PointMass 0.0) 0)
+         SumCountAcc)))
+
+!(compileadd kb (: avgHeightDistG1Rule
+    (Implication
+        (Premises
+            (Group g1)
+            (Compute AvgHeightDistFromKB (g1) -> $avgDist))
+        (Conclusions
+            (AvgHeightDist g1 $avgDist)))
+    (STV 1.0 1.0)))
+
+!(query 10 kb
+    (: (avgHeightDistG1Rule (conjunction group1 cpu))
+       (AvgHeightDist g1 $avgDist)
+       $tv))
 ```
 
 ## Example: Rectangle Area Distribution
 
-Area is the product of length and width distributions.
+Area is the product of length and width distributions, derived through a rule.
 
 ```metta
 !(compileadd kb (: lenA (LengthDist rectA) (ParticleFromNormal 10.0 1.0)))
 !(compileadd kb (: widA (WidthDist rectA) (ParticleFromNormal 5.0 0.5)))
 
-!(let (: $prfL (LengthDist rectA) $tvL)
-      (query 80 kb (: $prfL (LengthDist rectA) $tvL))
-      (let (: $prfW (WidthDist rectA) $tvW)
-           (query 80 kb (: $prfW (WidthDist rectA) $tvW))
-           (let $areaDist (ParticleMap2 * $tvL $tvW)
-                (DistGreaterThanFormula $areaDist 50.0))))
+(= (RectAreaDistFromKB $rect)
+   (let (: $prfL (LengthDist $rect) $tvL)
+        (query 80 kb (: $prfL (LengthDist $rect) $tvL))
+        (let (: $prfW (WidthDist $rect) $tvW)
+             (query 80 kb (: $prfW (WidthDist $rect) $tvW))
+             (ParticleMap2 * $tvL $tvW))))
+
+!(compileadd kb (: areaDistRule
+    (Implication
+        (Premises
+            (Rectangle $rect)
+            (Compute RectAreaDistFromKB ($rect) -> $areaDist))
+        (Conclusions
+            (AreaDist $rect $areaDist)))
+    (STV 1.0 1.0)))
+
+!(compileadd kb (: rA (Rectangle rectA) (STV 1.0 1.0)))
+
+!(query 120 kb (: $prf (AreaDist rectA $areaDist) $tv))
 ```
 
 ## Notes
