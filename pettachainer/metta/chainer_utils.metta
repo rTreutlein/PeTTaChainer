@@ -117,7 +117,8 @@
 
 ;; Build queue items from rule matches for a goal.
 (= (candidate-item $score $args $goal $cont)
-   (qitem $score (cand ($args |- $goal) $cont)))
+   (let $item (cand ($args |- $goal) $cont)
+        (qitem $score (copy_term $item))))
 
 (= (heap-drop-resume-cand $heap $rid $proof)
    (if (== (heap_size $heap) 0)
@@ -151,13 +152,14 @@
           ($_ (add-atom $rcache (rmerge $rid $merged-proof))))
      $merged-proof))
 
-(= (resume-merge-enqueue (state $pq $rcache $gcache) $rid $proved-goal $rest $goal $parent-score $rest-cont)
+(= (resume-merge-enqueue (state $pq $rcache $gcache) $rid $prem $proved-goal $rest $goal $parent-score $rest-cont)
    (let* (($merged-proof (resume-cache-upsert $rcache $rid $proved-goal))
+          ($_u (= $prem $merged-proof))
           ($new-score (min $parent-score (term-confidence $merged-proof)))
           ($clean-pq (heap-drop-resume-cand $pq $rid $proved-goal)))
      (state-enqueue-item
        (state $clean-pq $rcache $gcache)
        (qitem $new-score (resume-cand $rid (goal-type-key $merged-proof) (cand ($rest |- $goal) $rest-cont))))))
 
-(= (resume-merge-enqueue-cont $state $proved-goal (cons (resume $rid $rest $goal $parent-score) $rest-cont))
-   (resume-merge-enqueue $state $rid $proved-goal $rest $goal $parent-score $rest-cont))
+(= (resume-merge-enqueue-cont $state $proved-goal (cons (resume $rid $prem $rest $goal $parent-score) $rest-cont))
+   (resume-merge-enqueue $state $rid $prem $proved-goal $rest $goal $parent-score $rest-cont))

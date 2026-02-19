@@ -67,7 +67,9 @@
        (let* (($pq-rest (get_from_heap $heap $_priority (qitem $score $payload)))
               ((cand ((cons $prem $rest) |- $goal) $cont) (payload-cand $payload))
               ($rid (nextctx))
-              ((state $new-pq $_new-rcache $_new-gcache) (enqueue-goal-state $steps (state $pq-rest $rcache $gcache) $score (cons (resume $rid $rest $goal $score) $cont) $prem))
+              ($resume-template (copy_term (resume-template $prem $rest $goal)))
+              ((resume-template $rprem $rrest $rgoal) $resume-template)
+              ((state $new-pq $_new-rcache $_new-gcache) (enqueue-goal-state $steps (state $pq-rest $rcache $gcache) $score (cons (resume $rid $rprem $rrest $rgoal $score) $cont) $prem))
               )
              (search-rules (- $steps 1) $new-pq $rcache $gcache))))
 
@@ -100,7 +102,7 @@
 
 (= (has-active-premise? $args $cont)
    (let* (($prem-keys (premise-goal-keys $args))
-          ($cont-keys (map-flat (|-> ((resume $_rid $_r (: $_kb $_prf $type $_tv) $_ps)) $type) $cont)))
+          ($cont-keys (map-flat (|-> ((resume $_rid $_prem $_r (: $_kb $_prf $type $_tv) $_ps)) $type) $cont)))
        (not (== (/=a\ $prem-keys $cont-keys) ()))))
 
 ;; CPU functions that need the current step budget as first argument.
