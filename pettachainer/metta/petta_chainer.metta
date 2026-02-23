@@ -56,6 +56,11 @@
        $cand
        $payload))
 
+(= (payload-rid $payload)
+   (if (= $payload (resume-cand $rid $_type $_cand))
+       $rid
+       (nextctx)))
+
 (= (payload-repack $payload $cand)
    (if (= $payload (resume-cand $rid $type $_old-cand))
        (resume-cand $rid $type $cand)
@@ -65,11 +70,11 @@
    (if (or (== (heap_size $heap) 0) (<= $steps 0))
        ()
        (let* (($pq-rest (get_from_heap $heap $_priority (qitem $score $payload)))
-              ((cand ((cons $prem $rest) |- $goal) $cont) (payload-cand $payload))
-              ($rid (nextctx))
-              ($resume-template (copy_term (resume-template $prem $rest $goal)))
-              ((resume-template $rprem $rrest $rgoal) $resume-template)
-              ((state $new-pq $_new-rcache $_new-gcache) (enqueue-goal-state $steps (state $pq-rest $rcache $gcache) $score (cons (resume $rid $rprem $rrest $rgoal $score) $cont) $prem))
+               ((cand ((cons $prem $rest) |- $goal) $cont) (payload-cand $payload))
+               ($rid (payload-rid $payload))
+               ($resume-template (copy_term (resume-template $prem $rest $goal)))
+               ((resume-template $rprem $rrest $rgoal) $resume-template)
+               ((state $new-pq $_new-rcache $_new-gcache) (enqueue-goal-state $steps (state $pq-rest $rcache $gcache) $score (cons (resume $rid $rprem $rrest $rgoal $score) $cont) $prem))
               )
              (search-rules (- $steps 1) $new-pq $rcache $gcache))))
 
@@ -81,14 +86,14 @@
                (state $pq $rcache $gcache)))
        ((cand (() |- $proved-goal) $cont)
         (resume-merge-enqueue-cont (state $pq $rcache $gcache) $proved-goal $cont))
-       ((cand ((cons $arg $args) |- $item-goal) $cont)
-        (if (has-active-premise? (cons $arg $args) $cont)
-            (state $pq $rcache $gcache)
-            (state (add_to_heap $pq (- 0 $prio)
-                     (qitem $prio (payload-repack $payload (cand ((cons $arg $args) |- $item-goal) $cont))))
-                   $rcache
-                   $gcache)))
-     )))
+        ((cand ((cons $arg $args) |- $item-goal) $cont)
+         (if (has-active-premise? (cons $arg $args) $cont)
+             (state $pq $rcache $gcache)
+             (state (add_to_heap $pq (- 0 $prio)
+                      (qitem $prio (payload-repack $payload (cand ((cons $arg $args) |- $item-goal) $cont))))
+                    $rcache
+                    $gcache)))
+      )))
 
 (= (state-enqueue-item (state $pq $rcache $gcache) (qitem $prio $payload))
    (state-enqueue-cand (state $pq $rcache $gcache) $prio $payload (payload-cand $payload)))
@@ -103,16 +108,17 @@
 (= (has-active-premise? $args $cont)
    (let* (($prem-keys (premise-goal-keys $args))
           ($cont-keys (map-flat (|-> ((resume $_rid $_prem $_r (: $_kb $_prf $type $_tv) $_ps)) $type) $cont)))
-       (not (== (/=a\ $prem-keys $cont-keys) ()))))
+        (not (== (/=a\ $prem-keys $cont-keys) ()))))
 
 ;; CPU functions that need the current step budget as first argument.
 (= (cpu-needs-steps $fun)
    (or (== $fun FoldAllFormulaCompiled)
-       (or (== $fun FoldAllTVFormulaCompiled)
-           (or (== $fun FoldAllTVPatternFormula)
-               (or (== $fun FoldAllTVRuntimeFormula)
-                   (or (== $fun FoldAllValueFormulaCompiled)
-                       (== $fun DistAverageFormula))))))
+        (or (== $fun FoldAllTVFormulaCompiled)
+            (or (== $fun FoldAllTVPatternFormula)
+                (or (== $fun FoldAllTVRuntimeFormula)
+                    (or (== $fun FoldAllValueFormulaCompiled)
+                         (or (== $fun DistAverageFormula)
+                             (== $fun Map2DistRuntimeFormula))))))))
 
 ;; Generic CPU dispatcher used by chainer.
 (= (cpu-call $steps $fun $args)
@@ -167,12 +173,23 @@
   (let $matches (collapse (match &kb (: $kctx $prf $pattern $ptv) $ptv))
        (foldall-eval $fun $init $matches))))
 
+;; Compute Map2Dist premise outputs from queried distribution TVs.
+(= (Map2DistRuntimeFormula $steps $kb $fun $a $b)
+  (let (: $prfa $a $tva)
+       (query $steps $kb (: $prfa $a $tva))
+       (let (: $prfb $b $tvb)
+            (query $steps $kb (: $prfb $b $tvb))
+            (DistMap2Formula $fun $tva $tvb))))
+
 ;; Steps parameter kept for uniform CPU call shape.
 (= (FoldAllTVRuntimeFormula $steps $kb $pattern $init $fun)
   (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun))
 
 (= (fold-kbctx $kb)
-   (if (is-expr $kb) $kb ($kb MAIN ())))
+   (if (is-expr $kb)
+       (let ($kbid $_ctx $_vars) $kb
+            ($kbid MAIN ()))
+       ($kb MAIN ())))
 
 ;; Fold over TV values by running the given pattern query under current substitutions.
 (= (FoldAllTVPatternFormula $steps $kb $pattern $init $fun)

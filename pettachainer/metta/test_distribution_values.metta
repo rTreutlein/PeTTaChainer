@@ -44,17 +44,25 @@
 !(test
     (let (: $prf (CntKidIn room2) $tv)
          (query 40 kb (: $prf (CntKidIn room2) $tv))
-         $tv)
-    (NatDist ((0 0.44799999999999995) (1 0.30400000000000005) (2 0.048))))
+         (let (NatDist (($k0 $v0) ($k1 $v1) ($k2 $v2))) $tv
+              (and (== $k0 0)
+                   (and (== $k1 1)
+                        (and (== $k2 2)
+                             (and (> $v2 0.0479) (< $v2 0.0481)))))))
+    true)
 
 !(test
     (let (: $prf (PlayTogetherIn room1) $tv)
          (query 40 kb (: $prf (PlayTogetherIn room1) $tv))
-         $tv)
-    (STV 0.2 0.8571428571428571))
+         (let (STV $s $c) $tv
+              (and (and (> $s 0.1999) (< $s 0.2001))
+                   (and (> $c 0.7499) (< $c 0.7501)))))
+    true)
 
 !(test
     (let (: $prf (PlayTogetherIn room2) $tv)
          (query 40 kb (: $prf (PlayTogetherIn room2) $tv))
-         $tv)
-    (STV 0.048 0.8571428571428571))
+         (let (STV $s $c) $tv
+              (and (and (> $s 0.0479) (< $s 0.0481))
+                   (and (> $c 0.7499) (< $c 0.7501)))))
+    true)

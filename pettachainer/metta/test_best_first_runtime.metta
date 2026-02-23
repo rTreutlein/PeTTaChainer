@@ -47,3 +47,8 @@
 !(test
     (collapse (query 7 kb (: $prf (SwitchGoal) $tv)))
     ((: (merge/revision (ruleStable baseFact) (ruleHighThenDrop (conjunction weakFact baseFact))) (SwitchGoal) (STV 1.0 0.7096774193548386))))
+
+
+!(test
+    (collapse (query 100 kb (: $prf (SwitchGoal) $tv)))
+    ((: (merge/revision (ruleStable baseFact) (ruleHighThenDrop (conjunction weakFact baseFact))) (SwitchGoal) (STV 1.0 0.7096774193548386))))

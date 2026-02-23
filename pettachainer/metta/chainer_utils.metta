@@ -90,12 +90,37 @@
        true
        false))
 
+(= (proof-tree-contains-list () $needle) false)
+(= (proof-tree-contains-list (cons $head $tail) $needle)
+   (or (proof-tree-contains $head $needle)
+       (proof-tree-contains-list $tail $needle)))
+
+(= (proof-tree-contains $tree $needle)
+   (if (== $tree $needle)
+       true
+       (if (is-expr $tree)
+           (proof-tree-contains-list (cdr-atom $tree) $needle)
+           false)))
+
+(= (merge-proof-term? $prf)
+   (if (= $prf (merge/revision $_a $_b))
+       true
+       false))
+
 (= (merge-proof-atoms $proof-a $proof-b)
-   (if (and (proof-atom? $proof-a) (proof-atom? $proof-b))
-       (if (>= (term-confidence $proof-a) (term-confidence $proof-b))
-           (RevisionMergeProof $proof-a $proof-b)
-           (RevisionMergeProof $proof-b $proof-a))
-       $proof-a))
+   (if (== $proof-a $proof-b)
+       $proof-a
+       (if (and (proof-atom? $proof-a) (proof-atom? $proof-b))
+           (let (: $_kba $prfa $_ta $_tva) $proof-a
+                (let (: $_kbb $prfb $_tb $_tvb) $proof-b
+                     (if (and (merge-proof-term? $prfa) (proof-tree-contains $prfa $prfb))
+                         $proof-a
+                         (if (and (merge-proof-term? $prfb) (proof-tree-contains $prfb $prfa))
+                             $proof-b
+                             (if (>= (term-confidence $proof-a) (term-confidence $proof-b))
+                                 (RevisionMergeProof $proof-a $proof-b)
+                                 (RevisionMergeProof $proof-b $proof-a))))))
+           $proof-a)))
 
 ;; Global goal cache (space-backed): unique by alpha-equivalent type.
 (= (goal-cache-upsert $gcache $goal)

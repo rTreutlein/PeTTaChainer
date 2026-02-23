@@ -60,27 +60,27 @@
            (state-enqueue-item (state (empty_heap) &resume_cache &goal_cache)
               (qitem 0.9
                      (cand (() |- provedPrem)
-                           (cons (resume ridX () resumedGoal 0.6) ()))))
+                           (cons (resume ridX premX () resumedGoal 0.6) ()))))
            (cons (heap_size $pq) (collapse (match $gcache (gmerge $goal) $goal)))))
     (cons 0 (resumedGoal)))
 
 !(test
     (has-active-premise?
         (cons (: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) ())
-        (cons (resume ridX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
+        (cons (resume ridX premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
     true)
 
 !(test
     (has-active-premise?
         (cons (: (kb MAIN ()) pPrem (OtherGoal) (STV 1.0 1.0)) ())
-        (cons (resume ridX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
+        (cons (resume ridX premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
     false)
 
 ;; Alpha-equivalent goals should count as active overlap.
 !(test
     (has-active-premise?
         (cons (: (kb MAIN ()) pPrem (LoopGoal $x) (STV 1.0 1.0)) ())
-        (cons (resume ridX restX (: (kb MAIN ()) pCont (LoopGoal $y) (STV 1.0 1.0)) 1.0) ()))
+        (cons (resume ridX premX restX (: (kb MAIN ()) pCont (LoopGoal $y) (STV 1.0 1.0)) 1.0) ()))
     true)
 
 ;; Non-goal premises are ignored while typed goals are extracted.
@@ -94,7 +94,7 @@
     (has-active-premise?
         (cons (CPU AndFormula ((STV 1.0 0.9) (STV 1.0 0.8)) $tmp)
               (cons (: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) ()))
-        (cons (resume ridX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
+        (cons (resume ridX premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
     true)
 
 !(test
@@ -106,6 +106,6 @@
             (qitem 0.9
                    (cand ((cons (: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) ())
                            |- (: (kb MAIN ()) pGoal (CurrentGoal) (STV 1.0 1.0)))
-                          (cons (resume ridX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))))
+                          (cons (resume ridX premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))))
            (heap_size $pq)))
     0)

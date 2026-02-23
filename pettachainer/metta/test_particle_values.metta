@@ -122,8 +122,10 @@
 !(test
     (let (: $prf (CntKidInParticle roomp2) $tv)
          (query 40 kb (: $prf (CntKidInParticle roomp2) $tv))
-         (DistGreaterThanFormula $tv 1))
-    (STV 0.048 0.09773260359655983))
+         (let (STV $s $c) (DistGreaterThanFormula $tv 1)
+              (and (and (> $s 0.0479) (< $s 0.0481))
+                   (and (> $c 0.0977) (< $c 0.0978)))))
+    true)
 
 !(test
     (let (: $prf (PlayTogetherParticleIn roomp1) $tv)
