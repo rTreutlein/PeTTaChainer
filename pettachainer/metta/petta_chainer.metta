@@ -44,10 +44,12 @@
        (let $score (min $max-score (premises-expected-confidence $args))
             (candidate-item $score $args $goal $cont))))
 
+(= (unwrap $x) (if (== $x #) $any $x))
+
 (= (direct-goal-items $steps $max-score $cont $goal)
    (let* (($proof (if (= $goal (CPU $fun $args $_res))
                            (CPU $fun $args (cpu-call $steps $fun $args))
-                           (match &kb $goal $goal)))
+                           (let (: $kb $prf $type $tv) $goal (let $utype (map-nested unwrap $type) (match &kb (: $kb $prf $utype $tv) (: $kb $prf $type $tv))))))
           ($score (min $max-score (term-confidence $proof))))
      (candidate-item $score () $proof $cont)))
 
