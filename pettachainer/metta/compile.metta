@@ -168,7 +168,7 @@
 
 (= (compile) (.: post compile_))
 
-(= (kbctx $kb) (if (is-expr $kb) $kb ($kb MAIN ())))
+(= (kbctx $kb) (if (is-expr $kb) $kb ($kb MAIN Nil)))
 
 (= (implication $kb $prf $a $b $itv) ( ((: ($kb $ctx $vars) $prfa $a $atv) (CPU MpFormula ($itv $atv) $btv)) |- ((: ($kb $ctx $vars) ($prf $prfa) $b $btv))))
 
@@ -210,8 +210,8 @@
                       ;(if (is-var $na) (empty) (compile-outputs (: ((inverted $prf $pa $pb1) $pb2) $na $natv)))
                       ;(if (is-var $b) (empty) (compile-inputs (: $pb2 $b $btv2)))
                       )))
-          (superpose ( (() |- ((: ($kb MAIN ()) $prf $Type $tv)))
-                             (compile-outputs (: ($kb MAIN ()) $prf $Type $tv))))
+          (superpose ( (() |- ((: ($kb MAIN Nil) $prf $Type $tv)))
+                             (compile-outputs (: ($kb MAIN Nil) $prf $Type $tv))))
          )))
 
 (= (compileQuery $kb (: $prf $Type $tv))
@@ -312,7 +312,7 @@
 
 (= (pretty (: $kb $prf $type $tv))
   (if (is-expr $kb)
-    (if (= $kb ($kbid MAIN ()))
+    (if (= $kb ($kbid MAIN Nil))
       (: (pretty-prf $prf) $type $tv)
       (let ($_ $idx $vars) $kb
       (let $x (map-flat (mf $kb) (collapse (match &kb (: $kb $p $t $tv2) ($kb $t))))

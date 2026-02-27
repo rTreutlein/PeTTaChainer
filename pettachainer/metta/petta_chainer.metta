@@ -49,7 +49,9 @@
 (= (direct-goal-items $steps $max-score $cont $goal)
    (let* (($proof (if (= $goal (CPU $fun $args $_res))
                            (CPU $fun $args (cpu-call $steps $fun $args))
-                           (let (: $kb $prf $type $tv) $goal (let $utype (map-nested unwrap $type) (match &kb (: $kb $prf $utype $tv) (: $kb $prf $type $tv))))))
+                           (let (: $kb $prf $type $tv) $goal
+                                (let $utype (if (is-expr $type) (map-nested unwrap $type) $type)
+                                     (match &kb (: $kb $prf $utype $tv) (: $kb $prf $type $tv))))))
           ($score (min $max-score (term-confidence $proof))))
      (candidate-item $score () $proof $cont)))
 
@@ -75,9 +77,8 @@
        (let* (($pq-rest (get_from_heap $heap $_priority (qitem $score $payload)))
                ((cand ((cons $prem $rest) |- $goal) $cont) (payload-cand $payload))
                ($rid (payload-rid $payload))
-               ($resume-template (copy_term (resume-template $prem $rest $goal)))
-               ((resume-template $rprem $rrest $rgoal) $resume-template)
-               ((state $new-pq $_new-rcache $_new-gcache) (enqueue-goal-state $steps (state $pq-rest $rcache $gcache) $score (cons (resume $rid $rprem $rrest $rgoal $score) $cont) $prem))
+               ((resume-template $rprem $rrest $rgoal) (copy_term (resume-template $prem $rest $goal)))
+               ((state $new-pq $_new-rcache $_new-gcache) (enqueue-goal-state $steps (state $pq-rest $rcache $gcache) $score (cons (resume $rid $rprem $rrest $rgoal $score) $cont) $rprem))
               )
              (search-rules (- $steps 1) $new-pq $rcache $gcache))))
 
@@ -593,6 +594,32 @@
 ;; API   ;;
 ;;;;;;;;;;;
 
+(= (nextid) (let $mn (catch (get-state ruleid))
+            (let $n (if-error $mn 0 $mn)
+            (progn (change-state! ruleid (+ $n 1)) $n))))
+
+(= (add-prem $vars $id $idx $prem)
+   (progn (add-atom &rule_prem ($idx $prem $vars $id)) (+ $idx 1)))
+
+(= (add-to-kb $expr)
+   (if (= $expr (rules ($args |- $ccls)))
+      (let* (($vars (extract-vars $expr))
+             ($id (nextid))
+             ($_1 (fold-flat (add-prem $vars $id) 0 $args))
+             ($_2 (add-atom &rule_ccls ($ccls $vars $id)))
+             ($_3 (add-atom &kb $expr))
+            )())
+      (add-atom &kb $expr)))
+
+
+(= (compileadd-add-all $acc $atom)
+   (progn (add-to-kb $atom) $acc))
+
+(= (compileadd $kb $stmt)
+   (let* (($atom (mm2compile $kb $stmt))
+          ($_1 (add-to-kb $atom))
+          ($_2 (process-on-add $kb $stmt)))
+     (superpose $atoms)))
 
 ;; Compile query to goal+adds, inject adds, then run goal through chainer.
 (= (query $steps $kb $stmt)

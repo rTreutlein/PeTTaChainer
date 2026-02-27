@@ -126,8 +126,3 @@
                     (foldl-atom $args (idxctx $kb $prf $pa $args $tv) index-arg-step))))
            ())))
 
-(= (compileadd $kb $stmt)
-   (let* (($atoms (mm2compile $kb $stmt))
-          ($added (add-atom &kb $atoms))
-          ($_ (process-on-add $kb $stmt)))
-     $added))
