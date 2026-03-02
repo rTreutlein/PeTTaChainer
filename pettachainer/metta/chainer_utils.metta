@@ -107,6 +107,36 @@
        true
        false))
 
+(= (list-append () $ys) $ys)
+(= (list-append (cons $x $xs) $ys)
+   (cons $x (list-append $xs $ys)))
+
+;; Evidence is tracked as canonical proof leaves (axiom/fact proof ids).
+;; For composed proof terms (rule application, conjunction, merge/revision),
+;; we collect evidence recursively from arguments only.
+(= (proof-term-evidence-list $prf)
+   (if (is-var $prf)
+       ()
+       (if (is-expr $prf)
+           (proof-term-evidence-list-args (cdr-atom $prf))
+           (cons $prf ()))))
+
+(= (proof-term-evidence-list-args ()) ())
+(= (proof-term-evidence-list-args (cons $head $tail))
+   (list-append
+      (proof-term-evidence-list $head)
+      (proof-term-evidence-list-args $tail)))
+
+(= (proof-atom-evidence-set $proof)
+   (if (= $proof (: $_kb $prf $_type $_tv))
+       (list_to_set (proof-term-evidence-list $prf))
+       ()))
+
+(= (evidence-sets-overlap? () $set-b) false)
+(= (evidence-sets-overlap? (cons $head $tail) $set-b)
+   (or (is-member $head $set-b)
+       (evidence-sets-overlap? $tail $set-b)))
+
 (= (merge-proof-atoms $proof-a $proof-b)
    (if (== $proof-a $proof-b)
        $proof-a
@@ -117,9 +147,16 @@
                          $proof-a
                          (if (and (merge-proof-term? $prfb) (proof-tree-contains $prfb $prfa))
                              $proof-b
-                             (if (>= (term-confidence $proof-a) (term-confidence $proof-b))
-                                 (RevisionMergeProof $proof-a $proof-b)
-                                 (RevisionMergeProof $proof-b $proof-a))))))
+                             (let* (($ev-a (proof-atom-evidence-set $proof-a))
+                                    ($ev-b (proof-atom-evidence-set $proof-b))
+                                    ($overlap? (evidence-sets-overlap? $ev-a $ev-b)))
+                               (if $overlap?
+                                   (if (>= (term-confidence $proof-a) (term-confidence $proof-b))
+                                       $proof-a
+                                       $proof-b)
+                                   (if (>= (term-confidence $proof-a) (term-confidence $proof-b))
+                                       (RevisionMergeProof $proof-a $proof-b)
+                                       (RevisionMergeProof $proof-b $proof-a))))))))
            $proof-a)))
 
 ;; Global goal cache (space-backed): unique by alpha-equivalent type.
