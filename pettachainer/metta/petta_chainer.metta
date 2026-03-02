@@ -40,9 +40,10 @@
       (fold-flat state-enqueue-item $state1 (collapse (rule-candidate-items $max-score $cont $goal)))))
 
 (= (rule-candidate-items $max-score $cont $goal)
-   (match &kb (rules ($args |- $goal))
-       (let $score (min $max-score (premises-expected-confidence $args))
-            (candidate-item $score $args $goal $cont))))
+   (let $id (match &ccls_index ($goal $id) $id)
+      (let ($_id $_goal $args) (match &rules ($id $goal $args) ($_id $_goal $args))
+           (let $score (min $max-score (premises-expected-confidence $args))
+                (candidate-item $score $args $goal $cont)))))
 
 (= (unwrap $x) (if (== $x #) $any $x))
 
@@ -192,8 +193,8 @@
 (= (fold-kbctx $kb)
    (if (is-expr $kb)
        (let ($kbid $_ctx $_vars) $kb
-            ($kbid MAIN ()))
-       ($kb MAIN ())))
+            ($kbid MAIN Nil))
+       ($kb MAIN Nil)))
 
 ;; Fold over TV values by running the given pattern query under current substitutions.
 (= (FoldAllTVPatternFormula $steps $kb $pattern $init $fun)
@@ -599,15 +600,17 @@
             (progn (change-state! ruleid (+ $n 1)) $n))))
 
 (= (add-prem $vars $id $idx $prem)
-   (progn (add-atom &rule_prem ($idx $prem $vars $id)) (+ $idx 1)))
+   (progn
+     (add-atom &prem_index ($prem $id $idx))
+     (+ $idx 1)))
 
 (= (add-to-kb $expr)
    (if (= $expr (rules ($args |- $ccls)))
       (let* (($vars (extract-vars $expr))
              ($id (nextid))
              ($_1 (fold-flat (add-prem $vars $id) 0 $args))
-             ($_2 (add-atom &rule_ccls ($ccls $vars $id)))
-             ($_3 (add-atom &kb $expr))
+             ($_2 (add-atom &ccls_index ($ccls $id)))
+             ($_3 (add-atom &rules ($id $ccls $args)))
             )())
       (add-atom &kb $expr)))
 
@@ -616,9 +619,9 @@
    (progn (add-to-kb $atom) $acc))
 
 (= (compileadd $kb $stmt)
-   (let* (($atom (mm2compile $kb $stmt))
-          ($_1 (add-to-kb $atom))
-          ($_2 (process-on-add $kb $stmt)))
+   (let* (($atoms (collapse (mm2compile $kb $stmt)))
+          ($_ (fold-flat compileadd-add-all () $atoms))
+          ($_ (process-on-add $kb $stmt)))
      (superpose $atoms)))
 
 ;; Compile query to goal+adds, inject adds, then run goal through chainer.

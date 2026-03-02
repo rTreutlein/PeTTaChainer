@@ -46,16 +46,16 @@
     (ind-impl-stats kb (Owns (V 1) cat) (Owns (V 1) dog) 1.0 0.0))
 
 !(test
-    (match &kb
-           (rules ($args |- (: (kb MAIN ()) ((mined_implication (Owns (V 1) dog) (Owns (V 1) cat)) $p) (Owns $a cat) $tv)))
+    (match &rules
+           ($id (: (kb MAIN ()) ((mined_implication (Owns (V 1) dog) (Owns (V 1) cat)) $p) (Owns $a cat) $tv) $args)
            ok)
     ok)
 
 !(compileadd kb (: o3 (Owns bob dog) (STV 1.0 1.0)))
 
 !(test
-    (match &kb
-           (rules ($args |- (: (kb MAIN ()) ((mined_implication (Owns (V 1) dog) (Owns (V 1) cat)) $p) (Owns $x cat) $tv)))
+    (match &rules
+           ($id (: (kb MAIN ()) ((mined_implication (Owns (V 1) dog) (Owns (V 1) cat)) $p) (Owns $x cat) $tv) $args)
            (if (is-member (: (kb MAIN ()) $prf (Owns $x dog) $tvin) $args) ok fail))
     ok)
 
