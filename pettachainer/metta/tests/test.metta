@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(compileadd kb (: prf (Count A 1) (STV 1.0 1.0)))
 !(compileadd kb (: prf (Count B 2) (STV 1.0 1.0)))
