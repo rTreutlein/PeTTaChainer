@@ -1,65 +1,57 @@
 !(import! &self compile)
+!(import! &self mining)
 
-;;;;;;;;;
-;; Nat ;;
-;;;;;;;;;
+!(use-module! heaps)
 
-;; Define Nat
-(: Nat Type)
-(: Z Nat)
-(: S (-> Nat Nat))
+!(import_prolog_function (superpose (empty_heap add_to_heap get_from_heap heap_size)))
 
-;; Define cast functions between Nat and Number
-(: fromNumber (-> Number Nat))
-(= (fromNumber $n) (if (<= $n 0) Z (S (fromNumber (- $n 1)))))
-(: fromNat (-> Nat Number))
-(= (fromNat Z) 0)
-(= (fromNat (S $k)) (+ 1 (fromNat $k)))
+!(import! &self chainer_utils)
+!(import! &self forward_chainer)
 
-;;;;;;;;;;;;;
-;; Chainer ;;
-;;;;;;;;;;;;;
+!(bind! &resume_cache (new-space))
 
-(= (chainer $depth $goal) (match &kb $goal $goal))
+!(bind! &goal_cache (new-space))
 
-(= (chainer $depth (CPU $fun $args $res)) (let $call (cons $fun $args) (let $res (eval $call) (CPU $fun $args $res))))
+!(bind! &particle_store (new-space))
 
-(= (chainer (S $depth) $goal)
-  (let $_ (match &kb (rules ($args |- $goal)) (rules ($args |- $goal)))
-  (let $args (chain-rec $depth $args)
-  $goal)))
+!(import! &self backward_chainer)
+!(import! &self dist_formulas)
+!(import! &self tv_formulas)
 
-(= (chain-rec $depth ($goal Nil))  ((chainer $depth $goal) Nil))
-(= (chain-rec $depth ($goal $dep)) ((chainer $depth $goal) (chain-rec $depth $dep)))
+;;;;;;;;;;;
+;; API   ;;
+;;;;;;;;;;;
+(= (nextid)
+   (let $mn (catch (get-state ruleid))
+      (let $n (if-error $mn 0 $mn) (progn (change-state! ruleid (+ $n 1)) $n))))
 
-(= (MpFormula (STV $abs $abc) (STV $as $ac)) (STV (* $abs $as) $abc))
-(= (AndFormula (STV $si $ci) (STV $sa $ca)) (let $sb (min $si $sa)
-                                              (let $cb (min $ci $ca) (STV $sb $cb))))
+(= (add-prem $vars $id $idx $prem) (progn (add-atom &prem_index ($prem $id $idx)) (+ $idx 1)))
 
-(= (OrFormula (STV $si $ci) (STV $sa $ca)) (let $sb (min $si $sa)
-                                             (let $cb (max $ci $ca) (STV $sb $cb))))
+(= (add-to-kb $expr)
+   (if (= $expr (rules ($args |- $ccls)))
+      (let*
+         (($vars (extract-vars $expr))
+           ($id (nextid))
+           ($_1 (fold-flat (add-prem $vars $id) 0 $args))
+           ($_2 (add-atom &ccls_index ($ccls $id)))
+           ($_3 (add-atom &rules ($id $ccls $args))))
+         ())
+      (add-atom &kb $expr)))
 
-(= (LikelierThanFormula (STV $sa $ca) (STV $sb $cb)) (let $c (min $ca $cb) (if (> $sa $sb) (STV $sa $c) (STV $sb $c))))
-
-
-(= (AndProjection (STV $s $c)) (STV $s $c))
-(= (OrProjection (STV $s $c)) (STV $s $c))
-
-(= (NotFormula (STV $s $c) (STV (- 1 $s) $c)))
-
-(= (InversionFormula (STV $sa $ca) (STV $sb $cb) (Stv $sab $cab)) (STV (/ (* $sb $sab) $sa) (min-atom ($ca $cb $cab)))) 
-
-(= (Equal $a $b) (== $a $b))
-(= (NotEqual $a $b) (not (== $a $b)))
-
+(= (compileadd-add-all $acc $atom) (progn (add-to-kb $atom) $acc))
 
 (= (compileadd $kb $stmt)
-  (let $atoms (traceid (mm2compile $kb $stmt)) (add-atom &kb $atoms)))
+   (let*
+      (($atoms (collapse (mm2compile $kb $stmt)))
+        ($_ (fold-flat compileadd-add-all () $atoms))
+        ($_ (process-on-add $kb $stmt)))
+      (superpose
+         $atoms)))
 
-
-(= (query $depth $kb $stmt)
-  (let (cons (goal $query) $adds) (collapse (mm2compileQuery $kb $stmt))
-  (let $_ (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom &kb $sadds)))
-       (pretty (chainer $depth $query)))))
-
-!(add-atom &kb (rules (((CPU $f $args $res) Nil) |- (: $kb cpu (Compute $f $args $res) (STV 1.0 1.0)))))
+;; Compile query to goal+adds, inject adds, then run goal through chainer.
+(= (query $steps $kb $stmt)
+   (let*
+      (((cons (goal $query) $adds) (collapse (mm2compileQuery $kb $stmt)))
+        ($_ (inject-compiled-adds $adds))
+        ($res (chainer $steps $query)))
+      (pretty (superpose $res))))
