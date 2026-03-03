@@ -1,6 +1,5 @@
 import logging
 import multiprocessing as mp
-import os
 from pathlib import Path
 import threading
 import traceback
@@ -38,49 +37,54 @@ def _query_worker(handler: PeTTa, kb: str, steps: int, atom: str, conn):
 
 
 def _as_list(value) -> List[str]:
-    if isinstance(value, str):
-        return [value]
-    return value
+    return [value] if isinstance(value, str) else value
 
 
 def _first_result(value):
-    if isinstance(value, list):
-        if not value:
-            raise ValueError("PeTTa returned no results")
+    if not isinstance(value, list):
+        return value
+    if value:
         return value[0]
-    return value
+    raise ValueError("PeTTa returned no results")
+
 
 class PeTTaChainer:
     def __init__(self):
         global LOADEDLIB
         self.handler = PeTTa()
-        
-        self.kb = "kb" + uuid.uuid4().hex
-        self._base_dir = os.path.dirname(__file__)
+        self.kb = f"kb{uuid.uuid4().hex}"
+        base_dir = Path(__file__).resolve().parent
 
-        if not LOADEDLIB:
-            with LOADED_LOCK:
-                if not LOADEDLIB:
-                    metta_path = os.path.join(self._base_dir, "metta", "petta_chainer.metta")
-                    logger.info("Loading MeTTa library from %s", metta_path)
-                    self.handler.load_metta_file(metta_path)
-                    LOADEDLIB = True
+        if LOADEDLIB:
+            return
+        with LOADED_LOCK:
+            if LOADEDLIB:
+                return
+            metta_path = base_dir / "metta" / "petta_chainer.metta"
+            logger.info("Loading MeTTa library from %s", metta_path)
+            self.handler.load_metta_file(str(metta_path))
+            LOADEDLIB = True
+
+    def _evaluate(self, atom: str) -> str:
+        return str(_first_result(self.handler.process_metta_string(f"!(eval {atom})"))).strip()
+
+    @staticmethod
+    def _validate(kind: str, raw_atom: str, evaluated_atom: str, checker) -> None:
+        if checker(evaluated_atom) == 0.0:
+            raise ValueError(
+                f"Invalid evaluated PLN {kind}. input={raw_atom} evaluated={evaluated_atom}"
+            )
 
     def add_atom(self, atom: str) -> str:
-        evaluated_atom = self.evaluate_statement(atom)
-        if check_stmt(evaluated_atom) == 0.0:
-            raise ValueError(
-                f"Invalid evaluated PLN statement. input={atom} evaluated={evaluated_atom}"
-            )
+        evaluated_atom = self._evaluate(atom)
+        self._validate("statement", atom, evaluated_atom, check_stmt)
         return self.handler.process_metta_string(f"!(compileadd {self.kb} {evaluated_atom})")
 
     def evaluate_statement(self, atom: str) -> str:
-        evaluated = self.handler.process_metta_string(f"!(eval {atom})")
-        return str(_first_result(evaluated)).strip()
+        return self._evaluate(atom)
 
     def evaluate_query(self, atom: str) -> str:
-        evaluated = self.handler.process_metta_string(f"!(eval {atom})")
-        return str(_first_result(evaluated)).strip()
+        return self._evaluate(atom)
 
     def print_kb(self):
         atoms = self.handler.process_metta_string(f"!(match &kb $a (pretty $a))")
@@ -88,14 +92,13 @@ class PeTTaChainer:
             print(atom)
 
     def query(self, atom: str, steps: int = 100, timeout_sec: Optional[float] = 10) -> List[str]:
-        evaluated_query = self.evaluate_query(atom)
-        if check_query(evaluated_query) == 0.0:
-            raise ValueError(
-                f"Invalid evaluated PLN query. input={atom} evaluated={evaluated_query}"
-            )
+        evaluated_query = self._evaluate(atom)
+        self._validate("query", atom, evaluated_query, check_query)
 
         if timeout_sec is None or timeout_sec <= 0:
-            return _as_list(self.handler.process_metta_string(f"!(query {steps} {self.kb} {evaluated_query})"))
+            return _as_list(
+                self.handler.process_metta_string(f"!(query {steps} {self.kb} {evaluated_query})")
+            )
 
         # Use a forked process so timeout can actually stop CPU-bound query work.
         ctx = mp.get_context("fork")
@@ -115,43 +118,30 @@ class PeTTaChainer:
             parent_conn.close()
             raise TimeoutError(f"PeTTa query timed out after {timeout_sec} seconds")
 
-        if parent_conn.poll():
+        try:
+            if not parent_conn.poll():
+                raise RuntimeError("PeTTa query worker exited without returning a result")
             status, payload = parent_conn.recv()
-            parent_conn.close()
             if status == "ok":
                 return payload
             err_type, err_msg, err_tb = payload
             raise RuntimeError(f"PeTTa query worker failed [{err_type}]: {err_msg}\n{err_tb}")
-
-        parent_conn.close()
-        raise RuntimeError("PeTTa query worker exited without returning a result")
+        finally:
+            parent_conn.close()
 
     @staticmethod
     def language_spec(llm_focused: bool = True) -> str:
         return get_language_spec(llm_focused=llm_focused)
 
-if __name__ == '__main__':
-    handler = PeTTaChainer()
 
-    data = [
+if __name__ == "__main__":
+    handler = PeTTaChainer()
+    for atom in (
         "(: fact_a (Count A 1) (STV 1.0 1.0))",
         "(: fact_b (Count B 2) (STV 1.0 1.0))",
         "(: sum_rule (Implication (Premises (Count A $a) (Count B $b) (Compute + ($a $b) -> $c)) (Conclusions (Count C $c))) (STV 1.0 1.0))",
-    ]
-    queries = ["(: $prf (Count C $c) $tv)"]
-
-
-    data2 = ['(: s1 (Cardinality (CatsIn Park) 3) (STV 1 0.9))',
-             '(: s2 (Implication (Premises (And (Cat $x) (In $x Park))) (Conclusions (Cute $x))) (STV 1 0.8))',
-             '(: r_allCatsCute (Implication (Premises (And (Implication (Premises (Cat $x)) (Conclusions (In $x Park))) (Implication (Premises (And (Cat $x) (In $x Park))) (Conclusions (Cute $x))))) (Conclusions (Implication (Premises (Cat $x)) (Conclusions (Cute $x))))) (STV 0.6 0.4))', '(: r_cuteCatsAtLeast2 (Implication (Premises (Cardinality (CatsIn Park) $n) (Compute <= (2 $n) -> True)) (Conclusions (AtLeast2 (CuteCatsIn Park)))) (STV 0.9 0.7))']
-    queries2=['(: $prf (Implication (Premises (Cat $x)) (Conclusions (Cute $x))) $tv)',
-              '(: $prf (And (Cat $x) (In $x Park) (Cute $x)) $tv)',
-              '(: $prf (AtLeast2 (CuteCatsIn Park)) $tv)']
-
-    for elem in data:
-        print(f"Adding {elem}")
-        print(handler.add_atom(elem))
-
-    for q in queries:
-        print("Query result:")
-        print(handler.query(q))
+    ):
+        print(f"Adding {atom}")
+        print(handler.add_atom(atom))
+    print("Query result:")
+    print(handler.query("(: $prf (Count C $c) $tv)"))
