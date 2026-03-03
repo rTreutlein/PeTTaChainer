@@ -6,11 +6,9 @@
    (let $mn (catch (get-state particleid))
       (let $n (if-error $mn 0 $mn) (progn (change-state! particleid (+ $n 1)) $n))))
 
-(= (particle-dist-id (ParticleDist $pid $scale)) $pid)
-(= (particle-dist-id (ParticleDist $pid)) $pid)
+(= (particle-dist-id $pd) (case $pd (((ParticleDist $pid $_scale) $pid) ((ParticleDist $pid) $pid))))
 
-(= (particle-dist-scale (ParticleDist $pid $scale)) $scale)
-(= (particle-dist-scale (ParticleDist $pid)) 1.0)
+(= (particle-dist-scale $pd) (case $pd (((ParticleDist $_pid $scale) $scale) ((ParticleDist $_pid) 1.0))))
 
 (= (particle-fetch-pairs $pid) (collapse (match &particle_store (particle $pid $x $w) ($x $w))))
 
@@ -76,8 +74,7 @@
 
 (= (pairs-to-cdf $pairs) (pairs-to-cdf-acc $pairs 0.0))
 
-(= (cdf-select $u (cons ($x $cum) ())) $x)
-(= (cdf-select $u (cons ($x $cum) $tail)) (if (<= $u $cum) $x (cdf-select $u $tail)))
+(= (cdf-select $u (cons ($x $cum) $tail)) (if (or (<= $u $cum) (== $tail ())) $x (cdf-select $u $tail)))
 
 (= (resample-counts $cdf $n $i $acc)
    (if (>= $i $n) $acc
@@ -137,8 +134,8 @@
 
 (= (ParticleFromNormal $mu $sigma) (ParticleFromPairs (affine-pairs (normal-kernel-9) $mu $sigma)))
 
-(= (ParticlePairs (ParticleDist $pid $scale)) (scale-dist-pairs (particle-fetch-pairs $pid) $scale))
-(= (ParticlePairs (ParticleDist $pid)) (ParticlePairs (ParticleDist $pid 1.0)))
+(= (ParticlePairs $pd)
+   (scale-dist-pairs (particle-fetch-pairs (particle-dist-id $pd)) (particle-dist-scale $pd)))
 
 (= (scale-dist-pairs () $w) ())
 (= (scale-dist-pairs (cons ($x $p) $tail) $w) (cons ($x (* $p $w)) (scale-dist-pairs $tail $w)))
@@ -163,10 +160,7 @@
 
 (= (dist-prob-gt2 () $pairsb) 0.0)
 (= (dist-prob-gt2 (cons ($xa $wa) $taila) $pairsb)
-   (let*
-      (($acc (dist-prob-gt2-inner $xa $wa $pairsb 0.0))
-        ($rest (dist-prob-gt2 $taila $pairsb)))
-      (+ $acc $rest)))
+   (+ (dist-prob-gt2-inner $xa $wa $pairsb 0.0) (dist-prob-gt2 $taila $pairsb)))
 
 (= (particle-map-pairs $fun () $acc) $acc)
 (= (particle-map-pairs $fun (cons ($x $w) $tail) $acc)
