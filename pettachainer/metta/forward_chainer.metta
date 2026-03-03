@@ -15,13 +15,9 @@
 (= (forward-fact-upsert $agenda (@ $fact (: $kb $prf $type $tv)))
    (let*
       (($hits (collapse (match &kb (: $kb $prfo $type $tvo) (: $kb $prfo $type $tvo))))
-       ($_
-          (fold-flat
-             (|-> ($acc $old-fact) (progn (remove-atom &kb $old-fact) $acc))
-             ()
-             $hits))
-       ($merged-fact (fold-flat merge-proof-atoms $fact $hits))
-       ($_ (add-atom &kb $merged-fact)))
+        ($_ (fold-flat (|-> ($acc $old-fact) (progn (remove-atom &kb $old-fact) $acc)) () $hits))
+        ($merged-fact (fold-flat merge-proof-atoms $fact $hits))
+        ($_ (add-atom &kb $merged-fact)))
       (if (== $hits ())
          (add_to_heap $agenda
             (- 0 (term-confidence $merged-fact))
@@ -39,9 +35,7 @@
 (= (forward-seed-agenda () $agenda) $agenda)
 (= (forward-seed-agenda (cons $fact $tail) $agenda)
    (forward-seed-agenda $tail
-      (add_to_heap $agenda
-         (- 0 (term-confidence $fact))
-         (qitem (term-confidence $fact) $fact))))
+      (add_to_heap $agenda (- 0 (term-confidence $fact)) (qitem (term-confidence $fact) $fact))))
 
 (= (forward-rule-results $steps $kb $fact)
    (collapse
