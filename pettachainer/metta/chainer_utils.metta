@@ -32,7 +32,11 @@
 ;; Goal typing and alpha-equivalence helpers.
 (= (goal-type-key $goal) (if (proof-atom? $goal) (let (: $_kb $_prf $type $_tv) $goal $type) $goal))
 
-(= (same-alpha-type? $a $b) (=alpha (goal-type-key $a) (goal-type-key $b)))
+(= (same-alpha-type? $a $b)
+   (let*
+      (($ka (goal-type-key $a))
+        ($kb (goal-type-key $b)))
+      (or (== $ka $kb) (=alpha $ka $kb))))
 
 ;; Revision helpers for truth-value merging.
 (= (K) 800)
@@ -139,13 +143,14 @@
            (collapse
               (match $rcache (rmerge $rid $old-proof)
                  (if (same-alpha-type? $old-proof $proof) $old-proof (empty)))))
+        ($had-hit (not (== $hits ())))
         ($_
            (fold-flat (|-> ($acc $old-proof) (progn (remove-atom $rcache (rmerge $rid $old-proof)) $acc))
               ()
               $hits))
         ($merged-proof (fold-flat merge-proof-atoms $proof $hits))
         ($_ (add-atom $rcache (rmerge $rid $merged-proof))))
-      $merged-proof))
+      (resume-cache-result $merged-proof $had-hit)))
 
 (=
    (resume-merge-enqueue (state $pq $rcache $gcache)
@@ -157,10 +162,10 @@
       $parent-score
       $rest-cont)
    (let*
-      (($merged-proof (resume-cache-upsert $rcache $rid $proved-goal))
+      (((resume-cache-result $merged-proof $had-hit) (resume-cache-upsert $rcache $rid $proved-goal))
         ($_u (= $prem $merged-proof))
         ($new-score (min $parent-score (term-confidence $merged-proof)))
-        ($clean-pq (heap-drop-resume-cand $pq $rid $proved-goal))
+        ($clean-pq (if $had-hit (heap-drop-resume-cand $pq $rid $proved-goal) $pq))
         ($next
            (state-enqueue-item (state $clean-pq $rcache $gcache)
               (qitem $new-score

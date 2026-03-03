@@ -42,12 +42,20 @@
 
 (= (unwrap $x) (if (== $x #) $any $x))
 
+(= (contains-hash? $x) (if (== $x #) true (if (is-expr $x) (contains-hash-expr $x) false)))
+
+(= (contains-hash-expr $expr) (or (== (car-atom $expr) #) (contains-hash-list (cdr-atom $expr))))
+
+(= (contains-hash-list ()) false)
+(= (contains-hash-list (cons $head $tail)) (or (contains-hash? $head) (contains-hash-list $tail)))
+
 (= (direct-goal-items $steps $max-score $cont $goal)
    (let*
       (($proof
            (if (= $goal (CPU $fun $args $_res)) (CPU $fun $args (cpu-call $steps $fun $args))
               (let (: $kb $prf $type $tv) $goal
-                 (let $utype (if (is-expr $type) (map-nested unwrap $type) $type)
+                 (let $utype
+                    (if (and (is-expr $type) (contains-hash? $type)) (map-nested unwrap $type) $type)
                     (match &kb (: $kb $prf $utype $tv)
                        (: $kb $prf $type $tv))))))
         ($score (min $max-score (term-confidence $proof))))
@@ -94,15 +102,19 @@
 (= (state-enqueue-item (state $pq $rcache $gcache) (qitem $prio $payload))
    (state-enqueue-cand (state $pq $rcache $gcache) $prio $payload (payload-cand $payload)))
 
-(= (premise-goal-keys ()) ())
-(= (premise-goal-keys (cons $prem $rest))
-   (if (= $prem (: $_kb $_prf $type $_tv)) (cons $type (premise-goal-keys $rest)) (premise-goal-keys $rest)))
+(= (resume-cont-has-type? () $type) false)
+(=
+   (resume-cont-has-type? (cons (resume $_rid $_prem $_rest (: $_kb $_prf $goal-type $_tv) $_score) $tail)
+      $type)
+   (or (=alpha $goal-type $type) (resume-cont-has-type? $tail $type)))
 
-(= (has-active-premise? $args $cont)
-   (let*
-      (($prem-keys (premise-goal-keys $args))
-        ($cont-keys (map-flat (|-> ((resume $_rid $_prem $_r (: $_kb $_prf $type $_tv) $_ps)) $type) $cont)))
-      (not (== (/=a\ $prem-keys $cont-keys) ()))))
+(= (premises-have-active-type? () $cont) false)
+(= (premises-have-active-type? (cons $prem $rest) $cont)
+   (if (= $prem (: $_kb $_prf $type $_tv))
+      (or (resume-cont-has-type? $cont $type) (premises-have-active-type? $rest $cont))
+      (premises-have-active-type? $rest $cont)))
+
+(= (has-active-premise? $args $cont) (if (== $cont ()) false (premises-have-active-type? $args $cont)))
 
 ;; CPU functions that need the current step budget as first argument.
 (= (cpu-needs-steps $fun)
