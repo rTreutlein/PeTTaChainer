@@ -5,9 +5,11 @@ set -u
 pass=0
 fail=0
 fail_files=()
+metta_dir="pettachainer/metta"
 
-for file in pettachainer/metta/test*.metta; do
-  if petta "$file" >/tmp/petta-last.log 2>&1; then
+for file in "$metta_dir"/tests/test*.metta; do
+  rel="tests/$(basename "$file")"
+  if (cd "$metta_dir" && petta "$rel") >/tmp/petta-last.log 2>&1; then
     pass=$((pass + 1))
     printf 'PASS %s\n' "$file"
   else
