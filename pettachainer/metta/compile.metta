@@ -7,22 +7,19 @@
       (let $n (if-error $mn 0 $mn) (progn (change-state! ctxid (+ $n 1)) $n))))
 
 (= (extract-vars $expr)
-   (if (is-var $expr)
-      ($expr)
+   (if (is-var $expr) ($expr)
       (if (is-expr $expr)
          (let $collect-vars (|-> ($accum $arg) (if (is-var $arg) (cons $arg $accum) $accum))
             (fold-nested $collect-vars () $expr))
          ())))
 
 (= (skolemize $rule $expra $exprb)
-   (if (or (is-var $exprb) (is-var $expra))
-      $exprb
+   (if (or (is-var $exprb) (is-var $expra)) $exprb
       (let*
          (($avars (list_to_set (extract-vars $expra)))
            ($bvars (list_to_set (extract-vars $exprb)))
            ($onlyb (\== $bvars $avars))
-           ($substitute
-              (|-> (($idx $atom) $elem) (let $elem (exists $rule $idx $avars) ((+ 1 $idx) $atom))))
+           ($substitute (|-> (($idx $atom) $elem) (let $elem (exists $rule $idx $avars) ((+ 1 $idx) $atom))))
            (($_ $res) (sealed $onlyb (fold-flat $substitute (0 $exprb) $onlyb))))
          $res)))
 
@@ -45,12 +42,9 @@
 (= (compile-foldall-query $kb $pattern) (collapse (mm2compileQuery $kb (: $prf $pattern $tvin))))
 
 (= (inline-premise $kb $premise)
-   (if (= $premise (Compute $f $args -> $res))
-      (CPU $f $args $res)
-      (if (= $premise (Map2Dist $fun $a $b -> $out))
-         (CPU Map2DistRuntimeFormula ($kb $fun $a $b) $out)
-         (if (= $premise (AverageDist $pattern -> $out))
-            (CPU DistAverageFormula ($kb $pattern) $out)
+   (if (= $premise (Compute $f $args -> $res)) (CPU $f $args $res)
+      (if (= $premise (Map2Dist $fun $a $b -> $out)) (CPU Map2DistRuntimeFormula ($kb $fun $a $b) $out)
+         (if (= $premise (AverageDist $pattern -> $out)) (CPU DistAverageFormula ($kb $pattern) $out)
             (if (= $premise (FoldAllValue $pattern $value $init $fun -> $out))
                (CPU FoldAllTVRuntimeFormula ($kb $pattern $init $fun) $out)
                (if (= $premise (FoldAll $pattern $value $init $fun -> $out))
@@ -112,8 +106,7 @@
 ;       )
 ;     ((reverse $resNNprms) |- ((: $kb (cons conjunction $rcclprf) (cons $head $rccltype) $ccltv)))))
 (= (compile-inputs (: $kb $prf (CPU $f $args $res) $tv))
-   ((cons (CPU $f $args $res) ()) |-
-      ((: $kb cpu (CPU $f $args $res) (cpu-premise-tv $f $args $res)))))
+   ((cons (CPU $f $args $res) ()) |- ((: $kb cpu (CPU $f $args $res) (cpu-premise-tv $f $args $res)))))
 (= (compile-inputs (: $kb $prf (cons $head $tail) $tv))
    (if (and (not (is-var $head)) (is-member $head (And Or LikelierThan)))
       (superpose ((inTemplate $kb (atom_concat $head Formula) $head $tail)
@@ -128,18 +121,15 @@
               (cons (: $kb $prfa $a $tv_a) (cons (CPU DistMapFormula ($fun $tv_a) $out) $accum)))
            ((Map2Dist $fun $a $b -> $out)
               (cons (: $kb $prfb $b $tv_b)
-                 (cons (: $kb $prfa $a $tv_a)
-                    (cons (CPU DistMap2Formula ($fun $tv_a $tv_b) $out) $accum))))
-           ((AverageDist $pattern -> $out)
-              (cons (CPU DistAverageFormula ($kb $pattern) $out) $accum))
+                 (cons (: $kb $prfa $a $tv_a) (cons (CPU DistMap2Formula ($fun $tv_a $tv_b) $out) $accum))))
+           ((AverageDist $pattern -> $out) (cons (CPU DistAverageFormula ($kb $pattern) $out) $accum))
            (($rel $a $b)
               (if (is-member $rel (GreaterThan >))
                  (if (is-expr $b)
                     (cons (: $kb $prfb $b $tv_b)
                        (cons (: $kb $prfa $a $tv_a)
                           (cons (CPU DistGreaterThanDistFormula ($tv_a $tv_b) $tv) $accum)))
-                    (cons (: $kb $prfa $a $tv_a)
-                       (cons (CPU DistGreaterThanFormula ($tv_a $b) $tv) $accum)))
+                    (cons (: $kb $prfa $a $tv_a) (cons (CPU DistGreaterThanFormula ($tv_a $b) $tv) $accum)))
                  (cons $elem $accum)))
            ($other (cons $elem $accum))))
       (cons $elem $accum)))
@@ -154,15 +144,12 @@
                (let $b (seq2expr $bconclusions)
                   (superpose (
                        (post
-                          ((union-atom $npremises
-                                ((: $kb $prfa $a $atv) (CPU MpFormula ($atv $tv) $btv)))
-                             |-
+                          ((union-atom $npremises ((: $kb $prfa $a $atv) (CPU MpFormula ($atv $tv) $btv))) |-
                              ((: $kb ($prf $prfa) $b $btv))))
                        ($actionB $b)
                        ($actionA $a)))))
             (if (and (= $type ($relation $a) (== $relation Not)))
-               (post
-                  ((union-atom $npremises ((CPU NotFormula ($tv) $ntv))) |- ((: $kb $prf $a $ntv))))
+               (post ((union-atom $npremises ((CPU NotFormula ($tv) $ntv))) |- ((: $kb $prf $a $ntv))))
                ($npremises |- $conclusions)))
          ($npremises |- $conclusions))))
 
@@ -181,8 +168,7 @@
 
 (= (map-nested2 $f ()) ())
 (= (map-nested2 $f (cons $x $xs))
-   (if (is-expr $x)
-      ($f (cons (map-nested2 $f $x) (map-nested2 $f $xs)))
+   (if (is-expr $x) ($f (cons (map-nested2 $f $x) (map-nested2 $f $xs)))
       ($f (cons ($f $x) (map-nested2 $f $xs)))))
 
 (= (toQuery $elem) (if (is-var $elem) # (if (=? $elem (exists $_1 $_2 $_3)) $var $elem)))
@@ -199,8 +185,7 @@
 
 
 (= (compile_ $kb (@ $stmt (: $prf $Type $tv)))
-   (if (is-var $Type)
-      (empty)
+   (if (is-var $Type) (empty)
       (if (= $Type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
          (let*
             (($a (seq2expr (inline-premises $kb $premises)))
@@ -208,12 +193,8 @@
               ($nb (skolemize $prf $a $b))
               ($na (skolemize $prf $b $a)))
             (superpose ((implication $kb $prf $a $nb $tv)
-                        (if (is-var $nb)
-                           (empty)
-                           (compile-outputs (: (kbctx $kb) ($prf $prfa) $nb $btv)))
-                        (if (is-var $a)
-                           (empty)
-                           (compile-inputs (: (kbctx $kb) $prfa $a $atv)))
+                        (if (is-var $nb) (empty) (compile-outputs (: (kbctx $kb) ($prf $prfa) $nb $btv)))
+                        (if (is-var $a) (empty) (compile-inputs (: (kbctx $kb) $prfa $a $atv)))
                         (if (not (= $prf (mined_implication $_ $_)))
                            (inverse-implication $kb
                               $prf
@@ -221,25 +202,20 @@
                               $b
                               $tv)
                            (empty))
-                        (if (is-var $na)
-                           (empty)
+                        (if (is-var $na) (empty)
                            (compile-outputs (: ((inverted $prf $pa $pb1) $pb2) $na $natv)))
-                        (if (is-var $b)
-                           (empty)
-                           (compile-inputs (: $pb2 $b $btv2))))))
+                        (if (is-var $b) (empty) (compile-inputs (: $pb2 $b $btv2))))))
          (superpose ((() |- ((: ($kb MAIN Nil) $prf $Type $tv)))
                      (compile-outputs (: ($kb MAIN Nil) $prf $Type $tv)))))))
 
 
 (= (compileQuery $kb (: $prf $Type $tv))
-   (if (is-var $Type)
-      ((() |- ((: (kbctx $kb) $prf $Type $tv))) ())
+   (if (is-var $Type) ((() |- ((: (kbctx $kb) $prf $Type $tv))) ())
       (if (= $Type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
          (let*
             (($a (seq2expr (inline-premises $kb $premises)))
               ($b (seq2expr $conclusions)))
-            ((postQuery
-                  (((: (kbctx $kb) $prfa $a (STV 1.0 1.0))) |- ((: (kbctx $kb) $prfb $b $itv))))
+            ((postQuery (((: (kbctx $kb) $prfa $a (STV 1.0 1.0))) |- ((: (kbctx $kb) $prfb $b $itv))))
                (collapse
                   (postQuery
                      (superpose ((compile-inputs (: (kbctx $kb) $prfb $b $btv))
@@ -258,9 +234,7 @@
    (case (compileQuery $kb $stmt) (
         (((() |- ($ccl)) $adds)
            (let $tail (map-flat mm2stmt $adds) (let $lst (cons (goal $ccl) $tail) (superpose $lst))))
-        (((((: ($kbid $_ctx $_vars) $prf $type $tv)) |-
-                 ((: ($kbid $_ctx $_vars) $prf1 $type1 $tv1)))
-              $adds)
+        (((((: ($kbid $_ctx $_vars) $prf $type $tv)) |- ((: ($kbid $_ctx $_vars) $prf1 $type1 $tv1))) $adds)
            (let $vars (extract-vars $type)
               (let $mvars (if (== $vars ()) Nil $vars)
                  (let $ctx (nextctx)
@@ -282,27 +256,20 @@
 
 (= (pretty-prf-token $prf)
    (case $prf (
-        ((mined_implication $premk $conck)
-           (Implication (cons Premises ($premk)) (cons Conclusions ($conck))))
+        ((mined_implication $premk $conck) (Implication (cons Premises ($premk)) (cons Conclusions ($conck))))
         ($other $other))))
 
 (= (pretty-prf $prf) (if (is-expr $prf) (map-nested2 pretty-prf-token $prf) $prf))
 
 (= (lookup-mined-tv $premk $conck $fallback-tv)
    (let $m
-      (collapse
-         (once (match &kb (: ($kbid MAIN ()) (mined_implication $premk $conck) $itype $itv) $itv)))
-      (if (== $m ())
-         $fallback-tv
-         (car-atom $m))))
+      (collapse (once (match &kb (: ($kbid MAIN ()) (mined_implication $premk $conck) $itype $itv) $itv)))
+      (if (== $m ()) $fallback-tv (car-atom $m))))
 
 (= (extract-mined-itv-from-args $args $fallback-tv)
-   (if (= $args ($_prem (CPU MpFormula ($itv $_atv) $_btv)))
-      $itv
+   (if (= $args ($_prem (CPU MpFormula ($itv $_atv) $_btv))) $itv
       (if (= $args (cons $h $t))
-         (if (= $h (CPU MpFormula ($itv $_atv2) $_btv2))
-            $itv
-            (extract-mined-itv-from-args $t $fallback-tv))
+         (if (= $h (CPU MpFormula ($itv $_atv2) $_btv2)) $itv (extract-mined-itv-from-args $t $fallback-tv))
          $fallback-tv)))
 
 (= (pretty (: $prf $type $tv)) (: (pretty-prf $prf) $type $tv))
@@ -320,8 +287,7 @@
       (pretty $goal)))
 (= (pretty (: $kb $prf $type $tv))
    (if (is-expr $kb)
-      (if (= $kb ($kbid MAIN Nil))
-         (: (pretty-prf $prf) $type $tv)
+      (if (= $kb ($kbid MAIN Nil)) (: (pretty-prf $prf) $type $tv)
          (let ($_ $idx $vars) $kb
             (let $x (map-flat (mf $kb) (collapse (match &kb (: $kb $p $t $tv2) ($kb $t))))
                (: (pretty-prf $prf) (Implication (cons Premises $x) (cons Conclusions ($type))) $tv))))
