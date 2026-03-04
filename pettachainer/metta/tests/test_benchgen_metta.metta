@@ -19,6 +19,8 @@
 
 !(test (not (== (BenchPLNKB benchCore) ())) true)
 
+!(test (== (BenchListCount (BenchPLNAtoms benchCore)) (BenchTrueStatementCount benchCore)) true)
+
 !(BenchGenerate benchNoiseMix
    (depth 2)
    (width 2)
@@ -35,6 +37,11 @@
 !(test (== (BenchNoiseBackwardRuleCount benchNoiseMix) 3) true)
 
 !(test (== (BenchNoiseForwardRuleCount benchNoiseMix) 4) true)
+
+!(test
+   (== (BenchListCount (BenchPLNAtoms benchNoiseMix))
+      (+ (BenchTrueStatementCount benchNoiseMix) (BenchNoiseStatementCount benchNoiseMix)))
+   true)
 
 !(test
    (not

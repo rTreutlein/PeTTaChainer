@@ -7,13 +7,6 @@
 
 !(import! &self chainer_utils)
 !(import! &self forward_chainer)
-
-!(bind! &resume_cache (new-space))
-
-!(bind! &goal_cache (new-space))
-
-!(bind! &particle_store (new-space))
-
 !(import! &self backward_chainer)
 !(import! &self dist_formulas)
 !(import! &self tv_formulas)

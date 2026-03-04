@@ -70,12 +70,16 @@
 
 (= (BenchCompileMeta $prf $type) (BenchCompileAdd false (: $prf $type (STV 1.0 1.0))))
 
+(= (BenchTrackPLNAtom $bench $tag $stmt)
+   (BenchCompileAdd false (: (bench-pln-atom $bench $tag) (BenchPLNAtom $bench $stmt) (STV 1.0 1.0))))
+
+(= (BenchCompileAddTracked $bench $print-this-stmt $tag $stmt)
+   (let $_compiled (BenchCompileAdd $print-this-stmt $stmt) (BenchTrackPLNAtom $bench $tag $stmt)))
+
 (= (BenchAddBaseFact $bench $path $idx $print-before-compile)
    (let $conf (BenchGlobalConf)
-      (let $_
-         (BenchCompileAdd $print-before-compile
-            (: (bench-base-fact $bench $path $idx) (BenchFact $bench $path $idx) (STV 1.0 $conf)))
-         done)))
+      (let $stmt (: (bench-base-fact $bench $path $idx) (BenchFact $bench $path $idx) (STV 1.0 $conf))
+         (let $_ (BenchCompileAddTracked $bench $print-before-compile (base-fact $path $idx) $stmt) done))))
 
 (= (BenchGenerateBaseFactsRemaining $bench $path $idx $remaining $print-before-compile)
    (if (== $remaining 0) done
@@ -98,7 +102,8 @@
       (($premises (BenchRulePremises $bench $path $level $idx $width))
         ($conclusion (BenchRuleConclusion $bench $path $level $idx $depth))
         ($rule-type (Implication (cons Premises $premises) (cons Conclusions (cons $conclusion ()))))
-        ($conf (BenchGlobalConf)))
+        ($conf (BenchGlobalConf))
+        ($stmt (: (bench-main-rule $bench $path $level $idx) $rule-type (STV 1.0 $conf))))
       (let $_meta
          (BenchCompileMeta (bench-main-meta $bench $path $level $idx)
             (BenchMainRule $bench
@@ -121,8 +126,7 @@
                      $idx
                      $conf))
                (let $_rule
-                  (BenchCompileAdd $print-before-compile
-                     (: (bench-main-rule $bench $path $level $idx) $rule-type (STV 1.0 $conf)))
+                  (BenchCompileAddTracked $bench $print-before-compile (main-rule $path $level $idx) $stmt)
                   done))))))
 
 (= (BenchGenerateLevelRulesRemaining $bench $path $level $idx $remaining $depth $width $print-before-compile)
@@ -188,10 +192,9 @@
         ($rule-type
            (Implication (cons Premises (cons $premise ()))
               (cons Conclusions (cons (BenchTarget $bench $path) ()))))
-        ($conf (BenchGlobalConf)))
-      (let $_rule
-         (BenchCompileAdd $print-before-compile
-            (: (bench-noise-back-head $bench $noise-idx) $rule-type (STV 1.0 $conf)))
+        ($conf (BenchGlobalConf))
+        ($stmt (: (bench-noise-back-head $bench $noise-idx) $rule-type (STV 1.0 $conf))))
+      (let $_rule (BenchCompileAddTracked $bench $print-before-compile (noise-back-head $noise-idx) $stmt)
          (BenchCompileMeta (bench-noise-back-meta $bench $noise-idx 0)
             (BenchNoiseBackRule $bench $noise-idx 0)))))
 
@@ -205,10 +208,10 @@
            ($rule-type
               (Implication (cons Premises (cons $premise ()))
                  (cons Conclusions (cons (NoiseBackStep $bench $noise-idx $step) ()))))
-           ($conf (BenchGlobalConf)))
+           ($conf (BenchGlobalConf))
+           ($stmt (: (bench-noise-back-rule $bench $noise-idx $step) $rule-type (STV 1.0 $conf))))
          (let $_rule
-            (BenchCompileAdd $print-before-compile
-               (: (bench-noise-back-rule $bench $noise-idx $step) $rule-type (STV 1.0 $conf)))
+            (BenchCompileAddTracked $bench $print-before-compile (noise-back-rule $noise-idx $step) $stmt)
             (let $_meta
                (BenchCompileMeta (bench-noise-back-meta $bench $noise-idx $step)
                   (BenchNoiseBackRule $bench $noise-idx $step))
@@ -254,10 +257,10 @@
            ($conclusion (BenchForwardChainConclusion $bench $noise-idx $step $chain-len))
            ($rule-type
               (Implication (cons Premises (cons $premise ())) (cons Conclusions (cons $conclusion ()))))
-           ($conf (BenchGlobalConf)))
+           ($conf (BenchGlobalConf))
+           ($stmt (: (bench-noise-forward-rule $bench $noise-idx $step) $rule-type (STV 1.0 $conf))))
          (let $_rule
-            (BenchCompileAdd $print-before-compile
-               (: (bench-noise-forward-rule $bench $noise-idx $step) $rule-type (STV 1.0 $conf)))
+            (BenchCompileAddTracked $bench $print-before-compile (noise-forward-rule $noise-idx $step) $stmt)
             (let $_meta
                (BenchCompileMeta (bench-noise-forward-meta $bench $noise-idx $step)
                   (BenchNoiseForwardRule $bench $noise-idx $step))
@@ -514,7 +517,8 @@
               ($tv (STV 1.0 $conf)))
             (: (bench-main-rule $bench $path $level $idx) $type $tv)))))
 
-(= (BenchPLNAtoms $bench) (BenchListAppend (BenchPLNBaseAtoms $bench) (BenchPLNMainRuleAtoms $bench)))
+(= (BenchPLNAtoms $bench)
+   (collapse (match &kb (: $_kb (bench-pln-atom $bench $_tag) (BenchPLNAtom $bench $stmt) $_tv) $stmt)))
 
 (= (BenchPLNBuildImplication () $conclusion) $conclusion)
 (= (BenchPLNBuildImplication (cons $head $tail) $conclusion)
