@@ -57,6 +57,8 @@
         ($t1 (current-time)))
       (forward_then_backward $ok (seconds (- $t1 $t0)))))
 
+(= (BenchHalfSteps $steps) (max 1 (BenchIntDiv $steps 2)))
+
 (=
    (BenchTimedForwardBackwardCompare $bench-forward
       $bench-forward-backward
@@ -91,11 +93,13 @@
               $backward-ratio
               $backward-chain-len
               $forward-chain-len))
+        ($forward-mix-steps (BenchHalfSteps $forward-steps))
+        ($backward-mix-steps (BenchHalfSteps $backward-steps))
         ($r2
            (BenchTimedTargetProvedForwardThenBackward $bench-forward-backward
               $path
-              $forward-steps
-              $backward-steps))
+              $forward-mix-steps
+              $backward-mix-steps))
         ($_g3
            (BenchGenerateIsolated $bench-backward
               $depth
