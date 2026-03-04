@@ -20,6 +20,8 @@
 
 !(test (not (== (BenchPLNKB benchCore) ())) true)
 
+!(test (== (BenchListCount (BenchPLNAtoms benchCore)) (BenchTrueStatementCount benchCore)) true)
+
 ; Factor semantics: noise statements = noise-factor * true statements.
 ; true statements for depth=2,width=2,paths=1 => 4 + 3 = 7.
 !(BenchGenerate benchNoiseMix
@@ -38,6 +40,11 @@
 !(test (== (BenchNoiseBackwardRuleCount benchNoiseMix) 3) true)
 
 !(test (== (BenchNoiseForwardRuleCount benchNoiseMix) 4) true)
+
+!(test
+   (== (BenchListCount (BenchPLNAtoms benchNoiseMix))
+      (+ (BenchTrueStatementCount benchNoiseMix) (BenchNoiseStatementCount benchNoiseMix)))
+   true)
 
 ; Backward-relevant unsat chain exists (decoy conclusion matches target), but cannot prove through decoy proof-id.
 !(test
