@@ -22,9 +22,12 @@
       (collapse (match &goal_cache (gmerge $result-goal) $result-goal))))
 
 (= (enqueue-goal-state $steps $state $max-score $cont $goal)
-   (let $state1
-      (fold-flat state-enqueue-item $state (collapse (direct-goal-items $steps $max-score $cont $goal)))
-      (fold-flat state-enqueue-item $state1 (collapse (rule-candidate-items $max-score $cont $goal)))))
+   (let*
+      (($direct-items (collapse (direct-goal-items $steps $max-score $cont $goal)))
+        ($state1 (fold-flat state-enqueue-item $state $direct-items)))
+      (if (== $direct-items ())
+         (fold-flat state-enqueue-item $state1 (collapse (rule-candidate-items $max-score $cont $goal)))
+         $state1)))
 
 (= (rule-candidate-items $max-score $cont $goal)
    (let*
