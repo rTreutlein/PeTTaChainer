@@ -1,5 +1,39 @@
 !(import_prolog_function nth0)
 
+(= (forward-load-agenda $kb)
+   (let $magenda (catch (get-state (atom_concat fwd_agenda_ $kb)))
+      (if-error $magenda (empty_heap) $magenda)))
+
+(= (forward-save-agenda $kb $agenda) (change-state! (atom_concat fwd_agenda_ $kb) $agenda))
+
+(= (forward-register-added-expr $expr)
+   (if (= $expr (: ($kbid MAIN Nil) $prf $type $tv))
+      (let*
+         (($agenda (forward-load-agenda $kbid))
+           ($nagenda (agenda-push-fact $agenda $expr))
+           ($_save (forward-save-agenda $kbid $nagenda)))
+         ())
+      ()))
+
+(= (forward-register-added-rule $args $_ccls)
+   (let*
+      (($_
+           (map-flat
+              (|-> ($prem)
+                 (if (= $prem (: ($kbid MAIN Nil) $_prf $ptype $_ptv))
+                    (let*
+                       (($agenda (forward-load-agenda $kbid))
+                         ($matches
+                            (collapse
+                               (match &kb (: ($kbid MAIN Nil) $prf $ptype $tv)
+                                  (: ($kbid MAIN Nil) $prf $ptype $tv))))
+                         ($nagenda (fold-flat agenda-push-fact $agenda $matches))
+                         ($_save (forward-save-agenda $kbid $nagenda)))
+                       ())
+                    ()))
+              $args)))
+      ()))
+
 (= (forward-satisfy-premises $steps () $goal) $goal)
 (= (forward-satisfy-premises $steps (cons $prem $rest) $goal)
    (if (= $prem (CPU $fun $args $res))
@@ -28,11 +62,8 @@
            ($rprems (nth0 $idx $prems $fact)))
          (forward-satisfy-premises $steps $rprems $ccls))))
 
-(= (forward-kb-facts $kb)
-   (collapse (match &kb (: ($kb MAIN Nil) $prf $type $tv) (: ($kb MAIN Nil) $prf $type $tv))))
-
 (= (forward-loop $steps $kb $agenda)
-   (if (or (== (heap_size $agenda) 0) (<= $steps 0)) ()
+   (if (or (== (heap_size $agenda) 0) (<= $steps 0)) $agenda
       (let*
          (($rest (get_from_heap $agenda $_priority (qitem $_score $fact)))
            ($derived (forward-rule-results $steps $kb $fact))
@@ -40,7 +71,10 @@
          (forward-loop (- $steps 1) $kb $nagenda))))
 
 (= (forward-chain $steps $kb)
-   (progn (forward-loop $steps $kb (fold-flat agenda-push-fact (empty_heap) (forward-kb-facts $kb)))
+   (let*
+      (($agenda (forward-load-agenda $kb))
+        ($nagenda (forward-loop $steps $kb $agenda))
+        ($_save (forward-save-agenda $kb $nagenda)))
       true))
 
 (= (forward-has-derived? $kb $type)

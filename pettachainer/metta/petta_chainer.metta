@@ -31,9 +31,10 @@
            ($id (nextid))
            ($_1 (fold-flat (add-prem $vars $id) 0 $args))
            ($_2 (add-atom &ccls_index ($ccls $id)))
-           ($_3 (add-atom &rules ($id $ccls $args))))
+           ($_3 (add-atom &rules ($id $ccls $args)))
+           ($_4 (forward-register-added-rule $args $ccls)))
          ())
-      (add-atom &kb $expr)))
+      (progn (add-atom &kb $expr) (forward-register-added-expr $expr))))
 
 (= (compileadd-add-all $acc $atom) (progn (add-to-kb $atom) $acc))
 

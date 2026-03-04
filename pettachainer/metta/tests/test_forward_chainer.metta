@@ -57,3 +57,23 @@
         ($proofs (collapse (match &kb (: (mergekb MAIN Nil) $prf (SwitchGoal) $tv) $prf))))
       (list-count $proofs))
    1)
+
+!(compileadd deltakb (: highFact (HighPriority) (STV 1.0 1.0)))
+
+!(compileadd deltakb (: lowFact (LowPriority) (STV 1.0 0.8)))
+
+!(compileadd deltakb
+   (: lowToGoal (Implication (Premises (LowPriority)) (Conclusions (DeltaGoal))) (STV 1.0 1.0)))
+
+!(test (let $_ (forward-chain 1 deltakb) (forward-has-derived? deltakb (DeltaGoal))) false)
+
+!(test (let $_ (forward-chain 1 deltakb) (forward-has-derived? deltakb (DeltaGoal))) true)
+
+!(compileadd ruleaddkb (: oldSeed (RuleSeed) (STV 1.0 1.0)))
+
+!(test (let $_ (forward-chain 1 ruleaddkb) (forward-has-derived? ruleaddkb (RuleAddGoal))) false)
+
+!(compileadd ruleaddkb
+   (: seedToGoal (Implication (Premises (RuleSeed)) (Conclusions (RuleAddGoal))) (STV 1.0 1.0)))
+
+!(test (let $_ (forward-chain 2 ruleaddkb) (forward-has-derived? ruleaddkb (RuleAddGoal))) true)
