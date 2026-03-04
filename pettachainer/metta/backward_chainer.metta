@@ -21,13 +21,33 @@
         ($_ (search-rules $steps $pq &resume_cache &goal_cache)))
       (collapse (match &goal_cache (gmerge $result-goal) $result-goal))))
 
+(= (candidate-item-score (qitem $score $_payload)) $score)
+
+(= (candidate-items-max-score ()) 0.0)
+(= (candidate-items-max-score (cons $head $tail))
+   (max (candidate-item-score $head) (candidate-items-max-score $tail)))
+
+; Defer rule expansions behind direct matches while still leaving room for
+; alternative-proof discovery and confidence merging.
+; TODO: tune this schedule (or add a two-pass mode) to balance latency
+; vs confidence-refinement quality on larger/noisier workloads.
+(= (rule-candidate-backoff-factor-from-direct $direct-max)
+   (max 0.3 (min 0.9 (+ 0.3 (* 0.6 (- 1.0 $direct-max))))))
+
+(= (rule-candidate-backoff-item $direct-max (qitem $score $payload))
+   (let $factor (rule-candidate-backoff-factor-from-direct $direct-max)
+      (qitem (* (min $score $direct-max) $factor) $payload)))
+
 (= (enqueue-goal-state $steps $state $max-score $cont $goal)
    (let*
       (($direct-items (collapse (direct-goal-items $steps $max-score $cont $goal)))
+        ($rule-items (collapse (rule-candidate-items $max-score $cont $goal)))
         ($state1 (fold-flat state-enqueue-item $state $direct-items)))
-      (if (== $direct-items ())
-         (fold-flat state-enqueue-item $state1 (collapse (rule-candidate-items $max-score $cont $goal)))
-         $state1)))
+      (if (== $direct-items ()) (fold-flat state-enqueue-item $state1 $rule-items)
+         (let*
+            (($direct-max (candidate-items-max-score $direct-items))
+              ($deferred-rules (map-flat (rule-candidate-backoff-item $direct-max) $rule-items)))
+            (fold-flat state-enqueue-item $state1 $deferred-rules)))))
 
 (= (rule-candidate-items $max-score $cont $goal)
    (let*
