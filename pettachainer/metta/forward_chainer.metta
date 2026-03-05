@@ -75,7 +75,7 @@
    (if (or (== (heap_size $agenda) 0) (<= $steps 0)) $agenda
       (let*
          (($rest (get_from_heap $agenda $_priority (qitem $_score $fact)))
-           ($derived (forward-rule-results $steps $kb (tracem pop $fact)))
+           ($derived (forward-rule-results $steps $kb $fact))
            ($nagenda (fold-flat forward-fact-upsert $rest $derived)))
          (forward-loop (- $steps 1) $kb $nagenda))))
 
