@@ -68,7 +68,7 @@
 (= (BenchCompileAdd $print-this-stmt $stmt)
    (let $_print (BenchMaybePrint $print-this-stmt $stmt) (collapse (compileadd kb $stmt))))
 
-(= (BenchCompileMeta $prf $type) (BenchCompileAdd false (: $prf $type (STV 1.0 1.0))))
+(= (BenchCompileMeta $prf $type) (BenchCompileAdd false (: $prf $type)))
 
 (= (BenchAddBaseFact $bench $path $idx $print-before-compile)
    (let $conf (BenchGlobalConf)
@@ -381,8 +381,7 @@
                   $noise-factor
                   $backward-ratio
                   $backward-chain-len
-                  $forward-chain-len)
-               (STV 1.0 1.0)))
+                  $forward-chain-len)))
          (let $_paths (BenchGeneratePaths $bench $paths $depth $width $print-before-compile)
             (let $_noise
                (BenchGenerateNoiseByFactor $bench

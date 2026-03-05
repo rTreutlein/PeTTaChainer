@@ -4,12 +4,12 @@
    benchForwardBackwardMode
    benchBackwardMode
    1
-   2
-   2
-   3
+   4 ;depth
+   4 ;width
    1
-   50
+   0 ;noise
+   10
    3
    2
-   400
-   400)
+   500
+   1000)
