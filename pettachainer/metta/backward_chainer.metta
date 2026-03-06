@@ -18,8 +18,6 @@
 
 (= (proof-goal-by-id $pid) (match &proof_goal ($pid $gid) $gid))
 
-(= (proof-children-by-id $pid) (match &proof_children ($pid $kids) $kids))
-
 (= (proof-unify-term $pid)
    (let*
       (($gid (proof-goal-by-id $pid))
@@ -50,7 +48,7 @@
 (= (materialize-proof $pid)
    (case (proof-kind-by-id $pid) (
         ((leaf $_ev $raw) $raw)
-        ((rule $aid) (materialize-rule-proof $aid (proof-children-by-id $pid)))
+        ((rule $aid) (materialize-rule-proof $aid (match &proof_children ($pid $kids) $kids)))
         ((revision $left $right) (merge/revision (materialize-proof $left) (materialize-proof $right)))
         ($other $other))))
 
@@ -354,18 +352,19 @@
 (= (contains-hash-list ()) false)
 (= (contains-hash-list (cons $head $tail)) (or (contains-hash? $head) (contains-hash-list $tail)))
 
-(= (cpu-needs-steps $fun)
-   (is-member $fun
-      (() FoldAllFormulaCompiled
-         FoldAllTVFormulaCompiled
-         FoldAllTVPatternFormula
-         FoldAllTVRuntimeFormula
-         FoldAllValueFormulaCompiled
-         DistAverageFormula
-         Map2DistRuntimeFormula)))
-
 (= (cpu-call $steps $fun $args)
-   (reduce (reduce (if (cpu-needs-steps $fun) (cons $fun (cons $steps $args)) (cons $fun $args)))))
+   (reduce
+      (reduce
+         (if (cons $fun (cons $steps $args))
+            (is-member $fun
+               (() FoldAllFormulaCompiled
+                  FoldAllTVFormulaCompiled
+                  FoldAllTVPatternFormula
+                  FoldAllTVRuntimeFormula
+                  FoldAllValueFormulaCompiled
+                  DistAverageFormula
+                  Map2DistRuntimeFormula))
+            (cons $fun $args)))))
 
 (= (foldall-eval $fun $acc ()) $acc)
 (= (foldall-eval $fun $acc (cons $elem $tail))
@@ -395,7 +394,7 @@
 
 (= (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun)
    (let*
-      (($kctx (fold-kbctx $kb))
+      (($kctx (if (is-expr $kb) (let ($kbid $_ctx $_vars) $kb ($kbid MAIN Nil)) ($kb MAIN Nil)))
         ($matches (collapse (match &kb ($pattern $kctx $prf $ptv) $ptv))))
       (foldall-eval $fun $init $matches)))
 
@@ -404,8 +403,6 @@
       (let (: $prfb $b $tvb) (query $steps $kb (: $prfb $b $tvb)) (DistMap2Formula $fun $tva $tvb))))
 
 (= (FoldAllTVRuntimeFormula $steps $kb $pattern $init $fun) (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun))
-
-(= (fold-kbctx $kb) (if (is-expr $kb) (let ($kbid $_ctx $_vars) $kb ($kbid MAIN Nil)) ($kb MAIN Nil)))
 
 (= (FoldAllTVPatternFormula $steps $kb $pattern $init $fun)
    (foldall-eval $fun
