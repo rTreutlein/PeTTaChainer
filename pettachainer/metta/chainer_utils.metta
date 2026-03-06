@@ -159,28 +159,28 @@
       (((resume-cache-result $merged-proof $had-hit) (resume-cache-upsert $rcache $rid $proved-goal))
         ($merged-compatible
            (not (evidence-sets-overlap? $seen-evidence (proof-atom-evidence-set $merged-proof))))
-        ($proved-compatible
-           (not (evidence-sets-overlap? $seen-evidence (proof-atom-evidence-set $proved-goal))))
         ($resume-proof (if $merged-compatible $merged-proof $proved-goal))
-        ($evidence-compatible (or $merged-compatible $proved-compatible))
+        ($resume-compatible
+           (if $merged-compatible true
+              (not (evidence-sets-overlap? $seen-evidence (proof-atom-evidence-set $proved-goal)))))
         ((resume-template $prem $rest $goal) (copy_term $resume-template))
-        ($prem-compatible (if $evidence-compatible (= $prem $resume-proof) false))
-        ($new-score (min $parent-score (term-confidence $resume-proof)))
-        ($next-seen-evidence
-           (list_to_set (list-append $seen-evidence (proof-atom-evidence-set $resume-proof))))
+        ($prem-compatible (if $resume-compatible (= $prem $resume-proof) false))
         ($clean-pq
            (if (and $had-hit $prem-compatible $merged-compatible)
               (heap-drop-resume-cand $pq $rid $merged-proof)
               $pq)))
       (if $prem-compatible
-         (let $next
-            (state-enqueue-item (state $clean-pq $rcache $gcache)
-               (qitem $new-score
-                  (resume-cand $rid
-                     (goal-type-key $resume-proof)
-                     $next-seen-evidence
-                     (cand ($rest |- $goal) $rest-cont))))
-            (reduce $next))
+         (let*
+            (($new-score (min $parent-score (term-confidence $resume-proof)))
+              ($next-seen-evidence
+                 (list_to_set (list-append $seen-evidence (proof-atom-evidence-set $resume-proof)))))
+            (reduce
+               (state-enqueue-item (state $clean-pq $rcache $gcache)
+                  (qitem $new-score
+                     (resume-cand $rid
+                        (goal-type-key $resume-proof)
+                        $next-seen-evidence
+                        (cand ($rest |- $goal) $rest-cont))))))
          (state $clean-pq $rcache $gcache))))
 
 (=

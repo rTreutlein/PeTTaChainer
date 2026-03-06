@@ -17,16 +17,9 @@
 (= (candidate-items-max-score (cons $head $tail))
    (max (candidate-item-score $head) (candidate-items-max-score $tail)))
 
-; Defer rule expansions behind direct matches while still leaving room for
-; alternative-proof discovery and confidence merging.
-; TODO: tune this schedule (or add a two-pass mode) to balance latency
-; vs confidence-refinement quality on larger/noisier workloads.
-(= (rule-candidate-backoff-factor-from-direct $direct-max)
-   (max 0.3 (min 0.9 (+ 0.3 (* 0.6 (- 1.0 $direct-max))))))
-
 (= (rule-candidate-backoff-item $direct-max (qitem $score $payload))
    (let $factor (rule-candidate-backoff-factor-from-direct $direct-max)
-      (qitem (* $score $factor) $payload)))
+      (qitem (* $score (- 1 $direct-max)) $payload)))
 
 (= (enqueue-goal-state $steps $state $max-score $cont $goal)
    (let*
@@ -128,6 +121,11 @@
    (if (= $prem (: $_kb $_prf $type $_tv))
       (or (resume-cont-has-type? $cont $type) (premises-have-active-type? $rest $cont))
       (premises-have-active-type? $rest $cont)))
+
+(= (premise-goal-keys ()) ())
+(= (premise-goal-keys (cons $prem $rest))
+   (if (= $prem (: $_kb $_prf $_type $_tv)) (cons (goal-type-key $prem) (premise-goal-keys $rest))
+      (premise-goal-keys $rest)))
 
 (= (has-active-premise? $args $cont) (premises-have-active-type? $args $cont))
 
