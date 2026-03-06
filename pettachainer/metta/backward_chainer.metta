@@ -84,10 +84,11 @@
    (merge-goal-proof-list (merge-goal-proof-atoms $goal $pid) $rest))
 
 (= (goal-results $gid)
-   (let $pids (collapse (match &goal_proof ($gid $pid) $pid))
-      (if (== $pids ()) ()
-         (let $merged (merge-goal-proof-list (proof-output-atom (car-atom $pids)) (cdr-atom $pids))
-            (cons (materialize-proof-atom $merged) ())))))
+   (let*
+      (($pids (collapse (match &goal_proof ($gid $pid) $pid)))
+        ($merged
+           (if (== $pids ()) () (merge-goal-proof-list (proof-output-atom (car-atom $pids)) (cdr-atom $pids)))))
+      (if (== $pids ()) () (cons (materialize-proof-atom $merged) ()))))
 
 (= (ensure-goal $goal)
    (let $hits
@@ -430,9 +431,10 @@
    (foldall-eval $fun $init (extract-proof-tvs (run-compiled-query $steps $compiled-query))))
 
 (= (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun)
-   (let $kctx (fold-kbctx $kb)
-      (let $matches (collapse (match &kb ($pattern $kctx $prf $ptv) $ptv))
-         (foldall-eval $fun $init $matches))))
+   (let*
+      (($kctx (fold-kbctx $kb))
+        ($matches (collapse (match &kb ($pattern $kctx $prf $ptv) $ptv))))
+      (foldall-eval $fun $init $matches)))
 
 (= (Map2DistRuntimeFormula $steps $kb $fun $a $b)
    (let (: $prfa $a $tva) (query $steps $kb (: $prfa $a $tva))

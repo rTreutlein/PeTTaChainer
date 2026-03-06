@@ -73,8 +73,10 @@
                      (and (== $kba $kbb) (or (== $typea $typeb) (=alpha $typea $typeb))))))))))
 
 (= (next-search-id $key)
-   (let $mn (catch (get-state $key))
-      (let $n (if-error $mn 0 $mn) (progn (change-state! $key (+ $n 1)) $n))))
+   (let*
+      (($mn (catch (get-state $key)))
+        ($n (if-error $mn 0 $mn)))
+      (progn (change-state! $key (+ $n 1)) $n)))
 
 (= (next-gid) (next-search-id bwd_gid))
 

@@ -3,8 +3,10 @@
 !(import! &self (library lib_he))
 
 (= (nextctx)
-   (let $mn (catch (get-state ctxid))
-      (let $n (if-error $mn 0 $mn) (progn (change-state! ctxid (+ $n 1)) $n))))
+   (let*
+      (($mn (catch (get-state ctxid)))
+        ($n (if-error $mn 0 $mn)))
+      (progn (change-state! ctxid (+ $n 1)) $n)))
 
 (= (extract-vars $expr)
    (if (is-var $expr) ($expr)
@@ -130,14 +132,15 @@
    (let $npremises (updatePremises $premises)
       (if (and (= $conclusions ((: $kb $prf $type $tv)) (not (is-var $type))))
          (if (= $type (Implication (cons Premises $apremises) (cons Conclusions $bconclusions)))
-            (let $a (seq2expr $apremises)
-               (let $b (seq2expr $bconclusions)
-                  (superpose (
-                       (post
-                          ((union-atom $npremises ((: $kb $prfa $a $atv) (CPU MpFormula ($atv $tv) $btv))) |-
-                             ((: $kb ($prf $prfa) $b $btv))))
-                       ($actionB $b)
-                       ($actionA $a)))))
+            (let*
+               (($a (seq2expr $apremises))
+                 ($b (seq2expr $bconclusions)))
+               (superpose (
+                    (post
+                       ((union-atom $npremises ((: $kb $prfa $a $atv) (CPU MpFormula ($atv $tv) $btv))) |-
+                          ((: $kb ($prf $prfa) $b $btv))))
+                    ($actionB $b)
+                    ($actionA $a))))
             (if (and (= $type ($relation $a) (== $relation Not)))
                (post ((union-atom $npremises ((CPU NotFormula ($tv) $ntv))) |- ((: $kb $prf $a $ntv))))
                ($npremises |- $conclusions)))
@@ -164,14 +167,15 @@
 (= (toQuery $elem) (if (is-var $elem) # (if (=? $elem (exists $_1 $_2 $_3)) $var $elem)))
 
 (= (inverse-implication $kb $prf $a $b $itv)
-   (let $a1 (map-nested2 toQuery $a)
-      (let $b1 (map-nested2 toQuery $b)
-         (((: ($kb $ctx $vars) $prfa $a1 $atv) (: ($kb $ctx $vars) $prfb $b1 $btv)
-               (CPU InversionFormula ($atv $btv $itv) $iitv)
-               (: ($kb $ctx $vars) $prfb $b $btv)
-               (CPU MpFormula ($iitv $btv) $atv))
-            |-
-            ((: ($kb $ctx $vars) ((inverted $prf with $prfxa $prfax $prfxb $prfbx) $prfb) $a $atv))))))
+   (let*
+      (($a1 (map-nested2 toQuery $a))
+        ($b1 (map-nested2 toQuery $b)))
+      (((: ($kb $ctx $vars) $prfa $a1 $atv) (: ($kb $ctx $vars) $prfb $b1 $btv)
+            (CPU InversionFormula ($atv $btv $itv) $iitv)
+            (: ($kb $ctx $vars) $prfb $b $btv)
+            (CPU MpFormula ($iitv $btv) $atv))
+         |-
+         ((: ($kb $ctx $vars) ((inverted $prf with $prfxa $prfax $prfxb $prfbx) $prfb) $a $atv)))))
 
 
 (= (compile_ $kb (@ $stmt (: $prf $Type $tv)))
@@ -223,15 +227,22 @@
 (= (mm2compileQuery $kb $stmt)
    (case (compileQuery $kb $stmt) (
         (((() |- ($ccl)) $adds)
-           (let $tail (map-flat mm2stmt $adds) (let $lst (cons (goal $ccl) $tail) (superpose $lst))))
+           (let*
+              (($tail (map-flat mm2stmt $adds))
+                ($lst (cons (goal $ccl) $tail)))
+              (superpose
+                 $lst)))
         (((((: ($kbid $_ctx $_vars) $prf $type $tv)) |- ((: ($kbid $_ctx $_vars) $prf1 $type1 $tv1))) $adds)
-           (let $vars (extract-vars $type)
-              (let $mvars (if (== $vars ()) Nil $vars)
-                 (let $ctx (nextctx)
-                    (let $ctxatom (: ($kbid $ctx $mvars) (ctx proof $ctx) $type $tv)
-                       (let $goalatom (goal (: ($kbid $ctx $mvars) $prf1 $type1 $tv1))
-                          (let $tail (map-flat mm2stmt $adds)
-                             (let $lst (union-atom ($goalatom $ctxatom) $tail) (superpose $lst)))))))))
+           (let*
+              (($vars (extract-vars $type))
+                ($mvars (if (== $vars ()) Nil $vars))
+                ($ctx (nextctx))
+                ($ctxatom (: ($kbid $ctx $mvars) (ctx proof $ctx) $type $tv))
+                ($goalatom (goal (: ($kbid $ctx $mvars) $prf1 $type1 $tv1)))
+                ($tail (map-flat mm2stmt $adds))
+                ($lst (union-atom ($goalatom $ctxatom) $tail)))
+              (superpose
+                 $lst)))
         ($a (notsupported mm2compileQuery $kb $stmt $a)))))
 
 (= (checkStmt $stmt)
@@ -302,6 +313,8 @@
    (if (is-expr $kb)
       (if (= $kb ($kbid MAIN Nil)) (: (pretty-prf $prf) $type $tv)
          (let ($_ $idx $vars) $kb
-            (let $x (map-flat (mf $kb) (collapse (match &kb ($t $kb $p $tv2) ($kb $t))))
-               (: (pretty-prf $prf) (Implication (cons Premises $x) (cons Conclusions ($type))) $tv))))
+            (let*
+               (($x (map-flat (mf $kb) (collapse (match &kb ($t $kb $p $tv2) ($kb $t)))))
+                 ($ptype (Implication (cons Premises $x) (cons Conclusions ($type)))))
+               (: (pretty-prf $prf) $ptype $tv))))
       (: (pretty-prf $prf) $type $tv)))

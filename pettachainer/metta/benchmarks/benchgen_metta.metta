@@ -71,11 +71,12 @@
 (= (BenchMetaAdd $stmt) (progn (add-atom &bench_meta $stmt) done))
 
 (= (BenchAddBaseFact $bench $path $idx $print-before-compile)
-   (let $conf (BenchGlobalConf)
-      (let $_
-         (BenchCompileAdd $print-before-compile
-            (: (bench-base-fact $bench $path $idx) (BenchFact $bench $path $idx) (STV 1.0 $conf)))
-         done)))
+   (let*
+      (($conf (BenchGlobalConf))
+        ($_
+           (BenchCompileAdd $print-before-compile
+              (: (bench-base-fact $bench $path $idx) (BenchFact $bench $path $idx) (STV 1.0 $conf)))))
+      done))
 
 (= (BenchGenerateBaseFactsRemaining $bench $path $idx $remaining $print-before-compile)
    (if (== $remaining 0) done
@@ -99,11 +100,12 @@
         ($conclusion (BenchRuleConclusion $bench $path $level $idx $depth))
         ($rule-type (Implication (cons Premises $premises) (cons Conclusions (cons $conclusion ()))))
         ($conf (BenchGlobalConf)))
-      (let $_meta (BenchMetaAdd (bench-main-rule-meta $bench $path $level $idx $width $conf))
-         (let $_rule
-            (BenchCompileAdd $print-before-compile
-               (: (bench-main-rule $bench $path $level $idx) $rule-type (STV 1.0 $conf)))
-            done))))
+      (let*
+         (($_meta (BenchMetaAdd (bench-main-rule-meta $bench $path $level $idx $width $conf)))
+           ($_rule
+              (BenchCompileAdd $print-before-compile
+                 (: (bench-main-rule $bench $path $level $idx) $rule-type (STV 1.0 $conf)))))
+         done)))
 
 (= (BenchGenerateLevelRulesRemaining $bench $path $level $idx $remaining $depth $width $print-before-compile)
    (if (== $remaining 0) done
@@ -119,33 +121,35 @@
 
 (= (BenchGenerateLevelsLoop $bench $path $level $depth $width $print-before-compile)
    (if (> $level $depth) done
-      (let $node-count (BenchPow $width (- $depth $level))
-         (let $_rules
-            (BenchGenerateLevelRulesRemaining $bench
-               $path
-               $level
-               1
-               $node-count
-               $depth
-               $width
-               $print-before-compile)
-            (BenchGenerateLevelsLoop $bench
-               $path
-               (+ $level 1)
-               $depth
-               $width
-               $print-before-compile)))))
+      (let*
+         (($node-count (BenchPow $width (- $depth $level)))
+           ($_rules
+              (BenchGenerateLevelRulesRemaining $bench
+                 $path
+                 $level
+                 1
+                 $node-count
+                 $depth
+                 $width
+                 $print-before-compile)))
+         (BenchGenerateLevelsLoop $bench
+            $path
+            (+ $level 1)
+            $depth
+            $width
+            $print-before-compile))))
 
 (= (BenchGeneratePathsRemaining $bench $path $remaining-paths $depth $width $print-before-compile)
    (if (== $remaining-paths 0) done
-      (let $_facts (BenchGenerateBaseFacts $bench $path $depth $width $print-before-compile)
-         (let $_levels (BenchGenerateLevelsLoop $bench $path 1 $depth $width $print-before-compile)
-            (BenchGeneratePathsRemaining $bench
-               (+ $path 1)
-               (- $remaining-paths 1)
-               $depth
-               $width
-               $print-before-compile)))))
+      (let*
+         (($_facts (BenchGenerateBaseFacts $bench $path $depth $width $print-before-compile))
+           ($_levels (BenchGenerateLevelsLoop $bench $path 1 $depth $width $print-before-compile)))
+         (BenchGeneratePathsRemaining $bench
+            (+ $path 1)
+            (- $remaining-paths 1)
+            $depth
+            $width
+            $print-before-compile))))
 
 (= (BenchGeneratePaths $bench $paths $depth $width $print-before-compile)
    (BenchGeneratePathsRemaining $bench
@@ -169,11 +173,12 @@
            (Implication (cons Premises (cons $premise ()))
               (cons Conclusions (cons (BenchTarget $bench $path) ()))))
         ($conf (BenchGlobalConf)))
-      (let $_meta (BenchMetaAdd (bench-noise-back-rule-meta $bench $noise-idx 0))
-         (let $_rule
-            (BenchCompileAdd $print-before-compile
-               (: (bench-noise-back-head $bench $noise-idx) $rule-type (STV 1.0 $conf)))
-            done))))
+      (let*
+         (($_meta (BenchMetaAdd (bench-noise-back-rule-meta $bench $noise-idx 0)))
+           ($_rule
+              (BenchCompileAdd $print-before-compile
+                 (: (bench-noise-back-head $bench $noise-idx) $rule-type (STV 1.0 $conf)))))
+         done)))
 
 (= (BenchBackwardTailPremise $bench $noise-idx $step $last-step)
    (if (== $step $last-step) (NoiseBlocker $bench $noise-idx) (NoiseBackStep $bench $noise-idx (+ $step 1))))
@@ -186,26 +191,28 @@
               (Implication (cons Premises (cons $premise ()))
                  (cons Conclusions (cons (NoiseBackStep $bench $noise-idx $step) ()))))
            ($conf (BenchGlobalConf)))
-         (let $_meta (BenchMetaAdd (bench-noise-back-rule-meta $bench $noise-idx $step))
-            (let $_rule
-               (BenchCompileAdd $print-before-compile
-                  (: (bench-noise-back-rule $bench $noise-idx $step) $rule-type (STV 1.0 $conf)))
-               (BenchAddBackwardTailRules $bench
-                  $noise-idx
-                  (+ $step 1)
-                  $last-step
-                  $print-before-compile))))))
-
-(= (BenchGenerateBackwardChain $bench $noise-idx $chain-len $paths $print-before-compile)
-   (let $head-premise
-      (if (== $chain-len 1) (NoiseBlocker $bench $noise-idx) (NoiseBackStep $bench $noise-idx 1))
-      (let $_head (BenchAddBackwardHeadRule $bench $noise-idx $paths $head-premise $print-before-compile)
-         (if (== $chain-len 1) done
+         (let*
+            (($_meta (BenchMetaAdd (bench-noise-back-rule-meta $bench $noise-idx $step)))
+              ($_rule
+                 (BenchCompileAdd $print-before-compile
+                    (: (bench-noise-back-rule $bench $noise-idx $step) $rule-type (STV 1.0 $conf)))))
             (BenchAddBackwardTailRules $bench
                $noise-idx
-               1
-               (- $chain-len 1)
+               (+ $step 1)
+               $last-step
                $print-before-compile)))))
+
+(= (BenchGenerateBackwardChain $bench $noise-idx $chain-len $paths $print-before-compile)
+   (let*
+      (($head-premise
+           (if (== $chain-len 1) (NoiseBlocker $bench $noise-idx) (NoiseBackStep $bench $noise-idx 1)))
+        ($_head (BenchAddBackwardHeadRule $bench $noise-idx $paths $head-premise $print-before-compile)))
+      (if (== $chain-len 1) done
+         (BenchAddBackwardTailRules $bench
+            $noise-idx
+            1
+            (- $chain-len 1)
+            $print-before-compile))))
 
 (= (BenchNoiseSpan $remaining-statements $chain-len)
    (BenchMin $remaining-statements (if (< $chain-len 1) 1 $chain-len)))
@@ -233,18 +240,19 @@
            ($rule-type
               (Implication (cons Premises (cons $premise ())) (cons Conclusions (cons $conclusion ()))))
            ($conf (BenchGlobalConf)))
-         (let $_meta (BenchMetaAdd (bench-noise-forward-rule-meta $bench $noise-idx $step))
-            (let $_rule
-               (BenchCompileAdd $print-before-compile
-                  (: (bench-noise-forward-rule $bench $noise-idx $step) $rule-type (STV 1.0 $conf)))
-               (BenchAddForwardChainRulesRemaining $bench
-                  $noise-idx
-                  (+ $step 1)
-                  $chain-len
-                  $paths
-                  $depth
-                  $width
-                  $print-before-compile))))))
+         (let*
+            (($_meta (BenchMetaAdd (bench-noise-forward-rule-meta $bench $noise-idx $step)))
+              ($_rule
+                 (BenchCompileAdd $print-before-compile
+                    (: (bench-noise-forward-rule $bench $noise-idx $step) $rule-type (STV 1.0 $conf)))))
+            (BenchAddForwardChainRulesRemaining $bench
+               $noise-idx
+               (+ $step 1)
+               $chain-len
+               $paths
+               $depth
+               $width
+               $print-before-compile)))))
 
 (=
    (BenchGenerateBackwardNoiseRemaining $bench
@@ -254,14 +262,15 @@
       $paths
       $print-before-compile)
    (if (== $remaining-statements 0) done
-      (let $span (BenchNoiseSpan $remaining-statements $chain-len)
-         (let $_chain (BenchGenerateBackwardChain $bench $noise-idx $span $paths $print-before-compile)
-            (BenchGenerateBackwardNoiseRemaining $bench
-               (+ $noise-idx 1)
-               (- $remaining-statements $span)
-               $chain-len
-               $paths
-               $print-before-compile)))))
+      (let*
+         (($span (BenchNoiseSpan $remaining-statements $chain-len))
+           ($_chain (BenchGenerateBackwardChain $bench $noise-idx $span $paths $print-before-compile)))
+         (BenchGenerateBackwardNoiseRemaining $bench
+            (+ $noise-idx 1)
+            (- $remaining-statements $span)
+            $chain-len
+            $paths
+            $print-before-compile))))
 
 (=
    (BenchGenerateForwardNoiseRemaining $bench
@@ -273,24 +282,25 @@
       $width
       $print-before-compile)
    (if (== $remaining-statements 0) done
-      (let $span (BenchNoiseSpan $remaining-statements $chain-len)
-         (let $_chain
-            (BenchAddForwardChainRulesRemaining $bench
-               $noise-idx
-               1
-               $span
-               $paths
-               $depth
-               $width
-               $print-before-compile)
-            (BenchGenerateForwardNoiseRemaining $bench
-               (+ $noise-idx 1)
-               (- $remaining-statements $span)
-               $chain-len
-               $paths
-               $depth
-               $width
-               $print-before-compile)))))
+      (let*
+         (($span (BenchNoiseSpan $remaining-statements $chain-len))
+           ($_chain
+              (BenchAddForwardChainRulesRemaining $bench
+                 $noise-idx
+                 1
+                 $span
+                 $paths
+                 $depth
+                 $width
+                 $print-before-compile)))
+         (BenchGenerateForwardNoiseRemaining $bench
+            (+ $noise-idx 1)
+            (- $remaining-statements $span)
+            $chain-len
+            $paths
+            $depth
+            $width
+            $print-before-compile))))
 
 (= (BenchTrueStatementCount $bench) (+ (BenchBaseFactCount $bench) (BenchMainRuleCount $bench)))
 
@@ -313,13 +323,14 @@
         ($desired-backward (BenchIntDiv (* $noise-total $backward-ratio) 100))
         ($backward-budget (if (< $desired-backward 1) 0 (BenchMin $noise-total $desired-backward)))
         ($forward-budget (- $noise-total $backward-budget)))
-      (let $_backward
-         (BenchGenerateBackwardNoiseRemaining $bench
-            1
-            $backward-budget
-            $backward-chain-len
-            $paths
-            $print-before-compile)
+      (let*
+         (($_backward
+              (BenchGenerateBackwardNoiseRemaining $bench
+                 1
+                 $backward-budget
+                 $backward-chain-len
+                 $paths
+                 $print-before-compile)))
          (BenchGenerateForwardNoiseRemaining $bench
             (+ 1 $backward-budget)
             $forward-budget
@@ -347,35 +358,36 @@
          $backward-ratio
          $backward-chain-len
          $forward-chain-len)
-      (let $_spec
-         (BenchMetaAdd
-            (bench-spec $bench
-               $depth
-               $width
-               $paths
-               $noise-factor
-               $backward-ratio
-               $backward-chain-len
-               $forward-chain-len))
-         (let $_paths (BenchGeneratePaths $bench $paths $depth $width $print-before-compile)
-            (let $_noise
-               (BenchGenerateNoiseByFactor $bench
-                  $depth
-                  $width
-                  $paths
-                  $noise-factor
-                  $backward-ratio
-                  $backward-chain-len
-                  $forward-chain-len
-                  $print-before-compile)
-               (BenchmarkGenerated $bench
-                  $depth
-                  $width
-                  $paths
-                  $noise-factor
-                  $backward-ratio
-                  $backward-chain-len
-                  $forward-chain-len))))
+      (let*
+         (($_spec
+              (BenchMetaAdd
+                 (bench-spec $bench
+                    $depth
+                    $width
+                    $paths
+                    $noise-factor
+                    $backward-ratio
+                    $backward-chain-len
+                    $forward-chain-len)))
+           ($_paths (BenchGeneratePaths $bench $paths $depth $width $print-before-compile))
+           ($_noise
+              (BenchGenerateNoiseByFactor $bench
+                 $depth
+                 $width
+                 $paths
+                 $noise-factor
+                 $backward-ratio
+                 $backward-chain-len
+                 $forward-chain-len
+                 $print-before-compile)))
+         (BenchmarkGenerated $bench
+            $depth
+            $width
+            $paths
+            $noise-factor
+            $backward-ratio
+            $backward-chain-len
+            $forward-chain-len))
       (BenchGenerateError invalid-params
          $bench
          $depth

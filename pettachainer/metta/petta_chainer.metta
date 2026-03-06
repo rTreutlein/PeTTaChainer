@@ -49,8 +49,10 @@
 !(import! &self backward_chainer)
 
 (= (nextid)
-   (let $mn (catch (get-state ruleid))
-      (let $n (if-error $mn 0 $mn) (progn (change-state! ruleid (+ $n 1)) $n))))
+   (let*
+      (($mn (catch (get-state ruleid)))
+        ($n (if-error $mn 0 $mn)))
+      (progn (change-state! ruleid (+ $n 1)) $n)))
 
 (= (add-prem $vars $id $idx $prem) (progn (add-atom &prem_index ($prem $id $idx)) (+ $idx 1)))
 
