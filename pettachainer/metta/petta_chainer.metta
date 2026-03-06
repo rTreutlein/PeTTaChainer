@@ -16,9 +16,9 @@
 
 !(bind! &bench_meta (new-space))
 
-!(import! &self backward_chainer)
 !(import! &self dist_formulas)
 !(import! &self tv_formulas)
+!(import! &self backward_chainer)
 
 (= (nextid)
    (let $mn (catch (get-state ruleid))

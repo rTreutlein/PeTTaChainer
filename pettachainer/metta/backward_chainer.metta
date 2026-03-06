@@ -40,8 +40,8 @@
    (let*
       (($gid (proof-goal-by-id $pid))
         ($goal (goal-term-by-id $gid))
-        ($kind (reduce (proof-kind-by-id $pid)))
-        ($tv (reduce (proof-tv-by-id $pid))))
+        ($kind (proof-kind-by-id $pid))
+        ($tv (proof-tv-by-id $pid)))
       (if (= $goal (: $kb $_prf $type $_goal-tv)) (: $kb (proof-ref $pid) $type $tv)
          (case $kind (
               ((leaf $_ev $term) $term)
@@ -75,7 +75,7 @@
    (let*
       (($gid (proof-goal-by-id $pid))
         ((: $kb $_prf $type $_goal-tv) (goal-term-by-id $gid))
-        ($tv (reduce (proof-tv-by-id $pid))))
+        ($tv (proof-tv-by-id $pid)))
       (: $kb (proof-ref $pid) $type $tv)))
 
 (= (merge-goal-proof-atoms $goal $pid) (merge-proof-atoms $goal (proof-output-atom $pid)))
@@ -253,8 +253,8 @@
 (= (advance-frontier $fid $pid)
    (let*
       (((frontier-state $aid $bundle $score $seen $rev-pids) (frontier-state-by-id $fid))
-        ($pev (reduce (proof-evidence-by-id $pid)))
-        ($pscore (reduce (proof-score-by-id $pid))))
+        ($pev (proof-evidence-by-id $pid))
+        ($pscore (proof-score-by-id $pid)))
       (if (== $aid none) ()
          (if (evidence-sets-overlap? $seen $pev) ()
             (let $next-bundle (advance-frontier-bundle (copy_term $bundle) $pid)
@@ -262,7 +262,7 @@
                   (spawn-frontier $aid
                      $next-bundle
                      (min $score $pscore)
-                     (list_to_set (reduce (list-append $seen $pev)))
+                     (list_to_set (list-append $seen $pev))
                      (cons $pid $rev-pids))))))))
 
 (= (register-rule-option $parent-gid (rule-option $rule-id $bound $bundle))
@@ -347,7 +347,7 @@
         ($root-gid (ensure-goal $goal))
         ($_sched (schedule-goal 1.0 $root-gid))
         ($_search (if (<= $steps 0) () (search-goals (+ $steps 1)))))
-      (let $results (reduce (goal-results $root-gid)) $results)))
+      (let $results (goal-results $root-gid) $results)))
 
 (= (unwrap $x) (if (== $x #) $any $x))
 
@@ -402,8 +402,7 @@
 
 (= (Map2DistRuntimeFormula $steps $kb $fun $a $b)
    (let (: $prfa $a $tva) (query $steps $kb (: $prfa $a $tva))
-      (let (: $prfb $b $tvb) (query $steps $kb (: $prfb $b $tvb))
-         (reduce (DistMap2Formula $fun $tva $tvb)))))
+      (let (: $prfb $b $tvb) (query $steps $kb (: $prfb $b $tvb)) (DistMap2Formula $fun $tva $tvb))))
 
 (= (FoldAllTVRuntimeFormula $steps $kb $pattern $init $fun) (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun))
 
