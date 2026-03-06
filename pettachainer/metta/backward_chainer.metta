@@ -1,43 +1,342 @@
+(= (goal-term-by-id $gid)
+   (let $goals (collapse (match &goal_store (goal-node $gid $goal) $goal))
+      (if (== $goals ()) (empty) (car-atom $goals))))
+
+(= (goal-expanded? $gid) (not (== (collapse (match &goal_store (goal-expanded $gid) true)) ())))
+
+(= (goal-pending-score-of $gid)
+   (let $scores (collapse (match &goal_store (goal-pending-score $gid $score) $score))
+      (if (== $scores ()) 0.0 (car-atom $scores))))
+
+(= (clear-goal-pending-score $gid)
+   (progn
+      (collapse
+         (match &goal_store (goal-pending-score $gid $score)
+            (remove-atom &goal_store (goal-pending-score $gid $score))))
+      ()))
+
+(= (proof-goal-by-id $pid)
+   (let $gids (collapse (match &proof_store (proof-goal $pid $gid) $gid))
+      (if (== $gids ()) (empty) (car-atom $gids))))
+
+(= (proof-children-by-id $pid)
+   (let $kids-list (collapse (match &proof_store (proof-children $pid $kids) $kids))
+      (if (== $kids-list ()) () (car-atom $kids-list))))
+
+(= (and-bundle-by-id $aid)
+   (let $bundles (collapse (match &goal_store (and-node $aid $_parent $_rule $_bound $bundle) $bundle))
+      (if (== $bundles ()) () (car-atom $bundles))))
+
+(= (instantiate-aid-with-pids $aid $pid-list)
+   (let $bundle (and-bundle-by-id $aid)
+      (if (== $bundle ()) () (instantiate-and-bundle (copy_term $bundle) $pid-list))))
+
+(= (proof-unify-term $pid)
+   (let*
+      (($gid (proof-goal-by-id $pid))
+        ($goal (goal-term-by-id $gid))
+        ($kind (reduce (proof-kind-by-id $pid)))
+        ($tv (reduce (proof-tv-by-id $pid))))
+      (if (= $goal (: $kb $_prf $type $_goal-tv)) (: $kb (proof-ref $pid) $type $tv)
+         (case $kind (
+              ((leaf $_ev $term) $term)
+              ($other (empty)))))))
+
+(= (materialize-proof-refs $term)
+   (if (= $term (proof-ref $pid)) (materialize-proof $pid)
+      (if (is-expr $term)
+         (cons (materialize-proof-refs (car-atom $term)) (materialize-proof-refs-list (cdr-atom $term)))
+         $term)))
+
+(= (materialize-proof-refs-list ()) ())
+(= (materialize-proof-refs-list (cons $head $tail))
+   (cons (materialize-proof-refs $head) (materialize-proof-refs-list $tail)))
+
+(= (materialize-rule-proof $aid $pid-list)
+   (case (instantiate-aid-with-pids $aid $pid-list) (
+        ((and-bundle (: $_kb $prf $_type $_tv) $_rest) (materialize-proof-refs $prf))
+        ($other $other))))
+
+(= (materialize-proof $pid)
+   (case (proof-kind-by-id $pid) (
+        ((leaf $_ev $raw) $raw)
+        ((rule $aid) (materialize-rule-proof $aid (proof-children-by-id $pid)))
+        ((revision $left $right) (merge/revision (materialize-proof $left) (materialize-proof $right)))
+        ($other $other))))
+
+(= (proof-output-atom $pid)
+   (let*
+      (($gid (proof-goal-by-id $pid))
+        ((: $kb $_prf $type $_goal-tv) (goal-term-by-id $gid))
+        ($tv (reduce (proof-tv-by-id $pid)))
+        ($prf (reduce (materialize-proof $pid))))
+      (: $kb $prf $type $tv)))
+
+(= (merge-goal-proof-atoms $goal $pid) (merge-proof-atoms $goal (proof-output-atom $pid)))
+
+(= (merge-goal-proof-list $goal ()) $goal)
+(= (merge-goal-proof-list $goal (cons $pid $rest))
+   (merge-goal-proof-list (merge-goal-proof-atoms $goal $pid) $rest))
+
+(= (goal-results $gid)
+   (let $pids (collapse (match &proof_store (goal-proof $gid $pid) $pid))
+      (if (== $pids ()) ()
+         (cons (merge-goal-proof-list (proof-output-atom (car-atom $pids)) (cdr-atom $pids)) ()))))
+
+(= (ensure-goal $goal)
+   (let $hits
+      (collapse
+         (match &goal_store (goal-node $gid $stored-goal)
+            (if (goal-key-eq? $stored-goal $goal) $gid (empty))))
+      (if (== $hits ())
+         (let*
+            (($gid (next-gid))
+              ($stored-goal (copy_term $goal))
+              ($_ (add-atom &goal_store (goal-node $gid $stored-goal))))
+            $gid)
+         (car-atom $hits))))
+
+(= (schedule-goal $score $gid)
+   (if (goal-expanded? $gid) ()
+      (let $current (goal-pending-score-of $gid)
+         (if (>= $current $score) ()
+            (progn
+               (clear-goal-pending-score $gid)
+               (add-atom &goal_store (goal-pending-score $gid $score))
+               ())))))
+
+(= (goal-has-ancestor? $gid $ancestor) (goal-has-ancestor-seen? $gid $ancestor ()))
+
+(= (goal-has-ancestor-seen? $gid $ancestor $seen)
+   (if (== $gid $ancestor) true
+      (if (is-member $gid $seen) false
+         (let $parents
+            (collapse
+               (match &goal_store (goal-waiter $gid $fid)
+                  (match &goal_store (frontier $fid $aid $_bundle $_score $_seen $_rev)
+                     (match &goal_store (and-node $aid $parent $_rule $_bound $_node-bundle)
+                        $parent))))
+            (goals-have-ancestor? $parents $ancestor (cons $gid $seen))))))
+
+(= (goals-have-ancestor? () $ancestor $seen) false)
+(= (goals-have-ancestor? (cons $gid $rest) $ancestor $seen)
+   (or (goal-has-ancestor-seen? $gid $ancestor $seen) (goals-have-ancestor? $rest $ancestor $seen)))
+
+(= (direct-goal-results $steps $goal)
+   (if (= $goal (CPU $fun $args $_res)) ((CPU $fun $args (cpu-call $steps $fun $args)))
+      (let (: $kb $prf $type $tv) $goal
+         (let $utype (if (and (is-expr $type) (contains-hash? $type)) (map-nested unwrap $type) $type)
+            (collapse (match &kb (: $kb $prf $utype $tv) (: $kb $prf $type $tv)))))))
+
+(= (leaf-evidence-for-result $result)
+   (if (= $result (: $_kb $_prf $_type $_tv)) (proof-atom-evidence-set $result) ()))
+
+(= (store-leaf-proof $gid $result)
+   (let*
+      (($pid (next-pid))
+        ($score (term-confidence $result))
+        ($ev (leaf-evidence-for-result $result))
+        ($_1 (add-atom &proof_store (proof-goal $pid $gid)))
+        ($_2 (add-atom &proof_store (proof-score $pid $score)))
+        ($_3 (add-atom &proof_store (proof-evidence $pid $ev)))
+        ($_4 (add-atom &proof_store (proof-children $pid ()))))
+      (if (= $result (: $_kb $prf $_type $tv))
+         (let*
+            (($_5 (add-atom &proof_store (proof-kind $pid (leaf $ev $prf))))
+              ($_6 (add-atom &proof_store (proof-tv $pid $tv))))
+            $pid)
+         (let $_5 (add-atom &proof_store (proof-kind $pid (leaf $ev $result))) $pid))))
+
+(= (proof-overlap-dominates? $winner $loser)
+   (let*
+      (($evw (proof-evidence-by-id $winner))
+        ($evl (proof-evidence-by-id $loser))
+        ($overlap (evidence-sets-overlap? $evw $evl))
+        ($sw (proof-score-by-id $winner))
+        ($sl (proof-score-by-id $loser)))
+      (and $overlap (>= $sw $sl))))
+
+(= (prune-dominated-goal-proofs $gid $pid)
+   (progn
+      (collapse
+         (match &proof_store (goal-proof $gid $oldpid)
+            (if (proof-overlap-dominates? $pid $oldpid)
+               (progn (remove-atom &proof_store (goal-proof $gid $oldpid))
+                  (add-atom &proof_store (proof-status $oldpid (dominated $pid))))
+               ())))
+      ()))
+
+(= (goal-proof-rejected? $gid $pid)
+   (not
+      (==
+         (collapse
+            (match &proof_store (goal-proof $gid $oldpid)
+               (if (proof-overlap-dominates? $oldpid $pid) $oldpid (empty))))
+         ())))
+
+(= (advance-frontier-list $_pid ()) ())
+(= (advance-frontier-list $pid (cons $fid $rest))
+   (progn (advance-frontier $fid $pid) (advance-frontier-list $pid $rest)))
+
+(= (advance-proof-list-into-frontier $_fid ()) ())
+(= (advance-proof-list-into-frontier $fid (cons $pid $rest))
+   (progn (advance-frontier $fid $pid) (advance-proof-list-into-frontier $fid $rest)))
+
+(= (attach-existing-goal-proofs $fid $gid)
+   (advance-proof-list-into-frontier $fid (collapse (match &proof_store (goal-proof $gid $pid) $pid))))
+
+(= (register-proof $gid $pid)
+   (if (goal-proof-rejected? $gid $pid)
+      (progn (add-atom &proof_store (proof-status $pid (dominated existing))) ())
+      (progn
+         (prune-dominated-goal-proofs $gid $pid)
+         (add-atom &proof_store (goal-proof $gid $pid))
+         (add-atom &proof_store (proof-status $pid live))
+         (advance-frontier-list $pid (collapse (match &goal_store (goal-waiter $gid $fid) $fid))))))
+
+(= (emit-leaf-result $gid $result) (register-proof $gid (store-leaf-proof $gid $result)))
+
+(= (emit-leaf-results $_gid ()) ())
+(= (emit-leaf-results $gid (cons $result $rest))
+   (progn (emit-leaf-result $gid $result) (emit-leaf-results $gid $rest)))
+
+(= (expand-direct-goal $steps $gid $goal) (emit-leaf-results $gid (direct-goal-results $steps $goal)))
+
+(= (advance-frontier-bundle (and-bundle $_goal ()) $_pid) ())
+(= (advance-frontier-bundle (and-bundle $goal (cons $prem $rest)) $pid)
+   (if (= $prem (proof-unify-term $pid)) (and-bundle $goal $rest) ()))
+
+(= (spawn-frontier $aid $bundle $score $seen $rev-pids)
+   (case $bundle (
+        ((and-bundle $goal ()) (build-parent-proof $aid $bundle $score $seen (list-reverse $rev-pids)))
+        ((and-bundle $_goal (cons $prem $_rest))
+           (let $gid (ensure-goal $prem)
+              (if (goal-has-ancestor? (frontier-parent-gid-or-aid $aid) $gid) ()
+                 (let*
+                    (($fid (next-fid))
+                      ($stored-bundle (copy_term $bundle))
+                      ($_1 (add-atom &goal_store (frontier $fid $aid $stored-bundle $score $seen $rev-pids)))
+                      ($_2 (add-atom &goal_store (goal-waiter $gid $fid))))
+                    (progn
+                       (attach-existing-goal-proofs $fid $gid)
+                       (schedule-goal $score $gid)
+                       ()))))))))
+
+(= (frontier-parent-gid-or-aid $aid)
+   (let $parents (collapse (match &goal_store (and-node $aid $parent $_rule $_bound $_bundle) $parent))
+      (if (== $parents ()) (empty) (car-atom $parents))))
+
+(= (frontier-state-by-id $fid)
+   (let $states
+      (collapse
+         (match &goal_store (frontier $fid $aid $bundle $score $seen $rev-pids)
+            (frontier-state $aid
+               $bundle
+               $score
+               $seen
+               $rev-pids)))
+      (if (== $states ()) (frontier-state none () 0.0 () ()) (car-atom $states))))
+
+(= (advance-frontier $fid $pid)
+   (let*
+      (((frontier-state $aid $bundle $score $seen $rev-pids) (frontier-state-by-id $fid))
+        ($pev (reduce (proof-evidence-by-id $pid)))
+        ($pscore (reduce (proof-score-by-id $pid))))
+      (if (== $aid none) ()
+         (if (evidence-sets-overlap? $seen $pev) ()
+            (let $next-bundle (advance-frontier-bundle (copy_term $bundle) $pid)
+               (if (== $next-bundle ()) ()
+                  (spawn-frontier $aid
+                     $next-bundle
+                     (min $score $pscore)
+                     (list_to_set (reduce (list-append $seen $pev)))
+                     (cons $pid $rev-pids))))))))
+
+(= (register-rule-option $parent-gid (rule-option $rule-id $bound $bundle))
+   (let*
+      (($aid (next-aid))
+        ($_1 (add-atom &goal_store (and-node $aid $parent-gid $rule-id $bound $bundle))))
+      (spawn-frontier $aid
+         $bundle
+         $bound
+         ()
+         ())))
+
+(= (goal-rule-options $goal)
+   (if (proof-atom? $goal)
+      (collapse
+         (let*
+            (($id (match &ccls_index ($goal $id) $id))
+              (($_id $_matched-goal $args) (match &rules ($id $goal $args) ($_id $_matched-goal $args)))
+              ($bound (premises-expected-confidence $args))
+              ($bundle (copy_term (and-bundle $goal $args))))
+            (rule-option $id $bound $bundle)))
+      ()))
+
+(= (register-rule-options $_parent-gid ()) ())
+(= (register-rule-options $parent-gid (cons $option $rest))
+   (progn (register-rule-option $parent-gid $option) (register-rule-options $parent-gid $rest)))
+
+(= (expand-rule-goal $parent-gid $goal) (register-rule-options $parent-gid (goal-rule-options $goal)))
+
+(= (expand-goal $steps $gid)
+   (if (goal-expanded? $gid) ()
+      (let*
+         (($goal (goal-term-by-id $gid))
+           ($_1 (add-atom &goal_store (goal-expanded $gid))))
+         (progn
+            (expand-direct-goal $steps $gid $goal)
+            (expand-rule-goal $gid $goal)
+            ()))))
+
+(= (pending-goals) (collapse (match &goal_store (goal-pending-score $gid $score) (pending-goal $gid $score))))
+
+(= (better-pending-goal (pending-goal $gid-a $score-a) (pending-goal $gid-b $score-b))
+   (if (> $score-a $score-b) (pending-goal $gid-a $score-a)
+      (if (> $score-b $score-a) (pending-goal $gid-b $score-b)
+         (if (< $gid-a $gid-b) (pending-goal $gid-a $score-a) (pending-goal $gid-b $score-b)))))
+
+(= (best-pending-goal (cons $goal ())) $goal)
+(= (best-pending-goal (cons $goal $rest)) (better-pending-goal $goal (best-pending-goal $rest)))
+
+(= (search-goals $steps)
+   (if (<= $steps 0) ()
+      (let $pending (pending-goals)
+         (if (== $pending ()) ()
+            (let (pending-goal $gid $_score) (best-pending-goal $pending)
+               (progn
+                  (clear-goal-pending-score $gid)
+                  (expand-goal $steps $gid)
+                  (search-goals (- $steps 1))))))))
+
+(= (instantiate-and-bundle (and-bundle $goal ()) ()) (and-bundle $goal ()))
+(= (instantiate-and-bundle (and-bundle $goal (cons $prem $rest)) (cons $pid $pids))
+   (if (= $prem (proof-unify-term $pid)) (instantiate-and-bundle (and-bundle $goal $rest) $pids) (empty)))
+
+(= (build-parent-proof $aid (and-bundle (: $_kb $_prf $_type $tv) ()) $score $ev $pid-list)
+   (let*
+      (($parent-gid (frontier-parent-gid-or-aid $aid))
+        ($pid (next-pid))
+        ($_1 (add-atom &proof_store (proof-goal $pid $parent-gid)))
+        ($_2 (add-atom &proof_store (proof-kind $pid (rule $aid))))
+        ($_3 (add-atom &proof_store (proof-tv $pid $tv)))
+        ($_4 (add-atom &proof_store (proof-score $pid $score)))
+        ($_5 (add-atom &proof_store (proof-evidence $pid $ev)))
+        ($_6 (add-atom &proof_store (proof-children $pid $pid-list))))
+      (register-proof $parent-gid $pid)))
+
 (= (chainer $steps $goal)
    (let*
-      (($_rclear (remove-all-atoms &resume_cache))
-        ($_gclear (remove-all-atoms &goal_cache))
-        ((state $pq $_rcache $_gcache)
-           (enqueue-goal-state $steps
-              (state (empty_heap) &resume_cache &goal_cache)
-              1.0
-              ()
-              $goal))
-        ($_ (search-rules $steps $pq &resume_cache &goal_cache)))
-      (collapse (match &goal_cache (gmerge $result-goal) $result-goal))))
-
-(= (candidate-item-score (qitem $score $_payload)) $score)
-
-(= (candidate-items-max-score ()) 0.0)
-(= (candidate-items-max-score (cons $head $tail))
-   (max (candidate-item-score $head) (candidate-items-max-score $tail)))
-
-(= (rule-candidate-backoff-item $direct-max (qitem $score $payload))
-   (let $factor (rule-candidate-backoff-factor-from-direct $direct-max)
-      (qitem (* $score (- 1 $direct-max)) $payload)))
-
-(= (enqueue-goal-state $steps $state $max-score $cont $goal)
-   (let*
-      (($direct-items (collapse (direct-goal-items $steps $max-score $cont $goal)))
-        ($rule-items (collapse (rule-candidate-items $max-score $cont $goal)))
-        ($state1 (fold-flat state-enqueue-item $state $direct-items)))
-      (if (== $direct-items ()) (fold-flat state-enqueue-item $state1 $rule-items)
-         (let*
-            (($direct-max (candidate-items-max-score $direct-items))
-              ($deferred-rules (map-flat (rule-candidate-backoff-item $direct-max) $rule-items)))
-            (fold-flat state-enqueue-item $state1 $deferred-rules)))))
-
-(= (rule-candidate-items $max-score $cont $goal)
-   (let*
-      (($id (match &ccls_index ($goal $id) $id))
-        (($_id $_goal $args) (match &rules ($id $goal $args) ($_id $_goal $args)))
-        ($score (min $max-score (premises-expected-confidence $args))))
-      (candidate-item $score $args $goal $cont)))
+      (($_gclear (remove-all-atoms &goal_store))
+        ($_pclear (remove-all-atoms &proof_store))
+        ($_gidreset (change-state! bwd_gid 0))
+        ($_aidreset (change-state! bwd_aid 0))
+        ($_fidreset (change-state! bwd_fid 0))
+        ($_pidreset (change-state! bwd_pid 0))
+        ($root-gid (ensure-goal $goal))
+        ($_sched (schedule-goal 1.0 $root-gid))
+        ($_search (if (<= $steps 0) () (search-goals (+ $steps 1)))))
+      (let $results (reduce (goal-results $root-gid)) $results)))
 
 (= (unwrap $x) (if (== $x #) $any $x))
 
@@ -47,87 +346,6 @@
 
 (= (contains-hash-list ()) false)
 (= (contains-hash-list (cons $head $tail)) (or (contains-hash? $head) (contains-hash-list $tail)))
-
-(= (direct-goal-items $steps $max-score $cont $goal)
-   (let*
-      (($proof
-           (if (= $goal (CPU $fun $args $_res)) (CPU $fun $args (cpu-call $steps $fun $args))
-              (let (: $kb $prf $type $tv) $goal
-                 (let $utype
-                    (if (and (is-expr $type) (contains-hash? $type)) (map-nested unwrap $type) $type)
-                    (match &kb (: $kb $prf $utype $tv)
-                       (: $kb $prf $type $tv))))))
-        ($score (min $max-score (term-confidence $proof))))
-      (candidate-item $score () $proof $cont)))
-
-(= (payload-cand $payload) (if (= $payload (resume-cand $_rid $_type $_seen $cand)) $cand $payload))
-
-(= (payload-rid $payload) (if (= $payload (resume-cand $rid $_type $_seen $_cand)) $rid (nextctx)))
-
-(= (payload-seen-evidence $payload) (if (= $payload (resume-cand $_rid $_type $seen $_cand)) $seen ()))
-
-(= (payload-repack $payload $cand)
-   (if (= $payload (resume-cand $rid $type $seen $_old-cand)) (resume-cand $rid $type $seen $cand) $cand))
-
-(= (search-rules $steps $heap $rcache $gcache)
-   (if (or (== (heap_size $heap) 0) (<= $steps 0)) ()
-      (let*
-         (($pq-rest (get_from_heap $heap $_priority (qitem $score $payload)))
-           ((cand ((cons $prem $rest) |- $goal) $cont) (payload-cand $payload))
-           ($rid (payload-rid $payload))
-           ($seen-evidence (payload-seen-evidence $payload))
-           ((resume-template $rprem $_rrest $_rgoal) (copy_term (resume-template $prem $rest $goal)))
-           ($resume-template (copy_term (resume-template $prem $rest $goal)))
-           ((state $new-pq $_new-rcache $_new-gcache)
-              (enqueue-goal-state $steps
-                 (state $pq-rest $rcache $gcache)
-                 $score
-                 (cons (resume $rid $resume-template $score $seen-evidence) $cont)
-                 $rprem)))
-         (search-rules (- $steps 1) $new-pq $rcache $gcache))))
-
-(= (state-enqueue-cand (@ $state (state $pq $rcache $gcache)) $prio $payload $cand)
-   (case $cand (
-        ((cand (() |- $item-goal) ())
-           (progn (goal-cache-upsert $gcache $item-goal) (state $pq $rcache $gcache)))
-        ((cand (() |- $proved-goal) $cont)
-           (resume-merge-enqueue-cont (state $pq $rcache $gcache) $proved-goal $cont))
-        ((cand ((cons $arg $args) |- $item-goal) $cont)
-           (if (has-active-premise? (cons $arg $args) $cont) (state $pq $rcache $gcache)
-              (state
-                 (add_to_heap $pq
-                    (- 0 $prio)
-                    (qitem $prio (payload-repack $payload (cand ((cons $arg $args) |- $item-goal) $cont))))
-                 $rcache
-                 $gcache))))))
-
-(= (state-enqueue-item (state $pq $rcache $gcache) (qitem $prio $payload))
-   (state-enqueue-cand (state $pq $rcache $gcache) $prio $payload (payload-cand $payload)))
-
-(= (resume-cont-has-type? () $type) false)
-(=
-   (resume-cont-has-type?
-      (cons
-         (resume $_rid
-            (resume-template $_prem $_rest (: $_kb $_prf $goal-type $_tv))
-            $_score
-            $_seen-evidence)
-         $tail)
-      $type)
-   (or (=alpha $goal-type $type) (resume-cont-has-type? $tail $type)))
-
-(= (premises-have-active-type? () $cont) false)
-(= (premises-have-active-type? (cons $prem $rest) $cont)
-   (if (= $prem (: $_kb $_prf $type $_tv))
-      (or (resume-cont-has-type? $cont $type) (premises-have-active-type? $rest $cont))
-      (premises-have-active-type? $rest $cont)))
-
-(= (premise-goal-keys ()) ())
-(= (premise-goal-keys (cons $prem $rest))
-   (if (= $prem (: $_kb $_prf $_type $_tv)) (cons (goal-type-key $prem) (premise-goal-keys $rest))
-      (premise-goal-keys $rest)))
-
-(= (has-active-premise? $args $cont) (premises-have-active-type? $args $cont))
 
 (= (cpu-needs-steps $fun)
    (is-member $fun

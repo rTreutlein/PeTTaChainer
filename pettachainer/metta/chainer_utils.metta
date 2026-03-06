@@ -1,13 +1,3 @@
-(: Nat Type)
-(: Z Nat)
-(: S (-> Nat Nat))
-(: fromNumber (-> Number Nat))
-(= (fromNumber $n) (if (<= $n 0) Z (S (fromNumber (- $n 1)))))
-
-(: fromNat (-> Nat Number))
-(= (fromNat Z) 0)
-(= (fromNat (S $k)) (+ 1 (fromNat $k)))
-
 (= (or-1.0 $x) (if (is-var $x) 1.0 $x))
 
 (= (tv-confidence $tv) (if (is-var $tv) 1.0 (if (= $tv (STV $_s $c)) (or-1.0 $c) 1.0)))
@@ -33,14 +23,6 @@
 (= (premises-expected-confidence (cons $prem $rest))
    (min (term-confidence $prem) (premises-expected-confidence $rest)))
 
-(= (goal-type-key $goal) (if (proof-atom? $goal) (let (: $_kb $_prf $type $_tv) $goal $type) $goal))
-
-(= (same-alpha-type? $a $b)
-   (let*
-      (($ka (goal-type-key $a))
-        ($kb (goal-type-key $b)))
-      (or (== $ka $kb) (=alpha $ka $kb))))
-
 (= (K) 800)
 
 (= (confidence-to-count $conf) (/ (* $conf (K)) (- 1 (min-atom ($conf 0.9999)))))
@@ -61,22 +43,69 @@
 (= (RevisionMergeProof (: $kb $prf1 $type1 $tv1) (: $_kb2 $prf2 $_type2 $tv2))
    (: $kb (merge/revision $prf1 $prf2) $type1 (if (and (= $tv1 (STV $_m1 $_c1)) (= $tv2 (STV $_m2 $_c2))) (mergetvs $tv1 $tv2) $tv1)))
 
+(= (list-append () $ys) $ys)
+(= (list-append (cons $x $xs) $ys) (cons $x (list-append $xs $ys)))
+
+(= (list-reverse-acc () $acc) $acc)
+(= (list-reverse-acc (cons $head $tail) $acc) (list-reverse-acc $tail (cons $head $acc)))
+
+(= (list-reverse $xs) (list-reverse-acc $xs ()))
+
 (= (proof-atom? $term) (if (and (not (is-var $term)) (= $term (: $_kb $_prf $_type $_tv))) true false))
+
+(= (goal-key-eq? $a $b)
+   (if (= $a (: $kba $_prfa $typea $_tva))
+      (if (= $b (: $kbb $_prfb $typeb $_tvb))
+         (and (== $kba $kbb) (or (== $typea $typeb) (=alpha $typea $typeb)))
+         false)
+      (or (== $a $b) (=alpha $a $b))))
+
+(= (next-search-id $key)
+   (let $mn (catch (get-state $key))
+      (let $n (if-error $mn 0 $mn) (progn (change-state! $key (+ $n 1)) $n))))
+
+(= (next-gid) (next-search-id bwd_gid))
+
+(= (next-aid) (next-search-id bwd_aid))
+
+(= (next-pid) (next-search-id bwd_pid))
+
+(= (next-fid) (next-search-id bwd_fid))
+
+(= (proof-score-by-id $pid)
+   (let $scores (collapse (match &proof_store (proof-score $pid $score) $score))
+      (if (== $scores ()) 0.0 (car-atom $scores))))
+
+(= (proof-tv-by-id $pid)
+   (let $tvs (collapse (match &proof_store (proof-tv $pid $tv) $tv))
+      (if (== $tvs ()) (STV 1.0 1.0) (car-atom $tvs))))
+
+(= (proof-evidence-by-id $pid)
+   (let $evidence (collapse (match &proof_store (proof-evidence $pid $ev) $ev))
+      (if (== $evidence ()) () (car-atom $evidence))))
+
+(= (proof-kind-by-id $pid)
+   (let $kinds (collapse (match &proof_store (proof-kind $pid $kind) $kind))
+      (if (== $kinds ()) (empty) (car-atom $kinds))))
+
+(= (proof-term-tree $prf) (if (= $prf (proof-ref $pid)) (materialize-proof $pid) $prf))
 
 (= (proof-tree-contains-list () $needle) false)
 (= (proof-tree-contains-list (cons $head $tail) $needle)
    (or (proof-tree-contains $head $needle) (proof-tree-contains-list $tail $needle)))
 
 (= (proof-tree-contains $tree $needle)
-   (if (== $tree $needle) true (if (is-expr $tree) (proof-tree-contains-list (cdr-atom $tree) $needle) false)))
+   (let*
+      (($ptree (proof-term-tree $tree))
+        ($pneedle (proof-term-tree $needle)))
+      (if (== $ptree $pneedle) true
+         (if (is-expr $ptree) (proof-tree-contains-list (cdr-atom $ptree) $pneedle) false))))
 
 (= (merge-proof-term? $prf) (if (= $prf (merge/revision $_a $_b)) true false))
 
-(= (list-append () $ys) $ys)
-(= (list-append (cons $x $xs) $ys) (cons $x (list-append $xs $ys)))
-
 (= (proof-term-evidence-list $prf)
-   (if (is-var $prf) () (if (is-expr $prf) (proof-term-evidence-list-args (cdr-atom $prf)) (cons $prf ()))))
+   (if (= $prf (proof-ref $pid)) (proof-evidence-by-id $pid)
+      (if (is-var $prf) () (if (is-expr $prf) (proof-term-evidence-list-args (cdr-atom $prf)) (cons $prf ())))))
 
 (= (proof-term-evidence-list-args ()) ())
 (= (proof-term-evidence-list-args (cons $head $tail))
@@ -106,91 +135,3 @@
                               (RevisionMergeProof $proof-a $proof-b)
                               (RevisionMergeProof $proof-b $proof-a))))))))
          $proof-a)))
-
-(= (goal-cache-upsert $gcache $goal)
-   (let*
-      (($hits
-           (collapse
-              (match $gcache (gmerge $old-goal)
-                 (if (same-alpha-type? $old-goal $goal) $old-goal (empty)))))
-        ($_ (fold-flat (|-> ($acc $old-goal) (progn (remove-atom $gcache (gmerge $old-goal)) $acc)) () $hits))
-        ($merged-goal (fold-flat merge-proof-atoms $goal $hits))
-        ($_ (add-atom $gcache (gmerge $merged-goal))))
-      $merged-goal))
-
-(= (candidate-item $score $args $goal $cont)
-   (let $item (cand ($args |- $goal) $cont) (qitem $score (copy_term $item))))
-
-(= (heap-drop-resume-cand $heap $rid $proof)
-   (if (== (heap_size $heap) 0) (empty_heap)
-      (let*
-         (($rest (get_from_heap $heap $priority (qitem $score $payload)))
-           ($nrest (heap-drop-resume-cand $rest $rid $proof))
-           ($drop?
-              (case $payload (
-                   ((resume-cand $rid $rtype $_seen $_cand) (same-alpha-type? $rtype $proof))
-                   ($_p false)))))
-         (if $drop? $nrest (add_to_heap $nrest $priority (qitem $score $payload))))))
-
-(= (resume-cache-upsert $rcache $rid $proof)
-   (let*
-      (($hits
-           (collapse
-              (match $rcache (rmerge $rid $old-proof)
-                 (if (same-alpha-type? $old-proof $proof) $old-proof (empty)))))
-        ($had-hit (not (== $hits ())))
-        ($_
-           (fold-flat (|-> ($acc $old-proof) (progn (remove-atom $rcache (rmerge $rid $old-proof)) $acc))
-              ()
-              $hits))
-        ($merged-proof (fold-flat merge-proof-atoms $proof $hits))
-        ($_ (add-atom $rcache (rmerge $rid $merged-proof))))
-      (resume-cache-result $merged-proof $had-hit)))
-
-(=
-   (resume-merge-enqueue (state $pq $rcache $gcache)
-      $rid
-      $resume-template
-      $proved-goal
-      $parent-score
-      $seen-evidence
-      $rest-cont)
-   (let*
-      (((resume-cache-result $merged-proof $had-hit) (resume-cache-upsert $rcache $rid $proved-goal))
-        ($merged-compatible
-           (not (evidence-sets-overlap? $seen-evidence (proof-atom-evidence-set $merged-proof))))
-        ($resume-proof (if $merged-compatible $merged-proof $proved-goal))
-        ($resume-compatible
-           (if $merged-compatible true
-              (not (evidence-sets-overlap? $seen-evidence (proof-atom-evidence-set $proved-goal)))))
-        ((resume-template $prem $rest $goal) (copy_term $resume-template))
-        ($prem-compatible (if $resume-compatible (= $prem $resume-proof) false))
-        ($clean-pq
-           (if (and $had-hit $prem-compatible $merged-compatible)
-              (heap-drop-resume-cand $pq $rid $merged-proof)
-              $pq)))
-      (if $prem-compatible
-         (let*
-            (($new-score (min $parent-score (term-confidence $resume-proof)))
-              ($next-seen-evidence
-                 (list_to_set (list-append $seen-evidence (proof-atom-evidence-set $resume-proof)))))
-            (reduce
-               (state-enqueue-item (state $clean-pq $rcache $gcache)
-                  (qitem $new-score
-                     (resume-cand $rid
-                        (goal-type-key $resume-proof)
-                        $next-seen-evidence
-                        (cand ($rest |- $goal) $rest-cont))))))
-         (state $clean-pq $rcache $gcache))))
-
-(=
-   (resume-merge-enqueue-cont $state
-      $proved-goal
-      (cons (resume $rid $resume-template $parent-score $seen-evidence) $rest-cont))
-   (resume-merge-enqueue $state
-      $rid
-      $resume-template
-      $proved-goal
-      $parent-score
-      $seen-evidence
-      $rest-cont))

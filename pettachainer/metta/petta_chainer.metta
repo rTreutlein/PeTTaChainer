@@ -8,9 +8,9 @@
 !(import! &self chainer_utils)
 !(import! &self forward_chainer)
 
-!(bind! &resume_cache (new-space))
+!(bind! &goal_store (new-space))
 
-!(bind! &goal_cache (new-space))
+!(bind! &proof_store (new-space))
 
 !(bind! &particle_store (new-space))
 
@@ -50,5 +50,5 @@
    (let*
       (((cons (goal $query) $adds) (collapse (mm2compileQuery $kb $stmt)))
         ($_ (inject-compiled-adds $adds))
-        ($res (chainer $steps $query)))
+        ($res (reduce (chainer $steps $query))))
       (pretty (superpose $res))))
