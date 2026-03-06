@@ -1,6 +1,4 @@
-(= (goal-term-by-id $gid)
-   (let $goals (collapse (once (match &goal_by_id ($gid $goal) $goal)))
-      (if (== $goals ()) (empty) (car-atom $goals))))
+(= (goal-term-by-id $gid) (match &goal_by_id ($gid $goal) $goal))
 
 (= (backward-load-agenda)
    (let $magenda (catch (get-state bwd_agenda)) (if-error $magenda (empty_heap) $magenda)))
@@ -18,21 +16,14 @@
       (collapse (match &goal_pending_score ($gid $score) (remove-atom &goal_pending_score ($gid $score))))
       ()))
 
-(= (proof-goal-by-id $pid)
-   (let $gids (collapse (once (match &proof_goal ($pid $gid) $gid)))
-      (if (== $gids ()) (empty) (car-atom $gids))))
+(= (proof-goal-by-id $pid) (match &proof_goal ($pid $gid) $gid))
 
-(= (proof-children-by-id $pid)
-   (let $kids-list (collapse (once (match &proof_children ($pid $kids) $kids)))
-      (if (== $kids-list ()) () (car-atom $kids-list))))
+(= (proof-children-by-id $pid) (match &proof_children ($pid $kids) $kids))
 
-(= (and-bundle-by-id $aid)
-   (let $bundles (collapse (once (match &and_node ($aid $_parent $_rule $_bound $bundle) $bundle)))
-      (if (== $bundles ()) () (car-atom $bundles))))
+(= (and-bundle-by-id $aid) (match &and_node ($aid $_parent $_rule $_bound $bundle) $bundle))
 
 (= (instantiate-aid-with-pids $aid $pid-list)
-   (let $bundle (and-bundle-by-id $aid)
-      (if (== $bundle ()) () (instantiate-and-bundle (copy_term $bundle) $pid-list))))
+   (instantiate-and-bundle (copy_term (and-bundle-by-id $aid)) $pid-list))
 
 (= (proof-unify-term $pid)
    (let*
@@ -249,36 +240,29 @@
                        (schedule-goal $score $gid)
                        ()))))))))
 
-(= (frontier-parent-gid-or-aid $aid)
-   (let $parents (collapse (once (match &and_node ($aid $parent $_rule $_bound $_bundle) $parent)))
-      (if (== $parents ()) (empty) (car-atom $parents))))
+(= (frontier-parent-gid-or-aid $aid) (match &and_node ($aid $parent $_rule $_bound $_bundle) $parent))
 
 (= (frontier-state-by-id $fid)
-   (let $states
-      (collapse
-         (once
-            (match &frontier ($fid $aid $bundle $score $seen $rev-pids)
-               (frontier-state $aid
-                  $bundle
-                  $score
-                  $seen
-                  $rev-pids))))
-      (if (== $states ()) (frontier-state none () 0.0 () ()) (car-atom $states))))
+   (match &frontier ($fid $aid $bundle $score $seen $rev-pids)
+      (frontier-state $aid
+         $bundle
+         $score
+         $seen
+         $rev-pids)))
 
 (= (advance-frontier $fid $pid)
    (let*
       (((frontier-state $aid $bundle $score $seen $rev-pids) (frontier-state-by-id $fid))
         ($pev (proof-evidence-by-id $pid))
         ($pscore (proof-score-by-id $pid)))
-      (if (== $aid none) ()
-         (if (evidence-sets-overlap? $seen $pev) ()
-            (let $next-bundle (advance-frontier-bundle (copy_term $bundle) $pid)
-               (if (== $next-bundle ()) ()
-                  (spawn-frontier $aid
-                     $next-bundle
-                     (min $score $pscore)
-                     (list_to_set (list-append $seen $pev))
-                     (cons $pid $rev-pids))))))))
+      (if (evidence-sets-overlap? $seen $pev) ()
+         (let $next-bundle (advance-frontier-bundle (copy_term $bundle) $pid)
+            (if (== $next-bundle ()) ()
+               (spawn-frontier $aid
+                  $next-bundle
+                  (min $score $pscore)
+                  (list_to_set (list-append $seen $pev))
+                  (cons $pid $rev-pids)))))))
 
 (= (register-rule-option $parent-gid (rule-option $rule-id $bound $bundle))
    (let*
@@ -291,15 +275,13 @@
          ())))
 
 (= (goal-rule-options $goal)
-   (if (proof-atom? $goal)
-      (collapse
-         (let*
-            (($id (match &ccls_index ($goal $id) $id))
-              (($_id $_matched-goal $args) (match &rules ($id $goal $args) ($_id $_matched-goal $args)))
-              ($bound (premises-expected-confidence $args))
-              ($bundle (copy_term (and-bundle $goal $args))))
-            (rule-option $id $bound $bundle)))
-      ()))
+   (collapse
+      (let*
+         (($id (match &ccls_index ($goal $id) $id))
+           (($_id $_matched-goal $args) (match &rules ($id $goal $args) ($_id $_matched-goal $args)))
+           ($bound (premises-expected-confidence $args))
+           ($bundle (copy_term (and-bundle $goal $args))))
+         (rule-option $id $bound $bundle))))
 
 (= (register-rule-options $_parent-gid ()) ())
 (= (register-rule-options $parent-gid (cons $option $rest))

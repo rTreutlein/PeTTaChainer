@@ -86,21 +86,15 @@
 
 (= (next-fid) (next-search-id bwd_fid))
 
-(= (proof-score-by-id $pid)
-   (let $scores (collapse (once (match &proof_score ($pid $score) $score)))
-      (if (== $scores ()) 0.0 (car-atom $scores))))
+(= (proof-score-by-id $pid) (match &proof_score ($pid $score) $score))
 
 (= (proof-tv-by-id $pid)
    (let $tvs (collapse (once (match &proof_tv ($pid $tv) $tv)))
       (if (== $tvs ()) (STV 1.0 1.0) (car-atom $tvs))))
 
-(= (proof-evidence-by-id $pid)
-   (let $evidence (collapse (once (match &proof_evidence ($pid $ev) $ev)))
-      (if (== $evidence ()) () (car-atom $evidence))))
+(= (proof-evidence-by-id $pid) (match &proof_evidence ($pid $ev) $ev))
 
-(= (proof-kind-by-id $pid)
-   (let $kinds (collapse (once (match &proof_kind ($pid $kind) $kind)))
-      (if (== $kinds ()) (empty) (car-atom $kinds))))
+(= (proof-kind-by-id $pid) (match &proof_kind ($pid $kind) $kind))
 
 (= (proof-term-tree $prf) (if (= $prf (proof-ref $pid)) (materialize-proof $pid) $prf))
 
@@ -138,14 +132,9 @@
             (let $children (proof-term-children $prf)
                (if (== $children ()) (cons $prf ()) (proof-term-evidence-list-children $children)))))))
 
-(= (proof-atom-evidence-set $proof)
-   (if (or (= $proof (: $_kb $prf $_type $_tv)) (= $proof ($_type ($_kbid $_ctx $_vars) $prf $_tv)))
-      (list_to_set (proof-term-evidence-list $prf))
-      ()))
+(= (proof-atom-evidence-set ($_type $_kb $prf $_tv)) (list_to_set (proof-term-evidence-list $prf)))
 
-(= (proof-atom-prf $proof)
-   (if (= $proof (: $_kb $prf $_type $_tv)) $prf
-      (if (= $proof ($_type ($_kbid $_ctx $_vars) $prf $_tv)) $prf (empty))))
+(= (proof-atom-prf ($_type $_kb $prf $_tv)) $prf)
 
 (= (evidence-sets-overlap? () $set-b) false)
 (= (evidence-sets-overlap? (cons $head $tail) $set-b)
@@ -153,19 +142,17 @@
 
 (= (merge-proof-atoms $proof-a $proof-b)
    (if (== $proof-a $proof-b) $proof-a
-      (if (and (proof-atom? $proof-a) (proof-atom? $proof-b))
-         (let*
-            (($prfa (proof-atom-prf $proof-a))
-              ($prfb (proof-atom-prf $proof-b)))
-            (if (and (merge-proof-term? $prfa) (proof-tree-contains $prfa $prfb)) $proof-a
-               (if (and (merge-proof-term? $prfb) (proof-tree-contains $prfb $prfa)) $proof-b
-                  (let*
-                     (($ev-a (proof-atom-evidence-set $proof-a))
-                       ($ev-b (proof-atom-evidence-set $proof-b))
-                       ($overlap? (evidence-sets-overlap? $ev-a $ev-b)))
-                     (if $overlap?
-                        (if (>= (term-confidence $proof-a) (term-confidence $proof-b)) $proof-a $proof-b)
-                        (if (>= (term-confidence $proof-a) (term-confidence $proof-b))
-                           (RevisionMergeProof $proof-a $proof-b)
-                           (RevisionMergeProof $proof-b $proof-a)))))))
-         $proof-a)))
+      (let*
+         (($prfa (proof-atom-prf $proof-a))
+           ($prfb (proof-atom-prf $proof-b)))
+         (if (and (merge-proof-term? $prfa) (proof-tree-contains $prfa $prfb)) $proof-a
+            (if (and (merge-proof-term? $prfb) (proof-tree-contains $prfb $prfa)) $proof-b
+               (let*
+                  (($ev-a (proof-atom-evidence-set $proof-a))
+                    ($ev-b (proof-atom-evidence-set $proof-b))
+                    ($overlap? (evidence-sets-overlap? $ev-a $ev-b)))
+                  (if $overlap?
+                     (if (>= (term-confidence $proof-a) (term-confidence $proof-b)) $proof-a $proof-b)
+                     (if (>= (term-confidence $proof-a) (term-confidence $proof-b))
+                        (RevisionMergeProof $proof-a $proof-b)
+                        (RevisionMergeProof $proof-b $proof-a)))))))))
