@@ -267,7 +267,7 @@
    (collapse
       (let*
          (($id (match &ccls_index ($goal $id) $id))
-           ($args (match &rules ($id $goal $args) $args))
+           (($_id $_matched-goal $args) (match &rules ($id $goal $args) ($_id $_matched-goal $args)))
            ($bound (premises-expected-confidence $args))
            ($bundle (copy_term (and-bundle $goal $args))))
          (rule-option $id $bound $bundle))))
