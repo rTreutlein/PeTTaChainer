@@ -1,4 +1,4 @@
-!(import! &self benchgen_pln_compare)
+!(import! &self benchmarks/benchgen_pln_compare)
 
 !(BenchGenerate benchCompare
    (depth 1)

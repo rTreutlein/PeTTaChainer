@@ -1,4 +1,4 @@
-!(import! &self benchgen_metta)
+!(import! &self benchmarks/benchgen_metta)
 
 !(BenchGenerate benchCore
    (depth 2)
@@ -36,14 +36,7 @@
 
 !(test (== (BenchNoiseForwardRuleCount benchNoiseMix) 4) true)
 
-!(test
-   (not
-      (==
-         (collapse
-            (match &kb
-               (: (kb MAIN Nil) (bench-noise-back-meta benchNoiseMix 1 0) (BenchNoiseBackRule benchNoiseMix 1 0) (STV 1.0 1.0))
-               yes))
-         ()))
+!(test (not (== (collapse (match &bench_meta (bench-noise-back-rule-meta benchNoiseMix 1 0) yes)) ()))
    true)
 
 !(test

@@ -1,4 +1,4 @@
-!(import! &self ../benchgen_metta)
+!(import! &self benchgen_metta)
 
 !(BenchGenerate demoSmallA
    (depth 3)
@@ -9,10 +9,8 @@
    (backward-chain-len 3)
    (forward-chain-len 2))
 
-!(collapse (query 2 kb (: $prf (BenchTarget demoSmallA 1) $tv)))
-
 !(let*
    (($t1 (current-time))
-     ($res (collapse (query 1000 kb (: $prf (BenchTarget demoSmallA 1) $tv))))
+     ($res (collapse (query 300 kb (: $prf (BenchTarget demoSmallA 1) $tv))))
      ($t2 (current-time)))
    (Found $res in seconds (- $t2 $t1)))

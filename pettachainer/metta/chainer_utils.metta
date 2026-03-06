@@ -105,11 +105,10 @@
 
 (= (proof-term-evidence-list $prf)
    (if (= $prf (proof-ref $pid)) (proof-evidence-by-id $pid)
-      (if (is-var $prf) () (if (is-expr $prf) (proof-term-evidence-list-args (cdr-atom $prf)) (cons $prf ())))))
-
-(= (proof-term-evidence-list-args ()) ())
-(= (proof-term-evidence-list-args (cons $head $tail))
-   (list-append (proof-term-evidence-list $head) (proof-term-evidence-list-args $tail)))
+      (if (is-var $prf) ()
+         (if (= $prf (merge/revision $left $right))
+            (list-append (proof-term-evidence-list $left) (proof-term-evidence-list $right))
+            (cons $prf ())))))
 
 (= (proof-atom-evidence-set $proof)
    (if (= $proof (: $_kb $prf $_type $_tv)) (list_to_set (proof-term-evidence-list $prf)) ()))

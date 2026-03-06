@@ -2,6 +2,11 @@
    (let $goals (collapse (match &goal_store (goal-node $gid $goal) $goal))
       (if (== $goals ()) (empty) (car-atom $goals))))
 
+(= (backward-load-agenda)
+   (let $magenda (catch (get-state bwd_agenda)) (if-error $magenda (empty_heap) $magenda)))
+
+(= (backward-save-agenda $agenda) (change-state! bwd_agenda $agenda))
+
 (= (goal-expanded? $gid) (not (== (collapse (match &goal_store (goal-expanded $gid) true)) ())))
 
 (= (goal-pending-score-of $gid)
@@ -52,6 +57,8 @@
 (= (materialize-proof-refs-list (cons $head $tail))
    (cons (materialize-proof-refs $head) (materialize-proof-refs-list $tail)))
 
+(= (materialize-proof-atom (: $kb $prf $type $tv)) (: $kb (materialize-proof-refs $prf) $type $tv))
+
 (= (materialize-rule-proof $aid $pid-list)
    (case (instantiate-aid-with-pids $aid $pid-list) (
         ((and-bundle (: $_kb $prf $_type $_tv) $_rest) (materialize-proof-refs $prf))
@@ -68,9 +75,8 @@
    (let*
       (($gid (proof-goal-by-id $pid))
         ((: $kb $_prf $type $_goal-tv) (goal-term-by-id $gid))
-        ($tv (reduce (proof-tv-by-id $pid)))
-        ($prf (reduce (materialize-proof $pid))))
-      (: $kb $prf $type $tv)))
+        ($tv (reduce (proof-tv-by-id $pid))))
+      (: $kb (proof-ref $pid) $type $tv)))
 
 (= (merge-goal-proof-atoms $goal $pid) (merge-proof-atoms $goal (proof-output-atom $pid)))
 
@@ -81,7 +87,8 @@
 (= (goal-results $gid)
    (let $pids (collapse (match &proof_store (goal-proof $gid $pid) $pid))
       (if (== $pids ()) ()
-         (cons (merge-goal-proof-list (proof-output-atom (car-atom $pids)) (cdr-atom $pids)) ()))))
+         (let $merged (merge-goal-proof-list (proof-output-atom (car-atom $pids)) (cdr-atom $pids))
+            (cons (materialize-proof-atom $merged) ())))))
 
 (= (ensure-goal $goal)
    (let $hits
@@ -100,10 +107,14 @@
    (if (goal-expanded? $gid) ()
       (let $current (goal-pending-score-of $gid)
          (if (>= $current $score) ()
-            (progn
-               (clear-goal-pending-score $gid)
-               (add-atom &goal_store (goal-pending-score $gid $score))
-               ())))))
+            (let*
+               (($agenda (backward-load-agenda))
+                 ($nagenda (add_to_heap $agenda (- 0 $score) (qitem $score $gid)))
+                 ($_save (backward-save-agenda $nagenda)))
+               (progn
+                  (clear-goal-pending-score $gid)
+                  (add-atom &goal_store (goal-pending-score $gid $score))
+                  ()))))))
 
 (= (goal-has-ancestor? $gid $ancestor) (goal-has-ancestor-seen? $gid $ancestor ()))
 
@@ -128,8 +139,10 @@
          (let $utype (if (and (is-expr $type) (contains-hash? $type)) (map-nested unwrap $type) $type)
             (collapse (match &kb (: $kb $prf $utype $tv) (: $kb $prf $type $tv)))))))
 
+(= (leaf-proof-evidence-key $kb $prf $type) (fact-ev $kb $prf $type))
+
 (= (leaf-evidence-for-result $result)
-   (if (= $result (: $_kb $_prf $_type $_tv)) (proof-atom-evidence-set $result) ()))
+   (if (= $result (: $kb $prf $type $_tv)) (cons (leaf-proof-evidence-key $kb $prf $type) ()) ()))
 
 (= (store-leaf-proof $gid $result)
    (let*
@@ -289,25 +302,22 @@
             (expand-rule-goal $gid $goal)
             ()))))
 
-(= (pending-goals) (collapse (match &goal_store (goal-pending-score $gid $score) (pending-goal $gid $score))))
-
-(= (better-pending-goal (pending-goal $gid-a $score-a) (pending-goal $gid-b $score-b))
-   (if (> $score-a $score-b) (pending-goal $gid-a $score-a)
-      (if (> $score-b $score-a) (pending-goal $gid-b $score-b)
-         (if (< $gid-a $gid-b) (pending-goal $gid-a $score-a) (pending-goal $gid-b $score-b)))))
-
-(= (best-pending-goal (cons $goal ())) $goal)
-(= (best-pending-goal (cons $goal $rest)) (better-pending-goal $goal (best-pending-goal $rest)))
+(= (queued-goal-current? $gid $score)
+   (if (goal-expanded? $gid) false (== (goal-pending-score-of $gid) $score)))
 
 (= (search-goals $steps)
    (if (<= $steps 0) ()
-      (let $pending (pending-goals)
-         (if (== $pending ()) ()
-            (let (pending-goal $gid $_score) (best-pending-goal $pending)
-               (progn
-                  (clear-goal-pending-score $gid)
-                  (expand-goal $steps $gid)
-                  (search-goals (- $steps 1))))))))
+      (let $agenda (backward-load-agenda)
+         (if (== (heap_size $agenda) 0) ()
+            (let*
+               (($rest (get_from_heap $agenda $_priority (qitem $score $gid)))
+                 ($_save (backward-save-agenda $rest)))
+               (if (queued-goal-current? $gid $score)
+                  (progn
+                     (clear-goal-pending-score $gid)
+                     (expand-goal $steps $gid)
+                     (search-goals (- $steps 1)))
+                  (search-goals $steps)))))))
 
 (= (instantiate-and-bundle (and-bundle $goal ()) ()) (and-bundle $goal ()))
 (= (instantiate-and-bundle (and-bundle $goal (cons $prem $rest)) (cons $pid $pids))
@@ -329,6 +339,7 @@
    (let*
       (($_gclear (remove-all-atoms &goal_store))
         ($_pclear (remove-all-atoms &proof_store))
+        ($_agendareset (backward-save-agenda (empty_heap)))
         ($_gidreset (change-state! bwd_gid 0))
         ($_aidreset (change-state! bwd_aid 0))
         ($_fidreset (change-state! bwd_fid 0))

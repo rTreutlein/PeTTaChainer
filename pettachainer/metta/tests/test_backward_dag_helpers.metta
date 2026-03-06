@@ -55,7 +55,19 @@
         ($gid (ensure-goal (: (kb MAIN ()) $prf (Goal) (STV 1.0 1.0))))
         ($pid (store-leaf-proof $gid (: (kb MAIN ()) factA (Goal) (STV 1.0 0.8)))))
       (proof-term-evidence-list (proof-ref $pid)))
-   (factA))
+   ((fact-ev (kb MAIN ()) factA (Goal))))
+
+!(test
+   (let*
+      (($_gclear (remove-all-atoms &goal_store))
+        ($_pclear (remove-all-atoms &proof_store))
+        ($_gidreset (change-state! bwd_gid 0))
+        ($_pidreset (change-state! bwd_pid 0))
+        ($gid (ensure-goal (: (kb MAIN ()) $prf (Goal) (STV 1.0 1.0))))
+        ($pid-a (store-leaf-proof $gid (: (kb MAIN ()) (bench-base-fact demo 1 1) (Goal) (STV 1.0 0.8))))
+        ($pid-b (store-leaf-proof $gid (: (kb MAIN ()) (bench-base-fact demo 1 2) (Goal) (STV 1.0 0.7)))))
+      (evidence-sets-overlap? (proof-evidence-by-id $pid-a) (proof-evidence-by-id $pid-b)))
+   false)
 
 !(test
    (let*
