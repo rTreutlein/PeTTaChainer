@@ -1,9 +1,8 @@
-(= (or-1.0 $x) (if (is-var $x) 1.0 $x))
-
-(= (tv-confidence $tv) (if (is-var $tv) 1.0 (if (= $tv (STV $_s $c)) (or-1.0 $c) 1.0)))
+(= (tv-confidence $tv) (if (is-var $tv) 1.0 (if (= $tv (STV $_s $c)) (if (is-var $c) 1.0 $c) 1.0)))
 
 (= (normalize-expected-tv $tv)
-   (if (is-var $tv) (STV 1.0 1.0) (if (= $tv (STV $s $c)) (STV (or-1.0 $s) (or-1.0 $c)) $tv)))
+   (if (is-var $tv) (STV 1.0 1.0)
+      (if (= $tv (STV $s $c)) (STV (if (is-var $s) 1.0 $s) (if (is-var $c) 1.0 $c)) $tv)))
 
 (= (cpu-expected-confidence $fun $args)
    (if (is-member $fun (() MpFormula AndFormula OrFormula LikelierThanFormula))
@@ -91,20 +90,16 @@
 
 (= (proof-kind-by-id $pid) (match &proof_kind ($pid $kind) $kind))
 
-(= (proof-term-tree $prf) (if (= $prf (proof-ref $pid)) (materialize-proof $pid) $prf))
-
 (= (proof-tree-contains-list () $needle) false)
 (= (proof-tree-contains-list (cons $head $tail) $needle)
    (or (proof-tree-contains $head $needle) (proof-tree-contains-list $tail $needle)))
 
 (= (proof-tree-contains $tree $needle)
    (let*
-      (($ptree (proof-term-tree $tree))
-        ($pneedle (proof-term-tree $needle)))
+      (($ptree (if (= $tree (proof-ref $ptreeid)) (materialize-proof $ptreeid) $tree))
+        ($pneedle (if (= $needle (proof-ref $pneedleid)) (materialize-proof $pneedleid) $needle)))
       (if (== $ptree $pneedle) true
          (if (is-expr $ptree) (proof-tree-contains-list (cdr-atom $ptree) $pneedle) false))))
-
-(= (merge-proof-term? $prf) (if (= $prf (merge/revision $_a $_b)) true false))
 
 (= (rule-proof-id? $prf) (not (== (collapse (once (match &rule_proof_ids ($prf true) true))) ())))
 
@@ -128,8 +123,6 @@
 
 (= (proof-atom-evidence-set ($_type $_kb $prf $_tv)) (list_to_set (proof-term-evidence-list $prf)))
 
-(= (proof-atom-prf ($_type $_kb $prf $_tv)) $prf)
-
 (= (evidence-sets-overlap? () $set-b) false)
 (= (evidence-sets-overlap? (cons $head $tail) $set-b)
    (or (is-member $head $set-b) (evidence-sets-overlap? $tail $set-b)))
@@ -137,10 +130,10 @@
 (= (merge-proof-atoms $proof-a $proof-b)
    (if (== $proof-a $proof-b) $proof-a
       (let*
-         (($prfa (proof-atom-prf $proof-a))
-           ($prfb (proof-atom-prf $proof-b)))
-         (if (and (merge-proof-term? $prfa) (proof-tree-contains $prfa $prfb)) $proof-a
-            (if (and (merge-proof-term? $prfb) (proof-tree-contains $prfb $prfa)) $proof-b
+         ((($_typea $_kba $prfa $_tva) $proof-a)
+           (($_typeb $_kbb $prfb $_tvb) $proof-b))
+         (if (and (= $prfa (merge/revision $_la $_ra)) (proof-tree-contains $prfa $prfb)) $proof-a
+            (if (and (= $prfb (merge/revision $_lb $_rb)) (proof-tree-contains $prfb $prfa)) $proof-b
                (let*
                   (($ev-a (proof-atom-evidence-set $proof-a))
                     ($ev-b (proof-atom-evidence-set $proof-b))
