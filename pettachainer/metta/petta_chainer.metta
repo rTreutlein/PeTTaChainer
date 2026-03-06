@@ -12,6 +12,8 @@
 
 !(bind! &goal_lookup (new-space))
 
+!(bind! &goal_class (new-space))
+
 !(bind! &goal_expanded (new-space))
 
 !(bind! &goal_pending_score (new-space))

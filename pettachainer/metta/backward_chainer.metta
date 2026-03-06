@@ -1,5 +1,9 @@
 (= (goal-term-by-id $gid) (match &goal_by_id ($gid $goal) $goal))
 
+(= (goal-class-of $goal) (if (proof-atom? $goal) proof direct))
+
+(= (goal-class-by-id $gid) (match &goal_class ($gid $class) $class))
+
 (= (backward-load-agenda)
    (let $magenda (catch (get-state bwd_agenda)) (if-error $magenda (empty_heap) $magenda)))
 
@@ -92,8 +96,10 @@
          (let*
             (($gid (next-gid))
               ($stored-goal (copy_term $goal))
+              ($goal-class (goal-class-of $stored-goal))
               ($_1 (add-atom &goal_by_id ($gid $stored-goal)))
-              ($_2 (add-atom &goal_lookup ($stored-goal $gid))))
+              ($_2 (add-atom &goal_lookup ($stored-goal $gid)))
+              ($_3 (add-atom &goal_class ($gid $goal-class))))
             $gid)
          (car-atom $hits))))
 
@@ -103,8 +109,8 @@
          (if (>= $current $score) ()
             (let*
                (($agenda (backward-load-agenda))
-                 ($goal (goal-term-by-id $gid))
-                 ($bonus (if (proof-atom? $goal) 0.0 1.0))
+                 ($goal-class (goal-class-by-id $gid))
+                 ($bonus (if (== $goal-class proof) 0.0 1.0))
                  ($priority (- 0 (+ (* 1000000.0 $score) $bonus)))
                  ($nagenda (add_to_heap $agenda $priority (qitem $score $gid)))
                  ($_save (backward-save-agenda $nagenda)))
@@ -121,9 +127,8 @@
          (let $parents
             (collapse
                (match &goal_waiter ($gid $fid)
-                  (match &frontier ($fid $aid $_bundle $_score $_seen $_rev)
-                     (match &and_node ($aid $parent $_rule $_bound $_node-bundle)
-                        $parent))))
+                  (match &frontier ($fid $parent $_aid $_bundle $_score $_seen $_rev)
+                     $parent)))
             (goals-have-ancestor? $parents $ancestor (cons $gid $seen))))))
 
 (= (goals-have-ancestor? () $ancestor $seen) false)
@@ -217,23 +222,26 @@
    (case $bundle (
         ((and-bundle $goal ()) (build-parent-proof $aid $bundle $score $seen (list-reverse $rev-pids)))
         ((and-bundle $_goal (cons $prem $_rest))
-           (let $gid (ensure-goal $prem)
-              (if (goal-has-ancestor? (frontier-parent-gid-or-aid $aid) $gid) ()
+           (let*
+              (($gid (ensure-goal $prem))
+                ($parent-gid (and-parent-gid-by-id $aid)))
+              (if (goal-has-ancestor? $parent-gid $gid) ()
                  (let*
                     (($fid (next-fid))
                       ($stored-bundle (copy_term $bundle))
-                      ($_1 (add-atom &frontier ($fid $aid $stored-bundle $score $seen $rev-pids)))
+                      ($_1 (add-atom &frontier ($fid $parent-gid $aid $stored-bundle $score $seen $rev-pids)))
                       ($_2 (add-atom &goal_waiter ($gid $fid))))
                     (progn
                        (attach-existing-goal-proofs $fid $gid)
                        (schedule-goal $score $gid)
                        ()))))))))
 
-(= (frontier-parent-gid-or-aid $aid) (match &and_node ($aid $parent $_rule $_bound $_bundle) $parent))
+(= (and-parent-gid-by-id $aid) (match &and_node ($aid $parent $_rule $_bound $_bundle) $parent))
 
 (= (frontier-state-by-id $fid)
-   (match &frontier ($fid $aid $bundle $score $seen $rev-pids)
-      (frontier-state $aid
+   (match &frontier ($fid $parent-gid $aid $bundle $score $seen $rev-pids)
+      (frontier-state $parent-gid
+         $aid
          $bundle
          $score
          $seen
@@ -241,7 +249,7 @@
 
 (= (advance-frontier $fid $pid)
    (let*
-      (((frontier-state $aid $bundle $score $seen $rev-pids) (frontier-state-by-id $fid))
+      (((frontier-state $_parent-gid $aid $bundle $score $seen $rev-pids) (frontier-state-by-id $fid))
         ($pev (proof-evidence-by-id $pid))
         ($pscore (proof-score-by-id $pid)))
       (if (evidence-sets-overlap? $seen $pev) ()
@@ -310,7 +318,7 @@
 
 (= (build-parent-proof $aid (and-bundle ($_type ($_kbid $_ctx $_vars) $_prf $tv) ()) $score $ev $pid-list)
    (let*
-      (($parent-gid (frontier-parent-gid-or-aid $aid))
+      (($parent-gid (and-parent-gid-by-id $aid))
         ($pid (next-pid))
         ($_1 (add-atom &proof_goal ($pid $parent-gid)))
         ($_2 (add-atom &proof_kind ($pid (rule $aid))))
@@ -324,6 +332,7 @@
    (let*
       (($_gbyidclear (remove-all-atoms &goal_by_id))
         ($_glookupclear (remove-all-atoms &goal_lookup))
+        ($_gclassclear (remove-all-atoms &goal_class))
         ($_gexpandedclear (remove-all-atoms &goal_expanded))
         ($_gpendclear (remove-all-atoms &goal_pending_score))
         ($_gwaitclear (remove-all-atoms &goal_waiter))
