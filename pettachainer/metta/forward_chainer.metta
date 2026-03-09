@@ -18,7 +18,7 @@
 (= (forward-register-added-rule $args $_ccls)
    (let*
       (($_
-           (map-flat
+           (foreach-flat
               (|-> ($prem)
                  (if (= $prem ($ptype ($kbid MAIN Nil) $_prf $_ptv))
                     (let*
@@ -59,7 +59,7 @@
    (let*
       (($kb ($kbid $_ctx $_vars))
         ($hits (collapse (match &kb ($type $kb $prfo $tvo) ($type $kb $prfo $tvo))))
-        ($_ (fold-flat (|-> ($acc $old-fact) (progn (remove-atom &kb $old-fact) $acc)) () $hits))
+        ($_ (foreach-flat (|-> ($old-fact) (remove-atom &kb $old-fact)) $hits))
         ($merged-fact (fold-flat merge-proof-atoms $fact $hits))
         ($_ (add-atom &kb $merged-fact)))
       (if (== $hits ()) (agenda-push-fact $agenda $merged-fact) $agenda)))

@@ -178,8 +178,7 @@
          ())))
 
 (= (attach-existing-goal-proofs $fid $gid)
-   (fold-flat (|-> ($acc $pid) (progn (advance-frontier $fid $pid) $acc))
-      ()
+   (foreach-flat (|-> ($pid) (advance-frontier $fid $pid))
       (collapse (match &goal_proof ($gid $pid) $pid))))
 
 (= (register-proof $gid $pid)
@@ -188,16 +187,13 @@
          (prune-dominated-goal-proofs $gid $pid)
          (add-atom &goal_proof ($gid $pid))
          (add-atom &proof_status ($pid live))
-         (fold-flat (|-> ($acc $fid) (progn (advance-frontier $fid $pid) $acc))
-            ()
+         (foreach-flat (|-> ($fid) (advance-frontier $fid $pid))
             (collapse (match &goal_waiter ($gid $fid) $fid))))))
 
 (= (emit-leaf-result $gid $result) (register-proof $gid (store-leaf-proof $gid $result)))
 
 (= (expand-direct-goal $steps $gid $goal)
-   (fold-flat (|-> ($acc $result) (progn (emit-leaf-result $gid $result) $acc))
-      ()
-      (direct-goal-results $steps $goal)))
+   (foreach-flat (|-> ($result) (emit-leaf-result $gid $result)) (direct-goal-results $steps $goal)))
 
 (= (advance-frontier-bundle (and-bundle $_goal ()) $_pid) ())
 (= (advance-frontier-bundle (and-bundle $goal (cons $prem $rest)) $pid)
@@ -266,9 +262,7 @@
          (rule-option $id $bound $bundle))))
 
 (= (expand-rule-goal $parent-gid $goal)
-   (fold-flat (|-> ($acc $option) (progn (register-rule-option $parent-gid $option) $acc))
-      ()
-      (goal-rule-options $goal)))
+   (foreach-flat (|-> ($option) (register-rule-option $parent-gid $option)) (goal-rule-options $goal)))
 
 (= (expand-goal $steps $gid)
    (if (goal-expanded? $gid) ()

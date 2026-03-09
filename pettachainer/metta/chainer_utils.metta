@@ -42,6 +42,9 @@
 (= (list-append () $ys) $ys)
 (= (list-append (cons $x $xs) $ys) (cons $x (list-append $xs $ys)))
 
+(= (foreach-flat $f ()) ())
+(= (foreach-flat $f (cons $x $xs)) (progn ($f $x) (foreach-flat $f $xs)))
+
 (= (list-reverse-acc () $acc) $acc)
 (= (list-reverse-acc (cons $head $tail) $acc) (list-reverse-acc $tail (cons $head $acc)))
 

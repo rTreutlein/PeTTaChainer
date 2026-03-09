@@ -70,8 +70,6 @@
          ())
       (progn (add-atom &kb $expr) (forward-register-added-expr $expr))))
 
-(= (compileadd-add-all $acc $atom) (progn (add-to-kb $atom) $acc))
-
 (= (register-source-proof-id (: $prf $type $_tv))
    (if (= $type (Implication (cons Premises $_premises) (cons Conclusions $_conclusions)))
       (add-atom &rule_proof_ids ($prf true))
@@ -82,7 +80,7 @@
       (($atoms (collapse (mm2compile $kb $stmt)))
         ($iatoms (map-flat internalize-proof-structure $atoms))
         ($eatoms (map-flat externalize-proof-structure $iatoms))
-        ($_ (fold-flat compileadd-add-all () $iatoms))
+        ($_ (foreach-flat add-to-kb $iatoms))
         ($_ (register-source-proof-id $stmt))
         ($_ (process-on-add $kb $stmt)))
       (superpose
