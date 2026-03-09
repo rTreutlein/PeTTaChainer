@@ -199,13 +199,18 @@
 (= (advance-frontier-bundle (and-bundle $goal (cons $prem $rest)) $pid)
    (if (= $prem (proof-unify-term $pid)) (and-bundle $goal $rest) ()))
 
-(= (spawn-frontier $aid $bundle $score $seen $rev-pids)
+(= (spawn-frontier $parent-gid $aid $bundle $score $seen $rev-pids)
    (case $bundle (
-        ((and-bundle $goal ()) (build-parent-proof $aid $bundle $score $seen (list-reverse $rev-pids)))
+        ((and-bundle $goal ())
+           (build-parent-proof $parent-gid
+              $aid
+              $bundle
+              $score
+              $seen
+              (list-reverse $rev-pids)))
         ((and-bundle $_goal (cons $prem $_rest))
            (let*
-              (($gid (ensure-goal $prem))
-                ($parent-gid (and-parent-gid-by-id $aid)))
+              (($gid (ensure-goal $prem)))
               (if (goal-has-ancestor-seen? $parent-gid $gid ()) ()
                  (let*
                     (($fid (next-fid))
@@ -216,8 +221,6 @@
                        (attach-existing-goal-proofs $fid $gid)
                        (schedule-goal $score $gid)
                        ()))))))))
-
-(= (and-parent-gid-by-id $aid) (match &and_node ($aid $parent $_rule $_bound $_bundle) $parent))
 
 (= (frontier-state-by-id $fid)
    (match &frontier ($fid $parent-gid $aid $bundle $score $seen $rev-pids)
@@ -230,13 +233,14 @@
 
 (= (advance-frontier $fid $pid)
    (let*
-      (((frontier-state $_parent-gid $aid $bundle $score $seen $rev-pids) (frontier-state-by-id $fid))
+      (((frontier-state $parent-gid $aid $bundle $score $seen $rev-pids) (frontier-state-by-id $fid))
         ($pev (proof-evidence-by-id $pid))
         ($pscore (proof-score-by-id $pid)))
       (if (evidence-sets-overlap? $seen $pev) ()
          (let $next-bundle (advance-frontier-bundle (copy_term $bundle) $pid)
             (if (== $next-bundle ()) ()
-               (spawn-frontier $aid
+               (spawn-frontier $parent-gid
+                  $aid
                   $next-bundle
                   (min $score $pscore)
                   (list_to_set (list-append $seen $pev))
@@ -246,7 +250,8 @@
    (let*
       (($aid (next-aid))
         ($_1 (add-atom &and_node ($aid $parent-gid $rule-id $bound $bundle))))
-      (spawn-frontier $aid
+      (spawn-frontier $parent-gid
+         $aid
          $bundle
          $bound
          ()
@@ -292,10 +297,15 @@
 (= (instantiate-and-bundle (and-bundle $goal (cons $prem $rest)) (cons $pid $pids))
    (if (= $prem (proof-unify-term $pid)) (instantiate-and-bundle (and-bundle $goal $rest) $pids) (empty)))
 
-(= (build-parent-proof $aid (and-bundle ($_type ($_kbid $_ctx $_vars) $_prf $tv) ()) $score $ev $pid-list)
+(=
+   (build-parent-proof $parent-gid
+      $aid
+      (and-bundle ($_type ($_kbid $_ctx $_vars) $_prf $tv) ())
+      $score
+      $ev
+      $pid-list)
    (let*
-      (($parent-gid (and-parent-gid-by-id $aid))
-        ($pid (next-pid))
+      (($pid (next-pid))
         ($_1 (add-atom &proof_goal ($pid $parent-gid)))
         ($_2 (add-atom &proof_kind ($pid (rule $aid))))
         ($_3 (add-atom &proof_tv ($pid $tv)))
