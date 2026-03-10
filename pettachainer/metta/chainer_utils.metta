@@ -122,6 +122,10 @@
 (= (evidence-sets-overlap? (cons $head $tail) $set-b)
    (or (is-member $head $set-b) (evidence-sets-overlap? $tail $set-b)))
 
+(= (evidence-subset? () $set-b) true)
+(= (evidence-subset? (cons $head $tail) $set-b)
+   (and (is-member $head $set-b) (evidence-subset? $tail $set-b)))
+
 (= (merge-proof-atoms $proof-a $proof-b)
    (if (== $proof-a $proof-b) $proof-a
       (let*
