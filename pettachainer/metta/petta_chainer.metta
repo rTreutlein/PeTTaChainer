@@ -17,7 +17,8 @@
         ($n (if-error $mn 0 $mn)))
       (progn (change-state! ruleid (+ $n 1)) $n)))
 
-(= (add-prem $vars $id $idx $prem) (progn (add-atom &prem_index ($prem $id $idx)) (+ $idx 1)))
+(= (add-prem $vars $id $idx $prem)
+   (progn (add-atom prem_index ($prem $id $idx)) (+ $idx 1)))
 
 (= (add-to-kb $expr)
    (if (= $expr (rules ($args |- $ccls)))
@@ -25,15 +26,16 @@
          (($vars (extract-vars $expr))
            ($id (nextid))
            ($_1 (fold-flat (add-prem $vars $id) 0 $args))
-           ($_2 (add-atom &ccls_index ($ccls $id)))
-           ($_3 (add-atom &rules ($id $ccls $args)))
+           ($_2 (add-atom ccls_index ($ccls $id)))
+           ($_3 (add-atom rules ($id $ccls $args)))
            ($_4 (forward-register-added-rule $args $ccls)))
          ())
       (progn (add-atom &kb $expr) (forward-register-added-expr $expr))))
 
 (= (register-source-proof-id (: $prf $type $_tv))
-   (if (= $type (Implication (cons Premises $_premises) (cons Conclusions $_conclusions)))
-      (add-atom &rule_proof_ids ($prf true))
+   (if (add-atom &rule_proof_ids ($prf true))
+      (= $type
+         (Implication (cons Premises $_premises) (cons Conclusions $_conclusions)))
       ()))
 
 (= (compileadd $kb $stmt)
@@ -49,7 +51,8 @@
 
 (= (query $steps $kb $stmt)
    (let*
-      (($compiled (map-flat internalize-proof-structure (collapse (mm2compileQuery $kb $stmt))))
+      (($compiled
+           (map-flat internalize-proof-structure (collapse (mm2compileQuery $kb $stmt))))
         ((cons (goal $query) $adds) $compiled)
         ($_ (inject-compiled-adds $adds))
         ($res (reduce (chainer $steps $query)))

@@ -1,11 +1,13 @@
 (= (goal-term-by-id $gid) (match &goal_by_id ($gid $goal) $goal))
 
 (= (backward-load-agenda)
-   (let $magenda (catch (get-state bwd_agenda)) (if-error $magenda (empty_heap) $magenda)))
+   (let $magenda (catch (get-state bwd_agenda))
+      (if-error $magenda (empty_heap) $magenda)))
 
 (= (backward-save-agenda $agenda) (change-state! bwd_agenda $agenda))
 
-(= (goal-expanded? $gid) (not (== (collapse (once (match &goal_expanded ($gid true) true))) ())))
+(= (goal-expanded? $gid)
+   (not (== (collapse (once (match &goal_expanded ($gid true) true))) ())))
 
 (= (goal-pending-score-of $gid)
    (let $scores (collapse (once (match &goal_pending_score ($gid $score) $score)))
@@ -13,7 +15,9 @@
 
 (= (clear-goal-pending-score $gid)
    (progn
-      (collapse (match &goal_pending_score ($gid $score) (remove-atom &goal_pending_score ($gid $score))))
+      (collapse
+         (match &goal_pending_score ($gid $score)
+            (remove-atom &goal_pending_score ($gid $score))))
       ()))
 
 (= (proof-goal-by-id $pid) (match &proof_goal ($pid $gid) $gid))
@@ -33,14 +37,17 @@
 (= (materialize-proof-refs $term)
    (if (= $term (proof-ref $pid)) (materialize-proof-refs (materialize-proof $pid))
       (if (is-expr $term)
-         (cons (materialize-proof-refs (car-atom $term)) (map-flat materialize-proof-refs (cdr-atom $term)))
+         (cons (materialize-proof-refs (car-atom $term))
+            (map-flat materialize-proof-refs (cdr-atom $term)))
          $term)))
 
-(= (materialize-proof-atom ($type $kb $prf $tv)) ($type $kb (materialize-proof-refs $prf) $tv))
+(= (materialize-proof-atom ($type $kb $prf $tv))
+   ($type $kb (materialize-proof-refs $prf) $tv))
 
 (= (materialize-rule-proof $aid $pid-list)
    (case
-      (instantiate-and-bundle (copy_term (match &and_node ($aid $_parent $_rule $_bound $bundle) $bundle))
+      (instantiate-and-bundle
+         (copy_term (match &and_node ($aid $_parent $_rule $_bound $bundle) $bundle))
          $pid-list) (
         ((and-bundle ($_type $_kb $prf $_tv) $_rest) (materialize-proof-refs $prf))
         ($other $other))))
@@ -49,7 +56,8 @@
    (case (proof-kind-by-id $pid) (
         ((leaf ($_type $_kb $prf $_tv)) $prf)
         ((leaf $raw) $raw)
-        ((rule $aid) (materialize-rule-proof $aid (match &proof_children ($pid $kids) $kids)))
+        ((rule $aid)
+           (materialize-rule-proof $aid (match &proof_children ($pid $kids) $kids)))
         ($other $other))))
 
 (= (proof-output-atom $pid)
@@ -73,9 +81,12 @@
          (once
             (if (= $goal ($type ($kbid $_ctx $_vars) $kbprf $_tv))
                (let $sealed-type (sealed (extract-vars $type) $type)
-                  (match &goal_lookup (($sealed-type ($kbid $_ctx $_vars) $_stored-prf $_stored-tv) $gid)
-                     (if (goal-key-eq? ($sealed-type ($kbid $_ctx $_vars) $_stored-prf $_stored-tv) $goal)
-                        $gid
+                  (match &goal_lookup
+                     (($sealed-type ($kbid $_ctx $_vars) $_stored-prf $_stored-tv) $gid)
+                     (if $gid
+                        (goal-key-eq?
+                           ($sealed-type ($kbid $_ctx $_vars) $_stored-prf $_stored-tv)
+                           $goal)
                         (empty))))
                (let $sealed-goal (sealed (extract-vars $goal) $goal)
                   (match &goal_lookup ($sealed-goal $gid)
@@ -84,7 +95,9 @@
          (let*
             (($gid (next-gid))
               ($stored-goal (copy_term $goal))
-              ($goal-class (if (= $stored-goal ($_type ($_kbid $_ctx $_vars) $_prf $_tv)) proof direct))
+              ($goal-class
+                 (if (= $stored-goal ($_type ($_kbid $_ctx $_vars) $_prf $_tv)) proof
+                    direct))
               ($_1 (add-atom &goal_by_id ($gid $stored-goal)))
               ($_2 (add-atom &goal_lookup ($stored-goal $gid)))
               ($_3 (add-atom &goal_class ($gid $goal-class))))
@@ -117,7 +130,8 @@
                      $parent)))
             (fold-flat
                (|-> ($found $parent)
-                  (or $found (goal-has-ancestor-seen? $parent $ancestor (cons $gid $seen))))
+                  (or $found
+                     (goal-has-ancestor-seen? $parent $ancestor (cons $gid $seen))))
                false
                $parents)))))
 
@@ -125,23 +139,29 @@
    (if (= $goal (CPU $fun $args $_res)) (CPU $fun $args (cpu-call $steps $fun $args))
       (let ($type ($kbid $_ctx $_vars) $prf $tv) $goal
          (let $kb ($kbid $_ctx $_vars)
-            (let $utype (if (and (is-expr $type) (contains-hash? $type)) (map-nested unwrap $type) $type)
+            (let $utype
+               (if (and (is-expr $type) (contains-hash? $type))
+                  (map-nested unwrap $type)
+                  $type)
                (match &kb ($utype $kb $prf $tv)
                   ($type $kb $prf $tv)))))))
 
 (= (leaf-evidence-for-result $result)
-   (if (= $result ($type ($kbid $_ctx $_vars) $prf $_tv)) (cons (fact-ev ($kbid $_ctx $_vars) $prf $type) ())
+   (if (= $result ($type ($kbid $_ctx $_vars) $prf $_tv))
+      (cons (fact-ev ($kbid $_ctx $_vars) $prf $type) ())
       ()))
 
 (= (proof-overlap-dominates-score? $old-ev $old-score $new-ev $new-score)
    (and (evidence-sets-overlap? $old-ev $new-ev)
-      (or (> $old-score $new-score) (and (== $old-score $new-score) (evidence-subset? $new-ev $old-ev)))))
+      (or (> $old-score $new-score)
+         (and (== $old-score $new-score) (evidence-subset? $new-ev $old-ev)))))
 
 (= (goal-proof-candidate-step $ev $score false $_oldpid) false)
 (= (goal-proof-candidate-step $ev $score $rev-pruned $oldpid)
    (let ($old-score $old-ev) (proof-stats-by-id $oldpid)
       (if (proof-overlap-dominates-score? $old-ev $old-score $ev $score) false
-         (if (proof-overlap-dominates-score? $ev $score $old-ev $old-score) (cons $oldpid $rev-pruned)
+         (if (proof-overlap-dominates-score? $ev $score $old-ev $old-score)
+            (cons $oldpid $rev-pruned)
             $rev-pruned))))
 
 (= (classify-goal-proof-candidate $gid $ev $score)
@@ -163,7 +183,9 @@
       $pid))
 
 (= (clear-goal-summary-proof $gid)
-   (collapse (match &goal_summary_proof ($gid $pid) (remove-atom &goal_summary_proof ($gid $pid)))))
+   (collapse
+      (match &goal_summary_proof ($gid $pid)
+         (remove-atom &goal_summary_proof ($gid $pid)))))
 
 (= (set-goal-summary-proof $gid $pid)
    (progn (clear-goal-summary-proof $gid) (add-atom &goal_summary_proof ($gid $pid))))
@@ -179,7 +201,8 @@
    (let*
       (($seed (proof-output-atom (car-atom $pids)))
         ($merged
-           (fold-flat (|-> ($goal $pid) (merge-proof-atoms $goal (proof-output-atom $pid)))
+           (fold-flat
+              (|-> ($goal $pid) (merge-proof-atoms $goal (proof-output-atom $pid)))
               $seed
               (cdr-atom $pids)))
         ($ev (proof-atom-evidence-set $merged)))
@@ -194,14 +217,21 @@
                (progn (set-goal-summary-proof $gid $pid) $pid))))))
 
 (= (commit-proof-candidate $gid false $_candidate) ())
-(= (commit-proof-candidate $gid $rev-pruned (proof-candidate $kind $tv-state $score $ev $children))
-   (let $pid (store-proof-candidate $gid (proof-candidate $kind $tv-state $score $ev $children))
+(=
+   (commit-proof-candidate $gid
+      $rev-pruned
+      (proof-candidate $kind $tv-state $score $ev $children))
+   (let $pid
+      (store-proof-candidate $gid
+         (proof-candidate $kind $tv-state $score $ev $children))
       (progn
-         (foreach-flat (|-> ($oldpid) (remove-atom &goal_proof ($gid $oldpid))) $rev-pruned)
+         (foreach-flat (|-> ($oldpid) (remove-atom &goal_proof ($gid $oldpid)))
+            $rev-pruned)
          (add-atom &goal_proof ($gid $pid))
          (let $summary-pid (refresh-goal-summary-proof $gid)
             (if (== $summary-pid ()) ()
-               (collapse (advance-frontier (match &goal_waiter ($gid $fid) $fid) $summary-pid)))))))
+               (collapse
+                  (advance-frontier (match &goal_waiter ($gid $fid) $fid) $summary-pid)))))))
 
 (= (attach-existing-goal-proofs $fid $gid)
    (let $summary-pid (goal-summary-pid $gid)
@@ -212,14 +242,11 @@
       (($result (direct-goal-results $steps $goal))
         ($score (term-confidence $result))
         ($ev (leaf-evidence-for-result $result))
-        ($tv-state (if (= $result ($_type ($_kbid $_ctx $_vars) $prf $tv)) (with-tv $tv) no-tv)))
+        ($tv-state
+           (if (= $result ($_type ($_kbid $_ctx $_vars) $prf $tv)) (with-tv $tv) no-tv)))
       (commit-proof-candidate $gid
          (classify-goal-proof-candidate $gid $ev $score)
-         (proof-candidate (leaf $result)
-            $tv-state
-            $score
-            $ev
-            ()))))
+         (proof-candidate (leaf $result) $tv-state $score $ev ()))))
 
 (= (spawn-frontier $parent-gid $aid $bundle $score $seen $rev-pids)
    (case $bundle (
@@ -237,7 +264,8 @@
                 ($stored-bundle (copy_term $bundle)))
               (if (goal-has-ancestor-seen? $parent-gid $gid ()) ()
                  (progn
-                    (add-atom &frontier ($fid $parent-gid $aid $stored-bundle $score $seen $rev-pids))
+                    (add-atom &frontier
+                       ($fid $parent-gid $aid $stored-bundle $score $seen $rev-pids))
                     (add-atom &goal_waiter ($gid $fid))
                     (attach-existing-goal-proofs $fid $gid)
                     (schedule-goal $score $gid)
@@ -245,12 +273,7 @@
 
 (= (frontier-state-by-id $fid)
    (match &frontier ($fid $parent-gid $aid $bundle $score $seen $rev-pids)
-      (frontier-state $parent-gid
-         $aid
-         $bundle
-         $score
-         $seen
-         $rev-pids)))
+      (frontier-state $parent-gid $aid $bundle $score $seen $rev-pids)))
 
 (= (advance-frontier-bundle (and-bundle $_goal ()) $_pid) ())
 (= (advance-frontier-bundle (and-bundle $goal (cons $prem $rest)) $pid)
@@ -258,7 +281,8 @@
 
 (= (advance-frontier $fid $pid)
    (let*
-      (((frontier-state $parent-gid $aid $bundle $score $seen $rev-pids) (frontier-state-by-id $fid))
+      (((frontier-state $parent-gid $aid $bundle $score $seen $rev-pids)
+           (frontier-state-by-id $fid))
         (($pscore $pev) (proof-stats-by-id $pid))
         (False (evidence-sets-overlap? $seen $pev))
         ($next-bundle (advance-frontier-bundle (copy_term $bundle) $pid)))
@@ -272,17 +296,15 @@
 
 (= (expand-rule-goal $parent-gid $goal)
    (let*
-      (($args (match &ccls_index ($goal $rule-id) (match &rules ($rule-id $goal $args) $args)))
+      (($args
+           (match ccls_index ($goal $rule-id)
+              (match rules ($rule-id $goal $args)
+                 $args)))
         ($bound (premises-expected-confidence $args))
         ($bundle (copy_term (and-bundle $goal $args)))
         ($aid (next-aid))
         ($_1 (add-atom &and_node ($aid $parent-gid $rule-id $bound $bundle))))
-      (spawn-frontier $parent-gid
-         $aid
-         $bundle
-         $bound
-         ()
-         ())))
+      (spawn-frontier $parent-gid $aid $bundle $bound () ())))
 
 (= (expand-goal $steps $gid)
    (let $goal (goal-term-by-id $gid)
@@ -295,7 +317,7 @@
    (if (or (<= $steps 0) (== (heap_size (@ $agenda (backward-load-agenda))) 0)) ()
       (let*
          (($rest (get_from_heap $agenda $_priority $item))
-           ((qitem $score $gid) $item)
+           ((qitem $score $gid) (tracem pop $item))
            ($_save (backward-save-agenda $rest)))
          (if (and (not (goal-expanded? $gid)) (== (goal-pending-score-of $gid) $score))
             (progn
@@ -306,7 +328,9 @@
 
 (= (instantiate-and-bundle (and-bundle $goal ()) ()) (and-bundle $goal ()))
 (= (instantiate-and-bundle (and-bundle $goal (cons $prem $rest)) (cons $pid $pids))
-   (if (= $prem (proof-unify-term $pid)) (instantiate-and-bundle (and-bundle $goal $rest) $pids) (empty)))
+   (if (= $prem (proof-unify-term $pid))
+      (instantiate-and-bundle (and-bundle $goal $rest) $pids)
+      (empty)))
 
 (=
    (build-parent-proof $parent-gid
@@ -317,11 +341,7 @@
       $pid-list)
    (commit-proof-candidate $parent-gid
       (classify-goal-proof-candidate $parent-gid $ev $score)
-      (proof-candidate (rule $aid)
-         (with-tv $tv)
-         $score
-         $ev
-         $pid-list)))
+      (proof-candidate (rule $aid) (with-tv $tv) $score $ev $pid-list)))
 
 (= (clear-backward-state)
    (let*
@@ -357,12 +377,15 @@
 
 (= (unwrap $x) (if (== $x #) $any $x))
 
-(= (contains-hash? $x) (if (== $x #) true (if (is-expr $x) (contains-hash-expr $x) false)))
+(= (contains-hash? $x)
+   (if (== $x #) true (if (is-expr $x) (contains-hash-expr $x) false)))
 
-(= (contains-hash-expr $expr) (or (== (car-atom $expr) #) (contains-hash-list (cdr-atom $expr))))
+(= (contains-hash-expr $expr)
+   (or (== (car-atom $expr) #) (contains-hash-list (cdr-atom $expr))))
 
 (= (contains-hash-list ()) false)
-(= (contains-hash-list (cons $head $tail)) (or (contains-hash? $head) (contains-hash-list $tail)))
+(= (contains-hash-list (cons $head $tail))
+   (or (contains-hash? $head) (contains-hash-list $tail)))
 
 (= (cpu-call $steps $fun $args)
    (reduce
@@ -387,7 +410,8 @@
    (cons $tv (extract-proof-tvs $tail)))
 (= (extract-proof-tvs (cons $_head $tail)) (extract-proof-tvs $tail))
 
-(= (inject-compiled-adds $adds) (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom &kb $sadds))))
+(= (inject-compiled-adds $adds)
+   (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom &kb $sadds))))
 
 (= (run-compiled-query $steps $compiled-query)
    (let*
@@ -399,27 +423,36 @@
    (foldall-eval $fun
       $init
       (collapse
-         (let ($pattern ($kbid $_ctx $_vars) $prf $tvin) (run-compiled-query $steps $compiled-query) $value))))
+         (let ($pattern ($kbid $_ctx $_vars) $prf $tvin)
+            (run-compiled-query $steps $compiled-query)
+            $value))))
 
 (= (FoldAllTVFormulaCompiled $steps $compiled-query $init $fun)
-   (foldall-eval $fun $init (extract-proof-tvs (run-compiled-query $steps $compiled-query))))
+   (foldall-eval $fun
+      $init
+      (extract-proof-tvs (run-compiled-query $steps $compiled-query))))
 
 (= (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun)
    (let*
-      (($kctx (if (is-expr $kb) (let ($kbid $_ctx $_vars) $kb ($kbid MAIN Nil)) ($kb MAIN Nil)))
+      (($kctx
+           (if (is-expr $kb) (let ($kbid $_ctx $_vars) $kb ($kbid MAIN Nil))
+              ($kb MAIN Nil)))
         ($matches (collapse (match &kb ($pattern $kctx $prf $ptv) $ptv))))
       (foldall-eval $fun $init $matches)))
 
 (= (Map2DistRuntimeFormula $steps $kb $fun $a $b)
    (let (: $prfa $a $tva) (query $steps $kb (: $prfa $a $tva))
-      (let (: $prfb $b $tvb) (query $steps $kb (: $prfb $b $tvb)) (DistMap2Formula $fun $tva $tvb))))
+      (let (: $prfb $b $tvb) (query $steps $kb (: $prfb $b $tvb))
+         (DistMap2Formula $fun $tva $tvb))))
 
-(= (FoldAllTVRuntimeFormula $steps $kb $pattern $init $fun) (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun))
+(= (FoldAllTVRuntimeFormula $steps $kb $pattern $init $fun)
+   (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun))
 
 (= (FoldAllTVPatternFormula $steps $kb $pattern $init $fun)
    (foldall-eval $fun
       $init
-      (collapse (let (: $prf $pattern $ptv) (query $steps $kb (: $prf $pattern $ptv)) $ptv))))
+      (collapse
+         (let (: $prf $pattern $ptv) (query $steps $kb (: $prf $pattern $ptv)) $ptv))))
 
 (= (FoldAllValueFormulaCompiled $steps $compiled-query $pattern $value $init $fun)
    (FoldAllTVFormulaCompiled $steps $compiled-query $init $fun))

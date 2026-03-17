@@ -80,6 +80,12 @@ class PeTTaChainer:
         self._validate("statement", atom, evaluated_atom, check_stmt)
         return self.handler.process_metta_string(f"!(compileadd {self.kb} {evaluated_atom})")
 
+    def add_atoms_no_check(self, atoms: List[str]) -> str:
+        adds = [f"(compileadd {self.kb} {atom})" for atom in atoms]
+        return self.handler.process_metta_string(
+            f"!(superpose ({' '.join(adds)}))"
+        )
+
     def evaluate_statement(self, atom: str) -> str:
         return self._evaluate(atom)
 

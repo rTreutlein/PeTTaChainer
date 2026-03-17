@@ -4,7 +4,8 @@
    (let $magenda (catch (get-state (atom_concat fwd_agenda_ $kb)))
       (if-error $magenda (empty_heap) $magenda)))
 
-(= (forward-save-agenda $kb $agenda) (change-state! (atom_concat fwd_agenda_ $kb) $agenda))
+(= (forward-save-agenda $kb $agenda)
+   (change-state! (atom_concat fwd_agenda_ $kb) $agenda))
 
 (= (forward-register-added-expr $expr)
    (if (= $expr ($type ($kbid MAIN Nil) $prf $tv))
@@ -37,14 +38,16 @@
 (= (forward-satisfy-premises $steps () $goal) $goal)
 (= (forward-satisfy-premises $steps (cons $prem $rest) $goal)
    (if (= $prem (CPU $fun $args $res))
-      (let $res (reduce (cpu-call $steps $fun $args)) (forward-satisfy-premises $steps $rest $goal))
+      (let $res (reduce (cpu-call $steps $fun $args))
+         (forward-satisfy-premises $steps $rest $goal))
       (if (= $prem ($_type ($_kbid $_ctx $_vars) $_prf $_tv))
          (match &kb $prem
             (forward-satisfy-premises $steps $rest $goal))
          (empty))))
 
 (= (agenda-push-fact $agenda $fact)
-   (let $score (term-confidence $fact) (add_to_heap $agenda (- 0 $score) (qitem $score $fact))))
+   (let $score (term-confidence $fact)
+      (add_to_heap $agenda (- 0 $score) (qitem $score $fact))))
 
 (= (agenda-has-fact? $agenda $fact)
    (if (== (heap_size $agenda) 0) false
@@ -67,8 +70,8 @@
 (= (forward-rule-results $steps $kb $fact)
    (collapse
       (let*
-         (($id (match &prem_index ($fact $id $idx) $id))
-           (($id $ccls $prems) (match &rules ($id $ccls $prems) ($id $ccls $prems)))
+         (($id (match prem_index ($fact $id $idx) $id))
+           (($id $ccls $prems) (match rules ($id $ccls $prems) ($id $ccls $prems)))
            ($rprems (nth0 $idx $prems $fact)))
          (forward-satisfy-premises $steps $rprems $ccls))))
 
@@ -88,4 +91,5 @@
         ($_save (forward-save-agenda $kb $nagenda)))
       true))
 
-(= (forward-has-derived? $kb $type) (not (== (collapse (match &kb ($type ($kb MAIN Nil) $prf $tv) $prf)) ())))
+(= (forward-has-derived? $kb $type)
+   (not (== (collapse (match &kb ($type ($kb MAIN Nil) $prf $tv) $prf)) ())))
