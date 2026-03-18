@@ -120,20 +120,8 @@
                   (add-atom &goal_pending_score ($gid $score))
                   ()))))))
 
-(= (goal-has-ancestor-seen? $gid $ancestor $seen)
-   (if (== $gid $ancestor) true
-      (if (is-member $gid $seen) false
-         (let $parents
-            (collapse
-               (match &goal_waiter ($gid $fid)
-                  (match &frontier ($fid $parent $_aid $_bundle $_score $_seen $_rev)
-                     $parent)))
-            (fold-flat
-               (|-> ($found $parent)
-                  (or $found
-                     (goal-has-ancestor-seen? $parent $ancestor (cons $gid $seen))))
-               false
-               $parents)))))
+(= (frontier-ancestor-set $parent-gid $parent-ancestors)
+   (list_to_set (cons $parent-gid $parent-ancestors)))
 
 (= (direct-goal-results $steps $goal)
    (if (= $goal (CPU $fun $args $_res)) (CPU $fun $args (cpu-call $steps $fun $args))
@@ -248,7 +236,7 @@
          (classify-goal-proof-candidate $gid $ev $score)
          (proof-candidate (leaf $result) $tv-state $score $ev ()))))
 
-(= (spawn-frontier $parent-gid $aid $bundle $score $seen $rev-pids)
+(= (spawn-frontier $parent-gid $aid $bundle $score $seen $rev-pids $ancestors)
    (case $bundle (
         ((and-bundle $goal ())
            (build-parent-proof $parent-gid
@@ -262,18 +250,24 @@
               (($gid (ensure-goal $prem))
                 ($fid (next-fid))
                 ($stored-bundle (copy_term $bundle)))
-              (if (goal-has-ancestor-seen? $parent-gid $gid ()) ()
+              (if (is-member $gid $ancestors) ()
                  (progn
                     (add-atom &frontier
-                       ($fid $parent-gid $aid $stored-bundle $score $seen $rev-pids))
+                       ($fid $parent-gid
+                          $aid
+                          $stored-bundle
+                          $score
+                          $seen
+                          $rev-pids
+                          $ancestors))
                     (add-atom &goal_waiter ($gid $fid))
                     (attach-existing-goal-proofs $fid $gid)
                     (schedule-goal $score $gid)
                     ())))))))
 
 (= (frontier-state-by-id $fid)
-   (match &frontier ($fid $parent-gid $aid $bundle $score $seen $rev-pids)
-      (frontier-state $parent-gid $aid $bundle $score $seen $rev-pids)))
+   (match &frontier ($fid $parent-gid $aid $bundle $score $seen $rev-pids $ancestors)
+      (frontier-state $parent-gid $aid $bundle $score $seen $rev-pids $ancestors)))
 
 (= (advance-frontier-bundle (and-bundle $_goal ()) $_pid) ())
 (= (advance-frontier-bundle (and-bundle $goal (cons $prem $rest)) $pid)
@@ -281,7 +275,7 @@
 
 (= (advance-frontier $fid $pid)
    (let*
-      (((frontier-state $parent-gid $aid $bundle $score $seen $rev-pids)
+      (((frontier-state $parent-gid $aid $bundle $score $seen $rev-pids $ancestors)
            (frontier-state-by-id $fid))
         (($pscore $pev) (proof-stats-by-id $pid))
         (False (evidence-sets-overlap? $seen $pev))
@@ -292,7 +286,8 @@
             $next-bundle
             (min $score $pscore)
             (list_to_set (list-append $seen $pev))
-            (cons $pid $rev-pids)))))
+            (cons $pid $rev-pids)
+            $ancestors))))
 
 (= (expand-rule-goal $parent-gid $goal)
    (let*
@@ -301,10 +296,12 @@
               (match rules ($rule-id $goal $args)
                  $args)))
         ($bound (premises-expected-confidence $args))
+        ;(trace (trace! (rg $bound $args) trace))
         ($bundle (copy_term (and-bundle $goal $args)))
+        ($ancestors (frontier-ancestor-set $parent-gid ()))
         ($aid (next-aid))
         ($_1 (add-atom &and_node ($aid $parent-gid $rule-id $bound $bundle))))
-      (spawn-frontier $parent-gid $aid $bundle $bound () ())))
+      (spawn-frontier $parent-gid $aid $bundle $bound () () $ancestors)))
 
 (= (expand-goal $steps $gid)
    (let $goal (goal-term-by-id $gid)
@@ -317,7 +314,9 @@
    (if (or (<= $steps 0) (== (heap_size (@ $agenda (backward-load-agenda))) 0)) ()
       (let*
          (($rest (get_from_heap $agenda $_priority $item))
-           ((qitem $score $gid) (tracem pop $item))
+           ((qitem $score $gid) $item)
+           (trace
+              (trace! (pop $score (match &goal_by_id ($gid $goal) ($gid $goal))) trace))
            ($_save (backward-save-agenda $rest)))
          (if (and (not (goal-expanded? $gid)) (== (goal-pending-score-of $gid) $score))
             (progn

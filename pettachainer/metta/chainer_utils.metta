@@ -146,13 +146,10 @@
 (= (proof-atom-evidence-set ($_type $_kb $prf $_tv))
    (list_to_set (proof-term-evidence-list $prf)))
 
-(= (evidence-sets-overlap? () $set-b) false)
-(= (evidence-sets-overlap? (cons $head $tail) $set-b)
-   (or (is-member $head $set-b) (evidence-sets-overlap? $tail $set-b)))
+(= (evidence-sets-overlap? $set-a $set-b)
+   (not (== (intersection-atom $set-a $set-b) ())))
 
-(= (evidence-subset? () $set-b) true)
-(= (evidence-subset? (cons $head $tail) $set-b)
-   (and (is-member $head $set-b) (evidence-subset? $tail $set-b)))
+(= (evidence-subset? $set-a $set-b) (== (subtraction-atom $set-a $set-b) ()))
 
 (= (merge-proof-atoms $proof-a $proof-b)
    (if (== $proof-a $proof-b) $proof-a
