@@ -43,7 +43,10 @@
       (instantiate-and-bundle
          (copy_term (match &and_node ($aid $_parent $_rule $_bound $bundle) $bundle))
          $pid-list) (
-        ((and-bundle ($_type $_kb $prf $_tv) $_rest) (materialize-proof-refs $prf))
+        ((and-bundle ($_type $_kb $prf $_tv) $_rest)
+           (cons rule-proof
+              (cons (materialize-proof-refs (car-atom $prf))
+                 (map-flat materialize-proof-refs (cdr-atom $prf)))))
         ($other $other))))
 
 (= (materialize-proof $pid)

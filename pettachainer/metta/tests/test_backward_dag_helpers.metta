@@ -215,3 +215,8 @@
               $b)))
       (goal-results $gid))
    (((Goal) (kb MAIN ()) (merge/revision factB factA) (STV 1.0 0.8461538461538461))))
+
+!(test
+   (proof-term-evidence-list
+      (rule-proof own_have (fact-ev (kb MAIN ()) i_have_max (Have (i max)))))
+   ((fact-ev (kb MAIN ()) i_have_max (Have (i max)))))

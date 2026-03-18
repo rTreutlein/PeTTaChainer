@@ -118,15 +118,12 @@
          (if (is-expr $ptree) (proof-tree-contains-list (cdr-atom $ptree) $pneedle)
             false))))
 
-(= (rule-proof-id? $prf)
-   (not (== (collapse (once (match &rule_proof_ids ($prf true) true))) ())))
-
 (= (proof-term-children $prf)
    (if (is-expr $prf)
       (let $head (car-atom $prf)
          (if (== $head conjunction) (cdr-atom $prf)
-            (if (is-expr $head) (cdr-atom $prf)
-               (if (rule-proof-id? $head) (cdr-atom $prf) ()))))
+            (if (== $head rule-proof) (cdr-atom (cdr-atom $prf))
+               (if (is-expr $head) (cdr-atom $prf) ()))))
       ()))
 
 (= (proof-term-evidence-list $prf)
