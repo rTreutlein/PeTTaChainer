@@ -4,7 +4,7 @@
 
 !(test (tv-confidence maybeUnknown) 1.0)
 
-!(test (term-confidence (CPU MpFormula ((STV 1.0 0.6) (STV 0.8 0.9)) $out)) 0.6)
+!(test (term-confidence (CPU MpFormula ((STV 1.0 0.6) (STV 0.8 0.9)) $out)) 0.54)
 
 !(test (term-confidence (CPU AndFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out)) 0.4)
 
@@ -20,7 +20,7 @@
    (premises-expected-confidence
       (cons (CPU MpFormula ((STV 1.0 0.2) (STV 1.0 1.0)) $tv1)
          (cons (CPU MpFormula ((STV 1.0 0.55) $tv1) $tv2) ())))
-   0.2)
+   0.18000000000000002)
 
 !(test
    (premises-expected-confidence

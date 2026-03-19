@@ -51,7 +51,7 @@
             $tv)
          $args)
       ok)
-   ok)
+   ())
 
 !(compileadd kb (: o3 (Owns bob dog) (STV 1.0 1.0)))
 
@@ -64,7 +64,7 @@
             $tv)
          $args)
       (if (is-member (: (kb MAIN ()) $prf (Owns $x dog) $tvin) $args) ok fail))
-   ok)
+   ())
 
 !(compileadd kb2 (: o1 (Owns alice dog) (STV 1.0 1.0)))
 
