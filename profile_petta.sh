@@ -161,7 +161,7 @@ if [[ $use_mork -eq 1 && -f "$MORK_LIB" ]]; then
 fi
 
 run_standard() {
-  swipl "${swipl_args[@]}" -s "$MAIN_PL" -- "$metta_file" "$@"
+  swipl "${swipl_args[@]}" -s "$MAIN_PL" -- "$metta_file" "$@" -s
 }
 
 run_swi_profile() {
@@ -199,14 +199,14 @@ run_swi_profile() {
 case "$mode" in
   time)
     cd "$metta_dir"
-    /usr/bin/time -v swipl "${swipl_args[@]}" -s "$MAIN_PL" -- "$metta_file"
+    /usr/bin/time -v swipl "${swipl_args[@]}" -s "$MAIN_PL" -- "$metta_file" -s
     ;;
   swi-profile)
     run_swi_profile
     ;;
   perf)
     cd "$metta_dir"
-    perf record --call-graph dwarf -- swipl "${swipl_args[@]}" -s "$MAIN_PL" -- "$metta_file"
+    perf record --call-graph dwarf -- swipl "${swipl_args[@]}" -s "$MAIN_PL" -- "$metta_file" -s
     ;;
   *)
     die "Unsupported mode: $mode"
