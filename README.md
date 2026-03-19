@@ -19,6 +19,18 @@ Optional JSON export:
 python pettachainer/benchmarks/particle_vs_nat.py --json-out /tmp/particle_bench.json
 ```
 
+## Profiling MeTTa Runs
+
+Profile a `.metta` file through the underlying SWI-Prolog invocation that `petta` uses:
+
+```bash
+./profile_petta.sh tests/testmining.metta
+./profile_petta.sh --mode time tests/testmining.metta
+./profile_petta.sh --mode perf benchmarks/demo_benchgen_forward_backward_compare.metta
+```
+
+Relative paths are resolved from `pettachainer/metta` by default.
+
 ## Python API: Language Spec String
 
 ```python
