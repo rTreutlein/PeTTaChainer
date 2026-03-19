@@ -7,11 +7,33 @@
 (= (forward-save-agenda $kb $agenda)
    (change-state! (atom_concat fwd_agenda_ $kb) $agenda))
 
+(= (forward-fact-key $fact) (goal-key-components $fact))
+
+(= (forward-pending-state-key $fact)
+   (atom_concat fwd_pending_ (term_hash (forward-fact-key $fact))))
+
+(= (forward-pending-score-of $fact)
+   (let*
+      (($state-key (forward-pending-state-key $fact))
+        ($entry (catch (get-state $state-key))))
+      (if-error $entry
+         0.0
+         (if (= $entry (pending $stored-key $score))
+            (if (== $stored-key (forward-fact-key $fact)) $score 0.0)
+            0.0))))
+
+(= (clear-forward-pending-score $fact)
+   (change-state! (forward-pending-state-key $fact) (pending () 0.0)))
+
+(= (set-forward-pending-score $fact $score)
+   (change-state! (forward-pending-state-key $fact)
+      (pending (forward-fact-key $fact) $score)))
+
 (= (forward-register-added-expr $expr)
    (if (= $expr ($type ($kbid MAIN Nil) $prf $tv))
       (let*
          (($agenda (forward-load-agenda $kbid))
-           ($nagenda (agenda-push-fact $agenda $expr))
+           ($nagenda (agenda-push-fact-best $agenda $expr))
            ($_save (forward-save-agenda $kbid $nagenda)))
          ())
       ()))
@@ -28,7 +50,7 @@
                             (collapse
                                (match &kb ($ptype ($kbid MAIN Nil) $prf $tv)
                                   ($ptype ($kbid MAIN Nil) $prf $tv))))
-                         ($nagenda (fold-flat agenda-push-fact-unique $agenda $matches))
+                         ($nagenda (fold-flat agenda-push-fact-best $agenda $matches))
                          ($_save (forward-save-agenda $kbid $nagenda)))
                        ())
                     ()))
@@ -49,14 +71,15 @@
    (let $score (term-confidence $fact)
       (add_to_heap $agenda (- 0 $score) (qitem $score $fact))))
 
-(= (agenda-has-fact? $agenda $fact)
-   (if (== (heap_size $agenda) 0) false
-      (let $rest (get_from_heap $agenda $_priority $item)
-         (let (qitem $_score $queued-fact) $item
-            (or (=alpha $queued-fact $fact) (agenda-has-fact? $rest $fact))))))
-
-(= (agenda-push-fact-unique $agenda $fact)
-   (if (agenda-has-fact? $agenda $fact) $agenda (agenda-push-fact $agenda $fact)))
+(= (agenda-push-fact-best $agenda $fact)
+   (let*
+      (($score (term-confidence $fact))
+        ($current (forward-pending-score-of $fact)))
+      (if (>= $current $score) $agenda
+         (let*
+            (($nagenda (agenda-push-fact $agenda $fact))
+              ($_set (set-forward-pending-score $fact $score)))
+            $nagenda))))
 
 (= (forward-fact-upsert $agenda (@ $fact ($type ($kbid $_ctx $_vars) $prf $tv)))
    (let*
@@ -65,7 +88,7 @@
         ($_ (foreach-flat (|-> ($old-fact) (remove-atom &kb $old-fact)) $hits))
         ($merged-fact (fold-flat merge-proof-atoms $fact $hits))
         ($_ (add-atom &kb $merged-fact)))
-      (if (== $hits ()) (agenda-push-fact $agenda $merged-fact) $agenda)))
+      (if (== $hits ()) (agenda-push-fact-best $agenda $merged-fact) $agenda)))
 
 (= (forward-rule-results $steps $kb $fact)
    (collapse
@@ -78,11 +101,14 @@
 (= (forward-loop $steps $kb $agenda)
    (if (or (== (heap_size $agenda) 0) (<= $steps 0)) $agenda
       (let $rest (get_from_heap $agenda $_priority $item)
-         (let (qitem $_score $fact) $item
-            (let*
-               (($derived (forward-rule-results $steps $kb $fact))
-                 ($nagenda (fold-flat forward-fact-upsert $rest $derived)))
-               (forward-loop (- $steps 1) $kb $nagenda))))))
+         (let (qitem $score $fact) $item
+            (if (== (forward-pending-score-of $fact) $score)
+               (let*
+                  (($_clear (clear-forward-pending-score $fact))
+                    ($derived (forward-rule-results $steps $kb $fact))
+                    ($nagenda (fold-flat forward-fact-upsert $rest $derived)))
+                  (forward-loop (- $steps 1) $kb $nagenda))
+               (forward-loop $steps $kb $rest))))))
 
 (= (forward-chain $steps $kb)
    (let*
