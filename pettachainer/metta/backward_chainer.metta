@@ -435,8 +435,7 @@
    (cons $tv (extract-proof-tvs $tail)))
 (= (extract-proof-tvs (cons $_head $tail)) (extract-proof-tvs $tail))
 
-(= (inject-compiled-adds $adds)
-   (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom &kb $sadds))))
+(= (inject-compiled-adds $adds) (if (= $adds ()) $_ (foreach-flat add-to-kb $adds)))
 
 (= (compiled-query-goal (cons (goal $query) $_adds)) $query)
 
