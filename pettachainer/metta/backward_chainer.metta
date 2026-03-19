@@ -135,7 +135,9 @@
          (if (>= $current $score) $agenda
             (let*
                (($goal-class (match &goal_class ($gid $class) $class))
-                 ($bonus (if (== $goal-class proof) 0.0 1.0))
+                 ($closed-proof-bonus
+                    (if (goal-term-has-type-vars? (goal-term-by-id $gid)) 0.0 1.0))
+                 ($bonus (if (== $goal-class proof) $closed-proof-bonus 2.0))
                  ($priority (- 0 (+ (* 1000000.0 $score) $bonus)))
                  ($nagenda (add_to_heap $agenda $priority (qitem $score $gid)))
                  ($_clear (clear-goal-pending-score $gid))
