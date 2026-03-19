@@ -68,7 +68,7 @@
 (= (NotFormula (STV $s $c) (STV (- 1 $s) $c)))
 
 (= (InversionFormula (STV $sa $ca) (STV $sb $cb) (STV $sab $cab))
-   (STV (/ (* $sb $sab) $sa) (min-atom ($ca $cb $cab))))
+   (STV (/ (* $sb $sab) $sa) (* (min-atom ($ca $cb $cab)) 0.9)))
 
 ;(= (Equal $a $b) (== $a $b))
 ;(= (NotEqual $a $b) (not (== $a $b)))

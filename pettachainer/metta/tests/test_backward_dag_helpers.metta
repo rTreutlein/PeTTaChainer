@@ -14,7 +14,7 @@
    0.4)
 
 !(test (term-confidence (CPU InversionFormula ($a $b (STV 0.8 0.632121)) $out))
-   0.632121)
+   0.5689089)
 
 !(test
    (premises-expected-confidence
@@ -29,7 +29,7 @@
             (cons (CPU InversionFormula ($tvA $tvB (STV 0.8 0.632121)) $iitv)
                (cons ((Creature #) (kb MAIN Nil) $prfC $tvB)
                   (cons (CPU MpFormula ($iitv $tvB) $tvA) ()))))))
-   0.632121)
+   0.5689089)
 
 !(test
    (goal-key-eq? ((LoopGoal $x) (kb MAIN ()) p1 (STV 1.0 1.0))
