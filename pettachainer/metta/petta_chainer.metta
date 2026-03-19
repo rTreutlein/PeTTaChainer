@@ -41,13 +41,3 @@
         ($_ (process-on-add $kb $stmt)))
       (superpose
          $eatoms)))
-
-(= (query $steps $kb $stmt)
-   (let*
-      (($compiled
-           (map-flat internalize-proof-structure (collapse (mm2compileQuery $kb $stmt))))
-        ((cons (goal $query) $adds) $compiled)
-        ($_ (inject-compiled-adds $adds))
-        ($res (reduce (chainer $steps $query)))
-        ($eres (map-flat externalize-proof-structure $res)))
-      (pretty (superpose $eres))))

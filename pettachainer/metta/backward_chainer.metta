@@ -103,8 +103,10 @@
          (car-atom $hits))))
 
 (= (schedule-goal-heap $agenda $score $gid)
-   (if (goal-expanded? $gid) $agenda
-      (let $current (goal-pending-score-of $gid)
+   (let*
+      (($expanded (goal-expanded? $gid))
+        ($current (goal-pending-score-of $gid)))
+      (if $expanded $agenda
          (if (>= $current $score) $agenda
             (let*
                (($goal-class (match &goal_class ($gid $class) $class))
@@ -114,9 +116,6 @@
                  ($_clear (clear-goal-pending-score $gid))
                  ($_set (add-atom &goal_pending_score ($gid $score))))
                $nagenda)))))
-
-(= (frontier-ancestor-set $parent-gid $parent-ancestors)
-   (list_to_set (cons $parent-gid $parent-ancestors)))
 
 (= (direct-goal-results $steps $goal)
    (if (= $goal (CPU $fun $args $_res)) (CPU $fun $args (cpu-call $steps $fun $args))
@@ -140,16 +139,13 @@
          (and (== $old-score $new-score) (evidence-subset? $new-ev $old-ev)))))
 
 (= (goal-proof-candidate-step $ev $score false $_oldpid) false)
-(= (goal-proof-candidate-step $ev $score $rev-pruned $oldpid)
+(= (goal-proof-candidate-step $ev $score true $oldpid)
    (let ($old-score $old-ev) (proof-stats-by-id $oldpid)
-      (if (proof-overlap-dominates-score? $old-ev $old-score $ev $score) false
-         (if (proof-overlap-dominates-score? $ev $score $old-ev $old-score)
-            (cons $oldpid $rev-pruned)
-            $rev-pruned))))
+      (if (proof-overlap-dominates-score? $old-ev $old-score $ev $score) false true)))
 
 (= (classify-goal-proof-candidate $gid $ev $score)
    (fold-flat (goal-proof-candidate-step $ev $score)
-      ()
+      true
       (collapse (match &goal_proof ($gid $oldpid) $oldpid))))
 
 (= (store-proof-tv $pid no-tv) ())
@@ -180,6 +176,23 @@
       $ev
       ()))
 
+(= (proof-depends-on-goal-seen? $pid $gid $seen-pids)
+   (if (is-member $pid $seen-pids) false
+      (or (== (proof-goal-by-id $pid) $gid)
+         (fold-flat
+            (|-> ($acc $child-pid)
+               (or $acc
+                  (proof-depends-on-goal-seen? $child-pid $gid (cons $pid $seen-pids))))
+            false
+            (match &proof_children ($pid $kids)
+               $kids)))))
+
+(= (proof-depends-on-goal? $pid $gid) (proof-depends-on-goal-seen? $pid $gid ()))
+
+(= (candidate-is-cyclic? $gid ()) false)
+(= (candidate-is-cyclic? $gid (cons $pid $pids))
+   (or (proof-depends-on-goal? $pid $gid) (candidate-is-cyclic? $gid $pids)))
+
 (= (goal-summary-candidate $gid $pids)
    (let*
       (($seed (proof-output-atom (car-atom $pids)))
@@ -202,39 +215,36 @@
 (=
    (commit-proof-candidate-heap $agenda
       $gid
-      $rev-pruned
+      $accepted
       (proof-candidate $kind $tv-state $score $ev $children))
-   (if (== $rev-pruned false) $agenda
-      (let $pid
-         (store-proof-candidate $gid
-            (proof-candidate $kind $tv-state $score $ev $children))
-         (progn
-            (foreach-flat (|-> ($oldpid) (remove-atom &goal_proof ($gid $oldpid)))
-               $rev-pruned)
-            (add-atom &goal_proof ($gid $pid))
-            (let $summary-pid (refresh-goal-summary-proof $gid)
-               (if (== $summary-pid ()) $agenda
-                  (fold-flat
-                     (|-> ($acc $fid) (advance-frontier-heap $acc $fid $summary-pid))
-                     $agenda
-                     (collapse (match &goal_waiter ($gid $fid) $fid)))))))))
+   (if (== $accepted false) $agenda
+      (if (candidate-is-cyclic? $gid $children) $agenda
+         (let $pid
+            (store-proof-candidate $gid
+               (proof-candidate $kind $tv-state $score $ev $children))
+            (progn
+               (add-atom &goal_proof ($gid $pid))
+               ($_summary-pid (refresh-goal-summary-proof $gid))
+               (fold-flat (|-> ($acc $fid) (advance-frontier-heap $acc $fid $pid))
+                  $agenda
+                  (collapse (match &goal_waiter ($gid $fid) $fid))))))))
 
 (=
    (commit-proof-candidate $gid
-      $rev-pruned
+      $accepted
       (proof-candidate $kind $tv-state $score $ev $children))
-   (if (== $rev-pruned false) ()
+   (if (== $accepted false) ()
       (let $_
          (commit-proof-candidate-heap (empty_heap)
             $gid
-            $rev-pruned
+            $accepted
             (proof-candidate $kind $tv-state $score $ev $children))
          ())))
 
 (= (attach-existing-goal-proofs-heap $agenda $fid $gid)
-   (let $summary-pid (goal-summary-pid $gid)
-      (if (== $summary-pid ()) $agenda
-         (advance-frontier-heap $agenda $fid $summary-pid))))
+   (fold-flat (|-> ($acc $pid) (advance-frontier-heap $acc $fid $pid))
+      $agenda
+      (collapse (match &goal_proof ($gid $pid) $pid))))
 
 (= (expand-direct-goal-result-heap $agenda $gid $result)
    (let*
@@ -265,15 +275,7 @@
       (classify-goal-proof-candidate $parent-gid $ev $score)
       (proof-candidate (rule $aid) (with-tv $tv) $score $ev $pid-list)))
 
-(=
-   (spawn-frontier-heap $agenda
-      $parent-gid
-      $aid
-      $bundle
-      $score
-      $seen
-      $rev-pids
-      $ancestors)
+(= (spawn-frontier-heap $agenda $parent-gid $aid $bundle $score $seen $rev-pids)
    (case $bundle (
         ((and-bundle $goal ())
            (build-parent-proof-heap $agenda
@@ -288,25 +290,18 @@
               (($gid (ensure-goal $prem))
                 ($fid (next-fid))
                 ($stored-bundle (copy_term $bundle)))
-              (if (is-member $gid $ancestors) $agenda
-                 (let*
-                    (($_1
-                         (add-atom &frontier
-                            ($fid $parent-gid
-                               $aid
-                               $stored-bundle
-                               $score
-                               $seen
-                               $rev-pids
-                               $ancestors)))
-                      ($_2 (add-atom &goal_waiter ($gid $fid)))
-                      ($agenda1 (attach-existing-goal-proofs-heap $agenda $fid $gid))
-                      ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
-                    $nagenda)))))))
+              (let*
+                 (($_1
+                      (add-atom &frontier
+                         ($fid $parent-gid $aid $stored-bundle $score $seen $rev-pids)))
+                   ($_2 (add-atom &goal_waiter ($gid $fid)))
+                   ($agenda1 (attach-existing-goal-proofs-heap $agenda $fid $gid))
+                   ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
+                 $nagenda))))))
 
 (= (frontier-state-by-id $fid)
-   (match &frontier ($fid $parent-gid $aid $bundle $score $seen $rev-pids $ancestors)
-      (frontier-state $parent-gid $aid $bundle $score $seen $rev-pids $ancestors)))
+   (match &frontier ($fid $parent-gid $aid $bundle $score $seen $rev-pids)
+      (frontier-state $parent-gid $aid $bundle $score $seen $rev-pids)))
 
 (= (advance-frontier-bundle (and-bundle $_goal ()) $_pid) ())
 (= (advance-frontier-bundle (and-bundle $goal (cons $prem $rest)) $pid)
@@ -314,20 +309,20 @@
 
 (= (advance-frontier-heap $agenda $fid $pid)
    (let*
-      (((frontier-state $parent-gid $aid $bundle $score $seen $rev-pids $ancestors)
+      (((frontier-state $parent-gid $aid $bundle $score $seen $rev-pids)
            (frontier-state-by-id $fid))
         (($pscore $pev) (proof-stats-by-id $pid))
-        (False (evidence-sets-overlap? $seen $pev))
+        ($overlap (evidence-sets-overlap? $seen $pev))
         ($next-bundle (advance-frontier-bundle (copy_term $bundle) $pid)))
-      (if (== $next-bundle ()) $agenda
-         (spawn-frontier-heap $agenda
-            $parent-gid
-            $aid
-            $next-bundle
-            (min $score $pscore)
-            (list_to_set (list-append $seen $pev))
-            (cons $pid $rev-pids)
-            $ancestors))))
+      (if $overlap $agenda
+         (if (== $next-bundle ()) $agenda
+            (spawn-frontier-heap $agenda
+               $parent-gid
+               $aid
+               $next-bundle
+               (min $score $pscore)
+               (list_to_set (list-append $seen $pev))
+               (cons $pid $rev-pids))))))
 
 (= (expand-rule-goal-heap $agenda $parent-gid $goal)
    (let $lst
@@ -341,10 +336,9 @@
    (let*
       (($bound (premises-expected-confidence $args))
         ($bundle (copy_term (and-bundle $goal $args)))
-        ($ancestors (frontier-ancestor-set $parent-gid ()))
         ($aid (next-aid))
         ($_1 (add-atom &and_node ($aid $parent-gid $rule-id $bound $bundle))))
-      (spawn-frontier-heap $agenda $parent-gid $aid $bundle $bound () () $ancestors)))
+      (spawn-frontier-heap $agenda $parent-gid $aid $bundle $bound () ())))
 
 (= (expand-goal-heap $agenda $steps $gid)
    (let $goal (goal-term-by-id $gid)
@@ -402,8 +396,9 @@
         ($_pidreset (change-state! bwd_pid 0))
         ($root-gid (ensure-goal $goal))
         ($agenda0 (schedule-goal-heap (empty_heap) 1.0 $root-gid))
-        ($agenda1 (if (<= $steps 0) $agenda0 (search-goals-heap (+ $steps 1) $agenda0))))
-      (let $results (goal-results $root-gid) $results)))
+        ($_search
+           (if (<= $steps 0) () (collapse (search-goals-heap (+ $steps 1) $agenda0)))))
+      (goal-results $root-gid)))
 
 (= (unwrap $x) (if (== $x #) $any $x))
 
@@ -443,11 +438,25 @@
 (= (inject-compiled-adds $adds)
    (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom &kb $sadds))))
 
+(= (compiled-query-goal (cons (goal $query) $_adds)) $query)
+
+(= (compiled-query-adds (cons (goal $_query) $adds)) $adds)
+
 (= (run-compiled-query $steps $compiled-query)
    (let*
-      (((cons (goal $query) $adds) $compiled-query)
+      (($query (compiled-query-goal $compiled-query))
+        ($adds (compiled-query-adds $compiled-query))
         ($_ (inject-compiled-adds $adds)))
       (chainer $steps $query)))
+
+(= (run-compiled-query-output $steps $compiled-query)
+   (let $results (run-compiled-query $steps $compiled-query)
+      (let $eres (map-flat externalize-proof-structure $results)
+         (pretty (superpose $eres)))))
+
+(= (query $steps $kb $stmt)
+   (run-compiled-query-output $steps
+      (map-flat internalize-proof-structure (collapse (mm2compileQuery $kb $stmt)))))
 
 (= (FoldAllFormulaCompiled $steps $compiled-query $pattern $value $init $fun)
    (foldall-eval $fun
