@@ -144,8 +144,65 @@
                  ($_set (add-atom &goal_pending_score ($gid $score))))
                $nagenda)))))
 
+(= (specialized-runtime-cpu-fun? $fun)
+   (is-member $fun
+      (() FoldAllTVRuntimeFormula DistAverageFormula Map2DistRuntimeFormula)))
+
+(= (runtime-kctx $kb)
+   (if (is-expr $kb) (let ($kbid $_ctx $_vars) $kb ($kbid MAIN Nil)) ($kb MAIN Nil)))
+
+(= (runtime-direct-match-results $steps $kb $type)
+   (let ($rkbid $rctx $rvars) (runtime-kctx $kb)
+      (direct-goal-results $steps ($type ($rkbid $rctx $rvars) $prf $tv))))
+
+(=
+   (direct-goal-results $steps
+      ((CPU FoldAllTVRuntimeFormula ($kb $pattern $init $fun) $_goalres)
+         ($kbid $ctx $vars)
+         $prf
+         $_tv))
+   (let*
+      (($out (reduce (reduce (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun)))))
+      (superpose (
+           ((CPU FoldAllTVRuntimeFormula ($kb $pattern $init $fun) $out)
+              ($kbid $ctx $vars)
+              $prf
+              $out)))))
+(=
+   (direct-goal-results $steps
+      ((CPU DistAverageFormula ($kb $pattern) $_goalres) ($kbid $ctx $vars) $prf $_tv))
+   (let*
+      (($sumcount
+           (FoldAllTVRuntimeNoSteps $kb
+              $pattern
+              (SumCount (PointMass 0.0) 0)
+              DistSumCountAcc))
+        ($out (reduce (reduce (DistAverageFromSumCount $sumcount)))))
+      (superpose (
+           ((CPU DistAverageFormula ($kb $pattern) $out) ($kbid $ctx $vars) $prf $out)))))
+(=
+   (direct-goal-results $steps
+      ((CPU Map2DistRuntimeFormula ($kb $fun $a $b) $_goalres) ($kbid $ctx $vars)
+         $prf
+         $_tv))
+   (let ($_a ($akbid $actx $avars) $prfa $tva)
+      (runtime-direct-match-results $steps $kb $a)
+      (let ($_b ($bkbid $bctx $bvars) $prfb $tvb)
+         (runtime-direct-match-results $steps $kb $b)
+         (let $out (reduce (reduce (DistMap2Formula $fun $tva $tvb)))
+            (superpose (
+                 ((CPU Map2DistRuntimeFormula ($kb $fun $a $b) $out) ($kbid $ctx $vars)
+                    $prf
+                    $out)))))))
+(=
+   (direct-goal-results $steps
+      ((CPU $fun $args $_goalres) ($kbid $ctx $vars) $prf $_tv))
+   (if (specialized-runtime-cpu-fun? $fun) (empty)
+      (let $res (cpu-call $steps $fun $args)
+         (superpose (((CPU $fun $args $res) ($kbid $ctx $vars) $prf $res)))))))
 (= (direct-goal-results $steps $goal)
-   (if (= $goal (CPU $fun $args $_res)) (CPU $fun $args (cpu-call $steps $fun $args))
+   (if (= $goal (CPU $fun $args $_res))
+      (superpose ((CPU $fun $args (cpu-call $steps $fun $args)))))
       (let ($type ($kbid $_ctx $_vars) $prf $tv) $goal
          (let $kb ($kbid $_ctx $_vars)
             (let $utype
@@ -368,12 +425,12 @@
          (collapse
             (let $index-goal (goal-open-index-term $goal)
                (match ccls_index ($index-goal $rule-id)
-                  (match rules ($rule-id $matched-goal $args)
-                     ($args $matched-goal $parent-gid $rule-id)))))
+                  (match rules ($rule-id $goal $args)
+                     ($args $goal $parent-gid $rule-id)))))
          (collapse
             (match ccls_index ($goal $rule-id)
-               (match rules ($rule-id $matched-goal $args)
-                  ($args $matched-goal $parent-gid $rule-id)))))
+               (match rules ($rule-id $goal $args)
+                  ($args $goal $parent-gid $rule-id)))))
       (fold-flat expand-rule-goal-fold $agenda $lst)))
 
 (= (expand-rule-goal-fold $agenda ($args $goal $parent-gid $rule-id))
@@ -457,7 +514,7 @@
 (= (cpu-call $steps $fun $args)
    (reduce
       (reduce
-         (if (cons $fun (cons $steps $args))
+         (if
             (is-member $fun
                (() FoldAllFormulaCompiled
                   FoldAllTVFormulaCompiled
@@ -466,6 +523,7 @@
                   FoldAllValueFormulaCompiled
                   DistAverageFormula
                   Map2DistRuntimeFormula))
+            (cons $fun (cons $steps $args))
             (cons $fun $args)))))
 
 (= (foldall-eval $fun $acc ()) $acc)
@@ -521,8 +579,10 @@
       (foldall-eval $fun $init $matches)))
 
 (= (Map2DistRuntimeFormula $steps $kb $fun $a $b)
-   (let (: $prfa $a $tva) (query $steps $kb (: $prfa $a $tva))
-      (let (: $prfb $b $tvb) (query $steps $kb (: $prfb $b $tvb))
+   (let ($_a ($akbid $actx $avars) $prfa $tva)
+      (runtime-direct-match-results $steps $kb $a)
+      (let ($_b ($bkbid $bctx $bvars) $prfb $tvb)
+         (runtime-direct-match-results $steps $kb $b)
          (DistMap2Formula $fun $tva $tvb))))
 
 (= (FoldAllTVRuntimeFormula $steps $kb $pattern $init $fun)
