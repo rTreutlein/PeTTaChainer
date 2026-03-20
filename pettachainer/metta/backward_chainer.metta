@@ -379,9 +379,9 @@
       ((CPU $fun $args $_goalres) ($kbid $ctx $vars) $prf $_tv))
    (if (specialized-runtime-cpu-fun? $fun) (empty)
       (let $res (cpu-call $steps $fun $args)
-         (superpose (((CPU $fun $args $res) ($kbid $ctx $vars) $prf $res)))))))
+         (superpose (((CPU $fun $args $res) ($kbid $ctx $vars) $prf $res))))))
 (= (direct-goal-results $steps (CPU $fun $args $_res))
-   (superpose ((CPU $fun $args (cpu-call $steps $fun $args))))))
+   (superpose ((CPU $fun $args (cpu-call $steps $fun $args)))))
 (= (direct-goal-results $steps $goal)
    (let $query-goal (direct-goal-query-term $goal)
       (match &kb $candidate
