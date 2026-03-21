@@ -493,24 +493,20 @@
                ($agid $old-gid $old-child-gid $old-goal $old-acc $old-ev))))
       (add-atom &aggregate_state ($agid $gid $child-gid $goal $acc $ev))))
 
-(= (aggregate-seen-proof? $agid $pid)
-   (not (== (collapse (once (match &aggregate_seen ($agid $pid) true))) ())))
-
 (= (aggregate-finalized? $agid)
    (not (== (collapse (once (match &aggregate_finalized ($agid true) true))) ())))
 
 (= (advance-aggregate-heap $agenda $agid $pid)
-   (if (aggregate-seen-proof? $agid $pid) $agenda
-      (let*
-         (((aggregate-state $gid $child-gid $goal $acc $ev)
-              (aggregate-state-by-id $agid))
-           ($child-atom (proof-output-atom $pid))
-           (($_pscore $pev) (proof-stats-by-id $pid))
-           ($nacc (aggregate-goal-step-acc $goal $acc $child-atom (proof-tv-by-id $pid)))
-           ($nev (list_to_set (list-append $ev $pev)))
-           ($_1 (set-aggregate-state $agid $gid $child-gid $goal $nacc $nev))
-           ($_2 (add-atom &aggregate_seen ($agid $pid))))
-         $agenda)))
+   (let*
+      (((aggregate-state $gid $child-gid $goal $acc $ev)
+           (aggregate-state-by-id $agid))
+        ($child-atom (proof-output-atom $pid))
+        (($_pscore $pev) (proof-stats-by-id $pid))
+        ($nacc (aggregate-goal-step-acc $goal $acc $child-atom (proof-tv-by-id $pid)))
+        ($nev (list_to_set (list-append $ev $pev)))
+        ($_1 (set-aggregate-state $agid $gid $child-gid $goal $nacc $nev))
+        ($_2 (add-atom &aggregate_seen ($agid $pid))))
+      $agenda))
 
 (= (attach-existing-aggregate-proofs-heap $agenda $agid $child-gid)
    (fold-flat (|-> ($acc $pid) (advance-aggregate-heap $acc $agid $pid))
