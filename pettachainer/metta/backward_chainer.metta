@@ -499,8 +499,7 @@
         (($_pscore $pev) (proof-stats-by-id $pid))
         ($nacc (aggregate-goal-step-acc $goal $acc $child-atom (proof-tv-by-id $pid)))
         ($nev (list_to_set (list-append $ev $pev)))
-        ($_1 (set-aggregate-state $agid $gid $child-gid $goal $nacc $nev))
-        ($_2 (add-atom &aggregate_seen ($agid $pid))))
+        ($_1 (set-aggregate-state $agid $gid $child-gid $goal $nacc $nev)))
       $agenda))
 
 (= (attach-existing-aggregate-proofs-heap $agenda $agid $child-gid)
@@ -920,7 +919,6 @@
         ($_frontierclear (remove-all-atoms &frontier))
         ($_aggstateclear (remove-all-atoms &aggregate_state))
         ($_aggwaitclear (remove-all-atoms &aggregate_waiter))
-        ($_aggseenclear (remove-all-atoms &aggregate_seen))
         ($_aggfinalclear (remove-all-atoms &aggregate_finalized))
         ($_gproofclear (remove-all-atoms &goal_proof))
         ($_gsummaryclear (remove-all-atoms &goal_summary_proof))
@@ -1004,13 +1002,11 @@
            ($_2 (add-atom ccls_index ($ccls $id)))
            ($_2b (add-atom &temp_query_ccls_index ($ccls $id)))
            ($_3 (add-atom rules ($id $ccls $args)))
-           ($_4 (add-atom &temp_query_rule_atom ($id $ccls $args)))
-           ($_5 (add-atom &temp_query_rule_sig ($ccls $args))))
+           ($_4 (add-atom &temp_query_rule_atom ($id $ccls $args))))
          ())
       (progn
          (add-atom &kb $expr)
-         (add-atom &temp_query_expr $expr)
-         (add-atom &temp_query_expr_sig $expr))))
+         (add-atom &temp_query_expr $expr))))
 
 (= (clear-temp-query-adds)
    (progn
@@ -1032,8 +1028,6 @@
             (progn
                (remove-atom rules ($id $ccls $args))
                (remove-atom &temp_query_rule_atom ($id $ccls $args)))))
-      (remove-all-atoms &temp_query_rule_sig)
-      (remove-all-atoms &temp_query_expr_sig)
       ()))
 
 (= (inject-compiled-adds $adds) (if (= $adds ()) $_ (foreach-flat temp-add-to-kb $adds)))
@@ -1051,11 +1045,6 @@
         ($results (chainer $steps $query))
         ($_clear-temp-after (clear-temp-query-adds)))
       $results))
-
-(= (run-compiled-query-output $steps $compiled-query)
-   (let $results (run-compiled-query $steps $compiled-query)
-      (let $eres (map-flat externalize-proof-structure $results)
-         (pretty (superpose $eres)))))
 
 (= (query $steps $kb $stmt)
    (let*
