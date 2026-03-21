@@ -995,16 +995,6 @@
 
 (= (temp-query-rule-id $id) (temp_query_rule $id))
 
-(= (temp-query-has-rule-sig? $args $ccls)
-   (not
-      (==
-         (collapse
-            (once (match &temp_query_rule_sig ($ccls $args) true)))
-         ())))
-
-(= (temp-query-has-expr? $expr)
-   (not (== (collapse (once (match &temp_query_expr_sig $expr true))) ())))
-
 (= (temp-add-prem $id $idx $prem)
    (let $key (forward-indexable-premise-key $prem)
       (progn
@@ -1015,23 +1005,21 @@
          (+ $idx 1))))
 
 (= (temp-add-to-kb $expr)
-      (if (= $expr (rules ($args |- $ccls)))
-      (if (temp-query-has-rule-sig? $args $ccls) ()
-         (let*
-            (($raw-id (nextid))
-              ($id (temp-query-rule-id $raw-id))
-              ($_1 (fold-flat (temp-add-prem $id) 0 $args))
-              ($_2 (add-atom ccls_index ($ccls $id)))
-              ($_2b (add-atom &temp_query_ccls_index ($ccls $id)))
-              ($_3 (add-atom rules ($id $ccls $args)))
-              ($_4 (add-atom &temp_query_rule_atom ($id $ccls $args)))
-              ($_5 (add-atom &temp_query_rule_sig ($ccls $args))))
-            ()))
-      (if (temp-query-has-expr? $expr) ()
-         (progn
-            (add-atom &kb $expr)
-            (add-atom &temp_query_expr $expr)
-            (add-atom &temp_query_expr_sig $expr)))))
+   (if (= $expr (rules ($args |- $ccls)))
+      (let*
+         (($raw-id (nextid))
+           ($id (temp-query-rule-id $raw-id))
+           ($_1 (fold-flat (temp-add-prem $id) 0 $args))
+           ($_2 (add-atom ccls_index ($ccls $id)))
+           ($_2b (add-atom &temp_query_ccls_index ($ccls $id)))
+           ($_3 (add-atom rules ($id $ccls $args)))
+           ($_4 (add-atom &temp_query_rule_atom ($id $ccls $args)))
+           ($_5 (add-atom &temp_query_rule_sig ($ccls $args))))
+         ())
+      (progn
+         (add-atom &kb $expr)
+         (add-atom &temp_query_expr $expr)
+         (add-atom &temp_query_expr_sig $expr))))
 
 (= (clear-temp-query-adds)
    (progn
