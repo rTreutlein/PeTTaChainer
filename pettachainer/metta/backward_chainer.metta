@@ -68,11 +68,6 @@
       (not (== (extract-vars $type) ()))
       false))
 
-(= (goal-open-index-term $goal)
-   (if (= $goal ($type ($kbid $_ctx $_vars) $_prf $_tv))
-      ((map-nested2 toQuery $type) ($kbid $qctx $qvars) $qprf $qtv)
-      $goal))
-
 (= (goal-has-type-vars? $gid) (goal-term-has-type-vars? (goal-term-by-id $gid)))
 
 (= (rule-expansion-has-id? () $_rule-id) false)
@@ -888,13 +883,7 @@
               (match ccls_index ($goal $rule-id)
                  (match rules ($rule-id $goal $args)
                     ($args $goal $parent-gid $rule-id)))))
-        ($open
-           (collapse
-              (let $index-goal (goal-open-index-term $goal)
-                 (match ccls_index ($index-goal $rule-id)
-                    (match rules ($rule-id $goal $args)
-                       ($args $goal $parent-gid $rule-id))))))
-        ($lst (rule-expansion-list-unique (list-append $exact $open))))
+        ($lst (rule-expansion-list-unique $exact)))
       (fold-flat expand-rule-goal-fold $agenda $lst)))
 
 (= (expand-rule-goal-fold $agenda ($args $goal $parent-gid $rule-id))
@@ -1037,7 +1026,7 @@
          (+ $idx 1))))
 
 (= (temp-add-to-kb $expr)
-   (if (= $expr (rules ($args |- $ccls)))
+      (if (= $expr (rules ($args |- $ccls)))
       (if (temp-query-has-rule-sig? $args $ccls) ()
          (let*
             (($raw-id (nextid))
@@ -1045,15 +1034,9 @@
               ($_1 (fold-flat (temp-add-prem $id) 0 $args))
               ($_2 (add-atom ccls_index ($ccls $id)))
               ($_2b (add-atom &temp_query_ccls_index ($ccls $id)))
-              ($open-key (rule-open-ccls-key $ccls))
-              ($_3
-                 (if (== $open-key ()) ()
-                    (progn
-                       (add-atom ccls_index ($open-key $id))
-                       (add-atom &temp_query_ccls_index ($open-key $id)))))
-              ($_4 (add-atom rules ($id $ccls $args)))
-              ($_5 (add-atom &temp_query_rule_atom ($id $ccls $args)))
-              ($_6 (add-atom &temp_query_rule_sig ($ccls $args))))
+              ($_3 (add-atom rules ($id $ccls $args)))
+              ($_4 (add-atom &temp_query_rule_atom ($id $ccls $args)))
+              ($_5 (add-atom &temp_query_rule_sig ($ccls $args))))
             ()))
       (if (temp-query-has-expr? $expr) ()
          (progn
