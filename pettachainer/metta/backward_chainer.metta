@@ -996,9 +996,7 @@
       (reduce
          (if
            (is-member $fun
-               (() FoldAllFormulaCompiled
-                  FoldAllTVFormulaCompiled
-                  FoldAllTVRuntimeFormula
+               (() FoldAllTVRuntimeFormula
                   DistAverageFormula
                   Map2DistRuntimeFormula))
             (cons $fun (cons $steps $args))
@@ -1013,15 +1011,27 @@
    (cons $tv (extract-proof-tvs $tail)))
 (= (extract-proof-tvs (cons $_head $tail)) (extract-proof-tvs $tail))
 
+(= (assert-space-atom-ref $space $expr)
+   (let $term (Predicate (cons $space $expr))
+      (let $_ (callPredicate (Predicate (assertz $term $ref)))
+         $ref)))
+
+(= (erase-clause-ref $ref)
+   (callPredicate (Predicate (erase $ref))))
+
+(= (track-temp-query-ref $ref)
+   (add-atom &temp_query_ref (clause_ref $ref)))
+
 (= (temp-query-rule-id $id) (temp_query_rule $id))
 
 (= (temp-add-prem $id $idx $prem)
    (let $key (forward-indexable-premise-key $prem)
       (progn
          (if (== $key ()) ()
-            (progn
-               (add-atom prem_index ($key $prem $id $idx))
-               (add-atom &temp_query_prem_index ($key $prem $id $idx))))
+            (let*
+               (($ref (assert-space-atom-ref prem_index ($key $prem $id $idx)))
+                 ($_track (track-temp-query-ref $ref)))
+               ()))
          (+ $idx 1))))
 
 (= (temp-add-to-kb $expr)
@@ -1030,48 +1040,25 @@
          (($raw-id (nextid))
            ($id (temp-query-rule-id $raw-id))
            ($_1 (fold-flat (temp-add-prem $id) 0 $args))
-           ($_2 (add-atom ccls_index ($ccls $id)))
-           ($_2b (add-atom &temp_query_ccls_index ($ccls $id)))
-           ($_3 (add-atom rules ($id $ccls $args)))
-           ($_4 (add-atom &temp_query_rule_atom ($id $ccls $args))))
+           ($ccls-ref (assert-space-atom-ref ccls_index ($ccls $id)))
+           ($_2 (track-temp-query-ref $ccls-ref))
+           ($rule-ref (assert-space-atom-ref rules ($id $ccls $args)))
+           ($_3 (track-temp-query-ref $rule-ref)))
          ())
       (progn
-         (add-atom &kb $expr)
-         (add-atom &temp_query_expr $expr))))
+         (let $ref (assert-space-atom-ref &kb $expr)
+            (track-temp-query-ref $ref)))))
 
 (= (clear-temp-query-adds)
    (progn
       (collapse
-         (match &temp_query_expr $expr
-            (progn (remove-atom &kb $expr) (remove-atom &temp_query_expr $expr))))
-      (collapse
-         (match &temp_query_prem_index ($key $prem $id $idx)
+         (match &temp_query_ref (clause_ref $ref)
             (progn
-               (remove-atom prem_index ($key $prem $id $idx))
-               (remove-atom &temp_query_prem_index ($key $prem $id $idx)))))
-      (collapse
-         (match &temp_query_ccls_index ($key $id)
-            (progn
-               (remove-atom ccls_index ($key $id))
-               (remove-atom &temp_query_ccls_index ($key $id)))))
-      (collapse
-         (match &temp_query_rule_atom ($id $ccls $args)
-            (progn
-               (remove-atom rules ($id $ccls $args))
-               (remove-atom &temp_query_rule_atom ($id $ccls $args)))))
+               (erase_clause_ref $ref)
+               (remove-atom &temp_query_ref (clause_ref $ref)))))
       ()))
 
 (= (inject-compiled-adds $adds) (if (= $adds ()) $_ (foreach-flat temp-add-to-kb $adds)))
-
-(= (run-compiled-query $steps $compiled-query)
-   (let*
-      (($adds (compiled-query-adds $compiled-query))
-        ($_clear-temp-before (clear-temp-query-adds))
-        ($query (compiled-query-goal-head $compiled-query))
-        ($_ (inject-compiled-adds $adds))
-        ($results (chainer $steps $query))
-        ($_clear-temp-after (clear-temp-query-adds)))
-      $results))
 
 (= (query $steps $kb $stmt)
    (let*
@@ -1086,19 +1073,6 @@
         ($eres (map-flat externalize-proof-structure $results))
         ($pres (map-flat pretty $eres)))
       (superpose $pres)))
-
-(= (FoldAllFormulaCompiled $steps $compiled-query $pattern $value $init $fun)
-   (foldall-eval $fun
-      $init
-      (collapse
-         (let ($pattern ($kbid $_ctx $_vars) $prf $tvin)
-            (run-compiled-query $steps $compiled-query)
-            $value))))
-
-(= (FoldAllTVFormulaCompiled $steps $compiled-query $init $fun)
-   (foldall-eval $fun
-      $init
-      (extract-proof-tvs (run-compiled-query $steps $compiled-query))))
 
 (= (FoldAllTVRuntimeNoStepsQuery $kb $qpattern $init $fun)
    (let*

@@ -1,22 +1,13 @@
 !(import! &self compile)
-!(import! &self ../compile)
 !(import! &self mining)
-!(import! &self ../mining)
 
 !(use-module! heaps)
-
 !(import_prolog_function (superpose (empty_heap add_to_heap get_from_heap heap_size)))
-
 !(import! &self chainer_utils)
-!(import! &self ../chainer_utils)
 !(import! &self forward_chainer)
-!(import! &self ../forward_chainer)
 !(import! &self dist_formulas)
-!(import! &self ../dist_formulas)
 !(import! &self tv_formulas)
-!(import! &self ../tv_formulas)
 !(import! &self backward_chainer)
-!(import! &self ../backward_chainer)
 
 (= (nextid)
    (let*
