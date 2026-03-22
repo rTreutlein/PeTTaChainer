@@ -168,7 +168,7 @@
            true)
         ((CPU DistAverageFormula ($_kb $_pattern) $_goalres)
            true)
-        ($other (trace! (nagg $other) false)))))
+        ($other false))))
 
 (= (aggregate-compiled-child-goal $compiled-query)
    (let*
@@ -790,11 +790,6 @@
 (= (foldall-eval $fun $acc ()) $acc)
 (= (foldall-eval $fun $acc (cons $elem $tail))
    (foldall-eval $fun (eval ($fun $acc $elem)) $tail))
-
-(= (extract-proof-tvs ()) ())
-(= (extract-proof-tvs (cons ($_type ($_kbid $_ctx $_vars) $_prf $tv) $tail))
-   (cons $tv (extract-proof-tvs $tail)))
-(= (extract-proof-tvs (cons $_head $tail)) (extract-proof-tvs $tail))
 
 (= (assert-space-atom-ref $space $expr)
    (let $term (Predicate (cons $space $expr))

@@ -89,7 +89,6 @@
       (prem (: $kb $prf $elem $tv) $elem $tv $prf)))
 
 (= (tv $tv) (: $kb $prf $elem $tv))
-(= (tv $tv) (CPU $formula $args $tv))
 
 (=
    (in_fold $formula
