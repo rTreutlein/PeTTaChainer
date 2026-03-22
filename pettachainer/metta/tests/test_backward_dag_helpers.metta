@@ -118,6 +118,18 @@
    factA)
 
 !(test
+   (proof-term-children (custom-proof left right))
+   ())
+
+!(test
+   (proof-term-children-in-kb (kb MAIN ()) (custom-proof left right))
+   (left right))
+
+!(test
+   (proof-term-children-in-kb (kb MAIN ()) (CPU SomeRuntimeThing (arg1 arg2) out))
+   ())
+
+!(test
    (let*
       (($_clear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
