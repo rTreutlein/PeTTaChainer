@@ -1,4 +1,4 @@
-!(import! &self ../benchmarks/benchgen_metta)
+!(import! &self benchmarks/benchgen_metta)
 
 !(BenchGenerate benchCore
    (depth 2)
