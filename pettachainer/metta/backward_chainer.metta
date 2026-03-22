@@ -529,14 +529,14 @@
                ($_summary-pid (refresh-goal-summary-proof $gid))
                (let*
                   (($agenda1
-                       (advance-frontier-waiters-heap
+                       (fold-flat
+                          (|-> ($acc $fid) (advance-frontier-heap $acc $fid $pid))
                           $agenda
-                          $pid
                           (collapse (match &goal_waiter ($gid $fid) $fid))))
                     ($agenda2
-                       (advance-aggregate-waiters-heap
+                       (fold-flat
+                          (|-> ($acc $agid) (advance-aggregate-heap $acc $agid $pid))
                           $agenda1
-                          $pid
                           (collapse (match &aggregate_waiter ($gid $agid) $agid)))))
                   $agenda2))))))
 
@@ -557,14 +557,6 @@
       $agenda
       (collapse (match &goal_proof ($gid $pid) $pid))))
 
-(= (advance-frontier-waiters-heap $agenda $pid ()) $agenda)
-(= (advance-frontier-waiters-heap $agenda $pid (cons $fid $rest))
-   (advance-frontier-waiters-heap (advance-frontier-heap $agenda $fid $pid) $pid $rest))
-
-(= (advance-aggregate-waiters-heap $agenda $pid ()) $agenda)
-(= (advance-aggregate-waiters-heap $agenda $pid (cons $agid $rest))
-   (advance-aggregate-waiters-heap (advance-aggregate-heap $agenda $agid $pid) $pid $rest))
-
 (= (expand-direct-goal-result-heap $agenda $gid $result)
    (let*
       (($score (term-confidence $result))
@@ -582,25 +574,13 @@
       (let $goal-copy (copy_term $goal) (if (= $goal-copy $result) true false))
       (goal-key-eq? $goal $result)))
 
-(= (direct-goal-results-exact-hit? $goal ()) false)
-(= (direct-goal-results-exact-hit? $goal (cons $result $rest))
-   (or (direct-goal-result-exact-hit? $goal $result)
-      (direct-goal-results-exact-hit? $goal $rest)))
-
-(= (expand-direct-goal-results-heap $agenda $gid ()) $agenda)
-(= (expand-direct-goal-results-heap $agenda $gid (cons $result $rest))
-   (expand-direct-goal-results-heap
-      (expand-direct-goal-result-heap $agenda $gid $result)
-      $gid
-      $rest))
-
 (= (instantiated-bundle-goal $aid $pid-list)
    (case
       (instantiate-and-bundle
          (copy_term (match &and_node ($aid $_parent $_rule $_bound $bundle) $bundle))
          $pid-list) (
         ((and-bundle $goal $_rest) $goal)
-        ($other $other))))
+        )))
 
 (=
    (build-parent-proof-heap $agenda
@@ -696,10 +676,20 @@
          (let*
             (($_expand (add-atom &goal_expanded ($gid true)))
               ($results (collapse (direct-goal-results $steps $goal)))
-              ($agenda10 (expand-direct-goal-results-heap $agenda $gid $results))
+              ($agenda10
+                 (fold-flat
+                    (|-> ($acc $result) (expand-direct-goal-result-heap $acc $gid $result))
+                    $agenda
+                    $results))
               ($agenda1 (normalize-heap $agenda10))
+              ($exact-hit
+                 (fold-flat
+                    (|-> ($acc $result)
+                       (or $acc (direct-goal-result-exact-hit? $goal $result)))
+                    false
+                    $results))
               ($nagenda0
-                 (if (direct-goal-results-exact-hit? $goal $results) $agenda1
+                 (if $exact-hit $agenda1
                     (expand-rule-goal-heap $agenda1 $gid $goal)))
               ($nagenda (normalize-heap $nagenda0)))
             $nagenda))))
