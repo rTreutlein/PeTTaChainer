@@ -52,6 +52,24 @@
    1)
 
 !(test
+   (match rules
+      ($id
+         (: (kb $ctx $vars) (foldRule cpu) (ScoreTotal $total) $tv)
+         ((CPU FoldAllFormulaCompiled $call $total)
+            (CPU MpFormula ((STV 1.0 1.0) (STV 1.0 1.0)) $tv)))
+      ok)
+   ())
+
+!(test
+   (match rules
+      ($id
+         (: (kb $ctx $vars) (foldRule $prem) (ScoreTotal $total) $tv)
+         ((: $_kb $_prf (CPU FoldAllFormulaCompiled $call $total) $_cpu-tv)
+            (CPU MpFormula ((STV 1.0 1.0) $_cpu-tv) $tv)))
+      bad)
+   ())
+
+!(test
    (query 30 kb (: $prf (ScoreTotal $x) $tv))
    (: (rule-proof foldRule cpu) (ScoreTotal 6) (STV 1.0 0.9)))
 
@@ -70,6 +88,18 @@
       (Implication (Premises (Count $name $n) (Compute NotEqual ($name MissingTotal) -> True))
          (Conclusions (Num $n)))
       (STV 1.0 1.0)))
+
+!(test
+   (match rules
+      ($id
+         (: (kb MAIN Nil) (conjunction $fact-prf cpu)
+            (And (Count $name $n) (CPU NotEqual ($name MissingTotal) true))
+            $tv)
+         ((: (kb MAIN Nil) $fact-prf (Count $name $n) $count-tv)
+            (CPU NotEqual ($name MissingTotal) true)
+            (CPU AndFormula ($count-tv (STV 1.0 1.0)) $tv)))
+      ok)
+   ())
 
 !(compileadd kb
    (: foldDerivedRule

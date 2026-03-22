@@ -82,7 +82,7 @@
 
 (= (in_map $kb $elem)
    (if (= $elem (CPU $f $args $res))
-      (prem (: $kb $prf (CPU $f $args $res) (cpu-premise-tv $f $args $res))
+      (prem (CPU $f $args $res)
          (CPU $f $args $res)
          (cpu-premise-tv $f $args $res)
          cpu)
@@ -177,8 +177,13 @@
 (= (kbctx $kb) (if (is-expr $kb) $kb ($kb MAIN Nil)))
 
 (= (implication $kb $prf $a $b $itv)
-   (((: ($kb $ctx $vars) $prfa $a $atv) (CPU MpFormula ($itv $atv) $btv)) |-
-      ((: ($kb $ctx $vars) ($prf $prfa) $b $btv))))
+   (if (= $a (CPU $f $args $res))
+      (((CPU $f $args $res)
+            (CPU MpFormula ($itv (cpu-premise-tv $f $args $res)) $btv))
+         |-
+         ((: ($kb $ctx $vars) ($prf cpu) $b $btv)))
+      (((: ($kb $ctx $vars) $prfa $a $atv) (CPU MpFormula ($itv $atv) $btv)) |-
+         ((: ($kb $ctx $vars) ($prf $prfa) $b $btv)))))
 
 (= (map-nested2 $f ()) ())
 (= (map-nested2 $f (cons $x $xs))

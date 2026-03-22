@@ -54,6 +54,7 @@
 
 (= (materialize-proof $pid)
    (case (proof-kind-by-id $pid) (
+        ((leaf (CPU $_fun $_args $_res)) cpu)
         ((leaf $raw) (if (= $raw ($_type ($_kbid $_ctx $_vars) $prf $_tv)) $prf $raw))
         ((rule $aid $_term)
            (materialize-rule-proof $aid (match &proof_children ($pid $kids) $kids)))
@@ -161,31 +162,11 @@
    (case $goal (
         ((CPU FoldAllFormulaCompiled ($_compiled-query $_pattern $_value $_init $_fun) $_goalres)
            true)
-        (((CPU FoldAllFormulaCompiled ($_compiled-query $_pattern $_value $_init $_fun) $_goalres)
-             ($_kbid $_ctx $_vars)
-             $_prf
-             $_tv)
-           true)
         ((CPU FoldAllTVFormulaCompiled ($_compiled-query $_init $_fun) $_goalres)
-           true)
-        (((CPU FoldAllTVFormulaCompiled ($_compiled-query $_init $_fun) $_goalres)
-             ($_kbid $_ctx $_vars)
-             $_prf
-             $_tv)
            true)
         ((CPU FoldAllTVRuntimeFormula ($_kb $_pattern $_init $_fun) $_goalres)
            true)
-        (((CPU FoldAllTVRuntimeFormula ($_kb $_pattern $_init $_fun) $_goalres)
-             ($_kbid $_ctx $_vars)
-             $_prf
-             $_tv)
-           true)
         ((CPU DistAverageFormula ($_kb $_pattern) $_goalres)
-           true)
-        (((CPU DistAverageFormula ($_kb $_pattern) $_goalres)
-             ($_kbid $_ctx $_vars)
-             $_prf
-             $_tv)
            true)
         ($other (trace! (nagg $other) false)))))
 
@@ -213,46 +194,12 @@
 
 (=
    (aggregate-goal-spec
-      ((CPU FoldAllFormulaCompiled ($compiled-query $pattern $value $init $fun) $_goalres)
-         ($kbid $ctx $vars)
-         $_prf
-         $_tv))
-   (aggregate-spec
-      (aggregate-compiled-child-goal $compiled-query)
-      $init
-      (aggregate-step-fold-value $fun $pattern $value)
-      (aggregate-result-proof
-         FoldAllFormulaCompiled
-         ($compiled-query $pattern $value $init $fun)
-         ($kbid $ctx $vars)
-         identity
-         cpu-premise)))
-
-(=
-   (aggregate-goal-spec
       (CPU FoldAllTVFormulaCompiled ($compiled-query $init $fun) $_goalres))
    (aggregate-spec
       (aggregate-compiled-child-goal $compiled-query)
       $init
       (aggregate-step-fold-tv $fun)
       (aggregate-result-bare FoldAllTVFormulaCompiled ($compiled-query $init $fun) identity)))
-
-(=
-   (aggregate-goal-spec
-      ((CPU FoldAllTVFormulaCompiled ($compiled-query $init $fun) $_goalres)
-         ($kbid $ctx $vars)
-         $_prf
-         $_tv))
-   (aggregate-spec
-      (aggregate-compiled-child-goal $compiled-query)
-      $init
-      (aggregate-step-fold-tv $fun)
-      (aggregate-result-proof
-         FoldAllTVFormulaCompiled
-         ($compiled-query $init $fun)
-         ($kbid $ctx $vars)
-         identity
-         cpu-premise)))
 
 (=
    (aggregate-goal-spec
@@ -265,39 +212,12 @@
 
 (=
    (aggregate-goal-spec
-      ((CPU FoldAllTVRuntimeFormula ($kb $pattern $init $fun) $_goalres)
-         ($kbid $ctx $vars)
-         $_prf
-         $_tv))
-   (aggregate-spec
-      (aggregate-runtime-child-goal $kb $pattern)
-      $init
-      (aggregate-step-fold-tv $fun)
-      (aggregate-result-proof
-         FoldAllTVRuntimeFormula
-         ($kb $pattern $init $fun)
-         ($kbid $ctx $vars)
-         identity
-         output)))
-
-(=
-   (aggregate-goal-spec
       (CPU DistAverageFormula ($kb $pattern) $_goalres))
    (aggregate-spec
       (aggregate-runtime-child-goal $kb $pattern)
       (SumCount (PointMass 0.0) 0)
       aggregate-step-dist-average
       (aggregate-result-bare DistAverageFormula ($kb $pattern) dist-average)))
-
-(=
-   (aggregate-goal-spec
-      ((CPU DistAverageFormula ($kb $pattern) $_goalres) ($kbid $ctx $vars) $_prf $_tv))
-   (aggregate-spec
-      (aggregate-runtime-child-goal $kb $pattern)
-      (SumCount (PointMass 0.0) 0)
-      aggregate-step-dist-average
-      (aggregate-result-proof DistAverageFormula ($kb $pattern) ($kbid $ctx $vars)
-         dist-average output)))
 
 (= (aggregate-spec-child-goal (aggregate-spec $child-goal $_init $_step-spec $_result-spec))
    $child-goal)
@@ -341,25 +261,10 @@
 (= (aggregate-result-output dist-average $acc)
    (reduce (reduce (DistAverageFromSumCount $acc))))
 
-(= (aggregate-result-proof-tv cpu-premise $fun $args $out)
-   (cpu-premise-tv $fun $args $out))
-
-(= (aggregate-result-proof-tv output $_fun $_args $out) $out)
-
 (=
    (aggregate-spec-result (aggregate-result-bare $fun $args $acc-mode) $acc)
    (let $out (aggregate-result-output $acc-mode $acc)
       (CPU $fun $args $out)))
-
-(=
-   (aggregate-spec-result
-      (aggregate-result-proof $fun $args ($kbid $ctx $vars) $acc-mode $tv-mode)
-      $acc)
-   (let $out (aggregate-result-output $acc-mode $acc)
-      ((CPU $fun $args $out)
-         ($kbid $ctx $vars)
-         cpu
-         (aggregate-result-proof-tv $tv-mode $fun $args $out))))
 
 (= (aggregate-child-key $pid)
    (let $atom (proof-output-atom $pid)
@@ -513,16 +418,6 @@
                  ((CPU Map2DistRuntimeFormula ($kb $fun $a $b) $out) ($kbid $ctx $vars)
                     $prf
                     $out)))))))
-(= 
-   (direct-goal-results $steps
-      ((CPU $fun $args $_goalres) ($kbid $ctx $vars) $prf $_tv))
-   (if (specialized-runtime-cpu-fun? $fun) (empty)
-      (let $res (cpu-call $steps $fun $args)
-         (superpose
-            (((CPU $fun $args $res)
-                 ($kbid $ctx $vars)
-                 $prf
-                 (cpu-premise-tv $fun $args $res)))))))
 (= (direct-goal-results $steps (CPU $fun $args $_res))
    (superpose ((CPU $fun $args (cpu-call $steps $fun $args)))))
 (= (direct-goal-results $steps $goal)
