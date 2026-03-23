@@ -99,8 +99,8 @@
 (= (proof-stats-by-id $pid) (match &proof_stats ($pid $score $ev) ($score $ev)))
 
 (= (proof-tv-by-id $pid)
-   (let $tvs (collapse (once (match &proof_tv ($pid $tv) $tv)))
-      (if (== $tvs ()) (STV 1.0 1.0) (car-atom $tvs))))
+   (let $atom (proof-output-atom $pid)
+      (if (= $atom ($_type $_kb $_prf $tv)) $tv no-tv)))
 
 (= (proof-kind-by-id $pid) (match &proof_kind ($pid $kind) $kind))
 

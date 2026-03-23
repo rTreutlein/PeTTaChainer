@@ -52,8 +52,9 @@
             (map-flat materialize-proof-refs (cdr-atom $term)))
          $term)))
 
-(= (materialize-proof-atom ($type $kb $prf $tv))
-   ($type $kb (materialize-proof-refs $prf) $tv))
+(= (materialize-result-atom $atom)
+   (if (= $atom ($type $kb $prf $tv)) ($type $kb (materialize-proof-refs $prf) $tv)
+      $atom))
 
 (= (materialize-rule-proof $aid $pid-list)
    (case
@@ -74,8 +75,8 @@
            (materialize-rule-proof $aid (match &proof_children ($pid $kids) $kids)))
         ($other $other))))
 
-(= (goal-summary-pid $gid)
-   (first-or (collapse (once (match &goal_summary_proof ($gid $pid) $pid))) ()))
+(= (goal-class $goal)
+   (if (= $goal ($_type ($_kbid $_ctx $_vars) $_prf $_tv)) proof direct))
 
 (= (goal-term-has-type-vars? $goal)
    (if (= $goal ($type ($_kbid $_ctx $_vars) $_prf $_tv))
@@ -84,25 +85,31 @@
 
 (= (goal-has-type-vars? $gid) (goal-term-has-type-vars? (goal-term-by-id $gid)))
 
-(= (goal-result-pids $gid)
-   (if (goal-has-type-vars? $gid)
-      (collapse (match &goal_proof ($gid $pid) $pid))
-      (one-or-empty (goal-summary-pid $gid))))
+(= (goal-proof-pids $gid)
+   (collapse (match &goal_proof ($gid $pid) $pid)))
 
-(= (goal-open-result-atoms ()) ())
-(= (goal-open-result-atoms (cons $pid $rest))
-   (cons (proof-output-atom $pid) (goal-open-result-atoms $rest)))
+(= (goal-proof-atoms ()) ())
+(= (goal-proof-atoms (cons $pid $rest))
+   (cons (proof-output-atom $pid) (goal-proof-atoms $rest)))
 
-(= (materialize-proof-atoms ()) ())
-(= (materialize-proof-atoms (cons $atom $rest))
-   (cons (materialize-proof-atom $atom) (materialize-proof-atoms $rest)))
+(= (goal-merged-proof-atom $gid)
+   (let $pids (goal-proof-pids $gid)
+      (if (== $pids ()) ()
+         (fold-flat
+            (|-> ($acc $pid) (merge-proof-atoms $acc (proof-output-atom $pid)))
+            (proof-output-atom (car-atom $pids))
+            (cdr-atom $pids)))))
+
+(= (materialize-result-atoms ()) ())
+(= (materialize-result-atoms (cons $atom $rest))
+   (cons (materialize-result-atom $atom) (materialize-result-atoms $rest)))
 
 (= (goal-results $gid)
    (if (goal-has-type-vars? $gid)
-      (materialize-proof-atoms (goal-open-result-atoms (goal-result-pids $gid)))
-      (let $pid (goal-summary-pid $gid)
-         (if (== $pid ()) ()
-            (cons (materialize-proof-atom (proof-output-atom $pid)) ())))))
+      (materialize-result-atoms (goal-proof-atoms (goal-proof-pids $gid)))
+      (let $merged (goal-merged-proof-atom $gid)
+         (if (== $merged ()) ()
+            (cons (materialize-result-atom $merged) ())))))
 
 (= (ensure-goal $goal)
    (let $hits
@@ -125,12 +132,8 @@
          (let*
             (($gid (next-gid))
               ($stored-goal (copy_term $goal))
-              ($goal-class
-                 (if (= $stored-goal ($_type ($_kbid $_ctx $_vars) $_prf $_tv)) proof
-                    direct))
               ($_1 (add-atom &goal_by_id ($gid $stored-goal)))
-              ($_2 (add-atom &goal_lookup ($stored-goal $gid)))
-              ($_3 (add-atom &goal_class ($gid $goal-class))))
+              ($_2 (add-atom &goal_lookup ($stored-goal $gid))))
             $gid)
          (car-atom $hits))))
 
@@ -141,10 +144,10 @@
       (if $expanded $agenda
          (if (>= $current $score) $agenda
             (let*
-               (($goal-class (match &goal_class ($gid $class) $class))
+               (($goal (goal-term-by-id $gid))
                  ($closed-proof-bonus
-                    (if (goal-term-has-type-vars? (goal-term-by-id $gid)) 0.0 1.0))
-                 ($bonus (if (== $goal-class proof) $closed-proof-bonus 2.0))
+                    (if (goal-term-has-type-vars? $goal) 0.0 1.0))
+                 ($bonus (if (== (goal-class $goal) proof) $closed-proof-bonus 2.0))
                  ($priority (- 0 (+ (* 1000000.0 $score) $bonus)))
                  ($nagenda (add_to_heap $agenda $priority (qitem $score $gid)))
                  ($_clear (clear-goal-pending-score $gid))
@@ -309,6 +312,13 @@
               ($_1 (set-aggregate-state $agid $gid $child-gid $spec $nacc $nev $nseen)))
             $agenda))))
 
+(= (attach-goal-waiter $gid $waiter) (add-atom &goal_waiter ($gid $waiter)))
+
+(= (advance-goal-waiter-heap $agenda (frontier $fid) $pid)
+   (advance-frontier-heap $agenda $fid $pid))
+(= (advance-goal-waiter-heap $agenda (aggregate $agid) $pid)
+   (advance-aggregate-heap $agenda $agid $pid))
+
 (= (attach-existing-aggregate-proofs-heap $agenda $agid $child-gid)
    (fold-flat (|-> ($acc $pid) (advance-aggregate-heap $acc $agid $pid))
       $agenda
@@ -329,7 +339,7 @@
               (aggregate-spec-init-acc $spec)
               ()
               ()))
-        ($_2 (add-atom &aggregate_waiter ($child-gid $agid)))
+        ($_2 (attach-goal-waiter $child-gid (aggregate $agid)))
         ($agenda1 (attach-existing-aggregate-proofs-heap $agenda $agid $child-gid))
         ($nagenda (schedule-goal-heap $agenda1 $score $child-gid)))
       $nagenda))
@@ -451,26 +461,14 @@
       true
       (collapse (match &goal_proof ($gid $oldpid) $oldpid))))
 
-(= (store-proof-tv $pid no-tv) ())
-(= (store-proof-tv $pid (with-tv $tv)) (add-atom &proof_tv ($pid $tv)))
-
 (= (store-proof-candidate $gid (proof-candidate $kind $tv-state $score $ev $children))
    (let*
       (($pid (next-pid))
         ($_1 (add-atom &proof_goal ($pid $gid)))
         ($_2 (add-atom &proof_kind ($pid $kind)))
-        ($_3 (store-proof-tv $pid $tv-state))
-        ($_4 (add-atom &proof_stats ($pid $score $ev)))
-        ($_5 (add-atom &proof_children ($pid $children))))
+        ($_3 (add-atom &proof_stats ($pid $score $ev)))
+        ($_4 (add-atom &proof_children ($pid $children))))
       $pid))
-
-(= (clear-goal-summary-proof $gid)
-   (collapse
-      (match &goal_summary_proof ($gid $pid)
-         (remove-atom &goal_summary_proof ($gid $pid)))))
-
-(= (set-goal-summary-proof $gid $pid)
-   (progn (clear-goal-summary-proof $gid) (add-atom &goal_summary_proof ($gid $pid))))
 
 (= (proof-atom-candidate ($type $kb $prf $tv) $ev)
    (proof-candidate (leaf ($type $kb $prf $tv))
@@ -501,25 +499,6 @@
 (= (candidate-is-cyclic? $gid (cons $pid $pids))
    (or (proof-depends-on-goal? $pid $gid) (candidate-is-cyclic? $gid $pids)))
 
-(= (goal-summary-candidate $gid $pids)
-   (let*
-      (($seed (proof-output-atom (car-atom $pids)))
-        ($merged
-           (fold-flat
-              (|-> ($goal $pid) (merge-proof-atoms $goal (proof-output-atom $pid)))
-              $seed
-              (cdr-atom $pids)))
-        ($ev (proof-atom-evidence-set $merged)))
-      (proof-atom-candidate $merged $ev)))
-
-(= (refresh-goal-summary-proof $gid)
-   (let $pids (collapse (match &goal_proof ($gid $pid) $pid))
-      (if (== $pids ()) (progn (clear-goal-summary-proof $gid) ())
-         (if (== (cdr-atom $pids) ())
-            (let $pid (car-atom $pids) (progn (set-goal-summary-proof $gid $pid) $pid))
-            (let $pid (store-proof-candidate $gid (goal-summary-candidate $gid $pids))
-               (progn (set-goal-summary-proof $gid $pid) $pid))))))
-
 (=
    (commit-proof-candidate-heap $agenda
       $gid
@@ -532,19 +511,10 @@
                (proof-candidate $kind $tv-state $score $ev $children))
             (progn
                (add-atom &goal_proof ($gid $pid))
-               ($_summary-pid (refresh-goal-summary-proof $gid))
-               (let*
-                  (($agenda1
-                       (fold-flat
-                          (|-> ($acc $fid) (advance-frontier-heap $acc $fid $pid))
-                          $agenda
-                          (collapse (match &goal_waiter ($gid $fid) $fid))))
-                    ($agenda2
-                       (fold-flat
-                          (|-> ($acc $agid) (advance-aggregate-heap $acc $agid $pid))
-                          $agenda1
-                          (collapse (match &aggregate_waiter ($gid $agid) $agid)))))
-                  $agenda2))))))
+               (fold-flat
+                  (|-> ($acc $waiter) (advance-goal-waiter-heap $acc $waiter $pid))
+                  $agenda
+                  (collapse (match &goal_waiter ($gid $waiter) $waiter))))))))
 
 (=
    (commit-proof-candidate $gid
@@ -623,7 +593,7 @@
                  (($_1
                       (add-atom &frontier
                          ($fid $parent-gid $aid $stored-bundle $score $seen $rev-pids)))
-                   ($_2 (add-atom &goal_waiter ($gid $fid)))
+                   ($_2 (attach-goal-waiter $gid (frontier $fid)))
                    ($agenda1 (attach-existing-goal-proofs-heap $agenda $fid $gid))
                    ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
                  $nagenda))))))
@@ -721,10 +691,9 @@
 
 (= (clear-backward-state)
    (clear-spaces
-      (() &goal_by_id &goal_lookup &goal_class &goal_expanded &goal_pending_score
-         &goal_waiter &and_node &frontier &aggregate_state &aggregate_waiter
-         &aggregate_finalized &goal_proof &goal_summary_proof &proof_goal &proof_stats
-         &proof_kind &proof_tv &proof_children)))
+      (() &goal_by_id &goal_lookup &goal_expanded &goal_pending_score
+         &goal_waiter &and_node &frontier &aggregate_state &aggregate_finalized
+         &goal_proof &proof_goal &proof_stats &proof_kind &proof_children)))
 
 (= (chainer $steps $goal)
    (let*
