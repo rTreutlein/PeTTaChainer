@@ -199,14 +199,6 @@
 
 (= (DistAverageFromSumCount (SumCount $sumdist $count)) (DistMapFormula (|-> ($x) (/ $x $count)) $sumdist))
 
-(= (DistAverageFormula $steps $kb $pattern)
-   (DistAverageFromSumCount
-      (FoldAllTVRuntimeFormula $steps
-         $kb
-         $pattern
-         (SumCount (PointMass 0.0) 0)
-         DistSumCountAcc)))
-
 (= (ParticleAddBernoulliFromSTV $pd $tv)
    (let*
       (($pid (particle-dist-id $pd))

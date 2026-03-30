@@ -135,6 +135,11 @@
 
 (= (proof-term-children-in-kb $kb $prf) (proof-term-children-mode proof-walk-in-kb $prf))
 
+(= (proof-term-evidence-children-mode $mode ()) ())
+(= (proof-term-evidence-children-mode $mode (cons $child $rest))
+   (list-append (proof-term-evidence-list-mode $mode $child)
+      (proof-term-evidence-children-mode $mode $rest)))
+
 (= (proof-term-evidence-list-mode $mode $prf)
    (if (= $prf (proof-ref $pid)) (snd (proof-stats-by-id $pid))
       (if (is-var $prf) ()
@@ -143,16 +148,13 @@
                (proof-term-evidence-list-mode $mode $right))
             (let $children (proof-term-children-mode $mode $prf)
                (if (== $children ()) (cons $prf ())
-                  (fold-flat
-                     (|-> ($acc $child)
-                        (list-append $acc (proof-term-evidence-list-mode $mode $child)))
-                     ()
-                     $children)))))))
+                  (proof-term-evidence-children-mode $mode $children)))))))
 
-(= (proof-term-evidence-list $prf) (proof-term-evidence-list-mode proof-walk-plain $prf))
+(= (proof-term-evidence-list $prf)
+   (once (proof-term-evidence-list-mode proof-walk-plain $prf)))
 
 (= (proof-term-evidence-list-in-kb $kb $prf)
-   (proof-term-evidence-list-mode proof-walk-in-kb $prf))
+   (once (proof-term-evidence-list-mode proof-walk-in-kb $prf)))
 
 (= (proof-atom-evidence-set ($_type $kb $prf $_tv))
    (list_to_set (proof-term-evidence-list-in-kb $kb $prf)))

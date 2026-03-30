@@ -341,11 +341,6 @@
 (= (runtime-kctx $kb)
    (if (is-expr $kb) (let ($kbid $_ctx $_vars) $kb ($kbid MAIN Nil)) ($kb MAIN Nil)))
 
-(= (runtime-query-pattern $pattern) (map-nested2 toQuery $pattern))
-
-(= (runtime-match-pattern $qpattern)
-   (if (contains-hash? $qpattern) (map-nested unwrap $qpattern) $qpattern))
-
 (= (direct-goal-query-term $goal)
    (if (= $goal ($type ($kbid $_ctx $_vars) $prf $tv))
       (let $qtype
@@ -629,13 +624,15 @@
         ($root-gid (ensure-goal $goal))
         ($agenda0 (schedule-goal-heap (empty_heap) 1.0 $root-gid)))
       (let (search-state $search-steps-left $agenda1)
-         (if (<= $steps 0) (search-state 0 $agenda0)
-            (search-goals-heap (+ $steps 1) $agenda0))
-         (let $agenda2 (finalize-all-aggregates-heap $agenda1)
+         (once
+            (if (<= $steps 0) (search-state 0 $agenda0)
+               (search-goals-heap (+ $steps 1) $agenda0)))
+         (let $agenda2 (once (finalize-all-aggregates-heap $agenda1))
             (let (search-state $_search-steps-left2 $_agenda3)
-               (if (<= $search-steps-left 0) (search-state $search-steps-left $agenda2)
-                  (search-goals-heap $search-steps-left $agenda2))
-               (goal-results $root-gid))))))
+               (once
+                  (if (<= $search-steps-left 0) (search-state $search-steps-left $agenda2)
+                     (search-goals-heap $search-steps-left $agenda2)))
+               (once (goal-results $root-gid)))))))
 
 (= (unwrap $x) (if (== $x #) $any $x))
 
@@ -706,7 +703,7 @@
                (remove-atom &temp_query_ref (clause_ref $ref)))))
       ()))
 
-(= (inject-compiled-adds $adds) (if (= $adds ()) $_ (foreach-flat temp-add-to-kb $adds)))
+(= (inject-compiled-adds $adds) (if (= $adds ()) () (foreach-flat temp-add-to-kb $adds)))
 
 (= (query $steps $kb $stmt)
    (let*
@@ -721,18 +718,3 @@
         ($eres (map-flat externalize-proof-structure $results))
         ($pres (map-flat pretty $eres)))
       (superpose $pres)))
-
-(= (FoldAllTVRuntimeNoStepsQuery $kb $qpattern $init $fun)
-   (let*
-      (($kctx
-           (if (is-expr $kb) (let ($kbid $_ctx $_vars) $kb ($kbid MAIN Nil))
-              ($kb MAIN Nil)))
-        ($upattern (runtime-match-pattern $qpattern))
-        ($matches (collapse (match &kb ($upattern $kctx $prf $ptv) $ptv))))
-      (foldall-eval $fun $init $matches)))
-
-(= (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun)
-   (FoldAllTVRuntimeNoStepsQuery $kb (runtime-query-pattern $pattern) $init $fun))
-
-(= (FoldAllTVRuntimeFormula $steps $kb $pattern $init $fun)
-   (FoldAllTVRuntimeNoStepsQuery $kb (runtime-query-pattern $pattern) $init $fun))
