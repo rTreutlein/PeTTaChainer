@@ -48,8 +48,7 @@
 (= (inline-premise $kb $premise)
    (case $premise (
         ((Compute $f $args -> $res) (CPU $f $args $res))
-        ((Map2Dist $fun $a $b -> $out)
-           (CPU Map2DistRuntimeFormula ($kb $fun $a $b) $out))
+        ((Map2Dist $fun $a $b -> $out) (Map2Dist $fun $a $b -> $out))
         ((AverageDist $pattern -> $out)
            (CPU FoldAllTVFormulaCompiled
               ($kb
@@ -68,6 +67,110 @@
 
 (= (inline-premises $kb $premises) (map-flat (inline-premise $kb) $premises))
 
+(= (list-append () $ys) $ys)
+(= (list-append (cons $x $xs) $ys) (cons $x (list-append $xs $ys)))
+
+(= (premise-needs-direct-expansion? $premise)
+   (case $premise (
+        ((Map2Dist $_fun $_a $_b -> $_out) true)
+        ($other false))))
+
+(= (premises-need-direct-expansion? ()) false)
+(= (premises-need-direct-expansion? (cons $head $tail))
+   (or (premise-needs-direct-expansion? $head) (premises-need-direct-expansion? $tail)))
+
+(= (derived-premise $kb $ctx $vars $premise)
+   (case $premise (
+        ((Compute $f $args -> $res)
+           (premise-bundle
+              (cons (CPU $f $args $res) ())
+              (cons (CPU $f $args $res) ())
+              ()
+              (cpu-premise-tv $f $args $res)))
+        ((Map2Dist $fun $a $b -> $out)
+           (premise-bundle
+              (cons $a
+                 (cons $b
+                    (cons (CPU DistMap2Formula (quote ($fun $tv_a $tv_b)) $out) ())))
+              (cons (: ($kb $ctx $vars) $prfa $a $tv_a)
+                 (cons (: ($kb $ctx $vars) $prfb $b $tv_b)
+                    (cons (CPU DistMap2Formula (quote ($fun $tv_a $tv_b)) $out) ())))
+              (cons $prfa (cons $prfb ()))
+              $out))
+        ((AverageDist $pattern -> $out)
+           (premise-bundle
+              (cons
+                 (CPU FoldAllTVFormulaCompiled
+                    ($kb
+                       $pattern
+                       (SumCount (PointMass 0.0) 0)
+                       DistSumCountAcc
+                       dist-average)
+                    $out)
+                 ())
+              (cons
+                 (CPU FoldAllTVFormulaCompiled
+                    ($kb
+                       $pattern
+                       (SumCount (PointMass 0.0) 0)
+                       DistSumCountAcc
+                       dist-average)
+                    $out)
+                 ())
+              ()
+              $out))
+        ((FoldAllValue $pattern $value $init $fun -> $out)
+           (premise-bundle
+              (cons (CPU FoldAllTVFormulaCompiled ($kb $pattern $init $fun identity) $out) ())
+              (cons (CPU FoldAllTVFormulaCompiled ($kb $pattern $init $fun identity) $out) ())
+              ()
+              $out))
+        ((FoldAll $pattern $value $init $fun -> $out)
+           (premise-bundle
+              (cons (CPU FoldAllFormulaCompiled ($kb $pattern $value $init $fun) $out) ())
+              (cons (CPU FoldAllFormulaCompiled ($kb $pattern $value $init $fun) $out) ())
+              ()
+              (STV 1.0 1.0)))
+        ($other
+           (premise-bundle
+              (cons $other ())
+              (cons (: ($kb $ctx $vars) $prf $other $tv) ())
+              (cons $prf ())
+              $tv)))))
+
+(= (derive-premises-rest $kb $ctx $vars () $types $execs $proofs $current-tv)
+   (premise-bundle $types $execs $proofs $current-tv))
+(= (derive-premises-rest $kb $ctx $vars (cons $premise $rest) $types $execs $proofs $current-tv)
+   (let*
+      (((premise-bundle $more-types $more-execs $more-proofs $tv)
+           (derived-premise $kb $ctx $vars $premise))
+        ($ntypes (list-append $types $more-types))
+        ($nexecs
+           (list-append $execs
+              (list-append $more-execs (cons (CPU AndFormula ($current-tv $tv) $next-tv) ()))))
+        ($nproofs (list-append $proofs $more-proofs)))
+      (derive-premises-rest $kb $ctx $vars $rest $ntypes $nexecs $nproofs $next-tv)))
+
+(= (derive-premises $kb $ctx $vars ())
+   (premise-bundle () () () (STV 1.0 1.0)))
+(= (derive-premises $kb $ctx $vars (cons $premise $rest))
+   (let*
+      (((premise-bundle $types $execs $proofs $tv) (derived-premise $kb $ctx $vars $premise)))
+      (derive-premises-rest $kb $ctx $vars $rest $types $execs $proofs $tv)))
+
+(= (derived-premise-types $kb $premises)
+   (let*
+      (((premise-bundle $types $_execs $_proofs $_tv)
+           (once (derive-premises $kb $ctx $vars $premises))))
+      $types))
+
+(= (direct-implication $kb $prf $premises $b $itv)
+   (let*
+      (((premise-bundle $_types $execs $proofs $atv)
+           (once (derive-premises $kb $ctx $vars $premises)))
+        ($allargs (list-append $execs (cons (CPU MpFormula ($itv $atv) $btv) ()))))
+      ($allargs |- ((: ($kb $ctx $vars) (cons $prf $proofs) $b $btv)))))
+
 (= (cpu-premise-tv-formula $f)
    (is-member $f
       (() NotFormula
@@ -75,8 +178,9 @@
          DistGreaterThanDistFormula
          DistMapFormula
          DistMap2Formula
-         Map2DistRuntimeFormula
-         FoldAllTVFormulaCompiled)))
+         DistAverageFormula
+         FoldAllTVFormulaCompiled
+         FoldAllTVRuntimeFormula)))
 
 (= (cpu-premise-tv $f $args $res) (if (cpu-premise-tv-formula $f) $res (STV 1.0 1.0)))
 
@@ -240,15 +344,21 @@
          (= $Type
             (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
          (let*
-            (($a (seq2expr (inline-premises $kb $premises)))
+            (($has-direct-expansion (premises-need-direct-expansion? $premises))
+              ($a
+                 (if $has-direct-expansion
+                    (seq2expr (derived-premise-types $kb $premises))
+                    (seq2expr (inline-premises $kb $premises))))
               ($b (seq2expr $conclusions))
               ($nb (skolemize $prf $a $b))
               ($na (skolemize $prf $b $a))
               ($skip-inverse (or (disable-inversion-proof-id? $prf) (contains-cpu? $a))))
-            (superpose ((implication $kb $prf $a $nb $tv)
+            (superpose ((if $has-direct-expansion
+                           (once (direct-implication $kb $prf $premises $nb $tv))
+                           (implication $kb $prf $a $nb $tv))
                         (if (is-var $nb) (empty)
                            (compile-outputs (: (kbctx $kb) ($prf $prfa) $nb $btv)))
-                        (if (is-var $a) (empty)
+                        (if (or $has-direct-expansion (is-var $a)) (empty)
                            (compile-inputs (: (kbctx $kb) $prfa $a $atv)))
                         (if (not $skip-inverse)
                            (inverse-implication $kb $prf $na $b $tv)
@@ -267,7 +377,10 @@
          (= $Type
             (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
          (let*
-            (($a (seq2expr (inline-premises $kb $premises)))
+            (($a
+                 (if (premises-need-direct-expansion? $premises)
+                    (seq2expr (derived-premise-types $kb $premises))
+                    (seq2expr (inline-premises $kb $premises))))
               ($b (seq2expr $conclusions)))
             ((postQuery
                   (((: (kbctx $kb) $prfa $a (STV 1.0 1.0))) |-

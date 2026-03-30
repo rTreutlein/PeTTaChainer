@@ -157,8 +157,7 @@
 (= (normalize-heap $agenda)
    (if (== $agenda ()) (empty_heap) $agenda))
 
-(= (needs-steps-cpu-fun? $fun)
-   (is-member $fun (() Map2DistRuntimeFormula)))
+(= (needs-steps-cpu-fun? $fun) false)
 
 (= (compiled-query-goal-head (goal $query)) $query)
 (= (compiled-query-goal-head $compiled-query)
@@ -347,11 +346,6 @@
 (= (runtime-match-pattern $qpattern)
    (if (contains-hash? $qpattern) (map-nested unwrap $qpattern) $qpattern))
 
-(= (runtime-direct-match-results $steps $kb $type)
-   (let ($rkbid $rctx $rvars) (runtime-kctx $kb)
-      (let $qtype (runtime-query-pattern $type)
-         (direct-goal-results $steps ($qtype ($rkbid $rctx $rvars) $prf $tv)))))
-
 (= (direct-goal-query-term $goal)
    (if (= $goal ($type ($kbid $_ctx $_vars) $prf $tv))
       (let $qtype
@@ -363,20 +357,6 @@
 (= (direct-goal-fact-match $goal $candidate)
    (let $goal-copy (copy_term $goal) (if (= $goal-copy $candidate) $candidate (empty))))
 
-(=
-   (direct-goal-results $steps
-      ((CPU Map2DistRuntimeFormula ($kb $fun $a $b) $_goalres) ($kbid $ctx $vars)
-         $prf
-         $_tv))
-   (let ($_a ($akbid $actx $avars) $prfa $tva)
-      (runtime-direct-match-results $steps $kb $a)
-      (let ($_b ($bkbid $bctx $bvars) $prfb $tvb)
-         (runtime-direct-match-results $steps $kb $b)
-         (let $out (reduce (reduce (DistMap2Formula $fun $tva $tvb)))
-            (superpose (
-                 ((CPU Map2DistRuntimeFormula ($kb $fun $a $b) $out) ($kbid $ctx $vars)
-                    $prf
-                    $out)))))))
 (= (direct-goal-results $steps (CPU $fun $args $_res))
    (superpose ((CPU $fun $args (cpu-call $steps $fun $args)))))
 (= (direct-goal-results $steps $goal)
@@ -753,13 +733,6 @@
 
 (= (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun)
    (FoldAllTVRuntimeNoStepsQuery $kb (runtime-query-pattern $pattern) $init $fun))
-
-(= (Map2DistRuntimeFormula $steps $kb $fun $a $b)
-   (let ($_a ($akbid $actx $avars) $prfa $tva)
-      (runtime-direct-match-results $steps $kb $a)
-      (let ($_b ($bkbid $bctx $bvars) $prfb $tvb)
-         (runtime-direct-match-results $steps $kb $b)
-         (DistMap2Formula $fun $tva $tvb))))
 
 (= (FoldAllTVRuntimeFormula $steps $kb $pattern $init $fun)
    (FoldAllTVRuntimeNoStepsQuery $kb (runtime-query-pattern $pattern) $init $fun))
