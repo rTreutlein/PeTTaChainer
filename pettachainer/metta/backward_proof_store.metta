@@ -1,5 +1,3 @@
-(= (proof-goal-by-id $pid) (match &proof_goal ($pid $gid) $gid))
-
 (= (proof-output-atom-kind (leaf $term) $pid)
    (if (= $term ($type ($kbid $_ctx $_vars) $_prf $tv))
       ($type ($kbid $_ctx $_vars) (proof-ref $pid) $tv)
@@ -36,21 +34,18 @@
 
 (= (materialize-proof $pid) (materialize-proof-kind (proof-kind-by-id $pid) $pid))
 
-(= (goal-proof-pids $gid) (collapse (match &goal_proof ($gid $pid) $pid)))
-
-(= (goal-merged-proof-atom $gid)
-   (case (goal-proof-pids $gid) (
-        (() ())
-        ((cons $pid $pids)
-           (fold-flat (|-> ($acc $next-pid) (merge-proof-atoms $acc (proof-output-atom $next-pid)))
-              (proof-output-atom $pid)
-              $pids)))))
-
 (= (goal-results $gid)
-   (if (goal-view-has-type-vars? (goal-view (goal-term-by-id $gid)))
-      (map-flat materialize-result-atom (map-flat proof-output-atom (goal-proof-pids $gid)))
-      (let $merged (goal-merged-proof-atom $gid)
-         (if (== $merged ()) () ((materialize-result-atom $merged))))))
+   (let $pids (collapse (match &goal_proof ($gid $pid) $pid))
+      (if (goal-view-has-type-vars? (goal-view (goal-term-by-id $gid)))
+         (map-flat materialize-result-atom (map-flat proof-output-atom $pids))
+         (case $pids (
+              (() ())
+              ((cons $pid $rest)
+                 (let $merged
+                    (fold-flat (|-> ($acc $next-pid) (merge-proof-atoms $acc (proof-output-atom $next-pid)))
+                       (proof-output-atom $pid)
+                       $rest)
+                    (if (== $merged ()) () ((materialize-result-atom $merged))))))))))
 
 (= (leaf-evidence-for-result $result)
    (if (= $result ($type ($kbid $_ctx $_vars) $prf $_tv))
@@ -97,7 +92,7 @@
 
 (= (proof-depends-on-goal-seen? $pid $gid $seen-pids)
    (if (is-member $pid $seen-pids) false
-      (or (== (proof-goal-by-id $pid) $gid)
+      (or (== (match &proof_goal ($pid $proof-gid) $proof-gid) $gid)
          (fold-flat
             (|-> ($acc $child-pid)
                (or $acc (proof-depends-on-goal-seen? $child-pid $gid (cons $pid $seen-pids))))
