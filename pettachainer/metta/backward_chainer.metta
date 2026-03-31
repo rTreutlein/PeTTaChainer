@@ -193,23 +193,18 @@
       (aggregate-step-fold-tv $fun)
       (aggregate-result-bare FoldAllTVFormulaCompiled ($kb $pattern $init $fun $finish) $finish)))
 
-(= (aggregate-spec-child-goal (aggregate-spec $child-goal $_init $_step-spec $_result-spec))
-   $child-goal)
+(= (aggregate-spec-child-goal (aggregate-spec $child-goal $_init $_step-spec $_result-spec)) $child-goal)
 
-(= (aggregate-spec-init-acc (aggregate-spec $_child-goal $init $_step-spec $_result-spec))
-   $init)
+(= (aggregate-spec-init-acc (aggregate-spec $_child-goal $init $_step-spec $_result-spec)) $init)
 
-(= (aggregate-spec-step (aggregate-spec $_child-goal $_init $step-spec $_result-spec))
-   $step-spec)
+(= (aggregate-spec-step (aggregate-spec $_child-goal $_init $step-spec $_result-spec)) $step-spec)
 
-(= (aggregate-spec-result-spec (aggregate-spec $_child-goal $_init $_step-spec $result-spec))
-   $result-spec)
+(= (aggregate-spec-result-spec (aggregate-spec $_child-goal $_init $_step-spec $result-spec)) $result-spec)
 
 (= (aggregate-spec-step-value (aggregate-step-fold-value $_fun $pattern $value) $child-atom)
    (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $value))
 
-(=
-   (aggregate-spec-step-acc
+(= (aggregate-spec-step-acc
       (aggregate-step-fold-value $fun $pattern $value)
       $acc
       $child-atom
@@ -218,16 +213,14 @@
       (aggregate-spec-step-value (aggregate-step-fold-value $fun $pattern $value) $child-atom)
       (eval ($fun $acc $val))))
 
-(=
-   (aggregate-spec-step-acc
+(= (aggregate-spec-step-acc
       (aggregate-step-fold-tv $fun)
       $acc
       $_child-atom
       $child-tv)
    (eval ($fun $acc $child-tv)))
 
-(=
-   (aggregate-spec-step-acc aggregate-step-dist-average $acc $_child-atom $child-tv)
+(= (aggregate-spec-step-acc aggregate-step-dist-average $acc $_child-atom $child-tv)
    (reduce (reduce (DistSumCountAcc $acc $child-tv))))
 
 (= (aggregate-result-output identity $acc) $acc)
@@ -235,10 +228,8 @@
 (= (aggregate-result-output dist-average $acc)
    (reduce (reduce (DistAverageFromSumCount $acc))))
 
-(=
-   (aggregate-spec-result (aggregate-result-bare $fun $args $acc-mode) $acc)
-   (let $out (aggregate-result-output $acc-mode $acc)
-      (CPU $fun $args $out)))
+(= (aggregate-spec-result (aggregate-result-bare $fun $args $acc-mode) $acc)
+   (CPU $fun $args (aggregate-result-output $acc-mode $acc)))
 
 (= (aggregate-child-key $pid)
    (let*
@@ -460,7 +451,7 @@
 
 (= (direct-goal-result-exact-hit? $goal $result)
    (if (= $goal ($_type ($_kbid $_ctx $_vars) $_prf $_tv))
-      (if (=? $goal-copy $result) true false)
+      (=? $goal $result)
       (goal-key-eq? $goal $result)))
 
 (= (instantiated-bundle-goal $aid $pid-list)
