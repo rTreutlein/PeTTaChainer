@@ -63,20 +63,9 @@
       (aggregate-step-fold-tv $fun)
       (aggregate-result-bare FoldAllTVFormulaCompiled ($kb $pattern $init $fun $finish) $finish)))
 
-(= (aggregate-spec-child-goal (aggregate-spec $child-goal $_init $_step-spec $_result-spec)) $child-goal)
-
-(= (aggregate-spec-init-acc (aggregate-spec $_child-goal $init $_step-spec $_result-spec)) $init)
-
-(= (aggregate-spec-step (aggregate-spec $_child-goal $_init $step-spec $_result-spec)) $step-spec)
-
-(= (aggregate-spec-result-spec (aggregate-spec $_child-goal $_init $_step-spec $result-spec)) $result-spec)
-
-(= (aggregate-spec-step-value (aggregate-step-fold-value $_fun $pattern $value) $child-atom)
-   (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $value))
-
 (= (aggregate-spec-step-acc (aggregate-step-fold-value $fun $pattern $value) $acc $child-atom $_child-tv)
-   (let $val (aggregate-spec-step-value (aggregate-step-fold-value $fun $pattern $value) $child-atom)
-      (eval ($fun $acc $val))))
+   (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom)
+      (eval ($fun $acc $value))))
 (= (aggregate-spec-step-acc (aggregate-step-fold-tv $fun) $acc $_child-atom $child-tv)
    (eval ($fun $acc $child-tv)))
 (= (aggregate-spec-step-acc aggregate-step-dist-average $acc $_child-atom $child-tv)
@@ -143,7 +132,8 @@
       (($child-atom (proof-output-atom $pid))
         ($child-key (aggregate-child-key $pid))
         (($_pscore $pev) (proof-stats-by-id $pid))
-        ($step-spec (copy_term (aggregate-spec-step $spec))))
+        ((aggregate-spec $_goal $_init $step-spec $_result-spec) $spec)
+        ($step-spec (copy_term $step-spec)))
       (if (is-member $child-key $seen) $agenda
          (let*
             (($nacc (aggregate-spec-step-acc $step-spec $acc $child-atom (proof-tv-by-id $pid)))
@@ -181,7 +171,7 @@
 (= (spawn-aggregate-goal-heap $agenda $score $gid $goal-view)
    (let*
       (($spec (aggregate-goal-spec $goal-view))
-        ($child-goal (aggregate-spec-child-goal $spec))
+        ((aggregate-spec $child-goal $init-acc $_step-spec $_result-spec) $spec)
         ($child-gid (ensure-goal $child-goal))
         ($stored-spec (copy_term $spec)))
       (spawn-waiting-goal-heap $agenda
@@ -190,7 +180,7 @@
          (aggregate-waiter $gid
             $child-gid
             $stored-spec
-            (aggregate-spec-init-acc $spec)
+            $init-acc
             ()
             ()
             false))))
@@ -222,7 +212,8 @@
                  $dep-wid)))
         ($agenda1 (fold-flat finalize-aggregate-waiter-heap $agenda $dep-wids))
         ($_1 (set-waiter-state $wid (aggregate-waiter $gid $child-gid $spec $acc $ev $seen true)))
-        ($result (aggregate-spec-result (aggregate-spec-result-spec $spec) $acc)))
+        ((aggregate-spec $_goal $_init $_step-spec $result-spec) $spec)
+        ($result (aggregate-spec-result $result-spec $acc)))
       (commit-proof-candidate-heap $agenda1
          $gid
          (classify-goal-proof-candidate $gid $ev (term-confidence $result))
