@@ -1,6 +1,6 @@
 (= (goal-term-by-id $gid) (match &goal_by_id ($gid $goal) $goal))
 
-(= (next-agid) (next-search-id bwd_agid))
+(= (next-wid) (next-search-id bwd_wid))
 
 (= (first-or () $default) $default)
 (= (first-or (cons $x $_rest) $_default) $x)
@@ -155,27 +155,44 @@
         ($key (goal-key-components $atom)))
       (if (== $key ()) $atom $key)))
 
-(= (aggregate-state-by-id $agid)
-   (match &aggregate_state ($agid $gid $child-gid $spec $acc $ev $seen)
-      (aggregate-state $gid $child-gid $spec $acc $ev $seen)))
+(= (waiter-state-by-id $wid) (match &waiter_state ($wid $state) $state))
 
-(= (set-aggregate-state $agid $gid $child-gid $spec $acc $ev $seen)
+(= (set-waiter-state $wid $state)
    (progn
       (collapse
-         (match &aggregate_state
-            ($agid $old-gid $old-child-gid $old-spec $old-acc $old-ev $old-seen)
-            (remove-atom &aggregate_state
-               ($agid $old-gid $old-child-gid $old-spec $old-acc $old-ev $old-seen))))
-      (add-atom &aggregate_state ($agid $gid $child-gid $spec $acc $ev $seen))))
+         (match &waiter_state ($wid $old-state)
+            (remove-atom &waiter_state ($wid $old-state))))
+      (add-atom &waiter_state ($wid $state))))
 
-(= (aggregate-finalized? $agid)
-   (nonempty? (collapse (once (match &aggregate_finalized ($agid true) true)))))
+(= (attach-goal-waiter $gid $wid) (add-atom &goal_waiter ($gid $wid)))
 
-(= (advance-aggregate-heap $agenda $agid $pid)
+(= (attach-existing-goal-proofs-heap $agenda $wid $gid)
+   (fold-flat (|-> ($acc $pid) (advance-goal-waiter-heap $acc $wid $pid))
+      $agenda
+      (collapse (match &goal_proof ($gid $pid) $pid))))
+
+(= (spawn-waiting-goal-heap $agenda $score $gid $state)
    (let*
-      (((aggregate-state $gid $child-gid $spec $acc $ev $seen)
-           (aggregate-state-by-id $agid))
-        ($child-atom (proof-output-atom $pid))
+      (($wid (next-wid))
+        ($_1 (set-waiter-state $wid $state))
+        ($_2 (attach-goal-waiter $gid $wid))
+        ($agenda1 (attach-existing-goal-proofs-heap $agenda $wid $gid))
+        ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
+      $nagenda))
+
+(= (advance-frontier-bundle (and-bundle $_goal ()) $_pid) ())
+(= (advance-frontier-bundle (and-bundle $goal (cons $prem $rest)) $pid)
+   (if (= $prem (proof-output-atom $pid)) (and-bundle $goal $rest) ()))
+
+(= (advance-waiter-state-heap $agenda $_wid
+      (aggregate-waiter $_gid $_child-gid $_spec $_acc $_ev $_seen true)
+      $_pid)
+   $agenda)
+(= (advance-waiter-state-heap $agenda $wid
+      (aggregate-waiter $gid $child-gid $spec $acc $ev $seen false)
+      $pid)
+   (let*
+      (($child-atom (proof-output-atom $pid))
         ($child-key (aggregate-child-key $pid))
         (($_pscore $pev) (proof-stats-by-id $pid))
         ($step-spec (copy_term (aggregate-spec-step $spec))))
@@ -184,69 +201,79 @@
             (($nacc (aggregate-spec-step-acc $step-spec $acc $child-atom (proof-tv-by-id $pid)))
               ($nev (list_to_set (list-append $ev $pev)))
               ($nseen (cons $child-key $seen))
-              ($_1 (set-aggregate-state $agid $gid $child-gid $spec $nacc $nev $nseen)))
+              ($_1
+                 (set-waiter-state $wid
+                    (aggregate-waiter $gid $child-gid $spec $nacc $nev $nseen false))))
             $agenda))))
-
-(= (attach-goal-waiter $gid $waiter) (add-atom &goal_waiter ($gid $waiter)))
-
-(= (advance-goal-waiter-heap $agenda (frontier $fid) $pid)
-   (advance-frontier-heap $agenda $fid $pid))
-(= (advance-goal-waiter-heap $agenda (aggregate $agid) $pid)
-   (advance-aggregate-heap $agenda $agid $pid))
-
-(= (attach-existing-goal-proofs-heap $agenda $waiter $gid)
-   (fold-flat (|-> ($acc $pid) (advance-goal-waiter-heap $acc $waiter $pid))
-      $agenda
-      (collapse (match &goal_proof ($gid $pid) $pid))))
-
-(= (spawn-waiting-goal-heap $agenda $score $gid $waiter)
+(= (advance-waiter-state-heap $agenda $_wid
+      (frontier-waiter $parent-gid $aid $bundle $score $seen $rev-pids)
+      $pid)
    (let*
-      (($_1 (attach-goal-waiter $gid $waiter))
-        ($agenda1 (attach-existing-goal-proofs-heap $agenda $waiter $gid))
-        ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
-      $nagenda))
+      ((($pscore $pev) (proof-stats-by-id $pid))
+        ($overlap (evidence-sets-overlap? $seen $pev))
+        ($next-bundle (advance-frontier-bundle (copy_term $bundle) $pid)))
+      (if $overlap $agenda
+         (if (== $next-bundle ()) $agenda
+            (spawn-frontier-heap $agenda
+               $parent-gid
+               $aid
+               $next-bundle
+               (min $score $pscore)
+               (list_to_set (list-append $seen $pev))
+               (cons $pid $rev-pids))))))
+
+(= (advance-goal-waiter-heap $agenda $wid $pid)
+   (advance-waiter-state-heap $agenda $wid (waiter-state-by-id $wid) $pid))
 
 (= (spawn-aggregate-goal-heap $agenda $score $gid $goal)
    (let*
       (($spec (aggregate-goal-spec $goal))
         ($child-goal (aggregate-spec-child-goal $spec))
         ($child-gid (ensure-goal $child-goal))
-        ($agid (next-agid))
-        ($stored-spec (copy_term $spec))
-        ($_1
-           (set-aggregate-state $agid
-              $gid
-              $child-gid
-              $stored-spec
-              (aggregate-spec-init-acc $spec)
-              ()
-              ())))
-      (spawn-waiting-goal-heap $agenda $score $child-gid (aggregate $agid))))
-
-(= (finalize-aggregate-heap $agenda $agid)
-   (if (aggregate-finalized? $agid) $agenda
-      (let*
-         (((aggregate-state $gid $child-gid $spec $acc $ev $_seen)
-              (aggregate-state-by-id $agid))
-           ($dep-agids
-              (collapse
-                 (match &aggregate_state
-                    ($dep-agid $child-gid $_dep-child $_dep-spec $_dep-acc $_dep-ev $_dep-seen)
-                    $dep-agid)))
-           ($agenda1 (fold-flat finalize-aggregate-heap $agenda $dep-agids))
-           ($_1 (add-atom &aggregate_finalized ($agid true)))
-           ($result (aggregate-spec-result (aggregate-spec-result-spec $spec) $acc)))
-         (commit-proof-candidate-heap $agenda1
+        ($stored-spec (copy_term $spec)))
+      (spawn-waiting-goal-heap $agenda $score $child-gid
+         (aggregate-waiter
             $gid
-            (classify-goal-proof-candidate $gid $ev (term-confidence $result))
-            (leaf-result-candidate $result $ev)))))
+            $child-gid
+            $stored-spec
+            (aggregate-spec-init-acc $spec)
+            ()
+            ()
+            false))))
+
+(= (finalize-waiter-state-heap $agenda $_wid
+      (aggregate-waiter $_gid $_child-gid $_spec $_acc $_ev $_seen true))
+   $agenda)
+(= (finalize-waiter-state-heap $agenda $wid
+      (aggregate-waiter $gid $child-gid $spec $acc $ev $seen false))
+   (let*
+      (($dep-wids
+           (collapse
+              (match &waiter_state
+                 ($dep-wid
+                    (aggregate-waiter $child-gid $_dep-child $_dep-spec $_dep-acc $_dep-ev
+                       $_dep-seen $_dep-finalized))
+                 $dep-wid)))
+        ($agenda1 (fold-flat finalize-aggregate-waiter-heap $agenda $dep-wids))
+        ($_1
+           (set-waiter-state $wid
+              (aggregate-waiter $gid $child-gid $spec $acc $ev $seen true)))
+        ($result (aggregate-spec-result (aggregate-spec-result-spec $spec) $acc)))
+      (commit-proof-candidate-heap $agenda1
+         $gid
+         (classify-goal-proof-candidate $gid $ev (term-confidence $result))
+         (leaf-result-candidate $result $ev))))
+
+(= (finalize-aggregate-waiter-heap $agenda $wid)
+   (finalize-waiter-state-heap $agenda $wid (waiter-state-by-id $wid)))
 
 (= (finalize-all-aggregates-heap $agenda)
-   (let $agids
+   (let $wids
       (collapse
-         (match &aggregate_state ($agid $_gid $_child-gid $_goal $_acc $_ev $_seen)
-            $agid))
-      (fold-flat finalize-aggregate-heap $agenda $agids)))
+         (match &waiter_state
+            ($wid (aggregate-waiter $_gid $_child-gid $_spec $_acc $_ev $_seen $_finalized))
+            $wid))
+      (fold-flat finalize-aggregate-waiter-heap $agenda $wids)))
 
 (= (runtime-kctx $kb)
    (if (is-expr $kb) (let ($kbid $_ctx $_vars) $kb ($kbid MAIN Nil)) ($kb MAIN Nil)))
@@ -321,37 +348,9 @@
         ((and-bundle $_goal (cons $prem $_rest))
            (let*
               (($gid (ensure-goal $prem))
-                ($fid (next-fid))
-                ($stored-bundle (copy_term $bundle))
-                ($_1
-                   (add-atom &frontier
-                      ($fid $parent-gid $aid $stored-bundle $score $seen $rev-pids))))
-              (spawn-waiting-goal-heap $agenda $score $gid (frontier $fid)))))))
-
-(= (frontier-state-by-id $fid)
-   (match &frontier ($fid $parent-gid $aid $bundle $score $seen $rev-pids)
-      (frontier-state $parent-gid $aid $bundle $score $seen $rev-pids)))
-
-(= (advance-frontier-bundle (and-bundle $_goal ()) $_pid) ())
-(= (advance-frontier-bundle (and-bundle $goal (cons $prem $rest)) $pid)
-   (if (= $prem (proof-output-atom $pid)) (and-bundle $goal $rest) ()))
-
-(= (advance-frontier-heap $agenda $fid $pid)
-   (let*
-      (((frontier-state $parent-gid $aid $bundle $score $seen $rev-pids)
-           (frontier-state-by-id $fid))
-        (($pscore $pev) (proof-stats-by-id $pid))
-        ($overlap (evidence-sets-overlap? $seen $pev))
-        ($next-bundle (advance-frontier-bundle (copy_term $bundle) $pid)))
-      (if $overlap $agenda
-         (if (== $next-bundle ()) $agenda
-            (spawn-frontier-heap $agenda
-               $parent-gid
-               $aid
-               $next-bundle
-               (min $score $pscore)
-               (list_to_set (list-append $seen $pev))
-               (cons $pid $rev-pids))))))
+                ($stored-bundle (copy_term $bundle)))
+              (spawn-waiting-goal-heap $agenda $score $gid
+                 (frontier-waiter $parent-gid $aid $stored-bundle $score $seen $rev-pids)))))))
 
 (= (expand-rule-goal-heap $agenda $parent-gid $goal)
    (let*
@@ -422,7 +421,7 @@
 (= (clear-backward-state)
    (clear-spaces
       (() &goal_by_id &goal_lookup &goal_expanded &goal_pending_score
-         &goal_waiter &and_node &frontier &aggregate_state &aggregate_finalized
+         &goal_waiter &waiter_state &and_node
          &goal_proof &proof_goal &proof_stats &proof_kind &proof_children)))
 
 (= (chainer $steps $goal)
@@ -430,8 +429,7 @@
       (($_clear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
         ($_aidreset (change-state! bwd_aid 0))
-        ($_agidreset (change-state! bwd_agid 0))
-        ($_fidreset (change-state! bwd_fid 0))
+        ($_widreset (change-state! bwd_wid 0))
         ($_pidreset (change-state! bwd_pid 0))
         ($root-gid (ensure-goal $goal))
         ($agenda0 (schedule-goal-heap (empty_heap) 1.0 $root-gid))

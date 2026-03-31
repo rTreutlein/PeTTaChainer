@@ -94,8 +94,6 @@
 
 (= (next-pid) (next-search-id bwd_pid))
 
-(= (next-fid) (next-search-id bwd_fid))
-
 (= (proof-stats-by-id $pid) (match &proof_stats ($pid $score $ev) ($score $ev)))
 
 (= (proof-tv-by-id $pid)
