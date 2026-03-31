@@ -6,11 +6,11 @@
       (proof-goal ($kbid $ctx $vars) $type $prf $tv)
       (if (= $goal (CPU $fun $args $res))
          (cpu-goal $fun $args $res)
-         (term-goal $goal))))
+         $goal)))
 
 (= (goal-view-term (proof-goal $kb $type $prf $tv)) ($type $kb $prf $tv))
 (= (goal-view-term (cpu-goal $fun $args $res)) (CPU $fun $args $res))
-(= (goal-view-term (term-goal $goal)) $goal)
+(= (goal-view-term $goal) $goal)
 
 (= (goal-view-has-type-vars? $goal-view)
    (if (= $goal-view (proof-goal $_kb $type $_prf $_tv)) (not (== (extract-vars $type) ())) false))
