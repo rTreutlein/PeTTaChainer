@@ -308,35 +308,24 @@
            (fold-flat (expand-direct-goal-step $gid $goal) (expand-state $agenda false) $results)))
       (if $exact-hit $agenda1 (expand-rule-goal-heap $agenda1 $gid $goal))))
 
-(= (instantiated-bundle-goal $aid $pid-list)
-   (case
-      (instantiate-and-bundle (copy_term (match &and_node ($aid $_parent $_rule $_bound $bundle) $bundle))
-         $pid-list) (
-        ((and-bundle $goal $_rest) $goal))))
-
-(= (build-parent-proof-heap $agenda $parent-gid $aid (and-bundle $_goal ()) $score $ev $pid-list)
-   (let*
-      (($goal (instantiated-bundle-goal $aid $pid-list))
-        (($_type ($_kbid $_ctx $_vars) $_prf $tv) $goal))
-      (commit-proof-candidate-heap $agenda
-         $parent-gid
-         (classify-goal-proof-candidate $parent-gid $ev $score)
-         (proof-candidate (rule $aid $goal)
-            (with-tv $tv)
-            $score
-            $ev
-            $pid-list))))
-
 (= (spawn-frontier-heap $agenda $parent-gid $aid $bundle $score $seen $rev-pids)
    (case $bundle (
         ((and-bundle $goal ())
-           (build-parent-proof-heap $agenda
-              $parent-gid
-              $aid
-              $bundle
-              $score
-              $seen
-              (list-reverse $rev-pids)))
+           (let*
+              (($pid-list (list-reverse $rev-pids))
+                ((and-bundle $instantiated-goal $_rest)
+                   (instantiate-and-bundle
+                      (copy_term (match &and_node ($aid $_parent $_rule $_bound $node-bundle) $node-bundle))
+                      $pid-list))
+                (($_type ($_kbid $_ctx $_vars) $_prf $tv) $instantiated-goal))
+              (commit-proof-candidate-heap $agenda
+                 $parent-gid
+                 (classify-goal-proof-candidate $parent-gid $seen $score)
+                 (proof-candidate (rule $aid $instantiated-goal)
+                    (with-tv $tv)
+                    $score
+                    $seen
+                    $pid-list))))
         ((and-bundle $_goal (cons $prem $_rest))
            (let*
               (($gid (ensure-goal $prem))
@@ -352,14 +341,13 @@
                     $rev-pids)))))))
 
 (= (expand-rule-goal-heap $agenda $parent-gid $goal)
-   (let*
-      (($exact
-           (collapse
-              (match ccls_index ($goal $rule-id)
-                 (match rules ($rule-id $goal $args)
-                    ($args $goal $parent-gid $rule-id)))))
-        ($lst $exact))
-      (if (== $lst ()) $agenda (fold-flat expand-rule-goal-fold $agenda $lst))))
+   (fold-flat
+      expand-rule-goal-fold
+      $agenda
+      (collapse
+         (match ccls_index ($goal $rule-id)
+            (match rules ($rule-id $goal $args)
+               ($args $goal $parent-gid $rule-id))))))
 
 (= (expand-rule-goal-fold $agenda ($args $goal $parent-gid $rule-id))
    (let*
