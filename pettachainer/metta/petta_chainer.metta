@@ -7,6 +7,7 @@
 !(import! &self forward_chainer)
 !(import! &self dist_formulas)
 !(import! &self tv_formulas)
+!(import! &self compiled_query_runtime)
 !(import! &self backward_chainer)
 
 (= (nextid)
