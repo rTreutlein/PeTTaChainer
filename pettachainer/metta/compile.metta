@@ -348,7 +348,7 @@
          (let*
             (($a (seq2expr (compiled-antecedent-types $kb $premises)))
               ($b (seq2expr $conclusions)))
-            (((: (kbctx $kb) $prfa $a (STV 1.0 1.0)) |- ((: (kbctx $kb) $prfb $b $itv)))
+            ((((: (kbctx $kb) $prfa $a (STV 1.0 1.0))) |- ((: (kbctx $kb) $prfb $b $itv)))
                (collapse
                   (superpose ((compile-inputs (: (kbctx $kb) $prfb $b $btv))
                               (compile-outputs (: (kbctx $kb) $prfa $a $atv)))))))

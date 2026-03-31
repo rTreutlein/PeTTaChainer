@@ -10,6 +10,16 @@
 
 !(test (not (== (collapse (query 4 bwdOnlyKb (: $p (Goal) $tv))) ())) true)
 
+!(test
+   (let
+      (: $prf (Implication (Premises (A)) (Conclusions (Goal))) (STV 1.0 0.81))
+      (superpose
+         (collapse
+            (query 100 bwdOnlyKb
+               (: $p (Implication (Premises (A)) (Conclusions (Goal))) $tv))))
+      true)
+   true)
+
 !(compileadd composeKb (: a0 (A) (STV 1.0 1.0)))
 
 !(compileadd composeKb (: r1 (Implication (Premises (A)) (Conclusions (B))) (STV 1.0 1.0)))
