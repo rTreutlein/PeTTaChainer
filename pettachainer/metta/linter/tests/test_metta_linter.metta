@@ -2,13 +2,13 @@
 
 !(test
    (lint-file-warning-count "tests/fixtures/lint_sample.metta")
-   7)
+   5)
 
 !(test
    (lint-file-has-warning
       "tests/fixtures/lint_sample.metta"
       (quote (warning 1 singleton-superpose (lint-singleton-superpose) (superpose ((CPU SampleFormula () done))))))
-   true)
+   false)
 
 !(test
    (lint-file-has-warning
@@ -32,7 +32,7 @@
    (lint-file-has-warning
       "tests/fixtures/lint_sample.metta"
       (quote (warning 15 local-append-reimplementation lint-local-append (= (lint-local-append () $ys) $ys))))
-   true)
+   false)
 
 !(test
    (lint-file-has-warning

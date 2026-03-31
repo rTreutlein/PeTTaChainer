@@ -41,12 +41,11 @@
                   (CPU (atom_concat $head Projection) ($tvin) $tvout))
                |-
                ((: $kb (proj $idx $prf) $elem $tvout))))
-         (let $cmp-out (|-> (($elem $_)) (compile-outputs (: $kb $prfn $elem $tvn)))
-            (let $idtail (addidx $tail 0) (&^& $to-proj $cmp-out (superpose $idtail)))))
+         (let*
+            (($cmp-out (|-> (($elem $_)) (compile-outputs (: $kb $prfn $elem $tvn)))
+              ($idtail (addidx $tail 0)))
+            (&^& $to-proj $cmp-out (superpose $idtail)))))
       (empty)))
-
-(= (list-append () $ys) $ys)
-(= (list-append (cons $x $xs) $ys) (cons $x (list-append $xs $ys)))
 
 (= (cpu-premise-tv-formula $f)
    (is-member $f
@@ -103,72 +102,66 @@
         ((Compute $f $args -> $res)
            (premise-bundle
               (Compute $f $args -> $res)
-              (cons (CPU $f $args $res) ())
-              (cons (CPU $f $args $res) ())
+              ((CPU $f $args $res))
+              ((CPU $f $args $res))
               (cpu-premise-tv $f $args $res)
               cpu))
         ((MapDist $fun $a -> $out)
            (premise-bundle
               (MapDist $fun $a -> $out)
-              (cons $a (cons (CPU DistMapFormula ($fun $tv_a) $out) ()))
-              (cons (: ($kb $ctx $vars) $prfa $a $tv_a)
-                 (cons (CPU DistMapFormula ($fun $tv_a) $out) ()))
+              ($a (CPU DistMapFormula ($fun $tv_a) $out))
+              ((: ($kb $ctx $vars) $prfa $a $tv_a)
+                 (CPU DistMapFormula ($fun $tv_a) $out))
               $out
               $prfa))
         ((Map2Dist $fun $a $b -> $out)
            (premise-bundle
               (Map2Dist $fun $a $b -> $out)
-              (cons $a
-                 (cons $b
-                    (cons (CPU DistMap2Formula (quote ($fun $tv_a $tv_b)) $out) ())))
-              (cons (: ($kb $ctx $vars) $prfa $a $tv_a)
-                 (cons (: ($kb $ctx $vars) $prfb $b $tv_b)
-                    (cons (CPU DistMap2Formula (quote ($fun $tv_a $tv_b)) $out) ())))
+              ($a $b (CPU DistMap2Formula (quote ($fun $tv_a $tv_b)) $out))
+              ((: ($kb $ctx $vars) $prfa $a $tv_a)
+                 (: ($kb $ctx $vars) $prfb $b $tv_b)
+                 (CPU DistMap2Formula (quote ($fun $tv_a $tv_b)) $out))
               $out
               (rule-proof conjunction $prfa $prfb)))
         ((AverageDist $pattern -> $out)
            (premise-bundle
               (AverageDist $pattern -> $out)
-              (cons
-                 (CPU FoldAllTVFormulaCompiled
-                    ($kb
-                       $pattern
-                       (SumCount (PointMass 0.0) 0)
-                       DistSumCountAcc
-                       dist-average)
-                    $out)
-                 ())
-              (cons
-                 (CPU FoldAllTVFormulaCompiled
-                    ($kb
-                       $pattern
-                       (SumCount (PointMass 0.0) 0)
-                       DistSumCountAcc
-                       dist-average)
-                    $out)
-                 ())
+              ((CPU FoldAllTVFormulaCompiled
+                  ($kb
+                     $pattern
+                     (SumCount (PointMass 0.0) 0)
+                     DistSumCountAcc
+                     dist-average)
+                  $out))
+              ((CPU FoldAllTVFormulaCompiled
+                  ($kb
+                     $pattern
+                     (SumCount (PointMass 0.0) 0)
+                     DistSumCountAcc
+                     dist-average)
+                  $out))
               $out
               cpu))
         ((FoldAllValue $pattern $value $init $fun -> $out)
            (premise-bundle
               (FoldAllValue $pattern $value $init $fun -> $out)
-              (cons (CPU FoldAllTVFormulaCompiled ($kb $pattern $init $fun identity) $out) ())
-              (cons (CPU FoldAllTVFormulaCompiled ($kb $pattern $init $fun identity) $out) ())
+              ((CPU FoldAllTVFormulaCompiled ($kb $pattern $init $fun identity) $out))
+              ((CPU FoldAllTVFormulaCompiled ($kb $pattern $init $fun identity) $out))
               $out
               cpu))
         ((FoldAll $pattern $value $init $fun -> $out)
            (premise-bundle
               (FoldAll $pattern $value $init $fun -> $out)
-              (cons (CPU FoldAllFormulaCompiled ($kb $pattern $value $init $fun) $out) ())
-              (cons (CPU FoldAllFormulaCompiled ($kb $pattern $value $init $fun) $out) ())
+              ((CPU FoldAllFormulaCompiled ($kb $pattern $value $init $fun) $out))
+              ((CPU FoldAllFormulaCompiled ($kb $pattern $value $init $fun) $out))
               (STV 1.0 1.0)
               cpu))
         ((Not $a)
            (premise-bundle
               (Not $a)
-              (cons $a (cons (CPU NotFormula ($tv_a) $tv) ()))
-              (cons (: ($kb $ctx $vars) $prfa $a $tv_a)
-                 (cons (CPU NotFormula ($tv_a) $tv) ()))
+              ($a (CPU NotFormula ($tv_a) $tv))
+              ((: ($kb $ctx $vars) $prfa $a $tv_a)
+                 (CPU NotFormula ($tv_a) $tv))
               $tv
               $prfa))
         (($rel $a $b)
@@ -176,30 +169,30 @@
               (if (is-expr $b)
                  (premise-bundle
                     ($rel $a $b)
-                    (cons $a (cons $b (cons (CPU DistGreaterThanDistFormula ($tv_a $tv_b) $tv) ())))
-                    (cons (: ($kb $ctx $vars) $prfa $a $tv_a)
-                       (cons (: ($kb $ctx $vars) $prfb $b $tv_b)
-                          (cons (CPU DistGreaterThanDistFormula ($tv_a $tv_b) $tv) ())))
+                    ($a $b (CPU DistGreaterThanDistFormula ($tv_a $tv_b) $tv))
+                    ((: ($kb $ctx $vars) $prfa $a $tv_a)
+                       (: ($kb $ctx $vars) $prfb $b $tv_b)
+                       (CPU DistGreaterThanDistFormula ($tv_a $tv_b) $tv))
                     $tv
                     (rule-proof conjunction $prfa $prfb))
                  (premise-bundle
                     ($rel $a $b)
-                    (cons $a (cons (CPU DistGreaterThanFormula ($tv_a $b) $tv) ()))
-                    (cons (: ($kb $ctx $vars) $prfa $a $tv_a)
-                       (cons (CPU DistGreaterThanFormula ($tv_a $b) $tv) ()))
+                    ($a (CPU DistGreaterThanFormula ($tv_a $b) $tv))
+                    ((: ($kb $ctx $vars) $prfa $a $tv_a)
+                       (CPU DistGreaterThanFormula ($tv_a $b) $tv))
                     $tv
                     $prfa))
               (premise-bundle
                  ($rel $a $b)
-                 (cons ($rel $a $b) ())
-                 (cons (: ($kb $ctx $vars) $prf ($rel $a $b) $tv) ())
+                 (($rel $a $b))
+                 ((: ($kb $ctx $vars) $prf ($rel $a $b) $tv))
                  $tv
                  $prf)))
         ($other
            (premise-bundle
               $other
-              (cons $other ())
-              (cons (: ($kb $ctx $vars) $prf $other $tv) ())
+              ($other)
+              ((: ($kb $ctx $vars) $prf $other $tv))
               $tv
               $prf)))))
 
@@ -218,12 +211,12 @@
    (let*
       (((premise-bundle $source-type $more-exec-types $more-execs $tv $proof)
            (lower-source-premise $kb $ctx $vars $premise))
-        ($nsource-types (list-append $source-types (cons $source-type ())))
-        ($nexec-types (list-append $exec-types $more-exec-types))
+        ($nsource-types (append $source-types ($source-type)))
+        ($nexec-types (append $exec-types $more-exec-types))
         ($nexecs
-           (list-append $execs
-              (list-append $more-execs (cons (CPU AndFormula ($current-tv $tv) $next-tv) ()))))
-        ($nproofs (list-append $proofs (cons $proof ()))))
+           (append $execs
+              (append $more-execs ((CPU AndFormula ($current-tv $tv) $next-tv)))))
+        ($nproofs (append $proofs ($proof))))
       (lower-source-premises-rest
          $kb
          $ctx
@@ -246,10 +239,10 @@
          $ctx
          $vars
          $rest
-         (cons $source-type ())
+         ($source-type)
          $exec-types
          $execs
-         (cons $proof ())
+         ($proof)
          $tv)))
 
 (= (compiled-exec-types (compiled-premises $_source-types $exec-types $_execs $_proofs $_tv)) $exec-types)
@@ -262,7 +255,7 @@
       (((compiled-premises $_source-types $_exec-types $execs $proofs $atv)
            (once (lower-source-premises $kb $ctx $vars $premises)))
         ($proof-token (premise-proof-token $proofs))
-        ($allargs (list-append $execs (cons (CPU MpFormula ($itv $atv) $btv) ()))))
+        ($allargs (append $execs ((CPU MpFormula ($itv $atv) $btv)))))
       ($allargs |- ((: ($kb $ctx $vars) ($prf $proof-token) $b $btv)))))
 
 (= (compile-query-adds (: $kb $prf (cons $head $tail) $tv))
@@ -274,7 +267,7 @@
       (((premise-bundle $_source-type $exec-types $execs $result-tv $proof-token)
            (once (lower-source-premise $kb $ctx $vars $type)))
         ($exec-type (seq2expr $exec-types))
-        ($proof (premise-proof-token (cons $proof-token ()))))
+        ($proof (premise-proof-token ($proof-token))))
       (if (and (not (is-var $type)) (not (== $exec-type $type)))
          (collapse
             (superpose
@@ -295,14 +288,11 @@
 (= (toQuery $elem)
    (if (is-var $elem) # (if (=? $elem (exists $_1 $_2 $_3)) $var $elem)))
 
-(= (contains-cpu-list? ()) false)
-(= (contains-cpu-list? (cons $head $tail))
-   (or (contains-cpu? $head) (contains-cpu-list? $tail)))
-
 (= (contains-cpu? $term)
    (if (is-var $term) false
       (if (is-expr $term)
-         (or (== (car-atom $term) CPU) (contains-cpu-list? (cdr-atom $term)))
+         (or (== (car-atom $term) CPU)
+            (fold-flat (|-> ($acc $elem) (or $acc (contains-cpu? $elem))) false (cdr-atom $term)))
          false)))
 
 (= (disable-inversion-proof-id? $prf)
@@ -418,9 +408,8 @@
                (internalize-proof-structure-list (cdr-atom $term)))
             $term))))
 
-(= (internalize-proof-structure-list ()) ())
-(= (internalize-proof-structure-list (cons $head $tail))
-   (cons (internalize-proof-structure $head) (internalize-proof-structure-list $tail)))
+(= (internalize-proof-structure-list $terms)
+   (if (== $terms ()) () (map-flat internalize-proof-structure $terms)))
 
 (= (externalize-proof-structure $term)
    (if (is-var $term) $term
@@ -431,9 +420,8 @@
                (externalize-proof-structure-list (cdr-atom $term)))
             $term))))
 
-(= (externalize-proof-structure-list ()) ())
-(= (externalize-proof-structure-list (cons $head $tail))
-   (cons (externalize-proof-structure $head) (externalize-proof-structure-list $tail)))
+(= (externalize-proof-structure-list $terms)
+   (if (== $terms ()) () (map-flat externalize-proof-structure $terms)))
 
 (= (pretty-prf-token $prf)
    (case $prf (
@@ -477,10 +465,9 @@
 (= (pretty (: $kb $prf $type $tv))
    (if (is-expr $kb)
       (if (= $kb ($kbid MAIN Nil)) (: (pretty-prf $prf) $type $tv)
-         (let ($_ $idx $vars) $kb
-            (let*
-               (($x
-                    (map-flat (mf $kb) (collapse (match &kb ($t $kb $p $tv2) ($kb $t)))))
-                 ($ptype (Implication (cons Premises $x) (cons Conclusions ($type)))))
-               (: (pretty-prf $prf) $ptype $tv))))
+         (let*
+            ((($_ $idx $vars) $kb)
+              ($x (map-flat (mf $kb) (collapse (match &kb ($t $kb $p $tv2) ($kb $t)))))
+              ($ptype (Implication (cons Premises $x) (cons Conclusions ($type)))))
+            (: (pretty-prf $prf) $ptype $tv)))
       (: (pretty-prf $prf) $type $tv)))

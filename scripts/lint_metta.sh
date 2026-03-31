@@ -13,7 +13,7 @@ runner="$(mktemp "$repo_root/pettachainer/metta/linter/.lint_runner_XXXXXX.metta
 trap 'rm -f "$runner"' EXIT
 
 printf '%s\n' "!(import! &self \"$repo_root/pettachainer/metta/linter/metta_linter\")" > "$runner"
-printf '%s\n' "!(println! (lint-file-report \"$target\"))" >> "$runner"
+printf '%s\n' "!(println! (lint-file-summary-report \"$target\"))" >> "$runner"
 
 cd "$repo_root/pettachainer/metta/linter"
 petta "$runner" silent

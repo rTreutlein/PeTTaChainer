@@ -88,9 +88,8 @@
 (= (goal-proof-pids $gid)
    (collapse (match &goal_proof ($gid $pid) $pid)))
 
-(= (goal-proof-atoms ()) ())
-(= (goal-proof-atoms (cons $pid $rest))
-   (cons (proof-output-atom $pid) (goal-proof-atoms $rest)))
+(= (goal-proof-atoms $pids)
+   (if (== $pids ()) () (map-flat proof-output-atom $pids)))
 
 (= (goal-merged-proof-atom $gid)
    (let $pids (goal-proof-pids $gid)
@@ -100,16 +99,15 @@
             (proof-output-atom (car-atom $pids))
             (cdr-atom $pids)))))
 
-(= (materialize-result-atoms ()) ())
-(= (materialize-result-atoms (cons $atom $rest))
-   (cons (materialize-result-atom $atom) (materialize-result-atoms $rest)))
+(= (materialize-result-atoms $atoms)
+   (if (== $atoms ()) () (map-flat materialize-result-atom $atoms)))
 
 (= (goal-results $gid)
    (if (goal-has-type-vars? $gid)
       (materialize-result-atoms (goal-proof-atoms (goal-proof-pids $gid)))
       (let $merged (goal-merged-proof-atom $gid)
          (if (== $merged ()) ()
-            (cons (materialize-result-atom $merged) ())))))
+            ((materialize-result-atom $merged))))))
 
 (= (ensure-goal $goal)
    (let $hits
@@ -245,9 +243,10 @@
       (CPU $fun $args $out)))
 
 (= (aggregate-child-key $pid)
-   (let $atom (proof-output-atom $pid)
-      (let $key (goal-key-components $atom)
-         (if (== $key ()) $atom $key))))
+   (let*
+      (($atom (proof-output-atom $pid))
+        ($key (goal-key-components $atom)))
+      (if (== $key ()) $atom $key)))
 
 (= (aggregate-state-by-id $agid)
    (match &aggregate_state ($agid $gid $child-gid $spec $acc $ev $seen)
@@ -361,7 +360,7 @@
 
 (= (leaf-evidence-for-result $result)
    (if (= $result ($type ($kbid $_ctx $_vars) $prf $_tv))
-      (if (contains-hash? $type) () (cons (fact-ev ($kbid $_ctx $_vars) $prf $type) ()))
+      (if (contains-hash? $type) () ((fact-ev ($kbid $_ctx $_vars) $prf $type)))
       ()))
 
 (= (proof-overlap-dominates-score? $old-ev $old-score $new-ev $new-score)
@@ -622,17 +621,17 @@
         ($_fidreset (change-state! bwd_fid 0))
         ($_pidreset (change-state! bwd_pid 0))
         ($root-gid (ensure-goal $goal))
-        ($agenda0 (schedule-goal-heap (empty_heap) 1.0 $root-gid)))
-      (let (search-state $search-steps-left $agenda1)
-         (once
-            (if (<= $steps 0) (search-state 0 $agenda0)
-               (search-goals-heap (+ $steps 1) $agenda0)))
-         (let $agenda2 (once (finalize-all-aggregates-heap $agenda1))
-            (let (search-state $_search-steps-left2 $_agenda3)
-               (once
-                  (if (<= $search-steps-left 0) (search-state $search-steps-left $agenda2)
-                     (search-goals-heap $search-steps-left $agenda2)))
-               (once (goal-results $root-gid)))))))
+        ($agenda0 (schedule-goal-heap (empty_heap) 1.0 $root-gid))
+        ((search-state $search-steps-left $agenda1)
+           (once
+              (if (<= $steps 0) (search-state 0 $agenda0)
+                 (search-goals-heap (+ $steps 1) $agenda0))))
+        ($agenda2 (once (finalize-all-aggregates-heap $agenda1)))
+        ((search-state $_search-steps-left2 $_agenda3)
+           (once
+              (if (<= $search-steps-left 0) (search-state $search-steps-left $agenda2)
+                 (search-goals-heap $search-steps-left $agenda2)))))
+      (once (goal-results $root-gid))))
 
 (= (unwrap $x) (if (== $x #) $any $x))
 
@@ -657,9 +656,10 @@
    (foldall-eval $fun (eval ($fun $acc $elem)) $tail))
 
 (= (assert-space-atom-ref $space $expr)
-   (let $term (Predicate (cons $space $expr))
-      (let $_ (callPredicate (Predicate (assertz $term $ref)))
-         $ref)))
+   (let*
+      (($term (Predicate (cons $space $expr)))
+        ($_ (callPredicate (Predicate (assertz $term $ref)))))
+      $ref))
 
 (= (erase-clause-ref $ref)
    (callPredicate (Predicate (erase $ref))))
