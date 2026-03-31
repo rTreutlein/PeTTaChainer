@@ -24,8 +24,6 @@
 (= (goal-term-has-type-vars? $goal)
    (if (= $goal ($type ($_kbid $_ctx $_vars) $_prf $_tv)) (nonempty? (extract-vars $type)) false))
 
-(= (goal-has-type-vars? $gid) (goal-term-has-type-vars? (goal-term-by-id $gid)))
-
 (= (ensure-goal $goal)
    (let $hits
       (collapse

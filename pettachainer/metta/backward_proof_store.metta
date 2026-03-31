@@ -2,8 +2,7 @@
 
 (= (proof-output-atom $pid)
    (case (proof-kind-by-id $pid) (
-        ((leaf ($type ($kbid $_ctx $_vars) $_prf $tv))
-           ($type ($kbid $_ctx $_vars) (proof-ref $pid) $tv))
+        ((leaf ($type ($kbid $_ctx $_vars) $_prf $tv)) ($type ($kbid $_ctx $_vars) (proof-ref $pid) $tv))
         ((rule $_aid ($type ($kbid $_ctx $_vars) $_prf $tv))
            ($type ($kbid $_ctx $_vars) (proof-ref $pid) $tv))
         ((leaf $term) $term)
@@ -13,13 +12,11 @@
 (= (materialize-proof-refs $term)
    (if (= $term (proof-ref $pid)) (materialize-proof-refs (materialize-proof $pid))
       (if (is-expr $term)
-         (cons (materialize-proof-refs (car-atom $term))
-            (map-flat materialize-proof-refs (cdr-atom $term)))
+         (cons (materialize-proof-refs (car-atom $term)) (map-flat materialize-proof-refs (cdr-atom $term)))
          $term)))
 
 (= (materialize-result-atom $atom)
-   (if (= $atom ($type $kb $prf $tv)) ($type $kb (materialize-proof-refs $prf) $tv)
-      $atom))
+   (if (= $atom ($type $kb $prf $tv)) ($type $kb (materialize-proof-refs $prf) $tv) $atom))
 
 (= (materialize-proof $pid)
    (case (proof-kind-by-id $pid) (
@@ -29,7 +26,8 @@
            (case
               (instantiate-and-bundle
                  (copy_term (match &and_node ($aid $_parent $_rule $_bound $bundle) $bundle))
-                 (match &proof_children ($pid $kids) $kids)) (
+                 (match &proof_children ($pid $kids)
+                    $kids)) (
                 ((and-bundle ($_type $_kb $prf $_tv) $_rest)
                    (cons rule-proof
                       (cons (materialize-proof-refs (car-atom $prf))
@@ -37,24 +35,21 @@
                 ($other $other))))
         ($other $other))))
 
-(= (goal-proof-pids $gid)
-   (collapse (match &goal_proof ($gid $pid) $pid)))
+(= (goal-proof-pids $gid) (collapse (match &goal_proof ($gid $pid) $pid)))
 
 (= (goal-merged-proof-atom $gid)
    (case (goal-proof-pids $gid) (
         (() ())
         ((cons $pid $pids)
-           (fold-flat
-              (|-> ($acc $next-pid) (merge-proof-atoms $acc (proof-output-atom $next-pid)))
+           (fold-flat (|-> ($acc $next-pid) (merge-proof-atoms $acc (proof-output-atom $next-pid)))
               (proof-output-atom $pid)
               $pids)))))
 
 (= (goal-results $gid)
-   (if (goal-has-type-vars? $gid)
+   (if (goal-term-has-type-vars? (goal-term-by-id $gid))
       (map-flat materialize-result-atom (map-flat proof-output-atom (goal-proof-pids $gid)))
       (let $merged (goal-merged-proof-atom $gid)
-         (if (== $merged ()) ()
-            ((materialize-result-atom $merged))))))
+         (if (== $merged ()) () ((materialize-result-atom $merged))))))
 
 (= (leaf-evidence-for-result $result)
    (if (= $result ($type ($kbid $_ctx $_vars) $prf $_tv))
@@ -63,8 +58,7 @@
 
 (= (proof-overlap-dominates-score? $old-ev $old-score $new-ev $new-score)
    (and (evidence-sets-overlap? $old-ev $new-ev)
-      (or (> $old-score $new-score)
-         (and (== $old-score $new-score) (evidence-subset? $new-ev $old-ev)))))
+      (or (> $old-score $new-score) (and (== $old-score $new-score) (evidence-subset? $new-ev $old-ev)))))
 
 (= (goal-proof-candidate-step $ev $score false $_oldpid) false)
 (= (goal-proof-candidate-step $ev $score true $oldpid)
@@ -93,17 +87,19 @@
       ()))
 
 (= (leaf-result-candidate $result $ev)
-   (if (= $result ($type $_kb $_prf $_tv))
-      (proof-atom-candidate $result $ev)
-      (proof-candidate (leaf $result) no-tv (term-confidence $result) $ev ())))
+   (if (= $result ($type $_kb $_prf $_tv)) (proof-atom-candidate $result $ev)
+      (proof-candidate (leaf $result)
+         no-tv
+         (term-confidence $result)
+         $ev
+         ())))
 
 (= (proof-depends-on-goal-seen? $pid $gid $seen-pids)
    (if (is-member $pid $seen-pids) false
       (or (== (proof-goal-by-id $pid) $gid)
          (fold-flat
             (|-> ($acc $child-pid)
-               (or $acc
-                  (proof-depends-on-goal-seen? $child-pid $gid (cons $pid $seen-pids))))
+               (or $acc (proof-depends-on-goal-seen? $child-pid $gid (cons $pid $seen-pids))))
             false
             (match &proof_children ($pid $kids)
                $kids)))))
@@ -116,27 +112,28 @@
    (commit-proof-candidate-heap $agenda
       $gid
       $accepted
-      (proof-candidate $kind $tv-state $score $ev $children))
+      (proof-candidate $kind
+         $tv-state
+         $score
+         $ev
+         $children))
    (if (== $accepted false) $agenda
       (if (candidate-is-cyclic? $gid $children) $agenda
-         (let $pid
-            (store-proof-candidate $gid
-               (proof-candidate $kind $tv-state $score $ev $children))
-            (progn
-               (add-atom &goal_proof ($gid $pid))
-               (fold-flat
-                  (|-> ($acc $waiter) (advance-goal-waiter-heap $acc $waiter $pid))
+         (let $pid (store-proof-candidate $gid (proof-candidate $kind $tv-state $score $ev $children))
+            (progn (add-atom &goal_proof ($gid $pid))
+               (fold-flat (|-> ($acc $waiter) (advance-goal-waiter-heap $acc $waiter $pid))
                   $agenda
                   (collapse (match &goal_waiter ($gid $waiter) $waiter))))))))
 
-(=
-   (commit-proof-candidate $gid
-      $accepted
-      (proof-candidate $kind $tv-state $score $ev $children))
+(= (commit-proof-candidate $gid $accepted (proof-candidate $kind $tv-state $score $ev $children))
    (if (== $accepted false) ()
       (let $_
          (commit-proof-candidate-heap (empty_heap)
             $gid
             $accepted
-            (proof-candidate $kind $tv-state $score $ev $children))
+            (proof-candidate $kind
+               $tv-state
+               $score
+               $ev
+               $children))
          ())))
