@@ -424,10 +424,9 @@
    (if (== $terms ()) () (map-flat externalize-proof-structure $terms)))
 
 (= (pretty-prf-token $prf)
-   (case $prf (
-        ((mined_implication $premk $conck)
-           (Implication (cons Premises ($premk)) (cons Conclusions ($conck))))
-        ($other $other))))
+   (if (= $prf (mined_implication $premk $conck))
+      (Implication (cons Premises ($premk)) (cons Conclusions ($conck)))
+      $prf))
 
 (= (pretty-prf $prf) (if (is-expr $prf) (map-nested2 pretty-prf-token $prf) $prf))
 

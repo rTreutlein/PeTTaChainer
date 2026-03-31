@@ -1,8 +1,6 @@
 (= (compiled-query-goal-head (goal $query)) $query)
 (= (compiled-query-goal-head $compiled-query)
-   (case (car-atom $compiled-query) (
-        ((goal $query) $query)
-        ($other (notsupported compiled-query-goal-head $compiled-query $other)))))
+   (let (goal $query) (car-atom $compiled-query) $query))
 
 (= (compiled-query-adds (goal $query)) ())
 (= (compiled-query-adds $compiled-query) (cdr-atom $compiled-query))

@@ -43,13 +43,10 @@
             (tv-confidence $res))
          1.0)))
 
-(= (term-confidence $term)
-   (case $term (
-        ((CPU $fun $args $res)
-           (if (is-var $res) (cpu-expected-confidence $fun $args) (tv-confidence $res)))
-        (($_type ($_kbid $_ctx $_vars) $_prf $tv) (tv-confidence $tv))
-        ((: $_kb $_prf $_type $tv) (tv-confidence $tv))
-        ($other 1.0))))
+(= (term-confidence (CPU $fun $args $res))
+   (if (is-var $res) (cpu-expected-confidence $fun $args) (tv-confidence $res)))
+(= (term-confidence ($_type ($_kbid $_ctx $_vars) $_prf $tv)) (tv-confidence $tv))
+(= (term-confidence (: $_kb $_prf $_type $tv)) (tv-confidence $tv))
 
 (= (premises-expected-confidence ()) 1.0)
 (= (premises-expected-confidence (cons $prem $rest))
@@ -84,11 +81,9 @@
 
 (= (list-reverse $xs) (list-reverse-acc $xs ()))
 
-(= (goal-key-components $goal)
-   (if (= $goal (: $kb $_prf $type $_tv)) ($kb $type)
-      (case (goal-view $goal) (
-           ((proof-goal $kb $type $_prf $_tv) ($kb $type))
-           ($other ())))))
+(= (goal-key-components (: $kb $_prf $type $_tv)) ($kb $type))
+(= (goal-key-components ($type ($kbid $ctx $vars) $_prf $_tv)) (($kbid $ctx $vars) $type))
+(= (goal-key-components (CPU $_fun $_args $_res)) ())
 
 (= (goal-key-eq? $a $b)
    (let $keya (goal-key-components $a)

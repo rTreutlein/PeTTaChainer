@@ -261,6 +261,9 @@
 (= (direct-goal-results $steps $goal)
    (direct-goal-results-view $steps (goal-view $goal)))
 
+(= (direct-result-exact-hit (proof-goal $kb $type $prf $tv) $result) (=? ($type $kb $prf $tv) $result))
+(= (direct-result-exact-hit (cpu-goal $fun $args $res) $result) (goal-key-eq? (CPU $fun $args $res) $result))
+
 (= (expand-direct-goal-step $gid $goal (expand-state $agenda $exact-hit) $result)
    (let*
       (($goal-view (goal-view $goal))
@@ -268,13 +271,7 @@
         ($ev (leaf-evidence-for-result $result))
         ($accepted (classify-goal-proof-candidate $gid $ev $score))
         ($nagenda (commit-proof-candidate-heap $agenda $gid $accepted (leaf-result-candidate $result $ev)))
-        ($nexact-hit
-           (or $exact-hit
-              (if (= $goal-view (proof-goal $kb $type $prf $tv))
-                 (=? ($type $kb $prf $tv) $result)
-                 (if (= $goal-view (cpu-goal $fun $args $res))
-                    (goal-key-eq? (CPU $fun $args $res) $result)
-                    false)))))
+        ($nexact-hit (or $exact-hit (direct-result-exact-hit $goal-view $result))))
       (expand-state $nagenda $nexact-hit)))
 
 (= (expand-direct-goal-heap $agenda $steps $gid $goal)
