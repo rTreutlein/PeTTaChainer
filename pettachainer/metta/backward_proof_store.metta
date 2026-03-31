@@ -46,7 +46,7 @@
               $pids)))))
 
 (= (goal-results $gid)
-   (if (goal-term-has-type-vars? (goal-term-by-id $gid))
+   (if (goal-view-has-type-vars? (goal-view (goal-term-by-id $gid)))
       (map-flat materialize-result-atom (map-flat proof-output-atom (goal-proof-pids $gid)))
       (let $merged (goal-merged-proof-atom $gid)
          (if (== $merged ()) () ((materialize-result-atom $merged))))))
