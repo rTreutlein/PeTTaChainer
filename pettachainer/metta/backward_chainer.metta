@@ -194,10 +194,17 @@
 (= (advance-goal-waiter-heap $agenda (aggregate $agid) $pid)
    (advance-aggregate-heap $agenda $agid $pid))
 
-(= (attach-existing-aggregate-proofs-heap $agenda $agid $child-gid)
-   (fold-flat (|-> ($acc $pid) (advance-aggregate-heap $acc $agid $pid))
+(= (attach-existing-goal-proofs-heap $agenda $waiter $gid)
+   (fold-flat (|-> ($acc $pid) (advance-goal-waiter-heap $acc $waiter $pid))
       $agenda
-      (collapse (match &goal_proof ($child-gid $pid) $pid))))
+      (collapse (match &goal_proof ($gid $pid) $pid))))
+
+(= (spawn-waiting-goal-heap $agenda $score $gid $waiter)
+   (let*
+      (($_1 (attach-goal-waiter $gid $waiter))
+        ($agenda1 (attach-existing-goal-proofs-heap $agenda $waiter $gid))
+        ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
+      $nagenda))
 
 (= (spawn-aggregate-goal-heap $agenda $score $gid $goal)
    (let*
@@ -213,11 +220,8 @@
               $stored-spec
               (aggregate-spec-init-acc $spec)
               ()
-              ()))
-        ($_2 (attach-goal-waiter $child-gid (aggregate $agid)))
-        ($agenda1 (attach-existing-aggregate-proofs-heap $agenda $agid $child-gid))
-        ($nagenda (schedule-goal-heap $agenda1 $score $child-gid)))
-      $nagenda))
+              ())))
+      (spawn-waiting-goal-heap $agenda $score $child-gid (aggregate $agid))))
 
 (= (finalize-aggregate-heap $agenda $agid)
    (if (aggregate-finalized? $agid) $agenda
@@ -264,11 +268,6 @@
    (let $query-goal (direct-goal-query-term $goal)
       (match &kb $candidate
          (direct-goal-fact-match $query-goal $candidate))))
-
-(= (attach-existing-goal-proofs-heap $agenda $fid $gid)
-   (fold-flat (|-> ($acc $pid) (advance-frontier-heap $acc $fid $pid))
-      $agenda
-      (collapse (match &goal_proof ($gid $pid) $pid))))
 
 (= (expand-direct-goal-result-heap $agenda $gid $result)
    (let*
@@ -323,15 +322,11 @@
            (let*
               (($gid (ensure-goal $prem))
                 ($fid (next-fid))
-                ($stored-bundle (copy_term $bundle)))
-              (let*
-                 (($_1
-                      (add-atom &frontier
-                         ($fid $parent-gid $aid $stored-bundle $score $seen $rev-pids)))
-                   ($_2 (attach-goal-waiter $gid (frontier $fid)))
-                   ($agenda1 (attach-existing-goal-proofs-heap $agenda $fid $gid))
-                   ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
-                 $nagenda))))))
+                ($stored-bundle (copy_term $bundle))
+                ($_1
+                   (add-atom &frontier
+                      ($fid $parent-gid $aid $stored-bundle $score $seen $rev-pids))))
+              (spawn-waiting-goal-heap $agenda $score $gid (frontier $fid)))))))
 
 (= (frontier-state-by-id $fid)
    (match &frontier ($fid $parent-gid $aid $bundle $score $seen $rev-pids)
