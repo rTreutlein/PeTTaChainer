@@ -1,11 +1,7 @@
 (= (goal-term-by-id $gid) (match &goal_by_id ($gid $goal) $goal))
 
-(= (next-wid) (next-search-id bwd_wid))
-
 (= (first-or () $default) $default)
 (= (first-or (cons $x $_rest) $_default) $x)
-
-(= (one-or-empty $x) (if (== $x ()) () ($x)))
 
 (= (nonempty? ()) false)
 (= (nonempty? (cons $_ $_rest)) true)
@@ -130,19 +126,15 @@
    (progn (collapse (match &waiter_state ($wid $old-state) (remove-atom &waiter_state ($wid $old-state))))
       (add-atom &waiter_state ($wid $state))))
 
-(= (attach-goal-waiter $gid $wid) (add-atom &goal_waiter ($gid $wid)))
-
-(= (attach-existing-goal-proofs-heap $agenda $wid $gid)
-   (fold-flat (|-> ($acc $pid) (advance-goal-waiter-heap $acc $wid $pid))
-      $agenda
-      (collapse (match &goal_proof ($gid $pid) $pid))))
-
 (= (spawn-waiting-goal-heap $agenda $score $gid $state)
    (let*
-      (($wid (next-wid))
+      (($wid (next-search-id bwd_wid))
         ($_1 (set-waiter-state $wid $state))
-        ($_2 (attach-goal-waiter $gid $wid))
-        ($agenda1 (attach-existing-goal-proofs-heap $agenda $wid $gid))
+        ($_2 (add-atom &goal_waiter ($gid $wid)))
+        ($agenda1
+           (fold-flat (|-> ($acc $pid) (advance-goal-waiter-heap $acc $wid $pid))
+              $agenda
+              (collapse (match &goal_proof ($gid $pid) $pid))))
         ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
       $nagenda))
 
