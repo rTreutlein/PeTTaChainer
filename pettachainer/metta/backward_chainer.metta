@@ -353,10 +353,10 @@
 (= (chainer $steps $goal)
    (let*
       (($_clear (clear-backward-state))
-        ($_gidreset (change-state! bwd_gid 0))
-        ($_aidreset (change-state! bwd_aid 0))
-        ($_widreset (change-state! bwd_wid 0))
-        ($_pidreset (change-state! bwd_pid 0))
+        ($_reset
+           (foreach-flat
+              (|-> ($key) (change-state! $key 0))
+              (() bwd_gid bwd_aid bwd_wid bwd_pid)))
         ($root-gid (ensure-goal $goal))
         ($agenda0 (schedule-goal-heap (empty_heap) 1.0 $root-gid))
         ((search-state $search-steps-left $agenda1)
