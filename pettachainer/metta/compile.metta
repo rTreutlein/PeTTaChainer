@@ -114,10 +114,6 @@
             (($execs |- ((: $kb $proof-token (cons $head $tail) $result-tv)))
              (compile-inputs (: $kb $prfa (seq2expr $exec-types) $atv)))))
       (empty)))
-(= (premise-proof-token (cons $proof ())) $proof)
-(= (premise-proof-token (cons $proof $rest))
-   (cons rule-proof (cons conjunction (cons $proof $rest))))
-(= (premise-proof-token ()) cpu)
 (= (lower-source-premise $kb $ctx $vars $premise)
    (if (and (= $premise (cons $head $tail))
          (not (is-var $head))
@@ -285,7 +281,12 @@
             (superpose
                ((once
                     (let*
-                       (($proof-token (premise-proof-token $proofs))
+                       (($proof-token
+                           (case $proofs (
+                                (() cpu)
+                                ((cons $proof ()) $proof)
+                                ((cons $proof $rest)
+                                   (cons rule-proof (cons conjunction (cons $proof $rest)))))))
                         ($allargs (append $execs ((CPU MpFormula ($tv $atv) $btv)))))
                        ($allargs |- ((: $shape-kb ($prf $proof-token) $b $btv)))))
                 (if (is-var $nb) (empty)

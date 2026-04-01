@@ -125,11 +125,9 @@
          (aggregate-state $init-acc () ())
          (collapse (match &proof ($pid $child-gid $_output $_kind $_score $_ev $_children) $pid)))))
 
-(= (aggregate-waiter-live? $gid $child-gid $spec)
-   (first-or (collapse (once (match &aggregate_waiter ($gid $child-gid $spec) true))) false))
-
 (= (finalize-aggregate-goal-heap $agenda $gid $child-gid $spec)
-   (if (aggregate-waiter-live? $gid $child-gid $spec)
+   (if (== (collapse (once (match &aggregate_waiter ($gid $child-gid $spec) true))) ())
+      $agenda
       (let*
          (($deps
               (collapse
@@ -146,7 +144,7 @@
             $gid
             (classify-goal-proof-candidate $gid $ev (term-confidence $result))
             (leaf-result-candidate $result $ev)))
-      $agenda))
+      ))
 
 (= (finalize-aggregate-entry-heap $agenda ($gid $child-gid $spec))
    (finalize-aggregate-goal-heap $agenda $gid $child-gid $spec))
