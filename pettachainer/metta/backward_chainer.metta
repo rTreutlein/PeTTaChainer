@@ -31,10 +31,8 @@
 
 (= (aggregate-compiled-child-goal $compiled-query)
    (let*
-      (((compiled-query $raw-goal $raw-adds) $compiled-query)
-        ($adds (internalize-proof-structure-list $raw-adds))
-        ($_ (inject-compiled-adds $adds))
-        ($child-goal (internalize-proof-structure $raw-goal)))
+      (((compiled-query $child-goal $adds) $compiled-query)
+        ($_ (inject-compiled-adds $adds)))
       $child-goal))
 
 (= (aggregate-child-goal (CPU FoldAllCompiled ($kb $pattern $_extractor $_init $_fun $_finish $_tv-mode) $_goalres))

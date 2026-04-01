@@ -1,5 +1,5 @@
 (= (aggregate-compiled-query $kb $pattern)
-   (car-atom (collapse (mm2compileQuery $kb (: $prf $pattern $tvin)))))
+   (mm2compileQueryInternal $kb (: $prf $pattern $tvin)))
 
 (= (assert-space-atom-ref $space $expr)
    (let*
@@ -56,11 +56,9 @@
 
 (= (query $steps $kb $stmt)
    (let*
-      (((compiled-query $raw-goal $raw-adds) (car-atom (collapse (mm2compileQuery $kb $stmt))))
-        ($adds (internalize-proof-structure-list $raw-adds))
+      (((compiled-query $goal $adds) (mm2compileQueryInternal $kb $stmt))
         ($_clear-temp-before (clear-temp-query-adds))
         ($_ (inject-compiled-adds $adds))
-        ($goal (internalize-proof-structure $raw-goal))
         ($results (chainer $steps $goal))
         ($eres (map-flat externalize-proof-structure $results))
         ($pres (map-flat pretty $eres))

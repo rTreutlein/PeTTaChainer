@@ -385,6 +385,13 @@
 (= (externalize-proof-structure-list $terms)
    (if (== $terms ()) () (map-flat externalize-proof-structure $terms)))
 
+(= (mm2compileQueryInternal $kb $stmt)
+   (let*
+      (((compiled-query $raw-goal $raw-adds) (car-atom (collapse (mm2compileQuery $kb $stmt)))))
+      (compiled-query
+         (internalize-proof-structure $raw-goal)
+         (internalize-proof-structure-list $raw-adds))))
+
 (= (pretty-prf-token $prf)
    (if (= $prf (mined_implication $premk $conck))
       (Implication (cons Premises ($premk)) (cons Conclusions ($conck)))
