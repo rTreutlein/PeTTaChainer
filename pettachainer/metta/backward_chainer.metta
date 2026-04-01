@@ -1,31 +1,28 @@
-(= (goal-term-by-id $gid) (match &goal ($gid $_depth $goal $_expanded $_pending) $goal))
+(= (goal-by-id $gid) (match &goal ($gid $depth $goal $expanded $pending) ($depth $goal $expanded $pending)))
+
+(= (goal-term-by-id $gid)
+   (let ($_depth $goal $_expanded $_pending) (goal-by-id $gid) $goal))
 
 (= (goal-expanded? $gid)
-   (first-or (collapse (once (match &goal ($gid $_depth $_goal $expanded $_pending) $expanded))) false))
+   (first-or (collapse (let ($_depth $_goal $expanded $_pending) (goal-by-id $gid) $expanded)) false))
 
 (= (goal-pending-score-of $gid)
-   (first-or (collapse (once (match &goal ($gid $_depth $_goal $_expanded $pending) $pending))) 0.0))
+   (first-or (collapse (let ($_depth $_goal $_expanded $pending) (goal-by-id $gid) $pending)) 0.0))
 
 (= (goal-depth-of $gid)
-   (first-or (collapse (once (match &goal ($gid $depth $_goal $_expanded $_pending) $depth))) 0))
+   (first-or (collapse (let ($depth $_goal $_expanded $_pending) (goal-by-id $gid) $depth)) 0))
 
 (= (set-goal-expanded $gid $expanded)
-   (progn
-      (collapse
-         (match &goal ($gid $depth $goal $_old-expanded $pending)
-            (progn
-               (remove-atom &goal ($gid $depth $goal $_old-expanded $pending))
-               (add-atom &goal ($gid $depth $goal $expanded $pending)))))
-      ()))
+   (let ($depth $goal $old-expanded $pending) (goal-by-id $gid)
+      (progn
+         (remove-atom &goal ($gid $depth $goal $old-expanded $pending))
+         (add-atom &goal ($gid $depth $goal $expanded $pending)))))
 
 (= (set-goal-pending-score $gid $pending)
-   (progn
-      (collapse
-         (match &goal ($gid $depth $goal $expanded $_old-pending)
-            (progn
-               (remove-atom &goal ($gid $depth $goal $expanded $_old-pending))
-               (add-atom &goal ($gid $depth $goal $expanded $pending)))))
-      ()))
+   (let ($depth $goal $expanded $old-pending) (goal-by-id $gid)
+      (progn
+         (remove-atom &goal ($gid $depth $goal $expanded $old-pending))
+         (add-atom &goal ($gid $depth $goal $expanded $pending)))))
 
 (= (clear-goal-pending-score $gid) (set-goal-pending-score $gid 0.0))
 
