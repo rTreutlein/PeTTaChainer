@@ -63,32 +63,27 @@
         ($child-goal (internalize-proof-structure $raw-goal)))
       $child-goal))
 
-(= (aggregate-goal-spec (CPU FoldAllFormulaCompiled ($kb $pattern $value $init $fun) $_goalres))
+(= (aggregate-goal-spec (CPU FoldAllCompiled ($kb $pattern $extractor $init $fun $finish $tv-mode) $_goalres))
    (aggregate-spec (aggregate-compiled-child-goal (aggregate-compiled-query $kb $pattern))
       $init
-      (aggregate-step-fold-value $fun $pattern $value)
-      (aggregate-result-bare FoldAllFormulaCompiled ($kb $pattern $value $init $fun) identity)))
-(= (aggregate-goal-spec (CPU FoldAllTVFormulaCompiled ($kb $pattern $init $fun $finish) $_goalres))
-   (aggregate-spec (aggregate-compiled-child-goal (aggregate-compiled-query $kb $pattern))
-      $init
-      (aggregate-step-fold-tv $fun)
-      (aggregate-result-bare FoldAllTVFormulaCompiled ($kb $pattern $init $fun $finish) $finish)))
+      (aggregate-step $extractor $fun)
+      (aggregate-result FoldAllCompiled ($kb $pattern $extractor $init $fun $finish $tv-mode) $finish)))
 
 (= (aggregate-spec-step (aggregate-spec $_child-goal $_init $step-spec $_result-spec)) $step-spec)
 
-(= (aggregate-spec-step-value (aggregate-step-fold-value $_fun $pattern $value) $child-atom)
+(= (aggregate-step-value (extract-value $pattern $value) $child-atom $_child-tv)
    (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $value))
+(= (aggregate-step-value extract-tv $_child-atom $child-tv) $child-tv)
 
-(= (aggregate-spec-step-acc (aggregate-step-fold-value $fun $pattern $value) $acc $child-atom $_child-tv)
-   (let $val (aggregate-spec-step-value (aggregate-step-fold-value $fun $pattern $value) $child-atom)
-      (eval ($fun $acc $val))))
-(= (aggregate-spec-step-acc (aggregate-step-fold-tv $fun) $acc $_child-atom $child-tv)
-   (eval ($fun $acc $child-tv)))
+(= (aggregate-spec-step-acc (aggregate-step $extractor $fun) $acc $child-atom $child-tv)
+   (eval ($fun $acc (aggregate-step-value $extractor $child-atom $child-tv))))
 
-(= (aggregate-spec-result (aggregate-result-bare $fun $args identity) $acc)
-   (CPU $fun $args $acc))
-(= (aggregate-spec-result (aggregate-result-bare $fun $args dist-average) $acc)
-   (CPU $fun $args (reduce (reduce (DistAverageFromSumCount $acc)))))
+(= (aggregate-finish identity $acc) $acc)
+(= (aggregate-finish dist-average $acc)
+   (reduce (reduce (DistAverageFromSumCount $acc))))
+
+(= (aggregate-spec-result (aggregate-result FoldAllCompiled $args $finish) $acc)
+   (CPU FoldAllCompiled $args (aggregate-finish $finish $acc)))
 
 (= (advance-frontier-bundle (and-bundle $_goal ()) $_pid) ())
 (= (advance-frontier-bundle (and-bundle $goal (cons $prem $rest)) $pid)
@@ -264,7 +259,7 @@
         ($nagenda0
            (if
               (and (= $goal (CPU $fun $_args $_res))
-                 (is-member $fun (() FoldAllFormulaCompiled FoldAllTVFormulaCompiled)))
+                 (== $fun FoldAllCompiled))
               (spawn-aggregate-goal-heap $agenda $score $gid $goal)
               (expand-direct-goal-heap $agenda $steps $gid $goal)))
         ($nagenda (if (== $nagenda0 ()) (empty_heap) $nagenda0)))

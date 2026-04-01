@@ -53,8 +53,10 @@
          DistGreaterThanFormula
          DistGreaterThanDistFormula
          DistMapFormula
-         DistMap2Formula
-         FoldAllTVFormulaCompiled)))
+         DistMap2Formula)))
+(= (cpu-premise-tv FoldAllCompiled ($_kb $_pattern $_extractor $_init $_fun $_finish result-tv) $res) $res)
+(= (cpu-premise-tv FoldAllCompiled ($_kb $_pattern $_extractor $_init $_fun $_finish unit-stv) $_res)
+   (STV 1.0 1.0))
 (= (cpu-premise-tv $f $args $res) (if (cpu-premise-tv-formula $f) $res (STV 1.0 1.0)))
 (= (in_map $kb $elem)
    (if (= $elem (CPU $f $args $res))
@@ -145,14 +147,22 @@
               (rule-proof conjunction $prfa $prfb)))
         ((AverageDist $pattern -> $out)
            (cpu-bundle
-              (CPU FoldAllTVFormulaCompiled
-                 ($kb $pattern (SumCount (PointMass 0.0) 0) DistSumCountAcc dist-average)
+              (CPU FoldAllCompiled
+                 ($kb $pattern extract-tv (SumCount (PointMass 0.0) 0) DistSumCountAcc dist-average result-tv)
                  $out)
               $out))
         ((FoldAllValue $pattern $_value $init $fun -> $out)
-           (cpu-bundle (CPU FoldAllTVFormulaCompiled ($kb $pattern $init $fun identity) $out) $out))
+           (cpu-bundle
+              (CPU FoldAllCompiled
+                 ($kb $pattern extract-tv $init $fun identity result-tv)
+                 $out)
+              $out))
         ((FoldAll $pattern $value $init $fun -> $out)
-           (cpu-bundle (CPU FoldAllFormulaCompiled ($kb $pattern $value $init $fun) $out) (STV 1.0 1.0)))
+           (cpu-bundle
+              (CPU FoldAllCompiled
+                 ($kb $pattern (extract-value $pattern $value) $init $fun identity unit-stv)
+                 $out)
+              (STV 1.0 1.0)))
         ((Not $a)
            (unary-bundle $kb $ctx $vars
               $a
