@@ -269,7 +269,6 @@
                  $parent-gid
                  (classify-goal-proof-candidate $parent-gid $seen $score)
                  (proof-candidate (rule $aid $instantiated-goal)
-                    (with-tv $tv)
                     $score
                     $seen
                     $pid-list))))

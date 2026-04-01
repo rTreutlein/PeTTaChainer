@@ -66,7 +66,7 @@
       true
       (collapse (match &goal_proof ($gid $oldpid) $oldpid))))
 
-(= (store-proof-candidate $gid (proof-candidate $kind $tv-state $score $ev $children))
+(= (store-proof-candidate $gid (proof-candidate $kind $score $ev $children))
    (let*
       (($pid (next-pid))
         ($_1 (add-atom &proof_goal ($pid $gid)))
@@ -77,7 +77,6 @@
 
 (= (proof-atom-candidate ($type $kb $prf $tv) $ev)
    (proof-candidate (leaf ($type $kb $prf $tv))
-      (with-tv $tv)
       (term-confidence ($type $kb $prf $tv))
       $ev
       ()))
@@ -85,7 +84,6 @@
 (= (leaf-result-candidate $result $ev)
    (if (= $result ($type $_kb $_prf $_tv)) (proof-atom-candidate $result $ev)
       (proof-candidate (leaf $result)
-         no-tv
          (term-confidence $result)
          $ev
          ())))
@@ -109,26 +107,24 @@
       $gid
       $accepted
       (proof-candidate $kind
-         $tv-state
          $score
          $ev
          $children))
    (if (== $accepted false) $agenda
       (if (candidate-is-cyclic? $gid $children) $agenda
-         (let $pid (store-proof-candidate $gid (proof-candidate $kind $tv-state $score $ev $children))
+         (let $pid (store-proof-candidate $gid (proof-candidate $kind $score $ev $children))
             (progn (add-atom &goal_proof ($gid $pid))
                (fold-flat (|-> ($acc $waiter) (advance-goal-waiter-heap $acc $waiter $pid))
                   $agenda
                   (collapse (match &goal_waiter ($gid $waiter) $waiter))))))))
 
-(= (commit-proof-candidate $gid $accepted (proof-candidate $kind $tv-state $score $ev $children))
+(= (commit-proof-candidate $gid $accepted (proof-candidate $kind $score $ev $children))
    (if (== $accepted false) ()
       (let $_
          (commit-proof-candidate-heap (empty_heap)
             $gid
             $accepted
             (proof-candidate $kind
-               $tv-state
                $score
                $ev
                $children))

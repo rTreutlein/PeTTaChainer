@@ -68,7 +68,6 @@
         ($pid
            (store-proof-candidate $gid
               (proof-candidate (leaf ((Goal) (kb MAIN ()) factA (STV 1.0 0.8)))
-                 (with-tv (STV 1.0 0.8))
                  0.8
                  ((fact-ev (kb MAIN ()) factA (Goal)))
                  ()))))
@@ -85,7 +84,6 @@
            (store-proof-candidate $gid
               (proof-candidate
                  (leaf ((Goal) (kb MAIN ()) (bench-base-fact demo 1 1) (STV 1.0 0.8)))
-                 (with-tv (STV 1.0 0.8))
                  0.8
                  ((fact-ev (kb MAIN ()) (bench-base-fact demo 1 1) (Goal)))
                  ())))
@@ -93,7 +91,6 @@
            (store-proof-candidate $gid
               (proof-candidate
                  (leaf ((Goal) (kb MAIN ()) (bench-base-fact demo 1 2) (STV 1.0 0.7)))
-                 (with-tv (STV 1.0 0.7))
                  0.7
                  ((fact-ev (kb MAIN ()) (bench-base-fact demo 1 2) (Goal)))
                  ()))))
@@ -110,7 +107,6 @@
         ($pid
            (store-proof-candidate $gid
               (proof-candidate (leaf ((Goal) (kb MAIN ()) factA (STV 1.0 0.8)))
-                 (with-tv (STV 1.0 0.8))
                  0.8
                  ((fact-ev (kb MAIN ()) factA (Goal)))
                  ()))))
@@ -137,7 +133,6 @@
         ($gid (ensure-goal ((Goal) (kb MAIN ()) $prf (STV 1.0 1.0))))
         ($weak
            (proof-candidate (leaf ((Goal) (kb MAIN ()) sharedFact (STV 1.0 0.6)))
-              (with-tv (STV 1.0 0.6))
               0.6
               ((fact-ev (kb MAIN ()) sharedFact (Goal)))
               ()))
@@ -149,7 +144,6 @@
               $weak))
         ($strong
            (proof-candidate (leaf ((Goal) (kb MAIN ()) sharedFact (STV 1.0 0.8)))
-              (with-tv (STV 1.0 0.8))
               0.8
               ((fact-ev (kb MAIN ()) sharedFact (Goal)))
               ()))
@@ -170,7 +164,6 @@
         ($gid (ensure-goal ((Goal) (kb MAIN ()) $prf (STV 1.0 1.0))))
         ($strong
            (proof-candidate (leaf ((Goal) (kb MAIN ()) sharedFact (STV 1.0 0.8)))
-              (with-tv (STV 1.0 0.8))
               0.8
               ((fact-ev (kb MAIN ()) sharedFact (Goal)))
               ()))
@@ -182,7 +175,6 @@
               $strong))
         ($weak
            (proof-candidate (leaf ((Goal) (kb MAIN ()) sharedFact (STV 1.0 0.6)))
-              (with-tv (STV 1.0 0.6))
               0.6
               ((fact-ev (kb MAIN ()) sharedFact (Goal)))
               ()))
@@ -203,7 +195,6 @@
         ($gid (ensure-goal ((Goal) (kb MAIN ()) $prf (STV 1.0 1.0))))
         ($a
            (proof-candidate (leaf ((Goal) (kb MAIN ()) factA (STV 1.0 0.6)))
-              (with-tv (STV 1.0 0.6))
               0.6
               ((fact-ev (kb MAIN ()) factA (Goal)))
               ()))
@@ -215,7 +206,6 @@
               $a))
         ($b
            (proof-candidate (leaf ((Goal) (kb MAIN ()) factB (STV 1.0 0.8)))
-              (with-tv (STV 1.0 0.8))
               0.8
               ((fact-ev (kb MAIN ()) factB (Goal)))
               ()))

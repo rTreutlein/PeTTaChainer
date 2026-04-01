@@ -101,14 +101,12 @@
    (case $premise (
         ((Compute $f $args -> $res)
            (premise-bundle
-              (Compute $f $args -> $res)
               ((CPU $f $args $res))
               ((CPU $f $args $res))
               (cpu-premise-tv $f $args $res)
               cpu))
         ((MapDist $fun $a -> $out)
            (premise-bundle
-              (MapDist $fun $a -> $out)
               ($a (CPU DistMapFormula ($fun $tv_a) $out))
               ((: ($kb $ctx $vars) $prfa $a $tv_a)
                  (CPU DistMapFormula ($fun $tv_a) $out))
@@ -116,7 +114,6 @@
               $prfa))
         ((Map2Dist $fun $a $b -> $out)
            (premise-bundle
-              (Map2Dist $fun $a $b -> $out)
               ($a $b (CPU DistMap2Formula (quote ($fun $tv_a $tv_b)) $out))
               ((: ($kb $ctx $vars) $prfa $a $tv_a)
                  (: ($kb $ctx $vars) $prfb $b $tv_b)
@@ -125,7 +122,6 @@
               (rule-proof conjunction $prfa $prfb)))
         ((AverageDist $pattern -> $out)
            (premise-bundle
-              (AverageDist $pattern -> $out)
               ((CPU FoldAllTVFormulaCompiled
                   ($kb
                      $pattern
@@ -134,7 +130,7 @@
                      dist-average)
                   $out))
               ((CPU FoldAllTVFormulaCompiled
-                  ($kb
+                 ($kb
                      $pattern
                      (SumCount (PointMass 0.0) 0)
                      DistSumCountAcc
@@ -144,21 +140,18 @@
               cpu))
         ((FoldAllValue $pattern $value $init $fun -> $out)
            (premise-bundle
-              (FoldAllValue $pattern $value $init $fun -> $out)
               ((CPU FoldAllTVFormulaCompiled ($kb $pattern $init $fun identity) $out))
               ((CPU FoldAllTVFormulaCompiled ($kb $pattern $init $fun identity) $out))
               $out
               cpu))
         ((FoldAll $pattern $value $init $fun -> $out)
            (premise-bundle
-              (FoldAll $pattern $value $init $fun -> $out)
               ((CPU FoldAllFormulaCompiled ($kb $pattern $value $init $fun) $out))
               ((CPU FoldAllFormulaCompiled ($kb $pattern $value $init $fun) $out))
               (STV 1.0 1.0)
               cpu))
         ((Not $a)
            (premise-bundle
-              (Not $a)
               ($a (CPU NotFormula ($tv_a) $tv))
               ((: ($kb $ctx $vars) $prfa $a $tv_a)
                  (CPU NotFormula ($tv_a) $tv))
@@ -168,7 +161,6 @@
            (if (is-member $rel (GreaterThan >))
               (if (is-expr $b)
                  (premise-bundle
-                    ($rel $a $b)
                     ($a $b (CPU DistGreaterThanDistFormula ($tv_a $tv_b) $tv))
                     ((: ($kb $ctx $vars) $prfa $a $tv_a)
                        (: ($kb $ctx $vars) $prfb $b $tv_b)
@@ -176,42 +168,37 @@
                     $tv
                     (rule-proof conjunction $prfa $prfb))
                  (premise-bundle
-                    ($rel $a $b)
                     ($a (CPU DistGreaterThanFormula ($tv_a $b) $tv))
                     ((: ($kb $ctx $vars) $prfa $a $tv_a)
                        (CPU DistGreaterThanFormula ($tv_a $b) $tv))
                     $tv
                     $prfa))
               (premise-bundle
-                 ($rel $a $b)
                  (($rel $a $b))
                  ((: ($kb $ctx $vars) $prf ($rel $a $b) $tv))
                  $tv
                  $prf)))
         ($other
            (premise-bundle
-              $other
               ($other)
               ((: ($kb $ctx $vars) $prf $other $tv))
               $tv
-              $prf)))))
+               $prf)))))
 
-(= (lower-source-premises-rest $kb $ctx $vars () $source-types $exec-types $execs $proofs $current-tv)
-   (compiled-premises $source-types $exec-types $execs $proofs $current-tv))
+(= (lower-source-premises-rest $kb $ctx $vars () $exec-types $execs $proofs $current-tv)
+   (compiled-premises $exec-types $execs $proofs $current-tv))
 (= (lower-source-premises-rest
       $kb
       $ctx
       $vars
       (cons $premise $rest)
-      $source-types
       $exec-types
       $execs
       $proofs
       $current-tv)
    (let*
-      (((premise-bundle $source-type $more-exec-types $more-execs $tv $proof)
+      (((premise-bundle $more-exec-types $more-execs $tv $proof)
            (lower-source-premise $kb $ctx $vars $premise))
-        ($nsource-types (append $source-types ($source-type)))
         ($nexec-types (append $exec-types $more-exec-types))
         ($nexecs
            (append $execs
@@ -222,37 +209,35 @@
          $ctx
          $vars
          $rest
-         $nsource-types
          $nexec-types
          $nexecs
          $nproofs
          $next-tv)))
 
 (= (lower-source-premises $kb $ctx $vars ())
-   (compiled-premises () () () () (STV 1.0 1.0)))
+   (compiled-premises () () () (STV 1.0 1.0)))
 (= (lower-source-premises $kb $ctx $vars (cons $premise $rest))
    (let*
-      (((premise-bundle $source-type $exec-types $execs $tv $proof)
+      (((premise-bundle $exec-types $execs $tv $proof)
            (lower-source-premise $kb $ctx $vars $premise)))
       (lower-source-premises-rest
          $kb
          $ctx
          $vars
          $rest
-         ($source-type)
          $exec-types
          $execs
          ($proof)
          $tv)))
 
-(= (compiled-exec-types (compiled-premises $_source-types $exec-types $_execs $_proofs $_tv)) $exec-types)
+(= (compiled-exec-types (compiled-premises $exec-types $_execs $_proofs $_tv)) $exec-types)
 
 (= (compiled-antecedent-types $kb $premises)
    (compiled-exec-types (once (lower-source-premises $kb $ctx $vars $premises))))
 
 (= (direct-implication $kb $prf $premises $b $itv)
    (let*
-      (((compiled-premises $_source-types $_exec-types $execs $proofs $atv)
+      (((compiled-premises $_exec-types $execs $proofs $atv)
            (once (lower-source-premises $kb $ctx $vars $premises)))
         ($proof-token (premise-proof-token $proofs))
         ($allargs (append $execs ((CPU MpFormula ($itv $atv) $btv)))))
@@ -264,7 +249,7 @@
       ()))
 (= (compile-query-adds (: $kb $prf $type $tv))
    (let*
-      (((premise-bundle $_source-type $exec-types $execs $result-tv $proof-token)
+      (((premise-bundle $exec-types $execs $result-tv $proof-token)
            (once (lower-source-premise $kb $ctx $vars $type)))
         ($exec-type (seq2expr $exec-types))
         ($proof (premise-proof-token ($proof-token))))
