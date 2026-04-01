@@ -73,23 +73,8 @@
                (list_to_set (append $seen $pev))
                (cons $pid $rev-pids))))))
 
-(=
-   (advance-goal-waiter-heap $agenda
-      (frontier-waiter $parent-gid
-         $rule-id
-         $bundle
-         $score
-         $seen
-         $rev-pids)
-      $pid)
-   (advance-frontier-waiter-heap $agenda
-      (frontier-waiter $parent-gid
-         $rule-id
-         $bundle
-         $score
-         $seen
-         $rev-pids)
-      $pid))
+(= (advance-goal-waiter-heap $agenda (@ $waiter (head frontier-waiter)) $pid)
+   (advance-frontier-waiter-heap $agenda $waiter $pid))
 (= (advance-goal-waiter-heap $agenda (aggregate-waiter $_parent-gid $_args) $_pid) $agenda)
 
 (= (spawn-frontier-goal-heap $agenda $score $gid $waiter)
