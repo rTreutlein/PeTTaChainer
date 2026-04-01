@@ -105,8 +105,6 @@
        ($exec-types (map-flat exec-goal-type $execs))
        ($proof-token (if (= $rcclprf (cons $proof ())) $proof (cons conjunction $rcclprf))))
       (premise-bundle $exec-types $execs $ccltv $proof-token)))
-(= (adapter-proof plain $_prf $proof-token) $proof-token)
-(= (adapter-proof query $prf $proof-token) ($prf $proof-token))
 (= (compound-source? (cons $head $_tail))
    (and (not (is-var $head)) (is-member $head (And Or LikelierThan))))
 (= (compound-source? $_type) false)

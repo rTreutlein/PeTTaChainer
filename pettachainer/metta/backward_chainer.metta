@@ -30,14 +30,11 @@
                        (add-atom &goal ($gid $depth $goal $expanded $score)))))
                $nagenda)))))
 
-(= (aggregate-compiled-child-goal $compiled-query)
+(= (aggregate-child-goal (CPU FoldAllCompiled ($kb $pattern $_extractor $_init $_fun $_finish $_tv-mode) $_goalres))
    (let*
-      (((compiled-query $child-goal $adds) $compiled-query)
+      (((compiled-query $child-goal $adds) (mm2compileQueryInternal $kb (: $prf $pattern $tvin)))
         ($_ (inject-compiled-adds $adds)))
       $child-goal))
-
-(= (aggregate-child-goal (CPU FoldAllCompiled ($kb $pattern $_extractor $_init $_fun $_finish $_tv-mode) $_goalres))
-   (aggregate-compiled-child-goal (aggregate-compiled-query $kb $pattern)))
 
 (= (aggregate-step-value (extract-value $pattern $value) $child-atom $_child-tv)
    (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $value))

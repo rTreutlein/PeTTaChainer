@@ -1,6 +1,3 @@
-(= (aggregate-compiled-query $kb $pattern)
-   (mm2compileQueryInternal $kb (: $prf $pattern $tvin)))
-
 (= (assert-space-atom-ref $space $expr)
    (let*
       (($term (Predicate (cons $space $expr)))
