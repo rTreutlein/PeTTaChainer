@@ -11,21 +11,7 @@
 !(import! &self backward_proof_store)
 !(import! &self backward_chainer)
 
-(= (add-prem $id $idx $prem)
-   (let $key (forward-indexable-premise-key $prem)
-      (progn (if (== $key ()) () (add-atom prem_index ($key $prem $id $idx)))
-         (+ $idx 1))))
-
-(= (add-to-kb $expr)
-   (if (= $expr (rules ($args |- $ccls)))
-      (let*
-         (($id (next-search-id ruleid))
-           ($_1 (fold-flat (add-prem $id) 0 $args))
-           ($_2 (add-atom ccls_index ($ccls $id)))
-           ($_3 (add-atom rules ($id $ccls $args)))
-           ($_4 (forward-register-added-rule $args $ccls)))
-         ())
-      (progn (add-atom &kb $expr) (forward-register-added-expr $expr))))
+(= (add-to-kb $expr) (kb-add-expr live $expr))
 
 (= (materialize-stmt-lambdas $term)
    (if (is-var $term) $term

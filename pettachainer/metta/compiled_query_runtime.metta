@@ -11,31 +11,37 @@
 
 (= (track-temp-query-ref $ref) (add-atom &temp_query_ref (clause_ref $ref)))
 
-(= (temp-add-prem $id $idx $prem)
+(= (kb-add-atom live $space $expr) (add-atom $space $expr))
+(= (kb-add-atom temp $space $expr)
+   (track-temp-query-ref (assert-space-atom-ref $space $expr)))
+
+(= (kb-next-rule-id live) (next-search-id ruleid))
+(= (kb-next-rule-id temp) (next-search-id bwd_tmp_ruleid))
+
+(= (kb-after-add-rule live $args $ccls) (forward-register-added-rule $args $ccls))
+(= (kb-after-add-rule temp $_args $_ccls) ())
+
+(= (kb-after-add-expr live $expr) (forward-register-added-expr $expr))
+(= (kb-after-add-expr temp $_expr) ())
+
+(= (kb-add-prem $backend $id $idx $prem)
    (let $key (forward-indexable-premise-key $prem)
       (progn
-         (if (== $key ()) ()
-            (let*
-               (($ref (assert-space-atom-ref prem_index ($key $prem $id $idx)))
-                 ($_track (track-temp-query-ref $ref)))
-               ()))
+         (if (== $key ()) () (kb-add-atom $backend prem_index ($key $prem $id $idx)))
          (+ $idx 1))))
 
-(= (next-temp-query-id) (next-search-id bwd_tmp_ruleid))
-
-(= (temp-add-to-kb $expr)
+(= (kb-add-expr $backend $expr)
    (if (= $expr (rules ($args |- $ccls)))
       (let*
-         (($id (next-temp-query-id))
-           ($_1 (fold-flat (temp-add-prem $id) 0 $args))
-           ($ccls-ref (assert-space-atom-ref ccls_index ($ccls $id)))
-           ($_2 (track-temp-query-ref $ccls-ref))
-           ($rule-ref (assert-space-atom-ref rules ($id $ccls $args)))
-           ($_3 (track-temp-query-ref $rule-ref)))
+         (($id (kb-next-rule-id $backend))
+           ($_1 (fold-flat (kb-add-prem $backend $id) 0 $args))
+           ($_2 (kb-add-atom $backend ccls_index ($ccls $id)))
+           ($_3 (kb-add-atom $backend rules ($id $ccls $args)))
+           ($_4 (kb-after-add-rule $backend $args $ccls)))
          ())
-      (progn
-         (let $ref (assert-space-atom-ref &kb $expr)
-            (track-temp-query-ref $ref)))))
+      (progn (kb-add-atom $backend &kb $expr) (kb-after-add-expr $backend $expr))))
+
+(= (temp-add-to-kb $expr) (kb-add-expr temp $expr))
 
 (= (clear-temp-query-adds)
    (progn
@@ -46,7 +52,7 @@
                (remove-atom &temp_query_ref (clause_ref $ref)))))
       ()))
 
-(= (inject-compiled-adds $adds) (if (= $adds ()) () (foreach-flat temp-add-to-kb $adds)))
+(= (inject-compiled-adds $adds) (if (= $adds ()) () (foreach-flat (kb-add-expr temp) $adds)))
 
 (= (query $steps $kb $stmt)
    (let*
