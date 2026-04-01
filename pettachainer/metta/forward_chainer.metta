@@ -27,7 +27,7 @@
 (= (forward-save-agenda $kb $agenda)
    (change-state! (atom_concat fwd_agenda_ $kb) $agenda))
 
-(= (forward-fact-key $fact) (goal-key-components $fact))
+(= (forward-fact-key ($type ($kbid $ctx $vars) $_prf $_tv)) (($kbid $ctx $vars) $type))
 
 (= (forward-pending-state-key $fact)
    (atom_concat fwd_pending_ (term_hash (forward-fact-key $fact))))

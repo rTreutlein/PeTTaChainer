@@ -66,18 +66,6 @@
 
 (= (contains-hash? $x) (fold-nested (|-> ($acc $elem) (or (== $elem #) $acc)) false $x))
 
-(= (goal-key-components ($type ($kbid $ctx $vars) $_prf $_tv)) (($kbid $ctx $vars) $type))
-(= (goal-key-components (CPU $_fun $_args $_res)) ())
-
-(= (goal-key-eq? $a $b)
-   (let $keya (goal-key-components $a)
-      (if (== $keya ()) (or (== $a $b) (=alpha $a $b))
-         (let ($kba $typea) $keya
-            (let $keyb (goal-key-components $b)
-               (if (== $keyb ()) false
-                  (let ($kbb $typeb) $keyb
-                     (and (== $kba $kbb) (or (== $typea $typeb) (=alpha $typea $typeb))))))))))
-
 (= (next-search-id $key)
    (let*
       (($mn (catch (get-state $key)))

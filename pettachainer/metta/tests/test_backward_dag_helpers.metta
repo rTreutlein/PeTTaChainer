@@ -32,16 +32,6 @@
    0.5689089)
 
 !(test
-   (goal-key-eq? ((LoopGoal $x) (kb MAIN ()) p1 (STV 1.0 1.0))
-      ((LoopGoal $y) (kb MAIN ()) p2 (STV 1.0 0.4)))
-   true)
-
-!(test
-   (goal-key-eq? ((LoopGoal) (kb MAIN ()) p1 (STV 1.0 1.0))
-      ((LoopGoal) (kb ALT ()) p2 (STV 1.0 1.0)))
-   false)
-
-!(test
    (let*
       (($_clear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))

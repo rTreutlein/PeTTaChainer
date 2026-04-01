@@ -98,8 +98,8 @@
            ($nagenda (schedule-goal-heap $agenda $score $child-gid)))
          $nagenda)))
 
-(= (aggregate-proof-key $child-atom)
-   (let $key (goal-key-components $child-atom) (if (== $key ()) $child-atom $key)))
+(= (aggregate-proof-key ($type ($kbid $ctx $vars) $_prf $_tv)) (($kbid $ctx $vars) $type))
+(= (aggregate-proof-key $child-atom) $child-atom)
 
 (= (aggregate-proof-fold-step $args (aggregate-state $acc $ev $seen) $pid)
    (let*
@@ -157,7 +157,8 @@
          ($qtype $kb $prf $tv))))
 
 (= (direct-result-exact-hit ($type $kb $prf $tv) $result) (=? ($type $kb $prf $tv) $result))
-(= (direct-result-exact-hit (CPU $fun $args $res) $result) (goal-key-eq? (CPU $fun $args $res) $result))
+(= (direct-result-exact-hit (CPU $fun $args $res) $result)
+   (or (== (CPU $fun $args $res) $result) (=alpha (CPU $fun $args $res) $result)))
 
 (= (expand-direct-goal-step $gid $goal (expand-state $agenda $exact-hit) $result)
    (let*
