@@ -63,9 +63,9 @@
 
 (= (aggregate-compiled-child-goal $compiled-query)
    (let*
-      (($adds (compiled-query-adds $compiled-query))
+      (($adds (internalize-proof-structure-list (compiled-query-adds $compiled-query)))
         ($_ (inject-compiled-adds $adds))
-        ($child-goal (compiled-query-goal-head $compiled-query)))
+        ($child-goal (internalize-proof-structure (compiled-query-goal-head $compiled-query))))
       $child-goal))
 
 (= (aggregate-goal-spec (cpu-goal FoldAllFormulaCompiled ($kb $pattern $value $init $fun) $_goalres))

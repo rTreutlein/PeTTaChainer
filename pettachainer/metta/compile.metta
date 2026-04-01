@@ -354,9 +354,8 @@
    (let $compiled (compileQuery $kb $stmt)
       (if (= $compiled (((() |- ($ccl)) $adds)))
          (let*
-            (($tail (map-flat mm2stmt $adds))
-              ($lst (cons (goal $ccl) $tail)))
-            (superpose $lst))
+            (($tail (map-flat mm2stmt $adds)))
+            (compiled-query $ccl $tail))
          (if
             (= $compiled
                ((((: ($kbid $_ctx $_vars) $prf $type $tv)) |-
@@ -367,10 +366,10 @@
                  ($mvars (if (== $vars ()) Nil $vars))
                  ($ctx (nextctx))
                  ($ctxatom (: ($kbid $ctx $mvars) (ctx proof $ctx) $type $tv))
-                 ($goalatom (goal (: ($kbid $ctx $mvars) $prf1 $type1 $tv1)))
                  ($tail (map-flat mm2stmt $adds))
-                 ($lst (union-atom ($goalatom $ctxatom) $tail)))
-               (superpose $lst))
+                 ($goal (: ($kbid $ctx $mvars) $prf1 $type1 $tv1))
+                 ($all-adds (union-atom ($ctxatom) $tail)))
+               (compiled-query $goal $all-adds))
             (notsupported mm2compileQuery $kb $stmt $compiled)))))
 
 (= (checkStmt $stmt)

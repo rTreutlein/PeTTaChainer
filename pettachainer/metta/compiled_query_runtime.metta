@@ -1,12 +1,9 @@
-(= (compiled-query-goal-head (goal $query)) $query)
-(= (compiled-query-goal-head $compiled-query)
-   (let (goal $query) (car-atom $compiled-query) $query))
+(= (compiled-query-goal-head (compiled-query $query $_adds)) $query)
 
-(= (compiled-query-adds (goal $query)) ())
-(= (compiled-query-adds $compiled-query) (cdr-atom $compiled-query))
+(= (compiled-query-adds (compiled-query $_query $adds)) $adds)
 
 (= (aggregate-compiled-query $kb $pattern)
-   (internalize-proof-structure-list (collapse (mm2compileQuery $kb (: $prf $pattern $tvin)))))
+   (car-atom (collapse (mm2compileQuery $kb (: $prf $pattern $tvin)))))
 
 (= (assert-space-atom-ref $space $expr)
    (let*
@@ -57,12 +54,11 @@
 
 (= (query $steps $kb $stmt)
    (let*
-      (($compiled-query
-           (internalize-proof-structure-list (collapse (mm2compileQuery $kb $stmt))))
-        ($adds (compiled-query-adds $compiled-query))
+      (($raw-compiled-query (car-atom (collapse (mm2compileQuery $kb $stmt))))
+        ($adds (internalize-proof-structure-list (compiled-query-adds $raw-compiled-query)))
         ($_clear-temp-before (clear-temp-query-adds))
         ($_ (inject-compiled-adds $adds))
-        ($goal (compiled-query-goal-head $compiled-query))
+        ($goal (internalize-proof-structure (compiled-query-goal-head $raw-compiled-query)))
         ($results (chainer $steps $goal))
         ($eres (map-flat externalize-proof-structure $results))
         ($pres (map-flat pretty $eres))
