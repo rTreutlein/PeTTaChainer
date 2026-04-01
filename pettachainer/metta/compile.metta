@@ -58,11 +58,8 @@
 
 (= (cpu-premise-tv $f $args $res) (if (cpu-premise-tv-formula $f) $res (STV 1.0 1.0)))
 
-(= (compile-inputs (: $kb $prf (cons $head $tail) $tv))
-   (if (and (not (is-var $head)) (is-member $head (And Or LikelierThan)))
-      (superpose ((compile-input-template $kb (atom_concat $head Formula) $head $tail)
-                  (compile-inputs (: $kb $prf (superpose $tail) $tv))))
-      (empty)))
+(= (compound-source-head? $head)
+   (and (not (is-var $head)) (is-member $head (And Or LikelierThan))))
 
 (= (in_map $kb $elem)
    (if (= $elem (CPU $f $args $res))
@@ -81,23 +78,44 @@
    ((cons (CPU $formula ($tv $tve) $ntv) (cons $goal $premises))
       (: $kb (cons $prfelem $cclprf) (cons $elem $ccltype) $ntv)))
 
-(= (compile-input-template $kb $formula $head $tail)
+(= (compound-proof-token (cons $proof ())) $proof)
+(= (compound-proof-token $proofs) (cons conjunction $proofs))
+
+(= (exec-goal-type (CPU $f $args $res)) (CPU $f $args $res))
+(= (exec-goal-type (: $_kb $_prf $elem $_tv)) $elem)
+
+(= (compound-premise-bundle $kb $ctx $vars $head $tail)
    (let*
       (((cons (@ $fst (prem $fstgoal $fstelem $fsttv $fstprf)) $rst)
            (map-flat (in_map $kb) $tail))
         ($init (($fstgoal) (: $kb ($fstprf) ($fstelem) $fsttv)))
         (($resNNprms (: $kb $cclprf $ccltype $ccltv))
-           (fold-flat (in_fold $formula) $init $rst))
-        (($rcclprf $rccltype) ((reverse $cclprf) (reverse $ccltype))))
-      ((reverse $resNNprms) |-
-         ((: $kb (cons conjunction $rcclprf) (cons $head $rccltype) $ccltv)))))
+           (fold-flat (in_fold (atom_concat $head Formula)) $init $rst))
+        (($execs $rcclprf $rccltype) ((reverse $resNNprms) (reverse $cclprf) (reverse $ccltype)))
+        ($exec-types (map-flat exec-goal-type $execs)))
+      (premise-bundle
+         $exec-types
+         $execs
+         $ccltv
+         (compound-proof-token $rcclprf))))
+
+(= (compile-inputs (: $kb $prf (cons $head $tail) $tv))
+   (if (compound-source-head? $head)
+      (let*
+         (((premise-bundle $exec-types $execs $result-tv $proof-token)
+              (compound-premise-bundle $kb $ctx $vars $head $tail))
+           ($exec-type (seq2expr $exec-types)))
+         (superpose
+            (($execs |- ((: $kb $proof-token (cons $head $tail) $result-tv)))
+             (compile-inputs (: $kb $prfa $exec-type $atv)))))
+      (empty)))
 
 (= (premise-proof-token (cons $proof ())) $proof)
 (= (premise-proof-token (cons $proof $rest))
    (cons rule-proof (cons conjunction (cons $proof $rest))))
 (= (premise-proof-token ()) cpu)
 
-(= (lower-source-premise $kb $ctx $vars $premise)
+(= (lower-source-premise-base $kb $ctx $vars $premise)
    (case $premise (
         ((Compute $f $args -> $res)
            (premise-bundle
@@ -185,6 +203,14 @@
               $tv
                $prf)))))
 
+(= (lower-source-premise $kb $ctx $vars (cons $head $tail))
+   (if (compound-source-head? $head)
+      (compound-premise-bundle $kb $ctx $vars $head $tail)
+      (lower-source-premise-base $kb $ctx $vars (cons $head $tail))))
+
+(= (lower-source-premise $kb $ctx $vars $premise)
+   (lower-source-premise-base $kb $ctx $vars $premise))
+
 (= (lower-source-premises-rest $kb $ctx $vars () $exec-types $execs $proofs $current-tv)
    (compiled-premises $exec-types $execs $proofs $current-tv))
 (= (lower-source-premises-rest
@@ -255,7 +281,7 @@
           (compile-outputs (: $shape-kb $prfa $a $atv))))))
 
 (= (compile-query-adds (: $kb $prf (cons $head $tail) $tv))
-   (if (and (not (is-var $head)) (is-member $head (And Or LikelierThan)))
+   (if (compound-source-head? $head)
       (collapse (compile-inputs (: $kb $prf (cons $head $tail) $tv)))
       ()))
 (= (compile-query-adds (: $kb $prf $type $tv))
