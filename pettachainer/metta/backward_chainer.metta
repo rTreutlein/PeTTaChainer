@@ -1,29 +1,5 @@
 (= (goal-by-id $gid) (match &goal ($gid $depth $goal $expanded $pending) ($depth $goal $expanded $pending)))
 
-(= (goal-term-by-id $gid)
-   (let ($_depth $goal $_expanded $_pending) (goal-by-id $gid) $goal))
-
-(= (goal-expanded? $gid)
-   (first-or (collapse (let ($_depth $_goal $expanded $_pending) (goal-by-id $gid) $expanded)) false))
-
-(= (goal-pending-score-of $gid)
-   (first-or (collapse (let ($_depth $_goal $_expanded $pending) (goal-by-id $gid) $pending)) 0.0))
-
-(= (goal-depth-of $gid)
-   (first-or (collapse (let ($depth $_goal $_expanded $_pending) (goal-by-id $gid) $depth)) 0))
-
-(= (set-goal-expanded $gid $expanded)
-   (let ($depth $goal $old-expanded $pending) (goal-by-id $gid)
-      (progn
-         (remove-atom &goal ($gid $depth $goal $old-expanded $pending))
-         (add-atom &goal ($gid $depth $goal $expanded $pending)))))
-
-(= (set-goal-pending-score $gid $pending)
-   (let ($depth $goal $expanded $old-pending) (goal-by-id $gid)
-      (progn
-         (remove-atom &goal ($gid $depth $goal $expanded $old-pending))
-         (add-atom &goal ($gid $depth $goal $expanded $pending)))))
-
 (= (ensure-goal-at-depth $goal $depth)
    (let*
       (($stored-goal (copy_term $goal))
@@ -39,18 +15,18 @@
 
 (= (schedule-goal-heap $agenda $score $gid)
    (let*
-      (($expanded (goal-expanded? $gid))
-        ($current (goal-pending-score-of $gid))
-        ($depth (goal-depth-of $gid)))
+      ((($depth $goal $expanded $current) (goal-by-id $gid)))
       (if $expanded $agenda
          (if (>= $current $score) $agenda
             (let*
-               (($goal (goal-term-by-id $gid))
-                 ($closed-proof-bonus (if (goal-has-type-vars? $goal) 0.0 1.0))
+               (($closed-proof-bonus (if (goal-has-type-vars? $goal) 0.0 1.0))
                  ($bonus (if (goal-is-proof? $goal) $closed-proof-bonus 2.0))
                  ($priority (+ (* 1000000000.0 $depth) (- 0 (+ (* 1000000.0 $score) $bonus))))
                  ($nagenda (add_to_heap $agenda $priority (qitem $score $gid)))
-                 ($_set (set-goal-pending-score $gid $score)))
+                 ($_set
+                    (progn
+                       (remove-atom &goal ($gid $depth $goal $expanded $current))
+                       (add-atom &goal ($gid $depth $goal $expanded $score)))))
                $nagenda)))))
 
 (= (aggregate-compiled-child-goal $compiled-query)
@@ -116,7 +92,8 @@
    (let*
       (($spec (aggregate-goal-spec $goal-view))
         ((aggregate-spec $child-goal $init-acc $_step-spec $_result-spec) $spec)
-        ($child-gid (ensure-goal-at-depth $child-goal (+ 1 (goal-depth-of $gid))))
+        (($depth $_goal $_expanded $_pending) (goal-by-id $gid))
+        ($child-gid (ensure-goal-at-depth $child-goal (+ 1 $depth)))
         ($stored-spec (copy_term $spec)))
       (let*
          (($_1 (add-atom &aggregate_waiter ($gid $child-gid $stored-spec)))
@@ -218,7 +195,8 @@
                     $pid-list))))
         ((and-bundle $_goal (cons $prem $_rest))
            (let*
-              (($gid (ensure-goal-at-depth $prem (+ 1 (goal-depth-of $parent-gid))))
+              ((($parent-depth $_goal1 $_expanded $_pending) (goal-by-id $parent-gid))
+                ($gid (ensure-goal-at-depth $prem (+ 1 $parent-depth)))
                 ($stored-bundle (copy_term $bundle)))
               (spawn-frontier-goal-heap $agenda
                  $score
@@ -252,8 +230,11 @@
 
 (= (expand-goal-heap $agenda $steps $score $gid)
    (let*
-      (($goal (goal-term-by-id $gid))
-        ($_expand (set-goal-expanded $gid true))
+      ((($depth $goal $expanded $pending) (goal-by-id $gid))
+        ($_expand
+           (progn
+              (remove-atom &goal ($gid $depth $goal $expanded $pending))
+              (add-atom &goal ($gid $depth $goal true $pending))))
         ($nagenda0
            (if
               (and (= $goal (CPU $fun $_args $_res))
@@ -267,10 +248,14 @@
    (if (or (<= $steps 0) (== (heap_size $agenda) 0)) (search-state $steps $agenda)
       (let*
          (($rest (get_from_heap $agenda $_priority $item))
-           ((qitem $score $gid) $item))
-         (if (and (not (goal-expanded? $gid)) (== (goal-pending-score-of $gid) $score))
+           ((qitem $score $gid) $item)
+           (($depth $goal $expanded $pending) (goal-by-id $gid)))
+         (if (and (not $expanded) (== $pending $score))
             (let*
-               (($_clear (set-goal-pending-score $gid 0.0))
+               (($_clear
+                    (progn
+                       (remove-atom &goal ($gid $depth $goal $expanded $pending))
+                       (add-atom &goal ($gid $depth $goal $expanded 0.0))))
                  ($nagenda (expand-goal-heap $rest $steps $score $gid)))
                (search-goals-heap (- $steps 1) $nagenda))
             (search-goals-heap $steps $rest)))))

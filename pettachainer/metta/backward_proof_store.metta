@@ -32,8 +32,10 @@
       (materialize-proof-kind $kind $pid)))
 
 (= (goal-results $gid)
-   (let $pids (collapse (match &proof ($pid $gid $_output $_kind $_score $_ev $_children) $pid))
-      (if (goal-has-type-vars? (goal-term-by-id $gid))
+   (let*
+      (($pids (collapse (match &proof ($pid $gid $_output $_kind $_score $_ev $_children) $pid)))
+        (($_depth $goal $_expanded $_pending) (goal-by-id $gid)))
+      (if (goal-has-type-vars? $goal)
          (map-flat materialize-result-atom (map-flat proof-output-atom $pids))
          (case $pids (
               (() ())
