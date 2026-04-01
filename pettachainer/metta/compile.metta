@@ -230,18 +230,29 @@
          ($proof)
          $tv)))
 
-(= (compiled-exec-types (compiled-premises $exec-types $_execs $_proofs $_tv)) $exec-types)
-
-(= (compiled-antecedent-types $kb $premises)
-   (compiled-exec-types (once (lower-source-premises $kb $ctx $vars $premises))))
-
-(= (direct-implication $kb $prf $premises $b $itv)
+(= (build-implication-plan $kb $prf $premises $conclusions)
    (let*
-      (((compiled-premises $_exec-types $execs $proofs $atv)
+      (((compiled-premises $exec-types $execs $proofs $atv)
            (once (lower-source-premises $kb $ctx $vars $premises)))
-        ($proof-token (premise-proof-token $proofs))
+        ($shape-kb ($kb $ctx $vars))
+        ($a (seq2expr $exec-types))
+        ($b (seq2expr $conclusions))
+        ($nb (skolemize $prf $a $b))
+        ($na (skolemize $prf $b $a))
+        ($skip-inverse (or (disable-inversion-proof-id? $prf) (contains-cpu? $a))))
+      (compiled-implication $shape-kb $a $b $nb $na $skip-inverse $execs $proofs $atv)))
+
+(= (direct-implication-plan $prf (compiled-implication $shape-kb $_a $_b $b $_na $_skip-inverse $execs $proofs $atv) $itv)
+   (let*
+      (($proof-token (premise-proof-token $proofs))
         ($allargs (append $execs ((CPU MpFormula ($itv $atv) $btv)))))
-      ($allargs |- ((: ($kb $ctx $vars) ($prf $proof-token) $b $btv)))))
+      ($allargs |- ((: $shape-kb ($prf $proof-token) $b $btv)))))
+
+(= (query-bridge-adds (compiled-implication $shape-kb $a $b $_nb $_na $_skip-inverse $_execs $_proofs $_atv))
+   (collapse
+      (superpose
+         ((compile-inputs (: $shape-kb $prfb $b $btv))
+          (compile-outputs (: $shape-kb $prfa $a $atv))))))
 
 (= (compile-query-adds (: $kb $prf (cons $head $tail) $tv))
    (if (and (not (is-var $head)) (is-member $head (And Or LikelierThan)))
@@ -260,6 +271,15 @@
                      |- ((: $kb ($prf $proof) $type $result-tv)))
                   (compile-inputs (: $kb $prfa $exec-type $atv)))))
          ())))
+
+(= (compile-base-stmt $kb $prf $type $tv)
+   (superpose
+      ((() |- ((: ($kb MAIN Nil) $prf $type $tv)))
+       (compile-outputs (: ($kb MAIN Nil) $prf $type $tv)))))
+
+(= (compile-base-query $kb $prf $type $tv)
+   (((() |- ((: (kbctx $kb) $prf $type $tv)))
+      (compile-query-adds (: (kbctx $kb) $prf $type $tv)))))
 
 (= (compile $kb $stmt) (compile_ $kb $stmt))
 
@@ -304,26 +324,23 @@
          (= $Type
             (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
          (let*
-            (($a (seq2expr (compiled-antecedent-types $kb $premises)))
-              ($b (seq2expr $conclusions))
-              ($nb (skolemize $prf $a $b))
-              ($na (skolemize $prf $b $a))
-              ($skip-inverse (or (disable-inversion-proof-id? $prf) (contains-cpu? $a))))
-            (superpose ((once (direct-implication $kb $prf $premises $nb $tv))
-                        (if (is-var $nb) (empty)
-                           (compile-outputs (: (kbctx $kb) ($prf $prfa) $nb $btv)))
-                        (if (is-var $a) (empty)
-                           (compile-inputs (: (kbctx $kb) $prfa $a $atv)))
-                        (if (not $skip-inverse)
-                           (inverse-implication $kb $prf $na $b $tv)
-                           (empty))
-                        (if (or $skip-inverse (is-var $na)) (empty)
-                           (compile-outputs
-                              (: ((inverted $prf $pa $pb1) $pb2) $na $natv)))
-                        (if (or $skip-inverse (is-var $b)) (empty)
-                           (compile-inputs (: $pb2 $b $btv2))))))
-         (superpose ((() |- ((: ($kb MAIN Nil) $prf $Type $tv)))
-                     (compile-outputs (: ($kb MAIN Nil) $prf $Type $tv)))))))
+            (($plan (build-implication-plan $kb $prf $premises $conclusions))
+             ((compiled-implication $_shape-kb $a $b $nb $na $skip-inverse $_execs $_proofs $_atv) $plan))
+            (superpose
+               ((once (direct-implication-plan $prf $plan $tv))
+                (if (is-var $nb) (empty)
+                   (compile-outputs (: (kbctx $kb) ($prf $prfa) $nb $btv)))
+                (if (is-var $a) (empty)
+                   (compile-inputs (: (kbctx $kb) $prfa $a $atv)))
+                (if (not $skip-inverse)
+                   (inverse-implication $kb $prf $na $b $tv)
+                   (empty))
+                (if (or $skip-inverse (is-var $na)) (empty)
+                   (compile-outputs
+                      (: ((inverted $prf $pa $pb1) $pb2) $na $natv)))
+                (if (or $skip-inverse (is-var $b)) (empty)
+                   (compile-inputs (: $pb2 $b $btv2))))))
+         (compile-base-stmt $kb $prf $Type $tv))))
 
 (= (compileQuery $kb (: $prf $Type $tv))
    (if (is-var $Type) ((() |- ((: (kbctx $kb) $prf $Type $tv))) ())
@@ -331,14 +348,11 @@
          (= $Type
             (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
          (let*
-            (($a (seq2expr (compiled-antecedent-types $kb $premises)))
-              ($b (seq2expr $conclusions)))
-            ((((: (kbctx $kb) $prfa $a (STV 1.0 1.0))) |- ((: (kbctx $kb) $prfb $b $itv)))
-               (collapse
-                  (superpose ((compile-inputs (: (kbctx $kb) $prfb $b $btv))
-                              (compile-outputs (: (kbctx $kb) $prfa $a $atv)))))))
-         (((() |- ((: (kbctx $kb) $prf $Type $tv)))
-            (compile-query-adds (: (kbctx $kb) $prf $Type $tv)))))))
+            (($plan (build-implication-plan $kb $prf $premises $conclusions))
+             ((compiled-implication $shape-kb $a $b $_nb $_na $_skip-inverse $_execs $_proofs $_atv) $plan))
+            ((((: $shape-kb $prfa $a (STV 1.0 1.0))) |- ((: $shape-kb $prfb $b $itv)))
+               (query-bridge-adds $plan)))
+         (compile-base-query $kb $prf $Type $tv))))
 
 (= (mm2compile $kb $stmt)
    (progn (remove-all-atoms ctx)
