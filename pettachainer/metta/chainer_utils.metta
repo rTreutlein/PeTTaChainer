@@ -9,9 +9,6 @@
 (= (goal-view (CPU $fun $args $res))
    (cpu-goal $fun $args $res))
 
-(= (goal-view-term (proof-goal $kb $type $prf $tv)) ($type $kb $prf $tv))
-(= (goal-view-term (cpu-goal $fun $args $res)) (CPU $fun $args $res))
-
 (= (goal-view-has-type-vars? (proof-goal $_kb $type $_prf $_tv))
    (not (== (extract-vars $type) ())))
 (= (goal-view-has-type-vars? (cpu-goal $_fun $_args $_res)) false)
@@ -49,7 +46,6 @@
 (= (term-confidence (CPU $fun $args $res))
    (if (is-var $res) (cpu-expected-confidence $fun $args) (tv-confidence $res)))
 (= (term-confidence ($_type ($_kbid $_ctx $_vars) $_prf $tv)) (tv-confidence $tv))
-(= (term-confidence (: $_kb $_prf $_type $tv)) (tv-confidence $tv))
 
 (= (premises-expected-confidence ()) 1.0)
 (= (premises-expected-confidence (cons $prem $rest))
@@ -86,7 +82,6 @@
 
 (= (contains-hash? $x) (fold-nested (|-> ($acc $elem) (or (== $elem #) $acc)) false $x))
 
-(= (goal-key-components (: $kb $_prf $type $_tv)) ($kb $type))
 (= (goal-key-components ($type ($kbid $ctx $vars) $_prf $_tv)) (($kbid $ctx $vars) $type))
 (= (goal-key-components (CPU $_fun $_args $_res)) ())
 
@@ -109,7 +104,7 @@
 
 (= (next-pid) (next-search-id bwd_pid))
 
-(= (cpu-call $steps $fun $args) (reduce (reduce (cons $fun $args))))
+(= (cpu-call $_steps $fun $args) (reduce (reduce (cons $fun $args))))
 
 (= (proof-stats-by-id $pid) (match &proof ($pid $_gid $_output $_kind $score $ev $_children) ($score $ev)))
 

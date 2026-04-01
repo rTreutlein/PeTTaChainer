@@ -252,7 +252,7 @@
       (((premise-bundle $exec-types $execs $result-tv $proof-token)
            (once (lower-source-premise $kb $ctx $vars $type)))
         ($exec-type (seq2expr $exec-types))
-        ($proof (premise-proof-token ($proof-token))))
+        ($proof $proof-token))
       (if (and (not (is-var $type)) (not (== $exec-type $type)))
          (collapse
             (superpose

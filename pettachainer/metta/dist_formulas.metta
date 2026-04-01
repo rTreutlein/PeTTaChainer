@@ -12,11 +12,6 @@
 
 (= (particle-fetch-pairs $pid) (collapse (match &particle_store (particle $pid $x $w) ($x $w))))
 
-(= (particle-remove-id $pid)
-   (collapse
-      (match &particle_store (particle $pid $x $w)
-         (remove-atom &particle_store (particle $pid $x $w)))))
-
 (= (particle-store-pairs $pid ()) ())
 (= (particle-store-pairs $pid (cons ($x $w) $tail))
    (progn (add-atom &particle_store (particle $pid $x $w)) (particle-store-pairs $pid $tail)))
@@ -110,7 +105,6 @@
    (let*
       (($pid (next-particle-id))
         ($compressed (compress-pairs $pairs))
-        ($_clear (particle-remove-id $pid))
         ($_store (particle-store-pairs $pid $compressed)))
       (ParticleDist $pid $scale)))
 

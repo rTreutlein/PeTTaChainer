@@ -10,9 +10,7 @@
 (= (forward-indexable-premise-key $prem)
    (if (= $prem ($_type ($kbid $_ctx $_vars) $_prf $_tv))
       (forward-type-trigger-key $kbid $_type)
-      (if (= $prem (: ($kbid $_ctx $_vars) $_prf $type $_tv))
-         (forward-type-trigger-key $kbid $type)
-         ())))
+      ()))
 
 (= (forward-premise-index-key $prem)
    (let $key (forward-indexable-premise-key $prem)
@@ -20,8 +18,7 @@
 
 (= (forward-premise-wildcard-key $prem)
    (if (= $prem ($_type ($kbid $_ctx $_vars) $_prf $_tv)) (fwd_trigger $kbid any)
-      (if (= $prem (: ($kbid $_ctx $_vars) $_prf $type $_tv)) (fwd_trigger $kbid any)
-         fwd_trigger_any)))
+      fwd_trigger_any))
 
 (= (forward-load-agenda $kb)
    (let $magenda (catch (get-state (atom_concat fwd_agenda_ $kb)))
