@@ -8,9 +8,10 @@
 (= (goal-has-type-vars? (CPU $_fun $_args $_res)) false)
 
 (= (goal-key ($type ($kbid $ctx $vars) $_prf $_tv))
-   (proof-goal-key ($kbid $ctx $vars) (sealed (extract-vars $type) $type)))
+   (let $sealed-type (sealed (extract-vars $type) $type)
+      ($sealed-type ($kbid $ctx $vars))))
 (= (goal-key (CPU $fun $args $res))
-   (direct-goal-key (sealed (extract-vars (CPU $fun $args $res)) (CPU $fun $args $res))))
+   (sealed (extract-vars (CPU $fun $args $res)) (CPU $fun $args $res)))
 
 (= (goal-is-proof? ($type ($_kbid $_ctx $_vars) $_prf $_tv)) true)
 (= (goal-is-proof? (CPU $_fun $_args $_res)) false)
