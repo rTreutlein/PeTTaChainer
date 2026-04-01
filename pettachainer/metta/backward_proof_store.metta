@@ -4,7 +4,7 @@
       $term))
 (= (proof-output-atom-kind (leaf $term) $pid)
    (normalize-proof-output-atom-kind $term $pid))
-(= (proof-output-atom-kind (rule $_rule-id $term) $pid)
+(= (proof-output-atom-kind (rule $term) $pid)
    (normalize-proof-output-atom-kind $term $pid))
 
 (= (proof-output-atom $pid) (match &proof ($pid $_gid $output $_kind $_score $_ev $_children) $output))
@@ -21,11 +21,11 @@
 (= (materialize-proof-kind (leaf $raw) $_pid)
    (if (= $raw (CPU $_fun $_args $_res)) cpu
       (if (= $raw ($_type ($_kbid $_ctx $_vars) $prf $_tv)) $prf $raw)))
-(= (materialize-proof-kind (rule $_rule-id ($_type $_kb $prf $_tv)) $_pid)
+(= (materialize-proof-kind (rule ($_type $_kb $prf $_tv)) $_pid)
    (cons rule-proof
       (cons (materialize-proof-refs (car-atom $prf))
          (map-flat materialize-proof-refs (cdr-atom $prf)))))
-(= (materialize-proof-kind (rule $_rule-id $term) $_pid) $term)
+(= (materialize-proof-kind (rule $term) $_pid) $term)
 
 (= (materialize-proof $pid)
    (match &proof ($pid $_gid $_output $kind $_score $_ev $_children)

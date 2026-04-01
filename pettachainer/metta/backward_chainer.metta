@@ -53,7 +53,6 @@
 (=
    (advance-frontier-waiter-heap $agenda
       (frontier-waiter $parent-gid
-         $rule-id
          $bundle
          $score
          $seen
@@ -67,7 +66,6 @@
          (if (== $next-bundle ()) $agenda
             (spawn-frontier-heap $agenda
                $parent-gid
-               $rule-id
                $next-bundle
                (min $score $pscore)
                (list_to_set (append $seen $pev))
@@ -176,7 +174,7 @@
            (fold-flat (expand-direct-goal-step $gid $goal) (expand-state $agenda false) $results)))
       (if $exact-hit $agenda1 (expand-rule-goal-heap $agenda1 $gid $goal))))
 
-(= (spawn-frontier-heap $agenda $parent-gid $rule-id $bundle $score $seen $rev-pids)
+(= (spawn-frontier-heap $agenda $parent-gid $bundle $score $seen $rev-pids)
    (case $bundle (
         ((and-bundle $goal ())
            (let*
@@ -184,7 +182,7 @@
               (commit-proof-candidate-heap $agenda
                  $parent-gid
                  (classify-goal-proof-candidate $parent-gid $seen $score)
-                 (proof-candidate (rule $rule-id $goal) $score $seen $pid-list))))
+                 (proof-candidate (rule $goal) $score $seen $pid-list))))
         ((and-bundle $_goal (cons $prem $_rest))
            (let*
               ((($parent-depth $_goal1 $_expanded $_pending) (goal-by-id $parent-gid))
@@ -194,7 +192,6 @@
                  $score
                  $gid
                  (frontier-waiter $parent-gid
-                    $rule-id
                     $stored-bundle
                     $score
                     $seen
@@ -206,15 +203,14 @@
       (collapse
          (match ccls_index ($goal $rule-id)
             (match rules ($rule-id $goal $args)
-               ($args $goal $parent-gid $rule-id))))))
+               ($args $goal $parent-gid))))))
 
-(= (expand-rule-goal-fold $agenda ($args $goal $parent-gid $rule-id))
+(= (expand-rule-goal-fold $agenda ($args $goal $parent-gid))
    (let*
       (($bound (premises-expected-confidence $args))
         ($bundle (copy_term (and-bundle $goal $args))))
       (spawn-frontier-heap $agenda
          $parent-gid
-         $rule-id
          $bundle
          $bound
          ()
