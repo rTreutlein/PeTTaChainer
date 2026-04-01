@@ -27,7 +27,7 @@
 (= (ensure-goal-at-depth $goal $depth)
    (let*
       (($stored-goal (copy_term $goal))
-        ($goal-key (goal-view-key (goal-view $stored-goal)))
+        ($goal-key (goal-key $stored-goal))
         ($hits (collapse (once (match &goal_lookup ($goal-key $gid) $gid)))))
       (if (== $hits ())
          (let*
@@ -48,9 +48,8 @@
          (if (>= $current $score) $agenda
             (let*
                (($goal (goal-term-by-id $gid))
-                 ($goal-view (goal-view $goal))
-                 ($closed-proof-bonus (if (goal-view-has-type-vars? $goal-view) 0.0 1.0))
-                 ($bonus (if (= $goal-view (proof-goal $_kb $_type $_prf $_tv)) $closed-proof-bonus 2.0))
+                 ($closed-proof-bonus (if (goal-has-type-vars? $goal) 0.0 1.0))
+                 ($bonus (if (goal-is-proof? $goal) $closed-proof-bonus 2.0))
                  ($priority (+ (* 1000000000.0 $depth) (- 0 (+ (* 1000000.0 $score) $bonus))))
                  ($nagenda (add_to_heap $agenda $priority (qitem $score $gid)))
                  ($_set (set-goal-pending-score $gid $score)))
@@ -64,12 +63,12 @@
         ($child-goal (internalize-proof-structure $raw-goal)))
       $child-goal))
 
-(= (aggregate-goal-spec (cpu-goal FoldAllFormulaCompiled ($kb $pattern $value $init $fun) $_goalres))
+(= (aggregate-goal-spec (CPU FoldAllFormulaCompiled ($kb $pattern $value $init $fun) $_goalres))
    (aggregate-spec (aggregate-compiled-child-goal (aggregate-compiled-query $kb $pattern))
       $init
       (aggregate-step-fold-value $fun $pattern $value)
       (aggregate-result-bare FoldAllFormulaCompiled ($kb $pattern $value $init $fun) identity)))
-(= (aggregate-goal-spec (cpu-goal FoldAllTVFormulaCompiled ($kb $pattern $init $fun $finish) $_goalres))
+(= (aggregate-goal-spec (CPU FoldAllTVFormulaCompiled ($kb $pattern $init $fun $finish) $_goalres))
    (aggregate-spec (aggregate-compiled-child-goal (aggregate-compiled-query $kb $pattern))
       $init
       (aggregate-step-fold-tv $fun)
@@ -187,28 +186,27 @@
       (collapse
          (match &aggregate_waiter ($gid $child-gid $spec) ($gid $child-gid $spec)))))
 
-(= (direct-goal-results-view $steps (cpu-goal $fun $args $_res))
+(= (direct-goal-results-view $steps (CPU $fun $args $_res))
    (CPU $fun $args (cpu-call $steps $fun $args)))
-(= (direct-goal-results-view $steps (proof-goal $kb $type $prf $tv))
+(= (direct-goal-results-view $steps ($type $kb $prf $tv))
       (let $qtype (if (contains-hash? $type) (map-nested (|-> ($x) (if (== $x #) $any $x)) $type) $type)
       (match &kb ($qtype $kb $prf $tv)($qtype $kb $prf $tv))))
 
-(= (direct-result-exact-hit (proof-goal $kb $type $prf $tv) $result) (=? ($type $kb $prf $tv) $result))
-(= (direct-result-exact-hit (cpu-goal $fun $args $res) $result) (goal-key-eq? (CPU $fun $args $res) $result))
+(= (direct-result-exact-hit ($type $kb $prf $tv) $result) (=? ($type $kb $prf $tv) $result))
+(= (direct-result-exact-hit (CPU $fun $args $res) $result) (goal-key-eq? (CPU $fun $args $res) $result))
 
 (= (expand-direct-goal-step $gid $goal (expand-state $agenda $exact-hit) $result)
    (let*
-      (($goal-view (goal-view $goal))
-        ($score (term-confidence $result))
+      (($score (term-confidence $result))
         ($ev (leaf-evidence-for-result $result))
         ($accepted (classify-goal-proof-candidate $gid $ev $score))
         ($nagenda (commit-proof-candidate-heap $agenda $gid $accepted (leaf-result-candidate $result $ev)))
-        ($nexact-hit (or $exact-hit (direct-result-exact-hit $goal-view $result))))
+        ($nexact-hit (or $exact-hit (direct-result-exact-hit $goal $result))))
       (expand-state $nagenda $nexact-hit)))
 
 (= (expand-direct-goal-heap $agenda $steps $gid $goal)
    (let*
-      (($results (collapse (direct-goal-results-view $steps (goal-view $goal))))
+      (($results (collapse (direct-goal-results-view $steps $goal)))
         ((expand-state $agenda1 $exact-hit)
            (fold-flat (expand-direct-goal-step $gid $goal) (expand-state $agenda false) $results)))
       (if $exact-hit $agenda1 (expand-rule-goal-heap $agenda1 $gid $goal))))
@@ -262,13 +260,12 @@
 (= (expand-goal-heap $agenda $steps $score $gid)
    (let*
       (($goal (goal-term-by-id $gid))
-        ($goal-view (goal-view $goal))
         ($_expand (set-goal-expanded $gid true))
         ($nagenda0
            (if
-              (and (= $goal-view (cpu-goal $fun $_args $_res))
+              (and (= $goal (CPU $fun $_args $_res))
                  (is-member $fun (() FoldAllFormulaCompiled FoldAllTVFormulaCompiled)))
-              (spawn-aggregate-goal-heap $agenda $score $gid $goal-view)
+              (spawn-aggregate-goal-heap $agenda $score $gid $goal)
               (expand-direct-goal-heap $agenda $steps $gid $goal)))
         ($nagenda (if (== $nagenda0 ()) (empty_heap) $nagenda0)))
       $nagenda))

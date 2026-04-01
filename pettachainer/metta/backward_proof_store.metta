@@ -33,7 +33,7 @@
 
 (= (goal-results $gid)
    (let $pids (collapse (match &proof ($pid $gid $_output $_kind $_score $_ev $_children) $pid))
-      (if (goal-view-has-type-vars? (goal-view (goal-term-by-id $gid)))
+      (if (goal-has-type-vars? (goal-term-by-id $gid))
          (map-flat materialize-result-atom (map-flat proof-output-atom $pids))
          (case $pids (
               (() ())

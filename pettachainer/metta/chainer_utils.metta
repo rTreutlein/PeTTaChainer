@@ -3,20 +3,17 @@
 
 (= (first-or () $default) $default)
 (= (first-or (cons $x $_rest) $_default) $x)
-
-(= (goal-view ($type ($kbid $ctx $vars) $prf $tv))
-   (proof-goal ($kbid $ctx $vars) $type $prf $tv))
-(= (goal-view (CPU $fun $args $res))
-   (cpu-goal $fun $args $res))
-
-(= (goal-view-has-type-vars? (proof-goal $_kb $type $_prf $_tv))
+(= (goal-has-type-vars? ($type ($_kbid $_ctx $_vars) $_prf $_tv))
    (not (== (extract-vars $type) ())))
-(= (goal-view-has-type-vars? (cpu-goal $_fun $_args $_res)) false)
+(= (goal-has-type-vars? (CPU $_fun $_args $_res)) false)
 
-(= (goal-view-key (proof-goal $kb $type $_prf $_tv))
-   (proof-goal-key $kb (sealed (extract-vars $type) $type)))
-(= (goal-view-key (cpu-goal $fun $args $res))
+(= (goal-key ($type ($kbid $ctx $vars) $_prf $_tv))
+   (proof-goal-key ($kbid $ctx $vars) (sealed (extract-vars $type) $type)))
+(= (goal-key (CPU $fun $args $res))
    (direct-goal-key (sealed (extract-vars (CPU $fun $args $res)) (CPU $fun $args $res))))
+
+(= (goal-is-proof? ($type ($_kbid $_ctx $_vars) $_prf $_tv)) true)
+(= (goal-is-proof? (CPU $_fun $_args $_res)) false)
 
 (= (normalize-expected-tv $tv)
    (if (is-var $tv) (STV 1.0 1.0)
