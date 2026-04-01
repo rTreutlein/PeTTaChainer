@@ -111,13 +111,13 @@
 
 (= (cpu-call $steps $fun $args) (reduce (reduce (cons $fun $args))))
 
-(= (proof-stats-by-id $pid) (match &proof_stats ($pid $score $ev) ($score $ev)))
+(= (proof-stats-by-id $pid) (match &proof ($pid $_gid $_output $_kind $score $ev $_children) ($score $ev)))
 
 (= (proof-tv-by-id $pid)
    (let $atom (proof-output-atom $pid)
       (if (= $atom ($_type $_kb $_prf $tv)) $tv no-tv)))
 
-(= (proof-kind-by-id $pid) (match &proof_kind ($pid $kind) $kind))
+(= (proof-kind-by-id $pid) (match &proof ($pid $_gid $_output $kind $_score $_ev $_children) $kind))
 
 (= (proof-tree-contains-list () $needle) false)
 (= (proof-tree-contains-list (cons $head $tail) $needle)

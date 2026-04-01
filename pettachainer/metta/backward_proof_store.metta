@@ -7,7 +7,7 @@
       ($type ($kbid $_ctx $_vars) (proof-ref $pid) $tv)
       $term))
 
-(= (proof-output-atom $pid) (proof-output-atom-kind (proof-kind-by-id $pid) $pid))
+(= (proof-output-atom $pid) (match &proof ($pid $_gid $output $_kind $_score $_ev $_children) $output))
 
 (= (materialize-proof-refs $term)
    (if (= $term (proof-ref $pid)) (materialize-proof-refs (materialize-proof $pid))
@@ -30,7 +30,7 @@
 (= (materialize-proof $pid) (materialize-proof-kind (proof-kind-by-id $pid) $pid))
 
 (= (goal-results $gid)
-   (let $pids (collapse (match &goal_proof ($gid $pid) $pid))
+   (let $pids (collapse (match &proof ($pid $gid $_output $_kind $_score $_ev $_children) $pid))
       (if (goal-view-has-type-vars? (goal-view (goal-term-by-id $gid)))
          (map-flat materialize-result-atom (map-flat proof-output-atom $pids))
          (case $pids (
@@ -59,15 +59,13 @@
 (= (classify-goal-proof-candidate $gid $ev $score)
    (fold-flat (goal-proof-candidate-step $ev $score)
       true
-      (collapse (match &goal_proof ($gid $oldpid) $oldpid))))
+      (collapse (match &proof ($oldpid $gid $_output $_kind $_score $_ev1 $_children) $oldpid))))
 
 (= (store-proof-candidate $gid (proof-candidate $kind $score $ev $children))
    (let*
       (($pid (next-pid))
-        ($_1 (add-atom &proof_goal ($pid $gid)))
-        ($_2 (add-atom &proof_kind ($pid $kind)))
-        ($_3 (add-atom &proof_stats ($pid $score $ev)))
-        ($_4 (add-atom &proof_children ($pid $children))))
+        ($output (proof-output-atom-kind $kind $pid))
+        ($_1 (add-atom &proof ($pid $gid $output $kind $score $ev $children))))
       $pid))
 
 (= (proof-atom-candidate ($type $kb $prf $tv) $ev)
@@ -85,12 +83,12 @@
 
 (= (proof-depends-on-goal-seen? $pid $gid $seen-pids)
    (if (is-member $pid $seen-pids) false
-      (or (== (match &proof_goal ($pid $proof-gid) $proof-gid) $gid)
+      (or (== (match &proof ($pid $proof-gid $_output $_kind $_score $_ev $_children) $proof-gid) $gid)
          (fold-flat
             (|-> ($acc $child-pid)
                (or $acc (proof-depends-on-goal-seen? $child-pid $gid (cons $pid $seen-pids))))
             false
-            (match &proof_children ($pid $kids)
+            (match &proof ($pid $_proof-gid $_output $_kind $_score $_ev $kids)
                $kids)))))
 
 (= (candidate-is-cyclic? $gid ()) false)
@@ -108,10 +106,9 @@
    (if (== $accepted false) $agenda
       (if (candidate-is-cyclic? $gid $children) $agenda
          (let $pid (store-proof-candidate $gid (proof-candidate $kind $score $ev $children))
-            (progn (add-atom &goal_proof ($gid $pid))
-               (fold-flat (|-> ($acc $waiter) (advance-goal-waiter-heap $acc $waiter $pid))
-                  $agenda
-                  (collapse (match &goal_waiter ($gid $waiter) $waiter))))))))
+            (fold-flat (|-> ($acc $waiter) (advance-goal-waiter-heap $acc $waiter $pid))
+               $agenda
+               (collapse (match &goal_waiter ($gid $waiter) $waiter)))))))
 
 (= (commit-proof-candidate $gid $accepted (proof-candidate $kind $score $ev $children))
    (if (== $accepted false) ()

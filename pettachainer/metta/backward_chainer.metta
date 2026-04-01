@@ -1,17 +1,33 @@
-(= (goal-term-by-id $gid) (match &goal_by_id ($gid $_depth $goal) $goal))
+(= (goal-term-by-id $gid) (match &goal ($gid $_depth $goal $_expanded $_pending) $goal))
 
-(= (goal-expanded? $gid) (first-or (collapse (once (match &goal_expanded ($gid true) true))) false))
+(= (goal-expanded? $gid)
+   (first-or (collapse (once (match &goal ($gid $_depth $_goal $expanded $_pending) $expanded))) false))
 
 (= (goal-pending-score-of $gid)
-   (first-or (collapse (once (match &goal_pending_score ($gid $score) $score))) 0.0))
+   (first-or (collapse (once (match &goal ($gid $_depth $_goal $_expanded $pending) $pending))) 0.0))
 
 (= (goal-depth-of $gid)
-   (first-or (collapse (once (match &goal_by_id ($gid $depth $_goal) $depth))) 0))
+   (first-or (collapse (once (match &goal ($gid $depth $_goal $_expanded $_pending) $depth))) 0))
 
-(= (clear-goal-pending-score $gid)
+(= (set-goal-expanded $gid $expanded)
    (progn
-      (collapse (match &goal_pending_score ($gid $score) (remove-atom &goal_pending_score ($gid $score))))
+      (collapse
+         (match &goal ($gid $depth $goal $_old-expanded $pending)
+            (progn
+               (remove-atom &goal ($gid $depth $goal $_old-expanded $pending))
+               (add-atom &goal ($gid $depth $goal $expanded $pending)))))
       ()))
+
+(= (set-goal-pending-score $gid $pending)
+   (progn
+      (collapse
+         (match &goal ($gid $depth $goal $expanded $_old-pending)
+            (progn
+               (remove-atom &goal ($gid $depth $goal $expanded $_old-pending))
+               (add-atom &goal ($gid $depth $goal $expanded $pending)))))
+      ()))
+
+(= (clear-goal-pending-score $gid) (set-goal-pending-score $gid 0.0))
 
 (= (ensure-goal-at-depth $goal $depth)
    (let*
@@ -21,7 +37,7 @@
       (if (== $hits ())
          (let*
             (($gid (next-gid))
-              ($_1 (add-atom &goal_by_id ($gid $depth $stored-goal)))
+              ($_1 (add-atom &goal ($gid $depth $stored-goal false 0.0)))
               ($_2 (add-atom &goal_lookup ($goal-key $gid))))
             $gid)
          (car-atom $hits))))
@@ -42,8 +58,7 @@
                  ($bonus (if (= $goal-view (proof-goal $_kb $_type $_prf $_tv)) $closed-proof-bonus 2.0))
                  ($priority (+ (* 1000000000.0 $depth) (- 0 (+ (* 1000000.0 $score) $bonus))))
                  ($nagenda (add_to_heap $agenda $priority (qitem $score $gid)))
-                 ($_clear (clear-goal-pending-score $gid))
-                 ($_set (add-atom &goal_pending_score ($gid $score))))
+                 ($_set (set-goal-pending-score $gid $score)))
                $nagenda)))))
 
 (= (aggregate-compiled-child-goal $compiled-query)
@@ -110,7 +125,7 @@
         ($agenda1
            (fold-flat (|-> ($acc $pid) (advance-goal-waiter-heap $acc $waiter $pid))
               $agenda
-              (collapse (match &goal_proof ($gid $pid) $pid))))
+              (collapse (match &proof ($pid $gid $_output $_kind $_score $_ev $_children) $pid))))
         ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
       $nagenda))
 
@@ -147,7 +162,7 @@
       (((aggregate-spec $_goal $init-acc $_step-spec $_result-spec) $spec))
       (fold-flat (aggregate-proof-fold-step $spec)
          (aggregate-state $init-acc () ())
-         (collapse (match &goal_proof ($child-gid $pid) $pid)))))
+         (collapse (match &proof ($pid $child-gid $_output $_kind $_score $_ev $_children) $pid)))))
 
 (= (aggregate-waiter-live? $gid $child-gid $spec)
    (first-or (collapse (once (match &aggregate_waiter ($gid $child-gid $spec) true))) false))
@@ -256,7 +271,7 @@
    (let*
       (($goal (goal-term-by-id $gid))
         ($goal-view (goal-view $goal))
-        ($_expand (add-atom &goal_expanded ($gid true)))
+        ($_expand (set-goal-expanded $gid true))
         ($nagenda0
            (if
               (and (= $goal-view (cpu-goal $fun $_args $_res))
@@ -281,17 +296,11 @@
 (= (clear-backward-state)
    (progn
       (foreach-flat remove-all-atoms
-         (() &goal_by_id
+         (() &goal
             &goal_lookup
-            &goal_expanded
-            &goal_pending_score
             &goal_waiter
             &aggregate_waiter
-            &goal_proof
-            &proof_goal
-            &proof_stats
-            &proof_kind
-            &proof_children))
+            &proof))
       ()))
 
 (= (chainer $steps $goal)
