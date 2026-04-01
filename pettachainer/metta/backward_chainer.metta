@@ -37,27 +37,19 @@
         ($child-goal (internalize-proof-structure $raw-goal)))
       $child-goal))
 
-(= (aggregate-goal-spec (CPU FoldAllCompiled ($kb $pattern $extractor $init $fun $finish $tv-mode) $_goalres))
-   (aggregate-spec (aggregate-compiled-child-goal (aggregate-compiled-query $kb $pattern))
-      $init
-      (aggregate-step $extractor $fun)
-      (aggregate-result FoldAllCompiled ($kb $pattern $extractor $init $fun $finish $tv-mode) $finish)))
-
-(= (aggregate-spec-step (aggregate-spec $_child-goal $_init $step-spec $_result-spec)) $step-spec)
+(= (aggregate-child-goal (CPU FoldAllCompiled ($kb $pattern $_extractor $_init $_fun $_finish $_tv-mode) $_goalres))
+   (aggregate-compiled-child-goal (aggregate-compiled-query $kb $pattern)))
 
 (= (aggregate-step-value (extract-value $pattern $value) $child-atom $_child-tv)
    (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $value))
 (= (aggregate-step-value extract-tv $_child-atom $child-tv) $child-tv)
 
-(= (aggregate-spec-step-acc (aggregate-step $extractor $fun) $acc $child-atom $child-tv)
+(= (aggregate-foldall-step-acc $extractor $fun $acc $child-atom $child-tv)
    (eval ($fun $acc (aggregate-step-value $extractor $child-atom $child-tv))))
 
 (= (aggregate-finish identity $acc) $acc)
 (= (aggregate-finish dist-average $acc)
    (reduce (reduce (DistAverageFromSumCount $acc))))
-
-(= (aggregate-spec-result (aggregate-result FoldAllCompiled $args $finish) $acc)
-   (CPU FoldAllCompiled $args (aggregate-finish $finish $acc)))
 
 (= (advance-frontier-bundle (and-bundle $_goal ()) $_pid) ())
 (= (advance-frontier-bundle (and-bundle $goal (cons $prem $rest)) $pid)
@@ -90,13 +82,12 @@
 
 (= (spawn-aggregate-goal-heap $agenda $score $gid $goal-view)
    (let*
-      (($spec (aggregate-goal-spec $goal-view))
-        ((aggregate-spec $child-goal $init-acc $_step-spec $_result-spec) $spec)
+      (($args (copy_term (let (CPU FoldAllCompiled $args $_goalres) $goal-view $args)))
+        ($child-goal (aggregate-child-goal $goal-view))
         (($depth $_goal $_expanded $_pending) (goal-by-id $gid))
-        ($child-gid (ensure-goal-at-depth $child-goal (+ 1 $depth)))
-        ($stored-spec (copy_term $spec)))
+        ($child-gid (ensure-goal-at-depth $child-goal (+ 1 $depth))))
       (let*
-         (($_1 (add-atom &aggregate_waiter ($gid $child-gid $stored-spec)))
+         (($_1 (add-atom &aggregate_waiter ($gid $child-gid $args)))
            ($nagenda (schedule-goal-heap $agenda $score $child-gid)))
          $nagenda)))
 
@@ -104,55 +95,56 @@
    (let $key (goal-key-components $child-atom)
       (if (== $key ()) $child-atom $key)))
 
-(= (aggregate-proof-fold-step $spec (aggregate-state $acc $ev $seen) $pid)
+(= (aggregate-proof-fold-step $args (aggregate-state $acc $ev $seen) $pid)
    (let*
-      (($child-atom (proof-output-atom $pid))
+      ((($_agg-kb $_agg-pattern $extractor $_agg-init $fun $_agg-finish $_agg-tv-mode) (copy_term $args))
+        ($child-atom (proof-output-atom $pid))
         ($child-key (aggregate-proof-key $child-atom))
         (($_pscore $pev) (proof-stats-by-id $pid))
-        ($child-tv (if (= $child-atom ($_type $_kb $_prf $tv)) $tv no-tv))
-        ($step-spec (copy_term (aggregate-spec-step $spec))))
+        ($child-tv (if (= $child-atom ($_type $_kb $_prf $tv)) $tv no-tv)))
       (if (is-member $child-key $seen) (aggregate-state $acc $ev $seen)
          (let*
-            (($nacc (aggregate-spec-step-acc $step-spec $acc $child-atom $child-tv))
+            (($nacc (aggregate-foldall-step-acc $extractor $fun $acc $child-atom $child-tv))
               ($nev (list_to_set (append $ev $pev)))
               ($nseen (cons $child-key $seen)))
             (aggregate-state $nacc $nev $nseen)))))
 
-(= (aggregate-final-state $child-gid $spec)
+(= (aggregate-final-state $child-gid $args)
    (let*
-      (((aggregate-spec $_goal $init-acc $_step-spec $_result-spec) $spec))
-      (fold-flat (aggregate-proof-fold-step $spec)
+      ((($_kb $_pattern $_extractor $init-acc $_fun $_finish $_tv-mode) (copy_term $args)))
+      (fold-flat
+         (aggregate-proof-fold-step $args)
          (aggregate-state $init-acc () ())
          (collapse (match &proof ($pid $child-gid $_output $_kind $_score $_ev $_children) $pid)))))
 
-(= (finalize-aggregate-goal-heap $agenda $gid $child-gid $spec)
-   (if (== (collapse (once (match &aggregate_waiter ($gid $child-gid $spec) true))) ())
+(= (finalize-aggregate-goal-heap $agenda $gid $child-gid $args)
+   (if (== (collapse (once (match &aggregate_waiter ($gid $child-gid $args) true))) ())
       $agenda
       (let*
          (($deps
               (collapse
-                 (match &aggregate_waiter ($child-gid $dep-child $dep-spec) ($child-gid $dep-child $dep-spec))))
+                 (match &aggregate_waiter ($child-gid $dep-child $dep-args) ($child-gid $dep-child $dep-args))))
            ($agenda1 (fold-flat finalize-aggregate-entry-heap $agenda $deps))
            ($_remove
               (collapse
-                 (match &aggregate_waiter ($gid $child-gid $spec)
-                    (remove-atom &aggregate_waiter ($gid $child-gid $spec)))))
-           ((aggregate-state $acc $ev $_seen) (aggregate-final-state $child-gid $spec))
-           ((aggregate-spec $_goal $_init $_step-spec $result-spec) $spec)
-           ($result (aggregate-spec-result $result-spec $acc)))
+                 (match &aggregate_waiter ($gid $child-gid $args)
+                    (remove-atom &aggregate_waiter ($gid $child-gid $args)))))
+           ((aggregate-state $acc $ev $_seen) (aggregate-final-state $child-gid $args))
+           (($kb $pattern $extractor $init $fun $finish $tv-mode) $args)
+           ($result (CPU FoldAllCompiled $args (aggregate-finish $finish $acc))))
          (commit-proof-candidate-heap $agenda1
             $gid
             (classify-goal-proof-candidate $gid $ev (term-confidence $result))
             (leaf-result-candidate $result $ev)))
       ))
 
-(= (finalize-aggregate-entry-heap $agenda ($gid $child-gid $spec))
-   (finalize-aggregate-goal-heap $agenda $gid $child-gid $spec))
+(= (finalize-aggregate-entry-heap $agenda ($gid $child-gid $args))
+   (finalize-aggregate-goal-heap $agenda $gid $child-gid $args))
 
 (= (finalize-all-aggregates-heap $agenda)
    (fold-flat finalize-aggregate-entry-heap $agenda
       (collapse
-         (match &aggregate_waiter ($gid $child-gid $spec) ($gid $child-gid $spec)))))
+         (match &aggregate_waiter ($gid $child-gid $args) ($gid $child-gid $args)))))
 
 (= (direct-goal-results-view $steps (CPU $fun $args $_res))
    (CPU $fun $args (cpu-call $steps $fun $args)))
