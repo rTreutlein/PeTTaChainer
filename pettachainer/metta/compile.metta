@@ -367,16 +367,6 @@
                (compiled-query $goal $all-adds))
             (notsupported mm2compileQuery $kb $stmt $compiled)))))
 
-(= (checkStmt $stmt)
-   (and (= $stmt (: $prf $type $tv))
-      (and (not (is-var $prf))
-         (or
-            (= $type
-               (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
-            (== (extract-vars $type) ())))))
-
-(= (checkQuery $query) (= $query (: $prf $type $tv)))
-
 (= (mf $kb ($kb $t)) $t)
 
 (= (internalize-proof-structure $term)
