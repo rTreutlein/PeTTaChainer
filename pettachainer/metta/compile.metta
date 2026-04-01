@@ -94,8 +94,12 @@
 (= (premise-proof-token (cons $proof $rest))
    (cons rule-proof (cons conjunction (cons $proof $rest))))
 (= (premise-proof-token ()) cpu)
-(= (lower-source-premise-base $kb $ctx $vars $premise)
-   (case $premise (
+(= (lower-source-premise $kb $ctx $vars $premise)
+   (if (and (= $premise (cons $head $tail))
+         (not (is-var $head))
+         (is-member $head (And Or LikelierThan)))
+      (compound-premise-bundle $kb $ctx $vars $head $tail)
+      (case $premise (
         ((Compute $f $args -> $res)
            (premise-bundle
               ((CPU $f $args $res))
@@ -180,15 +184,7 @@
               ($other)
               ((: ($kb $ctx $vars) $prf $other $tv))
               $tv
-               $prf)))))
-
-(= (lower-source-premise $kb $ctx $vars (cons $head $tail))
-   (if (and (not (is-var $head)) (is-member $head (And Or LikelierThan)))
-      (compound-premise-bundle $kb $ctx $vars $head $tail)
-      (lower-source-premise-base $kb $ctx $vars (cons $head $tail))))
-
-(= (lower-source-premise $kb $ctx $vars $premise)
-   (lower-source-premise-base $kb $ctx $vars $premise))
+               $prf))))))
 
 (= (lower-source-premises-rest $kb $ctx $vars () $exec-types $execs $proofs $current-tv)
    (compiled-premises $exec-types $execs $proofs $current-tv))
