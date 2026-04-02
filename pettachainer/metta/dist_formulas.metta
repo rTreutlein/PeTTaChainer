@@ -138,11 +138,11 @@
 (= (dist-add-mass (cons ($k $p) $tail) $x $m)
    (if (== $k $x) (cons ($k (+ $p $m)) $tail) (cons ($k $p) (dist-add-mass $tail $x $m))))
 
-(= (natdist-bernoulli-step $acc $p ($n $mass))
+(= (dist-add-bernoulli-step $acc $p ($n $mass))
    (let $acc0 (dist-add-mass $acc $n (* $mass (- 1.0 $p))) (dist-add-mass $acc0 (+ $n 1) (* $mass $p))))
 
-(= (natdist-convolve-bernoulli $pairs $p)
-   (fold-flat (|-> ($acc $item) (natdist-bernoulli-step $acc $p $item)) () $pairs))
+(= (dist-add-bernoulli-pairs $pairs $p)
+   (fold-flat (|-> ($acc $item) (dist-add-bernoulli-step $acc $p $item)) () $pairs))
 
 (= (dist-prob-gt () $threshold) 0.0)
 (= (dist-prob-gt (cons ($x $p) $tail) $threshold)
@@ -181,9 +181,6 @@
    (let $nacc (particle-map2-inner $fun $xa $wa $pairsb $acc)
       (particle-map2-pairs $fun $taila $pairsb $nacc)))
 
-(= (NatDistAddBernoulliFromSTV (NatDist $pairs) $tv)
-   (let $p (tv-probability $tv) (NatDist (natdist-convolve-bernoulli $pairs $p))))
-
 (= (DistMapFormula $fun $dist) (ParticleMap $fun $dist))
 
 (= (DistMap2Formula $fun $dista $distb) (ParticleMap2 $fun $dista $distb))
@@ -199,7 +196,7 @@
         ($scale (particle-dist-scale $pd))
         ($p (tv-probability $tv))
         ($pairs (particle-fetch-pairs $pid))
-        ($updated (fold-flat (|-> ($acc $item) (natdist-bernoulli-step $acc $p $item)) () $pairs)))
+        ($updated (dist-add-bernoulli-pairs $pairs $p)))
       (particle-build-dist $scale $updated)))
 
 (= (ParticleMap $fun $pd)

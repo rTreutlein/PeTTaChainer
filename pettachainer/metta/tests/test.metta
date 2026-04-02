@@ -89,8 +89,8 @@
          (Premises
             (FoldAllValue (Score $name $n)
                $tvin
-               (NatDist ((0 1.0)))
-               NatDistAddBernoulliFromSTV
+               (ParticleFromPairs ((0 1.0)))
+               ParticleAddBernoulliFromSTV
                ->
                $dist))
          (Conclusions (ScoreDist $dist)))
