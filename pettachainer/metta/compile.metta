@@ -138,7 +138,7 @@
                  $out))
               (STV 1.0 1.0)
               cpu))
-        ((FoldAllValue $pattern $_value $init $fun -> $out)
+        ((FoldAllValue $pattern $init $fun -> $out)
            (bundle-from-execs
               ((CPU FoldAllCompiled
                  ($kb $pattern extract-tv $init $fun identity result-tv)

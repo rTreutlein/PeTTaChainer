@@ -73,7 +73,7 @@ It does not describe how to invoke chainer interface functions.
 
 ```metta
 (FoldAll pattern value init fold-fn -> out)
-(FoldAllValue pattern value init fold-fn -> out)
+(FoldAllValue pattern init fold-fn -> out)
 ```
 
 ## TV Modeling Rules

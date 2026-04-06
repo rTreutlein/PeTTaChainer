@@ -124,14 +124,13 @@ Aggregate over matching facts:
 
 ```metta
 (FoldAll pattern value init fold-fn -> out)
-(FoldAllValue pattern value init fold-fn -> out)
+(FoldAllValue pattern init fold-fn -> out)
 ```
 
 Typical distribution fold:
 
 ```metta
 (FoldAllValue (In $room $kid)
-              $tvin
               (ParticleFromPairs ((0 1.0)))
               ParticleAddBernoulliFromSTV
               -> $dist)

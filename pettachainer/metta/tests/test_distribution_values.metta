@@ -29,7 +29,6 @@
       (Implication
          (Premises (Room $room)
             (FoldAllValue (In $room $kid)
-               $tvin
                (ParticleFromPairs ((0 1.0)))
                ParticleAddBernoulliFromSTV
                ->

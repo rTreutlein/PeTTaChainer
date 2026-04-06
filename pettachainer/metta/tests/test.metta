@@ -88,7 +88,6 @@
       (Implication
          (Premises
             (FoldAllValue (Score $name $n)
-               $tvin
                (ParticleFromPairs ((0 1.0)))
                ParticleAddBernoulliFromSTV
                ->
