@@ -47,26 +47,26 @@ It does not describe how to invoke chainer interface functions.
 ### GreaterThan / >
 
 ```metta
-(GreaterThan (DistFactA ...) 5)
-(GreaterThan (DistFactA ...) (DistFactB ...))
+(GreaterThan $distA 5)
+(GreaterThan $distA $distB)
 ```
 
 ### MapDist
 
 ```metta
-(MapDist f (DistFactA ...) -> $outDist)
+(MapDist f (DistFactA ... $inDist) $inDist -> $outDist)
 ```
 
 ### Map2Dist
 
 ```metta
-(Map2Dist f (DistFactA ...) (DistFactB ...) -> $outDist)
+(Map2Dist f (DistFactA ... $distA) $distA (DistFactB ... $distB) $distB -> $outDist)
 ```
 
 ### AverageDist
 
 ```metta
-(AverageDist (DistFactPattern ...) -> $outDist)
+(AverageDist (DistFactPattern ... $inDist) $inDist -> $outDist)
 ```
 
 ### FoldAll / FoldAllValue
@@ -85,8 +85,8 @@ It does not describe how to invoke chainer interface functions.
 Good:
 
 ```metta
-(: h1 (HeightDist g1 alice) (PointMass 160.0))
-(: h2 (HeightDist g1 bob) (ParticleFromNormal 170.0 2.0))
+(: h1 (HeightDist g1 alice (PointMass 160.0)) (STV 1.0 1.0))
+(: h2 (HeightDist g1 bob (ParticleFromNormal 170.0 2.0)) (STV 1.0 1.0))
 ```
 
 Avoid encoding numeric values in `STV` strength for measurement semantics.
@@ -106,12 +106,12 @@ Avoid encoding numeric values in `STV` strength for measurement semantics.
     (Implication
         (Premises
             (Group $g)
-            (AverageDist (HeightDist $g $person) -> $avgDist))
+            (AverageDist (HeightDist $g $person $heightDist) $heightDist -> $avgDist))
         (Conclusions
-            (AvgHeightDist $g)))
+            (AvgHeightDist $g $avgDist)))
     (STV 1.0 1.0))
 
-(: $prf (AvgHeightDist g1) $avgDist)
+(: $prf (AvgHeightDist g1 $avgDist) $tv)
 ```
 
 ## Example: Rectangle Area Rule
@@ -121,10 +121,16 @@ Avoid encoding numeric values in `STV` strength for measurement semantics.
     (Implication
         (Premises
             (Rectangle $rect)
-            (Map2Dist * (LengthDist $rect) (WidthDist $rect) -> $areaDist))
+            (Map2Dist *
+                (LengthDist $rect $lengthDist)
+                $lengthDist
+                (WidthDist $rect $widthDist)
+                $widthDist
+                ->
+                $areaDist))
         (Conclusions
-            (AreaDist $rect)))
+            (AreaDist $rect $areaDist)))
     (STV 1.0 1.0))
 
-(: $prf (AreaDist rectA) $areaDist)
+(: $prf (AreaDist rectA $areaDist) $tv)
 ```

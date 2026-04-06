@@ -51,11 +51,8 @@
    (is-member $f
       (() NotFormula
          DistGreaterThanFormula
-         DistGreaterThanDistFormula
-         DistMapFormula
-         DistMap2Formula)))
-(= (cpu-premise-tv FoldAllCompiled ($_kb $_pattern $_extractor $_init $_fun $_finish $tv-mode) $res)
-   (if (== $tv-mode result-tv) $res (STV 1.0 1.0)))
+         DistGreaterThanDistFormula)))
+(= (cpu-premise-tv FoldAllCompiled $_args $_res) (STV 1.0 1.0))
 (= (cpu-premise-tv $f $args $res) (if (cpu-premise-tv-formula $f) $res (STV 1.0 1.0)))
 (= (in_map $kb $elem)
    (if (= $elem (CPU $f $args $res))
@@ -120,31 +117,33 @@
               ((CPU $f $args $res))
               (cpu-premise-tv $f $args $res)
               cpu))
-        ((MapDist $fun $a -> $out)
+        ((MapDist $fun $a $value -> $out)
            (bundle-from-execs
-              ((: ($kb $ctx $vars) $prfa $a $tv_a) (CPU DistMapFormula ($fun $tv_a) $out))
-              $out
+              ((: ($kb $ctx $vars) $prfa $a $tv_a)
+                 (CPU DistMapFormula ($fun $value) $out))
+              (STV 1.0 1.0)
               $prfa))
-        ((Map2Dist $fun $a $b -> $out)
+        ((Map2Dist $fun $a $valuea $b $valueb -> $out)
            (bundle-from-execs
               ((: ($kb $ctx $vars) $prfa $a $tv_a)
                  (: ($kb $ctx $vars) $prfb $b $tv_b)
-                 (CPU DistMap2Formula (quote ($fun $tv_a $tv_b)) $out))
-              $out
+                 (CPU DistMap2Formula (quote ($fun $valuea $valueb)) $out))
+              (STV 1.0 1.0)
               (rule-proof conjunction $prfa $prfb)))
-        ((AverageDist $pattern -> $out)
+        ((AverageDist $pattern $value -> $out)
            (bundle-from-execs
               ((CPU FoldAllCompiled
-                 ($kb $pattern extract-tv (SumCount (PointMass 0.0) 0) DistSumCountAcc dist-average result-tv)
+                 ($kb $pattern (extract-value $pattern $value)
+                    (SumCount (PointMass 0.0) 0) DistSumCountAcc dist-average result-tv)
                  $out))
-              $out
+              (STV 1.0 1.0)
               cpu))
         ((FoldAllValue $pattern $_value $init $fun -> $out)
            (bundle-from-execs
               ((CPU FoldAllCompiled
                  ($kb $pattern extract-tv $init $fun identity result-tv)
                  $out))
-              $out
+              (STV 1.0 1.0)
               cpu))
         ((FoldAll $pattern $value $init $fun -> $out)
            (bundle-from-execs
@@ -160,18 +159,15 @@
               $prfa))
         (($rel $a $b)
            (if (is-member $rel (GreaterThan >))
-              (if (is-expr $b)
+              (if (is-var $b)
                  (bundle-from-execs
-                    ((: ($kb $ctx $vars) $prfa $a $tv_a)
-                       (: ($kb $ctx $vars) $prfb $b $tv_b)
-                       (CPU DistGreaterThanDistFormula ($tv_a $tv_b) $tv))
+                    ((CPU DistGreaterThanDistFormula ($a $b) $tv))
                     $tv
-                    (rule-proof conjunction $prfa $prfb))
+                    cpu)
                  (bundle-from-execs
-                    ((: ($kb $ctx $vars) $prfa $a $tv_a)
-                       (CPU DistGreaterThanFormula ($tv_a $b) $tv))
+                    ((CPU DistGreaterThanFormula ($a $b) $tv))
                     $tv
-                    $prfa))
+                    cpu))
               (bundle-from-execs ((: ($kb $ctx $vars) $prf ($rel $a $b) $tv)) $tv $prf)))
         ($other
            (bundle-from-execs ((: ($kb $ctx $vars) $prf $other $tv)) $tv $prf))))))
@@ -335,8 +331,10 @@
 
 (= (externalize-proof-structure $term)
    (if (is-var $term) $term
-      (if (= $term ($type ($kbid $ctx $vars) $prf $tv))
-         (: ($kbid $ctx $vars) $prf $type $tv)
+      (if (= $term ($type $kb $prf $tv))
+         (if (and (is-expr $kb) (= $kb ($kbid $ctx $vars)))
+            (: ($kbid $ctx $vars) $prf $type $tv)
+            $term)
          (if (is-expr $term)
             (cons (externalize-proof-structure (car-atom $term))
                (externalize-proof-structure-list (cdr-atom $term)))

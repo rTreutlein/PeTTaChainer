@@ -101,14 +101,14 @@
       ($id
          (: (kb $ctx $vars) (foldValueShapeRule cpu) (ScoreDist $dist) $tv)
          ((CPU FoldAllCompiled $call $dist)
-            (CPU MpFormula ((STV 1.0 1.0) $dist) $tv)))
+            (CPU MpFormula ((STV 1.0 1.0) (STV 1.0 1.0)) $tv)))
       ok)
    ())
 
 !(compileadd kb
    (: avgShapeRule
       (Implication
-         (Premises (AverageDist (ScoreDistSrc $name) -> $avgDist))
+         (Premises (AverageDist (ScoreDistSrc $name $srcDist) $srcDist -> $avgDist))
          (Conclusions (AvgScoreDist $avgDist)))
       (STV 1.0 1.0)))
 
@@ -117,7 +117,7 @@
       ($id
          (: (kb $ctx $vars) (avgShapeRule cpu) (AvgScoreDist $avgDist) $tv)
          ((CPU FoldAllCompiled $call $avgDist)
-            (CPU MpFormula ((STV 1.0 1.0) $avgDist) $tv)))
+            (CPU MpFormula ((STV 1.0 1.0) (STV 1.0 1.0)) $tv)))
       ok)
    ())
 

@@ -150,28 +150,30 @@ Two forms are supported:
 - Distribution vs numeric threshold:
 
 ```metta
-(GreaterThan (CntKidIn $room) 1)
+(CntKidIn $room $cnt)
+(GreaterThan $cnt 1)
 ```
 
-Compiled to `DistGreaterThanFormula` over the distribution TV.
+Compiled to `DistGreaterThanFormula` over the bound distribution value.
 
 - Distribution vs distribution (compile sugar):
 
 ```metta
-(GreaterThan (CountryHeightDist countryA)
-             (CountryHeightDist countryB))
+(CountryHeightDist countryA $distA)
+(CountryHeightDist countryB $distB)
+(GreaterThan $distA $distB)
 ```
 
 Compiled to `DistGreaterThanDistFormula`.
 
 ### 6) MapDist / Map2Dist / AverageDist
 
-Distribution helper premises (TV-based, LLM-friendly):
+Distribution helper premises with explicit value binders:
 
 ```metta
-(MapDist f (DistFactA ...) -> $outDist)
-(Map2Dist f (DistFactA ...) (DistFactB ...) -> $outDist)
-(AverageDist (DistFactPattern ...) -> $outDist)
+(MapDist f (DistFactA ... $inDist) $inDist -> $outDist)
+(Map2Dist f (DistFactA ... $distA) $distA (DistFactB ... $distB) $distB -> $outDist)
+(AverageDist (DistFactPattern ... $inDist) $inDist -> $outDist)
 ```
 
 - `MapDist` compiles to `DistMapFormula`.
@@ -235,18 +237,19 @@ For dist-vs-dist comparisons, confidence is the minimum of both sides.
 
 ```metta
 !(compileadd kb (: countryHeightA
-    (CountryHeightDist countryA)
-    (ParticleFromPairs ((170 0.5) (180 0.5)))))
+    (CountryHeightDist countryA (ParticleFromPairs ((170 0.5) (180 0.5))))
+    (STV 1.0 1.0)))
 
 !(compileadd kb (: countryHeightB
-    (CountryHeightDist countryB)
-    (ParticleFromPairs ((175 1.0)))))
+    (CountryHeightDist countryB (ParticleFromPairs ((175 1.0))))
+    (STV 1.0 1.0)))
 
 !(compileadd kb (: compareHeightsRule
     (Implication
         (Premises
-            (GreaterThan (CountryHeightDist countryA)
-                         (CountryHeightDist countryB)))
+            (CountryHeightDist countryA $distA)
+            (CountryHeightDist countryB $distB)
+            (GreaterThan $distA $distB))
         (Conclusions
             (Taller countryA countryB)))
     (STV 1.0 1.0)))
@@ -257,27 +260,27 @@ For dist-vs-dist comparisons, confidence is the minimum of both sides.
 ## Example: Average Height Distribution in a Group
 
 This example computes average height distributions via a rule and queries the derived fact.
-Each person height is stored as a distribution TV.
+Each person height stores the distribution in the term, while the `tv` slot remains `STV`.
 
 ```metta
 !(compileadd kb (: group1 (Group g1) (STV 1.0 1.0)))
-!(compileadd kb (: hd11 (HeightDist g1 alice) (PointMass 160.0)))
-!(compileadd kb (: hd12 (HeightDist g1 bob) (PointMass 170.0)))
-!(compileadd kb (: hd13 (HeightDist g1 carol) (PointMass 180.0)))
+!(compileadd kb (: hd11 (HeightDist g1 alice (PointMass 160.0)) (STV 1.0 1.0)))
+!(compileadd kb (: hd12 (HeightDist g1 bob (PointMass 170.0)) (STV 1.0 1.0)))
+!(compileadd kb (: hd13 (HeightDist g1 carol (PointMass 180.0)) (STV 1.0 1.0)))
 
 !(compileadd kb (: avgHeightDistG1Rule
     (Implication
         (Premises
             (Group g1)
-            (AverageDist (HeightDist g1 $person) -> $avgDist))
+            (AverageDist (HeightDist g1 $person $heightDist) $heightDist -> $avgDist))
         (Conclusions
-            (AvgHeightDist g1)))
+            (AvgHeightDist g1 $avgDist)))
     (STV 1.0 1.0)))
 
 !(query 10 kb
     (: (avgHeightDistG1Rule (conjunction group1 cpu))
-       (AvgHeightDist g1)
-       $avgDist))
+       (AvgHeightDist g1 $avgDist)
+       $tv))
 ```
 
 ## Example: Rectangle Area Distribution
@@ -285,21 +288,27 @@ Each person height is stored as a distribution TV.
 Area is the product of length and width distributions, derived through a rule.
 
 ```metta
-!(compileadd kb (: lenA (LengthDist rectA) (ParticleFromNormal 10.0 1.0)))
-!(compileadd kb (: widA (WidthDist rectA) (ParticleFromNormal 5.0 0.5)))
+!(compileadd kb (: lenA (LengthDist rectA (ParticleFromNormal 10.0 1.0)) (STV 1.0 1.0)))
+!(compileadd kb (: widA (WidthDist rectA (ParticleFromNormal 5.0 0.5)) (STV 1.0 1.0)))
 
 !(compileadd kb (: areaDistRule
     (Implication
         (Premises
             (Rectangle $rect)
-            (Map2Dist * (LengthDist $rect) (WidthDist $rect) -> $areaDist))
+            (Map2Dist *
+               (LengthDist $rect $lengthDist)
+               $lengthDist
+               (WidthDist $rect $widthDist)
+               $widthDist
+               ->
+               $areaDist))
         (Conclusions
-            (AreaDist $rect)))
+            (AreaDist $rect $areaDist)))
     (STV 1.0 1.0)))
 
 !(compileadd kb (: rA (Rectangle rectA) (STV 1.0 1.0)))
 
-!(query 120 kb (: $prf (AreaDist rectA) $areaDist))
+!(query 120 kb (: $prf (AreaDist rectA $areaDist) $tv))
 ```
 
 ## Notes

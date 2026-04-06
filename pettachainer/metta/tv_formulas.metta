@@ -1,15 +1,10 @@
 (= (MpFormula (STV $abs $abc) (STV $as $ac)) (STV (* $abs $as) (* 0.9 (min $abc $ac))))
-(= (MpFormula (STV $abs $abc) (ParticleDist $pid $scale))
-   (ParticleDist $pid (* $scale (tv-probability (STV $abs $abc)))))
 
 (= (AndFormula (STV $si $ci) (STV $sa $ca))
    (let*
       (($sb (min $si $sa))
         ($cb (min $ci $ca)))
       (STV $sb $cb)))
-(= (AndFormula (STV $s $c) (ParticleDist $pid $scale))
-   (ParticleDist $pid (* $scale (tv-probability (STV $s $c)))))
-(= (AndFormula (ParticleDist $pid $scale) (STV $s $c)) (STV $s $c))
 
 (= (OrFormula (STV $si $ci) (STV $sa $ca))
    (let*
