@@ -72,8 +72,9 @@
 
 (= (compound-premise-bundle $kb $ctx $vars $head $tail)
    (let*
-      (((cons (@ $fst (prem $fstgoal $fstelem $fsttv $fstprf)) $rst) (map-flat (in_map $kb) $tail))
-        ($init (($fstgoal) (: $kb ($fstprf) ($fstelem) $fsttv)))
+      (($prem-kb (if (or (is-var $ctx) (is-var $vars)) (kbctx $kb) ($kb $ctx $vars)))
+        ((cons (@ $fst (prem $fstgoal $fstelem $fsttv $fstprf)) $rst) (map-flat (in_map $prem-kb) $tail))
+        ($init (($fstgoal) (: $prem-kb ($fstprf) ($fstelem) $fsttv)))
         (($resNNprms (: $kb $cclprf $ccltype $ccltv))
            (fold-flat (in_fold (atom_concat $head Formula)) $init $rst))
         (($execs $rcclprf $rccltype) ((reverse $resNNprms) (reverse $cclprf) (reverse $ccltype)))

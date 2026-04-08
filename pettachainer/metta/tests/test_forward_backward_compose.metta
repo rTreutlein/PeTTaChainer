@@ -56,3 +56,23 @@
 !(compileadd independentKb (: rc (Implication (Premises (A) (B)) (Conclusions (C))) (STV 1.0 1.0)))
 
 !(test (not (== (collapse (query 100 independentKb (: $p (C) $tv))) ())) true)
+
+!(compileadd derivedAndRuleKb (: yearsRule (Implication (Premises (YearsExp $p 10)) (Conclusions (IndustryVeteran $p))) (STV 1.0 1.0)))
+
+!(compileadd derivedAndRuleKb (: expertRule (Implication (Premises (And (IndustryVeteran $p) (ManagedTeam $p))) (Conclusions (Expert $p))) (STV 1.0 0.95)))
+
+!(compileadd derivedAndRuleKb (: seniorRule (Implication (Premises (And (Expert $p) (CertifiedEthical $p))) (Conclusions (SeniorExpert $p))) (STV 1.0 1.0)))
+
+!(compileadd derivedAndRuleKb (: yearsFact (YearsExp kebede 10) (STV 1.0 1.0)))
+
+!(compileadd derivedAndRuleKb (: mgmtFact (ManagedTeam kebede) (STV 1.0 1.0)))
+
+!(compileadd derivedAndRuleKb (: ethicsFact (CertifiedEthical kebede) (STV 1.0 1.0)))
+
+!(test
+   (not (== (collapse (query 50 derivedAndRuleKb (: $p (Expert kebede) $tv))) ()))
+   true)
+
+!(test
+   (not (== (collapse (query 50 derivedAndRuleKb (: $p (SeniorExpert kebede) $tv))) ()))
+   true)
