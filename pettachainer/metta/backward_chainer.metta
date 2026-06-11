@@ -122,7 +122,7 @@
        ($agenda1
           (fold-flat (|-> ($acc $pid) (advance-frontier-waiter-heap $acc $waiter $pid))
              $agenda
-             (goal-live-proof-ids $gid)))
+             (goal-merged-proof-ids $gid)))
        ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
       $nagenda))
 
