@@ -56,9 +56,13 @@
 (= (BaseRateAcc (BaseRateEvidence $wsum $csum) (CTV $pos $_neg))
    (BaseRateAcc (BaseRateEvidence $wsum $csum) $pos))
 
+(= (evidence-confidence-k) 800.0)
+
+(= (count-confidence $n) (/ $n (+ $n (evidence-confidence-k))))
+
 (= (BaseRateTv (BaseRateEvidence $wsum $csum))
    (if (<= $csum 0.0) no-evidence
-      (STV (/ $wsum $csum) (/ $csum (+ $csum 1.0)))))
+      (STV (/ $wsum $csum) (count-confidence $csum))))
 
 (= (CTVInversionFormula no-evidence $_btv $_itv) (empty))
 (= (CTVInversionFormula (STV $_sa $_ca) no-evidence $_itv) (empty))

@@ -162,3 +162,10 @@
         ((bi-backward a_iff_b) (ctx proof 17)))
       (BiImplication (Premises (A)) (Conclusions (B)))
       (STV 1.0 1.0)))
+
+!(test
+   (query 60 implicationPremiseKb
+      (: $prf (Implication (Premises (A)) (Conclusions (B))) (STV 1.0 1.0)))
+   (: (total-implication (a_b (ctx proof 18)) (a_b (ctx proof 19)))
+      (Implication (Premises (A)) (Conclusions (B)))
+      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))

@@ -84,9 +84,15 @@
 (= (cpu-premise-tv-formula $f)
    (is-member $f (() NotFormula DistGreaterThanFormula DistGreaterThanDistFormula)))
 
-(= (cpu-premise-tv FoldAllCompiled $_args $_res) (STV 1.0 1.0))
-(= (cpu-premise-tv GroupedFoldAllCompiled $_args $_res) (STV 1.0 1.0))
-(= (cpu-premise-tv $f $args $res) (if (cpu-premise-tv-formula $f) $res (STV 1.0 1.0)))
+(= (aggregate-args-tv-mode $args)
+   (if (= $args ($_kb $_pattern $_extractor $_init $_fun $_finish $tv-mode)) $tv-mode
+      (if (= $args ($_gkb $_gpattern $_group $_gextractor $_ginit $_gfun $_gfinish $gtv-mode)) $gtv-mode
+         unit-stv)))
+
+(= (cpu-premise-tv $f $args $res)
+   (if (is-member $f (FoldAllCompiled GroupedFoldAllCompiled))
+      (if (== (aggregate-args-tv-mode $args) result-tv) $res (STV 1.0 1.0))
+      (if (cpu-premise-tv-formula $f) $res (STV 1.0 1.0))))
 
 (= (source-premise-kb $kb $ctx $vars)
    (if (or (is-var $ctx) (is-var $vars)) (kbctx $kb) ($kb $ctx $vars)))
@@ -605,8 +611,9 @@
 (= (implication-query-known-tv-parts $tv)
    (if (is-var $tv)
       (implication-query-tv-parts $pos-tv $neg-tv (CTV $pos-tv $neg-tv))
-      (let (CTV $pos-tv $neg-tv) $tv
-         (implication-query-tv-parts $pos-tv $neg-tv $tv))))
+      (if (= $tv (CTV $pos-tv $neg-tv))
+         (implication-query-tv-parts $pos-tv $neg-tv $tv)
+         (implication-query-tv-parts $tv $stv-neg-tv (CTV $tv $stv-neg-tv)))))
 
 (= (compileQuery $kb (: $prf $Type $tv))
    (if (is-var $Type) ((() |- ((: (kbctx $kb) $prf $Type $tv))) ())

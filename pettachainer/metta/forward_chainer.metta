@@ -59,9 +59,10 @@
 
 (= (forward-new-query-scope $kb) (fwd_query_scope $kb (forward-next-query-run-gen $kb)))
 
-(= (mark-forward-agenda-dirty ($type ($kbid MAIN Nil) $_prf $_tv))
-   (forward-set-agenda-dirty $kbid true))
-(= (mark-forward-agenda-dirty $_expr) ())
+(= (mark-forward-agenda-dirty $expr)
+   (if (= $expr ($_type ($kbid MAIN Nil) $_prf $_tv))
+      (forward-set-agenda-dirty $kbid true)
+      ()))
 
 (= (forward-fact-key ($type ($kbid $ctx $vars) $_prf $_tv)) (($kbid $ctx $vars) $type))
 (= (forward-fact-kb ($type ($kbid $_ctx $_vars) $_prf $_tv)) $kbid)
@@ -178,9 +179,10 @@
                   (forward-loop $next-steps $kb $nagenda))
                (forward-loop $steps $kb $rest))))))
 
-(= (forward-target-type (: $_name $type $_tv)) $type)
-(= (forward-target-type ($_type ($_kbid $_ctx $_vars) $_prf $_tv)) $_type)
-(= (forward-target-type $type) $type)
+(= (forward-target-type $target)
+   (if (= $target (: $_name $type $_tv)) $type
+      (if (= $target ($fact-type ($_kbid $_ctx $_vars) $_prf $_fact-tv)) $fact-type
+         $target)))
 
 (= (forward-select-fact $kb $target)
    (let*

@@ -8,8 +8,8 @@
 
 (= (proof-output-atom $pid) (match &proof ($pid $_gid $output $_kind $_score $_ev $_children) $output))
 
-(= (candidate-output-key ($type $kb $_prf $_tv)) ($type $kb))
-(= (candidate-output-key $term) $term)
+(= (candidate-output-key $term)
+   (if (= $term ($type $kb $_prf $_tv)) ($type $kb) $term))
 
 (= (proof-output-key-by-id $pid)
    (candidate-output-key (proof-output-atom $pid)))
@@ -185,9 +185,9 @@
                (goal-live-cache-remove! $gid $pids)
                (goal-live-cache-store! $gid $npids))))))
 
-(= (aggregate-current-pid-live? () $_pid) false)
 (= (aggregate-current-pid-live? $current-pid $pid)
-   (if (is-expr $current-pid) (is-member $pid $current-pid) (== $current-pid $pid)))
+   (if (== $current-pid ()) false
+      (if (is-expr $current-pid) (is-member $pid $current-pid) (== $current-pid $pid))))
 
 (= (proof-live-compute $pid)
    (let*
