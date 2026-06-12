@@ -199,10 +199,11 @@
    (append (proof-term-evidence-list-mode $mode $left) (proof-term-evidence-list-mode $mode $right)))
 (= (proof-term-evidence-list-mode $mode $prf)
    (if (is-var $prf) ()
-      (if (proof-term-negated? $prf)
-         (evidence-negate-list (proof-term-evidence-list-mode $mode (car-atom (cdr-atom $prf))))
-         (let $children (proof-term-children-mode $mode $prf)
-            (if (== $children ()) (cons $prf ()) (proof-term-evidence-children-mode $mode $children))))))
+      (if (assumption-proof? $prf) ()
+         (if (proof-term-negated? $prf)
+            (evidence-negate-list (proof-term-evidence-list-mode $mode (car-atom (cdr-atom $prf))))
+            (let $children (proof-term-children-mode $mode $prf)
+               (if (== $children ()) (cons $prf ()) (proof-term-evidence-children-mode $mode $children)))))))
 
 (= (proof-term-evidence-list $prf) (once (proof-term-evidence-list-mode proof-walk-plain $prf)))
 
@@ -210,6 +211,14 @@
    (list_to_set (once (proof-term-evidence-list-mode proof-walk-in-kb $prf))))
 
 (= (evidence-sets-overlap? $set-a $set-b) (not (== (intersection-atom $set-a $set-b) ())))
+
+(= (fact-evidence-only-step $acc $entry)
+   (if (= $entry (rule-ev $_kb $_name)) $acc (append $acc ($entry))))
+
+(= (fact-evidence-only $ev) (fold-flat fact-evidence-only-step () $ev))
+
+(= (premise-evidence-overlap? $seen $pev)
+   (evidence-sets-overlap? (fact-evidence-only $seen) (fact-evidence-only $pev)))
 
 (= (evidence-subset? $set-a $set-b) (== (subtraction-atom $set-a $set-b) ()))
 

@@ -182,3 +182,33 @@ knowledge base in `&base_rate_cache`:
 invalidation.
 
 Removed along with the construct: `contains-hash?`, the hash-to-variable rewriting in `direct-goal-results-view`, the `wildcard_premise_index`/`wildcard_premise_context` stores and their lookup path, and the hash special cases in `open-rule-goal?`, `materializable-proof-output?`, and `leaf-evidence-for-result`.
+
+## Evidence Semantics
+
+Evidence sets exist to keep revision honest: proofs merge as independent only
+when they share no support. Two refinements make that the invariant
+"evidence = unmarked knowledge-base statements actually used":
+
+1. **Hypotheses are not evidence.** The assumed context premises that
+   implication queries inject (`(ctx proof N)` tokens) define the conditional
+   being computed; every branch under the hypothesis shares them by
+   construction. They are excluded from stored evidence and from proof-term
+   evidence walks, so two derivation branches that share only the hypothesis
+   revision-merge. This is what makes the fact-level and implication-level
+   representations of the same deduction agree (see
+   `examples/deductionrevision_*.metta`).
+2. **Unmarked implications are evidence.** Applying a compiled implication
+   adds `(rule-ev $kbid $name)` to the conclusion's evidence, so derivations
+   sharing an uncertain implication are treated as dependent (dominance, not
+   revision). Rules that are part of the logic itself — deduction schemas,
+   transitivity axioms — are declared with `(mark-logic-rule $name)` and add
+   no evidence; engine-generated rules (total implication, query compounds,
+   context assumptions, inverse scaffolding) are implicitly logic. Inverse
+   and bidirectional applications resolve to the underlying implication name.
+
+`rule-ev` entries participate in revision independence and dominance but are
+filtered out of the frontier conjunction guard: the positive and negative
+branches of a total-implication query legitimately invoke the same rule, and
+chained applications of one rule remain allowed.
+
+`tests/test_evidence_semantics.metta` pins both behaviors.

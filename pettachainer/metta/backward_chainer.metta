@@ -100,7 +100,7 @@
    (if (not (waiter-live? (frontier-waiter $parent-gid $bundle $score $seen $rev-pids))) $agenda
       (let*
          ((($pscore $pev) (proof-stats-by-id $pid))
-          ($overlap (evidence-sets-overlap? $seen $pev))
+          ($overlap (premise-evidence-overlap? $seen $pev))
           ($next-bundle (advance-frontier-bundle (copy_term $bundle) $pid)))
          (if $overlap $agenda
             (if (== $next-bundle ()) $agenda

@@ -564,6 +564,22 @@
       (if (is-var $b) (empty) (compile-outputs (: $adapter-kb ($prf $prfb) $b $btv2)))
       (if (is-var $a) (empty) (compile-adapter-chain plain (: $adapter-kb $prfa $a $atv))))))
 
+(= (rule-evidence-base-name $prf)
+   (if (= $prf (bi-forward $fwd)) $fwd
+      (if (= $prf (bi-backward $bwd)) $bwd
+         (if (= $prf (no_inverse $inner)) $inner
+            $prf))))
+
+(= (rule-evidence-registered? $kbid $name)
+   (not (== (collapse (once (match &rule_evidence_names ($kbid $name) true))) ())))
+
+(= (register-rule-evidence! $kb $prf)
+   (let $name (rule-evidence-base-name $prf)
+      (if (is-expr $name) ()
+         (if (logic-rule? $name) ()
+            (if (rule-evidence-registered? $kb $name) ()
+               (add-atom &rule_evidence_names ($kb $name)))))))
+
 (= (base-rate-premise $kb $pattern $brtv)
    (CPU FoldAllCompiled
       ($kb $pattern extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)
@@ -586,7 +602,8 @@
    (if (is-var $Type) (empty)
       (if (= $Type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
          (let*
-            (($plan (build-implication-plan $kb $prf $premises $conclusions))
+            (($_evidence-reg (register-rule-evidence! $kb $prf))
+             ($plan (build-implication-plan $kb $prf $premises $conclusions))
 	              ((compiled-implication $shape-kb $a $b $nb $na $skip-inverse $execs $proofs $atv) $plan))
 	            (superpose (
 	                 (compile-implication-forward-rules $shape-kb (kbctx $kb) $prf $tv $a $b $execs $proofs $atv)

@@ -339,9 +339,13 @@
    (let $current (goal-current-output $gid)
       (if (== $current no-current) no-current (term-confidence $current))))
 
+(= (assumption-proof? $prf)
+   (if (is-expr $prf) (== (car-atom $prf) ctx) false))
+
 (= (leaf-evidence-for-result $result)
    (if (= $result ($type ($kbid $_ctx $_vars) $prf $_tv))
-      ((fact-ev ($kbid $_ctx $_vars) $prf $type))
+      (if (assumption-proof? $prf) ()
+         ((fact-ev ($kbid $_ctx $_vars) $prf $type)))
       ()))
 
 (= (proof-overlap-dominates-score? $old-ev $old-score $new-ev $new-score)
@@ -369,11 +373,36 @@
       true
       (goal-live-proof-ids $gid))))
 
-(= (proof-candidate-stored-evidence (proof-candidate (rule ($_type $_kb $prf $_tv)) $_score $ev $_children))
-   (if (proof-term-contains-negated? $prf)
-      (list_to_set (once (proof-term-evidence-list-mode proof-walk-in-kb $prf)))
+(= (rule-evidence-head $prf)
+   (if (is-expr $prf)
+      (let $head (car-atom $prf)
+         (if (is-expr $head)
+            (if (= $head (inverted $inv with $_pa $_pb)) $inv
+               (if (= $head (bi-forward $fwd)) $fwd
+                  (if (= $head (bi-backward $bwd)) $bwd
+                     (if (= $head (no_inverse $inner)) $inner $head))))
+            $head))
+      $prf))
+
+(= (rule-application-evidence $kb $prf)
+   (if (= $kb ($kbid $_ctx $_vars))
+      (let $name (rule-evidence-head $prf)
+         (if (is-expr $name) ()
+            (if (rule-evidence-registered? $kbid $name)
+               ((rule-ev $kbid $name))
+               ())))
+      ()))
+
+(= (proof-candidate-stored-evidence (proof-candidate $kind $score $ev $children))
+   (if (= $kind (rule ($_type $kb $prf $_tv)))
+      (let*
+         (($base
+             (if (proof-term-contains-negated? $prf)
+                (list_to_set (once (proof-term-evidence-list-mode proof-walk-in-kb $prf)))
+                $ev))
+          ($rule-ev (rule-application-evidence $kb $prf)))
+         (if (== $rule-ev ()) $base (list_to_set (append $base $rule-ev))))
       $ev))
-(= (proof-candidate-stored-evidence (proof-candidate $_kind $_score $ev $_children)) $ev)
 
 (= (normalize-proof-candidate-evidence (proof-candidate $kind $score $ev $children))
    (proof-candidate $kind $score
