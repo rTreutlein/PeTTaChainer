@@ -45,25 +45,14 @@
       (Implication (Premises (A)) (Conclusions (B)))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(compileadd openHashImplicationKb (: r2 (Implication (Premises (A)) (Conclusions (C))) (CTV (STV 1.0 0.5) (STV 0.0 1.0))))
-
-!(compileadd openHashImplicationKb (: r3 (Implication (Premises (C)) (Conclusions (B))) (CTV (STV 1.0 0.5) (STV 0.0 1.0))))
-
-!(test
-   (query 100 openHashImplicationKb
-      (: $p (Implication (Premises (#)) (Conclusions (B))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-   (: (total-implication (ctx proof 4) (ctx proof 5))
-      (Implication (Premises (#)) (Conclusions (B)))
-      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-
-!(compileadd openHashPatternImplicationKb
+!(compileadd openVariablePatternImplicationKb
    (: featureRule (Implication (Premises (Feature a)) (Conclusions (Target))) (CTV (STV 1.0 0.5) (STV 0.0 1.0))))
 
 !(test
-   (query 100 openHashPatternImplicationKb
-      (: $p (Implication (Premises (Feature #)) (Conclusions (Target))) (CTV (STV 1.0 0.5) (STV 0.0 1.0))))
-   (: (total-implication (featureRule (ctx proof 6)) (featureRule (ctx proof 7)))
-      (Implication (Premises (Feature #)) (Conclusions (Target)))
+   (query 100 openVariablePatternImplicationKb
+      (: $p (Implication (Premises (Feature $x)) (Conclusions (Target))) (CTV (STV 1.0 0.5) (STV 0.0 1.0))))
+   (: (total-implication (featureRule (ctx proof 4)) (featureRule (ctx proof 5)))
+      (Implication (Premises (Feature a)) (Conclusions (Target)))
       (CTV (STV 1.0 0.5) (STV 0.0 1.0))))
 
 !(compileadd openVariableConclusionImplicationKb (: tallAlice (Tall alice) (STV 0.9 0.5)))
@@ -98,7 +87,7 @@
       (: $proof
          (Implication (Premises ($p $x)) (Conclusions ($p $x)))
          (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-   (: (total-implication (ctx proof 12) (ctx proof 13))
+   (: (total-implication (ctx proof 10) (ctx proof 11))
       (Implication (Premises ($_p $_x)) (Conclusions ($_p $_x)))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 

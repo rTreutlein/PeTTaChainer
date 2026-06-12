@@ -1,0 +1,99 @@
+libPLN and PeTTaChainer representation examples: one example per difference.
+1. Belief wrapper
+libPLN:
+(Sentence ((Inheritance Anna (IntSet smokes)) (stv 1.0 0.9)) (9))
+PeTTaChainer:
+!(compileadd kb (: smokesAnna (Smokes Anna) (STV 1.0 0.9)))
+2. Unary predicate vs IntSet membership
+libPLN:
+(Inheritance Edward (IntSet smokes))
+PeTTaChainer:
+(Smokes Edward)
+3. Binary relation vs Product inheritance
+libPLN:
+(Inheritance (Product Anna Edward) friend)
+PeTTaChainer:
+(Friend Anna Edward)
+
+4. Class/type relation
+libPLN:
+(Inheritance Sam Raven)
+PeTTaChainer options:
+(Inheritance Sam Raven)
+(Raven Sam)
+
+5. Multi-premise rule
+libPLN:
+(Implication (Inheritance (Product $1 $2) friend)
+  (Implication (Inheritance $1 (IntSet smokes))
+    (Inheritance $2 (IntSet smokes))))
+PeTTaChainer:
+(Implication
+  (Premises (Friend $x $y) (Smokes $x))
+  (Conclusions (Smokes $y)))
+
+6. Rule truth value
+libPLN:
+((Implication A B) (stv 0.6 0.9))
+PeTTaChainer:
+(: ruleAB (Implication (Premises A) (Conclusions B))
+   (CTV (STV 0.6 0.9) (STV 0.0 1.0)))
+
+7. Query shape
+libPLN:
+(PLN.Query (kb) (Inheritance Edward (IntSet cancerous)))
+PeTTaChainer:
+(query 40 kb (: $proof (Cancerous Edward) $tv))
+
+8. Query result shape
+libPLN:
+((stv 0.6 0.486) (2 10))
+PeTTaChainer:
+(: (smokingCancerRule smokesEdward) (Cancerous Edward) (STV 0.6 0.9))
+
+9. Negation
+libPLN:
+(Sentence ((Not (Inheritance Penguin Car)) (stv 0.99 0.9)) (5))
+PeTTaChainer:
+(: notCarPenguin (Not (Car Penguin)) (STV 0.99 0.9))
+
+10. Predicate as object / Evaluation
+libPLN:
+(Evaluation (Predicate IsFat) (List (Concept Tom)))
+PeTTaChainer direct:
+(IsFat Tom)
+PeTTaChainer reified, if the predicate itself must be passed to rules:
+(Evaluation (Predicate IsFat) (List (Concept Tom)))
+
+11. Member
+libPLN:
+(Member (Concept Tom) (Concept SpeciesA))
+PeTTaChainer possible direct form:
+(Member Tom SpeciesA)
+
+12. Equivalence
+libPLN:
+(Equivalence Thunder Donner)
+PeTTaChainer possible stored form:
+(Equivalence Thunder Donner)
+PeTTaChainer possible lowering:
+(Implication (Premises Thunder) (Conclusions Donner))
+(Implication (Premises Donner) (Conclusions Thunder))
+
+13. Similarity
+libPLN:
+(Similarity A B)
+PeTTaChainer:
+(Similarity A B)
+
+14. Numeric value uncertainty
+libPLN: no matching distribution-TV example found locally.
+PeTTaChainer:
+(HeightDist g1 bob (ParticleFromNormal 170.0 2.0))
+(GreaterThan $dist 1)
+
+15. Compound/open query
+libPLN:
+(PLN.Query (kb) (Inheritance $label bring))
+PeTTaChainer:
+(query 40 kb (: $proof (Bring $x) $tv))

@@ -42,15 +42,16 @@
                   (let (STV $s $c) (normalize-expected-tv $a) (STV (- 1 $s) $c)))))
          (if (== $fun CTVInversionFormula)
             (let*
-               ((($a $ctv) $args)
+               ((($a $b $ctv) $args)
                  ($na (normalize-expected-tv $a))
+                 ($nb (normalize-expected-tv $b))
                  ($nctv (normalize-expected-tv $ctv))
                  ($res
-                    (if (is-var $a)
+                    (if (or (is-var $a) (is-var $b))
                        (CTV
-                          (STV 1.0 (* (min (tv-confidence $na) (tv-confidence $nctv)) 0.9))
-                          (STV 1.0 (* (min (tv-confidence $na) (tv-confidence $nctv)) 0.9)))
-                       (reduce (reduce (cons $fun ($na $nctv)))))))
+                          (STV 1.0 (* (min-atom ((tv-confidence $na) (tv-confidence $nb) (tv-confidence $nctv))) 0.9))
+                          (STV 1.0 (* (min-atom ((tv-confidence $na) (tv-confidence $nb) (tv-confidence $nctv))) 0.9)))
+                       (reduce (reduce (cons $fun ($na $nb $nctv)))))))
                $res)
             ())))))
 
@@ -151,7 +152,6 @@
       (add-atom $space $expr)
       (empty)))
 
-(= (contains-hash? $x) (fold-nested (|-> ($acc $elem) (or (== $elem #) $acc)) false $x))
 
 (= (next-search-id $key)
    (let*
@@ -166,17 +166,6 @@
 (= (cpu-call $_steps $fun $args) (reduce (reduce (cons $fun $args))))
 
 (= (proof-stats-by-id $pid) (match &proof ($pid $_gid $_output $_kind $score $ev $_children) ($score $ev)))
-
-(= (proof-tree-contains-list () $needle) false)
-(= (proof-tree-contains-list (cons $head $tail) $needle)
-   (or (proof-tree-contains $head $needle) (proof-tree-contains-list $tail $needle)))
-
-(= (proof-tree-contains $tree $needle)
-   (let*
-      (($ptree (if (= $tree (proof-ref $ptreeid)) (materialize-proof $ptreeid) $tree))
-        ($pneedle (if (= $needle (proof-ref $pneedleid)) (materialize-proof $pneedleid) $needle)))
-      (if (== $ptree $pneedle) true
-         (if (is-expr $ptree) (proof-tree-contains-list (cdr-atom $ptree) $pneedle) false))))
 
 (= (proof-term-leaf-head? $head) (is-member $head (() fact-ev CPU STV CTV)))
 
@@ -236,16 +225,11 @@
 (= (merge-proof-atoms $proof-a $proof-b)
    (if (== $proof-a $proof-b) $proof-a
       (let*
-         ((($_typea $_kba $prfa $_tva) $proof-a)
-           (($_typeb $_kbb $prfb $_tvb) $proof-b))
-         (if $proof-a (and (= $prfa (merge/revision $_la $_ra)) (proof-tree-contains $prfa $prfb))
-            (if $proof-b (and (= $prfb (merge/revision $_lb $_rb)) (proof-tree-contains $prfb $prfa))
-               (let*
-                  (($ev-a (proof-atom-evidence-set $proof-a))
-                    ($ev-b (proof-atom-evidence-set $proof-b))
-                    ($overlap? (evidence-sets-overlap? $ev-a $ev-b)))
-                  (if $overlap?
-                     (if (>= (term-confidence $proof-a) (term-confidence $proof-b)) $proof-a $proof-b)
-                     (if (>= (term-confidence $proof-a) (term-confidence $proof-b))
-                        (RevisionMergeProof $proof-a $proof-b)
-                        (RevisionMergeProof $proof-b $proof-a)))))))))
+         (($ev-a (proof-atom-evidence-set $proof-a))
+           ($ev-b (proof-atom-evidence-set $proof-b))
+           ($overlap? (evidence-sets-overlap? $ev-a $ev-b)))
+         (if $overlap?
+            (if (>= (term-confidence $proof-a) (term-confidence $proof-b)) $proof-a $proof-b)
+            (if (>= (term-confidence $proof-a) (term-confidence $proof-b))
+               (RevisionMergeProof $proof-a $proof-b)
+               (RevisionMergeProof $proof-b $proof-a))))))

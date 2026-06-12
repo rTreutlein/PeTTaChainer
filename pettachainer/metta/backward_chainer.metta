@@ -76,6 +76,7 @@
 
 (= (aggregate-finish identity $acc) $acc)
 (= (aggregate-finish dist-average $acc) (reduce (reduce (DistAverageFromSumCount $acc))))
+(= (aggregate-finish base-rate $acc) (BaseRateTv $acc))
 
 (= (make-and-bundle $goal $args) (cons and-bundle (cons $goal $args)))
 (= (and-bundle-goal $bundle) (car-atom (cdr-atom $bundle)))
@@ -145,72 +146,69 @@
 (= (aggregate-args-grouped? $args)
    (if (= $args ($_kb $_pattern $_group $_extractor $_init $_fun $_finish $_tv-mode)) true false))
 
-(= (aggregate-proof-key ($type ($kbid $ctx $vars) $_prf $_tv)) (($kbid $ctx $vars) $type))
-(= (aggregate-proof-key $child-atom) $child-atom)
-
-(= (aggregate-proof-fold-step $args (aggregate-state $acc $ev $seen $children) $pid)
+(= (aggregate-proof-fold-step $args (aggregate-state $acc $ev $children) $pid)
    (let*
       ((($_agg-kb $_agg-pattern $extractor $_agg-init $fun $_agg-finish $_agg-tv-mode) (copy_term $args))
        ($child-atom (proof-output-atom $pid))
-       ($child-key (aggregate-proof-key $child-atom))
        (($_pscore $pev) (proof-stats-by-id $pid))
-       ($child-tv (if (= $child-atom ($_type $_kb $_prf $tv)) $tv no-tv)))
-      (if (is-member $child-key $seen) (aggregate-state $acc $ev $seen $children)
-         (let*
-            (($nacc (aggregate-foldall-step-acc $extractor $fun $acc $child-atom $child-tv))
-             ($nev (list_to_set (append $ev $pev)))
-             ($nseen (cons $child-key $seen))
-             ($nchildren (append $children ($pid))))
-            (aggregate-state $nacc $nev $nseen $nchildren)))))
+       ($child-tv (if (= $child-atom ($_type $_kb $_prf $tv)) $tv no-tv))
+       ($nacc (aggregate-foldall-step-acc $extractor $fun $acc $child-atom $child-tv))
+       ($nev (list_to_set (append $ev $pev)))
+       ($nchildren (append $children ($pid))))
+      (aggregate-state $nacc $nev $nchildren)))
 
-(= (aggregate-final-state $child-gid $args)
+(= (aggregate-fold-source-step $agg-gid $acc $pid)
+   (if (proof-depends-on-goal-seen? $pid $agg-gid closed-goal ()) $acc (append $acc ($pid))))
+
+(= (aggregate-fold-source-ids $agg-gid $child-gid)
+   (fold-flat (aggregate-fold-source-step $agg-gid)
+      ()
+      (goal-merged-proof-ids $child-gid)))
+
+(= (aggregate-final-state $agg-gid $child-gid $args)
    (let*
       ((($_kb $_pattern $_extractor $init-acc $_fun $_finish $_tv-mode) (copy_term $args)))
       (fold-flat (aggregate-proof-fold-step $args)
-         (aggregate-state $init-acc () () ())
-         (goal-live-proof-ids $child-gid))))
+         (aggregate-state $init-acc () ())
+         (aggregate-fold-source-ids $agg-gid $child-gid))))
 
-(= (aggregate-group-update $extractor $fun $init $group $child-atom $child-tv $pev $child-key $pid ())
+(= (aggregate-group-update $extractor $fun $init $group $child-atom $child-tv $pev $pid ())
    (let*
       (($nacc (aggregate-foldall-step-acc $extractor $fun $init $child-atom $child-tv))
        ($nev (list_to_set $pev)))
-      ((aggregate-group-state $group $nacc $nev ($child-key) ($pid)))))
-(= (aggregate-group-update $extractor $fun $init $group $child-atom $child-tv $pev $child-key $pid (cons (aggregate-group-state $old-group $acc $ev $seen $children) $rest))
+      ((aggregate-group-state $group $nacc $nev ($pid)))))
+(= (aggregate-group-update $extractor $fun $init $group $child-atom $child-tv $pev $pid (cons (aggregate-group-state $old-group $acc $ev $children) $rest))
    (if (== $group $old-group)
-      (if (is-member $child-key $seen)
-         (cons (aggregate-group-state $old-group $acc $ev $seen $children) $rest)
-         (let*
-            (($nacc (aggregate-foldall-step-acc $extractor $fun $acc $child-atom $child-tv))
-             ($nev (list_to_set (append $ev $pev)))
-             ($nseen (cons $child-key $seen))
-             ($nchildren (append $children ($pid))))
-            (cons (aggregate-group-state $old-group $nacc $nev $nseen $nchildren) $rest)))
-      (cons (aggregate-group-state $old-group $acc $ev $seen $children)
-         (aggregate-group-update $extractor $fun $init $group $child-atom $child-tv $pev $child-key $pid $rest))))
+      (let*
+         (($nacc (aggregate-foldall-step-acc $extractor $fun $acc $child-atom $child-tv))
+          ($nev (list_to_set (append $ev $pev)))
+          ($nchildren (append $children ($pid))))
+         (cons (aggregate-group-state $old-group $nacc $nev $nchildren) $rest))
+      (cons (aggregate-group-state $old-group $acc $ev $children)
+         (aggregate-group-update $extractor $fun $init $group $child-atom $child-tv $pev $pid $rest))))
 
 (= (grouped-aggregate-proof-fold-step $args $states $pid)
    (let*
       ((($_agg-kb $pattern $group-template $extractor $init $fun $_finish $_tv-mode) (copy_term $args))
        ($child-atom (proof-output-atom $pid))
-       ($group (aggregate-step-group-value $pattern $group-template $child-atom))
-       ($child-key (aggregate-proof-key $child-atom))
        (($_pscore $pev) (proof-stats-by-id $pid))
+       ($group (aggregate-step-group-value $pattern $group-template $child-atom))
        ($child-tv (if (= $child-atom ($_type $_kb $_prf $tv)) $tv no-tv)))
-      (aggregate-group-update $extractor $fun $init $group $child-atom $child-tv $pev $child-key $pid $states)))
+      (aggregate-group-update $extractor $fun $init $group $child-atom $child-tv $pev $pid $states)))
 
-(= (grouped-aggregate-final-states $child-gid $args)
+(= (grouped-aggregate-final-states $agg-gid $child-gid $args)
    (fold-flat (grouped-aggregate-proof-fold-step $args)
       ()
-      (goal-live-proof-ids $child-gid)))
+      (aggregate-fold-source-ids $agg-gid $child-gid)))
 
-(= (grouped-aggregate-result $args (aggregate-group-state $group $acc $_ev $_seen $_children))
+(= (grouped-aggregate-result $args (aggregate-group-state $group $acc $_ev $_children))
    (let*
       ((($kb $pattern $_group-template $extractor $init $fun $finish $tv-mode) $args))
       (CPU GroupedFoldAllCompiled ($kb $pattern $group $extractor $init $fun $finish $tv-mode) (aggregate-finish $finish $acc))))
 
-(= (commit-grouped-aggregate-state-heap $agg-gid $args $agenda (aggregate-group-state $group $acc $ev $seen $children))
+(= (commit-grouped-aggregate-state-heap $agg-gid $args $agenda (aggregate-group-state $group $acc $ev $children))
    (let*
-      (($result (grouped-aggregate-result $args (aggregate-group-state $group $acc $ev $seen $children)))
+      (($result (grouped-aggregate-result $args (aggregate-group-state $group $acc $ev $children)))
        ($score (term-confidence $result))
        ($accepted (classify-goal-proof-candidate $agg-gid $result $ev $score)))
       (commit-grouped-aggregate-candidate-heap $agenda
@@ -228,7 +226,7 @@
 
 (= (commit-grouped-aggregate-candidate-heap $agenda $agg-gid $accepted (proof-candidate $kind $score $ev $children))
    (if (== $accepted false) $agenda
-      (if (candidate-is-cyclic? $agg-gid $children) $agenda
+      (if (candidate-is-cyclic? $agg-gid $kind $children) $agenda
          (let*
             (($pid (store-proof-candidate $agg-gid (proof-candidate $kind $score $ev $children)))
              ($_set (append-grouped-aggregate-current-pid! $agg-gid $pid))
@@ -238,7 +236,7 @@
 (= (run-grouped-aggregate-heap $agenda $agg-gid $child-gid $args)
    (fold-flat (commit-grouped-aggregate-state-heap $agg-gid $args)
       $agenda
-      (grouped-aggregate-final-states $child-gid $args)))
+      (grouped-aggregate-final-states $agg-gid $child-gid $args)))
 
 (= (run-aggregate-heap $agenda $agg-gid)
    (let*
@@ -252,42 +250,19 @@
       (if $grouped?
          (run-grouped-aggregate-heap $agenda $agg-gid $child-gid $args)
          (let*
-            (((aggregate-state $acc $ev $_seen $children) (aggregate-final-state $child-gid $args))
+            (((aggregate-state $acc $ev $children) (aggregate-final-state $agg-gid $child-gid $args))
              (($kb $pattern $extractor $init $fun $finish $tv-mode) $args)
-             ($result (CPU FoldAllCompiled $args (aggregate-finish $finish $acc))))
-            (if (aggregate-snapshot-changed? $current-pid $result $ev)
-               (commit-aggregate-snapshot-heap $agenda $agg-gid $result $ev $children)
+             ($result (CPU FoldAllCompiled $args (aggregate-finish $finish $acc)))
+             ($commit-ev (if (== $finish base-rate) () $ev)))
+            (if (aggregate-snapshot-changed? $current-pid $result $commit-ev)
+               (commit-aggregate-snapshot-heap $agenda $agg-gid $result $commit-ev $children)
                $agenda)))))
 
 (= (direct-goal-results-view $steps (CPU $fun $args $_res))
    (CPU $fun $args (reduce (cpu-call $steps $fun $args))))
-(= (wildcard-premise-context? $kb)
-   (if (is-expr $kb) (not (== (car-atom (cdr-atom $kb)) MAIN)) false))
-(= (wildcard-premise-context-active? $kb)
-   (not (== (collapse (once (match wildcard_premise_context ($kb) true))) ())))
-(= (wildcard-to-query-var $x) (if (== $x #) $any $x))
-(= (wildcard-premise-result $type $kb $prf $tv $stored-type)
-   (if (contains-hash? $stored-type)
-      (let $qtype (map-nested wildcard-to-query-var $stored-type)
-         (if (= $type $qtype) ($type $kb $prf $tv) (empty)))
-      (empty)))
-(= (direct-wildcard-premise-results $type $kb $prf $tv)
-   (if (and (wildcard-premise-context? $kb) (wildcard-premise-context-active? $kb))
-      (superpose
-         ((match wildcard_premise_index (wildcard_any $kb $stored-type $prf $tv)
-             (wildcard-premise-result $type $kb $prf $tv $stored-type))
-          (if (is-expr $type)
-             (let $head (car-atom $type)
-                (match wildcard_premise_index ((wildcard_premise_head $head) $kb $stored-type $prf $tv)
-                   (wildcard-premise-result $type $kb $prf $tv $stored-type)))
-             (empty))))
-      (empty)))
 (= (direct-goal-results-view $steps ($type $kb $prf $tv))
-   (let $qtype (if (contains-hash? $type) (map-nested (|-> ($x) (if (== $x #) $any $x)) $type) $type)
-      (superpose
-         ((match &kb ($qtype $kb $prf $tv)
-             ($qtype $kb $prf $tv))
-          (direct-wildcard-premise-results $type $kb $prf $tv)))))
+   (match &kb ($type $kb $prf $tv)
+      ($type $kb $prf $tv)))
 
 (= (expand-direct-goal-step $gid $_goal $agenda $result)
    (let*
@@ -314,7 +289,7 @@
 
 (= (open-rule-goal? $goal)
    (if (= $goal ($type $_kb $_prf $_tv))
-      (or (not (== (extract-vars $type) ())) (contains-hash? $type))
+      (not (== (extract-vars $type) ()))
       false))
 
 (= (rule-goal-head-view ($goal $parent-gid))

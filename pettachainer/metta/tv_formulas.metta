@@ -51,14 +51,23 @@
          (and (<= (InversionSmallestIntersectionProbability $sa $sb) $sab)
             (<= $sab (InversionLargestIntersectionProbability $sa $sb))))))
 
-(= (CTVInversionFormula (STV $sa $ca) (CTV (STV $sb_a $cb_a) (STV $sb_na $cb_na)))
-   (let*
-      (((STV $sb $cb) (CTVFormula (STV $sa $ca) (CTV (STV $sb_a $cb_a) (STV $sb_na $cb_na)))))
-      (if (or (<= $sb 0.0) (>= $sb 1.0))
-         (CTV (STV 0.0 0.0) (STV 0.0 0.0))
-         (CTV
-            (STV (/ (* $sb_a $sa) $sb) (* (min-atom ($ca $cb_a $cb)) 0.9))
-            (STV (/ (* (- 1.0 $sb_a) $sa) (- 1.0 $sb)) (* (min-atom ($ca $cb_a $cb)) 0.9))))))
+(= (BaseRateAcc (BaseRateEvidence $wsum $csum) (STV $s $c))
+   (BaseRateEvidence (+ $wsum (* $s $c)) (+ $csum $c)))
+(= (BaseRateAcc (BaseRateEvidence $wsum $csum) (CTV $pos $_neg))
+   (BaseRateAcc (BaseRateEvidence $wsum $csum) $pos))
+
+(= (BaseRateTv (BaseRateEvidence $wsum $csum))
+   (if (<= $csum 0.0) no-evidence
+      (STV (/ $wsum $csum) (/ $csum (+ $csum 1.0)))))
+
+(= (CTVInversionFormula no-evidence $_btv $_itv) (empty))
+(= (CTVInversionFormula (STV $_sa $_ca) no-evidence $_itv) (empty))
+(= (CTVInversionFormula (STV $sa $ca) (STV $sb $cb) (CTV (STV $sb_a $cb_a) (STV $sb_na $cb_na)))
+   (if (or (<= $sb 0.0) (>= $sb 1.0))
+      (CTV (STV 0.0 0.0) (STV 0.0 0.0))
+      (CTV
+         (STV (min 1.0 (/ (* $sb_a $sa) $sb)) (* (min-atom ($ca $cb $cb_a)) 0.9))
+         (STV (min 1.0 (/ (* (- 1.0 $sb_a) $sa) (- 1.0 $sb))) (* (min-atom ($ca $cb $cb_na)) 0.9)))))
 
 (= (Equal $a $b) (== $a $b))
 

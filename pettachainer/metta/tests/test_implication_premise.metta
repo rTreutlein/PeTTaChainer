@@ -39,7 +39,7 @@
             (Premises (Not (Dog)))
             (Conclusions (Dog)))
          $tv))
-   (: (total-implication (ctx proof 4) (ctx proof 5))
+   (: (total-implication (ctx proof 6) (ctx proof 7))
       (Implication (Premises (Not (Dog))) (Conclusions (Dog)))
       (CTV (STV 0.0 1.0) (STV 1.0 1.0))))
 
@@ -50,7 +50,7 @@
             (Premises (Not (Dog)))
             (Conclusions (Not (Dog))))
          (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-   (: (total-implication (negated (ctx proof 6)) (negated (ctx proof 7)))
+   (: (total-implication (negated (ctx proof 8)) (negated (ctx proof 9)))
       (Implication (Premises (Not (Dog))) (Conclusions (Not (Dog))))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
@@ -68,8 +68,8 @@
    (query 60 multiPremiseImplicationQueryKb
       (: $prf (Implication (Premises (A) (B)) (Conclusions (C))) $tv))
    (: (total-implication
-        (ab_c (conjunction (ctx proof 8) (ctx proof 8 1)))
-        (ab_c (conjunction (ctx proof 9) (ctx proof 9 1))))
+        (ab_c (conjunction (ctx proof 10) (ctx proof 10 1)))
+        (ab_c (conjunction (ctx proof 11) (ctx proof 11 1))))
       (Implication (Premises (A) (B)) (Conclusions (C)))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
@@ -82,7 +82,7 @@
                (A))
             (Conclusions (B)))
          $tv))
-   (: (total-implication (a_b (ctx proof 10 1)) (a_b (ctx proof 11 1)))
+   (: (total-implication (a_b (ctx proof 12 1)) (a_b (ctx proof 13 1)))
       (Implication
          (Premises
             (Implication (Premises (A)) (Conclusions (B)))
@@ -109,8 +109,8 @@
       (: $prf (Implication (Premises (A)) (Conclusions (C)))
          (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
    (: (total-implication
-        (ab_c (conjunction (ctx proof 12) b))
-        (ab_c (conjunction (ctx proof 13) b)))
+        (ab_c (conjunction (ctx proof 14) b))
+        (ab_c (conjunction (ctx proof 15) b)))
       (Implication (Premises (A)) (Conclusions (C)))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
@@ -158,7 +158,7 @@
             (Conclusions (B)))
          $tv))
    (: (bidirectional
-        ((bi-forward a_iff_b) (ctx proof 14))
-        ((bi-backward a_iff_b) (ctx proof 15)))
+        ((bi-forward a_iff_b) (ctx proof 16))
+        ((bi-backward a_iff_b) (ctx proof 17)))
       (BiImplication (Premises (A)) (Conclusions (B)))
       (STV 1.0 1.0)))

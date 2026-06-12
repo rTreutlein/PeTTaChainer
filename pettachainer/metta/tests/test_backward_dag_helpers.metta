@@ -30,15 +30,15 @@
 !(test (term-confidence (CPU LikelierThanFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out)) 0.4)
 
 !(test
-   (term-confidence (CPU CTVInversionFormula ($a (CTV (STV 0.8 0.632121) (STV 0.1 0.632121))) $out))
+   (term-confidence (CPU CTVInversionFormula ($a $b (CTV (STV 0.8 0.632121) (STV 0.1 0.632121))) $out))
    0.5689089)
 
 !(test
-   (CTVInversionFormula (STV 0.2 1.0) (CTV (STV 0.8 1.0) (STV 0.1 1.0)))
-   (CTV (STV 0.6666666666666666 0.9) (STV 0.05263157894736841 0.9)))
+   (CTVInversionFormula (STV 0.2 1.0) (STV 0.24 1.0) (CTV (STV 0.8 1.0) (STV 0.1 1.0)))
+   (CTV (STV 0.6666666666666669 0.9) (STV 0.05263157894736841 0.9)))
 
 !(test
-   (CTVInversionFormula (STV 0.0 1.0) (CTV (STV 0.8 1.0) (STV 0.1 1.0)))
+   (CTVInversionFormula (STV 0.0 1.0) (STV 0.1 1.0) (CTV (STV 0.8 1.0) (STV 0.1 1.0)))
    (CTV (STV 0.0 0.9) (STV 0.0 0.9)))
 
 !(test
@@ -60,9 +60,11 @@
 
 !(test
    (premises-expected-confidence
-      (cons ((Animal #) (kb MAIN Nil) $prfA $tvA)
-         (cons (CPU CTVInversionFormula ($tvA (CTV (STV 0.8 0.632121) (STV 0.1 0.632121))) $iitv)
-            (cons ((Creature #) (kb MAIN Nil) $prfC $tvB) (cons (CPU CTVFormula ($tvB $iitv) $tvA) ())))))
+      (cons ((Creature $c) (kb MAIN Nil) $prfC $tvB)
+         (cons (CPU FoldAllCompiled (kb (Animal $a) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $tvA)
+            (cons (CPU FoldAllCompiled (kb (Creature $c2) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $tvBr)
+               (cons (CPU CTVInversionFormula ($tvA $tvBr (CTV (STV 0.8 0.632121) (STV 0.1 0.632121))) $iitv)
+                  (cons (CPU CTVFormula ($tvB $iitv) $mp-tv) ()))))))
    0.5689089)
 
 !(compileadd inverseTotalKb
@@ -77,12 +79,13 @@
             ($id
                ((InverseTotalA)
                   (inverseTotalKb $ctx $vars)
-                  ((inverted inverseTotalRule with $prfa-est) $prfb-wit)
-                  $atv)
-               (((InverseTotalA) (inverseTotalKb $ctx $vars) $prfa-est $atv-est)
-                  (CPU CTVInversionFormula ($atv-est (CTV (STV 0.8 0.9) (STV 0.1 0.9))) $iitv)
-                  ((InverseTotalB) (inverseTotalKb $ctx $vars) $prfb-wit $btv-wit)
-                  (CPU CTVFormula ($btv-wit $iitv) $atv)))
+                  ((inverted inverseTotalRule with cpu cpu) $prfb-wit)
+                  $mp-tv)
+               (((InverseTotalB) (inverseTotalKb $ctx $vars) $prfb-wit $btv-wit)
+                  (CPU FoldAllCompiled (inverseTotalKb (InverseTotalA) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $atv-est)
+                  (CPU FoldAllCompiled (inverseTotalKb (InverseTotalB) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $btv-est)
+                  (CPU CTVInversionFormula ($atv-est $btv-est (CTV (STV 0.8 0.9) (STV 0.1 0.9))) $iitv)
+                  (CPU CTVFormula ($btv-wit $iitv) $mp-tv)))
             ok)))
    (ok))
 

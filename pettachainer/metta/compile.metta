@@ -528,7 +528,7 @@
    (if (is-expr $x) ($f (cons (map-nested2 $f $x) (map-nested2 $f $xs)))
       ($f (cons ($f $x) (map-nested2 $f $xs)))))
 
-(= (toQuery $elem) (if (is-var $elem) # (if (=? $elem (exists $_1 $_2 $_3)) $var $elem)))
+(= (toQuery $elem) (if (=? $elem (exists $_1 $_2 $_3)) $var $elem))
 
 (= (contains-cpu? $term)
    (if (is-var $term) false
@@ -562,16 +562,22 @@
       (if (is-var $b) (empty) (compile-outputs (: $adapter-kb ($prf $prfb) $b $btv2)))
       (if (is-var $a) (empty) (compile-adapter-chain plain (: $adapter-kb $prfa $a $atv))))))
 
+(= (base-rate-premise $kb $pattern $brtv)
+   (CPU FoldAllCompiled
+      ($kb $pattern extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)
+      $brtv))
+
 (= (inverse-implication $kb $prf $a $b $itv)
    (let*
-      (($a1 (map-nested2 toQuery $a))
-        ($b1 (map-nested2 toQuery $b)))
-      (((: ($kb $ctx $vars) $prfa_est $a1 $atv)
-            (CPU CTVInversionFormula ($atv $itv) $iitv)
-            (: ($kb $ctx $vars) $prfb_wit $b $btv_wit)
-            (CPU CTVFormula ($btv_wit $iitv) $atv))
+      (($a1 (copy_term (map-nested2 toQuery $a)))
+        ($b1 (copy_term (map-nested2 toQuery $b))))
+      (((: ($kb $ctx $vars) $prfb_wit $b $btv_wit)
+            (base-rate-premise $kb $a1 $atv)
+            (base-rate-premise $kb $b1 $btv)
+            (CPU CTVInversionFormula ($atv $btv $itv) $iitv)
+            (CPU CTVFormula ($btv_wit $iitv) $mp-tv))
          |-
-         ((: ($kb $ctx $vars) ((inverted $prf with $prfa_est) $prfb_wit) $a $atv)))))
+         ((: ($kb $ctx $vars) ((inverted $prf with cpu cpu) $prfb_wit) $a $mp-tv)))))
 
 
 (= (compile_ $kb (@ $stmt (: $prf $Type $tv)))
@@ -584,7 +590,7 @@
 	                 (compile-implication-forward-rules $shape-kb (kbctx $kb) $prf $tv $a $b $execs $proofs $atv)
 	                 (if (not $skip-inverse) (inverse-implication $kb $prf $na $b $tv) (empty))
 	                 (if (or $skip-inverse (is-var $na)) (empty)
-	                    (compile-outputs (: ((inverted $prf $pa $pb1) $pb2) $na $natv)))
+	                    (compile-outputs (: ((inverted $prf $w $pa1 $pa2) $pb2) $na $natv)))
 	                 (if (or $skip-inverse (is-var $b)) (empty) (compile-adapter-chain plain (: $pb2 $b $btv2))))))
          (if (bidirectional-implication-type? $Type)
             (let ($_head (cons Premises $left) (cons Conclusions $right)) $Type
