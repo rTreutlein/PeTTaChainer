@@ -1,5 +1,4 @@
 !(import! &self compile)
-!(import! &self mining)
 
 !(use-module! heaps)
 
@@ -33,19 +32,6 @@
         ($atoms (collapse (mm2compile $kb $stmt1)))
         ($iatoms (list_to_set (map-flat internalize-proof-structure $atoms)))
         ($eatoms (map-flat externalize-proof-structure $iatoms))
-        ($_index (index-source-implication $kb $stmt1))
-        ($_ (collapse (foreach-flat add-to-kb $iatoms)))
-        ($_ (maybe-process-on-add $kb $stmt1)))
+        ($_ (collapse (foreach-flat add-to-kb $iatoms))))
       (superpose
          $eatoms)))
-
-(= (compileadd-mine $kb $stmt)
-   (let*
-      (($stmt1 (materialize-stmt-lambdas $stmt))
-        ($atoms (collapse (mm2compile $kb $stmt1)))
-        ($iatoms (list_to_set (map-flat internalize-proof-structure $atoms)))
-        ($eatoms (map-flat externalize-proof-structure $iatoms))
-        ($_index (index-source-implication $kb $stmt1))
-        ($_ (collapse (foreach-flat add-to-kb $iatoms)))
-        ($_ (collapse (process-on-add-items $kb $stmt1))))
-      $eatoms))

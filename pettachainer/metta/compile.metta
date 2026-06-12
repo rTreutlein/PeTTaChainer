@@ -537,11 +537,7 @@
             (fold-flat (|-> ($acc $elem) (or $acc (contains-cpu? $elem))) false (cdr-atom $term)))
          false)))
 
-(= (disable-inversion-proof-id? $prf) (or (= $prf (mined_implication $_ $_)) (= $prf (no_inverse $_))))
-
-(= (index-source-implication $_kb (: $_prf (Implication (cons Premises ($_premise)) (cons Conclusions ($_conclusion))) $_tv))
-   ())
-(= (index-source-implication $_kb $_stmt) ())
+(= (disable-inversion-proof-id? $prf) (= $prf (no_inverse $_)))
 
 (= (implication-proof-token $proofs)
    (case $proofs (
@@ -806,43 +802,14 @@
       (cons (externalize-proof-structure (car-atom $terms))
          (externalize-proof-structure-list (cdr-atom $terms)))))
 
-(= (pretty-prf-token $prf)
-   (if (= $prf (mined_implication $premk $conck))
-      (Implication (cons Premises ($premk)) (cons Conclusions ($conck)))
-      $prf))
-
-(= (pretty-prf $prf) (if (is-expr $prf) (map-nested2 pretty-prf-token $prf) $prf))
-
-(= (lookup-mined-tv $premk $conck $fallback-tv)
-   (let $m (collapse (once (match &kb ($itype ($kbid MAIN ()) (mined_implication $premk $conck) $itv) $itv)))
-      (if (== $m ()) $fallback-tv (car-atom $m))))
-
-(= (extract-mined-itv-from-args $args $fallback-tv)
-   (if (= $args ($_prem (CPU CTVFormula ($_atv $itv) $_btv))) $itv
-      (if (= $args (cons $h $t))
-         (if (= $h (CPU CTVFormula ($_atv2 $itv) $_btv2)) $itv
-            (extract-mined-itv-from-args $t $fallback-tv))
-         $fallback-tv)))
-
-(= (pretty (: $prf $type $tv)) (: (pretty-prf $prf) $type $tv))
-(= (pretty (rules ($args |- $goal)))
-   (if (= $goal (: $kb ((mined_implication $premk $conck) $p) $type $tv))
-      (let*
-         (($ptv
-              (if (is-var $tv)
-                 (let*
-                    (($tv1 (extract-mined-itv-from-args $args $tv))
-                      ($tv2 (lookup-mined-tv $premk $conck $tv1)))
-                    $tv2)
-                 $tv)))
-         (: mined_implication ((pretty-prf-token (mined_implication $premk $conck)) $p) $type $ptv))
-      (pretty $goal)))
+(= (pretty (: $prf $type $tv)) (: $prf $type $tv))
+(= (pretty (rules ($args |- $goal))) (pretty $goal))
 (= (pretty (: $kb $prf $type $tv))
    (if (is-expr $kb)
-      (if (= $kb ($kbid MAIN Nil)) (: (pretty-prf $prf) $type $tv)
+      (if (= $kb ($kbid MAIN Nil)) (: $prf $type $tv)
          (let*
             ((($_ $idx $vars) $kb)
               ($x (map-flat (mf $kb) (collapse (match &kb ($t $kb $p $tv2) ($kb $t)))))
               ($ptype (Implication (cons Premises $x) (cons Conclusions ($type)))))
-            (: (pretty-prf $prf) $ptype $tv)))
-      (: (pretty-prf $prf) $type $tv)))
+            (: $prf $ptype $tv)))
+      (: $prf $type $tv)))
