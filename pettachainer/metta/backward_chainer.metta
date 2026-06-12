@@ -129,10 +129,29 @@
        ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
       $nagenda))
 
+(= (base-rate-aggregate-key $args)
+   (if (= $args ($kbid $pattern $_extractor $_init $_fun base-rate $_tv-mode)) ($kbid $pattern) ()))
+
+(= (commit-cached-aggregate-heap $agenda $agg-gid $args $tv)
+   (let*
+      (($result (CPU FoldAllCompiled $args $tv))
+       ($pid (store-proof-candidate $agg-gid (aggregate-result-candidate $result () ()))))
+      (wake-proof-commit-heap $agenda $agg-gid $pid)))
+
 (= (spawn-aggregate-goal-heap $agenda $score $agg-gid $goal-view)
    (let*
-      (($args (copy_term (let (CPU $_agg-fun $args $_goalres) $goal-view $args)))
-       ($child-goal (aggregate-child-goal $goal-view))
+      (($args (copy_term (let (CPU $_agg-fun $view-args $_goalres) $goal-view $view-args)))
+       ($cache-key (base-rate-aggregate-key $args))
+       ($cached
+          (if (== $cache-key ()) ()
+             (let ($kbid $pattern) $cache-key (cached-base-rate $kbid $pattern)))))
+      (if (== $cached ())
+         (spawn-aggregate-goal-live-heap $agenda $score $agg-gid $goal-view $args)
+         (commit-cached-aggregate-heap $agenda $agg-gid $args (car-atom $cached)))))
+
+(= (spawn-aggregate-goal-live-heap $agenda $score $agg-gid $goal-view $args)
+   (let*
+      (($child-goal (aggregate-child-goal $goal-view))
        (($depth $_goal $_expanded $_pending) (goal-by-id $agg-gid))
        ($child-gid (ensure-goal-at-depth $child-goal (+ 1 $depth)))
        ($hits (collapse (once (match &aggregate ($agg-gid $_child $_args $_base $_pending1 $_current) true))))
@@ -433,6 +452,23 @@
          (($rest (get_from_heap $agenda $_priority $item)))
          (search-agenda-step $steps $rest $item))))
 
+(= (harvest-base-rate-entry $args $current-pid)
+   (let $key (base-rate-aggregate-key $args)
+      (if (== $key ()) ()
+         (if (== $current-pid ()) ()
+            (let $output (proof-output-atom $current-pid)
+               (if (= $output (CPU $_fun $_out-args (STV $s $c)))
+                  (let ($kbid $pattern) $key
+                     (store-computed-base-rate! $kbid $pattern (STV $s $c)))
+                  ()))))))
+
+(= (harvest-base-rates)
+   (let $_
+      (collapse
+         (match &aggregate ($_agg-gid $_child $args $_base $_pending $current-pid)
+            (harvest-base-rate-entry $args $current-pid)))
+      ()))
+
 (= (chainer-run $steps $goal)
    (let*
       (($_clear (foreach-flat remove-all-atoms (&goal &goal_lookup &goal_waiter &aggregate &proof &proof_live_cache &goal_live_cache &proof_static_live)))
@@ -440,7 +476,8 @@
        ($root-gid (ensure-goal-at-depth $goal 0))
        ($agenda0 (schedule-goal-heap (empty_heap) 1.0 $root-gid))
        ((search-state $_steps-left $_agenda1)
-          (once (if (<= $steps 0) (search-state 0 $agenda0) (search-agenda-heap (+ $steps 1) $agenda0)))))
+          (once (if (<= $steps 0) (search-state 0 $agenda0) (search-agenda-heap (+ $steps 1) $agenda0))))
+       ($_harvest (harvest-base-rates)))
       (chainer-run-result $root-gid (once (goal-results $root-gid)))))
 
 (= (chainer $steps $goal)

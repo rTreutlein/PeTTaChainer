@@ -1,0 +1,55 @@
+!(import! &self petta_chainer)
+
+!(compileadd brKb (: r (Implication (Premises (P $x)) (Conclusions (Q $x))) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
+
+!(compileadd brKb (: qa (Q alice) (STV 0.9 0.8)))
+
+!(compileadd brKb (: pb (P bob) (STV 0.7 0.8)))
+
+; First query computes the base rates by folding over all instances and
+; harvests them into the cache afterwards.
+!(test
+   (query 200 brKb (: $prf (P alice) $tv))
+   (: ((inverted r with (foldall-proof pb) (foldall-proof qa)) qa)
+      (P alice)
+      (STV 0.6599999999999999 0.0008991008991008993)))
+
+!(test
+   (let $cached (cached-base-rate brKb (P $x))
+      (if (== $cached ()) no-cache-entry (car-atom $cached)))
+   (STV 0.6999999999999998 0.0009990009990009992))
+
+; Second query answers from the cached base rates: the inverted proof keeps
+; its modus ponens TV but the base-rate premises are cache hits (cpu tokens,
+; no fold expansion).
+!(test
+   (query 200 brKb (: $prf (P alice) $tv))
+   (: ((inverted r with cpu cpu) qa)
+      (P alice)
+      (STV 0.6599999999999999 0.0008991008991008993)))
+
+; User-provided base rates override the cache and feed inversion directly.
+!(set-base-rate brKb (P $x) (STV 0.5 0.5))
+!(set-base-rate brKb (Q $x) (STV 0.9 0.5))
+
+!(test
+   (query 200 brKb (: $prf (P alice) $tv))
+   (: ((inverted r with cpu cpu) qa)
+      (P alice)
+      (STV 0.5 0.45)))
+
+; Adding a fact invalidates computed entries but keeps user-provided ones.
+!(compileadd brKb (: pc (P carol) (STV 0.3 0.8)))
+
+!(test
+   (let $cached (cached-base-rate brKb (P $x))
+      (if (== $cached ()) no-cache-entry (car-atom $cached)))
+   (STV 0.5 0.5))
+
+!(clear-base-rate brKb (P $x))
+!(clear-base-rate brKb (Q $x))
+
+!(test
+   (let $cached (cached-base-rate brKb (P $x))
+      (if (== $cached ()) no-cache-entry (car-atom $cached)))
+   no-cache-entry)

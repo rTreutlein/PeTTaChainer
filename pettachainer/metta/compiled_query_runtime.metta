@@ -19,6 +19,57 @@
    (let $key (forward-indexable-premise-key $ccls)
       (if (== $key ()) () (kb-add-atom $backend ccls_head_index ($key $id)))))
 
+(= (base-rate-entry-kbid (base-rate $kbid $_pattern $_tv $_source)) $kbid)
+
+(= (base-rate-cache-entries $kbid $pattern)
+   (collapse
+      (match &base_rate_cache (base-rate $kbid $stored $tv $source)
+         (if (=alpha $stored $pattern) (base-rate $kbid $stored $tv $source) (empty)))))
+
+(= (base-rate-cache-remove-entry! $entry) (remove-atom &base_rate_cache $entry))
+
+(= (base-rate-cache-remove! $kbid $pattern)
+   (let $_ (foreach-flat base-rate-cache-remove-entry! (base-rate-cache-entries $kbid $pattern)) ()))
+
+(= (cached-base-rate $kbid $pattern)
+   (let $entries (base-rate-cache-entries $kbid $pattern)
+      (if (== $entries ()) ()
+         (let (base-rate $_kbid $_stored $tv $_source) (car-atom $entries) ($tv)))))
+
+(= (base-rate-user-set? $kbid $pattern)
+   (let $entries (base-rate-cache-entries $kbid $pattern)
+      (if (== $entries ()) false
+         (let (base-rate $_kbid $_stored $_tv $source) (car-atom $entries) (== $source user)))))
+
+(= (set-base-rate $kbid $pattern $tv)
+   (let*
+      (($stored (copy_term $pattern))
+       ($_old (base-rate-cache-remove! $kbid $pattern))
+       ($_new (add-atom &base_rate_cache (base-rate $kbid $stored $tv user))))
+      ()))
+
+(= (clear-base-rate $kbid $pattern) (base-rate-cache-remove! $kbid $pattern))
+
+(= (store-computed-base-rate! $kbid $pattern $tv)
+   (if (base-rate-user-set? $kbid $pattern) ()
+      (let*
+         (($stored (copy_term $pattern))
+          ($_old (base-rate-cache-remove! $kbid $pattern))
+          ($_new (add-atom &base_rate_cache (base-rate $kbid $stored $tv computed))))
+         ())))
+
+(= (invalidate-computed-base-rates! $kbid)
+   (let*
+      (($entries
+          (collapse
+             (match &base_rate_cache (base-rate $kbid $stored $tv computed)
+                (base-rate $kbid $stored $tv computed))))
+       ($_ (foreach-flat base-rate-cache-remove-entry! $entries)))
+      ()))
+
+(= (kb-expr-kbid $expr)
+   (if (= $expr ($_type ($kbid $_ctx $_vars) $_prf $_tv)) $kbid ()))
+
 (= (kb-add-expr $backend $expr)
    (if (= $expr (rules ($args |- $ccls)))
       (let*
@@ -27,11 +78,19 @@
            ($_2 (kb-add-atom $backend ccls_index ($ccls $id)))
            ($_3 (kb-add-ccl-head-index $backend $id $ccls))
            ($_4 (kb-add-atom $backend rules ($id $ccls $args)))
-           ($_5 (if (== $backend live) (mark-forward-agenda-dirty $ccls) ())))
+           ($_5 (if (== $backend live)
+                   (progn
+                      (mark-forward-agenda-dirty $ccls)
+                      (invalidate-computed-base-rates! (kb-expr-kbid $ccls)))
+                   ())))
          ())
       (progn
          (kb-add-atom $backend &kb $expr)
-         (if (== $backend live) (mark-forward-agenda-dirty $expr) ()))))
+         (if (== $backend live)
+            (progn
+               (mark-forward-agenda-dirty $expr)
+               (invalidate-computed-base-rates! (kb-expr-kbid $expr)))
+            ()))))
 
 (= (clear-temp-query-adds)
    (progn

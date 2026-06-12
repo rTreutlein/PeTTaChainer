@@ -150,4 +150,29 @@ Key semantics:
 
 `tests/test_implication_inversion.metta` covers the end-to-end behavior.
 
+## Base-Rate Cache
+
+Computing a base rate folds over every derivable instance of the pattern,
+which is the dominant cost of inversion. Base rates are therefore cached per
+knowledge base in `&base_rate_cache`:
+
+- `(set-base-rate $kbid $pattern $tv)` records a user-provided estimate;
+  `(clear-base-rate $kbid $pattern)` removes any entry. User entries take
+  precedence and survive knowledge-base changes.
+- When a base-rate fold goal expands and the cache holds a value, the
+  aggregate commits the cached TV directly — no instance expansion happens at
+  all (the proof shows a bare `cpu` token instead of a `foldall-proof`).
+- After each query the chainer harvests the computed base rates into the
+  cache, so repeated inversions over an unchanged knowledge base skip the
+  fold entirely.
+- Adding a fact or rule to a knowledge base invalidates that kb's computed
+  entries (user entries persist).
+
+Caveat: a base rate computed under a small step budget is cached as-is; if a
+deeper search would have found more instances, the cached value stays at the
+shallower estimate until the kb changes or the entry is cleared.
+
+`tests/test_base_rate_cache.metta` covers user overrides, cache reuse, and
+invalidation.
+
 Removed along with the construct: `contains-hash?`, the hash-to-variable rewriting in `direct-goal-results-view`, the `wildcard_premise_index`/`wildcard_premise_context` stores and their lookup path, and the hash special cases in `open-rule-goal?`, `materializable-proof-output?`, and `leaf-evidence-for-result`.
