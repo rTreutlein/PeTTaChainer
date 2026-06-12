@@ -130,7 +130,7 @@
 
 (= (clear-backward-state)
    (progn
-      (foreach-flat remove-all-atoms (() &goal &goal_lookup &goal_waiter &aggregate &proof &proof_live_cache &goal_live_cache))
+      (foreach-flat remove-all-atoms (() &goal &goal_lookup &goal_waiter &aggregate &proof &proof_live_cache &goal_live_cache &proof_static_live))
       (change-state! bwd_live_epoch 0)
       ()))
 
@@ -207,10 +207,14 @@
         ($_pidreset (change-state! bwd_pid 0))
         ($agg-gid (ensure-goal-at-depth (CPU FoldAllCompiled dummy-agg-args $out) 0))
         ($child-gid (ensure-goal-at-depth ((Child) (kb MAIN ()) $prf (STV 1.0 1.0)) 1))
+        ($_agg0 (add-atom &aggregate ($agg-gid $child-gid dummy-agg-args 1.0 0.0 ())))
         ($pid-old
            (store-proof-candidate $agg-gid
               (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 1) ())))
-        ($_agg1 (add-atom &aggregate ($agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old)))
+        ($_agg1
+           (progn
+              (remove-atom &aggregate ($agg-gid $child-gid dummy-agg-args 1.0 0.0 ()))
+              (add-atom &aggregate ($agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))))
         ($pid-new
            (store-proof-candidate $agg-gid
               (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) ())))
@@ -229,10 +233,14 @@
         ($_pidreset (change-state! bwd_pid 0))
         ($agg-gid (ensure-goal-at-depth (CPU FoldAllCompiled dummy-agg-args $out) 0))
         ($child-gid (ensure-goal-at-depth ((Child) (kb MAIN ()) $prf (STV 1.0 1.0)) 1))
+        ($_agg0 (add-atom &aggregate ($agg-gid $child-gid dummy-agg-args 1.0 0.0 ())))
         ($pid-old
            (store-proof-candidate $agg-gid
               (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 1) ())))
-        ($_agg1 (add-atom &aggregate ($agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old)))
+        ($_agg1
+           (progn
+              (remove-atom &aggregate ($agg-gid $child-gid dummy-agg-args 1.0 0.0 ()))
+              (add-atom &aggregate ($agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))))
         ($pid-new
            (store-proof-candidate $agg-gid
               (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) ())))
@@ -251,10 +259,14 @@
         ($_pidreset (change-state! bwd_pid 0))
         ($agg-gid (ensure-goal-at-depth (CPU FoldAllCompiled dummy-agg-args $out) 0))
         ($child-gid (ensure-goal-at-depth ((Child) (kb MAIN ()) $prf (STV 1.0 1.0)) 1))
+        ($_agg0 (add-atom &aggregate ($agg-gid $child-gid dummy-agg-args 1.0 0.0 ())))
         ($pid-old
            (store-proof-candidate $agg-gid
               (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 1) ())))
-        ($_agg1 (add-atom &aggregate ($agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old)))
+        ($_agg1
+           (progn
+              (remove-atom &aggregate ($agg-gid $child-gid dummy-agg-args 1.0 0.0 ()))
+              (add-atom &aggregate ($agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))))
         ($_prime-proof (proof-live? $pid-old))
         ($_prime-goal (goal-live-proof-ids $agg-gid))
         ($pid-new

@@ -154,28 +154,32 @@
 
 (= (invalidate-proof-live-caches)
    (let $epoch (proof-live-cache-epoch)
-      (progn
-         (change-state! bwd_live_epoch (+ $epoch 1))
-         (clear-proof-live-caches))))
+      (change-state! bwd_live_epoch (+ $epoch 1))))
 
 (= (cache-proof-live! $pid $alive)
-   (chainer-add-atom &proof_live_cache ((proof-live-cache-epoch) $pid $alive)))
+   (let $epoch (proof-live-cache-epoch)
+      (add-atom &proof_live_cache ($epoch $pid $alive))))
 
 (= (cached-proof-live? $pid)
-   (match &proof_live_cache ((proof-live-cache-epoch) $pid $alive) $alive))
+   (let $epoch (proof-live-cache-epoch)
+      (match &proof_live_cache ($epoch $pid $alive) $alive)))
 
 (= (goal-live-cache-store! $gid $pids)
-   (chainer-add-atom &goal_live_cache ((proof-live-cache-epoch) $gid $pids)))
+   (let $epoch (proof-live-cache-epoch)
+      (add-atom &goal_live_cache ($epoch $gid $pids))))
 
 (= (goal-live-cache-remove! $gid $pids)
-   (remove-atom &goal_live_cache ((proof-live-cache-epoch) $gid $pids)))
+   (let $epoch (proof-live-cache-epoch)
+      (remove-atom &goal_live_cache ($epoch $gid $pids))))
 
 (= (cached-goal-live-proof-ids $gid)
-   (match &goal_live_cache ((proof-live-cache-epoch) $gid $pids) $pids))
+   (let $epoch (proof-live-cache-epoch)
+      (match &goal_live_cache ($epoch $gid $pids) $pids)))
 
 (= (append-goal-live-cache! $gid $pid)
    (let*
-      (($hits (collapse (once (match &goal_live_cache ((proof-live-cache-epoch) $gid $pids) $pids)))))
+      (($epoch (proof-live-cache-epoch))
+       ($hits (collapse (once (match &goal_live_cache ($epoch $gid $pids) $pids)))))
       (if (== $hits ())
          ()
          (let*
@@ -206,15 +210,33 @@
 (= (proof-list-live? (cons $pid $rest))
    (and (proof-live? $pid) (proof-list-live? $rest)))
 
+(= (proof-statically-live? $pid)
+   (not (== (collapse (once (match &proof_static_live ($pid) true))) ())))
+
+(= (proof-static-children? ()) true)
+(= (proof-static-children? (cons $pid $rest))
+   (and (proof-statically-live? $pid) (proof-static-children? $rest)))
+
+(= (aggregate-goal-gid? $gid)
+   (not (== (collapse (once (match &aggregate ($gid $_child $_args $_base $_pending $_cur) true))) ())))
+
+(= (mark-proof-static! $gid $pid $kind $children)
+   (if (= $kind (aggregate $_term)) ()
+      (if (aggregate-goal-gid? $gid) ()
+         (if (proof-static-children? $children)
+            (add-atom &proof_static_live ($pid))
+            ()))))
+
 (= (proof-live? $pid)
-   (let*
-      (($hits (collapse (once (cached-proof-live? $pid)))))
-      (if (== $hits ())
-         (let*
-            (($alive (proof-live-compute $pid))
-             ($_cache (cache-proof-live! $pid $alive)))
-            $alive)
-         (car-atom $hits))))
+   (if (proof-statically-live? $pid) true
+      (let*
+         (($hits (collapse (once (cached-proof-live? $pid)))))
+         (if (== $hits ())
+            (let*
+               (($alive (proof-live-compute $pid))
+                ($_cache (cache-proof-live! $pid $alive)))
+               $alive)
+            (car-atom $hits)))))
 
 (= (goal-live-proof-step $acc $pid)
    (if (proof-live? $pid) (append $acc ($pid)) $acc))
@@ -270,7 +292,8 @@
       (if (== $hits ())
          (let*
             (($pid (next-pid))
-             ($_store (chainer-add-atom &proof ($pid (merged-proof-group $gid) $output (merged $output) $score $ev $pids))))
+             ($_store (chainer-add-atom &proof ($pid (merged-proof-group $gid) $output (merged $output) $score $ev $pids)))
+             ($_static (mark-proof-static! (merged-proof-group $gid) $pid (merged $output) $pids)))
             $pid)
          (car-atom $hits))))
 
@@ -363,8 +386,9 @@
         ($output (proof-output-atom-kind $kind $pid))
         ($stored-ev (proof-candidate-stored-evidence (proof-candidate $kind $score $ev $children)))
         ($_1 (chainer-add-atom &proof ($pid $gid $output $kind $score $stored-ev $children)))
-        ($_2 (cache-proof-live! $pid true))
-        ($_3 (append-goal-live-cache! $gid $pid)))
+        ($_2 (mark-proof-static! $gid $pid $kind $children))
+        ($_3 (cache-proof-live! $pid true))
+        ($_4 (append-goal-live-cache! $gid $pid)))
       $pid))
 
 (= (proof-atom-candidate ($type $kb $prf $tv) $ev)
@@ -444,6 +468,6 @@
           (progn
              (remove-atom &aggregate ($agg-gid $child-gid $args $base-score $pending $current-pid))
              (chainer-add-atom &aggregate ($agg-gid $child-gid $args $base-score $pending $pid))))
-       ($_cache-invalidate (invalidate-proof-live-caches))
+       ($_cache-invalidate (if (== $current-pid ()) () (invalidate-proof-live-caches)))
        ($nagenda (wake-proof-commit-heap $agenda $agg-gid $pid)))
       $nagenda))
