@@ -8,11 +8,11 @@
    (TotalEvidenceTvs (TotalEvidenceOr $pos-tv $tv) $neg-tv))
 (= (TotalEvidenceAcc (TotalEvidenceTvs $pos-tv $neg-tv) (EvidenceCase neg $tv))
    (TotalEvidenceTvs $pos-tv (TotalEvidenceOr $neg-tv $tv)))
-(= (TotalEvidenceMpFormula $atv $evidence-tvs)
+(= (TotalEvidenceCTVFormula $atv $evidence-tvs)
    (if (= $evidence-tvs (TotalEvidenceTvs none none))
-      (empty)
-      (let (TotalEvidenceTvs $pos-tv $neg-tv) $evidence-tvs
-         (TotalMpFormula $atv (TotalEvidenceTv $pos-tv) (TotalEvidenceTv $neg-tv)))))
+	      (empty)
+	      (let (TotalEvidenceTvs $pos-tv $neg-tv) $evidence-tvs
+	         (CTVFormula $atv (CTV (TotalEvidenceTv $pos-tv) (TotalEvidenceTv $neg-tv))))))
 
 !(compileadd kb (: ta (Tall alice) (STV 0.9 0.5)))
 !(compileadd kb (: fa (Female alice) (STV 0.9 0.5)))
@@ -30,7 +30,7 @@
        |-
        ((TotalEvidence pos $p1 $p2 $x $case-tv)
           (kb $ctx $vars)
-          (total-pos (rule-proof conjunction $p1prf $p2prf))
+          (total-pos (conjunction $p1prf $p2prf))
           $case-tv))))
 
 !(add-to-kb
@@ -42,7 +42,7 @@
        |-
        ((TotalEvidence neg $p1 $p2 $x $case-tv)
           (kb $ctx $vars)
-          (total-neg (rule-proof conjunction (negated $p1prf) $p2prf))
+          (total-neg (conjunction (negated $p1prf) $p2prf))
           $case-tv))))
 
 !(add-to-kb
@@ -60,7 +60,7 @@
               identity
               result-tv)
            $evidence-tvs)
-        (CPU TotalEvidenceMpFormula ($atv $evidence-tvs) $btv))
+	        (CPU TotalEvidenceCTVFormula ($atv $evidence-tvs) $btv))
        |-
        (($p2 $y)
           (kb $ctx $vars)
@@ -68,14 +68,13 @@
           $btv))))
 
 !(test
-   (collapse (query 50 kb (: $prf (Female bob) $stv)))
-   ((: (rule-proof ii_total tb
-          (rule-proof foldall
-             (rule-proof total-neg (rule-proof conjunction (negated tl) fl))
-             (rule-proof total-pos (rule-proof conjunction tl fl))
-             (rule-proof total-pos (rule-proof conjunction ta fa))
-             (rule-proof total-neg (rule-proof conjunction (negated ta) fa))
-             (rule-proof total-pos (rule-proof conjunction tm fm))
-             (rule-proof total-neg (rule-proof conjunction (negated tm) fm))))
-       (Female bob)
-       (STV 0.9049050000000001 0.5))))
+   (query 50 kb (: $prf (Female bob) $stv))
+   (: (ii_total tb
+        (foldall-proof (total-neg (conjunction (negated tl) fl))
+           (total-pos (conjunction tl fl))
+           (total-pos (conjunction ta fa))
+           (total-neg (conjunction (negated ta) fa))
+           (total-pos (conjunction tm fm))
+           (total-neg (conjunction (negated tm) fm))))
+      (Female bob)
+      (STV 0.9049050000000001 0.5)))

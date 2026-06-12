@@ -20,7 +20,7 @@
    (: avgHeightDistRule
       (Implication (Premises (Group $g) (AverageDist (HeightDist $g $person $hdist) $hdist -> $avgDist))
          (Conclusions (AvgHeightDist $g $avgDist)))
-      (STV 1.0 1.0)))
+      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
    (let (: $prf (AvgHeightDist g1 $avgDist) $tv) (query 20 kb (: $prf (AvgHeightDist g1 $avgDist) $tv))

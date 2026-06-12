@@ -30,7 +30,7 @@
        |-
        ((TotalEvidence pos $p1 $p2 $x $case-tv)
           (kb $ctx $vars)
-          (total-pos (rule-proof conjunction $p1prf $p2prf))
+          (total-pos (conjunction $p1prf $p2prf))
           $case-tv))))
 
 !(add-to-kb
@@ -42,7 +42,7 @@
        |-
        ((TotalEvidence neg $p1 $p2 $x $case-tv)
           (kb $ctx $vars)
-          (total-neg (rule-proof conjunction (negated $p1prf) $p2prf))
+          (total-neg (conjunction (negated $p1prf) $p2prf))
           $case-tv))))
 
 !(add-to-kb

@@ -1,4 +1,7 @@
-(= (tv-confidence $tv) (if (is-var $tv) 1.0 (if (= $tv (STV $_s $c)) (if (is-var $c) 1.0 $c) 1.0)))
+(= (tv-confidence $tv)
+   (if (is-var $tv) 1.0
+      (if (= $tv (STV $_s $c)) (if (is-var $c) 1.0 $c)
+         (if (= $tv (CTV $pos $neg)) (min (tv-confidence $pos) (tv-confidence $neg)) 1.0))))
 
 (= (goal-has-type-vars? ($type ($_kbid $_ctx $vars) $_prf $_tv))
    (or (not (== (extract-vars $type) ())) (not (== $vars Nil))))
@@ -12,31 +15,20 @@
 
 (= (normalize-expected-tv $tv)
    (if (is-var $tv) (STV 1.0 1.0)
-      (if (= $tv (STV $s $c)) (STV (if (is-var $s) 1.0 $s) (if (is-var $c) 1.0 $c)) $tv)))
+      (if (= $tv (STV $s $c)) (STV (if (is-var $s) 1.0 $s) (if (is-var $c) 1.0 $c))
+         (if (= $tv (CTV $pos $neg)) (CTV (normalize-expected-tv $pos) (normalize-expected-tv $neg)) $tv))))
 
 (= (cpu-expected-tv $fun $args)
-   (if (== $fun TotalMpConclusionFormula)
+   (if (== $fun CTVFormula)
       (let*
-         ((($kb $premise $conclusion $a $ba $fallback) $args)
+         ((($a $ctv) $args)
            ($res
               (reduce
                  (reduce
                     (cons $fun
-                       ($kb $premise $conclusion
-                          (normalize-expected-tv $a)
-                          (normalize-expected-tv $ba)
-                          (normalize-expected-tv $fallback)))))))
+                       ((normalize-expected-tv $a) (normalize-expected-tv $ctv)))))))
          $res)
-      (if (== $fun TotalMpFormula)
-         (let*
-         ((($a $ba $bna) $args)
-           ($res
-              (reduce
-                 (reduce
-                    (cons $fun
-                       ((normalize-expected-tv $a) (normalize-expected-tv $ba) (normalize-expected-tv $bna)))))))
-         $res)
-      (if (is-member $fun (() MpFormula AndFormula OrFormula LikelierThanFormula))
+      (if (is-member $fun (() AndFormula OrFormula LikelierThanFormula))
       (let*
          ((($a $b) $args)
            ($res (reduce (reduce (cons $fun ((normalize-expected-tv $a) (normalize-expected-tv $b)))))))
@@ -48,18 +40,20 @@
                (if (= $a (STV $s $c))
                   (STV (if (is-var $s) 1.0 (- 1 $s)) (if (is-var $c) 1.0 $c))
                   (let (STV $s $c) (normalize-expected-tv $a) (STV (- 1 $s) $c)))))
-         (if (== $fun InversionFormula)
+         (if (== $fun CTVInversionFormula)
             (let*
-               ((($a $b $ab) $args)
+               ((($a $b $ctv) $args)
                  ($na (normalize-expected-tv $a))
                  ($nb (normalize-expected-tv $b))
-                 ($nab (normalize-expected-tv $ab))
+                 ($nctv (normalize-expected-tv $ctv))
                  ($res
                     (if (or (is-var $a) (is-var $b))
-                       (STV 1.0 (* (min-atom ((tv-confidence $na) (tv-confidence $nb) (tv-confidence $nab))) 0.9))
-                       (reduce (reduce (cons $fun ($na $nb $nab)))))))
+                       (CTV
+                          (STV 1.0 (* (min-atom ((tv-confidence $na) (tv-confidence $nb) (tv-confidence $nctv))) 0.9))
+                          (STV 1.0 (* (min-atom ((tv-confidence $na) (tv-confidence $nb) (tv-confidence $nctv))) 0.9)))
+                       (reduce (reduce (cons $fun ($na $nb $nctv)))))))
                $res)
-            ()))))))
+            ())))))
 
 (= (first-cpu-expected-tv $fun $args)
    (let $res (let $hits (collapse (cpu-expected-tv $fun $args)) (if (== $hits ()) () (car-atom $hits)))
@@ -69,17 +63,17 @@
    (let $res (first-cpu-expected-tv $fun $args)
       (if (== $res ()) 1.0 (tv-confidence $res))))
 
-(= (premises-expected-confidence-step (CPU $fun $args $mid-tv) (cons (CPU MpFormula ($rule-tv $mid-tv) $_mp-tv) $rest))
+(= (premises-expected-confidence-step (CPU $fun $args $mid-tv) (cons (CPU CTVFormula ($mid-tv $rule-tv) $_mp-tv) $rest))
    (let $expected (first-cpu-expected-tv $fun $args)
       (if (== $expected ())
          (min (term-confidence (CPU $fun $args $mid-tv))
-            (premises-expected-confidence (cons (CPU MpFormula ($rule-tv $mid-tv) $_mp-tv) $rest)))
+            (premises-expected-confidence (cons (CPU CTVFormula ($mid-tv $rule-tv) $_mp-tv) $rest)))
          (min-atom
             ((tv-confidence $expected)
-             (cpu-expected-confidence MpFormula ($rule-tv $expected))
+             (cpu-expected-confidence CTVFormula ($expected $rule-tv))
              (premises-expected-confidence $rest))))))
 (= (premises-expected-confidence-step (CPU $fun $args $res) $rest)
-   (if (= $rest (cons (CPU MpFormula ($_rule-tv $res) $_mp-tv) $_tail))
+   (if (= $rest (cons (CPU CTVFormula ($res $_rule-tv) $_mp-tv) $_tail))
       (empty)
       (min (term-confidence (CPU $fun $args $res)) (premises-expected-confidence $rest))))
 (= (premises-expected-confidence-step $prem $rest)
@@ -158,7 +152,6 @@
       (add-atom $space $expr)
       (empty)))
 
-(= (contains-hash? $x) (fold-nested (|-> ($acc $elem) (or (== $elem #) $acc)) false $x))
 
 (= (next-search-id $key)
    (let*
@@ -174,21 +167,9 @@
 
 (= (proof-stats-by-id $pid) (match &proof ($pid $_gid $_output $_kind $score $ev $_children) ($score $ev)))
 
-(= (proof-tree-contains-list () $needle) false)
-(= (proof-tree-contains-list (cons $head $tail) $needle)
-   (or (proof-tree-contains $head $needle) (proof-tree-contains-list $tail $needle)))
-
-(= (proof-tree-contains $tree $needle)
-   (let*
-      (($ptree (if (= $tree (proof-ref $ptreeid)) (materialize-proof $ptreeid) $tree))
-        ($pneedle (if (= $needle (proof-ref $pneedleid)) (materialize-proof $pneedleid) $needle)))
-      (if (== $ptree $pneedle) true
-         (if (is-expr $ptree) (proof-tree-contains-list (cdr-atom $ptree) $pneedle) false))))
-
-(= (proof-term-leaf-head? $head) (is-member $head (() fact-ev CPU STV)))
+(= (proof-term-leaf-head? $head) (is-member $head (() fact-ev CPU STV CTV)))
 
 (= (proof-term-children-mode $_mode (@ $prf (head conjunction))) (cdr-atom $prf))
-(= (proof-term-children-mode $_mode (@ $prf (head rule-proof))) (cdr-atom (cdr-atom $prf)))
 (= (proof-term-children-mode proof-walk-in-kb (@ $prf (head $head)))
    (if (proof-term-leaf-head? $head) () (cdr-atom $prf)))
 (= (proof-term-children-mode $_mode $_prf) ())
@@ -244,16 +225,11 @@
 (= (merge-proof-atoms $proof-a $proof-b)
    (if (== $proof-a $proof-b) $proof-a
       (let*
-         ((($_typea $_kba $prfa $_tva) $proof-a)
-           (($_typeb $_kbb $prfb $_tvb) $proof-b))
-         (if $proof-a (and (= $prfa (merge/revision $_la $_ra)) (proof-tree-contains $prfa $prfb))
-            (if $proof-b (and (= $prfb (merge/revision $_lb $_rb)) (proof-tree-contains $prfb $prfa))
-               (let*
-                  (($ev-a (proof-atom-evidence-set $proof-a))
-                    ($ev-b (proof-atom-evidence-set $proof-b))
-                    ($overlap? (evidence-sets-overlap? $ev-a $ev-b)))
-                  (if $overlap?
-                     (if (>= (term-confidence $proof-a) (term-confidence $proof-b)) $proof-a $proof-b)
-                     (if (>= (term-confidence $proof-a) (term-confidence $proof-b))
-                        (RevisionMergeProof $proof-a $proof-b)
-                        (RevisionMergeProof $proof-b $proof-a)))))))))
+         (($ev-a (proof-atom-evidence-set $proof-a))
+           ($ev-b (proof-atom-evidence-set $proof-b))
+           ($overlap? (evidence-sets-overlap? $ev-a $ev-b)))
+         (if $overlap?
+            (if (>= (term-confidence $proof-a) (term-confidence $proof-b)) $proof-a $proof-b)
+            (if (>= (term-confidence $proof-a) (term-confidence $proof-b))
+               (RevisionMergeProof $proof-a $proof-b)
+               (RevisionMergeProof $proof-b $proof-a))))))

@@ -32,13 +32,13 @@
                ->
                $dist))
          (Conclusions (CntKidIn $room $dist)))
-      (STV 1.0 0.8)))
+      (CTV (STV 1.0 0.8) (STV 0.0 1.0))))
 
 !(compileadd kb
    (: playTogetherRule
       (Implication (Premises (Room $room) (CntKidIn $room $cnt) (GreaterThan $cnt 1))
          (Conclusions (PlayTogetherIn $room)))
-      (STV 1.0 0.75)))
+      (CTV (STV 1.0 0.75) (STV 0.0 1.0))))
 
 !(test
    (let (: $prf (CntKidIn room1 $cnt) $tv) (query 40 kb (: $prf (CntKidIn room1 $cnt) $tv))
@@ -62,12 +62,12 @@
 
 !(test
    (let (: $prf (CntKidIn room1 $cnt) $tv) (query 40 kb (: $prf (CntKidIn room1 $cnt) $tv))
-      (let (STV $s $c) (MpFormula (STV 1.0 0.75) (DistGreaterThanFormula $cnt 1))
-         (and (and (> $s 0.2499) (< $s 0.2501)) (and (> $c 0.02940) (< $c 0.02942)))))
+      (let (STV $s $c) (CTVFormula (DistGreaterThanFormula $cnt 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
+	         (and (and (> $s 0.2499) (< $s 0.2501)) (and (> $c 0.09) (< $c 0.13)))))
    true)
 
 !(test
    (let (: $prf (CntKidIn room2 $cnt) $tv) (query 40 kb (: $prf (CntKidIn room2 $cnt) $tv))
-      (let (STV $s $c) (MpFormula (STV 1.0 0.75) (DistGreaterThanFormula $cnt 1))
-         (and (and (> $s 0.0599) (< $s 0.0601)) (and (> $c 0.00586) (< $c 0.00587)))))
+      (let (STV $s $c) (CTVFormula (DistGreaterThanFormula $cnt 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
+	         (and (and (> $s 0.0599) (< $s 0.0601)) (and (> $c 0.09) (< $c 0.13)))))
    true)

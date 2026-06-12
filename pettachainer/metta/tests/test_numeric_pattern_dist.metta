@@ -25,11 +25,22 @@
             (Compute + ($t 1) -> $t1)
             (AtTime (FeatureZ $zv) $t1))
          (Conclusions (XYZSample (Pair (XY $xv $yv) $zv))))
-      (STV 1.0 1.0)))
+      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
-   (fold-flat (|-> ($acc $_item) (+ $acc 1)) 0 (collapse (query 100 kb (: $prf (XYZSample $sample) $tv))))
-   4)
+   (query 100 kb (: $prf (XYZSample $sample) $tv))
+   ((: (sampleRule (conjunction fx7 fy7 cpu fz8))
+       (XYZSample (Pair (XY 10.0 2.0) 49.0))
+       (STV 1.0 0.9))
+    (: (sampleRule (conjunction fx5 fy5 cpu fz6))
+       (XYZSample (Pair (XY 10.0 100.0) 19.0))
+       (STV 1.0 0.9))
+    (: (sampleRule (conjunction fx3 fy3 cpu fz4))
+       (XYZSample (Pair (XY 10.0 100.0) 21.0))
+       (STV 1.0 0.9))
+    (: (sampleRule (conjunction fx1 fy1 cpu fz2))
+       (XYZSample (Pair (XY 10.0 100.0) 20.0))
+       (STV 1.0 0.9))))
 
 !(test (struct-distance2 (XY 10.0 100.0) (XY 10.0 100.0)) 0.0)
 

@@ -54,12 +54,26 @@
    true)
 
 !(test
-   (==
-      (collapse (query 100 kb (: (bench-noise-back-head benchNoiseMix 1) (BenchTarget benchNoiseMix 1) $tv)))
-      ())
-   true)
+   (query 100 kb (: (bench-noise-back-head benchNoiseMix 1) (BenchTarget benchNoiseMix 1) $tv))
+   ())
 
-!(test (not (== (collapse (query 100 kb (: $prf (NoiseDeadEnd benchNoiseMix $idx) $tv))) ())) true)
+!(test
+   (let (: $prf (NoiseDeadEnd benchNoiseMix 4) $_tv)
+      (query 100 kb (: $prf (NoiseDeadEnd benchNoiseMix 4) $tv))
+      (: $prf (NoiseDeadEnd benchNoiseMix 4) random-tv))
+   (: ((bench-noise-forward-rule benchNoiseMix 4 2)
+        ((bench-noise-forward-rule benchNoiseMix 4 1) (bench-base-fact benchNoiseMix 1 4)))
+      (NoiseDeadEnd benchNoiseMix 4)
+      random-tv))
+
+!(test
+   (let (: $prf (NoiseDeadEnd benchNoiseMix 5) $_tv)
+      (query 100 kb (: $prf (NoiseDeadEnd benchNoiseMix 5) $tv))
+      (: $prf (NoiseDeadEnd benchNoiseMix 5) random-tv))
+   (: ((bench-noise-forward-rule benchNoiseMix 5 2)
+        ((bench-noise-forward-rule benchNoiseMix 5 1) (bench-base-fact benchNoiseMix 1 1)))
+      (NoiseDeadEnd benchNoiseMix 5)
+      random-tv))
 
 !(BenchGenerate benchPaths3
    (depth 2)

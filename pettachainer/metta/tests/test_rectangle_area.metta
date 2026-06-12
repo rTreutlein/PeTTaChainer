@@ -24,7 +24,7 @@
                ->
                $areaDist))
          (Conclusions (AreaDist $rect $areaDist)))
-      (STV 1.0 1.0)))
+      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
    (let (: $prf (AreaDist rectA $areaDist) $tv) (query 20 kb (: $prf (AreaDist rectA $areaDist) $tv))

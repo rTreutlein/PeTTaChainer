@@ -13,7 +13,7 @@
       (Implication
          (Premises (Seed $p))
          (Conclusions (PairFact $p)))
-      (STV 1.0 1.0)))
+      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
    (collapse
@@ -21,7 +21,7 @@
          (: $prf
             (FoldAll (Score $name $n) $n 0 (|-> ($acc $elem) (+ $acc $elem)) -> $total)
             $tv)))
-   ((: (rule-proof foldall prfA prfB prfC) (FoldAll (Score $_name $_n) $_n 0 lambda_20 -> 6) (STV 1.0 1.0))))
+   ((: (foldall-proof prfA prfB prfC) (FoldAll (Score $_name $_n) $_n 0 lambda_16 -> 6) (STV 1.0 1.0))))
 
 !(test
    (collapse
@@ -34,7 +34,7 @@
                ->
                $counts)
             $tv)))
-   ((: (rule-proof foldall sampleA sampleB)
+   ((: (foldall-proof sampleA sampleB)
        (FoldAll (XYZSample (Pair $_xy $_z)) (Pair $_xy $_z) (PairCounts ()) DistValueCountAcc -> (PairCounts (((Pair (XY 10.0 100.0) 20.0) 1.0) ((Pair (XY 10.0 100.0) 21.0) 1.0))))
        (STV 1.0 1.0))))
 
@@ -49,6 +49,6 @@
                ->
                $counts)
             $tv)))
-   ((: (rule-proof foldall (rule-proof seedRule seed2) (rule-proof seedRule seed1))
-       (FoldAll (PairFact $_p) $_p (PairCounts ()) DistValueCountAcc -> (PairCounts (((Pair beta 2) 1.0) ((Pair alpha 1) 1.0))))
+   ((: (foldall-proof (seedRule seed1) (seedRule seed2))
+       (FoldAll (PairFact $_p) $_p (PairCounts ()) DistValueCountAcc -> (PairCounts (((Pair alpha 1) 1.0) ((Pair beta 2) 1.0))))
        (STV 1.0 1.0))))

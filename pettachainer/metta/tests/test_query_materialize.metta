@@ -2,13 +2,13 @@
 
 !(compileadd materializeKb (: a0 (A) (STV 1.0 1.0)))
 
-!(compileadd materializeKb (: r1 (Implication (Premises (A)) (Conclusions (B))) (STV 1.0 1.0)))
+!(compileadd materializeKb (: r1 (Implication (Premises (A)) (Conclusions (B))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(compileadd materializeKb (: r2 (Implication (Premises (B)) (Conclusions (Goal))) (STV 1.0 1.0)))
+!(compileadd materializeKb (: r2 (Implication (Premises (B)) (Conclusions (Goal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
-   (not (== (collapse (query 4 materializeKb (: $p (Goal) $tv))) ()))
-   true)
+   (query 4 materializeKb (: $p (Goal) $tv))
+   (: (r2 (r1 a0)) (Goal) (STV 1.0 1.0)))
 
 !(test
    (collapse (match &kb ((B) (materializeKb MAIN Nil) $_prf $_tv) true))
@@ -19,8 +19,8 @@
    ())
 
 !(test
-   (not (== (collapse (query-materialize 4 materializeKb (: $p (Goal) $tv))) ()))
-   true)
+   (query-materialize 4 materializeKb (: $p (Goal) $tv))
+   (: (r2 (r1 a0)) (Goal) (STV 1.0 1.0)))
 
 !(test
    (not (== (collapse (match &kb ((B) (materializeKb MAIN Nil) $_prf $_tv) true)) ()))
@@ -31,9 +31,9 @@
    true)
 
 !(test
-   (not (== (collapse (query 1 materializeKb (: $p (B) $tv))) ()))
-   true)
+   (query 1 materializeKb (: $p (B) $tv))
+   (: (r1 a0) (B) (STV 1.0 1.0)))
 
 !(test
-   (not (== (collapse (query 1 materializeKb (: $p (Goal) $tv))) ()))
-   true)
+   (query 1 materializeKb (: $p (Goal) $tv))
+   (: (r2 (r1 a0)) (Goal) (STV 1.0 1.0)))
