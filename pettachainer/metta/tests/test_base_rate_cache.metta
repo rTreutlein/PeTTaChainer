@@ -10,9 +10,9 @@
 ; harvests them into the cache afterwards.
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with (foldall-proof pb) (foldall-proof qa)) qa)
+   (: ((inverted r with (foldall-proof pb) (foldall-proof qa (r pb))) qa)
       (P alice)
-      (STV 0.6599999999999999 0.0008991008991008993)))
+      (STV 0.7314120278984075 0.0008991008991008993)))
 
 !(test
    (let $cached (cached-base-rate brKb (P $x))
@@ -26,7 +26,7 @@
    (query 200 brKb (: $prf (P alice) $tv))
    (: ((inverted r with cpu cpu) qa)
       (P alice)
-      (STV 0.6599999999999999 0.0008991008991008993)))
+      (STV 0.7314120278984075 0.0008991008991008993)))
 
 ; User-provided base rates override the cache and feed inversion directly.
 !(set-base-rate brKb (P $x) (STV 0.5 0.5))
@@ -53,3 +53,48 @@
    (let $cached (cached-base-rate brKb (P $x))
       (if (== $cached ()) no-cache-entry (car-atom $cached)))
    no-cache-entry)
+
+; --- Refinement of computed cache entries ---
+
+!(compileadd brKb2 (: r (Implication (Premises (P $x)) (Conclusions (Q $x))) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
+
+!(compileadd brKb2 (: qa (Q alice) (STV 0.9 0.8)))
+
+!(compileadd brKb2 (: pb (P bob) (STV 0.7 0.8)))
+
+; A weak computed entry gets refined: the refold has higher confidence, so the
+; snapshot replaces the cached value, the conclusion uses the refined base
+; rate, and the harvest writes the refined value back to the cache.
+!(store-computed-base-rate! brKb2 (P $x) (STV 0.2 0.0001))
+
+!(test
+   (query 200 brKb2 (: $prf (P alice) $tv))
+   (: ((inverted r with (foldall-proof pb) (foldall-proof qa (r pb))) qa)
+      (P alice)
+      (STV 0.7314120278984075 0.0008991008991008993)))
+
+!(test
+   (let $cached (cached-base-rate brKb2 (P $x))
+      (if (== $cached ()) no-cache-entry (car-atom $cached)))
+   (STV 0.6999999999999998 0.0009990009990009992))
+
+; A high-confidence computed entry is protected: the refold's confidence is
+; lower, so the cached estimate survives refinement and feeds the conclusion.
+!(compileadd brKb3 (: r (Implication (Premises (P $x)) (Conclusions (Q $x))) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
+
+!(compileadd brKb3 (: qa (Q alice) (STV 0.9 0.8)))
+
+!(compileadd brKb3 (: pb (P bob) (STV 0.7 0.8)))
+
+!(store-computed-base-rate! brKb3 (P $x) (STV 0.5 0.9))
+
+!(test
+   (query 200 brKb3 (: $prf (P alice) $tv))
+   (: ((inverted r with cpu (foldall-proof qa (r pb))) qa)
+      (P alice)
+      (STV 0.522437162784577 0.0017964071856287427)))
+
+!(test
+   (let $cached (cached-base-rate brKb3 (P $x))
+      (if (== $cached ()) no-cache-entry (car-atom $cached)))
+   (STV 0.5 0.9))

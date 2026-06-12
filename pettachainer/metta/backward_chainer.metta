@@ -138,16 +138,41 @@
        ($pid (store-proof-candidate $agg-gid (aggregate-result-candidate $result () ()))))
       (wake-proof-commit-heap $agenda $agg-gid $pid)))
 
+(= (base-rate-refine-score $score) (* 0.25 $score))
+
+(= (spawn-refining-aggregate-heap $agenda $score $agg-gid $goal-view $args $tv)
+   (let*
+      (($child-goal (aggregate-child-goal $goal-view))
+       (($depth $_goal $_expanded $_pending) (goal-by-id $agg-gid))
+       ($child-gid (ensure-goal-at-depth $child-goal (+ 1 $depth)))
+       ($hits (collapse (once (match &aggregate ($agg-gid $_child $_args $_base $_pending1 $_current) true))))
+       ($_agg
+          (if (== $hits ())
+             (chainer-add-atom &aggregate ($agg-gid $child-gid $args $score 0.0 ()))
+             ()))
+       ($pid (store-proof-candidate $agg-gid (aggregate-result-candidate (CPU FoldAllCompiled $args $tv) () ())))
+       ($_set
+          (progn
+             (remove-atom &aggregate ($agg-gid $child-gid $args $score 0.0 ()))
+             (chainer-add-atom &aggregate ($agg-gid $child-gid $args $score 0.0 $pid))))
+       ($_wait (chainer-add-atom &goal_waiter ($child-gid (aggregate-waiter $agg-gid))))
+       ($agenda1 (wake-proof-commit-heap $agenda $agg-gid $pid))
+       ($nagenda (schedule-goal-heap $agenda1 (base-rate-refine-score $score) $child-gid)))
+      $nagenda))
+
 (= (spawn-aggregate-goal-heap $agenda $score $agg-gid $goal-view)
    (let*
       (($args (copy_term (let (CPU $_agg-fun $view-args $_goalres) $goal-view $view-args)))
        ($cache-key (base-rate-aggregate-key $args))
-       ($cached
+       ($entries
           (if (== $cache-key ()) ()
-             (let ($kbid $pattern) $cache-key (cached-base-rate $kbid $pattern)))))
-      (if (== $cached ())
+             (let ($kbid $pattern) $cache-key (base-rate-cache-entries $kbid $pattern)))))
+      (if (== $entries ())
          (spawn-aggregate-goal-live-heap $agenda $score $agg-gid $goal-view $args)
-         (commit-cached-aggregate-heap $agenda $agg-gid $args (car-atom $cached)))))
+         (let (base-rate $_kbid $_stored $tv $source) (car-atom $entries)
+            (if (== $source user)
+               (commit-cached-aggregate-heap $agenda $agg-gid $args $tv)
+               (spawn-refining-aggregate-heap $agenda $score $agg-gid $goal-view $args $tv))))))
 
 (= (spawn-aggregate-goal-live-heap $agenda $score $agg-gid $goal-view $args)
    (let*
@@ -275,9 +300,24 @@
              (($kb $pattern $extractor $init $fun $finish $tv-mode) $args)
              ($result (CPU FoldAllCompiled $args (aggregate-finish $finish $acc)))
              ($commit-ev (if (== $finish base-rate) () $ev)))
-            (if (aggregate-snapshot-changed? $current-pid $result $commit-ev)
-               (commit-aggregate-snapshot-heap $agenda $agg-gid $result $commit-ev $children)
-               $agenda)))))
+            (if (base-rate-refinement-degrades? $finish $current-pid $result)
+               $agenda
+               (if (aggregate-snapshot-changed? $current-pid $result $commit-ev)
+                  (commit-aggregate-snapshot-heap $agenda $agg-gid $result $commit-ev $children)
+                  $agenda))))))
+
+(= (base-rate-refinement-degrades? $finish $current-pid $result)
+   (if (== $finish base-rate)
+      (if (== $current-pid ()) false
+         (let*
+            (($new-tv (let (CPU $_fun $_args $ntv) $result $ntv))
+             ($current-tv (let (CPU $_cfun $_cargs $ctv) (proof-output-atom $current-pid) $ctv)))
+            (if (= $current-tv (STV $_cs $_cc))
+               (if (= $new-tv (STV $_ns $_nc))
+                  (< (tv-confidence $new-tv) (tv-confidence $current-tv))
+                  true)
+               false)))
+      false))
 
 (= (direct-goal-results-view $steps (CPU $fun $args $_res))
    (CPU $fun $args (reduce (cpu-call $steps $fun $args))))

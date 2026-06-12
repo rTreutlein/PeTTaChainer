@@ -458,7 +458,7 @@
    (let*
       (($current-output (proof-output-atom $current-pid))
        (($_current-score $current-ev) (proof-stats-by-id $current-pid)))
-      (or (not (== $current-output $result)) (not (== $current-ev $ev)))))
+      (or (not (=alpha $current-output $result)) (not (== $current-ev $ev)))))
 
 (= (commit-aggregate-snapshot-heap $agenda $agg-gid $result $ev $children)
    (let*

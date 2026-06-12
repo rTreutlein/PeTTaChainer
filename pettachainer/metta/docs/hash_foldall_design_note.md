@@ -159,18 +159,24 @@ knowledge base in `&base_rate_cache`:
 - `(set-base-rate $kbid $pattern $tv)` records a user-provided estimate;
   `(clear-base-rate $kbid $pattern)` removes any entry. User entries take
   precedence and survive knowledge-base changes.
-- When a base-rate fold goal expands and the cache holds a value, the
-  aggregate commits the cached TV directly — no instance expansion happens at
-  all (the proof shows a bare `cpu` token instead of a `foldall-proof`).
+- When a base-rate fold goal expands and a *user* entry exists, the aggregate
+  commits the cached TV directly and the fold never runs — user values are
+  authoritative (the proof shows a bare `cpu` token instead of a
+  `foldall-proof`).
+- A *computed* entry instead becomes the aggregate's initial snapshot: the
+  cached value answers immediately, and the fold machinery still spawns at
+  reduced priority (`base-rate-refine-score`). If leftover budget lets the
+  refold find a better estimate, the ordinary anytime snapshot replacement
+  swaps it in and re-propagates downstream conclusions.
+- Refinement is monotone: a refold may only replace the current base-rate
+  snapshot when its confidence (instance count) is at least as high, so a
+  shallow refold can never degrade a deeper cached estimate, and `no-evidence`
+  never replaces a real value.
 - After each query the chainer harvests the computed base rates into the
-  cache, so repeated inversions over an unchanged knowledge base skip the
-  fold entirely.
+  cache, so repeated inversions over an unchanged knowledge base get instant
+  estimates plus cheap incremental refinement.
 - Adding a fact or rule to a knowledge base invalidates that kb's computed
   entries (user entries persist).
-
-Caveat: a base rate computed under a small step budget is cached as-is; if a
-deeper search would have found more instances, the cached value stays at the
-shallower estimate until the kb changes or the entry is cleared.
 
 `tests/test_base_rate_cache.metta` covers user overrides, cache reuse, and
 invalidation.
