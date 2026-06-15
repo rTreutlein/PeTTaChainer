@@ -53,9 +53,9 @@
 (= (eval-proof $env $term)
    (if (is-expr $term)
       (let $head (car-atom $term)
-         (if (== $head conjunction)    (eval-binary $env AndFormula $term)
-         (if (== $head likelier)       (eval-binary $env LikelierThanFormula $term)
-         (if (== $head likelier-indep) (eval-binary $env LikelierIndepFormula $term)
+         (if (== $head conjunction)  (eval-binary $env AndFormula $term)
+         (if (== $head likelier)     (eval-binary $env LikelierThanFormula $term)
+         (if (== $head old-likelier) (eval-binary $env ClampedLikelierFormula $term)
             (CTVFormula (eval-proof $env (car-atom (cdr-atom $term))) (rule-ctv $head))))))
       (env-or-leaf $env $term)))
 
@@ -142,47 +142,42 @@
    (eval-proof (over a (STV 0.5 1.0)) (pqToB (conjunction (aToP a) (aToQ a))))
    (STV 0.25 1.0))
 
-;; The one residual concern is single-occurrence nonlinearity from a piecewise
-;; formula: LikelierThanFormula's max(0, s_a - s_b) kink breaks the linear probe
-;; even when the leaf occurs once. Such a path can fall back to dominance, or the
-;; formula can be made multilinear -- see the next section.
+;; The only single-occurrence nonlinearity was a piecewise formula -- the old
+;; LikelierThanFormula's max(0, s_a - s_b) kink. That has been made multilinear
+;; (see the next section), so the probe is now exact on every engine proof.
 
 ;; ===========================================================================
-;; The LikelierThan kink, and a multilinear alternative that factors exactly
+;; Why LikelierThanFormula was made multilinear
 ;;
-;; LikelierThanFormula(A,B) = (max 0 (- s_a s_b)) is piecewise-linear: it has a
-;; kink at s_a = s_b. Probing only at s_a=0 and s_a=1 fits a straight line that
-;; cannot see the kink, so factoring a leaf that flows through it is wrong
-;; between the probe points.
+;; The old form (max 0 (- s_a s_b)) was piecewise-linear: a kink at s_a = s_b.
+;; Probing only at s_a=0 and s_a=1 fits a straight line that cannot see the kink,
+;; so factoring a leaf that flowed through it was wrong between the probe points.
+;; LikelierThanFormula is now s_a * (1 - s_b) -- P(A and not B) under independence
+;; -- which is multilinear and factors exactly.
 ;; ===========================================================================
 
 (= (leaf-tv w) (STV 0.6 1.0))
 (= (rule-ctv lrule) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
 
-;; Clamped LikelierThan, real a=(0.3 1.0). The probe line is 0.4 * s_a (fit
+;; The old clamped form, kept here only to show the problem it caused.
+(= (ClampedLikelierFormula (STV $sa $ca) (STV $sb $cb))
+   (STV (max 0.0 (- $sa $sb)) (min $ca $cb)))
+
+;; Old clamped LikelierThan, real a=(0.3 1.0). The probe line is 0.4 * s_a (fit
 ;; through s_a=0 ->0 and s_a=1 ->0.4), giving 0.12. But 0.3 is below the kink at
 ;; s_b=0.6, so the true value is (max 0 (- 0.3 0.6)) = 0. Factored 0.12 vs true 0.
+!(test
+   (residual-then-apply (lrule (old-likelier a w)) a (STV 0.3 1.0))
+   (STV 0.12 1.0))
+!(test
+   (eval-proof (over a (STV 0.3 1.0)) (lrule (old-likelier a w)))
+   (STV 0.0 1.0))
+
+;; The current multilinear LikelierThanFormula: same probe line (0.12), but now
+;; it IS the truth -- 0.3 * (1 - 0.6) = 0.12 both ways.
 !(test
    (residual-then-apply (lrule (likelier a w)) a (STV 0.3 1.0))
    (STV 0.12 1.0))
 !(test
    (eval-proof (over a (STV 0.3 1.0)) (lrule (likelier a w)))
-   (STV 0.0 1.0))
-
-;; A multilinear cousin: P(A and not B) under independence, s_a * (1 - s_b).
-;; No clamp, no kink -- linear in each argument -- so the 2-point probe is exact.
-;; It reads "A holds where B does not," assuming A and B independent, instead of
-;; the clamped form's maximal-overlap lower bound. That is a genuine change of
-;; meaning, but a coherent one, and it removes the only non-fact-reuse case where
-;; factoring was inexact.
-(= (LikelierIndepFormula (STV $sa $ca) (STV $sb $cb))
-   (STV (* $sa (- 1.0 $sb)) (min $ca $cb)))
-
-;; Same probe line (0.12), but now it IS the truth: at a=(0.3 1.0),
-;; 0.3 * (1 - 0.6) = 0.12 both ways.
-!(test
-   (residual-then-apply (lrule (likelier-indep a w)) a (STV 0.3 1.0))
-   (STV 0.12 1.0))
-!(test
-   (eval-proof (over a (STV 0.3 1.0)) (lrule (likelier-indep a w)))
    (STV 0.12 1.0))

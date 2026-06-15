@@ -9,7 +9,10 @@
 
 (= (OrFormula (STV $si $ci) (STV $sa $ca)) (let* (($sb (- (+ $si $sa) (* $si $sa))) ($cb (min $ci $ca))) (STV $sb $cb)))
 
-(= (LikelierThanFormula (STV $sa $ca) (STV $sb $cb)) (STV (max 0.0 (- $sa $sb)) (min $ca $cb)))
+;; "A is likelier than B" as P(A and not B) under independence: s_a * (1 - s_b).
+;; Multilinear (linear in each argument), consistent with And (s1*s2) and
+;; Or (s1+s2-s1*s2), and free of the max(0, s_a - s_b) clamp's kink.
+(= (LikelierThanFormula (STV $sa $ca) (STV $sb $cb)) (STV (* $sa (- 1.0 $sb)) (min $ca $cb)))
 
 (= (AndProjection (STV $sab $cab) (STV $sa $ca))
    (if (== $sa 0.0)

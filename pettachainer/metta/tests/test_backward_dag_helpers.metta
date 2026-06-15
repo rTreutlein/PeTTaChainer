@@ -23,9 +23,9 @@
 
 !(test (OrProjection (STV 0.75 0.9) (STV 0.5 1.0)) (STV 0.5 0.9))
 
-!(test (LikelierThanFormula (STV 0.9 0.6) (STV 0.4 0.8)) (STV 0.5 0.6))
+!(test (LikelierThanFormula (STV 0.9 0.6) (STV 0.4 0.8)) (STV 0.54 0.6))
 
-!(test (LikelierThanFormula (STV 0.4 0.6) (STV 0.9 0.8)) (STV 0.0 0.6))
+!(test (LikelierThanFormula (STV 0.4 0.6) (STV 0.9 0.8)) (STV 0.039999999999999994 0.6))
 
 !(test (term-confidence (CPU LikelierThanFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out)) 0.4)
 
