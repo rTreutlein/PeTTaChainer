@@ -224,24 +224,33 @@ direct `A->B` versus a deduction chain `A->X->B`, or `A,X->B` / `A,Y->B` sharing
 only `A`, all pool to the higher revised confidence instead of dominating.
 
 The formula that produced each proof's TV is already in the store as its CPU
-formula children, so a proof is **re-evaluated structurally** with one leaf fact
-overridden: `factor-reeval` folds the premise proofs (identified by child
-position, never by TV value) and re-applies the rule CTV. Probing the shared
-premise at strength 1 and 0 recovers each proof's residual implication CTV;
-these are revised and re-applied via `CTVFormula` to the premise's real TV. No
-new per-node storage is needed.
+formula children, so a proof is **re-evaluated structurally** with the shared
+leaves overridden: `factor-reeval` folds the premise proofs (identified by child
+position, never by TV value) and re-applies the rule CTV. When several facts are
+shared, they are factored out as a *conjunction*: probing all shared leaves at
+strength 1 (conjunction = 1) and at 0 (conjunction = 0) recovers each proof's
+residual implication CTV, because the conclusion is linear in the shared
+conjunction's strength. The residuals are revised and re-applied via
+`CTVFormula` to the real conjunction of the shared leaves' TVs. Single-leaf is
+the one-element case. No new per-node storage is needed.
 
 `merge-proof-id-output` pools a group only when `group-factorable?` holds:
 
-- the proofs share exactly one fact leaf,
+- the proofs share at least one fact leaf,
 - every proof is standard implication-shaped (premises -> And-fold ->
-  CTVFormula); other shapes fall back to revision/dominance, and
+  CTVFormula); other shapes fall back to revision/dominance,
 - the residual evidence sets (each proof's evidence minus the shared facts) are
   pairwise disjoint. This rejects proofs that also share an uncertain rule or
   whose evidence subsumes another's -- they are not independent given the shared
-  premise, so pooling would double count, and they dominate instead.
+  premise, so pooling would double count, and they dominate instead, and
+- each residual round-trips: re-applying it to the real shared conjunction
+  reproduces the proof's stored TV. This holds when the shared facts enter
+  through one conjunction (the 2-point probe is exact there) and fails when they
+  enter through different conjunctions or depths, where it would be inexact;
+  those groups fall back to dominance.
 
 Because every conjunction has disjoint fact-leaves (the conjunction guard), each
 fact occurs at most once per proof, so the structural re-evaluation is exact for
-all engine proofs. `tests/test_lifting_merge.metta` covers the pooled cases and
-the shared-rule case that must not pool.
+all engine proofs. `tests/test_lifting_merge.metta` covers the single- and
+multi-leaf pooled cases, the shared-rule case that must not pool, and the
+different-conjunction case the round-trip check rejects.

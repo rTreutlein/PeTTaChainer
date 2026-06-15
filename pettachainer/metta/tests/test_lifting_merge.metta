@@ -46,3 +46,29 @@
    (: (bImpliesD (merge/revision bm (cImpliesB cm)))
       (D m)
       (STV 0.45 0.9047368421052632)))
+
+;; --- Multi-leaf: two rules A,B->C share BOTH a and b. Their conjunction is
+;; factored out as a unit and the residual implications pooled. ---
+!(compileadd mlKb (: a (A i) (STV 1.0 1.0)))
+!(compileadd mlKb (: b (Bp i) (STV 1.0 1.0)))
+!(compileadd mlKb (: r1 (Implication (Premises (And (A $z) (Bp $z))) (Conclusions (C $z))) (CTV (STV 0.6 0.9) (STV 0.0 1.0))))
+!(compileadd mlKb (: r2 (Implication (Premises (And (A $z) (Bp $z))) (Conclusions (C $z))) (CTV (STV 0.5 0.9) (STV 0.0 1.0))))
+
+!(test
+   (query 80 mlKb (: $prf (C i) $tv))
+   (: (merge/revision (r2 (conjunction a b)) (r1 (conjunction a b)))
+      (C i)
+      (STV 0.5499999999999999 0.9473684210526316)))
+
+;; --- Round-trip guard: a and b are shared but enter through different
+;; conjunctions (b directly in path 1, via M in path 2), so the 2-point probe
+;; would be inexact. Round-trip fails, factoring is disabled, dominance applies. ---
+!(compileadd rtKb (: a (A i) (STV 0.5 1.0)))
+!(compileadd rtKb (: b (Bp i) (STV 0.5 1.0)))
+!(compileadd rtKb (: bToM (Implication (Premises (Bp $z)) (Conclusions (M $z))) (CTV (STV 0.9 0.9) (STV 0.0 1.0))))
+!(compileadd rtKb (: r1 (Implication (Premises (And (A $z) (Bp $z))) (Conclusions (D $z))) (CTV (STV 0.6 0.9) (STV 0.0 1.0))))
+!(compileadd rtKb (: r2 (Implication (Premises (And (A $z) (M $z))) (Conclusions (D $z))) (CTV (STV 0.7 0.9) (STV 0.0 1.0))))
+
+!(test
+   (query 100 rtKb (: $prf (D i) $tv))
+   (: (r1 (conjunction a b)) (D i) (STV 0.15 0.975)))

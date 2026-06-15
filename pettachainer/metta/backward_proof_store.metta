@@ -292,24 +292,28 @@
 (= (factor-and-fold (cons $tv ())) $tv)
 (= (factor-and-fold (cons $tv $rest)) (AndFormula $tv (factor-and-fold $rest)))
 
-(= (factor-reeval-premises () $_k $_o) ())
-(= (factor-reeval-premises (cons $pid $rest) $k $o)
-   (cons (factor-reeval $pid $k $o) (factor-reeval-premises $rest $k $o)))
+(= (factor-key-in? $_k ()) false)
+(= (factor-key-in? $k (cons $h $rest)) (if (=alpha $k $h) true (factor-key-in? $k $rest)))
 
-;; structural recompute: fold premise proofs (by child position) and re-apply ctv
-(= (factor-reeval-rule $pid $k $o $stored)
+(= (factor-reeval-premises () $_keys $_o) ())
+(= (factor-reeval-premises (cons $pid $rest) $keys $o)
+   (cons (factor-reeval $pid $keys $o) (factor-reeval-premises $rest $keys $o)))
+
+;; structural recompute: fold premise proofs (by child position) and re-apply ctv,
+;; with every shared leaf (any key in $keys) overridden to $o
+(= (factor-reeval-rule $pid $keys $o $stored)
    (let* ((($prem $cpu) (factor-split-pc (proof-children-by-id $pid) () ())))
       (if (== $cpu ()) $stored
          (let* (((CPU $lf $la $_r) (proof-output-atom (factor-last $cpu)))
                 ($ctv (factor-find-ctv $la)))
             (if (and (== $lf CTVFormula) (not (== $ctv no-ctv)))
-               (CTVFormula (factor-and-fold (factor-reeval-premises $prem $k $o)) $ctv)
+               (CTVFormula (factor-and-fold (factor-reeval-premises $prem $keys $o)) $ctv)
                $stored)))))
 
-(= (factor-reeval $pid $k $o)
+(= (factor-reeval $pid $keys $o)
    (let $out (proof-output-atom $pid)
       (if (= $out ($t $kb $prf $tv))
-         (if (=alpha (candidate-output-key $out) $k) $o (factor-reeval-rule $pid $k $o $tv))
+         (if (factor-key-in? (candidate-output-key $out) $keys) $o (factor-reeval-rule $pid $keys $o $tv))
          $tv)))
 
 (= (factor-proof? $pid)
@@ -339,19 +343,43 @@
    (let $r (factor-leaf-tv $pid $key)
       (if (== $r no-tv) (factor-leaf-tv-children $rest $key) $r)))
 
+;; Residual of a proof w.r.t. the shared facts: probe their conjunction at
+;; strength 1 (all shared leaves -> (1 1)) and 0 (all -> (0 1)). The conclusion
+;; is linear in the shared conjunction's strength, so these two points give the
+;; residual implication (conjunction-of-shared -> conclusion).
 (= (factor-revise-ctv (CTV $p1 $n1) (CTV $p2 $n2)) (CTV (mergetvs $p1 $p2) (mergetvs $n1 $n2)))
-(= (factor-residual $pid $key)
-   (CTV (factor-reeval $pid $key (STV 1.0 1.0)) (factor-reeval $pid $key (STV 0.0 1.0))))
-(= (factor-revise-residuals (cons $pid ()) $key) (factor-residual $pid $key))
-(= (factor-revise-residuals (cons $pid $rest) $key)
-   (factor-revise-ctv (factor-residual $pid $key) (factor-revise-residuals $rest $key)))
+(= (factor-residual $pid $keys)
+   (CTV (factor-reeval $pid $keys (STV 1.0 1.0)) (factor-reeval $pid $keys (STV 0.0 1.0))))
+(= (factor-revise-residuals (cons $pid ()) $keys) (factor-residual $pid $keys))
+(= (factor-revise-residuals (cons $pid $rest) $keys)
+   (factor-revise-ctv (factor-residual $pid $keys) (factor-revise-residuals $rest $keys)))
+
+;; the shared facts' keys, and their real conjunction TV (And-fold of leaf TVs)
+(= (factor-shared-keys ()) ())
+(= (factor-shared-keys (cons $f $rest)) (cons (factor-fact-key $f) (factor-shared-keys $rest)))
+(= (factor-real-conj $pid (cons $key ())) (factor-leaf-tv $pid $key))
+(= (factor-real-conj $pid (cons $key $rest))
+   (AndFormula (factor-leaf-tv $pid $key) (factor-real-conj $pid $rest)))
+
+;; round-trip check: re-applying a proof's residual to the real shared
+;; conjunction must reproduce its stored TV. Exact when the shared facts enter
+;; through one conjunction; fails (and disables factoring) when they enter
+;; through different conjunctions, where the 2-point probe would be inexact.
+(= (factor-abs-diff $x $y) (let $d (- $x $y) (if (< $d 0.0) (- 0.0 $d) $d)))
+(= (factor-close? $x $y) (< (factor-abs-diff $x $y) 0.000001))
+(= (factor-tv-close? (STV $s1 $c1) (STV $s2 $c2)) (and (factor-close? $s1 $s2) (factor-close? $c1 $c2)))
+(= (factor-tv-close? $_a $_b) false)
+(= (factor-roundtrip-one? $pid $keys $conj)
+   (let* ((($_t $_k $_p $stored) (proof-output-atom $pid))
+          ($rebuilt (CTVFormula $conj (factor-residual $pid $keys))))
+      (factor-tv-close? $stored $rebuilt)))
+(= (factor-roundtrips? () $_keys $_conj) true)
+(= (factor-roundtrips? (cons $pid $rest) $keys $conj)
+   (and (factor-roundtrip-one? $pid $keys $conj) (factor-roundtrips? $rest $keys $conj)))
 
 (= (factor-ref-of $pid) (let ($_t $_k $prf $_tv) (proof-output-atom $pid) $prf))
 (= (factor-merged-prf (cons $pid ())) (factor-ref-of $pid))
 (= (factor-merged-prf (cons $pid $rest)) (merge/revision (factor-ref-of $pid) (factor-merged-prf $rest)))
-
-(= (factor-single? (cons $_x ())) true)
-(= (factor-single? $_other) false)
 
 ;; Each proof's residual evidence (full evidence minus the shared facts) must be
 ;; pairwise disjoint, otherwise the proofs are not independent given the shared
@@ -370,18 +398,22 @@
 (= (factor-pairwise-disjoint? (cons $ev $rest))
    (and (factor-disjoint-from-all? $ev $rest) (factor-pairwise-disjoint? $rest)))
 
+;; Pool a group when: it shares at least one fact, every proof is standard
+;; implication-shaped, the residual evidence sets are pairwise disjoint, and the
+;; residuals round-trip (the shared facts factor through one conjunction).
 (= (group-factorable? $pids)
-   (let $shared (factor-shared-facts $pids)
-      (if (factor-single? $shared)
+   (let* (($shared (factor-shared-facts $pids))
+          ($keys (factor-shared-keys $shared)))
+      (if (== $shared ()) false
          (and (factor-all? $pids)
-            (factor-pairwise-disjoint? (factor-residual-evs $pids $shared)))
-         false)))
+            (and (factor-pairwise-disjoint? (factor-residual-evs $pids $shared))
+               (factor-roundtrips? $pids $keys (factor-real-conj (car-atom $pids) $keys)))))))
 
 (= (factor-merge-output $pids)
-   (let* (($key (factor-fact-key (car-atom (factor-shared-facts $pids))))
-          ($shared-tv (factor-leaf-tv (car-atom $pids) $key))
-          ($pooled (factor-revise-residuals $pids $key))
-          ($merged-tv (CTVFormula $shared-tv $pooled))
+   (let* (($keys (factor-shared-keys (factor-shared-facts $pids)))
+          ($conj (factor-real-conj (car-atom $pids) $keys))
+          ($pooled (factor-revise-residuals $pids $keys))
+          ($merged-tv (CTVFormula $conj $pooled))
           (($type $kb $_p $_t) (proof-output-atom (car-atom $pids))))
       ($type $kb (factor-merged-prf $pids) $merged-tv)))
 
