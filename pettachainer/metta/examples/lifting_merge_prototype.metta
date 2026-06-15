@@ -31,6 +31,17 @@
 (= (rule-ctv r1)  (CTV (STV 0.6 0.9) (STV 0.0 1.0)))
 (= (rule-ctv r2)  (CTV (STV 0.6 0.9) (STV 0.0 1.0)))
 
+;; --- proof term representation (matches the engine's proof tokens) ---
+;; A proof term is one of:
+;;   leaf atom             a fact's proof token, e.g. `a` is the proof of (A i)
+;;   (implName argProof)   modus ponens: implication `implName` applied to the
+;;                         proof of its premise, e.g. `(ab1 a)` proves (B i)
+;;   (conjunction p1 p2)   the two premise PROOFS p1, p2 conjoined
+;; So in `(rr (conjunction (pr a) (qr a)))`, the conjuncts are the proofs
+;; `(pr a)` of (P i) and `(qr a)` of (Q i) -- both built from the same leaf
+;; proof `a`. That is a PROOF term, not a type; the heads pr/qr/rr/ab1 are
+;; implication proof tokens, the leaves a/xx/yy are fact proof tokens.
+
 ;; --- evaluate a proof term to its TV, overriding one leaf fact ---
 (= (env-or-leaf (over $oname $otv) $name)
    (if (== $oname $name) $otv (leaf-tv $name)))
@@ -82,47 +93,52 @@
    (STV 0.6 0.5))
 
 ;; ===========================================================================
-;; Boundary: where the 2-point probe is only an approximation
+;; Boundary: factoring is exact iff the factored leaf appears ONCE on the path
 ;;
 ;; AndFormula (s1*s2), OrFormula (s1+s2-s1*s2), and CTVFormula are each LINEAR
-;; in any single argument. So a shared antecedent that reaches the conclusion
-;; along ONE path factors exactly -- that is every case above, including the
-;; deduction chain and the conjunction with a distinct second premise.
+;; in any single argument. So factoring out a leaf proof that occurs once on a
+;; path is exact -- that is every case above, including the deduction chain and
+;; the conjunction with a distinct second premise.
 ;;
-;; The probe is exact iff the conclusion strength is linear ("degree 1") in the
-;; shared antecedent's strength. It stops being exact when the antecedent is
-;; REUSED -- reaching the conclusion through two sub-branches that recombine --
-;; because the strength is then polynomial (degree >= 2) in the antecedent.
+;; The decisive question is not "is there a conjunction" but "does the factored
+;; leaf occur more than once on the path." Contrast two proofs of (B i), both
+;; of shape (pqToB (conjunction _ _)):
 ;; ===========================================================================
 
-(= (rule-ctv p)  (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
-(= (rule-ctv q)  (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
-(= (rule-ctv rr) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
+;; pa, qa : independent stored facts (P i), (Q i).
+(= (leaf-tv pa) (STV 0.6 1.0))
+(= (leaf-tv qa) (STV 0.5 1.0))
+;; aToP, aToQ : derive (P i), (Q i) from the SAME fact a:(A i). pqToB : P,Q -> B.
+(= (rule-ctv aToP)  (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
+(= (rule-ctv aToQ)  (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
+(= (rule-ctv pqToB) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
 
-;; factored single-path value: probe-extract the residual, then apply real a.
+;; factored single-path value: probe-extract the residual, then apply real leaf.
 (= (residual-then-apply $proof $shared $real-tv)
    (CTVFormula $real-tv (residual-ctv $proof $shared)))
 
-;; Linear path: `a` used once. The residual round-trips to the true value,
-;; so factoring is exact at any real antecedent strength.
+;; LINEAR -- your (conjunction pa qa): the conjuncts are independent fact proofs,
+;; so factoring out pa (which occurs once) round-trips to the true value exactly.
 !(test
-   (residual-then-apply (ab1 a) a (STV 0.5 1.0))
-   (STV 0.3 0.95))
+   (residual-then-apply (pqToB (conjunction pa qa)) pa (STV 0.6 1.0))
+   (STV 0.3 1.0))
 !(test
-   (eval-proof (over a (STV 0.5 1.0)) (ab1 a))
-   (STV 0.3 0.95))
+   (eval-proof (over pa (STV 0.6 1.0)) (pqToB (conjunction pa qa)))
+   (STV 0.3 1.0))
 
-;; Nonlinear path: `a` reused in both conjuncts, so B = A AND A and the true
-;; strength is 0.5 * 0.5 = 0.25. The 2-point probe sees strength 1 at a=1 and 0
-;; at a=0, reconstructs the identity implication, and applies the real a=0.5 to
-;; get 0.5 -- it misses the quadratic shrinkage. Factored 0.5 vs true 0.25.
+;; NONLINEAR -- the conjuncts are PROOFS (aToP a) and (aToQ a), both derived from
+;; the shared leaf a, so a occurs twice and B = A AND A (true strength 0.5*0.5 =
+;; 0.25). The 2-point probe sees strength 1 at a=1 and 0 at a=0, reconstructs the
+;; identity implication, and applies real a=0.5 to get 0.5 -- it misses the
+;; quadratic shrinkage. Factored 0.5 vs true 0.25.
 !(test
-   (residual-then-apply (rr (conjunction (p a) (q a))) a (STV 0.5 1.0))
+   (residual-then-apply (pqToB (conjunction (aToP a) (aToQ a))) a (STV 0.5 1.0))
    (STV 0.5 1.0))
 !(test
-   (eval-proof (over a (STV 0.5 1.0)) (rr (conjunction (p a) (q a))))
+   (eval-proof (over a (STV 0.5 1.0)) (pqToB (conjunction (aToP a) (aToQ a))))
    (STV 0.25 1.0))
 
-;; Note: piecewise formulas (e.g. LikelierThanFormula's max(0, s_a - s_b) kink)
-;; break linearity even for single use, when the kink falls between strength 0
-;; and 1. Such paths would also need the conservative (dominance) fallback.
+;; So the live guard is "factor only leaves that occur once on the path" -- a
+;; walk over the proof term, not a property of the formulas. (Piecewise formulas
+;; like LikelierThanFormula's max(0, s_a - s_b) kink break linearity even for a
+;; single occurrence, and would also fall back to dominance.)
