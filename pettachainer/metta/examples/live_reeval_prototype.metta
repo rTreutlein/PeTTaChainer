@@ -11,45 +11,49 @@
 ;; per-node storage: re-evaluation walks the existing DAG, overriding one leaf
 ;; fact's TV, and recomputes the CPU chain.
 ;;
-;; Caveat: this prototype substitutes operands by value. When wired into the
-;; live merge it should substitute structurally (at each formula's known input
-;; positions) to avoid a premise TV colliding with a constant sub-term.
+;; Re-evaluation is structural: it folds the premise proofs (identified by child
+;; position, never by TV value) and re-applies the rule's CTV, so two premises
+;; with equal TVs are never confused. It handles the standard implication shape
+;; (premises -> And-fold -> CTVFormula); other shapes return the stored TV.
 ;; ===========================================================================
 
-(= (subst-val $old $new $term)
-   (if (== $term $old) $new
-      (if (is-expr $term) (map-flat (subst-val $old $new) $term) $term)))
-(= (apply-substs () $term) $term)
-(= (apply-substs (cons ($old $new) $rest) $term)
-   (apply-substs $rest (subst-val $old $new $term)))
-
+;; Split a rule proof's children into premise proofs and formula CPU proofs.
 (= (cpu-child? $pid) (if (= (proof-output-atom $pid) (CPU $_f $_a $_r)) true false))
-(= (partition-children () $prem $cpu) ($prem $cpu))
-(= (partition-children (cons $pid $rest) $prem $cpu)
+(= (split-pc () $prem $cpu) ($prem $cpu))
+(= (split-pc (cons $pid $rest) $prem $cpu)
    (if (cpu-child? $pid)
-      (partition-children $rest $prem (append $cpu ($pid)))
-      (partition-children $rest (append $prem ($pid)) $cpu)))
+      (split-pc $rest $prem (append $cpu ($pid)))
+      (split-pc $rest (append $prem ($pid)) $cpu)))
 
-(= (premise-substs () $_key $_ov) ())
-(= (premise-substs (cons $pid $rest) $key $ov)
-   (let* ((($_t $_k $_p $old) (proof-output-atom $pid))
-          ($new (reeval-proof $pid $key $ov)))
-      (cons ($old $new) (premise-substs $rest $key $ov))))
+(= (last-elem (cons $x ())) $x)
+(= (last-elem (cons $x $rest)) (last-elem $rest))
+(= (find-ctv ()) no-ctv)
+(= (find-ctv (cons $arg $rest)) (if (= $arg (CTV $_p $_n)) $arg (find-ctv $rest)))
+(= (and-fold (cons $tv ())) $tv)
+(= (and-fold (cons $tv $rest)) (AndFormula $tv (and-fold $rest)))
 
-(= (reeval-cpu-chain () $_substs $last) $last)
-(= (reeval-cpu-chain (cons $pid $rest) $substs $_last)
-   (let* (((CPU $f $args $oldres) (proof-output-atom $pid))
-          ($nres (reduce (cpu-call 1 $f (apply-substs $substs $args)))))
-      (reeval-cpu-chain $rest (append $substs (($oldres $nres))) $nres)))
+(= (reeval-premises () $_k $_o) ())
+(= (reeval-premises (cons $pid $rest) $key $ov)
+   (cons (reeval-proof $pid $key $ov) (reeval-premises $rest $key $ov)))
+
+;; Structural recompute: fold the premise proofs with And and apply the rule's
+;; CTV. Each premise is identified by its child position, never by TV value, so
+;; two premises with equal TVs are not confused. Standard implication shape only
+;; (premises -> And-fold -> CTVFormula); any other shape returns the stored TV.
+(= (reeval-rule $pid $key $ov $stored)
+   (let* ((($prem $cpu) (split-pc (proof-children-by-id $pid) () ())))
+      (if (== $cpu ()) $stored
+         (let* (((CPU $lastf $lastargs $_r) (proof-output-atom (last-elem $cpu)))
+                ($ctv (find-ctv $lastargs)))
+            (if (and (== $lastf CTVFormula) (not (== $ctv no-ctv)))
+               (CTVFormula (and-fold (reeval-premises $prem $key $ov)) $ctv)
+               $stored)))))
 
 ;; re-evaluate proof $pid with the leaf whose output-key = $key overridden to $ov
 (= (reeval-proof $pid $key $ov)
    (let $output (proof-output-atom $pid)
       (if (= $output ($type $kb $prf $tv))
-         (if (=alpha (candidate-output-key $output) $key) $ov
-            (let* ((($prem $cpu) (partition-children (proof-children-by-id $pid) () ())))
-               (if (== $cpu ()) $tv
-                  (reeval-cpu-chain $cpu (premise-substs $prem $key $ov) $tv))))
+         (if (=alpha (candidate-output-key $output) $key) $ov (reeval-rule $pid $key $ov $tv))
          $tv)))
 
 (= (residual-ctv $pid $key)
@@ -70,3 +74,15 @@
 ;; overriding A recovers the residual implication, matching the prototype
 !(test (let $p (car-atom (collapse (ab1-pid))) (residual-ctv $p ((A i) (k MAIN Nil))))
    (CTV (STV 0.6 0.9) (STV 0.0 1.0)))
+
+;; Robustness: two premises with equal TVs. (B i) = (A i) AND (A2 i), both 0.5.
+;; Factoring (A i) must leave (A2 i) at 0.5 -- by-value substitution would
+;; confuse them; structural recompute keeps them distinct by child position.
+!(compileadd c (: aa (A i) (STV 0.5 1.0)))
+!(compileadd c (: a2 (A2 i) (STV 0.5 1.0)))
+!(compileadd c (: rr (Implication (Premises (And (A $z) (A2 $z))) (Conclusions (B $z))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(let $r2 (chainer 40 ((B i) (c MAIN Nil) $prf $tv)) done)
+(= (cc-pid) (match &proof ($pid $g $out (rule ((B i) $kb (rr $_) $_tv)) $sc $ev $ch) $pid))
+
+!(test (let $p (car-atom (collapse (cc-pid))) (residual-ctv $p ((A i) (c MAIN Nil))))
+   (CTV (STV 0.5 1.0) (STV 0.0 1.0)))
