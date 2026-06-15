@@ -46,14 +46,17 @@
 (= (env-or-leaf (over $oname $otv) $name)
    (if (== $oname $name) $otv (leaf-tv $name)))
 
+(= (eval-binary $env $op $term)
+   ($op (eval-proof $env (car-atom (cdr-atom $term)))
+        (eval-proof $env (car-atom (cdr-atom (cdr-atom $term))))))
+
 (= (eval-proof $env $term)
    (if (is-expr $term)
       (let $head (car-atom $term)
-         (if (== $head conjunction)
-            (AndFormula
-               (eval-proof $env (car-atom (cdr-atom $term)))
-               (eval-proof $env (car-atom (cdr-atom (cdr-atom $term)))))
-            (CTVFormula (eval-proof $env (car-atom (cdr-atom $term))) (rule-ctv $head))))
+         (if (== $head conjunction)    (eval-binary $env AndFormula $term)
+         (if (== $head likelier)       (eval-binary $env LikelierThanFormula $term)
+         (if (== $head likelier-indep) (eval-binary $env LikelierIndepFormula $term)
+            (CTVFormula (eval-proof $env (car-atom (cdr-atom $term))) (rule-ctv $head))))))
       (env-or-leaf $env $term)))
 
 ;; --- residual implication of a path w.r.t. the shared antecedent ---
@@ -141,4 +144,45 @@
 
 ;; The one residual concern is single-occurrence nonlinearity from a piecewise
 ;; formula: LikelierThanFormula's max(0, s_a - s_b) kink breaks the linear probe
-;; even when the leaf occurs once, and such a path would fall back to dominance.
+;; even when the leaf occurs once. Such a path can fall back to dominance, or the
+;; formula can be made multilinear -- see the next section.
+
+;; ===========================================================================
+;; The LikelierThan kink, and a multilinear alternative that factors exactly
+;;
+;; LikelierThanFormula(A,B) = (max 0 (- s_a s_b)) is piecewise-linear: it has a
+;; kink at s_a = s_b. Probing only at s_a=0 and s_a=1 fits a straight line that
+;; cannot see the kink, so factoring a leaf that flows through it is wrong
+;; between the probe points.
+;; ===========================================================================
+
+(= (leaf-tv w) (STV 0.6 1.0))
+(= (rule-ctv lrule) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
+
+;; Clamped LikelierThan, real a=(0.3 1.0). The probe line is 0.4 * s_a (fit
+;; through s_a=0 ->0 and s_a=1 ->0.4), giving 0.12. But 0.3 is below the kink at
+;; s_b=0.6, so the true value is (max 0 (- 0.3 0.6)) = 0. Factored 0.12 vs true 0.
+!(test
+   (residual-then-apply (lrule (likelier a w)) a (STV 0.3 1.0))
+   (STV 0.12 1.0))
+!(test
+   (eval-proof (over a (STV 0.3 1.0)) (lrule (likelier a w)))
+   (STV 0.0 1.0))
+
+;; A multilinear cousin: P(A and not B) under independence, s_a * (1 - s_b).
+;; No clamp, no kink -- linear in each argument -- so the 2-point probe is exact.
+;; It reads "A holds where B does not," assuming A and B independent, instead of
+;; the clamped form's maximal-overlap lower bound. That is a genuine change of
+;; meaning, but a coherent one, and it removes the only non-fact-reuse case where
+;; factoring was inexact.
+(= (LikelierIndepFormula (STV $sa $ca) (STV $sb $cb))
+   (STV (* $sa (- 1.0 $sb)) (min $ca $cb)))
+
+;; Same probe line (0.12), but now it IS the truth: at a=(0.3 1.0),
+;; 0.3 * (1 - 0.6) = 0.12 both ways.
+!(test
+   (residual-then-apply (lrule (likelier-indep a w)) a (STV 0.3 1.0))
+   (STV 0.12 1.0))
+!(test
+   (eval-proof (over a (STV 0.3 1.0)) (lrule (likelier-indep a w)))
+   (STV 0.12 1.0))
