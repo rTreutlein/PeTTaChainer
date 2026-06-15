@@ -80,3 +80,49 @@
 ;; the confidence to ~0.667.
 !(test (factor-merge (ab1 a) (ab2 a) a (STV 1.0 0.5))
    (STV 0.6 0.5))
+
+;; ===========================================================================
+;; Boundary: where the 2-point probe is only an approximation
+;;
+;; AndFormula (s1*s2), OrFormula (s1+s2-s1*s2), and CTVFormula are each LINEAR
+;; in any single argument. So a shared antecedent that reaches the conclusion
+;; along ONE path factors exactly -- that is every case above, including the
+;; deduction chain and the conjunction with a distinct second premise.
+;;
+;; The probe is exact iff the conclusion strength is linear ("degree 1") in the
+;; shared antecedent's strength. It stops being exact when the antecedent is
+;; REUSED -- reaching the conclusion through two sub-branches that recombine --
+;; because the strength is then polynomial (degree >= 2) in the antecedent.
+;; ===========================================================================
+
+(= (rule-ctv p)  (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
+(= (rule-ctv q)  (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
+(= (rule-ctv rr) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
+
+;; factored single-path value: probe-extract the residual, then apply real a.
+(= (residual-then-apply $proof $shared $real-tv)
+   (CTVFormula $real-tv (residual-ctv $proof $shared)))
+
+;; Linear path: `a` used once. The residual round-trips to the true value,
+;; so factoring is exact at any real antecedent strength.
+!(test
+   (residual-then-apply (ab1 a) a (STV 0.5 1.0))
+   (STV 0.3 0.95))
+!(test
+   (eval-proof (over a (STV 0.5 1.0)) (ab1 a))
+   (STV 0.3 0.95))
+
+;; Nonlinear path: `a` reused in both conjuncts, so B = A AND A and the true
+;; strength is 0.5 * 0.5 = 0.25. The 2-point probe sees strength 1 at a=1 and 0
+;; at a=0, reconstructs the identity implication, and applies the real a=0.5 to
+;; get 0.5 -- it misses the quadratic shrinkage. Factored 0.5 vs true 0.25.
+!(test
+   (residual-then-apply (rr (conjunction (p a) (q a))) a (STV 0.5 1.0))
+   (STV 0.5 1.0))
+!(test
+   (eval-proof (over a (STV 0.5 1.0)) (rr (conjunction (p a) (q a))))
+   (STV 0.25 1.0))
+
+;; Note: piecewise formulas (e.g. LikelierThanFormula's max(0, s_a - s_b) kink)
+;; break linearity even for single use, when the kink falls between strength 0
+;; and 1. Such paths would also need the conservative (dominance) fallback.
