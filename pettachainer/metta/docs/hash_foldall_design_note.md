@@ -212,3 +212,36 @@ branches of a total-implication query legitimately invoke the same rule, and
 chained applications of one rule remain allowed.
 
 `tests/test_evidence_semantics.metta` pins both behaviors.
+
+## Lifting-merge: pooling proofs that share a premise
+
+When several proofs of one grounded conclusion share a premise but are otherwise
+independent, dominance discards all but one and loses the confidence the others
+would add. Lifting-merge instead pools them at the *implication* level: factor
+the shared premise out, revise the independent residual implications, and
+re-apply the premise once. Two implications `A->B` applied to the same `a`, or a
+direct `A->B` versus a deduction chain `A->X->B`, or `A,X->B` / `A,Y->B` sharing
+only `A`, all pool to the higher revised confidence instead of dominating.
+
+The formula that produced each proof's TV is already in the store as its CPU
+formula children, so a proof is **re-evaluated structurally** with one leaf fact
+overridden: `factor-reeval` folds the premise proofs (identified by child
+position, never by TV value) and re-applies the rule CTV. Probing the shared
+premise at strength 1 and 0 recovers each proof's residual implication CTV;
+these are revised and re-applied via `CTVFormula` to the premise's real TV. No
+new per-node storage is needed.
+
+`merge-proof-id-output` pools a group only when `group-factorable?` holds:
+
+- the proofs share exactly one fact leaf,
+- every proof is standard implication-shaped (premises -> And-fold ->
+  CTVFormula); other shapes fall back to revision/dominance, and
+- the residual evidence sets (each proof's evidence minus the shared facts) are
+  pairwise disjoint. This rejects proofs that also share an uncertain rule or
+  whose evidence subsumes another's -- they are not independent given the shared
+  premise, so pooling would double count, and they dominate instead.
+
+Because every conjunction has disjoint fact-leaves (the conjunction guard), each
+fact occurs at most once per proof, so the structural re-evaluation is exact for
+all engine proofs. `tests/test_lifting_merge.metta` covers the pooled cases and
+the shared-rule case that must not pool.

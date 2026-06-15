@@ -24,5 +24,5 @@
             (FoldAll (Score $x $n) $n 0 (|-> ($acc $elem) (+ $acc $elem)) -> $total)
             $tv)))
    ((: (foldall-proof (merge/revision (qToScore qFact) directScore))
-       (FoldAll (Score $_x $_n) $_n 0 lambda_16 -> 1)
+       (FoldAll (Score $_x $_n) $_n 0 lambda_17 -> 1)
        (STV 1.0 1.0))))

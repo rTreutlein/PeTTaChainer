@@ -268,8 +268,127 @@
 (= (merge-proof-id-output-step $acc $pid)
    (merge-proof-atoms $acc (proof-output-atom $pid)))
 
+;; ---------------------------------------------------------------------------
+;; Lifting-merge: when several proofs of one grounded output share a premise,
+;; pool them by factoring the shared premise out, revising the independent
+;; residual implications, and re-applying the premise once. This recovers the
+;; confidence that dominance would otherwise discard. The formula that produced
+;; each proof's TV is already in the store (its CPU formula children), so a
+;; proof is re-evaluated structurally with one leaf fact overridden. Exact for
+;; standard implication-shaped proofs (premises -> And-fold -> CTVFormula); any
+;; other shape disables factoring for the group (revision/dominance instead).
+;; ---------------------------------------------------------------------------
+
+(= (factor-cpu-child? $pid) (if (= (proof-output-atom $pid) (CPU $_f $_a $_r)) true false))
+(= (factor-split-pc () $p $c) ($p $c))
+(= (factor-split-pc (cons $pid $rest) $p $c)
+   (if (factor-cpu-child? $pid)
+      (factor-split-pc $rest $p (append $c ($pid)))
+      (factor-split-pc $rest (append $p ($pid)) $c)))
+(= (factor-last (cons $x ())) $x)
+(= (factor-last (cons $x $rest)) (factor-last $rest))
+(= (factor-find-ctv ()) no-ctv)
+(= (factor-find-ctv (cons $a $rest)) (if (= $a (CTV $_p $_n)) $a (factor-find-ctv $rest)))
+(= (factor-and-fold (cons $tv ())) $tv)
+(= (factor-and-fold (cons $tv $rest)) (AndFormula $tv (factor-and-fold $rest)))
+
+(= (factor-reeval-premises () $_k $_o) ())
+(= (factor-reeval-premises (cons $pid $rest) $k $o)
+   (cons (factor-reeval $pid $k $o) (factor-reeval-premises $rest $k $o)))
+
+;; structural recompute: fold premise proofs (by child position) and re-apply ctv
+(= (factor-reeval-rule $pid $k $o $stored)
+   (let* ((($prem $cpu) (factor-split-pc (proof-children-by-id $pid) () ())))
+      (if (== $cpu ()) $stored
+         (let* (((CPU $lf $la $_r) (proof-output-atom (factor-last $cpu)))
+                ($ctv (factor-find-ctv $la)))
+            (if (and (== $lf CTVFormula) (not (== $ctv no-ctv)))
+               (CTVFormula (factor-and-fold (factor-reeval-premises $prem $k $o)) $ctv)
+               $stored)))))
+
+(= (factor-reeval $pid $k $o)
+   (let $out (proof-output-atom $pid)
+      (if (= $out ($t $kb $prf $tv))
+         (if (=alpha (candidate-output-key $out) $k) $o (factor-reeval-rule $pid $k $o $tv))
+         $tv)))
+
+(= (factor-proof? $pid)
+   (let* ((($prem $cpu) (factor-split-pc (proof-children-by-id $pid) () ())))
+      (if (== $cpu ()) true
+         (let* (((CPU $lf $la $_r) (proof-output-atom (factor-last $cpu)))
+                ($ctv (factor-find-ctv $la)))
+            (if (and (== $lf CTVFormula) (not (== $ctv no-ctv))) (factor-all? $prem) false)))))
+(= (factor-all? ()) true)
+(= (factor-all? (cons $pid $rest)) (and (factor-proof? $pid) (factor-all? $rest)))
+
+(= (factor-pid-facts $pid) (fact-evidence-only (snd (proof-stats-by-id $pid))))
+(= (factor-shared-facts (cons $pid $rest))
+   (fold-flat (|-> ($acc $p) (intersection-atom $acc (factor-pid-facts $p)))
+      (factor-pid-facts $pid) $rest))
+(= (factor-fact-key (fact-ev $kb $prf $type)) ($type $kb))
+
+;; the shared premise's actual TV, found in the proof DAG by output key
+(= (factor-leaf-tv $pid $key)
+   (let $out (proof-output-atom $pid)
+      (if (= $out ($t $kb $prf $tv))
+         (if (=alpha (candidate-output-key $out) $key) $tv
+            (factor-leaf-tv-children (proof-children-by-id $pid) $key))
+         no-tv)))
+(= (factor-leaf-tv-children () $_key) no-tv)
+(= (factor-leaf-tv-children (cons $pid $rest) $key)
+   (let $r (factor-leaf-tv $pid $key)
+      (if (== $r no-tv) (factor-leaf-tv-children $rest $key) $r)))
+
+(= (factor-revise-ctv (CTV $p1 $n1) (CTV $p2 $n2)) (CTV (mergetvs $p1 $p2) (mergetvs $n1 $n2)))
+(= (factor-residual $pid $key)
+   (CTV (factor-reeval $pid $key (STV 1.0 1.0)) (factor-reeval $pid $key (STV 0.0 1.0))))
+(= (factor-revise-residuals (cons $pid ()) $key) (factor-residual $pid $key))
+(= (factor-revise-residuals (cons $pid $rest) $key)
+   (factor-revise-ctv (factor-residual $pid $key) (factor-revise-residuals $rest $key)))
+
+(= (factor-ref-of $pid) (let ($_t $_k $prf $_tv) (proof-output-atom $pid) $prf))
+(= (factor-merged-prf (cons $pid ())) (factor-ref-of $pid))
+(= (factor-merged-prf (cons $pid $rest)) (merge/revision (factor-ref-of $pid) (factor-merged-prf $rest)))
+
+(= (factor-single? (cons $_x ())) true)
+(= (factor-single? $_other) false)
+
+;; Each proof's residual evidence (full evidence minus the shared facts) must be
+;; pairwise disjoint, otherwise the proofs are not independent given the shared
+;; premise -- e.g. two derivations that also share an uncertain rule, or one
+;; whose evidence subsumes another's -- and pooling them would double count.
+;; Such groups fall back to revision/dominance.
+(= (factor-residual-ev $pid $shared)
+   (subtraction-atom (snd (proof-stats-by-id $pid)) $shared))
+(= (factor-residual-evs () $_shared) ())
+(= (factor-residual-evs (cons $pid $rest) $shared)
+   (cons (factor-residual-ev $pid $shared) (factor-residual-evs $rest $shared)))
+(= (factor-disjoint-from-all? $_ev ()) true)
+(= (factor-disjoint-from-all? $ev (cons $other $rest))
+   (and (== (intersection-atom $ev $other) ()) (factor-disjoint-from-all? $ev $rest)))
+(= (factor-pairwise-disjoint? ()) true)
+(= (factor-pairwise-disjoint? (cons $ev $rest))
+   (and (factor-disjoint-from-all? $ev $rest) (factor-pairwise-disjoint? $rest)))
+
+(= (group-factorable? $pids)
+   (let $shared (factor-shared-facts $pids)
+      (if (factor-single? $shared)
+         (and (factor-all? $pids)
+            (factor-pairwise-disjoint? (factor-residual-evs $pids $shared)))
+         false)))
+
+(= (factor-merge-output $pids)
+   (let* (($key (factor-fact-key (car-atom (factor-shared-facts $pids))))
+          ($shared-tv (factor-leaf-tv (car-atom $pids) $key))
+          ($pooled (factor-revise-residuals $pids $key))
+          ($merged-tv (CTVFormula $shared-tv $pooled))
+          (($type $kb $_p $_t) (proof-output-atom (car-atom $pids))))
+      ($type $kb (factor-merged-prf $pids) $merged-tv)))
+
 (= (merge-proof-id-output (cons $pid $rest))
-   (fold-flat merge-proof-id-output-step (proof-output-atom $pid) $rest))
+   (if (and (not (== $rest ())) (group-factorable? (cons $pid $rest)))
+      (factor-merge-output (cons $pid $rest))
+      (fold-flat merge-proof-id-output-step (proof-output-atom $pid) $rest)))
 
 (= (proof-id-evidence-step $acc $pid)
    (let ($_score $ev) (proof-stats-by-id $pid)

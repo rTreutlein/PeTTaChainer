@@ -21,7 +21,7 @@
          (: $prf
             (FoldAll (Score $name $n) $n 0 (|-> ($acc $elem) (+ $acc $elem)) -> $total)
             $tv)))
-   ((: (foldall-proof prfA prfB prfC) (FoldAll (Score $_name $_n) $_n 0 lambda_16 -> 6) (STV 1.0 1.0))))
+   ((: (foldall-proof prfA prfB prfC) (FoldAll (Score $_name $_n) $_n 0 lambda_17 -> 6) (STV 1.0 1.0))))
 
 !(test
    (collapse
