@@ -93,16 +93,20 @@
    (STV 0.6 0.5))
 
 ;; ===========================================================================
-;; Boundary: factoring is exact iff the factored leaf appears ONCE on the path
+;; Boundary: the probe is exact on every proof the engine actually builds
 ;;
 ;; AndFormula (s1*s2), OrFormula (s1+s2-s1*s2), and CTVFormula are each LINEAR
-;; in any single argument. So factoring out a leaf proof that occurs once on a
-;; path is exact -- that is every case above, including the deduction chain and
-;; the conjunction with a distinct second premise.
+;; in any single argument, so factoring a leaf that occurs ONCE on a path is
+;; exact -- every case above, including the deduction chain and the conjunction
+;; with a distinct second premise.
 ;;
-;; The decisive question is not "is there a conjunction" but "does the factored
-;; leaf occur more than once on the path." Contrast two proofs of (B i), both
-;; of shape (pqToB (conjunction _ _)):
+;; A leaf can only occur twice on a path by being shared across the conjuncts of
+;; a conjunction. The frontier conjunction guard forbids exactly that: conjuncts
+;; must have disjoint fact evidence. So a "diamond" -- deriving P and Q both from
+;; the same a, then conjoining for B -- is rejected, and querying B yields NO
+;; proof, whereas the same rule over independent facts P,Q does build. Hence
+;; every proof reaching the merge has each fact leaf at most once, and the
+;; 2-point probe is exact; no fact-reuse case ever arises.
 ;; ===========================================================================
 
 ;; pa, qa : independent stored facts (P i), (Q i).
@@ -117,8 +121,8 @@
 (= (residual-then-apply $proof $shared $real-tv)
    (CTVFormula $real-tv (residual-ctv $proof $shared)))
 
-;; LINEAR -- your (conjunction pa qa): the conjuncts are independent fact proofs,
-;; so factoring out pa (which occurs once) round-trips to the true value exactly.
+;; A buildable proof -- (conjunction pa qa), independent conjuncts. Factoring pa
+;; (occurs once) round-trips to the true value exactly.
 !(test
    (residual-then-apply (pqToB (conjunction pa qa)) pa (STV 0.6 1.0))
    (STV 0.3 1.0))
@@ -126,19 +130,15 @@
    (eval-proof (over pa (STV 0.6 1.0)) (pqToB (conjunction pa qa)))
    (STV 0.3 1.0))
 
-;; NONLINEAR -- the conjuncts are PROOFS (aToP a) and (aToQ a), both derived from
-;; the shared leaf a, so a occurs twice and B = A AND A (true strength 0.5*0.5 =
-;; 0.25). The 2-point probe sees strength 1 at a=1 and 0 at a=0, reconstructs the
-;; identity implication, and applies real a=0.5 to get 0.5 -- it misses the
-;; quadratic shrinkage. Factored 0.5 vs true 0.25.
-!(test
-   (residual-then-apply (pqToB (conjunction (aToP a) (aToQ a))) a (STV 0.5 1.0))
-   (STV 0.5 1.0))
+;; The diamond proof (conjunction (aToP a) (aToQ a)) reuses a, so AndFormula
+;; double-counts it: B = A AND A at a=(0.5 1.0) collapses to 0.5*0.5 = 0.25 by
+;; falsely assuming the two copies of A are independent. That artifact is why the
+;; engine's conjunction guard rejects this proof outright (a direct query for B
+;; returns nothing), so it never reaches the merge in the first place.
 !(test
    (eval-proof (over a (STV 0.5 1.0)) (pqToB (conjunction (aToP a) (aToQ a))))
    (STV 0.25 1.0))
 
-;; So the live guard is "factor only leaves that occur once on the path" -- a
-;; walk over the proof term, not a property of the formulas. (Piecewise formulas
-;; like LikelierThanFormula's max(0, s_a - s_b) kink break linearity even for a
-;; single occurrence, and would also fall back to dominance.)
+;; The one residual concern is single-occurrence nonlinearity from a piecewise
+;; formula: LikelierThanFormula's max(0, s_a - s_b) kink breaks the linear probe
+;; even when the leaf occurs once, and such a path would fall back to dominance.
