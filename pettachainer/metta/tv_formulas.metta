@@ -20,9 +20,9 @@
        )
       (ideal-conf-from-var $sB $VarsB)))
 
-(= (CTVFormula (CTV $pos $_neg) $ctv) (CTVFormula $pos $ctv))
+(= (CTVModusPonensFormula (CTV $pos $_neg) $ctv) (CTVModusPonensFormula $pos $ctv))
 
-(= (CTVFormula (STV $as $ac) (CTV (STV $bs_a $bc_a) (STV $bs_na $bc_na)))
+(= (CTVModusPonensFormula (STV $as $ac) (CTV (STV $bs_a $bc_a) (STV $bs_na $bc_na)))
    (STV
       (+ (* $bs_a $as) (* $bs_na (- 1 $as)))
       (ideal-mp-confidence $as $ac $bs_a $bc_a $bs_na $bc_na)))

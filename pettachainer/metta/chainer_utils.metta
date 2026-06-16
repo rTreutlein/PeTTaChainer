@@ -19,7 +19,7 @@
          (if (= $tv (CTV $pos $neg)) (CTV (normalize-expected-tv $pos) (normalize-expected-tv $neg)) $tv))))
 
 (= (cpu-expected-tv $fun $args)
-   (if (== $fun CTVFormula)
+   (if (== $fun CTVModusPonensFormula)
       (let*
          ((($a $ctv) $args)
            ($res
@@ -63,17 +63,17 @@
    (let $res (first-cpu-expected-tv $fun $args)
       (if (== $res ()) 1.0 (tv-confidence $res))))
 
-(= (premises-expected-confidence-step (CPU $fun $args $mid-tv) (cons (CPU CTVFormula ($mid-tv $rule-tv) $_mp-tv) $rest))
+(= (premises-expected-confidence-step (CPU $fun $args $mid-tv) (cons (CPU CTVModusPonensFormula ($mid-tv $rule-tv) $_mp-tv) $rest))
    (let $expected (first-cpu-expected-tv $fun $args)
       (if (== $expected ())
          (min (term-confidence (CPU $fun $args $mid-tv))
-            (premises-expected-confidence (cons (CPU CTVFormula ($mid-tv $rule-tv) $_mp-tv) $rest)))
+            (premises-expected-confidence (cons (CPU CTVModusPonensFormula ($mid-tv $rule-tv) $_mp-tv) $rest)))
          (min-atom
             ((tv-confidence $expected)
-             (cpu-expected-confidence CTVFormula ($expected $rule-tv))
+             (cpu-expected-confidence CTVModusPonensFormula ($expected $rule-tv))
              (premises-expected-confidence $rest))))))
 (= (premises-expected-confidence-step (CPU $fun $args $res) $rest)
-   (if (= $rest (cons (CPU CTVFormula ($res $_rule-tv) $_mp-tv) $_tail))
+   (if (= $rest (cons (CPU CTVModusPonensFormula ($res $_rule-tv) $_mp-tv) $_tail))
       (empty)
       (min (term-confidence (CPU $fun $args $res)) (premises-expected-confidence $rest))))
 (= (premises-expected-confidence-step $prem $rest)

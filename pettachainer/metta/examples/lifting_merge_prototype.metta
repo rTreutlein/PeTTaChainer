@@ -56,7 +56,7 @@
          (if (== $head conjunction)  (eval-binary $env AndFormula $term)
          (if (== $head likelier)     (eval-binary $env LikelierThanFormula $term)
          (if (== $head old-likelier) (eval-binary $env ClampedLikelierFormula $term)
-            (CTVFormula (eval-proof $env (car-atom (cdr-atom $term))) (rule-ctv $head))))))
+            (CTVModusPonensFormula (eval-proof $env (car-atom (cdr-atom $term))) (rule-ctv $head))))))
       (env-or-leaf $env $term)))
 
 ;; --- residual implication of a path w.r.t. the shared antecedent ---
@@ -69,7 +69,7 @@
 
 ;; --- factor the shared antecedent, revise the residuals, re-apply once ---
 (= (factor-merge $proof1 $proof2 $shared $real-tv)
-   (CTVFormula $real-tv
+   (CTVModusPonensFormula $real-tv
       (revise-ctv (residual-ctv $proof1 $shared) (residual-ctv $proof2 $shared))))
 
 ;; Case 1: two implications A->B, sharing premise a.
@@ -98,7 +98,7 @@
 ;; ===========================================================================
 ;; Boundary: the probe is exact on every proof the engine actually builds
 ;;
-;; AndFormula (s1*s2), OrFormula (s1+s2-s1*s2), and CTVFormula are each LINEAR
+;; AndFormula (s1*s2), OrFormula (s1+s2-s1*s2), and CTVModusPonensFormula are each LINEAR
 ;; in any single argument, so factoring a leaf that occurs ONCE on a path is
 ;; exact -- every case above, including the deduction chain and the conjunction
 ;; with a distinct second premise.
@@ -122,7 +122,7 @@
 
 ;; factored single-path value: probe-extract the residual, then apply real leaf.
 (= (residual-then-apply $proof $shared $real-tv)
-   (CTVFormula $real-tv (residual-ctv $proof $shared)))
+   (CTVModusPonensFormula $real-tv (residual-ctv $proof $shared)))
 
 ;; A buildable proof -- (conjunction pa qa), independent conjuncts. Factoring pa
 ;; (occurs once) round-trips to the true value exactly.

@@ -138,7 +138,7 @@ witness proof of B
 base rate of A   = (CPU FoldAllCompiled ($kb A-pattern extract-tv (BaseRateEvidence 0 0) BaseRateAcc base-rate result-tv) $atv)
 base rate of B   = same shape over the B pattern
 (CPU CTVInversionFormula ($atv $btv $itv) $iitv)
-(CPU CTVFormula ($btv_wit $iitv) $mp-tv)
+(CPU CTVModusPonensFormula ($btv_wit $iitv) $mp-tv)
 ```
 
 Key semantics:
@@ -231,14 +231,14 @@ shared, they are factored out as a *conjunction*: probing all shared leaves at
 strength 1 (conjunction = 1) and at 0 (conjunction = 0) recovers each proof's
 residual implication CTV, because the conclusion is linear in the shared
 conjunction's strength. The residuals are revised and re-applied via
-`CTVFormula` to the real conjunction of the shared leaves' TVs. Single-leaf is
+`CTVModusPonensFormula` to the real conjunction of the shared leaves' TVs. Single-leaf is
 the one-element case. No new per-node storage is needed.
 
 `merge-proof-id-output` pools a group only when `group-factorable?` holds:
 
 - the proofs share at least one fact leaf,
 - every proof is standard implication-shaped (premises -> And-fold ->
-  CTVFormula); other shapes fall back to revision/dominance,
+  CTVModusPonensFormula); other shapes fall back to revision/dominance,
 - the residual evidence sets (each proof's evidence minus the shared facts) are
   pairwise disjoint. This rejects proofs that also share an uncertain rule or
   whose evidence subsumes another's -- they are not independent given the shared

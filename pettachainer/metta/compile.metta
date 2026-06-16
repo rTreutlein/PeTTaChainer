@@ -559,7 +559,7 @@
             (($proof-token (implication-proof-token $proofs))
               ($allargs
                  (append $execs
-                    ((CPU CTVFormula ($atv $tv) $btv)))))
+                    ((CPU CTVModusPonensFormula ($atv $tv) $btv)))))
             ($allargs |- ((: $shape-kb ($prf $proof-token) $b $btv)))))
       (if (is-var $b) (empty) (compile-outputs (: $adapter-kb ($prf $prfb) $b $btv2)))
       (if (is-var $a) (empty) (compile-adapter-chain plain (: $adapter-kb $prfa $a $atv))))))
@@ -593,7 +593,7 @@
             (base-rate-premise $kb $a1 $atv)
             (base-rate-premise $kb $b1 $btv)
             (CPU CTVInversionFormula ($atv $btv $itv) $iitv)
-            (CPU CTVFormula ($btv_wit $iitv) $mp-tv))
+            (CPU CTVModusPonensFormula ($btv_wit $iitv) $mp-tv))
          |-
          ((: ($kb $ctx $vars) ((inverted $prf with cpu cpu) $prfb_wit) $a $mp-tv)))))
 
