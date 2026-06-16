@@ -115,12 +115,14 @@
 ;; clamped to the max-entropy variance s(1-s) (a Beta cannot be more spread than
 ;; that), so the count stays >= 0 and the confidence stays in [0,1).
 (= (ideal-conf-from-var $s $Var)
-   (let*
-      (($cs (ideal-clip $s))
-       ($maxvar (* $cs (- 1.0 $cs)))
-       ($v (max 0.0000001 (min $Var $maxvar)))
-       ($nB (- (/ $maxvar $v) 1.0)))
-      (max 0.000001 (/ $nB (+ $nB 800.0)))))
+   (if (<= $Var 0.0)
+      0.9999
+      (let*
+         (($cs (ideal-clip $s))
+          ($maxvar (* $cs (- 1.0 $cs)))
+          ($v (min $Var $maxvar))
+          ($nB (- (/ $maxvar $v) 1.0)))
+         (max 0.000001 (/ $nB (+ $nB 800.0))))))
 (= (ideal-ratio-var $p $Vp $sa $Vsa $q $Vq)
    (let*
       (($d1 (/ $sa $q))
