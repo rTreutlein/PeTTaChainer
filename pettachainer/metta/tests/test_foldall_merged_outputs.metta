@@ -13,9 +13,7 @@
 
 !(test
    (query 100 foldMergedKb (: $prf (Score a 1) $tv))
-   (: (merge/revision (qToScore qFact) directScore)
-      (Score a 1)
-      (STV 0.44 0.9090909090909091)))
+   (: (merge/revision (qToScore qFact) directScore) (Score a 1) (STV 0.44000002400830773 0.9090908594869702)))
 
 !(test
    (collapse

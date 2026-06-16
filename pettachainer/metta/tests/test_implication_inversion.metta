@@ -13,6 +13,4 @@
 ; the witness qa via modus ponens.
 !(test
    (query 200 invKb (: $prf (P alice) $tv))
-   (: ((inverted r with (foldall-proof pb) (foldall-proof qa (r pb))) qa)
-      (P alice)
-      (STV 0.7314120278984075 0.0008991008991008993)))
+   (: ((inverted r with (foldall-proof pb) (foldall-proof qa (r pb))) qa) (P alice) (STV 0.736162240263287 0.0003604307138536469)))

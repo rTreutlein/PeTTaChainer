@@ -8,18 +8,18 @@
 
 !(test
    (term-confidence
-      (CPU CTVFormula ((STV 0.8 0.9) (CTV (STV 1.0 0.6) (STV 0.0 0.4))) $out))
-   0.5599999999999999)
+      (CPU CTVModusPonensFormula ((STV 0.8 0.9) (CTV (STV 1.0 0.6) (STV 0.0 0.4))) $out))
+   0.8999975376989856)
 
-!(test (CTVFormula (STV 0.5 1.0) (CTV (STV 1.0 0.5) (STV 0.1 0.5))) (STV 0.55 0.5))
+!(test (CTVModusPonensFormula (STV 0.5 1.0) (CTV (STV 1.0 0.5) (STV 0.1 0.5))) (STV 0.55 0.916683750966784))
 
-!(test (CTVFormula (STV 0.5 1.0) (CTV (STV 0.8 0.6) (STV 0.0 0.0))) (STV 0.4 0.3))
+!(test (CTVModusPonensFormula (STV 0.5 1.0) (CTV (STV 0.8 0.6) (STV 0.0 0.0))) (STV 0.4 0.8993337363827603))
 
 !(test (term-confidence (CPU NotFormula ((STV 0.75 0.6)) $out)) 0.6)
 
-!(test (term-confidence (CPU AndFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out)) 0.4)
+!(test (term-confidence (CPU AndFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out)) 0.47929561423062006)
 
-!(test (term-confidence (CPU OrFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out)) 0.4)
+!(test (term-confidence (CPU OrFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out)) 0.8322690087859733)
 
 !(test (OrProjection (STV 0.75 0.9) (STV 0.5 1.0)) (STV 0.5 0.9))
 
@@ -35,28 +35,28 @@
 
 !(test
    (CTVInversionFormula (STV 0.2 1.0) (STV 0.24 1.0) (CTV (STV 0.8 1.0) (STV 0.1 1.0)))
-   (CTV (STV 0.6666666666666669 0.9) (STV 0.05263157894736841 0.9)))
+   (CTV (STV 0.6666666666666669 0.9985188611281907) (STV 0.05263157894736841 0.9999538033069306)))
 
 !(test
    (CTVInversionFormula (STV 0.0 1.0) (STV 0.1 1.0) (CTV (STV 0.8 1.0) (STV 0.1 1.0)))
-   (CTV (STV 0.0 0.9) (STV 0.0 0.9)))
+   (CTV (STV 0.0 0.993640649761643) (STV 0.0 0.9999950617533683)))
 
 !(test
    (premises-expected-confidence
-      (cons (CPU CTVFormula ((STV 1.0 1.0) (CTV (STV 1.0 0.2) (STV 0.0 1.0))) $tv1)
-         (cons (CPU CTVFormula ($tv1 (CTV (STV 1.0 0.55) (STV 0.0 1.0))) $tv2) ())))
-   0.2)
+      (cons (CPU CTVModusPonensFormula ((STV 1.0 1.0) (CTV (STV 1.0 0.2) (STV 0.0 1.0))) $tv1)
+         (cons (CPU CTVModusPonensFormula ($tv1 (CTV (STV 1.0 0.55) (STV 0.0 1.0))) $tv2) ())))
+   0.1716299316527129)
 
 !(test
    (premises-expected-confidence
-      (cons (CPU CTVFormula ((STV 0.25 1.0) (CTV (STV 1.0 0.8) (STV 0.0 1.0))) $tv) ()))
-   0.95)
+      (cons (CPU CTVModusPonensFormula ((STV 0.25 1.0) (CTV (STV 1.0 0.8) (STV 0.0 1.0))) $tv) ()))
+   0.9998999264084577)
 
 !(test
    (premises-expected-confidence
       (cons (CPU NotFormula ((STV 0.75 1.0)) $not-tv)
-         (cons (CPU CTVFormula ($not-tv (CTV (STV 1.0 0.8) (STV 0.0 0.0))) $tv) ())))
-   0.2)
+         (cons (CPU CTVModusPonensFormula ($not-tv (CTV (STV 1.0 0.8) (STV 0.0 0.0))) $tv) ())))
+   0.9975061460485739)
 
 !(test
    (premises-expected-confidence
@@ -64,7 +64,7 @@
          (cons (CPU FoldAllCompiled (kb (Animal $a) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $tvA)
             (cons (CPU FoldAllCompiled (kb (Creature $c2) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $tvBr)
                (cons (CPU CTVInversionFormula ($tvA $tvBr (CTV (STV 0.8 0.632121) (STV 0.1 0.632121))) $iitv)
-                  (cons (CPU CTVFormula ($tvB $iitv) $mp-tv) ()))))))
+                  (cons (CPU CTVModusPonensFormula ($tvB $iitv) $mp-tv) ()))))))
    0.5689089)
 
 !(compileadd inverseTotalKb
@@ -85,7 +85,7 @@
                   (CPU FoldAllCompiled (inverseTotalKb (InverseTotalA) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $atv-est)
                   (CPU FoldAllCompiled (inverseTotalKb (InverseTotalB) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $btv-est)
                   (CPU CTVInversionFormula ($atv-est $btv-est (CTV (STV 0.8 0.9) (STV 0.1 0.9))) $iitv)
-                  (CPU CTVFormula ($btv-wit $iitv) $mp-tv)))
+                  (CPU CTVModusPonensFormula ($btv-wit $iitv) $mp-tv)))
             ok)))
    (ok))
 

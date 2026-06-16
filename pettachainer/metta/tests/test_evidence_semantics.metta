@@ -29,7 +29,7 @@
             (Implication (Premises (A $x)) (Conclusions (D $x)))
             $tv))
       $tv)
-   (CTV (STV 0.125 0.9473684210526316) (STV 0.0 1.0)))
+   (CTV (STV 0.125 0.9692294378874315) (STV 0.0 0.9998734491731702)))
 
 ; --- Derivations sharing an uncertain implication do not merge ---
 
@@ -47,6 +47,4 @@
 ; of double-counting its uncertainty across two conclusions.
 !(test
    (query 60 sharedKb (: $prf (D m) $tv))
-   (: (bImpliesD (merge/revision bm (cImpliesB cm)))
-      (D m)
-      (STV 0.45 0.9047368421052632)))
+   (: (bImpliesD (merge/revision bm (cImpliesB cm))) (D m) (STV 0.4500001000170611 0.9124430019925824)))

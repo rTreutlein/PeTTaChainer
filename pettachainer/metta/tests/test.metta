@@ -54,7 +54,7 @@
 !(test
    (match rules
       ($id (: (kb $ctx $vars) (foldRule cpu) (ScoreTotal $total) $tv)
-         ((CPU FoldAllCompiled $call $total) (CPU CTVFormula ((STV 1.0 1.0) (CTV (STV 1.0 1.0) (STV 0.0 1.0))) $tv)))
+         ((CPU FoldAllCompiled $call $total) (CPU CTVModusPonensFormula ((STV 1.0 1.0) (CTV (STV 1.0 1.0) (STV 0.0 1.0))) $tv)))
       ok)
    ())
 
@@ -62,12 +62,12 @@
    (match rules
       ($id (: (kb $ctx $vars) (foldRule $prem) (ScoreTotal $total) $tv)
          ((: $_kb $_prf (CPU FoldAllCompiled $call $total) $_cpu-tv)
-            (CPU CTVFormula ($_cpu-tv (CTV (STV 1.0 1.0) (STV 0.0 1.0))) $tv)))
+            (CPU CTVModusPonensFormula ($_cpu-tv (CTV (STV 1.0 1.0) (STV 0.0 1.0))) $tv)))
       bad)
    ())
 
 !(test (query 30 kb (: $prf (ScoreTotal $x) $tv))
-   (: (foldRule (foldall-proof prf prf prf)) (ScoreTotal 6) (STV 1.0 1.0)))
+   (: (foldRule (foldall-proof prf prf prf)) (ScoreTotal 6) (STV 1.0 0.9998000399670116)))
 
 !(compileadd kb
    (: foldZeroRule
@@ -76,7 +76,7 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 10 kb (: $prf (Count MissingTotal $x) $tv))
-   (: (foldZeroRule cpu) (Count MissingTotal 42) (STV 1.0 1.0)))
+   (: (foldZeroRule cpu) (Count MissingTotal 42) (STV 1.0 0.9998000399670116)))
 
 !(compileadd kb
    (: foldValueShapeRule
@@ -93,7 +93,7 @@
 !(test
    (match rules
       ($id (: (kb $ctx $vars) (foldValueShapeRule cpu) (ScoreDist $dist) $tv)
-         ((CPU FoldAllCompiled $call $dist) (CPU CTVFormula ((STV 1.0 1.0) (CTV (STV 1.0 1.0) (STV 0.0 1.0))) $tv)))
+         ((CPU FoldAllCompiled $call $dist) (CPU CTVModusPonensFormula ((STV 1.0 1.0) (CTV (STV 1.0 1.0) (STV 0.0 1.0))) $tv)))
       ok)
    ())
 
@@ -106,7 +106,7 @@
 !(test
    (match rules
       ($id (: (kb $ctx $vars) (avgShapeRule cpu) (AvgScoreDist $avgDist) $tv)
-         ((CPU FoldAllCompiled $call $avgDist) (CPU CTVFormula ((STV 1.0 1.0) (CTV (STV 1.0 1.0) (STV 0.0 1.0))) $tv)))
+         ((CPU FoldAllCompiled $call $avgDist) (CPU CTVModusPonensFormula ((STV 1.0 1.0) (CTV (STV 1.0 1.0) (STV 0.0 1.0))) $tv)))
       ok)
    ())
 
@@ -132,12 +132,7 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 30 kb (: $prf (DerivedTotal $x) $tv))
-   (: (foldDerivedRule
-         (foldall-proof (numFromCount (conjunction prf cpu))
-            (numFromCount (conjunction prf cpu))
-            (numFromCount (conjunction prf cpu))))
-      (DerivedTotal 6)
-      (STV 1.0 1.0)))
+   (: (foldDerivedRule (foldall-proof (numFromCount (conjunction prf cpu)) (numFromCount (conjunction prf cpu)) (numFromCount (conjunction prf cpu)))) (DerivedTotal 6) (STV 1.0 0.9998000399670116)))
 
 !(compileadd kb
    (: dogsInHouseRule
@@ -153,13 +148,7 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 30 kb (: $prf (Cardinality (DogsIn house1) $x) $tv))
-   (: (dogsInHouseRule
-         (conjunction
-            prf1
-            (foldall-proof (conjunction prf5 prf10)
-               (conjunction prf4 prf8))))
-      (Cardinality (DogsIn house1) 5)
-      (STV 1.0 1.0)))
+   (: (dogsInHouseRule (conjunction prf1 (foldall-proof (conjunction prf5 prf10) (conjunction prf4 prf8)))) (Cardinality (DogsIn house1) 5) (STV 1.0 0.999700089898053)))
 
 !(compileadd kb
    (: apbisc (Implication (Premises (Count A $a) (Count B $b) (Compute + ($a $b) -> $c)) (Conclusions (Count C $c))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))

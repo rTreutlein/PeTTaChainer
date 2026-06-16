@@ -58,7 +58,7 @@
 !(test
    (let (: $prf (Taller countryA countryB) $tv) (query 40 kb (: $prf (Taller countryA countryB) $tv))
       (let (STV $s $c) $tv $c))
-   0.047619047619047616)
+   0.047619047618071425)
 
 !(compileadd kb (: kidp1 (Kid kidp1) (STV 1.0 1.0)))
 
@@ -108,24 +108,24 @@
 
 !(test
    (let (: $prf (CntKidInParticle roomp1 $cnt) $tv) (query 40 kb (: $prf (CntKidInParticle roomp1 $cnt) $tv))
-      (let (STV $s $c) (CTVFormula (DistGreaterThanFormula $cnt 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
+      (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula $cnt 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
 	         (and (and (> $s 0.2499) (< $s 0.2501)) (and (> $c 0.09) (< $c 0.13)))))
    true)
 
 !(test
    (let (: $prf (CntKidInParticle roomp2 $cnt) $tv) (query 40 kb (: $prf (CntKidInParticle roomp2 $cnt) $tv))
-      (let (STV $s $c) (CTVFormula (DistGreaterThanFormula $cnt 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
+      (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula $cnt 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
          (and (> $s 0.0599) (< $s 0.0601))))
    true)
 
 !(test
    (let (: $prf (CntKidInParticle roomp1 $cnt) $tv) (query 40 kb (: $prf (CntKidInParticle roomp1 $cnt) $tv))
-      (let (STV $s $c) (CTVFormula (DistGreaterThanFormula $cnt 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0))) (> $c 0.0)))
+      (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula $cnt 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0))) (> $c 0.0)))
    true)
 
 !(test
    (let (: $prf (CntKidInParticle roomp2 $cnt) $tv) (query 40 kb (: $prf (CntKidInParticle roomp2 $cnt) $tv))
-      (let (STV $s $c) (CTVFormula (DistGreaterThanFormula $cnt 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0))) (> $c 0.0)))
+      (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula $cnt 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0))) (> $c 0.0)))
    true)
 
 !(test (progn (ParticleStoreClear) (ParticleStoreCount)) 0)
