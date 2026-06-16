@@ -15,6 +15,19 @@
    (query 40 twoImplKb (: $prf (B i) $tv))
    (: (merge/revision (ab1 a) (ab2 a)) (B i) (STV 0.6 0.9473684208506429)))
 
+;; --- Same shape but the two implications differ in strength (0.7 vs 0.6).
+;; Their idealized confidences then differ slightly, so plain overlap-dominance
+;; would drop the lower-scoring proof at storage before pooling could run --
+;; only keeping fact-overlapping proofs (they share a, residuals {ab1}/{ab2} are
+;; disjoint) lets them pool. Confirms the direct query agrees with the bare
+;; A->B implication query rather than collapsing to a single dominated proof. ---
+!(compileadd diffImplKb (: a (A i) (STV 1.0 1.0)))
+!(compileadd diffImplKb (: ab1 (Implication (Premises (A $x)) (Conclusions (B $x))) (CTV (STV 0.7 0.9) (STV 0.0 1.0))))
+!(compileadd diffImplKb (: ab2 (Implication (Premises (A $x)) (Conclusions (B $x))) (CTV (STV 0.6 0.9) (STV 0.0 1.0))))
+!(test
+   (query 40 diffImplKb (: $prf (B i) $tv))
+   (: (merge/revision (ab2 a) (ab1 a)) (B i) (STV 0.6499999999812448 0.9473684207998814)))
+
 ;; --- A,X->B / A,Y->B sharing only A. The bare implication query cannot express
 ;; this shape, so factoring at the conclusion is the only route to the pooled
 ;; value. Residuals {x, r1} and {y, r2} are disjoint, so the group pools. ---
@@ -50,11 +63,14 @@
 
 !(test
    (query 80 mlKb (: $prf (C i) $tv))
-   (: (r2 (conjunction a b)) (C i) (STV 0.5 0.8999999998379327)))
+   (: (merge/revision (r2 (conjunction a b)) (r1 (conjunction a b))) (C i) (STV 0.5499999999774938 0.9473684207209665)))
 
-;; --- Round-trip guard: a and b are shared but enter through different
-;; conjunctions (b directly in path 1, via M in path 2), so the 2-point probe
-;; would be inexact. Round-trip fails, factoring is disabled, dominance applies. ---
+;; --- Shared b enters through different paths (directly in path 1, via M in
+;; path 2), but the conclusion is still linear in the shared {a,b} conjunction,
+;; so the 2-point probe is exact (the strength round-trip holds). The residuals
+;; {r1} and {r2, bToM} are disjoint, so the group pools -- bToM lives in r2's
+;; residual and is counted once. The round-trip guard only disables factoring
+;; for genuinely non-linear shapes (a shared leaf used twice within one proof). ---
 !(compileadd rtKb (: a (A i) (STV 0.5 1.0)))
 !(compileadd rtKb (: b (Bp i) (STV 0.5 1.0)))
 !(compileadd rtKb (: bToM (Implication (Premises (Bp $z)) (Conclusions (M $z))) (CTV (STV 0.9 0.9) (STV 0.0 1.0))))
@@ -63,4 +79,4 @@
 
 !(test
    (query 100 rtKb (: $prf (D i) $tv))
-   (: (r1 (conjunction a b)) (D i) (STV 0.15 0.9870467433178945)))
+   (: (merge/revision (r1 (conjunction a b)) (r2 (conjunction a (bToM b)))) (D i) (STV 0.1539084488434874 0.9939398172053266)))

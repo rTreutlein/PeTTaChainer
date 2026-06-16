@@ -217,6 +217,14 @@
 
 (= (fact-evidence-only $ev) (fold-flat fact-evidence-only-step () $ev))
 
+;; The non-fact part of an evidence set (rule applications and hypotheses).
+;; Two proofs are genuinely *dependent* only when these overlap: sharing a fact
+;; is poolable (lifting-merge factors the shared fact out), whereas sharing a
+;; rule or hypothesis means pooling would double-count its uncertainty.
+(= (non-fact-evidence $ev) (subtraction-atom $ev (fact-evidence-only $ev)))
+(= (evidence-sets-dependent? $set-a $set-b)
+   (evidence-sets-overlap? (non-fact-evidence $set-a) (non-fact-evidence $set-b)))
+
 (= (premise-evidence-overlap? $seen $pev)
    (evidence-sets-overlap? (fact-evidence-only $seen) (fact-evidence-only $pev)))
 

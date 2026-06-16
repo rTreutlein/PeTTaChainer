@@ -507,8 +507,14 @@
          ((fact-ev ($kbid $_ctx $_vars) $prf $type)))
       ()))
 
+;; A stored proof dominates a new one only when they are genuinely dependent
+;; (share a rule or hypothesis). Proofs that overlap only in facts are kept so
+;; lifting-merge can pool them at the subgoal -- dropping the lower-scoring one
+;; here would discard recoverable confidence, and (since idealized confidence is
+;; strength-dependent) the scores rarely tie, so plain overlap would otherwise
+;; drop a poolable proof.
 (= (proof-overlap-dominates-score? $old-ev $old-score $new-ev $new-score)
-   (and (evidence-sets-overlap? $old-ev $new-ev)
+   (and (evidence-sets-dependent? $old-ev $new-ev)
       (or (> $old-score $new-score) (and (== $old-score $new-score) (evidence-subset? $new-ev $old-ev)))))
 
 (= (goal-proof-candidate-comparable? false $_outkey $_oldpid) true)

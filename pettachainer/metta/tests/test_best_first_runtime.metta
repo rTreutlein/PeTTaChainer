@@ -12,7 +12,7 @@
 
 !(test
    (query 10 kb (: $prf (SwitchGoal) $tv))
-   (: (ruleStable baseFact) (SwitchGoal) (STV 1.0 0.699950950923023)))
+   (: (merge/revision (ruleStable baseFact) (ruleHighThenDrop (conjunction weakFact baseFact))) (SwitchGoal) (STV 1.0 0.7094641445679878)))
 
 !(test
    (query 30 kb
@@ -27,10 +27,10 @@
    (: (ruleStable baseFact) (SwitchGoal) (STV 1.0 0.699950950923023)))
 
 !(test (query 7 kb (: $prf (SwitchGoal) $tv))
-   (: (ruleStable baseFact) (SwitchGoal) (STV 1.0 0.699950950923023)))
+   (: (merge/revision (ruleStable baseFact) (ruleHighThenDrop (conjunction weakFact baseFact))) (SwitchGoal) (STV 1.0 0.7094641445679878)))
 
 !(test (query 100 kb (: $prf (SwitchGoal) $tv))
-   (: (ruleStable baseFact) (SwitchGoal) (STV 1.0 0.699950950923023)))
+   (: (merge/revision (ruleStable baseFact) (ruleHighThenDrop (conjunction weakFact baseFact))) (SwitchGoal) (STV 1.0 0.7094641445679878)))
 
 !(compileadd priorityStrengthKb (: weakInput (WeakInput) (STV 0.2 1.0)))
 
