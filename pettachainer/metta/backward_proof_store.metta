@@ -362,13 +362,21 @@
    (AndFormula (factor-leaf-tv $pid $key) (factor-real-conj $pid $rest)))
 
 ;; round-trip check: re-applying a proof's residual to the real shared
-;; conjunction must reproduce its stored TV. Exact when the shared facts enter
-;; through one conjunction; fails (and disables factoring) when they enter
-;; through different conjunctions, where the 2-point probe would be inexact.
+;; conjunction must reproduce its stored strength. The 2-point probe captures
+;; the conclusion's linear dependence on the shared conjunction exactly, so the
+;; strength round-trips when the shared facts enter through one conjunction and
+;; fails (disabling factoring) when they enter through different conjunctions.
+;; Only strength is checked: confidence is non-linear under idealized
+;; propagation, so the residual's re-derived branch confidences never reproduce
+;; the stored confidence exactly -- checking it would reject every valid group.
 (= (factor-abs-diff $x $y) (let $d (- $x $y) (if (< $d 0.0) (- 0.0 $d) $d)))
 (= (factor-close? $x $y) (< (factor-abs-diff $x $y) 0.000001))
-(= (factor-tv-close? (STV $s1 $c1) (STV $s2 $c2)) (and (factor-close? $s1 $s2) (factor-close? $c1 $c2)))
-(= (factor-tv-close? $_a $_b) false)
+;; single clause: a bare catch-all (= (factor-tv-close? $a $b) false) would also
+;; match the (STV STV) case and make the result non-deterministic.
+(= (factor-tv-close? $a $b)
+   (if (= $a (STV $sa $_ca))
+      (if (= $b (STV $sb $_cb)) (factor-close? $sa $sb) false)
+      false))
 (= (factor-roundtrip-one? $pid $keys $conj)
    (let* ((($_t $_k $_p $stored) (proof-output-atom $pid))
           ($rebuilt (CTVModusPonensFormula $conj (factor-residual $pid $keys))))
