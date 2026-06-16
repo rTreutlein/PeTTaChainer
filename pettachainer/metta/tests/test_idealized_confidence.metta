@@ -1,0 +1,50 @@
+!(import! &self petta_chainer)
+
+;; Idealized confidence: second-order uncertainty propagation. Confidence follows
+;; the variance of the conclusion's strength, propagated exactly through each
+;; formula and converted back to a count. Verified against Monte-Carlo.
+
+;; --- Modus ponens ---
+;; symmetric implication (both branches confident): confidence is high and tracks
+;; how well the marginal is pinned down.
+!(test (CTVFormula (STV 0.5 0.9) (CTV (STV 0.8 0.9) (STV 0.2 0.9)))
+   (STV 0.5 0.9297507003411903))
+;; same implication, unsure antecedent: confidence drops.
+!(test (CTVFormula (STV 0.5 0.3) (CTV (STV 0.8 0.9) (STV 0.2 0.9)))
+   (STV 0.5 0.533570866460099))
+
+;; One-sided implication (the realistic case): confident on the positive branch,
+;; unsure on the negative (P(B | not A) is hard to estimate). Confidence then
+;; depends on which branch we lean on:
+;;   antecedent likely TRUE  -> lean on the known positive branch -> higher
+;;   antecedent likely FALSE -> forced onto the unknown negative  -> lower
+!(test (CTVFormula (STV 0.9 0.9) (CTV (STV 0.8 0.9) (STV 0.5 0.1)))
+   (STV 0.77 0.8249273772285918))
+!(test (CTVFormula (STV 0.5 0.9) (CTV (STV 0.8 0.9) (STV 0.5 0.1)))
+   (STV 0.65 0.2870618096418617))
+!(test (CTVFormula (STV 0.1 0.9) (CTV (STV 0.8 0.9) (STV 0.5 0.1)))
+   (STV 0.53 0.12040223903159016))
+
+;; --- Conjunction / disjunction (exact product variance) ---
+!(test (AndFormula (STV 0.5 0.9) (STV 0.5 0.9)) (STV 0.25 0.9310329967103845))
+!(test (AndFormula (STV 0.8 0.9) (STV 0.3 0.5)) (STV 0.24 0.572930511571637))
+!(test (OrFormula (STV 0.5 0.9) (STV 0.5 0.9)) (STV 0.75 0.9310329967103845))
+
+;; --- End-to-end realistic example ---
+;; Diagnostic-style inference with one-sided rules and uncertain evidence.
+!(compileadd med (: fever (Fever p) (STV 1.0 0.8)))
+!(compileadd med (: cough (Cough p) (STV 0.6 0.7)))
+!(compileadd med
+   (: fluRule (Implication (Premises (And (Fever $x) (Cough $x))) (Conclusions (Flu $x)))
+      (CTV (STV 0.7 0.85) (STV 0.5 0.15))))
+!(compileadd med
+   (: tiredRule (Implication (Premises (Flu $x)) (Conclusions (Tired $x)))
+      (CTV (STV 0.9 0.9) (STV 0.5 0.1))))
+
+;; Flu from And(Fever, Cough) through the one-sided fluRule.
+!(test (query 40 med (: $prf (Flu p) $tv))
+   (: (fluRule (conjunction fever cough)) (Flu p) (STV 0.62 0.49224732166420715)))
+
+;; Tired chains one more one-sided step; confidence erodes further down the chain.
+!(test (query 60 med (: $prf (Tired p) $tv))
+   (: (tiredRule (fluRule (conjunction fever cough))) (Tired p) (STV 0.748 0.3402330502780622)))

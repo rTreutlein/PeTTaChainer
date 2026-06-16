@@ -1,13 +1,51 @@
+;; Idealized confidence via second-order uncertainty propagation. Treat each TV
+;; as a Beta (strength = mean, confidence = count/(count+800)); propagate the
+;; exact variance of sB = bs_a*as + bs_na*(1-as) through modus ponens, then
+;; convert back to a confidence. Strengths are clipped off 0/1 so the Beta
+;; variance and the back-conversion stay finite.
+(= (ideal-clip $s) (max 0.000001 (min 0.999999 $s)))
+(= (ideal-var $s $c)
+   (let $cs (ideal-clip $s) (/ (* $cs (- 1.0 $cs)) (+ (confidence-to-count $c) 1.0))))
+(= (ideal-mp-confidence $as $ac $bs_a $bc_a $bs_na $bc_na)
+   (let*
+      (($Va (ideal-var $bs_a $bc_a))
+       ($Vna (ideal-var $bs_na $bc_na))
+       ($Vz (ideal-var $as $ac))
+       ($sB (+ (* $bs_a $as) (* $bs_na (- 1.0 $as))))
+       ($VarsB
+          (+ (* (* $as $as) $Va)
+             (+ (* (* (- 1.0 $as) (- 1.0 $as)) $Vna)
+                (+ (* (* (- $bs_a $bs_na) (- $bs_a $bs_na)) $Vz)
+                   (* $Vz (+ $Va $Vna))))))
+       ($csB (ideal-clip $sB))
+       ($nB (- (/ (* $csB (- 1.0 $csB)) $VarsB) 1.0)))
+      (/ $nB (+ $nB 800.0))))
+
 (= (CTVFormula (CTV $pos $_neg) $ctv) (CTVFormula $pos $ctv))
 
 (= (CTVFormula (STV $as $ac) (CTV (STV $bs_a $bc_a) (STV $bs_na $bc_na)))
    (STV
       (+ (* $bs_a $as) (* $bs_na (- 1 $as)))
-      (+ (* $as (min $bc_a $ac)) (* (- 1 $as) (min $bc_na $ac)))))
+      (ideal-mp-confidence $as $ac $bs_a $bc_a $bs_na $bc_na)))
 
-(= (AndFormula (STV $si $ci) (STV $sa $ca)) (let* (($sb (* $si $sa)) ($cb (min $ci $ca))) (STV $sb $cb)))
+;; Idealized confidence for product-form combinations. For And, sB = s1*s2 with
+;; exact Var = V1*V2 + V1*s2^2 + s1^2*V2; for Or, sB = 1-(1-s1)(1-s2), the same
+;; product variance on the complements. Then convert variance back to a count.
+(= (ideal-prod-confidence $s1 $V1 $s2 $V2 $sB)
+   (let*
+      (($VarsB (+ (* $V1 $V2) (+ (* $V1 (* $s2 $s2)) (* (* $s1 $s1) $V2))))
+       ($csB (ideal-clip $sB))
+       ($nB (- (/ (* $csB (- 1.0 $csB)) $VarsB) 1.0)))
+      (/ $nB (+ $nB 800.0))))
 
-(= (OrFormula (STV $si $ci) (STV $sa $ca)) (let* (($sb (- (+ $si $sa) (* $si $sa))) ($cb (min $ci $ca))) (STV $sb $cb)))
+(= (AndFormula (STV $si $ci) (STV $sa $ca))
+   (STV (* $si $sa)
+      (ideal-prod-confidence $si (ideal-var $si $ci) $sa (ideal-var $sa $ca) (* $si $sa))))
+
+(= (OrFormula (STV $si $ci) (STV $sa $ca))
+   (STV (- (+ $si $sa) (* $si $sa))
+      (ideal-prod-confidence (- 1.0 $si) (ideal-var $si $ci) (- 1.0 $sa) (ideal-var $sa $ca)
+         (- (+ $si $sa) (* $si $sa)))))
 
 ;; "A is likelier than B" as P(A and not B) under independence: s_a * (1 - s_b).
 ;; Multilinear (linear in each argument), consistent with And (s1*s2) and
