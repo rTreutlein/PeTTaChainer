@@ -17,9 +17,8 @@
              (+ (* (* (- 1.0 $as) (- 1.0 $as)) $Vna)
                 (+ (* (* (- $bs_a $bs_na) (- $bs_a $bs_na)) $Vz)
                    (* $Vz (+ $Va $Vna))))))
-       ($csB (ideal-clip $sB))
-       ($nB (- (/ (* $csB (- 1.0 $csB)) $VarsB) 1.0)))
-      (/ $nB (+ $nB 800.0))))
+       )
+      (ideal-conf-from-var $sB $VarsB)))
 
 (= (CTVFormula (CTV $pos $_neg) $ctv) (CTVFormula $pos $ctv))
 
@@ -34,9 +33,8 @@
 (= (ideal-prod-confidence $s1 $V1 $s2 $V2 $sB)
    (let*
       (($VarsB (+ (* $V1 $V2) (+ (* $V1 (* $s2 $s2)) (* (* $s1 $s1) $V2))))
-       ($csB (ideal-clip $sB))
-       ($nB (- (/ (* $csB (- 1.0 $csB)) $VarsB) 1.0)))
-      (/ $nB (+ $nB 800.0))))
+       )
+      (ideal-conf-from-var $sB $VarsB)))
 
 (= (AndFormula (STV $si $ci) (STV $sa $ca))
    (STV (* $si $sa)
@@ -107,12 +105,43 @@
 
 (= (CTVInversionFormula no-evidence $_btv $_itv) (empty))
 (= (CTVInversionFormula (STV $_sa $_ca) no-evidence $_itv) (empty))
+;; Idealized inversion confidence. The inverted strength is a Bayes ratio
+;; P(A|B) = sb_a*sa/sb (and P(A|not B) = (1-sb_a)*sa/(1-sb)); both depend on the
+;; implication's positive branch sb_a, the base rates sa, sb. Propagate variance
+;; through the ratio by the delta method (validated against Monte-Carlo) and
+;; convert back to a count. (cb_na is unused: sb_na is redundant given sb_a, sa,
+;; sb.)
+;; convert a strength + its variance to a confidence. The propagated variance is
+;; clamped to the max-entropy variance s(1-s) (a Beta cannot be more spread than
+;; that), so the count stays >= 0 and the confidence stays in [0,1).
+(= (ideal-conf-from-var $s $Var)
+   (let*
+      (($cs (ideal-clip $s))
+       ($maxvar (* $cs (- 1.0 $cs)))
+       ($v (max 0.0000001 (min $Var $maxvar)))
+       ($nB (- (/ $maxvar $v) 1.0)))
+      (max 0.000001 (/ $nB (+ $nB 800.0)))))
+(= (ideal-ratio-var $p $Vp $sa $Vsa $q $Vq)
+   (let*
+      (($d1 (/ $sa $q))
+       ($d2 (/ $p $q))
+       ($d3 (/ (* $p $sa) (* $q $q))))
+      (+ (* (* $d1 $d1) $Vp)
+         (+ (* (* $d2 $d2) $Vsa)
+            (* (* $d3 $d3) $Vq)))))
+
 (= (CTVInversionFormula (STV $sa $ca) (STV $sb $cb) (CTV (STV $sb_a $cb_a) (STV $sb_na $cb_na)))
    (if (or (<= $sb 0.0) (>= $sb 1.0))
       (CTV (STV 0.0 0.0) (STV 0.0 0.0))
-      (CTV
-         (STV (min 1.0 (/ (* $sb_a $sa) $sb)) (* (min-atom ($ca $cb $cb_a)) 0.9))
-         (STV (min 1.0 (/ (* (- 1.0 $sb_a) $sa) (- 1.0 $sb))) (* (min-atom ($ca $cb $cb_na)) 0.9)))))
+      (let*
+         (($Va (ideal-var $sb_a $cb_a))
+          ($Vsa (ideal-var $sa $ca))
+          ($Vsb (ideal-var $sb $cb))
+          ($s_pos (min 1.0 (/ (* $sb_a $sa) $sb)))
+          ($s_neg (min 1.0 (/ (* (- 1.0 $sb_a) $sa) (- 1.0 $sb)))))
+         (CTV
+            (STV $s_pos (ideal-conf-from-var $s_pos (ideal-ratio-var $sb_a $Va $sa $Vsa $sb $Vsb)))
+            (STV $s_neg (ideal-conf-from-var $s_neg (ideal-ratio-var (- 1.0 $sb_a) $Va $sa $Vsa (- 1.0 $sb) $Vsb)))))))
 
 (= (Equal $a $b) (== $a $b))
 

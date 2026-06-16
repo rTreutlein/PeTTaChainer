@@ -30,6 +30,17 @@
 !(test (AndFormula (STV 0.8 0.9) (STV 0.3 0.5)) (STV 0.24 0.572930511571637))
 !(test (OrFormula (STV 0.5 0.9) (STV 0.5 0.9)) (STV 0.75 0.9310329967103845))
 
+;; --- Inversion (Bayes ratio) ---
+;; Well-supported base rates: variance propagates through P(A|B)=sb_a*sa/sb by the
+;; delta method (validated against Monte-Carlo).
+!(test (CTVInversionFormula (STV 0.3 0.9) (STV 0.5 0.9) (CTV (STV 0.7 0.9) (STV 0.0 1.0)))
+   (CTV (STV 0.42 0.7676043390329106) (STV 0.18000000000000002 0.8785678145182892)))
+;; Degenerate single-instance base rates: P(A|not B) = 0.2*0.7/0.1 = 1.4 clamps to
+;; 1.0, its propagated variance exceeds the max-entropy bound, so that branch's
+;; confidence floors near 0 -- the inversion is (correctly) near-worthless here.
+!(test (CTVInversionFormula (STV 0.7 0.001) (STV 0.9 0.001) (CTV (STV 0.8 0.9) (STV 0.1 0.9)))
+   (CTV (STV 0.6222222222222221 0.001280441167282208) (STV 1.0 0.000001)))
+
 ;; --- End-to-end realistic example ---
 ;; Diagnostic-style inference with one-sided rules and uncertain evidence.
 !(compileadd med (: fever (Fever p) (STV 1.0 0.8)))
