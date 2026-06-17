@@ -644,6 +644,19 @@
          |-
          ((: ($kb $ctx $vars) ((inverted $prf with cpu cpu) $prfb_wit) $a $mp-tv)))))
 
+(= (concrete-inheritance-link? $subj $concept)
+   (and (not (is-var $subj)) (not (is-var $concept))))
+
+(= (inheritance-implication-type $subj $concept)
+   (Implication
+      (Premises (Inheritance $x $subj))
+      (Conclusions (Inheritance $x $concept))))
+
+(= (compile-derived-inheritance-implication $kb $prf $subj $concept $tv)
+   (compile_ $kb
+      (: (inheritance-implication $prf)
+         (inheritance-implication-type $subj $concept)
+         $tv)))
 
 (= (compile_ $kb (@ $stmt (: $prf $Type $tv)))
    (if (is-var $Type) (empty)
@@ -668,8 +681,15 @@
                      (Implication (cons Premises $right) (cons Conclusions $left))
                      $tv)))))
             (let $fact-kb (compile-fact-kb $kb)
-	               (superpose ((() |- ((: $fact-kb $prf $Type $tv)))
-	                           (compile-outputs (: $fact-kb $prf $Type $tv)))))))))
+               (if (= $Type (Inheritance $subj $concept))
+                  (superpose (
+                     (() |- ((: $fact-kb $prf $Type $tv)))
+                     (if (concrete-inheritance-link? $subj $concept)
+                        (compile-derived-inheritance-implication $kb $prf $subj $concept $tv)
+                        (empty))
+                     (compile-outputs (: $fact-kb $prf $Type $tv))))
+                  (superpose ((() |- ((: $fact-kb $prf $Type $tv)))
+                              (compile-outputs (: $fact-kb $prf $Type $tv))))))))))
 
 
 (= (implication-query-known-tv-parts $tv)
@@ -736,7 +756,37 @@
                        (union-atom $right-ctxatoms $right-adapter-adds)))
 		                    ($goal (: (kbctx $kb) (bidirectional $left-prf $right-prf) $Type $tv)))
 	                  ((($left-goal $right-goal (CPU AndFormula ($left-tv $right-tv) $tv)) |- ($goal)) $adds)))
-            (((() |- ((: (kbctx $kb) $prf $Type $tv))) (compile-query-adds (: (kbctx $kb) $prf $Type $tv))))))))
+            (if (and (= $Type (Inheritance $subj $concept)) (concrete-inheritance-link? $subj $concept))
+               (let*
+                  (($imp-type (inheritance-implication-type $subj $concept))
+                   ((Implication (cons Premises $premises) (cons Conclusions $conclusions)) $imp-type)
+                   ($vars (extract-vars $imp-type))
+                   ($mvars (if (== $vars ()) Nil $vars))
+                   ($pos-ctx (nextctx))
+                   ($neg-ctx (nextctx))
+                   ($pos-shape-kb ($kb $pos-ctx $mvars))
+                   ($neg-shape-kb ($kb $neg-ctx $mvars))
+                   ((compiled-premises $pos-execs $_pos-proofs $_pos-atv)
+                      (once (lower-query-assumption-premises $kb $pos-ctx $mvars $premises)))
+                   ((compiled-premises $neg-execs $_neg-proofs $_neg-atv)
+                      (once (lower-query-assumption-premises-negative $kb $neg-ctx $mvars $premises)))
+                   ($b (seq2expr $conclusions))
+                   ($pos-ctxatoms (query-context-premise-adds $kb $pos-ctx $mvars $pos-execs))
+                   ($neg-ctxatoms (query-context-premise-adds $kb $neg-ctx $mvars $neg-execs))
+                   ($pos-adapter-adds (collapse (compile-adapter-chain query (: $pos-shape-kb $pos-prf $b $pos-adapter-tv))))
+                   ($neg-adapter-adds (collapse (compile-adapter-chain query (: $neg-shape-kb $neg-prf $b $neg-adapter-tv))))
+                   ($all-adds
+                      (union-atom
+                         (union-atom $pos-ctxatoms $pos-adapter-adds)
+                         (union-atom $neg-ctxatoms $neg-adapter-adds)))
+                   ($known-pos-goal (: $pos-shape-kb $pos-prf $b $tv))
+                   ($known-neg-goal (: $neg-shape-kb $neg-prf $b $neg-tv))
+                   ($known-goal (: (kbctx $kb) (inheritance-query (total-implication $pos-prf $neg-prf)) $Type $tv)))
+                  (superpose (
+                     ((($known-pos-goal $known-neg-goal) |- ($known-goal)) $all-adds)
+                     (((() |- ((: (kbctx $kb) $prf $Type $tv)))
+                        (compile-query-adds (: (kbctx $kb) $prf $Type $tv)))))))
+            (((() |- ((: (kbctx $kb) $prf $Type $tv))) (compile-query-adds (: (kbctx $kb) $prf $Type $tv)))))))))
 
 
 (= (mm2compile $kb $stmt)

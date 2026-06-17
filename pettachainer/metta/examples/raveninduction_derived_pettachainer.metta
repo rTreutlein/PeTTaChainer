@@ -8,65 +8,54 @@
 ; (Inheritance $x rv2), the runtime now supplies a KB-global concept-node
 ; prior, 1/N over currently registered inheritance endpoint nodes.
 ;
-; The generated implications carry only the observed positive STV. When modus
-; ponens or inversion needs a full CTV, the compiled rule estimates the negative
-; branch from current base rates at calculation time.
+; The compiler derives implication views from the direct inheritance
+; observations. When modus ponens or inversion needs a full CTV, the compiled
+; rule estimates the negative branch from current base rates at calculation time.
 
 !(compileadd ravenDerivedKb (: rv1RavenObserved (Inheritance rv1 raven) (STV 0.9 0.9)))
 !(compileadd ravenDerivedKb (: rv2RavenObserved (Inheritance rv2 raven) (STV 0.9 0.9)))
 !(compileadd ravenDerivedKb (: rv1BlackObserved (Inheritance rv1 (IntSet black)) (STV 0.8 0.9)))
 !(compileadd ravenDerivedKb (: rv2BlackObserved (Inheritance rv2 (IntSet black)) (STV 0.0 0.9)))
 
-!(compileadd ravenDerivedKb
-   (: rv1ImpliesRaven
-      (Implication
-         (Premises (Inheritance $x rv1))
-         (Conclusions (Inheritance $x raven)))
-      (STV 0.9 0.9)))
-
-!(compileadd ravenDerivedKb
-   (: rv2ImpliesRaven
-      (Implication
-         (Premises (Inheritance $x rv2))
-         (Conclusions (Inheritance $x raven)))
-      (STV 0.9 0.9)))
-
-!(compileadd ravenDerivedKb
-   (: rv1ImpliesBlack
-      (Implication
-         (Premises (Inheritance $x rv1))
-         (Conclusions (Inheritance $x (IntSet black))))
-      (STV 0.8 0.9)))
-
-!(compileadd ravenDerivedKb
-   (: rv2ImpliesBlack
-      (Implication
-         (Premises (Inheritance $x rv2))
-         (Conclusions (Inheritance $x (IntSet black))))
-      (STV 0.0 0.9)))
-
 !(test
    (query 300 ravenDerivedKb
       (: $prf
-         (Implication
-            (Premises (Inheritance $x raven))
-            (Conclusions (Inheritance $x (IntSet black))))
+         (Inheritance raven (IntSet black))
          $tv))
    (:
-      (total-implication
-         (merge/revision
-            (rv1ImpliesBlack
-               ((inverted rv1ImpliesRaven with cpu (foldall-proof rv1RavenObserved rv2RavenObserved)) (ctx proof 0)))
-            (rv2ImpliesBlack
-               ((inverted rv2ImpliesRaven with cpu (foldall-proof rv1RavenObserved rv2RavenObserved)) (ctx proof 0))))
-         (merge/revision
-            (rv1ImpliesBlack
-               ((inverted rv1ImpliesRaven with cpu (foldall-proof rv1RavenObserved rv2RavenObserved)) (ctx proof 1)))
-            (rv2ImpliesBlack
-               ((inverted rv2ImpliesRaven with cpu (foldall-proof rv1RavenObserved rv2RavenObserved)) (ctx proof 1)))))
-      (Implication
-         (Premises (Inheritance $q raven))
-         (Conclusions (Inheritance $q (IntSet black))))
-      (CTV
-         (STV 0.39992486102561525 0.005302220793721317)
-         (STV 0.3998438718000059 0.005291115249428424))))
+      (inheritance-query
+         (total-implication
+            ((inheritance-implication rv2BlackObserved)
+               ((inverted (inheritance-implication rv2RavenObserved)
+                   with
+                   (foldall-proof
+                      ((inverted (inheritance-implication rv2BlackObserved)
+                          with
+                          cpu
+                          (foldall-proof rv1BlackObserved rv2BlackObserved))
+                       rv2BlackObserved)
+                      ((inverted (inheritance-implication rv2BlackObserved)
+                          with
+                          (foldall-proof rv1BlackObserved rv2BlackObserved)
+                          (foldall-proof rv1BlackObserved rv2BlackObserved))
+                       rv1BlackObserved))
+                   (foldall-proof rv1RavenObserved rv2RavenObserved))
+                (ctx proof 0)))
+            ((inheritance-implication rv2BlackObserved)
+               ((inverted (inheritance-implication rv2RavenObserved)
+                   with
+                   (foldall-proof
+                      ((inverted (inheritance-implication rv2BlackObserved)
+                          with
+                          cpu
+                          (foldall-proof rv1BlackObserved rv2BlackObserved))
+                       rv2BlackObserved)
+                      ((inverted (inheritance-implication rv2BlackObserved)
+                          with
+                          (foldall-proof rv1BlackObserved rv2BlackObserved)
+                          (foldall-proof rv1BlackObserved rv2BlackObserved))
+                       rv1BlackObserved))
+                   (foldall-proof rv1RavenObserved rv2RavenObserved))
+                (ctx proof 1)))))
+      (Inheritance raven (IntSet black))
+      (STV 0.4758369798846596 0.001770086372769075)))
