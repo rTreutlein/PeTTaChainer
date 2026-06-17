@@ -19,6 +19,12 @@
 
 !(test (concept-node-prior-tv dynConceptPriorKb rv1) (STV 0.25 0.004975124378109453))
 
+!(test
+   (BaseRateWithPriorFormula
+      (concept-node-prior-tv dynConceptPriorKb raven)
+      (STV 0.9 0.9))
+   (STV 0.8996390893947807 0.9000499750124937))
+
 !(compileadd dynConceptPriorKb (: ravenBird (Inheritance raven bird) (STV 0.9 0.9)))
 
 !(test (concept-node-prior-tv dynConceptPriorKb rv1) (STV 0.2 0.006211180124223602))

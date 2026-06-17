@@ -56,17 +56,17 @@
       (total-implication
          (merge/revision
             (rv1ImpliesBlack
-               ((inverted rv1ImpliesRaven with cpu cpu) (ctx proof 0)))
+               ((inverted rv1ImpliesRaven with cpu (foldall-proof rv1RavenObserved rv2RavenObserved)) (ctx proof 0)))
             (rv2ImpliesBlack
-               ((inverted rv2ImpliesRaven with cpu cpu) (ctx proof 0))))
+               ((inverted rv2ImpliesRaven with cpu (foldall-proof rv1RavenObserved rv2RavenObserved)) (ctx proof 0))))
          (merge/revision
             (rv1ImpliesBlack
-               ((inverted rv1ImpliesRaven with cpu cpu) (ctx proof 1)))
+               ((inverted rv1ImpliesRaven with cpu (foldall-proof rv1RavenObserved rv2RavenObserved)) (ctx proof 1)))
             (rv2ImpliesBlack
-               ((inverted rv2ImpliesRaven with cpu cpu) (ctx proof 1)))))
+               ((inverted rv2ImpliesRaven with cpu (foldall-proof rv1RavenObserved rv2RavenObserved)) (ctx proof 1)))))
       (Implication
          (Premises (Inheritance $q raven))
          (Conclusions (Inheritance $q (IntSet black))))
       (CTV
-         (STV 0.6188715468989251 0.004210957006189564)
-         (STV 0.17850910059853156 0.003610318196153512))))
+         (STV 0.39992486102561525 0.005302220793721317)
+         (STV 0.3998438718000059 0.005291115249428424))))

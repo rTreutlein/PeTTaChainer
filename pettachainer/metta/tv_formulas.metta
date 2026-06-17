@@ -112,6 +112,17 @@
    (if (<= $msum 0.0) no-evidence
       (STV (/ $wsum $msum) (min 1.0 $msum))))
 
+(= (WeightedBaseRateWithPriorAcc (BaseRateEvidenceWithPrior $prior $ev) $tv)
+   (BaseRateEvidenceWithPrior $prior (WeightedBaseRateAcc $ev $tv)))
+
+(= (BaseRateWithPriorFormula no-evidence no-evidence) no-evidence)
+(= (BaseRateWithPriorFormula no-evidence $evidence) $evidence)
+(= (BaseRateWithPriorFormula $prior no-evidence) $prior)
+(= (BaseRateWithPriorFormula $prior $evidence) (mergetvs $prior $evidence))
+
+(= (WeightedBaseRateWithPriorTv (BaseRateEvidenceWithPrior $prior $ev))
+   (BaseRateWithPriorFormula (reduce $prior) (WeightedBaseRateTv $ev)))
+
 (= (NegativeBranchStrength $sa $sb $sb_a)
    (if (>= $sa 1.0) $sb
       (max 0.0 (min 1.0 (/ (- $sb (* $sa $sb_a)) (- 1.0 $sa))))))
@@ -167,6 +178,7 @@
           ($v (min $Var $maxvar))
           ($nB (- (/ $maxvar $v) 1.0)))
          (max 0.000001 (/ $nB (+ $nB 800.0))))))
+
 (= (ideal-ratio-var $p $Vp $sa $Vsa $q $Vq)
    (let*
       (($d1 (/ $sa $q))

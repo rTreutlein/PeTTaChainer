@@ -617,7 +617,17 @@
 (= (base-rate-premise $kb $pattern $brtv)
    (if (= $pattern (Inheritance $x $subj))
       (if (and (is-var $x) (known-concept-node? $kb $subj))
-         (CPU ConceptNodePriorFormula ($kb $subj) $brtv)
+         (CPU FoldAllCompiled
+            ($kb
+               $pattern
+               (extract-inheritance-tv $kb $pattern)
+               (BaseRateEvidenceWithPrior
+                  (ConceptNodePriorFormula $kb $subj)
+                  (BaseRateEvidence 0.0 0.0))
+               WeightedBaseRateWithPriorAcc
+               weighted-base-rate-with-prior
+               result-tv)
+            $brtv)
          (base-rate-premise-default $kb $pattern $brtv))
       (base-rate-premise-default $kb $pattern $brtv)))
 

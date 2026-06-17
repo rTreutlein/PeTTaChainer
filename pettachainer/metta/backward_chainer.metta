@@ -83,6 +83,7 @@
 (= (aggregate-finish dist-average $acc) (reduce (reduce (DistAverageFromSumCount $acc))))
 (= (aggregate-finish base-rate $acc) (BaseRateTv $acc))
 (= (aggregate-finish weighted-base-rate $acc) (WeightedBaseRateTv $acc))
+(= (aggregate-finish weighted-base-rate-with-prior $acc) (WeightedBaseRateWithPriorTv $acc))
 (= (aggregate-finish uniform-prior $acc) (UniformPriorTv $acc))
 (= (aggregate-finish uniform-prior-known $acc) (UniformPriorKnownTv $acc))
 
@@ -319,10 +320,11 @@
 (= (background-aggregate-finish? $finish)
    (if (== $finish base-rate) true
       (if (== $finish weighted-base-rate) true
-         (if (== $finish uniform-prior) true (== $finish uniform-prior-known)))))
+         (if (== $finish weighted-base-rate-with-prior) true
+            (if (== $finish uniform-prior) true (== $finish uniform-prior-known))))))
 
 (= (base-rate-refinement-degrades? $finish $current-pid $result)
-   (if (or (== $finish base-rate) (== $finish weighted-base-rate))
+   (if (or (== $finish base-rate) (or (== $finish weighted-base-rate) (== $finish weighted-base-rate-with-prior)))
       (if (== $current-pid ()) false
          (let*
             (($new-tv (let (CPU $_fun $_args $ntv) $result $ntv))
