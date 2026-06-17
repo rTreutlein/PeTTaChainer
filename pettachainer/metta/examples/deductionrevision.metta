@@ -8,22 +8,13 @@
 
 !(compileadd deductionRevisionKb (: cInheritsD (Inheritance C D) (STV 0.5 0.9)))
 
-!(mark-logic-rule inheritanceDeduction)
-
-!(compileadd deductionRevisionKb
-   (: inheritanceDeduction
-      (Implication
-         (Premises (Inheritance $a $b) (Inheritance $b $c))
-         (Conclusions (Inheritance $a $c)))
-      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-
 !(test
    (query 30 deductionRevisionKb (: $prf (Inheritance A D) $tv))
    (: (merge/revision
-         (inheritanceDeduction (conjunction aInheritsC cInheritsD))
-         (inheritanceDeduction (conjunction aInheritsB bInheritsD)))
+         ((inheritance-implication cInheritsD) aInheritsC)
+         ((inheritance-implication bInheritsD) aInheritsB))
       (Inheritance A D)
-      (STV 0.125 0.9473684210526316)))
+      (STV 0.499556786625006 0.22608947420623976)))
 
 
 
@@ -57,4 +48,4 @@
             (Implication (Premises (A $x)) (Conclusions (D $x)))
             $tv))
       $tv)
-   (CTV (STV 0.125 0.9473684210526316) (STV 0.0 1.0)))
+   (CTV (STV 0.125 0.9692294378874315) (STV 0.0 0.9998734491731702)))

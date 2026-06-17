@@ -8,22 +8,22 @@
 !(compileadd ravenInductionImplicationKb
    (: rv1ImpliesRaven
       (Implication (Premises (Rv1 $x)) (Conclusions (Raven $x)))
-      (CTV (STV 0.9 0.9) (STV 0.0 1.0))))
+      (STV 0.9 0.9)))
 
 !(compileadd ravenInductionImplicationKb
    (: rv2ImpliesRaven
       (Implication (Premises (Rv2 $x)) (Conclusions (Raven $x)))
-      (CTV (STV 0.9 0.9) (STV 0.0 1.0))))
+      (STV 0.9 0.9)))
 
 !(compileadd ravenInductionImplicationKb
    (: rv1ImpliesBlack
       (Implication (Premises (Rv1 $x)) (Conclusions (Black $x)))
-      (CTV (STV 0.8 0.9) (STV 0.0 1.0))))
+      (STV 0.8 0.9)))
 
 !(compileadd ravenInductionImplicationKb
    (: rv2ImpliesBlack
       (Implication (Premises (Rv2 $x)) (Conclusions (Black $x)))
-      (CTV (STV 0.0 0.9) (STV 0.0 1.0))))
+      (STV 0.0 0.9)))
 
 !(test
    (let
@@ -36,5 +36,5 @@
             $tv))
       $tv)
    (CTV
-      (STV 0.36000000000000004 0.8950276243093923)
-      (STV 0.01333333333333333 0.8950276243093923)))
+      (STV 0.43377973868275976 0.5234813517279882)
+      (STV 0.1894448281191785 0.4177956832421612)))
