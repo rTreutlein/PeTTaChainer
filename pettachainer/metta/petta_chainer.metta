@@ -18,6 +18,13 @@
 
 (= (add-to-kb $expr) (kb-add-expr live $expr))
 
+!(import! &self inheritance_induction)
+
+(= (record-compiled-inheritance-subject! (: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $_concept) $_tv))
+   (if (is-var $subj) ()
+      (add-atom &inheritance_subject ($kbid $subj))))
+(= (record-compiled-inheritance-subject! $_expr) ())
+
 (= (materialize-stmt-lambdas $term)
    (if (is-var $term) $term
       (if (is-expr $term)
@@ -32,6 +39,7 @@
         ($atoms (collapse (mm2compile $kb $stmt1)))
         ($iatoms (list_to_set (map-flat internalize-proof-structure $atoms)))
         ($eatoms (map-flat externalize-proof-structure $iatoms))
+        ($_subjects (collapse (foreach-flat record-compiled-inheritance-subject! $eatoms)))
         ($_ (collapse (foreach-flat add-to-kb $iatoms))))
       (superpose
          $eatoms)))

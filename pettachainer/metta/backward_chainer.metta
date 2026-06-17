@@ -69,6 +69,9 @@
 
 (= (aggregate-step-value (extract-value $pattern $value) $child-atom $_child-tv)
    (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $value))
+(= (aggregate-step-value (extract-inheritance-tv $kbid $_pattern) $child-atom $child-tv)
+   (let ((Inheritance $subj $_concept) ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom)
+      (WeightedTv (inheritance-subject-prior-tv $kbid $subj) $child-tv)))
 (= (aggregate-step-value extract-tv $_child-atom $child-tv) $child-tv)
 (= (aggregate-step-group-value $pattern $group $child-atom)
    (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $group))
@@ -79,6 +82,9 @@
 (= (aggregate-finish identity $acc) $acc)
 (= (aggregate-finish dist-average $acc) (reduce (reduce (DistAverageFromSumCount $acc))))
 (= (aggregate-finish base-rate $acc) (BaseRateTv $acc))
+(= (aggregate-finish weighted-base-rate $acc) (WeightedBaseRateTv $acc))
+(= (aggregate-finish uniform-prior $acc) (UniformPriorTv $acc))
+(= (aggregate-finish uniform-prior-known $acc) (UniformPriorKnownTv $acc))
 
 (= (make-and-bundle $goal $args) (cons and-bundle (cons $goal $args)))
 (= (and-bundle-goal $bundle) (car-atom (cdr-atom $bundle)))
@@ -299,15 +305,24 @@
             (((aggregate-state $acc $ev $children) (aggregate-final-state $agg-gid $child-gid $args))
              (($kb $pattern $extractor $init $fun $finish $tv-mode) $args)
              ($result (CPU FoldAllCompiled $args (aggregate-finish $finish $acc)))
-             ($commit-ev (if (== $finish base-rate) () $ev)))
+             ($commit-ev (if (background-aggregate-finish? $finish) () $ev)))
             (if (base-rate-refinement-degrades? $finish $current-pid $result)
                $agenda
                (if (aggregate-snapshot-changed? $current-pid $result $commit-ev)
                   (commit-aggregate-snapshot-heap $agenda $agg-gid $result $commit-ev $children)
                   $agenda))))))
 
+; Background aggregates (node priors / base rates) summarise the whole store
+; rather than chaining specific evidence, so their committed proof carries no
+; evidence dependency -- this keeps them from forming evidence cycles with the
+; very premises they are computed alongside.
+(= (background-aggregate-finish? $finish)
+   (if (== $finish base-rate) true
+      (if (== $finish weighted-base-rate) true
+         (if (== $finish uniform-prior) true (== $finish uniform-prior-known)))))
+
 (= (base-rate-refinement-degrades? $finish $current-pid $result)
-   (if (== $finish base-rate)
+   (if (or (== $finish base-rate) (== $finish weighted-base-rate))
       (if (== $current-pid ()) false
          (let*
             (($new-tv (let (CPU $_fun $_args $ntv) $result $ntv))

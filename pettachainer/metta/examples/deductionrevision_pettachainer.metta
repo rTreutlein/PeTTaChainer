@@ -25,6 +25,8 @@
       (Inheritance A D)
       (STV 0.125 0.9473684210526316)))
 
+
+
 !(compileadd deductionRevisionImplicationKb
    (: aImpliesB
       (Implication (Premises (A $x)) (Conclusions (B $x)))

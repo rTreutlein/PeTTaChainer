@@ -103,6 +103,50 @@
    (if (<= $csum 0.0) no-evidence
       (STV (/ $wsum $csum) (count-confidence $csum))))
 
+(= (WeightedBaseRateAcc (BaseRateEvidence $wsum $msum) (WeightedTv (STV $m $mc) (STV $s $c)))
+   (let $mass (* (* $m $mc) $c)
+      (BaseRateEvidence (+ $wsum (* $s $mass)) (+ $msum $mass))))
+(= (WeightedBaseRateAcc (BaseRateEvidence $wsum $msum) (WeightedTv $mass-tv (CTV $pos $_neg)))
+   (WeightedBaseRateAcc (BaseRateEvidence $wsum $msum) (WeightedTv $mass-tv $pos)))
+(= (WeightedBaseRateTv (BaseRateEvidence $wsum $msum))
+   (if (<= $msum 0.0) no-evidence
+      (STV (/ $wsum $msum) (min 1.0 $msum))))
+
+(= (NegativeBranchStrength $sa $sb $sb_a)
+   (if (>= $sa 1.0) $sb
+      (max 0.0 (min 1.0 (/ (- $sb (* $sa $sb_a)) (- 1.0 $sa))))))
+
+(= (HeuristicNegativeBranchFormula (STV $sa $ca) (STV $sb $cb) (STV $sb_a $cb_a))
+   (STV
+      (NegativeBranchStrength $sa $sb $sb_a)
+      (* 0.25 (min-atom ($ca $cb $cb_a)))))
+
+(= (ImplicationCTVFormula $_atv $_btv (CTV $pos $neg)) (CTV $pos $neg))
+(= (ImplicationCTVFormula $atv $btv (STV $s $c))
+   (CTV
+      (STV $s $c)
+      (HeuristicNegativeBranchFormula $atv $btv (STV $s $c))))
+
+; Uniform 1/N node prior for individuals, where N is the number of distinct
+; subjects observed. The fold collects each matched subject; UniformPriorTv
+; dedups them and returns 1/N at a confidence reflecting how many objects we
+; have observed. Used for the base rate of an individual (a singleton concept),
+; which cannot be folded extensionally because nothing inherits an individual.
+(= (list-len ()) 0)
+(= (list-len (cons $_ $rest)) (+ 1 (list-len $rest)))
+
+(= (CollectSubject $acc $subj) (cons $subj $acc))
+
+(= (UniformPriorTv $subjects)
+   (let $n (list-len (list_to_set $subjects))
+      (if (<= $n 0) no-evidence
+         (STV (/ 1.0 $n) (count-confidence $n)))))
+
+(= (UniformPriorKnownTv $subjects)
+   (let $n (list-len (list_to_set $subjects))
+      (if (<= $n 0) no-evidence
+         (STV (/ 1.0 $n) 1.0))))
+
 (= (CTVInversionFormula no-evidence $_btv $_itv) (empty))
 (= (CTVInversionFormula (STV $_sa $_ca) no-evidence $_itv) (empty))
 ;; Idealized inversion confidence. The inverted strength is a Bayes ratio

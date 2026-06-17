@@ -8,6 +8,10 @@
 
 (= (track-temp-query-ref $ref) (add-atom &temp_query_ref (clause_ref $ref)))
 
+(= (kb-add-atom live &kb (: ($kbid $_ctx $_vars) $prf (Inheritance $subj $concept) $tv))
+   (progn
+      (if (is-var $subj) () (add-atom &inheritance_subject ($kbid $subj)))
+      (add-atom &kb (: ($kbid $_ctx $_vars) $prf (Inheritance $subj $concept) $tv))))
 (= (kb-add-atom live $space $expr) (add-atom $space $expr))
 (= (kb-add-atom temp $space $expr) (track-temp-query-ref (assert-space-atom-ref $space $expr)))
 
@@ -70,6 +74,23 @@
 (= (kb-expr-kbid $expr)
    (if (= $expr ($_type ($kbid $_ctx $_vars) $_prf $_tv)) $kbid ()))
 
+(= (record-inheritance-subject! live (: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $_concept) $_tv))
+   (if (is-var $subj) ()
+      (add-atom &inheritance_subject ($kbid $subj))))
+(= (record-inheritance-subject! $_backend $_expr) ())
+
+(= (observed-inheritance-subject? $kbid $subj)
+   (not (== (collapse (once (match &inheritance_subject ($kbid $subj) true))) ())))
+
+(= (inheritance-subjects $kbid)
+   (list_to_set (collapse (match &inheritance_subject ($kbid $subj) $subj))))
+
+(= (inheritance-subject-prior-tv $kbid $subj)
+   (if (observed-inheritance-subject? $kbid $subj)
+      (let $n (list-len (inheritance-subjects $kbid))
+         (if (<= $n 0) no-evidence (STV (/ 1.0 $n) 1.0)))
+      no-evidence))
+
 (= (kb-add-expr $backend $expr)
    (if (= $expr (rules ($args |- $ccls)))
       (let*
@@ -86,6 +107,7 @@
          ())
       (progn
          (kb-add-atom $backend &kb $expr)
+         (record-inheritance-subject! $backend $expr)
          (if (== $backend live)
             (progn
                (mark-forward-agenda-dirty $expr)

@@ -552,14 +552,29 @@
       ((cons $proof $rest)
          (cons conjunction (cons $proof $rest))))))
 
-(= (compile-implication-forward-rules $shape-kb $adapter-kb $prf $tv $a $b $execs $proofs $atv)
+(= (compile-implication-ctv-execs $_kb $_a $_b (CTV $pos $neg))
+   (implication-ctv-execs () (CTV $pos $neg)))
+(= (compile-implication-ctv-execs $kb $a $b (STV $s $c))
+   (let*
+      (($a1 (copy_term (map-nested2 toQuery $a)))
+        ($b1 (copy_term (map-nested2 toQuery $b))))
+      (implication-ctv-execs
+         ((base-rate-premise $kb $a1 $rule-atv)
+          (base-rate-premise $kb $b1 $rule-btv)
+          (CPU ImplicationCTVFormula ($rule-atv $rule-btv (STV $s $c)) $rule-ctv))
+         $rule-ctv)))
+
+(= (compile-implication-forward-rules $kb $shape-kb $adapter-kb $prf $tv $a $b $execs $proofs $atv)
    (superpose (
       (once
          (let*
             (($proof-token (implication-proof-token $proofs))
+              ((implication-ctv-execs $ctv-execs $rule-ctv)
+                 (compile-implication-ctv-execs $kb $a $b $tv))
               ($allargs
                  (append $execs
-                    ((CPU CTVModusPonensFormula ($atv $tv) $btv)))))
+                    (append $ctv-execs
+                       ((CPU CTVModusPonensFormula ($atv $rule-ctv) $btv))))))
             ($allargs |- ((: $shape-kb ($prf $proof-token) $b $btv)))))
       (if (is-var $b) (empty) (compile-outputs (: $adapter-kb ($prf $prfb) $b $btv2)))
       (if (is-var $a) (empty) (compile-adapter-chain plain (: $adapter-kb $prfa $a $atv))))))
@@ -580,10 +595,39 @@
             (if (rule-evidence-registered? $kb $name) ()
                (add-atom &rule_evidence_names ($kb $name)))))))
 
+(= (base-rate-premise-default $kb $pattern $brtv)
+   (if (= $pattern (Inheritance $x $_concept))
+      (if (is-var $x)
+         (CPU FoldAllCompiled
+            ($kb
+               $pattern
+               (extract-inheritance-tv $kb $pattern)
+               (BaseRateEvidence 0.0 0.0)
+               WeightedBaseRateAcc
+               weighted-base-rate
+               result-tv)
+            $brtv)
+         (CPU FoldAllCompiled
+            ($kb $pattern extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)
+            $brtv))
+      (CPU FoldAllCompiled
+         ($kb $pattern extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)
+         $brtv)))
+
 (= (base-rate-premise $kb $pattern $brtv)
-   (CPU FoldAllCompiled
-      ($kb $pattern extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)
-      $brtv))
+   (if (= $pattern (Inheritance $x $subj))
+      (if (and (is-var $x) (observed-inheritance-subject? $kb $subj))
+         (CPU FoldAllCompiled
+            ($kb
+               (Inheritance $observed-subj $observed-concept)
+               (extract-value (Inheritance $observed-subj $observed-concept) $observed-subj)
+               ()
+               CollectSubject
+               uniform-prior-known
+               result-tv)
+            $brtv)
+         (base-rate-premise-default $kb $pattern $brtv))
+      (base-rate-premise-default $kb $pattern $brtv)))
 
 (= (inverse-implication $kb $prf $a $b $itv)
    (let*
@@ -592,7 +636,8 @@
       (((: ($kb $ctx $vars) $prfb_wit $b $btv_wit)
             (base-rate-premise $kb $a1 $atv)
             (base-rate-premise $kb $b1 $btv)
-            (CPU CTVInversionFormula ($atv $btv $itv) $iitv)
+            (CPU ImplicationCTVFormula ($atv $btv $itv) $rule-ctv)
+            (CPU CTVInversionFormula ($atv $btv $rule-ctv) $iitv)
             (CPU CTVModusPonensFormula ($btv_wit $iitv) $mp-tv))
          |-
          ((: ($kb $ctx $vars) ((inverted $prf with cpu cpu) $prfb_wit) $a $mp-tv)))))
@@ -606,7 +651,7 @@
              ($plan (build-implication-plan $kb $prf $premises $conclusions))
 	              ((compiled-implication $shape-kb $a $b $nb $na $skip-inverse $execs $proofs $atv) $plan))
 	            (superpose (
-	                 (compile-implication-forward-rules $shape-kb (kbctx $kb) $prf $tv $a $b $execs $proofs $atv)
+	                 (compile-implication-forward-rules $kb $shape-kb (kbctx $kb) $prf $tv $a $b $execs $proofs $atv)
 	                 (if (not $skip-inverse) (inverse-implication $kb $prf $na $b $tv) (empty))
 	                 (if (or $skip-inverse (is-var $na)) (empty)
 	                    (compile-outputs (: ((inverted $prf $w $pa1 $pa2) $pb2) $na $natv)))
@@ -734,7 +779,7 @@
               ($a (execs-goal-type $execs))
               ($b (seq2expr $conclusions)))
             (collapse
-               (compile-implication-forward-rules $shape-kb $shape-kb $ctxprf $tv $a $b $execs $proofs $atv)))
+               (compile-implication-forward-rules $kbid $shape-kb $shape-kb $ctxprf $tv $a $b $execs $proofs $atv)))
          ())))
 
 (= (query-context-premise-assumption-adds $kbid $ctx $mvars $ctxprf $type $tv)
