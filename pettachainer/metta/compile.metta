@@ -616,16 +616,8 @@
 
 (= (base-rate-premise $kb $pattern $brtv)
    (if (= $pattern (Inheritance $x $subj))
-      (if (and (is-var $x) (observed-inheritance-subject? $kb $subj))
-         (CPU FoldAllCompiled
-            ($kb
-               (Inheritance $observed-subj $observed-concept)
-               (extract-value (Inheritance $observed-subj $observed-concept) $observed-subj)
-               ()
-               CollectSubject
-               uniform-prior-known
-               result-tv)
-            $brtv)
+      (if (and (is-var $x) (known-concept-node? $kb $subj))
+         (CPU ConceptNodePriorFormula ($kb $subj) $brtv)
          (base-rate-premise-default $kb $pattern $brtv))
       (base-rate-premise-default $kb $pattern $brtv)))
 

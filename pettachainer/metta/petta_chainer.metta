@@ -25,6 +25,10 @@
       (add-atom &inheritance_subject ($kbid $subj))))
 (= (record-compiled-inheritance-subject! $_expr) ())
 
+(= (record-compiled-inheritance-concepts! (: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $concept) $_tv))
+   (record-inheritance-nodes! $kbid $subj $concept))
+(= (record-compiled-inheritance-concepts! $_expr) ())
+
 (= (materialize-stmt-lambdas $term)
    (if (is-var $term) $term
       (if (is-expr $term)
@@ -40,6 +44,7 @@
         ($iatoms (list_to_set (map-flat internalize-proof-structure $atoms)))
         ($eatoms (map-flat externalize-proof-structure $iatoms))
         ($_subjects (collapse (foreach-flat record-compiled-inheritance-subject! $eatoms)))
+        ($_concepts (collapse (foreach-flat record-compiled-inheritance-concepts! $eatoms)))
         ($_ (collapse (foreach-flat add-to-kb $iatoms))))
       (superpose
          $eatoms)))

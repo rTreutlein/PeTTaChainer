@@ -11,10 +11,21 @@
 ; Empty observation set -> no evidence (no division by zero).
 !(test (UniformPriorTv ()) no-evidence)
 
-; --- Integration: induction with every base rate derived from the facts ----
-; No set-base-rate anywhere. P(raven)=0.9 and P(black)=0.4 are folded from the
-; instances; the subject prior is folded as 1/N=0.5 over the distinct observed
-; ravens. The uniform-prior fold runs through the chainer as a rule premise.
+; Concept-node priors are dynamic over the currently known inheritance endpoint
+; nodes. Adding another concept changes later estimates instead of preserving a
+; stale cached 1/N.
+!(compileadd dynConceptPriorKb (: rv1Raven (Inheritance rv1 raven) (STV 0.9 0.9)))
+!(compileadd dynConceptPriorKb (: rv2Black (Inheritance rv2 (IntSet black)) (STV 0.0 0.9)))
+
+!(test (concept-node-prior-tv dynConceptPriorKb rv1) (STV 0.25 0.004975124378109453))
+
+!(compileadd dynConceptPriorKb (: ravenBird (Inheritance raven bird) (STV 0.9 0.9)))
+
+!(test (concept-node-prior-tv dynConceptPriorKb rv1) (STV 0.2 0.006211180124223602))
+
+; --- Integration: legacy inheritance-induction rule -----------------------
+; This still exercises the custom induction path while the implication-derived
+; Raven example covers concept-node priors and runtime negative-branch estimates.
 
 !(compileadd urKb (: rv1Raven (Inheritance rv1 raven) (STV 0.9 0.9)))
 !(compileadd urKb (: rv2Raven (Inheritance rv2 raven) (STV 0.9 0.9)))

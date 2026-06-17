@@ -8,9 +8,19 @@
 
 (= (track-temp-query-ref $ref) (add-atom &temp_query_ref (clause_ref $ref)))
 
+(= (record-concept-node! $kbid $node)
+   (if (is-var $node) ()
+      (add-atom &concept_node ($kbid $node))))
+
+(= (record-inheritance-nodes! $kbid $subj $concept)
+   (progn
+      (record-concept-node! $kbid $subj)
+      (record-concept-node! $kbid $concept)))
+
 (= (kb-add-atom live &kb (: ($kbid $_ctx $_vars) $prf (Inheritance $subj $concept) $tv))
    (progn
       (if (is-var $subj) () (add-atom &inheritance_subject ($kbid $subj)))
+      (record-inheritance-nodes! $kbid $subj $concept)
       (add-atom &kb (: ($kbid $_ctx $_vars) $prf (Inheritance $subj $concept) $tv))))
 (= (kb-add-atom live $space $expr) (add-atom $space $expr))
 (= (kb-add-atom temp $space $expr) (track-temp-query-ref (assert-space-atom-ref $space $expr)))
@@ -79,8 +89,26 @@
       (add-atom &inheritance_subject ($kbid $subj))))
 (= (record-inheritance-subject! $_backend $_expr) ())
 
+(= (record-inheritance-concepts! live (: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $concept) $_tv))
+   (record-inheritance-nodes! $kbid $subj $concept))
+(= (record-inheritance-concepts! $_backend $_expr) ())
+
 (= (observed-inheritance-subject? $kbid $subj)
    (not (== (collapse (once (match &inheritance_subject ($kbid $subj) true))) ())))
+
+(= (known-concept-node? $kbid $node)
+   (not (== (collapse (once (match &concept_node ($kbid $node) true))) ())))
+
+(= (concept-nodes $kbid)
+   (list_to_set (collapse (match &concept_node ($kbid $node) $node))))
+
+(= (concept-node-prior-tv $kbid $node)
+   (if (known-concept-node? $kbid $node)
+      (let $n (list-len (concept-nodes $kbid))
+         (if (<= $n 0) no-evidence (STV (/ 1.0 $n) (count-confidence $n))))
+      no-evidence))
+
+(= (ConceptNodePriorFormula $kbid $node) (concept-node-prior-tv $kbid $node))
 
 (= (inheritance-subjects $kbid)
    (list_to_set (collapse (match &inheritance_subject ($kbid $subj) $subj))))
