@@ -195,7 +195,7 @@
               (query-compound-premise-step $kb $ctx $vars (atom_concat $head Formula))
               (query-compound-premise-state (query-compound-child-bundle $kb $ctx $vars $fst))
               $rst))
-        ($rcclprf (reverse $proofs))
+        ($rcclprf $proofs)
         ($proof-token (if (= $rcclprf (cons $proof ())) $proof (cons conjunction $rcclprf))))
       (bundle-from-execs $execs $ccltv $proof-token)))
 
@@ -222,8 +222,19 @@
             (or (query-compound-child-needs-bundle? $item)
                (compound-direct-query-bundle? $rest)))))))
 
+(= (compound-nary-query? $items)
+   (case $items (
+      ((cons $_a (cons $_b (cons $_c $_rest))) true)
+      ($_ false))))
+
 (= (query-compound-needs-bundle? $term)
-   (if (is-expr $term) (compound-direct-query-bundle? (cdr-atom $term)) false))
+   (if (is-expr $term)
+      (let $items (cdr-atom $term)
+         (or (compound-nary-query? $items) (compound-direct-query-bundle? $items)))
+      false))
+
+(= (query-compound-proof-token $prf $proof-token)
+   (if (is-var $prf) $proof-token ($prf $proof-token)))
 
 (= (compile-adapter-chain plain (: $kb $prf (@ $type (cons $head $tail)) $tv))
    (if (compound-source? $type)
@@ -252,7 +263,7 @@
                (((cons $head $tail) $type)
                  ((premise-bundle $execs $result-tv $proof-token)
                     (once (query-compound-premise-bundle $kb $ctx $vars $head $tail))))
-               (($execs |- ((: $kb ($prf $proof-token) $type $result-tv)))))
+               (($execs |- ((: $kb (query-compound-proof-token $prf $proof-token) $type $result-tv)))))
             (compile-adapter-chain plain (: $kb $prf $type $tv)))
          (let*
             (((premise-bundle $execs $result-tv $proof-token)
@@ -794,6 +805,17 @@
 
 (= (mm2stmt $stmt) (case $stmt (((() |- ($ccl)) $ccl) (($prms |- ($ccl)) (rules ($prms |- $ccl))))))
 
+(= (compiled-add-mm2stmt $add)
+   (if (== (cdr-atom $add) ())
+      (let*
+         (($rule (car-atom $add))
+           ($prms (car-atom $rule))
+           ($tail (cdr-atom $rule))
+           ($ccls (car-atom (cdr-atom $tail)))
+           ($ccl (car-atom $ccls)))
+         (rules ($prms |- $ccl)))
+      (mm2stmt $add)))
+
 (= (query-temp-rule-premise (Compute $f $args $res)) (Compute $f $args -> $res))
 (= (query-temp-rule-premise $premise) $premise)
 
@@ -804,7 +826,7 @@
       false))
 
 (= (query-compound-needs-temp-rule? $term)
-   (query-compound-needs-bundle? $term))
+   (if (is-expr $term) (compound-direct-query-bundle? (cdr-atom $term)) false))
 
 (= (compound-query-temp-stmt (: $_prf $type $_tv))
    (let*
@@ -858,7 +880,7 @@
 (= (mm2compileQuery-from-compiled $kb $stmt $compiled)
    (if (= $compiled (((() |- ($ccl)) $adds)))
       (compiled-query (internalize-proof-structure $ccl)
-         (internalize-proof-structure-list (map-flat mm2stmt $adds)))
+         (internalize-proof-structure-list (map-flat compiled-add-mm2stmt $adds)))
       (if
          (= $compiled
             ((((: ($kbid $_ctx $_vars) $prf $type $tv)) |- ((: ($kbid $_ctx $_vars) $prf1 $type1 $tv1)))
@@ -876,7 +898,7 @@
 	            (= $compiled (($prms |- ($ccl)) $adds))
             (compiled-query (internalize-proof-structure $ccl)
                (internalize-proof-structure-list
-                  (cons (mm2stmt ($prms |- ($ccl))) (map-flat mm2stmt $adds))))
+                  (cons (mm2stmt ($prms |- ($ccl))) (map-flat compiled-add-mm2stmt $adds))))
             (notsupported mm2compileQuery $kb $stmt $compiled)))))
 
 (= (mm2compileQuery $kb $stmt)
