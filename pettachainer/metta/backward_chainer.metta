@@ -137,7 +137,10 @@
       $nagenda))
 
 (= (base-rate-aggregate-key $args)
-   (if (= $args ($kbid $pattern $_extractor $_init $_fun base-rate $_tv-mode)) ($kbid $pattern) ()))
+   (if (= $args ($kbid $pattern $_extractor $_init $_fun base-rate $_tv-mode)) ($kbid $pattern base-rate)
+      (if (= $args ($kbid $pattern $_extractor $_init $_fun weighted-base-rate $_tv-mode)) ($kbid $pattern weighted-base-rate)
+         (if (= $args ($kbid $pattern $_extractor $_init $_fun weighted-base-rate-with-prior $_tv-mode)) ($kbid $pattern weighted-base-rate-with-prior)
+            ()))))
 
 (= (commit-cached-aggregate-heap $agenda $agg-gid $args $tv)
    (let*
@@ -173,10 +176,10 @@
        ($cache-key (base-rate-aggregate-key $args))
        ($entries
           (if (== $cache-key ()) ()
-             (let ($kbid $pattern) $cache-key (base-rate-cache-entries $kbid $pattern)))))
+             (let ($kbid $pattern $mode) $cache-key (base-rate-cache-entries-for-mode $kbid $pattern $mode)))))
       (if (== $entries ())
          (spawn-aggregate-goal-live-heap $agenda $score $agg-gid $goal-view $args)
-         (let (base-rate $_kbid $_stored $tv $source) (car-atom $entries)
+         (let (base-rate $_kbid $_stored $tv $source $_mode) (car-atom $entries)
             (if (== $source user)
                (commit-cached-aggregate-heap $agenda $agg-gid $args $tv)
                (spawn-refining-aggregate-heap $agenda $score $agg-gid $goal-view $args $tv))))))
@@ -515,8 +518,8 @@
          (if (== $current-pid ()) ()
             (let $output (proof-output-atom $current-pid)
                (if (= $output (CPU $_fun $_out-args (STV $s $c)))
-                  (let ($kbid $pattern) $key
-                     (store-computed-base-rate! $kbid $pattern (STV $s $c)))
+                  (let ($kbid $pattern $mode) $key
+                     (store-computed-base-rate! $kbid $pattern (STV $s $c) $mode))
                   ()))))))
 
 (= (harvest-base-rates)

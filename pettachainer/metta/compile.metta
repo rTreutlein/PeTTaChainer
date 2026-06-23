@@ -498,11 +498,15 @@
    (let*
       (((compiled-premises $execs $proofs $atv) (once (lower-source-premises $kb $ctx $vars $premises $conclusions)))
         ($shape-kb ($kb $ctx $vars))
-        ($a (execs-goal-type $execs))
+        ($a (seq2expr $premises))
         ($b (seq2expr $conclusions))
         ($nb (skolemize $prf $a $b))
         ($na (skolemize $prf $b $a))
-        ($skip-inverse (or (disable-inversion-proof-id? $prf) (contains-cpu? $a))))
+        ;; Guard inversion on the *lowered* premises: a premise that lowers to a
+        ;; CPU computation (FoldAll, Compute, ...) cannot be inverted. $a is the
+        ;; clean antecedent expression for base-rate patterns and never carries a
+        ;; CPU head, so the check must look at $execs, not $a.
+        ($skip-inverse (or (disable-inversion-proof-id? $prf) (contains-cpu? (execs-goal-type $execs)))))
       (compiled-implication $shape-kb
          $a
          $b
@@ -575,6 +579,17 @@
           (CPU ImplicationCTVFormula ($rule-atv $rule-btv (STV $s $c)) $rule-ctv))
          $rule-ctv)))
 
+(= (compile-implication-output $prf $proof-token $b $btv)
+   (case $b (
+      ((Not $inner)
+         (compiled-output
+            ((CPU NotFormula ($btv) $out-tv))
+            (negated ($prf $proof-token))
+            $inner
+            $out-tv))
+      ($other
+         (compiled-output () ($prf $proof-token) $other $btv)))))
+
 (= (compile-implication-forward-rules $kb $shape-kb $adapter-kb $prf $tv $a $b $execs $proofs $atv)
    (superpose (
       (once
@@ -582,11 +597,15 @@
             (($proof-token (implication-proof-token $proofs))
               ((implication-ctv-execs $ctv-execs $rule-ctv)
                  (compile-implication-ctv-execs $kb $a $b $tv))
+              ((compiled-output $out-execs $out-prf $out-type $out-tv)
+                 (compile-implication-output $prf $proof-token $b $btv))
               ($allargs
                  (append $execs
                     (append $ctv-execs
-                       ((CPU CTVModusPonensFormula ($atv $rule-ctv) $btv))))))
-            ($allargs |- ((: $shape-kb ($prf $proof-token) $b $btv)))))
+                       (append
+                          ((CPU CTVModusPonensFormula ($atv $rule-ctv) $btv))
+                          $out-execs)))))
+            ($allargs |- ((: $shape-kb $out-prf $out-type $out-tv)))))
       (if (is-var $b) (empty) (compile-outputs (: $adapter-kb ($prf $prfb) $b $btv2)))
       (if (is-var $a) (empty) (compile-adapter-chain plain (: $adapter-kb $prfa $a $atv))))))
 

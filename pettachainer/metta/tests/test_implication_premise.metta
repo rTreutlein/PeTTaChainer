@@ -145,3 +145,20 @@
    (query 60 implicationPremiseKb
       (: $prf (Implication (Premises (A)) (Conclusions (B))) (STV 1.0 1.0)))
    ())
+
+!(compileadd negConclusionKb (: a (A) (STV 1.0 1.0)))
+
+!(compileadd negConclusionKb
+   (: a_not_b
+      (Implication
+         (Premises (A))
+         (Conclusions (Not (B))))
+      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+
+!(test
+   (query 20 negConclusionKb (: $prf (B) $tv))
+   (: (negated (a_not_b a)) (B) (STV 0.0 0.9998000399670116)))
+
+!(test
+   (query 20 negConclusionKb (: $prf (Not (B)) $tv))
+   (: (negated (negated (a_not_b a))) (Not (B)) (STV 1.0 0.9998000399670116)))

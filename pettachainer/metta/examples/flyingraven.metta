@@ -19,24 +19,25 @@
 
 !(test
    (query 100 flyingRavenKb (: $prf (Inheritance Sam (IntSet flies)) $tv))
-   (: ((inheritance-implication birdFlies)
-         ((inheritance-implication ravenBird) samRaven))
-      (Inheritance Sam (IntSet flies))
-      (STV 0.99 0.9000930956748517)))
-
-!(test
-   (query 100 flyingRavenKb (: $prf (Inheritance Pingu (IntSet flies)) $tv))
-   (: ((inheritance-implication birdFlies)
-         ((inheritance-implication penguinBird) pinguPenguin))
-      (Inheritance Pingu (IntSet flies))
-      (STV 0.99 0.8995312826106832)))
-
-!(test
-   (query 100 flyingRavenKb (: $prf (Not (Inheritance Pingu (IntSet flies))) $tv))
    (: (merge/revision
-         (penguinsDoNotFly pinguPenguin)
+         ((inheritance-implication birdFlies)
+            ((inheritance-implication ravenBird) samRaven))
          (negated
-            ((inheritance-implication birdFlies)
-               ((inheritance-implication penguinBird) pinguPenguin))))
-      (Not (Inheritance Pingu (IntSet flies)))
-      (STV 0.5012490433490503 0.9472363895486416)))
+            (penguinsDoNotFly
+               ((inverted (inheritance-implication penguinBird) with cpu cpu)
+                  ((inheritance-implication ravenBird) samRaven)))))
+      (Inheritance Sam (IntSet flies))
+      (STV 0.9496184978505904 0.9028789486161776)))
+
+!(test
+   (query 5 flyingRavenKb (: $prf (Inheritance Pingu (IntSet flies)) $tv))
+   (: (negated (penguinsDoNotFly pinguPenguin)) (Inheritance Pingu (IntSet flies)) (STV 0.010000000000000009 0.8999910888461915)))
+
+!(test
+   (query 20 flyingRavenKb (: $prf (Inheritance Pingu (IntSet flies)) $tv))
+   (: (merge/revision
+         (negated (penguinsDoNotFly pinguPenguin))
+         ((inheritance-implication birdFlies)
+            ((inheritance-implication penguinBird) pinguPenguin)))
+      (Inheritance Pingu (IntSet flies))
+      (STV 0.4853151661782535 0.9464291541578685)))

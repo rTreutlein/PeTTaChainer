@@ -115,11 +115,11 @@
 !(test (query 2 incumbentPriorityKb (: $prf (IncumbentGoal) $tv))
    (: (bToGoal directB) (IncumbentGoal) (STV 1.0 0.8918896597655677)))
 
-!(test (query 6 incumbentPriorityKb (: $prf (IncumbentGoal) $tv))
+!(test (query 7 incumbentPriorityKb (: $prf (IncumbentGoal) $tv))
    (: (merge/revision (bToGoal directB) (dToGoal (cToD directC))) (IncumbentGoal) (STV 1.0 0.9039912235037112)))
 
 !(test
-   (query 6 incumbentPriorityKb
+   (query 7 incumbentPriorityKb
       (: (merge/revision (bToGoal (aToB directA)) $_other)
          (IncumbentGoal)
          $tv))

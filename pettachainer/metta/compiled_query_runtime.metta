@@ -33,51 +33,77 @@
    (let $key (forward-indexable-premise-key $ccls)
       (if (== $key ()) () (kb-add-atom $backend ccls_head_index ($key $id)))))
 
-(= (base-rate-entry-kbid (base-rate $kbid $_pattern $_tv $_source)) $kbid)
+;; Cache entries carry the finish mode that produced them. User-provided base
+;; rates are stored with mode `any` so they override every fold mode, while a
+;; computed entry only applies to the mode that produced it -- otherwise a
+;; weighted fold and a plain base-rate fold over the same pattern would alias to
+;; one cached value.
+(= (base-rate-entry-kbid (base-rate $kbid $_pattern $_tv $_source $_mode)) $kbid)
 
+;; All entries whose stored pattern matches, ignoring finish mode. Used for
+;; user-override checks, inspection, and removal/invalidation.
 (= (base-rate-cache-entries $kbid $pattern)
    (collapse
-      (match &base_rate_cache (base-rate $kbid $stored $tv $source)
-         (if (=alpha $stored $pattern) (base-rate $kbid $stored $tv $source) (empty)))))
+      (match &base_rate_cache (base-rate $kbid $stored $tv $source $mode)
+         (if (=alpha $stored $pattern) (base-rate $kbid $stored $tv $source $mode) (empty)))))
+
+;; Entries usable by a fold running in finish mode $mode: user entries (mode
+;; `any`) plus computed entries produced by the same mode.
+(= (base-rate-cache-entries-for-mode $kbid $pattern $mode)
+   (collapse
+      (match &base_rate_cache (base-rate $kbid $stored $tv $source $emode)
+         (if (and (=alpha $stored $pattern) (or (== $emode any) (== $emode $mode)))
+            (base-rate $kbid $stored $tv $source $emode)
+            (empty)))))
 
 (= (base-rate-cache-remove-entry! $entry) (remove-atom &base_rate_cache $entry))
 
 (= (base-rate-cache-remove! $kbid $pattern)
    (let $_ (foreach-flat base-rate-cache-remove-entry! (base-rate-cache-entries $kbid $pattern)) ()))
 
+;; Remove only the computed entry for one (kbid, pattern, mode), leaving other
+;; modes' computed entries and any user override untouched.
+(= (base-rate-cache-remove-computed! $kbid $pattern $mode)
+   (let $_
+      (foreach-flat base-rate-cache-remove-entry!
+         (collapse
+            (match &base_rate_cache (base-rate $kbid $stored $tv computed $mode)
+               (if (=alpha $stored $pattern) (base-rate $kbid $stored $tv computed $mode) (empty)))))
+      ()))
+
 (= (cached-base-rate $kbid $pattern)
    (let $entries (base-rate-cache-entries $kbid $pattern)
       (if (== $entries ()) ()
-         (let (base-rate $_kbid $_stored $tv $_source) (car-atom $entries) ($tv)))))
+         (let (base-rate $_kbid $_stored $tv $_source $_mode) (car-atom $entries) ($tv)))))
 
 (= (base-rate-user-set? $kbid $pattern)
    (let $entries (base-rate-cache-entries $kbid $pattern)
       (if (== $entries ()) false
-         (let (base-rate $_kbid $_stored $_tv $source) (car-atom $entries) (== $source user)))))
+         (let (base-rate $_kbid $_stored $_tv $source $_mode) (car-atom $entries) (== $source user)))))
 
 (= (set-base-rate $kbid $pattern $tv)
    (let*
       (($stored (copy_term $pattern))
        ($_old (base-rate-cache-remove! $kbid $pattern))
-       ($_new (add-atom &base_rate_cache (base-rate $kbid $stored $tv user))))
+       ($_new (add-atom &base_rate_cache (base-rate $kbid $stored $tv user any))))
       ()))
 
 (= (clear-base-rate $kbid $pattern) (base-rate-cache-remove! $kbid $pattern))
 
-(= (store-computed-base-rate! $kbid $pattern $tv)
+(= (store-computed-base-rate! $kbid $pattern $tv $mode)
    (if (base-rate-user-set? $kbid $pattern) ()
       (let*
          (($stored (copy_term $pattern))
-          ($_old (base-rate-cache-remove! $kbid $pattern))
-          ($_new (add-atom &base_rate_cache (base-rate $kbid $stored $tv computed))))
+          ($_old (base-rate-cache-remove-computed! $kbid $pattern $mode))
+          ($_new (add-atom &base_rate_cache (base-rate $kbid $stored $tv computed $mode))))
          ())))
 
 (= (invalidate-computed-base-rates! $kbid)
    (let*
       (($entries
           (collapse
-             (match &base_rate_cache (base-rate $kbid $stored $tv computed)
-                (base-rate $kbid $stored $tv computed))))
+             (match &base_rate_cache (base-rate $kbid $stored $tv computed $mode)
+                (base-rate $kbid $stored $tv computed $mode))))
        ($_ (foreach-flat base-rate-cache-remove-entry! $entries)))
       ()))
 

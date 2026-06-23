@@ -1,11 +1,30 @@
 !(import! &self petta_chainer)
 
+!(set-base-rate robotKb (Inheritance $x toy) (STV 0.5 0.9))
+!(set-base-rate robotKb (Inheritance $x see) (STV 0.5 0.9))
+!(set-base-rate robotKb (Inheritance $x bring) (STV 0.5 0.9))
+!(set-base-rate robotKb (Inheritance $x round) (STV 0.5 0.9))
+!(set-base-rate robotKb (And (Inheritance $x toy) (Inheritance $x see)) (STV 0.25 0.9))
+!(set-base-rate robotKb
+   (And
+      (Inheritance $obj $property)
+      (Inheritance $prototype $property)
+      (Inheritance $prototype $category))
+   (STV 0.125 0.9))
+!(set-base-rate robotKb
+   (And
+      (Inheritance $obj $property)
+      (Inheritance $prototype $property)
+      (Inheritance $prototype toy)
+      (Inheritance $obj see))
+   (STV 0.0625 0.9))
+
 !(compileadd robotKb
    (: toySeenBring
       (Implication
          (Premises (Inheritance $x toy) (Inheritance $x see))
          (Conclusions (Inheritance $x bring)))
-      (CTV (STV 0.99 0.99) (STV 0.0 1.0))))
+      (STV 0.99 0.99)))
 
 !(compileadd robotKb (: frisbeeToy (Inheritance frisbee toy) (STV 0.99 0.99)))
 
@@ -25,7 +44,7 @@
             (Inheritance $prototype $property)
             (Inheritance $prototype $category))
          (Conclusions (Inheritance $obj $category)))
-      (CTV (STV 0.99 0.99) (STV 0.0 1.0))))
+      (STV 0.99 0.99)))
 
 !(mark-logic-rule sharedPropertySeenBring)
 
@@ -38,7 +57,7 @@
             (Inheritance $prototype toy)
             (Inheritance $obj see))
          (Conclusions (Inheritance $obj bring)))
-      (CTV (STV 0.99 0.99) (STV 0.0 1.0))))
+      (STV 0.99 0.99)))
 
 (= (addSeenObservation $label)
    (compileadd robotKb (: (seen $label) (Inheritance $label see) (STV 0.99 0.99))))
