@@ -22,6 +22,10 @@
       (if (is-var $subj) () (add-atom &inheritance_subject ($kbid $subj)))
       (record-inheritance-nodes! $kbid $subj $concept)
       (add-atom &kb (: ($kbid $_ctx $_vars) $prf (Inheritance $subj $concept) $tv))))
+(= (kb-add-atom live &kb (: ($kbid $_ctx $_vars) $prf (Member $obj $class) $tv))
+   (progn
+      (record-concept-node! $kbid $class)
+      (add-atom &kb (: ($kbid $_ctx $_vars) $prf (Member $obj $class) $tv))))
 (= (kb-add-atom live $space $expr) (add-atom $space $expr))
 (= (kb-add-atom temp $space $expr) (track-temp-query-ref (assert-space-atom-ref $space $expr)))
 
@@ -135,6 +139,34 @@
       no-evidence))
 
 (= (ConceptNodePriorFormula $kbid $node) (concept-node-prior-tv $kbid $node))
+
+(= (member-consequent-tv $kbid $obj $concept)
+   (let $hits
+      (collapse
+         (match &kb ((Member $obj $concept) ($kbid $_ctx $_vars) $_prf $tv) $tv))
+      (if (== $hits ()) no-evidence (car-atom $hits))))
+
+(= (member-inheritance-acc $_kbid $_concept $acc ()) $acc)
+(= (member-inheritance-acc $kbid $concept $acc (cons (member-ant $obj $atv) $rest))
+   (let $btv (member-consequent-tv $kbid $obj $concept)
+      (member-inheritance-acc
+         $kbid
+         $concept
+         (WeightedBaseRateAcc $acc (WeightedTv $atv $btv))
+         $rest)))
+
+(= (MemberInheritanceFormula $kbid $subj $concept)
+   (let $ants
+      (collapse
+         (match &kb ((Member $obj $subj) ($kbid $_ctx $_vars) $_prf $atv)
+            (member-ant $obj $atv)))
+      (if (== $ants ()) (empty)
+         (WeightedCountBaseRateTv
+            (member-inheritance-acc
+               $kbid
+               $concept
+               (BaseRateEvidence 0.0 0.0)
+               $ants)))))
 
 (= (inheritance-subjects $kbid)
    (list_to_set (collapse (match &inheritance_subject ($kbid $subj) $subj))))

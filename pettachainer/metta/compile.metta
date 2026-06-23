@@ -645,21 +645,23 @@
          $brtv)))
 
 (= (base-rate-premise $kb $pattern $brtv)
-   (if (= $pattern (Inheritance $x $subj))
-      (if (and (is-var $x) (known-concept-node? $kb $subj))
-         (CPU FoldAllCompiled
-            ($kb
-               $pattern
-               (extract-inheritance-tv $kb $pattern)
-               (BaseRateEvidenceWithPrior
-                  (ConceptNodePriorFormula $kb $subj)
-                  (BaseRateEvidence 0.0 0.0))
-               WeightedBaseRateWithPriorAcc
-               weighted-base-rate-with-prior
-               result-tv)
-            $brtv)
-         (base-rate-premise-default $kb $pattern $brtv))
-      (base-rate-premise-default $kb $pattern $brtv)))
+   (if (= $pattern (Member $x $class))
+      (base-rate-premise-default $kb $pattern $brtv)
+      (if (= $pattern (Inheritance $x $subj))
+         (if (and (is-var $x) (known-concept-node? $kb $subj))
+            (CPU FoldAllCompiled
+               ($kb
+                  $pattern
+                  (extract-inheritance-tv $kb $pattern)
+                  (BaseRateEvidenceWithPrior
+                     (ConceptNodePriorFormula $kb $subj)
+                     (BaseRateEvidence 0.0 0.0))
+                  WeightedBaseRateWithPriorAcc
+                  weighted-base-rate-with-prior
+                  result-tv)
+               $brtv)
+            (base-rate-premise-default $kb $pattern $brtv))
+         (base-rate-premise-default $kb $pattern $brtv))))
 
 (= (inverse-implication $kb $prf $a $b $itv)
    (let*
@@ -682,11 +684,28 @@
       (Premises (Inheritance $x $subj))
       (Conclusions (Inheritance $x $concept))))
 
+(= (member-inheritance-implication-type $subj $concept)
+   (Implication
+      (Premises (Member $x $subj))
+      (Conclusions (Member $x $concept))))
+
 (= (compile-derived-inheritance-implication $kb $prf $subj $concept $tv)
    (compile_ $kb
       (: (inheritance-implication $prf)
          (inheritance-implication-type $subj $concept)
          $tv)))
+
+(= (compile-derived-member-inheritance-implication $kb $prf $subj $concept $tv)
+   (compile_ $kb
+      (: (no_inverse (member-inheritance-implication $prf))
+         (member-inheritance-implication-type $subj $concept)
+         (CTV $tv (STV 0.0 1.0)))))
+
+(= (compile-derived-member-observation-implication $kb $prf $obj $class $tv)
+   (compile_ $kb
+      (: (member-observation-implication $prf)
+         (member-inheritance-implication-type $obj $class)
+         (CTV $tv (STV 0.0 1.0)))))
 
 (= (compile_ $kb (@ $stmt (: $prf $Type $tv)))
    (if (is-var $Type) (empty)
@@ -711,15 +730,26 @@
                      (Implication (cons Premises $right) (cons Conclusions $left))
                      $tv)))))
             (let $fact-kb (compile-fact-kb $kb)
+               (if (= $Type (Member $obj $class))
+                  (superpose (
+                     (() |- ((: $fact-kb $prf $Type $tv)))
+                     (if (concrete-inheritance-link? $obj $class)
+                        (() |- ((: $fact-kb (member-self $prf) (Member $obj $obj) (STV 1.0 1.0))))
+                        (empty))
+                     (if (concrete-inheritance-link? $obj $class)
+                        (compile-derived-member-observation-implication $kb $prf $obj $class $tv)
+                        (empty))))
                (if (= $Type (Inheritance $subj $concept))
                   (superpose (
                      (() |- ((: $fact-kb $prf $Type $tv)))
                      (if (concrete-inheritance-link? $subj $concept)
-                        (compile-derived-inheritance-implication $kb $prf $subj $concept $tv)
+                        (superpose (
+                           (compile-derived-inheritance-implication $kb $prf $subj $concept $tv)
+                           (compile-derived-member-inheritance-implication $kb $prf $subj $concept $tv)))
                         (empty))
                      (compile-outputs (: $fact-kb $prf $Type $tv))))
                   (superpose ((() |- ((: $fact-kb $prf $Type $tv)))
-                              (compile-outputs (: $fact-kb $prf $Type $tv))))))))))
+                              (compile-outputs (: $fact-kb $prf $Type $tv)))))))))))
 
 
 (= (implication-query-known-tv-parts $tv)
@@ -787,35 +817,39 @@
 		                    ($goal (: (kbctx $kb) (bidirectional $left-prf $right-prf) $Type $tv)))
 	                  ((($left-goal $right-goal (CPU AndFormula ($left-tv $right-tv) $tv)) |- ($goal)) $adds)))
             (if (and (= $Type (Inheritance $subj $concept)) (concrete-inheritance-link? $subj $concept))
-               (let*
-                  (($imp-type (inheritance-implication-type $subj $concept))
-                   ((Implication (cons Premises $premises) (cons Conclusions $conclusions)) $imp-type)
-                   ($vars (extract-vars $imp-type))
-                   ($mvars (if (== $vars ()) Nil $vars))
-                   ($pos-ctx (nextctx))
-                   ($neg-ctx (nextctx))
-                   ($pos-shape-kb ($kb $pos-ctx $mvars))
-                   ($neg-shape-kb ($kb $neg-ctx $mvars))
-                   ((compiled-premises $pos-execs $_pos-proofs $_pos-atv)
-                      (once (lower-query-assumption-premises $kb $pos-ctx $mvars $premises)))
-                   ((compiled-premises $neg-execs $_neg-proofs $_neg-atv)
-                      (once (lower-query-assumption-premises-negative $kb $neg-ctx $mvars $premises)))
-                   ($b (seq2expr $conclusions))
-                   ($pos-ctxatoms (query-context-premise-adds $kb $pos-ctx $mvars $pos-execs))
-                   ($neg-ctxatoms (query-context-premise-adds $kb $neg-ctx $mvars $neg-execs))
-                   ($pos-adapter-adds (collapse (compile-adapter-chain query (: $pos-shape-kb $pos-prf $b $pos-adapter-tv))))
-                   ($neg-adapter-adds (collapse (compile-adapter-chain query (: $neg-shape-kb $neg-prf $b $neg-adapter-tv))))
-                   ($all-adds
-                      (union-atom
-                         (union-atom $pos-ctxatoms $pos-adapter-adds)
-                         (union-atom $neg-ctxatoms $neg-adapter-adds)))
-                   ($known-pos-goal (: $pos-shape-kb $pos-prf $b $tv))
-                   ($known-neg-goal (: $neg-shape-kb $neg-prf $b $neg-tv))
-                   ($known-goal (: (kbctx $kb) (inheritance-query (total-implication $pos-prf $neg-prf)) $Type $tv)))
-                  (superpose (
-                     ((($known-pos-goal $known-neg-goal) |- ($known-goal)) $all-adds)
-                     (((() |- ((: (kbctx $kb) $prf $Type $tv)))
-                        (compile-query-adds (: (kbctx $kb) $prf $Type $tv)))))))
+               (superpose (
+                  ((((CPU MemberInheritanceFormula ($kb $subj $concept) $tv))
+                     |-
+                     ((: (kbctx $kb) (member-inheritance-fold cpu) $Type $tv)))
+                     ())
+                  (let*
+                     (($imp-type (inheritance-implication-type $subj $concept))
+                      ((Implication (cons Premises $premises) (cons Conclusions $conclusions)) $imp-type)
+                      ($vars (extract-vars $imp-type))
+                      ($mvars (if (== $vars ()) Nil $vars))
+                      ($pos-ctx (nextctx))
+                      ($neg-ctx (nextctx))
+                      ($pos-shape-kb ($kb $pos-ctx $mvars))
+                      ($neg-shape-kb ($kb $neg-ctx $mvars))
+                      ((compiled-premises $pos-execs $_pos-proofs $_pos-atv)
+                         (once (lower-query-assumption-premises $kb $pos-ctx $mvars $premises)))
+                      ((compiled-premises $neg-execs $_neg-proofs $_neg-atv)
+                         (once (lower-query-assumption-premises-negative $kb $neg-ctx $mvars $premises)))
+                      ($b (seq2expr $conclusions))
+                      ($pos-ctxatoms (query-context-premise-adds $kb $pos-ctx $mvars $pos-execs))
+                      ($neg-ctxatoms (query-context-premise-adds $kb $neg-ctx $mvars $neg-execs))
+                      ($pos-adapter-adds (collapse (compile-adapter-chain query (: $pos-shape-kb $pos-prf $b $pos-adapter-tv))))
+                      ($neg-adapter-adds (collapse (compile-adapter-chain query (: $neg-shape-kb $neg-prf $b $neg-adapter-tv))))
+                      ($all-adds
+                         (union-atom
+                            (union-atom $pos-ctxatoms $pos-adapter-adds)
+                            (union-atom $neg-ctxatoms $neg-adapter-adds)))
+                      ($known-pos-goal (: $pos-shape-kb $pos-prf $b $tv))
+                      ($known-neg-goal (: $neg-shape-kb $neg-prf $b $neg-tv))
+                      ($known-goal (: (kbctx $kb) (inheritance-query (total-implication $pos-prf $neg-prf)) $Type $tv)))
+                     ((($known-pos-goal $known-neg-goal) |- ($known-goal)) $all-adds))
+                  (((() |- ((: (kbctx $kb) $prf $Type $tv)))
+                     (compile-query-adds (: (kbctx $kb) $prf $Type $tv))))))
             (((() |- ((: (kbctx $kb) $prf $Type $tv))) (compile-query-adds (: (kbctx $kb) $prf $Type $tv)))))))))
 
 

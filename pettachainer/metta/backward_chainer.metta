@@ -72,6 +72,13 @@
 (= (aggregate-step-value (extract-inheritance-tv $kbid $_pattern) $child-atom $child-tv)
    (let ((Inheritance $subj $_concept) ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom)
       (WeightedTv (inheritance-subject-prior-tv $kbid $subj) $child-tv)))
+(= (aggregate-step-value (extract-member-consequent-tv $kbid $concept) $child-atom $child-tv)
+   (let ((Member $obj $_antecedent) ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom)
+      (let $hits
+         (collapse
+            (match &kb ((Member $obj $concept) ($kbid $_ctx $_vars) $_bprf $btv) $btv))
+         (if (== $hits ()) no-evidence
+            (WeightedTv $child-tv (car-atom $hits))))))
 (= (aggregate-step-value extract-tv $_child-atom $child-tv) $child-tv)
 (= (aggregate-step-group-value $pattern $group $child-atom)
    (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $group))

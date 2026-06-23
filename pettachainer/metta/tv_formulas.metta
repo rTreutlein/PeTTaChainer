@@ -108,9 +108,13 @@
       (BaseRateEvidence (+ $wsum (* $s $mass)) (+ $msum $mass))))
 (= (WeightedBaseRateAcc (BaseRateEvidence $wsum $msum) (WeightedTv $mass-tv (CTV $pos $_neg)))
    (WeightedBaseRateAcc (BaseRateEvidence $wsum $msum) (WeightedTv $mass-tv $pos)))
+(= (WeightedBaseRateAcc $acc no-evidence) $acc)
 (= (WeightedBaseRateTv (BaseRateEvidence $wsum $msum))
    (if (<= $msum 0.0) no-evidence
       (STV (/ $wsum $msum) (min 1.0 $msum))))
+(= (WeightedCountBaseRateTv (BaseRateEvidence $wsum $msum))
+   (if (<= $msum 0.0) no-evidence
+      (STV (/ $wsum $msum) (count-confidence $msum))))
 
 (= (WeightedBaseRateWithPriorAcc (BaseRateEvidenceWithPrior $prior $ev) $tv)
    (BaseRateEvidenceWithPrior $prior (WeightedBaseRateAcc $ev $tv)))
