@@ -17,15 +17,6 @@
       (record-concept-node! $kbid $subj)
       (record-concept-node! $kbid $concept)))
 
-(= (kb-add-atom live &kb (: ($kbid $_ctx $_vars) $prf (Inheritance $subj $concept) $tv))
-   (progn
-      (if (is-var $subj) () (add-atom &inheritance_subject ($kbid $subj)))
-      (record-inheritance-nodes! $kbid $subj $concept)
-      (add-atom &kb (: ($kbid $_ctx $_vars) $prf (Inheritance $subj $concept) $tv))))
-(= (kb-add-atom live &kb (: ($kbid $_ctx $_vars) $prf (Member $obj $class) $tv))
-   (progn
-      (record-concept-node! $kbid $class)
-      (add-atom &kb (: ($kbid $_ctx $_vars) $prf (Member $obj $class) $tv))))
 (= (kb-add-atom live $space $expr) (add-atom $space $expr))
 (= (kb-add-atom temp $space $expr) (track-temp-query-ref (assert-space-atom-ref $space $expr)))
 
@@ -135,15 +126,6 @@
 (= (kb-expr-kbid $expr)
    (if (= $expr ($_type ($kbid $_ctx $_vars) $_prf $_tv)) $kbid ()))
 
-(= (record-inheritance-subject! live (: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $_concept) $_tv))
-   (if (is-var $subj) ()
-      (add-atom &inheritance_subject ($kbid $subj))))
-(= (record-inheritance-subject! $_backend $_expr) ())
-
-(= (record-inheritance-concepts! live (: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $concept) $_tv))
-   (record-inheritance-nodes! $kbid $subj $concept))
-(= (record-inheritance-concepts! $_backend $_expr) ())
-
 (= (observed-inheritance-subject? $kbid $subj)
    (not (== (collapse (once (match &inheritance_subject ($kbid $subj) true))) ())))
 
@@ -221,7 +203,6 @@
          ())
       (progn
          (kb-add-atom $backend &kb $expr)
-         (record-inheritance-subject! $backend $expr)
          (if (== $backend live)
             (progn
                (mark-forward-agenda-dirty $expr)
