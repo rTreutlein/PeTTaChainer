@@ -776,8 +776,7 @@
             (((() |- ((: (kbctx $kb) $prf $Type $tv))) (compile-query-adds (: (kbctx $kb) $prf $Type $tv)))))))))
 
 
-(= (mm2compile $kb $stmt)
-   (progn (remove-all-atoms ctx) (superpose ((mm2stmt (compile_ $kb $stmt)) (get-atoms ctx)))))
+(= (mm2compile $kb $stmt) (mm2stmt (compile_ $kb $stmt)))
 
 (= (mm2stmt $stmt) (case $stmt (((() |- ($ccl)) $ccl) (($prms |- ($ccl)) (rules ($prms |- $ccl))))))
 
