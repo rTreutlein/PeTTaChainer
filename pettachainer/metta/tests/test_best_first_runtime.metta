@@ -62,10 +62,10 @@
    (: aToGoal (Implication (Premises (AForPriority)) (Conclusions (ChainedPriorityGoal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 4 chainedPriorityKb (: $prf (ChainedPriorityGoal) $tv))
-   (: (aToGoal (weakToA weakEvidence)) (ChainedPriorityGoal) (STV 0.020000000000000004 0.999900002445086)))
+   (: (aToGoal (strongToA strongEvidence)) (ChainedPriorityGoal) (STV 0.8 0.9998999995760428)))
 
 !(test (query 5 chainedPriorityKb (: $prf (ChainedPriorityGoal) $tv))
-   (: (aToGoal (weakToA weakEvidence)) (ChainedPriorityGoal) (STV 0.020000000000000004 0.999900002445086)))
+   (: (aToGoal (strongToA strongEvidence)) (ChainedPriorityGoal) (STV 0.8 0.9998999995760428)))
 
 !(compileadd priorityNegKb (: highInput (HighInput) (STV 0.9 1.0)))
 

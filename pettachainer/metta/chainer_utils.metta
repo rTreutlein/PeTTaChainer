@@ -93,7 +93,8 @@
 
 (= (premises-expected-confidence ()) 1.0)
 (= (premises-expected-confidence (cons $prem $rest))
-   (premises-expected-confidence-step $prem $rest))
+   (let $hits (collapse (premises-expected-confidence-step $prem $rest))
+      (if (== $hits ()) (empty) (car-atom $hits))))
 
 (= (score-tv $score) (STV 1.0 (max 0.0 (min 1.0 $score))))
 

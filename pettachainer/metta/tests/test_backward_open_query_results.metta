@@ -71,4 +71,4 @@
 
 !(test
    (query 30 openAndFairKb (: $prf (And (Own (i $a)) (Pet $a)) $tv))
-   ((: (conjunction (ownRule haveMax) (petRule dogMax)) (And (Own (i max)) (Pet max)) (STV 0.5599999999999999 0.9999136351865401)) (: (conjunction (ownRule haveAnn) (petRule dogAnn)) (And (Own (i ann)) (Pet ann)) (STV 0.5599999999999999 0.9999136351865401))))
+   ((: (conjunction (ownRule haveMax) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (distractRule6 distract6) (distractRule5 distract5)) (distractRule4 distract4)) (distractRule3 distract3)) (distractRule2 distract2)) (distractRule1 distract1)) (petRule dogMax))) (And (Own (i max)) (Pet max)) (STV 0.6800019996694093 0.9999093759280094)) (: (conjunction (ownRule haveAnn) (petRule dogAnn)) (And (Own (i ann)) (Pet ann)) (STV 0.5599999999999999 0.9999136351865401))))

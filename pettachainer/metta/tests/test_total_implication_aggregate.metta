@@ -69,4 +69,4 @@
 
 !(test
    (query 50 kb (: $prf (Female bob) $stv))
-   (: (ii_total tb (foldall-proof (total-neg (conjunction (negated tm) fm)) (total-pos (conjunction tm fm)) (total-pos (conjunction ta fa)) (total-neg (conjunction (negated ta) fa)) (total-neg (conjunction (negated tl) fl)) (total-pos (conjunction tl fl)))) (Female bob) (STV 0.9049050000000001 0.7525704728622737)))
+   (: (ii_total tb (foldall-proof (total-pos (conjunction tl fl)) (total-neg (conjunction (negated tl) fl)) (total-pos (conjunction ta fa)) (total-neg (conjunction (negated ta) fa)) (total-pos (conjunction tm fm)) (total-neg (conjunction (negated tm) fm)))) (Female bob) (STV 0.9049050000000001 0.7525704728622737)))
