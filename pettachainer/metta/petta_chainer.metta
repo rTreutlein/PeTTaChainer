@@ -27,6 +27,8 @@
 
 (= (record-compiled-inheritance-concepts! (: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $concept) $_tv))
    (record-inheritance-nodes! $kbid $subj $concept))
+(= (record-compiled-inheritance-concepts! (: ($kbid $_ctx $_vars) $_prf (Member $_obj $class) $_tv))
+   (record-concept-node! $kbid $class))
 (= (record-compiled-inheritance-concepts! $_expr) ())
 
 (= (materialize-stmt-lambdas $term)
