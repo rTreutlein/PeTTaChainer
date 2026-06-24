@@ -735,38 +735,46 @@
          (implication-query-tv-parts $pos-tv $neg-tv $tv)
          (implication-query-tv-parts $tv $stv-neg-tv (CTV $tv $stv-neg-tv)))))
 
+;; Shared pos/neg scaffolding for total-implication queries: allocate the two
+;; query contexts, lower the premises positively and negatively, and collect
+;; every context/adapter atom the chainer needs to resolve the conclusion $b in
+;; those contexts. Returns the ground shape-kbs, $b, the fresh pos/neg proof
+;; vars (used by the caller in its known goals and proof token), and $all-adds.
+(= (query-pos-neg-scaffold $kb $mvars $premises $conclusions)
+   (let*
+      (($pos-ctx (nextctx))
+       ($neg-ctx (nextctx))
+       ($pos-shape-kb ($kb $pos-ctx $mvars))
+       ($neg-shape-kb ($kb $neg-ctx $mvars))
+       ((compiled-premises $pos-execs $_pos-proofs $_pos-atv)
+          (once (lower-query-assumption-premises $kb $pos-ctx $mvars $premises)))
+       ((compiled-premises $neg-execs $_neg-proofs $_neg-atv)
+          (once (lower-query-assumption-premises-negative $kb $neg-ctx $mvars $premises)))
+       ($b (seq2expr $conclusions))
+       ($pos-ctxatoms (query-context-premise-adds $kb $pos-ctx $mvars $pos-execs))
+       ($neg-ctxatoms (query-context-premise-adds $kb $neg-ctx $mvars $neg-execs))
+       ($pos-adapter-adds (collapse (compile-adapter-chain query (: $pos-shape-kb $pos-prf $b $pos-adapter-tv))))
+       ($neg-adapter-adds (collapse (compile-adapter-chain query (: $neg-shape-kb $neg-prf $b $neg-adapter-tv))))
+       ($all-adds
+          (union-atom
+             (union-atom $pos-ctxatoms $pos-adapter-adds)
+             (union-atom $neg-ctxatoms $neg-adapter-adds))))
+      (query-scaffold $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf $all-adds)))
+
 (= (compileQuery $kb (: $prf $Type $tv))
    (if (is-var $Type) ((() |- ((: (kbctx $kb) $prf $Type $tv))) ())
       (if (= $Type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
          (let*
             (($vars (extract-vars $Type))
-              ($mvars (if (== $vars ()) Nil $vars))
-              ($pos-ctx (nextctx))
-              ($neg-ctx (nextctx))
-              ($pos-shape-kb ($kb $pos-ctx $mvars))
-              ($neg-shape-kb ($kb $neg-ctx $mvars))
-              ((compiled-premises $pos-execs $_pos-proofs $_pos-atv)
-                 (once (lower-query-assumption-premises $kb $pos-ctx $mvars $premises)))
-		              ((compiled-premises $neg-execs $_neg-proofs $_neg-atv)
-		                 (once (lower-query-assumption-premises-negative $kb $neg-ctx $mvars $premises)))
-	              ($b (seq2expr $conclusions))
-	              ($pos-ctxatoms (query-context-premise-adds $kb $pos-ctx $mvars $pos-execs))
-	              ($neg-ctxatoms (query-context-premise-adds $kb $neg-ctx $mvars $neg-execs))
-	              ($pos-adapter-adds (collapse (compile-adapter-chain query (: $pos-shape-kb $pos-prf $b $pos-adapter-tv))))
-	              ($neg-adapter-adds (collapse (compile-adapter-chain query (: $neg-shape-kb $neg-prf $b $neg-adapter-tv))))
-              ($pos-adds (union-atom $pos-ctxatoms $pos-adapter-adds))
-              ($neg-adds (union-atom $neg-ctxatoms $neg-adapter-adds))
-		              ($all-adds
-	                  (union-atom
-	                     $pos-adds
-	                     $neg-adds)))
-			            (let*
-		               (((implication-query-tv-parts $known-pos-tv $known-neg-tv $known-tv)
-		                    (implication-query-known-tv-parts $tv))
-		                 ($known-pos-goal (: $pos-shape-kb $pos-prf $b $known-pos-tv))
-		                 ($known-neg-goal (: $neg-shape-kb $neg-prf $b $known-neg-tv))
-			                 ($known-goal (: (kbctx $kb) (total-implication $pos-prf $neg-prf) $Type $known-tv)))
-		               ((($known-pos-goal $known-neg-goal) |- ($known-goal)) $all-adds)))
+             ($mvars (if (== $vars ()) Nil $vars))
+             ((query-scaffold $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf $all-adds)
+                (query-pos-neg-scaffold $kb $mvars $premises $conclusions))
+             ((implication-query-tv-parts $known-pos-tv $known-neg-tv $known-tv)
+                (implication-query-known-tv-parts $tv))
+             ($known-pos-goal (: $pos-shape-kb $pos-prf $b $known-pos-tv))
+             ($known-neg-goal (: $neg-shape-kb $neg-prf $b $known-neg-tv))
+             ($known-goal (: (kbctx $kb) (total-implication $pos-prf $neg-prf) $Type $known-tv)))
+            ((($known-pos-goal $known-neg-goal) |- ($known-goal)) $all-adds))
          (if (bidirectional-implication-type? $Type)
             (let ($_head (cons Premises $left) (cons Conclusions $right)) $Type
                (let*
@@ -789,8 +797,8 @@
                     ($adds (union-atom
                        (union-atom $left-ctxatoms $left-adapter-adds)
                        (union-atom $right-ctxatoms $right-adapter-adds)))
-		                    ($goal (: (kbctx $kb) (bidirectional $left-prf $right-prf) $Type $tv)))
-	                  ((($left-goal $right-goal (CPU AndFormula ($left-tv $right-tv) $tv)) |- ($goal)) $adds)))
+                    ($goal (: (kbctx $kb) (bidirectional $left-prf $right-prf) $Type $tv)))
+                  ((($left-goal $right-goal (CPU AndFormula ($left-tv $right-tv) $tv)) |- ($goal)) $adds)))
             (if (and (= $Type (Inheritance $subj $concept)) (concrete-inheritance-link? $subj $concept))
                (superpose (
                   (let*
@@ -798,26 +806,11 @@
                       ((Implication (cons Premises $premises) (cons Conclusions $conclusions)) $imp-type)
                       ($vars (extract-vars $imp-type))
                       ($mvars (if (== $vars ()) Nil $vars))
-                      ($pos-ctx (nextctx))
-                      ($neg-ctx (nextctx))
-                      ($pos-shape-kb ($kb $pos-ctx $mvars))
-                      ($neg-shape-kb ($kb $neg-ctx $mvars))
-                      ((compiled-premises $pos-execs $_pos-proofs $_pos-atv)
-                         (once (lower-query-assumption-premises $kb $pos-ctx $mvars $premises)))
-                      ((compiled-premises $neg-execs $_neg-proofs $_neg-atv)
-                         (once (lower-query-assumption-premises-negative $kb $neg-ctx $mvars $premises)))
-                      ($b (seq2expr $conclusions))
-                      ($pos-ctxatoms (query-context-premise-adds $kb $pos-ctx $mvars $pos-execs))
-                      ($neg-ctxatoms (query-context-premise-adds $kb $neg-ctx $mvars $neg-execs))
-                      ($pos-adapter-adds (collapse (compile-adapter-chain query (: $pos-shape-kb $pos-prf $b $pos-adapter-tv))))
-                      ($neg-adapter-adds (collapse (compile-adapter-chain query (: $neg-shape-kb $neg-prf $b $neg-adapter-tv))))
-                      ($all-adds
-                         (union-atom
-                            (union-atom $pos-ctxatoms $pos-adapter-adds)
-                            (union-atom $neg-ctxatoms $neg-adapter-adds)))
+                      ((query-scaffold $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf $all-adds)
+                         (query-pos-neg-scaffold $kb $mvars $premises $conclusions))
                       ($known-pos-goal (: $pos-shape-kb $pos-prf $b $tv))
                       ($known-neg-goal (: $neg-shape-kb $neg-prf $b $neg-tv))
-                     ($known-goal (: (kbctx $kb) (inheritance-query (total-implication $pos-prf $neg-prf)) $Type $tv)))
+                      ($known-goal (: (kbctx $kb) (inheritance-query (total-implication $pos-prf $neg-prf)) $Type $tv)))
                      ((($known-pos-goal $known-neg-goal) |- ($known-goal)) $all-adds))
                   (((() |- ((: (kbctx $kb) $prf $Type $tv)))
                      (compile-query-adds (: (kbctx $kb) $prf $Type $tv))))
