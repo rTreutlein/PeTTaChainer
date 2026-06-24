@@ -313,7 +313,7 @@
          (run-grouped-aggregate-heap $agenda $agg-gid $child-gid $args)
          (let*
             (((aggregate-state $acc $ev $children) (aggregate-final-state $agg-gid $child-gid $args))
-             (($kb $pattern $extractor $init $fun $finish $tv-mode) $args)
+             (($_kb $_pattern $_extractor $_init $_fun $finish $_tv-mode) $args)
              ($result (CPU FoldAllCompiled $args (aggregate-finish $finish $acc)))
              ($commit-ev (if (background-aggregate-finish? $finish) () $ev)))
             (if (base-rate-refinement-degrades? $finish $current-pid $result)

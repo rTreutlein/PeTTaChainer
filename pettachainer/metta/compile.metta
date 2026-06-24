@@ -434,9 +434,6 @@
         ($ordered-premises (partition-existential-premises $conclusion-vars $premises)))
       (lower-source-premises-list $kb $ctx $vars $ordered-premises)))
 
-(= (lower-source-premises $kb $ctx $vars $premises)
-   (lower-source-premises-list $kb $ctx $vars $premises))
-
 (= (lower-query-assumption-premise $kb $ctx $vars $premise)
    (if (and (is-expr $premise) (not (is-var (car-atom $premise))))
       (let $head (car-atom $premise)
