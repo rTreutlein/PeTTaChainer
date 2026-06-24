@@ -146,12 +146,6 @@
 (= (proof-live-cache-epoch)
    (let $n (get-state bwd_live_epoch) (if-error $n 0 $n)))
 
-(= (clear-proof-live-caches)
-   (progn
-      (remove-all-atoms &proof_live_cache)
-      (remove-all-atoms &goal_live_cache)
-      ()))
-
 (= (invalidate-proof-live-caches)
    (let $epoch (proof-live-cache-epoch)
       (change-state! bwd_live_epoch (+ $epoch 1))))

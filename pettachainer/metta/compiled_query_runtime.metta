@@ -33,7 +33,6 @@
 ;; computed entry only applies to the mode that produced it -- otherwise a
 ;; weighted fold and a plain base-rate fold over the same pattern would alias to
 ;; one cached value.
-(= (base-rate-entry-kbid (base-rate $kbid $_pattern $_tv $_source $_mode)) $kbid)
 
 ;; All entries whose stored pattern matches, ignoring finish mode. Used for
 ;; user-override checks, inspection, and removal/invalidation.
