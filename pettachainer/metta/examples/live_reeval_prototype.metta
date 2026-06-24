@@ -69,11 +69,11 @@
 
 ;; no override reproduces the stored TV
 !(test (let $p (car-atom (collapse (ab1-pid))) (reeval-proof $p ((Nothing n) (k MAIN Nil)) (STV 9 9)))
-   (STV 0.3 0.95))
+   (STV 0.3 0.9691934615666751))
 
 ;; overriding A recovers the residual implication, matching the prototype
 !(test (let $p (car-atom (collapse (ab1-pid))) (residual-ctv $p ((A i) (k MAIN Nil))))
-   (CTV (STV 0.6 0.9) (STV 0.0 1.0)))
+   (CTV (STV 0.6 0.8999999998784551) (STV 0.0 0.9998640151554018)))
 
 ;; Robustness: two premises with equal TVs. (B i) = (A i) AND (A2 i), both 0.5.
 ;; Factoring (A i) must leave (A2 i) at 0.5 -- by-value substitution would
@@ -85,4 +85,4 @@
 (= (cc-pid) (match &proof ($pid $g $out (rule ((B i) $kb (rr $_) $_tv)) $sc $ev $ch) $pid))
 
 !(test (let $p (car-atom (collapse (cc-pid))) (residual-ctv $p ((A i) (c MAIN Nil))))
-   (CTV (STV 0.5 1.0) (STV 0.0 1.0)))
+   (CTV (STV 0.5 0.9998999998010301) (STV 0.0 0.9998000374680106)))

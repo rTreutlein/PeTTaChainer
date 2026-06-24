@@ -237,26 +237,34 @@
 
 (= (inject-compiled-adds $adds) (if (= $adds ()) () (foreach-flat (kb-add-expr temp) $adds)))
 
-(= (query $steps $kb $stmt)
+(= (run-compiled-query $steps (compiled-query $goal $adds))
    (let*
-      (((compiled-query $goal $adds) (mm2compileQuery $kb $stmt))
-        ($_clear-temp-before (clear-temp-query-adds))
+      (($_clear-temp-before (clear-temp-query-adds))
         ($_ (inject-compiled-adds $adds))
         ($results (chainer $steps $goal))
         ($eres (map-flat externalize-proof-structure $results))
         ($pres (map-flat pretty $eres))
         ($_clear-temp-after (clear-temp-query-adds)))
-      (superpose
-         $pres)))
+      $pres))
 
-(= (query-materialize $steps $kb $stmt)
+(= (run-compiled-query-materialize $steps (compiled-query $goal $adds))
    (let*
-      (((compiled-query $goal $adds) (mm2compileQuery $kb $stmt))
-        ($_clear-temp-before (clear-temp-query-adds))
+      (($_clear-temp-before (clear-temp-query-adds))
         ($_ (inject-compiled-adds $adds))
         ($results (chainer-materialize $steps $goal))
         ($eres (map-flat externalize-proof-structure $results))
         ($pres (map-flat pretty $eres))
         ($_clear-temp-after (clear-temp-query-adds)))
+      $pres))
+
+(= (query $steps $kb $stmt)
+   (let $pres
+      (fold-flat append () (map-flat (run-compiled-query $steps) (collapse (mm2compileQuery $kb $stmt))))
+      (superpose
+         $pres)))
+
+(= (query-materialize $steps $kb $stmt)
+   (let $pres
+      (fold-flat append () (map-flat (run-compiled-query-materialize $steps) (collapse (mm2compileQuery $kb $stmt))))
       (superpose
          $pres)))

@@ -805,10 +805,6 @@
 	                  ((($left-goal $right-goal (CPU AndFormula ($left-tv $right-tv) $tv)) |- ($goal)) $adds)))
             (if (and (= $Type (Inheritance $subj $concept)) (concrete-inheritance-link? $subj $concept))
                (superpose (
-                  ((((CPU MemberInheritanceFormula ($kb $subj $concept) $tv))
-                     |-
-                     ((: (kbctx $kb) (member-inheritance-fold cpu) $Type $tv)))
-                     ())
                   (let*
                      (($imp-type (inheritance-implication-type $subj $concept))
                       ((Implication (cons Premises $premises) (cons Conclusions $conclusions)) $imp-type)
@@ -833,10 +829,14 @@
                             (union-atom $neg-ctxatoms $neg-adapter-adds)))
                       ($known-pos-goal (: $pos-shape-kb $pos-prf $b $tv))
                       ($known-neg-goal (: $neg-shape-kb $neg-prf $b $neg-tv))
-                      ($known-goal (: (kbctx $kb) (inheritance-query (total-implication $pos-prf $neg-prf)) $Type $tv)))
+                     ($known-goal (: (kbctx $kb) (inheritance-query (total-implication $pos-prf $neg-prf)) $Type $tv)))
                      ((($known-pos-goal $known-neg-goal) |- ($known-goal)) $all-adds))
                   (((() |- ((: (kbctx $kb) $prf $Type $tv)))
-                     (compile-query-adds (: (kbctx $kb) $prf $Type $tv))))))
+                     (compile-query-adds (: (kbctx $kb) $prf $Type $tv))))
+                  ((((CPU MemberInheritanceFormula ($kb $subj $concept) $tv))
+                     |-
+                     ((: (kbctx $kb) (member-inheritance-fold cpu) $Type $tv)))
+                     ())))
             (((() |- ((: (kbctx $kb) $prf $Type $tv))) (compile-query-adds (: (kbctx $kb) $prf $Type $tv)))))))))
 
 

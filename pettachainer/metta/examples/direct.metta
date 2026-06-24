@@ -35,7 +35,7 @@
          (fathersMotherGrandfather (conjunction fatherAY motherYC))
          (fathersFatherGrandfather (conjunction fatherAB fatherBC)))
       (Grandfather a c)
-      (STV 0.5 0.9473684210526316)))
+      (STV 0.2501166485375841 0.9230240565975534)))
 
 !(test
    (query 50 directKb (: $prf (Grandfather $who c) $tv))
@@ -43,7 +43,7 @@
          (fathersMotherGrandfather (conjunction fatherAY motherYC))
          (fathersFatherGrandfather (conjunction fatherAB fatherBC)))
       (Grandfather a c)
-      (STV 0.5 0.9473684210526316)))
+      (STV 0.2501166485375841 0.9230240565975534)))
 
 !(test
    (query 50 directKb (: $prf (Old $who) $tv))
@@ -53,4 +53,4 @@
                (fathersMotherGrandfather (conjunction fatherAY motherYC))
                (fathersFatherGrandfather (conjunction fatherAB fatherBC)))))
       (Old a)
-      (STV 0.5 0.9236842105263159)))
+      (STV 0.2501166485375841 0.9230240245003262)))

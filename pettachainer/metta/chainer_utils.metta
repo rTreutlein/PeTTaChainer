@@ -100,6 +100,11 @@
       (- (max $candidate-score (optimistic-revision-score $current-score $candidate-score))
          $current-score)))
 
+(= (frontier-proof-score $pid $score)
+   (if (= (proof-output-atom $pid) (CPU $_fun $_args $_res))
+      (max 0.000001 $score)
+      $score))
+
 (= (bounded-agenda-target-size $steps) (min 1000 (max 1 $steps)))
 (= (bounded-agenda-prune-factor) 64)
 

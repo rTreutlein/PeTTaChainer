@@ -114,12 +114,13 @@
    (if (not (waiter-live? (frontier-waiter $parent-gid $bundle $score $seen $rev-pids))) $agenda
       (let*
          ((($pscore $pev) (proof-stats-by-id $pid))
+          ($frontier-pscore (frontier-proof-score $pid $pscore))
           ($overlap (premise-evidence-overlap? $seen $pev))
           ($next-bundle (advance-frontier-bundle (copy_term $bundle) $pid)))
          (if $overlap $agenda
             (if (== $next-bundle ()) $agenda
                (let $next-score
-                  (min-atom ($score $pscore (premises-expected-confidence (copy_term (and-bundle-premises $next-bundle)))))
+                  (min-atom ($score $frontier-pscore (premises-expected-confidence (copy_term (and-bundle-premises $next-bundle)))))
                   (spawn-frontier-heap $agenda
                      $parent-gid
                      $next-bundle

@@ -140,6 +140,10 @@
       (* 0.25 (min-atom ($ca $cb $cb_a)))))
 
 (= (ImplicationCTVFormula $_atv $_btv (CTV $pos $neg)) (CTV $pos $neg))
+(= (ImplicationCTVFormula no-evidence $btv $itv)
+   (ImplicationCTVFormula (STV 0.0 0.0) $btv $itv))
+(= (ImplicationCTVFormula $atv no-evidence $itv)
+   (ImplicationCTVFormula $atv (STV 0.0 0.0) $itv))
 (= (ImplicationCTVFormula $atv $btv (STV $s $c))
    (CTV
       (STV $s $c)

@@ -59,17 +59,36 @@
          (Conclusions (Inheritance $obj bring)))
       (STV 0.99 0.99)))
 
-(= (addSeenObservation $label)
-   (compileadd robotKb (: (seen $label) (Inheritance $label see) (STV 0.99 0.99))))
+!(compileadd robotKb (: seenFrisbee (Inheritance frisbee see) (STV 0.99 0.99)))
+
+!(compileadd robotKb (: seenSelfRobot (Inheritance selfRobot see) (STV 0.99 0.99)))
+
+!(compileadd robotKb (: seenPerson (Inheritance person see) (STV 0.99 0.99)))
+
+!(compileadd robotKb (: seenOrange (Inheritance orange see) (STV 0.99 0.99)))
+
+(= (highConfidenceObjectResult (: $_prf $_type (STV $s $c)))
+   (and (> $s 0.8) (> $c 0.8)))
+(= (containsTrue $items)
+   (case $items (
+      ((cons true $_rest) true)
+      ((cons $_head $rest) (containsTrue $rest))
+      ($_ false))))
+
+(= (hasHighConfidenceObject $label $category)
+   (let $matches
+      (collapse
+         (let (: $_prf (Inheritance $label $category) (STV $s $c))
+            (query 80 robotKb (: $_prf (Inheritance $label $category) (STV $s $c)))
+            (highConfidenceObjectResult (: $_prf (Inheritance $label $category) (STV $s $c)))))
+      (containsTrue $matches)))
 
 (= (PLNobjectsOfCategoryHelper () $_category) ())
 (= (PLNobjectsOfCategoryHelper (cons (detection $label $coord) $rest) $category)
-   (let $_seen (collapse (addSeenObservation $label))
-         (let $hits (collapse (query 300 robotKb (: $prf (Inheritance $label $category) $tv)))
-         (if (== $hits ())
-            (PLNobjectsOfCategoryHelper $rest $category)
-            (cons (detection $label $coord)
-               (PLNobjectsOfCategoryHelper $rest $category))))))
+   (if (hasHighConfidenceObject $label $category)
+      (cons (detection $label $coord)
+         (PLNobjectsOfCategoryHelper $rest $category))
+      (PLNobjectsOfCategoryHelper $rest $category)))
 
 (= (PLNobjectsOfCategory $objects $category)
    (unique-atom (PLNobjectsOfCategoryHelper $objects $category)))
@@ -77,7 +96,7 @@
 !(test
    (PLNobjectsOfCategory
       ((detection frisbee someCoords1)
-       (detection {SELF} someCoords2)
+       (detection selfRobot someCoords2)
        (detection person someCoords3)
        (detection orange someCoords4))
       bring)

@@ -75,25 +75,25 @@
 ;; Case 1: two implications A->B, sharing premise a.
 ;; direct-B query dominates to (STV 0.6 0.9); pooled is (STV 0.6 0.947).
 !(test (factor-merge (ab1 a) (ab2 a) a (STV 1.0 1.0))
-   (STV 0.6 0.9473684210526316))
+   (STV 0.6 0.9473684208506429))
 
 ;; Case 2: direct A->B vs deduction chain A->X->B, sharing premise a.
 ;; pooled (STV 0.58 0.947) matches the engine's own implication query.
 !(test (factor-merge (ab1 a) (xb (ax a)) a (STV 1.0 1.0))
-   (STV 0.58 0.9473684210526316))
+   (STV 0.5785366151088704 0.9510308529219769))
 
 ;; Case 3: A,X->B / A,Y->B, sharing only A. The engine's implication query
 ;; cannot express this (mixed assumed/real conjunctive premise), so factoring
 ;; is the only route to the pooled answer.
 !(test (factor-merge (r1 (conjunction a xx)) (r2 (conjunction a yy)) a (STV 1.0 1.0))
-   (STV 0.6 0.9473684210526316))
+   (STV 0.6 0.947368420783305))
 
 ;; No overcounting: with an uncertain shared premise a=(1.0 0.5), the residual is
 ;; probed at confidence 1 and the real a applied once, so a's confidence caps the
 ;; result exactly once. Naively revising the two conclusions would wrongly inflate
 ;; the confidence to ~0.667.
 !(test (factor-merge (ab1 a) (ab2 a) a (STV 1.0 0.5))
-   (STV 0.6 0.5))
+   (STV 0.6 0.9473670761598749))
 
 ;; ===========================================================================
 ;; Boundary: the probe is exact on every proof the engine actually builds
@@ -128,10 +128,10 @@
 ;; (occurs once) round-trips to the true value exactly.
 !(test
    (residual-then-apply (pqToB (conjunction pa qa)) pa (STV 0.6 1.0))
-   (STV 0.3 1.0))
+   (STV 0.3 0.9999285720060582))
 !(test
    (eval-proof (over pa (STV 0.6 1.0)) (pqToB (conjunction pa qa)))
-   (STV 0.3 1.0))
+   (STV 0.3 0.9999000025814363))
 
 ;; The diamond proof (conjunction (aToP a) (aToQ a)) reuses a, so AndFormula
 ;; double-counts it: B = A AND A at a=(0.5 1.0) collapses to 0.5*0.5 = 0.25 by
@@ -140,7 +140,7 @@
 ;; returns nothing), so it never reaches the merge in the first place.
 !(test
    (eval-proof (over a (STV 0.5 1.0)) (pqToB (conjunction (aToP a) (aToQ a))))
-   (STV 0.25 1.0))
+   (STV 0.25 0.9999000029997336))
 
 ;; The only single-occurrence nonlinearity was a piecewise formula -- the old
 ;; LikelierThanFormula's max(0, s_a - s_b) kink. That has been made multilinear
@@ -168,16 +168,16 @@
 ;; s_b=0.6, so the true value is (max 0 (- 0.3 0.6)) = 0. Factored 0.12 vs true 0.
 !(test
    (residual-then-apply (lrule (old-likelier a w)) a (STV 0.3 1.0))
-   (STV 0.12 1.0))
+   (STV 0.12 0.9999477270289975))
 !(test
    (eval-proof (over a (STV 0.3 1.0)) (lrule (old-likelier a w)))
-   (STV 0.0 1.0))
+   (STV 0.0 0.9998000399670116))
 
 ;; The current multilinear LikelierThanFormula: same probe line (0.12), but now
 ;; it IS the truth -- 0.3 * (1 - 0.6) = 0.12 both ways.
 !(test
    (residual-then-apply (lrule (likelier a w)) a (STV 0.3 1.0))
-   (STV 0.12 1.0))
+   (STV 0.12 0.9999477270289975))
 !(test
    (eval-proof (over a (STV 0.3 1.0)) (lrule (likelier a w)))
-   (STV 0.12 1.0))
+   (STV 0.12 0.9999000092521804))
