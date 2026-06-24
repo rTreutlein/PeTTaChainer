@@ -206,6 +206,12 @@
 (= (CTVInversionFormula (STV $sa $ca) (STV $sb $cb) (CTV (STV $sb_a $cb_a) (STV $sb_na $cb_na)))
    (if (or (<= $sb 0.0) (>= $sb 1.0))
       (CTV (STV 0.0 0.0) (STV 0.0 0.0))
+      ;; Reject contradictory inversions: when P(A) > 0, the implication's
+      ;; P(B|A) must lie within the Frechet bounds set by the base rates P(A),
+      ;; P(B). Outside them the marginals and conditional cannot coexist, so the
+      ;; inverse does not hold (clamping the ratio would assert it anyway).
+      (if (and (> $sa 0.0) (not (InversionConsistency (STV $sa $ca) (STV $sb $cb) (STV $sb_a $cb_a))))
+         (empty)
       (let*
          (($Va (ideal-var $sb_a $cb_a))
           ($Vsa (ideal-var $sa $ca))
@@ -214,7 +220,7 @@
           ($s_neg (min 1.0 (/ (* (- 1.0 $sb_a) $sa) (- 1.0 $sb)))))
          (CTV
             (STV $s_pos (ideal-conf-from-var $s_pos (ideal-ratio-var $sb_a $Va $sa $Vsa $sb $Vsb)))
-            (STV $s_neg (ideal-conf-from-var $s_neg (ideal-ratio-var (- 1.0 $sb_a) $Va $sa $Vsa (- 1.0 $sb) $Vsb)))))))
+            (STV $s_neg (ideal-conf-from-var $s_neg (ideal-ratio-var (- 1.0 $sb_a) $Va $sa $Vsa (- 1.0 $sb) $Vsb))))))))
 
 (= (Equal $a $b) (== $a $b))
 
