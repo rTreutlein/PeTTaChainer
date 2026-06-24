@@ -158,7 +158,7 @@
 
 (= (base-rate-refine-score $score) (* 0.25 $score))
 
-(= (spawn-refining-aggregate-heap $agenda $score $agg-gid $goal-view $args $tv)
+(= (ensure-aggregate-child-goal $agg-gid $goal-view $args $score)
    (let*
       (($child-goal (aggregate-child-goal $goal-view))
        (($depth $_goal $_expanded $_pending) (goal-by-id $agg-gid))
@@ -167,7 +167,12 @@
        ($_agg
           (if (== $hits ())
              (chainer-add-atom &aggregate ($agg-gid $child-gid $args $score 0.0 ()))
-             ()))
+             ())))
+      $child-gid))
+
+(= (spawn-refining-aggregate-heap $agenda $score $agg-gid $goal-view $args $tv)
+   (let*
+      (($child-gid (ensure-aggregate-child-goal $agg-gid $goal-view $args $score))
        ($pid (store-proof-candidate $agg-gid (aggregate-result-candidate (CPU FoldAllCompiled $args $tv) () ())))
        ($_set
           (progn
@@ -194,14 +199,7 @@
 
 (= (spawn-aggregate-goal-live-heap $agenda $score $agg-gid $goal-view $args)
    (let*
-      (($child-goal (aggregate-child-goal $goal-view))
-       (($depth $_goal $_expanded $_pending) (goal-by-id $agg-gid))
-       ($child-gid (ensure-goal-at-depth $child-goal (+ 1 $depth)))
-       ($hits (collapse (once (match &aggregate ($agg-gid $_child $_args $_base $_pending1 $_current) true))))
-       ($_agg
-          (if (== $hits ())
-             (chainer-add-atom &aggregate ($agg-gid $child-gid $args $score 0.0 ()))
-             ()))
+      (($child-gid (ensure-aggregate-child-goal $agg-gid $goal-view $args $score))
        ($_wait (chainer-add-atom &goal_waiter ($child-gid (aggregate-waiter $agg-gid))))
        ($agenda1 (schedule-goal-heap $agenda $score $child-gid))
        ($nagenda (schedule-aggregate-heap $agenda1 $agg-gid)))
