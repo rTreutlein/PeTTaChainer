@@ -5,6 +5,12 @@
 ; object as its own singleton member class and derives member-level implication
 ; views. The class-level Inheritance query can therefore compare the extensional
 ; member path against the legacy inheritance-only example.
+;
+; This is a closed two-object example, so tell the member fold that rv1 and rv2
+; are the whole object universe. The fold then uses observed coverage for
+; confidence instead of the open-ended default count-confidence prior.
+
+!(set-universe-size ravenMemberKb 2.0)
 
 !(compileadd ravenMemberKb (: rv1RavenObserved (Member rv1 raven) (STV 0.9 0.9)))
 !(compileadd ravenMemberKb (: rv2RavenObserved (Member rv2 raven) (STV 0.9 0.9)))
@@ -19,4 +25,4 @@
    (:
       (member-inheritance-fold cpu)
       (Inheritance raven (IntSet black))
-      (STV 0.39999999999999997 0.001819184536182807)))
+      (STV 0.39999999999999997 0.7290000000000001)))
