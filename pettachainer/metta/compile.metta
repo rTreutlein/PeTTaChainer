@@ -710,31 +710,38 @@
          (implication-query-tv-parts $pos-tv $neg-tv $tv)
          (implication-query-tv-parts $tv $stv-neg-tv (CTV $tv $stv-neg-tv)))))
 
-;; Shared pos/neg scaffolding for total-implication queries: allocate the two
-;; query contexts, lower the premises positively and negatively, and collect
-;; every context/adapter atom the chainer needs to resolve the conclusion $b in
-;; those contexts. Returns the ground shape-kbs, $b, the fresh pos/neg proof
-;; vars (used by the caller in its known goals and proof token), and $all-adds.
+;; One side of a total-implication / bidirectional query: allocate a fresh
+;; query context, lower the premises (negatively for the refuting side of a
+;; total implication, positively otherwise), and collect the context + adapter
+;; atoms the chainer needs to resolve this side's conclusion. Returns the ground
+;; shape-kb, the fresh proof var (shared with the caller's goal and proof
+;; token), the conclusion expression, and the side's adds.
+(= (query-side $kb $mvars $negative? $premises $conclusion-side)
+   (let*
+      (($ctx (nextctx))
+       ($shape-kb ($kb $ctx $mvars))
+       ((compiled-premises $execs $_proofs $_atv)
+          (once (if $negative?
+                   (lower-query-assumption-premises-negative $kb $ctx $mvars $premises)
+                   (lower-query-assumption-premises $kb $ctx $mvars $premises))))
+       ($goal-expr (seq2expr $conclusion-side))
+       ($adds
+          (union-atom
+             (query-context-premise-adds $kb $ctx $mvars $execs)
+             (collapse (compile-adapter-chain query (: $shape-kb $prf $goal-expr $adapter-tv))))))
+      (qside $shape-kb $prf $goal-expr $adds)))
+
+;; The two sides of a total-implication query share one conclusion $b and differ
+;; only in polarity. Returns the ground shape-kbs, $b, the fresh pos/neg proof
+;; vars (used by the caller in its known goals and proof token), and all adds.
 (= (query-pos-neg-scaffold $kb $mvars $premises $conclusions)
    (let*
-      (($pos-ctx (nextctx))
-       ($neg-ctx (nextctx))
-       ($pos-shape-kb ($kb $pos-ctx $mvars))
-       ($neg-shape-kb ($kb $neg-ctx $mvars))
-       ((compiled-premises $pos-execs $_pos-proofs $_pos-atv)
-          (once (lower-query-assumption-premises $kb $pos-ctx $mvars $premises)))
-       ((compiled-premises $neg-execs $_neg-proofs $_neg-atv)
-          (once (lower-query-assumption-premises-negative $kb $neg-ctx $mvars $premises)))
-       ($b (seq2expr $conclusions))
-       ($pos-ctxatoms (query-context-premise-adds $kb $pos-ctx $mvars $pos-execs))
-       ($neg-ctxatoms (query-context-premise-adds $kb $neg-ctx $mvars $neg-execs))
-       ($pos-adapter-adds (collapse (compile-adapter-chain query (: $pos-shape-kb $pos-prf $b $pos-adapter-tv))))
-       ($neg-adapter-adds (collapse (compile-adapter-chain query (: $neg-shape-kb $neg-prf $b $neg-adapter-tv))))
-       ($all-adds
-          (union-atom
-             (union-atom $pos-ctxatoms $pos-adapter-adds)
-             (union-atom $neg-ctxatoms $neg-adapter-adds))))
-      (query-scaffold $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf $all-adds)))
+      (((qside $pos-shape-kb $pos-prf $b $pos-adds)
+          (query-side $kb $mvars false $premises $conclusions))
+       ((qside $neg-shape-kb $neg-prf $_b $neg-adds)
+          (query-side $kb $mvars true $premises $conclusions)))
+      (query-scaffold $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf
+         (union-atom $pos-adds $neg-adds))))
 
 (= (compileQuery $kb (: $prf $Type $tv))
    (if (is-var $Type) ((() |- ((: (kbctx $kb) $prf $Type $tv))) ())
@@ -755,25 +762,15 @@
                (let*
                   (($vars (extract-vars $Type))
                     ($mvars (if (== $vars ()) Nil $vars))
-                    ($left-ctx (nextctx))
-                    ($right-ctx (nextctx))
-                    ($left-shape-kb ($kb $left-ctx $mvars))
-                    ($right-shape-kb ($kb $right-ctx $mvars))
-                    ((compiled-premises $left-execs $_left-proofs $_left-atv)
-                       (once (lower-query-assumption-premises $kb $left-ctx $mvars $left)))
-                    ((compiled-premises $right-execs $_right-proofs $_right-atv)
-                       (once (lower-query-assumption-premises $kb $right-ctx $mvars $right)))
-                    ($left-goal (: $left-shape-kb $left-prf (seq2expr $right) $left-tv))
-                    ($right-goal (: $right-shape-kb $right-prf (seq2expr $left) $right-tv))
-                    ($left-ctxatoms (query-context-premise-adds $kb $left-ctx $mvars $left-execs))
-                    ($right-ctxatoms (query-context-premise-adds $kb $right-ctx $mvars $right-execs))
-                    ($left-adapter-adds (collapse (compile-adapter-chain query (: $left-shape-kb $left-prf (seq2expr $right) $left-adapter-tv))))
-                    ($right-adapter-adds (collapse (compile-adapter-chain query (: $right-shape-kb $right-prf (seq2expr $left) $right-adapter-tv))))
-                    ($adds (union-atom
-                       (union-atom $left-ctxatoms $left-adapter-adds)
-                       (union-atom $right-ctxatoms $right-adapter-adds)))
+                    ((qside $left-shape-kb $left-prf $left-goal-expr $left-adds)
+                       (query-side $kb $mvars false $left $right))
+                    ((qside $right-shape-kb $right-prf $right-goal-expr $right-adds)
+                       (query-side $kb $mvars false $right $left))
+                    ($left-goal (: $left-shape-kb $left-prf $left-goal-expr $left-tv))
+                    ($right-goal (: $right-shape-kb $right-prf $right-goal-expr $right-tv))
                     ($goal (: (kbctx $kb) (bidirectional $left-prf $right-prf) $Type $tv)))
-                  ((($left-goal $right-goal (CPU AndFormula ($left-tv $right-tv) $tv)) |- ($goal)) $adds)))
+                  ((($left-goal $right-goal (CPU AndFormula ($left-tv $right-tv) $tv)) |- ($goal))
+                     (union-atom $left-adds $right-adds))))
             (if (and (= $Type (Inheritance $subj $concept)) (concrete-inheritance-link? $subj $concept))
                (superpose (
                   (let*
