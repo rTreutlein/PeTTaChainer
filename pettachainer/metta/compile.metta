@@ -615,42 +615,23 @@
                (add-atom &rule_evidence_names ($kb $name)))))))
 
 (= (base-rate-premise-default $kb $pattern $brtv)
-   (if (= $pattern (Inheritance $x $_concept))
-      (if (is-var $x)
-         (CPU FoldAllCompiled
-            ($kb
-               $pattern
-               (extract-inheritance-tv $kb $pattern)
-               (BaseRateEvidence 0.0 0.0)
-               WeightedBaseRateAcc
-               weighted-base-rate
-               result-tv)
-            $brtv)
-         (CPU FoldAllCompiled
-            ($kb $pattern extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)
-            $brtv))
+   (if (and (= $pattern (Inheritance $x $_concept)) (is-var $x))
+      (CPU FoldAllCompiled
+         ($kb $pattern (extract-inheritance-tv $kb $pattern) (BaseRateEvidence 0.0 0.0)
+            WeightedBaseRateAcc weighted-base-rate result-tv)
+         $brtv)
       (CPU FoldAllCompiled
          ($kb $pattern extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)
          $brtv)))
 
 (= (base-rate-premise $kb $pattern $brtv)
-   (if (= $pattern (Member $x $class))
-      (base-rate-premise-default $kb $pattern $brtv)
-      (if (= $pattern (Inheritance $x $subj))
-         (if (and (is-var $x) (known-concept-node? $kb $subj))
-            (CPU FoldAllCompiled
-               ($kb
-                  $pattern
-                  (extract-inheritance-tv $kb $pattern)
-                  (BaseRateEvidenceWithPrior
-                     (ConceptNodePriorFormula $kb $subj)
-                     (BaseRateEvidence 0.0 0.0))
-                  WeightedBaseRateWithPriorAcc
-                  weighted-base-rate-with-prior
-                  result-tv)
-               $brtv)
-            (base-rate-premise-default $kb $pattern $brtv))
-         (base-rate-premise-default $kb $pattern $brtv))))
+   (if (and (= $pattern (Inheritance $x $subj)) (and (is-var $x) (known-concept-node? $kb $subj)))
+      (CPU FoldAllCompiled
+         ($kb $pattern (extract-inheritance-tv $kb $pattern)
+            (BaseRateEvidenceWithPrior (ConceptNodePriorFormula $kb $subj) (BaseRateEvidence 0.0 0.0))
+            WeightedBaseRateWithPriorAcc weighted-base-rate-with-prior result-tv)
+         $brtv)
+      (base-rate-premise-default $kb $pattern $brtv)))
 
 (= (inverse-implication $kb $prf $a $b $itv)
    (let*
