@@ -52,18 +52,13 @@
                    (chainer-add-atom &aggregate ($agg-gid $child-gid $args $base-score $base-score $current-pid)))))
             $nagenda))))
 
-(=
-   (aggregate-child-goal
-      (CPU FoldAllCompiled ($kb $pattern $_extractor $_init $_fun $_finish $_tv-mode) $_goalres))
+;; FoldAllCompiled and GroupedFoldAllCompiled both carry the kb and pattern as
+;; the first two args; the child goal is the compiled query for that pattern.
+(= (aggregate-child-goal (CPU $_fun $args $_goalres))
    (let*
-      (((compiled-query $child-goal $adds) (mm2compileQuery $kb (: $prf $pattern $tvin)))
-       ($_ (inject-compiled-adds $adds)))
-      $child-goal))
-(=
-   (aggregate-child-goal
-      (CPU GroupedFoldAllCompiled ($kb $pattern $_group $_extractor $_init $_fun $_finish $_tv-mode) $_goalres))
-   (let*
-      (((compiled-query $child-goal $adds) (mm2compileQuery $kb (: $prf $pattern $tvin)))
+      (($kb (car-atom $args))
+       ($pattern (car-atom (cdr-atom $args)))
+       ((compiled-query $child-goal $adds) (mm2compileQuery $kb (: $prf $pattern $tvin)))
        ($_ (inject-compiled-adds $adds)))
       $child-goal))
 
