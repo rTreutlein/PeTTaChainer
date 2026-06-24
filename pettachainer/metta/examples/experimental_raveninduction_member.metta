@@ -1,10 +1,10 @@
 !(import! &self petta_chainer)
 
 ; Same setup as raveninduction.metta, but object-level observations use Member.
-; Member observations stay in the Member relation; compileadd also exposes each
-; object as its own singleton member class and derives member-level implication
-; views. The class-level Inheritance query can therefore compare the extensional
-; member path against the legacy inheritance-only example.
+; Member observations stay in the Member relation. Inheritance facts derive
+; member-level implication views, so the class-level Inheritance query can
+; compare the extensional member path against the legacy inheritance-only
+; example.
 ;
 ; This is a closed two-object example, so tell the member fold that rv1 and rv2
 ; are the whole object universe. The fold then uses observed coverage for

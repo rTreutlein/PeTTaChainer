@@ -701,12 +701,6 @@
          (member-inheritance-implication-type $subj $concept)
          (CTV $tv (STV 0.0 1.0)))))
 
-(= (compile-derived-member-observation-implication $kb $prf $obj $class $tv)
-   (compile_ $kb
-      (: (member-observation-implication $prf)
-         (member-inheritance-implication-type $obj $class)
-         (CTV $tv (STV 0.0 1.0)))))
-
 (= (compile_ $kb (@ $stmt (: $prf $Type $tv)))
    (if (is-var $Type) (empty)
       (if (= $Type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
@@ -731,14 +725,7 @@
                      $tv)))))
             (let $fact-kb (compile-fact-kb $kb)
                (if (= $Type (Member $obj $class))
-                  (superpose (
-                     (() |- ((: $fact-kb $prf $Type $tv)))
-                     (if (concrete-inheritance-link? $obj $class)
-                        (() |- ((: $fact-kb (member-self $prf) (Member $obj $obj) (STV 1.0 1.0))))
-                        (empty))
-                     (if (concrete-inheritance-link? $obj $class)
-                        (compile-derived-member-observation-implication $kb $prf $obj $class $tv)
-                        (empty))))
+                  (() |- ((: $fact-kb $prf $Type $tv)))
                (if (= $Type (Inheritance $subj $concept))
                   (superpose (
                      (() |- ((: $fact-kb $prf $Type $tv)))

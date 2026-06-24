@@ -94,6 +94,27 @@
 
 (= (clear-base-rate $kbid $pattern) (base-rate-cache-remove! $kbid $pattern))
 
+(= (universe-size-entries $kbid)
+   (collapse
+      (match &universe_size (universe-size $kbid $n)
+         (universe-size $kbid $n))))
+
+(= (universe-size-remove-entry! $entry) (remove-atom &universe_size $entry))
+
+(= (clear-universe-size $kbid)
+   (let $_ (foreach-flat universe-size-remove-entry! (universe-size-entries $kbid)) ()))
+
+(= (set-universe-size $kbid $n)
+   (let*
+      (($_old (clear-universe-size $kbid))
+       ($_new (add-atom &universe_size (universe-size $kbid $n))))
+      ()))
+
+(= (kb-universe-size $kbid)
+   (let $entries (universe-size-entries $kbid)
+      (if (== $entries ()) no-universe-size
+         (let (universe-size $_kbid $n) (car-atom $entries) $n))))
+
 (= (store-computed-base-rate! $kbid $pattern $tv $mode)
    (if (base-rate-user-set? $kbid $pattern) ()
       (let*
@@ -155,13 +176,20 @@
          (WeightedBaseRateAcc $acc (WeightedTv $atv $btv))
          $rest)))
 
+(= (member-inheritance-tv $kbid $ev)
+   (let $universe-size (kb-universe-size $kbid)
+      (if (== $universe-size no-universe-size)
+         (WeightedCountBaseRateTv $ev)
+         (WeightedUniverseBaseRateTv $universe-size $ev))))
+
 (= (MemberInheritanceFormula $kbid $subj $concept)
    (let $ants
       (collapse
          (match &kb ((Member $obj $subj) ($kbid $_ctx $_vars) $_prf $atv)
             (member-ant $obj $atv)))
       (if (== $ants ()) (empty)
-         (WeightedCountBaseRateTv
+         (member-inheritance-tv
+            $kbid
             (member-inheritance-acc
                $kbid
                $concept

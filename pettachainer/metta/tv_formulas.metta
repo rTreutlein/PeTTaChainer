@@ -115,6 +115,9 @@
 (= (WeightedCountBaseRateTv (BaseRateEvidence $wsum $msum))
    (if (<= $msum 0.0) no-evidence
       (STV (/ $wsum $msum) (count-confidence $msum))))
+(= (WeightedUniverseBaseRateTv $universe-size (BaseRateEvidence $wsum $msum))
+   (if (or (<= $msum 0.0) (<= $universe-size 0.0)) no-evidence
+      (STV (/ $wsum $msum) (min 1.0 (/ $msum $universe-size)))))
 
 (= (WeightedBaseRateWithPriorAcc (BaseRateEvidenceWithPrior $prior $ev) $tv)
    (BaseRateEvidenceWithPrior $prior (WeightedBaseRateAcc $ev $tv)))
