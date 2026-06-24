@@ -479,29 +479,6 @@
          (lower-query-assumption-premise-false $kb $ctx $vars $premise))
       $rest))
 
-(= (build-implication-plan $kb $prf $premises $conclusions)
-   (let*
-      (((compiled-premises $execs $proofs $atv) (once (lower-source-premises $kb $ctx $vars $premises $conclusions)))
-        ($shape-kb ($kb $ctx $vars))
-        ($a (seq2expr $premises))
-        ($b (seq2expr $conclusions))
-        ($nb (skolemize $prf $a $b))
-        ($na (skolemize $prf $b $a))
-        ;; Guard inversion on the *lowered* premises: a premise that lowers to a
-        ;; CPU computation (FoldAll, Compute, ...) cannot be inverted. $a is the
-        ;; clean antecedent expression for base-rate patterns and never carries a
-        ;; CPU head, so the check must look at $execs, not $a.
-        ($skip-inverse (or (disable-inversion-proof-id? $prf) (contains-cpu? (execs-goal-type $execs)))))
-      (compiled-implication $shape-kb
-         $a
-         $b
-         $nb
-         $na
-         $skip-inverse
-         $execs
-         $proofs
-         $atv)))
-
 (= (bidirectional-implication-type? $Type)
    (if (is-expr $Type)
       (let $head (car-atom $Type)
@@ -670,8 +647,17 @@
       (if (= $Type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
          (let*
             (($_evidence-reg (register-rule-evidence! $kb $prf))
-             ($plan (build-implication-plan $kb $prf $premises $conclusions))
-	              ((compiled-implication $shape-kb $a $b $nb $na $skip-inverse $execs $proofs $atv) $plan))
+             ((compiled-premises $execs $proofs $atv)
+                (once (lower-source-premises $kb $ctx $vars $premises $conclusions)))
+             ($shape-kb ($kb $ctx $vars))
+             ($a (seq2expr $premises))
+             ($b (seq2expr $conclusions))
+             ($na (skolemize $prf $b $a))
+             ;; Guard inversion on the *lowered* premises: a premise that lowers to a
+             ;; CPU computation (FoldAll, Compute, ...) cannot be inverted. $a is the
+             ;; clean antecedent expression for base-rate patterns and never carries a
+             ;; CPU head, so the check must look at $execs, not $a.
+             ($skip-inverse (or (disable-inversion-proof-id? $prf) (contains-cpu? (execs-goal-type $execs)))))
 	            (superpose (
 	                 (compile-implication-forward-rules $kb $shape-kb (kbctx $kb) $prf $tv $a $b $execs $proofs $atv)
 	                 (if (not $skip-inverse) (inverse-implication $kb $prf $na $b $tv) (empty))
