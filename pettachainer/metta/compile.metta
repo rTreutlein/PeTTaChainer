@@ -26,9 +26,6 @@
            (($_ $res) (sealed $onlyb (fold-flat $substitute (0 $exprb) $onlyb))))
          $res)))
 
-(= (addidx (cons $head $tail) $idx) (cons ($head $idx) (addidx $tail (+ $idx 1))))
-(= (addidx () $idx) ())
-
 (= (remove-index 0 (cons $_head $tail)) $tail)
 (= (remove-index $idx (cons $head $tail)) (cons $head (remove-index (- $idx 1) $tail)))
 (= (remove-index $_idx ()) ())
@@ -55,7 +52,7 @@
               (projection-evidence-state ((: $kb $fstprf $fst $fsttv)) ($fstprf) $fsttv)
               $rst))
         ($proof-token (projection-evidence-proof-token $proofs)))
-      (bundle-from-execs $execs $tv $proof-token)))
+      (premise-bundle $execs $tv $proof-token)))
 
 (= (compile-output-children $kb $type $head $idx ()) (empty))
 (= (compile-output-children $kb $type $head $idx (cons $elem $rest))
@@ -104,10 +101,10 @@
 (= (leaf-source-bundle $kb $ctx $vars $elem)
    (let $prem-kb (source-premise-kb $kb $ctx $vars)
       (if (is-var $elem)
-         (bundle-from-execs ((: $prem-kb $prf $elem $tv)) $tv $prf)
+         (premise-bundle ((: $prem-kb $prf $elem $tv)) $tv $prf)
          (if (= $elem (CPU $f $args $res))
-         (bundle-from-execs ((CPU $f $args $res)) (cpu-premise-tv $f $args $res) cpu)
-         (bundle-from-execs ((: $prem-kb $prf $elem $tv)) $tv $prf)))))
+         (premise-bundle ((CPU $f $args $res)) (cpu-premise-tv $f $args $res) cpu)
+         (premise-bundle ((: $prem-kb $prf $elem $tv)) $tv $prf)))))
 
 (= (in_map $kb $elem)
    (if (= $elem (CPU $f $args $res))
@@ -128,8 +125,6 @@
 
 (= (execs-goal-type $execs) (seq2expr (map-flat exec-goal-type $execs)))
 
-(= (bundle-from-execs $execs $result-tv $proof) (premise-bundle $execs $result-tv $proof))
-
 (= (compound-all-premise-bundle $kb $ctx $vars $head $tail)
    (let*
       (($prem-kb (if (or (is-var $ctx) (is-var $vars)) (kbctx $kb) ($kb $ctx $vars)))
@@ -139,13 +134,13 @@
            (fold-flat (in_fold (atom_concat $head Formula)) $init $rst))
         (($execs $rcclprf $rccltype) ((reverse $resNNprms) (reverse $cclprf) (reverse $ccltype)))
         ($proof-token (if (= $rcclprf (cons $proof ())) $proof (cons conjunction $rcclprf))))
-      (bundle-from-execs $execs $ccltv $proof-token)))
+      (premise-bundle $execs $ccltv $proof-token)))
 
 (= (compound-any-premise-child-bundle $kb $ctx $vars $head $elem)
    (let*
       (($prem-kb (if (or (is-var $ctx) (is-var $vars)) (kbctx $kb) ($kb $ctx $vars)))
         ((prem $goal $_elem $tv $proof) (in_map $prem-kb $elem)))
-      (bundle-from-execs ($goal) $tv ((atom_concat $head introduction) $proof))))
+      (premise-bundle ($goal) $tv ((atom_concat $head introduction) $proof))))
 
 (= (compound-any-premise-bundle $_kb $_ctx $_vars $_head ()) (empty))
 (= (compound-any-premise-bundle $kb $ctx $vars $head (cons $elem $rest))
@@ -201,13 +196,7 @@
               $rst))
         ($rcclprf $proofs)
         ($proof-token (if (= $rcclprf (cons $proof ())) $proof (cons conjunction $rcclprf))))
-      (bundle-from-execs $execs $ccltv $proof-token)))
-
-(= (compound-direct-query-compute? $items)
-   (if (== $items ()) false
-      (case $items (
-         ((cons (Compute $_f $_args $_res) $_rest) true)
-         ((cons $_item $rest) (compound-direct-query-compute? $rest))))))
+      (premise-bundle $execs $ccltv $proof-token)))
 
 (= (query-compound-child-needs-bundle? $premise)
    (if (compound-source? $premise)
@@ -278,8 +267,6 @@
                            (compile-adapter-chain plain (: $kb $prfa $exec-type $atv))))
                (empty))))))
 
-(= (add-query-add-to-ctx $expr) (add-atom ctx $expr))
-
 (= (lower-source-premise-non-open $kb $ctx $vars $premise)
    (if (compound-source? $premise)
       (let (cons $head $tail) $premise (compound-premise-bundle $kb $ctx $vars $head $tail))
@@ -287,22 +274,22 @@
            ((Implication (cons Premises $_premises) (cons Conclusions $_conclusions))
               (leaf-source-bundle $kb $ctx $vars $premise))
            ((Compute $f $args -> $res)
-              (bundle-from-execs ((CPU $f $args $res)) (cpu-premise-tv $f $args $res) cpu))
+              (premise-bundle ((CPU $f $args $res)) (cpu-premise-tv $f $args $res) cpu))
            ((Compute $f $args $res)
-              (bundle-from-execs ((CPU $f $args $res)) (cpu-premise-tv $f $args $res) cpu))
+              (premise-bundle ((CPU $f $args $res)) (cpu-premise-tv $f $args $res) cpu))
            ((MapDist $fun $a $value -> $out)
-              (bundle-from-execs
+              (premise-bundle
                  ((: ($kb $ctx $vars) $prfa $a $tv_a) (CPU DistMapFormula ($fun $value) $out))
                  (STV 1.0 1.0)
                  $prfa))
            ((Map2Dist $fun $a $valuea $b $valueb -> $out)
-              (bundle-from-execs
+              (premise-bundle
                  ((: ($kb $ctx $vars) $prfa $a $tv_a) (: ($kb $ctx $vars) $prfb $b $tv_b)
                     (CPU DistMap2Formula (quote ($fun $valuea $valueb)) $out))
                  (STV 1.0 1.0)
                  (conjunction $prfa $prfb)))
            ((AverageDist $pattern $value -> $out)
-              (bundle-from-execs
+              (premise-bundle
                  ((CPU FoldAllCompiled
                        ($kb $pattern
                           (extract-value $pattern $value)
@@ -314,12 +301,12 @@
                  (STV 1.0 1.0)
                  cpu))
            ((FoldAllValue $pattern $init $fun -> $out)
-              (bundle-from-execs
+              (premise-bundle
                  ((CPU FoldAllCompiled ($kb $pattern extract-tv $init $fun identity result-tv) $out))
                  (STV 1.0 1.0)
                  cpu))
            ((FoldAll $pattern $value $init $fun -> $out)
-              (bundle-from-execs
+              (premise-bundle
                  ((CPU FoldAllCompiled
                        ($kb $pattern
                           (extract-value $pattern $value)
@@ -332,13 +319,13 @@
                  cpu))
            ((Not $a)
               (let $prem-kb (source-premise-kb $kb $ctx $vars)
-                 (bundle-from-execs ((: $prem-kb $prfa $a $tv_a) (CPU NotFormula ($tv_a) $tv)) $tv (negated $prfa))))
+                 (premise-bundle ((: $prem-kb $prfa $a $tv_a) (CPU NotFormula ($tv_a) $tv)) $tv (negated $prfa))))
            (($rel $a $b)
               (if (is-member $rel (GreaterThan >))
-                 (if (is-var $b) (bundle-from-execs ((CPU DistGreaterThanDistFormula ($a $b) $tv)) $tv cpu)
-                    (bundle-from-execs ((CPU DistGreaterThanFormula ($a $b) $tv)) $tv cpu))
-                 (bundle-from-execs ((: ($kb $ctx $vars) $prf ($rel $a $b) $tv)) $tv $prf)))
-           ($other (bundle-from-execs ((: ($kb $ctx $vars) $prf $other $tv)) $tv $prf))))))
+                 (if (is-var $b) (premise-bundle ((CPU DistGreaterThanDistFormula ($a $b) $tv)) $tv cpu)
+                    (premise-bundle ((CPU DistGreaterThanFormula ($a $b) $tv)) $tv cpu))
+                 (premise-bundle ((: ($kb $ctx $vars) $prf ($rel $a $b) $tv)) $tv $prf)))
+           ($other (premise-bundle ((: ($kb $ctx $vars) $prf $other $tv)) $tv $prf))))))
 
 (= (lower-source-premise $kb $ctx $vars $premise)
    (if (and (is-expr $premise) (is-var (car-atom $premise)))
@@ -371,13 +358,13 @@
 (= (fold-existential-premise-bundle $kb $ctx $vars $premise $group-vars)
    (let $prem-kb (source-premise-kb $kb $ctx $vars)
       (if (== $group-vars ())
-         (bundle-from-execs
+         (premise-bundle
             ((CPU FoldAllCompiled
                  ($prem-kb $premise extract-tv (STV 0.0 1.0) OrFormula identity result-tv)
                  $fold-tv))
             $fold-tv
             cpu)
-         (bundle-from-execs
+         (premise-bundle
             ((CPU GroupedFoldAllCompiled
                  ($prem-kb $premise $group-vars extract-tv (STV 0.0 1.0) OrFormula identity result-tv)
                  $fold-tv))
@@ -459,7 +446,7 @@
                   (leaf-source-bundle $kb $ctx $vars $premise)
                   (if (== $head Not)
                      (let $prem-kb (source-premise-kb $kb $ctx $vars)
-                        (bundle-from-execs ((: $prem-kb $prf (car-atom (cdr-atom $premise)) (STV 0.0 1.0))) (STV 1.0 1.0) $prf))
+                        (premise-bundle ((: $prem-kb $prf (car-atom (cdr-atom $premise)) (STV 0.0 1.0))) (STV 1.0 1.0) $prf))
                      (lower-source-premise $kb $ctx $vars $premise)))))
          (lower-source-premise $kb $ctx $vars $premise))))
 
@@ -473,21 +460,21 @@
 
 (= (lower-query-assumption-premise-false $kb $ctx $vars $premise)
    (if (is-var $premise)
-      (bundle-from-execs ((: ($kb $ctx $vars) $prf $premise (STV 0.0 1.0))) (STV 0.0 1.0) $prf)
+      (premise-bundle ((: ($kb $ctx $vars) $prf $premise (STV 0.0 1.0))) (STV 0.0 1.0) $prf)
       (if (is-expr $premise)
          (let $head (car-atom $premise)
             (if (is-var $head)
-               (bundle-from-execs ((: ($kb $ctx $vars) $prf $premise (STV 0.0 1.0))) (STV 0.0 1.0) $prf)
+               (premise-bundle ((: ($kb $ctx $vars) $prf $premise (STV 0.0 1.0))) (STV 0.0 1.0) $prf)
                (if (== $head Not)
                   (let $prem-kb (source-premise-kb $kb $ctx $vars)
-                     (bundle-from-execs ((: $prem-kb $prf (car-atom (cdr-atom $premise)) (STV 1.0 1.0))) (STV 0.0 1.0) (negated $prf)))
+                     (premise-bundle ((: $prem-kb $prf (car-atom (cdr-atom $premise)) (STV 1.0 1.0))) (STV 0.0 1.0) (negated $prf)))
                   (if (== $head Implication)
-                     (bundle-from-execs
+                     (premise-bundle
                         ((: ($kb $ctx $vars) $prf $premise (CTV (STV 0.0 1.0) (STV 1.0 1.0))))
                         (CTV (STV 0.0 1.0) (STV 1.0 1.0))
                         $prf)
-                     (bundle-from-execs ((: ($kb $ctx $vars) $prf $premise (STV 0.0 1.0))) (STV 0.0 1.0) $prf)))))
-         (bundle-from-execs ((: ($kb $ctx $vars) $prf $premise (STV 0.0 1.0))) (STV 0.0 1.0) $prf))))
+                     (premise-bundle ((: ($kb $ctx $vars) $prf $premise (STV 0.0 1.0))) (STV 0.0 1.0) $prf)))))
+         (premise-bundle ((: ($kb $ctx $vars) $prf $premise (STV 0.0 1.0))) (STV 0.0 1.0) $prf))))
 
 (= (lower-query-assumption-premises-negative $kb $ctx $vars ())
    (compiled-premises () () (STV 0.0 1.0)))
@@ -530,8 +517,6 @@
 (= (compile-query-adds (: $kb $prf $type $tv))
    (collapse (compile-adapter-chain query (: $kb $prf $type $tv))))
 
-
-(= (compile $kb $stmt) (compile_ $kb $stmt))
 
 (= (kbctx $kb) (if (is-expr $kb) $kb ($kb MAIN Nil)))
 
@@ -760,7 +745,6 @@
               ($neg-ctx (nextctx))
               ($pos-shape-kb ($kb $pos-ctx $mvars))
               ($neg-shape-kb ($kb $neg-ctx $mvars))
-              ($condition (seq2expr $premises))
               ((compiled-premises $pos-execs $_pos-proofs $_pos-atv)
                  (once (lower-query-assumption-premises $kb $pos-ctx $mvars $premises)))
 		              ((compiled-premises $neg-execs $_neg-proofs $_neg-atv)
@@ -845,7 +829,7 @@
 
 
 (= (mm2compile $kb $stmt)
-   (progn (remove-all-atoms ctx) (superpose ((mm2stmt (compile $kb $stmt)) (get-atoms ctx)))))
+   (progn (remove-all-atoms ctx) (superpose ((mm2stmt (compile_ $kb $stmt)) (get-atoms ctx)))))
 
 (= (mm2stmt $stmt) (case $stmt (((() |- ($ccl)) $ccl) (($prms |- ($ccl)) (rules ($prms |- $ccl))))))
 
