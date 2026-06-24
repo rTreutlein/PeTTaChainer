@@ -140,10 +140,11 @@
       $nagenda))
 
 (= (base-rate-aggregate-key $args)
-   (if (= $args ($kbid $pattern $_extractor $_init $_fun base-rate $_tv-mode)) ($kbid $pattern base-rate)
-      (if (= $args ($kbid $pattern $_extractor $_init $_fun weighted-base-rate $_tv-mode)) ($kbid $pattern weighted-base-rate)
-         (if (= $args ($kbid $pattern $_extractor $_init $_fun weighted-base-rate-with-prior $_tv-mode)) ($kbid $pattern weighted-base-rate-with-prior)
-            ()))))
+   (if (= $args ($kbid $pattern $_extractor $_init $_fun $finish $_tv-mode))
+      (if (is-member $finish (base-rate weighted-base-rate weighted-base-rate-with-prior))
+         ($kbid $pattern $finish)
+         ())
+      ()))
 
 (= (commit-cached-aggregate-heap $agenda $agg-gid $args $tv)
    (let*
@@ -499,7 +500,7 @@
 
 (= (search-agenda-step $steps $agenda (qagg $score $agg-gid))
    (let*
-      ((($child-gid $args $base-score $pending $current-pid) (aggregate-by-id $agg-gid)))
+      ((($_child-gid $_args $_base-score $pending $_current-pid) (aggregate-by-id $agg-gid)))
       (if (== $pending $score)
          (let*
             (($next-steps (- $steps 1))
