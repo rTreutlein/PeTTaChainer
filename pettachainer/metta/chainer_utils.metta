@@ -82,8 +82,14 @@
       (min (term-confidence $prem) (premises-expected-confidence $rest))))
 
 (= (term-confidence (CPU $fun $args $res))
-   (if (is-var $res) (cpu-expected-confidence $fun $args) (tv-confidence $res)))
-(= (term-confidence ($_type ($_kbid $_ctx $_vars) $_prf $tv)) (tv-confidence $tv))
+   (let $base (if (is-var $res) (cpu-expected-confidence $fun $args) (tv-confidence $res))
+      (if (== $fun AndMarginalProjection) (* 0.99 $base) $base)))
+
+(= (proof-score (marginal-proj $_idx $_prf) $tv)
+   (* 0.99 (tv-confidence $tv)))
+(= (proof-score $_prf $tv) (tv-confidence $tv))
+
+(= (term-confidence ($_type ($_kbid $_ctx $_vars) $prf $tv)) (proof-score $prf $tv))
 
 (= (premises-expected-confidence ()) 1.0)
 (= (premises-expected-confidence (cons $prem $rest))
@@ -148,6 +154,8 @@
    ($type1 $kb
       (merge/revision $prf1 $prf2)
       (if (and (= $tv1 (STV $_m1 $_c1)) (= $tv2 (STV $_m2 $_c2))) (mergetvs $tv1 $tv2) $tv1)))
+
+(= (proof-atom-proof ($_type $_kb $prf $_tv)) $prf)
 
 (= (foreach-flat $f ()) ())
 (= (foreach-flat $f (cons $x $xs)) (progn ($f $x) (foreach-flat $f $xs)))
@@ -244,14 +252,36 @@
       (if (proof-term-negated? $prf) true
          (if (is-expr $prf) (proof-term-contains-negated-list? (cdr-atom $prf)) false))))
 
+(= (projection-proof-key $prf)
+   (case $prf (
+      ((marginal-proj $idx $base) (projection-key $idx $base))
+      (((proj $idx $base) $_evidence) (projection-key $idx $base))
+      ($_ no-projection-key))))
+
+(= (strict-projection-proof? $prf)
+   (case $prf (
+      (((proj $_idx $_base) $_evidence) true)
+      ($_ false))))
+
+(= (projection-dominates? $prf-a $prf-b)
+   (let $key-a (projection-proof-key $prf-a)
+      (and (not (== $key-a no-projection-key))
+         (and (== $key-a (projection-proof-key $prf-b))
+            (and (strict-projection-proof? $prf-a)
+               (not (strict-projection-proof? $prf-b)))))))
+
 (= (merge-proof-atoms $proof-a $proof-b)
    (if (== $proof-a $proof-b) $proof-a
       (let*
          (($ev-a (proof-atom-evidence-set $proof-a))
            ($ev-b (proof-atom-evidence-set $proof-b))
            ($overlap? (evidence-sets-overlap? $ev-a $ev-b)))
-         (if $overlap?
-            (if (>= (term-confidence $proof-a) (term-confidence $proof-b)) $proof-a $proof-b)
-            (if (>= (term-confidence $proof-a) (term-confidence $proof-b))
-               (RevisionMergeProof $proof-a $proof-b)
-               (RevisionMergeProof $proof-b $proof-a))))))
+         (if (projection-dominates? (proof-atom-proof $proof-a) (proof-atom-proof $proof-b))
+            $proof-a
+            (if (projection-dominates? (proof-atom-proof $proof-b) (proof-atom-proof $proof-a))
+               $proof-b
+               (if $overlap?
+                  (if (>= (term-confidence $proof-a) (term-confidence $proof-b)) $proof-a $proof-b)
+                  (if (>= (term-confidence $proof-a) (term-confidence $proof-b))
+                     (RevisionMergeProof $proof-a $proof-b)
+                     (RevisionMergeProof $proof-b $proof-a))))))))

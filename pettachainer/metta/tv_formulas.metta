@@ -55,6 +55,10 @@
       (STV 0.0 0.0)
       (STV (min 1.0 (/ $sab $sa)) (min $cab $ca))))
 
+(= (AndMarginalProjection (STV $sab $cab))
+   (STV $sab
+      (count-confidence (* $sab (confidence-to-count $cab)))))
+
 (= (OrProjection (STV $sab $cab) (STV $sa $ca))
    (if (== $sa 1.0)
       (STV 0.0 0.0)

@@ -73,6 +73,10 @@
                        (append $execs ((CPU (atom_concat $head Projection) ($tvin $evidence-tv) $tvout)))))
                  ($proof-token ((proj $idx $prf) $evidence-proof)))
                ($allargs |- ((: $kb $proof-token $elem $tvout))))))
+      (if (== $head And)
+         (((: $kb $prf $type $tvin) (CPU AndMarginalProjection ($tvin) $tvout)) |-
+            ((: $kb (marginal-proj $idx $prf) $elem $tvout)))
+         (empty))
       (compile-outputs (: $kb $childprf $elem $childtv))
       (compile-output-children $kb $type $head (+ $idx 1) $rest))))
 
