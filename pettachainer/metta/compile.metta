@@ -639,9 +639,104 @@
          (member-inheritance-implication-type $subj $concept)
          (CTV $tv (STV 0.0 1.0)))))
 
+;; --- Rule specialization against structural facts -------------------------
+;;
+;; A premise is a specialization *trigger* when its head is a registered
+;; specializing predicate and it still contains variables to ground (so a
+;; ground (Symmetric Friend) premise is never re-triggered). When a rule has
+;; trigger premises we do not emit the generic variable-headed rule; instead we
+;; store the rule as a template and emit one ground instance per matching fact.
+;; The instance keeps the trigger premise (now ground), so its truth value is
+;; threaded exactly as the uncompiled rule would, and its conclusion head is
+;; concrete -- giving precise indexing instead of the `any` wildcard.
+
+(= (specialization-trigger? $premise)
+   (if (is-expr $premise)
+      (let $head (car-atom $premise)
+         (if (is-var $head) false
+            (and (specializing-predicate? $head)
+               (not (== (extract-vars $premise) ())))))
+      false))
+
+(= (rule-trigger-premises ()) ())
+(= (rule-trigger-premises (cons $prem $rest))
+   (if (specialization-trigger? $prem)
+      (cons $prem (rule-trigger-premises $rest))
+      (rule-trigger-premises $rest)))
+
+(= (impl-premises (Implication (cons Premises $premises) (cons Conclusions $_conclusions))) $premises)
+
+(= (fact-head $type) (if (is-expr $type) (car-atom $type) $type))
+
+;; Template store, keyed by (kbid, trigger-head, rule-stmt). One row per trigger
+;; head so a newly added fact can find the rules it should specialize.
+(= (spec-template-registered? $kb $head $stmt)
+   (not (== (collapse (match &spec_template ($kb $head $stored)
+                         (if (=alpha $stored $stmt) true (empty)))) ())))
+
+(= (register-spec-template! $kb $head $stmt)
+   (if (spec-template-registered? $kb $head $stmt) ()
+      (let $copy (copy_term $stmt)
+         (add-atom &spec_template ($kb $head $copy)))))
+
+(= (register-spec-templates! $kb () $_stmt) ())
+(= (register-spec-templates! $kb (cons $trigger $rest) $stmt)
+   (let $_ (register-spec-template! $kb (fact-head $trigger) $stmt)
+      (register-spec-templates! $kb $rest $stmt)))
+
+;; Idempotency: remember which ground rule shapes were already emitted so the
+;; rule-add and fact-add paths (and re-adds) never duplicate a rule.
+(= (spec-done? $kb $gtype)
+   (not (== (collapse (match &spec_done ($kb $stored)
+                         (if (=alpha $stored $gtype) true (empty)))) ())))
+
+(= (mark-spec-done! $kb $gtype)
+   (let $copy (copy_term $gtype)
+      (add-atom &spec_done ($kb $copy))))
+
+;; Bind the trigger variables by matching each remaining trigger against the
+;; store; $body shares those variables, so it comes out ground.
+(= (ground-triggers $_kb () $body) $body)
+(= (ground-triggers $kb (cons $trigger $rest) $body)
+   (match &kb ($trigger ($kb $_ctx $_vars) $_prf $_tv)
+      (ground-triggers $kb $rest $body)))
+
+(= (specialize-emit $kb (: $gprf $gtype $gtv))
+   (if (spec-done? $kb $gtype) (empty)
+      (let $_ (mark-spec-done! $kb $gtype)
+         (compile_ $kb (: $gprf $gtype $gtv)))))
+
+;; Rule-add: ground every trigger against the already-stored facts.
+(= (specialize-rule-add $kb $triggers (: $prf $Type $tv))
+   (specialize-emit $kb (ground-triggers $kb $triggers (: $prf $Type $tv))))
+
+;; Fact-add: the new fact is not in &kb yet, so pin the trigger it satisfies
+;; directly (binding the shared variables) and ground any remaining triggers
+;; against the store.
+(= (pin-trigger $_factType ()) ())
+(= (pin-trigger $factType (cons $trigger $rest))
+   (if (== (fact-head $trigger) (fact-head $factType))
+      (let $_ (let $trigger $factType ok) $rest)
+      (cons $trigger (pin-trigger $factType $rest))))
+
+(= (specialize-fact-add $kb $factType (: $prf $Type $tv))
+   (let $remaining (pin-trigger $factType (rule-trigger-premises (impl-premises $Type)))
+      (specialize-emit $kb (ground-triggers $kb $remaining (: $prf $Type $tv)))))
+
+(= (compile-spec-fact-triggers $kb $Type)
+   (let $head (fact-head $Type)
+      (if (and (not (is-var $head)) (specializing-predicate? $head))
+         (match &spec_template ($kb $head $template)
+            (specialize-fact-add $kb $Type (copy_term $template)))
+         (empty))))
+
 (= (compile_ $kb (@ $stmt (: $prf $Type $tv)))
    (if (is-var $Type) (empty)
       (if (= $Type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
+       (let $triggers (rule-trigger-premises $premises)
+        (if (not (== $triggers ()))
+         (let $_ (register-spec-templates! $kb $triggers (: $prf $Type $tv))
+            (specialize-rule-add $kb $triggers (: $prf $Type $tv)))
          (let*
             (($_evidence-reg (register-rule-evidence! $kb $prf))
              ((compiled-premises $execs $proofs $atv)
@@ -660,7 +755,7 @@
 	                 (if (not $skip-inverse) (inverse-implication $kb $prf $na $b $tv) (empty))
 	                 (if (or $skip-inverse (is-var $na)) (empty)
 	                    (compile-outputs (: ((inverted $prf $w $pa1 $pa2) $pb2) $na $natv)))
-	                 (if (or $skip-inverse (is-var $b)) (empty) (compile-adapter-chain plain (: $pb2 $b $btv2))))))
+	                 (if (or $skip-inverse (is-var $b)) (empty) (compile-adapter-chain plain (: $pb2 $b $btv2))))))))
          (if (bidirectional-implication-type? $Type)
             (let ($_head (cons Premises $left) (cons Conclusions $right)) $Type
                (superpose (
@@ -672,7 +767,8 @@
                      $tv)))))
             (let $fact-kb (compile-fact-kb $kb)
                (if (= $Type (Member $obj $class))
-                  (() |- ((: $fact-kb $prf $Type $tv)))
+                  (superpose ((() |- ((: $fact-kb $prf $Type $tv)))
+                              (compile-spec-fact-triggers $kb $Type)))
                (if (= $Type (Inheritance $subj $concept))
                   (superpose (
                      (() |- ((: $fact-kb $prf $Type $tv)))
@@ -681,8 +777,10 @@
                            (compile-derived-inheritance-implication $kb $prf $subj $concept $tv)
                            (compile-derived-member-inheritance-implication $kb $prf $subj $concept $tv)))
                         (empty))
+                     (compile-spec-fact-triggers $kb $Type)
                      (compile-outputs (: $fact-kb $prf $Type $tv))))
                   (superpose ((() |- ((: $fact-kb $prf $Type $tv)))
+                              (compile-spec-fact-triggers $kb $Type)
                               (compile-outputs (: $fact-kb $prf $Type $tv)))))))))))
 
 

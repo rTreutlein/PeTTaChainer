@@ -375,13 +375,24 @@
       (not (== (extract-vars $type) ()))
       false))
 
+(= (rule-goal-head-view-for-key ($goal $parent-gid) $key)
+   (match ccls_head_index ($key $rule-id)
+      (match rules ($rule-id $goal $args)
+         ($args $goal $parent-gid))))
+
+;; Look up rules by the goal's concrete head *and* the `any` wildcard bucket, so
+;; an open goal still reaches variable-headed conclusions (which only live under
+;; `any`). This mirrors the forward chainer's direct+wildcard union and removes
+;; the behavioural gap between open and closed goals.
 (= (rule-goal-head-view ($goal $parent-gid))
    (let $key (forward-indexable-premise-key $goal)
       (if (== $key ())
          ()
-         (match ccls_head_index ($key $rule-id)
-            (match rules ($rule-id $goal $args)
-               ($args $goal $parent-gid))))))
+         (let $wildcard-key (forward-premise-wildcard-key $goal)
+            (superpose (
+               (rule-goal-head-view-for-key ($goal $parent-gid) $key)
+               (if (== $key $wildcard-key) (empty)
+                  (rule-goal-head-view-for-key ($goal $parent-gid) $wildcard-key))))))))
 
 (= (rule-goal-contextual? $goal)
    (if (= $goal ($_type ($_kbid $ctx $_vars) $_prf $_tv))

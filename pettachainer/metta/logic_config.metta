@@ -45,6 +45,17 @@
    (let $matches (collapse (match &logic_config (logic-rule $name) true))
       (not (== $matches ()))))
 
+;; A "specializing" predicate is one whose facts the compiler should resolve at
+;; add-time: a rule premise headed by such a predicate (e.g. (Symmetric $r)) is
+;; ground against the stored facts, emitting one concrete-headed rule instance
+;; per matching fact instead of a single rule with a variable conclusion head.
+(= (set-specializing-predicate $head)
+   (add-atom &logic_config (specializing-predicate $head)))
+
+(= (specializing-predicate? $head)
+   (let $matches (collapse (match &logic_config (specializing-predicate $head) true))
+      (not (== $matches ()))))
+
 !(clear-logic-config)
 !(set-logic-name PLN)
 !(set-compound-connective And All ProjectAll)
