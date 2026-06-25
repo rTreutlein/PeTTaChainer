@@ -157,7 +157,7 @@
                  0.8
                  ((fact-ev (kb MAIN ()) factA (Goal)))
                  ()))))
-      (proof-term-evidence-list (proof-ref $pid)))
+      (once (proof-term-evidence-list-mode proof-walk-plain (proof-ref $pid))))
    ((fact-ev (kb MAIN ()) factA (Goal))))
 
 !(test
@@ -196,9 +196,9 @@
       (materialize-proof $pid))
    factA)
 
-!(test (proof-term-children (custom-proof left right)) ())
+!(test (proof-term-children-mode proof-walk-plain (custom-proof left right)) ())
 
-!(test (proof-term-evidence-list (own_have (fact-ev (kb MAIN ()) i_have_max (Have (i max)))))
+!(test (once (proof-term-evidence-list-mode proof-walk-plain (own_have (fact-ev (kb MAIN ()) i_have_max (Have (i max))))))
    ((own_have (fact-ev (kb MAIN ()) i_have_max (Have (i max))))))
 
 !(test

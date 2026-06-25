@@ -188,8 +188,6 @@
    (if (proof-term-leaf-head? $head) () (cdr-atom $prf)))
 (= (proof-term-children-mode $_mode $_prf) ())
 
-(= (proof-term-children $prf) (proof-term-children-mode proof-walk-plain $prf))
-
 (= (proof-term-evidence-children-mode $mode ()) ())
 (= (proof-term-evidence-children-mode $mode (cons $child $rest))
    (append (proof-term-evidence-list-mode $mode $child)
@@ -218,8 +216,6 @@
             (evidence-negate-list (proof-term-evidence-list-mode $mode (car-atom (cdr-atom $prf))))
             (let $children (proof-term-children-mode $mode $prf)
                (if (== $children ()) (cons $prf ()) (proof-term-evidence-children-mode $mode $children)))))))
-
-(= (proof-term-evidence-list $prf) (once (proof-term-evidence-list-mode proof-walk-plain $prf)))
 
 (= (proof-atom-evidence-set ($_type $kb $prf $_tv))
    (list_to_set (once (proof-term-evidence-list-mode proof-walk-in-kb $prf))))
