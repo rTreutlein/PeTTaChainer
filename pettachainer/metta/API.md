@@ -51,7 +51,31 @@ is a separate, independent surface usable inside rules; it is not enumerated her
 | `(set-compound-mode $head $mode)` | Convenience: set a connective with `ProjectAll` output. |
 | `(set-bidirectional-implication-form $head)` | Mark `$head` as a bidirectional-implication rule form. |
 | `(mark-logic-rule $name)` | Mark `$name` as a logic (structural) rule, excluded from rule-application evidence. |
+| `(set-specializing-predicate $head)` | Resolve premises headed by `$head` at add-time: a rule premise like `(Symmetric $r)` is ground against stored facts, emitting one concrete-headed rule per matching fact instead of a single variable-headed rule. See below. |
 | `(register-inheritance-induction! $kb)` | Enable the inheritance-induction rule set for `$kb`. |
+
+### Specializing predicates
+
+Marking a predicate as specializing turns "structural" rules — those whose
+conclusion head is a variable bound by such a premise — into concrete, precisely
+indexed rules. Given
+
+```
+!(set-specializing-predicate Symmetric)
+!(compileadd kb (: sym (Implication (Premises (Symmetric $r) ($r $x $y)) (Conclusions ($r $y $x))) (STV 0.9 0.9)))
+```
+
+adding `(Symmetric Friend)` does not leave the generic variable-headed rule in
+place. Instead it emits `(Symmetric Friend) (Friend $x $y) -> (Friend $y $x)` —
+the same rule with `$r` ground to `Friend`, keeping `(Symmetric Friend)` as a
+grounded premise so its truth value threads through exactly. The fact itself is
+still stored. Both add orders (rule-first and fact-first) work, and each ground
+instance is emitted once.
+
+The benefit is a lower branching factor: a goal only matches rules instantiated
+for its own relation, rather than every variable-headed structural rule (which
+would match every same-arity goal via the `any` index bucket). This matters most
+for deep queries, where the per-node rule count compounds with search depth.
 
 ## Runtime tuning
 
