@@ -126,7 +126,7 @@ Historical note: an earlier patch instead grouped raw child proof ids by output 
 The `#` wildcard has been removed from the engine. Investigation showed its roles were already covered by existing mechanisms:
 
 1. **Direct matching.** A goal containing `#` was converted hash-to-variable before matching the KB, so `(Pred $v #)` behaved exactly like `(Pred $v $w)`. Plain variables replace it directly.
-2. **Assumed query-context premises.** Implication queries stored their assumed premises as KB facts; premises containing `#` needed a dedicated `wildcard_premise_index` so the (ground) hash fact could answer grounded subgoals. Stored facts containing real variables answer grounded subgoals through ordinary unification, so variable premises subsume this without any index. One semantic difference remains: a variable premise binds to the instance it matches (enumeration), whereas `#` stayed anonymous (one total over anything). The anonymous-total reading is expressed with an explicit `FoldAll` aggregation instead, as in the generic `ii_total` total-implication rule (see `tests/test_total_implication_aggregate.metta` and `benchmarks/demo_total_implication_pattern_mining.metta`).
+2. **Assumed query-context premises.** Implication queries stored their assumed premises as KB facts; premises containing `#` needed a dedicated `wildcard_premise_index` so the (ground) hash fact could answer grounded subgoals. Stored facts containing real variables answer grounded subgoals through ordinary unification, so variable premises subsume this without any index. One semantic difference remains: a variable premise binds to the instance it matches (enumeration), whereas `#` stayed anonymous (one total over anything). The anonymous-total reading is expressed with an explicit `FoldAll` aggregation instead, as in the generic `ii_total` total-implication rule (see `tests/test_total_implication_aggregate.metta`).
 3. **Inverse-implication estimation premises.** `toQuery` replaced rule variables with `#` to form base-rate estimation premises such as `(Smokes #)`: find all proofs of the pattern and merge them into a node-probability estimate. The wildcard mechanism never delivered those semantics (instances answered the premise one at a time, and revision-merge would sum evidence counts instead of counting each instance once). Inversion now uses explicit `FoldAll` base-rate premises instead — see "Base Rates Via FoldAll" below.
 
 ## Base Rates Via FoldAll
@@ -138,7 +138,7 @@ witness proof of B
 base rate of A   = (CPU FoldAllCompiled ($kb A-pattern extract-tv (BaseRateEvidence 0 0) BaseRateAcc base-rate result-tv) $atv)
 base rate of B   = same shape over the B pattern
 (CPU CTVInversionFormula ($atv $btv $itv) $iitv)
-(CPU CTVFormula ($btv_wit $iitv) $mp-tv)
+(CPU CTVModusPonensFormula ($btv_wit $iitv) $mp-tv)
 ```
 
 Key semantics:
@@ -231,14 +231,14 @@ shared, they are factored out as a *conjunction*: probing all shared leaves at
 strength 1 (conjunction = 1) and at 0 (conjunction = 0) recovers each proof's
 residual implication CTV, because the conclusion is linear in the shared
 conjunction's strength. The residuals are revised and re-applied via
-`CTVFormula` to the real conjunction of the shared leaves' TVs. Single-leaf is
+`CTVModusPonensFormula` to the real conjunction of the shared leaves' TVs. Single-leaf is
 the one-element case. No new per-node storage is needed.
 
 `merge-proof-id-output` pools a group only when `group-factorable?` holds:
 
 - the proofs share at least one fact leaf,
 - every proof is standard implication-shaped (premises -> And-fold ->
-  CTVFormula); other shapes fall back to revision/dominance,
+  CTVModusPonensFormula); other shapes fall back to revision/dominance,
 - the residual evidence sets (each proof's evidence minus the shared facts) are
   pairwise disjoint. This rejects proofs that also share an uncertain rule or
   whose evidence subsumes another's -- they are not independent given the shared

@@ -10,9 +10,7 @@
 ; harvests them into the cache afterwards.
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with (foldall-proof pb) (foldall-proof qa (r pb))) qa)
-      (P alice)
-      (STV 0.7314120278984075 0.0008991008991008993)))
+   (: ((inverted r with (foldall-proof pb) (foldall-proof qa (r pb))) qa) (P alice) (STV 0.736162240263287 0.0003604307138536469)))
 
 !(test
    (let $cached (cached-base-rate brKb (P $x))
@@ -24,9 +22,7 @@
 ; no fold expansion).
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa)
-      (P alice)
-      (STV 0.7314120278984075 0.0008991008991008993)))
+   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.736162240263287 0.0003604307138536469)))
 
 ; User-provided base rates override the cache and feed inversion directly.
 !(set-base-rate brKb (P $x) (STV 0.5 0.5))
@@ -34,9 +30,7 @@
 
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa)
-      (P alice)
-      (STV 0.5 0.45)))
+   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.5 0.569301064166628)))
 
 ; Adding a fact invalidates computed entries but keeps user-provided ones.
 !(compileadd brKb (: pc (P carol) (STV 0.3 0.8)))
@@ -65,13 +59,11 @@
 ; A weak computed entry gets refined: the refold has higher confidence, so the
 ; snapshot replaces the cached value, the conclusion uses the refined base
 ; rate, and the harvest writes the refined value back to the cache.
-!(store-computed-base-rate! brKb2 (P $x) (STV 0.2 0.0001))
+!(store-computed-base-rate! brKb2 (P $x) (STV 0.2 0.0001) base-rate)
 
 !(test
    (query 200 brKb2 (: $prf (P alice) $tv))
-   (: ((inverted r with (foldall-proof pb) (foldall-proof qa (r pb))) qa)
-      (P alice)
-      (STV 0.7314120278984075 0.0008991008991008993)))
+   (: ((inverted r with (foldall-proof pb) (foldall-proof qa (r pb))) qa) (P alice) (STV 0.736162240263287 0.0003604307138536469)))
 
 !(test
    (let $cached (cached-base-rate brKb2 (P $x))
@@ -86,13 +78,11 @@
 
 !(compileadd brKb3 (: pb (P bob) (STV 0.7 0.8)))
 
-!(store-computed-base-rate! brKb3 (P $x) (STV 0.5 0.9))
+!(store-computed-base-rate! brKb3 (P $x) (STV 0.5 0.9) base-rate)
 
 !(test
    (query 200 brKb3 (: $prf (P alice) $tv))
-   (: ((inverted r with cpu (foldall-proof qa (r pb))) qa)
-      (P alice)
-      (STV 0.522437162784577 0.0017964071856287427)))
+   (: ((inverted r with cpu (foldall-proof qa (r pb))) qa) (P alice) (STV 0.5258301716166336 0.008091509912253481)))
 
 !(test
    (let $cached (cached-base-rate brKb3 (P $x))

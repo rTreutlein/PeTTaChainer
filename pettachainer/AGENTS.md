@@ -46,3 +46,10 @@ Do not keep a helper just because it feels tidy, but do keep it if direct inlini
 
 When simplifying code, rerun the relevant tests immediately.
 If a cleanup changes behavior, revert it instead of rationalizing it.
+
+The public API is documented in metta/API.md. Never remove or change the signature
+of anything listed there during an internal cleanup, even if only a test calls it.
+Everything not listed is internal and may be inlined or removed once it has no
+caller; a reference from a unit test alone does not make a helper public — rewire
+or drop the test with it. Always grep tests/ before removing a function so you know
+what the change touches.

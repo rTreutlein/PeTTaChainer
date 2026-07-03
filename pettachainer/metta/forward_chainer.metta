@@ -194,16 +194,13 @@
                     ($type ($kb MAIN Nil) $prf $tv))))))
       (if (== $matches ()) () (car-atom $matches))))
 
-(= (forward-chain-with-agenda $steps $kb $agenda)
-   (forward-loop $steps $kb $agenda))
-
 (= (forward-chain-from-facts $steps $kb $facts)
    (let*
       (($old-scope (forward-current-agenda-scope $kb))
         ($scope (forward-new-query-scope $kb))
         ($_scope (forward-set-agenda-scope $kb $scope))
         ($agenda (forward-build-agenda-from-facts $facts))
-        ($_run (forward-chain-with-agenda $steps $kb $agenda))
+        ($_run (forward-loop $steps $kb $agenda))
         ($_dirty (forward-set-agenda-dirty $kb true))
         ($_restore (forward-set-agenda-scope $kb $old-scope)))
       true))
@@ -214,7 +211,7 @@
         ($scope (forward-new-query-scope $kb))
         ($_scope (forward-set-agenda-scope $kb $scope))
         ($agenda (agenda-push-fact-best (empty_heap) $fact))
-        ($_run (forward-chain-with-agenda $steps $kb $agenda))
+        ($_run (forward-loop $steps $kb $agenda))
         ($_dirty (forward-set-agenda-dirty $kb true))
         ($_restore (forward-set-agenda-scope $kb $old-scope)))
       true))

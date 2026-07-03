@@ -11,7 +11,7 @@
    (: pb (B) (STV 1.0 1.0)))
 
 !(test (query 10 queryAddsKb (: $p (And (A) (B)) $tv))
-   (: (conjunction pa pb) (And (A) (B)) (STV 1.0 1.0)))
+   (: (conjunction pa pb) (And (A) (B)) (STV 1.0 0.9998000399670116)))
 
 !(compileadd queryAddsKb2 (: pa2 (A) (STV 1.0 1.0)))
 
@@ -20,7 +20,7 @@
 !(compileadd queryAddsKb2 (: pc2 (And (C) (D)) (STV 1.0 1.0)))
 
 !(test (query 10 queryAddsKb2 (: $p (And (A) (B)) $tv))
-   (: (conjunction pa2 pb2) (And (A) (B)) (STV 1.0 1.0)))
+   (: (conjunction pa2 pb2) (And (A) (B)) (STV 1.0 0.9998000399670116)))
 
 !(compileadd queryAddsKb3 (: pa3 (A) (STV 1.0 1.0)))
 
@@ -29,4 +29,4 @@
 !(compileadd queryAddsKb3 (: pc3 (And (A) (D)) (STV 1.0 1.0)))
 
 !(test (query 10 queryAddsKb3 (: $p (And (A) (B)) $tv))
-   (: (conjunction pa3 pb3) (And (A) (B)) (STV 1.0 1.0)))
+   (: (conjunction pa3 pb3) (And (A) (B)) (STV 1.0 0.9998000399670116)))

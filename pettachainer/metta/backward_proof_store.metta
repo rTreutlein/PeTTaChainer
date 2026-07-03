@@ -146,12 +146,6 @@
 (= (proof-live-cache-epoch)
    (let $n (get-state bwd_live_epoch) (if-error $n 0 $n)))
 
-(= (clear-proof-live-caches)
-   (progn
-      (remove-all-atoms &proof_live_cache)
-      (remove-all-atoms &goal_live_cache)
-      ()))
-
 (= (invalidate-proof-live-caches)
    (let $epoch (proof-live-cache-epoch)
       (change-state! bwd_live_epoch (+ $epoch 1))))
@@ -275,7 +269,7 @@
 ;; confidence that dominance would otherwise discard. The formula that produced
 ;; each proof's TV is already in the store (its CPU formula children), so a
 ;; proof is re-evaluated structurally with one leaf fact overridden. Exact for
-;; standard implication-shaped proofs (premises -> And-fold -> CTVFormula); any
+;; standard implication-shaped proofs (premises -> And-fold -> CTVModusPonensFormula); any
 ;; other shape disables factoring for the group (revision/dominance instead).
 ;; ---------------------------------------------------------------------------
 
@@ -306,8 +300,8 @@
       (if (== $cpu ()) $stored
          (let* (((CPU $lf $la $_r) (proof-output-atom (factor-last $cpu)))
                 ($ctv (factor-find-ctv $la)))
-            (if (and (== $lf CTVFormula) (not (== $ctv no-ctv)))
-               (CTVFormula (factor-and-fold (factor-reeval-premises $prem $keys $o)) $ctv)
+            (if (and (== $lf CTVModusPonensFormula) (not (== $ctv no-ctv)))
+               (CTVModusPonensFormula (factor-and-fold (factor-reeval-premises $prem $keys $o)) $ctv)
                $stored)))))
 
 (= (factor-reeval $pid $keys $o)
@@ -321,7 +315,7 @@
       (if (== $cpu ()) true
          (let* (((CPU $lf $la $_r) (proof-output-atom (factor-last $cpu)))
                 ($ctv (factor-find-ctv $la)))
-            (if (and (== $lf CTVFormula) (not (== $ctv no-ctv))) (factor-all? $prem) false)))))
+            (if (and (== $lf CTVModusPonensFormula) (not (== $ctv no-ctv))) (factor-all? $prem) false)))))
 (= (factor-all? ()) true)
 (= (factor-all? (cons $pid $rest)) (and (factor-proof? $pid) (factor-all? $rest)))
 
@@ -362,16 +356,24 @@
    (AndFormula (factor-leaf-tv $pid $key) (factor-real-conj $pid $rest)))
 
 ;; round-trip check: re-applying a proof's residual to the real shared
-;; conjunction must reproduce its stored TV. Exact when the shared facts enter
-;; through one conjunction; fails (and disables factoring) when they enter
-;; through different conjunctions, where the 2-point probe would be inexact.
+;; conjunction must reproduce its stored strength. The 2-point probe captures
+;; the conclusion's linear dependence on the shared conjunction exactly, so the
+;; strength round-trips when the shared facts enter through one conjunction and
+;; fails (disabling factoring) when they enter through different conjunctions.
+;; Only strength is checked: confidence is non-linear under idealized
+;; propagation, so the residual's re-derived branch confidences never reproduce
+;; the stored confidence exactly -- checking it would reject every valid group.
 (= (factor-abs-diff $x $y) (let $d (- $x $y) (if (< $d 0.0) (- 0.0 $d) $d)))
 (= (factor-close? $x $y) (< (factor-abs-diff $x $y) 0.000001))
-(= (factor-tv-close? (STV $s1 $c1) (STV $s2 $c2)) (and (factor-close? $s1 $s2) (factor-close? $c1 $c2)))
-(= (factor-tv-close? $_a $_b) false)
+;; single clause: a bare catch-all (= (factor-tv-close? $a $b) false) would also
+;; match the (STV STV) case and make the result non-deterministic.
+(= (factor-tv-close? $a $b)
+   (if (= $a (STV $sa $_ca))
+      (if (= $b (STV $sb $_cb)) (factor-close? $sa $sb) false)
+      false))
 (= (factor-roundtrip-one? $pid $keys $conj)
    (let* ((($_t $_k $_p $stored) (proof-output-atom $pid))
-          ($rebuilt (CTVFormula $conj (factor-residual $pid $keys))))
+          ($rebuilt (CTVModusPonensFormula $conj (factor-residual $pid $keys))))
       (factor-tv-close? $stored $rebuilt)))
 (= (factor-roundtrips? () $_keys $_conj) true)
 (= (factor-roundtrips? (cons $pid $rest) $keys $conj)
@@ -413,7 +415,7 @@
    (let* (($keys (factor-shared-keys (factor-shared-facts $pids)))
           ($conj (factor-real-conj (car-atom $pids) $keys))
           ($pooled (factor-revise-residuals $pids $keys))
-          ($merged-tv (CTVFormula $conj $pooled))
+          ($merged-tv (CTVModusPonensFormula $conj $pooled))
           (($type $kb $_p $_t) (proof-output-atom (car-atom $pids))))
       ($type $kb (factor-merged-prf $pids) $merged-tv)))
 
@@ -499,8 +501,14 @@
          ((fact-ev ($kbid $_ctx $_vars) $prf $type)))
       ()))
 
+;; A stored proof dominates a new one only when they are genuinely dependent
+;; (share a rule or hypothesis). Proofs that overlap only in facts are kept so
+;; lifting-merge can pool them at the subgoal -- dropping the lower-scoring one
+;; here would discard recoverable confidence, and (since idealized confidence is
+;; strength-dependent) the scores rarely tie, so plain overlap would otherwise
+;; drop a poolable proof.
 (= (proof-overlap-dominates-score? $old-ev $old-score $new-ev $new-score)
-   (and (evidence-sets-overlap? $old-ev $new-ev)
+   (and (evidence-sets-dependent? $old-ev $new-ev)
       (or (> $old-score $new-score) (and (== $old-score $new-score) (evidence-subset? $new-ev $old-ev)))))
 
 (= (goal-proof-candidate-comparable? false $_outkey $_oldpid) true)

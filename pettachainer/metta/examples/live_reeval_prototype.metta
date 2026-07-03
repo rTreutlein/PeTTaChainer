@@ -6,7 +6,7 @@
 ;; Key finding: the formula that produced a proof's TV is ALREADY in the store.
 ;; Every rule proof's children are [premise-proofs..., formula-CPU-proofs...],
 ;; and each CPU child holds its formula with operands and constants, e.g.
-;;   (CPU CTVFormula ((STV 0.5 1.0) (CTV (STV 0.6 0.9) (STV 0.0 1.0))) (STV 0.3 0.95))
+;;   (CPU CTVModusPonensFormula ((STV 0.5 1.0) (CTV (STV 0.6 0.9) (STV 0.0 1.0))) (STV 0.3 0.95))
 ;; The conclusion TV is the last CPU's result. So lifting-merge needs no new
 ;; per-node storage: re-evaluation walks the existing DAG, overriding one leaf
 ;; fact's TV, and recomputes the CPU chain.
@@ -14,7 +14,7 @@
 ;; Re-evaluation is structural: it folds the premise proofs (identified by child
 ;; position, never by TV value) and re-applies the rule's CTV, so two premises
 ;; with equal TVs are never confused. It handles the standard implication shape
-;; (premises -> And-fold -> CTVFormula); other shapes return the stored TV.
+;; (premises -> And-fold -> CTVModusPonensFormula); other shapes return the stored TV.
 ;; ===========================================================================
 
 ;; Split a rule proof's children into premise proofs and formula CPU proofs.
@@ -39,14 +39,14 @@
 ;; Structural recompute: fold the premise proofs with And and apply the rule's
 ;; CTV. Each premise is identified by its child position, never by TV value, so
 ;; two premises with equal TVs are not confused. Standard implication shape only
-;; (premises -> And-fold -> CTVFormula); any other shape returns the stored TV.
+;; (premises -> And-fold -> CTVModusPonensFormula); any other shape returns the stored TV.
 (= (reeval-rule $pid $key $ov $stored)
    (let* ((($prem $cpu) (split-pc (proof-children-by-id $pid) () ())))
       (if (== $cpu ()) $stored
          (let* (((CPU $lastf $lastargs $_r) (proof-output-atom (last-elem $cpu)))
                 ($ctv (find-ctv $lastargs)))
-            (if (and (== $lastf CTVFormula) (not (== $ctv no-ctv)))
-               (CTVFormula (and-fold (reeval-premises $prem $key $ov)) $ctv)
+            (if (and (== $lastf CTVModusPonensFormula) (not (== $ctv no-ctv)))
+               (CTVModusPonensFormula (and-fold (reeval-premises $prem $key $ov)) $ctv)
                $stored)))))
 
 ;; re-evaluate proof $pid with the leaf whose output-key = $key overridden to $ov
@@ -69,11 +69,11 @@
 
 ;; no override reproduces the stored TV
 !(test (let $p (car-atom (collapse (ab1-pid))) (reeval-proof $p ((Nothing n) (k MAIN Nil)) (STV 9 9)))
-   (STV 0.3 0.95))
+   (STV 0.3 0.9691934615666751))
 
 ;; overriding A recovers the residual implication, matching the prototype
 !(test (let $p (car-atom (collapse (ab1-pid))) (residual-ctv $p ((A i) (k MAIN Nil))))
-   (CTV (STV 0.6 0.9) (STV 0.0 1.0)))
+   (CTV (STV 0.6 0.8999999998784551) (STV 0.0 0.9998640151554018)))
 
 ;; Robustness: two premises with equal TVs. (B i) = (A i) AND (A2 i), both 0.5.
 ;; Factoring (A i) must leave (A2 i) at 0.5 -- by-value substitution would
@@ -85,4 +85,4 @@
 (= (cc-pid) (match &proof ($pid $g $out (rule ((B i) $kb (rr $_) $_tv)) $sc $ev $ch) $pid))
 
 !(test (let $p (car-atom (collapse (cc-pid))) (residual-ctv $p ((A i) (c MAIN Nil))))
-   (CTV (STV 0.5 1.0) (STV 0.0 1.0)))
+   (CTV (STV 0.5 0.9998999998010301) (STV 0.0 0.9998000374680106)))

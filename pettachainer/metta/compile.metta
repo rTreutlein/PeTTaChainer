@@ -26,9 +26,6 @@
            (($_ $res) (sealed $onlyb (fold-flat $substitute (0 $exprb) $onlyb))))
          $res)))
 
-(= (addidx (cons $head $tail) $idx) (cons ($head $idx) (addidx $tail (+ $idx 1))))
-(= (addidx () $idx) ())
-
 (= (remove-index 0 (cons $_head $tail)) $tail)
 (= (remove-index $idx (cons $head $tail)) (cons $head (remove-index (- $idx 1) $tail)))
 (= (remove-index $_idx ()) ())
@@ -55,7 +52,7 @@
               (projection-evidence-state ((: $kb $fstprf $fst $fsttv)) ($fstprf) $fsttv)
               $rst))
         ($proof-token (projection-evidence-proof-token $proofs)))
-      (bundle-from-execs $execs $tv $proof-token)))
+      (premise-bundle $execs $tv $proof-token)))
 
 (= (compile-output-children $kb $type $head $idx ()) (empty))
 (= (compile-output-children $kb $type $head $idx (cons $elem $rest))
@@ -73,6 +70,10 @@
                        (append $execs ((CPU (atom_concat $head Projection) ($tvin $evidence-tv) $tvout)))))
                  ($proof-token ((proj $idx $prf) $evidence-proof)))
                ($allargs |- ((: $kb $proof-token $elem $tvout))))))
+      (if (== $head And)
+         (((: $kb $prf $type $tvin) (CPU AndMarginalProjection ($tvin) $tvout)) |-
+            ((: $kb (marginal-proj $idx $prf) $elem $tvout)))
+         (empty))
       (compile-outputs (: $kb $childprf $elem $childtv))
       (compile-output-children $kb $type $head (+ $idx 1) $rest))))
 
@@ -100,10 +101,10 @@
 (= (leaf-source-bundle $kb $ctx $vars $elem)
    (let $prem-kb (source-premise-kb $kb $ctx $vars)
       (if (is-var $elem)
-         (bundle-from-execs ((: $prem-kb $prf $elem $tv)) $tv $prf)
+         (premise-bundle ((: $prem-kb $prf $elem $tv)) $tv $prf)
          (if (= $elem (CPU $f $args $res))
-         (bundle-from-execs ((CPU $f $args $res)) (cpu-premise-tv $f $args $res) cpu)
-         (bundle-from-execs ((: $prem-kb $prf $elem $tv)) $tv $prf)))))
+         (premise-bundle ((CPU $f $args $res)) (cpu-premise-tv $f $args $res) cpu)
+         (premise-bundle ((: $prem-kb $prf $elem $tv)) $tv $prf)))))
 
 (= (in_map $kb $elem)
    (if (= $elem (CPU $f $args $res))
@@ -124,8 +125,6 @@
 
 (= (execs-goal-type $execs) (seq2expr (map-flat exec-goal-type $execs)))
 
-(= (bundle-from-execs $execs $result-tv $proof) (premise-bundle $execs $result-tv $proof))
-
 (= (compound-all-premise-bundle $kb $ctx $vars $head $tail)
    (let*
       (($prem-kb (if (or (is-var $ctx) (is-var $vars)) (kbctx $kb) ($kb $ctx $vars)))
@@ -135,13 +134,13 @@
            (fold-flat (in_fold (atom_concat $head Formula)) $init $rst))
         (($execs $rcclprf $rccltype) ((reverse $resNNprms) (reverse $cclprf) (reverse $ccltype)))
         ($proof-token (if (= $rcclprf (cons $proof ())) $proof (cons conjunction $rcclprf))))
-      (bundle-from-execs $execs $ccltv $proof-token)))
+      (premise-bundle $execs $ccltv $proof-token)))
 
 (= (compound-any-premise-child-bundle $kb $ctx $vars $head $elem)
    (let*
       (($prem-kb (if (or (is-var $ctx) (is-var $vars)) (kbctx $kb) ($kb $ctx $vars)))
         ((prem $goal $_elem $tv $proof) (in_map $prem-kb $elem)))
-      (bundle-from-execs ($goal) $tv ((atom_concat $head introduction) $proof))))
+      (premise-bundle ($goal) $tv ((atom_concat $head introduction) $proof))))
 
 (= (compound-any-premise-bundle $_kb $_ctx $_vars $_head ()) (empty))
 (= (compound-any-premise-bundle $kb $ctx $vars $head (cons $elem $rest))
@@ -195,15 +194,9 @@
               (query-compound-premise-step $kb $ctx $vars (atom_concat $head Formula))
               (query-compound-premise-state (query-compound-child-bundle $kb $ctx $vars $fst))
               $rst))
-        ($rcclprf (reverse $proofs))
+        ($rcclprf $proofs)
         ($proof-token (if (= $rcclprf (cons $proof ())) $proof (cons conjunction $rcclprf))))
-      (bundle-from-execs $execs $ccltv $proof-token)))
-
-(= (compound-direct-query-compute? $items)
-   (if (== $items ()) false
-      (case $items (
-         ((cons (Compute $_f $_args $_res) $_rest) true)
-         ((cons $_item $rest) (compound-direct-query-compute? $rest))))))
+      (premise-bundle $execs $ccltv $proof-token)))
 
 (= (query-compound-child-needs-bundle? $premise)
    (if (compound-source? $premise)
@@ -222,8 +215,19 @@
             (or (query-compound-child-needs-bundle? $item)
                (compound-direct-query-bundle? $rest)))))))
 
+(= (compound-nary-query? $items)
+   (case $items (
+      ((cons $_a (cons $_b (cons $_c $_rest))) true)
+      ($_ false))))
+
 (= (query-compound-needs-bundle? $term)
-   (if (is-expr $term) (compound-direct-query-bundle? (cdr-atom $term)) false))
+   (if (is-expr $term)
+      (let $items (cdr-atom $term)
+         (or (compound-nary-query? $items) (compound-direct-query-bundle? $items)))
+      false))
+
+(= (query-compound-proof-token $prf $proof-token)
+   (if (is-var $prf) $proof-token ($prf $proof-token)))
 
 (= (compile-adapter-chain plain (: $kb $prf (@ $type (cons $head $tail)) $tv))
    (if (compound-source? $type)
@@ -252,7 +256,7 @@
                (((cons $head $tail) $type)
                  ((premise-bundle $execs $result-tv $proof-token)
                     (once (query-compound-premise-bundle $kb $ctx $vars $head $tail))))
-               (($execs |- ((: $kb ($prf $proof-token) $type $result-tv)))))
+               (($execs |- ((: $kb (query-compound-proof-token $prf $proof-token) $type $result-tv)))))
             (compile-adapter-chain plain (: $kb $prf $type $tv)))
          (let*
             (((premise-bundle $execs $result-tv $proof-token)
@@ -263,8 +267,6 @@
                            (compile-adapter-chain plain (: $kb $prfa $exec-type $atv))))
                (empty))))))
 
-(= (add-query-add-to-ctx $expr) (add-atom ctx $expr))
-
 (= (lower-source-premise-non-open $kb $ctx $vars $premise)
    (if (compound-source? $premise)
       (let (cons $head $tail) $premise (compound-premise-bundle $kb $ctx $vars $head $tail))
@@ -272,22 +274,22 @@
            ((Implication (cons Premises $_premises) (cons Conclusions $_conclusions))
               (leaf-source-bundle $kb $ctx $vars $premise))
            ((Compute $f $args -> $res)
-              (bundle-from-execs ((CPU $f $args $res)) (cpu-premise-tv $f $args $res) cpu))
+              (premise-bundle ((CPU $f $args $res)) (cpu-premise-tv $f $args $res) cpu))
            ((Compute $f $args $res)
-              (bundle-from-execs ((CPU $f $args $res)) (cpu-premise-tv $f $args $res) cpu))
+              (premise-bundle ((CPU $f $args $res)) (cpu-premise-tv $f $args $res) cpu))
            ((MapDist $fun $a $value -> $out)
-              (bundle-from-execs
+              (premise-bundle
                  ((: ($kb $ctx $vars) $prfa $a $tv_a) (CPU DistMapFormula ($fun $value) $out))
                  (STV 1.0 1.0)
                  $prfa))
            ((Map2Dist $fun $a $valuea $b $valueb -> $out)
-              (bundle-from-execs
+              (premise-bundle
                  ((: ($kb $ctx $vars) $prfa $a $tv_a) (: ($kb $ctx $vars) $prfb $b $tv_b)
                     (CPU DistMap2Formula (quote ($fun $valuea $valueb)) $out))
                  (STV 1.0 1.0)
                  (conjunction $prfa $prfb)))
            ((AverageDist $pattern $value -> $out)
-              (bundle-from-execs
+              (premise-bundle
                  ((CPU FoldAllCompiled
                        ($kb $pattern
                           (extract-value $pattern $value)
@@ -299,12 +301,12 @@
                  (STV 1.0 1.0)
                  cpu))
            ((FoldAllValue $pattern $init $fun -> $out)
-              (bundle-from-execs
+              (premise-bundle
                  ((CPU FoldAllCompiled ($kb $pattern extract-tv $init $fun identity result-tv) $out))
                  (STV 1.0 1.0)
                  cpu))
            ((FoldAll $pattern $value $init $fun -> $out)
-              (bundle-from-execs
+              (premise-bundle
                  ((CPU FoldAllCompiled
                        ($kb $pattern
                           (extract-value $pattern $value)
@@ -317,13 +319,13 @@
                  cpu))
            ((Not $a)
               (let $prem-kb (source-premise-kb $kb $ctx $vars)
-                 (bundle-from-execs ((: $prem-kb $prfa $a $tv_a) (CPU NotFormula ($tv_a) $tv)) $tv (negated $prfa))))
+                 (premise-bundle ((: $prem-kb $prfa $a $tv_a) (CPU NotFormula ($tv_a) $tv)) $tv (negated $prfa))))
            (($rel $a $b)
               (if (is-member $rel (GreaterThan >))
-                 (if (is-var $b) (bundle-from-execs ((CPU DistGreaterThanDistFormula ($a $b) $tv)) $tv cpu)
-                    (bundle-from-execs ((CPU DistGreaterThanFormula ($a $b) $tv)) $tv cpu))
-                 (bundle-from-execs ((: ($kb $ctx $vars) $prf ($rel $a $b) $tv)) $tv $prf)))
-           ($other (bundle-from-execs ((: ($kb $ctx $vars) $prf $other $tv)) $tv $prf))))))
+                 (if (is-var $b) (premise-bundle ((CPU DistGreaterThanDistFormula ($a $b) $tv)) $tv cpu)
+                    (premise-bundle ((CPU DistGreaterThanFormula ($a $b) $tv)) $tv cpu))
+                 (premise-bundle ((: ($kb $ctx $vars) $prf ($rel $a $b) $tv)) $tv $prf)))
+           ($other (premise-bundle ((: ($kb $ctx $vars) $prf $other $tv)) $tv $prf))))))
 
 (= (lower-source-premise $kb $ctx $vars $premise)
    (if (and (is-expr $premise) (is-var (car-atom $premise)))
@@ -356,13 +358,13 @@
 (= (fold-existential-premise-bundle $kb $ctx $vars $premise $group-vars)
    (let $prem-kb (source-premise-kb $kb $ctx $vars)
       (if (== $group-vars ())
-         (bundle-from-execs
+         (premise-bundle
             ((CPU FoldAllCompiled
                  ($prem-kb $premise extract-tv (STV 0.0 1.0) OrFormula identity result-tv)
                  $fold-tv))
             $fold-tv
             cpu)
-         (bundle-from-execs
+         (premise-bundle
             ((CPU GroupedFoldAllCompiled
                  ($prem-kb $premise $group-vars extract-tv (STV 0.0 1.0) OrFormula identity result-tv)
                  $fold-tv))
@@ -432,21 +434,16 @@
         ($ordered-premises (partition-existential-premises $conclusion-vars $premises)))
       (lower-source-premises-list $kb $ctx $vars $ordered-premises)))
 
-(= (lower-source-premises $kb $ctx $vars $premises)
-   (lower-source-premises-list $kb $ctx $vars $premises))
-
 (= (lower-query-assumption-premise $kb $ctx $vars $premise)
-   (if (is-var $premise) (lower-source-premise $kb $ctx $vars $premise)
-      (if (is-expr $premise)
-         (let $head (car-atom $premise)
-            (if (is-var $head) (lower-source-premise $kb $ctx $vars $premise)
-               (if (== $head Implication)
-                  (leaf-source-bundle $kb $ctx $vars $premise)
-                  (if (== $head Not)
-                     (let $prem-kb (source-premise-kb $kb $ctx $vars)
-                        (bundle-from-execs ((: $prem-kb $prf (car-atom (cdr-atom $premise)) (STV 0.0 1.0))) (STV 1.0 1.0) $prf))
-                     (lower-source-premise $kb $ctx $vars $premise)))))
-         (lower-source-premise $kb $ctx $vars $premise))))
+   (if (and (is-expr $premise) (not (is-var (car-atom $premise))))
+      (let $head (car-atom $premise)
+         (if (== $head Implication)
+            (leaf-source-bundle $kb $ctx $vars $premise)
+            (if (== $head Not)
+               (let $prem-kb (source-premise-kb $kb $ctx $vars)
+                  (premise-bundle ((: $prem-kb $prf (car-atom (cdr-atom $premise)) (STV 0.0 1.0))) (STV 1.0 1.0) $prf))
+               (lower-source-premise $kb $ctx $vars $premise))))
+      (lower-source-premise $kb $ctx $vars $premise)))
 
 (= (lower-query-assumption-premises-step $kb $ctx $vars $acc $premise)
    (append-premise-bundle $acc (lower-query-assumption-premise $kb $ctx $vars $premise)))
@@ -457,22 +454,18 @@
       $premises))
 
 (= (lower-query-assumption-premise-false $kb $ctx $vars $premise)
-   (if (is-var $premise)
-      (bundle-from-execs ((: ($kb $ctx $vars) $prf $premise (STV 0.0 1.0))) (STV 0.0 1.0) $prf)
-      (if (is-expr $premise)
-         (let $head (car-atom $premise)
-            (if (is-var $head)
-               (bundle-from-execs ((: ($kb $ctx $vars) $prf $premise (STV 0.0 1.0))) (STV 0.0 1.0) $prf)
-               (if (== $head Not)
-                  (let $prem-kb (source-premise-kb $kb $ctx $vars)
-                     (bundle-from-execs ((: $prem-kb $prf (car-atom (cdr-atom $premise)) (STV 1.0 1.0))) (STV 0.0 1.0) (negated $prf)))
-                  (if (== $head Implication)
-                     (bundle-from-execs
-                        ((: ($kb $ctx $vars) $prf $premise (CTV (STV 0.0 1.0) (STV 1.0 1.0))))
-                        (CTV (STV 0.0 1.0) (STV 1.0 1.0))
-                        $prf)
-                     (bundle-from-execs ((: ($kb $ctx $vars) $prf $premise (STV 0.0 1.0))) (STV 0.0 1.0) $prf)))))
-         (bundle-from-execs ((: ($kb $ctx $vars) $prf $premise (STV 0.0 1.0))) (STV 0.0 1.0) $prf))))
+   (if (and (is-expr $premise) (not (is-var (car-atom $premise))))
+      (let $head (car-atom $premise)
+         (if (== $head Not)
+            (let $prem-kb (source-premise-kb $kb $ctx $vars)
+               (premise-bundle ((: $prem-kb $prf (car-atom (cdr-atom $premise)) (STV 1.0 1.0))) (STV 0.0 1.0) (negated $prf)))
+            (if (== $head Implication)
+               (premise-bundle
+                  ((: ($kb $ctx $vars) $prf $premise (CTV (STV 0.0 1.0) (STV 1.0 1.0))))
+                  (CTV (STV 0.0 1.0) (STV 1.0 1.0))
+                  $prf)
+               (premise-bundle ((: ($kb $ctx $vars) $prf $premise (STV 0.0 1.0))) (STV 0.0 1.0) $prf))))
+      (premise-bundle ((: ($kb $ctx $vars) $prf $premise (STV 0.0 1.0))) (STV 0.0 1.0) $prf)))
 
 (= (lower-query-assumption-premises-negative $kb $ctx $vars ())
    (compiled-premises () () (STV 0.0 1.0)))
@@ -483,25 +476,6 @@
          (lower-query-assumption-premise-false $kb $ctx $vars $premise))
       $rest))
 
-(= (build-implication-plan $kb $prf $premises $conclusions)
-   (let*
-      (((compiled-premises $execs $proofs $atv) (once (lower-source-premises $kb $ctx $vars $premises $conclusions)))
-        ($shape-kb ($kb $ctx $vars))
-        ($a (execs-goal-type $execs))
-        ($b (seq2expr $conclusions))
-        ($nb (skolemize $prf $a $b))
-        ($na (skolemize $prf $b $a))
-        ($skip-inverse (or (disable-inversion-proof-id? $prf) (contains-cpu? $a))))
-      (compiled-implication $shape-kb
-         $a
-         $b
-         $nb
-         $na
-         $skip-inverse
-         $execs
-         $proofs
-         $atv)))
-
 (= (bidirectional-implication-type? $Type)
    (if (is-expr $Type)
       (let $head (car-atom $Type)
@@ -511,8 +485,6 @@
 (= (compile-query-adds (: $kb $prf $type $tv))
    (collapse (compile-adapter-chain query (: $kb $prf $type $tv))))
 
-
-(= (compile $kb $stmt) (compile_ $kb $stmt))
 
 (= (kbctx $kb) (if (is-expr $kb) $kb ($kb MAIN Nil)))
 
@@ -552,15 +524,45 @@
       ((cons $proof $rest)
          (cons conjunction (cons $proof $rest))))))
 
-(= (compile-implication-forward-rules $shape-kb $adapter-kb $prf $tv $a $b $execs $proofs $atv)
+(= (compile-implication-ctv-execs $_kb $_a $_b (CTV $pos $neg))
+   (implication-ctv-execs () (CTV $pos $neg)))
+(= (compile-implication-ctv-execs $kb $a $b (STV $s $c))
+   (let*
+      (($a1 (copy_term (map-nested2 toQuery $a)))
+        ($b1 (copy_term (map-nested2 toQuery $b))))
+      (implication-ctv-execs
+         ((base-rate-premise $kb $a1 $rule-atv)
+          (base-rate-premise $kb $b1 $rule-btv)
+          (CPU ImplicationCTVFormula ($rule-atv $rule-btv (STV $s $c)) $rule-ctv))
+         $rule-ctv)))
+
+(= (compile-implication-output $prf $proof-token $b $btv)
+   (case $b (
+      ((Not $inner)
+         (compiled-output
+            ((CPU NotFormula ($btv) $out-tv))
+            (negated ($prf $proof-token))
+            $inner
+            $out-tv))
+      ($other
+         (compiled-output () ($prf $proof-token) $other $btv)))))
+
+(= (compile-implication-forward-rules $kb $shape-kb $adapter-kb $prf $tv $a $b $execs $proofs $atv)
    (superpose (
       (once
          (let*
             (($proof-token (implication-proof-token $proofs))
+              ((implication-ctv-execs $ctv-execs $rule-ctv)
+                 (compile-implication-ctv-execs $kb $a $b $tv))
+              ((compiled-output $out-execs $out-prf $out-type $out-tv)
+                 (compile-implication-output $prf $proof-token $b $btv))
               ($allargs
                  (append $execs
-                    ((CPU CTVFormula ($atv $tv) $btv)))))
-            ($allargs |- ((: $shape-kb ($prf $proof-token) $b $btv)))))
+                    (append $ctv-execs
+                       (append
+                          ((CPU CTVModusPonensFormula ($atv $rule-ctv) $btv))
+                          $out-execs)))))
+            ($allargs |- ((: $shape-kb $out-prf $out-type $out-tv)))))
       (if (is-var $b) (empty) (compile-outputs (: $adapter-kb ($prf $prfb) $b $btv2)))
       (if (is-var $a) (empty) (compile-adapter-chain plain (: $adapter-kb $prfa $a $atv))))))
 
@@ -580,10 +582,24 @@
             (if (rule-evidence-registered? $kb $name) ()
                (add-atom &rule_evidence_names ($kb $name)))))))
 
+(= (base-rate-premise-default $kb $pattern $brtv)
+   (if (and (= $pattern (Inheritance $x $_concept)) (is-var $x))
+      (CPU FoldAllCompiled
+         ($kb $pattern (extract-inheritance-tv $kb $pattern) (BaseRateEvidence 0.0 0.0)
+            WeightedBaseRateAcc (weighted-base-rate-in-universe $kb) result-tv)
+         $brtv)
+      (CPU FoldAllCompiled
+         ($kb $pattern extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)
+         $brtv)))
+
 (= (base-rate-premise $kb $pattern $brtv)
-   (CPU FoldAllCompiled
-      ($kb $pattern extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)
-      $brtv))
+   (if (and (= $pattern (Inheritance $x $subj)) (and (is-var $x) (not (is-var $subj))))
+      (CPU FoldAllCompiled
+         ($kb $pattern (extract-inheritance-tv $kb $pattern)
+            (BaseRateEvidenceWithPrior (ConceptNodePriorRuntime $kb $subj) (BaseRateEvidence 0.0 0.0))
+            WeightedBaseRateWithPriorAcc (weighted-base-rate-with-prior-in-universe $kb) result-tv)
+         $brtv)
+      (base-rate-premise-default $kb $pattern $brtv)))
 
 (= (inverse-implication $kb $prf $a $b $itv)
    (let*
@@ -592,25 +608,154 @@
       (((: ($kb $ctx $vars) $prfb_wit $b $btv_wit)
             (base-rate-premise $kb $a1 $atv)
             (base-rate-premise $kb $b1 $btv)
-            (CPU CTVInversionFormula ($atv $btv $itv) $iitv)
-            (CPU CTVFormula ($btv_wit $iitv) $mp-tv))
+            (CPU ImplicationCTVFormula ($atv $btv $itv) $rule-ctv)
+            (CPU CTVInversionFormula ($atv $btv $rule-ctv) $iitv)
+            (CPU CTVModusPonensFormula ($btv_wit $iitv) $mp-tv))
          |-
          ((: ($kb $ctx $vars) ((inverted $prf with cpu cpu) $prfb_wit) $a $mp-tv)))))
 
+(= (concrete-inheritance-link? $subj $concept)
+   (and (not (is-var $subj)) (not (is-var $concept))))
+
+(= (inheritance-implication-type $subj $concept)
+   (Implication
+      (Premises (Inheritance $x $subj))
+      (Conclusions (Inheritance $x $concept))))
+
+(= (member-inheritance-implication-type $subj $concept)
+   (Implication
+      (Premises (Member $x $subj))
+      (Conclusions (Member $x $concept))))
+
+(= (compile-derived-inheritance-implication $kb $prf $subj $concept $tv)
+   (compile_ $kb
+      (: (inheritance-implication $prf)
+         (inheritance-implication-type $subj $concept)
+         $tv)))
+
+(= (compile-derived-member-inheritance-implication $kb $prf $subj $concept $tv)
+   (compile_ $kb
+      (: (no_inverse (member-inheritance-implication $prf))
+         (member-inheritance-implication-type $subj $concept)
+         (CTV $tv (STV 0.0 1.0)))))
+
+;; --- Rule specialization against structural facts -------------------------
+;;
+;; A premise is a specialization *trigger* when its head is a registered
+;; specializing predicate and it still contains variables to ground (so a
+;; ground (Symmetric Friend) premise is never re-triggered). When a rule has
+;; trigger premises we do not emit the generic variable-headed rule; instead we
+;; store the rule as a template and emit one ground instance per matching fact.
+;; The instance keeps the trigger premise (now ground), so its truth value is
+;; threaded exactly as the uncompiled rule would, and its conclusion head is
+;; concrete -- giving precise indexing instead of the `any` wildcard.
+
+(= (specialization-trigger? $premise)
+   (if (is-expr $premise)
+      (let $head (car-atom $premise)
+         (if (is-var $head) false
+            (and (specializing-predicate? $head)
+               (not (== (extract-vars $premise) ())))))
+      false))
+
+(= (rule-trigger-premises ()) ())
+(= (rule-trigger-premises (cons $prem $rest))
+   (if (specialization-trigger? $prem)
+      (cons $prem (rule-trigger-premises $rest))
+      (rule-trigger-premises $rest)))
+
+(= (impl-premises (Implication (cons Premises $premises) (cons Conclusions $_conclusions))) $premises)
+
+(= (fact-head $type) (if (is-expr $type) (car-atom $type) $type))
+
+;; Template store, keyed by (kbid, trigger-head, rule-stmt). One row per trigger
+;; head so a newly added fact can find the rules it should specialize.
+(= (spec-template-registered? $kb $head $stmt)
+   (not (== (collapse (match &spec_template ($kb $head $stored)
+                         (if (=alpha $stored $stmt) true (empty)))) ())))
+
+(= (register-spec-template! $kb $head $stmt)
+   (if (spec-template-registered? $kb $head $stmt) ()
+      (let $copy (copy_term $stmt)
+         (add-atom &spec_template ($kb $head $copy)))))
+
+(= (register-spec-templates! $kb () $_stmt) ())
+(= (register-spec-templates! $kb (cons $trigger $rest) $stmt)
+   (let $_ (register-spec-template! $kb (fact-head $trigger) $stmt)
+      (register-spec-templates! $kb $rest $stmt)))
+
+;; Idempotency: remember which ground rule shapes were already emitted so the
+;; rule-add and fact-add paths (and re-adds) never duplicate a rule.
+(= (spec-done? $kb $gtype)
+   (not (== (collapse (match &spec_done ($kb $stored)
+                         (if (=alpha $stored $gtype) true (empty)))) ())))
+
+(= (mark-spec-done! $kb $gtype)
+   (let $copy (copy_term $gtype)
+      (add-atom &spec_done ($kb $copy))))
+
+;; Bind the trigger variables by matching each remaining trigger against the
+;; store; $body shares those variables, so it comes out ground.
+(= (ground-triggers $_kb () $body) $body)
+(= (ground-triggers $kb (cons $trigger $rest) $body)
+   (match &kb ($trigger ($kb $_ctx $_vars) $_prf $_tv)
+      (ground-triggers $kb $rest $body)))
+
+(= (specialize-emit $kb (: $gprf $gtype $gtv))
+   (if (spec-done? $kb $gtype) (empty)
+      (let $_ (mark-spec-done! $kb $gtype)
+         (compile_ $kb (: $gprf $gtype $gtv)))))
+
+;; Rule-add: ground every trigger against the already-stored facts.
+(= (specialize-rule-add $kb $triggers (: $prf $Type $tv))
+   (specialize-emit $kb (ground-triggers $kb $triggers (: $prf $Type $tv))))
+
+;; Fact-add: the new fact is not in &kb yet, so pin the trigger it satisfies
+;; directly (binding the shared variables) and ground any remaining triggers
+;; against the store.
+(= (pin-trigger $_factType ()) ())
+(= (pin-trigger $factType (cons $trigger $rest))
+   (if (== (fact-head $trigger) (fact-head $factType))
+      (let $_ (let $trigger $factType ok) $rest)
+      (cons $trigger (pin-trigger $factType $rest))))
+
+(= (specialize-fact-add $kb $factType (: $prf $Type $tv))
+   (let $remaining (pin-trigger $factType (rule-trigger-premises (impl-premises $Type)))
+      (specialize-emit $kb (ground-triggers $kb $remaining (: $prf $Type $tv)))))
+
+(= (compile-spec-fact-triggers $kb $Type)
+   (let $head (fact-head $Type)
+      (if (and (not (is-var $head)) (specializing-predicate? $head))
+         (match &spec_template ($kb $head $template)
+            (specialize-fact-add $kb $Type (copy_term $template)))
+         (empty))))
 
 (= (compile_ $kb (@ $stmt (: $prf $Type $tv)))
    (if (is-var $Type) (empty)
       (if (= $Type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
+       (let $triggers (rule-trigger-premises $premises)
+        (if (not (== $triggers ()))
+         (let $_ (register-spec-templates! $kb $triggers (: $prf $Type $tv))
+            (specialize-rule-add $kb $triggers (: $prf $Type $tv)))
          (let*
             (($_evidence-reg (register-rule-evidence! $kb $prf))
-             ($plan (build-implication-plan $kb $prf $premises $conclusions))
-	              ((compiled-implication $shape-kb $a $b $nb $na $skip-inverse $execs $proofs $atv) $plan))
+             ((compiled-premises $execs $proofs $atv)
+                (once (lower-source-premises $kb $ctx $vars $premises $conclusions)))
+             ($shape-kb ($kb $ctx $vars))
+             ($a (seq2expr $premises))
+             ($b (seq2expr $conclusions))
+             ($na (skolemize $prf $b $a))
+             ;; Guard inversion on the *lowered* premises: a premise that lowers to a
+             ;; CPU computation (FoldAll, Compute, ...) cannot be inverted. $a is the
+             ;; clean antecedent expression for base-rate patterns and never carries a
+             ;; CPU head, so the check must look at $execs, not $a.
+             ($skip-inverse (or (disable-inversion-proof-id? $prf) (contains-cpu? (execs-goal-type $execs)))))
 	            (superpose (
-	                 (compile-implication-forward-rules $shape-kb (kbctx $kb) $prf $tv $a $b $execs $proofs $atv)
+	                 (compile-implication-forward-rules $kb $shape-kb (kbctx $kb) $prf $tv $a $b $execs $proofs $atv)
 	                 (if (not $skip-inverse) (inverse-implication $kb $prf $na $b $tv) (empty))
 	                 (if (or $skip-inverse (is-var $na)) (empty)
 	                    (compile-outputs (: ((inverted $prf $w $pa1 $pa2) $pb2) $na $natv)))
-	                 (if (or $skip-inverse (is-var $b)) (empty) (compile-adapter-chain plain (: $pb2 $b $btv2))))))
+	                 (if (or $skip-inverse (is-var $b)) (empty) (compile-adapter-chain plain (: $pb2 $b $btv2))))))))
          (if (bidirectional-implication-type? $Type)
             (let ($_head (cons Premises $left) (cons Conclusions $right)) $Type
                (superpose (
@@ -621,8 +766,22 @@
                      (Implication (cons Premises $right) (cons Conclusions $left))
                      $tv)))))
             (let $fact-kb (compile-fact-kb $kb)
-	               (superpose ((() |- ((: $fact-kb $prf $Type $tv)))
-	                           (compile-outputs (: $fact-kb $prf $Type $tv)))))))))
+               (if (= $Type (Member $obj $class))
+                  (superpose ((() |- ((: $fact-kb $prf $Type $tv)))
+                              (compile-spec-fact-triggers $kb $Type)))
+               (if (= $Type (Inheritance $subj $concept))
+                  (superpose (
+                     (() |- ((: $fact-kb $prf $Type $tv)))
+                     (if (concrete-inheritance-link? $subj $concept)
+                        (superpose (
+                           (compile-derived-inheritance-implication $kb $prf $subj $concept $tv)
+                           (compile-derived-member-inheritance-implication $kb $prf $subj $concept $tv)))
+                        (empty))
+                     (compile-spec-fact-triggers $kb $Type)
+                     (compile-outputs (: $fact-kb $prf $Type $tv))))
+                  (superpose ((() |- ((: $fact-kb $prf $Type $tv)))
+                              (compile-spec-fact-triggers $kb $Type)
+                              (compile-outputs (: $fact-kb $prf $Type $tv)))))))))))
 
 
 (= (implication-query-known-tv-parts $tv)
@@ -632,70 +791,103 @@
          (implication-query-tv-parts $pos-tv $neg-tv $tv)
          (implication-query-tv-parts $tv $stv-neg-tv (CTV $tv $stv-neg-tv)))))
 
+;; One side of a total-implication / bidirectional query: allocate a fresh
+;; query context, lower the premises (negatively for the refuting side of a
+;; total implication, positively otherwise), and collect the context + adapter
+;; atoms the chainer needs to resolve this side's conclusion. Returns the ground
+;; shape-kb, the fresh proof var (shared with the caller's goal and proof
+;; token), the conclusion expression, and the side's adds.
+(= (query-side $kb $mvars $negative? $premises $conclusion-side)
+   (let*
+      (($ctx (nextctx))
+       ($shape-kb ($kb $ctx $mvars))
+       ((compiled-premises $execs $_proofs $_atv)
+          (once (if $negative?
+                   (lower-query-assumption-premises-negative $kb $ctx $mvars $premises)
+                   (lower-query-assumption-premises $kb $ctx $mvars $premises))))
+       ($goal-expr (seq2expr $conclusion-side))
+       ($adds
+          (union-atom
+             (query-context-premise-adds $kb $ctx $mvars $execs)
+             (collapse (compile-adapter-chain query (: $shape-kb $prf $goal-expr $adapter-tv))))))
+      (qside $shape-kb $prf $goal-expr $adds)))
+
+;; The two sides of a total-implication query share one conclusion $b and differ
+;; only in polarity. Returns the ground shape-kbs, $b, the fresh pos/neg proof
+;; vars (used by the caller in its known goals and proof token), and all adds.
+(= (query-pos-neg-scaffold $kb $mvars $premises $conclusions)
+   (let*
+      (((qside $pos-shape-kb $pos-prf $b $pos-adds)
+          (query-side $kb $mvars false $premises $conclusions))
+       ((qside $neg-shape-kb $neg-prf $_b $neg-adds)
+          (query-side $kb $mvars true $premises $conclusions)))
+      (query-scaffold $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf
+         (union-atom $pos-adds $neg-adds))))
+
 (= (compileQuery $kb (: $prf $Type $tv))
    (if (is-var $Type) ((() |- ((: (kbctx $kb) $prf $Type $tv))) ())
       (if (= $Type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
          (let*
             (($vars (extract-vars $Type))
-              ($mvars (if (== $vars ()) Nil $vars))
-              ($pos-ctx (nextctx))
-              ($neg-ctx (nextctx))
-              ($pos-shape-kb ($kb $pos-ctx $mvars))
-              ($neg-shape-kb ($kb $neg-ctx $mvars))
-              ($condition (seq2expr $premises))
-              ((compiled-premises $pos-execs $_pos-proofs $_pos-atv)
-                 (once (lower-query-assumption-premises $kb $pos-ctx $mvars $premises)))
-		              ((compiled-premises $neg-execs $_neg-proofs $_neg-atv)
-		                 (once (lower-query-assumption-premises-negative $kb $neg-ctx $mvars $premises)))
-	              ($b (seq2expr $conclusions))
-	              ($pos-ctxatoms (query-context-premise-adds $kb $pos-ctx $mvars $pos-execs))
-	              ($neg-ctxatoms (query-context-premise-adds $kb $neg-ctx $mvars $neg-execs))
-	              ($pos-adapter-adds (collapse (compile-adapter-chain query (: $pos-shape-kb $pos-prf $b $pos-adapter-tv))))
-	              ($neg-adapter-adds (collapse (compile-adapter-chain query (: $neg-shape-kb $neg-prf $b $neg-adapter-tv))))
-              ($pos-adds (union-atom $pos-ctxatoms $pos-adapter-adds))
-              ($neg-adds (union-atom $neg-ctxatoms $neg-adapter-adds))
-		              ($all-adds
-	                  (union-atom
-	                     $pos-adds
-	                     $neg-adds)))
-			            (let*
-		               (((implication-query-tv-parts $known-pos-tv $known-neg-tv $known-tv)
-		                    (implication-query-known-tv-parts $tv))
-		                 ($known-pos-goal (: $pos-shape-kb $pos-prf $b $known-pos-tv))
-		                 ($known-neg-goal (: $neg-shape-kb $neg-prf $b $known-neg-tv))
-			                 ($known-goal (: (kbctx $kb) (total-implication $pos-prf $neg-prf) $Type $known-tv)))
-		               ((($known-pos-goal $known-neg-goal) |- ($known-goal)) $all-adds)))
+             ($mvars (if (== $vars ()) Nil $vars))
+             ((query-scaffold $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf $all-adds)
+                (query-pos-neg-scaffold $kb $mvars $premises $conclusions))
+             ((implication-query-tv-parts $known-pos-tv $known-neg-tv $known-tv)
+                (implication-query-known-tv-parts $tv))
+             ($known-pos-goal (: $pos-shape-kb $pos-prf $b $known-pos-tv))
+             ($known-neg-goal (: $neg-shape-kb $neg-prf $b $known-neg-tv))
+             ($known-goal (: (kbctx $kb) (total-implication $pos-prf $neg-prf) $Type $known-tv)))
+            ((($known-pos-goal $known-neg-goal) |- ($known-goal)) $all-adds))
          (if (bidirectional-implication-type? $Type)
             (let ($_head (cons Premises $left) (cons Conclusions $right)) $Type
                (let*
                   (($vars (extract-vars $Type))
                     ($mvars (if (== $vars ()) Nil $vars))
-                    ($left-ctx (nextctx))
-                    ($right-ctx (nextctx))
-                    ($left-shape-kb ($kb $left-ctx $mvars))
-                    ($right-shape-kb ($kb $right-ctx $mvars))
-                    ((compiled-premises $left-execs $_left-proofs $_left-atv)
-                       (once (lower-query-assumption-premises $kb $left-ctx $mvars $left)))
-                    ((compiled-premises $right-execs $_right-proofs $_right-atv)
-                       (once (lower-query-assumption-premises $kb $right-ctx $mvars $right)))
-                    ($left-goal (: $left-shape-kb $left-prf (seq2expr $right) $left-tv))
-                    ($right-goal (: $right-shape-kb $right-prf (seq2expr $left) $right-tv))
-                    ($left-ctxatoms (query-context-premise-adds $kb $left-ctx $mvars $left-execs))
-                    ($right-ctxatoms (query-context-premise-adds $kb $right-ctx $mvars $right-execs))
-                    ($left-adapter-adds (collapse (compile-adapter-chain query (: $left-shape-kb $left-prf (seq2expr $right) $left-adapter-tv))))
-                    ($right-adapter-adds (collapse (compile-adapter-chain query (: $right-shape-kb $right-prf (seq2expr $left) $right-adapter-tv))))
-                    ($adds (union-atom
-                       (union-atom $left-ctxatoms $left-adapter-adds)
-                       (union-atom $right-ctxatoms $right-adapter-adds)))
-		                    ($goal (: (kbctx $kb) (bidirectional $left-prf $right-prf) $Type $tv)))
-	                  ((($left-goal $right-goal (CPU AndFormula ($left-tv $right-tv) $tv)) |- ($goal)) $adds)))
-            (((() |- ((: (kbctx $kb) $prf $Type $tv))) (compile-query-adds (: (kbctx $kb) $prf $Type $tv))))))))
+                    ((qside $left-shape-kb $left-prf $left-goal-expr $left-adds)
+                       (query-side $kb $mvars false $left $right))
+                    ((qside $right-shape-kb $right-prf $right-goal-expr $right-adds)
+                       (query-side $kb $mvars false $right $left))
+                    ($left-goal (: $left-shape-kb $left-prf $left-goal-expr $left-tv))
+                    ($right-goal (: $right-shape-kb $right-prf $right-goal-expr $right-tv))
+                    ($goal (: (kbctx $kb) (bidirectional $left-prf $right-prf) $Type $tv)))
+                  ((($left-goal $right-goal (CPU AndFormula ($left-tv $right-tv) $tv)) |- ($goal))
+                     (union-atom $left-adds $right-adds))))
+            (if (and (= $Type (Inheritance $subj $concept)) (concrete-inheritance-link? $subj $concept))
+               (superpose (
+                  (let*
+                     (($imp-type (inheritance-implication-type $subj $concept))
+                      ((Implication (cons Premises $premises) (cons Conclusions $conclusions)) $imp-type)
+                      ($vars (extract-vars $imp-type))
+                      ($mvars (if (== $vars ()) Nil $vars))
+                      ((query-scaffold $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf $all-adds)
+                         (query-pos-neg-scaffold $kb $mvars $premises $conclusions))
+                      ($known-pos-goal (: $pos-shape-kb $pos-prf $b $tv))
+                      ($known-neg-goal (: $neg-shape-kb $neg-prf $b $neg-tv))
+                      ($known-goal (: (kbctx $kb) (inheritance-query (total-implication $pos-prf $neg-prf)) $Type $tv)))
+                     ((($known-pos-goal $known-neg-goal) |- ($known-goal)) $all-adds))
+                  (((() |- ((: (kbctx $kb) $prf $Type $tv)))
+                     (compile-query-adds (: (kbctx $kb) $prf $Type $tv))))
+                  ((((CPU MemberInheritanceFormula ($kb $subj $concept) $tv))
+                     |-
+                     ((: (kbctx $kb) (member-inheritance-fold cpu) $Type $tv)))
+                     ())))
+            (((() |- ((: (kbctx $kb) $prf $Type $tv))) (compile-query-adds (: (kbctx $kb) $prf $Type $tv)))))))))
 
 
-(= (mm2compile $kb $stmt)
-   (progn (remove-all-atoms ctx) (superpose ((mm2stmt (compile $kb $stmt)) (get-atoms ctx)))))
+(= (mm2compile $kb $stmt) (mm2stmt (compile_ $kb $stmt)))
 
 (= (mm2stmt $stmt) (case $stmt (((() |- ($ccl)) $ccl) (($prms |- ($ccl)) (rules ($prms |- $ccl))))))
+
+(= (compiled-add-mm2stmt $add)
+   (if (== (cdr-atom $add) ())
+      (let*
+         (($rule (car-atom $add))
+           ($prms (car-atom $rule))
+           ($tail (cdr-atom $rule))
+           ($ccls (car-atom (cdr-atom $tail)))
+           ($ccl (car-atom $ccls)))
+         (rules ($prms |- $ccl)))
+      (mm2stmt $add)))
 
 (= (query-temp-rule-premise (Compute $f $args $res)) (Compute $f $args -> $res))
 (= (query-temp-rule-premise $premise) $premise)
@@ -707,7 +899,7 @@
       false))
 
 (= (query-compound-needs-temp-rule? $term)
-   (query-compound-needs-bundle? $term))
+   (if (is-expr $term) (compound-direct-query-bundle? (cdr-atom $term)) false))
 
 (= (compound-query-temp-stmt (: $_prf $type $_tv))
    (let*
@@ -734,7 +926,7 @@
               ($a (execs-goal-type $execs))
               ($b (seq2expr $conclusions)))
             (collapse
-               (compile-implication-forward-rules $shape-kb $shape-kb $ctxprf $tv $a $b $execs $proofs $atv)))
+               (compile-implication-forward-rules $kbid $shape-kb $shape-kb $ctxprf $tv $a $b $execs $proofs $atv)))
          ())))
 
 (= (query-context-premise-assumption-adds $kbid $ctx $mvars $ctxprf $type $tv)
@@ -761,7 +953,7 @@
 (= (mm2compileQuery-from-compiled $kb $stmt $compiled)
    (if (= $compiled (((() |- ($ccl)) $adds)))
       (compiled-query (internalize-proof-structure $ccl)
-         (internalize-proof-structure-list (map-flat mm2stmt $adds)))
+         (internalize-proof-structure-list (map-flat compiled-add-mm2stmt $adds)))
       (if
          (= $compiled
             ((((: ($kbid $_ctx $_vars) $prf $type $tv)) |- ((: ($kbid $_ctx $_vars) $prf1 $type1 $tv1)))
@@ -779,7 +971,7 @@
 	            (= $compiled (($prms |- ($ccl)) $adds))
             (compiled-query (internalize-proof-structure $ccl)
                (internalize-proof-structure-list
-                  (cons (mm2stmt ($prms |- ($ccl))) (map-flat mm2stmt $adds))))
+                  (cons (mm2stmt ($prms |- ($ccl))) (map-flat compiled-add-mm2stmt $adds))))
             (notsupported mm2compileQuery $kb $stmt $compiled)))))
 
 (= (mm2compileQuery $kb $stmt)
