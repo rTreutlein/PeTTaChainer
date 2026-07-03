@@ -92,18 +92,49 @@
 (= (universe-size-remove-entry! $entry) (remove-atom &universe_size $entry))
 
 (= (clear-universe-size $kbid)
-   (let $_ (foreach-flat universe-size-remove-entry! (universe-size-entries $kbid)) ()))
+   (let*
+      (($_remove (foreach-flat universe-size-remove-entry! (universe-size-entries $kbid)))
+       ($_invalidate (invalidate-computed-base-rates! $kbid)))
+      ()))
 
 (= (set-universe-size $kbid $n)
    (let*
       (($_old (clear-universe-size $kbid))
-       ($_new (add-atom &universe_size (universe-size $kbid $n))))
+       ($_new (add-atom &universe_size (universe-size $kbid $n)))
+       ($_invalidate (invalidate-computed-base-rates! $kbid)))
       ()))
 
 (= (kb-universe-size $kbid)
    (let $entries (universe-size-entries $kbid)
       (if (== $entries ()) no-universe-size
          (let (universe-size $_kbid $n) (car-atom $entries) $n))))
+
+(= (default-concept-prior-confidence) 0.000001)
+
+(= (concept-prior-confidence-entries $kbid)
+   (collapse
+      (match &concept_prior_confidence (concept-prior-confidence $kbid $c)
+         (concept-prior-confidence $kbid $c))))
+
+(= (concept-prior-confidence-remove-entry! $entry) (remove-atom &concept_prior_confidence $entry))
+
+(= (clear-concept-prior-confidence $kbid)
+   (let*
+      (($_remove (foreach-flat concept-prior-confidence-remove-entry! (concept-prior-confidence-entries $kbid)))
+       ($_invalidate (invalidate-computed-base-rates! $kbid)))
+      ()))
+
+(= (set-concept-prior-confidence $kbid $c)
+   (let*
+      (($_old (clear-concept-prior-confidence $kbid))
+       ($_new (add-atom &concept_prior_confidence (concept-prior-confidence $kbid $c)))
+       ($_invalidate (invalidate-computed-base-rates! $kbid)))
+      ()))
+
+(= (kb-concept-prior-confidence $kbid)
+   (let $entries (concept-prior-confidence-entries $kbid)
+      (if (== $entries ()) (default-concept-prior-confidence)
+         (let (concept-prior-confidence $_kbid $c) (car-atom $entries) $c))))
 
 (= (store-computed-base-rate! $kbid $pattern $tv $mode)
    (if (base-rate-user-set? $kbid $pattern) ()
@@ -137,10 +168,15 @@
 (= (concept-node-prior-tv $kbid $node)
    (if (known-concept-node? $kbid $node)
       (let $n (list-len (concept-nodes $kbid))
-         (if (<= $n 0) no-evidence (STV (/ 1.0 $n) (count-confidence $n))))
+         (if (<= $n 0) no-evidence (STV (/ 1.0 $n) (kb-concept-prior-confidence $kbid))))
       no-evidence))
 
 (= (ConceptNodePriorFormula $kbid $node) (concept-node-prior-tv $kbid $node))
+
+(= (resolve-base-rate-prior (ConceptNodePriorRuntime $kbid $node))
+   (concept-node-prior-tv $kbid $node))
+(= (resolve-base-rate-prior (STV $s $c)) (STV $s $c))
+(= (resolve-base-rate-prior no-evidence) no-evidence)
 
 (= (member-consequent-tv $kbid $obj $concept)
    (let $hits
@@ -182,8 +218,11 @@
 
 (= (inheritance-subject-prior-tv $kbid $subj)
    (if (observed-inheritance-subject? $kbid $subj)
-      (let $n (list-len (inheritance-subjects $kbid))
-         (if (<= $n 0) no-evidence (STV (/ 1.0 $n) 1.0)))
+      (let $universe-size (kb-universe-size $kbid)
+         (if (== $universe-size no-universe-size)
+            (let $n (list-len (inheritance-subjects $kbid))
+               (if (<= $n 0) no-evidence (STV (/ 1.0 $n) 1.0)))
+            (if (<= $universe-size 0.0) no-evidence (STV (/ 1.0 $universe-size) 1.0))))
       no-evidence))
 
 (= (kb-add-expr $backend $expr)

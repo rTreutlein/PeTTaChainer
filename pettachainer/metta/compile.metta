@@ -586,18 +586,18 @@
    (if (and (= $pattern (Inheritance $x $_concept)) (is-var $x))
       (CPU FoldAllCompiled
          ($kb $pattern (extract-inheritance-tv $kb $pattern) (BaseRateEvidence 0.0 0.0)
-            WeightedBaseRateAcc weighted-base-rate result-tv)
+            WeightedBaseRateAcc (weighted-base-rate-in-universe $kb) result-tv)
          $brtv)
       (CPU FoldAllCompiled
          ($kb $pattern extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)
          $brtv)))
 
 (= (base-rate-premise $kb $pattern $brtv)
-   (if (and (= $pattern (Inheritance $x $subj)) (and (is-var $x) (known-concept-node? $kb $subj)))
+   (if (and (= $pattern (Inheritance $x $subj)) (and (is-var $x) (not (is-var $subj))))
       (CPU FoldAllCompiled
          ($kb $pattern (extract-inheritance-tv $kb $pattern)
-            (BaseRateEvidenceWithPrior (ConceptNodePriorFormula $kb $subj) (BaseRateEvidence 0.0 0.0))
-            WeightedBaseRateWithPriorAcc weighted-base-rate-with-prior result-tv)
+            (BaseRateEvidenceWithPrior (ConceptNodePriorRuntime $kb $subj) (BaseRateEvidence 0.0 0.0))
+            WeightedBaseRateWithPriorAcc (weighted-base-rate-with-prior-in-universe $kb) result-tv)
          $brtv)
       (base-rate-premise-default $kb $pattern $brtv)))
 

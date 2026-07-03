@@ -86,6 +86,18 @@
 (= (aggregate-finish base-rate $acc) (BaseRateTv $acc))
 (= (aggregate-finish weighted-base-rate $acc) (WeightedBaseRateTv $acc))
 (= (aggregate-finish weighted-base-rate-with-prior $acc) (WeightedBaseRateWithPriorTv $acc))
+(= (aggregate-finish (weighted-base-rate-in-universe $kbid) $acc)
+   (let $universe-size (kb-universe-size $kbid)
+      (if (== $universe-size no-universe-size)
+         (WeightedBaseRateTv $acc)
+         (WeightedUniverseBaseRateTv $universe-size $acc))))
+(= (aggregate-finish (weighted-base-rate-with-prior-in-universe $kbid) (BaseRateEvidenceWithPrior $prior $ev))
+   (let $universe-size (kb-universe-size $kbid)
+      (BaseRateWithPriorFormula
+         (resolve-base-rate-prior $prior)
+         (if (== $universe-size no-universe-size)
+            (WeightedBaseRateTv $ev)
+            (WeightedUniverseBaseRateTv $universe-size $ev)))))
 (= (aggregate-finish uniform-prior $acc) (UniformPriorTv $acc))
 (= (aggregate-finish uniform-prior-known $acc) (UniformPriorKnownTv $acc))
 
@@ -139,9 +151,16 @@
        ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
       $nagenda))
 
+(= (base-rate-finish? base-rate) true)
+(= (base-rate-finish? weighted-base-rate) true)
+(= (base-rate-finish? weighted-base-rate-with-prior) true)
+(= (base-rate-finish? (weighted-base-rate-in-universe $_kbid)) true)
+(= (base-rate-finish? (weighted-base-rate-with-prior-in-universe $_kbid)) true)
+(= (base-rate-finish? $_finish) false)
+
 (= (base-rate-aggregate-key $args)
    (if (= $args ($kbid $pattern $_extractor $_init $_fun $finish $_tv-mode))
-      (if (is-member $finish (base-rate weighted-base-rate weighted-base-rate-with-prior))
+      (if (base-rate-finish? $finish)
          ($kbid $pattern $finish)
          ())
       ()))
@@ -323,13 +342,11 @@
 ; evidence dependency -- this keeps them from forming evidence cycles with the
 ; very premises they are computed alongside.
 (= (background-aggregate-finish? $finish)
-   (if (== $finish base-rate) true
-      (if (== $finish weighted-base-rate) true
-         (if (== $finish weighted-base-rate-with-prior) true
-            (if (== $finish uniform-prior) true (== $finish uniform-prior-known))))))
+   (if (base-rate-finish? $finish) true
+      (if (== $finish uniform-prior) true (== $finish uniform-prior-known))))
 
 (= (base-rate-refinement-degrades? $finish $current-pid $result)
-   (if (or (== $finish base-rate) (or (== $finish weighted-base-rate) (== $finish weighted-base-rate-with-prior)))
+   (if (base-rate-finish? $finish)
       (if (== $current-pid ()) false
          (let*
             (($new-tv (let (CPU $_fun $_args $ntv) $result $ntv))

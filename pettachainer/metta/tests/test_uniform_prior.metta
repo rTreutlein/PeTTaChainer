@@ -11,23 +11,31 @@
 ; Empty observation set -> no evidence (no division by zero).
 !(test (UniformPriorTv ()) no-evidence)
 
-; Concept-node priors are dynamic over the currently known inheritance endpoint
-; nodes. Adding another concept changes later estimates instead of preserving a
-; stale cached 1/N.
+; Concept-node prior strength stays dynamic over the currently known inheritance
+; endpoint nodes, but its confidence is a tiny synthetic default unless a KB
+; explicitly opts into a stronger example prior.
 !(compileadd dynConceptPriorKb (: rv1Raven (Inheritance rv1 raven) (STV 0.9 0.9)))
 !(compileadd dynConceptPriorKb (: rv2Black (Inheritance rv2 (IntSet black)) (STV 0.0 0.9)))
 
-!(test (concept-node-prior-tv dynConceptPriorKb rv1) (STV 0.25 0.004975124378109453))
+!(test (concept-node-prior-tv dynConceptPriorKb rv1) (STV 0.25 0.000001))
+
+!(set-concept-prior-confidence dynConceptPriorKb 0.9)
+
+!(test (concept-node-prior-tv dynConceptPriorKb rv1) (STV 0.25 0.9))
 
 !(test
    (BaseRateWithPriorFormula
       (concept-node-prior-tv dynConceptPriorKb raven)
       (STV 0.9 0.9))
-   (STV 0.8996390893947807 0.9000499750124937))
+   (STV 0.575 0.9473684210526316))
 
 !(compileadd dynConceptPriorKb (: ravenBird (Inheritance raven bird) (STV 0.9 0.9)))
 
-!(test (concept-node-prior-tv dynConceptPriorKb rv1) (STV 0.2 0.006211180124223602))
+!(test (concept-node-prior-tv dynConceptPriorKb rv1) (STV 0.2 0.9))
+
+!(clear-concept-prior-confidence dynConceptPriorKb)
+
+!(test (concept-node-prior-tv dynConceptPriorKb rv1) (STV 0.2 0.000001))
 
 ; --- Integration: legacy inheritance-induction rule -----------------------
 ; This still exercises the custom induction path while the implication-derived

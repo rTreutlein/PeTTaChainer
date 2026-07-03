@@ -132,7 +132,7 @@
 (= (BaseRateWithPriorFormula $prior $evidence) (mergetvs $prior $evidence))
 
 (= (WeightedBaseRateWithPriorTv (BaseRateEvidenceWithPrior $prior $ev))
-   (BaseRateWithPriorFormula (reduce $prior) (WeightedBaseRateTv $ev)))
+   (BaseRateWithPriorFormula (resolve-base-rate-prior $prior) (WeightedBaseRateTv $ev)))
 
 (= (NegativeBranchStrength $sa $sb $sb_a)
    (if (>= $sa 1.0) $sb
