@@ -10,11 +10,21 @@
 
 !(test
    (query 30 deductionRevisionKb (: $prf (Inheritance A D) $tv))
-   (: (merge/revision
-         ((inheritance-implication cInheritsD) aInheritsC)
-         ((inheritance-implication bInheritsD) aInheritsB))
-      (Inheritance A D)
-      (STV 0.499556786625006 0.22608947420623976)))
+   ((:
+       (inheritance-query
+          (total-implication
+             ((inheritance-implication cInheritsD)
+                ((inheritance-implication aInheritsC) (ctx proof 0)))
+             ((inheritance-implication cInheritsD)
+                ((inheritance-implication aInheritsC) (ctx proof 1)))))
+       (Inheritance A D)
+       (STV 0.49999983333327785 0.0009715845768689697))
+    (:
+       (merge/revision
+          ((inheritance-implication cInheritsD) aInheritsC)
+          ((inheritance-implication bInheritsD) aInheritsB))
+       (Inheritance A D)
+       (STV 0.49999983333327785 0.22475956376844544))))
 
 
 

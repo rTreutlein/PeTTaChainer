@@ -39,9 +39,9 @@
              (smokingCancerRule ((inheritance-implication smokesEdward) (ctx proof 0)))
              (smokingCancerRule ((inheritance-implication smokesEdward) (ctx proof 1)))))
        (Inheritance Edward (IntSet cancerous))
-       (STV 0.6 0.8999998649644999))
+       (STV 0.6 0.8999998649685298))
     (:
        (smokingCancerRule
           (merge/revision smokesEdward (friendSmokingRule (conjunction friendAnnaEdward smokesAnna))))
        (Inheritance Edward (IntSet cancerous))
-       (STV 0.4200002700620408 0.9335532386139358))))
+       (STV 0.420000270059802 0.9335532386144167))))
