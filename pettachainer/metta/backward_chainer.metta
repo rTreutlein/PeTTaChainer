@@ -101,6 +101,188 @@
 (= (aggregate-finish uniform-prior $acc) (UniformPriorTv $acc))
 (= (aggregate-finish uniform-prior-known $acc) (UniformPriorKnownTv $acc))
 
+;; --- Frontier pooling of same-source projections -----------------------------
+;; A conjunction frontier rejects a premise proof whose fact evidence overlaps
+;; evidence already consumed (AndFormula would double count it). When the
+;; overlapping proofs are marginal projections of the *same* stored or derived
+;; (And ...) source, the sharing is exactly accountable: the group of premises
+;; is one joint projection of that source. Such premises are pooled into a
+;; single part whose TV is the marginal projection while the pool is partial
+;; and the source's own TV once every conjunct of the source is in the pool.
+;; Parts are folded with AndFormula across parts only, so frontiers whose parts
+;; are all independent reproduce the unpooled TVs exactly; pooling only adds
+;; results that were previously dropped. Overlap that is not fully explained by
+;; a same-source pool keeps today's rejection.
+
+(= (expr-arity $e) (if (== $e ()) 0 (+ 1 (expr-arity (cdr-atom $e)))))
+
+;; Parts, one per consumed premise, in premise order:
+;;   (indep-part $tv)                                -- ordinary premise
+;;   (pool-part $base $base-tv $arity $idxs $ev $marginal-tv)
+;;                                                   -- projections of one source
+;;   skip-part                                       -- AndFormula chain steps
+;;   unpoolable-part                                 -- unclassifiable premise;
+;;                                                      poisons folds so joins
+;;                                                      fall back to rejection
+(= (frontier-part-tv $part)
+   (case $part (
+      ((indep-part $tv) $tv)
+      ((pool-part $_base $btv $n $idxs $_ev $mtv)
+         (if (== (expr-arity $idxs) $n) $btv $mtv)))))
+
+(= (frontier-parts-fold-acc $acc ()) $acc)
+(= (frontier-parts-fold-acc $acc (cons $part $rest))
+   (frontier-parts-fold-acc (AndFormula $acc (frontier-part-tv $part)) $rest))
+
+(= (frontier-parts-fold (cons $first $rest))
+   (frontier-parts-fold-acc (frontier-part-tv $first) $rest))
+
+;; TV and conjunct count of a projection's source conjunction. Stored proof
+;; outputs carry (proof-ref $pid) handles instead of proof terms, so the real
+;; projection term lives in the proof node's kind; its base is a (proof-ref
+;; $bpid) for chained sources (facts and derived conjunctions alike) or a
+;; statement name for kb-materialized projection facts.
+(= (frontier-and-source-info ($type $_kb $_prf $tv))
+   (if (is-expr $type)
+      (if (== (car-atom $type) And)
+         (source-info $tv (expr-arity (cdr-atom $type)))
+         no-source-info)
+      no-source-info))
+
+;; Pools are keyed by the source's output key (type + kb), not by its proof
+;; node: different conjuncts can instantiate a projection rule's source premise
+;; differently (open vs ground goals), producing distinct proof nodes for the
+;; same source proposition.
+(= (frontier-source-entry-from-atom $atom)
+   (let $i (frontier-and-source-info $atom)
+      (if (== $i no-source-info) no-source-entry
+         (source-entry (candidate-output-key $atom) $i))))
+
+(= (frontier-source-entry $base)
+   (if (= $base (proof-ref $bpid))
+      (frontier-source-entry-from-atom (proof-output-atom $bpid))
+      (let $hits
+         (collapse
+            (match &kb ($type $kb $base $tv)
+               (let $e (frontier-source-entry-from-atom ($type $kb $base $tv))
+                  (if (== $e no-source-entry) (empty) $e))))
+         (if (== $hits ()) no-source-entry (car-atom $hits)))))
+
+(= (frontier-proof-term $kind)
+   (case $kind (
+      ((rule $term) $term)
+      ((leaf $term) $term)
+      ($_ no-term))))
+
+(= (frontier-proof-projection $kind)
+   (let $term (frontier-proof-term $kind)
+      (if (= $term ($_t $_kb $prf $_tv))
+         (if (is-var $prf) no-projection
+            (if (= $prf (marginal-proj $idx $base))
+               (projection $idx $base)
+               no-projection))
+         no-projection)))
+
+(= (frontier-atom-part $pid ($_type $_kb $_prf $tv))
+   (let $proj (frontier-proof-projection (proof-kind-by-id $pid))
+      (if (= $proj (projection $idx $base))
+         (let $entry (frontier-source-entry $base)
+            (if (= $entry (source-entry $key (source-info $btv $n)))
+               (pool-part $key $btv $n ($idx) (snd (proof-stats-by-id $pid)) $tv)
+               (indep-part $tv)))
+         (indep-part $tv))))
+
+(= (frontier-premise-part $pid)
+   (let $out (proof-output-atom $pid)
+      (if (= $out (CPU $f $args $res))
+         (if (== $f AndFormula) skip-part (indep-part (cpu-premise-tv $f $args $res)))
+         (frontier-atom-part $pid $out))))
+
+(= (frontier-parts-idx-union $a ()) $a)
+(= (frontier-parts-idx-union $a (cons $i $rest))
+   (frontier-parts-idx-union (if (is-member $i $a) $a (append $a ($i))) $rest))
+
+(= (frontier-pool-key $part)
+   (case $part (
+      ((pool-part $key $_btv $_n $_idxs $_ev $_mtv) $key)
+      ($_ no-pool-key))))
+
+(= (frontier-parts-same-pool () $_key) no-pool)
+(= (frontier-parts-same-pool (cons $head $rest) $key)
+   (if (=alpha (frontier-pool-key $head) $key)
+      $head
+      (frontier-parts-same-pool $rest $key)))
+
+(= (frontier-parts-join-pool () $pool) ($pool))
+(= (frontier-parts-join-pool (cons $head $rest) (pool-part $key $btv $n $idxs $ev $mtv))
+   (if (=alpha (frontier-pool-key $head) $key)
+      (let (pool-part $okey $obtv $on $oidxs $oev $omtv) $head
+         (cons
+            (pool-part $okey $obtv $on
+               (frontier-parts-idx-union $oidxs $idxs)
+               (list_to_set (append $oev $ev))
+               $omtv)
+            $rest))
+      (cons $head (frontier-parts-join-pool $rest (pool-part $key $btv $n $idxs $ev $mtv)))))
+
+(= (frontier-parts-add $parts $part)
+   (case $part (
+      (skip-part $parts)
+      ((pool-part $base $btv $n $idxs $ev $mtv)
+         (frontier-parts-join-pool $parts (pool-part $base $btv $n $idxs $ev $mtv)))
+      ($other (append $parts ($other))))))
+
+;; Projections score with their source's confidence: a partial pool's marginal
+;; confidence (0 for a strength-0 source) says nothing about the completed
+;; pool's, and would starve the frontier before the join that completes it.
+(= (frontier-part-score $part $pscore)
+   (case $part (
+      ((pool-part $_base $btv $_n $_idxs $_ev $_mtv) (max $pscore (tv-confidence $btv)))
+      ($_ $pscore))))
+
+;; A partial pool's marginal TV can have zero confidence (strength-0 source),
+;; which zeroes the remaining chain's expected confidence and would starve the
+;; frontier before the join that completes the pool. The pool's source
+;; confidence is the frontier's real potential.
+(= (frontier-pool-potential ()) 0.0)
+(= (frontier-pool-potential (cons $part $rest))
+   (case $part (
+      ((pool-part $_k $btv $n $idxs $_ev $_mtv)
+         (if (< (expr-arity $idxs) $n)
+            (max (tv-confidence $btv) (frontier-pool-potential $rest))
+            (frontier-pool-potential $rest)))
+      ($_ (frontier-pool-potential $rest)))))
+
+(= (frontier-remaining-score $bundle $parts)
+   (max (premises-expected-confidence (copy_term (and-bundle-premises $bundle)))
+      (frontier-pool-potential $parts)))
+
+(= (frontier-and-step-premise? $prem)
+   (if (is-expr $prem)
+      (if (== (car-atom $prem) CPU)
+         (== (car-atom (cdr-atom $prem)) AndFormula)
+         false)
+      false))
+
+;; Pop the consumed premise AND its AndFormula step, binding the step's output
+;; to the parts fold (the chain's pairwise application would double count the
+;; pooled source). Yields () when the premise is not directly followed by its
+;; AndFormula step; the caller then drops the proof as before.
+(= (frontier-pooled-bundle $bundle $pid $folded)
+   (let*
+      (($goal (and-bundle-goal $bundle))
+       ($premises (and-bundle-premises $bundle)))
+      (case $premises (
+         ((cons $prem (cons $step $rest))
+            (if (frontier-and-step-premise? $step)
+               (if (= $prem (proof-output-atom $pid))
+                  (if (= (CPU AndFormula $_fargs $folded) $step)
+                     (make-and-bundle $goal $rest)
+                     ())
+                  ())
+               ()))
+         ($_ ())))))
+
 (= (make-and-bundle $goal $args) (cons and-bundle (cons $goal $args)))
 (= (and-bundle-goal $bundle) (car-atom (cdr-atom $bundle)))
 (= (and-bundle-premises $bundle) (cdr-atom (cdr-atom $bundle)))
@@ -114,25 +296,71 @@
            ((cons $prem $rest)
               (if (= $prem (proof-output-atom $pid)) (make-and-bundle $goal $rest) ()))))))
 
-(= (waiter-live? (frontier-waiter $_parent-gid $_bundle $_score $_seen $rev-pids))
+(= (waiter-live? (frontier-waiter $_parent-gid $_bundle $_score $_seen $_parts $rev-pids))
    (proof-list-live? $rev-pids))
 
-(= (advance-frontier-waiter-heap $agenda (frontier-waiter $parent-gid $bundle $score $seen $rev-pids) $pid)
-   (if (not (waiter-live? (frontier-waiter $parent-gid $bundle $score $seen $rev-pids))) $agenda
+(= (advance-frontier-waiter-heap $agenda (frontier-waiter $parent-gid $bundle $score $seen $parts $rev-pids) $pid)
+   (if (not (waiter-live? (frontier-waiter $parent-gid $bundle $score $seen $parts $rev-pids))) $agenda
       (let*
          ((($pscore $pev) (proof-stats-by-id $pid))
           ($frontier-pscore (frontier-proof-score $pid $pscore))
-          ($overlap (premise-evidence-overlap? $seen $pev))
-          ($next-bundle (advance-frontier-bundle (copy_term $bundle) $pid)))
-         (if $overlap $agenda
+          ($part-hits (collapse (frontier-premise-part $pid)))
+          ($part (if (== $part-hits ()) unpoolable-part (car-atom $part-hits)))
+          ($overlap (premise-evidence-overlap? $seen $pev)))
+         (if (frontier-pool-join? $part $parts $seen $pev)
+            (frontier-advance-pooled-heap $agenda $parent-gid $bundle $score $seen $parts $rev-pids
+               $pid $pev $part)
+            (if $overlap $agenda
+               (let $next-bundle (advance-frontier-bundle (copy_term $bundle) $pid)
+                  (if (== $next-bundle ()) $agenda
+                     (let*
+                        (($nparts (frontier-parts-add $parts $part))
+                         ($next-score
+                            (min-atom ($score
+                                       (frontier-part-score $part $frontier-pscore)
+                                       (frontier-remaining-score $next-bundle $nparts)))))
+                        (spawn-frontier-heap $agenda
+                           $parent-gid
+                           $next-bundle
+                           $next-score
+                           (list_to_set (append $seen $pev))
+                           $nparts
+                           (cons $pid $rev-pids))))))))))
+
+;; A premise proof joins the frontier's pool for its projection source when a
+;; pool for that source already exists and any evidence overlap is fully
+;; explained by it. The join applies with or without overlap: projections of
+;; one source are never independent, and forward-chained materialization can
+;; hide their shared provenance behind distinct fact atoms. Overlap not
+;; explained by a pool keeps the double-counting rejection.
+(= (frontier-pool-join? $part $parts $seen $pev)
+   (case $part (
+      ((pool-part $key $_btv $_n $_idxs $_ev $_mtv)
+         (let $existing (frontier-parts-same-pool $parts $key)
+            (if (== $existing no-pool) false
+               (let (pool-part $_k $_btv2 $_n2 $_idxs2 $oev $_mtv2) $existing
+                  (evidence-subset?
+                     (intersection-atom (fact-evidence-only $seen) (fact-evidence-only $pev))
+                     (fact-evidence-only $oev))))))
+      ($_ false))))
+
+(= (frontier-advance-pooled-heap $agenda $parent-gid $bundle $score $seen $parts $rev-pids $pid $pev $part)
+   (let*
+      (($nparts (frontier-parts-add $parts $part))
+       ($folded-hits (collapse (frontier-parts-fold $nparts))))
+      (if (== $folded-hits ()) $agenda
+         (let $next-bundle (frontier-pooled-bundle (copy_term $bundle) $pid (car-atom $folded-hits))
             (if (== $next-bundle ()) $agenda
                (let $next-score
-                  (min-atom ($score $frontier-pscore (premises-expected-confidence (copy_term (and-bundle-premises $next-bundle)))))
+                  (min-atom ($score
+                             (frontier-part-score $part 0.000001)
+                             (frontier-remaining-score $next-bundle $nparts)))
                   (spawn-frontier-heap $agenda
                      $parent-gid
                      $next-bundle
                      $next-score
                      (list_to_set (append $seen $pev))
+                     $nparts
                      (cons $pid $rev-pids))))))))
 
 (= (frontier-waiter-step (@ $waiter (head frontier-waiter)) $rest) (cons $waiter $rest))
@@ -452,7 +680,7 @@
          (rule-goal-head-view ($goal $parent-gid)))
       (rule-goal-full-view ($goal $parent-gid))))
 
-(= (spawn-frontier-heap $agenda $parent-gid $bundle $score $seen $rev-pids)
+(= (spawn-frontier-heap $agenda $parent-gid $bundle $score $seen $parts $rev-pids)
    (let*
       (($goal (and-bundle-goal $bundle))
        ($premises (and-bundle-premises $bundle)))
@@ -480,6 +708,7 @@
                        $stored-bundle
                        $score
                        $seen
+                       $parts
                        $rev-pids))))))))
 
 (= (expand-rule-goal-heap $agenda $parent-gid $goal)
@@ -566,6 +795,7 @@
             $parent-gid
             $bundle
             $bound
+            ()
             ()
             ()))))
 

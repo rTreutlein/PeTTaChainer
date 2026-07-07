@@ -250,7 +250,7 @@
               (remove-atom &aggregate ($agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))
               (add-atom &aggregate ($agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-new))
               (invalidate-proof-live-caches))))
-      (waiter-live? (frontier-waiter 99 bundle 1.0 () ($pid-old))))
+      (waiter-live? (frontier-waiter 99 bundle 1.0 () () ($pid-old))))
    false)
 
 !(test
