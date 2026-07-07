@@ -225,14 +225,32 @@
             (if (<= $universe-size 0.0) no-evidence (STV (/ 1.0 $universe-size) 1.0))))
       no-evidence))
 
+;; A rule's expected premise confidence is a pure function of its premise
+;; structure and stored TVs, so it is computed once here instead of on every
+;; rule-goal expansion. No entry (the computation can fail on exotic premise
+;; shapes) means the expansion falls back to computing it on the fly.
+(= (store-rule-expected-score! $backend $id $args)
+   (let $hits (collapse (premises-expected-confidence (copy_term $args)))
+      (if (== $hits ()) ()
+         (kb-add-atom $backend rule_expected ($id (car-atom $hits))))))
+
+;; Temp (per-query) rule ids are offset so they can never collide with live
+;; rule ids: both counters start at 0 and rules/rule_expected/prem_index rows
+;; from both backends share the same spaces.
+(= (next-rule-id $backend)
+   (if (== $backend live)
+      (next-search-id ruleid)
+      (+ 1000000000 (next-search-id bwd_tmp_ruleid))))
+
 (= (kb-add-expr $backend $expr)
    (if (= $expr (rules ($args |- $ccls)))
       (let*
-         (($id (if (== $backend live) (next-search-id ruleid) (next-search-id bwd_tmp_ruleid)))
+         (($id (next-rule-id $backend))
            ($_1 (fold-flat (kb-add-prem $backend $id) 0 $args))
            ($_2 (kb-add-atom $backend ccls_index ($ccls $id)))
            ($_3 (kb-add-ccl-head-index $backend $id $ccls))
            ($_4 (kb-add-atom $backend rules ($id $ccls $args)))
+           ($_expected (store-rule-expected-score! $backend $id $args))
            ($_5 (if (== $backend live)
                    (progn
                       (mark-forward-agenda-dirty $ccls)

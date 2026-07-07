@@ -101,6 +101,19 @@ class PeTTaChainer:
                 f"Invalid evaluated PLN {kind}. input={raw_atom} evaluated={evaluated_atom}"
             )
 
+    def set_backward_premise_prefilter(self, enabled: bool) -> None:
+        """Toggle the backward chainer's premise pre-filter (default off).
+
+        When enabled, candidate rules whose ground premises provably cannot be
+        satisfied (no matching fact and no rule concluding that head) are
+        skipped before any search state is created. Semantics-preserving:
+        results are unchanged, only unprovable rule expansions are avoided.
+        Performance-only, so it is intentionally not replayed by the
+        multiprocessing query-timeout worker.
+        """
+        value = "true" if enabled else "false"
+        self.handler.process_metta_string(f"!(set-backward-premise-prefilter {value})")
+
     def set_pattern_mining_on_add(self, enabled: bool) -> None:
         value = "true" if enabled else "false"
         self.handler.process_metta_string(f"!(set-pattern-mining-on-add {self.kb} {value})")

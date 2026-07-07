@@ -18,21 +18,27 @@
       (if (= $tv (STV $s $c)) (STV (if (is-var $s) 1.0 $s) (if (is-var $c) 1.0 $c))
          (if (= $tv (CTV $pos $neg)) (CTV (normalize-expected-tv $pos) (normalize-expected-tv $neg)) $tv))))
 
+;; Expected TVs dispatch directly on the known formula set instead of going
+;; through reduce: reduce's runtime dispatch (fun/1 + current_predicate +
+;; current_op per call) dominated backward-search profiles. Failure modes are
+;; preserved -- a formula clause that does not match (or yields empty) makes
+;; this function fail exactly like the reduce-based call did.
 (= (cpu-expected-tv $fun $args)
    (if (== $fun CTVModusPonensFormula)
-      (let*
-         ((($a $ctv) $args)
-           ($res
-              (reduce
-                 (reduce
-                    (cons $fun
-                       ((normalize-expected-tv $a) (normalize-expected-tv $ctv)))))))
-         $res)
-      (if (is-member $fun (() AndFormula OrFormula LikelierThanFormula))
-      (let*
-         ((($a $b) $args)
-           ($res (reduce (reduce (cons $fun ((normalize-expected-tv $a) (normalize-expected-tv $b)))))))
-         $res)
+      (let ($a $ctv) $args
+         (CTVModusPonensFormula (normalize-expected-tv $a) (normalize-expected-tv $ctv)))
+      (if (== $fun AndFormula)
+      (let ($a $b) $args
+         (AndFormula (normalize-expected-tv $a) (normalize-expected-tv $b)))
+      (if (== $fun OrFormula)
+      (let ($a $b) $args
+         (OrFormula (normalize-expected-tv $a) (normalize-expected-tv $b)))
+      (if (== $fun LikelierThanFormula)
+      (let ($a $b) $args
+         (LikelierThanFormula (normalize-expected-tv $a) (normalize-expected-tv $b)))
+      (if (== $fun ())
+      (let ($a $b) $args
+         (cons $fun ((normalize-expected-tv $a) (normalize-expected-tv $b))))
       (if (== $fun NotFormula)
          (let $a (car-atom $args)
             (if (is-var $a)
@@ -51,9 +57,9 @@
                        (CTV
                           (STV 1.0 (* (min-atom ((tv-confidence $na) (tv-confidence $nb) (tv-confidence $nctv))) 0.9))
                           (STV 1.0 (* (min-atom ((tv-confidence $na) (tv-confidence $nb) (tv-confidence $nctv))) 0.9)))
-                       (reduce (reduce (cons $fun ($na $nb $nctv)))))))
+                       (CTVInversionFormula $na $nb $nctv))))
                $res)
-            ())))))
+            ()))))))))
 
 (= (first-cpu-expected-tv $fun $args)
    (let $res (let $hits (collapse (cpu-expected-tv $fun $args)) (if (== $hits ()) () (car-atom $hits)))

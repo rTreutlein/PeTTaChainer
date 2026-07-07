@@ -395,7 +395,7 @@
 (= (rule-goal-head-view-for-key ($goal $parent-gid) $key)
    (match ccls_head_index ($key $rule-id)
       (match rules ($rule-id $goal $args)
-         ($args $goal $parent-gid))))
+         ($rule-id $args $goal $parent-gid))))
 
 ;; Look up rules by the goal's concrete head *and* the `any` wildcard bucket, so
 ;; an open goal still reaches variable-headed conclusions (which only live under
@@ -419,7 +419,7 @@
 (= (rule-goal-full-view ($goal $parent-gid))
    (match ccls_index ($goal $rule-id)
       (match rules ($rule-id $goal $args)
-         ((contextualize-rule-args $goal $args) $goal $parent-gid))))
+         ($rule-id (contextualize-rule-args $goal $args) $goal $parent-gid))))
 
 (= (same-var-in-list? $_var ()) false)
 (= (same-var-in-list? $var (cons $head $tail))
@@ -487,17 +487,87 @@
       $agenda
       (collapse (rule-goal-view ($goal $parent-gid)))))
 
-(= (expand-rule-goal-fold $agenda ($args $goal $parent-gid))
-   (let*
-      (($expected-score (premises-expected-confidence (copy_term $args)))
-       ($bound (rule-marginal-score (goal-current-confidence $parent-gid) $expected-score))
-       ($bundle (copy_term (make-and-bundle $goal $args))))
-      (spawn-frontier-heap $agenda
-         $parent-gid
-         $bundle
-         $bound
-         ()
-         ())))
+;; Cached expected score, computed at rule-add time (store-rule-expected-score!).
+;; The cache assumes the goal's TV slot is unbound (the value depends only on
+;; premise structure and stored TVs then); a goal queried with a known TV falls
+;; back to computing against the bound bundle, as before.
+(= (rule-expected-score $rule-id $goal $args)
+   (if (if (= $goal ($_gtype $_gkb $_gprf $gtv)) (is-var $gtv) false)
+      (let $hits (collapse (match rule_expected ($rule-id $score) $score))
+         (if (== $hits ()) (premises-expected-confidence (copy_term $args)) (car-atom $hits)))
+      (premises-expected-confidence (copy_term $args))))
+
+;; --- Premise pre-filter (opt-in via set-backward-premise-prefilter) ---------
+;; Walks a copy of a candidate rule's premise list before any frontier state is
+;; created: ground deterministic CPU premises are evaluated eagerly (binding
+;; e.g. computed step variables for later premises), and a fully ground atom
+;; premise prunes the rule when no fact matches it AND no rule can conclude its
+;; head. In KBs where every premise head is also some rule's conclusion the
+;; filter never prunes, so behavior degrades to the unfiltered search.
+
+(= (set-backward-premise-prefilter $enabled) (change-state! bwd_premise_prefilter $enabled))
+(= (backward-premise-prefilter?)
+   (let $enabled (catch (get-state bwd_premise_prefilter))
+      (if-error $enabled false $enabled)))
+
+(= (prefilter-head-concludable? $prem)
+   (let $key (forward-indexable-premise-key $prem)
+      (if (== $key ()) true
+         (let $wildcard (forward-premise-wildcard-key $prem)
+            (or (not (== (collapse (once (match ccls_head_index ($key $_id) true))) ()))
+               (if (== $key $wildcard) false
+                  (not (== (collapse (once (match ccls_head_index ($wildcard $_wid) true))) ()))))))))
+
+(= (prefilter-fact-missing? ($type ($kbid $_ctx $_vars) $_prf $_tv))
+   (== (collapse (once (match &kb ($type ($kbid $_c2 $_v2) $_p2 $_t2) true))) ()))
+
+;; CPU functions the filter must not run eagerly: aggregate folds have their own
+;; search machinery and store-scanning formulas are too costly for a filter.
+(= (prefilter-cpu-opaque? $fun)
+   (is-member $fun (FoldAllCompiled GroupedFoldAllCompiled MemberInheritanceFormula ConceptNodePriorFormula)))
+
+(= (prefilter-premise-blocks? (CPU $fun $args $res))
+   (if (prefilter-cpu-opaque? $fun) false
+      ;; Only run a CPU premise eagerly when its argument list is fully ground
+      ;; ($args is inspected as-is; building an ($fun ...) expression here would
+      ;; make the runtime apply $fun to unevaluated arguments).
+      (if (and (not (is-var $fun)) (== (extract-vars $args) ()))
+         (let $hits (collapse (cpu-call 0 $fun $args))
+            (if (== $hits ()) true
+               (if (= $res (car-atom $hits)) false true)))
+         false)))
+(= (prefilter-premise-blocks? ($type ($kbid $ctx $vars) $prf $tv))
+   (if (== (extract-vars $type) ())
+      (if (prefilter-fact-missing? ($type ($kbid $ctx $vars) $prf $tv))
+         (not (prefilter-head-concludable? ($type ($kbid $ctx $vars) $prf $tv)))
+         false)
+      false))
+
+(= (prefilter-prunes-walk ()) false)
+(= (prefilter-prunes-walk (cons $prem $rest))
+   (if (prefilter-premise-blocks? $prem) true (prefilter-prunes-walk $rest)))
+
+;; The walk runs on a copy (eager CPU evaluation binds variables) inside a
+;; collapse so a premise shape neither clause covers makes the walk yield
+;; nothing and the rule is kept, never dropped.
+(= (rule-premise-prefilter-prunes? $args)
+   (if (backward-premise-prefilter?)
+      (let $hits (collapse (prefilter-prunes-walk (copy_term $args)))
+         (if (== $hits ()) false (car-atom $hits)))
+      false))
+
+(= (expand-rule-goal-fold $agenda ($rule-id $args $goal $parent-gid))
+   (if (rule-premise-prefilter-prunes? $args) $agenda
+      (let*
+         (($expected-score (rule-expected-score $rule-id $goal $args))
+          ($bound (rule-marginal-score (goal-current-confidence $parent-gid) $expected-score))
+          ($bundle (copy_term (make-and-bundle $goal $args))))
+         (spawn-frontier-heap $agenda
+            $parent-gid
+            $bundle
+            $bound
+            ()
+            ()))))
 
 (= (expand-goal-heap $agenda $steps $score $gid)
    (let*
