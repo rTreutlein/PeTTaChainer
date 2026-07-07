@@ -242,6 +242,19 @@
       (next-search-id ruleid)
       (+ 1000000000 (next-search-id bwd_tmp_ruleid))))
 
+;; Index rules by the statement name embedded in their conclusion proof so
+;; remove-compiled-statement can find them without scanning the rules space.
+;; Rules whose proof carries no extractable name (open query adapters,
+;; negated outputs) are simply not indexed -- they cannot be removed by name.
+(= (register-rule-name! $backend $id $ccls)
+   (if (= $ccls ($_type $_kb $prf $_tv))
+      (if (is-var $prf) ()
+         (let $name (rule-evidence-head $prf)
+            (if (is-var $name) ()
+               (if (is-expr $name) ()
+                  (kb-add-atom $backend rule_name_index ($name $id))))))
+      ()))
+
 (= (kb-add-expr $backend $expr)
    (if (= $expr (rules ($args |- $ccls)))
       (let*
@@ -251,6 +264,7 @@
            ($_3 (kb-add-ccl-head-index $backend $id $ccls))
            ($_4 (kb-add-atom $backend rules ($id $ccls $args)))
            ($_expected (store-rule-expected-score! $backend $id $args))
+           ($_name-idx (register-rule-name! $backend $id $ccls))
            ($_5 (if (== $backend live)
                    (progn
                       (mark-forward-agenda-dirty $ccls)
@@ -273,6 +287,51 @@
       ()))
 
 (= (inject-compiled-adds $adds) (if (= $adds ()) () (foreach-flat (kb-add-expr temp) $adds)))
+
+;; --- Removal of compiled statements by name ---------------------------------
+;; Inverse of compileadd for one named statement: retracts the &kb facts whose
+;; proof is the name and every rule row registered under it in
+;; rule_name_index, including the rows kb-add-expr created alongside
+;; (prem_index, ccls_index, ccls_head_index, rule_expected). Computed base
+;; rates of the affected kb are invalidated, mirroring kb-add-expr.
+
+(= (remove-rule-row! $id)
+   (let $_
+      (collapse
+         (match rules ($id $ccls $args)
+            (let*
+               (($_prems
+                   (collapse
+                      (match prem_index ($pkey $prem $id $pidx)
+                         (remove-atom prem_index ($pkey $prem $id $pidx)))))
+                ($_ccls-idx (remove-atom ccls_index ($ccls $id)))
+                ($hkey (forward-indexable-premise-key $ccls))
+                ($_head-idx (if (== $hkey ()) () (remove-atom ccls_head_index ($hkey $id))))
+                ($_expected
+                   (collapse
+                      (match rule_expected ($id $score)
+                         (remove-atom rule_expected ($id $score)))))
+                ($_invalidate (invalidate-computed-base-rates! (kb-expr-kbid $ccls)))
+                ($_row (remove-atom rules ($id $ccls $args))))
+               ())))
+      ()))
+
+(= (remove-kb-facts-named! $name)
+   (let $_
+      (collapse
+         (match &kb ($type $kb $name $tv)
+            (progn
+               (remove-atom &kb ($type $kb $name $tv))
+               (invalidate-computed-base-rates! (kb-expr-kbid ($type $kb $name $tv))))))
+      ()))
+
+(= (remove-compiled-statement $name)
+   (let*
+      (($_facts (remove-kb-facts-named! $name))
+       ($ids (list_to_set (collapse (match rule_name_index ($name $id) $id))))
+       ($_rules (foreach-flat remove-rule-row! $ids))
+       ($_index (if (== $ids ()) () (remove-atom rule_name_index ($name $_any)))))
+      ()))
 
 (= (run-compiled-query $steps (compiled-query $goal $adds))
    (let*

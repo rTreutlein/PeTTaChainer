@@ -137,6 +137,22 @@ class PeTTaChainer:
         self._added_atoms.append((evaluated_atom, effective_mining))
         return result
 
+    def remove_statement(self, atom_name: str) -> str:
+        """Remove a previously compiled statement by its name.
+
+        Retracts the kb facts and rules that compileadd produced for
+        ``(: <atom_name> ...)``, including their index rows and cached
+        expected scores. Statements whose compiled rules carry no
+        extractable name (e.g. negated outputs) are not covered.
+        """
+        result = self.handler.process_metta_string(f"!(remove-compiled-statement {atom_name})")
+        prefix = f"(: {atom_name} "
+        self._added_atoms = [
+            (atom, mined) for atom, mined in self._added_atoms
+            if not atom.strip().startswith(prefix)
+        ]
+        return result
+
     def add_atoms_no_check(self, atoms: List[str] | List[Tuple[str, bool]], mine_patterns: Optional[bool] = None) -> str:
         if atoms and isinstance(atoms[0], tuple):
             entries = atoms

@@ -19,6 +19,7 @@ is a separate, independent surface usable inside rules; it is not enumerated her
 |---|---|
 | `(compileadd $kb $stmt)` | Compile a statement (fact or rule) and add it to KB `$kb`. The primary entry point. |
 | `(add-to-kb $expr)` | Add an already-compiled, internal-form atom to the live KB. Lower-level. |
+| `(remove-compiled-statement $name)` | Inverse of `compileadd` for one named statement `(: $name ...)`: retracts its kb facts and rules together with their index rows and cached scores. Use before re-adding a statement under the same name (e.g. a truth-value update); rules whose compiled proof carries no extractable name (negated outputs, open query adapters) are not covered. Python: `PeTTaChainer.remove_statement(name)`. |
 
 ## Querying and chaining
 
@@ -83,5 +84,6 @@ for deep queries, where the per-node rule count compounds with search depth.
 |---|---|
 | `(set-context-polymorphic-facts $kb $enabled)` | Toggle context-polymorphic fact storage for `$kb`. |
 | `(set-bounded-agenda-pruning $enabled)` | Toggle agenda pruning in the backward chainer. |
+| `(set-backward-premise-prefilter $enabled)` | Toggle the backward chainer's premise pre-filter (default off). When on, a candidate rule is skipped before any search state is created if one of its ground premises has no matching fact *and* no rule can conclude its head; ground deterministic CPU premises (e.g. `Compute`) are evaluated eagerly during the check so later premises become checkable. Semantics-preserving with an unlimited step budget — it never prunes a rule that could complete — but under a finite `$steps` budget it typically *increases* the number of proofs found, because the budget stops being spent on unprovable rules. Big win for KBs where many rules share a conclusion head and most premises bottom out in facts (fact-heavy/agentic KBs); near no-op for densely connected KBs where every premise head is derivable. Python: `PeTTaChainer.set_backward_premise_prefilter(enabled)`. |
 | `(ParticleSetBudget $n)` / `(ParticleGetBudget)` | Set / read the particle-resampling budget. |
 | `(ParticleStoreClear)` / `(ParticleStorePruneKB)` | Clear the particle store / garbage-collect particles no longer referenced by the KB. |
