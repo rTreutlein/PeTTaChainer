@@ -148,14 +148,16 @@
 
 (= (confidence-to-count $conf) (/ (* $conf 800) (- 1 (min-atom ($conf 0.9999)))))
 
+;; Merging two zero-confidence TVs has no evidence to weight the strengths by;
+;; average them at confidence 0 instead of dividing by the zero total count.
 (= (mergetvs (STV $m1 $conf1) (STV $m2 $conf2))
    (let*
       (($count1 (confidence-to-count $conf1))
         ($count2 (confidence-to-count $conf2))
-        ($m (/ (+ (* $m1 $count1) (* $m2 $count2)) (+ $count1 $count2)))
-        ($c (+ $count1 $count2))
-        ($conf (/ $c (+ $c 800))))
-      (STV $m $conf)))
+        ($c (+ $count1 $count2)))
+      (if (<= $c 0.0)
+         (STV (/ (+ $m1 $m2) 2) 0.0)
+         (STV (/ (+ (* $m1 $count1) (* $m2 $count2)) $c) (/ $c (+ $c 800))))))
 
 (= (RevisionMergeProof ($type1 $kb $prf1 $tv1) ($_type2 $_kb2 $prf2 $tv2))
    ($type1 $kb

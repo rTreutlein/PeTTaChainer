@@ -36,14 +36,21 @@
        )
       (ideal-conf-from-var $sB $VarsB)))
 
+;; No evidence about an input means no evidence about the combination: at zero
+;; confidence the propagated variance of a clipped extreme strength is tiny, so
+;; ideal-prod-confidence would otherwise turn a zero count into near-certainty.
 (= (AndFormula (STV $si $ci) (STV $sa $ca))
    (STV (* $si $sa)
-      (ideal-prod-confidence $si (ideal-var $si $ci) $sa (ideal-var $sa $ca) (* $si $sa))))
+      (if (or (<= $ci 0.0) (<= $ca 0.0))
+         0.0
+         (ideal-prod-confidence $si (ideal-var $si $ci) $sa (ideal-var $sa $ca) (* $si $sa)))))
 
 (= (OrFormula (STV $si $ci) (STV $sa $ca))
    (STV (- (+ $si $sa) (* $si $sa))
-      (ideal-prod-confidence (- 1.0 $si) (ideal-var $si $ci) (- 1.0 $sa) (ideal-var $sa $ca)
-         (- (+ $si $sa) (* $si $sa)))))
+      (if (or (<= $ci 0.0) (<= $ca 0.0))
+         0.0
+         (ideal-prod-confidence (- 1.0 $si) (ideal-var $si $ci) (- 1.0 $sa) (ideal-var $sa $ca)
+            (- (+ $si $sa) (* $si $sa))))))
 
 ;; "A is likelier than B" as P(A and not B) under independence: s_a * (1 - s_b).
 ;; Multilinear (linear in each argument), consistent with And (s1*s2) and
