@@ -27,6 +27,8 @@
       (+ (* $bs_a $as) (* $bs_na (- 1 $as)))
       (ideal-mp-confidence $as $ac $bs_a $bc_a $bs_na $bc_na)))
 
+(= (CTVFormula $tv $ctv) (CTVModusPonensFormula $tv $ctv))
+
 ;; Idealized confidence for product-form combinations. For And, sB = s1*s2 with
 ;; exact Var = V1*V2 + V1*s2^2 + s1^2*V2; for Or, sB = 1-(1-s1)(1-s2), the same
 ;; product variance on the complements. Then convert variance back to a count.

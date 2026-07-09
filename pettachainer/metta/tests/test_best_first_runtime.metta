@@ -1,5 +1,7 @@
 !(import! &self petta_chainer)
 
+!(test (rule-marginal-score no-current 0.42) 0.42)
+
 !(compileadd kb (: weakFact (WeakPremise) (STV 1.0 0.1)))
 
 !(compileadd kb (: baseFact (BasePremise) (STV 1.0 1.0)))

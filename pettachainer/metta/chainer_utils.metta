@@ -27,6 +27,9 @@
    (if (== $fun CTVModusPonensFormula)
       (let ($a $ctv) $args
          (CTVModusPonensFormula (normalize-expected-tv $a) (normalize-expected-tv $ctv)))
+      (if (== $fun CTVFormula)
+         (let ($a $ctv) $args
+            (CTVFormula (normalize-expected-tv $a) (normalize-expected-tv $ctv)))
       (if (== $fun AndFormula)
       (let ($a $b) $args
          (AndFormula (normalize-expected-tv $a) (normalize-expected-tv $b)))
@@ -59,7 +62,7 @@
                           (STV 1.0 (* (min-atom ((tv-confidence $na) (tv-confidence $nb) (tv-confidence $nctv))) 0.9)))
                        (CTVInversionFormula $na $nb $nctv))))
                $res)
-            ()))))))))
+            ())))))))))
 
 (= (first-cpu-expected-tv $fun $args)
    (let $res (let $hits (collapse (cpu-expected-tv $fun $args)) (if (== $hits ()) () (car-atom $hits)))
@@ -107,11 +110,12 @@
 (= (optimistic-revision-score $current-score $candidate-score)
    (tv-confidence (mergetvs (score-tv $current-score) (score-tv $candidate-score))))
 
-(= (rule-marginal-score no-current $candidate-score) $candidate-score)
 (= (rule-marginal-score $current-score $candidate-score)
-   (max 0.000001
-      (- (max $candidate-score (optimistic-revision-score $current-score $candidate-score))
-         $current-score)))
+   (if (== $current-score no-current)
+      $candidate-score
+      (max 0.000001
+         (- (max $candidate-score (optimistic-revision-score $current-score $candidate-score))
+            $current-score))))
 
 (= (frontier-proof-score $pid $score)
    (if (= (proof-output-atom $pid) (CPU $_fun $_args $_res))
