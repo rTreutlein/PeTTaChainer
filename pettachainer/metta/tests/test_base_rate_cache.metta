@@ -48,23 +48,22 @@
       (if (== $cached ()) no-cache-entry (car-atom $cached)))
    no-cache-entry)
 
-; Public inheritance priors are mirrored to the compiler's private evidence
-; pattern, including when Inheritance is nested beside a shared variable.
-!(set-base-rate inheritanceAliasKb
+; Compound patterns containing Inheritance are stored and cleared directly.
+!(set-base-rate inheritancePatternKb
    (And (Inheritance $x madeOfPlastic) (Operation $x opLighter))
    (STV 0.25 0.9))
 
 !(test
-   (cached-base-rate inheritanceAliasKb
-      (And (inheritance-evidence $x madeOfPlastic) (Operation $x opLighter)))
+   (cached-base-rate inheritancePatternKb
+      (And (Inheritance $x madeOfPlastic) (Operation $x opLighter)))
    ((STV 0.25 0.9)))
 
-!(clear-base-rate inheritanceAliasKb
+!(clear-base-rate inheritancePatternKb
    (And (Inheritance $x madeOfPlastic) (Operation $x opLighter)))
 
 !(test
-   (cached-base-rate inheritanceAliasKb
-      (And (inheritance-evidence $x madeOfPlastic) (Operation $x opLighter)))
+   (cached-base-rate inheritancePatternKb
+      (And (Inheritance $x madeOfPlastic) (Operation $x opLighter)))
    ())
 
 ; --- Refinement of computed cache entries ---

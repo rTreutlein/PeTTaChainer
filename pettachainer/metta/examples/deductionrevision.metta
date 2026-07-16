@@ -10,13 +10,13 @@
 
 (= (inheritance-result-tv (: $_proof $_type $tv)) $tv)
 
-;; Both A -> B -> D and A -> C -> D are merged behind the single public
-;; inheritance adapter instead of escaping as competing query results.
+;; Concrete Inheritance queries have one non-Member producer: the compiler's
+;; total-implication view. Both deduction chains revise inside that view.
 !(test
    (let $results
       (collapse (query 30 deductionRevisionKb (: $prf (Inheritance A D) $tv)))
       ((length $results) (map-flat inheritance-result-tv $results)))
-   (1 ((STV 0.4999998333332778 0.002909100855559274))))
+   (1 ((STV 0.49999983333327785 0.0009715845768689697))))
 
 
 
@@ -50,4 +50,4 @@
             (Implication (Premises (A $x)) (Conclusions (D $x)))
             $tv))
       $tv)
-   (CTV (STV 0.125 0.9692294378874315) (STV 0.0 0.9998734491731702)))
+   (CTV (STV 0.125 0.9692294378874315) (STV 0.0 0.9999367205825538)))

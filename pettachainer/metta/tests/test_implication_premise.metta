@@ -74,7 +74,19 @@
                (A))
             (Conclusions (B)))
          $tv))
-   (: (total-implication (a_b (ctx proof 12 1)) (a_b (ctx proof 13 1))) (Implication (Premises (Implication (Premises (A)) (Conclusions (B))) (A)) (Conclusions (B))) (CTV (STV 1.0 0.9998000399670116) (STV 1.0 0.9998000399670116))))
+   (: (total-implication
+         (merge/revision
+            (a_b (ctx proof 12 1))
+            ((ctx proof 12) (ctx proof 12 1)))
+         (merge/revision
+            (a_b (ctx proof 13 1))
+            ((ctx proof 13) (ctx proof 13 1))))
+      (Implication
+         (Premises (Implication (Premises (A)) (Conclusions (B))) (A))
+         (Conclusions (B)))
+      (CTV
+         (STV 1.0 0.9999000099865026)
+         (STV 0.5000000000036097 0.9999000099865019))))
 
 !(set-context-polymorphic-facts kbRelativeImplicationQueryKb true)
 

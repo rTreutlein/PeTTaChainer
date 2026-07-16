@@ -29,4 +29,4 @@
          (query 300 ravenDerivedKb
             (: $prf (Inheritance raven (IntSet black)) $tv)))
       ((length $results) (map-flat raven-result-tv $results)))
-   (1 ((STV 0.338977056690164 0.7053110921718064))))
+   (1 ((STV 0.36411477909368595 0.642069567846394))))

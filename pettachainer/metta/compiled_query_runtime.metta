@@ -83,22 +83,10 @@
       ()))
 
 (= (set-base-rate $kbid $pattern $tv)
-   (let*
-      (($_public (store-base-rate! $kbid $pattern $tv))
-       ($evidence-pattern (inheritance-evidence-term $pattern)))
-      ;; Compiled inheritance rules consume the private evidence predicate.
-      ;; Mirror an explicit public prior to that internal key so lowering does
-      ;; not silently replace a configured prior with a computed estimate.
-      (if (=alpha $evidence-pattern $pattern) ()
-         (store-base-rate! $kbid $evidence-pattern $tv))))
+   (store-base-rate! $kbid $pattern $tv))
 
 (= (clear-base-rate $kbid $pattern)
-   (let*
-      (($_public (base-rate-cache-remove! $kbid $pattern))
-       ($evidence-pattern (inheritance-evidence-term $pattern)))
-      (if (=alpha $evidence-pattern $pattern)
-         ()
-         (base-rate-cache-remove! $kbid $evidence-pattern))))
+   (base-rate-cache-remove! $kbid $pattern))
 
 (= (universe-size-entries $kbid)
    (collapse
@@ -359,82 +347,18 @@
         ($_clear-temp-after (clear-temp-query-adds)))
       $pres))
 
-;; Concrete inheritance queries run their private evidence goal as the root,
-;; so all producer proofs are merged before this final public projection. This
-;; is query-plan sequencing, not a generic inference rule.
-(= (inheritance-evidence-query-tv (STV $s $c)) (STV $s $c))
-(= (inheritance-evidence-query-tv (CTV $pos $neg))
-   (reduce (CTVModusPonensFormula (STV 1.0 1.0) (CTV $pos $neg))))
-
-;; Private evidence labels are useful while chaining but should not leak into
-;; the public proof. Strip only the compiler-owned wrappers and preserve the
-;; original fact/rule proof tree underneath them.
-(= (public-inheritance-proof $proof)
-   (case $proof (
-      ((inheritance-evidence $inner)
-         (public-inheritance-proof $inner))
-      (((inheritance-evidence-rule $rule) $inner)
-         ($rule (public-inheritance-proof $inner)))
-      ((inheritance-evidence-rule $rule)
-         $rule)
-      ((inheritance-implication-evidence $inner)
-         (public-inheritance-proof $inner))
-      ($other
-         (if (is-expr $other)
-            (cons (public-inheritance-proof (car-atom $other))
-               (public-inheritance-proof-list (cdr-atom $other)))
-            $other)))))
-
-(= (public-inheritance-proof-list ()) ())
-(= (public-inheritance-proof-list (cons $head $rest))
-   (cons (public-inheritance-proof $head)
-      (public-inheritance-proof-list $rest)))
-
-(= (public-inheritance-result $subj $concept
-      ((inheritance-evidence $subj $concept) $kb $link-prf $link-tv))
-   (let*
-      (($public-link-prf (public-inheritance-proof $link-prf))
-       ($positive-proof ((inheritance-implication $public-link-prf) (ctx proof 0)))
-       ($negative-proof ((inheritance-implication $public-link-prf) (ctx proof 1)))
-       ($proof (inheritance-query (total-implication $positive-proof $negative-proof)))
-       ($tv (inheritance-evidence-query-tv $link-tv)))
-      ((Inheritance $subj $concept) $kb $proof $tv)))
-
-(= (inject-member-inheritance-evidence-tv $kb $subj $concept $member-tv)
-   (kb-add-expr temp
-      ((inheritance-evidence $subj $concept) (kbctx $kb)
-         (member-inheritance-fold cpu) $member-tv)))
-
-(= (inject-member-inheritance-evidence $steps $kb $subj $concept)
-   (foreach-flat (inject-member-inheritance-evidence-tv $kb $subj $concept)
-      (collapse (cpu-call $steps MemberInheritanceFormula ($kb $subj $concept)))))
-
-(= (run-inheritance-evidence-query $steps $kb $subj $concept
-      (compiled-query $goal $adds))
+;; Inheritance TVs depend on dynamic base-rate folds over the same rule graph.
+;; The first pass populates those aggregates; the second resolves and exposes
+;; the identical query goal. There is still one inference relation and plan.
+(= (run-compiled-query $steps (compiled-fixed-point-query $goal $adds))
    (let*
       (($_clear-temp-before (clear-temp-query-adds))
        ($_ (inject-compiled-adds $adds))
-       ($_member-evidence (inject-member-inheritance-evidence $steps $kb $subj $concept))
-       ;; The first pass computes the dynamic base-rate aggregates used by STV
-       ;; producer rules. The second pass is the fixed-point evidence query and
-       ;; is the only pass whose proof is exposed publicly.
        ($_warmup (chainer $steps $goal))
-       ($evidence-results (chainer $steps $goal))
-       ($_clear-temp-after (clear-temp-query-adds)))
-      $evidence-results))
-
-(= (run-compiled-query $steps
-      (compiled-inheritance-query $kb $subj $concept $direct-query $implication-query))
-   (let*
-      (($direct-results
-          (run-inheritance-evidence-query $steps $kb $subj $concept $direct-query))
-       ($evidence-results
-          (if (== $direct-results ())
-             (run-inheritance-evidence-query $steps $kb $subj $concept $implication-query)
-             $direct-results))
-       ($results (map-flat (public-inheritance-result $subj $concept) $evidence-results))
+       ($results (chainer $steps $goal))
        ($eres (map-flat externalize-proof-structure $results))
-       ($pres (map-flat pretty $eres)))
+       ($pres (map-flat pretty $eres))
+       ($_clear-temp-after (clear-temp-query-adds)))
       $pres))
 
 (= (run-compiled-query-materialize $steps (compiled-query $goal $adds))
@@ -448,9 +372,8 @@
       $pres))
 
 (= (run-compiled-query-materialize $steps
-      (compiled-inheritance-query $kb $subj $concept $direct-query $implication-query))
-   (run-compiled-query $steps
-      (compiled-inheritance-query $kb $subj $concept $direct-query $implication-query)))
+      (compiled-fixed-point-query $goal $adds))
+   (run-compiled-query $steps (compiled-fixed-point-query $goal $adds)))
 
 (= (query $steps $kb $stmt)
    (let $pres

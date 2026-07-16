@@ -53,7 +53,7 @@ is a separate, independent surface usable inside rules; it is not enumerated her
 | `(set-bidirectional-implication-form $head)` | Mark `$head` as a bidirectional-implication rule form. |
 | `(mark-logic-rule $name)` | Mark `$name` as a logic (structural) rule, excluded from rule-application evidence. |
 | `(set-specializing-predicate $head)` | Resolve premises headed by `$head` at add-time: a rule premise like `(Symmetric $r)` is ground against stored facts, emitting one concrete-headed rule per matching fact instead of a single variable-headed rule. See below. |
-| `(register-inheritance-induction! $kb)` | Enable the inheritance-induction rule set for `$kb`. |
+| `(register-inheritance-induction! $kb)` | No-op retained for callers; inheritance induction is now compiled into every concrete `Inheritance` query. |
 
 ### Specializing predicates
 

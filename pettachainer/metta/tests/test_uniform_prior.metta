@@ -36,31 +36,3 @@
 !(clear-concept-prior-confidence dynConceptPriorKb)
 
 !(test (concept-node-prior-tv dynConceptPriorKb rv1) (STV 0.2 0.000001))
-
-; --- Integration: legacy inheritance-induction rule -----------------------
-; This still exercises the custom induction path while the implication-derived
-; Raven example covers concept-node priors and runtime negative-branch estimates.
-
-!(compileadd urKb (: rv1Raven (Inheritance rv1 raven) (STV 0.9 0.9)))
-!(compileadd urKb (: rv2Raven (Inheritance rv2 raven) (STV 0.9 0.9)))
-!(compileadd urKb (: rv1Black (Inheritance rv1 (IntSet black)) (STV 0.8 0.9)))
-!(compileadd urKb (: rv2NotBlack (Inheritance rv2 (IntSet black)) (STV 0.0 0.9)))
-
-!(register-inheritance-induction! urKb)
-
-!(test
-   (query 100 urKb (: $prf (Inheritance raven (IntSet black)) $tv))
-   (: (inheritance-query
-         (total-implication
-            ((inheritance-implication
-                (merge/revision
-                   (inheritanceInduction rv1Raven rv1Black)
-                   (inheritanceInduction rv2Raven rv2NotBlack)))
-             (ctx proof 0))
-            ((inheritance-implication
-                (merge/revision
-                   (inheritanceInduction rv1Raven rv1Black)
-                   (inheritanceInduction rv2Raven rv2NotBlack)))
-             (ctx proof 1))))
-      (Inheritance raven (IntSet black))
-      (STV 0.5 0.3932038834951457)))

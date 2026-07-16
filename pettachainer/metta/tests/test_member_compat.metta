@@ -21,14 +21,10 @@
 !(compileadd memberClosedKb (: tomHumanClosed (Member Tom Human) (STV 1.0 1.0)))
 !(compileadd memberClosedKb (: tomMortalClosed (Member Tom Mortal) (STV 0.8 1.0)))
 
-;; Member-derived evidence enters the same internal evidence layer as explicit
-;; links and rule applications. Consequently every concrete public Inheritance
-;; query has the same proof shape, regardless of which evidence source won.
+;; The concrete Inheritance query installs a Member-based producer on the same
+;; public relation, so its proof identifies the producer without an adapter.
 !(test
    (query 40 memberClosedKb (: $prf (Inheritance Human Mortal) $tv))
-   (: (inheritance-query
-         (total-implication
-            ((inheritance-implication (member-inheritance-fold cpu)) (ctx proof 0))
-            ((inheritance-implication (member-inheritance-fold cpu)) (ctx proof 1))))
+   (: (member-inheritance-fold cpu)
       (Inheritance Human Mortal)
       (STV 0.8 1.0)))

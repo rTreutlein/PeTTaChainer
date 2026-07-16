@@ -18,7 +18,9 @@
 
 (= (add-to-kb $expr) (kb-add-expr live $expr))
 
-!(import! &self inheritance_induction)
+;; Inheritance induction is installed per concrete query by the compiler. The
+;; public registration call remains valid but has no KB-local work to perform.
+(= (register-inheritance-induction! $_kb) ())
 
 (= (record-compiled-inheritance-subject! (: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $_concept) $_tv))
    (if (is-var $subj) ()

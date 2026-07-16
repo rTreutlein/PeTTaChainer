@@ -67,10 +67,6 @@
 (= (aggregate-step-value (extract-inheritance-tv $kbid $_pattern) $child-atom $child-tv)
    (let ((Inheritance $subj $_concept) ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom)
       (WeightedTv (inheritance-subject-prior-tv $kbid $subj) $child-tv)))
-(= (aggregate-step-value (extract-inheritance-evidence-tv $kbid $_pattern) $child-atom $child-tv)
-   (let ((inheritance-evidence $subj $_concept) ($_ckbid $_cctx $_cvars) $_cprf $_ctv)
-      (copy_term $child-atom)
-      (WeightedTv (inheritance-subject-prior-tv $kbid $subj) $child-tv)))
 (= (aggregate-step-value (extract-member-consequent-tv $kbid $concept) $child-atom $child-tv)
    (let ((Member $obj $_antecedent) ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom)
       (let $hits
@@ -303,6 +299,22 @@
 (= (waiter-live? (frontier-waiter $_parent-gid $_bundle $_score $_seen $_parts $rev-pids))
    (proof-list-live? $rev-pids))
 
+;; A total-implication query evaluates the same conditional in a positive and
+;; a refuting context. Those branches are not an ordinary conjunction: they
+;; are expected to reuse the same rule and source facts, and their TVs are kept
+;; as separate positive/negative components rather than combined by AndFormula.
+;; The query compiler marks only that final two-sided frontier.
+(= (total-implication-frontier-proof? (total-implication-frontier $_proof)) true)
+(= (total-implication-frontier-proof? (inheritance-query-result $proof))
+   (total-implication-frontier-proof? $proof))
+(= (total-implication-frontier-proof? $_proof) false)
+
+(= (frontier-allows-shared-evidence? $bundle)
+   (let $goal (and-bundle-goal $bundle)
+      (if (= $goal ($_type $_kb $proof $_tv))
+         (total-implication-frontier-proof? $proof)
+         false)))
+
 (= (advance-frontier-waiter-heap $agenda (frontier-waiter $parent-gid $bundle $score $seen $parts $rev-pids) $pid)
    (if (not (waiter-live? (frontier-waiter $parent-gid $bundle $score $seen $parts $rev-pids))) $agenda
       (let*
@@ -310,7 +322,9 @@
           ($frontier-pscore (frontier-proof-score $pid $pscore))
           ($part-hits (collapse (frontier-premise-part $pid)))
           ($part (if (== $part-hits ()) unpoolable-part (car-atom $part-hits)))
-          ($overlap (premise-evidence-overlap? $seen $pev)))
+          ($overlap
+             (and (not (frontier-allows-shared-evidence? $bundle))
+                (premise-evidence-overlap? $seen $pev))))
          (if (frontier-pool-join? $part $parts $seen $pev)
             (frontier-advance-pooled-heap $agenda $parent-gid $bundle $score $seen $parts $rev-pids
                $pid $pev $part)
@@ -724,11 +738,19 @@
 ;; The cache assumes the goal's TV slot is unbound (the value depends only on
 ;; premise structure and stored TVs then); a goal queried with a known TV falls
 ;; back to computing against the bound bundle, as before.
+(= (inheritance-lift-rule-goal? ($_type $_kb $proof $_tv))
+   (if (= $proof ((inheritance-rule-lift $_rule) $_source $_instance)) true false))
+(= (inheritance-lift-rule-goal? $_goal) false)
+
 (= (rule-expected-score $rule-id $goal $args)
-   (if (if (= $goal ($_gtype $_gkb $_gprf $gtv)) (is-var $gtv) false)
-      (let $hits (collapse (match rule_expected ($rule-id $score) $score))
-         (if (== $hits ()) (premises-expected-confidence (copy_term $args)) (car-atom $hits)))
-      (premises-expected-confidence (copy_term $args))))
+   ;; A specialized lift is a completeness bridge for evidence that cannot
+   ;; execute directly in the hypothetical context. Native implication views
+   ;; must be allowed to finish before that bridge closes the parent goal.
+   (if (inheritance-lift-rule-goal? $goal) 0.000001
+      (if (if (= $goal ($_gtype $_gkb $_gprf $gtv)) (is-var $gtv) false)
+         (let $hits (collapse (match rule_expected ($rule-id $score) $score))
+            (if (== $hits ()) (premises-expected-confidence (copy_term $args)) (car-atom $hits)))
+         (premises-expected-confidence (copy_term $args)))))
 
 ;; --- Premise pre-filter (opt-in via set-backward-premise-prefilter) ---------
 ;; Walks a copy of a candidate rule's premise list before any frontier state is
@@ -865,7 +887,7 @@
 
 (= (chainer-run $steps $goal)
    (let*
-      (($_clear (foreach-flat remove-all-atoms (&goal &goal_lookup &goal_waiter &aggregate &proof &proof_live_cache &goal_live_cache &proof_static_live)))
+      (($_clear (foreach-flat remove-all-atoms (&goal &goal_lookup &goal_waiter &aggregate &proof &proof_live_cache &goal_live_cache &proof_static_live &proof_superseded)))
        ($_reset (foreach-flat (|-> ($key) (change-state! $key 0)) (bwd_gid bwd_pid bwd_live_epoch)))
        ($root-gid (ensure-goal-at-depth $goal 0))
        ($agenda0 (schedule-goal-heap (empty_heap) 1.0 $root-gid))

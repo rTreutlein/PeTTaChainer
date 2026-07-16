@@ -135,7 +135,7 @@
 
 (= (clear-backward-state)
    (progn
-      (foreach-flat remove-all-atoms (() &goal &goal_lookup &goal_waiter &aggregate &proof &proof_live_cache &goal_live_cache &proof_static_live))
+      (foreach-flat remove-all-atoms (() &goal &goal_lookup &goal_waiter &aggregate &proof &proof_live_cache &goal_live_cache &proof_static_live &proof_superseded))
       (change-state! bwd_live_epoch 0)
       ()))
 
@@ -184,6 +184,34 @@
                  ()))))
       (evidence-sets-overlap? (snd (proof-stats-by-id $pid-a)) (snd (proof-stats-by-id $pid-b))))
    false)
+
+;; A raw proof stays live so it can be revised with later evidence, but a
+;; parent that consumed it as the then-current representative becomes stale.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($_pidreset (change-state! bwd_pid 0))
+       ($child-gid (ensure-goal-at-depth ((Child) (kb MAIN ()) $prf (STV 1.0 1.0)) 1))
+       ($parent-gid (ensure-goal-at-depth ((Parent) (kb MAIN ()) $prf (STV 1.0 1.0)) 0))
+       ($first-child
+          (store-proof-candidate $child-gid
+             (proof-candidate (leaf ((Child) (kb MAIN ()) childA (STV 1.0 0.8)))
+                0.8 ((fact-ev (kb MAIN ()) childA (Child))) ())))
+       ($old-parent
+          (store-proof-candidate $parent-gid
+             (proof-candidate (rule ((Parent) (kb MAIN ()) (parentRule childA) (STV 1.0 0.8)))
+                0.8 ((fact-ev (kb MAIN ()) childA (Child))) ($first-child))))
+       ($_second-child
+          (store-proof-candidate $child-gid
+             (proof-candidate (leaf ((Child) (kb MAIN ()) childB (STV 1.0 0.7)))
+                0.7 ((fact-ev (kb MAIN ()) childB (Child))) ()))))
+      ((proof-live? $first-child)
+       (proof-current-representative? $first-child)
+       (proof-live? $old-parent)
+       (length (goal-merged-proof-ids $child-gid))
+       (goal-live-proof-ids $parent-gid)))
+   (true false false 1 ()))
 
 !(test
    (let*

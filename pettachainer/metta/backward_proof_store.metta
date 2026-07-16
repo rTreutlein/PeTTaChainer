@@ -190,36 +190,51 @@
 (= (proof-live-compute $pid)
    (let*
       (($gid (proof-goal-id $pid))
+       ($kind (proof-kind-by-id $pid))
        ($current-hits
           (collapse
              (once
                 (match &aggregate ($gid $_child $_args $_base $_pending $current-pid)
                    $current-pid)))))
       (if (== $current-hits ())
-         (proof-list-live? (proof-children-by-id $pid))
+         (if (= $kind (merged $_output))
+            (proof-list-node-live? (proof-children-by-id $pid))
+            (proof-list-live? (proof-children-by-id $pid)))
          (aggregate-current-pid-live? (car-atom $current-hits) $pid))))
+
+;; A merged representative owns its raw alternatives, so those children only
+;; need to remain valid proof nodes. Every other parent edge must point at the
+;; current representative of the child's grounded output. If more evidence is
+;; merged into that output later, parents built from the old representative
+;; become stale while the raw proofs remain available to construct the new one.
+(= (proof-list-node-live? ())
+   true)
+(= (proof-list-node-live? (cons $pid $rest))
+   (and (proof-live? $pid) (proof-list-node-live? $rest)))
+
+(= (proof-current-representative? $pid)
+   (== (collapse (once (match &proof_superseded ($pid) true))) ()))
 
 (= (proof-list-live? ())
    true)
 (= (proof-list-live? (cons $pid $rest))
-   (and (proof-live? $pid) (proof-list-live? $rest)))
+   (and (proof-live? $pid)
+      (and (proof-current-representative? $pid) (proof-list-live? $rest))))
 
 (= (proof-statically-live? $pid)
    (not (== (collapse (once (match &proof_static_live ($pid) true))) ())))
 
-(= (proof-static-children? ()) true)
-(= (proof-static-children? (cons $pid $rest))
-   (and (proof-statically-live? $pid) (proof-static-children? $rest)))
-
-(= (aggregate-goal-gid? $gid)
-   (not (== (collapse (once (match &aggregate ($gid $_child $_args $_base $_pending $_cur) true))) ())))
-
 (= (mark-proof-static! $gid $pid $kind $children)
    (if (= $kind (aggregate $_term)) ()
-      (if (aggregate-goal-gid? $gid) ()
-         (if (proof-static-children? $children)
+      (if (== $children ())
+         (if (==
+                (collapse
+                   (once
+                      (match &aggregate ($gid $_child $_args $_base $_pending $_current) true)))
+                ())
             (add-atom &proof_static_live ($pid))
-            ()))))
+            ())
+         ())))
 
 (= (proof-live? $pid)
    (if (proof-statically-live? $pid) true
@@ -431,24 +446,26 @@
 (= (proof-id-evidence-list $pids)
    (fold-flat proof-id-evidence-step () $pids))
 
-(= (proof-output-group-representative-pid $_gid (proof-output-group $_key (cons $pid ()))) $pid)
 (= (proof-output-group-representative-pid $gid (proof-output-group $_key $pids))
-   (let*
-      (($output (merge-proof-id-output $pids))
-       ($score (term-confidence $output))
-       ($ev (proof-id-evidence-list $pids))
-       ($hits
-          (collapse
-             (once
-                (match &proof ($stored-pid (merged-proof-group $gid) $output (merged $output) $score $ev $pids)
-                   $stored-pid)))))
-      (if (== $hits ())
+   (case $pids (
+      ((cons $pid ()) $pid)
+      ($_
          (let*
-            (($pid (next-pid))
-             ($_store (chainer-add-atom &proof ($pid (merged-proof-group $gid) $output (merged $output) $score $ev $pids)))
-             ($_static (mark-proof-static! (merged-proof-group $gid) $pid (merged $output) $pids)))
-            $pid)
-         (car-atom $hits))))
+            (($output (merge-proof-id-output $pids))
+             ($score (term-confidence $output))
+             ($ev (proof-id-evidence-list $pids))
+             ($hits
+                (collapse
+                   (once
+                      (match &proof ($stored-pid (merged-proof-group $gid) $output (merged $output) $score $ev $pids)
+                         $stored-pid)))))
+            (if (== $hits ())
+               (let*
+                  (($pid (next-pid))
+                   ($_store (chainer-add-atom &proof ($pid (merged-proof-group $gid) $output (merged $output) $score $ev $pids)))
+                   ($_static (mark-proof-static! (merged-proof-group $gid) $pid (merged $output) $pids)))
+                  $pid)
+               (car-atom $hits)))))))
 
 (= (proof-output-group-representative-pids $_gid ()) ())
 (= (proof-output-group-representative-pids $gid (cons $group $rest))
@@ -572,11 +589,22 @@
    (let*
       (($pid (next-pid))
         ($output (proof-output-atom-kind $kind $pid))
+        ($old-pids
+           (goal-live-proof-ids-for-output-key $gid (candidate-output-key $output)))
+        ($old-representative
+           (if (== $old-pids ()) ()
+              (proof-output-group-representative-pid $gid
+                 (proof-output-group (candidate-output-key $output) $old-pids))))
         ($stored-ev (proof-candidate-stored-evidence (proof-candidate $kind $score $ev $children)))
         ($_1 (chainer-add-atom &proof ($pid $gid $output $kind $score $stored-ev $children)))
         ($_2 (mark-proof-static! $gid $pid $kind $children))
-        ($_3 (cache-proof-live! $pid true))
-        ($_4 (append-goal-live-cache! $gid $pid)))
+        ($_3
+           (if (== $old-representative ()) ()
+              (progn
+                 (add-atom &proof_superseded ($old-representative))
+                 (invalidate-proof-live-caches))))
+        ($_4 (cache-proof-live! $pid true))
+        ($_5 (append-goal-live-cache! $gid $pid)))
       $pid))
 
 (= (proof-atom-candidate ($type $kb $prf $tv) $ev)

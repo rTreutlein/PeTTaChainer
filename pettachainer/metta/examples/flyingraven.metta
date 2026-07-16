@@ -17,28 +17,80 @@
 
 !(compileadd flyingRavenKb (: birdFlies (Inheritance Bird (IntSet flies)) (STV 0.99 0.9)))
 
-(= (flying-raven-result-tv (: $_proof $_type $tv)) $tv)
-
 !(test
    (let $results
       (collapse
          (query 100 flyingRavenKb
             (: $prf (Inheritance Sam (IntSet flies)) $tv)))
-      ((length $results) (map-flat flying-raven-result-tv $results)))
-   (1 ((STV 0.9718209275303599 0.948065079226267))))
+      ((length $results) $results))
+   (1 ((:
+      (inheritance-implication-fold
+         (total-implication
+            (merge/revision
+               ((inheritance-implication birdFlies)
+                  ((inheritance-implication ravenBird)
+                     ((inheritance-implication samRaven) (ctx proof 0))))
+               (negated
+                  (penguinsDoNotFly
+                     ((inverted (inheritance-implication penguinBird) with cpu cpu)
+                        ((inheritance-implication ravenBird)
+                           ((inheritance-implication samRaven) (ctx proof 0)))))))
+            (merge/revision
+               ((inheritance-implication birdFlies)
+                  ((inheritance-implication ravenBird)
+                     ((inheritance-implication samRaven) (ctx proof 1))))
+               (negated
+                  (penguinsDoNotFly
+                     ((inverted (inheritance-implication penguinBird) with cpu cpu)
+                        ((inheritance-implication ravenBird)
+                           ((inheritance-implication samRaven) (ctx proof 1)))))))))
+      (Inheritance Sam (IntSet flies))
+      (STV 0.9636833710183946 0.9020118546940846)))))
 
 !(test
    (let $results
       (collapse
-         (query 5 flyingRavenKb
+         (query 30 flyingRavenKb
             (: $prf (Inheritance Pingu (IntSet flies)) $tv)))
-      ((length $results) (map-flat flying-raven-result-tv $results)))
-   (1 ((STV 0.010000000000000009 0.8999910888461915))))
+      ((length $results) $results))
+   (1 ((:
+      (inheritance-implication-fold
+         (total-implication
+            (merge/revision
+               ((inheritance-implication birdFlies)
+                  ((inheritance-implication penguinBird)
+                     ((inheritance-implication pinguPenguin) (ctx proof 2))))
+               (negated
+                  (penguinsDoNotFly
+                     ((inheritance-implication pinguPenguin) (ctx proof 2)))))
+            (negated
+               (penguinsDoNotFly
+                  ((inheritance-implication pinguPenguin) (ctx proof 3))))))
+      (Inheritance Pingu (IntSet flies))
+      (STV 0.49640488254907433 0.9475028689002895)))))
 
 !(test
    (let $results
       (collapse
-         (query 20 flyingRavenKb
+         (query 100 flyingRavenKb
             (: $prf (Inheritance Pingu (IntSet flies)) $tv)))
-      ((length $results) (map-flat flying-raven-result-tv $results)))
-   (1 ((STV 0.500194491277127 0.9473834682774158))))
+      ((length $results) $results))
+   (1 ((:
+      (inheritance-implication-fold
+         (total-implication
+            (merge/revision
+               ((inheritance-implication birdFlies)
+                  ((inheritance-implication penguinBird)
+                     ((inheritance-implication pinguPenguin) (ctx proof 4))))
+               (negated
+                  (penguinsDoNotFly
+                     ((inheritance-implication pinguPenguin) (ctx proof 4)))))
+            (merge/revision
+               ((inheritance-implication birdFlies)
+                  ((inheritance-implication penguinBird)
+                     ((inheritance-implication pinguPenguin) (ctx proof 5))))
+               (negated
+                  (penguinsDoNotFly
+                     ((inheritance-implication pinguPenguin) (ctx proof 5)))))))
+      (Inheritance Pingu (IntSet flies))
+      (STV 0.49640488254907433 0.9475028689002895)))))

@@ -29,4 +29,6 @@
 !(compileadd queryAddsKb3 (: pc3 (And (A) (D)) (STV 1.0 1.0)))
 
 !(test (query 10 queryAddsKb3 (: $p (And (A) (B)) $tv))
-   (: (conjunction pa3 pb3) (And (A) (B)) (STV 1.0 0.9998000399670116)))
+   (: (conjunction (merge/revision pa3 (marginal-proj 0 pc3)) pb3)
+      (And (A) (B))
+      (STV 1.0 0.9998000349687599)))

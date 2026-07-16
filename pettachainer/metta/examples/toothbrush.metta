@@ -69,13 +69,11 @@
 !(compileadd toothbrushKb (: xUnscrew (Operation X opUnscrew) (STV 0.99 0.99)))
 
 (= (toothbrush-result-tv
-      (: (inheritance-query (total-implication $_positive $_negative))
-         (Inheritance X removed)
-         $tv))
+      (: $_proof (Inheritance X removed) $tv))
    $tv)
 
 !(test
    (let $results
       (collapse (query 200 toothbrushKb (: $prf (Inheritance X removed) $tv)))
       ((length $results) (map-flat toothbrush-result-tv $results)))
-   (1 ((STV 0.8959832714414285 0.9896761643809187))))
+   (1 ((STV 0.8959832714414285 0.9897979854412593))))

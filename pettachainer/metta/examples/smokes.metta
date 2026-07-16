@@ -32,23 +32,21 @@
 
 !(compileadd smokesKb (: smokesEdward (Inheritance Edward (IntSet smokes)) (STV 1.0 0.9)))
 
-!(test (query 120 smokesKb (: $prf (Inheritance Edward (IntSet cancerous)) $tv))
+!(test (query 500 smokesKb (: $prf (Inheritance Edward (IntSet cancerous)) $tv))
    (:
-      (inheritance-query
+      (inheritance-implication-fold
          (total-implication
-            ((inheritance-implication
-                (smokingCancerRule
-                   (merge/revision
-                      smokesEdward
-                      (friendSmokingRule
-                         (conjunction friendAnnaEdward smokesAnna)))))
-             (ctx proof 0))
-            ((inheritance-implication
-                (smokingCancerRule
-                   (merge/revision
-                      smokesEdward
-                      (friendSmokingRule
-                         (conjunction friendAnnaEdward smokesAnna)))))
-             (ctx proof 1))))
+            (smokingCancerRule
+               (merge/revision
+                  ((inheritance-implication smokesEdward) (ctx proof 0))
+                  ((inheritance-rule-lift friendSmokingRule)
+                     (conjunction friendAnnaEdward smokesAnna)
+                     (ctx proof 0))))
+            (smokingCancerRule
+               (merge/revision
+                  ((inheritance-rule-lift friendSmokingRule)
+                     (conjunction friendAnnaEdward smokesAnna)
+                     (ctx proof 1))
+                  ((inheritance-implication smokesEdward) (ctx proof 1))))))
       (Inheritance Edward (IntSet cancerous))
-      (STV 0.4200002700620408 0.9335532386139358)))
+      (STV 0.4200001198164605 0.9335532708383407)))
