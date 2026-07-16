@@ -1,0 +1,9 @@
+# Stable executable documentation run by ../test.sh.
+examples/base_rate_acceptance_game_libpln.metta
+examples/base_rate_acceptance_game_pettachainer.metta
+examples/deductionrevision.metta
+examples/direct.metta
+examples/raveninduction.metta
+examples/raveninduction_implication_pettachainer.metta
+examples/smokes.metta
+examples/toothbrush.metta

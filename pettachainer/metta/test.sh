@@ -6,7 +6,9 @@ pass=0
 fail=0
 fail_files=()
 
-for file in tests/test*.metta; do
+run_file() {
+  local file=$1
+
   if petta "$file" >/tmp/petta-last.log 2>&1; then
     pass=$((pass + 1))
     printf 'PASS %s\n' "$file"
@@ -15,7 +17,18 @@ for file in tests/test*.metta; do
     fail_files+=("$file")
     printf 'FAIL %s\n' "$file"
   fi
+}
+
+for file in tests/test*.metta; do
+  run_file "$file"
 done
+
+while IFS= read -r file || [ -n "$file" ]; do
+  case "$file" in
+    ''|'#'*) continue ;;
+  esac
+  run_file "$file"
+done < examples/supported.txt
 
 printf '\nSummary: %d passed, %d failed\n' "$pass" "$fail"
 

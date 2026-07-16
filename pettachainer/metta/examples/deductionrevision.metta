@@ -8,23 +8,15 @@
 
 !(compileadd deductionRevisionKb (: cInheritsD (Inheritance C D) (STV 0.5 0.9)))
 
+(= (inheritance-result-tv (: $_proof $_type $tv)) $tv)
+
+;; Both A -> B -> D and A -> C -> D are merged behind the single public
+;; inheritance adapter instead of escaping as competing query results.
 !(test
-   (query 30 deductionRevisionKb (: $prf (Inheritance A D) $tv))
-   ((:
-       (inheritance-query
-          (total-implication
-             ((inheritance-implication cInheritsD)
-                ((inheritance-implication aInheritsC) (ctx proof 0)))
-             ((inheritance-implication cInheritsD)
-                ((inheritance-implication aInheritsC) (ctx proof 1)))))
-       (Inheritance A D)
-       (STV 0.49999983333327785 0.0009715845768689697))
-    (:
-       (merge/revision
-          ((inheritance-implication cInheritsD) aInheritsC)
-          ((inheritance-implication bInheritsD) aInheritsB))
-       (Inheritance A D)
-       (STV 0.49999983333327785 0.22475956376844544))))
+   (let $results
+      (collapse (query 30 deductionRevisionKb (: $prf (Inheritance A D) $tv)))
+      ((length $results) (map-flat inheritance-result-tv $results)))
+   (1 ((STV 0.4999998333332778 0.002909100855559274))))
 
 
 

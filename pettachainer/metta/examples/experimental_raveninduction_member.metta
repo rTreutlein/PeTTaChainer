@@ -22,7 +22,9 @@
       (: $prf
          (Inheritance raven (IntSet black))
          $tv))
-   (:
-      (member-inheritance-fold cpu)
+   (: (inheritance-query
+         (total-implication
+            ((inheritance-implication (member-inheritance-fold cpu)) (ctx proof 0))
+            ((inheritance-implication (member-inheritance-fold cpu)) (ctx proof 1))))
       (Inheritance raven (IntSet black))
       (STV 0.39999999999999997 0.7290000000000001)))

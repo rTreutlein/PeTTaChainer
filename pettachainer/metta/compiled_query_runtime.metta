@@ -75,14 +75,30 @@
       (if (== $entries ()) false
          (let (base-rate $_kbid $_stored $_tv $source $_mode) (car-atom $entries) (== $source user)))))
 
-(= (set-base-rate $kbid $pattern $tv)
+(= (store-base-rate! $kbid $pattern $tv)
    (let*
       (($stored (copy_term $pattern))
        ($_old (base-rate-cache-remove! $kbid $pattern))
        ($_new (add-atom &base_rate_cache (base-rate $kbid $stored $tv user any))))
       ()))
 
-(= (clear-base-rate $kbid $pattern) (base-rate-cache-remove! $kbid $pattern))
+(= (set-base-rate $kbid $pattern $tv)
+   (let*
+      (($_public (store-base-rate! $kbid $pattern $tv))
+       ($evidence-pattern (inheritance-evidence-term $pattern)))
+      ;; Compiled inheritance rules consume the private evidence predicate.
+      ;; Mirror an explicit public prior to that internal key so lowering does
+      ;; not silently replace a configured prior with a computed estimate.
+      (if (=alpha $evidence-pattern $pattern) ()
+         (store-base-rate! $kbid $evidence-pattern $tv))))
+
+(= (clear-base-rate $kbid $pattern)
+   (let*
+      (($_public (base-rate-cache-remove! $kbid $pattern))
+       ($evidence-pattern (inheritance-evidence-term $pattern)))
+      (if (=alpha $evidence-pattern $pattern)
+         ()
+         (base-rate-cache-remove! $kbid $evidence-pattern))))
 
 (= (universe-size-entries $kbid)
    (collapse

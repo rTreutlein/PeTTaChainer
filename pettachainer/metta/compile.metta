@@ -781,21 +781,31 @@
 ;; the backward chainer merges all proofs for one link, and one query adapter
 ;; consumes that merged result. The distinct head prevents adapter recursion.
 (= (inheritance-evidence-term $term)
-   (if (= $term (Inheritance $subj $concept))
-      (inheritance-evidence $subj $concept)
-      (if (is-expr $term)
-         (cons (inheritance-evidence-term (car-atom $term))
-            (inheritance-evidence-terms (cdr-atom $term)))
-         $term)))
+   ;; A bare variable can unify with the Inheritance pattern below, but that
+   ;; does not make it an inheritance proposition. Preserve variables before
+   ;; recursively transforming mixed expressions such as `(Operation $x op)`.
+   (if (is-var $term) $term
+      (if (= $term (Inheritance $subj $concept))
+         (inheritance-evidence $subj $concept)
+         (if (is-expr $term)
+            (cons (inheritance-evidence-term (car-atom $term))
+               (inheritance-evidence-terms (cdr-atom $term)))
+            $term))))
 
 (= (inheritance-evidence-terms ()) ())
 (= (inheritance-evidence-terms (cons $head $rest))
    (cons (inheritance-evidence-term $head)
       (inheritance-evidence-terms $rest)))
 
+(= (inheritance-conclusion? $conclusion)
+   (case $conclusion (
+      ((Inheritance $_subj $_concept) true)
+      ((Not (Inheritance $_subj $_concept)) true)
+      ($_other false))))
+
 (= (inheritance-conclusions? ()) false)
 (= (inheritance-conclusions? (cons $head $rest))
-   (or (= $head (Inheritance $_subj $_concept))
+   (or (inheritance-conclusion? $head)
       (inheritance-conclusions? $rest)))
 
 (= (compile-inheritance-evidence-rule $kb $prf $premises $conclusions $tv)

@@ -27,7 +27,7 @@
 
 !(test
    (true-base-rate-result)
-   ((STV 0.8749999999999999 0.9402804037609759) (STV 0.8749999999999999 0.9402804038600739)))
+   (STV 0.8749999999999999 0.9402804037609759))
 
 !(compileadd estimatedDeductionKb (: estAB (Inheritance A_est B_est) (STV 0.25 0.9)))
 !(compileadd estimatedDeductionKb (: estBC (Inheritance B_est C_est) (STV 0.5 0.9)))
