@@ -803,7 +803,12 @@
    ;; A recursive difference check is too broad: for example, a Member rule
    ;; may mention an Inheritance expression merely as its member object. Such
    ;; nested data must not turn that unrelated rule into an evidence producer.
-   (if (not (inheritance-conclusions? $conclusions)) (empty)
+   ;; Concrete facts already emit evidence directly, so mirroring their
+   ;; compiler-generated public implication view would only recreate the same
+   ;; evidence through an extra forward/inverse rule pair.
+   (if (or (not (inheritance-conclusions? $conclusions))
+           (= $prf (inheritance-implication $_source-proof)))
+      (empty)
       (let $evidence-conclusions (inheritance-evidence-terms $conclusions)
          (let*
             (($evidence-premises (inheritance-evidence-terms $premises))
@@ -1026,8 +1031,12 @@
 
 (= (compile-inheritance-implication-evidence-query $kb $subj $concept)
    (let*
-      (($premises ((inheritance-evidence $x $subj)))
-       ($conclusions ((inheritance-evidence $x $concept)))
+      (;; Higher-order inference reuses the public implication views already
+       ;; generated for concrete facts. Its single result is then written to
+       ;; the private evidence head and passed through the canonical adapter.
+       ;; This avoids maintaining a duplicate implication index over evidence.
+       ($premises ((Inheritance $x $subj)))
+       ($conclusions ((Inheritance $x $concept)))
        ($mvars ($x))
        ((query-scaffold $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf $all-adds)
           (query-pos-neg-scaffold $kb $mvars $premises $conclusions))
