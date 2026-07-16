@@ -3,6 +3,18 @@
 !(import! &self (library lib_he))
 !(import! &self logic_config)
 
+;; Compiler overview
+;; -----------------
+;; Statements enter through compile_ (stored facts and rules) or compileQuery
+;; (temporary query goals). Source-level premises are lowered to executable
+;; goals plus a combined TV and proof token. Adapter rules bridge compound or
+;; computed source expressions to the simple fact shape consumed by the
+;; chainer. mm2compile/mm2compileQuery then translate that external compiler
+;; representation to the tuple layout used by the MORK runtime.
+
+;; Allocate a distinct context for assumptions introduced while compiling an
+;; implication query. Contexts must not be shared because their assumed facts
+;; are query-local.
 (= (nextctx)
    (let*
       (($mn (catch (get-state ctxid)))
@@ -16,6 +28,10 @@
             (fold-nested $collect-vars () $expr))
          ())))
 
+;; Replace variables which occur only in the antecedent with stable `exists`
+;; markers. In an inverted rule those variables cannot be recovered from the
+;; new premise, so leaving them as ordinary variables would make unrelated
+;; witnesses unify.
 (= (skolemize $rule $expra $exprb)
    (if (or (is-var $exprb) (is-var $expra)) $exprb
       (let*
@@ -32,6 +48,10 @@
 
 (= (seq2expr (cons $head $tail)) (if (== $tail ()) $head (cons And (cons $head $tail))))
 
+;; A projection from a compound connective can depend on the other children as
+;; evidence. Preserve all their proof identities so later overlap checks see
+;; the complete dependency set, while avoiding a redundant conjunction node
+;; for the one-proof case.
 (= (projection-evidence-proof-token (cons $proof ())) $proof)
 (= (projection-evidence-proof-token (cons $proof (cons $next $rest)))
    (cons conjunction (cons $proof (cons $next $rest))))
@@ -54,6 +74,10 @@
         ($proof-token (projection-evidence-proof-token $proofs)))
       (premise-bundle $execs $tv $proof-token)))
 
+;; Emit projection adapters recursively for every child of a configured
+;; compound output. The strong projection uses the other children as evidence;
+;; And additionally exposes a weak marginal projection so independently queried
+;; conjuncts can later be pooled back to their common source.
 (= (compile-output-children $kb $type $head $idx ()) (empty))
 (= (compile-output-children $kb $type $head $idx (cons $elem $rest))
    (superpose (
@@ -82,6 +106,9 @@
       (compile-output-children $kb $type $head 0 $tail)
       (empty)))
 
+;; CPU goals normally constrain values and therefore contribute unit evidence.
+;; These formulas instead compute a TV which must participate in the enclosing
+;; premise TV. Aggregates opt into that behavior through their explicit tv-mode.
 (= (cpu-premise-tv-formula $f)
    (is-member $f (() NotFormula DistGreaterThanFormula DistGreaterThanDistFormula)))
 
@@ -98,6 +125,10 @@
 (= (source-premise-kb $kb $ctx $vars)
    (if (or (is-var $ctx) (is-var $vars)) (kbctx $kb) ($kb $ctx $vars)))
 
+;; Normalize one source premise to the compiler's common bundle:
+;;   premise-bundle(executable goals, evidence TV, proof token).
+;; Keeping this boundary uniform lets compound, computed, and ordinary fact
+;; premises be combined by the same folds below.
 (= (leaf-source-bundle $kb $ctx $vars $elem)
    (let $prem-kb (source-premise-kb $kb $ctx $vars)
       (if (is-var $elem)
@@ -125,6 +156,11 @@
 
 (= (execs-goal-type $execs) (seq2expr (map-flat exec-goal-type $execs)))
 
+;; Lower a connective whose configured premise mode is All. Every child must
+;; succeed, child TVs are folded with <Head>Formula, and the proof token records
+;; the conjunction of the child proofs. This is the general conjunction-
+;; introduction mechanism for And premises; it is connective-generic so the
+;; same machinery also serves other All-mode connectives.
 (= (compound-all-premise-bundle $kb $ctx $vars $head $tail)
    (let*
       (($prem-kb (if (or (is-var $ctx) (is-var $vars)) (kbctx $kb) ($kb $ctx $vars)))
@@ -136,6 +172,9 @@
         ($proof-token (if (= $rcclprf (cons $proof ())) $proof (cons conjunction $rcclprf))))
       (premise-bundle $execs $ccltv $proof-token)))
 
+;; Lower one alternative of an Any-mode connective. Only one child is evidence,
+;; so the proof is labelled as an introduction of the enclosing connective
+;; rather than as a conjunction of all children.
 (= (compound-any-premise-child-bundle $kb $ctx $vars $head $elem)
    (let*
       (($prem-kb (if (or (is-var $ctx) (is-var $vars)) (kbctx $kb) ($kb $ctx $vars)))
@@ -154,12 +193,18 @@
          (compound-any-premise-bundle $kb $ctx $vars $head $tail)
          (compound-all-premise-bundle $kb $ctx $vars $head $tail))))
 
+;; Compound lowering is deliberately configuration-driven. Merely being an
+;; expression is insufficient: ordinary predicates such as (Friend a b) must
+;; remain fact lookups and must not be interpreted as logical connectives.
 (= (compound-source? $type)
    (if (is-expr $type)
       (let $head (car-atom $type)
          (and (not (is-var $head)) (compound-connective? $head)))
       false))
 
+;; Query compounds need recursive lowering because a child may itself be a
+;; compound or a source-level computation. A plain predicate child stays a leaf
+;; lookup so it can use the normal chainer indexes.
 (= (query-compound-child-bundle $kb $ctx $vars $premise)
    (if (compound-source? $premise)
       (let (cons $head $tail) $premise (query-compound-premise-bundle $kb $ctx $vars $head $tail))
@@ -176,6 +221,9 @@
 (= (query-compound-premise-state (premise-bundle $execs $tv $proof))
    (query-compound-state $execs ($proof) $tv))
 
+;; Accumulate a direct compound-query rule in source order. Appending both goals
+;; and proofs is intentional: the returned `(conjunction ...)` proof mirrors the
+;; order written by the caller, while each TV fold consumes the same ordering.
 (=
    (query-compound-premise-step $kb $ctx $vars $formula
       (query-compound-state $acc-execs $acc-proofs $acc-tv)
@@ -198,6 +246,9 @@
         ($proof-token (if (= $rcclprf (cons $proof ())) $proof (cons conjunction $rcclprf))))
       (premise-bundle $execs $ccltv $proof-token)))
 
+;; A direct bundle is required when normal plain adapters cannot faithfully
+;; express a child: nested compounds and computations must be lowered inside
+;; the query rule rather than looked up as already materialized facts.
 (= (query-compound-child-needs-bundle? $premise)
    (if (compound-source? $premise)
       (query-compound-needs-bundle? $premise)
@@ -215,6 +266,11 @@
             (or (query-compound-child-needs-bundle? $item)
                (compound-direct-query-bundle? $rest)))))))
 
+;; Three-or-more-child compound queries are also lowered directly. The ordinary
+;; adapter path was designed around binary rule shapes; forcing an n-ary query
+;; through it can lose the complete ordered proof bundle. This is the explicit
+;; specialization which makes `(And A B C ...)` synthesize one query-local
+;; conjunction-introduction rule with proof `(conjunction a b c ...)`.
 (= (compound-nary-query? $items)
    (case $items (
       ((cons $_a (cons $_b (cons $_c $_rest))) true)
@@ -226,9 +282,16 @@
          (or (compound-nary-query? $items) (compound-direct-query-bundle? $items)))
       false))
 
+;; An open proof variable should be replaced by the generated bundle itself.
+;; A named/structured query proof is instead retained as an outer provenance
+;; label around that bundle.
 (= (query-compound-proof-token $prf $proof-token)
    (if (is-var $prf) $proof-token ($prf $proof-token)))
 
+;; Build reusable adapters for source expressions found in stored rules. Each
+;; adapter derives the requested compound from its lowered children. Recursing
+;; on a different executable type ensures any intermediate source syntax also
+;; receives an adapter, without regenerating the identical rule.
 (= (compile-adapter-chain plain (: $kb $prf (@ $type (cons $head $tail)) $tv))
    (if (compound-source? $type)
       (let*
@@ -244,6 +307,12 @@
                         (compile-adapter-chain plain (: $kb $prfa $exec-type $atv))))))
       (empty)))
 (= (compile-adapter-chain plain (: $_kb $_prf $_type $_tv)) (empty))
+
+;; Query adapters differ from stored-rule adapters in three places:
+;; 1. Not is exposed as an explicit negated proof;
+;; 2. complex/n-ary compounds get one query-local direct bundle; and
+;; 3. other computed source forms are lowered and bridged only when their
+;;    executable goal shape differs from the requested source expression.
 (= (compile-adapter-chain query (: $kb $prf $type $tv))
    (if (and (is-expr $type) (let $head (car-atom $type) (and (not (is-var $head)) (== $head Not))))
       (let $a (car-atom (cdr-atom $type))
@@ -267,6 +336,9 @@
                            (compile-adapter-chain plain (: $kb $prfa $exec-type $atv))))
                (empty))))))
 
+;; Lower the supported source-language premise forms to executable chainer/CPU
+;; goals. This function owns the semantic translation (including which TV and
+;; proof token a computation contributes); callers only combine its bundles.
 (= (lower-source-premise-non-open $kb $ctx $vars $premise)
    (if (compound-source? $premise)
       (let (cons $head $tail) $premise (compound-premise-bundle $kb $ctx $vars $head $tail))
@@ -327,6 +399,9 @@
                  (premise-bundle ((: ($kb $ctx $vars) $prf ($rel $a $b) $tv)) $tv $prf)))
            ($other (premise-bundle ((: ($kb $ctx $vars) $prf $other $tv)) $tv $prf))))))
 
+;; Variable-headed expressions require the generic fact path. Dispatching them
+;; through the structural cases above would mistake an unknown predicate head
+;; for compiler syntax and could specialize the query incorrectly.
 (= (lower-source-premise $kb $ctx $vars $premise)
    (if (and (is-expr $premise) (is-var (car-atom $premise)))
       (if (== (cdr-atom $premise) ())
@@ -334,6 +409,9 @@
          (leaf-source-bundle $kb $ctx $vars $premise))
       (lower-source-premise-non-open $kb $ctx $vars $premise)))
 
+;; Combine premise bundles left-to-right. AndFormula is inserted only between
+;; non-empty bundles so the first premise supplies the initial TV and no fake
+;; unit-evidence proof is introduced.
 (=
    (append-premise-bundle (compiled-premises $current-execs $current-proofs $current-tv)
       (premise-bundle $execs $tv $proof))
@@ -355,6 +433,10 @@
 
 (= (compile-has-vars? $vars) (not (== $vars ())))
 
+;; A premise-local variable denotes existential evidence, not a variable which
+;; should escape into the compiled rule. Collapse all matching witnesses with
+;; OrFormula; retain group variables when the premise is correlated with the
+;; conclusion or another premise so each binding gets its own aggregate.
 (= (fold-existential-premise-bundle $kb $ctx $vars $premise $group-vars)
    (let $prem-kb (source-premise-kb $kb $ctx $vars)
       (if (== $group-vars ())
@@ -371,6 +453,9 @@
             $fold-tv
             cpu))))
 
+;; Only ordinary fact-like premises are safe to rewrite as existential folds.
+;; Compiler forms and computations have their own lowering and binding rules;
+;; folding them as database patterns would change their meaning.
 (= (existential-foldable-premise? $premise)
    (if (is-expr $premise)
       (let $head (car-atom $premise)
@@ -400,6 +485,9 @@
         ($local-vars (compile-premise-local-vars $conclusion-vars $other-vars $premise)))
       (compile-var-list-subtract $premise-vars $local-vars)))
 
+;; Partition before lowering so existential-only premises run after normal
+;; premises. This lets variables shared with other premises be bound first and
+;; correctly distinguishes genuinely local variables from correlated ones.
 (= (partition-existential-premises-walk $_conclusion-vars $_prior-vars $normal $folded ())
    ($normal $folded))
 (= (partition-existential-premises-walk $conclusion-vars $prior-vars $normal $folded (cons $premise $rest))
@@ -434,6 +522,10 @@
         ($ordered-premises (partition-existential-premises $conclusion-vars $premises)))
       (lower-source-premises-list $kb $ctx $vars $ordered-premises)))
 
+;; Premises of an implication *query* are temporary assumptions. A positive
+;; `(Not A)` assumption is represented by an A-shaped contextual fact with
+;; strength zero, allowing ordinary fact matching while preserving its logical
+;; truth through the bundle TV.
 (= (lower-query-assumption-premise $kb $ctx $vars $premise)
    (if (and (is-expr $premise) (not (is-var (car-atom $premise))))
       (let $head (car-atom $premise)
@@ -453,6 +545,9 @@
       (compiled-premises () () (STV 1.0 1.0))
       $premises))
 
+;; Construct the refuting side of a total-implication query: the first premise
+;; is assumed false and all remaining premises true. This is the counterexample
+;; condition used to compute the negative component of the implication CTV.
 (= (lower-query-assumption-premise-false $kb $ctx $vars $premise)
    (if (and (is-expr $premise) (not (is-var (car-atom $premise))))
       (let $head (car-atom $premise)
@@ -486,6 +581,8 @@
    (collapse (compile-adapter-chain query (: $kb $prf $type $tv))))
 
 
+;; Normalize a public KB id to its default runtime shape. Query contexts already
+;; arrive shaped as `(kbid ctx vars)` and must pass through unchanged.
 (= (kbctx $kb) (if (is-expr $kb) $kb ($kb MAIN Nil)))
 
 (= (context-polymorphic-facts-key $kb) (atom_concat context_polymorphic_facts_ $kb))
@@ -517,6 +614,9 @@
 
 (= (disable-inversion-proof-id? $prf) (= $prf (no_inverse $_)))
 
+;; Preserve the dependency shape of a rule application. Zero-premise rules are
+;; CPU-derived, one premise needs no wrapper, and multiple premises must retain
+;; an explicit conjunction for overlap detection and proof rendering.
 (= (implication-proof-token $proofs)
    (case $proofs (
       (() cpu)
@@ -524,6 +624,9 @@
       ((cons $proof $rest)
          (cons conjunction (cons $proof $rest))))))
 
+;; Rules stored with an STV need a CTV derived from antecedent/consequent base
+;; rates before modus ponens can use them. An explicit CTV already carries both
+;; directions and therefore needs no runtime base-rate scans.
 (= (compile-implication-ctv-execs $_kb $_a $_b (CTV $pos $neg))
    (implication-ctv-execs () (CTV $pos $neg)))
 (= (compile-implication-ctv-execs $kb $a $b (STV $s $c))
@@ -536,6 +639,9 @@
           (CPU ImplicationCTVFormula ($rule-atv $rule-btv (STV $s $c)) $rule-ctv))
          $rule-ctv)))
 
+;; A negated conclusion is stored as positive evidence for its inner expression
+;; with a negated proof and transformed TV. Keeping the runtime type positive
+;; lets it share the ordinary fact indexes.
 (= (compile-implication-output $prf $proof-token $b $btv)
    (case $b (
       ((Not $inner)
@@ -547,6 +653,9 @@
       ($other
          (compiled-output () ($prf $proof-token) $other $btv)))))
 
+;; Emit the forward rule plus the adapters needed on both sides. The shape KB is
+;; context-sensitive for assumption queries, while adapter-kb controls where
+;; reusable source-shape adapters are indexed.
 (= (compile-implication-forward-rules $kb $shape-kb $adapter-kb $prf $tv $a $b $execs $proofs $atv)
    (superpose (
       (once
@@ -582,6 +691,9 @@
             (if (rule-evidence-registered? $kb $name) ()
                (add-atom &rule_evidence_names ($kb $name)))))))
 
+;; Estimate the base rate required to reinterpret an STV rule as a CTV. Open
+;; inheritance antecedents use universe-aware weighted evidence; ordinary
+;; patterns use the generic evidence accumulator.
 (= (base-rate-premise-default $kb $pattern $brtv)
    (if (and (= $pattern (Inheritance $x $_concept)) (is-var $x))
       (CPU FoldAllCompiled
@@ -592,6 +704,9 @@
          ($kb $pattern extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)
          $brtv)))
 
+;; A concrete inheritance target may have a configured/dynamic concept prior.
+;; Seed its fold with that prior so sparse observations revise the prior instead
+;; of silently behaving like an uninformative generic predicate.
 (= (base-rate-premise $kb $pattern $brtv)
    (if (and (= $pattern (Inheritance $x $subj)) (and (is-var $x) (not (is-var $subj))))
       (CPU FoldAllCompiled
@@ -601,6 +716,10 @@
          $brtv)
       (base-rate-premise-default $kb $pattern $brtv)))
 
+;; Compile the backward use of an implication by deriving its CTV, applying TV
+;; inversion, and then using the observed consequent as modus-ponens evidence.
+;; This is emitted only when the main compiler has proved the antecedent is
+;; invertible (no CPU goals and no explicit no_inverse marker).
 (= (inverse-implication $kb $prf $a $b $itv)
    (let*
       (($a1 (copy_term (map-nested2 toQuery $a)))
@@ -614,6 +733,9 @@
          |-
          ((: ($kb $ctx $vars) ((inverted $prf with cpu cpu) $prfb_wit) $a $mp-tv)))))
 
+;; Concrete Inheritance assertions also act as implication-like rules over
+;; members. Materializing these views once at compile time lets ordinary rule
+;; indexing and inference handle inheritance without a separate chainer path.
 (= (concrete-inheritance-link? $subj $concept)
    (and (not (is-var $subj)) (not (is-var $concept))))
 
@@ -730,6 +852,14 @@
             (specialize-fact-add $kb $Type (copy_term $template)))
          (empty))))
 
+;; Main statement compiler.
+;;
+;; Implications become forward rules, optional inverse rules, and adapters.
+;; Bidirectional forms are split into two ordinary implications. Facts are
+;; stored directly, with extra derived views for concrete Inheritance links and
+;; projections for configured compound outputs. Structural specialization is
+;; checked before generic implication compilation so variable-headed templates
+;; never leak into the broad `any` index.
 (= (compile_ $kb (@ $stmt (: $prf $Type $tv)))
    (if (is-var $Type) (empty)
       (if (= $Type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
@@ -824,6 +954,12 @@
       (query-scaffold $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf
          (union-atom $pos-adds $neg-adds))))
 
+;; Compile a public query into one goal rule plus temporary additions.
+;; Implication queries require positive and refuting assumption contexts;
+;; bidirectional queries require one context per direction; concrete
+;; Inheritance queries also expose their implication and member-fold views.
+;; Ordinary queries remain a direct known goal with only the adapters their
+;; source syntax requires.
 (= (compileQuery $kb (: $prf $Type $tv))
    (if (is-var $Type) ((() |- ((: (kbctx $kb) $prf $Type $tv))) ())
       (if (= $Type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
@@ -874,10 +1010,16 @@
             (((() |- ((: (kbctx $kb) $prf $Type $tv))) (compile-query-adds (: (kbctx $kb) $prf $Type $tv)))))))))
 
 
+;; Translate the external `premises |- conclusions` compiler form into the
+;; single-conclusion `rules` form consumed by MORK. Facts are already
+;; zero-premise conclusions and therefore need no wrapper.
 (= (mm2compile $kb $stmt) (mm2stmt (compile_ $kb $stmt)))
 
 (= (mm2stmt $stmt) (case $stmt (((() |- ($ccl)) $ccl) (($prms |- ($ccl)) (rules ($prms |- $ccl))))))
 
+;; Some query additions arrive wrapped in an extra singleton list after
+;; collapse. Unwrap that shape explicitly before applying the normal MM2 rule
+;; conversion; treating it as a fact would install the list itself as a goal.
 (= (compiled-add-mm2stmt $add)
    (if (== (cdr-atom $add) ())
       (let*
@@ -898,6 +1040,10 @@
          (if (is-var $head) false (is-member $head (And Or LikelierThan))))
       false))
 
+;; A temporary implication is needed only for compound children which cannot be
+;; lowered by the normal adapter chain (computations or nested compounds).
+;; Pure n-ary conjunctions use the direct query bundle in compileQuery instead,
+;; avoiding a persistent synthetic implication for a query-local operation.
 (= (query-compound-needs-temp-rule? $term)
    (if (is-expr $term) (compound-direct-query-bundle? (cdr-atom $term)) false))
 
@@ -909,6 +1055,9 @@
 	         (Implication (cons Premises $premises) (cons Conclusions ($type)))
 	         (CTV (STV 1.0 1.0) (STV 0.0 1.0)))))
 
+;; Query assumptions with no caller-supplied TV are treated as certain. An
+;; implication needs a CTV-shaped default because its positive and negative
+;; support are tracked separately throughout the query compiler.
 (= (default-query-assumption-tv $type $tv)
    (if (is-var $tv)
       (if (= $type (Implication (cons Premises $_premises) (cons Conclusions $_conclusions)))
@@ -916,6 +1065,9 @@
          (STV 1.0 1.0))
       $tv))
 
+;; An implication used as a query assumption must be executable inside its
+;; fresh context, not merely stored as an inert contextual fact. Compile its
+;; forward rule against the same shaped KB so it can consume sibling assumptions.
 (= (query-context-assumed-implication-rules $kbid $ctx $mvars $ctxprf $type $tv)
    (if (is-var $type) ()
       (if (= $type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
@@ -950,6 +1102,10 @@
       ((($_idx $adds) (fold-flat (query-context-premise-adds-step $kbid $ctx $mvars) (0 ()) $premises)))
       $adds))
 
+;; Normalize the few structural result shapes produced by compileQuery into a
+;; uniform `(compiled-query goal additions)` value. The middle case introduces
+;; a fresh contextual witness when the compiler returned a rule whose premise
+;; is the queried fact itself.
 (= (mm2compileQuery-from-compiled $kb $stmt $compiled)
    (if (= $compiled (((() |- ($ccl)) $adds)))
       (compiled-query (internalize-proof-structure $ccl)
@@ -974,6 +1130,9 @@
                   (cons (mm2stmt ($prms |- ($ccl))) (map-flat compiled-add-mm2stmt $adds))))
             (notsupported mm2compileQuery $kb $stmt $compiled)))))
 
+;; MM2 query entry point. Compound queries with computed/nested children take
+;; the temporary-rule route; all other statements use compileQuery and the
+;; structural normalization above.
 (= (mm2compileQuery $kb $stmt)
    (case $stmt (
       ((: $prf $type $tv)
@@ -989,6 +1148,9 @@
 
 (= (mf $kb ($kb $t)) $t)
 
+;; MORK indexes facts as `(type kb proof tv)`, whereas the public/compiler form
+;; is `(: kb proof type tv)`. Convert recursively because these atoms may appear
+;; inside generated rules and query additions, not only at the top level.
 (= (internalize-proof-structure $term)
    (if (== $term ()) ()
       (if (is-var $term) $term
@@ -1003,6 +1165,9 @@
       (cons (internalize-proof-structure (car-atom $terms))
          (internalize-proof-structure-list (cdr-atom $terms)))))
 
+;; Reverse the runtime tuple layout for diagnostics and public results. Only a
+;; shaped KB can be recognized safely; arbitrary four-element expressions must
+;; remain untouched.
 (= (externalize-proof-structure $term)
    (if (== $term ()) ()
       (if (is-var $term) $term
