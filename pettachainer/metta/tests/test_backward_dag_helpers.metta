@@ -135,7 +135,7 @@
 
 (= (clear-backward-state)
    (progn
-      (foreach-flat remove-all-atoms (() &goal &goal_lookup &goal_waiter &aggregate &proof &proof_live_cache &goal_live_cache &proof_static_live &proof_superseded))
+      (foreach-flat remove-all-atoms (() &goal &goal_lookup &goal_waiter &aggregate &proof &proof_parent &proof_invalidated_epoch &proof_live_cache &goal_live_cache &proof_static_live &proof_superseded))
       (change-state! bwd_live_epoch 0)
       ()))
 
@@ -210,8 +210,9 @@
        (proof-current-representative? $first-child)
        (proof-live? $old-parent)
        (length (goal-merged-proof-ids $child-gid))
-       (goal-live-proof-ids $parent-gid)))
-   (true false false 1 ()))
+       (goal-live-proof-ids $parent-gid)
+       (proof-live-cache-epoch)))
+   (true false false 1 () 0))
 
 !(test
    (let*

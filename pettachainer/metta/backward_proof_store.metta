@@ -183,6 +183,50 @@
                (goal-live-cache-remove! $gid $pids)
                (goal-live-cache-store! $gid $npids))))))
 
+(= (register-proof-parent-edges! $_parent-pid ()) ())
+(= (register-proof-parent-edges! $parent-pid (cons $child-pid $rest))
+   (let $_store (add-atom &proof_parent ($child-pid $parent-pid))
+      (register-proof-parent-edges! $parent-pid $rest)))
+
+(= (remove-proof-live-cache-atoms! $_epoch $_pid ()) ())
+(= (remove-proof-live-cache-atoms! $epoch $pid (cons $alive $rest))
+   (let $_remove (remove-atom &proof_live_cache ($epoch $pid $alive))
+      (remove-proof-live-cache-atoms! $epoch $pid $rest)))
+
+(= (remove-goal-live-cache-atoms! $_epoch $_gid ()) ())
+(= (remove-goal-live-cache-atoms! $epoch $gid (cons $pids $rest))
+   (let $_remove (remove-atom &goal_live_cache ($epoch $gid $pids))
+      (remove-goal-live-cache-atoms! $epoch $gid $rest)))
+
+(= (invalidate-proof-dependent! $epoch $parent-pid)
+   (let $seen
+      (collapse
+         (once
+            (match &proof_invalidated_epoch (($epoch $parent-pid)) true)))
+      (if (not (== $seen ())) ()
+         (let*
+            (($gid (proof-goal-id $parent-pid))
+             ($_mark (add-atom &proof_invalidated_epoch (($epoch $parent-pid))))
+             ($_proof-cache
+                (remove-proof-live-cache-atoms! $epoch $parent-pid
+                   (collapse
+                      (match &proof_live_cache ($epoch $parent-pid $alive) $alive))))
+             ($_goal-cache
+                (remove-goal-live-cache-atoms! $epoch $gid
+                   (collapse
+                      (match &goal_live_cache ($epoch $gid $pids) $pids))))
+             ($_parents (invalidate-proof-dependents! $epoch $parent-pid)))
+            ()))))
+
+(= (invalidate-proof-dependent-list! $_epoch ()) ())
+(= (invalidate-proof-dependent-list! $epoch (cons $parent-pid $rest))
+   (let $_invalidate (invalidate-proof-dependent! $epoch $parent-pid)
+      (invalidate-proof-dependent-list! $epoch $rest)))
+
+(= (invalidate-proof-dependents! $epoch $child-pid)
+   (invalidate-proof-dependent-list! $epoch
+      (collapse (match &proof_parent ($child-pid $parent-pid) $parent-pid))))
+
 (= (aggregate-current-pid-live? $current-pid $pid)
    (if (== $current-pid ()) false
       (if (is-expr $current-pid) (is-member $pid $current-pid) (== $current-pid $pid))))
@@ -463,7 +507,8 @@
                (let*
                   (($pid (next-pid))
                    ($_store (chainer-add-atom &proof ($pid (merged-proof-group $gid) $output (merged $output) $score $ev $pids)))
-                   ($_static (mark-proof-static! (merged-proof-group $gid) $pid (merged $output) $pids)))
+                   ($_static (mark-proof-static! (merged-proof-group $gid) $pid (merged $output) $pids))
+                   ($_parents (register-proof-parent-edges! $pid $pids)))
                   $pid)
                (car-atom $hits)))))))
 
@@ -585,6 +630,9 @@
       (proof-candidate-stored-evidence (proof-candidate $kind $score $ev $children))
       $children))
 
+;; Rule candidates are normalized before classification; leaf and aggregate
+;; candidates already carry their final evidence. Store that accepted evidence
+;; directly instead of walking rule proofs a second time.
 (= (store-proof-candidate $gid (proof-candidate $kind $score $ev $children))
    (let*
       (($pid (next-pid))
@@ -595,14 +643,16 @@
            (if (== $old-pids ()) ()
               (proof-output-group-representative-pid $gid
                  (proof-output-group (candidate-output-key $output) $old-pids))))
-        ($stored-ev (proof-candidate-stored-evidence (proof-candidate $kind $score $ev $children)))
-        ($_1 (chainer-add-atom &proof ($pid $gid $output $kind $score $stored-ev $children)))
+        ($_1 (chainer-add-atom &proof ($pid $gid $output $kind $score $ev $children)))
         ($_2 (mark-proof-static! $gid $pid $kind $children))
+        ($_parents (register-proof-parent-edges! $pid $children))
         ($_3
            (if (== $old-representative ()) ()
               (progn
                  (add-atom &proof_superseded ($old-representative))
-                 (invalidate-proof-live-caches))))
+                 (invalidate-proof-dependents!
+                    (proof-live-cache-epoch)
+                    $old-representative))))
         ($_4 (cache-proof-live! $pid true))
         ($_5 (append-goal-live-cache! $gid $pid)))
       $pid))
