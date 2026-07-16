@@ -50,8 +50,17 @@
 
 !(test
    (query 100 urKb (: $prf (Inheritance raven (IntSet black)) $tv))
-   (: (merge/revision
-         (inheritanceInduction rv1Raven rv1Black)
-         (inheritanceInduction rv2Raven rv2NotBlack))
+   (: (inheritance-query
+         (total-implication
+            ((inheritance-implication
+                (merge/revision
+                   (inheritanceInduction rv1Raven rv1Black)
+                   (inheritanceInduction rv2Raven rv2NotBlack)))
+             (ctx proof 0))
+            ((inheritance-implication
+                (merge/revision
+                   (inheritanceInduction rv1Raven rv1Black)
+                   (inheritanceInduction rv2Raven rv2NotBlack)))
+             (ctx proof 1))))
       (Inheritance raven (IntSet black))
       (STV 0.5 0.3932038834951457)))

@@ -700,9 +700,15 @@
          ($kb $pattern (extract-inheritance-tv $kb $pattern) (BaseRateEvidence 0.0 0.0)
             WeightedBaseRateAcc (weighted-base-rate-in-universe $kb) result-tv)
          $brtv)
-      (CPU FoldAllCompiled
-         ($kb $pattern extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)
-         $brtv)))
+      (if (and (= $pattern (inheritance-evidence $x $_concept)) (is-var $x))
+         (CPU FoldAllCompiled
+            ($kb $pattern (extract-inheritance-evidence-tv $kb $pattern)
+               (BaseRateEvidence 0.0 0.0) WeightedBaseRateAcc
+               (weighted-base-rate-in-universe $kb) result-tv)
+            $brtv)
+         (CPU FoldAllCompiled
+            ($kb $pattern extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)
+            $brtv))))
 
 ;; A concrete inheritance target may have a configured/dynamic concept prior.
 ;; Seed its fold with that prior so sparse observations revise the prior instead
@@ -714,7 +720,16 @@
             (BaseRateEvidenceWithPrior (ConceptNodePriorRuntime $kb $subj) (BaseRateEvidence 0.0 0.0))
             WeightedBaseRateWithPriorAcc (weighted-base-rate-with-prior-in-universe $kb) result-tv)
          $brtv)
-      (base-rate-premise-default $kb $pattern $brtv)))
+      (if (and (= $pattern (inheritance-evidence $x $subj))
+               (and (is-var $x) (not (is-var $subj))))
+         (CPU FoldAllCompiled
+            ($kb $pattern (extract-inheritance-evidence-tv $kb $pattern)
+               (BaseRateEvidenceWithPrior (ConceptNodePriorRuntime $kb $subj)
+                  (BaseRateEvidence 0.0 0.0))
+               WeightedBaseRateWithPriorAcc
+               (weighted-base-rate-with-prior-in-universe $kb) result-tv)
+            $brtv)
+         (base-rate-premise-default $kb $pattern $brtv))))
 
 ;; Compile the backward use of an implication by deriving its CTV, applying TV
 ;; inversion, and then using the observed consequent as modus-ponens evidence.
@@ -760,6 +775,54 @@
       (: (no_inverse (member-inheritance-implication $prf))
          (member-inheritance-implication-type $subj $concept)
          (CTV $tv (STV 0.0 1.0)))))
+
+;; Internal inheritance evidence is the compiler IR for raw links. Public
+;; Inheritance queries never target it directly: facts and rules produce it,
+;; the backward chainer merges all proofs for one link, and one query adapter
+;; consumes that merged result. The distinct head prevents adapter recursion.
+(= (inheritance-evidence-term $term)
+   (if (= $term (Inheritance $subj $concept))
+      (inheritance-evidence $subj $concept)
+      (if (is-expr $term)
+         (cons (inheritance-evidence-term (car-atom $term))
+            (inheritance-evidence-terms (cdr-atom $term)))
+         $term)))
+
+(= (inheritance-evidence-terms ()) ())
+(= (inheritance-evidence-terms (cons $head $rest))
+   (cons (inheritance-evidence-term $head)
+      (inheritance-evidence-terms $rest)))
+
+(= (inheritance-conclusions? ()) false)
+(= (inheritance-conclusions? (cons $head $rest))
+   (or (= $head (Inheritance $_subj $_concept))
+      (inheritance-conclusions? $rest)))
+
+(= (compile-inheritance-evidence-rule $kb $prf $premises $conclusions $tv)
+   ;; Mirror only rules that actually conclude an Inheritance proposition.
+   ;; A recursive difference check is too broad: for example, a Member rule
+   ;; may mention an Inheritance expression merely as its member object. Such
+   ;; nested data must not turn that unrelated rule into an evidence producer.
+   (if (not (inheritance-conclusions? $conclusions)) (empty)
+      (let $evidence-conclusions (inheritance-evidence-terms $conclusions)
+         (let*
+            (($evidence-premises (inheritance-evidence-terms $premises))
+             ((compiled-premises $execs $proofs $atv)
+                (once (lower-source-premises $kb $ctx $vars
+                   $evidence-premises $evidence-conclusions)))
+             ($shape-kb ($kb $ctx $vars))
+             ($a (seq2expr $evidence-premises))
+             ($b (seq2expr $evidence-conclusions))
+             ($evidence-prf (inheritance-evidence-rule $prf))
+             ($na (skolemize $evidence-prf $b $a))
+             ($skip-inverse
+                (or (disable-inversion-proof-id? $prf)
+                   (contains-cpu? (execs-goal-type $execs)))))
+            (superpose
+               ((compile-implication-forward-rules $kb $shape-kb (kbctx $kb)
+                   $evidence-prf $tv $a $b $execs $proofs $atv)
+                (if $skip-inverse (empty)
+                   (inverse-implication $kb $evidence-prf $na $b $tv))))))))
 
 ;; --- Rule specialization against structural facts -------------------------
 ;;
@@ -881,6 +944,7 @@
              ;; CPU head, so the check must look at $execs, not $a.
              ($skip-inverse (or (disable-inversion-proof-id? $prf) (contains-cpu? (execs-goal-type $execs)))))
 	            (superpose (
+	                 (compile-inheritance-evidence-rule $kb $prf $premises $conclusions $tv)
 	                 (compile-implication-forward-rules $kb $shape-kb (kbctx $kb) $prf $tv $a $b $execs $proofs $atv)
 	                 (if (not $skip-inverse) (inverse-implication $kb $prf $na $b $tv) (empty))
 	                 (if (or $skip-inverse (is-var $na)) (empty)
@@ -902,6 +966,8 @@
                (if (= $Type (Inheritance $subj $concept))
                   (superpose (
                      (() |- ((: $fact-kb $prf $Type $tv)))
+                     (() |- ((: $fact-kb (inheritance-evidence $prf)
+                        (inheritance-evidence $subj $concept) $tv)))
                      (if (concrete-inheritance-link? $subj $concept)
                         (superpose (
                            (compile-derived-inheritance-implication $kb $prf $subj $concept $tv)
@@ -954,10 +1020,38 @@
       (query-scaffold $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf
          (union-atom $pos-adds $neg-adds))))
 
+(= (compile-inheritance-query $kb $subj $concept)
+   (((() |- ((: (kbctx $kb) $link-prf
+       (inheritance-evidence $subj $concept) $link-tv))) ())))
+
+(= (compile-inheritance-implication-evidence-query $kb $subj $concept)
+   (let*
+      (($premises ((inheritance-evidence $x $subj)))
+       ($conclusions ((inheritance-evidence $x $concept)))
+       ($mvars ($x))
+       ((query-scaffold $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf $all-adds)
+          (query-pos-neg-scaffold $kb $mvars $premises $conclusions))
+       ($known-pos-goal (: $pos-shape-kb $pos-prf $b $tv))
+       ($known-neg-goal (: $neg-shape-kb $neg-prf $b $neg-tv))
+       ($derived-proof
+          (inheritance-implication-evidence
+             (total-implication $pos-prf $neg-prf)))
+       ($derived-goal (: (kbctx $kb) $derived-proof
+          (inheritance-evidence $subj $concept) $tv))
+       ($derived-rule (($known-pos-goal $known-neg-goal) |- ($derived-goal)))
+       ($root-goal (: (kbctx $kb) $link-prf
+          (inheritance-evidence $subj $concept) $link-tv)))
+      ;; This query is run only when the direct evidence query is empty. Keeping
+      ;; the producer out of the direct query prevents one semantic route from
+      ;; being revised twice merely because it can also be restated as an
+      ;; implication over the same evidence relation.
+      (((() |- ($root-goal)) (union-atom ($derived-rule) $all-adds)))))
+
 ;; Compile a public query into one goal rule plus temporary additions.
 ;; Implication queries require positive and refuting assumption contexts;
-;; bidirectional queries require one context per direction; concrete
-;; Inheritance queries also expose their implication and member-fold views.
+;; bidirectional queries require one context per direction. Concrete
+;; Inheritance queries expose one implication adapter over their
+;; private merged evidence link.
 ;; Ordinary queries remain a direct known goal with only the adapters their
 ;; source syntax requires.
 (= (compileQuery $kb (: $prf $Type $tv))
@@ -989,24 +1083,7 @@
                   ((($left-goal $right-goal (CPU AndFormula ($left-tv $right-tv) $tv)) |- ($goal))
                      (union-atom $left-adds $right-adds))))
             (if (and (= $Type (Inheritance $subj $concept)) (concrete-inheritance-link? $subj $concept))
-               (superpose (
-                  (let*
-                     (($imp-type (inheritance-implication-type $subj $concept))
-                      ((Implication (cons Premises $premises) (cons Conclusions $conclusions)) $imp-type)
-                      ($vars (extract-vars $imp-type))
-                      ($mvars (if (== $vars ()) Nil $vars))
-                      ((query-scaffold $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf $all-adds)
-                         (query-pos-neg-scaffold $kb $mvars $premises $conclusions))
-                      ($known-pos-goal (: $pos-shape-kb $pos-prf $b $tv))
-                      ($known-neg-goal (: $neg-shape-kb $neg-prf $b $neg-tv))
-                      ($known-goal (: (kbctx $kb) (inheritance-query (total-implication $pos-prf $neg-prf)) $Type $tv)))
-                     ((($known-pos-goal $known-neg-goal) |- ($known-goal)) $all-adds))
-                  (((() |- ((: (kbctx $kb) $prf $Type $tv)))
-                     (compile-query-adds (: (kbctx $kb) $prf $Type $tv))))
-                  ((((CPU MemberInheritanceFormula ($kb $subj $concept) $tv))
-                     |-
-                     ((: (kbctx $kb) (member-inheritance-fold cpu) $Type $tv)))
-                     ())))
+               (compile-inheritance-query $kb $subj $concept)
             (((() |- ((: (kbctx $kb) $prf $Type $tv))) (compile-query-adds (: (kbctx $kb) $prf $Type $tv)))))))))
 
 
@@ -1136,14 +1213,20 @@
 (= (mm2compileQuery $kb $stmt)
    (case $stmt (
       ((: $prf $type $tv)
-         (if (query-compound-type? $type)
+         (if (and (= $type (Inheritance $subj $concept))
+                  (concrete-inheritance-link? $subj $concept))
+            (compiled-inheritance-query $kb $subj $concept
+               (mm2compileQuery-from-compiled $kb $stmt (compileQuery $kb $stmt))
+               (mm2compileQuery-from-compiled $kb $stmt
+                  (compile-inheritance-implication-evidence-query $kb $subj $concept)))
+            (if (query-compound-type? $type)
             (if (query-compound-needs-temp-rule? $type)
                (compiled-query
                   (internalize-proof-structure (: (kbctx $kb) $prf $type $tv))
                   (map-flat internalize-proof-structure
                      (collapse (mm2compile $kb (compound-query-temp-stmt $stmt)))))
                (mm2compileQuery-from-compiled $kb $stmt (compileQuery $kb $stmt)))
-            (mm2compileQuery-from-compiled $kb $stmt (compileQuery $kb $stmt))))
+            (mm2compileQuery-from-compiled $kb $stmt (compileQuery $kb $stmt)))))
       ($_ (mm2compileQuery-from-compiled $kb $stmt (compileQuery $kb $stmt))))))
 
 (= (mf $kb ($kb $t)) $t)
