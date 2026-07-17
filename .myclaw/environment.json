@@ -1,0 +1,15 @@
+{
+  "image": "myclaw-project-pettachainer:dev",
+  "build": {
+    "context": ".",
+    "dockerfile": ".myclaw/Dockerfile"
+  },
+  "test": [
+    "bash",
+    "-lc",
+    "uv sync --frozen && uv run python -m unittest discover -s tests && (cd pettachainer/metta && ./test.sh)"
+  ],
+  "caches": [
+    {"name": "uv", "target": "/opt/myclaw/uv-cache"}
+  ]
+}
