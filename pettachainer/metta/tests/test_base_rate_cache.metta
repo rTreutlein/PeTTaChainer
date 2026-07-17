@@ -24,6 +24,28 @@
    (query 200 brKb (: $prf (P alice) $tv))
    (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.736162240263287 0.0003604307138536469)))
 
+; Adding another proof is monotonic. The computed snapshot remains available
+; until a later query refolds the larger proof set.
+!(compileadd brKb (: pc (P carol) (STV 0.3 0.8)))
+
+!(test
+   (let $cached (cached-base-rate brKb (P $x))
+      (if (== $cached ()) no-cache-entry (car-atom $cached)))
+   (STV 0.6999999999999998 0.0009990009990009992))
+
+!(test
+   (query 200 brKb (: $prf (P alice) $tv))
+   (: ((inverted r with
+          (foldall-proof pb pc)
+          (foldall-proof qa (r pb) (r pc)))
+       qa)
+      (P alice)
+      (STV 0.6327793212325251 0.0003835400293329357)))
+
+!(test
+   (cached-base-rate brKb (P $x))
+   ((STV 0.49999999999999994 0.0019960079840319364)))
+
 ; User-provided base rates override the cache and feed inversion directly.
 !(set-base-rate brKb (P $x) (STV 0.5 0.5))
 !(set-base-rate brKb (Q $x) (STV 0.9 0.5))
@@ -32,13 +54,26 @@
    (query 200 brKb (: $prf (P alice) $tv))
    (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.5 0.569301064166628)))
 
-; Adding a fact invalidates computed entries but keeps user-provided ones.
-!(compileadd brKb (: pc (P carol) (STV 0.3 0.8)))
+; Monotonic additions also leave explicit user estimates unchanged.
+!(compileadd brKb (: pd (P dave) (STV 0.6 0.8)))
 
 !(test
    (let $cached (cached-base-rate brKb (P $x))
       (if (== $cached ()) no-cache-entry (car-atom $cached)))
    (STV 0.5 0.5))
+
+; Adding a rule likewise preserves computed snapshots. The rule only enlarges
+; the proof search space; it does not retract any evidence behind the cache.
+!(store-computed-base-rate! ruleAddCacheKb (P $x) (STV 0.4 0.2) base-rate)
+
+!(compileadd ruleAddCacheKb
+   (: rToP
+      (Implication (Premises (R $x)) (Conclusions (P $x)))
+      (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
+
+!(test
+   (cached-base-rate ruleAddCacheKb (P $x))
+   ((STV 0.4 0.2)))
 
 !(clear-base-rate brKb (P $x))
 !(clear-base-rate brKb (Q $x))

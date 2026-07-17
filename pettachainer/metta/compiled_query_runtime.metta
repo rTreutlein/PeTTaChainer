@@ -287,11 +287,10 @@
               (if (== $backend live)
                  (register-forward-base-rate-premises! $args)
                  ()))
-           ($_5 (if (== $backend live)
-                   (progn
-                      (mark-forward-agenda-dirty $ccls)
-                      (invalidate-computed-base-rates! (kb-expr-kbid $ccls)))
-                   ())))
+           ($_agenda
+              (if (== $backend live)
+                 (mark-forward-agenda-dirty $ccls)
+                 ())))
          ())
       (progn
          (if (== $backend live)
@@ -301,9 +300,7 @@
                 ($_change
                    (forward-candidate-upsert!
                       (forward-derived $expr $ev)))
-                ($_dirty (mark-forward-agenda-dirty $expr))
-                ($_base-rates
-                   (invalidate-computed-base-rates! (kb-expr-kbid $expr))))
+                ($_dirty (mark-forward-agenda-dirty $expr)))
                ())
             (kb-add-atom $backend &kb $expr)))))
 
@@ -321,7 +318,9 @@
 ;; proof is the name and every rule row registered under it in
 ;; rule_name_index, including the rows kb-add-expr created alongside
 ;; (prem_index, ccls_index, ccls_head_index, rule_expected). Computed base
-;; rates of the affected kb are invalidated, mirroring kb-add-expr.
+;; rates of the affected kb are invalidated because removal is non-monotonic.
+;; In contrast, kb-add-expr preserves computed snapshots: added proofs cannot
+;; invalidate previous evidence and later chaining refines the cached estimate.
 
 (= (remove-rule-row! $id)
    (let $_
