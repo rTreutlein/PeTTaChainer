@@ -21,6 +21,10 @@ is a separate, independent surface usable inside rules; it is not enumerated her
 | `(add-to-kb $expr)` | Add an already-compiled, internal-form atom to the live KB. Lower-level. |
 | `(remove-compiled-statement $name)` | Inverse of `compileadd` for one named statement `(: $name ...)`: retracts its kb facts and rules together with their index rows and cached scores. Use before re-adding a statement under the same name (e.g. a truth-value update); rules whose compiled proof carries no extractable name (negated outputs, open query adapters) are not covered. Python: `PeTTaChainer.remove_statement(name)`. |
 
+The live `&kb` keeps one canonical merged fact per grounded type. Internally, a
+small active frontier retains only the independent proof candidates needed to
+update that fact; superseded candidates are discarded rather than accumulated.
+
 ## Querying and chaining
 
 | Function | Meaning |

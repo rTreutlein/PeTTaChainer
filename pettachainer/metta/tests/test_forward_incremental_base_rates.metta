@@ -44,9 +44,9 @@
 
 !(test
    (collapse
-      (match &forward_output
-         (((forwardRevisionKb MAIN Nil) (R a)) $fact $_ev)
-         $fact))
+      (match &kb
+         ((R a) (forwardRevisionKb MAIN Nil) $prf $tv)
+         ((R a) (forwardRevisionKb MAIN Nil) $prf $tv)))
    (((R a) (forwardRevisionKb MAIN Nil)
       (qToR (pToQ (merge/revision p1 p2)))
       (STV 0.5 0.6666665676407715))))
@@ -54,16 +54,119 @@
 !(test
    (list-count
       (collapse
-         (match &forward_derivation
-            ($_key ((forwardRevisionKb MAIN Nil) (Q a)) $_fact $_ev)
+         (match &forward_frontier
+            (((forwardRevisionKb MAIN Nil) (Q a)) $_fact $_ev)
             true)))
    1)
 
 !(test
    (list-count
       (collapse
-         (match &forward_derivation
-            ($_key ((forwardRevisionKb MAIN Nil) (R a)) $_fact $_ev)
+         (match &forward_frontier
+            (((forwardRevisionKb MAIN Nil) (R a)) $_fact $_ev)
+            true)))
+   1)
+
+;; Keep only the active proof frontier.  The new pToQ result contains all of
+;; the evidence of its earlier result, so it replaces that branch even though
+;; the independent sToQ branch must remain available for the canonical merge.
+!(compileadd forwardFrontierKb (: frontierP1 (P a) (STV 0.2 0.5)))
+!(compileadd forwardFrontierKb (: frontierS1 (S a) (STV 0.7 0.6)))
+!(compileadd forwardFrontierKb
+   (: pToQ
+      (Implication (Premises (P $x)) (Conclusions (Q $x)))
+      (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+!(compileadd forwardFrontierKb
+   (: sToQ
+      (Implication (Premises (S $x)) (Conclusions (Q $x)))
+      (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+
+!(forward-chain 20 forwardFrontierKb)
+!(compileadd forwardFrontierKb (: frontierP2 (P a) (STV 0.8 0.5)))
+!(forward-chain 20 forwardFrontierKb)
+
+!(test
+   (list-count
+      (collapse
+         (match &forward_frontier
+            (((forwardFrontierKb MAIN Nil) (Q a)) $_fact $_ev)
+            true)))
+   2)
+
+!(test
+   (collapse
+      (match &forward_frontier
+            (((forwardFrontierKb MAIN Nil) (Q a))
+            ((Q a) (forwardFrontierKb MAIN Nil)
+               (pToQ (merge/revision frontierP1 frontierP2)) $_tv)
+            $_ev)
+         true))
+   (true))
+
+!(test
+   (collapse
+      (match &forward_frontier
+         (((forwardFrontierKb MAIN Nil) (Q a))
+            ((Q a) (forwardFrontierKb MAIN Nil) (sToQ frontierS1) $_tv)
+            $_ev)
+         true))
+   (true))
+
+!(test
+   (collapse
+      (match &forward_frontier
+         (((forwardFrontierKb MAIN Nil) (Q a))
+            ((Q a) (forwardFrontierKb MAIN Nil) (pToQ frontierP1) $_tv)
+            $_ev)
+         true))
+   ())
+
+!(test
+   (not (==
+      (collapse
+         (match &kb
+            ((Q a) (forwardFrontierKb MAIN Nil)
+               (merge/revision $left $right) $_tv)
+            (if (or
+                   (and (== $left (pToQ (merge/revision frontierP1 frontierP2)))
+                        (== $right (sToQ frontierS1)))
+                   (and (== $right (pToQ (merge/revision frontierP1 frontierP2)))
+                        (== $left (sToQ frontierS1))))
+               true
+               (empty))))
+      ()))
+   true)
+
+!(test
+   (list-count
+      (collapse
+         (match &kb
+            ((P a) (forwardFrontierKb MAIN Nil) $_prf $_tv)
+            true)))
+   1)
+
+!(test
+   (list-count
+      (collapse
+         (match &forward_frontier
+            (((forwardFrontierKb MAIN Nil) (P a)) $_fact $_ev)
+            true)))
+   2)
+
+!(remove-compiled-statement frontierP2)
+
+!(test
+   (collapse
+      (match &kb
+         ((P a) (forwardFrontierKb MAIN Nil) $prf $tv)
+         (: $prf (P a) $tv)))
+   ((: frontierP1 (P a) (STV 0.2 0.5))))
+
+!(test
+   (list-count
+      (collapse
+         (match &forward_frontier
+            (((forwardFrontierKb MAIN Nil) (P a)) $_fact $_ev)
             true)))
    1)
 
@@ -84,9 +187,9 @@
 
 !(test
    (collapse
-      (match &forward_output
-         (((forwardLowerConfidenceKb MAIN Nil) (R a)) $fact $_ev)
-         $fact))
+      (match &kb
+         ((R a) (forwardLowerConfidenceKb MAIN Nil) $prf $tv)
+         ((R a) (forwardLowerConfidenceKb MAIN Nil) $prf $tv)))
    (((R a) (forwardLowerConfidenceKb MAIN Nil)
       (qToR (pToQ p1))
       (STV 0.77 0.8204934934752165))))
@@ -96,9 +199,9 @@
 
 !(test
    (collapse
-      (match &forward_output
-         (((forwardLowerConfidenceKb MAIN Nil) (R a)) $fact $_ev)
-         $fact))
+      (match &kb
+         ((R a) (forwardLowerConfidenceKb MAIN Nil) $prf $tv)
+         ((R a) (forwardLowerConfidenceKb MAIN Nil) $prf $tv)))
    (((R a) (forwardLowerConfidenceKb MAIN Nil)
       (qToR (pToQ (merge/revision p1 p2)))
       (STV 0.65 0.2869444474025344))))
@@ -106,16 +209,16 @@
 !(test
    (list-count
       (collapse
-         (match &forward_derivation
-            ($_key ((forwardLowerConfidenceKb MAIN Nil) (Q a)) $_fact $_ev)
+         (match &forward_frontier
+            (((forwardLowerConfidenceKb MAIN Nil) (Q a)) $_fact $_ev)
             true)))
    1)
 
 !(test
    (list-count
       (collapse
-         (match &forward_derivation
-            ($_key ((forwardLowerConfidenceKb MAIN Nil) (R a)) $_fact $_ev)
+         (match &forward_frontier
+            (((forwardLowerConfidenceKb MAIN Nil) (R a)) $_fact $_ev)
             true)))
    1)
 

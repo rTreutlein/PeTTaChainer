@@ -218,10 +218,13 @@ when they share no support. Two refinements make that the invariant
 3. **Materialized derivations keep their original evidence.** Forward chaining
    and `query-materialize` retain the source facts and rule applications of a
    cached result. If backward chaining later rediscovers that same path, it is
-   dependent evidence and cannot be revised with itself. The raw derivations
-   stay in `&kb`; forward rules consume one canonical merged output per grounded
-   type so replacing a derivation re-propagates downstream instead of creating
-   another independent input.
+   dependent evidence and cannot be revised with itself. `&kb` stores one
+   canonical merged fact per grounded type. A private forward frontier retains
+   only its active non-dominated contributors and their evidence: disjoint
+   additions merge directly into the canonical fact, while an overlapping
+   candidate scans that one frontier so it can replace a subsumed branch
+   without losing the other independent branches. Superseded candidates are
+   discarded rather than kept as proof history.
 
 `rule-ev` entries participate in revision independence and dominance but are
 filtered out of the frontier conjunction guard: the positive and negative

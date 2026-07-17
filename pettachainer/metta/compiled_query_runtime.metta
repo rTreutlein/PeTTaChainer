@@ -294,13 +294,18 @@
                    ())))
          ())
       (progn
-         (kb-add-atom $backend &kb $expr)
          (if (== $backend live)
-            (progn
-               (forward-refresh-output! $expr)
-               (mark-forward-agenda-dirty $expr)
-               (invalidate-computed-base-rates! (kb-expr-kbid $expr)))
-            ()))))
+            (let*
+               ((($type $kb $prf $_tv) $expr)
+                ($ev ((fact-ev $kb $prf $type)))
+                ($_change
+                   (forward-candidate-upsert!
+                      (forward-derived $expr $ev)))
+                ($_dirty (mark-forward-agenda-dirty $expr))
+                ($_base-rates
+                   (invalidate-computed-base-rates! (kb-expr-kbid $expr))))
+               ())
+            (kb-add-atom $backend &kb $expr)))))
 
 (= (clear-temp-query-adds)
    (progn
@@ -342,12 +347,14 @@
 (= (remove-kb-facts-named! $name)
    (let $_
       (collapse
-         (match &kb ($type $kb $name $tv)
+         (match &forward_frontier ($key ($type $kb $name $tv) $ev)
             (let*
-               (($_remove (remove-atom &kb ($type $kb $name $tv)))
-                ($change (forward-refresh-output! ($type $kb $name $tv)))
+               (($_remove
+                   (remove-atom &forward_frontier
+                      ($key ($type $kb $name $tv) $ev)))
+                ($change (forward-refresh-output-key! $key))
                 ($_forward-state
-                   (agenda-push-forward-change (empty_heap) $change))
+                   (forward-apply-unqueued-change! $change))
                 ($_dirty
                    (mark-forward-agenda-dirty ($type $kb $name $tv)))
                 ($_base-rates

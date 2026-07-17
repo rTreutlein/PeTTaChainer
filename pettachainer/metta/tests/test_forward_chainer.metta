@@ -20,9 +20,8 @@
       (($_ (forward-chain 50 fwdkb))
         ($proofs
            (collapse
-              (match &forward_output
-                 (((fwdkb MAIN Nil) (Path A C))
-                    ((Path A C) (fwdkb MAIN Nil) $prf $_tv) $_ev)
+              (match &kb
+                 ((Path A C) (fwdkb MAIN Nil) $prf $_tv)
                  $prf))))
       (list-count $proofs))
    1)
@@ -37,12 +36,20 @@
       (($_ (forward-chain 200 loopkb))
         ($proofs
            (collapse
-              (match &forward_output
-                 (((loopkb MAIN Nil) (Loop Start))
-                    ((Loop Start) (loopkb MAIN Nil) $prf $_tv) $_ev)
+              (match &kb
+                 ((Loop Start) (loopkb MAIN Nil) $prf $_tv)
                  $prf))))
       (list-count $proofs))
    1)
+
+;; A longer idempotent derivation overlaps the direct seed, but it is not a
+;; refinement of the same rule application and must not evict that seed.
+!(test
+   (collapse
+      (match &kb
+         ((Loop Start) (loopkb MAIN Nil) $prf $_tv)
+         $prf))
+   (seedLoop))
 
 !(compileadd mergekb (: weakFact (WeakPremise) (STV 1.0 0.1)))
 
@@ -59,10 +66,9 @@
       (($_ (forward-chain 50 mergekb))
         ($merged
            (collapse
-              (match &forward_output
-                 (((mergekb MAIN Nil) (SwitchGoal))
-                    ((SwitchGoal) (mergekb MAIN Nil)
-                       (merge/revision $_p1 $_p2) $_tv) $_ev)
+              (match &kb
+                 ((SwitchGoal) (mergekb MAIN Nil)
+                    (merge/revision $_p1 $_p2) $_tv)
                  true))))
       (== $merged ()))
    true)
@@ -72,9 +78,8 @@
       (($_ (forward-chain 50 mergekb))
         ($ev-ok
            (collapse
-              (match &forward_output
-                 (((mergekb MAIN Nil) (SwitchGoal))
-                    ((SwitchGoal) (mergekb MAIN Nil) $prf $tv) $_ev)
+              (match &kb
+                 ((SwitchGoal) (mergekb MAIN Nil) $prf $tv)
                  (==
                     (proof-atom-evidence-set
                        ((SwitchGoal) (mergekb MAIN Nil) $prf $tv))
@@ -87,9 +92,8 @@
       (($_ (forward-chain 50 mergekb))
         ($proofs
            (collapse
-              (match &forward_output
-                 (((mergekb MAIN Nil) (SwitchGoal))
-                    ((SwitchGoal) (mergekb MAIN Nil) $prf $_tv) $_ev)
+              (match &kb
+                 ((SwitchGoal) (mergekb MAIN Nil) $prf $_tv)
                  $prf))))
       (list-count $proofs))
    1)

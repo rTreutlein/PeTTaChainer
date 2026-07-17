@@ -72,59 +72,94 @@
       (let $hits
          (collapse
             (once
-               (match &forward_fact_evidence ($key $fact $ev) $ev)))
+               (match &forward_canonical_evidence ($key $fact $ev) $ev)))
          (if (== $hits ())
-            (let ($type $kb $prf $_tv) $fact ((fact-ev $kb $prf $type)))
+            (let $frontier-hits
+               (collapse
+                  (once
+                     (match &forward_frontier ($key $fact $ev) $ev)))
+               (if (== $frontier-hits ())
+                  (let ($type $kb $prf $_tv) $fact ((fact-ev $kb $prf $type)))
+                  (car-atom $frontier-hits)))
             (car-atom $hits)))))
 
-(= (forward-output-candidate-step () $fact)
-   (forward-output-candidate $fact (forward-fact-evidence $fact)))
-(= (forward-output-candidate-step (forward-output-candidate $current $current-ev) $fact)
+(= (forward-output-candidate-step () ($_key $fact $ev))
+   (forward-output-candidate $fact $ev))
+(= (forward-output-candidate-step
+      (forward-output-candidate $current $current-ev)
+      ($_key $fact $ev))
    (let ($merged $merged-ev)
       (merge-proof-candidates
          ($current $current-ev)
-         ($fact (forward-fact-evidence $fact)))
+         ($fact $ev))
       (forward-output-candidate $merged $merged-ev)))
 
-(= (forward-output-candidate-for-key (($kbid $ctx $vars) $type))
+(= (forward-output-candidate-for-key $key)
    (fold-flat forward-output-candidate-step ()
       (collapse
-         (match &kb ($type ($kbid $ctx $vars) $prf $tv)
-            ($type ($kbid $ctx $vars) $prf $tv)))))
+         (match &forward_frontier ($key $fact $ev) ($key $fact $ev)))))
 
-(= (forward-remove-output-row! $row) (remove-atom &forward_output $row))
+(= (forward-canonical-rows-for-key (($kbid $ctx $vars) $type))
+   (collapse
+      (match &kb ($type ($kbid $ctx $vars) $prf $tv)
+         ($type ($kbid $ctx $vars) $prf $tv))))
 
-;; &kb retains individual asserted/materialized derivations for the backward
-;; proof store.  Forward rules consume this canonical merged-output view so a
-;; revised derivation replaces its old value instead of becoming new evidence.
-(= (forward-refresh-output-key! $key)
+(= (forward-remove-canonical-fact! $fact) (remove-atom &kb $fact))
+(= (forward-remove-canonical-evidence! $row)
+   (remove-atom &forward_canonical_evidence $row))
+
+;; &kb contains one canonical fact per grounded output.  The private frontier
+;; keeps only the independent, non-dominated candidates required to update that
+;; canonical fact when later evidence supersedes just one branch.
+(= (forward-store-output-candidate! $key $new-candidate)
    (let*
       (($old-rows
+          (forward-canonical-rows-for-key $key))
+       ($old-fact (if (== $old-rows ()) () (car-atom $old-rows)))
+       ($old-evidence-rows
           (collapse
-             (match &forward_output ($key $old-fact $old-ev)
-                ($key $old-fact $old-ev))))
-       ($old (if (== $old-rows ()) () (car-atom $old-rows)))
-       ($new-candidate (forward-output-candidate-for-key $key)))
+             (match &forward_canonical_evidence ($key $stored-fact $stored-ev)
+                ($key $stored-fact $stored-ev))))
+       ($old-ev
+          (if (== $old-evidence-rows ()) ()
+             (let ($_key $_fact $ev) (car-atom $old-evidence-rows) $ev))))
       (if (= $new-candidate (forward-output-candidate $new-fact $new-ev))
-         (if (= $old ($key $old-fact $old-ev))
+         (if (not (== $old-fact ()))
             (if (and (== $old-fact $new-fact) (== $old-ev $new-ev))
                no-forward-change
                (let*
-                  (($_remove (foreach-flat forward-remove-output-row! $old-rows))
-                   ($_add (add-atom &forward_output ($key $new-fact $new-ev))))
+                  (($_remove-facts
+                       (foreach-flat forward-remove-canonical-fact! $old-rows))
+                   ($_remove-evidence
+                       (foreach-flat forward-remove-canonical-evidence! $old-evidence-rows))
+                   ($_add-fact (chainer-add-atom &kb $new-fact))
+                   ($_add-evidence
+                       (add-atom &forward_canonical_evidence
+                          ($key $new-fact $new-ev))))
                   (forward-output-change $old-fact $new-fact)))
-            (let $_add (add-atom &forward_output ($key $new-fact $new-ev))
+            (let*
+               (($_remove-evidence
+                    (foreach-flat forward-remove-canonical-evidence! $old-evidence-rows))
+                ($_add-fact (chainer-add-atom &kb $new-fact))
+                ($_add-evidence
+                    (add-atom &forward_canonical_evidence
+                       ($key $new-fact $new-ev))))
                (forward-output-change () $new-fact)))
          (if (== $old-rows ()) no-forward-change
-            (let $_remove (foreach-flat forward-remove-output-row! $old-rows)
-               (forward-output-change (let ($_key $old-fact $_old-ev) $old $old-fact) ()))))))
+            (let*
+               (($_remove-facts
+                    (foreach-flat forward-remove-canonical-fact! $old-rows))
+                ($_remove-evidence
+                    (foreach-flat forward-remove-canonical-evidence! $old-evidence-rows)))
+               (forward-output-change $old-fact ()))))))
 
-(= (forward-refresh-output! $fact)
-   (forward-refresh-output-key! (forward-fact-key $fact)))
+(= (forward-refresh-output-key! $key)
+   (forward-store-output-candidate!
+      $key (forward-output-candidate-for-key $key)))
 
 (= (forward-output-row-for-fact $fact)
    (let $key (forward-fact-key $fact)
-      (match &forward_output ($key $canonical $ev)
+      (match &forward_canonical_evidence ($key $canonical $ev)
          ($canonical $ev))))
 
 ;; Compiler-generated base-rate folds all reduce to additive evidence totals.
@@ -395,7 +430,7 @@
       agenda-push-fact-best
       (empty_heap)
       (collapse
-         (match &forward_output ((($kb MAIN Nil) $_type) ($type ($kb MAIN Nil) $prf $tv) $_ev)
+         (match &kb ($type ($kb MAIN Nil) $prf $tv)
             ($type ($kb MAIN Nil) $prf $tv)))))
 
 (= (forward-refresh-agenda $kb)
@@ -414,9 +449,9 @@
       (let $res (reduce (cpu-call $steps $fun $args))
          (forward-satisfy-premises $steps $rest $goal $ev))
       (if (= $prem ($_type ($_kbid $_ctx $_vars) $_prf $_tv))
-         (match &forward_output ($_key $prem $prem-ev)
+         (match &kb $prem
             (forward-satisfy-premises $steps $rest $goal
-               (list_to_set (append $ev $prem-ev))))
+               (list_to_set (append $ev (forward-fact-evidence $prem)))))
          (empty))))
 
 (= (agenda-push-fact $agenda $fact)
@@ -455,12 +490,108 @@
           ($nagenda (agenda-push-fact $agenda $fact)))
          $nagenda)))
 
-(= (forward-remove-derived-row! ($derivation-key $output-key $fact $ev))
-   (let*
-      (($_row (remove-atom &forward_derivation ($derivation-key $output-key $fact $ev)))
-       ($_evidence (remove-atom &forward_fact_evidence ($output-key $fact $ev)))
-       ($_fact (remove-atom &kb $fact)))
-      ()))
+;; compileadd/removal marks the saved agenda dirty instead of mutating it in
+;; place. Apply only the cache bookkeeping here; the next forward run rebuilds
+;; and queues the canonical facts under a fresh agenda generation.
+(= (forward-apply-unqueued-change! no-forward-change) ())
+(= (forward-apply-unqueued-change! (forward-output-change $old ()))
+   (forward-remove-base-rate-observations! $old))
+(= (forward-apply-unqueued-change! (forward-output-change $old $fact))
+   (progn
+      (if (== $old ()) () (forward-invalidate-base-rates! $old))
+      (forward-invalidate-base-rates! $fact)))
+
+(= (forward-strict-evidence-subset? $subset $superset)
+   (and (evidence-subset? $subset $superset)
+      (not (evidence-subset? $superset $subset))))
+
+(= (forward-proof-list-refines? $old $new)
+   (if (== $old ()) (== $new ())
+      (if (== $new ()) false
+         (and (forward-proof-refines? (car-atom $old) (car-atom $new))
+            (forward-proof-list-refines? (cdr-atom $old) (cdr-atom $new))))))
+
+;; A proof refines another when it has the same rule skeleton and only replaces
+;; children by merges containing the earlier child. This distinguishes a
+;; genuinely updated application, pToQ(p1) -> pToQ(merge(p1,p2)), from a longer
+;; cyclic path such as seed -> keepLoop(seed).
+(= (forward-proof-refines? $old $new)
+   (if (== $old $new) true
+      (if (is-expr $new)
+         (if (= $new (merge/revision $left $right))
+            (or (forward-proof-refines? $old $left)
+               (forward-proof-refines? $old $right))
+            (if (and (is-expr $old)
+                     (== (car-atom $old) (car-atom $new)))
+               (forward-proof-list-refines?
+                  (cdr-atom $old) (cdr-atom $new))
+               false))
+         false)))
+
+(= (forward-candidate-refines? $old-fact $old-ev $new-fact $new-ev)
+   (and (forward-strict-evidence-subset? $old-ev $new-ev)
+      (forward-proof-refines?
+         (proof-atom-proof $old-fact) (proof-atom-proof $new-fact))))
+
+;; A larger evidence set for the same output supersedes the partial estimate
+;; even when the new TV has lower confidence.  Disjoint candidates remain in
+;; the frontier and are revised together.  Incomparable overlapping candidates
+;; retain the existing conservative policy of keeping only the stronger one.
+(= (forward-frontier-old-dominates-new? $old-fact $old-ev $new-fact $new-ev)
+   (if (== (proof-atom-proof $old-fact) (proof-atom-proof $new-fact)) false
+      (if (projection-dominates?
+             (proof-atom-proof $old-fact) (proof-atom-proof $new-fact))
+         true
+         (if (projection-dominates?
+                (proof-atom-proof $new-fact) (proof-atom-proof $old-fact))
+            false
+            (if (forward-candidate-refines?
+                   $old-fact $old-ev $new-fact $new-ev) false
+               (if (forward-candidate-refines?
+                      $new-fact $new-ev $old-fact $old-ev) true
+                  (if (evidence-sets-overlap? $old-ev $new-ev)
+                     (>= (term-confidence $old-fact) (term-confidence $new-fact))
+                     false)))))))
+
+(= (forward-frontier-new-dominates-old? $new-fact $new-ev $old-fact $old-ev)
+   (if (== (proof-atom-proof $old-fact) (proof-atom-proof $new-fact)) true
+      (if (projection-dominates?
+             (proof-atom-proof $new-fact) (proof-atom-proof $old-fact))
+         true
+         (if (projection-dominates?
+                (proof-atom-proof $old-fact) (proof-atom-proof $new-fact))
+            false
+            (if (forward-candidate-refines?
+                   $old-fact $old-ev $new-fact $new-ev) true
+               (if (forward-candidate-refines?
+                      $new-fact $new-ev $old-fact $old-ev) false
+                  (if (evidence-sets-overlap? $old-ev $new-ev)
+                     (> (term-confidence $new-fact) (term-confidence $old-fact))
+                     false)))))))
+
+(= (forward-frontier-has-exact? $key $fact $ev)
+   (not (==
+      (collapse (once (match &forward_frontier ($key $fact $ev) true)))
+      ())))
+
+(= (forward-frontier-rejects? $key $fact $ev)
+   (not (==
+      (collapse
+         (once
+            (match &forward_frontier ($key $old-fact $old-ev)
+               (if (forward-frontier-old-dominates-new?
+                      $old-fact $old-ev $fact $ev)
+                  true
+                  (empty)))))
+      ())))
+
+(= (forward-prune-frontier-for! $key $fact $ev)
+   (collapse
+      (match &forward_frontier ($key $old-fact $old-ev)
+         (if (forward-frontier-new-dominates-old?
+                $fact $ev $old-fact $old-ev)
+            (remove-atom &forward_frontier ($key $old-fact $old-ev))
+            ()))))
 
 (= (forward-record-inheritance-nodes! $fact)
    (case $fact (
@@ -471,36 +602,56 @@
                (record-inheritance-nodes! $kbid $subj $concept))))
       ($_other ()))))
 
-(= (forward-refresh-key-step $agenda $key)
-   (agenda-push-forward-change $agenda (forward-refresh-output-key! $key)))
-
-(= (forward-fact-upsert $agenda (forward-derived $derivation-key $fact $ev))
+(= (forward-add-frontier-row! $output-key $fact $ev)
    (let*
-      (($output-key (forward-fact-key $fact))
-       ($old-rows
-          (collapse
-             (match &forward_derivation ($derivation-key $old-key $old-fact $old-ev)
-                ($derivation-key $old-key $old-fact $old-ev)))))
-      (if (= $old-rows (($derivation-key $output-key $fact $ev))) $agenda
-         (let*
-            (($old-keys
-                (map-flat (|-> (($_derivation-key $old-key $_old-fact $_old-ev)) $old-key)
-                   $old-rows))
-             ($_remove (foreach-flat forward-remove-derived-row! $old-rows))
-             ($_nodes (forward-record-inheritance-nodes! $fact))
-             ($_fact (chainer-add-atom &kb $fact))
-             ($_row
-                (add-atom &forward_derivation
-                   ($derivation-key $output-key $fact $ev)))
-             ($_evidence
-                (add-atom &forward_fact_evidence ($output-key $fact $ev)))
-             ($refresh-keys (list_to_set (cons $output-key $old-keys))))
-            (fold-flat forward-refresh-key-step $agenda $refresh-keys)))))
+      (($_nodes (forward-record-inheritance-nodes! $fact))
+       ($_frontier
+          (chainer-add-atom &forward_frontier
+             ($output-key $fact $ev))))
+      ()))
 
-(= (forward-premise-derivation-key-step $keys $premise)
-   (case $premise (
-      ((CPU $_fun $_args $_res) $keys)
-      ($_fact (append $keys ((forward-fact-key $premise)))))))
+(= (forward-add-first-candidate! $output-key $fact $ev)
+   (let $_add (forward-add-frontier-row! $output-key $fact $ev)
+      (forward-store-output-candidate!
+         $output-key (forward-output-candidate $fact $ev))))
+
+;; Disjoint evidence cannot evict an existing frontier branch.  Merge directly
+;; with the cached canonical fact instead of scanning and folding the frontier.
+(= (forward-add-disjoint-candidate!
+      $output-key $canonical $canonical-ev $fact $ev)
+   (let*
+      (($_add (forward-add-frontier-row! $output-key $fact $ev))
+       (($merged $merged-ev)
+          (merge-proof-candidates
+             ($canonical $canonical-ev)
+             ($fact $ev))))
+      (forward-store-output-candidate!
+         $output-key (forward-output-candidate $merged $merged-ev))))
+
+(= (forward-candidate-upsert! (forward-derived $fact $ev))
+   (let $output-key (forward-fact-key $fact)
+      (if (forward-frontier-has-exact? $output-key $fact $ev) no-forward-change
+         (let $canonical-rows
+            (collapse (once (forward-output-row-for-fact $fact)))
+            (if (== $canonical-rows ())
+               (forward-add-first-candidate! $output-key $fact $ev)
+               (let ($canonical $canonical-ev) (car-atom $canonical-rows)
+                  (if (not (evidence-sets-overlap? $canonical-ev $ev))
+                     (forward-add-disjoint-candidate!
+                        $output-key $canonical $canonical-ev $fact $ev)
+                     (if (forward-frontier-rejects? $output-key $fact $ev)
+                        no-forward-change
+                        (let*
+                           (($_prune
+                                (forward-prune-frontier-for!
+                                   $output-key $fact $ev))
+                            ($_add
+                                (forward-add-frontier-row!
+                                   $output-key $fact $ev)))
+                           (forward-refresh-output-key! $output-key))))))))))
+
+(= (forward-fact-upsert $agenda $derived)
+   (agenda-push-forward-change $agenda (forward-candidate-upsert! $derived)))
 
 (= (forward-rule-results-for-key $steps $kb $fact $key)
    (collapse
@@ -510,11 +661,8 @@
            ($rprems (nth0 $idx $prems $fact))
            (($trigger-fact $trigger-ev) (forward-output-row-for-fact $fact))
            ((forward-match $result $premise-ev)
-              (forward-satisfy-premises $steps $rprems $ccls $trigger-ev))
-           ($derivation-key
-              (forward-rule $id
-                 (fold-flat forward-premise-derivation-key-step () $prems))))
-         (forward-derived $derivation-key $result
+              (forward-satisfy-premises $steps $rprems $ccls $trigger-ev)))
+         (forward-derived $result
             (rule-result-evidence $result $premise-ev)))))
 
 (= (forward-rule-results $steps $kb $fact)
@@ -556,7 +704,7 @@
         ($matches
            (collapse
               (once
-                 (match &forward_output ((($kb MAIN Nil) $type) ($type ($kb MAIN Nil) $prf $tv) $_ev)
+                 (match &kb ($type ($kb MAIN Nil) $prf $tv)
                     ($type ($kb MAIN Nil) $prf $tv))))))
       (if (== $matches ()) () (car-atom $matches))))
 
@@ -597,6 +745,6 @@
 (= (forward-has-derived? $kb $type)
    (not (==
       (collapse
-         (match &forward_output ((($kb MAIN Nil) $type) ($_type ($kb MAIN Nil) $prf $_tv) $_ev)
+         (match &kb ($type ($kb MAIN Nil) $prf $_tv)
             $prf))
       ())))
