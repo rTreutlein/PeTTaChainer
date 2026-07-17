@@ -4,19 +4,25 @@
 ;; catch-all equation would leak both true and false into scheduler decisions.
 !(test
    (collapse
-      (total-implication-frontier-proof?
+      (shared-evidence-frontier-proof?
          (total-implication-frontier sample-proof)))
    (true))
 
 !(test
    (collapse
-      (total-implication-frontier-proof?
+      (shared-evidence-frontier-proof?
          (inheritance-query-result
             (total-implication-frontier sample-proof))))
    (true))
 
 !(test
-   (collapse (total-implication-frontier-proof? ordinary-proof))
+   (collapse
+      (shared-evidence-frontier-proof?
+         (member-inheritance-sample antecedent-proof consequent-proof)))
+   (true))
+
+!(test
+   (collapse (shared-evidence-frontier-proof? ordinary-proof))
    (false))
 
 !(test

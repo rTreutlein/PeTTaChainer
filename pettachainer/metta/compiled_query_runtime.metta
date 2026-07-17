@@ -196,40 +196,16 @@
 (= (resolve-base-rate-prior (STV $s $c)) (STV $s $c))
 (= (resolve-base-rate-prior no-evidence) no-evidence)
 
-(= (member-consequent-tv $kbid $obj $concept)
-   (let $hits
-      (collapse
-         (match &kb ((Member $obj $concept) ($kbid $_ctx $_vars) $_prf $tv) $tv))
-      (if (== $hits ()) no-evidence (car-atom $hits))))
-
-(= (member-inheritance-acc $_kbid $_concept $acc ()) $acc)
-(= (member-inheritance-acc $kbid $concept $acc (cons (member-ant $obj $atv) $rest))
-   (let $btv (member-consequent-tv $kbid $obj $concept)
-      (member-inheritance-acc
-         $kbid
-         $concept
-         (WeightedBaseRateAcc $acc (WeightedTv $atv $btv))
-         $rest)))
-
 (= (member-inheritance-tv $kbid $ev)
    (let $universe-size (kb-universe-size $kbid)
       (if (== $universe-size no-universe-size)
          (WeightedCountBaseRateTv $ev)
          (WeightedUniverseBaseRateTv $universe-size $ev))))
 
-(= (MemberInheritanceFormula $kbid $subj $concept)
-   (let $ants
-      (collapse
-         (match &kb ((Member $obj $subj) ($kbid $_ctx $_vars) $_prf $atv)
-            (member-ant $obj $atv)))
-      (if (== $ants ()) (empty)
-         (member-inheritance-tv
-            $kbid
-            (member-inheritance-acc
-               $kbid
-               $concept
-               (BaseRateEvidence 0.0 0.0)
-               $ants)))))
+;; Keep an empty fold live so later sample proofs can refine it, but do not let
+;; its provisional no-evidence value become a public Inheritance proof.
+(= (MemberInheritanceEvidenceFormula $tv)
+   (if (== $tv no-evidence) (empty) $tv))
 
 (= (inheritance-subjects $kbid)
    (list_to_set (collapse (match &inheritance_subject ($kbid $subj) $subj))))

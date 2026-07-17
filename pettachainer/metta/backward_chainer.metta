@@ -67,13 +67,6 @@
 (= (aggregate-step-value (extract-inheritance-tv $kbid $_pattern) $child-atom $child-tv)
    (let ((Inheritance $subj $_concept) ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom)
       (WeightedTv (inheritance-subject-prior-tv $kbid $subj) $child-tv)))
-(= (aggregate-step-value (extract-member-consequent-tv $kbid $concept) $child-atom $child-tv)
-   (let ((Member $obj $_antecedent) ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom)
-      (let $hits
-         (collapse
-            (match &kb ((Member $obj $concept) ($kbid $_ctx $_vars) $_bprf $btv) $btv))
-         (if (== $hits ()) no-evidence
-            (WeightedTv $child-tv (car-atom $hits))))))
 (= (aggregate-step-value extract-tv $_child-atom $child-tv) $child-tv)
 (= (aggregate-step-group-value $pattern $group $child-atom)
    (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $group))
@@ -86,6 +79,8 @@
 (= (aggregate-finish base-rate $acc) (BaseRateTv $acc))
 (= (aggregate-finish weighted-base-rate $acc) (WeightedBaseRateTv $acc))
 (= (aggregate-finish weighted-base-rate-with-prior $acc) (WeightedBaseRateWithPriorTv $acc))
+(= (aggregate-finish (member-inheritance $kbid) $acc)
+   (member-inheritance-tv $kbid $acc))
 (= (aggregate-finish (weighted-base-rate-in-universe $kbid) $acc)
    (let $universe-size (kb-universe-size $kbid)
       (if (== $universe-size no-universe-size)
@@ -299,22 +294,24 @@
 (= (waiter-live? (frontier-waiter $_parent-gid $_bundle $_score $_seen $_parts $rev-pids))
    (proof-list-live? $rev-pids))
 
-;; A total-implication query evaluates the same conditional in a positive and
-;; a refuting context. Those branches are not an ordinary conjunction: they
-;; are expected to reuse the same rule and source facts, and their TVs are kept
-;; as separate positive/negative components rather than combined by AndFormula.
-;; The query compiler marks only that final two-sided frontier.
-(= (total-implication-frontier-proof? $proof)
+;; These compiler-generated joins keep their premise TVs separate instead of
+;; combining them through AndFormula. Their premises may therefore share
+;; evidence: total implication compares positive/refuting contexts, while a
+;; member-inheritance sample pairs an antecedent membership with a consequent
+;; that may itself have been derived from that antecedent. The resulting proof
+;; still carries the union of both evidence sets, and normal cycle checks apply.
+(= (shared-evidence-frontier-proof? $proof)
    (case $proof (
       ((total-implication-frontier $_inner) true)
       ((inheritance-query-result $inner)
-         (total-implication-frontier-proof? $inner))
+         (shared-evidence-frontier-proof? $inner))
+      ((member-inheritance-sample $_antecedent $_consequent) true)
       ($_other false))))
 
 (= (frontier-allows-shared-evidence? $bundle)
    (let $goal (and-bundle-goal $bundle)
       (if (= $goal ($_type $_kb $proof $_tv))
-         (total-implication-frontier-proof? $proof)
+         (shared-evidence-frontier-proof? $proof)
          false)))
 
 (= (advance-frontier-waiter-heap $agenda (frontier-waiter $parent-gid $bundle $score $seen $parts $rev-pids) $pid)
@@ -797,7 +794,7 @@
 ;; CPU functions the filter must not run eagerly: aggregate folds have their own
 ;; search machinery and store-scanning formulas are too costly for a filter.
 (= (prefilter-cpu-opaque? $fun)
-   (is-member $fun (FoldAllCompiled GroupedFoldAllCompiled MemberInheritanceFormula ConceptNodePriorFormula)))
+   (is-member $fun (FoldAllCompiled GroupedFoldAllCompiled ConceptNodePriorFormula)))
 
 (= (prefilter-premise-blocks? (CPU $fun $args $res))
    (if (prefilter-cpu-opaque? $fun) false

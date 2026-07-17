@@ -1138,18 +1138,38 @@
        ($member-goal (: (kbctx $kb)
           (inheritance-query-result (member-inheritance-fold cpu))
           (Inheritance $subj $concept) $member-tv))
+       ;; Build empirical samples through ordinary compiled Member queries. This
+       ;; lets rule-derived memberships contribute while retaining their proof
+       ;; identities for overlap and cycle checks before aggregation.
+       ($member-sample-pattern
+          (MemberInheritanceSample
+             $member-obj $subj $concept $member-atv $member-btv))
+       ($member-sample-goal
+          (: (kbctx $kb)
+             (member-inheritance-sample $member-aprf $member-bprf)
+             $member-sample-pattern
+             (STV 1.0 1.0)))
+       ($member-sample-rule
+          (((: (kbctx $kb) $member-aprf
+                (Member $member-obj $subj) $member-atv)
+            (: (kbctx $kb) $member-bprf
+                (Member $member-obj $concept) $member-btv))
+             |- ($member-sample-goal)))
        ($member-rule
-          (((CPU MemberInheritanceFormula ($kb $subj $concept) $member-tv))
+          (((CPU FoldAllCompiled
+                 ($kb
+                    $member-sample-pattern
+                    (extract-value $member-sample-pattern
+                       (WeightedTv $member-atv $member-btv))
+                    (BaseRateEvidence 0.0 0.0)
+                    WeightedBaseRateAcc
+                    (member-inheritance $kb)
+                    result-tv)
+                 $member-fold-tv)
+            (CPU MemberInheritanceEvidenceFormula
+               ($member-fold-tv) $member-tv))
              |- ($member-goal)))
-       ($member-adds
-          (if (== (collapse
-                    (once
-                       (match &kb
-                          ((Member $_obj $subj) ($kb $_ctx $_vars) $_prf $_atv)
-                          true)))
-                  ())
-             ()
-             ($member-rule)))
+       ($member-adds ($member-sample-rule $member-rule))
        ($premises ((Inheritance $x $subj)))
        ($conclusions ((Inheritance $x $concept)))
        ($mvars ($x))

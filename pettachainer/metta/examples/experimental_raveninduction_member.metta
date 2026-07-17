@@ -22,6 +22,11 @@
       (: $prf
          (Inheritance raven (IntSet black))
          $tv))
-   (: (member-inheritance-fold cpu)
+   (: (member-inheritance-fold
+          (foldall-proof
+             (member-inheritance-sample
+                rv2RavenObserved rv2BlackObserved)
+             (member-inheritance-sample
+                rv1RavenObserved rv1BlackObserved)))
       (Inheritance raven (IntSet black))
       (STV 0.39999999999999997 0.7290000000000001)))
