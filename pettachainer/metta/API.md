@@ -31,9 +31,8 @@ update that fact; superseded candidates are discarded rather than accumulated.
 |---|---|
 | `(query $steps $kb $stmt)` | Backward-chain up to `$steps` to answer `$stmt` against `$kb`; yields the proven results. |
 | `(query-materialize $steps $kb $stmt)` | As `query`, but also writes the derived proofs back into the KB. |
-| `(forward-chain $steps $kb)` | Forward-chain the KB's canonical merged facts up to `$steps`; processed outputs also update provisional base-rate estimates. |
-| `(forward-chain-from $steps $kb $target)` | Forward-chain starting from the canonical fact matching `$target`. |
-| `(forward-chain-from-fact $steps $kb $fact)` / `(forward-chain-from-facts $steps $kb $facts)` | Forward-chain from explicit fact(s), using their canonical merged values when present. This is the cheap incremental path to call after `compileadd`. |
+| `(forward-chain-from $steps $kb $target)` | Forward-chain from the canonical fact matching `$target`. Returns an unordered list containing the final canonical facts changed by this run. |
+| `(forward-chain-from-fact $steps $kb $fact)` / `(forward-chain-from-facts $steps $kb $facts)` | Forward-chain from caller-selected fact(s), using their canonical merged values when present. The temporary agenda is discarded when the run finishes or exhausts its budget. Returns an unordered, deduplicated list containing the final canonical facts changed by this run. |
 | `(forward-has-derived? $kb $type)` | True if a fact of `$type` exists in `$kb`. |
 | `(chainer $steps $goal)` / `(chainer-materialize $steps $goal)` | Lower-level backward chainer over an already-compiled goal. |
 | `(compileQuery $kb (: $prf $Type $tv))` / `(mm2compileQuery $kb $stmt)` | Compile a query into a goal + rule adds without running it. Advanced. |

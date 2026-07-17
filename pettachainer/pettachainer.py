@@ -184,6 +184,7 @@ class PeTTaChainer:
         return None if fact == "()" else fact
 
     def forward_chain_from_facts(self, terms: Sequence[str], steps: int = 100):
+        """Forward-chain selected KB facts and return changed canonical facts."""
         selected_facts: List[str] = []
         for term in terms:
             fact = self._select_forward_fact(term)
@@ -194,18 +195,14 @@ class PeTTaChainer:
             return ["false"]
         facts_expr = f"({' '.join(selected_facts)})"
         return self.handler.process_metta_string(
-            f"!(forward-chain-from-facts {steps} {self.kb} {facts_expr})"
+            f"!(let $changed (forward-chain-from-facts {steps} {self.kb} {facts_expr}) "
+            "(superpose $changed))"
         )
 
-    def forward_chain(self, steps: int = 100, term: Optional[str | Sequence[str]] = None):
-        if term is None:
-            return self.handler.process_metta_string(f"!(forward-chain {steps} {self.kb})")
-        if not isinstance(term, str):
-            return self.forward_chain_from_facts(term, steps=steps)
-        evaluated_term = self._evaluate(term)
-        return self.handler.process_metta_string(
-            f"!(forward-chain-from {steps} {self.kb} {evaluated_term})"
-        )
+    def forward_chain(self, term: str | Sequence[str], steps: int = 100):
+        """Convenience wrapper accepting one selected term or several terms."""
+        terms = [term] if isinstance(term, str) else term
+        return self.forward_chain_from_facts(terms, steps=steps)
 
     def query(self, atom: str, steps: int = 100, timeout_sec: Optional[float] = 10) -> List[str]:
         evaluated_query = self._evaluate(atom)

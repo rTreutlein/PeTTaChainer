@@ -62,19 +62,21 @@ def expected_reachable_facts(depth: int, noise_branching: int) -> int:
 
 def build_chain_problem(handler: PeTTaChainer, depth: int, noise_branching: int) -> None:
     handler.add_atom(f"(: seed (Reach {goal_symbol(0)}) (STV 1.0 1.0))")
+    rules: List[str] = []
     for i in range(depth):
         src = goal_symbol(i)
         dst = goal_symbol(i + 1)
-        handler.add_atom(
-            f"(: reach_{i} (Implication (Premises (Reach {src})) (Conclusions (Reach {dst}))) (STV 1.0 1.0))"
+        rules.append(
+            f"(: reach_{i} (Implication (Premises (Reach {src})) (Conclusions (Reach {dst}))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
         )
         for branch in range(noise_branching):
-            handler.add_atom(
+            rules.append(
                 "(: "
                 f"noise_{i}_{branch} "
                 f"(Implication (Premises (Reach {src})) (Conclusions (Noise {noise_symbol(i, branch)}))) "
-                f"(STV 1.0 {NOISE_CONFIDENCE}))"
+                f"(CTV (STV 1.0 {NOISE_CONFIDENCE}) (STV 0.0 1.0)))"
             )
+    handler.add_atoms_no_check(rules)
 
 
 def assert_query_succeeds(handler: PeTTaChainer, depth: int, steps: int) -> None:
@@ -95,7 +97,7 @@ def time_forward_goal(depth: int, noise_branching: int) -> float:
     handler = PeTTaChainer()
     build_chain_problem(handler, depth=depth, noise_branching=noise_branching)
     t0 = time.perf_counter()
-    handler.forward_chain(steps=depth)
+    handler.forward_chain(f"(Reach {goal_symbol(0)})", steps=depth)
     elapsed = time.perf_counter() - t0
     assert_query_succeeds(handler, depth=depth, steps=query_budget(depth))
     return elapsed
@@ -105,7 +107,7 @@ def time_forward_full(depth: int, noise_branching: int, full_steps: int) -> floa
     handler = PeTTaChainer()
     build_chain_problem(handler, depth=depth, noise_branching=noise_branching)
     t0 = time.perf_counter()
-    handler.forward_chain(steps=full_steps)
+    handler.forward_chain(f"(Reach {goal_symbol(0)})", steps=full_steps)
     elapsed = time.perf_counter() - t0
     assert_query_succeeds(handler, depth=depth, steps=query_budget(depth))
     return elapsed

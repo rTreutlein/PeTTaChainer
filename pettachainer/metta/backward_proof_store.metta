@@ -124,11 +124,12 @@
 	      (if (and (materializable-proof-kind? $kind) (materializable-proof-output? $output))
 	         (let*
 	            (($fact (materialize-result-atom $output))
-	             (($_score $ev) (proof-stats-by-id $pid)))
+	             (($_score $ev) (proof-stats-by-id $pid))
+	             ($change
+	                (forward-candidate-upsert!
+	                   (forward-derived $fact $ev))))
 	            (progn
-	               (forward-fact-upsert (empty_heap)
-	                  (forward-derived $fact $ev))
-	               (mark-forward-agenda-dirty $fact)
+	               (forward-apply-unqueued-change! $change)
 	               ()))
 	         ())))
 

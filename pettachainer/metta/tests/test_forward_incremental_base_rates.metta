@@ -1,5 +1,13 @@
 !(import! &self petta_chainer)
 
+;; These tests intentionally request the full-KB special case by selecting all
+;; current canonical facts. The forward chainer itself has no global-KB mode.
+(= (test-main-facts $kb)
+   (collapse
+      (match &kb
+         ($type ($kb MAIN Nil) $prf $tv)
+         ($type ($kb MAIN Nil) $prf $tv))))
+
 ;; A fact produced by the forward chainer is only a cached derivation.  When
 ;; backward chaining rediscovers the same rule path, both views must carry the
 ;; same evidence so the result is not revised with itself.
@@ -10,7 +18,8 @@
 !(compileadd forwardBackwardDedupKb (: qa (Q alice) (STV 0.9 0.8)))
 !(compileadd forwardBackwardDedupKb (: pb (P bob) (STV 0.7 0.8)))
 
-!(forward-chain 20 forwardBackwardDedupKb)
+!(forward-chain-from-facts 20 forwardBackwardDedupKb
+   (test-main-facts forwardBackwardDedupKb))
 ;; Remove the cheap forward estimates so the query exposes the complete fold
 ;; proof, including the forward-materialized Q(bob) path.
 !(clear-base-rate forwardBackwardDedupKb (P $x))
@@ -38,9 +47,11 @@
       (Implication (Premises (Q $x)) (Conclusions (R $x)))
       (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
-!(forward-chain 20 forwardRevisionKb)
+!(forward-chain-from-facts 20 forwardRevisionKb
+   (test-main-facts forwardRevisionKb))
 !(compileadd forwardRevisionKb (: p2 (P a) (STV 0.8 0.5)))
-!(forward-chain 20 forwardRevisionKb)
+!(forward-chain-from-facts 20 forwardRevisionKb
+   (test-main-facts forwardRevisionKb))
 
 !(test
    (collapse
@@ -81,9 +92,11 @@
       (Implication (Premises (S $x)) (Conclusions (Q $x)))
       (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
-!(forward-chain 20 forwardFrontierKb)
+!(forward-chain-from-facts 20 forwardFrontierKb
+   (test-main-facts forwardFrontierKb))
 !(compileadd forwardFrontierKb (: frontierP2 (P a) (STV 0.8 0.5)))
-!(forward-chain 20 forwardFrontierKb)
+!(forward-chain-from-facts 20 forwardFrontierKb
+   (test-main-facts forwardFrontierKb))
 
 !(test
    (list-count
@@ -183,7 +196,8 @@
    (: qToR
       (Implication (Premises (Q $x)) (Conclusions (R $x)))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-!(forward-chain 20 forwardLowerConfidenceKb)
+!(forward-chain-from-facts 20 forwardLowerConfidenceKb
+   (test-main-facts forwardLowerConfidenceKb))
 
 !(test
    (collapse
@@ -195,7 +209,8 @@
       (STV 0.77 0.8204934934752165))))
 
 !(compileadd forwardLowerConfidenceKb (: p2 (P a) (STV 0.1 0.8)))
-!(forward-chain 20 forwardLowerConfidenceKb)
+!(forward-chain-from-facts 20 forwardLowerConfidenceKb
+   (test-main-facts forwardLowerConfidenceKb))
 
 !(test
    (collapse
@@ -231,7 +246,8 @@
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 !(compileadd forwardBaseRateKb (: qa (Q alice) (STV 0.9 0.8)))
 !(compileadd forwardBaseRateKb (: pb (P bob) (STV 0.7 0.8)))
-!(forward-chain 20 forwardBaseRateKb)
+!(forward-chain-from-facts 20 forwardBaseRateKb
+   (test-main-facts forwardBaseRateKb))
 
 !(test
    (cached-base-rate forwardBaseRateKb (P $x))
@@ -311,7 +327,8 @@
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 !(set-base-rate forwardUserBaseRateKb (P $x) (STV 0.42 0.75))
 !(compileadd forwardUserBaseRateKb (: pa (P a) (STV 0.9 0.9)))
-!(forward-chain 20 forwardUserBaseRateKb)
+!(forward-chain-from-facts 20 forwardUserBaseRateKb
+   (test-main-facts forwardUserBaseRateKb))
 
 !(test
    (base-rate-cache-entries forwardUserBaseRateKb (P $x))
@@ -350,7 +367,8 @@
    (: ravenBird (Inheritance Raven Bird) (STV 1.0 0.9)))
 !(compileadd forwardInheritanceBaseRateKb
    (: penguinBird (Inheritance Penguin Bird) (STV 1.0 0.9)))
-!(forward-chain 50 forwardInheritanceBaseRateKb)
+!(forward-chain-from-facts 50 forwardInheritanceBaseRateKb
+   (test-main-facts forwardInheritanceBaseRateKb))
 
 !(test
    (cached-base-rate

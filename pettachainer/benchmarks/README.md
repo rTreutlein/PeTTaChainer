@@ -134,8 +134,7 @@ Output columns:
 - `steps`: search or forward steps per run
 - `setup_s`: mean KB construction time
 - `run_s`: mean measured query/forward time
-- `agenda_size`: saved forward agenda size after `forward-chain`; backward search does not persist its agenda
-- `result_count`: number of backward query results
+- `result_count`: number of backward query results or canonical facts changed by the forward run
 
 ## Metta Tuffy Deep Variant
 

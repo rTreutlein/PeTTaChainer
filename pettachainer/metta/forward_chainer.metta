@@ -1,10 +1,5 @@
 !(import_prolog_function nth0)
 
-(= (forward-agenda-dirty-key $kb) (atom_concat fwd_agenda_dirty_ $kb))
-(= (forward-agenda-gen-key $kb) (atom_concat fwd_agenda_gen_ $kb))
-(= (forward-agenda-scope-key $kb) (atom_concat fwd_agenda_scope_ $kb))
-(= (forward-query-run-gen-key $kb) (atom_concat fwd_query_run_gen_ $kb))
-
 (= (forward-type-trigger-key $kbid $type)
    (if (is-var $type) (fwd_trigger $kbid any)
       (if (is-expr $type)
@@ -20,52 +15,8 @@
 (= (forward-premise-wildcard-key $prem)
    (if (= $prem ($_type ($kbid $_ctx $_vars) $_prf $_tv)) (fwd_trigger $kbid any) fwd_trigger_any))
 
-(= (forward-load-agenda $kb)
-   (let $magenda (catch (get-state (atom_concat fwd_agenda_ $kb)))
-      (if-error $magenda (empty_heap) $magenda)))
-
-(= (forward-save-agenda $kb $agenda) (change-state! (atom_concat fwd_agenda_ $kb) $agenda))
-(= (forward-set-agenda-dirty $kb $dirty) (change-state! (forward-agenda-dirty-key $kb) $dirty))
-
-(= (forward-agenda-dirty? $kb)
-   (let $mdirty (catch (get-state (forward-agenda-dirty-key $kb)))
-      (if-error $mdirty true $mdirty)))
-
-(= (forward-current-agenda-gen $kb)
-   (let $mgen (catch (get-state (forward-agenda-gen-key $kb)))
-      (if-error $mgen 0 $mgen)))
-
-(= (forward-current-query-run-gen $kb)
-   (let $mgen (catch (get-state (forward-query-run-gen-key $kb)))
-      (if-error $mgen 0 $mgen)))
-
-(= (forward-next-agenda-gen $kb)
-   (let*
-      (($gen (+ 1 (forward-current-agenda-gen $kb)))
-        ($_ (change-state! (forward-agenda-gen-key $kb) $gen)))
-      $gen))
-
-(= (forward-next-query-run-gen $kb)
-   (let*
-      (($gen (+ 1 (forward-current-query-run-gen $kb)))
-        ($_ (change-state! (forward-query-run-gen-key $kb) $gen)))
-      $gen))
-
-(= (forward-current-agenda-scope $kb)
-   (let $mscope (catch (get-state (forward-agenda-scope-key $kb)))
-      (if-error $mscope (kb $kb) $mscope)))
-
-(= (forward-set-agenda-scope $kb $scope) (change-state! (forward-agenda-scope-key $kb) $scope))
-
-(= (forward-new-query-scope $kb) (fwd_query_scope $kb (forward-next-query-run-gen $kb)))
-
-(= (mark-forward-agenda-dirty $expr)
-   (if (= $expr ($_type ($kbid MAIN Nil) $_prf $_tv))
-      (forward-set-agenda-dirty $kbid true)
-      ()))
-
 (= (forward-fact-key ($type ($kbid $ctx $vars) $_prf $_tv)) (($kbid $ctx $vars) $type))
-(= (forward-fact-kb ($type ($kbid $_ctx $_vars) $_prf $_tv)) $kbid)
+(= (forward-fact-kb ($_type ($kbid $_ctx $_vars) $_prf $_tv)) $kbid)
 (= (forward-output-index-hash ($kb $type)) (term_hash ($kb $type)))
 
 (= (forward-fact-evidence ($type $kb $prf $tv))
@@ -410,49 +361,6 @@
                    $fact $wildcard)))))
       ()))
 
-(= (forward-pending-state-key $fact)
-   (let $kb (forward-fact-kb $fact)
-      (atom_concat fwd_pending_ (term_hash ((forward-current-agenda-scope $kb) (forward-fact-key $fact))))))
-
-(= (forward-pending-score-of $fact)
-   (let*
-      (($state-key (forward-pending-state-key $fact))
-        ($gen (forward-current-agenda-gen (forward-fact-kb $fact)))
-        ($entry (catch (get-state $state-key))))
-      (if-error $entry
-         0.0
-         (if (= $entry (pending $stored-key $stored-gen $score))
-            (if (and (== $stored-key (forward-fact-key $fact)) (== $stored-gen $gen)) $score 0.0)
-            0.0))))
-
-(= (clear-forward-pending-score $fact)
-   (change-state!
-      (forward-pending-state-key $fact)
-      (pending () (forward-current-agenda-gen (forward-fact-kb $fact)) 0.0)))
-
-(= (set-forward-pending-score $fact $score)
-   (change-state!
-      (forward-pending-state-key $fact)
-      (pending (forward-fact-key $fact) (forward-current-agenda-gen (forward-fact-kb $fact)) $score)))
-
-(= (forward-build-agenda $kb)
-   (fold-flat
-      agenda-push-fact-best
-      (empty_heap)
-      (collapse
-         (match &kb ($type ($kb MAIN Nil) $prf $tv)
-            ($type ($kb MAIN Nil) $prf $tv)))))
-
-(= (forward-refresh-agenda $kb)
-   (if (forward-agenda-dirty? $kb)
-      (let*
-         (($_gen (forward-next-agenda-gen $kb))
-           ($agenda (forward-build-agenda $kb))
-           ($_save (forward-save-agenda $kb $agenda))
-           ($_clear-dirty (forward-set-agenda-dirty $kb false)))
-         $agenda)
-      (forward-load-agenda $kb)))
-
 (= (forward-satisfy-premises $steps () $goal $ev) (forward-match $goal $ev))
 (= (forward-satisfy-premises $steps (cons $prem $rest) $goal $ev)
    (if (= $prem (CPU $fun $args $res))
@@ -465,26 +373,16 @@
          (empty))))
 
 (= (agenda-push-fact $agenda $fact)
-   (let $score (term-confidence $fact) (add_to_heap $agenda (- 0 $score) (qitem $score $fact))))
-
-(= (agenda-push-fact-best $agenda $fact)
-   (let*
-      (($score (term-confidence $fact))
-        ($current (forward-pending-score-of $fact)))
-      (if (>= $current $score) $agenda
-         (let*
-            (($nagenda (agenda-push-fact $agenda $fact))
-              ($_set (set-forward-pending-score $fact $score)))
-            $nagenda))))
+   (add_to_heap $agenda (- 0 (term-confidence $fact)) (qitem $fact)))
 
 (= (forward-seed-agenda-step $agenda $fact)
    (let $rows (collapse (once (forward-output-row-for-fact $fact)))
-      (if (== $rows ()) (agenda-push-fact-best $agenda $fact)
+      (if (== $rows ()) (agenda-push-fact $agenda $fact)
          (let ($canonical $_ev) (car-atom $rows)
-            (agenda-push-fact-best $agenda $canonical)))))
+            (agenda-push-fact $agenda $canonical)))))
 
 (= (forward-build-agenda-from-facts $facts)
-   (fold-flat forward-seed-agenda-step (empty_heap) $facts))
+   (fold-flat forward-seed-agenda-step (empty_heap) (list_to_set $facts)))
 
 (= (agenda-push-forward-change $agenda no-forward-change) $agenda)
 (= (agenda-push-forward-change $agenda (forward-output-change $old ()))
@@ -493,16 +391,10 @@
    (let*
       (($_invalidate-old
           (if (== $old ()) () (forward-invalidate-base-rates! $old)))
-       ($_invalidate-new (forward-invalidate-base-rates! $fact))
-       ($score (term-confidence $fact)))
-      (let*
-         (($_pending (set-forward-pending-score $fact $score))
-          ($nagenda (agenda-push-fact $agenda $fact)))
-         $nagenda)))
+       ($_invalidate-new (forward-invalidate-base-rates! $fact)))
+      (agenda-push-fact $agenda $fact)))
 
-;; compileadd/removal marks the saved agenda dirty instead of mutating it in
-;; place. Apply only the cache bookkeeping here; the next forward run rebuilds
-;; and queues the canonical facts under a fresh agenda generation.
+;; Apply cache bookkeeping for canonical changes made outside a forward run.
 (= (forward-apply-unqueued-change! no-forward-change) ())
 (= (forward-apply-unqueued-change! (forward-output-change $old ()))
    (forward-remove-base-rate-observations! $old))
@@ -670,9 +562,6 @@
                                    $output-key $fact $ev)))
                            (forward-refresh-output-key! $output-key))))))))))
 
-(= (forward-fact-upsert $agenda $derived)
-   (agenda-push-forward-change $agenda (forward-candidate-upsert! $derived)))
-
 (= (forward-rule-results-for-key $steps $kb $fact $key)
    (collapse
       (let*
@@ -694,24 +583,55 @@
            (if (== $key $wildcard-key) (empty) (forward-rule-results-for-key $steps $kb $fact $wildcard-key))))
       (union-atom $direct $wildcard)))
 
-(= (forward-step-fact $steps $kb $agenda $fact)
-   (let*
-      (($_clear (clear-forward-pending-score $fact))
-        ($_base-rates (forward-update-base-rates $fact))
-        ($derived (forward-rule-results $steps $kb $fact))
-        ($nagenda (fold-flat forward-fact-upsert $agenda $derived)))
-      $nagenda))
+(= (forward-run-apply-derived (forward-run $agenda $changed) $derived)
+   (let $change (forward-candidate-upsert! $derived)
+      (let $nagenda (agenda-push-forward-change $agenda $change)
+         (if (= $change (forward-output-change $_old $fact))
+            ;; Keep output identities, not intermediate fact versions. At the
+            ;; end of the run each identity resolves to its final canonical fact.
+            (forward-run $nagenda (cons (forward-fact-key $fact) $changed))
+            (forward-run $nagenda $changed)))))
 
-(= (forward-loop $steps $kb $agenda)
-   (if (or (== (heap_size $agenda) 0) (<= $steps 0)) $agenda
+(= (forward-step-fact $steps $kb $run $fact)
+   (let*
+      (($_base-rates (forward-update-base-rates $fact))
+        ($derived (forward-rule-results $steps $kb $fact))
+        ($nrun (fold-flat forward-run-apply-derived $run $derived)))
+      $nrun))
+
+;; If several derivations update one output before it is processed, only its
+;; latest canonical version should run.  Explicit non-KB seeds have no
+;; canonical row and are therefore always current.
+(= (forward-queued-fact-current? $fact)
+   (let $rows (collapse (once (forward-output-row-for-fact $fact)))
+      (if (== $rows ()) true
+         (let ($canonical $_ev) (car-atom $rows)
+            (== $canonical $fact)))))
+
+(= (forward-loop $steps $kb (forward-run $agenda $changed))
+   (if (or (== (heap_size $agenda) 0) (<= $steps 0))
+      (forward-run $agenda $changed)
       (let $rest (get_from_heap $agenda $_priority $item)
-         (let (qitem $score $fact) $item
-            (if (== (forward-pending-score-of $fact) $score)
+         (let (qitem $fact) $item
+            (if (forward-queued-fact-current? $fact)
                (let*
                   (($next-steps (- $steps 1))
-                   ($nagenda (bounded-agenda-prune $next-steps (forward-step-fact $steps $kb $rest $fact))))
-                  (forward-loop $next-steps $kb $nagenda))
-               (forward-loop $steps $kb $rest))))))
+                   ((forward-run $nagenda $nchanged)
+                      (forward-step-fact $steps $kb
+                         (forward-run $rest $changed) $fact)))
+                  (forward-loop $next-steps $kb
+                     (forward-run
+                        (bounded-agenda-prune $next-steps $nagenda)
+                        $nchanged)))
+               (forward-loop $steps $kb (forward-run $rest $changed)))))))
+
+(= (forward-canonical-fact-for-key ($kb $type))
+   (let $hash (forward-output-index-hash ($kb $type))
+      (match &forward_canonical_evidence
+         ($hash $type $kb $fact $_ev) $fact)))
+
+(= (forward-run-changed-facts (forward-run $_agenda $changed))
+   (map-flat forward-canonical-fact-for-key (list_to_set $changed)))
 
 (= (forward-target-type $target)
    (if (= $target (: $_name $type $_tv)) $type
@@ -730,33 +650,12 @@
 
 (= (forward-chain-from-facts $steps $kb $facts)
    (let*
-      (($old-scope (forward-current-agenda-scope $kb))
-        ($scope (forward-new-query-scope $kb))
-        ($_scope (forward-set-agenda-scope $kb $scope))
-        ($agenda (forward-build-agenda-from-facts $facts))
-        ($_run (forward-loop $steps $kb $agenda))
-        ($_dirty (forward-set-agenda-dirty $kb true))
-        ($_restore (forward-set-agenda-scope $kb $old-scope)))
-      true))
+      (($agenda (forward-build-agenda-from-facts $facts))
+       ($run (forward-loop $steps $kb (forward-run $agenda ()))))
+      (forward-run-changed-facts $run)))
 
 (= (forward-chain-from-fact $steps $kb $fact)
-   (let*
-      (($old-scope (forward-current-agenda-scope $kb))
-        ($scope (forward-new-query-scope $kb))
-        ($_scope (forward-set-agenda-scope $kb $scope))
-        ($agenda (forward-seed-agenda-step (empty_heap) $fact))
-        ($_run (forward-loop $steps $kb $agenda))
-        ($_dirty (forward-set-agenda-dirty $kb true))
-        ($_restore (forward-set-agenda-scope $kb $old-scope)))
-      true))
-
-(= (forward-chain $steps $kb)
-   (let*
-      (($_scope (forward-set-agenda-scope $kb (kb $kb)))
-        ($agenda (forward-refresh-agenda $kb))
-        ($nagenda (forward-loop $steps $kb $agenda))
-        ($_save (forward-save-agenda $kb $nagenda)))
-      true))
+   (forward-chain-from-facts $steps $kb ($fact)))
 
 (= (forward-chain-from $steps $kb $target)
    (let $fact (forward-select-fact $kb $target)

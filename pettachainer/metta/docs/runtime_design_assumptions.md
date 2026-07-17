@@ -103,10 +103,16 @@ structural or variable-bearing pattern matching.
 may run forward chaining after one or many additions. Queries and chainer calls
 must respect their explicit step budgets.
 
-Pending forward work may need persistent state so a bounded run can resume, but
-that state should represent deltas, not a periodically rebuilt copy of the KB.
-Adding a rule must eventually allow it to see older matching facts without
-forcing the rule-add operation itself to scan those facts.
+Forward chaining always starts from facts selected by its caller. Its agenda is
+local to that invocation and is discarded when the agenda empties or the step
+budget is exhausted. The canonical facts derived before that point remain in
+`&kb`, and the inference controller may select any of them as seeds for a later
+run. No unfinished search state is retained by the chainer.
+
+Full saturation is not a separate operation. It is the special case in which
+the caller selects every canonical KB fact and supplies enough budget. Adding a
+rule does not automatically replay old facts; the inference controller decides
+which existing facts should activate it.
 
 ### Derived state exists only for correctness or measured performance
 
@@ -143,14 +149,13 @@ nondeterminism from overlapping clauses or unstable iteration order.
 ## Known performance work
 
 At the time this document was written, base-rate invalidation on monotonic
-addition was removed. The remaining insertion paths still need separate
-measurement and review:
+addition and global forward-agenda invalidation were removed. The remaining
+insertion paths still need separate measurement and review:
 
 - canonical proof-frontier insertion and merging;
-- marking and rebuilding the forward agenda;
 - rule indexes and late rule activation;
 - any compiler-generated registration performed per added rule.
 
 The acceptance test for each change is not merely a faster benchmark. It must
-preserve monotonic proof semantics, evidence deduplication, bounded continuation,
-late-added-rule behavior, and the complete test/example suite.
+preserve monotonic proof semantics, evidence deduplication, strict step budgets,
+caller-selected late-rule activation, and the complete test/example suite.

@@ -286,10 +286,6 @@
            ($_base-rates
               (if (== $backend live)
                  (register-forward-base-rate-premises! $args)
-                 ()))
-           ($_agenda
-              (if (== $backend live)
-                 (mark-forward-agenda-dirty $ccls)
                  ())))
          ())
       (progn
@@ -299,8 +295,7 @@
                 ($ev ((fact-ev $kb $prf $type)))
                 ($_change
                    (forward-candidate-upsert!
-                      (forward-derived $expr $ev)))
-                ($_dirty (mark-forward-agenda-dirty $expr)))
+                      (forward-derived $expr $ev))))
                ())
             (kb-add-atom $backend &kb $expr)))))
 
@@ -356,8 +351,6 @@
                 ($change (forward-refresh-output-key! $key))
                 ($_forward-state
                    (forward-apply-unqueued-change! $change))
-                ($_dirty
-                   (mark-forward-agenda-dirty ($type $kb $name $tv)))
                 ($_base-rates
                    (invalidate-computed-base-rates!
                       (kb-expr-kbid ($type $kb $name $tv)))))

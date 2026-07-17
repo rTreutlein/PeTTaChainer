@@ -27,7 +27,6 @@ class BenchmarkRow:
     repeats: int
     setup_s: float
     run_s: float
-    agenda_size: int
     result_count: int
 
 
@@ -37,15 +36,6 @@ def parse_int_list(raw: str) -> List[int]:
 
 def mean(values: List[float]) -> float:
     return statistics.mean(values) if values else 0.0
-
-
-def handler_agenda_size(handler: PeTTaChainer) -> int:
-    result = handler.handler.process_metta_string(
-        f"!(let $agenda (forward-load-agenda {handler.kb}) (heap_size $agenda))"
-    )
-    if isinstance(result, list):
-        result = result[0] if result else "0"
-    return int(str(result))
 
 
 def set_pruning(handler: PeTTaChainer, enabled: bool) -> None:
@@ -84,7 +74,7 @@ def build_backward_many_small_fanouts(handler: PeTTaChainer, fanout: int, seeds:
 def build_forward_fanout(handler: PeTTaChainer, fanout: int) -> None:
     atoms = ["(: seed (QueueBenchSeed) (STV 1.0 1.0))"]
     atoms.extend(
-        f"(: fan_{idx} (Implication (Premises (QueueBenchSeed)) (Conclusions (QueueBenchNoise {idx}))) (STV 1.0 1.0))"
+        f"(: fan_{idx} (Implication (Premises (QueueBenchSeed)) (Conclusions (QueueBenchNoise {idx}))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
         for idx in range(fanout)
     )
     handler.add_atoms_no_check(atoms)
@@ -100,7 +90,7 @@ def build_forward_many_small_fanouts(handler: PeTTaChainer, fanout: int, seeds: 
             f"(: fan_{seed}_{idx} "
             f"(Implication (Premises (QueueBenchSeed {seed})) "
             f"(Conclusions (QueueBenchNoise {seed} {idx}))) "
-            f"(STV 1.0 0.5))"
+            f"(CTV (STV 1.0 0.5) (STV 0.0 1.0)))"
             for idx in range(fanout)
         )
     handler.add_atoms_no_check(atoms)
@@ -125,7 +115,6 @@ def time_backward(fanout: int, steps: int, pruning: bool) -> BenchmarkRow:
         repeats=1,
         setup_s=setup_s,
         run_s=run_s,
-        agenda_size=0,
         result_count=len(results),
     )
 
@@ -149,7 +138,6 @@ def time_backward_many_small(fanout: int, seeds: int, steps: int, pruning: bool)
         repeats=1,
         setup_s=setup_s,
         run_s=run_s,
-        agenda_size=0,
         result_count=len(results),
     )
 
@@ -162,7 +150,7 @@ def time_forward(fanout: int, steps: int, pruning: bool) -> BenchmarkRow:
     setup_s = time.perf_counter() - t0
 
     t1 = time.perf_counter()
-    handler.forward_chain(steps=steps)
+    results = handler.forward_chain("(QueueBenchSeed)", steps=steps)
     run_s = time.perf_counter() - t1
     return BenchmarkRow(
         pruning="on" if pruning else "off",
@@ -173,8 +161,7 @@ def time_forward(fanout: int, steps: int, pruning: bool) -> BenchmarkRow:
         repeats=1,
         setup_s=setup_s,
         run_s=run_s,
-        agenda_size=handler_agenda_size(handler),
-        result_count=0,
+        result_count=len(results),
     )
 
 
@@ -186,7 +173,9 @@ def time_forward_many_small(fanout: int, seeds: int, steps: int, pruning: bool) 
     setup_s = time.perf_counter() - t0
 
     t1 = time.perf_counter()
-    handler.forward_chain(steps=steps)
+    results = handler.forward_chain(
+        [f"(QueueBenchSeed {seed})" for seed in range(seeds)], steps=steps
+    )
     run_s = time.perf_counter() - t1
     return BenchmarkRow(
         pruning="on" if pruning else "off",
@@ -197,8 +186,7 @@ def time_forward_many_small(fanout: int, seeds: int, steps: int, pruning: bool) 
         repeats=1,
         setup_s=setup_s,
         run_s=run_s,
-        agenda_size=handler_agenda_size(handler),
-        result_count=0,
+        result_count=len(results),
     )
 
 
@@ -219,7 +207,6 @@ def summarize(rows: List[BenchmarkRow], repeats: int) -> List[BenchmarkRow]:
                 repeats=repeats,
                 setup_s=mean([row.setup_s for row in group]),
                 run_s=mean([row.run_s for row in group]),
-                agenda_size=int(mean([row.agenda_size for row in group])),
                 result_count=int(mean([row.result_count for row in group])),
             )
         )
@@ -227,7 +214,7 @@ def summarize(rows: List[BenchmarkRow], repeats: int) -> List[BenchmarkRow]:
 
 
 def print_table(rows: List[BenchmarkRow]) -> None:
-    headers = ["pruning", "mode", "fanout", "seeds", "steps", "repeats", "setup_s", "run_s", "agenda_size", "result_count"]
+    headers = ["pruning", "mode", "fanout", "seeds", "steps", "repeats", "setup_s", "run_s", "result_count"]
     print("\t".join(headers))
     for row in rows:
         print(
@@ -241,7 +228,6 @@ def print_table(rows: List[BenchmarkRow]) -> None:
                     str(row.repeats),
                     f"{row.setup_s:.6f}",
                     f"{row.run_s:.6f}",
-                    str(row.agenda_size),
                     str(row.result_count),
                 ]
             )

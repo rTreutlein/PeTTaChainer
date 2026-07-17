@@ -13,12 +13,19 @@
 !(compileadd fwdkb
    (: pathIdempotent (Implication (Premises (Path $x $y)) (Conclusions (Path $x $y))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(test (let $_ (forward-chain 50 fwdkb) (forward-has-derived? fwdkb (Path A C))) true)
+!(test
+   (let $changed (forward-chain-from 50 fwdkb (Edge A B))
+      (and (== (list-count $changed) 3)
+         (forward-has-derived? fwdkb (Path A C))))
+   true)
+
+;; A run returns each changed output once, using its final canonical proof.
+;; Reprocessing the same seed without new evidence changes nothing.
+!(test (forward-chain-from 50 fwdkb (Edge A B)) ())
 
 !(test
    (let*
-      (($_ (forward-chain 50 fwdkb))
-        ($proofs
+      (($proofs
            (collapse
               (match &kb
                  ((Path A C) (fwdkb MAIN Nil) $prf $_tv)
@@ -33,8 +40,8 @@
 
 !(test
    (let*
-      (($_ (forward-chain 200 loopkb))
-        ($proofs
+      (($_ (forward-chain-from 200 loopkb (Loop Start)))
+       ($proofs
            (collapse
               (match &kb
                  ((Loop Start) (loopkb MAIN Nil) $prf $_tv)
@@ -63,7 +70,7 @@
 
 !(test
    (let*
-      (($_ (forward-chain 50 mergekb))
+      (($_ (forward-chain-from 50 mergekb (BasePremise)))
         ($merged
            (collapse
               (match &kb
@@ -75,7 +82,7 @@
 
 !(test
    (let*
-      (($_ (forward-chain 50 mergekb))
+      (($_ (forward-chain-from 50 mergekb (BasePremise)))
         ($ev-ok
            (collapse
               (match &kb
@@ -89,7 +96,7 @@
 
 !(test
    (let*
-      (($_ (forward-chain 50 mergekb))
+      (($_ (forward-chain-from 50 mergekb (BasePremise)))
         ($proofs
            (collapse
               (match &kb
@@ -105,9 +112,13 @@
 !(compileadd deltakb
    (: lowToGoal (Implication (Premises (LowPriority)) (Conclusions (DeltaGoal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(test (let $_ (forward-chain 1 deltakb) (forward-has-derived? deltakb (DeltaGoal))) false)
+!(test (let $_ (forward-chain-from 1 deltakb (HighPriority)) (forward-has-derived? deltakb (DeltaGoal))) false)
 
-!(test (let $_ (forward-chain 1 deltakb) (forward-has-derived? deltakb (DeltaGoal))) true)
+;; Exhausted work is not retained. Selecting the same irrelevant seed again
+;; cannot resume a discarded global agenda.
+!(test (let $_ (forward-chain-from 1 deltakb (HighPriority)) (forward-has-derived? deltakb (DeltaGoal))) false)
+
+!(test (let $_ (forward-chain-from 1 deltakb (LowPriority)) (forward-has-derived? deltakb (DeltaGoal))) true)
 
 !(compileadd selectedkb (: highFact (HighPriority) (STV 1.0 1.0)))
 
@@ -134,23 +145,23 @@
 
 !(compileadd ruleaddkb (: oldSeed (RuleSeed) (STV 1.0 1.0)))
 
-!(test (let $_ (forward-chain 1 ruleaddkb) (forward-has-derived? ruleaddkb (RuleAddGoal))) false)
+!(test (let $_ (forward-chain-from 1 ruleaddkb (RuleSeed)) (forward-has-derived? ruleaddkb (RuleAddGoal))) false)
 
 !(compileadd ruleaddkb
    (: seedToGoal (Implication (Premises (RuleSeed)) (Conclusions (RuleAddGoal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(test (let $_ (forward-chain 2 ruleaddkb) (forward-has-derived? ruleaddkb (RuleAddGoal))) true)
+;; Adding a rule does not schedule old facts globally. The caller explicitly
+;; selects the existing fact that should activate the new rule.
+!(test (let $_ (forward-chain-from 2 ruleaddkb (RuleSeed)) (forward-has-derived? ruleaddkb (RuleAddGoal))) true)
 
 !(compileadd dedupekb (: dedupeSeed (DedupeSeed) (STV 1.0 0.4)))
 
 !(compileadd dedupekb
    (: dedupeRule (Implication (Premises (DedupeSeed)) (Conclusions (DedupeGoal))) (CTV (STV 1.0 0.5) (STV 0.0 1.0))))
 
-!(test (forward-agenda-dirty? dedupekb) true)
-
 !(test
    (let*
-      (($_ (forward-chain 10 dedupekb))
+      (($_ (forward-chain-from 10 dedupekb (DedupeSeed)))
         ($cpu-call-tvs
            (collapse (match &kb ((DedupeGoal) (dedupekb MAIN Nil) $prf (cpu-call $steps $fun $args)) true))))
       (== $cpu-call-tvs ()))

@@ -82,11 +82,14 @@ from pettachainer import PeTTaChainer
 handler = PeTTaChainer()
 handler.add_atom("(: edge_ab (Edge A B) (STV 1.0 1.0))")
 handler.add_atom("(: edge_bc (Edge B C) (STV 1.0 1.0))")
-handler.add_atom("(: edge_to_path (Implication (Premises (Edge $x $y)) (Conclusions (Path $x $y))) (STV 1.0 1.0))")
-handler.add_atom("(: path_step (Implication (Premises (Path $x $y) (Edge $y $z)) (Conclusions (Path $x $z))) (STV 1.0 1.0))")
+handler.add_atoms_no_check([
+    "(: edge_to_path (Implication (Premises (Edge $x $y)) (Conclusions (Path $x $y))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))",
+    "(: path_step (Implication (Premises (Path $x $y) (Edge $y $z)) (Conclusions (Path $x $z))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))",
+])
 
-handler.forward_chain(steps=50)
+changed = handler.forward_chain(["(Edge A B)", "(Edge B C)"], steps=50)
 result = handler.query("(: $prf (Path A C) $tv)", timeout_sec=0)
 
-handler.forward_chain(steps=1, term="(Edge A B)")
+# Each returned canonical fact can be selected for a later run.
+handler.forward_chain("(Edge A B)", steps=1)
 ```
