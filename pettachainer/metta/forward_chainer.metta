@@ -67,37 +67,41 @@
 (= (forward-fact-key ($type ($kbid $ctx $vars) $_prf $_tv)) (($kbid $ctx $vars) $type))
 (= (forward-fact-kb ($type ($kbid $_ctx $_vars) $_prf $_tv)) $kbid)
 
-(= (forward-fact-evidence $fact)
-   (let $key (forward-fact-key $fact)
+(= (forward-fact-evidence ($type $kb $prf $tv))
+   (let $fact ($type $kb $prf $tv)
       (let $hits
          (collapse
             (once
-               (match &forward_canonical_evidence ($key $fact $ev) $ev)))
+               (match &forward_canonical_evidence
+                  ($type $kb $fact $ev) $ev)))
          (if (== $hits ())
             (let $frontier-hits
                (collapse
                   (once
-                     (match &forward_frontier ($key $fact $ev) $ev)))
+                     (match &forward_frontier
+                        ($type $kb $fact $ev) $ev)))
                (if (== $frontier-hits ())
-                  (let ($type $kb $prf $_tv) $fact ((fact-ev $kb $prf $type)))
+                  ((fact-ev $kb $prf $type))
                   (car-atom $frontier-hits)))
             (car-atom $hits)))))
 
-(= (forward-output-candidate-step () ($_key $fact $ev))
+(= (forward-output-candidate-step () ($_type $_kb $fact $ev))
    (forward-output-candidate $fact $ev))
 (= (forward-output-candidate-step
       (forward-output-candidate $current $current-ev)
-      ($_key $fact $ev))
+      ($_type $_kb $fact $ev))
    (let ($merged $merged-ev)
       (merge-proof-candidates
          ($current $current-ev)
          ($fact $ev))
       (forward-output-candidate $merged $merged-ev)))
 
-(= (forward-output-candidate-for-key $key)
+(= (forward-output-candidate-for-key ($kb $type))
    (fold-flat forward-output-candidate-step ()
       (collapse
-         (match &forward_frontier ($key $fact $ev) ($key $fact $ev)))))
+         (match &forward_frontier
+            ($type $kb $fact $ev)
+            ($type $kb $fact $ev)))))
 
 (= (forward-canonical-rows-for-key (($kbid $ctx $vars) $type))
    (collapse
@@ -110,19 +114,23 @@
 
 ;; &kb contains one canonical fact per grounded output.  The private frontier
 ;; keeps only the independent, non-dominated candidates required to update that
-;; canonical fact when later evidence supersedes just one branch.
-(= (forward-store-output-candidate! $key $new-candidate)
+;; canonical fact when later evidence supersedes just one branch.  The side
+;; tables put type before context instead of nesting the composite output key;
+;; this lets MORK's structural index reject unrelated outputs without a scan.
+(= (forward-store-output-candidate! ($kb $type) $new-candidate)
    (let*
       (($old-rows
-          (forward-canonical-rows-for-key $key))
+          (forward-canonical-rows-for-key ($kb $type)))
        ($old-fact (if (== $old-rows ()) () (car-atom $old-rows)))
        ($old-evidence-rows
           (collapse
-             (match &forward_canonical_evidence ($key $stored-fact $stored-ev)
-                ($key $stored-fact $stored-ev))))
+             (match &forward_canonical_evidence
+                ($type $kb $stored-fact $stored-ev)
+                ($type $kb $stored-fact $stored-ev))))
        ($old-ev
           (if (== $old-evidence-rows ()) ()
-             (let ($_key $_fact $ev) (car-atom $old-evidence-rows) $ev))))
+             (let ($_type $_kb $_fact $ev)
+                (car-atom $old-evidence-rows) $ev))))
       (if (= $new-candidate (forward-output-candidate $new-fact $new-ev))
          (if (not (== $old-fact ()))
             (if (and (== $old-fact $new-fact) (== $old-ev $new-ev))
@@ -135,7 +143,7 @@
                    ($_add-fact (chainer-add-atom &kb $new-fact))
                    ($_add-evidence
                        (add-atom &forward_canonical_evidence
-                          ($key $new-fact $new-ev))))
+                          ($type $kb $new-fact $new-ev))))
                   (forward-output-change $old-fact $new-fact)))
             (let*
                (($_remove-evidence
@@ -143,7 +151,7 @@
                 ($_add-fact (chainer-add-atom &kb $new-fact))
                 ($_add-evidence
                     (add-atom &forward_canonical_evidence
-                       ($key $new-fact $new-ev))))
+                       ($type $kb $new-fact $new-ev))))
                (forward-output-change () $new-fact)))
          (if (== $old-rows ()) no-forward-change
             (let*
@@ -158,8 +166,9 @@
       $key (forward-output-candidate-for-key $key)))
 
 (= (forward-output-row-for-fact $fact)
-   (let $key (forward-fact-key $fact)
-      (match &forward_canonical_evidence ($key $canonical $ev)
+   (let ($type $kb $_prf $_tv) $fact
+      (match &forward_canonical_evidence
+         ($type $kb $canonical $ev)
          ($canonical $ev))))
 
 ;; Compiler-generated base-rate folds all reduce to additive evidence totals.
@@ -569,28 +578,32 @@
                      (> (term-confidence $new-fact) (term-confidence $old-fact))
                      false)))))))
 
-(= (forward-frontier-has-exact? $key $fact $ev)
-   (not (==
-      (collapse (once (match &forward_frontier ($key $fact $ev) true)))
-      ())))
-
-(= (forward-frontier-rejects? $key $fact $ev)
+(= (forward-frontier-has-exact? ($kb $type) $fact $ev)
    (not (==
       (collapse
          (once
-            (match &forward_frontier ($key $old-fact $old-ev)
+            (match &forward_frontier
+               ($type $kb $fact $ev) true)))
+      ())))
+
+(= (forward-frontier-rejects? ($kb $type) $fact $ev)
+   (not (==
+      (collapse
+         (once
+            (match &forward_frontier ($type $kb $old-fact $old-ev)
                (if (forward-frontier-old-dominates-new?
                       $old-fact $old-ev $fact $ev)
                   true
                   (empty)))))
       ())))
 
-(= (forward-prune-frontier-for! $key $fact $ev)
+(= (forward-prune-frontier-for! ($kb $type) $fact $ev)
    (collapse
-      (match &forward_frontier ($key $old-fact $old-ev)
+      (match &forward_frontier ($type $kb $old-fact $old-ev)
          (if (forward-frontier-new-dominates-old?
                 $fact $ev $old-fact $old-ev)
-            (remove-atom &forward_frontier ($key $old-fact $old-ev))
+            (remove-atom &forward_frontier
+               ($type $kb $old-fact $old-ev))
             ()))))
 
 (= (forward-record-inheritance-nodes! $fact)
@@ -602,12 +615,12 @@
                (record-inheritance-nodes! $kbid $subj $concept))))
       ($_other ()))))
 
-(= (forward-add-frontier-row! $output-key $fact $ev)
+(= (forward-add-frontier-row! ($kb $type) $fact $ev)
    (let*
       (($_nodes (forward-record-inheritance-nodes! $fact))
        ($_frontier
           (chainer-add-atom &forward_frontier
-             ($output-key $fact $ev))))
+             ($type $kb $fact $ev))))
       ()))
 
 (= (forward-add-first-candidate! $output-key $fact $ev)

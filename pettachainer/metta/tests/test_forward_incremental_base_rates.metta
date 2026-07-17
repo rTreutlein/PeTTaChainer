@@ -55,7 +55,7 @@
    (list-count
       (collapse
          (match &forward_frontier
-            (((forwardRevisionKb MAIN Nil) (Q a)) $_fact $_ev)
+            ((Q a) (forwardRevisionKb MAIN Nil) $_fact $_ev)
             true)))
    1)
 
@@ -63,7 +63,7 @@
    (list-count
       (collapse
          (match &forward_frontier
-            (((forwardRevisionKb MAIN Nil) (R a)) $_fact $_ev)
+            ((R a) (forwardRevisionKb MAIN Nil) $_fact $_ev)
             true)))
    1)
 
@@ -89,14 +89,14 @@
    (list-count
       (collapse
          (match &forward_frontier
-            (((forwardFrontierKb MAIN Nil) (Q a)) $_fact $_ev)
+            ((Q a) (forwardFrontierKb MAIN Nil) $_fact $_ev)
             true)))
    2)
 
 !(test
    (collapse
       (match &forward_frontier
-            (((forwardFrontierKb MAIN Nil) (Q a))
+            ((Q a) (forwardFrontierKb MAIN Nil)
             ((Q a) (forwardFrontierKb MAIN Nil)
                (pToQ (merge/revision frontierP1 frontierP2)) $_tv)
             $_ev)
@@ -106,7 +106,7 @@
 !(test
    (collapse
       (match &forward_frontier
-         (((forwardFrontierKb MAIN Nil) (Q a))
+         ((Q a) (forwardFrontierKb MAIN Nil)
             ((Q a) (forwardFrontierKb MAIN Nil) (sToQ frontierS1) $_tv)
             $_ev)
          true))
@@ -115,7 +115,7 @@
 !(test
    (collapse
       (match &forward_frontier
-         (((forwardFrontierKb MAIN Nil) (Q a))
+         ((Q a) (forwardFrontierKb MAIN Nil)
             ((Q a) (forwardFrontierKb MAIN Nil) (pToQ frontierP1) $_tv)
             $_ev)
          true))
@@ -149,7 +149,7 @@
    (list-count
       (collapse
          (match &forward_frontier
-            (((forwardFrontierKb MAIN Nil) (P a)) $_fact $_ev)
+            ((P a) (forwardFrontierKb MAIN Nil) $_fact $_ev)
             true)))
    2)
 
@@ -166,7 +166,7 @@
    (list-count
       (collapse
          (match &forward_frontier
-            (((forwardFrontierKb MAIN Nil) (P a)) $_fact $_ev)
+            ((P a) (forwardFrontierKb MAIN Nil) $_fact $_ev)
             true)))
    1)
 
@@ -210,7 +210,7 @@
    (list-count
       (collapse
          (match &forward_frontier
-            (((forwardLowerConfidenceKb MAIN Nil) (Q a)) $_fact $_ev)
+            ((Q a) (forwardLowerConfidenceKb MAIN Nil) $_fact $_ev)
             true)))
    1)
 
@@ -218,7 +218,7 @@
    (list-count
       (collapse
          (match &forward_frontier
-            (((forwardLowerConfidenceKb MAIN Nil) (R a)) $_fact $_ev)
+            ((R a) (forwardLowerConfidenceKb MAIN Nil) $_fact $_ev)
             true)))
    1)
 

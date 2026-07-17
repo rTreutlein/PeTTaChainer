@@ -89,6 +89,11 @@ index, keep work proportional to the candidates for the one affected output,
 not to total KB, rule, cache, or agenda size. Record pending work and charge it
 to the later operation that requests reasoning.
 
+Internal side tables must expose the selective part of their lookup key directly
+to MORK's structural index. Store output-indexed rows as
+`(type, context, payload...)`; do not first wrap `(context, type)` into a nested
+compound key, because a missing lookup then scans every row sharing the context.
+
 ### Reasoning work is lazy and budgeted
 
 `compileadd` stores knowledge; it does not silently perform inference. The user

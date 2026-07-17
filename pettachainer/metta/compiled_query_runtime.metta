@@ -346,11 +346,13 @@
 (= (remove-kb-facts-named! $name)
    (let $_
       (collapse
-         (match &forward_frontier ($key ($type $kb $name $tv) $ev)
+         (match &forward_frontier
+            ($type $kb ($type $kb $name $tv) $ev)
             (let*
                (($_remove
                    (remove-atom &forward_frontier
-                      ($key ($type $kb $name $tv) $ev)))
+                      ($type $kb ($type $kb $name $tv) $ev)))
+                ($key ($kb $type))
                 ($change (forward-refresh-output-key! $key))
                 ($_forward-state
                    (forward-apply-unqueued-change! $change))
