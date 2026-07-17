@@ -122,9 +122,14 @@
       (($kind (proof-kind-by-id $pid))
        ($output (proof-output-atom $pid)))
 	      (if (and (materializable-proof-kind? $kind) (materializable-proof-output? $output))
-	         (let $fact (materialize-result-atom $output)
+	         (let*
+	            (($fact (materialize-result-atom $output))
+	             (($_score $ev) (proof-stats-by-id $pid))
+	             (($type $kb $prf $_tv) $fact)
+	             ($derivation-key (materialized $type $kb $prf)))
 	            (progn
-	               (forward-fact-upsert (empty_heap) $fact)
+	               (forward-fact-upsert (empty_heap)
+	                  (forward-derived $derivation-key $fact $ev))
 	               (mark-forward-agenda-dirty $fact)
 	               ()))
 	         ())))
@@ -475,9 +480,15 @@
       ($type $kb (factor-merged-prf $pids) $merged-tv)))
 
 (= (merge-proof-id-output (cons $pid $rest))
-   (if (and (not (== $rest ())) (group-factorable? (cons $pid $rest)))
-      (factor-merge-output (cons $pid $rest))
-      (fold-flat merge-proof-id-output-step (proof-output-atom $pid) $rest)))
+   ;; `and` is eager here.  Keep the singleton check outside it so a lone
+   ;; cached derivation is never sent through multi-proof factoring: its leaf
+   ;; provenance may refer to upstream facts which are intentionally absent
+   ;; from this proof node's child list.
+   (if (== $rest ())
+      (proof-output-atom $pid)
+      (if (group-factorable? (cons $pid $rest))
+         (factor-merge-output (cons $pid $rest))
+         (fold-flat merge-proof-id-output-step (proof-output-atom $pid) $rest))))
 
 (= (proof-id-evidence-step $acc $pid)
    (let ($_score $ev) (proof-stats-by-id $pid)
@@ -555,8 +566,7 @@
 
 (= (leaf-evidence-for-result $result)
    (if (= $result ($type ($kbid $_ctx $_vars) $prf $_tv))
-      (if (assumption-proof? $prf) ()
-         ((fact-ev ($kbid $_ctx $_vars) $prf $type)))
+      (if (assumption-proof? $prf) () (forward-fact-evidence $result))
       ()))
 
 ;; A stored proof dominates a new one only when they are genuinely dependent
@@ -590,35 +600,9 @@
       true
       (goal-live-proof-ids $gid))))
 
-(= (rule-evidence-head $prf)
-   (if (is-expr $prf)
-      (let $head (car-atom $prf)
-         (if (is-expr $head)
-            (if (= $head (inverted $inv with $_pa $_pb)) $inv
-               (if (= $head (bi-forward $fwd)) $fwd
-                  (if (= $head (bi-backward $bwd)) $bwd
-                     (if (= $head (no_inverse $inner)) $inner $head))))
-            $head))
-      $prf))
-
-(= (rule-application-evidence $kb $prf)
-   (if (= $kb ($kbid $_ctx $_vars))
-      (let $name (rule-evidence-head $prf)
-         (if (is-expr $name) ()
-            (if (rule-evidence-registered? $kbid $name)
-               ((rule-ev $kbid $name))
-               ())))
-      ()))
-
 (= (proof-candidate-stored-evidence (proof-candidate $kind $score $ev $children))
    (if (= $kind (rule ($_type $kb $prf $_tv)))
-      (let*
-         (($base
-             (if (proof-term-contains-negated? $prf)
-                (list_to_set (once (proof-term-evidence-list-mode proof-walk-in-kb $prf)))
-                $ev))
-          ($rule-ev (rule-application-evidence $kb $prf)))
-         (if (== $rule-ev ()) $base (list_to_set (append $base $rule-ev))))
+      (rule-result-evidence ($_type $kb $prf $_tv) $ev)
       $ev))
 
 (= (normalize-proof-candidate-evidence (proof-candidate $kind $score $ev $children))

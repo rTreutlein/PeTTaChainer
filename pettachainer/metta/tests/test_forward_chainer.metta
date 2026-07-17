@@ -18,7 +18,12 @@
 !(test
    (let*
       (($_ (forward-chain 50 fwdkb))
-        ($proofs (collapse (match &kb ((Path A C) (fwdkb MAIN Nil) $prf $tv) $prf))))
+        ($proofs
+           (collapse
+              (match &forward_output
+                 (((fwdkb MAIN Nil) (Path A C))
+                    ((Path A C) (fwdkb MAIN Nil) $prf $_tv) $_ev)
+                 $prf))))
       (list-count $proofs))
    1)
 
@@ -30,7 +35,12 @@
 !(test
    (let*
       (($_ (forward-chain 200 loopkb))
-        ($proofs (collapse (match &kb ((Loop Start) (loopkb MAIN Nil) $prf $tv) $prf))))
+        ($proofs
+           (collapse
+              (match &forward_output
+                 (((loopkb MAIN Nil) (Loop Start))
+                    ((Loop Start) (loopkb MAIN Nil) $prf $_tv) $_ev)
+                 $prf))))
       (list-count $proofs))
    1)
 
@@ -47,7 +57,13 @@
 !(test
    (let*
       (($_ (forward-chain 50 mergekb))
-        ($merged (collapse (match &kb ((SwitchGoal) (mergekb MAIN Nil) (merge/revision $p1 $p2) $tv) true))))
+        ($merged
+           (collapse
+              (match &forward_output
+                 (((mergekb MAIN Nil) (SwitchGoal))
+                    ((SwitchGoal) (mergekb MAIN Nil)
+                       (merge/revision $_p1 $_p2) $_tv) $_ev)
+                 true))))
       (== $merged ()))
    true)
 
@@ -56,15 +72,25 @@
       (($_ (forward-chain 50 mergekb))
         ($ev-ok
            (collapse
-              (match &kb ((SwitchGoal) (mergekb MAIN Nil) $prf $tv)
-                 (== (proof-atom-evidence-set ((SwitchGoal) (mergekb MAIN Nil) $prf $tv)) (baseFact))))))
+              (match &forward_output
+                 (((mergekb MAIN Nil) (SwitchGoal))
+                    ((SwitchGoal) (mergekb MAIN Nil) $prf $tv) $_ev)
+                 (==
+                    (proof-atom-evidence-set
+                       ((SwitchGoal) (mergekb MAIN Nil) $prf $tv))
+                    (baseFact))))))
       (not (== $ev-ok ())))
    true)
 
 !(test
    (let*
       (($_ (forward-chain 50 mergekb))
-        ($proofs (collapse (match &kb ((SwitchGoal) (mergekb MAIN Nil) $prf $tv) $prf))))
+        ($proofs
+           (collapse
+              (match &forward_output
+                 (((mergekb MAIN Nil) (SwitchGoal))
+                    ((SwitchGoal) (mergekb MAIN Nil) $prf $_tv) $_ev)
+                 $prf))))
       (list-count $proofs))
    1)
 

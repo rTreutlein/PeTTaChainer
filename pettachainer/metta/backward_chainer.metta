@@ -433,10 +433,14 @@
              ())))
       $child-gid))
 
-(= (spawn-refining-aggregate-heap $agenda $score $agg-gid $goal-view $args $tv)
+(= (spawn-refining-aggregate-heap $agenda $score $agg-gid $goal-view $args $tv $source)
    (let*
       (($child-gid (ensure-aggregate-child-goal $agg-gid $goal-view $args $score))
        ($pid (store-proof-candidate $agg-gid (aggregate-result-candidate (CPU FoldAllCompiled $args $tv) () ())))
+       ($_source
+          (if (== $source forward-approx)
+             (add-atom &aggregate_forward_approx ($agg-gid))
+             ()))
        ($_set
           (progn
              (remove-atom &aggregate ($agg-gid $child-gid $args $score 0.0 ()))
@@ -458,7 +462,8 @@
          (let (base-rate $_kbid $_stored $tv $source $_mode) (car-atom $entries)
             (if (== $source user)
                (commit-cached-aggregate-heap $agenda $agg-gid $args $tv)
-               (spawn-refining-aggregate-heap $agenda $score $agg-gid $goal-view $args $tv))))))
+               (spawn-refining-aggregate-heap
+                  $agenda $score $agg-gid $goal-view $args $tv $source))))))
 
 (= (spawn-aggregate-goal-live-heap $agenda $score $agg-gid $goal-view $args)
    (let*
@@ -584,7 +589,7 @@
              (($_kb $_pattern $_extractor $_init $_fun $finish $_tv-mode) $args)
              ($result (CPU FoldAllCompiled $args (aggregate-finish $finish $acc)))
              ($commit-ev (if (background-aggregate-finish? $finish) () $ev)))
-            (if (base-rate-refinement-degrades? $finish $current-pid $result)
+            (if (base-rate-refinement-degrades? $agg-gid $finish $current-pid $result)
                $agenda
                (if (aggregate-snapshot-changed? $current-pid $result $commit-ev)
                   (commit-aggregate-snapshot-heap $agenda $agg-gid $result $commit-ev $children)
@@ -598,8 +603,12 @@
    (if (base-rate-finish? $finish) true
       (if (== $finish uniform-prior) true (== $finish uniform-prior-known))))
 
-(= (base-rate-refinement-degrades? $finish $current-pid $result)
-   (if (base-rate-finish? $finish)
+(= (base-rate-refinement-degrades? $agg-gid $finish $current-pid $result)
+   (if (not (==
+         (collapse (once (match &aggregate_forward_approx ($agg-gid) true)))
+         ()))
+      false
+      (if (base-rate-finish? $finish)
       (if (== $current-pid ()) false
          (let*
             (($new-tv (let (CPU $_fun $_args $ntv) $result $ntv))
@@ -609,7 +618,7 @@
                   (< (tv-confidence $new-tv) (tv-confidence $current-tv))
                   true)
                false)))
-      false))
+      false)))
 
 (= (direct-goal-results-view $steps (CPU $fun $args $_res))
    (CPU $fun $args (reduce (cpu-call $steps $fun $args))))
@@ -896,7 +905,7 @@
 
 (= (chainer-run $steps $goal)
    (let*
-      (($_clear (foreach-flat remove-all-atoms (&goal &goal_lookup &goal_waiter &aggregate &proof &proof_parent &proof_invalidated_epoch &proof_live_cache &goal_live_cache &proof_static_live &proof_superseded)))
+      (($_clear (foreach-flat remove-all-atoms (&goal &goal_lookup &goal_waiter &aggregate &aggregate_forward_approx &proof &proof_parent &proof_invalidated_epoch &proof_live_cache &goal_live_cache &proof_static_live &proof_superseded)))
        ($_reset (foreach-flat (|-> ($key) (change-state! $key 0)) (bwd_gid bwd_pid bwd_live_epoch)))
        ($root-gid (ensure-goal-at-depth $goal 0))
        ($agenda0 (schedule-goal-heap (empty_heap) 1.0 $root-gid))

@@ -27,9 +27,9 @@ is a separate, independent surface usable inside rules; it is not enumerated her
 |---|---|
 | `(query $steps $kb $stmt)` | Backward-chain up to `$steps` to answer `$stmt` against `$kb`; yields the proven results. |
 | `(query-materialize $steps $kb $stmt)` | As `query`, but also writes the derived proofs back into the KB. |
-| `(forward-chain $steps $kb)` | Forward-chain the KB's facts up to `$steps`. |
-| `(forward-chain-from $steps $kb $target)` | Forward-chain starting from the fact matching `$target`. |
-| `(forward-chain-from-fact $steps $kb $fact)` / `(forward-chain-from-facts $steps $kb $facts)` | Forward-chain from explicit fact(s). |
+| `(forward-chain $steps $kb)` | Forward-chain the KB's canonical merged facts up to `$steps`; processed outputs also update provisional base-rate estimates. |
+| `(forward-chain-from $steps $kb $target)` | Forward-chain starting from the canonical fact matching `$target`. |
+| `(forward-chain-from-fact $steps $kb $fact)` / `(forward-chain-from-facts $steps $kb $facts)` | Forward-chain from explicit fact(s), using their canonical merged values when present. This is the cheap incremental path to call after `compileadd`. |
 | `(forward-has-derived? $kb $type)` | True if a fact of `$type` exists in `$kb`. |
 | `(chainer $steps $goal)` / `(chainer-materialize $steps $goal)` | Lower-level backward chainer over an already-compiled goal. |
 | `(compileQuery $kb (: $prf $Type $tv))` / `(mm2compileQuery $kb $stmt)` | Compile a query into a goal + rule adds without running it. Advanced. |
@@ -40,7 +40,7 @@ is a separate, independent surface usable inside rules; it is not enumerated her
 |---|---|
 | `(set-base-rate $kbid $pattern $tv)` | Pin a user-provided base rate for `$pattern` (overrides computed values). |
 | `(clear-base-rate $kbid $pattern)` | Remove any base-rate cache entry for `$pattern`. |
-| `(cached-base-rate $kbid $pattern)` | Read the cached base-rate TV for `$pattern` (or `()`). |
+| `(cached-base-rate $kbid $pattern)` | Read the cached base-rate TV for `$pattern` (or `()`). A value may be a provisional forward estimate until a full backward fold refines it. |
 | `(set-universe-size $kbid $n)` / `(clear-universe-size $kbid)` / `(kb-universe-size $kbid)` | Set / clear / read the universe size used by extension-based estimates. |
 
 ## Logic configuration (`logic_config.metta`)

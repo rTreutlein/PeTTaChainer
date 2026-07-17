@@ -261,6 +261,38 @@
       (if (proof-term-negated? $prf) true
          (if (is-expr $prf) (proof-term-contains-negated-list? (cdr-atom $prf)) false))))
 
+(= (rule-evidence-head $prf)
+   (if (is-expr $prf)
+      (let $head (car-atom $prf)
+         (if (is-expr $head)
+            (if (= $head (inverted $inv with $_pa $_pb)) $inv
+               (if (= $head (bi-forward $fwd)) $fwd
+                  (if (= $head (bi-backward $bwd)) $bwd
+                     (if (= $head (no_inverse $inner)) $inner $head))))
+            $head))
+      $prf))
+
+(= (rule-application-evidence $kb $prf)
+   (if (= $kb ($kbid $_ctx $_vars))
+      (let $name (rule-evidence-head $prf)
+         (if (is-expr $name) ()
+            (if (rule-evidence-registered? $kbid $name)
+               ((rule-ev $kbid $name))
+               ())))
+      ()))
+
+;; Forward materialization and backward rule application must attach exactly
+;; the same provenance.  Otherwise a materialized rule result looks like a new
+;; independent fact when the backward chainer rediscovers that rule path.
+(= (rule-result-evidence ($_type $kb $prf $_tv) $ev)
+   (let*
+      (($base
+          (if (proof-term-contains-negated? $prf)
+             (list_to_set (once (proof-term-evidence-list-mode proof-walk-in-kb $prf)))
+             $ev))
+       ($rule-ev (rule-application-evidence $kb $prf)))
+      (if (== $rule-ev ()) $base (list_to_set (append $base $rule-ev)))))
+
 (= (projection-proof-key $prf)
    (case $prf (
       ((marginal-proj $idx $base) (projection-key $idx $base))
@@ -279,18 +311,26 @@
             (and (strict-projection-proof? $prf-a)
                (not (strict-projection-proof? $prf-b)))))))
 
-(= (merge-proof-atoms $proof-a $proof-b)
-   (if (== $proof-a $proof-b) $proof-a
+(= (merge-proof-candidates ($proof-a $ev-a) ($proof-b $ev-b))
+   (if (== $proof-a $proof-b) ($proof-a (list_to_set (append $ev-a $ev-b)))
       (let*
-         (($ev-a (proof-atom-evidence-set $proof-a))
-           ($ev-b (proof-atom-evidence-set $proof-b))
-           ($overlap? (evidence-sets-overlap? $ev-a $ev-b)))
+         (($overlap? (evidence-sets-overlap? $ev-a $ev-b))
+          ($all-ev (list_to_set (append $ev-a $ev-b))))
          (if (projection-dominates? (proof-atom-proof $proof-a) (proof-atom-proof $proof-b))
-            $proof-a
+            ($proof-a $ev-a)
             (if (projection-dominates? (proof-atom-proof $proof-b) (proof-atom-proof $proof-a))
-               $proof-b
+               ($proof-b $ev-b)
                (if $overlap?
-                  (if (>= (term-confidence $proof-a) (term-confidence $proof-b)) $proof-a $proof-b)
                   (if (>= (term-confidence $proof-a) (term-confidence $proof-b))
-                     (RevisionMergeProof $proof-a $proof-b)
-                     (RevisionMergeProof $proof-b $proof-a))))))))
+                     ($proof-a $ev-a)
+                     ($proof-b $ev-b))
+                  (if (>= (term-confidence $proof-a) (term-confidence $proof-b))
+                     ((RevisionMergeProof $proof-a $proof-b) $all-ev)
+                     ((RevisionMergeProof $proof-b $proof-a) $all-ev))))))))
+
+(= (merge-proof-atoms $proof-a $proof-b)
+   (let ($merged $_ev)
+      (merge-proof-candidates
+         ($proof-a (proof-atom-evidence-set $proof-a))
+         ($proof-b (proof-atom-evidence-set $proof-b)))
+      $merged))

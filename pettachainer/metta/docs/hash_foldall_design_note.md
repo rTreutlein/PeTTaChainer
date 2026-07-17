@@ -168,10 +168,18 @@ knowledge base in `&base_rate_cache`:
   reduced priority (`base-rate-refine-score`). If leftover budget lets the
   refold find a better estimate, the ordinary anytime snapshot replacement
   swaps it in and re-propagates downstream conclusions.
-- Refinement is monotone: a refold may only replace the current base-rate
+- Forward chaining maintains additive sufficient statistics for the base-rate
+  folds emitted by the compiler. Each canonical output actually processed by
+  the requested forward budget updates its contribution in constant work and
+  stores a `forward-approx` cache entry. `compileadd` itself still does no
+  chaining; callers choose whether and how far to run `forward-chain-from-fact`
+  or `forward-chain-from-facts` after an addition.
+- Refinement of a complete `computed` snapshot is monotone: a refold may only replace the current base-rate
   snapshot when its confidence (instance count) is at least as high, so a
   shallow refold can never degrade a deeper cached estimate, and `no-evidence`
-  never replaces a real value.
+  never replaces a real value. A `forward-approx` snapshot is deliberately not
+  protected by that guard: it represents partial scheduled work, so a complete
+  fold is authoritative even when its confidence is lower.
 - After each query the chainer harvests the computed base rates into the
   cache, so repeated inversions over an unchanged knowledge base get instant
   estimates plus cheap incremental refinement.
@@ -179,7 +187,9 @@ knowledge base in `&base_rate_cache`:
   entries (user entries persist).
 
 `tests/test_base_rate_cache.metta` covers user overrides, cache reuse, and
-invalidation.
+invalidation. `tests/test_forward_incremental_base_rates.metta` covers
+incremental estimates, full-fold refinement, inheritance scaling, revised
+forward outputs, and forward/backward provenance deduplication.
 
 Removed along with the construct: `contains-hash?`, the hash-to-variable rewriting in `direct-goal-results-view`, the `wildcard_premise_index`/`wildcard_premise_context` stores and their lookup path, and the hash special cases in `open-rule-goal?`, `materializable-proof-output?`, and `leaf-evidence-for-result`.
 
@@ -205,6 +215,13 @@ when they share no support. Two refinements make that the invariant
    no evidence; engine-generated rules (total implication, query compounds,
    context assumptions, inverse scaffolding) are implicitly logic. Inverse
    and bidirectional applications resolve to the underlying implication name.
+3. **Materialized derivations keep their original evidence.** Forward chaining
+   and `query-materialize` retain the source facts and rule applications of a
+   cached result. If backward chaining later rediscovers that same path, it is
+   dependent evidence and cannot be revised with itself. The raw derivations
+   stay in `&kb`; forward rules consume one canonical merged output per grounded
+   type so replacing a derivation re-propagates downstream instead of creating
+   another independent input.
 
 `rule-ev` entries participate in revision independence and dominance but are
 filtered out of the frontier conjunction guard: the positive and negative

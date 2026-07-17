@@ -935,14 +935,16 @@
                   ($kb $head $triggers-copy $job-copy))))
          (register-specialization-templates! $kb $rest $triggers $job))))
 
-;; Idempotency: remember which ground rule shapes were already emitted so the
-;; rule-add and fact-add paths (and re-adds) never duplicate a rule.
-(= (spec-done? $kb $gtype)
+;; Idempotency is per grounded statement, not merely per rule type: distinct
+;; proof ids or TVs are independent evidence even when their types coincide.
+;; The rule-add and fact-add paths may discover the same statement, so retain
+;; the full statement as the stable deduplication key.
+(= (spec-done? $kb $gstmt)
    (not (== (collapse (match &spec_done ($kb $stored)
-                         (if (=alpha $stored $gtype) true (empty)))) ())))
+                         (if (=alpha $stored $gstmt) true (empty)))) ())))
 
-(= (mark-spec-done! $kb $gtype)
-   (let $copy (copy_term $gtype)
+(= (mark-spec-done! $kb $gstmt)
+   (let $copy (copy_term $gstmt)
       (add-atom &spec_done ($kb $copy))))
 
 ;; Bind the trigger variables by matching each remaining trigger against the
@@ -954,9 +956,10 @@
 
 (= (emit-specialization $kb
       (compile-specialization (: $gprf $gtype $gtv)))
-   (if (spec-done? $kb $gtype) (empty)
-      (let $_ (mark-spec-done! $kb $gtype)
-         (compile_ $kb (: $gprf $gtype $gtv)))))
+   (let $gstmt (: $gprf $gtype $gtv)
+      (if (spec-done? $kb $gstmt) (empty)
+         (let $_ (mark-spec-done! $kb $gstmt)
+            (compile_ $kb $gstmt)))))
 
 ;; Rule-add: retain the job for later facts and also ground it against facts
 ;; already in the KB.
@@ -984,6 +987,43 @@
             (emit-specialization $kb
                (ground-specialization-with-fact
                   $kb $type $triggers () $job))))))
+
+;; Retraction support for the unified specialization store. Templates and
+;; grounded completion markers must disappear with their source statement;
+;; otherwise a later fact can resurrect a removed rule, and a clean re-add can
+;; be suppressed by stale idempotency state.
+(= (specialization-statement-name (: $name $_type $_tv)) $name)
+(= (specialization-statement-name $_other) no-specialization-name)
+
+(= (specialization-job-name (compile-specialization $stmt))
+   (specialization-statement-name $stmt))
+(= (specialization-job-name
+      (inheritance-lift-specialization $_ground $source))
+   (specialization-statement-name $source))
+(= (specialization-job-name $_other) no-specialization-name)
+
+(= (remove-specialization-state! $name)
+   (let*
+      (($_templates
+          (collapse
+             (match &spec_template ($kb $head $triggers $job)
+                (if (== (specialization-job-name $job) $name)
+                   (remove-atom &spec_template ($kb $head $triggers $job))
+                   (empty)))))
+       ($_done
+          (collapse
+             (match &spec_done ($kb $stmt)
+                (if (== (specialization-statement-name $stmt) $name)
+                   (remove-atom &spec_done ($kb $stmt))
+                   (empty)))))
+       ($_lifts
+          (collapse
+             (match &inheritance_lift_instance ($kb $stmt $source)
+                (if (== (specialization-statement-name $source) $name)
+                   (remove-atom &inheritance_lift_instance
+                      ($kb $stmt $source))
+                   (empty))))))
+      ()))
 
 ;; Main statement compiler.
 ;;

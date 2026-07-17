@@ -55,14 +55,17 @@
 (= (base-rate-cache-remove! $kbid $pattern)
    (let $_ (foreach-flat base-rate-cache-remove-entry! (base-rate-cache-entries $kbid $pattern)) ()))
 
-;; Remove only the computed entry for one (kbid, pattern, mode), leaving other
-;; modes' computed entries and any user override untouched.
-(= (base-rate-cache-remove-computed! $kbid $pattern $mode)
+;; Remove the non-authoritative entry for one (kbid, pattern, mode), leaving
+;; other modes and a user override untouched. Complete folds and incremental
+;; forward approximations share this one replaceable slot.
+(= (base-rate-cache-remove-derived! $kbid $pattern $mode)
    (let $_
       (foreach-flat base-rate-cache-remove-entry!
          (collapse
-            (match &base_rate_cache (base-rate $kbid $stored $tv computed $mode)
-               (if (=alpha $stored $pattern) (base-rate $kbid $stored $tv computed $mode) (empty)))))
+            (match &base_rate_cache (base-rate $kbid $stored $tv $source $mode)
+               (if (and (not (== $source user)) (=alpha $stored $pattern))
+                  (base-rate $kbid $stored $tv $source $mode)
+                  (empty)))))
       ()))
 
 (= (cached-base-rate $kbid $pattern)
@@ -144,16 +147,27 @@
    (if (base-rate-user-set? $kbid $pattern) ()
       (let*
          (($stored (copy_term $pattern))
-          ($_old (base-rate-cache-remove-computed! $kbid $pattern $mode))
+          ($_old (base-rate-cache-remove-derived! $kbid $pattern $mode))
           ($_new (add-atom &base_rate_cache (base-rate $kbid $stored $tv computed $mode))))
+         ())))
+
+(= (store-forward-base-rate! $kbid $pattern $tv $mode)
+   (if (or (== $tv no-evidence) (base-rate-user-set? $kbid $pattern)) ()
+      (let*
+         (($stored (copy_term $pattern))
+          ($_old (base-rate-cache-remove-derived! $kbid $pattern $mode))
+          ($_new
+             (add-atom &base_rate_cache
+                (base-rate $kbid $stored $tv forward-approx $mode))))
          ())))
 
 (= (invalidate-computed-base-rates! $kbid)
    (let*
       (($entries
           (collapse
-             (match &base_rate_cache (base-rate $kbid $stored $tv computed $mode)
-                (base-rate $kbid $stored $tv computed $mode))))
+             (match &base_rate_cache (base-rate $kbid $stored $tv $source $mode)
+                (if (== $source user) (empty)
+                   (base-rate $kbid $stored $tv $source $mode)))))
        ($_ (foreach-flat base-rate-cache-remove-entry! $entries)))
       ()))
 
@@ -269,6 +283,10 @@
            ($_4 (kb-add-atom $backend rules ($id $ccls $args)))
            ($_expected (store-rule-expected-score! $backend $id $args))
            ($_name-idx (register-rule-name! $backend $id $ccls))
+           ($_base-rates
+              (if (== $backend live)
+                 (register-forward-base-rate-premises! $args)
+                 ()))
            ($_5 (if (== $backend live)
                    (progn
                       (mark-forward-agenda-dirty $ccls)
@@ -279,6 +297,7 @@
          (kb-add-atom $backend &kb $expr)
          (if (== $backend live)
             (progn
+               (forward-refresh-output! $expr)
                (mark-forward-agenda-dirty $expr)
                (invalidate-computed-base-rates! (kb-expr-kbid $expr)))
             ()))))
@@ -324,14 +343,23 @@
    (let $_
       (collapse
          (match &kb ($type $kb $name $tv)
-            (progn
-               (remove-atom &kb ($type $kb $name $tv))
-               (invalidate-computed-base-rates! (kb-expr-kbid ($type $kb $name $tv))))))
+            (let*
+               (($_remove (remove-atom &kb ($type $kb $name $tv)))
+                ($change (forward-refresh-output! ($type $kb $name $tv)))
+                ($_forward-state
+                   (agenda-push-forward-change (empty_heap) $change))
+                ($_dirty
+                   (mark-forward-agenda-dirty ($type $kb $name $tv)))
+                ($_base-rates
+                   (invalidate-computed-base-rates!
+                      (kb-expr-kbid ($type $kb $name $tv)))))
+               ())))
       ()))
 
 (= (remove-compiled-statement $name)
    (let*
-      (($_facts (remove-kb-facts-named! $name))
+      (($_specialization (remove-specialization-state! $name))
+       ($_facts (remove-kb-facts-named! $name))
        ($ids (list_to_set (collapse (match rule_name_index ($name $id) $id))))
        ($_rules (foreach-flat remove-rule-row! $ids))
        ($_index (if (== $ids ()) () (remove-atom rule_name_index ($name $_any)))))
