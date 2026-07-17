@@ -16,11 +16,13 @@
    (: (merge/revision (qToScore qFact) directScore) (Score a 1) (STV 0.44000002400830773 0.9090908594869702)))
 
 !(test
-   (collapse
-      (query 100 foldMergedKb
-         (: $prf
-            (FoldAll (Score $x $n) $n 0 (|-> ($acc $elem) (+ $acc $elem)) -> $total)
-            $tv)))
-   ((: (foldall-proof (merge/revision (qToScore qFact) directScore))
-       (FoldAll (Score $_x $_n) $_n 0 lambda_17 -> 1)
-       (STV 1.0 1.0))))
+   (let (: $proof (FoldAll $pattern $extractor $init $_fold-function -> $total) $tv)
+      (car-atom
+         (collapse
+            (query 100 foldMergedKb
+               (: $prf
+                  (FoldAll (Score $x $n) $n 0 (|-> ($acc $elem) (+ $acc $elem)) -> $result)
+                  $query-tv))))
+      ($proof $pattern $extractor $init $total $tv))
+   ((foldall-proof (merge/revision (qToScore qFact) directScore))
+      (Score $_x $_n) $_n 0 1 (STV 1.0 1.0)))

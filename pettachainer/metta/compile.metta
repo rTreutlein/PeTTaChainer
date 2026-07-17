@@ -739,27 +739,20 @@
 (= (concrete-inheritance-link? $subj $concept)
    (and (not (is-var $subj)) (not (is-var $concept))))
 
-(= (inheritance-implication-type $subj $concept)
-   (Implication
-      (Premises (Inheritance $x $subj))
-      (Conclusions (Inheritance $x $concept))))
-
-(= (member-inheritance-implication-type $subj $concept)
-   (Implication
-      (Premises (Member $x $subj))
-      (Conclusions (Member $x $concept))))
-
-(= (compile-derived-inheritance-implication $kb $prf $subj $concept $tv)
-   (compile_ $kb
-      (: (inheritance-implication $prf)
-         (inheritance-implication-type $subj $concept)
-         $tv)))
-
-(= (compile-derived-member-inheritance-implication $kb $prf $subj $concept $tv)
-   (compile_ $kb
-      (: (no_inverse (member-inheritance-implication $prf))
-         (member-inheritance-implication-type $subj $concept)
-         (CTV $tv (STV 0.0 1.0)))))
+(= (compile-derived-inheritance-views $kb $prf $subj $concept $tv)
+   (superpose
+      ((compile_ $kb
+          (: (inheritance-implication $prf)
+             (Implication
+                (Premises (Inheritance $x $subj))
+                (Conclusions (Inheritance $x $concept)))
+             $tv))
+       (compile_ $kb
+          (: (no_inverse (member-inheritance-implication $prf))
+             (Implication
+                (Premises (Member $x $subj))
+                (Conclusions (Member $x $concept)))
+             (CTV $tv (STV 0.0 1.0)))))))
 
 ;; A total-implication context represents a hypothetical instance of the
 ;; queried subject. Top-level Inheritance premises about a rule's conclusion
@@ -779,11 +772,6 @@
    (if (inheritance-context-premise? $premise $subj)
       (inheritance-lift-auxiliary-premises $rest $subj)
       (cons $premise (inheritance-lift-auxiliary-premises $rest $subj))))
-
-(= (inheritance-rule-needs-lift? $premises $conclusions)
-   (if (= $conclusions ((Inheritance $subj $_concept)))
-      (not (== (inheritance-lift-auxiliary-premises $premises $subj) ()))
-      false))
 
 ;; Pair a grounded rule instance with its original template. Contextual
 ;; Inheritance premises keep their grounded concept but replace the concrete
@@ -850,42 +838,23 @@
       ((append $main-execs
           (append $context-execs ($all-evidence $modus-ponens))) |- ($out))))
 
-;; Lift templates are indexed by auxiliary-premise head. Unlike the public
-;; specializing-predicate mechanism, this is compiler-owned and applies only
-;; to specialized Inheritance-rule views needed by total queries.
-(= (inheritance-lift-template-registered? $kb $head $stmt)
-   (not (== (collapse
-      (match &inheritance_lift_template ($kb $head $stored)
-         (if (=alpha $stored $stmt) true (empty)))) ())))
-
-(= (register-inheritance-lift-template! $kb $head $stmt)
-   (if (inheritance-lift-template-registered? $kb $head $stmt) ()
-      (let $copy (copy_term $stmt)
-         (add-atom &inheritance_lift_template ($kb $head $copy)))))
-
-(= (register-inheritance-lift-templates! $_kb () $_stmt) ())
-(= (register-inheritance-lift-templates! $kb (cons $premise $rest) $stmt)
-   (let $_ (register-inheritance-lift-template! $kb (fact-head $premise) $stmt)
-      (register-inheritance-lift-templates! $kb $rest $stmt)))
-
-(= (inheritance-lift-done? $kb $stmt)
-   (not (== (collapse
-      (match &inheritance_lift_done ($kb $stored)
-         (if (=alpha $stored $stmt) true (empty)))) ())))
-
-(= (emit-inheritance-rule-lift $kb
-      (: $prf $type $tv)
-      $source-stmt)
-   (let $stmt (: $prf $type $tv)
-      (if (inheritance-lift-done? $kb $stmt) (empty)
+;; A grounded lift is one specialization job. The common specialization engine
+;; below handles template indexing and late facts for both ordinary compiler
+;; specialization and these Inheritance views.
+(= (emit-specialization $kb
+      (inheritance-lift-specialization $stmt $source-stmt))
+   (let $stored
+      (collapse
+         (once
+            (match &inheritance_lift_instance ($kb $candidate $_source)
+               (if (=alpha $candidate $stmt) true (empty)))))
+      (if (not (== $stored ())) (empty)
          (let*
             (($stmt-copy (copy_term $stmt))
              ($source-copy (copy_term $source-stmt))
-             ($ground-copy (copy_term $stmt))
-             ($_done (add-atom &inheritance_lift_done ($kb $stmt-copy)))
              ($_instance
                 (add-atom &inheritance_lift_instance
-                   ($kb $ground-copy $source-copy))))
+                   ($kb $stmt-copy $source-copy))))
             (empty)))))
 
 (= (compile-inheritance-lifts-for-context $kb $lift-kb)
@@ -898,52 +867,24 @@
 ;; On rule addition, emit every instance already supported by stored facts and
 ;; retain the template for facts added later. No open lifted rule enters the KB.
 (= (compile-inheritance-rule-lifts $kb $stmt $premises $conclusions)
-   (if (inheritance-rule-needs-lift? $premises $conclusions)
-      (let*
-         (((Inheritance $subj $_concept) (car-atom $conclusions))
-          ($auxiliary (inheritance-lift-auxiliary-premises $premises $subj))
-          ($_register (register-inheritance-lift-templates! $kb $auxiliary $stmt))
-          ($ground-copy (copy_term $stmt))
-          ($source-copy (copy_term $stmt))
-          ((: $_prf $ground-type $_tv) $ground-copy)
-          ($ground-premises (impl-premises $ground-type))
-          ((Inheritance $ground-subj $_ground-concept)
-             (car-atom (impl-conclusions $ground-type)))
-          ($ground-auxiliary
-             (inheritance-lift-auxiliary-premises
-                $ground-premises $ground-subj)))
-         (emit-inheritance-rule-lift $kb
-            (ground-triggers $kb $ground-auxiliary $ground-copy)
-            $source-copy))
+   (if (= $conclusions ((Inheritance $subj $_concept)))
+      (let $auxiliary (inheritance-lift-auxiliary-premises $premises $subj)
+         (if (== $auxiliary ()) (empty)
+            (let*
+               (($ground-copy (copy_term $stmt))
+                ($source-copy (copy_term $stmt))
+                ((: $_prf $ground-type $_tv) $ground-copy)
+                ($ground-premises (impl-premises $ground-type))
+                ((Inheritance $ground-subj $_ground-concept)
+                   (car-atom (impl-conclusions $ground-type)))
+                ($ground-auxiliary
+                   (inheritance-lift-auxiliary-premises
+                      $ground-premises $ground-subj))
+                ($job
+                   (inheritance-lift-specialization
+                      $ground-copy $source-copy)))
+               (specialize-rule-add $kb $ground-auxiliary $job))))
       (empty)))
-
-;; Try the newly added fact in each compatible premise position. Other source
-;; premises must already be present in MAIN, which makes the emitted lift fully
-;; specialized and precisely indexed.
-(= (ground-inheritance-lift-with-fact $_kb $_fact () $_before $_stmt) (empty))
-(= (ground-inheritance-lift-with-fact $kb $fact (cons $trigger $rest) $before $stmt)
-   (superpose
-      ((let $_ (let $trigger $fact ok)
-          (ground-triggers $kb (append $before $rest) $stmt))
-       (ground-inheritance-lift-with-fact $kb $fact $rest
-          (append $before ($trigger)) $stmt))))
-
-(= (compile-inheritance-lift-fact-triggers $kb $type)
-   (let $head (fact-head $type)
-      (match &inheritance_lift_template ($kb $head $template)
-         (let*
-            (($ground-copy (copy_term $template))
-             ($source-copy (copy_term $template))
-             ((: $_prf $impl $_tv) $ground-copy)
-             ($premises (impl-premises $impl))
-             ((Inheritance $subj $_concept)
-                (car-atom (impl-conclusions $impl)))
-             ($auxiliary
-                (inheritance-lift-auxiliary-premises $premises $subj)))
-            (emit-inheritance-rule-lift $kb
-               (ground-inheritance-lift-with-fact $kb $type
-                  $auxiliary () $ground-copy)
-               $source-copy)))))
 
 ;; --- Rule specialization against structural facts -------------------------
 ;;
@@ -975,21 +916,24 @@
 
 (= (fact-head $type) (if (is-expr $type) (car-atom $type) $type))
 
-;; Template store, keyed by (kbid, trigger-head, rule-stmt). One row per trigger
-;; head so a newly added fact can find the rules it should specialize.
-(= (spec-template-registered? $kb $head $stmt)
-   (not (== (collapse (match &spec_template ($kb $head $stored)
-                         (if (=alpha $stored $stmt) true (empty)))) ())))
+;; Both structural rules and Inheritance lifts use the same indexed template
+;; store. A job carries the emitter to run after its trigger list is grounded.
+;; Keeping the triggers with the job lets a newly added fact use this one path
+;; regardless of which compiler feature requested specialization.
+(= (specialization-template-registered? $kb $head $job)
+   (not (== (collapse
+      (match &spec_template ($kb $head $_triggers $stored-job)
+         (if (=alpha $stored-job $job) true (empty)))) ())))
 
-(= (register-spec-template! $kb $head $stmt)
-   (if (spec-template-registered? $kb $head $stmt) ()
-      (let $copy (copy_term $stmt)
-         (add-atom &spec_template ($kb $head $copy)))))
-
-(= (register-spec-templates! $kb () $_stmt) ())
-(= (register-spec-templates! $kb (cons $trigger $rest) $stmt)
-   (let $_ (register-spec-template! $kb (fact-head $trigger) $stmt)
-      (register-spec-templates! $kb $rest $stmt)))
+(= (register-specialization-templates! $_kb () $_triggers $_job) ())
+(= (register-specialization-templates! $kb (cons $trigger $rest) $triggers $job)
+   (let $head (fact-head $trigger)
+      (let $_register
+         (if (specialization-template-registered? $kb $head $job) ()
+            (let ($triggers-copy $job-copy) (copy_term ($triggers $job))
+               (add-atom &spec_template
+                  ($kb $head $triggers-copy $job-copy))))
+         (register-specialization-templates! $kb $rest $triggers $job))))
 
 ;; Idempotency: remember which ground rule shapes were already emitted so the
 ;; rule-add and fact-add paths (and re-adds) never duplicate a rule.
@@ -1008,34 +952,38 @@
    (match &kb ($trigger ($kb $_ctx $_vars) $_prf $_tv)
       (ground-triggers $kb $rest $body)))
 
-(= (specialize-emit $kb (: $gprf $gtype $gtv))
+(= (emit-specialization $kb
+      (compile-specialization (: $gprf $gtype $gtv)))
    (if (spec-done? $kb $gtype) (empty)
       (let $_ (mark-spec-done! $kb $gtype)
          (compile_ $kb (: $gprf $gtype $gtv)))))
 
-;; Rule-add: ground every trigger against the already-stored facts.
-(= (specialize-rule-add $kb $triggers (: $prf $Type $tv))
-   (specialize-emit $kb (ground-triggers $kb $triggers (: $prf $Type $tv))))
+;; Rule-add: retain the job for later facts and also ground it against facts
+;; already in the KB.
+(= (specialize-rule-add $kb $triggers $job)
+   (let $_register
+      (register-specialization-templates! $kb $triggers $triggers $job)
+      (emit-specialization $kb (ground-triggers $kb $triggers $job))))
 
 ;; Fact-add: the new fact is not in &kb yet, so pin the trigger it satisfies
-;; directly (binding the shared variables) and ground any remaining triggers
+;; directly in each compatible position, then resolve the remaining triggers
 ;; against the store.
-(= (pin-trigger $_factType ()) ())
-(= (pin-trigger $factType (cons $trigger $rest))
-   (if (== (fact-head $trigger) (fact-head $factType))
-      (let $_ (let $trigger $factType ok) $rest)
-      (cons $trigger (pin-trigger $factType $rest))))
+(= (ground-specialization-with-fact $_kb $_fact () $_before $_job) (empty))
+(= (ground-specialization-with-fact $kb $fact
+      (cons $trigger $rest) $before $job)
+   (superpose
+      ((let $_ (let $trigger $fact ok)
+          (ground-triggers $kb (append $before $rest) $job))
+       (ground-specialization-with-fact $kb $fact $rest
+          (append $before ($trigger)) $job))))
 
-(= (specialize-fact-add $kb $factType (: $prf $Type $tv))
-   (let $remaining (pin-trigger $factType (rule-trigger-premises (impl-premises $Type)))
-      (specialize-emit $kb (ground-triggers $kb $remaining (: $prf $Type $tv)))))
-
-(= (compile-spec-fact-triggers $kb $Type)
-   (let $head (fact-head $Type)
-      (if (and (not (is-var $head)) (specializing-predicate? $head))
-         (match &spec_template ($kb $head $template)
-            (specialize-fact-add $kb $Type (copy_term $template)))
-         (empty))))
+(= (compile-specialization-fact-triggers $kb $type)
+   (let $head (fact-head $type)
+      (match &spec_template ($kb $head $stored-triggers $stored-job)
+         (let ($triggers $job) (copy_term ($stored-triggers $stored-job))
+            (emit-specialization $kb
+               (ground-specialization-with-fact
+                  $kb $type $triggers () $job))))))
 
 ;; Main statement compiler.
 ;;
@@ -1050,8 +998,8 @@
       (if (= $Type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
        (let $triggers (rule-trigger-premises $premises)
         (if (not (== $triggers ()))
-         (let $_ (register-spec-templates! $kb $triggers (: $prf $Type $tv))
-            (specialize-rule-add $kb $triggers (: $prf $Type $tv)))
+         (specialize-rule-add $kb $triggers
+            (compile-specialization (: $prf $Type $tv)))
          (let*
             (($_evidence-reg (register-rule-evidence! $kb $prf))
              ((compiled-premises $execs $proofs $atv)
@@ -1085,22 +1033,18 @@
             (let $fact-kb (compile-fact-kb $kb)
                (if (= $Type (Member $obj $class))
                   (superpose ((() |- ((: $fact-kb $prf $Type $tv)))
-                              (compile-spec-fact-triggers $kb $Type)
-                              (compile-inheritance-lift-fact-triggers $kb $Type)))
+                              (compile-specialization-fact-triggers $kb $Type)))
                (if (= $Type (Inheritance $subj $concept))
                   (superpose (
                      (() |- ((: $fact-kb $prf $Type $tv)))
                      (if (concrete-inheritance-link? $subj $concept)
-                        (superpose (
-                           (compile-derived-inheritance-implication $kb $prf $subj $concept $tv)
-                           (compile-derived-member-inheritance-implication $kb $prf $subj $concept $tv)))
+                        (compile-derived-inheritance-views
+                           $kb $prf $subj $concept $tv)
                         (empty))
-                     (compile-spec-fact-triggers $kb $Type)
-                     (compile-inheritance-lift-fact-triggers $kb $Type)
+                     (compile-specialization-fact-triggers $kb $Type)
                      (compile-outputs (: $fact-kb $prf $Type $tv))))
                   (superpose ((() |- ((: $fact-kb $prf $Type $tv)))
-                              (compile-spec-fact-triggers $kb $Type)
-                              (compile-inheritance-lift-fact-triggers $kb $Type)
+                              (compile-specialization-fact-triggers $kb $Type)
                               (compile-outputs (: $fact-kb $prf $Type $tv)))))))))))
 
 
@@ -1360,19 +1304,14 @@
 (= (mm2compileQuery $kb $stmt)
    (case $stmt (
       ((: $prf $type $tv)
-         (if (and (= $type (Inheritance $subj $concept))
-                  (concrete-inheritance-link? $subj $concept))
-            (let (compiled-query $goal $adds)
-               (mm2compileQuery-from-compiled $kb $stmt (compileQuery $kb $stmt))
-               (compiled-fixed-point-query $goal $adds))
-            (if (query-compound-type? $type)
+         (if (query-compound-type? $type)
             (if (query-compound-needs-temp-rule? $type)
                (compiled-query
                   (internalize-proof-structure (: (kbctx $kb) $prf $type $tv))
                   (map-flat internalize-proof-structure
                      (collapse (mm2compile $kb (compound-query-temp-stmt $stmt)))))
                (mm2compileQuery-from-compiled $kb $stmt (compileQuery $kb $stmt)))
-            (mm2compileQuery-from-compiled $kb $stmt (compileQuery $kb $stmt)))))
+            (mm2compileQuery-from-compiled $kb $stmt (compileQuery $kb $stmt))))
       ($_ (mm2compileQuery-from-compiled $kb $stmt (compileQuery $kb $stmt))))))
 
 (= (mf $kb ($kb $t)) $t)

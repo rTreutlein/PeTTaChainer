@@ -183,20 +183,10 @@
                (goal-live-cache-remove! $gid $pids)
                (goal-live-cache-store! $gid $npids))))))
 
-(= (register-proof-parent-edges! $_parent-pid ()) ())
-(= (register-proof-parent-edges! $parent-pid (cons $child-pid $rest))
-   (let $_store (add-atom &proof_parent ($child-pid $parent-pid))
-      (register-proof-parent-edges! $parent-pid $rest)))
-
-(= (remove-proof-live-cache-atoms! $_epoch $_pid ()) ())
-(= (remove-proof-live-cache-atoms! $epoch $pid (cons $alive $rest))
-   (let $_remove (remove-atom &proof_live_cache ($epoch $pid $alive))
-      (remove-proof-live-cache-atoms! $epoch $pid $rest)))
-
-(= (remove-goal-live-cache-atoms! $_epoch $_gid ()) ())
-(= (remove-goal-live-cache-atoms! $epoch $gid (cons $pids $rest))
-   (let $_remove (remove-atom &goal_live_cache ($epoch $gid $pids))
-      (remove-goal-live-cache-atoms! $epoch $gid $rest)))
+(= (register-proof-parent-edges! $parent-pid $children)
+   (foreach-flat
+      (|-> ($child-pid) (add-atom &proof_parent ($child-pid $parent-pid)))
+      $children))
 
 (= (invalidate-proof-dependent! $epoch $parent-pid)
    (let $seen
@@ -208,23 +198,29 @@
             (($gid (proof-goal-id $parent-pid))
              ($_mark (add-atom &proof_invalidated_epoch (($epoch $parent-pid))))
              ($_proof-cache
-                (remove-proof-live-cache-atoms! $epoch $parent-pid
+                (foreach-flat
+                   (|-> ($alive)
+                      (remove-atom &proof_live_cache ($epoch $parent-pid $alive)))
                    (collapse
                       (match &proof_live_cache ($epoch $parent-pid $alive) $alive))))
              ($_goal-cache
-                (remove-goal-live-cache-atoms! $epoch $gid
+                (foreach-flat
+                   (|-> ($pids)
+                      (remove-atom &goal_live_cache ($epoch $gid $pids)))
                    (collapse
                       (match &goal_live_cache ($epoch $gid $pids) $pids))))
-             ($_parents (invalidate-proof-dependents! $epoch $parent-pid)))
+             ($_parents
+                (foreach-flat
+                   (|-> ($dependent-pid)
+                      (invalidate-proof-dependent! $epoch $dependent-pid))
+                   (collapse
+                      (match &proof_parent ($parent-pid $dependent-pid)
+                         $dependent-pid)))))
             ()))))
 
-(= (invalidate-proof-dependent-list! $_epoch ()) ())
-(= (invalidate-proof-dependent-list! $epoch (cons $parent-pid $rest))
-   (let $_invalidate (invalidate-proof-dependent! $epoch $parent-pid)
-      (invalidate-proof-dependent-list! $epoch $rest)))
-
 (= (invalidate-proof-dependents! $epoch $child-pid)
-   (invalidate-proof-dependent-list! $epoch
+   (foreach-flat
+      (|-> ($parent-pid) (invalidate-proof-dependent! $epoch $parent-pid))
       (collapse (match &proof_parent ($child-pid $parent-pid) $parent-pid))))
 
 (= (aggregate-current-pid-live? $current-pid $pid)

@@ -480,13 +480,18 @@
        ($nchildren (append $children ($pid))))
       (aggregate-state $nacc $nev $nchildren)))
 
-(= (aggregate-fold-source-step $agg-gid $acc $pid)
+(= (aggregate-noncyclic-source-step $agg-gid $acc $pid)
    (if (proof-depends-on-goal-seen? $pid $agg-gid closed-goal ()) $acc (append $acc ($pid))))
 
+;; Cycle rejection must happen before equivalent outputs are merged.  Otherwise
+;; one recursive proof can make a merged representative look cyclic and hide an
+;; independent direct proof of the same grounded atom from the aggregate.
 (= (aggregate-fold-source-ids $agg-gid $child-gid)
-   (fold-flat (aggregate-fold-source-step $agg-gid)
-      ()
-      (goal-merged-proof-ids $child-gid)))
+   (proof-output-group-representative-pids $child-gid
+      (proof-output-groups
+         (fold-flat (aggregate-noncyclic-source-step $agg-gid)
+            ()
+            (goal-live-proof-ids $child-gid)))))
 
 (= (aggregate-final-state $agg-gid $child-gid $args)
    (let*

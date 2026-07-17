@@ -347,20 +347,6 @@
         ($_clear-temp-after (clear-temp-query-adds)))
       $pres))
 
-;; Inheritance TVs depend on dynamic base-rate folds over the same rule graph.
-;; The first pass populates those aggregates; the second resolves and exposes
-;; the identical query goal. There is still one inference relation and plan.
-(= (run-compiled-query $steps (compiled-fixed-point-query $goal $adds))
-   (let*
-      (($_clear-temp-before (clear-temp-query-adds))
-       ($_ (inject-compiled-adds $adds))
-       ($_warmup (chainer $steps $goal))
-       ($results (chainer $steps $goal))
-       ($eres (map-flat externalize-proof-structure $results))
-       ($pres (map-flat pretty $eres))
-       ($_clear-temp-after (clear-temp-query-adds)))
-      $pres))
-
 (= (run-compiled-query-materialize $steps (compiled-query $goal $adds))
    (let*
       (($_clear-temp-before (clear-temp-query-adds))
@@ -370,10 +356,6 @@
         ($pres (map-flat pretty $eres))
         ($_clear-temp-after (clear-temp-query-adds)))
       $pres))
-
-(= (run-compiled-query-materialize $steps
-      (compiled-fixed-point-query $goal $adds))
-   (run-compiled-query $steps (compiled-fixed-point-query $goal $adds)))
 
 (= (query $steps $kb $stmt)
    (let $pres

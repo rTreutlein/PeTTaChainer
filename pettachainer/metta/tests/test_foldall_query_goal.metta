@@ -16,12 +16,16 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
-   (collapse
-      (query 30 kb
-         (: $prf
-            (FoldAll (Score $name $n) $n 0 (|-> ($acc $elem) (+ $acc $elem)) -> $total)
-            $tv)))
-   ((: (foldall-proof prfA prfB prfC) (FoldAll (Score $_name $_n) $_n 0 lambda_17 -> 6) (STV 1.0 1.0))))
+   (let (: $proof (FoldAll $pattern $extractor $init $_fold-function -> $total) $tv)
+      (car-atom
+         (collapse
+            (query 30 kb
+               (: $prf
+                  (FoldAll (Score $name $n) $n 0 (|-> ($acc $elem) (+ $acc $elem)) -> $result)
+                  $query-tv))))
+      ($proof $pattern $extractor $init $total $tv))
+   ((foldall-proof prfA prfB prfC)
+      (Score $_name $_n) $_n 0 6 (STV 1.0 1.0)))
 
 !(test
    (collapse
