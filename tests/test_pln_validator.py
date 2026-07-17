@@ -10,6 +10,7 @@ class TestPlnValidator(unittest.TestCase):
             "(: s2 (HeightDist g1 alice) (PointMass 170.0))",
             "(: s3 (CountDist g1) (NatDist ((0 0.5) (1 0.5))))",
             "(: s4 (CountDist g1) (ParticleDist 0 1.0))",
+            "(: r1 (Implication (Premises (Dog $x)) (Conclusions (Animal $x))) (CTV (STV 0.9 0.8) (STV 0.1 0.7)))",
         ):
             with self.subTest(stmt=stmt):
                 self.assertEqual(check_stmt(stmt), 1.0)
@@ -18,6 +19,9 @@ class TestPlnValidator(unittest.TestCase):
         for stmt in (
             "(: $prf (Dog fido) (STV 1.0 1.0))",
             "(: s5 (Dog fido) (CustomTV 0.9))",
+            "(: r2 (Rule) (CTV (STV 0.9 0.8)))",
+            "(: r3 (Rule) (CTV (STV 0.9 0.8) (CustomTV 0.1)))",
+            "(: r4 (Rule) (CTV (PointMass 0.9) (STV 0.1 0.7)))",
             "!(compileadd kb (Dog fido))",
             "!(compileadd kb (: s2 (Dog fido) (STV 1.0 1.0)))",
         ):

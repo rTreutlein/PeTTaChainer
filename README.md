@@ -82,14 +82,18 @@ from pettachainer import PeTTaChainer
 handler = PeTTaChainer()
 handler.add_atom("(: edge_ab (Edge A B) (STV 1.0 1.0))")
 handler.add_atom("(: edge_bc (Edge B C) (STV 1.0 1.0))")
-handler.add_atoms_no_check([
-    "(: edge_to_path (Implication (Premises (Edge $x $y)) (Conclusions (Path $x $y))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))",
-    "(: path_step (Implication (Premises (Path $x $y) (Edge $y $z)) (Conclusions (Path $x $z))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))",
-])
+handler.add_atom(
+    "(: edge_to_path (Implication (Premises (Edge $x $y)) (Conclusions (Path $x $y))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+)
+handler.add_atom(
+    "(: path_step (Implication (Premises (Path $x $y) (Edge $y $z)) (Conclusions (Path $x $z))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+)
 
-changed = handler.forward_chain(["(Edge A B)", "(Edge B C)"], steps=50)
+seeds = handler.select_facts(["(Edge A B)", "(Edge B C)"])
+changed = handler.forward_chain(seeds, steps=50)
 result = handler.query("(: $prf (Path A C) $tv)", timeout_sec=0)
 
-# Each returned canonical fact can be selected for a later run.
-handler.forward_chain("(Edge A B)", steps=1)
+# Returned facts directly seed a later run. Selecting the whole KB is the
+# full-saturation special case: handler.forward_chain(handler.all_facts()).
+handler.forward_chain(changed, steps=1)
 ```

@@ -1,5 +1,14 @@
 !(import! &self petta_chainer)
 
+;; Forward chaining consumes canonical compiled facts. Tests that want to
+;; select by surface type do that explicitly outside the chainer.
+(= (test-selected-facts $kb $type)
+   (collapse
+      (once
+         (match &kb
+            ($type ($kb MAIN Nil) $prf $tv)
+            ($type ($kb MAIN Nil) $prf $tv)))))
+
 !(compileadd fwdkb (: edgeAB (Edge A B) (STV 1.0 1.0)))
 
 !(compileadd fwdkb (: edgeBC (Edge B C) (STV 1.0 1.0)))
@@ -14,14 +23,14 @@
    (: pathIdempotent (Implication (Premises (Path $x $y)) (Conclusions (Path $x $y))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
-   (let $changed (forward-chain-from 50 fwdkb (Edge A B))
+   (let $changed (forward-chain 50 fwdkb (test-selected-facts fwdkb (Edge A B)))
       (and (== (list-count $changed) 3)
          (forward-has-derived? fwdkb (Path A C))))
    true)
 
 ;; A run returns each changed output once, using its final canonical proof.
 ;; Reprocessing the same seed without new evidence changes nothing.
-!(test (forward-chain-from 50 fwdkb (Edge A B)) ())
+!(test (forward-chain 50 fwdkb (test-selected-facts fwdkb (Edge A B))) ())
 
 !(test
    (let*
@@ -40,7 +49,7 @@
 
 !(test
    (let*
-      (($_ (forward-chain-from 200 loopkb (Loop Start)))
+      (($_ (forward-chain 200 loopkb (test-selected-facts loopkb (Loop Start))))
        ($proofs
            (collapse
               (match &kb
@@ -70,7 +79,7 @@
 
 !(test
    (let*
-      (($_ (forward-chain-from 50 mergekb (BasePremise)))
+      (($_ (forward-chain 50 mergekb (test-selected-facts mergekb (BasePremise))))
         ($merged
            (collapse
               (match &kb
@@ -82,7 +91,7 @@
 
 !(test
    (let*
-      (($_ (forward-chain-from 50 mergekb (BasePremise)))
+      (($_ (forward-chain 50 mergekb (test-selected-facts mergekb (BasePremise))))
         ($ev-ok
            (collapse
               (match &kb
@@ -96,7 +105,7 @@
 
 !(test
    (let*
-      (($_ (forward-chain-from 50 mergekb (BasePremise)))
+      (($_ (forward-chain 50 mergekb (test-selected-facts mergekb (BasePremise))))
         ($proofs
            (collapse
               (match &kb
@@ -112,13 +121,13 @@
 !(compileadd deltakb
    (: lowToGoal (Implication (Premises (LowPriority)) (Conclusions (DeltaGoal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(test (let $_ (forward-chain-from 1 deltakb (HighPriority)) (forward-has-derived? deltakb (DeltaGoal))) false)
+!(test (let $_ (forward-chain 1 deltakb (test-selected-facts deltakb (HighPriority))) (forward-has-derived? deltakb (DeltaGoal))) false)
 
 ;; Exhausted work is not retained. Selecting the same irrelevant seed again
 ;; cannot resume a discarded global agenda.
-!(test (let $_ (forward-chain-from 1 deltakb (HighPriority)) (forward-has-derived? deltakb (DeltaGoal))) false)
+!(test (let $_ (forward-chain 1 deltakb (test-selected-facts deltakb (HighPriority))) (forward-has-derived? deltakb (DeltaGoal))) false)
 
-!(test (let $_ (forward-chain-from 1 deltakb (LowPriority)) (forward-has-derived? deltakb (DeltaGoal))) true)
+!(test (let $_ (forward-chain 1 deltakb (test-selected-facts deltakb (LowPriority))) (forward-has-derived? deltakb (DeltaGoal))) true)
 
 !(compileadd selectedkb (: highFact (HighPriority) (STV 1.0 1.0)))
 
@@ -127,7 +136,7 @@
 !(compileadd selectedkb
    (: lowToGoal (Implication (Premises (LowPriority)) (Conclusions (SelectedGoal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(test (let $_ (forward-chain-from 1 selectedkb (LowPriority)) (forward-has-derived? selectedkb (SelectedGoal))) true)
+!(test (let $_ (forward-chain 1 selectedkb (test-selected-facts selectedkb (LowPriority))) (forward-has-derived? selectedkb (SelectedGoal))) true)
 
 !(compileadd factseedkb (: highFact (HighPriority) (STV 1.0 1.0)))
 
@@ -139,20 +148,20 @@
 !(test
    (let*
       (($facts (collapse (match &kb ((LowPriority) (factseedkb MAIN Nil) $prf $tv) ((LowPriority) (factseedkb MAIN Nil) $prf $tv))))
-        ($_ (forward-chain-from-facts 1 factseedkb $facts)))
+        ($_ (forward-chain 1 factseedkb $facts)))
       (forward-has-derived? factseedkb (FactSeedGoal)))
    true)
 
 !(compileadd ruleaddkb (: oldSeed (RuleSeed) (STV 1.0 1.0)))
 
-!(test (let $_ (forward-chain-from 1 ruleaddkb (RuleSeed)) (forward-has-derived? ruleaddkb (RuleAddGoal))) false)
+!(test (let $_ (forward-chain 1 ruleaddkb (test-selected-facts ruleaddkb (RuleSeed))) (forward-has-derived? ruleaddkb (RuleAddGoal))) false)
 
 !(compileadd ruleaddkb
    (: seedToGoal (Implication (Premises (RuleSeed)) (Conclusions (RuleAddGoal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 ;; Adding a rule does not schedule old facts globally. The caller explicitly
 ;; selects the existing fact that should activate the new rule.
-!(test (let $_ (forward-chain-from 2 ruleaddkb (RuleSeed)) (forward-has-derived? ruleaddkb (RuleAddGoal))) true)
+!(test (let $_ (forward-chain 2 ruleaddkb (test-selected-facts ruleaddkb (RuleSeed))) (forward-has-derived? ruleaddkb (RuleAddGoal))) true)
 
 !(compileadd dedupekb (: dedupeSeed (DedupeSeed) (STV 1.0 0.4)))
 
@@ -161,7 +170,7 @@
 
 !(test
    (let*
-      (($_ (forward-chain-from 10 dedupekb (DedupeSeed)))
+      (($_ (forward-chain 10 dedupekb (test-selected-facts dedupekb (DedupeSeed))))
         ($cpu-call-tvs
            (collapse (match &kb ((DedupeGoal) (dedupekb MAIN Nil) $prf (cpu-call $steps $fun $args)) true))))
       (== $cpu-call-tvs ()))

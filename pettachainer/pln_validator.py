@@ -4,6 +4,7 @@ from petta import PeTTa
 
 TV_PATTERNS = (
     "STV $123s $123c",
+    "CTV (STV $123ps $123pc) (STV $123ns $123nc)",
     "NatDist $123pairs",
     "FloatDist $123pairs",
     "ParticleDist $123ref",

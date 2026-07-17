@@ -8,6 +8,13 @@
          ($type ($kb MAIN Nil) $prf $tv)
          ($type ($kb MAIN Nil) $prf $tv))))
 
+(= (test-selected-facts $kb $type)
+   (collapse
+      (once
+         (match &kb
+            ($type ($kb MAIN Nil) $prf $tv)
+            ($type ($kb MAIN Nil) $prf $tv)))))
+
 ;; A fact produced by the forward chainer is only a cached derivation.  When
 ;; backward chaining rediscovers the same rule path, both views must carry the
 ;; same evidence so the result is not revised with itself.
@@ -18,7 +25,7 @@
 !(compileadd forwardBackwardDedupKb (: qa (Q alice) (STV 0.9 0.8)))
 !(compileadd forwardBackwardDedupKb (: pb (P bob) (STV 0.7 0.8)))
 
-!(forward-chain-from-facts 20 forwardBackwardDedupKb
+!(forward-chain 20 forwardBackwardDedupKb
    (test-main-facts forwardBackwardDedupKb))
 ;; Remove the cheap forward estimates so the query exposes the complete fold
 ;; proof, including the forward-materialized Q(bob) path.
@@ -47,10 +54,10 @@
       (Implication (Premises (Q $x)) (Conclusions (R $x)))
       (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
-!(forward-chain-from-facts 20 forwardRevisionKb
+!(forward-chain 20 forwardRevisionKb
    (test-main-facts forwardRevisionKb))
 !(compileadd forwardRevisionKb (: p2 (P a) (STV 0.8 0.5)))
-!(forward-chain-from-facts 20 forwardRevisionKb
+!(forward-chain 20 forwardRevisionKb
    (test-main-facts forwardRevisionKb))
 
 !(test
@@ -92,10 +99,10 @@
       (Implication (Premises (S $x)) (Conclusions (Q $x)))
       (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
-!(forward-chain-from-facts 20 forwardFrontierKb
+!(forward-chain 20 forwardFrontierKb
    (test-main-facts forwardFrontierKb))
 !(compileadd forwardFrontierKb (: frontierP2 (P a) (STV 0.8 0.5)))
-!(forward-chain-from-facts 20 forwardFrontierKb
+!(forward-chain 20 forwardFrontierKb
    (test-main-facts forwardFrontierKb))
 
 !(test
@@ -196,7 +203,7 @@
    (: qToR
       (Implication (Premises (Q $x)) (Conclusions (R $x)))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-!(forward-chain-from-facts 20 forwardLowerConfidenceKb
+!(forward-chain 20 forwardLowerConfidenceKb
    (test-main-facts forwardLowerConfidenceKb))
 
 !(test
@@ -209,7 +216,7 @@
       (STV 0.77 0.8204934934752165))))
 
 !(compileadd forwardLowerConfidenceKb (: p2 (P a) (STV 0.1 0.8)))
-!(forward-chain-from-facts 20 forwardLowerConfidenceKb
+!(forward-chain 20 forwardLowerConfidenceKb
    (test-main-facts forwardLowerConfidenceKb))
 
 !(test
@@ -246,7 +253,7 @@
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 !(compileadd forwardBaseRateKb (: qa (Q alice) (STV 0.9 0.8)))
 !(compileadd forwardBaseRateKb (: pb (P bob) (STV 0.7 0.8)))
-!(forward-chain-from-facts 20 forwardBaseRateKb
+!(forward-chain 20 forwardBaseRateKb
    (test-main-facts forwardBaseRateKb))
 
 !(test
@@ -289,7 +296,8 @@
 
 !(test (cached-base-rate forwardBudgetBaseRateKb (P $x)) ())
 
-!(forward-chain-from 1 forwardBudgetBaseRateKb (P high))
+!(forward-chain 1 forwardBudgetBaseRateKb
+   (test-selected-facts forwardBudgetBaseRateKb (P high)))
 
 !(test
    (cached-base-rate forwardBudgetBaseRateKb (P $x))
@@ -304,7 +312,8 @@
             true)))
    1)
 
-!(forward-chain-from 1 forwardBudgetBaseRateKb (P low))
+!(forward-chain 1 forwardBudgetBaseRateKb
+   (test-selected-facts forwardBudgetBaseRateKb (P low)))
 
 !(test
    (cached-base-rate forwardBudgetBaseRateKb (P $x))
@@ -327,7 +336,7 @@
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 !(set-base-rate forwardUserBaseRateKb (P $x) (STV 0.42 0.75))
 !(compileadd forwardUserBaseRateKb (: pa (P a) (STV 0.9 0.9)))
-!(forward-chain-from-facts 20 forwardUserBaseRateKb
+!(forward-chain 20 forwardUserBaseRateKb
    (test-main-facts forwardUserBaseRateKb))
 
 !(test
@@ -367,7 +376,7 @@
    (: ravenBird (Inheritance Raven Bird) (STV 1.0 0.9)))
 !(compileadd forwardInheritanceBaseRateKb
    (: penguinBird (Inheritance Penguin Bird) (STV 1.0 0.9)))
-!(forward-chain-from-facts 50 forwardInheritanceBaseRateKb
+!(forward-chain 50 forwardInheritanceBaseRateKb
    (test-main-facts forwardInheritanceBaseRateKb))
 
 !(test

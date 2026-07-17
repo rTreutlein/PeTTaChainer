@@ -173,36 +173,66 @@ class PeTTaChainer:
         for atom in _as_list(self.handler.process_metta_string(f"!(match &kb $a (pretty $a))")):
             print(atom)
 
-    def _select_forward_fact(self, term: str) -> Optional[str]:
-        evaluated_term = self._evaluate(term)
-        facts = _as_list(
-            self.handler.process_metta_string(f"!(forward-select-fact {self.kb} {evaluated_term})")
-        )
-        if not facts:
-            return None
-        fact = str(facts[0]).strip()
-        return None if fact == "()" else fact
+    def select_facts(self, terms: str | Sequence[str]) -> List[str]:
+        """Return the canonical KB facts matching one or more surface terms.
 
-    def forward_chain_from_facts(self, terms: Sequence[str], steps: int = 100):
-        """Forward-chain selected KB facts and return changed canonical facts."""
-        selected_facts: List[str] = []
-        for term in terms:
-            fact = self._select_forward_fact(term)
-            if fact is None:
-                return ["false"]
-            selected_facts.append(fact)
+        Selection belongs to inference control, not to forward chaining. All
+        requested terms are evaluated and selected in one PeTTa call so a
+        controller can cheaply construct an initial seed set.
+        """
+        raw_terms = [terms] if isinstance(terms, str) else list(terms)
+        if not raw_terms:
+            return []
+        selectors = []
+        for term in raw_terms:
+            selectors.append(
+                "(let* "
+                f"(($type (eval {term})) "
+                "($matches (collapse (once (match &kb "
+                f"($type ({self.kb} MAIN Nil) $prf $tv) "
+                f"($type ({self.kb} MAIN Nil) $prf $tv)))))) "
+                "(if (== $matches ()) missing-selected-fact (car-atom $matches)))"
+            )
+        results = [
+            str(atom).strip()
+            for atom in _as_list(
+                self.handler.process_metta_string(
+                    f"!(superpose ({' '.join(selectors)}))"
+                )
+            )
+        ]
+        if len(results) != len(raw_terms) or "missing-selected-fact" in results:
+            raise ValueError(f"No canonical KB fact matches every requested term: {raw_terms}")
+        return results
+
+    def all_facts(self) -> List[str]:
+        """Return every current canonical fact for caller-directed saturation."""
+        return [
+            str(atom).strip()
+            for atom in _as_list(
+                self.handler.process_metta_string(
+                    "!(match &kb "
+                    f"($type ({self.kb} MAIN Nil) $prf $tv) "
+                    f"($type ({self.kb} MAIN Nil) $prf $tv))"
+                )
+            )
+        ]
+
+    def forward_chain(self, facts: str | Sequence[str], steps: int = 100) -> List[str]:
+        """Forward-chain canonical facts and return changed canonical facts.
+
+        The returned facts are already valid input to a later run. Use
+        ``select_facts`` to choose initial seeds by surface term, or
+        ``all_facts`` to request the full-KB saturation special case.
+        """
+        selected_facts = [facts] if isinstance(facts, str) else list(facts)
         if not selected_facts:
-            return ["false"]
+            return []
         facts_expr = f"({' '.join(selected_facts)})"
         return self.handler.process_metta_string(
-            f"!(let $changed (forward-chain-from-facts {steps} {self.kb} {facts_expr}) "
+            f"!(let $changed (forward-chain {steps} {self.kb} {facts_expr}) "
             "(superpose $changed))"
         )
-
-    def forward_chain(self, term: str | Sequence[str], steps: int = 100):
-        """Convenience wrapper accepting one selected term or several terms."""
-        terms = [term] if isinstance(term, str) else term
-        return self.forward_chain_from_facts(terms, steps=steps)
 
     def query(self, atom: str, steps: int = 100, timeout_sec: Optional[float] = 10) -> List[str]:
         evaluated_query = self._evaluate(atom)

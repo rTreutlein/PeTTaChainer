@@ -633,33 +633,11 @@
 (= (forward-run-changed-facts (forward-run $_agenda $changed))
    (map-flat forward-canonical-fact-for-key (list_to_set $changed)))
 
-(= (forward-target-type $target)
-   (if (= $target (: $_name $type $_tv)) $type
-      (if (= $target ($fact-type ($_kbid $_ctx $_vars) $_prf $_fact-tv)) $fact-type
-         $target)))
-
-(= (forward-select-fact $kb $target)
-   (let*
-      (($type (forward-target-type $target))
-        ($matches
-           (collapse
-              (once
-                 (match &kb ($type ($kb MAIN Nil) $prf $tv)
-                    ($type ($kb MAIN Nil) $prf $tv))))))
-      (if (== $matches ()) () (car-atom $matches))))
-
-(= (forward-chain-from-facts $steps $kb $facts)
+(= (forward-chain $steps $kb $facts)
    (let*
       (($agenda (forward-build-agenda-from-facts $facts))
        ($run (forward-loop $steps $kb (forward-run $agenda ()))))
       (forward-run-changed-facts $run)))
-
-(= (forward-chain-from-fact $steps $kb $fact)
-   (forward-chain-from-facts $steps $kb ($fact)))
-
-(= (forward-chain-from $steps $kb $target)
-   (let $fact (forward-select-fact $kb $target)
-      (if (== $fact ()) false (forward-chain-from-fact $steps $kb $fact))))
 
 (= (forward-has-derived? $kb $type)
    (not (==

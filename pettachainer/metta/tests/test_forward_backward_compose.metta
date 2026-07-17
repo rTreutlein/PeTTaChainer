@@ -1,5 +1,12 @@
 !(import! &self petta_chainer)
 
+(= (test-selected-facts $kb $type)
+   (collapse
+      (once
+         (match &kb
+            ($type ($kb MAIN Nil) $prf $tv)
+            ($type ($kb MAIN Nil) $prf $tv)))))
+
 !(compileadd bwdOnlyKb (: a0 (A) (STV 1.0 1.0)))
 
 !(compileadd bwdOnlyKb (: r1 (Implication (Premises (A)) (Conclusions (B))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
@@ -107,7 +114,7 @@
 
 !(compileadd composeKb (: r2 (Implication (Premises (B)) (Conclusions (Goal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(test (let $_ (forward-chain-from 1 composeKb (A)) (query 2 composeKb (: $p (Goal) $tv)))
+!(test (let $_ (forward-chain 1 composeKb (test-selected-facts composeKb (A))) (query 2 composeKb (: $p (Goal) $tv)))
    (: (r2 (r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
 
 !(compileadd composeKbShort (: a0 (A) (STV 1.0 1.0)))
@@ -117,7 +124,7 @@
 !(compileadd composeKbShort (: r2 (Implication (Premises (B)) (Conclusions (Goal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
-   (let $_ (forward-chain-from 1 composeKbShort (A))
+   (let $_ (forward-chain 1 composeKbShort (test-selected-facts composeKbShort (A)))
       (query 1 composeKbShort (: $p (Goal) $tv)))
    ())
 

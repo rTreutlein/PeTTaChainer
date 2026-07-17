@@ -172,8 +172,8 @@ knowledge base in `&base_rate_cache`:
   folds emitted by the compiler. Each canonical output actually processed by
   the requested forward budget updates its contribution in constant work and
   stores a `forward-approx` cache entry. `compileadd` itself still does no
-  chaining; callers choose whether and how far to run `forward-chain-from-fact`
-  or `forward-chain-from-facts` after an addition.
+  chaining; callers choose which canonical facts to pass to `forward-chain`
+  and how far to run it after an addition.
 - Refinement of a complete `computed` snapshot is monotone: a refold may only replace the current base-rate
   snapshot when its confidence (instance count) is at least as high, so a
   shallow refold can never degrade a deeper cached estimate, and `no-evidence`

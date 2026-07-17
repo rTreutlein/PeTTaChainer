@@ -96,8 +96,9 @@ def time_backward(depth: int, noise_branching: int, query_steps: int) -> float:
 def time_forward_goal(depth: int, noise_branching: int) -> float:
     handler = PeTTaChainer()
     build_chain_problem(handler, depth=depth, noise_branching=noise_branching)
+    seeds = handler.select_facts(f"(Reach {goal_symbol(0)})")
     t0 = time.perf_counter()
-    handler.forward_chain(f"(Reach {goal_symbol(0)})", steps=depth)
+    handler.forward_chain(seeds, steps=depth)
     elapsed = time.perf_counter() - t0
     assert_query_succeeds(handler, depth=depth, steps=query_budget(depth))
     return elapsed
@@ -106,8 +107,9 @@ def time_forward_goal(depth: int, noise_branching: int) -> float:
 def time_forward_full(depth: int, noise_branching: int, full_steps: int) -> float:
     handler = PeTTaChainer()
     build_chain_problem(handler, depth=depth, noise_branching=noise_branching)
+    seeds = handler.select_facts(f"(Reach {goal_symbol(0)})")
     t0 = time.perf_counter()
-    handler.forward_chain(f"(Reach {goal_symbol(0)})", steps=full_steps)
+    handler.forward_chain(seeds, steps=full_steps)
     elapsed = time.perf_counter() - t0
     assert_query_succeeds(handler, depth=depth, steps=query_budget(depth))
     return elapsed

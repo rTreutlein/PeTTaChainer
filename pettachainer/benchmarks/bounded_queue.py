@@ -147,10 +147,11 @@ def time_forward(fanout: int, steps: int, pruning: bool) -> BenchmarkRow:
     set_pruning(handler, pruning)
     t0 = time.perf_counter()
     build_forward_fanout(handler, fanout)
+    selected = handler.select_facts("(QueueBenchSeed)")
     setup_s = time.perf_counter() - t0
 
     t1 = time.perf_counter()
-    results = handler.forward_chain("(QueueBenchSeed)", steps=steps)
+    results = handler.forward_chain(selected, steps=steps)
     run_s = time.perf_counter() - t1
     return BenchmarkRow(
         pruning="on" if pruning else "off",
@@ -170,12 +171,13 @@ def time_forward_many_small(fanout: int, seeds: int, steps: int, pruning: bool) 
     set_pruning(handler, pruning)
     t0 = time.perf_counter()
     build_forward_many_small_fanouts(handler, fanout, seeds)
+    selected = handler.select_facts(
+        [f"(QueueBenchSeed {seed})" for seed in range(seeds)]
+    )
     setup_s = time.perf_counter() - t0
 
     t1 = time.perf_counter()
-    results = handler.forward_chain(
-        [f"(QueueBenchSeed {seed})" for seed in range(seeds)], steps=steps
-    )
+    results = handler.forward_chain(selected, steps=steps)
     run_s = time.perf_counter() - t1
     return BenchmarkRow(
         pruning="on" if pruning else "off",
