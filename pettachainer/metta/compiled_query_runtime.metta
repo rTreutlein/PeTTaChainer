@@ -347,11 +347,11 @@
    (let $_
       (collapse
          (match &forward_frontier
-            ($type $kb ($type $kb $name $tv) $ev)
+            ($hash $type $kb ($type $kb $name $tv) $ev)
             (let*
                (($_remove
                    (remove-atom &forward_frontier
-                      ($type $kb ($type $kb $name $tv) $ev)))
+                      ($hash $type $kb ($type $kb $name $tv) $ev)))
                 ($key ($kb $type))
                 ($change (forward-refresh-output-key! $key))
                 ($_forward-state
