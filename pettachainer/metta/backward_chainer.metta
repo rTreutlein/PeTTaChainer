@@ -304,10 +304,12 @@
 ;; are expected to reuse the same rule and source facts, and their TVs are kept
 ;; as separate positive/negative components rather than combined by AndFormula.
 ;; The query compiler marks only that final two-sided frontier.
-(= (total-implication-frontier-proof? (total-implication-frontier $_proof)) true)
-(= (total-implication-frontier-proof? (inheritance-query-result $proof))
-   (total-implication-frontier-proof? $proof))
-(= (total-implication-frontier-proof? $_proof) false)
+(= (total-implication-frontier-proof? $proof)
+   (case $proof (
+      ((total-implication-frontier $_inner) true)
+      ((inheritance-query-result $inner)
+         (total-implication-frontier-proof? $inner))
+      ($_other false))))
 
 (= (frontier-allows-shared-evidence? $bundle)
    (let $goal (and-bundle-goal $bundle)
@@ -743,9 +745,11 @@
 ;; The cache assumes the goal's TV slot is unbound (the value depends only on
 ;; premise structure and stored TVs then); a goal queried with a known TV falls
 ;; back to computing against the bound bundle, as before.
-(= (inheritance-lift-rule-goal? ($_type $_kb $proof $_tv))
-   (if (= $proof ((inheritance-rule-lift $_rule) $_source $_instance)) true false))
-(= (inheritance-lift-rule-goal? $_goal) false)
+(= (inheritance-lift-rule-goal? $goal)
+   (case $goal (
+      (($_type $_kb ((inheritance-rule-lift $_rule) $_source $_instance) $_tv)
+         true)
+      ($_other false))))
 
 (= (rule-expected-score $rule-id $goal $args)
    ;; A specialized lift is a completeness bridge for evidence that cannot

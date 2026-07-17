@@ -1,5 +1,37 @@
 !(import! &self petta_chainer)
 
+;; Selection helpers must reduce to one boolean. A specific equation plus a
+;; catch-all equation would leak both true and false into scheduler decisions.
+!(test
+   (collapse
+      (total-implication-frontier-proof?
+         (total-implication-frontier sample-proof)))
+   (true))
+
+!(test
+   (collapse
+      (total-implication-frontier-proof?
+         (inheritance-query-result
+            (total-implication-frontier sample-proof))))
+   (true))
+
+!(test
+   (collapse (total-implication-frontier-proof? ordinary-proof))
+   (false))
+
+!(test
+   (collapse
+      (inheritance-lift-rule-goal?
+         ((Inheritance A B) (kb MAIN Nil)
+            ((inheritance-rule-lift rule) source instance) $tv)))
+   (true))
+
+!(test
+   (collapse
+      (inheritance-lift-rule-goal?
+         ((Inheritance A B) (kb MAIN Nil) ordinary-proof $tv)))
+   (false))
+
 !(test (tv-confidence (STV 0.7 0.35)) 0.35)
 
 !(test (tv-confidence maybeUnknown) 1.0)
