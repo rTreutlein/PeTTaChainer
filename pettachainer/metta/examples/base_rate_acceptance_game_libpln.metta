@@ -1,3 +1,8 @@
+; TEMPORARY: use the unpinned import until PeTTa handoff task_19e669caae6b474f
+; provides commit-pinned git-import! support.
+!(import! &self (library lib_import))
+!(git-import! "https://github.com/trueagi-io/PLN.git")
+
 !(import! &self (library PLN lib_pln))
 
 ; libPLN prior baseline for the acceptance game.
@@ -87,10 +92,10 @@
 !(FixedAcceptQuery contractReliable)
 !(UniformAcceptQuery contractReliable)
 
-!(test (FixedAcceptTV contractReliable) (stv 0.51 0.01))
-!(test (FixedAcceptTV contractHighVolume) (stv 0.51 0.01))
-!(test (UniformAcceptTV contractReliable) (stv 0.18333333333333332 0.01))
-!(test (UniformAcceptTV contractHighVolume) (stv 0.18333333333333332 0.01))
+!(test (FixedAcceptTV contractReliable) (stv 0.51 0.005))
+!(test (FixedAcceptTV contractHighVolume) (stv 0.51 0.005))
+!(test (UniformAcceptTV contractReliable) (stv 0.18333333333333332 0.0016666666666666666))
+!(test (UniformAcceptTV contractHighVolume) (stv 0.18333333333333332 0.0016666666666666666))
 !(test (Accepted? contractReliable (FixedAcceptTV contractReliable)) true)
 !(test (Accepted? contractHighVolume (FixedAcceptTV contractHighVolume)) false)
 !(test (Accepted? contractFragile (FixedAcceptTV contractFragile)) true)

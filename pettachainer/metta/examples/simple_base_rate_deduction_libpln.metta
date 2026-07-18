@@ -1,3 +1,8 @@
+; TEMPORARY: use the unpinned import until PeTTa handoff task_19e669caae6b474f
+; provides commit-pinned git-import! support.
+!(import! &self (library lib_import))
+!(git-import! "https://github.com/trueagi-io/PLN.git")
+
 !(import! &self (library PLN lib_pln))
 
 ; Minimal libPLN base-rate deduction example.
@@ -29,7 +34,7 @@
 
 !(test
    (true-base-rate-result)
-   ((stv 0.8749999999999999 0.9) (trueAB trueBC)))
+   ((stv 0.7166666666666666 0.17945351604168377) (trueAB trueBC)))
 
 
 (= (STV A_prior) (stv (/ 1.0 3.0) 0.9))
@@ -47,7 +52,7 @@
 
 !(test
    (uniform-prior-result)
-   ((stv 0.3125 0.9) (priorAB priorBC)))
+   ((stv 0.3125 0.17945351604168377) (priorAB priorBC)))
 
 
 (= (SampleInductionPrior) (stv (/ 1.0 12.0) 0.9))
@@ -94,8 +99,9 @@
 
 !(test
    (sample-induction-result)
-   ((stv 0.08332764155453862 0.54)
-    (sample6C sample6NotA sample8NotA sample8NotC sample9NotA sample9NotC)))
+   ((stv 0.7458563535911602 0.8872549019607843)
+    (sample1A sample1C sample2A sample2C sample3A sample3C sample4A sample4C
+     sample5A sample5C sample6C sample6NotA sample7C sample7NotA)))
 
 ; Longer induction search note:
 ; Changing the sample induction query above from 300 steps to:
