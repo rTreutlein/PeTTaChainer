@@ -1,4 +1,4 @@
-!(import! &self ../../../repos/PLN/lib_pln.metta)
+!(import! &self (library PLN lib_pln))
 
 ; Minimal libPLN base-rate deduction example.
 ; Run from pettachainer/metta with:

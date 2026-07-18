@@ -1,4 +1,4 @@
-!(import! &self ../../../repos/PLN/lib_pln.metta)
+!(import! &self (library PLN lib_pln))
 
 ; libPLN prior baseline for the acceptance game.
 ; Run from pettachainer/metta with:
