@@ -1,7 +1,5 @@
-; TEMPORARY: use the unpinned import until PeTTa handoff task_19e669caae6b474f
-; provides commit-pinned git-import! support.
 !(import! &self (library lib_import))
-!(git-import! "https://github.com/trueagi-io/PLN.git")
+!(git-import! "https://github.com/trueagi-io/PLN.git" "" "./repos" "4405956947c4b53c7ff01bd565aa3b114bc970a1")
 
 !(import! &self (library PLN lib_pln))
 
