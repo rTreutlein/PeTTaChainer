@@ -94,9 +94,10 @@
    (let $base (if (is-var $res) (cpu-expected-confidence $fun $args) (tv-confidence $res))
       (if (== $fun AndMarginalProjection) (* 0.99 $base) $base)))
 
-(= (proof-score (marginal-proj $_idx $_prf) $tv)
-   (* 0.99 (tv-confidence $tv)))
-(= (proof-score $_prf $tv) (tv-confidence $tv))
+(= (proof-score $prf $tv)
+   (case $prf (
+      ((marginal-proj $_idx $_inner) (* 0.99 (tv-confidence $tv)))
+      ($_other (tv-confidence $tv)))))
 
 (= (term-confidence ($_type ($_kbid $_ctx $_vars) $prf $tv)) (proof-score $prf $tv))
 
@@ -195,10 +196,14 @@
 
 (= (proof-term-leaf-head? $head) (is-member $head (() fact-ev CPU STV CTV)))
 
-(= (proof-term-children-mode $_mode (@ $prf (head conjunction))) (cdr-atom $prf))
-(= (proof-term-children-mode proof-walk-in-kb (@ $prf (head $head)))
-   (if (proof-term-leaf-head? $head) () (cdr-atom $prf)))
-(= (proof-term-children-mode $_mode $_prf) ())
+(= (proof-term-children-mode $mode $prf)
+   (if (is-expr $prf)
+      (let $head (car-atom $prf)
+         (if (== $head conjunction) (cdr-atom $prf)
+            (if (== $mode proof-walk-in-kb)
+               (if (proof-term-leaf-head? $head) () (cdr-atom $prf))
+               ())))
+      ()))
 
 (= (proof-term-evidence-children-mode $mode ()) ())
 (= (proof-term-evidence-children-mode $mode (cons $child $rest))
@@ -218,16 +223,20 @@
 (= (proof-term-negated? $prf)
    (if (is-expr $prf) (== (car-atom $prf) negated) false))
 
-(= (proof-term-evidence-list-mode $mode (@ $prf (proof-ref $pid))) (snd (proof-stats-by-id $pid)))
-(= (proof-term-evidence-list-mode $mode (@ $prf (merge/revision $left $right)))
-   (append (proof-term-evidence-list-mode $mode $left) (proof-term-evidence-list-mode $mode $right)))
 (= (proof-term-evidence-list-mode $mode $prf)
-   (if (is-var $prf) ()
-      (if (assumption-proof? $prf) ()
-         (if (proof-term-negated? $prf)
-            (evidence-negate-list (proof-term-evidence-list-mode $mode (car-atom (cdr-atom $prf))))
-            (let $children (proof-term-children-mode $mode $prf)
-               (if (== $children ()) (cons $prf ()) (proof-term-evidence-children-mode $mode $children)))))))
+   (case $prf (
+      ((@ $_ref (proof-ref $pid)) (snd (proof-stats-by-id $pid)))
+      ((@ $_merge (merge/revision $left $right))
+         (append (proof-term-evidence-list-mode $mode $left)
+            (proof-term-evidence-list-mode $mode $right)))
+      ($_other
+         (if (is-var $prf) ()
+            (if (assumption-proof? $prf) ()
+               (if (proof-term-negated? $prf)
+                  (evidence-negate-list (proof-term-evidence-list-mode $mode (car-atom (cdr-atom $prf))))
+                  (let $children (proof-term-children-mode $mode $prf)
+                     (if (== $children ()) (cons $prf ())
+                        (proof-term-evidence-children-mode $mode $children))))))))))
 
 (= (proof-atom-evidence-set ($_type $kb $prf $_tv))
    (list_to_set (once (proof-term-evidence-list-mode proof-walk-in-kb $prf))))

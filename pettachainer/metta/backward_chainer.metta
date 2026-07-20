@@ -380,11 +380,13 @@
                      $nparts
                      (cons $pid $rev-pids))))))))
 
-(= (frontier-waiter-step (@ $waiter (head frontier-waiter)) $rest) (cons $waiter $rest))
-(= (frontier-waiter-step $_waiter $rest) $rest)
+(= (frontier-waiter-step $waiter $rest)
+   (if (and (is-expr $waiter) (== (car-atom $waiter) frontier-waiter))
+      (cons $waiter $rest)
+      $rest))
 
-(= (aggregate-waiter-step (aggregate-waiter $agg-gid) $rest) (cons $agg-gid $rest))
-(= (aggregate-waiter-step $_waiter $rest) $rest)
+(= (aggregate-waiter-step $waiter $rest)
+   (case $waiter (((aggregate-waiter $agg-gid) (cons $agg-gid $rest)) ($_other $rest))))
 
 (= (spawn-frontier-goal-heap $agenda $score $gid $waiter)
    (let*
@@ -396,12 +398,14 @@
        ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
       $nagenda))
 
-(= (base-rate-finish? base-rate) true)
-(= (base-rate-finish? weighted-base-rate) true)
-(= (base-rate-finish? weighted-base-rate-with-prior) true)
-(= (base-rate-finish? (weighted-base-rate-in-universe $_kbid)) true)
-(= (base-rate-finish? (weighted-base-rate-with-prior-in-universe $_kbid)) true)
-(= (base-rate-finish? $_finish) false)
+(= (base-rate-finish? $finish)
+   (case $finish (
+      (base-rate true)
+      (weighted-base-rate true)
+      (weighted-base-rate-with-prior true)
+      ((weighted-base-rate-in-universe $_kbid) true)
+      ((weighted-base-rate-with-prior-in-universe $_kbid) true)
+      ($_other false))))
 
 (= (base-rate-aggregate-key $args)
    (if (= $args ($kbid $pattern $_extractor $_init $_fun $finish $_tv-mode))

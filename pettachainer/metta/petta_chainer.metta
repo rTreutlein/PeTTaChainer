@@ -22,16 +22,19 @@
 ;; public registration call remains valid but has no KB-local work to perform.
 (= (register-inheritance-induction! $_kb) ())
 
-(= (record-compiled-inheritance-subject! (: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $_concept) $_tv))
-   (if (is-var $subj) ()
-      (add-atom &inheritance_subject ($kbid $subj))))
-(= (record-compiled-inheritance-subject! $_expr) ())
+(= (record-compiled-inheritance-subject! $expr)
+   (case $expr (
+      ((: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $_concept) $_tv)
+         (if (is-var $subj) () (add-atom &inheritance_subject ($kbid $subj))))
+      ($_other ()))))
 
-(= (record-compiled-inheritance-concepts! (: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $concept) $_tv))
-   (record-inheritance-nodes! $kbid $subj $concept))
-(= (record-compiled-inheritance-concepts! (: ($kbid $_ctx $_vars) $_prf (Member $_obj $class) $_tv))
-   (record-concept-node! $kbid $class))
-(= (record-compiled-inheritance-concepts! $_expr) ())
+(= (record-compiled-inheritance-concepts! $expr)
+   (case $expr (
+      ((: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $concept) $_tv)
+         (record-inheritance-nodes! $kbid $subj $concept))
+      ((: ($kbid $_ctx $_vars) $_prf (Member $_obj $class) $_tv)
+         (record-concept-node! $kbid $class))
+      ($_other ()))))
 
 (= (materialize-stmt-lambdas $term)
    (if (is-var $term) $term

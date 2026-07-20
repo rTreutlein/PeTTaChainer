@@ -1,9 +1,9 @@
 !(import! &self petta_chainer)
 
-(= (TotalEvidenceOr none $tv) $tv)
-(= (TotalEvidenceOr $left $right) (OrFormula $left $right))
-(= (TotalEvidenceTv none) (STV 0.0 0.0))
-(= (TotalEvidenceTv $tv) $tv)
+(= (TotalEvidenceOr $left $right)
+   (if (== $left none) $right (OrFormula $left $right)))
+(= (TotalEvidenceTv $tv)
+   (if (== $tv none) (STV 0.0 0.0) $tv))
 (= (TotalEvidenceAcc (TotalEvidenceTvs $pos-tv $neg-tv) (EvidenceCase pos $tv))
    (TotalEvidenceTvs (TotalEvidenceOr $pos-tv $tv) $neg-tv))
 (= (TotalEvidenceAcc (TotalEvidenceTvs $pos-tv $neg-tv) (EvidenceCase neg $tv))

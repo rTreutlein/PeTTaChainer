@@ -110,12 +110,13 @@
 (= (proof-kind-by-id $pid)
    (match &proof ($pid $_gid $_output $kind $_score $_ev $_children) $kind))
 
-(= (materializable-proof-kind? (rule $_term)) true)
-(= (materializable-proof-kind? $_kind) false)
+(= (materializable-proof-kind? $kind)
+   (case $kind (((rule $_term) true) ($_other false))))
 
-(= (materializable-proof-output? ($type ($_kbid MAIN Nil) $_prf $_tv))
-   (== (extract-vars $type) ()))
-(= (materializable-proof-output? $_output) false)
+(= (materializable-proof-output? $output)
+   (case $output (
+      (($type ($_kbid MAIN Nil) $_prf $_tv) (== (extract-vars $type) ()))
+      ($_other false))))
 
 (= (materialize-proof-node-to-kb $pid)
    (let*

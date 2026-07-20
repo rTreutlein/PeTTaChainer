@@ -135,10 +135,9 @@
 (= (WeightedBaseRateWithPriorAcc (BaseRateEvidenceWithPrior $prior $ev) $tv)
    (BaseRateEvidenceWithPrior $prior (WeightedBaseRateAcc $ev $tv)))
 
-(= (BaseRateWithPriorFormula no-evidence no-evidence) no-evidence)
-(= (BaseRateWithPriorFormula no-evidence $evidence) $evidence)
-(= (BaseRateWithPriorFormula $prior no-evidence) $prior)
-(= (BaseRateWithPriorFormula $prior $evidence) (mergetvs $prior $evidence))
+(= (BaseRateWithPriorFormula $prior $evidence)
+   (if (== $prior no-evidence) $evidence
+      (if (== $evidence no-evidence) $prior (mergetvs $prior $evidence))))
 
 (= (WeightedBaseRateWithPriorTv (BaseRateEvidenceWithPrior $prior $ev))
    (BaseRateWithPriorFormula (resolve-base-rate-prior $prior) (WeightedBaseRateTv $ev)))

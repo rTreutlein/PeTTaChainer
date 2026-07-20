@@ -1,9 +1,9 @@
 !(import! &self petta_chainer)
 
-(= (TotalEvidenceOr none $tv) $tv)
-(= (TotalEvidenceOr $left $right) (OrFormula $left $right))
-(= (TotalEvidenceTv none) (STV 0.0 0.0))
-(= (TotalEvidenceTv $tv) $tv)
+(= (TotalEvidenceOr $left $right)
+   (if (== $left none) $right (OrFormula $left $right)))
+(= (TotalEvidenceTv $tv)
+   (if (== $tv none) (STV 0.0 0.0) $tv))
 (= (TotalEvidenceAcc (TotalEvidenceTvs $pos-tv $neg-tv) (EvidenceCase pos $tv))
    (TotalEvidenceTvs (TotalEvidenceOr $pos-tv $tv) $neg-tv))
 (= (TotalEvidenceAcc (TotalEvidenceTvs $pos-tv $neg-tv) (EvidenceCase neg $tv))
@@ -13,6 +13,9 @@
 	      (empty)
 	      (let (TotalEvidenceTvs $pos-tv $neg-tv) $evidence-tvs
 	         (CTVModusPonensFormula $atv (CTV (TotalEvidenceTv $pos-tv) (TotalEvidenceTv $neg-tv))))))
+
+!(test (collapse (TotalEvidenceOr none (STV 0.7 0.5))) ((STV 0.7 0.5)))
+!(test (collapse (TotalEvidenceTv none)) ((STV 0.0 0.0)))
 
 !(compileadd kb (: ta (Tall alice) (STV 0.9 0.5)))
 !(compileadd kb (: fa (Female alice) (STV 0.9 0.5)))

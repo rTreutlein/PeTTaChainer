@@ -992,15 +992,14 @@
 ;; grounded completion markers must disappear with their source statement;
 ;; otherwise a later fact can resurrect a removed rule, and a clean re-add can
 ;; be suppressed by stale idempotency state.
-(= (specialization-statement-name (: $name $_type $_tv)) $name)
-(= (specialization-statement-name $_other) no-specialization-name)
+(= (specialization-statement-name $stmt)
+   (case $stmt (((: $name $_type $_tv) $name) ($_other no-specialization-name))))
 
-(= (specialization-job-name (compile-specialization $stmt))
-   (specialization-statement-name $stmt))
-(= (specialization-job-name
-      (inheritance-lift-specialization $_ground $source))
-   (specialization-statement-name $source))
-(= (specialization-job-name $_other) no-specialization-name)
+(= (specialization-job-name $job)
+   (case $job (
+      ((compile-specialization $stmt) (specialization-statement-name $stmt))
+      ((inheritance-lift-specialization $_ground $source) (specialization-statement-name $source))
+      ($_other no-specialization-name))))
 
 (= (remove-specialization-state! $name)
    (let*
@@ -1259,8 +1258,8 @@
          (rules ($prms |- $ccl)))
       (mm2stmt $add)))
 
-(= (query-temp-rule-premise (Compute $f $args $res)) (Compute $f $args -> $res))
-(= (query-temp-rule-premise $premise) $premise)
+(= (query-temp-rule-premise $premise)
+   (case $premise (((Compute $f $args $res) (Compute $f $args -> $res)) ($other $other))))
 
 (= (query-compound-type? $type)
    (if (is-expr $type)
