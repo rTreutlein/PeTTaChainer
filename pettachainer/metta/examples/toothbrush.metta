@@ -68,12 +68,34 @@
 
 !(compileadd toothbrushKb (: xUnscrew (Operation X opUnscrew) (STV 0.99 0.99)))
 
-(= (toothbrush-result-tv
-      (: $_proof (Inheritance X removed) $tv))
-   $tv)
-
 !(test
-   (let $results
-      (collapse (query 200 toothbrushKb (: $prf (Inheritance X removed) $tv)))
-      ((length $results) (map-flat toothbrush-result-tv $results)))
-   (1 ((STV 0.8959832714414285 0.9897979854412593))))
+   (collapse (query 200 toothbrushKb (: $prf (Inheritance X removed) $tv)))
+   ((:
+      (inheritance-implication-fold
+         (total-implication
+            ((inheritance-rule-lift unscrewRemovesHardened)
+               xUnscrew
+               ((inheritance-rule-lift waitHardensScrewlike)
+                  xWait
+                  ((inheritance-rule-lift reshapePliableScrewlike)
+                     xReshape
+                     (meltedPliable
+                        (heatedMelts
+                           ((inheritance-rule-lift lighterHeatsPlastic)
+                              xLighter
+                              ((inheritance-implication xPlastic)
+                                 (ctx proof 0))))))))
+            ((inheritance-rule-lift unscrewRemovesHardened)
+               xUnscrew
+               ((inheritance-rule-lift waitHardensScrewlike)
+                  xWait
+                  ((inheritance-rule-lift reshapePliableScrewlike)
+                     xReshape
+                     (meltedPliable
+                        (heatedMelts
+                           ((inheritance-rule-lift lighterHeatsPlastic)
+                              xLighter
+                              ((inheritance-implication xPlastic)
+                                 (ctx proof 1))))))))))
+      (Inheritance X removed)
+      (STV 0.8959832714414285 0.9897979854412593))))

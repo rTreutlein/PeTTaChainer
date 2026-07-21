@@ -20,12 +20,10 @@
 ;; Inheritance queries use one chainer execution.  These budgets preserve the
 ;; total search work that was previously split across two equal executions.
 !(test
-   (let $results
-      (collapse
-         (query 200 flyingRavenKb
-            (: $prf (Inheritance Sam (IntSet flies)) $tv)))
-      ((length $results) $results))
-   (1 ((:
+   (collapse
+      (query 200 flyingRavenKb
+         (: $prf (Inheritance Sam (IntSet flies)) $tv)))
+   ((:
       (inheritance-implication-fold
          (total-implication
             (merge/revision
@@ -51,15 +49,13 @@
                         ((inheritance-implication ravenBird)
                            ((inheritance-implication samRaven) (ctx proof 1)))))))))
       (Inheritance Sam (IntSet flies))
-      (STV 0.9636833710184354 0.902011854694304)))))
+      (STV 0.9636833710184354 0.902011854694304))))
 
 !(test
-   (let $results
-      (collapse
-         (query 60 flyingRavenKb
-            (: $prf (Inheritance Pingu (IntSet flies)) $tv)))
-      ((length $results) $results))
-   (1 ((:
+   (collapse
+      (query 60 flyingRavenKb
+         (: $prf (Inheritance Pingu (IntSet flies)) $tv)))
+   ((:
       (inheritance-implication-fold
          (total-implication
             (merge/revision
@@ -77,15 +73,13 @@
                   (penguinsDoNotFly
                      ((inheritance-implication pinguPenguin) (ctx proof 3)))))))
       (Inheritance Pingu (IntSet flies))
-      (STV 0.49640488254968673 0.9475028689003524)))))
+      (STV 0.49640488254968673 0.9475028689003524))))
 
 !(test
-   (let $results
-      (collapse
-         (query 200 flyingRavenKb
-            (: $prf (Inheritance Pingu (IntSet flies)) $tv)))
-      ((length $results) $results))
-   (1 ((:
+   (collapse
+      (query 200 flyingRavenKb
+         (: $prf (Inheritance Pingu (IntSet flies)) $tv)))
+   ((:
       (inheritance-implication-fold
          (total-implication
             (merge/revision
@@ -103,4 +97,4 @@
                   (penguinsDoNotFly
                      ((inheritance-implication pinguPenguin) (ctx proof 5)))))))
       (Inheritance Pingu (IntSet flies))
-      (STV 0.49640488254968673 0.9475028689003524)))))
+      (STV 0.49640488254968673 0.9475028689003524))))

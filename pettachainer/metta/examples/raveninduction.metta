@@ -21,12 +21,38 @@
 !(compileadd ravenDerivedKb (: rv1BlackObserved (Inheritance rv1 (IntSet black)) (STV 0.8 0.9)))
 !(compileadd ravenDerivedKb (: rv2BlackObserved (Inheritance rv2 (IntSet black)) (STV 0.0 0.9)))
 
-(= (raven-result-tv (: $_proof $_type $tv)) $tv)
-
 !(test
-   (let $results
-      (collapse
-         (query 300 ravenDerivedKb
-            (: $prf (Inheritance raven (IntSet black)) $tv)))
-      ((length $results) (map-flat raven-result-tv $results)))
-   (1 ((STV 0.36411477909368595 0.642069567846394))))
+   (collapse
+      (query 300 ravenDerivedKb
+         (: $prf (Inheritance raven (IntSet black)) $tv)))
+   ((:
+      (inheritance-implication-fold
+         (total-implication
+            (merge/revision
+               ((inheritance-implication rv1BlackObserved)
+                  ((inverted (inheritance-implication rv1RavenObserved)
+                       with
+                       cpu
+                       (foldall-proof rv1RavenObserved rv2RavenObserved))
+                     (ctx proof 0)))
+               ((inheritance-implication rv2BlackObserved)
+                  ((inverted (inheritance-implication rv2RavenObserved)
+                       with
+                       cpu
+                       (foldall-proof rv1RavenObserved rv2RavenObserved))
+                     (ctx proof 0))))
+            (merge/revision
+               ((inheritance-implication rv1BlackObserved)
+                  ((inverted (inheritance-implication rv1RavenObserved)
+                       with
+                       cpu
+                       (foldall-proof rv1RavenObserved rv2RavenObserved))
+                     (ctx proof 1)))
+               ((inheritance-implication rv2BlackObserved)
+                  ((inverted (inheritance-implication rv2RavenObserved)
+                       with
+                       cpu
+                       (foldall-proof rv1RavenObserved rv2RavenObserved))
+                     (ctx proof 1))))))
+      (Inheritance raven (IntSet black))
+      (STV 0.36411477909368595 0.642069567846394))))
