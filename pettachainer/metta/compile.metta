@@ -947,12 +947,21 @@
    (let $copy (copy_term $gstmt)
       (add-atom &spec_done ($kb $copy))))
 
+;; Compiler backends may contribute additional fact providers for structural
+;; specialization. PeTTaChainer's default provider reads its native KB; MM2
+;; adds a provider that reads compiler metadata directly from MORK.
+(= (compiler-specialization-fact $kb $trigger)
+   (match &kb ($candidate ($kb $_ctx $_vars) $_prf $_tv)
+      (let $trigger $candidate $candidate)))
+
 ;; Bind the trigger variables by matching each remaining trigger against the
-;; store; $body shares those variables, so it comes out ground.
+;; compiler-visible fact providers; $body shares those variables, so it comes
+;; out ground.
 (= (ground-triggers $_kb () $body) $body)
 (= (ground-triggers $kb (cons $trigger $rest) $body)
-   (match &kb ($trigger ($kb $_ctx $_vars) $_prf $_tv)
-      (ground-triggers $kb $rest $body)))
+   (let $candidate (compiler-specialization-fact $kb $trigger)
+      (let $trigger $candidate
+         (ground-triggers $kb $rest $body))))
 
 (= (emit-specialization $kb
       (compile-specialization (: $gprf $gtype $gtv)))
