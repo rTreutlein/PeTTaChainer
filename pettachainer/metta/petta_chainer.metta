@@ -1,3 +1,10 @@
+!(import! &self (library lib_roman))
+!(import! &self (library lib_spaces))
+!(import! &self (library lib_he))
+!(import! &self logic_config)
+
+!(import! &self dist_formulas)
+!(import! &self tv_formulas)
 !(import! &self compile)
 
 !(use-module! heaps)
@@ -10,11 +17,28 @@
 
 !(import! &self chainer_utils)
 !(import! &self forward_chainer)
-!(import! &self dist_formulas)
-!(import! &self tv_formulas)
 !(import! &self compiled_query_runtime)
 !(import! &self backward_proof_store)
 !(import! &self backward_chainer)
+
+;; PeTTa registers equation heads before processing this file's imports. These
+;; unreachable interface clauses therefore declare cyclic cross-module calls
+;; without adding a catch-all reduction or changing ordinary call behavior.
+(= (record-inheritance-nodes! __chainer-interface__ $_ $_) (empty))
+(= (base-rate-cache-remove-derived! __chainer-interface__ $_ $_) (empty))
+(= (kb-universe-size __chainer-interface__) (empty))
+(= (store-forward-base-rate! __chainer-interface__ $_ $_ $_) (empty))
+(= (resolve-base-rate-prior __chainer-interface__) (empty))
+(= (inheritance-subjects __chainer-interface__) (empty))
+(= (proof-output-atom __chainer-interface__) (empty))
+(= (assumption-proof? __chainer-interface__) (empty))
+(= (goal-by-id __chainer-interface__) (empty))
+(= (aggregate-by-id __chainer-interface__) (empty))
+(= (schedule-aggregate-heap __chainer-interface__ $_) (empty))
+(= (aggregate-finish __chainer-interface__ $_) (empty))
+(= (advance-frontier-waiter-heap __chainer-interface__ $_ $_) (empty))
+(= (chainer __chainer-interface__ $_) (empty))
+(= (chainer-materialize __chainer-interface__ $_) (empty))
 
 (= (add-to-kb $expr) (kb-add-expr live $expr))
 

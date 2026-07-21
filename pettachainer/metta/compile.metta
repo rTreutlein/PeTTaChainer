@@ -1,8 +1,3 @@
-!(import! &self (library lib_roman))
-!(import! &self (library lib_spaces))
-!(import! &self (library lib_he))
-!(import! &self logic_config)
-
 ;; Compiler overview
 ;; -----------------
 ;; Statements enter through compile_ (stored facts and rules) or compileQuery
