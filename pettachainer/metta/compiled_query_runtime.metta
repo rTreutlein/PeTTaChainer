@@ -341,35 +341,3 @@
        ($_rules (foreach-flat remove-rule-row! $ids))
        ($_index (if (== $ids ()) () (remove-atom rule_name_index ($name $_any)))))
       ()))
-
-(= (run-compiled-query $steps (compiled-query $goal $adds))
-   (let*
-      (($_clear-temp-before (clear-temp-query-adds))
-        ($_ (inject-compiled-adds $adds))
-        ($results (chainer $steps $goal))
-        ($eres (map-flat externalize-proof-structure $results))
-        ($pres (map-flat pretty $eres))
-        ($_clear-temp-after (clear-temp-query-adds)))
-      $pres))
-
-(= (run-compiled-query-materialize $steps (compiled-query $goal $adds))
-   (let*
-      (($_clear-temp-before (clear-temp-query-adds))
-        ($_ (inject-compiled-adds $adds))
-        ($results (chainer-materialize $steps $goal))
-        ($eres (map-flat externalize-proof-structure $results))
-        ($pres (map-flat pretty $eres))
-        ($_clear-temp-after (clear-temp-query-adds)))
-      $pres))
-
-(= (query $steps $kb $stmt)
-   (let $pres
-      (fold-flat append () (map-flat (run-compiled-query $steps) (collapse (mm2compileQuery $kb $stmt))))
-      (superpose
-         $pres)))
-
-(= (query-materialize $steps $kb $stmt)
-   (let $pres
-      (fold-flat append () (map-flat (run-compiled-query-materialize $steps) (collapse (mm2compileQuery $kb $stmt))))
-      (superpose
-         $pres)))

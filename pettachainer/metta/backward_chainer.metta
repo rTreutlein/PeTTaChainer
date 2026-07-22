@@ -1,9 +1,3 @@
-(= (goal-by-id $gid) (match &goal ($gid $depth $goal $expanded $pending) ($depth $goal $expanded $pending)))
-
-(= (aggregate-by-id $agg-gid)
-   (match &aggregate ($agg-gid $child-gid $args $base-score $pending $current-pid)
-      ($child-gid $args $base-score $pending $current-pid)))
-
 (= (ensure-goal-at-depth $goal $depth)
    (let*
       (($stored-goal (copy_term $goal))
@@ -73,28 +67,6 @@
 
 (= (aggregate-foldall-step-acc $extractor $fun $acc $child-atom $child-tv)
    (eval ($fun $acc (aggregate-step-value $extractor $child-atom $child-tv))))
-
-(= (aggregate-finish identity $acc) $acc)
-(= (aggregate-finish dist-average $acc) (reduce (reduce (DistAverageFromSumCount $acc))))
-(= (aggregate-finish base-rate $acc) (BaseRateTv $acc))
-(= (aggregate-finish weighted-base-rate $acc) (WeightedBaseRateTv $acc))
-(= (aggregate-finish weighted-base-rate-with-prior $acc) (WeightedBaseRateWithPriorTv $acc))
-(= (aggregate-finish (member-inheritance $kbid) $acc)
-   (member-inheritance-tv $kbid $acc))
-(= (aggregate-finish (weighted-base-rate-in-universe $kbid) $acc)
-   (let $universe-size (kb-universe-size $kbid)
-      (if (== $universe-size no-universe-size)
-         (WeightedBaseRateTv $acc)
-         (WeightedUniverseBaseRateTv $universe-size $acc))))
-(= (aggregate-finish (weighted-base-rate-with-prior-in-universe $kbid) (BaseRateEvidenceWithPrior $prior $ev))
-   (let $universe-size (kb-universe-size $kbid)
-      (BaseRateWithPriorFormula
-         (resolve-base-rate-prior $prior)
-         (if (== $universe-size no-universe-size)
-            (WeightedBaseRateTv $ev)
-            (WeightedUniverseBaseRateTv $universe-size $ev)))))
-(= (aggregate-finish uniform-prior $acc) (UniformPriorTv $acc))
-(= (aggregate-finish uniform-prior-known $acc) (UniformPriorKnownTv $acc))
 
 ;; --- Frontier pooling of same-source projections -----------------------------
 ;; A conjunction frontier rejects a premise proof whose fact evidence overlaps
@@ -923,3 +895,7 @@
    (let (chainer-run-result $root-gid $results) (chainer-run $steps $goal)
       (let $_materialized (materialize-goal-proofs-to-kb $root-gid)
          $results)))
+(= (frontier-proof-score $pid $score)
+   (if (= (proof-output-atom $pid) (CPU $_fun $_args $_res))
+      (max 0.000001 $score)
+      $score))

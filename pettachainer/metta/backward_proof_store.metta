@@ -561,9 +561,6 @@
    (let $current (goal-current-output $gid)
       (if (== $current no-current) no-current (term-confidence $current))))
 
-(= (assumption-proof? $prf)
-   (if (is-expr $prf) (== (car-atom $prf) ctx) false))
-
 (= (leaf-evidence-for-result $result)
    (if (= $result ($type ($kbid $_ctx $_vars) $prf $_tv))
       (if (assumption-proof? $prf) () (forward-fact-evidence $result))
@@ -717,3 +714,8 @@
        ($_cache-invalidate (if (== $current-pid ()) () (invalidate-proof-live-caches)))
        ($nagenda (wake-proof-commit-heap $agenda $agg-gid $pid)))
       $nagenda))
+(= (goal-by-id $gid) (match &goal ($gid $depth $goal $expanded $pending) ($depth $goal $expanded $pending)))
+
+(= (aggregate-by-id $agg-gid)
+   (match &aggregate ($agg-gid $child-gid $args $base-score $pending $current-pid)
+      ($child-gid $args $base-score $pending $current-pid)))

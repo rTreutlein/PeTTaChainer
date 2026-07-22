@@ -15,11 +15,14 @@
 !(assertzPredicate (Predicate (arity get_from_heap 4)))
 !(assertzPredicate (Predicate (arity heap_size 2)))
 
+!(import! &self chainer_runtime_core)
 !(import! &self chainer_utils)
 !(import! &self forward_chainer)
 !(import! &self compiled_query_runtime)
+!(import! &self proof_semantics)
 !(import! &self backward_proof_store)
 !(import! &self backward_chainer)
+!(import! &self query_runtime)
 
 ;; PeTTa registers equation heads before processing this file's imports. These
 ;; unreachable interface clauses therefore declare cyclic cross-module calls
@@ -30,15 +33,9 @@
 (= (store-forward-base-rate! __chainer-interface__ $_ $_ $_) (empty))
 (= (resolve-base-rate-prior __chainer-interface__) (empty))
 (= (inheritance-subjects __chainer-interface__) (empty))
-(= (proof-output-atom __chainer-interface__) (empty))
-(= (assumption-proof? __chainer-interface__) (empty))
-(= (goal-by-id __chainer-interface__) (empty))
-(= (aggregate-by-id __chainer-interface__) (empty))
-(= (schedule-aggregate-heap __chainer-interface__ $_) (empty))
 (= (aggregate-finish __chainer-interface__ $_) (empty))
+(= (schedule-aggregate-heap __chainer-interface__ $_) (empty))
 (= (advance-frontier-waiter-heap __chainer-interface__ $_ $_) (empty))
-(= (chainer __chainer-interface__ $_) (empty))
-(= (chainer-materialize __chainer-interface__ $_) (empty))
 
 (= (add-to-kb $expr) (kb-add-expr live $expr))
 

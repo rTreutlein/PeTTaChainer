@@ -1,3 +1,5 @@
+!(import! &self chainer_runtime_core)
+
 (= (tv-confidence $tv)
    (if (is-var $tv) 1.0
       (if (= $tv (STV $_s $c)) (if (is-var $c) 1.0 $c)
@@ -118,11 +120,6 @@
          (- (max $candidate-score (optimistic-revision-score $current-score $candidate-score))
             $current-score))))
 
-(= (frontier-proof-score $pid $score)
-   (if (= (proof-output-atom $pid) (CPU $_fun $_args $_res))
-      (max 0.000001 $score)
-      $score))
-
 (= (bounded-agenda-target-size $steps) (min 1000 (max 1 $steps)))
 (= (bounded-agenda-prune-factor) 64)
 
@@ -158,14 +155,8 @@
 
 (= (proof-atom-proof ($_type $_kb $prf $_tv)) $prf)
 
-(= (foreach-flat $f ()) ())
-(= (foreach-flat $f (cons $x $xs)) (progn ($f $x) (foreach-flat $f $xs)))
-
-(= (chainer-add-atom $space $expr)
-   (if (== (collapse (callPredicate (Predicate (cyclic_term $expr)))) ())
-      (add-atom $space $expr)
-      (empty)))
-
+(= (assumption-proof? $prf)
+   (if (is-expr $prf) (== (car-atom $prf) ctx) false))
 
 (= (next-search-id $key)
    (let*
