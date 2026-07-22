@@ -193,7 +193,9 @@
              (member-inheritance $kbid)
              result-tv)
           $_result)
-         (if (or (is-var $subj) (is-var $concept)) ()
+         (if (or
+                (not (== (extract-vars $subj) ()))
+                (not (== (extract-vars $concept) ()))) ()
             (let*
             (($pattern
                 (MemberInheritanceSample $obj $subj $concept $atv $btv))

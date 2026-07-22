@@ -201,9 +201,10 @@ with `(member-inheritance kb)`. Other `FoldAllCompiled` expressions are not
 registered by this path.
 
 Registration creates indexes for the concrete subject and concept classes.
-If either class is variable, as in an open `Inheritance` query, the fold is not
-registered and no identity, interest, observation, or cache row is created;
-such a query cannot provide the selective class key required by this path.
+If either complete class term contains a variable, whether at top level or
+nested inside a compound class, the fold is not registered and no identity,
+interest, observation, or cache row is created; such an open query cannot
+provide the selective class key required by this path.
 Forward processing of either affected canonical `Member` output looks up the
 other side for the same object, replaces that object's prior joined
 contribution, and adjusts additive weight/mass totals. Removal recomputes from

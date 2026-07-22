@@ -45,6 +45,43 @@
          true))
    ())
 
+;; A compound class with a nested variable is also open even though its
+;; top-level term is an expression rather than a variable.
+!(query 0 forwardCompoundOpenMemberFoldKb
+   (: $proof
+      (Inheritance (Qualified Human $open-qualifier) Mortal)
+      $tv))
+
+!(test
+   (collapse
+      (match &forward_member_inheritance_identity
+         ((fwd_member forwardCompoundOpenMemberFoldKb $_subj $_concept) $_id)
+         true))
+   ())
+
+!(test
+   (collapse
+      (match &forward_member_inheritance_interest
+         ((fwd_member forwardCompoundOpenMemberFoldKb $_class)
+            $_id $_kb $_subj $_concept $_pattern)
+         true))
+   ())
+
+!(test
+   (collapse
+      (match &forward_member_inheritance_observation
+         ($_key $_subject $_concept $_weight $_mass)
+         true))
+   ())
+
+!(test
+   (collapse
+      (match &base_rate_cache
+         (base-rate forwardCompoundOpenMemberFoldKb
+            $_pattern $_tv $_source $_mode)
+         true))
+   ())
+
 !(set-universe-size forwardMemberFoldKb 2.0)
 !(compileadd forwardMemberFoldKb
    (: aHuman (Member a Human) (STV 1.0 1.0)))
