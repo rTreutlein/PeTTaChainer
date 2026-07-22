@@ -11,6 +11,40 @@
    (cached-base-rate $kb
       (MemberInheritanceSample $obj $subj $concept $atv $btv)))
 
+;; Open Inheritance queries compile the same fold vocabulary, but variable
+;; classes cannot provide selective forward indexes and must register nothing.
+!(query 0 forwardOpenMemberFoldKb
+   (: $proof (Inheritance $open-subj $open-concept) $tv))
+
+!(test
+   (collapse
+      (match &forward_member_inheritance_identity
+         ((fwd_member forwardOpenMemberFoldKb $_subj $_concept) $_id)
+         true))
+   ())
+
+!(test
+   (collapse
+      (match &forward_member_inheritance_interest
+         ((fwd_member forwardOpenMemberFoldKb $_class)
+            $_id $_kb $_subj $_concept $_pattern)
+         true))
+   ())
+
+!(test
+   (collapse
+      (match &forward_member_inheritance_observation
+         ($_key $_subject $_concept $_weight $_mass)
+         true))
+   ())
+
+!(test
+   (collapse
+      (match &base_rate_cache
+         (base-rate forwardOpenMemberFoldKb $_pattern $_tv $_source $_mode)
+         true))
+   ())
+
 !(set-universe-size forwardMemberFoldKb 2.0)
 !(compileadd forwardMemberFoldKb
    (: aHuman (Member a Human) (STV 1.0 1.0)))

@@ -193,7 +193,8 @@
              (member-inheritance $kbid)
              result-tv)
           $_result)
-         (let*
+         (if (or (is-var $subj) (is-var $concept)) ()
+            (let*
             (($pattern
                 (MemberInheritanceSample $obj $subj $concept $atv $btv))
              ($key (fwd_member $kbid $subj $concept))
@@ -223,7 +224,7 @@
                       (add-atom &forward_member_inheritance_state
                          ($id 0.0 0.0))))
                   ())
-               ())))
+               ()))))
       ($_other ()))))
 
 (= (register-forward-member-inheritance-premises! $premises)
