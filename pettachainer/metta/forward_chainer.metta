@@ -177,6 +177,58 @@
 (= (register-forward-base-rate-premises! $premises)
    (foreach-flat forward-register-base-rate-premise! $premises))
 
+;; compile-inheritance-query emits this one two-sided fold shape.  Register it
+;; separately from ordinary base rates: its contribution is keyed by the
+;; shared Member object and must be recomputed from both canonical outputs.
+(= (forward-register-member-inheritance-premise! $premise)
+   (case $premise (
+      ((CPU FoldAllCompiled
+          ($kbid
+             (MemberInheritanceSample $obj $subj $concept $atv $btv)
+             (extract-value
+                (MemberInheritanceSample $obj $subj $concept $atv $btv)
+                (WeightedTv $atv $btv))
+             (BaseRateEvidence 0.0 0.0)
+             WeightedBaseRateAcc
+             (member-inheritance $kbid)
+             result-tv)
+          $_result)
+         (let*
+            (($pattern
+                (MemberInheritanceSample $obj $subj $concept $atv $btv))
+             ($key (fwd_member $kbid $subj $concept))
+             ($hits
+                (collapse
+                   (once
+                      (match &forward_member_inheritance_identity
+                         ($key $stored-id) $stored-id)))))
+            (if (== $hits ())
+               (let*
+                  (($id (next-search-id fwd_member_inheritance_id))
+                   (($stored-pattern $stored-subj $stored-concept)
+                      (copy_term ($pattern $subj $concept)))
+                   ($_identity
+                      (add-atom &forward_member_inheritance_identity
+                         ($key $id)))
+                   ($_subject
+                      (add-atom &forward_member_inheritance_interest
+                         ((fwd_member $kbid $stored-subj) $id $kbid
+                            $stored-subj $stored-concept $stored-pattern)))
+                   ($_concept
+                      (if (== $stored-subj $stored-concept) ()
+                         (add-atom &forward_member_inheritance_interest
+                            ((fwd_member $kbid $stored-concept) $id $kbid
+                               $stored-subj $stored-concept $stored-pattern))))
+                   ($_state
+                      (add-atom &forward_member_inheritance_state
+                         ($id 0.0 0.0))))
+                  ())
+               ())))
+      ($_other ()))))
+
+(= (register-forward-member-inheritance-premises! $premises)
+   (foreach-flat forward-register-member-inheritance-premise! $premises))
+
 (= (forward-positive-base-rate-contribution $tv)
    (case $tv (
       ((STV $s $c) (BaseRateEvidence (* $s $c) $c))
@@ -276,6 +328,171 @@
           (if (== $trigger $wildcard) ()
              (collapse (forward-update-base-rates-for-key $fact $wildcard)))))
       ()))
+
+(= (forward-member-canonical $kbid $obj $class)
+   (let $rows
+      (collapse
+         (once
+            (forward-output-row-for-fact
+               ((Member $obj $class) ($kbid MAIN Nil) $_prf $_tv))))
+      (if (== $rows ()) () (car-atom $rows))))
+
+(= (forward-store-member-inheritance-state!
+      $id $old-wsum $old-msum $wsum $msum)
+   (progn
+      (remove-atom &forward_member_inheritance_state
+         ($id $old-wsum $old-msum))
+      (add-atom &forward_member_inheritance_state ($id $wsum $msum))))
+
+(= (forward-update-member-inheritance-interest
+      $obj $id $kbid $subj $concept $pattern)
+   (let*
+      (($observation-key ($id $obj))
+       ($old-observations
+          (collapse
+             (match &forward_member_inheritance_observation
+                ($observation-key $old-subject $old-concept
+                   $old-weight $old-mass)
+                ($observation-key $old-subject $old-concept
+                   $old-weight $old-mass))))
+       (($old-weight $old-mass)
+          (if (== $old-observations ()) (0.0 0.0)
+             (let ($_key $_asubj $_aconcept $weight $mass)
+                (car-atom $old-observations) ($weight $mass))))
+       ($subject (forward-member-canonical $kbid $obj $subj))
+       ($consequent (forward-member-canonical $kbid $obj $concept))
+       (($weight $mass)
+          (if (or (== $subject ()) (== $consequent ())) (0.0 0.0)
+             (let*
+                ((($subject-fact $_subject-ev) $subject)
+                 (($consequent-fact $_consequent-ev) $consequent)
+                 (($_stype $_skb $_sprf $atv) $subject-fact)
+                 (($_ctype $_ckb $_cprf $btv) $consequent-fact)
+                 ((BaseRateEvidence $joined-weight $joined-mass)
+                    (WeightedBaseRateAcc
+                       (BaseRateEvidence 0.0 0.0)
+                       (WeightedTv $atv $btv))))
+                ($joined-weight $joined-mass))))
+       (($old-wsum $old-msum)
+          (match &forward_member_inheritance_state
+             ($id $stored-wsum $stored-msum)
+             ($stored-wsum $stored-msum)))
+       ($wsum (+ (- $old-wsum $old-weight) $weight))
+       ($msum (+ (- $old-msum $old-mass) $mass))
+       ($_state
+          (forward-store-member-inheritance-state!
+             $id $old-wsum $old-msum $wsum $msum))
+       ($_old
+          (foreach-flat
+             (|-> ($row)
+                (remove-atom &forward_member_inheritance_observation $row))
+             $old-observations))
+       ($_observation
+          (if (or (== $subject ()) (== $consequent ())) ()
+             (add-atom &forward_member_inheritance_observation
+                ($observation-key $subject $consequent $weight $mass))))
+       ($_cache
+          (if (<= $msum 0.0)
+             (base-rate-cache-remove-derived!
+                $kbid $pattern (member-inheritance $kbid))
+             (store-forward-base-rate! $kbid $pattern
+                (aggregate-finish
+                   (member-inheritance $kbid)
+                   (BaseRateEvidence $wsum $msum))
+                (member-inheritance $kbid)))))
+      ()))
+
+(= (forward-update-member-inheritances-for-key $kbid $obj $class)
+   (let $_
+      (collapse
+         (match &forward_member_inheritance_interest
+            ((fwd_member $kbid $class) $id $kbid
+               $subj $concept $pattern)
+            (forward-update-member-inheritance-interest
+               $obj $id $kbid $subj $concept (copy_term $pattern))))
+      ()))
+
+(= (forward-remove-member-inheritance-observation!
+      $obj $id $kbid $subj $concept $pattern)
+   (let*
+      (($observation-key ($id $obj))
+       ($old-observations
+          (collapse
+             (match &forward_member_inheritance_observation
+                ($observation-key $old-subject $old-concept
+                   $old-weight $old-mass)
+                ($observation-key $old-subject $old-concept
+                   $old-weight $old-mass)))))
+      (if (== $old-observations ())
+         ;; Removal invalidation may run after the canonical-change hook has
+         ;; already subtracted this row. Republish the surviving indexed state
+         ;; without touching ordinary base-rate cache behavior.
+         (let ($wsum $msum)
+            (match &forward_member_inheritance_state ($id $wsum $msum)
+               (if (<= $msum 0.0) ()
+                  (store-forward-base-rate! $kbid $pattern
+                     (aggregate-finish
+                        (member-inheritance $kbid)
+                        (BaseRateEvidence $wsum $msum))
+                     (member-inheritance $kbid)))))
+         (let*
+            ((($_key $_subject $_concept $old-weight $old-mass)
+                (car-atom $old-observations))
+             (($old-wsum $old-msum)
+                (match &forward_member_inheritance_state
+                   ($id $stored-wsum $stored-msum)
+                   ($stored-wsum $stored-msum)))
+             ($wsum (- $old-wsum $old-weight))
+             ($msum (- $old-msum $old-mass))
+             ($_state
+                (forward-store-member-inheritance-state!
+                   $id $old-wsum $old-msum $wsum $msum))
+             ($_old
+                (foreach-flat
+                   (|-> ($row)
+                      (remove-atom &forward_member_inheritance_observation $row))
+                   $old-observations))
+             ($_cache
+                (if (<= $msum 0.0)
+                   (base-rate-cache-remove-derived!
+                      $kbid $pattern (member-inheritance $kbid))
+                   (store-forward-base-rate! $kbid $pattern
+                      (aggregate-finish
+                         (member-inheritance $kbid)
+                         (BaseRateEvidence $wsum $msum))
+                      (member-inheritance $kbid))))
+             ;; If another proof still supports the removed side, add its
+             ;; refreshed canonical join after subtracting the stale one.
+             ($_replacement
+                (if (or
+                       (== (forward-member-canonical $kbid $obj $subj) ())
+                       (== (forward-member-canonical $kbid $obj $concept) ()))
+                   ()
+                   (forward-update-member-inheritance-interest
+                      $obj $id $kbid $subj $concept (copy_term $pattern)))))
+            ()))))
+
+(= (forward-remove-member-inheritances-for-key $kbid $obj $class)
+   (let $_
+      (collapse
+         (match &forward_member_inheritance_interest
+            ((fwd_member $kbid $class) $id $kbid
+               $subj $concept $pattern)
+            (forward-remove-member-inheritance-observation!
+               $obj $id $kbid $subj $concept (copy_term $pattern))))
+      ()))
+
+(= (forward-remove-member-inheritances $fact)
+   (case $fact (
+      (((Member $obj $class) ($kbid MAIN Nil) $_prf $_tv)
+         (forward-remove-member-inheritances-for-key $kbid $obj $class))
+      ($_other ()))))
+
+(= (forward-update-member-inheritances $fact)
+   (case $fact (
+      (((Member $obj $class) ($kbid MAIN Nil) $_prf $_tv)
+         (forward-update-member-inheritances-for-key $kbid $obj $class))
+      ($_other ()))))
 
 (= (forward-invalidate-base-rates-for-key! $fact $trigger)
    (match &forward_base_rate_interest
@@ -386,7 +603,10 @@
 
 (= (agenda-push-forward-change $agenda no-forward-change) $agenda)
 (= (agenda-push-forward-change $agenda (forward-output-change $old ()))
-   (let $_remove (forward-remove-base-rate-observations! $old) $agenda))
+   (let*
+      (($_remove-base-rate (forward-remove-base-rate-observations! $old))
+       ($_remove-member (forward-remove-member-inheritances $old)))
+      $agenda))
 (= (agenda-push-forward-change $agenda (forward-output-change $old $fact))
    (let*
       (($_invalidate-old
@@ -397,7 +617,9 @@
 ;; Apply cache bookkeeping for canonical changes made outside a forward run.
 (= (forward-apply-unqueued-change! no-forward-change) ())
 (= (forward-apply-unqueued-change! (forward-output-change $old ()))
-   (forward-remove-base-rate-observations! $old))
+   (progn
+      (forward-remove-base-rate-observations! $old)
+      (forward-remove-member-inheritances $old)))
 (= (forward-apply-unqueued-change! (forward-output-change $old $fact))
    (progn
       (if (== $old ()) () (forward-invalidate-base-rates! $old))
@@ -595,6 +817,7 @@
 (= (forward-step-fact $steps $kb $run $fact)
    (let*
       (($_base-rates (forward-update-base-rates $fact))
+        ($_member-inheritances (forward-update-member-inheritances $fact))
         ($derived (forward-rule-results $steps $kb $fact))
         ($nrun (fold-flat forward-run-apply-derived $run $derived)))
       $nrun))

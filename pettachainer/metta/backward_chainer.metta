@@ -377,6 +377,7 @@
       (weighted-base-rate-with-prior true)
       ((weighted-base-rate-in-universe $_kbid) true)
       ((weighted-base-rate-with-prior-in-universe $_kbid) true)
+      ((member-inheritance $_kbid) true)
       ($_other false))))
 
 (= (base-rate-aggregate-key $args)

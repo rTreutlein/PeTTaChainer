@@ -262,7 +262,9 @@
            ($_base-rates
               (if (== $backend live)
                  (register-forward-base-rate-premises! $args)
-                 ())))
+                 ()))
+           ($_member-inheritance
+              (register-forward-member-inheritance-premises! $args)))
          ())
       (progn
          (if (== $backend live)
@@ -329,7 +331,13 @@
                    (forward-apply-unqueued-change! $change))
                 ($_base-rates
                    (invalidate-computed-base-rates!
-                      (kb-expr-kbid ($type $kb $name $tv)))))
+                      (kb-expr-kbid ($type $kb $name $tv))))
+                ($_member-inheritance
+                   (if (= ($type $kb $name $tv)
+                          ((Member $obj $class) ($kbid MAIN Nil) $_prf $_tv))
+                      (forward-remove-member-inheritances-for-key
+                         $kbid $obj $class)
+                      ())))
                ())))
       ()))
 

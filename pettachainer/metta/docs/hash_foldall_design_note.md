@@ -191,6 +191,32 @@ invalidation. `tests/test_forward_incremental_base_rates.metta` covers
 incremental estimates, full-fold refinement, inheritance scaling, revised
 forward outputs, and forward/backward provenance deduplication.
 
+### Incremental member-inheritance fold
+
+The compiler-generated empirical `Inheritance` producer has one additionally
+supported incremental shape: `FoldAllCompiled` over `MemberInheritanceSample`,
+extracting `WeightedTv` from the two `Member` TVs, starting at
+`BaseRateEvidence 0 0`, accumulating with `WeightedBaseRateAcc`, and finishing
+with `(member-inheritance kb)`. Other `FoldAllCompiled` expressions are not
+registered by this path.
+
+Registration creates indexes for the concrete subject and concept classes.
+Forward processing of either affected canonical `Member` output looks up the
+other side for the same object, replaces that object's prior joined
+contribution, and adjusts additive weight/mass totals. Removal recomputes from
+any surviving canonical proof or subtracts the observation when one side has
+no support. Multiple proofs therefore contribute through the single canonical
+merged output rather than as duplicate samples. Work is proportional to the
+interests for the changed class/object, not the number of historical objects.
+
+The resulting cache row is `forward-approx`: it can answer immediately, but a
+normal backward fold remains live and authoritative, with its ordinary proof,
+evidence deduplication, and cycle checks. Only facts actually processed by a
+requested forward-chain budget update the cache; `compileadd` never runs the
+fold. Time windows and general incremental `FoldAllCompiled` support remain
+outside this mechanism. Focused coverage is in
+`tests/test_forward_incremental_member_inheritance.metta`.
+
 Removed along with the construct: `contains-hash?`, the hash-to-variable rewriting in `direct-goal-results-view`, the `wildcard_premise_index`/`wildcard_premise_context` stores and their lookup path, and the hash special cases in `open-rule-goal?`, `materializable-proof-output?`, and `leaf-evidence-for-result`.
 
 ## Evidence Semantics

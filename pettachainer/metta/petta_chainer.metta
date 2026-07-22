@@ -31,6 +31,8 @@
 (= (base-rate-cache-remove-derived! __chainer-interface__ $_ $_) (empty))
 (= (kb-universe-size __chainer-interface__) (empty))
 (= (store-forward-base-rate! __chainer-interface__ $_ $_ $_) (empty))
+(= (register-forward-member-inheritance-premises! __chainer-interface__) (empty))
+(= (forward-remove-member-inheritances-for-key __chainer-interface__ $_ $_) (empty))
 (= (resolve-base-rate-prior __chainer-interface__) (empty))
 (= (inheritance-subjects __chainer-interface__) (empty))
 (= (aggregate-finish __chainer-interface__ $_) (empty))
