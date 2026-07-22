@@ -28,15 +28,17 @@
 
 !(test
    (let (: $prf (AreaDist rectA $areaDist) $tv) (query 20 kb (: $prf (AreaDist rectA $areaDist) $tv))
-      (let (STV $s $c) (DistGreaterThanFormula $areaDist 50.0) (and (> $s 0.1) (< $s 0.9))))
+      (let (STV $s $c)
+         (DistGreaterThanFormula (the Distribution $areaDist) 50.0)
+         (and (> $s 0.1) (< $s 0.9))))
    true)
 
 !(test
    (let (: $prf (AreaDist rectB $areaDist) $tv) (query 20 kb (: $prf (AreaDist rectB $areaDist) $tv))
-      (let (STV $s $c) (DistGreaterThanFormula $areaDist 31.0) $s))
+      (let (STV $s $c) (DistGreaterThanFormula (the Distribution $areaDist) 31.0) $s))
    1.0)
 
 !(test
    (let (: $prf (AreaDist rectA $areaDist) $tv) (query 20 kb (: $prf (AreaDist rectA $areaDist) $tv))
-      (let (STV $s $c) (DistGreaterThanFormula $areaDist 10.0) (and (> $s 0.99) (> $c 0.0))))
+      (let (STV $s $c) (DistGreaterThanFormula (the Distribution $areaDist) 10.0) (and (> $s 0.99) (> $c 0.0))))
    true)

@@ -96,36 +96,36 @@
 
 !(test
    (let (: $prf (CntKidInParticle roomp1 $cnt) $tv) (query 40 kb (: $prf (CntKidInParticle roomp1 $cnt) $tv))
-      (let (STV $s $c) (DistGreaterThanFormula $cnt 1)
+      (let (STV $s $c) (DistGreaterThanFormula (the Distribution $cnt) 1)
          (and (and (> $s 0.2499) (< $s 0.2501)) (and (> $c 0.11764) (< $c 0.11765)))))
    true)
 
 !(test
    (let (: $prf (CntKidInParticle roomp2 $cnt) $tv) (query 40 kb (: $prf (CntKidInParticle roomp2 $cnt) $tv))
-      (let (STV $s $c) (DistGreaterThanFormula $cnt 1)
+      (let (STV $s $c) (DistGreaterThanFormula (the Distribution $cnt) 1)
          (and (and (> $s 0.0599) (< $s 0.0601)) (and (> $c 0.0977) (< $c 0.0978)))))
    true)
 
 !(test
    (let (: $prf (CntKidInParticle roomp1 $cnt) $tv) (query 40 kb (: $prf (CntKidInParticle roomp1 $cnt) $tv))
-      (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula $cnt 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
+      (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula (the Distribution $cnt) 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
 	         (and (and (> $s 0.2499) (< $s 0.2501)) (and (> $c 0.09) (< $c 0.13)))))
    true)
 
 !(test
    (let (: $prf (CntKidInParticle roomp2 $cnt) $tv) (query 40 kb (: $prf (CntKidInParticle roomp2 $cnt) $tv))
-      (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula $cnt 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
+      (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula (the Distribution $cnt) 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
          (and (> $s 0.0599) (< $s 0.0601))))
    true)
 
 !(test
    (let (: $prf (CntKidInParticle roomp1 $cnt) $tv) (query 40 kb (: $prf (CntKidInParticle roomp1 $cnt) $tv))
-      (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula $cnt 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0))) (> $c 0.0)))
+      (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula (the Distribution $cnt) 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0))) (> $c 0.0)))
    true)
 
 !(test
    (let (: $prf (CntKidInParticle roomp2 $cnt) $tv) (query 40 kb (: $prf (CntKidInParticle roomp2 $cnt) $tv))
-      (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula $cnt 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0))) (> $c 0.0)))
+      (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula (the Distribution $cnt) 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0))) (> $c 0.0)))
    true)
 
 !(test (progn (ParticleStoreClear) (ParticleStoreCount)) 0)

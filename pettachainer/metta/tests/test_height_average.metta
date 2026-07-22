@@ -24,20 +24,21 @@
 
 !(test
    (let (: $prf (AvgHeightDist g1 $avgDist) $tv) (query 20 kb (: $prf (AvgHeightDist g1 $avgDist) $tv))
-      (let (STV $s $c) (DistGreaterThanFormula $avgDist 170.0) $s))
+      (let (STV $s $c)
+         (DistGreaterThanFormula (the Distribution $avgDist) 170.0) $s))
    0.0)
 
 !(test
    (let (: $prf (AvgHeightDist g1 $avgDist) $tv) (query 20 kb (: $prf (AvgHeightDist g1 $avgDist) $tv))
-      (let (STV $s $c) (DistGreaterThanFormula $avgDist 169.0) $s))
+      (let (STV $s $c) (DistGreaterThanFormula (the Distribution $avgDist) 169.0) $s))
    1.0)
 
 !(test
    (let (: $prf (AvgHeightDist g2 $avgDist) $tv) (query 20 kb (: $prf (AvgHeightDist g2 $avgDist) $tv))
-      (let (STV $s $c) (DistGreaterThanFormula $avgDist 165.0) (and (> $s 0.1) (< $s 0.9))))
+      (let (STV $s $c) (DistGreaterThanFormula (the Distribution $avgDist) 165.0) (and (> $s 0.1) (< $s 0.9))))
    true)
 
 !(test
    (let (: $prf (AvgHeightDist g1 $avgDist) $tv) (query 20 kb (: $prf (AvgHeightDist g1 $avgDist) $tv))
-      (let (STV $s $c) (DistGreaterThanFormula $avgDist 169.0) (and (> $s 0.99) (> $c 0.0))))
+      (let (STV $s $c) (DistGreaterThanFormula (the Distribution $avgDist) 169.0) (and (> $s 0.99) (> $c 0.0))))
    true)

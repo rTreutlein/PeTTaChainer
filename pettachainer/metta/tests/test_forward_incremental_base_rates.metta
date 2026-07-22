@@ -2,12 +2,14 @@
 
 ;; These tests intentionally request the full-KB special case by selecting all
 ;; current canonical facts. The forward chainer itself has no global-KB mode.
+(: test-main-facts ($kb -[det]-> (List Expression)))
 (= (test-main-facts $kb)
    (collapse
       (match &kb
          ($type ($kb MAIN Nil) $prf $tv)
          ($type ($kb MAIN Nil) $prf $tv))))
 
+(: test-selected-facts ($kb $type -[det]-> (List Expression)))
 (= (test-selected-facts $kb $type)
    (collapse
       (once

@@ -6,7 +6,7 @@
 !(test (match &module_boundary_tmp (Stored $x) $x) acyclic)
 
 ;; Shared fold finalization is loaded before either chainer consumes it.
-!(test (aggregate-finish weighted-base-rate (BaseRateEvidence 1.0 1.0))
+!(test (finish-aggregate weighted-base-rate (BaseRateEvidence 1.0 1.0))
    (STV 1.0 1.0))
 
 ;; Query orchestration remains public at the unchanged canonical import path.

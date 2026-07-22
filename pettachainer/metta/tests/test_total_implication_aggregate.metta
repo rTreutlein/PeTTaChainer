@@ -1,9 +1,27 @@
 !(import! &self ../petta_chainer)
 
+(: TotalEvidenceSentinel Type)
+(: none TotalEvidenceSentinel)
+(: TotalEvidenceTvs Type)
+(: TotalEvidenceTvs
+   (-> (| TV TotalEvidenceSentinel) (| TV TotalEvidenceSentinel)
+       TotalEvidenceTvs))
+(: EvidenceCase Type)
+(: EvidenceCase (-> $evidence TV EvidenceCase))
+(: TotalEvidenceOr (-> (| TV TotalEvidenceSentinel) TV TV))
+(: TotalEvidenceTv (-> (| TV TotalEvidenceSentinel) TV))
+(: TotalEvidenceKnownTv (-> TV TV))
+(: TotalEvidenceAcc (-> TotalEvidenceTvs EvidenceCase TotalEvidenceTvs))
+(: TotalEvidenceCTVModusPonensFormula
+   (-> TV TotalEvidenceTvs TV))
+
 (= (TotalEvidenceOr $left $right)
-   (if (== $left none) $right (OrFormula $left $right)))
+   (if (== $left none) $right
+      (OrFormula (the TV $left) $right)))
+(= (TotalEvidenceKnownTv $tv) $tv)
 (= (TotalEvidenceTv $tv)
-   (if (== $tv none) (STV 0.0 0.0) $tv))
+   (if (== $tv none) (STV 0.0 0.0)
+      (TotalEvidenceKnownTv (the TV $tv))))
 (= (TotalEvidenceAcc (TotalEvidenceTvs $pos-tv $neg-tv) (EvidenceCase pos $tv))
    (TotalEvidenceTvs (TotalEvidenceOr $pos-tv $tv) $neg-tv))
 (= (TotalEvidenceAcc (TotalEvidenceTvs $pos-tv $neg-tv) (EvidenceCase neg $tv))

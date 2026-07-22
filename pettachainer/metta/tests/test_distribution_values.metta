@@ -42,7 +42,8 @@
 
 !(test
    (let (: $prf (CntKidIn room1 $cnt) $tv) (query 40 kb (: $prf (CntKidIn room1 $cnt) $tv))
-      (let (($k0 $v0) ($k1 $v1) ($k2 $v2)) (ParticlePairs $cnt)
+      (let (($k0 $v0) ($k1 $v1) ($k2 $v2))
+         (ParticlePairs (the Distribution $cnt))
          (and (== $k0 0)
             (and (== $k1 1)
                (and (== $k2 2)
@@ -52,7 +53,8 @@
 
 !(test
    (let (: $prf (CntKidIn room2 $cnt) $tv) (query 40 kb (: $prf (CntKidIn room2 $cnt) $tv))
-      (let (($k0 $v0) ($k1 $v1) ($k2 $v2)) (ParticlePairs $cnt)
+      (let (($k0 $v0) ($k1 $v1) ($k2 $v2))
+         (ParticlePairs (the Distribution $cnt))
          (and (== $k0 0)
             (and (== $k1 1)
                (and (== $k2 2)
@@ -62,12 +64,15 @@
 
 !(test
    (let (: $prf (CntKidIn room1 $cnt) $tv) (query 40 kb (: $prf (CntKidIn room1 $cnt) $tv))
-      (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula $cnt 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
+      (let (STV $s $c)
+         (CTVModusPonensFormula
+            (DistGreaterThanFormula (the Distribution $cnt) 1)
+            (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
 	         (and (and (> $s 0.2499) (< $s 0.2501)) (and (> $c 0.09) (< $c 0.13)))))
    true)
 
 !(test
    (let (: $prf (CntKidIn room2 $cnt) $tv) (query 40 kb (: $prf (CntKidIn room2 $cnt) $tv))
-      (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula $cnt 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
+      (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula (the Distribution $cnt) 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
 	         (and (and (> $s 0.0599) (< $s 0.0601)) (and (> $c 0.09) (< $c 0.13)))))
    true)

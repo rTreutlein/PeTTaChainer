@@ -32,7 +32,8 @@
 
 !(compileadd kb (: prf10 (Cardinality (DogsIn room2) 3) (STV 1.0 1.0)))
 
-(= (KeepAcc $acc $elem) $acc)
+(: KeepAcc ($acc $elem -[det]-> $acc))
+(= (KeepAcc $acc $_elem) $acc)
 
 !(compileadd kb
    (: foldRule

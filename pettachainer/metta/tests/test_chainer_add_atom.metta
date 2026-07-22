@@ -1,4 +1,4 @@
-!(import! &self ../chainer_utils)
+!(import! &self ../petta_chainer)
 
 !(test
    (collapse

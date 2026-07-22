@@ -2,6 +2,7 @@
 
 ;; Forward chaining consumes canonical compiled facts. Tests that want to
 ;; select by surface type do that explicitly outside the chainer.
+(: test-selected-facts ($kb $type -[det]-> (List Expression)))
 (= (test-selected-facts $kb $type)
    (collapse
       (once

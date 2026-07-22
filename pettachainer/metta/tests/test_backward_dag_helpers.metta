@@ -171,6 +171,7 @@
       (heap_size $kept))
    1)
 
+(: clear-backward-state (-> (List Atom)))
 (= (clear-backward-state)
    (progn
       (foreach-flat remove-all-atoms (() &goal &goal_lookup &goal_waiter &aggregate &proof &proof_parent &proof_invalidated_epoch &proof_live_cache &goal_live_cache &proof_static_live &proof_superseded))

@@ -3,9 +3,47 @@
 ;; exact variance of sB = bs_a*as + bs_na*(1-as) through modus ponens, then
 ;; convert back to a confidence. Strengths are clipped off 0/1 so the Beta
 ;; variance and the back-conversion stay finite.
+(: BaseRateEvidenceState Type)
+(: BaseRateEvidence (-> Number Number BaseRateEvidenceState))
+
+(: WeightedTV Type)
+(: WeightedTv (-> TV TV WeightedTV))
+(: no-evidence WeightedTV)
+
+(: BaseRateEvidenceWithPriorState Type)
+(: BaseRateEvidenceWithPrior (-> $prior BaseRateEvidenceState BaseRateEvidenceWithPriorState))
+
+(: ideal-clip (Number -[det]-> Number))
 (= (ideal-clip $s) (max 0.000001 (min 0.999999 $s)))
+
+(: confidence-to-count (-> Number Number))
+(= (confidence-to-count $conf) (/ (* $conf 800) (- 1 (min-atom ($conf 0.9999)))))
+
+(: evidence-confidence-k (-> Number))
+(= (evidence-confidence-k) 800.0)
+
+(: count-confidence (Number -[det]-> Number))
+(= (count-confidence $n) (/ $n (+ $n (evidence-confidence-k))))
+
+(: ideal-var (Number Number -[det]-> Number))
 (= (ideal-var $s $c)
    (let $cs (ideal-clip $s) (/ (* $cs (- 1.0 $cs)) (+ (confidence-to-count $c) 1.0))))
+
+;; Convert a strength and its propagated variance back to confidence. Clamp the
+;; variance to the maximum possible Bernoulli variance so the implied count is
+;; non-negative and the resulting confidence remains in [0, 1).
+(: ideal-conf-from-var (Number Number -[det]-> Number))
+(= (ideal-conf-from-var $s $Var)
+   (if (<= $Var 0.0)
+      0.9999
+      (let*
+         (($cs (ideal-clip $s))
+          ($maxvar (* $cs (- 1.0 $cs)))
+          ($v (min $Var $maxvar))
+          ($nB (- (/ $maxvar $v) 1.0)))
+         (max 0.000001 (/ $nB (+ $nB 800.0))))))
+
+(: ideal-mp-confidence (Number Number Number Number Number Number -[det]-> Number))
 (= (ideal-mp-confidence $as $ac $bs_a $bc_a $bs_na $bc_na)
    (let*
       (($Va (ideal-var $bs_a $bc_a))
@@ -20,6 +58,7 @@
        )
       (ideal-conf-from-var $sB $VarsB)))
 
+(: CTVModusPonensFormula (TV TV -[det]-> TV))
 (= (CTVModusPonensFormula (CTV $pos $_neg) $ctv) (CTVModusPonensFormula $pos $ctv))
 
 (= (CTVModusPonensFormula (STV $as $ac) (CTV (STV $bs_a $bc_a) (STV $bs_na $bc_na)))
@@ -27,11 +66,13 @@
       (+ (* $bs_a $as) (* $bs_na (- 1 $as)))
       (ideal-mp-confidence $as $ac $bs_a $bc_a $bs_na $bc_na)))
 
+(: CTVFormula (TV TV -[det]-> TV))
 (= (CTVFormula $tv $ctv) (CTVModusPonensFormula $tv $ctv))
 
 ;; Idealized confidence for product-form combinations. For And, sB = s1*s2 with
 ;; exact Var = V1*V2 + V1*s2^2 + s1^2*V2; for Or, sB = 1-(1-s1)(1-s2), the same
 ;; product variance on the complements. Then convert variance back to a count.
+(: ideal-prod-confidence (Number Number Number Number Number -[det]-> Number))
 (= (ideal-prod-confidence $s1 $V1 $s2 $V2 $sB)
    (let*
       (($VarsB (+ (* $V1 $V2) (+ (* $V1 (* $s2 $s2)) (* (* $s1 $s1) $V2))))
@@ -41,12 +82,14 @@
 ;; No evidence about an input means no evidence about the combination: at zero
 ;; confidence the propagated variance of a clipped extreme strength is tiny, so
 ;; ideal-prod-confidence would otherwise turn a zero count into near-certainty.
+(: AndFormula (TV TV -[det]-> TV))
 (= (AndFormula (STV $si $ci) (STV $sa $ca))
    (STV (* $si $sa)
       (if (or (<= $ci 0.0) (<= $ca 0.0))
          0.0
          (ideal-prod-confidence $si (ideal-var $si $ci) $sa (ideal-var $sa $ca) (* $si $sa)))))
 
+(: OrFormula (TV TV -[det]-> TV))
 (= (OrFormula (STV $si $ci) (STV $sa $ca))
    (STV (- (+ $si $sa) (* $si $sa))
       (if (or (<= $ci 0.0) (<= $ca 0.0))
@@ -57,26 +100,32 @@
 ;; "A is likelier than B" as P(A and not B) under independence: s_a * (1 - s_b).
 ;; Multilinear (linear in each argument), consistent with And (s1*s2) and
 ;; Or (s1+s2-s1*s2), and free of the max(0, s_a - s_b) clamp's kink.
+(: LikelierThanFormula (TV TV -[det]-> TV))
 (= (LikelierThanFormula (STV $sa $ca) (STV $sb $cb)) (STV (* $sa (- 1.0 $sb)) (min $ca $cb)))
 
+(: AndProjection (TV TV -[det]-> TV))
 (= (AndProjection (STV $sab $cab) (STV $sa $ca))
    (if (== $sa 0.0)
       (STV 0.0 0.0)
       (STV (min 1.0 (/ $sab $sa)) (min $cab $ca))))
 
+(: AndMarginalProjection (TV -[det]-> TV))
 (= (AndMarginalProjection (STV $sab $cab))
    (STV $sab
       (count-confidence (* $sab (confidence-to-count $cab)))))
 
+(: OrProjection (TV TV -[det]-> TV))
 (= (OrProjection (STV $sab $cab) (STV $sa $ca))
    (if (== $sa 1.0)
       (STV 0.0 0.0)
       (STV (min 1.0 (max 0.0 (/ (- $sab $sa) (- 1.0 $sa)))) (min $cab $ca))))
 
+(: DistGreaterThanFormula (Distribution Number -[det]-> TV))
 (= (DistGreaterThanFormula (ParticleDist $pid $scale) $threshold)
    (let $pairs (particle-fetch-pairs $pid)
       (STV (* $scale (dist-prob-gt $pairs $threshold)) (particle-confidence-from-pairs $pairs))))
 
+(: DistGreaterThanDistFormula (Distribution Distribution -[det]-> TV))
 (= (DistGreaterThanDistFormula $pda $pdb)
    (let*
       (($pida (particle-dist-id $pda))
@@ -89,98 +138,117 @@
         ($cb (particle-confidence-from-pairs $pairsb)))
       (STV (* (* $scalea $scaleb) (dist-prob-gt2 $pairsa $pairsb)) (min $ca $cb))))
 
+(: NotFormula (TV -[det]-> TV))
 (= (NotFormula (STV $s $c)) (STV (- 1 $s) $c))
 
+(: InversionSmallestIntersectionProbability (Number Number -[det]-> Number))
 (= (InversionSmallestIntersectionProbability $sa $sb)
    (max 0.0 (/ (- (+ $sa $sb) 1.0) $sa)))
 
+(: InversionLargestIntersectionProbability (Number Number -[det]-> Number))
 (= (InversionLargestIntersectionProbability $sa $sb)
    (min 1.0 (/ $sb $sa)))
 
+(: InversionConsistency (TV TV TV -[det]-> Bool))
 (= (InversionConsistency (STV $sa $_ca) (STV $sb $_cb) (STV $sab $_cab))
    (if (<= $sa 0.0) false
       (if (<= $sb 0.0) false
          (and (<= (InversionSmallestIntersectionProbability $sa $sb) $sab)
             (<= $sab (InversionLargestIntersectionProbability $sa $sb))))))
 
+(: BaseRateAcc (BaseRateEvidenceState TV -[det]-> BaseRateEvidenceState))
 (= (BaseRateAcc (BaseRateEvidence $wsum $csum) (STV $s $c))
    (BaseRateEvidence (+ $wsum (* $s $c)) (+ $csum $c)))
 (= (BaseRateAcc (BaseRateEvidence $wsum $csum) (CTV $pos $_neg))
    (BaseRateAcc (BaseRateEvidence $wsum $csum) $pos))
 
-(= (evidence-confidence-k) 800.0)
-
-(= (count-confidence $n) (/ $n (+ $n (evidence-confidence-k))))
-
+(: BaseRateTv (BaseRateEvidenceState -[det]-> TV))
 (= (BaseRateTv (BaseRateEvidence $wsum $csum))
    (if (<= $csum 0.0) no-evidence
       (STV (/ $wsum $csum) (count-confidence $csum))))
 
+(: WeightedBaseRateAcc (BaseRateEvidenceState WeightedTV -[det]-> BaseRateEvidenceState))
 (= (WeightedBaseRateAcc (BaseRateEvidence $wsum $msum) (WeightedTv (STV $m $mc) (STV $s $c)))
    (let $mass (* (* $m $mc) $c)
       (BaseRateEvidence (+ $wsum (* $s $mass)) (+ $msum $mass))))
-(= (WeightedBaseRateAcc (BaseRateEvidence $wsum $msum) (WeightedTv $mass-tv (CTV $pos $_neg)))
-   (WeightedBaseRateAcc (BaseRateEvidence $wsum $msum) (WeightedTv $mass-tv $pos)))
+(= (WeightedBaseRateAcc $acc (WeightedTv $mass-tv (CTV $pos $_neg)))
+   (WeightedBaseRateAcc $acc (WeightedTv $mass-tv $pos)))
 (= (WeightedBaseRateAcc $acc no-evidence) $acc)
+(: WeightedBaseRateTv (BaseRateEvidenceState -[det]-> TV))
 (= (WeightedBaseRateTv (BaseRateEvidence $wsum $msum))
    (if (<= $msum 0.0) no-evidence
       (STV (/ $wsum $msum) (min 1.0 $msum))))
+(: WeightedCountBaseRateTv (BaseRateEvidenceState -[det]-> TV))
 (= (WeightedCountBaseRateTv (BaseRateEvidence $wsum $msum))
    (if (<= $msum 0.0) no-evidence
       (STV (/ $wsum $msum) (count-confidence $msum))))
+(: WeightedUniverseBaseRateTv (Number BaseRateEvidenceState -[det]-> TV))
 (= (WeightedUniverseBaseRateTv $universe-size (BaseRateEvidence $wsum $msum))
    (if (or (<= $msum 0.0) (<= $universe-size 0.0)) no-evidence
       (STV (/ $wsum $msum) (min 1.0 (/ $msum $universe-size)))))
 
+(: WeightedBaseRateWithPriorAcc (BaseRateEvidenceWithPriorState WeightedTV -[det]-> BaseRateEvidenceWithPriorState))
 (= (WeightedBaseRateWithPriorAcc (BaseRateEvidenceWithPrior $prior $ev) $tv)
    (BaseRateEvidenceWithPrior $prior (WeightedBaseRateAcc $ev $tv)))
 
+(: BaseRateWithPriorFormula (TV TV -[det]-> TV))
 (= (BaseRateWithPriorFormula $prior $evidence)
    (if (== $prior no-evidence) $evidence
       (if (== $evidence no-evidence) $prior (mergetvs $prior $evidence))))
 
-(= (WeightedBaseRateWithPriorTv (BaseRateEvidenceWithPrior $prior $ev))
-   (BaseRateWithPriorFormula (resolve-base-rate-prior $prior) (WeightedBaseRateTv $ev)))
-
+(: NegativeBranchStrength (Number Number Number -[det]-> Number))
 (= (NegativeBranchStrength $sa $sb $sb_a)
    (if (>= $sa 1.0) $sb
       (max 0.0 (min 1.0 (/ (- $sb (* $sa $sb_a)) (- 1.0 $sa))))))
 
+(: HeuristicNegativeBranchFormula (TV TV TV -[det]-> TV))
 (= (HeuristicNegativeBranchFormula (STV $sa $ca) (STV $sb $cb) (STV $sb_a $cb_a))
    (STV
       (NegativeBranchStrength $sa $sb $sb_a)
-      (* 0.25 (min-atom ($ca $cb $cb_a)))))
+      (* 0.25 (min $ca (min $cb $cb_a)))))
 
-(= (ImplicationCTVFormula $_atv $_btv (CTV $pos $neg)) (CTV $pos $neg))
-(= (ImplicationCTVFormula no-evidence $btv $itv)
-   (ImplicationCTVFormula (STV 0.0 0.0) $btv $itv))
-(= (ImplicationCTVFormula $atv no-evidence $itv)
-   (ImplicationCTVFormula $atv (STV 0.0 0.0) $itv))
-(= (ImplicationCTVFormula $atv $btv (STV $s $c))
-   (CTV
-      (STV $s $c)
-      (HeuristicNegativeBranchFormula $atv $btv (STV $s $c))))
+; TV is the nominal domain shared by STV, CTV, and no-evidence. The result is a
+; CTV for either concrete input variant.
+(: ImplicationCTVFormula (TV TV TV -[det]-> TV))
+(= (ImplicationCTVFormula $atv $btv $itv)
+   (case $itv
+      (((CTV $pos $neg) (CTV $pos $neg))
+       ((STV $s $c)
+          (let*
+             (($normalized-atv
+                 (if (== $atv no-evidence) (STV 0.0 0.0) $atv))
+              ($normalized-btv
+                 (if (== $btv no-evidence) (STV 0.0 0.0) $btv)))
+             (CTV
+                (STV $s $c)
+                (HeuristicNegativeBranchFormula
+                   $normalized-atv $normalized-btv (STV $s $c))))))))
 
 ; Uniform 1/N node prior for individuals, where N is the number of distinct
 ; subjects observed. The fold collects each matched subject; UniformPriorTv
 ; dedups them and returns 1/N at a confidence reflecting how many objects we
 ; have observed. Used for the base rate of an individual (a singleton concept),
 ; which cannot be folded extensionally because nothing inherits an individual.
+(: list-len ((List $a) -[det]-> Number))
 (= (list-len ()) 0)
 (= (list-len (cons $_ $rest)) (+ 1 (list-len $rest)))
 
+(: CollectSubject ((List $subject) $subject -[det]-> (List $subject)))
 (= (CollectSubject $acc $subj) (cons $subj $acc))
 
+(: UniformPriorTv ((List $subject) -[det]-> TV))
 (= (UniformPriorTv $subjects)
    (let $n (list-len (list_to_set $subjects))
       (if (<= $n 0) no-evidence
          (STV (/ 1.0 $n) (count-confidence $n)))))
 
+(: UniformPriorKnownTv ((List $subject) -[det]-> TV))
 (= (UniformPriorKnownTv $subjects)
    (let $n (list-len (list_to_set $subjects))
       (if (<= $n 0) no-evidence
          (STV (/ 1.0 $n) 1.0))))
 
+(: CTVInversionFormula (TV TV TV -[nondet]-> TV))
 (= (CTVInversionFormula no-evidence $_btv $_itv) (empty))
 (= (CTVInversionFormula (STV $_sa $_ca) no-evidence $_itv) (empty))
 ;; Idealized inversion confidence. The inverted strength is a Bayes ratio
@@ -189,19 +257,7 @@
 ;; through the ratio by the delta method (validated against Monte-Carlo) and
 ;; convert back to a count. (cb_na is unused: sb_na is redundant given sb_a, sa,
 ;; sb.)
-;; convert a strength + its variance to a confidence. The propagated variance is
-;; clamped to the max-entropy variance s(1-s) (a Beta cannot be more spread than
-;; that), so the count stays >= 0 and the confidence stays in [0,1).
-(= (ideal-conf-from-var $s $Var)
-   (if (<= $Var 0.0)
-      0.9999
-      (let*
-         (($cs (ideal-clip $s))
-          ($maxvar (* $cs (- 1.0 $cs)))
-          ($v (min $Var $maxvar))
-          ($nB (- (/ $maxvar $v) 1.0)))
-         (max 0.000001 (/ $nB (+ $nB 800.0))))))
-
+(: ideal-ratio-var (Number Number Number Number Number Number -[det]-> Number))
 (= (ideal-ratio-var $p $Vp $sa $Vsa $q $Vq)
    (let*
       (($d1 (/ $sa $q))
@@ -230,13 +286,14 @@
             (STV $s_pos (ideal-conf-from-var $s_pos (ideal-ratio-var $sb_a $Va $sa $Vsa $sb $Vsb)))
             (STV $s_neg (ideal-conf-from-var $s_neg (ideal-ratio-var (- 1.0 $sb_a) $Va $sa $Vsa (- 1.0 $sb) $Vsb))))))))
 
+(: Equal ($a $b -[det]-> Bool))
 (= (Equal $a $b) (== $a $b))
 
+(: NotEqual ($a $b -[det]-> Bool))
 (= (NotEqual $a $b) (not (== $a $b)))
-(= (confidence-to-count $conf) (/ (* $conf 800) (- 1 (min-atom ($conf 0.9999)))))
-
 ;; Merging two zero-confidence TVs has no evidence to weight the strengths by;
 ;; average them at confidence 0 instead of dividing by the zero total count.
+(: mergetvs (TV TV -[det]-> TV))
 (= (mergetvs (STV $m1 $conf1) (STV $m2 $conf2))
    (let*
       (($count1 (confidence-to-count $conf1))

@@ -6,10 +6,24 @@ pass=0
 fail=0
 fail_files=()
 
+run_petta() {
+  local args=("$@")
+
+  if [[ ${PETTA_STRICT:-0} == 1 ]]; then
+    args+=(--strict)
+  fi
+
+  if [[ -n ${PETTA_DIR:-} ]]; then
+    sh "$PETTA_DIR/run.sh" "${args[@]}"
+  else
+    uv run petta "${args[@]}"
+  fi
+}
+
 run_file() {
   local file=$1
 
-  if uv run petta "$file" >/tmp/petta-last.log 2>&1; then
+  if run_petta "$file" >/tmp/petta-last.log 2>&1; then
     pass=$((pass + 1))
     printf 'PASS %s\n' "$file"
   else
@@ -27,6 +41,10 @@ while IFS= read -r file || [ -n "$file" ]; do
   case "$file" in
     ''|'#'*) continue ;;
   esac
+  if [[ ${PETTA_STRICT:-0} == 1 && $file == *_libpln.metta ]]; then
+    printf 'SKIP %s (libPLN is outside strict scope)\n' "$file"
+    continue
+  fi
   run_file "$file"
 done < examples/supported.txt
 

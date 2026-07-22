@@ -1,5 +1,8 @@
 !(import! &self ../petta_chainer)
 
+(: member-test-fact
+   (-> $kb $object $class
+       (List ((Member $object $class) ($kb MAIN Nil) $proof TV))))
 (= (member-test-fact $kb $obj $class)
    (collapse
       (once
@@ -7,6 +10,8 @@
             ((Member $obj $class) ($kb MAIN Nil) $prf $tv)
             ((Member $obj $class) ($kb MAIN Nil) $prf $tv)))))
 
+(: member-fold-cache
+   ($kb $subject $concept -[nondet]-> (| TV (List $no-result))))
 (= (member-fold-cache $kb $subj $concept)
    (cached-base-rate $kb
       (MemberInheritanceSample $obj $subj $concept $atv $btv)))
