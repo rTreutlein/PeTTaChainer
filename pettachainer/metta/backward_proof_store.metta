@@ -169,8 +169,8 @@
    (match &proof ($pid $gid $_output $_kind $_score $_ev $_children)
       (case $gid
          (((merged-proof-group $source-gid)
-             (merged-proof-group $source-gid))
-          ($number (the Number $number))))))
+            (merged-proof-group $source-gid))
+          ($number $number)))))
 
 (: proof-children-by-id (-> Number (List Number)))
 (= (proof-children-by-id $pid)

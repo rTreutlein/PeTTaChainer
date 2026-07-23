@@ -40,8 +40,9 @@
 
 (: forward-premise-index-key (-> $premise ForwardTriggerKey))
 (= (forward-premise-index-key $prem)
-   (let $key (forward-indexable-premise-key $prem)
-      (if (== $key ()) fwd_trigger_any (the ForwardTriggerKey $key))))
+   (if (= $prem ($_type ($kbid $_ctx $_vars) $_prf $_tv))
+      (forward-type-trigger-key $kbid $_type)
+      fwd_trigger_any))
 
 (: forward-premise-wildcard-key (-> $premise ForwardTriggerKey))
 (= (forward-premise-wildcard-key $prem)
@@ -966,12 +967,12 @@
    (let*
       (($key (forward-premise-index-key $fact))
         ($wildcard-key (forward-premise-wildcard-key $fact))
-        ($direct (forward-rule-results-for-key $steps $kb $fact $key))
-        ($wildcard
-           (if (== $key $wildcard-key) (the (List ForwardDerived) ())
-              (forward-rule-results-for-key
-                 $steps $kb $fact $wildcard-key))))
-      (union-atom $direct $wildcard)))
+        ($direct (forward-rule-results-for-key $steps $kb $fact $key)))
+      (if (== $key $wildcard-key)
+         $direct
+         (union-atom $direct
+            (forward-rule-results-for-key
+               $steps $kb $fact $wildcard-key)))))
 
 (: forward-run-apply-derived
    (-> ForwardRun ForwardDerived ForwardRun))

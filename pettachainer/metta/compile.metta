@@ -1512,10 +1512,9 @@
          (Inheritance $subj $concept) $induction-tv))
       ($induction-rule (($known-pos-goal $known-neg-goal) |- ($induction-goal))))
       (((() |- ($goal))
-         (the (List Atom)
-            (union-atom $member-adds
-               (union-atom $all-adds
-                  (union-atom $lift-adds ($induction-rule)))))))))
+         (union-atom $member-adds
+            (union-atom $all-adds
+               (union-atom $lift-adds ($induction-rule))))))))
 
 ;; Compile a public query into one goal rule plus temporary additions.
 ;; Implication queries require positive and refuting assumption contexts;
@@ -1791,13 +1790,11 @@
 
 (: internalize-proof-structure-list
    (-> (List (| Atom Expression)) (List (| Atom Expression))))
-(= (internalize-proof-structure-list $terms)
-   (if (== $terms ()) ()
-      (cons
-         (internalize-proof-structure-any
-            (the (| Atom Expression) (car-atom $terms)))
-         (internalize-proof-structure-list
-            (the (List (| Atom Expression)) (cdr-atom $terms))))))
+(= (internalize-proof-structure-list ()) ())
+(= (internalize-proof-structure-list (cons $head $rest))
+   (cons
+      (internalize-proof-structure-any $head)
+      (internalize-proof-structure-list $rest)))
 
 ;; Reverse the runtime tuple layout for diagnostics and public results. Only a
 ;; shaped KB can be recognized safely; arbitrary four-element expressions must

@@ -393,16 +393,16 @@
 (: frontier-atom-part
    (-> Number ($type $kb $proof TV) FrontierPart))
 (= (frontier-atom-part $pid ($_type $_kb $_prf $tv))
-   (let $atom-tv (the TV $tv)
+   (let $atom-tv $tv
       (let $proj (frontier-proof-projection (proof-kind-by-id $pid))
          (if (= $proj (projection $idx $base))
             (let $entry (frontier-source-entry $base)
                (if (= $entry (source-entry $key (source-info $btv $n)))
                   (let ($_score $ev) (proof-stats-by-id $pid)
                      (pool-part $key
-                        (the TV $btv)
-                        (the Number $n)
-                        ((the Number $idx))
+                        $btv
+                        $n
+                        ($idx)
                         $ev
                         $atom-tv))
                   (indep-part $atom-tv)))
@@ -967,7 +967,7 @@
    (let*
       ((($child-gid $args $base-score $pending $stored-current-pids)
           (aggregate-by-id $agg-gid))
-       ($current-pids (the (List Number) $stored-current-pids))
+       ($current-pids $stored-current-pids)
        ($next-pids (cons $pid $current-pids)))
       (progn
          (remove-atom &aggregate ($agg-gid $child-gid $args $base-score $pending $current-pids))
@@ -1136,15 +1136,16 @@
    ((| Goal ($type ($kb $context $variables) $proof TV))
       Number -[nondet]-> RuleGoalMatch))
 (= (rule-goal-head-view $goal $parent-gid)
-   (let $key (forward-indexable-premise-key $goal)
-      (if (== $key ())
-         (empty)
-         (let $wildcard-key (forward-premise-wildcard-key $goal)
-            (superpose (
+   (if (= $goal ($_type ($kbid $_ctx $_vars) $_prf $_tv))
+      (let*
+         (($key (forward-type-trigger-key $kbid $_type))
+          ($wildcard-key (forward-premise-wildcard-key $goal)))
+         (superpose (
+            (rule-goal-head-view-for-key $goal $parent-gid $key)
+            (if (== $key $wildcard-key) (empty)
                (rule-goal-head-view-for-key
-                  $goal $parent-gid (the ForwardTriggerKey $key))
-               (if (== $key $wildcard-key) (empty)
-                  (rule-goal-head-view-for-key $goal $parent-gid $wildcard-key))))))))
+                  $goal $parent-gid $wildcard-key)))))
+      (empty)))
 
 (: rule-goal-contextual?
    (-> (| Goal ($type ($kb $context $variables) $proof TV)) Bool))
