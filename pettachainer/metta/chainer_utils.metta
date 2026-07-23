@@ -1,29 +1,3 @@
-(: NoCurrentScore Type)
-(: no-current NoCurrentScore)
-
-(: NoProjectionKey Type)
-(: no-projection-key NoProjectionKey)
-
-(: ProofRef Type)
-(: proof-ref (-> Number ProofRef))
-
-(: Evidence Type)
-(: fact-ev (-> $kb $proof $type Evidence))
-(: not-fact-ev (-> $kb $proof $type Evidence))
-(: rule-ev (-> $kb $rule Evidence))
-(: not-ev (-> $evidence Evidence))
-
-(: BaseRateSource Type)
-(: user BaseRateSource)
-(: computed BaseRateSource)
-(: forward-approx BaseRateSource)
-
-(: BaseRateEntry Type)
-(: base-rate (-> $kb $pattern TV BaseRateSource $mode BaseRateEntry))
-
-(: UniverseSizeEntry Type)
-(: universe-size (-> $kb Number UniverseSizeEntry))
-
 (: tv-confidence (-> $truth-value Number))
 (= (tv-confidence $tv)
    (if (is-var $tv) 1.0
@@ -674,34 +648,8 @@
       (collapse
          (match &inheritance_subject ($kbid $subj) $subj))))
 
-(: IdentityFinish Type)
-(: identity IdentityFinish)
-(: DistAverageFinish Type)
-(: dist-average DistAverageFinish)
-(: BaseRateFinish Type)
-(: base-rate BaseRateFinish)
-(: WeightedBaseRateFinish Type)
-(: weighted-base-rate WeightedBaseRateFinish)
-(: WeightedBaseRateWithPriorFinish Type)
-(: weighted-base-rate-with-prior WeightedBaseRateWithPriorFinish)
-(: MemberInheritanceFinish Type)
-(: member-inheritance (-> $kb MemberInheritanceFinish))
-(: WeightedBaseRateInUniverseFinish Type)
-(: weighted-base-rate-in-universe
-   (-> $kb WeightedBaseRateInUniverseFinish))
-(: WeightedBaseRateWithPriorInUniverseFinish Type)
-(: weighted-base-rate-with-prior-in-universe
-   (-> $kb WeightedBaseRateWithPriorInUniverseFinish))
-(: UniformPriorFinish Type)
-(: uniform-prior UniformPriorFinish)
-(: UniformPriorKnownFinish Type)
-(: uniform-prior-known UniformPriorKnownFinish)
-
 ;; Concept metadata and aggregate finalizers are shared by both forward and
 ;; backward execution, so they must be available before forward_chainer loads.
-(: ConceptPriorConfidence Type)
-(: concept-prior-confidence (-> $kb Number ConceptPriorConfidence))
-
 (: record-concept-node! (-> $kb $node (| Bool (List $none))))
 (= (record-concept-node! $kbid $node)
    (if (is-var $node) ()

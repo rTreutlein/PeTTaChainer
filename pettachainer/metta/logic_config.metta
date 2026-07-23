@@ -1,21 +1,49 @@
 !(bind! &logic_config (new-space))
 
+(: LogicName Type)
+(: PLN LogicName)
+
+(: CompoundPremiseMode Type)
+(: All CompoundPremiseMode)
+(: Any CompoundPremiseMode)
+
+(: CompoundOutputMode Type)
+(: ProjectAll CompoundOutputMode)
+(: NoProjection CompoundOutputMode)
+
+(: RuleForm Type)
+(: BidirectionalImplication RuleForm)
+
+(: LogicNameConfig Type)
+(: logic-name (-> LogicName LogicNameConfig))
+(: CompoundConnectiveConfig Type)
+(: compound-connective (-> $head CompoundConnectiveConfig))
+(: CompoundPremiseConfig Type)
+(: compound-premise-mode
+   (-> $head CompoundPremiseMode CompoundPremiseConfig))
+(: CompoundOutputConfig Type)
+(: compound-output-mode
+   (-> $head CompoundOutputMode CompoundOutputConfig))
+(: RuleFormConfig Type)
+(: rule-form (-> $head RuleForm RuleFormConfig))
+
 (: clear-logic-config (-> (List Bool)))
 (= (clear-logic-config)
    (remove-all-atoms &logic_config))
 
-(: set-logic-name (-> $logic Bool))
+(: set-logic-name (-> LogicName Bool))
 (= (set-logic-name $logic)
    (add-atom &logic_config (logic-name $logic)))
 
-(: set-compound-connective (-> $head $premise-mode $output-mode Bool))
+(: set-compound-connective
+   (-> $head CompoundPremiseMode CompoundOutputMode Bool))
 (= (set-compound-connective $head $premise-mode $output-mode)
    (let*
       (($_connective (add-atom &logic_config (compound-connective $head)))
         ($_premise-mode (add-atom &logic_config (compound-premise-mode $head $premise-mode))))
       (add-atom &logic_config (compound-output-mode $head $output-mode))))
 
-(: set-compound-mode (-> $head $mode Bool))
+(: set-compound-mode (-> $head CompoundPremiseMode Bool))
 (= (set-compound-mode $head $mode)
    (set-compound-connective $head $mode ProjectAll))
 
@@ -23,7 +51,7 @@
 (= (set-bidirectional-implication-form $head)
    (add-atom &logic_config (rule-form $head BidirectionalImplication)))
 
-(: current-logic (-> $logic))
+(: current-logic (-> LogicName))
 (= (current-logic)
    (let $matches (collapse (match &logic_config (logic-name $logic) $logic))
       (if (== $matches ()) PLN (car-atom $matches))))
@@ -33,12 +61,14 @@
    (let $matches (collapse (match &logic_config (compound-connective $head) true))
       (not (== $matches ()))))
 
-(: configured-compound-premise-mode (-> $head $premise-mode))
+(: configured-compound-premise-mode
+   (-> $head CompoundPremiseMode))
 (= (configured-compound-premise-mode $head)
    (let $matches (collapse (match &logic_config (compound-premise-mode $head $mode) $mode))
       (if (== $matches ()) All (car-atom $matches))))
 
-(: configured-compound-output-mode (-> $head $output-mode))
+(: configured-compound-output-mode
+   (-> $head CompoundOutputMode))
 (= (configured-compound-output-mode $head)
    (let $matches (collapse (match &logic_config (compound-output-mode $head $mode) $mode))
       (if (== $matches ()) NoProjection (car-atom $matches))))
@@ -76,5 +106,3 @@
 !(set-compound-connective Or All ProjectAll)
 !(set-compound-connective LikelierThan All NoProjection)
 !(set-bidirectional-implication-form BiImplication)
-(: UniverseSizeUnavailable Type)
-(: no-universe-size UniverseSizeUnavailable)

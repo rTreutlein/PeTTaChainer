@@ -1,5 +1,8 @@
 !(import! &self ../petta_chainer)
 
+(: CustomLogic LogicName)
+(: NoOrLogic LogicName)
+
 !(compileadd plnLogicKb (: a (A) (STV 1.0 1.0)))
 
 !(test

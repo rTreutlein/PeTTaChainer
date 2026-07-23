@@ -4,8 +4,6 @@
 (: qagg (-> Number Number QueueAggregate))
 (: SearchState Type)
 (: search-state (-> Number $heap SearchState))
-(: NilType Type)
-(: Nil NilType)
 (: ChainerRunResult Type)
 (: chainer-run-result
    (-> Number
@@ -300,8 +298,10 @@
 (: no-source-entry NoSourceEntry)
 (: FrontierProjection Type)
 (: projection (-> Number $proof-source FrontierProjection))
-(: NoProjection Type)
-(: no-projection NoProjection)
+;; Keep the absence sentinel distinct from the public logic-config
+;; `NoProjection` output mode.
+(: NoFrontierProjection Type)
+(: no-projection NoFrontierProjection)
 (: NoTerm Type)
 (: no-term NoTerm)
 (: NoPoolKey Type)
@@ -395,7 +395,7 @@
       ($_ no-term))))
 
 (: frontier-proof-projection
-   (-> ProofKind (| FrontierProjection NoProjection)))
+   (-> ProofKind (| FrontierProjection NoFrontierProjection)))
 (= (frontier-proof-projection $kind)
    (let $term (frontier-proof-term $kind)
       (case $term (

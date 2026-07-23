@@ -7,19 +7,11 @@
 ;; chainer. mm2compile/mm2compileQuery then translate that external compiler
 ;; representation to the tuple layout used by the MORK runtime.
 
-;; Executable goals are either CPU computations or fact goals. Giving the CPU
-;; constructor and runtime fact shape the same nominal result type lets
-;; signatures distinguish a goal from arbitrary MeTTa data without changing
-;; the wire representation.
-(: Goal Type)
-(: CPU (-> $formula $arguments $result Goal))
-(: : (-> $kb $proof $statement TV Goal))
+!(import! &self chainer_types)
 
-;; Annotated source statements and public query answers omit the internal
-;; KB/context field. They share one domain because they have the same `:` wire
-;; shape; whether a value is an input or an answer is determined by the API.
-(: AnnotatedStatement Type)
-(: : (-> $proof $statement TV AnnotatedStatement))
+(: AdapterMode Type)
+(: plain AdapterMode)
+(: query AdapterMode)
 
 (: ProjectionEvidenceState Type)
 (: projection-evidence-state
@@ -182,7 +174,8 @@
 ;; And additionally exposes a weak marginal projection so independently queried
 ;; conjuncts can later be pooled back to their common source.
 (: compile-output-children
-   ($kb $compound-type Atom Number (List $element) -[nondet]-> $addition))
+   ($kb $compound-type Atom Number (List $element)
+      -[nondet]-> $addition))
 (= (compile-output-children $kb $type $head $idx ()) (empty))
 (= (compile-output-children $kb $type $head $idx (cons $elem $rest))
    (superpose (
@@ -206,7 +199,7 @@
       (compile-outputs (: $kb $childprf $elem $childtv))
       (compile-output-children $kb $type $head (+ $idx 1) $rest))))
 
-(: compile-outputs ($statement -[nondet]-> $addition))
+(: compile-outputs (Goal -[nondet]-> $addition))
 (= (compile-outputs (: $kb $NNprf (@ $type (cons $head $tail)) $NNtv))
    (if (and (compound-source? $type) (= (configured-compound-output-mode $head) ProjectAll))
       (compile-output-children $kb $type $head 0 $tail)
@@ -215,7 +208,7 @@
 ;; CPU goals normally constrain values and therefore contribute unit evidence.
 ;; These formulas instead compute a TV which must participate in the enclosing
 ;; premise TV. Aggregates opt into that behavior through their explicit tv-mode.
-(: aggregate-args-tv-mode (-> $arguments $tv-mode))
+(: aggregate-args-tv-mode (-> $arguments AggregateTVMode))
 (= (aggregate-args-tv-mode $args)
    (once
       (case $args (
@@ -453,7 +446,8 @@
 ;; adapter derives the requested compound from its lowered children. Recursing
 ;; on a different executable type ensures any intermediate source syntax also
 ;; receives an adapter, without regenerating the identical rule.
-(: compile-adapter-chain ($mode $statement -[nondet]-> $addition))
+(: compile-adapter-chain
+   (AdapterMode Goal -[nondet]-> $addition))
 (= (compile-adapter-chain plain (: $kb $prf (@ $type (cons $head $tail)) $tv))
    (if (compound-source? $type)
       (let*
@@ -815,7 +809,7 @@
          (and (not (is-var $head)) (bidirectional-implication-form? $head)))
       false))
 
-(: compile-query-adds (-> $statement (List $addition)))
+(: compile-query-adds (-> Goal (List $addition)))
 (= (compile-query-adds (: $kb $prf $type $tv))
    (collapse (compile-adapter-chain query (: $kb $prf $type $tv))))
 
@@ -1090,7 +1084,8 @@
    (CTV (STV $s $c) (STV 0.0 1.0)))
 
 (: compile-inheritance-lift-instance
-   (-> $kb $lift-kb $ground-statement $source-statement $compiled-rule))
+   (-> $kb $lift-kb $ground-statement $source-statement
+       $compiled-rule))
 (= (compile-inheritance-lift-instance $kb $lift-kb
       (: $prf
          (Implication (cons Premises $ground-premises)
@@ -1144,7 +1139,8 @@
 ;; A grounded lift is one specialization job. The common specialization engine
 ;; below handles template indexing and late facts for both ordinary compiler
 ;; specialization and these Inheritance views.
-(: emit-specialization ($kb SpecializationJob -[nondet]-> $addition))
+(: emit-specialization
+   ($kb SpecializationJob -[nondet]-> $addition))
 (= (emit-specialization $kb
       (inheritance-lift-specialization $stmt $source-stmt))
    (let $stored
@@ -1161,7 +1157,8 @@
                    ($kb $stmt-copy $source-copy))))
             (empty)))))
 
-(: compile-inheritance-lifts-for-context ($kb $lift-kb -[nondet]-> $compiled-rule))
+(: compile-inheritance-lifts-for-context
+   ($kb $lift-kb -[nondet]-> $compiled-rule))
 (= (compile-inheritance-lifts-for-context $kb $lift-kb)
    (match &inheritance_lift_instance ($kb $ground-stmt $source-stmt)
       (let* (($ground-copy (copy_term $ground-stmt))
@@ -1172,7 +1169,8 @@
 ;; On rule addition, emit every instance already supported by stored facts and
 ;; retain the template for facts added later. No open lifted rule enters the KB.
 (: compile-inheritance-rule-lifts
-   ($kb $statement (List Expression) (List Expression) -[nondet]-> $addition))
+   ($kb $statement (List Expression) (List Expression)
+      -[nondet]-> $addition))
 (= (compile-inheritance-rule-lifts $kb $stmt $premises $conclusions)
    (if (= $conclusions ((Inheritance $subj $_concept)))
       (let $auxiliary (inheritance-lift-auxiliary-premises $premises $subj)
@@ -1303,7 +1301,8 @@
 ;; Rule-add: retain the job for later facts and also ground it against facts
 ;; already in the KB.
 (: specialize-rule-add
-   ($kb (List $trigger) SpecializationJob -[nondet]-> $addition))
+   ($kb (List $trigger) SpecializationJob
+      -[nondet]-> $addition))
 (= (specialize-rule-add $kb $triggers $job)
    (let $_register
       (register-specialization-templates! $kb $triggers $triggers $job)
@@ -1324,7 +1323,8 @@
        (ground-specialization-with-fact $kb $fact $rest
           (append $before ($trigger)) $job))))
 
-(: compile-specialization-fact-triggers ($kb $fact-type -[nondet]-> $addition))
+(: compile-specialization-fact-triggers
+   ($kb $fact-type -[nondet]-> $addition))
 (= (compile-specialization-fact-triggers $kb $type)
    (let $head (fact-head $type)
       (match &spec_template ($kb $head $stored-triggers $stored-job)
@@ -1419,8 +1419,13 @@
 	                       $kb $prf $na $b (the TV $tv))
 	                    (empty))
 	                 (if (or $skip-inverse (is-var $na)) (empty)
-	                    (compile-outputs (: ((inverted $prf $w $pa1 $pa2) $pb2) $na $natv)))
-	                 (if (or $skip-inverse (is-var $b)) (empty) (compile-adapter-chain plain (: $pb2 $b $btv2)))
+	                    (compile-outputs
+	                       (: (kbctx $kb)
+	                          ((inverted $prf $w $pa1 $pa2) $pb2)
+	                          $na $natv)))
+	                 (if (or $skip-inverse (is-var $b)) (empty)
+	                    (compile-adapter-chain plain
+	                       (: (kbctx $kb) $pb2 $b $btv2)))
 	                 (compile-inheritance-rule-lifts $kb (: $prf $Type $tv)
 	                    (the (List Expression) $premises)
 	                    (the (List Expression) $conclusions)))))))
@@ -1498,7 +1503,8 @@
          (union-atom $pos-adds $neg-adds))))
 
 (: compile-inheritance-query
-   (-> $kb $subject $concept (($compiled-rule (List $addition)))))
+   (-> $kb $subject $concept
+       (($compiled-rule (List $addition)))))
 (= (compile-inheritance-query $kb $subj $concept)
    (let*
       (;; Constrain the root proof so ordinary public Inheritance rules cannot
@@ -1574,8 +1580,9 @@
 ;; Ordinary queries remain a direct known goal with only the adapters their
 ;; source syntax requires.
 (: compileQuery
-   ($kb AnnotatedStatement -[nondet]-> (| (($compiled-rule (List $addition)))
-          ($compiled-rule (List $addition)))))
+   ($kb AnnotatedStatement -[nondet]->
+      (| (($compiled-rule (List $addition)))
+         ($compiled-rule (List $addition)))))
 (= (compileQuery $kb (: $prf $Type $tv))
    (if (is-var $Type) ((() |- ((: (kbctx $kb) $prf $Type $tv))) ())
       (if (= $Type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
@@ -1624,7 +1631,8 @@
 ;; Translate the external `premises |- conclusions` compiler form into the
 ;; single-conclusion `rules` form consumed by MORK. Facts are already
 ;; zero-premise conclusions and therefore need no wrapper.
-(: mm2compile ($kb AnnotatedStatement -[nondet]-> $compiled-addition))
+(: mm2compile
+   ($kb AnnotatedStatement -[nondet]-> $compiled-addition))
 (= (mm2compile $kb $stmt) (mm2stmt (compile_ $kb $stmt)))
 
 (: mm2stmt (-> $compiled-addition $runtime-addition))
@@ -1639,7 +1647,8 @@
 ;; Some query additions arrive wrapped in an extra singleton list after
 ;; collapse. Unwrap that shape explicitly before applying the normal MM2 rule
 ;; conversion; treating it as a fact would install the list itself as a goal.
-(: compiled-add-mm2stmt (-> $compiled-addition $runtime-addition))
+(: compiled-add-mm2stmt
+   (-> $compiled-addition $runtime-addition))
 (= (compiled-add-mm2stmt $add)
    (if (== (cdr-atom $add) ())
       (let*
@@ -1701,7 +1710,8 @@
 ;; fresh context, not merely stored as an inert contextual fact. Compile its
 ;; forward rule against the same shaped KB so it can consume sibling assumptions.
 (: query-context-assumed-implication-rules
-   (-> $kb $context $variables $proof $type TV (List $addition)))
+   (-> $kb $context $variables $proof $type TV
+       (List $addition)))
 (= (query-context-assumed-implication-rules $kbid $ctx $mvars $ctxprf $type $tv)
    (if (is-var $type) ()
       (if (= $type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
@@ -1719,15 +1729,19 @@
          ())))
 
 (: query-context-premise-assumption-adds
-   (-> $kb $context $variables $proof $type TV (List $addition)))
+   (-> $kb $context $variables $proof $type TV
+       (List $addition)))
 (= (query-context-premise-assumption-adds $kbid $ctx $mvars $ctxprf $type $tv)
    (append
       ((() |- ((: (quote ($kbid $ctx $mvars)) $ctxprf $type $tv))))
       (query-context-assumed-implication-rules $kbid $ctx $mvars $ctxprf $type $tv)))
 
 (: query-context-premise-adds-step
-   (-> $kb $context $variables (Number (List $addition)) (| (CPU $formula $arguments $result)
-          (: $kb $proof $type TV)) (Number (List $addition))))
+   (-> $kb $context $variables
+       (Number (List $addition))
+       (| (CPU $formula $arguments $result)
+          (: $kb $proof $type TV))
+       (Number (List $addition))))
 (= (query-context-premise-adds-step $kbid $ctx $mvars ($idx $adds) $premise)
    (let $ctxprf (if (== $idx 0) (ctx proof $ctx) (ctx proof $ctx $idx))
       (case $premise
@@ -1741,7 +1755,8 @@
 
 (: query-context-premise-adds
    (-> $kb $context $variables (List (| (CPU $formula $arguments $result)
-                (: $premise-kb $proof $type TV))) (List $addition)))
+                (: $premise-kb $proof $type TV)))
+       (List $addition)))
 (= (query-context-premise-adds $kbid $ctx $mvars $premises)
    (let*
       (($state (fold-flat (query-context-premise-adds-step $kbid $ctx $mvars) (0 ()) $premises)))
@@ -1752,7 +1767,8 @@
 ;; a fresh contextual witness when the compiler returned a rule whose premise
 ;; is the queried fact itself.
 (: mm2compileQuery-from-wrapped
-   (-> $kb AnnotatedStatement ($compiled-rule (List $addition)) CompiledQuery))
+   (-> $kb AnnotatedStatement
+       ($compiled-rule (List $addition)) CompiledQuery))
 (= (mm2compileQuery-from-wrapped $_kb $_stmt ((() |- ($ccl)) $adds))
    (compiled-query
       (internalize-proof-structure
@@ -1762,7 +1778,8 @@
             (compiled-adds-mm2stmts $adds)))))
 
 (: mm2compileQuery-from-direct
-   (-> $kb AnnotatedStatement $compiled-rule (List $addition) CompiledQuery))
+   (-> $kb AnnotatedStatement $compiled-rule
+       (List $addition) CompiledQuery))
 (= (mm2compileQuery-from-direct $kb $stmt $rule $adds)
    (case $rule
       (((( (: ($kbid $_ctx $_vars) $prf $type $tv)) |-
@@ -1790,8 +1807,10 @@
        ($other (notsupported mm2compileQuery $kb $stmt (quote ($other $adds)))))))
 
 (: mm2compileQuery-from-compiled
-   (-> $kb AnnotatedStatement (| (($compiled-rule (List $addition)))
-          ($compiled-rule (List $addition))) CompiledQuery))
+   (-> $kb AnnotatedStatement
+       (| (($compiled-rule (List $addition)))
+          ($compiled-rule (List $addition)))
+       CompiledQuery))
 (= (mm2compileQuery-from-compiled $kb $stmt $compiled)
    (case $compiled
       ((($wrapped) (mm2compileQuery-from-wrapped $kb $stmt $wrapped))
