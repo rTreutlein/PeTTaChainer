@@ -9,7 +9,9 @@ fail_files=()
 run_petta() {
   local args=("$@")
 
-  if [[ ${PETTA_STRICT:-0} == 1 ]]; then
+  if [[ ${PETTA_STRICT_DET:-0} == 1 ]]; then
+    args+=(--strict-det)
+  elif [[ ${PETTA_STRICT:-0} == 1 ]]; then
     args+=(--strict)
   fi
 
@@ -41,7 +43,8 @@ while IFS= read -r file || [ -n "$file" ]; do
   case "$file" in
     ''|'#'*) continue ;;
   esac
-  if [[ ${PETTA_STRICT:-0} == 1 && $file == *_libpln.metta ]]; then
+  if [[ ( ${PETTA_STRICT:-0} == 1 || ${PETTA_STRICT_DET:-0} == 1 ) &&
+        $file == *_libpln.metta ]]; then
     printf 'SKIP %s (libPLN is outside strict scope)\n' "$file"
     continue
   fi

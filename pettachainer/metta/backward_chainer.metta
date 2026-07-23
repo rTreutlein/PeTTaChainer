@@ -38,8 +38,14 @@
          (let*
             (($gid (next-gid))
              ($index-key (copy_term $goal-key))
-             ($_1 (chainer-add-atom &goal ($gid $depth $stored-goal false 0.0)))
-             ($_2 (chainer-add-atom &goal_lookup ($index-key $goal-key $gid))))
+             ($_1
+                (once
+                   (chainer-add-atom &goal
+                      ($gid $depth $stored-goal false 0.0))))
+             ($_2
+                (once
+                   (chainer-add-atom &goal_lookup
+                      ($index-key $goal-key $gid)))))
             $gid)
          (car-atom $hits))))
 
@@ -52,12 +58,20 @@
          (if (>= $current $score) $agenda
             (let*
                (($closed-proof-bonus (if (goal-has-type-vars? $goal) 0.0 1.0))
-                ($bonus (if (= $goal ($_type ($_kbid $_ctx $_vars) $_prf $_tv)) $closed-proof-bonus 2.0))
+                ($bonus
+                   (case $goal (
+                      (($_type ($_kbid $_ctx $_vars) $_prf $_tv)
+                         $closed-proof-bonus)
+                      ($_other 2.0))))
                 ($priority (+ (* 1000000000.0 $depth) (- 0 (+ (* 1000000.0 $score) $bonus))))
                 ($nagenda (add_to_heap $agenda $priority (qgoal $score $gid)))
                 ($_set
-                   (progn (remove-atom &goal ($gid $depth $goal $expanded $current))
-                      (chainer-add-atom &goal ($gid $depth $goal $expanded $score)))))
+                   (progn
+                      (remove-atom &goal
+                         ($gid $depth $goal $expanded $current))
+                      (once
+                         (chainer-add-atom &goal
+                            ($gid $depth $goal $expanded $score))))))
                $nagenda)))))
 
 (: schedule-aggregate-heap
@@ -72,8 +86,13 @@
              ($nagenda (add_to_heap $agenda $priority (qagg $base-score $agg-gid)))
              ($_set
                 (progn
-                   (remove-atom &aggregate ($agg-gid $child-gid $args $base-score $current $current-pid))
-                   (chainer-add-atom &aggregate ($agg-gid $child-gid $args $base-score $base-score $current-pid)))))
+                   (remove-atom &aggregate
+                      ($agg-gid $child-gid $args $base-score
+                         $current $current-pid))
+                   (once
+                      (chainer-add-atom &aggregate
+                         ($agg-gid $child-gid $args $base-score
+                            $base-score $current-pid))))))
             $nagenda))))
 
 ;; FoldAllCompiled and GroupedFoldAllCompiled both carry the kb and pattern as
@@ -85,8 +104,10 @@
    (let*
       (($kb (car-atom $args))
        ($pattern (car-atom (cdr-atom $args)))
-       ((compiled-query $child-goal $adds) (mm2compileQuery $kb (: $prf $pattern $tvin)))
-       ($_ (inject-compiled-adds $adds)))
+       ((compiled-query $child-goal $adds)
+          (once
+             (mm2compileQuery $kb (: $prf $pattern $tvin))))
+       ($_ (once (inject-compiled-adds $adds))))
       $child-goal))
 
 (: aggregate-step-value
@@ -103,32 +124,12 @@
    (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $group))
 
 (: aggregate-foldall-step-acc
-   (-> $extractor $accumulator $accumulator $child-atom (| TV NoTV) $accumulator))
+   (-> $extractor (-> $accumulator $value $accumulator)
+       $accumulator $child-atom (| TV NoTV) $accumulator))
 (= (aggregate-foldall-step-acc $extractor $fun $acc $child-atom $child-tv)
-   (eval ($fun $acc (aggregate-step-value $extractor $child-atom $child-tv))))
-
-(: IdentityFinish Type)
-(: identity IdentityFinish)
-(: DistAverageFinish Type)
-(: dist-average DistAverageFinish)
-(: BaseRateFinish Type)
-(: base-rate BaseRateFinish)
-(: WeightedBaseRateFinish Type)
-(: weighted-base-rate WeightedBaseRateFinish)
-(: WeightedBaseRateWithPriorFinish Type)
-(: weighted-base-rate-with-prior WeightedBaseRateWithPriorFinish)
-(: MemberInheritanceFinish Type)
-(: member-inheritance (-> $kb MemberInheritanceFinish))
-(: WeightedBaseRateInUniverseFinish Type)
-(: weighted-base-rate-in-universe
-   (-> $kb WeightedBaseRateInUniverseFinish))
-(: WeightedBaseRateWithPriorInUniverseFinish Type)
-(: weighted-base-rate-with-prior-in-universe
-   (-> $kb WeightedBaseRateWithPriorInUniverseFinish))
-(: UniformPriorFinish Type)
-(: uniform-prior UniformPriorFinish)
-(: UniformPriorKnownFinish Type)
-(: uniform-prior-known UniformPriorKnownFinish)
+   (let $value
+      (aggregate-step-value $extractor $child-atom $child-tv)
+      ($fun $acc $value)))
 
 (: aggregate-finish (-> IdentityFinish $acc $acc))
 (: aggregate-finish
@@ -151,7 +152,8 @@
 (= (aggregate-finish identity $acc) $acc)
 (= (aggregate-finish dist-average $acc)
    (the Distribution
-      (reduce (reduce (DistAverageFromSumCount $acc)))))
+      (once
+         (reduce (reduce (DistAverageFromSumCount $acc))))))
 (= (aggregate-finish base-rate $acc) (BaseRateTv $acc))
 (= (aggregate-finish weighted-base-rate $acc) (WeightedBaseRateTv $acc))
 (= (aggregate-finish weighted-base-rate-with-prior $acc)
@@ -200,16 +202,29 @@
 (= (available-universe-size $size)
    (the Number $size))
 
-(: finish-aggregate (-> $finish $accumulator $result))
+(: finish-aggregate
+   (-> (| IdentityFinish
+          DistAverageFinish
+          BaseRateFinish
+          WeightedBaseRateFinish
+          WeightedBaseRateWithPriorFinish
+          MemberInheritanceFinish
+          WeightedBaseRateInUniverseFinish
+          WeightedBaseRateWithPriorInUniverseFinish
+          UniformPriorFinish
+          UniformPriorKnownFinish)
+       $accumulator $result))
+
 (= (finish-aggregate $finish $acc)
    (case $finish (
       (identity $acc)
       (dist-average
          (the Distribution
-            (reduce
+            (once
                (reduce
-                  (DistAverageFromSumCount
-                     (distribution-sum-count-acc $acc))))))
+                  (reduce
+                     (DistAverageFromSumCount
+                        (distribution-sum-count-acc $acc)))))))
       (base-rate
          (BaseRateTv (base-rate-evidence-acc $acc)))
       (weighted-base-rate
@@ -240,8 +255,7 @@
       (uniform-prior
          (UniformPriorTv (list-aggregate-acc $acc)))
       (uniform-prior-known
-         (UniformPriorKnownTv (list-aggregate-acc $acc)))
-      ($_unknown (empty)))))
+         (UniformPriorKnownTv (list-aggregate-acc $acc))))))
 ;; --- Frontier pooling of same-source projections -----------------------------
 ;; A conjunction frontier rejects a premise proof whose fact evidence overlaps
 ;; evidence already consumed (AndFormula would double count it). When the
@@ -322,7 +336,8 @@
    (frontier-parts-fold-acc (frontier-part-tv $first) $rest))
 
 (: frontier-parts-checked
-   (-> (List (| FrontierPart UnpoolablePart)) (List FrontierPart)))
+   ((List (| FrontierPart UnpoolablePart))
+      -[nondet]-> (List FrontierPart)))
 (= (frontier-parts-checked ()) ())
 (= (frontier-parts-checked (cons $part $rest))
    (case $part
@@ -364,7 +379,7 @@
 (= (frontier-source-entry $base)
    (if (= $base (proof-ref $bpid))
       (frontier-source-entry-from-atom
-         (proof-output-atom (the Number $bpid)))
+         (proof-output-atom-by-id (the Number $bpid)))
       (let $hits
          (collapse
             (match &kb ($type $kb $base $tv)
@@ -383,12 +398,13 @@
    (-> ProofKind (| FrontierProjection NoProjection)))
 (= (frontier-proof-projection $kind)
    (let $term (frontier-proof-term $kind)
-      (if (= $term ($_t $_kb $prf $_tv))
-         (if (is-var $prf) no-projection
-            (if (= $prf (marginal-proj $idx $base))
-               (projection $idx $base)
-               no-projection))
-         no-projection)))
+      (case $term (
+         (($_t $_kb $prf $_tv)
+            (case $prf (
+               ((marginal-proj $idx $base)
+                  (projection $idx $base))
+               ($_other no-projection))))
+         ($_other no-projection)))))
 
 (: frontier-atom-part
    (-> Number ($type $kb $proof TV) FrontierPart))
@@ -411,7 +427,7 @@
 (: frontier-premise-part
    (-> Number (| FrontierPart SkipPart)))
 (= (frontier-premise-part $pid)
-   (let $out (proof-output-atom $pid)
+   (let $out (proof-output-atom-by-id $pid)
       (if (= $out (CPU $f $args $res))
          (if (== $f AndFormula) skip-part
             (indep-part (cpu-premise-tv $f $args $res)))
@@ -519,7 +535,7 @@
       (case $premises (
          ((cons $prem (cons $step $rest))
             (if (frontier-and-step-premise? $step)
-               (if (= $prem (proof-output-atom $pid))
+               (if (= $prem (proof-output-atom-by-id $pid))
                   (if (= (CPU AndFormula $_fargs $folded) $step)
                      (make-and-bundle $goal $rest)
                      ())
@@ -552,7 +568,8 @@
       (case $premises (
            (() ())
            ((cons $prem $rest)
-              (if (= $prem (proof-output-atom $pid)) (make-and-bundle $goal $rest) ()))))))
+              (if (= $prem (proof-output-atom-by-id $pid))
+                 (make-and-bundle $goal $rest) ()))))))
 
 (: waiter-live? (-> FrontierWaiter Bool))
 (= (waiter-live? (frontier-waiter $_parent-gid $_bundle $_score $_seen $_parts $rev-pids))
@@ -576,9 +593,10 @@
 (: frontier-allows-shared-evidence? (-> AndBundle Bool))
 (= (frontier-allows-shared-evidence? $bundle)
    (let $goal (and-bundle-goal $bundle)
-      (if (= $goal ($_type $_kb $proof $_tv))
-         (shared-evidence-frontier-proof? $proof)
-         false)))
+      (case $goal (
+         (($_type $_kb $proof $_tv)
+            (shared-evidence-frontier-proof? $proof))
+         ($_other false)))))
 
 (: advance-frontier-waiter-heap
    (-> $heap FrontierWaiter Number $heap))
@@ -586,7 +604,7 @@
    (if (not (waiter-live? (frontier-waiter $parent-gid $bundle $score $seen $parts $rev-pids))) $agenda
       (let*
          ((($pscore $pev) (proof-stats-by-id $pid))
-          ($proof-output (proof-output-atom $pid))
+          ($proof-output (proof-output-atom-by-id $pid))
           ($frontier-pscore (frontier-proof-score $proof-output $pscore))
           ($part-hits (collapse (frontier-premise-part $pid)))
           ($part (if (== $part-hits ()) unpoolable-part (car-atom $part-hits)))
@@ -731,8 +749,9 @@
    (if (== $accepted false) $agenda
       (if (candidate-is-cyclic? $gid $kind $children) $agenda
          (let $pid
-            (store-proof-candidate $gid
-               (proof-candidate $kind $score $ev $children))
+            (once
+               (store-proof-candidate $gid
+                  (proof-candidate $kind $score $ev $children)))
             (wake-proof-commit-heap $agenda $gid $pid)))))
 
 (: commit-aggregate-snapshot-heap
@@ -742,14 +761,18 @@
       ((($child-gid $args $base-score $pending $current-pid)
           (aggregate-by-id $agg-gid))
        ($pid
-          (store-proof-candidate $agg-gid
-             (aggregate-result-candidate $result $ev $children)))
+          (once
+             (store-proof-candidate $agg-gid
+                (aggregate-result-candidate $result $ev $children))))
        ($_set
           (progn
              (remove-atom &aggregate
-                ($agg-gid $child-gid $args $base-score $pending $current-pid))
-             (chainer-add-atom &aggregate
-                ($agg-gid $child-gid $args $base-score $pending $pid))))
+                ($agg-gid $child-gid $args $base-score
+                   $pending $current-pid))
+             (once
+                (chainer-add-atom &aggregate
+                   ($agg-gid $child-gid $args $base-score
+                      $pending $pid)))))
        ($_cache-invalidate
           (if (== $current-pid ()) () (invalidate-proof-live-caches)))
        ($nagenda (wake-proof-commit-heap $agenda $agg-gid $pid)))
@@ -759,7 +782,10 @@
    (-> $heap Number Number FrontierWaiter $heap))
 (= (spawn-frontier-goal-heap $agenda $score $gid $waiter)
    (let*
-      (($_1 (chainer-add-atom &goal_waiter ($gid $waiter)))
+      (($_1
+          (once
+             (chainer-add-atom &goal_waiter
+                ($gid $waiter))))
        ($agenda1
           (fold-flat (|-> ($acc $pid) (advance-frontier-waiter-heap $acc $waiter $pid))
              $agenda
@@ -781,18 +807,22 @@
 (: base-rate-aggregate-key
    (-> $arguments (| ($kb $pattern $finish) (List $none))))
 (= (base-rate-aggregate-key $args)
-   (if (= $args ($kbid $pattern $_extractor $_init $_fun $finish $_tv-mode))
-      (if (base-rate-finish? $finish)
-         ($kbid $pattern $finish)
-         ())
-      ()))
+   (case $args (
+      (($kbid $pattern $_extractor $_init $_fun $finish $_tv-mode)
+         (if (base-rate-finish? $finish)
+            (quote ($kbid $pattern $finish))
+            ()))
+      ($_other ()))))
 
 (: commit-cached-aggregate-heap
    (-> $heap Number $arguments TV $heap))
 (= (commit-cached-aggregate-heap $agenda $agg-gid $args $tv)
    (let*
       (($result (CPU FoldAllCompiled $args $tv))
-       ($pid (store-proof-candidate $agg-gid (aggregate-result-candidate $result () ()))))
+       ($pid
+          (once
+             (store-proof-candidate $agg-gid
+                (aggregate-result-candidate $result () ())))))
       (wake-proof-commit-heap $agenda $agg-gid $pid)))
 
 (: base-rate-refine-score (-> Number Number))
@@ -808,7 +838,9 @@
        ($hits (collapse (once (match &aggregate ($agg-gid $_child $_args $_base $_pending1 $_current) true))))
        ($_agg
           (if (== $hits ())
-             (chainer-add-atom &aggregate ($agg-gid $child-gid $args $score 0.0 ()))
+             (once
+                (chainer-add-atom &aggregate
+                   ($agg-gid $child-gid $args $score 0.0 ())))
              ())))
       $child-gid))
 
@@ -817,16 +849,26 @@
 (= (spawn-refining-aggregate-heap $agenda $score $agg-gid $goal-view $args $tv $source)
    (let*
       (($child-gid (ensure-aggregate-child-goal $agg-gid $goal-view $args $score))
-       ($pid (store-proof-candidate $agg-gid (aggregate-result-candidate (CPU FoldAllCompiled $args $tv) () ())))
+       ($pid
+          (once
+             (store-proof-candidate $agg-gid
+                (aggregate-result-candidate
+                   (CPU FoldAllCompiled $args $tv) () ()))))
        ($_source
           (if (== $source forward-approx)
              (add-atom &aggregate_forward_approx ($agg-gid))
              ()))
        ($_set
           (progn
-             (remove-atom &aggregate ($agg-gid $child-gid $args $score 0.0 ()))
-             (chainer-add-atom &aggregate ($agg-gid $child-gid $args $score 0.0 $pid))))
-       ($_wait (chainer-add-atom &goal_waiter ($child-gid (aggregate-waiter $agg-gid))))
+             (remove-atom &aggregate
+                ($agg-gid $child-gid $args $score 0.0 ()))
+             (once
+                (chainer-add-atom &aggregate
+                   ($agg-gid $child-gid $args $score 0.0 $pid)))))
+       ($_wait
+          (once
+             (chainer-add-atom &goal_waiter
+                ($child-gid (aggregate-waiter $agg-gid)))))
        ($agenda1 (wake-proof-commit-heap $agenda $agg-gid $pid))
        ($nagenda (schedule-goal-heap $agenda1 (base-rate-refine-score $score) $child-gid)))
       $nagenda))
@@ -857,23 +899,35 @@
 (= (spawn-aggregate-goal-live-heap $agenda $score $agg-gid $goal-view $args)
    (let*
       (($child-gid (ensure-aggregate-child-goal $agg-gid $goal-view $args $score))
-       ($_wait (chainer-add-atom &goal_waiter ($child-gid (aggregate-waiter $agg-gid))))
+       ($_wait
+          (once
+             (chainer-add-atom &goal_waiter
+                ($child-gid (aggregate-waiter $agg-gid)))))
        ($agenda1 (schedule-goal-heap $agenda $score $child-gid))
        ($nagenda (schedule-aggregate-heap $agenda1 $agg-gid)))
       $nagenda))
 
 (: aggregate-args-grouped? (-> $arguments Bool))
 (= (aggregate-args-grouped? $args)
-   (if (= $args ($_kb $_pattern $_group $_extractor $_init $_fun $_finish $_tv-mode)) true false))
+   (case $args (
+      (($_kb $_pattern $_group $_extractor $_init $_fun $_finish $_tv-mode)
+         true)
+      ($_other false))))
 
 (: aggregate-proof-fold-step
-   (-> $arguments AggregateState Number AggregateState))
+   (-> ($kb $pattern $extractor $initial
+          (-> $accumulator $value $accumulator)
+          $finish $tv-mode)
+       AggregateState Number AggregateState))
 (= (aggregate-proof-fold-step $args (aggregate-state $acc $ev $children) $pid)
    (let*
       ((($_agg-kb $_agg-pattern $extractor $_agg-init $fun $_agg-finish $_agg-tv-mode) (copy_term $args))
-       ($child-atom (proof-output-atom $pid))
+       ($child-atom (proof-output-atom-by-id $pid))
        (($_pscore $pev) (proof-stats-by-id $pid))
-       ($child-tv (if (= $child-atom ($_type $_kb $_prf $tv)) $tv no-tv))
+       ($child-tv
+          (case $child-atom (
+             (($_type $_kb $_prf $tv) $tv)
+             ($_other no-tv))))
        ($nacc (aggregate-foldall-step-acc $extractor $fun $acc $child-atom $child-tv))
        ($nev (list_to_set (append $ev $pev)))
        ($nchildren (append $children ($pid))))
@@ -923,14 +977,20 @@
          (aggregate-group-update $extractor $fun $init $group $child-atom $child-tv $pev $pid $rest))))
 
 (: grouped-aggregate-proof-fold-step
-   (-> $arguments (List AggregateGroupState) Number (List AggregateGroupState)))
+   (-> ($kb $pattern $group-template $extractor $initial
+          (-> $accumulator $value $accumulator)
+          $finish $tv-mode)
+       (List AggregateGroupState) Number (List AggregateGroupState)))
 (= (grouped-aggregate-proof-fold-step $args $states $pid)
    (let*
       ((($_agg-kb $pattern $group-template $extractor $init $fun $_finish $_tv-mode) (copy_term $args))
-       ($child-atom (proof-output-atom $pid))
+       ($child-atom (proof-output-atom-by-id $pid))
        (($_pscore $pev) (proof-stats-by-id $pid))
        ($group (aggregate-step-group-value $pattern $group-template $child-atom))
-       ($child-tv (if (= $child-atom ($_type $_kb $_prf $tv)) $tv no-tv)))
+       ($child-tv
+          (case $child-atom (
+             (($_type $_kb $_prf $tv) $tv)
+             ($_other no-tv)))))
       (aggregate-group-update $extractor $fun $init $group $child-atom $child-tv $pev $pid $states)))
 
 (: grouped-aggregate-final-states
@@ -941,13 +1001,29 @@
       (aggregate-fold-source-ids $agg-gid $child-gid)))
 
 (: grouped-aggregate-result
-   (-> $arguments AggregateGroupState $result))
+   (-> ($kb $pattern $group-template $extractor $initial
+          (-> $accumulator $value $accumulator)
+          (| IdentityFinish
+             DistAverageFinish
+             BaseRateFinish
+             WeightedBaseRateFinish
+             WeightedBaseRateWithPriorFinish
+             MemberInheritanceFinish
+             WeightedBaseRateInUniverseFinish
+             WeightedBaseRateWithPriorInUniverseFinish
+             UniformPriorFinish
+             UniformPriorKnownFinish)
+          $tv-mode)
+       AggregateGroupState Goal))
 (= (grouped-aggregate-result $args (aggregate-group-state $group $acc $_ev $_children))
    (let*
-      ((($kb $pattern $_group-template $extractor $init $fun $finish $tv-mode) $args))
-      (CPU GroupedFoldAllCompiled
-         ($kb $pattern $group $extractor $init $fun $finish $tv-mode)
-         (finish-aggregate $finish $acc))))
+      ((($kb $pattern $_group-template $extractor $init $fun $finish $tv-mode)
+          $args)
+       ($grouped-args
+          (quote
+             ($kb $pattern $group $extractor $init $fun $finish $tv-mode)))
+       ($result (finish-aggregate $finish $acc)))
+      (CPU GroupedFoldAllCompiled $grouped-args $result)))
 
 (: commit-grouped-aggregate-state-heap
    (-> Number $arguments $heap AggregateGroupState $heap))
@@ -968,10 +1044,15 @@
       ((($child-gid $args $base-score $pending $stored-current-pids)
           (aggregate-by-id $agg-gid))
        ($current-pids $stored-current-pids)
-       ($next-pids (cons $pid $current-pids)))
+      ($next-pids (cons $pid $current-pids)))
       (progn
-         (remove-atom &aggregate ($agg-gid $child-gid $args $base-score $pending $current-pids))
-         (chainer-add-atom &aggregate ($agg-gid $child-gid $args $base-score $pending $next-pids)))))
+         (remove-atom &aggregate
+            ($agg-gid $child-gid $args $base-score
+               $pending $current-pids))
+         (once
+            (chainer-add-atom &aggregate
+               ($agg-gid $child-gid $args $base-score
+                  $pending $next-pids))))))
 
 (: commit-grouped-aggregate-candidate-heap
    (-> $heap Number Bool ProofCandidate $heap))
@@ -979,7 +1060,10 @@
    (if (== $accepted false) $agenda
       (if (candidate-is-cyclic? $agg-gid $kind $children) $agenda
          (let*
-            (($pid (store-proof-candidate $agg-gid (proof-candidate $kind $score $ev $children)))
+            (($pid
+                (once
+                   (store-proof-candidate $agg-gid
+                      (proof-candidate $kind $score $ev $children))))
              ($_set (append-grouped-aggregate-current-pid! $agg-gid $pid))
              ($_cache-invalidate (invalidate-proof-live-caches)))
             (wake-proof-commit-heap $agenda $agg-gid $pid)))))
@@ -1004,8 +1088,13 @@
        ($next-current-pid (if $grouped? () $current-pid))
        ($_clear
           (progn
-             (remove-atom &aggregate ($agg-gid $child-gid $args $base-score $pending $current-pid))
-             (chainer-add-atom &aggregate ($agg-gid $child-gid $args $base-score 0.0 $next-current-pid)))))
+             (remove-atom &aggregate
+                ($agg-gid $child-gid $args $base-score
+                   $pending $current-pid))
+             (once
+                (chainer-add-atom &aggregate
+                   ($agg-gid $child-gid $args $base-score
+                      0.0 $next-current-pid))))))
       (if $grouped?
          (run-grouped-aggregate-heap $agenda $agg-gid $child-gid $args)
          (let*
@@ -1013,7 +1102,20 @@
              (($_kb $_pattern $_extractor $_init $_fun $finish $_tv-mode) $args)
              ($result
                 (CPU FoldAllCompiled $args
-                   (finish-aggregate $finish $acc)))
+                   (finish-aggregate
+                      (the
+                         (| IdentityFinish
+                            DistAverageFinish
+                            BaseRateFinish
+                            WeightedBaseRateFinish
+                            WeightedBaseRateWithPriorFinish
+                            MemberInheritanceFinish
+                            WeightedBaseRateInUniverseFinish
+                            WeightedBaseRateWithPriorInUniverseFinish
+                            UniformPriorFinish
+                            UniformPriorKnownFinish)
+                         $finish)
+                      $acc)))
              ($commit-ev (aggregate-commit-evidence $finish $ev)))
             (if (base-rate-refinement-degrades? $agg-gid $finish $current-pid $result)
                $agenda
@@ -1043,7 +1145,7 @@
             (($new-tv (let (CPU $_fun $_args $ntv) $result $ntv))
              ($current-tv
                 (let (CPU $_cfun $_cargs $ctv)
-                   (proof-output-atom (the Number $current-pid))
+                   (proof-output-atom-by-id (the Number $current-pid))
                    $ctv)))
             (if (= $current-tv (STV $_cs $_cc))
                (if (= $new-tv (STV $_ns $_nc))
@@ -1092,24 +1194,34 @@
       (expand-rule-goal-heap $agenda1 $gid $goal)))
 
 (: inject-compiled-query-adds (-> CompiledQuery (List $none)))
-(= (inject-compiled-query-adds (compiled-query $_goal $adds)) (inject-compiled-adds $adds))
+(= (inject-compiled-query-adds (compiled-query $_goal $adds))
+   (once (inject-compiled-adds $adds)))
 
 (: inject-implication-subgoal-query-adds
    (-> (| Goal ($type ($kb $context $variables) $proof TV))
        (List $none)))
-(= (inject-implication-subgoal-query-adds ($type ($kbid MAIN Nil) $prf $tv))
-   (if (= $type (Implication (cons Premises $_premises) (cons Conclusions $_conclusions)))
-      (let $compiled-queries (collapse (mm2compileQuery $kbid (: $prf $type $tv)))
-         (foreach-flat inject-compiled-query-adds $compiled-queries))
-      ()))
-(= (inject-implication-subgoal-query-adds $_goal) ())
+(= (inject-implication-subgoal-query-adds $goal)
+   (case $goal (
+      (($type ($kbid MAIN Nil) $prf $tv)
+         (case $type (
+            ((Implication
+                  (cons Premises $_premises)
+                  (cons Conclusions $_conclusions))
+               (let $compiled-queries
+                  (collapse
+                     (mm2compileQuery $kbid (: $prf $type $tv)))
+                  (foreach-flat
+                     inject-compiled-query-adds $compiled-queries)))
+            ($_other ()))))
+      ($_other ()))))
 
 (: open-rule-goal?
    (-> (| Goal ($type ($kb $context $variables) $proof TV)) Bool))
 (= (open-rule-goal? $goal)
-   (if (= $goal ($type $_kb $_prf $_tv))
-      (not (== (extract-vars $type) ()))
-      false))
+   (case $goal (
+      (($type $_kb $_prf $_tv)
+         (not (== (extract-vars $type) ())))
+      ($_other false))))
 
 (: RuleGoalMatch Type)
 (: rule-goal-match
@@ -1150,9 +1262,10 @@
 (: rule-goal-contextual?
    (-> (| Goal ($type ($kb $context $variables) $proof TV)) Bool))
 (= (rule-goal-contextual? $goal)
-   (if (= $goal ($_type ($_kbid $ctx $_vars) $_prf $_tv))
-      (not (== $ctx MAIN))
-      false))
+   (case $goal (
+      (($_type ($_kbid $ctx $_vars) $_prf $_tv)
+         (not (== $ctx MAIN)))
+      ($_other false))))
 
 (: rule-goal-full-view
    ((| Goal ($type ($kb $context $variables) $proof TV))
@@ -1183,18 +1296,22 @@
 
 (: contextualize-rule-premise
    (-> (| Goal ($type ($kb $context $variables) $proof TV))
-       (| Goal ($goal-type ($goal-kb $goal-context $goal-variables)
-                   $goal-proof TV))
+       ($goal-type ($goal-kb $goal-context $goal-variables)
+          $goal-proof TV)
        (| Goal ($result-type ($result-kb $result-context $result-variables)
                    $result-proof TV))))
-(= (contextualize-rule-premise ($type ($kbid $prem-ctx $prem-vars) $prf $tv)
+(= (contextualize-rule-premise $premise
       ($_goal-type ($kbid $ctx $vars) $_goal-prf $_goal-tv))
-   (if (and (== $prem-ctx MAIN) (and (not (== $ctx MAIN)) (context-vars-in-type? $type $vars)))
-      (the ($type ($kbid $ctx $vars) $prf TV)
-         ($type ($kbid $ctx $vars) $prf $tv))
-      (the ($type ($kbid $prem-ctx $prem-vars) $prf TV)
-         ($type ($kbid $prem-ctx $prem-vars) $prf $tv))))
-(= (contextualize-rule-premise (CPU $fun $args $res) $_goal) (CPU $fun $args $res))
+   (case $premise (
+      (($type ($kbid $prem-ctx $prem-vars) $prf $tv)
+         (if
+            (and (== $prem-ctx MAIN)
+               (and (not (== $ctx MAIN))
+                  (context-vars-in-type? $type $vars)))
+            (quote ($type ($kbid $ctx $vars) $prf $tv))
+            (quote
+               ($type ($kbid $prem-ctx $prem-vars) $prf $tv))))
+      ((CPU $fun $args $res) (CPU $fun $args $res)))))
 
 (: contextualize-rule-args
    (-> (| Goal ($type ($kb $context $variables) $proof TV))
@@ -1287,7 +1404,10 @@
    ;; execute directly in the hypothetical context. Native implication views
    ;; must be allowed to finish before that bridge closes the parent goal.
    (if (inheritance-lift-rule-goal? $goal) 0.000001
-      (if (if (= $goal ($_gtype $_gkb $_gprf $gtv)) (is-var $gtv) false)
+      (if
+         (case $goal (
+            (($_gtype $_gkb $_gprf $gtv) (is-var $gtv))
+            ($_other false)))
          (let $hits (collapse (match rule_expected ($rule-id $score) $score))
             (if (== $hits ()) (premises-expected-confidence (copy_term $args)) (car-atom $hits)))
          (premises-expected-confidence (copy_term $args)))))
@@ -1329,22 +1449,27 @@
 
 (: prefilter-premise-blocks?
    (-> (| Goal ($type ($kb $context $variables) $proof TV)) Bool))
-(= (prefilter-premise-blocks? (CPU $fun $args $res))
-   (if (prefilter-cpu-opaque? $fun) false
-      ;; Only run a CPU premise eagerly when its argument list is fully ground
-      ;; ($args is inspected as-is; building an ($fun ...) expression here would
-      ;; make the runtime apply $fun to unevaluated arguments).
-      (if (and (not (is-var $fun)) (== (extract-vars $args) ()))
-         (let $hits (collapse (cpu-call 0 $fun $args))
-            (if (== $hits ()) true
-               (if (= $res (car-atom $hits)) false true)))
-         false)))
-(= (prefilter-premise-blocks? ($type ($kbid $ctx $vars) $prf $tv))
-   (if (== (extract-vars $type) ())
-      (if (prefilter-fact-missing? ($type ($kbid $ctx $vars) $prf $tv))
-         (not (prefilter-head-concludable? ($type ($kbid $ctx $vars) $prf $tv)))
-         false)
-      false))
+(= (prefilter-premise-blocks? $premise)
+   (case $premise (
+      ((CPU $fun $args $res)
+         (if (prefilter-cpu-opaque? $fun) false
+            ;; Only run a CPU premise eagerly when its argument list is fully
+            ;; ground. Building an ($fun ...) expression here would apply it
+            ;; to unevaluated arguments.
+            (if
+               (and (not (is-var $fun))
+                  (== (extract-vars $args) ()))
+               (let $hits (collapse (cpu-call 0 $fun $args))
+                  (if (== $hits ()) true
+                     (if (= $res (car-atom $hits)) false true)))
+               false)))
+      (($type ($kbid $ctx $vars) $prf $tv)
+         (let $fact (quote ($type ($kbid $ctx $vars) $prf $tv))
+            (if (== (extract-vars $type) ())
+               (if (prefilter-fact-missing? $fact)
+                  (not (prefilter-head-concludable? $fact))
+                  false)
+               false))))))
 
 (: prefilter-prunes-walk
    (-> (List (| Goal ($type ($kb $context $variables) $proof TV))) Bool))
@@ -1385,8 +1510,12 @@
    (let*
       ((($depth $goal $expanded $pending) (goal-by-id $gid))
        ($_expand
-          (progn (remove-atom &goal ($gid $depth $goal $expanded $pending))
-             (chainer-add-atom &goal ($gid $depth $goal true $pending))))
+          (progn
+             (remove-atom &goal
+                ($gid $depth $goal $expanded $pending))
+             (once
+                (chainer-add-atom &goal
+                   ($gid $depth $goal true $pending)))))
        ($_query-adds (if (> $depth 0) (inject-implication-subgoal-query-adds $goal) ()))
        ($nagenda0
           (if (and (= $goal (CPU $fun $_args $_res)) (or (== $fun FoldAllCompiled) (== $fun GroupedFoldAllCompiled)))
@@ -1403,8 +1532,12 @@
       (if (and (not $expanded) (== $pending $score))
          (let*
             (($_clear
-                 (progn (remove-atom &goal ($gid $depth $goal $expanded $pending))
-                    (chainer-add-atom &goal ($gid $depth $goal $expanded 0.0))))
+                 (progn
+                    (remove-atom &goal
+                       ($gid $depth $goal $expanded $pending))
+                    (once
+                       (chainer-add-atom &goal
+                          ($gid $depth $goal $expanded 0.0)))))
              ($next-steps (- $steps 1))
              ($nagenda (bounded-agenda-prune $next-steps (expand-goal-heap $agenda $steps $score $gid))))
             (search-agenda-heap $next-steps $nagenda))
@@ -1434,7 +1567,8 @@
    (let $key (base-rate-aggregate-key $args)
       (if (== $key ()) ()
          (if (== $current-pid ()) ()
-            (let $output (proof-output-atom (the Number $current-pid))
+            (let $output
+               (proof-output-atom-by-id (the Number $current-pid))
                (if (= $output (CPU $_fun $_out-args (STV $s $c)))
                   (let ($kbid $pattern $mode) $key
                      (store-computed-base-rate! $kbid $pattern (STV $s $c) $mode))
@@ -1483,11 +1617,12 @@
       (let $_materialized (materialize-goal-proofs-to-kb $root-gid)
          $results)))
 
-(: run-compiled-query (Number CompiledQuery -[nondet]-> (List AnnotatedStatement)))
+(: run-compiled-query
+   (-> Number CompiledQuery (List AnnotatedStatement)))
 (= (run-compiled-query $steps (compiled-query $goal $adds))
    (let*
       (($_clear-temp-before (clear-temp-query-adds))
-       ($_ (inject-compiled-adds $adds))
+       ($_ (once (inject-compiled-adds $adds)))
        ($results (chainer $steps $goal))
        ($eres (map-flat externalize-proof-structure $results))
        ($pres (map-flat pretty $eres))
@@ -1495,11 +1630,11 @@
       $pres))
 
 (: run-compiled-query-materialize
-   (Number CompiledQuery -[nondet]-> (List AnnotatedStatement)))
+   (-> Number CompiledQuery (List AnnotatedStatement)))
 (= (run-compiled-query-materialize $steps (compiled-query $goal $adds))
    (let*
       (($_clear-temp-before (clear-temp-query-adds))
-       ($_ (inject-compiled-adds $adds))
+       ($_ (once (inject-compiled-adds $adds)))
        ($results (chainer-materialize $steps $goal))
        ($eres (map-flat externalize-proof-structure $results))
        ($pres (map-flat pretty $eres))

@@ -636,10 +636,13 @@
    (-> (List AnnotatedStatement) Number (List Expression)))
 (= (BenchPLNSentencesFromAtoms () $sid) ())
 (= (BenchPLNSentencesFromAtoms (cons $head $tail) $sid)
-   (if (= $head (: $_prf $type (STV $s $c)))
-      (let $pln-type (BenchPLNNormalizeType $type)
-         (cons (Sentence ($pln-type (stv $s $c)) ($sid)) (BenchPLNSentencesFromAtoms $tail (+ $sid 1))))
-      (BenchPLNSentencesFromAtoms $tail $sid)))
+   (once
+      (if (= $head (: $_prf $type (STV $s $c)))
+         (let $pln-type (BenchPLNNormalizeType $type)
+            (cons
+               (Sentence ($pln-type (stv $s $c)) ($sid))
+               (BenchPLNSentencesFromAtoms $tail (+ $sid 1))))
+         (BenchPLNSentencesFromAtoms $tail $sid))))
 
 (: BenchPLNKB (-> $bench (List Expression)))
 (= (BenchPLNKB $bench) (BenchPLNSentencesFromAtoms (BenchPLNAtoms $bench) 1))

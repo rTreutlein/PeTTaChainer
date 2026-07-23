@@ -39,7 +39,8 @@
 !(test
    (collapse
       (match &forward_member_inheritance_observation
-         ($_key $_subject $_concept $_weight $_mass)
+         (ForwardMemberInheritanceObservation
+            $_key $_subject $_concept $_weight $_mass)
          true))
    ())
 
@@ -75,7 +76,8 @@
 !(test
    (collapse
       (match &forward_member_inheritance_observation
-         ($_key $_subject $_concept $_weight $_mass)
+         (ForwardMemberInheritanceObservation
+            $_key $_subject $_concept $_weight $_mass)
          true))
    ())
 
@@ -119,7 +121,9 @@
    (list-count
       (collapse
          (match &forward_member_inheritance_observation
-            (($_id a) $_subject $_concept $_weight $_mass) true)))
+            (ForwardMemberInheritanceObservation
+               ($_id a) $_subject $_concept $_weight $_mass)
+            true)))
    1)
 
 ;; Appending b adds one indexed observation without revisiting a.
@@ -138,7 +142,9 @@
    (list-count
       (collapse
          (match &forward_member_inheritance_observation
-            (($_id $_obj) $_subject $_concept $_weight $_mass) true)))
+            (ForwardMemberInheritanceObservation
+               ($_id $_obj) $_subject $_concept $_weight $_mass)
+            true)))
    2)
 
 ;; A second proof path refreshes the one canonical Member output.  Reprocessing
@@ -152,7 +158,9 @@
    (list-count
       (collapse
          (match &forward_member_inheritance_observation
-            (($_id $_obj) $_subject $_concept $_weight $_mass) true)))
+            (ForwardMemberInheritanceObservation
+               ($_id $_obj) $_subject $_concept $_weight $_mass)
+            true)))
    2)
 
 ;; Removing one proof recomputes from the surviving canonical proof. Removing
@@ -183,7 +191,9 @@
    (list-count
       (collapse
          (match &forward_member_inheritance_observation
-            (($_id $_obj) $_subject $_concept $_weight $_mass) true)))
+            (ForwardMemberInheritanceObservation
+               ($_id $_obj) $_subject $_concept $_weight $_mass)
+            true)))
    1)
 
 ;; The provisional value answers immediately, while an ordinary complete fold

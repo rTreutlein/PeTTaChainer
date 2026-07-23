@@ -24,10 +24,6 @@
 (: UniverseSizeEntry Type)
 (: universe-size (-> $kb Number UniverseSizeEntry))
 
-;; Forward incremental member updates call this implementation from
-;; compiled_query_runtime, which is imported later in the module graph.
-(: member-inheritance-tv (-> $kb BaseRateEvidenceState TV))
-
 (: tv-confidence (-> $truth-value Number))
 (= (tv-confidence $tv)
    (if (is-var $tv) 1.0
@@ -52,10 +48,18 @@
    (-> (| Goal
           ($type ($kb $context $variables) $proof TV))
        Expression))
-(= (goal-key ($type ($kbid $ctx $vars) $_prf $_tv))
-   (let $sealed-goal (sealed (extract-vars ($type $vars)) ($type $vars))
-      ($sealed-goal ($kbid $ctx))))
-(= (goal-key (CPU $fun $args $res)) (sealed (extract-vars (CPU $fun $args $res)) (CPU $fun $args $res)))
+(= (goal-key $goal)
+   (case $goal
+      (((CPU $fun $args $res)
+          (sealed
+             (extract-vars (CPU $fun $args $res))
+             (CPU $fun $args $res)))
+       (($type ($kbid $ctx $vars) $_prf $_tv)
+          (let $sealed-goal
+             (sealed
+                (extract-vars (quote ($type $vars)))
+                (quote ($type $vars)))
+             (quote ($sealed-goal ($kbid $ctx))))))))
 
 (: normalize-expected-tv (-> $truth-value $truth-value))
 (= (normalize-expected-tv $tv)
@@ -78,7 +82,7 @@
 ;; preserved -- a formula clause that does not match (or yields empty) makes
 ;; this function fail exactly like the reduce-based call did.
 (: cpu-expected-tv
-   (-> $formula $arguments (| TV (List $no-result))))
+   ($formula $arguments -[nondet]-> (| TV (List $no-result))))
 (= (cpu-expected-tv $fun ($a))
    (if (== $fun NotFormula)
       (if (is-var $a)
@@ -139,23 +143,33 @@
                 ($rest-type ($rest-kb $rest-context $rest-variables)
                    $rest-proof TV)))
        Number))
-(= (premises-expected-confidence-step (CPU $fun $args $mid-tv) (cons (CPU CTVModusPonensFormula ($mid-tv $rule-tv) $_mp-tv) $rest))
-   (let $expected (first-cpu-expected-tv $fun $args)
-      (if (== $expected ())
-         (min (term-confidence (CPU $fun $args $mid-tv))
-            (premises-expected-confidence (cons (CPU CTVModusPonensFormula ($mid-tv $rule-tv) $_mp-tv) $rest)))
-         (min-atom
-            ((tv-confidence $expected)
-             (cpu-expected-confidence CTVModusPonensFormula ($expected $rule-tv))
-             (premises-expected-confidence $rest))))))
-(= (premises-expected-confidence-step (CPU $fun $args $res) $rest)
-   (if (= $rest (cons (CPU CTVModusPonensFormula ($res $_rule-tv) $_mp-tv) $_tail))
-      (empty)
-      (min (term-confidence (CPU $fun $args $res)) (premises-expected-confidence $rest))))
 (= (premises-expected-confidence-step $prem $rest)
-   (if (= $prem (CPU $_fun $_args $_res))
-      (empty)
-      (min (term-confidence $prem) (premises-expected-confidence $rest))))
+   (case $prem
+      (((CPU $fun $args $res)
+          (if (= $rest
+                 (cons
+                    (CPU CTVModusPonensFormula
+                       (quote ($res $rule-tv))
+                       $_mp-tv)
+                    $remaining))
+             (let $expected (first-cpu-expected-tv $fun $args)
+                (if (== $expected ())
+                   (min
+                      (term-confidence (CPU $fun $args $res))
+                      (premises-expected-confidence $rest))
+                   (min-atom
+                      ((tv-confidence $expected)
+                       (cpu-expected-confidence
+                          CTVModusPonensFormula
+                          (quote ($expected $rule-tv)))
+                       (premises-expected-confidence $remaining)))))
+             (min
+                (term-confidence (CPU $fun $args $res))
+                (premises-expected-confidence $rest))))
+       ($other
+          (min
+             (term-confidence $other)
+             (premises-expected-confidence $rest))))))
 
 (: term-confidence
    (-> (| Goal
@@ -184,8 +198,7 @@
        Number))
 (= (premises-expected-confidence ()) 1.0)
 (= (premises-expected-confidence (cons $prem $rest))
-   (let $hits (collapse (premises-expected-confidence-step $prem $rest))
-      (if (== $hits ()) (empty) (car-atom $hits))))
+   (premises-expected-confidence-step $prem $rest))
 
 (: score-tv (-> Number TV))
 (= (score-tv $score) (STV 1.0 (max 0.0 (min 1.0 $score))))
@@ -248,9 +261,14 @@
    (-> ($type1 $kb $proof1 TV) ($type2 $kb2 $proof2 TV)
        ($type1 $kb $merged-proof TV)))
 (= (RevisionMergeProof ($type1 $kb $prf1 $tv1) ($_type2 $_kb2 $prf2 $tv2))
-   ($type1 $kb
-      (merge/revision $prf1 $prf2)
-      (if (and (= $tv1 (STV $_m1 $_c1)) (= $tv2 (STV $_m2 $_c2))) (mergetvs $tv1 $tv2) $tv1)))
+   (let $merged-tv
+      (if (and (= $tv1 (STV $_m1 $_c1)) (= $tv2 (STV $_m2 $_c2)))
+         (mergetvs $tv1 $tv2)
+         $tv1)
+      (quote
+         ($type1 $kb
+            (merge/revision $prf1 $prf2)
+            $merged-tv))))
 
 (: proof-atom-proof (-> ($type $kb $proof TV) $proof))
 (= (proof-atom-proof ($_type $_kb $prf $_tv)) $prf)
@@ -262,7 +280,7 @@
    (progn ($f $x) (foreach-flat $f $xs)))
 
 (: chainer-add-atom
-   (-> $space $expression (| Bool (List $no-result))))
+   ($space $expression -[nondet]-> (| Bool (List $no-result))))
 (= (chainer-add-atom $space $expr)
    (if (== (collapse (callPredicate (Predicate (cyclic_term $expr)))) ())
       (add-atom $space $expr)
@@ -281,16 +299,17 @@
 (: next-pid (-> Number))
 (= (next-pid) (next-search-id bwd_pid))
 
-(: cpu-call (-> Number $formula $arguments $result))
+(: cpu-call (Number $formula $arguments -[nondet]-> $result))
 (= (cpu-call $_steps $fun $args) (reduce (reduce (cons $fun $args))))
 
 (: proof-stats-by-id
    (-> Number (Number (List $evidence))))
 (= (proof-stats-by-id $pid)
    (the (Number (List Evidence))
-      (match &proof
-         ($pid $_gid $_output $_kind $score $ev $_children)
-         ($score $ev))))
+      (once
+         (match &proof
+            ($pid $_gid $_output $_kind $score $ev $_children)
+            ($score $ev)))))
 
 (: proof-term-leaf-head? (-> $head Bool))
 (= (proof-term-leaf-head? $head) (is-member $head (() fact-ev CPU STV CTV)))
@@ -423,13 +442,14 @@
 (: rule-application-evidence
    (-> $kb $proof (List Evidence)))
 (= (rule-application-evidence $kb $prf)
-   (if (= $kb ($kbid $_ctx $_vars))
-      (let $name (rule-evidence-head $prf)
-         (if (is-expr $name) ()
-            (if (rule-evidence-registered? $kbid $name)
-               (cons (rule-ev $kbid $name) ())
-               ())))
-      ()))
+   (once
+      (if (= $kb ($kbid $_ctx $_vars))
+         (let $name (rule-evidence-head $prf)
+            (if (is-expr $name) ()
+               (if (rule-evidence-registered? $kbid $name)
+                  (cons (rule-ev $kbid $name) ())
+                  ())))
+         ())))
 
 ;; Forward materialization and backward rule application must attach exactly
 ;; the same provenance.  Otherwise a materialized rule result looks like a new
@@ -653,3 +673,136 @@
    (list_to_set
       (collapse
          (match &inheritance_subject ($kbid $subj) $subj))))
+
+(: IdentityFinish Type)
+(: identity IdentityFinish)
+(: DistAverageFinish Type)
+(: dist-average DistAverageFinish)
+(: BaseRateFinish Type)
+(: base-rate BaseRateFinish)
+(: WeightedBaseRateFinish Type)
+(: weighted-base-rate WeightedBaseRateFinish)
+(: WeightedBaseRateWithPriorFinish Type)
+(: weighted-base-rate-with-prior WeightedBaseRateWithPriorFinish)
+(: MemberInheritanceFinish Type)
+(: member-inheritance (-> $kb MemberInheritanceFinish))
+(: WeightedBaseRateInUniverseFinish Type)
+(: weighted-base-rate-in-universe
+   (-> $kb WeightedBaseRateInUniverseFinish))
+(: WeightedBaseRateWithPriorInUniverseFinish Type)
+(: weighted-base-rate-with-prior-in-universe
+   (-> $kb WeightedBaseRateWithPriorInUniverseFinish))
+(: UniformPriorFinish Type)
+(: uniform-prior UniformPriorFinish)
+(: UniformPriorKnownFinish Type)
+(: uniform-prior-known UniformPriorKnownFinish)
+
+;; Concept metadata and aggregate finalizers are shared by both forward and
+;; backward execution, so they must be available before forward_chainer loads.
+(: ConceptPriorConfidence Type)
+(: concept-prior-confidence (-> $kb Number ConceptPriorConfidence))
+
+(: record-concept-node! (-> $kb $node (| Bool (List $none))))
+(= (record-concept-node! $kbid $node)
+   (if (is-var $node) ()
+      (once
+         (add-atom &concept_node ($kbid $node)))))
+
+(: record-inheritance-nodes!
+   (-> $kb $subject $concept (| Bool (List $none))))
+(= (record-inheritance-nodes! $kbid $subj $concept)
+   (progn
+      (record-concept-node! $kbid $subj)
+      (record-concept-node! $kbid $concept)))
+
+(: default-concept-prior-confidence (-> Number))
+(= (default-concept-prior-confidence) 0.000001)
+
+(: concept-prior-confidence-entries
+   (-> $kb (List ConceptPriorConfidence)))
+(= (concept-prior-confidence-entries $kbid)
+   (collapse
+      (match &concept_prior_confidence
+         (concept-prior-confidence $kbid $c)
+         (concept-prior-confidence $kbid $c))))
+
+(: concept-prior-confidence-remove-entry!
+   (-> ConceptPriorConfidence Bool))
+(= (concept-prior-confidence-remove-entry! $entry)
+   (remove-atom &concept_prior_confidence $entry))
+
+(: clear-concept-prior-confidence (-> $kb (List $none)))
+(= (clear-concept-prior-confidence $kbid)
+   (let*
+      (($_remove
+          (foreach-flat concept-prior-confidence-remove-entry!
+             (concept-prior-confidence-entries $kbid)))
+       ($_invalidate (invalidate-computed-base-rates! $kbid)))
+      ()))
+
+(: set-concept-prior-confidence (-> $kb Number (List $none)))
+(= (set-concept-prior-confidence $kbid $c)
+   (let*
+      (($_old (clear-concept-prior-confidence $kbid))
+       ($_new
+          (add-atom &concept_prior_confidence
+             (concept-prior-confidence $kbid $c)))
+       ($_invalidate (invalidate-computed-base-rates! $kbid)))
+      ()))
+
+(: kb-concept-prior-confidence (-> $kb Number))
+(= (kb-concept-prior-confidence $kbid)
+   (let $entries (concept-prior-confidence-entries $kbid)
+      (if (== $entries ()) (default-concept-prior-confidence)
+         (let (concept-prior-confidence $_kbid $c)
+            (car-atom $entries)
+            $c))))
+
+(: known-concept-node? (-> $kb $node Bool))
+(= (known-concept-node? $kbid $node)
+   (not
+      (== (collapse
+             (once
+                (match &concept_node ($kbid $node) true)))
+          ())))
+
+(: concept-nodes ($kb -[det]-> (List $node)))
+(= (concept-nodes $kbid)
+   (list_to_set
+      (collapse
+         (match &concept_node ($kbid $node) $node))))
+
+(: concept-node-prior-tv (-> $kb $node TV))
+(= (concept-node-prior-tv $kbid $node)
+   (if (known-concept-node? $kbid $node)
+      (let $n (list-len (concept-nodes $kbid))
+         (if (<= $n 0) no-evidence
+            (STV (/ 1.0 $n)
+               (kb-concept-prior-confidence $kbid))))
+      no-evidence))
+
+(: ConceptNodePriorFormula ($kb $node -[det]-> TV))
+(= (ConceptNodePriorFormula $kbid $node)
+   (concept-node-prior-tv $kbid $node))
+
+(: resolve-base-rate-prior (-> $prior TV))
+(= (resolve-base-rate-prior (ConceptNodePriorRuntime $kbid $node))
+   (concept-node-prior-tv $kbid $node))
+(= (resolve-base-rate-prior (STV $s $c)) (STV $s $c))
+(= (resolve-base-rate-prior no-evidence) no-evidence)
+
+(: WeightedBaseRateWithPriorTv
+   (-> BaseRateEvidenceWithPriorState TV))
+(= (WeightedBaseRateWithPriorTv
+      (BaseRateEvidenceWithPrior $prior $ev))
+   (BaseRateWithPriorFormula
+      (resolve-base-rate-prior $prior)
+      (WeightedBaseRateTv $ev)))
+
+(: member-inheritance-tv (-> $kb BaseRateEvidenceState TV))
+(= (member-inheritance-tv $kbid $ev)
+   (let $universe-size (kb-universe-size $kbid)
+      (if (== $universe-size no-universe-size)
+         (WeightedCountBaseRateTv $ev)
+         (WeightedUniverseBaseRateTv
+            (the Number $universe-size) $ev))))

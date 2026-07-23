@@ -309,7 +309,8 @@
    (list-count
       (collapse
          (match &forward_base_rate_observation
-            (($_id ((forwardBudgetBaseRateKb MAIN Nil) (P $_which)))
+            (ForwardBaseRateObservation
+               ($_id ((forwardBudgetBaseRateKb MAIN Nil) (P $_which)))
                $_fact $_weight $_count)
             true)))
    1)
@@ -325,7 +326,8 @@
    (list-count
       (collapse
          (match &forward_base_rate_observation
-            (($_id ((forwardBudgetBaseRateKb MAIN Nil) (P $_which)))
+            (ForwardBaseRateObservation
+               ($_id ((forwardBudgetBaseRateKb MAIN Nil) (P $_which)))
                $_fact $_weight $_count)
             true)))
    2)

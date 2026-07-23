@@ -9,8 +9,9 @@ fi
 metta_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 petta_dir=$(cd "$PETTA_DIR" && pwd)
 
-# Load every dependency and production module under strict mode so no import
-# boundary can hide a type error.
+# Load every dependency and production module under strict determinism mode so
+# no import boundary can hide a type or determinism error. Plain -> arrows are
+# deterministic commitments; genuinely nondeterministic functions must say so.
 goal="assertz(working_dir('$metta_dir')),
 load_metta_file('$petta_dir/lib/lib_roman.metta',_),
 load_metta_file('$petta_dir/lib/lib_spaces.metta',_),
@@ -25,4 +26,4 @@ load_metta_file('$metta_dir/backward_proof_store.metta',_),
 load_metta_file('$metta_dir/backward_chainer.metta',_),
 halt"
 
-swipl -q -s "$petta_dir/src/metta.pl" -g "$goal" -- --strict --silent
+swipl -q -s "$petta_dir/src/metta.pl" -g "$goal" -- --strict-det --silent

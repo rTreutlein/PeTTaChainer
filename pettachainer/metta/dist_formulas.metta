@@ -129,7 +129,7 @@
 (: pairs-to-cdf-acc (-> (List ($value Number)) Number (List ($value Number))))
 (= (pairs-to-cdf-acc () $acc) ())
 (= (pairs-to-cdf-acc (cons ($x $w) $tail) $acc)
-   (let $nacc (+ $acc $w) (cons ($x $nacc) (pairs-to-cdf-acc $tail $nacc))))
+   (let $nacc (+ $acc $w) (cons (quote ($x $nacc)) (pairs-to-cdf-acc $tail $nacc))))
 
 (: pairs-to-cdf (-> (List ($value Number)) (List ($value Number))))
 (= (pairs-to-cdf $pairs) (pairs-to-cdf-acc $pairs 0.0))
@@ -187,7 +187,7 @@
 (= (ParticleFromPairs $pairs) (particle-build-dist 1.0 $pairs))
 
 (: PointMass (-> $value Distribution))
-(= (PointMass $x) (ParticleFromPairs (($x 1.0))))
+(= (PointMass $x) (ParticleFromPairs (quote (($x 1.0)))))
 
 (: normal-kernel-9 (-> (List (Number Number))))
 (= (normal-kernel-9)
@@ -214,13 +214,17 @@
 
 (: scale-dist-pairs (-> (List ($value Number)) Number (List ($value Number))))
 (= (scale-dist-pairs () $w) ())
-(= (scale-dist-pairs (cons ($x $p) $tail) $w) (cons ($x (* $p $w)) (scale-dist-pairs $tail $w)))
+(= (scale-dist-pairs (cons ($x $p) $tail) $w)
+   (let $scaled (* $p $w)
+      (cons (quote ($x $scaled)) (scale-dist-pairs $tail $w))))
 
 (: dist-add-mass
    (-> (List ($value Number)) $value Number (List ($value Number))))
-(= (dist-add-mass () $x $m) (cons ($x $m) ()))
+(= (dist-add-mass () $x $m) (cons (quote ($x $m)) ()))
 (= (dist-add-mass (cons ($k $p) $tail) $x $m)
-   (if (== $k $x) (cons ($k (+ $p $m)) $tail) (cons ($k $p) (dist-add-mass $tail $x $m))))
+   (if (== $k $x)
+      (let $merged (+ $p $m) (cons (quote ($k $merged)) $tail))
+      (cons (quote ($k $p)) (dist-add-mass $tail $x $m))))
 
 (: dist-add-bernoulli-step (-> (List (Number Number)) Number (Number Number) (List (Number Number))))
 (= (dist-add-bernoulli-step $acc $p ($n $mass))
@@ -245,21 +249,19 @@
 (= (dist-prob-gt2 (cons ($xa $wa) $taila) $pairsb)
    (+ (dist-prob-gt2-inner $xa $wa $pairsb 0.0) (dist-prob-gt2 $taila $pairsb)))
 
-(: particle-map-pairs (-> $function (List ($input Number)) (List ($output Number)) (List ($output Number))))
+(: particle-map-pairs (-> (-> $input $output) (List ($input Number)) (List ($output Number)) (List ($output Number))))
 (= (particle-map-pairs $fun () $acc) $acc)
 (= (particle-map-pairs $fun (cons ($x $w) $tail) $acc)
    (let*
-      (($call (cons $fun (cons $x ())))
-        ($y (reduce (reduce $call)))
+      (($y ($fun $x))
         ($nacc (dist-add-mass $acc $y $w)))
       (particle-map-pairs $fun $tail $nacc)))
 
-(: particle-map2-inner (-> $function $left Number (List ($right Number)) (List ($output Number)) (List ($output Number))))
+(: particle-map2-inner (-> (-> $left $right $output) $left Number (List ($right Number)) (List ($output Number)) (List ($output Number))))
 (= (particle-map2-inner $fun $xa $wa () $acc) $acc)
 (= (particle-map2-inner $fun $xa $wa (cons ($xb $wb) $tail) $acc)
    (let*
-      (($call (cons $fun (cons $xa (cons $xb ()))))
-        ($y (reduce (reduce $call)))
+      (($y ($fun $xa $xb))
         ($nacc (dist-add-mass $acc $y (* $wa $wb))))
       (particle-map2-inner $fun
          $xa
@@ -267,16 +269,16 @@
          $tail
          $nacc)))
 
-(: particle-map2-pairs (-> $function (List ($left Number)) (List ($right Number)) (List ($output Number)) (List ($output Number))))
+(: particle-map2-pairs (-> (-> $left $right $output) (List ($left Number)) (List ($right Number)) (List ($output Number)) (List ($output Number))))
 (= (particle-map2-pairs $fun () $pairsb $acc) $acc)
 (= (particle-map2-pairs $fun (cons ($xa $wa) $taila) $pairsb $acc)
    (let $nacc (particle-map2-inner $fun $xa $wa $pairsb $acc)
       (particle-map2-pairs $fun $taila $pairsb $nacc)))
 
-(: DistMapFormula (-> $function Distribution Distribution))
+(: DistMapFormula (-> (-> $input $output) Distribution Distribution))
 (= (DistMapFormula $fun $dist) (ParticleMap $fun $dist))
 
-(: DistMap2Formula (-> $function Distribution Distribution Distribution))
+(: DistMap2Formula (-> (-> $left $right $output) Distribution Distribution Distribution))
 (= (DistMap2Formula $fun $dista $distb) (ParticleMap2 $fun $dista $distb))
 
 (: DistSumCountAcc (-> DistributionSumCount Distribution DistributionSumCount))
@@ -304,9 +306,8 @@
 
 (: struct-distance2 (-> $a $b Number))
 (: struct-distance2-list (-> (List $a) (List $b) Number))
-(= (struct-distance2-list () ()) 0.0)
-(= (struct-distance2-list () $_rest) 1000000.0)
-(= (struct-distance2-list $_rest ()) 1000000.0)
+(= (struct-distance2-list () $rest) (if (== $rest ()) 0.0 1000000.0))
+(= (struct-distance2-list (cons $_head $_tail) ()) 1000000.0)
 (= (struct-distance2-list (cons $a $as) (cons $b $bs))
    (+ (struct-distance2 $a $b) (struct-distance2-list $as $bs)))
 
@@ -361,7 +362,7 @@
         ($updated (dist-add-bernoulli-pairs $pairs $p)))
       (particle-build-dist $scale $updated)))
 
-(: ParticleMap (-> $function Distribution Distribution))
+(: ParticleMap (-> (-> $input $output) Distribution Distribution))
 (= (ParticleMap $fun $pd)
    (let*
       (($pid (particle-dist-id $pd))
@@ -370,7 +371,7 @@
         ($mapped (particle-map-pairs $fun $pairs ())))
       (particle-build-dist $scale $mapped)))
 
-(: ParticleMap2 (-> $function Distribution Distribution Distribution))
+(: ParticleMap2 (-> (-> $left $right $output) Distribution Distribution Distribution))
 (= (ParticleMap2 $fun $pda $pdb)
    (let*
       (($pida (particle-dist-id $pda))

@@ -36,34 +36,42 @@
 (: forward-indexable-premise-key
    (-> $premise (| ForwardTriggerKey (List $no-key))))
 (= (forward-indexable-premise-key $prem)
-   (if (= $prem ($_type ($kbid $_ctx $_vars) $_prf $_tv)) (forward-type-trigger-key $kbid $_type) ()))
+   (once
+      (if (= $prem ($_type ($kbid $_ctx $_vars) $_prf $_tv))
+         (forward-type-trigger-key $kbid $_type)
+         ())))
 
 (: forward-premise-index-key (-> $premise ForwardTriggerKey))
 (= (forward-premise-index-key $prem)
-   (if (= $prem ($_type ($kbid $_ctx $_vars) $_prf $_tv))
-      (forward-type-trigger-key $kbid $_type)
-      fwd_trigger_any))
+   (once
+      (if (= $prem ($_type ($kbid $_ctx $_vars) $_prf $_tv))
+         (forward-type-trigger-key $kbid $_type)
+         fwd_trigger_any)))
 
 (: forward-premise-wildcard-key (-> $premise ForwardTriggerKey))
 (= (forward-premise-wildcard-key $prem)
-   (if (= $prem ($_type ($kbid $_ctx $_vars) $_prf $_tv)) (fwd_trigger $kbid any) fwd_trigger_any))
+   (once
+      (if (= $prem ($_type ($kbid $_ctx $_vars) $_prf $_tv))
+         (fwd_trigger $kbid any)
+         fwd_trigger_any)))
 
 (: forward-fact-key
    (-> ($type ($kb $context $variables) $proof $truth-value) (($kb $context $variables) $type)))
-(= (forward-fact-key ($type ($kbid $ctx $vars) $_prf $_tv)) (($kbid $ctx $vars) $type))
+(= (forward-fact-key ($type ($kbid $ctx $vars) $_prf $_tv))
+   (quote (($kbid $ctx $vars) $type)))
 (: forward-fact-kb
    (-> ($type ($kb $context $variables) $proof $truth-value) $kb))
 (= (forward-fact-kb ($_type ($kbid $_ctx $_vars) $_prf $_tv)) $kbid)
 (: forward-output-index-hash (-> ($kb $type) Number))
 (= (forward-output-index-hash ($kb $type))
-   (the Number (term_hash ($kb $type))))
+   (the Number (term_hash (quote ($kb $type)))))
 
 (: forward-fact-evidence
    (-> ($type $kb $proof $truth-value) (List $evidence)))
 (= (forward-fact-evidence ($type $kb $prf $tv))
    (let*
-      (($fact ($type $kb $prf $tv))
-       ($hash (forward-output-index-hash ($kb $type)))
+      (($fact (quote ($type $kb $prf $tv)))
+       ($hash (forward-output-index-hash (quote ($kb $type))))
        ($hits
          (collapse
             (once
@@ -87,16 +95,18 @@
 (= (forward-output-candidate-step
       (forward-output-candidate $current $current-ev)
       ($_hash $_type $_kb $fact $ev))
-   (let ($merged $merged-ev)
+   (let $merged-state
       (merge-proof-candidates
-         ($current $current-ev)
-         ($fact $ev))
-      (forward-output-candidate $merged $merged-ev)))
+         (quote ($current $current-ev))
+         (quote ($fact $ev)))
+      (forward-output-candidate
+         (fst $merged-state)
+         (snd $merged-state))))
 
 (: forward-output-candidate-for-key
    (-> ($kb $type) (| ForwardOutputCandidate (List $no-candidate))))
 (= (forward-output-candidate-for-key ($kb $type))
-   (let $hash (forward-output-index-hash ($kb $type))
+   (let $hash (forward-output-index-hash (quote ($kb $type)))
       (fold-flat forward-output-candidate-step ()
          (collapse
             (match &forward_frontier
@@ -115,10 +125,11 @@
 ;; rows start with a hash of the complete output identity, followed by that
 ;; identity so unification still rejects the rare hash collision.
 (: forward-store-output-candidate!
-   (-> ($kb $type) (| ForwardOutputCandidate (List $no-candidate)) ForwardOutputChange))
+   (($kb $type) (| ForwardOutputCandidate (List $no-candidate))
+      -[nondet]-> ForwardOutputChange))
 (= (forward-store-output-candidate! ($kb $type) $new-candidate)
    (let*
-      (($hash (forward-output-index-hash ($kb $type)))
+      (($hash (forward-output-index-hash (quote ($kb $type))))
        ($old-evidence-rows
           (collapse
              (match &forward_canonical_evidence
@@ -129,10 +140,11 @@
              (car-atom $old-evidence-rows)))
        ($old-fact
           (if (== $old-row ()) ()
-             (let ($_hash $_type $_kb $fact $_ev) $old-row $fact)))
+             (car-atom (cdr-atom (cdr-atom (cdr-atom $old-row))))))
        ($old-ev
           (if (== $old-row ()) ()
-             (let ($_hash $_type $_kb $_fact $ev) $old-row $ev))))
+             (car-atom
+                (cdr-atom (cdr-atom (cdr-atom (cdr-atom $old-row))))))))
       (if (= $new-candidate (forward-output-candidate $new-fact $new-ev))
          (if (not (== $old-fact ()))
             (if (and (== $old-fact $new-fact) (== $old-ev $new-ev))
@@ -161,7 +173,7 @@
                     (foreach-flat forward-remove-canonical-evidence! $old-evidence-rows)))
                (forward-output-change $old-fact ()))))))
 
-(: forward-refresh-output-key! (-> ($kb $type) ForwardOutputChange))
+(: forward-refresh-output-key! (($kb $type) -[nondet]-> ForwardOutputChange))
 (= (forward-refresh-output-key! $key)
    (forward-store-output-candidate!
       $key (forward-output-candidate-for-key $key)))
@@ -169,8 +181,11 @@
 (: forward-output-row-for-fact
    (-> ($type $kb $proof $truth-value) (($type $kb $proof $truth-value) (List $evidence))))
 (= (forward-output-row-for-fact $fact)
-   (let ($type $kb $_prf $_tv) $fact
-      (let $hash (forward-output-index-hash ($kb $type))
+   (let*
+      (($type (car-atom $fact))
+       ($kb (car-atom (cdr-atom $fact)))
+       ($hash (forward-output-index-hash (quote ($kb $type)))))
+      (once
          (match &forward_canonical_evidence
             ($hash $type $kb $canonical $ev)
             ($canonical $ev)))))
@@ -202,21 +217,28 @@
                       ($trigger $stored-id $kbid $stored-pattern
                          $stored-extractor $stored-init $fun $finish $tv-mode)
                       (if (and (=alpha $stored-pattern $pattern)
-                               (=alpha ($stored-extractor $stored-init)
-                                  ($extractor $init)))
+                               (=alpha
+                                  (quote ($stored-extractor $stored-init))
+                                  (quote ($extractor $init))))
                          $stored-id
                          (empty)))))))
          (if (== $hits ())
             (let*
                (($id (next-search-id fwd_br_id))
-                (($stored-pattern $stored-extractor $stored-init)
-                   (copy_term ($pattern $extractor $init)))
+                ($stored (copy_term (quote ($pattern $extractor $init))))
+                ($stored-pattern (car-atom $stored))
+                ($stored-extractor (car-atom (cdr-atom $stored)))
+                ($stored-init
+                   (car-atom (cdr-atom (cdr-atom $stored))))
                 ($_interest
-                   (add-atom &forward_base_rate_interest
-                      ($trigger $id $kbid $stored-pattern $stored-extractor
-                         $stored-init $fun $finish $tv-mode)))
+                   (once
+                      (add-atom &forward_base_rate_interest
+                         ($trigger $id $kbid $stored-pattern $stored-extractor
+                            $stored-init $fun $finish $tv-mode))))
                 ($_state
-                   (add-atom &forward_base_rate_state ($id 0.0 0.0))))
+                   (once
+                      (add-atom &forward_base_rate_state
+                         ($id 0.0 0.0)))))
                ())
             ()))))
 
@@ -268,23 +290,30 @@
             (if (== $hits ())
                (let*
                   (($id (next-search-id fwd_member_inheritance_id))
-                   (($stored-pattern $stored-subj $stored-concept)
-                      (copy_term ($pattern $subj $concept)))
+                   ($stored (copy_term (quote ($pattern $subj $concept))))
+                   ($stored-pattern (car-atom $stored))
+                   ($stored-subj (car-atom (cdr-atom $stored)))
+                   ($stored-concept
+                      (car-atom (cdr-atom (cdr-atom $stored))))
                    ($_identity
-                      (add-atom &forward_member_inheritance_identity
-                         ($key $id)))
+                      (once
+                         (add-atom &forward_member_inheritance_identity
+                            ($key $id))))
                    ($_subject
-                      (add-atom &forward_member_inheritance_interest
-                         ((fwd_member $kbid $stored-subj) $id $kbid
-                            $stored-subj $stored-concept $stored-pattern)))
+                      (once
+                         (add-atom &forward_member_inheritance_interest
+                            ((fwd_member $kbid $stored-subj) $id $kbid
+                               $stored-subj $stored-concept $stored-pattern))))
                    ($_concept
                       (if (== $stored-subj $stored-concept) ()
-                         (add-atom &forward_member_inheritance_interest
-                            ((fwd_member $kbid $stored-concept) $id $kbid
-                               $stored-subj $stored-concept $stored-pattern))))
+                         (once
+                            (add-atom &forward_member_inheritance_interest
+                               ((fwd_member $kbid $stored-concept) $id $kbid
+                                  $stored-subj $stored-concept $stored-pattern)))))
                    ($_state
-                      (add-atom &forward_member_inheritance_state
-                         ($id 0.0 0.0))))
+                      (once
+                         (add-atom &forward_member_inheritance_state
+                            ($id 0.0 0.0)))))
                   ())
                ()))))
       ($_other ()))))
@@ -331,51 +360,110 @@
          (BaseRateEvidence (* $scale $wsum) (* $scale $csum)))))
 
 (: forward-store-base-rate-state!
-   (-> $id Number Number Number Number Bool))
+   (-> Number Number Number Number Number Bool))
 (= (forward-store-base-rate-state! $id $old-wsum $old-csum $wsum $csum)
    (progn
-      (remove-atom &forward_base_rate_state ($id $old-wsum $old-csum))
-      (add-atom &forward_base_rate_state ($id $wsum $csum))))
+      (once
+         (remove-atom &forward_base_rate_state
+            ($id $old-wsum $old-csum)))
+      (once
+         (add-atom &forward_base_rate_state ($id $wsum $csum)))))
+
+(: ForwardBaseRateObservation
+   (-> $key ($type $kb $proof TV) Number Number ForwardBaseRateObservation))
 
 (: forward-store-base-rate-observation!
-   (-> $observation-key (List ($stored-key $fact Number Number)) $fact Number Number Bool))
+   (-> $observation-key (List ForwardBaseRateObservation)
+       ($type $kb $proof TV) Number Number Bool))
 (= (forward-store-base-rate-observation!
       $observation-key $old-observations $fact $weight $count)
    (progn
       (foreach-flat
-         (|-> ($old) (remove-atom &forward_base_rate_observation $old))
+         (|-> ($old)
+            (once
+               (remove-atom &forward_base_rate_observation $old)))
          $old-observations)
-      (add-atom &forward_base_rate_observation
-         ($observation-key $fact $weight $count))))
+      (once
+         (add-atom &forward_base_rate_observation
+            (ForwardBaseRateObservation
+               $observation-key $fact $weight $count)))))
+
+;; Forward incremental folds support exactly these three additive accumulator
+;; shapes. Keep their finalization local so calls are compiled only after the
+;; implementation is available.
+(: forward-finish-aggregate
+   (-> (| BaseRateFinish
+          WeightedBaseRateInUniverseFinish
+          WeightedBaseRateWithPriorInUniverseFinish)
+       (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)
+       TV))
+(= (forward-finish-aggregate
+      base-rate (BaseRateEvidence $wsum $csum))
+   (BaseRateTv (BaseRateEvidence $wsum $csum)))
+(= (forward-finish-aggregate
+      (weighted-base-rate-in-universe $kbid)
+      (BaseRateEvidence $wsum $msum))
+   (let $ev (BaseRateEvidence $wsum $msum)
+      (let $universe-size (kb-universe-size $kbid)
+         (if (== $universe-size no-universe-size)
+            (WeightedBaseRateTv $ev)
+            (WeightedUniverseBaseRateTv
+               (the Number $universe-size) $ev)))))
+(= (forward-finish-aggregate
+      (weighted-base-rate-with-prior-in-universe $kbid)
+      (BaseRateEvidenceWithPrior $prior $ev))
+   (let $universe-size (kb-universe-size $kbid)
+      (BaseRateWithPriorFormula
+         (resolve-base-rate-prior $prior)
+         (if (== $universe-size no-universe-size)
+            (WeightedBaseRateTv $ev)
+            (WeightedUniverseBaseRateTv
+               (the Number $universe-size) $ev)))))
 
 (: forward-update-base-rate-interest
-   (-> ($type $fact-kb $proof TV) $id $kb $pattern $extractor $initial $function $finish (List $none)))
+   (-> ($type $fact-kb $proof TV) Number $kb $pattern $extractor $initial $function $finish (List $none)))
 (= (forward-update-base-rate-interest
       $fact $id $kbid $pattern $extractor $init $fun $finish)
    (let*
       (($cache-pattern (copy_term $pattern))
-       (($type ($fact-kbid MAIN Nil) $_prf $tv) (copy_term $fact))
+       ($fact-copy (copy_term $fact))
+       ($type (car-atom $fact-copy))
+       ($fact-kb (car-atom (cdr-atom $fact-copy)))
+       ($fact-kbid (car-atom $fact-kb))
+       ($tv
+          (the TV
+             (car-atom (cdr-atom (cdr-atom (cdr-atom $fact-copy))))))
        ($_kb (let $kbid $fact-kbid ok))
        ($_pattern (let $pattern $type ok))
        ($output-key (forward-fact-key $fact))
-       ($observation-key ($id $output-key))
+       ($observation-key (quote ($id $output-key)))
        ($old-observations
-          (the (List ($stored-key $stored-fact Number Number))
+          (the (List ForwardBaseRateObservation)
              (collapse
                 (match &forward_base_rate_observation
-                   ($observation-key $old-fact $old-weight $old-count)
-                   ($observation-key $old-fact $old-weight $old-count)))))
-       (($old-weight $old-count)
-          (if (== $old-observations ()) (0.0 0.0)
-             (let (cons ($_old-key $_old-fact $ow $oc) $_rest)
+                   (ForwardBaseRateObservation
+                      $observation-key $old-fact $old-weight $old-count)
+                   (ForwardBaseRateObservation
+                      $observation-key $old-fact $old-weight $old-count)))))
+       ($old-values
+          (if (== $old-observations ()) (quote (0.0 0.0))
+             (let (cons
+                     (ForwardBaseRateObservation
+                        $_old-key $_old-fact $ow $oc)
+                     $_rest)
                 $old-observations
-                ($ow $oc))))
+                (quote ($ow $oc)))))
+       ($old-weight (fst $old-values))
+       ($old-count (snd $old-values))
        ((BaseRateEvidence $weight $count)
           (forward-positive-base-rate-contribution $tv))
-       (($old-wsum $old-csum)
+       ($old-state
           (the (Number Number)
-             (match &forward_base_rate_state ($id $stored-wsum $stored-csum)
-                ($stored-wsum $stored-csum))))
+             (once
+                (match &forward_base_rate_state ($id $stored-wsum $stored-csum)
+                   (quote ($stored-wsum $stored-csum))))))
+       ($old-wsum (fst $old-state))
+       ($old-csum (snd $old-state))
        ($wsum (+ (- $old-wsum $old-weight) $weight))
        ($csum (+ (- $old-csum $old-count) $count))
        ($_state
@@ -389,18 +477,24 @@
              $kbid $extractor
              (the (| BaseRateEvidenceState BaseRateEvidenceWithPriorState) $init)
              $fun $wsum $csum))
-       ($estimate (the TV (eval (finish-aggregate $finish $acc))))
+       ($estimate
+          (forward-finish-aggregate
+             (the (| BaseRateFinish
+                     WeightedBaseRateInUniverseFinish
+                     WeightedBaseRateWithPriorInUniverseFinish)
+                $finish)
+             $acc))
        ($_cache
           (store-forward-base-rate! $kbid $cache-pattern $estimate $finish)))
       ()))
 
 (: forward-update-base-rates-for-key
-   (-> ($type $kb $proof TV) ForwardTriggerKey (List $none)))
+   (($type $kb $proof TV) ForwardTriggerKey -[nondet]-> (List $none)))
 (= (forward-update-base-rates-for-key $fact $trigger)
    (match &forward_base_rate_interest
       ($trigger $id $kbid $pattern $extractor $init $fun $finish $_tv-mode)
       (forward-update-base-rate-interest
-         $fact $id $kbid $pattern $extractor $init $fun $finish)))
+         $fact (the Number $id) $kbid $pattern $extractor $init $fun $finish)))
 
 (: forward-update-base-rates
    (-> ($type $kb $proof TV) (List $none)))
@@ -432,31 +526,46 @@
 (= (forward-store-member-inheritance-state!
       $id $old-wsum $old-msum $wsum $msum)
    (progn
-      (remove-atom &forward_member_inheritance_state
-         ($id $old-wsum $old-msum))
-      (add-atom &forward_member_inheritance_state ($id $wsum $msum))))
+      (once
+         (remove-atom &forward_member_inheritance_state
+            ($id $old-wsum $old-msum)))
+      (once
+         (add-atom &forward_member_inheritance_state
+            ($id $wsum $msum)))))
+
+(: ForwardMemberInheritanceObservation
+   (-> $key $subject $concept Number Number
+       ForwardMemberInheritanceObservation))
 
 (: forward-update-member-inheritance-interest
    (-> $object Number $kb $subject $concept $pattern (List $none)))
 (= (forward-update-member-inheritance-interest
       $obj $id $kbid $subj $concept $pattern)
    (let*
-      (($observation-key ($id $obj))
+      (($observation-key (quote ($id $obj)))
        ($old-observations
           (collapse
              (match &forward_member_inheritance_observation
-                ($observation-key $old-subject $old-concept
+                (ForwardMemberInheritanceObservation
+                   $observation-key $old-subject $old-concept
                    $old-weight $old-mass)
-                ($observation-key $old-subject $old-concept
+                (ForwardMemberInheritanceObservation
+                   $observation-key $old-subject $old-concept
                    $old-weight $old-mass))))
-       (($old-weight $old-mass)
-          (if (== $old-observations ()) (0.0 0.0)
-             (let ($_key $_asubj $_aconcept $weight $mass)
-                (car-atom $old-observations) ($weight $mass))))
+       ($old-values
+          (if (== $old-observations ()) (quote (0.0 0.0))
+             (let
+                (ForwardMemberInheritanceObservation
+                   $_key $_asubj $_aconcept $old-weight $old-mass)
+                (car-atom $old-observations)
+                (quote ($old-weight $old-mass)))))
+       ($old-weight (fst $old-values))
+       ($old-mass (snd $old-values))
        ($subject (forward-member-canonical $kbid $obj $subj))
        ($consequent (forward-member-canonical $kbid $obj $concept))
-       (($weight $mass)
-          (if (or (== $subject ()) (== $consequent ())) (0.0 0.0)
+       ($values
+          (if (or (== $subject ()) (== $consequent ()))
+             (quote (0.0 0.0))
              (let*
                 ((($subject-fact $_subject-ev) $subject)
                  (($consequent-fact $_consequent-ev) $consequent)
@@ -466,11 +575,16 @@
                     (WeightedBaseRateAcc
                        (BaseRateEvidence 0.0 0.0)
                        (WeightedTv $atv $btv))))
-                ($joined-weight $joined-mass))))
-       (($old-wsum $old-msum)
-          (match &forward_member_inheritance_state
-             ($id $stored-wsum $stored-msum)
-             ($stored-wsum $stored-msum)))
+                (quote ($joined-weight $joined-mass)))))
+       ($weight (fst $values))
+       ($mass (snd $values))
+       ($old-state
+          (once
+             (match &forward_member_inheritance_state
+                ($id $stored-wsum $stored-msum)
+                (quote ($stored-wsum $stored-msum)))))
+       ($old-wsum (fst $old-state))
+       ($old-msum (snd $old-state))
        ($wsum
           (+ (- (the Number $old-wsum) (the Number $old-weight))
              (the Number $weight)))
@@ -483,12 +597,17 @@
        ($_old
           (foreach-flat
              (|-> ($row)
-                (remove-atom &forward_member_inheritance_observation $row))
+                (once
+                   (remove-atom
+                      &forward_member_inheritance_observation $row)))
              $old-observations))
        ($_observation
           (if (or (== $subject ()) (== $consequent ())) ()
-             (add-atom &forward_member_inheritance_observation
-                ($observation-key $subject $consequent $weight $mass))))
+             (once
+                (add-atom &forward_member_inheritance_observation
+                   (ForwardMemberInheritanceObservation
+                      $observation-key $subject $consequent
+                      $weight $mass)))))
        ($_cache
           (if (<= $msum 0.0)
              (base-rate-cache-remove-derived!
@@ -517,33 +636,45 @@
 (= (forward-remove-member-inheritance-observation!
       $obj $id $kbid $subj $concept $pattern)
    (let*
-      (($observation-key ($id $obj))
+      (($observation-key (quote ($id $obj)))
        ($old-observations
           (collapse
              (match &forward_member_inheritance_observation
-                ($observation-key $old-subject $old-concept
+                (ForwardMemberInheritanceObservation
+                   $observation-key $old-subject $old-concept
                    $old-weight $old-mass)
-                ($observation-key $old-subject $old-concept
+                (ForwardMemberInheritanceObservation
+                   $observation-key $old-subject $old-concept
                    $old-weight $old-mass)))))
       (if (== $old-observations ())
          ;; Removal invalidation may run after the canonical-change hook has
          ;; already subtracted this row. Republish the surviving indexed state
          ;; without touching ordinary base-rate cache behavior.
-         (let ($wsum $msum)
-            (match &forward_member_inheritance_state ($id $wsum $msum)
+         (let* (
+            ($state
+               (once
+                  (match &forward_member_inheritance_state
+                     ($id $stored-wsum $stored-msum)
+                     (quote ($stored-wsum $stored-msum)))))
+            ($wsum (fst $state))
+            ($msum (snd $state)))
                (if (<= (the Number $msum) 0.0) ()
                   (store-forward-base-rate! $kbid $pattern
                      (member-inheritance-tv $kbid
                         (BaseRateEvidence
                            (the Number $wsum) (the Number $msum)))
-                     (member-inheritance $kbid)))))
+                     (member-inheritance $kbid))))
          (let*
-            ((($_key $_subject $_concept $old-weight $old-mass)
+            (((ForwardMemberInheritanceObservation
+                  $_key $_subject $_concept $old-weight $old-mass)
                 (car-atom $old-observations))
-             (($old-wsum $old-msum)
-                (match &forward_member_inheritance_state
-                   ($id $stored-wsum $stored-msum)
-                   ($stored-wsum $stored-msum)))
+             ($old-state
+                (once
+                   (match &forward_member_inheritance_state
+                      ($id $stored-wsum $stored-msum)
+                      (quote ($stored-wsum $stored-msum)))))
+             ($old-wsum (fst $old-state))
+             ($old-msum (snd $old-state))
              ($wsum (- (the Number $old-wsum) (the Number $old-weight)))
              ($msum (- (the Number $old-msum) (the Number $old-mass)))
              ($_state
@@ -603,7 +734,7 @@
       ($_other ()))))
 
 (: forward-invalidate-base-rates-for-key!
-   (-> $fact ForwardTriggerKey (List $none)))
+   ($fact ForwardTriggerKey -[nondet]-> (List $none)))
 (= (forward-invalidate-base-rates-for-key! $fact $trigger)
    (match &forward_base_rate_interest
       ($trigger $_id $kbid $pattern $_extractor $_init $_fun $finish $_tv-mode)
@@ -627,27 +758,35 @@
 ;; the observation until the replacement is processed; that update subtracts
 ;; the old value and adds the new one atomically.
 (: forward-remove-base-rate-observation!
-   (-> ($type $fact-kb $proof TV) $id $kb $pattern $extractor $initial $function $finish (List $none)))
+   (-> ($type $fact-kb $proof TV) Number $kb $pattern $extractor $initial $function $finish (List $none)))
 (= (forward-remove-base-rate-observation!
       $fact $id $kbid $pattern $extractor $init $fun $finish)
    (let*
       (($output-key (forward-fact-key $fact))
-       ($observation-key ($id $output-key))
+       ($observation-key (quote ($id $output-key)))
        ($old-observations
-          (the (List ($stored-key $stored-fact Number Number))
+          (the (List ForwardBaseRateObservation)
              (collapse
                 (match &forward_base_rate_observation
-                   ($observation-key $old-fact $old-weight $old-count)
-                   ($observation-key $old-fact $old-weight $old-count))))))
+                   (ForwardBaseRateObservation
+                      $observation-key $old-fact $old-weight $old-count)
+                   (ForwardBaseRateObservation
+                      $observation-key $old-fact $old-weight $old-count))))))
       (if (== $old-observations ()) ()
          (let*
-            (((cons ($_key $_old-fact $old-weight $old-count) $_rest)
+            (((cons
+                  (ForwardBaseRateObservation
+                     $_key $_old-fact $old-weight $old-count)
+                  $_rest)
                 $old-observations)
-             (($old-wsum $old-csum)
+             ($old-state
                 (the (Number Number)
-                   (match &forward_base_rate_state
-                      ($id $stored-wsum $stored-csum)
-                      ($stored-wsum $stored-csum))))
+                   (once
+                      (match &forward_base_rate_state
+                         ($id $stored-wsum $stored-csum)
+                         (quote ($stored-wsum $stored-csum))))))
+             ($old-wsum (fst $old-state))
+             ($old-csum (snd $old-state))
              ($wsum (- $old-wsum $old-weight))
              ($csum (- $old-csum $old-count))
              ($_state
@@ -668,19 +807,24 @@
                              (the (| BaseRateEvidenceState BaseRateEvidenceWithPriorState) $init)
                              $fun $wsum $csum))
                        ($estimate
-                          (the TV (eval (finish-aggregate $finish $acc)))))
+                          (forward-finish-aggregate
+                             (the (| BaseRateFinish
+                                     WeightedBaseRateInUniverseFinish
+                                     WeightedBaseRateWithPriorInUniverseFinish)
+                                $finish)
+                             $acc)))
                       (store-forward-base-rate!
                          $kbid $pattern $estimate $finish)))))
             ()))))
 
 (: forward-remove-base-rate-observations-for-key!
-   (-> ($type $kb $proof TV) ForwardTriggerKey (List $none)))
+   (($type $kb $proof TV) ForwardTriggerKey -[nondet]-> (List $none)))
 (= (forward-remove-base-rate-observations-for-key! $fact $trigger)
    (match &forward_base_rate_interest
       ($trigger $id $kbid $pattern $extractor $init $fun $finish $_tv-mode)
       (let $stored-pattern (copy_term $pattern)
          (forward-remove-base-rate-observation!
-            $fact $id $kbid $stored-pattern
+            $fact (the Number $id) $kbid $stored-pattern
             $extractor $init $fun $finish))))
 
 (: forward-remove-base-rate-observations!
@@ -701,8 +845,8 @@
       ()))
 
 (: forward-satisfy-premises
-   (-> Number (List Expression) ($type $kb $proof TV)
-       (List Evidence) ForwardMatch))
+   (Number (List Expression) ($type $kb $proof TV)
+       (List Evidence) -[nondet]-> ForwardMatch))
 (= (forward-satisfy-premises $steps () $goal $ev) (forward-match $goal $ev))
 (= (forward-satisfy-premises $steps (cons $prem $rest) $goal $ev)
    (if (= $prem (CPU $fun $args $res))
@@ -730,32 +874,45 @@
 (= (forward-build-agenda-from-facts $facts)
    (fold-flat forward-seed-agenda-step (empty_heap) (list_to_set $facts)))
 
+(: forward-agenda-identity (-> $heap $heap))
+(= (forward-agenda-identity $agenda) $agenda)
+
 (: agenda-push-forward-change (-> $heap ForwardOutputChange $heap))
-(= (agenda-push-forward-change $agenda no-forward-change) $agenda)
-(= (agenda-push-forward-change $agenda (forward-output-change $old ()))
-   (let*
-      (($_remove-base-rate (forward-remove-base-rate-observations! $old))
-       ($_remove-member (forward-remove-member-inheritances $old)))
-      $agenda))
-(= (agenda-push-forward-change $agenda (forward-output-change $old $fact))
-   (let*
-      (($_invalidate-old
-          (if (== $old ()) () (forward-invalidate-base-rates! $old)))
-       ($_invalidate-new (forward-invalidate-base-rates! $fact)))
-      (agenda-push-fact $agenda $fact)))
+(= (agenda-push-forward-change $agenda $change)
+   (once
+      (if (== $change no-forward-change)
+         (forward-agenda-identity $agenda)
+         (let (forward-output-change $old $fact) $change
+         (if (== $fact ())
+            (let*
+               (($_remove-base-rate
+                   (forward-remove-base-rate-observations! $old))
+                ($_remove-member
+                   (forward-remove-member-inheritances $old)))
+               (forward-agenda-identity $agenda))
+            (let*
+               (($_invalidate-old
+                   (if (== $old ()) ()
+                      (forward-invalidate-base-rates! $old)))
+                ($_invalidate-new
+                   (forward-invalidate-base-rates! $fact)))
+               (agenda-push-fact $agenda $fact)))))))
 
 ;; Apply cache bookkeeping for canonical changes made outside a forward run.
 (: forward-apply-unqueued-change!
    (-> ForwardOutputChange (| (List $none) Bool)))
-(= (forward-apply-unqueued-change! no-forward-change) ())
-(= (forward-apply-unqueued-change! (forward-output-change $old ()))
-   (progn
-      (forward-remove-base-rate-observations! $old)
-      (forward-remove-member-inheritances $old)))
-(= (forward-apply-unqueued-change! (forward-output-change $old $fact))
-   (progn
-      (if (== $old ()) () (forward-invalidate-base-rates! $old))
-      (forward-invalidate-base-rates! $fact)))
+(= (forward-apply-unqueued-change! $change)
+   (once
+      (if (== $change no-forward-change) ()
+         (let (forward-output-change $old $fact) $change
+         (if (== $fact ())
+            (progn
+               (forward-remove-base-rate-observations! $old)
+               (forward-remove-member-inheritances $old))
+            (progn
+               (if (== $old ()) ()
+                  (forward-invalidate-base-rates! $old))
+               (forward-invalidate-base-rates! $fact)))))))
 
 (: forward-strict-evidence-subset?
    (-> (List $evidence) (List $evidence) Bool))
@@ -838,7 +995,7 @@
 (: forward-frontier-has-exact?
    (-> ($kb $type) $fact (List $evidence) Bool))
 (= (forward-frontier-has-exact? ($kb $type) $fact $ev)
-   (let $hash (forward-output-index-hash ($kb $type))
+   (let $hash (forward-output-index-hash (quote ($kb $type)))
       (not (==
          (collapse
             (once
@@ -849,7 +1006,7 @@
 (: forward-frontier-rejects?
    (-> ($kb $type) $fact (List $evidence) Bool))
 (= (forward-frontier-rejects? ($kb $type) $fact $ev)
-   (let $hash (forward-output-index-hash ($kb $type))
+   (let $hash (forward-output-index-hash (quote ($kb $type)))
       (not (==
          (collapse
             (once
@@ -864,7 +1021,7 @@
 (: forward-prune-frontier-for!
    (-> ($kb $type) $fact (List $evidence) (List $none)))
 (= (forward-prune-frontier-for! ($kb $type) $fact $ev)
-   (let $hash (forward-output-index-hash ($kb $type))
+   (let $hash (forward-output-index-hash (quote ($kb $type)))
       (collapse
          (match &forward_frontier
             ($hash $type $kb $old-fact $old-ev)
@@ -881,15 +1038,16 @@
       (((Inheritance $subj $concept) ($kbid $_ctx $_vars) $_prf $_tv)
          (if (is-var $subj) ()
             (progn
-               (add-atom &inheritance_subject ($kbid $subj))
+               (once
+                  (add-atom &inheritance_subject ($kbid $subj)))
                (record-inheritance-nodes! $kbid $subj $concept))))
       ($_other ()))))
 
 (: forward-add-frontier-row!
-   (-> ($kb $type) $fact (List $evidence) (List $none)))
+   (($kb $type) $fact (List $evidence) -[nondet]-> (List $none)))
 (= (forward-add-frontier-row! ($kb $type) $fact $ev)
    (let*
-      (($hash (forward-output-index-hash ($kb $type)))
+      (($hash (forward-output-index-hash (quote ($kb $type))))
        ($_nodes (forward-record-inheritance-nodes! $fact))
        ($_frontier
           (chainer-add-atom &forward_frontier
@@ -897,7 +1055,7 @@
       ()))
 
 (: forward-add-first-candidate!
-   (-> ($kb $type) $fact (List $evidence) ForwardOutputChange))
+   (($kb $type) $fact (List $evidence) -[nondet]-> ForwardOutputChange))
 (= (forward-add-first-candidate! $output-key $fact $ev)
    (let $_add (forward-add-frontier-row! $output-key $fact $ev)
       (forward-store-output-candidate!
@@ -906,7 +1064,8 @@
 ;; Disjoint evidence cannot evict an existing frontier branch.  Merge directly
 ;; with the cached canonical fact instead of scanning and folding the frontier.
 (: forward-add-disjoint-candidate!
-   (-> ($kb $type) $canonical (List $evidence) $fact (List $evidence) ForwardOutputChange))
+   (($kb $type) $canonical (List $evidence) $fact (List $evidence)
+      -[nondet]-> ForwardOutputChange))
 (= (forward-add-disjoint-candidate!
       $output-key $canonical $canonical-ev $fact $ev)
    (let*
@@ -918,7 +1077,8 @@
       (forward-store-output-candidate!
          $output-key (forward-output-candidate $merged $merged-ev))))
 
-(: forward-candidate-upsert! (-> ForwardDerived ForwardOutputChange))
+(: forward-candidate-upsert!
+   (ForwardDerived -[nondet]-> ForwardOutputChange))
 (= (forward-candidate-upsert! (forward-derived $fact $ev))
    (let $output-key (forward-fact-key $fact)
       (if (forward-frontier-has-exact? $output-key $fact $ev) no-forward-change
@@ -977,13 +1137,15 @@
 (: forward-run-apply-derived
    (-> ForwardRun ForwardDerived ForwardRun))
 (= (forward-run-apply-derived (forward-run $agenda $changed) $derived)
-   (let $change (forward-candidate-upsert! $derived)
+   (let $changes (collapse (once (forward-candidate-upsert! $derived)))
+      (let $change
+         (if (== $changes ()) no-forward-change (car-atom $changes))
       (let $nagenda (agenda-push-forward-change $agenda $change)
          (if (= $change (forward-output-change $_old $fact))
             ;; Keep output identities, not intermediate fact versions. At the
             ;; end of the run each identity resolves to its final canonical fact.
             (forward-run $nagenda (cons (forward-fact-key $fact) $changed))
-            (forward-run $nagenda $changed)))))
+            (forward-run $nagenda $changed))))))
 
 (: forward-step-fact
    (-> Number $kb ForwardRun ($type $fact-kb $proof TV) ForwardRun))
@@ -1026,8 +1188,8 @@
 (: forward-canonical-fact-for-key
    (-> ($kb $type) ($type $kb $proof TV)))
 (= (forward-canonical-fact-for-key ($kb $type))
-   (let $hash (forward-output-index-hash ($kb $type))
-      (the ($type $kb $proof TV)
+   (let $hash (forward-output-index-hash (quote ($kb $type)))
+      (once
          (match &forward_canonical_evidence
             ($hash $type $kb $fact $_ev) $fact))))
 

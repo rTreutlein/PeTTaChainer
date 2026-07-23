@@ -20,10 +20,6 @@
 !(import! &self backward_proof_store)
 !(import! &self backward_chainer)
 
-;; Register the one remaining forward reference across the
-;; forward_chainer/compiled_query_runtime boundary.
-(= (member-inheritance-tv __chainer-interface__ $_) no-evidence)
-
 (: add-to-kb ($compiled-expression -[nondet]-> (| Bool (List $none))))
 (= (add-to-kb $expr) (kb-add-expr live $expr))
 
@@ -33,7 +29,7 @@
 (= (register-inheritance-induction! $_kb) ())
 
 (: record-compiled-inheritance-subject!
-   (-> $compiled-expression (| Bool (List $none))))
+   ($compiled-expression -[nondet]-> (| Bool (List $none))))
 (= (record-compiled-inheritance-subject! $expr)
    (case $expr (
       ((: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $_concept) $_tv)
@@ -41,7 +37,7 @@
       ($_other ()))))
 
 (: record-compiled-inheritance-concepts!
-   (-> $compiled-expression (| Bool (List $none))))
+   ($compiled-expression -[nondet]-> (| Bool (List $none))))
 (= (record-compiled-inheritance-concepts! $expr)
    (case $expr (
       ((: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $concept) $_tv)
@@ -50,13 +46,27 @@
          (record-concept-node! $kbid $class))
       ($_other ()))))
 
+(: map-flat-nondet
+   (($input -[nondet]-> $output) (List $input)
+      -[nondet]-> (List $output)))
+(= (map-flat-nondet $_f ()) ())
+(= (map-flat-nondet $f (cons $x $xs))
+   (cons ($f $x) (map-flat-nondet $f $xs)))
+
+(: foreach-flat-nondet
+   (($input -[nondet]-> $effect) (List $input)
+      -[nondet]-> (List $none)))
+(= (foreach-flat-nondet $_f ()) ())
+(= (foreach-flat-nondet $f (cons $x $xs))
+   (progn ($f $x) (foreach-flat-nondet $f $xs)))
+
 (: materialize-stmt-lambdas ($term -[nondet]-> $term))
 (= (materialize-stmt-lambdas $term)
    (if (is-var $term) $term
       (if (is-expr $term)
          (if (== (car-atom $term) |->) (eval $term)
             (cons (materialize-stmt-lambdas (car-atom $term))
-               (map-flat materialize-stmt-lambdas (cdr-atom $term))))
+               (map-flat-nondet materialize-stmt-lambdas (cdr-atom $term))))
          $term)))
 
 (: compileadd ($kb AnnotatedStatement -[nondet]-> $compiled-expression))
@@ -66,8 +76,14 @@
         ($atoms (collapse (mm2compile $kb $stmt1)))
         ($iatoms (list_to_set (map-flat internalize-proof-structure-any $atoms)))
         ($eatoms (map-flat externalize-proof-structure $iatoms))
-        ($_subjects (collapse (foreach-flat record-compiled-inheritance-subject! $eatoms)))
-        ($_concepts (collapse (foreach-flat record-compiled-inheritance-concepts! $eatoms)))
-        ($_ (collapse (foreach-flat add-to-kb $iatoms))))
+        ($_subjects
+           (collapse
+              (foreach-flat-nondet
+                 record-compiled-inheritance-subject! $eatoms)))
+        ($_concepts
+           (collapse
+              (foreach-flat-nondet
+                 record-compiled-inheritance-concepts! $eatoms)))
+        ($_ (collapse (foreach-flat-nondet add-to-kb $iatoms))))
       (superpose
          $eatoms)))
