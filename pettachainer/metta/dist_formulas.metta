@@ -63,17 +63,20 @@
 (: ParticleStoreClear (-> Bool))
 (= (ParticleStoreClear) (progn (remove-all-atoms &particle_store) (change-state! particleid 0)))
 
-(: particle-ids-in-term (-> $term (List Number)))
-(= (particle-ids-in-term (ParticleDist $pid $_scale))
-   (the (List Number) ($pid)))
+;; Particle distributions can be embedded anywhere in a compiled fact or TV,
+;; so this is intentionally a generic structural walk rather than a
+;; Distribution-only accessor. The ParticleDist branch checks only its numeric
+;; id; the resulting cons is then known statically as (List Number).
+(: particle-ids-in-term ($term -[det]-> (List Number)))
 (= (particle-ids-in-term $term)
-   (if (is-var $term) ()
-      (if (is-expr $term)
-         (fold-flat
-            (|-> ($acc $elem) (append $acc (particle-ids-in-term $elem)))
-            ()
-            (the (List Atom) $term))
-         ())))
+   (if (= $term (ParticleDist $pid $_scale))
+      (cons (the Number $pid) ())
+      (if (or (is-var $term) (== $term ())) ()
+         (if (is-expr $term)
+            (append
+               (particle-ids-in-term (car-atom $term))
+               (particle-ids-in-term (cdr-atom $term)))
+            ()))))
 
 (: ParticleStorePruneKB (-> Number))
 (= (ParticleStorePruneKB)

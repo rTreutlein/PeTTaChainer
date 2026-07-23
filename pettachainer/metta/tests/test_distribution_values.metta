@@ -6,6 +6,13 @@
 !(test (DistGreaterThanFormula (ParticleFromPairs ((0.1 0.25) (2.5 0.75))) 1.0)
    (STV 0.75 0.07407407407407407))
 
+!(test (particle-ids-in-term (ParticleDist 7 1.0)) (7))
+
+!(test
+   (particle-ids-in-term
+      (nested (ParticleDist 7 1.0) (ParticleDist 11 0.5)))
+   (7 11))
+
 !(compileadd kb (: kid1 (Kid kid1) (STV 1.0 1.0)))
 
 !(compileadd kb (: kid2 (Kid kid2) (STV 1.0 1.0)))
