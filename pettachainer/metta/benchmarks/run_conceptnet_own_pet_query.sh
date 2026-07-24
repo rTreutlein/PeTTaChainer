@@ -83,7 +83,8 @@ if [[ $run_status != 0 ]]; then
   exit "$run_status"
 fi
 
-if ! grep -Eq 'CONCEPTNET_OWN_PET_RESULT_COUNT [1-9][0-9]* RESULTS .*\\(And \\(Own \\(i max\\)\\) \\(Pet max\\)\\)' "$output_file"; then
+if ! grep -Eq 'CONCEPTNET_OWN_PET_RESULT_COUNT [1-9][0-9]* RESULTS' "$output_file" ||
+   ! grep -Fq '(And (Own (i max)) (Pet max))' "$output_file"; then
   printf 'ConceptNet benchmark produced no proof. The export may need refreshing.\n' >&2
   printf 'Retry with CNET_REFRESH=1, then verify the exported KB identifier.\n' >&2
   exit 1
