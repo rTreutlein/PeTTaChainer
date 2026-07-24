@@ -35,20 +35,21 @@
                 (quote ($type $vars)))
              (quote ($sealed-goal ($kbid $ctx))))))))
 
-(: normalize-expected-tv (-> $truth-value $truth-value))
+(: normalize-expected-tv (-> $truth-value TV))
 (= (normalize-expected-tv $tv)
    (if (is-var $tv) (STV 1.0 1.0)
       (case $tv
          (((STV $s $c) (STV (if (is-var $s) 1.0 $s) (if (is-var $c) 1.0 $c)))
           ((CTV $pos $neg)
              (CTV (normalize-expected-tv $pos) (normalize-expected-tv $neg)))
-          ($other $other)))))
+          (no-evidence no-evidence)
+          ($other (the TV $other))))))
 
 ;; CPU arguments are formula-dependent and enter through a generic execution
-;; record.  Once dispatch identifies a TV formula, check the normalized value
-;; at this single boundary.
+;; record. Normalize known TV constructors without reflective checks; retain
+;; an explicit checked fallback for invalid or user-extended TV values.
 (: expected-tv (-> $candidate TV))
-(= (expected-tv $value) (the TV (normalize-expected-tv $value)))
+(= (expected-tv $value) (normalize-expected-tv $value))
 
 ;; Expected TVs dispatch directly on the known formula set instead of going
 ;; through reduce: reduce's runtime dispatch (fun/1 + current_predicate +

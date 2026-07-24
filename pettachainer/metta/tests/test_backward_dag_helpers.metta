@@ -52,6 +52,8 @@
 
 !(test (tv-confidence (CTV (STV 0.9 0.7) (STV 0.1 0.4))) 0.4)
 
+!(test (expected-tv no-evidence) no-evidence)
+
 !(test
    (term-confidence
       (CPU CTVModusPonensFormula ((STV 0.8 0.9) (CTV (STV 1.0 0.6) (STV 0.0 0.4))) $out))
