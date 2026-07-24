@@ -124,10 +124,10 @@
       $child-goal))
 
 (: aggregate-step-value
-   (-> (extract-value $pattern $value)
+   (-> (extract-value Statement $value)
        $child-atom (| TV NoTV) $value))
 (: aggregate-step-value
-   (-> (extract-inheritance-tv $kbid $pattern)
+   (-> (extract-inheritance-tv KB Statement)
        $child-atom TV WeightedTV))
 (: aggregate-step-value
    (-> extract-tv $child-atom TV TV))
@@ -142,17 +142,32 @@
          $child-tv)))
 (= (aggregate-step-value extract-tv $_child-atom $child-tv) $child-tv)
 (: aggregate-step-group-value
-   (-> $pattern $group-template $child-atom $group))
+   (-> Statement $group-template $child-atom $group))
 (= (aggregate-step-group-value $pattern $group $child-atom)
    (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $group))
 
 (: aggregate-foldall-step-acc
-   (-> $extractor (-> $accumulator $value $accumulator)
+   (-> Expression
+       (-[det]-> $accumulator %Undefined% $accumulator)
        $accumulator $child-atom (| TV NoTV) $accumulator))
 (= (aggregate-foldall-step-acc $extractor $fun $acc $child-atom $child-tv)
-   (let $value
-      (aggregate-step-value $extractor $child-atom $child-tv)
-      ($fun $acc $value)))
+   (case $extractor (
+      ((extract-value $pattern $value-template)
+         (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv)
+            (copy_term $child-atom)
+            ($fun $acc $value-template)))
+      ((extract-inheritance-tv $kbid $_pattern)
+         (let ((Inheritance $subj $_concept)
+                ($_ckbid $_cctx $_cvars) $_cprf $_ctv)
+            (copy_term $child-atom)
+            ($fun $acc
+               (WeightedTv
+                  (inheritance-subject-prior-tv
+                     (brand KB $kbid)
+                     (brand Statement $subj))
+                  (the TV $child-tv)))))
+      (extract-tv
+         ($fun $acc (the TV $child-tv))))))
 
 (: aggregate-finish (-> IdentityFinish $acc $acc))
 (: aggregate-finish
@@ -177,7 +192,8 @@
    (the Distribution
       (once
          (reduce (reduce (DistAverageFromSumCount $acc))))))
-(= (aggregate-finish base-rate $acc) (BaseRateTv $acc))
+(= (aggregate-finish base-rate $acc)
+   (BaseRateTv (the BaseRateEvidenceState $acc)))
 (= (aggregate-finish weighted-base-rate $acc) (WeightedBaseRateTv $acc))
 (= (aggregate-finish weighted-base-rate-with-prior $acc)
    (WeightedBaseRateWithPriorTv $acc))
@@ -356,7 +372,8 @@
 (: NoSourceEntry Type)
 (: no-source-entry NoSourceEntry)
 (: FrontierProjection Type)
-(: projection (-> Number $proof-source FrontierProjection))
+(: projection
+   (-> Number (| Proof ProofRef) FrontierProjection))
 ;; Keep the absence sentinel distinct from the public logic-config
 ;; `NoProjection` output mode.
 (: NoFrontierProjection Type)
@@ -414,7 +431,8 @@
 ;; $bpid) for chained sources (facts and derived conjunctions alike) or a
 ;; statement name for kb-materialized projection facts.
 (: frontier-and-source-info
-   (-> $atom (| SourceInfo NoSourceInfo)))
+   (-> (| Goal (Statement KBContext Proof TV))
+       (| SourceInfo NoSourceInfo)))
 (= (frontier-and-source-info ($type $_kb $_prf $tv))
    (if (is-expr $type)
       (if (== (car-atom $type) And)
@@ -427,14 +445,15 @@
 ;; differently (open vs ground goals), producing distinct proof nodes for the
 ;; same source proposition.
 (: frontier-source-entry-from-atom
-   (-> $atom (| SourceEntry NoSourceEntry)))
+   (-> (| Goal (Statement KBContext Proof TV))
+       (| SourceEntry NoSourceEntry)))
 (= (frontier-source-entry-from-atom $atom)
    (let $i (frontier-and-source-info $atom)
       (if (== $i no-source-info) no-source-entry
          (source-entry (candidate-output-key $atom) $i))))
 
 (: frontier-source-entry
-   (-> $proof-source (| SourceEntry NoSourceEntry)))
+   (-> (| Proof ProofRef) (| SourceEntry NoSourceEntry)))
 (= (frontier-source-entry $base)
    (if (= $base (proof-ref $bpid))
       (frontier-source-entry-from-atom
@@ -442,7 +461,13 @@
       (let $hits
          (collapse
             (match &kb ($type $kb $base $tv)
-               (let $e (frontier-source-entry-from-atom ($type $kb $base $tv))
+               (let $e
+                  (frontier-source-entry-from-atom
+                     (assemble-runtime-fact
+                        (brand Statement $type)
+                        (brand KBContext $kb)
+                        (brand Proof $base)
+                        (the TV $tv)))
                   (if (== $e no-source-entry) (empty) $e))))
          (if (== $hits ()) no-source-entry (car-atom $hits)))))
 
@@ -470,18 +495,20 @@
 (= (frontier-atom-part $pid ($_type $_kb $_prf $tv))
    (let $atom-tv $tv
       (let $proj (frontier-proof-projection (proof-kind-by-id $pid))
-         (if (= $proj (projection $idx $base))
-            (let $entry (frontier-source-entry $base)
-               (if (= $entry (source-entry $key (source-info $btv $n)))
-                  (let ($_score $ev) (proof-stats-by-id $pid)
-                     (pool-part $key
-                        $btv
-                        $n
-                        ($idx)
-                        $ev
-                        $atom-tv))
-                  (indep-part $atom-tv)))
-            (indep-part $atom-tv)))))
+         (case $proj (
+            ((projection $idx $base)
+               (let $entry (frontier-source-entry $base)
+                  (if (= $entry (source-entry $key (source-info $btv $n)))
+                     (let ($_score $ev) (proof-stats-by-id $pid)
+                        (pool-part $key
+                           $btv
+                           $n
+                           ($idx)
+                           $ev
+                           $atom-tv))
+                     (indep-part $atom-tv))))
+            (no-projection
+               (indep-part $atom-tv)))))))
 
 (: frontier-premise-part
    (-> Number (| FrontierPart SkipPart)))
@@ -832,7 +859,9 @@
             (wake-proof-commit-heap $agenda $gid $pid)))))
 
 (: commit-aggregate-snapshot-heap
-   (-> $heap Number $result (List Evidence) (List Number) $heap))
+   (-> $heap Number
+       (| Goal (Statement KBContext Proof TV))
+       (List Evidence) (List Number) $heap))
 (= (commit-aggregate-snapshot-heap $agenda $agg-gid $result $ev $children)
    (let*
       (((stored-aggregate-row
@@ -1023,9 +1052,9 @@
       ($_other false))))
 
 (: aggregate-proof-fold-step
-   (-> ($kb $pattern $extractor $initial
+   (-> (KB Statement $extractor $initial
           (-> $accumulator $value $accumulator)
-          $finish $tv-mode)
+          $finish AggregateTVMode)
        AggregateState Number AggregateState))
 (= (aggregate-proof-fold-step $args (aggregate-state $acc $ev $children) $pid)
    (let*
@@ -1059,7 +1088,11 @@
             (goal-live-proof-ids $child-gid)))))
 
 (: aggregate-final-state
-   (-> Number Number $arguments AggregateState))
+   (-[det]-> Number Number
+       (KB Statement $extractor $initial
+          (-> $accumulator $value $accumulator)
+          $finish AggregateTVMode)
+       AggregateState))
 (= (aggregate-final-state $agg-gid $child-gid $args)
    (let*
       ((($_kb $_pattern $_extractor $init-acc $_fun $_finish $_tv-mode) (copy_term $args)))
@@ -1089,9 +1122,9 @@
          (aggregate-group-update $extractor $fun $init $group $child-atom $child-tv $pev $pid $rest))))
 
 (: grouped-aggregate-proof-fold-step
-   (-> ($kb $pattern $group-template $extractor $initial
+   (-> (KB Statement $group-template $extractor $initial
           (-> $accumulator $value $accumulator)
-          $finish $tv-mode)
+          $finish AggregateTVMode)
        (List AggregateGroupState) Number (List AggregateGroupState)))
 (= (grouped-aggregate-proof-fold-step $args $states $pid)
    (let*
@@ -1106,14 +1139,18 @@
       (aggregate-group-update $extractor $fun $init $group $child-atom $child-tv $pev $pid $states)))
 
 (: grouped-aggregate-final-states
-   (-> Number Number $arguments (List AggregateGroupState)))
+   (-> Number Number
+       (KB Statement $group-template $extractor $initial
+          (-> $accumulator $value $accumulator)
+          $finish AggregateTVMode)
+       (List AggregateGroupState)))
 (= (grouped-aggregate-final-states $agg-gid $child-gid $args)
    (fold-flat (grouped-aggregate-proof-fold-step $args)
       ()
       (aggregate-fold-source-ids $agg-gid $child-gid)))
 
 (: grouped-aggregate-result
-   (-> ($kb $pattern $group-template $extractor $initial
+   (-> (KB Statement $group-template $extractor $initial
           (-> $accumulator $value $accumulator)
           (| IdentityFinish
              DistAverageFinish
@@ -1125,7 +1162,7 @@
              WeightedBaseRateWithPriorInUniverseFinish
              UniformPriorFinish
              UniformPriorKnownFinish)
-          $tv-mode)
+          AggregateTVMode)
        AggregateGroupState Goal))
 (= (grouped-aggregate-result $args (aggregate-group-state $group $acc $_ev $_children))
    (let*
@@ -1138,7 +1175,21 @@
       (CPU GroupedFoldAllCompiled $grouped-args $result)))
 
 (: commit-grouped-aggregate-state-heap
-   (-> Number $arguments $heap AggregateGroupState $heap))
+   (-> Number
+       (KB Statement $group-template $extractor $initial
+          (-> $accumulator $value $accumulator)
+          (| IdentityFinish
+             DistAverageFinish
+             BaseRateFinish
+             WeightedBaseRateFinish
+             WeightedBaseRateWithPriorFinish
+             MemberInheritanceFinish
+             WeightedBaseRateInUniverseFinish
+             WeightedBaseRateWithPriorInUniverseFinish
+             UniformPriorFinish
+             UniformPriorKnownFinish)
+          AggregateTVMode)
+       $heap AggregateGroupState $heap))
 (= (commit-grouped-aggregate-state-heap $agg-gid $args $agenda (aggregate-group-state $group $acc $ev $children))
    (let*
       (($result (grouped-aggregate-result $args (aggregate-group-state $group $acc $ev $children)))
@@ -1185,7 +1236,21 @@
             (wake-proof-commit-heap $agenda $agg-gid $pid)))))
 
 (: run-grouped-aggregate-heap
-   (-> $heap Number Number $arguments $heap))
+   (-[det]-> $heap Number Number
+       (KB Statement $group-template $extractor $initial
+          (-> $accumulator $value $accumulator)
+          (| IdentityFinish
+             DistAverageFinish
+             BaseRateFinish
+             WeightedBaseRateFinish
+             WeightedBaseRateWithPriorFinish
+             MemberInheritanceFinish
+             WeightedBaseRateInUniverseFinish
+             WeightedBaseRateWithPriorInUniverseFinish
+             UniformPriorFinish
+             UniformPriorKnownFinish)
+          AggregateTVMode)
+       $heap))
 (= (run-grouped-aggregate-heap $agenda $agg-gid $child-gid $args)
    (fold-flat (commit-grouped-aggregate-state-heap $agg-gid $args)
       $agenda
@@ -1217,18 +1282,57 @@
                       $agg-gid $child-gid $args $base-score
                       0.0 $next-current-pid))))))
       (if $grouped?
-         (run-grouped-aggregate-heap $agenda $agg-gid $child-gid $args)
+         (run-grouped-aggregate-heap
+            $agenda $agg-gid $child-gid
+            (the
+               (KB Statement $group-template $extractor $initial
+                  (-> $accumulator $value $accumulator)
+                  (| IdentityFinish
+                     DistAverageFinish
+                     BaseRateFinish
+                     WeightedBaseRateFinish
+                     WeightedBaseRateWithPriorFinish
+                     MemberInheritanceFinish
+                     WeightedBaseRateInUniverseFinish
+                     WeightedBaseRateWithPriorInUniverseFinish
+                     UniformPriorFinish
+                     UniformPriorKnownFinish)
+                  AggregateTVMode)
+               (copy_term $args)))
          (let*
-            (((aggregate-state $acc $ev $children) (aggregate-final-state $agg-gid $child-gid $args))
-             (($_kb $_pattern $_extractor $_init $_fun $finish $_tv-mode) $args)
+            (((aggregate-state $acc $ev $children)
+                (aggregate-final-state
+                   $agg-gid $child-gid
+                   (the
+                      (KB Statement $extractor $initial
+                         (-> $accumulator $value $accumulator)
+                         (| IdentityFinish
+                            DistAverageFinish
+                            BaseRateFinish
+                            WeightedBaseRateFinish
+                            WeightedBaseRateWithPriorFinish
+                            MemberInheritanceFinish
+                            WeightedBaseRateInUniverseFinish
+                            WeightedBaseRateWithPriorInUniverseFinish
+                            UniformPriorFinish
+                            UniformPriorKnownFinish)
+                         AggregateTVMode)
+                      (copy_term $args))))
+             (($_kb $_pattern $_extractor $_init $_fun $finish $_tv-mode)
+                $args)
              ($result
                 (CPU FoldAllCompiled $args
                    (finish-stored-aggregate $finish $acc)))
              ($commit-ev (aggregate-commit-evidence $finish $ev)))
-            (if (base-rate-refinement-degrades? $agg-gid $finish $current-pid $result)
+            (if
+               (base-rate-refinement-degrades?
+                  $agg-gid $finish $current-pid $result)
                $agenda
-               (if (aggregate-snapshot-changed? $current-pid $result $commit-ev)
-                  (commit-aggregate-snapshot-heap $agenda $agg-gid $result $commit-ev $children)
+               (if
+                  (aggregate-snapshot-changed?
+                     $current-pid $result $commit-ev)
+                  (commit-aggregate-snapshot-heap
+                     $agenda $agg-gid $result $commit-ev $children)
                   $agenda))))))
 
 ; Background aggregates (node priors / base rates) summarise the whole store

@@ -175,7 +175,7 @@
       (proof-token-replacement
          (cons $new-head $new-tail) $proofs2)))
 (: replace-cpu-proof-token
-   (-> $term (List Proof) ProofTokenReplacement))
+   (-> Expression (List Proof) ProofTokenReplacement))
 (= (replace-cpu-proof-token $term $proofs)
    (if (is-var $term)
       (proof-token-replacement $term $proofs)
@@ -186,7 +186,8 @@
          (if (is-expr $term)
             (let
                (proof-token-replacement $new-list $rest-proofs)
-               (replace-cpu-proof-token-list $term $proofs)
+               (replace-cpu-proof-token-list
+                  (the (List Expression) $term) $proofs)
                (proof-token-replacement $new-list $rest-proofs))
             (proof-token-replacement $term $proofs)))))
 (: materialize-rule-token (-> Proof Number Proof))
@@ -209,7 +210,7 @@
       (($_type $_kb $prf $_tv)
          (brand Proof (materialize-proof-refs $prf)))
       ($_other (brand Proof $output)))))
-(: rule-kind-proof-token (-> $term Proof))
+(: rule-kind-proof-token (-> Expression Proof))
 (= (rule-kind-proof-token $term)
    (if (is-expr $term)
       (let $tail1 (cdr-atom $term)

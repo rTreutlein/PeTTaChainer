@@ -18,10 +18,10 @@
 (: ideal-clip (-[det]-> Number Number))
 (= (ideal-clip $s) (max 0.000001 (min 0.999999 $s)))
 
-(: confidence-to-count (-> Number Number))
+(: confidence-to-count (-[det]-> Number Number))
 (= (confidence-to-count $conf) (/ (* $conf 800) (- 1 (min-atom ($conf 0.9999)))))
 
-(: evidence-confidence-k (-> Number))
+(: evidence-confidence-k (-[det]-> Number))
 (= (evidence-confidence-k) 800.0)
 
 (: count-confidence (-[det]-> Number Number))

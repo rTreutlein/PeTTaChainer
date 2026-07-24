@@ -360,7 +360,7 @@
       ($_other false))))
 
 (: forward-register-base-rate!
-   (-> KB Statement $extractor $initial $accumulator $finish $tv-mode
+   (-> KB Statement $extractor $initial $accumulator $finish AggregateTVMode
        (List $none)))
 (= (forward-register-base-rate!
       $kbid $pattern $extractor $init $fun $finish $tv-mode)
@@ -412,7 +412,8 @@
           $_result)
          (forward-register-base-rate!
             (brand KB $kbid) (brand Statement $pattern)
-            $extractor $init $fun $finish $tv-mode))
+            $extractor $init $fun $finish
+            (the AggregateTVMode $tv-mode)))
       ($_other ()))))
 
 (: register-forward-base-rate-premises!

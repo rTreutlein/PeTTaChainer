@@ -273,14 +273,27 @@
 
 (: cpu-premise-tv
    (-> $formula $arguments $result TV))
+(: checked-cpu-premise-tv (-> $result TV))
+(= (checked-cpu-premise-tv $result)
+   (the TV $result))
+
+(: BinaryTVCPU Type)
+(: binary-tv-cpu-result (-> Goal TV BinaryTVCPU))
+(: binary-tv-cpu (-> Atom TV TV BinaryTVCPU))
+(= (binary-tv-cpu $formula $left $right)
+   (binary-tv-cpu-result
+      (CPU $formula (quote ($left $right)) $result)
+      $result))
+
 (= (cpu-premise-tv $f $args $res)
    (if (is-member $f (FoldAllCompiled GroupedFoldAllCompiled))
       (if (== (aggregate-args-tv-mode $args) result-tv)
-         $res
+         (checked-cpu-premise-tv $res)
          (STV 1.0 1.0))
       (if (is-member $f
-             (() NotFormula DistGreaterThanFormula DistGreaterThanDistFormula))
-         $res
+             (() NotFormula
+                 DistGreaterThanFormula DistGreaterThanDistFormula))
+         (checked-cpu-premise-tv $res)
          (STV 1.0 1.0))))
 
 (: make-kb-context (-> KB $context $variables KBContext))
@@ -449,7 +462,8 @@
    (if (compound-source? $premise)
       (let (cons $head $tail) $premise
          (query-compound-premise-bundle
-            $kb $ctx $vars $head (the (List Expression) $tail)))
+            $kb $ctx $vars $head
+            (the (List (| Atom Expression)) $tail)))
       (if (is-expr $premise)
          (let $head (car-atom $premise)
             (if (is-var $head)
@@ -468,7 +482,8 @@
 ;; and proofs is intentional: the returned `(conjunction ...)` proof mirrors the
 ;; order written by the caller, while each TV fold consumes the same ordering.
 (: query-compound-premise-step
-   (-> KB $context $variables Atom QueryCompoundState $premise
+   (-> KB $context $variables Atom QueryCompoundState
+       (| Atom Expression)
        QueryCompoundState))
 (=
    (query-compound-premise-step $kb $ctx $vars $formula
@@ -477,14 +492,19 @@
    (let*
       (((premise-bundle $execs $tv $proof)
           (query-compound-child-bundle
-             $kb $ctx $vars (brand Statement $premise))))
+             $kb $ctx $vars
+             (brand Statement $premise)))
+       ((binary-tv-cpu-result $cpu $next-tv)
+          (binary-tv-cpu $formula $acc-tv $tv)))
       (query-compound-state
-         (append $acc-execs (append $execs ((CPU $formula (quote ($acc-tv $tv)) $next-tv))))
+         (append $acc-execs
+            (append $execs ($cpu)))
          (append $acc-proofs ($proof))
          $next-tv)))
 
 (: query-compound-premise-bundle
-   (-> KB $context $variables Atom (List Expression) PremiseBundle))
+   (-> KB $context $variables Atom
+       (List (| Atom Expression)) PremiseBundle))
 (= (query-compound-premise-bundle $kb $ctx $vars $head (cons $fst $rst))
    (let*
       (((query-compound-state $execs $proofs $ccltv)
@@ -655,13 +675,15 @@
                           (SumCount (PointMass 0.0) 0)
                           DistSumCountAcc
                           dist-average
-                          result-tv)
+                          unit-stv)
                        $out))
                  (STV 1.0 1.0)
                  cpu))
            ((FoldAllValue $pattern $init $fun -> $out)
               (premise-bundle
-                 ((CPU FoldAllCompiled ($kb $pattern extract-tv $init $fun identity result-tv) $out))
+                 ((CPU FoldAllCompiled
+                       ($kb $pattern extract-tv $init $fun identity unit-stv)
+                       $out))
                  (STV 1.0 1.0)
                  cpu))
            ((FoldAll $pattern $value $init $fun -> $out)
@@ -714,10 +736,13 @@
    (append-premise-bundle (compiled-premises $current-execs $current-proofs $current-tv)
       (premise-bundle $execs $tv $proof))
    (if (== $current-execs ()) (compiled-premises $execs ($proof) $tv)
-      (compiled-premises
-         (append $current-execs (append $execs ((CPU AndFormula (quote ($current-tv $tv)) $next-tv))))
-         (append $current-proofs ($proof))
-         $next-tv)))
+      (let (binary-tv-cpu-result $cpu $next-tv)
+         (binary-tv-cpu AndFormula $current-tv $tv)
+         (compiled-premises
+            (append $current-execs
+               (append $execs ($cpu)))
+            (append $current-proofs ($proof))
+            $next-tv))))
 
 (: compile-same-var-in-list? (-> Variable (List Variable) Bool))
 (= (compile-same-var-in-list? $_var ()) false)
@@ -2160,12 +2185,15 @@
             (brand Proof
                (cons
                   (externalize-query-proof-child
-                     (car-atom $proof))
+                     (the (| Atom Expression)
+                        (car-atom $proof)))
                   (map-flat externalize-query-proof-child
-                     (cdr-atom $proof))))
+                     (the (List (| Atom Expression))
+                        (cdr-atom $proof)))))
             (brand Proof $proof))))))
 
-(: externalize-query-proof-child (-> $child Proof))
+(: externalize-query-proof-child
+   (-> (| Atom Expression) Proof))
 (= (externalize-query-proof-child $child)
    (externalize-query-proof (brand Proof $child)))
 

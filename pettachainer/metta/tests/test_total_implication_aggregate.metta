@@ -79,7 +79,7 @@
               (TotalEvidenceTvs none none)
               TotalEvidenceAcc
               identity
-              result-tv)
+              unit-stv)
            $evidence-tvs)
 	        (CPU TotalEvidenceCTVModusPonensFormula ($atv $evidence-tvs) $btv))
        |-

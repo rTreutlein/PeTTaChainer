@@ -193,21 +193,22 @@
       ()))
 
 (: test-runtime-fact
-   (-> Statement $proof $tv
+   (-> Statement (| Atom Expression) $tv
        (Statement KBContext Proof TV)))
 (= (test-runtime-fact $statement $proof $tv)
    (assemble-runtime-fact
       $statement
       (brand KBContext (kb MAIN ()))
-      (brand Proof $proof) (the TV $tv)))
+      (brand Proof $proof)
+      (the TV $tv)))
 
 !(test
    (let*
       (($_clear (clear-backward-state))
        ($_gidreset (change-state! bwd_gid 0))
-       ($open-a (ensure-goal-at-depth (test-runtime-fact (Pet $a) $prf $tv) 0))
-       ($open-x (ensure-goal-at-depth (test-runtime-fact (Pet $x) $p $t) 0))
-       ($closed (ensure-goal-at-depth (test-runtime-fact (Pet max) $p2 $t2) 0)))
+       ($open-a (ensure-goal-at-depth (test-runtime-fact (Pet $a) (brand Proof $prf) $tv) 0))
+       ($open-x (ensure-goal-at-depth (test-runtime-fact (Pet $x) (brand Proof $p) $t) 0))
+       ($closed (ensure-goal-at-depth (test-runtime-fact (Pet max) (brand Proof $p2) $t2) 0)))
       ((== $open-a $open-x) (== $open-a $closed)))
    (true false))
 
@@ -216,7 +217,7 @@
       (($_clear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
-        ($gid (ensure-goal-at-depth (test-runtime-fact (Goal) $prf (STV 1.0 1.0)) 0))
+        ($gid (ensure-goal-at-depth (test-runtime-fact (Goal) (brand Proof $prf) (STV 1.0 1.0)) 0))
         ($pid
            (store-proof-candidate $gid
               (proof-candidate (leaf (test-runtime-fact (Goal) factA (STV 1.0 0.8)))
@@ -231,7 +232,7 @@
       (($_clear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
-        ($gid (ensure-goal-at-depth (test-runtime-fact (Goal) $prf (STV 1.0 1.0)) 0))
+        ($gid (ensure-goal-at-depth (test-runtime-fact (Goal) (brand Proof $prf) (STV 1.0 1.0)) 0))
         ($pid-a
            (store-proof-candidate $gid
               (proof-candidate (leaf (test-runtime-fact (Goal) (bench-base-fact demo 1 1) (STV 1.0 0.8)))
@@ -254,8 +255,8 @@
       (($_clear (clear-backward-state))
        ($_gidreset (change-state! bwd_gid 0))
        ($_pidreset (change-state! bwd_pid 0))
-       ($child-gid (ensure-goal-at-depth (test-runtime-fact (Child) $prf (STV 1.0 1.0)) 1))
-       ($parent-gid (ensure-goal-at-depth (test-runtime-fact (Parent) $prf (STV 1.0 1.0)) 0))
+       ($child-gid (ensure-goal-at-depth (test-runtime-fact (Child) (brand Proof $prf) (STV 1.0 1.0)) 1))
+       ($parent-gid (ensure-goal-at-depth (test-runtime-fact (Parent) (brand Proof $prf) (STV 1.0 1.0)) 0))
        ($first-child
           (store-proof-candidate $child-gid
              (proof-candidate (leaf (test-runtime-fact (Child) childA (STV 1.0 0.8)))
@@ -281,7 +282,7 @@
       (($_clear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
-        ($gid (ensure-goal-at-depth (test-runtime-fact (Goal) $prf (STV 1.0 1.0)) 0))
+        ($gid (ensure-goal-at-depth (test-runtime-fact (Goal) (brand Proof $prf) (STV 1.0 1.0)) 0))
         ($pid
            (store-proof-candidate $gid
               (proof-candidate (leaf (test-runtime-fact (Goal) factA (STV 1.0 0.8)))
@@ -302,7 +303,7 @@
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
         ($agg-gid (ensure-goal-at-depth (CPU FoldAllCompiled dummy-agg-args $out) 0))
-        ($child-gid (ensure-goal-at-depth (test-runtime-fact (Child) $prf (STV 1.0 1.0)) 1))
+        ($child-gid (ensure-goal-at-depth (test-runtime-fact (Child) (brand Proof $prf) (STV 1.0 1.0)) 1))
         ($_agg0 (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ())))
         ($pid-old
            (store-proof-candidate $agg-gid
@@ -328,7 +329,7 @@
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
         ($agg-gid (ensure-goal-at-depth (CPU FoldAllCompiled dummy-agg-args $out) 0))
-        ($child-gid (ensure-goal-at-depth (test-runtime-fact (Child) $prf (STV 1.0 1.0)) 1))
+        ($child-gid (ensure-goal-at-depth (test-runtime-fact (Child) (brand Proof $prf) (STV 1.0 1.0)) 1))
         ($_agg0 (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ())))
         ($pid-old
            (store-proof-candidate $agg-gid
@@ -354,7 +355,7 @@
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
         ($agg-gid (ensure-goal-at-depth (CPU FoldAllCompiled dummy-agg-args $out) 0))
-        ($child-gid (ensure-goal-at-depth (test-runtime-fact (Child) $prf (STV 1.0 1.0)) 1))
+        ($child-gid (ensure-goal-at-depth (test-runtime-fact (Child) (brand Proof $prf) (STV 1.0 1.0)) 1))
         ($_agg0 (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ())))
         ($pid-old
            (store-proof-candidate $agg-gid
