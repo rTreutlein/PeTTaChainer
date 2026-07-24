@@ -13,7 +13,7 @@
 (: TotalEvidenceKnownTv (-> TV TV))
 (: TotalEvidenceAcc (-> TotalEvidenceTvs EvidenceCase TotalEvidenceTvs))
 (: TotalEvidenceCTVModusPonensFormula
-   (TV TotalEvidenceTvs -[nondet]-> TV))
+   (-[nondet]-> TV TotalEvidenceTvs  TV))
 
 (= (TotalEvidenceOr $left $right)
    (if (== $left none) $right

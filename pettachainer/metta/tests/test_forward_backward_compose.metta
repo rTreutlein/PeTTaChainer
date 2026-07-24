@@ -1,6 +1,6 @@
 !(import! &self ../petta_chainer)
 
-(: test-selected-facts ($kb $type -[det]-> (List Expression)))
+(: test-selected-facts (-[det]-> $kb $type (List Expression)))
 (= (test-selected-facts $kb $type)
    (collapse
       (once

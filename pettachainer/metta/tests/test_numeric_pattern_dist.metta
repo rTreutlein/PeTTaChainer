@@ -1,5 +1,8 @@
 !(import! &self ../petta_chainer)
 
+(: XY Type)
+(: XY (-> Number Number XY))
+
 !(compileadd kb (: fx1 (AtTime (FeatureX 10.0) 1) (STV 1.0 0.9)))
 !(compileadd kb (: fy1 (AtTime (FeatureY 100.0) 1) (STV 1.0 0.9)))
 !(compileadd kb (: fz2 (AtTime (FeatureZ 20.0) 2) (STV 1.0 0.9)))

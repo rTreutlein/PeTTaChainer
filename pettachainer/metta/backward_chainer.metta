@@ -7,20 +7,18 @@
 (: ChainerRunResult Type)
 (: chainer-run-result
    (-> Number
-       (List (| Goal ($type ($kb $context $variables) $proof TV)))
+       (List RuntimeResult)
        ChainerRunResult))
 (: AndBundle Type)
 (: and-bundle
-   (-> (| Goal ($type ($kb $context $variables) $proof TV))
-       (List (| Goal
-                ($premise-type ($premise-kb $premise-context $premise-variables)
-                   $premise-proof TV)))
+   (-> (| Goal (Statement KBContext Proof TV))
+       (List (| Goal (Statement KBContext Proof TV)))
        AndBundle))
 (= (get-type (and-bundle $goal $premises)) AndBundle)
 
 (: ensure-goal-at-depth
    (-> (| Goal
-          ($type ($kb $context $variables) $proof TV))
+          (Statement KBContext Proof TV))
        Number Number))
 (= (ensure-goal-at-depth $goal $depth)
    (let*
@@ -39,7 +37,8 @@
              ($_1
                 (once
                    (chainer-add-atom &goal
-                      ($gid $depth $stored-goal false 0.0))))
+                      (stored-goal-row
+                         $gid $depth $stored-goal false 0.0))))
              ($_2
                 (once
                    (chainer-add-atom &goal_lookup
@@ -51,7 +50,9 @@
    (-> $heap Number Number $heap))
 (= (schedule-goal-heap $agenda $score $gid)
    (let*
-      ((($depth $goal $expanded $current) (goal-by-id $gid)))
+      (((stored-goal-row
+            $_stored-gid $depth $goal $expanded $current)
+          (goal-by-id $gid)))
       (if $expanded $agenda
          (if (>= $current $score) $agenda
             (let*
@@ -66,18 +67,25 @@
                 ($_set
                    (progn
                       (remove-atom &goal
-                         ($gid $depth $goal $expanded $current))
+                         (stored-goal-row
+                            $gid $depth $goal $expanded $current))
                       (once
                          (chainer-add-atom &goal
-                            ($gid $depth $goal $expanded $score))))))
+                            (stored-goal-row
+                               $gid $depth $goal $expanded $score))))))
                $nagenda)))))
 
 (: schedule-aggregate-heap
    (-> $heap Number $heap))
 (= (schedule-aggregate-heap $agenda $agg-gid)
    (let*
-      ((($child-gid $args $base-score $current $current-pid) (aggregate-by-id $agg-gid))
-       (($depth $_goal $_expanded $_goal-pending) (goal-by-id $agg-gid)))
+      (((stored-aggregate-row
+            $_stored-agg-gid $child-gid $args
+            $base-score $current $current-pid)
+          (aggregate-by-id $agg-gid))
+       ((stored-goal-row
+           $_stored-gid $depth $_goal $_expanded $_goal-pending)
+          (goal-by-id $agg-gid)))
       (if (>= $current $base-score) $agenda
          (let*
             (($priority (+ (+ (* 1000000000.0 (+ 1 $depth)) (- 0 (* 1000000.0 $base-score))) 0.1))
@@ -85,11 +93,13 @@
              ($_set
                 (progn
                    (remove-atom &aggregate
-                      ($agg-gid $child-gid $args $base-score
+                      (stored-aggregate-row
+                         $agg-gid $child-gid $args $base-score
                          $current $current-pid))
                    (once
                       (chainer-add-atom &aggregate
-                         ($agg-gid $child-gid $args $base-score
+                         (stored-aggregate-row
+                            $agg-gid $child-gid $args $base-score
                             $base-score $current-pid))))))
             $nagenda))))
 
@@ -97,24 +107,39 @@
 ;; the first two args; the child goal is the compiled query for that pattern.
 (: aggregate-child-goal
    (-> Goal
-       (| Goal ($type ($kb $context $variables) $proof TV))))
+       (| Goal (Statement KBContext Proof TV))))
 (= (aggregate-child-goal (CPU $_fun $args $_goalres))
    (let*
       (($kb (car-atom $args))
        ($pattern (car-atom (cdr-atom $args)))
        ((compiled-query $child-goal $adds)
           (once
-             (mm2compileQuery $kb (: $prf $pattern $tvin))))
+             (mm2compileQuery
+                (brand KB $kb)
+                (:
+                   (brand Proof $prf)
+                   (brand Statement $pattern)
+                   (the TV $tvin)))))
        ($_ (once (inject-compiled-adds $adds))))
       $child-goal))
 
 (: aggregate-step-value
-   (-> $extractor $child-atom (| TV NoTV) $value))
+   (-> (extract-value $pattern $value)
+       $child-atom (| TV NoTV) $value))
+(: aggregate-step-value
+   (-> (extract-inheritance-tv $kbid $pattern)
+       $child-atom TV WeightedTV))
+(: aggregate-step-value
+   (-> extract-tv $child-atom TV TV))
 (= (aggregate-step-value (extract-value $pattern $value) $child-atom $_child-tv)
    (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $value))
 (= (aggregate-step-value (extract-inheritance-tv $kbid $_pattern) $child-atom $child-tv)
    (let ((Inheritance $subj $_concept) ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom)
-      (WeightedTv (inheritance-subject-prior-tv $kbid $subj) $child-tv)))
+      (WeightedTv
+         (inheritance-subject-prior-tv
+            (brand KB $kbid)
+            (brand Statement $subj))
+         $child-tv)))
 (= (aggregate-step-value extract-tv $_child-atom $child-tv) $child-tv)
 (: aggregate-step-group-value
    (-> $pattern $group-template $child-atom $group))
@@ -211,7 +236,8 @@
           WeightedBaseRateWithPriorInUniverseFinish
           UniformPriorFinish
           UniformPriorKnownFinish)
-       $accumulator $result))
+       $accumulator
+       (| $accumulator Distribution TV)))
 
 (= (finish-aggregate $finish $acc)
    (case $finish (
@@ -231,11 +257,12 @@
          (WeightedBaseRateWithPriorTv
             (base-rate-evidence-with-prior-acc $acc)))
       ((member-inheritance $kbid)
-         (member-inheritance-tv $kbid
+         (member-inheritance-tv (brand KB $kbid)
             (base-rate-evidence-acc $acc)))
       ((weighted-base-rate-in-universe $kbid)
          (let $ev (base-rate-evidence-acc $acc)
-            (let $universe-size (kb-universe-size $kbid)
+            (let $universe-size
+               (kb-universe-size (brand KB $kbid))
                (if (== $universe-size no-universe-size)
                   (WeightedBaseRateTv $ev)
                   (WeightedUniverseBaseRateTv
@@ -243,7 +270,8 @@
       ((weighted-base-rate-with-prior-in-universe $kbid)
          (let (BaseRateEvidenceWithPrior $prior $ev)
             (base-rate-evidence-with-prior-acc $acc)
-            (let $universe-size (kb-universe-size $kbid)
+            (let $universe-size
+               (kb-universe-size (brand KB $kbid))
                (BaseRateWithPriorFormula
                   (resolve-base-rate-prior $prior)
                   (if (== $universe-size no-universe-size)
@@ -254,6 +282,37 @@
          (UniformPriorTv (list-aggregate-acc $acc)))
       (uniform-prior-known
          (UniformPriorKnownTv (list-aggregate-acc $acc))))))
+
+;; Stored aggregate arguments cross an untyped space boundary. Reconstruct the
+;; declared finish variant by its constructor instead of rechecking the whole
+;; nested value at runtime (which would also try to recover erased KB brands).
+(: finish-stored-aggregate
+   (-> Expression $accumulator
+       (| $accumulator Distribution TV)))
+(= (finish-stored-aggregate $finish $acc)
+   (case $finish (
+      (identity (finish-aggregate identity $acc))
+      (dist-average (finish-aggregate dist-average $acc))
+      (base-rate (finish-aggregate base-rate $acc))
+      (weighted-base-rate
+         (finish-aggregate weighted-base-rate $acc))
+      (weighted-base-rate-with-prior
+         (finish-aggregate weighted-base-rate-with-prior $acc))
+      ((member-inheritance $kbid)
+         (finish-aggregate
+            (member-inheritance (brand KB $kbid)) $acc))
+      ((weighted-base-rate-in-universe $kbid)
+         (finish-aggregate
+            (weighted-base-rate-in-universe (brand KB $kbid)) $acc))
+      ((weighted-base-rate-with-prior-in-universe $kbid)
+         (finish-aggregate
+            (weighted-base-rate-with-prior-in-universe
+               (brand KB $kbid))
+            $acc))
+      (uniform-prior
+         (finish-aggregate uniform-prior $acc))
+      (uniform-prior-known
+         (finish-aggregate uniform-prior-known $acc)))))
 ;; --- Frontier pooling of same-source projections -----------------------------
 ;; A conjunction frontier rejects a premise proof whose fact evidence overlaps
 ;; evidence already consumed (AndFormula would double count it). When the
@@ -336,8 +395,8 @@
    (frontier-parts-fold-acc (frontier-part-tv $first) $rest))
 
 (: frontier-parts-checked
-   ((List (| FrontierPart UnpoolablePart))
-      -[nondet]-> (List FrontierPart)))
+   (-[nondet]-> (List (| FrontierPart UnpoolablePart))
+       (List FrontierPart)))
 (= (frontier-parts-checked ()) ())
 (= (frontier-parts-checked (cons $part $rest))
    (case $part
@@ -427,11 +486,20 @@
 (: frontier-premise-part
    (-> Number (| FrontierPart SkipPart)))
 (= (frontier-premise-part $pid)
-   (let $out (proof-output-atom-by-id $pid)
-      (if (= $out (CPU $f $args $res))
-         (if (== $f AndFormula) skip-part
-            (indep-part (cpu-premise-tv $f $args $res)))
-         (frontier-atom-part $pid $out))))
+   (once
+      (let $out (proof-output-atom-by-id $pid)
+         (if (= $out (CPU $f $args $res))
+            (if (== $f AndFormula) skip-part
+               (indep-part (cpu-premise-tv $f $args $res)))
+            (case $out
+               ((($type ($kbid $ctx $vars) $prf $tv)
+                  (frontier-atom-part
+                     $pid
+                     (assemble-runtime-fact
+                        (brand Statement $type)
+                        (brand KBContext ($kbid $ctx $vars))
+                        (brand Proof $prf)
+                        (the TV $tv))))))))))
 
 (: frontier-parts-idx-union
    (-> (List Number) (List Number) (List Number)))
@@ -511,7 +579,9 @@
 (: frontier-remaining-score
    (-> AndBundle (List (| FrontierPart UnpoolablePart)) Number))
 (= (frontier-remaining-score $bundle $parts)
-   (max (premises-expected-confidence (copy_term (and-bundle-premises $bundle)))
+   (max
+      (premises-expected-confidence
+         (copy_term (and-bundle-premises $bundle)))
       (frontier-pool-potential $parts)))
 
 (: frontier-and-step-premise? (-> $premise Bool))
@@ -544,19 +614,17 @@
          ($_ ())))))
 
 (: make-and-bundle
-   (-> (| Goal ($type ($kb $context $variables) $proof TV))
-       (List (| Goal
-                ($premise-type ($premise-kb $premise-context $premise-variables)
-                   $premise-proof TV)))
+   (-> (| Goal (Statement KBContext Proof TV))
+       (List (| Goal (Statement KBContext Proof TV)))
        AndBundle))
 (= (make-and-bundle $goal $args) (and-bundle $goal $args))
 (: and-bundle-goal
    (-> AndBundle
-       (| Goal ($type ($kb $context $variables) $proof TV))))
+       (| Goal (Statement KBContext Proof TV))))
 (= (and-bundle-goal (and-bundle $goal $_premises)) $goal)
 (: and-bundle-premises
    (-> AndBundle
-       (List (| Goal ($type ($kb $context $variables) $proof TV)))))
+       (List (| Goal (Statement KBContext Proof TV)))))
 (= (and-bundle-premises (and-bundle $_goal $premises)) $premises)
 
 (: advance-frontier-bundle
@@ -685,7 +753,7 @@
                      (cons $pid $rev-pids))))))))
 
 (: frontier-waiter-step
-   ($waiter (List (| FrontierWaiter AggregateWaiter Atom)) -[det]-> (List (| FrontierWaiter AggregateWaiter Atom))))
+   (-[det]-> $waiter (List (| FrontierWaiter AggregateWaiter Atom))  (List (| FrontierWaiter AggregateWaiter Atom))))
 (= (frontier-waiter-step $waiter $rest)
    (case $waiter
       (((frontier-waiter $parent-gid $bundle $score $seen $parts $rev-pids)
@@ -696,7 +764,7 @@
        ($_other $rest))))
 
 (: aggregate-waiter-step
-   ($waiter (List (| Number FrontierWaiter AggregateWaiter Atom)) -[det]-> (List (| Number FrontierWaiter AggregateWaiter Atom))))
+   (-[det]-> $waiter (List (| Number FrontierWaiter AggregateWaiter Atom))  (List (| Number FrontierWaiter AggregateWaiter Atom))))
 (= (aggregate-waiter-step $waiter $rest)
    (case $waiter (((aggregate-waiter $agg-gid) (cons $agg-gid $rest)) ($_other $rest))))
 
@@ -758,7 +826,9 @@
    (-> $heap Number $result (List Evidence) (List Number) $heap))
 (= (commit-aggregate-snapshot-heap $agenda $agg-gid $result $ev $children)
    (let*
-      ((($child-gid $args $base-score $pending $current-pid)
+      (((stored-aggregate-row
+            $_stored-agg-gid $child-gid $args
+            $base-score $pending $current-pid)
           (aggregate-by-id $agg-gid))
        ($pid
           (once
@@ -767,11 +837,13 @@
        ($_set
           (progn
              (remove-atom &aggregate
-                ($agg-gid $child-gid $args $base-score
+                (stored-aggregate-row
+                   $agg-gid $child-gid $args $base-score
                    $pending $current-pid))
              (once
                 (chainer-add-atom &aggregate
-                   ($agg-gid $child-gid $args $base-score
+                   (stored-aggregate-row
+                      $agg-gid $child-gid $args $base-score
                       $pending $pid)))))
        ($_cache-invalidate
           (if (== $current-pid ()) () (invalidate-proof-live-caches)))
@@ -793,7 +865,7 @@
        ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
       $nagenda))
 
-(: base-rate-finish? ($finish -[det]-> Bool))
+(: base-rate-finish? (-[det]-> $finish Bool))
 (= (base-rate-finish? $finish)
    (case $finish (
       (base-rate true)
@@ -804,15 +876,25 @@
       ((member-inheritance $_kbid) true)
       ($_other false))))
 
+(: BaseRateAggregateKey Type)
+(: base-rate-aggregate-key-value
+   (-> KB Statement $mode BaseRateAggregateKey))
+(: NoBaseRateAggregateKey Type)
+(: no-base-rate-aggregate-key NoBaseRateAggregateKey)
+
 (: base-rate-aggregate-key
-   (-> $arguments (| ($kb $pattern $finish) (List $none))))
+   (-> $arguments
+       (| BaseRateAggregateKey NoBaseRateAggregateKey)))
 (= (base-rate-aggregate-key $args)
    (case $args (
       (($kbid $pattern $_extractor $_init $_fun $finish $_tv-mode)
          (if (base-rate-finish? $finish)
-            (quote ($kbid $pattern $finish))
-            ()))
-      ($_other ()))))
+            (base-rate-aggregate-key-value
+               (brand KB $kbid)
+               (brand Statement $pattern)
+               $finish)
+            no-base-rate-aggregate-key))
+      ($_other no-base-rate-aggregate-key))))
 
 (: commit-cached-aggregate-heap
    (-> $heap Number $arguments TV $heap))
@@ -833,14 +915,24 @@
 (= (ensure-aggregate-child-goal $agg-gid $goal-view $args $score)
    (let*
       (($child-goal (aggregate-child-goal $goal-view))
-       (($depth $_goal $_expanded $_pending) (goal-by-id $agg-gid))
+       ((stored-goal-row
+           $_stored-gid $depth $_goal $_expanded $_pending)
+          (goal-by-id $agg-gid))
        ($child-gid (ensure-goal-at-depth $child-goal (+ 1 $depth)))
-       ($hits (collapse (once (match &aggregate ($agg-gid $_child $_args $_base $_pending1 $_current) true))))
+       ($hits
+          (collapse
+             (once
+                (match &aggregate
+                   (stored-aggregate-row
+                      $agg-gid $_child $_args
+                      $_base $_pending1 $_current)
+                   true))))
        ($_agg
           (if (== $hits ())
              (once
                 (chainer-add-atom &aggregate
-                   ($agg-gid $child-gid $args $score 0.0 ())))
+                   (stored-aggregate-row
+                      $agg-gid $child-gid $args $score 0.0 ())))
              ())))
       $child-gid))
 
@@ -861,10 +953,12 @@
        ($_set
           (progn
              (remove-atom &aggregate
-                ($agg-gid $child-gid $args $score 0.0 ()))
+                (stored-aggregate-row
+                   $agg-gid $child-gid $args $score 0.0 ()))
              (once
                 (chainer-add-atom &aggregate
-                   ($agg-gid $child-gid $args $score 0.0 $pid)))))
+                   (stored-aggregate-row
+                      $agg-gid $child-gid $args $score 0.0 $pid)))))
        ($_wait
           (once
              (chainer-add-atom &goal_waiter
@@ -880,8 +974,13 @@
       (($args (copy_term (let (CPU $_agg-fun $view-args $_goalres) $goal-view $view-args)))
        ($cache-key (base-rate-aggregate-key $args))
        ($entries
-          (if (== $cache-key ()) ()
-             (let ($kbid $pattern $mode) $cache-key (base-rate-cache-entries-for-mode $kbid $pattern $mode)))))
+          (case $cache-key (
+             ((base-rate-aggregate-key-value $kbid $pattern $mode)
+                (base-rate-cache-entries-for-mode
+                   (brand KB $kbid)
+                   (brand Statement $pattern)
+                   $mode))
+             (no-base-rate-aggregate-key ())))))
       (if (== $entries ())
          (spawn-aggregate-goal-live-heap $agenda $score $agg-gid $goal-view $args)
          (let (base-rate $_kbid $_stored $stored-tv $source $_mode)
@@ -960,7 +1059,11 @@
          (aggregate-fold-source-ids $agg-gid $child-gid))))
 
 (: aggregate-group-update
-   (-> $extractor $accumulator $accumulator $group $child-atom (| TV NoTV) (List Evidence) Number (List AggregateGroupState) (List AggregateGroupState)))
+   (-> $extractor
+       (-> $accumulator $value $accumulator)
+       $accumulator $group $child-atom (| TV NoTV)
+       (List Evidence) Number
+       (List AggregateGroupState) (List AggregateGroupState)))
 (= (aggregate-group-update $extractor $fun $init $group $child-atom $child-tv $pev $pid ())
    (let*
       (($nacc (aggregate-foldall-step-acc $extractor $fun $init $child-atom $child-tv))
@@ -1041,17 +1144,21 @@
    (-> Number Number (| Bool (List $none))))
 (= (append-grouped-aggregate-current-pid! $agg-gid $pid)
    (let*
-      ((($child-gid $args $base-score $pending $stored-current-pids)
+      (((stored-aggregate-row
+            $_stored-agg-gid $child-gid $args
+            $base-score $pending $stored-current-pids)
           (aggregate-by-id $agg-gid))
        ($current-pids $stored-current-pids)
       ($next-pids (cons $pid $current-pids)))
       (progn
          (remove-atom &aggregate
-            ($agg-gid $child-gid $args $base-score
+            (stored-aggregate-row
+               $agg-gid $child-gid $args $base-score
                $pending $current-pids))
          (once
             (chainer-add-atom &aggregate
-               ($agg-gid $child-gid $args $base-score
+               (stored-aggregate-row
+                  $agg-gid $child-gid $args $base-score
                   $pending $next-pids))))))
 
 (: commit-grouped-aggregate-candidate-heap
@@ -1083,17 +1190,22 @@
 (: run-aggregate-heap (-> $heap Number $heap))
 (= (run-aggregate-heap $agenda $agg-gid)
    (let*
-      ((($child-gid $args $base-score $pending $current-pid) (aggregate-by-id $agg-gid))
+      (((stored-aggregate-row
+            $_stored-agg-gid $child-gid $args
+            $base-score $pending $current-pid)
+          (aggregate-by-id $agg-gid))
        ($grouped? (aggregate-args-grouped? $args))
        ($next-current-pid (if $grouped? () $current-pid))
        ($_clear
           (progn
              (remove-atom &aggregate
-                ($agg-gid $child-gid $args $base-score
+                (stored-aggregate-row
+                   $agg-gid $child-gid $args $base-score
                    $pending $current-pid))
              (once
                 (chainer-add-atom &aggregate
-                   ($agg-gid $child-gid $args $base-score
+                   (stored-aggregate-row
+                      $agg-gid $child-gid $args $base-score
                       0.0 $next-current-pid))))))
       (if $grouped?
          (run-grouped-aggregate-heap $agenda $agg-gid $child-gid $args)
@@ -1102,20 +1214,7 @@
              (($_kb $_pattern $_extractor $_init $_fun $finish $_tv-mode) $args)
              ($result
                 (CPU FoldAllCompiled $args
-                   (finish-aggregate
-                      (the
-                         (| IdentityFinish
-                            DistAverageFinish
-                            BaseRateFinish
-                            WeightedBaseRateFinish
-                            WeightedBaseRateWithPriorFinish
-                            MemberInheritanceFinish
-                            WeightedBaseRateInUniverseFinish
-                            WeightedBaseRateWithPriorInUniverseFinish
-                            UniformPriorFinish
-                            UniformPriorKnownFinish)
-                         $finish)
-                      $acc)))
+                   (finish-stored-aggregate $finish $acc)))
              ($commit-ev (aggregate-commit-evidence $finish $ev)))
             (if (base-rate-refinement-degrades? $agg-gid $finish $current-pid $result)
                $agenda
@@ -1133,7 +1232,7 @@
       (if (== $finish uniform-prior) true (== $finish uniform-prior-known))))
 
 (: base-rate-refinement-degrades?
-   (-> Number $finish (| Number (List $none)) $result Bool))
+   (-> Number $finish (| Number (List Number)) $result Bool))
 (= (base-rate-refinement-degrades? $agg-gid $finish $current-pid $result)
    (if (not (==
          (collapse (once (match &aggregate_forward_approx ($agg-gid) true)))
@@ -1155,25 +1254,25 @@
       false)))
 
 (: direct-goal-results-view
-   (Number (| Goal ($type ($kb $context $variables) $proof TV))
-      -[nondet]-> (| Goal
-                     ($result-type
-                        ($result-kb $result-context $result-variables)
-                        $result-proof TV))))
+   (-[nondet]-> Number (| Goal (Statement KBContext Proof TV))
+       (| Goal (Statement KBContext Proof TV))))
 (= (direct-goal-results-view $steps (CPU $fun $args $_res))
    (CPU $fun $args (reduce (cpu-call $steps $fun $args))))
 (= (direct-goal-results-view $steps ($type $kb $prf $tv))
-   (the ($result-type ($result-kb $result-context $result-variables)
-           $result-proof TV)
-      (match &kb ($type $kb $prf $tv)
-         ($type $kb $prf $tv))))
+   (match &kb ($type $kb $prf $tv)
+      (let $raw (quote ($type $kb $prf $tv))
+         (if (chainer-acyclic-term? $raw)
+            (assemble-runtime-fact
+               (brand Statement $type)
+               (brand KBContext $kb)
+               (brand Proof $prf)
+               (the TV $tv))
+            (empty)))))
 
 (: expand-direct-goal-step
-   (-> Number (| Goal ($type ($kb $context $variables) $proof TV))
+   (-> Number (| Goal (Statement KBContext Proof TV))
        $heap
-       (| Goal
-          ($result-type ($result-kb $result-context $result-variables)
-             $result-proof TV))
+       (| Goal (Statement KBContext Proof TV))
        $heap))
 (= (expand-direct-goal-step $gid $_goal $agenda $result)
    (let*
@@ -1185,7 +1284,7 @@
 
 (: expand-direct-goal-heap
    (-> $heap Number Number
-       (| Goal ($type ($kb $context $variables) $proof TV))
+       (| Goal (Statement KBContext Proof TV))
        $heap))
 (= (expand-direct-goal-heap $agenda $steps $gid $goal)
    (let*
@@ -1198,7 +1297,7 @@
    (once (inject-compiled-adds $adds)))
 
 (: inject-implication-subgoal-query-adds
-   (-> (| Goal ($type ($kb $context $variables) $proof TV))
+   (-> (| Goal (Statement KBContext Proof TV))
        (List $none)))
 (= (inject-implication-subgoal-query-adds $goal)
    (case $goal (
@@ -1209,14 +1308,19 @@
                   (cons Conclusions $_conclusions))
                (let $compiled-queries
                   (collapse
-                     (mm2compileQuery $kbid (: $prf $type $tv)))
+                     (mm2compileQuery
+                        (brand KB $kbid)
+                        (:
+                           (brand Proof $prf)
+                           (brand Statement $type)
+                           (the TV $tv))))
                   (foreach-flat
                      inject-compiled-query-adds $compiled-queries)))
             ($_other ()))))
       ($_other ()))))
 
 (: open-rule-goal?
-   (-> (| Goal ($type ($kb $context $variables) $proof TV)) Bool))
+   (-> (| Goal (Statement KBContext Proof TV)) Bool))
 (= (open-rule-goal? $goal)
    (case $goal (
       (($type $_kb $_prf $_tv)
@@ -1226,31 +1330,34 @@
 (: RuleGoalMatch Type)
 (: rule-goal-match
    (-> Number
-       (List (| Goal ($type ($kb $context $variables) $proof TV)))
-       (| Goal ($goal-type ($goal-kb $goal-context $goal-variables)
-                   $goal-proof TV))
+       (List (| Goal (Statement KBContext Proof TV)))
+       (| Goal (Statement KBContext Proof TV))
        Number RuleGoalMatch))
 
 (: rule-goal-head-view-for-key
-   ((| Goal ($type ($kb $context $variables) $proof TV))
-      Number ForwardTriggerKey -[nondet]-> RuleGoalMatch))
+   (-[nondet]-> (| Goal (Statement KBContext Proof TV))
+      Number ForwardTriggerKey  RuleGoalMatch))
 (= (rule-goal-head-view-for-key $goal $parent-gid $key)
    (match ccls_head_index ($key $rule-id)
-      (match rules ($rule-id $goal $args)
+      (match rules
+         (runtime-rule-row $rule-id $goal $args)
          (rule-goal-match $rule-id
-            (the (List Expression) $args) $goal $parent-gid))))
+            $args $goal $parent-gid))))
 
 ;; Look up rules by the goal's concrete head *and* the `any` wildcard bucket, so
 ;; an open goal still reaches variable-headed conclusions (which only live under
 ;; `any`). This mirrors the forward chainer's direct+wildcard union and removes
 ;; the behavioural gap between open and closed goals.
 (: rule-goal-head-view
-   ((| Goal ($type ($kb $context $variables) $proof TV))
-      Number -[nondet]-> RuleGoalMatch))
+   (-[nondet]-> (| Goal (Statement KBContext Proof TV))
+      Number  RuleGoalMatch))
 (= (rule-goal-head-view $goal $parent-gid)
    (if (= $goal ($_type ($kbid $_ctx $_vars) $_prf $_tv))
       (let*
-         (($key (forward-type-trigger-key $kbid $_type))
+         (($key
+             (forward-type-trigger-key
+                (brand KB $kbid)
+                (brand Statement $_type)))
           ($wildcard-key (forward-premise-wildcard-key $goal)))
          (superpose (
             (rule-goal-head-view-for-key $goal $parent-gid $key)
@@ -1260,7 +1367,7 @@
       (empty)))
 
 (: rule-goal-contextual?
-   (-> (| Goal ($type ($kb $context $variables) $proof TV)) Bool))
+   (-> (| Goal (Statement KBContext Proof TV)) Bool))
 (= (rule-goal-contextual? $goal)
    (case $goal (
       (($_type ($_kbid $ctx $_vars) $_prf $_tv)
@@ -1268,16 +1375,20 @@
       ($_other false))))
 
 (: rule-goal-full-view
-   ((| Goal ($type ($kb $context $variables) $proof TV))
-      Number -[nondet]-> RuleGoalMatch))
+   (-[nondet]-> (| Goal (Statement KBContext Proof TV))
+      Number  RuleGoalMatch))
 (= (rule-goal-full-view $goal $parent-gid)
-   (match ccls_index ($goal $rule-id)
-      (match rules ($rule-id $goal $args)
-         (rule-goal-match $rule-id
-            (contextualize-rule-args
-               $goal (the (List Expression) $args))
-            $goal
-            $parent-gid))))
+   (let $lookup-goal (copy_term $goal)
+      (match ccls_index ($lookup-goal $rule-id)
+         (match rules
+            (runtime-rule-row $rule-id $stored-goal $args)
+            (if (= $stored-goal $goal)
+               (rule-goal-match $rule-id
+                  (contextualize-rule-args
+                     $goal $args)
+                  $goal
+                  $parent-gid)
+               (empty))))))
 
 (: same-var-in-list? (-> $variable (List $variable) Bool))
 (= (same-var-in-list? $_var ()) false)
@@ -1289,46 +1400,57 @@
 (= (any-same-var? (cons $var $rest) $vars)
    (or (same-var-in-list? $var $vars) (any-same-var? $rest $vars)))
 
-(: context-vars-in-type? (-> $type (| (List $variable) NilType) Bool))
+(: context-vars-in-type?
+   ;; KBContext is an erased newtype, so its destructured variables field is a
+   ;; raw wire value here: Nil or a variable list.
+   (-> $type $context-variables Bool))
+(: any-context-var-in?
+   (-> (List Variable) $context-variables Bool))
+(= (any-context-var-in? $_type-vars ()) false)
+(= (any-context-var-in? $type-vars (cons $var $rest))
+   (or (is-member $var $type-vars)
+      (any-context-var-in? $type-vars $rest)))
 (= (context-vars-in-type? $type $vars)
    (if (== $vars Nil) false
-      (any-same-var? (extract-vars $type) $vars)))
+      (any-context-var-in? (extract-vars $type) $vars)))
 
 (: contextualize-rule-premise
-   (-> (| Goal ($type ($kb $context $variables) $proof TV))
-       ($goal-type ($goal-kb $goal-context $goal-variables)
-          $goal-proof TV)
-       (| Goal ($result-type ($result-kb $result-context $result-variables)
-                   $result-proof TV))))
+   (-> (| Goal (Statement KBContext Proof TV))
+       (| Goal (Statement KBContext Proof TV))
+       (| Goal (Statement KBContext Proof TV))))
 (= (contextualize-rule-premise $premise
       ($_goal-type ($kbid $ctx $vars) $_goal-prf $_goal-tv))
-   (case $premise (
-      (($type ($kbid $prem-ctx $prem-vars) $prf $tv)
-         (if
-            (and (== $prem-ctx MAIN)
-               (and (not (== $ctx MAIN))
-                  (context-vars-in-type? $type $vars)))
-            (quote ($type ($kbid $ctx $vars) $prf $tv))
-            (quote
-               ($type ($kbid $prem-ctx $prem-vars) $prf $tv))))
-      ((CPU $fun $args $res) (CPU $fun $args $res)))))
+   (once
+      (case $premise (
+         (($type ($kbid $prem-ctx $prem-vars) $prf $tv)
+            (if
+               (and (== $prem-ctx MAIN)
+                  (and (not (== $ctx MAIN))
+                     (context-vars-in-type? $type $vars)))
+               (assemble-runtime-fact
+                  (brand Statement $type)
+                  (brand KBContext ($kbid $ctx $vars))
+                  (brand Proof $prf)
+                  (the TV $tv))
+               (assemble-runtime-fact
+                  (brand Statement $type)
+                  (brand KBContext ($kbid $prem-ctx $prem-vars))
+                  (brand Proof $prf)
+                  (the TV $tv))))
+         ((CPU $fun $args $res) (CPU $fun $args $res))))))
 
 (: contextualize-rule-args
-   (-> (| Goal ($type ($kb $context $variables) $proof TV))
-       (List (| Goal
-                ($premise-type ($premise-kb $premise-context $premise-variables)
-                   $premise-proof TV)))
-       (List (| Goal
-                ($result-type ($result-kb $result-context $result-variables)
-                   $result-proof TV)))))
+   (-> (| Goal (Statement KBContext Proof TV))
+       (List (| Goal (Statement KBContext Proof TV)))
+       (List (| Goal (Statement KBContext Proof TV)))))
 (= (contextualize-rule-args $_goal ()) ())
 (= (contextualize-rule-args $goal (cons $premise $rest))
    (cons (contextualize-rule-premise $premise $goal)
       (contextualize-rule-args $goal $rest)))
 
 (: rule-goal-view
-   ((| Goal ($type ($kb $context $variables) $proof TV))
-      Number -[nondet]-> RuleGoalMatch))
+   (-[nondet]-> (| Goal (Statement KBContext Proof TV))
+      Number  RuleGoalMatch))
 (= (rule-goal-view $goal $parent-gid)
    (if (open-rule-goal? $goal)
       (if (rule-goal-contextual? $goal)
@@ -1356,7 +1478,10 @@
                     $candidate)))
            ((cons $prem $_rest)
               (let*
-                 ((($parent-depth $_goal1 $_expanded $_pending) (goal-by-id $parent-gid))
+                 (((stored-goal-row
+                       $_stored-gid $parent-depth
+                       $_goal1 $_expanded $_pending)
+                    (goal-by-id $parent-gid))
                   ($gid (ensure-goal-at-depth $prem (+ 1 $parent-depth)))
                   ($stored-bundle (copy_term $bundle)))
                  (spawn-frontier-goal-heap $agenda
@@ -1371,7 +1496,7 @@
 
 (: expand-rule-goal-heap
    (-> $heap Number
-       (| Goal ($type ($kb $context $variables) $proof TV))
+       (| Goal (Statement KBContext Proof TV))
        $heap))
 (= (expand-rule-goal-heap $agenda $parent-gid $goal)
    (fold-flat expand-rule-goal-fold
@@ -1384,7 +1509,7 @@
 ;; back to computing against the bound bundle, as before.
 (: inheritance-lift-rule-goal?
    (-> (| Goal
-          ($type ($kb $context $variables) $proof TV))
+          (Statement KBContext Proof TV))
        Bool))
 (= (inheritance-lift-rule-goal? $goal)
    (case $goal (
@@ -1394,10 +1519,8 @@
 
 (: rule-expected-score
    (-> Number
-       (| Goal ($type ($kb $context $variables) $proof TV))
-       (List (| Goal
-                ($premise-type ($premise-kb $premise-context $premise-variables)
-                   $premise-proof TV)))
+       (| Goal (Statement KBContext Proof TV))
+       (List (| Goal (Statement KBContext Proof TV)))
        Number))
 (= (rule-expected-score $rule-id $goal $args)
    ;; A specialized lift is a completeness bridge for evidence that cannot
@@ -1409,7 +1532,9 @@
             (($_gtype $_gkb $_gprf $gtv) (is-var $gtv))
             ($_other false)))
          (let $hits (collapse (match rule_expected ($rule-id $score) $score))
-            (if (== $hits ()) (premises-expected-confidence (copy_term $args)) (car-atom $hits)))
+            (if (== $hits ())
+               (premises-expected-confidence (copy_term $args))
+               (car-atom $hits)))
          (premises-expected-confidence (copy_term $args)))))
 
 ;; --- Premise pre-filter (opt-in via set-backward-premise-prefilter) ---------
@@ -1427,7 +1552,8 @@
    (let $enabled (catch (get-state bwd_premise_prefilter))
       (if-error-bool $enabled false)))
 
-(: prefilter-head-concludable? (-> $premise Bool))
+(: prefilter-head-concludable?
+   (-> (| Goal (Statement KBContext Proof TV)) Bool))
 (= (prefilter-head-concludable? $prem)
    (let $key (forward-indexable-premise-key $prem)
       (if (== $key ()) true
@@ -1437,7 +1563,7 @@
                   (not (== (collapse (once (match ccls_head_index ($wildcard $_wid) true))) ()))))))))
 
 (: prefilter-fact-missing?
-   (-> ($type ($kb $context $variables) $proof TV) Bool))
+   (-> (Statement KBContext Proof TV) Bool))
 (= (prefilter-fact-missing? ($type ($kbid $_ctx $_vars) $_prf $_tv))
    (== (collapse (once (match &kb ($type ($kbid $_c2 $_v2) $_p2 $_t2) true))) ()))
 
@@ -1448,31 +1574,37 @@
    (is-member $fun (FoldAllCompiled GroupedFoldAllCompiled ConceptNodePriorFormula)))
 
 (: prefilter-premise-blocks?
-   (-> (| Goal ($type ($kb $context $variables) $proof TV)) Bool))
+   (-> (| Goal (Statement KBContext Proof TV)) Bool))
 (= (prefilter-premise-blocks? $premise)
-   (case $premise (
-      ((CPU $fun $args $res)
-         (if (prefilter-cpu-opaque? $fun) false
-            ;; Only run a CPU premise eagerly when its argument list is fully
-            ;; ground. Building an ($fun ...) expression here would apply it
-            ;; to unevaluated arguments.
-            (if
-               (and (not (is-var $fun))
-                  (== (extract-vars $args) ()))
-               (let $hits (collapse (cpu-call 0 $fun $args))
-                  (if (== $hits ()) true
-                     (if (= $res (car-atom $hits)) false true)))
-               false)))
-      (($type ($kbid $ctx $vars) $prf $tv)
-         (let $fact (quote ($type ($kbid $ctx $vars) $prf $tv))
-            (if (== (extract-vars $type) ())
-               (if (prefilter-fact-missing? $fact)
-                  (not (prefilter-head-concludable? $fact))
-                  false)
-               false))))))
+   (once
+      (case $premise (
+         ((CPU $fun $args $res)
+            (if (prefilter-cpu-opaque? $fun) false
+               ;; Only run a CPU premise eagerly when its argument list is fully
+               ;; ground. Building an ($fun ...) expression here would apply it
+               ;; to unevaluated arguments.
+               (if
+                  (and (not (is-var $fun))
+                     (== (extract-vars $args) ()))
+                  (let $hits (collapse (cpu-call 0 $fun $args))
+                     (if (== $hits ()) true
+                        (if (= $res (car-atom $hits)) false true)))
+                  false)))
+         (($type ($kbid $ctx $vars) $prf $tv)
+            (let $fact
+               (assemble-runtime-fact
+                  (brand Statement $type)
+                  (brand KBContext ($kbid $ctx $vars))
+                  (brand Proof $prf)
+                  (the TV $tv))
+               (if (== (extract-vars $type) ())
+                  (if (prefilter-fact-missing? $fact)
+                     (not (prefilter-head-concludable? $fact))
+                     false)
+                  false)))))))
 
 (: prefilter-prunes-walk
-   (-> (List (| Goal ($type ($kb $context $variables) $proof TV))) Bool))
+   (-> (List (| Goal (Statement KBContext Proof TV))) Bool))
 (= (prefilter-prunes-walk ()) false)
 (= (prefilter-prunes-walk (cons $prem $rest))
    (if (prefilter-premise-blocks? $prem) true (prefilter-prunes-walk $rest)))
@@ -1481,7 +1613,7 @@
 ;; collapse so a premise shape neither clause covers makes the walk yield
 ;; nothing and the rule is kept, never dropped.
 (: rule-premise-prefilter-prunes?
-   (-> (List (| Goal ($type ($kb $context $variables) $proof TV))) Bool))
+   (-> (List (| Goal (Statement KBContext Proof TV))) Bool))
 (= (rule-premise-prefilter-prunes? $args)
    (if (backward-premise-prefilter?)
       (let $hits (collapse (prefilter-prunes-walk (copy_term $args)))
@@ -1491,31 +1623,43 @@
 (: expand-rule-goal-fold
    (-> $heap RuleGoalMatch $heap))
 (= (expand-rule-goal-fold $agenda (rule-goal-match $rule-id $args $goal $parent-gid))
-   (if (rule-premise-prefilter-prunes? $args) $agenda
-      (let*
-         (($expected-score (rule-expected-score $rule-id $goal $args))
-          ($bound (rule-marginal-score (goal-current-confidence $parent-gid) $expected-score))
-          ($bundle (copy_term (make-and-bundle $goal $args))))
-         (spawn-frontier-heap $agenda
-            $parent-gid
-            $bundle
-            $bound
-            ()
-            ()
-            ()))))
+   (let $expanded
+      (collapse
+         (once
+            (if (rule-premise-prefilter-prunes? $args) $agenda
+               (let*
+                  (($expected-score
+                      (rule-expected-score $rule-id $goal $args))
+                   ($bound
+                      (rule-marginal-score
+                         (goal-current-confidence $parent-gid)
+                         $expected-score))
+                   ($bundle (copy_term (make-and-bundle $goal $args))))
+                  (spawn-frontier-heap $agenda
+                     $parent-gid
+                     $bundle
+                     $bound
+                     ()
+                     ()
+                     ())))))
+      (if (== $expanded ()) $agenda (car-atom $expanded))))
 
 (: expand-goal-heap
    (-> $heap Number Number Number $heap))
 (= (expand-goal-heap $agenda $steps $score $gid)
    (let*
-      ((($depth $goal $expanded $pending) (goal-by-id $gid))
+      (((stored-goal-row
+            $_stored-gid $depth $goal $expanded $pending)
+          (goal-by-id $gid))
        ($_expand
           (progn
              (remove-atom &goal
-                ($gid $depth $goal $expanded $pending))
+                (stored-goal-row
+                   $gid $depth $goal $expanded $pending))
              (once
                 (chainer-add-atom &goal
-                   ($gid $depth $goal true $pending)))))
+                   (stored-goal-row
+                      $gid $depth $goal true $pending)))))
        ($_query-adds (if (> $depth 0) (inject-implication-subgoal-query-adds $goal) ()))
        ($nagenda0
           (if (and (= $goal (CPU $fun $_args $_res)) (or (== $fun FoldAllCompiled) (== $fun GroupedFoldAllCompiled)))
@@ -1528,24 +1672,33 @@
    (-> Number $heap (| QueueGoal QueueAggregate) SearchState))
 (= (search-agenda-step $steps $agenda (qgoal $score $gid))
    (let*
-      ((($depth $goal $expanded $pending) (goal-by-id $gid)))
+      (((stored-goal-row
+            $_stored-gid $depth $goal $expanded $pending)
+          (goal-by-id $gid)))
       (if (and (not $expanded) (== $pending $score))
          (let*
             (($_clear
                  (progn
                     (remove-atom &goal
-                       ($gid $depth $goal $expanded $pending))
+                       (stored-goal-row
+                          $gid $depth $goal $expanded $pending))
                     (once
                        (chainer-add-atom &goal
-                          ($gid $depth $goal $expanded 0.0)))))
+                          (stored-goal-row
+                             $gid $depth $goal $expanded 0.0)))))
              ($next-steps (- $steps 1))
-             ($nagenda (bounded-agenda-prune $next-steps (expand-goal-heap $agenda $steps $score $gid))))
+             ($nagenda
+                (bounded-agenda-prune $next-steps
+                   (expand-goal-heap $agenda $steps $score $gid))))
             (search-agenda-heap $next-steps $nagenda))
          (search-agenda-heap $steps $agenda))))
 
 (= (search-agenda-step $steps $agenda (qagg $score $agg-gid))
    (let*
-      ((($_child-gid $_args $_base-score $pending $_current-pid) (aggregate-by-id $agg-gid)))
+      (((stored-aggregate-row
+            $_stored-agg-gid $_child-gid $_args
+            $_base-score $pending $_current-pid)
+          (aggregate-by-id $agg-gid)))
       (if (== $pending $score)
          (let*
             (($next-steps (- $steps 1))
@@ -1562,28 +1715,36 @@
             (the (| QueueGoal QueueAggregate) $item)))))
 
 (: harvest-base-rate-entry
-   (-> $arguments (| Number (List $none)) (List $none)))
+   (-> $arguments (| Number (List Number)) (List $none)))
 (= (harvest-base-rate-entry $args $current-pid)
    (let $key (base-rate-aggregate-key $args)
-      (if (== $key ()) ()
-         (if (== $current-pid ()) ()
-            (let $output
-               (proof-output-atom-by-id (the Number $current-pid))
-               (if (= $output (CPU $_fun $_out-args (STV $s $c)))
-                  (let ($kbid $pattern $mode) $key
-                     (store-computed-base-rate! $kbid $pattern (STV $s $c) $mode))
-                  ()))))))
+      (case $key (
+         (no-base-rate-aggregate-key ())
+         ((base-rate-aggregate-key-value $kbid $pattern $mode)
+            (if (== $current-pid ()) ()
+               (let $output
+                  (proof-output-atom-by-id (the Number $current-pid))
+                  (if (= $output (CPU $_fun $_out-args (STV $s $c)))
+                     (store-computed-base-rate!
+                        (brand KB $kbid)
+                        (brand Statement $pattern)
+                        (STV $s $c)
+                        $mode)
+                     ()))))))))
 
 (: harvest-base-rates (-> (List $none)))
 (= (harvest-base-rates)
    (let $_
       (collapse
-         (match &aggregate ($_agg-gid $_child $args $_base $_pending $current-pid)
+         (match &aggregate
+            (stored-aggregate-row
+               $_agg-gid $_child $args
+               $_base $_pending $current-pid)
             (harvest-base-rate-entry $args $current-pid)))
       ()))
 
 (: chainer-run
-   (-> Number (| Goal ($type ($kb $context $variables) $proof TV))
+   (-> Number (| Goal (Statement KBContext Proof TV))
        ChainerRunResult))
 (= (chainer-run $steps $goal)
    (let*
@@ -1594,72 +1755,19 @@
        ((search-state $_steps-left $_agenda1)
           (once (if (<= $steps 0) (search-state 0 $agenda0) (search-agenda-heap (+ $steps 1) $agenda0))))
        ($_harvest (harvest-base-rates)))
-      (chainer-run-result $root-gid (once (goal-results $root-gid)))))
+      (chainer-run-result $root-gid (goal-results $root-gid))))
 
 (: chainer
-   (Number (| Goal ($type ($kb $context $variables) $proof TV))
-      -[det]-> (List (| Goal
-                       ($result-type
-                          ($result-kb $result-context $result-variables)
-                          $result-proof TV)))))
+   (-[det]-> Number (| Goal (Statement KBContext Proof TV))
+       (List RuntimeResult)))
 (= (chainer $steps $goal)
    (let (chainer-run-result $_root-gid $results) (chainer-run $steps $goal)
       $results))
 
 (: chainer-materialize
-   (Number (| Goal ($type ($kb $context $variables) $proof TV))
-      -[det]-> (List (| Goal
-                       ($result-type
-                          ($result-kb $result-context $result-variables)
-                          $result-proof TV)))))
+   (-[det]-> Number (| Goal (Statement KBContext Proof TV))
+       (List RuntimeResult)))
 (= (chainer-materialize $steps $goal)
    (let (chainer-run-result $root-gid $results) (chainer-run $steps $goal)
       (let $_materialized (materialize-goal-proofs-to-kb $root-gid)
          $results)))
-
-(: run-compiled-query
-   (-> Number CompiledQuery (List AnnotatedStatement)))
-(= (run-compiled-query $steps (compiled-query $goal $adds))
-   (let*
-      (($_clear-temp-before (clear-temp-query-adds))
-       ($_ (once (inject-compiled-adds $adds)))
-       ($results (chainer $steps $goal))
-       ($eres (map-flat externalize-proof-structure $results))
-       ($pres (map-flat pretty $eres))
-       ($_clear-temp-after (clear-temp-query-adds)))
-      $pres))
-
-(: run-compiled-query-materialize
-   (-> Number CompiledQuery (List AnnotatedStatement)))
-(= (run-compiled-query-materialize $steps (compiled-query $goal $adds))
-   (let*
-      (($_clear-temp-before (clear-temp-query-adds))
-       ($_ (once (inject-compiled-adds $adds)))
-       ($results (chainer-materialize $steps $goal))
-       ($eres (map-flat externalize-proof-structure $results))
-       ($pres (map-flat pretty $eres))
-       ($_clear-temp-after (clear-temp-query-adds)))
-      $pres))
-
-(: append-annotated-statements
-   (-> (List AnnotatedStatement) (List AnnotatedStatement)
-       (List AnnotatedStatement)))
-(= (append-annotated-statements $left $right)
-   (append $left $right))
-
-(: query (Number $kb AnnotatedStatement -[nondet]-> AnnotatedStatement))
-(= (query $steps $kb $stmt)
-   (let $pres
-      (fold-flat append-annotated-statements ()
-         (map-flat (run-compiled-query $steps)
-            (collapse (mm2compileQuery $kb $stmt))))
-      (superpose $pres)))
-
-(: query-materialize
-   (Number $kb AnnotatedStatement -[nondet]-> AnnotatedStatement))
-(= (query-materialize $steps $kb $stmt)
-   (let $pres
-      (fold-flat append-annotated-statements ()
-         (map-flat (run-compiled-query-materialize $steps)
-            (collapse (mm2compileQuery $kb $stmt))))
-      (superpose $pres)))

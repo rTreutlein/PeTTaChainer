@@ -11,23 +11,23 @@
 (: TotalEvidenceTvs
    (-> (| TV NoEvidenceSide) (| TV NoEvidenceSide) TotalEvidenceTvs))
 
-(: TotalEvidenceOr ((| TV NoEvidenceSide) TV -[det]-> TV))
+(: TotalEvidenceOr (-[det]-> (| TV NoEvidenceSide) TV TV))
 (= (TotalEvidenceOr $left $right)
    (if (== $left none) $right (OrFormula (the TV $left) $right)))
 
-(: TotalEvidenceTv ((| TV NoEvidenceSide) -[det]-> TV))
+(: TotalEvidenceTv (-[det]-> (| TV NoEvidenceSide) TV))
 (= (TotalEvidenceTv $tv)
    (if (== $tv none) (STV 0.0 0.0) (the TV $tv)))
 
 (: TotalEvidenceAcc
-   (TotalEvidenceTvs EvidenceCase -[det]-> TotalEvidenceTvs))
+   (-[det]-> TotalEvidenceTvs EvidenceCase  TotalEvidenceTvs))
 (= (TotalEvidenceAcc (TotalEvidenceTvs $pos-tv $neg-tv) (EvidenceCase pos $tv))
    (TotalEvidenceTvs (TotalEvidenceOr $pos-tv $tv) $neg-tv))
 (= (TotalEvidenceAcc (TotalEvidenceTvs $pos-tv $neg-tv) (EvidenceCase neg $tv))
    (TotalEvidenceTvs $pos-tv (TotalEvidenceOr $neg-tv $tv)))
 
 (: TotalEvidenceCTVModusPonensFormula
-   (TV TotalEvidenceTvs -[nondet]-> TV))
+   (-[nondet]-> TV TotalEvidenceTvs  TV))
 (= (TotalEvidenceCTVModusPonensFormula $atv $evidence-tvs)
    (if (= $evidence-tvs (TotalEvidenceTvs none none))
 	      (empty)

@@ -2,14 +2,14 @@
 
 ;; These tests intentionally request the full-KB special case by selecting all
 ;; current canonical facts. The forward chainer itself has no global-KB mode.
-(: test-main-facts ($kb -[det]-> (List Expression)))
+(: test-main-facts (-[det]-> $kb (List Expression)))
 (= (test-main-facts $kb)
    (collapse
       (match &kb
          ($type ($kb MAIN Nil) $prf $tv)
          ($type ($kb MAIN Nil) $prf $tv))))
 
-(: test-selected-facts ($kb $type -[det]-> (List Expression)))
+(: test-selected-facts (-[det]-> $kb $type (List Expression)))
 (= (test-selected-facts $kb $type)
    (collapse
       (once
@@ -75,7 +75,8 @@
    (list-count
       (collapse
          (match &forward_frontier
-            ($_hash (Q a) (forwardRevisionKb MAIN Nil) $_fact $_ev)
+            (forward-frontier-row
+               $_hash (Q a) (forwardRevisionKb MAIN Nil) $_fact $_ev)
             true)))
    1)
 
@@ -83,7 +84,8 @@
    (list-count
       (collapse
          (match &forward_frontier
-            ($_hash (R a) (forwardRevisionKb MAIN Nil) $_fact $_ev)
+            (forward-frontier-row
+               $_hash (R a) (forwardRevisionKb MAIN Nil) $_fact $_ev)
             true)))
    1)
 
@@ -111,14 +113,16 @@
    (list-count
       (collapse
          (match &forward_frontier
-            ($_hash (Q a) (forwardFrontierKb MAIN Nil) $_fact $_ev)
+            (forward-frontier-row
+               $_hash (Q a) (forwardFrontierKb MAIN Nil) $_fact $_ev)
             true)))
    2)
 
 !(test
    (collapse
       (match &forward_frontier
-            ($_hash (Q a) (forwardFrontierKb MAIN Nil)
+            (forward-frontier-row
+            $_hash (Q a) (forwardFrontierKb MAIN Nil)
             ((Q a) (forwardFrontierKb MAIN Nil)
                (pToQ (merge/revision frontierP1 frontierP2)) $_tv)
             $_ev)
@@ -128,7 +132,8 @@
 !(test
    (collapse
       (match &forward_frontier
-         ($_hash (Q a) (forwardFrontierKb MAIN Nil)
+         (forward-frontier-row
+            $_hash (Q a) (forwardFrontierKb MAIN Nil)
             ((Q a) (forwardFrontierKb MAIN Nil) (sToQ frontierS1) $_tv)
             $_ev)
          true))
@@ -137,7 +142,8 @@
 !(test
    (collapse
       (match &forward_frontier
-         ($_hash (Q a) (forwardFrontierKb MAIN Nil)
+         (forward-frontier-row
+            $_hash (Q a) (forwardFrontierKb MAIN Nil)
             ((Q a) (forwardFrontierKb MAIN Nil) (pToQ frontierP1) $_tv)
             $_ev)
          true))
@@ -171,7 +177,8 @@
    (list-count
       (collapse
          (match &forward_frontier
-            ($_hash (P a) (forwardFrontierKb MAIN Nil) $_fact $_ev)
+            (forward-frontier-row
+               $_hash (P a) (forwardFrontierKb MAIN Nil) $_fact $_ev)
             true)))
    2)
 
@@ -188,7 +195,8 @@
    (list-count
       (collapse
          (match &forward_frontier
-            ($_hash (P a) (forwardFrontierKb MAIN Nil) $_fact $_ev)
+            (forward-frontier-row
+               $_hash (P a) (forwardFrontierKb MAIN Nil) $_fact $_ev)
             true)))
    1)
 
@@ -234,7 +242,8 @@
    (list-count
       (collapse
          (match &forward_frontier
-            ($_hash (Q a) (forwardLowerConfidenceKb MAIN Nil) $_fact $_ev)
+            (forward-frontier-row
+               $_hash (Q a) (forwardLowerConfidenceKb MAIN Nil) $_fact $_ev)
             true)))
    1)
 
@@ -242,7 +251,8 @@
    (list-count
       (collapse
          (match &forward_frontier
-            ($_hash (R a) (forwardLowerConfidenceKb MAIN Nil) $_fact $_ev)
+            (forward-frontier-row
+               $_hash (R a) (forwardLowerConfidenceKb MAIN Nil) $_fact $_ev)
             true)))
    1)
 
@@ -310,7 +320,10 @@
       (collapse
          (match &forward_base_rate_observation
             (ForwardBaseRateObservation
-               ($_id ((forwardBudgetBaseRateKb MAIN Nil) (P $_which)))
+               ($_id
+                  (forward-output-key
+                     (forwardBudgetBaseRateKb MAIN Nil)
+                     (P $_which)))
                $_fact $_weight $_count)
             true)))
    1)
@@ -327,7 +340,10 @@
       (collapse
          (match &forward_base_rate_observation
             (ForwardBaseRateObservation
-               ($_id ((forwardBudgetBaseRateKb MAIN Nil) (P $_which)))
+               ($_id
+                  (forward-output-key
+                     (forwardBudgetBaseRateKb MAIN Nil)
+                     (P $_which)))
                $_fact $_weight $_count)
             true)))
    2)

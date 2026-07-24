@@ -25,6 +25,15 @@ load_metta_file('$metta_dir/forward_chainer.metta',_),
 load_metta_file('$metta_dir/compiled_query_runtime.metta',_),
 load_metta_file('$metta_dir/backward_proof_store.metta',_),
 load_metta_file('$metta_dir/backward_chainer.metta',_),
+load_metta_file('$metta_dir/query_runtime.metta',_),
 halt"
 
 swipl -q -s "$petta_dir/src/metta.pl" -g "$goal" -- --strict-det --silent
+
+# The public entry module owns its imports. Check it in a fresh process so the
+# same libraries are not deliberately loaded twice by this script.
+entry_goal="assertz(working_dir('$metta_dir')),
+load_metta_file('$metta_dir/petta_chainer.metta',_),
+halt"
+
+swipl -q -s "$petta_dir/src/metta.pl" -g "$entry_goal" -- --strict-det --silent

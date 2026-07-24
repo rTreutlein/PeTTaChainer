@@ -21,7 +21,10 @@
 (= (kb-add-atom live $space $expr) (add-atom $space $expr))
 (= (kb-add-atom temp $space $expr) (track-temp-query-ref (assert-space-atom-ref $space $expr)))
 
-(: kb-add-prem (-> KbBackend Number Number $premise Number))
+(: kb-add-prem
+   (-> KbBackend Number Number
+       (| Goal (Statement KBContext Proof TV))
+       Number))
 (= (kb-add-prem $backend $id $idx $prem)
    (let $key (forward-indexable-premise-key $prem)
       (progn
@@ -32,30 +35,33 @@
          (+ $idx 1))))
 
 (: kb-add-ccl-head-index
-   (-> KbBackend Number $conclusion (| Bool (List $none))))
+   (-> KbBackend Number
+       (Statement KBContext Proof TV)
+       (| Bool (List $none))))
 (= (kb-add-ccl-head-index $backend $id $ccls)
    (let $key (forward-indexable-premise-key $ccls)
       (if (== $key ()) ()
          (once
             (kb-add-atom $backend ccls_head_index ($key $id))))))
 
-(: kb-expr-kbid (-> $expression (| $kb (List $none))))
+(: kb-expr-kbid (-> Expression (| KB (List $none))))
 (= (kb-expr-kbid $expr)
    (case $expr (
-      (($_type ($kbid $_ctx $_vars) $_prf $_tv) $kbid)
+      (($_type ($kbid $_ctx $_vars) $_prf $_tv)
+         (brand KB $kbid))
       ($_other ()))))
 
-(: observed-inheritance-subject? (-> $kb $subject Bool))
+(: observed-inheritance-subject? (-> KB Statement Bool))
 (= (observed-inheritance-subject? $kbid $subj)
    (not (== (collapse (once (match &inheritance_subject ($kbid $subj) true))) ())))
 
 ;; Keep an empty fold live so later sample proofs can refine it, but do not let
 ;; its provisional no-evidence value become a public Inheritance proof.
-(: MemberInheritanceEvidenceFormula (TV -[nondet]-> TV))
+(: MemberInheritanceEvidenceFormula (-[nondet]-> TV  TV))
 (= (MemberInheritanceEvidenceFormula $tv)
    (if (== $tv no-evidence) (empty) $tv))
 
-(: inheritance-subject-prior-tv (-> $kb $subject TV))
+(: inheritance-subject-prior-tv (-> KB Statement TV))
 (= (inheritance-subject-prior-tv $kbid $subj)
    (if (observed-inheritance-subject? $kbid $subj)
       (let $universe-size (kb-universe-size $kbid)
@@ -74,7 +80,10 @@
 (: store-rule-expected-score!
    (-> KbBackend Number (List Expression) (| Bool (List $none))))
 (= (store-rule-expected-score! $backend $id $args)
-   (let $hits (collapse (premises-expected-confidence (copy_term $args)))
+   (let $hits
+      (collapse
+         (premises-expected-confidence
+            (copy_term $args)))
       (if (== $hits ()) ()
          (once
             (kb-add-atom $backend rule_expected
@@ -94,7 +103,8 @@
 ;; Rules whose proof carries no extractable name (open query adapters,
 ;; negated outputs) are simply not indexed -- they cannot be removed by name.
 (: register-rule-name!
-   (-> KbBackend Number $conclusion (| Bool (List $none))))
+   (-> KbBackend Number (Statement KBContext Proof TV)
+       (| Bool (List $none))))
 (= (register-rule-name! $backend $id $ccls)
    (case $ccls (
       (($_type $_kb $prf $_tv)
@@ -107,21 +117,35 @@
                            ($name $id))))))))
       ($_other ()))))
 
+(: typed-runtime-fact
+   (-> Expression (Statement KBContext Proof TV)))
+(= (typed-runtime-fact $fact)
+   (case $fact
+      ((($type $kb $proof $tv)
+         (assemble-runtime-fact
+            (brand Statement $type)
+            (brand KBContext $kb)
+            (brand Proof $proof)
+            (the TV $tv))))))
+
 (: kb-add-expr
-   (KbBackend $compiled-expression -[nondet]-> (| Bool (List $none))))
+   (-[nondet]-> KbBackend RuntimeAddition  (| Bool (List $none))))
 (= (kb-add-expr $backend $expr)
    (if (= $expr (rules ($args |- $ccls)))
       (let*
-         (($rule-args (the (List Expression) $args))
+         (($typed-ccls (typed-runtime-fact $ccls))
+          ($rule-args (the (List Expression) $args))
           ($id (next-rule-id $backend))
            ($_1 (fold-flat (kb-add-prem $backend $id) 0 $rule-args))
-           ($_2 (kb-add-atom $backend ccls_index ($ccls $id)))
-           ($_3 (kb-add-ccl-head-index $backend $id $ccls))
+           ($_2 (kb-add-atom $backend ccls_index ($typed-ccls $id)))
+           ($_3 (kb-add-ccl-head-index $backend $id $typed-ccls))
            ($_4
               (kb-add-atom $backend rules
-                 ($id $ccls $rule-args)))
+                 (runtime-rule-row
+                    $id $typed-ccls $rule-args)))
            ($_expected (store-rule-expected-score! $backend $id $rule-args))
-           ($_name-idx (register-rule-name! $backend $id $ccls))
+           ($_name-idx
+              (register-rule-name! $backend $id $typed-ccls))
            ($_base-rates
               (if (== $backend live)
                  (register-forward-base-rate-premises! $rule-args)
@@ -148,7 +172,8 @@
             (progn (erase-clause-ref $ref) (remove-atom &temp_query_ref (clause_ref $ref)))))
       ()))
 
-(: inject-compiled-adds ((List $compiled-add) -[nondet]-> (List $none)))
+(: inject-compiled-adds
+   (-[nondet]-> (List RuntimeAddition)  (List $none)))
 (= (inject-compiled-adds ()) ())
 (= (inject-compiled-adds (cons $add $rest))
    (progn
@@ -168,7 +193,8 @@
 (= (remove-rule-row! $id)
    (let $_
       (collapse
-         (match rules ($id $ccls $args)
+         (match rules
+            (runtime-rule-row $id $ccls $args)
             (let*
                (($_prems
                    (collapse
@@ -182,21 +208,26 @@
                       (match rule_expected ($id $score)
                          (remove-atom rule_expected ($id $score)))))
                 ($_invalidate (invalidate-computed-base-rates! (kb-expr-kbid $ccls)))
-                ($_row (remove-atom rules ($id $ccls $args))))
+                ($_row
+                   (remove-atom rules
+                      (runtime-rule-row $id $ccls $args))))
                ())))
       ()))
 
-(: remove-kb-facts-named! (-> $statement-name (List $none)))
+(: remove-kb-facts-named! (-> Proof (List $none)))
 (= (remove-kb-facts-named! $name)
    (let $_
       (collapse
          (match &forward_frontier
-            ($hash $type $kb ($type $kb $name $tv) $ev)
+            (forward-frontier-row
+               $hash $type $kb ($type $kb $name $tv) $ev)
             (let*
                (($_remove
                    (remove-atom &forward_frontier
-                      ($hash $type $kb ($type $kb $name $tv) $ev)))
-                ($key (quote ($kb $type)))
+                      (forward-frontier-row
+                         $hash $type $kb
+                         ($type $kb $name $tv) $ev)))
+                ($key (forward-output-key $kb $type))
                 ($change (forward-refresh-output-key! $key))
                 ($_forward-state
                    (forward-apply-unqueued-change! $change))
@@ -205,15 +236,17 @@
                       (kb-expr-kbid (quote ($type $kb $name $tv)))))
                 ($_member-inheritance
                    (case (quote ($type $kb $name $tv)) (
-                      (((Member $obj $class)
+                         (((Member $obj $class)
                            ($kbid MAIN Nil) $_prf $_tv)
                          (forward-remove-member-inheritances-for-key
-                            $kbid $obj $class))
+                            (brand KB $kbid)
+                            (brand Term $obj)
+                            (brand Term $class)))
                       ($_other ())))))
                ())))
       ()))
 
-(: remove-compiled-statement (-> $statement-name (List $none)))
+(: remove-compiled-statement (-> Proof (List $none)))
 (= (remove-compiled-statement $name)
    (let*
       (($_specialization (remove-specialization-state! $name))

@@ -3,6 +3,16 @@
 (: CustomLogic LogicName)
 (: NoOrLogic LogicName)
 
+(: logic-test-runtime-fact
+   (-> Statement Proof TV
+       (Statement KBContext Proof TV)))
+(= (logic-test-runtime-fact $statement $proof $tv)
+   (assemble-runtime-fact
+      $statement
+      (brand KBContext (projectionDominanceKb MAIN Nil))
+      $proof
+      $tv))
+
 !(compileadd plnLogicKb (: a (A) (STV 1.0 1.0)))
 
 !(test
@@ -23,9 +33,9 @@
 
 !(test
    (merge-proof-atoms
-      ((B) (projectionDominanceKb MAIN Nil) ((proj 1 ab) a) (STV 1.0 0.9))
-      ((B) (projectionDominanceKb MAIN Nil) (marginal-proj 1 ab) (STV 1.0 0.9)))
-   ((B) (projectionDominanceKb MAIN Nil) ((proj 1 ab) a) (STV 1.0 0.9)))
+      (logic-test-runtime-fact (B) ((proj 1 ab) a) (STV 1.0 0.9))
+      (logic-test-runtime-fact (B) (marginal-proj 1 ab) (STV 1.0 0.9)))
+   (logic-test-runtime-fact (B) ((proj 1 ab) a) (STV 1.0 0.9)))
 
 !(compileadd plnProjectionKb (: ab (And (A) (B)) (STV 1.0 0.9)))
 !(compileadd plnProjectionKb (: a (A) (STV 1.0 1.0)))

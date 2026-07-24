@@ -2,7 +2,9 @@
 
 ;; Forward chaining consumes canonical compiled facts. Tests that want to
 ;; select by surface type do that explicitly outside the chainer.
-(: test-selected-facts ($kb $type -[det]-> (List Expression)))
+(: test-selected-facts
+   (-[det]-> KB Statement
+      (List (Statement KBContext Proof TV))))
 (= (test-selected-facts $kb $type)
    (collapse
       (once
@@ -99,7 +101,11 @@
                  ((SwitchGoal) (mergekb MAIN Nil) $prf $tv)
                  (==
                     (proof-atom-evidence-set
-                       ((SwitchGoal) (mergekb MAIN Nil) $prf $tv))
+                       (assemble-runtime-fact
+                          (brand Statement (SwitchGoal))
+                          (brand KBContext (mergekb MAIN Nil))
+                          (brand Proof $prf)
+                          (the TV $tv)))
                     (baseFact))))))
       (not (== $ev-ok ())))
    true)

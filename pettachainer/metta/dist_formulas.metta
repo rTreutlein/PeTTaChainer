@@ -18,6 +18,9 @@
 (: InputOutputPair Type)
 (: Pair (-> $input $output InputOutputPair))
 
+(: ParticleSample Type)
+(: particle (-> Number $value Number ParticleSample))
+
 (: clamp01 (-> Number Number))
 (= (clamp01 $x) (max 0.0 (min 1.0 $x)))
 
@@ -67,10 +70,10 @@
 ;; so this is intentionally a generic structural walk rather than a
 ;; Distribution-only accessor. The ParticleDist branch checks only its numeric
 ;; id; the resulting cons is then known statically as (List Number).
-(: particle-ids-in-term ($term -[det]-> (List Number)))
+(: particle-ids-in-term (-[det]-> Atom (List Number)))
 (= (particle-ids-in-term $term)
    (if (= $term (ParticleDist $pid $_scale))
-      (cons (the Number $pid) ())
+      (cons $pid ())
       (if (or (is-var $term) (== $term ())) ()
          (if (is-expr $term)
             (append
@@ -82,21 +85,22 @@
 (= (ParticleStorePruneKB)
    (let*
       (($keep
-           (the (List Number)
-              (list_to_set
-                 (collapse
-                    (match &kb (: $_kb $_prf $_type $tv)
-                       (let $particle-ids
-                          (append
-                             (particle-ids-in-term $_type)
-                             (particle-ids-in-term $tv))
-                          (superpose $particle-ids)))))))
+           (list_to_set
+              (collapse
+                 (match &kb (: $_kb $_prf $_type $tv)
+                    (let $particle-ids
+                       (append
+                          (particle-ids-in-term $_type)
+                          (particle-ids-in-term $tv))
+                       (superpose $particle-ids))))))
         ($atoms
-           (the (List (Number Number Number))
-              (collapse (match &particle_store (particle $pid $x $w) ($pid $x $w)))))
+           (collapse
+              (match &particle_store
+                 (particle $pid $x $w)
+                 (particle $pid $x $w))))
         ($_pruned
            (fold-flat
-              (|-> ($acc ($pid $x $w))
+              (|-> ($acc (particle $pid $x $w))
                  (progn (if (is-member $pid $keep) () (remove-atom &particle_store (particle $pid $x $w)))
                     $acc))
               ()
@@ -295,7 +299,8 @@
 (= (PairCountsToDist (PairCounts $pairs)) (ParticleFromPairs $pairs))
 
 (: numeric-distance2 (-> $left $right Number))
-(: numeric-distance2-result (-> (| Number (Error $detail)) Number))
+(: numeric-distance2-result
+   (-> (| Number (Error $detail $context)) Number))
 (= (numeric-distance2-result $mdelta)
    (if (= $mdelta (cons Error $_)) 1000000.0
       (let $delta (checked-number $mdelta) (* $delta $delta))))

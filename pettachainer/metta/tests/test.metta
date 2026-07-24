@@ -32,7 +32,7 @@
 
 !(compileadd kb (: prf10 (Cardinality (DogsIn room2) 3) (STV 1.0 1.0)))
 
-(: KeepAcc ($acc $elem -[det]-> $acc))
+(: KeepAcc (-[det]-> $acc $elem $acc))
 (= (KeepAcc $acc $_elem) $acc)
 
 !(compileadd kb

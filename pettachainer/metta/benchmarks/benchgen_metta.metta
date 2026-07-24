@@ -1,29 +1,29 @@
 !(import! &self ../petta_chainer)
 
-(: BenchListCount ((List $item) -[det]-> Number))
+(: BenchListCount (-[det]-> (List $item) Number))
 (= (BenchListCount ()) 0)
 (= (BenchListCount (cons $_x $tail)) (+ 1 (BenchListCount $tail)))
 
-(: BenchPow (Number Number -[det]-> Number))
+(: BenchPow (-[det]-> Number Number Number))
 (= (BenchPow $base $exp) (if (== $exp 0) 1 (* $base (BenchPow $base (- $exp 1)))))
 
-(: BenchIntDiv (Number Number -[det]-> Number))
+(: BenchIntDiv (-[det]-> Number Number Number))
 (= (BenchIntDiv $num $den) (if (< $num $den) 0 (+ 1 (BenchIntDiv (- $num $den) $den))))
 
-(: BenchMin (Number Number -[det]-> Number))
+(: BenchMin (-[det]-> Number Number Number))
 (= (BenchMin $a $b) (if (< $a $b) $a $b))
 
-(: BenchBool? ($value -[det]-> Bool))
+(: BenchBool? (-[det]-> $value Bool))
 (= (BenchBool? $x) (or (== $x true) (== $x false)))
 
-(: BenchCycle1 (Number Number -[det]-> Number))
+(: BenchCycle1 (-[det]-> Number Number Number))
 (= (BenchCycle1 $idx $max) (if (<= $idx $max) $idx (BenchCycle1 (- $idx $max) $max)))
 
 (: BenchGlobalConf (-> Number))
 (= (BenchGlobalConf) (random-float 0.45 0.98))
 
 (: BenchValidParams?
-   (Number Number Number Number Number Number Number -[det]-> Bool))
+   (-[det]-> Number Number Number Number Number Number Number  Bool))
 (=
    (BenchValidParams? $depth
       $width
@@ -39,7 +39,7 @@
                (and (>= $backward-ratio 0)
                   (and (<= $backward-ratio 100) (and (>= $backward-chain-len 1) (>= $forward-chain-len 1)))))))))
 
-(: BenchChildIndex (Number Number Number -[det]-> Number))
+(: BenchChildIndex (-[det]-> Number Number Number Number))
 (= (BenchChildIndex $parent-idx $width $slot) (+ (* (- $parent-idx 1) $width) $slot))
 
 (: BenchPremiseRef (-> $bench $path Number Number Expression))
@@ -279,7 +279,7 @@
                (- $chain-len 1)
                $print-before-compile)))))
 
-(: BenchNoiseSpan (Number Number -[det]-> Number))
+(: BenchNoiseSpan (-[det]-> Number Number Number))
 (= (BenchNoiseSpan $remaining-statements $chain-len)
    (BenchMin $remaining-statements (if (< $chain-len 1) 1 $chain-len)))
 

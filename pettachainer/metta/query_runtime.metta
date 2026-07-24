@@ -1,11 +1,12 @@
 ;; Public query orchestration sits above the backward chainer.  Keeping these
 ;; wrappers out of compiled_query_runtime lets compilation/storage remain a
 ;; foundational dependency of both chainers.
-(: run-compiled-query (Number CompiledQuery -[nondet]-> (List AnnotatedStatement)))
+(: run-compiled-query
+   (-> Number CompiledQuery (List AnnotatedStatement)))
 (= (run-compiled-query $steps (compiled-query $goal $adds))
    (let*
       (($_clear-temp-before (clear-temp-query-adds))
-        ($_ (inject-compiled-adds $adds))
+        ($_ (once (inject-compiled-adds $adds)))
         ($results (chainer $steps $goal))
         ($eres (map-flat externalize-proof-structure $results))
         ($pres (map-flat pretty $eres))
@@ -13,11 +14,11 @@
       $pres))
 
 (: run-compiled-query-materialize
-   (Number CompiledQuery -[nondet]-> (List AnnotatedStatement)))
+   (-> Number CompiledQuery (List AnnotatedStatement)))
 (= (run-compiled-query-materialize $steps (compiled-query $goal $adds))
    (let*
       (($_clear-temp-before (clear-temp-query-adds))
-        ($_ (inject-compiled-adds $adds))
+        ($_ (once (inject-compiled-adds $adds)))
         ($results (chainer-materialize $steps $goal))
         ($eres (map-flat externalize-proof-structure $results))
         ($pres (map-flat pretty $eres))
@@ -30,7 +31,7 @@
 (= (append-annotated-statements $left $right)
    (append $left $right))
 
-(: query (Number $kb AnnotatedStatement -[nondet]-> AnnotatedStatement))
+(: query (-[nondet]-> Number KB AnnotatedStatement  AnnotatedStatement))
 (= (query $steps $kb $stmt)
    (let $pres
       (fold-flat append-annotated-statements ()
@@ -39,7 +40,8 @@
       (superpose
          $pres)))
 
-(: query-materialize (Number $kb AnnotatedStatement -[nondet]-> AnnotatedStatement))
+(: query-materialize
+   (-[nondet]-> Number KB AnnotatedStatement  AnnotatedStatement))
 (= (query-materialize $steps $kb $stmt)
    (let $pres
       (fold-flat append-annotated-statements ()

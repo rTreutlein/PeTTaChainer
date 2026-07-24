@@ -1,17 +1,26 @@
 !(import! &self ../petta_chainer)
 
 (: member-test-fact
-   (-> $kb $object $class
-       (List ((Member $object $class) ($kb MAIN Nil) $proof TV))))
+   (-> KB Term Term
+       (List (Statement KBContext Proof TV))))
 (= (member-test-fact $kb $obj $class)
    (collapse
       (once
          (match &kb
             ((Member $obj $class) ($kb MAIN Nil) $prf $tv)
-            ((Member $obj $class) ($kb MAIN Nil) $prf $tv)))))
+            (let*
+               (($type
+                   (brand Statement (Member $obj $class)))
+                ($kbctx
+                   (brand KBContext (quote ($kb MAIN Nil))))
+                ($proof (brand Proof $prf))
+                ($truth-value (the TV $tv)))
+               (assemble-runtime-fact
+                  $type $kbctx $proof $truth-value))))))
 
 (: member-fold-cache
-   ($kb $subject $concept -[nondet]-> (| TV (List $no-result))))
+   (-[nondet]-> KB Term Term
+      (| TV (List $no-result))))
 (= (member-fold-cache $kb $subj $concept)
    (cached-base-rate $kb
       (MemberInheritanceSample $obj $subj $concept $atv $btv)))
@@ -24,7 +33,10 @@
 !(test
    (collapse
       (match &forward_member_inheritance_identity
-         ((fwd_member forwardOpenMemberFoldKb $_subj $_concept) $_id)
+         (forward-member-inheritance-identity-row
+            (fwd_member_identity
+               forwardOpenMemberFoldKb $_subj $_concept)
+            $_id)
          true))
    ())
 
@@ -61,7 +73,10 @@
 !(test
    (collapse
       (match &forward_member_inheritance_identity
-         ((fwd_member forwardCompoundOpenMemberFoldKb $_subj $_concept) $_id)
+         (forward-member-inheritance-identity-row
+            (fwd_member_identity
+               forwardCompoundOpenMemberFoldKb $_subj $_concept)
+            $_id)
          true))
    ())
 
@@ -104,7 +119,11 @@
    (list-count
       (collapse
          (match &forward_member_inheritance_identity
-            ((fwd_member forwardMemberFoldKb Human Mortal) $_id) true)))
+            (forward-member-inheritance-identity-row
+               (fwd_member_identity
+                  forwardMemberFoldKb Human Mortal)
+               $_id)
+            true)))
    1)
 
 !(test (member-fold-cache forwardMemberFoldKb Human Mortal) ())
@@ -176,7 +195,9 @@
 !(test
    (collapse
       (match &forward_member_inheritance_state
-         ($_id $weight $mass) ($weight $mass)))
+         (forward-member-inheritance-state
+            $_id $weight $mass)
+         ($weight $mass)))
    ((0.19999999999999996 0.5)))
 
 !(test
@@ -226,5 +247,9 @@
    (list-count
       (collapse
          (match &forward_member_inheritance_identity
-            ((fwd_member forwardMemberFoldKb $subj $concept) $_id) true)))
+            (forward-member-inheritance-identity-row
+               (fwd_member_identity
+                  forwardMemberFoldKb $subj $concept)
+               $_id)
+            true)))
    1)
