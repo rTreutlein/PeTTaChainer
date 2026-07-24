@@ -2,4 +2,5 @@ thoughts.txt
 metta/x.metta
 metta/benchmarks/test*.metta
 metta/benchmarks/repos/
+metta/.conceptnet_export
 metta/repos/

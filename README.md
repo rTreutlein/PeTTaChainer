@@ -37,6 +37,16 @@ Run the bounded priority queue benchmark:
 
 Add `--compare-pruning` to compare pruning enabled and disabled within the same checkout.
 
+Run the full ConceptNet `Own ∧ Pet` query benchmark:
+
+```bash
+./pettachainer/metta/benchmarks/run_conceptnet_own_pet_query.sh
+```
+
+The runner discovers a sibling `cnet` checkout automatically. Set `CNET_DIR`
+for a different location. If `dumppln.txt` changed or the expected proof is
+missing, rerun with `CNET_REFRESH=1` to regenerate and compile `rules_dump`.
+
 Optional JSON export:
 
 ```bash
