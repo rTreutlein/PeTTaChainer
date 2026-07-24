@@ -618,6 +618,10 @@
        (List (| Goal (Statement KBContext Proof TV)))
        AndBundle))
 (= (make-and-bundle $goal $args) (and-bundle $goal $args))
+(: present-and-bundle
+   (-> (| AndBundle (List $none)) AndBundle))
+(= (present-and-bundle (and-bundle $goal $premises))
+   (make-and-bundle $goal $premises))
 (: and-bundle-goal
    (-> AndBundle
        (| Goal (Statement KBContext Proof TV))))
@@ -686,7 +690,9 @@
                (let $next-bundle (advance-frontier-bundle (copy_term $bundle) $pid)
                   (if (== $next-bundle ()) $agenda
                      (let*
-                        (($nparts (frontier-parts-add $parts $part))
+                        (($typed-next-bundle
+                            (present-and-bundle $next-bundle))
+                         ($nparts (frontier-parts-add $parts $part))
                          ($next-score
                             (min-atom ($score
                                        (if (== $part skip-part)
@@ -694,10 +700,10 @@
                                              (frontier-pool-potential $nparts))
                                           (frontier-part-score $part $frontier-pscore))
                                        (frontier-remaining-score
-                                          (the AndBundle $next-bundle) $nparts)))))
+                                          $typed-next-bundle $nparts)))))
                         (spawn-frontier-heap $agenda
                            $parent-gid
-                           (the AndBundle $next-bundle)
+                           $typed-next-bundle
                            $next-score
                            (list_to_set (append $seen $pev))
                            $nparts
@@ -739,14 +745,17 @@
                (copy_term $bundle) $pid
                (the TV (car-atom $folded-hits)))
             (if (== $next-bundle ()) $agenda
-               (let $next-score
-                  (min-atom ($score
-                             (frontier-part-score $part 0.000001)
-                             (frontier-remaining-score
-                                (the AndBundle $next-bundle) $nparts)))
+               (let*
+                  (($typed-next-bundle
+                      (present-and-bundle $next-bundle))
+                   ($next-score
+                      (min-atom ($score
+                                 (frontier-part-score $part 0.000001)
+                                 (frontier-remaining-score
+                                    $typed-next-bundle $nparts)))))
                   (spawn-frontier-heap $agenda
                      $parent-gid
-                     (the AndBundle $next-bundle)
+                     $typed-next-bundle
                      $next-score
                      (list_to_set (append $seen $pev))
                      $nparts
