@@ -158,7 +158,7 @@
              (if (== $fun AndMarginalProjection) (* 0.99 $base) $base)))
        (($_type ($_kbid $_ctx $_vars) $prf $tv)
           (proof-score
-             (brand Proof $prf) (the TV $tv))))))
+             (brand Proof $prf) $tv)))))
 
 (: cpu-result-confidence (-> $result Number))
 (= (cpu-result-confidence $result)
