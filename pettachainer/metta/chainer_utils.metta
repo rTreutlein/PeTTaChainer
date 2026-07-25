@@ -188,12 +188,15 @@
 (= (premise-cons $premise $rest)
    (cons $premise $rest))
 
-(: score-tv (-> Number TV))
+(: score-tv (-> Number (STV Number Number)))
 (= (score-tv $score) (STV 1.0 (max 0.0 (min 1.0 $score))))
 
 (: optimistic-revision-score (-> Number Number Number))
 (= (optimistic-revision-score $current-score $candidate-score)
-   (tv-confidence (mergetvs (score-tv $current-score) (score-tv $candidate-score))))
+   (tv-confidence
+      (merge-stvs
+         (score-tv $current-score)
+         (score-tv $candidate-score))))
 
 (: rule-marginal-score (-> (| Number NoCurrentScore) Number Number))
 (= (rule-marginal-score $current-score $candidate-score)
@@ -258,9 +261,13 @@
 
 (= (RevisionMergeProof ($type1 $kb $prf1 $tv1) ($_type2 $_kb2 $prf2 $tv2))
    (let $merged-tv
-      (if (and (= $tv1 (STV $_m1 $_c1)) (= $tv2 (STV $_m2 $_c2)))
-         (mergetvs $tv1 $tv2)
-         $tv1)
+      (case $tv1 (
+         ((STV $m1 $c1)
+            (case $tv2 (
+               ((STV $m2 $c2)
+                  (merge-stv-fields $m1 $c1 $m2 $c2))
+               ($_other-tv $tv1))))
+         ($_other $tv1)))
       (assemble-runtime-fact
          $type1 $kb
          (brand Proof (merge/revision $prf1 $prf2))
@@ -271,10 +278,20 @@
 (= (proof-atom-proof ($_type $_kb $prf $_tv)) $prf)
 
 (: foreach-flat
-   (-> (-> $item $effect) (List $item) (List $none)))
+   (-[det]-> (-[det]-> $item $effect)
+       (List $item) (List $none)))
 (= (foreach-flat $f ()) ())
 (= (foreach-flat $f (cons $x $xs))
    (progn ($f $x) (foreach-flat $f $xs)))
+
+(: foreach-flat-semidet
+   (-[semidet]-> (-[semidet]-> $item $effect)
+       (List $item) (List $none)))
+(= (foreach-flat-semidet $_f ()) ())
+(= (foreach-flat-semidet $f (cons $x $xs))
+   (progn
+      ($f $x)
+      (foreach-flat-semidet $f $xs)))
 
 (: chainer-acyclic-term? (-> $term Bool))
 (= (chainer-acyclic-term? $term)
@@ -306,7 +323,7 @@
 (= (cpu-call $_steps $fun $args) (reduce (reduce (cons $fun $args))))
 
 (: proof-stats-by-id
-   (-> Number (Number (List Evidence))))
+   (-[semidet]-> Number (Number (List Evidence))))
 (= (proof-stats-by-id $pid)
    (once
       (match &proof
@@ -330,7 +347,7 @@
       ()))
 
 (: proof-term-evidence-children-mode
-   (-> $mode (List Proof) (List Evidence)))
+   (-[semidet]-> $mode (List Proof) (List Evidence)))
 (= (proof-term-evidence-children-mode $mode ()) ())
 (= (proof-term-evidence-children-mode $mode (cons $child $rest))
    (append
@@ -355,7 +372,7 @@
    (if (is-expr $prf) (== (car-atom $prf) negated) false))
 
 (: proof-term-evidence-list-mode
-   (-> $mode Proof (List Evidence)))
+   (-[semidet]-> $mode Proof (List Evidence)))
 (= (proof-term-evidence-list-mode $mode $prf)
    (case $prf (
       ((@ $_ref (proof-ref $pid))
@@ -383,7 +400,8 @@
                         (proof-term-evidence-children-mode $mode $children))))))))))
 
 (: proof-atom-evidence-set
-   (-> (Statement KBContext Proof TV) (List Evidence)))
+   (-[semidet]-> (Statement KBContext Proof TV)
+       (List Evidence)))
 (= (proof-atom-evidence-set ($_type $kb $prf $_tv))
    (list_to_set
       (once
@@ -484,7 +502,7 @@
 ;; the same provenance.  Otherwise a materialized rule result looks like a new
 ;; independent fact when the backward chainer rediscovers that rule path.
 (: rule-result-evidence
-   (-> (Statement KBContext Proof TV)
+   (-[semidet]-> (Statement KBContext Proof TV)
        (List Evidence) (List Evidence)))
 (= (rule-result-evidence ($_type $kb $prf $_tv) $ev)
    (let*
@@ -550,7 +568,7 @@
    (quote ($proof $evidence)))
 
 (: merge-proof-atoms
-   (-> (Statement KBContext Proof TV)
+   (-[semidet]-> (Statement KBContext Proof TV)
        (Statement KBContext Proof TV)
        (Statement KBContext Proof TV)))
 (= (merge-proof-atoms $proof-a $proof-b)
@@ -582,7 +600,8 @@
             (base-rate $kbid $stored $tv $source $emode)
             (empty)))))
 
-(: base-rate-cache-remove-entry! (-> BaseRateEntry Bool))
+(: base-rate-cache-remove-entry!
+   (-[det]-> BaseRateEntry Bool))
 (= (base-rate-cache-remove-entry! $entry)
    (remove-atom &base_rate_cache $entry))
 
@@ -683,7 +702,8 @@
       (match &universe_size (universe-size $kbid $n)
          (universe-size $kbid $n))))
 
-(: universe-size-remove-entry! (-> UniverseSizeEntry Bool))
+(: universe-size-remove-entry!
+   (-[det]-> UniverseSizeEntry Bool))
 (= (universe-size-remove-entry! $entry)
    (remove-atom &universe_size $entry))
 
@@ -744,7 +764,7 @@
          (concept-prior-confidence $kbid $c))))
 
 (: concept-prior-confidence-remove-entry!
-   (-> ConceptPriorConfidence Bool))
+   (-[det]-> ConceptPriorConfidence Bool))
 (= (concept-prior-confidence-remove-entry! $entry)
    (remove-atom &concept_prior_confidence $entry))
 
@@ -810,7 +830,7 @@
 (= (resolve-base-rate-prior no-evidence) no-evidence)
 
 (: WeightedBaseRateWithPriorTv
-   (-> BaseRateEvidenceWithPriorState TV))
+   (-[semidet]-> BaseRateEvidenceWithPriorState TV))
 (= (WeightedBaseRateWithPriorTv
       (BaseRateEvidenceWithPrior $prior $ev))
    (BaseRateWithPriorFormula

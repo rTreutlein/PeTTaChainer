@@ -1042,13 +1042,13 @@
       (existing-kb-context $kb)
       (compile-fact-kb-from-id $kb)))
 
-(: map-nested2 (-> (-> $term $term) $term $term))
+(: map-nested2 (-> (-[det]-> $term $term) $term $term))
 (= (map-nested2 $f ()) ())
 (= (map-nested2 $f (cons $x $xs))
    (if (is-expr $x) ($f (cons (map-nested2 $f $x) (map-nested2 $f $xs)))
       ($f (cons ($f $x) (map-nested2 $f $xs)))))
 
-(: toQuery (-> $term $term))
+(: toQuery (-[det]-> $term $term))
 (= (toQuery $elem) (if (=? $elem (exists $_1 $_2 $_3)) $var $elem))
 
 (: contains-cpu? (-> $term Bool))

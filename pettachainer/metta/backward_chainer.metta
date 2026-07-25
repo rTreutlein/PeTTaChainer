@@ -47,7 +47,7 @@
          (car-atom $hits))))
 
 (: schedule-goal-heap
-   (-> $heap Number Number $heap))
+   (-[semidet]-> $heap Number Number $heap))
 (= (schedule-goal-heap $agenda $score $gid)
    (let*
       (((stored-goal-row
@@ -76,7 +76,7 @@
                $nagenda)))))
 
 (: schedule-aggregate-heap
-   (-> $heap Number $heap))
+   (-[semidet]-> $heap Number $heap))
 (= (schedule-aggregate-heap $agenda $agg-gid)
    (let*
       (((stored-aggregate-row
@@ -124,13 +124,13 @@
       $child-goal))
 
 (: aggregate-step-value
-   (-> (extract-value Statement $value)
+   (-> ExtractValue
        $child-atom (| TV NoTV) $value))
 (: aggregate-step-value
-   (-> (extract-inheritance-tv KB Statement)
+   (-> ExtractInheritanceTV
        $child-atom TV WeightedTV))
 (: aggregate-step-value
-   (-> extract-tv $child-atom TV TV))
+   (-> ExtractTV $child-atom TV TV))
 (= (aggregate-step-value (extract-value $pattern $value) $child-atom $_child-tv)
    (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $value))
 (= (aggregate-step-value (extract-inheritance-tv $kbid $_pattern) $child-atom $child-tv)
@@ -147,8 +147,8 @@
    (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $group))
 
 (: aggregate-foldall-step-acc
-   (-> Expression
-       (-[det]-> $accumulator %Undefined% $accumulator)
+   (-[semidet]-> (| ExtractValue ExtractInheritanceTV ExtractTV)
+       (-[semidet]-> $accumulator %Undefined% $accumulator)
        $accumulator $child-atom (| TV NoTV) $accumulator))
 (= (aggregate-foldall-step-acc $extractor $fun $acc $child-atom $child-tv)
    (case $extractor (
@@ -176,7 +176,8 @@
 (: aggregate-finish
    (-> WeightedBaseRateFinish BaseRateEvidenceState TV))
 (: aggregate-finish
-   (-> WeightedBaseRateWithPriorFinish BaseRateEvidenceWithPriorState TV))
+   (-[semidet]-> WeightedBaseRateWithPriorFinish
+       BaseRateEvidenceWithPriorState TV))
 (: aggregate-finish
    (-> MemberInheritanceFinish BaseRateEvidenceState TV))
 (: aggregate-finish
@@ -242,7 +243,7 @@
    (the Number $size))
 
 (: finish-aggregate
-   (-> (| IdentityFinish
+   (-[semidet]-> (| IdentityFinish
           DistAverageFinish
           BaseRateFinish
           WeightedBaseRateFinish
@@ -303,7 +304,7 @@
 ;; declared finish variant by its constructor instead of rechecking the whole
 ;; nested value at runtime (which would also try to recover erased KB brands).
 (: finish-stored-aggregate
-   (-> Expression $accumulator
+   (-[semidet]-> Expression $accumulator
        (| $accumulator Distribution TV)))
 (= (finish-stored-aggregate $finish $acc)
    (case $finish (
@@ -402,12 +403,13 @@
          (if (== (expr-arity $idxs) $n) $btv $mtv)))))
 
 (: frontier-parts-fold-acc
-   (-> TV (List FrontierPart) TV))
+   (-[semidet]-> TV (List FrontierPart) TV))
 (= (frontier-parts-fold-acc $acc ()) $acc)
 (= (frontier-parts-fold-acc $acc (cons $part $rest))
    (frontier-parts-fold-acc (AndFormula $acc (frontier-part-tv $part)) $rest))
 
-(: frontier-parts-fold (-> (List FrontierPart) TV))
+(: frontier-parts-fold
+   (-[semidet]-> (List FrontierPart) TV))
 (= (frontier-parts-fold (cons $first $rest))
    (frontier-parts-fold-acc (frontier-part-tv $first) $rest))
 
@@ -453,7 +455,8 @@
          (source-entry (candidate-output-key $atom) $i))))
 
 (: frontier-source-entry
-   (-> (| Proof ProofRef) (| SourceEntry NoSourceEntry)))
+   (-[semidet]-> (| Proof ProofRef)
+       (| SourceEntry NoSourceEntry)))
 (= (frontier-source-entry $base)
    (if (= $base (proof-ref $bpid))
       (frontier-source-entry-from-atom
@@ -491,7 +494,8 @@
          ($_other no-projection)))))
 
 (: frontier-atom-part
-   (-> Number ($type $kb $proof TV) FrontierPart))
+   (-[semidet]-> Number ($type $kb $proof TV)
+       FrontierPart))
 (= (frontier-atom-part $pid ($_type $_kb $_prf $tv))
    (let $atom-tv $tv
       (let $proj (frontier-proof-projection (proof-kind-by-id $pid))
@@ -511,7 +515,7 @@
                (indep-part $atom-tv)))))))
 
 (: frontier-premise-part
-   (-> Number (| FrontierPart SkipPart)))
+   (-[semidet]-> Number (| FrontierPart SkipPart)))
 (= (frontier-premise-part $pid)
    (once
       (let $out (proof-output-atom-by-id $pid)
@@ -624,7 +628,8 @@
 ;; pooled source). Yields () when the premise is not directly followed by its
 ;; AndFormula step; the caller then drops the proof as before.
 (: frontier-pooled-bundle
-   (-> AndBundle Number TV (| AndBundle (List $none))))
+   (-[semidet]-> AndBundle Number TV
+       (| AndBundle (List $none))))
 (= (frontier-pooled-bundle $bundle $pid $folded)
    (let*
       (($goal (and-bundle-goal $bundle))
@@ -659,7 +664,8 @@
 (= (and-bundle-premises (and-bundle $_goal $premises)) $premises)
 
 (: advance-frontier-bundle
-   (-> AndBundle Number (| AndBundle (List $none))))
+   (-[semidet]-> AndBundle Number
+       (| AndBundle (List $none))))
 (= (advance-frontier-bundle $bundle $pid)
    (let*
       (($goal (and-bundle-goal $bundle))
@@ -670,7 +676,7 @@
               (if (= $prem (proof-output-atom-by-id $pid))
                  (make-and-bundle $goal $rest) ()))))))
 
-(: waiter-live? (-> FrontierWaiter Bool))
+(: waiter-live? (-[semidet]-> FrontierWaiter Bool))
 (= (waiter-live? (frontier-waiter $_parent-gid $_bundle $_score $_seen $_parts $rev-pids))
    (proof-list-live? $rev-pids))
 
@@ -698,7 +704,7 @@
          ($_other false)))))
 
 (: advance-frontier-waiter-heap
-   (-> $heap FrontierWaiter Number $heap))
+   (-[semidet]-> $heap FrontierWaiter Number $heap))
 (= (advance-frontier-waiter-heap $agenda (frontier-waiter $parent-gid $bundle $score $seen $parts $rev-pids) $pid)
    (if (not (waiter-live? (frontier-waiter $parent-gid $bundle $score $seen $parts $rev-pids))) $agenda
       (let*
@@ -758,7 +764,12 @@
       ($_ false))))
 
 (: frontier-advance-pooled-heap
-   (-> $heap Number AndBundle Number (List Evidence) (List (| FrontierPart UnpoolablePart)) (List Number) Number (List Evidence) (| FrontierPart SkipPart UnpoolablePart) $heap))
+   (-[semidet]-> $heap Number AndBundle Number
+       (List Evidence)
+       (List (| FrontierPart UnpoolablePart))
+       (List Number) Number (List Evidence)
+       (| FrontierPart SkipPart UnpoolablePart)
+       $heap))
 (= (frontier-advance-pooled-heap $agenda $parent-gid $bundle $score $seen $parts $rev-pids $pid $pev $part)
    (let*
       (($nparts (frontier-parts-add $parts $part))
@@ -805,7 +816,7 @@
    (case $waiter (((aggregate-waiter $agg-gid) (cons $agg-gid $rest)) ($_other $rest))))
 
 (: advance-frontier-waiters-heap
-   (-> $heap Number (List $waiter) $heap))
+   (-[semidet]-> $heap Number (List $waiter) $heap))
 (= (advance-frontier-waiters-heap $agenda $_pid ()) $agenda)
 (= (advance-frontier-waiters-heap $agenda $pid (cons $waiter $rest))
    (case $waiter
@@ -822,7 +833,7 @@
           (advance-frontier-waiters-heap $agenda $pid $rest)))))
 
 (: schedule-aggregate-waiters-heap
-   (-> $heap (List $waiter) $heap))
+   (-[semidet]-> $heap (List $waiter) $heap))
 (= (schedule-aggregate-waiters-heap $agenda ()) $agenda)
 (= (schedule-aggregate-waiters-heap $agenda (cons $waiter $rest))
    (case $waiter
@@ -834,7 +845,7 @@
           (schedule-aggregate-waiters-heap $agenda $rest)))))
 
 (: wake-proof-commit-heap
-   (-> $heap Number Number $heap))
+   (-[semidet]-> $heap Number Number $heap))
 (= (wake-proof-commit-heap $agenda $gid $pid)
    (let*
       (($waiters (collapse (match &goal_waiter ($gid $waiter) $waiter)))
@@ -847,7 +858,7 @@
       $agenda2))
 
 (: commit-proof-candidate-heap
-   (-> $heap Number Bool ProofCandidate $heap))
+   (-[semidet]-> $heap Number Bool ProofCandidate $heap))
 (= (commit-proof-candidate-heap $agenda $gid $accepted
       (proof-candidate $kind $score $ev $children))
    (if (== $accepted false) $agenda
@@ -859,7 +870,7 @@
             (wake-proof-commit-heap $agenda $gid $pid)))))
 
 (: commit-aggregate-snapshot-heap
-   (-> $heap Number
+   (-[semidet]-> $heap Number
        (| Goal (Statement KBContext Proof TV))
        (List Evidence) (List Number) $heap))
 (= (commit-aggregate-snapshot-heap $agenda $agg-gid $result $ev $children)
@@ -889,7 +900,13 @@
       $nagenda))
 
 (: spawn-frontier-goal-heap
-   (-> $heap Number Number FrontierWaiter $heap))
+   (-[semidet]-> $heap Number Number FrontierWaiter $heap))
+
+(: advance-frontier-waiter-fold-step
+   (-[semidet]-> FrontierWaiter $heap Number $heap))
+(= (advance-frontier-waiter-fold-step $waiter $agenda $pid)
+   (advance-frontier-waiter-heap $agenda $waiter $pid))
+
 (= (spawn-frontier-goal-heap $agenda $score $gid $waiter)
    (let*
       (($_1
@@ -897,7 +914,7 @@
              (chainer-add-atom &goal_waiter
                 ($gid $waiter))))
        ($agenda1
-          (fold-flat (|-> ($acc $pid) (advance-frontier-waiter-heap $acc $waiter $pid))
+          (proof-fold-flat-semidet (advance-frontier-waiter-fold-step $waiter)
              $agenda
              (goal-merged-proof-ids $gid)))
        ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
@@ -935,7 +952,7 @@
       ($_other no-base-rate-aggregate-key))))
 
 (: commit-cached-aggregate-heap
-   (-> $heap Number $arguments TV $heap))
+   (-[semidet]-> $heap Number $arguments TV $heap))
 (= (commit-cached-aggregate-heap $agenda $agg-gid $args $tv)
    (let*
       (($result (CPU FoldAllCompiled $args $tv))
@@ -949,7 +966,7 @@
 (= (base-rate-refine-score $score) (* 0.25 $score))
 
 (: ensure-aggregate-child-goal
-   (-> Number Goal $arguments Number Number))
+   (-[semidet]-> Number Goal $arguments Number Number))
 (= (ensure-aggregate-child-goal $agg-gid $goal-view $args $score)
    (let*
       (($child-goal (aggregate-child-goal $goal-view))
@@ -975,7 +992,7 @@
       $child-gid))
 
 (: spawn-refining-aggregate-heap
-   (-> $heap Number Number Goal $arguments TV BaseRateSource $heap))
+   (-[semidet]-> $heap Number Number Goal $arguments TV BaseRateSource $heap))
 (= (spawn-refining-aggregate-heap $agenda $score $agg-gid $goal-view $args $tv $source)
    (let*
       (($child-gid (ensure-aggregate-child-goal $agg-gid $goal-view $args $score))
@@ -1006,7 +1023,7 @@
       $nagenda))
 
 (: spawn-aggregate-goal-heap
-   (-> $heap Number Number Goal $heap))
+   (-[semidet]-> $heap Number Number Goal $heap))
 (= (spawn-aggregate-goal-heap $agenda $score $agg-gid $goal-view)
    (let*
       (($args (copy_term (let (CPU $_agg-fun $view-args $_goalres) $goal-view $view-args)))
@@ -1032,7 +1049,7 @@
                      $args $tv (the BaseRateSource $source))))))))
 
 (: spawn-aggregate-goal-live-heap
-   (-> $heap Number Number Goal $arguments $heap))
+   (-[semidet]-> $heap Number Number Goal $arguments $heap))
 (= (spawn-aggregate-goal-live-heap $agenda $score $agg-gid $goal-view $args)
    (let*
       (($child-gid (ensure-aggregate-child-goal $agg-gid $goal-view $args $score))
@@ -1052,8 +1069,9 @@
       ($_other false))))
 
 (: aggregate-proof-fold-step
-   (-> (KB Statement $extractor $initial
-          (-> $accumulator $value $accumulator)
+   (-[semidet]-> (KB Statement
+          (| ExtractValue ExtractInheritanceTV ExtractTV) $initial
+          (-[semidet]-> $accumulator $value $accumulator)
           $finish AggregateTVMode)
        AggregateState Number AggregateState))
 (= (aggregate-proof-fold-step $args (aggregate-state $acc $ev $children) $pid)
@@ -1071,7 +1089,7 @@
       (aggregate-state $nacc $nev $nchildren)))
 
 (: aggregate-noncyclic-source-step
-   (-> Number (List Number) Number (List Number)))
+   (-[semidet]-> Number (List Number) Number (List Number)))
 (= (aggregate-noncyclic-source-step $agg-gid $acc $pid)
    (if (proof-depends-on-goal-seen? $pid $agg-gid closed-goal ()) $acc (append $acc ($pid))))
 
@@ -1079,30 +1097,31 @@
 ;; one recursive proof can make a merged representative look cyclic and hide an
 ;; independent direct proof of the same grounded atom from the aggregate.
 (: aggregate-fold-source-ids
-   (-> Number Number (List Number)))
+   (-[semidet]-> Number Number (List Number)))
 (= (aggregate-fold-source-ids $agg-gid $child-gid)
    (proof-output-group-representative-pids $child-gid
       (proof-output-groups
-         (fold-flat (aggregate-noncyclic-source-step $agg-gid)
+         (proof-fold-flat-semidet (aggregate-noncyclic-source-step $agg-gid)
             ()
             (goal-live-proof-ids $child-gid)))))
 
 (: aggregate-final-state
-   (-[det]-> Number Number
-       (KB Statement $extractor $initial
-          (-> $accumulator $value $accumulator)
+   (-[semidet]-> Number Number
+       (KB Statement
+          (| ExtractValue ExtractInheritanceTV ExtractTV) $initial
+          (-[semidet]-> $accumulator $value $accumulator)
           $finish AggregateTVMode)
        AggregateState))
 (= (aggregate-final-state $agg-gid $child-gid $args)
    (let*
       ((($_kb $_pattern $_extractor $init-acc $_fun $_finish $_tv-mode) (copy_term $args)))
-      (fold-flat (aggregate-proof-fold-step $args)
+      (proof-fold-flat-semidet (aggregate-proof-fold-step $args)
          (aggregate-state $init-acc () ())
          (aggregate-fold-source-ids $agg-gid $child-gid))))
 
 (: aggregate-group-update
-   (-> $extractor
-       (-> $accumulator $value $accumulator)
+   (-[semidet]-> (| ExtractValue ExtractInheritanceTV ExtractTV)
+       (-[semidet]-> $accumulator $value $accumulator)
        $accumulator $group $child-atom (| TV NoTV)
        (List Evidence) Number
        (List AggregateGroupState) (List AggregateGroupState)))
@@ -1122,8 +1141,9 @@
          (aggregate-group-update $extractor $fun $init $group $child-atom $child-tv $pev $pid $rest))))
 
 (: grouped-aggregate-proof-fold-step
-   (-> (KB Statement $group-template $extractor $initial
-          (-> $accumulator $value $accumulator)
+   (-[semidet]-> (KB Statement $group-template
+          (| ExtractValue ExtractInheritanceTV ExtractTV) $initial
+          (-[semidet]-> $accumulator $value $accumulator)
           $finish AggregateTVMode)
        (List AggregateGroupState) Number (List AggregateGroupState)))
 (= (grouped-aggregate-proof-fold-step $args $states $pid)
@@ -1139,19 +1159,21 @@
       (aggregate-group-update $extractor $fun $init $group $child-atom $child-tv $pev $pid $states)))
 
 (: grouped-aggregate-final-states
-   (-> Number Number
-       (KB Statement $group-template $extractor $initial
-          (-> $accumulator $value $accumulator)
+   (-[semidet]-> Number Number
+       (KB Statement $group-template
+          (| ExtractValue ExtractInheritanceTV ExtractTV) $initial
+          (-[semidet]-> $accumulator $value $accumulator)
           $finish AggregateTVMode)
        (List AggregateGroupState)))
 (= (grouped-aggregate-final-states $agg-gid $child-gid $args)
-   (fold-flat (grouped-aggregate-proof-fold-step $args)
+   (proof-fold-flat-semidet (grouped-aggregate-proof-fold-step $args)
       ()
       (aggregate-fold-source-ids $agg-gid $child-gid)))
 
 (: grouped-aggregate-result
-   (-> (KB Statement $group-template $extractor $initial
-          (-> $accumulator $value $accumulator)
+   (-[semidet]-> (KB Statement $group-template
+          (| ExtractValue ExtractInheritanceTV ExtractTV) $initial
+          (-[semidet]-> $accumulator $value $accumulator)
           (| IdentityFinish
              DistAverageFinish
              BaseRateFinish
@@ -1175,9 +1197,10 @@
       (CPU GroupedFoldAllCompiled $grouped-args $result)))
 
 (: commit-grouped-aggregate-state-heap
-   (-> Number
-       (KB Statement $group-template $extractor $initial
-          (-> $accumulator $value $accumulator)
+   (-[semidet]-> Number
+       (KB Statement $group-template
+          (| ExtractValue ExtractInheritanceTV ExtractTV) $initial
+          (-[semidet]-> $accumulator $value $accumulator)
           (| IdentityFinish
              DistAverageFinish
              BaseRateFinish
@@ -1201,7 +1224,7 @@
          (aggregate-result-candidate $result $ev $children))))
 
 (: append-grouped-aggregate-current-pid!
-   (-> Number Number (| Bool (List $none))))
+   (-[semidet]-> Number Number (| Bool (List $none))))
 (= (append-grouped-aggregate-current-pid! $agg-gid $pid)
    (let*
       (((stored-aggregate-row
@@ -1222,7 +1245,7 @@
                   $pending $next-pids))))))
 
 (: commit-grouped-aggregate-candidate-heap
-   (-> $heap Number Bool ProofCandidate $heap))
+   (-[semidet]-> $heap Number Bool ProofCandidate $heap))
 (= (commit-grouped-aggregate-candidate-heap $agenda $agg-gid $accepted (proof-candidate $kind $score $ev $children))
    (if (== $accepted false) $agenda
       (if (candidate-is-cyclic? $agg-gid $kind $children) $agenda
@@ -1236,9 +1259,10 @@
             (wake-proof-commit-heap $agenda $agg-gid $pid)))))
 
 (: run-grouped-aggregate-heap
-   (-[det]-> $heap Number Number
-       (KB Statement $group-template $extractor $initial
-          (-> $accumulator $value $accumulator)
+   (-[semidet]-> $heap Number Number
+       (KB Statement $group-template
+          (| ExtractValue ExtractInheritanceTV ExtractTV) $initial
+          (-[semidet]-> $accumulator $value $accumulator)
           (| IdentityFinish
              DistAverageFinish
              BaseRateFinish
@@ -1252,7 +1276,7 @@
           AggregateTVMode)
        $heap))
 (= (run-grouped-aggregate-heap $agenda $agg-gid $child-gid $args)
-   (fold-flat (commit-grouped-aggregate-state-heap $agg-gid $args)
+   (proof-fold-flat-semidet (commit-grouped-aggregate-state-heap $agg-gid $args)
       $agenda
       (grouped-aggregate-final-states $agg-gid $child-gid $args)))
 
@@ -1261,7 +1285,7 @@
 (= (aggregate-commit-evidence $finish $ev)
    (if (background-aggregate-finish? $finish) () $ev))
 
-(: run-aggregate-heap (-> $heap Number $heap))
+(: run-aggregate-heap (-[semidet]-> $heap Number $heap))
 (= (run-aggregate-heap $agenda $agg-gid)
    (let*
       (((stored-aggregate-row
@@ -1285,8 +1309,9 @@
          (run-grouped-aggregate-heap
             $agenda $agg-gid $child-gid
             (the
-               (KB Statement $group-template $extractor $initial
-                  (-> $accumulator $value $accumulator)
+               (KB Statement $group-template
+                  (| ExtractValue ExtractInheritanceTV ExtractTV) $initial
+                  (-[semidet]-> $accumulator $value $accumulator)
                   (| IdentityFinish
                      DistAverageFinish
                      BaseRateFinish
@@ -1304,8 +1329,9 @@
                 (aggregate-final-state
                    $agg-gid $child-gid
                    (the
-                      (KB Statement $extractor $initial
-                         (-> $accumulator $value $accumulator)
+                      (KB Statement
+                         (| ExtractValue ExtractInheritanceTV ExtractTV) $initial
+                         (-[semidet]-> $accumulator $value $accumulator)
                          (| IdentityFinish
                             DistAverageFinish
                             BaseRateFinish
@@ -1345,7 +1371,7 @@
       (if (== $finish uniform-prior) true (== $finish uniform-prior-known))))
 
 (: base-rate-refinement-degrades?
-   (-> Number $finish (| Number (List Number)) $result Bool))
+   (-[semidet]-> Number $finish (| Number (List Number)) $result Bool))
 (= (base-rate-refinement-degrades? $agg-gid $finish $current-pid $result)
    (if (not (==
          (collapse (once (match &aggregate_forward_approx ($agg-gid) true)))
@@ -1383,7 +1409,7 @@
             (empty)))))
 
 (: expand-direct-goal-step
-   (-> Number (| Goal (Statement KBContext Proof TV))
+   (-[semidet]-> Number (| Goal (Statement KBContext Proof TV))
        $heap
        (| Goal (Statement KBContext Proof TV))
        $heap))
@@ -1396,13 +1422,15 @@
       $nagenda))
 
 (: expand-direct-goal-heap
-   (-> $heap Number Number
+   (-[semidet]-> $heap Number Number
        (| Goal (Statement KBContext Proof TV))
        $heap))
 (= (expand-direct-goal-heap $agenda $steps $gid $goal)
    (let*
       (($results (collapse (direct-goal-results-view $steps $goal)))
-       ($agenda1 (fold-flat (expand-direct-goal-step $gid $goal) $agenda $results)))
+       ($agenda1
+          (proof-fold-flat-semidet
+             (expand-direct-goal-step $gid $goal) $agenda $results)))
       (expand-rule-goal-heap $agenda1 $gid $goal)))
 
 (: inject-compiled-query-adds (-> CompiledQuery (List $none)))
@@ -1572,7 +1600,7 @@
       (rule-goal-full-view $goal $parent-gid)))
 
 (: spawn-frontier-heap
-   (-> $heap Number AndBundle Number (List Evidence) (List (| FrontierPart UnpoolablePart)) (List Number) $heap))
+   (-[semidet]-> $heap Number AndBundle Number (List Evidence) (List (| FrontierPart UnpoolablePart)) (List Number) $heap))
 (= (spawn-frontier-heap $agenda $parent-gid $bundle $score $seen $parts $rev-pids)
    (let*
       (($goal (and-bundle-goal $bundle))
@@ -1608,11 +1636,11 @@
                        $rev-pids))))))))
 
 (: expand-rule-goal-heap
-   (-> $heap Number
+   (-[semidet]-> $heap Number
        (| Goal (Statement KBContext Proof TV))
        $heap))
 (= (expand-rule-goal-heap $agenda $parent-gid $goal)
-   (fold-flat expand-rule-goal-fold
+   (proof-fold-flat-semidet expand-rule-goal-fold
       $agenda
       (collapse (rule-goal-view $goal $parent-gid))))
 
@@ -1734,7 +1762,7 @@
       false))
 
 (: expand-rule-goal-fold
-   (-> $heap RuleGoalMatch $heap))
+   (-[semidet]-> $heap RuleGoalMatch $heap))
 (= (expand-rule-goal-fold $agenda (rule-goal-match $rule-id $args $goal $parent-gid))
    (if (rule-premise-prefilter-prunes? $args) $agenda
       (let*
@@ -1754,7 +1782,7 @@
             ()))))
 
 (: expand-goal-heap
-   (-> $heap Number Number Number $heap))
+   (-[semidet]-> $heap Number Number Number $heap))
 (= (expand-goal-heap $agenda $steps $score $gid)
    (let*
       (((stored-goal-row
@@ -1778,7 +1806,7 @@
       $nagenda))
 
 (: search-agenda-step
-   (-> Number $heap (| QueueGoal QueueAggregate) SearchState))
+   (-[semidet]-> Number $heap (| QueueGoal QueueAggregate) SearchState))
 (= (search-agenda-step $steps $agenda (qgoal $score $gid))
    (let*
       (((stored-goal-row
@@ -1815,7 +1843,7 @@
             (search-agenda-heap $next-steps $nagenda))
          (search-agenda-heap $steps $agenda))))
 
-(: search-agenda-heap (-> Number $heap SearchState))
+(: search-agenda-heap (-[semidet]-> Number $heap SearchState))
 (= (search-agenda-heap $steps $agenda)
    (if (or (<= $steps 0) (== (heap_size $agenda) 0)) (search-state $steps $agenda)
       (let*
@@ -1824,7 +1852,7 @@
             (the (| QueueGoal QueueAggregate) $item)))))
 
 (: harvest-base-rate-entry
-   (-> $arguments (| Number (List Number)) (List $none)))
+   (-[semidet]-> $arguments (| Number (List Number)) (List $none)))
 (= (harvest-base-rate-entry $args $current-pid)
    (let $key (base-rate-aggregate-key $args)
       (case $key (
@@ -1852,6 +1880,14 @@
             (harvest-base-rate-entry $args $current-pid)))
       ()))
 
+;; Internal queue operations are semidet because an arbitrary numeric ID may
+;; be absent.  The public runner creates its root ID immediately above, so turn
+;; an impossible missing-root result into an empty, deterministic search
+;; rather than letting the whole query vanish.
+(: chainer-first-or (-[det]-> $value (List $value) $value))
+(= (chainer-first-or $fallback ()) $fallback)
+(= (chainer-first-or $_fallback (cons $value $_rest)) $value)
+
 (: chainer-run
    (-> Number (| Goal (Statement KBContext Proof TV))
        ChainerRunResult))
@@ -1860,11 +1896,27 @@
       (($_clear (foreach-flat remove-all-atoms (&goal &goal_lookup &goal_waiter &aggregate &aggregate_forward_approx &proof &proof_parent &proof_invalidated_epoch &proof_live_cache &goal_live_cache &proof_static_live &proof_superseded)))
        ($_reset (foreach-flat (|-> ($key) (change-state! $key 0)) (bwd_gid bwd_pid bwd_live_epoch)))
        ($root-gid (ensure-goal-at-depth $goal 0))
-       ($agenda0 (schedule-goal-heap (empty_heap) 1.0 $root-gid))
+       ($agenda0
+          (chainer-first-or (empty_heap)
+             (collapse
+                (once
+                   (schedule-goal-heap
+                      (empty_heap) 1.0 $root-gid)))))
+       ($search-result
+          (chainer-first-or
+             (search-state 0 $agenda0)
+             (collapse
+                (once
+                   (if (<= $steps 0)
+                      (search-state 0 $agenda0)
+                      (search-agenda-heap (+ $steps 1) $agenda0))))))
        ((search-state $_steps-left $_agenda1)
-          (once (if (<= $steps 0) (search-state 0 $agenda0) (search-agenda-heap (+ $steps 1) $agenda0))))
+          $search-result)
        ($_harvest (harvest-base-rates)))
-      (chainer-run-result $root-gid (goal-results $root-gid))))
+      (chainer-run-result
+         $root-gid
+         (chainer-first-or ()
+            (collapse (once (goal-results $root-gid)))))))
 
 (: chainer
    (-[det]-> Number (| Goal (Statement KBContext Proof TV))

@@ -1,5 +1,5 @@
 (: goal-by-id
-   (-> Number StoredGoalRow))
+   (-[semidet]-> Number StoredGoalRow))
 (= (goal-by-id $gid)
    (once
       (match &goal
@@ -9,7 +9,7 @@
             $gid $depth $goal $expanded $pending))))
 
 (: aggregate-by-id
-   (-> Number StoredAggregateRow))
+   (-[semidet]-> Number StoredAggregateRow))
 (= (aggregate-by-id $agg-gid)
    (once
       (match &aggregate
@@ -35,6 +35,26 @@
 (: proof-candidate
    (-> ProofKind Number (List Evidence) (List Number) ProofCandidate))
 
+;; Store lookups are partial for an arbitrary numeric id. Preserve their
+;; fail-propagating behavior across list traversals without weakening the
+;; callback to nondeterministic.
+(: proof-map-flat-semidet
+   (-[semidet]-> (-[semidet]-> $input $output)
+       (List $input) (List $output)))
+(= (proof-map-flat-semidet $_fun ()) ())
+(= (proof-map-flat-semidet $fun (cons $item $rest))
+   (cons ($fun $item)
+      (proof-map-flat-semidet $fun $rest)))
+
+(: proof-fold-flat-semidet
+   (-[semidet]-> (-[semidet]-> $accumulator $item $accumulator)
+       $accumulator (List $item) $accumulator))
+(= (proof-fold-flat-semidet $_fun $accumulator ())
+   $accumulator)
+(= (proof-fold-flat-semidet $fun $accumulator (cons $item $rest))
+   (proof-fold-flat-semidet
+      $fun ($fun $accumulator $item) $rest))
+
 (: normalize-proof-output-atom-kind
    (-> (| Goal (Statement KBContext Proof TV)) Number
        (| Goal (Statement KBContext Proof TV))))
@@ -46,7 +66,7 @@
       ($_other $term))))
 
 (: proof-output-atom-kind
-   (-> ProofKind Number
+   (-[semidet]-> ProofKind Number
        (| Goal (Statement KBContext Proof TV))))
 (= (proof-output-atom-kind (leaf $term) $pid) (normalize-proof-output-atom-kind $term $pid))
 (= (proof-output-atom-kind (rule $term) $pid) (normalize-proof-output-atom-kind $term $pid))
@@ -62,12 +82,12 @@
       $output))
 
 (: proof-output-atom-by-id
-   (-> Number (| Goal (Statement KBContext Proof TV))))
+   (-[semidet]-> Number (| Goal (Statement KBContext Proof TV))))
 (= (proof-output-atom-by-id $pid)
    (once (proof-output-atom $pid)))
 
 (: proof-fact-output-by-id
-   (-> Number (Statement KBContext Proof TV)))
+   (-[semidet]-> Number (Statement KBContext Proof TV)))
 (= (proof-fact-output-by-id $pid)
    (let $output (proof-output-atom-by-id $pid)
       (case $output
@@ -87,26 +107,29 @@
          (proof-output-key (quote ($type $kb))))
       ($_other (proof-output-key $term)))))
 
-(: proof-output-key-by-id (-> Number ProofOutputKey))
+(: proof-output-key-by-id (-[semidet]-> Number ProofOutputKey))
 (= (proof-output-key-by-id $pid)
    (candidate-output-key (proof-output-atom-by-id $pid)))
 
-(: materialize-proof-refs (-> $term $term))
+(: materialize-proof-refs (-[semidet]-> $term $term))
 (= (materialize-proof-refs $term)
    (if (is-expr $term)
       (if (is-var (car-atom $term))
-         (cons (car-atom $term) (map-flat materialize-proof-refs (cdr-atom $term)))
+         (cons (car-atom $term)
+            (proof-map-flat-semidet
+               materialize-proof-refs (cdr-atom $term)))
          (case $term (
             ((proof-ref $pid)
                (materialize-proof-refs
                   (materialize-proof (the Number $pid))))
             ($_other
                (cons (materialize-proof-refs (car-atom $term))
-                  (map-flat materialize-proof-refs (cdr-atom $term)))))))
+                  (proof-map-flat-semidet
+                     materialize-proof-refs (cdr-atom $term)))))))
       $term))
 
 (: materialize-result-atom
-   (-> (| Goal (Statement KBContext Proof TV))
+   (-[semidet]-> (| Goal (Statement KBContext Proof TV))
        RuntimeResult))
 (= (materialize-result-atom $atom)
    (case $atom (
@@ -116,7 +139,7 @@
       ($_other (brand RuntimeResult $atom)))))
 
 (: materialize-fact-result-atom
-   (-> (| Goal (Statement KBContext Proof TV))
+   (-[semidet]-> (| Goal (Statement KBContext Proof TV))
        (Statement KBContext Proof TV)))
 (= (materialize-fact-result-atom $atom)
    (case $atom
@@ -128,14 +151,14 @@
                (brand Proof $materialized)
                (the TV $tv)))))))
 
-(: materialize-proof-kind (-> ProofKind Number Proof))
+(: materialize-proof-kind (-[semidet]-> ProofKind Number Proof))
 (= (materialize-proof-kind (leaf $raw) $_pid)
    (case $raw (
       ((CPU $_fun $_args $_res) (brand Proof cpu))
       (($_type ($_kbid $_ctx $_vars) $prf $_tv)
          (brand Proof $prf))
       ($_other (brand Proof $raw)))))
-(: aggregate-proof-label (-> $aggregate Proof))
+(: aggregate-proof-label (-[semidet]-> $aggregate Proof))
 (= (aggregate-proof-label (CPU FoldAllCompiled $args $_res))
    (case $args (
       (($_kb $_pattern $_extractor $_init OrFormula $_finish $_tv-mode)
@@ -150,7 +173,7 @@
 (= (proof-ref-list ()) ())
 (= (proof-ref-list (cons $pid $rest)) (cons (proof-ref $pid) (proof-ref-list $rest)))
 (: aggregate-child-proof-tokens
-   (-> (List Number) (List Proof)))
+   (-[semidet]-> (List Number) (List Proof)))
 (= (aggregate-child-proof-tokens ()) ())
 (= (aggregate-child-proof-tokens (cons $pid $rest))
    (let $output (proof-output-atom-by-id $pid)
@@ -190,7 +213,7 @@
                   (the (List Expression) $term) $proofs)
                (proof-token-replacement $new-list $rest-proofs))
             (proof-token-replacement $term $proofs)))))
-(: materialize-rule-token (-> Proof Number Proof))
+(: materialize-rule-token (-[semidet]-> Proof Number Proof))
 (= (materialize-rule-token $prf $pid)
    (let*
       (($base-prf (materialize-proof-refs $prf))
@@ -203,7 +226,7 @@
       (if (== $children ()) (brand Proof cpu)
          (brand Proof
             (cons (aggregate-proof-label $raw)
-               (map-flat materialize-proof-refs
+               (proof-map-flat-semidet materialize-proof-refs
                   (proof-ref-list $children)))))))
 (= (materialize-proof-kind (merged $output) $_pid)
    (case $output (
@@ -234,7 +257,7 @@
          (let $rule-prf (materialize-rule-token $prf $pid)
             (materialize-rule-expression $rule-prf)))))
 
-(: materialize-proof (-> Number Proof))
+(: materialize-proof (-[semidet]-> Number Proof))
 (= (materialize-proof $pid)
    (once
       (match &proof
@@ -250,7 +273,7 @@
             $pid $gid $_output $_kind $_score $_ev $_children)
          $pid)))
 
-(: proof-goal-id (-> Number (| Number MergedProofGroup)))
+(: proof-goal-id (-[semidet]-> Number (| Number MergedProofGroup)))
 (= (proof-goal-id $pid)
    (once
       (match &proof
@@ -261,7 +284,7 @@
                (merged-proof-group $source-gid))
              ($number $number))))))
 
-(: proof-children-by-id (-> Number (List Number)))
+(: proof-children-by-id (-[semidet]-> Number (List Number)))
 (= (proof-children-by-id $pid)
    (once
       (match &proof
@@ -269,7 +292,7 @@
             $pid $_gid $_output $_kind $_score $_ev $children)
          $children)))
 
-(: proof-kind-by-id (-> Number ProofKind))
+(: proof-kind-by-id (-[semidet]-> Number ProofKind))
 (= (proof-kind-by-id $pid)
    (once
       (match &proof
@@ -287,7 +310,7 @@
       (($type ($_kbid MAIN Nil) $_prf $_tv) (== (extract-vars $type) ()))
       ($_other false))))
 
-(: materialize-proof-node-to-kb (-> Number (List $none)))
+(: materialize-proof-node-to-kb (-[semidet]-> Number (List $none)))
 (= (materialize-proof-node-to-kb $pid)
    (let*
       (($kind (proof-kind-by-id $pid))
@@ -401,16 +424,33 @@
                (goal-live-cache-remove! $gid $pids)
                (goal-live-cache-store! $gid $npids))))))
 
+(: register-proof-parent-edge!
+   (-[det]-> Number Number (| Bool (List $none))))
+(= (register-proof-parent-edge! $parent-pid $child-pid)
+   (once
+      (add-atom &proof_parent ($child-pid $parent-pid))))
+
 (: register-proof-parent-edges!
-   (-> Number (List Number) (List $none)))
+   (-[det]-> Number (List Number) (List $none)))
 (= (register-proof-parent-edges! $parent-pid $children)
    (foreach-flat
-      (|-> ($child-pid)
-         (once
-            (add-atom &proof_parent ($child-pid $parent-pid))))
+      (register-proof-parent-edge! $parent-pid)
       $children))
 
-(: invalidate-proof-dependent! (-> Number Number (List $none)))
+(: invalidate-proof-dependent-step
+   (-[semidet]-> Number Number (List $none)))
+
+(: remove-proof-live-cache-row!
+   (-[det]-> ProofLiveCacheRow Bool))
+(= (remove-proof-live-cache-row! $row)
+   (remove-atom &proof_live_cache $row))
+
+(: remove-goal-live-cache-row!
+   (-[det]-> GoalLiveCacheRow Bool))
+(= (remove-goal-live-cache-row! $row)
+   (remove-atom &goal_live_cache $row))
+
+(: invalidate-proof-dependent! (-[semidet]-> Number Number (List $none)))
 (= (invalidate-proof-dependent! $epoch $parent-pid)
    (let $seen
       (collapse
@@ -425,8 +465,7 @@
                       (($epoch $parent-pid)))))
              ($_proof-cache
                 (foreach-flat
-                   (|-> ($row)
-                      (remove-atom &proof_live_cache $row))
+                   remove-proof-live-cache-row!
                    (collapse
                       (match &proof_live_cache
                          (proof-live-cache-row
@@ -435,8 +474,7 @@
                             $epoch $parent-pid $alive)))))
              ($_goal-cache
                 (foreach-flat
-                   (|-> ($row)
-                      (remove-atom &goal_live_cache $row))
+                   remove-goal-live-cache-row!
                    (collapse
                       (match &goal_live_cache
                          (goal-live-cache-row
@@ -444,18 +482,21 @@
                          (goal-live-cache-row
                             $epoch $gid $pids)))))
              ($_parents
-                (foreach-flat
-                   (|-> ($dependent-pid)
-                      (invalidate-proof-dependent! $epoch $dependent-pid))
+                (foreach-flat-semidet
+                   (invalidate-proof-dependent-step $epoch)
                    (collapse
                       (match &proof_parent ($parent-pid $dependent-pid)
                          $dependent-pid)))))
             ()))))
 
-(: invalidate-proof-dependents! (-> Number Number (List $none)))
+(= (invalidate-proof-dependent-step $epoch $parent-pid)
+   (invalidate-proof-dependent! $epoch $parent-pid))
+
+(: invalidate-proof-dependents!
+   (-[semidet]-> Number Number (List $none)))
 (= (invalidate-proof-dependents! $epoch $child-pid)
-   (foreach-flat
-      (|-> ($parent-pid) (invalidate-proof-dependent! $epoch $parent-pid))
+   (foreach-flat-semidet
+      (invalidate-proof-dependent-step $epoch)
       (collapse (match &proof_parent ($child-pid $parent-pid) $parent-pid))))
 
 (: aggregate-current-pid-live?
@@ -465,12 +506,12 @@
       (if (is-expr $current-pid) (is-member $pid $current-pid) (== $current-pid $pid))))
 
 (: first-aggregate-current-pid
-   (-> (List (| Number (List Number)))
+   (-[semidet]-> (List (| Number (List Number)))
        (| Number (List Number))))
 (= (first-aggregate-current-pid (cons $current $_rest))
    $current)
 
-(: proof-live-compute (-> Number Bool))
+(: proof-live-compute (-[semidet]-> Number Bool))
 (= (proof-live-compute $pid)
    (let*
       (($gid (proof-goal-id $pid))
@@ -495,7 +536,7 @@
 ;; current representative of the child's grounded output. If more evidence is
 ;; merged into that output later, parents built from the old representative
 ;; become stale while the raw proofs remain available to construct the new one.
-(: proof-list-node-live? (-> (List Number) Bool))
+(: proof-list-node-live? (-[semidet]-> (List Number) Bool))
 (= (proof-list-node-live? ())
    true)
 (= (proof-list-node-live? (cons $pid $rest))
@@ -505,7 +546,7 @@
 (= (proof-current-representative? $pid)
    (== (collapse (once (match &proof_superseded ($pid) true))) ()))
 
-(: proof-list-live? (-> (List Number) Bool))
+(: proof-list-live? (-[semidet]-> (List Number) Bool))
 (= (proof-list-live? ())
    true)
 (= (proof-list-live? (cons $pid $rest))
@@ -535,7 +576,7 @@
             ())
          ())))
 
-(: proof-live? (-> Number Bool))
+(: proof-live? (-[semidet]-> Number Bool))
 (= (proof-live? $pid)
    (if (proof-statically-live? $pid) true
       (let*
@@ -548,15 +589,16 @@
             (car-atom $hits)))))
 
 (: goal-live-proof-step
-   (-> (List Number) Number (List Number)))
+   (-[semidet]-> (List Number) Number (List Number)))
 (= (goal-live-proof-step $acc $pid)
    (if (proof-live? $pid) (append $acc ($pid)) $acc))
 
-(: goal-live-proof-ids-compute (-> Number (List Number)))
+(: goal-live-proof-ids-compute (-[semidet]-> Number (List Number)))
 (= (goal-live-proof-ids-compute $gid)
-   (fold-flat goal-live-proof-step () (goal-proof-ids $gid)))
+   (proof-fold-flat-semidet
+      goal-live-proof-step () (goal-proof-ids $gid)))
 
-(: goal-live-proof-ids (-> Number (List Number)))
+(: goal-live-proof-ids (-[semidet]-> Number (List Number)))
 (= (goal-live-proof-ids $gid)
    (let*
       (($hits (collapse (once (cached-goal-live-proof-ids $gid)))))
@@ -568,7 +610,7 @@
          (car-atom $hits))))
 
 (: proof-output-groups-add
-   (-> (List ProofOutputGroup) Number (List ProofOutputGroup)))
+   (-[semidet]-> (List ProofOutputGroup) Number (List ProofOutputGroup)))
 (= (proof-output-groups-add () $pid)
    (cons (proof-output-group (proof-output-key-by-id $pid) ($pid)) ()))
 (= (proof-output-groups-add (cons (proof-output-group $key $pids) $rest) $pid)
@@ -578,12 +620,12 @@
          (cons (proof-output-group $key $pids) (proof-output-groups-add $rest $pid)))))
 
 (: proof-output-groups
-   (-> (List Number) (List ProofOutputGroup)))
+   (-[semidet]-> (List Number) (List ProofOutputGroup)))
 (= (proof-output-groups $pids)
-   (fold-flat proof-output-groups-add () $pids))
+   (proof-fold-flat-semidet proof-output-groups-add () $pids))
 
 (: merge-proof-id-output-step
-   (-> (Statement KBContext Proof TV)
+   (-[semidet]-> (Statement KBContext Proof TV)
        Number (Statement KBContext Proof TV)))
 (= (merge-proof-id-output-step $acc $pid)
    (merge-proof-atoms $acc (proof-fact-output-by-id $pid)))
@@ -599,25 +641,26 @@
 ;; other shape disables factoring for the group (revision/dominance instead).
 ;; ---------------------------------------------------------------------------
 
-(: factor-cpu-child? (-> Number Bool))
+(: factor-cpu-child? (-[semidet]-> Number Bool))
 (= (factor-cpu-child? $pid)
    (if (= (proof-output-atom-by-id $pid) (CPU $_f $_a $_r))
       true false))
 (: factor-split-pc
-   (-> (List Number) (List Number) (List Number) ((List Number) (List Number))))
+   (-[semidet]-> (List Number) (List Number) (List Number)
+       ((List Number) (List Number))))
 (= (factor-split-pc () $p $c) ($p $c))
 (= (factor-split-pc (cons $pid $rest) $p $c)
    (if (factor-cpu-child? $pid)
       (factor-split-pc $rest $p (append $c ($pid)))
       (factor-split-pc $rest (append $p ($pid)) $c)))
-(: factor-last (-[det]-> (List Number) Number))
+(: factor-last (-[semidet]-> (List Number) Number))
 (= (factor-last (cons $x $rest))
    (if (== $rest ()) $x (factor-last $rest)))
 (: factor-find-ctv
    (-> (List Atom) (| TV NoCTV)))
 (= (factor-find-ctv ()) no-ctv)
 (= (factor-find-ctv (cons $a $rest)) (if (= $a (CTV $_p $_n)) $a (factor-find-ctv $rest)))
-(: factor-and-fold (-[det]-> (List TV) TV))
+(: factor-and-fold (-[semidet]-> (List TV) TV))
 (= (factor-and-fold (cons $tv $rest))
    (if (== $rest ()) $tv (AndFormula $tv (factor-and-fold $rest))))
 
@@ -627,7 +670,7 @@
 (= (factor-key-in? $k (cons $h $rest)) (if (=alpha $k $h) true (factor-key-in? $k $rest)))
 
 (: factor-reeval-premises
-   (-[nondet]-> (List Number) (List ProofOutputKey)
+   (-[semidet]-> (List Number) (List ProofOutputKey)
       TV  (List TV)))
 (= (factor-reeval-premises () $_keys $_o) ())
 (= (factor-reeval-premises (cons $pid $rest) $keys $o)
@@ -636,7 +679,7 @@
 ;; structural recompute: fold premise proofs (by child position) and re-apply ctv,
 ;; with every shared leaf (any key in $keys) overridden to $o
 (: factor-reeval-rule
-   (-[nondet]-> Number (List ProofOutputKey)
+   (-[semidet]-> Number (List ProofOutputKey)
       TV TV  TV))
 (= (factor-reeval-rule $pid $keys $o $stored)
    (let* ((($prem $cpu) (factor-split-pc (proof-children-by-id $pid) () ())))
@@ -654,17 +697,24 @@
                $stored)))))
 
 (: factor-reeval
-   (-[nondet]-> Number (List ProofOutputKey) TV  TV))
+   (-[semidet]-> Number (List ProofOutputKey) TV  TV))
 (= (factor-reeval $pid $keys $o)
    (let $out (proof-output-atom-by-id $pid)
-      (if (= $out ($t $kb $prf $tv))
-         (let $stored (the TV $tv)
-            (if (factor-key-in? (candidate-output-key $out) $keys)
-               $o
-               (factor-reeval-rule $pid $keys $o $stored)))
-         (empty))))
+      (case $out (
+         ((CPU $_formula $_arguments $_result)
+            (empty))
+         (($t $kb $prf $tv)
+            (let $stored (the TV $tv)
+               (if
+                  (factor-key-in?
+                     (candidate-output-key $out) $keys)
+                  $o
+                  (factor-reeval-rule
+                     $pid $keys $o $stored))))
+         ($_other
+            (empty))))))
 
-(: factor-proof? (-> Number Bool))
+(: factor-proof? (-[semidet]-> Number Bool))
 (= (factor-proof? $pid)
    (let* ((($prem $cpu) (factor-split-pc (proof-children-by-id $pid) () ())))
       (if (== $cpu ()) true
@@ -674,21 +724,27 @@
                    (factor-find-ctv
                       (the (List Atom) $la))))
             (if (and (== $lf CTVModusPonensFormula) (not (== $ctv no-ctv))) (factor-all? $prem) false)))))
-(: factor-all? (-> (List Number) Bool))
+(: factor-all? (-[semidet]-> (List Number) Bool))
 (= (factor-all? ()) true)
 (= (factor-all? (cons $pid $rest)) (and (factor-proof? $pid) (factor-all? $rest)))
 
-(: factor-pid-facts (-> Number (List Evidence)))
+(: factor-pid-facts (-[semidet]-> Number (List Evidence)))
 (= (factor-pid-facts $pid)
    (let ($_score $ev) (proof-stats-by-id $pid)
       (fact-evidence-only $ev)))
+
+(: factor-shared-facts-step
+   (-[semidet]-> (List Evidence) Number (List Evidence)))
+(= (factor-shared-facts-step $acc $pid)
+   (evidence-intersection $acc (factor-pid-facts $pid)))
+
 (: factor-shared-facts
-   (-> (List Number) (List Evidence)))
+   (-[semidet]-> (List Number) (List Evidence)))
 (= (factor-shared-facts (cons $pid $rest))
-   (fold-flat
-      (|-> ($acc $p) (evidence-intersection $acc (factor-pid-facts $p)))
+   (proof-fold-flat-semidet
+      factor-shared-facts-step
       (factor-pid-facts $pid) $rest))
-(: factor-fact-key (-> Evidence ProofOutputKey))
+(: factor-fact-key (-[semidet]-> Evidence ProofOutputKey))
 (= (factor-fact-key (fact-ev $kb $prf $type))
    (proof-output-key (quote ($type $kb))))
 
@@ -697,7 +753,7 @@
 (= (factor-checked-tv $tv) (the TV $tv))
 
 (: factor-leaf-tv-work
-   (-> (List Number) ProofOutputKey (| TV NoTV)))
+   (-[semidet]-> (List Number) ProofOutputKey (| TV NoTV)))
 (= (factor-leaf-tv-work () $_key) no-tv)
 (= (factor-leaf-tv-work (cons $pid $rest) $key)
    (let $out (proof-output-atom-by-id $pid)
@@ -712,7 +768,7 @@
                (append (proof-children-by-id $pid) $rest) $key))))))
 
 (: factor-leaf-tv
-   (-> Number ProofOutputKey (| TV NoTV)))
+   (-[semidet]-> Number ProofOutputKey (| TV NoTV)))
 (= (factor-leaf-tv $pid $key)
    (factor-leaf-tv-work ($pid) $key))
 
@@ -720,28 +776,32 @@
 ;; strength 1 (all shared leaves -> (1 1)) and 0 (all -> (0 1)). The conclusion
 ;; is linear in the shared conjunction's strength, so these two points give the
 ;; residual implication (conjunction-of-shared -> conclusion).
-(: factor-revise-ctv (-> TV TV TV))
+(: factor-revise-ctv (-[semidet]-> TV TV TV))
 (= (factor-revise-ctv (CTV $p1 $n1) (CTV $p2 $n2)) (CTV (mergetvs $p1 $p2) (mergetvs $n1 $n2)))
 (: factor-residual
-   (-[nondet]-> Number (List ProofOutputKey)  TV))
+   (-[semidet]-> Number (List ProofOutputKey)  TV))
 (= (factor-residual $pid $keys)
    (CTV (factor-reeval $pid $keys (STV 1.0 1.0)) (factor-reeval $pid $keys (STV 0.0 1.0))))
 (: factor-revise-residuals
-   (-[nondet]-> (List Number) (List ProofOutputKey)  TV))
+   (-[semidet]-> (List Number) (List ProofOutputKey)  TV))
 (= (factor-revise-residuals (cons $pid ()) $keys) (factor-residual $pid $keys))
-(= (factor-revise-residuals (cons $pid $rest) $keys)
-   (factor-revise-ctv (factor-residual $pid $keys) (factor-revise-residuals $rest $keys)))
+(= (factor-revise-residuals
+      (cons $pid (cons $next $rest)) $keys)
+   (factor-revise-ctv
+      (factor-residual $pid $keys)
+      (factor-revise-residuals
+         (cons $next $rest) $keys)))
 
 ;; the shared facts' keys, and their real conjunction TV (And-fold of leaf TVs)
 (: factor-shared-keys
-   (-> (List Evidence) (List ProofOutputKey)))
+   (-[semidet]-> (List Evidence) (List ProofOutputKey)))
 (= (factor-shared-keys ()) ())
 (= (factor-shared-keys (cons $f $rest)) (cons (factor-fact-key $f) (factor-shared-keys $rest)))
-(: factor-required-leaf-tv (-> Number ProofOutputKey TV))
+(: factor-required-leaf-tv (-[semidet]-> Number ProofOutputKey TV))
 (= (factor-required-leaf-tv $pid $key)
    (the TV (factor-leaf-tv $pid $key)))
 (: factor-real-conj
-   (-> Number (List ProofOutputKey) TV))
+   (-[semidet]-> Number (List ProofOutputKey) TV))
 (= (factor-real-conj $pid (cons $key ()))
    (factor-required-leaf-tv $pid $key))
 (= (factor-real-conj $pid (cons $key (cons $next $rest)))
@@ -771,7 +831,7 @@
          false)
       false))
 (: factor-roundtrip-one?
-   (-> Number (List ProofOutputKey) TV Bool))
+   (-[semidet]-> Number (List ProofOutputKey) TV Bool))
 (= (factor-roundtrip-one? $pid $keys $conj)
    (let* ((($_t $_k $_p $stored) (proof-output-atom-by-id $pid))
           ($residuals
@@ -782,17 +842,17 @@
                (the TV (car-atom $residuals)))
             (factor-tv-close? (the TV $stored) $rebuilt)))))
 (: factor-roundtrips?
-   (-> (List Number) (List ProofOutputKey) TV Bool))
+   (-[semidet]-> (List Number) (List ProofOutputKey) TV Bool))
 (= (factor-roundtrips? () $_keys $_conj) true)
 (= (factor-roundtrips? (cons $pid $rest) $keys $conj)
    (and (factor-roundtrip-one? $pid $keys $conj) (factor-roundtrips? $rest $keys $conj)))
 
-(: factor-ref-of (-> Number Proof))
+(: factor-ref-of (-[semidet]-> Number Proof))
 (= (factor-ref-of $pid)
    (let ($_t $_k $prf $_tv)
       (proof-output-atom-by-id $pid)
       (brand Proof $prf)))
-(: factor-merged-prf (-> (List Number) Proof))
+(: factor-merged-prf (-[semidet]-> (List Number) Proof))
 (= (factor-merged-prf (cons $pid ())) (factor-ref-of $pid))
 (= (factor-merged-prf (cons $pid (cons $next $rest)))
    (brand Proof
@@ -806,12 +866,13 @@
 ;; whose evidence subsumes another's -- and pooling them would double count.
 ;; Such groups fall back to revision/dominance.
 (: factor-residual-ev
-   (-> Number (List Evidence) (List Evidence)))
+   (-[semidet]-> Number (List Evidence) (List Evidence)))
 (= (factor-residual-ev $pid $shared)
    (let ($_score $ev) (proof-stats-by-id $pid)
       (subtraction-atom $ev $shared)))
 (: factor-residual-evs
-   (-> (List Number) (List Evidence) (List (List Evidence))))
+   (-[semidet]-> (List Number) (List Evidence)
+       (List (List Evidence))))
 (= (factor-residual-evs () $_shared) ())
 (= (factor-residual-evs (cons $pid $rest) $shared)
    (cons (factor-residual-ev $pid $shared) (factor-residual-evs $rest $shared)))
@@ -831,7 +892,7 @@
 ;; Pool a group when: it shares at least one fact, every proof is standard
 ;; implication-shaped, the residual evidence sets are pairwise disjoint, and the
 ;; residuals round-trip (the shared facts factor through one conjunction).
-(: group-factorable? (-> (List Number) Bool))
+(: group-factorable? (-[semidet]-> (List Number) Bool))
 (= (group-factorable? ()) false)
 (= (group-factorable? (cons $first-pid $rest-pids))
    (let $pids (cons $first-pid $rest-pids)
@@ -845,7 +906,7 @@
                   (factor-real-conj $first-pid $keys))))))))
 
 (: factor-merge-output
-   (-> (List Number) (Statement KBContext Proof TV)))
+   (-[semidet]-> (List Number) (Statement KBContext Proof TV)))
 (= (factor-merge-output (cons $first-pid $rest-pids))
    (let* (($pids (cons $first-pid $rest-pids))
           ($keys (factor-shared-keys (factor-shared-facts $pids)))
@@ -860,7 +921,7 @@
             $merged-prf $merged-tv))))
 
 (: merge-proof-id-output
-   (-> (List Number)
+   (-[semidet]-> (List Number)
        (| Goal (Statement KBContext Proof TV))))
 (= (merge-proof-id-output (cons $pid $rest))
    ;; `and` is eager here.  Keep the singleton check outside it so a lone
@@ -871,22 +932,22 @@
       (proof-output-atom-by-id $pid)
       (if (group-factorable? (cons $pid $rest))
          (factor-merge-output (cons $pid $rest))
-         (fold-flat merge-proof-id-output-step
+         (proof-fold-flat-semidet merge-proof-id-output-step
             (proof-fact-output-by-id $pid) $rest))))
 
 (: proof-id-evidence-step
-   (-> (List Evidence) Number (List Evidence)))
+   (-[semidet]-> (List Evidence) Number (List Evidence)))
 (= (proof-id-evidence-step $acc $pid)
    (let ($_score $ev) (proof-stats-by-id $pid)
       (list_to_set (append $acc $ev))))
 
 (: proof-id-evidence-list
-   (-> (List Number) (List Evidence)))
+   (-[semidet]-> (List Number) (List Evidence)))
 (= (proof-id-evidence-list $pids)
-   (fold-flat proof-id-evidence-step () $pids))
+   (proof-fold-flat-semidet proof-id-evidence-step () $pids))
 
 (: proof-output-group-representative-pid
-   (-> Number ProofOutputGroup Number))
+   (-[semidet]-> Number ProofOutputGroup Number))
 (= (proof-output-group-representative-pid $gid (proof-output-group $_key $pids))
    (case $pids (
       ((cons $pid ()) $pid)
@@ -918,48 +979,50 @@
                (car-atom $hits)))))))
 
 (: proof-output-group-representative-pids
-   (-> Number (List ProofOutputGroup) (List Number)))
+   (-[semidet]-> Number (List ProofOutputGroup) (List Number)))
 (= (proof-output-group-representative-pids $_gid ()) ())
 (= (proof-output-group-representative-pids $gid (cons $group $rest))
    (cons (proof-output-group-representative-pid $gid $group)
       (proof-output-group-representative-pids $gid $rest)))
 
-(: goal-merged-proof-ids (-> Number (List Number)))
+(: goal-merged-proof-ids (-[semidet]-> Number (List Number)))
 (= (goal-merged-proof-ids $gid)
    (proof-output-group-representative-pids $gid
       (proof-output-groups (goal-live-proof-ids $gid))))
 
 (: proof-output-group-for-key-step
-   (-> ProofOutputKey (List Number) Number (List Number)))
+   (-[semidet]-> ProofOutputKey
+       (List Number) Number (List Number)))
 (= (proof-output-group-for-key-step $key $pids $pid)
    (if (=alpha (proof-output-key-by-id $pid) $key)
       (append $pids ($pid))
       $pids))
 
 (: goal-live-proof-ids-for-output-key
-   (-> Number ProofOutputKey (List Number)))
+   (-[semidet]-> Number ProofOutputKey (List Number)))
 (= (goal-live-proof-ids-for-output-key $gid $key)
-   (fold-flat (proof-output-group-for-key-step $key)
+   (proof-fold-flat-semidet
+      (proof-output-group-for-key-step $key)
       ()
       (goal-live-proof-ids $gid)))
 
-(: goal-merged-proof-id-for-pid (-> Number Number Number))
+(: goal-merged-proof-id-for-pid (-[semidet]-> Number Number Number))
 (= (goal-merged-proof-id-for-pid $gid $pid)
    (let $key (proof-output-key-by-id $pid)
       (proof-output-group-representative-pid $gid
          (proof-output-group $key (goal-live-proof-ids-for-output-key $gid $key)))))
 
 (: goal-results
-   (-[det]-> Number
+   (-[semidet]-> Number
       (List RuntimeResult)))
 (= (goal-results $gid)
    (let*
       (($pids (goal-merged-proof-ids $gid)))
-      (map-flat materialize-result-atom
-         (map-flat proof-output-atom-by-id $pids))))
+      (proof-map-flat-semidet materialize-result-atom
+         (proof-map-flat-semidet proof-output-atom-by-id $pids))))
 
 (: goal-current-output
-   (-> Number
+   (-[semidet]-> Number
        (| Goal (Statement KBContext Proof TV) NoCurrentScore)))
 (= (goal-current-output $gid)
    (let*
@@ -973,7 +1036,7 @@
               ((cons $pid $rest) (merge-proof-id-output (cons $pid $rest))))))))
 
 (: goal-current-confidence
-   (-> Number (| Number NoCurrentScore)))
+   (-[semidet]-> Number (| Number NoCurrentScore)))
 (= (goal-current-confidence $gid)
    (let*
       (($pids (goal-merged-proof-ids $gid))
@@ -1020,13 +1083,13 @@
       (or (> $old-score $new-score) (and (== $old-score $new-score) (evidence-subset? $new-ev $old-ev)))))
 
 (: goal-proof-candidate-comparable?
-   (-> Bool ProofOutputKey Number Bool))
+   (-[semidet]-> Bool ProofOutputKey Number Bool))
 (= (goal-proof-candidate-comparable? false $_outkey $_oldpid) true)
 (= (goal-proof-candidate-comparable? true $outkey $oldpid)
    (== (proof-output-key-by-id $oldpid) $outkey))
 
 (: goal-proof-candidate-step
-   (-> Bool ProofOutputKey
+   (-[semidet]-> Bool ProofOutputKey
        (List Evidence) Number Bool Number Bool))
 (= (goal-proof-candidate-step $_open $_outkey $ev $score false $_oldpid) false)
 (= (goal-proof-candidate-step $open $outkey $ev $score true $oldpid)
@@ -1037,7 +1100,7 @@
       true))
 
 (: classify-goal-proof-candidate
-   (-> Number (| Goal ($type $kb $proof TV))
+   (-[semidet]-> Number (| Goal ($type $kb $proof TV))
        (List Evidence) Number Bool))
 (= (classify-goal-proof-candidate $gid $result $ev $score)
    (let*
@@ -1046,12 +1109,13 @@
           (goal-by-id $gid))
        ($open (goal-has-type-vars? $goal))
        ($outkey (candidate-output-key $result)))
-      (fold-flat (goal-proof-candidate-step $open $outkey $ev $score)
-      true
-      (goal-live-proof-ids $gid))))
+      (proof-fold-flat-semidet
+         (goal-proof-candidate-step $open $outkey $ev $score)
+         true
+         (goal-live-proof-ids $gid))))
 
 (: proof-candidate-stored-evidence
-   (-> ProofCandidate (List Evidence)))
+   (-[semidet]-> ProofCandidate (List Evidence)))
 (= (proof-candidate-stored-evidence (proof-candidate $kind $score $ev $children))
    (case $kind (
       ((rule ($_type $kb $prf $_tv))
@@ -1065,7 +1129,7 @@
       ($_other $ev))))
 
 (: normalize-proof-candidate-evidence
-   (-> ProofCandidate ProofCandidate))
+   (-[semidet]-> ProofCandidate ProofCandidate))
 (= (normalize-proof-candidate-evidence (proof-candidate $kind $score $ev $children))
    (proof-candidate $kind $score
       (proof-candidate-stored-evidence (proof-candidate $kind $score $ev $children))
@@ -1138,14 +1202,14 @@
    (proof-candidate (aggregate $result) (term-confidence $result) $ev $children))
 
 (: candidate-kind-term
-   (-> ProofKind
+   (-[semidet]-> ProofKind
        (| Goal (Statement KBContext Proof TV))))
 (= (candidate-kind-term (leaf $term)) $term)
 (= (candidate-kind-term (rule $term)) $term)
 (= (candidate-kind-term (aggregate $term)) $term)
 
 (: cyclic-dependency?
-   (-> Number Number
+   (-[semidet]-> Number Number
        (| ProofOutputKey ClosedGoalKey) Bool))
 (= (cyclic-dependency? $pid $gid $cycle-key)
    (and (== (proof-goal-id $pid) $gid)
@@ -1153,20 +1217,31 @@
          (=alpha (proof-output-key-by-id $pid) $cycle-key))))
 
 (: proof-depends-on-goal-seen?
-   (-> Number Number
+   (-[semidet]-> Number Number
        (| ProofOutputKey ClosedGoalKey)
        (List Number) Bool))
+
+(: proof-depends-on-goal-child-step
+   (-[semidet]-> Number
+       (| ProofOutputKey ClosedGoalKey)
+       (List Number) Bool Number Bool))
+(= (proof-depends-on-goal-child-step
+      $gid $cycle-key $seen-pids $acc $child-pid)
+   (or $acc
+      (proof-depends-on-goal-seen?
+         $child-pid $gid $cycle-key $seen-pids)))
+
 (= (proof-depends-on-goal-seen? $pid $gid $cycle-key $seen-pids)
    (if (is-member $pid $seen-pids) false
       (or (cyclic-dependency? $pid $gid $cycle-key)
-         (fold-flat
-            (|-> ($acc $child-pid)
-               (or $acc (proof-depends-on-goal-seen? $child-pid $gid $cycle-key (cons $pid $seen-pids))))
+         (proof-fold-flat-semidet
+            (proof-depends-on-goal-child-step
+               $gid $cycle-key (cons $pid $seen-pids))
             false
             (proof-children-by-id $pid)))))
 
 (: candidate-cycle-key
-   (-> Number ProofKind
+   (-[semidet]-> Number ProofKind
        (| ProofOutputKey ClosedGoalKey)))
 (= (candidate-cycle-key $gid $kind)
    (let*
@@ -1178,14 +1253,14 @@
          closed-goal)))
 
 (: candidate-is-cyclic?
-   (-> Number ProofKind (List Number) Bool))
+   (-[semidet]-> Number ProofKind (List Number) Bool))
 (= (candidate-is-cyclic? $gid $_kind ()) false)
 (= (candidate-is-cyclic? $gid $kind (cons $pid $pids))
    (let $cycle-key (candidate-cycle-key $gid $kind)
       (or (proof-depends-on-goal-seen? $pid $gid $cycle-key ()) (candidate-is-cyclic? $gid $kind $pids))))
 
 (: aggregate-snapshot-changed?
-   (-> (| Number (List Number))
+   (-[semidet]-> (| Number (List Number))
        $result (List Evidence) Bool))
 (= (aggregate-snapshot-changed? $current-pid $result $ev)
    (if (== $current-pid ()) true

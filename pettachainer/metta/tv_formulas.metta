@@ -60,7 +60,7 @@
        )
       (ideal-conf-from-var $sB $VarsB)))
 
-(: CTVModusPonensFormula (-[det]-> TV TV TV))
+(: CTVModusPonensFormula (-[semidet]-> TV TV TV))
 (= (CTVModusPonensFormula (CTV $pos $_neg) $ctv) (CTVModusPonensFormula $pos $ctv))
 
 (= (CTVModusPonensFormula (STV $as $ac) (CTV (STV $bs_a $bc_a) (STV $bs_na $bc_na)))
@@ -68,7 +68,7 @@
       (+ (* $bs_a $as) (* $bs_na (- 1 $as)))
       (ideal-mp-confidence $as $ac $bs_a $bc_a $bs_na $bc_na)))
 
-(: CTVFormula (-[det]-> TV TV TV))
+(: CTVFormula (-[semidet]-> TV TV TV))
 (= (CTVFormula $tv $ctv) (CTVModusPonensFormula $tv $ctv))
 
 ;; Idealized confidence for product-form combinations. For And, sB = s1*s2 with
@@ -84,15 +84,20 @@
 ;; No evidence about an input means no evidence about the combination: at zero
 ;; confidence the propagated variance of a clipped extreme strength is tiny, so
 ;; ideal-prod-confidence would otherwise turn a zero count into near-certainty.
-(: AndFormula (-[det]-> TV TV TV))
+(: AndFormula (-[semidet]-> TV TV TV))
 (= (AndFormula (STV $si $ci) (STV $sa $ca))
    (STV (* $si $sa)
       (if (or (<= $ci 0.0) (<= $ca 0.0))
          0.0
          (ideal-prod-confidence $si (ideal-var $si $ci) $sa (ideal-var $sa $ca) (* $si $sa)))))
 
-(: OrFormula (-[det]-> TV TV TV))
+(: OrFormula (-[semidet]-> TV TV TV))
 (= (OrFormula (STV $si $ci) (STV $sa $ca))
+   (or-stv-fields $si $ci $sa $ca))
+
+(: or-stv-fields
+   (-[det]-> Number Number Number Number TV))
+(= (or-stv-fields $si $ci $sa $ca)
    (STV (- (+ $si $sa) (* $si $sa))
       (if (or (<= $ci 0.0) (<= $ca 0.0))
          0.0
@@ -102,21 +107,21 @@
 ;; "A is likelier than B" as P(A and not B) under independence: s_a * (1 - s_b).
 ;; Multilinear (linear in each argument), consistent with And (s1*s2) and
 ;; Or (s1+s2-s1*s2), and free of the max(0, s_a - s_b) clamp's kink.
-(: LikelierThanFormula (-[det]-> TV TV TV))
+(: LikelierThanFormula (-[semidet]-> TV TV TV))
 (= (LikelierThanFormula (STV $sa $ca) (STV $sb $cb)) (STV (* $sa (- 1.0 $sb)) (min $ca $cb)))
 
-(: AndProjection (-[det]-> TV TV TV))
+(: AndProjection (-[semidet]-> TV TV TV))
 (= (AndProjection (STV $sab $cab) (STV $sa $ca))
    (if (== $sa 0.0)
       (STV 0.0 0.0)
       (STV (min 1.0 (/ $sab $sa)) (min $cab $ca))))
 
-(: AndMarginalProjection (-[det]-> TV TV))
+(: AndMarginalProjection (-[semidet]-> TV TV))
 (= (AndMarginalProjection (STV $sab $cab))
    (STV $sab
       (count-confidence (* $sab (confidence-to-count $cab)))))
 
-(: OrProjection (-[det]-> TV TV TV))
+(: OrProjection (-[semidet]-> TV TV TV))
 (= (OrProjection (STV $sab $cab) (STV $sa $ca))
    (if (== $sa 1.0)
       (STV 0.0 0.0)
@@ -140,7 +145,7 @@
         ($cb (particle-confidence-from-pairs $pairsb)))
       (STV (* (* $scalea $scaleb) (dist-prob-gt2 $pairsa $pairsb)) (min $ca $cb))))
 
-(: NotFormula (-[det]-> TV TV))
+(: NotFormula (-[semidet]-> TV TV))
 (= (NotFormula (STV $s $c)) (STV (- 1 $s) $c))
 
 (: InversionSmallestIntersectionProbability (-[det]-> Number Number Number))
@@ -151,14 +156,14 @@
 (= (InversionLargestIntersectionProbability $sa $sb)
    (min 1.0 (/ $sb $sa)))
 
-(: InversionConsistency (-[det]-> TV TV TV Bool))
+(: InversionConsistency (-[semidet]-> TV TV TV Bool))
 (= (InversionConsistency (STV $sa $_ca) (STV $sb $_cb) (STV $sab $_cab))
    (if (<= $sa 0.0) false
       (if (<= $sb 0.0) false
          (and (<= (InversionSmallestIntersectionProbability $sa $sb) $sab)
             (<= $sab (InversionLargestIntersectionProbability $sa $sb))))))
 
-(: BaseRateAcc (-[det]-> BaseRateEvidenceState TV BaseRateEvidenceState))
+(: BaseRateAcc (-[semidet]-> BaseRateEvidenceState TV BaseRateEvidenceState))
 (= (BaseRateAcc (BaseRateEvidence $wsum $csum) (STV $s $c))
    (BaseRateEvidence (+ $wsum (* $s $c)) (+ $csum $c)))
 (= (BaseRateAcc (BaseRateEvidence $wsum $csum) (CTV $pos $_neg))
@@ -169,7 +174,8 @@
    (if (<= $csum 0.0) no-evidence
       (STV (/ $wsum $csum) (count-confidence $csum))))
 
-(: WeightedBaseRateAcc (-[det]-> BaseRateEvidenceState WeightedTV BaseRateEvidenceState))
+(: WeightedBaseRateAcc
+   (-[semidet]-> BaseRateEvidenceState WeightedTV BaseRateEvidenceState))
 (= (WeightedBaseRateAcc (BaseRateEvidence $wsum $msum) (WeightedTv (STV $m $mc) (STV $s $c)))
    (let $mass (* (* $m $mc) $c)
       (BaseRateEvidence (+ $wsum (* $s $mass)) (+ $msum $mass))))
@@ -189,11 +195,13 @@
    (if (or (<= $msum 0.0) (<= $universe-size 0.0)) no-evidence
       (STV (/ $wsum $msum) (min 1.0 (/ $msum $universe-size)))))
 
-(: WeightedBaseRateWithPriorAcc (-[det]-> BaseRateEvidenceWithPriorState WeightedTV BaseRateEvidenceWithPriorState))
+(: WeightedBaseRateWithPriorAcc
+   (-[semidet]-> BaseRateEvidenceWithPriorState WeightedTV
+       BaseRateEvidenceWithPriorState))
 (= (WeightedBaseRateWithPriorAcc (BaseRateEvidenceWithPrior $prior $ev) $tv)
    (BaseRateEvidenceWithPrior $prior (WeightedBaseRateAcc $ev $tv)))
 
-(: BaseRateWithPriorFormula (-[det]-> TV TV TV))
+(: BaseRateWithPriorFormula (-[semidet]-> TV TV TV))
 (= (BaseRateWithPriorFormula $prior $evidence)
    (if (== $prior no-evidence) $evidence
       (if (== $evidence no-evidence) $prior (mergetvs $prior $evidence))))
@@ -203,7 +211,7 @@
    (if (>= $sa 1.0) $sb
       (max 0.0 (min 1.0 (/ (- $sb (* $sa $sb_a)) (- 1.0 $sa))))))
 
-(: HeuristicNegativeBranchFormula (-[det]-> TV TV TV TV))
+(: HeuristicNegativeBranchFormula (-[semidet]-> TV TV TV TV))
 (= (HeuristicNegativeBranchFormula (STV $sa $ca) (STV $sb $cb) (STV $sb_a $cb_a))
    (STV
       (NegativeBranchStrength $sa $sb $sb_a)
@@ -211,7 +219,7 @@
 
 ; TV is the nominal domain shared by STV, CTV, and no-evidence. The result is a
 ; CTV for either concrete input variant.
-(: ImplicationCTVFormula (-[det]-> TV TV TV TV))
+(: ImplicationCTVFormula (-[semidet]-> TV TV TV TV))
 (= (ImplicationCTVFormula $atv $btv $itv)
    (case $itv
       (((CTV $pos $neg) (CTV $pos $neg))
@@ -250,7 +258,7 @@
       (if (<= $n 0) no-evidence
          (STV (/ 1.0 $n) 1.0))))
 
-(: CTVInversionFormula (-[nondet]-> TV TV TV  TV))
+(: CTVInversionFormula (-[semidet]-> TV TV TV TV))
 (= (CTVInversionFormula no-evidence $_btv $_itv) (empty))
 (= (CTVInversionFormula (STV $_sa $_ca) no-evidence $_itv) (empty))
 ;; Idealized inversion confidence. The inverted strength is a Bayes ratio
@@ -295,8 +303,9 @@
 (= (NotEqual $a $b) (not (== $a $b)))
 ;; Merging two zero-confidence TVs has no evidence to weight the strengths by;
 ;; average them at confidence 0 instead of dividing by the zero total count.
-(: mergetvs (-[det]-> TV TV TV))
-(= (mergetvs (STV $m1 $conf1) (STV $m2 $conf2))
+(: merge-stv-fields
+   (-[det]-> Number Number Number Number TV))
+(= (merge-stv-fields $m1 $conf1 $m2 $conf2)
    (let*
       (($count1 (confidence-to-count $conf1))
         ($count2 (confidence-to-count $conf2))
@@ -304,3 +313,12 @@
       (if (<= $c 0.0)
          (STV (/ (+ $m1 $m2) 2) 0.0)
          (STV (/ (+ (* $m1 $count1) (* $m2 $count2)) $c) (/ $c (+ $c 800))))))
+
+(: merge-stvs
+   (-[det]-> (STV Number Number) (STV Number Number) TV))
+(= (merge-stvs (STV $m1 $conf1) (STV $m2 $conf2))
+   (merge-stv-fields $m1 $conf1 $m2 $conf2))
+
+(: mergetvs (-[semidet]-> TV TV TV))
+(= (mergetvs (STV $m1 $conf1) (STV $m2 $conf2))
+   (merge-stv-fields $m1 $conf1 $m2 $conf2))

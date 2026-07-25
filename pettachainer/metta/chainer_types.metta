@@ -22,12 +22,13 @@
 (: RuntimeResult (Newtype Expression))
 
 ;; Stored rule rows retain the existing conclusion/premise wire format. The
-;; outer constructor gives both chainers typed fields after a space lookup.
+;; premise list contains executable goals and internal runtime fact tuples;
+;; keeping that union here lets both chainers retain it after a space lookup.
 (: RuntimeRuleRow Type)
 (: runtime-rule-row
    (-> Number
        (Statement KBContext Proof TV)
-       (List Expression)
+       (List (| Goal (Statement KBContext Proof TV)))
        RuntimeRuleRow))
 
 (: StoredGoalRow Type)
@@ -55,6 +56,14 @@
 (: AggregateTVMode Type)
 (: result-tv AggregateTVMode)
 (: unit-stv AggregateTVMode)
+
+(: ExtractTV Type)
+(: extract-tv ExtractTV)
+(: ExtractValue Type)
+(: extract-value (-> Statement $value ExtractValue))
+(: ExtractInheritanceTV Type)
+(: extract-inheritance-tv
+   (-> KB Statement ExtractInheritanceTV))
 
 (: NilType Type)
 (: Nil NilType)

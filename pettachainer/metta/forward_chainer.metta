@@ -1,5 +1,11 @@
 !(import_prolog_function nth0)
 
+;; nth0/4 removes the indexed element while unifying it with its third
+;; argument. Its relational modes can branch, but every result preserves the
+;; element type of the input list.
+(: nth0
+   (-[nondet]-> $index (List $item) $item (List $item)))
+
 (: term_hash (-> $expression Number))
 
 (: ForwardDerived Type)
@@ -60,7 +66,13 @@
 (: ForwardBaseRateInterestRow Type)
 (: forward-base-rate-interest-row
    (-> ForwardTriggerKey Number KB Statement
-       Expression Expression Expression Expression AggregateTVMode
+       (| ExtractTV ExtractInheritanceTV)
+       (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)
+       (-[semidet]-> $accumulator $value $accumulator)
+       (| BaseRateFinish
+          WeightedBaseRateInUniverseFinish
+          WeightedBaseRateWithPriorInUniverseFinish)
+       AggregateTVMode
        ForwardBaseRateInterestRow))
 
 (: ForwardMemberInheritanceInterestRow Type)
@@ -210,10 +222,11 @@
                (forward-frontier-row
                   $hash $type $kb $fact $ev))))))
 
-(: forward-remove-canonical-fact! (-> (Statement KBContext Proof TV) Bool))
+(: forward-remove-canonical-fact!
+   (-[det]-> (Statement KBContext Proof TV) Bool))
 (= (forward-remove-canonical-fact! $fact) (remove-atom &kb $fact))
 (: forward-remove-canonical-evidence!
-   (-> ForwardCanonicalEvidenceRow Bool))
+   (-[det]-> ForwardCanonicalEvidenceRow Bool))
 (= (forward-remove-canonical-evidence! $row)
    (remove-atom &forward_canonical_evidence $row))
 
@@ -349,7 +362,10 @@
 ;; Compiler-generated base-rate folds all reduce to additive evidence totals.
 ;; Keep those totals for forward-processed canonical outputs so each changed
 ;; output costs one subtraction and one addition instead of another graph fold.
-(: forward-base-rate-supported? (-> $extractor $accumulator Bool))
+(: forward-base-rate-supported?
+   (-> (| ExtractTV ExtractInheritanceTV)
+       (-[semidet]-> $accumulator $value $accumulator)
+       Bool))
 (= (forward-base-rate-supported? $extractor $fun)
    (case $fun (
       (BaseRateAcc (== $extractor extract-tv))
@@ -360,7 +376,14 @@
       ($_other false))))
 
 (: forward-register-base-rate!
-   (-> KB Statement $extractor $initial $accumulator $finish AggregateTVMode
+   (-> KB Statement
+       (| ExtractTV ExtractInheritanceTV)
+       $accumulator
+       (-[semidet]-> $accumulator $value $accumulator)
+       (| BaseRateFinish
+          WeightedBaseRateInUniverseFinish
+          WeightedBaseRateWithPriorInUniverseFinish)
+       AggregateTVMode
        (List $none)))
 (= (forward-register-base-rate!
       $kbid $pattern $extractor $init $fun $finish $tv-mode)
@@ -404,20 +427,64 @@
                ())
             ()))))
 
-(: forward-register-base-rate-premise! (-> $premise (List $none)))
+(: forward-register-base-rate-premise!
+   (-[det]-> (| Goal (Statement KBContext Proof TV))
+       (List $none)))
 (= (forward-register-base-rate-premise! $premise)
    (case $premise (
       ((CPU FoldAllCompiled
-          ($kbid $pattern $extractor $init $fun $finish $tv-mode)
+          ($kbid $pattern extract-tv
+             (BaseRateEvidence $initial-weight $initial-count)
+             BaseRateAcc base-rate result-tv)
           $_result)
          (forward-register-base-rate!
             (brand KB $kbid) (brand Statement $pattern)
-            $extractor $init $fun $finish
-            (the AggregateTVMode $tv-mode)))
+            extract-tv
+            (BaseRateEvidence $initial-weight $initial-count)
+            BaseRateAcc base-rate result-tv))
+      ((CPU FoldAllCompiled
+          ($kbid $pattern
+             (extract-inheritance-tv $extract-kb $extract-pattern)
+             (BaseRateEvidence $initial-weight $initial-count)
+             WeightedBaseRateAcc
+             (weighted-base-rate-in-universe $finish-kb)
+             result-tv)
+          $_result)
+         (forward-register-base-rate!
+            (brand KB $kbid) (brand Statement $pattern)
+            (extract-inheritance-tv
+               (brand KB $extract-kb)
+               (brand Statement $extract-pattern))
+            (BaseRateEvidence $initial-weight $initial-count)
+            WeightedBaseRateAcc
+            (weighted-base-rate-in-universe
+               (brand KB $finish-kb))
+            result-tv))
+      ((CPU FoldAllCompiled
+          ($kbid $pattern
+             (extract-inheritance-tv $extract-kb $extract-pattern)
+             (BaseRateEvidenceWithPrior $prior
+                (BaseRateEvidence $initial-weight $initial-count))
+             WeightedBaseRateWithPriorAcc
+             (weighted-base-rate-with-prior-in-universe $finish-kb)
+             result-tv)
+          $_result)
+         (forward-register-base-rate!
+            (brand KB $kbid) (brand Statement $pattern)
+            (extract-inheritance-tv
+               (brand KB $extract-kb)
+               (brand Statement $extract-pattern))
+            (BaseRateEvidenceWithPrior
+               (brand BaseRatePrior $prior)
+               (BaseRateEvidence $initial-weight $initial-count))
+            WeightedBaseRateWithPriorAcc
+            (weighted-base-rate-with-prior-in-universe
+               (brand KB $finish-kb))
+            result-tv))
       ($_other ()))))
 
 (: register-forward-base-rate-premises!
-   (-> (List Expression) (List $none)))
+   (-> (List (| Goal (Statement KBContext Proof TV))) (List $none)))
 (= (register-forward-base-rate-premises! $premises)
    (foreach-flat forward-register-base-rate-premise! $premises))
 
@@ -425,7 +492,8 @@
 ;; separately from ordinary base rates: its contribution is keyed by the
 ;; shared Member object and must be recomputed from both canonical outputs.
 (: forward-register-member-inheritance-premise!
-   (-> Expression (List $none)))
+   (-[det]-> (| Goal (Statement KBContext Proof TV))
+       (List $none)))
 (= (forward-register-member-inheritance-premise! $premise)
    (case $premise (
       ((CPU FoldAllCompiled
@@ -505,7 +573,7 @@
       ($_other ()))))
 
 (: register-forward-member-inheritance-premises!
-   (-> (List Expression) (List $none)))
+   (-> (List (| Goal (Statement KBContext Proof TV))) (List $none)))
 (= (register-forward-member-inheritance-premises! $premises)
    (foreach-flat forward-register-member-inheritance-premise! $premises))
 
@@ -518,6 +586,25 @@
          (forward-positive-base-rate-contribution $positive))
       ($_other (BaseRateEvidence 0.0 0.0)))))
 
+(: forward-weighted-base-rate-contribution
+   (-> TV TV BaseRateEvidenceState))
+(= (forward-weighted-base-rate-contribution $mass-tv $value-tv)
+   (case $mass-tv (
+      ((STV $mass $mass-confidence)
+         (case $value-tv (
+            ((STV $strength $confidence)
+               (let $weight
+                  (* (* $mass $mass-confidence) $confidence)
+                  (BaseRateEvidence
+                     (* $strength $weight) $weight)))
+            ((CTV $positive $_negative)
+               (forward-weighted-base-rate-contribution
+                  $mass-tv $positive))
+            ($_other-value
+               (BaseRateEvidence 0.0 0.0)))))
+      ($_other-mass
+         (BaseRateEvidence 0.0 0.0)))))
+
 (: forward-inheritance-mass-scale (-> KB Number))
 (= (forward-inheritance-mass-scale $kbid)
    (let $universe-size (kb-universe-size $kbid)
@@ -528,9 +615,11 @@
             (if (<= $size 0.0) 0.0 (/ 1.0 $size))))))
 
 (: forward-base-rate-accumulator
-   (-> KB $extractor
+   (-> KB
+       (| ExtractTV ExtractInheritanceTV)
        (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)
-       $accumulator Number Number
+       (-[semidet]-> $accumulator $value $accumulator)
+       Number Number
        (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)))
 (= (forward-base-rate-accumulator
       $_kbid $_extractor (BaseRateEvidence $_iw $_ic) BaseRateAcc $wsum $csum)
@@ -573,6 +662,12 @@
        (Statement KBContext Proof TV)
        Number Number ForwardBaseRateObservation))
 
+(: forward-remove-base-rate-observation!
+   (-[det]-> ForwardBaseRateObservation (| Bool (List $none))))
+(= (forward-remove-base-rate-observation! $observation)
+   (once
+      (remove-atom &forward_base_rate_observation $observation)))
+
 (: forward-store-base-rate-observation!
    (-> ForwardBaseRateObservationKey
        (List ForwardBaseRateObservation)
@@ -581,9 +676,7 @@
       $observation-key $old-observations $fact $weight $count)
    (progn
       (foreach-flat
-         (|-> ($old)
-            (once
-               (remove-atom &forward_base_rate_observation $old)))
+         forward-remove-base-rate-observation!
          $old-observations)
       (once
          (add-atom &forward_base_rate_observation
@@ -594,7 +687,7 @@
 ;; shapes. Keep their finalization local so calls are compiled only after the
 ;; implementation is available.
 (: forward-finish-aggregate
-   (-> (| BaseRateFinish
+   (-[semidet]-> (| BaseRateFinish
           WeightedBaseRateInUniverseFinish
           WeightedBaseRateWithPriorInUniverseFinish)
        (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)
@@ -624,7 +717,9 @@
                (the Number $universe-size) $ev)))))
 
 (: forward-finish-stored-aggregate
-   (-> Expression
+   (-[semidet]-> (| BaseRateFinish
+          WeightedBaseRateInUniverseFinish
+          WeightedBaseRateWithPriorInUniverseFinish)
        (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)
        TV))
 (= (forward-finish-stored-aggregate $finish $acc)
@@ -643,8 +738,14 @@
             $acc)))))
 
 (: forward-update-base-rate-interest
-   (-> (Statement KBContext Proof TV) Number KB Statement
-       $extractor $initial $function $finish (List $none)))
+   (-[semidet]-> (Statement KBContext Proof TV) Number KB Statement
+       (| ExtractTV ExtractInheritanceTV)
+       (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)
+       (-[semidet]-> $accumulator $value $accumulator)
+       (| BaseRateFinish
+          WeightedBaseRateInUniverseFinish
+          WeightedBaseRateWithPriorInUniverseFinish)
+       (List $none)))
 (= (forward-update-base-rate-interest
       $fact $id $kbid $pattern $extractor $init $fun $finish)
    (let*
@@ -693,10 +794,8 @@
           (forward-store-base-rate-observation!
              $observation-key $old-observations $fact $weight $count))
        ($acc
-          (forward-base-rate-accumulator
-             $kbid $extractor
-             (the (| BaseRateEvidenceState BaseRateEvidenceWithPriorState) $init)
-             $fun $wsum $csum))
+             (forward-base-rate-accumulator
+                $kbid $extractor $init $fun $wsum $csum))
        ($estimate
           (forward-finish-stored-aggregate $finish $acc))
        ($_cache
@@ -802,6 +901,14 @@
        ForwardOutputCandidate ForwardOutputCandidate Number Number
        ForwardMemberInheritanceObservation))
 
+(: forward-remove-member-inheritance-observation!
+   (-[det]-> ForwardMemberInheritanceObservation
+       (| Bool (List $none))))
+(= (forward-remove-member-inheritance-observation! $observation)
+   (once
+      (remove-atom
+         &forward_member_inheritance_observation $observation)))
+
 (: ForwardWeightMass Type)
 (: forward-weight-mass
    (-> Number Number ForwardWeightMass))
@@ -852,9 +959,8 @@
                  (($_stype $_skb $_sprf $atv) $subject-fact)
                  (($_ctype $_ckb $_cprf $btv) $consequent-fact)
                  ((BaseRateEvidence $joined-weight $joined-mass)
-                    (WeightedBaseRateAcc
-                       (BaseRateEvidence 0.0 0.0)
-                       (WeightedTv $atv $btv))))
+                    (forward-weighted-base-rate-contribution
+                       $atv $btv)))
                 (forward-weight-mass
                    $joined-weight $joined-mass))))
        ((forward-member-inheritance-state
@@ -872,10 +978,7 @@
              $id $old-wsum $old-msum $wsum $msum))
        ($_old
           (foreach-flat
-             (|-> ($row)
-                (once
-                   (remove-atom
-                      &forward_member_inheritance_observation $row)))
+             forward-remove-member-inheritance-observation!
              $old-observations))
        ($_observation
           (if (or
@@ -975,8 +1078,7 @@
                    $id $old-wsum $old-msum $wsum $msum))
              ($_old
                 (foreach-flat
-                   (|-> ($row)
-                      (remove-atom &forward_member_inheritance_observation $row))
+                   forward-remove-member-inheritance-observation!
                    $old-observations))
              ($_cache
                 (if (<= $msum 0.0)
@@ -1087,8 +1189,14 @@
 ;; the observation until the replacement is processed; that update subtracts
 ;; the old value and adds the new one atomically.
 (: forward-remove-base-rate-observation!
-   (-> (Statement KBContext Proof TV) Number KB Statement
-       $extractor $initial $function $finish (List $none)))
+   (-[semidet]-> (Statement KBContext Proof TV) Number KB Statement
+       (| ExtractTV ExtractInheritanceTV)
+       (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)
+       (-[semidet]-> $accumulator $value $accumulator)
+       (| BaseRateFinish
+          WeightedBaseRateInUniverseFinish
+          WeightedBaseRateWithPriorInUniverseFinish)
+       (List $none)))
 (= (forward-remove-base-rate-observation!
       $fact $id $kbid $pattern $extractor $init $fun $finish)
    (let*
@@ -1120,8 +1228,7 @@
                    $id $old-wsum $old-csum $wsum $csum))
              ($_observations
                 (foreach-flat
-                   (|-> ($old)
-                      (remove-atom &forward_base_rate_observation $old))
+                   forward-remove-base-rate-observation!
                    $old-observations))
              ($_cache
                 (if (<= $csum 0.0)
@@ -1129,8 +1236,7 @@
                    (let*
                       (($acc
                           (forward-base-rate-accumulator
-                             $kbid $extractor
-                             (the (| BaseRateEvidenceState BaseRateEvidenceWithPriorState) $init)
+                             $kbid $extractor $init
                              $fun $wsum $csum))
                        ($estimate
                           (forward-finish-stored-aggregate
@@ -1172,7 +1278,9 @@
       ()))
 
 (: forward-satisfy-premises
-   (-[nondet]-> Number (List Expression) (Statement KBContext Proof TV)
+   (-[nondet]-> Number
+       (List (| Goal (Statement KBContext Proof TV)))
+       (Statement KBContext Proof TV)
        (List Evidence)  ForwardMatch))
 (= (forward-satisfy-premises $steps () $goal $ev) (forward-match $goal $ev))
 (= (forward-satisfy-premises $steps (cons $prem $rest) $goal $ev)
@@ -1487,7 +1595,7 @@
                  (runtime-rule-row $id $ccls $prems)
                  (runtime-rule-row $id $ccls $prems)))
            ($rprems
-              (the (List Expression) (nth0 $idx $prems $fact)))
+              (nth0 $idx $prems $fact))
            ((forward-output-row
                 $trigger-fact $trigger-ev)
               (forward-output-row-for-fact $fact))

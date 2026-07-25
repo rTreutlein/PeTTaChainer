@@ -78,7 +78,9 @@
 ;; rule-goal expansion. No entry (the computation can fail on exotic premise
 ;; shapes) means the expansion falls back to computing it on the fly.
 (: store-rule-expected-score!
-   (-> KbBackend Number (List Expression) (| Bool (List $none))))
+   (-> KbBackend Number
+       (List (| Goal (Statement KBContext Proof TV)))
+       (| Bool (List $none))))
 (= (store-rule-expected-score! $backend $id $args)
    (let $hits
       (collapse
@@ -134,7 +136,10 @@
    (if (= $expr (rules ($args |- $ccls)))
       (let*
          (($typed-ccls (typed-runtime-fact $ccls))
-          ($rule-args (the (List Expression) $args))
+          ($rule-args
+             (the
+                (List (| Goal (Statement KBContext Proof TV)))
+                $args))
           ($id (next-rule-id $backend))
            ($_1 (fold-flat (kb-add-prem $backend $id) 0 $rule-args))
            ($_2 (kb-add-atom $backend ccls_index ($typed-ccls $id)))
@@ -189,7 +194,7 @@
 ;; In contrast, kb-add-expr preserves computed snapshots: added proofs cannot
 ;; invalidate previous evidence and later chaining refines the cached estimate.
 
-(: remove-rule-row! (-> Number (List $none)))
+(: remove-rule-row! (-[det]-> Number (List $none)))
 (= (remove-rule-row! $id)
    (let $_
       (collapse

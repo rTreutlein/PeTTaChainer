@@ -4,24 +4,28 @@
 (: none TotalEvidenceSentinel)
 (: TotalEvidenceTvs Type)
 (: TotalEvidenceTvs
-   (-> (| TV TotalEvidenceSentinel) (| TV TotalEvidenceSentinel)
+   (-> (| TV TotalEvidenceSentinel)
+       (| TV TotalEvidenceSentinel)
        TotalEvidenceTvs))
 (: EvidenceCase Type)
 (: EvidenceCase (-> $evidence TV EvidenceCase))
-(: TotalEvidenceOr (-> (| TV TotalEvidenceSentinel) TV TV))
-(: TotalEvidenceTv (-> (| TV TotalEvidenceSentinel) TV))
-(: TotalEvidenceKnownTv (-> TV TV))
-(: TotalEvidenceAcc (-> TotalEvidenceTvs EvidenceCase TotalEvidenceTvs))
+(: TotalEvidenceOr
+   (-[semidet]-> (| TV TotalEvidenceSentinel) TV TV))
+(: TotalEvidenceTv
+   (-[semidet]-> (| TV TotalEvidenceSentinel) TV))
+(: TotalEvidenceKnownTv (-> (STV Number Number) TV))
+(: TotalEvidenceAcc
+   (-[semidet]-> TotalEvidenceTvs EvidenceCase TotalEvidenceTvs))
 (: TotalEvidenceCTVModusPonensFormula
    (-[nondet]-> TV TotalEvidenceTvs  TV))
 
-(= (TotalEvidenceOr $left $right)
-   (if (== $left none) $right
-      (OrFormula (the TV $left) $right)))
-(= (TotalEvidenceKnownTv $tv) $tv)
-(= (TotalEvidenceTv $tv)
-   (if (== $tv none) (STV 0.0 0.0)
-      (TotalEvidenceKnownTv (the TV $tv))))
+(= (TotalEvidenceOr none (STV $rs $rc))
+   (STV $rs $rc))
+(= (TotalEvidenceOr (STV $ls $lc) (STV $rs $rc))
+   (or-stv-fields $ls $lc $rs $rc))
+(= (TotalEvidenceKnownTv (STV $s $c)) (STV $s $c))
+(= (TotalEvidenceTv none) (STV 0.0 0.0))
+(= (TotalEvidenceTv (STV $s $c)) (STV $s $c))
 (= (TotalEvidenceAcc (TotalEvidenceTvs $pos-tv $neg-tv) (EvidenceCase pos $tv))
    (TotalEvidenceTvs (TotalEvidenceOr $pos-tv $tv) $neg-tv))
 (= (TotalEvidenceAcc (TotalEvidenceTvs $pos-tv $neg-tv) (EvidenceCase neg $tv))
