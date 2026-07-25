@@ -4,7 +4,8 @@ set -euo pipefail
 
 benchmark_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(cd "$benchmark_dir/../../.." && pwd)
-benchmark="$benchmark_dir/../conceptnet_own_pet_query.metta"
+benchmark=${PETTACHAINER_BENCHMARK:-"$benchmark_dir/../conceptnet_own_pet_query.metta"}
+expected_result=${PETTACHAINER_EXPECTED_RESULT:-'(And (Own (i max)) (Pet max))'}
 export_link="$benchmark_dir/../.conceptnet_export"
 created_link=0
 output_file=$(mktemp /tmp/pettachainer-conceptnet-benchmark.XXXXXX.log)
@@ -84,7 +85,7 @@ if [[ $run_status != 0 ]]; then
 fi
 
 if ! grep -Eq 'CONCEPTNET_OWN_PET_RESULT_COUNT [1-9][0-9]* RESULTS' "$output_file" ||
-   ! grep -Fq '(And (Own (i max)) (Pet max))' "$output_file"; then
+   ! grep -Fq "$expected_result" "$output_file"; then
   printf 'ConceptNet benchmark produced no proof. The export may need refreshing.\n' >&2
   printf 'Retry with CNET_REFRESH=1, then verify the exported KB identifier.\n' >&2
   exit 1

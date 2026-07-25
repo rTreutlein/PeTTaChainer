@@ -1736,26 +1736,22 @@
 (: expand-rule-goal-fold
    (-> $heap RuleGoalMatch $heap))
 (= (expand-rule-goal-fold $agenda (rule-goal-match $rule-id $args $goal $parent-gid))
-   (let $expanded
-      (collapse
-         (once
-            (if (rule-premise-prefilter-prunes? $args) $agenda
-               (let*
-                  (($expected-score
-                      (rule-expected-score $rule-id $goal $args))
-                   ($bound
-                      (rule-marginal-score
-                         (goal-current-confidence $parent-gid)
-                         $expected-score))
-                   ($bundle (copy_term (make-and-bundle $goal $args))))
-                  (spawn-frontier-heap $agenda
-                     $parent-gid
-                     $bundle
-                     $bound
-                     ()
-                     ()
-                     ())))))
-      (if (== $expanded ()) $agenda (car-atom $expanded))))
+   (if (rule-premise-prefilter-prunes? $args) $agenda
+      (let*
+         (($expected-score
+             (rule-expected-score $rule-id $goal $args))
+          ($bound
+             (rule-marginal-score
+                (goal-current-confidence $parent-gid)
+                $expected-score))
+          ($bundle (copy_term (make-and-bundle $goal $args))))
+         (spawn-frontier-heap $agenda
+            $parent-gid
+            $bundle
+            $bound
+            ()
+            ()
+            ()))))
 
 (: expand-goal-heap
    (-> $heap Number Number Number $heap))
