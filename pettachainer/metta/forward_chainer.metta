@@ -8,17 +8,9 @@
 
 (: term_hash (-> $expression Number))
 
-(: ForwardDerived Type)
-(: forward-derived
-   (-> (Statement KBContext Proof TV) (List Evidence) ForwardDerived))
 (: ForwardMatch Type)
 (: forward-match
    (-> (Statement KBContext Proof TV) (List Evidence) ForwardMatch))
-
-(: ForwardTriggerKey Type)
-(: fwd_trigger (-> KB Atom ForwardTriggerKey))
-(: fwd_member (-> KB Term ForwardTriggerKey))
-(: fwd_trigger_any ForwardTriggerKey)
 
 (: ForwardMemberInheritanceIdentityKey Type)
 (: fwd_member_identity
@@ -55,6 +47,23 @@
 (: first-forward-output-row
    (-> (List ForwardOutputRow) ForwardOutputRow))
 (= (first-forward-output-row (cons $row $_rest)) $row)
+
+;; Dynamic-space collection erases both the list element type and the row's
+;; constructor roles. Iterate that representation directly and reconstruct one
+;; typed row at a time, avoiding a reflective check of the complete list.
+(: emit-stored-forward-output-rows
+   (-[nondet]-> Atom ForwardOutputRow))
+(= (emit-stored-forward-output-rows
+      (cons
+         (forward-output-row
+            ($type $kb $proof $tv) $evidence)
+         $_rest))
+   (forward-output-row
+      (assemble-stored-runtime-fact $type $kb $proof $tv)
+      (stored-evidence-list $evidence)))
+(= (emit-stored-forward-output-rows
+      (cons $_row $rest))
+   (emit-stored-forward-output-rows $rest))
 
 (: ForwardCanonicalEvidenceRow Type)
 (: forward-canonical-evidence-row
@@ -102,6 +111,26 @@
 
 (: ForwardQueueItem (Newtype Expression))
 (: qitem (-> (Statement KBContext Proof TV) ForwardQueueItem))
+
+;; Total wrapper around SWI's relational heap pop. The foreign predicate binds
+;; priority and item through output arguments, which ordinary MeTTa arrows
+;; cannot express directly.
+(: ForwardAgendaPop Type)
+(: no-forward-agenda-pop ForwardAgendaPop)
+(: forward-agenda-pop (-> $heap ForwardQueueItem ForwardAgendaPop))
+
+(: forward-pop-agenda (-> $heap ForwardAgendaPop))
+(= (forward-pop-agenda $agenda)
+   (let $pops
+      (collapse
+         (once
+            (let $rest
+               (get_from_heap $agenda $_priority $item)
+               (forward-agenda-pop
+                  $rest (brand ForwardQueueItem $item)))))
+      (if (== $pops ())
+         no-forward-agenda-pop
+         (car-atom $pops))))
 
 (: ForwardRun Type)
 (: forward-run (-> $heap (List ForwardOutputKey) ForwardRun))
@@ -155,34 +184,6 @@
 (: forward-output-index-hash (-> ForwardOutputKey Number))
 (= (forward-output-index-hash (forward-output-key $kb $type))
    (term_hash (quote ($kb $type))))
-
-(: forward-fact-evidence
-   (-> Statement KBContext Proof TV (List Evidence)))
-(= (forward-fact-evidence $type $kb $prf $tv)
-   (let*
-      (($fact (quote ($type $kb $prf $tv)))
-       ($hash
-          (forward-output-index-hash
-             (forward-output-key $kb $type)))
-       ($hits
-         (collapse
-            (once
-               (match &forward_canonical_evidence
-                  (forward-canonical-evidence-row
-                     $hash $type $kb $fact $ev)
-                  $ev)))))
-         (if (== $hits ())
-            (let $frontier-hits
-               (collapse
-                  (once
-                     (match &forward_frontier
-                        (forward-frontier-row
-                           $hash $type $kb $fact $ev)
-                        $ev)))
-               (if (== $frontier-hits ())
-                  (cons (fact-ev $kb $prf $type) ())
-                  (car-atom $frontier-hits)))
-            (car-atom $hits))))
 
 (: forward-output-candidate-step
    (-> (| ForwardOutputCandidate NoForwardOutputCandidate)
@@ -349,7 +350,7 @@
       $key (forward-output-candidate-for-key $key)))
 
 (: forward-output-row-for-fact
-   (-> (Statement KBContext Proof TV) ForwardOutputRow))
+   (-[semidet]-> (Statement KBContext Proof TV) ForwardOutputRow))
 (= (forward-output-row-for-fact ($type $kb $proof $tv))
    (let*
       (($hash (term_hash (quote ($kb $type)))))
@@ -376,7 +377,7 @@
       ($_other false))))
 
 (: forward-register-base-rate!
-   (-> KB Statement
+   (-[det]-> KB Statement
        (| ExtractTV ExtractInheritanceTV)
        $accumulator
        (-[semidet]-> $accumulator $value $accumulator)
@@ -387,7 +388,7 @@
        (List $none)))
 (= (forward-register-base-rate!
       $kbid $pattern $extractor $init $fun $finish $tv-mode)
-   (if (not (forward-base-rate-supported? $extractor $fun)) ()
+   (if (forward-base-rate-supported? $extractor $fun)
       (let*
          (($trigger (forward-type-trigger-key $kbid $pattern))
           ($hits
@@ -425,7 +426,8 @@
                          (forward-base-rate-state
                             $id 0.0 0.0)))))
                ())
-            ()))))
+            ()))
+      ()))
 
 (: forward-register-base-rate-premise!
    (-[det]-> (| Goal (Statement KBContext Proof TV))
@@ -507,10 +509,9 @@
              (member-inheritance $kbid)
              result-tv)
           $_result)
-         (if (or
-                (not (== (extract-vars $subj) ()))
-                (not (== (extract-vars $concept) ()))) ()
-            (let*
+         (if (== (extract-vars $subj) ())
+            (if (== (extract-vars $concept) ())
+               (let*
             (($pattern
                 (MemberInheritanceSample $obj $subj $concept $atv $btv))
              ($key
@@ -569,7 +570,9 @@
                             (forward-member-inheritance-state
                                $id 0.0 0.0)))))
                   ())
-               ()))))
+               ()))
+               ())
+            ()))
       ($_other ()))))
 
 (: register-forward-member-inheritance-premises!
@@ -627,13 +630,13 @@
 (= (forward-base-rate-accumulator
       $kbid (extract-inheritance-tv $_ekbid $_pattern)
       (BaseRateEvidence $_iw $_ic) WeightedBaseRateAcc $wsum $csum)
-   (let $scale (forward-inheritance-mass-scale $kbid)
+   (let $scale (forward-inheritance-mass-scale (brand KB $kbid))
       (BaseRateEvidence (* $scale $wsum) (* $scale $csum))))
 (= (forward-base-rate-accumulator
       $kbid (extract-inheritance-tv $_ekbid $_pattern)
       (BaseRateEvidenceWithPrior $prior (BaseRateEvidence $_iw $_ic))
       WeightedBaseRateWithPriorAcc $wsum $csum)
-   (let $scale (forward-inheritance-mass-scale $kbid)
+   (let $scale (forward-inheritance-mass-scale (brand KB $kbid))
       (BaseRateEvidenceWithPrior $prior
          (BaseRateEvidence (* $scale $wsum) (* $scale $csum)))))
 
@@ -650,7 +653,7 @@
             (forward-base-rate-state $id $wsum $csum)))))
 
 (: forward-base-rate-state-by-id
-   (-> Number ForwardBaseRateState))
+   (-[semidet]-> Number ForwardBaseRateState))
 (= (forward-base-rate-state-by-id $id)
    (once
       (match &forward_base_rate_state
@@ -750,14 +753,11 @@
       $fact $id $kbid $pattern $extractor $init $fun $finish)
    (let*
       (($cache-pattern (copy_term $pattern))
-       ($fact-copy (copy_term $fact))
-       ($type (car-atom $fact-copy))
-       ($fact-kb (car-atom (cdr-atom $fact-copy)))
-       ($fact-kbid (car-atom $fact-kb))
-       ($tv
-          (the TV
-             (car-atom (cdr-atom (cdr-atom (cdr-atom $fact-copy))))))
-       ($_kb (let $kbid $fact-kbid ok))
+       (($type ($fact-kbid $_ctx $_vars) $_proof $tv)
+          (copy_term $fact))
+       ;; The trigger key already includes the KB, so this row cannot have
+       ;; come from another knowledge base. Avoid re-unifying the nominal KB
+       ;; value through the erased KBContext representation.
        ($_pattern (let $pattern $type ok))
        ($output-key (forward-fact-key $fact))
        ($observation-key
@@ -795,11 +795,13 @@
              $observation-key $old-observations $fact $weight $count))
        ($acc
              (forward-base-rate-accumulator
-                $kbid $extractor $init $fun $wsum $csum))
+                (brand KB $kbid)
+                $extractor $init $fun $wsum $csum))
        ($estimate
           (forward-finish-stored-aggregate $finish $acc))
        ($_cache
-          (store-forward-base-rate! $kbid $cache-pattern $estimate $finish)))
+          (store-forward-base-rate!
+             (brand KB $kbid) $cache-pattern $estimate $finish)))
       ()))
 
 (: forward-update-base-rates-for-key
@@ -844,6 +846,25 @@
             (first-forward-output-row $rows)
             (forward-output-candidate $fact $evidence)))))
 
+;; &kb is intentionally untyped storage. Re-establish the erased fact roles in
+;; one named boundary; only the TV needs a real runtime validation because its
+;; numeric fields affect inference.
+(: forward-output-row-from-stored
+   (-> Atom Atom Atom Atom ForwardOutputRow))
+(= (forward-output-row-from-stored $type $kb $proof $tv)
+   (let*
+      (($typed-type (brand Statement $type))
+       ($typed-kb (brand KBContext $kb))
+       ($typed-proof (brand Proof $proof))
+       ($typed-tv (the TV $tv))
+       ($fact
+          (assemble-runtime-fact
+             $typed-type $typed-kb $typed-proof $typed-tv)))
+      (forward-output-row
+         $fact
+         (forward-fact-evidence
+            $typed-type $typed-kb $typed-proof $typed-tv))))
+
 (: forward-member-output-row
    (-[nondet]-> KB Term Term  ForwardOutputRow))
 (= (forward-member-output-row $kbid $obj $class)
@@ -864,23 +885,11 @@
              (once
                 (match &kb
                    ($type $kb $proof $tv)
-                   (let*
-                      (($typed-type (brand Statement $type))
-                       ($typed-kb (brand KBContext $kb))
-                       ($typed-proof (brand Proof $proof))
-                       ($typed-tv (the TV $tv))
-                       ($fact
-                          (assemble-runtime-fact
-                             $typed-type $typed-kb
-                             $typed-proof $typed-tv)))
-                      (forward-output-row
-                         $fact
-                         (forward-fact-evidence
-                            $typed-type $typed-kb
-                            $typed-proof $typed-tv))))))))
+                   (forward-output-row-from-stored
+                      $type $kb $proof $tv))))))
       (if (== $rows ())
-         (superpose $stored)
-         (superpose $rows))))
+         (emit-stored-forward-output-rows $stored)
+         (emit-stored-forward-output-rows $rows))))
 
 (: forward-store-member-inheritance-state!
    (-> Number Number Number Number Number Bool))
@@ -918,7 +927,7 @@
    (-> Number Number Number ForwardMemberInheritanceState))
 
 (: forward-update-member-inheritance-interest
-   (-> Term Number KB Term Term Statement (List $none)))
+   (-[semidet]-> Term Number KB Term Term Statement (List $none)))
 (= (forward-update-member-inheritance-interest
       $obj $id $kbid $subj $concept $pattern)
    (let*
@@ -1024,7 +1033,7 @@
       ()))
 
 (: forward-remove-member-inheritance-observation!
-   (-> Term Number KB Term Term Statement (List $none)))
+   (-[semidet]-> Term Number KB Term Term Statement (List $none)))
 (= (forward-remove-member-inheritance-observation!
       $obj $id $kbid $subj $concept $pattern)
    (let*
@@ -1362,82 +1371,104 @@
                 (forward-invalidate-base-rates! $fact)))))))
 
 (: forward-strict-evidence-subset?
-   (-> (List $evidence) (List $evidence) Bool))
+   (-> (List Evidence) (List Evidence) Bool))
 (= (forward-strict-evidence-subset? $subset $superset)
    (and (evidence-subset? $subset $superset)
       (not (evidence-subset? $superset $subset))))
 
-(: forward-proof-list-refines? (-> (List $proof) (List $proof) Bool))
+;; These predicates are mutually recursive; publish both contracts before
+;; either body so determinism and bound-Bool certification can analyze the SCC.
+(: forward-proof-list-refines? (-[det]-> (List Proof) (List Proof) Bool))
+(: forward-proof-refines? (-[det]-> Proof Proof Bool))
 (= (forward-proof-list-refines? $old $new)
    (if (== $old ()) (== $new ())
       (if (== $new ()) false
-         (and (forward-proof-refines? (car-atom $old) (car-atom $new))
-            (forward-proof-list-refines? (cdr-atom $old) (cdr-atom $new))))))
+         (let*
+            (($old-first (car-atom $old))
+             ($new-first (car-atom $new))
+             ($old-rest (cdr-atom $old))
+             ($new-rest (cdr-atom $new)))
+            (and (forward-proof-refines? $old-first $new-first)
+               (forward-proof-list-refines? $old-rest $new-rest))))))
 
 ;; A proof refines another when it has the same rule skeleton and only replaces
 ;; children by merges containing the earlier child. This distinguishes a
 ;; genuinely updated application, pToQ(p1) -> pToQ(merge(p1,p2)), from a longer
 ;; cyclic path such as seed -> keepLoop(seed).
-(: forward-proof-refines? (-> $proof $proof Bool))
 (= (forward-proof-refines? $old $new)
    (if (== $old $new) true
       (if (is-expr $new)
          (if (= $new (merge/revision $left $right))
-            (or (forward-proof-refines? $old $left)
-               (forward-proof-refines? $old $right))
+            (or
+               (forward-proof-refines? $old (brand Proof $left))
+               (forward-proof-refines? $old (brand Proof $right)))
             (if (and (is-expr $old)
                      (== (car-atom $old) (car-atom $new)))
-               (forward-proof-list-refines?
-                  (cdr-atom $old) (cdr-atom $new))
+               (let*
+                  (($old-tail (cdr-atom $old))
+                   ($new-tail (cdr-atom $new))
+                   ($old-children (proof-children $old-tail))
+                   ($new-children (proof-children $new-tail)))
+                  (forward-proof-list-refines?
+                     $old-children $new-children))
                false))
          false)))
 
 (: forward-candidate-refines?
-   (-> (Statement KBContext Proof TV) (List $evidence) (Statement KBContext Proof TV) (List $evidence) Bool))
+   (-> (Statement KBContext Proof TV) (List Evidence)
+       (Statement KBContext Proof TV) (List Evidence) Bool))
 (= (forward-candidate-refines? $old-fact $old-ev $new-fact $new-ev)
-   (and (forward-strict-evidence-subset? $old-ev $new-ev)
-      (forward-proof-refines?
-         (proof-atom-proof $old-fact) (proof-atom-proof $new-fact))))
+   (let*
+      (($old-proof (proof-atom-proof $old-fact))
+       ($new-proof (proof-atom-proof $new-fact)))
+      (and (forward-strict-evidence-subset? $old-ev $new-ev)
+         (forward-proof-refines? $old-proof $new-proof))))
 
 ;; A larger evidence set for the same output supersedes the partial estimate
 ;; even when the new TV has lower confidence.  Disjoint candidates remain in
 ;; the frontier and are revised together.  Incomparable overlapping candidates
 ;; retain the existing conservative policy of keeping only the stronger one.
 (: forward-frontier-old-dominates-new?
-   (-> (Statement KBContext Proof TV) (List $evidence) (Statement KBContext Proof TV) (List $evidence) Bool))
+   (-> (Statement KBContext Proof TV) (List Evidence)
+       (Statement KBContext Proof TV) (List Evidence) Bool))
 (= (forward-frontier-old-dominates-new? $old-fact $old-ev $new-fact $new-ev)
-   (if (== (proof-atom-proof $old-fact) (proof-atom-proof $new-fact)) false
-      (if (projection-dominates?
-             (proof-atom-proof $old-fact) (proof-atom-proof $new-fact))
-         true
-         (if (projection-dominates?
-                (proof-atom-proof $new-fact) (proof-atom-proof $old-fact))
-            false
-            (if (forward-candidate-refines?
-                   $old-fact $old-ev $new-fact $new-ev) false
+   (let*
+      (($old-proof (proof-atom-proof $old-fact))
+       ($new-proof (proof-atom-proof $new-fact)))
+      (if (== $old-proof $new-proof) false
+         (if (projection-dominates? $old-proof $new-proof)
+            true
+            (if (projection-dominates? $new-proof $old-proof)
+               false
                (if (forward-candidate-refines?
-                      $new-fact $new-ev $old-fact $old-ev) true
-                  (if (evidence-sets-overlap? $old-ev $new-ev)
-                     (>= (term-confidence $old-fact) (term-confidence $new-fact))
-                     false)))))))
+                      $old-fact $old-ev $new-fact $new-ev) false
+                  (if (forward-candidate-refines?
+                         $new-fact $new-ev $old-fact $old-ev) true
+                     (if (evidence-sets-overlap? $old-ev $new-ev)
+                        (>= (term-confidence $old-fact)
+                            (term-confidence $new-fact))
+                        false))))))))
 
 (: forward-frontier-new-dominates-old?
-   (-> (Statement KBContext Proof TV) (List $evidence) (Statement KBContext Proof TV) (List $evidence) Bool))
+   (-> (Statement KBContext Proof TV) (List Evidence)
+       (Statement KBContext Proof TV) (List Evidence) Bool))
 (= (forward-frontier-new-dominates-old? $new-fact $new-ev $old-fact $old-ev)
-   (if (== (proof-atom-proof $old-fact) (proof-atom-proof $new-fact)) true
-      (if (projection-dominates?
-             (proof-atom-proof $new-fact) (proof-atom-proof $old-fact))
-         true
-         (if (projection-dominates?
-                (proof-atom-proof $old-fact) (proof-atom-proof $new-fact))
-            false
-            (if (forward-candidate-refines?
-                   $old-fact $old-ev $new-fact $new-ev) true
+   (let*
+      (($old-proof (proof-atom-proof $old-fact))
+       ($new-proof (proof-atom-proof $new-fact)))
+      (if (== $old-proof $new-proof) true
+         (if (projection-dominates? $new-proof $old-proof)
+            true
+            (if (projection-dominates? $old-proof $new-proof)
+               false
                (if (forward-candidate-refines?
-                      $new-fact $new-ev $old-fact $old-ev) false
-                  (if (evidence-sets-overlap? $old-ev $new-ev)
-                     (> (term-confidence $new-fact) (term-confidence $old-fact))
-                     false)))))))
+                      $old-fact $old-ev $new-fact $new-ev) true
+                  (if (forward-candidate-refines?
+                         $new-fact $new-ev $old-fact $old-ev) false
+                     (if (evidence-sets-overlap? $old-ev $new-ev)
+                        (> (term-confidence $new-fact)
+                           (term-confidence $old-fact))
+                        false))))))))
 
 (: forward-frontier-has-exact?
    (-> ForwardOutputKey
@@ -1504,7 +1535,9 @@
          (if (is-var $subj) ()
             (progn
                (once
-                  (add-atom &inheritance_subject ($kbid $subj)))
+                  (let $row
+                     (make-space-pair $kbid $subj)
+                     (add-space-atom! &inheritance_subject $row)))
                (record-inheritance-nodes!
                   (brand KB $kbid)
                   (brand Statement $subj)
@@ -1605,6 +1638,13 @@
          (forward-derived $result
             (rule-result-evidence $result $premise-ev)))))
 
+(: append-forward-derived
+   (-[det]-> (List ForwardDerived) (List ForwardDerived)
+       (List ForwardDerived)))
+(= (append-forward-derived () $right) $right)
+(= (append-forward-derived (cons $head $tail) $right)
+   (cons $head (append-forward-derived $tail $right)))
+
 (: forward-rule-results
    (-[det]-> Number KB (Statement KBContext Proof TV)
        (List ForwardDerived)))
@@ -1615,7 +1655,7 @@
         ($direct (forward-rule-results-for-key $steps $kb $fact $key)))
       (if (== $key $wildcard-key)
          $direct
-         (union-atom $direct
+         (append-forward-derived $direct
             (forward-rule-results-for-key
                $steps $kb $fact $wildcard-key)))))
 
@@ -1662,24 +1702,28 @@
 
 (: forward-loop (-> Number KB ForwardRun ForwardRun))
 (= (forward-loop $steps $kb (forward-run $agenda $changed))
-   (if (or (== (heap_size $agenda) 0) (<= $steps 0))
+   (if (<= $steps 0)
        (forward-run $agenda $changed)
-       (let $rest (get_from_heap $agenda $_priority $item)
-          (let (qitem $fact) (brand ForwardQueueItem $item)
+       (case (forward-pop-agenda $agenda) (
+          (no-forward-agenda-pop
+             (forward-run $agenda $changed))
+          ((forward-agenda-pop $rest (qitem $fact))
              (if (forward-queued-fact-current? $fact)
-               (let*
-                  (($next-steps (- $steps 1))
-                   ((forward-run $nagenda $nchanged)
-                      (forward-step-fact $steps $kb
-                         (forward-run $rest $changed) $fact)))
-                  (forward-loop $next-steps $kb
-                     (forward-run
-                        (bounded-agenda-prune $next-steps $nagenda)
-                        $nchanged)))
-               (forward-loop $steps $kb (forward-run $rest $changed)))))))
+                (let*
+                   (($next-steps (- $steps 1))
+                    ((forward-run $nagenda $nchanged)
+                       (forward-step-fact $steps $kb
+                          (forward-run $rest $changed) $fact)))
+                   (forward-loop $next-steps $kb
+                      (forward-run
+                         (bounded-agenda-prune $next-steps $nagenda)
+                         $nchanged)))
+                (forward-loop
+                   $steps $kb
+                   (forward-run $rest $changed))))))))
 
 (: forward-canonical-fact-for-key
-   (-> ForwardOutputKey (Statement KBContext Proof TV)))
+   (-[semidet]-> ForwardOutputKey (Statement KBContext Proof TV)))
 (= (forward-canonical-fact-for-key
       (forward-output-key $kb $type))
    (let $hash
@@ -1691,19 +1735,33 @@
                $hash $type $kb $fact $_ev)
             $fact))))
 
+(: forward-canonical-facts-for-keys
+   (-> (List ForwardOutputKey)
+       (List (Statement KBContext Proof TV))))
+(= (forward-canonical-facts-for-keys ()) ())
+(= (forward-canonical-facts-for-keys (cons $key $rest))
+   (let $rows
+      (collapse (once (forward-canonical-fact-for-key $key)))
+      (if (== $rows ())
+         (forward-canonical-facts-for-keys $rest)
+         (cons (car-atom $rows)
+            (forward-canonical-facts-for-keys $rest)))))
+
 (: forward-run-changed-facts
    (-> ForwardRun (List (Statement KBContext Proof TV))))
 (= (forward-run-changed-facts (forward-run $_agenda $changed))
-   (map-flat forward-canonical-fact-for-key (list_to_set $changed)))
+   (forward-canonical-facts-for-keys
+      (list_to_set $changed)))
 
 (: forward-chain
-   (-[det]-> Number KB (List (Statement KBContext Proof TV))
+   (-[nondet]-> Number KB (List (Statement KBContext Proof TV))
        (List (Statement KBContext Proof TV))))
 (= (forward-chain $steps $kb $facts)
-   (let*
-      (($agenda (forward-build-agenda-from-facts $facts))
-       ($run (forward-loop $steps $kb (forward-run $agenda ()))))
-      (forward-run-changed-facts $run)))
+   (let $agenda
+      (forward-build-agenda-from-facts $facts)
+      (let $run
+         (forward-loop $steps $kb (forward-run $agenda ()))
+         (forward-run-changed-facts $run))))
 
 (: forward-has-derived? (-> KB Statement Bool))
 (= (forward-has-derived? $kb $type)

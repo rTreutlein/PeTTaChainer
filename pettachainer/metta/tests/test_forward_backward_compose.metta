@@ -1,13 +1,15 @@
 !(import! &self ../petta_chainer)
 
 (: test-selected-facts
-   (-[det]-> KB Statement (List Expression)))
+   (-[det]-> KB Statement
+      (List (Statement KBContext Proof TV))))
 (= (test-selected-facts $kb $type)
    (collapse
       (once
          (match &kb
             ($type ($kb MAIN Nil) $prf $tv)
-            ($type ($kb MAIN Nil) $prf $tv)))))
+            (assemble-stored-runtime-fact
+               $type ($kb MAIN Nil) $prf $tv)))))
 
 !(compileadd bwdOnlyKb (: a0 (A) (STV 1.0 1.0)))
 

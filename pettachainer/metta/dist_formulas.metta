@@ -1,11 +1,3 @@
-(: TV Type)
-(: STV (-> Number Number TV))
-(: CTV (-> TV TV TV))
-(: no-evidence TV)
-
-(: Distribution Type)
-(: ParticleDist (-> Number Number Distribution))
-
 (: DistributionStats Type)
 (: Stats (-> Number Number Number DistributionStats))
 
@@ -19,7 +11,7 @@
 (: Pair (-> $input $output InputOutputPair))
 
 (: ParticleSample Type)
-(: particle (-> Number $value Number ParticleSample))
+(: particle (-> Number Atom Number ParticleSample))
 
 (: clamp01 (-> Number Number))
 (= (clamp01 $x) (max 0.0 (min 1.0 $x)))
@@ -32,8 +24,11 @@
 
 (: next-particle-id (-> Number))
 (= (next-particle-id)
-   (let $mn (catch (get-state particleid))
-      (let $n (if-error-number $mn 0)
+   (let $values (collapse (catch (get-state particleid)))
+      (let $n
+         (if (== $values ())
+            0
+            (if-error-number (car-atom $values) 0))
          (progn (change-state! particleid (+ $n 1)) $n))))
 
 (: particle-dist-id (-> Distribution Number))
@@ -42,8 +37,20 @@
 (: particle-dist-scale (-> Distribution Number))
 (= (particle-dist-scale $pd) (case $pd (((ParticleDist $_pid $scale) $scale))))
 
-(: particle-fetch-pairs (-> Number (List ($value Number))))
-(= (particle-fetch-pairs $pid) (collapse (match &particle_store (particle $pid $x $w) ($x $w))))
+;; Distribution intentionally erases its sample type. Values recovered from
+;; the shared particle store therefore cross back into typed code as Atom;
+;; claiming a fresh $value here would incorrectly promise that callers may
+;; choose the stored sample type.
+(: particle-value-weight (-> Atom Number (Atom Number)))
+(= (particle-value-weight $value $weight)
+   (quote ($value $weight)))
+
+(: particle-fetch-pairs (-> Number (List (Atom Number))))
+(= (particle-fetch-pairs $pid)
+   (collapse
+      (match &particle_store
+         (particle $pid $x $w)
+         (particle-value-weight $x $w))))
 
 (: particle-store-pairs (-> Number (List ($value Number)) (List $done)))
 (= (particle-store-pairs $pid ()) ())
@@ -61,7 +68,12 @@
       (Stats (+ $w $sum) (+ (* $w $w) $sumsq) (+ 1 $count))))
 
 (: ParticleStoreCount (-> Number))
-(= (ParticleStoreCount) (list-count (collapse (match &particle_store (particle $pid $x $w) ($pid $x $w)))))
+(= (ParticleStoreCount)
+   (list-count
+      (collapse
+         (match &particle_store
+            (particle $_pid $_x $_w)
+            true))))
 
 (: ParticleStoreClear (-> Bool))
 (= (ParticleStoreClear) (progn (remove-all-atoms &particle_store) (change-state! particleid 0)))
@@ -83,6 +95,23 @@
                   (particle-ids-in-term (cdr-atom $term)))
                ()))))))
 
+(: prune-particle-store-step
+   (-[det]-> (List Number) (List $none) ParticleSample
+       (List $none)))
+(= (prune-particle-store-step
+      $keep $acc (particle $pid $x $w))
+   (let $membership
+      (collapse (once (is-member $pid $keep)))
+      (progn
+         (if (== $membership (true))
+            ()
+            (remove-atom &particle_store (particle $pid $x $w)))
+         $acc)))
+
+(: max-particle-id (-[det]-> Number Number Number))
+(= (max-particle-id $acc $pid)
+   (max $acc $pid))
+
 (: ParticleStorePruneKB (-> Number))
 (= (ParticleStorePruneKB)
    (let*
@@ -102,12 +131,10 @@
                  (particle $pid $x $w))))
         ($_pruned
            (fold-flat
-              (|-> ($acc (particle $pid $x $w))
-                 (progn (if (is-member $pid $keep) () (remove-atom &particle_store (particle $pid $x $w)))
-                    $acc))
+              (prune-particle-store-step $keep)
               ()
               $atoms))
-        ($maxid (fold-flat (|-> ($acc $pid) (max $acc $pid)) -1 $keep))
+        ($maxid (fold-flat max-particle-id -1 $keep))
         ($_reset (change-state! particleid (+ $maxid 1))))
       (ParticleStoreCount)))
 
@@ -168,8 +195,12 @@
 
 (: ParticleGetBudget (-> Number))
 (= (ParticleGetBudget)
-   (let $mb (catch (get-state particle_budget))
-      (if-error-number $mb (particle-budget-default))))
+   (let $values (collapse (catch (get-state particle_budget)))
+      (if (== $values ())
+         (particle-budget-default)
+         (if-error-number
+            (car-atom $values)
+            (particle-budget-default)))))
 
 (: particle-budget (-> Number))
 (= (particle-budget) (ParticleGetBudget))
@@ -214,7 +245,7 @@
 (: ParticleFromNormal (-> Number Number Distribution))
 (= (ParticleFromNormal $mu $sigma) (ParticleFromPairs (affine-pairs (normal-kernel-9) $mu $sigma)))
 
-(: ParticlePairs (-> Distribution (List ($value Number))))
+(: ParticlePairs (-> Distribution (List (Atom Number))))
 (= (ParticlePairs $pd)
    (scale-dist-pairs (particle-fetch-pairs (particle-dist-id $pd)) (particle-dist-scale $pd)))
 
@@ -240,20 +271,51 @@
 (= (dist-add-bernoulli-pairs $pairs $p)
    (fold-flat (|-> ($acc $item) (dist-add-bernoulli-step $acc $p $item)) () $pairs))
 
-(: dist-prob-gt (-> (List (Number Number)) Number Number))
+(: dist-prob-gt (-> (List (Atom Number)) Number Number))
 (= (dist-prob-gt () $threshold) 0.0)
 (= (dist-prob-gt (cons ($x $p) $tail) $threshold)
-   (+ (if (> $x $threshold) $p 0.0) (dist-prob-gt $tail $threshold)))
+   (let $number (the Number $x)
+      (+ (if (> $number $threshold) $p 0.0)
+         (dist-prob-gt $tail $threshold))))
 
-(: dist-prob-gt2-inner (-> Number Number (List (Number Number)) Number Number))
+(: dist-prob-gt2-inner
+   (-> Number Number (List (Atom Number)) Number Number))
 (= (dist-prob-gt2-inner $xa $wa () $acc) $acc)
 (= (dist-prob-gt2-inner $xa $wa (cons ($xb $wb) $tail) $acc)
-   (let $nacc (+ $acc (if (> $xa $xb) (* $wa $wb) 0.0)) (dist-prob-gt2-inner $xa $wa $tail $nacc)))
+   (let*
+      (($nxb (the Number $xb))
+       ($nacc (+ $acc (if (> $xa $nxb) (* $wa $wb) 0.0))))
+      (dist-prob-gt2-inner $xa $wa $tail $nacc)))
 
-(: dist-prob-gt2 (-> (List (Number Number)) (List (Number Number)) Number))
+(: dist-prob-gt2
+   (-> (List (Atom Number)) (List (Atom Number)) Number))
 (= (dist-prob-gt2 () $pairsb) 0.0)
 (= (dist-prob-gt2 (cons ($xa $wa) $taila) $pairsb)
-   (+ (dist-prob-gt2-inner $xa $wa $pairsb 0.0) (dist-prob-gt2 $taila $pairsb)))
+   (let $nxa (the Number $xa)
+      (+ (dist-prob-gt2-inner $nxa $wa $pairsb 0.0)
+         (dist-prob-gt2 $taila $pairsb))))
+
+(: DistGreaterThanFormula (-[det]-> Distribution Number TV))
+(= (DistGreaterThanFormula (ParticleDist $pid $scale) $threshold)
+   (let $pairs (particle-fetch-pairs $pid)
+      (STV
+         (* $scale (dist-prob-gt $pairs $threshold))
+         (particle-confidence-from-pairs $pairs))))
+
+(: DistGreaterThanDistFormula (-[det]-> Distribution Distribution TV))
+(= (DistGreaterThanDistFormula $pda $pdb)
+   (let*
+      (($pida (particle-dist-id $pda))
+       ($pidb (particle-dist-id $pdb))
+       ($scalea (particle-dist-scale $pda))
+       ($scaleb (particle-dist-scale $pdb))
+       ($pairsa (particle-fetch-pairs $pida))
+       ($pairsb (particle-fetch-pairs $pidb))
+       ($ca (particle-confidence-from-pairs $pairsa))
+       ($cb (particle-confidence-from-pairs $pairsb)))
+      (STV
+         (* (* $scalea $scaleb) (dist-prob-gt2 $pairsa $pairsb))
+         (min $ca $cb))))
 
 (: particle-map-pairs (-> (-[det]-> $input $output) (List ($input Number)) (List ($output Number)) (List ($output Number))))
 (= (particle-map-pairs $fun () $acc) $acc)

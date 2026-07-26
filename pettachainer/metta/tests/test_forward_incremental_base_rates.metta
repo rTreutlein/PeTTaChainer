@@ -2,21 +2,26 @@
 
 ;; These tests intentionally request the full-KB special case by selecting all
 ;; current canonical facts. The forward chainer itself has no global-KB mode.
-(: test-main-facts (-[det]-> KB (List Expression)))
+(: test-main-facts
+   (-[det]-> KB
+      (List (Statement KBContext Proof TV))))
 (= (test-main-facts $kb)
    (collapse
       (match &kb
          ($type ($kb MAIN Nil) $prf $tv)
-         ($type ($kb MAIN Nil) $prf $tv))))
+         (assemble-stored-runtime-fact
+            $type ($kb MAIN Nil) $prf $tv))))
 
 (: test-selected-facts
-   (-[det]-> KB Statement (List Expression)))
+   (-[det]-> KB Statement
+      (List (Statement KBContext Proof TV))))
 (= (test-selected-facts $kb $type)
    (collapse
       (once
          (match &kb
             ($type ($kb MAIN Nil) $prf $tv)
-            ($type ($kb MAIN Nil) $prf $tv)))))
+            (assemble-stored-runtime-fact
+               $type ($kb MAIN Nil) $prf $tv)))))
 
 ;; A fact produced by the forward chainer is only a cached derivation.  When
 ;; backward chaining rediscovers the same rule path, both views must carry the

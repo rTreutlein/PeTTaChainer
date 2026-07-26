@@ -1,4 +1,4 @@
-(: tv-confidence (-> $truth-value Number))
+(: tv-confidence (-[det]-> $truth-value Number))
 (= (tv-confidence $tv)
    (if (is-var $tv) 1.0
       (case $tv
@@ -7,16 +7,19 @@
           ($_other 1.0)))))
 
 (: goal-has-type-vars?
-   (-> (| Goal
+   (-[det]-> (| Goal
           (Statement KBContext Proof TV))
        Bool))
 (= (goal-has-type-vars? $goal)
    (case $goal
       (((CPU $fun $args $res)
-          (not (== (extract-vars (CPU $fun $args $res)) ())))
+          (if
+             (== (extract-vars (CPU $fun $args $res)) ())
+             false true))
        (($type ($_kbid $_ctx $vars) $_prf $_tv)
-          (or (not (== (extract-vars $type) ()))
-              (not (== $vars Nil)))))))
+          (if (== (extract-vars $type) ())
+             (if (== $vars Nil) false true)
+             true)))))
 
 (: goal-key
    (-> (| Goal
@@ -57,7 +60,7 @@
 ;; preserved -- a formula clause that does not match (or yields empty) makes
 ;; this function fail exactly like the reduce-based call did.
 (: cpu-expected-tv
-   (-[nondet]-> $formula $arguments  (| TV (List $no-result))))
+   (-[nondet]-> $formula $arguments  (| TV (List Atom))))
 (= (cpu-expected-tv $fun ($a))
    (if (== $fun NotFormula)
       (if (is-var $a)
@@ -80,7 +83,9 @@
          (LikelierThanFormula
             (expected-tv $a) (expected-tv $b)))
        (()
-         (cons () ((expected-tv $a) (expected-tv $b))))
+         (cons ()
+            (cons (expected-tv $a)
+               (cons (expected-tv $b) ()))))
        ($_other ()))))
 
 (= (cpu-expected-tv $fun ($a $b $ctv))
@@ -101,12 +106,12 @@
       ()))
 
 (: first-cpu-expected-tv
-   (-> $formula $arguments (| TV (List $no-result))))
+   (-[det]-> $formula $arguments (| TV (List Atom))))
 (= (first-cpu-expected-tv $fun $args)
    (let $res (let $hits (collapse (cpu-expected-tv $fun $args)) (if (== $hits ()) () (car-atom $hits)))
       $res))
 
-(: cpu-expected-confidence (-> $formula $arguments Number))
+(: cpu-expected-confidence (-[det]-> $formula $arguments Number))
 (= (cpu-expected-confidence $fun $args)
    (let $res (first-cpu-expected-tv $fun $args)
       (if (== $res ()) 1.0 (tv-confidence $res))))
@@ -145,7 +150,7 @@
              (premises-expected-confidence $rest))))))
 
 (: term-confidence
-   (-> (| Goal
+   (-[det]-> (| Goal
           (Statement KBContext Proof TV))
        Number))
 (= (term-confidence $proof-term)
@@ -157,10 +162,17 @@
                 (cpu-result-confidence $res))
              (if (== $fun AndMarginalProjection) (* 0.99 $base) $base)))
        (($_type ($_kbid $_ctx $_vars) $prf $tv)
-          (proof-score
-             (brand Proof $prf) $tv)))))
+          ;; Historically the marginal-projection arm of proof-score matched
+          ;; an unbound proof token first, applying this optimism discount but
+          ;; also binding the caller's variable. Preserve the search heuristic
+          ;; explicitly without mutating an open goal.
+          (if (is-var $prf)
+             (* 0.99 (tv-confidence $tv))
+             (proof-score
+                (brand Proof $prf) $tv)))
+       ($_other 0.0))))
 
-(: cpu-result-confidence (-> $result Number))
+(: cpu-result-confidence (-[det]-> $result Number))
 (= (cpu-result-confidence $result)
    (case $result (
       ((STV $_strength $_confidence)
@@ -222,31 +234,65 @@
 (= (set-bounded-agenda-pruning $enabled) (change-state! bounded_agenda_pruning $enabled))
 (: bounded-agenda-pruning? (-> Bool))
 (= (bounded-agenda-pruning?)
-   (let $enabled (catch (get-state bounded_agenda_pruning))
-      (if-error-bool $enabled true)))
+   (let $state-values
+      (collapse
+         (catch
+            (get-state bounded_agenda_pruning)))
+      (if (== $state-values ())
+         true
+         (if-error-bool
+            (car-atom $state-values) true))))
 
 (: heap-take-best (-> Number $heap $heap $heap))
 (= (heap-take-best $count $src $dst)
-   (if (or (<= $count 0) (== (heap_size $src) 0)) $dst
-      (let*
-         (($rest (get_from_heap $src $key $item))
-          ($next (add_to_heap $dst $key $item)))
-         (heap-take-best (- $count 1) $rest $next))))
+   (if (<= $count 0)
+      $dst
+      (let $pops
+         (collapse
+            (let $rest
+               (get_from_heap $src $key $item)
+               (quote ($rest $key $item))))
+         (if (== $pops ())
+            $dst
+            (let ($rest $key $item)
+               (car-atom $pops)
+               (let $next-values
+                  (collapse
+                     (add_to_heap
+                        $dst (the Number $key) $item))
+                  (if (== $next-values ())
+                     $dst
+                     (heap-take-best
+                        (- $count 1)
+                        $rest
+                        (car-atom $next-values)))))))))
 
 (: heap-prune-to-size (-> Number $heap $heap))
 (= (heap-prune-to-size $target $agenda)
-   (heap-take-best $target $agenda (empty_heap)))
+   (let $empty-values (collapse (empty_heap))
+      (if (== $empty-values ())
+         $agenda
+         (heap-take-best
+            $target $agenda
+            (car-atom $empty-values)))))
 
 (: bounded-agenda-prune (-> Number $heap $heap))
 (= (bounded-agenda-prune $steps $agenda)
-   (if (not (bounded-agenda-pruning?)) $agenda
+   (if (bounded-agenda-pruning?)
       (let*
          (($target (bounded-agenda-target-size $steps))
-          ($size (heap_size $agenda))
+          ($size-values
+             (collapse (heap_size $agenda)))
+          ($size
+             (if (== $size-values ())
+                0
+                (the Number
+                   (car-atom $size-values))))
           ($threshold (* $target (bounded-agenda-prune-factor))))
          (if (> $size $threshold)
             (heap-prune-to-size $target $agenda)
-            $agenda))))
+            $agenda))
+      $agenda))
 
 (: RevisionMergeProof
    (-> (Statement KBContext Proof TV)
@@ -258,6 +304,76 @@
        (Statement KBContext Proof TV)))
 (= (assemble-runtime-fact $type $kb $proof $tv)
    (quote ($type $kb $proof $tv)))
+
+(: assemble-contextual-runtime-fact
+   (-> Statement KB Atom Atom Proof TV
+       (Statement KBContext Proof TV)))
+(= (assemble-contextual-runtime-fact
+      $type $kbid $context $variables $proof $tv)
+   (quote
+      ($type ($kbid $context $variables) $proof $tv)))
+
+;; Dynamic spaces erase nominal roles. Reconstruct a fact at that boundary and
+;; validate only the truth-value payload whose numeric fields affect inference.
+(: assemble-stored-runtime-fact
+   (-> Atom Atom Atom Atom
+       (Statement KBContext Proof TV)))
+(= (assemble-stored-runtime-fact $type $kb $proof $tv)
+   (quote ($type $kb $proof $tv)))
+
+;; Scalar ids recovered from erased spaces are checked individually at their
+;; lookup boundary, avoiding a traversal of the collected list.
+(: stored-number (-> Atom Number))
+(= (stored-number $value)
+   (the Number $value))
+
+(: first-number (-[semidet]-> (List Number) Number))
+(= (first-number (cons $first $_rest)) $first)
+
+;; Evidence rows are written only by typed constructors, but spaces erase that
+;; element role. Rebuild the list while restoring the erased Evidence brands;
+;; the reflective fallback is reached only for a malformed non-list row.
+(: stored-evidence-list (-> Atom (List Evidence)))
+(= (stored-evidence-list $values)
+   (case $values (
+      (() ())
+      ((cons $entry $rest)
+         (cons (brand Evidence $entry)
+            (stored-evidence-list $rest)))
+      ($_malformed
+         (the (List Evidence) $values)))))
+
+(: first-evidence-list
+   (-[semidet]-> (List (List Evidence)) (List Evidence)))
+(= (first-evidence-list (cons $first $_rest)) $first)
+
+;; Shared by backward proof construction and forward candidate handling, so it
+;; lives before either chainer module is loaded.
+(: forward-fact-evidence
+   (-> Statement KBContext Proof TV (List Evidence)))
+(= (forward-fact-evidence $type $kb $prf $tv)
+   (let*
+      (($fact (quote ($type $kb $prf $tv)))
+       ($hash (term_hash (quote ($kb $type))))
+       ($hits
+          (collapse
+             (once
+                (match &forward_canonical_evidence
+                   (forward-canonical-evidence-row
+                      $hash $type $kb $fact $ev)
+                   (stored-evidence-list $ev))))))
+      (if (== $hits ())
+         (let $frontier-hits
+            (collapse
+               (once
+                  (match &forward_frontier
+                     (forward-frontier-row
+                        $hash $type $kb $fact $ev)
+                     (stored-evidence-list $ev))))
+            (if (== $frontier-hits ())
+               (cons (fact-ev $kb $prf $type) ())
+               (first-evidence-list $frontier-hits)))
+         (first-evidence-list $hits))))
 
 (= (RevisionMergeProof ($type1 $kb $prf1 $tv1) ($_type2 $_kb2 $prf2 $tv2))
    (let $merged-tv
@@ -274,7 +390,7 @@
          $merged-tv)))
 
 (: proof-atom-proof
-   (-> (Statement KBContext Proof TV) Proof))
+   (-[det]-> (Statement KBContext Proof TV) Proof))
 (= (proof-atom-proof ($_type $_kb $prf $_tv)) $prf)
 
 (: foreach-flat
@@ -293,6 +409,20 @@
       ($f $x)
       (foreach-flat-semidet $f $xs)))
 
+(: map-flat-nondet
+   (-[nondet]-> (-[nondet]-> $input $output) (List $input)
+       (List $output)))
+(= (map-flat-nondet $_f ()) ())
+(= (map-flat-nondet $f (cons $x $xs))
+   (cons ($f $x) (map-flat-nondet $f $xs)))
+
+(: foreach-flat-nondet
+   (-[nondet]-> (-[nondet]-> $input $effect) (List $input)
+       (List $none)))
+(= (foreach-flat-nondet $_f ()) ())
+(= (foreach-flat-nondet $f (cons $x $xs))
+   (progn ($f $x) (foreach-flat-nondet $f $xs)))
+
 (: chainer-acyclic-term? (-> $term Bool))
 (= (chainer-acyclic-term? $term)
    (== (collapse
@@ -300,17 +430,41 @@
        ()))
 
 (: chainer-add-atom
-   (-[nondet]-> $space $expression  (| Bool (List $no-result))))
+   (-[semidet]-> $space $expression  (| Bool (List $no-result))))
 (= (chainer-add-atom $space $expr)
    (if (chainer-acyclic-term? $expr)
       (add-atom $space $expr)
       (empty)))
 
-(: next-search-id (-> $counter-key Number))
+;; Build erased, raw atom-space rows without letting a variable first field be
+;; interpreted as a function head.  The nominal result also proves to
+;; add-atom that the row is bound and nonempty.
+(: make-space-pair (-[det]-> $left $right SpaceAtom))
+(= (make-space-pair $left $right)
+   (brand SpaceAtom
+      (cons $left (cons $right ()))))
+
+(: make-space-row4
+   (-[det]-> $first $second $third $fourth SpaceAtom))
+(= (make-space-row4 $first $second $third $fourth)
+   (brand SpaceAtom
+      (cons $first
+         (cons $second
+            (cons $third
+               (cons $fourth ()))))))
+
+(: add-space-atom! (-[det]-> $space SpaceAtom Bool))
+(= (add-space-atom! $space $row)
+   (add-atom $space $row))
+
+(: next-search-id (-[det]-> CounterKey Number))
 (= (next-search-id $key)
    (let*
-      (($mn (catch (get-state $key)))
-        ($n (if-error-number $mn 0)))
+      (($state-values (collapse (catch (get-state $key))))
+       ($n
+          (if (== $state-values ())
+             0
+             (if-error-number (car-atom $state-values) 0))))
       (progn (change-state! $key (+ $n 1)) $n)))
 
 (: next-gid (-> Number))
@@ -332,25 +486,49 @@
             $score $ev $_children)
          (quote ($score $ev)))))
 
-(: proof-term-leaf-head? (-> $head Bool))
+(: proof-term-leaf-head? (-[det]-> $head Bool))
 (= (proof-term-leaf-head? $head) (is-member $head (() fact-ev CPU STV CTV)))
 
+;; cdr-atom exposes the erased proof representation as an untyped list. This
+;; is the boundary that restores the semantic Proof brand to each raw child.
+(: proof-children (-> Atom (List Proof)))
+(= (proof-children $children)
+   (case $children (
+      (() ())
+      ((cons $child $rest)
+         (cons
+            (brand Proof $child)
+            (proof-children $rest)))
+      ($_other ()))))
+
 (: proof-term-children-mode
-   (-> $mode Proof (List Proof)))
+   (-[det]-> $mode Proof (List Proof)))
 (= (proof-term-children-mode $mode $prf)
    (if (is-expr $prf)
       (let $head (car-atom $prf)
-         (if (== $head conjunction) (cdr-atom $prf)
-            (if (== $mode proof-walk-in-kb)
-               (if (proof-term-leaf-head? $head) () (cdr-atom $prf))
-               ())))
+         (let $children
+            (if (== $head conjunction) (cdr-atom $prf)
+               (if (== $mode proof-walk-in-kb)
+                  (if (proof-term-leaf-head? $head)
+                     ()
+                     (cdr-atom $prf))
+                  ()))
+            (proof-children $children)))
       ()))
+
+(: append-evidence
+   (-[det]-> (List Evidence) (List Evidence) (List Evidence)))
+(= (append-evidence $left $right)
+   (case $left (
+      (() $right)
+      ((cons $head $tail)
+         (cons $head (append-evidence $tail $right))))))
 
 (: proof-term-evidence-children-mode
    (-[semidet]-> $mode (List Proof) (List Evidence)))
 (= (proof-term-evidence-children-mode $mode ()) ())
 (= (proof-term-evidence-children-mode $mode (cons $child $rest))
-   (append
+   (append-evidence
       (proof-term-evidence-list-mode $mode $child)
       (proof-term-evidence-children-mode $mode $rest)))
 
@@ -367,12 +545,18 @@
 (= (evidence-negate-list (cons $ev $rest))
    (cons (evidence-negate $ev) (evidence-negate-list $rest)))
 
-(: proof-term-negated? (-> Proof Bool))
+(: proof-term-negated? (-[det]-> Proof Bool))
 (= (proof-term-negated? $prf)
    (if (is-expr $prf) (== (car-atom $prf) negated) false))
 
+(: proof-from-atom (-> Atom Proof))
+(= (proof-from-atom $proof) (brand Proof $proof))
+
+(: kb-from-atom (-[det]-> Atom KB))
+(= (kb-from-atom $kb) (brand KB $kb))
+
 (: proof-term-evidence-list-mode
-   (-[semidet]-> $mode Proof (List Evidence)))
+   (-[semidet]-> $mode Atom (List Evidence)))
 (= (proof-term-evidence-list-mode $mode $prf)
    (case $prf (
       ((@ $_ref (proof-ref $pid))
@@ -383,21 +567,23 @@
          (let*
             (($left-proof (brand Proof $left))
              ($right-proof (brand Proof $right)))
-            (append
+            (append-evidence
                (proof-term-evidence-list-mode $mode $left-proof)
                (proof-term-evidence-list-mode $mode $right-proof))))
       ($_other
-         (if (is-var $prf) ()
-            (if (assumption-proof? $prf) ()
-               (if (proof-term-negated? $prf)
+         (let $proof (proof-from-atom $prf)
+            (if (is-var $prf) ()
+            (if (assumption-proof? $proof) ()
+               (if (proof-term-negated? $proof)
                   (let $inner-proof
-                     (brand Proof (car-atom (cdr-atom $prf)))
+                     (brand Proof (car-atom (cdr-atom $proof)))
                      (evidence-negate-list
                         (proof-term-evidence-list-mode
                            $mode $inner-proof)))
-                  (let $children (proof-term-children-mode $mode $prf)
-                     (if (== $children ()) (cons $prf ())
-                        (proof-term-evidence-children-mode $mode $children))))))))))
+                  (let $children (proof-term-children-mode $mode $proof)
+                     (if (== $children ())
+                        (cons (brand Evidence $prf) ())
+                        (proof-term-evidence-children-mode $mode $children)))))))))))
 
 (: proof-atom-evidence-set
    (-[semidet]-> (Statement KBContext Proof TV)
@@ -409,42 +595,68 @@
             proof-walk-in-kb (brand Proof $prf)))))
 
 (: evidence-intersection
-   (-> (List Evidence) (List Evidence) (List Evidence)))
+   (-[det]-> (List Evidence) (List Evidence) (List Evidence)))
 (= (evidence-intersection $set-a $set-b)
    (fold-flat
       (evidence-intersection-step $set-b)
       () $set-a))
 
+(: evidence-member?
+   (-[det]-> Evidence (List Evidence) Bool))
+(= (evidence-member? $entry $entries)
+   (case $entries (
+      (() false)
+      ((cons $head $tail)
+         (if (== $entry $head)
+            true
+            (evidence-member? $entry $tail))))))
+
+(: evidence-subtraction
+   (-[det]-> (List Evidence) (List Evidence) (List Evidence)))
+(= (evidence-subtraction () $_removed) ())
+(= (evidence-subtraction (cons $entry $rest) $removed)
+   (if (evidence-member? $entry $removed)
+      (evidence-subtraction $rest $removed)
+      (cons $entry
+         (evidence-subtraction $rest $removed))))
+
 (: evidence-intersection-step
-   (-> (List Evidence) (List Evidence) Evidence (List Evidence)))
+   (-[det]-> (List Evidence) (List Evidence) Evidence (List Evidence)))
 (= (evidence-intersection-step $set-b $acc $entry)
-   (if (is-member $entry $set-b)
+   (if (evidence-member? $entry $set-b)
       (cons $entry $acc)
       $acc))
 
 (: evidence-sets-overlap?
-   (-> (List Evidence) (List Evidence) Bool))
+   (-[det]-> (List Evidence) (List Evidence) Bool))
 (= (evidence-sets-overlap? $set-a $set-b)
-   (not (== (evidence-intersection $set-a $set-b) ())))
+   (if (== (evidence-intersection $set-a $set-b) ())
+      false
+      true))
 
 (: fact-evidence-only-step
-   (-> (List Evidence) Evidence (List Evidence)))
+   (-[det]-> (List Evidence) Evidence (List Evidence)))
 (= (fact-evidence-only-step $acc $entry)
    (if (= $entry (rule-ev $_kb $_name))
       $acc
-      (append $acc (cons $entry ()))))
+      (append-evidence $acc (cons $entry ()))))
 
 (: fact-evidence-only
-   (-> (List Evidence) (List Evidence)))
-(= (fact-evidence-only $ev) (fold-flat fact-evidence-only-step () $ev))
+   (-[det]-> (List Evidence) (List Evidence)))
+(= (fact-evidence-only ()) ())
+(= (fact-evidence-only (cons $entry $rest))
+   (if (= $entry (rule-ev $_kb $_name))
+      (fact-evidence-only $rest)
+      (cons $entry (fact-evidence-only $rest))))
 
 ;; The non-fact part of an evidence set (rule applications and hypotheses).
 ;; Two proofs are genuinely *dependent* only when these overlap: sharing a fact
 ;; is poolable (lifting-merge factors the shared fact out), whereas sharing a
 ;; rule or hypothesis means pooling would double-count its uncertainty.
 (: non-fact-evidence
-   (-> (List Evidence) (List Evidence)))
-(= (non-fact-evidence $ev) (subtraction-atom $ev (fact-evidence-only $ev)))
+   (-[det]-> (List Evidence) (List Evidence)))
+(= (non-fact-evidence $ev)
+   (evidence-subtraction $ev (fact-evidence-only $ev)))
 (: evidence-sets-dependent?
    (-> (List Evidence) (List Evidence) Bool))
 (= (evidence-sets-dependent? $set-a $set-b)
@@ -456,30 +668,39 @@
    (evidence-sets-overlap? (fact-evidence-only $seen) (fact-evidence-only $pev)))
 
 (: evidence-subset?
-   (-> (List Evidence) (List Evidence) Bool))
-(= (evidence-subset? $set-a $set-b) (== (subtraction-atom $set-a $set-b) ()))
+   (-[det]-> (List Evidence) (List Evidence) Bool))
+(= (evidence-subset? $set-a $set-b)
+   (== (evidence-subtraction $set-a $set-b) ()))
 
-(: proof-term-contains-negated-list? (-> (List Proof) Bool))
+(: proof-term-contains-negated-list? (-[det]-> (List Proof) Bool))
 (= (proof-term-contains-negated-list? ()) false)
 (= (proof-term-contains-negated-list? (cons $child $rest))
-   (or (proof-term-contains-negated? $child) (proof-term-contains-negated-list? $rest)))
+   (if (proof-term-contains-negated? $child)
+      true
+      (proof-term-contains-negated-list? $rest)))
 
-(: proof-term-contains-negated? (-> Proof Bool))
+(: proof-term-contains-negated? (-[det]-> Proof Bool))
 (= (proof-term-contains-negated? $prf)
    (if (is-var $prf) false
       (if (proof-term-negated? $prf) true
-         (if (is-expr $prf) (proof-term-contains-negated-list? (cdr-atom $prf)) false))))
+         (if (is-expr $prf)
+            (proof-term-contains-negated-list?
+               (proof-children (cdr-atom $prf)))
+            false))))
 
 (: rule-evidence-head (-> Proof Proof))
 (= (rule-evidence-head $prf)
    (if (is-expr $prf)
       (let $head (car-atom $prf)
-         (if (is-expr $head)
-            (if (= $head (inverted $inv with $_pa $_pb)) $inv
-               (if (= $head (bi-forward $fwd)) $fwd
-                  (if (= $head (bi-backward $bwd)) $bwd
-                     (if (= $head (no_inverse $inner)) $inner $head))))
-            $head))
+         (proof-from-atom
+            (if (is-expr $head)
+               (if (= $head (inverted $inv with $_pa $_pb)) $inv
+                  (if (= $head (bi-forward $fwd)) $fwd
+                     (if (= $head (bi-backward $bwd)) $bwd
+                        (if (= $head (no_inverse $inner))
+                           $inner
+                           $head))))
+               $head)))
       $prf))
 
 (: rule-application-evidence
@@ -511,40 +732,47 @@
              (list_to_set (once (proof-term-evidence-list-mode proof-walk-in-kb $prf)))
              $ev))
        ($rule-ev (rule-application-evidence $kb $prf)))
-      (if (== $rule-ev ()) $base (list_to_set (append $base $rule-ev)))))
+      (if (== $rule-ev ())
+         $base
+         (list_to_set (append-evidence $base $rule-ev)))))
 
 (: projection-proof-key
-   (-> Proof (| (projection-key $index $base) NoProjectionKey)))
+   (-[det]-> Proof (| ProjectionKey NoProjectionKey)))
 (= (projection-proof-key $prf)
    (case $prf (
       ((marginal-proj $idx $base) (projection-key $idx $base))
       (((proj $idx $base) $_evidence) (projection-key $idx $base))
       ($_ no-projection-key))))
 
-(: strict-projection-proof? (-> Proof Bool))
+(: strict-projection-proof? (-[det]-> Proof Bool))
 (= (strict-projection-proof? $prf)
    (case $prf (
       (((proj $_idx $_base) $_evidence) true)
       ($_ false))))
 
-(: projection-dominates? (-> Proof Proof Bool))
+(: projection-dominates? (-[det]-> Proof Proof Bool))
 (= (projection-dominates? $prf-a $prf-b)
-   (let $key-a (projection-proof-key $prf-a)
-      (and (not (== $key-a no-projection-key))
-         (and (== $key-a (projection-proof-key $prf-b))
-            (and (strict-projection-proof? $prf-a)
-               (not (strict-projection-proof? $prf-b)))))))
+   (let*
+      (($key-a (projection-proof-key $prf-a))
+       ($key-b (projection-proof-key $prf-b)))
+      (if (== $key-a no-projection-key)
+         false
+         (if (== $key-a $key-b)
+            (if (strict-projection-proof? $prf-a)
+               (if (strict-projection-proof? $prf-b) false true)
+               false)
+            false))))
 
 (: merge-proof-candidates
-   (-> ((Statement KBContext Proof TV) (List Evidence))
+   (-[det]-> ((Statement KBContext Proof TV) (List Evidence))
        ((Statement KBContext Proof TV) (List Evidence))
        ((Statement KBContext Proof TV) (List Evidence))))
 (= (merge-proof-candidates ($proof-a $ev-a) ($proof-b $ev-b))
    (if (== $proof-a $proof-b)
-      ($proof-a (list_to_set (append $ev-a $ev-b)))
+      ($proof-a (list_to_set (append-evidence $ev-a $ev-b)))
       (let*
          (($overlap? (evidence-sets-overlap? $ev-a $ev-b))
-          ($all-ev (list_to_set (append $ev-a $ev-b)))
+          ($all-ev (list_to_set (append-evidence $ev-a $ev-b)))
           ($proof-token-a (proof-atom-proof $proof-a))
           ($proof-token-b (proof-atom-proof $proof-b)))
          (if (projection-dominates? $proof-token-a $proof-token-b)
@@ -562,7 +790,7 @@
                      ((RevisionMergeProof $proof-b $proof-a) $all-ev))))))))
 
 (: proof-candidate-pair
-   (-> (Statement KBContext Proof TV) (List Evidence)
+   (-[det]-> (Statement KBContext Proof TV) (List Evidence)
        ((Statement KBContext Proof TV) (List Evidence))))
 (= (proof-candidate-pair $proof $evidence)
    (quote ($proof $evidence)))
@@ -634,7 +862,7 @@
             (car-atom $entries)
             (cons $tv ())))))
 
-(: base-rate-user-set? (-> KB Statement Bool))
+(: base-rate-user-set? (-[det]-> KB Statement Bool))
 (= (base-rate-user-set? $kbid $pattern)
    (let $entries (base-rate-cache-entries $kbid $pattern)
       (if (== $entries ()) false
@@ -673,16 +901,17 @@
          ())))
 
 (: store-forward-base-rate!
-   (-> KB Statement TV $mode (List $none)))
+   (-[det]-> KB Statement TV $mode (List $none)))
 (= (store-forward-base-rate! $kbid $pattern $tv $mode)
-   (if (or (== $tv no-evidence) (base-rate-user-set? $kbid $pattern)) ()
-      (let*
-         (($stored (copy_term $pattern))
-          ($_old (base-rate-cache-remove-derived! $kbid $pattern $mode))
-          ($_new
-             (add-atom &base_rate_cache
-                (base-rate $kbid $stored $tv forward-approx $mode))))
-         ())))
+   (if (== $tv no-evidence) ()
+      (if (base-rate-user-set? $kbid $pattern) ()
+         (let*
+            (($stored (copy_term $pattern))
+             ($_old (base-rate-cache-remove-derived! $kbid $pattern $mode))
+             ($_new
+                (add-atom &base_rate_cache
+                   (base-rate $kbid $stored $tv forward-approx $mode))))
+            ()))))
 
 (: invalidate-computed-base-rates! (-> KB (List $none)))
 (= (invalidate-computed-base-rates! $kbid)
@@ -731,11 +960,19 @@
       (if (== $entries ()) no-universe-size
          (let (universe-size $_kbid $n) (car-atom $entries) $n))))
 
+;; Values recovered from the erased inheritance index are statements by the
+;; index's construction invariant. Keep that boundary local so collapse can
+;; retain the nominal element type without validating the whole result list.
+(: statement-from-atom (-[det]-> Atom Statement))
+(= (statement-from-atom $atom)
+   (brand Statement $atom))
+
 (: inheritance-subjects (-[det]-> KB (List Statement)))
 (= (inheritance-subjects $kbid)
    (list_to_set
       (collapse
-         (match &inheritance_subject ($kbid $subj) $subj))))
+         (match &inheritance_subject ($kbid $subj)
+            (statement-from-atom $subj)))))
 
 ;; Concept metadata and aggregate finalizers are shared by both forward and
 ;; backward execution, so they must be available before forward_chainer loads.
@@ -743,7 +980,9 @@
 (= (record-concept-node! $kbid $node)
    (if (is-var $node) ()
       (once
-         (add-atom &concept_node ($kbid $node)))))
+         (let $row
+            (make-space-pair $kbid $node)
+            (add-space-atom! &concept_node $row)))))
 
 (: record-inheritance-nodes!
    (-> KB Statement Statement (| Bool (List $none))))
@@ -807,7 +1046,8 @@
 (= (concept-nodes $kbid)
    (list_to_set
       (collapse
-         (match &concept_node ($kbid $node) $node))))
+         (match &concept_node ($kbid $node)
+            (statement-from-atom $node)))))
 
 (: concept-node-prior-tv (-> KB Statement TV))
 (= (concept-node-prior-tv $kbid $node)

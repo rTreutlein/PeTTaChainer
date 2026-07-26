@@ -9,10 +9,11 @@ fail_files=()
 run_petta() {
   local args=("$@")
 
+  if [[ ${PETTA_STRICT:-0} == 1 ]]; then
+    args+=(--strict)
+  fi
   if [[ ${PETTA_STRICT_DET:-0} == 1 ]]; then
     args+=(--strict-det)
-  elif [[ ${PETTA_STRICT:-0} == 1 ]]; then
-    args+=(--strict)
   fi
 
   if [[ -n ${PETTA_DIR:-} ]]; then

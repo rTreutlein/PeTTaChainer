@@ -10,7 +10,8 @@
       (once
          (match &kb
             ($type ($kb MAIN Nil) $prf $tv)
-            ($type ($kb MAIN Nil) $prf $tv)))))
+            (assemble-stored-runtime-fact
+               $type ($kb MAIN Nil) $prf $tv)))))
 
 !(compileadd fwdkb (: edgeAB (Edge A B) (STV 1.0 1.0)))
 
@@ -41,7 +42,7 @@
            (collapse
               (match &kb
                  ((Path A C) (fwdkb MAIN Nil) $prf $_tv)
-                 $prf))))
+                 (brand Proof $prf)))))
       (list-count $proofs))
    1)
 
@@ -57,7 +58,7 @@
            (collapse
               (match &kb
                  ((Loop Start) (loopkb MAIN Nil) $prf $_tv)
-                 $prf))))
+                 (brand Proof $prf)))))
       (list-count $proofs))
    1)
 
@@ -117,7 +118,7 @@
            (collapse
               (match &kb
                  ((SwitchGoal) (mergekb MAIN Nil) $prf $_tv)
-                 $prf))))
+                 (brand Proof $prf)))))
       (list-count $proofs))
    1)
 
@@ -154,7 +155,14 @@
 
 !(test
    (let*
-      (($facts (collapse (match &kb ((LowPriority) (factseedkb MAIN Nil) $prf $tv) ((LowPriority) (factseedkb MAIN Nil) $prf $tv))))
+      (($facts
+          (collapse
+             (match &kb
+                ((LowPriority) (factseedkb MAIN Nil) $prf $tv)
+                (assemble-stored-runtime-fact
+                   (LowPriority)
+                   (factseedkb MAIN Nil)
+                   $prf $tv))))
         ($_ (forward-chain 1 factseedkb $facts)))
       (forward-has-derived? factseedkb (FactSeedGoal)))
    true)

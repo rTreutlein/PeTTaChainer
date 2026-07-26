@@ -1,5 +1,6 @@
 !(import! &self (library lib_roman))
 !(import! &self (library lib_spaces))
+!(import! &self chainer_types)
 !(import! &self logic_config)
 
 !(import! &self dist_formulas)
@@ -13,6 +14,11 @@
 !(assertzPredicate (Predicate (arity add_to_heap 4)))
 !(assertzPredicate (Predicate (arity get_from_heap 4)))
 !(assertzPredicate (Predicate (arity heap_size 2)))
+
+;; Shared SWI heap primitives must be declared before the forward and backward
+;; runtime modules are compiled.
+(: empty_heap (-[det]-> $heap))
+(: add_to_heap (-[det]-> $heap Number $item $heap))
 
 !(import! &self chainer_utils)
 !(import! &self forward_chainer)
@@ -35,7 +41,10 @@
 (= (record-compiled-inheritance-subject! $expr)
    (case $expr (
       ((: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $_concept) $_tv)
-         (if (is-var $subj) () (add-atom &inheritance_subject ($kbid $subj))))
+         (if (is-var $subj) ()
+            (let $row
+               (make-space-pair $kbid $subj)
+               (add-space-atom! &inheritance_subject $row))))
       ($_other ()))))
 
 (: record-compiled-inheritance-concepts!
@@ -53,20 +62,6 @@
             (brand Statement $class)))
       ($_other ()))))
 
-(: map-flat-nondet
-   (-[nondet]-> (-[nondet]-> $input  $output) (List $input)
-       (List $output)))
-(= (map-flat-nondet $_f ()) ())
-(= (map-flat-nondet $f (cons $x $xs))
-   (cons ($f $x) (map-flat-nondet $f $xs)))
-
-(: foreach-flat-nondet
-   (-[nondet]-> (-[nondet]-> $input  $effect) (List $input)
-       (List $none)))
-(= (foreach-flat-nondet $_f ()) ())
-(= (foreach-flat-nondet $f (cons $x $xs))
-   (progn ($f $x) (foreach-flat-nondet $f $xs)))
-
 (: materialize-stmt-lambdas (-[nondet]-> $term  $term))
 (= (materialize-stmt-lambdas $term)
    (if (is-var $term) $term
@@ -77,13 +72,13 @@
          $term)))
 
 (: internalize-runtime-addition
-   (-> RuntimeAddition RuntimeAddition))
+   (-[det]-> RuntimeAddition RuntimeAddition))
 (= (internalize-runtime-addition $addition)
    (brand RuntimeAddition
       (internalize-proof-structure-any $addition)))
 
 (: externalize-compiled-addition
-   (-> RuntimeAddition CompiledAddition))
+   (-[nondet]-> RuntimeAddition CompiledAddition))
 (= (externalize-compiled-addition $addition)
    (brand CompiledAddition
       (externalize-proof-structure $addition)))
@@ -93,12 +88,15 @@
 (= (compileadd $kb $stmt)
    (let*
       (($stmt1 (materialize-stmt-lambdas $stmt))
-        ($atoms (collapse (mm2compile $kb $stmt1)))
+        ($raw-atoms (collapse (mm2compile $kb $stmt1)))
+        ($atoms
+           (the (List RuntimeAddition)
+              $raw-atoms))
         ($iatoms
            (list_to_set
               (map-flat internalize-runtime-addition $atoms)))
         ($eatoms
-           (map-flat externalize-compiled-addition $iatoms))
+           (map-flat-nondet externalize-compiled-addition $iatoms))
         ($_subjects
            (collapse
               (foreach-flat-nondet
@@ -110,3 +108,9 @@
         ($_ (collapse (foreach-flat-nondet add-to-kb $iatoms))))
       (superpose
          $eatoms)))
+
+;; Re-export the public query signatures from the facade module.
+(: query
+   (-[nondet]-> Number KB AnnotatedStatement AnnotatedStatement))
+(: query-materialize
+   (-[nondet]-> Number KB AnnotatedStatement AnnotatedStatement))

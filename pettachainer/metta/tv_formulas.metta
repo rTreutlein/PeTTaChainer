@@ -126,24 +126,6 @@
       (STV 0.0 0.0)
       (STV (min 1.0 (max 0.0 (/ (- $sab $sa) (- 1.0 $sa)))) (min $cab $ca))))
 
-(: DistGreaterThanFormula (-[det]-> Distribution Number TV))
-(= (DistGreaterThanFormula (ParticleDist $pid $scale) $threshold)
-   (let $pairs (particle-fetch-pairs $pid)
-      (STV (* $scale (dist-prob-gt $pairs $threshold)) (particle-confidence-from-pairs $pairs))))
-
-(: DistGreaterThanDistFormula (-[det]-> Distribution Distribution TV))
-(= (DistGreaterThanDistFormula $pda $pdb)
-   (let*
-      (($pida (particle-dist-id $pda))
-        ($pidb (particle-dist-id $pdb))
-        ($scalea (particle-dist-scale $pda))
-        ($scaleb (particle-dist-scale $pdb))
-        ($pairsa (particle-fetch-pairs $pida))
-        ($pairsb (particle-fetch-pairs $pidb))
-        ($ca (particle-confidence-from-pairs $pairsa))
-        ($cb (particle-confidence-from-pairs $pairsb)))
-      (STV (* (* $scalea $scaleb) (dist-prob-gt2 $pairsa $pairsb)) (min $ca $cb))))
-
 (: NotFormula (-[semidet]-> TV TV))
 (= (NotFormula (STV $s $c)) (STV (- 1 $s) $c))
 
@@ -284,9 +266,14 @@
       ;; P(B|A) must lie within the Frechet bounds set by the base rates P(A),
       ;; P(B). Outside them the marginals and conditional cannot coexist, so the
       ;; inverse does not hold (clamping the ratio would assert it anyway).
-      (if (and (> $sa 0.0) (not (InversionConsistency (STV $sa $ca) (STV $sb $cb) (STV $sb_a $cb_a))))
-         (empty)
-      (let*
+      (if
+         (if (> $sa 0.0)
+            (InversionConsistency
+               (STV $sa $ca)
+               (STV $sb $cb)
+               (STV $sb_a $cb_a))
+            True)
+         (let*
          (($Va (ideal-var $sb_a $cb_a))
           ($Vsa (ideal-var $sa $ca))
           ($Vsb (ideal-var $sb $cb))
@@ -294,7 +281,8 @@
           ($s_neg (min 1.0 (/ (* (- 1.0 $sb_a) $sa) (- 1.0 $sb)))))
          (CTV
             (STV $s_pos (ideal-conf-from-var $s_pos (ideal-ratio-var $sb_a $Va $sa $Vsa $sb $Vsb)))
-            (STV $s_neg (ideal-conf-from-var $s_neg (ideal-ratio-var (- 1.0 $sb_a) $Va $sa $Vsa (- 1.0 $sb) $Vsb))))))))
+            (STV $s_neg (ideal-conf-from-var $s_neg (ideal-ratio-var (- 1.0 $sb_a) $Va $sa $Vsa (- 1.0 $sb) $Vsb)))))
+         (empty))))
 
 (: Equal (-[det]-> $a $b Bool))
 (= (Equal $a $b) (== $a $b))

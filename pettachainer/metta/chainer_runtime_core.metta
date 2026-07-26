@@ -8,7 +8,7 @@
 ;; forward materialization and the backward-search stores, so it belongs below
 ;; both chainers in the import graph.
 (: chainer-add-atom
-   (-> $space $expression (| Bool (List $no-result))))
+   (-[semidet]-> $space $expression (| Bool (List $no-result))))
 (= (chainer-add-atom $space $expr)
    (if (== (collapse (callPredicate (Predicate (cyclic_term $expr)))) ())
       (add-atom $space $expr)

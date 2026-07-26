@@ -4,34 +4,46 @@
 
 ;; The raw clause reference crosses the Prolog FFI and has no MeTTa-level
 ;; representation.  This is one of the intentionally dynamic boundaries.
-(: assert-space-atom-ref (-> $space $expression $clause-ref))
+(: ClauseRef (Newtype Expression))
+(: TempQueryRef Type)
+(: clause_ref (-> ClauseRef TempQueryRef))
+
+(: assert-space-atom-ref (-> $space SpaceAtom ClauseRef))
 (= (assert-space-atom-ref $space $expr)
    (let*
       (($term (Predicate (cons $space $expr)))
         ($_ (callPredicate (Predicate (assertz $term $ref)))))
-      $ref))
+      (brand ClauseRef $ref)))
 
-(: erase-clause-ref (-> $clause-ref $effect))
-(= (erase-clause-ref $ref) (callPredicate (Predicate (erase $ref))))
+(: erase-clause-ref (-> ClauseRef Bool))
+(= (erase-clause-ref $ref)
+   (let $_erased
+      (callPredicate (Predicate (erase $ref)))
+      true))
 
-(: track-temp-query-ref (-> $clause-ref Bool))
+(: track-temp-query-ref (-> ClauseRef Bool))
 (= (track-temp-query-ref $ref) (add-atom &temp_query_ref (clause_ref $ref)))
 
-(: kb-add-atom (-> KbBackend $space $expression Bool))
+(: kb-add-atom (-[det]-> KbBackend $space SpaceAtom Bool))
 (= (kb-add-atom live $space $expr) (add-atom $space $expr))
-(= (kb-add-atom temp $space $expr) (track-temp-query-ref (assert-space-atom-ref $space $expr)))
+(= (kb-add-atom temp $space $expr)
+   (let $ref
+      (assert-space-atom-ref $space $expr)
+      (track-temp-query-ref $ref)))
 
 (: kb-add-prem
    (-> KbBackend Number Number
        (| Goal (Statement KBContext Proof TV))
        Number))
 (= (kb-add-prem $backend $id $idx $prem)
-   (let $key (forward-indexable-premise-key $prem)
+   (let $key
+      (forward-indexable-premise-key $prem)
       (progn
          (if (== $key ()) ()
             (once
-               (kb-add-atom $backend prem_index
-                  ($key $prem $id $idx))))
+               (let $row
+                  (make-space-row4 $key $prem $id $idx)
+                  (kb-add-atom $backend prem_index $row))))
          (+ $idx 1))))
 
 (: kb-add-ccl-head-index
@@ -39,10 +51,13 @@
        (Statement KBContext Proof TV)
        (| Bool (List $none))))
 (= (kb-add-ccl-head-index $backend $id $ccls)
-   (let $key (forward-indexable-premise-key $ccls)
+   (let $key
+      (forward-indexable-premise-key $ccls)
       (if (== $key ()) ()
          (once
-            (kb-add-atom $backend ccls_head_index ($key $id))))))
+            (let $row
+               (make-space-pair $key $id)
+               (kb-add-atom $backend ccls_head_index $row))))))
 
 (: kb-expr-kbid (-> Expression (| KB (List $none))))
 (= (kb-expr-kbid $expr)
@@ -88,8 +103,10 @@
             (copy_term $args)))
       (if (== $hits ()) ()
          (once
-            (kb-add-atom $backend rule_expected
-               ($id (car-atom $hits)))))))
+            (let*
+               (($expected (car-atom $hits))
+                ($row (make-space-pair $id $expected)))
+               (kb-add-atom $backend rule_expected $row))))))
 
 ;; Temp (per-query) rule ids are offset so they can never collide with live
 ;; rule ids: both counters start at 0 and rules/rule_expected/prem_index rows
@@ -115,8 +132,10 @@
                (if (is-var $name) ()
                   (if (is-expr $name) ()
                      (once
-                        (kb-add-atom $backend rule_name_index
-                           ($name $id))))))))
+                        (let $row
+                           (make-space-pair $name $id)
+                           (kb-add-atom
+                              $backend rule_name_index $row))))))))
       ($_other ()))))
 
 (: typed-runtime-fact
@@ -130,24 +149,46 @@
             (brand Proof $proof)
             (the TV $tv))))))
 
+(: typed-runtime-premise
+   (-[semidet]-> Expression
+       (| Goal (Statement KBContext Proof TV))))
+(= (typed-runtime-premise $premise)
+   (if (= $premise (CPU $formula $arguments $result))
+      (CPU $formula $arguments $result)
+      (typed-runtime-fact $premise)))
+
+;; Compiler output crosses an erased-expression storage boundary here. Restore
+;; each premise's nominal role while walking the list we already consume,
+;; rather than reflectively checking the complete list with `(the ...)`.
+(: typed-runtime-premises
+   (-[semidet]-> Expression
+       (List (| Goal (Statement KBContext Proof TV)))))
+(= (typed-runtime-premises $premises)
+   (case $premises (
+      (() ())
+      ((cons $premise $rest)
+         (cons
+            (typed-runtime-premise $premise)
+            (typed-runtime-premises $rest))))))
+
 (: kb-add-expr
    (-[nondet]-> KbBackend RuntimeAddition  (| Bool (List $none))))
 (= (kb-add-expr $backend $expr)
    (if (= $expr (rules ($args |- $ccls)))
       (let*
          (($typed-ccls (typed-runtime-fact $ccls))
-          ($rule-args
-             (the
-                (List (| Goal (Statement KBContext Proof TV)))
-                $args))
+          ($rule-args (typed-runtime-premises $args))
           ($id (next-rule-id $backend))
            ($_1 (fold-flat (kb-add-prem $backend $id) 0 $rule-args))
-           ($_2 (kb-add-atom $backend ccls_index ($typed-ccls $id)))
+           ($ccls-row (make-space-pair $typed-ccls $id))
+           ($_2
+              (kb-add-atom $backend ccls_index $ccls-row))
            ($_3 (kb-add-ccl-head-index $backend $id $typed-ccls))
            ($_4
               (kb-add-atom $backend rules
-                 (runtime-rule-row
-                    $id $typed-ccls $rule-args)))
+                 (brand SpaceAtom
+                    (runtime-rule-row
+                       $id $typed-ccls $rule-args))))
            ($_expected (store-rule-expected-score! $backend $id $rule-args))
            ($_name-idx
               (register-rule-name! $backend $id $typed-ccls))
@@ -159,15 +200,18 @@
               (register-forward-member-inheritance-premises! $rule-args)))
          ())
       (progn
-         (if (== $backend live)
-            (let*
-               ((($type $kb $prf $_tv) $expr)
-                ($ev (cons (fact-ev $kb $prf $type) ()))
-                ($_change
-                   (forward-candidate-upsert!
-                      (forward-derived $expr $ev))))
-               ())
-            (kb-add-atom $backend &kb $expr)))))
+         (let $fact
+            (typed-runtime-fact $expr)
+            (if (== $backend live)
+               (let*
+                  ((($type $kb $prf $_tv) $fact)
+                   ($ev (cons (fact-ev $kb $prf $type) ()))
+                   ($_change
+                      (forward-candidate-upsert!
+                         (forward-derived $fact $ev))))
+                  ())
+               (kb-add-atom $backend &kb
+                  (brand SpaceAtom $fact)))))))
 
 (: clear-temp-query-adds (-> (List $none)))
 (= (clear-temp-query-adds)
@@ -206,7 +250,8 @@
                       (match prem_index ($pkey $prem $id $pidx)
                          (remove-atom prem_index ($pkey $prem $id $pidx)))))
                 ($_ccls-idx (remove-atom ccls_index ($ccls $id)))
-                ($hkey (forward-indexable-premise-key $ccls))
+                ($hkey
+                   (forward-indexable-premise-key $ccls))
                 ($_head-idx (if (== $hkey ()) () (remove-atom ccls_head_index ($hkey $id))))
                 ($_expected
                    (collapse
@@ -251,12 +296,22 @@
                ())))
       ()))
 
+;; Rule indexes are erased spaces. Validate their scalar id at this infrequent
+;; removal boundary rather than checking the complete collected list.
+(: stored-rule-id (-> Atom Number))
+(= (stored-rule-id $id)
+   (the Number $id))
+
 (: remove-compiled-statement (-> Proof (List $none)))
 (= (remove-compiled-statement $name)
    (let*
       (($_specialization (remove-specialization-state! $name))
        ($_facts (remove-kb-facts-named! $name))
-       ($ids (list_to_set (collapse (match rule_name_index ($name $id) $id))))
+       ($ids
+          (list_to_set
+             (collapse
+                (match rule_name_index ($name $id)
+                   (stored-rule-id $id)))))
        ($_rules (foreach-flat remove-rule-row! $ids))
        ($_index
           (if (== $ids ()) ()

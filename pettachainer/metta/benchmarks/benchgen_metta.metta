@@ -1,5 +1,28 @@
 !(import! &self ../petta_chainer)
 
+;; Benchmark generator statements stored in &kb. Declaring their payload
+;; shapes lets the reporting/export pass recover typed fields without scanning
+;; or ascribing the complete matched rows.
+(: BenchFact (-> $bench Number Number Statement))
+(: BenchNode (-> $bench Number Number Number Statement))
+(: BenchTarget (-> $bench Number Statement))
+(: BenchMainRule
+   (-> $bench Number Number Number Number Statement))
+(: BenchMainPremiseCount
+   (-> $bench Number Number Number Number Statement))
+(: BenchMainConf
+   (-> $bench Number Number Number Number Statement))
+(: BenchNoiseBackRule (-> $bench Number Number Statement))
+(: BenchNoiseForwardRule (-> $bench Number Number Statement))
+(: BenchSpec
+   (-> $bench Number Number Number Number Number Number Number Statement))
+(: BenchPLNAtom (-> $bench AnnotatedStatement Statement))
+
+(: BenchStoredAnnotatedStatement
+   (-[det]-> Atom Atom Atom AnnotatedStatement))
+(= (BenchStoredAnnotatedStatement $proof $type $tv)
+   (quote (: $proof $type $tv)))
+
 (: BenchListCount (-[det]-> (List $item) Number))
 (= (BenchListCount ()) 0)
 (= (BenchListCount (cons $_x $tail)) (+ 1 (BenchListCount $tail)))
@@ -546,7 +569,10 @@
          $forward-chain-len
          $print-before-compile)))
 
-(= (BenchCountByPattern $pattern) (BenchListCount (collapse (match &kb $pattern ok))))
+(= (BenchCountByPattern $pattern)
+   (BenchListCount
+      (collapse
+         (match &kb $pattern true))))
 
 (= (BenchMainRuleCount $bench)
    (BenchCountByPattern
@@ -595,7 +621,7 @@
       (collapse
          (match &kb
             ((BenchMainConf $bench $path $level $idx $conf) $_kb (bench-main-conf $bench $path $level $idx) $_tv)
-            $conf))
+            (the Number $conf)))
       1.0))
 
 (: BenchPLNMainRuleAtoms (-> $bench (List AnnotatedStatement)))
@@ -616,7 +642,12 @@
 
 (: BenchPLNAtoms (-> $bench (List AnnotatedStatement)))
 (= (BenchPLNAtoms $bench)
-   (collapse (match &kb ((BenchPLNAtom $bench $stmt) $_kb (bench-pln-atom $bench $_tag) $_tv) $stmt)))
+   (collapse
+      (match &kb
+         ((BenchPLNAtom $bench (: $proof $type $tv))
+            $_kb (bench-pln-atom $bench $_tag) $_tv)
+         (BenchStoredAnnotatedStatement
+            $proof $type $tv))))
 
 (: BenchPLNBuildImplication
    (-> (List Expression) Expression Expression))

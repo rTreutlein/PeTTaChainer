@@ -84,6 +84,12 @@ if [[ $run_status != 0 ]]; then
   exit "$run_status"
 fi
 
+if grep -Fq '(static-import! &self .conceptnet_export/rules_dump)' "$output_file"; then
+  printf 'ConceptNet static import was left unevaluated by PeTTa.\n' >&2
+  printf 'Verify that lib_import loaded and registered static-import!.\n' >&2
+  exit 1
+fi
+
 if ! grep -Eq 'CONCEPTNET_OWN_PET_RESULT_COUNT [1-9][0-9]* RESULTS' "$output_file" ||
    ! grep -Fq "$expected_result" "$output_file"; then
   printf 'ConceptNet benchmark produced no proof. The export may need refreshing.\n' >&2

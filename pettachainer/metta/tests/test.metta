@@ -42,14 +42,15 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
-   (list-count
+   (let (cons $_only ())
       (collapse
          (mm2compile kb
             (: foldRule
                (Implication
                   (Premises (FoldAll (Score $name $n) $n 0 (|-> ($acc $elem) (+ $acc $elem)) -> $total))
                   (Conclusions (ScoreTotal $total)))
-               (CTV (STV 1.0 1.0) (STV 0.0 1.0))))))
+               (CTV (STV 1.0 1.0) (STV 0.0 1.0)))))
+      1)
    1)
 
 !(test

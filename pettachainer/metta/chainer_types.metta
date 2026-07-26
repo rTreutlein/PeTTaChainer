@@ -3,6 +3,14 @@
 ;; Function signatures stay beside their implementations. This file contains
 ;; only representations shared across compiler/runtime module boundaries.
 
+(: TV Type)
+(: STV (-> Number Number TV))
+(: CTV (-> TV TV TV))
+(: no-evidence TV)
+
+(: Distribution Type)
+(: ParticleDist (-> Number Number Distribution))
+
 ;; These semantic roles share PeTTaChainer's existing open MeTTa wire
 ;; representation. Newtype brands distinguish them statically and are erased
 ;; completely by the compiler.
@@ -16,10 +24,35 @@
 (: Variable (Newtype Expression))
 (: CompiledAddition (Newtype Expression))
 (: RuntimeAddition (Newtype Expression))
+;; Any value with this role is known to be a nonempty expression that can be
+;; inserted into an atom space.  The brand is erased at runtime.
+(: SpaceAtom (Newtype Expression))
 ;; Proof-store results are either CPU goals or internal runtime fact tuples.
 ;; Their nested role brands are erased while stored, so the boundary itself is
 ;; branded rather than attempting to rediscover those roles at runtime.
 (: RuntimeResult (Newtype Expression))
+
+;; Forward-runtime values shared with compiled rule insertion and backward
+;; conclusion indexing.
+(: ForwardDerived Type)
+(: forward-derived
+   (-> (Statement KBContext Proof TV) (List Evidence) ForwardDerived))
+
+(: ForwardTriggerKey Type)
+(: fwd_trigger (-> KB Atom ForwardTriggerKey))
+(: fwd_member (-> KB Term ForwardTriggerKey))
+(: fwd_trigger_any ForwardTriggerKey)
+
+;; Keys for the monotonic counters shared by the compiler and both runtimes.
+;; Naming the role prevents an arbitrary atom from being accepted by the state
+;; mutation helper while retaining the existing symbol representation.
+(: CounterKey Type)
+(: bwd_gid CounterKey)
+(: bwd_pid CounterKey)
+(: ruleid CounterKey)
+(: bwd_tmp_ruleid CounterKey)
+(: fwd_br_id CounterKey)
+(: fwd_member_inheritance_id CounterKey)
 
 ;; Stored rule rows retain the existing conclusion/premise wire format. The
 ;; premise list contains executable goals and internal runtime fact tuples;
@@ -73,11 +106,13 @@
 
 (: NoProjectionKey Type)
 (: no-projection-key NoProjectionKey)
+(: ProjectionKey Type)
+(: projection-key (-> Atom Atom ProjectionKey))
 
 (: ProofRef Type)
 (: proof-ref (-> Number ProofRef))
 
-(: Evidence Type)
+(: Evidence (Newtype Expression))
 (: fact-ev (-> KBContext Proof Statement Evidence))
 (: not-fact-ev (-> KBContext Proof Statement Evidence))
 (: rule-ev (-> KB Proof Evidence))
