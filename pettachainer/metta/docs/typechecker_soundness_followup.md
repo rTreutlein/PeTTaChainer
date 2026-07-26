@@ -1,5 +1,81 @@
 # Typechecker soundness follow-up
 
+## Follow-up at PeTTa `11710ca`
+
+The current round fixes every executable checker repro from the `28e87bd`
+audit:
+
+```text
+PASS  car_atom_after_collapse.metta
+PASS  det_nonempty_min_atom.metta
+PASS  semidet_nested_arguments.metta
+PASS  brand_after_control_flow.metta
+PASS  case_structural_union.metta
+PASS  det_add_atom_expression.metta
+PASS  det_remove_atom_typed_expression.metta
+PASS  det_nominal_pattern_if.metta
+PASS  det_is_member_concrete_list.metta
+PASS  det_and_bool.metta
+PASS  det_or_bool.metta
+PASS  det_not_bool.metta
+```
+
+All pass with both `--strict` and `--strict-det`.
+`named_union_alias.metta` still fails because reusable union aliases remain an
+unsupported language feature.
+
+### New remaining inference issue
+
+`mixed_list_atom_widening.metta` is the one new standalone checker repro. Its
+body is:
+
+```metta
+(: mixed-values (-> (List Atom)))
+(= (mixed-values)
+   (cons ()
+      (cons (item 1) ())))
+```
+
+The inner `cons` becomes `(List Item)` and the outer head has a list type.
+Although both fit the declared wildcard element type `Atom`, bottom-up
+inference does not widen the heterogeneous result to `(List Atom)`. Strict
+mode therefore leaves a residual output guard. This is the smaller root of the
+remaining `cpu-expected-tv` failure in the advanced Chainer audit.
+
+### Runtime boundness guards
+
+The new committed-arrow rule emits a `nonvar/1` check for every direct variable
+parameter of explicit `-[det]->` and `-[semidet]->` functions. The generated
+shape is:
+
+```prolog
+( nonvar(Arg)
+-> true
+;  throw(error(unbound_det_argument(Function, Determinism), determinism))
+),
+!,
+...
+```
+
+This is sound and substantially cheaper than a structural type check: it tests
+only the outer spine and is placed immediately before the commitment cut.
+However, it is still executed on every call, including recursive and hot
+formula helpers. In the partial strict Chainer import, 106 such guard sites had
+been generated before compilation reached the next Chainer-owned determinism
+annotation blocker.
+
+Only direct parameters receive this guarantee. Destructured fields and results
+of nested calls can still be unbound, so passing them directly to a committed
+relational helper is conservatively rejected. For example, Chainer should keep
+short-circuiting nested Boolean computations with `if`; changing them to
+`(or (predicate-a ...) (predicate-b ...))` would require an explicit boundness
+boundary and is not a checker regression.
+
+`--warn-runtime-checks` does not currently report these boundness guards. A
+warning-free compile therefore means no warned type checks, not literally no
+runtime validation of any kind. Performance attribution should count or warn
+about boundness guards separately before the next benchmark.
+
 ## Verification target
 
 - PeTTaChainer: `98b66d0` (`typecheck-v2-strict`)
