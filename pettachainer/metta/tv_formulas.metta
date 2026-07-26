@@ -8,7 +8,6 @@
 
 (: WeightedTV Type)
 (: WeightedTv (-> TV TV WeightedTV))
-(: no-evidence WeightedTV)
 
 (: BaseRateEvidenceWithPriorState Type)
 (: BaseRateEvidenceWithPrior
@@ -175,7 +174,8 @@
       (STV (/ $wsum $csum) (count-confidence $csum))))
 
 (: WeightedBaseRateAcc
-   (-[semidet]-> BaseRateEvidenceState WeightedTV BaseRateEvidenceState))
+   (-[semidet]-> BaseRateEvidenceState (| TV WeightedTV)
+       BaseRateEvidenceState))
 (= (WeightedBaseRateAcc (BaseRateEvidence $wsum $msum) (WeightedTv (STV $m $mc) (STV $s $c)))
    (let $mass (* (* $m $mc) $c)
       (BaseRateEvidence (+ $wsum (* $s $mass)) (+ $msum $mass))))
@@ -196,7 +196,7 @@
       (STV (/ $wsum $msum) (min 1.0 (/ $msum $universe-size)))))
 
 (: WeightedBaseRateWithPriorAcc
-   (-[semidet]-> BaseRateEvidenceWithPriorState WeightedTV
+   (-[semidet]-> BaseRateEvidenceWithPriorState (| TV WeightedTV)
        BaseRateEvidenceWithPriorState))
 (= (WeightedBaseRateWithPriorAcc (BaseRateEvidenceWithPrior $prior $ev) $tv)
    (BaseRateEvidenceWithPrior $prior (WeightedBaseRateAcc $ev $tv)))

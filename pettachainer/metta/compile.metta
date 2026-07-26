@@ -1142,9 +1142,9 @@
 
 (: rule-evidence-base-name (-> Proof Proof))
 (= (rule-evidence-base-name $prf)
-   (if (= $prf (bi-forward $fwd)) $fwd
-      (if (= $prf (bi-backward $bwd)) $bwd
-         (if (= $prf (no_inverse $inner)) $inner
+   (if (= $prf (bi-forward $fwd)) (brand Proof $fwd)
+      (if (= $prf (bi-backward $bwd)) (brand Proof $bwd)
+         (if (= $prf (no_inverse $inner)) (brand Proof $inner)
             $prf))))
 
 (: rule-evidence-registered? (-> KB Proof Bool))
@@ -1312,7 +1312,7 @@
             (Conclusions (Inheritance $source-subj $_source-concept)))
          $_source-tv))
    (let*
-      (($kb (car-atom $lift-kb))
+      (($kb (brand KB (car-atom $lift-kb)))
        ($ctx (car-atom (cdr-atom $lift-kb)))
        ($vars (car-atom (cdr-atom (cdr-atom $lift-kb))))
        ((lift-parts $contextual-premises $auxiliary-premises)
@@ -1934,7 +1934,8 @@
            ($tail (cdr-atom $rule))
            ($ccls (car-atom (cdr-atom $tail)))
            ($ccl (car-atom $ccls)))
-         (rules (quote ($prms |- $ccl))))
+         (brand RuntimeAddition
+            (rules (quote ($prms |- $ccl)))))
       (mm2stmt $add)))
 
 (: compiled-adds-mm2stmts
@@ -1948,7 +1949,10 @@
 
 (: query-temp-rule-premise (-[det]-> Statement Statement))
 (= (query-temp-rule-premise $premise)
-   (case $premise (((Compute $f $args $res) (Compute $f $args -> $res)) ($other $other))))
+   (case $premise (
+      ((Compute $f $args $res)
+         (brand Statement (Compute $f $args -> $res)))
+      ($_other $premise))))
 
 (: query-compound-type? (-> Statement Bool))
 (= (query-compound-type? $type)

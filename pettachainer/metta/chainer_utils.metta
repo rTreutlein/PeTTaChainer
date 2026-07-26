@@ -626,13 +626,13 @@
       ()))
 
 (: cached-base-rate
-   (-[nondet]-> KB Statement  (| TV (List $no-result))))
+   (-[nondet]-> KB Statement (List TV)))
 (= (cached-base-rate $kbid $pattern)
    (let $entries (base-rate-cache-entries $kbid $pattern)
       (if (== $entries ()) ()
          (let (base-rate $_kbid $_stored $tv $_source $_mode)
             (car-atom $entries)
-            ($tv)))))
+            (cons $tv ())))))
 
 (: base-rate-user-set? (-> KB Statement Bool))
 (= (base-rate-user-set? $kbid $pattern)
