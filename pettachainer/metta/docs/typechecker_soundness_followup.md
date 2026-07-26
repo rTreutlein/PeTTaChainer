@@ -1,148 +1,138 @@
 # Typechecker soundness follow-up
 
-This audit compares PeTTaChainer `a8d8edf` with the committed PeTTa checker
-revision `e906499`. The local checker used for the full import was patched only
-with argument-sensitive determinism for syntactically nonempty `min-atom` and
-`max-atom`; that pending issue otherwise stops the import at
-`confidence-to-count`.
+## Verification target
 
-## Result
+- PeTTaChainer: `98b66d0` (`typecheck-v2-strict`)
+- PeTTa: `28e87bd` (`typecheck-v2`)
+- PeTTa checkout used for the audit: `/tmp/petta-28e87-impact`
 
-With the nonempty-min diagnostic patch, the unchanged Chainer emits 64 runtime
-check warnings before stopping at the Proof walker:
+The PeTTa worktree was clean and pinned to the commit above.
 
-- 26 are existing explicit `(the ...)` ascriptions.
-- 38 are implicit residual guards.
-- The first hard error is honest: `cdr-atom` produces
-  `(List %Undefined%)`, but `proof-term-children-mode` declared
-  `(List Proof)`.
+## Latest-fix verification
 
-The independent fixes in this commit remove 13 of those 38 implicit guards,
-leaving 25 before the same Proof boundary. They do not add runtime checks.
+Two previously reported failures are fixed:
 
-## Chainer issues fixed
+- constructor field knowledge survives `match` -> `collapse` -> `car-atom`;
+- `min-atom` over a syntactically nonempty list is accepted as deterministic.
 
-### `no-evidence` had two unrelated nominal types
+Both retained regression programs pass with `--strict` and `--strict-det`:
 
-`dist_formulas.metta` declares `no-evidence` as `TV`, then
-`tv_formulas.metta` redeclared it as `WeightedTV`. The second declaration made
-every TV-producing fallback involving `no-evidence` require a residual guard.
-
-`WeightedBaseRateAcc` and `WeightedBaseRateWithPriorAcc` now accept the honest
-inline sum `(| TV WeightedTV)`. This removes guards from:
-
-- `BaseRateTv`
-- `WeightedBaseRateTv`
-- `WeightedCountBaseRateTv`
-- `WeightedUniverseBaseRateTv`
-- `UniformPriorTv`
-- `UniformPriorKnownTv`
-- `normalize-expected-tv`
-
-### Constructor matching was expressed as untyped equality
-
-`particle-ids-in-term` used an `if` whose condition unified its input with
-`(ParticleDist $pid $scale)`. Expressing that dispatch as `case` lets the
-declared `ParticleDist` constructor type establish that `$pid` is a `Number`.
-The output is now proven `(List Number)` without a guard.
-
-### Erased role boundaries were missing
-
-- `compile-inheritance-lift-instance` extracted a KB name from `KBContext` and
-  shadowed its already typed `$kb` parameter with the unbranded result. The
-  extracted field is now explicitly branded `KB`, removing two guards.
-- `rule-evidence-base-name` now brands names extracted from proof wrappers as
-  `Proof`.
-- `query-temp-rule-premise` returns the already typed input in its fallback and
-  explicitly brands the rewritten `Compute` statement.
-- The direct branch of `compiled-add-mm2stmt` now brands its generated runtime
-  addition.
-
-### `cached-base-rate` declared the wrong output shape
-
-The function always returns either `()` or a singleton list containing a TV,
-but its signature claimed `(| TV (List $no-result))`. It now returns
-`(List TV)` and constructs the singleton with `cons`, preserving the same
-runtime representation.
-
-## Checker issues or missing type-language features
-
-Standalone repros live in `examples/typechecker_repros`.
-
-### `car-atom` loses a collapsed list's element type
-
-The `match` in `car_atom_after_collapse.metta` correctly establishes `Choice`.
-The loss occurs after `collapse`, at `car-atom`. The temporary boundary
-workaround would be `(the Choice (car-atom $matches))`, but PeTTaChainer does
-not add it because it creates a runtime check for information the checker
-already had.
-
-This affects `current-logic`, `configured-compound-premise-mode`, and
-`configured-compound-output-mode`. `particle-fetch-pairs` is the corresponding
-whole-list form: `collapse` does not retain the typed match result as its
-element type.
-
-### Known-nonempty `min-atom` / `max-atom`
-
-The builtins are semideterministic for an arbitrary list because the empty
-list fails. `det_nonempty_min_atom.metta` passes a syntactically nonempty pair,
-so that call is deterministic.
-
-### Nested semideterministic calls become `unknown`
-
-In `semidet_nested_arguments.metta`, two semideterministic calls are arguments
-of one deterministic call. The enclosing function is semideterministic, but
-the checker reports the enclosing `let` as `unknown`. The same shape occurs in
-`merge-proof-atoms`.
-
-### `brand` knowledge is lost across control flow
-
-`brand_after_control_flow.metta` explicitly brands an `if` result inside
-`let*`, yet strict mode still emits an output check for the nominal type. This
-is relevant to the remaining `mm2stmt` guard and likely several compiler
-functions that return erased `CompiledAddition` values.
-
-### Named union aliases are needed for Evidence
-
-Evidence tokens are not one closed nominal constructor family. A plain proof
-walk deliberately retains an arbitrary whole `Proof` term as one evidence
-token, while other paths produce structured `fact-ev`, `not-fact-ev`,
-`rule-ev`, and `not-ev` values. The honest domain is:
-
-```metta
-(| Proof StructuredEvidence)
+```text
+car_atom_after_collapse.metta  PASS
+det_nonempty_min_atom.metta   PASS
 ```
 
-Inline unions work, but `named_union_alias.metta` demonstrates that
-`(: Evidence (| Proof StructuredEvidence))` declares a value named `Evidence`;
-it does not define a reusable type alias. Repeating the union through every
-proof-store, forward-chainer, and backward-chainer signature would obscure the
-domain model. The Evidence refactor is therefore deferred until a named union
-can be expressed.
+The original strict Chainer import now gets beyond those checker failures. Its
+first plain-strict blocker is an honest Chainer contract in
+`particle-fetch-pairs`: particle values are dynamically typed, so the result
+cannot be `(List ($value Number))`. The first strict-determinism blocker is
+`add-atom` in `set-logic-name`.
 
-The Proof walker itself should then:
+## Audit method
 
-- return `(List %Undefined%)` from `proof-term-children-mode`;
-- brand each `cdr-atom` child as `Proof` at the recursive boundary;
-- use `(List (| Proof StructuredEvidence))` through evidence APIs (preferably
-  via the named alias).
+I corrected Chainer-owned contracts in a scratch worktree and repeatedly
+compiled the whole import with:
 
-## Residual warnings still needing triage
+```sh
+sh /tmp/petta-28e87-impact/run.sh tests/test.metta \
+  --strict --warn-runtime-checks
+```
 
-The remaining implicit warnings before the Proof boundary group as follows:
+This advanced the import through distribution formulas, TV formulas, the
+compiler, proof/evidence helpers, and into forward chaining. Before the next
+checker blocker, all 28 emitted runtime-check warnings were explicit
+`(the ...)` boundaries; there were no implicit residual guards.
 
-- collapsed/dynamic list knowledge: `list-count`, `remove-index`,
-  `partition-existential-premises-walk`, `implication-proof-token`,
-  `ground-specialization-with-fact`, and two `map-flat` specializations;
-- erased compiler output roles: `compile-output-children`,
-  `compile-adapter-chain`, `compile-implication-forward-rules`, `compile_`,
-  `union-compiled-additions`, `mm2stmt`, and
-  `query-context-premise-assumption-adds`;
-- dynamic CPU result unions: `cpu-expected-tv`, `first-cpu-expected-tv`, and
-  their generated `CTVModusPonensFormula` specializations;
-- deliberate dynamic safety boundaries: `aggregate-args-tv-mode` and
-  `internalize-proof-structure-any`.
+The Chainer-side findings included:
 
-The last group is cheap or compiler-only and may be worth retaining for
-stability. The others should be rechecked after the standalone checker issues
-above land before adding any explicit runtime ascriptions.
+- particle-pair values need the actual dynamic `Atom` role, while particle IDs
+  remain `Number`;
+- relational `append` should not be called from deterministic helpers; small
+  typed recursive append functions preserve determinism;
+- raw compiler additions must be branded at the branch or construction point,
+  not after control flow;
+- values returned by `match` need typed constructors or explicit erased-role
+  boundaries before `collapse`;
+- `Evidence` is an open erased role because evidence lists intentionally
+  contain opaque leaf proof tokens as well as known evidence constructors;
+- projection keys deserve a real nominal `ProjectionKey` constructor rather
+  than an anonymous structural type expression.
+
+These scratch changes were diagnostic and are not part of this repro-only
+commit.
+
+## Remaining checker issues
+
+Standalone programs are in `examples/typechecker_repros`. Every item below
+fails with both `--strict` and `--strict-det` at PeTTa `28e87bd`.
+
+### Semideterministic composition through destructuring `let`
+
+`semidet_nested_arguments.metta` reports the enclosing expression as
+`unknown`. This is the exact shape reached by `merge-proof-atoms`: two
+semideterministic evidence lookups feed a deterministic merge whose pair output
+is destructured.
+
+### Nominal branding after control flow
+
+`brand_after_control_flow.metta` leaves a residual nominal output guard even
+though the complete `if` result is explicitly branded.
+
+### Structural-list unions through `case`
+
+`case_structural_union.metta` cannot prove
+`(| Number (List Atom))`. Equivalent `if` code and equivalent separate
+function clauses both pass, isolating the loss to `case` output synthesis.
+PeTTaChainer reaches this with `cpu-expected-tv`.
+
+### Space mutations with manifest or typed expressions
+
+- `det_add_atom_expression.metta` rejects a literal `(fact 1)` argument.
+- `det_remove_atom_typed_expression.metta` rejects a variable known to have a
+  closed constructor type.
+
+The same wrappers pass when declared `-[semidet]->`, confirming that the only
+disagreement is builtin determinism. The `remove-atom` case blocks cache-entry
+removal and forward canonical-fact removal.
+
+### Deterministic structural match on a nominal expression
+
+`det_nominal_pattern_if.metta` classifies a total
+`(if (= $value ($a $b $c)) true false)` as `unknown` when `$value` has an
+expression-backed newtype.
+
+### Deterministic finite membership and Boolean builtins
+
+- `det_is_member_concrete_list.metta` rejects `is-member` over a concrete
+  finite list.
+- `det_and_bool.metta`, `det_or_bool.metta`, and `det_not_bool.metta` reject
+  fully typed Boolean wrappers.
+
+PeTTaChainer can spell these as recursive or nested-`if` helpers, but the
+builtins themselves are total in these modes and should be reusable in
+deterministic functions.
+
+### Named union aliases
+
+`named_union_alias.metta` confirms that inline unions work but cannot be given
+a reusable type name. This is no longer required for the immediate Evidence
+model—an open nominal role is honest there—but remains a type-language gap.
+
+## Reproduction summary
+
+```text
+PASS  car_atom_after_collapse.metta
+PASS  det_nonempty_min_atom.metta
+
+FAIL  semidet_nested_arguments.metta
+FAIL  brand_after_control_flow.metta
+FAIL  case_structural_union.metta
+FAIL  det_add_atom_expression.metta
+FAIL  det_remove_atom_typed_expression.metta
+FAIL  det_nominal_pattern_if.metta
+FAIL  det_is_member_concrete_list.metta
+FAIL  det_and_bool.metta
+FAIL  det_or_bool.metta
+FAIL  det_not_bool.metta
+FAIL  named_union_alias.metta
+```

@@ -1,19 +1,10 @@
-(: RuntimeAddition (Newtype Expression))
+(: Box (Newtype Expression))
 
-(: convert-addition (-> Expression RuntimeAddition))
-(= (convert-addition $stmt)
-   (let*
-      (($head (car-atom $stmt))
-       ($tail (cdr-atom $stmt)))
-      (brand RuntimeAddition
-         (if (== $tail ())
-            $head
-            (rules $stmt)))))
+(: choose-box (-> Bool Box))
+(= (choose-box $flag)
+   (brand Box
+      (if $flag
+         (left)
+         (right))))
 
-!(test
-   (convert-addition (fact))
-   fact)
-
-!(test
-   (convert-addition (premise conclusion))
-   (rules (premise conclusion)))
+!(test (choose-box true) (left))
