@@ -2,6 +2,17 @@
 
 set -u
 
+# PeTTaChainer's plain arrows are deterministic commitments. Run the supported
+# suite in that mode by default; set PETTA_STRICT_DET=0 only when auditing
+# compatibility with PeTTa's uncommitted-arrow mode.
+PETTA_STRICT_DET=${PETTA_STRICT_DET:-1}
+
+metta_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+repo_root=$(cd "$metta_dir/../.." && pwd)
+if [[ -z ${PETTA_DIR:-} && -f "$(dirname "$repo_root")/PeTTa/run.sh" ]]; then
+  PETTA_DIR=$(dirname "$repo_root")/PeTTa
+fi
+
 pass=0
 fail=0
 fail_files=()

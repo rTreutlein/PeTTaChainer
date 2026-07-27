@@ -23,6 +23,9 @@ if [[ -z ${CNET_DIR:-} ]]; then
   canonical_repo=$(dirname "$common_dir")
   CNET_DIR=$(cd "$canonical_repo/.." && pwd)/cnet
 fi
+if [[ -z ${PETTA_DIR:-} && -f "$(dirname "$repo_root")/PeTTa/run.sh" ]]; then
+  PETTA_DIR=$(dirname "$repo_root")/PeTTa
+fi
 
 if [[ ! -f "$CNET_DIR/rules_dump.pl" ]]; then
   printf 'Missing ConceptNet export: %s/rules_dump.pl\n' "$CNET_DIR" >&2
@@ -65,18 +68,13 @@ else
 fi
 
 if [[ -n ${PETTA_DIR:-} ]]; then
-  if [[ ! -f "$PETTA_DIR/mork_ffi/target/release/libmork_ffi.so" ]]; then
-    printf 'The selected PETTA_DIR has no built MORK runtime: %s\n' "$PETTA_DIR" >&2
-    printf 'Build or link mork_ffi before running this benchmark.\n' >&2
-    exit 2
-  fi
   runner=(sh "$PETTA_DIR/run.sh")
 else
   runner=(petta)
 fi
 
 set +e
-"${runner[@]}" "$benchmark" -s "$@" 2>&1 | tee "$output_file"
+"${runner[@]}" "$benchmark" --strict-det --silent "$@" 2>&1 | tee "$output_file"
 run_status=${PIPESTATUS[0]}
 set -e
 

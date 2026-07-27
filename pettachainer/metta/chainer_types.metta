@@ -32,6 +32,14 @@
 ;; branded rather than attempting to rediscover those roles at runtime.
 (: RuntimeResult (Newtype Expression))
 
+;; The compiler/runtime query handoff is shared by the compiler, backward
+;; chainer, and public query runtime.
+(: CompiledQuery Type)
+(: compiled-query
+   (-> (| Goal
+          (Statement KBContext Proof TV))
+       (List RuntimeAddition) CompiledQuery))
+
 ;; Forward-runtime values shared with compiled rule insertion and backward
 ;; conclusion indexing.
 (: ForwardDerived Type)

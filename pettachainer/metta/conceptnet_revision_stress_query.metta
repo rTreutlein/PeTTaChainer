@@ -5,6 +5,9 @@
 ;; backward chainer must explore competing implication paths, reject missing
 ;; premise paths, revise compatible evidence, and form the final conjunction.
 ;; Compile/import time remains outside the measured interval.
+;; Run through benchmarks/run_conceptnet_revision_stress.sh: the runner stages
+;; the external ConceptNet export and enables PeTTaChainer's strict-det arrow
+;; semantics.
 !(import! &self petta_chainer)
 !(import! &self (library lib_import))
 !(static-import! &self .conceptnet_export/rules_dump)

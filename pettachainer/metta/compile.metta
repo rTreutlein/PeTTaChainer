@@ -11,101 +11,6 @@
 
 (: atom_concat (-> Atom Atom Atom))
 
-(: AdapterMode Type)
-(: plain AdapterMode)
-(: query AdapterMode)
-
-(: ProjectionEvidenceState Type)
-(: projection-evidence-state
-   (-> (List Goal)
-       (List Proof) TV ProjectionEvidenceState))
-
-(: PremiseBundle Type)
-(: premise-bundle
-   (-> (List Goal)
-       TV Proof PremiseBundle))
-
-(: CompiledPremise Type)
-(: prem
-   (-> Goal
-       Expression TV Proof CompiledPremise))
-
-(: QueryCompoundState Type)
-(: query-compound-state
-   (-> (List Goal)
-       (List Proof) TV QueryCompoundState))
-
-(: CompiledPremises Type)
-(: compiled-premises
-   (-> (List Goal)
-       (List Proof) TV CompiledPremises))
-
-(: CompiledQuery Type)
-(: compiled-query
-   (-> (| Goal
-          (Statement KBContext Proof TV))
-       (List RuntimeAddition) CompiledQuery))
-
-(: CompiledQueryParts Type)
-(: compiled-query-parts
-   (-> (List Goal) Goal
-       (List CompiledAddition) CompiledQueryParts))
-
-(: CompiledOutput Type)
-(: compiled-output
-   (-> (List Goal)
-       Proof Statement TV CompiledOutput))
-
-(: ImplicationCTVExecutions Type)
-(: implication-ctv-execs
-   (-> (List Goal)
-       TV ImplicationCTVExecutions))
-
-(: ImplicationQueryTVParts Type)
-(: implication-query-tv-parts
-   (-> TV TV TV ImplicationQueryTVParts))
-
-(: InheritanceLiftParts Type)
-(: lift-parts
-   (-> (List Expression) (List Expression) InheritanceLiftParts))
-
-(: SpecializationJob Type)
-(: compile-specialization (-> AnnotatedStatement SpecializationJob))
-(: inheritance-lift-specialization
-   (-> AnnotatedStatement AnnotatedStatement SpecializationJob))
-
-(: InheritanceLiftInstanceRow Type)
-(: inheritance-lift-instance-row
-   (-> KB AnnotatedStatement AnnotatedStatement
-       InheritanceLiftInstanceRow))
-
-(: SpecializationTemplateRow Type)
-(: specialization-template-row
-   (-> KB Atom (List Expression) SpecializationJob
-       SpecializationTemplateRow))
-
-(: SpecializationDoneRow Type)
-(: specialization-done-row
-   (-> KB AnnotatedStatement SpecializationDoneRow))
-
-(: NoSpecializationName Type)
-(: no-specialization-name NoSpecializationName)
-(: NoSpecializationStatement Type)
-(: no-specialization-statement NoSpecializationStatement)
-(: NoSpecializationJob Type)
-(: no-specialization-job NoSpecializationJob)
-
-(: QuerySide Type)
-(: qside
-   (-> KBContext Proof Statement
-       (List CompiledAddition) QuerySide))
-
-(: QueryScaffold Type)
-(: query-scaffold
-   (-> KBContext KBContext
-       Statement
-       Proof Proof (List CompiledAddition) QueryScaffold))
-
 (: union-compiled-additions
    (-> (List CompiledAddition) (List CompiledAddition)
        (List CompiledAddition)))
@@ -231,13 +136,26 @@
       (brand Proof $head)
       (append-stored-proof $tail $proof)))
 
+;; One lowered source premise may expand into several executable goals, but it
+;; still contributes one evidence value and one proof token to its caller.
+(: PremiseBundle Type)
+(: premise-bundle
+   (-> (List Goal) TV Proof PremiseBundle))
+
+;; Strict PeTTa needs a constructor to certify these computed list fields.
+;; One shared state replaces the former projection, query, and premise states.
+(: CompiledPremises Type)
+(: compiled-premises
+   (-> (List Goal) (List Proof) TV CompiledPremises))
+
 (: projection-evidence-step
-   (-> KBContext Atom ProjectionEvidenceState Statement
-       ProjectionEvidenceState))
+   (-> KBContext Atom
+       CompiledPremises Statement
+       CompiledPremises))
 (= (projection-evidence-step $kb $formula
-      (projection-evidence-state $execs $proofs $acc-tv)
+      (compiled-premises $execs $proofs $acc-tv)
       $elem)
-   (projection-evidence-state
+   (compiled-premises
       (append-goals $execs
          (cons
             (: $kb $prf $elem $tv)
@@ -252,10 +170,11 @@
    (-> KBContext Atom (List Statement) PremiseBundle))
 (= (projection-evidence-bundle $kb $head (cons $fst $rst))
    (let*
-      (((projection-evidence-state $execs $proofs $tv)
+      (((compiled-premises $execs $proofs $tv)
            (fold-flat
               (projection-evidence-step $kb (atom_concat $head Formula))
-              (projection-evidence-state ((: $kb $fstprf $fst $fsttv)) ($fstprf) $fsttv)
+              (compiled-premises
+                 ((: $kb $fstprf $fst $fsttv)) ($fstprf) $fsttv)
               $rst))
         ($proof-token (projection-evidence-proof-token $proofs)))
       (premise-bundle $execs $tv $proof-token)))
@@ -401,7 +320,12 @@
             (cpu-premise-tv $f $args $res) cpu)
          (premise-bundle ((: $prem-kb $prf $elem $tv)) $tv $prf)))))
 
-(: in_map (-[det]-> KBContext Expression CompiledPremise))
+(: CompiledPremise Type)
+(: prem
+   (-> Goal Expression TV Proof CompiledPremise))
+
+(: in_map
+   (-[det]-> KBContext Expression CompiledPremise))
 (= (in_map $kb $elem)
    (if (= $elem (CPU $f $args $res))
       (prem (CPU $f $args $res) (CPU $f $args $res)
@@ -588,20 +512,22 @@
                   (leaf-source-bundle $kb $ctx $vars $premise))))
          (leaf-source-bundle $kb $ctx $vars $premise))))
 
-(: query-compound-premise-state (-> PremiseBundle QueryCompoundState))
+(: query-compound-premise-state
+   (-> PremiseBundle CompiledPremises))
 (= (query-compound-premise-state (premise-bundle $execs $tv $proof))
-   (query-compound-state $execs ($proof) $tv))
+   (compiled-premises $execs ($proof) $tv))
 
 ;; Accumulate a direct compound-query rule in source order. Appending both goals
 ;; and proofs is intentional: the returned `(conjunction ...)` proof mirrors the
 ;; order written by the caller, while each TV fold consumes the same ordering.
 (: query-compound-premise-step
-   (-[semidet]-> KB $context $variables Atom QueryCompoundState
+   (-[semidet]-> KB $context $variables Atom
+       CompiledPremises
        Statement
-       QueryCompoundState))
+       CompiledPremises))
 (=
    (query-compound-premise-step $kb $ctx $vars $formula
-      (query-compound-state $acc-execs $acc-proofs $acc-tv)
+      (compiled-premises $acc-execs $acc-proofs $acc-tv)
       $premise)
    (let*
       (((premise-bundle $execs $tv $proof)
@@ -610,7 +536,7 @@
              (brand Statement $premise)))
        ((binary-tv-cpu-result $cpu $next-tv)
           (binary-tv-cpu $formula $acc-tv $tv)))
-      (query-compound-state
+      (compiled-premises
          (append-goals $acc-execs
             (append-goals $execs (cons $cpu ())))
          (append-stored-proof $acc-proofs $proof)
@@ -618,7 +544,7 @@
 
 (= (query-compound-premise-bundle $kb $ctx $vars $head (cons $fst $rst))
    (let*
-      (((query-compound-state $execs $proofs $ccltv)
+      (((compiled-premises $execs $proofs $ccltv)
            (fold-flat
               (query-compound-premise-step $kb $ctx $vars (atom_concat $head Formula))
               (query-compound-premise-state
@@ -688,6 +614,10 @@
 ;; adapter derives the requested compound from its lowered children. Recursing
 ;; on a different executable type ensures any intermediate source syntax also
 ;; receives an adapter, without regenerating the identical rule.
+(: AdapterMode Type)
+(: plain AdapterMode)
+(: query AdapterMode)
+
 (: compile-adapter-chain
    (-[nondet]-> AdapterMode Goal  CompiledAddition))
 (= (compile-adapter-chain plain (: $kb $prf $type $tv))
@@ -855,7 +785,9 @@
           (is-var (car-atom $premise))
           false)
       (if (== (cdr-atom $premise) ())
-         (leaf-source-bundle $kb $ctx $vars (car-atom $premise))
+         (leaf-source-bundle
+            $kb $ctx $vars
+            (brand Statement (car-atom $premise)))
          (leaf-source-bundle $kb $ctx $vars $premise))
       (lower-source-premise-non-open $kb $ctx $vars $premise)))
 
@@ -865,7 +797,8 @@
 (: append-premise-bundle
    (-> CompiledPremises PremiseBundle CompiledPremises))
 (=
-   (append-premise-bundle (compiled-premises $current-execs $current-proofs $current-tv)
+   (append-premise-bundle
+      (compiled-premises $current-execs $current-proofs $current-tv)
       (premise-bundle $execs $tv $proof))
    (if (== $current-execs ())
       (compiled-premises
@@ -1255,6 +1188,10 @@
 ;; Rules stored with an STV need a CTV derived from antecedent/consequent base
 ;; rates before modus ponens can use them. An explicit CTV already carries both
 ;; directions and therefore needs no runtime base-rate scans.
+(: ImplicationCTVExecutions Type)
+(: implication-ctv-execs
+   (-> (List Goal) TV ImplicationCTVExecutions))
+
 (: compile-implication-ctv-execs
    (-> KB Statement Statement TV ImplicationCTVExecutions))
 (= (compile-implication-ctv-execs $_kb $_a $_b (CTV $pos $neg))
@@ -1274,6 +1211,10 @@
 ;; A negated conclusion is stored as positive evidence for its inner expression
 ;; with a negated proof and transformed TV. Keeping the runtime type positive
 ;; lets it share the ordinary fact indexes.
+(: CompiledOutput Type)
+(: compiled-output
+   (-> (List Goal) Proof Statement TV CompiledOutput))
+
 (: compile-implication-output
    (-> Proof Proof Statement TV CompiledOutput))
 (= (compile-implication-output $prf $proof-token $b $btv)
@@ -1285,7 +1226,8 @@
             $inner
             $out-tv))
       ($other
-         (compiled-output () (quote ($prf $proof-token)) $other $btv)))))
+         (compiled-output
+            () (quote ($prf $proof-token)) $other $btv)))))
 
 ;; Emit the forward rule plus the adapters needed on both sides. The shape KB is
 ;; context-sensitive for assumption queries, while adapter-kb controls where
@@ -1488,21 +1430,21 @@
 ;; grounded MAIN facts.
 (: inheritance-lift-parts
    (-> (List Expression) (List Expression) $subject $instance
-       InheritanceLiftParts))
+       ((List Expression) (List Expression))))
 (= (inheritance-lift-parts () () $_source-subj $_instance)
-   (lift-parts () ()))
+   (() ()))
 (= (inheritance-lift-parts
       (cons $ground-premise $ground-rest)
       (cons $source-premise $source-rest)
       $source-subj $instance)
-   (let (lift-parts $contextual $auxiliary)
+   (let ($contextual $auxiliary)
       (inheritance-lift-parts $ground-rest $source-rest $source-subj $instance)
       (if (inheritance-context-premise? $source-premise $source-subj)
          (let (Inheritance $_ground-subj $ground-concept) $ground-premise
-            (lift-parts
+            (
                (cons (Inheritance $instance $ground-concept) $contextual)
                $auxiliary))
-         (lift-parts $contextual (cons $ground-premise $auxiliary)))))
+         ($contextual (cons $ground-premise $auxiliary)))))
 
 ;; Compile a specialized relational rule into one fixed query context. The
 ;; rule's positive STV is already its conditional estimate; unlike an observed
@@ -1529,7 +1471,7 @@
       (($kb (brand KB (car-atom $lift-kb)))
        ($ctx (car-atom (cdr-atom $lift-kb)))
        ($vars (car-atom (cdr-atom (cdr-atom $lift-kb))))
-       ((lift-parts $contextual-premises $auxiliary-premises)
+       (($contextual-premises $auxiliary-premises)
           (inheritance-lift-parts
              (the (List Expression) $ground-premises)
              (the (List Expression) $source-premises)
@@ -1569,6 +1511,27 @@
 ;; A grounded lift is one specialization job. The common specialization engine
 ;; below handles template indexing and late facts for both ordinary compiler
 ;; specialization and these Inheritance views.
+(: SpecializationJob Type)
+(: compile-specialization (-> AnnotatedStatement SpecializationJob))
+(: inheritance-lift-specialization
+   (-> AnnotatedStatement AnnotatedStatement SpecializationJob))
+
+;; These rows cross atom-space storage boundaries, so their tags are stable
+;; schemas rather than local multiple-return wrappers.
+(: InheritanceLiftInstanceRow Type)
+(: inheritance-lift-instance-row
+   (-> KB AnnotatedStatement AnnotatedStatement
+       InheritanceLiftInstanceRow))
+
+(: SpecializationTemplateRow Type)
+(: specialization-template-row
+   (-> KB Atom (List Expression) SpecializationJob
+       SpecializationTemplateRow))
+
+(: SpecializationDoneRow Type)
+(: specialization-done-row
+   (-> KB AnnotatedStatement SpecializationDoneRow))
+
 (: emit-specialization
    (-[nondet]-> KB SpecializationJob  CompiledAddition))
 (= (emit-specialization $kb
@@ -1800,6 +1763,15 @@
 ;; grounded completion markers must disappear with their source statement;
 ;; otherwise a later fact can resurrect a removed rule, and a clean re-add can
 ;; be suppressed by stale idempotency state.
+(: NoSpecializationName Type)
+(: no-specialization-name NoSpecializationName)
+
+(: NoSpecializationStatement Type)
+(: no-specialization-statement NoSpecializationStatement)
+
+(: NoSpecializationJob Type)
+(: no-specialization-job NoSpecializationJob)
+
 (: specialization-statement-name
    (-> (| AnnotatedStatement NoSpecializationStatement)
        (| Proof NoSpecializationName)))
@@ -1935,14 +1907,20 @@
                               (compile-outputs (: $fact-kb $prf $Type $tv)))))))))))
 
 
+(: ImplicationQueryTVParts Type)
+(: implication-query-tv-parts
+   (-> TV TV TV ImplicationQueryTVParts))
+
 (: implication-query-known-tv-parts
    (-> TV ImplicationQueryTVParts))
 (= (implication-query-known-tv-parts $tv)
    (if (is-var $tv)
-      (implication-query-tv-parts $pos-tv $neg-tv (CTV $pos-tv $neg-tv))
+      (implication-query-tv-parts
+         $pos-tv $neg-tv (CTV $pos-tv $neg-tv))
       (if (= $tv (CTV $pos-tv $neg-tv))
          (implication-query-tv-parts $pos-tv $neg-tv $tv)
-         (implication-query-tv-parts $tv $stv-neg-tv (CTV $tv $stv-neg-tv)))))
+         (implication-query-tv-parts
+            $tv $stv-neg-tv (CTV $tv $stv-neg-tv)))))
 
 ;; One side of a total-implication / bidirectional query: allocate a fresh
 ;; query context, lower the premises (negatively for the refuting side of a
@@ -1950,9 +1928,15 @@
 ;; atoms the chainer needs to resolve this side's conclusion. Returns the ground
 ;; shape-kb, the fresh proof var (shared with the caller's goal and proof
 ;; token), the conclusion expression, and the side's adds.
+(: QuerySide Type)
+(: qside
+   (-> KBContext Proof Statement
+       (List CompiledAddition) QuerySide))
+
 (: query-side
    (-[semidet]-> KB (| NilType (List Variable)) Bool
-       (List Expression) (List Expression) QuerySide))
+       (List Expression) (List Expression)
+       QuerySide))
 (= (query-side $kb $mvars $negative? $premises $conclusion-side)
    (let*
       (($ctx (nextctx))
@@ -1971,17 +1955,29 @@
 ;; The two sides of a total-implication query share one conclusion $b and differ
 ;; only in polarity. Returns the ground shape-kbs, $b, the fresh pos/neg proof
 ;; vars (used by the caller in its known goals and proof token), and all adds.
+(: QueryScaffold Type)
+(: query-scaffold
+   (-> KBContext KBContext Statement
+       Proof Proof (List CompiledAddition) QueryScaffold))
+
 (: query-pos-neg-scaffold
    (-[semidet]-> KB (| NilType (List Variable))
-       (List Expression) (List Expression) QueryScaffold))
+       (List Expression) (List Expression)
+       QueryScaffold))
 (= (query-pos-neg-scaffold $kb $mvars $premises $conclusions)
    (let*
       (((qside $pos-shape-kb $pos-prf $b $pos-adds)
           (query-side $kb $mvars false $premises $conclusions))
        ((qside $neg-shape-kb $neg-prf $_b $neg-adds)
           (query-side $kb $mvars true $premises $conclusions)))
-      (query-scaffold $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf
+      (query-scaffold
+         $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf
          (union-compiled-additions $pos-adds $neg-adds))))
+
+(: CompiledQueryParts Type)
+(: compiled-query-parts
+   (-> (List Goal) Goal
+       (List CompiledAddition) CompiledQueryParts))
 
 (: compile-inheritance-query
    (-[semidet]-> KB Term Term
@@ -2034,7 +2030,9 @@
        ($premises ((Inheritance $x $subj)))
        ($conclusions ((Inheritance $x $concept)))
        ($mvars (cons (brand Variable $x) ()))
-       ((query-scaffold $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf $all-adds)
+       ((query-scaffold
+            $pos-shape-kb $neg-shape-kb $b
+            $pos-prf $neg-prf $all-adds)
           (query-pos-neg-scaffold $kb $mvars
              (the (List Expression) $premises)
              (the (List Expression) $conclusions)))
@@ -2095,11 +2093,14 @@
          (let*
             (($vars (extract-vars $Type))
              ($mvars (query-variables $vars))
-             ((query-scaffold $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf $all-adds)
+             ((query-scaffold
+                  $pos-shape-kb $neg-shape-kb $b
+                  $pos-prf $neg-prf $all-adds)
                 (query-pos-neg-scaffold $kb $mvars
                    (the (List Expression) $premises)
                    (the (List Expression) $conclusions)))
-             ((implication-query-tv-parts $known-pos-tv $known-neg-tv $known-tv)
+             ((implication-query-tv-parts
+                  $known-pos-tv $known-neg-tv $known-tv)
                 (implication-query-known-tv-parts (the TV $tv)))
              ($known-pos-goal (: $pos-shape-kb $pos-prf $b $known-pos-tv))
              ($known-neg-goal (: $neg-shape-kb $neg-prf $b $known-neg-tv))
@@ -2119,11 +2120,15 @@
                (let*
                   (($vars (extract-vars $Type))
                     ($mvars (query-variables $vars))
-                    ((qside $left-shape-kb $left-prf $left-goal-expr $left-adds)
+                    ((qside
+                         $left-shape-kb $left-prf
+                         $left-goal-expr $left-adds)
                        (query-side $kb $mvars false
                           (the (List Expression) $left)
                           (the (List Expression) $right)))
-                    ((qside $right-shape-kb $right-prf $right-goal-expr $right-adds)
+                    ((qside
+                         $right-shape-kb $right-prf
+                         $right-goal-expr $right-adds)
                        (query-side $kb $mvars false
                           (the (List Expression) $right)
                           (the (List Expression) $left)))

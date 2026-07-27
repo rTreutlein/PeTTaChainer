@@ -59,12 +59,9 @@
                (make-space-pair $key $id)
                (kb-add-atom $backend ccls_head_index $row))))))
 
-(: kb-expr-kbid (-> Expression (| KB (List $none))))
-(= (kb-expr-kbid $expr)
-   (case $expr (
-      (($_type ($kbid $_ctx $_vars) $_prf $_tv)
-         (brand KB $kbid))
-      ($_other ()))))
+(: kb-context-kbid (-> KBContext KB))
+(= (kb-context-kbid ($kbid $_ctx $_vars))
+   (brand KB $kbid))
 
 (: observed-inheritance-subject? (-> KB Statement Bool))
 (= (observed-inheritance-subject? $kbid $subj)
@@ -257,7 +254,10 @@
                    (collapse
                       (match rule_expected ($id $score)
                          (remove-atom rule_expected ($id $score)))))
-                ($_invalidate (invalidate-computed-base-rates! (kb-expr-kbid $ccls)))
+                ($_invalidate
+                   (let ($_type $kbctx $_prf $_tv) $ccls
+                      (invalidate-computed-base-rates!
+                         (kb-context-kbid $kbctx))))
                 ($_row
                    (remove-atom rules
                       (runtime-rule-row $id $ccls $args))))
@@ -283,7 +283,7 @@
                    (forward-apply-unqueued-change! $change))
                 ($_base-rates
                    (invalidate-computed-base-rates!
-                      (kb-expr-kbid (quote ($type $kb $name $tv)))))
+                      (kb-context-kbid $kb)))
                 ($_member-inheritance
                    (case (quote ($type $kb $name $tv)) (
                          (((Member $obj $class)
