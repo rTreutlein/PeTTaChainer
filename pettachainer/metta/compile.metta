@@ -9,6 +9,15 @@
 
 !(import! &self chainer_types)
 
+;; Structural names for compiler products that cross several lowering stages.
+;; They expand to positional products and add no runtime constructors.
+(: CompiledPremise
+   (Alias (Goal Expression TV Proof)))
+(: CompiledPremises
+   (Alias ((List Goal) (List Proof) TV)))
+(: CompiledQueryParts
+   (Alias ((List Goal) Goal (List CompiledAddition))))
+
 (: atom_concat (-> Atom Atom Atom))
 
 (: union-compiled-additions
@@ -144,8 +153,8 @@
 
 (: projection-evidence-step
    (-> KBContext Atom
-       ((List Goal) (List Proof) TV) Statement
-       ((List Goal) (List Proof) TV)))
+       CompiledPremises Statement
+       CompiledPremises))
 (= (projection-evidence-step $kb $formula
       ($execs $proofs $acc-tv)
       $elem)
@@ -315,7 +324,7 @@
          (premise-bundle ((: $prem-kb $prf $elem $tv)) $tv $prf)))))
 
 (: in_map
-   (-[det]-> KBContext Expression (Goal Expression TV Proof)))
+   (-[det]-> KBContext Expression CompiledPremise))
 (= (in_map $kb $elem)
    (if (= $elem (CPU $f $args $res))
       (data (CPU $f $args $res) (CPU $f $args $res)
@@ -327,7 +336,7 @@
 (: in_fold
    (-> Atom
        ((List Goal) KBContext (List Proof) (List Expression) TV)
-       (Goal Expression TV Proof)
+       CompiledPremise
        ((List Goal) KBContext (List Proof) (List Expression) TV)))
 (=
    (in_fold $formula
@@ -386,7 +395,7 @@
 
 (: compound-premise-items
    (-[nondet]-> KBContext Expression
-       (List (Goal Expression TV Proof))))
+       (List CompiledPremise)))
 (= (compound-premise-items $kb $items)
    (case $items (
       (() ())
@@ -405,8 +414,7 @@
               (cons $fstgoal ())
               $prem-kb
               (cons $fstprf ())
-              (the (List Expression)
-                 (cons $fstelem ()))
+              (cons $fstelem ())
               $fsttv))
         (($resNNprms $res-kb $cclprf $ccltype $ccltv)
            (fold-flat
@@ -504,7 +512,7 @@
          (leaf-source-bundle $kb $ctx $vars $premise))))
 
 (: query-compound-premise-state
-   (-> PremiseBundle ((List Goal) (List Proof) TV)))
+   (-> PremiseBundle CompiledPremises))
 (= (query-compound-premise-state
       (premise-bundle $execs $tv $proof))
    (data $execs ($proof) $tv))
@@ -514,9 +522,9 @@
 ;; order written by the caller, while each TV fold consumes the same ordering.
 (: query-compound-premise-step
    (-[semidet]-> KB $context $variables Atom
-       ((List Goal) (List Proof) TV)
+       CompiledPremises
        Statement
-       ((List Goal) (List Proof) TV)))
+       CompiledPremises))
 (=
    (query-compound-premise-step $kb $ctx $vars $formula
       ($acc-execs $acc-proofs $acc-tv)
@@ -787,7 +795,7 @@
 ;; non-empty bundles so the first premise supplies the initial TV and no fake
 ;; unit-evidence proof is introduced.
 (: append-premise-bundle
-   (-> ((List Goal) (List Proof) TV) PremiseBundle ((List Goal) (List Proof) TV)))
+   (-> CompiledPremises PremiseBundle CompiledPremises))
 (=
    (append-premise-bundle
       ($current-execs $current-proofs $current-tv)
@@ -953,15 +961,15 @@
       (append-expressions $normal $folded)))
 
 (: lower-source-premises-step
-   (-[nondet]-> KB $context $variables ((List Goal) (List Proof) TV) Statement
-       ((List Goal) (List Proof) TV)))
+   (-[nondet]-> KB $context $variables CompiledPremises Statement
+       CompiledPremises))
 (= (lower-source-premises-step $kb $ctx $vars $acc $premise)
    (append-premise-bundle $acc
       (lower-source-premise-with-existentials $kb $ctx $vars $premise)))
 
 (: lower-source-premises-list
    (-[nondet]-> KB $context $variables (List Expression)
-       ((List Goal) (List Proof) TV)))
+       CompiledPremises))
 (= (lower-source-premises-list $kb $ctx $vars $premises)
    (lower-source-premises-list-acc
       $kb $ctx $vars
@@ -969,8 +977,8 @@
       $premises))
 
 (: lower-source-premises-list-acc
-   (-[nondet]-> KB $context $variables ((List Goal) (List Proof) TV) (List Expression)
-       ((List Goal) (List Proof) TV)))
+   (-[nondet]-> KB $context $variables CompiledPremises (List Expression)
+       CompiledPremises))
 (= (lower-source-premises-list-acc $_kb $_ctx $_vars $acc ()) $acc)
 (= (lower-source-premises-list-acc $kb $ctx $vars $acc (cons $premise $rest))
    (lower-source-premises-list-acc
@@ -981,7 +989,7 @@
 
 (: lower-source-premises
    (-[nondet]-> KB $context $variables (List Expression) (List Expression)
-       ((List Goal) (List Proof) TV)))
+       CompiledPremises))
 (= (lower-source-premises $kb $ctx $vars $premises $conclusions)
    (let*
       (($conclusion-vars (list_to_set (extract-vars $conclusions)))
@@ -1008,14 +1016,14 @@
       (lower-source-premise $kb $ctx $vars $premise)))
 
 (: lower-query-assumption-premises-step
-   (-[nondet]-> KB $context $variables ((List Goal) (List Proof) TV) Statement
-       ((List Goal) (List Proof) TV)))
+   (-[nondet]-> KB $context $variables CompiledPremises Statement
+       CompiledPremises))
 (= (lower-query-assumption-premises-step $kb $ctx $vars $acc $premise)
    (append-premise-bundle $acc (lower-query-assumption-premise $kb $ctx $vars $premise)))
 
 (: lower-query-assumption-premises
    (-[nondet]-> KB $context $variables (List Expression)
-       ((List Goal) (List Proof) TV)))
+       CompiledPremises))
 (= (lower-query-assumption-premises $kb $ctx $vars $premises)
    (lower-query-assumption-premises-acc
       $kb $ctx $vars
@@ -1023,8 +1031,8 @@
       $premises))
 
 (: lower-query-assumption-premises-acc
-   (-[nondet]-> KB $context $variables ((List Goal) (List Proof) TV) (List Expression)
-       ((List Goal) (List Proof) TV)))
+   (-[nondet]-> KB $context $variables CompiledPremises (List Expression)
+       CompiledPremises))
 (= (lower-query-assumption-premises-acc $_kb $_ctx $_vars $acc ()) $acc)
 (= (lower-query-assumption-premises-acc $kb $ctx $vars $acc (cons $premise $rest))
    (lower-query-assumption-premises-acc
@@ -1064,7 +1072,7 @@
 
 (: lower-query-assumption-premises-negative
    (-[nondet]-> KB $context $variables (List Expression)
-       ((List Goal) (List Proof) TV)))
+       CompiledPremises))
 (= (lower-query-assumption-premises-negative $kb $ctx $vars ())
    (data () () (STV 0.0 1.0)))
 (= (lower-query-assumption-premises-negative $kb $ctx $vars (cons $premise $rest))
@@ -1958,7 +1966,7 @@
 
 (: compile-inheritance-query
    (-[semidet]-> KB Term Term
-       ((List Goal) Goal (List CompiledAddition))))
+       CompiledQueryParts))
 (= (compile-inheritance-query $kb $subj $concept)
    (let*
       (;; Constrain the root proof so ordinary public Inheritance rules cannot
@@ -2058,7 +2066,7 @@
 ;; Ordinary queries remain a direct known goal with only the adapters their
 ;; source syntax requires.
 (: compileQuery
-   (-[nondet]-> KB AnnotatedStatement  ((List Goal) Goal (List CompiledAddition))))
+   (-[nondet]-> KB AnnotatedStatement  CompiledQueryParts))
 (= (compileQuery $kb (: $prf $Type $tv))
    (if (is-var $Type)
       (data
@@ -2358,7 +2366,7 @@
                   (compiled-adds-mm2stmts $adds)))))))
 
 (: mm2compileQuery-from-compiled
-   (-> KB AnnotatedStatement ((List Goal) Goal (List CompiledAddition)) CompiledQuery))
+   (-> KB AnnotatedStatement CompiledQueryParts CompiledQuery))
 (= (mm2compileQuery-from-compiled
       $kb $stmt
       ($premises $conclusion $adds))
