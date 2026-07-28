@@ -1586,24 +1586,17 @@
        (| Goal (Statement KBContext Proof TV))
        Number)))
 
-(: rule-goal-row-view
-   (-[nondet]-> Number
-      (| Goal (Statement KBContext Proof TV))
-      Number RuleGoalMatch))
-(= (rule-goal-row-view $rule-id $goal $parent-gid)
-   (match rules
-      (runtime-rule-row $rule-id $stored-goal $args)
-      (if (= $stored-goal $goal)
-         (data $rule-id $args $goal $parent-gid)
-         (empty))))
-
 (: rule-goal-head-view-for-key
    (-[nondet]-> (| Goal (Statement KBContext Proof TV))
       Number ForwardTriggerKey RuleGoalMatch))
 (= (rule-goal-head-view-for-key $goal $parent-gid $key)
-   (match ccls_head_index ($key $rule-id)
-      (rule-goal-row-view
-         (the Number $rule-id) $goal $parent-gid)))
+   (match ccls_head_index ($key $raw-rule-id)
+      (let $rule-id (the Number $raw-rule-id)
+         (match rules
+            (runtime-rule-row $rule-id $stored-goal $args)
+            (if (= $stored-goal $goal)
+               (data $rule-id $args $goal $parent-gid)
+               (empty))))))
 
 ;; Look up rules by the goal's concrete head *and* the `any` wildcard bucket, so
 ;; an open goal still reaches variable-headed conclusions (which only live under
@@ -1639,25 +1632,23 @@
 (: rule-goal-full-view
    (-[nondet]-> (| Goal (Statement KBContext Proof TV))
       Number RuleGoalMatch))
-(: rule-goal-contextual-row-view
-   (-[nondet]-> Number
-      (| Goal (Statement KBContext Proof TV))
-      Number RuleGoalMatch))
-(= (rule-goal-contextual-row-view $rule-id $goal $parent-gid)
-   (match rules
-      (runtime-rule-row $rule-id $stored-goal $args)
-      (if (= $stored-goal $goal)
-         (data $rule-id
-            (contextualize-rule-args $goal $args)
-            $goal
-            $parent-gid)
-         (empty))))
-
 (= (rule-goal-full-view $goal $parent-gid)
-   (let $lookup-goal (copy_term $goal)
-      (match ccls_index ($lookup-goal $rule-id)
-         (rule-goal-contextual-row-view
-            (the Number $rule-id) $goal $parent-gid))))
+   (case $goal (
+      ((CPU $_fun $_args $_result)
+         (empty))
+      (($_type $_kbctx $_proof $_tv)
+         (let $lookup-goal
+            (copy_term
+               (data $_type $_kbctx $_proof $_tv))
+            (match ccls_index ($lookup-goal $rule-id)
+               (match rules
+                  (runtime-rule-row $rule-id $stored-goal $args)
+                  (if (= $stored-goal $goal)
+                     (data $rule-id
+                        (contextualize-rule-args $goal $args)
+                        $goal
+                        $parent-gid)
+                     (empty)))))))))
 
 (: same-var-in-list? (-> $variable (List $variable) Bool))
 (= (same-var-in-list? $_var ()) false)

@@ -87,6 +87,9 @@
          Number
          (Statement KBContext Proof TV)
          (List (| Goal (Statement KBContext Proof TV))))))
+(: ccls_index
+   (SpaceOf
+      ((Statement KBContext Proof TV) Number)))
 
 (: StoredGoalRow Type)
 (: stored-goal-row
