@@ -55,17 +55,34 @@
 
 !(test
    (match rules
-      ($id (: (kb $ctx $vars) (foldRule cpu) (ScoreTotal $total) $tv)
-         ((CPU FoldAllCompiled $call $total) (CPU CTVModusPonensFormula ((STV 1.0 1.0) (CTV (STV 1.0 1.0) (STV 0.0 1.0))) $tv)))
-      ok)
+      (runtime-rule-row $id $ccls $args)
+      (if (= $ccls (: (kb $ctx $vars) (foldRule cpu) (ScoreTotal $total) $tv))
+         (if (= $args
+                  ((CPU FoldAllCompiled $call $total)
+                   (CPU CTVModusPonensFormula
+                      ((STV 1.0 1.0)
+                       (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
+                      $tv)))
+            ok
+            (empty))
+         (empty)))
    ())
 
 !(test
    (match rules
-      ($id (: (kb $ctx $vars) (foldRule $prem) (ScoreTotal $total) $tv)
-         ((: $_kb $_prf (CPU FoldAllCompiled $call $total) $_cpu-tv)
-            (CPU CTVModusPonensFormula ($_cpu-tv (CTV (STV 1.0 1.0) (STV 0.0 1.0))) $tv)))
-      bad)
+      (runtime-rule-row $id $ccls $args)
+      (if (= $ccls (: (kb $ctx $vars) (foldRule $prem) (ScoreTotal $total) $tv))
+         (if (= $args
+                  ((: $_kb $_prf
+                      (CPU FoldAllCompiled $call $total)
+                      $_cpu-tv)
+                   (CPU CTVModusPonensFormula
+                      ($_cpu-tv
+                       (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
+                      $tv)))
+            bad
+            (empty))
+         (empty)))
    ())
 
 !(test (query 30 kb (: $prf (ScoreTotal $x) $tv))
@@ -94,9 +111,21 @@
 
 !(test
    (match rules
-      ($id (: (kb $ctx $vars) (foldValueShapeRule cpu) (ScoreDist $dist) $tv)
-         ((CPU FoldAllCompiled $call $dist) (CPU CTVModusPonensFormula ((STV 1.0 1.0) (CTV (STV 1.0 1.0) (STV 0.0 1.0))) $tv)))
-      ok)
+      (runtime-rule-row $id $ccls $args)
+      (if (= $ccls
+               (: (kb $ctx $vars)
+                  (foldValueShapeRule cpu)
+                  (ScoreDist $dist)
+                  $tv))
+         (if (= $args
+                  ((CPU FoldAllCompiled $call $dist)
+                   (CPU CTVModusPonensFormula
+                      ((STV 1.0 1.0)
+                       (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
+                      $tv)))
+            ok
+            (empty))
+         (empty)))
    ())
 
 !(compileadd kb
@@ -107,9 +136,21 @@
 
 !(test
    (match rules
-      ($id (: (kb $ctx $vars) (avgShapeRule cpu) (AvgScoreDist $avgDist) $tv)
-         ((CPU FoldAllCompiled $call $avgDist) (CPU CTVModusPonensFormula ((STV 1.0 1.0) (CTV (STV 1.0 1.0) (STV 0.0 1.0))) $tv)))
-      ok)
+      (runtime-rule-row $id $ccls $args)
+      (if (= $ccls
+               (: (kb $ctx $vars)
+                  (avgShapeRule cpu)
+                  (AvgScoreDist $avgDist)
+                  $tv))
+         (if (= $args
+                  ((CPU FoldAllCompiled $call $avgDist)
+                   (CPU CTVModusPonensFormula
+                      ((STV 1.0 1.0)
+                       (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
+                      $tv)))
+            ok
+            (empty))
+         (empty)))
    ())
 
 !(compileadd kb
@@ -120,11 +161,22 @@
 
 !(test
    (match rules
-      ($id
-         (: (kb MAIN Nil) (conjunction $fact-prf cpu) (And (Count $name $n) (CPU NotEqual ($name MissingTotal) true)) $tv)
-         ((: (kb MAIN Nil) $fact-prf (Count $name $n) $count-tv) (CPU NotEqual ($name MissingTotal) true)
-            (CPU AndFormula ($count-tv (STV 1.0 1.0)) $tv)))
-      ok)
+      (runtime-rule-row $id $ccls $args)
+      (if (= $ccls
+               (: (kb MAIN Nil)
+                  (conjunction $fact-prf cpu)
+                  (And (Count $name $n)
+                       (CPU NotEqual ($name MissingTotal) true))
+                  $tv))
+         (if (= $args
+                  ((: (kb MAIN Nil) $fact-prf
+                      (Count $name $n) $count-tv)
+                   (CPU NotEqual ($name MissingTotal) true)
+                   (CPU AndFormula
+                      ($count-tv (STV 1.0 1.0)) $tv)))
+            ok
+            (empty))
+         (empty)))
    ())
 
 !(compileadd kb

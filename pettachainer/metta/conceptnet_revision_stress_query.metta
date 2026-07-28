@@ -9,7 +9,6 @@
 ;; the external ConceptNet export and enables PeTTaChainer's strict-det arrow
 ;; semantics.
 !(import! &self petta_chainer)
-!(import! &self (library lib_import))
 !(static-import! &self .conceptnet_export/rules_dump)
 
 (: current-time (-> Number))

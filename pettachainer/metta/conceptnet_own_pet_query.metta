@@ -6,7 +6,6 @@
 ;; path into this file. This stays beside petta_chainer.metta so its nested
 ;; module imports work with both the old and current PeTTa import resolvers.
 !(import! &self petta_chainer)
-!(import! &self (library lib_import))
 !(static-import! &self .conceptnet_export/rules_dump)
 
 (: current-time (-> Number))
