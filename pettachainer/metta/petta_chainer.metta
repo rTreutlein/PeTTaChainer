@@ -1,5 +1,6 @@
 !(import! &self (library lib_roman))
 !(import! &self (library lib_spaces))
+!(import! &self (library lib_import))
 !(import! &self chainer_types)
 !(import! &self logic_config)
 
@@ -15,10 +16,7 @@
 !(assertzPredicate (Predicate (arity get_from_heap 4)))
 !(assertzPredicate (Predicate (arity heap_size 2)))
 
-;; Shared SWI heap primitives must be declared before the forward and backward
-;; runtime modules are compiled.
-(: empty_heap (-[det]-> $heap))
-(: add_to_heap (-[det]-> $heap Number $item $heap))
+!(import_prolog_functions_from_file "./heap_helpers.pl" (heap_pop))
 
 !(import! &self chainer_utils)
 !(import! &self forward_chainer)

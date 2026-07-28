@@ -113,23 +113,23 @@
 ;; cannot express directly.
 (: ForwardAgendaPop Type)
 (: no-forward-agenda-pop ForwardAgendaPop)
-(: forward-agenda-pop (-> $heap ForwardQueueItem ForwardAgendaPop))
+(: forward-agenda-pop (-> (Heap ForwardQueueItem) ForwardQueueItem ForwardAgendaPop))
 
-(: forward-pop-agenda (-> $heap ForwardAgendaPop))
+(: forward-pop-agenda (-> (Heap ForwardQueueItem) ForwardAgendaPop))
 (= (forward-pop-agenda $agenda)
    (let $pops
       (collapse
          (once
-            (let $rest
-               (get_from_heap $agenda $_priority $item)
+            (let ($_priority $item $rest)
+               (heap_pop $agenda)
                (forward-agenda-pop
-                  $rest (brand ForwardQueueItem $item)))))
+                  $rest $item))))
       (if (== $pops ())
          no-forward-agenda-pop
          (car-atom $pops))))
 
-(: ForwardRun Type)
-(: forward-run (-> $heap (List ForwardOutputKey) ForwardRun))
+(: ForwardRun
+   (Alias ((Heap ForwardQueueItem) (List ForwardOutputKey))))
 
 (: forward-type-trigger-key (-> KB Statement ForwardTriggerKey))
 (= (forward-type-trigger-key $kbid $type)
@@ -1301,11 +1301,11 @@
                         (brand Proof $_prf) (the TV $_tv))))))
          (empty))))
 
-(: agenda-push-fact (-> $heap (Statement KBContext Proof TV) $heap))
+(: agenda-push-fact (-> (Heap ForwardQueueItem) (Statement KBContext Proof TV) (Heap ForwardQueueItem)))
 (= (agenda-push-fact $agenda $fact)
    (add_to_heap $agenda (- 0 (term-confidence $fact)) (qitem $fact)))
 
-(: forward-seed-agenda-step (-> $heap (Statement KBContext Proof TV) $heap))
+(: forward-seed-agenda-step (-> (Heap ForwardQueueItem) (Statement KBContext Proof TV) (Heap ForwardQueueItem)))
 (= (forward-seed-agenda-step $agenda $fact)
    (let $rows (collapse (once (forward-output-row-for-fact $fact)))
       (if (== $rows ()) (agenda-push-fact $agenda $fact)
@@ -1314,14 +1314,14 @@
             (agenda-push-fact $agenda $canonical)))))
 
 (: forward-build-agenda-from-facts
-   (-> (List (Statement KBContext Proof TV)) $heap))
+   (-> (List (Statement KBContext Proof TV)) (Heap ForwardQueueItem)))
 (= (forward-build-agenda-from-facts $facts)
    (fold-flat forward-seed-agenda-step (empty_heap) (list_to_set $facts)))
 
-(: forward-agenda-identity (-> $heap $heap))
+(: forward-agenda-identity (-> (Heap ForwardQueueItem) (Heap ForwardQueueItem)))
 (= (forward-agenda-identity $agenda) $agenda)
 
-(: agenda-push-forward-change (-> $heap ForwardOutputChange $heap))
+(: agenda-push-forward-change (-> (Heap ForwardQueueItem) ForwardOutputChange (Heap ForwardQueueItem)))
 (= (agenda-push-forward-change $agenda $change)
    (once
       (case $change
@@ -1655,7 +1655,7 @@
 
 (: forward-run-apply-derived
    (-> ForwardRun ForwardDerived ForwardRun))
-(= (forward-run-apply-derived (forward-run $agenda $changed) $derived)
+(= (forward-run-apply-derived ($agenda $changed) $derived)
    (let $changes (collapse (once (forward-candidate-upsert! $derived)))
       (let $change
          (if (== $changes ()) no-forward-change (car-atom $changes))
@@ -1665,13 +1665,13 @@
                 ;; Keep output identities, not intermediate fact versions. At
                 ;; the end of the run each identity resolves to its final
                 ;; canonical fact.
-                (forward-run
+                (data
                    $nagenda (cons (forward-fact-key $fact) $changed)))
              ((forward-output-replaced $_old $fact)
-                (forward-run
+                (data
                    $nagenda (cons (forward-fact-key $fact) $changed)))
              ($_other
-                (forward-run $nagenda $changed))))))))
+                (data $nagenda $changed))))))))
 
 (: forward-step-fact
    (-> Number KB ForwardRun (Statement KBContext Proof TV) ForwardRun))
@@ -1695,26 +1695,26 @@
             (== $canonical $fact)))))
 
 (: forward-loop (-> Number KB ForwardRun ForwardRun))
-(= (forward-loop $steps $kb (forward-run $agenda $changed))
+(= (forward-loop $steps $kb ($agenda $changed))
    (if (<= $steps 0)
-       (forward-run $agenda $changed)
+       (data $agenda $changed)
        (case (forward-pop-agenda $agenda) (
           (no-forward-agenda-pop
-             (forward-run $agenda $changed))
+             (data $agenda $changed))
           ((forward-agenda-pop $rest (qitem $fact))
              (if (forward-queued-fact-current? $fact)
                 (let*
                    (($next-steps (- $steps 1))
-                    ((forward-run $nagenda $nchanged)
+                    (($nagenda $nchanged)
                        (forward-step-fact $steps $kb
-                          (forward-run $rest $changed) $fact)))
+                          (data $rest $changed) $fact)))
                    (forward-loop $next-steps $kb
-                      (forward-run
+                      (data
                          (bounded-agenda-prune $next-steps $nagenda)
                          $nchanged)))
                 (forward-loop
                    $steps $kb
-                   (forward-run $rest $changed))))))))
+                   (data $rest $changed))))))))
 
 (: forward-canonical-fact-for-key
    (-[semidet]-> ForwardOutputKey (Statement KBContext Proof TV)))
@@ -1743,7 +1743,7 @@
 
 (: forward-run-changed-facts
    (-> ForwardRun (List (Statement KBContext Proof TV))))
-(= (forward-run-changed-facts (forward-run $_agenda $changed))
+(= (forward-run-changed-facts ($_agenda $changed))
    (forward-canonical-facts-for-keys
       (list_to_set $changed)))
 
@@ -1754,7 +1754,7 @@
    (let $agenda
       (forward-build-agenda-from-facts $facts)
       (let $run
-         (forward-loop $steps $kb (forward-run $agenda ()))
+         (forward-loop $steps $kb (data $agenda ()))
          (forward-run-changed-facts $run))))
 
 (: forward-has-derived? (-> KB Statement Bool))

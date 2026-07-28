@@ -243,18 +243,15 @@
          (if-error-bool
             (car-atom $state-values) true))))
 
-(: heap-take-best (-> Number $heap $heap $heap))
+(: heap-take-best (-> Number (Heap $item) (Heap $item) (Heap $item)))
 (= (heap-take-best $count $src $dst)
    (if (<= $count 0)
       $dst
       (let $pops
-         (collapse
-            (let $rest
-               (get_from_heap $src $key $item)
-               (quote ($rest $key $item))))
+         (collapse (heap_pop $src))
          (if (== $pops ())
             $dst
-            (let ($rest $key $item)
+            (let ($key $item $rest)
                (car-atom $pops)
                (let $next-values
                   (collapse
@@ -267,7 +264,7 @@
                         $rest
                         (car-atom $next-values)))))))))
 
-(: heap-prune-to-size (-> Number $heap $heap))
+(: heap-prune-to-size (-> Number (Heap $item) (Heap $item)))
 (= (heap-prune-to-size $target $agenda)
    (let $empty-values (collapse (empty_heap))
       (if (== $empty-values ())
@@ -276,7 +273,7 @@
             $target $agenda
             (car-atom $empty-values)))))
 
-(: bounded-agenda-prune (-> Number $heap $heap))
+(: bounded-agenda-prune (-> Number (Heap $item) (Heap $item)))
 (= (bounded-agenda-prune $steps $agenda)
    (if (bounded-agenda-pruning?)
       (let*

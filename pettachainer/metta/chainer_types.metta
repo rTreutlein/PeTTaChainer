@@ -3,6 +3,16 @@
 ;; Function signatures stay beside their implementations. This file contains
 ;; only representations shared across compiler/runtime module boundaries.
 
+;; SWI heap values are opaque Prolog terms. The parameter tracks their payload
+;; type, while heap_pop adapts get_from_heap/4 to PeTTa's single output.
+(: Heap (Foreign 1))
+(: empty_heap (-[det]-> (Heap $item)))
+(: add_to_heap
+   (-[det]-> (Heap $item) Number $item (Heap $item)))
+(: heap_pop
+   (-[semidet]-> (Heap $item)
+       (Number $item (Heap $item))))
+
 (: TV Type)
 (: STV (-> Number Number TV))
 (: CTV (-> TV TV TV))
