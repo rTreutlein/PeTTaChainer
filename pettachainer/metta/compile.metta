@@ -402,14 +402,12 @@
            (compound-premise-items $prem-kb $tail))
         ($init
            (data
-              (the (List Goal)
-                 (cons (the Goal $fstgoal) ()))
+              (cons $fstgoal ())
               $prem-kb
-              (the (List Proof)
-                 (cons (the Proof $fstprf) ()))
+              (cons $fstprf ())
               (the (List Expression)
-                 (cons (the Expression $fstelem) ()))
-              (the TV $fsttv)))
+                 (cons $fstelem ()))
+              $fsttv))
         (($resNNprms $res-kb $cclprf $ccltype $ccltv)
            (fold-flat
               (in_fold (atom_concat $head Formula))
