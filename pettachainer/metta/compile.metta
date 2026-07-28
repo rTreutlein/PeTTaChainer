@@ -142,20 +142,14 @@
 (: premise-bundle
    (-> (List Goal) TV Proof PremiseBundle))
 
-;; Strict PeTTa needs a constructor to certify these computed list fields.
-;; One shared state replaces the former projection, query, and premise states.
-(: CompiledPremises Type)
-(: compiled-premises
-   (-> (List Goal) (List Proof) TV CompiledPremises))
-
 (: projection-evidence-step
    (-> KBContext Atom
-       CompiledPremises Statement
-       CompiledPremises))
+       ((List Goal) (List Proof) TV) Statement
+       ((List Goal) (List Proof) TV)))
 (= (projection-evidence-step $kb $formula
-      (compiled-premises $execs $proofs $acc-tv)
+      ($execs $proofs $acc-tv)
       $elem)
-   (compiled-premises
+   (data
       (append-goals $execs
          (cons
             (: $kb $prf $elem $tv)
@@ -164,17 +158,19 @@
                   (quote ($acc-tv $tv)) $next-tv)
                ())))
       (append-stored-proof $proofs $prf)
-      $next-tv))
+      (the TV $next-tv)))
 
 (: projection-evidence-bundle
    (-> KBContext Atom (List Statement) PremiseBundle))
 (= (projection-evidence-bundle $kb $head (cons $fst $rst))
    (let*
-      (((compiled-premises $execs $proofs $tv)
+      ((($execs $proofs $tv)
            (fold-flat
               (projection-evidence-step $kb (atom_concat $head Formula))
-              (compiled-premises
-                 ((: $kb $fstprf $fst $fsttv)) ($fstprf) $fsttv)
+              (data
+                 ((: $kb $fstprf $fst $fsttv))
+                 ((brand Proof $fstprf))
+                 (the TV $fsttv))
               $rst))
         ($proof-token (projection-evidence-proof-token $proofs)))
       (premise-bundle $execs $tv $proof-token)))
@@ -260,13 +256,11 @@
 (= (checked-cpu-premise-tv $result)
    (the TV $result))
 
-(: BinaryTVCPU Type)
-(: binary-tv-cpu-result (-> Goal TV BinaryTVCPU))
-(: binary-tv-cpu (-> Atom TV TV BinaryTVCPU))
+(: binary-tv-cpu (-> Atom TV TV (Goal TV)))
 (= (binary-tv-cpu $formula $left $right)
-   (binary-tv-cpu-result
+   (data
       (CPU $formula (quote ($left $right)) $result)
-      $result))
+      (the TV $result)))
 
 (: aggregate-cpu-formula? (-> Atom Bool))
 (= (aggregate-cpu-formula? $formula)
@@ -320,37 +314,32 @@
             (cpu-premise-tv $f $args $res) cpu)
          (premise-bundle ((: $prem-kb $prf $elem $tv)) $tv $prf)))))
 
-(: CompiledPremise Type)
-(: prem
-   (-> Goal Expression TV Proof CompiledPremise))
-
 (: in_map
-   (-[det]-> KBContext Expression CompiledPremise))
+   (-[det]-> KBContext Expression (Goal Expression TV Proof)))
 (= (in_map $kb $elem)
    (if (= $elem (CPU $f $args $res))
-      (prem (CPU $f $args $res) (CPU $f $args $res)
+      (data (CPU $f $args $res) (CPU $f $args $res)
          (cpu-premise-tv $f $args $res) cpu)
-      (prem (: $kb $prf $elem $tv) $elem $tv $prf)))
-
-(: PremiseFoldState Type)
-(: premise-fold-state
-   (-> (List Goal) KBContext (List Proof) (List Expression) TV
-       PremiseFoldState))
+      (data
+         (: $kb $prf $elem $tv) $elem
+         (the TV $tv) (brand Proof $prf))))
 
 (: in_fold
-   (-> Atom PremiseFoldState CompiledPremise PremiseFoldState))
+   (-> Atom
+       ((List Goal) KBContext (List Proof) (List Expression) TV)
+       (Goal Expression TV Proof)
+       ((List Goal) KBContext (List Proof) (List Expression) TV)))
 (=
    (in_fold $formula
-      (premise-fold-state
-         $premises $res-kb $cclprf $ccltype $tv)
-      (prem $goal $elem $tve $prfelem))
-   (premise-fold-state
+      ($premises $res-kb $cclprf $ccltype $tv)
+      ($goal $elem $tve $prfelem))
+   (data
       (cons (CPU $formula (quote ($tv $tve)) $ntv)
          (cons $goal $premises))
       $res-kb
       (cons $prfelem $cclprf)
       (cons $elem $ccltype)
-      $ntv))
+      (the TV $ntv)))
 
 (: ExistentialFold (-> Statement (List Variable) Statement))
 
@@ -397,7 +386,7 @@
 
 (: compound-premise-items
    (-[nondet]-> KBContext Expression
-       (List CompiledPremise)))
+       (List (Goal Expression TV Proof))))
 (= (compound-premise-items $kb $items)
    (case $items (
       (() ())
@@ -409,19 +398,22 @@
 (= (compound-all-premise-bundle $kb $ctx $vars $head $tail)
    (let*
       (($prem-kb (source-premise-kb $kb $ctx $vars))
-        ((cons (@ $fst (prem $fstgoal $fstelem $fsttv $fstprf)) $rst)
+        ((cons (@ $fst ($fstgoal $fstelem $fsttv $fstprf)) $rst)
            (compound-premise-items $prem-kb $tail))
         ($init
-           (premise-fold-state
-              (cons $fstgoal ())
+           (data
+              (the (List Goal)
+                 (cons (the Goal $fstgoal) ()))
               $prem-kb
-              (cons $fstprf ())
-              (cons $fstelem ())
-              $fsttv))
-        ($folded (fold-flat (in_fold (atom_concat $head Formula)) $init $rst))
-        ((premise-fold-state
-            $resNNprms $res-kb $cclprf $ccltype $ccltv)
-           $folded)
+              (the (List Proof)
+                 (cons (the Proof $fstprf) ()))
+              (the (List Expression)
+                 (cons (the Expression $fstelem) ()))
+              (the TV $fsttv)))
+        (($resNNprms $res-kb $cclprf $ccltype $ccltv)
+           (fold-flat
+              (in_fold (atom_concat $head Formula))
+              $init $rst))
         ($execs (reverse $resNNprms))
         ($rcclprf (reverse $cclprf))
         ($rccltype (reverse $ccltype))
@@ -437,8 +429,9 @@
 (= (compound-any-premise-child-bundle $kb $ctx $vars $head $elem)
    (let*
       (($prem-kb (source-premise-kb $kb $ctx $vars))
-        ((prem $goal $_elem $tv $proof) (in_map $prem-kb $elem)))
-      (premise-bundle ($goal) $tv ((atom_concat $head introduction) $proof))))
+        (($goal $_elem $tv $proof) (in_map $prem-kb $elem)))
+      (premise-bundle
+         ($goal) $tv ((atom_concat $head introduction) $proof))))
 
 (: compound-any-premise-bundle
    (-[nondet]-> KB $context $variables Atom Expression
@@ -513,30 +506,31 @@
          (leaf-source-bundle $kb $ctx $vars $premise))))
 
 (: query-compound-premise-state
-   (-> PremiseBundle CompiledPremises))
-(= (query-compound-premise-state (premise-bundle $execs $tv $proof))
-   (compiled-premises $execs ($proof) $tv))
+   (-> PremiseBundle ((List Goal) (List Proof) TV)))
+(= (query-compound-premise-state
+      (premise-bundle $execs $tv $proof))
+   (data $execs ($proof) $tv))
 
 ;; Accumulate a direct compound-query rule in source order. Appending both goals
 ;; and proofs is intentional: the returned `(conjunction ...)` proof mirrors the
 ;; order written by the caller, while each TV fold consumes the same ordering.
 (: query-compound-premise-step
    (-[semidet]-> KB $context $variables Atom
-       CompiledPremises
+       ((List Goal) (List Proof) TV)
        Statement
-       CompiledPremises))
+       ((List Goal) (List Proof) TV)))
 (=
    (query-compound-premise-step $kb $ctx $vars $formula
-      (compiled-premises $acc-execs $acc-proofs $acc-tv)
+      ($acc-execs $acc-proofs $acc-tv)
       $premise)
    (let*
       (((premise-bundle $execs $tv $proof)
           (query-compound-child-bundle
              $kb $ctx $vars
              (brand Statement $premise)))
-       ((binary-tv-cpu-result $cpu $next-tv)
+       (($cpu $next-tv)
           (binary-tv-cpu $formula $acc-tv $tv)))
-      (compiled-premises
+      (data
          (append-goals $acc-execs
             (append-goals $execs (cons $cpu ())))
          (append-stored-proof $acc-proofs $proof)
@@ -544,7 +538,7 @@
 
 (= (query-compound-premise-bundle $kb $ctx $vars $head (cons $fst $rst))
    (let*
-      (((compiled-premises $execs $proofs $ccltv)
+      ((($execs $proofs $ccltv)
            (fold-flat
               (query-compound-premise-step $kb $ctx $vars (atom_concat $head Formula))
               (query-compound-premise-state
@@ -795,17 +789,17 @@
 ;; non-empty bundles so the first premise supplies the initial TV and no fake
 ;; unit-evidence proof is introduced.
 (: append-premise-bundle
-   (-> CompiledPremises PremiseBundle CompiledPremises))
+   (-> ((List Goal) (List Proof) TV) PremiseBundle ((List Goal) (List Proof) TV)))
 (=
    (append-premise-bundle
-      (compiled-premises $current-execs $current-proofs $current-tv)
+      ($current-execs $current-proofs $current-tv)
       (premise-bundle $execs $tv $proof))
    (if (== $current-execs ())
-      (compiled-premises
+      (data
          $execs (cons (brand Proof $proof) ()) $tv)
-      (let (binary-tv-cpu-result $cpu $next-tv)
+      (let ($cpu $next-tv)
          (binary-tv-cpu AndFormula $current-tv $tv)
-         (compiled-premises
+         (data
             (append-goals $current-execs
                (append-goals $execs (cons $cpu ())))
             (append-stored-proof $current-proofs $proof)
@@ -961,24 +955,24 @@
       (append-expressions $normal $folded)))
 
 (: lower-source-premises-step
-   (-[nondet]-> KB $context $variables CompiledPremises Statement
-       CompiledPremises))
+   (-[nondet]-> KB $context $variables ((List Goal) (List Proof) TV) Statement
+       ((List Goal) (List Proof) TV)))
 (= (lower-source-premises-step $kb $ctx $vars $acc $premise)
    (append-premise-bundle $acc
       (lower-source-premise-with-existentials $kb $ctx $vars $premise)))
 
 (: lower-source-premises-list
    (-[nondet]-> KB $context $variables (List Expression)
-       CompiledPremises))
+       ((List Goal) (List Proof) TV)))
 (= (lower-source-premises-list $kb $ctx $vars $premises)
    (lower-source-premises-list-acc
       $kb $ctx $vars
-      (compiled-premises () () (STV 1.0 1.0))
+      (data () () (STV 1.0 1.0))
       $premises))
 
 (: lower-source-premises-list-acc
-   (-[nondet]-> KB $context $variables CompiledPremises (List Expression)
-       CompiledPremises))
+   (-[nondet]-> KB $context $variables ((List Goal) (List Proof) TV) (List Expression)
+       ((List Goal) (List Proof) TV)))
 (= (lower-source-premises-list-acc $_kb $_ctx $_vars $acc ()) $acc)
 (= (lower-source-premises-list-acc $kb $ctx $vars $acc (cons $premise $rest))
    (lower-source-premises-list-acc
@@ -989,7 +983,7 @@
 
 (: lower-source-premises
    (-[nondet]-> KB $context $variables (List Expression) (List Expression)
-       CompiledPremises))
+       ((List Goal) (List Proof) TV)))
 (= (lower-source-premises $kb $ctx $vars $premises $conclusions)
    (let*
       (($conclusion-vars (list_to_set (extract-vars $conclusions)))
@@ -1016,23 +1010,23 @@
       (lower-source-premise $kb $ctx $vars $premise)))
 
 (: lower-query-assumption-premises-step
-   (-[nondet]-> KB $context $variables CompiledPremises Statement
-       CompiledPremises))
+   (-[nondet]-> KB $context $variables ((List Goal) (List Proof) TV) Statement
+       ((List Goal) (List Proof) TV)))
 (= (lower-query-assumption-premises-step $kb $ctx $vars $acc $premise)
    (append-premise-bundle $acc (lower-query-assumption-premise $kb $ctx $vars $premise)))
 
 (: lower-query-assumption-premises
    (-[nondet]-> KB $context $variables (List Expression)
-       CompiledPremises))
+       ((List Goal) (List Proof) TV)))
 (= (lower-query-assumption-premises $kb $ctx $vars $premises)
    (lower-query-assumption-premises-acc
       $kb $ctx $vars
-      (compiled-premises () () (STV 1.0 1.0))
+      (data () () (STV 1.0 1.0))
       $premises))
 
 (: lower-query-assumption-premises-acc
-   (-[nondet]-> KB $context $variables CompiledPremises (List Expression)
-       CompiledPremises))
+   (-[nondet]-> KB $context $variables ((List Goal) (List Proof) TV) (List Expression)
+       ((List Goal) (List Proof) TV)))
 (= (lower-query-assumption-premises-acc $_kb $_ctx $_vars $acc ()) $acc)
 (= (lower-query-assumption-premises-acc $kb $ctx $vars $acc (cons $premise $rest))
    (lower-query-assumption-premises-acc
@@ -1072,13 +1066,13 @@
 
 (: lower-query-assumption-premises-negative
    (-[nondet]-> KB $context $variables (List Expression)
-       CompiledPremises))
+       ((List Goal) (List Proof) TV)))
 (= (lower-query-assumption-premises-negative $kb $ctx $vars ())
-   (compiled-premises () () (STV 0.0 1.0)))
+   (data () () (STV 0.0 1.0)))
 (= (lower-query-assumption-premises-negative $kb $ctx $vars (cons $premise $rest))
    (lower-query-assumption-premises-acc $kb $ctx $vars
       (append-premise-bundle
-         (compiled-premises () () (STV 1.0 1.0))
+         (data () () (STV 1.0 1.0))
          (lower-query-assumption-premise-false
             $kb $ctx $vars (brand Statement $premise)))
       $rest))
@@ -1188,46 +1182,42 @@
 ;; Rules stored with an STV need a CTV derived from antecedent/consequent base
 ;; rates before modus ponens can use them. An explicit CTV already carries both
 ;; directions and therefore needs no runtime base-rate scans.
-(: ImplicationCTVExecutions Type)
-(: implication-ctv-execs
-   (-> (List Goal) TV ImplicationCTVExecutions))
-
 (: compile-implication-ctv-execs
-   (-> KB Statement Statement TV ImplicationCTVExecutions))
+   (-> KB Statement Statement TV ((List Goal) TV)))
 (= (compile-implication-ctv-execs $_kb $_a $_b (CTV $pos $neg))
-   (implication-ctv-execs () (CTV $pos $neg)))
+   (data () (CTV $pos $neg)))
 (= (compile-implication-ctv-execs $kb $a $b (STV $s $c))
    (let*
       (($a1 (copy_term (map-nested2 toQuery $a)))
         ($b1 (copy_term (map-nested2 toQuery $b))))
-      (implication-ctv-execs
-          ((base-rate-premise $kb $a1 $rule-atv)
-           (base-rate-premise $kb $b1 $rule-btv)
-           (CPU ImplicationCTVFormula
-              (quote ($rule-atv $rule-btv (STV $s $c)))
-              $rule-ctv))
-         $rule-ctv)))
+      (data
+         (the (List Goal)
+            ((base-rate-premise $kb $a1 $rule-atv)
+             (base-rate-premise $kb $b1 $rule-btv)
+             (CPU ImplicationCTVFormula
+                (quote ($rule-atv $rule-btv (STV $s $c)))
+                $rule-ctv)))
+         (the TV $rule-ctv))))
 
 ;; A negated conclusion is stored as positive evidence for its inner expression
 ;; with a negated proof and transformed TV. Keeping the runtime type positive
 ;; lets it share the ordinary fact indexes.
-(: CompiledOutput Type)
-(: compiled-output
-   (-> (List Goal) Proof Statement TV CompiledOutput))
-
 (: compile-implication-output
-   (-> Proof Proof Statement TV CompiledOutput))
+   (-> Proof Proof Statement TV ((List Goal) Proof Statement TV)))
 (= (compile-implication-output $prf $proof-token $b $btv)
    (case $b (
       ((Not $inner)
-         (compiled-output
+         (data
             ((CPU NotFormula ($btv) $out-tv))
-            (negated (quote ($prf $proof-token)))
-            $inner
-            $out-tv))
+            (brand Proof (negated (quote ($prf $proof-token))))
+            (brand Statement $inner)
+            (the TV $out-tv)))
       ($other
-         (compiled-output
-            () (quote ($prf $proof-token)) $other $btv)))))
+         (data
+            ()
+            (brand Proof (quote ($prf $proof-token)))
+            (brand Statement $other)
+            $btv)))))
 
 ;; Emit the forward rule plus the adapters needed on both sides. The shape KB is
 ;; context-sensitive for assumption queries, while adapter-kb controls where
@@ -1241,9 +1231,9 @@
       (once
          (let*
             (($proof-token (implication-proof-token $proofs))
-              ((implication-ctv-execs $ctv-execs $rule-ctv)
+              (($ctv-execs $rule-ctv)
                  (compile-implication-ctv-execs $kb $a $b $tv))
-              ((compiled-output $out-execs $out-prf $out-type $out-tv)
+              (($out-execs $out-prf $out-type $out-tv)
                  (compile-implication-output
                     $prf $proof-token $b (the TV $btv)))
               ($allargs
@@ -1432,7 +1422,7 @@
    (-> (List Expression) (List Expression) $subject $instance
        ((List Expression) (List Expression))))
 (= (inheritance-lift-parts () () $_source-subj $_instance)
-   (() ()))
+   (data () ()))
 (= (inheritance-lift-parts
       (cons $ground-premise $ground-rest)
       (cons $source-premise $source-rest)
@@ -1441,10 +1431,10 @@
       (inheritance-lift-parts $ground-rest $source-rest $source-subj $instance)
       (if (inheritance-context-premise? $source-premise $source-subj)
          (let (Inheritance $_ground-subj $ground-concept) $ground-premise
-            (
+            (data
                (cons (Inheritance $instance $ground-concept) $contextual)
                $auxiliary))
-         ($contextual (cons $ground-premise $auxiliary)))))
+         (data $contextual (cons $ground-premise $auxiliary)))))
 
 ;; Compile a specialized relational rule into one fixed query context. The
 ;; rule's positive STV is already its conditional estimate; unlike an observed
@@ -1481,10 +1471,10 @@
              (the (List Expression)
                 ((Inheritance $instance $ground-subj)))
              $contextual-premises))
-       ((compiled-premises $main-execs $main-proofs $main-atv)
+       (($main-execs $main-proofs $main-atv)
           (once (lower-source-premises $kb MAIN Nil $auxiliary-premises
              ((Inheritance $ground-subj $ground-concept)))))
-       ((compiled-premises $context-execs $context-proofs $context-atv)
+       (($context-execs $context-proofs $context-atv)
           (once (lower-source-premises $kb $ctx $vars $lift-premises
              ((Inheritance $instance $ground-concept)))))
        ($source-proof (implication-proof-token $main-proofs))
@@ -1841,7 +1831,7 @@
             (compile-specialization (: $prf $Type $tv)))
          (let*
             (($_evidence-reg (register-rule-evidence! $kb $prf))
-             ((compiled-premises $execs $proofs $atv)
+             (($execs $proofs $atv)
                 (once
                    (lower-source-premises $kb $ctx $vars
                       (the (List Expression) $premises)
@@ -1907,20 +1897,23 @@
                               (compile-outputs (: $fact-kb $prf $Type $tv)))))))))))
 
 
-(: ImplicationQueryTVParts Type)
-(: implication-query-tv-parts
-   (-> TV TV TV ImplicationQueryTVParts))
-
 (: implication-query-known-tv-parts
-   (-> TV ImplicationQueryTVParts))
+   (-> TV (TV TV TV)))
 (= (implication-query-known-tv-parts $tv)
    (if (is-var $tv)
-      (implication-query-tv-parts
-         $pos-tv $neg-tv (CTV $pos-tv $neg-tv))
+      (data
+         (the TV $pos-tv)
+         (the TV $neg-tv)
+         (CTV $pos-tv $neg-tv))
       (if (= $tv (CTV $pos-tv $neg-tv))
-         (implication-query-tv-parts $pos-tv $neg-tv $tv)
-         (implication-query-tv-parts
-            $tv $stv-neg-tv (CTV $tv $stv-neg-tv)))))
+         (data
+            (the TV $pos-tv)
+            (the TV $neg-tv)
+            $tv)
+         (data
+            $tv
+            (the TV $stv-neg-tv)
+            (CTV $tv $stv-neg-tv)))))
 
 ;; One side of a total-implication / bidirectional query: allocate a fresh
 ;; query context, lower the premises (negatively for the refuting side of a
@@ -1928,20 +1921,15 @@
 ;; atoms the chainer needs to resolve this side's conclusion. Returns the ground
 ;; shape-kb, the fresh proof var (shared with the caller's goal and proof
 ;; token), the conclusion expression, and the side's adds.
-(: QuerySide Type)
-(: qside
-   (-> KBContext Proof Statement
-       (List CompiledAddition) QuerySide))
-
 (: query-side
    (-[semidet]-> KB (| NilType (List Variable)) Bool
        (List Expression) (List Expression)
-       QuerySide))
+       (KBContext Proof Statement (List CompiledAddition))))
 (= (query-side $kb $mvars $negative? $premises $conclusion-side)
    (let*
       (($ctx (nextctx))
        ($shape-kb (make-kb-context $kb $ctx $mvars))
-       ((compiled-premises $execs $_proofs $_atv)
+       (($execs $_proofs $_atv)
           (once (if $negative?
                    (lower-query-assumption-premises-negative $kb $ctx $mvars $premises)
                    (lower-query-assumption-premises $kb $ctx $mvars $premises))))
@@ -1950,38 +1938,29 @@
           (union-compiled-additions
              (query-context-premise-adds $kb $ctx $mvars $execs)
              (collapse (compile-adapter-chain query (: $shape-kb $prf $goal-expr $adapter-tv))))))
-      (qside $shape-kb $prf $goal-expr $adds)))
+      (data
+         $shape-kb (brand Proof $prf) $goal-expr $adds)))
 
 ;; The two sides of a total-implication query share one conclusion $b and differ
 ;; only in polarity. Returns the ground shape-kbs, $b, the fresh pos/neg proof
 ;; vars (used by the caller in its known goals and proof token), and all adds.
-(: QueryScaffold Type)
-(: query-scaffold
-   (-> KBContext KBContext Statement
-       Proof Proof (List CompiledAddition) QueryScaffold))
-
 (: query-pos-neg-scaffold
    (-[semidet]-> KB (| NilType (List Variable))
        (List Expression) (List Expression)
-       QueryScaffold))
+       (KBContext KBContext Statement Proof Proof (List CompiledAddition))))
 (= (query-pos-neg-scaffold $kb $mvars $premises $conclusions)
    (let*
-      (((qside $pos-shape-kb $pos-prf $b $pos-adds)
+      ((($pos-shape-kb $pos-prf $b $pos-adds)
           (query-side $kb $mvars false $premises $conclusions))
-       ((qside $neg-shape-kb $neg-prf $_b $neg-adds)
+       (($neg-shape-kb $neg-prf $_b $neg-adds)
           (query-side $kb $mvars true $premises $conclusions)))
-      (query-scaffold
+      (data
          $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf
          (union-compiled-additions $pos-adds $neg-adds))))
 
-(: CompiledQueryParts Type)
-(: compiled-query-parts
-   (-> (List Goal) Goal
-       (List CompiledAddition) CompiledQueryParts))
-
 (: compile-inheritance-query
    (-[semidet]-> KB Term Term
-       CompiledQueryParts))
+       ((List Goal) Goal (List CompiledAddition))))
 (= (compile-inheritance-query $kb $subj $concept)
    (let*
       (;; Constrain the root proof so ordinary public Inheritance rules cannot
@@ -2030,8 +2009,7 @@
        ($premises ((Inheritance $x $subj)))
        ($conclusions ((Inheritance $x $concept)))
        ($mvars (cons (brand Variable $x) ()))
-       ((query-scaffold
-            $pos-shape-kb $neg-shape-kb $b
+       (($pos-shape-kb $neg-shape-kb $b
             $pos-prf $neg-prf $all-adds)
           (query-pos-neg-scaffold $kb $mvars
              (the (List Expression) $premises)
@@ -2068,7 +2046,7 @@
          (union-compiled-additions
             (stored-compiled-additions $member-adds)
             (stored-compiled-additions $scaffold-adds))))
-      (compiled-query-parts
+      (data
          ()
          $goal
          $query-adds)))
@@ -2082,10 +2060,10 @@
 ;; Ordinary queries remain a direct known goal with only the adapters their
 ;; source syntax requires.
 (: compileQuery
-   (-[nondet]-> KB AnnotatedStatement  CompiledQueryParts))
+   (-[nondet]-> KB AnnotatedStatement  ((List Goal) Goal (List CompiledAddition))))
 (= (compileQuery $kb (: $prf $Type $tv))
    (if (is-var $Type)
-      (compiled-query-parts
+      (data
          ()
          (: (kbctx $kb) $prf $Type $tv)
          ())
@@ -2093,14 +2071,12 @@
          (let*
             (($vars (extract-vars $Type))
              ($mvars (query-variables $vars))
-             ((query-scaffold
-                  $pos-shape-kb $neg-shape-kb $b
+             (($pos-shape-kb $neg-shape-kb $b
                   $pos-prf $neg-prf $all-adds)
                 (query-pos-neg-scaffold $kb $mvars
                    (the (List Expression) $premises)
                    (the (List Expression) $conclusions)))
-             ((implication-query-tv-parts
-                  $known-pos-tv $known-neg-tv $known-tv)
+             (($known-pos-tv $known-neg-tv $known-tv)
                 (implication-query-known-tv-parts (the TV $tv)))
              ($known-pos-goal (: $pos-shape-kb $pos-prf $b $known-pos-tv))
              ($known-neg-goal (: $neg-shape-kb $neg-prf $b $known-neg-tv))
@@ -2111,8 +2087,9 @@
                 (total-implication-frontier
                    (total-implication $pos-prf $neg-prf))
                 $Type $known-tv)))
-            (compiled-query-parts
-               ($known-pos-goal $known-neg-goal)
+            (data
+               (the (List Goal)
+                  ($known-pos-goal $known-neg-goal))
                $known-goal
                $all-adds))
          (if (bidirectional-implication-type? $Type)
@@ -2120,14 +2097,12 @@
                (let*
                   (($vars (extract-vars $Type))
                     ($mvars (query-variables $vars))
-                    ((qside
-                         $left-shape-kb $left-prf
+                    (($left-shape-kb $left-prf
                          $left-goal-expr $left-adds)
                        (query-side $kb $mvars false
                           (the (List Expression) $left)
                           (the (List Expression) $right)))
-                    ((qside
-                         $right-shape-kb $right-prf
+                    (($right-shape-kb $right-prf
                          $right-goal-expr $right-adds)
                        (query-side $kb $mvars false
                           (the (List Expression) $right)
@@ -2135,15 +2110,16 @@
                     ($left-goal (: $left-shape-kb $left-prf $left-goal-expr $left-tv))
                     ($right-goal (: $right-shape-kb $right-prf $right-goal-expr $right-tv))
                     ($goal (: (kbctx $kb) (bidirectional $left-prf $right-prf) $Type $tv)))
-                  (compiled-query-parts
-                     ($left-goal $right-goal
-                        (CPU AndFormula ($left-tv $right-tv) $tv))
+                  (data
+                     (the (List Goal)
+                        ($left-goal $right-goal
+                           (CPU AndFormula ($left-tv $right-tv) $tv)))
                      $goal
                      (union-compiled-additions $left-adds $right-adds))))
             (if (and (= $Type (Inheritance $subj $concept)) (concrete-inheritance-link? $subj $concept))
                (compile-inheritance-query
                   $kb (brand Term $subj) (brand Term $concept))
-               (compiled-query-parts
+               (data
                   ()
                   (: (kbctx $kb) $prf $Type $tv)
                   (compile-query-adds
@@ -2274,7 +2250,7 @@
             (if (== $lowered ())
                ()
                (let*
-                  (((compiled-premises
+                  (((
                         $execs $proofs $atv)
                        (car-atom $lowered))
                    ($shape-kb
@@ -2384,10 +2360,10 @@
                   (compiled-adds-mm2stmts $adds)))))))
 
 (: mm2compileQuery-from-compiled
-   (-> KB AnnotatedStatement CompiledQueryParts CompiledQuery))
+   (-> KB AnnotatedStatement ((List Goal) Goal (List CompiledAddition)) CompiledQuery))
 (= (mm2compileQuery-from-compiled
       $kb $stmt
-      (compiled-query-parts $premises $conclusion $adds))
+      ($premises $conclusion $adds))
    (mm2compileQuery-from-direct
       $kb $stmt $premises $conclusion $adds))
 

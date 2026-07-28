@@ -769,31 +769,39 @@
        ((Statement KBContext Proof TV) (List Evidence))))
 (= (merge-proof-candidates ($proof-a $ev-a) ($proof-b $ev-b))
    (if (== $proof-a $proof-b)
-      ($proof-a (list_to_set (append-evidence $ev-a $ev-b)))
+      (data
+         $proof-a
+         (list_to_set (append-evidence $ev-a $ev-b)))
       (let*
          (($overlap? (evidence-sets-overlap? $ev-a $ev-b))
           ($all-ev (list_to_set (append-evidence $ev-a $ev-b)))
           ($proof-token-a (proof-atom-proof $proof-a))
           ($proof-token-b (proof-atom-proof $proof-b)))
          (if (projection-dominates? $proof-token-a $proof-token-b)
-            ($proof-a $ev-a)
+            (data
+               $proof-a $ev-a)
             (if (projection-dominates? $proof-token-b $proof-token-a)
-               ($proof-b $ev-b)
+               (data
+                  $proof-b $ev-b)
                (if $overlap?
                   (if (>= (term-confidence $proof-a)
                           (term-confidence $proof-b))
-                     ($proof-a $ev-a)
-                     ($proof-b $ev-b))
+                     (data
+                        $proof-a $ev-a)
+                     (data
+                        $proof-b $ev-b))
                   (if (>= (term-confidence $proof-a)
                           (term-confidence $proof-b))
-                     ((RevisionMergeProof $proof-a $proof-b) $all-ev)
-                     ((RevisionMergeProof $proof-b $proof-a) $all-ev))))))))
+                     (data
+                        (RevisionMergeProof $proof-a $proof-b) $all-ev)
+                     (data
+                        (RevisionMergeProof $proof-b $proof-a) $all-ev))))))))
 
 (: proof-candidate-pair
    (-[det]-> (Statement KBContext Proof TV) (List Evidence)
        ((Statement KBContext Proof TV) (List Evidence))))
 (= (proof-candidate-pair $proof $evidence)
-   (quote ($proof $evidence)))
+   (data $proof $evidence))
 
 (: merge-proof-atoms
    (-[semidet]-> (Statement KBContext Proof TV)
