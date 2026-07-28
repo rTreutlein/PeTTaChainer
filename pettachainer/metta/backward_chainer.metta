@@ -24,11 +24,6 @@
        ()))
 (: SearchState Type)
 (: search-state (-> Number $heap SearchState))
-(: ChainerRunResult Type)
-(: chainer-run-result
-   (-> Number
-       (List RuntimeResult)
-       ChainerRunResult))
 (: AndBundle Type)
 (: and-bundle
    (-> (| Goal (Statement KBContext Proof TV))
@@ -1593,7 +1588,7 @@
 
 (: rule-goal-head-view-for-key
    (-[nondet]-> (| Goal (Statement KBContext Proof TV))
-      Number ForwardTriggerKey  RuleGoalMatch))
+      Number ForwardTriggerKey RuleGoalMatch))
 (= (rule-goal-head-view-for-key $goal $parent-gid $key)
    (match ccls_head_index ($key $rule-id)
       (match rules
@@ -1607,7 +1602,7 @@
 ;; the behavioural gap between open and closed goals.
 (: rule-goal-head-view
    (-[nondet]-> (| Goal (Statement KBContext Proof TV))
-      Number  RuleGoalMatch))
+      Number RuleGoalMatch))
 (= (rule-goal-head-view $goal $parent-gid)
    (if (= $goal ($_type ($kbid $_ctx $_vars) $_prf $_tv))
       (let*
@@ -1634,7 +1629,7 @@
 
 (: rule-goal-full-view
    (-[nondet]-> (| Goal (Statement KBContext Proof TV))
-      Number  RuleGoalMatch))
+      Number RuleGoalMatch))
 (= (rule-goal-full-view $goal $parent-gid)
    (let $lookup-goal (copy_term $goal)
       (match ccls_index ($lookup-goal $rule-id)
@@ -1712,7 +1707,7 @@
 
 (: rule-goal-view
    (-[nondet]-> (| Goal (Statement KBContext Proof TV))
-      Number  RuleGoalMatch))
+      Number RuleGoalMatch))
 (= (rule-goal-view $goal $parent-gid)
    (if (open-rule-goal? $goal)
       (if (rule-goal-contextual? $goal)
@@ -2050,7 +2045,7 @@
 
 (: chainer-run
    (-[nondet]-> Number (| Goal (Statement KBContext Proof TV))
-       ChainerRunResult))
+       (Number (List RuntimeResult))))
 (= (chainer-run $steps $goal)
    (let*
       (($_clear (foreach-flat remove-all-atoms (&goal &goal_lookup &goal_waiter &aggregate &aggregate_forward_approx &proof &proof_parent &proof_invalidated_epoch &proof_live_cache &goal_live_cache &proof_static_live &proof_superseded)))
@@ -2075,7 +2070,7 @@
        ((search-state $_steps-left $_agenda1)
           $search-result)
        ($_harvest (harvest-base-rates)))
-      (chainer-run-result
+      (data
          $root-gid
          (chainer-first-or ()
             (the (List (List RuntimeResult))
@@ -2085,13 +2080,13 @@
    (-[nondet]-> Number (| Goal (Statement KBContext Proof TV))
        (List RuntimeResult)))
 (= (chainer $steps $goal)
-   (let (chainer-run-result $_root-gid $results) (chainer-run $steps $goal)
+   (let ($_root-gid $results) (chainer-run $steps $goal)
       $results))
 
 (: chainer-materialize
    (-[nondet]-> Number (| Goal (Statement KBContext Proof TV))
        (List RuntimeResult)))
 (= (chainer-materialize $steps $goal)
-   (let (chainer-run-result $root-gid $results) (chainer-run $steps $goal)
+   (let ($root-gid $results) (chainer-run $steps $goal)
       (let $_materialized (materialize-goal-proofs-to-kb $root-gid)
          $results)))

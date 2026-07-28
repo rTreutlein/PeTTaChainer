@@ -8,10 +8,6 @@
 
 (: term_hash (-> $expression Number))
 
-(: ForwardMatch Type)
-(: forward-match
-   (-> (Statement KBContext Proof TV) (List Evidence) ForwardMatch))
-
 (: ForwardMemberInheritanceIdentityKey Type)
 (: fwd_member_identity
    (-> KB Term Term ForwardMemberInheritanceIdentityKey))
@@ -918,10 +914,6 @@
       (remove-atom
          &forward_member_inheritance_observation $observation)))
 
-(: ForwardWeightMass Type)
-(: forward-weight-mass
-   (-> Number Number ForwardWeightMass))
-
 (: ForwardMemberInheritanceState Type)
 (: forward-member-inheritance-state
    (-> Number Number Number ForwardMemberInheritanceState))
@@ -943,21 +935,21 @@
                 (ForwardMemberInheritanceObservation
                    $observation-key $old-subject $old-concept
                    $old-weight $old-mass))))
-       ((forward-weight-mass $old-weight $old-mass)
+       (($old-weight $old-mass)
           (if (== $old-observations ())
-             (forward-weight-mass 0.0 0.0)
+             (data 0.0 0.0)
              (let
                 (ForwardMemberInheritanceObservation
                    $_key $_asubj $_aconcept $old-weight $old-mass)
                 (car-atom $old-observations)
-                (forward-weight-mass $old-weight $old-mass))))
+                (data $old-weight $old-mass))))
        ($subject (forward-member-canonical $kbid $obj $subj))
        ($consequent (forward-member-canonical $kbid $obj $concept))
-       ((forward-weight-mass $weight $mass)
+       (($weight $mass)
           (if (or
                 (== $subject no-forward-output-candidate)
                 (== $consequent no-forward-output-candidate))
-             (forward-weight-mass 0.0 0.0)
+             (data 0.0 0.0)
              (let*
                 (((forward-output-candidate
                      $subject-fact $_subject-ev)
@@ -970,7 +962,7 @@
                  ((BaseRateEvidence $joined-weight $joined-mass)
                     (forward-weighted-base-rate-contribution
                        $atv $btv)))
-                (forward-weight-mass
+                (data
                    $joined-weight $joined-mass))))
        ((forward-member-inheritance-state
             $_state-id $old-wsum $old-msum)
@@ -1290,8 +1282,10 @@
    (-[nondet]-> Number
        (List (| Goal (Statement KBContext Proof TV)))
        (Statement KBContext Proof TV)
-       (List Evidence)  ForwardMatch))
-(= (forward-satisfy-premises $steps () $goal $ev) (forward-match $goal $ev))
+       (List Evidence)
+       ((Statement KBContext Proof TV) (List Evidence))))
+(= (forward-satisfy-premises $steps () $goal $ev)
+   (data $goal $ev))
 (= (forward-satisfy-premises $steps (cons $prem $rest) $goal $ev)
    (if (= $prem (CPU $fun $args $res))
       (let $res (reduce (cpu-call $steps $fun $args))
@@ -1632,7 +1626,7 @@
            ((forward-output-row
                 $trigger-fact $trigger-ev)
               (forward-output-row-for-fact $fact))
-           ((forward-match $result $premise-ev)
+           (($result $premise-ev)
               (forward-satisfy-premises
                  $steps $rprems $ccls $trigger-ev)))
          (forward-derived $result
