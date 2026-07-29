@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-petta = { path = "../../PeTTa", editable = true }
+petta = { git = "https://github.com/trueagi-io/PeTTa", rev = "4843144ba569a896991fc6d84a30f1136488fee1" }
 
 [tool.setuptools.packages.find]
 include = ["pettachainer*"]

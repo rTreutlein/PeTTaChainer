@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(compileadd kb (: sum_rel (Implication (Premises (Symmetric $r) ($r $x $y)) (Conclusions ($r $y $x))) (STV 0.9 0.9)))
 !(compileadd kb (: tag (Symmetric Friend) (STV 0.9 0.9)))

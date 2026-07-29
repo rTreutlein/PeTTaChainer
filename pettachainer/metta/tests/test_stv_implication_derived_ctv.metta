@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(compileadd stvRuleKb (: a (A x) (STV 1.0 0.9)))
 

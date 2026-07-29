@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(compileadd flyingRavenMemberKb (: samRaven (Member Sam Raven) (STV 0.99 0.9)))
 

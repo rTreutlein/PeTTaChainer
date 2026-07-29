@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 ; Same setup as raveninduction.metta, but object-level observations use Member.
 ; Member observations stay in the Member relation. Inheritance facts derive

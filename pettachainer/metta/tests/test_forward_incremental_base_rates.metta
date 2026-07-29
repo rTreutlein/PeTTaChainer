@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 ;; These tests intentionally request the full-KB special case by selecting all
 ;; current canonical facts. The forward chainer itself has no global-KB mode.

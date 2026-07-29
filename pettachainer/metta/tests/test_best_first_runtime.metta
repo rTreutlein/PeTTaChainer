@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(test (rule-marginal-score no-current 0.42) 0.42)
 

@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(compileadd foldMergedKb (: directScore (Score a 1) (STV 0.8 0.5)))
 

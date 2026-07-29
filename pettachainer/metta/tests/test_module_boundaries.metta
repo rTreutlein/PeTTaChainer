@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 ;; Foundational insertion remains reachable through the canonical import.
 !(bind! &module_boundary_tmp (new-space))

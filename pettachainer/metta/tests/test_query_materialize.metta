@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(compileadd materializeKb (: a0 (A) (STV 1.0 1.0)))
 

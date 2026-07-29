@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 ;; ===========================================================================
 ;; Live re-evaluation over the existing proof store (no storage change)

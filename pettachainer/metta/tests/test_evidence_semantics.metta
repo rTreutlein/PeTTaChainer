@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 ; Hypothetical context premises carry no evidence, and unmarked implication
 ; facts do. Together: branches of a conditional that share only the hypothesis

@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 ;; Selection helpers must reduce to one boolean. A specific equation plus a
 ;; catch-all equation would leak both true and false into scheduler decisions.

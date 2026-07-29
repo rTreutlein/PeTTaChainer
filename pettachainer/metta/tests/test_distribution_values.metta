@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(test (ParticlePairs (ParticleAddBernoulliFromSTV (ParticleFromPairs ((0 1.0))) (STV 0.5 1.0)))
    ((0 0.5) (1 0.5)))

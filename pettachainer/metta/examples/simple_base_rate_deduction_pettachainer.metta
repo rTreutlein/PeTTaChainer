@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 ; Minimal PeTTaChainer counterpart to simple_base_rate_deduction_libpln.metta.
 ; Run from pettachainer/metta with:

@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 ; Raven induction with inheritance represented through ordinary implication
 ; machinery. There is no set-base-rate and no inheritanceInduction rule here.

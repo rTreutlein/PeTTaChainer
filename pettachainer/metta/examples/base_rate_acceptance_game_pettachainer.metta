@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 ; End-to-end base-rate acceptance game.
 ; Run from pettachainer/metta with:

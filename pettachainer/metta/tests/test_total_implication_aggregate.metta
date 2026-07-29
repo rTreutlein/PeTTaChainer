@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 (= (TotalEvidenceOr $left $right)
    (if (== $left none) $right (OrFormula $left $right)))

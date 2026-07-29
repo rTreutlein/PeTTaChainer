@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 ;; Lifting-merge: when several proofs of one grounded conclusion share a premise
 ;; but are otherwise independent, they are pooled by factoring the shared premise

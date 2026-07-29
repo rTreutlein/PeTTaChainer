@@ -1,6 +1,6 @@
 !(import! &self (library lib_spaces))
-!(import! &self ../../../../PeTTa/lib/lib_import)
-!(import! &self ../../../../PeTTa/lib/lib_roman)
+!(import! &self (library lib_import))
+!(import! &self (library lib_roman))
 
 !(import_prolog_functions_from_file "./metta_linter_source.pl" (load_metta_source))
 

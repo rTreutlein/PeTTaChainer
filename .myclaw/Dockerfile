@@ -23,11 +23,9 @@ ENV HOME=/tmp/myclaw-home \
     UV_CACHE_DIR=/opt/myclaw/uv-cache
 
 COPY .myclaw/pydistutils.cfg /tmp/myclaw-home/.pydistutils.cfg
-COPY .myclaw/petta /usr/local/bin/petta
 
 RUN mkdir -p "$HOME" "$UV_CACHE_DIR" /tmp/myclaw-egg-info \
     && chmod 1777 "$HOME" "$UV_CACHE_DIR" /tmp/myclaw-egg-info \
-    && chmod 0755 /usr/local/bin/petta \
     && python3 -m pip install --break-system-packages --no-cache-dir "uv==$UV_VERSION" \
     && python3 --version \
     && swipl --version \

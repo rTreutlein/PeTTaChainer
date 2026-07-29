@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 ; --- Unit checks for the uniform 1/N node prior ----------------------------
 

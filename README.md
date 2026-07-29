@@ -1,9 +1,13 @@
-To install, clone this repo and its dependency into the same directory:
+Install the project and its commit-locked PeTTa dependency with uv:
 
 ```bash
-git clone https://github.com/patham9/PeTTa.git
-git clone https://github.com/rTreutlein/PeTTaChainer.git
+uv sync --frozen
+cd pettachainer/metta
+uv run petta tests/test_var_head.metta -s
 ```
+
+Run MeTTa files through `uv run petta`. Most project files should be run from
+`pettachainer/metta`.
 
 ## Benchmarks
 

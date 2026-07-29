@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(set-base-rate robotKb (Inheritance $x toy) (STV 0.5 0.9))
 !(set-base-rate robotKb (Inheritance $x see) (STV 0.5 0.9))

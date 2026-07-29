@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(compileadd deductionRevisionKb (: aInheritsB (Inheritance A B) (STV 0.25 0.9)))
 

@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 (= (BenchListCount ()) 0)
 (= (BenchListCount (cons $_x $tail)) (+ 1 (BenchListCount $tail)))

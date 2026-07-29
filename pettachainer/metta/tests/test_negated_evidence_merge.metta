@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(test
    (evidence-negate (fact-ev (kb MAIN Nil) d (Dog)))

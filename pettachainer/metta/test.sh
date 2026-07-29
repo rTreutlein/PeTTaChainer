@@ -9,7 +9,7 @@ fail_files=()
 run_file() {
   local file=$1
 
-  if petta "$file" >/tmp/petta-last.log 2>&1; then
+  if uv run petta "$file" >/tmp/petta-last.log 2>&1; then
     pass=$((pass + 1))
     printf 'PASS %s\n' "$file"
   else

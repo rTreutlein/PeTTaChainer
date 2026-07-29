@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(compileadd kb (: fx1 (AtTime (FeatureX 10.0) 1) (STV 1.0 0.9)))
 !(compileadd kb (: fy1 (AtTime (FeatureY 100.0) 1) (STV 1.0 0.9)))

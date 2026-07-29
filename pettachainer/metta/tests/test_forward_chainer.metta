@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 ;; Forward chaining consumes canonical compiled facts. Tests that want to
 ;; select by surface type do that explicitly outside the chainer.

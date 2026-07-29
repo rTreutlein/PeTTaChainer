@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 (= (test-selected-facts $kb $type)
    (collapse

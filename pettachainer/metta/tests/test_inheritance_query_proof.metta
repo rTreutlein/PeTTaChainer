@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 ;; Higher-order inheritance (Bird -> Flier inferred from their instances) is a
 ;; producer on the public Inheritance relation. It must merge to one result.

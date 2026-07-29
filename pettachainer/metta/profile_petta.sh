@@ -3,29 +3,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$ROOT_DIR/../.." && pwd)"
-
-detect_petta_dir() {
-  local petta_bin=""
-  local launcher_dir=""
-  petta_bin="$(command -v petta 2>/dev/null || true)"
-  if [[ -n "$petta_bin" && -f "$petta_bin" ]]; then
-    launcher_dir="$(sed -n 's/^SCRIPT_DIR="\([^"]*\)"$/\1/p' "$petta_bin" | head -n 1)"
-    if [[ -n "$launcher_dir" && -f "$launcher_dir/src/main.pl" ]]; then
-      printf '%s\n' "$launcher_dir"
-      return
-    fi
-  fi
-
-  if [[ -f "$REPO_ROOT/../PeTTa/src/main.pl" ]]; then
-    (cd "$REPO_ROOT/../PeTTa" && pwd)
-    return
-  fi
-
-  return 1
-}
-
-PETTA_DIR="${PETTA_DIR:-$(detect_petta_dir)}"
+PETTA_DIR="$(uv run python -c 'from petta import _resolve_petta_path; print(_resolve_petta_path())')"
 MAIN_PL="$PETTA_DIR/src/main.pl"
 METTA_PL="$PETTA_DIR/src/metta.pl"
 MORK_LIB="$PETTA_DIR/mork_ffi/target/release/libmork_ffi.so"
@@ -49,8 +27,6 @@ Modes:
   perf         Use Linux perf sampling around the standard petta SWI invocation.
 
 Environment overrides:
-  PETTA_DIR        Path to the PeTTa checkout. Default: the installed `petta`
-                   launcher target when available, otherwise ../PeTTa.
   METTA_BASE_DIR   Base directory used to resolve relative .metta paths.
                    Default: ./pettachainer/metta
   STACK_LIMIT      SWI-Prolog stack limit. Default: 8g

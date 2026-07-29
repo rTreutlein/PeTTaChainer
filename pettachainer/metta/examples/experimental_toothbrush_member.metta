@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(set-base-rate toothbrushMemberKb (Member $x madeOfPlastic) (STV 0.5 0.9))
 !(set-base-rate toothbrushMemberKb (Member $x heated) (STV 0.5 0.9))

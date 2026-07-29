@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 ;; A Member's class is a class we know about, so it must be registered as a
 ;; concept node -- even when it never appears in an Inheritance. The Member's

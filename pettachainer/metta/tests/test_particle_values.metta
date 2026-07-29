@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(test (DistGreaterThanFormula (ParticleFromPairs ((0 0.25) (2 0.75))) 1)
    (STV 0.75 0.07407407407407407))

@@ -1,3 +1,0 @@
-#!/bin/sh
-
-exec /nexus/Dev/OpenCog/PeTTa/run.sh "$@"

@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 ;; Idealized confidence: second-order uncertainty propagation. Confidence follows
 ;; the variance of the conclusion's strength, propagated exactly through each

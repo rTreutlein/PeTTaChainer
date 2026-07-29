@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 (= (member-test-fact $kb $obj $class)
    (collapse

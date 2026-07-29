@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 ;; Frontier pooling of same-source projections: conjunction queries whose
 ;; conjuncts are marginal projections of one stored or derived (And ...) source

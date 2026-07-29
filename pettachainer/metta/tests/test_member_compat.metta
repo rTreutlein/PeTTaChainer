@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(compileadd memberCompatKb (: tomHuman (Member Tom Human) (STV 0.99 0.9)))
 

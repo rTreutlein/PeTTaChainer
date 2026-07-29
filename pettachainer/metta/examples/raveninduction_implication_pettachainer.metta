@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(set-base-rate ravenInductionImplicationKb (Rv1 $x) (STV 0.25 0.9))
 !(set-base-rate ravenInductionImplicationKb (Rv2 $x) (STV 0.25 0.9))

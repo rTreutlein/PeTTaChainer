@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 ;; The Raven -> Penguin query recursively derives another Raven -> Bird proof
 ;; through the query itself.  Bird's base-rate fold must reject that cyclic raw

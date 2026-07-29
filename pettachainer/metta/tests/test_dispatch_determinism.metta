@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 ;; Fixed-input dispatch helpers must each reduce to exactly one result.
 !(test (collapse (BaseRateWithPriorFormula no-evidence no-evidence)) (no-evidence))

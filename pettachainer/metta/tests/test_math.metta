@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(compileadd mathkb
    (: ax-k (Provable (→ $𝜑 (→ $𝜓 $𝜑))) (STV 1.0 1.0)))

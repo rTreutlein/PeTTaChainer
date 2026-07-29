@@ -1,4 +1,4 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(compileadd openQueryKb (: d1 (Dog max) (STV 1.0 1.0)))
 
