@@ -22,7 +22,7 @@
              true)))))
 
 (: goal-key
-   (-> (| Goal
+   (-[det]-> (| Goal
           (Statement KBContext Proof TV))
        Expression))
 (= (goal-key $goal)
@@ -38,7 +38,7 @@
                 (quote ($type $vars)))
              (quote ($sealed-goal ($kbid $ctx))))))))
 
-(: normalize-expected-tv (-> $truth-value TV))
+(: normalize-expected-tv (-[det]-> $truth-value TV))
 (= (normalize-expected-tv $tv)
    (if (is-var $tv) (STV 1.0 1.0)
       (case $tv
@@ -51,7 +51,7 @@
 ;; CPU arguments are formula-dependent and enter through a generic execution
 ;; record. Normalize known TV constructors without reflective checks; retain
 ;; an explicit checked fallback for invalid or user-extended TV values.
-(: expected-tv (-> $candidate TV))
+(: expected-tv (-[det]-> $candidate TV))
 (= (expected-tv $value) (normalize-expected-tv $value))
 
 ;; Expected TVs dispatch directly on the known formula set instead of going
@@ -117,7 +117,7 @@
       (if (== $res ()) 1.0 (tv-confidence $res))))
 
 (: premises-expected-confidence-step
-   (-> (| Goal (Statement KBContext Proof TV))
+   (-[det]-> (| Goal (Statement KBContext Proof TV))
        (List (| Goal (Statement KBContext Proof TV)))
        Number))
 (= (premises-expected-confidence-step $prem $rest)
@@ -188,29 +188,29 @@
       ($_other (tv-confidence $tv)))))
 
 (: premises-expected-confidence
-   (-> (List (| Goal (Statement KBContext Proof TV))) Number))
+   (-[det]-> (List (| Goal (Statement KBContext Proof TV))) Number))
 (= (premises-expected-confidence ()) 1.0)
 (= (premises-expected-confidence (cons $prem $rest))
    (premises-expected-confidence-step $prem $rest))
 
 (: premise-cons
-   (-> (| Goal (Statement KBContext Proof TV))
+   (-[det]-> (| Goal (Statement KBContext Proof TV))
        (List (| Goal (Statement KBContext Proof TV)))
        (List (| Goal (Statement KBContext Proof TV)))))
 (= (premise-cons $premise $rest)
    (cons $premise $rest))
 
-(: score-tv (-> Number (STV Number Number)))
+(: score-tv (-[det]-> Number (STV Number Number)))
 (= (score-tv $score) (STV 1.0 (max 0.0 (min 1.0 $score))))
 
-(: optimistic-revision-score (-> Number Number Number))
+(: optimistic-revision-score (-[det]-> Number Number Number))
 (= (optimistic-revision-score $current-score $candidate-score)
    (tv-confidence
       (merge-stvs
          (score-tv $current-score)
          (score-tv $candidate-score))))
 
-(: rule-marginal-score (-> (| Number NoCurrentScore) Number Number))
+(: rule-marginal-score (-[det]-> (| Number NoCurrentScore) Number Number))
 (= (rule-marginal-score $current-score $candidate-score)
    (if (== $current-score no-current)
       $candidate-score
@@ -219,20 +219,20 @@
             (- (max $candidate-score (optimistic-revision-score $score $candidate-score))
                $score)))))
 
-(: frontier-proof-score (-> $proof-output Number Number))
+(: frontier-proof-score (-[det]-> $proof-output Number Number))
 (= (frontier-proof-score $output $score)
    (if (= $output (CPU $_fun $_args $_res))
       (max 0.000001 $score)
       $score))
 
-(: bounded-agenda-target-size (-> Number Number))
+(: bounded-agenda-target-size (-[det]-> Number Number))
 (= (bounded-agenda-target-size $steps) (min 1000 (max 1 $steps)))
-(: bounded-agenda-prune-factor (-> Number))
+(: bounded-agenda-prune-factor (-[det]-> Number))
 (= (bounded-agenda-prune-factor) 64)
 
-(: set-bounded-agenda-pruning (-> Bool Bool))
+(: set-bounded-agenda-pruning (-[det]-> Bool Bool))
 (= (set-bounded-agenda-pruning $enabled) (change-state! bounded_agenda_pruning $enabled))
-(: bounded-agenda-pruning? (-> Bool))
+(: bounded-agenda-pruning? (-[det]-> Bool))
 (= (bounded-agenda-pruning?)
    (let $state-values
       (collapse
@@ -243,7 +243,7 @@
          (if-error-bool
             (car-atom $state-values) true))))
 
-(: heap-take-best (-> Number (Heap $item) (Heap $item) (Heap $item)))
+(: heap-take-best (-[det]-> Number (Heap $item) (Heap $item) (Heap $item)))
 (= (heap-take-best $count $src $dst)
    (if (<= $count 0)
       $dst
@@ -264,7 +264,7 @@
                         $rest
                         (car-atom $next-values)))))))))
 
-(: heap-prune-to-size (-> Number (Heap $item) (Heap $item)))
+(: heap-prune-to-size (-[det]-> Number (Heap $item) (Heap $item)))
 (= (heap-prune-to-size $target $agenda)
    (let $empty-values (collapse (empty_heap))
       (if (== $empty-values ())
@@ -273,7 +273,7 @@
             $target $agenda
             (car-atom $empty-values)))))
 
-(: bounded-agenda-prune (-> Number (Heap $item) (Heap $item)))
+(: bounded-agenda-prune (-[det]-> Number (Heap $item) (Heap $item)))
 (= (bounded-agenda-prune $steps $agenda)
    (if (bounded-agenda-pruning?)
       (let*
@@ -292,18 +292,18 @@
       $agenda))
 
 (: RevisionMergeProof
-   (-> (Statement KBContext Proof TV)
+   (-[det]-> (Statement KBContext Proof TV)
        (Statement KBContext Proof TV)
        (Statement KBContext Proof TV)))
 
 (: assemble-runtime-fact
-   (-> Statement KBContext Proof TV
+   (-[det]-> Statement KBContext Proof TV
        (Statement KBContext Proof TV)))
 (= (assemble-runtime-fact $type $kb $proof $tv)
    (quote ($type $kb $proof $tv)))
 
 (: assemble-contextual-runtime-fact
-   (-> Statement KB Atom Atom Proof TV
+   (-[det]-> Statement KB Atom Atom Proof TV
        (Statement KBContext Proof TV)))
 (= (assemble-contextual-runtime-fact
       $type $kbid $context $variables $proof $tv)
@@ -313,14 +313,14 @@
 ;; Dynamic spaces erase nominal roles. Reconstruct a fact at that boundary and
 ;; validate only the truth-value payload whose numeric fields affect inference.
 (: assemble-stored-runtime-fact
-   (-> Atom Atom Atom Atom
+   (-[det]-> Atom Atom Atom Atom
        (Statement KBContext Proof TV)))
 (= (assemble-stored-runtime-fact $type $kb $proof $tv)
    (quote ($type $kb $proof $tv)))
 
 ;; Scalar ids recovered from erased spaces are checked individually at their
 ;; lookup boundary, avoiding a traversal of the collected list.
-(: stored-number (-> Atom Number))
+(: stored-number (-[det]-> Atom Number))
 (= (stored-number $value)
    (the Number $value))
 
@@ -330,7 +330,7 @@
 ;; Evidence rows are written only by typed constructors, but spaces erase that
 ;; element role. Rebuild the list while restoring the erased Evidence brands;
 ;; the reflective fallback is reached only for a malformed non-list row.
-(: stored-evidence-list (-> Atom (List Evidence)))
+(: stored-evidence-list (-[det]-> Atom (List Evidence)))
 (= (stored-evidence-list $values)
    (case $values (
       (() ())
@@ -347,7 +347,7 @@
 ;; Shared by backward proof construction and forward candidate handling, so it
 ;; lives before either chainer module is loaded.
 (: forward-fact-evidence
-   (-> Statement KBContext Proof TV (List Evidence)))
+   (-[det]-> Statement KBContext Proof TV (List Evidence)))
 (= (forward-fact-evidence $type $kb $prf $tv)
    (let*
       (($fact (quote ($type $kb $prf $tv)))
@@ -391,36 +391,13 @@
 (= (proof-atom-proof ($_type $_kb $prf $_tv)) $prf)
 
 (: foreach-flat
-   (-[det]-> (-[det]-> $item $effect)
+   (-[$e]-> (-[$e]-> $item $effect)
        (List $item) (List $none)))
 (= (foreach-flat $f ()) ())
 (= (foreach-flat $f (cons $x $xs))
    (progn ($f $x) (foreach-flat $f $xs)))
 
-(: foreach-flat-semidet
-   (-[semidet]-> (-[semidet]-> $item $effect)
-       (List $item) (List $none)))
-(= (foreach-flat-semidet $_f ()) ())
-(= (foreach-flat-semidet $f (cons $x $xs))
-   (progn
-      ($f $x)
-      (foreach-flat-semidet $f $xs)))
-
-(: map-flat-nondet
-   (-[nondet]-> (-[nondet]-> $input $output) (List $input)
-       (List $output)))
-(= (map-flat-nondet $_f ()) ())
-(= (map-flat-nondet $f (cons $x $xs))
-   (cons ($f $x) (map-flat-nondet $f $xs)))
-
-(: foreach-flat-nondet
-   (-[nondet]-> (-[nondet]-> $input $effect) (List $input)
-       (List $none)))
-(= (foreach-flat-nondet $_f ()) ())
-(= (foreach-flat-nondet $f (cons $x $xs))
-   (progn ($f $x) (foreach-flat-nondet $f $xs)))
-
-(: chainer-acyclic-term? (-> $term Bool))
+(: chainer-acyclic-term? (-[det]-> $term Bool))
 (= (chainer-acyclic-term? $term)
    (== (collapse
           (callPredicate (Predicate (cyclic_term $term))))
@@ -464,10 +441,10 @@
              (if-error-number (car-atom $state-values) 0))))
       (progn (change-state! $key (+ $n 1)) $n)))
 
-(: next-gid (-> Number))
+(: next-gid (-[det]-> Number))
 (= (next-gid) (next-search-id bwd_gid))
 
-(: next-pid (-> Number))
+(: next-pid (-[det]-> Number))
 (= (next-pid) (next-search-id bwd_pid))
 
 (: cpu-call (-[nondet]-> Number $formula $arguments  $result))
@@ -488,7 +465,7 @@
 
 ;; cdr-atom exposes the erased proof representation as an untyped list. This
 ;; is the boundary that restores the semantic Proof brand to each raw child.
-(: proof-children (-> Atom (List Proof)))
+(: proof-children (-[det]-> Atom (List Proof)))
 (= (proof-children $children)
    (case $children (
       (() ())
@@ -529,7 +506,7 @@
       (proof-term-evidence-list-mode $mode $child)
       (proof-term-evidence-children-mode $mode $rest)))
 
-(: evidence-negate (-> Evidence Evidence))
+(: evidence-negate (-[det]-> Evidence Evidence))
 (= (evidence-negate $ev)
    (case $ev (
       ((fact-ev $kb $prf $type) (not-fact-ev $kb $prf $type))
@@ -537,7 +514,7 @@
       ($other (not-ev $other)))))
 
 (: evidence-negate-list
-   (-> (List Evidence) (List Evidence)))
+   (-[det]-> (List Evidence) (List Evidence)))
 (= (evidence-negate-list ()) ())
 (= (evidence-negate-list (cons $ev $rest))
    (cons (evidence-negate $ev) (evidence-negate-list $rest)))
@@ -546,7 +523,7 @@
 (= (proof-term-negated? $prf)
    (if (is-expr $prf) (== (car-atom $prf) negated) false))
 
-(: proof-from-atom (-> Atom Proof))
+(: proof-from-atom (-[det]-> Atom Proof))
 (= (proof-from-atom $proof) (brand Proof $proof))
 
 (: kb-from-atom (-[det]-> Atom KB))
@@ -655,12 +632,12 @@
 (= (non-fact-evidence $ev)
    (evidence-subtraction $ev (fact-evidence-only $ev)))
 (: evidence-sets-dependent?
-   (-> (List Evidence) (List Evidence) Bool))
+   (-[det]-> (List Evidence) (List Evidence) Bool))
 (= (evidence-sets-dependent? $set-a $set-b)
    (evidence-sets-overlap? (non-fact-evidence $set-a) (non-fact-evidence $set-b)))
 
 (: premise-evidence-overlap?
-   (-> (List Evidence) (List Evidence) Bool))
+   (-[det]-> (List Evidence) (List Evidence) Bool))
 (= (premise-evidence-overlap? $seen $pev)
    (evidence-sets-overlap? (fact-evidence-only $seen) (fact-evidence-only $pev)))
 
@@ -685,7 +662,7 @@
                (proof-children (cdr-atom $prf)))
             false))))
 
-(: rule-evidence-head (-> Proof Proof))
+(: rule-evidence-head (-[det]-> Proof Proof))
 (= (rule-evidence-head $prf)
    (if (is-expr $prf)
       (let $head (car-atom $prf)
@@ -701,7 +678,7 @@
       $prf))
 
 (: rule-application-evidence
-   (-> KBContext Proof (List Evidence)))
+   (-[det]-> KBContext Proof (List Evidence)))
 (= (rule-application-evidence $kb $prf)
    (once
       (if (= $kb ($kbid $_ctx $_vars))
@@ -815,7 +792,7 @@
 
 ;; Base-rate cache operations are shared by forward chaining and the compiled
 ;; query runtime, so they must be available before either consumer is loaded.
-(: base-rate-cache-entries (-> KB Statement (List BaseRateEntry)))
+(: base-rate-cache-entries (-[det]-> KB Statement (List BaseRateEntry)))
 (= (base-rate-cache-entries $kbid $pattern)
    (collapse
       (match &base_rate_cache (base-rate $kbid $stored $tv $source $mode)
@@ -824,7 +801,7 @@
             (empty)))))
 
 (: base-rate-cache-entries-for-mode
-   (-> KB Statement $mode (List BaseRateEntry)))
+   (-[det]-> KB Statement $mode (List BaseRateEntry)))
 (= (base-rate-cache-entries-for-mode $kbid $pattern $mode)
    (collapse
       (match &base_rate_cache (base-rate $kbid $stored $tv $source $emode)
@@ -838,7 +815,7 @@
 (= (base-rate-cache-remove-entry! $entry)
    (remove-atom &base_rate_cache $entry))
 
-(: base-rate-cache-remove! (-> KB Statement (List $none)))
+(: base-rate-cache-remove! (-[det]-> KB Statement (List $none)))
 (= (base-rate-cache-remove! $kbid $pattern)
    (let $_
       (foreach-flat base-rate-cache-remove-entry!
@@ -846,7 +823,7 @@
       ()))
 
 (: base-rate-cache-remove-derived!
-   (-> KB Statement $mode (List $none)))
+   (-[det]-> KB Statement $mode (List $none)))
 (= (base-rate-cache-remove-derived! $kbid $pattern $mode)
    (let $_
       (foreach-flat base-rate-cache-remove-entry!
@@ -875,7 +852,7 @@
             (car-atom $entries)
             (== $source user)))))
 
-(: store-base-rate! (-> KB Statement TV (List $none)))
+(: store-base-rate! (-[det]-> KB Statement TV (List $none)))
 (= (store-base-rate! $kbid $pattern $tv)
    (let*
       (($stored (copy_term $pattern))
@@ -885,16 +862,16 @@
              (base-rate $kbid $stored $tv user any))))
       ()))
 
-(: set-base-rate (-> KB Statement TV (List $none)))
+(: set-base-rate (-[det]-> KB Statement TV (List $none)))
 (= (set-base-rate $kbid $pattern $tv)
    (store-base-rate! $kbid $pattern $tv))
 
-(: clear-base-rate (-> KB Statement (List $none)))
+(: clear-base-rate (-[det]-> KB Statement (List $none)))
 (= (clear-base-rate $kbid $pattern)
    (base-rate-cache-remove! $kbid $pattern))
 
 (: store-computed-base-rate!
-   (-> KB Statement TV $mode (List $none)))
+   (-[det]-> KB Statement TV $mode (List $none)))
 (= (store-computed-base-rate! $kbid $pattern $tv $mode)
    (if (base-rate-user-set? $kbid $pattern) ()
       (let*
@@ -918,7 +895,7 @@
                    (base-rate $kbid $stored $tv forward-approx $mode))))
             ()))))
 
-(: invalidate-computed-base-rates! (-> KB (List $none)))
+(: invalidate-computed-base-rates! (-[det]-> KB (List $none)))
 (= (invalidate-computed-base-rates! $kbid)
    (let*
       (($entries
@@ -930,7 +907,7 @@
        ($_ (foreach-flat base-rate-cache-remove-entry! $entries)))
       ()))
 
-(: universe-size-entries (-> KB (List UniverseSizeEntry)))
+(: universe-size-entries (-[det]-> KB (List UniverseSizeEntry)))
 (= (universe-size-entries $kbid)
    (collapse
       (match &universe_size (universe-size $kbid $n)
@@ -941,7 +918,7 @@
 (= (universe-size-remove-entry! $entry)
    (remove-atom &universe_size $entry))
 
-(: clear-universe-size (-> KB (List $none)))
+(: clear-universe-size (-[det]-> KB (List $none)))
 (= (clear-universe-size $kbid)
    (let*
       (($_remove
@@ -950,7 +927,7 @@
        ($_invalidate (invalidate-computed-base-rates! $kbid)))
       ()))
 
-(: set-universe-size (-> KB Number (List $none)))
+(: set-universe-size (-[det]-> KB Number (List $none)))
 (= (set-universe-size $kbid $n)
    (let*
       (($_old (clear-universe-size $kbid))
@@ -959,7 +936,7 @@
       ()))
 
 (: kb-universe-size
-   (-> KB (| Number UniverseSizeUnavailable)))
+   (-[det]-> KB (| Number UniverseSizeUnavailable)))
 (= (kb-universe-size $kbid)
    (let $entries (universe-size-entries $kbid)
       (if (== $entries ()) no-universe-size
@@ -981,7 +958,7 @@
 
 ;; Concept metadata and aggregate finalizers are shared by both forward and
 ;; backward execution, so they must be available before forward_chainer loads.
-(: record-concept-node! (-> KB Statement (| Bool (List $none))))
+(: record-concept-node! (-[det]-> KB Statement (| Bool (List $none))))
 (= (record-concept-node! $kbid $node)
    (if (is-var $node) ()
       (once
@@ -990,17 +967,17 @@
             (add-space-atom! &concept_node $row)))))
 
 (: record-inheritance-nodes!
-   (-> KB Statement Statement (| Bool (List $none))))
+   (-[det]-> KB Statement Statement (| Bool (List $none))))
 (= (record-inheritance-nodes! $kbid $subj $concept)
    (progn
       (record-concept-node! $kbid $subj)
       (record-concept-node! $kbid $concept)))
 
-(: default-concept-prior-confidence (-> Number))
+(: default-concept-prior-confidence (-[det]-> Number))
 (= (default-concept-prior-confidence) 0.000001)
 
 (: concept-prior-confidence-entries
-   (-> KB (List ConceptPriorConfidence)))
+   (-[det]-> KB (List ConceptPriorConfidence)))
 (= (concept-prior-confidence-entries $kbid)
    (collapse
       (match &concept_prior_confidence
@@ -1012,7 +989,7 @@
 (= (concept-prior-confidence-remove-entry! $entry)
    (remove-atom &concept_prior_confidence $entry))
 
-(: clear-concept-prior-confidence (-> KB (List $none)))
+(: clear-concept-prior-confidence (-[det]-> KB (List $none)))
 (= (clear-concept-prior-confidence $kbid)
    (let*
       (($_remove
@@ -1021,7 +998,7 @@
        ($_invalidate (invalidate-computed-base-rates! $kbid)))
       ()))
 
-(: set-concept-prior-confidence (-> KB Number (List $none)))
+(: set-concept-prior-confidence (-[det]-> KB Number (List $none)))
 (= (set-concept-prior-confidence $kbid $c)
    (let*
       (($_old (clear-concept-prior-confidence $kbid))
@@ -1031,7 +1008,7 @@
        ($_invalidate (invalidate-computed-base-rates! $kbid)))
       ()))
 
-(: kb-concept-prior-confidence (-> KB Number))
+(: kb-concept-prior-confidence (-[det]-> KB Number))
 (= (kb-concept-prior-confidence $kbid)
    (let $entries (concept-prior-confidence-entries $kbid)
       (if (== $entries ()) (default-concept-prior-confidence)
@@ -1039,7 +1016,7 @@
             (car-atom $entries)
             $c))))
 
-(: known-concept-node? (-> KB Statement Bool))
+(: known-concept-node? (-[det]-> KB Statement Bool))
 (= (known-concept-node? $kbid $node)
    (not
       (== (collapse
@@ -1054,7 +1031,7 @@
          (match &concept_node ($kbid $node)
             (statement-from-atom $node)))))
 
-(: concept-node-prior-tv (-> KB Statement TV))
+(: concept-node-prior-tv (-[det]-> KB Statement TV))
 (= (concept-node-prior-tv $kbid $node)
    (if (known-concept-node? $kbid $node)
       (let $n (list-len (concept-nodes $kbid))
@@ -1067,7 +1044,7 @@
 (= (ConceptNodePriorFormula $kbid $node)
    (concept-node-prior-tv $kbid $node))
 
-(: resolve-base-rate-prior (-> BaseRatePrior TV))
+(: resolve-base-rate-prior (-[det]-> BaseRatePrior TV))
 (= (resolve-base-rate-prior (ConceptNodePriorRuntime $kbid $node))
    (concept-node-prior-tv
       (brand KB $kbid) (brand Statement $node)))
@@ -1082,7 +1059,7 @@
       (resolve-base-rate-prior (brand BaseRatePrior $prior))
       (WeightedBaseRateTv $ev)))
 
-(: member-inheritance-tv (-> KB BaseRateEvidenceState TV))
+(: member-inheritance-tv (-[det]-> KB BaseRateEvidenceState TV))
 (= (member-inheritance-tv $kbid $ev)
    (let $universe-size (kb-universe-size $kbid)
       (if (== $universe-size no-universe-size)

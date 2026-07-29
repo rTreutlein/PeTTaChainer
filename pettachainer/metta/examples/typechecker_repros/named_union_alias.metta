@@ -8,7 +8,7 @@
 ; Either as a reusable name for the union.
 (: Either (| Left Right))
 
-(: left-as-either (-> Left Either))
+(: left-as-either (-[det]-> Left Either))
 (= (left-as-either $value) $value)
 
 !(test (left-as-either left) left)

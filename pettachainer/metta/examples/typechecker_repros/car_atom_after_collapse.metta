@@ -6,9 +6,9 @@
 (: default-choice Choice)
 
 (: ChoiceRow Type)
-(: choice-row (-> Choice ChoiceRow))
+(: choice-row (-[det]-> Choice ChoiceRow))
 
-(: selected-choice (-> Choice))
+(: selected-choice (-[det]-> Choice))
 (= (selected-choice)
    (let $matches
       (collapse

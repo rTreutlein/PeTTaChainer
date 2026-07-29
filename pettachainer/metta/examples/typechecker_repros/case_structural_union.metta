@@ -1,4 +1,4 @@
-(: pick-value (-> Atom (| Number (List Atom))))
+(: pick-value (-[det]-> Atom (| Number (List Atom))))
 (= (pick-value $tag)
    (case $tag
       ((number 1)

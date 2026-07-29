@@ -31,7 +31,7 @@
 
 ;; Inheritance induction is installed per concrete query by the compiler. The
 ;; public registration call remains valid but has no KB-local work to perform.
-(: register-inheritance-induction! (-> KB (List $none)))
+(: register-inheritance-induction! (-[det]-> KB (List $none)))
 (= (register-inheritance-induction! $_kb) ())
 
 (: record-compiled-inheritance-subject!
@@ -66,7 +66,7 @@
       (if (is-expr $term)
          (if (== (car-atom $term) |->) (eval $term)
             (cons (materialize-stmt-lambdas (car-atom $term))
-               (map-flat-nondet materialize-stmt-lambdas (cdr-atom $term))))
+               (map-flat materialize-stmt-lambdas (cdr-atom $term))))
          $term)))
 
 (: internalize-runtime-addition
@@ -94,16 +94,16 @@
            (list_to_set
               (map-flat internalize-runtime-addition $atoms)))
         ($eatoms
-           (map-flat-nondet externalize-compiled-addition $iatoms))
+           (map-flat externalize-compiled-addition $iatoms))
         ($_subjects
            (collapse
-              (foreach-flat-nondet
+              (foreach-flat
                  record-compiled-inheritance-subject! $eatoms)))
         ($_concepts
            (collapse
-              (foreach-flat-nondet
+              (foreach-flat
                  record-compiled-inheritance-concepts! $eatoms)))
-        ($_ (collapse (foreach-flat-nondet add-to-kb $iatoms))))
+        ($_ (collapse (foreach-flat add-to-kb $iatoms))))
       (superpose
          $eatoms)))
 

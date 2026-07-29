@@ -10,7 +10,7 @@
 (: first-number (-[semidet]-> (List Number) Number))
 (= (first-number (cons $head $_tail)) $head)
 
-(: first-or-zero (-> (List Number) Number))
+(: first-or-zero (-[det]-> (List Number) Number))
 (= (first-or-zero $values)
    (if (== $values ())
       0

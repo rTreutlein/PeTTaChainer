@@ -4,7 +4,7 @@
 (: NoOrLogic LogicName)
 
 (: logic-test-runtime-fact
-   (-> Statement Proof TV
+   (-[det]-> Statement Proof TV
        (Statement KBContext Proof TV)))
 (= (logic-test-runtime-fact $statement $proof $tv)
    (assemble-runtime-fact

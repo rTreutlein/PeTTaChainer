@@ -6,22 +6,22 @@
 ;; representation.  This is one of the intentionally dynamic boundaries.
 (: ClauseRef (Newtype Expression))
 (: TempQueryRef Type)
-(: clause_ref (-> ClauseRef TempQueryRef))
+(: clause_ref (-[det]-> ClauseRef TempQueryRef))
 
-(: assert-space-atom-ref (-> $space SpaceAtom ClauseRef))
+(: assert-space-atom-ref (-[det]-> $space SpaceAtom ClauseRef))
 (= (assert-space-atom-ref $space $expr)
    (let*
       (($term (Predicate (cons $space $expr)))
         ($_ (callPredicate (Predicate (assertz $term $ref)))))
       (brand ClauseRef $ref)))
 
-(: erase-clause-ref (-> ClauseRef Bool))
+(: erase-clause-ref (-[det]-> ClauseRef Bool))
 (= (erase-clause-ref $ref)
    (let $_erased
       (callPredicate (Predicate (erase $ref)))
       true))
 
-(: track-temp-query-ref (-> ClauseRef Bool))
+(: track-temp-query-ref (-[det]-> ClauseRef Bool))
 (= (track-temp-query-ref $ref) (add-atom &temp_query_ref (clause_ref $ref)))
 
 (: kb-add-atom (-[det]-> KbBackend $space SpaceAtom Bool))
@@ -32,7 +32,7 @@
       (track-temp-query-ref $ref)))
 
 (: kb-add-prem
-   (-> KbBackend Number Number
+   (-[det]-> KbBackend Number Number
        (| Goal (Statement KBContext Proof TV))
        Number))
 (= (kb-add-prem $backend $id $idx $prem)
@@ -47,7 +47,7 @@
          (+ $idx 1))))
 
 (: kb-add-ccl-head-index
-   (-> KbBackend Number
+   (-[det]-> KbBackend Number
        (Statement KBContext Proof TV)
        (| Bool (List $none))))
 (= (kb-add-ccl-head-index $backend $id $ccls)
@@ -59,11 +59,11 @@
                (make-space-pair $key $id)
                (kb-add-atom $backend ccls_head_index $row))))))
 
-(: kb-context-kbid (-> KBContext KB))
+(: kb-context-kbid (-[det]-> KBContext KB))
 (= (kb-context-kbid ($kbid $_ctx $_vars))
    (brand KB $kbid))
 
-(: observed-inheritance-subject? (-> KB Statement Bool))
+(: observed-inheritance-subject? (-[det]-> KB Statement Bool))
 (= (observed-inheritance-subject? $kbid $subj)
    (not (== (collapse (once (match &inheritance_subject ($kbid $subj) true))) ())))
 
@@ -73,7 +73,7 @@
 (= (MemberInheritanceEvidenceFormula $tv)
    (if (== $tv no-evidence) (empty) $tv))
 
-(: inheritance-subject-prior-tv (-> KB Statement TV))
+(: inheritance-subject-prior-tv (-[det]-> KB Statement TV))
 (= (inheritance-subject-prior-tv $kbid $subj)
    (if (observed-inheritance-subject? $kbid $subj)
       (let $universe-size (kb-universe-size $kbid)
@@ -90,7 +90,7 @@
 ;; rule-goal expansion. No entry (the computation can fail on exotic premise
 ;; shapes) means the expansion falls back to computing it on the fly.
 (: store-rule-expected-score!
-   (-> KbBackend Number
+   (-[det]-> KbBackend Number
        (List (| Goal (Statement KBContext Proof TV)))
        (| Bool (List $none))))
 (= (store-rule-expected-score! $backend $id $args)
@@ -108,7 +108,7 @@
 ;; Temp (per-query) rule ids are offset so they can never collide with live
 ;; rule ids: both counters start at 0 and rules/rule_expected/prem_index rows
 ;; from both backends share the same spaces.
-(: next-rule-id (-> KbBackend Number))
+(: next-rule-id (-[det]-> KbBackend Number))
 (= (next-rule-id $backend)
    (if (== $backend live)
       (next-search-id ruleid)
@@ -119,7 +119,7 @@
 ;; Rules whose proof carries no extractable name (open query adapters,
 ;; negated outputs) are simply not indexed -- they cannot be removed by name.
 (: register-rule-name!
-   (-> KbBackend Number (Statement KBContext Proof TV)
+   (-[det]-> KbBackend Number (Statement KBContext Proof TV)
        (| Bool (List $none))))
 (= (register-rule-name! $backend $id $ccls)
    (case $ccls (
@@ -136,7 +136,7 @@
       ($_other ()))))
 
 (: typed-runtime-fact
-   (-> Expression (Statement KBContext Proof TV)))
+   (-[det]-> Expression (Statement KBContext Proof TV)))
 (= (typed-runtime-fact $fact)
    (case $fact
       ((($type $kb $proof $tv)
@@ -210,7 +210,7 @@
                (kb-add-atom $backend &kb
                   (brand SpaceAtom $fact)))))))
 
-(: clear-temp-query-adds (-> (List $none)))
+(: clear-temp-query-adds (-[det]-> (List $none)))
 (= (clear-temp-query-adds)
    (progn
       (collapse
@@ -264,7 +264,7 @@
                ())))
       ()))
 
-(: remove-kb-facts-named! (-> Proof (List $none)))
+(: remove-kb-facts-named! (-[det]-> Proof (List $none)))
 (= (remove-kb-facts-named! $name)
    (let $_
       (collapse
@@ -298,11 +298,11 @@
 
 ;; Rule indexes are erased spaces. Validate their scalar id at this infrequent
 ;; removal boundary rather than checking the complete collected list.
-(: stored-rule-id (-> Atom Number))
+(: stored-rule-id (-[det]-> Atom Number))
 (= (stored-rule-id $id)
    (the Number $id))
 
-(: remove-compiled-statement (-> Proof (List $none)))
+(: remove-compiled-statement (-[det]-> Proof (List $none)))
 (= (remove-compiled-statement $name)
    (let*
       (($_specialization (remove-specialization-state! $name))

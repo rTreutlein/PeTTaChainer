@@ -4,7 +4,7 @@
 ; External /usr/bin/time measures the complete process separately.
 !(import! &self petta_chainer)
 
-(: current-time (-> Number))
+(: current-time (-[det]-> Number))
 
 !(chainer-add-atom &kb
    ((TypecheckPerfFact value)

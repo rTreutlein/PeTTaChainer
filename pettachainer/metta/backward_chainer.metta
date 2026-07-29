@@ -1,7 +1,7 @@
 (: QueueGoal Type)
-(: qgoal (-> Number Number QueueGoal))
+(: qgoal (-[det]-> Number Number QueueGoal))
 (: QueueAggregate Type)
-(: qagg (-> Number Number QueueAggregate))
+(: qagg (-[det]-> Number Number QueueAggregate))
 ;; SWI heap primitives imported by PeTTa.
 (: reverse-number-list
    (-[det]-> (List Number) (List Number)))
@@ -26,7 +26,7 @@
    (Alias (Number (Heap (| QueueGoal QueueAggregate)))))
 (: AndBundle Type)
 (: and-bundle
-   (-> (| Goal (Statement KBContext Proof TV))
+   (-[det]-> (| Goal (Statement KBContext Proof TV))
        (List (| Goal (Statement KBContext Proof TV)))
        AndBundle))
 (= (get-type (and-bundle $goal $premises)) AndBundle)
@@ -161,13 +161,13 @@
       (activate-compiled-query $compiled-query)))
 
 (: aggregate-step-value
-   (-> ExtractValue
+   (-[det]-> ExtractValue
        $child-atom (| TV NoTV) $value))
 (: aggregate-step-value
-   (-> ExtractInheritanceTV
+   (-[det]-> ExtractInheritanceTV
        $child-atom TV WeightedTV))
 (: aggregate-step-value
-   (-> ExtractTV $child-atom TV TV))
+   (-[det]-> ExtractTV $child-atom TV TV))
 (= (aggregate-step-value (extract-value $pattern $value) $child-atom $_child-tv)
    (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $value))
 (= (aggregate-step-value (extract-inheritance-tv $kbid $_pattern) $child-atom $child-tv)
@@ -179,7 +179,7 @@
          $child-tv)))
 (= (aggregate-step-value extract-tv $_child-atom $child-tv) $child-tv)
 (: aggregate-step-group-value
-   (-> Statement $group-template $child-atom $group))
+   (-[det]-> Statement $group-template $child-atom $group))
 (= (aggregate-step-group-value $pattern $group $child-atom)
    (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $group))
 
@@ -206,25 +206,25 @@
       (extract-tv
          ($fun $acc (the TV $child-tv))))))
 
-(: aggregate-finish (-> IdentityFinish $acc $acc))
+(: aggregate-finish (-[det]-> IdentityFinish $acc $acc))
 (: aggregate-finish
-   (-> DistAverageFinish DistributionSumCount Distribution))
-(: aggregate-finish (-> BaseRateFinish BaseRateEvidenceState TV))
+   (-[det]-> DistAverageFinish DistributionSumCount Distribution))
+(: aggregate-finish (-[det]-> BaseRateFinish BaseRateEvidenceState TV))
 (: aggregate-finish
-   (-> WeightedBaseRateFinish BaseRateEvidenceState TV))
+   (-[det]-> WeightedBaseRateFinish BaseRateEvidenceState TV))
 (: aggregate-finish
    (-[semidet]-> WeightedBaseRateWithPriorFinish
        BaseRateEvidenceWithPriorState TV))
 (: aggregate-finish
-   (-> MemberInheritanceFinish BaseRateEvidenceState TV))
+   (-[det]-> MemberInheritanceFinish BaseRateEvidenceState TV))
 (: aggregate-finish
-   (-> WeightedBaseRateInUniverseFinish BaseRateEvidenceState TV))
+   (-[det]-> WeightedBaseRateInUniverseFinish BaseRateEvidenceState TV))
 (: aggregate-finish
-   (-> WeightedBaseRateWithPriorInUniverseFinish BaseRateEvidenceWithPriorState TV))
+   (-[det]-> WeightedBaseRateWithPriorInUniverseFinish BaseRateEvidenceWithPriorState TV))
 (: aggregate-finish
-   (-> UniformPriorFinish (List $subject) TV))
+   (-[det]-> UniformPriorFinish (List $subject) TV))
 (: aggregate-finish
-   (-> UniformPriorKnownFinish (List $subject) TV))
+   (-[det]-> UniformPriorKnownFinish (List $subject) TV))
 (= (aggregate-finish identity $acc) $acc)
 (= (aggregate-finish dist-average $acc)
    (the Distribution
@@ -259,23 +259,23 @@
 ;; Compiled aggregate arguments are a dynamic wire format.  Dispatching on the
 ;; finish token is the point where its corresponding accumulator type is known.
 (: distribution-sum-count-acc
-   (-> $value DistributionSumCount))
+   (-[det]-> $value DistributionSumCount))
 (= (distribution-sum-count-acc $acc)
    (the DistributionSumCount $acc))
 (: base-rate-evidence-acc
-   (-> $value BaseRateEvidenceState))
+   (-[det]-> $value BaseRateEvidenceState))
 (= (base-rate-evidence-acc $acc)
    (the BaseRateEvidenceState $acc))
 (: base-rate-evidence-with-prior-acc
-   (-> $value BaseRateEvidenceWithPriorState))
+   (-[det]-> $value BaseRateEvidenceWithPriorState))
 (= (base-rate-evidence-with-prior-acc $acc)
    (the BaseRateEvidenceWithPriorState $acc))
 (: list-aggregate-acc
-   (-> $value (List Atom)))
+   (-[det]-> $value (List Atom)))
 (= (list-aggregate-acc $acc)
    (the (List Atom) $acc))
 (: available-universe-size
-   (-> (| Number UniverseSizeUnavailable) Number))
+   (-[det]-> (| Number UniverseSizeUnavailable) Number))
 (= (available-universe-size $size)
    (the Number $size))
 
@@ -382,7 +382,7 @@
 ;; results that were previously dropped. Overlap that is not fully explained by
 ;; a same-source pool keeps today's rejection.
 
-(: expr-arity (-> $expression Number))
+(: expr-arity (-[det]-> $expression Number))
 (= (expr-arity $e) (if (== $e ()) 0 (+ 1 (expr-arity (cdr-atom $e)))))
 
 ;; Parts, one per consumed premise, in premise order:
@@ -394,9 +394,9 @@
 ;;                                                      poisons folds so joins
 ;;                                                      fall back to rejection
 (: FrontierPart Type)
-(: indep-part (-> TV FrontierPart))
+(: indep-part (-[det]-> TV FrontierPart))
 (: pool-part
-   (-> ProofOutputKey TV Number (List Number)
+   (-[det]-> ProofOutputKey TV Number (List Number)
        (List Evidence) TV FrontierPart))
 (: SkipPart Type)
 (: skip-part SkipPart)
@@ -405,16 +405,16 @@
 (: NoPool Type)
 (: no-pool NoPool)
 (: SourceInfo Type)
-(: source-info (-> TV Number SourceInfo))
+(: source-info (-[det]-> TV Number SourceInfo))
 (: NoSourceInfo Type)
 (: no-source-info NoSourceInfo)
 (: SourceEntry Type)
-(: source-entry (-> ProofOutputKey SourceInfo SourceEntry))
+(: source-entry (-[det]-> ProofOutputKey SourceInfo SourceEntry))
 (: NoSourceEntry Type)
 (: no-source-entry NoSourceEntry)
 (: FrontierProjection Type)
 (: projection
-   (-> Number (| Proof ProofRef) FrontierProjection))
+   (-[det]-> Number (| Proof ProofRef) FrontierProjection))
 ;; Keep the absence sentinel distinct from the public logic-config
 ;; `NoProjection` output mode.
 (: NoFrontierProjection Type)
@@ -425,17 +425,17 @@
 (: no-pool-key NoPoolKey)
 (: FrontierWaiter Type)
 (: frontier-waiter
-   (-> Number AndBundle Number (List Evidence) (List (| FrontierPart UnpoolablePart)) (List Number) FrontierWaiter))
+   (-[det]-> Number AndBundle Number (List Evidence) (List (| FrontierPart UnpoolablePart)) (List Number) FrontierWaiter))
 (: AggregateWaiter Type)
-(: aggregate-waiter (-> Number AggregateWaiter))
+(: aggregate-waiter (-[det]-> Number AggregateWaiter))
 (: AggregateState Type)
 (: aggregate-state
-   (-> $accumulator (List Evidence) (List Number) AggregateState))
+   (-[det]-> $accumulator (List Evidence) (List Number) AggregateState))
 (: AggregateGroupState Type)
 (: aggregate-group-state
-   (-> $group $accumulator (List Evidence) (List Number) AggregateGroupState))
+   (-[det]-> $group $accumulator (List Evidence) (List Number) AggregateGroupState))
 
-(: frontier-part-tv (-> FrontierPart TV))
+(: frontier-part-tv (-[det]-> FrontierPart TV))
 (= (frontier-part-tv $part)
    (case $part (
       ((indep-part $tv) $tv)
@@ -473,7 +473,7 @@
 ;; $bpid) for chained sources (facts and derived conjunctions alike) or a
 ;; statement name for kb-materialized projection facts.
 (: frontier-and-source-info
-   (-> (| Goal (Statement KBContext Proof TV))
+   (-[det]-> (| Goal (Statement KBContext Proof TV))
        (| SourceInfo NoSourceInfo)))
 (= (frontier-and-source-info ($type $_kb $_prf $tv))
    (if (is-expr $type)
@@ -487,7 +487,7 @@
 ;; differently (open vs ground goals), producing distinct proof nodes for the
 ;; same source proposition.
 (: frontier-source-entry-from-atom
-   (-> (| Goal (Statement KBContext Proof TV))
+   (-[det]-> (| Goal (Statement KBContext Proof TV))
        (| SourceEntry NoSourceEntry)))
 (= (frontier-source-entry-from-atom $atom)
    (let $i (frontier-and-source-info $atom)
@@ -514,7 +514,7 @@
                   (if (== $e no-source-entry) (empty) $e))))
          (if (== $hits ()) no-source-entry (car-atom $hits)))))
 
-(: frontier-proof-term (-> ProofKind (| $term NoTerm)))
+(: frontier-proof-term (-[det]-> ProofKind (| $term NoTerm)))
 (= (frontier-proof-term $kind)
    (case $kind (
       ((rule $term) $term)
@@ -522,7 +522,7 @@
       ($_ no-term))))
 
 (: frontier-proof-projection
-   (-> ProofKind (| FrontierProjection NoFrontierProjection)))
+   (-[det]-> ProofKind (| FrontierProjection NoFrontierProjection)))
 (= (frontier-proof-projection $kind)
    (let $term (frontier-proof-term $kind)
       (case $term (
@@ -604,7 +604,7 @@
       $rest))
 
 (: frontier-pool-key
-   (-> (| FrontierPart UnpoolablePart)
+   (-[det]-> (| FrontierPart UnpoolablePart)
        (| ProofOutputKey NoPoolKey)))
 (= (frontier-pool-key $part)
    (case $part (
@@ -612,7 +612,7 @@
       ($_ no-pool-key))))
 
 (: frontier-parts-same-pool
-   (-> (List (| FrontierPart UnpoolablePart))
+   (-[det]-> (List (| FrontierPart UnpoolablePart))
        ProofOutputKey (| FrontierPart NoPool)))
 (= (frontier-parts-same-pool () $_key) no-pool)
 (= (frontier-parts-same-pool (cons $head $rest) $key)
@@ -669,7 +669,7 @@
 ;; confidence (0 for a strength-0 source) says nothing about the completed
 ;; pool's, and would starve the frontier before the join that completes it.
 (: frontier-part-score
-   (-> (| FrontierPart SkipPart UnpoolablePart) Number Number))
+   (-[det]-> (| FrontierPart SkipPart UnpoolablePart) Number Number))
 (= (frontier-part-score $part $pscore)
    (case $part (
       ((pool-part $_base $btv $_n $_idxs $_ev $_mtv) (max $pscore (tv-confidence $btv)))
@@ -680,7 +680,7 @@
 ;; frontier before the join that completes the pool. The pool's source
 ;; confidence is the frontier's real potential.
 (: frontier-pool-potential
-   (-> (List (| FrontierPart UnpoolablePart)) Number))
+   (-[det]-> (List (| FrontierPart UnpoolablePart)) Number))
 (= (frontier-pool-potential ()) 0.0)
 (= (frontier-pool-potential (cons $part $rest))
    (case $part (
@@ -691,7 +691,7 @@
       ($_ (frontier-pool-potential $rest)))))
 
 (: frontier-remaining-score
-   (-> AndBundle (List (| FrontierPart UnpoolablePart)) Number))
+   (-[det]-> AndBundle (List (| FrontierPart UnpoolablePart)) Number))
 (= (frontier-remaining-score $bundle $parts)
    (max
       (premises-expected-confidence
@@ -734,7 +734,7 @@
        AndBundle))
 (= (make-and-bundle $goal $args) (and-bundle $goal $args))
 (: present-and-bundle
-   (-> (| AndBundle (List $none)) AndBundle))
+   (-[det]-> (| AndBundle (List $none)) AndBundle))
 (= (present-and-bundle (and-bundle $goal $premises))
    (make-and-bundle $goal $premises))
 (: and-bundle-goal
@@ -769,7 +769,7 @@
 ;; member-inheritance sample pairs an antecedent membership with a consequent
 ;; that may itself have been derived from that antecedent. The resulting proof
 ;; still carries the union of both evidence sets, and normal cycle checks apply.
-(: shared-evidence-frontier-proof? (-> $proof Bool))
+(: shared-evidence-frontier-proof? (-[det]-> $proof Bool))
 (= (shared-evidence-frontier-proof? $proof)
    (case $proof (
       ((total-implication-frontier $_inner) true)
@@ -778,7 +778,7 @@
       ((member-inheritance-sample $_antecedent $_consequent) true)
       ($_other false))))
 
-(: frontier-allows-shared-evidence? (-> AndBundle Bool))
+(: frontier-allows-shared-evidence? (-[det]-> AndBundle Bool))
 (= (frontier-allows-shared-evidence? $bundle)
    (let $goal (and-bundle-goal $bundle)
       (case $goal (
@@ -835,7 +835,7 @@
 ;; hide their shared provenance behind distinct fact atoms. Overlap not
 ;; explained by a pool keeps the double-counting rejection.
 (: frontier-pool-join?
-   (-> (| FrontierPart SkipPart UnpoolablePart) (List (| FrontierPart UnpoolablePart)) (List Evidence) (List Evidence) Bool))
+   (-[det]-> (| FrontierPart SkipPart UnpoolablePart) (List (| FrontierPart UnpoolablePart)) (List Evidence) (List Evidence) Bool))
 (= (frontier-pool-join? $part $parts $seen $pev)
    (case $part (
       ((pool-part $key $_btv $_n $_idxs $_ev $_mtv)
@@ -1031,12 +1031,12 @@
 
 (: BaseRateAggregateKey Type)
 (: base-rate-aggregate-key-value
-   (-> KB Statement $mode BaseRateAggregateKey))
+   (-[det]-> KB Statement $mode BaseRateAggregateKey))
 (: NoBaseRateAggregateKey Type)
 (: no-base-rate-aggregate-key NoBaseRateAggregateKey)
 
 (: base-rate-aggregate-key
-   (-> $arguments
+   (-[det]-> $arguments
        (| BaseRateAggregateKey NoBaseRateAggregateKey)))
 (= (base-rate-aggregate-key $args)
    (case $args (
@@ -1060,7 +1060,7 @@
                 (aggregate-result-candidate $result () ())))))
       (wake-proof-commit-heap $agenda $agg-gid $pid)))
 
-(: base-rate-refine-score (-> Number Number))
+(: base-rate-refine-score (-[det]-> Number Number))
 (= (base-rate-refine-score $score) (* 0.25 $score))
 
 (: ensure-aggregate-child-goal
@@ -1159,7 +1159,7 @@
        ($nagenda (schedule-aggregate-heap $agenda1 $agg-gid)))
       $nagenda))
 
-(: aggregate-args-grouped? (-> $arguments Bool))
+(: aggregate-args-grouped? (-[det]-> $arguments Bool))
 (= (aggregate-args-grouped? $args)
    (case $args (
       (($_kb $_pattern $_group $_extractor $_init $_fun $_finish $_tv-mode)
@@ -1388,7 +1388,7 @@
       (grouped-aggregate-final-states $agg-gid $child-gid $args)))
 
 (: aggregate-commit-evidence
-   (-> $finish (List Evidence) (List Evidence)))
+   (-[det]-> $finish (List Evidence) (List Evidence)))
 (= (aggregate-commit-evidence $finish $ev)
    (if (background-aggregate-finish? $finish) () $ev))
 
@@ -1472,7 +1472,7 @@
 ; rather than chaining specific evidence, so their committed proof carries no
 ; evidence dependency -- this keeps them from forming evidence cycles with the
 ; very premises they are computed alongside.
-(: background-aggregate-finish? (-> $finish Bool))
+(: background-aggregate-finish? (-[det]-> $finish Bool))
 (= (background-aggregate-finish? $finish)
    (if (base-rate-finish? $finish) true
       (if (== $finish uniform-prior) true (== $finish uniform-prior-known))))
@@ -1563,7 +1563,7 @@
                            (brand Proof $prf)
                            (brand Statement $type)
                            (the TV $tv))))
-                  (foreach-flat-semidet
+                  (foreach-flat
                      inject-compiled-query-adds
                      (the
                         (List CompiledQuery)
@@ -1572,7 +1572,7 @@
       ($_other ()))))
 
 (: open-rule-goal?
-   (-> (| Goal (Statement KBContext Proof TV)) Bool))
+   (-[det]-> (| Goal (Statement KBContext Proof TV)) Bool))
 (= (open-rule-goal? $goal)
    (case $goal (
       (($type $_kb $_prf $_tv)
@@ -1622,7 +1622,7 @@
       (empty)))
 
 (: rule-goal-contextual?
-   (-> (| Goal (Statement KBContext Proof TV)) Bool))
+   (-[det]-> (| Goal (Statement KBContext Proof TV)) Bool))
 (= (rule-goal-contextual? $goal)
    (case $goal (
       (($_type ($_kbid $ctx $_vars) $_prf $_tv)
@@ -1650,12 +1650,12 @@
                         $parent-gid)
                      (empty)))))))))
 
-(: same-var-in-list? (-> $variable (List $variable) Bool))
+(: same-var-in-list? (-[det]-> $variable (List $variable) Bool))
 (= (same-var-in-list? $_var ()) false)
 (= (same-var-in-list? $var (cons $head $tail))
    (or (== $var $head) (same-var-in-list? $var $tail)))
 
-(: any-same-var? (-> (List $variable) (List $variable) Bool))
+(: any-same-var? (-[det]-> (List $variable) (List $variable) Bool))
 (= (any-same-var? () $_vars) false)
 (= (any-same-var? (cons $var $rest) $vars)
    (or (same-var-in-list? $var $vars) (any-same-var? $rest $vars)))
@@ -1663,9 +1663,9 @@
 (: context-vars-in-type?
    ;; KBContext is an erased newtype, so its destructured variables field is a
    ;; raw wire value here: Nil or a variable list.
-   (-> Expression Atom Bool))
+   (-[det]-> Expression Atom Bool))
 (: any-context-var-in?
-   (-> (List Variable) (List Variable) Bool))
+   (-[det]-> (List Variable) (List Variable) Bool))
 (= (any-context-var-in? $_type-vars ()) false)
 (= (any-context-var-in? $type-vars (cons $var $rest))
    (or (same-var-in-list? $var $type-vars)
@@ -1679,7 +1679,7 @@
             (the (List Variable) $vars)))))
 
 (: contextualize-rule-premise
-   (-> (| Goal (Statement KBContext Proof TV))
+   (-[det]-> (| Goal (Statement KBContext Proof TV))
        (| Goal (Statement KBContext Proof TV))
        (| Goal (Statement KBContext Proof TV))))
 (= (contextualize-rule-premise $premise
@@ -1704,7 +1704,7 @@
          ((CPU $fun $args $res) (CPU $fun $args $res))))))
 
 (: contextualize-rule-args
-   (-> (| Goal (Statement KBContext Proof TV))
+   (-[det]-> (| Goal (Statement KBContext Proof TV))
        (List (| Goal (Statement KBContext Proof TV)))
        (List (| Goal (Statement KBContext Proof TV)))))
 (= (contextualize-rule-args $_goal ()) ())
@@ -1772,7 +1772,7 @@
 ;; premise structure and stored TVs then); a goal queried with a known TV falls
 ;; back to computing against the bound bundle, as before.
 (: inheritance-lift-rule-goal?
-   (-> (| Goal
+   (-[det]-> (| Goal
           (Statement KBContext Proof TV))
        Bool))
 (= (inheritance-lift-rule-goal? $goal)
@@ -1782,7 +1782,7 @@
       ($_other false))))
 
 (: rule-expected-score
-   (-> Number
+   (-[det]-> Number
        (| Goal (Statement KBContext Proof TV))
        (List (| Goal (Statement KBContext Proof TV)))
        Number))
@@ -1809,9 +1809,9 @@
 ;; head. In KBs where every premise head is also some rule's conclusion the
 ;; filter never prunes, so behavior degrades to the unfiltered search.
 
-(: set-backward-premise-prefilter (-> Bool Bool))
+(: set-backward-premise-prefilter (-[det]-> Bool Bool))
 (= (set-backward-premise-prefilter $enabled) (change-state! bwd_premise_prefilter $enabled))
-(: backward-premise-prefilter? (-> Bool))
+(: backward-premise-prefilter? (-[det]-> Bool))
 (= (backward-premise-prefilter?)
    (let $values
       (collapse (catch (get-state bwd_premise_prefilter)))
@@ -1820,7 +1820,7 @@
          (if-error-bool (car-atom $values) false))))
 
 (: prefilter-head-concludable?
-   (-> (| Goal (Statement KBContext Proof TV)) Bool))
+   (-[det]-> (| Goal (Statement KBContext Proof TV)) Bool))
 (= (prefilter-head-concludable? $prem)
    (let $key (forward-indexable-premise-key $prem)
       (if (== $key ()) true
@@ -1845,20 +1845,20 @@
                         ()))))))))
 
 (: prefilter-fact-missing?
-   (-> (Statement KBContext Proof TV) Bool))
+   (-[det]-> (Statement KBContext Proof TV) Bool))
 (= (prefilter-fact-missing? ($type ($kbid $_ctx $_vars) $_prf $_tv))
    (== (collapse (once (match &kb ($type ($kbid $_c2 $_v2) $_p2 $_t2) true))) ()))
 
 ;; CPU functions the filter must not run eagerly: aggregate folds have their own
 ;; search machinery and store-scanning formulas are too costly for a filter.
-(: prefilter-cpu-opaque? (-> $function Bool))
+(: prefilter-cpu-opaque? (-[det]-> $function Bool))
 (= (prefilter-cpu-opaque? $fun)
    (same-var-in-list?
       $fun
       (FoldAllCompiled GroupedFoldAllCompiled ConceptNodePriorFormula)))
 
 (: prefilter-premise-blocks?
-   (-> (| Goal (Statement KBContext Proof TV)) Bool))
+   (-[det]-> (| Goal (Statement KBContext Proof TV)) Bool))
 (= (prefilter-premise-blocks? $premise)
    (once
       (case $premise (
@@ -1889,7 +1889,7 @@
                   false)))))))
 
 (: prefilter-prunes-walk
-   (-> (List (| Goal (Statement KBContext Proof TV))) Bool))
+   (-[det]-> (List (| Goal (Statement KBContext Proof TV))) Bool))
 (= (prefilter-prunes-walk ()) false)
 (= (prefilter-prunes-walk (cons $prem $rest))
    (if (prefilter-premise-blocks? $prem) true (prefilter-prunes-walk $rest)))
@@ -1898,7 +1898,7 @@
 ;; collapse so a premise shape neither clause covers makes the walk yield
 ;; nothing and the rule is kept, never dropped.
 (: rule-premise-prefilter-prunes?
-   (-> (List (| Goal (Statement KBContext Proof TV))) Bool))
+   (-[det]-> (List (| Goal (Statement KBContext Proof TV))) Bool))
 (= (rule-premise-prefilter-prunes? $args)
    (if (backward-premise-prefilter?)
       (let $hits (collapse (prefilter-prunes-walk (copy_term $args)))
@@ -2032,7 +2032,7 @@
                         $mode)
                      ()))))))))
 
-(: harvest-base-rates (-> (List $none)))
+(: harvest-base-rates (-[det]-> (List $none)))
 (= (harvest-base-rates)
    (let $_
       (collapse

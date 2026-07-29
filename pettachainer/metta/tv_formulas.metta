@@ -4,14 +4,14 @@
 ;; convert back to a confidence. Strengths are clipped off 0/1 so the Beta
 ;; variance and the back-conversion stay finite.
 (: BaseRateEvidenceState Type)
-(: BaseRateEvidence (-> Number Number BaseRateEvidenceState))
+(: BaseRateEvidence (-[det]-> Number Number BaseRateEvidenceState))
 
 (: WeightedTV Type)
-(: WeightedTv (-> TV TV WeightedTV))
+(: WeightedTv (-[det]-> TV TV WeightedTV))
 
 (: BaseRateEvidenceWithPriorState Type)
 (: BaseRateEvidenceWithPrior
-   (-> BaseRatePrior BaseRateEvidenceState
+   (-[det]-> BaseRatePrior BaseRateEvidenceState
        BaseRateEvidenceWithPriorState))
 
 (: ideal-clip (-[det]-> Number Number))

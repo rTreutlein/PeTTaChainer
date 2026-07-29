@@ -1,5 +1,5 @@
 (: Entry Type)
-(: entry (-> Number Entry))
+(: entry (-[det]-> Number Entry))
 
 (: remove-entry (-[det]-> Entry Bool))
 (= (remove-entry $value)

@@ -3,20 +3,20 @@
 ;; Benchmark generator statements stored in &kb. Declaring their payload
 ;; shapes lets the reporting/export pass recover typed fields without scanning
 ;; or ascribing the complete matched rows.
-(: BenchFact (-> $bench Number Number Statement))
-(: BenchNode (-> $bench Number Number Number Statement))
-(: BenchTarget (-> $bench Number Statement))
+(: BenchFact (-[det]-> $bench Number Number Statement))
+(: BenchNode (-[det]-> $bench Number Number Number Statement))
+(: BenchTarget (-[det]-> $bench Number Statement))
 (: BenchMainRule
-   (-> $bench Number Number Number Number Statement))
+   (-[det]-> $bench Number Number Number Number Statement))
 (: BenchMainPremiseCount
-   (-> $bench Number Number Number Number Statement))
+   (-[det]-> $bench Number Number Number Number Statement))
 (: BenchMainConf
-   (-> $bench Number Number Number Number Statement))
-(: BenchNoiseBackRule (-> $bench Number Number Statement))
-(: BenchNoiseForwardRule (-> $bench Number Number Statement))
+   (-[det]-> $bench Number Number Number Number Statement))
+(: BenchNoiseBackRule (-[det]-> $bench Number Number Statement))
+(: BenchNoiseForwardRule (-[det]-> $bench Number Number Statement))
 (: BenchSpec
-   (-> $bench Number Number Number Number Number Number Number Statement))
-(: BenchPLNAtom (-> $bench AnnotatedStatement Statement))
+   (-[det]-> $bench Number Number Number Number Number Number Number Statement))
+(: BenchPLNAtom (-[det]-> $bench AnnotatedStatement Statement))
 
 (: BenchStoredAnnotatedStatement
    (-[det]-> Atom Atom Atom AnnotatedStatement))
@@ -42,7 +42,7 @@
 (: BenchCycle1 (-[det]-> Number Number Number))
 (= (BenchCycle1 $idx $max) (if (<= $idx $max) $idx (BenchCycle1 (- $idx $max) $max)))
 
-(: BenchGlobalConf (-> Number))
+(: BenchGlobalConf (-[det]-> Number))
 (= (BenchGlobalConf) (random-float 0.45 0.98))
 
 (: BenchValidParams?
@@ -65,12 +65,12 @@
 (: BenchChildIndex (-[det]-> Number Number Number Number))
 (= (BenchChildIndex $parent-idx $width $slot) (+ (* (- $parent-idx 1) $width) $slot))
 
-(: BenchPremiseRef (-> $bench $path Number Number Expression))
+(: BenchPremiseRef (-[det]-> $bench $path Number Number Expression))
 (= (BenchPremiseRef $bench $path $level $idx)
    (if (== $level 0) (BenchFact $bench $path $idx) (BenchNode $bench $path $level $idx)))
 
 (: BenchRulePremisesRemaining
-   (-> $bench $path Number Number Number Number Number (List Expression)))
+   (-[det]-> $bench $path Number Number Number Number Number (List Expression)))
 (= (BenchRulePremisesRemaining $bench $path $level $parent-idx $width $slot $remaining)
    (if (== $remaining 0) ()
       (let*
@@ -87,7 +87,7 @@
                (- $remaining 1))))))
 
 (: BenchRulePremises
-   (-> $bench $path Number Number Number (List Expression)))
+   (-[det]-> $bench $path Number Number Number (List Expression)))
 (= (BenchRulePremises $bench $path $level $idx $width)
    (BenchRulePremisesRemaining $bench
       $path
@@ -97,38 +97,38 @@
       1
       $width))
 
-(: BenchRuleConclusion (-> $bench $path Number Number Number Expression))
+(: BenchRuleConclusion (-[det]-> $bench $path Number Number Number Expression))
 (= (BenchRuleConclusion $bench $path $level $idx $depth)
    (if (== $level $depth) (BenchTarget $bench $path) (BenchNode $bench $path $level $idx)))
 
-(: BenchMaybePrint (-> Bool Expression Atom))
+(: BenchMaybePrint (-[det]-> Bool Expression Atom))
 (= (BenchMaybePrint false $_stmt) done)
 (= (BenchMaybePrint true $stmt) (println! $stmt))
 
-(: BenchCompileAdd (-> Bool AnnotatedStatement (List Expression)))
+(: BenchCompileAdd (-[det]-> Bool AnnotatedStatement (List Expression)))
 (= (BenchCompileAdd $print-this-stmt $stmt)
    (let $_print (BenchMaybePrint $print-this-stmt $stmt) (collapse (compileadd kb $stmt))))
 
-(: BenchCompileMeta (-> $proof Expression (List Expression)))
+(: BenchCompileMeta (-[det]-> $proof Expression (List Expression)))
 (= (BenchCompileMeta $prf $type) (BenchCompileAdd false (: $prf $type (STV 1.0 1.0))))
 
-(: BenchTrackPLNAtom (-> $bench $tag AnnotatedStatement (List Expression)))
+(: BenchTrackPLNAtom (-[det]-> $bench $tag AnnotatedStatement (List Expression)))
 (= (BenchTrackPLNAtom $bench $tag $stmt)
    (BenchCompileAdd false (: (bench-pln-atom $bench $tag) (BenchPLNAtom $bench $stmt) (STV 1.0 1.0))))
 
 (: BenchCompileAddTracked
-   (-> $bench Bool $tag AnnotatedStatement (List Expression)))
+   (-[det]-> $bench Bool $tag AnnotatedStatement (List Expression)))
 (= (BenchCompileAddTracked $bench $print-this-stmt $tag $stmt)
    (let $_compiled (BenchCompileAdd $print-this-stmt $stmt) (BenchTrackPLNAtom $bench $tag $stmt)))
 
-(: BenchAddBaseFact (-> $bench Number Number Bool Atom))
+(: BenchAddBaseFact (-[det]-> $bench Number Number Bool Atom))
 (= (BenchAddBaseFact $bench $path $idx $print-before-compile)
    (let $conf (BenchGlobalConf)
       (let $stmt (: (bench-base-fact $bench $path $idx) (BenchFact $bench $path $idx) (STV 1.0 $conf))
          (let $_ (BenchCompileAddTracked $bench $print-before-compile (base-fact $path $idx) $stmt) done))))
 
 (: BenchGenerateBaseFactsRemaining
-   (-> $bench Number Number Number Bool Atom))
+   (-[det]-> $bench Number Number Number Bool Atom))
 (= (BenchGenerateBaseFactsRemaining $bench $path $idx $remaining $print-before-compile)
    (if (== $remaining 0) done
       (let $_fact (BenchAddBaseFact $bench $path $idx $print-before-compile)
@@ -139,7 +139,7 @@
             $print-before-compile))))
 
 (: BenchGenerateBaseFacts
-   (-> $bench Number Number Number Bool Atom))
+   (-[det]-> $bench Number Number Number Bool Atom))
 (= (BenchGenerateBaseFacts $bench $path $depth $width $print-before-compile)
    (BenchGenerateBaseFactsRemaining $bench
       $path
@@ -148,7 +148,7 @@
       $print-before-compile))
 
 (: BenchAddMainRule
-   (-> $bench Number Number Number Number Number Bool Atom))
+   (-[det]-> $bench Number Number Number Number Number Bool Atom))
 (= (BenchAddMainRule $bench $path $level $idx $depth $width $print-before-compile)
    (let*
       (($premises (BenchRulePremises $bench $path $level $idx $width))
@@ -182,7 +182,7 @@
                   done))))))
 
 (: BenchGenerateLevelRulesRemaining
-   (-> $bench Number Number Number Number Number Number Bool Atom))
+   (-[det]-> $bench Number Number Number Number Number Number Bool Atom))
 (= (BenchGenerateLevelRulesRemaining $bench $path $level $idx $remaining $depth $width $print-before-compile)
    (if (== $remaining 0) done
       (let $_rule (BenchAddMainRule $bench $path $level $idx $depth $width $print-before-compile)
@@ -196,7 +196,7 @@
             $print-before-compile))))
 
 (: BenchGenerateLevelsLoop
-   (-> $bench Number Number Number Number Bool Atom))
+   (-[det]-> $bench Number Number Number Number Bool Atom))
 (= (BenchGenerateLevelsLoop $bench $path $level $depth $width $print-before-compile)
    (if (> $level $depth) done
       (let $node-count (BenchPow $width (- $depth $level))
@@ -217,7 +217,7 @@
                $print-before-compile)))))
 
 (: BenchGeneratePathsRemaining
-   (-> $bench Number Number Number Number Bool Atom))
+   (-[det]-> $bench Number Number Number Number Bool Atom))
 (= (BenchGeneratePathsRemaining $bench $path $remaining-paths $depth $width $print-before-compile)
    (if (== $remaining-paths 0) done
       (let $_facts (BenchGenerateBaseFacts $bench $path $depth $width $print-before-compile)
@@ -230,7 +230,7 @@
                $print-before-compile)))))
 
 (: BenchGeneratePaths
-   (-> $bench Number Number Number Bool Atom))
+   (-[det]-> $bench Number Number Number Bool Atom))
 (= (BenchGeneratePaths $bench $paths $depth $width $print-before-compile)
    (BenchGeneratePathsRemaining $bench
       1
@@ -240,7 +240,7 @@
       $print-before-compile))
 
 (: BenchForwardPremiseFact
-   (-> $bench Number Number Number Number Expression))
+   (-[det]-> $bench Number Number Number Number Expression))
 (= (BenchForwardPremiseFact $bench $paths $depth $width $noise-idx)
    (let*
       (($path (BenchCycle1 $noise-idx $paths))
@@ -249,7 +249,7 @@
       (BenchFact $bench $path $fact-idx)))
 
 (: BenchAddBackwardHeadRule
-   (-> $bench Number Number Expression Bool (List Expression)))
+   (-[det]-> $bench Number Number Expression Bool (List Expression)))
 (= (BenchAddBackwardHeadRule $bench $noise-idx $paths $premise $print-before-compile)
    (let*
       (($path (BenchCycle1 $noise-idx $paths))
@@ -263,12 +263,12 @@
             (BenchNoiseBackRule $bench $noise-idx 0)))))
 
 (: BenchBackwardTailPremise
-   (-> $bench Number Number Number Expression))
+   (-[det]-> $bench Number Number Number Expression))
 (= (BenchBackwardTailPremise $bench $noise-idx $step $last-step)
    (if (== $step $last-step) (NoiseBlocker $bench $noise-idx) (NoiseBackStep $bench $noise-idx (+ $step 1))))
 
 (: BenchAddBackwardTailRules
-   (-> $bench Number Number Number Bool Atom))
+   (-[det]-> $bench Number Number Number Bool Atom))
 (= (BenchAddBackwardTailRules $bench $noise-idx $step $last-step $print-before-compile)
    (if (> $step $last-step) done
       (let*
@@ -290,7 +290,7 @@
                   $print-before-compile))))))
 
 (: BenchGenerateBackwardChain
-   (-> $bench Number Number Number Bool Atom))
+   (-[det]-> $bench Number Number Number Bool Atom))
 (= (BenchGenerateBackwardChain $bench $noise-idx $chain-len $paths $print-before-compile)
    (let $head-premise
       (if (== $chain-len 1) (NoiseBlocker $bench $noise-idx) (NoiseBackStep $bench $noise-idx 1))
@@ -307,17 +307,17 @@
    (BenchMin $remaining-statements (if (< $chain-len 1) 1 $chain-len)))
 
 (: BenchForwardChainPremise
-   (-> $bench Number Number Number Number Number Expression))
+   (-[det]-> $bench Number Number Number Number Number Expression))
 (= (BenchForwardChainPremise $bench $noise-idx $step $paths $depth $width)
    (if (== $step 1) (BenchForwardPremiseFact $bench $paths $depth $width $noise-idx)
       (NoiseForward $bench $noise-idx (- $step 1))))
 
-(: BenchForwardChainConclusion (-> $bench Number Number Number Expression))
+(: BenchForwardChainConclusion (-[det]-> $bench Number Number Number Expression))
 (= (BenchForwardChainConclusion $bench $noise-idx $step $chain-len)
    (if (== $step $chain-len) (NoiseDeadEnd $bench $noise-idx) (NoiseForward $bench $noise-idx $step)))
 
 (: BenchAddForwardChainRulesRemaining
-   (-> $bench Number Number Number Number Number Number Bool Atom))
+   (-[det]-> $bench Number Number Number Number Number Number Bool Atom))
 (=
    (BenchAddForwardChainRulesRemaining $bench
       $noise-idx
@@ -350,7 +350,7 @@
                   $print-before-compile))))))
 
 (: BenchGenerateBackwardNoiseRemaining
-   (-> $bench Number Number Number Number Bool Atom))
+   (-[det]-> $bench Number Number Number Number Bool Atom))
 (=
    (BenchGenerateBackwardNoiseRemaining $bench
       $noise-idx
@@ -369,7 +369,7 @@
                $print-before-compile)))))
 
 (: BenchGenerateForwardNoiseRemaining
-   (-> $bench Number Number Number Number Number Number Bool Atom))
+   (-[det]-> $bench Number Number Number Number Number Number Bool Atom))
 (=
    (BenchGenerateForwardNoiseRemaining $bench
       $noise-idx
@@ -399,20 +399,20 @@
                $width
                $print-before-compile)))))
 
-(: BenchCountByPattern (-> Expression Number))
-(: BenchMainRuleCount (-> $bench Number))
-(: BenchBaseFactCount (-> $bench Number))
-(: BenchNoiseBackwardRuleCount (-> $bench Number))
-(: BenchNoiseForwardRuleCount (-> $bench Number))
-(: BenchTrueStatementCount (-> $bench Number))
+(: BenchCountByPattern (-[det]-> Expression Number))
+(: BenchMainRuleCount (-[det]-> $bench Number))
+(: BenchBaseFactCount (-[det]-> $bench Number))
+(: BenchNoiseBackwardRuleCount (-[det]-> $bench Number))
+(: BenchNoiseForwardRuleCount (-[det]-> $bench Number))
+(: BenchTrueStatementCount (-[det]-> $bench Number))
 (= (BenchTrueStatementCount $bench) (+ (BenchBaseFactCount $bench) (BenchMainRuleCount $bench)))
 
-(: BenchNoiseStatementCount (-> $bench Number))
+(: BenchNoiseStatementCount (-[det]-> $bench Number))
 (= (BenchNoiseStatementCount $bench)
    (+ (BenchNoiseBackwardRuleCount $bench) (BenchNoiseForwardRuleCount $bench)))
 
 (: BenchGenerateNoiseByFactor
-   (-> $bench Number Number Number Number Number Number Number Bool Atom))
+   (-[det]-> $bench Number Number Number Number Number Number Number Bool Atom))
 (=
    (BenchGenerateNoiseByFactor $bench
       $depth
@@ -447,13 +447,13 @@
 
 (: BenchGenerationResult Type)
 (: BenchmarkGenerated
-   (-> $bench Number Number Number Number Number Number Number
+   (-[det]-> $bench Number Number Number Number Number Number Number
        BenchGenerationResult))
 (: BenchGenerateError
-   (-> Atom $bench Number Number Number Number Number Number Number
+   (-[det]-> Atom $bench Number Number Number Number Number Number Number
        BenchGenerationResult))
 (: BenchGenerateCore
-   (-> $bench Number Number Number Number Number Number Number Bool
+   (-[det]-> $bench Number Number Number Number Number Number Number Bool
        BenchGenerationResult))
 (=
    (BenchGenerateCore $bench
@@ -514,12 +514,12 @@
          $backward-chain-len
          $forward-chain-len)))
 
-(: BenchWidthArg (-> (| (width Number) (widht Number)) Number))
+(: BenchWidthArg (-[det]-> (| (width Number) (widht Number)) Number))
 (= (BenchWidthArg (width $width)) $width)
 (= (BenchWidthArg (widht $width)) $width)
 
 (: BenchGenerate
-   (-> $bench (depth Number) (| (width Number) (widht Number))
+   (-[det]-> $bench (depth Number) (| (width Number) (widht Number))
        (paths Number) (noise-factor Number) (backward-ratio Number)
        (backward-chain-len Number) (forward-chain-len Number)
        BenchGenerationResult))
@@ -544,7 +544,7 @@
          false)))
 
 (: BenchGenerateWithPrint
-   (-> $bench (depth Number) (| (width Number) (widht Number))
+   (-[det]-> $bench (depth Number) (| (width Number) (widht Number))
        (paths Number) (noise-factor Number) (backward-ratio Number)
        (backward-chain-len Number) (forward-chain-len Number) (print Bool)
        BenchGenerationResult))
@@ -589,15 +589,15 @@
    (BenchCountByPattern
       ((BenchNoiseForwardRule $bench $_idx $_step) $_kb (bench-noise-forward-meta $bench $_idx $_step) $_tv)))
 
-(: BenchTargetProved? (-> $bench Number Number Bool))
+(: BenchTargetProved? (-[det]-> $bench Number Number Bool))
 (= (BenchTargetProved? $bench $path $steps)
    (not (== (collapse (query $steps kb (: $prf (BenchTarget $bench $path) $tv))) ())))
 
-(: BenchListAppend (-> (List $item) (List $item) (List $item)))
+(: BenchListAppend (-[det]-> (List $item) (List $item) (List $item)))
 (= (BenchListAppend () $ys) $ys)
 (= (BenchListAppend (cons $x $xs) $ys) (cons $x (BenchListAppend $xs $ys)))
 
-(: BenchPLNDepth (-> $bench Number))
+(: BenchPLNDepth (-[det]-> $bench Number))
 (= (BenchPLNDepth $bench)
    (the Number
       (car-atom
@@ -606,16 +606,16 @@
                ((BenchSpec $bench $depth $_width $_paths $_noise $_backward $_backward-len $_forward-len) $_kb (bench-spec $bench) $_tv)
                $depth)))))
 
-(: BenchPLNBaseAtoms (-> $bench (List AnnotatedStatement)))
+(: BenchPLNBaseAtoms (-[det]-> $bench (List AnnotatedStatement)))
 (= (BenchPLNBaseAtoms $bench)
    (collapse
       (match &kb ($type $_kb (bench-base-fact $bench $path $idx) $tv)
          (: (bench-base-fact $bench $path $idx) $type $tv))))
 
-(: BenchFirstOr (-> (List $item) $item $item))
+(: BenchFirstOr (-[det]-> (List $item) $item $item))
 (= (BenchFirstOr $list $default) (if (== $list ()) $default (car-atom $list)))
 
-(: BenchMainConfValue (-> $bench $path Number Number Number))
+(: BenchMainConfValue (-[det]-> $bench $path Number Number Number))
 (= (BenchMainConfValue $bench $path $level $idx)
    (BenchFirstOr
       (collapse
@@ -624,7 +624,7 @@
             (the Number $conf)))
       1.0))
 
-(: BenchPLNMainRuleAtoms (-> $bench (List AnnotatedStatement)))
+(: BenchPLNMainRuleAtoms (-[det]-> $bench (List AnnotatedStatement)))
 (= (BenchPLNMainRuleAtoms $bench)
    (collapse
       (match &kb
@@ -640,7 +640,7 @@
 	              ($tv (CTV (STV 1.0 $conf) (STV 0.0 1.0))))
             (: (bench-main-rule $bench $path $level $idx) $type $tv)))))
 
-(: BenchPLNAtoms (-> $bench (List AnnotatedStatement)))
+(: BenchPLNAtoms (-[det]-> $bench (List AnnotatedStatement)))
 (= (BenchPLNAtoms $bench)
    (collapse
       (match &kb
@@ -650,12 +650,12 @@
             $proof $type $tv))))
 
 (: BenchPLNBuildImplication
-   (-> (List Expression) Expression Expression))
+   (-[det]-> (List Expression) Expression Expression))
 (= (BenchPLNBuildImplication () $conclusion) $conclusion)
 (= (BenchPLNBuildImplication (cons $head $tail) $conclusion)
    (Implication $head (BenchPLNBuildImplication $tail $conclusion)))
 
-(: BenchPLNNormalizeType (-> Expression Expression))
+(: BenchPLNNormalizeType (-[det]-> Expression Expression))
 (= (BenchPLNNormalizeType $type)
    (if (= $type (Implication (cons Premises $premises) (cons Conclusions (cons $conclusion ()))))
       (BenchPLNBuildImplication
@@ -664,7 +664,7 @@
       $type))
 
 (: BenchPLNSentencesFromAtoms
-   (-> (List AnnotatedStatement) Number (List Expression)))
+   (-[det]-> (List AnnotatedStatement) Number (List Expression)))
 (= (BenchPLNSentencesFromAtoms () $sid) ())
 (= (BenchPLNSentencesFromAtoms (cons $head $tail) $sid)
    (once
@@ -675,5 +675,5 @@
                (BenchPLNSentencesFromAtoms $tail (+ $sid 1))))
          (BenchPLNSentencesFromAtoms $tail $sid))))
 
-(: BenchPLNKB (-> $bench (List Expression)))
+(: BenchPLNKB (-[det]-> $bench (List Expression)))
 (= (BenchPLNKB $bench) (BenchPLNSentencesFromAtoms (BenchPLNAtoms $bench) 1))

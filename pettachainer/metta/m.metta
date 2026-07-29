@@ -6,10 +6,10 @@
 (: pos EvidencePolarity)
 (: neg EvidencePolarity)
 (: EvidenceCase Type)
-(: EvidenceCase (-> EvidencePolarity TV EvidenceCase))
+(: EvidenceCase (-[det]-> EvidencePolarity TV EvidenceCase))
 (: TotalEvidenceTvs Type)
 (: TotalEvidenceTvs
-   (-> (| TV NoEvidenceSide) (| TV NoEvidenceSide) TotalEvidenceTvs))
+   (-[det]-> (| TV NoEvidenceSide) (| TV NoEvidenceSide) TotalEvidenceTvs))
 
 (: TotalEvidenceOr (-[det]-> (| TV NoEvidenceSide) TV TV))
 (= (TotalEvidenceOr $left $right)

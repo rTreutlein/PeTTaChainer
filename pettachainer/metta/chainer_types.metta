@@ -14,12 +14,12 @@
        (Number $item (Heap $item))))
 
 (: TV Type)
-(: STV (-> Number Number TV))
-(: CTV (-> TV TV TV))
+(: STV (-[det]-> Number Number TV))
+(: CTV (-[det]-> TV TV TV))
 (: no-evidence TV)
 
 (: Distribution Type)
-(: ParticleDist (-> Number Number Distribution))
+(: ParticleDist (-[det]-> Number Number Distribution))
 
 ;; These semantic roles share PeTTaChainer's existing open MeTTa wire
 ;; representation. Newtype brands distinguish them statically and are erased
@@ -46,7 +46,7 @@
 ;; chainer, and public query runtime.
 (: CompiledQuery Type)
 (: compiled-query
-   (-> (| Goal
+   (-[det]-> (| Goal
           (Statement KBContext Proof TV))
        (List RuntimeAddition) CompiledQuery))
 
@@ -54,11 +54,11 @@
 ;; conclusion indexing.
 (: ForwardDerived Type)
 (: forward-derived
-   (-> (Statement KBContext Proof TV) (List Evidence) ForwardDerived))
+   (-[det]-> (Statement KBContext Proof TV) (List Evidence) ForwardDerived))
 
 (: ForwardTriggerKey Type)
-(: fwd_trigger (-> KB Atom ForwardTriggerKey))
-(: fwd_member (-> KB Term ForwardTriggerKey))
+(: fwd_trigger (-[det]-> KB Atom ForwardTriggerKey))
+(: fwd_member (-[det]-> KB Term ForwardTriggerKey))
 (: fwd_trigger_any ForwardTriggerKey)
 
 ;; Keys for the monotonic counters shared by the compiler and both runtimes.
@@ -77,7 +77,7 @@
 ;; keeping that union here lets both chainers retain it after a space lookup.
 (: RuntimeRuleRow Type)
 (: runtime-rule-row
-   (-> Number
+   (-[det]-> Number
        (Statement KBContext Proof TV)
        (List (| Goal (Statement KBContext Proof TV)))
        RuntimeRuleRow))
@@ -93,25 +93,25 @@
 
 (: StoredGoalRow Type)
 (: stored-goal-row
-   (-> Number Number
+   (-[det]-> Number Number
        (| Goal (Statement KBContext Proof TV))
        Bool Number StoredGoalRow))
 
 (: StoredAggregateRow Type)
 (: stored-aggregate-row
-   (-> Number Number Expression Number Number
+   (-[det]-> Number Number Expression Number Number
        (| Number (List Number))
        StoredAggregateRow))
 
 ;; Executable goals are either CPU computations or fact goals. Fact KB,
 ;; proof, and statement fields retain their original runtime shapes.
 (: Goal Type)
-(: CPU (-> $formula $arguments $result Goal))
-(: : (-> KBContext Proof Statement TV Goal))
+(: CPU (-[det]-> $formula $arguments $result Goal))
+(: : (-[det]-> KBContext Proof Statement TV Goal))
 
 ;; Public source statements and query answers omit the runtime KB/context.
 (: AnnotatedStatement Type)
-(: : (-> Proof Statement TV AnnotatedStatement))
+(: : (-[det]-> Proof Statement TV AnnotatedStatement))
 
 (: AggregateTVMode Type)
 (: result-tv AggregateTVMode)
@@ -120,10 +120,10 @@
 (: ExtractTV Type)
 (: extract-tv ExtractTV)
 (: ExtractValue Type)
-(: extract-value (-> Statement $value ExtractValue))
+(: extract-value (-[det]-> Statement $value ExtractValue))
 (: ExtractInheritanceTV Type)
 (: extract-inheritance-tv
-   (-> KB Statement ExtractInheritanceTV))
+   (-[det]-> KB Statement ExtractInheritanceTV))
 
 (: NilType Type)
 (: Nil NilType)
@@ -134,33 +134,33 @@
 (: NoProjectionKey Type)
 (: no-projection-key NoProjectionKey)
 (: ProjectionKey Type)
-(: projection-key (-> Atom Atom ProjectionKey))
+(: projection-key (-[det]-> Atom Atom ProjectionKey))
 
 (: ProofRef Type)
-(: proof-ref (-> Number ProofRef))
+(: proof-ref (-[det]-> Number ProofRef))
 
 (: Evidence (Newtype Expression))
-(: fact-ev (-> KBContext Proof Statement Evidence))
-(: not-fact-ev (-> KBContext Proof Statement Evidence))
-(: rule-ev (-> KB Proof Evidence))
-(: not-ev (-> Evidence Evidence))
+(: fact-ev (-[det]-> KBContext Proof Statement Evidence))
+(: not-fact-ev (-[det]-> KBContext Proof Statement Evidence))
+(: rule-ev (-[det]-> KB Proof Evidence))
+(: not-ev (-[det]-> Evidence Evidence))
 
 (: MergedProofGroup Type)
-(: merged-proof-group (-> Number MergedProofGroup))
+(: merged-proof-group (-[det]-> Number MergedProofGroup))
 
 (: ProofKind Type)
 (: leaf
-   (-> (| Goal (Statement KBContext Proof TV)) ProofKind))
+   (-[det]-> (| Goal (Statement KBContext Proof TV)) ProofKind))
 (: rule
-   (-> (| Goal (Statement KBContext Proof TV)) ProofKind))
+   (-[det]-> (| Goal (Statement KBContext Proof TV)) ProofKind))
 (: aggregate
-   (-> (| Goal (Statement KBContext Proof TV)) ProofKind))
+   (-[det]-> (| Goal (Statement KBContext Proof TV)) ProofKind))
 (: merged
-   (-> (| Goal (Statement KBContext Proof TV)) ProofKind))
+   (-[det]-> (| Goal (Statement KBContext Proof TV)) ProofKind))
 
 (: StoredProofRow Type)
 (: stored-proof-row
-   (-> Number (| Number MergedProofGroup)
+   (-[det]-> Number (| Number MergedProofGroup)
        (| Goal (Statement KBContext Proof TV))
        ProofKind Number (List Evidence) (List Number)
        StoredProofRow))
@@ -174,10 +174,10 @@
 
 (: BaseRateEntry Type)
 (: base-rate
-   (-> KB Statement TV BaseRateSource $mode BaseRateEntry))
+   (-[det]-> KB Statement TV BaseRateSource $mode BaseRateEntry))
 
 (: UniverseSizeEntry Type)
-(: universe-size (-> KB Number UniverseSizeEntry))
+(: universe-size (-[det]-> KB Number UniverseSizeEntry))
 
 (: UniverseSizeUnavailable Type)
 (: no-universe-size UniverseSizeUnavailable)
@@ -193,13 +193,13 @@
 (: WeightedBaseRateWithPriorFinish Type)
 (: weighted-base-rate-with-prior WeightedBaseRateWithPriorFinish)
 (: MemberInheritanceFinish Type)
-(: member-inheritance (-> KB MemberInheritanceFinish))
+(: member-inheritance (-[det]-> KB MemberInheritanceFinish))
 (: WeightedBaseRateInUniverseFinish Type)
 (: weighted-base-rate-in-universe
-   (-> KB WeightedBaseRateInUniverseFinish))
+   (-[det]-> KB WeightedBaseRateInUniverseFinish))
 (: WeightedBaseRateWithPriorInUniverseFinish Type)
 (: weighted-base-rate-with-prior-in-universe
-   (-> KB WeightedBaseRateWithPriorInUniverseFinish))
+   (-[det]-> KB WeightedBaseRateWithPriorInUniverseFinish))
 (: UniformPriorFinish Type)
 (: uniform-prior UniformPriorFinish)
 (: UniformPriorKnownFinish Type)
@@ -207,8 +207,8 @@
 
 (: ConceptPriorConfidence Type)
 (: concept-prior-confidence
-   (-> KB Number ConceptPriorConfidence))
+   (-[det]-> KB Number ConceptPriorConfidence))
 
 (: ConceptNodePriorRuntime Type)
 (: ConceptNodePriorRuntime
-   (-> KB Statement ConceptNodePriorRuntime))
+   (-[det]-> KB Statement ConceptNodePriorRuntime))

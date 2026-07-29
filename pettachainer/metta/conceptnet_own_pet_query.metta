@@ -8,7 +8,7 @@
 !(import! &self petta_chainer)
 !(static-import! &self .conceptnet_export/rules_dump)
 
-(: current-time (-> Number))
+(: current-time (-[det]-> Number))
 
 ;; This is the KB identifier contained in the current full ConceptNet export.
 ;; If a regenerated export changes it, update these call sites and the runner's

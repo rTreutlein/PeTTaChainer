@@ -1,7 +1,7 @@
 !(import! &self ../petta_chainer)
 
 (: member-test-fact
-   (-> KB Term Term
+   (-[det]-> KB Term Term
        (List (Statement KBContext Proof TV))))
 (= (member-test-fact $kb $obj $class)
    (collapse

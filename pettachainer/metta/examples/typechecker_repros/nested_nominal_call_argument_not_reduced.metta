@@ -2,10 +2,10 @@
 ;; its value is passed to another function accepting that nominal type.
 
 (: Role (Newtype Expression))
-(: role (-> Number Role))
+(: role (-[det]-> Number Role))
 
 (: Holder (Newtype Expression))
-(: holder (-> Role Holder))
+(: holder (-[det]-> Role Holder))
 
 (: holder-role (-[det]-> Holder Role))
 (= (holder-role (holder $role)) $role)

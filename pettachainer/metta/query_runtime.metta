@@ -79,7 +79,7 @@
           (collapse (mm2compileQuery $kb $stmt)))
        ($pres
           (fold-flat append-annotated-statements ()
-             (map-flat-nondet
+             (map-flat
                 (run-compiled-query $steps)
                 $compiled-queries))))
       (superpose $pres)))
@@ -92,7 +92,7 @@
           (collapse (mm2compileQuery $kb $stmt)))
        ($pres
           (fold-flat append-annotated-statements ()
-             (map-flat-nondet
+             (map-flat
                 (run-compiled-query-materialize $steps)
                 $compiled-queries))))
       (superpose $pres)))

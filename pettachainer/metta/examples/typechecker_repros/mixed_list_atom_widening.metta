@@ -1,7 +1,7 @@
 (: Item Type)
-(: item (-> Number Item))
+(: item (-[det]-> Number Item))
 
-(: mixed-values (-> (List Atom)))
+(: mixed-values (-[det]-> (List Atom)))
 (= (mixed-values)
    (cons ()
       (cons (item 1) ())))

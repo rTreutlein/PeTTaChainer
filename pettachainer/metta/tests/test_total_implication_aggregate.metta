@@ -4,16 +4,16 @@
 (: none TotalEvidenceSentinel)
 (: TotalEvidenceTvs Type)
 (: TotalEvidenceTvs
-   (-> (| TV TotalEvidenceSentinel)
+   (-[det]-> (| TV TotalEvidenceSentinel)
        (| TV TotalEvidenceSentinel)
        TotalEvidenceTvs))
 (: EvidenceCase Type)
-(: EvidenceCase (-> $evidence TV EvidenceCase))
+(: EvidenceCase (-[det]-> $evidence TV EvidenceCase))
 (: TotalEvidenceOr
    (-[semidet]-> (| TV TotalEvidenceSentinel) TV TV))
 (: TotalEvidenceTv
    (-[semidet]-> (| TV TotalEvidenceSentinel) TV))
-(: TotalEvidenceKnownTv (-> (STV Number Number) TV))
+(: TotalEvidenceKnownTv (-[det]-> (STV Number Number) TV))
 (: TotalEvidenceAcc
    (-[semidet]-> TotalEvidenceTvs EvidenceCase TotalEvidenceTvs))
 (: TotalEvidenceCTVModusPonensFormula

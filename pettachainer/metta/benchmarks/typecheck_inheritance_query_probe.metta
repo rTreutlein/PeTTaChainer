@@ -2,7 +2,7 @@
 ; source facts. This file deliberately uses syntax accepted by both runtimes.
 !(import! &self petta_chainer)
 
-(: current-time (-> Number))
+(: current-time (-[det]-> Number))
 
 !(compileadd typecheckPerfInheritanceKb
    (: typecheck-perf-i1 (Inheritance a Bird) (STV 1.0 0.9)))

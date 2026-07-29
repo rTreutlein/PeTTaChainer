@@ -11,7 +11,7 @@
 !(import! &self petta_chainer)
 !(static-import! &self .conceptnet_export/rules_dump)
 
-(: current-time (-> Number))
+(: current-time (-[det]-> Number))
 
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
    (: max_dog (Dog max) (STV 1.0 1.0)))

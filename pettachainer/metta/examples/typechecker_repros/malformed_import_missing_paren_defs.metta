@@ -1,2 +1,2 @@
-(: imported-value (-> Number))
+(: imported-value (-[det]-> Number))
 (= (imported-value) 7

@@ -1,6 +1,6 @@
 (: Box (Newtype Expression))
 
-(: choose-box (-> Bool Box))
+(: choose-box (-[det]-> Bool Box))
 (= (choose-box $flag)
    (brand Box
       (if $flag

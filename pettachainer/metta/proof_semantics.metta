@@ -12,36 +12,36 @@
 (: WeightedBaseRateWithPriorFinish Type)
 (: weighted-base-rate-with-prior WeightedBaseRateWithPriorFinish)
 (: MemberInheritanceFinish Type)
-(: member-inheritance (-> $kb MemberInheritanceFinish))
+(: member-inheritance (-[det]-> $kb MemberInheritanceFinish))
 (: WeightedBaseRateInUniverseFinish Type)
 (: weighted-base-rate-in-universe
-   (-> $kb WeightedBaseRateInUniverseFinish))
+   (-[det]-> $kb WeightedBaseRateInUniverseFinish))
 (: WeightedBaseRateWithPriorInUniverseFinish Type)
 (: weighted-base-rate-with-prior-in-universe
-   (-> $kb WeightedBaseRateWithPriorInUniverseFinish))
+   (-[det]-> $kb WeightedBaseRateWithPriorInUniverseFinish))
 (: UniformPriorFinish Type)
 (: uniform-prior UniformPriorFinish)
 (: UniformPriorKnownFinish Type)
 (: uniform-prior-known UniformPriorKnownFinish)
 
-(: aggregate-finish (-> IdentityFinish $acc $acc))
+(: aggregate-finish (-[det]-> IdentityFinish $acc $acc))
 (: aggregate-finish
-   (-> DistAverageFinish DistributionSumCount Distribution))
-(: aggregate-finish (-> BaseRateFinish BaseRateEvidenceState TV))
+   (-[det]-> DistAverageFinish DistributionSumCount Distribution))
+(: aggregate-finish (-[det]-> BaseRateFinish BaseRateEvidenceState TV))
 (: aggregate-finish
-   (-> WeightedBaseRateFinish BaseRateEvidenceState TV))
+   (-[det]-> WeightedBaseRateFinish BaseRateEvidenceState TV))
 (: aggregate-finish
-   (-> WeightedBaseRateWithPriorFinish BaseRateEvidenceWithPriorState TV))
+   (-[det]-> WeightedBaseRateWithPriorFinish BaseRateEvidenceWithPriorState TV))
 (: aggregate-finish
-   (-> MemberInheritanceFinish BaseRateEvidenceState TV))
+   (-[det]-> MemberInheritanceFinish BaseRateEvidenceState TV))
 (: aggregate-finish
-   (-> WeightedBaseRateInUniverseFinish BaseRateEvidenceState TV))
+   (-[det]-> WeightedBaseRateInUniverseFinish BaseRateEvidenceState TV))
 (: aggregate-finish
-   (-> WeightedBaseRateWithPriorInUniverseFinish BaseRateEvidenceWithPriorState TV))
+   (-[det]-> WeightedBaseRateWithPriorInUniverseFinish BaseRateEvidenceWithPriorState TV))
 (: aggregate-finish
-   (-> UniformPriorFinish (List $subject) TV))
+   (-[det]-> UniformPriorFinish (List $subject) TV))
 (: aggregate-finish
-   (-> UniformPriorKnownFinish (List $subject) TV))
+   (-[det]-> UniformPriorKnownFinish (List $subject) TV))
 (= (aggregate-finish identity $acc) $acc)
 (= (aggregate-finish dist-average $acc)
    (the Distribution

@@ -1,5 +1,5 @@
 (: foreach-flat
-   (-[det]-> (-[det]-> $item $effect)
+   (-[$e]-> (-[$e]-> $item $effect)
        (List $item) (List $none)))
 (= (foreach-flat $f ()) ())
 (= (foreach-flat $f (cons $x $xs)) (progn ($f $x) (foreach-flat $f $xs)))

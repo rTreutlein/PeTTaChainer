@@ -14,8 +14,8 @@ fi
 petta_dir=$(cd "$PETTA_DIR" && pwd)
 
 # Load every dependency and production module under strict determinism mode so
-# no import boundary can hide a type or determinism error. Plain -> arrows are
-# deterministic commitments; genuinely nondeterministic functions must say so.
+# no import boundary can hide a type or determinism error. Every arrow carries
+# an explicit det, semidet, or nondet commitment.
 goal="assertz(working_dir('$metta_dir')),
 load_metta_file('$petta_dir/lib/lib_roman.metta',_),
 load_metta_file('$petta_dir/lib/lib_spaces.metta',_),

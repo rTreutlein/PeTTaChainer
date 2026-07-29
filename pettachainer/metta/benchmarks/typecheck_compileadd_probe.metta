@@ -2,7 +2,7 @@
 ; measures the complete process separately.
 !(import! &self petta_chainer)
 
-(: current-time (-> Number))
+(: current-time (-[det]-> Number))
 
 !(let*
    (($start (current-time))

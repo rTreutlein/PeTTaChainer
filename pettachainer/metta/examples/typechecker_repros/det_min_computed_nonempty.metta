@@ -8,11 +8,11 @@
 ;   run.sh det_min_computed_nonempty.metta --strict --strict-det
 ;   Determinism check failed for 'min-computed-three': call('min-atom')
 
-(: identity-number (-> Number Number))
+(: identity-number (-[det]-> Number Number))
 (= (identity-number $value) $value)
 
 (: min-computed-three
-   (-> Number Number Number Number))
+   (-[det]-> Number Number Number Number))
 (= (min-computed-three $a $b $c)
    (min-atom
       ((identity-number $a)
