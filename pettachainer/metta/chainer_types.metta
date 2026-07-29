@@ -13,10 +13,18 @@
    (-[semidet]-> (Heap $item)
        (Number $item (Heap $item))))
 
-(: TV Type)
-(: STV (-[det]-> Number Number TV))
-(: CTV (-[det]-> TV TV TV))
-(: no-evidence TV)
+;; Truth values retain their existing tagged runtime representation, while
+;; distinct result types let constructor patterns narrow a TV to the fields
+;; that are actually present.  A CTV contains two STVs; absence of an entire
+;; truth value is represented separately by no-evidence.
+(: STVType Type)
+(: CTVType Type)
+(: NoEvidenceType Type)
+(: STV (-[det]-> Number Number STVType))
+(: CTV (-[det]-> STVType STVType CTVType))
+(: no-evidence NoEvidenceType)
+(: TV (Alias (| STVType CTVType NoEvidenceType)))
+(: OptionalSTV (Alias (| STVType NoEvidenceType)))
 
 (: Distribution Type)
 (: ParticleDist (-[det]-> Number Number Distribution))
@@ -44,10 +52,10 @@
 
 ;; The compiler/runtime query handoff is shared by the compiler, backward
 ;; chainer, and public query runtime.
+(: CompiledQueryGoal (Newtype Expression))
 (: CompiledQuery Type)
 (: compiled-query
-   (-[det]-> (| Goal
-          (Statement KBContext Proof TV))
+   (-[det]-> CompiledQueryGoal
        (List RuntimeAddition) CompiledQuery))
 
 ;; Forward-runtime values shared with compiled rule insertion and backward
@@ -89,7 +97,9 @@
          (List (| Goal (Statement KBContext Proof TV))))))
 (: ccls_index
    (SpaceOf
-      ((Statement KBContext Proof TV) Number)))
+      ((Statement KBContext Proof TV)
+       Number
+       (List (| Goal (Statement KBContext Proof TV))))))
 
 (: StoredGoalRow Type)
 (: stored-goal-row

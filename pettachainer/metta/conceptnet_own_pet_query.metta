@@ -7,8 +7,13 @@
 ;; module imports work with both the old and current PeTTa import resolvers.
 !(import! &self petta_chainer)
 !(static-import! &self .conceptnet_export/rules_dump)
+!(import_prolog_functions_from_file
+   "./benchmarks/query_timer.pl"
+   (benchmark_query))
 
-(: current-time (-[det]-> Number))
+(: benchmark_query
+   (-[det]-> Expression
+      ((List AnnotatedStatement) Number Number)))
 
 ;; This is the KB identifier contained in the current full ConceptNet export.
 ;; If a regenerated export changes it, update these call sites and the runner's
@@ -23,17 +28,20 @@
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
    (: i_have_ann (Have (i ann)) (STV 1.0 1.0)))
 
-!(let*
-   (($start (current-time))
-    ($results
-       (collapse
-          (query 10 kb5b10000f8f9f4f0dbd120f99aa0f43ce
-             (: $_proof (And (Own (i $_pet)) (Pet $_pet)) $_tv))))
-    ($finish (current-time)))
+!(let
+   ($results $cpu-seconds $inferences)
+   (benchmark_query
+      (quote
+         (query 10 kb5b10000f8f9f4f0dbd120f99aa0f43ce
+            (: $_proof (And (Own (i $_pet)) (Pet $_pet)) $_tv))))
    (println!
       (CONCEPTNET_OWN_PET_RESULT_COUNT
          (length $results)
          RESULTS
          $results
          SECONDS
-         (- $finish $start))))
+         $cpu-seconds
+         CLOCK
+         process-cpu
+         INFERENCES
+         $inferences)))

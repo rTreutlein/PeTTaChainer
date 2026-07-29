@@ -46,19 +46,6 @@
                   (kb-add-atom $backend prem_index $row))))
          (+ $idx 1))))
 
-(: kb-add-ccl-head-index
-   (-[det]-> KbBackend Number
-       (Statement KBContext Proof TV)
-       (| Bool (List $none))))
-(= (kb-add-ccl-head-index $backend $id $ccls)
-   (let $key
-      (forward-indexable-premise-key $ccls)
-      (if (== $key ()) ()
-         (once
-            (let $row
-               (make-space-pair $key $id)
-               (kb-add-atom $backend ccls_head_index $row))))))
-
 (: kb-context-kbid (-[det]-> KBContext KB))
 (= (kb-context-kbid ($kbid $_ctx $_vars))
    (brand KB $kbid))
@@ -144,7 +131,7 @@
             (brand Statement $type)
             (brand KBContext $kb)
             (brand Proof $proof)
-            (the TV $tv))))))
+            (checked-stored-tv $tv))))))
 
 (: typed-runtime-premise
    (-[semidet]-> Expression
@@ -177,11 +164,11 @@
           ($rule-args (typed-runtime-premises $args))
           ($id (next-rule-id $backend))
            ($_1 (fold-flat (kb-add-prem $backend $id) 0 $rule-args))
-           ($ccls-row (make-space-pair $typed-ccls $id))
+           ($ccls-row
+              (make-space-row3 $typed-ccls $id $rule-args))
            ($_2
               (kb-add-atom $backend ccls_index $ccls-row))
-           ($_3 (kb-add-ccl-head-index $backend $id $typed-ccls))
-           ($_4
+           ($_3
               (kb-add-atom $backend rules
                  (brand SpaceAtom
                     (runtime-rule-row
@@ -230,7 +217,7 @@
 ;; Inverse of compileadd for one named statement: retracts the &kb facts whose
 ;; proof is the name and every rule row registered under it in
 ;; rule_name_index, including the rows kb-add-expr created alongside
-;; (prem_index, ccls_index, ccls_head_index, rule_expected). Computed base
+;; (prem_index, ccls_index, rule_expected). Computed base
 ;; rates of the affected kb are invalidated because removal is non-monotonic.
 ;; In contrast, kb-add-expr preserves computed snapshots: added proofs cannot
 ;; invalidate previous evidence and later chaining refines the cached estimate.
@@ -246,10 +233,8 @@
                    (collapse
                       (match prem_index ($pkey $prem $id $pidx)
                          (remove-atom prem_index ($pkey $prem $id $pidx)))))
-                ($_ccls-idx (remove-atom ccls_index ($ccls $id)))
-                ($hkey
-                   (forward-indexable-premise-key $ccls))
-                ($_head-idx (if (== $hkey ()) () (remove-atom ccls_head_index ($hkey $id))))
+                ($_ccls-idx
+                   (remove-atom ccls_index ($ccls $id $prems)))
                 ($_expected
                    (collapse
                       (match rule_expected ($id $score)

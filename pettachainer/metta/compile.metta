@@ -1194,7 +1194,8 @@
 ;; rates before modus ponens can use them. An explicit CTV already carries both
 ;; directions and therefore needs no runtime base-rate scans.
 (: compile-implication-ctv-execs
-   (-[semidet]-> KB Statement Statement TV ((List Goal) TV)))
+   (-[semidet]-> KB Statement Statement TV
+       ((List Goal) CTVType)))
 (= (compile-implication-ctv-execs $_kb $_a $_b (CTV $pos $neg))
    (data () (CTV $pos $neg)))
 (= (compile-implication-ctv-execs $kb $a $b (STV $s $c))
@@ -1208,13 +1209,14 @@
              (CPU ImplicationCTVFormula
                 (quote ($rule-atv $rule-btv (STV $s $c)))
                 $rule-ctv)))
-         (the TV $rule-ctv))))
+         (the CTVType $rule-ctv))))
 
 ;; A negated conclusion is stored as positive evidence for its inner expression
 ;; with a negated proof and transformed TV. Keeping the runtime type positive
 ;; lets it share the ordinary fact indexes.
 (: compile-implication-output
-   (-[det]-> Proof Proof Statement TV ((List Goal) Proof Statement TV)))
+   (-[det]-> Proof Proof Statement STVType
+       ((List Goal) Proof Statement STVType)))
 (= (compile-implication-output $prf $proof-token $b $btv)
    (case $b (
       ((Not $inner)
@@ -1222,7 +1224,7 @@
             ((CPU NotFormula ($btv) $out-tv))
             (brand Proof (negated (quote ($prf $proof-token))))
             (brand Statement $inner)
-            (the TV $out-tv)))
+            (the STVType $out-tv)))
       ($other
          (data
             ()
@@ -1246,7 +1248,7 @@
                  (compile-implication-ctv-execs $kb $a $b $tv))
               (($out-execs $out-prf $out-type $out-tv)
                  (compile-implication-output
-                    $prf $proof-token $b (the TV $btv)))
+                    $prf $proof-token $b (the STVType $btv)))
               ($allargs
                  (append
                     (the (List Goal) $execs)
@@ -1396,12 +1398,13 @@
                 (Premises (Inheritance $x $subj))
                 (Conclusions (Inheritance $x $concept)))
              $tv))
-       (compile_ $kb
-          (: (no_inverse (member-inheritance-implication $prf))
-             (Implication
-                (Premises (Member $x $subj))
-                (Conclusions (Member $x $concept)))
-             (CTV $tv (STV 0.0 1.0)))))))
+       (let $ctv (inheritance-lift-ctv $tv)
+          (compile_ $kb
+             (: (no_inverse (member-inheritance-implication $prf))
+                (Implication
+                   (Premises (Member $x $subj))
+                   (Conclusions (Member $x $concept)))
+                $ctv))))))
 
 ;; A total-implication context represents a hypothetical instance of the
 ;; queried subject. Top-level Inheritance premises about a rule's conclusion
@@ -1451,7 +1454,7 @@
 ;; rule's positive STV is already its conditional estimate; unlike an observed
 ;; Inheritance link it does not need to be inferred again from population base
 ;; rates. Explicit CTV rules retain both branches.
-(: inheritance-lift-ctv (-[semidet]-> TV TV))
+(: inheritance-lift-ctv (-[semidet]-> TV CTVType))
 (= (inheritance-lift-ctv (CTV $pos $neg)) (CTV $pos $neg))
 (= (inheritance-lift-ctv (STV $s $c))
    (CTV (STV $s $c) (STV 0.0 1.0)))
@@ -1909,22 +1912,23 @@
 
 
 (: implication-query-known-tv-parts
-   (-[det]-> TV (TV TV TV)))
+   (-[semidet]-> TV (STVType STVType CTVType)))
 (= (implication-query-known-tv-parts $tv)
    (if (is-var $tv)
       (data
-         (the TV $pos-tv)
-         (the TV $neg-tv)
+         (the STVType $pos-tv)
+         (the STVType $neg-tv)
          (CTV $pos-tv $neg-tv))
-      (if (= $tv (CTV $pos-tv $neg-tv))
-         (data
-            (the TV $pos-tv)
-            (the TV $neg-tv)
-            $tv)
-         (data
-            $tv
-            (the TV $stv-neg-tv)
-            (CTV $tv $stv-neg-tv)))))
+      (case $tv
+         (((CTV $pos-tv $neg-tv)
+             (data $pos-tv $neg-tv (CTV $pos-tv $neg-tv)))
+          ((STV $s $c)
+             (let $neg-tv (the STVType $stv-neg-tv)
+                (data
+                   (STV $s $c)
+                   $neg-tv
+                   (CTV (STV $s $c) $neg-tv))))
+          (no-evidence (empty))))))
 
 ;; One side of a total-implication / bidirectional query: allocate a fresh
 ;; query context, lower the premises (negatively for the refuting side of a
@@ -2349,7 +2353,8 @@
                    (map-flat compile-internalize-runtime-addition
                       (adds-mm2stmts $adds)))))
             (compiled-query
-               (internalize-proof-structure $goal)
+               (brand CompiledQueryGoal
+                  (internalize-proof-structure $goal))
                $all-adds)))
        ($_other
           (mm2compileQuery-from-direct-default
@@ -2360,7 +2365,8 @@
        (List CompiledAddition) CompiledQuery))
 (= (mm2compileQuery-from-direct-default $premises $conclusion $adds)
    (compiled-query
-      (internalize-proof-structure $conclusion)
+      (brand CompiledQueryGoal
+         (internalize-proof-structure $conclusion))
       (map-flat compile-internalize-runtime-addition
          (if (== $premises ())
             (compiled-adds-mm2stmts $adds)
@@ -2389,8 +2395,9 @@
          (if (query-compound-type? $type)
             (if (query-compound-needs-temp-rule? $type)
                (compiled-query
-                  (internalize-proof-structure
-                     (: (kbctx $kb) $prf $type $tv))
+                  (brand CompiledQueryGoal
+                     (internalize-proof-structure
+                        (: (kbctx $kb) $prf $type $tv)))
                   (map-flat compile-internalize-runtime-addition
                      (collapse (mm2compile $kb (compound-query-temp-stmt $stmt)))))
                (mm2compileQuery-from-compiled $kb $stmt (compileQuery $kb $stmt)))

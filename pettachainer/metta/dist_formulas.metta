@@ -295,14 +295,16 @@
       (+ (dist-prob-gt2-inner $nxa $wa $pairsb 0.0)
          (dist-prob-gt2 $taila $pairsb))))
 
-(: DistGreaterThanFormula (-[det]-> Distribution Number TV))
+(: DistGreaterThanFormula
+   (-[det]-> Distribution Number STVType))
 (= (DistGreaterThanFormula (ParticleDist $pid $scale) $threshold)
    (let $pairs (particle-fetch-pairs $pid)
       (STV
          (* $scale (dist-prob-gt $pairs $threshold))
          (particle-confidence-from-pairs $pairs))))
 
-(: DistGreaterThanDistFormula (-[det]-> Distribution Distribution TV))
+(: DistGreaterThanDistFormula
+   (-[det]-> Distribution Distribution STVType))
 (= (DistGreaterThanDistFormula $pda $pdb)
    (let*
       (($pida (particle-dist-id $pda))

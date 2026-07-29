@@ -16,7 +16,47 @@
 !(assertzPredicate (Predicate (arity get_from_heap 4)))
 !(assertzPredicate (Predicate (arity heap_size 2)))
 
-!(import_prolog_functions_from_file "./heap_helpers.pl" (heap_pop))
+;; Prolog helper imports resolve against the process CWD, while MeTTa imports
+;; resolve against working_dir. Build the helper path from working_dir so the
+;; public entry point behaves identically from the repo root, this directory,
+;; Python, and benchmark runners.
+!(let*
+   (($metta-dir
+      (let $_
+         (callPredicate
+            (Predicate (working_dir $metta-dir)))
+         $metta-dir))
+    ($heap-helper
+      (let $_
+         (callPredicate
+            (Predicate
+               (directory_file_path
+                  $metta-dir "heap_helpers.pl" $heap-helper)))
+         $heap-helper))
+    ($metta-parent
+      (let $_
+         (callPredicate
+            (Predicate
+               (file_directory_name
+                  $metta-dir $metta-parent)))
+         $metta-parent))
+    ($parent-heap-helper
+      (let $_
+         (callPredicate
+            (Predicate
+               (directory_file_path
+                  $metta-parent
+                  "heap_helpers.pl"
+                  $parent-heap-helper)))
+         $parent-heap-helper)))
+   (if (== $heap-helper $parent-heap-helper)
+      (import_prolog_functions_from_file
+         $heap-helper (heap_pop))
+      (superpose
+         ((import_prolog_functions_from_file
+             $heap-helper (heap_pop))
+          (import_prolog_functions_from_file
+             $parent-heap-helper (heap_pop))))))
 
 !(import! &self chainer_utils)
 !(import! &self forward_chainer)

@@ -12,6 +12,7 @@ if [[ -z ${PETTA_DIR:-} ]]; then
 fi
 
 petta_dir=$(cd "$PETTA_DIR" && pwd)
+cd "$metta_dir"
 
 # Load every dependency and production module under strict determinism mode so
 # no import boundary can hide a type or determinism error. Every arrow carries

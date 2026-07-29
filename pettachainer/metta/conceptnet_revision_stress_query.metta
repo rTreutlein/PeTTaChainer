@@ -10,8 +10,13 @@
 ;; semantics.
 !(import! &self petta_chainer)
 !(static-import! &self .conceptnet_export/rules_dump)
+!(import_prolog_functions_from_file
+   "./benchmarks/query_timer.pl"
+   (benchmark_query))
 
-(: current-time (-[det]-> Number))
+(: benchmark_query
+   (-[det]-> Expression
+      ((List AnnotatedStatement) Number Number)))
 
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
    (: max_dog (Dog max) (STV 1.0 1.0)))
@@ -107,17 +112,20 @@
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
    (: missing_own_4 (Implication (Premises (MissingOwn4 $x)) (Conclusions (Own (i $x)))) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
-!(let*
-   (($start (current-time))
-    ($results
-       (collapse
-          (query 100 kb5b10000f8f9f4f0dbd120f99aa0f43ce
-             (: $_proof (And (Own (i max)) (Pet max)) $_tv))))
-    ($finish (current-time)))
+!(let
+   ($results $cpu-seconds $inferences)
+   (benchmark_query
+      (quote
+         (query 100 kb5b10000f8f9f4f0dbd120f99aa0f43ce
+            (: $_proof (And (Own (i max)) (Pet max)) $_tv))))
    (println!
       (CONCEPTNET_OWN_PET_RESULT_COUNT
          (length $results)
          RESULTS
          $results
          SECONDS
-         (- $finish $start))))
+         $cpu-seconds
+         CLOCK
+         process-cpu
+         INFERENCES
+         $inferences)))

@@ -48,7 +48,8 @@
           ($_
              (collapse
                 (once (inject-compiled-adds $adds))))
-          ($results (chainer $steps $goal))
+          ($results
+             (chainer $steps (typed-runtime-premise $goal)))
           ($externalized (externalize-results $results))
           ($pres (pretty-results $externalized))
           ($_clear-temp-after (clear-temp-query-adds)))
@@ -65,7 +66,8 @@
              (collapse
                 (once (inject-compiled-adds $adds))))
           ($results
-             (chainer-materialize $steps $goal))
+             (chainer-materialize
+                $steps (typed-runtime-premise $goal)))
           ($externalized (externalize-results $results))
           ($pres (pretty-results $externalized))
           ($_clear-temp-after (clear-temp-query-adds)))

@@ -161,6 +161,7 @@
 !(compileadd baseRateAcceptanceKb (: fragileObs9 (FragileGood supplierFragile9) (STV 0.0 1.0)))
 !(compileadd baseRateAcceptanceKb (: fragileObs10 (FragileGood supplierFragile10) (STV 0.0 1.0)))
 
+(: accept-tv (-[nondet]-> Atom STVType))
 (= (accept-tv $contract)
    (let (: $_prf (AcceptContract $contract) $tv)
       (query 800 baseRateAcceptanceKb (: $_prf (AcceptContract $contract) $tv))

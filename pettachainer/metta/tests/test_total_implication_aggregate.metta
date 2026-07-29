@@ -4,20 +4,21 @@
 (: none TotalEvidenceSentinel)
 (: TotalEvidenceTvs Type)
 (: TotalEvidenceTvs
-   (-[det]-> (| TV TotalEvidenceSentinel)
-       (| TV TotalEvidenceSentinel)
+   (-[det]-> (| STVType TotalEvidenceSentinel)
+       (| STVType TotalEvidenceSentinel)
        TotalEvidenceTvs))
 (: EvidenceCase Type)
-(: EvidenceCase (-[det]-> $evidence TV EvidenceCase))
+(: EvidenceCase (-[det]-> $evidence STVType EvidenceCase))
 (: TotalEvidenceOr
-   (-[semidet]-> (| TV TotalEvidenceSentinel) TV TV))
+   (-[det]-> (| STVType TotalEvidenceSentinel)
+       STVType STVType))
 (: TotalEvidenceTv
-   (-[semidet]-> (| TV TotalEvidenceSentinel) TV))
-(: TotalEvidenceKnownTv (-[det]-> (STV Number Number) TV))
+   (-[det]-> (| STVType TotalEvidenceSentinel) STVType))
+(: TotalEvidenceKnownTv (-[det]-> STVType STVType))
 (: TotalEvidenceAcc
    (-[semidet]-> TotalEvidenceTvs EvidenceCase TotalEvidenceTvs))
 (: TotalEvidenceCTVModusPonensFormula
-   (-[nondet]-> TV TotalEvidenceTvs  TV))
+   (-[nondet]-> TV TotalEvidenceTvs STVType))
 
 (= (TotalEvidenceOr none (STV $rs $rc))
    (STV $rs $rc))

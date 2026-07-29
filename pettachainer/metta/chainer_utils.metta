@@ -38,15 +38,75 @@
                 (quote ($type $vars)))
              (quote ($sealed-goal ($kbid $ctx))))))))
 
+(: normalize-expected-stv (-[det]-> $truth-value STVType))
+(= (normalize-expected-stv $tv)
+   (if (is-var $tv) (STV 1.0 1.0)
+      (case $tv
+         (((STV $s $c)
+             (STV
+                (if (is-var $s) 1.0 $s)
+                (if (is-var $c) 1.0 $c)))
+          ($other (the STVType $other))))))
+
+;; Re-establish a TV read from untyped storage without first attaching one
+;; broad union guard to an open constructor. Dispatching on the runtime tag
+;; lets CTV fields receive their precise STV constraints immediately.
+(: checked-stored-stv (-[det]-> Expression STVType))
+(= (checked-stored-stv $tv)
+   (case $tv
+      (((STV $s $c)
+          (STV (the Number $s) (the Number $c)))
+       ($other (the STVType $other)))))
+
+(: checked-stored-tv (-[det]-> Expression TV))
+(= (checked-stored-tv $tv)
+   (if (is-var $tv)
+      (the TV $tv)
+      (case $tv
+         (((STV $s $c)
+             (STV (the Number $s) (the Number $c)))
+          ((CTV $pos $neg)
+             (CTV
+                (checked-stored-stv $pos)
+                (checked-stored-stv $neg)))
+          (no-evidence no-evidence)
+          ($other (the TV $other))))))
+
 (: normalize-expected-tv (-[det]-> $truth-value TV))
 (= (normalize-expected-tv $tv)
    (if (is-var $tv) (STV 1.0 1.0)
       (case $tv
          (((STV $s $c) (STV (if (is-var $s) 1.0 $s) (if (is-var $c) 1.0 $c)))
           ((CTV $pos $neg)
-             (CTV (normalize-expected-tv $pos) (normalize-expected-tv $neg)))
+             (CTV
+                (normalize-expected-stv $pos)
+                (normalize-expected-stv $neg)))
           (no-evidence no-evidence)
           ($other (the TV $other))))))
+
+(: normalize-expected-ctv
+   (-[semidet]-> $truth-value CTVType))
+(= (normalize-expected-ctv
+      (CTV $pos $neg))
+   (CTV
+      (normalize-expected-stv $pos)
+      (normalize-expected-stv $neg)))
+
+(: normalize-expected-evidence-tv
+   (-[semidet]-> $truth-value (| STVType CTVType)))
+(= (normalize-expected-evidence-tv $tv)
+   (if (is-var $tv)
+      (STV 1.0 1.0)
+      (case $tv
+         (((STV $s $c)
+             (STV
+                (if (is-var $s) 1.0 $s)
+                (if (is-var $c) 1.0 $c)))
+          ((CTV $pos $neg)
+             (CTV
+                (normalize-expected-stv $pos)
+                (normalize-expected-stv $neg)))
+          ($_other (empty))))))
 
 ;; CPU arguments are formula-dependent and enter through a generic execution
 ;; record. Normalize known TV constructors without reflective checks; retain
@@ -65,23 +125,31 @@
    (if (== $fun NotFormula)
       (if (is-var $a)
          (STV 1.0 1.0)
-         (NotFormula (expected-tv $a)))
+         (NotFormula (normalize-expected-stv $a)))
       ()))
 
 (= (cpu-expected-tv $fun ($a $b))
    (case $fun
       ((CTVModusPonensFormula
          (CTVModusPonensFormula
-            (expected-tv $a) (expected-tv $b)))
+            (normalize-expected-evidence-tv $a)
+            (normalize-expected-ctv $b)))
        (CTVFormula
-         (CTVFormula (expected-tv $a) (expected-tv $b)))
+         (CTVFormula
+            (normalize-expected-evidence-tv $a)
+            (normalize-expected-ctv $b)))
        (AndFormula
-         (AndFormula (expected-tv $a) (expected-tv $b)))
+         (AndFormula
+            (normalize-expected-stv $a)
+            (normalize-expected-stv $b)))
        (OrFormula
-         (OrFormula (expected-tv $a) (expected-tv $b)))
+         (OrFormula
+            (normalize-expected-stv $a)
+            (normalize-expected-stv $b)))
        (LikelierThanFormula
          (LikelierThanFormula
-            (expected-tv $a) (expected-tv $b)))
+            (normalize-expected-stv $a)
+            (normalize-expected-stv $b)))
        (()
          (cons ()
             (cons (expected-tv $a)
@@ -200,7 +268,7 @@
 (= (premise-cons $premise $rest)
    (cons $premise $rest))
 
-(: score-tv (-[det]-> Number (STV Number Number)))
+(: score-tv (-[det]-> Number STVType))
 (= (score-tv $score) (STV 1.0 (max 0.0 (min 1.0 $score))))
 
 (: optimistic-revision-score (-[det]-> Number Number Number))
@@ -372,19 +440,21 @@
                (first-evidence-list $frontier-hits)))
          (first-evidence-list $hits))))
 
+(: revision-merge-tv (-[det]-> TV TV TV))
+(= (revision-merge-tv $tv1 $tv2)
+   (case $tv1
+      (((STV $m1 $c1)
+          (case $tv2
+             (((STV $m2 $c2)
+                 (merge-stv-fields $m1 $c1 $m2 $c2))
+              ($_other-tv $tv1))))
+       ($_other $tv1))))
+
 (= (RevisionMergeProof ($type1 $kb $prf1 $tv1) ($_type2 $_kb2 $prf2 $tv2))
-   (let $merged-tv
-      (case $tv1 (
-         ((STV $m1 $c1)
-            (case $tv2 (
-               ((STV $m2 $c2)
-                  (merge-stv-fields $m1 $c1 $m2 $c2))
-               ($_other-tv $tv1))))
-         ($_other $tv1)))
-      (assemble-runtime-fact
-         $type1 $kb
-         (brand Proof (merge/revision $prf1 $prf2))
-         $merged-tv)))
+   (assemble-runtime-fact
+      $type1 $kb
+      (brand Proof (merge/revision $prf1 $prf2))
+      (revision-merge-tv $tv1 $tv2)))
 
 (: proof-atom-proof
    (-[det]-> (Statement KBContext Proof TV) Proof))
@@ -417,6 +487,14 @@
 (= (make-space-pair $left $right)
    (brand SpaceAtom
       (cons $left (cons $right ()))))
+
+(: make-space-row3
+   (-[det]-> $first $second $third SpaceAtom))
+(= (make-space-row3 $first $second $third)
+   (brand SpaceAtom
+      (cons $first
+         (cons $second
+            (cons $third ())))))
 
 (: make-space-row4
    (-[det]-> $first $second $third $fourth SpaceAtom))
@@ -1031,7 +1109,8 @@
          (match &concept_node ($kbid $node)
             (statement-from-atom $node)))))
 
-(: concept-node-prior-tv (-[det]-> KB Statement TV))
+(: concept-node-prior-tv
+   (-[det]-> KB Statement OptionalSTV))
 (= (concept-node-prior-tv $kbid $node)
    (if (known-concept-node? $kbid $node)
       (let $n (list-len (concept-nodes $kbid))
@@ -1040,11 +1119,13 @@
                (kb-concept-prior-confidence $kbid))))
       no-evidence))
 
-(: ConceptNodePriorFormula (-[det]-> KB Statement TV))
+(: ConceptNodePriorFormula
+   (-[det]-> KB Statement OptionalSTV))
 (= (ConceptNodePriorFormula $kbid $node)
    (concept-node-prior-tv $kbid $node))
 
-(: resolve-base-rate-prior (-[det]-> BaseRatePrior TV))
+(: resolve-base-rate-prior
+   (-[det]-> BaseRatePrior OptionalSTV))
 (= (resolve-base-rate-prior (ConceptNodePriorRuntime $kbid $node))
    (concept-node-prior-tv
       (brand KB $kbid) (brand Statement $node)))
@@ -1052,14 +1133,15 @@
 (= (resolve-base-rate-prior no-evidence) no-evidence)
 
 (: WeightedBaseRateWithPriorTv
-   (-[semidet]-> BaseRateEvidenceWithPriorState TV))
+   (-[det]-> BaseRateEvidenceWithPriorState OptionalSTV))
 (= (WeightedBaseRateWithPriorTv
       (BaseRateEvidenceWithPrior $prior $ev))
    (BaseRateWithPriorFormula
       (resolve-base-rate-prior (brand BaseRatePrior $prior))
       (WeightedBaseRateTv $ev)))
 
-(: member-inheritance-tv (-[det]-> KB BaseRateEvidenceState TV))
+(: member-inheritance-tv
+   (-[det]-> KB BaseRateEvidenceState OptionalSTV))
 (= (member-inheritance-tv $kbid $ev)
    (let $universe-size (kb-universe-size $kbid)
       (if (== $universe-size no-universe-size)

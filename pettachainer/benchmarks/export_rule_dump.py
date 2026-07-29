@@ -114,8 +114,7 @@ def main() -> int:
         rule_arity = 4 if args.rule_shape == "wrapped" else 3
         output.write(f":- dynamic rules/{rule_arity}.\n")
         output.write(":- dynamic prem_index/4.\n")
-        output.write(":- dynamic ccls_index/2.\n")
-        output.write(":- dynamic ccls_head_index/2.\n\n")
+        output.write(":- dynamic ccls_index/3.\n\n")
 
     if args.rule_shape == "wrapped":
         rules_goal = "rules('runtime-rule-row', _A, _B, _C)"
@@ -139,14 +138,8 @@ def main() -> int:
         "ccls_index": export_predicate(
             petta.janus,
             temp_path,
-            "ccls_index(_A, _B)",
-            "ccls_index(_A, _B)",
-        ),
-        "ccls_head_index": export_predicate(
-            petta.janus,
-            temp_path,
-            "ccls_head_index(_A, _B)",
-            "ccls_head_index(_A, _B)",
+            "ccls_index(_A, _B, _C)",
+            "ccls_index(_A, _B, _C)",
         ),
     }
     if not rows["rules"]:

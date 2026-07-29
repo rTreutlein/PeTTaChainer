@@ -142,7 +142,7 @@
       (let $_
          (once
             (inject-compiled-adds $adds))
-         $child-goal)))
+         (typed-runtime-premise $child-goal))))
 
 (: aggregate-child-goal
    (-[nondet]-> Goal
@@ -1571,63 +1571,12 @@
             ($_other ()))))
       ($_other ()))))
 
-(: open-rule-goal?
-   (-[det]-> (| Goal (Statement KBContext Proof TV)) Bool))
-(= (open-rule-goal? $goal)
-   (case $goal (
-      (($type $_kb $_prf $_tv)
-         (not (== (extract-vars $type) ())))
-      ($_other false))))
-
 (: RuleGoalMatch
    (Alias
       (Number
        (List (| Goal (Statement KBContext Proof TV)))
        (| Goal (Statement KBContext Proof TV))
        Number)))
-
-(: rule-goal-head-view-for-key
-   (-[nondet]-> (| Goal (Statement KBContext Proof TV))
-      Number ForwardTriggerKey RuleGoalMatch))
-(= (rule-goal-head-view-for-key $goal $parent-gid $key)
-   (match ccls_head_index ($key $raw-rule-id)
-      (let $rule-id (the Number $raw-rule-id)
-         (match rules
-            (runtime-rule-row $rule-id $stored-goal $args)
-            (if (= $stored-goal $goal)
-               (data $rule-id $args $goal $parent-gid)
-               (empty))))))
-
-;; Look up rules by the goal's concrete head *and* the `any` wildcard bucket, so
-;; an open goal still reaches variable-headed conclusions (which only live under
-;; `any`). This mirrors the forward chainer's direct+wildcard union and removes
-;; the behavioural gap between open and closed goals.
-(: rule-goal-head-view
-   (-[nondet]-> (| Goal (Statement KBContext Proof TV))
-      Number RuleGoalMatch))
-(= (rule-goal-head-view $goal $parent-gid)
-   (if (= $goal ($_type ($kbid $_ctx $_vars) $_prf $_tv))
-      (let*
-          (($key
-             (forward-type-trigger-key
-                (brand KB $kbid)
-                (brand Statement $_type)))
-          ($wildcard-key
-             (forward-premise-wildcard-key $goal)))
-         (superpose (
-            (rule-goal-head-view-for-key $goal $parent-gid $key)
-            (if (== $key $wildcard-key) (empty)
-               (rule-goal-head-view-for-key
-                  $goal $parent-gid $wildcard-key)))))
-      (empty)))
-
-(: rule-goal-contextual?
-   (-[det]-> (| Goal (Statement KBContext Proof TV)) Bool))
-(= (rule-goal-contextual? $goal)
-   (case $goal (
-      (($_type ($_kbid $ctx $_vars) $_prf $_tv)
-         (not (== $ctx MAIN)))
-      ($_other false))))
 
 (: rule-goal-full-view
    (-[nondet]-> (| Goal (Statement KBContext Proof TV))
@@ -1640,15 +1589,14 @@
          (let $lookup-goal
             (copy_term
                (data $_type $_kbctx $_proof $_tv))
-            (match ccls_index ($lookup-goal $rule-id)
-               (match rules
-                  (runtime-rule-row $rule-id $stored-goal $args)
-                  (if (= $stored-goal $goal)
-                     (data $rule-id
-                        (contextualize-rule-args $goal $args)
-                        $goal
-                        $parent-gid)
-                     (empty)))))))))
+            (match ccls_index
+               ($lookup-goal $rule-id $args)
+               (if (= $lookup-goal $goal)
+                  (data $rule-id
+                     (contextualize-rule-args $goal $args)
+                     $goal
+                     $parent-gid)
+                  (empty))))))))
 
 (: same-var-in-list? (-[det]-> $variable (List $variable) Bool))
 (= (same-var-in-list? $_var ()) false)
@@ -1715,12 +1663,13 @@
 (: rule-goal-view
    (-[nondet]-> (| Goal (Statement KBContext Proof TV))
       Number RuleGoalMatch))
+;; Preserve the complete conclusion shape during lookup. SWI's deep JIT index
+;; can then discriminate connective children (And, Or, configured compounds)
+;; and ordinary predicate arguments instead of enumerating every rule sharing
+;; only the outer head. Variables in the query or stored conclusion still
+;; unify through ccls_index, including variable-headed rules.
 (= (rule-goal-view $goal $parent-gid)
-   (if (open-rule-goal? $goal)
-      (if (rule-goal-contextual? $goal)
-         (rule-goal-full-view $goal $parent-gid)
-         (rule-goal-head-view $goal $parent-gid))
-      (rule-goal-full-view $goal $parent-gid)))
+   (rule-goal-full-view $goal $parent-gid))
 
 (: spawn-frontier-heap
    (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number AndBundle Number (List Evidence) (List (| FrontierPart UnpoolablePart)) (List Number) (Heap (| QueueGoal QueueAggregate))))
@@ -1822,27 +1771,22 @@
 (: prefilter-head-concludable?
    (-[det]-> (| Goal (Statement KBContext Proof TV)) Bool))
 (= (prefilter-head-concludable? $prem)
-   (let $key (forward-indexable-premise-key $prem)
-      (if (== $key ()) true
-         (let $wildcard (forward-premise-wildcard-key $prem)
-            (if
-               (not
-                  (==
-                     (collapse
-                        (once
-                           (match ccls_head_index
-                              ($key $_id) true)))
-                     ()))
-               true
-               (if (== $key $wildcard)
-                  false
-                  (not
-                     (==
-                        (collapse
-                           (once
-                              (match ccls_head_index
-                                 ($wildcard $_wid) true)))
-                        ()))))))))
+   (case $prem (
+      (($type ($kbid $_ctx $_vars) $_prf $_tv)
+         (let $lookup-type (copy_term $type)
+            (let $hits
+               (collapse
+                  (once
+                     (match ccls_index
+                        (($lookup-type
+                           ($kbid $_stored-ctx $_stored-vars)
+                           $_stored-proof $_stored-tv)
+                         $_rule-id $_stored-args)
+                        true)))
+               (if (== $hits ()) false true))))
+      ;; A malformed/non-fact premise must never make the optional prefilter
+      ;; prune a rule.
+      ($_other true))))
 
 (: prefilter-fact-missing?
    (-[det]-> (Statement KBContext Proof TV) Bool))
@@ -1884,7 +1828,7 @@
                       $type $fact-kb $prf $tv)))
                (if (== (extract-vars $type) ())
                   (if (prefilter-fact-missing? $fact)
-                     (not (prefilter-head-concludable? $fact))
+                     (if (prefilter-head-concludable? $fact) false true)
                      false)
                   false)))))))
 

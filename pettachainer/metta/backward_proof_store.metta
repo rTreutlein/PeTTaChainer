@@ -719,16 +719,17 @@
 (= (factor-last (cons $x $rest))
    (if (== $rest ()) $x (factor-last $rest)))
 (: factor-find-ctv
-   (-[det]-> (List TV) (| TV NoCTV)))
+   (-[det]-> (List TV) (| CTVType NoCTV)))
 (= (factor-find-ctv $values)
    (case $values (
       (() no-ctv)
       ((cons $a $rest)
-         (if (= $a (CTV $_p $_n))
-            (the TV $a)
-            (factor-find-ctv $rest)))
+         (case $a
+            (((CTV $pos $neg) (CTV $pos $neg))
+             ($_other (factor-find-ctv $rest)))))
       ($_other no-ctv))))
-(: factor-and-fold (-[semidet]-> (List TV) TV))
+(: factor-and-fold
+   (-[semidet]-> (List STVType) STVType))
 (= (factor-and-fold (cons $tv $rest))
    (if (== $rest ()) $tv (AndFormula $tv (factor-and-fold $rest))))
 
@@ -739,10 +740,12 @@
 
 (: factor-reeval-premises
    (-[semidet]-> (List Number) (List ProofOutputKey)
-      TV  (List TV)))
+      TV (List STVType)))
 (= (factor-reeval-premises () $_keys $_o) ())
 (= (factor-reeval-premises (cons $pid $rest) $keys $o)
-   (cons (factor-reeval $pid $keys $o) (factor-reeval-premises $rest $keys $o)))
+   (cons
+      (the STVType (factor-reeval $pid $keys $o))
+      (factor-reeval-premises $rest $keys $o)))
 
 ;; structural recompute: fold premise proofs (by child position) and re-apply ctv,
 ;; with every shared leaf (any key in $keys) overridden to $o
@@ -758,11 +761,14 @@
                    (factor-find-ctv
                       (the (List TV) $la))))
             (if (== $lf CTVModusPonensFormula)
-               (if (== $ctv no-ctv) $stored
-                  (CTVModusPonensFormula
-                     (factor-and-fold
-                        (factor-reeval-premises $prem $keys $o))
-                     (the TV $ctv)))
+               (case $ctv
+                  (((CTV $pos $neg)
+                      (CTVModusPonensFormula
+                         (factor-and-fold
+                            (factor-reeval-premises
+                               $prem $keys $o))
+                         (CTV $pos $neg)))
+                   (no-ctv $stored)))
                $stored)))))
 
 (: factor-reeval
@@ -853,14 +859,19 @@
 ;; strength 1 (all shared leaves -> (1 1)) and 0 (all -> (0 1)). The conclusion
 ;; is linear in the shared conjunction's strength, so these two points give the
 ;; residual implication (conjunction-of-shared -> conclusion).
-(: factor-revise-ctv (-[semidet]-> TV TV TV))
+(: factor-revise-ctv
+   (-[semidet]-> CTVType CTVType CTVType))
 (= (factor-revise-ctv (CTV $p1 $n1) (CTV $p2 $n2)) (CTV (mergetvs $p1 $p2) (mergetvs $n1 $n2)))
 (: factor-residual
-   (-[semidet]-> Number (List ProofOutputKey)  TV))
+   (-[semidet]-> Number (List ProofOutputKey) CTVType))
 (= (factor-residual $pid $keys)
-   (CTV (factor-reeval $pid $keys (STV 1.0 1.0)) (factor-reeval $pid $keys (STV 0.0 1.0))))
+   (CTV
+      (the STVType
+         (factor-reeval $pid $keys (STV 1.0 1.0)))
+      (the STVType
+         (factor-reeval $pid $keys (STV 0.0 1.0)))))
 (: factor-revise-residuals
-   (-[semidet]-> (List Number) (List ProofOutputKey)  TV))
+   (-[semidet]-> (List Number) (List ProofOutputKey) CTVType))
 (= (factor-revise-residuals (cons $pid ()) $keys) (factor-residual $pid $keys))
 (= (factor-revise-residuals
       (cons $pid (cons $next $rest)) $keys)
@@ -874,11 +885,12 @@
    (-[semidet]-> (List Evidence) (List ProofOutputKey)))
 (= (factor-shared-keys ()) ())
 (= (factor-shared-keys (cons $f $rest)) (cons (factor-fact-key $f) (factor-shared-keys $rest)))
-(: factor-required-leaf-tv (-[semidet]-> Number ProofOutputKey TV))
+(: factor-required-leaf-tv
+   (-[semidet]-> Number ProofOutputKey STVType))
 (= (factor-required-leaf-tv $pid $key)
-   (the TV (factor-leaf-tv $pid $key)))
+   (the STVType (factor-leaf-tv $pid $key)))
 (: factor-real-conj
-   (-[semidet]-> Number (List ProofOutputKey) TV))
+   (-[semidet]-> Number (List ProofOutputKey) STVType))
 (= (factor-real-conj $pid (cons $key ()))
    (factor-required-leaf-tv $pid $key))
 (= (factor-real-conj $pid (cons $key (cons $next $rest)))
@@ -908,7 +920,7 @@
          false)
       false))
 (: factor-roundtrip-one?
-   (-[semidet]-> Number (List ProofOutputKey) TV Bool))
+   (-[semidet]-> Number (List ProofOutputKey) STVType Bool))
 (= (factor-roundtrip-one? $pid $keys $conj)
    (let* ((($_t $_k $_p $stored) (proof-output-atom-by-id $pid))
           ($residuals
@@ -916,10 +928,11 @@
       (if (== $residuals ()) false
          (let $rebuilt
             (CTVModusPonensFormula $conj
-               (the TV (car-atom $residuals)))
+               (the CTVType (car-atom $residuals)))
             (factor-tv-close? (the TV $stored) $rebuilt)))))
 (: factor-roundtrips?
-   (-[semidet]-> (List Number) (List ProofOutputKey) TV Bool))
+   (-[semidet]-> (List Number) (List ProofOutputKey)
+       STVType Bool))
 (= (factor-roundtrips? () $_keys $_conj) true)
 (= (factor-roundtrips? (cons $pid $rest) $keys $conj)
    (if (factor-roundtrip-one? $pid $keys $conj)

@@ -9,6 +9,7 @@ PETTA_STRICT_DET=${PETTA_STRICT_DET:-1}
 
 metta_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(cd "$metta_dir/../.." && pwd)
+cd "$metta_dir"
 if [[ -z ${PETTA_DIR:-} && -f "$(dirname "$repo_root")/PeTTa/run.sh" ]]; then
   PETTA_DIR=$(dirname "$repo_root")/PeTTa
 fi

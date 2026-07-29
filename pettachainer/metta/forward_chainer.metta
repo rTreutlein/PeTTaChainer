@@ -852,7 +852,7 @@
       (($typed-type (brand Statement $type))
        ($typed-kb (brand KBContext $kb))
        ($typed-proof (brand Proof $proof))
-       ($typed-tv (the TV $tv))
+       ($typed-tv (checked-stored-tv $tv))
        ($fact
           (assemble-runtime-fact
              $typed-type $typed-kb $typed-proof $typed-tv)))

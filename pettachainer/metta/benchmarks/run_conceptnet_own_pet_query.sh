@@ -74,7 +74,10 @@ else
 fi
 
 set +e
-"${runner[@]}" "$benchmark" --strict-det --silent "$@" 2>&1 | tee "$output_file"
+(
+  cd "$benchmark_dir/.."
+  "${runner[@]}" "$benchmark" --strict-det --silent "$@"
+) 2>&1 | tee "$output_file"
 run_status=${PIPESTATUS[0]}
 set -e
 

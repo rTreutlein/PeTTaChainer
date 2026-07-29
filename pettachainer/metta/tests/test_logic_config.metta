@@ -59,6 +59,21 @@
    (query 20 predicateLogicKb (: $prf (Or (A) (B)) $tv))
    (: (Orintroduction a) (Or (A) (B)) (STV 1.0 1.0)))
 
+;; An open compound query must keep the complete child shape available to the
+;; conclusion index. Both alternatives remain reachable without falling back
+;; to an outer-head-only scan of every generated Or introduction rule.
+!(compileadd predicateLogicOpenOrKb
+   (: p-one (P one) (STV 1.0 1.0)))
+!(compileadd predicateLogicOpenOrKb
+   (: q-two (Q two) (STV 1.0 1.0)))
+
+!(test
+   (length
+      (collapse
+         (query 20 predicateLogicOpenOrKb
+            (: $prf (Or (P $x) (Q $x)) $tv))))
+   2)
+
 !(import! &self ../logic_configs/pln)
 
 !(compileadd plnAfterSwitchKb (: a (A) (STV 1.0 1.0)))
