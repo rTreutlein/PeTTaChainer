@@ -14,7 +14,7 @@ wheels = [
 [[package]]
 name = "petta"
 version = "0.1.0"
-source = { git = "https://github.com/trueagi-io/PeTTa?rev=4843144ba569a896991fc6d84a30f1136488fee1#4843144ba569a896991fc6d84a30f1136488fee1" }
+source = { git = "https://github.com/trueagi-io/PeTTa?rev=e1bd9e3fff7ee5caa176bf14a950238b7caf477d#e1bd9e3fff7ee5caa176bf14a950238b7caf477d" }
 dependencies = [
     { name = "janus-swi" },
 ]
@@ -28,4 +28,4 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "petta", git = "https://github.com/trueagi-io/PeTTa?rev=4843144ba569a896991fc6d84a30f1136488fee1" }]
+requires-dist = [{ name = "petta", git = "https://github.com/trueagi-io/PeTTa?rev=e1bd9e3fff7ee5caa176bf14a950238b7caf477d" }]
