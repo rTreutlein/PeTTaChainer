@@ -35,7 +35,7 @@
 ;; KB names identify a knowledge base. KBContext is the full runtime
 ;; (name context variables) tuple carried by compiled facts and goals.
 (: KB (Newtype Expression))
-(: KBContext (Newtype Expression))
+(: KBContext (Newtype (KB Expression Expression)))
 (: Proof (Newtype Expression))
 (: Statement (Newtype Expression))
 (: Term (Newtype Expression))
