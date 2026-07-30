@@ -2312,9 +2312,10 @@
        (Number (List CompiledAddition))))
 (= (query-context-premise-adds-step $kbid $ctx $mvars ($idx $adds) $premise)
    (let $ctxprf
-      (if (== $idx 0)
-         (brand Proof (ctx proof $ctx))
-         (brand Proof (ctx proof $ctx $idx)))
+      (brand Proof
+         (if (== $idx 0)
+            (data ctx proof $ctx)
+            (data ctx proof $ctx $idx)))
       (case $premise
          (((CPU $_fun $_args $_res) ($idx $adds))
              ((: $_kb $_prf $type $tv)
@@ -2350,11 +2351,11 @@
              ($mvars (query-variables $vars))
              ($ctx (nextctx))
              ($ctxatom
-                (: (make-kb-context (brand KB $kbid) $ctx $mvars)
+                (: (make-kb-context $kbid $ctx $mvars)
                    (brand Proof (ctx proof $ctx))
                    (brand Statement $type) $tv))
              ($goal
-                (: (make-kb-context (brand KB $kbid) $ctx $mvars)
+                (: (make-kb-context $kbid $ctx $mvars)
                    (brand Proof $prf1) (brand Statement $type1) $tv1))
              ($all-adds
                 (cons

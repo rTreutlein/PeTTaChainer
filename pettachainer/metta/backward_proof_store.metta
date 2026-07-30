@@ -183,15 +183,17 @@
       ($_other (brand Proof $raw)))))
 (: aggregate-proof-label (-[semidet]-> $aggregate Proof))
 (= (aggregate-proof-label (CPU FoldAllCompiled $args $_res))
-   (case $args (
-      (($_kb $_pattern $_extractor $_init OrFormula $_finish $_tv-mode)
-         (brand Proof disjunction))
-      ($_other (brand Proof foldall-proof)))))
+   (brand Proof
+      (case $args (
+         (($_kb $_pattern $_extractor $_init OrFormula $_finish $_tv-mode)
+            disjunction)
+         ($_other foldall-proof)))))
 (= (aggregate-proof-label (CPU GroupedFoldAllCompiled $args $_res))
-   (case $args (
-      (($_kb $_pattern $_group $_extractor $_init OrFormula $_finish $_tv-mode)
-         (brand Proof disjunction))
-      ($_other (brand Proof foldall-proof)))))
+   (brand Proof
+      (case $args (
+         (($_kb $_pattern $_group $_extractor $_init OrFormula $_finish $_tv-mode)
+            disjunction)
+         ($_other foldall-proof)))))
 (: proof-ref-list (-[det]-> (List Number) (List ProofRef)))
 (= (proof-ref-list ()) ())
 (= (proof-ref-list (cons $pid $rest)) (cons (proof-ref $pid) (proof-ref-list $rest)))
@@ -246,25 +248,27 @@
       (brand Proof $new-prf)))
 (= (materialize-proof-kind (aggregate $raw) $pid)
    (let $children (proof-children-by-id $pid)
-      (if (== $children ()) (brand Proof cpu)
-         (brand Proof
+      (brand Proof
+         (if (== $children ()) cpu
             (cons (aggregate-proof-label $raw)
                (proof-map-flat-semidet materialize-proof-refs
                   (proof-ref-list $children)))))))
 (= (materialize-proof-kind (merged $output) $_pid)
-   (case $output (
-      (($_type $_kb $prf $_tv)
-         (brand Proof (materialize-proof-refs $prf)))
-      ($_other (brand Proof $output)))))
+   (brand Proof
+      (case $output (
+         (($_type $_kb $prf $_tv)
+            (materialize-proof-refs $prf))
+         ($_other $output)))))
 (: rule-kind-proof-token (-[det]-> Expression Proof))
 (= (rule-kind-proof-token $term)
-   (if (is-expr $term)
-      (let $tail1 (cdr-atom $term)
-         (if (== $tail1 ()) (brand Proof $term)
-            (let $tail2 (cdr-atom $tail1)
-               (if (== $tail2 ()) (brand Proof $term)
-                  (brand Proof (car-atom $tail2))))))
-      (brand Proof $term)))
+   (brand Proof
+      (if (is-expr $term)
+         (let $tail1 (cdr-atom $term)
+            (if (== $tail1 ()) $term
+               (let $tail2 (cdr-atom $tail1)
+                  (if (== $tail2 ()) $term
+                     (car-atom $tail2)))))
+         $term)))
 (: materialize-rule-expression (-[det]-> Proof Proof))
 (= (materialize-rule-expression $rule-prf)
    (if (is-expr $rule-prf)
