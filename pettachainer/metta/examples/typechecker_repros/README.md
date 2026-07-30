@@ -9,6 +9,27 @@ sh /path/to/PeTTa/run.sh REPRO.metta --strict --warn-runtime-checks
 
 Determinism repros additionally need `--strict-det`.
 
+## Remaining at `b29ba7c`: contextual narrowing and outer-brand edges
+
+All four files below fail with `--strict --strict-det --silent`:
+
+- `nested_constructed_tuple_case_newtype_field.metta`: a `case` over a
+  positional pair constructed from two typed parameters loses nested
+  `KBContext` field types. Passing an already typed pair instead works.
+- `if_union_subtraction_variable_head.metta`: a literal `CPU` equality pattern
+  is subtracted from a two-member union, but the singleton remainder does not
+  type a following variable-headed fact pattern.
+- `outer_brand_case_open_fallthrough.metta`: an outer `Proof` brand accepts
+  closed branch construction, but rejects a fallthrough variable still
+  carrying a union type even though `Proof` has representation `Expression`.
+- `outer_brand_let_binding.metta`: `(brand Proof (if ... (data ...) (data ...)))`
+  checks its branches, but a `let` binding of that expression does not retain
+  `Proof` for a typed consumer.
+
+The first two leave a residual check for `KB`. The third reports a conflict
+between `WorkItem` and `Proof`; the fourth leaves a residual `Proof` check at
+the consumer.
+
 ## Remaining at `45b1b81`: strict import library has no declaration
 
 Run:
