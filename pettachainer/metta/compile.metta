@@ -633,7 +633,7 @@
              ($tail (cdr-atom $type))
              ((premise-bundle $execs $result-tv $proof-token)
                  (compound-premise-bundle
-                    (brand KB $kbid) $ctx $vars $head $tail))
+                    $kbid $ctx $vars $head $tail))
               ($exec-type
                  (compound-execs-goal-type $head $execs)))
             (superpose
@@ -673,7 +673,7 @@
                     (let ($kbid $ctx $vars) $kb
                        (once
                           (query-compound-premise-bundle
-                             (brand KB $kbid) $ctx $vars $head
+                             $kbid $ctx $vars $head
                              (statement-children $tail))))))
                (brand CompiledAddition
                   ($execs |-
@@ -686,7 +686,7 @@
                  (let ($kbid $ctx $vars) $kb
                     (once
                        (lower-source-premise
-                          (brand KB $kbid) $ctx $vars $type))))
+                          $kbid $ctx $vars $type))))
               ($exec-type (execs-goal-type $execs)))
             (if (if (is-var $type)
                    false

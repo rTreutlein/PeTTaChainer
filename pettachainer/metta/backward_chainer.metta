@@ -1829,7 +1829,7 @@
             (let*
                (($fact-kb
                    (make-kb-context
-                      (brand KB $kbid) $ctx $vars))
+                      $kbid $ctx $vars))
                 ($fact
                    (assemble-stored-runtime-fact
                       $type $fact-kb $prf $tv)))

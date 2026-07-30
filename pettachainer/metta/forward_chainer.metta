@@ -176,7 +176,7 @@
 (: forward-fact-kb
    (-[det]-> (Statement KBContext Proof TV) KB))
 (= (forward-fact-kb ($_type ($kbid $_ctx $_vars) $_prf $_tv))
-   (brand KB $kbid))
+   $kbid)
 (: forward-output-index-hash (-[det]-> ForwardOutputKey Number))
 (= (forward-output-index-hash (forward-output-key $kb $type))
    (term_hash (quote ($kb $type))))
@@ -1497,7 +1497,7 @@
                      (make-space-pair $kbid $subj)
                      (add-space-atom! &inheritance_subject $row)))
                (record-inheritance-nodes!
-                  (brand KB $kbid)
+                  $kbid
                   (brand Statement $subj)
                   (brand Statement $concept)))))
       ($_other ()))))

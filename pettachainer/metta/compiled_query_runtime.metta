@@ -48,7 +48,7 @@
 
 (: kb-context-kbid (-[det]-> KBContext KB))
 (= (kb-context-kbid ($kbid $_ctx $_vars))
-   (brand KB $kbid))
+   $kbid)
 
 (: observed-inheritance-subject? (-[det]-> KB Statement Bool))
 (= (observed-inheritance-subject? $kbid $subj)

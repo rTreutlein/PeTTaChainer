@@ -919,7 +919,7 @@
 (= (factor-tv-close? $a $b)
    (if (= $a (STV $sa $_ca))
       (if (= $b (STV $sb $_cb))
-         (factor-close? (the Number $sa) (the Number $sb))
+         (factor-close? $sa $sb)
          false)
       false))
 (: factor-roundtrip-one?
@@ -1304,11 +1304,11 @@
          (($type ($kbid $context $variables) $prf $tv)
             (proof-atom-candidate
                (assemble-contextual-runtime-fact
-                  (brand Statement $type)
-                  (brand KB $kbid)
+                  $type
+                  $kbid
                   $context $variables
-                  (brand Proof $prf)
-                  (the TV $tv))
+                  $prf
+                  $tv)
                $ev))
          ($_other
             (proof-candidate
