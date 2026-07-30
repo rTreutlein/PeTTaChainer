@@ -315,31 +315,24 @@
 (= (heap-take-best $count $src $dst)
    (if (<= $count 0)
       $dst
-      (let $pops
-         (collapse (heap_pop $src))
-         (if (== $pops ())
-            $dst
-            (let ($key $item $rest)
-               (car-atom $pops)
-               (let $next-values
-                  (collapse
-                     (add_to_heap
-                        $dst (the Number $key) $item))
-                  (if (== $next-values ())
-                     $dst
-                     (heap-take-best
-                        (- $count 1)
-                        $rest
-                        (car-atom $next-values)))))))))
+      (case (collapse (heap_pop $src)) (
+         (() $dst)
+         ((cons $pop $_rest)
+            (heap-take-best-pop $count $dst $pop))))))
+
+(: heap-take-best-pop
+   (-[det]-> Number (Heap $item)
+       (Number $item (Heap $item))
+       (Heap $item)))
+(= (heap-take-best-pop $count $dst ($key $item $rest))
+   (heap-take-best
+      (- $count 1)
+      $rest
+      (add_to_heap $dst $key $item)))
 
 (: heap-prune-to-size (-[det]-> Number (Heap $item) (Heap $item)))
 (= (heap-prune-to-size $target $agenda)
-   (let $empty-values (collapse (empty_heap))
-      (if (== $empty-values ())
-         $agenda
-         (heap-take-best
-            $target $agenda
-            (car-atom $empty-values)))))
+   (heap-take-best $target $agenda (empty_heap)))
 
 (: bounded-agenda-prune (-[det]-> Number (Heap $item) (Heap $item)))
 (= (bounded-agenda-prune $steps $agenda)
@@ -368,23 +361,31 @@
    (-[det]-> Statement KBContext Proof TV
        (Statement KBContext Proof TV)))
 (= (assemble-runtime-fact $type $kb $proof $tv)
-   (quote ($type $kb $proof $tv)))
+   (data $type $kb $proof $tv))
 
 (: assemble-contextual-runtime-fact
    (-[det]-> Statement KB Atom Atom Proof TV
        (Statement KBContext Proof TV)))
 (= (assemble-contextual-runtime-fact
       $type $kbid $context $variables $proof $tv)
-   (quote
-      ($type ($kbid $context $variables) $proof $tv)))
+   (data
+      $type
+      (brand KBContext (data $kbid $context $variables))
+      $proof
+      $tv))
 
-;; Dynamic spaces erase nominal roles. Reconstruct a fact at that boundary and
-;; validate only the truth-value payload whose numeric fields affect inference.
+;; Schema-less proof/result stores erase nominal roles. Reconstruct a fact only
+;; at those boundaries and validate the truth-value payload whose numeric
+;; fields affect inference. Typed &kb reads do not pass through this adapter.
 (: assemble-stored-runtime-fact
    (-[det]-> Atom Atom Atom Atom
        (Statement KBContext Proof TV)))
 (= (assemble-stored-runtime-fact $type $kb $proof $tv)
-   (quote ($type $kb $proof $tv)))
+   (data
+      (brand Statement $type)
+      (brand KBContext $kb)
+      (brand Proof $proof)
+      (the TV $tv)))
 
 ;; Scalar ids recovered from erased spaces are checked individually at their
 ;; lookup boundary, avoiding a traversal of the collected list.
@@ -913,22 +914,35 @@
                   (empty)))))
       ()))
 
+(: base-rate-entry-tv (-[det]-> BaseRateEntry TV))
+(= (base-rate-entry-tv
+      (base-rate $_kbid $_stored $tv $_source $_mode))
+   $tv)
+
+(: base-rate-entry-user? (-[det]-> BaseRateEntry Bool))
+(= (base-rate-entry-user?
+      (base-rate $_kbid $_stored $_tv $source $_mode))
+   (== $source user))
+
+(: base-rate-entry-source (-[det]-> BaseRateEntry BaseRateSource))
+(= (base-rate-entry-source
+      (base-rate $_kbid $_stored $_tv $source $_mode))
+   $source)
+
 (: cached-base-rate
    (-[nondet]-> KB Statement (List TV)))
 (= (cached-base-rate $kbid $pattern)
-   (let $entries (base-rate-cache-entries $kbid $pattern)
-      (if (== $entries ()) ()
-         (let (base-rate $_kbid $_stored $tv $_source $_mode)
-            (car-atom $entries)
-            (cons $tv ())))))
+   (case (base-rate-cache-entries $kbid $pattern) (
+      (() ())
+      ((cons $entry $_rest)
+         (cons (base-rate-entry-tv $entry) ())))))
 
 (: base-rate-user-set? (-[det]-> KB Statement Bool))
 (= (base-rate-user-set? $kbid $pattern)
-   (let $entries (base-rate-cache-entries $kbid $pattern)
-      (if (== $entries ()) false
-         (let (base-rate $_kbid $_stored $_tv $source $_mode)
-            (car-atom $entries)
-            (== $source user)))))
+   (case (base-rate-cache-entries $kbid $pattern) (
+      (() false)
+      ((cons $entry $_rest)
+         (base-rate-entry-user? $entry)))))
 
 (: store-base-rate! (-[det]-> KB Statement TV (List $none)))
 (= (store-base-rate! $kbid $pattern $tv)
@@ -1013,12 +1027,17 @@
        ($_invalidate (invalidate-computed-base-rates! $kbid)))
       ()))
 
+(: universe-size-entry-value (-[det]-> UniverseSizeEntry Number))
+(= (universe-size-entry-value (universe-size $_kbid $n))
+   $n)
+
 (: kb-universe-size
    (-[det]-> KB (| Number UniverseSizeUnavailable)))
 (= (kb-universe-size $kbid)
-   (let $entries (universe-size-entries $kbid)
-      (if (== $entries ()) no-universe-size
-         (let (universe-size $_kbid $n) (car-atom $entries) $n))))
+   (case (universe-size-entries $kbid) (
+      (() no-universe-size)
+      ((cons $entry $_rest)
+         (universe-size-entry-value $entry)))))
 
 ;; Values recovered from the erased inheritance index are statements by the
 ;; index's construction invariant. Keep that boundary local so collapse can
@@ -1086,13 +1105,18 @@
        ($_invalidate (invalidate-computed-base-rates! $kbid)))
       ()))
 
+(: concept-prior-confidence-value
+   (-[det]-> ConceptPriorConfidence Number))
+(= (concept-prior-confidence-value
+      (concept-prior-confidence $_kbid $c))
+   $c)
+
 (: kb-concept-prior-confidence (-[det]-> KB Number))
 (= (kb-concept-prior-confidence $kbid)
-   (let $entries (concept-prior-confidence-entries $kbid)
-      (if (== $entries ()) (default-concept-prior-confidence)
-         (let (concept-prior-confidence $_kbid $c)
-            (car-atom $entries)
-            $c))))
+   (case (concept-prior-confidence-entries $kbid) (
+      (() (default-concept-prior-confidence))
+      ((cons $entry $_rest)
+         (concept-prior-confidence-value $entry)))))
 
 (: known-concept-node? (-[det]-> KB Statement Bool))
 (= (known-concept-node? $kbid $node)

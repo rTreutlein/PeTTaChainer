@@ -74,8 +74,11 @@
    (-[det]-> Atom Atom Atom Atom Number
        (Statement KBContext Proof TV)))
 (= (replace-stored-runtime-proof $type $kb $_proof $tv $pid)
-   (quote
-      ($type $kb (proof-ref $pid) $tv)))
+   (data
+      (brand Statement $type)
+      (brand KBContext $kb)
+      (brand Proof (proof-ref $pid))
+      (the TV $tv)))
 
 (: normalize-proof-output-atom-kind
    (-[det]-> (| Goal (Statement KBContext Proof TV)) Number

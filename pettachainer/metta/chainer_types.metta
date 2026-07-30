@@ -50,6 +50,14 @@
 ;; branded rather than attempting to rediscover those roles at runtime.
 (: RuntimeResult (Newtype Expression))
 
+;; The canonical knowledge space stores internal runtime facts in
+;; `(statement kb-context proof tv)` order.  Naming the schema keeps those
+;; roles intact across reads, so consumers can bind and reuse the complete row
+;; without rebuilding and rechecking it.
+(: &kb
+   (SpaceOf
+      (Statement KBContext Proof TV)))
+
 ;; The compiler/runtime query handoff is shared by the compiler, backward
 ;; chainer, and public query runtime.
 (: CompiledQueryGoal (Newtype Expression))

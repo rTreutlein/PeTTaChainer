@@ -52,10 +52,10 @@
 (= (emit-stored-forward-output-rows
       (cons
          (forward-output-row
-            ($type $kb $proof $tv) $evidence)
+            $fact $evidence)
          $_rest))
    (forward-output-row
-      (assemble-stored-runtime-fact $type $kb $proof $tv)
+      $fact
       (stored-evidence-list $evidence)))
 (= (emit-stored-forward-output-rows
       (cons $_row $rest))
@@ -842,31 +842,24 @@
             (first-forward-output-row $rows)
             (forward-output-candidate $fact $evidence)))))
 
-;; &kb is intentionally untyped storage. Re-establish the erased fact roles in
-;; one named boundary; only the TV needs a real runtime validation because its
-;; numeric fields affect inference.
+;; &kb's SpaceOf schema preserves all fact roles across lookup. Reconstruct the
+;; positional product only because this consumer needs the complete row.
 (: forward-output-row-from-stored
-   (-[det]-> Atom Atom Atom Atom ForwardOutputRow))
+   (-[det]-> Statement KBContext Proof TV ForwardOutputRow))
 (= (forward-output-row-from-stored $type $kb $proof $tv)
    (let*
-      (($typed-type (brand Statement $type))
-       ($typed-kb (brand KBContext $kb))
-       ($typed-proof (brand Proof $proof))
-       ($typed-tv (checked-stored-tv $tv))
-       ($fact
-          (assemble-runtime-fact
-             $typed-type $typed-kb $typed-proof $typed-tv)))
+      (($fact (data $type $kb $proof $tv)))
       (forward-output-row
          $fact
          (forward-fact-evidence
-            $typed-type $typed-kb $typed-proof $typed-tv))))
+            $type $kb $proof $tv))))
 
 (: forward-member-output-row
    (-[nondet]-> KB Term Term  ForwardOutputRow))
 (= (forward-member-output-row $kbid $obj $class)
    (let*
-      (($type (Member $obj $class))
-       ($kb ($kbid MAIN Nil))
+      (($type (brand Statement (Member $obj $class)))
+       ($kb (make-kb-context $kbid MAIN Nil))
        ($hash (term_hash (quote ($kb $type))))
        ($rows
           (collapse
@@ -1678,9 +1671,10 @@
 (= (forward-step-fact $steps $kb $run $fact)
    (let*
       (($_base-rates (forward-update-base-rates $fact))
-        ($_member-inheritances (forward-update-member-inheritances $fact))
-        ($derived (forward-rule-results $steps $kb $fact))
-        ($nrun (fold-flat forward-run-apply-derived $run $derived)))
+       ($_member-inheritances (forward-update-member-inheritances $fact))
+       ($nrun
+          (fold-flat forward-run-apply-derived $run
+             (forward-rule-results $steps $kb $fact))))
       $nrun))
 
 ;; If several derivations update one output before it is processed, only its

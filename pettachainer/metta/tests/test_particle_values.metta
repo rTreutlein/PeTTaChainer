@@ -142,4 +142,6 @@
 !(compileadd kb
    (: keptParticleFact (CountryHeightDist keepCountry (ParticleFromPairs ((170 0.7) (180 0.3)))) (STV 1.0 1.0)))
 
-!(test (progn (ParticleFromPairs ((999 1.0))) (ParticleStorePruneKB)) 0)
+;; Pruning keeps the two samples referenced by keptParticleFact and removes
+;; only the unreferenced point mass.
+!(test (progn (ParticleFromPairs ((999 1.0))) (ParticleStorePruneKB)) 2)

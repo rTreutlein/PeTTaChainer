@@ -1433,7 +1433,7 @@
 ;; subject with the query's hypothetical instance; auxiliary premises remain
 ;; grounded MAIN facts.
 (: inheritance-lift-parts
-   (-[det]-> (List Expression) (List Expression) $subject $instance
+   (-[semidet]-> (List Expression) (List Expression) $subject $instance
        ((List Expression) (List Expression))))
 (= (inheritance-lift-parts () () $_source-subj $_instance)
    (data () ()))
@@ -2248,41 +2248,53 @@
 ;; An implication used as a query assumption must be executable inside its
 ;; fresh context, not merely stored as an inert contextual fact. Compile its
 ;; forward rule against the same shaped KB so it can consume sibling assumptions.
+(: query-context-compile-assumed-implication
+   (-[det]-> KB $context $variables Proof TV (List Expression)
+       CompiledPremises
+       (List CompiledAddition)))
+(= (query-context-compile-assumed-implication
+      $kbid $ctx $mvars $ctxprf $tv $conclusions
+      ($execs $proofs $atv))
+   (let*
+      (($shape-kb
+          (make-kb-context $kbid $ctx $mvars))
+       ($a
+          (brand Statement
+             (execs-goal-type $execs)))
+       ($b
+          (brand Statement
+             (seq2expr $conclusions))))
+      (collapse
+         (compile-implication-forward-rules
+            $kbid $shape-kb $shape-kb
+            $ctxprf $tv $a $b
+            $execs $proofs $atv))))
+
 (: query-context-assumed-implication-rules
    (-[det]-> KB $context $variables Proof Statement TV
        (List CompiledAddition)))
 (= (query-context-assumed-implication-rules $kbid $ctx $mvars $ctxprf $type $tv)
    (if (is-var $type) ()
-      (if (= $type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
-         (let*
-            (($lowered
-                (collapse
-                   (once
-                      (lower-source-premises
-                         $kbid $ctx $mvars
-                         (the (List Expression) $premises)
-                         (the (List Expression)
-                            $conclusions))))))
-            (if (== $lowered ())
-               ()
-               (let*
-                  (((
-                        $execs $proofs $atv)
-                       (car-atom $lowered))
-                   ($shape-kb
-                      (make-kb-context $kbid $ctx $mvars))
-                   ($a
-                      (brand Statement
-                         (execs-goal-type $execs)))
-                   ($b
-                      (brand Statement
-                         (seq2expr $conclusions))))
-                  (collapse
-                     (compile-implication-forward-rules
-                        $kbid $shape-kb $shape-kb
-                        $ctxprf $tv $a $b
-                        $execs $proofs $atv)))))
-         ())))
+      (case $type (
+         ((Implication (cons Premises $premises) (cons Conclusions $conclusions))
+            (let*
+               (($lowered
+                   (the (List CompiledPremises)
+                      (collapse
+                         (once
+                            (lower-source-premises
+                               $kbid $ctx $mvars
+                               (the (List Expression) $premises)
+                               (the (List Expression)
+                                  $conclusions)))))))
+               (case $lowered (
+                  (() ())
+                  ((cons $compiled-premises $_rest)
+                     (query-context-compile-assumed-implication
+                        $kbid $ctx $mvars $ctxprf $tv
+                        (the (List Expression) $conclusions)
+                        $compiled-premises))))))
+         ($_other ())))))
 
 (: query-context-premise-assumption-adds
    (-[det]-> KB $context $variables Proof Statement TV

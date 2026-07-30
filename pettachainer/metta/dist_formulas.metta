@@ -76,7 +76,13 @@
             true))))
 
 (: ParticleStoreClear (-[det]-> Bool))
-(= (ParticleStoreClear) (progn (remove-all-atoms &particle_store) (change-state! particleid 0)))
+;; &kb may still contain ParticleDist references after the backing store is
+;; cleared. Keep IDs monotonic so subsequently created particles cannot alias
+;; those stale references.
+(= (ParticleStoreClear)
+   (progn
+      (remove-all-atoms &particle_store)
+      true))
 
 ;; Particle distributions can be embedded anywhere in a compiled fact or TV,
 ;; so this is intentionally a generic structural walk rather than a
@@ -118,7 +124,7 @@
       (($keep
            (list_to_set
               (collapse
-                 (match &kb (: $_kb $_prf $_type $tv)
+                 (match &kb ($_type $_kb $_prf $tv)
                     (let $particle-ids
                        (append
                           (particle-ids-in-term $_type)

@@ -21,7 +21,9 @@
 (: BenchStoredAnnotatedStatement
    (-[det]-> Atom Atom Atom AnnotatedStatement))
 (= (BenchStoredAnnotatedStatement $proof $type $tv)
-   (quote (: $proof $type $tv)))
+   (: (brand Proof $proof)
+      (brand Statement $type)
+      (the TV $tv)))
 
 (: BenchListCount (-[det]-> (List $item) Number))
 (= (BenchListCount ()) 0)
@@ -615,7 +617,7 @@
 (: BenchFirstOr (-[det]-> (List $item) $item $item))
 (= (BenchFirstOr $list $default) (if (== $list ()) $default (car-atom $list)))
 
-(: BenchMainConfValue (-[det]-> $bench $path Number Number Number))
+(: BenchMainConfValue (-[det]-> $bench Number Number Number Number))
 (= (BenchMainConfValue $bench $path $level $idx)
    (BenchFirstOr
       (collapse

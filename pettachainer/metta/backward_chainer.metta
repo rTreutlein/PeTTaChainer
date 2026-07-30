@@ -12,11 +12,6 @@
 (= (reverse-number-list-into () $acc) $acc)
 (= (reverse-number-list-into (cons $item $rest) $acc)
    (reverse-number-list-into $rest (cons $item $acc)))
-(: backward-runtime-fact
-   (-[det]-> Atom Atom Atom Atom
-       (Statement KBContext Proof TV)))
-(= (backward-runtime-fact $statement $kb $proof $tv)
-   (quote ($statement $kb $proof $tv)))
 (: backward-acyclic-term? (-[det]-> Atom Bool))
 (= (backward-acyclic-term? $term)
    (== (collapse
@@ -161,10 +156,10 @@
       (activate-compiled-query $compiled-query)))
 
 (: aggregate-step-value
-   (-[det]-> ExtractValue
+   (-[semidet]-> ExtractValue
        $child-atom (| TV NoTV) $value))
 (: aggregate-step-value
-   (-[det]-> ExtractInheritanceTV
+   (-[semidet]-> ExtractInheritanceTV
        $child-atom TV WeightedTV))
 (: aggregate-step-value
    (-[det]-> ExtractTV $child-atom TV TV))
@@ -179,7 +174,7 @@
          $child-tv)))
 (= (aggregate-step-value extract-tv $_child-atom $child-tv) $child-tv)
 (: aggregate-step-group-value
-   (-[det]-> Statement $group-template $child-atom $group))
+   (-[semidet]-> Statement $group-template $child-atom $group))
 (= (aggregate-step-group-value $pattern $group $child-atom)
    (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $group))
 
@@ -501,18 +496,21 @@
    (-[semidet]-> (| Proof ProofRef)
        (| SourceEntry NoSourceEntry)))
 (= (frontier-source-entry $base)
-   (if (= $base (proof-ref $bpid))
-      (frontier-source-entry-from-atom
-         (proof-output-atom-by-id (the Number $bpid)))
-      (let $hits
-         (collapse
-            (match &kb ($type $kb $base $tv)
-               (let $e
-                  (frontier-source-entry-from-atom
-                     (backward-runtime-fact
-                        $type $kb $base $tv))
-                  (if (== $e no-source-entry) (empty) $e))))
-         (if (== $hits ()) no-source-entry (car-atom $hits)))))
+   (case $base (
+      ((proof-ref $bpid)
+         (frontier-source-entry-from-atom
+            (proof-output-atom-by-id $bpid)))
+      ($raw-proof
+         (let $proof (brand Proof $raw-proof)
+            (let $hits
+               (collapse
+                  (match &kb
+                     ($type $kb $proof $tv)
+                     (let $e
+                        (frontier-source-entry-from-atom
+                           (data $type $kb $proof $tv))
+                        (if (== $e no-source-entry) (empty) $e))))
+               (if (== $hits ()) no-source-entry (car-atom $hits))))))))
 
 (: frontier-proof-term (-[det]-> ProofKind (| $term NoTerm)))
 (= (frontier-proof-term $kind)
@@ -569,7 +567,7 @@
                         (brand KB $kbid) $ctx $vars)
                      (frontier-atom-part
                         $pid
-                        (backward-runtime-fact
+                        (assemble-stored-runtime-fact
                            $type $fact-kb $prf $tv))))))))))
 
 (: frontier-part-or-unpoolable
@@ -840,13 +838,14 @@
    (case $part (
       ((pool-part $key $_btv $_n $_idxs $_ev $_mtv)
          (let $existing (frontier-parts-same-pool $parts $key)
-            (if (== $existing no-pool) false
-               (let (pool-part $_k $_btv2 $_n2 $_idxs2 $oev $_mtv2) $existing
+            (case $existing (
+               (no-pool false)
+               ((pool-part $_k $_btv2 $_n2 $_idxs2 $oev $_mtv2)
                   (evidence-subset?
                      (evidence-intersection
                         (fact-evidence-only $seen)
                         (fact-evidence-only $pev))
-                     (fact-evidence-only $oev))))))
+                     (fact-evidence-only $oev)))))))
       ($_ false))))
 
 (: frontier-advance-pooled-heap
@@ -1125,26 +1124,38 @@
 (= (spawn-aggregate-goal-heap $agenda $score $agg-gid $goal-view)
    (let*
       (($args (copy_term (let (CPU $_agg-fun $view-args $_goalres) $goal-view $view-args)))
-       ($cache-key (base-rate-aggregate-key $args))
-       ($entries
-          (case $cache-key (
-             ((base-rate-aggregate-key-value $kbid $pattern $mode)
-                (base-rate-cache-entries-for-mode
-                   (brand KB $kbid)
-                   (brand Statement $pattern)
-                   $mode))
-             (no-base-rate-aggregate-key ())))))
-      (if (== $entries ())
-         (spawn-aggregate-goal-live-heap $agenda $score $agg-gid $goal-view $args)
-         (let (base-rate $_kbid $_stored $stored-tv $source $_mode)
-            (car-atom $entries)
-            (let $tv (the TV $stored-tv)
-               (if (== $source user)
-                  (commit-cached-aggregate-heap
-                     $agenda $agg-gid $args $tv)
-                  (spawn-refining-aggregate-heap
-                     $agenda $score $agg-gid $goal-view
-                     $args $tv (the BaseRateSource $source))))))))
+       ($cache-key (base-rate-aggregate-key $args)))
+      (case $cache-key (
+         ((base-rate-aggregate-key-value $kbid $pattern $mode)
+            (spawn-aggregate-goal-cached-or-live-heap
+               $agenda $score $agg-gid $goal-view $args
+               (base-rate-cache-entries-for-mode
+                  (brand KB $kbid)
+                  (brand Statement $pattern)
+                  $mode)))
+         (no-base-rate-aggregate-key
+            (spawn-aggregate-goal-live-heap
+               $agenda $score $agg-gid $goal-view $args))))))
+
+(: spawn-aggregate-goal-cached-or-live-heap
+   (-[nondet]-> (Heap (| QueueGoal QueueAggregate))
+       Number Number Goal $arguments (List BaseRateEntry)
+       (Heap (| QueueGoal QueueAggregate))))
+(= (spawn-aggregate-goal-cached-or-live-heap
+      $agenda $score $agg-gid $goal-view $args $entries)
+   (case $entries (
+      (() (spawn-aggregate-goal-live-heap
+             $agenda $score $agg-gid $goal-view $args))
+      ((cons $entry $_rest)
+         (let*
+            (($tv (base-rate-entry-tv $entry))
+             ($source (base-rate-entry-source $entry)))
+            (if (== $source user)
+               (commit-cached-aggregate-heap
+                  $agenda $agg-gid $args $tv)
+               (spawn-refining-aggregate-heap
+                  $agenda $score $agg-gid $goal-view
+                  $args $tv $source)))))))
 
 (: spawn-aggregate-goal-live-heap
    (-[nondet]-> (Heap (| QueueGoal QueueAggregate)) Number Number Goal $arguments (Heap (| QueueGoal QueueAggregate))))
@@ -1506,10 +1517,9 @@
    (CPU $fun $args (reduce (cpu-call $steps $fun $args))))
 (= (direct-goal-results-view $steps ($type $kb $prf $tv))
    (match &kb ($type $kb $prf $tv)
-      (let $raw (quote ($type $kb $prf $tv))
-         (if (backward-acyclic-term? $raw)
-            (backward-runtime-fact
-               $type $kb $prf $tv)
+      (let $fact (data $type $kb $prf $tv)
+         (if (backward-acyclic-term? $fact)
+            $fact
             (empty)))))
 
 (: expand-direct-goal-step
@@ -1642,12 +1652,12 @@
                (let $fact-kb
                   (make-kb-context
                      (brand KB $kbid) $ctx $vars)
-                  (backward-runtime-fact
+                  (assemble-stored-runtime-fact
                      $type $fact-kb $prf $tv))
                (let $fact-kb
                   (make-kb-context
                      (brand KB $kbid) $prem-ctx $prem-vars)
-                  (backward-runtime-fact
+                  (assemble-stored-runtime-fact
                      $type $fact-kb $prf $tv))))
          ((CPU $fun $args $res) (CPU $fun $args $res))))))
 
@@ -1824,7 +1834,7 @@
                    (make-kb-context
                       (brand KB $kbid) $ctx $vars))
                 ($fact
-                   (backward-runtime-fact
+                   (assemble-stored-runtime-fact
                       $type $fact-kb $prf $tv)))
                (if (== (extract-vars $type) ())
                   (if (prefilter-fact-missing? $fact)
