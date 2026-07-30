@@ -240,7 +240,7 @@
       (let $head (car-atom $type)
          (if (= (configured-compound-output-mode $head) ProjectAll)
             (compile-output-children
-               $kb (brand Statement $type) $head 0
+               $kb $type $head 0
                (statement-children (cdr-atom $type)))
             (empty)))
       (empty)))
@@ -537,7 +537,7 @@
       (((premise-bundle $execs $tv $proof)
           (query-compound-child-bundle
              $kb $ctx $vars
-             (brand Statement $premise)))
+             $premise))
        (($cpu $next-tv)
           (binary-tv-cpu $formula $acc-tv $tv)))
       (data
@@ -807,7 +807,7 @@
       (premise-bundle $execs $tv $proof))
    (if (== $current-execs ())
       (data
-         $execs (cons (brand Proof $proof) ()) $tv)
+         $execs (cons $proof ()) $tv)
       (let ($cpu $next-tv)
          (binary-tv-cpu AndFormula $current-tv $tv)
          (data
@@ -936,19 +936,20 @@
       (($premise-vars (list_to_set (extract-vars $premise)))
         ($rest-vars (list_to_set (extract-vars $rest)))
         ($other-vars (append-variables $prior-vars $rest-vars))
-        ($nprior (append-variables $prior-vars $premise-vars)))
+        ($nprior (append-variables $prior-vars $premise-vars))
+        ($typed-premise (brand Statement $premise)))
       (if (compile-premise-has-existentials?
              $conclusion-vars $other-vars
-             (brand Statement $premise))
+             $typed-premise)
          (let $group-vars
             (compile-premise-group-vars
                $conclusion-vars $other-vars
-               (brand Statement $premise))
+               $typed-premise)
             (partition-existential-premises-walk $conclusion-vars $nprior $normal
                (append-expressions $folded
                   (cons
                      (ExistentialFold
-                        (brand Statement $premise) $group-vars)
+                        $typed-premise $group-vars)
                      ()))
                $rest))
          (partition-existential-premises-walk $conclusion-vars $nprior
@@ -1229,7 +1230,7 @@
          (data
             ()
             (brand Proof (quote ($prf $proof-token)))
-            (brand Statement $other)
+            $other
             $btv)))))
 
 ;; Emit the forward rule plus the adapters needed on both sides. The shape KB is
@@ -1251,14 +1252,12 @@
                     $prf $proof-token $b (the STVType $btv)))
               ($allargs
                  (append
-                    (the (List Goal) $execs)
+                    $execs
                     (append
-                       (the (List Goal) $ctv-execs)
+                       $ctv-execs
                        (append
-                          (the (List Goal)
-                             ((CPU CTVModusPonensFormula ($atv $rule-ctv) $btv)))
-                          (the (List Goal)
-                             $out-execs))))))
+                          ((CPU CTVModusPonensFormula ($atv $rule-ctv) $btv))
+                          $out-execs)))))
             (brand CompiledAddition
                ($allargs |-
                   ((: $shape-kb $out-prf $out-type $out-tv))))))
@@ -1495,7 +1494,7 @@
        ($context-proof (implication-proof-token $context-proofs))
        ($all-evidence
           (CPU AndFormula (quote ($main-atv $context-atv)) $all-atv))
-       ($rule-ctv (inheritance-lift-ctv (the TV $tv)))
+       ($rule-ctv (inheritance-lift-ctv $tv))
        ($modus-ponens
           (CPU CTVModusPonensFormula (quote ($all-atv $rule-ctv)) $out-tv))
        ($out
@@ -1698,9 +1697,8 @@
    (-[nondet]-> KB Statement  Statement))
 (= (compiler-specialization-fact $kb $trigger)
    (match &kb ($candidate ($kb $_ctx $_vars) $_prf $_tv)
-      (let $typed-candidate (brand Statement $candidate)
-         (let $trigger $typed-candidate
-            $typed-candidate))))
+      (let $trigger $candidate
+         $candidate)))
 
 ;; Bind the trigger variables by matching each remaining trigger against the
 ;; compiler-visible fact providers; $body shares those variables, so it comes
@@ -1848,7 +1846,7 @@
              (($execs $proofs $atv)
                 (once
                    (lower-source-premises $kb $ctx $vars
-                      (the (List Expression) $premises)
+                      $premises
                       (the (List Expression) $conclusions))))
              ($shape-kb (make-kb-context $kb $ctx $vars))
              ($adapter-kb (kbctx $kb))
@@ -1862,11 +1860,11 @@
              ($skip-inverse (or (disable-inversion-proof-id? $prf) (contains-cpu? (execs-goal-type $execs)))))
 	            (superpose (
 	                 (compile-implication-forward-rules
-	                    $kb $shape-kb $adapter-kb $prf (the TV $tv)
+	                    $kb $shape-kb $adapter-kb $prf $tv
 	                    $a $b $execs $proofs $atv)
 	                 (if (not $skip-inverse)
 	                    (inverse-implication
-	                       $kb $prf $na $b (the TV $tv))
+	                       $kb $prf $na $b $tv)
 	                    (empty))
 	                 (if (or $skip-inverse (is-var $na)) (empty)
 	                    (compile-outputs
@@ -1877,8 +1875,8 @@
 	                    (compile-adapter-chain plain
 	                       (: $adapter-kb $pb2 $b $btv2)))
 	                 (compile-inheritance-rule-lifts $kb (: $prf $Type $tv)
-	                    (the (List Expression) $premises)
-	                    (the (List Expression) $conclusions)))))))
+	                    $premises
+	                    $conclusions))))))
          (if (bidirectional-implication-type? $Type)
             (let ($_head (cons Premises $left) (cons Conclusions $right)) $Type
                (superpose (
@@ -1901,7 +1899,7 @@
                         (compile-derived-inheritance-views
                            $kb $prf
                            (brand Term $subj) (brand Term $concept)
-                           (the TV $tv))
+                           $tv)
                         (empty))
                      (compile-specialization-fact-triggers $kb $Type)
                      (compile-outputs (: $fact-kb $prf $Type $tv))))
@@ -2092,7 +2090,7 @@
                    (the (List Expression) $premises)
                    (the (List Expression) $conclusions)))
              (($known-pos-tv $known-neg-tv $known-tv)
-                (implication-query-known-tv-parts (the TV $tv)))
+                (implication-query-known-tv-parts $tv))
              ($known-pos-goal (: $pos-shape-kb $pos-prf $b $known-pos-tv))
              ($known-neg-goal (: $neg-shape-kb $neg-prf $b $known-neg-tv))
              ;; The two contextual answers are alternative evaluations of one
@@ -2120,8 +2118,8 @@
                     (($right-shape-kb $right-prf
                          $right-goal-expr $right-adds)
                        (query-side $kb $mvars false
-                          (the (List Expression) $right)
-                          (the (List Expression) $left)))
+                          $right
+                          $left))
                     ($left-goal (: $left-shape-kb $left-prf $left-goal-expr $left-tv))
                     ($right-goal (: $right-shape-kb $right-prf $right-goal-expr $right-tv))
                     ($goal (: (kbctx $kb) (bidirectional $left-prf $right-prf) $Type $tv)))
@@ -2279,20 +2277,19 @@
          ((Implication (cons Premises $premises) (cons Conclusions $conclusions))
             (let*
                (($lowered
-                   (the (List CompiledPremises)
-                      (collapse
-                         (once
-                            (lower-source-premises
-                               $kbid $ctx $mvars
-                               (the (List Expression) $premises)
-                               (the (List Expression)
-                                  $conclusions)))))))
+                   (collapse
+                      (once
+                         (lower-source-premises
+                            $kbid $ctx $mvars
+                            (the (List Expression) $premises)
+                            (the (List Expression)
+                               $conclusions))))))
                (case $lowered (
                   (() ())
                   ((cons $compiled-premises $_rest)
                      (query-context-compile-assumed-implication
                         $kbid $ctx $mvars $ctxprf $tv
-                        (the (List Expression) $conclusions)
+                        $conclusions
                         $compiled-premises))))))
          ($_other ())))))
 
@@ -2470,7 +2467,7 @@
 ;; remain untouched.
 (: externalize-query-proof (-[nondet]-> Proof Proof))
 (= (externalize-query-proof $proof)
-   (if (is-var $proof) (brand Proof $proof)
+   (if (is-var $proof) $proof
       (if (= $proof (inheritance-query-result $inner))
          (externalize-query-proof (brand Proof $inner))
          (if (= $proof (total-implication-frontier $inner))
@@ -2482,7 +2479,7 @@
                      (car-atom $proof))
                   (externalize-query-proof-children
                      (cdr-atom $proof))))
-            (brand Proof $proof))))))
+            $proof)))))
 
 (: externalize-query-proof-child
    (-[nondet]-> Atom Proof))

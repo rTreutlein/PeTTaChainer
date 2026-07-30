@@ -127,9 +127,7 @@
    (let*
       (($stmt1 (materialize-stmt-lambdas $stmt))
         ($raw-atoms (collapse (mm2compile $kb $stmt1)))
-        ($atoms
-           (the (List RuntimeAddition)
-              $raw-atoms))
+        ($atoms $raw-atoms)
         ($iatoms
            (list_to_set
               (map-flat internalize-runtime-addition $atoms)))

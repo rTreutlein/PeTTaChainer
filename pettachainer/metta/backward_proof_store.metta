@@ -147,7 +147,7 @@
          (case $term (
             ((proof-ref $pid)
                (materialize-proof-refs
-                  (materialize-proof (the Number $pid))))
+                  (materialize-proof $pid)))
             ($_other
                (cons (materialize-proof-refs (car-atom $term))
                   (proof-map-flat-semidet
@@ -179,7 +179,7 @@
    (case $raw (
       ((CPU $_fun $_args $_res) (brand Proof cpu))
       (($_type ($_kbid $_ctx $_vars) $prf $_tv)
-         (brand Proof $prf))
+         $prf)
       ($_other (brand Proof $raw)))))
 (: aggregate-proof-label (-[semidet]-> $aggregate Proof))
 (= (aggregate-proof-label (CPU FoldAllCompiled $args $_res))
@@ -782,7 +782,7 @@
          ((CPU $_formula $_arguments $_result)
             (empty))
          (($t $kb $prf $tv)
-            (let $stored (the TV $tv)
+            (let $stored $tv
                (if
                   (factor-key-in?
                      (candidate-output-key $out) $keys)
@@ -931,7 +931,7 @@
       (if (== $residuals ()) false
          (let $rebuilt
             (CTVModusPonensFormula $conj
-               (the CTVType (car-atom $residuals)))
+               (car-atom $residuals))
             (factor-tv-close? (the TV $stored) $rebuilt)))))
 (: factor-roundtrips?
    (-[semidet]-> (List Number) (List ProofOutputKey)
@@ -1159,12 +1159,13 @@
 (: leaf-evidence-for-stored-fact
    (-[det]-> Atom Atom Atom Atom (List Evidence)))
 (= (leaf-evidence-for-stored-fact $type $kb $proof $tv)
-   (if (assumption-proof? (brand Proof $proof)) ()
-      (forward-fact-evidence
-         (brand Statement $type)
-         (brand KBContext $kb)
-         (brand Proof $proof)
-         (the TV $tv))))
+   (let $typed-proof (brand Proof $proof)
+      (if (assumption-proof? $typed-proof) ()
+         (forward-fact-evidence
+            (brand Statement $type)
+            (brand KBContext $kb)
+            $typed-proof
+            (the TV $tv)))))
 
 (: leaf-evidence-for-result
    (-[det]-> (| Goal (Statement KBContext Proof TV))

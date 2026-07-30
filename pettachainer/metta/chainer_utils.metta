@@ -55,7 +55,7 @@
 (= (checked-stored-stv $tv)
    (case $tv
       (((STV $s $c)
-          (STV (the Number $s) (the Number $c)))
+          (STV $s $c))
        ($other (the STVType $other)))))
 
 (: checked-stored-tv (-[det]-> Expression TV))
@@ -64,13 +64,13 @@
       (the TV $tv)
       (case $tv
          (((STV $s $c)
-             (STV (the Number $s) (the Number $c)))
+             (STV $s $c))
           ((CTV $pos $neg)
              (CTV
                 (checked-stored-stv $pos)
                 (checked-stored-stv $neg)))
           (no-evidence no-evidence)
-          ($other (the TV $other))))))
+          ($other $other)))))
 
 (: normalize-expected-tv (-[det]-> $truth-value TV))
 (= (normalize-expected-tv $tv)
@@ -237,7 +237,7 @@
           (if (is-var $prf)
              (* 0.99 (tv-confidence $tv))
              (proof-score
-                (brand Proof $prf) $tv)))
+                $prf $tv)))
        ($_other 0.0))))
 
 (: cpu-result-confidence (-[det]-> $result Number))
@@ -344,8 +344,7 @@
           ($size
              (if (== $size-values ())
                 0
-                (the Number
-                   (car-atom $size-values))))
+                (car-atom $size-values)))
           ($threshold (* $target (bounded-agenda-prune-factor))))
          (if (> $size $threshold)
             (heap-prune-to-size $target $agenda)
@@ -645,7 +644,7 @@
    (list_to_set
       (once
          (proof-term-evidence-list-mode
-            proof-walk-in-kb (brand Proof $prf)))))
+            proof-walk-in-kb $prf))))
 
 (: evidence-intersection
    (-[det]-> (List Evidence) (List Evidence) (List Evidence)))
@@ -761,14 +760,12 @@
 (= (rule-application-evidence $kb $prf)
    (once
       (if (= $kb ($kbid $_ctx $_vars))
-         (let $name (rule-evidence-head $prf)
+         (let*
+            (($name (rule-evidence-head $prf))
+             ($typed-kbid (brand KB $kbid)))
             (if (is-expr $name) ()
-               (if (rule-evidence-registered?
-                     (brand KB $kbid) (brand Proof $name))
-                  (cons
-                     (rule-ev
-                        (brand KB $kbid) (brand Proof $name))
-                     ())
+               (if (rule-evidence-registered? $typed-kbid $name)
+                  (cons (rule-ev $typed-kbid $name) ())
                   ())))
          ())))
 
@@ -1161,7 +1158,7 @@
 (= (WeightedBaseRateWithPriorTv
       (BaseRateEvidenceWithPrior $prior $ev))
    (BaseRateWithPriorFormula
-      (resolve-base-rate-prior (brand BaseRatePrior $prior))
+      (resolve-base-rate-prior $prior)
       (WeightedBaseRateTv $ev)))
 
 (: member-inheritance-tv

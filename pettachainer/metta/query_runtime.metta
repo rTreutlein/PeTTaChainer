@@ -14,11 +14,11 @@
 (: pretty-result-list
    (-[det]-> Expression (List AnnotatedStatement)))
 (= (pretty-result-list $result)
-   ;; pretty is semidet, so this list contains at most one value. Keep the
-   ;; explicit boundary check local and constant-sized.
+   ;; pretty is semidet, so this list contains at most one value. Its declared
+   ;; result now propagates through collapse without a boundary ascription.
    (let $raw-results
       (collapse (pretty $result))
-      (the (List AnnotatedStatement) $raw-results)))
+      $raw-results))
 
 (: pretty-results
    (-[det]-> (List Expression) (List AnnotatedStatement)))

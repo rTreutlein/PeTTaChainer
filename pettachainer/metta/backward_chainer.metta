@@ -169,7 +169,7 @@
    (let ((Inheritance $subj $_concept) ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom)
       (WeightedTv
          (inheritance-subject-prior-tv
-            (brand KB $kbid)
+            $kbid
             (brand Statement $subj))
          $child-tv)))
 (= (aggregate-step-value extract-tv $_child-atom $child-tv) $child-tv)
@@ -195,11 +195,11 @@
             ($fun $acc
                (WeightedTv
                   (inheritance-subject-prior-tv
-                     (brand KB $kbid)
+                     $kbid
                      (brand Statement $subj))
-                  (the TV $child-tv)))))
+                  $child-tv))))
       (extract-tv
-         ($fun $acc (the TV $child-tv))))))
+         ($fun $acc $child-tv)))))
 
 (: aggregate-finish (-[det]-> IdentityFinish $acc $acc))
 (: aggregate-finish
@@ -299,12 +299,12 @@
          (WeightedBaseRateWithPriorTv
             (base-rate-evidence-with-prior-acc $acc)))
       ((member-inheritance $kbid)
-         (member-inheritance-tv (brand KB $kbid)
+         (member-inheritance-tv $kbid
             (base-rate-evidence-acc $acc)))
       ((weighted-base-rate-in-universe $kbid)
          (let $ev (base-rate-evidence-acc $acc)
             (let $universe-size
-               (kb-universe-size (brand KB $kbid))
+               (kb-universe-size $kbid)
                (if (== $universe-size no-universe-size)
                   (WeightedBaseRateTv $ev)
                   (WeightedUniverseBaseRateTv
@@ -313,7 +313,7 @@
          (let (BaseRateEvidenceWithPrior $prior $ev)
             (base-rate-evidence-with-prior-acc $acc)
             (let $universe-size
-               (kb-universe-size (brand KB $kbid))
+               (kb-universe-size $kbid)
                (BaseRateWithPriorFormula
                   (resolve-base-rate-prior $prior)
                   (if (== $universe-size no-universe-size)
@@ -347,16 +347,16 @@
             (base-rate-evidence-with-prior-acc $acc)))
       ((member-inheritance $kbid)
          (finish-aggregate
-            (member-inheritance (brand KB $kbid))
+            (member-inheritance $kbid)
             (base-rate-evidence-acc $acc)))
       ((weighted-base-rate-in-universe $kbid)
          (finish-aggregate
-            (weighted-base-rate-in-universe (brand KB $kbid))
+            (weighted-base-rate-in-universe $kbid)
             (base-rate-evidence-acc $acc)))
       ((weighted-base-rate-with-prior-in-universe $kbid)
          (finish-aggregate
             (weighted-base-rate-with-prior-in-universe
-               (brand KB $kbid))
+               $kbid)
             (base-rate-evidence-with-prior-acc $acc)))
       (uniform-prior
          (finish-aggregate uniform-prior
@@ -500,17 +500,15 @@
       ((proof-ref $bpid)
          (frontier-source-entry-from-atom
             (proof-output-atom-by-id $bpid)))
-      ($raw-proof
-         (let $proof (brand Proof $raw-proof)
-            (let $hits
-               (collapse
-                  (match &kb
-                     ($type $kb $proof $tv)
-                     (let $e
-                        (frontier-source-entry-from-atom
-                           (data $type $kb $proof $tv))
-                        (if (== $e no-source-entry) (empty) $e))))
-               (if (== $hits ()) no-source-entry (car-atom $hits))))))))
+      ($proof
+         (let $hits
+            (collapse
+               (match &kb
+                  (@ $fact ($_type $_kb $proof $_tv))
+                  (let $e
+                     (frontier-source-entry-from-atom $fact)
+                     (if (== $e no-source-entry) (empty) $e))))
+            (if (== $hits ()) no-source-entry (car-atom $hits)))))))
 
 (: frontier-proof-term (-[det]-> ProofKind (| $term NoTerm)))
 (= (frontier-proof-term $kind)
@@ -866,7 +864,7 @@
          (let $next-bundle
             (frontier-pooled-bundle
                (copy_term $bundle) $pid
-               (the TV (car-atom $folded-hits)))
+               (car-atom $folded-hits))
             (if (== $next-bundle ()) $agenda
                (let*
                   (($typed-next-bundle
@@ -932,7 +930,7 @@
    (case $waiter
       (((aggregate-waiter $agg-gid)
           (schedule-aggregate-waiters-heap
-             (schedule-aggregate-heap $agenda (the Number $agg-gid))
+             (schedule-aggregate-heap $agenda $agg-gid)
              $rest))
        ($_other
           (schedule-aggregate-waiters-heap $agenda $rest)))))
@@ -1130,8 +1128,8 @@
             (spawn-aggregate-goal-cached-or-live-heap
                $agenda $score $agg-gid $goal-view $args
                (base-rate-cache-entries-for-mode
-                  (brand KB $kbid)
-                  (brand Statement $pattern)
+                  $kbid
+                  $pattern
                   $mode)))
          (no-base-rate-aggregate-key
             (spawn-aggregate-goal-live-heap
@@ -1516,11 +1514,11 @@
 (= (direct-goal-results-view $steps (CPU $fun $args $_res))
    (CPU $fun $args (reduce (cpu-call $steps $fun $args))))
 (= (direct-goal-results-view $steps ($type $kb $prf $tv))
-   (match &kb ($type $kb $prf $tv)
-      (let $fact (data $type $kb $prf $tv)
-         (if (backward-acyclic-term? $fact)
-            $fact
-            (empty)))))
+   (match &kb
+      (@ $fact ($type $kb $prf $tv))
+      (if (backward-acyclic-term? $fact)
+         $fact
+         (empty))))
 
 (: expand-direct-goal-step
    (-[semidet]-> Number (| Goal (Statement KBContext Proof TV))
@@ -1570,14 +1568,12 @@
                      (mm2compileQuery
                         (brand KB $kbid)
                         (:
-                           (brand Proof $prf)
-                           (brand Statement $type)
-                           (the TV $tv))))
+                           $prf
+                           $type
+                           $tv)))
                   (foreach-flat
                      inject-compiled-query-adds
-                     (the
-                        (List CompiledQuery)
-                        $compiled-queries))))
+                     $compiled-queries)))
             ($_other ()))))
       ($_other ()))))
 
@@ -1633,7 +1629,7 @@
       (let $type-vars
          (extract-vars $type)
          (any-context-var-in?
-            (the (List Variable) $type-vars)
+            $type-vars
             (the (List Variable) $vars)))))
 
 (: contextualize-rule-premise
@@ -1642,24 +1638,25 @@
        (| Goal (Statement KBContext Proof TV))))
 (= (contextualize-rule-premise $premise
       ($_goal-type ($kbid $ctx $vars) $_goal-prf $_goal-tv))
-   (once
-      (case $premise (
-         (($type ($kbid $prem-ctx $prem-vars) $prf $tv)
+   (let $typed-kbid (brand KB $kbid)
+      (once
+         (case $premise (
+            (($type ($kbid $prem-ctx $prem-vars) $prf $tv)
             (if
                (and (== $prem-ctx MAIN)
                   (and (not (== $ctx MAIN))
                      (context-vars-in-type? $type $vars)))
                (let $fact-kb
                   (make-kb-context
-                     (brand KB $kbid) $ctx $vars)
+                     $typed-kbid $ctx $vars)
                   (assemble-stored-runtime-fact
                      $type $fact-kb $prf $tv))
                (let $fact-kb
                   (make-kb-context
-                     (brand KB $kbid) $prem-ctx $prem-vars)
+                     $typed-kbid $prem-ctx $prem-vars)
                   (assemble-stored-runtime-fact
                      $type $fact-kb $prf $tv))))
-         ((CPU $fun $args $res) (CPU $fun $args $res))))))
+            ((CPU $fun $args $res) (CPU $fun $args $res)))))))
 
 (: contextualize-rule-args
    (-[det]-> (| Goal (Statement KBContext Proof TV))
@@ -1960,7 +1957,7 @@
 (= (search-agenda-heap $steps $agenda)
    (if (<= $steps 0)
       (data $steps $agenda)
-      (if (== (the Number (heap_size $agenda)) 0)
+      (if (== (heap_size $agenda) 0)
          (data $steps $agenda)
          (let*
             ((($_priority $item $rest)
@@ -1980,8 +1977,8 @@
                   (proof-output-atom-by-id (the Number $current-pid))
                   (if (= $output (CPU $_fun $_out-args (STV $s $c)))
                      (store-computed-base-rate!
-                        (brand KB $kbid)
-                        (brand Statement $pattern)
+                        $kbid
+                        $pattern
                         (STV $s $c)
                         $mode)
                      ()))))))))
@@ -2015,28 +2012,25 @@
        ($root-gid (ensure-goal-at-depth $goal 0))
        ($agenda0
           (chainer-first-or (empty_heap)
-             (the (List Atom)
-                (collapse
-                   (once
-                      (schedule-goal-heap
-                         (empty_heap) 1.0 $root-gid))))))
+             (collapse
+                (once
+                   (schedule-goal-heap
+                      (empty_heap) 1.0 $root-gid)))))
        ($search-result
           (chainer-first-or
              (data 0 $agenda0)
-             (the (List SearchState)
-                (collapse
-                   (once
-                      (if (<= $steps 0)
-                         (data 0 $agenda0)
-                         (search-agenda-heap (+ $steps 1) $agenda0)))))))
+             (collapse
+                (once
+                   (if (<= $steps 0)
+                      (data 0 $agenda0)
+                      (search-agenda-heap (+ $steps 1) $agenda0))))))
        (($_steps-left $_agenda1)
           $search-result)
        ($_harvest (harvest-base-rates)))
       (data
          $root-gid
          (chainer-first-or ()
-            (the (List (List RuntimeResult))
-               (collapse (once (goal-results $root-gid))))))))
+            (collapse (once (goal-results $root-gid)))))))
 
 (: chainer
    (-[nondet]-> Number (| Goal (Statement KBContext Proof TV))

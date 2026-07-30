@@ -172,7 +172,7 @@
 (= (forward-fact-key ($type ($kbid $ctx $vars) $_prf $_tv))
    (forward-output-key
       (brand KBContext (quote ($kbid $ctx $vars)))
-      (brand Statement $type)))
+      $type))
 (: forward-fact-kb
    (-[det]-> (Statement KBContext Proof TV) KB))
 (= (forward-fact-kb ($_type ($kbid $_ctx $_vars) $_prf $_tv))
@@ -626,13 +626,13 @@
 (= (forward-base-rate-accumulator
       $kbid (extract-inheritance-tv $_ekbid $_pattern)
       (BaseRateEvidence $_iw $_ic) WeightedBaseRateAcc $wsum $csum)
-   (let $scale (forward-inheritance-mass-scale (brand KB $kbid))
+   (let $scale (forward-inheritance-mass-scale $kbid)
       (BaseRateEvidence (* $scale $wsum) (* $scale $csum))))
 (= (forward-base-rate-accumulator
       $kbid (extract-inheritance-tv $_ekbid $_pattern)
       (BaseRateEvidenceWithPrior $prior (BaseRateEvidence $_iw $_ic))
       WeightedBaseRateWithPriorAcc $wsum $csum)
-   (let $scale (forward-inheritance-mass-scale (brand KB $kbid))
+   (let $scale (forward-inheritance-mass-scale $kbid)
       (BaseRateEvidenceWithPrior $prior
          (BaseRateEvidence (* $scale $wsum) (* $scale $csum)))))
 
@@ -709,7 +709,7 @@
    (let $universe-size (kb-universe-size $kbid)
       (BaseRateWithPriorFormula
          (resolve-base-rate-prior
-            (brand BaseRatePrior $prior))
+            $prior)
          (if (== $universe-size no-universe-size)
             (WeightedBaseRateTv $ev)
             (WeightedUniverseBaseRateTv
@@ -728,12 +728,12 @@
       ((weighted-base-rate-in-universe $kbid)
          (forward-finish-aggregate
             (weighted-base-rate-in-universe
-               (brand KB $kbid))
+               $kbid)
             $acc))
       ((weighted-base-rate-with-prior-in-universe $kbid)
          (forward-finish-aggregate
             (weighted-base-rate-with-prior-in-universe
-               (brand KB $kbid))
+               $kbid)
             $acc)))))
 
 (: forward-update-base-rate-interest
@@ -791,13 +791,13 @@
              $observation-key $old-observations $fact $weight $count))
        ($acc
              (forward-base-rate-accumulator
-                (brand KB $kbid)
+                $kbid
                 $extractor $init $fun $wsum $csum))
        ($estimate
           (forward-finish-stored-aggregate $finish $acc))
        ($_cache
           (store-forward-base-rate!
-             (brand KB $kbid) $cache-pattern $estimate $finish)))
+             $kbid $cache-pattern $estimate $finish)))
       ()))
 
 (: forward-update-base-rates-for-key
@@ -807,13 +807,10 @@
       (forward-base-rate-interest-row
          $trigger $id $kbid $pattern
          $extractor $init $fun $finish $_tv-mode)
-      (let*
-         (($typed-kbid (brand KB $kbid))
-          ($typed-pattern (brand Statement (copy_term $pattern))))
-         (forward-update-base-rate-interest
-            $fact $id
-            $typed-kbid $typed-pattern
-            $extractor $init $fun $finish))))
+      (forward-update-base-rate-interest
+         $fact $id
+         $kbid (copy_term $pattern)
+         $extractor $init $fun $finish)))
 
 (: forward-update-base-rates
    (-[det]-> (Statement KBContext Proof TV) (List $none)))
@@ -842,18 +839,6 @@
             (first-forward-output-row $rows)
             (forward-output-candidate $fact $evidence)))))
 
-;; &kb's SpaceOf schema preserves all fact roles across lookup. Reconstruct the
-;; positional product only because this consumer needs the complete row.
-(: forward-output-row-from-stored
-   (-[det]-> Statement KBContext Proof TV ForwardOutputRow))
-(= (forward-output-row-from-stored $type $kb $proof $tv)
-   (let*
-      (($fact (data $type $kb $proof $tv)))
-      (forward-output-row
-         $fact
-         (forward-fact-evidence
-            $type $kb $proof $tv))))
-
 (: forward-member-output-row
    (-[nondet]-> KB Term Term  ForwardOutputRow))
 (= (forward-member-output-row $kbid $obj $class)
@@ -873,9 +858,11 @@
           (collapse
              (once
                 (match &kb
-                   ($type $kb $proof $tv)
-                   (forward-output-row-from-stored
-                      $type $kb $proof $tv))))))
+                   (@ $fact ($type $kb $proof $tv))
+                   (forward-output-row
+                      $fact
+                      (forward-fact-evidence
+                         $type $kb $proof $tv)))))))
       (if (== $rows ())
          (emit-stored-forward-output-rows $stored)
          (emit-stored-forward-output-rows $rows))))
@@ -1006,14 +993,9 @@
             (if (and (== $stored-kbid $kbid)
                      (== $stored-trigger
                          (quote (fwd_member $kbid $class))))
-               (let*
-                  (($typed-subj (brand Term $subj))
-                   ($typed-concept (brand Term $concept))
-                   ($typed-pattern
-                      (brand Statement (copy_term $pattern))))
-                  (forward-update-member-inheritance-interest
-                     $obj $id $kbid
-                     $typed-subj $typed-concept $typed-pattern))
+               (forward-update-member-inheritance-interest
+                  $obj $id $kbid
+                  $subj $concept (copy_term $pattern))
                (empty))))
       ()))
 
@@ -1083,7 +1065,7 @@
                          (BaseRateEvidence $wsum $msum))
                       (member-inheritance $kbid))))
              ($replacement-pattern
-                (brand Statement (copy_term $pattern))))
+                (copy_term $pattern)))
             ;; If another proof still supports the removed side, this replaces
             ;; the stale observation; with no support it remains absent.
             (progn
@@ -1104,14 +1086,9 @@
             (if (and (== $stored-kbid $kbid)
                      (== $stored-trigger
                          (quote (fwd_member $kbid $class))))
-               (let*
-                  (($typed-subj (brand Term $subj))
-                   ($typed-concept (brand Term $concept))
-                   ($typed-pattern
-                      (brand Statement (copy_term $pattern))))
-                  (forward-remove-member-inheritance-observation!
-                     $obj $id $kbid
-                     $typed-subj $typed-concept $typed-pattern))
+               (forward-remove-member-inheritance-observation!
+                  $obj $id $kbid
+                  $subj $concept (copy_term $pattern))
                (empty))))
       ()))
 
@@ -1159,11 +1136,8 @@
       (forward-base-rate-interest-row
          $trigger $_id $kbid $pattern
          $_extractor $_init $_fun $finish $_tv-mode)
-      (let*
-         (($typed-kbid (brand KB $kbid))
-          ($typed-pattern (brand Statement (copy_term $pattern))))
-         (base-rate-cache-remove-derived!
-            $typed-kbid $typed-pattern $finish))))
+      (base-rate-cache-remove-derived!
+         $kbid (copy_term $pattern) $finish)))
 
 (: forward-invalidate-base-rates! (-[det]-> (Statement KBContext Proof TV) (List $none)))
 (= (forward-invalidate-base-rates! $fact)
@@ -1246,13 +1220,10 @@
       (forward-base-rate-interest-row
          $trigger $id $kbid $pattern
          $extractor $init $fun $finish $_tv-mode)
-      (let*
-         (($typed-kbid (brand KB $kbid))
-          ($typed-pattern (brand Statement (copy_term $pattern))))
-         (forward-remove-base-rate-observation!
-            $fact $id
-            $typed-kbid $typed-pattern
-            $extractor $init $fun $finish))))
+      (forward-remove-base-rate-observation!
+         $fact $id
+         $kbid (copy_term $pattern)
+         $extractor $init $fun $finish)))
 
 (: forward-remove-base-rate-observations!
    (-[det]-> (Statement KBContext Proof TV) (List $none)))
