@@ -2,7 +2,7 @@
 ; execution from source compilation. This file deliberately avoids the
 ; typecheck-v2-only determinism syntax so the same source runs on master.
 ; External /usr/bin/time measures the complete process separately.
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 (: current-time (-[det]-> Number))
 

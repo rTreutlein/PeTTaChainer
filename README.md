@@ -9,6 +9,22 @@ uv run petta tests/test_var_head.metta -s
 Run MeTTa files through `uv run petta`. Most project files should be run from
 `pettachainer/metta`.
 
+The MeTTa API can also be loaded directly from a pinned Git checkout when
+running under PeTTa:
+
+```metta
+!(import! &self (library lib_import))
+!(git-import!
+   "https://github.com/rTreutlein/PeTTaChainer.git"
+   ""
+   "./repos"
+   "<FULL_PETTACHAINER_COMMIT_SHA>")
+!(import! &self (library PeTTaChainer lib_pettachainer))
+```
+
+In this mode PeTTa is the host runtime, so it must already be installed. The
+Python API still requires installing the `PeTTaChainer` package.
+
 ## Benchmarks
 
 Run the NatDist vs ParticleDist benchmark:

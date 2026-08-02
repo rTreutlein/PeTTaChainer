@@ -88,7 +88,7 @@
 ;; so this is intentionally a generic structural walk rather than a
 ;; Distribution-only accessor. The ParticleDist branch checks only its numeric
 ;; id; the resulting cons is then known statically as (List Number).
-(: particle-ids-in-term (-[det]-> Atom (List Number)))
+(: particle-ids-in-term (-[det]-> Expression (List Number)))
 (= (particle-ids-in-term $term)
    (case $term (
       ((ParticleDist $pid $_scale)

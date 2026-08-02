@@ -67,12 +67,12 @@
 (: BenchChildIndex (-[det]-> Number Number Number Number))
 (= (BenchChildIndex $parent-idx $width $slot) (+ (* (- $parent-idx 1) $width) $slot))
 
-(: BenchPremiseRef (-[det]-> $bench $path Number Number Expression))
+(: BenchPremiseRef (-[det]-> $bench $path Number Number Atom))
 (= (BenchPremiseRef $bench $path $level $idx)
    (if (== $level 0) (BenchFact $bench $path $idx) (BenchNode $bench $path $level $idx)))
 
 (: BenchRulePremisesRemaining
-   (-[det]-> $bench $path Number Number Number Number Number (List Expression)))
+   (-[det]-> $bench $path Number Number Number Number Number (List Atom)))
 (= (BenchRulePremisesRemaining $bench $path $level $parent-idx $width $slot $remaining)
    (if (== $remaining 0) ()
       (let*
@@ -89,7 +89,7 @@
                (- $remaining 1))))))
 
 (: BenchRulePremises
-   (-[det]-> $bench $path Number Number Number (List Expression)))
+   (-[det]-> $bench $path Number Number Number (List Atom)))
 (= (BenchRulePremises $bench $path $level $idx $width)
    (BenchRulePremisesRemaining $bench
       $path
@@ -99,27 +99,27 @@
       1
       $width))
 
-(: BenchRuleConclusion (-[det]-> $bench $path Number Number Number Expression))
+(: BenchRuleConclusion (-[det]-> $bench $path Number Number Number Atom))
 (= (BenchRuleConclusion $bench $path $level $idx $depth)
    (if (== $level $depth) (BenchTarget $bench $path) (BenchNode $bench $path $level $idx)))
 
-(: BenchMaybePrint (-[det]-> Bool Expression Atom))
+(: BenchMaybePrint (-[det]-> Bool Atom Atom))
 (= (BenchMaybePrint false $_stmt) done)
 (= (BenchMaybePrint true $stmt) (println! $stmt))
 
-(: BenchCompileAdd (-[det]-> Bool AnnotatedStatement (List Expression)))
+(: BenchCompileAdd (-[det]-> Bool AnnotatedStatement (List Atom)))
 (= (BenchCompileAdd $print-this-stmt $stmt)
    (let $_print (BenchMaybePrint $print-this-stmt $stmt) (collapse (compileadd kb $stmt))))
 
-(: BenchCompileMeta (-[det]-> $proof Expression (List Expression)))
+(: BenchCompileMeta (-[det]-> $proof Atom (List Atom)))
 (= (BenchCompileMeta $prf $type) (BenchCompileAdd false (: $prf $type (STV 1.0 1.0))))
 
-(: BenchTrackPLNAtom (-[det]-> $bench $tag AnnotatedStatement (List Expression)))
+(: BenchTrackPLNAtom (-[det]-> $bench $tag AnnotatedStatement (List Atom)))
 (= (BenchTrackPLNAtom $bench $tag $stmt)
    (BenchCompileAdd false (: (bench-pln-atom $bench $tag) (BenchPLNAtom $bench $stmt) (STV 1.0 1.0))))
 
 (: BenchCompileAddTracked
-   (-[det]-> $bench Bool $tag AnnotatedStatement (List Expression)))
+   (-[det]-> $bench Bool $tag AnnotatedStatement (List Atom)))
 (= (BenchCompileAddTracked $bench $print-this-stmt $tag $stmt)
    (let $_compiled (BenchCompileAdd $print-this-stmt $stmt) (BenchTrackPLNAtom $bench $tag $stmt)))
 
@@ -242,7 +242,7 @@
       $print-before-compile))
 
 (: BenchForwardPremiseFact
-   (-[det]-> $bench Number Number Number Number Expression))
+   (-[det]-> $bench Number Number Number Number Atom))
 (= (BenchForwardPremiseFact $bench $paths $depth $width $noise-idx)
    (let*
       (($path (BenchCycle1 $noise-idx $paths))
@@ -251,7 +251,7 @@
       (BenchFact $bench $path $fact-idx)))
 
 (: BenchAddBackwardHeadRule
-   (-[det]-> $bench Number Number Expression Bool (List Expression)))
+   (-[det]-> $bench Number Number Atom Bool (List Atom)))
 (= (BenchAddBackwardHeadRule $bench $noise-idx $paths $premise $print-before-compile)
    (let*
       (($path (BenchCycle1 $noise-idx $paths))
@@ -265,7 +265,7 @@
             (BenchNoiseBackRule $bench $noise-idx 0)))))
 
 (: BenchBackwardTailPremise
-   (-[det]-> $bench Number Number Number Expression))
+   (-[det]-> $bench Number Number Number Atom))
 (= (BenchBackwardTailPremise $bench $noise-idx $step $last-step)
    (if (== $step $last-step) (NoiseBlocker $bench $noise-idx) (NoiseBackStep $bench $noise-idx (+ $step 1))))
 
@@ -309,12 +309,12 @@
    (BenchMin $remaining-statements (if (< $chain-len 1) 1 $chain-len)))
 
 (: BenchForwardChainPremise
-   (-[det]-> $bench Number Number Number Number Number Expression))
+   (-[det]-> $bench Number Number Number Number Number Atom))
 (= (BenchForwardChainPremise $bench $noise-idx $step $paths $depth $width)
    (if (== $step 1) (BenchForwardPremiseFact $bench $paths $depth $width $noise-idx)
       (NoiseForward $bench $noise-idx (- $step 1))))
 
-(: BenchForwardChainConclusion (-[det]-> $bench Number Number Number Expression))
+(: BenchForwardChainConclusion (-[det]-> $bench Number Number Number Atom))
 (= (BenchForwardChainConclusion $bench $noise-idx $step $chain-len)
    (if (== $step $chain-len) (NoiseDeadEnd $bench $noise-idx) (NoiseForward $bench $noise-idx $step)))
 
@@ -401,7 +401,7 @@
                $width
                $print-before-compile)))))
 
-(: BenchCountByPattern (-[det]-> Expression Number))
+(: BenchCountByPattern (-[det]-> Atom Number))
 (: BenchMainRuleCount (-[det]-> $bench Number))
 (: BenchBaseFactCount (-[det]-> $bench Number))
 (: BenchNoiseBackwardRuleCount (-[det]-> $bench Number))
@@ -652,21 +652,21 @@
             $proof $type $tv))))
 
 (: BenchPLNBuildImplication
-   (-[det]-> (List Expression) Expression Expression))
+   (-[det]-> (List Atom) Atom Atom))
 (= (BenchPLNBuildImplication () $conclusion) $conclusion)
 (= (BenchPLNBuildImplication (cons $head $tail) $conclusion)
    (Implication $head (BenchPLNBuildImplication $tail $conclusion)))
 
-(: BenchPLNNormalizeType (-[det]-> Expression Expression))
+(: BenchPLNNormalizeType (-[det]-> Atom Atom))
 (= (BenchPLNNormalizeType $type)
    (if (= $type (Implication (cons Premises $premises) (cons Conclusions (cons $conclusion ()))))
       (BenchPLNBuildImplication
-         (the (List Expression) $premises)
-         (the Expression $conclusion))
+         (the (List Atom) $premises)
+         (the Atom $conclusion))
       $type))
 
 (: BenchPLNSentencesFromAtoms
-   (-[det]-> (List AnnotatedStatement) Number (List Expression)))
+   (-[det]-> (List AnnotatedStatement) Number (List Atom)))
 (= (BenchPLNSentencesFromAtoms () $sid) ())
 (= (BenchPLNSentencesFromAtoms (cons $head $tail) $sid)
    (once
@@ -677,5 +677,5 @@
                (BenchPLNSentencesFromAtoms $tail (+ $sid 1))))
          (BenchPLNSentencesFromAtoms $tail $sid))))
 
-(: BenchPLNKB (-[det]-> $bench (List Expression)))
+(: BenchPLNKB (-[det]-> $bench (List Atom)))
 (= (BenchPLNKB $bench) (BenchPLNSentencesFromAtoms (BenchPLNAtoms $bench) 1))

@@ -1,6 +1,6 @@
 ; Measures one compileadd after petta_chainer has loaded. External /usr/bin/time
 ; measures the complete process separately.
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 (: current-time (-[det]-> Number))
 

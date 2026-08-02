@@ -51,14 +51,14 @@
 ;; Re-establish a TV read from untyped storage without first attaching one
 ;; broad union guard to an open constructor. Dispatching on the runtime tag
 ;; lets CTV fields receive their precise STV constraints immediately.
-(: checked-stored-stv (-[det]-> Expression STVType))
+(: checked-stored-stv (-[det]-> Atom STVType))
 (= (checked-stored-stv $tv)
    (case $tv
       (((STV $s $c)
           (STV $s $c))
        ($other (the STVType $other)))))
 
-(: checked-stored-tv (-[det]-> Expression TV))
+(: checked-stored-tv (-[det]-> Atom TV))
 (= (checked-stored-tv $tv)
    (if (is-var $tv)
       (the TV $tv)
@@ -543,7 +543,7 @@
 
 ;; cdr-atom exposes the erased proof representation as an untyped list. This
 ;; is the boundary that restores the semantic Proof brand to each raw child.
-(: proof-children (-[det]-> Atom (List Proof)))
+(: proof-children (-[det]-> Expression (List Proof)))
 (= (proof-children $children)
    (case $children (
       (() ())
@@ -601,7 +601,11 @@
 (= (proof-term-negated? $prf)
    (if (is-expr $prf) (== (car-atom $prf) negated) false))
 
-(: proof-from-atom (-[det]-> Atom Proof))
+(: assumption-proof? (-[det]-> Proof Bool))
+(= (assumption-proof? $prf)
+   (if (is-expr $prf) (== (car-atom $prf) ctx) false))
+
+(: proof-from-atom (-[det]-> Expression Proof))
 (= (proof-from-atom $proof) (brand Proof $proof))
 
 (: kb-from-atom (-[det]-> Atom KB))

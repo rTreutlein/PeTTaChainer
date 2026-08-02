@@ -5,6 +5,11 @@
 ; revision-merge, while derivations sharing an uncertain implication are
 ; treated as dependent.
 
+!(test
+   (proof-term-evidence-list-mode
+      proof-walk-plain (ctx hypothesis))
+   ())
+
 ; --- Two derivation branches under one hypothesis merge ---
 
 !(compileadd evKb (: aImpliesB (Implication (Premises (A $x)) (Conclusions (B $x))) (CTV (STV 0.25 0.9) (STV 0.0 1.0))))

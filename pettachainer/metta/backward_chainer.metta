@@ -279,7 +279,7 @@
 ;; dispatcher itself dynamic and validate only at the selected typed boundary;
 ;; `aggregate-finish` above remains the fully typed API for direct callers.
 (: finish-aggregate
-   (-[semidet]-> Atom Atom Atom))
+   (-[semidet]-> Expression Expression Atom))
 
 (= (finish-aggregate $finish $acc)
    (case $finish (
@@ -329,7 +329,7 @@
 ;; declared finish variant by its constructor instead of rechecking the whole
 ;; nested value at runtime (which would also try to recover erased KB brands).
 (: finish-stored-aggregate
-   (-[semidet]-> Atom Atom Atom))
+   (-[semidet]-> Expression Expression Atom))
 (= (finish-stored-aggregate $finish $acc)
    (case $finish (
       (identity (finish-aggregate identity $acc))
@@ -900,7 +900,7 @@
    (case $waiter (((aggregate-waiter $agg-gid) (cons $agg-gid $rest)) ($_other $rest))))
 
 (: stored-atom-list
-   (-[det]-> Atom (List Atom)))
+   (-[det]-> Expression (List Atom)))
 (= (stored-atom-list ())
    ())
 (= (stored-atom-list (cons $head $rest))
@@ -1617,7 +1617,7 @@
 (: context-vars-in-type?
    ;; KBContext is an erased newtype, so its destructured variables field is a
    ;; raw wire value here: Nil or a variable list.
-   (-[det]-> Expression Atom Bool))
+   (-[det]-> Atom Atom Bool))
 (: any-context-var-in?
    (-[det]-> (List Variable) (List Variable) Bool))
 (= (any-context-var-in? $_type-vars ()) false)
