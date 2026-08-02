@@ -2,6 +2,9 @@
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+include-package-data = false
+
 [project]
 name = "PeTTaChainer"
 version = "0.1.0"
@@ -9,11 +12,24 @@ description = "Backward and forward PLN chaining on top of PeTTa"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "petta>=0.1.0",
+    "petta @ git+https://github.com/trueagi-io/PeTTa@e038e4dbb587e48fdb9d14990966108d38fde0b3",
 ]
-
-[tool.uv.sources]
-petta = { git = "https://github.com/trueagi-io/PeTTa", rev = "e038e4dbb587e48fdb9d14990966108d38fde0b3" }
 
 [tool.setuptools.packages.find]
 include = ["pettachainer*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+pettachainer = [
+    "LANGUAGE_SPEC.md",
+    "LLM_RULE_SPEC.md",
+    "metta/*.metta",
+    "metta/heap_helpers.pl",
+    "metta/logic_configs/*.metta",
+]
+
+[tool.setuptools.exclude-package-data]
+pettachainer = [
+    "AGENTS.md",
+    "metta/test.metta",
+]
