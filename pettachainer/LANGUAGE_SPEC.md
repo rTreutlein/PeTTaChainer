@@ -94,7 +94,8 @@ Recommended modeling pattern:
 
 - `(HeightDist g1 alice)` with TV `(PointMass 160.0)` for crisp numeric values
 - `(HeightDist g1 alice)` with TV `(ParticleFromNormal 160.0 2.0)` for uncertain values
-- keep membership/existence truth in separate STV facts if needed
+- keep instance membership/existence truth in separate `(Member object class)`
+  STV facts if needed
 
 ## Fact Syntax
 
@@ -103,6 +104,95 @@ Example:
 ```metta
 !(compileadd kb (: in11 (In room1 kid1) (STV 0.5 1.0)))
 ```
+
+## Member and Inheritance
+
+`Member` and `Inheritance` have distinct modeling roles:
+
+- `(Member object class)` says that one object belongs to a class.
+- `(Inheritance subclass superclass)` says that one class or concept inherits
+  from another.
+
+For new knowledge, prefer `Member` for instance-to-class observations:
+
+```metta
+!(compileadd kb
+    (: tomHuman (Member Tom Human) (STV 0.99 0.9)))
+
+!(compileadd kb
+    (: humanMortal (Inheritance Human Mortal) (STV 0.8 0.9)))
+
+!(query 40 kb (: $prf (Member Tom Mortal) $tv))
+```
+
+The concrete `Inheritance Human Mortal` assertion is compiled into ordinary
+inference views equivalent to:
+
+```metta
+(Member $x Human)       -> (Member $x Mortal)
+(Inheritance $x Human)  -> (Inheritance $x Mortal)
+```
+
+These views are generated automatically. User code should not duplicate them.
+The generated member view is marked non-invertible: observing that an object is
+Mortal does not by itself prove that it is Human.
+
+`Member` can also appear in explicit rule premises and conclusions:
+
+```metta
+!(compileadd kb
+    (: seedHuman
+       (Implication
+          (Premises (Member $x Seed))
+          (Conclusions (Member $x Human)))
+       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+```
+
+### Estimating inheritance from members
+
+A ground query such as:
+
+```metta
+!(query 100 kb (: $prf (Inheritance Human Mortal) $tv))
+```
+
+can infer class-level inheritance from objects for which both
+`(Member object Human)` and `(Member object Mortal)` are provable. The sample
+collector uses the normal backward chainer, so rule-derived memberships count
+along with directly stored facts. It retains proof identities, rejects
+self-supporting cycles, and avoids treating overlapping evidence as independent.
+
+Set a known closed-world population size when one is available:
+
+```metta
+!(set-universe-size kb 100.0)
+```
+
+The universe size affects the confidence assigned to observed population
+coverage. Without it, the member estimator uses its count-based confidence.
+Forward chaining can maintain a provisional estimate incrementally after a
+ground inheritance query has registered interest; a later backward query folds
+the complete currently derivable sample set and refines that estimate.
+
+PeTTaChainer also estimates ground `Inheritance A B` through its
+total-implication path using `Inheritance x A` and `Inheritance x B`
+observations. Concept priors used by inheritance base-rate folds can be
+configured with:
+
+```metta
+!(set-concept-prior-confidence kb 0.5)
+!(clear-concept-prior-confidence kb)
+```
+
+Only class terms are registered as concept nodes by `Member`; the member object
+is not. Open queries such as `(Inheritance $subclass $superclass)` remain useful
+for retrieving matching ordinary derivations, but variable classes cannot
+register a selective incremental member estimate.
+
+Legacy programs in this repository sometimes encode instance membership as
+`(Inheritance object class)`. That representation remains supported for
+compatibility and participates in inheritance-only reasoning. It is not an
+alias for `Member`: adding both forms records two distinct propositions.
 
 ## Rule Syntax
 
