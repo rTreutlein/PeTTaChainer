@@ -2076,17 +2076,14 @@
          $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf
          (union-compiled-additions $pos-adds $neg-adds))))
 
-(: compile-inheritance-query
-   (-[semidet]-> KB Term Term
-       CompiledQueryParts))
-(= (compile-inheritance-query $kb $subj $concept)
+;; Build the empirical Member producer independently from the rest of a root
+;; Inheritance query. Backward subgoals can install this same producer without
+;; also introducing the root-only total-implication scaffold.
+(: compile-member-inheritance-query-adds
+   (-[det]-> KB Term Term (List CompiledAddition)))
+(= (compile-member-inheritance-query-adds $kb $subj $concept)
    (let*
-      (;; Constrain the root proof so ordinary public Inheritance rules cannot
-       ;; answer beside the total-implication producer. The wrapper is removed
-       ;; when results are externalized; it is selection state, not evidence.
-       ($goal (: (kbctx $kb) (inheritance-query-result $proof)
-          (Inheritance $subj $concept) $tv))
-       ($member-goal (: (kbctx $kb)
+      (($member-goal (: (kbctx $kb)
           (inheritance-query-result (member-inheritance-fold cpu))
           (Inheritance $subj $concept) $member-tv))
        ;; Build empirical samples through ordinary compiled Member queries. This
@@ -2123,7 +2120,21 @@
              |- ($member-goal)))
        ($member-adds
           (cons (brand CompiledAddition $member-sample-rule)
-             (cons (brand CompiledAddition $member-rule) ())))
+             (cons (brand CompiledAddition $member-rule) ()))))
+      $member-adds))
+
+(: compile-inheritance-query
+   (-[semidet]-> KB Term Term
+       CompiledQueryParts))
+(= (compile-inheritance-query $kb $subj $concept)
+   (let*
+      (;; Constrain the root proof so ordinary public Inheritance rules cannot
+       ;; answer beside the total-implication producer. The wrapper is removed
+       ;; when results are externalized; it is selection state, not evidence.
+       ($goal (: (kbctx $kb) (inheritance-query-result $proof)
+          (Inheritance $subj $concept) $tv))
+       ($member-adds
+          (compile-member-inheritance-query-adds $kb $subj $concept))
        ($antecedent (Inheritance $x $subj))
        ($consequent (Inheritance $x $concept))
        ($mvars (cons (brand Variable $x) ()))

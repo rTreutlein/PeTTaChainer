@@ -221,6 +221,13 @@ fold. Time windows and general incremental `FoldAllCompiled` support remain
 outside this mechanism. Focused coverage is in
 `tests/test_forward_incremental_member_inheritance.metta`.
 
+When a concrete `Inheritance` goal occurs as a stored rule premise, backward
+subgoal expansion installs the same temporary member-inheritance producer that
+`compileQuery` installs for a root query. The premise can therefore consume the
+empirical fold without materializing an `Inheritance` fact first. It retains
+the root path's proof provenance, overlap handling, and self-support rejection;
+coverage is in `tests/test_member_inheritance_premise.metta`.
+
 Removed along with the construct: `contains-hash?`, the hash-to-variable rewriting in `direct-goal-results-view`, the `wildcard_premise_index`/`wildcard_premise_context` stores and their lookup path, and the hash special cases in `open-rule-goal?`, `materializable-proof-output?`, and `leaf-evidence-for-result`.
 
 ## Evidence Semantics

@@ -1598,26 +1598,44 @@
       (once
          (inject-compiled-adds $adds))))
 
-(: inject-implication-subgoal-query-adds
+;; Install only the empirical Member producer for a concrete Inheritance
+;; subgoal. The root query's total-implication scaffold is intentionally not
+;; copied here: ordinary premise resolution already sees those direct/rule
+;; proofs, and adding the scaffold beside them would duplicate evidence.
+(: inject-member-inheritance-subgoal-adds
+   (-[semidet]-> KB Term Term (List $none)))
+(= (inject-member-inheritance-subgoal-adds $kb $subj $concept)
+   (let*
+      (($compiled-adds
+          (compile-member-inheritance-query-adds $kb $subj $concept))
+       ($runtime-adds
+          (map-flat compile-internalize-runtime-addition
+             (compiled-adds-mm2stmts $compiled-adds))))
+      (once (inject-compiled-adds $runtime-adds))))
+
+(: inject-special-subgoal-query-adds
    (-[semidet]-> (| Goal (Statement KBContext Proof TV))
        (List $none)))
-(= (inject-implication-subgoal-query-adds $goal)
+(= (inject-special-subgoal-query-adds $goal)
    (case $goal (
       (($type ($kbid MAIN Nil) $prf $tv)
-         (case $type (
-            ((Implication $_antecedent $_consequent)
-               (let $compiled-queries
-                  (collapse
-                     (mm2compileQuery
-                        (brand KB $kbid)
-                        (:
-                           $prf
-                           $type
-                           $tv)))
-                  (foreach-flat
-                     inject-compiled-query-adds
-                     $compiled-queries)))
-            ($_other ()))))
+         (if (implication-type? (brand Statement $type))
+            (let $compiled-queries
+               (collapse
+                  (mm2compileQuery
+                     (brand KB $kbid)
+                     (: $prf $type $tv)))
+               (foreach-flat
+                  inject-compiled-query-adds
+                  $compiled-queries))
+            (if (= $type (Inheritance $subj $concept))
+               (if (concrete-inheritance-link?
+                       (brand Term $subj) (brand Term $concept))
+                  (inject-member-inheritance-subgoal-adds
+                     (brand KB $kbid)
+                     (brand Term $subj) (brand Term $concept))
+                  ())
+               ())))
       ($_other ()))))
 
 (: RuleGoalMatch
@@ -1935,7 +1953,7 @@
                 (chainer-add-atom &goal
                    (stored-goal-row
                       $gid $depth $goal true $pending)))))
-       ($_query-adds (if (> $depth 0) (inject-implication-subgoal-query-adds $goal) ()))
+       ($_query-adds (if (> $depth 0) (inject-special-subgoal-query-adds $goal) ()))
        ($nagenda0
           (if (= $goal (CPU $fun $_args $_res))
              (if (== $fun FoldAllCompiled)
