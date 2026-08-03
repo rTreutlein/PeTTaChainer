@@ -83,6 +83,24 @@ not register a concrete forward member estimate.
 
 ## Premise Helpers You Can Use
 
+### Exists
+
+Use an explicit existential when one witness must satisfy a complete premise
+body:
+
+```metta
+(Exists ($child)
+    (And
+        (Parent $person $child)
+        (Doctor $child)))
+```
+
+`Exists` must be a top-level premise of a stored `Implication`. The variables
+listed in `($child ...)` are folded as witnesses; other body variables remain
+correlated with the rule. Do not reuse a bound variable name outside its
+`Exists` body. Do not generate existential conclusions, nested
+`Exists`, direct `Exists` queries, or `Exists` inside `BiImplication`.
+
 ### Compute
 
 ```metta

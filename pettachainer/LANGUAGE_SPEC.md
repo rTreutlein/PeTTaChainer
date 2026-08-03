@@ -211,6 +211,39 @@ Rules are implications with explicit premises and conclusions:
     (STV s c)))
 ```
 
+Variables shared by an implication's premises and conclusions are implicitly
+universally quantified. A premise may give existential scope explicitly with:
+
+```metta
+!(compileadd kb
+    (: doctorChild
+       (Implication
+          (Premises
+             (Exists ($child)
+                (And
+                   (Parent $person $child)
+                   (Doctor $child))))
+          (Conclusions
+             (HasDoctorChild $person)))
+       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+```
+
+`Exists` has the form `(Exists ($var ...) body)` and must be a top-level
+premise of a stored implication. Its body is queried for every witness, the
+body truth values are combined with existential disjunction, and free body
+variables such as `$person` form independent result groups. The binder scopes
+over its complete body, so the same `$child` must satisfy both predicates in
+the example. A bound variable name may not be reused outside that `Exists`
+body; use a different outer variable name instead of relying on shadowing.
+
+For compatibility, a variable local to an ordinary premise is still inferred
+as existential. Explicit `Exists` should be preferred whenever scope matters.
+Nested existential binders, existential conclusions, direct existential
+queries, and existential premises in bidirectional implications are currently
+rejected rather than interpreted as ordinary predicates. Existential
+conclusions require constructive witness semantics and are not equivalent to
+the internal Skolem-style markers used by implication inversion.
+
 ## Built-in Premise Forms
 
 ### 1) Plain predicates
