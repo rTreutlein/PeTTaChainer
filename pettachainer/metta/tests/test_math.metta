@@ -9,8 +9,8 @@
 !(compileadd mathkb
    (: mp
       (Implication
-         (Premises (Provable (→ $p $q)) (Provable $p))
-         (Conclusions (Provable $q)))
+         (And (Provable (→ $p $q)) (Provable $p))
+         (Provable $q))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(compileadd mathkb (: given-imp (Provable (→ (PropP) (PropQ))) (STV 1.0 1.0)))

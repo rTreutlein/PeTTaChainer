@@ -5,8 +5,8 @@
 !(compileadd stvRuleKb
    (: aToB
       (Implication
-         (Premises (A $x))
-         (Conclusions (B $x)))
+         (A $x)
+         (B $x))
       (STV 0.6 0.9)))
 
 !(test

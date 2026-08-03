@@ -32,7 +32,7 @@
           (And (Name rex "Rex") (M e2 leave) (A e2 rex) (Permitted e2)) (STV 0.0 0.989999999999875)))
 
 ;; --- rule-derived bundle: reorder returns the derived TV verbatim -----------
-!(compileadd kb3 (: r (Implication (Premises (PartOf $x g)) (Conclusions (M (sk $x) bark) (A (sk $x) $x) (Past (sk $x)))) (STV 1.0 0.9)))
+!(compileadd kb3 (: r (Implication (PartOf $x g) (And (M (sk $x) bark) (A (sk $x) $x) (Past (sk $x)))) (STV 1.0 0.9)))
 !(compileadd kb3 (: fp (PartOf fido g) (STV 1.0 0.99)))
 
 !(test (query 100 kb3 (: $prf (And (Past $e) (M $e bark) (A $e fido)) $tv))

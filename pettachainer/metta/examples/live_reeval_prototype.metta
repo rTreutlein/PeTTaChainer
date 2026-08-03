@@ -60,7 +60,7 @@
    (CTV (reeval-proof $pid $key (STV 1.0 1.0)) (reeval-proof $pid $key (STV 0.0 1.0))))
 
 !(compileadd k (: a (A i) (STV 0.5 1.0)))
-!(compileadd k (: ab1 (Implication (Premises (A $x)) (Conclusions (B $x))) (CTV (STV 0.6 0.9) (STV 0.0 1.0))))
+!(compileadd k (: ab1 (Implication (A $x) (B $x)) (CTV (STV 0.6 0.9) (STV 0.0 1.0))))
 !(let $r (chainer 30 ((B i) (k MAIN Nil) $prf $tv)) done)
 
 ;; the rule proof (ab1 a), found by its token rather than a hardcoded pid
@@ -80,7 +80,7 @@
 ;; confuse them; structural recompute keeps them distinct by child position.
 !(compileadd c (: aa (A i) (STV 0.5 1.0)))
 !(compileadd c (: a2 (A2 i) (STV 0.5 1.0)))
-!(compileadd c (: rr (Implication (Premises (And (A $z) (A2 $z))) (Conclusions (B $z))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd c (: rr (Implication (And (A $z) (A2 $z)) (B $z)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 !(let $r2 (chainer 40 ((B i) (c MAIN Nil) $prf $tv)) done)
 (= (cc-pid) (match &proof ($pid $g $out (rule ((B i) $kb (rr $_) $_tv)) $sc $ev $ch) $pid))
 

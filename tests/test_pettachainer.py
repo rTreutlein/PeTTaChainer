@@ -9,10 +9,10 @@ class TestPeTTaChainer(unittest.TestCase):
         handler.add_atom("(: edge_ab (Edge A B) (STV 1.0 1.0))")
         handler.add_atom("(: edge_bc (Edge B C) (STV 1.0 1.0))")
         handler.add_atom(
-            "(: edge_to_path (Implication (Premises (Edge $x $y)) (Conclusions (Path $x $y))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+            "(: edge_to_path (Implication (Edge $x $y) (Path $x $y)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
         )
         handler.add_atom(
-            "(: path_step (Implication (Premises (Path $x $y) (Edge $y $z)) (Conclusions (Path $x $z))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+            "(: path_step (Implication (And (Path $x $y) (Edge $y $z)) (Path $x $z)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
         )
 
         seeds = handler.select_facts(["(Edge A B)", "(Edge B C)"])
@@ -27,7 +27,7 @@ class TestPeTTaChainer(unittest.TestCase):
         handler.add_atom("(: high_fact (HighPriority) (STV 1.0 1.0))")
         handler.add_atom("(: low_fact (LowPriority) (STV 1.0 0.8))")
         handler.add_atom(
-            "(: low_to_goal (Implication (Premises (LowPriority)) (Conclusions (DeltaGoal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+            "(: low_to_goal (Implication (LowPriority) (DeltaGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
         )
 
         seed = handler.select_facts("(LowPriority)")
@@ -43,7 +43,7 @@ class TestPeTTaChainer(unittest.TestCase):
         handler.add_atom("(: high_fact (HighPriority) (STV 1.0 1.0))")
         handler.add_atom("(: low_fact (LowPriority) (STV 1.0 0.8))")
         handler.add_atom(
-            "(: low_to_goal (Implication (Premises (LowPriority)) (Conclusions (FactSeedGoal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+            "(: low_to_goal (Implication (LowPriority) (FactSeedGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
         )
 
         canonical_fact = handler.select_facts("(LowPriority)")[0]
@@ -58,7 +58,7 @@ class TestPeTTaChainer(unittest.TestCase):
         handler.add_atom("(: high_fact (HighPriority) (STV 1.0 1.0))")
         handler.add_atom("(: low_fact (LowPriority) (STV 1.0 0.8))")
         handler.add_atom(
-            "(: low_to_goal (Implication (Premises (LowPriority)) (Conclusions (FactSeedGoal2))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+            "(: low_to_goal (Implication (LowPriority) (FactSeedGoal2)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
         )
 
         result = handler.forward_chain(handler.all_facts(), steps=2)
@@ -71,10 +71,10 @@ class TestPeTTaChainer(unittest.TestCase):
         handler = PeTTaChainer()
         handler.add_atom("(: seed (A) (STV 1.0 1.0))")
         handler.add_atom(
-            "(: a_to_b (Implication (Premises (A)) (Conclusions (B))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+            "(: a_to_b (Implication (A) (B)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
         )
         handler.add_atom(
-            "(: b_to_c (Implication (Premises (B)) (Conclusions (C))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+            "(: b_to_c (Implication (B) (C)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
         )
 
         first_changes = handler.forward_chain(handler.select_facts("(A)"), steps=1)

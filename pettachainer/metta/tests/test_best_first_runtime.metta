@@ -7,10 +7,10 @@
 !(compileadd kb (: baseFact (BasePremise) (STV 1.0 1.0)))
 
 !(compileadd kb
-   (: ruleHighThenDrop (Implication (Premises (WeakPremise) (BasePremise)) (Conclusions (SwitchGoal))) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+   (: ruleHighThenDrop (Implication (And (WeakPremise) (BasePremise)) (SwitchGoal)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
 !(compileadd kb
-   (: ruleStable (Implication (Premises (BasePremise)) (Conclusions (SwitchGoal))) (CTV (STV 1.0 0.7) (STV 0.0 1.0))))
+   (: ruleStable (Implication (BasePremise) (SwitchGoal)) (CTV (STV 1.0 0.7) (STV 0.0 1.0))))
 
 !(test
    (query 10 kb (: $prf (SwitchGoal) $tv))
@@ -39,10 +39,10 @@
 !(compileadd priorityStrengthKb (: strongInput (StrongInput) (STV 0.8 1.0)))
 
 !(compileadd priorityStrengthKb
-   (: weakRule (Implication (Premises (WeakInput)) (Conclusions (StrengthPriorityGoal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+   (: weakRule (Implication (WeakInput) (StrengthPriorityGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(compileadd priorityStrengthKb
-   (: strongRule (Implication (Premises (StrongInput)) (Conclusions (StrengthPriorityGoal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+   (: strongRule (Implication (StrongInput) (StrengthPriorityGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 2 priorityStrengthKb (: $prf (StrengthPriorityGoal) $tv))
    (: (strongRule strongInput) (StrengthPriorityGoal) (STV 0.8 0.9999000095740854)))
@@ -55,13 +55,13 @@
 !(compileadd chainedPriorityKb (: strongEvidence (StrongEvidence) (STV 0.8 1.0)))
 
 !(compileadd chainedPriorityKb
-   (: weakToA (Implication (Premises (WeakEvidence)) (Conclusions (AForPriority))) (CTV (STV 0.1 1.0) (STV 0.0 1.0))))
+   (: weakToA (Implication (WeakEvidence) (AForPriority)) (CTV (STV 0.1 1.0) (STV 0.0 1.0))))
 
 !(compileadd chainedPriorityKb
-   (: strongToA (Implication (Premises (StrongEvidence)) (Conclusions (AForPriority))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+   (: strongToA (Implication (StrongEvidence) (AForPriority)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(compileadd chainedPriorityKb
-   (: aToGoal (Implication (Premises (AForPriority)) (Conclusions (ChainedPriorityGoal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+   (: aToGoal (Implication (AForPriority) (ChainedPriorityGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 4 chainedPriorityKb (: $prf (ChainedPriorityGoal) $tv))
    (: (aToGoal (strongToA strongEvidence)) (ChainedPriorityGoal) (STV 0.8 0.9998999995760428)))
@@ -74,10 +74,10 @@
 !(compileadd priorityNegKb (: lowInput (LowInput) (STV 0.1 1.0)))
 
 !(compileadd priorityNegKb
-   (: highNegRule (Implication (Premises (Not (HighInput))) (Conclusions (NegPriorityGoal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+   (: highNegRule (Implication (Not (HighInput)) (NegPriorityGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(compileadd priorityNegKb
-   (: lowNegRule (Implication (Premises (Not (LowInput))) (Conclusions (NegPriorityGoal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+   (: lowNegRule (Implication (Not (LowInput)) (NegPriorityGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 3 priorityNegKb (: $prf (NegPriorityGoal) $tv))
    (: (lowNegRule (negated lowInput)) (NegPriorityGoal) (STV 0.9 0.999900009088072)))
@@ -96,22 +96,22 @@
 
 !(compileadd incumbentPriorityKb
    (: bToGoal
-      (Implication (Premises (IncumbentB)) (Conclusions (IncumbentGoal)))
+      (Implication (IncumbentB) (IncumbentGoal))
       (CTV (STV 1.0 0.99) (STV 0.0 1.0))))
 
 !(compileadd incumbentPriorityKb
    (: dToGoal
-      (Implication (Premises (IncumbentD)) (Conclusions (IncumbentGoal)))
+      (Implication (IncumbentD) (IncumbentGoal))
       (CTV (STV 1.0 0.7) (STV 0.0 1.0))))
 
 !(compileadd incumbentPriorityKb
    (: aToB
-      (Implication (Premises (IncumbentA)) (Conclusions (IncumbentB)))
+      (Implication (IncumbentA) (IncumbentB))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(compileadd incumbentPriorityKb
    (: cToD
-      (Implication (Premises (IncumbentC)) (Conclusions (IncumbentD)))
+      (Implication (IncumbentC) (IncumbentD))
       (CTV (STV 1.0 0.7) (STV 0.0 1.0))))
 
 !(test (query 2 incumbentPriorityKb (: $prf (IncumbentGoal) $tv))

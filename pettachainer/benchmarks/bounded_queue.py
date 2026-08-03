@@ -45,7 +45,7 @@ def set_pruning(handler: PeTTaChainer, enabled: bool) -> None:
 
 def build_backward_fanout(handler: PeTTaChainer, fanout: int) -> None:
     atoms = [
-        f"(: root_{idx} (Implication (Premises (DeadEnd {idx})) (Conclusions (QueueBenchGoal))) (STV 1.0 1.0))"
+        f"(: root_{idx} (Implication (DeadEnd {idx}) (QueueBenchGoal)) (STV 1.0 1.0))"
         for idx in range(fanout)
     ]
     handler.add_atoms_no_check(atoms)
@@ -57,14 +57,14 @@ def build_backward_many_small_fanouts(handler: PeTTaChainer, fanout: int, seeds:
         if seed + 1 < seeds:
             atoms.append(
                 f"(: hub_link_{seed} "
-                f"(Implication (Premises (QueueBenchHub {seed + 1})) "
-                f"(Conclusions (QueueBenchHub {seed}))) "
+                f"(Implication (QueueBenchHub {seed + 1}) "
+                f"(QueueBenchHub {seed})) "
                 f"(STV 1.0 1.0))"
             )
         atoms.extend(
             f"(: dead_{seed}_{idx} "
-            f"(Implication (Premises (QueueBenchDeadEnd {seed} {idx})) "
-            f"(Conclusions (QueueBenchHub {seed}))) "
+            f"(Implication (QueueBenchDeadEnd {seed} {idx}) "
+            f"(QueueBenchHub {seed})) "
             f"(STV 1.0 0.5))"
             for idx in range(fanout)
         )
@@ -74,7 +74,7 @@ def build_backward_many_small_fanouts(handler: PeTTaChainer, fanout: int, seeds:
 def build_forward_fanout(handler: PeTTaChainer, fanout: int) -> None:
     atoms = ["(: seed (QueueBenchSeed) (STV 1.0 1.0))"]
     atoms.extend(
-        f"(: fan_{idx} (Implication (Premises (QueueBenchSeed)) (Conclusions (QueueBenchNoise {idx}))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+        f"(: fan_{idx} (Implication (QueueBenchSeed) (QueueBenchNoise {idx})) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
         for idx in range(fanout)
     )
     handler.add_atoms_no_check(atoms)
@@ -88,8 +88,8 @@ def build_forward_many_small_fanouts(handler: PeTTaChainer, fanout: int, seeds: 
     for seed in range(seeds):
         atoms.extend(
             f"(: fan_{seed}_{idx} "
-            f"(Implication (Premises (QueueBenchSeed {seed})) "
-            f"(Conclusions (QueueBenchNoise {seed} {idx}))) "
+            f"(Implication (QueueBenchSeed {seed}) "
+            f"(QueueBenchNoise {seed} {idx})) "
             f"(CTV (STV 1.0 0.5) (STV 0.0 1.0)))"
             for idx in range(fanout)
         )

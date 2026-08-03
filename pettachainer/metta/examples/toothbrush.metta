@@ -19,43 +19,43 @@
 !(compileadd toothbrushKb
    (: lighterHeatsPlastic
       (Implication
-         (Premises (Inheritance $x madeOfPlastic) (Operation $x opLighter))
-         (Conclusions (Inheritance $x heated)))
+         (And (Inheritance $x madeOfPlastic) (Operation $x opLighter))
+         (Inheritance $x heated))
       (STV 0.99 0.99)))
 
 !(compileadd toothbrushKb
    (: heatedMelts
       (Implication
-         (Premises (Inheritance $x heated))
-         (Conclusions (Inheritance $x melted)))
+         (Inheritance $x heated)
+         (Inheritance $x melted))
       (STV 0.99 0.99)))
 
 !(compileadd toothbrushKb
    (: meltedPliable
       (Implication
-         (Premises (Inheritance $x melted))
-         (Conclusions (Inheritance $x pliable)))
+         (Inheritance $x melted)
+         (Inheritance $x pliable))
       (STV 0.99 0.99)))
 
 !(compileadd toothbrushKb
    (: reshapePliableScrewlike
       (Implication
-         (Premises (Inheritance $x pliable) (Operation $x opReshape))
-         (Conclusions (Inheritance $x screwlike)))
+         (And (Inheritance $x pliable) (Operation $x opReshape))
+         (Inheritance $x screwlike))
       (STV 0.99 0.99)))
 
 !(compileadd toothbrushKb
    (: waitHardensScrewlike
       (Implication
-         (Premises (Inheritance $x screwlike) (Operation $x opWait))
-         (Conclusions (Inheritance $x hardened)))
+         (And (Inheritance $x screwlike) (Operation $x opWait))
+         (Inheritance $x hardened))
       (STV 0.99 0.99)))
 
 !(compileadd toothbrushKb
    (: unscrewRemovesHardened
       (Implication
-         (Premises (Inheritance $x hardened) (Operation $x opUnscrew))
-         (Conclusions (Inheritance $x removed)))
+         (And (Inheritance $x hardened) (Operation $x opUnscrew))
+         (Inheritance $x removed))
       (STV 0.99 0.99)))
 
 !(compileadd toothbrushKb (: xPlastic (Inheritance X madeOfPlastic) (STV 0.99 0.99)))

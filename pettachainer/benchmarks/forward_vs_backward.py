@@ -67,13 +67,13 @@ def build_chain_problem(handler: PeTTaChainer, depth: int, noise_branching: int)
         src = goal_symbol(i)
         dst = goal_symbol(i + 1)
         rules.append(
-            f"(: reach_{i} (Implication (Premises (Reach {src})) (Conclusions (Reach {dst}))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+            f"(: reach_{i} (Implication (Reach {src}) (Reach {dst})) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
         )
         for branch in range(noise_branching):
             rules.append(
                 "(: "
                 f"noise_{i}_{branch} "
-                f"(Implication (Premises (Reach {src})) (Conclusions (Noise {noise_symbol(i, branch)}))) "
+                f"(Implication (Reach {src}) (Noise {noise_symbol(i, branch)})) "
                 f"(CTV (STV 1.0 {NOISE_CONFIDENCE}) (STV 0.0 1.0)))"
             )
     handler.add_atoms_no_check(rules)

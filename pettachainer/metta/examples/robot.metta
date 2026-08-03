@@ -22,8 +22,8 @@
 !(compileadd robotKb
    (: toySeenBring
       (Implication
-         (Premises (Inheritance $x toy) (Inheritance $x see))
-         (Conclusions (Inheritance $x bring)))
+         (And (Inheritance $x toy) (Inheritance $x see))
+         (Inheritance $x bring))
       (STV 0.99 0.99)))
 
 !(compileadd robotKb (: frisbeeToy (Inheritance frisbee toy) (STV 0.99 0.99)))
@@ -39,11 +39,11 @@
 !(compileadd robotKb
    (: sharedPropertyCategory
       (Implication
-         (Premises
+         (And
             (Inheritance $obj $property)
             (Inheritance $prototype $property)
             (Inheritance $prototype $category))
-         (Conclusions (Inheritance $obj $category)))
+         (Inheritance $obj $category))
       (STV 0.99 0.99)))
 
 !(mark-logic-rule sharedPropertySeenBring)
@@ -51,12 +51,12 @@
 !(compileadd robotKb
    (: sharedPropertySeenBring
       (Implication
-         (Premises
+         (And
             (Inheritance $obj $property)
             (Inheritance $prototype $property)
             (Inheritance $prototype toy)
             (Inheritance $obj see))
-         (Conclusions (Inheritance $obj bring)))
+         (Inheritance $obj bring))
       (STV 0.99 0.99)))
 
 !(compileadd robotKb (: seenFrisbee (Inheritance frisbee see) (STV 0.99 0.99)))

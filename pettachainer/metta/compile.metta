@@ -77,9 +77,9 @@
          (fold-nested collect-var-step () $expr)
          ())))
 
-;; Source existential binders use `(Exists ($x $y ...) body)`.  Keep the
-;; binder explicit until premise lowering so its scope, rather than occurrence
-;; elsewhere in the implication, selects the aggregate variables.
+;; Source existential binders use `(Exists ($x $y ...) body)`. Keep the binder
+;; explicit until rule lowering so its declared scope is available to premise
+;; aggregation and conclusion witness generation.
 (: explicit-exists-vars-list
    (-[semidet]-> (List Atom) (List Variable)))
 (: explicit-exists-vars
@@ -98,10 +98,10 @@
          (explicit-exists-vars-list $rest))
       (empty)))
 
-(: explicit-exists-premise? (-[det]-> Atom Bool))
-(= (explicit-exists-premise? $premise)
-   (if (is-expr $premise)
-      (if (== (car-atom $premise) Exists) true false)
+(: explicit-exists-term? (-[det]-> Atom Bool))
+(= (explicit-exists-term? $term)
+   (if (is-expr $term)
+      (if (== (car-atom $term) Exists) true false)
       false))
 
 (: contains-explicit-exists? (-[det]-> Atom Bool))
@@ -121,24 +121,23 @@
             (contains-explicit-exists-list? (cdr-atom $term)))
          false)))
 
-;; Existentials are currently source forms only at the top level of a stored
-;; implication premise.  Nested binders, quantified conclusions, and
-;; quantified implication queries need different introduction/elimination
-;; rules and must not silently compile as ordinary predicates.
-(: validate-explicit-exists-premise
+;; Existentials are source forms only around one complete side of a stored
+;; implication. Nested binders and quantified queries need different
+;; introduction/elimination rules and must not silently compile as predicates.
+(: validate-explicit-exists-term
    (-[semidet]-> Atom Atom))
-(= (validate-explicit-exists-premise $premise)
-   (if (explicit-exists-premise? $premise)
-      (let (Exists $binder $body) $premise
+(= (validate-explicit-exists-term $term)
+   (if (explicit-exists-term? $term)
+      (let (Exists $binder $body) $term
          (let $bound-vars (explicit-exists-vars $binder)
             (if (== $bound-vars ())
                (empty)
                (if (contains-explicit-exists? $body)
                   (empty)
-                  $premise))))
-      (if (contains-explicit-exists? $premise)
+                  $term))))
+      (if (contains-explicit-exists? $term)
          (empty)
-         $premise)))
+         $term)))
 
 (: explicit-exists-var-in-list?
    (-[det]-> Variable (List Variable) Bool))
@@ -158,64 +157,57 @@
       true
       (explicit-exists-var-in-list? $var $rest)))
 
-(: validate-explicit-exists-premises
-   (-[semidet]-> (List Atom) (List Atom) (List Atom)
-       (List Atom)))
-(= (validate-explicit-exists-premises
-      $_conclusions $_prior ())
-   ())
-(= (validate-explicit-exists-premises
-      $conclusions $prior (cons $premise $rest))
-   (let $validated
-      (validate-explicit-exists-premise $premise)
-      (if (explicit-exists-premise? $validated)
+(: validate-explicit-exists-side
+   (-[semidet]-> Atom Atom Atom))
+(= (validate-explicit-exists-side $outside $side)
+   (let $validated (validate-explicit-exists-term $side)
+      (if (explicit-exists-term? $validated)
          (let (Exists $binder $_body) $validated
-            (let* (($bound-vars
-                       (explicit-exists-vars $binder))
-                   ($outside-vars
-                      (list_to_set
-                         (extract-vars
-                            (cons $prior
-                               (cons $rest
-                                  (cons $conclusions ())))))))
-               (if (explicit-exists-vars-overlap?
-                      $bound-vars $outside-vars)
-                  (empty)
-                  (cons $validated
-                     (validate-explicit-exists-premises
-                        $conclusions
-                        (cons $validated $prior)
-                        $rest)))))
-         (cons $validated
-            (validate-explicit-exists-premises
-               $conclusions
-               (cons $validated $prior)
-               $rest)))))
+            (if (explicit-exists-vars-overlap?
+                   (explicit-exists-vars $binder)
+                   (list_to_set (extract-vars $outside)))
+               (empty)
+               $validated))
+         $validated)))
 
 (: validate-explicit-exists-rule
-   (-[semidet]-> (List Atom) (List Atom) Bool))
-(= (validate-explicit-exists-rule $premises $conclusions)
-   (let $_validated
-      (validate-explicit-exists-premises
-         $conclusions () $premises)
-      (if (contains-explicit-exists-list? $conclusions)
-         (empty)
-         true)))
+   (-[semidet]-> Atom Atom Bool))
+(= (validate-explicit-exists-rule $antecedent $consequent)
+   (let* (($_antecedent-valid
+              (validate-explicit-exists-side
+                 $consequent $antecedent))
+           ($_consequent-valid
+              (validate-explicit-exists-side
+                 $antecedent $consequent)))
+      true))
 
-;; Runtime rule shapes and base-rate patterns do not carry source binders.  The
-;; binder has already selected the FoldAll grouping during premise lowering.
-(: implication-source-premise (-[det]-> Atom Atom))
-(= (implication-source-premise $premise)
-   (if (explicit-exists-premise? $premise)
-      (car-atom (cdr-atom (cdr-atom $premise)))
-      $premise))
+;; Runtime rule shapes and base-rate patterns do not carry source binders. The
+;; binder has already selected aggregation or witness generation during rule
+;; lowering.
+(: implication-source-term (-[det]-> Atom Atom))
+(= (implication-source-term $term)
+   (if (explicit-exists-term? $term)
+      (car-atom (cdr-atom (cdr-atom $term)))
+      $term))
+
+;; Variables bound by an existential antecedent are consumed by aggregation
+;; and therefore cannot become dependencies of a generated conclusion witness.
+(: implication-antecedent-free-vars
+   (-[semidet]-> Atom (List Variable)))
+(= (implication-antecedent-free-vars $antecedent)
+   (if (explicit-exists-term? $antecedent)
+      (let (Exists $binder $body) $antecedent
+         (the (List Variable)
+            (\== (list_to_set (extract-vars $body))
+                 (list_to_set (explicit-exists-vars $binder)))))
+      (list_to_set (extract-vars $antecedent))))
 
 (: SkolemizeState (Newtype (Number Statement)))
 
-;; Replace variables which occur only in the antecedent with stable `exists`
-;; markers. In an inverted rule those variables cannot be recovered from the
-;; new premise, so leaving them as ordinary variables would make unrelated
-;; witnesses unify.
+;; Replace variables which occur only in one direction's conclusion with
+;; stable `exists` witnesses. The witness depends on the rule, its index, and
+;; the variables retained from that direction's premise, so unrelated inputs
+;; do not unify their existential objects.
 (: skolemize-step
    (-[det]-> Proof (List Variable) SkolemizeState Variable SkolemizeState))
 (= (skolemize-step $rule $avars $state $elem)
@@ -225,12 +217,12 @@
        ($elem (exists $rule $idx $avars)))
       (brand SkolemizeState ((+ 1 $idx) $atom))))
 
-(: skolemize (-[det]-> Proof Statement Statement Statement))
-(= (skolemize $rule $expra $exprb)
-   (if (or (is-var $exprb) (is-var $expra)) $exprb
+(: skolemize-conclusion-vars
+   (-[det]-> Proof (List Variable) Statement Statement))
+(= (skolemize-conclusion-vars $rule $avars $exprb)
+   (if (is-var $exprb) $exprb
       (let*
-         (($avars (list_to_set (extract-vars $expra)))
-           ($bvars (list_to_set (extract-vars $exprb)))
+         (($bvars (list_to_set (extract-vars $exprb)))
            ($onlyb (\== $bvars $avars))
            ($state
               (sealed $onlyb
@@ -252,6 +244,17 @@
 ;; is not an executable-Goal boundary.
 (: seq2expr (-[det]-> (List $element) $element))
 (= (seq2expr (cons $head $tail)) (if (== $tail ()) $head (cons And (cons $head $tail))))
+
+;; Implication sides are expressions. Callers which need to inspect individual
+;; conjuncts use this view; singleton sides remain singleton lists.
+(: implication-side-conjuncts (-[det]-> Statement (List Atom)))
+(= (implication-side-conjuncts $side)
+   (if (if (is-expr $side)
+          (let $head (car-atom $side)
+             (if (is-var $head) false (== $head And)))
+          false)
+      (the (List Atom) (cdr-atom $side))
+      (cons $side ())))
 
 ;; A projection from a compound connective can depend on the other children as
 ;; evidence. Preserve all their proof identities so later overlap checks see
@@ -482,8 +485,6 @@
       (cons $prfelem $cclprf)
       (cons $elem $ccltype)
       (the TV $ntv)))
-
-(: ExistentialFold (-[det]-> Statement (List Variable) Statement))
 
 (: exec-goal-type
    (-[det]-> Goal Expression))
@@ -843,7 +844,7 @@
           ($tail (cdr-atom $premise)))
          (compound-premise-bundle $kb $ctx $vars $head $tail))
       (case $premise (
-           ((Implication (cons Premises $_premises) (cons Conclusions $_conclusions))
+           ((Implication $_antecedent $_consequent)
               (leaf-source-bundle $kb $ctx $vars $premise))
            ((Compute $f $args -> $res)
               (premise-bundle ((CPU $f $args $res))
@@ -964,14 +965,9 @@
       (compile-var-list-subtract $rest $exclude)
       (cons $var (compile-var-list-subtract $rest $exclude))))
 
-(: compile-has-vars? (-[det]-> (List Variable) Bool))
-(= (compile-has-vars? $vars)
-   (if (== $vars ()) false true))
-
-;; A premise-local variable denotes existential evidence, not a variable which
-;; should escape into the compiled rule. Collapse all matching witnesses with
-;; OrFormula; retain group variables when the premise is correlated with the
-;; conclusion or another premise so each binding gets its own aggregate.
+;; An explicit existential premise collapses all matching witnesses with
+;; OrFormula. Free variables form independent groups, while variables named by
+;; the binder do not escape into the compiled rule.
 (: fold-existential-premise-bundle
    (-[det]-> KB $context $variables Statement (List Variable) PremiseBundle))
 (= (fold-existential-premise-bundle $kb $ctx $vars $premise $group-vars)
@@ -990,28 +986,10 @@
             $fold-tv
             cpu))))
 
-;; Only ordinary fact-like premises are safe to rewrite as existential folds.
-;; Compiler forms and computations have their own lowering and binding rules;
-;; folding them as database patterns would change their meaning.
-(: existential-foldable-premise? (-[det]-> Statement Bool))
-(= (existential-foldable-premise? $premise)
-   (if (is-expr $premise)
-      (let $head (car-atom $premise)
-         (if (is-var $head)
-            true
-            (if (== $head Implication)
-               false
-               (if (== $head Exists)
-                  false
-                  (if (source-computation-head? $head)
-                     false
-                     true)))))
-      true))
-
 (: lower-source-premise-with-existentials
    (-[nondet]-> KB $context $variables Statement  PremiseBundle))
 (= (lower-source-premise-with-existentials $kb $ctx $vars $premise)
-   (if (explicit-exists-premise? $premise)
+   (if (explicit-exists-term? $premise)
       (let* (((Exists $binder $body) $premise)
              ($bound-vars
                 (list_to_set (explicit-exists-vars $binder)))
@@ -1021,133 +999,33 @@
                 (compile-var-list-subtract $body-vars $bound-vars)))
          (fold-existential-premise-bundle
             $kb $ctx $vars (brand Statement $body) $group-vars))
-      (if
-         (if (is-expr $premise)
-            (let $head (car-atom $premise)
-               (if (is-var $head)
-                  false
-                  (== $head ExistentialFold)))
-            false)
-         (let (ExistentialFold $fold-premise $group-vars) $premise
-            (fold-existential-premise-bundle
-               $kb $ctx $vars $fold-premise $group-vars))
-         (lower-source-premise $kb $ctx $vars $premise))))
+      (lower-source-premise $kb $ctx $vars $premise)))
 
-(: compile-premise-local-vars
-   (-[det]-> (List Variable) (List Variable) Statement (List Variable)))
-(= (compile-premise-local-vars $conclusion-vars $other-vars $premise)
-   (let $premise-vars (list_to_set (extract-vars $premise))
-      (compile-var-list-subtract (compile-var-list-subtract $premise-vars $conclusion-vars) $other-vars)))
-
-(: compile-premise-has-existentials?
-   (-[det]-> (List Variable) (List Variable) Statement Bool))
-(= (compile-premise-has-existentials? $conclusion-vars $other-vars $premise)
-   (let $local-vars (compile-premise-local-vars $conclusion-vars $other-vars $premise)
-      (if (existential-foldable-premise? $premise)
-         (compile-has-vars? $local-vars)
-         false)))
-
-(: compile-premise-group-vars
-   (-[det]-> (List Variable) (List Variable) Statement (List Variable)))
-(= (compile-premise-group-vars $conclusion-vars $other-vars $premise)
-   (let*
-      (($premise-vars (list_to_set (extract-vars $premise)))
-        ($local-vars (compile-premise-local-vars $conclusion-vars $other-vars $premise)))
-      (compile-var-list-subtract $premise-vars $local-vars)))
-
-;; Partition before lowering so existential-only premises run after normal
-;; premises. This lets variables shared with other premises be bound first and
-;; correctly distinguishes genuinely local variables from correlated ones.
-(: append-variables
-   (-[det]-> (List Variable) (List Variable) (List Variable)))
-(= (append-variables () $right) $right)
-(= (append-variables (cons $head $tail) $right)
-   (cons $head (append-variables $tail $right)))
-
-(: append-expressions
-   (-[det]-> (List Atom) (List Atom) (List Atom)))
-(= (append-expressions () $right) $right)
-(= (append-expressions (cons $head $tail) $right)
-   (cons $head (append-expressions $tail $right)))
-
-(: partition-existential-premises-walk
-   (-[det]-> (List Variable) (List Variable)
-       (List Atom) (List Atom) (List Atom)
-       ((List Atom) (List Atom))))
-(= (partition-existential-premises-walk $_conclusion-vars $_prior-vars $normal $folded ())
-   ($normal $folded))
-(= (partition-existential-premises-walk $conclusion-vars $prior-vars $normal $folded (cons $premise $rest))
-   (let*
-      (($premise-vars (list_to_set (extract-vars $premise)))
-        ($rest-vars (list_to_set (extract-vars $rest)))
-        ($other-vars (append-variables $prior-vars $rest-vars))
-        ($nprior (append-variables $prior-vars $premise-vars))
-        ($typed-premise (brand Statement $premise)))
-      (if (compile-premise-has-existentials?
-             $conclusion-vars $other-vars
-             $typed-premise)
-         (let $group-vars
-            (compile-premise-group-vars
-               $conclusion-vars $other-vars
-               $typed-premise)
-            (partition-existential-premises-walk $conclusion-vars $nprior $normal
-               (append-expressions $folded
-                  (cons
-                     (ExistentialFold
-                        $typed-premise $group-vars)
-                     ()))
-               $rest))
-         (partition-existential-premises-walk $conclusion-vars $nprior
-            (append-expressions $normal (cons $premise ()))
-            $folded $rest))))
-
-(: partition-existential-premises
-   (-[det]-> (List Variable) (List Atom) (List Atom)))
-(= (partition-existential-premises $conclusion-vars $premises)
-   (let*
-      (($partitioned
-          (partition-existential-premises-walk $conclusion-vars () () () $premises))
-        ($normal (fst $partitioned))
-        ($folded (snd $partitioned)))
-      (append-expressions $normal $folded)))
-
-(: lower-source-premises-step
-   (-[nondet]-> KB $context $variables CompiledPremises Statement
+(: lower-implication-antecedent
+   (-[nondet]-> KB $context $variables Statement CompiledPremises))
+(: lower-implication-conjunct-step
+   (-[nondet]-> KB $context $variables CompiledPremises Atom
        CompiledPremises))
-(= (lower-source-premises-step $kb $ctx $vars $acc $premise)
+(= (lower-implication-conjunct-step $kb $ctx $vars $acc $conjunct)
    (append-premise-bundle $acc
-      (lower-source-premise-with-existentials $kb $ctx $vars $premise)))
+      (lower-source-premise
+         $kb $ctx $vars (brand Statement $conjunct))))
 
-(: lower-source-premises-list
-   (-[nondet]-> KB $context $variables (List Atom)
-       CompiledPremises))
-(= (lower-source-premises-list $kb $ctx $vars $premises)
-   (lower-source-premises-list-acc
-      $kb $ctx $vars
-      (data () () (STV 1.0 1.0))
-      $premises))
+(= (lower-implication-antecedent $kb $ctx $vars $antecedent)
+   (if (if (is-expr $antecedent)
+          (let $head (car-atom $antecedent)
+             (if (is-var $head) false (== $head And)))
+          false)
+      (fold-flat
+         (lower-implication-conjunct-step $kb $ctx $vars)
+         (data () () (STV 1.0 1.0))
+         (the (List Atom) (cdr-atom $antecedent)))
+      (let (premise-bundle $execs $tv $proof)
+         (lower-source-premise-with-existentials
+            $kb $ctx $vars $antecedent)
+         (data $execs (cons $proof ()) $tv))))
 
-(: lower-source-premises-list-acc
-   (-[nondet]-> KB $context $variables CompiledPremises (List Atom)
-       CompiledPremises))
-(= (lower-source-premises-list-acc $_kb $_ctx $_vars $acc ()) $acc)
-(= (lower-source-premises-list-acc $kb $ctx $vars $acc (cons $premise $rest))
-   (lower-source-premises-list-acc
-      $kb $ctx $vars
-      (lower-source-premises-step
-         $kb $ctx $vars $acc (brand Statement $premise))
-      $rest))
-
-(: lower-source-premises
-   (-[nondet]-> KB $context $variables (List Atom) (List Atom)
-       CompiledPremises))
-(= (lower-source-premises $kb $ctx $vars $premises $conclusions)
-   (let*
-      (($conclusion-vars (list_to_set (extract-vars $conclusions)))
-        ($ordered-premises (partition-existential-premises $conclusion-vars $premises)))
-      (lower-source-premises-list $kb $ctx $vars $ordered-premises)))
-
-;; Premises of an implication *query* are temporary assumptions. A positive
+;; Antecedents of an implication *query* are temporary assumptions. A positive
 ;; `(Not A)` assumption is represented by an A-shaped contextual fact with
 ;; strength zero, allowing ordinary fact matching while preserving its logical
 ;; truth through the bundle TV.
@@ -1235,6 +1113,13 @@
       $rest))
 
 (: bidirectional-implication-type? (-[det]-> Statement Bool))
+(: implication-type? (-[det]-> Statement Bool))
+(= (implication-type? $type)
+   (if (is-expr $type)
+      (let $head (car-atom $type)
+         (if (is-var $head) false (== $head Implication)))
+      false))
+
 (= (bidirectional-implication-type? $Type)
    (if (is-expr $Type)
       (let $head (car-atom $Type)
@@ -1383,18 +1268,21 @@
 ;; reusable source-shape adapters are indexed.
 (: compile-implication-forward-rules
    (-[nondet]-> KB KBContext KBContext Proof TV Statement Statement
-       (List Goal)
+       (List Variable) (List Goal)
        (List Proof) TV  CompiledAddition))
-(= (compile-implication-forward-rules $kb $shape-kb $adapter-kb $prf $tv $a $b $execs $proofs $atv)
+(= (compile-implication-forward-rules $kb $shape-kb $adapter-kb $prf $tv
+      $a $b $antecedent-vars $execs $proofs $atv)
    (superpose (
       (once
          (let*
-            (($proof-token (implication-proof-token $proofs))
+            (($out-b
+                 (skolemize-conclusion-vars $prf $antecedent-vars $b))
+              ($proof-token (implication-proof-token $proofs))
               (($ctv-execs $rule-ctv)
                  (compile-implication-ctv-execs $kb $a $b $tv))
               (($out-execs $out-prf $out-type $out-tv)
                  (compile-implication-output
-                    $prf $proof-token $b (the STVType $btv)))
+                    $prf $proof-token $out-b (the STVType $btv)))
               ($allargs
                  (append
                     $execs
@@ -1406,8 +1294,15 @@
             (brand CompiledAddition
                ($allargs |-
                   ((: $shape-kb $out-prf $out-type $out-tv))))))
-      (if (is-var $b) (empty) (compile-outputs (: $adapter-kb ($prf $prfb) $b $btv2)))
-      (if (is-var $a) (empty) (compile-adapter-chain plain (: $adapter-kb $prfa $a $atv))))))
+      (let $out-b
+         (skolemize-conclusion-vars $prf $antecedent-vars $b)
+         (if (is-var $out-b)
+            (empty)
+            (compile-outputs
+               (: $adapter-kb ($prf $prfb) $out-b $btv2))))
+      (if (is-var $a) (empty)
+         (compile-adapter-chain plain
+            (: $adapter-kb $prfa $a $atv))))))
 
 (: rule-evidence-base-name (-[det]-> Proof Proof))
 (= (rule-evidence-base-name $prf)
@@ -1539,15 +1434,15 @@
       ((compile_ $kb
           (: (inheritance-implication $prf)
              (Implication
-                (Premises (Inheritance $x $subj))
-                (Conclusions (Inheritance $x $concept)))
+                (Inheritance $x $subj)
+                (Inheritance $x $concept))
              $tv))
        (let $ctv (inheritance-lift-ctv $tv)
           (compile_ $kb
              (: (no_inverse (member-inheritance-implication $prf))
                 (Implication
-                   (Premises (Member $x $subj))
-                   (Conclusions (Member $x $concept)))
+                   (Member $x $subj)
+                   (Member $x $concept))
                 $ctv))))))
 
 ;; A total-implication context represents a hypothetical instance of the
@@ -1608,17 +1503,23 @@
        CompiledAddition))
 (= (compile-inheritance-lift-instance $kb $lift-kb
       (: $prf
-         (Implication (cons Premises $ground-premises)
-            (Conclusions (Inheritance $ground-subj $ground-concept)))
+         (Implication $ground-antecedent
+            (Inheritance $ground-subj $ground-concept))
          $tv)
       (: $_source-prf
-         (Implication (cons Premises $source-premises)
-            (Conclusions (Inheritance $source-subj $_source-concept)))
+         (Implication $source-antecedent
+            (Inheritance $source-subj $_source-concept))
          $_source-tv))
    (let*
       (($kb (brand KB (car-atom $lift-kb)))
        ($ctx (car-atom (cdr-atom $lift-kb)))
        ($vars (car-atom (cdr-atom (cdr-atom $lift-kb))))
+       ($ground-premises
+          (implication-side-conjuncts
+             (brand Statement $ground-antecedent)))
+       ($source-premises
+          (implication-side-conjuncts
+             (brand Statement $source-antecedent)))
        (($contextual-premises $auxiliary-premises)
           (inheritance-lift-parts
              (the (List Atom) $ground-premises)
@@ -1630,11 +1531,11 @@
                 ((Inheritance $instance $ground-subj)))
              $contextual-premises))
        (($main-execs $main-proofs $main-atv)
-          (once (lower-source-premises $kb MAIN Nil $auxiliary-premises
-             ((Inheritance $ground-subj $ground-concept)))))
+          (once (lower-implication-antecedent $kb MAIN Nil
+             (brand Statement (seq2expr $auxiliary-premises)))))
        (($context-execs $context-proofs $context-atv)
-          (once (lower-source-premises $kb $ctx $vars $lift-premises
-             ((Inheritance $instance $ground-concept)))))
+          (once (lower-implication-antecedent $kb $ctx $vars
+             (brand Statement (seq2expr $lift-premises)))))
        ($source-proof (implication-proof-token $main-proofs))
        ($context-proof (implication-proof-token $context-proofs))
        ($all-evidence
@@ -1721,19 +1622,25 @@
 ;; On rule addition, emit every instance already supported by stored facts and
 ;; retain the template for facts added later. No open lifted rule enters the KB.
 (: compile-inheritance-rule-lifts
-   (-[nondet]-> KB AnnotatedStatement (List Atom) (List Atom)
+   (-[nondet]-> KB AnnotatedStatement Statement Statement
        CompiledAddition))
-(= (compile-inheritance-rule-lifts $kb $stmt $premises $conclusions)
-   (if (= $conclusions ((Inheritance $subj $_concept)))
-      (let $auxiliary (inheritance-lift-auxiliary-premises $premises $subj)
+(= (compile-inheritance-rule-lifts $kb $stmt $antecedent $consequent)
+   (if (= $consequent (Inheritance $subj $_concept))
+      (let* (($premises (implication-side-conjuncts $antecedent))
+             ($auxiliary
+                (inheritance-lift-auxiliary-premises $premises $subj)))
          (if (== $auxiliary ()) (empty)
             (let*
                (($ground-copy (copy_term $stmt))
                 ($source-copy (copy_term $stmt))
-                ((: $_prf $ground-type $_tv) $ground-copy)
-                ($ground-premises (impl-premises $ground-type))
-                ((Inheritance $ground-subj $_ground-concept)
-                   (car-atom (impl-conclusions $ground-type)))
+                ((: $_prf
+                    (Implication $ground-antecedent
+                       (Inheritance $ground-subj $_ground-concept))
+                    $_tv)
+                   $ground-copy)
+                ($ground-premises
+                   (implication-side-conjuncts
+                      (brand Statement $ground-antecedent)))
                 ($ground-auxiliary
                    (inheritance-lift-auxiliary-premises
                       $ground-premises $ground-subj))
@@ -1772,15 +1679,6 @@
    (if (specialization-trigger? (brand Statement $prem))
       (cons $prem (rule-trigger-premises $rest))
       (rule-trigger-premises $rest)))
-
-(: impl-premises
-   (-[det]-> Statement (List Atom)))
-(= (impl-premises (Implication (cons Premises $premises) (cons Conclusions $_conclusions)))
-   (the (List Atom) $premises))
-(: impl-conclusions
-   (-[det]-> Statement (List Atom)))
-(= (impl-conclusions (Implication (cons Premises $_premises) (cons Conclusions $conclusions)))
-   (the (List Atom) $conclusions))
 
 (: fact-head (-[det]-> Statement Atom))
 (= (fact-head $type) (if (is-expr $type) (car-atom $type) $type))
@@ -1980,14 +1878,14 @@
 (: compile_ (-[nondet]-> KB AnnotatedStatement  CompiledAddition))
 (= (compile_ $kb (: $prf $Type $tv))
    (if (is-var $Type) (empty)
-      (if (= $Type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
+      (if (= $Type (Implication $antecedent $consequent))
        (let* (($_exists-valid
                   (validate-explicit-exists-rule
-                     (the (List Atom) $premises)
-                     (the (List Atom) $conclusions)))
+                     $antecedent $consequent))
                ($triggers
                   (rule-trigger-premises
-                     (the (List Atom) $premises))))
+                     (implication-side-conjuncts
+                        (brand Statement $antecedent)))))
         (if (not (== $triggers ()))
          (specialize-rule-add $kb $triggers
             (compile-specialization (: $prf $Type $tv)))
@@ -1995,19 +1893,22 @@
             (($_evidence-reg (register-rule-evidence! $kb $prf))
              (($execs $proofs $atv)
                 (once
-                   (lower-source-premises $kb $ctx $vars
-                      $premises
-                      (the (List Atom) $conclusions))))
+                   (lower-implication-antecedent
+                      $kb $ctx $vars
+                      (brand Statement $antecedent))))
              ($shape-kb (make-kb-context $kb $ctx $vars))
              ($adapter-kb (kbctx $kb))
              ($a
                 (brand Statement
-                   (seq2expr
-                      (map-flat
-                         implication-source-premise
-                         $premises))))
-             ($b (brand Statement (seq2expr $conclusions)))
-             ($na (skolemize $prf $b $a))
+                   (implication-source-term $antecedent)))
+             ($b
+                (brand Statement
+                   (implication-source-term $consequent)))
+             ($antecedent-vars
+                (implication-antecedent-free-vars $antecedent))
+             ($na
+                (skolemize-conclusion-vars $prf
+                   (list_to_set (extract-vars $b)) $a))
              ;; Guard inversion on the *lowered* premises: a premise that lowers to a
              ;; CPU computation (FoldAll, Compute, ...) cannot be inverted. $a is the
              ;; clean antecedent expression for base-rate patterns and never carries a
@@ -2016,7 +1917,7 @@
 	            (superpose (
 	                 (compile-implication-forward-rules
 	                    $kb $shape-kb $adapter-kb $prf $tv
-	                    $a $b $execs $proofs $atv)
+	                    $a $b $antecedent-vars $execs $proofs $atv)
 	                 (if (not $skip-inverse)
 	                    (inverse-implication
 	                       $kb $prf $na $b $tv)
@@ -2030,18 +1931,20 @@
 	                    (compile-adapter-chain plain
 	                       (: $adapter-kb $pb2 $b $btv2)))
 	                 (compile-inheritance-rule-lifts $kb (: $prf $Type $tv)
-	                    $premises
-	                    $conclusions))))))
+	                    (brand Statement $antecedent)
+	                    (brand Statement $consequent)))))))
+         (if (implication-type? $Type)
+            (empty)
          (if (bidirectional-implication-type? $Type)
             (if (contains-explicit-exists? $Type)
                (empty)
-               (let ($_head (cons Premises $left) (cons Conclusions $right)) $Type
+               (let ($_head $left $right) $Type
                   (superpose (
                      (compile_ $kb (: (bi-forward $prf)
-                        (Implication (cons Premises $left) (cons Conclusions $right))
+                        (Implication $left $right)
                         $tv))
                      (compile_ $kb (: (bi-backward $prf)
-                        (Implication (cons Premises $right) (cons Conclusions $left))
+                        (Implication $right $left)
                         $tv))))))
             (if (contains-explicit-exists? $Type)
                (empty)
@@ -2065,7 +1968,7 @@
                   (superpose ((brand CompiledAddition
                                  (() |- ((: $fact-kb $prf $Type $tv))))
                               (compile-specialization-fact-triggers $kb $Type)
-                              (compile-outputs (: $fact-kb $prf $Type $tv))))))))))))
+                              (compile-outputs (: $fact-kb $prf $Type $tv)))))))))))))
 
 
 (: implication-query-known-tv-parts
@@ -2095,17 +1998,18 @@
 ;; token), the conclusion expression, and the side's adds.
 (: query-side
    (-[semidet]-> KB (| NilType (List Variable)) Bool
-       (List Atom) (List Atom)
+       Statement Statement
        (KBContext Proof Statement (List CompiledAddition))))
-(= (query-side $kb $mvars $negative? $premises $conclusion-side)
+(= (query-side $kb $mvars $negative? $antecedent $consequent)
    (let*
       (($ctx (nextctx))
        ($shape-kb (make-kb-context $kb $ctx $mvars))
+       ($premises (implication-side-conjuncts $antecedent))
        (($execs $_proofs $_atv)
           (once (if $negative?
                    (lower-query-assumption-premises-negative $kb $ctx $mvars $premises)
                    (lower-query-assumption-premises $kb $ctx $mvars $premises))))
-       ($goal-expr (brand Statement (seq2expr $conclusion-side)))
+       ($goal-expr $consequent)
        ($adds
           (union-compiled-additions
              (query-context-premise-adds $kb $ctx $mvars $execs)
@@ -2118,14 +2022,14 @@
 ;; vars (used by the caller in its known goals and proof token), and all adds.
 (: query-pos-neg-scaffold
    (-[semidet]-> KB (| NilType (List Variable))
-       (List Atom) (List Atom)
+       Statement Statement
        (KBContext KBContext Statement Proof Proof (List CompiledAddition))))
-(= (query-pos-neg-scaffold $kb $mvars $premises $conclusions)
+(= (query-pos-neg-scaffold $kb $mvars $antecedent $consequent)
    (let*
       ((($pos-shape-kb $pos-prf $b $pos-adds)
-          (query-side $kb $mvars false $premises $conclusions))
+          (query-side $kb $mvars false $antecedent $consequent))
        (($neg-shape-kb $neg-prf $_b $neg-adds)
-          (query-side $kb $mvars true $premises $conclusions)))
+          (query-side $kb $mvars true $antecedent $consequent)))
       (data
          $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf
          (union-compiled-additions $pos-adds $neg-adds))))
@@ -2178,14 +2082,14 @@
        ($member-adds
           (cons (brand CompiledAddition $member-sample-rule)
              (cons (brand CompiledAddition $member-rule) ())))
-       ($premises ((Inheritance $x $subj)))
-       ($conclusions ((Inheritance $x $concept)))
+       ($antecedent (Inheritance $x $subj))
+       ($consequent (Inheritance $x $concept))
        ($mvars (cons (brand Variable $x) ()))
        (($pos-shape-kb $neg-shape-kb $b
             $pos-prf $neg-prf $all-adds)
           (query-pos-neg-scaffold $kb $mvars
-             (the (List Atom) $premises)
-             (the (List Atom) $conclusions)))
+             (brand Statement $antecedent)
+             (brand Statement $consequent)))
        ($pos-lift-adds
           (collect-inheritance-lifts-for-context
              $kb $pos-shape-kb))
@@ -2241,15 +2145,18 @@
          ())
       (if (contains-explicit-exists? $Type)
          (empty)
-      (if (= $Type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
+      (if (= $Type (Implication $antecedent $consequent))
          (let*
-            (($vars (extract-vars $Type))
+            (($_syntax-valid
+                (validate-explicit-exists-rule
+                   $antecedent $consequent))
+             ($vars (extract-vars $Type))
              ($mvars (query-variables $vars))
              (($pos-shape-kb $neg-shape-kb $b
                   $pos-prf $neg-prf $all-adds)
                 (query-pos-neg-scaffold $kb $mvars
-                   (the (List Atom) $premises)
-                   (the (List Atom) $conclusions)))
+                   (brand Statement $antecedent)
+                   (brand Statement $consequent)))
              (($known-pos-tv $known-neg-tv $known-tv)
                 (implication-query-known-tv-parts $tv))
              ($known-pos-goal (: $pos-shape-kb $pos-prf $b $known-pos-tv))
@@ -2266,21 +2173,23 @@
                   ($known-pos-goal $known-neg-goal))
                $known-goal
                $all-adds))
+         (if (implication-type? $Type)
+            (empty)
          (if (bidirectional-implication-type? $Type)
-            (let ($_head (cons Premises $left) (cons Conclusions $right)) $Type
+            (let ($_head $left $right) $Type
                (let*
                   (($vars (extract-vars $Type))
                     ($mvars (query-variables $vars))
                     (($left-shape-kb $left-prf
                          $left-goal-expr $left-adds)
                        (query-side $kb $mvars false
-                          (the (List Atom) $left)
-                          (the (List Atom) $right)))
+                          (brand Statement $left)
+                          (brand Statement $right)))
                     (($right-shape-kb $right-prf
                          $right-goal-expr $right-adds)
                        (query-side $kb $mvars false
-                          $right
-                          $left))
+                          (brand Statement $right)
+                          (brand Statement $left)))
                     ($left-goal (: $left-shape-kb $left-prf $left-goal-expr $left-tv))
                     ($right-goal (: $right-shape-kb $right-prf $right-goal-expr $right-tv))
                     ($goal (: (kbctx $kb) (bidirectional $left-prf $right-prf) $Type $tv)))
@@ -2297,7 +2206,7 @@
                   ()
                   (: (kbctx $kb) $prf $Type $tv)
                   (compile-query-adds
-                     (: (kbctx $kb) $prf $Type $tv)))))))))
+                     (: (kbctx $kb) $prf $Type $tv))))))))))
 
 
 ;; Translate the external `premises |- conclusions` compiler form into the
@@ -2390,7 +2299,7 @@
          (map-flat query-temp-rule-premise
             (statement-children (cdr-atom $type)))
 	      (: query-compound
-	         (Implication (cons Premises $premises) (cons Conclusions ($type)))
+	         (Implication (seq2expr $premises) $type)
 	         (CTV (STV 1.0 1.0) (STV 0.0 1.0)))))
 
 ;; Query assumptions with no caller-supplied TV are treated as certain. An
@@ -2399,7 +2308,7 @@
 (: default-query-assumption-tv (-[det]-> Statement TV TV))
 (= (default-query-assumption-tv $type $tv)
    (if (is-var $tv)
-      (if (= $type (Implication (cons Premises $_premises) (cons Conclusions $_conclusions)))
+      (if (= $type (Implication $_antecedent $_consequent))
          (CTV (STV 1.0 1.0) (STV 0.0 1.0))
          (STV 1.0 1.0))
       $tv))
@@ -2408,11 +2317,11 @@
 ;; fresh context, not merely stored as an inert contextual fact. Compile its
 ;; forward rule against the same shaped KB so it can consume sibling assumptions.
 (: query-context-compile-assumed-implication
-   (-[det]-> KB $context $variables Proof TV (List Atom)
+   (-[det]-> KB $context $variables Proof TV Statement
        CompiledPremises
        (List CompiledAddition)))
 (= (query-context-compile-assumed-implication
-      $kbid $ctx $mvars $ctxprf $tv $conclusions
+      $kbid $ctx $mvars $ctxprf $tv $consequent
       ($execs $proofs $atv))
    (let*
       (($shape-kb
@@ -2420,13 +2329,12 @@
        ($a
           (brand Statement
              (execs-goal-type $execs)))
-       ($b
-          (brand Statement
-             (seq2expr $conclusions))))
+       ($b $consequent))
       (collapse
          (compile-implication-forward-rules
             $kbid $shape-kb $shape-kb
             $ctxprf $tv $a $b
+            (list_to_set (extract-vars $a))
             $execs $proofs $atv))))
 
 (: query-context-assumed-implication-rules
@@ -2435,22 +2343,20 @@
 (= (query-context-assumed-implication-rules $kbid $ctx $mvars $ctxprf $type $tv)
    (if (is-var $type) ()
       (case $type (
-         ((Implication (cons Premises $premises) (cons Conclusions $conclusions))
+         ((Implication $antecedent $consequent)
             (let*
                (($lowered
                    (collapse
                       (once
-                         (lower-source-premises
+                         (lower-implication-antecedent
                             $kbid $ctx $mvars
-                            (the (List Atom) $premises)
-                            (the (List Atom)
-                               $conclusions))))))
+                            (brand Statement $antecedent))))))
                (case $lowered (
                   (() ())
                   ((cons $compiled-premises $_rest)
                      (query-context-compile-assumed-implication
                         $kbid $ctx $mvars $ctxprf $tv
-                        $conclusions
+                        (brand Statement $consequent)
                         $compiled-premises))))))
          ($_other ())))))
 
@@ -2713,6 +2619,6 @@
                        (match &kb
                           ($t $kb $_proof $_truth-value)
                           $t)))
-                 ($ptype (Implication (cons Premises $x) (cons Conclusions ($type)))))
+                 ($ptype (Implication (seq2expr $x) $type)))
                (: $prf $ptype $tv)))
          (: $prf $type $tv))))

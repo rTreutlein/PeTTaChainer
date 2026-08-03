@@ -29,14 +29,14 @@ libPLN:
     (Inheritance $2 (IntSet smokes))))
 PeTTaChainer:
 (Implication
-  (Premises (Friend $x $y) (Smokes $x))
-  (Conclusions (Smokes $y)))
+  (And (Friend $x $y) (Smokes $x))
+  (Smokes $y))
 
 6. Rule truth value
 libPLN:
 ((Implication A B) (stv 0.6 0.9))
 PeTTaChainer:
-(: ruleAB (Implication (Premises A) (Conclusions B))
+(: ruleAB (Implication A B)
    (CTV (STV 0.6 0.9) (STV 0.0 1.0)))
 
 7. Query shape
@@ -77,8 +77,8 @@ libPLN:
 PeTTaChainer possible stored form:
 (Equivalence Thunder Donner)
 PeTTaChainer possible lowering:
-(Implication (Premises Thunder) (Conclusions Donner))
-(Implication (Premises Donner) (Conclusions Thunder))
+(Implication Thunder Donner)
+(Implication Donner Thunder)
 
 13. Similarity
 libPLN:

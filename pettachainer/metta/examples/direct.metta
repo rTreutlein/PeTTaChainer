@@ -3,22 +3,22 @@
 !(compileadd directKb
    (: fathersFatherGrandfather
       (Implication
-         (Premises (Father $a $b) (Father $b $c))
-         (Conclusions (Grandfather $a $c)))
+         (And (Father $a $b) (Father $b $c))
+         (Grandfather $a $c))
       (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
 !(compileadd directKb
    (: fathersMotherGrandfather
       (Implication
-         (Premises (Father $a $b) (Mother $b $c))
-         (Conclusions (Grandfather $a $c)))
+         (And (Father $a $b) (Mother $b $c))
+         (Grandfather $a $c))
       (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
 !(compileadd directKb
    (: grandfatherOld
       (Implication
-         (Premises (Grandfather $a $x))
-         (Conclusions (Old $a)))
+         (Exists ($x) (Grandfather $a $x))
+         (Old $a))
       (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
 !(compileadd directKb (: fatherAB (Father a b) (STV 1.0 0.9)))

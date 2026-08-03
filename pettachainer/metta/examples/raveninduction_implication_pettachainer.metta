@@ -7,28 +7,28 @@
 
 !(compileadd ravenInductionImplicationKb
    (: rv1ImpliesRaven
-      (Implication (Premises (Rv1 $x)) (Conclusions (Raven $x)))
+      (Implication (Rv1 $x) (Raven $x))
       (STV 0.9 0.9)))
 
 !(compileadd ravenInductionImplicationKb
    (: rv2ImpliesRaven
-      (Implication (Premises (Rv2 $x)) (Conclusions (Raven $x)))
+      (Implication (Rv2 $x) (Raven $x))
       (STV 0.9 0.9)))
 
 !(compileadd ravenInductionImplicationKb
    (: rv1ImpliesBlack
-      (Implication (Premises (Rv1 $x)) (Conclusions (Black $x)))
+      (Implication (Rv1 $x) (Black $x))
       (STV 0.8 0.9)))
 
 !(compileadd ravenInductionImplicationKb
    (: rv2ImpliesBlack
-      (Implication (Premises (Rv2 $x)) (Conclusions (Black $x)))
+      (Implication (Rv2 $x) (Black $x))
       (STV 0.0 0.9)))
 
 !(test
    (query 100 ravenInductionImplicationKb
       (: $prf
-         (Implication (Premises (Raven $x)) (Conclusions (Black $x)))
+         (Implication (Raven $x) (Black $x))
          $tv))
    (:
       (total-implication
@@ -42,7 +42,7 @@
                ((inverted rv1ImpliesRaven with cpu cpu) (ctx proof 1)))
             (rv2ImpliesBlack
                ((inverted rv2ImpliesRaven with cpu cpu) (ctx proof 1)))))
-      (Implication (Premises (Raven $x)) (Conclusions (Black $x)))
+      (Implication (Raven $x) (Black $x))
       (CTV
          (STV 0.43377973868275976 0.5234813517279882)
          (STV 0.1894448281191785 0.4177956832421612))))

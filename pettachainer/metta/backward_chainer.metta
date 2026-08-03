@@ -1560,9 +1560,7 @@
    (case $goal (
       (($type ($kbid MAIN Nil) $prf $tv)
          (case $type (
-            ((Implication
-                  (cons Premises $_premises)
-                  (cons Conclusions $_conclusions))
+            ((Implication $_antecedent $_consequent)
                (let $compiled-queries
                   (collapse
                      (mm2compileQuery

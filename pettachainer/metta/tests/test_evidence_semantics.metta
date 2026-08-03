@@ -12,13 +12,13 @@
 
 ; --- Two derivation branches under one hypothesis merge ---
 
-!(compileadd evKb (: aImpliesB (Implication (Premises (A $x)) (Conclusions (B $x))) (CTV (STV 0.25 0.9) (STV 0.0 1.0))))
+!(compileadd evKb (: aImpliesB (Implication (A $x) (B $x)) (CTV (STV 0.25 0.9) (STV 0.0 1.0))))
 
-!(compileadd evKb (: aImpliesC (Implication (Premises (A $x)) (Conclusions (C $x))) (CTV (STV 0.25 0.9) (STV 0.0 1.0))))
+!(compileadd evKb (: aImpliesC (Implication (A $x) (C $x)) (CTV (STV 0.25 0.9) (STV 0.0 1.0))))
 
-!(compileadd evKb (: bImpliesD (Implication (Premises (B $x)) (Conclusions (D $x))) (CTV (STV 0.5 0.9) (STV 0.0 1.0))))
+!(compileadd evKb (: bImpliesD (Implication (B $x) (D $x)) (CTV (STV 0.5 0.9) (STV 0.0 1.0))))
 
-!(compileadd evKb (: cImpliesD (Implication (Premises (C $x)) (Conclusions (D $x))) (CTV (STV 0.5 0.9) (STV 0.0 1.0))))
+!(compileadd evKb (: cImpliesD (Implication (C $x) (D $x)) (CTV (STV 0.5 0.9) (STV 0.0 1.0))))
 
 ; The assumed (A $x) is shared by both branches but is the conditioning
 ; hypothesis, not evidence; the implication sets are disjoint, so the
@@ -27,11 +27,11 @@
 !(test
    (let
       (: $prf
-         (Implication (Premises (A $x)) (Conclusions (D $x)))
+         (Implication (A $x) (D $x))
          $tv)
       (query 100 evKb
          (: $prf
-            (Implication (Premises (A $x)) (Conclusions (D $x)))
+            (Implication (A $x) (D $x))
             $tv))
       $tv)
    (CTV (STV 0.125 0.9692294378874315) (STV 0.0 0.9999367205825538)))
@@ -42,9 +42,9 @@
 
 !(compileadd sharedKb (: cm (C m) (STV 1.0 0.9)))
 
-!(compileadd sharedKb (: cImpliesB (Implication (Premises (C $x)) (Conclusions (B $x))) (CTV (STV 0.8 0.9) (STV 0.0 1.0))))
+!(compileadd sharedKb (: cImpliesB (Implication (C $x) (B $x)) (CTV (STV 0.8 0.9) (STV 0.0 1.0))))
 
-!(compileadd sharedKb (: bImpliesD (Implication (Premises (B $x)) (Conclusions (D $x))) (CTV (STV 0.5 0.9) (STV 0.0 1.0))))
+!(compileadd sharedKb (: bImpliesD (Implication (B $x) (D $x)) (CTV (STV 0.5 0.9) (STV 0.0 1.0))))
 
 ; (D m) is reachable from bm directly and from cm via cImpliesB. The two
 ; (B m) proofs have disjoint evidence and merge at the subgoal, so the shared

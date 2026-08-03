@@ -106,13 +106,13 @@ def _acceptance_atoms(predicates: Sequence[PredicateSpec], sample_count: int) ->
         contract = f"contract{predicate.name}"
         atoms.append(
             f"(: signalRule_{predicate.name} "
-            f"(Implication (Premises ({quality} $supplier)) (Conclusions ({signal} $supplier))) "
+            f"(Implication ({quality} $supplier) ({signal} $supplier)) "
             "(CTV (STV 0.8 0.9) (STV 0.1 0.9)))"
         )
         atoms.append(f"(: signal_{predicate.name} ({signal} {contract}) (STV 0.9 0.8))")
         atoms.append(
             f"(: acceptRule_{predicate.name} "
-            f"(Implication (Premises ({quality} {contract})) (Conclusions (AcceptContract {contract}))) "
+            f"(Implication ({quality} {contract}) (AcceptContract {contract})) "
             "(CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
         )
         for index, value in enumerate(samples_for(predicate, sample_count), 1):

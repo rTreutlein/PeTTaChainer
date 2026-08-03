@@ -1,6 +1,6 @@
 !(import! &self ../petta_chainer)
 
-!(compileadd brKb (: r (Implication (Premises (P $x)) (Conclusions (Q $x))) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
+!(compileadd brKb (: r (Implication (P $x) (Q $x)) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 
 !(compileadd brKb (: qa (Q alice) (STV 0.9 0.8)))
 
@@ -68,7 +68,7 @@
 
 !(compileadd ruleAddCacheKb
    (: rToP
-      (Implication (Premises (R $x)) (Conclusions (P $x)))
+      (Implication (R $x) (P $x))
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 
 !(test
@@ -103,7 +103,7 @@
 
 ; --- Refinement of computed cache entries ---
 
-!(compileadd brKb2 (: r (Implication (Premises (P $x)) (Conclusions (Q $x))) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
+!(compileadd brKb2 (: r (Implication (P $x) (Q $x)) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 
 !(compileadd brKb2 (: qa (Q alice) (STV 0.9 0.8)))
 
@@ -125,7 +125,7 @@
 
 ; A high-confidence computed entry is protected: the refold's confidence is
 ; lower, so the cached estimate survives refinement and feeds the conclusion.
-!(compileadd brKb3 (: r (Implication (Premises (P $x)) (Conclusions (Q $x))) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
+!(compileadd brKb3 (: r (Implication (P $x) (Q $x)) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 
 !(compileadd brKb3 (: qa (Q alice) (STV 0.9 0.8)))
 

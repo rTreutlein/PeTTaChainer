@@ -2,9 +2,9 @@
 
 !(compileadd materializeKb (: a0 (A) (STV 1.0 1.0)))
 
-!(compileadd materializeKb (: r1 (Implication (Premises (A)) (Conclusions (B))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd materializeKb (: r1 (Implication (A) (B)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(compileadd materializeKb (: r2 (Implication (Premises (B)) (Conclusions (Goal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd materializeKb (: r2 (Implication (B) (Goal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
    (query 4 materializeKb (: $p (Goal) $tv))

@@ -7,8 +7,8 @@
 !(compileadd foldMergedKb
    (: qToScore
       (Implication
-         (Premises (Q $x))
-         (Conclusions (Score $x 1)))
+         (Q $x)
+         (Score $x 1))
       (CTV (STV 0.4 0.9) (STV 0.0 1.0))))
 
 !(test

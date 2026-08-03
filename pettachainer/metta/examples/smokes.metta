@@ -3,15 +3,15 @@
 !(compileadd smokesKb
    (: friendSmokingRule
       (Implication
-         (Premises (Inheritance (Product $x $y) friend) (Inheritance $x (IntSet smokes)))
-         (Conclusions (Inheritance $y (IntSet smokes))))
+         (And (Inheritance (Product $x $y) friend) (Inheritance $x (IntSet smokes)))
+         (Inheritance $y (IntSet smokes)))
       (STV 0.4 0.9)))
 
 !(compileadd smokesKb
    (: smokingCancerRule
       (Implication
-         (Premises (Inheritance $x (IntSet smokes)))
-         (Conclusions (Inheritance $x (IntSet cancerous))))
+         (Inheritance $x (IntSet smokes))
+         (Inheritance $x (IntSet cancerous)))
       (STV 0.6 0.9)))
 
 !(compileadd smokesKb (: friendAnnaBob (Inheritance (Product Anna Bob) friend) (STV 1.0 0.9)))

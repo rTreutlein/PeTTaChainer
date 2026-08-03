@@ -1,6 +1,6 @@
 !(import! &self ../petta_chainer)
 
-!(compileadd invKb (: r (Implication (Premises (P $x)) (Conclusions (Q $x))) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
+!(compileadd invKb (: r (Implication (P $x) (Q $x)) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 
 !(compileadd invKb (: qa (Q alice) (STV 0.9 0.8)))
 

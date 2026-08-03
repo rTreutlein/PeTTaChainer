@@ -137,14 +137,14 @@ These views are generated automatically. User code should not duplicate them.
 The generated member view is marked non-invertible: observing that an object is
 Mortal does not by itself prove that it is Human.
 
-`Member` can also appear in explicit rule premises and conclusions:
+`Member` can also appear on either side of an explicit rule:
 
 ```metta
 !(compileadd kb
     (: seedHuman
        (Implication
-          (Premises (Member $x Seed))
-          (Conclusions (Member $x Human)))
+          (Member $x Seed)
+          (Member $x Human))
        (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 ```
 
@@ -196,53 +196,74 @@ alias for `Member`: adding both forms records two distinct propositions.
 
 ## Rule Syntax
 
-Rules are implications with explicit premises and conclusions:
+An implication has exactly two expression arguments: its antecedent and its
+consequent. Write `And` explicitly when either side is a conjunction:
 
 ```metta
 !(compileadd kb (: ruleName
     (Implication
-        (Premises
+        (And
             premise1
             premise2
             ...)
-        (Conclusions
-            conclusion1
-            ...))
+        conclusion)
     (STV s c)))
 ```
 
-Variables shared by an implication's premises and conclusions are implicitly
-universally quantified. A premise may give existential scope explicitly with:
+A singleton side is written directly, without a unary `And`. There is only one
+source form for an implication. Multiple conclusions form one explicit joint
+consequent such as `(And conclusion1 conclusion2)` and retain the normal
+compound-output projection semantics.
+
+Variables in an ordinary antecedent are implicitly universally quantified. An
+antecedent may instead request existential aggregation explicitly with:
 
 ```metta
 !(compileadd kb
     (: doctorChild
        (Implication
-          (Premises
-             (Exists ($child)
+          (Exists ($child)
                 (And
                    (Parent $person $child)
-                   (Doctor $child))))
-          (Conclusions
-             (HasDoctorChild $person)))
+                   (Doctor $child)))
+          (HasDoctorChild $person))
        (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 ```
 
-`Exists` has the form `(Exists ($var ...) body)` and must be a top-level
-premise of a stored implication. Its body is queried for every witness, the
+`Exists` has the form `(Exists ($var ...) body)` and must wrap one complete
+side of a stored implication. Its body is queried for every witness, the
 body truth values are combined with existential disjunction, and free body
 variables such as `$person` form independent result groups. The binder scopes
 over its complete body, so the same `$child` must satisfy both predicates in
-the example. A bound variable name may not be reused outside that `Exists`
-body; use a different outer variable name instead of relying on shadowing.
+the example. Put `And` inside the binder when its body is conjunctive; an
+`Exists` nested inside an outer `And` is invalid. A bound variable name may not
+be reused on the implication's other side.
 
-For compatibility, a variable local to an ordinary premise is still inferred
-as existential. Explicit `Exists` should be preferred whenever scope matters.
-Nested existential binders, existential conclusions, direct existential
-queries, and existential premises in bidirectional implications are currently
-rejected rather than interpreted as ordinary predicates. Existential
-conclusions require constructive witness semantics and are not equivalent to
-the internal Skolem-style markers used by implication inversion.
+An existential conclusion introduces a stable witness:
+
+```metta
+!(compileadd kb
+    (: generate
+       (Implication
+          (Seed $x)
+          (Exists ($y) (GeneratedBy $x $y)))
+       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+```
+
+For a proof of `(Seed alice)`, `$y` becomes a term shaped like
+`(exists generate 0 (alice))`. The rule name and witness index distinguish the
+witness, while the retained premise bindings make it stable for the same input
+and distinct across rules, binders, or inputs. Variables which occur only in
+an ordinary conclusion receive this treatment implicitly as well.
+
+Variables in an ordinary antecedent retain the implication's universal scope
+even when they do not occur in the consequent. Use explicit `Exists` when the
+antecedent should instead aggregate existential evidence. Variables bound by
+an existential antecedent are eliminated by that aggregation and do not become
+dependencies of generated consequent witnesses.
+Nested existential binders, direct existential queries, and existential terms
+in bidirectional implications are currently rejected rather than interpreted
+as ordinary predicates.
 
 ## Built-in Premise Forms
 
@@ -387,12 +408,11 @@ For dist-vs-dist comparisons, confidence is the minimum of both sides.
 
 !(compileadd kb (: compareHeightsRule
     (Implication
-        (Premises
+        (And
             (CountryHeightDist countryA $distA)
             (CountryHeightDist countryB $distB)
             (GreaterThan $distA $distB))
-        (Conclusions
-            (Taller countryA countryB)))
+        (Taller countryA countryB))
     (STV 1.0 1.0)))
 
 !(query 40 kb (: $prf (Taller countryA countryB) $tv))
@@ -411,11 +431,10 @@ Each person height stores the distribution in the term, while the `tv` slot rema
 
 !(compileadd kb (: avgHeightDistG1Rule
     (Implication
-        (Premises
+        (And
             (Group g1)
             (AverageDist (HeightDist g1 $person $heightDist) $heightDist -> $avgDist))
-        (Conclusions
-            (AvgHeightDist g1 $avgDist)))
+        (AvgHeightDist g1 $avgDist))
     (STV 1.0 1.0)))
 
 !(query 10 kb
@@ -434,7 +453,7 @@ Area is the product of length and width distributions, derived through a rule.
 
 !(compileadd kb (: areaDistRule
     (Implication
-        (Premises
+        (And
             (Rectangle $rect)
             (Map2Dist *
                (LengthDist $rect $lengthDist)
@@ -443,8 +462,7 @@ Area is the product of length and width distributions, derived through a rule.
                $widthDist
                ->
                $areaDist))
-        (Conclusions
-            (AreaDist $rect $areaDist)))
+        (AreaDist $rect $areaDist))
     (STV 1.0 1.0)))
 
 !(compileadd kb (: rA (Rectangle rectA) (STV 1.0 1.0)))

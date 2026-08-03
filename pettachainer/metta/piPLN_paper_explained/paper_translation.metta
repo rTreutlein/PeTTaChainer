@@ -463,10 +463,10 @@
 !(compileadd piplndistkb
    (: longTripRule
       (Implication
-         (Premises
+         (And
             (ChartDistanceDist everyday-route $distance)
             (GreaterThan $distance 10))
-         (Conclusions (LongTrip everyday-route)))
+         (LongTrip everyday-route))
       (STV 1.0 1.0)))
 
 !(test

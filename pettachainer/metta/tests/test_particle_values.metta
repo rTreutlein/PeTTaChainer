@@ -44,10 +44,10 @@
 !(compileadd kb
    (: compareHeightsRule
       (Implication
-         (Premises (CountryHeightDist countryA $heightA)
+         (And (CountryHeightDist countryA $heightA)
             (CountryHeightDist countryB $heightB)
             (GreaterThan $heightA $heightB))
-         (Conclusions (Taller countryA countryB)))
+         (Taller countryA countryB))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
@@ -79,19 +79,19 @@
 !(compileadd kb
    (: cntKidInParticleRule
       (Implication
-         (Premises (Room $room)
+         (And (Room $room)
             (FoldAllValue (In $room $kid)
                (ParticleFromPairs ((0 1.0)))
                ParticleAddBernoulliFromSTV
                ->
                $dist))
-         (Conclusions (CntKidInParticle $room $dist)))
+         (CntKidInParticle $room $dist))
       (CTV (STV 1.0 0.8) (STV 0.0 1.0))))
 
 !(compileadd kb
    (: playTogetherParticleRule
-      (Implication (Premises (Room $room) (CntKidInParticle $room $cnt) (GreaterThan $cnt 1))
-         (Conclusions (PlayTogetherParticleIn $room)))
+      (Implication (And (Room $room) (CntKidInParticle $room $cnt) (GreaterThan $cnt 1))
+         (PlayTogetherParticleIn $room))
       (CTV (STV 1.0 0.75) (STV 0.0 1.0))))
 
 !(test

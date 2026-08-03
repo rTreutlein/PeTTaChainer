@@ -3,24 +3,20 @@
 !(compileadd implicationPremiseKb
    (: ab_c
       (Implication
-         (Premises
-            (Implication (Premises (A)) (Conclusions (B))))
-         (Conclusions
-            (C)))
+         (Implication (A) (B))
+         (C))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(compileadd implicationPremiseKb
    (: a_b
       (Implication
-         (Premises
-            (A))
-         (Conclusions
-            (B)))
+         (A)
+         (B))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
    (query 60 implicationPremiseKb
-      (: $prf (Implication (Premises (A)) (Conclusions (B)))
+      (: $prf (Implication (A) (B))
          (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
    ())
 
@@ -32,47 +28,46 @@
    (query 60 implicationPremiseKb
       (: $prf
          (Implication
-            (Premises (Not (Dog)))
-            (Conclusions (Dog)))
+            (Not (Dog))
+            (Dog))
          $tv))
    (: (total-implication (ctx proof 6) (ctx proof 7))
-      (Implication (Premises (Not (Dog))) (Conclusions (Dog)))
+      (Implication (Not (Dog)) (Dog))
       (CTV (STV 0.0 1.0) (STV 1.0 1.0))))
 
 !(test
    (query 60 implicationPremiseKb
       (: $prf
          (Implication
-            (Premises (Not (Dog)))
-            (Conclusions (Not (Dog))))
+            (Not (Dog))
+            (Not (Dog)))
          (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
    (: (total-implication (negated (ctx proof 8)) (negated (ctx proof 9)))
-      (Implication (Premises (Not (Dog))) (Conclusions (Not (Dog))))
+      (Implication (Not (Dog)) (Not (Dog)))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(compileadd multiPremiseImplicationQueryKb
    (: ab_c
       (Implication
-         (Premises
+         (And
             (A)
             (B))
-         (Conclusions
-            (C)))
+         (C))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
    (query 60 multiPremiseImplicationQueryKb
-      (: $prf (Implication (Premises (A) (B)) (Conclusions (C))) $tv))
-   (: (total-implication (ab_c (conjunction (ctx proof 10) (ctx proof 10 1))) (ab_c (conjunction (ctx proof 11) (ctx proof 11 1)))) (Implication (Premises (A) (B)) (Conclusions (C))) (CTV (STV 1.0 0.999700089898053) (STV 0.0 0.999800029971008))))
+      (: $prf (Implication (And (A) (B)) (C)) $tv))
+   (: (total-implication (ab_c (conjunction (ctx proof 10) (ctx proof 10 1))) (ab_c (conjunction (ctx proof 11) (ctx proof 11 1)))) (Implication (And (A) (B)) (C)) (CTV (STV 1.0 0.999700089898053) (STV 0.0 0.999800029971008))))
 
 !(test
    (query 60 implicationPremiseKb
       (: $prf
          (Implication
-            (Premises
-               (Implication (Premises (A)) (Conclusions (B)))
+            (And
+               (Implication (A) (B))
                (A))
-            (Conclusions (B)))
+            (B))
          $tv))
    (: (total-implication
          (merge/revision
@@ -82,8 +77,8 @@
             (a_b (ctx proof 13 1))
             ((ctx proof 13) (ctx proof 13 1))))
       (Implication
-         (Premises (Implication (Premises (A)) (Conclusions (B))) (A))
-         (Conclusions (B)))
+         (And (Implication (A) (B)) (A))
+         (B))
       (CTV
          (STV 1.0 0.9999000099865026)
          (STV 0.5000000000036097 0.9999000099865019))))
@@ -95,16 +90,15 @@
 !(compileadd kbRelativeImplicationQueryKb
    (: ab_c
       (Implication
-         (Premises
+         (And
             (A)
             (B))
-         (Conclusions
-            (C)))
+         (C))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
    (query 60 kbRelativeImplicationQueryKb
-      (: $prf (Implication (Premises (A)) (Conclusions (C)))
+      (: $prf (Implication (A) (C))
          (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
    ())
 
@@ -117,7 +111,7 @@
 
 !(test (query 10 (contextualFactsKb LOCAL Nil) (: local-fact (LocalFact) (STV 1.0 1.0)))
    (: local-fact
-      (Implication (Premises (LocalFact)) (Conclusions (LocalFact)))
+      (Implication (LocalFact) (LocalFact))
       (STV 1.0 1.0)))
 
 !(compileadd biImplicationKb (: a (A) (STV 1.0 1.0)))
@@ -125,8 +119,8 @@
 !(compileadd biImplicationKb
    (: a_iff_b
       (BiImplication
-         (Premises (A))
-         (Conclusions (B)))
+         (A)
+         (B))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 30 biImplicationKb (: $prf (B) $tv))
@@ -137,8 +131,8 @@
 !(compileadd biImplicationKb
    (: a2_iff_b2
       (BiImplication
-         (Premises (A2))
-         (Conclusions (B2)))
+         (A2)
+         (B2))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 30 biImplicationKb (: $prf (A2) $tv))
@@ -148,14 +142,14 @@
    (query 60 biImplicationKb
       (: $prf
          (BiImplication
-            (Premises (A))
-            (Conclusions (B)))
+            (A)
+            (B))
          $tv))
-   (: (bidirectional ((bi-forward a_iff_b) (ctx proof 16)) ((bi-backward a_iff_b) (ctx proof 17))) (BiImplication (Premises (A)) (Conclusions (B))) (STV 1.0 0.9996001597861455)))
+   (: (bidirectional ((bi-forward a_iff_b) (ctx proof 16)) ((bi-backward a_iff_b) (ctx proof 17))) (BiImplication (A) (B)) (STV 1.0 0.9996001597861455)))
 
 !(test
    (query 60 implicationPremiseKb
-      (: $prf (Implication (Premises (A)) (Conclusions (B))) (STV 1.0 1.0)))
+      (: $prf (Implication (A) (B)) (STV 1.0 1.0)))
    ())
 
 !(compileadd negConclusionKb (: a (A) (STV 1.0 1.0)))
@@ -163,8 +157,8 @@
 !(compileadd negConclusionKb
    (: a_not_b
       (Implication
-         (Premises (A))
-         (Conclusions (Not (B))))
+         (A)
+         (Not (B)))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test

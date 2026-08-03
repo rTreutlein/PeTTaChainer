@@ -32,28 +32,28 @@
 
 !(compileadd deductionRevisionImplicationKb
    (: aImpliesB
-      (Implication (Premises (A $x)) (Conclusions (B $x)))
+      (Implication (A $x) (B $x))
       (CTV (STV 0.25 0.9) (STV 0.0 1.0))))
 
 !(compileadd deductionRevisionImplicationKb
    (: aImpliesC
-      (Implication (Premises (A $x)) (Conclusions (C $x)))
+      (Implication (A $x) (C $x))
       (CTV (STV 0.25 0.9) (STV 0.0 1.0))))
 
 !(compileadd deductionRevisionImplicationKb
    (: bImpliesD
-      (Implication (Premises (B $x)) (Conclusions (D $x)))
+      (Implication (B $x) (D $x))
       (CTV (STV 0.5 0.9) (STV 0.0 1.0))))
 
 !(compileadd deductionRevisionImplicationKb
    (: cImpliesD
-      (Implication (Premises (C $x)) (Conclusions (D $x)))
+      (Implication (C $x) (D $x))
       (CTV (STV 0.5 0.9) (STV 0.0 1.0))))
 
 !(test
    (query 100 deductionRevisionImplicationKb
       (: $prf
-         (Implication (Premises (A $x)) (Conclusions (D $x)))
+         (Implication (A $x) (D $x))
          $tv))
    (:
       (total-implication
@@ -63,7 +63,7 @@
          (merge/revision
             (bImpliesD (aImpliesB (ctx proof 3)))
             (cImpliesD (aImpliesC (ctx proof 3)))))
-      (Implication (Premises (A $x)) (Conclusions (D $x)))
+      (Implication (A $x) (D $x))
       (CTV
          (STV 0.125 0.9692294378874315)
          (STV 0.0 0.9999367205825538))))

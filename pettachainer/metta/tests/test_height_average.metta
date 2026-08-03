@@ -18,8 +18,8 @@
 
 !(compileadd kb
    (: avgHeightDistRule
-      (Implication (Premises (Group $g) (AverageDist (HeightDist $g $person $hdist) $hdist -> $avgDist))
-         (Conclusions (AvgHeightDist $g $avgDist)))
+      (Implication (And (Group $g) (AverageDist (HeightDist $g $person $hdist) $hdist -> $avgDist))
+         (AvgHeightDist $g $avgDist))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test

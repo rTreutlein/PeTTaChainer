@@ -18,13 +18,13 @@
 !(compileadd fwdkb (: edgeBC (Edge B C) (STV 1.0 1.0)))
 
 !(compileadd fwdkb
-   (: edgeToPath (Implication (Premises (Edge $x $y)) (Conclusions (Path $x $y))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+   (: edgeToPath (Implication (Edge $x $y) (Path $x $y)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(compileadd fwdkb
-   (: pathStep (Implication (Premises (Path $x $y) (Edge $y $z)) (Conclusions (Path $x $z))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+   (: pathStep (Implication (And (Path $x $y) (Edge $y $z)) (Path $x $z)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(compileadd fwdkb
-   (: pathIdempotent (Implication (Premises (Path $x $y)) (Conclusions (Path $x $y))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+   (: pathIdempotent (Implication (Path $x $y) (Path $x $y)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
    (let $changed (forward-chain 50 fwdkb (test-selected-facts fwdkb (Edge A B)))
@@ -49,7 +49,7 @@
 !(compileadd loopkb (: seedLoop (Loop Start) (STV 1.0 1.0)))
 
 !(compileadd loopkb
-   (: keepLoop (Implication (Premises (Loop $x)) (Conclusions (Loop $x))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+   (: keepLoop (Implication (Loop $x) (Loop $x)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
    (let*
@@ -76,10 +76,10 @@
 !(compileadd mergekb (: baseFact (BasePremise) (STV 1.0 1.0)))
 
 !(compileadd mergekb
-   (: ruleHighThenDrop (Implication (Premises (WeakPremise) (BasePremise)) (Conclusions (SwitchGoal))) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+   (: ruleHighThenDrop (Implication (And (WeakPremise) (BasePremise)) (SwitchGoal)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
 !(compileadd mergekb
-   (: ruleStable (Implication (Premises (BasePremise)) (Conclusions (SwitchGoal))) (CTV (STV 1.0 0.7) (STV 0.0 1.0))))
+   (: ruleStable (Implication (BasePremise) (SwitchGoal)) (CTV (STV 1.0 0.7) (STV 0.0 1.0))))
 
 !(test
    (let*
@@ -127,7 +127,7 @@
 !(compileadd deltakb (: lowFact (LowPriority) (STV 1.0 0.8)))
 
 !(compileadd deltakb
-   (: lowToGoal (Implication (Premises (LowPriority)) (Conclusions (DeltaGoal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+   (: lowToGoal (Implication (LowPriority) (DeltaGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (let $_ (forward-chain 1 deltakb (test-selected-facts deltakb (HighPriority))) (forward-has-derived? deltakb (DeltaGoal))) false)
 
@@ -142,7 +142,7 @@
 !(compileadd selectedkb (: lowFact (LowPriority) (STV 1.0 0.8)))
 
 !(compileadd selectedkb
-   (: lowToGoal (Implication (Premises (LowPriority)) (Conclusions (SelectedGoal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+   (: lowToGoal (Implication (LowPriority) (SelectedGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (let $_ (forward-chain 1 selectedkb (test-selected-facts selectedkb (LowPriority))) (forward-has-derived? selectedkb (SelectedGoal))) true)
 
@@ -151,7 +151,7 @@
 !(compileadd factseedkb (: lowFact (LowPriority) (STV 1.0 0.8)))
 
 !(compileadd factseedkb
-   (: lowToGoal (Implication (Premises (LowPriority)) (Conclusions (FactSeedGoal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+   (: lowToGoal (Implication (LowPriority) (FactSeedGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
    (let*
@@ -172,7 +172,7 @@
 !(test (let $_ (forward-chain 1 ruleaddkb (test-selected-facts ruleaddkb (RuleSeed))) (forward-has-derived? ruleaddkb (RuleAddGoal))) false)
 
 !(compileadd ruleaddkb
-   (: seedToGoal (Implication (Premises (RuleSeed)) (Conclusions (RuleAddGoal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+   (: seedToGoal (Implication (RuleSeed) (RuleAddGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 ;; Adding a rule does not schedule old facts globally. The caller explicitly
 ;; selects the existing fact that should activate the new rule.
@@ -181,7 +181,7 @@
 !(compileadd dedupekb (: dedupeSeed (DedupeSeed) (STV 1.0 0.4)))
 
 !(compileadd dedupekb
-   (: dedupeRule (Implication (Premises (DedupeSeed)) (Conclusions (DedupeGoal))) (CTV (STV 1.0 0.5) (STV 0.0 1.0))))
+   (: dedupeRule (Implication (DedupeSeed) (DedupeGoal)) (CTV (STV 1.0 0.5) (STV 0.0 1.0))))
 
 !(test
    (let*

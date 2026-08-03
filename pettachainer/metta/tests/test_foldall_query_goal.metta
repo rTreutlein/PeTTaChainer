@@ -11,8 +11,8 @@
 !(compileadd kb
    (: seedRule
       (Implication
-         (Premises (Seed $p))
-         (Conclusions (PairFact $p)))
+         (Seed $p)
+         (PairFact $p))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test

@@ -13,85 +13,85 @@
 !(compileadd baseRateAcceptanceKb
    (: signalRule_Reliable
       (Implication
-         (Premises (ReliableGood $supplier))
-         (Conclusions (ReliableProbePaysOff $supplier)))
+         (ReliableGood $supplier)
+         (ReliableProbePaysOff $supplier))
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 !(compileadd baseRateAcceptanceKb (: signal_Reliable (ReliableProbePaysOff contractReliable) (STV 0.9 0.8)))
 !(compileadd baseRateAcceptanceKb
    (: acceptRule_Reliable
       (Implication
-         (Premises (ReliableGood contractReliable))
-         (Conclusions (AcceptContract contractReliable)))
+         (ReliableGood contractReliable)
+         (AcceptContract contractReliable))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(compileadd baseRateAcceptanceKb
    (: signalRule_Fast
       (Implication
-         (Premises (FastGood $supplier))
-         (Conclusions (FastProbePaysOff $supplier)))
+         (FastGood $supplier)
+         (FastProbePaysOff $supplier))
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 !(compileadd baseRateAcceptanceKb (: signal_Fast (FastProbePaysOff contractFast) (STV 0.9 0.8)))
 !(compileadd baseRateAcceptanceKb
    (: acceptRule_Fast
       (Implication
-         (Premises (FastGood contractFast))
-         (Conclusions (AcceptContract contractFast)))
+         (FastGood contractFast)
+         (AcceptContract contractFast))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(compileadd baseRateAcceptanceKb
    (: signalRule_Cheap
       (Implication
-         (Premises (CheapGood $supplier))
-         (Conclusions (CheapProbePaysOff $supplier)))
+         (CheapGood $supplier)
+         (CheapProbePaysOff $supplier))
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 !(compileadd baseRateAcceptanceKb (: signal_Cheap (CheapProbePaysOff contractCheap) (STV 0.9 0.8)))
 !(compileadd baseRateAcceptanceKb
    (: acceptRule_Cheap
       (Implication
-         (Premises (CheapGood contractCheap))
-         (Conclusions (AcceptContract contractCheap)))
+         (CheapGood contractCheap)
+         (AcceptContract contractCheap))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(compileadd baseRateAcceptanceKb
    (: signalRule_Local
       (Implication
-         (Premises (LocalGood $supplier))
-         (Conclusions (LocalProbePaysOff $supplier)))
+         (LocalGood $supplier)
+         (LocalProbePaysOff $supplier))
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 !(compileadd baseRateAcceptanceKb (: signal_Local (LocalProbePaysOff contractLocal) (STV 0.9 0.8)))
 !(compileadd baseRateAcceptanceKb
    (: acceptRule_Local
       (Implication
-         (Premises (LocalGood contractLocal))
-         (Conclusions (AcceptContract contractLocal)))
+         (LocalGood contractLocal)
+         (AcceptContract contractLocal))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(compileadd baseRateAcceptanceKb
    (: signalRule_HighVolume
       (Implication
-         (Premises (HighVolumeGood $supplier))
-         (Conclusions (HighVolumeProbePaysOff $supplier)))
+         (HighVolumeGood $supplier)
+         (HighVolumeProbePaysOff $supplier))
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 !(compileadd baseRateAcceptanceKb (: signal_HighVolume (HighVolumeProbePaysOff contractHighVolume) (STV 0.9 0.8)))
 !(compileadd baseRateAcceptanceKb
    (: acceptRule_HighVolume
       (Implication
-         (Premises (HighVolumeGood contractHighVolume))
-         (Conclusions (AcceptContract contractHighVolume)))
+         (HighVolumeGood contractHighVolume)
+         (AcceptContract contractHighVolume))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(compileadd baseRateAcceptanceKb
    (: signalRule_Fragile
       (Implication
-         (Premises (FragileGood $supplier))
-         (Conclusions (FragileProbePaysOff $supplier)))
+         (FragileGood $supplier)
+         (FragileProbePaysOff $supplier))
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 !(compileadd baseRateAcceptanceKb (: signal_Fragile (FragileProbePaysOff contractFragile) (STV 0.9 0.8)))
 !(compileadd baseRateAcceptanceKb
    (: acceptRule_Fragile
       (Implication
-         (Premises (FragileGood contractFragile))
-         (Conclusions (AcceptContract contractFragile)))
+         (FragileGood contractFragile)
+         (AcceptContract contractFragile))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 ; Ten deterministic samples for each supplier type.

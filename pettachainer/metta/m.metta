@@ -101,7 +101,7 @@
 !(=================================================)
 !(query 50 kb
    (: $prf
-      (Implication (Premises (Tall $x)) (Conclusions (Female $x)))
+      (Implication (Tall $x) (Female $x))
       $stv))
 
 !(=================================================)

@@ -126,7 +126,7 @@
 
 !(compileadd inverseTotalKb
    (: inverseTotalRule
-      (Implication (Premises (InverseTotalA)) (Conclusions (InverseTotalB)))
+      (Implication (InverseTotalA) (InverseTotalB))
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 
 !(test

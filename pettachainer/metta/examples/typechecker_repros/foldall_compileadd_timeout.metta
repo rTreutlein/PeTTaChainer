@@ -13,13 +13,12 @@
 !(compileadd reproKb
    (: foldRule
       (Implication
-         (Premises
-            (FoldAll
+         (FoldAll
                (Score $n)
                $n
                0
                (|-> ($acc $elem) (+ $acc $elem))
                ->
-               $total))
-         (Conclusions (ScoreTotal $total)))
+               $total)
+         (ScoreTotal $total))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))

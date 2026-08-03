@@ -155,7 +155,7 @@
    (let*
       (($premises (BenchRulePremises $bench $path $level $idx $width))
         ($conclusion (BenchRuleConclusion $bench $path $level $idx $depth))
-        ($rule-type (Implication (cons Premises $premises) (cons Conclusions (cons $conclusion ()))))
+        ($rule-type (Implication (seq2expr $premises) $conclusion))
         ($conf (BenchGlobalConf))
         ($stmt (: (bench-main-rule $bench $path $level $idx) $rule-type (CTV (STV 1.0 $conf) (STV 0.0 1.0)))))
       (let $_meta
@@ -256,8 +256,7 @@
    (let*
       (($path (BenchCycle1 $noise-idx $paths))
         ($rule-type
-           (Implication (cons Premises (cons $premise ()))
-              (cons Conclusions (cons (BenchTarget $bench $path) ()))))
+           (Implication $premise (BenchTarget $bench $path)))
         ($conf (BenchGlobalConf))
         ($stmt (: (bench-noise-back-head $bench $noise-idx) $rule-type (CTV (STV 1.0 $conf) (STV 0.0 1.0)))))
       (let $_rule (BenchCompileAddTracked $bench $print-before-compile (noise-back-head $noise-idx) $stmt)
@@ -276,8 +275,8 @@
       (let*
          (($premise (BenchBackwardTailPremise $bench $noise-idx $step $last-step))
            ($rule-type
-              (Implication (cons Premises (cons $premise ()))
-                 (cons Conclusions (cons (NoiseBackStep $bench $noise-idx $step) ()))))
+              (Implication $premise
+                 (NoiseBackStep $bench $noise-idx $step)))
            ($conf (BenchGlobalConf))
 	           ($stmt (: (bench-noise-back-rule $bench $noise-idx $step) $rule-type (CTV (STV 1.0 $conf) (STV 0.0 1.0)))))
          (let $_rule
@@ -334,7 +333,7 @@
          (($premise (BenchForwardChainPremise $bench $noise-idx $step $paths $depth $width))
            ($conclusion (BenchForwardChainConclusion $bench $noise-idx $step $chain-len))
            ($rule-type
-              (Implication (cons Premises (cons $premise ())) (cons Conclusions (cons $conclusion ()))))
+              (Implication $premise $conclusion))
            ($conf (BenchGlobalConf))
 	           ($stmt (: (bench-noise-forward-rule $bench $noise-idx $step) $rule-type (CTV (STV 1.0 $conf) (STV 0.0 1.0)))))
          (let $_rule
@@ -637,7 +636,7 @@
                  (BenchRulePremises $bench $path
                     (the Number $level) (the Number $idx) (the Number $width)))
               ($conclusion (BenchRuleConclusion $bench $path $level $idx $depth))
-              ($type (Implication (cons Premises $premises) (cons Conclusions (cons $conclusion ()))))
+              ($type (Implication (seq2expr $premises) $conclusion))
               ($conf (BenchMainConfValue $bench $path $level $idx))
 	              ($tv (CTV (STV 1.0 $conf) (STV 0.0 1.0))))
             (: (bench-main-rule $bench $path $level $idx) $type $tv)))))
@@ -659,7 +658,7 @@
 
 (: BenchPLNNormalizeType (-[det]-> Atom Atom))
 (= (BenchPLNNormalizeType $type)
-   (if (= $type (Implication (cons Premises $premises) (cons Conclusions (cons $conclusion ()))))
+   (if (= $type (Implication (cons And $premises) $conclusion))
       (BenchPLNBuildImplication
          (the (List Atom) $premises)
          (the Atom $conclusion))

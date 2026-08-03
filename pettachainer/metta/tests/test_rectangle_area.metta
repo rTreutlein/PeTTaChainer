@@ -15,7 +15,7 @@
 !(compileadd kb
    (: areaDistRule
       (Implication
-         (Premises (Rectangle $rect)
+         (And (Rectangle $rect)
             (Map2Dist *
                (LengthDist $rect $lengthDist)
                $lengthDist
@@ -23,7 +23,7 @@
                $widthDist
                ->
                $areaDist))
-         (Conclusions (AreaDist $rect $areaDist)))
+         (AreaDist $rect $areaDist))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test

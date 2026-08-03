@@ -22,12 +22,12 @@
 !(compileadd kb
    (: sampleRule
       (Implication
-         (Premises
+         (And
             (AtTime (FeatureX $xv) $t)
             (AtTime (FeatureY $yv) $t)
             (Compute + ($t 1) -> $t1)
             (AtTime (FeatureZ $zv) $t1))
-         (Conclusions (XYZSample (Pair (XY $xv $yv) $zv))))
+         (XYZSample (Pair (XY $xv $yv) $zv)))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test

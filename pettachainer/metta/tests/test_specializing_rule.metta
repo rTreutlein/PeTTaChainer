@@ -3,7 +3,7 @@
 !(set-specializing-predicate Symmetric)
 
 ;; Rule added before any Symmetric facts: stored as a template, no rule emitted yet.
-!(compileadd kb (: sum_rel (Implication (Premises (Symmetric $r) ($r $x $y)) (Conclusions ($r $y $x))) (STV 0.9 0.9)))
+!(compileadd kb (: sum_rel (Implication (And (Symmetric $r) ($r $x $y)) ($r $y $x)) (STV 0.9 0.9)))
 
 ;; Adding (Symmetric Friend) specializes the template into a concrete-headed
 ;; rule (Friend $x $y) -> (Friend $y $x), keeping (Symmetric Friend) as a
@@ -27,7 +27,7 @@
 ;; Reverse add order: facts present before the rule is added.
 !(compileadd kb2 (: tag2 (Symmetric Sibling) (STV 0.9 0.9)))
 !(compileadd kb2 (: g1 (Sibling bob alice) (STV 0.9 0.9)))
-!(compileadd kb2 (: sum_rel2 (Implication (Premises (Symmetric $r) ($r $x $y)) (Conclusions ($r $y $x))) (STV 0.9 0.9)))
+!(compileadd kb2 (: sum_rel2 (Implication (And (Symmetric $r) ($r $x $y)) ($r $y $x)) (STV 0.9 0.9)))
 
 !(test
    (query 100 kb2 (: $prf (Sibling alice bob) $tv))
@@ -40,14 +40,14 @@
 !(compileadd kb3
    (: main_rel
       (Implication
-         (Premises (Symmetric $r) ($r $x $y))
-         (Conclusions ($r $y $x)))
+         (And (Symmetric $r) ($r $x $y))
+         ($r $y $x))
       (STV 0.9 0.9)))
 !(compileadd kb3
    (: alt_rel
       (Implication
-         (Premises (Symmetric $r) ($r $x $y))
-         (Conclusions ($r $y $x)))
+         (And (Symmetric $r) ($r $x $y))
+         ($r $y $x))
       (STV 0.6 0.8)))
 
 !(test
@@ -61,8 +61,8 @@
 !(compileadd kb4
    (: removable_rel
       (Implication
-         (Premises (Symmetric $r) ($r $x $y))
-         (Conclusions ($r $y $x)))
+         (And (Symmetric $r) ($r $x $y))
+         ($r $y $x))
       (STV 0.9 0.9)))
 !(remove-compiled-statement removable_rel)
 !(compileadd kb4 (: tag4 (Symmetric Knows) (STV 1.0 1.0)))
@@ -72,8 +72,8 @@
 !(compileadd kb4
    (: removable_rel
       (Implication
-         (Premises (Symmetric $r) ($r $x $y))
-         (Conclusions ($r $y $x)))
+         (And (Symmetric $r) ($r $x $y))
+         ($r $y $x))
       (STV 0.9 0.9)))
 !(test (query 100 kb4 (: $prf (Knows alice bob) $tv))
    (: (removable_rel (conjunction tag4 k1))

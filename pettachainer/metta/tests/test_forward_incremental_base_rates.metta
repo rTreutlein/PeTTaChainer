@@ -28,7 +28,7 @@
 ;; same evidence so the result is not revised with itself.
 !(compileadd forwardBackwardDedupKb
    (: pToQ
-      (Implication (Premises (P $x)) (Conclusions (Q $x)))
+      (Implication (P $x) (Q $x))
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 !(compileadd forwardBackwardDedupKb (: qa (Q alice) (STV 0.9 0.8)))
 !(compileadd forwardBackwardDedupKb (: pb (P bob) (STV 0.7 0.8)))
@@ -55,11 +55,11 @@
 !(compileadd forwardRevisionKb (: p1 (P a) (STV 0.2 0.5)))
 !(compileadd forwardRevisionKb
    (: pToQ
-      (Implication (Premises (P $x)) (Conclusions (Q $x)))
+      (Implication (P $x) (Q $x))
       (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 !(compileadd forwardRevisionKb
    (: qToR
-      (Implication (Premises (Q $x)) (Conclusions (R $x)))
+      (Implication (Q $x) (R $x))
       (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
 !(forward-chain 20 forwardRevisionKb
@@ -102,11 +102,11 @@
 !(compileadd forwardFrontierKb (: frontierS1 (S a) (STV 0.7 0.6)))
 !(compileadd forwardFrontierKb
    (: pToQ
-      (Implication (Premises (P $x)) (Conclusions (Q $x)))
+      (Implication (P $x) (Q $x))
       (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 !(compileadd forwardFrontierKb
    (: sToQ
-      (Implication (Premises (S $x)) (Conclusions (Q $x)))
+      (Implication (S $x) (Q $x))
       (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
 !(forward-chain 20 forwardFrontierKb
@@ -213,11 +213,11 @@
 !(compileadd forwardLowerConfidenceKb (: p1 (P a) (STV 0.9 0.8)))
 !(compileadd forwardLowerConfidenceKb
    (: pToQ
-      (Implication (Premises (P $x)) (Conclusions (Q $x)))
+      (Implication (P $x) (Q $x))
       (CTV (STV 0.8 0.9) (STV 0.5 0.1))))
 !(compileadd forwardLowerConfidenceKb
    (: qToR
-      (Implication (Premises (Q $x)) (Conclusions (R $x)))
+      (Implication (Q $x) (R $x))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 !(forward-chain 20 forwardLowerConfidenceKb
    (test-main-facts forwardLowerConfidenceKb))
@@ -267,7 +267,7 @@
 ;; actually processes and exposes the result as a provisional cache entry.
 !(compileadd forwardBaseRateKb
    (: pToQ
-      (Implication (Premises (P $x)) (Conclusions (Q $x)))
+      (Implication (P $x) (Q $x))
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 !(compileadd forwardBaseRateKb (: qa (Q alice) (STV 0.9 0.8)))
 !(compileadd forwardBaseRateKb (: pb (P bob) (STV 0.7 0.8)))
@@ -307,7 +307,7 @@
 ;; a second one-step seed adds the second fact and nothing else.
 !(compileadd forwardBudgetBaseRateKb
    (: pToQ
-      (Implication (Premises (P $x)) (Conclusions (Q $x)))
+      (Implication (P $x) (Q $x))
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 !(compileadd forwardBudgetBaseRateKb (: high (P high) (STV 0.9 0.9)))
 !(compileadd forwardBudgetBaseRateKb (: low (P low) (STV 0.1 0.2)))
@@ -358,7 +358,7 @@
 ;; sufficient statistics, but it must not replace or duplicate the user row.
 !(compileadd forwardUserBaseRateKb
    (: pToQ
-      (Implication (Premises (P $x)) (Conclusions (Q $x)))
+      (Implication (P $x) (Q $x))
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 !(set-base-rate forwardUserBaseRateKb (P $x) (STV 0.42 0.75))
 !(compileadd forwardUserBaseRateKb (: pa (P a) (STV 0.9 0.9)))
@@ -375,7 +375,7 @@
 ;; wrong, so the complete fold below must replace this artificial estimate.
 !(compileadd forwardApproxRefineKb
    (: pToQ
-      (Implication (Premises (P $x)) (Conclusions (Q $x)))
+      (Implication (P $x) (Q $x))
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 !(compileadd forwardApproxRefineKb (: qa (Q alice) (STV 0.9 0.8)))
 !(compileadd forwardApproxRefineKb (: pb (P bob) (STV 0.7 0.8)))

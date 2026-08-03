@@ -32,19 +32,19 @@
 !(compileadd kb
    (: cntKidInRule
       (Implication
-         (Premises (Room $room)
+         (And (Room $room)
             (FoldAllValue (In $room $kid)
                (ParticleFromPairs ((0 1.0)))
                ParticleAddBernoulliFromSTV
                ->
                $dist))
-         (Conclusions (CntKidIn $room $dist)))
+         (CntKidIn $room $dist))
       (CTV (STV 1.0 0.8) (STV 0.0 1.0))))
 
 !(compileadd kb
    (: playTogetherRule
-      (Implication (Premises (Room $room) (CntKidIn $room $cnt) (GreaterThan $cnt 1))
-         (Conclusions (PlayTogetherIn $room)))
+      (Implication (And (Room $room) (CntKidIn $room $cnt) (GreaterThan $cnt 1))
+         (PlayTogetherIn $room))
       (CTV (STV 1.0 0.75) (STV 0.0 1.0))))
 
 !(test

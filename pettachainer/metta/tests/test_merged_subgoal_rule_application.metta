@@ -9,15 +9,15 @@
 !(compileadd mergedSubgoalKb
    (: friendSmokingRule
       (Implication
-         (Premises (Friend $x $y) (Smokes $x))
-         (Conclusions (Smokes $y)))
+         (And (Friend $x $y) (Smokes $x))
+         (Smokes $y))
       (CTV (STV 0.4 0.9) (STV 0.0 1.0))))
 
 !(compileadd mergedSubgoalKb
    (: smokingCancerRule
       (Implication
-         (Premises (Smokes $x))
-         (Conclusions (Cancerous $x)))
+         (Smokes $x)
+         (Cancerous $x))
       (CTV (STV 0.6 0.9) (STV 0.0 1.0))))
 
 !(test

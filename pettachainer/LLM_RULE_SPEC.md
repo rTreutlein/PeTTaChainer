@@ -59,8 +59,8 @@ conditional relationship:
 ```metta
 (: humansAreMortal
     (Implication
-        (Premises (Member $x Human))
-        (Conclusions (Member $x Mortal)))
+        (Member $x Human)
+        (Member $x Mortal))
     (CTV (STV 0.8 0.9) (STV 0.0 1.0)))
 ```
 
@@ -73,13 +73,17 @@ not register a concrete forward member estimate.
 ```metta
 (: ruleName
     (Implication
-        (Premises
+        (And
             premise1
             premise2)
-        (Conclusions
-            conclusion1))
+        conclusion1)
     (STV 1.0 1.0))
 ```
+
+`Implication` takes exactly two expressions: antecedent and consequent. Use a
+direct expression for a singleton side and explicit `And` for a conjunction.
+Multiple conclusions must be one joint expression, for example
+`(And conclusion1 conclusion2)`.
 
 ## Premise Helpers You Can Use
 
@@ -95,11 +99,24 @@ body:
         (Doctor $child)))
 ```
 
-`Exists` must be a top-level premise of a stored `Implication`. The variables
-listed in `($child ...)` are folded as witnesses; other body variables remain
-correlated with the rule. Do not reuse a bound variable name outside its
-`Exists` body. Do not generate existential conclusions, nested
-`Exists`, direct `Exists` queries, or `Exists` inside `BiImplication`.
+On an antecedent, `Exists` must wrap that complete side of a stored
+`Implication`. The variables listed in `($child ...)` are folded as witnesses;
+other body variables remain correlated with the rule. Put conjuncts inside the
+binder's body. Do not nest `Exists` inside an outer `And`, and do not reuse a
+bound variable on the consequent side.
+
+`Exists` may also wrap a stored implication conclusion:
+
+```metta
+(Exists ($y) (GeneratedBy $x $y))
+```
+
+The compiler replaces `$y` with a stable witness depending on the rule and the
+free antecedent variables. Variables bound by an existential antecedent are
+eliminated by aggregation and are not witness dependencies. A variable
+occurring only in an unwrapped conclusion is given the same implicit witness
+treatment. Do not generate nested `Exists`, direct `Exists` queries, or
+`Exists` inside `BiImplication`.
 
 ### Compute
 
@@ -173,11 +190,10 @@ Avoid encoding numeric values in `STV` strength for measurement semantics.
 ```metta
 (: avgHeightDistRule
     (Implication
-        (Premises
+        (And
             (Group $g)
             (AverageDist (HeightDist $g $person $heightDist) $heightDist -> $avgDist))
-        (Conclusions
-            (AvgHeightDist $g $avgDist)))
+        (AvgHeightDist $g $avgDist))
     (STV 1.0 1.0))
 
 (: $prf (AvgHeightDist g1 $avgDist) $tv)
@@ -188,7 +204,7 @@ Avoid encoding numeric values in `STV` strength for measurement semantics.
 ```metta
 (: areaDistRule
     (Implication
-        (Premises
+        (And
             (Rectangle $rect)
             (Map2Dist *
                 (LengthDist $rect $lengthDist)
@@ -197,8 +213,7 @@ Avoid encoding numeric values in `STV` strength for measurement semantics.
                 $widthDist
                 ->
                 $areaDist))
-        (Conclusions
-            (AreaDist $rect $areaDist)))
+        (AreaDist $rect $areaDist))
     (STV 1.0 1.0))
 
 (: $prf (AreaDist rectA $areaDist) $tv)

@@ -3,8 +3,8 @@
 !(compileadd inverseCompoundKb
    (: p_qr
       (Implication
-         (Premises (P $x))
-         (Conclusions (And (Q $x) (R $x))))
+         (P $x)
+         (And (Q $x) (R $x)))
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 
 ;; Supply observations for the compound antecedent and consequent so inversion

@@ -65,7 +65,7 @@ indexed rules. Given
 
 ```
 !(set-specializing-predicate Symmetric)
-!(compileadd kb (: sym (Implication (Premises (Symmetric $r) ($r $x $y)) (Conclusions ($r $y $x))) (STV 0.9 0.9)))
+!(compileadd kb (: sym (Implication (And (Symmetric $r) ($r $x $y)) ($r $y $x)) (STV 0.9 0.9)))
 ```
 
 adding `(Symmetric Friend)` does not leave the generic variable-headed rule in

@@ -40,14 +40,14 @@
 !(compileadd memberDerivedKb
    (: seedHuman
       (Implication
-         (Premises (Member $x Seed))
-         (Conclusions (Member $x Human)))
+         (Member $x Seed)
+         (Member $x Human))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 !(compileadd memberDerivedKb
    (: humanMortal
       (Implication
-         (Premises (Member $x Human))
-         (Conclusions (Member $x Mortal)))
+         (Member $x Human)
+         (Member $x Mortal))
       (CTV (STV 0.8 1.0) (STV 0.0 1.0))))
 
 !(test
@@ -68,10 +68,10 @@
 !(compileadd memberCycleKb
    (: cyclicHumanMortal
       (Implication
-         (Premises
+         (And
             (Member $x Human)
             (Inheritance Human Mortal))
-         (Conclusions (Member $x Mortal)))
+         (Member $x Mortal))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test

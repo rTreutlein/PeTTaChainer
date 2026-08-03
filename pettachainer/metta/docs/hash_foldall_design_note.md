@@ -21,8 +21,8 @@ Example:
 
 (: qToSmokes
    (Implication
-      (Premises (Q $x))
-      (Conclusions (Smokes $x)))
+      (Q $x)
+      (Smokes $x))
    (CTV (STV 0.4 0.9) (STV 0.0 1.0)))
 ```
 

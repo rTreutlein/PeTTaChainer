@@ -37,8 +37,8 @@
 
 !(compileadd kb
    (: foldRule
-      (Implication (Premises (FoldAll (Score $name $n) $n 0 (|-> ($acc $elem) (+ $acc $elem)) -> $total))
-         (Conclusions (ScoreTotal $total)))
+      (Implication (FoldAll (Score $name $n) $n 0 (|-> ($acc $elem) (+ $acc $elem)) -> $total)
+         (ScoreTotal $total))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
@@ -47,8 +47,8 @@
          (mm2compile kb
             (: foldRule
                (Implication
-                  (Premises (FoldAll (Score $name $n) $n 0 (|-> ($acc $elem) (+ $acc $elem)) -> $total))
-                  (Conclusions (ScoreTotal $total)))
+                  (FoldAll (Score $name $n) $n 0 (|-> ($acc $elem) (+ $acc $elem)) -> $total)
+                  (ScoreTotal $total))
                (CTV (STV 1.0 1.0) (STV 0.0 1.0)))))
       1)
    1)
@@ -90,8 +90,8 @@
 
 !(compileadd kb
    (: foldZeroRule
-      (Implication (Premises (FoldAll (NoFact $x) $x 42 KeepAcc -> $total))
-         (Conclusions (Count MissingTotal $total)))
+      (Implication (FoldAll (NoFact $x) $x 42 KeepAcc -> $total)
+         (Count MissingTotal $total))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 10 kb (: $prf (Count MissingTotal $x) $tv))
@@ -100,13 +100,12 @@
 !(compileadd kb
    (: foldValueShapeRule
       (Implication
-         (Premises
-            (FoldAllValue (Score $name $n)
+         (FoldAllValue (Score $name $n)
                (ParticleFromPairs ((0 1.0)))
                ParticleAddBernoulliFromSTV
                ->
-               $dist))
-         (Conclusions (ScoreDist $dist)))
+               $dist)
+         (ScoreDist $dist))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
@@ -130,8 +129,8 @@
 
 !(compileadd kb
    (: avgShapeRule
-      (Implication (Premises (AverageDist (ScoreDistSrc $name $srcDist) $srcDist -> $avgDist))
-         (Conclusions (AvgScoreDist $avgDist)))
+      (Implication (AverageDist (ScoreDistSrc $name $srcDist) $srcDist -> $avgDist)
+         (AvgScoreDist $avgDist))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
@@ -155,8 +154,8 @@
 
 !(compileadd kb
    (: numFromCount
-      (Implication (Premises (Count $name $n) (Compute NotEqual ($name MissingTotal) -> True))
-         (Conclusions (Num $n)))
+      (Implication (And (Count $name $n) (Compute NotEqual ($name MissingTotal) -> True))
+         (Num $n))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
@@ -181,8 +180,8 @@
 
 !(compileadd kb
    (: foldDerivedRule
-      (Implication (Premises (FoldAll (Num $n) $n 0 (|-> ($acc $elem) (+ $acc $elem)) -> $total))
-         (Conclusions (DerivedTotal $total)))
+      (Implication (FoldAll (Num $n) $n 0 (|-> ($acc $elem) (+ $acc $elem)) -> $total)
+         (DerivedTotal $total))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 30 kb (: $prf (DerivedTotal $x) $tv))
@@ -191,20 +190,20 @@
 !(compileadd kb
    (: dogsInHouseRule
       (Implication
-         (Premises (House $h)
+         (And (House $h)
             (FoldAll (And (PartOf $room $h) (Cardinality (DogsIn $room) $n))
                $n
                0
                (|-> ($acc $x) (+ $acc $x))
                ->
                $total))
-         (Conclusions (Cardinality (DogsIn $h) $total)))
+         (Cardinality (DogsIn $h) $total))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 30 kb (: $prf (Cardinality (DogsIn house1) $x) $tv))
    (: (dogsInHouseRule (conjunction prf1 (foldall-proof (conjunction prf5 prf10) (conjunction prf4 prf8)))) (Cardinality (DogsIn house1) 5) (STV 1.0 0.999700089898053)))
 
 !(compileadd kb
-   (: apbisc (Implication (Premises (Count A $a) (Count B $b) (Compute + ($a $b) -> $c)) (Conclusions (Count C $c))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+   (: apbisc (Implication (And (Count A $a) (Count B $b) (Compute + ($a $b) -> $c)) (Count C $c)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 10 kb (: prf (Count C $x) $tv)) (: prf (Count C 3) (STV 1.0 1.0)))

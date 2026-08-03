@@ -7,8 +7,8 @@
 !(compileadd flyingRavenKb
    (: penguinsDoNotFly
       (Implication
-         (Premises (Inheritance $x Penguin))
-         (Conclusions (Not (Inheritance $x (IntSet flies)))))
+         (Inheritance $x Penguin)
+         (Not (Inheritance $x (IntSet flies))))
       (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
 !(compileadd flyingRavenKb (: ravenBird (Inheritance Raven Bird) (STV 0.99 0.9)))
