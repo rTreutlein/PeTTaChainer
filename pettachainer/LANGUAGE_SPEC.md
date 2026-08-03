@@ -390,14 +390,21 @@ Binary composition:
 (ParticleAddBernoulliFromSTV particleDist stv)
 ```
 
-## Particle Confidence Semantics
+## Particle Computation Confidence
 
-For particle-based threshold/comparison formulas, confidence is derived from effective sample size:
+Particle-based threshold and comparison formulas currently return confidence
+`1.0`. Particle weights describe the probability distribution itself; their
+concentration is not evidence about the reliability of that distribution. The
+source fact and rule TVs continue to carry epistemic confidence through normal
+proof composition.
 
-- `N_eff = 1 / sum(w_i^2)` after weight normalization
-- `confidence = N_eff / (N_eff + 20)`
-
-For dist-vs-dist comparisons, confidence is the minimum of both sides.
+The particle budget can resample a distribution and thereby introduce numeric
+approximation error. That approximation quality is not represented yet. A
+future representation should carry evidence or approximation-quality metadata
+separately from both particle weights and the existing `ParticleDist` scale
+(which contributes to result strength). This separation is also required if
+particle distributions eventually replace STVs: distribution shape, epistemic
+support, and representation quality must not be conflated.
 
 ## Particle Store Utilities
 
