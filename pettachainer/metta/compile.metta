@@ -1890,6 +1890,34 @@
                    (empty))))))
       ()))
 
+;; Store a non-rule fact and emit its ordinary derived views. Keeping this
+;; separate lets the main compiler normalize supported source syntax before
+;; entering the single canonical fact path.
+(: compile-ordinary-fact
+   (-[nondet]-> KB Proof Statement TV CompiledAddition))
+(= (compile-ordinary-fact $kb $prf $Type $tv)
+   (let $fact-kb (compile-fact-kb $kb)
+      (if (= $Type (Member $obj $class))
+         (superpose ((brand CompiledAddition
+                        (() |- ((: $fact-kb $prf $Type $tv))))
+                     (compile-specialization-fact-triggers $kb $Type)))
+      (if (= $Type (Inheritance $subj $concept))
+         (superpose (
+            (brand CompiledAddition
+               (() |- ((: $fact-kb $prf $Type $tv))))
+            (if (concrete-inheritance-link? $subj $concept)
+               (compile-derived-inheritance-views
+                  $kb $prf
+                  (brand Term $subj) (brand Term $concept)
+                  $tv)
+               (empty))
+            (compile-specialization-fact-triggers $kb $Type)
+            (compile-outputs (: $fact-kb $prf $Type $tv))))
+         (superpose ((brand CompiledAddition
+                        (() |- ((: $fact-kb $prf $Type $tv))))
+                     (compile-specialization-fact-triggers $kb $Type)
+                     (compile-outputs (: $fact-kb $prf $Type $tv))))))))
+
 ;; Main statement compiler.
 ;;
 ;; Implications become forward rules, optional inverse rules, and adapters.
@@ -1971,27 +1999,18 @@
                         $tv))))))
             (if (contains-explicit-exists? $Type)
                (empty)
-            (let $fact-kb (compile-fact-kb $kb)
-               (if (= $Type (Member $obj $class))
-                  (superpose ((brand CompiledAddition
-                                 (() |- ((: $fact-kb $prf $Type $tv))))
-                              (compile-specialization-fact-triggers $kb $Type)))
-               (if (= $Type (Inheritance $subj $concept))
-                  (superpose (
-                     (brand CompiledAddition
-                        (() |- ((: $fact-kb $prf $Type $tv))))
-                     (if (concrete-inheritance-link? $subj $concept)
-                        (compile-derived-inheritance-views
-                           $kb $prf
-                           (brand Term $subj) (brand Term $concept)
-                           $tv)
-                        (empty))
-                     (compile-specialization-fact-triggers $kb $Type)
-                     (compile-outputs (: $fact-kb $prf $Type $tv))))
-                  (superpose ((brand CompiledAddition
-                                 (() |- ((: $fact-kb $prf $Type $tv))))
-                              (compile-specialization-fact-triggers $kb $Type)
-                              (compile-outputs (: $fact-kb $prf $Type $tv)))))))))))))
+            ;; Canonicalize asserted negation into the inner fact's strength.
+            ;; Keeping the original proof name makes removal and provenance
+            ;; behave exactly like an ordinary fact; query adapters reconstruct
+            ;; `(Not ...)` and its negated proof token when requested.
+            (if (= $Type (Not $inner))
+               (case $tv (
+                  ((STV $s $c)
+                     (compile_ $kb
+                        (: $prf $inner (STV (- 1.0 $s) $c))))
+                  ($_unsupported-tv
+                     (compile-ordinary-fact $kb $prf $Type $tv))))
+               (compile-ordinary-fact $kb $prf $Type $tv))))))))
 
 
 (: implication-query-known-tv-parts

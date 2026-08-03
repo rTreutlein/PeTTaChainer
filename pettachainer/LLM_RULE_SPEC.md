@@ -17,6 +17,23 @@ It does not describe how to invoke chainer interface functions.
 (: $proofVar typePattern $tvVar)
 ```
 
+For a negative ground observation, prefer the canonical zero-strength form:
+
+```metta
+(: noLeak (SealLeak old unit-1) (STV 0.0 1.0))
+```
+
+The equivalent user-facing negation is also accepted:
+
+```metta
+(: noLeak (Not (SealLeak old unit-1)) (STV 1.0 1.0))
+```
+
+The compiler stores the latter as `SealLeak` with complemented strength and
+unchanged confidence. This lets population/base-rate folds count both positive
+and negative observations. `Not` remains available normally in rule premises,
+rule conclusions, and queries.
+
 ## Member and Inheritance
 
 Use `Member` for an object belonging to a class:

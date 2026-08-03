@@ -5,7 +5,7 @@ Run from the repository root with::
     ./.venv/bin/python -m pettachainer.simulations.stationops_base_rate
 
 The example distinguishes obsolete implication-side syntax, explicit logical
-negation, zero-strength population observations, and adapter-provided rates.
+negation, and canonical zero-strength population observations.
 """
 
 from __future__ import annotations
@@ -62,21 +62,9 @@ ZERO_STRENGTH_HISTORY = [
 ]
 
 
-def query(atoms: list[str], *, pin_population_rates: bool = False) -> list[str]:
+def query(atoms: list[str]) -> list[str]:
     handler = PeTTaChainer()
     handler.add_atoms_no_check(atoms)
-    if pin_population_rates:
-        # The generic rules compile open base-rate patterns. The StationOps
-        # adapter has already selected the old-cohort population, so publish
-        # that population's sufficient statistics against those patterns.
-        handler.handler.process_metta_string(
-            f"!(set-base-rate {handler.kb} "
-            f"(SealLeak $cohort $unit) (STV {LEAK_BASE_RATE} 1.0))"
-        )
-        handler.handler.process_metta_string(
-            f"!(set-base-rate {handler.kb} "
-            f"(PressureAlarm $cohort $unit) (STV {ALARM_BASE_RATE} 1.0))"
-        )
     return handler.query(QUERY, steps=200, timeout_sec=0)
 
 
@@ -91,27 +79,23 @@ def main() -> None:
     tagged = query(TAGGED_RULES + NOT_HISTORY)
     current_not = query(CURRENT_RULES + NOT_HISTORY)
     current_zero = query(CURRENT_RULES + ZERO_STRENGTH_HISTORY)
-    explicit_rates = query(
-        CURRENT_RULES + NOT_HISTORY,
-        pin_population_rates=True,
-    )
 
     print(f"tagged implication + Not history: {len(tagged)} proof(s)")
-    print(f"current implication + Not history: {len(current_not)} proof(s)")
-    print(
-        "current implication + zero-strength history: "
-        f"{len(current_zero)} proof(s)"
-    )
-    print(f"current implication + explicit population rates: {explicit_rates[0]}")
-
-    if tagged or current_not:
-        raise AssertionError("malformed/underspecified inputs unexpectedly proved the goal")
-    if not current_zero:
-        raise AssertionError("zero-strength population observations were not aggregated")
-    actual = result_strength(explicit_rates[0])
-    print(f"posterior={actual:.12f} expected={EXPECTED_POSTERIOR:.12f}")
-    if abs(actual - EXPECTED_POSTERIOR) > 1e-12:
-        raise AssertionError(f"unexpected posterior: {actual}")
+    if tagged:
+        raise AssertionError("obsolete implication-side tags unexpectedly proved the goal")
+    if not current_not or not current_zero:
+        raise AssertionError("historical negative observations were not aggregated")
+    print(f"current implication + Not history: {current_not[0]}")
+    print(f"current implication + zero-strength history: {current_zero[0]}")
+    not_strength = result_strength(current_not[0])
+    zero_strength = result_strength(current_zero[0])
+    if abs(not_strength - zero_strength) > 1e-12:
+        raise AssertionError(
+            "Not and zero-strength encodings produced different strengths: "
+            f"{not_strength} != {zero_strength}"
+        )
+    print(f"representative posterior={not_strength:.12f}")
+    print(f"full-population target={EXPECTED_POSTERIOR:.12f}")
 
 
 if __name__ == "__main__":

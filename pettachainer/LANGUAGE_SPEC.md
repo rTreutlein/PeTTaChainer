@@ -12,6 +12,13 @@ If you need an LLM-oriented helper-first spec, use `pettachainer/LLM_RULE_SPEC.m
 (: proof-id type tv)
 ```
 
+- A negated STV fact is canonicalized to its inner expression with complemented
+  strength and unchanged confidence. For example,
+  `(: noLeak (Not (SealLeak old unit-1)) (STV 1.0 1.0))` is stored as
+  `(: noLeak (SealLeak old unit-1) (STV 0.0 1.0))`. This ensures ordinary
+  population folds see negative observations. `Not` in rules and queries keeps
+  its logical meaning.
+
 - In user code, facts/rules are usually inserted with:
 
 ```metta
