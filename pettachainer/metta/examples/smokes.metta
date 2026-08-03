@@ -3,15 +3,15 @@
 !(compileadd smokesKb
    (: friendSmokingRule
       (Implication
-         (Premises (Inheritance (Product $x $y) friend) (Inheritance $x (IntSet smokes)))
-         (Conclusions (Inheritance $y (IntSet smokes))))
+         (And (Inheritance (Product $x $y) friend) (Inheritance $x (IntSet smokes)))
+         (Inheritance $y (IntSet smokes)))
       (STV 0.4 0.9)))
 
 !(compileadd smokesKb
    (: smokingCancerRule
       (Implication
-         (Premises (Inheritance $x (IntSet smokes)))
-         (Conclusions (Inheritance $x (IntSet cancerous))))
+         (Inheritance $x (IntSet smokes))
+         (Inheritance $x (IntSet cancerous)))
       (STV 0.6 0.9)))
 
 !(compileadd smokesKb (: friendAnnaBob (Inheritance (Product Anna Bob) friend) (STV 1.0 0.9)))
@@ -36,17 +36,17 @@
    (:
       (inheritance-implication-fold
          (total-implication
-            (smokingCancerRule
+            (by smokingCancerRule
                (merge/revision
-                  ((inheritance-implication smokesEdward) (ctx proof 0))
+                  (by (inheritance-implication smokesEdward) (ctx proof 0))
                   ((inheritance-rule-lift friendSmokingRule)
                      (conjunction friendAnnaEdward smokesAnna)
                      (ctx proof 0))))
-            (smokingCancerRule
+            (by smokingCancerRule
                (merge/revision
                   ((inheritance-rule-lift friendSmokingRule)
                      (conjunction friendAnnaEdward smokesAnna)
                      (ctx proof 1))
-                  ((inheritance-implication smokesEdward) (ctx proof 1))))))
+                  (by (inheritance-implication smokesEdward) (ctx proof 1))))))
       (Inheritance Edward (IntSet cancerous))
       (STV 0.4200001198164605 0.9335532708383407)))

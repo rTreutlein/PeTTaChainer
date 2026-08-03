@@ -1,10 +1,10 @@
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 !(compileadd structuralPrefilterKb
    (: pair-rule
       (Implication
-         (Premises (Seed $x))
-         (Conclusions (Pair $x $x)))
+         (Seed $x)
+         (Pair $x $x))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 (: structural-prefilter-goal

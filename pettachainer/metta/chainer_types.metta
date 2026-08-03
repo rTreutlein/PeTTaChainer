@@ -34,21 +34,21 @@
 ;; completely by the compiler.
 ;; KB names identify a knowledge base. KBContext is the full runtime
 ;; (name context variables) tuple carried by compiled facts and goals.
-(: KB (Newtype Expression))
-(: KBContext (Newtype (KB Expression Expression)))
-(: Proof (Newtype Expression))
-(: Statement (Newtype Expression))
-(: Term (Newtype Expression))
-(: Variable (Newtype Expression))
-(: CompiledAddition (Newtype Expression))
-(: RuntimeAddition (Newtype Expression))
+(: KB (Newtype Atom))
+(: KBContext (Newtype (KB Atom Atom)))
+(: Proof (Newtype Atom))
+(: Statement (Newtype Atom))
+(: Term (Newtype Atom))
+(: Variable (Newtype Atom))
+(: CompiledAddition (Newtype Atom))
+(: RuntimeAddition (Newtype Atom))
 ;; Any value with this role is known to be a nonempty expression that can be
 ;; inserted into an atom space.  The brand is erased at runtime.
-(: SpaceAtom (Newtype Expression))
+(: SpaceAtom (Newtype Atom))
 ;; Proof-store results are either CPU goals or internal runtime fact tuples.
 ;; Their nested role brands are erased while stored, so the boundary itself is
 ;; branded rather than attempting to rediscover those roles at runtime.
-(: RuntimeResult (Newtype Expression))
+(: RuntimeResult (Newtype Atom))
 
 ;; The canonical knowledge space stores internal runtime facts in
 ;; `(statement kb-context proof tv)` order.  Naming the schema keeps those
@@ -60,7 +60,7 @@
 
 ;; The compiler/runtime query handoff is shared by the compiler, backward
 ;; chainer, and public query runtime.
-(: CompiledQueryGoal (Newtype Expression))
+(: CompiledQueryGoal (Newtype Atom))
 (: CompiledQuery Type)
 (: compiled-query
    (-[det]-> CompiledQueryGoal
@@ -117,7 +117,7 @@
 
 (: StoredAggregateRow Type)
 (: stored-aggregate-row
-   (-[det]-> Number Number Expression Number Number
+   (-[det]-> Number Number Atom Number Number
        (| Number (List Number))
        StoredAggregateRow))
 
@@ -157,7 +157,7 @@
 (: ProofRef Type)
 (: proof-ref (-[det]-> Number ProofRef))
 
-(: Evidence (Newtype Expression))
+(: Evidence (Newtype Atom))
 (: fact-ev (-[det]-> KBContext Proof Statement Evidence))
 (: not-fact-ev (-[det]-> KBContext Proof Statement Evidence))
 (: rule-ev (-[det]-> KB Proof Evidence))
@@ -188,7 +188,7 @@
 (: computed BaseRateSource)
 (: forward-approx BaseRateSource)
 
-(: BaseRatePrior (Newtype Expression))
+(: BaseRatePrior (Newtype Atom))
 
 (: BaseRateEntry Type)
 (: base-rate

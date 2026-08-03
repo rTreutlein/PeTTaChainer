@@ -29,27 +29,23 @@
       (inheritance-implication-fold
          (total-implication
             (merge/revision
-               ((inheritance-implication rv1BlackObserved)
-                  ((inverted (inheritance-implication rv1RavenObserved)
+               (by (inheritance-implication rv1BlackObserved) ((inverted (inheritance-implication rv1RavenObserved)
                        with
                        cpu
                        (foldall-proof rv1RavenObserved rv2RavenObserved))
                      (ctx proof 0)))
-               ((inheritance-implication rv2BlackObserved)
-                  ((inverted (inheritance-implication rv2RavenObserved)
+               (by (inheritance-implication rv2BlackObserved) ((inverted (inheritance-implication rv2RavenObserved)
                        with
                        cpu
                        (foldall-proof rv1RavenObserved rv2RavenObserved))
                      (ctx proof 0))))
             (merge/revision
-               ((inheritance-implication rv1BlackObserved)
-                  ((inverted (inheritance-implication rv1RavenObserved)
+               (by (inheritance-implication rv1BlackObserved) ((inverted (inheritance-implication rv1RavenObserved)
                        with
                        cpu
                        (foldall-proof rv1RavenObserved rv2RavenObserved))
                      (ctx proof 1)))
-               ((inheritance-implication rv2BlackObserved)
-                  ((inverted (inheritance-implication rv2RavenObserved)
+               (by (inheritance-implication rv2BlackObserved) ((inverted (inheritance-implication rv2RavenObserved)
                        with
                        cpu
                        (foldall-proof rv1RavenObserved rv2RavenObserved))

@@ -223,7 +223,7 @@
       (proof-token-replacement
          (cons $new-head $new-tail) $proofs2)))
 (: replace-cpu-proof-token
-   (-[det]-> Expression (List Proof) ProofTokenReplacement))
+   (-[det]-> Atom (List Proof) ProofTokenReplacement))
 (= (replace-cpu-proof-token $term $proofs)
    (if (is-var $term)
       (proof-token-replacement $term $proofs)
@@ -235,7 +235,7 @@
             (let
                (proof-token-replacement $new-list $rest-proofs)
                (replace-cpu-proof-token-list
-                  (the (List Expression) $term) $proofs)
+                  (the (List Atom) $term) $proofs)
                (proof-token-replacement $new-list $rest-proofs))
             (proof-token-replacement $term $proofs)))))
 (: materialize-rule-token (-[semidet]-> Proof Number Proof))
@@ -259,7 +259,7 @@
          (($_type $_kb $prf $_tv)
             (materialize-proof-refs $prf))
          ($_other $output)))))
-(: rule-kind-proof-token (-[det]-> Expression Proof))
+(: rule-kind-proof-token (-[det]-> Atom Proof))
 (= (rule-kind-proof-token $term)
    (brand Proof
       (if (is-expr $term)
@@ -575,15 +575,42 @@
       (if (== $current-hits ())
          (if (= $kind (merged $_output))
             (proof-list-node-live? (proof-children-by-id $pid))
-            (proof-list-live? (proof-children-by-id $pid)))
+            (if (proof-kind-keeps-raw-children? $kind)
+               (proof-list-node-live? (proof-children-by-id $pid))
+               (proof-list-live? (proof-children-by-id $pid))))
          (aggregate-current-pid-live?
             (first-aggregate-current-pid $current-hits) $pid))))
 
+;; A conjunction dependency records one specific compatible combination of
+;; premise proofs. It remains valid when another derivation later changes a
+;; child's revised representative. Other rule applications consume revised
+;; child evidence and therefore become stale with that representative.
+(: proof-term-conjunction-dependency? (-[det]-> Proof Bool))
+(= (proof-term-conjunction-dependency? $proof)
+   (if (is-expr $proof)
+      (if (== $proof ()) false
+         (if (== (car-atom $proof) conjunction) true
+            (case $proof (
+               ((by $_rule $dependency)
+                  (proof-term-conjunction-dependency?
+                     (brand Proof $dependency)))
+               ((negated $inner)
+                  (proof-term-conjunction-dependency?
+                     (brand Proof $inner)))
+               ($_other false)))))
+      false))
+
+(: proof-kind-keeps-raw-children? (-[det]-> ProofKind Bool))
+(= (proof-kind-keeps-raw-children? $kind)
+   (case $kind (
+      ((rule ($_type $_kb $proof $_tv))
+         (proof-term-conjunction-dependency?
+            (brand Proof $proof)))
+      ($_other false))))
+
 ;; A merged representative owns its raw alternatives, so those children only
-;; need to remain valid proof nodes. Every other parent edge must point at the
-;; current representative of the child's grounded output. If more evidence is
-;; merged into that output later, parents built from the old representative
-;; become stale while the raw proofs remain available to construct the new one.
+;; need to remain valid proof nodes. Supersession invalidates ordinary revised
+;; parents; conjunction dependencies deliberately ignore the marker.
 (: proof-list-node-live? (-[semidet]-> (List Number) Bool))
 (= (proof-list-node-live? ())
    true)
@@ -1155,10 +1182,6 @@
                 (term-confidence
                    (merge-proof-id-output
                       (cons $pid $rest)))))))))
-
-(: assumption-proof? (-[det]-> Proof Bool))
-(= (assumption-proof? $prf)
-   (if (is-expr $prf) (== (car-atom $prf) ctx) false))
 
 (: leaf-evidence-for-stored-fact
    (-[det]-> Atom Atom Atom Atom (List Evidence)))

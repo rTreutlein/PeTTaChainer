@@ -9,8 +9,8 @@
 !(compileadd mathkb
    (: mp
       (Implication
-         (Premises (Provable (→ $p $q)) (Provable $p))
-         (Conclusions (Provable $q)))
+         (And (Provable (→ $p $q)) (Provable $p))
+         (Provable $q))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(compileadd mathkb (: given-imp (Provable (→ (PropP) (PropQ))) (STV 1.0 1.0)))
@@ -27,4 +27,4 @@
 
 !(test
    (query 20 mathkb (: $prf (Provable (PropQ)) $tv))
-   (: (mp (conjunction given-imp given-p)) (Provable (PropQ)) (STV 1.0 0.999700089898053)))
+   (: (by mp (conjunction given-imp given-p)) (Provable (PropQ)) (STV 1.0 0.999700089898053)))

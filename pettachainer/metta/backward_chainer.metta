@@ -279,7 +279,7 @@
 ;; dispatcher itself dynamic and validate only at the selected typed boundary;
 ;; `aggregate-finish` above remains the fully typed API for direct callers.
 (: finish-aggregate
-   (-[semidet]-> Atom Atom Atom))
+   (-[semidet]-> Expression Expression Atom))
 
 (= (finish-aggregate $finish $acc)
    (case $finish (
@@ -329,7 +329,7 @@
 ;; declared finish variant by its constructor instead of rechecking the whole
 ;; nested value at runtime (which would also try to recover erased KB brands).
 (: finish-stored-aggregate
-   (-[semidet]-> Atom Atom Atom))
+   (-[semidet]-> Expression Expression Atom))
 (= (finish-stored-aggregate $finish $acc)
    (case $finish (
       (identity (finish-aggregate identity $acc))
@@ -782,6 +782,15 @@
             (shared-evidence-frontier-proof? $proof))
          ($_other false)))))
 
+(: frontier-needs-raw-proofs? (-[det]-> AndBundle Bool))
+(= (frontier-needs-raw-proofs? $bundle)
+   (let $goal (and-bundle-goal $bundle)
+      (case $goal (
+         (($_type $_kb $proof $_tv)
+            (proof-term-conjunction-dependency?
+               (brand Proof $proof)))
+         ($_other false)))))
+
 (: advance-frontier-waiter-heap
    (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) FrontierWaiter Number (Heap (| QueueGoal QueueAggregate))))
 (= (advance-frontier-waiter-heap $agenda (frontier-waiter $parent-gid $bundle $score $seen $parts $rev-pids) $pid)
@@ -900,7 +909,7 @@
    (case $waiter (((aggregate-waiter $agg-gid) (cons $agg-gid $rest)) ($_other $rest))))
 
 (: stored-atom-list
-   (-[det]-> Atom (List Atom)))
+   (-[det]-> Expression (List Atom)))
 (= (stored-atom-list ())
    ())
 (= (stored-atom-list (cons $head $rest))
@@ -922,6 +931,27 @@
              $rest))
        ($_other
           (advance-frontier-waiters-heap $agenda $pid $rest)))))
+
+;; Conjunction frontiers additionally need raw alternatives so future premise
+;; overlap does not make an otherwise independent combination unreachable.
+(: advance-raw-frontier-waiters-heap
+   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number (List Atom) (Heap (| QueueGoal QueueAggregate))))
+(= (advance-raw-frontier-waiters-heap $agenda $_pid ()) $agenda)
+(= (advance-raw-frontier-waiters-heap $agenda $pid (cons $waiter $rest))
+   (case $waiter
+      (((frontier-waiter $parent-gid $bundle $score $seen $parts $rev-pids)
+          (advance-raw-frontier-waiters-heap
+             (if (frontier-needs-raw-proofs? $bundle)
+                (advance-frontier-waiter-heap
+                   $agenda
+                   (frontier-waiter
+                      $parent-gid $bundle $score $seen $parts $rev-pids)
+                   $pid)
+                $agenda)
+             $pid
+             $rest))
+       ($_other
+          (advance-raw-frontier-waiters-heap $agenda $pid $rest)))))
 
 (: schedule-aggregate-waiters-heap
    (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) (List Atom) (Heap (| QueueGoal QueueAggregate))))
@@ -945,12 +975,17 @@
                 (match &goal_waiter
                    ($gid $waiter) $waiter))))
        ($representative-pid (goal-merged-proof-id-for-pid $gid $pid))
-       ($agenda1
-          (advance-frontier-waiters-heap
-             $agenda $representative-pid $waiters))
        ($agenda2
-          (schedule-aggregate-waiters-heap $agenda1 $waiters)))
-      $agenda2))
+          (if (== $representative-pid $pid)
+             (advance-frontier-waiters-heap
+                $agenda $pid $waiters)
+             (advance-frontier-waiters-heap
+                (advance-raw-frontier-waiters-heap
+                   $agenda $pid $waiters)
+                $representative-pid $waiters)))
+       ($agenda3
+          (schedule-aggregate-waiters-heap $agenda2 $waiters)))
+      $agenda3))
 
 (: commit-proof-candidate-heap
    (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number Bool ProofCandidate (Heap (| QueueGoal QueueAggregate))))
@@ -1002,16 +1037,26 @@
 (= (advance-frontier-waiter-fold-step $waiter $agenda $pid)
    (advance-frontier-waiter-heap $agenda $waiter $pid))
 
-(= (spawn-frontier-goal-heap $agenda $score $gid $waiter)
+(= (spawn-frontier-goal-heap $agenda $score $gid
+      (frontier-waiter $parent-gid $bundle $waiter-score
+         $seen $parts $rev-pids))
    (let*
-      (($_1
+      (($waiter
+          (frontier-waiter $parent-gid $bundle $waiter-score
+             $seen $parts $rev-pids))
+       ($_1
           (once
              (chainer-add-atom &goal_waiter
                 ($gid $waiter))))
        ($agenda1
           (proof-fold-flat-semidet (advance-frontier-waiter-fold-step $waiter)
              $agenda
-             (goal-merged-proof-ids $gid)))
+             (if (frontier-needs-raw-proofs? $bundle)
+                (list_to_set
+                   (append-numbers
+                      (goal-live-proof-ids $gid)
+                      (goal-merged-proof-ids $gid)))
+                (goal-merged-proof-ids $gid))))
        ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
       $nagenda))
 
@@ -1553,28 +1598,44 @@
       (once
          (inject-compiled-adds $adds))))
 
-(: inject-implication-subgoal-query-adds
+;; Install only the empirical Member producer for a concrete Inheritance
+;; subgoal. The root query's total-implication scaffold is intentionally not
+;; copied here: ordinary premise resolution already sees those direct/rule
+;; proofs, and adding the scaffold beside them would duplicate evidence.
+(: inject-member-inheritance-subgoal-adds
+   (-[semidet]-> KB Term Term (List $none)))
+(= (inject-member-inheritance-subgoal-adds $kb $subj $concept)
+   (let*
+      (($compiled-adds
+          (compile-member-inheritance-query-adds $kb $subj $concept))
+       ($runtime-adds
+          (map-flat compile-internalize-runtime-addition
+             (compiled-adds-mm2stmts $compiled-adds))))
+      (once (inject-compiled-adds $runtime-adds))))
+
+(: inject-special-subgoal-query-adds
    (-[semidet]-> (| Goal (Statement KBContext Proof TV))
        (List $none)))
-(= (inject-implication-subgoal-query-adds $goal)
+(= (inject-special-subgoal-query-adds $goal)
    (case $goal (
       (($type ($kbid MAIN Nil) $prf $tv)
-         (case $type (
-            ((Implication
-                  (cons Premises $_premises)
-                  (cons Conclusions $_conclusions))
-               (let $compiled-queries
-                  (collapse
-                     (mm2compileQuery
-                        (brand KB $kbid)
-                        (:
-                           $prf
-                           $type
-                           $tv)))
-                  (foreach-flat
-                     inject-compiled-query-adds
-                     $compiled-queries)))
-            ($_other ()))))
+         (if (implication-type? (brand Statement $type))
+            (let $compiled-queries
+               (collapse
+                  (mm2compileQuery
+                     (brand KB $kbid)
+                     (: $prf $type $tv)))
+               (foreach-flat
+                  inject-compiled-query-adds
+                  $compiled-queries))
+            (if (= $type (Inheritance $subj $concept))
+               (if (concrete-inheritance-link?
+                       (brand Term $subj) (brand Term $concept))
+                  (inject-member-inheritance-subgoal-adds
+                     (brand KB $kbid)
+                     (brand Term $subj) (brand Term $concept))
+                  ())
+               ())))
       ($_other ()))))
 
 (: RuleGoalMatch
@@ -1617,7 +1678,7 @@
 (: context-vars-in-type?
    ;; KBContext is an erased newtype, so its destructured variables field is a
    ;; raw wire value here: Nil or a variable list.
-   (-[det]-> Expression Atom Bool))
+   (-[det]-> Atom Atom Bool))
 (: any-context-var-in?
    (-[det]-> (List Variable) (List Variable) Bool))
 (= (any-context-var-in? $_type-vars ()) false)
@@ -1892,7 +1953,7 @@
                 (chainer-add-atom &goal
                    (stored-goal-row
                       $gid $depth $goal true $pending)))))
-       ($_query-adds (if (> $depth 0) (inject-implication-subgoal-query-adds $goal) ()))
+       ($_query-adds (if (> $depth 0) (inject-special-subgoal-query-adds $goal) ()))
        ($nagenda0
           (if (= $goal (CPU $fun $_args $_res))
              (if (== $fun FoldAllCompiled)

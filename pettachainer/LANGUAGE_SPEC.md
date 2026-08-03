@@ -12,6 +12,13 @@ If you need an LLM-oriented helper-first spec, use `pettachainer/LLM_RULE_SPEC.m
 (: proof-id type tv)
 ```
 
+- A negated STV fact is canonicalized to its inner expression with complemented
+  strength and unchanged confidence. For example,
+  `(: noLeak (Not (SealLeak old unit-1)) (STV 1.0 1.0))` is stored as
+  `(: noLeak (SealLeak old unit-1) (STV 0.0 1.0))`. This ensures ordinary
+  population folds see negative observations. `Not` in rules and queries keeps
+  its logical meaning.
+
 - In user code, facts/rules are usually inserted with:
 
 ```metta
@@ -44,6 +51,16 @@ When you want to emit the current mined implication rules, run:
 ```
 
 `steps` is the search budget.
+
+- An implication-derived proof uses the explicit application form:
+
+```metta
+(by rule-name premise-proof)
+```
+
+The rule name is metadata, while `premise-proof` is the proof dependency that
+evidence and cycle walkers traverse. This avoids confusing a rule name that
+happens to look like a proof constructor with an actual dependency.
 
 ## Types and Truth Values
 
@@ -94,7 +111,8 @@ Recommended modeling pattern:
 
 - `(HeightDist g1 alice)` with TV `(PointMass 160.0)` for crisp numeric values
 - `(HeightDist g1 alice)` with TV `(ParticleFromNormal 160.0 2.0)` for uncertain values
-- keep membership/existence truth in separate STV facts if needed
+- keep instance membership/existence truth in separate `(Member object class)`
+  STV facts if needed
 
 ## Fact Syntax
 
@@ -104,22 +122,165 @@ Example:
 !(compileadd kb (: in11 (In room1 kid1) (STV 0.5 1.0)))
 ```
 
+## Member and Inheritance
+
+`Member` and `Inheritance` have distinct modeling roles:
+
+- `(Member object class)` says that one object belongs to a class.
+- `(Inheritance subclass superclass)` says that one class or concept inherits
+  from another.
+
+For new knowledge, prefer `Member` for instance-to-class observations:
+
+```metta
+!(compileadd kb
+    (: tomHuman (Member Tom Human) (STV 0.99 0.9)))
+
+!(compileadd kb
+    (: humanMortal (Inheritance Human Mortal) (STV 0.8 0.9)))
+
+!(query 40 kb (: $prf (Member Tom Mortal) $tv))
+```
+
+The concrete `Inheritance Human Mortal` assertion is compiled into ordinary
+inference views equivalent to:
+
+```metta
+(Member $x Human)       -> (Member $x Mortal)
+(Inheritance $x Human)  -> (Inheritance $x Mortal)
+```
+
+These views are generated automatically. User code should not duplicate them.
+The generated member view is marked non-invertible: observing that an object is
+Mortal does not by itself prove that it is Human.
+
+`Member` can also appear on either side of an explicit rule:
+
+```metta
+!(compileadd kb
+    (: seedHuman
+       (Implication
+          (Member $x Seed)
+          (Member $x Human))
+       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+```
+
+### Estimating inheritance from members
+
+A ground query such as:
+
+```metta
+!(query 100 kb (: $prf (Inheritance Human Mortal) $tv))
+```
+
+can infer class-level inheritance from objects for which both
+`(Member object Human)` and `(Member object Mortal)` are provable. The sample
+collector uses the normal backward chainer, so rule-derived memberships count
+along with directly stored facts. It retains proof identities, rejects
+self-supporting cycles, and avoids treating overlapping evidence as independent.
+
+Set a known closed-world population size when one is available:
+
+```metta
+!(set-universe-size kb 100.0)
+```
+
+The universe size affects the confidence assigned to observed population
+coverage. Without it, the member estimator uses its count-based confidence.
+Forward chaining can maintain a provisional estimate incrementally after a
+ground inheritance query has registered interest; a later backward query folds
+the complete currently derivable sample set and refines that estimate.
+
+PeTTaChainer also estimates ground `Inheritance A B` through its
+total-implication path using `Inheritance x A` and `Inheritance x B`
+observations. Concept priors used by inheritance base-rate folds can be
+configured with:
+
+```metta
+!(set-concept-prior-confidence kb 0.5)
+!(clear-concept-prior-confidence kb)
+```
+
+Only class terms are registered as concept nodes by `Member`; the member object
+is not. Open queries such as `(Inheritance $subclass $superclass)` remain useful
+for retrieving matching ordinary derivations, but variable classes cannot
+register a selective incremental member estimate.
+
+Legacy programs in this repository sometimes encode instance membership as
+`(Inheritance object class)`. That representation remains supported for
+compatibility and participates in inheritance-only reasoning. It is not an
+alias for `Member`: adding both forms records two distinct propositions.
+
 ## Rule Syntax
 
-Rules are implications with explicit premises and conclusions:
+An implication has exactly two expression arguments: its antecedent and its
+consequent. Write `And` explicitly when either side is a conjunction:
 
 ```metta
 !(compileadd kb (: ruleName
     (Implication
-        (Premises
+        (And
             premise1
             premise2
             ...)
-        (Conclusions
-            conclusion1
-            ...))
+        conclusion)
     (STV s c)))
 ```
+
+A singleton side is written directly, without a unary `And`. There is only one
+source form for an implication. Multiple conclusions form one explicit joint
+consequent such as `(And conclusion1 conclusion2)` and retain the normal
+compound-output projection semantics.
+
+Variables in an ordinary antecedent are implicitly universally quantified. An
+antecedent may instead request existential aggregation explicitly with:
+
+```metta
+!(compileadd kb
+    (: doctorChild
+       (Implication
+          (Exists ($child)
+                (And
+                   (Parent $person $child)
+                   (Doctor $child)))
+          (HasDoctorChild $person))
+       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+```
+
+`Exists` has the form `(Exists ($var ...) body)` and must wrap one complete
+side of a stored implication. Its body is queried for every witness, the
+body truth values are combined with existential disjunction, and free body
+variables such as `$person` form independent result groups. The binder scopes
+over its complete body, so the same `$child` must satisfy both predicates in
+the example. Put `And` inside the binder when its body is conjunctive; an
+`Exists` nested inside an outer `And` is invalid. A bound variable name may not
+be reused on the implication's other side.
+
+An existential conclusion introduces a stable witness:
+
+```metta
+!(compileadd kb
+    (: generate
+       (Implication
+          (Seed $x)
+          (Exists ($y) (GeneratedBy $x $y)))
+       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+```
+
+For a proof of `(Seed alice)`, `$y` becomes a term shaped like
+`(exists generate 0 (alice))`. The rule name and witness index distinguish the
+witness, while the retained premise bindings make it stable for the same input
+and distinct across rules, binders, or inputs. Variables which occur only in
+an ordinary conclusion receive this treatment implicitly as well.
+
+Variables in an ordinary antecedent retain the implication's universal scope
+even when they do not occur in the consequent. Use explicit `Exists` when the
+antecedent should instead aggregate existential evidence. Variables bound by
+an existential antecedent are eliminated by that aggregation and do not become
+dependencies of generated consequent witnesses.
+Nested existential binders, direct existential queries, and existential terms
+in bidirectional implications are currently rejected rather than interpreted
+as ordinary predicates.
 
 ## Built-in Premise Forms
 
@@ -236,14 +397,21 @@ Binary composition:
 (ParticleAddBernoulliFromSTV particleDist stv)
 ```
 
-## Particle Confidence Semantics
+## Particle Computation Confidence
 
-For particle-based threshold/comparison formulas, confidence is derived from effective sample size:
+Particle-based threshold and comparison formulas currently return confidence
+`1.0`. Particle weights describe the probability distribution itself; their
+concentration is not evidence about the reliability of that distribution. The
+source fact and rule TVs continue to carry epistemic confidence through normal
+proof composition.
 
-- `N_eff = 1 / sum(w_i^2)` after weight normalization
-- `confidence = N_eff / (N_eff + 20)`
-
-For dist-vs-dist comparisons, confidence is the minimum of both sides.
+The particle budget can resample a distribution and thereby introduce numeric
+approximation error. That approximation quality is not represented yet. A
+future representation should carry evidence or approximation-quality metadata
+separately from both particle weights and the existing `ParticleDist` scale
+(which contributes to result strength). This separation is also required if
+particle distributions eventually replace STVs: distribution shape, epistemic
+support, and representation quality must not be conflated.
 
 ## Particle Store Utilities
 
@@ -264,12 +432,11 @@ For dist-vs-dist comparisons, confidence is the minimum of both sides.
 
 !(compileadd kb (: compareHeightsRule
     (Implication
-        (Premises
+        (And
             (CountryHeightDist countryA $distA)
             (CountryHeightDist countryB $distB)
             (GreaterThan $distA $distB))
-        (Conclusions
-            (Taller countryA countryB)))
+        (Taller countryA countryB))
     (STV 1.0 1.0)))
 
 !(query 40 kb (: $prf (Taller countryA countryB) $tv))
@@ -288,11 +455,10 @@ Each person height stores the distribution in the term, while the `tv` slot rema
 
 !(compileadd kb (: avgHeightDistG1Rule
     (Implication
-        (Premises
+        (And
             (Group g1)
             (AverageDist (HeightDist g1 $person $heightDist) $heightDist -> $avgDist))
-        (Conclusions
-            (AvgHeightDist g1 $avgDist)))
+        (AvgHeightDist g1 $avgDist))
     (STV 1.0 1.0)))
 
 !(query 10 kb
@@ -311,7 +477,7 @@ Area is the product of length and width distributions, derived through a rule.
 
 !(compileadd kb (: areaDistRule
     (Implication
-        (Premises
+        (And
             (Rectangle $rect)
             (Map2Dist *
                (LengthDist $rect $lengthDist)
@@ -320,8 +486,7 @@ Area is the product of length and width distributions, derived through a rule.
                $widthDist
                ->
                $areaDist))
-        (Conclusions
-            (AreaDist $rect $areaDist)))
+        (AreaDist $rect $areaDist))
     (STV 1.0 1.0)))
 
 !(compileadd kb (: rA (Rectangle rectA) (STV 1.0 1.0)))

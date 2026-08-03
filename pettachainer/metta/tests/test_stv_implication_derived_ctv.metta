@@ -5,10 +5,10 @@
 !(compileadd stvRuleKb
    (: aToB
       (Implication
-         (Premises (A $x))
-         (Conclusions (B $x)))
+         (A $x)
+         (B $x))
       (STV 0.6 0.9)))
 
 !(test
    (query 20 stvRuleKb (: $prf (B x) $tv))
-   (: (aToB a) (B x) (STV 0.6 0.8999998649685302)))
+   (: (by aToB a) (B x) (STV 0.6 0.8999998649685302)))

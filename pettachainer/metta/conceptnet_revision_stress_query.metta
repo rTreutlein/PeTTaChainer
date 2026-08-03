@@ -43,27 +43,27 @@
 
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
    (: pet_path_1
-      (Implication (Premises (PetSignal1 $x)) (Conclusions (Pet $x)))
+      (Implication (PetSignal1 $x) (Pet $x))
       (CTV (STV 0.90 0.90) (STV 0.0 1.0))))
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
    (: pet_path_2
-      (Implication (Premises (PetSignal2 $x)) (Conclusions (Pet $x)))
+      (Implication (PetSignal2 $x) (Pet $x))
       (CTV (STV 0.85 0.90) (STV 0.0 1.0))))
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
    (: pet_path_3
-      (Implication (Premises (PetSignal3 $x)) (Conclusions (Pet $x)))
+      (Implication (PetSignal3 $x) (Pet $x))
       (CTV (STV 0.80 0.90) (STV 0.0 1.0))))
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
    (: pet_path_4
-      (Implication (Premises (PetSignal4 $x)) (Conclusions (Pet $x)))
+      (Implication (PetSignal4 $x) (Pet $x))
       (CTV (STV 0.75 0.90) (STV 0.0 1.0))))
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
    (: pet_path_5
-      (Implication (Premises (PetSignal5 $x)) (Conclusions (Pet $x)))
+      (Implication (PetSignal5 $x) (Pet $x))
       (CTV (STV 0.70 0.90) (STV 0.0 1.0))))
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
    (: pet_path_6
-      (Implication (Premises (PetSignal6 $x)) (Conclusions (Pet $x)))
+      (Implication (PetSignal6 $x) (Pet $x))
       (CTV (STV 0.65 0.90) (STV 0.0 1.0))))
 
 ;; Four independent paths to Own(i,max).
@@ -78,39 +78,39 @@
 
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
    (: own_path_1
-      (Implication (Premises (OwnSignal1 $x)) (Conclusions (Own (i $x))))
+      (Implication (OwnSignal1 $x) (Own (i $x)))
       (CTV (STV 0.90 0.90) (STV 0.0 1.0))))
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
    (: own_path_2
-      (Implication (Premises (OwnSignal2 $x)) (Conclusions (Own (i $x))))
+      (Implication (OwnSignal2 $x) (Own (i $x)))
       (CTV (STV 0.80 0.90) (STV 0.0 1.0))))
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
    (: own_path_3
-      (Implication (Premises (OwnSignal3 $x)) (Conclusions (Own (i $x))))
+      (Implication (OwnSignal3 $x) (Own (i $x)))
       (CTV (STV 0.70 0.90) (STV 0.0 1.0))))
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
    (: own_path_4
-      (Implication (Premises (OwnSignal4 $x)) (Conclusions (Own (i $x))))
+      (Implication (OwnSignal4 $x) (Own (i $x)))
       (CTV (STV 0.60 0.90) (STV 0.0 1.0))))
 
 ;; Competing paths whose premises are deliberately absent. They force search
 ;; expansion but cannot contribute evidence to the result.
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
-   (: missing_pet_1 (Implication (Premises (MissingPet1 $x)) (Conclusions (Pet $x))) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+   (: missing_pet_1 (Implication (MissingPet1 $x) (Pet $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
-   (: missing_pet_2 (Implication (Premises (MissingPet2 $x)) (Conclusions (Pet $x))) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+   (: missing_pet_2 (Implication (MissingPet2 $x) (Pet $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
-   (: missing_pet_3 (Implication (Premises (MissingPet3 $x)) (Conclusions (Pet $x))) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+   (: missing_pet_3 (Implication (MissingPet3 $x) (Pet $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
-   (: missing_pet_4 (Implication (Premises (MissingPet4 $x)) (Conclusions (Pet $x))) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+   (: missing_pet_4 (Implication (MissingPet4 $x) (Pet $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
-   (: missing_own_1 (Implication (Premises (MissingOwn1 $x)) (Conclusions (Own (i $x)))) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+   (: missing_own_1 (Implication (MissingOwn1 $x) (Own (i $x))) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
-   (: missing_own_2 (Implication (Premises (MissingOwn2 $x)) (Conclusions (Own (i $x)))) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+   (: missing_own_2 (Implication (MissingOwn2 $x) (Own (i $x))) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
-   (: missing_own_3 (Implication (Premises (MissingOwn3 $x)) (Conclusions (Own (i $x)))) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+   (: missing_own_3 (Implication (MissingOwn3 $x) (Own (i $x))) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
-   (: missing_own_4 (Implication (Premises (MissingOwn4 $x)) (Conclusions (Own (i $x)))) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+   (: missing_own_4 (Implication (MissingOwn4 $x) (Own (i $x))) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
 !(let
    ($results $cpu-seconds $inferences)

@@ -11,8 +11,8 @@
 !(compileadd kb
    (: seedRule
       (Implication
-         (Premises (Seed $p))
-         (Conclusions (PairFact $p)))
+         (Seed $p)
+         (PairFact $p))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
@@ -53,6 +53,6 @@
                ->
                $counts)
             $tv)))
-   ((: (foldall-proof (seedRule seed1) (seedRule seed2))
+   ((: (foldall-proof (by seedRule seed1) (by seedRule seed2))
        (FoldAll (PairFact $_p) $_p (PairCounts ()) DistValueCountAcc -> (PairCounts (((Pair alpha 1) 1.0) ((Pair beta 2) 1.0))))
        (STV 1.0 1.0))))

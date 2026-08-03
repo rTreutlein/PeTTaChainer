@@ -34,11 +34,11 @@
 ;; --- proof term representation (matches the engine's proof tokens) ---
 ;; A proof term is one of:
 ;;   leaf atom             a fact's proof token, e.g. `a` is the proof of (A i)
-;;   (implName argProof)   modus ponens: implication `implName` applied to the
-;;                         proof of its premise, e.g. `(ab1 a)` proves (B i)
+;;   (by implName argProof) modus ponens: implication `implName` applied to the
+;;                          proof of its premise, e.g. `(by ab1 a)` proves (B i)
 ;;   (conjunction p1 p2)   the two premise PROOFS p1, p2 conjoined
-;; So in `(rr (conjunction (pr a) (qr a)))`, the conjuncts are the proofs
-;; `(pr a)` of (P i) and `(qr a)` of (Q i) -- both built from the same leaf
+;; So in `(by rr (conjunction (by pr a) (by qr a)))`, the conjuncts are the
+;; proofs `(by pr a)` of (P i) and `(by qr a)` of (Q i) -- both built from the same leaf
 ;; proof `a`. That is a PROOF term, not a type; the heads pr/qr/rr/ab1 are
 ;; implication proof tokens, the leaves a/xx/yy are fact proof tokens.
 
@@ -56,7 +56,12 @@
          (if (== $head conjunction)  (eval-binary $env AndFormula $term)
          (if (== $head likelier)     (eval-binary $env LikelierThanFormula $term)
          (if (== $head old-likelier) (eval-binary $env ClampedLikelierFormula $term)
-            (CTVModusPonensFormula (eval-proof $env (car-atom (cdr-atom $term))) (rule-ctv $head))))))
+         (if (== $head by)
+            (let $args (cdr-atom $term)
+               (CTVModusPonensFormula
+                  (eval-proof $env (car-atom (cdr-atom $args)))
+                  (rule-ctv (car-atom $args))))
+            (empty))))))
       (env-or-leaf $env $term)))
 
 ;; --- residual implication of a path w.r.t. the shared antecedent ---
@@ -74,25 +79,25 @@
 
 ;; Case 1: two implications A->B, sharing premise a.
 ;; direct-B query dominates to (STV 0.6 0.9); pooled is (STV 0.6 0.947).
-!(test (factor-merge (ab1 a) (ab2 a) a (STV 1.0 1.0))
+!(test (factor-merge (by ab1 a) (by ab2 a) a (STV 1.0 1.0))
    (STV 0.6 0.9473684208506429))
 
 ;; Case 2: direct A->B vs deduction chain A->X->B, sharing premise a.
 ;; pooled (STV 0.58 0.947) matches the engine's own implication query.
-!(test (factor-merge (ab1 a) (xb (ax a)) a (STV 1.0 1.0))
+!(test (factor-merge (by ab1 a) (by xb (by ax a)) a (STV 1.0 1.0))
    (STV 0.5785366151088704 0.9510308529219769))
 
 ;; Case 3: A,X->B / A,Y->B, sharing only A. The engine's implication query
 ;; cannot express this (mixed assumed/real conjunctive premise), so factoring
 ;; is the only route to the pooled answer.
-!(test (factor-merge (r1 (conjunction a xx)) (r2 (conjunction a yy)) a (STV 1.0 1.0))
+!(test (factor-merge (by r1 (conjunction a xx)) (by r2 (conjunction a yy)) a (STV 1.0 1.0))
    (STV 0.6 0.947368420783305))
 
 ;; No overcounting: with an uncertain shared premise a=(1.0 0.5), the residual is
 ;; probed at confidence 1 and the real a applied once, so a's confidence caps the
 ;; result exactly once. Naively revising the two conclusions would wrongly inflate
 ;; the confidence to ~0.667.
-!(test (factor-merge (ab1 a) (ab2 a) a (STV 1.0 0.5))
+!(test (factor-merge (by ab1 a) (by ab2 a) a (STV 1.0 0.5))
    (STV 0.6 0.9473670761598749))
 
 ;; ===========================================================================
@@ -127,19 +132,20 @@
 ;; A buildable proof -- (conjunction pa qa), independent conjuncts. Factoring pa
 ;; (occurs once) round-trips to the true value exactly.
 !(test
-   (residual-then-apply (pqToB (conjunction pa qa)) pa (STV 0.6 1.0))
+   (residual-then-apply (by pqToB (conjunction pa qa)) pa (STV 0.6 1.0))
    (STV 0.3 0.9999285720060582))
 !(test
-   (eval-proof (over pa (STV 0.6 1.0)) (pqToB (conjunction pa qa)))
+   (eval-proof (over pa (STV 0.6 1.0)) (by pqToB (conjunction pa qa)))
    (STV 0.3 0.9999000025814363))
 
-;; The diamond proof (conjunction (aToP a) (aToQ a)) reuses a, so AndFormula
+;; The diamond proof (conjunction (by aToP a) (by aToQ a)) reuses a, so AndFormula
 ;; double-counts it: B = A AND A at a=(0.5 1.0) collapses to 0.5*0.5 = 0.25 by
 ;; falsely assuming the two copies of A are independent. That artifact is why the
 ;; engine's conjunction guard rejects this proof outright (a direct query for B
 ;; returns nothing), so it never reaches the merge in the first place.
 !(test
-   (eval-proof (over a (STV 0.5 1.0)) (pqToB (conjunction (aToP a) (aToQ a))))
+   (eval-proof (over a (STV 0.5 1.0))
+      (by pqToB (conjunction (by aToP a) (by aToQ a))))
    (STV 0.25 0.9999000029997336))
 
 ;; The only single-occurrence nonlinearity was a piecewise formula -- the old
@@ -167,17 +173,17 @@
 ;; through s_a=0 ->0 and s_a=1 ->0.4), giving 0.12. But 0.3 is below the kink at
 ;; s_b=0.6, so the true value is (max 0 (- 0.3 0.6)) = 0. Factored 0.12 vs true 0.
 !(test
-   (residual-then-apply (lrule (old-likelier a w)) a (STV 0.3 1.0))
+   (residual-then-apply (by lrule (old-likelier a w)) a (STV 0.3 1.0))
    (STV 0.12 0.9999477270289975))
 !(test
-   (eval-proof (over a (STV 0.3 1.0)) (lrule (old-likelier a w)))
+   (eval-proof (over a (STV 0.3 1.0)) (by lrule (old-likelier a w)))
    (STV 0.0 0.9998000399670116))
 
 ;; The current multilinear LikelierThanFormula: same probe line (0.12), but now
 ;; it IS the truth -- 0.3 * (1 - 0.6) = 0.12 both ways.
 !(test
-   (residual-then-apply (lrule (likelier a w)) a (STV 0.3 1.0))
+   (residual-then-apply (by lrule (likelier a w)) a (STV 0.3 1.0))
    (STV 0.12 0.9999477270289975))
 !(test
-   (eval-proof (over a (STV 0.3 1.0)) (lrule (likelier a w)))
+   (eval-proof (over a (STV 0.3 1.0)) (by lrule (likelier a w)))
    (STV 0.12 0.9999000092521804))

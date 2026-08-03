@@ -19,43 +19,43 @@
 !(compileadd toothbrushMemberKb
    (: lighterHeatsPlastic
       (Implication
-         (Premises (Member $x madeOfPlastic) (Operation $x opLighter))
-         (Conclusions (Member $x heated)))
+         (And (Member $x madeOfPlastic) (Operation $x opLighter))
+         (Member $x heated))
       (STV 0.99 0.99)))
 
 !(compileadd toothbrushMemberKb
    (: heatedMelts
       (Implication
-         (Premises (Member $x heated))
-         (Conclusions (Member $x melted)))
+         (Member $x heated)
+         (Member $x melted))
       (STV 0.99 0.99)))
 
 !(compileadd toothbrushMemberKb
    (: meltedPliable
       (Implication
-         (Premises (Member $x melted))
-         (Conclusions (Member $x pliable)))
+         (Member $x melted)
+         (Member $x pliable))
       (STV 0.99 0.99)))
 
 !(compileadd toothbrushMemberKb
    (: reshapePliableScrewlike
       (Implication
-         (Premises (Member $x pliable) (Operation $x opReshape))
-         (Conclusions (Member $x screwlike)))
+         (And (Member $x pliable) (Operation $x opReshape))
+         (Member $x screwlike))
       (STV 0.99 0.99)))
 
 !(compileadd toothbrushMemberKb
    (: waitHardensScrewlike
       (Implication
-         (Premises (Member $x screwlike) (Operation $x opWait))
-         (Conclusions (Member $x hardened)))
+         (And (Member $x screwlike) (Operation $x opWait))
+         (Member $x hardened))
       (STV 0.99 0.99)))
 
 !(compileadd toothbrushMemberKb
    (: unscrewRemovesHardened
       (Implication
-         (Premises (Member $x hardened) (Operation $x opUnscrew))
-         (Conclusions (Member $x removed)))
+         (And (Member $x hardened) (Operation $x opUnscrew))
+         (Member $x removed))
       (STV 0.99 0.99)))
 
 !(compileadd toothbrushMemberKb (: xPlastic (Member X madeOfPlastic) (STV 0.99 0.99)))
@@ -71,18 +71,18 @@
 !(test
    (collapse (query 200 toothbrushMemberKb (: $prf (Member X removed) $tv)))
    ((:
-      (unscrewRemovesHardened
+      (by unscrewRemovesHardened
          (conjunction
-            (waitHardensScrewlike
+            (by waitHardensScrewlike
                (conjunction
-                  (reshapePliableScrewlike
+                  (by reshapePliableScrewlike
                      (conjunction
-                        (meltedPliable
-                           (heatedMelts
-                              (lighterHeatsPlastic
+                        (by meltedPliable
+                           (by heatedMelts
+                              (by lighterHeatsPlastic
                                  (conjunction xPlastic xLighter))))
                         xReshape))
                   xWait))
             xUnscrew))
       (Member X removed)
-      (STV 0.8959832714414285 0.9896761643809187))))
+      (STV 0.9545210821747951 0.9198975829739933))))

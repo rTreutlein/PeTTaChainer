@@ -4,7 +4,7 @@
 
 ;; The raw clause reference crosses the Prolog FFI and has no MeTTa-level
 ;; representation.  This is one of the intentionally dynamic boundaries.
-(: ClauseRef (Newtype Expression))
+(: ClauseRef (Newtype Atom))
 (: TempQueryRef Type)
 (: clause_ref (-[det]-> ClauseRef TempQueryRef))
 
@@ -123,7 +123,7 @@
       ($_other ()))))
 
 (: typed-runtime-fact
-   (-[det]-> Expression (Statement KBContext Proof TV)))
+   (-[det]-> Atom (Statement KBContext Proof TV)))
 (= (typed-runtime-fact $fact)
    (case $fact
       ((($type $kb $proof $tv)
@@ -134,7 +134,7 @@
             (checked-stored-tv $tv))))))
 
 (: typed-runtime-premise
-   (-[semidet]-> Expression
+   (-[semidet]-> Atom
        (| Goal (Statement KBContext Proof TV))))
 (= (typed-runtime-premise $premise)
    (if (= $premise (CPU $formula $arguments $result))
@@ -145,7 +145,7 @@
 ;; each premise's nominal role while walking the list we already consume,
 ;; rather than reflectively checking the complete list with `(the ...)`.
 (: typed-runtime-premises
-   (-[semidet]-> Expression
+   (-[semidet]-> Atom
        (List (| Goal (Statement KBContext Proof TV)))))
 (= (typed-runtime-premises $premises)
    (case $premises (

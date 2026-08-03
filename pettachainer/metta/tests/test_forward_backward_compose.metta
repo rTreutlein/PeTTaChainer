@@ -13,26 +13,26 @@
 
 !(compileadd bwdOnlyKb (: a0 (A) (STV 1.0 1.0)))
 
-!(compileadd bwdOnlyKb (: r1 (Implication (Premises (A)) (Conclusions (B))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd bwdOnlyKb (: r1 (Implication (A) (B)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(compileadd bwdOnlyKb (: r2 (Implication (Premises (B)) (Conclusions (Goal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd bwdOnlyKb (: r2 (Implication (B) (Goal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 2 bwdOnlyKb (: $p (Goal) $tv)) ())
 
 !(test (query 4 bwdOnlyKb (: $p (Goal) $tv))
-   (: (r2 (r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
+   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
 
 !(test
    (query 100 bwdOnlyKb
-      (: $p (Implication (Premises (A)) (Conclusions (Goal)))
+      (: $p (Implication (A) (Goal))
          (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
    ())
 
 !(compileadd transitiveClosedKb
    (: ax-tr
       (Implication
-         (Premises (Provable (→ $psi $chi)) (Provable (→ $phi $psi)))
-         (Conclusions (Provable (→ $phi $chi))))
+         (And (Provable (→ $psi $chi)) (Provable (→ $phi $psi)))
+         (Provable (→ $phi $chi)))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(compileadd transitiveClosedKb (: given-imp1 (Provable (→ (PropP) (PropQ))) (STV 1.0 1.0)))
@@ -41,21 +41,21 @@
 
 !(test
    (query 20 transitiveClosedKb (: $p (Provable (→ (PropP) (PropT))) $tv))
-   (: (ax-tr (conjunction given-imp2 given-imp1)) (Provable (→ (PropP) (PropT))) (STV 1.0 0.999700089898053)))
+   (: (by ax-tr (conjunction given-imp2 given-imp1)) (Provable (→ (PropP) (PropT))) (STV 1.0 0.999700089898053)))
 
-!(compileadd openImplicationKb (: r1 (Implication (Premises (A)) (Conclusions (B))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd openImplicationKb (: r1 (Implication (A) (B)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
    (query 100 openImplicationKb
-      (: $p (Implication (Premises (A)) (Conclusions (B))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+      (: $p (Implication (A) (B)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
    ())
 
 !(compileadd openVariablePatternImplicationKb
-   (: featureRule (Implication (Premises (Feature a)) (Conclusions (Target))) (CTV (STV 1.0 0.5) (STV 0.0 1.0))))
+   (: featureRule (Implication (Feature a) (Target)) (CTV (STV 1.0 0.5) (STV 0.0 1.0))))
 
 !(test
    (query 100 openVariablePatternImplicationKb
-      (: $p (Implication (Premises (Feature $x)) (Conclusions (Target))) (CTV (STV 1.0 0.5) (STV 0.0 1.0))))
+      (: $p (Implication (Feature $x) (Target)) (CTV (STV 1.0 0.5) (STV 0.0 1.0))))
    ())
 
 !(compileadd openVariableConclusionImplicationKb (: tallAlice (Tall alice) (STV 0.9 0.5)))
@@ -69,35 +69,35 @@
 !(compileadd openVariableConclusionImplicationKb
    (: copyPredicate
       (Implication
-         (Premises (And ($p1 $x) ($p2 $x)) ($p1 $y))
-         (Conclusions ($p2 $y)))
+         (And (And ($p1 $x) ($p2 $x)) ($p1 $y))
+         ($p2 $y))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
    (query 100 openVariableConclusionImplicationKb
       (: $p
-         (Implication (Premises (Tall $x)) (Conclusions (Female $x)))
+         (Implication (Tall $x) (Female $x))
          (CTV (STV 0.9639 0.5) (STV 0.5 0.0))))
    ())
 
 !(test
    (query 100 openVariableConclusionImplicationKb
-      (: $p (Implication (Premises (Tall $x)) (Conclusions (Female $x))) $tv))
+      (: $p (Implication (Tall $x) (Female $x)) $tv))
    ())
 
 !(test
    (query 100 openVariableConclusionImplicationKb
       (: $proof
-         (Implication (Premises ($p $x)) (Conclusions ($p $x)))
+         (Implication ($p $x) ($p $x))
          (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
    (: (total-implication (ctx proof 10) (ctx proof 11))
-      (Implication (Premises ($_p $_x)) (Conclusions ($_p $_x)))
+      (Implication ($_p $_x) ($_p $_x))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
    (query 100 openVariableConclusionImplicationKb
       (: $proof
-         (Implication (Premises (Female $x)) (Conclusions (Tall $x)))
+         (Implication (Female $x) (Tall $x))
          (CTV (STV 0.9639 0.5) (STV 0.5 0.0))))
    ())
 
@@ -106,26 +106,30 @@
 !(compileadd existentialDisjunctionKb (: pb (P b) (STV 0.6 0.7)))
 
 !(compileadd existentialDisjunctionKb
-   (: pToT (Implication (Premises (P $x)) (Conclusions (T))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+   (: pToT
+      (Implication
+         (Exists ($x) (P $x))
+         (T))
+      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
    (query 100 existentialDisjunctionKb (: $prf (T) $tv))
-   (: (pToT (disjunction pa pb)) (T) (STV 0.9199999999999999 0.7123799943249737)))
+   (: (by pToT (disjunction pa pb)) (T) (STV 0.9199999999999999 0.7123799943249737)))
 
 !(compileadd composeKb (: a0 (A) (STV 1.0 1.0)))
 
-!(compileadd composeKb (: r1 (Implication (Premises (A)) (Conclusions (B))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd composeKb (: r1 (Implication (A) (B)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(compileadd composeKb (: r2 (Implication (Premises (B)) (Conclusions (Goal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd composeKb (: r2 (Implication (B) (Goal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (let $_ (forward-chain 1 composeKb (test-selected-facts composeKb (A))) (query 2 composeKb (: $p (Goal) $tv)))
-   (: (r2 (r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
+   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
 
 !(compileadd composeKbShort (: a0 (A) (STV 1.0 1.0)))
 
-!(compileadd composeKbShort (: r1 (Implication (Premises (A)) (Conclusions (B))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd composeKbShort (: r1 (Implication (A) (B)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(compileadd composeKbShort (: r2 (Implication (Premises (B)) (Conclusions (Goal))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd composeKbShort (: r2 (Implication (B) (Goal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
    (let $_ (forward-chain 1 composeKbShort (test-selected-facts composeKbShort (A)))
@@ -134,11 +138,11 @@
 
 !(compileadd noReuseKb (: x (X) (STV 1.0 1.0)))
 
-!(compileadd noReuseKb (: ra (Implication (Premises (X)) (Conclusions (A))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd noReuseKb (: ra (Implication (X) (A)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(compileadd noReuseKb (: rb (Implication (Premises (X)) (Conclusions (B))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd noReuseKb (: rb (Implication (X) (B)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(compileadd noReuseKb (: rc (Implication (Premises (A) (B)) (Conclusions (C))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd noReuseKb (: rc (Implication (And (A) (B)) (C)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 100 noReuseKb (: $p (C) $tv)) ())
 
@@ -146,18 +150,18 @@
 
 !(compileadd independentKb (: b (B) (STV 1.0 1.0)))
 
-!(compileadd independentKb (: ra (Implication (Premises (X)) (Conclusions (A))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd independentKb (: ra (Implication (X) (A)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(compileadd independentKb (: rc (Implication (Premises (A) (B)) (Conclusions (C))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd independentKb (: rc (Implication (And (A) (B)) (C)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 100 independentKb (: $p (C) $tv))
-   (: (rc (conjunction (ra x) b)) (C) (STV 1.0 0.9996001597861454)))
+   (: (by rc (conjunction (by ra x) b)) (C) (STV 1.0 0.9996001597861454)))
 
-!(compileadd derivedAndRuleKb (: yearsRule (Implication (Premises (YearsExp $p 10)) (Conclusions (IndustryVeteran $p))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd derivedAndRuleKb (: yearsRule (Implication (YearsExp $p 10) (IndustryVeteran $p)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(compileadd derivedAndRuleKb (: expertRule (Implication (Premises (And (IndustryVeteran $p) (ManagedTeam $p))) (Conclusions (Expert $p))) (CTV (STV 1.0 0.95) (STV 0.0 1.0))))
+!(compileadd derivedAndRuleKb (: expertRule (Implication (And (IndustryVeteran $p) (ManagedTeam $p)) (Expert $p)) (CTV (STV 1.0 0.95) (STV 0.0 1.0))))
 
-!(compileadd derivedAndRuleKb (: seniorRule (Implication (Premises (And (Expert $p) (CertifiedEthical $p))) (Conclusions (SeniorExpert $p))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd derivedAndRuleKb (: seniorRule (Implication (And (Expert $p) (CertifiedEthical $p)) (SeniorExpert $p)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(compileadd derivedAndRuleKb (: yearsFact (YearsExp kebede 10) (STV 1.0 1.0)))
 
@@ -167,8 +171,8 @@
 
 !(test
    (query 50 derivedAndRuleKb (: $p (Expert kebede) $tv))
-   (: (expertRule (conjunction (yearsRule yearsFact) mgmtFact)) (Expert kebede) (STV 1.0 0.9497292914682098)))
+   (: (by expertRule (conjunction (by yearsRule yearsFact) mgmtFact)) (Expert kebede) (STV 1.0 0.9497292914682098)))
 
 !(test
    (query 50 derivedAndRuleKb (: $p (SeniorExpert kebede) $tv))
-   (: (seniorRule (conjunction (expertRule (conjunction (yearsRule yearsFact) mgmtFact)) ethicsFact)) (SeniorExpert kebede) (STV 1.0 0.9495489046959086)))
+   (: (by seniorRule (conjunction (by expertRule (conjunction (by yearsRule yearsFact) mgmtFact)) ethicsFact)) (SeniorExpert kebede) (STV 1.0 0.9495489046959086)))

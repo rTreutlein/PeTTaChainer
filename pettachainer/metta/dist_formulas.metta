@@ -88,7 +88,7 @@
 ;; so this is intentionally a generic structural walk rather than a
 ;; Distribution-only accessor. The ParticleDist branch checks only its numeric
 ;; id; the resulting cons is then known statically as (List Number).
-(: particle-ids-in-term (-[det]-> Atom (List Number)))
+(: particle-ids-in-term (-[det]-> Expression (List Number)))
 (= (particle-ids-in-term $term)
    (case $term (
       ((ParticleDist $pid $_scale)
@@ -143,22 +143,6 @@
         ($maxid (fold-flat max-particle-id -1 $keep))
         ($_reset (change-state! particleid (+ $maxid 1))))
       (ParticleStoreCount)))
-
-(: particle-neff-from-pairs (-[det]-> (List ($value Number)) Number))
-(= (particle-neff-from-pairs $pairs)
-   (let*
-      (($norm (normalize-pairs $pairs))
-        ((Stats $_sum $sumsq $_count) (pairs-stats $norm)))
-      (if (<= $sumsq 0.0) 0.0 (/ 1.0 $sumsq))))
-
-(: particle-confidence-k (-[det]-> Number))
-(= (particle-confidence-k) 20.0)
-
-(: particle-confidence-from-neff (-[det]-> Number Number))
-(= (particle-confidence-from-neff $neff) (if (<= $neff 0.0) 0.0 (/ $neff (+ $neff (particle-confidence-k)))))
-
-(: particle-confidence-from-pairs (-[det]-> (List ($value Number)) Number))
-(= (particle-confidence-from-pairs $pairs) (particle-confidence-from-neff (particle-neff-from-pairs $pairs)))
 
 (: normalize-pairs (-[det]-> (List ($value Number)) (List ($value Number))))
 (= (normalize-pairs $pairs)
@@ -307,7 +291,7 @@
    (let $pairs (particle-fetch-pairs $pid)
       (STV
          (* $scale (dist-prob-gt $pairs $threshold))
-         (particle-confidence-from-pairs $pairs))))
+         1.0)))
 
 (: DistGreaterThanDistFormula
    (-[det]-> Distribution Distribution STVType))
@@ -318,12 +302,10 @@
        ($scalea (particle-dist-scale $pda))
        ($scaleb (particle-dist-scale $pdb))
        ($pairsa (particle-fetch-pairs $pida))
-       ($pairsb (particle-fetch-pairs $pidb))
-       ($ca (particle-confidence-from-pairs $pairsa))
-       ($cb (particle-confidence-from-pairs $pairsb)))
+       ($pairsb (particle-fetch-pairs $pidb)))
       (STV
          (* (* $scalea $scaleb) (dist-prob-gt2 $pairsa $pairsb))
-         (min $ca $cb))))
+         1.0)))
 
 (: particle-map-pairs (-[det]-> (-[det]-> $input $output) (List ($input Number)) (List ($output Number)) (List ($output Number))))
 (= (particle-map-pairs $fun () $acc) $acc)

@@ -1,7 +1,10 @@
 !(import! &self ../petta_chainer)
 
 !(test (DistGreaterThanFormula (ParticleFromPairs ((0 0.25) (2 0.75))) 1)
-   (STV 0.75 0.07407407407407407))
+   (STV 0.75 1.0))
+
+!(test (DistGreaterThanFormula (PointMass 180) 170)
+   (STV 1.0 1.0))
 
 !(test
    (let*
@@ -9,23 +12,23 @@
         ($pd1 (ParticleAddBernoulliFromSTV $pd0 (STV 0.5 1.0)))
         ($pd2 (ParticleAddBernoulliFromSTV $pd1 (STV 0.5 1.0))))
       (DistGreaterThanFormula $pd2 1))
-   (STV 0.25 0.1176470588235294))
+   (STV 0.25 1.0))
 
 !(test (ParticlePairs (ParticleFromPairs ((170 0.5) (180 0.5)))) ((170 0.5) (180 0.5)))
 
 !(test (ParticlePairs (ParticleFromPairs ((175 1.0)))) ((175 1.0)))
 
 !(test (DistGreaterThanDistFormula (ParticleFromPairs ((170 0.5) (180 0.5))) (ParticleFromPairs ((175 1.0))))
-   (STV 0.5 0.047619047619047616))
+   (STV 0.5 1.0))
 
 !(test (DistGreaterThanFormula (ParticleMap (|-> ($x) (+ $x 1)) (ParticleFromPairs ((0 0.25) (2 0.75)))) 2)
-   (STV 0.75 0.07407407407407407))
+   (STV 0.75 1.0))
 
 !(test
    (DistGreaterThanFormula
       (ParticleMap2 + (ParticleFromPairs ((170 0.5) (180 0.5))) (ParticleFromPairs ((160 1.0))))
       335)
-   (STV 0.5 0.09090909090909091))
+   (STV 0.5 1.0))
 
 !(test
    (DistGreaterThanFormula
@@ -33,7 +36,7 @@
          (ParticleFromPairs ((180 1.0)))
          (ParticleFromPairs ((160 1.0))))
       169)
-   (STV 1.0 0.047619047619047616))
+   (STV 1.0 1.0))
 
 !(compileadd kb
    (: countryHeightA (CountryHeightDist countryA (ParticleFromPairs ((170 0.5) (180 0.5)))) (STV 1.0 1.0)))
@@ -44,10 +47,10 @@
 !(compileadd kb
    (: compareHeightsRule
       (Implication
-         (Premises (CountryHeightDist countryA $heightA)
+         (And (CountryHeightDist countryA $heightA)
             (CountryHeightDist countryB $heightB)
             (GreaterThan $heightA $heightB))
-         (Conclusions (Taller countryA countryB)))
+         (Taller countryA countryB))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
@@ -58,7 +61,7 @@
 !(test
    (let (: $prf (Taller countryA countryB) $tv) (query 40 kb (: $prf (Taller countryA countryB) $tv))
       (let (STV $s $c) $tv $c))
-   0.047619047618071425)
+   0.9998999998010201)
 
 !(compileadd kb (: kidp1 (Kid kidp1) (STV 1.0 1.0)))
 
@@ -79,43 +82,43 @@
 !(compileadd kb
    (: cntKidInParticleRule
       (Implication
-         (Premises (Room $room)
+         (And (Room $room)
             (FoldAllValue (In $room $kid)
                (ParticleFromPairs ((0 1.0)))
                ParticleAddBernoulliFromSTV
                ->
                $dist))
-         (Conclusions (CntKidInParticle $room $dist)))
+         (CntKidInParticle $room $dist))
       (CTV (STV 1.0 0.8) (STV 0.0 1.0))))
 
 !(compileadd kb
    (: playTogetherParticleRule
-      (Implication (Premises (Room $room) (CntKidInParticle $room $cnt) (GreaterThan $cnt 1))
-         (Conclusions (PlayTogetherParticleIn $room)))
+      (Implication (And (Room $room) (CntKidInParticle $room $cnt) (GreaterThan $cnt 1))
+         (PlayTogetherParticleIn $room))
       (CTV (STV 1.0 0.75) (STV 0.0 1.0))))
 
 !(test
    (let (: $prf (CntKidInParticle roomp1 $cnt) $tv) (query 40 kb (: $prf (CntKidInParticle roomp1 $cnt) $tv))
       (let (STV $s $c) (DistGreaterThanFormula (the Distribution $cnt) 1)
-         (and (and (> $s 0.2499) (< $s 0.2501)) (and (> $c 0.11764) (< $c 0.11765)))))
+         (and (and (> $s 0.2499) (< $s 0.2501)) (== $c 1.0))))
    true)
 
 !(test
    (let (: $prf (CntKidInParticle roomp2 $cnt) $tv) (query 40 kb (: $prf (CntKidInParticle roomp2 $cnt) $tv))
       (let (STV $s $c) (DistGreaterThanFormula (the Distribution $cnt) 1)
-         (and (and (> $s 0.0599) (< $s 0.0601)) (and (> $c 0.0977) (< $c 0.0978)))))
+         (and (and (> $s 0.0599) (< $s 0.0601)) (== $c 1.0))))
    true)
 
 !(test
    (let (: $prf (CntKidInParticle roomp1 $cnt) $tv) (query 40 kb (: $prf (CntKidInParticle roomp1 $cnt) $tv))
       (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula (the Distribution $cnt) 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
-	         (and (and (> $s 0.2499) (< $s 0.2501)) (and (> $c 0.09) (< $c 0.13)))))
+	         (and (and (> $s 0.2499) (< $s 0.2501)) (== $c 0.9998998986564899))))
    true)
 
 !(test
    (let (: $prf (CntKidInParticle roomp2 $cnt) $tv) (query 40 kb (: $prf (CntKidInParticle roomp2 $cnt) $tv))
       (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula (the Distribution $cnt) 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
-         (and (> $s 0.0599) (< $s 0.0601))))
+         (and (and (> $s 0.0599) (< $s 0.0601)) (== $c 0.9998999871691416))))
    true)
 
 !(test

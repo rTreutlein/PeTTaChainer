@@ -9,6 +9,22 @@ uv run petta tests/test_var_head.metta -s
 Run MeTTa files through `uv run petta`. Most project files should be run from
 `pettachainer/metta`.
 
+The MeTTa API can also be loaded directly from a pinned Git checkout when
+running under PeTTa:
+
+```metta
+!(import! &self (library lib_import))
+!(git-import!
+   "https://github.com/rTreutlein/PeTTaChainer.git"
+   ""
+   "./repos"
+   "<FULL_PETTACHAINER_COMMIT_SHA>")
+!(import! &self (library PeTTaChainer lib_pettachainer))
+```
+
+In this mode PeTTa is the host runtime, so it must already be installed. The
+Python API still requires installing the `PeTTaChainer` package.
+
 ## Benchmarks
 
 Run the NatDist vs ParticleDist benchmark:
@@ -97,10 +113,10 @@ handler = PeTTaChainer()
 handler.add_atom("(: edge_ab (Edge A B) (STV 1.0 1.0))")
 handler.add_atom("(: edge_bc (Edge B C) (STV 1.0 1.0))")
 handler.add_atom(
-    "(: edge_to_path (Implication (Premises (Edge $x $y)) (Conclusions (Path $x $y))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+    "(: edge_to_path (Implication (Edge $x $y) (Path $x $y)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
 )
 handler.add_atom(
-    "(: path_step (Implication (Premises (Path $x $y) (Edge $y $z)) (Conclusions (Path $x $z))) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+    "(: path_step (Implication (And (Path $x $y) (Edge $y $z)) (Path $x $z)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
 )
 
 seeds = handler.select_facts(["(Edge A B)", "(Edge B C)"])

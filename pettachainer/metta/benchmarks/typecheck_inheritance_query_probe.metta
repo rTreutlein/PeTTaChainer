@@ -1,6 +1,6 @@
 ; Measures a representative higher-order Inheritance query after compiling four
 ; source facts. This file deliberately uses syntax accepted by both runtimes.
-!(import! &self petta_chainer)
+!(import! &self ../petta_chainer)
 
 (: current-time (-[det]-> Number))
 

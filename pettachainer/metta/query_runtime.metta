@@ -12,7 +12,7 @@
       (append-annotated-statements $rest $right)))
 
 (: pretty-result-list
-   (-[det]-> Expression (List AnnotatedStatement)))
+   (-[det]-> Atom (List AnnotatedStatement)))
 (= (pretty-result-list $result)
    ;; pretty is semidet, so this list contains at most one value. Its declared
    ;; result now propagates through collapse without a boundary ascription.
@@ -21,7 +21,7 @@
       $raw-results))
 
 (: pretty-results
-   (-[det]-> (List Expression) (List AnnotatedStatement)))
+   (-[det]-> (List Atom) (List AnnotatedStatement)))
 (= (pretty-results ()) ())
 (= (pretty-results (cons $result $rest))
    (let*
@@ -31,7 +31,7 @@
          $head-results $rest-results)))
 
 (: externalize-results
-   (-[nondet]-> (List RuntimeResult) (List Expression)))
+   (-[nondet]-> (List RuntimeResult) (List Atom)))
 (= (externalize-results ()) ())
 (= (externalize-results (cons $result $rest))
    (cons
@@ -77,8 +77,11 @@
    (-[nondet]-> Number KB AnnotatedStatement AnnotatedStatement))
 (= (query $steps $kb $stmt)
    (let*
-      (($compiled-queries
-          (collapse (mm2compileQuery $kb $stmt)))
+      (($stmt1
+          (the AnnotatedStatement
+             (materialize-stmt-lambdas $stmt)))
+       ($compiled-queries
+          (collapse (mm2compileQuery $kb $stmt1)))
        ($pres
           (fold-flat append-annotated-statements ()
              (map-flat
@@ -90,8 +93,11 @@
    (-[nondet]-> Number KB AnnotatedStatement AnnotatedStatement))
 (= (query-materialize $steps $kb $stmt)
    (let*
-      (($compiled-queries
-          (collapse (mm2compileQuery $kb $stmt)))
+      (($stmt1
+          (the AnnotatedStatement
+             (materialize-stmt-lambdas $stmt)))
+       ($compiled-queries
+          (collapse (mm2compileQuery $kb $stmt1)))
        ($pres
           (fold-flat append-annotated-statements ()
              (map-flat

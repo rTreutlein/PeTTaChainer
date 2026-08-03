@@ -12,7 +12,7 @@
 
 !(test
    (collapse (query 40 memberCompatKb (: $prf (Member Tom Mortal) $tv)))
-   ((: ((no_inverse (member-inheritance-implication humanMortal)) tomHuman)
+   ((: (by (no_inverse (member-inheritance-implication humanMortal)) tomHuman)
        (Member Tom Mortal)
        (STV 0.792 0.9008662163590345))))
 
@@ -40,14 +40,14 @@
 !(compileadd memberDerivedKb
    (: seedHuman
       (Implication
-         (Premises (Member $x Seed))
-         (Conclusions (Member $x Human)))
+         (Member $x Seed)
+         (Member $x Human))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 !(compileadd memberDerivedKb
    (: humanMortal
       (Implication
-         (Premises (Member $x Human))
-         (Conclusions (Member $x Mortal)))
+         (Member $x Human)
+         (Member $x Mortal))
       (CTV (STV 0.8 1.0) (STV 0.0 1.0))))
 
 !(test
@@ -55,8 +55,8 @@
    (: (member-inheritance-fold
           (foldall-proof
              (member-inheritance-sample
-                (seedHuman tomSeed)
-                (humanMortal (seedHuman tomSeed)))))
+                (by seedHuman tomSeed)
+                (by humanMortal (by seedHuman tomSeed)))))
       (Inheritance Human Mortal)
       (STV 0.8 0.9997000691603363)))
 
@@ -68,10 +68,10 @@
 !(compileadd memberCycleKb
    (: cyclicHumanMortal
       (Implication
-         (Premises
+         (And
             (Member $x Human)
             (Inheritance Human Mortal))
-         (Conclusions (Member $x Mortal)))
+         (Member $x Mortal))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test

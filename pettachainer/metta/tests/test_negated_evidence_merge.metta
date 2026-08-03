@@ -11,28 +11,28 @@
    false)
 
 !(compileadd negEvidenceMergeKb
-   (: nd_a (Implication (Premises (Not (Dog))) (Conclusions (Animal))) (CTV (STV 0.75 0.5) (STV 0.0 1.0))))
+   (: nd_a (Implication (Not (Dog)) (Animal)) (CTV (STV 0.75 0.5) (STV 0.0 1.0))))
 
 !(compileadd negEvidenceMergeKb
-   (: d_a (Implication (Premises (Dog)) (Conclusions (Animal))) (CTV (STV 0.25 0.5) (STV 0.0 1.0))))
+   (: d_a (Implication (Dog) (Animal)) (CTV (STV 0.25 0.5) (STV 0.0 1.0))))
 
 !(compileadd negEvidenceMergeKb (: d (Dog) (STV 0.5 1.0)))
 
 !(test (query 100 negEvidenceMergeKb (: $prf (Animal) $tv))
-   (: (merge/revision (nd_a (negated d)) (d_a d)) (Animal) (STV 0.2954555464817422 0.880073171795134)))
+   (: (merge/revision (by nd_a (negated d)) (by d_a d)) (Animal) (STV 0.2954555464817422 0.880073171795134)))
 
 !(compileadd totalMpFallbackKb (: d (Dog) (STV 0.5 1.0)))
 
 !(compileadd totalMpFallbackKb
-   (: d_a (Implication (Premises (Dog)) (Conclusions (Animal))) (CTV (STV 0.8 0.6) (STV 0.0 1.0))))
+   (: d_a (Implication (Dog) (Animal)) (CTV (STV 0.8 0.6) (STV 0.0 1.0))))
 
 !(test (query 100 totalMpFallbackKb (: $prf (Animal) $tv))
-   (: (d_a d) (Animal) (STV 0.4 0.9000084303897768)))
+   (: (by d_a d) (Animal) (STV 0.4 0.9000084303897768)))
 
 !(compileadd totalMpNegOnlyKb (: d (Dog) (STV 0.5 1.0)))
 
 !(compileadd totalMpNegOnlyKb
-   (: nd_a (Implication (Premises (Not (Dog))) (Conclusions (Animal))) (CTV (STV 0.8 0.6) (STV 0.0 1.0))))
+   (: nd_a (Implication (Not (Dog)) (Animal)) (CTV (STV 0.8 0.6) (STV 0.0 1.0))))
 
 !(test (query 100 totalMpNegOnlyKb (: $prf (Animal) $tv))
-   (: (nd_a (negated d)) (Animal) (STV 0.4 0.9000084303897768)))
+   (: (by nd_a (negated d)) (Animal) (STV 0.4 0.9000084303897768)))

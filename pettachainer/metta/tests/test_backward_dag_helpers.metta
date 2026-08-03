@@ -126,7 +126,7 @@
 
 !(compileadd inverseTotalKb
    (: inverseTotalRule
-      (Implication (Premises (InverseTotalA)) (Conclusions (InverseTotalB)))
+      (Implication (InverseTotalA) (InverseTotalB))
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 
 !(test
@@ -251,7 +251,7 @@
    false)
 
 ;; A raw proof stays live so it can be revised with later evidence, but a
-;; parent that consumed it as the then-current representative becomes stale.
+;; non-conjunction parent that consumed the then-current representative is stale.
 !(test
    (let*
       (($_clear (clear-backward-state))

@@ -60,12 +60,12 @@
    (CTV (reeval-proof $pid $key (STV 1.0 1.0)) (reeval-proof $pid $key (STV 0.0 1.0))))
 
 !(compileadd k (: a (A i) (STV 0.5 1.0)))
-!(compileadd k (: ab1 (Implication (Premises (A $x)) (Conclusions (B $x))) (CTV (STV 0.6 0.9) (STV 0.0 1.0))))
+!(compileadd k (: ab1 (Implication (A $x) (B $x)) (CTV (STV 0.6 0.9) (STV 0.0 1.0))))
 !(let $r (chainer 30 ((B i) (k MAIN Nil) $prf $tv)) done)
 
-;; the rule proof (ab1 a), found by its token rather than a hardcoded pid
+;; the rule proof (by ab1 a), found by its token rather than a hardcoded pid
 (= (ab1-pid)
-   (match &proof ($pid $g $out (rule ((B i) $kb (ab1 $_arg) $_tv)) $sc $ev $ch) $pid))
+   (match &proof ($pid $g $out (rule ((B i) $kb (by ab1 $_arg) $_tv)) $sc $ev $ch) $pid))
 
 ;; no override reproduces the stored TV
 !(test (let $p (car-atom (collapse (ab1-pid))) (reeval-proof $p ((Nothing n) (k MAIN Nil)) (STV 9 9)))
@@ -80,9 +80,9 @@
 ;; confuse them; structural recompute keeps them distinct by child position.
 !(compileadd c (: aa (A i) (STV 0.5 1.0)))
 !(compileadd c (: a2 (A2 i) (STV 0.5 1.0)))
-!(compileadd c (: rr (Implication (Premises (And (A $z) (A2 $z))) (Conclusions (B $z))) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd c (: rr (Implication (And (A $z) (A2 $z)) (B $z)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 !(let $r2 (chainer 40 ((B i) (c MAIN Nil) $prf $tv)) done)
-(= (cc-pid) (match &proof ($pid $g $out (rule ((B i) $kb (rr $_) $_tv)) $sc $ev $ch) $pid))
+(= (cc-pid) (match &proof ($pid $g $out (rule ((B i) $kb (by rr $_) $_tv)) $sc $ev $ch) $pid))
 
 !(test (let $p (car-atom (collapse (cc-pid))) (residual-ctv $p ((A i) (c MAIN Nil))))
    (CTV (STV 0.5 0.9998999998010301) (STV 0.0 0.9998000374680106)))

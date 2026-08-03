@@ -3,22 +3,22 @@
 !(compileadd directKb
    (: fathersFatherGrandfather
       (Implication
-         (Premises (Father $a $b) (Father $b $c))
-         (Conclusions (Grandfather $a $c)))
+         (And (Father $a $b) (Father $b $c))
+         (Grandfather $a $c))
       (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
 !(compileadd directKb
    (: fathersMotherGrandfather
       (Implication
-         (Premises (Father $a $b) (Mother $b $c))
-         (Conclusions (Grandfather $a $c)))
+         (And (Father $a $b) (Mother $b $c))
+         (Grandfather $a $c))
       (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
 !(compileadd directKb
    (: grandfatherOld
       (Implication
-         (Premises (Grandfather $a $x))
-         (Conclusions (Old $a)))
+         (Exists ($x) (Grandfather $a $x))
+         (Old $a))
       (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
 !(compileadd directKb (: fatherAB (Father a b) (STV 1.0 0.9)))
@@ -32,25 +32,25 @@
 !(test
    (query 50 directKb (: $prf (Grandfather a c) $tv))
    (: (merge/revision
-         (fathersMotherGrandfather (conjunction fatherAY motherYC))
-         (fathersFatherGrandfather (conjunction fatherAB fatherBC)))
+         (by fathersMotherGrandfather (conjunction fatherAY motherYC))
+         (by fathersFatherGrandfather (conjunction fatherAB fatherBC)))
       (Grandfather a c)
       (STV 0.2501166485375841 0.9230240565975534)))
 
 !(test
    (query 50 directKb (: $prf (Grandfather $who c) $tv))
    (: (merge/revision
-         (fathersMotherGrandfather (conjunction fatherAY motherYC))
-         (fathersFatherGrandfather (conjunction fatherAB fatherBC)))
+         (by fathersMotherGrandfather (conjunction fatherAY motherYC))
+         (by fathersFatherGrandfather (conjunction fatherAB fatherBC)))
       (Grandfather a c)
       (STV 0.2501166485375841 0.9230240565975534)))
 
 !(test
    (query 50 directKb (: $prf (Old $who) $tv))
-   (: (grandfatherOld
+   (: (by grandfatherOld
          (disjunction
             (merge/revision
-               (fathersMotherGrandfather (conjunction fatherAY motherYC))
-               (fathersFatherGrandfather (conjunction fatherAB fatherBC)))))
+               (by fathersMotherGrandfather (conjunction fatherAY motherYC))
+               (by fathersFatherGrandfather (conjunction fatherAB fatherBC)))))
       (Old a)
       (STV 0.2501166485375841 0.9230240245003262)))

@@ -63,7 +63,7 @@ python pettachainer/benchmarks/particle_vs_nat.py --sizes 100,500,1000 --particl
 - `particle_strength`: approximated threshold probability
 - `abs_err`: absolute difference between strengths
 - `nat_conf`: NatDist confidence (currently 1.0)
-- `particle_conf`: particle confidence from `N_eff / (N_eff + 20)`
+- `particle_conf`: particle computation confidence (currently `1.0`; particle-budget approximation quality is not yet represented)
 - `particle_atoms`: number of stored particle atoms after evaluation
 
 For `forward_vs_backward.py`:

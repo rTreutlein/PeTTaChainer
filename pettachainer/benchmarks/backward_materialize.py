@@ -62,16 +62,16 @@ def compile_commands(kb: str, bench: str, depth: int, targets: int, prefix: str)
         commands.append(
             f"!(compileadd {kb} "
             f"(: {prefix}_step_{level} "
-            f"(Implication (Premises {reach_type(bench, level)}) "
-            f"(Conclusions {reach_type(bench, level + 1)})) "
+            f"(Implication {reach_type(bench, level)} "
+            f"{reach_type(bench, level + 1)}) "
             f"(STV 1.0 1.0)))"
         )
     for target in range(targets):
         commands.append(
             f"!(compileadd {kb} "
             f"(: {prefix}_target_{target} "
-            f"(Implication (Premises {reach_type(bench, depth)}) "
-            f"(Conclusions {target_type(bench, target)})) "
+            f"(Implication {reach_type(bench, depth)} "
+            f"{target_type(bench, target)}) "
             f"(STV 1.0 1.0)))"
         )
     return commands

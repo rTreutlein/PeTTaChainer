@@ -9,27 +9,27 @@
 !(compileadd mergedSubgoalKb
    (: friendSmokingRule
       (Implication
-         (Premises (Friend $x $y) (Smokes $x))
-         (Conclusions (Smokes $y)))
+         (And (Friend $x $y) (Smokes $x))
+         (Smokes $y))
       (CTV (STV 0.4 0.9) (STV 0.0 1.0))))
 
 !(compileadd mergedSubgoalKb
    (: smokingCancerRule
       (Implication
-         (Premises (Smokes $x))
-         (Conclusions (Cancerous $x)))
+         (Smokes $x)
+         (Cancerous $x))
       (CTV (STV 0.6 0.9) (STV 0.0 1.0))))
 
 !(test
    (query 40 mergedSubgoalKb (: $prf (Cancerous Edward) $tv))
-   (: (smokingCancerRule (merge/revision smokesEdward (friendSmokingRule (conjunction friendAnnaEdward smokesAnna)))) (Cancerous Edward) (STV 0.4200001200414666 0.9338110214376288)))
+   (: (by smokingCancerRule (merge/revision smokesEdward (by friendSmokingRule (conjunction friendAnnaEdward smokesAnna)))) (Cancerous Edward) (STV 0.4200001200414666 0.9338110214376288)))
 
 !(test
    (collapse
       (query 40 mergedSubgoalKb
          (: (merge/revision
-               (smokingCancerRule (friendSmokingRule (conjunction friendAnnaEdward smokesAnna)))
-               (smokingCancerRule smokesEdward))
+               (by smokingCancerRule (by friendSmokingRule (conjunction friendAnnaEdward smokesAnna)))
+               (by smokingCancerRule smokesEdward))
             (Cancerous Edward)
             $tv)))
    ())

@@ -4,7 +4,7 @@
    ((0 0.5) (1 0.5)))
 
 !(test (DistGreaterThanFormula (ParticleFromPairs ((0.1 0.25) (2.5 0.75))) 1.0)
-   (STV 0.75 0.07407407407407407))
+   (STV 0.75 1.0))
 
 !(test (particle-ids-in-term (ParticleDist 7 1.0)) (7))
 
@@ -32,19 +32,19 @@
 !(compileadd kb
    (: cntKidInRule
       (Implication
-         (Premises (Room $room)
+         (And (Room $room)
             (FoldAllValue (In $room $kid)
                (ParticleFromPairs ((0 1.0)))
                ParticleAddBernoulliFromSTV
                ->
                $dist))
-         (Conclusions (CntKidIn $room $dist)))
+         (CntKidIn $room $dist))
       (CTV (STV 1.0 0.8) (STV 0.0 1.0))))
 
 !(compileadd kb
    (: playTogetherRule
-      (Implication (Premises (Room $room) (CntKidIn $room $cnt) (GreaterThan $cnt 1))
-         (Conclusions (PlayTogetherIn $room)))
+      (Implication (And (Room $room) (CntKidIn $room $cnt) (GreaterThan $cnt 1))
+         (PlayTogetherIn $room))
       (CTV (STV 1.0 0.75) (STV 0.0 1.0))))
 
 !(test
@@ -75,11 +75,11 @@
          (CTVModusPonensFormula
             (DistGreaterThanFormula (the Distribution $cnt) 1)
             (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
-	         (and (and (> $s 0.2499) (< $s 0.2501)) (and (> $c 0.09) (< $c 0.13)))))
+	         (and (and (> $s 0.2499) (< $s 0.2501)) (== $c 0.9998998986564899))))
    true)
 
 !(test
    (let (: $prf (CntKidIn room2 $cnt) $tv) (query 40 kb (: $prf (CntKidIn room2 $cnt) $tv))
       (let (STV $s $c) (CTVModusPonensFormula (DistGreaterThanFormula (the Distribution $cnt) 1) (CTV (STV 1.0 0.75) (STV 0.0 1.0)))
-	         (and (and (> $s 0.0599) (< $s 0.0601)) (and (> $c 0.09) (< $c 0.13)))))
+	         (and (and (> $s 0.0599) (< $s 0.0601)) (== $c 0.9998999871691416))))
    true)

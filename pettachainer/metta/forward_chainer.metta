@@ -89,10 +89,10 @@
 (: forward-base-rate-state
    (-[det]-> Number Number Number ForwardBaseRateState))
 
-(: ForwardBaseRateObservationKey (Newtype Expression))
+(: ForwardBaseRateObservationKey (Newtype Atom))
 
 (: ForwardMemberInheritanceObservationKey
-   (Newtype Expression))
+   (Newtype Atom))
 
 (: ForwardOutputChange Type)
 (: no-forward-change ForwardOutputChange)
@@ -105,7 +105,7 @@
        (Statement KBContext Proof TV)
        ForwardOutputChange))
 
-(: ForwardQueueItem (Newtype Expression))
+(: ForwardQueueItem (Newtype Atom))
 (: qitem (-[det]-> (Statement KBContext Proof TV) ForwardQueueItem))
 
 ;; Total wrapper around SWI's relational heap pop. The foreign predicate binds
@@ -1098,7 +1098,7 @@
    (forward-remove-member-inheritances-raw $fact))
 
 (: forward-remove-member-inheritances-raw
-   (-[det]-> Expression (List $none)))
+   (-[det]-> Atom (List $none)))
 (= (forward-remove-member-inheritances-raw $fact)
    (case $fact (
       (((Member $obj $class) ($kbid MAIN Nil) $_prf $_tv)
@@ -1116,7 +1116,7 @@
    (forward-update-member-inheritances-raw $fact))
 
 (: forward-update-member-inheritances-raw
-   (-[det]-> Expression (List $none)))
+   (-[det]-> Atom (List $none)))
 (= (forward-update-member-inheritances-raw $fact)
    (case $fact (
       (((Member $obj $class) ($kbid MAIN Nil) $_prf $_tv)
