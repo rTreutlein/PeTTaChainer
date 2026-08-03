@@ -560,11 +560,13 @@
       (let $head (car-atom $prf)
          (let $children
             (if (== $head conjunction) (cdr-atom $prf)
+               (if (== $head by)
+                  (cdr-atom (cdr-atom $prf))
                (if (== $mode proof-walk-in-kb)
                   (if (proof-term-leaf-head? $head)
                      ()
                      (cdr-atom $prf))
-                  ()))
+                  ())))
             (proof-children $children)))
       ()))
 
@@ -741,7 +743,7 @@
       (if (proof-term-negated? $prf) true
          (if (is-expr $prf)
             (proof-term-contains-negated-list?
-               (proof-children (cdr-atom $prf)))
+               (proof-term-children-mode proof-walk-in-kb $prf))
             false))))
 
 (: rule-evidence-head (-[det]-> Proof Proof))
@@ -749,6 +751,8 @@
    (if (is-expr $prf)
       (let $head (car-atom $prf)
          (proof-from-atom
+            (if (== $head by)
+               (car-atom (cdr-atom $prf))
             (if (is-expr $head)
                (if (= $head (inverted $inv with $_pa $_pb)) $inv
                   (if (= $head (bi-forward $fwd)) $fwd
@@ -756,7 +760,7 @@
                         (if (= $head (no_inverse $inner))
                            $inner
                            $head))))
-               $head)))
+               $head))))
       $prf))
 
 (: rule-application-evidence
@@ -838,12 +842,20 @@
                (data
                   $proof-b $ev-b)
                (if $overlap?
-                  (if (>= (term-confidence $proof-a)
-                          (term-confidence $proof-b))
-                     (data
-                        $proof-a $ev-a)
-                     (data
-                        $proof-b $ev-b))
+                  (if (and (not (== $ev-a ()))
+                           (and (not (== $ev-b ()))
+                              (evidence-subset? $ev-a $ev-b)))
+                     (data $proof-b $ev-b)
+                     (if (and (not (== $ev-a ()))
+                              (and (not (== $ev-b ()))
+                                 (evidence-subset? $ev-b $ev-a)))
+                        (data $proof-a $ev-a)
+                        (if (>= (term-confidence $proof-a)
+                                (term-confidence $proof-b))
+                           (data
+                              $proof-a $ev-a)
+                           (data
+                              $proof-b $ev-b))))
                   (if (>= (term-confidence $proof-a)
                           (term-confidence $proof-b))
                      (data

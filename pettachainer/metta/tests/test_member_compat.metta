@@ -12,7 +12,7 @@
 
 !(test
    (collapse (query 40 memberCompatKb (: $prf (Member Tom Mortal) $tv)))
-   ((: ((no_inverse (member-inheritance-implication humanMortal)) tomHuman)
+   ((: (by (no_inverse (member-inheritance-implication humanMortal)) tomHuman)
        (Member Tom Mortal)
        (STV 0.792 0.9008662163590345))))
 
@@ -55,8 +55,8 @@
    (: (member-inheritance-fold
           (foldall-proof
              (member-inheritance-sample
-                (seedHuman tomSeed)
-                (humanMortal (seedHuman tomSeed)))))
+                (by seedHuman tomSeed)
+                (by humanMortal (by seedHuman tomSeed)))))
       (Inheritance Human Mortal)
       (STV 0.8 0.9997000691603363)))
 

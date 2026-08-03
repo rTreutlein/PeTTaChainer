@@ -79,23 +79,21 @@
                   xWait
                   ((inheritance-rule-lift reshapePliableScrewlike)
                      xReshape
-                     (meltedPliable
-                        (heatedMelts
+                     (by meltedPliable
+                        (by heatedMelts
                            ((inheritance-rule-lift lighterHeatsPlastic)
                               xLighter
-                              ((inheritance-implication xPlastic)
-                                 (ctx proof 0))))))))
+                              (by (inheritance-implication xPlastic) (ctx proof 0))))))))
             ((inheritance-rule-lift unscrewRemovesHardened)
                xUnscrew
                ((inheritance-rule-lift waitHardensScrewlike)
                   xWait
                   ((inheritance-rule-lift reshapePliableScrewlike)
                      xReshape
-                     (meltedPliable
-                        (heatedMelts
+                     (by meltedPliable
+                        (by heatedMelts
                            ((inheritance-rule-lift lighterHeatsPlastic)
                               xLighter
-                              ((inheritance-implication xPlastic)
-                                 (ctx proof 1))))))))))
+                              (by (inheritance-implication xPlastic) (ctx proof 1))))))))))
       (Inheritance X removed)
       (STV 0.8959832714414285 0.9897979854412593))))

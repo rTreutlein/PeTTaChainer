@@ -129,12 +129,11 @@ class PeTTaChainer:
         return self.handler.process_metta_string(f"!(materialize-mined-implications {self.kb})")
 
     def add_atom(self, atom: str, mine_patterns: Optional[bool] = None) -> str:
-        evaluated_atom = self._evaluate(atom)
-        self._validate("statement", atom, evaluated_atom, check_stmt)
+        self._validate("statement", atom, atom, check_stmt)
         effective_mining = self._pattern_mining_on_add if mine_patterns is None else mine_patterns
         compile_fun = "compileadd-mine" if effective_mining else "compileadd"
-        result = self.handler.process_metta_string(f"!({compile_fun} {self.kb} {evaluated_atom})")
-        self._added_atoms.append((evaluated_atom, effective_mining))
+        result = self.handler.process_metta_string(f"!({compile_fun} {self.kb} {atom})")
+        self._added_atoms.append((atom, effective_mining))
         return result
 
     def remove_statement(self, atom_name: str) -> str:
@@ -235,12 +234,11 @@ class PeTTaChainer:
         )
 
     def query(self, atom: str, steps: int = 100, timeout_sec: Optional[float] = 10) -> List[str]:
-        evaluated_query = self._evaluate(atom)
-        self._validate("query", atom, evaluated_query, check_query)
+        self._validate("query", atom, atom, check_query)
 
         if timeout_sec is None or timeout_sec <= 0:
             return _as_list(
-                self.handler.process_metta_string(f"!(query {steps} {self.kb} {evaluated_query})")
+                self.handler.process_metta_string(f"!(query {steps} {self.kb} {atom})")
             )
 
         main_file = getattr(__main__, "__file__", None)
@@ -250,7 +248,7 @@ class PeTTaChainer:
                 main_file or "interactive __main__",
             )
             return _as_list(
-                self.handler.process_metta_string(f"!(query {steps} {self.kb} {evaluated_query})")
+                self.handler.process_metta_string(f"!(query {steps} {self.kb} {atom})")
             )
 
         # Use a fresh spawned process so we don't inherit a live SWI/Janus runtime.
@@ -262,7 +260,7 @@ class PeTTaChainer:
                 self._added_atoms,
                 self.kb,
                 steps,
-                evaluated_query,
+                atom,
                 str(self._logic_config_path) if self._logic_config_path else None,
                 child_conn,
             ),

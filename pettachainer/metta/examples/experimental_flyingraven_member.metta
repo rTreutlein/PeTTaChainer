@@ -20,8 +20,8 @@
 !(test
    (collapse (query 100 flyingRavenMemberKb (: $prf (Member Sam (IntSet flies)) $tv)))
    ((:
-      ((no_inverse (member-inheritance-implication birdFlies))
-         ((no_inverse (member-inheritance-implication ravenBird)) samRaven))
+      (by (no_inverse (member-inheritance-implication birdFlies))
+         (by (no_inverse (member-inheritance-implication ravenBird)) samRaven))
       (Member Sam (IntSet flies))
       (STV 0.9702989999999999 0.9009039059782787))))
 
@@ -29,8 +29,8 @@
    (collapse (query 20 flyingRavenMemberKb (: $prf (Member Pingu (IntSet flies)) $tv)))
    ((:
       (merge/revision
-         ((no_inverse (member-inheritance-implication birdFlies))
-            ((no_inverse (member-inheritance-implication penguinBird)) pinguPenguin))
-         (negated (penguinsDoNotFly pinguPenguin)))
+         (by (no_inverse (member-inheritance-implication birdFlies))
+            (by (no_inverse (member-inheritance-implication penguinBird)) pinguPenguin))
+         (negated (by penguinsDoNotFly pinguPenguin)))
       (Member Pingu (IntSet flies))
       (STV 0.49259416120824195 0.9476174423845426))))

@@ -10,7 +10,7 @@
 ; harvests them into the cache afterwards.
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with (foldall-proof pb) (foldall-proof qa (r pb))) qa) (P alice) (STV 0.736162240263287 0.0003604307138536469)))
+   (: ((inverted r with (foldall-proof pb) (foldall-proof qa (by r pb))) qa) (P alice) (STV 0.736162240263287 0.0003604307138536469)))
 
 !(test
    (let $cached (cached-base-rate brKb (P $x))
@@ -37,7 +37,7 @@
    (query 200 brKb (: $prf (P alice) $tv))
    (: ((inverted r with
           (foldall-proof pb pc)
-          (foldall-proof qa (r pb) (r pc)))
+          (foldall-proof qa (by r pb) (by r pc)))
        qa)
       (P alice)
       (STV 0.6327793212325251 0.0003835400293329357)))
@@ -116,7 +116,7 @@
 
 !(test
    (query 200 brKb2 (: $prf (P alice) $tv))
-   (: ((inverted r with (foldall-proof pb) (foldall-proof qa (r pb))) qa) (P alice) (STV 0.736162240263287 0.0003604307138536469)))
+   (: ((inverted r with (foldall-proof pb) (foldall-proof qa (by r pb))) qa) (P alice) (STV 0.736162240263287 0.0003604307138536469)))
 
 !(test
    (let $cached (cached-base-rate brKb2 (P $x))
@@ -135,7 +135,7 @@
 
 !(test
    (query 200 brKb3 (: $prf (P alice) $tv))
-   (: ((inverted r with cpu (foldall-proof qa (r pb))) qa) (P alice) (STV 0.5258301716166336 0.008091509912253481)))
+   (: ((inverted r with cpu (foldall-proof qa (by r pb))) qa) (P alice) (STV 0.5258301716166336 0.008091509912253481)))
 
 !(test
    (let $cached (cached-base-rate brKb3 (P $x))

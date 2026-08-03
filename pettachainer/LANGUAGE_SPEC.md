@@ -45,6 +45,16 @@ When you want to emit the current mined implication rules, run:
 
 `steps` is the search budget.
 
+- An implication-derived proof uses the explicit application form:
+
+```metta
+(by rule-name premise-proof)
+```
+
+The rule name is metadata, while `premise-proof` is the proof dependency that
+evidence and cycle walkers traverse. This avoids confusing a rule name that
+happens to look like a proof constructor with an actual dependency.
+
 ## Types and Truth Values
 
 ### STV

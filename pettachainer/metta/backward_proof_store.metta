@@ -575,15 +575,42 @@
       (if (== $current-hits ())
          (if (= $kind (merged $_output))
             (proof-list-node-live? (proof-children-by-id $pid))
-            (proof-list-live? (proof-children-by-id $pid)))
+            (if (proof-kind-keeps-raw-children? $kind)
+               (proof-list-node-live? (proof-children-by-id $pid))
+               (proof-list-live? (proof-children-by-id $pid))))
          (aggregate-current-pid-live?
             (first-aggregate-current-pid $current-hits) $pid))))
 
+;; A conjunction dependency records one specific compatible combination of
+;; premise proofs. It remains valid when another derivation later changes a
+;; child's revised representative. Other rule applications consume revised
+;; child evidence and therefore become stale with that representative.
+(: proof-term-conjunction-dependency? (-[det]-> Proof Bool))
+(= (proof-term-conjunction-dependency? $proof)
+   (if (is-expr $proof)
+      (if (== $proof ()) false
+         (if (== (car-atom $proof) conjunction) true
+            (case $proof (
+               ((by $_rule $dependency)
+                  (proof-term-conjunction-dependency?
+                     (brand Proof $dependency)))
+               ((negated $inner)
+                  (proof-term-conjunction-dependency?
+                     (brand Proof $inner)))
+               ($_other false)))))
+      false))
+
+(: proof-kind-keeps-raw-children? (-[det]-> ProofKind Bool))
+(= (proof-kind-keeps-raw-children? $kind)
+   (case $kind (
+      ((rule ($_type $_kb $proof $_tv))
+         (proof-term-conjunction-dependency?
+            (brand Proof $proof)))
+      ($_other false))))
+
 ;; A merged representative owns its raw alternatives, so those children only
-;; need to remain valid proof nodes. Every other parent edge must point at the
-;; current representative of the child's grounded output. If more evidence is
-;; merged into that output later, parents built from the old representative
-;; become stale while the raw proofs remain available to construct the new one.
+;; need to remain valid proof nodes. Supersession invalidates ordinary revised
+;; parents; conjunction dependencies deliberately ignore the marker.
 (: proof-list-node-live? (-[semidet]-> (List Number) Bool))
 (= (proof-list-node-live? ())
    true)

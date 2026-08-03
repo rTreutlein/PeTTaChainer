@@ -22,7 +22,7 @@
 
 !(test
    (query 60 implicationPremiseKb (: $prf (C) $tv))
-   (: (ab_c (total-implication (a_b (ctx proof 2)) (a_b (ctx proof 3)))) (C) (STV 1.0 0.999700089898053)))
+   (: (by ab_c (total-implication (by a_b (ctx proof 2)) (by a_b (ctx proof 3)))) (C) (STV 1.0 0.999700089898053)))
 
 !(test
    (query 60 implicationPremiseKb
@@ -58,7 +58,7 @@
 !(test
    (query 60 multiPremiseImplicationQueryKb
       (: $prf (Implication (And (A) (B)) (C)) $tv))
-   (: (total-implication (ab_c (conjunction (ctx proof 10) (ctx proof 10 1))) (ab_c (conjunction (ctx proof 11) (ctx proof 11 1)))) (Implication (And (A) (B)) (C)) (CTV (STV 1.0 0.999700089898053) (STV 0.0 0.999800029971008))))
+   (: (total-implication (by ab_c (conjunction (ctx proof 10) (ctx proof 10 1))) (by ab_c (conjunction (ctx proof 11) (ctx proof 11 1)))) (Implication (And (A) (B)) (C)) (CTV (STV 1.0 0.999700089898053) (STV 0.0 0.999800029971008))))
 
 !(test
    (query 60 implicationPremiseKb
@@ -71,11 +71,11 @@
          $tv))
    (: (total-implication
          (merge/revision
-            (a_b (ctx proof 12 1))
-            ((ctx proof 12) (ctx proof 12 1)))
+            (by a_b (ctx proof 12 1))
+            (by (ctx proof 12) (ctx proof 12 1)))
          (merge/revision
-            (a_b (ctx proof 13 1))
-            ((ctx proof 13) (ctx proof 13 1))))
+            (by a_b (ctx proof 13 1))
+            (by (ctx proof 13) (ctx proof 13 1))))
       (Implication
          (And (Implication (A) (B)) (A))
          (B))
@@ -124,7 +124,7 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 30 biImplicationKb (: $prf (B) $tv))
-   (: ((bi-forward a_iff_b) a) (B) (STV 1.0 0.9998000399670116)))
+   (: (by (bi-forward a_iff_b) a) (B) (STV 1.0 0.9998000399670116)))
 
 !(compileadd biImplicationKb (: b (B2) (STV 1.0 1.0)))
 
@@ -136,7 +136,7 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 30 biImplicationKb (: $prf (A2) $tv))
-   (: ((bi-backward a2_iff_b2) b) (A2) (STV 1.0 0.9998000399670116)))
+   (: (by (bi-backward a2_iff_b2) b) (A2) (STV 1.0 0.9998000399670116)))
 
 !(test
    (query 60 biImplicationKb
@@ -145,7 +145,7 @@
             (A)
             (B))
          $tv))
-   (: (bidirectional ((bi-forward a_iff_b) (ctx proof 16)) ((bi-backward a_iff_b) (ctx proof 17))) (BiImplication (A) (B)) (STV 1.0 0.9996001597861455)))
+   (: (bidirectional (by (bi-forward a_iff_b) (ctx proof 16)) (by (bi-backward a_iff_b) (ctx proof 17))) (BiImplication (A) (B)) (STV 1.0 0.9996001597861455)))
 
 !(test
    (query 60 implicationPremiseKb
@@ -163,8 +163,8 @@
 
 !(test
    (query 20 negConclusionKb (: $prf (B) $tv))
-   (: (negated (a_not_b a)) (B) (STV 0.0 0.9998000399670116)))
+   (: (negated (by a_not_b a)) (B) (STV 0.0 0.9998000399670116)))
 
 !(test
    (query 20 negConclusionKb (: $prf (Not (B)) $tv))
-   (: (negated (negated (a_not_b a))) (Not (B)) (STV 1.0 0.9998000399670116)))
+   (: (negated (negated (by a_not_b a))) (Not (B)) (STV 1.0 0.9998000399670116)))

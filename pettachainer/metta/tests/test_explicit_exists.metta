@@ -14,7 +14,7 @@
 
 !(test
    (query 100 explicitExistsKb (: $prf (T) $tv))
-   (: (pExistsToT (disjunction pa pb))
+   (: (by pExistsToT (disjunction pa pb))
       (T)
       (STV 0.9199999999999999 0.7123799943249737)))
 
@@ -43,7 +43,7 @@
 !(test
    (query 100 explicitExistsJoinKb
       (: $prf (HasDoctorChild alice) $tv))
-   (: (doctorChild
+   (: (by doctorChild
           (disjunction
              (conjunction aliceBob bobDoctor)))
       (HasDoctorChild alice)
@@ -69,7 +69,7 @@
 !(test
    (query 20 explicitExistsConclusionKb
       (: $prf (GeneratedBy alice $witness) $tv))
-   (: (generateExplicit aliceSeed)
+   (: (by generateExplicit aliceSeed)
       (GeneratedBy alice
          (exists generateExplicit 0 (alice)))
       (STV 1.0 0.9998000399670116)))
@@ -89,7 +89,7 @@
 !(test
    (query 20 aggregatedWitnessKb
       (: $proof (Generated (exists aggregatedGenerate 0 ())) $tv))
-   (: (aggregatedGenerate (disjunction observedP))
+   (: (by aggregatedGenerate (disjunction observedP))
       (Generated (exists aggregatedGenerate 0 ()))
       (STV 1.0 0.999800029971008)))
 
@@ -108,7 +108,7 @@
 !(test
    (query 20 implicitExistsConclusionKb
       (: $prf (GeneratedBy bob $witness) $tv))
-   (: (generateImplicit bobSeed)
+   (: (by generateImplicit bobSeed)
       (GeneratedBy bob
          (exists generateImplicit 0 (bob)))
       (STV 1.0 0.9998000399670116)))

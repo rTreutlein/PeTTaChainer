@@ -14,12 +14,12 @@
 ;; Grounded computation: base rate over the real (Friend ...) facts.
 !(test
    (query 100 kb (: $prf (Friend alice bob) $tv))
-   (: (sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.9 0.03939074332138302)))
+   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.9 0.03939074332138302)))
 
 ;; The structurally indexed conclusion remains reachable from an open query.
 !(test
    (query 100 kb (: $prf (Friend alice $x) $tv))
-   (: (sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.9 0.03939074332138302)))
+   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.9 0.03939074332138302)))
 
 ;; The (Symmetric Friend) fact is still stored as a normal fact.
 !(test (match &kb ((Symmetric $x) ($kb MAIN Nil) $p $tv) ($x $p)) (Friend tag))
@@ -31,7 +31,7 @@
 
 !(test
    (query 100 kb2 (: $prf (Sibling alice bob) $tv))
-   (: (sum_rel2 (conjunction tag2 g1)) (Sibling alice bob) (STV 0.9 0.03939074332138302)))
+   (: (by sum_rel2 (conjunction tag2 g1)) (Sibling alice bob) (STV 0.9 0.03939074332138302)))
 
 ;; Equal grounded rule types with distinct proof ids/TVs remain independent
 ;; specialization results. Deduplicating only by type used to discard alt_rel.
@@ -52,8 +52,8 @@
 
 !(test
    (query 100 kb3 (: $prf (Related alice bob) $tv))
-   (: (merge/revision (main_rel (conjunction tag3 r1))
-                      (alt_rel (conjunction tag3 r1)))
+   (: (merge/revision (by main_rel (conjunction tag3 r1))
+                      (by alt_rel (conjunction tag3 r1)))
       (Related alice bob) (STV 0.8076923077136262 0.9285714285102494)))
 
 ;; Removing a specializing rule also removes its deferred template. A later
@@ -76,5 +76,5 @@
          ($r $y $x))
       (STV 0.9 0.9)))
 !(test (query 100 kb4 (: $prf (Knows alice bob) $tv))
-   (: (removable_rel (conjunction tag4 k1))
+   (: (by removable_rel (conjunction tag4 k1))
       (Knows alice bob) (STV 0.9 0.8999999999819711)))

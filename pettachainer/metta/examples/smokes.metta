@@ -36,17 +36,17 @@
    (:
       (inheritance-implication-fold
          (total-implication
-            (smokingCancerRule
+            (by smokingCancerRule
                (merge/revision
-                  ((inheritance-implication smokesEdward) (ctx proof 0))
+                  (by (inheritance-implication smokesEdward) (ctx proof 0))
                   ((inheritance-rule-lift friendSmokingRule)
                      (conjunction friendAnnaEdward smokesAnna)
                      (ctx proof 0))))
-            (smokingCancerRule
+            (by smokingCancerRule
                (merge/revision
                   ((inheritance-rule-lift friendSmokingRule)
                      (conjunction friendAnnaEdward smokesAnna)
                      (ctx proof 1))
-                  ((inheritance-implication smokesEdward) (ctx proof 1))))))
+                  (by (inheritance-implication smokesEdward) (ctx proof 1))))))
       (Inheritance Edward (IntSet cancerous))
       (STV 0.4200001198164605 0.9335532708383407)))

@@ -44,7 +44,7 @@
    (query 200 forwardBackwardDedupKb (: $proof (P alice) $tv))
    (: ((inverted pToQ with
           (foldall-proof pb)
-          (foldall-proof qa (pToQ pb)))
+          (foldall-proof qa (by pToQ pb)))
        qa)
       (P alice)
       (STV 0.736162240263287 0.0003604307138536469)))
@@ -74,7 +74,7 @@
          ((R a) (forwardRevisionKb MAIN Nil) $prf $tv)
          ((R a) (forwardRevisionKb MAIN Nil) $prf $tv)))
    (((R a) (forwardRevisionKb MAIN Nil)
-      (qToR (pToQ (merge/revision p1 p2)))
+      (by qToR (by pToQ (merge/revision p1 p2)))
       (STV 0.5 0.6666665676407715))))
 
 !(test
@@ -130,7 +130,7 @@
             (forward-frontier-row
             $_hash (Q a) (forwardFrontierKb MAIN Nil)
             ((Q a) (forwardFrontierKb MAIN Nil)
-               (pToQ (merge/revision frontierP1 frontierP2)) $_tv)
+               (by pToQ (merge/revision frontierP1 frontierP2)) $_tv)
             $_ev)
          true))
    (true))
@@ -140,7 +140,7 @@
       (match &forward_frontier
          (forward-frontier-row
             $_hash (Q a) (forwardFrontierKb MAIN Nil)
-            ((Q a) (forwardFrontierKb MAIN Nil) (sToQ frontierS1) $_tv)
+            ((Q a) (forwardFrontierKb MAIN Nil) (by sToQ frontierS1) $_tv)
             $_ev)
          true))
    (true))
@@ -150,7 +150,7 @@
       (match &forward_frontier
          (forward-frontier-row
             $_hash (Q a) (forwardFrontierKb MAIN Nil)
-            ((Q a) (forwardFrontierKb MAIN Nil) (pToQ frontierP1) $_tv)
+            ((Q a) (forwardFrontierKb MAIN Nil) (by pToQ frontierP1) $_tv)
             $_ev)
          true))
    ())
@@ -162,10 +162,10 @@
             ((Q a) (forwardFrontierKb MAIN Nil)
                (merge/revision $left $right) $_tv)
             (if (or
-                   (and (== $left (pToQ (merge/revision frontierP1 frontierP2)))
-                        (== $right (sToQ frontierS1)))
-                   (and (== $right (pToQ (merge/revision frontierP1 frontierP2)))
-                        (== $left (sToQ frontierS1))))
+                   (and (== $left (by pToQ (merge/revision frontierP1 frontierP2)))
+                        (== $right (by sToQ frontierS1)))
+                   (and (== $right (by pToQ (merge/revision frontierP1 frontierP2)))
+                        (== $left (by sToQ frontierS1))))
                true
                (empty))))
       ()))
@@ -228,7 +228,7 @@
          ((R a) (forwardLowerConfidenceKb MAIN Nil) $prf $tv)
          ((R a) (forwardLowerConfidenceKb MAIN Nil) $prf $tv)))
    (((R a) (forwardLowerConfidenceKb MAIN Nil)
-      (qToR (pToQ p1))
+      (by qToR (by pToQ p1))
       (STV 0.77 0.8204934934752165))))
 
 !(compileadd forwardLowerConfidenceKb (: p2 (P a) (STV 0.1 0.8)))
@@ -241,7 +241,7 @@
          ((R a) (forwardLowerConfidenceKb MAIN Nil) $prf $tv)
          ((R a) (forwardLowerConfidenceKb MAIN Nil) $prf $tv)))
    (((R a) (forwardLowerConfidenceKb MAIN Nil)
-      (qToR (pToQ (merge/revision p1 p2)))
+      (by qToR (by pToQ (merge/revision p1 p2)))
       (STV 0.65 0.2869444474025344))))
 
 !(test
@@ -386,7 +386,7 @@
    (query 200 forwardApproxRefineKb (: $proof (P alice) $tv))
    (: ((inverted pToQ with
           (foldall-proof pb)
-          (foldall-proof qa (pToQ pb)))
+          (foldall-proof qa (by pToQ pb)))
        qa)
       (P alice)
       (STV 0.736162240263287 0.0003604307138536469)))
@@ -424,9 +424,9 @@
    (: (inheritance-implication-fold
           (total-implication
              ((inverted (inheritance-implication penguinBird) with cpu cpu)
-                ((inheritance-implication ravenBird) (ctx proof 0)))
+                (by (inheritance-implication ravenBird) (ctx proof 0)))
              ((inverted (inheritance-implication penguinBird) with cpu cpu)
-                ((inheritance-implication ravenBird) (ctx proof 1)))))
+                (by (inheritance-implication ravenBird) (ctx proof 1)))))
       (Inheritance Raven Penguin)
       (STV 0.3571428571428571 0.4727586120223953)))
 

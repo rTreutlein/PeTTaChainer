@@ -8,7 +8,7 @@
    (: (no_inverse dog_to_animal) (Implication (Dog $x) (Animal $x)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 20 openQueryKb (: $prf (Animal $a) $tv))
-   ((: ((no_inverse dog_to_animal) d1) (Animal max) (STV 1.0 0.9998000399670116)) (: ((no_inverse dog_to_animal) d2) (Animal ann) (STV 1.0 0.9998000399670116))))
+   ((: (by (no_inverse dog_to_animal) d1) (Animal max) (STV 1.0 0.9998000399670116)) (: (by (no_inverse dog_to_animal) d2) (Animal ann) (STV 1.0 0.9998000399670116))))
 
 !(compileadd openTimeKb (: tx1 (AtTime (FeatureX 0) 1) (STV 1.0 0.9)))
 
@@ -23,7 +23,7 @@
 
 !(test
    (query 50 openTimeKb (: $prf (AtTime $f $t) $tv))
-   ((: tx1 (AtTime (FeatureX 0) 1) (STV 1.0 0.9)) (: ty1 (AtTime (FeatureY 0) 1) (STV 1.0 0.9)) (: (timeAndRule (conjunction ty1 tx1)) (AtTime (And (FeatureY 0) (FeatureX 0)) 1) (STV 1.0 0.8180941841825682)) (: (timeAndRule (conjunction tx1 ty1)) (AtTime (And (FeatureX 0) (FeatureY 0)) 1) (STV 1.0 0.8180941841825682))))
+   ((: tx1 (AtTime (FeatureX 0) 1) (STV 1.0 0.9)) (: ty1 (AtTime (FeatureY 0) 1) (STV 1.0 0.9)) (: (by timeAndRule (conjunction ty1 tx1)) (AtTime (And (FeatureY 0) (FeatureX 0)) 1) (STV 1.0 0.8180941841825682)) (: (by timeAndRule (conjunction tx1 ty1)) (AtTime (And (FeatureX 0) (FeatureY 0)) 1) (STV 1.0 0.8180941841825682))))
 
 !(compileadd openAndFairKb (: haveMax (Have (i max)) (STV 1.0 1.0)))
 
@@ -71,4 +71,4 @@
 
 !(test
    (query 30 openAndFairKb (: $prf (And (Own (i $a)) (Pet $a)) $tv))
-   ((: (conjunction (ownRule haveMax) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (distractRule6 distract6) (distractRule5 distract5)) (distractRule4 distract4)) (distractRule3 distract3)) (distractRule2 distract2)) (distractRule1 distract1)) (petRule dogMax))) (And (Own (i max)) (Pet max)) (STV 0.6800019996694093 0.9999093759280094)) (: (conjunction (ownRule haveAnn) (petRule dogAnn)) (And (Own (i ann)) (Pet ann)) (STV 0.5599999999999999 0.9999136351865401))))
+   ((: (conjunction (by ownRule haveMax) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by distractRule6 distract6) (by distractRule5 distract5)) (by distractRule4 distract4)) (by distractRule3 distract3)) (by distractRule2 distract2)) (by distractRule1 distract1)) (by petRule dogMax))) (And (Own (i max)) (Pet max)) (STV 0.6800019996694093 0.9999093759280094)) (: (conjunction (by ownRule haveAnn) (by petRule dogAnn)) (And (Own (i ann)) (Pet ann)) (STV 0.5599999999999999 0.9999136351865401))))

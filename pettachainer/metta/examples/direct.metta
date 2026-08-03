@@ -32,25 +32,25 @@
 !(test
    (query 50 directKb (: $prf (Grandfather a c) $tv))
    (: (merge/revision
-         (fathersMotherGrandfather (conjunction fatherAY motherYC))
-         (fathersFatherGrandfather (conjunction fatherAB fatherBC)))
+         (by fathersMotherGrandfather (conjunction fatherAY motherYC))
+         (by fathersFatherGrandfather (conjunction fatherAB fatherBC)))
       (Grandfather a c)
       (STV 0.2501166485375841 0.9230240565975534)))
 
 !(test
    (query 50 directKb (: $prf (Grandfather $who c) $tv))
    (: (merge/revision
-         (fathersMotherGrandfather (conjunction fatherAY motherYC))
-         (fathersFatherGrandfather (conjunction fatherAB fatherBC)))
+         (by fathersMotherGrandfather (conjunction fatherAY motherYC))
+         (by fathersFatherGrandfather (conjunction fatherAB fatherBC)))
       (Grandfather a c)
       (STV 0.2501166485375841 0.9230240565975534)))
 
 !(test
    (query 50 directKb (: $prf (Old $who) $tv))
-   (: (grandfatherOld
+   (: (by grandfatherOld
          (disjunction
             (merge/revision
-               (fathersMotherGrandfather (conjunction fatherAY motherYC))
-               (fathersFatherGrandfather (conjunction fatherAB fatherBC)))))
+               (by fathersMotherGrandfather (conjunction fatherAY motherYC))
+               (by fathersFatherGrandfather (conjunction fatherAB fatherBC)))))
       (Old a)
       (STV 0.2501166485375841 0.9230240245003262)))

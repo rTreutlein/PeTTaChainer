@@ -14,16 +14,15 @@
 !(compileadd inverseCompoundKb (: r-alice (R alice) (STV 0.8 0.8)))
 
 ;; The compiler-generated adapter first reconstructs the compound consequent
-;; from its children, allowing inversion to derive P.
+;; from its children, allowing inversion to derive P. The base-rate scan keeps
+;; the shared `$x`, so it counts only valid same-entity conjunctions.
 !(test
    (query 300 inverseCompoundKb (: $prf (P alice) $tv))
    (: ((inverted p_qr with
           (foldall-proof p-bob)
           (foldall-proof
              (conjunction q-alice r-alice)
-             (p_qr p-bob)
-             (conjunction (marginal-proj 0 (p_qr p-bob)) r-alice)
-             (conjunction q-alice (marginal-proj 1 (p_qr p-bob)))))
+             (by p_qr p-bob)))
        (conjunction q-alice r-alice))
       (P alice)
-      (STV 0.7905396295087841 0.008823683939600556)))
+      (STV 0.730644992235394 0.0020226270843351274)))

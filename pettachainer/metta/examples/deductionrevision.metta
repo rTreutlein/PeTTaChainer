@@ -16,15 +16,11 @@
       (inheritance-implication-fold
          (total-implication
             (merge/revision
-               ((inheritance-implication bInheritsD)
-                  ((inheritance-implication aInheritsB) (ctx proof 0)))
-               ((inheritance-implication cInheritsD)
-                  ((inheritance-implication aInheritsC) (ctx proof 0))))
+               (by (inheritance-implication bInheritsD) (by (inheritance-implication aInheritsB) (ctx proof 0)))
+               (by (inheritance-implication cInheritsD) (by (inheritance-implication aInheritsC) (ctx proof 0))))
             (merge/revision
-               ((inheritance-implication bInheritsD)
-                  ((inheritance-implication aInheritsB) (ctx proof 1)))
-               ((inheritance-implication cInheritsD)
-                  ((inheritance-implication aInheritsC) (ctx proof 1))))))
+               (by (inheritance-implication bInheritsD) (by (inheritance-implication aInheritsB) (ctx proof 1)))
+               (by (inheritance-implication cInheritsD) (by (inheritance-implication aInheritsC) (ctx proof 1))))))
       (Inheritance A D)
       (STV 0.49999983333327785 0.22475956376843811))))
 
@@ -58,11 +54,11 @@
    (:
       (total-implication
          (merge/revision
-            (cImpliesD (aImpliesC (ctx proof 2)))
-            (bImpliesD (aImpliesB (ctx proof 2))))
+            (by cImpliesD (by aImpliesC (ctx proof 2)))
+            (by bImpliesD (by aImpliesB (ctx proof 2))))
          (merge/revision
-            (bImpliesD (aImpliesB (ctx proof 3)))
-            (cImpliesD (aImpliesC (ctx proof 3)))))
+            (by bImpliesD (by aImpliesB (ctx proof 3)))
+            (by cImpliesD (by aImpliesC (ctx proof 3)))))
       (Implication (A $x) (D $x))
       (CTV
          (STV 0.125 0.9692294378874315)

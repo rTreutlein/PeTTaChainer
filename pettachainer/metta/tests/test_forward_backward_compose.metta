@@ -20,7 +20,7 @@
 !(test (query 2 bwdOnlyKb (: $p (Goal) $tv)) ())
 
 !(test (query 4 bwdOnlyKb (: $p (Goal) $tv))
-   (: (r2 (r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
+   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
 
 !(test
    (query 100 bwdOnlyKb
@@ -41,7 +41,7 @@
 
 !(test
    (query 20 transitiveClosedKb (: $p (Provable (→ (PropP) (PropT))) $tv))
-   (: (ax-tr (conjunction given-imp2 given-imp1)) (Provable (→ (PropP) (PropT))) (STV 1.0 0.999700089898053)))
+   (: (by ax-tr (conjunction given-imp2 given-imp1)) (Provable (→ (PropP) (PropT))) (STV 1.0 0.999700089898053)))
 
 !(compileadd openImplicationKb (: r1 (Implication (A) (B)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
@@ -114,7 +114,7 @@
 
 !(test
    (query 100 existentialDisjunctionKb (: $prf (T) $tv))
-   (: (pToT (disjunction pa pb)) (T) (STV 0.9199999999999999 0.7123799943249737)))
+   (: (by pToT (disjunction pa pb)) (T) (STV 0.9199999999999999 0.7123799943249737)))
 
 !(compileadd composeKb (: a0 (A) (STV 1.0 1.0)))
 
@@ -123,7 +123,7 @@
 !(compileadd composeKb (: r2 (Implication (B) (Goal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (let $_ (forward-chain 1 composeKb (test-selected-facts composeKb (A))) (query 2 composeKb (: $p (Goal) $tv)))
-   (: (r2 (r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
+   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
 
 !(compileadd composeKbShort (: a0 (A) (STV 1.0 1.0)))
 
@@ -155,7 +155,7 @@
 !(compileadd independentKb (: rc (Implication (And (A) (B)) (C)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 100 independentKb (: $p (C) $tv))
-   (: (rc (conjunction (ra x) b)) (C) (STV 1.0 0.9996001597861454)))
+   (: (by rc (conjunction (by ra x) b)) (C) (STV 1.0 0.9996001597861454)))
 
 !(compileadd derivedAndRuleKb (: yearsRule (Implication (YearsExp $p 10) (IndustryVeteran $p)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
@@ -171,8 +171,8 @@
 
 !(test
    (query 50 derivedAndRuleKb (: $p (Expert kebede) $tv))
-   (: (expertRule (conjunction (yearsRule yearsFact) mgmtFact)) (Expert kebede) (STV 1.0 0.9497292914682098)))
+   (: (by expertRule (conjunction (by yearsRule yearsFact) mgmtFact)) (Expert kebede) (STV 1.0 0.9497292914682098)))
 
 !(test
    (query 50 derivedAndRuleKb (: $p (SeniorExpert kebede) $tv))
-   (: (seniorRule (conjunction (expertRule (conjunction (yearsRule yearsFact) mgmtFact)) ethicsFact)) (SeniorExpert kebede) (STV 1.0 0.9495489046959086)))
+   (: (by seniorRule (conjunction (by expertRule (conjunction (by yearsRule yearsFact) mgmtFact)) ethicsFact)) (SeniorExpert kebede) (STV 1.0 0.9495489046959086)))

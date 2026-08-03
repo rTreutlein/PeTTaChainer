@@ -102,12 +102,13 @@
 
 (: materialize-stmt-lambdas (-[nondet]-> $term  $term))
 (= (materialize-stmt-lambdas $term)
+   (if (== $term ()) ()
    (if (is-var $term) $term
       (if (is-expr $term)
          (if (== (car-atom $term) |->) (eval $term)
             (cons (materialize-stmt-lambdas (car-atom $term))
                (map-flat materialize-stmt-lambdas (cdr-atom $term))))
-         $term)))
+         $term))))
 
 (: internalize-runtime-addition
    (-[det]-> RuntimeAddition RuntimeAddition))

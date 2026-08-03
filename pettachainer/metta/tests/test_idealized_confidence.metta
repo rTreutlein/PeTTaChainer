@@ -55,8 +55,8 @@
 
 ;; Flu from And(Fever, Cough) through the one-sided fluRule.
 !(test (query 40 med (: $prf (Flu p) $tv))
-   (: (fluRule (conjunction fever cough)) (Flu p) (STV 0.62 0.49224732166420715)))
+   (: (by fluRule (conjunction fever cough)) (Flu p) (STV 0.62 0.49224732166420715)))
 
 ;; Tired chains one more one-sided step; confidence erodes further down the chain.
 !(test (query 60 med (: $prf (Tired p) $tv))
-   (: (tiredRule (fluRule (conjunction fever cough))) (Tired p) (STV 0.748 0.3402330502780622)))
+   (: (by tiredRule (by fluRule (conjunction fever cough))) (Tired p) (STV 0.748 0.3402330502780622)))

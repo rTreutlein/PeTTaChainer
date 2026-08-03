@@ -77,8 +77,11 @@
    (-[nondet]-> Number KB AnnotatedStatement AnnotatedStatement))
 (= (query $steps $kb $stmt)
    (let*
-      (($compiled-queries
-          (collapse (mm2compileQuery $kb $stmt)))
+      (($stmt1
+          (the AnnotatedStatement
+             (materialize-stmt-lambdas $stmt)))
+       ($compiled-queries
+          (collapse (mm2compileQuery $kb $stmt1)))
        ($pres
           (fold-flat append-annotated-statements ()
              (map-flat
@@ -90,8 +93,11 @@
    (-[nondet]-> Number KB AnnotatedStatement AnnotatedStatement))
 (= (query-materialize $steps $kb $stmt)
    (let*
-      (($compiled-queries
-          (collapse (mm2compileQuery $kb $stmt)))
+      (($stmt1
+          (the AnnotatedStatement
+             (materialize-stmt-lambdas $stmt)))
+       ($compiled-queries
+          (collapse (mm2compileQuery $kb $stmt1)))
        ($pres
           (fold-flat append-annotated-statements ()
              (map-flat

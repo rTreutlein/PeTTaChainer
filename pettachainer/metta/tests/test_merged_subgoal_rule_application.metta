@@ -22,14 +22,14 @@
 
 !(test
    (query 40 mergedSubgoalKb (: $prf (Cancerous Edward) $tv))
-   (: (smokingCancerRule (merge/revision smokesEdward (friendSmokingRule (conjunction friendAnnaEdward smokesAnna)))) (Cancerous Edward) (STV 0.4200001200414666 0.9338110214376288)))
+   (: (by smokingCancerRule (merge/revision smokesEdward (by friendSmokingRule (conjunction friendAnnaEdward smokesAnna)))) (Cancerous Edward) (STV 0.4200001200414666 0.9338110214376288)))
 
 !(test
    (collapse
       (query 40 mergedSubgoalKb
          (: (merge/revision
-               (smokingCancerRule (friendSmokingRule (conjunction friendAnnaEdward smokesAnna)))
-               (smokingCancerRule smokesEdward))
+               (by smokingCancerRule (by friendSmokingRule (conjunction friendAnnaEdward smokesAnna)))
+               (by smokingCancerRule smokesEdward))
             (Cancerous Edward)
             $tv)))
    ())

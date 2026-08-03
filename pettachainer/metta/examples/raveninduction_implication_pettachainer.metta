@@ -33,14 +33,14 @@
    (:
       (total-implication
          (merge/revision
-            (rv1ImpliesBlack
+            (by rv1ImpliesBlack
                ((inverted rv1ImpliesRaven with cpu cpu) (ctx proof 0)))
-            (rv2ImpliesBlack
+            (by rv2ImpliesBlack
                ((inverted rv2ImpliesRaven with cpu cpu) (ctx proof 0))))
          (merge/revision
-            (rv1ImpliesBlack
+            (by rv1ImpliesBlack
                ((inverted rv1ImpliesRaven with cpu cpu) (ctx proof 1)))
-            (rv2ImpliesBlack
+            (by rv2ImpliesBlack
                ((inverted rv2ImpliesRaven with cpu cpu) (ctx proof 1)))))
       (Implication (Raven $x) (Black $x))
       (CTV

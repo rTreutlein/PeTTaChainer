@@ -71,18 +71,18 @@
 !(test
    (collapse (query 200 toothbrushMemberKb (: $prf (Member X removed) $tv)))
    ((:
-      (unscrewRemovesHardened
+      (by unscrewRemovesHardened
          (conjunction
-            (waitHardensScrewlike
+            (by waitHardensScrewlike
                (conjunction
-                  (reshapePliableScrewlike
+                  (by reshapePliableScrewlike
                      (conjunction
-                        (meltedPliable
-                           (heatedMelts
-                              (lighterHeatsPlastic
+                        (by meltedPliable
+                           (by heatedMelts
+                              (by lighterHeatsPlastic
                                  (conjunction xPlastic xLighter))))
                         xReshape))
                   xWait))
             xUnscrew))
       (Member X removed)
-      (STV 0.8959832714414285 0.9896761643809187))))
+      (STV 0.9545210821747951 0.9198975829739933))))

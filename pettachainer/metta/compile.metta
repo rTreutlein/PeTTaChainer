@@ -856,7 +856,7 @@
               (premise-bundle
                  ((: (make-kb-context $kb $ctx $vars)
                       $prfa $a $tv_a)
-                  (CPU DistMapFormula ($fun $value) $out))
+                  (CPU DistMapFormula (quote ($fun $value)) $out))
                  (STV 1.0 1.0)
                  $prfa))
            ((Map2Dist $fun $a $valuea $b $valueb -> $out)
@@ -1181,14 +1181,37 @@
       (existing-kb-context $kb)
       (compile-fact-kb-from-id $kb)))
 
-(: map-nested2 (-[det]-> (-[det]-> $term $term) $term $term))
-(= (map-nested2 $f ()) ())
-(= (map-nested2 $f (cons $x $xs))
-   (if (is-expr $x) ($f (cons (map-nested2 $f $x) (map-nested2 $f $xs)))
-      ($f (cons ($f $x) (map-nested2 $f $xs)))))
+;; Base-rate scans must leave ordinary open expressions intact while replacing
+;; compiler-generated existential witnesses with query variables. Traverse
+;; expression nodes, never their list suffixes: matching a suffix against an
+;; `exists` pattern would unify ordinary variable-headed terms into open conses.
+(: rule-query-pattern-list
+   (-[det]-> (List $term) (List $term)))
+(= (rule-query-pattern-list ()) ())
+(= (rule-query-pattern-list (cons $head $rest))
+   (cons
+      (rule-query-pattern $head)
+      (rule-query-pattern-list $rest)))
 
-(: toQuery (-[det]-> $term $term))
-(= (toQuery $elem) (if (=? $elem (exists $_1 $_2 $_3)) $var $elem))
+(: rule-query-pattern (-[det]-> $term $term))
+(= (rule-query-pattern $term)
+   (if (== $term ()) ()
+   (if (is-var $term) $term
+      (if (is-expr $term)
+         (let*
+            (($head (car-atom $term))
+             ($rest (cdr-atom $term)))
+            (if (== $head exists)
+               (case $rest (
+                  ((cons $_rule (cons $_idx (cons $_vars ()))) $query-var)
+                  ($_other
+                     (cons
+                        (rule-query-pattern $head)
+                        (rule-query-pattern-list $rest)))))
+               (cons
+                  (rule-query-pattern $head)
+                  (rule-query-pattern-list $rest))))
+         $term))))
 
 (: contains-cpu-list? (-[det]-> Expression Bool))
 (= (contains-cpu-list? ()) false)
@@ -1231,8 +1254,8 @@
    (data () (CTV $pos $neg)))
 (= (compile-implication-ctv-execs $kb $a $b (STV $s $c))
    (let*
-      (($a1 (copy_term (map-nested2 toQuery $a)))
-        ($b1 (copy_term (map-nested2 toQuery $b))))
+      (($a1 (copy_term (rule-query-pattern $a)))
+        ($b1 (copy_term (rule-query-pattern $b))))
       (data
          (the (List Goal)
             ((base-rate-premise $kb $a1 $rule-atv)
@@ -1253,13 +1276,13 @@
       ((Not $inner)
          (data
             ((CPU NotFormula ($btv) $out-tv))
-            (brand Proof (negated (quote ($prf $proof-token))))
+            (brand Proof (negated (quote (by $prf $proof-token))))
             (brand Statement $inner)
             (the STVType $out-tv)))
       ($other
          (data
             ()
-            (brand Proof (quote ($prf $proof-token)))
+            (brand Proof (quote (by $prf $proof-token)))
             $other
             $btv)))))
 
@@ -1299,7 +1322,7 @@
          (if (is-var $out-b)
             (empty)
             (compile-outputs
-               (: $adapter-kb ($prf $prfb) $out-b $btv2))))
+               (: $adapter-kb (by $prf $prfb) $out-b $btv2))))
       (if (is-var $a) (empty)
          (compile-adapter-chain plain
             (: $adapter-kb $prfa $a $atv))))))
@@ -1406,8 +1429,8 @@
    (-[det]-> KB Proof Statement Statement TV CompiledAddition))
 (= (inverse-implication $kb $prf $a $b $itv)
    (let*
-      (($a1 (copy_term (map-nested2 toQuery $a)))
-        ($b1 (copy_term (map-nested2 toQuery $b))))
+      (($a1 (copy_term (rule-query-pattern $a)))
+        ($b1 (copy_term (rule-query-pattern $b))))
       (((: (make-kb-context $kb $ctx $vars) $prfb_wit $b $btv_wit)
             (base-rate-premise $kb $a1 $atv)
             (base-rate-premise $kb $b1 $btv)

@@ -782,6 +782,15 @@
             (shared-evidence-frontier-proof? $proof))
          ($_other false)))))
 
+(: frontier-needs-raw-proofs? (-[det]-> AndBundle Bool))
+(= (frontier-needs-raw-proofs? $bundle)
+   (let $goal (and-bundle-goal $bundle)
+      (case $goal (
+         (($_type $_kb $proof $_tv)
+            (proof-term-conjunction-dependency?
+               (brand Proof $proof)))
+         ($_other false)))))
+
 (: advance-frontier-waiter-heap
    (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) FrontierWaiter Number (Heap (| QueueGoal QueueAggregate))))
 (= (advance-frontier-waiter-heap $agenda (frontier-waiter $parent-gid $bundle $score $seen $parts $rev-pids) $pid)
@@ -923,6 +932,27 @@
        ($_other
           (advance-frontier-waiters-heap $agenda $pid $rest)))))
 
+;; Conjunction frontiers additionally need raw alternatives so future premise
+;; overlap does not make an otherwise independent combination unreachable.
+(: advance-raw-frontier-waiters-heap
+   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number (List Atom) (Heap (| QueueGoal QueueAggregate))))
+(= (advance-raw-frontier-waiters-heap $agenda $_pid ()) $agenda)
+(= (advance-raw-frontier-waiters-heap $agenda $pid (cons $waiter $rest))
+   (case $waiter
+      (((frontier-waiter $parent-gid $bundle $score $seen $parts $rev-pids)
+          (advance-raw-frontier-waiters-heap
+             (if (frontier-needs-raw-proofs? $bundle)
+                (advance-frontier-waiter-heap
+                   $agenda
+                   (frontier-waiter
+                      $parent-gid $bundle $score $seen $parts $rev-pids)
+                   $pid)
+                $agenda)
+             $pid
+             $rest))
+       ($_other
+          (advance-raw-frontier-waiters-heap $agenda $pid $rest)))))
+
 (: schedule-aggregate-waiters-heap
    (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) (List Atom) (Heap (| QueueGoal QueueAggregate))))
 (= (schedule-aggregate-waiters-heap $agenda ()) $agenda)
@@ -945,12 +975,17 @@
                 (match &goal_waiter
                    ($gid $waiter) $waiter))))
        ($representative-pid (goal-merged-proof-id-for-pid $gid $pid))
-       ($agenda1
-          (advance-frontier-waiters-heap
-             $agenda $representative-pid $waiters))
        ($agenda2
-          (schedule-aggregate-waiters-heap $agenda1 $waiters)))
-      $agenda2))
+          (if (== $representative-pid $pid)
+             (advance-frontier-waiters-heap
+                $agenda $pid $waiters)
+             (advance-frontier-waiters-heap
+                (advance-raw-frontier-waiters-heap
+                   $agenda $pid $waiters)
+                $representative-pid $waiters)))
+       ($agenda3
+          (schedule-aggregate-waiters-heap $agenda2 $waiters)))
+      $agenda3))
 
 (: commit-proof-candidate-heap
    (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number Bool ProofCandidate (Heap (| QueueGoal QueueAggregate))))
@@ -1002,16 +1037,26 @@
 (= (advance-frontier-waiter-fold-step $waiter $agenda $pid)
    (advance-frontier-waiter-heap $agenda $waiter $pid))
 
-(= (spawn-frontier-goal-heap $agenda $score $gid $waiter)
+(= (spawn-frontier-goal-heap $agenda $score $gid
+      (frontier-waiter $parent-gid $bundle $waiter-score
+         $seen $parts $rev-pids))
    (let*
-      (($_1
+      (($waiter
+          (frontier-waiter $parent-gid $bundle $waiter-score
+             $seen $parts $rev-pids))
+       ($_1
           (once
              (chainer-add-atom &goal_waiter
                 ($gid $waiter))))
        ($agenda1
           (proof-fold-flat-semidet (advance-frontier-waiter-fold-step $waiter)
              $agenda
-             (goal-merged-proof-ids $gid)))
+             (if (frontier-needs-raw-proofs? $bundle)
+                (list_to_set
+                   (append-numbers
+                      (goal-live-proof-ids $gid)
+                      (goal-merged-proof-ids $gid)))
+                (goal-merged-proof-ids $gid))))
        ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
       $nagenda))
 

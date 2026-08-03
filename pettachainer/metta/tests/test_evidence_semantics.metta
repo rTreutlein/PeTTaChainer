@@ -52,4 +52,4 @@
 ; of double-counting its uncertainty across two conclusions.
 !(test
    (query 60 sharedKb (: $prf (D m) $tv))
-   (: (bImpliesD (merge/revision bm (cImpliesB cm))) (D m) (STV 0.4500001000170611 0.9124430019925824)))
+   (: (by bImpliesD (merge/revision bm (by cImpliesB cm))) (D m) (STV 0.4500001000170611 0.9124430019925824)))

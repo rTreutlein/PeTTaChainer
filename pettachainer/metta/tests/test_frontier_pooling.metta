@@ -36,7 +36,7 @@
 !(compileadd kb3 (: fp (PartOf fido g) (STV 1.0 0.99)))
 
 !(test (query 100 kb3 (: $prf (And (Past $e) (M $e bark) (A $e fido)) $tv))
-       (: (conjunction (marginal-proj 2 (r fp)) (marginal-proj 0 (r fp)) (marginal-proj 1 (r fp)))
+       (: (conjunction (marginal-proj 2 (by r fp)) (marginal-proj 0 (by r fp)) (marginal-proj 1 (by r fp)))
           (And (Past (sk fido)) (M (sk fido) bark) (A (sk fido) fido)) (STV 1.0 0.8918896517282313)))
 
 ;; --- regression: independent sources still combine via AndFormula -----------

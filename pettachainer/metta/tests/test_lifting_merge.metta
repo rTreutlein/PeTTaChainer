@@ -13,7 +13,7 @@
 ;; dominance would give (STV 0.6 0.9); pooling the two implications raises it.
 !(test
    (query 40 twoImplKb (: $prf (B i) $tv))
-   (: (merge/revision (ab1 a) (ab2 a)) (B i) (STV 0.6 0.9473684208506429)))
+   (: (merge/revision (by ab1 a) (by ab2 a)) (B i) (STV 0.6 0.9473684208506429)))
 
 ;; --- Same shape but the two implications differ in strength (0.7 vs 0.6).
 ;; Their idealized confidences then differ slightly, so plain overlap-dominance
@@ -26,7 +26,7 @@
 !(compileadd diffImplKb (: ab2 (Implication (A $x) (B $x)) (CTV (STV 0.6 0.9) (STV 0.0 1.0))))
 !(test
    (query 40 diffImplKb (: $prf (B i) $tv))
-   (: (merge/revision (ab2 a) (ab1 a)) (B i) (STV 0.6499999999812448 0.9473684207998814)))
+   (: (merge/revision (by ab2 a) (by ab1 a)) (B i) (STV 0.6499999999812448 0.9473684207998814)))
 
 ;; --- A,X->B / A,Y->B sharing only A. The bare implication query cannot express
 ;; this shape, so factoring at the conclusion is the only route to the pooled
@@ -39,7 +39,7 @@
 
 !(test
    (query 80 conjKb (: $prf (B i) $tv))
-   (: (merge/revision (r2 (conjunction a yy)) (r1 (conjunction a xx))) (B i) (STV 0.6 0.947368420783305)))
+   (: (merge/revision (by r2 (conjunction a yy)) (by r1 (conjunction a xx))) (B i) (STV 0.6 0.947368420783305)))
 
 ;; --- Not independent: both paths to D share the uncertain bImpliesD rule, so
 ;; their residuals overlap and the group must NOT pool (dominance instead). ---
@@ -52,7 +52,7 @@
 ;; revised premise -- not pooled across two conclusions sharing bImpliesD.
 !(test
    (query 60 sharedRuleKb (: $prf (D m) $tv))
-   (: (bImpliesD (merge/revision bm (cImpliesB cm))) (D m) (STV 0.4500001000170611 0.9124430019925824)))
+   (: (by bImpliesD (merge/revision bm (by cImpliesB cm))) (D m) (STV 0.4500001000170611 0.9124430019925824)))
 
 ;; --- Multi-leaf: two rules A,B->C share BOTH a and b. Their conjunction is
 ;; factored out as a unit and the residual implications pooled. ---
@@ -63,7 +63,7 @@
 
 !(test
    (query 80 mlKb (: $prf (C i) $tv))
-   (: (merge/revision (r2 (conjunction a b)) (r1 (conjunction a b))) (C i) (STV 0.5499999999774938 0.9473684207209665)))
+   (: (merge/revision (by r2 (conjunction a b)) (by r1 (conjunction a b))) (C i) (STV 0.5499999999774938 0.9473684207209665)))
 
 ;; --- Shared b enters through different paths (directly in path 1, via M in
 ;; path 2), but the conclusion is still linear in the shared {a,b} conjunction,
@@ -79,4 +79,4 @@
 
 !(test
    (query 100 rtKb (: $prf (D i) $tv))
-   (: (merge/revision (r1 (conjunction a b)) (r2 (conjunction a (bToM b)))) (D i) (STV 0.1539084488434874 0.9939398172053266)))
+   (: (merge/revision (by r1 (conjunction a b)) (by r2 (conjunction a (by bToM b)))) (D i) (STV 0.1539084488434874 0.9939398172053266)))
