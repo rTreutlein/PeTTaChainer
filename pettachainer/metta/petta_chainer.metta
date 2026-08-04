@@ -63,6 +63,7 @@
 !(import! &self compiled_query_runtime)
 !(import! &self backward_proof_store)
 !(import! &self backward_chainer)
+!(import! &self pln_validator)
 !(import! &self query_runtime)
 
 (: add-to-kb
@@ -151,3 +152,12 @@
    (-[nondet]-> Number KB AnnotatedStatement AnnotatedStatement))
 (: query-materialize
    (-[nondet]-> Number KB AnnotatedStatement AnnotatedStatement))
+
+;; Runtime integrations commonly obtain a query through sread. Matching the
+;; generic atom against the annotated envelope here restores the static TV
+;; role before crossing into the typed query API, without another PeTTa
+;; instance or string-level evaluation.
+(: query-dynamic
+   (-[nondet]-> Number KB Atom AnnotatedStatement))
+(= (query-dynamic $steps $kb (: $proof $type $tv))
+   (query $steps $kb (: $proof $type $tv)))

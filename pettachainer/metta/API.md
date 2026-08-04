@@ -25,11 +25,19 @@ The live `&kb` keeps one canonical merged fact per grounded type. Internally, a
 small active frontier retains only the independent proof candidates needed to
 update that fact; superseded candidates are discarded rather than accumulated.
 
+## Validation
+
+| Function | Meaning |
+|---|---|
+| `(check-stmt $expr)` | Return `1.0` when `$expr` is a supported annotated PLN statement with a ground proof name and supported truth-value shape; otherwise return `0.0`. This pure check runs in the caller's existing PeTTa runtime. |
+| `(check-query $expr)` | Return `1.0` when `$expr` is an annotated query whose proof name is a variable; otherwise return `0.0`. This pure check runs in the caller's existing PeTTa runtime. |
+
 ## Querying and chaining
 
 | Function | Meaning |
 |---|---|
 | `(query $steps $kb $stmt)` | Backward-chain up to `$steps` to answer `$stmt` against `$kb`; yields the proven results. |
+| `(query-dynamic $steps $kb $stmt)` | Backward-chain a query obtained dynamically (for example through `sread`). The facade restores its annotated TV typing in the current PeTTa runtime before invoking `query`. |
 | `(query-materialize $steps $kb $stmt)` | As `query`, but also writes the derived proofs back into the KB. |
 | `(forward-chain $steps $kb $facts)` | Forward-chain from a caller-selected list of compiled canonical facts. The temporary agenda is discarded when the run finishes or exhausts its budget. Returns an unordered, deduplicated list containing the final canonical facts changed by this run; that list can directly seed another run. |
 | `(forward-has-derived? $kb $type)` | True if a fact of `$type` exists in `$kb`. |

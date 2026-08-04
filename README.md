@@ -25,6 +25,14 @@ running under PeTTa:
 In this mode PeTTa is the host runtime, so it must already be installed. The
 Python API still requires installing the `PeTTaChainer` package.
 
+The imported MeTTa API also exposes pure host-runtime validation, without
+constructing another Python `PeTTa()` instance:
+
+```metta
+!(check-stmt (: s1 (Dog fido) (STV 1.0 1.0)))
+!(check-query (: $prf (Dog fido) $tv))
+```
+
 ## Benchmarks
 
 Run the NatDist vs ParticleDist benchmark:
