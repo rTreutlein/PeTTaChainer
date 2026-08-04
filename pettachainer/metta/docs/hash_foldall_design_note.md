@@ -217,8 +217,12 @@ The resulting cache row is `forward-approx`: it can answer immediately, but a
 normal backward fold remains live and authoritative, with its ordinary proof,
 evidence deduplication, and cycle checks. Only facts actually processed by a
 requested forward-chain budget update the cache; `compileadd` never runs the
-fold. Time windows and general incremental `FoldAllCompiled` support remain
-outside this mechanism. Focused coverage is in
+fold. When that backward fold commits, its accepted child proofs seed the same
+per-object sufficient-statistic table. Later forward-selected facts can then
+replace or append only their object contribution without replaying the older
+population; overlapping components retain the evidence-superset result, and
+the updated cache remains `computed`. Time windows and general incremental
+`FoldAllCompiled` support remain outside this mechanism. Focused coverage is in
 `tests/test_forward_incremental_member_inheritance.metta`.
 
 When a concrete `Inheritance` goal occurs as a stored rule premise, backward

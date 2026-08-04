@@ -25,6 +25,23 @@
    (cached-base-rate $kb
       (MemberInheritanceSample $obj $subj $concept $atv $btv)))
 
+(: member-fold-observation-count
+   (-[nondet]-> KB Term Term Number))
+(= (member-fold-observation-count $kb $subj $concept)
+   (let $id
+      (once
+         (match &forward_member_inheritance_identity
+            (forward-member-inheritance-identity-row
+               (fwd_member_identity $kb $subj $concept)
+               $stored-id)
+            $stored-id))
+      (list-count
+         (collapse
+            (match &forward_member_inheritance_observation
+               (ForwardMemberInheritanceObservation
+                  ($id $_obj) $_subject $_concept $_weight $_mass)
+               true)))))
+
 ;; Open Inheritance queries compile the same fold vocabulary, but variable
 ;; classes cannot provide selective forward indexes and must register nothing.
 !(query 0 forwardOpenMemberFoldKb
@@ -235,6 +252,54 @@
             (MemberInheritanceSample $obj Human Mortal $atv $btv)))
       $source)
    computed)
+
+;; A backward-computed fold decomposes into the same per-object observations
+;; used by forward maintenance.  Processing only a newly added object can then
+;; extend that complete snapshot without replaying the older population, and
+;; the cache remains a computed snapshot rather than regressing to a partial
+;; forward approximation.
+!(set-universe-size computedForwardDeltaKb 3.0)
+!(compileadd computedForwardDeltaKb
+   (: caHuman (Member a Human) (STV 1.0 1.0)))
+!(compileadd computedForwardDeltaKb
+   (: caMortal (Member a Mortal) (STV 0.8 1.0)))
+!(compileadd computedForwardDeltaKb
+   (: cbHuman (Member b Human) (STV 0.5 1.0)))
+!(compileadd computedForwardDeltaKb
+   (: cbMortal (Member b Mortal) (STV 0.4 1.0)))
+!(query 80 computedForwardDeltaKb
+   (: $_proof (Inheritance Human Mortal) $_tv))
+
+!(test
+   (member-fold-observation-count
+      computedForwardDeltaKb Human Mortal)
+   2)
+
+!(compileadd computedForwardDeltaKb
+   (: ccHuman (Member c Human) (STV 1.0 1.0)))
+!(compileadd computedForwardDeltaKb
+   (: ccMortal (Member c Mortal) (STV 0.6 1.0)))
+!(test
+   (forward-chain 1 computedForwardDeltaKb
+      (member-test-fact computedForwardDeltaKb c Mortal))
+   ())
+
+!(test
+   (member-fold-cache computedForwardDeltaKb Human Mortal)
+   ((STV 0.64 0.8333333333333334)))
+
+!(test
+   (let (base-rate $_kb $_pattern $_tv $source $_mode)
+      (car-atom
+         (base-rate-cache-entries computedForwardDeltaKb
+            (MemberInheritanceSample $obj Human Mortal $atv $btv)))
+      $source)
+   computed)
+
+!(test
+   (member-fold-observation-count
+      computedForwardDeltaKb Human Mortal)
+   3)
 
 ;; Similar and arbitrary folds are outside the supported registration shape.
 !(register-forward-member-inheritance-premises!

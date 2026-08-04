@@ -2026,6 +2026,91 @@
             (search-agenda-step $steps $rest
                (the (| QueueGoal QueueAggregate) $item))))))
 
+(: computed-member-inheritance-observation
+   (-[semidet]-> Number Number ForwardMemberInheritanceObservation))
+(= (computed-member-inheritance-observation $id $pid)
+   (computed-member-inheritance-observation-for-fact
+      $id $pid (proof-fact-output-by-id $pid)))
+
+(: computed-member-inheritance-observation-for-fact
+   (-[semidet]-> Number Number (Statement KBContext Proof TV)
+       ForwardMemberInheritanceObservation))
+(= (computed-member-inheritance-observation-for-fact
+      $id $pid
+      ((MemberInheritanceSample
+          $obj $_subj $_concept $atv $btv)
+       $_kbctx $_proof $_sample-tv))
+   (let*
+      ((($_score $evidence) (proof-stats-by-id $pid))
+       ($antecedent-tv (the TV $atv))
+       ($consequent-tv (the TV $btv))
+       ((BaseRateEvidence $weight $mass)
+          (forward-weighted-base-rate-contribution
+             $antecedent-tv $consequent-tv))
+       ($sample (proof-fact-output-by-id $pid))
+       ($candidate (forward-output-candidate $sample $evidence)))
+      (ForwardMemberInheritanceObservation
+         (brand ForwardMemberInheritanceObservationKey
+            (quote ($id $obj)))
+         $candidate $candidate $weight $mass)))
+
+(: merge-computed-member-inheritance-child!
+   (-[semidet]-> Number Number (List $none)))
+(= (merge-computed-member-inheritance-child! $id $pid)
+   (forward-merge-computed-member-observation!
+      $id (computed-member-inheritance-observation $id $pid)))
+
+(: merge-computed-member-inheritance-children!
+   (-[det]-> Number (List Number) (List $none)))
+(= (merge-computed-member-inheritance-children! $_id ()) ())
+(= (merge-computed-member-inheritance-children!
+      $id (cons $pid $rest))
+   (let $_merge
+      (collapse
+         (merge-computed-member-inheritance-child! $id $pid))
+      (merge-computed-member-inheritance-children! $id $rest)))
+
+(: harvest-computed-member-inheritance-state-for-id!
+   (-[semidet]-> Number Number (List $none)))
+(= (harvest-computed-member-inheritance-state-for-id!
+      $id $current-pid)
+   (let*
+      (($children (proof-children-by-id $current-pid))
+       ($_merge
+          (merge-computed-member-inheritance-children!
+             $id $children))
+       ($_computed
+          (forward-mark-member-inheritance-computed! $id)))
+      ()))
+
+;; A computed fold retains the accepted child proof IDs that produced its
+;; snapshot.  Import those already overlap-resolved components into the same
+;; per-object state used by forward chaining, so later selected deltas revise
+;; the computed snapshot instead of replacing it with a partial approximation.
+(: harvest-computed-member-inheritance-state!
+   (-[det]-> $arguments Number (List $none)))
+(= (harvest-computed-member-inheritance-state! $args $current-pid)
+   (case $args (
+      (($kbid
+          (MemberInheritanceSample $obj $subj $concept $atv $btv)
+          (extract-value
+             (MemberInheritanceSample $obj $subj $concept $atv $btv)
+             (WeightedTv $atv $btv))
+          (BaseRateEvidence 0.0 0.0)
+          WeightedBaseRateAcc
+          (member-inheritance $kbid)
+          result-tv)
+         (let $_harvest
+            (collapse
+               (match &forward_member_inheritance_identity
+                  (forward-member-inheritance-identity-row
+                     (fwd_member_identity $kbid $subj $concept)
+                     $id)
+                  (harvest-computed-member-inheritance-state-for-id!
+                     $id $current-pid)))
+            ()))
+      ($_other ()))))
+
 (: harvest-base-rate-entry
    (-[semidet]-> $arguments (| Number (List Number)) (List $none)))
 (= (harvest-base-rate-entry $args $current-pid)
@@ -2034,14 +2119,18 @@
          (no-base-rate-aggregate-key ())
          ((base-rate-aggregate-key-value $kbid $pattern $mode)
             (if (== $current-pid ()) ()
-               (let $output
-                  (proof-output-atom-by-id (the Number $current-pid))
+               (let*
+                  (($pid (the Number $current-pid))
+                   ($output (proof-output-atom-by-id $pid)))
                   (if (= $output (CPU $_fun $_out-args (STV $s $c)))
-                     (store-computed-base-rate!
-                        $kbid
-                        $pattern
-                        (STV $s $c)
-                        $mode)
+                     (let $_components
+                        (harvest-computed-member-inheritance-state!
+                           $args $pid)
+                        (store-computed-base-rate!
+                           $kbid
+                           $pattern
+                           (STV $s $c)
+                           $mode))
                      ()))))))))
 
 (: harvest-base-rates (-[det]-> (List $none)))

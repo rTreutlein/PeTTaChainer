@@ -898,6 +898,117 @@
 (: forward-member-inheritance-state
    (-[det]-> Number Number Number ForwardMemberInheritanceState))
 
+(: ForwardMemberInheritanceComputedRow Type)
+(: forward-member-inheritance-computed-row
+   (-[det]-> Number ForwardMemberInheritanceComputedRow))
+
+(: forward-store-member-inheritance-cache!
+   (-[det]-> Number KB Statement TV (List $none)))
+(= (forward-store-member-inheritance-cache!
+      $id $kbid $pattern $tv)
+   (if (not (==
+         (collapse
+            (once
+               (match &forward_member_inheritance_computed
+                  (forward-member-inheritance-computed-row $id)
+                  true)))
+         ()))
+      (store-computed-base-rate!
+         $kbid $pattern $tv (member-inheritance $kbid))
+      (store-forward-base-rate!
+         $kbid $pattern $tv (member-inheritance $kbid))))
+
+;; Backward folds have already resolved proof overlap and dominance before
+;; exposing their child snapshots. Replace the matching object's component,
+;; while retaining objects absent from a bounded computed pass.
+(: forward-merge-computed-member-observation!
+   (-[semidet]-> Number ForwardMemberInheritanceObservation (List $none)))
+(= (forward-merge-computed-member-observation!
+      $id
+      (ForwardMemberInheritanceObservation
+         $key $subject $concept $weight $mass))
+   (let*
+      (($old-observations
+          (collapse
+             (match &forward_member_inheritance_observation
+                (ForwardMemberInheritanceObservation
+                   $key $old-subject $old-concept $old-weight $old-mass)
+                (ForwardMemberInheritanceObservation
+                   $key $old-subject $old-concept $old-weight $old-mass))))
+       ((forward-member-inheritance-state
+            $_state-id $old-wsum $old-msum)
+          (once
+             (match &forward_member_inheritance_state
+                (forward-member-inheritance-state
+                   $id $stored-wsum $stored-msum)
+                (forward-member-inheritance-state
+                   $id $stored-wsum $stored-msum))))
+       ($new-observation
+          (ForwardMemberInheritanceObservation
+             $key $subject $concept $weight $mass)))
+      (if (== $old-observations ())
+         (let*
+            (($_state
+                (forward-store-member-inheritance-state!
+                   $id $old-wsum $old-msum
+                   (+ $old-wsum $weight) (+ $old-msum $mass)))
+             ($_observation
+                (once
+                   (add-atom &forward_member_inheritance_observation
+                      $new-observation))))
+            ())
+         (let $old-observation (car-atom $old-observations)
+            (let
+               (ForwardMemberInheritanceObservation
+                  $_old-key $_old-subject $_old-concept
+                  $old-weight $old-mass)
+               $old-observation
+               (let*
+                  (((forward-output-candidate $_osubject $old-subject-ev)
+                      $_old-subject)
+                   ((forward-output-candidate $_oconcept $old-concept-ev)
+                      $_old-concept)
+                   ((forward-output-candidate $_nsubject $new-subject-ev)
+                      $subject)
+                   ((forward-output-candidate $_nconcept $new-concept-ev)
+                      $concept)
+                   ($old-ev
+                      (list_to_set
+                         (append-evidence
+                            $old-subject-ev $old-concept-ev)))
+                   ($new-ev
+                      (list_to_set
+                         (append-evidence
+                            $new-subject-ev $new-concept-ev))))
+                  (if (evidence-subset? $new-ev $old-ev) ()
+                     (if (and
+                           (not (evidence-subset? $old-ev $new-ev))
+                           (<= $mass $old-mass))
+                        ()
+                        (let*
+                           (($_state
+                               (forward-store-member-inheritance-state!
+                                  $id $old-wsum $old-msum
+                                  (+ (- $old-wsum $old-weight) $weight)
+                                  (+ (- $old-msum $old-mass) $mass)))
+                            ($_old
+                               (foreach-flat
+                                  forward-remove-member-inheritance-observation!
+                                  $old-observations))
+                            ($_new
+                               (once
+                                  (add-atom
+                                     &forward_member_inheritance_observation
+                                     $new-observation))))
+                           ())))))))))
+
+(: forward-mark-member-inheritance-computed!
+   (-[det]-> Number (| Bool (List $none))))
+(= (forward-mark-member-inheritance-computed! $id)
+   (once
+      (add-atom &forward_member_inheritance_computed
+         (forward-member-inheritance-computed-row $id))))
+
 (: forward-update-member-inheritance-interest
    (-[semidet]-> Term Number KB Term Term Statement (List $none)))
 (= (forward-update-member-inheritance-interest
@@ -975,10 +1086,10 @@
           (if (<= $msum 0.0)
              (base-rate-cache-remove-derived!
                 $kbid $pattern (member-inheritance $kbid))
-             (store-forward-base-rate! $kbid $pattern
+             (forward-store-member-inheritance-cache!
+                $id $kbid $pattern
                 (member-inheritance-tv $kbid
-                   (BaseRateEvidence $wsum $msum))
-                (member-inheritance $kbid)))))
+                   (BaseRateEvidence $wsum $msum))))))
       ()))
 
 (: forward-update-member-inheritances-for-key
@@ -1030,11 +1141,11 @@
                      (forward-member-inheritance-state
                         $id $stored-wsum $stored-msum)))))
                (if (<= $msum 0.0) ()
-                  (store-forward-base-rate! $kbid $pattern
+                  (forward-store-member-inheritance-cache!
+                     $id $kbid $pattern
                      (member-inheritance-tv $kbid
                         (BaseRateEvidence
-                           $wsum $msum))
-                     (member-inheritance $kbid))))
+                           $wsum $msum)))))
          (let*
             (((ForwardMemberInheritanceObservation
                   $_key $_subject $_concept $old-weight $old-mass)
@@ -1060,10 +1171,10 @@
                 (if (<= $msum 0.0)
                    (base-rate-cache-remove-derived!
                       $kbid $pattern (member-inheritance $kbid))
-                   (store-forward-base-rate! $kbid $pattern
+                   (forward-store-member-inheritance-cache!
+                      $id $kbid $pattern
                       (member-inheritance-tv $kbid
-                         (BaseRateEvidence $wsum $msum))
-                      (member-inheritance $kbid))))
+                         (BaseRateEvidence $wsum $msum)))))
              ($replacement-pattern
                 (copy_term $pattern)))
             ;; If another proof still supports the removed side, this replaces
