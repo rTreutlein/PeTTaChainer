@@ -10,8 +10,9 @@ renamed, or removed whenever they have no remaining caller — and a reference
 from a unit test alone does not make a helper public (rewire or drop the test
 with it). When in doubt about whether a function is public, it is internal.
 
-The TV/distribution formula vocabulary (`tv_formulas.metta`, `dist_formulas.metta`)
-is a separate, independent surface usable inside rules; it is not enumerated here.
+The TV, distribution, and inverse-fold formula vocabulary (`tv_formulas.metta`,
+`dist_formulas.metta`, `fold_inverse.metta`) is a separate, independent surface
+usable inside rules; it is not enumerated here.
 
 ## Knowledge base construction
 

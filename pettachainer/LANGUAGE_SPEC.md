@@ -316,6 +316,44 @@ Typical distribution fold:
               -> $dist)
 ```
 
+#### Finite weighted subset-sum inverse
+
+`WeightedSubsetSumInverse` is the first restricted inverse-fold helper. It
+accepts a finite list of candidates, each with an identity, nonnegative exact
+contribution, and independent prior probability:
+
+```metta
+(Compute WeightedSubsetSumInverse
+   (((WeightedCandidate pump 5 0.02)
+     (WeightedCandidate valve 3 0.10)
+     (WeightedCandidate motor 2 0.05))
+    5)
+   ->
+   $solutions)
+```
+
+The result is one `WeightedSelections` value whose alternatives are canonical
+input-ordered sets. For the example above:
+
+```metta
+(WeightedSelections
+   (((Selection (pump)) 0.7772727272727272)
+    ((Selection (valve motor)) 0.22272727272727275)))
+```
+
+Weights include both selected `p` and unselected `(1-p)` factors and are
+normalized across exact solutions. Keep this joint result intact: the
+alternatives are mutually exclusive explanations, not independent facts.
+Project a per-candidate conditional probability with:
+
+```metta
+(Compute WeightedSubsetMarginal ($solutions pump) -> $probability)
+```
+
+The current restricted mode requires unique candidate identities, a finite
+candidate list, exact nonnegative contributions, and an exact target. It does
+not yet add automatic compiler inversion for arbitrary `FoldAll` reducers.
+
 ### 4) Not
 
 ```metta

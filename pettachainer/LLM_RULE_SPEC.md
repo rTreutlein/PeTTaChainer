@@ -179,6 +179,28 @@ treatment. Do not generate nested `Exists`, direct `Exists` queries, or
 (FoldAllValue pattern init fold-fn -> out)
 ```
 
+### Finite weighted subset-sum inverse
+
+Use the restricted exact inverse when a known total must generate possible
+subsets from a finite candidate list:
+
+```metta
+(Compute WeightedSubsetSumInverse
+   ($candidates $observedTotal)
+   ->
+   $weightedSelections)
+
+(Compute WeightedSubsetMarginal
+   ($weightedSelections $candidate)
+   ->
+   $conditionalProbability)
+```
+
+Candidates have shape `(WeightedCandidate identity contribution prior)`.
+Contributions are exact and nonnegative, identities are unique, and priors are
+independent. Preserve `WeightedSelections` as one joint result; do not assert
+members from competing selections as independent facts.
+
 ## TV Modeling Rules
 
 - `STV` is truth uncertainty only.

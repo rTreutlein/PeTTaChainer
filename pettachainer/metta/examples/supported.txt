@@ -7,4 +7,5 @@ examples/flyingraven.metta
 examples/raveninduction.metta
 examples/raveninduction_implication_pettachainer.metta
 examples/smokes.metta
+examples/stationops_fold_inverse.metta
 examples/toothbrush.metta
