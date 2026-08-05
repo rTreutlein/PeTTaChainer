@@ -298,6 +298,29 @@ Runs a function and binds output:
 (Compute + ($a $b) -> $sum)
 ```
 
+Implication inversion supports one restricted arithmetic subset. A top-level
+binary `Compute` using `+` or `-` may be reversed when its result is known and
+exactly one direct argument variable is unknown. The other argument must
+already be known. For example:
+
+```metta
+(Implication
+   (And (A $x) (Compute + ($x 1) -> $y))
+   (B $y))
+```
+
+Given `(B 3)`, the inverse rule computes `$x` with `3 - 1`, then reruns the
+original `2 + 1` computation as a validation before producing the antecedent.
+Several eligible computations may form a chain; they are reversed from the
+consequent back toward the antecedent.
+
+The compiler emits no inverse rule when a computation has zero or multiple
+unknown inputs, the unknown is nested inside an argument, the function is not
+one of the supported `+`/`-` modes, or another CPU premise such as `FoldAll` is
+present. `no_inverse` still disables inversion explicitly. Truth-value
+inversion and modus ponens are unchanged; the arithmetic inverse only
+reconstructs variable bindings.
+
 ### 3) FoldAll / FoldAllValue
 
 Aggregate over matching facts:

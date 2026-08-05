@@ -141,6 +141,18 @@ treatment. Do not generate nested `Exists`, direct `Exists` queries, or
 (Compute f (arg1 arg2 ...) -> $out)
 ```
 
+For automatically invertible implications, use only a top-level binary `+` or
+`-` computation with a result bound by the consequent and exactly one unknown
+direct argument variable. The compiler solves that argument with the matching
+arithmetic inverse and validates it by rerunning the original computation.
+Eligible computation chains are solved in reverse order.
+
+Do not expect automatic inversion for multiple unknown arguments, nested
+unknowns, unsupported functions, or rules containing any other CPU premise
+(including `FoldAll`). Those rules remain forward-only unless modeled with a
+separate restricted inverse operator. `no_inverse` always forces forward-only
+compilation.
+
 ### Not
 
 ```metta

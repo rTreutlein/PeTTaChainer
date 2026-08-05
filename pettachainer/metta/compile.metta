@@ -272,6 +272,15 @@
 (= (append-goals (cons $head $tail) $right)
    (cons $head (append-goals $tail $right)))
 
+(: reverse-goals-acc
+   (-[det]-> (List Goal) (List Goal) (List Goal)))
+(= (reverse-goals-acc () $acc) $acc)
+(= (reverse-goals-acc (cons $head $tail) $acc)
+   (reverse-goals-acc $tail (cons $head $acc)))
+
+(: reverse-goals (-[det]-> (List Goal) (List Goal)))
+(= (reverse-goals $goals) (reverse-goals-acc $goals ()))
+
 (: append-stored-proof
    (-[det]-> Atom Atom (List Proof)))
 (= (append-stored-proof () $proof)
@@ -1232,6 +1241,181 @@
 (: disable-inversion-proof-id? (-[det]-> Proof Bool))
 (= (disable-inversion-proof-id? $prf) (= $prf (no_inverse $_)))
 
+;; Reversible source Compute premises are a narrow exception to the normal CPU
+;; inversion veto. Only top-level implication conjuncts are considered here;
+;; folds, distribution operations, negation, and nested compounds retain the
+;; existing no-inverse behavior.
+(: SourceComputeGoals Type)
+(: source-computes
+   (-[det]-> (List Goal) SourceComputeGoals))
+(: unsupported-source-computes SourceComputeGoals)
+
+(: source-compute-goals
+   (-[det]-> (List Atom) SourceComputeGoals))
+(= (source-compute-goals ()) (source-computes ()))
+(= (source-compute-goals (cons $premise $rest))
+   (case $premise (
+      ((Compute $function $args -> $result)
+         (case (source-compute-goals $rest) (
+            ((source-computes $goals)
+               (source-computes
+                  (cons (CPU $function $args $result) $goals)))
+            (unsupported-source-computes
+               unsupported-source-computes))))
+      ((Compute $function $args $result)
+         (case (source-compute-goals $rest) (
+            ((source-computes $goals)
+               (source-computes
+                  (cons (CPU $function $args $result) $goals)))
+            (unsupported-source-computes
+               unsupported-source-computes))))
+      ($other
+         (if (compound-source? (brand Statement $other))
+            unsupported-source-computes
+            (if (if (is-expr $other)
+                   (let $head (car-atom $other)
+                      (if (is-var $head)
+                         false
+                         (source-computation-head? $head)))
+                   false)
+               unsupported-source-computes
+               (source-compute-goals $rest)))))))
+
+(: direct-variable-index-or-negative
+   (-[det]-> (List Atom) Variable Number Number))
+(= (direct-variable-index-or-negative () $_variable $_index) -1)
+(= (direct-variable-index-or-negative
+      (cons $arg $rest) $variable $index)
+   (if (if (is-var $arg) (== $arg $variable) false)
+      $index
+      (direct-variable-index-or-negative
+         $rest $variable (+ $index 1))))
+
+(: compute-args-known-except?
+   (-[det]-> (List Atom) Number (List Variable) Bool))
+(= (compute-args-known-except? () $_skip-index $_known) true)
+(= (compute-args-known-except?
+      (cons $arg $rest) $skip-index $known)
+   (if (== $skip-index 0)
+      (compute-args-known-except? $rest -1 $known)
+      (if (==
+             (compile-var-list-subtract
+                (list_to_set (extract-vars $arg)) $known)
+             ())
+         (compute-args-known-except?
+            $rest (- $skip-index 1) $known)
+         false)))
+
+(: ComputeInverseStep Type)
+(: inverse-compute-step-result
+   (-[det]-> Goal Goal (List Variable) ComputeInverseStep))
+(: no-compute-inverse-step ComputeInverseStep)
+
+(: inverse-compute-cpu-step
+   (-[det]-> Atom Atom Atom (List Variable) ComputeInverseStep))
+(= (inverse-compute-cpu-step $function $args $result $known)
+   (let*
+      (($result-unknown
+          (compile-var-list-subtract
+             (list_to_set (extract-vars $result)) $known))
+       ($input-unknown
+          (compile-var-list-subtract
+             (list_to_set (extract-vars $args)) $known)))
+      (if (not (== $result-unknown ()))
+         no-compute-inverse-step
+         (case $input-unknown (
+            ((cons $unknown ())
+               (let*
+                  (($arg-list (the (List Atom) $args))
+                   ($unknown-index
+                      (direct-variable-index-or-negative
+                         $arg-list $unknown 0)))
+                  (if (or (== $unknown-index -1)
+                          (not
+                             (compute-args-known-except?
+                                $arg-list $unknown-index $known)))
+                     no-compute-inverse-step
+                     (case
+                        (compute-inverse-goal-or-none
+                           $function $unknown-index $args $result)
+                        (((inverse-compute-goal $inverse-goal)
+                            (inverse-compute-step-result
+                               $inverse-goal
+                               (CPU $function $args $result)
+                               (list_to_set (cons $unknown $known))))
+                         (no-compute-inverse-goal
+                            no-compute-inverse-step))))))
+            ($_input-other no-compute-inverse-step))))))
+
+(: inverse-compute-step
+   (-[det]-> Goal (List Variable) ComputeInverseStep))
+(= (inverse-compute-step $goal $known)
+   (case $goal (
+      ((CPU $function $args $result)
+         (inverse-compute-cpu-step
+            $function $args $result $known))
+      ($_goal-other no-compute-inverse-step))))
+
+(: ComputeInversePlan Type)
+(: inverse-compute-plan
+   (-[det]-> (List Goal) (List Variable) ComputeInversePlan))
+(: no-compute-inverse ComputeInversePlan)
+
+(: inverse-compute-goals
+   (-[det]-> (List Goal) (List Variable) ComputeInversePlan))
+(= (inverse-compute-goals () $known)
+   (inverse-compute-plan () $known))
+(= (inverse-compute-goals (cons $goal $rest) $known)
+   (case (inverse-compute-step $goal $known) (
+      ((inverse-compute-step-result
+          $inverse-goal $validation-goal $next-known)
+         (case (inverse-compute-goals $rest $next-known) (
+            ((inverse-compute-plan $rest-goals $final-known)
+               (inverse-compute-plan
+                  (cons $inverse-goal
+                     (cons $validation-goal $rest-goals))
+                  $final-known))
+            (no-compute-inverse no-compute-inverse))))
+      (no-compute-inverse-step no-compute-inverse))))
+
+(: inverse-compute-plan-goals
+   (-[det]-> ComputeInversePlan (List Goal)))
+(= (inverse-compute-plan-goals
+      (inverse-compute-plan $goals $_known))
+   $goals)
+(= (inverse-compute-plan-goals no-compute-inverse) ())
+
+(: inverse-compute-plan-known
+   (-[det]-> ComputeInversePlan (List Variable)))
+(= (inverse-compute-plan-known
+      (inverse-compute-plan $_goals $known))
+   $known)
+(= (inverse-compute-plan-known no-compute-inverse) ())
+
+(: compile-reversible-compute-plan
+   (-[det]-> Statement Statement ComputeInversePlan))
+(= (compile-reversible-compute-plan $antecedent $consequent)
+   (case
+      (source-compute-goals
+         (implication-side-conjuncts $antecedent))
+      (((source-computes $compute-goals)
+          (if (== $compute-goals ())
+             no-compute-inverse
+             (inverse-compute-goals
+                (reverse-goals $compute-goals)
+                (list_to_set (extract-vars $consequent)))))
+       (unsupported-source-computes no-compute-inverse))))
+
+(: implication-inverse-compute-plan
+   (-[det]-> Statement Statement Bool ComputeInversePlan))
+(= (implication-inverse-compute-plan
+      $antecedent $consequent $has-cpu)
+   (if $has-cpu
+      (compile-reversible-compute-plan
+         $antecedent $consequent)
+      (inverse-compute-plan
+         () (list_to_set (extract-vars $consequent)))))
+
 ;; Preserve the dependency shape of a rule application. Zero-premise rules are
 ;; CPU-derived, one premise needs no wrapper, and multiple premises must retain
 ;; an explicit conjunction for overlap detection and proof rendering.
@@ -1424,22 +1608,42 @@
 ;; Compile the backward use of an implication by deriving its CTV, applying TV
 ;; inversion, and then using the observed consequent as modus-ponens evidence.
 ;; This is emitted only when the main compiler has proved the antecedent is
-;; invertible (no CPU goals and no explicit no_inverse marker).
+;; invertible. Reversible Compute goals bind antecedent variables first and
+;; validate the generated binding with the original forward computation.
 (: inverse-implication
-   (-[det]-> KB Proof Statement Statement TV CompiledAddition))
-(= (inverse-implication $kb $prf $a $b $itv)
+   (-[det]-> KB Proof Statement Statement TV (List Goal)
+       CompiledAddition))
+(= (inverse-implication $kb $prf $a $b $itv $inverse-execs)
    (let*
       (($a1 (copy_term (rule-query-pattern $a)))
-        ($b1 (copy_term (rule-query-pattern $b))))
-      (((: (make-kb-context $kb $ctx $vars) $prfb_wit $b $btv_wit)
-            (base-rate-premise $kb $a1 $atv)
-            (base-rate-premise $kb $b1 $btv)
-            (CPU ImplicationCTVFormula (quote ($atv $btv $itv)) $rule-ctv)
-            (CPU CTVInversionFormula (quote ($atv $btv $rule-ctv)) $iitv)
-            (CPU CTVModusPonensFormula (quote ($btv_wit $iitv)) $mp-tv))
-         |-
+        ($b1 (copy_term (rule-query-pattern $b)))
+        ($a-base-rate (base-rate-premise $kb $a1 $atv))
+        ($b-base-rate (base-rate-premise $kb $b1 $btv))
+        ($formula-goals
+           (cons
+              (CPU ImplicationCTVFormula
+                 (quote ($atv $btv $itv)) $rule-ctv)
+              (cons
+                 (CPU CTVInversionFormula
+                    (quote ($atv $btv $rule-ctv)) $iitv)
+                 (cons
+                    (CPU CTVModusPonensFormula
+                       (quote ($btv_wit $iitv)) $mp-tv)
+                    ()))))
+        ($premises
+           (append-goals
+              (cons
+                 (: (make-kb-context $kb $ctx $vars)
+                    $prfb_wit $b $btv_wit)
+                 ())
+              (append-goals
+                 $inverse-execs
+                 (cons $a-base-rate
+                    (cons $b-base-rate $formula-goals))))))
+      ($premises |-
          ((: (make-kb-context $kb $ctx $vars)
-              ((inverted $prf with cpu cpu) $prfb_wit) $a $mp-tv)))))
+              ((inverted $prf with cpu cpu) $prfb_wit)
+              $a $mp-tv)))))
 
 ;; Concrete Inheritance assertions also act as implication-like rules over
 ;; members. Materializing these views once at compile time lets ordinary rule
@@ -1957,21 +2161,29 @@
                    (implication-source-term $consequent)))
              ($antecedent-vars
                 (implication-antecedent-free-vars $antecedent))
+             ($has-cpu (contains-cpu? (execs-goal-type $execs)))
+             ($inverse-plan
+                (implication-inverse-compute-plan
+                   $a $b $has-cpu))
+             ($inverse-execs
+                (inverse-compute-plan-goals $inverse-plan))
+             ($inverse-known
+                (inverse-compute-plan-known $inverse-plan))
              ($na
                 (skolemize-conclusion-vars $prf
-                   (list_to_set (extract-vars $b)) $a))
-             ;; Guard inversion on the *lowered* premises: a premise that lowers to a
-             ;; CPU computation (FoldAll, Compute, ...) cannot be inverted. $a is the
-             ;; clean antecedent expression for base-rate patterns and never carries a
-             ;; CPU head, so the check must look at $execs, not $a.
-             ($skip-inverse (or (disable-inversion-proof-id? $prf) (contains-cpu? (execs-goal-type $execs)))))
+                   $inverse-known $a))
+             ;; Unsupported CPU premises retain the old no-inversion behavior.
+             ;; A supported reversible Compute plan is the only exception.
+             ($skip-inverse
+                (or (disable-inversion-proof-id? $prf)
+                   (== $inverse-plan no-compute-inverse))))
 	            (superpose (
 	                 (compile-implication-forward-rules
 	                    $kb $shape-kb $adapter-kb $prf $tv
 	                    $a $b $antecedent-vars $execs $proofs $atv)
 	                 (if (not $skip-inverse)
 	                    (inverse-implication
-	                       $kb $prf $na $b $tv)
+	                       $kb $prf $na $b $tv $inverse-execs)
 	                    (empty))
 	                 (if (or $skip-inverse (is-var $na)) (empty)
 	                    (compile-outputs

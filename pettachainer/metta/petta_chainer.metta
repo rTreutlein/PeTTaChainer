@@ -6,6 +6,7 @@
 
 !(import! &self dist_formulas)
 !(import! &self fold_inverse)
+!(import! &self compute_inverse)
 !(import! &self tv_formulas)
 !(import! &self compile)
 
