@@ -190,9 +190,11 @@
                (let*
                   ((($type $kb $prf $_tv) $fact)
                    ($ev (cons (fact-ev $kb $prf $type) ()))
-                   ($_change
+                   ($change
                       (forward-candidate-upsert!
-                         (forward-derived $fact $ev))))
+                         (forward-derived $fact $ev)))
+                   ($_member-cache
+                      (forward-apply-unqueued-member-change! $change)))
                   ())
                (kb-add-atom $backend &kb
                   (brand SpaceAtom $fact)))))))

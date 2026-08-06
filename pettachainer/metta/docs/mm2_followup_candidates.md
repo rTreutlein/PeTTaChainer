@@ -11,7 +11,7 @@ designs or evidence.
 
 | MM2 change | PeTTaChainer status | Follow-up |
 | --- | --- | --- |
-| `1a397fc` cache empty Member-inheritance folds | Adopted by `5052580` with revision- and budget-aware append-only snapshots | Keep the focused regression and add a larger controlled benchmark when this path is revisited |
+| `1a397fc` cache empty Member-inheritance folds | Adopted by `5052580`, then simplified to one mutable best-budget optimization row per identity | Keep the focused regression and add a larger controlled benchmark when this path is revisited |
 | `7e80b80` make Member-cache updates population independent | The current forward cache is already object-keyed and updates sufficient statistics by affected object | Benchmark update cost as population size grows; remove any remaining list-shaped or broad interest scans only when the profile identifies them |
 | `21d1e70` batch forward seed deltas | Already present in structure: `forward-chain` builds one deduplicated heap for all supplied seeds and processes their closure together | Retain; add a scaling benchmark if a real workload shows batch overhead |
 | `dc95ec1` incremental forward base-rate caches | PeTTaChainer is the semantic source of this design; `2f45e50` fixed preservation of a complete computed snapshot across partial forward deltas | No port. Preserve the existing computed/forward-approx distinction |
@@ -68,11 +68,11 @@ shows repeated host/query-arena setup is material.
 ## Append-only constraints for all ports
 
 - Knowledge, proofs, and evidence are historical facts and must only be added.
-- A cache row is a versioned snapshot or a derived materialized view, never a
-  replacement for the logical history it summarizes.
-- Later knowledge may refine a cached result. It must not make the earlier
-  observation disappear; revision or scope determines which snapshot is
-  current.
+- A cache row is a derived materialized view, not part of logical history. It
+  may be replaced or discarded when doing so changes only performance.
+- Later knowledge refines an applicable cached result through selective
+  contribution updates. It does not invalidate an older approximation merely
+  because the KB grew.
 - Budget-limited failure is not logical falsity. A result learned at a larger
   budget may subsume smaller-budget work, but not the reverse.
 - Administrative removal and cache-clear APIs remain legacy escape hatches.

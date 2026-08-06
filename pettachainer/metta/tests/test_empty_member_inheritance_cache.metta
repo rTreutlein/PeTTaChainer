@@ -1,10 +1,21 @@
 !(import! &self ../petta_chainer)
 
-(: member-snapshot-current?
+(: member-empty-cache-hit?
    (-[det]-> KB Term Term Bool))
-(= (member-snapshot-current? $kb $subj $concept)
-   (forward-member-inheritance-snapshot-current?
+(= (member-empty-cache-hit? $kb $subj $concept)
+   (forward-member-inheritance-empty-cache-hit?
       $kb $subj $concept 80))
+
+(: member-empty-cache-budgets
+   (-[det]-> KB Term Term (List Number)))
+(= (member-empty-cache-budgets $kb $subj $concept)
+   (collapse
+      (match &forward_member_inheritance_identity
+         (forward-member-inheritance-identity-row
+            (fwd_member_identity $kb $subj $concept) $id)
+         (match &forward_member_inheritance_empty_cache
+            (forward-member-inheritance-empty-cache-row $id $budget)
+            $budget))))
 
 (: member-aggregate-count (-[det]-> KB Term Term Number))
 (= (member-aggregate-count $kb $subj $concept)
@@ -21,18 +32,19 @@
                $_base $_pending $_current-pid)
             true))))
 
-;; An interrupted search is not an authoritative empty snapshot.
+;; An interrupted search is not an authoritative empty cache entry.
 !(test
    (query 1 boundedEmptyMemberKb
       (: $_proof (Inheritance EmptyClass MissingClass) $_tv))
    ())
 
 !(test
-   (member-snapshot-current?
+   (member-empty-cache-hit?
       boundedEmptyMemberKb EmptyClass MissingClass)
    false)
 
-;; A settled empty fold records a bounded snapshot without inventing an STV.
+;; A settled empty fold records its best exhausted budget without inventing an
+;; STV or adding logical evidence.
 !(set-universe-size cachedEmptyMemberKb 1.0)
 
 !(test
@@ -41,15 +53,34 @@
    ())
 
 !(test
-   (member-snapshot-current?
+   (member-empty-cache-hit?
       cachedEmptyMemberKb EmptyClass MissingClass)
    true)
+
+!(test
+   (member-empty-cache-budgets
+      cachedEmptyMemberKb EmptyClass MissingClass)
+   (80))
 
 !(test
    (cached-base-rate cachedEmptyMemberKb
       (MemberInheritanceSample
          $obj EmptyClass MissingClass $atv $btv))
    ())
+
+;; Unrelated monotonic knowledge leaves the approximation usable.
+!(compileadd cachedEmptyMemberKb
+   (: unrelatedMember (Member unrelated OtherClass) (STV 1.0 1.0)))
+
+!(test
+   (member-empty-cache-hit?
+      cachedEmptyMemberKb EmptyClass MissingClass)
+   true)
+
+!(test
+   (member-empty-cache-budgets
+      cachedEmptyMemberKb EmptyClass MissingClass)
+   (80))
 
 ;; A warm query skips construction of the Member aggregate altogether.
 !(test
@@ -73,29 +104,40 @@
       cachedEmptyMemberKb EmptyClass MissingClass)
    1)
 
-;; Monotonic additions advance the KB revision. The old empty observation stays
-;; stored but is no longer current, so the next query discovers the new sample.
+;; The mutable optimization row retains only the best exhausted budget.
+!(test
+   (member-empty-cache-budgets
+      cachedEmptyMemberKb EmptyClass MissingClass)
+   (81))
+
+;; Matching monotonic additions refine the registered subscription directly.
+;; The second side produces a real cached estimate and replaces the empty
+;; optimization marker; unrelated knowledge needs no cache invalidation.
 !(compileadd cachedEmptyMemberKb
    (: firstEmpty (Member first EmptyClass) (STV 1.0 1.0)))
 !(compileadd cachedEmptyMemberKb
    (: firstMissing (Member first MissingClass) (STV 0.6 1.0)))
 
 !(test
-   (member-snapshot-current?
+   (member-empty-cache-hit?
       cachedEmptyMemberKb EmptyClass MissingClass)
    false)
 
 !(test
+   (cached-base-rate cachedEmptyMemberKb
+      (MemberInheritanceSample
+         $obj EmptyClass MissingClass $atv $btv))
+   ((STV 0.6 1.0)))
+
+!(test
    (query 80 cachedEmptyMemberKb
       (: $proof (Inheritance EmptyClass MissingClass) $tv))
-   (: (member-inheritance-fold
-          (foldall-proof
-             (member-inheritance-sample firstEmpty firstMissing)))
+   (: (member-inheritance-fold cpu)
       (Inheritance EmptyClass MissingClass)
       (STV 0.6 1.0)))
 
 !(test
-   (member-snapshot-current?
+   (member-empty-cache-hit?
       cachedEmptyMemberKb EmptyClass MissingClass)
    false)
 
@@ -119,7 +161,7 @@
    true)
 
 !(test
-   (member-snapshot-current?
+   (member-empty-cache-hit?
       directEmptyMemberKb EmptyClass DirectTarget)
    true)
 

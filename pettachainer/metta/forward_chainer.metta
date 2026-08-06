@@ -902,66 +902,107 @@
 (: forward-member-inheritance-computed-row
    (-[det]-> Number ForwardMemberInheritanceComputedRow))
 
-;; These rows are append-only observations that a deterministic bounded search
-;; settled this Member fold without a value. Reuse is safe only at the same KB
-;; revision and at an equal-or-smaller budget. Later additions advance the KB
-;; revision and make old observations stale without deleting them.
-(: ForwardMemberInheritanceSnapshotRow Type)
-(: forward-member-inheritance-snapshot-row
-   (-[det]-> Number Number Number ForwardMemberInheritanceSnapshotRow))
+;; An empty fold is derived cache state, not knowledge or evidence. Keep only
+;; the largest search budget known to have settled empty for each registered
+;; Member-inheritance identity. Matching Member additions refine the existing
+;; subscription directly; unrelated monotonic additions do not invalidate it.
+(: ForwardMemberInheritanceEmptyCacheRow Type)
+(: forward-member-inheritance-empty-cache-row
+   (-[det]-> Number Number ForwardMemberInheritanceEmptyCacheRow))
 
-(: forward-member-inheritance-snapshot-current?
+(: forward-remove-member-inheritance-empty-cache-row!
+   (-[det]-> ForwardMemberInheritanceEmptyCacheRow
+       (| Bool (List $none))))
+(= (forward-remove-member-inheritance-empty-cache-row! $row)
+   (once
+      (remove-atom &forward_member_inheritance_empty_cache $row)))
+
+(: forward-member-inheritance-empty-cache-hit?
    (-[det]-> KB Term Term Number Bool))
-(= (forward-member-inheritance-snapshot-current?
+(= (forward-member-inheritance-empty-cache-hit?
       $kbid $subj $concept $budget)
-   (let $revision (kb-knowledge-revision $kbid)
-      (not
+   (not
+      (==
+         (collapse
+            (once
+               (match &forward_member_inheritance_identity
+                  (forward-member-inheritance-identity-row
+                     (fwd_member_identity $kbid $subj $concept) $id)
+                  (match &forward_member_inheritance_empty_cache
+                     (forward-member-inheritance-empty-cache-row
+                        $id $stored-budget)
+                     (if (>= $stored-budget $budget)
+                        true
+                        (empty))))))
+         ())))
+
+(: forward-clear-member-inheritance-empty-cache!
+   (-[det]-> Number (List $none)))
+(= (forward-clear-member-inheritance-empty-cache! $id)
+   (let $rows
+      (collapse
+         (match &forward_member_inheritance_empty_cache
+            (forward-member-inheritance-empty-cache-row
+               $id $stored-budget)
+            (forward-member-inheritance-empty-cache-row
+               $id $stored-budget)))
+      (foreach-flat
+         forward-remove-member-inheritance-empty-cache-row!
+         $rows)))
+
+(: forward-store-member-inheritance-empty-cache-for-id!
+   (-[det]-> Number Number (List $none)))
+(= (forward-store-member-inheritance-empty-cache-for-id! $id $budget)
+   (if (not
          (==
             (collapse
                (once
-                  (match &forward_member_inheritance_identity
-                     (forward-member-inheritance-identity-row
-                        (fwd_member_identity $kbid $subj $concept)
-                        $id)
-                     (match &forward_member_inheritance_snapshot
-                        (forward-member-inheritance-snapshot-row
-                           $id $revision $stored-budget)
-                        (if (>= $stored-budget $budget)
-                           true
-                           (empty))))))
-            ()))))
-
-(: forward-mark-member-inheritance-snapshot!
-   (-[det]-> KB Term Term Number (List $none)))
-(= (forward-mark-member-inheritance-snapshot!
-      $kbid $subj $concept $budget)
-   (let $revision (kb-knowledge-revision $kbid)
-      (let $_
-         (collapse
-            (match &forward_member_inheritance_identity
-               (forward-member-inheritance-identity-row
-                  (fwd_member_identity $kbid $subj $concept) $id)
-               (once
-                  (add-atom &forward_member_inheritance_snapshot
-                     (forward-member-inheritance-snapshot-row
-                        $id $revision $budget)))))
+                  (match &forward_member_inheritance_empty_cache
+                     (forward-member-inheritance-empty-cache-row
+                        $id $stored-budget)
+                     (if (>= $stored-budget $budget) true (empty)))))
+            ()))
+      ()
+      (let*
+         (($_clear
+             (forward-clear-member-inheritance-empty-cache! $id))
+          ($_add
+             (once
+                (add-atom &forward_member_inheritance_empty_cache
+                   (forward-member-inheritance-empty-cache-row
+                      $id $budget)))))
          ())))
+
+(: forward-store-member-inheritance-empty-cache!
+   (-[det]-> KB Term Term Number (List $none)))
+(= (forward-store-member-inheritance-empty-cache!
+      $kbid $subj $concept $budget)
+   (let $_
+      (collapse
+         (match &forward_member_inheritance_identity
+            (forward-member-inheritance-identity-row
+               (fwd_member_identity $kbid $subj $concept) $id)
+            (forward-store-member-inheritance-empty-cache-for-id!
+               $id $budget)))
+      ()))
 
 (: forward-store-member-inheritance-cache!
    (-[det]-> Number KB Statement TV (List $none)))
 (= (forward-store-member-inheritance-cache!
       $id $kbid $pattern $tv)
-   (if (not (==
-         (collapse
-            (once
-               (match &forward_member_inheritance_computed
-                  (forward-member-inheritance-computed-row $id)
-                  true)))
-         ()))
-      (store-computed-base-rate!
-         $kbid $pattern $tv (member-inheritance $kbid))
-      (store-forward-base-rate!
-         $kbid $pattern $tv (member-inheritance $kbid))))
+   (let $_empty
+      (forward-clear-member-inheritance-empty-cache! $id)
+      (if (not (==
+            (collapse
+               (once
+                  (match &forward_member_inheritance_computed
+                     (forward-member-inheritance-computed-row $id)
+                     true)))
+            ()))
+         (store-computed-base-rate!
+            $kbid $pattern $tv (member-inheritance $kbid))
+         (store-forward-base-rate!
+            $kbid $pattern $tv (member-inheritance $kbid)))))
 
 ;; Backward folds have already resolved proof overlap and dominance before
 ;; exposing their child snapshots. Replace the matching object's component,
@@ -1270,6 +1311,21 @@
    (-[det]-> (Statement KBContext Proof TV) (List $none)))
 (= (forward-update-member-inheritances $fact)
    (forward-update-member-inheritances-raw $fact))
+
+;; Knowledge insertion already refreshes the canonical fact. If an empty or
+;; populated Member-inheritance subscription exists, update only that affected
+;; object's sufficient statistic. This is bounded cache maintenance, not eager
+;; rule inference and not invalidation of the older approximation.
+(: forward-apply-unqueued-member-change!
+   (-[det]-> ForwardOutputChange (List $none)))
+(= (forward-apply-unqueued-member-change! $change)
+   (case $change (
+      (no-forward-change ())
+      ((forward-output-added $fact)
+         (forward-update-member-inheritances $fact))
+      ((forward-output-replaced $_old $fact)
+         (forward-update-member-inheritances $fact))
+      ((forward-output-removed $_old) ()))))
 
 (: forward-update-member-inheritances-raw
    (-[det]-> Atom (List $none)))

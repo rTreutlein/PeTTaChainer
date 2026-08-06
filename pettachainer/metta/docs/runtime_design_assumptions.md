@@ -49,6 +49,11 @@ scope policy. Mutable query arenas and replaceable cache/index rows are not
 logical retractions as long as deleting those optimization tables would leave
 the unbounded logical answers unchanged.
 
+In particular, negative or empty-search cache markers may keep one mutable
+best-known budget per key. They are not assertions of falsity. Matching new
+knowledge should refine the registered cache contribution directly; unrelated
+monotonic additions do not invalidate the approximation.
+
 ### Compilation specializes reasoning
 
 The compiler turns source facts and rules into the relations and rule shapes

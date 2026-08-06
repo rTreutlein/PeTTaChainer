@@ -1191,7 +1191,7 @@
 (= (spawn-aggregate-goal-cached-or-live-heap
       $agenda $steps $score $agg-gid $goal-view $args $entries)
    (case $entries (
-      (() (if (member-inheritance-empty-snapshot-current? $steps $args)
+      (() (if (member-inheritance-empty-cache-hit? $steps $args)
              $agenda
              (spawn-aggregate-goal-live-heap
                 $agenda $score $agg-gid $goal-view $args)))
@@ -1206,14 +1206,14 @@
                   $agenda $score $agg-gid $goal-view
                   $args $tv $source)))))))
 
-(: member-inheritance-empty-snapshot-current?
+(: member-inheritance-empty-cache-hit?
    (-[det]-> Number $arguments Bool))
-(= (member-inheritance-empty-snapshot-current? $steps $args)
+(= (member-inheritance-empty-cache-hit? $steps $args)
    (case $args (
       (($kbid
           (MemberInheritanceSample $_obj $subj $concept $_atv $_btv)
           $_extractor $_init $_fun (member-inheritance $kbid) $_tv-mode)
-         (forward-member-inheritance-snapshot-current?
+         (forward-member-inheritance-empty-cache-hit?
             (brand KB $kbid) (brand Term $subj) (brand Term $concept)
             $steps))
       ($_other false))))
@@ -2178,9 +2178,9 @@
                true)
             ($_other false)))))))
 
-(: harvest-complete-member-inheritance-snapshot!
+(: harvest-complete-member-inheritance-empty-cache!
    (-[det]-> Number $arguments (| Number (List Number)) (List $none)))
-(= (harvest-complete-member-inheritance-snapshot!
+(= (harvest-complete-member-inheritance-empty-cache!
       $budget $args $current-pid)
    (case $args (
       (($kbid
@@ -2189,7 +2189,7 @@
           $_extractor $_init $_fun
           (member-inheritance $kbid) $_tv-mode)
          (if (aggregate-no-evidence-pid? $current-pid)
-            (forward-mark-member-inheritance-snapshot!
+            (forward-store-member-inheritance-empty-cache!
                (brand KB $kbid)
                (brand Term $subj)
                (brand Term $concept)
@@ -2197,8 +2197,8 @@
             ()))
       ($_other ()))))
 
-(: harvest-complete-member-inheritance-snapshots! (-[det]-> (List $none)))
-(= (harvest-complete-member-inheritance-snapshots!)
+(: harvest-complete-member-inheritance-empty-caches! (-[det]-> (List $none)))
+(= (harvest-complete-member-inheritance-empty-caches!)
    (let $_
       (collapse
          (match &aggregate
@@ -2206,7 +2206,7 @@
                $agg-gid $_child $args $_base 0.0 $current-pid)
             (match &aggregate_search_budget
                (aggregate-search-budget-row $agg-gid $budget)
-               (harvest-complete-member-inheritance-snapshot!
+               (harvest-complete-member-inheritance-empty-cache!
                   $budget $args $current-pid))))
       ()))
 
@@ -2243,8 +2243,8 @@
        (($_steps-left $_agenda1)
           $search-result)
        ($_harvest (harvest-base-rates))
-       ($_empty-member-snapshots
-          (harvest-complete-member-inheritance-snapshots!)))
+       ($_empty-member-cache
+          (harvest-complete-member-inheritance-empty-caches!)))
       (data
          $root-gid
          (chainer-first-or ()
