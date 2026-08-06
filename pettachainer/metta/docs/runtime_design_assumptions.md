@@ -5,6 +5,9 @@ PeTTa chainer. Read it before changing compilation, proof storage, caching, or
 either chainer. A locally convenient optimization is incorrect when it violates
 one of these assumptions.
 
+Potential performance ports from the sibling native implementation are tracked
+in [mm2_followup_candidates.md](mm2_followup_candidates.md).
+
 ## Logical model
 
 ### Knowledge addition is monotonic
