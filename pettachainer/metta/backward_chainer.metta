@@ -1163,15 +1163,19 @@
       $nagenda))
 
 (: spawn-aggregate-goal-heap
-   (-[nondet]-> (Heap (| QueueGoal QueueAggregate)) Number Number Goal (Heap (| QueueGoal QueueAggregate))))
-(= (spawn-aggregate-goal-heap $agenda $score $agg-gid $goal-view)
+   (-[nondet]-> (Heap (| QueueGoal QueueAggregate)) Number Number Number Goal (Heap (| QueueGoal QueueAggregate))))
+(= (spawn-aggregate-goal-heap $agenda $steps $score $agg-gid $goal-view)
    (let*
       (($args (copy_term (let (CPU $_agg-fun $view-args $_goalres) $goal-view $view-args)))
+       ($_budget
+          (once
+             (chainer-add-atom &aggregate_search_budget
+                (aggregate-search-budget-row $agg-gid $steps))))
        ($cache-key (base-rate-aggregate-key $args)))
       (case $cache-key (
          ((base-rate-aggregate-key-value $kbid $pattern $mode)
             (spawn-aggregate-goal-cached-or-live-heap
-               $agenda $score $agg-gid $goal-view $args
+               $agenda $steps $score $agg-gid $goal-view $args
                (base-rate-cache-entries-for-mode
                   $kbid
                   $pattern
@@ -1182,13 +1186,15 @@
 
 (: spawn-aggregate-goal-cached-or-live-heap
    (-[nondet]-> (Heap (| QueueGoal QueueAggregate))
-       Number Number Goal $arguments (List BaseRateEntry)
+       Number Number Number Goal $arguments (List BaseRateEntry)
        (Heap (| QueueGoal QueueAggregate))))
 (= (spawn-aggregate-goal-cached-or-live-heap
-      $agenda $score $agg-gid $goal-view $args $entries)
+      $agenda $steps $score $agg-gid $goal-view $args $entries)
    (case $entries (
-      (() (spawn-aggregate-goal-live-heap
-             $agenda $score $agg-gid $goal-view $args))
+      (() (if (member-inheritance-empty-snapshot-current? $steps $args)
+             $agenda
+             (spawn-aggregate-goal-live-heap
+                $agenda $score $agg-gid $goal-view $args)))
       ((cons $entry $_rest)
          (let*
             (($tv (base-rate-entry-tv $entry))
@@ -1199,6 +1205,22 @@
                (spawn-refining-aggregate-heap
                   $agenda $score $agg-gid $goal-view
                   $args $tv $source)))))))
+
+(: member-inheritance-empty-snapshot-current?
+   (-[det]-> Number $arguments Bool))
+(= (member-inheritance-empty-snapshot-current? $steps $args)
+   (case $args (
+      (($kbid
+          (MemberInheritanceSample $_obj $subj $concept $_atv $_btv)
+          $_extractor $_init $_fun (member-inheritance $kbid) $_tv-mode)
+         (forward-member-inheritance-snapshot-current?
+            (brand KB $kbid) (brand Term $subj) (brand Term $concept)
+            $steps))
+      ($_other false))))
+
+(: AggregateSearchBudgetRow Type)
+(: aggregate-search-budget-row
+   (-[det]-> Number Number AggregateSearchBudgetRow))
 
 (: spawn-aggregate-goal-live-heap
    (-[nondet]-> (Heap (| QueueGoal QueueAggregate)) Number Number Goal $arguments (Heap (| QueueGoal QueueAggregate))))
@@ -1959,11 +1981,11 @@
              (if (== $fun FoldAllCompiled)
                 (once
                    (spawn-aggregate-goal-heap
-                      $agenda $score $gid (the Goal $goal)))
+                      $agenda $steps $score $gid (the Goal $goal)))
                 (if (== $fun GroupedFoldAllCompiled)
                    (once
                       (spawn-aggregate-goal-heap
-                         $agenda $score $gid (the Goal $goal)))
+                         $agenda $steps $score $gid (the Goal $goal)))
                    (expand-direct-goal-heap
                       $agenda $steps $gid $goal)))
              (expand-direct-goal-heap $agenda $steps $gid $goal)))
@@ -2144,6 +2166,50 @@
             (harvest-base-rate-entry $args $current-pid)))
       ()))
 
+(: aggregate-no-evidence-pid?
+   (-[det]-> (| Number (List Number)) Bool))
+(= (aggregate-no-evidence-pid? $current-pid)
+   (case $current-pid (
+      (() false)
+      ($pid
+         (case (collapse
+                  (proof-output-atom-by-id (the Number $pid))) (
+            ((cons (CPU $_fold $_stored-args no-evidence) $_rest)
+               true)
+            ($_other false)))))))
+
+(: harvest-complete-member-inheritance-snapshot!
+   (-[det]-> Number $arguments (| Number (List Number)) (List $none)))
+(= (harvest-complete-member-inheritance-snapshot!
+      $budget $args $current-pid)
+   (case $args (
+      (($kbid
+          (MemberInheritanceSample
+             $_obj $subj $concept $_atv $_btv)
+          $_extractor $_init $_fun
+          (member-inheritance $kbid) $_tv-mode)
+         (if (aggregate-no-evidence-pid? $current-pid)
+            (forward-mark-member-inheritance-snapshot!
+               (brand KB $kbid)
+               (brand Term $subj)
+               (brand Term $concept)
+               $budget)
+            ()))
+      ($_other ()))))
+
+(: harvest-complete-member-inheritance-snapshots! (-[det]-> (List $none)))
+(= (harvest-complete-member-inheritance-snapshots!)
+   (let $_
+      (collapse
+         (match &aggregate
+            (stored-aggregate-row
+               $agg-gid $_child $args $_base 0.0 $current-pid)
+            (match &aggregate_search_budget
+               (aggregate-search-budget-row $agg-gid $budget)
+               (harvest-complete-member-inheritance-snapshot!
+                  $budget $args $current-pid))))
+      ()))
+
 ;; Internal queue operations are semidet because an arbitrary numeric ID may
 ;; be absent.  The public runner creates its root ID immediately above, so turn
 ;; an impossible missing-root result into an empty, deterministic search
@@ -2157,7 +2223,7 @@
        (Number (List RuntimeResult))))
 (= (chainer-run $steps $goal)
    (let*
-      (($_clear (foreach-flat remove-all-atoms (&goal &goal_lookup &goal_waiter &aggregate &aggregate_forward_approx &proof &proof_parent &proof_invalidated_epoch &proof_live_cache &goal_live_cache &proof_static_live &proof_superseded)))
+      (($_clear (foreach-flat remove-all-atoms (&goal &goal_lookup &goal_waiter &aggregate &aggregate_search_budget &aggregate_forward_approx &proof &proof_parent &proof_invalidated_epoch &proof_live_cache &goal_live_cache &proof_static_live &proof_superseded)))
        ($_reset (foreach-flat (|-> ($key) (change-state! $key 0)) (bwd_gid bwd_pid bwd_live_epoch)))
        ($root-gid (ensure-goal-at-depth $goal 0))
        ($agenda0
@@ -2176,7 +2242,9 @@
                       (search-agenda-heap (+ $steps 1) $agenda0))))))
        (($_steps-left $_agenda1)
           $search-result)
-       ($_harvest (harvest-base-rates)))
+       ($_harvest (harvest-base-rates))
+       ($_empty-member-snapshots
+          (harvest-complete-member-inheritance-snapshots!)))
       (data
          $root-gid
          (chainer-first-or ()

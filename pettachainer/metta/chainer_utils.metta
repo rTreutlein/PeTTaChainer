@@ -525,6 +525,29 @@
 (: next-pid (-[det]-> Number))
 (= (next-pid) (next-search-id bwd_pid))
 
+;; A completed empty fold is reusable only while the knowledge it summarized
+;; is unchanged.  Keep one cheap revision counter per public KB instead of
+;; invalidating or scanning cache entries on monotonic addition.
+(: kb-knowledge-revision-key (-[det]-> KB Atom))
+(= (kb-knowledge-revision-key $kbid)
+   (atom_concat pettachainer_kb_revision_ $kbid))
+
+(: kb-knowledge-revision (-[det]-> KB Number))
+(= (kb-knowledge-revision $kbid)
+   (let $key (kb-knowledge-revision-key $kbid)
+      (let $values
+         (collapse (catch (get-state $key)))
+         (if (== $values ())
+            0
+            (if-error-number (car-atom $values) 0)))))
+
+(: advance-kb-knowledge-revision! (-[det]-> KB Number))
+(= (advance-kb-knowledge-revision! $kbid)
+   (let* (($key (kb-knowledge-revision-key $kbid))
+          ($revision (kb-knowledge-revision $kbid))
+          ($next (+ $revision 1)))
+      (progn (change-state! $key $next) $next)))
+
 (: cpu-call (-[nondet]-> Number $formula $arguments  $result))
 (= (cpu-call $_steps $fun $args) (reduce (reduce (cons $fun $args))))
 

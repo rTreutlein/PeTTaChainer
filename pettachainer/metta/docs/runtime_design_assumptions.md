@@ -31,6 +31,21 @@ Consequences:
 Removal is different. Removing a named statement can make proofs and estimates
 invalid and therefore permits explicit cleanup and invalidation work.
 
+### Strict append-only follow-up
+
+The public `remove-compiled-statement`, cache `clear-*`, and replace-style
+configuration operations predate the decision that ordinary system history
+should be append-only. They remain explicit administrative escape hatches for
+now; normal reasoning and knowledge ingestion must not depend on them.
+
+A future API pass should represent corrections, supersession, and configuration
+changes as scoped events instead of retracting prior knowledge. This is not a
+local cleanup: named-statement removal currently owns proof-frontier, rule-index,
+and derived-cache invalidation, so changing it requires an explicit temporal or
+scope policy. Mutable query arenas and replaceable cache/index rows are not
+logical retractions as long as deleting those optimization tables would leave
+the unbounded logical answers unchanged.
+
 ### Compilation specializes reasoning
 
 The compiler turns source facts and rules into the relations and rule shapes

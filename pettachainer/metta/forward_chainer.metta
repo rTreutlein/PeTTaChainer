@@ -902,6 +902,51 @@
 (: forward-member-inheritance-computed-row
    (-[det]-> Number ForwardMemberInheritanceComputedRow))
 
+;; These rows are append-only observations that a deterministic bounded search
+;; settled this Member fold without a value. Reuse is safe only at the same KB
+;; revision and at an equal-or-smaller budget. Later additions advance the KB
+;; revision and make old observations stale without deleting them.
+(: ForwardMemberInheritanceSnapshotRow Type)
+(: forward-member-inheritance-snapshot-row
+   (-[det]-> Number Number Number ForwardMemberInheritanceSnapshotRow))
+
+(: forward-member-inheritance-snapshot-current?
+   (-[det]-> KB Term Term Number Bool))
+(= (forward-member-inheritance-snapshot-current?
+      $kbid $subj $concept $budget)
+   (let $revision (kb-knowledge-revision $kbid)
+      (not
+         (==
+            (collapse
+               (once
+                  (match &forward_member_inheritance_identity
+                     (forward-member-inheritance-identity-row
+                        (fwd_member_identity $kbid $subj $concept)
+                        $id)
+                     (match &forward_member_inheritance_snapshot
+                        (forward-member-inheritance-snapshot-row
+                           $id $revision $stored-budget)
+                        (if (>= $stored-budget $budget)
+                           true
+                           (empty))))))
+            ()))))
+
+(: forward-mark-member-inheritance-snapshot!
+   (-[det]-> KB Term Term Number (List $none)))
+(= (forward-mark-member-inheritance-snapshot!
+      $kbid $subj $concept $budget)
+   (let $revision (kb-knowledge-revision $kbid)
+      (let $_
+         (collapse
+            (match &forward_member_inheritance_identity
+               (forward-member-inheritance-identity-row
+                  (fwd_member_identity $kbid $subj $concept) $id)
+               (once
+                  (add-atom &forward_member_inheritance_snapshot
+                     (forward-member-inheritance-snapshot-row
+                        $id $revision $budget)))))
+         ())))
+
 (: forward-store-member-inheritance-cache!
    (-[det]-> Number KB Statement TV (List $none)))
 (= (forward-store-member-inheritance-cache!

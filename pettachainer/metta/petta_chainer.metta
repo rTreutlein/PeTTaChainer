@@ -69,7 +69,15 @@
 
 (: add-to-kb
    (-[nondet]-> RuntimeAddition  (| Bool (List $none))))
-(= (add-to-kb $expr) (kb-add-expr live $expr))
+(= (add-to-kb $expr)
+   (let* (($added (kb-add-expr live $expr))
+          ($_revision
+             (case $expr (
+                ((rules ($_args |- ($_type ($kbid $_ctx $_vars) $_prf $_tv)))
+                   (advance-kb-knowledge-revision! (brand KB $kbid)))
+                (($_type ($kbid $_ctx $_vars) $_prf $_tv)
+                   (advance-kb-knowledge-revision! (brand KB $kbid)))))))
+      $added))
 
 ;; Inheritance induction is installed per concrete query by the compiler. The
 ;; public registration call remains valid but has no KB-local work to perform.
