@@ -1,6 +1,6 @@
 !(import! &self ../petta_chainer)
 
-;; A finite inverse-fold diagnosis. Each candidate records
+;; A compact finite inverse-problem diagnosis. Each candidate records
 ;;   (identity, production loss, independent failure prior).
 ;; An observed loss of 5 has two explanations: pump, or valve + motor.
 (: station-candidates (-[det]-> (List WeightedSubsetCandidate)))
@@ -25,11 +25,11 @@
          (And
             (CandidateModules $candidates)
             (ObservedTotalLoss $total)
-            (Compute WeightedSubsetSumInverse
+            (Compute WeightedSubsetPosteriorDP
                ($candidates $total)
                ->
-               $solutions))
-         (FaultSetPosterior $solutions))
+               $posterior))
+         (FaultPosterior $posterior))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(compileadd stationOpsKb (: pumpModule (Module pump) (STV 1.0 1.0)))
@@ -40,26 +40,23 @@
    (: projectModuleProbability
       (Implication
          (And
-            (FaultSetPosterior $solutions)
+            (FaultPosterior $posterior)
             (Module $module)
-            (Compute WeightedSubsetMarginal
-               ($solutions $module)
+            (Compute WeightedSubsetPosteriorMarginal
+               ($posterior $module)
                ->
                $probability))
          (FaultProbability $module $probability))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
-   (let (: $_proof (FaultSetPosterior $solutions) $_tv)
+   (let (: $_proof (FaultPosterior $posterior) $_tv)
       (query 30 stationOpsKb
-         (: $_proof (FaultSetPosterior $solutions) $_tv))
-      (let (((Selection (pump)) $pump-weight)
-            ((Selection (valve motor)) $pair-weight))
-         (WeightedSubsetPairs
-            (the WeightedSubsetSolutions $solutions))
-         (and
-            (and (> $pump-weight 0.7772) (< $pump-weight 0.7773))
-            (and (> $pair-weight 0.2227) (< $pair-weight 0.2228)))))
+         (: $_proof (FaultPosterior $posterior) $_tv))
+      (let $mass
+         (WeightedSubsetPosteriorMass
+            (the WeightedSubsetDPValue $posterior))
+         (and (> $mass 0.0219) (< $mass 0.0221))))
    true)
 
 !(test

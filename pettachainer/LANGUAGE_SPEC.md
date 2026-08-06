@@ -339,43 +339,74 @@ Typical distribution fold:
               -> $dist)
 ```
 
-#### Finite weighted subset-sum inverse
+#### Finite weighted subset posterior
 
-`WeightedSubsetSumInverse` is the first restricted inverse-fold helper. It
+`WeightedSubsetPosteriorDP` solves the restricted inverse problem compactly. It
 accepts a finite list of candidates, each with an identity, nonnegative exact
 contribution, and independent prior probability:
 
 ```metta
-(Compute WeightedSubsetSumInverse
+(Compute WeightedSubsetPosteriorDP
    (((WeightedCandidate pump 5 0.02)
      (WeightedCandidate valve 3 0.10)
      (WeightedCandidate motor 2 0.05))
     5)
    ->
-   $solutions)
+   $posterior)
 ```
 
-The result is one `WeightedSelections` value whose alternatives are canonical
-input-ordered sets. For the example above:
+The result is the reusable dynamic-programming table itself:
 
 ```metta
-(WeightedSelections
-   (((Selection (pump)) 0.7772727272727272)
-    ((Selection (valve motor)) 0.22272727272727275)))
+(WeightedSubsetDP
+   5
+   $candidates
+   ($prefixRow0 $prefixRow1 ... $prefixRowN)
+   ($postfixRow0 $postfixRow1 ... $postfixRowN))
 ```
 
-Weights include both selected `p` and unselected `(1-p)` factors and are
-normalized across exact solutions. Keep this joint result intact: the
-alternatives are mutually exclusive explanations, not independent facts.
-Project a per-candidate conditional probability with:
+Each row contains `(WeightedDPCell accumulatedLoss probabilityMass)` cells and
+merges configurations that reach the same loss. Prefix row `i` describes the
+candidates before `i`; postfix row `i` describes candidates `i` through the
+end. Thus row 0 in the prefix table and row N in the postfix table are both
+`(WeightedDPRow ((WeightedDPCell 0 1.0)))`.
+
+`WeightedSubsetPosteriorMass` reads the target cell from the final prefix row.
+To project candidate `i`, `WeightedSubsetPosteriorMarginal` selects `i`, then
+convolves prefix row `i` with postfix row `i+1` at
+`target - candidateContribution`, and divides by the observation mass:
 
 ```metta
-(Compute WeightedSubsetMarginal ($solutions pump) -> $probability)
+(Compute WeightedSubsetPosteriorMarginal
+   ($posterior pump) -> $probability)
 ```
 
 The current restricted mode requires unique candidate identities, a finite
-candidate list, exact nonnegative contributions, and an exact target. It does
-not yet add automatic compiler inversion for arbitrary `FoldAll` reducers.
+candidate list, nonnegative contributions, priors in `[0,1]`, and an exact
+target. Storage follows the reachable cells across the `2 * (N + 1)` rows,
+rather than the number of fault configurations. For bounded integer losses this
+is pseudo-polynomial; arbitrary exact weights can still have exponentially many
+distinct reachable sums. Rows are kept in ascending loss order. Each DP step
+scales and shifts the two branch rows and merges them linearly, while marginal
+projection uses a linear two-pointer prefix/postfix join. If `R` bounds the
+reachable losses per row, eager table construction is `O(N * R)`, one marginal
+is `O(N + R)`, and storage is `O(N * R)`.
+
+The current operator eagerly constructs all prefix and postfix rows on every
+call. This keeps the value pure and identical in both chainers, but a future
+implementation could build or cache rows lazily without changing the
+`WeightedSubsetDP` contract.
+
+Use `EnumerateWeightedSubsetExplanations` only when every matching fault set is
+actually required. It returns the earlier `WeightedSelections` joint value and
+is necessarily output-exponential. `WeightedSubsetSumInverse` remains as a
+compatibility alias for that exhaustive operation.
+
+`CandidateModules` may contain a canonical list directly, or the list may be
+collected with `FoldAll` from individual candidate facts. A fold accumulator
+must impose a stable order, preferably using explicit candidate indices;
+ordinary match order is not a canonical list order. Candidate collection is
+linear and separate from the posterior DP.
 
 ### 4) Not
 
