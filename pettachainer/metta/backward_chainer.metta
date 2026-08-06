@@ -2248,7 +2248,7 @@
       (data
          $root-gid
          (chainer-first-or ()
-            (collapse (once (goal-results $root-gid)))))))
+            (collapse (once (root-goal-results $root-gid)))))))
 
 (: chainer
    (-[nondet]-> Number (| Goal (Statement KBContext Proof TV))

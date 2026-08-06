@@ -1153,6 +1153,42 @@
       (proof-map-flat-semidet materialize-result-atom
          (proof-map-flat-semidet proof-output-atom-by-id $pids))))
 
+;; A completed root proof is an incumbent answer even if one of its revised
+;; children is superseded near the end of a bounded search. Keep it out of
+;; ordinary subgoal reasoning, but use the latest non-superseded root
+;; candidates when the live result set is transiently empty. Once a rebuilt
+;; root is committed, the normal live result path wins again.
+(: goal-incumbent-proof-step
+   (-[semidet]-> (List Number) Number (List Number)))
+(= (goal-incumbent-proof-step $acc $pid)
+   (if (proof-current-representative? $pid)
+      (append-number $acc $pid)
+      $acc))
+
+(: goal-incumbent-proof-ids (-[semidet]-> Number (List Number)))
+(= (goal-incumbent-proof-ids $gid)
+   (proof-fold-flat-semidet
+      goal-incumbent-proof-step () (goal-proof-ids $gid)))
+
+(: goal-results-for-proof-ids
+   (-[semidet]-> Number (List Number) (List RuntimeResult)))
+(= (goal-results-for-proof-ids $gid $pids)
+   (let $representatives
+      (proof-output-group-representative-pids $gid
+         (proof-output-groups $pids))
+      (proof-map-flat-semidet materialize-result-atom
+         (proof-map-flat-semidet
+            proof-output-atom-by-id $representatives))))
+
+(: root-goal-results
+   (-[semidet]-> Number (List RuntimeResult)))
+(= (root-goal-results $gid)
+   (let $current (goal-results $gid)
+      (if (== $current ())
+         (goal-results-for-proof-ids
+            $gid (goal-incumbent-proof-ids $gid))
+         $current)))
+
 (: goal-current-output
    (-[semidet]-> Number
        (| Goal (Statement KBContext Proof TV) NoCurrentScore)))

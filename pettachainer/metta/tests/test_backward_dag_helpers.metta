@@ -250,8 +250,10 @@
       (evidence-sets-overlap? (snd (proof-stats-by-id $pid-a)) (snd (proof-stats-by-id $pid-b))))
    false)
 
-;; A raw proof stays live so it can be revised with later evidence, but a
-;; non-conjunction parent that consumed the then-current representative is stale.
+;; A raw proof stays live so it can be revised with later evidence. Ordinary
+;; subgoal reasoning treats a parent that consumed the former representative
+;; as stale, while the root result view retains it as a bounded-search
+;; incumbent until a replacement root is committed.
 !(test
    (let*
       (($_clear (clear-backward-state))
@@ -276,8 +278,10 @@
        (proof-live? $old-parent)
        (length (goal-merged-proof-ids $child-gid))
        (goal-live-proof-ids $parent-gid)
+       (== (goal-incumbent-proof-ids $parent-gid) ($old-parent))
+       (not (== (root-goal-results $parent-gid) ()))
        (proof-live-cache-epoch)))
-   (true false false 1 () 0))
+   (true false false 1 () true true 0))
 
 !(test
    (let*
@@ -350,6 +354,75 @@
               (invalidate-proof-live-caches))))
       (waiter-live? (frontier-waiter 99 bundle 1.0 () () ($pid-old))))
    false)
+
+;; Aggregate replacement is atomic from the caller's perspective: after the
+;; new aggregate becomes current but before its parent is rebuilt, the parent
+;; derived from the prior snapshot remains an available incumbent.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+        ($_gidreset (change-state! bwd_gid 0))
+        ($_pidreset (change-state! bwd_pid 0))
+        ($agg-gid
+           (ensure-goal-at-depth
+              (CPU FoldAllCompiled dummy-agg-args $out) 1))
+        ($child-gid
+           (ensure-goal-at-depth
+              (test-runtime-fact
+                 (Child) (brand Proof $prf) (STV 1.0 1.0)) 2))
+        ($parent-gid
+           (ensure-goal-at-depth
+              (test-runtime-fact
+                 (AggregateParent) (brand Proof $prf) (STV 1.0 1.0)) 0))
+        ($_agg0
+           (add-atom &aggregate
+              (stored-aggregate-row
+                 $agg-gid $child-gid dummy-agg-args 1.0 0.0 ())))
+        ($pid-old
+           (store-proof-candidate $agg-gid
+              (leaf-result-candidate
+                 (CPU FoldAllCompiled dummy-agg-args 1) ())))
+        ($_agg1
+           (progn
+              (remove-atom &aggregate
+                 (stored-aggregate-row
+                    $agg-gid $child-gid dummy-agg-args
+                    1.0 0.0 ()))
+              (add-atom &aggregate
+                 (stored-aggregate-row
+                    $agg-gid $child-gid dummy-agg-args
+                    1.0 0.0 $pid-old))))
+        ($parent-pid
+           (store-proof-candidate $parent-gid
+              (proof-candidate
+                 (rule
+                    (test-runtime-fact
+                       (AggregateParent) aggregateParentProof
+                       (STV 1.0 0.8)))
+                 0.8 () ($pid-old))))
+        ($pid-new
+           (store-proof-candidate $agg-gid
+              (leaf-result-candidate
+                 (CPU FoldAllCompiled dummy-agg-args 2) ())))
+        ($_agg2
+           (progn
+              (remove-atom &aggregate
+                 (stored-aggregate-row
+                    $agg-gid $child-gid dummy-agg-args
+                    1.0 0.0 $pid-old))
+              (add-atom &aggregate
+                 (stored-aggregate-row
+                    $agg-gid $child-gid dummy-agg-args
+                    1.0 0.0 $pid-new))
+              (invalidate-proof-live-caches))))
+      ((proof-live? $pid-old)
+       (proof-list-live? ($pid-old))
+       (== (proof-children-by-id $parent-pid) ($pid-old))
+       (proof-live? $parent-pid)
+       (goal-live-proof-ids $parent-gid)
+       (== (goal-incumbent-proof-ids $parent-gid) ($parent-pid))
+       (not (== (root-goal-results $parent-gid) ()))))
+   (false false true false () true true))
 
 !(test
    (let*

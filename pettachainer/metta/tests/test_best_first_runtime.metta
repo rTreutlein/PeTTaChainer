@@ -2,6 +2,12 @@
 
 !(test (rule-marginal-score no-current 0.42) 0.42)
 
+;; Expansion budget and beam width are independent. Larger budgets therefore
+;; extend the same deterministic search prefix instead of selecting a wider
+;; set of branches from the start.
+!(test (bounded-agenda-target-size 1) 1000)
+!(test (bounded-agenda-target-size 100) 1000)
+
 !(compileadd kb (: weakFact (WeakPremise) (STV 1.0 0.1)))
 
 !(compileadd kb (: baseFact (BasePremise) (STV 1.0 1.0)))

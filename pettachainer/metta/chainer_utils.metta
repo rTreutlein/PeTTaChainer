@@ -294,7 +294,10 @@
       $score))
 
 (: bounded-agenda-target-size (-[det]-> Number Number))
-(= (bounded-agenda-target-size $steps) (min 1000 (max 1 $steps)))
+;; Beam width is a search-policy parameter, not part of the expansion budget.
+;; Keeping it fixed makes a larger budget extend the same deterministic search
+;; prefix instead of changing which branches survive pruning.
+(= (bounded-agenda-target-size $_steps) 1000)
 (: bounded-agenda-prune-factor (-[det]-> Number))
 (= (bounded-agenda-prune-factor) 64)
 

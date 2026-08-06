@@ -126,6 +126,18 @@ structural or variable-bearing pattern matching.
 may run forward chaining after one or many additions. Queries and chainer calls
 must respect their explicit step budgets.
 
+Backward agenda width is a search-policy limit independent of the expansion
+budget. With the same KB and configuration, increasing the budget must extend
+the same deterministic search prefix rather than select a different beam from
+the first step. When later evidence supersedes the representative used for new
+work, completed parents that depend on the earlier representative remain valid
+historical proofs. Ordinary subgoal reasoning still prefers live revised
+representatives. If revision temporarily leaves the root with no live result,
+the root result view returns the completed incumbent until a refined root is
+committed. A finite-budget query may therefore improve or add answers, but must
+not lose its only answer merely because it stopped between aggregate refinement
+and dependent-proof reconstruction.
+
 Forward chaining always starts from facts selected by its caller. Its agenda is
 local to that invocation and is discarded when the agenda empties or the step
 budget is exhausted. The canonical facts derived before that point remain in

@@ -17,7 +17,7 @@ designs or evidence.
 | `dc95ec1` incremental forward base-rate caches | PeTTaChainer is the semantic source of this design; `2f45e50` fixed preservation of a complete computed snapshot across partial forward deltas | No port. Preserve the existing computed/forward-approx distinction |
 | `9cfa68b` compiler and incremental cache alignment | Primarily an MM2 parity port from PeTTaChainer | No reverse port; compare individual behavior only when a regression demonstrates a gap |
 | `2df2a80` bounded FoldAll proof fanout | Solves MORK's compact-expression arity limit | Not directly applicable. Consider balanced proof trees only if PeTTa profiling shows large flat proof terms are costly |
-| `cd72100`, `814911e`, `f20107d` guided lazy backward refinement | Not currently exposed as an equivalent query policy | Candidate after cache-update scaling: refine cached subgoals within an explicit budget while retaining incumbent proofs |
+| `cd72100`, `814911e`, `f20107d` guided lazy backward refinement | The root result view now retains a completed incumbent across dependent-proof rebuilding; a dedicated cached-subgoal refinement policy is not exposed | Candidate after cache-update scaling: refine cached subgoals within an explicit budget, building on the incumbent-preserving root policy |
 | `003dcec`, `236bf06`, `1c7ca31` bounded/fused native scheduling | Implemented in MORK/MM2 scheduler primitives rather than the MeTTa chainer | Do not translate mechanically. Reassess only through a profile of the PeTTa/SWI execution path or a dependency upgrade |
 | `a97a10b` registered native Compute/FoldAll extensions | PeTTaChainer already dispatches `CPU` through `cpu-call`, including MeTTa-defined functions, and now has restricted reversible-Compute declarations | No general registry port. A native fast path remains optional for a measured expensive operator |
 
@@ -46,12 +46,20 @@ make that computation incremental automatically.
 
 ### 2. Add opt-in cached-proof refinement
 
-MM2's refinement experiment keeps the incumbent answer available while a
-bounded query explores independent alternatives. A PeTTaChainer version should
-reuse the normal goal scheduler and proof store, and should make refinement a
-query policy rather than a new inference engine. Its identity must include at
-least the KB, goal, evidence policy, and search budget. Deterministic exploration
-needs an explicit seed if sampling is introduced.
+The backward root result view now keeps an already-completed answer available
+when a child or aggregate representative is refined. Ordinary subgoal reasoning
+still prefers the live revised representative, so historical alternatives do
+not re-enter evidence aggregation. Agenda width is also independent of the
+expansion budget, so a larger budget extends the same deterministic search
+policy.
+
+MM2's remaining refinement experiment goes further: it starts from a cached
+subgoal answer and spends an explicit budget exploring independent alternatives.
+A PeTTaChainer version should reuse the normal goal scheduler and proof store,
+and should make refinement a query policy rather than a new inference engine.
+Its identity must include at least the KB, goal, evidence policy, and search
+budget. Deterministic exploration needs an explicit seed if sampling is
+introduced.
 
 This fits append-only semantics only if refinement adds proof support. It must
 not retract an incumbent proof or mutate historical evidence merely because a
