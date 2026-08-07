@@ -131,6 +131,11 @@
 (: AnnotatedStatement Type)
 (: : (-[det]-> Proof Statement TV AnnotatedStatement))
 
+;; Batch query answers retain their input position and emit one row per
+;; annotated answer. A root with no answer emits no row.
+(: QueryBatchResult Type)
+(: query-result (-[det]-> Number Atom QueryBatchResult))
+
 (: AggregateTVMode Type)
 (: result-tv AggregateTVMode)
 (: unit-stv AggregateTVMode)

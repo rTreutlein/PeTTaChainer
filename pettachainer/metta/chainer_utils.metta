@@ -296,8 +296,15 @@
 (: bounded-agenda-target-size (-[det]-> Number Number))
 ;; Beam width is a search-policy parameter, not part of the expansion budget.
 ;; Keeping it fixed makes a larger budget extend the same deterministic search
-;; prefix instead of changing which branches survive pruning.
-(= (bounded-agenda-target-size $_steps) 1000)
+;; prefix instead of changing which branches survive pruning. A batch may have
+;; more roots than the ordinary beam, and unexpanded roots must never be
+;; discarded merely because they share one arena.
+(= (bounded-agenda-target-size $_steps)
+   (let $state-values (collapse (catch (get-state bwd_root_count)))
+      (max 1000
+         (if (== $state-values ())
+            0
+            (if-error-number (car-atom $state-values) 0)))))
 (: bounded-agenda-prune-factor (-[det]-> Number))
 (= (bounded-agenda-prune-factor) 64)
 

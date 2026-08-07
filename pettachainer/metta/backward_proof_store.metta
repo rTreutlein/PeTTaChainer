@@ -373,9 +373,12 @@
    (let $_head (collapse (materialize-proof-tree-to-kb $pid))
       (materialize-proof-list-to-kb $rest)))
 
-(: materialize-goal-proofs-to-kb (-[det]-> Number (List $none)))
-(= (materialize-goal-proofs-to-kb $gid)
-   (let $_materialized (collapse (materialize-proof-list-to-kb (goal-live-proof-ids $gid)))
+(: materialize-root-goal-proofs-to-kb (-[det]-> Number (List $none)))
+(= (materialize-root-goal-proofs-to-kb $gid)
+   (let $_materialized
+      (collapse
+         (materialize-proof-list-to-kb
+            (root-goal-representative-proof-ids $gid)))
       ()))
 
 (: ProofLiveCacheRow Type)
@@ -1170,24 +1173,23 @@
    (proof-fold-flat-semidet
       goal-incumbent-proof-step () (goal-proof-ids $gid)))
 
-(: goal-results-for-proof-ids
-   (-[semidet]-> Number (List Number) (List RuntimeResult)))
-(= (goal-results-for-proof-ids $gid $pids)
-   (let $representatives
-      (proof-output-group-representative-pids $gid
-         (proof-output-groups $pids))
-      (proof-map-flat-semidet materialize-result-atom
-         (proof-map-flat-semidet
-            proof-output-atom-by-id $representatives))))
+(: root-goal-representative-proof-ids
+   (-[semidet]-> Number (List Number)))
+(= (root-goal-representative-proof-ids $gid)
+   (let $live (goal-live-proof-ids $gid)
+      (if (== $live ())
+         (proof-output-group-representative-pids $gid
+            (proof-output-groups
+               (goal-incumbent-proof-ids $gid)))
+         (proof-output-group-representative-pids $gid
+            (proof-output-groups $live)))))
 
 (: root-goal-results
    (-[semidet]-> Number (List RuntimeResult)))
 (= (root-goal-results $gid)
-   (let $current (goal-results $gid)
-      (if (== $current ())
-         (goal-results-for-proof-ids
-            $gid (goal-incumbent-proof-ids $gid))
-         $current)))
+   (proof-map-flat-semidet materialize-result-atom
+      (proof-map-flat-semidet proof-output-atom-by-id
+         (root-goal-representative-proof-ids $gid))))
 
 (: goal-current-output
    (-[semidet]-> Number

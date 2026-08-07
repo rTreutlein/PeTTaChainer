@@ -138,6 +138,14 @@ committed. A finite-budget query may therefore improve or add answers, but must
 not lose its only answer merely because it stopped between aggregate refinement
 and dependent-proof reconstruction.
 
+A multi-root query creates every root at depth zero before search and schedules
+them into one agenda. Its step budget and beam are shared by the complete batch;
+the beam floor is at least the number of roots so pruning cannot discard an
+unexpanded root merely because it joined a batch. Goal-key indexing remains
+global to the query arena, so identical roots and common subgoals reuse the same
+goal and proof state. Query-local compiled additions are unioned and installed
+once, while source variables and result lists remain isolated per input root.
+
 Forward chaining always starts from facts selected by its caller. Its agenda is
 local to that invocation and is discarded when the agenda empties or the step
 budget is exhausted. The canonical facts derived before that point remain in

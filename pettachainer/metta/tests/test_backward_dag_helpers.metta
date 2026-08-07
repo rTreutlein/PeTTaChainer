@@ -372,8 +372,12 @@
                  (Child) (brand Proof $prf) (STV 1.0 1.0)) 2))
         ($parent-gid
            (ensure-goal-at-depth
-              (test-runtime-fact
-                 (AggregateParent) (brand Proof $prf) (STV 1.0 1.0)) 0))
+              (assemble-runtime-fact
+                 (brand Statement (AggregateParent))
+                 (brand KBContext (incumbentMaterializeKb MAIN Nil))
+                 (brand Proof $prf)
+                 (the TV (STV 1.0 1.0)))
+              0))
         ($_agg0
            (add-atom &aggregate
               (stored-aggregate-row
@@ -396,9 +400,12 @@
            (store-proof-candidate $parent-gid
               (proof-candidate
                  (rule
-                    (test-runtime-fact
-                       (AggregateParent) aggregateParentProof
-                       (STV 1.0 0.8)))
+                    (assemble-runtime-fact
+                       (brand Statement (AggregateParent))
+                       (brand KBContext
+                          (incumbentMaterializeKb MAIN Nil))
+                       (brand Proof aggregateParentProof)
+                       (the TV (STV 1.0 0.8))))
                  0.8 () ($pid-old))))
         ($pid-new
            (store-proof-candidate $agg-gid
@@ -414,15 +421,25 @@
                  (stored-aggregate-row
                     $agg-gid $child-gid dummy-agg-args
                     1.0 0.0 $pid-new))
-              (invalidate-proof-live-caches))))
+              (invalidate-proof-live-caches)))
+        ($_materialize
+           (materialize-root-goal-proofs-to-kb $parent-gid)))
       ((proof-live? $pid-old)
        (proof-list-live? ($pid-old))
        (== (proof-children-by-id $parent-pid) ($pid-old))
        (proof-live? $parent-pid)
        (goal-live-proof-ids $parent-gid)
        (== (goal-incumbent-proof-ids $parent-gid) ($parent-pid))
-       (not (== (root-goal-results $parent-gid) ()))))
-   (false false true false () true true))
+       (not (== (root-goal-results $parent-gid) ()))
+       (not
+          (==
+             (collapse
+                (match &kb
+                   ((AggregateParent)
+                      (incumbentMaterializeKb MAIN Nil) $_proof $_tv)
+                   true))
+             ()))))
+   (false false true false () true true true))
 
 !(test
    (let*

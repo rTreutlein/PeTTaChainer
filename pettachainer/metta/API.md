@@ -32,9 +32,12 @@ update that fact; superseded candidates are discarded rather than accumulated.
 |---|---|
 | `(query $steps $kb $stmt)` | Backward-chain up to `$steps` to answer `$stmt` against `$kb`; yields the proven results. The expansion budget does not change the beam width. If dependent-proof revision temporarily leaves the root with no live result, its completed incumbent is returned instead. |
 | `(query-materialize $steps $kb $stmt)` | As `query`, but also writes the derived proofs back into the KB. |
+| `(query-many $steps $kb $statements)` | Compile every statement, inject their temporary additions once, and answer all roots in one shared backward-search arena. `$steps` is one total expansion budget. Emits `(query-result $index $answer)` for each answer; unanswered roots emit no row. Python: `PeTTaChainer.query_many(statements, steps)` returns an input-aligned `list[list[str]]`, including empty lists for unanswered roots. |
+| `(query-many-materialize $steps $kb $statements)` | As `query-many`, but materializes the selected representative proof trees for every root. |
 | `(forward-chain $steps $kb $facts)` | Forward-chain from a caller-selected list of compiled canonical facts. The temporary agenda is discarded when the run finishes or exhausts its budget. Returns an unordered, deduplicated list containing the final canonical facts changed by this run; that list can directly seed another run. |
 | `(forward-has-derived? $kb $type)` | True if a fact of `$type` exists in `$kb`. |
 | `(chainer $steps $goal)` / `(chainer-materialize $steps $goal)` | Lower-level backward chainer over an already-compiled goal. |
+| `(chainer-many $steps $goals)` / `(chainer-many-materialize $steps $goals)` | Lower-level shared-arena variants over compiled goals; return one result list per input goal. Duplicate and common subgoals share their goal/proof state. |
 | `(compileQuery $kb (: $prf $Type $tv))` / `(mm2compileQuery $kb $stmt)` | Compile a query into a goal + rule adds without running it. Advanced. |
 
 ## Base rates and universe size

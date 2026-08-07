@@ -18,6 +18,7 @@ designs or evidence.
 | `9cfa68b` compiler and incremental cache alignment | Primarily an MM2 parity port from PeTTaChainer | No reverse port; compare individual behavior only when a regression demonstrates a gap |
 | `2df2a80` bounded FoldAll proof fanout | Solves MORK's compact-expression arity limit | Not directly applicable. Consider balanced proof trees only if PeTTa profiling shows large flat proof terms are costly |
 | `cd72100`, `814911e`, `f20107d` guided lazy backward refinement | The root result view now retains a completed incumbent across dependent-proof rebuilding; a dedicated cached-subgoal refinement policy is not exposed | Candidate after cache-update scaling: refine cached subgoals within an explicit budget, building on the incumbent-preserving root policy |
+| MM2 `query_many` shared query session | Adopted as `query-many`/`query_many`: roots share one agenda, proof arena, temporary-add installation, and total expansion budget | Add workload-specific batch benchmarks; keep input grouping and deterministic root scheduling covered |
 | `003dcec`, `236bf06`, `1c7ca31` bounded/fused native scheduling | Implemented in MORK/MM2 scheduler primitives rather than the MeTTa chainer | Do not translate mechanically. Reassess only through a profile of the PeTTa/SWI execution path or a dependency upgrade |
 | `a97a10b` registered native Compute/FoldAll extensions | PeTTaChainer already dispatches `CPU` through `cpu-call`, including MeTTa-defined functions, and now has restricted reversible-Compute declarations | No general registry port. A native fast path remains optional for a measured expensive operator |
 
@@ -65,13 +66,17 @@ This fits append-only semantics only if refinement adds proof support. It must
 not retract an incumbent proof or mutate historical evidence merely because a
 new representative answer is stronger.
 
-### 3. Consider a batch-query API only for demonstrated workloads
+### 3. Benchmark the shared batch-query API
 
-MM2 has a specialized `query_many` path that amortizes setup and handles cached
-empty Member folds without repeating broad fallback scans. PeTTaChainer already
-shares state inside one query and can express batches at the MeTTa level, so a
-new public API is not automatically beneficial. Add one only after a benchmark
-shows repeated host/query-arena setup is material.
+`query-many` now compiles all inputs before search, installs the union of their
+temporary additions once, and schedules all roots in one backward arena. Common
+subgoals therefore share proof work, while results retain their input indexes.
+The Python `query_many` wrapper returns aligned result lists.
+
+The next step is workload-specific measurement: compare a batch against the
+same roots queried separately, distinguishing setup savings from actual shared
+subgoal reuse. Include empty Member-inheritance folds and repeated base-rate
+dependencies, since those motivated MM2's specialized path.
 
 ## Append-only constraints for all ports
 

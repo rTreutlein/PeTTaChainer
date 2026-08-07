@@ -33,8 +33,7 @@ def get_language_spec(llm_focused: bool = True) -> str:
 def _query_worker(
     added_atoms: List[Tuple[str, bool]],
     kb: str,
-    steps: int,
-    atom: str,
+    expression: str,
     logic_config_path: Optional[str],
     conn,
 ):
@@ -43,7 +42,7 @@ def _query_worker(
         handler.kb = kb
         if added_atoms:
             handler.add_atoms_no_check(added_atoms)
-        atoms = handler.handler.process_metta_string(f"!(query {steps} {kb} {atom})")
+        atoms = handler.handler.process_metta_string(f"!({expression})")
         conn.send(("ok", atoms))
     except Exception as exc:  # pragma: no cover
         conn.send(("err", (exc.__class__.__name__, str(exc), traceback.format_exc())))
@@ -53,6 +52,27 @@ def _query_worker(
 
 def _as_list(value) -> List[str]:
     return [value] if isinstance(value, str) else value
+
+
+def _group_query_many_results(rows: List[str], count: int) -> List[List[str]]:
+    grouped: List[List[str]] = [[] for _ in range(count)]
+    prefix = "(query-result "
+    for row in rows:
+        if not row.startswith(prefix) or not row.endswith(")"):
+            raise RuntimeError(f"Unexpected PeTTa query-many result: {row}")
+        index_end = row.find(" ", len(prefix))
+        if index_end < 0:
+            raise RuntimeError(f"Missing query index in PeTTa result: {row}")
+        try:
+            index = int(row[len(prefix):index_end])
+        except ValueError as exc:
+            raise RuntimeError(f"Invalid query index in PeTTa result: {row}") from exc
+        if index < 0 or index >= count:
+            raise RuntimeError(f"Out-of-range query index in PeTTa result: {row}")
+        answer = row[index_end + 1:-1]
+        if answer != "()":
+            grouped[index].append(answer)
+    return grouped
 
 
 class PeTTaChainer:
@@ -233,12 +253,12 @@ class PeTTaChainer:
             "(superpose $changed))"
         )
 
-    def query(self, atom: str, steps: int = 100, timeout_sec: Optional[float] = 10) -> List[str]:
-        self._validate("query", atom, atom, check_query)
-
+    def _run_query_expression(
+        self, expression: str, timeout_sec: Optional[float]
+    ) -> List[str]:
         if timeout_sec is None or timeout_sec <= 0:
             return _as_list(
-                self.handler.process_metta_string(f"!(query {steps} {self.kb} {atom})")
+                self.handler.process_metta_string(f"!({expression})")
             )
 
         main_file = getattr(__main__, "__file__", None)
@@ -248,7 +268,7 @@ class PeTTaChainer:
                 main_file or "interactive __main__",
             )
             return _as_list(
-                self.handler.process_metta_string(f"!(query {steps} {self.kb} {atom})")
+                self.handler.process_metta_string(f"!({expression})")
             )
 
         # Use a fresh spawned process so we don't inherit a live SWI/Janus runtime.
@@ -259,8 +279,7 @@ class PeTTaChainer:
             args=(
                 self._added_atoms,
                 self.kb,
-                steps,
-                atom,
+                expression,
                 str(self._logic_config_path) if self._logic_config_path else None,
                 child_conn,
             ),
@@ -281,11 +300,41 @@ class PeTTaChainer:
                 raise RuntimeError("PeTTa query worker exited without returning a result")
             status, payload = parent_conn.recv()
             if status == "ok":
-                return payload
+                return _as_list(payload)
             err_type, err_msg, err_tb = payload
             raise RuntimeError(f"PeTTa query worker failed [{err_type}]: {err_msg}\n{err_tb}")
         finally:
             parent_conn.close()
+
+    def query(self, atom: str, steps: int = 100, timeout_sec: Optional[float] = 10) -> List[str]:
+        self._validate("query", atom, atom, check_query)
+        return self._run_query_expression(
+            f"query {steps} {self.kb} {atom}", timeout_sec
+        )
+
+    def query_many(
+        self,
+        atoms: Sequence[str],
+        steps: int = 100,
+        timeout_sec: Optional[float] = 10,
+    ) -> List[List[str]]:
+        """Answer several roots in one shared backward-search arena.
+
+        ``steps`` is one total expansion budget for the batch. Results stay
+        aligned with ``atoms``; an unproved root has an empty result list.
+        """
+        queries = list(atoms)
+        if not queries:
+            return []
+        for atom in queries:
+            self._validate("query", atom, atom, check_query)
+        expression = (
+            f"query-many {steps} {self.kb} "
+            f"({' '.join(queries)})"
+        )
+        return _group_query_many_results(
+            self._run_query_expression(expression, timeout_sec), len(queries)
+        )
 
     language_spec = staticmethod(get_language_spec)
 

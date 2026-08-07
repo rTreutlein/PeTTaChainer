@@ -64,6 +64,20 @@
    (schedule-goal-row
       $agenda $score $gid (goal-by-id $gid)))
 
+;; A foreign heap loses its nominal payload type through fold-flat. Keep the
+;; typed schedule boundary explicit while constructing the one shared root
+;; agenda.
+(: schedule-root-goals-heap
+   (-[det]-> (Heap (| QueueGoal QueueAggregate)) (List Number)
+       (Heap (| QueueGoal QueueAggregate))))
+(= (schedule-root-goals-heap $agenda ()) $agenda)
+(= (schedule-root-goals-heap $agenda (cons $gid $rest))
+   (let $next
+      (chainer-first-or $agenda
+         (collapse
+            (once (schedule-goal-heap $agenda 1.0 $gid))))
+      (schedule-root-goals-heap $next $rest)))
+
 (: schedule-goal-row
    (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number Number StoredGoalRow (Heap (| QueueGoal QueueAggregate))))
 (= (schedule-goal-row
@@ -2218,20 +2232,25 @@
 (= (chainer-first-or $fallback ()) $fallback)
 (= (chainer-first-or $_fallback (cons $value $_rest)) $value)
 
-(: chainer-run
-   (-[nondet]-> Number (| Goal (Statement KBContext Proof TV))
-       (Number (List RuntimeResult))))
-(= (chainer-run $steps $goal)
+(: chainer-run-many
+   (-[nondet]-> Number
+       (List (| Goal (Statement KBContext Proof TV)))
+       (List (Number (List RuntimeResult)))))
+(= (chainer-run-many $steps $goals)
    (let*
       (($_clear (foreach-flat remove-all-atoms (&goal &goal_lookup &goal_waiter &aggregate &aggregate_search_budget &aggregate_forward_approx &proof &proof_parent &proof_invalidated_epoch &proof_live_cache &goal_live_cache &proof_static_live &proof_superseded)))
        ($_reset (foreach-flat (|-> ($key) (change-state! $key 0)) (bwd_gid bwd_pid bwd_live_epoch)))
-       ($root-gid (ensure-goal-at-depth $goal 0))
+       ($root-gids
+          (map-flat
+             (|-> ($goal) (ensure-goal-at-depth $goal 0))
+             $goals))
+       ($scheduled-root-gids (list_to_set $root-gids))
+       ($_root-count
+          (change-state! bwd_root_count
+             (length $scheduled-root-gids)))
        ($agenda0
-          (chainer-first-or (empty_heap)
-             (collapse
-                (once
-                   (schedule-goal-heap
-                      (empty_heap) 1.0 $root-gid)))))
+          (schedule-root-goals-heap
+             (empty_heap) $scheduled-root-gids))
        ($search-result
           (chainer-first-or
              (data 0 $agenda0)
@@ -2245,10 +2264,34 @@
        ($_harvest (harvest-base-rates))
        ($_empty-member-cache
           (harvest-complete-member-inheritance-empty-caches!)))
-      (data
-         $root-gid
-         (chainer-first-or ()
-            (collapse (once (root-goal-results $root-gid)))))))
+      (map-flat
+         (|-> ($root-gid)
+            (data
+               $root-gid
+               (chainer-first-or ()
+                  (collapse
+                     (once (root-goal-results $root-gid))))))
+         $root-gids)))
+
+(: chainer-run
+   (-[nondet]-> Number (| Goal (Statement KBContext Proof TV))
+       (Number (List RuntimeResult))))
+(= (chainer-run $steps $goal)
+   (chainer-first-or
+      (data 0 ())
+      (chainer-run-many $steps ($goal))))
+
+(: chainer-run-results
+   (-[det]-> (Number (List RuntimeResult)) (List RuntimeResult)))
+(= (chainer-run-results ($_root-gid $results)) $results)
+(: chainer-many
+   (-[nondet]-> Number
+       (List (| Goal (Statement KBContext Proof TV)))
+       (List (List RuntimeResult))))
+(= (chainer-many $steps $goals)
+   (map-flat
+      chainer-run-results
+      (chainer-run-many $steps $goals)))
 
 (: chainer
    (-[nondet]-> Number (| Goal (Statement KBContext Proof TV))
@@ -2262,5 +2305,24 @@
        (List RuntimeResult)))
 (= (chainer-materialize $steps $goal)
    (let ($root-gid $results) (chainer-run $steps $goal)
-      (let $_materialized (materialize-goal-proofs-to-kb $root-gid)
+      (let $_materialized (materialize-root-goal-proofs-to-kb $root-gid)
          $results)))
+
+(: materialize-chainer-run-root!
+   (-[det]-> (Number (List RuntimeResult)) (List $none)))
+(= (materialize-chainer-run-root! ($root-gid $_results))
+   (materialize-root-goal-proofs-to-kb $root-gid))
+(: chainer-many-materialize
+   (-[nondet]-> Number
+       (List (| Goal (Statement KBContext Proof TV)))
+       (List (List RuntimeResult))))
+(= (chainer-many-materialize $steps $goals)
+   (let*
+      (($runs (chainer-run-many $steps $goals))
+       ($_materialized
+          (foreach-flat
+             materialize-chainer-run-root!
+             $runs)))
+      (map-flat
+         chainer-run-results
+         $runs)))

@@ -104,6 +104,23 @@ query_eval = handler.evaluate_query("(: $prf (Dog fido) $tv)")
 check_query(query_eval)
 ```
 
+## Python API: Multi-root Queries
+
+```python
+from pettachainer import PeTTaChainer
+
+handler = PeTTaChainer()
+handler.add_atom("(: a (A) (STV 1.0 1.0))")
+handler.add_atom("(: b (B) (STV 0.8 0.9))")
+
+results = handler.query_many(
+    ["(: $prf (A) $tv)", "(: $prf (B) $tv)"],
+    steps=10,
+)
+# results[0] contains answers for A; results[1] contains answers for B.
+# The roots share one search arena and one total step budget.
+```
+
 ## Python API: Forward Chaining
 
 ```python

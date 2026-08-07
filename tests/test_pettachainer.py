@@ -4,6 +4,37 @@ from pettachainer import PeTTaChainer
 
 
 class TestPeTTaChainer(unittest.TestCase):
+    def test_query_many_preserves_order_and_empty_roots(self):
+        handler = PeTTaChainer()
+        handler.add_atom("(: batch_a (BatchA) (STV 1.0 1.0))")
+        handler.add_atom("(: batch_b (BatchB) (STV 0.5 0.8))")
+        handler.add_atom("(: batch_c1 (BatchC one) (STV 1.0 1.0))")
+        handler.add_atom("(: batch_c2 (BatchC two) (STV 1.0 1.0))")
+
+        results = handler.query_many(
+            [
+                "(: $prf (BatchA) $tv)",
+                "(: $prf (BatchB) $tv)",
+                "(: $prf (BatchMissing) $tv)",
+                "(: $prf (BatchC $x) $tv)",
+            ],
+            steps=3,
+            timeout_sec=0,
+        )
+
+        self.assertEqual(len(results), 4)
+        self.assertEqual(results[0], ["(: batch_a (BatchA) (STV 1.0 1.0))"])
+        self.assertEqual(results[1], ["(: batch_b (BatchB) (STV 0.5 0.8))"])
+        self.assertEqual(results[2], [])
+        self.assertEqual(
+            results[3],
+            [
+                "(: batch_c1 (BatchC one) (STV 1.0 1.0))",
+                "(: batch_c2 (BatchC two) (STV 1.0 1.0))",
+            ],
+        )
+        self.assertEqual(handler.query_many([], timeout_sec=0), [])
+
     def test_forward_chain_derives_fact_visible_to_backward_query(self):
         handler = PeTTaChainer()
         handler.add_atom("(: edge_ab (Edge A B) (STV 1.0 1.0))")
