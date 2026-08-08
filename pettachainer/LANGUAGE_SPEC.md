@@ -248,15 +248,15 @@ antecedent may instead request existential aggregation explicitly with:
 ```
 
 `Exists` has the form `(Exists ($var ...) body)` and must wrap one complete
-side of a stored implication. Its body is queried for every witness, the
-body truth values are combined with existential disjunction, and free body
-variables such as `$person` form independent result groups. The binder scopes
-over its complete body, so the same `$child` must satisfy both predicates in
-the example. Put `And` inside the binder when its body is conjunctive; an
-`Exists` nested inside an outer `And` is invalid. A bound variable name may not
-be reused on the implication's other side.
+side of a stored implication. An antecedent accepts either a matching direct
+`ExistentialClaim` or the disjunction obtained by querying its body for every
+currently known witness. Free body variables such as `$person` form independent
+result groups. The binder scopes over its complete body, so the same `$child`
+must satisfy both predicates in the example. Put `And` inside the binder when
+its body is conjunctive; an `Exists` nested inside an outer `And` is invalid. A
+bound variable name may not be reused on the implication's other side.
 
-An existential conclusion introduces a stable witness:
+An explicit existential conclusion introduces a proposition-level claim:
 
 ```metta
 !(compileadd kb
@@ -267,11 +267,18 @@ An existential conclusion introduces a stable witness:
        (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 ```
 
-For a proof of `(Seed alice)`, `$y` becomes a term shaped like
-`(exists generate 0 (alice))`. The rule name and witness index distinguish the
-witness, while the retained premise bindings make it stable for the same input
-and distinct across rules, binders, or inputs. Variables which occur only in
-an ordinary conclusion receive this treatment implicitly as well.
+For a proof of `(Seed alice)`, the stored result is:
+
+```metta
+(ExistentialClaim (GeneratedBy alice (exists-slot 0)))
+```
+
+`exists-slot` is a canonical bound position, not an object and not a claim that
+a new object distinct from all known objects was generated. Independent rules
+for the same quantified body therefore contribute to the same existential
+proposition. Variables which occur only in an ordinary, unwrapped conclusion
+retain the constructive behavior and become stable `(exists rule index args)`
+Skolem terms.
 
 Variables in an ordinary antecedent retain the implication's universal scope
 even when they do not occur in the consequent. Use explicit `Exists` when the
@@ -281,6 +288,21 @@ dependencies of generated consequent witnesses.
 Nested existential binders, direct existential queries, and existential terms
 in bidirectional implications are currently rejected rather than interpreted
 as ordinary predicates.
+
+Two additional complete-premise forms expose an existential's open witness
+population without treating it as complete:
+
+```metta
+(KnownExistential ($y) (GeneratedBy alice $y))
+(ExistentialResidual ($y) (GeneratedBy alice $y))
+```
+
+`KnownExistential` folds the matching witness TVs with `OrFormula` to produce
+the currently enumerated disjunction D. `ExistentialResidual` also consumes the
+corresponding direct `ExistentialClaim` E and calculates the remaining U from
+`E = D or U`. The latter uses variance-based confidence propagation rather than
+copying the existential confidence onto U. Both forms are lazy FoldAll-backed
+premises and their bound variables do not escape into the conclusion.
 
 ## Built-in Premise Forms
 

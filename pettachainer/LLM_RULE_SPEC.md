@@ -117,10 +117,11 @@ body:
 ```
 
 On an antecedent, `Exists` must wrap that complete side of a stored
-`Implication`. The variables listed in `($child ...)` are folded as witnesses;
-other body variables remain correlated with the rule. Put conjuncts inside the
-binder's body. Do not nest `Exists` inside an outer `And`, and do not reuse a
-bound variable on the consequent side.
+`Implication`. It accepts either a matching direct `ExistentialClaim` or the OR
+fold over currently enumerable witnesses. Other body variables remain
+correlated with the rule. Put conjuncts inside the binder's body. Do not nest
+`Exists` inside an outer `And`, and do not reuse a bound variable on the
+consequent side.
 
 `Exists` may also wrap a stored implication conclusion:
 
@@ -128,12 +129,31 @@ bound variable on the consequent side.
 (Exists ($y) (GeneratedBy $x $y))
 ```
 
-The compiler replaces `$y` with a stable witness depending on the rule and the
-free antecedent variables. Variables bound by an existential antecedent are
-eliminated by aggregation and are not witness dependencies. A variable
-occurring only in an unwrapped conclusion is given the same implicit witness
-treatment. Do not generate nested `Exists`, direct `Exists` queries, or
+The compiler stores a proposition-level claim such as
+`(ExistentialClaim (GeneratedBy $x (exists-slot 0)))`. `exists-slot` marks a
+bound position; it is not a concrete object. A variable occurring only in an
+unwrapped conclusion instead keeps the constructive behavior and becomes a
+stable `(exists rule index args)` Skolem term. Variables bound by an
+existential antecedent are eliminated by aggregation and are not witness
+dependencies. Do not generate nested `Exists`, direct `Exists` queries, or
 `Exists` inside `BiImplication`.
+
+When a rule needs the disjunction of only the currently known witnesses, use:
+
+```metta
+(KnownExistential ($y) (GeneratedBy $x $y))
+```
+
+When it needs the unexplained portion of a matching direct existential claim,
+use:
+
+```metta
+(ExistentialResidual ($y) (GeneratedBy $x $y))
+```
+
+The latter computes U from `E = D or U`, where D is the lazy OR fold over known
+witnesses. Neither form proves that the witness population is complete, and
+their bound variables must not be reused in the conclusion.
 
 ### Compute
 

@@ -54,8 +54,8 @@
       (: $prf (HasDoctorChild eve) $tv))
    ())
 
-;; A conclusion-local variable becomes a stable witness depending on the
-;; variables retained from the premise.
+;; An explicit existential conclusion becomes a proposition-level claim. Its
+;; bound position is canonical, not a concrete Skolem object.
 !(compileadd explicitExistsConclusionKb
    (: aliceSeed (Seed alice) (STV 1.0 1.0)))
 
@@ -68,11 +68,39 @@
 
 !(test
    (query 20 explicitExistsConclusionKb
-      (: $prf (GeneratedBy alice $witness) $tv))
+      (: $prf
+         (ExistentialClaim
+            (GeneratedBy alice (exists-slot 0)))
+         $tv))
    (: (by generateExplicit aliceSeed)
-      (GeneratedBy alice
-         (exists generateExplicit 0 (alice)))
+      (ExistentialClaim
+         (GeneratedBy alice (exists-slot 0)))
       (STV 1.0 0.9998000399670116)))
+
+;; The claim does not assert that one syntactically new object is the witness.
+!(test
+   (query 20 explicitExistsConclusionKb
+      (: $prf (GeneratedBy alice $witness) $tv))
+   ())
+
+;; A downstream Exists premise consumes the proposition-level claim even when
+;; no concrete GeneratedBy witness is known. The separately compiled witness
+;; fold remains available as an alternative proof path when components exist.
+!(compileadd explicitExistsConclusionKb
+   (: consumeGenerated
+      (Implication
+         (Exists ($y) (GeneratedBy alice $y))
+         (HasGenerated alice))
+      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+
+!(test
+   (not
+      (==
+         (collapse
+            (query 40 explicitExistsConclusionKb
+               (: $proof (HasGenerated alice) $tv)))
+         ()))
+   true)
 
 ;; A variable consumed by existential antecedent aggregation cannot leak into
 ;; the dependency list of a generated consequent witness.
@@ -88,9 +116,11 @@
 
 !(test
    (query 20 aggregatedWitnessKb
-      (: $proof (Generated (exists aggregatedGenerate 0 ())) $tv))
+      (: $proof
+         (ExistentialClaim (Generated (exists-slot 0)))
+         $tv))
    (: (by aggregatedGenerate (disjunction observedP))
-      (Generated (exists aggregatedGenerate 0 ()))
+      (ExistentialClaim (Generated (exists-slot 0)))
       (STV 1.0 0.999800029971008)))
 
 ;; The same conclusion-only treatment applies to the implicit implication
@@ -183,3 +213,110 @@
             (Implication (A) (B) (C))
             (CTV (STV 1.0 1.0) (STV 0.0 1.0)))))
    ())
+
+;; A direct existential claim and the disjunction of known witnesses retain
+;; separate estimates. Their difference is exposed as an explicit residual.
+!(compileadd existentialResidualKb
+   (: fidoDog (Dog fido) (STV 1.0 1.0)))
+!(compileadd existentialResidualKb
+   (: dogChasesCat
+      (Implication
+         (Dog $dog)
+         (Exists ($cat)
+            (And (Cat $cat) (Chases $dog $cat))))
+      (CTV (STV 0.95 0.9) (STV 0.0 1.0))))
+
+!(compileadd existentialResidualKb
+   (: miloCat (Cat milo) (STV 1.0 0.99)))
+!(compileadd existentialResidualKb
+   (: fidoRarelyChasesMilo
+      (Chases fido milo) (STV 0.02 0.9)))
+!(compileadd existentialResidualKb
+   (: lunaCat (Cat luna) (STV 1.0 0.99)))
+!(compileadd existentialResidualKb
+   (: fidoRarelyChasesLuna
+      (Chases fido luna) (STV 0.03 0.9)))
+
+!(compileadd existentialResidualKb
+   (: exposeKnownWitnesses
+      (Implication
+         (KnownExistential ($cat)
+            (And (Cat $cat) (Chases fido $cat)))
+         (KnownWitnessDisjunction fido))
+      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd existentialResidualKb
+   (: exposeOtherWitness
+      (Implication
+         (ExistentialResidual ($cat)
+            (And (Cat $cat) (Chases fido $cat)))
+         (OtherWitnessEstimate fido))
+      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+
+!(test
+   (query 200 existentialResidualKb
+      (: $proof
+         (ExistentialClaim
+            (And
+               (Cat (exists-slot 0))
+               (Chases fido (exists-slot 0))))
+         $tv))
+   (: (by dogChasesCat fidoDog)
+      (ExistentialClaim
+         (And
+            (Cat (exists-slot 0))
+            (Chases fido (exists-slot 0))))
+      (STV 0.95 0.899999998460563)))
+
+!(test
+   (query 300 existentialResidualKb
+      (: $proof (KnownWitnessDisjunction fido) $tv))
+   (: (by exposeKnownWitnesses
+          (disjunction
+             (conjunction miloCat fidoRarelyChasesMilo)
+             (conjunction lunaCat fidoRarelyChasesLuna)))
+      (KnownWitnessDisjunction fido)
+      (STV 0.0494 0.9010944415002473)))
+
+!(test
+   (query 300 existentialResidualKb
+      (: $proof (OtherWitnessEstimate fido) $tv))
+   (: (by exposeOtherWitness
+          (conjunction
+             (by dogChasesCat fidoDog)
+             (disjunction
+                (conjunction miloCat fidoRarelyChasesMilo)
+                (conjunction lunaCat fidoRarelyChasesLuna))))
+      (OtherWitnessEstimate fido)
+      (STV 0.9474016410687987 0.8948358186906257)))
+
+;; Adding a stronger known witness leaves the direct existential proof intact,
+;; increases D, and refines the residual estimate downward.
+!(compileadd existentialResidualKb
+   (: felixCat (Cat felix) (STV 1.0 0.99)))
+!(compileadd existentialResidualKb
+   (: fidoOftenChasesFelix
+      (Chases fido felix) (STV 0.6 0.9)))
+
+!(test
+   (query 300 existentialResidualKb
+      (: $proof (KnownWitnessDisjunction fido) $tv))
+   (: (by exposeKnownWitnesses
+          (disjunction
+             (conjunction miloCat fidoRarelyChasesMilo)
+             (conjunction lunaCat fidoRarelyChasesLuna)
+             (conjunction felixCat fidoOftenChasesFelix)))
+      (KnownWitnessDisjunction fido)
+      (STV 0.61976 0.9043600864574071)))
+
+!(test
+   (query 300 existentialResidualKb
+      (: $proof (OtherWitnessEstimate fido) $tv))
+   (: (by exposeOtherWitness
+          (conjunction
+             (by dogChasesCat fidoDog)
+             (disjunction
+                (conjunction miloCat fidoRarelyChasesMilo)
+                (conjunction lunaCat fidoRarelyChasesLuna)
+                (conjunction felixCat fidoOftenChasesFelix))))
+      (OtherWitnessEstimate fido)
+      (STV 0.8685041026719965 0.7430346472921185)))

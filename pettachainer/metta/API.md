@@ -40,6 +40,50 @@ update that fact; superseded candidates are discarded rather than accumulated.
 | `(chainer-many $steps $goals)` / `(chainer-many-materialize $steps $goals)` | Lower-level shared-arena variants over compiled goals; return one result list per input goal. Duplicate and common subgoals share their goal/proof state. |
 | `(compileQuery $kb (: $prf $Type $tv))` / `(mm2compileQuery $kb $stmt)` | Compile a query into a goal + rule adds without running it. Advanced. |
 
+## Existential rules and witness views
+
+An explicit conclusion such as
+
+```metta
+(Implication
+   (Dog $dog)
+   (Exists ($cat) (And (Cat $cat) (Chases $dog $cat))))
+```
+
+derives a proposition-level claim with canonical bound positions:
+
+```metta
+(ExistentialClaim
+   (And
+      (Cat (exists-slot 0))
+      (Chases $dog (exists-slot 0))))
+```
+
+`exists-slot` is not an object and does not assert that a new cat distinct from
+all known cats exists. Multiple rules for the same quantified body therefore
+contribute evidence to the same claim. Implicit conclusion-only variables keep
+the older constructive behavior and produce stable `(exists rule index args)`
+Skolem terms.
+
+An ordinary `(Exists ($x ...) $body)` antecedent compiles two alternative proof
+paths: a matching direct `ExistentialClaim`, and the OR fold over currently
+enumerable body instances. A non-constructive existential conclusion can thus
+feed a downstream existential rule even when no concrete witness is known.
+
+Two complete-side premise forms expose the relationship between a direct claim
+and the witnesses currently enumerable from the KB:
+
+| Form | Meaning |
+|---|---|
+| `(KnownExistential ($x ...) $body)` | Fold the truth values of matching body instances with `OrFormula`. This is the currently enumerated witness disjunction D, not a proof that the population is complete. |
+| `(ExistentialResidual ($x ...) $body)` | Match the corresponding direct `ExistentialClaim`, build D, and calculate U from E = D or U using `ExistentialResidualFormula`. Its confidence is propagated from both E and D. |
+
+Both are lazy, budgeted FoldAll producers. As new witness facts become
+available, their aggregate proofs refine without retracting the direct
+existential proof. See `examples/existential_residual.metta` for a runnable
+example in which two weak known cats leave a strong residual and a later Felix
+witness moves support from that residual into the enumerated disjunction.
+
 ## Base rates and universe size
 
 | Function | Meaning |

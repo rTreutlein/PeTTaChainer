@@ -128,6 +128,28 @@
       (STV 0.0 0.0)
       (STV (min 1.0 (max 0.0 (/ (- $sab $sa) (- 1.0 $sa)))) (min $cab $ca))))
 
+;; Split a full existential E into the disjunction D of currently enumerated
+;; witnesses and an independent residual U, E = D or U.  Strength is the exact
+;; noisy-OR inverse.  Confidence uses first-order variance propagation through
+;; u = (e-d)/(1-d), so a weakly supported aggregate cannot inherit the full
+;; existential's confidence merely through projection.
+(: ExistentialResidualFormula (-[det]-> STVType STVType STVType))
+(= (ExistentialResidualFormula (STV $se $ce) (STV $sd $cd))
+   (if (>= $sd 1.0)
+      (STV 0.0 0.0)
+      (let*
+         (($den (- 1.0 $sd))
+          ($su (min 1.0 (max 0.0 (/ (- $se $sd) $den))))
+          ($Ve (ideal-var $se $ce))
+          ($Vd (ideal-var $sd $cd))
+          ($den2 (* $den $den))
+          ($slope-d (/ (- 1.0 $se) $den2))
+          ($Vu (+ (/ $Ve $den2) (* (* $slope-d $slope-d) $Vd))))
+         (STV $su
+            (if (or (<= $ce 0.0) (<= $cd 0.0))
+               0.0
+               (ideal-conf-from-var $su $Vu))))))
+
 (: NotFormula (-[det]-> STVType STVType))
 (= (NotFormula (STV $s $c)) (STV (- 1 $s) $c))
 

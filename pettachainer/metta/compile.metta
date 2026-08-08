@@ -181,13 +181,15 @@
                  $antecedent $consequent)))
       true))
 
-;; Runtime rule shapes and base-rate patterns do not carry source binders. The
-;; binder has already selected aggregation or witness generation during rule
-;; lowering.
+;; Runtime rule shapes and base-rate patterns do not carry source binders.
+;; Existential premises select aggregation during lowering.  Existential
+;; conclusions retain a proposition-level wrapper so existence is not confused
+;; with an assertion about one concrete Skolem object.
 (: implication-source-term (-[det]-> Atom Atom))
 (= (implication-source-term $term)
    (if (explicit-exists-term? $term)
-      (car-atom (cdr-atom (cdr-atom $term)))
+      (ExistentialClaim
+         (car-atom (cdr-atom (cdr-atom $term))))
       $term))
 
 ;; Variables bound by an existential antecedent are consumed by aggregation
@@ -195,12 +197,20 @@
 (: implication-antecedent-free-vars
    (-[semidet]-> Atom (List Variable)))
 (= (implication-antecedent-free-vars $antecedent)
-   (if (explicit-exists-term? $antecedent)
-      (let (Exists $binder $body) $antecedent
+   (case $antecedent (
+      ((Exists $binder $body)
          (the (List Variable)
             (\== (list_to_set (extract-vars $body))
                  (list_to_set (explicit-exists-vars $binder)))))
-      (list_to_set (extract-vars $antecedent))))
+      ((KnownExistential $binder $body)
+         (the (List Variable)
+            (\== (list_to_set (extract-vars $body))
+                 (list_to_set (explicit-exists-vars $binder)))))
+      ((ExistentialResidual $binder $body)
+         (the (List Variable)
+            (\== (list_to_set (extract-vars $body))
+                 (list_to_set (explicit-exists-vars $binder)))))
+      ($_other (list_to_set (extract-vars $antecedent))))))
 
 (: SkolemizeState (Newtype (Number Statement)))
 
@@ -217,6 +227,25 @@
        ($elem (exists $rule $idx $avars)))
       (brand SkolemizeState ((+ 1 $idx) $atom))))
 
+;; ExistentialClaim bodies use canonical slots rather than Skolem terms.  Two
+;; independent rules proving the same quantified body therefore meet at the
+;; same proposition, while no slot can be mistaken for an ordinary object.
+(: existential-slot-step
+   (-[det]-> Proof (List Variable) SkolemizeState Variable SkolemizeState))
+(= (existential-slot-step $_rule $_avars $state $elem)
+   (let*
+      (($idx (fst $state))
+       ($atom (snd $state))
+       ($elem (exists-slot $idx)))
+      (brand SkolemizeState ((+ 1 $idx) $atom))))
+
+(: existential-claim-term? (-[det]-> Atom Bool))
+(= (existential-claim-term? $term)
+   (if (is-expr $term)
+      (let $head (car-atom $term)
+         (if (is-var $head) false (== $head ExistentialClaim)))
+      false))
+
 (: skolemize-conclusion-vars
    (-[det]-> Proof (List Variable) Statement Statement))
 (= (skolemize-conclusion-vars $rule $avars $exprb)
@@ -225,11 +254,17 @@
          (($bvars (list_to_set (extract-vars $exprb)))
            ($onlyb (\== $bvars $avars))
            ($state
-              (sealed $onlyb
-                 (fold-flat
-                    (skolemize-step $rule $avars)
-                    (brand SkolemizeState (0 $exprb))
-                    $onlyb))))
+              (if (existential-claim-term? $exprb)
+                 (sealed $onlyb
+                    (fold-flat
+                       (existential-slot-step $rule $avars)
+                       (brand SkolemizeState (0 $exprb))
+                       $onlyb))
+                 (sealed $onlyb
+                    (fold-flat
+                       (skolemize-step $rule $avars)
+                       (brand SkolemizeState (0 $exprb))
+                       $onlyb)))))
          (snd $state))))
 
 (: remove-index (-[det]-> Number (List $item) (List $item)))
@@ -623,6 +658,8 @@
 (= (source-computation-head? $head)
    (case $head (
       (Compute true)
+      (KnownExistential true)
+      (ExistentialResidual true)
       (MapDist true)
       (Map2Dist true)
       (AverageDist true)
@@ -855,6 +892,19 @@
       (case $premise (
            ((Implication $_antecedent $_consequent)
               (leaf-source-bundle $kb $ctx $vars $premise))
+           ((KnownExistential $binder $body)
+              (let $bound-vars
+                 (list_to_set (explicit-exists-vars $binder))
+                 (if (== $bound-vars ())
+                    (empty)
+                    (fold-existential-premise-bundle
+                       $kb $ctx $vars (brand Statement $body)
+                       (compile-var-list-subtract
+                          (list_to_set (extract-vars $body))
+                          $bound-vars)))))
+           ((ExistentialResidual $binder $body)
+              (existential-residual-premise-bundle
+                 $kb $ctx $vars $binder $body))
            ((Compute $f $args -> $res)
               (premise-bundle ((CPU $f $args $res))
                  (cpu-premise-tv $f $args $res) cpu))
@@ -974,6 +1024,20 @@
       (compile-var-list-subtract $rest $exclude)
       (cons $var (compile-var-list-subtract $rest $exclude))))
 
+;; Build the canonical direct-claim statement corresponding to a source
+;; binder/body pair. Free variables remain available for grouping; only bound
+;; witness positions become slots.
+(: existential-claim-statement
+   (-[semidet]-> Atom Atom Statement))
+(= (existential-claim-statement $binder $body)
+   (let*
+      (($bound-vars (list_to_set (explicit-exists-vars $binder)))
+       ($body-vars (list_to_set (extract-vars $body)))
+       ($free-vars (compile-var-list-subtract $body-vars $bound-vars)))
+      (skolemize-conclusion-vars
+         existential-claim $free-vars
+         (brand Statement (ExistentialClaim $body)))))
+
 ;; An explicit existential premise collapses all matching witnesses with
 ;; OrFormula. Free variables form independent groups, while variables named by
 ;; the binder do not escape into the compiled rule.
@@ -995,6 +1059,48 @@
             $fold-tv
             cpu))))
 
+;; A direct proposition-level existential is a second proof path for `Exists`,
+;; distinct from the enumerable-witness fold. Compiling both paths lets a
+;; downstream existential premise consume non-constructive existence without
+;; equating its TV with the partial witness disjunction.
+(: direct-existential-premise-bundle
+   (-[semidet]-> KB $context $variables Atom Atom PremiseBundle))
+(= (direct-existential-premise-bundle $kb $ctx $vars $binder $body)
+   (let $prem-kb (source-premise-kb $kb $ctx $vars)
+      (premise-bundle
+         ((: $prem-kb $proof
+              (existential-claim-statement $binder $body) $tv))
+         $tv
+         $proof)))
+
+;; Compare the direct existential proposition with the OR of the witnesses
+;; currently enumerable from the body. The direct proposition uses canonical
+;; slots, so matching it cannot bind the witness variable and accidentally
+;; restrict the following fold to one object.
+(: existential-residual-premise-bundle
+   (-[nondet]-> KB $context $variables Atom Atom PremiseBundle))
+(= (existential-residual-premise-bundle $kb $ctx $vars $binder $body)
+   (let*
+      (($bound-vars (list_to_set (explicit-exists-vars $binder)))
+       ($body-vars (list_to_set (extract-vars $body)))
+       ($group-vars (compile-var-list-subtract $body-vars $bound-vars))
+       ($claim (existential-claim-statement $binder $body))
+       ((premise-bundle $fold-execs $known-tv $_fold-proof)
+          (fold-existential-premise-bundle
+             $kb $ctx $vars (brand Statement $body) $group-vars))
+       ($prem-kb (source-premise-kb $kb $ctx $vars)))
+      (if (== $bound-vars ())
+         (empty)
+         (premise-bundle
+            (cons
+               (: $prem-kb $direct-proof $claim $direct-tv)
+               (append-goals
+                  $fold-execs
+                  ((CPU ExistentialResidualFormula
+                       ($direct-tv $known-tv) $residual-tv))))
+            $residual-tv
+            (conjunction $direct-proof cpu)))))
+
 (: lower-source-premise-with-existentials
    (-[nondet]-> KB $context $variables Statement  PremiseBundle))
 (= (lower-source-premise-with-existentials $kb $ctx $vars $premise)
@@ -1006,8 +1112,11 @@
                 (list_to_set (extract-vars $body)))
              ($group-vars
                 (compile-var-list-subtract $body-vars $bound-vars)))
-         (fold-existential-premise-bundle
-            $kb $ctx $vars (brand Statement $body) $group-vars))
+         (superpose
+            ((direct-existential-premise-bundle
+                $kb $ctx $vars $binder $body)
+             (fold-existential-premise-bundle
+                $kb $ctx $vars (brand Statement $body) $group-vars))))
       (lower-source-premise $kb $ctx $vars $premise)))
 
 (: lower-implication-antecedent
@@ -2147,10 +2256,14 @@
          (let*
             (($_evidence-reg (register-rule-evidence! $kb $prf))
              (($execs $proofs $atv)
-                (once
+                (if (explicit-exists-term? $antecedent)
                    (lower-implication-antecedent
                       $kb $ctx $vars
-                      (brand Statement $antecedent))))
+                      (brand Statement $antecedent))
+                   (once
+                      (lower-implication-antecedent
+                         $kb $ctx $vars
+                         (brand Statement $antecedent)))))
              ($shape-kb (make-kb-context $kb $ctx $vars))
              ($adapter-kb (kbctx $kb))
              ($a

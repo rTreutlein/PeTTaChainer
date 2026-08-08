@@ -42,6 +42,11 @@
 (: Variable (Newtype Atom))
 (: CompiledAddition (Newtype Atom))
 (: RuntimeAddition (Newtype Atom))
+;; Explicit existential conclusions are propositions about a canonical body
+;; shape, not assertions about one syntactically distinct Skolem object.
+;; `exists-slot` marks each bound position without exposing a witness identity.
+(: exists-slot (-[det]-> Number Term))
+(: ExistentialClaim (-[det]-> Statement Statement))
 ;; Any value with this role is known to be a nonempty expression that can be
 ;; inserted into an atom space.  The brand is erased at runtime.
 (: SpaceAtom (Newtype Atom))
