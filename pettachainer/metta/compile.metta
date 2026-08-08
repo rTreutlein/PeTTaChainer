@@ -1350,10 +1350,13 @@
 (: disable-inversion-proof-id? (-[det]-> Proof Bool))
 (= (disable-inversion-proof-id? $prf) (= $prf (no_inverse $_)))
 
-;; Reversible source Compute premises are a narrow exception to the normal CPU
-;; inversion veto. Only top-level implication conjuncts are considered here;
-;; folds, distribution operations, negation, and nested compounds retain the
-;; existing no-inverse behavior.
+;; Classify source computations rather than treating every CPU introduced by
+;; lowering as a reason to suppress implication inversion. A pure top-level Or
+;; lowers through a TV-formula CPU, but an inverse rule can still derive the
+;; complete disjunction and let its ordinary projection adapters recover one
+;; child. Actual source computations remain restricted to the explicitly
+;; reversible subset. Multi-premise And retains its existing forward-only
+;; behavior unless it contains a supported reversible Compute.
 (: SourceComputeGoals Type)
 (: source-computes
    (-[det]-> (List Goal) SourceComputeGoals))
@@ -1361,6 +1364,25 @@
 
 (: source-compute-goals
    (-[det]-> (List Atom) SourceComputeGoals))
+
+(: contains-source-computation-list? (-[det]-> Expression Bool))
+(= (contains-source-computation-list? ()) false)
+(= (contains-source-computation-list? (cons $head $rest))
+   (if (contains-source-computation? $head)
+      true
+      (contains-source-computation-list? $rest)))
+
+(: contains-source-computation? (-[det]-> Atom Bool))
+(= (contains-source-computation? $term)
+   (if (is-expr $term)
+      (let $head (car-atom $term)
+         (if (is-var $head)
+            (contains-source-computation-list? (cdr-atom $term))
+            (if (source-computation-head? $head)
+               true
+               (contains-source-computation-list? (cdr-atom $term)))))
+      false))
+
 (= (source-compute-goals ()) (source-computes ()))
 (= (source-compute-goals (cons $premise $rest))
    (case $premise (
@@ -1379,16 +1401,9 @@
             (unsupported-source-computes
                unsupported-source-computes))))
       ($other
-         (if (compound-source? (brand Statement $other))
+         (if (contains-source-computation? $other)
             unsupported-source-computes
-            (if (if (is-expr $other)
-                   (let $head (car-atom $other)
-                      (if (is-var $head)
-                         false
-                         (source-computation-head? $head)))
-                   false)
-               unsupported-source-computes
-               (source-compute-goals $rest)))))))
+            (source-compute-goals $rest))))))
 
 (: direct-variable-index-or-negative
    (-[det]-> (List Atom) Variable Number Number))
@@ -1509,7 +1524,13 @@
          (implication-side-conjuncts $antecedent))
       (((source-computes $compute-goals)
           (if (== $compute-goals ())
-             no-compute-inverse
+             (if (if (is-expr $antecedent)
+                    (let $head (car-atom $antecedent)
+                       (if (is-var $head) false (== $head Or)))
+                    false)
+                (inverse-compute-plan
+                   () (list_to_set (extract-vars $consequent)))
+                no-compute-inverse)
              (inverse-compute-goals
                 (reverse-goals $compute-goals)
                 (list_to_set (extract-vars $consequent)))))

@@ -173,6 +173,12 @@ unknowns, unsupported functions, or rules containing any other CPU premise
 separate restricted inverse operator. `no_inverse` always forces forward-only
 compilation.
 
+A pure top-level `Or` antecedent remains invertible. Its TV-formula CPU is
+introduced by lowering and is not a source computation. Inversion derives the
+whole disjunction; ordinary OR projection may then recover one child from the
+disjunction and the other known children. Ordinary multi-premise `And` remains
+forward-only unless it contains a supported reversible `Compute`.
+
 ### Not
 
 ```metta

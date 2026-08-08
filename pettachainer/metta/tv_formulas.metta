@@ -122,19 +122,12 @@
    (STV $sab
       (count-confidence (* $sab (confidence-to-count $cab)))))
 
+;; Solve E = D or U for the unknown child U. Strength is the exact noisy-OR
+;; inverse. Confidence uses first-order variance propagation through
+;; u = (e-d)/(1-d), so projection cannot inherit the total's confidence while
+;; ignoring uncertainty in the known alternative.
 (: OrProjection (-[det]-> STVType STVType STVType))
-(= (OrProjection (STV $sab $cab) (STV $sa $ca))
-   (if (== $sa 1.0)
-      (STV 0.0 0.0)
-      (STV (min 1.0 (max 0.0 (/ (- $sab $sa) (- 1.0 $sa)))) (min $cab $ca))))
-
-;; Split a full existential E into the disjunction D of currently enumerated
-;; witnesses and an independent residual U, E = D or U.  Strength is the exact
-;; noisy-OR inverse.  Confidence uses first-order variance propagation through
-;; u = (e-d)/(1-d), so a weakly supported aggregate cannot inherit the full
-;; existential's confidence merely through projection.
-(: ExistentialResidualFormula (-[det]-> STVType STVType STVType))
-(= (ExistentialResidualFormula (STV $se $ce) (STV $sd $cd))
+(= (OrProjection (STV $se $ce) (STV $sd $cd))
    (if (>= $sd 1.0)
       (STV 0.0 0.0)
       (let*
@@ -149,6 +142,13 @@
             (if (or (<= $ce 0.0) (<= $cd 0.0))
                0.0
                (ideal-conf-from-var $su $Vu))))))
+
+;; The unknown-witness residual is the same probabilistic projection as an
+;; ordinary OR child: E = D or U. Keep the semantic name at the existential
+;; compiler boundary while sharing the variance-aware implementation.
+(: ExistentialResidualFormula (-[det]-> STVType STVType STVType))
+(= (ExistentialResidualFormula $existential-tv $known-tv)
+   (OrProjection $existential-tv $known-tv))
 
 (: NotFormula (-[det]-> STVType STVType))
 (= (NotFormula (STV $s $c)) (STV (- 1 $s) $c))

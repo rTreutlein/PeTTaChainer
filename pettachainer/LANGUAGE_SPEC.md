@@ -343,6 +343,14 @@ present. `no_inverse` still disables inversion explicitly. Truth-value
 inversion and modus ponens are unchanged; the arithmetic inverse only
 reconstructs variable bindings.
 
+The compiler-generated TV computation for a pure top-level `Or` does not
+trigger that veto. A rule such as `(Or A B) -> C` may be inverted from `C` to
+the whole `Or`; the normal compound-output adapters can then project `A` given
+`B`, or vice versa. OR projection uses the noisy-OR inverse and propagates
+variance from both the reconstructed total and the known alternative. Ordinary
+multi-premise `And` rules remain forward-only unless they contain a supported
+reversible `Compute`.
+
 ### 3) FoldAll / FoldAllValue
 
 Aggregate over matching facts:

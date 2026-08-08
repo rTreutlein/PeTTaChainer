@@ -5,6 +5,7 @@ examples/deductionrevision.metta
 examples/direct.metta
 examples/existential_residual.metta
 examples/flyingraven.metta
+examples/machine_failure_inversion.metta
 examples/raveninduction.metta
 examples/raveninduction_implication_pettachainer.metta
 examples/smokes.metta
