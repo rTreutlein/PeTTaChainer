@@ -35,6 +35,38 @@ class TestPeTTaChainer(unittest.TestCase):
         )
         self.assertEqual(handler.query_many([], timeout_sec=0), [])
 
+    def test_query_many_materialization_saves_derived_proof_trees(self):
+        handler = PeTTaChainer()
+        handler.add_atom("(: materialize_seed (MaterializeSeed) (STV 1.0 1.0))")
+        handler.add_atom(
+            "(: materialize_middle_rule "
+            "(Implication (MaterializeSeed) (MaterializeMiddle)) "
+            "(CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+        )
+        handler.add_atom(
+            "(: materialize_root_rule "
+            "(Implication (MaterializeMiddle) (MaterializeRoot)) "
+            "(CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+        )
+
+        with self.assertRaises(ValueError):
+            handler.select_facts(["(MaterializeMiddle)", "(MaterializeRoot)"])
+
+        results = handler.query_many_materialization(
+            [
+                "(: $prf (MaterializeRoot) $tv)",
+                "(: $prf (MaterializeMissing) $tv)",
+            ],
+            steps=20,
+        )
+
+        self.assertEqual(len(results), 2)
+        self.assertIn("(MaterializeRoot)", results[0][0])
+        self.assertEqual(results[1], [])
+        self.assertEqual(len(handler.select_facts("(MaterializeMiddle)")), 1)
+        self.assertEqual(len(handler.select_facts("(MaterializeRoot)")), 1)
+        self.assertEqual(handler.query_many_materialization([], steps=20), [])
+
     def test_forward_chain_derives_fact_visible_to_backward_query(self):
         handler = PeTTaChainer()
         handler.add_atom("(: edge_ab (Edge A B) (STV 1.0 1.0))")

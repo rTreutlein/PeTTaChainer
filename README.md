@@ -119,6 +119,13 @@ results = handler.query_many(
 )
 # results[0] contains answers for A; results[1] contains answers for B.
 # The roots share one search arena and one total step budget.
+
+# Use query_many_materialization to retain grounded rule-derived facts from
+# each selected proof tree, including intermediate facts, in the live KB.
+cached_results = handler.query_many_materialization(
+    ["(: $prf (A) $tv)", "(: $prf (B) $tv)"],
+    steps=10,
+)
 ```
 
 ## Python API: Forward Chaining

@@ -336,6 +336,32 @@ class PeTTaChainer:
             self._run_query_expression(expression, timeout_sec), len(queries)
         )
 
+    def query_many_materialization(
+        self,
+        atoms: Sequence[str],
+        steps: int = 100,
+    ) -> List[List[str]]:
+        """Answer several roots and save their derived proof trees in the KB.
+
+        ``steps`` is one total expansion budget for the batch. Results stay
+        aligned with ``atoms``; an unproved root has an empty result list.
+
+        This state-changing operation runs in the current process. Unlike
+        ``query_many``, it cannot use the subprocess timeout path because KB
+        changes made by a timed worker would not persist in this instance.
+        """
+        queries = list(atoms)
+        if not queries:
+            return []
+        for atom in queries:
+            self._validate("query", atom, atom, check_query)
+        expression = (
+            f"query-many-materialize {steps} {self.kb} "
+            f"({' '.join(queries)})"
+        )
+        rows = _as_list(self.handler.process_metta_string(f"!({expression})"))
+        return _group_query_many_results(rows, len(queries))
+
     language_spec = staticmethod(get_language_spec)
 
 
