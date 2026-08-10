@@ -52,19 +52,23 @@ class TestPeTTaChainer(unittest.TestCase):
         with self.assertRaises(ValueError):
             handler.select_facts(["(MaterializeMiddle)", "(MaterializeRoot)"])
 
-        results = handler.query_many_materialization(
-            [
-                "(: $prf (MaterializeRoot) $tv)",
-                "(: $prf (MaterializeMissing) $tv)",
-            ],
-            steps=20,
-        )
+        queries = [
+            "(: $prf (MaterializeRoot) $tv)",
+            "(: $prf (MaterializeMissing) $tv)",
+        ]
+        results = handler.query_many_materialization(queries, steps=2000)
 
         self.assertEqual(len(results), 2)
         self.assertIn("(MaterializeRoot)", results[0][0])
         self.assertEqual(results[1], [])
         self.assertEqual(len(handler.select_facts("(MaterializeMiddle)")), 1)
         self.assertEqual(len(handler.select_facts("(MaterializeRoot)")), 1)
+
+        for steps in (10, 100):
+            repeated = handler.query_many_materialization(queries, steps=steps)
+            self.assertIn("(MaterializeRoot)", repeated[0][0])
+            self.assertEqual(repeated[1], [])
+
         self.assertEqual(handler.query_many_materialization([], steps=20), [])
 
     def test_forward_chain_derives_fact_visible_to_backward_query(self):

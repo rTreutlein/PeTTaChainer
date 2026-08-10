@@ -331,10 +331,22 @@
 (= (materializable-proof-kind? $kind)
    (case $kind (((rule $_term) true) ($_other false))))
 
+(: materializable-proof-tv? (-[det]-> $tv Bool))
+(= (materializable-proof-tv? $tv)
+   (if (is-var $tv)
+      false
+      (case $tv
+         (((STV $_strength $_confidence)
+             (== (extract-vars $tv) ()))
+          ($_other false)))))
+
 (: materializable-proof-output? (-[det]-> $output Bool))
 (= (materializable-proof-output? $output)
    (case $output (
-      (($type ($_kbid MAIN Nil) $_prf $_tv) (== (extract-vars $type) ()))
+      (($type ($_kbid MAIN Nil) $_prf $tv)
+         (if (== (extract-vars $type) ())
+            (materializable-proof-tv? $tv)
+            false))
       ($_other false))))
 
 (: materialize-proof-node-to-kb (-[semidet]-> Number (List $none)))
@@ -924,8 +936,14 @@
 (= (factor-shared-keys (cons $f $rest)) (cons (factor-fact-key $f) (factor-shared-keys $rest)))
 (: factor-required-leaf-tv
    (-[semidet]-> Number ProofOutputKey STVType))
+;; A materialized leaf preserves upstream evidence keys without recreating
+;; those upstream nodes in the new proof DAG. Let factoring decline cleanly
+;; when one of those keys has no local TV to reconstruct.
 (= (factor-required-leaf-tv $pid $key)
-   (the STVType (factor-leaf-tv $pid $key)))
+   (let $tv (factor-leaf-tv $pid $key)
+      (case $tv
+         ((no-tv (empty))
+          ($_other (the STVType $_other))))))
 (: factor-real-conj
    (-[semidet]-> Number (List ProofOutputKey) STVType))
 (= (factor-real-conj $pid (cons $key ()))

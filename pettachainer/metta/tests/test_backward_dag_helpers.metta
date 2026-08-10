@@ -302,6 +302,35 @@
       (materialize-proof $pid))
    factA)
 
+;; Materialized facts retain their upstream evidence identity, but a later
+;; backward proof sees the materialized fact as one leaf and does not recreate
+;; every upstream leaf in its proof DAG. Missing leaves disable factoring
+;; instead of passing the no-tv sentinel into STV arithmetic.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($_pidreset (change-state! bwd_pid 0))
+       ($gid
+          (ensure-goal-at-depth
+             (test-runtime-fact
+                (MaterializedGoal) (brand Proof $prf) (STV 1.0 1.0))
+             0))
+       ($pid
+          (store-proof-candidate $gid
+             (proof-candidate
+                (leaf
+                   (test-runtime-fact
+                      (MaterializedGoal) materialized (STV 0.8 0.7)))
+                0.7
+                ((fact-ev (kb MAIN ()) source (SourceFact)))
+                ()))))
+      (collapse
+         (factor-required-leaf-tv $pid
+            (factor-fact-key
+               (fact-ev (kb MAIN ()) source (SourceFact))))))
+   ())
+
 !(test (proof-term-children-mode proof-walk-plain (custom-proof left right)) ())
 
 !(test (once (proof-term-evidence-list-mode proof-walk-plain (own_have (fact-ev (kb MAIN ()) i_have_max (Have (i max))))))
