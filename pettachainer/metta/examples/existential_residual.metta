@@ -50,6 +50,7 @@
          (OtherWitnessEstimate fido))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
+!(============================================================================)
 ;; Direct existential claim E.
 !(query 200 existentialExampleKb
    (: $proof
@@ -59,6 +60,7 @@
             (Chases fido (exists-slot 0))))
       $tv))
 
+!(============================================================================)
 ;; Enumerated disjunction D and residual U, with E = D or U.
 !(query 300 existentialExampleKb
    (: $proof (KnownWitnessDisjunction fido) $tv))
@@ -74,6 +76,7 @@
    (: fidoOftenChasesFelix
       (Chases fido felix) (STV 0.6 0.9)))
 
+!(============================================================================)
 !(query 300 existentialExampleKb
    (: $proof (KnownWitnessDisjunction fido) $tv))
 !(query 300 existentialExampleKb
