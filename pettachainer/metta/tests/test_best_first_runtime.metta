@@ -5,13 +5,13 @@
 ;; First-proof search retains its existing priority. A confident local
 ;; refinement cannot claim more value than its root branch can deliver, and
 ;; optional incumbent refinement is normalized by immediate work.
-!(test (root-refinement-value-score 0.2 no-current 0.9 4) 0.9)
+!(test (root-refinement-value-score 0.2 no-current 0.9 4 0.1) 0.9)
 !(test
-   (root-refinement-value-score 0.5 0.9 1.0 2)
+   (root-refinement-value-score 0.5 0.9 1.0 2 1.0)
    (/ (rule-marginal-score 0.9 1.0) 2))
 !(test
-   (root-refinement-value-score 0.02 0.1 0.9 1)
-   0.02)
+   (root-refinement-value-score 0.02 0.1 0.9 1 0.25)
+   0.005)
 
 ;; Cached base-rate refinement becomes less valuable as the already-observed
 ;; evidence (and therefore the estimated rescan work) grows.
@@ -19,6 +19,37 @@
    (< (cached-base-rate-refinement-score 1.0 (STV 0.5 0.9))
       (cached-base-rate-refinement-score 1.0 (STV 0.5 0.1)))
    true)
+
+;; Direct mode only consumes an exact cache key. Smoothed mode may back off to
+;; a generalized pattern and shrinks weak evidence toward the neutral prior.
+!(set-base-rate refinementPriorKb
+   (GeneralizedPrior $x) (STV 0.75 0.9))
+!(set-base-rate refinementPriorKb
+   (WeakExactPrior item) (STV 0.99 0.01))
+!(test
+   (premise-base-rate-prior direct-base-rate
+      (assemble-runtime-fact
+         (brand Statement (GeneralizedPrior item))
+         (brand KBContext (refinementPriorKb MAIN Nil))
+         (brand Proof $proof)
+         (STV 1.0 1.0)))
+   1.0)
+!(test
+   (premise-base-rate-prior smoothed-base-rate
+      (assemble-runtime-fact
+         (brand Statement (GeneralizedPrior item))
+         (brand KBContext (refinementPriorKb MAIN Nil))
+         (brand Proof $proof)
+         (STV 1.0 1.0)))
+   (+ (* 0.9 0.75) (* 0.1 0.5)))
+!(test
+   (premise-base-rate-prior smoothed-base-rate
+      (assemble-runtime-fact
+         (brand Statement (WeakExactPrior item))
+         (brand KBContext (refinementPriorKb MAIN Nil))
+         (brand Proof $proof)
+         (STV 1.0 1.0)))
+   (+ (* 0.01 0.99) (* 0.99 0.5)))
 
 ;; Expansion budget and beam width are independent. Larger budgets therefore
 ;; extend the same deterministic search prefix instead of selecting a wider

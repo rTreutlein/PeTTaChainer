@@ -8,6 +8,7 @@ examples/flyingraven.metta
 examples/machine_failure_inversion.metta
 examples/raveninduction.metta
 examples/raveninduction_implication_pettachainer.metta
+examples/refinement_base_rate_policies.metta
 examples/smokes.metta
 examples/stationops_fold_inverse.metta
 examples/toothbrush.metta

@@ -287,22 +287,51 @@
             (- (max $candidate-score (optimistic-revision-score $score $candidate-score))
                $score)))))
 
+(: RefinementPriorMode Type)
+(: optimistic RefinementPriorMode)
+(: direct-base-rate RefinementPriorMode)
+(: smoothed-base-rate RefinementPriorMode)
+
+(: set-refinement-prior-mode (-[det]-> RefinementPriorMode RefinementPriorMode))
+(= (set-refinement-prior-mode $mode)
+   (progn (change-state! refinement_prior_mode $mode) $mode))
+
+(: checked-refinement-prior-mode
+   (-[det]-> %Undefined% RefinementPriorMode))
+(= (checked-refinement-prior-mode $mode)
+   (the RefinementPriorMode $mode))
+
+(: if-error-refinement-prior-mode
+   (-[det]-> %Undefined% RefinementPriorMode))
+(= (if-error-refinement-prior-mode $mode)
+   (if (= $mode (cons Error $_)) optimistic
+      (checked-refinement-prior-mode $mode)))
+
+(: refinement-prior-mode (-[det]-> RefinementPriorMode))
+(= (refinement-prior-mode)
+   (let $values (collapse (catch (get-state refinement_prior_mode)))
+      (if (== $values ()) optimistic
+         (if-error-refinement-prior-mode (car-atom $values)))))
+
 ;; The incoming score is the most value this goal can still contribute to the
-;; requesting root branch.  Once a cached/materialized incumbent makes further
+;; requesting root branch. Once a cached/materialized incumbent makes further
 ;; work optional, a subgoal must not regain a larger priority merely because
-;; one of its local rules has a confident conclusion, and refinement pays for
-;; the rule's immediate premise expansions. First-proof search keeps the
-;; existing score and ordering.
+;; one of its local rules has a confident conclusion. Refinement is discounted
+;; by both its immediate premise work and the estimated chance that all those
+;; premises can be proved. First-proof search keeps the existing score and
+;; ordering.
 (: root-refinement-value-score
-   (-[det]-> Number (| Number NoCurrentScore) Number Number Number))
+   (-[det]-> Number (| Number NoCurrentScore) Number Number Number Number))
 (= (root-refinement-value-score
-      $root-bound $current-score $candidate-score $premise-count)
+      $root-bound $current-score $candidate-score
+      $premise-count $success-probability)
    (if (== $current-score no-current)
       $candidate-score
       (let $bounded
          (min $root-bound
             (rule-marginal-score $current-score $candidate-score))
-         (/ $bounded (max 1 $premise-count)))))
+         (/ (* $bounded $success-probability)
+            (max 1 $premise-count)))))
 
 ;; A cached base-rate snapshot is usable immediately.  Its optional live fold
 ;; can improve confidence by at most the remaining confidence mass, while the
@@ -995,6 +1024,84 @@
 (= (base-rate-entry-source
       (base-rate $_kbid $_stored $_tv $source $_mode))
    $source)
+
+(: matching-base-rate-cache-entries
+   (-[det]-> KB Statement (List BaseRateEntry)))
+(= (matching-base-rate-cache-entries $kbid $pattern)
+   (collapse
+      (match &base_rate_cache
+         (base-rate $kbid $stored $tv $source $mode)
+         (let*
+            (($stored-copy (copy_term $stored))
+             ($pattern-copy (copy_term $pattern))
+             ($unifies
+                (collapse
+                   (let $stored-copy $pattern-copy true))))
+            (if (== $unifies ()) (empty)
+               (base-rate $kbid $stored $tv $source $mode))))))
+
+(: base-rate-tv-strength (-[det]-> TV Number))
+(= (base-rate-tv-strength $tv)
+   (case $tv (
+      ((STV $strength $_confidence) $strength)
+      ((CTV (STV $strength $_confidence) $_negative) $strength)
+      (no-evidence 1.0))))
+
+(: base-rate-prior-factor
+   (-[det]-> RefinementPriorMode BaseRateEntry Number))
+(= (base-rate-prior-factor $mode
+      (base-rate $_kbid $_stored $tv $source $_entry-mode))
+   (let $strength (base-rate-tv-strength $tv)
+      (if (== $mode direct-base-rate) $strength
+         ;; With k=800, Beta evidence n=800c/(1-c) mixed with an
+         ;; equally-sized neutral prior simplifies to c*s + (1-c)*0.5.
+         (let* (($source-weight
+                   (if (== $source forward-approx) 0.5 1.0))
+                ($confidence
+                   (* $source-weight (tv-confidence $tv))))
+            (+ (* $confidence $strength)
+               (* (- 1.0 $confidence) 0.5))))))
+
+(: selected-base-rate-prior-factor
+   (-[det]-> RefinementPriorMode (List BaseRateEntry) Number))
+(= (selected-base-rate-prior-factor $_mode ()) 1.0)
+(= (selected-base-rate-prior-factor $mode (cons $entry $rest))
+   (min (base-rate-prior-factor $mode $entry)
+      (selected-base-rate-prior-factor $mode $rest)))
+
+(: premise-base-rate-prior
+   (-[det]-> RefinementPriorMode
+       (| Goal (Statement KBContext Proof TV)) Number))
+(= (premise-base-rate-prior $mode $premise)
+   (case $premise (
+      ((CPU $_fun $_args $_result) 1.0)
+      (($type ($kbid $_ctx $_vars) $_proof $_tv)
+         (let $exact (base-rate-cache-entries $kbid $type)
+            ;; Exact rates override generalized matches. If several
+            ;; generalized patterns match, their minimum is deterministic and
+            ;; avoids selecting an accidentally optimistic ambiguous prior.
+            (if (or (== $mode direct-base-rate)
+                    (not (== $exact ())))
+               (selected-base-rate-prior-factor $mode $exact)
+               (selected-base-rate-prior-factor $mode
+                  (matching-base-rate-cache-entries $kbid $type))))))))
+
+(: refinement-premises-success-probability
+   (-[det]-> (List (| Goal (Statement KBContext Proof TV))) Number))
+(= (refinement-premises-success-probability $premises)
+   (let $mode (refinement-prior-mode)
+      (if (== $mode optimistic) 1.0
+         (refinement-premises-success-probability-for-mode
+            $mode $premises))))
+
+(: refinement-premises-success-probability-for-mode
+   (-[det]-> RefinementPriorMode
+       (List (| Goal (Statement KBContext Proof TV))) Number))
+(= (refinement-premises-success-probability-for-mode $_mode ()) 1.0)
+(= (refinement-premises-success-probability-for-mode
+      $mode (cons $premise $rest))
+   (* (premise-base-rate-prior $mode $premise)
+      (refinement-premises-success-probability-for-mode $mode $rest)))
 
 (: cached-base-rate
    (-[nondet]-> KB Statement (List TV)))

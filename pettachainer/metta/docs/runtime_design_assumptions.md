@@ -142,10 +142,16 @@ Rule priority is an optimistic value-of-computation bound, not a claim that a
 proof will succeed. A descendant may not receive a larger score than the root
 branch that requested it can contribute. Once a cached or materialized
 incumbent makes refinement optional, immediate premise work lowers that score.
-Cached base-rate refolds likewise use their remaining confidence gap and
-implied evidence count instead of a fixed discount. These are deterministic
-ordering heuristics only: proof acceptance still uses the ordinary evidence,
-dominance, revision, and cycle rules.
+The default `optimistic` prior retains the upper-bound assumption that unknown
+premises can succeed. `direct-base-rate` multiplies optional-refinement value by
+exact cached premise strengths. `smoothed-base-rate` may use a generalized
+matching pattern and shrinks its strength toward `0.5` according to cache
+confidence; provisional `forward-approx` confidence receives half weight.
+Missing rates remain optimistic so a cache cannot remove a proof path. Cached
+base-rate refolds likewise use their remaining confidence gap and implied
+evidence count instead of a fixed discount. These are deterministic ordering
+heuristics only: proof acceptance still uses the ordinary evidence, dominance,
+revision, and cycle rules.
 
 A multi-root query creates every root at depth zero before search and schedules
 them into one agenda. Its step budget and beam are shared by the complete batch;

@@ -2176,7 +2176,8 @@
                 $root-bound
                 (goal-current-confidence $parent-gid)
                 $expected-score
-                (list-len $args)))
+                (list-len $args)
+                (refinement-premises-success-probability $args)))
           ($bundle (copy_term (make-and-bundle $goal $args))))
          (spawn-frontier-heap $agenda
             $parent-gid
