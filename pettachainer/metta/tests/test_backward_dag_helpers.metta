@@ -194,8 +194,9 @@
 (: clear-backward-state (-[det]-> (List Atom)))
 (= (clear-backward-state)
    (progn
-      (foreach-flat remove-all-atoms (() &goal &goal_lookup &goal_waiter &aggregate &proof &proof_parent &proof_invalidated_epoch &proof_live_cache &goal_live_cache &proof_static_live &proof_superseded))
+      (foreach-flat remove-all-atoms (() &goal &goal_lookup &goal_waiter &aggregate &proof &proof_goal &proof_result &proof_parent &proof_invalidated_epoch &proof_live_cache &goal_live_cache &proof_static_live &proof_superseded))
       (change-state! bwd_live_epoch 0)
+      (change-state! bwd_query_pid_start 0)
       ()))
 
 (: test-runtime-fact
@@ -263,8 +264,8 @@
       (($_clear (clear-backward-state))
        ($_gidreset (change-state! bwd_gid 0))
        ($_pidreset (change-state! bwd_pid 0))
-       ($child-gid (ensure-goal-at-depth (test-runtime-fact (Child) (brand Proof $prf) (STV 1.0 1.0)) 1))
-       ($parent-gid (ensure-goal-at-depth (test-runtime-fact (Parent) (brand Proof $prf) (STV 1.0 1.0)) 0))
+       ($child-gid (ensure-goal-at-depth (test-runtime-fact (Child) (brand Proof $cprf) $ctv) 1))
+       ($parent-gid (ensure-goal-at-depth (test-runtime-fact (Parent) (brand Proof $pprf) $ptv) 0))
        ($first-child
           (store-proof-candidate $child-gid
              (proof-candidate (leaf (test-runtime-fact (Child) childA (STV 1.0 0.8)))
@@ -408,8 +409,8 @@
               (assemble-runtime-fact
                  (brand Statement (AggregateParent))
                  (brand KBContext (incumbentMaterializeKb MAIN Nil))
-                 (brand Proof $prf)
-                 (the TV (STV 1.0 1.0)))
+                 (brand Proof $parent-goal-proof)
+                 (the TV $parent-goal-tv))
               0))
         ($_agg0
            (add-atom &aggregate

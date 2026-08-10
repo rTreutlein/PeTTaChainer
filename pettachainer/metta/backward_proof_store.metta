@@ -8,6 +8,32 @@
          (stored-goal-row
             $gid $depth $goal $expanded $pending))))
 
+(: proof-goal-key-by-goal-id (-[semidet]-> Number ProofGoalKey))
+(= (proof-goal-key-by-goal-id $gid)
+   (let
+      (stored-goal-row
+         $_stored-gid $_depth $goal $_expanded $_pending)
+      (goal-by-id $gid)
+      (brand ProofGoalKey (goal-key $goal))))
+
+(: proof-owner-goal-key (-[det]-> ProofOwner ProofGoalKey))
+(= (proof-owner-goal-key $owner)
+   (case $owner (
+      ((proof-goal $key) $key)
+      ((merged-proof-group $key) $key))))
+
+(: index-proof-for-goal! (-[det]-> ProofGoalKey Number Bool))
+(= (index-proof-for-goal! $key $pid)
+   (let* (($lookup-key (copy_term $key))
+          ($row (make-space-row3 $lookup-key $key $pid)))
+      (add-space-atom! &proof_goal $row)))
+
+(: index-proof-result-for-goal! (-[det]-> ProofGoalKey Number Bool))
+(= (index-proof-result-for-goal! $key $pid)
+   (let* (($lookup-key (copy_term $key))
+          ($row (make-space-row3 $lookup-key $key $pid)))
+      (add-space-atom! &proof_result $row)))
+
 (: aggregate-by-id
    (-[semidet]-> Number StoredAggregateRow))
 (= (aggregate-by-id $agg-gid)
@@ -119,16 +145,22 @@
    (-[semidet]-> Number (Statement KBContext Proof TV)))
 (= (proof-fact-output-by-id $pid)
    (let $output (proof-output-atom-by-id $pid)
-      (case $output
-         ((($type $kb $proof $tv)
+      (case $output (
+         ((CPU $_formula $_arguments $_result)
+            (empty))
+         (($type $kb $proof $tv)
             (assemble-stored-runtime-fact
-               $type $kb $proof $tv))))))
+               $type $kb $proof $tv))
+         ($_other (empty))))))
 
 (: candidate-output-key
    (-[det]-> (| Goal (Statement KBContext Proof TV))
        ProofOutputKey))
 (= (candidate-output-key $term)
    (case $term (
+      ((CPU $formula $arguments $result)
+         (proof-output-key
+            (quote (CPU $formula $arguments $result))))
       (($type $kb $_prf $_tv)
          (proof-output-key (quote ($type $kb))))
       ($_other (proof-output-key $term)))))
@@ -159,6 +191,9 @@
        RuntimeResult))
 (= (materialize-result-atom $atom)
    (case $atom (
+      ((CPU $formula $arguments $result)
+         (brand RuntimeResult
+            (CPU $formula $arguments $result)))
       (($type $kb $prf $tv)
          (brand RuntimeResult
             (materialize-fact-result-atom $atom)))
@@ -289,34 +324,52 @@
    (once
       (match &proof
          (stored-proof-row
-            $pid $_gid $_output $kind $_score $_ev $_children)
+            $pid $_owner $_output $kind $_score $_ev $_children)
          (materialize-proof-kind $kind $pid))))
 
-(: goal-proof-ids (-[det]-> Number (List Number)))
-(= (goal-proof-ids $gid)
-   (collapse
-      (match &proof
-         (stored-proof-row
-            $pid $gid $_output $_kind $_score $_ev $_children)
-         $pid)))
+(: proof-output-satisfies-goal?
+   (-[semidet]-> Number (| Goal (Statement KBContext Proof TV)) Bool))
+(= (proof-output-satisfies-goal? $pid $goal)
+   (let*
+      (($result
+         (materialize-result-atom
+            (proof-output-atom-by-id $pid)))
+       ($result-copy (copy_term $result))
+       ($goal-copy (copy_term $goal)))
+      (if (= $goal-copy $result-copy) true false)))
 
-(: proof-goal-id (-[semidet]-> Number (| Number MergedProofGroup)))
-(= (proof-goal-id $pid)
+(: goal-proof-ids (-[semidet]-> Number (List Number)))
+(= (goal-proof-ids $gid)
+   (let* (((stored-goal-row
+              $_stored-gid $_depth $goal $_expanded $_pending)
+            (goal-by-id $gid))
+          ($key (proof-goal-key-by-goal-id $gid))
+          ($lookup-key (copy_term $key)))
+      (collapse
+         (match &proof_goal
+            ($lookup-key $stored-key $pid)
+            (if (=alpha $stored-key $key)
+               (let $stored-pid (stored-number $pid)
+                  (if (proof-output-satisfies-goal?
+                         $stored-pid $goal)
+                     $stored-pid
+                     (empty)))
+               (empty))))))
+
+(: proof-goal-key-by-id (-[semidet]-> Number ProofGoalKey))
+(= (proof-goal-key-by-id $pid)
    (once
       (match &proof
          (stored-proof-row
-            $pid $gid $_output $_kind $_score $_ev $_children)
-         (case $gid
-            (((merged-proof-group $source-gid)
-               (merged-proof-group $source-gid))
-             ($number $number))))))
+            $pid $owner $_output $_kind $_score $_ev $_children)
+         (proof-owner-goal-key $owner))))
 
 (: proof-children-by-id (-[semidet]-> Number (List Number)))
 (= (proof-children-by-id $pid)
    (once
       (match &proof
          (stored-proof-row
-            $pid $_gid $_output $_kind $_score $_ev $children)
+            $pid $_owner $_output $_kind $_score $_ev $children)
          $children)))
 
 (: proof-kind-by-id (-[semidet]-> Number ProofKind))
@@ -324,7 +377,7 @@
    (once
       (match &proof
          (stored-proof-row
-            $pid $_gid $_output $kind $_score $_ev $_children)
+            $pid $_owner $_output $kind $_score $_ev $_children)
          $kind)))
 
 (: materializable-proof-kind? (-[det]-> $kind Bool))
@@ -505,8 +558,7 @@
             (match &proof_invalidated_epoch (($epoch $parent-pid)) true)))
       (if (not (== $seen ())) ()
          (let*
-            (($gid (proof-goal-id $parent-pid))
-             ($_mark
+            (($_mark
                 (once
                    (add-atom &proof_invalidated_epoch
                       (($epoch $parent-pid)))))
@@ -525,9 +577,9 @@
                    (collapse
                       (match &goal_live_cache
                          (goal-live-cache-row
-                            $epoch $gid $pids)
+                            $epoch $_gid $pids)
                          (goal-live-cache-row
-                            $epoch $gid $pids)))))
+                            $epoch $_gid $pids)))))
              ($_parents
                 (foreach-flat
                    (invalidate-proof-dependent-step $epoch)
@@ -577,7 +629,7 @@
 (: proof-live-compute (-[semidet]-> Number Bool))
 (= (proof-live-compute $pid)
    (let*
-      (($gid (proof-goal-id $pid))
+      (($key (proof-goal-key-by-id $pid))
        ($kind (proof-kind-by-id $pid))
        ($current-hits
           (collapse
@@ -586,7 +638,10 @@
                    (stored-aggregate-row
                       $gid $_child $_args
                       $_base $_pending $current-pid)
-                   $current-pid)))))
+                   (if (=alpha
+                          (proof-goal-key-by-goal-id $gid) $key)
+                      $current-pid
+                      (empty)))))))
       (if (== $current-hits ())
          (if (= $kind (merged $_output))
             (proof-list-node-live? (proof-children-by-id $pid))
@@ -653,7 +708,7 @@
    (not (== (collapse (once (match &proof_static_live ($pid) true))) ())))
 
 (: mark-proof-static!
-   (-[det]-> (| Number MergedProofGroup) Number ProofKind (List Number) (| Bool (List $none))))
+   (-[det]-> Number Number ProofKind (List Number) (| Bool (List $none))))
 (= (mark-proof-static! $gid $pid $kind $children)
    (if (= $kind (aggregate $_term)) ()
       (if (== $children ())
@@ -686,8 +741,10 @@
 (: goal-live-proof-step
    (-[semidet]-> (List Number) Number (List Number)))
 (= (goal-live-proof-step $acc $pid)
-   (if (proof-live? $pid)
-      (append-number $acc $pid)
+   (if (>= $pid (search-id-value bwd_query_pid_start))
+      (if (proof-live? $pid)
+         (append-number $acc $pid)
+         $acc)
       $acc))
 
 (: append-number
@@ -888,6 +945,10 @@
 (= (factor-leaf-tv-work (cons $pid $rest) $key)
    (let $out (proof-output-atom-by-id $pid)
       (case $out (
+         ((CPU $_formula $_arguments $_result)
+            (factor-leaf-tv-work
+               (append-numbers
+                  (proof-children-by-id $pid) $rest) $key))
          (($t $kb $prf $tv)
             (if (=alpha (candidate-output-key $out) $key)
                (factor-checked-tv $tv)
@@ -1106,7 +1167,9 @@
       ((cons $pid ()) $pid)
       ($_
          (let*
-            (($output (merge-proof-id-output $pids))
+            (($goal-key (proof-goal-key-by-goal-id $gid))
+             ($owner (merged-proof-group $goal-key))
+             ($output (merge-proof-id-output $pids))
              ($score (term-confidence $output))
              ($ev (proof-id-evidence-list $pids))
              ($hits
@@ -1114,7 +1177,7 @@
                    (once
                       (match &proof
                          (stored-proof-row
-                            $stored-pid (merged-proof-group $gid)
+                            $stored-pid $owner
                             $output (merged $output) $score $ev $pids)
                          $stored-pid)))))
             (if (== $hits ())
@@ -1124,9 +1187,10 @@
                       (once
                          (chainer-add-atom &proof
                             (stored-proof-row
-                               $pid (merged-proof-group $gid) $output
+                               $pid $owner $output
                                (merged $output) $score $ev $pids))))
-                   ($_static (mark-proof-static! (merged-proof-group $gid) $pid (merged $output) $pids))
+                   ($_index (index-proof-result-for-goal! $goal-key $pid))
+                   ($_static (mark-proof-static! $gid $pid (merged $output) $pids))
                    ($_parents (register-proof-parent-edges! $pid $pids)))
                   $pid)
                (car-atom $hits)))))))
@@ -1186,10 +1250,71 @@
       (append-number $acc $pid)
       $acc))
 
-(: goal-incumbent-proof-ids (-[semidet]-> Number (List Number)))
-(= (goal-incumbent-proof-ids $gid)
+(: goal-raw-incumbent-proof-ids (-[semidet]-> Number (List Number)))
+(= (goal-raw-incumbent-proof-ids $gid)
    (proof-fold-flat-semidet
       goal-incumbent-proof-step () (goal-proof-ids $gid)))
+
+(: goal-result-proof-ids (-[semidet]-> Number (List Number)))
+(= (goal-result-proof-ids $gid)
+   (let* (((stored-goal-row
+              $_stored-gid $_depth $goal $_expanded $_pending)
+            (goal-by-id $gid))
+          ($key (proof-goal-key-by-goal-id $gid))
+          ($lookup-key (copy_term $key)))
+      (collapse
+         (match &proof_result
+            ($lookup-key $stored-key $pid)
+            (if (=alpha $stored-key $key)
+               (let $stored-pid (stored-number $pid)
+                  (if (proof-output-satisfies-goal?
+                         $stored-pid $goal)
+                     $stored-pid
+                     (empty)))
+               (empty))))))
+
+(: latest-proof-id (-[semidet]-> (List Number) Number))
+(= (latest-proof-id (cons $pid $rest))
+   (fold-flat max $pid $rest))
+
+(: latest-proof-output-group-ids
+   (-[semidet]-> (List ProofOutputGroup) (List Number)))
+(= (latest-proof-output-group-ids ()) ())
+(= (latest-proof-output-group-ids
+      (cons (proof-output-group $_key $pids) $rest))
+   (cons (latest-proof-id $pids)
+      (latest-proof-output-group-ids $rest)))
+
+(: proof-output-key-covered-by?
+   (-[semidet]-> (List Number) Number Bool))
+(= (proof-output-key-covered-by? () $_pid) false)
+(= (proof-output-key-covered-by? (cons $covered-pid $rest) $pid)
+   (if (=alpha
+         (proof-output-key-by-id $covered-pid)
+         (proof-output-key-by-id $pid))
+      true
+      (proof-output-key-covered-by? $rest $pid)))
+
+(: uncovered-incumbent-proof-step
+   (-[semidet]-> (List Number) (List Number) Number (List Number)))
+(= (uncovered-incumbent-proof-step $covered $acc $pid)
+   (if (proof-output-key-covered-by? $covered $pid)
+      $acc
+      (append-number $acc $pid)))
+
+(: goal-incumbent-proof-ids (-[semidet]-> Number (List Number)))
+(= (goal-incumbent-proof-ids $gid)
+   (let*
+      (($merged
+         (latest-proof-output-group-ids
+            (proof-output-groups
+               (goal-result-proof-ids $gid))))
+       ($raw (goal-raw-incumbent-proof-ids $gid))
+       ($uncovered
+          (proof-fold-flat-semidet
+             (uncovered-incumbent-proof-step $merged)
+             () $raw)))
+      (append-numbers $merged $uncovered)))
 
 (: root-goal-representative-proof-ids
    (-[semidet]-> Number (List Number)))
@@ -1205,9 +1330,21 @@
 (: root-goal-results
    (-[semidet]-> Number (List RuntimeResult)))
 (= (root-goal-results $gid)
-   (proof-map-flat-semidet materialize-result-atom
-      (proof-map-flat-semidet proof-output-atom-by-id
-         (root-goal-representative-proof-ids $gid))))
+   (let*
+      (($current-hits
+         (collapse
+            (once
+               (proof-map-flat-semidet materialize-result-atom
+                  (proof-map-flat-semidet proof-output-atom-by-id
+                     (root-goal-representative-proof-ids $gid))))))
+       ($current
+          (if (== $current-hits ()) ()
+             (car-atom $current-hits))))
+      (if (== $current ())
+         (proof-map-flat-semidet materialize-result-atom
+            (proof-map-flat-semidet proof-output-atom-by-id
+               (goal-incumbent-proof-ids $gid)))
+         $current)))
 
 (: goal-current-output
    (-[semidet]-> Number
@@ -1269,14 +1406,56 @@
 ;; here would discard recoverable confidence, and (since idealized confidence is
 ;; strength-dependent) the scores rarely tie, so plain overlap would otherwise
 ;; drop a poolable proof.
+(: ProofValue Type)
+(: proof-value (-[det]-> Proof ProofValue))
+(: no-proof-value ProofValue)
+
+(: proof-kind-proof-value (-[det]-> ProofKind ProofValue))
+(= (proof-kind-proof-value $kind)
+   (once
+      (case $kind (
+         ((leaf ($_type $_kb $proof $_tv))
+            (proof-value (brand Proof $proof)))
+         ((rule ($_type $_kb $proof $_tv))
+            (proof-value (brand Proof $proof)))
+         ((aggregate (CPU $_formula $_arguments $_result))
+            no-proof-value)
+         ((aggregate ($_type $_kb $proof $_tv))
+            (proof-value (brand Proof $proof)))
+         ($_other no-proof-value)))))
+
+(: backward-proof-kind-refines?
+   (-[det]-> ProofKind (List Evidence) ProofKind (List Evidence) Bool))
+(= (backward-proof-kind-refines? $old-kind $old-ev $new-kind $new-ev)
+   (let*
+      (($old-proof-value (proof-kind-proof-value $old-kind))
+       ($new-proof-value (proof-kind-proof-value $new-kind)))
+      (if (= $old-proof-value (proof-value $old-proof))
+         (if (= $new-proof-value (proof-value $new-proof))
+            (and
+               (forward-strict-evidence-subset? $old-ev $new-ev)
+               (forward-proof-refines?
+                  (brand Proof $old-proof)
+                  (brand Proof $new-proof)))
+            false)
+         false)))
+
 (: proof-overlap-dominates-score?
-   (-[det]-> (List Evidence) Number (List Evidence) Number Bool))
-(= (proof-overlap-dominates-score? $old-ev $old-score $new-ev $new-score)
+   (-[det]-> ProofKind (List Evidence) Number
+       ProofKind (List Evidence) Number Bool))
+(= (proof-overlap-dominates-score?
+      $old-kind $old-ev $old-score $new-kind $new-ev $new-score)
    (if (evidence-sets-dependent? $old-ev $new-ev)
-      (if (> $old-score $new-score) true
-         (if (== $old-score $new-score)
-            (evidence-subset? $new-ev $old-ev)
-            false))
+      (if (backward-proof-kind-refines?
+             $old-kind $old-ev $new-kind $new-ev)
+         false
+         (if (backward-proof-kind-refines?
+                $new-kind $new-ev $old-kind $old-ev)
+            true
+            (if (> $old-score $new-score) true
+               (if (== $old-score $new-score)
+                  (evidence-subset? $new-ev $old-ev)
+                  false))))
       false))
 
 (: goal-proof-candidate-comparable?
@@ -1287,27 +1466,33 @@
 
 (: goal-proof-candidate-step
    (-[semidet]-> Bool ProofOutputKey
-       (List Evidence) Number Bool Number Bool))
-(= (goal-proof-candidate-step $_open $_outkey $ev $score false $_oldpid) false)
-(= (goal-proof-candidate-step $open $outkey $ev $score true $oldpid)
+       ProofKind (List Evidence) Number Bool Number Bool))
+(= (goal-proof-candidate-step
+      $_open $_outkey $_kind $_ev $_score false $_oldpid) false)
+(= (goal-proof-candidate-step $open $outkey $kind $ev $score true $oldpid)
    (if (goal-proof-candidate-comparable? $open $outkey $oldpid)
-      (let ($old-score $old-ev) (proof-stats-by-id $oldpid)
+      (let*
+         ((($old-score $old-ev) (proof-stats-by-id $oldpid))
+          ($old-kind (proof-kind-by-id $oldpid)))
          (if (and (== $old-score $score) (== $old-ev $ev)) false
-            (if (proof-overlap-dominates-score? $old-ev $old-score $ev $score) false true)))
+            (if (proof-overlap-dominates-score?
+                   $old-kind $old-ev $old-score $kind $ev $score)
+               false true)))
       true))
 
 (: classify-goal-proof-candidate
-   (-[semidet]-> Number (| Goal ($type $kb $proof TV))
-       (List Evidence) Number Bool))
-(= (classify-goal-proof-candidate $gid $result $ev $score)
+   (-[semidet]-> Number ProofCandidate Bool))
+(= (classify-goal-proof-candidate
+      $gid (proof-candidate $kind $score $ev $_children))
    (let*
       (((stored-goal-row
             $_stored-gid $_depth $goal $_expanded $_pending)
           (goal-by-id $gid))
        ($open (goal-has-type-vars? $goal))
+       ($result (candidate-kind-term $kind))
        ($outkey (candidate-output-key $result)))
       (proof-fold-flat-semidet
-         (goal-proof-candidate-step $open $outkey $ev $score)
+         (goal-proof-candidate-step $open $outkey $kind $ev $score)
          true
          (goal-live-proof-ids $gid))))
 
@@ -1338,14 +1523,17 @@
 (: store-proof-candidate (-[nondet]-> Number ProofCandidate  Number))
 (= (store-proof-candidate $gid (proof-candidate $kind $score $ev $children))
    (let*
-      (($pid (next-pid))
+      (($goal-key (proof-goal-key-by-goal-id $gid))
+        ($owner (proof-goal $goal-key))
+        ($pid (next-pid))
         ($output (proof-output-atom-kind $kind $pid))
         ($old-pids
            (goal-live-proof-ids-for-output-key $gid (candidate-output-key $output)))
         ($_1
            (chainer-add-atom &proof
               (stored-proof-row
-                 $pid $gid $output $kind $score $ev $children)))
+                 $pid $owner $output $kind $score $ev $children)))
+        ($_index (index-proof-for-goal! $goal-key $pid))
         ($_2 (mark-proof-static! $gid $pid $kind $children))
         ($_parents (register-proof-parent-edges! $pid $children))
         ($_3
@@ -1415,7 +1603,9 @@
        (| ProofOutputKey ClosedGoalKey) Bool))
 (= (cyclic-dependency? $pid $gid $cycle-key)
    (if (== $cycle-key closed-goal)
-      (== (proof-goal-id $pid) $gid)
+      (=alpha
+         (proof-goal-key-by-id $pid)
+         (proof-goal-key-by-goal-id $gid))
       (=alpha (proof-output-key-by-id $pid) $cycle-key)))
 
 (: proof-depends-on-goal-seen?

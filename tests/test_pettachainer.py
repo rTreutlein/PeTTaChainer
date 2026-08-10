@@ -71,6 +71,65 @@ class TestPeTTaChainer(unittest.TestCase):
 
         self.assertEqual(handler.query_many_materialization([], steps=20), [])
 
+    def test_completed_proofs_survive_query_search_reset(self):
+        handler = PeTTaChainer()
+        handler.add_atom("(: durable_a (DurableA) (STV 1.0 0.8))")
+        handler.add_atom("(: durable_x (DurableX) (STV 1.0 0.8))")
+        handler.add_atom(
+            "(: durable_ax_rule "
+            "(Implication (And (DurableA) (DurableX)) (DurableGoal)) "
+            "(CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+        )
+        query = ["(: $proof (DurableGoal) $tv)"]
+
+        first = handler.query_many(query, steps=100, timeout_sec=0)
+        self.assertTrue(first[0])
+        self.assertEqual(
+            handler.query_many(query, steps=0, timeout_sec=0),
+            first,
+        )
+
+        handler.add_atom("(: durable_y (DurableY) (STV 1.0 0.8))")
+        handler.add_atom(
+            "(: durable_ay_rule "
+            "(Implication (And (DurableA) (DurableY)) (DurableGoal)) "
+            "(CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+        )
+        refined = handler.query_many(query, steps=100, timeout_sec=0)
+
+        self.assertTrue(refined[0])
+        self.assertNotEqual(refined, first)
+        self.assertEqual(
+            handler.query_many(query, steps=0, timeout_sec=0),
+            refined,
+        )
+
+    def test_materialized_shared_evidence_keeps_reconstructible_proofs(self):
+        handler = PeTTaChainer()
+        for name in ("Shared", "Left", "Right"):
+            handler.add_atom(
+                f"(: materialized_{name.lower()} ({name}) (STV 1.0 0.8))"
+            )
+        for side in ("Left", "Right"):
+            handler.add_atom(
+                f"(: materialized_{side.lower()}_rule "
+                f"(Implication (And (Shared) ({side})) (MaterializedSharedGoal)) "
+                f"(CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+            )
+        query = ["(: $proof (MaterializedSharedGoal) $tv)"]
+
+        materialized = handler.query_many_materialization(query, steps=200)
+
+        self.assertTrue(materialized[0])
+        self.assertEqual(
+            handler.query_many(query, steps=0, timeout_sec=0),
+            materialized,
+        )
+        self.assertEqual(
+            handler.query_many_materialization(query, steps=10),
+            materialized,
+        )
+
     def test_forward_chain_derives_fact_visible_to_backward_query(self):
         handler = PeTTaChainer()
         handler.add_atom("(: edge_ab (Edge A B) (STV 1.0 1.0))")

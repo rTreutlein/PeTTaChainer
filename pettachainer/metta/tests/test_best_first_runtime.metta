@@ -29,7 +29,14 @@
          (STV 1.0 0.1)))
    ())
 
-!(test (query 0 kb (: $prf (SwitchGoal) $tv)) ())
+;; Completed answers survive the per-query search reset. A zero-budget query
+;; can therefore read the durable proof without expanding a new frontier.
+!(test (query 0 kb (: $prf (SwitchGoal) $tv))
+   (: (merge/revision
+         (by ruleStable baseFact)
+         (by ruleHighThenDrop (conjunction weakFact baseFact)))
+      (SwitchGoal)
+      (STV 1.0 0.7094641445679878)))
 
 !(test (query 4 kb (: $prf (SwitchGoal) $tv))
    (: (by ruleStable baseFact) (SwitchGoal) (STV 1.0 0.699950950923023)))

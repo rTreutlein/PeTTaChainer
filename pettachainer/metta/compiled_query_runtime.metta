@@ -303,5 +303,6 @@
        ($_index
           (if (== $ids ()) ()
              (collapse
-                (remove-atom rule_name_index ($name $_any))))))
+                (remove-atom rule_name_index ($name $_any)))))
+       ($_proof-history (clear-durable-backward-proofs)))
       ()))

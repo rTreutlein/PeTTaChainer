@@ -519,14 +519,16 @@
 (= (add-space-atom! $space $row)
    (add-atom $space $row))
 
+(: search-id-value (-[det]-> CounterKey Number))
+(= (search-id-value $key)
+   (let $state-values (collapse (catch (get-state $key)))
+      (if (== $state-values ())
+         0
+         (if-error-number (car-atom $state-values) 0))))
+
 (: next-search-id (-[det]-> CounterKey Number))
 (= (next-search-id $key)
-   (let*
-      (($state-values (collapse (catch (get-state $key))))
-       ($n
-          (if (== $state-values ())
-             0
-             (if-error-number (car-atom $state-values) 0))))
+   (let $n (search-id-value $key)
       (progn (change-state! $key (+ $n 1)) $n)))
 
 (: next-gid (-[det]-> Number))
@@ -534,6 +536,20 @@
 
 (: next-pid (-[det]-> Number))
 (= (next-pid) (next-search-id bwd_pid))
+
+;; Ordinary queries retain completed proofs. Explicit statement removal is the
+;; non-monotonic escape hatch and must discard that history before numeric
+;; proof ids may be reused.
+(: clear-durable-backward-proofs (-[det]-> (List $none)))
+(= (clear-durable-backward-proofs)
+   (progn
+      (foreach-flat remove-all-atoms
+         (&proof &proof_goal &proof_result &proof_parent &proof_invalidated_epoch
+          &proof_live_cache &goal_live_cache &proof_static_live
+          &proof_superseded))
+      (change-state! bwd_pid 0)
+      (change-state! bwd_query_pid_start 0)
+      ()))
 
 (: cpu-call (-[nondet]-> Number $formula $arguments  $result))
 (= (cpu-call $_steps $fun $args) (reduce (reduce (cons $fun $args))))

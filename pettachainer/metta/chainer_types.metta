@@ -88,6 +88,7 @@
 (: CounterKey Type)
 (: bwd_gid CounterKey)
 (: bwd_pid CounterKey)
+(: bwd_query_pid_start CounterKey)
 (: ruleid CounterKey)
 (: bwd_tmp_ruleid CounterKey)
 (: fwd_br_id CounterKey)
@@ -173,8 +174,14 @@
 (: rule-ev (-[det]-> KB Proof Evidence))
 (: not-ev (-[det]-> Evidence Evidence))
 
-(: MergedProofGroup Type)
-(: merged-proof-group (-[det]-> Number MergedProofGroup))
+;; Completed proofs outlive the query-local goal rows that discovered them.
+;; Their owner is therefore the alpha-stable semantic goal key, never a
+;; numeric search gid. Synthetic merged representatives use a distinct owner
+;; so they are not folded back into the raw candidate group they summarize.
+(: ProofGoalKey (Newtype Atom))
+(: ProofOwner Type)
+(: proof-goal (-[det]-> ProofGoalKey ProofOwner))
+(: merged-proof-group (-[det]-> ProofGoalKey ProofOwner))
 
 (: ProofKind Type)
 (: leaf
@@ -188,7 +195,7 @@
 
 (: StoredProofRow Type)
 (: stored-proof-row
-   (-[det]-> Number (| Number MergedProofGroup)
+   (-[det]-> Number ProofOwner
        (| Goal (Statement KBContext Proof TV))
        ProofKind Number (List Evidence) (List Number)
        StoredProofRow))

@@ -1352,10 +1352,16 @@
                    true))))
        ($_agg
           (if (== $hits ())
-             (once
-                (chainer-add-atom &aggregate
-                   (stored-aggregate-row
-                      $agg-gid $child-gid $args $score 0.0 ())))
+             (progn
+                (once
+                   (chainer-add-atom &aggregate
+                      (stored-aggregate-row
+                         $agg-gid $child-gid $args $score 0.0 ())))
+                ;; A newly active aggregate makes every historical snapshot
+                ;; for this semantic goal non-current until this run commits
+                ;; its own snapshot. Drop any liveness answers computed while
+                ;; the aggregate had no transient execution row.
+                (invalidate-proof-live-caches))
              ())))
       $child-gid))
 
@@ -1618,12 +1624,12 @@
 (= (commit-grouped-aggregate-state-heap $agg-gid $args $agenda (aggregate-group-state $group $acc $ev $children))
    (let*
       (($result (grouped-aggregate-result $args (aggregate-group-state $group $acc $ev $children)))
-       ($score (term-confidence $result))
-       ($accepted (classify-goal-proof-candidate $agg-gid $result $ev $score)))
+       ($candidate (aggregate-result-candidate $result $ev $children))
+       ($accepted (classify-goal-proof-candidate $agg-gid $candidate)))
       (commit-grouped-aggregate-candidate-heap $agenda
          $agg-gid
          $accepted
-         (aggregate-result-candidate $result $ev $children))))
+         $candidate)))
 
 (: append-grouped-aggregate-current-pid!
    (-[semidet]-> Number Number (| Bool (List $none))))
@@ -1813,10 +1819,10 @@
        (Heap (| QueueGoal QueueAggregate))))
 (= (expand-direct-goal-step $gid $_goal $agenda $result)
    (let*
-      (($score (term-confidence $result))
-       ($ev (leaf-evidence-for-result $result))
-       ($accepted (classify-goal-proof-candidate $gid $result $ev $score))
-       ($nagenda (commit-proof-candidate-heap $agenda $gid $accepted (leaf-result-candidate $result $ev))))
+      (($ev (leaf-evidence-for-result $result))
+       ($candidate (leaf-result-candidate $result $ev))
+       ($accepted (classify-goal-proof-candidate $gid $candidate))
+       ($nagenda (commit-proof-candidate-heap $agenda $gid $accepted $candidate)))
       $nagenda))
 
 (: expand-direct-goal-heap
@@ -1996,7 +2002,7 @@
                   ((proof-candidate $_kind $_candidate-score $candidate-ev $_children) $candidate))
                  (commit-proof-candidate-heap $agenda
                     $parent-gid
-                    (classify-goal-proof-candidate $parent-gid $goal $candidate-ev $score)
+                    (classify-goal-proof-candidate $parent-gid $candidate)
                     $candidate)))
            ((cons $prem $_rest)
               (let*
@@ -2443,8 +2449,21 @@
        (List (Number (List RuntimeResult)))))
 (= (chainer-run-many $steps $goals)
    (let*
-      (($_clear (foreach-flat remove-all-atoms (&goal &goal_lookup &goal_waiter &aggregate &aggregate_search_budget &aggregate_forward_approx &proof &proof_parent &proof_invalidated_epoch &proof_live_cache &goal_live_cache &proof_static_live &proof_superseded)))
-       ($_reset (foreach-flat (|-> ($key) (change-state! $key 0)) (bwd_gid bwd_pid bwd_live_epoch)))
+      (;; Goals, waiters, and aggregate execution rows belong to one search.
+       ;; Completed proof rows and their dependency indexes are monotonic
+       ;; knowledge and intentionally survive this reset.
+       ($_clear
+          (foreach-flat remove-all-atoms
+             (&goal &goal_lookup &goal_waiter
+              &aggregate &aggregate_search_budget &aggregate_forward_approx
+              &proof_invalidated_epoch &proof_live_cache &goal_live_cache)))
+       ($_reset
+          (foreach-flat
+             (|-> ($key) (change-state! $key 0))
+             (bwd_gid bwd_live_epoch)))
+       ($_query-proof-boundary
+          (change-state! bwd_query_pid_start
+             (search-id-value bwd_pid)))
        ($root-gids
           (map-flat
              (|-> ($goal) (ensure-goal-at-depth $goal 0))

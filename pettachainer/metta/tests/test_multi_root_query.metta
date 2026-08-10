@@ -24,7 +24,8 @@
       (query-many 0 batchKb
          ((: $prf (BatchA) $tv)
           (: $prf (BatchB) $tv))))
-   ())
+   ((query-result 0 (: batch-a (BatchA) (STV 1.0 1.0)))
+    (query-result 1 (: batch-b (BatchB) (STV 0.5 0.8)))))
 
 ;; Query-local compiler additions for compound roots are installed beside the
 ;; other roots once and remain isolated by their compiled contexts.
