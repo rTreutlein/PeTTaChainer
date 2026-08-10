@@ -2,6 +2,24 @@
 
 !(test (rule-marginal-score no-current 0.42) 0.42)
 
+;; First-proof search retains its existing priority. A confident local
+;; refinement cannot claim more value than its root branch can deliver, and
+;; optional incumbent refinement is normalized by immediate work.
+!(test (root-refinement-value-score 0.2 no-current 0.9 4) 0.9)
+!(test
+   (root-refinement-value-score 0.5 0.9 1.0 2)
+   (/ (rule-marginal-score 0.9 1.0) 2))
+!(test
+   (root-refinement-value-score 0.02 0.1 0.9 1)
+   0.02)
+
+;; Cached base-rate refinement becomes less valuable as the already-observed
+;; evidence (and therefore the estimated rescan work) grows.
+!(test
+   (< (cached-base-rate-refinement-score 1.0 (STV 0.5 0.9))
+      (cached-base-rate-refinement-score 1.0 (STV 0.5 0.1)))
+   true)
+
 ;; Expansion budget and beam width are independent. Larger budgets therefore
 ;; extend the same deterministic search prefix instead of selecting a wider
 ;; set of branches from the start.
@@ -139,3 +157,40 @@
          (IncumbentGoal)
          $tv))
    ())
+
+;; Once a canonical KB answer exists (including a materialized one), expected
+;; gain alone favors the certain three-premise alternative. Value per immediate
+;; expansion instead spends the fixed budget on the slightly weaker one-premise
+;; alternative and improves the root while retaining the incumbent.
+!(compileadd refinementValueKb
+   (: incumbentValueRoot (RefinementValueGoal) (STV 1.0 0.9)))
+!(compileadd refinementValueKb
+   (: cheapRefinementSeed (CheapRefinementSeed) (STV 1.0 1.0)))
+!(compileadd refinementValueKb
+   (: expensiveRefinementSeed1 (ExpensiveRefinementSeed1) (STV 1.0 1.0)))
+!(compileadd refinementValueKb
+   (: expensiveRefinementSeed2 (ExpensiveRefinementSeed2) (STV 1.0 1.0)))
+!(compileadd refinementValueKb
+   (: expensiveRefinementSeed3 (ExpensiveRefinementSeed3) (STV 1.0 1.0)))
+
+!(compileadd refinementValueKb
+   (: cheapRootRefinement
+      (Implication (CheapRefinementSeed) (RefinementValueGoal))
+      (CTV (STV 1.0 0.95) (STV 0.0 1.0))))
+!(compileadd refinementValueKb
+   (: expensiveRootRefinement
+      (Implication
+         (And
+            (ExpensiveRefinementSeed1)
+            (ExpensiveRefinementSeed2)
+            (ExpensiveRefinementSeed3))
+         (RefinementValueGoal))
+      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+
+!(test
+   (query 3 refinementValueKb (: $prf (RefinementValueGoal) $tv))
+   (: (merge/revision
+         (by cheapRootRefinement cheapRefinementSeed)
+         incumbentValueRoot)
+      (RefinementValueGoal)
+      (STV 1.0 0.9654743387542188)))

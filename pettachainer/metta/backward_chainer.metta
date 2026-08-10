@@ -1330,9 +1330,6 @@
                 (aggregate-result-candidate $result () ())))))
       (wake-proof-commit-heap $agenda $agg-gid $pid)))
 
-(: base-rate-refine-score (-[det]-> Number Number))
-(= (base-rate-refine-score $score) (* 0.25 $score))
-
 (: ensure-aggregate-child-goal
    (-[nondet]-> Number Goal $arguments Number Number))
 (= (ensure-aggregate-child-goal $agg-gid $goal-view $args $score)
@@ -1393,7 +1390,10 @@
              (chainer-add-atom &goal_waiter
                 ($child-gid (aggregate-waiter $agg-gid)))))
        ($agenda1 (wake-proof-commit-heap $agenda $agg-gid $pid))
-       ($nagenda (schedule-goal-heap $agenda1 (base-rate-refine-score $score) $child-gid)))
+       ($nagenda
+          (schedule-goal-heap $agenda1
+             (cached-base-rate-refinement-score $score $tv)
+             $child-gid)))
       $nagenda))
 
 (: spawn-aggregate-goal-heap
@@ -1826,16 +1826,16 @@
       $nagenda))
 
 (: expand-direct-goal-heap
-   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number Number
+   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number Number Number
        (| Goal (Statement KBContext Proof TV))
        (Heap (| QueueGoal QueueAggregate))))
-(= (expand-direct-goal-heap $agenda $steps $gid $goal)
+(= (expand-direct-goal-heap $agenda $steps $root-bound $gid $goal)
    (let*
       (($results (collapse (direct-goal-results-view $steps $goal)))
        ($agenda1
           (proof-fold-flat-semidet
              (expand-direct-goal-step $gid $goal) $agenda $results)))
-      (expand-rule-goal-heap $agenda1 $gid $goal)))
+      (expand-rule-goal-heap $agenda1 $root-bound $gid $goal)))
 
 (: inject-compiled-query-adds
    (-[semidet]-> CompiledQuery (List $none)))
@@ -2023,11 +2023,11 @@
                        $rev-pids))))))))
 
 (: expand-rule-goal-heap
-   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number
+   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number Number
        (| Goal (Statement KBContext Proof TV))
        (Heap (| QueueGoal QueueAggregate))))
-(= (expand-rule-goal-heap $agenda $parent-gid $goal)
-   (proof-fold-flat-semidet expand-rule-goal-fold
+(= (expand-rule-goal-heap $agenda $root-bound $parent-gid $goal)
+   (proof-fold-flat-semidet (expand-rule-goal-fold $root-bound)
       $agenda
       (collapse (rule-goal-view $goal $parent-gid))))
 
@@ -2165,16 +2165,18 @@
       false))
 
 (: expand-rule-goal-fold
-   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) RuleGoalMatch (Heap (| QueueGoal QueueAggregate))))
-(= (expand-rule-goal-fold $agenda ($rule-id $args $goal $parent-gid))
+   (-[semidet]-> Number (Heap (| QueueGoal QueueAggregate)) RuleGoalMatch (Heap (| QueueGoal QueueAggregate))))
+(= (expand-rule-goal-fold $root-bound $agenda ($rule-id $args $goal $parent-gid))
    (if (rule-premise-prefilter-prunes? $args) $agenda
       (let*
          (($expected-score
              (rule-expected-score $rule-id $goal $args))
           ($bound
-             (rule-marginal-score
+             (root-refinement-value-score
+                $root-bound
                 (goal-current-confidence $parent-gid)
-                $expected-score))
+                $expected-score
+                (list-len $args)))
           ($bundle (copy_term (make-and-bundle $goal $args))))
          (spawn-frontier-heap $agenda
             $parent-gid
@@ -2212,8 +2214,8 @@
                       (spawn-aggregate-goal-heap
                          $agenda $steps $score $gid (the Goal $goal)))
                    (expand-direct-goal-heap
-                      $agenda $steps $gid $goal)))
-             (expand-direct-goal-heap $agenda $steps $gid $goal)))
+                      $agenda $steps $score $gid $goal)))
+             (expand-direct-goal-heap $agenda $steps $score $gid $goal)))
        ($nagenda (if (== $nagenda0 ()) (empty_heap) $nagenda0)))
       $nagenda))
 

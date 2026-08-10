@@ -287,6 +287,34 @@
             (- (max $candidate-score (optimistic-revision-score $score $candidate-score))
                $score)))))
 
+;; The incoming score is the most value this goal can still contribute to the
+;; requesting root branch.  Once a cached/materialized incumbent makes further
+;; work optional, a subgoal must not regain a larger priority merely because
+;; one of its local rules has a confident conclusion, and refinement pays for
+;; the rule's immediate premise expansions. First-proof search keeps the
+;; existing score and ordering.
+(: root-refinement-value-score
+   (-[det]-> Number (| Number NoCurrentScore) Number Number Number))
+(= (root-refinement-value-score
+      $root-bound $current-score $candidate-score $premise-count)
+   (if (== $current-score no-current)
+      $candidate-score
+      (let $bounded
+         (min $root-bound
+            (rule-marginal-score $current-score $candidate-score))
+         (/ $bounded (max 1 $premise-count)))))
+
+;; A cached base-rate snapshot is usable immediately.  Its optional live fold
+;; can improve confidence by at most the remaining confidence mass, while the
+;; snapshot's evidence count is a lower-bound estimate of the rescan work.
+(: cached-base-rate-refinement-score (-[det]-> Number TV Number))
+(= (cached-base-rate-refinement-score $root-bound $tv)
+   (let*
+      (($confidence (tv-confidence $tv))
+       ($gain-bound (max 0.000001 (- 1.0 $confidence)))
+       ($expected-steps (max 1.0 (confidence-to-count $confidence))))
+      (/ (min $root-bound $gain-bound) $expected-steps)))
+
 (: frontier-proof-score (-[det]-> $proof-output Number Number))
 (= (frontier-proof-score $output $score)
    (if (= $output (CPU $_fun $_args $_res))

@@ -164,10 +164,12 @@ knowledge base in `&base_rate_cache`:
   authoritative (the proof shows a bare `cpu` token instead of a
   `foldall-proof`).
 - A *computed* entry instead becomes the aggregate's initial snapshot: the
-  cached value answers immediately, and the fold machinery still spawns at
-  reduced priority (`base-rate-refine-score`). If leftover budget lets the
-  refold find a better estimate, the ordinary anytime snapshot replacement
-  swaps it in and re-propagates downstream conclusions.
+  cached value answers immediately, and the fold machinery still spawns at a
+  value-of-computation priority capped by the requesting root branch. The
+  priority decreases with both the snapshot's remaining confidence gap and
+  its implied evidence/rescan count. If leftover budget lets the refold find a
+  better estimate, the ordinary anytime snapshot replacement swaps it in and
+  re-propagates downstream conclusions.
 - Forward chaining maintains additive sufficient statistics for the base-rate
   folds emitted by the compiler. Each canonical output actually processed by
   the requested forward budget updates its contribution in constant work and
