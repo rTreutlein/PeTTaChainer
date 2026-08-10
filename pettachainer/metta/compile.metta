@@ -1348,7 +1348,12 @@
          false)))
 
 (: disable-inversion-proof-id? (-[det]-> Proof Bool))
-(= (disable-inversion-proof-id? $prf) (= $prf (no_inverse $_)))
+;; BiImplication lowering already emits both directions; inverting either one
+;; again creates a redundant Bayesian version of its explicitly emitted peer.
+(= (disable-inversion-proof-id? $prf)
+   (if (= $prf (no_inverse $_)) true
+      (if (= $prf (bi-forward $_)) true
+         (= $prf (bi-backward $_)))))
 
 ;; Classify source computations rather than treating every CPU introduced by
 ;; lowering as a reason to suppress implication inversion. A pure top-level Or

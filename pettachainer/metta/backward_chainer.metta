@@ -929,43 +929,245 @@
 (= (stored-atom-list (cons $head $rest))
    (cons $head (stored-atom-list $rest)))
 
-(: advance-frontier-waiters-heap
-   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number (List Atom) (Heap (| QueueGoal QueueAggregate))))
-(= (advance-frontier-waiters-heap $agenda $_pid ()) $agenda)
-(= (advance-frontier-waiters-heap $agenda $pid (cons $waiter $rest))
-   (case $waiter
-      (((frontier-waiter $parent-gid $bundle $score $seen $parts $rev-pids)
-          (advance-frontier-waiters-heap
-             (advance-frontier-waiter-heap
-                $agenda
-                (frontier-waiter
-                   $parent-gid $bundle $score $seen $parts $rev-pids)
-                $pid)
-             $pid
-             $rest))
-       ($_other
-          (advance-frontier-waiters-heap $agenda $pid $rest)))))
+;; Select proof paths against the consumer's cycle key before equivalent outputs
+;; are merged. A globally valid recursive proof must remain queryable, but it
+;; cannot be allowed to poison an independent proof when the same proposition is
+;; consumed by one of its own ancestors.
+(: noncyclic-proof-source-step
+   (-[semidet]-> Number (List (| ProofOutputKey ClosedGoalKey))
+       (List Number) Number (List Number)))
+(= (noncyclic-proof-source-step $consumer-gid $cycle-keys $acc $pid)
+   (if (proof-depends-on-cycle-keys?
+         $pid $consumer-gid $cycle-keys)
+      $acc
+      (frontier-append-index $acc $pid)))
 
-;; Conjunction frontiers additionally need raw alternatives so future premise
-;; overlap does not make an otherwise independent combination unreachable.
-(: advance-raw-frontier-waiters-heap
-   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number (List Atom) (Heap (| QueueGoal QueueAggregate))))
-(= (advance-raw-frontier-waiters-heap $agenda $_pid ()) $agenda)
-(= (advance-raw-frontier-waiters-heap $agenda $pid (cons $waiter $rest))
+(: proof-depends-on-cycle-keys?
+   (-[semidet]-> Number Number
+       (List (| ProofOutputKey ClosedGoalKey)) Bool))
+(= (proof-depends-on-cycle-keys? $_pid $_consumer-gid ()) false)
+(= (proof-depends-on-cycle-keys?
+      $pid $consumer-gid (cons $cycle-key $rest))
+   (if (proof-depends-on-goal-seen?
+         $pid $consumer-gid $cycle-key ())
+      true
+      (proof-depends-on-cycle-keys?
+         $pid $consumer-gid $rest)))
+
+(: noncyclic-proof-source-ids
+   (-[semidet]-> Number (List (| ProofOutputKey ClosedGoalKey))
+       Number (List Number)))
+(= (noncyclic-proof-source-ids $consumer-gid $cycle-keys $source-gid)
+   (proof-fold-flat-semidet
+      (noncyclic-proof-source-step $consumer-gid $cycle-keys)
+      ()
+      (goal-live-proof-ids $source-gid)))
+
+;; Compound goals are lowered into their child premises, so their proof DAG may
+;; not contain a node for the compound itself. Include every recursively lowered
+;; leaf in the consumer condition to retain the logical cycle boundary after
+;; compilation.
+(: compound-cycle-leaf-keys
+   (-[det]-> Statement KBContext
+       (List (| ProofOutputKey ClosedGoalKey))))
+(= (compound-cycle-leaf-keys $type $kb)
+   (if (compound-source? $type)
+      (compound-cycle-leaf-list-keys
+         (the (List Atom) (cdr-atom $type)) $kb)
+      (cons
+         (proof-output-key (quote ($type $kb))) ())))
+
+(: compound-cycle-leaf-list-keys
+   (-[det]-> (List Atom) KBContext
+       (List (| ProofOutputKey ClosedGoalKey))))
+(= (compound-cycle-leaf-list-keys () $_kb) ())
+(= (compound-cycle-leaf-list-keys (cons $type $rest) $kb)
+   (append-cycle-keys
+      (compound-cycle-leaf-keys
+         (brand Statement $type) $kb)
+      (compound-cycle-leaf-list-keys $rest $kb)))
+
+(: append-cycle-keys
+   (-[det]-> (List (| ProofOutputKey ClosedGoalKey))
+       (List (| ProofOutputKey ClosedGoalKey))
+       (List (| ProofOutputKey ClosedGoalKey))))
+(= (append-cycle-keys () $right) $right)
+(= (append-cycle-keys (cons $key $rest) $right)
+   (cons $key (append-cycle-keys $rest $right)))
+
+(: frontier-cycle-keys
+   (-[semidet]-> Number AndBundle
+       (List (| ProofOutputKey ClosedGoalKey))))
+(= (frontier-cycle-keys $parent-gid $bundle)
+   (let*
+      (($goal (and-bundle-goal $bundle))
+       ($root-key
+          (candidate-cycle-key $parent-gid (rule $goal))))
+      (case $goal (
+         (($type $kb $proof $_tv)
+            (the (List (| ProofOutputKey ClosedGoalKey))
+               (cons $root-key
+                  (if
+                     (if (compound-source? (brand Statement $type))
+                        (compound-reconstruction-proof?
+                           (brand Proof $proof))
+                        false)
+                     (compound-cycle-leaf-keys
+                        (brand Statement $type)
+                        (brand KBContext $kb))
+                     ()))))
+         ($_other
+            (the (List (| ProofOutputKey ClosedGoalKey))
+               (cons $root-key ())))))))
+
+(: proof-nested-head? (-[det]-> Proof Atom Bool))
+(= (proof-nested-head? $proof $expected)
+   (if (is-expr $proof)
+      (let $outer-head (car-atom $proof)
+         (if (is-expr $outer-head)
+            (let $head (car-atom $outer-head)
+               (if (is-var $head) false
+                  (== $head $expected)))
+            false))
+      false))
+
+(: bi-direction-proof-label? (-[det]-> Atom Bool))
+(= (bi-direction-proof-label? $label)
+   (if (is-expr $label)
+      (let $head (car-atom $label)
+         (if (is-var $head) false
+            (if (== $head bi-forward) true
+               (== $head bi-backward))))
+      false))
+
+(: bi-direction-proof? (-[det]-> Proof Bool))
+(= (bi-direction-proof? $proof)
+   (if (is-expr $proof)
+      (let $head (car-atom $proof)
+         (if (is-var $head) false
+            (if (== $head by)
+               (case (cdr-atom $proof) (
+                  ((cons $label (cons $_source ()))
+                     (bi-direction-proof-label? $label))
+                  ($_other false)))
+               false)))
+      false))
+
+(: compound-reconstruction-proof? (-[det]-> Proof Bool))
+(= (compound-reconstruction-proof? $proof)
+   (if (bi-direction-proof? $proof) true
+      (proof-nested-head? $proof inverted)))
+
+(: frontier-needs-conditioned-proofs? (-[det]-> AndBundle Bool))
+(= (frontier-needs-conditioned-proofs? $bundle)
+   (let $goal (and-bundle-goal $bundle)
+      (case $goal (
+         (($type $_kb $proof $_tv)
+            (if (is-var $proof)
+               false
+               (if (proof-nested-head?
+                     (brand Proof $proof) proj)
+                  true
+                  (if (compound-source? (brand Statement $type))
+                     (compound-reconstruction-proof?
+                        (brand Proof $proof))
+                     false))))
+         ($_other false)))))
+
+(: frontier-compatible-source-ids
+   (-[semidet]-> Number AndBundle Number (List Number)))
+(= (frontier-compatible-source-ids $parent-gid $bundle $child-gid)
+   (noncyclic-proof-source-ids
+      $parent-gid
+      (frontier-cycle-keys $parent-gid $bundle)
+      $child-gid))
+
+(: advance-conditioned-frontier-waiter-heap
+   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number Number
+       FrontierWaiter (Heap (| QueueGoal QueueAggregate))))
+(= (advance-conditioned-frontier-waiter-heap
+      $agenda $child-gid $pid
+      (frontier-waiter $parent-gid $bundle $score
+         $seen $parts $rev-pids))
+   (let $waiter
+      (frontier-waiter $parent-gid $bundle $score
+         $seen $parts $rev-pids)
+      (let*
+         (($key (proof-output-key-by-id $pid))
+          ($compatible
+             (frontier-compatible-source-ids
+                $parent-gid $bundle $child-gid))
+          ($pids
+             (proof-fold-flat-semidet
+                (proof-output-group-for-key-step $key)
+                () $compatible)))
+         (if (== $pids ())
+            $agenda
+            (let*
+               (($representative-pid
+                   (proof-output-group-representative-pid $child-gid
+                      (proof-output-group $key $pids)))
+                ($agenda1
+                   (if (frontier-needs-raw-proofs? $bundle)
+                      (if (stored-list-member? $pid $compatible)
+                         (if (not (== $representative-pid $pid))
+                            (advance-frontier-waiter-heap
+                               $agenda $waiter $pid)
+                            $agenda)
+                         $agenda)
+                      $agenda)))
+               (advance-frontier-waiter-heap
+                  $agenda1 $waiter $representative-pid))))))
+
+(: advance-unconditioned-frontier-waiter-heap
+   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number Number
+       FrontierWaiter (Heap (| QueueGoal QueueAggregate))))
+(= (advance-unconditioned-frontier-waiter-heap
+      $agenda $child-gid $pid
+      (frontier-waiter $parent-gid $bundle $score
+         $seen $parts $rev-pids))
+   (let*
+      (($waiter
+          (frontier-waiter $parent-gid $bundle $score
+             $seen $parts $rev-pids))
+       ($representative-pid
+          (goal-merged-proof-id-for-pid $child-gid $pid)))
+      (if (== $representative-pid $pid)
+         (advance-frontier-waiter-heap $agenda $waiter $pid)
+         (advance-frontier-waiter-heap
+            (if (frontier-needs-raw-proofs? $bundle)
+               (advance-frontier-waiter-heap $agenda $waiter $pid)
+               $agenda)
+            $waiter $representative-pid))))
+
+;; Compound reconstruction and strict projection frontiers need a
+;; parent-conditioned representative.  All other frontiers retain their exact
+;; established raw/merged scheduling semantics.
+(: advance-frontier-proof-waiters-heap
+   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number Number
+       (List Atom) (Heap (| QueueGoal QueueAggregate))))
+(= (advance-frontier-proof-waiters-heap
+      $agenda $_child-gid $_pid ())
+   $agenda)
+(= (advance-frontier-proof-waiters-heap
+      $agenda $child-gid $pid (cons $waiter $rest))
    (case $waiter
       (((frontier-waiter $parent-gid $bundle $score $seen $parts $rev-pids)
-          (advance-raw-frontier-waiters-heap
-             (if (frontier-needs-raw-proofs? $bundle)
-                (advance-frontier-waiter-heap
-                   $agenda
-                   (frontier-waiter
-                      $parent-gid $bundle $score $seen $parts $rev-pids)
-                   $pid)
-                $agenda)
-             $pid
-             $rest))
+          (let*
+             (($typed-waiter
+                 (frontier-waiter $parent-gid $bundle $score
+                    $seen $parts $rev-pids))
+              ($nagenda
+                 (if (frontier-needs-conditioned-proofs? $bundle)
+                    (advance-conditioned-frontier-waiter-heap
+                       $agenda $child-gid $pid $typed-waiter)
+                    (advance-unconditioned-frontier-waiter-heap
+                       $agenda $child-gid $pid $typed-waiter))))
+             (advance-frontier-proof-waiters-heap
+                $nagenda $child-gid $pid $rest)))
        ($_other
-          (advance-raw-frontier-waiters-heap $agenda $pid $rest)))))
+          (advance-frontier-proof-waiters-heap
+             $agenda $child-gid $pid $rest)))))
 
 (: schedule-aggregate-waiters-heap
    (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) (List Atom) (Heap (| QueueGoal QueueAggregate))))
@@ -988,15 +1190,9 @@
              (collapse
                 (match &goal_waiter
                    ($gid $waiter) $waiter))))
-       ($representative-pid (goal-merged-proof-id-for-pid $gid $pid))
        ($agenda2
-          (if (== $representative-pid $pid)
-             (advance-frontier-waiters-heap
-                $agenda $pid $waiters)
-             (advance-frontier-waiters-heap
-                (advance-raw-frontier-waiters-heap
-                   $agenda $pid $waiters)
-                $representative-pid $waiters)))
+          (advance-frontier-proof-waiters-heap
+             $agenda $gid $pid $waiters))
        ($agenda3
           (schedule-aggregate-waiters-heap $agenda2 $waiters)))
       $agenda3))
@@ -1051,6 +1247,28 @@
 (= (advance-frontier-waiter-fold-step $waiter $agenda $pid)
    (advance-frontier-waiter-heap $agenda $waiter $pid))
 
+(: frontier-existing-proof-ids
+   (-[semidet]-> Number AndBundle Number (List Number)))
+(= (frontier-existing-proof-ids $parent-gid $bundle $gid)
+   (if (frontier-needs-conditioned-proofs? $bundle)
+      (let*
+         (($compatible
+             (frontier-compatible-source-ids
+                $parent-gid $bundle $gid))
+          ($representatives
+             (proof-output-group-representative-pids $gid
+                (proof-output-groups $compatible))))
+         (if (frontier-needs-raw-proofs? $bundle)
+            (list_to_set
+               (append-numbers $compatible $representatives))
+            $representatives))
+      (if (frontier-needs-raw-proofs? $bundle)
+         (list_to_set
+            (append-numbers
+               (goal-live-proof-ids $gid)
+               (goal-merged-proof-ids $gid)))
+         (goal-merged-proof-ids $gid))))
+
 (= (spawn-frontier-goal-heap $agenda $score $gid
       (frontier-waiter $parent-gid $bundle $waiter-score
          $seen $parts $rev-pids))
@@ -1065,12 +1283,8 @@
        ($agenda1
           (proof-fold-flat-semidet (advance-frontier-waiter-fold-step $waiter)
              $agenda
-             (if (frontier-needs-raw-proofs? $bundle)
-                (list_to_set
-                   (append-numbers
-                      (goal-live-proof-ids $gid)
-                      (goal-merged-proof-ids $gid)))
-                (goal-merged-proof-ids $gid))))
+             (frontier-existing-proof-ids
+                $parent-gid $bundle $gid)))
        ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
       $nagenda))
 
@@ -1283,14 +1497,6 @@
           (frontier-append-index $children $pid)))
       (aggregate-state $nacc $nev $nchildren)))
 
-(: aggregate-noncyclic-source-step
-   (-[semidet]-> Number (List Number) Number (List Number)))
-(= (aggregate-noncyclic-source-step $agg-gid $acc $pid)
-   (if (proof-depends-on-goal-seen?
-         $pid $agg-gid closed-goal ())
-      $acc
-      (frontier-append-index $acc $pid)))
-
 ;; Cycle rejection must happen before equivalent outputs are merged.  Otherwise
 ;; one recursive proof can make a merged representative look cyclic and hide an
 ;; independent direct proof of the same grounded atom from the aggregate.
@@ -1299,9 +1505,8 @@
 (= (aggregate-fold-source-ids $agg-gid $child-gid)
    (proof-output-group-representative-pids $child-gid
       (proof-output-groups
-         (proof-fold-flat-semidet (aggregate-noncyclic-source-step $agg-gid)
-            ()
-            (goal-live-proof-ids $child-gid)))))
+         (noncyclic-proof-source-ids
+            $agg-gid (closed-goal) $child-gid))))
 
 (: aggregate-final-state
    (-[semidet]-> Number Number

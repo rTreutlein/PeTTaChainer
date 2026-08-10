@@ -168,3 +168,30 @@
 !(test
    (query 20 negConclusionKb (: $prf (Not (B)) $tv))
    (: (negated (negated (by a_not_b a))) (Not (B)) (STV 1.0 0.9998000399670116)))
+
+;; BiImplication already emits both directions.  Even when enough historical
+;; evidence exists to calculate Bayesian inverses, each direction must remain
+;; one-way instead of creating a redundant inverse of its opposite direction.
+!(compileadd oneWayBiImplicationKb
+   (: aIffB
+      (BiImplication
+         (OneWayA $x)
+         (OneWayB $x))
+      (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
+!(compileadd oneWayBiImplicationKb
+   (: currentB (OneWayB current) (STV 1.0 1.0)))
+!(compileadd oneWayBiImplicationKb
+   (: h1A (OneWayA h1) (STV 1.0 1.0)))
+!(compileadd oneWayBiImplicationKb
+   (: h1B (OneWayB h1) (STV 1.0 1.0)))
+!(compileadd oneWayBiImplicationKb
+   (: h2A (OneWayA h2) (STV 0.0 1.0)))
+!(compileadd oneWayBiImplicationKb
+   (: h2B (OneWayB h2) (STV 0.0 1.0)))
+
+!(test
+   (query 5000 oneWayBiImplicationKb
+      (: $proof (OneWayA current) $tv))
+   (: (by (bi-backward aIffB) currentB)
+      (OneWayA current)
+      (STV 0.8 0.8999999997518513)))
