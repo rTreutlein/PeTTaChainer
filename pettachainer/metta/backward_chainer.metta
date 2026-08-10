@@ -2172,12 +2172,12 @@
          (($expected-score
              (rule-expected-score $rule-id $goal $args))
           ($bound
-             (root-refinement-value-score
+             (root-proof-value-score
                 $root-bound
                 (goal-current-confidence $parent-gid)
                 $expected-score
                 (list-len $args)
-                (refinement-premises-success-probability $args)))
+                (premises-proof-success-prior $args)))
           ($bundle (copy_term (make-and-bundle $goal $args))))
          (spawn-frontier-heap $agenda
             $parent-gid

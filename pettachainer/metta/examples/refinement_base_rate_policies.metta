@@ -1,22 +1,23 @@
 !(import! &self ../petta_chainer)
 
-;; Compare three refinement schedulers on the same incident-response problem.
+;; Exercise cache-guided proof scheduling on an incident-response problem.
 ;; Run from pettachainer/metta with:
 ;;   petta examples/refinement_base_rate_policies.metta
 ;;
-;; An existing incident assessment is immediately usable. Three independent
+;; An existing incident assessment is immediately usable. Four independent
 ;; rules could improve it:
 ;;
 ;;   1. a theoretically decisive but historically rare packet signature;
 ;;   2. an almost-certain-on-paper sensor alert whose 0.99 rate is based on
 ;;      very weak evidence;
-;;   3. a slightly weaker telemetry correlation with a well-supported 0.75
+;;   3. a completely unknown novel indicator;
+;;   4. a slightly weaker telemetry correlation with a well-supported 0.75
 ;;      population rate and an actual fact for this incident.
 ;;
-;; The first two premises deliberately have no proof for incident42. Their
+;; The first three premises deliberately have no proof for incident42. The
 ;; preloaded cache entries stand in for rates learned from historical incidents;
 ;; they are estimates, not asserted facts. The useful rate is generalized
-;; across incidents, exercising option 2's pattern lookup.
+;; across incidents, exercising generalized pattern lookup.
 
 !(compileadd incidentPolicyKb
    (: existingAssessment
@@ -45,6 +46,12 @@
          (CorrelatedTelemetry incident42)
          (ServiceAtRisk incident42))
       (CTV (STV 1.0 0.95) (STV 0.0 1.0))))
+!(compileadd incidentPolicyKb
+   (: novelIndicatorAssessment
+      (Implication
+         (UnseenNovelIndicator incident42)
+         (ServiceAtRisk incident42))
+      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(set-base-rate incidentPolicyKb
    (RarePacketSignature incident42)
@@ -56,43 +63,21 @@
    (CorrelatedTelemetry $incident)
    (STV 0.75 0.9))
 
-;; At three expansions, the optimistic baseline spends its budget checking the
-;; two locally most confident dead ends. Raw exact-key rates reject the rare
-;; first branch and reach the useful proof. The smoothed/generalized policy has
-;; already reached it with two expansions.
-(= (incident-policy-run $mode $steps)
-   (let* (($_mode (set-refinement-prior-mode $mode))
-          ($result
-             (query $steps incidentPolicyKb
-                (: $proof (ServiceAtRisk incident42) $tv))))
-      (policy $mode $steps $result)))
+;; The resulting factors are 0.675 for telemetry, 0.25 for the unknown
+;; indicator, 0.045 for the rare signature, and 0.0099 for the weak sensor.
+;; The useful proof therefore improves the incumbent on the second expansion.
+(= (incident-policy-run $steps)
+   (let $result
+      (query $steps incidentPolicyKb
+         (: $proof (ServiceAtRisk incident42) $tv))
+      (policy base-rate-guided $steps $result)))
 
-!(incident-policy-run optimistic 2)
-!(incident-policy-run optimistic 3)
-!(incident-policy-run direct-base-rate 2)
-!(incident-policy-run direct-base-rate 3)
-!(incident-policy-run smoothed-base-rate 2)
-!(incident-policy-run smoothed-base-rate 3)
+!(incident-policy-run 2)
+!(incident-policy-run 3)
 
 !(test
-   (incident-policy-run optimistic 3)
-   (policy optimistic 3
-      (: existingAssessment
-         (ServiceAtRisk incident42)
-         (STV 1.0 0.7))))
-
-!(test
-   (incident-policy-run direct-base-rate 3)
-   (policy direct-base-rate 3
-      (: (merge/revision
-            (by telemetryAssessment correlatedTelemetry)
-            existingAssessment)
-         (ServiceAtRisk incident42)
-         (STV 1.0 0.9551515146764331))))
-
-!(test
-   (incident-policy-run smoothed-base-rate 2)
-   (policy smoothed-base-rate 2
+   (incident-policy-run 2)
+   (policy base-rate-guided 2
       (: (merge/revision
             (by telemetryAssessment correlatedTelemetry)
             existingAssessment)

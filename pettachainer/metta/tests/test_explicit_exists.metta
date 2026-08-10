@@ -272,8 +272,8 @@
       (: $proof (KnownWitnessDisjunction fido) $tv))
    (: (by exposeKnownWitnesses
           (disjunction
-             (conjunction miloCat fidoRarelyChasesMilo)
-             (conjunction lunaCat fidoRarelyChasesLuna)))
+             (conjunction lunaCat fidoRarelyChasesLuna)
+             (conjunction miloCat fidoRarelyChasesMilo)))
       (KnownWitnessDisjunction fido)
       (STV 0.0494 0.9010944415002473)))
 
@@ -284,8 +284,8 @@
           (conjunction
              (by dogChasesCat fidoDog)
              (disjunction
-                (conjunction miloCat fidoRarelyChasesMilo)
-                (conjunction lunaCat fidoRarelyChasesLuna))))
+                (conjunction lunaCat fidoRarelyChasesLuna)
+                (conjunction miloCat fidoRarelyChasesMilo))))
       (OtherWitnessEstimate fido)
       (STV 0.9474016410687987 0.8948358186906257)))
 
@@ -302,11 +302,11 @@
       (: $proof (KnownWitnessDisjunction fido) $tv))
    (: (by exposeKnownWitnesses
           (disjunction
-             (conjunction miloCat fidoRarelyChasesMilo)
+             (conjunction felixCat fidoOftenChasesFelix)
              (conjunction lunaCat fidoRarelyChasesLuna)
-             (conjunction felixCat fidoOftenChasesFelix)))
+             (conjunction miloCat fidoRarelyChasesMilo)))
       (KnownWitnessDisjunction fido)
-      (STV 0.61976 0.9043600864574071)))
+      (STV 0.61976 0.9043600864574068)))
 
 !(test
    (query 300 existentialResidualKb
@@ -315,8 +315,8 @@
           (conjunction
              (by dogChasesCat fidoDog)
              (disjunction
-                (conjunction miloCat fidoRarelyChasesMilo)
+                (conjunction felixCat fidoOftenChasesFelix)
                 (conjunction lunaCat fidoRarelyChasesLuna)
-                (conjunction felixCat fidoOftenChasesFelix))))
+                (conjunction miloCat fidoRarelyChasesMilo))))
       (OtherWitnessEstimate fido)
       (STV 0.8685041026719965 0.7430346472921185)))

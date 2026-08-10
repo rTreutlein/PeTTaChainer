@@ -2,15 +2,16 @@
 
 !(test (rule-marginal-score no-current 0.42) 0.42)
 
-;; First-proof search retains its existing priority. A confident local
-;; refinement cannot claim more value than its root branch can deliver, and
-;; optional incumbent refinement is normalized by immediate work.
-!(test (root-refinement-value-score 0.2 no-current 0.9 4 0.1) 0.9)
+;; First-proof and incumbent-refinement search use the same root bound,
+;; immediate-work estimate, and premise success prior.
 !(test
-   (root-refinement-value-score 0.5 0.9 1.0 2 1.0)
+   (root-proof-value-score 0.2 no-current 0.9 4 0.1)
+   (/ (* 0.2 0.1) 4))
+!(test
+   (root-proof-value-score 0.5 0.9 1.0 2 1.0)
    (/ (rule-marginal-score 0.9 1.0) 2))
 !(test
-   (root-refinement-value-score 0.02 0.1 0.9 1 0.25)
+   (root-proof-value-score 0.02 0.1 0.9 1 0.25)
    0.005)
 
 ;; Cached base-rate refinement becomes less valuable as the already-observed
@@ -20,36 +21,46 @@
       (cached-base-rate-refinement-score 1.0 (STV 0.5 0.1)))
    true)
 
-;; Direct mode only consumes an exact cache key. Smoothed mode may back off to
-;; a generalized pattern and shrinks weak evidence toward the neutral prior.
+;; A cached premise contributes strength * confidence. Lookup prefers an exact
+;; key, then a generalized pattern; a missing cache gets the exploration prior.
 !(set-base-rate refinementPriorKb
    (GeneralizedPrior $x) (STV 0.75 0.9))
 !(set-base-rate refinementPriorKb
    (WeakExactPrior item) (STV 0.99 0.01))
+!(set-base-rate refinementPriorKb
+   (KnownBadPrior item) (STV 0.0 1.0))
 !(test
-   (premise-base-rate-prior direct-base-rate
+   (premise-base-rate-prior
+      (assemble-runtime-fact
+         (brand Statement (MissingPrior item))
+         (brand KBContext (refinementPriorKb MAIN Nil))
+         (brand Proof $proof)
+         (STV 1.0 1.0)))
+   0.25)
+!(test
+   (premise-base-rate-prior
       (assemble-runtime-fact
          (brand Statement (GeneralizedPrior item))
          (brand KBContext (refinementPriorKb MAIN Nil))
          (brand Proof $proof)
          (STV 1.0 1.0)))
-   1.0)
+   (* 0.75 0.9))
 !(test
-   (premise-base-rate-prior smoothed-base-rate
-      (assemble-runtime-fact
-         (brand Statement (GeneralizedPrior item))
-         (brand KBContext (refinementPriorKb MAIN Nil))
-         (brand Proof $proof)
-         (STV 1.0 1.0)))
-   (+ (* 0.9 0.75) (* 0.1 0.5)))
-!(test
-   (premise-base-rate-prior smoothed-base-rate
+   (premise-base-rate-prior
       (assemble-runtime-fact
          (brand Statement (WeakExactPrior item))
          (brand KBContext (refinementPriorKb MAIN Nil))
          (brand Proof $proof)
          (STV 1.0 1.0)))
-   (+ (* 0.01 0.99) (* 0.99 0.5)))
+   (* 0.99 0.01))
+!(test
+   (premise-base-rate-prior
+      (assemble-runtime-fact
+         (brand Statement (KnownBadPrior item))
+         (brand KBContext (refinementPriorKb MAIN Nil))
+         (brand Proof $proof)
+         (STV 1.0 1.0)))
+   0.000001)
 
 ;; Expansion budget and beam width are independent. Larger budgets therefore
 ;; extend the same deterministic search prefix instead of selecting a wider
@@ -180,7 +191,9 @@
    (: (by bToGoal directB) (IncumbentGoal) (STV 1.0 0.8918896597655677)))
 
 !(test (query 7 incumbentPriorityKb (: $prf (IncumbentGoal) $tv))
-   (: (merge/revision (by bToGoal directB) (by dToGoal (by cToD directC))) (IncumbentGoal) (STV 1.0 0.9039912235037112)))
+   (: (by bToGoal (merge/revision (by aToB directA) directB))
+      (IncumbentGoal)
+      (STV 1.0 0.9898043659034145)))
 
 !(test
    (query 7 incumbentPriorityKb

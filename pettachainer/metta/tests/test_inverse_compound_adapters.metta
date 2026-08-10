@@ -21,8 +21,8 @@
    (: ((inverted p_qr with
           (foldall-proof p-bob)
           (foldall-proof
-             (conjunction q-alice r-alice)
-             (by p_qr p-bob)))
+             (by p_qr p-bob)
+             (conjunction q-alice r-alice)))
        (conjunction q-alice r-alice))
       (P alice)
       (STV 0.730644992235394 0.0020226270843351274)))

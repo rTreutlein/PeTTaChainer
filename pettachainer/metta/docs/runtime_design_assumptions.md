@@ -138,20 +138,20 @@ committed. A finite-budget query may therefore improve or add answers, but must
 not lose its only answer merely because it stopped between aggregate refinement
 and dependent-proof reconstruction.
 
-Rule priority is an optimistic value-of-computation bound, not a claim that a
-proof will succeed. A descendant may not receive a larger score than the root
-branch that requested it can contribute. Once a cached or materialized
-incumbent makes refinement optional, immediate premise work lowers that score.
-The default `optimistic` prior retains the upper-bound assumption that unknown
-premises can succeed. `direct-base-rate` multiplies optional-refinement value by
-exact cached premise strengths. `smoothed-base-rate` may use a generalized
-matching pattern and shrinks its strength toward `0.5` according to cache
-confidence; provisional `forward-approx` confidence receives half weight.
-Missing rates remain optimistic so a cache cannot remove a proof path. Cached
-base-rate refolds likewise use their remaining confidence gap and implied
-evidence count instead of a fixed discount. These are deterministic ordering
-heuristics only: proof acceptance still uses the ordinary evidence, dominance,
-revision, and cycle rules.
+Rule priority is a value-of-computation estimate, not a claim that a proof will
+succeed. A descendant may not receive a larger score than the root branch that
+requested it can contribute. Both first-proof search and incumbent refinement
+multiply attainable root gain by cached premise strength times confidence, then
+divide by immediate premise work. Exact base-rate keys override generalized
+matching patterns. A missing rate receives the scheduler-only exploration prior
+`0.25`: supported cached paths outrank it, while known bad paths fall below it.
+Cached factors have a `0.000001` floor so a known-bad branch remains reachable
+after the more promising work is exhausted.
+The scheduler never computes a base rate merely to obtain this priority. Cached
+base-rate refolds use their remaining confidence gap and implied evidence count
+instead of a fixed discount. These are deterministic ordering heuristics only:
+proof acceptance still uses the ordinary evidence, dominance, revision, and
+cycle rules.
 
 A multi-root query creates every root at depth zero before search and schedules
 them into one agenda. Its step budget and beam are shared by the complete batch;
