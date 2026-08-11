@@ -386,7 +386,9 @@
               (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))
               (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-new))
               (invalidate-proof-live-caches))))
-      (waiter-live? (frontier-waiter 99 bundle 1.0 () () ($pid-old))))
+      (waiter-live?
+         (frontier-waiter 99 bundle 1.0 () () ($pid-old)
+            (frontier-value-spec 1.0 1 1.0))))
    false)
 
 ;; Aggregate replacement is atomic from the caller's perspective: after the

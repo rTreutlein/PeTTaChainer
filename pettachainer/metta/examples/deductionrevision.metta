@@ -57,8 +57,8 @@
             (by cImpliesD (by aImpliesC (ctx proof 2)))
             (by bImpliesD (by aImpliesB (ctx proof 2))))
          (merge/revision
-            (by bImpliesD (by aImpliesB (ctx proof 3)))
-            (by cImpliesD (by aImpliesC (ctx proof 3)))))
+            (by cImpliesD (by aImpliesC (ctx proof 3)))
+            (by bImpliesD (by aImpliesB (ctx proof 3)))))
       (Implication (A $x) (D $x))
       (CTV
          (STV 0.125 0.9692294378874315)

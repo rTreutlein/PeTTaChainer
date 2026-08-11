@@ -158,8 +158,19 @@ them into one agenda. Its step budget and beam are shared by the complete batch;
 the beam floor is at least the number of roots so pruning cannot discard an
 unexpanded root merely because it joined a batch. Goal-key indexing remains
 global to the query arena, so identical roots and common subgoals reuse the same
-goal and proof state. Query-local compiled additions are unioned and installed
-once, while source variables and result lists remain isolated per input root.
+goal and proof state. A shared goal retains one live demand contribution per
+distinct root: alternative waiters from the same root merge by maximum, while
+contributions from different roots add for queue ordering. Queue entries are
+lazily refreshed before expansion, so a newly committed incumbent lowers the
+remaining demand without spending an expansion step or reopening the goal's
+rules. This summed demand is queue utility only; completed proof candidates
+retain the confidence of their actual output. Demand follows only the
+shallower-parent edges created by ordinary frontier expansion, so recursive
+waiter edges cannot manufacture demand. If a late waiter connects an
+already-expanded goal to a root, its existing unexpanded descendants are woken
+without enumerating the goal's rules again. Query-local compiled additions are
+unioned and installed once, while source variables and result lists remain
+isolated per input root.
 
 Forward chaining always starts from facts selected by its caller. Its agenda is
 local to that invocation and is discarded when the agenda empties or the step

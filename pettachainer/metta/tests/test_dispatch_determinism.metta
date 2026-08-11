@@ -65,10 +65,18 @@
       (length $rows))
    1)
 
-!(test (collapse (frontier-waiter-step (frontier-waiter g b s e p r) (old)))
-   (((frontier-waiter g b s e p r) old)))
+!(test
+   (collapse
+      (frontier-waiter-step
+         (frontier-waiter g b s e p r (frontier-value-spec c n q))
+         (old)))
+   (((frontier-waiter g b s e p r (frontier-value-spec c n q)) old)))
 !(test (collapse (frontier-waiter-step unrelated (old))) ((old)))
-!(test (collapse (aggregate-waiter-step (aggregate-waiter g) (old))) ((g old)))
+!(test
+   (collapse
+      (aggregate-waiter-step
+         (aggregate-waiter g live-aggregate-demand) (old)))
+   ((g old)))
 !(test (collapse (aggregate-waiter-step unrelated (old))) ((old)))
 !(test (collapse (query-temp-rule-premise (Compute f args result))) ((Compute f args -> result)))
 !(test (collapse (query-temp-rule-premise premise)) (premise))
