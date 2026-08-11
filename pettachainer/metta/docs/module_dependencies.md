@@ -1,48 +1,46 @@
 # Chainer module dependencies
 
-`petta_chainer.metta` imports modules in foundational-to-specialized order:
+`petta_chainer.metta` is the public facade. It loads the implementation into a
+single MeTTa environment in foundational-to-specialized order:
 
-1. formulas and compilation
-2. `chainer_runtime_core` (safe space insertion and flat iteration)
-3. `chainer_utils` (shared scoring, evidence, and proof merging)
-4. `forward_chainer`
-5. `compiled_query_runtime` (KB/index/cache storage)
-6. `proof_semantics` (fold finalization shared by both chainers)
-7. `backward_proof_store`
-8. `backward_chainer`
-9. `query_runtime` (public query orchestration)
+1. `chainer_types` defines the shared nominal types and runtime row shapes.
+2. `logic_config` defines the selectable logic configuration.
+3. `dist_formulas`, `fold_inverse`, `compute_inverse`, and `tv_formulas`
+   provide the formula vocabulary used by compiled rules.
+4. `compile` lowers public facts, rules, and queries into the internal runtime
+   representation.
+5. `chainer_utils` owns shared evidence/proof operations, canonical KB helpers,
+   safe space insertion, and flat iteration.
+6. `forward_chainer` owns forward agendas and incremental derived-state
+   maintenance.
+7. `compiled_query_runtime` owns canonical KB, index, and cache storage.
+8. `backward_proof_store` owns durable backward proof, dependency, and result
+   rows.
+9. `backward_chainer` owns backward scheduling, proof search, and aggregate
+   finalization.
+10. `query_runtime` provides public single-root and shared multi-root query
+    orchestration.
 
-This keeps the public import path and API unchanged while preventing low-level
-modules from depending on query orchestration or a specialized chainer.
+The import order is observable because PeTTa specializes equations as modules
+are loaded. Do not reorder modules merely to make the dependency list look more
+conventional; validate any ordering change against the strict suite and the
+relevant performance benchmarks.
 
-## Cyclic interface inventory
+## Order-sensitive boundaries
 
-The order-sensitive compatibility baseline `f978360` contains **15** exact
-`__chainer-interface__` declarations (the earlier reported count of fourteen
-was off by one). The complete before/after inventory is:
+Some runtime transactions intentionally cross file boundaries:
 
-| Baseline interface | Baseline dependency | Resolution |
-|---|---|---|
-| `record-inheritance-nodes!` | `forward_chainer` -> later `compiled_query_runtime` | **Retained.** Canonical insertion calls the forward frontier, while forward insertion records canonical runtime indexes. Splitting that shared transaction would change add behavior. |
-| `base-rate-cache-remove-derived!` | `forward_chainer` -> later `compiled_query_runtime` | **Retained.** Forward sufficient-statistic maintenance and the canonical cache store update each other as one insertion transaction. |
-| `kb-universe-size` | forward aggregation -> later storage runtime | **Retained.** Forward aggregation reads canonical runtime configuration while canonical insertion activates forward state. |
-| `store-forward-base-rate!` | `forward_chainer` -> later `compiled_query_runtime` | **Retained.** The forward accumulator commits into the canonical cache owned by the runtime. |
-| `resolve-base-rate-prior` | formulas/forward aggregation -> storage runtime | **Retained.** Formula vocabulary loads before the runtime-owned configurable prior store. |
-| `inheritance-subjects` | `forward_chainer` -> later `compiled_query_runtime` | **Retained.** Forward estimates read the canonical subject index that forward insertion also populates. |
-| `proof-output-atom` | `chainer_utils` -> later proof store | Move its only generic-module consumer, `frontier-proof-score`, to `backward_chainer`. |
-| `assumption-proof?` | `chainer_utils` -> later proof store | Move the representation-only predicate to shared `chainer_utils`. |
-| `goal-by-id` | proof store -> later backward chainer | Move the store accessor to `backward_proof_store`. |
-| `aggregate-by-id` | proof store -> later backward chainer | Move the store accessor to `backward_proof_store`. |
-| `aggregate-finish` | `forward_chainer` -> later backward chainer | **Retained at the import boundary, but extracted** into shared `proof_semantics`, because both chainers consume it. Loading it after runtime configuration preserves PeTTa specialization behavior. |
-| `chainer` | compiled query orchestration -> later backward chainer | Move public orchestration to late-loaded `query_runtime`. |
-| `chainer-materialize` | compiled query orchestration -> later backward chainer | Move public orchestration to late-loaded `query_runtime`. |
-| `schedule-aggregate-heap` | proof-store commit -> backward scheduler | **Retained.** A committed child proof must wake aggregate waiters in the active agenda; the store and scheduler form one event callback boundary. |
-| `advance-frontier-waiter-heap` | proof-store commit -> backward scheduler | **Retained.** A committed proof must advance live frontier waiters in the active agenda; moving agenda policy into storage would invert ownership. |
+- Canonical insertion in `compiled_query_runtime` updates indexes and activates
+  forward state owned by `forward_chainer`.
+- Forward aggregation reads and updates canonical base-rate and universe state
+  through helpers loaded with `chainer_utils` and `compiled_query_runtime`.
+- `backward_proof_store` commits durable proof rows, while `backward_chainer`
+  owns the active agenda that consumes those rows.
+- `backward_chainer` owns backward aggregate finalization. Forward aggregation
+  uses its separate `forward-finish-aggregate` dispatch.
+- Public query wrappers remain in the last-loaded `query_runtime`; storage and
+  compilation modules must not depend on query orchestration.
 
-After the refactor there are **9** exact declarations: six at the canonical
-runtime/forward-insertion transaction boundary, one shared fold-finalization
-interface, and two at the irreducible proof-commit-to-active-scheduler callback
-boundary. This reduces the interface set by 40% while avoiding a semantic split
-of either transaction or a change in PeTTa specialization behavior. Every
-remaining declaration keeps an exact sentinel shape; no catch-all equation is
-used.
+These are semantic ownership boundaries, not a reason to expose additional
+public API. The supported public surface remains the one documented in
+`API.md` and re-exported by `petta_chainer.metta`.

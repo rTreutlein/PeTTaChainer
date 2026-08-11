@@ -1,11 +1,11 @@
 !(import! &self ../petta_chainer)
 
-;; Foundational insertion remains reachable through the canonical import.
+;; Shared safe insertion remains reachable through the canonical import.
 !(bind! &module_boundary_tmp (new-space))
 !(test (chainer-add-atom &module_boundary_tmp (Stored acyclic)) true)
 !(test (match &module_boundary_tmp (Stored $x) $x) acyclic)
 
-;; Shared fold finalization is loaded before either chainer consumes it.
+;; Backward aggregate finalization remains reachable through the canonical import.
 !(test (finish-aggregate weighted-base-rate (BaseRateEvidence 1.0 1.0))
    (STV 1.0 1.0))
 
