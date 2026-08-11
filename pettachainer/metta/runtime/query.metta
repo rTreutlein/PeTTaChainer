@@ -1,5 +1,5 @@
 ;; Public query orchestration sits above the backward chainer. Keeping these
-;; wrappers out of compiled_query_runtime lets compilation/storage remain a
+;; wrappers out of knowledge_store lets compilation/storage remain a
 ;; foundational dependency of both chainers.
 
 (: append-annotated-statements

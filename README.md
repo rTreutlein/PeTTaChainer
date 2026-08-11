@@ -11,9 +11,12 @@ Run an individual MeTTa regression from the repository root with:
 .venv/bin/petta tests/metta/test_var_head.metta -s
 ```
 
-The shipped MeTTa runtime lives in `pettachainer/metta`; tests, examples,
-benchmarks, documentation, and tools live in their corresponding top-level
-directories.
+The shipped MeTTa runtime lives in `pettachainer/metta`. Its stable facade is
+`petta_chainer.metta`; `bootstrap.metta` loads the internal `core/`, `compiler/`,
+and `runtime/` layers in their required order. Tests, examples, benchmarks,
+documentation, and tools live in their corresponding top-level directories.
+See `docs/metta/module_dependencies.md` for module ownership and dependency
+rules.
 
 The MeTTa API can also be loaded directly from a pinned Git checkout when
 running under PeTTa:

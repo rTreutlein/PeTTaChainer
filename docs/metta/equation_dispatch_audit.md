@@ -1,6 +1,6 @@
 # Repeated equation-head audit
 
-This audit covers top-level production `.metta` files in `pettachainer/metta`.
+This audit covers production `.metta` files under `pettachainer/metta`.
 Tests, examples, benchmarks, linter fixtures, and `research/piPLN` are excluded
 from the production inventory. Patterns were compared by unification,
 not source order. A repeated head is acceptable only when its clauses are

@@ -51,7 +51,7 @@
    (query 20 plnOrProjectionKb (: $prf (B) $tv))
    (: ((proj 1 ab) a) (B) (STV 0.0 0.0)))
 
-!(import! &self ../../pettachainer/metta/logic_configs/predicate_logic)
+!(import! &self ../../pettachainer/metta/core/logic_configs/predicate_logic)
 
 !(compileadd predicateLogicKb (: a (A) (STV 1.0 1.0)))
 
@@ -74,7 +74,7 @@
             (: $prf (Or (P $x) (Q $x)) $tv))))
    2)
 
-!(import! &self ../../pettachainer/metta/logic_configs/pln)
+!(import! &self ../../pettachainer/metta/core/logic_configs/pln)
 
 !(compileadd plnAfterSwitchKb (: a (A) (STV 1.0 1.0)))
 
@@ -102,4 +102,4 @@
    (query 20 noOrKb (: $prf (Or (A) (B)) $tv))
    ())
 
-!(import! &self ../../pettachainer/metta/logic_configs/pln)
+!(import! &self ../../pettachainer/metta/core/logic_configs/pln)

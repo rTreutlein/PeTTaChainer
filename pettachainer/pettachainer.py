@@ -99,7 +99,13 @@ class PeTTaChainer:
     def load_logic_config(self, logic_config: str) -> str:
         path = Path(logic_config)
         if not path.suffix and len(path.parts) == 1:
-            path = Path(__file__).resolve().parent / "metta" / "logic_configs" / f"{logic_config}.metta"
+            path = (
+                Path(__file__).resolve().parent
+                / "metta"
+                / "core"
+                / "logic_configs"
+                / f"{logic_config}.metta"
+            )
         else:
             path = path.expanduser()
             if not path.is_absolute():

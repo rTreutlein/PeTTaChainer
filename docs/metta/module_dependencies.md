@@ -1,46 +1,54 @@
 # Chainer module dependencies
 
-`petta_chainer.metta` is the public facade. It loads the implementation into a
-single MeTTa environment in foundational-to-specialized order:
+`pettachainer/metta/petta_chainer.metta` is the stable public facade. It imports
+`bootstrap.metta`, which is the single source of truth for the internal load
+order. PeTTa specializes equations while modules load, so this order is part of
+the implementation contract:
 
-1. `chainer_types` defines the shared nominal types and runtime row shapes.
-2. `logic_config` defines the selectable logic configuration.
-3. `dist_formulas`, `fold_inverse`, `compute_inverse`, and `tv_formulas`
-   provide the formula vocabulary used by compiled rules.
-4. `compile` lowers public facts, rules, and queries into the internal runtime
-   representation.
-5. `chainer_utils` owns shared evidence/proof operations, canonical KB helpers,
-   safe space insertion, and flat iteration.
-6. `forward_chainer` owns forward agendas and incremental derived-state
-   maintenance.
-7. `compiled_query_runtime` owns canonical KB, index, and cache storage.
-8. `backward_proof_store` owns durable backward proof, dependency, and result
-   rows.
-9. `backward_chainer` owns backward scheduling, proof search, and aggregate
-   finalization.
-10. `query_runtime` provides public single-root and shared multi-root query
-    orchestration.
+1. `core/types.metta` defines shared nominal types and runtime row shapes.
+2. `core/logic_config.metta` defines selectable logic configuration.
+3. `core/formulas/` provides distributions, inverse operations, and truth-value
+   formulas used by compiled rules.
+4. `compiler/compiler.metta` assembles source lowering, the recursive
+   rule/specialization component, runtime encoding, and query lowering.
+5. `runtime/values.metta`, `scheduling.metta`, `evidence.metta`, and
+   `base_rates.metta` provide shared runtime semantics without owning a search
+   engine.
+6. `runtime/forward/` loads canonical candidate storage, incremental aggregate
+   subscriptions, and then the forward execution engine.
+7. `runtime/knowledge_store.metta` owns canonical KB, rule, and index insertion;
+   `runtime/ingest.metta` coordinates the public compilation/add transaction.
+8. `runtime/backward/` loads durable proof storage, proof merging, the recursive
+   demand/frontier search component, rule matching, aggregate execution, and the
+   final search runner.
+9. `runtime/query.metta` provides public single-root and shared multi-root query
+   orchestration.
 
-The import order is observable because PeTTa specializes equations as modules
-are loaded. Do not reorder modules merely to make the dependency list look more
-conventional; validate any ordering change against the strict suite and the
-relevant performance benchmarks.
+Do not reorder modules merely to make the dependency sequence look more
+conventional. Validate every ordering change against the strict loader, full
+MeTTa suite, and relevant performance benchmarks.
 
-## Order-sensitive boundaries
+## Ownership boundaries
 
-Some runtime transactions intentionally cross file boundaries:
+- The compiler owns source-to-runtime translation and compiler specialization
+  metadata. It does not own KB insertion or search.
+- `runtime/knowledge_store.metta` owns stored facts, rules, and their indexes.
+  `runtime/ingest.metta` is the transaction boundary that combines compilation,
+  metadata recording, and insertion.
+- Forward canonical storage owns the one materialized KB representative per
+  grounded output. Forward aggregate subscriptions update their sufficient
+  statistics when that representative changes.
+- Backward proof storage owns durable proof DAG rows and liveness indexes.
+  `proof_merge.metta` owns factoring, revision, dominance, and candidate
+  commitment policy.
+- Backward scheduling, root demand, and frontier advancement remain together in
+  `search.metta`: they form a recursive component in which demand changes wake
+  and reschedule existing frontiers.
+- `rule_matching.metta` loads before backward aggregates because an aggregate
+  child can itself be resolved through an ordinary stored rule.
+- Query wrappers load last. Storage and compiler modules do not depend on query
+  orchestration.
 
-- Canonical insertion in `compiled_query_runtime` updates indexes and activates
-  forward state owned by `forward_chainer`.
-- Forward aggregation reads and updates canonical base-rate and universe state
-  through helpers loaded with `chainer_utils` and `compiled_query_runtime`.
-- `backward_proof_store` commits durable proof rows, while `backward_chainer`
-  owns the active agenda that consumes those rows.
-- `backward_chainer` owns backward aggregate finalization. Forward aggregation
-  uses its separate `forward-finish-aggregate` dispatch.
-- Public query wrappers remain in the last-loaded `query_runtime`; storage and
-  compilation modules must not depend on query orchestration.
-
-These are semantic ownership boundaries, not a reason to expose additional
-public API. The supported public surface remains the one documented in
-`docs/metta/API.md` and re-exported by `pettachainer/metta/petta_chainer.metta`.
+These are internal boundaries, not new public APIs. The supported surface is
+documented in `docs/metta/API.md` and re-exported through
+`pettachainer/metta/petta_chainer.metta`.

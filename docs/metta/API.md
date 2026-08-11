@@ -10,9 +10,8 @@ renamed, or removed whenever they have no remaining caller — and a reference
 from a unit test alone does not make a helper public (rewire or drop the test
 with it). When in doubt about whether a function is public, it is internal.
 
-The TV, distribution, and inverse-fold formula vocabulary (`tv_formulas.metta`,
-`dist_formulas.metta`, `fold_inverse.metta`) is a separate, independent surface
-usable inside rules; it is not enumerated here.
+The formula vocabulary under `pettachainer/metta/core/formulas/` is a separate,
+independent surface usable inside rules; it is not enumerated here.
 
 ## Knowledge base construction
 
@@ -100,7 +99,7 @@ witness moves support from that residual into the enumerated disjunction.
 | `(cached-base-rate $kbid $pattern)` | Read the cached base-rate TV for `$pattern` (or `()`). A value may be a provisional forward estimate until a full backward fold refines it. |
 | `(set-universe-size $kbid $n)` / `(clear-universe-size $kbid)` / `(kb-universe-size $kbid)` | Set / clear / read the universe size used by extension-based estimates. |
 
-## Logic configuration (`logic_config.metta`)
+## Logic configuration (`core/logic_config.metta`)
 
 | Function | Meaning |
 |---|---|
