@@ -20,11 +20,18 @@ usable inside rules; it is not enumerated here.
 |---|---|
 | `(compileadd $kb $stmt)` | Compile a statement (fact or rule) and add it to KB `$kb`. The primary entry point. |
 | `(add-to-kb $expr)` | Add an already-compiled, internal-form atom to the live KB. Lower-level. |
-| `(remove-compiled-statement $name)` | Inverse of `compileadd` for one named statement `(: $name ...)`: retracts its kb facts and rules together with their index rows and cached scores. Use before re-adding a statement under the same name (e.g. a truth-value update); rules whose compiled proof carries no extractable name (negated outputs, open query adapters) are not covered. Python: `PeTTaChainer.remove_statement(name)`. |
+| `(remove-compiled-statement $name)` | **Deprecated compatibility operation.** Retracts the current kb facts, rules, index rows, and cached scores for one named statement, but does not forget durable backward proofs. It is outside the monotonic query contract; rules whose compiled proof carries no extractable name are not covered. Python: deprecated `PeTTaChainer.remove_statement(name)`, which emits `DeprecationWarning`. |
 
 The live `&kb` keeps one canonical merged fact per grounded type. Internally, a
 small active frontier retains only the independent proof candidates needed to
 update that fact; superseded candidates are discarded rather than accumulated.
+
+Backward proof rows are durable across calls. A compatible completed proof may
+seed a later bounded query or refinement directly. Query reset discards only
+the transient search arena; proof IDs and proof/result/dependency indexes remain
+monotonic. Generic aggregate queries may return their latest durable snapshot
+immediately while reopening the aggregate from its original accumulator to
+refresh that snapshot from all currently live child proofs.
 
 ## Querying and chaining
 
@@ -32,7 +39,7 @@ update that fact; superseded candidates are discarded rather than accumulated.
 |---|---|
 | `(query $steps $kb $stmt)` | Backward-chain up to `$steps` to answer `$stmt` against `$kb`; yields the proven results. The expansion budget does not change the beam width. If dependent-proof revision temporarily leaves the root with no live result, its completed incumbent is returned instead. |
 | `(query-materialize $steps $kb $stmt)` | As `query`, but also writes the derived proofs back into the KB. |
-| `(query-many $steps $kb $statements)` | Compile every statement, inject their temporary additions once, and answer all roots in one shared backward-search arena. `$steps` is one total expansion budget. Emits `(query-result $index $answer)` for each answer; unanswered roots emit no row. Python: `PeTTaChainer.query_many(statements, steps)` returns an input-aligned `list[list[str]]`, including empty lists for unanswered roots. |
+| `(query-many $steps $kb $statements)` | Compile every statement, inject their temporary additions once, and answer all roots in one shared backward-search arena. `$steps` is one total expansion budget. Distinct-root demand adds while alternative paths for one root merge by maximum; a root that began without an incumbent yields after its first proof so unresolved siblings receive the remaining batch budget. Historical incumbents remain eligible for refinement. Emits `(query-result $index $answer)` for each answer; unanswered roots emit no row. Python: `PeTTaChainer.query_many(statements, steps)` returns an input-aligned `list[list[str]]`, including empty lists for unanswered roots. |
 | `(query-many-materialize $steps $kb $statements)` | As `query-many`, but materializes the selected representative proof trees for every root. Python: `PeTTaChainer.query_many_materialization(statements, steps)` runs in the caller's live process so the KB writes persist. |
 | `(forward-chain $steps $kb $facts)` | Forward-chain from a caller-selected list of compiled canonical facts. The temporary agenda is discarded when the run finishes or exhausts its budget. Returns an unordered, deduplicated list containing the final canonical facts changed by this run; that list can directly seed another run. |
 | `(forward-has-derived? $kb $type)` | True if a fact of `$type` exists in `$kb`. |

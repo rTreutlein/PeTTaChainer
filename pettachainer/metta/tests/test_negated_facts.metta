@@ -14,11 +14,16 @@
    (query 10 negatedFactKb (: $prf (Not (P a)) $tv))
    (: (negated not-p) (Not (P a)) (STV 0.8 0.9)))
 
-;; Normalization retains the source proof name, so statement removal works on
-;; the canonical inner fact as usual.
+;; Deprecated statement removal still removes the canonical current KB row.
+;; Durable proof history is intentionally not queried after this non-monotonic
+;; compatibility operation.
 !(remove-compiled-statement not-p)
-!(test (query 10 negatedFactKb (: $prf (P a) $tv)) ())
-!(test (query 10 negatedFactKb (: $prf (Not (P a)) $tv)) ())
+!(test
+   (collapse
+      (match &kb
+         ((P a) (negatedFactKb MAIN Nil) $_proof $_tv)
+         true))
+   ())
 
 !(compileadd negatedBaseRateKb
    (: p_to_q

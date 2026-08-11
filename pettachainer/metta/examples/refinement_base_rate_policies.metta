@@ -63,7 +63,7 @@
    (CorrelatedTelemetry $incident)
    (STV 0.75 0.9))
 
-;; The resulting factors are 0.675 for telemetry, 0.25 for the unknown
+;; The resulting factors are 0.675 for telemetry, 0.5 for the unknown
 ;; indicator, 0.045 for the rare signature, and 0.0099 for the weak sensor.
 ;; The useful proof therefore improves the incumbent on the second expansion.
 (= (incident-policy-run $steps)

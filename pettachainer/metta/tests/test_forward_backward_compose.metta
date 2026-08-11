@@ -131,10 +131,12 @@
 
 !(compileadd composeKbShort (: r2 (Implication (B) (Goal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
+;; The one forward step materializes B. Durable pure-CPU modus-ponens results
+;; from the equivalent earlier search complete this rule within one query step.
 !(test
    (let $_ (forward-chain 1 composeKbShort (test-selected-facts composeKbShort (A)))
       (query 1 composeKbShort (: $p (Goal) $tv)))
-   ())
+   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
 
 !(compileadd noReuseKb (: x (X) (STV 1.0 1.0)))
 

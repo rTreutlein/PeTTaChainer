@@ -302,11 +302,11 @@
       (: $proof (KnownWitnessDisjunction fido) $tv))
    (: (by exposeKnownWitnesses
           (disjunction
-             (conjunction felixCat fidoOftenChasesFelix)
              (conjunction lunaCat fidoRarelyChasesLuna)
-             (conjunction miloCat fidoRarelyChasesMilo)))
+             (conjunction miloCat fidoRarelyChasesMilo)
+             (conjunction felixCat fidoOftenChasesFelix)))
       (KnownWitnessDisjunction fido)
-      (STV 0.61976 0.9043600864574068)))
+      (STV 0.61976 0.9043600864574071)))
 
 !(test
    (query 300 existentialResidualKb
@@ -315,8 +315,89 @@
           (conjunction
              (by dogChasesCat fidoDog)
              (disjunction
-                (conjunction felixCat fidoOftenChasesFelix)
                 (conjunction lunaCat fidoRarelyChasesLuna)
-                (conjunction miloCat fidoRarelyChasesMilo))))
+                (conjunction miloCat fidoRarelyChasesMilo)
+                (conjunction felixCat fidoOftenChasesFelix))))
       (OtherWitnessEstimate fido)
       (STV 0.8685041026719965 0.7430346472921185)))
+
+;; Grouped aggregate snapshots are restored one per grounded output group. A
+;; zero-budget repeat reads both representatives immediately; adding a third
+;; group commits only its new snapshot while the two unchanged groups remain
+;; current historical representatives.
+!(compileadd durableGroupedKb
+   (: grouped-alice-bob (Parent alice bob) (STV 1.0 1.0)))
+!(compileadd durableGroupedKb
+   (: grouped-bob-doctor (Doctor bob) (STV 1.0 1.0)))
+!(compileadd durableGroupedKb
+   (: grouped-eve-dan (Parent eve dan) (STV 1.0 1.0)))
+!(compileadd durableGroupedKb
+   (: grouped-dan-doctor (Doctor dan) (STV 1.0 1.0)))
+!(compileadd durableGroupedKb
+   (: grouped-doctor-child
+      (Implication
+         (Exists ($child)
+            (And (Parent $person $child) (Doctor $child)))
+         (DurableDoctorChild $person))
+      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+
+!(test
+   (list-count
+      (collapse
+         (query 100 durableGroupedKb
+            (: $proof (DurableDoctorChild $person) $tv))))
+   2)
+
+!(test
+   (list-count
+      (collapse
+         (query 0 durableGroupedKb
+            (: $proof (DurableDoctorChild $person) $tv))))
+   2)
+
+!(test
+   (list-count
+      (collapse
+         (match &proof
+            (stored-proof-row
+               $_pid $_owner
+               (CPU GroupedFoldAllCompiled
+                  ((durableGroupedKb $_ctx $_vars)
+                   $_pattern $_group $_extractor $_init $_fun $_finish $_mode)
+                  $_result)
+               $_kind $_score $_evidence $_children)
+            true)))
+   2)
+
+!(compileadd durableGroupedKb
+   (: grouped-carol-erin (Parent carol erin) (STV 1.0 1.0)))
+!(compileadd durableGroupedKb
+   (: grouped-erin-doctor (Doctor erin) (STV 1.0 1.0)))
+
+!(test
+   (list-count
+      (collapse
+         (query 100 durableGroupedKb
+            (: $proof (DurableDoctorChild $person) $tv))))
+   3)
+
+!(test
+   (list-count
+      (collapse
+         (query 0 durableGroupedKb
+            (: $proof (DurableDoctorChild $person) $tv))))
+   3)
+
+!(test
+   (list-count
+      (collapse
+         (match &proof
+            (stored-proof-row
+               $_pid $_owner
+               (CPU GroupedFoldAllCompiled
+                  ((durableGroupedKb $_ctx $_vars)
+                   $_pattern $_group $_extractor $_init $_fun $_finish $_mode)
+                  $_result)
+               $_kind $_score $_evidence $_children)
+            true)))
+   3)

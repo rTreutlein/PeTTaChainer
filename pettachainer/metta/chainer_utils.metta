@@ -566,20 +566,6 @@
 (: next-pid (-[det]-> Number))
 (= (next-pid) (next-search-id bwd_pid))
 
-;; Ordinary queries retain completed proofs. Explicit statement removal is the
-;; non-monotonic escape hatch and must discard that history before numeric
-;; proof ids may be reused.
-(: clear-durable-backward-proofs (-[det]-> (List $none)))
-(= (clear-durable-backward-proofs)
-   (progn
-      (foreach-flat remove-all-atoms
-         (&proof &proof_goal &proof_result &proof_parent &proof_invalidated_epoch
-          &proof_live_cache &goal_live_cache &proof_static_live
-          &proof_superseded))
-      (change-state! bwd_pid 0)
-      (change-state! bwd_query_pid_start 0)
-      ()))
-
 (: cpu-call (-[nondet]-> Number $formula $arguments  $result))
 (= (cpu-call $_steps $fun $args) (reduce (reduce (cons $fun $args))))
 
@@ -1020,7 +1006,7 @@
       (no-evidence 1.0))))
 
 (: unknown-premise-prior (-[det]-> Number))
-(= (unknown-premise-prior) 0.25)
+(= (unknown-premise-prior) 0.5)
 
 (: base-rate-prior-factor (-[det]-> BaseRateEntry Number))
 (= (base-rate-prior-factor

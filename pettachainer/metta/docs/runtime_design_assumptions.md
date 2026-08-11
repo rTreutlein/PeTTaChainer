@@ -31,21 +31,23 @@ Consequences:
   revised together; overlapping paths need dominance, refinement, or cycle
   checks before aggregation.
 
-Removal is different. Removing a named statement can make proofs and estimates
-invalid and therefore permits explicit cleanup and invalidation work.
+Removal is outside this logical model. The deprecated compatibility operation
+may remove current KB and index rows, but it does not delete durable proofs or
+make proof IDs reusable.
 
 ### Strict append-only follow-up
 
 The public `remove-compiled-statement`, cache `clear-*`, and replace-style
 configuration operations predate the decision that ordinary system history
-should be append-only. They remain explicit administrative escape hatches for
-now; normal reasoning and knowledge ingestion must not depend on them.
+should be append-only. Statement removal remains callable only for compatibility
+and is deprecated; normal reasoning and knowledge ingestion must not depend on
+it. In particular, removal does not erase durable proof rows, result indexes,
+dependency indexes, or reset the monotonic proof ID counter.
 
 A future API pass should represent corrections, supersession, and configuration
-changes as scoped events instead of retracting prior knowledge. This is not a
-local cleanup: named-statement removal currently owns proof-frontier, rule-index,
-and derived-cache invalidation, so changing it requires an explicit temporal or
-scope policy. Mutable query arenas and replaceable cache/index rows are not
+changes as scoped events instead of retracting prior knowledge. Explicit proof
+forgetting needs its own temporal or scope policy and must not be smuggled into
+statement removal. Mutable query arenas and replaceable cache/index rows are not
 logical retractions as long as deleting those optimization tables would leave
 the unbounded logical answers unchanged.
 
@@ -142,9 +144,10 @@ Rule priority is a value-of-computation estimate, not a claim that a proof will
 succeed. A descendant may not receive a larger score than the root branch that
 requested it can contribute. Both first-proof search and incumbent refinement
 multiply attainable root gain by cached premise strength times confidence, then
-divide by immediate premise work. Exact base-rate keys override generalized
-matching patterns. A missing rate receives the scheduler-only exploration prior
-`0.25`: supported cached paths outrank it, while known bad paths fall below it.
+divide by immediate premise work. Exact base-rate keys override generalized matching
+patterns. A missing rate receives the neutral scheduler-only exploration prior
+`0.5`: supported cached paths may outrank it, while known bad paths fall below
+it.
 Cached factors have a `0.000001` floor so a known-bad branch remains reachable
 after the more promising work is exhausted.
 The scheduler never computes a base rate merely to obtain this priority. Cached
@@ -152,6 +155,27 @@ base-rate refolds use their remaining confidence gap and implied evidence count
 instead of a fixed discount. These are deterministic ordering heuristics only:
 proof acceptance still uses the ordinary evidence, dominance, revision, and
 cycle rules.
+
+Completed backward proofs are durable search state. Ordinary query reset clears
+only the query arena: goals, waiters, aggregate execution rows, root-demand
+state, and liveness caches. It does not clear proof rows, result or dependency
+indexes, semantic ownership, or the monotonic proof-ID counter. A later query
+may therefore use a compatible historical proof immediately as its incumbent
+or as a premise on its frontier. The normal proof/type/TV constraints still
+classify every candidate, so a durable result is reusable only when it satisfies
+the new query rather than merely sharing a proposition key.
+
+Generic `FoldAllCompiled` results are durable provenance snapshots. A new query
+restores the latest compatible snapshot for the semantic aggregate goal as its
+query-local current representative and can expose it immediately, but always
+reopens the child goal. Refinement folds every currently live child proof from
+the original accumulator; it never resumes from the cached accumulator. A
+changed result becomes a new durable snapshot and replaces only the transient
+current pointer, leaving the older snapshot as history. Grouped folds restore
+one latest representative per output key. These generic folds use ordinary root
+demand because arbitrary accumulator values have no universal marginal-value
+metric. Base-rate folds retain their specialized cache and discounted-TV demand
+path.
 
 A multi-root query creates every root at depth zero before search and schedules
 them into one agenda. Its step budget and beam are shared by the complete batch;
@@ -161,9 +185,13 @@ global to the query arena, so identical roots and common subgoals reuse the same
 goal and proof state. A shared goal retains one live demand contribution per
 distinct root: alternative waiters from the same root merge by maximum, while
 contributions from different roots add for queue ordering. Queue entries are
-lazily refreshed before expansion, so a newly committed incumbent lowers the
-remaining demand without spending an expansion step or reopening the goal's
-rules. This summed demand is queue utility only; completed proof candidates
+refreshed before expansion. In a shared multi-root batch, a root that began
+without an incumbent yields its remaining demand after its first proof, so
+unresolved sibling roots are not starved by same-batch refinement. A compatible
+historical incumbent still contributes refinement demand in a later query, and
+single-root queries retain ordinary within-query refinement. This refresh does
+not spend an expansion step or reopen the goal's rules. Summed demand is queue
+utility only; completed proof candidates
 retain the confidence of their actual output. Demand follows only the
 shallower-parent edges created by ordinary frontier expansion, so recursive
 waiter edges cannot manufacture demand. If a late waiter connects an

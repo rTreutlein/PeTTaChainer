@@ -85,15 +85,15 @@
 !(compileadd summedDemandKb
    (: summed-shared-left
       (Implication (SummedSharedPremise) (SummedSharedLeft))
-      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+      (CTV (STV 1.0 1.0) (STV 0.01 1.0))))
 !(compileadd summedDemandKb
    (: summed-shared-right
       (Implication (SummedSharedPremise) (SummedSharedRight))
-      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+      (CTV (STV 1.0 1.0) (STV 0.01 1.0))))
 !(compileadd summedDemandKb
    (: summed-single
       (Implication (SummedSinglePremise) (SummedSingleRoot))
-      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+      (CTV (STV 1.0 1.0) (STV 0.01 1.0))))
 !(set-base-rate summedDemandKb
    (SummedSharedPremise) (STV 0.2 1.0))
 !(set-base-rate summedDemandKb
@@ -107,10 +107,10 @@
           (: $prf (SummedSingleRoot) $tv))))
    ((query-result 0
        (: (by summed-shared-left summed-shared-fact)
-          (SummedSharedLeft) (STV 1.0 0.9998000399670116)))
+          (SummedSharedLeft) (STV 1.0 0.9998020291758253)))
     (query-result 1
        (: (by summed-shared-right summed-shared-fact)
-          (SummedSharedRight) (STV 1.0 0.9998000399670116)))))
+          (SummedSharedRight) (STV 1.0 0.9998020291758253)))))
 
 ;; Two alternative rules from one root are not two independent consumers.
 ;; Their 0.2 requests merge by maximum, so another root's 0.3 request wins.
@@ -123,15 +123,15 @@
 !(compileadd duplicateDemandKb
    (: duplicate-shared-first
       (Implication (DuplicateSharedPremise) (DuplicateSharedRoot))
-      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+      (CTV (STV 1.0 1.0) (STV 0.02 1.0))))
 !(compileadd duplicateDemandKb
    (: duplicate-shared-second
       (Implication (DuplicateSharedPremise) (DuplicateSharedRoot))
-      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+      (CTV (STV 1.0 1.0) (STV 0.02 1.0))))
 !(compileadd duplicateDemandKb
    (: duplicate-single
       (Implication (DuplicateSinglePremise) (DuplicateSingleRoot))
-      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+      (CTV (STV 1.0 1.0) (STV 0.02 1.0))))
 !(set-base-rate duplicateDemandKb
    (DuplicateSharedPremise) (STV 0.2 1.0))
 !(set-base-rate duplicateDemandKb
@@ -144,11 +144,11 @@
           (: $prf (DuplicateSingleRoot) $tv))))
    ((query-result 1
        (: (by duplicate-single duplicate-single-fact)
-          (DuplicateSingleRoot) (STV 1.0 0.9998000399670116)))))
+          (DuplicateSingleRoot) (STV 1.0 0.9998039984003787)))))
 
-;; Once the fast proof establishes the first root, the still-queued alternative
-;; is lazily rescored as refinement. Its stale 0.35 first-proof demand must not
-;; outrank the second root's still-current 0.3 demand.
+;; Once the fast proof establishes the first root, its current-batch demand is
+;; removed from still-queued alternatives. Stale 0.35 work for that solved root
+;; must not outrank the second root's still-current 0.3 demand.
 !(compileadd refreshedDemandKb
    (: refresh-fast-fact (RefreshFastPremise) (STV 1.0 1.0)))
 !(compileadd refreshedDemandKb
@@ -158,15 +158,15 @@
 !(compileadd refreshedDemandKb
    (: refresh-fast
       (Implication (RefreshFastPremise) (RefreshFirstRoot))
-      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+      (CTV (STV 1.0 1.0) (STV 0.03 1.0))))
 !(compileadd refreshedDemandKb
    (: refresh-slow
       (Implication (RefreshSlowPremise) (RefreshFirstRoot))
-      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+      (CTV (STV 1.0 1.0) (STV 0.03 1.0))))
 !(compileadd refreshedDemandKb
    (: refresh-medium
       (Implication (RefreshMediumPremise) (RefreshSecondRoot))
-      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+      (CTV (STV 1.0 1.0) (STV 0.03 1.0))))
 !(set-base-rate refreshedDemandKb
    (RefreshFastPremise) (STV 0.4 1.0))
 !(set-base-rate refreshedDemandKb
@@ -181,10 +181,37 @@
           (: $prf (RefreshSecondRoot) $tv))))
    ((query-result 0
        (: (by refresh-fast refresh-fast-fact)
-          (RefreshFirstRoot) (STV 1.0 0.9998000399670116)))
+          (RefreshFirstRoot) (STV 1.0 0.9998059476404358)))
     (query-result 1
        (: (by refresh-medium refresh-medium-fact)
-          (RefreshSecondRoot) (STV 1.0 0.9998000399670116)))))
+          (RefreshSecondRoot) (STV 1.0 0.9998059476404358)))))
+
+;; Roots that began without an incumbent yield after their first proof. A new
+;; query marks the same durable results as historical incumbents, so they remain
+;; eligible for bounded refinement rather than being mistaken for solved work
+;; from the new batch.
+!(test
+   (length
+      (collapse
+         (match &root_goal
+            (root-goal $gid false)
+            (match &root_goal_completed ($gid) $gid))))
+   2)
+!(test
+   (length
+      (collapse
+         (query-many 0 refreshedDemandKb
+            ((: $prf (RefreshFirstRoot) $tv)
+             (: $prf (RefreshSecondRoot) $tv)))))
+   2)
+!(test
+   (length
+      (collapse
+         (match &root_goal (root-goal $gid true) $gid)))
+   2)
+!(test
+   (collapse (match &root_goal_completed ($gid) $gid))
+   ())
 
 !(compileadd materializeBatchKb
    (: materialize-batch-seed

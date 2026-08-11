@@ -88,7 +88,6 @@
 (: CounterKey Type)
 (: bwd_gid CounterKey)
 (: bwd_pid CounterKey)
-(: bwd_query_pid_start CounterKey)
 (: ruleid CounterKey)
 (: bwd_tmp_ruleid CounterKey)
 (: fwd_br_id CounterKey)

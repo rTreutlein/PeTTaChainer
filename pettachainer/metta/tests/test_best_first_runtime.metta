@@ -36,7 +36,7 @@
          (brand KBContext (refinementPriorKb MAIN Nil))
          (brand Proof $proof)
          (STV 1.0 1.0)))
-   0.25)
+   0.5)
 !(test
    (premise-base-rate-prior
       (assemble-runtime-fact
@@ -99,13 +99,59 @@
       (STV 1.0 0.7094641445679878)))
 
 !(test (query 4 kb (: $prf (SwitchGoal) $tv))
-   (: (by ruleStable baseFact) (SwitchGoal) (STV 1.0 0.699950950923023)))
+   (: (merge/revision
+         (by ruleStable baseFact)
+         (by ruleHighThenDrop (conjunction weakFact baseFact)))
+      (SwitchGoal)
+      (STV 1.0 0.7094641445679878)))
 
 !(test (query 7 kb (: $prf (SwitchGoal) $tv))
    (: (merge/revision (by ruleStable baseFact) (by ruleHighThenDrop (conjunction weakFact baseFact))) (SwitchGoal) (STV 1.0 0.7094641445679878)))
 
 !(test (query 100 kb (: $prf (SwitchGoal) $tv))
    (: (merge/revision (by ruleStable baseFact) (by ruleHighThenDrop (conjunction weakFact baseFact))) (SwitchGoal) (STV 1.0 0.7094641445679878)))
+
+;; A completed non-root proof is a frontier input for a later bounded search.
+;; Two steps suffice for the new root plus its new CPU formula because the
+;; middle premise is read directly from durable history.
+!(compileadd durableFrontierKb
+   (: durable-frontier-seed (DurableFrontierSeed) (STV 1.0 1.0)))
+!(compileadd durableFrontierKb
+   (: durable-frontier-first
+      (Implication (DurableFrontierSeed) (DurableFrontierMiddle))
+      (CTV (STV 1.0 1.0) (STV 0.11 1.0))))
+!(test
+   (not
+      (==
+         (collapse
+            (query 20 durableFrontierKb
+               (: $proof (DurableFrontierMiddle) $tv)))
+         ()))
+   true)
+
+!(compileadd durableFrontierKb
+   (: durable-frontier-second
+      (Implication (DurableFrontierMiddle) (DurableFrontierGoal))
+      (CTV (STV 1.0 1.0) (STV 0.17 1.0))))
+!(test
+   (not
+      (==
+         (collapse
+            (query 2 durableFrontierKb
+               (: $proof (DurableFrontierGoal) $tv)))
+         ()))
+   true)
+
+;; Proof and TV constraints still filter the durable index rather than leaking
+;; incompatible historical results into the new query.
+!(test
+   (query 0 durableFrontierKb
+      (: incompatible-proof (DurableFrontierMiddle) $tv))
+   ())
+!(test
+   (query 0 durableFrontierKb
+      (: $proof (DurableFrontierMiddle) (STV 0.5 0.5)))
+   ())
 
 !(compileadd priorityStrengthKb (: weakInput (WeakInput) (STV 0.2 1.0)))
 
@@ -121,7 +167,11 @@
    (: (by strongRule strongInput) (StrengthPriorityGoal) (STV 0.8 0.9999000095740854)))
 
 !(test (query 3 priorityStrengthKb (: $prf (StrengthPriorityGoal) $tv))
-   (: (by strongRule strongInput) (StrengthPriorityGoal) (STV 0.8 0.9999000095740854)))
+   (: (merge/revision
+         (by strongRule strongInput)
+         (by weakRule weakInput))
+      (StrengthPriorityGoal)
+      (STV 0.5000000000000001 0.9999499975003537)))
 
 !(compileadd chainedPriorityKb (: weakEvidence (WeakEvidence) (STV 0.2 1.0)))
 
@@ -159,7 +209,11 @@
    (: (by lowNegRule (negated lowInput)) (NegPriorityGoal) (STV 0.9 0.999900009088072)))
 
 !(test (query 5 priorityNegKb (: $prf (NegPriorityGoal) $tv))
-   (: (by lowNegRule (negated lowInput)) (NegPriorityGoal) (STV 0.9 0.999900009088072)))
+   (: (merge/revision
+         (by lowNegRule (negated lowInput))
+         (by highNegRule (negated highInput)))
+      (NegPriorityGoal)
+      (STV 0.5 0.9999499975003294)))
 
 !(compileadd incumbentPriorityKb (: directB (IncumbentB) (STV 1.0 0.9)))
 

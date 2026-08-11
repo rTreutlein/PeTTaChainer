@@ -66,11 +66,33 @@
       $agenda (goal-demand-sum $gid) $gid (goal-by-id $gid)))
 
 (: mark-root-goals (-[semidet]-> (List Number) (List $none)))
+(: goal-has-result-proof? (-[det]-> Number Bool))
+(= (goal-has-result-proof? $gid)
+   (let $hits (collapse (once (goal-incumbent-proof-ids $gid)))
+      (case $hits (
+         (() false)
+         ((cons $pids $_rest) (not (== $pids ())))))))
+
 (= (mark-root-goals ()) ())
 (= (mark-root-goals (cons $gid $rest))
-   (let $_mark
-      (once (chainer-add-atom &root_goal (root-goal $gid)))
+   (let* (($had-incumbent
+              (goal-has-result-proof? $gid))
+          ($_mark
+             (once
+                (chainer-add-atom &root_goal
+                   (root-goal $gid $had-incumbent)))))
       (mark-root-goals $rest)))
+
+(: mark-current-root-completed! (-[semidet]-> Number (List $none)))
+(= (mark-current-root-completed! $gid)
+   (let $started-empty
+      (collapse
+         (once
+            (match &root_goal (root-goal $gid false) true)))
+      (if (== $started-empty ()) ()
+         (let $_
+            (once (chainer-add-atom &root_goal_completed ($gid)))
+            ()))))
 
 ;; A foreign heap loses its nominal payload type through fold-flat. Keep the
 ;; typed schedule boundary explicit while constructing the one shared root
@@ -468,9 +490,20 @@
    (-[det]-> Number AggregateDemandSpec AggregateWaiter))
 (: RootDemand Type)
 (: root-demand (-[det]-> Number Number RootDemand))
+(: GoalDemandDependency Type)
+(: goal-demand-dependency
+   (-[det]-> Number Number GoalDemandDependency))
 (: GoalDemandCacheRow Type)
 (: goal-demand-cache-row
-   (-[det]-> Number (List RootDemand) GoalDemandCacheRow))
+   (-[det]-> Number (List GoalDemandDependency)
+       (List RootDemand) GoalDemandCacheRow))
+(: GoalDemandRevisionRow Type)
+(: goal-demand-revision-row
+   (-[det]-> Number Number GoalDemandRevisionRow))
+(: GoalDemandCacheValue Type)
+(: goal-demand-cache-value
+   (-[det]-> (List GoalDemandDependency)
+       (List RootDemand) GoalDemandCacheValue))
 
 ;; A shared goal carries one contribution per distinct query root. Alternative
 ;; waiters from the same root merge by maximum; independent roots add only when
@@ -503,12 +536,48 @@
 (= (root-demands-max (cons (root-demand $_root $score) $rest))
    (max $score (root-demands-max $rest)))
 
+(: root-demand-entry-member?
+   (-[det]-> RootDemand (List RootDemand) Bool))
+(= (root-demand-entry-member? $_entry ()) false)
+(= (root-demand-entry-member?
+      (root-demand $root $score)
+      (cons (root-demand $head-root $head-score) $rest))
+   (if (== $root $head-root)
+      (== $score $head-score)
+      (root-demand-entry-member?
+         (root-demand $root $score) $rest)))
+
+(: root-demands-same?
+   (-[det]-> (List RootDemand) (List RootDemand) Bool))
+(= (root-demands-same? () $right) (== $right ()))
+(= (root-demands-same? (cons $entry $rest) $right)
+   (if (root-demand-entry-member? $entry $right)
+      (root-demands-same? $rest $right)
+      false))
+
 (: root-goal-demand-seed (-[det]-> Number (List RootDemand)))
+(: multiple-query-roots? (-[det]-> Bool))
+(= (multiple-query-roots?)
+   (let $values (collapse (catch (get-state bwd_root_count)))
+      (if (== $values ()) false
+         (> (if-error-number (car-atom $values) 0) 1))))
+
 (= (root-goal-demand-seed $gid)
    (let $hits
-      (collapse (match &root_goal (root-goal $gid) true))
+      (collapse
+         (match &root_goal
+            (root-goal $gid $had-incumbent) $had-incumbent))
       (if (== $hits ()) ()
-         (cons (root-demand $gid 1.0) ()))))
+         (if (car-atom $hits)
+            (cons (root-demand $gid 1.0) ())
+            (if (and (multiple-query-roots?)
+                   (not (==
+                      (collapse
+                         (once
+                            (match &root_goal_completed ($gid) true)))
+                      ())))
+               ()
+               (cons (root-demand $gid 1.0) ()))))))
 
 (: frontier-root-demand-step
    (-[det]-> (| Number NoCurrentScore) Number Number Number Number
@@ -651,6 +720,123 @@
                   $depth
                   (root-goal-demand-seed $gid))))))))
 
+(: goal-demand-revision (-[det]-> Number Number))
+(= (goal-demand-revision $gid)
+   (let $hits
+      (stored-atom-list
+         (collapse
+            (once
+               (match &goal_demand_revision
+                  (goal-demand-revision-row $gid $revision)
+                  $revision))))
+      (if (== $hits ()) 0 (first-number $hits))))
+
+(: bump-goal-demand-revision! (-[det]-> Number Number))
+(= (bump-goal-demand-revision! $gid)
+   (let* (($revision (goal-demand-revision $gid))
+          ($next (+ $revision 1))
+          ($_old
+             (collapse
+                (match &goal_demand_revision
+                   (goal-demand-revision-row $gid $_old-revision)
+                   (remove-atom &goal_demand_revision
+                      (goal-demand-revision-row
+                         $gid $_old-revision)))))
+          ($_new
+             (once
+                (add-atom &goal_demand_revision
+                   (goal-demand-revision-row $gid $next)))))
+      $next))
+
+(: shallower-goal-demand-parents
+   (-[det]-> (List Number) Number (List Number)))
+(= (shallower-goal-demand-parents () $_child-depth) ())
+(= (shallower-goal-demand-parents
+      (cons $parent-gid $rest) $child-depth)
+   (let $hits (collapse (once (goal-by-id $parent-gid)))
+      (case $hits (
+         (() (shallower-goal-demand-parents $rest $child-depth))
+         ((cons
+             (stored-goal-row
+                $_gid $parent-depth $_goal $_expanded $_pending)
+             $_tail)
+            (if (< $parent-depth $child-depth)
+               (cons $parent-gid
+                  (shallower-goal-demand-parents
+                     $rest $child-depth))
+               (shallower-goal-demand-parents
+                  $rest $child-depth)))))))
+
+(: goal-demand-parent-gids (-[det]-> Number (List Number)))
+(= (goal-demand-parent-gids $gid)
+   (let $hits (collapse (once (goal-by-id $gid)))
+      (case $hits (
+         (() ())
+         ((cons
+             (stored-goal-row
+                $_stored-gid $depth $_goal $_expanded $_pending)
+             $_rest)
+            (let $parents
+               (list_to_set
+                  (the (List Number)
+                     (collapse
+                        (match &goal_child
+                           ($parent-gid $gid) $parent-gid))))
+               (shallower-goal-demand-parents
+                  $parents $depth)))))))
+
+(: goal-demand-dependencies
+   (-[det]-> (List Number) (List GoalDemandDependency)))
+(= (goal-demand-dependencies ()) ())
+(= (goal-demand-dependencies (cons $parent-gid $rest))
+   (let $revision (goal-demand-revision $parent-gid)
+      (cons (goal-demand-dependency $parent-gid $revision)
+         (goal-demand-dependencies $rest))))
+
+(: goal-demand-dependencies-current?
+   (-[det]-> (List GoalDemandDependency) Bool))
+(= (goal-demand-dependencies-current? ()) true)
+(= (goal-demand-dependencies-current?
+      (cons
+         (goal-demand-dependency $parent-gid $revision)
+         $rest))
+   (if (== (goal-demand-revision $parent-gid) $revision)
+      (goal-demand-dependencies-current? $rest)
+      false))
+
+(: goal-demand-cache-hit-current?
+   (-[det]-> (List GoalDemandCacheValue) Bool))
+(= (goal-demand-cache-hit-current? ()) false)
+(= (goal-demand-cache-hit-current?
+      (cons
+         (goal-demand-cache-value $dependencies $_demands)
+         $_rest))
+   (goal-demand-dependencies-current? $dependencies))
+
+(: goal-demand-cache-value-demands
+   (-[det]-> GoalDemandCacheValue (List RootDemand)))
+(= (goal-demand-cache-value-demands
+      (goal-demand-cache-value $_dependencies $demands))
+   $demands)
+
+(: root-demand-active? (-[det]-> RootDemand Bool))
+(= (root-demand-active? (root-demand $root-gid $_score))
+   (if (multiple-query-roots?)
+      (==
+         (collapse
+            (once
+               (match &root_goal_completed ($root-gid) true)))
+         ())
+      true))
+
+(: active-root-demands
+   (-[det]-> (List RootDemand) (List RootDemand)))
+(= (active-root-demands ()) ())
+(= (active-root-demands (cons $demand $rest))
+   (if (root-demand-active? $demand)
+      (cons $demand (active-root-demands $rest))
+      (active-root-demands $rest)))
+
 (: goal-root-demands (-[det]-> Number (List RootDemand)))
 (= (goal-root-demands $gid)
    (let $hits
@@ -658,28 +844,143 @@
          (collapse
             (once
                (match &goal_demand_cache
-                  (goal-demand-cache-row $gid $demands)
-                  $demands))))
-      (if (== $hits ())
+                  (goal-demand-cache-row $gid $dependencies $demands)
+                  (goal-demand-cache-value
+                     $dependencies $demands)))))
+      (if (goal-demand-cache-hit-current?
+            (the (List GoalDemandCacheValue) $hits))
+         (active-root-demands
+            (goal-demand-cache-value-demands
+               (the GoalDemandCacheValue (car-atom $hits))))
          (let* (($demands (goal-root-demands-walk $gid))
+                ($dependencies
+                   (goal-demand-dependencies
+                      (goal-demand-parent-gids $gid)))
                 ($_old
                    (collapse
                       (match &goal_demand_cache
-                         (goal-demand-cache-row $gid $old-demands)
+                         (goal-demand-cache-row
+                            $gid $_old-dependencies $_old-demands)
                          (remove-atom &goal_demand_cache
                             (goal-demand-cache-row
-                               $gid $old-demands)))))
+                               $gid $_old-dependencies
+                               $_old-demands)))))
                 ($_store
                    (once
                       (add-atom &goal_demand_cache
                          (goal-demand-cache-row
-                            $gid $demands)))))
-            $demands)
-         (the (List RootDemand) (car-atom $hits)))))
+                            $gid $dependencies $demands))))
+                ($_revision (bump-goal-demand-revision! $gid)))
+            (active-root-demands $demands)))))
 
 (: goal-demand-sum (-[det]-> Number Number))
 (= (goal-demand-sum $gid)
    (root-demands-sum (goal-root-demands $gid)))
+
+(: mark-goal-demand-dirty! (-[det]-> Number (List $none)))
+(= (mark-goal-demand-dirty! $gid)
+   (let $_
+      (collapse
+         (match &goal_demand_cache
+            (goal-demand-cache-row $gid $dependencies $demands)
+            (remove-atom &goal_demand_cache
+               (goal-demand-cache-row
+                  $gid $dependencies $demands))))
+      ()))
+
+(: goal-demand-dependency-put
+   (-[det]-> GoalDemandDependency (List GoalDemandDependency)
+       (List GoalDemandDependency)))
+(= (goal-demand-dependency-put $entry ()) (cons $entry ()))
+(= (goal-demand-dependency-put
+      (goal-demand-dependency $parent-gid $revision)
+      (cons
+         (goal-demand-dependency $head-gid $head-revision)
+         $rest))
+   (if (== $parent-gid $head-gid)
+      (cons (goal-demand-dependency $parent-gid $revision) $rest)
+      (cons (goal-demand-dependency $head-gid $head-revision)
+         (goal-demand-dependency-put
+            (goal-demand-dependency $parent-gid $revision)
+            $rest))))
+
+(: update-goal-demand-cache-for-waiter!
+   (-[semidet]-> Number Number
+       (| FrontierWaiter AggregateWaiter Atom) (List $none)))
+(: first-goal-demand-dependencies-or-empty
+   (-[det]-> (List (List GoalDemandDependency))
+       (List GoalDemandDependency)))
+(= (first-goal-demand-dependencies-or-empty ()) ())
+(= (first-goal-demand-dependencies-or-empty
+      (cons $dependencies $_rest))
+   $dependencies)
+
+(= (update-goal-demand-cache-for-waiter!
+      $child-gid $parent-gid $waiter)
+   (let*
+      (($current-demands (goal-root-demands $child-gid))
+       ((stored-goal-row
+            $_gid $child-depth $_goal $_expanded $_pending)
+          (goal-by-id $child-gid))
+       ($hits
+          (stored-atom-list
+             (collapse
+                (once
+                   (match &goal_demand_cache
+                      (goal-demand-cache-row
+                         $child-gid $dependencies $_demands)
+                      $dependencies)))))
+       ($dependencies
+          (first-goal-demand-dependencies-or-empty
+             (the (List (List GoalDemandDependency)) $hits)))
+       ($next-demands
+          (root-demands-merge-max $current-demands
+             (waiter-root-demands $waiter $child-depth)))
+       ($next-dependencies
+          (goal-demand-dependency-put
+             (goal-demand-dependency $parent-gid
+                (goal-demand-revision $parent-gid))
+             $dependencies))
+       ($_old
+          (mark-goal-demand-dirty! $child-gid))
+       ($_store
+          (once
+             (add-atom &goal_demand_cache
+                (goal-demand-cache-row
+                   $child-gid $next-dependencies $next-demands))))
+       ($_revision
+          (if (root-demands-same? $current-demands $next-demands)
+             0
+             (bump-goal-demand-revision! $child-gid)))
+       ;; Only an empty-to-live transition can strand descendants that were
+       ;; expanded while this goal was reachable solely through a cycle.  Mark
+       ;; that rare transition for a transitive wake; ordinary waiter updates
+       ;; retain the constant-time direct wake below.
+       ($_wake
+          (if (and (== $current-demands ())
+                   (not (== $next-demands ())))
+             (once (add-atom &goal_demand_wake ($child-gid)))
+             ())))
+      ()))
+
+(: register-goal-waiter!
+   (-[semidet]-> Number Number
+       (| FrontierWaiter AggregateWaiter Atom) (List $none)))
+(= (register-goal-waiter! $child-gid $parent-gid $waiter)
+   (let* (($_current
+              (goal-root-demands $child-gid))
+           ($_wait
+              (once
+                 (chainer-add-atom &goal_waiter
+                    ($child-gid $waiter))))
+           ($_edge
+              (once
+                 (chainer-add-atom &goal_child
+                    ($parent-gid $child-gid))))
+           ($_update
+              (update-goal-demand-cache-for-waiter!
+                 $child-gid $parent-gid $waiter)))
+      ()))
 
 (: goal-demand-child-gids (-[det]-> Number (List Number)))
 (= (goal-demand-child-gids $gid)
@@ -688,57 +989,6 @@
          (collapse
             (match &goal_child ($gid $child-gid) $child-gid)))))
 
-(: invalidate-goal-demand-cache-row! (-[det]-> Number (List $none)))
-(= (invalidate-goal-demand-cache-row! $gid)
-   (let $_
-      (collapse
-         (match &goal_demand_cache
-            (goal-demand-cache-row $gid $demands)
-            (remove-atom &goal_demand_cache
-               (goal-demand-cache-row $gid $demands))))
-      ()))
-
-(: invalidate-goal-demand-walk!
-   (-[det]-> Number (List Number) (List $none)))
-(= (invalidate-goal-demand-walk! $gid $visited)
-   (if (stored-list-member? $gid $visited) ()
-      (let* (($next-visited (cons $gid $visited))
-             ($_clear (invalidate-goal-demand-cache-row! $gid)))
-         (invalidate-goal-demand-children!
-            (goal-demand-child-gids $gid) $next-visited))))
-
-(: invalidate-goal-demand-children!
-   (-[det]-> (List Number) (List Number) (List $none)))
-(= (invalidate-goal-demand-children! () $_visited) ())
-(= (invalidate-goal-demand-children!
-      (cons $gid $rest) $visited)
-   (let $_ (invalidate-goal-demand-walk! $gid $visited)
-      (invalidate-goal-demand-children! $rest $visited)))
-
-(: invalidate-goal-demand-descendants! (-[det]-> Number (List $none)))
-(= (invalidate-goal-demand-descendants! $gid)
-   (invalidate-goal-demand-children!
-      (goal-demand-child-gids $gid) ($gid)))
-
-(: register-goal-waiter!
-   (-[semidet]-> Number Number
-       (| FrontierWaiter AggregateWaiter Atom) (List $none)))
-(= (register-goal-waiter! $child-gid $parent-gid $waiter)
-   (let* (($_wait
-              (once
-                 (chainer-add-atom &goal_waiter
-                    ($child-gid $waiter))))
-           ($_edge
-              (once
-                 (chainer-add-atom &goal_child
-                    ($parent-gid $child-gid))))
-           ($_invalidate
-              (invalidate-goal-demand-walk! $child-gid ())))
-      ()))
-
-;; A goal may have expanded while it was reachable only through a cycle. If a
-;; later waiter gives it live root demand, keep the one-expansion invariant and
-;; wake the unexpanded frontier descendants it already created.
 (: wake-goal-demand-children-heap
    (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) (List Number)
        (List Number) (Heap (| QueueGoal QueueAggregate))))
@@ -767,11 +1017,25 @@
                $agenda (goal-demand-child-gids $gid) $next-visited)
             (schedule-goal-heap $agenda $gid)))))
 
+;; Most waiter registrations wake only their direct goal.  A goal that has just
+;; acquired its first live root demand also wakes the already-expanded frontier
+;; beneath it, preserving the cycle-recovery behavior without repeatedly
+;; traversing the same DAG.
 (: wake-goal-demand-heap
    (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number
        (Heap (| QueueGoal QueueAggregate))))
 (= (wake-goal-demand-heap $agenda $gid)
-   (wake-goal-demand-walk-heap $agenda $gid ()))
+   (let $hits
+      (collapse
+         (once
+            (match &goal_demand_wake ($gid) true)))
+      (if (== $hits ())
+         (schedule-goal-heap $agenda $gid)
+         (let $_clear
+            (collapse
+               (match &goal_demand_wake ($gid)
+                  (remove-atom &goal_demand_wake ($gid))))
+            (wake-goal-demand-walk-heap $agenda $gid ())))))
 (: AggregateState Type)
 (: aggregate-state
    (-[det]-> $accumulator (List Evidence) (List Number) AggregateState))
@@ -1534,8 +1798,9 @@
    (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number Number (Heap (| QueueGoal QueueAggregate))))
 (= (wake-proof-commit-heap $agenda $gid $pid)
    (let*
-      (($_demand-cache
-          (invalidate-goal-demand-descendants! $gid))
+      (($_demand-cache (mark-goal-demand-dirty! $gid))
+       ($_demand-revision (bump-goal-demand-revision! $gid))
+       ($_root-completed (mark-current-root-completed! $gid))
        ($waiters
           (stored-atom-list
              (collapse
@@ -1587,9 +1852,7 @@
                       $pending $pid)))))
        ($_cache-invalidate
           (if (== $current-pid ()) ()
-             (progn
-                (invalidate-proof-live-caches)
-                (remove-all-atoms &goal_demand_cache))))
+             (invalidate-proof-live-caches)))
        ($nagenda (wake-proof-commit-heap $agenda $agg-gid $pid)))
       $nagenda))
 
@@ -1671,6 +1934,37 @@
             no-base-rate-aggregate-key))
       ($_other no-base-rate-aggregate-key))))
 
+;; Ordinary aggregate snapshots use the durable proof index as a base-rate-like
+;; cache. A scalar fold has one representative; a grouped fold retains the
+;; latest representative for every grounded group/output key. Specialized base
+;; rates continue to use &base_rate_cache instead of this generic path.
+(: durable-aggregate-current-pids
+   (-[semidet]-> Number $arguments (List Number)))
+(= (durable-aggregate-current-pids $agg-gid $args)
+   (case (base-rate-aggregate-key $args) (
+      ((base-rate-aggregate-key-value $_kbid $_pattern $_mode) ())
+      (no-base-rate-aggregate-key
+         (latest-proof-output-group-ids
+            (aggregate-snapshot-groups
+               (goal-proof-ids $agg-gid)))))))
+
+(: aggregate-current-pid-shape
+   (-[semidet]-> $arguments (List Number) (| Number (List Number))))
+(= (aggregate-current-pid-shape $args $pids)
+   (case $args (
+      (($_kb $_pattern $_group $_extractor $_init $_fun $_finish $_tv-mode)
+         $pids)
+      ($_other
+         (case $pids (
+            (() ())
+            ((cons $pid $_rest) $pid)))))))
+
+(: durable-aggregate-current-pid
+   (-[semidet]-> Number $arguments (| Number (List Number))))
+(= (durable-aggregate-current-pid $agg-gid $args)
+   (aggregate-current-pid-shape $args
+      (durable-aggregate-current-pids $agg-gid $args)))
+
 (: commit-cached-aggregate-heap
    (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number $arguments TV (Heap (| QueueGoal QueueAggregate))))
 (= (commit-cached-aggregate-heap $agenda $agg-gid $args $tv)
@@ -1691,6 +1985,8 @@
            $_stored-gid $depth $_goal $_expanded $_pending)
           (goal-by-id $agg-gid))
        ($child-gid (ensure-goal-at-depth $child-goal (+ 1 $depth)))
+       ($durable-current
+          (durable-aggregate-current-pid $agg-gid $args))
        ($hits
           (collapse
              (once
@@ -1705,11 +2001,11 @@
                 (once
                    (chainer-add-atom &aggregate
                       (stored-aggregate-row
-                         $agg-gid $child-gid $args $score 0.0 ())))
-                ;; A newly active aggregate makes every historical snapshot
-                ;; for this semantic goal non-current until this run commits
-                ;; its own snapshot. Drop any liveness answers computed while
-                ;; the aggregate had no transient execution row.
+                         $agg-gid $child-gid $args $score 0.0
+                         $durable-current)))
+                ;; Installing the transient current representative changes
+                ;; aggregate liveness from the no-row fallback. Recompute only
+                ;; the query-local liveness answers; durable proof rows remain.
                 (invalidate-proof-live-caches))
              ())))
       $child-gid))
@@ -1970,11 +2266,43 @@
              UniformPriorKnownFinish)
           AggregateTVMode)
        (Heap (| QueueGoal QueueAggregate)) AggregateGroupState (Heap (| QueueGoal QueueAggregate))))
+(: aggregate-candidate-current-in-pids?
+   (-[semidet]-> ProofCandidate (List Number) Bool))
+(= (aggregate-candidate-current-in-pids?
+      $_candidate ())
+   false)
+(= (aggregate-candidate-current-in-pids?
+      (proof-candidate $kind $score $ev $children)
+      (cons $pid $rest))
+   (let*
+      (($output (candidate-kind-term $kind))
+       ($stored-output (proof-output-atom-by-id $pid))
+       (($stored-score $stored-ev) (proof-stats-by-id $pid)))
+      (if (and (=alpha $stored-output $output)
+               (and (== $stored-score $score) (== $stored-ev $ev)))
+         true
+         (aggregate-candidate-current-in-pids?
+            (proof-candidate $kind $score $ev $children) $rest))))
+
+(: grouped-aggregate-candidate-current?
+   (-[semidet]-> Number ProofCandidate Bool))
+(= (grouped-aggregate-candidate-current? $agg-gid $candidate)
+   (let
+      (stored-aggregate-row
+         $_stored-agg-gid $_child-gid $_args
+         $_base-score $_pending $current-pids)
+      (aggregate-by-id $agg-gid)
+      (aggregate-candidate-current-in-pids?
+         $candidate (the (List Number) $current-pids))))
+
 (= (commit-grouped-aggregate-state-heap $agg-gid $args $agenda (aggregate-group-state $group $acc $ev $children))
    (let*
       (($result (grouped-aggregate-result $args (aggregate-group-state $group $acc $ev $children)))
        ($candidate (aggregate-result-candidate $result $ev $children))
-       ($accepted (classify-goal-proof-candidate $agg-gid $candidate)))
+       ($accepted
+          (if (grouped-aggregate-candidate-current? $agg-gid $candidate)
+             false
+             (classify-goal-proof-candidate $agg-gid $candidate))))
       (commit-grouped-aggregate-candidate-heap $agenda
          $agg-gid
          $accepted
@@ -1982,14 +2310,26 @@
 
 (: append-grouped-aggregate-current-pid!
    (-[semidet]-> Number Number (| Bool (List $none))))
+(: grouped-current-pids-without-key
+   (-[semidet]-> (List Number) ProofOutputKey (List Number)))
+(= (grouped-current-pids-without-key () $_key) ())
+(= (grouped-current-pids-without-key
+      (cons $pid $rest) $key)
+   (if (=alpha (aggregate-snapshot-key-by-id $pid) $key)
+      (grouped-current-pids-without-key $rest $key)
+      (cons $pid
+         (grouped-current-pids-without-key $rest $key))))
 (= (append-grouped-aggregate-current-pid! $agg-gid $pid)
    (let*
       (((stored-aggregate-row
             $_stored-agg-gid $child-gid $args
             $base-score $pending $stored-current-pids)
           (aggregate-by-id $agg-gid))
-       ($current-pids $stored-current-pids)
-      ($next-pids (cons $pid $current-pids)))
+       ($current-pids (the (List Number) $stored-current-pids))
+       ($next-pids
+          (cons $pid
+             (grouped-current-pids-without-key
+                $current-pids (aggregate-snapshot-key-by-id $pid)))))
       (progn
          (remove-atom &aggregate
             (stored-aggregate-row
@@ -2013,9 +2353,7 @@
                       (proof-candidate $kind $score $ev $children))))
              ($_set (append-grouped-aggregate-current-pid! $agg-gid $pid))
              ($_cache-invalidate
-                (progn
-                   (invalidate-proof-live-caches)
-                   (remove-all-atoms &goal_demand_cache))))
+                (invalidate-proof-live-caches)))
             (wake-proof-commit-heap $agenda $agg-gid $pid)))))
 
 (: run-grouped-aggregate-heap
@@ -2053,7 +2391,6 @@
             $base-score $pending $current-pid)
           (aggregate-by-id $agg-gid))
        ($grouped? (aggregate-args-grouped? $args))
-       ($next-current-pid (if $grouped? () $current-pid))
        ($_clear
           (progn
              (remove-atom &aggregate
@@ -2064,7 +2401,7 @@
                 (chainer-add-atom &aggregate
                    (stored-aggregate-row
                       $agg-gid $child-gid $args $base-score
-                      0.0 $next-current-pid))))))
+                      0.0 $current-pid))))))
       (if $grouped?
          (run-grouped-aggregate-heap
             $agenda $agg-gid $child-gid
@@ -2827,7 +3164,8 @@
        ($_clear
           (foreach-flat remove-all-atoms
              (&goal &goal_lookup &goal_waiter &goal_child
-              &goal_demand_cache &root_goal
+              &goal_demand_cache &goal_demand_revision &root_goal
+              &goal_demand_wake &root_goal_completed
               &aggregate &aggregate_search_budget &aggregate_forward_approx
               &proof_invalidated_epoch &proof_live_cache &goal_live_cache)))
        ($_reset

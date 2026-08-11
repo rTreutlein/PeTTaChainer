@@ -63,7 +63,7 @@
 
 !(test
    (query 80 mlKb (: $prf (C i) $tv))
-   (: (merge/revision (by r2 (conjunction a b)) (by r1 (conjunction a b))) (C i) (STV 0.5499999999774938 0.9473684207209665)))
+   (: (merge/revision (by r1 (conjunction a b)) (by r2 (conjunction a b))) (C i) (STV 0.5499999999774938 0.9473684207209665)))
 
 ;; --- Shared b enters through different paths (directly in path 1, via M in
 ;; path 2), but the conclusion is still linear in the shared {a,b} conjunction,

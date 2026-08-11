@@ -603,11 +603,10 @@
 (: aggregate-current-pid-live?
    (-[det]-> (| Number (List Number)) Number Bool))
 (= (aggregate-current-pid-live? $current-pid $pid)
-   (case $current-pid (
-      (() false)
-      ((cons $first $rest)
-         (stored-list-member? $pid (cons $first $rest)))
-      ($number (== $number $pid)))))
+   (if (== $current-pid ()) false
+      (if (is-expr $current-pid)
+         (not (== (collapse (is-member $pid $current-pid)) ()))
+         (== $current-pid $pid))))
 
 ;; Membership only compares stored ids, so it does not need to revalidate each
 ;; numeric element from the erased aggregate row.
@@ -626,6 +625,26 @@
 (= (first-aggregate-current-pid (cons $current $_rest))
    $current)
 
+(: proof-ids-for-goal-key
+   (-[semidet]-> ProofGoalKey (List Number)))
+(= (proof-ids-for-goal-key $key)
+   (let $lookup-key (copy_term $key)
+      (collapse
+         (match &proof_goal
+            ($lookup-key $stored-key $pid)
+            (if (=alpha $stored-key $key)
+               (stored-number $pid)
+               (empty))))))
+
+(: durable-aggregate-representative? (-[semidet]-> Number Bool))
+(= (durable-aggregate-representative? $pid)
+   (let $latest
+      (latest-proof-output-group-ids
+         (aggregate-snapshot-groups
+            (proof-ids-for-goal-key
+               (proof-goal-key-by-id $pid))))
+      (stored-list-member? $pid $latest)))
+
 (: proof-live-compute (-[semidet]-> Number Bool))
 (= (proof-live-compute $pid)
    (let*
@@ -643,11 +662,15 @@
                       $current-pid
                       (empty)))))))
       (if (== $current-hits ())
-         (if (= $kind (merged $_output))
+         (if (= $kind (aggregate $_output))
+            (if (durable-aggregate-representative? $pid)
+               (proof-list-live? (proof-children-by-id $pid))
+               false)
+            (if (= $kind (merged $_output))
             (proof-list-node-live? (proof-children-by-id $pid))
             (if (proof-kind-keeps-raw-children? $kind)
                (proof-list-node-live? (proof-children-by-id $pid))
-               (proof-list-live? (proof-children-by-id $pid))))
+               (proof-list-live? (proof-children-by-id $pid)))))
          (aggregate-current-pid-live?
             (first-aggregate-current-pid $current-hits) $pid))))
 
@@ -741,10 +764,8 @@
 (: goal-live-proof-step
    (-[semidet]-> (List Number) Number (List Number)))
 (= (goal-live-proof-step $acc $pid)
-   (if (>= $pid (search-id-value bwd_query_pid_start))
-      (if (proof-live? $pid)
-         (append-number $acc $pid)
-         $acc)
+   (if (proof-live? $pid)
+      (append-number $acc $pid)
       $acc))
 
 (: append-number
@@ -762,7 +783,7 @@
 (: goal-live-proof-ids-compute (-[semidet]-> Number (List Number)))
 (= (goal-live-proof-ids-compute $gid)
    (proof-fold-flat-semidet
-      goal-live-proof-step () (goal-proof-ids $gid)))
+      goal-live-proof-step () (goal-live-source-proof-ids $gid)))
 
 (: goal-live-proof-ids (-[semidet]-> Number (List Number)))
 (= (goal-live-proof-ids $gid)
@@ -791,6 +812,76 @@
    (-[semidet]-> (List Number) (List ProofOutputGroup)))
 (= (proof-output-groups $pids)
    (proof-fold-flat-semidet proof-output-groups-add () $pids))
+
+;; Aggregate values change as monotonic child proofs arrive. Their ordinary
+;; proof output key includes the result so distinct CPU values are never merged;
+;; snapshot selection instead keys FoldAll by its stable arguments and grouped
+;; FoldAll by its grounded group arguments, ignoring only the changing result.
+(: aggregate-snapshot-key-by-id (-[semidet]-> Number ProofOutputKey))
+(= (aggregate-snapshot-key-by-id $pid)
+   (let $output (proof-output-atom-by-id $pid)
+      (case $output (
+         ((CPU FoldAllCompiled $arguments $_result)
+            (proof-output-key
+               (quote (CPU FoldAllCompiled $arguments))))
+         ((CPU GroupedFoldAllCompiled $arguments $_result)
+            (proof-output-key
+               (quote (CPU GroupedFoldAllCompiled $arguments))))
+         ($_other (candidate-output-key $output))))))
+
+(: aggregate-snapshot-groups-add
+   (-[semidet]-> (List ProofOutputGroup) Number
+       (List ProofOutputGroup)))
+(= (aggregate-snapshot-groups-add () $pid)
+   (cons
+      (proof-output-group (aggregate-snapshot-key-by-id $pid) ($pid))
+      ()))
+(= (aggregate-snapshot-groups-add
+      (cons (proof-output-group $key $pids) $rest) $pid)
+   (let $pid-key (aggregate-snapshot-key-by-id $pid)
+      (if (=alpha $pid-key $key)
+         (cons
+            (proof-output-group $key (append-number $pids $pid))
+            $rest)
+         (cons (proof-output-group $key $pids)
+            (aggregate-snapshot-groups-add $rest $pid)))))
+
+(: aggregate-snapshot-groups
+   (-[semidet]-> (List Number) (List ProofOutputGroup)))
+(= (aggregate-snapshot-groups $pids)
+   (proof-fold-flat-semidet aggregate-snapshot-groups-add () $pids))
+
+(: aggregate-goal? (-[semidet]-> Number Bool))
+(= (aggregate-goal? $gid)
+   (let
+      (stored-goal-row $_stored-gid $_depth $goal $_expanded $_pending)
+      (goal-by-id $gid)
+      (case $goal (
+         ((CPU FoldAllCompiled $_arguments $_result) true)
+         ((CPU GroupedFoldAllCompiled $_arguments $_result) true)
+         ($_other false)))))
+
+(: aggregate-execution-row? (-[det]-> Number Bool))
+(= (aggregate-execution-row? $gid)
+   (not
+      (==
+         (collapse
+            (once
+               (match &aggregate
+                  (stored-aggregate-row
+                     $gid $_child $_args $_base $_pending $_current)
+                  true)))
+         ())))
+
+(: goal-live-source-proof-ids (-[semidet]-> Number (List Number)))
+(= (goal-live-source-proof-ids $gid)
+   (let $pids (goal-proof-ids $gid)
+      (if (aggregate-goal? $gid)
+         (if (aggregate-execution-row? $gid)
+            $pids
+            (latest-proof-output-group-ids
+               (aggregate-snapshot-groups $pids)))
+         $pids)))
 
 (: merge-proof-id-output-step
    (-[semidet]-> (Statement KBContext Proof TV)

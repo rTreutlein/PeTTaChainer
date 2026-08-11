@@ -290,6 +290,8 @@
    (the Number $id))
 
 (: remove-compiled-statement (-[det]-> Proof (List $none)))
+;; Deprecated compatibility boundary. It removes current KB/compiler rows but
+;; deliberately does not forget durable backward proof history.
 (= (remove-compiled-statement $name)
    (let*
       (($_specialization (remove-specialization-state! $name))
@@ -303,6 +305,5 @@
        ($_index
           (if (== $ids ()) ()
              (collapse
-                (remove-atom rule_name_index ($name $_any)))))
-       ($_proof-history (clear-durable-backward-proofs)))
+                (remove-atom rule_name_index ($name $_any))))))
       ()))

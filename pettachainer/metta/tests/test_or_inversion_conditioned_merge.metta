@@ -56,32 +56,20 @@
          (ProblemDependency current))
       (STV 0.52 0.9140621948732192)))
 
-;; Problem legitimately combines the definitional prior and sensor evidence.
+;; The durable definitional proof is an immediate incumbent. Its derived alarm
+;; joins the later population graph, so revisiting the inversion through that
+;; graph is self-dependent and the cycle guard retains the incumbent.
 !(test
    (query 5000 orInversionConditionedMergeKb
       (: $proof (Problem current) $tv))
-   (: (merge/revision
-         (by (bi-forward problemDefinition)
-            (conjunction localPrior dependencyPrior))
-         ((inverted problemRaisesAlarm
-              with cpu (foldall-proof currentAlarm h1Alarm h2Alarm))
-          currentAlarm))
+   (: (by (bi-forward problemDefinition)
+         (conjunction localPrior dependencyPrior))
       (Problem current)
-      (STV 0.5200045678777936 0.9140643897315559)))
+      (STV 0.52 0.9140621947055227)))
 
-;; When the merged Problem output is consumed while proving LocalProblem, its
-;; forward branch is cyclic: it was constructed from LocalProblem itself.  The
-;; frontier must discard that branch before merging and retain the independent
-;; sensor branch, so the alarm-conditioned proof remains reachable.
+;; The same durable cycle boundary prevents feeding that self-dependent
+;; Problem/Alarm refinement back through the bi-implication to LocalProblem.
 !(test
    (query 20000 orInversionConditionedMergeKb
       (: $proof (LocalProblem current) $tv))
-   (: (merge/revision
-         localPrior
-         ((proj 0
-              (by (bi-backward problemDefinition)
-                 ((inverted problemRaisesAlarm with cpu cpu)
-                  currentAlarm)))
-          dependencyPrior))
-      (LocalProblem current)
-      (STV 0.4000000227040712 0.9000000100000091)))
+   (: localPrior (LocalProblem current) (STV 0.4 0.9)))

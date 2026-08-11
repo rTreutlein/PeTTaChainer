@@ -1,9 +1,22 @@
 import unittest
+import warnings
 
 from pettachainer import PeTTaChainer
 
 
 class TestPeTTaChainer(unittest.TestCase):
+    def test_remove_statement_is_deprecated(self):
+        handler = PeTTaChainer()
+        handler.add_atom("(: deprecated_remove (DeprecatedRemove) (STV 1.0 1.0))")
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            handler.remove_statement("deprecated_remove")
+
+        self.assertEqual(len(caught), 1)
+        self.assertIs(caught[0].category, DeprecationWarning)
+        self.assertIn("does not forget durable proofs", str(caught[0].message))
+
     def test_query_many_preserves_order_and_empty_roots(self):
         handler = PeTTaChainer()
         handler.add_atom("(: batch_a (BatchA) (STV 1.0 1.0))")

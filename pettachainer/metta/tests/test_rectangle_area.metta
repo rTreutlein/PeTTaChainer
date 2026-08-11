@@ -38,7 +38,9 @@
       (let (STV $s $c) (DistGreaterThanFormula (the Distribution $areaDist) 31.0) $s))
    1.0)
 
+;; Particle-map CPU outputs are distinct grounded results. The earlier rectA
+;; result remains durable while this query adds another compatible sample.
 !(test
    (let (: $prf (AreaDist rectA $areaDist) $tv) (query 20 kb (: $prf (AreaDist rectA $areaDist) $tv))
       (let (STV $s $c) (DistGreaterThanFormula (the Distribution $areaDist) 10.0) (and (> $s 0.99) (> $c 0.0))))
-   true)
+   (true true))

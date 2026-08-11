@@ -196,7 +196,6 @@
    (progn
       (foreach-flat remove-all-atoms (() &goal &goal_lookup &goal_waiter &aggregate &proof &proof_goal &proof_result &proof_parent &proof_invalidated_epoch &proof_live_cache &goal_live_cache &proof_static_live &proof_superseded))
       (change-state! bwd_live_epoch 0)
-      (change-state! bwd_query_pid_start 0)
       ()))
 
 (: test-runtime-fact
