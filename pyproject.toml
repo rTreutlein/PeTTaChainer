@@ -27,9 +27,3 @@ pettachainer = [
     "metta/heap_helpers.pl",
     "metta/logic_configs/*.metta",
 ]
-
-[tool.setuptools.exclude-package-data]
-pettachainer = [
-    "AGENTS.md",
-    "metta/test.metta",
-]

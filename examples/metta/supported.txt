@@ -1,0 +1,14 @@
+# Stable executable documentation run by scripts/test_metta.sh.
+base_rate_acceptance_game_libpln.metta
+base_rate_acceptance_game_pettachainer.metta
+deductionrevision.metta
+direct.metta
+existential_residual.metta
+flyingraven.metta
+machine_failure_inversion.metta
+raveninduction.metta
+raveninduction_implication_pettachainer.metta
+refinement_base_rate_policies.metta
+smokes.metta
+stationops_fold_inverse.metta
+toothbrush.metta

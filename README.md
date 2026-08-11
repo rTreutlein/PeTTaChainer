@@ -2,12 +2,18 @@ Install the project and its commit-locked PeTTa dependency with uv:
 
 ```bash
 uv sync --frozen
-cd pettachainer/metta
-uv run petta tests/test_var_head.metta -s
+scripts/test_metta.sh
 ```
 
-Run MeTTa files through `uv run petta`. Most project files should be run from
-`pettachainer/metta`.
+Run an individual MeTTa regression from the repository root with:
+
+```bash
+.venv/bin/petta tests/metta/test_var_head.metta -s
+```
+
+The shipped MeTTa runtime lives in `pettachainer/metta`; tests, examples,
+benchmarks, documentation, and tools live in their corresponding top-level
+directories.
 
 The MeTTa API can also be loaded directly from a pinned Git checkout when
 running under PeTTa:
@@ -56,7 +62,7 @@ Add `--compare-pruning` to compare pruning enabled and disabled within the same 
 Run the full ConceptNet `Own ∧ Pet` query benchmark:
 
 ```bash
-./pettachainer/metta/benchmarks/run_conceptnet_own_pet_query.sh
+./benchmarks/metta/run_conceptnet_own_pet_query.sh
 ```
 
 The runner discovers a sibling `cnet` checkout automatically. Set `CNET_DIR`
@@ -74,12 +80,12 @@ python pettachainer/benchmarks/particle_vs_nat.py --json-out /tmp/particle_bench
 Profile a `.metta` file through the underlying SWI-Prolog invocation that `petta` uses:
 
 ```bash
-./profile_petta.sh tests/testmining.metta
-./profile_petta.sh --mode time tests/testmining.metta
-./profile_petta.sh --mode perf benchmarks/demo_benchgen_forward_backward_compare.metta
+./scripts/profile_petta.sh tests/metta/test_best_first_runtime.metta
+./scripts/profile_petta.sh --mode time tests/metta/test_best_first_runtime.metta
+./scripts/profile_petta.sh --mode perf benchmarks/metta/demo_benchgen_compare_tuffy.metta
 ```
 
-Relative paths are resolved from `pettachainer/metta` by default.
+Relative paths are resolved from the repository root by default.
 
 ## Python API: Language Spec String
 

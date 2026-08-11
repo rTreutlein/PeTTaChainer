@@ -13,3 +13,4 @@ wheels/
 # Scratch MeTTa files
 **/x*.metta
 **/tmp*.metta
+scratch/

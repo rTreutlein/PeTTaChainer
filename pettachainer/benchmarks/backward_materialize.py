@@ -5,6 +5,7 @@ import os
 import re
 import statistics
 import subprocess
+import sys
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -14,7 +15,8 @@ from typing import List
 THIS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = THIS_DIR.parent.parent
 METTA_DIR = REPO_ROOT / "pettachainer" / "metta"
-GENERATED_DIR = METTA_DIR / "benchmarks"
+GENERATED_DIR = REPO_ROOT / "benchmarks" / "metta"
+PETTA_BIN = Path(sys.executable).with_name("petta")
 
 
 @dataclass
@@ -135,7 +137,7 @@ def generated_program(mode: str, depth: int, queries: int, cached_steps: int, re
 
     binding_text = "\n      ".join(bindings)
     return (
-        "!(import! &self petta_chainer)\n\n"
+        "!(import! &self ../../pettachainer/metta/petta_chainer)\n\n"
         + "\n".join(setup)
         + "\n\n"
         "!(let*\n"
@@ -169,8 +171,8 @@ def run_petta_benchmark(
     try:
         t0 = time.perf_counter()
         result = subprocess.run(
-            ["petta", f"benchmarks/{script_name}"],
-            cwd=METTA_DIR,
+            [str(PETTA_BIN), script_name],
+            cwd=GENERATED_DIR,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,

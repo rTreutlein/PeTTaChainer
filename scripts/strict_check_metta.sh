@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+repo_root=$(cd "$script_dir/.." && pwd)
+metta_dir="$repo_root/pettachainer/metta"
+python_bin="${PYTHON_BIN:-$repo_root/.venv/bin/python}"
+if [[ ! -x "$python_bin" ]]; then
+  printf 'Missing project interpreter: %s\n' "$python_bin" >&2
+  printf 'Run uv sync --frozen first.\n' >&2
+  exit 2
+fi
+
+petta_dir=$($python_bin -c 'from petta import _resolve_petta_path; print(_resolve_petta_path())')
+cd "$metta_dir"
+
+# Load every dependency and production module under strict determinism mode so
+# no import boundary can hide a type or determinism error. Every arrow carries
+# an explicit det, semidet, or nondet commitment.
+goal="assertz(working_dir('$metta_dir')),
+load_metta_file('$petta_dir/lib/lib_roman.metta',_),
+load_metta_file('$petta_dir/lib/lib_spaces.metta',_),
+load_metta_file('$metta_dir/chainer_types.metta',_),
+load_metta_file('$metta_dir/logic_config.metta',_),
+load_metta_file('$metta_dir/dist_formulas.metta',_),
+load_metta_file('$metta_dir/tv_formulas.metta',_),
+load_metta_file('$metta_dir/compile.metta',_),
+load_metta_file('$metta_dir/chainer_utils.metta',_),
+load_metta_file('$metta_dir/forward_chainer.metta',_),
+load_metta_file('$metta_dir/compiled_query_runtime.metta',_),
+load_metta_file('$metta_dir/backward_proof_store.metta',_),
+load_metta_file('$metta_dir/backward_chainer.metta',_),
+load_metta_file('$metta_dir/query_runtime.metta',_),
+halt"
+
+swipl -q -s "$petta_dir/src/main.pl" -g "$goal" -- --strict-det --silent
+
+# The public entry module owns its imports. Check it in a fresh process so the
+# same libraries are not deliberately loaded twice by this script.
+entry_goal="assertz(working_dir('$metta_dir')),
+load_metta_file('$metta_dir/petta_chainer.metta',_),
+halt"
+
+swipl -q -s "$petta_dir/src/main.pl" -g "$entry_goal" -- --strict-det --silent

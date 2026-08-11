@@ -1,0 +1,505 @@
+!(import! &self ../../pettachainer/metta/petta_chainer)
+
+;; Selection helpers must reduce to one boolean. A specific equation plus a
+;; catch-all equation would leak both true and false into scheduler decisions.
+!(test
+   (collapse
+      (shared-evidence-frontier-proof?
+         (total-implication-frontier sample-proof)))
+   (true))
+
+!(test
+   (collapse
+      (shared-evidence-frontier-proof?
+         (inheritance-query-result
+            (total-implication-frontier sample-proof))))
+   (true))
+
+!(test
+   (collapse
+      (shared-evidence-frontier-proof?
+         (member-inheritance-sample antecedent-proof consequent-proof)))
+   (true))
+
+!(test
+   (collapse (shared-evidence-frontier-proof? ordinary-proof))
+   (false))
+
+!(test
+   (collapse
+      (inheritance-lift-rule-goal?
+         (assemble-runtime-fact
+            (brand Statement (Inheritance A B))
+            (brand KBContext (kb MAIN Nil))
+            (brand Proof
+               ((inheritance-rule-lift rule) source instance))
+            (STV 1.0 1.0))))
+   (true))
+
+!(test
+   (collapse
+      (inheritance-lift-rule-goal?
+         (assemble-runtime-fact
+            (brand Statement (Inheritance A B))
+            (brand KBContext (kb MAIN Nil))
+            (brand Proof ordinary-proof)
+            (STV 1.0 1.0))))
+   (false))
+
+!(test (tv-confidence (STV 0.7 0.35)) 0.35)
+
+!(test (tv-confidence maybeUnknown) 1.0)
+
+!(test (tv-confidence (CTV (STV 0.9 0.7) (STV 0.1 0.4))) 0.4)
+
+!(test (expected-tv no-evidence) no-evidence)
+
+!(test
+   (term-confidence
+      (CPU CTVModusPonensFormula ((STV 0.8 0.9) (CTV (STV 1.0 0.6) (STV 0.0 0.4))) $out))
+   0.8999975376989856)
+
+!(test (CTVModusPonensFormula (STV 0.5 1.0) (CTV (STV 1.0 0.5) (STV 0.1 0.5))) (STV 0.55 0.916683750966784))
+
+!(test (CTVModusPonensFormula (STV 0.5 1.0) (CTV (STV 0.8 0.6) (STV 0.0 0.0))) (STV 0.4 0.8993337363827603))
+
+!(test (CTVFormula (STV 1.0 1.0) (CTV (STV 0.9 0.950213) (STV 0 1))) (STV 0.9 0.9502129991872743))
+
+!(test (cpu-expected-confidence CTVFormula ((STV 1.0 1.0) (CTV (STV 0.9 0.950213) (STV 0 1)))) 0.9502129991872743)
+
+!(test (term-confidence (CPU NotFormula ((STV 0.75 0.6)) $out)) 0.6)
+
+!(test (term-confidence (CPU AndFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out)) 0.47929561423062006)
+
+!(test (term-confidence (CPU OrFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out)) 0.8322690087859733)
+
+;; Inverse OR projection propagates uncertainty from both the total and the
+;; known child rather than copying their minimum confidence.
+!(test
+   (OrProjection (STV 0.75 0.9) (STV 0.5 1.0))
+   (STV 0.5 0.7498916209608741))
+
+!(test (LikelierThanFormula (STV 0.9 0.6) (STV 0.4 0.8)) (STV 0.54 0.6))
+
+!(test (LikelierThanFormula (STV 0.4 0.6) (STV 0.9 0.8)) (STV 0.039999999999999994 0.6))
+
+!(test (term-confidence (CPU LikelierThanFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out)) 0.4)
+
+!(test
+   (term-confidence (CPU CTVInversionFormula ($a $b (CTV (STV 0.8 0.632121) (STV 0.1 0.632121))) $out))
+   0.5689089)
+
+!(test
+   (CTVInversionFormula (STV 0.2 1.0) (STV 0.24 1.0) (CTV (STV 0.8 1.0) (STV 0.1 1.0)))
+   (CTV (STV 0.6666666666666669 0.9985188611281907) (STV 0.05263157894736841 0.9999538033069306)))
+
+!(test
+   (CTVInversionFormula (STV 0.0 1.0) (STV 0.1 1.0) (CTV (STV 0.8 1.0) (STV 0.1 1.0)))
+   (CTV (STV 0.0 0.993640649761643) (STV 0.0 0.9999950617533683)))
+
+!(test
+   (premises-expected-confidence
+      (cons (CPU CTVModusPonensFormula ((STV 1.0 1.0) (CTV (STV 1.0 0.2) (STV 0.0 1.0))) $tv1)
+         (cons (CPU CTVModusPonensFormula ($tv1 (CTV (STV 1.0 0.55) (STV 0.0 1.0))) $tv2) ())))
+   0.1716299316527129)
+
+!(test
+   (premises-expected-confidence
+      (cons (CPU CTVModusPonensFormula ((STV 0.25 1.0) (CTV (STV 1.0 0.8) (STV 0.0 1.0))) $tv) ()))
+   0.9998999264084577)
+
+!(test
+   (premises-expected-confidence
+      (cons (CPU NotFormula ((STV 0.75 1.0)) $not-tv)
+         (cons (CPU CTVModusPonensFormula ($not-tv (CTV (STV 1.0 0.8) (STV 0.0 0.0))) $tv) ())))
+   0.9975061460485739)
+
+!(test
+   (premises-expected-confidence
+      (premise-cons
+         (assemble-runtime-fact
+            (brand Statement (Creature $c))
+            (brand KBContext (kb MAIN Nil))
+            (brand Proof $prfC)
+            (STV 1.0 1.0))
+         (premise-cons (CPU FoldAllCompiled (kb (Animal $a) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $tvA)
+            (premise-cons (CPU FoldAllCompiled (kb (Creature $c2) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $tvBr)
+               (premise-cons (CPU CTVInversionFormula ($tvA $tvBr (CTV (STV 0.8 0.632121) (STV 0.1 0.632121))) $iitv)
+                  (premise-cons (CPU CTVModusPonensFormula ((STV 1.0 1.0) $iitv) $mp-tv) ()))))))
+   0.5689089)
+
+!(compileadd inverseTotalKb
+   (: inverseTotalRule
+      (Implication (InverseTotalA) (InverseTotalB))
+      (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
+
+!(test
+   (collapse
+      (once
+         (match rules
+            (runtime-rule-row
+               $id
+               ((InverseTotalA)
+                  (inverseTotalKb $ctx $vars)
+                  ((inverted inverseTotalRule with cpu cpu) $prfb-wit)
+                  $mp-tv)
+               (((InverseTotalB) (inverseTotalKb $ctx $vars) $prfb-wit $btv-wit)
+                  (CPU FoldAllCompiled (inverseTotalKb (InverseTotalA) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $atv-est)
+                  (CPU FoldAllCompiled (inverseTotalKb (InverseTotalB) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $btv-est)
+                  (CPU ImplicationCTVFormula ($atv-est $btv-est (CTV (STV 0.8 0.9) (STV 0.1 0.9))) $rule-ctv)
+                  (CPU CTVInversionFormula ($atv-est $btv-est $rule-ctv) $iitv)
+                  (CPU CTVModusPonensFormula ($btv-wit $iitv) $mp-tv)))
+            ok)))
+   (ok))
+
+!(test
+   (let*
+      (($heap0 (empty_heap))
+       ($heap1 (add_to_heap $heap0 3.0 low))
+       ($heap2 (add_to_heap $heap1 1.0 high))
+       ($heap3 (add_to_heap $heap2 2.0 mid))
+       ($pruned (heap-prune-to-size 2 $heap3))
+       ($rest (get_from_heap $pruned $key1 $item1))
+       ($_empty (get_from_heap $rest $key2 $item2)))
+      ($item1 $item2 (heap_size $rest)))
+   (high mid 1))
+
+!(test
+   (let*
+      (($heap0 (empty_heap))
+       ($heap1 (add_to_heap $heap0 1.0 high))
+       ($heap2 (add_to_heap $heap1 2.0 low))
+       ($kept (bounded-agenda-prune 1 $heap2)))
+      (heap_size $kept))
+   2)
+
+!(test
+   (let*
+      (($heap0 (empty_heap))
+       ($heap1 (add_to_heap $heap0 1.0 high))
+       ($empty (bounded-agenda-prune 0 $heap1)))
+      (heap_size $empty))
+   1)
+
+!(test
+   (let*
+      (($heap0 (empty_heap))
+       ($heap1 (add_to_heap $heap0 1.0 high))
+       ($_disable (set-bounded-agenda-pruning false))
+       ($kept (bounded-agenda-prune 0 $heap1))
+       ($_enable (set-bounded-agenda-pruning true)))
+      (heap_size $kept))
+   1)
+
+(: clear-backward-state (-[det]-> (List Atom)))
+(= (clear-backward-state)
+   (progn
+      (foreach-flat remove-all-atoms (() &goal &goal_lookup &goal_waiter &aggregate &proof &proof_goal &proof_result &proof_parent &proof_invalidated_epoch &proof_live_cache &goal_live_cache &proof_static_live &proof_superseded))
+      (change-state! bwd_live_epoch 0)
+      ()))
+
+(: test-runtime-fact
+   (-[det]-> Statement (| Atom Expression) $tv
+       (Statement KBContext Proof TV)))
+(= (test-runtime-fact $statement $proof $tv)
+   (assemble-runtime-fact
+      $statement
+      (brand KBContext (kb MAIN ()))
+      (brand Proof $proof)
+      (the TV $tv)))
+
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($open-a (ensure-goal-at-depth (test-runtime-fact (Pet $a) (brand Proof $prf) $tv) 0))
+       ($open-x (ensure-goal-at-depth (test-runtime-fact (Pet $x) (brand Proof $p) $t) 0))
+       ($closed (ensure-goal-at-depth (test-runtime-fact (Pet max) (brand Proof $p2) $t2) 0)))
+      ((== $open-a $open-x) (== $open-a $closed)))
+   (true false))
+
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+        ($_gidreset (change-state! bwd_gid 0))
+        ($_pidreset (change-state! bwd_pid 0))
+        ($gid (ensure-goal-at-depth (test-runtime-fact (Goal) (brand Proof $prf) (STV 1.0 1.0)) 0))
+        ($pid
+           (store-proof-candidate $gid
+              (proof-candidate (leaf (test-runtime-fact (Goal) factA (STV 1.0 0.8)))
+                 0.8
+                 ((fact-ev (kb MAIN ()) factA (Goal)))
+                 ()))))
+      (once (proof-term-evidence-list-mode proof-walk-plain (proof-ref $pid))))
+   ((fact-ev (kb MAIN ()) factA (Goal))))
+
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+        ($_gidreset (change-state! bwd_gid 0))
+        ($_pidreset (change-state! bwd_pid 0))
+        ($gid (ensure-goal-at-depth (test-runtime-fact (Goal) (brand Proof $prf) (STV 1.0 1.0)) 0))
+        ($pid-a
+           (store-proof-candidate $gid
+              (proof-candidate (leaf (test-runtime-fact (Goal) (bench-base-fact demo 1 1) (STV 1.0 0.8)))
+                 0.8
+                 ((fact-ev (kb MAIN ()) (bench-base-fact demo 1 1) (Goal)))
+                 ())))
+        ($pid-b
+           (store-proof-candidate $gid
+              (proof-candidate (leaf (test-runtime-fact (Goal) (bench-base-fact demo 1 2) (STV 1.0 0.7)))
+                 0.7
+                 ((fact-ev (kb MAIN ()) (bench-base-fact demo 1 2) (Goal)))
+                 ()))))
+      (evidence-sets-overlap? (snd (proof-stats-by-id $pid-a)) (snd (proof-stats-by-id $pid-b))))
+   false)
+
+;; A raw proof stays live so it can be revised with later evidence. Ordinary
+;; subgoal reasoning treats a parent that consumed the former representative
+;; as stale, while the root result view retains it as a bounded-search
+;; incumbent until a replacement root is committed.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($_pidreset (change-state! bwd_pid 0))
+       ($child-gid (ensure-goal-at-depth (test-runtime-fact (Child) (brand Proof $cprf) $ctv) 1))
+       ($parent-gid (ensure-goal-at-depth (test-runtime-fact (Parent) (brand Proof $pprf) $ptv) 0))
+       ($first-child
+          (store-proof-candidate $child-gid
+             (proof-candidate (leaf (test-runtime-fact (Child) childA (STV 1.0 0.8)))
+                0.8 ((fact-ev (kb MAIN ()) childA (Child))) ())))
+       ($old-parent
+          (store-proof-candidate $parent-gid
+             (proof-candidate (rule (test-runtime-fact (Parent) (parentRule childA) (STV 1.0 0.8)))
+                0.8 ((fact-ev (kb MAIN ()) childA (Child))) ($first-child))))
+       ($_second-child
+          (store-proof-candidate $child-gid
+             (proof-candidate (leaf (test-runtime-fact (Child) childB (STV 1.0 0.7)))
+                0.7 ((fact-ev (kb MAIN ()) childB (Child))) ()))))
+      ((proof-live? $first-child)
+       (proof-current-representative? $first-child)
+       (proof-live? $old-parent)
+       (length (goal-merged-proof-ids $child-gid))
+       (goal-live-proof-ids $parent-gid)
+       (== (goal-incumbent-proof-ids $parent-gid) ($old-parent))
+       (not (== (root-goal-results $parent-gid) ()))
+       (proof-live-cache-epoch)))
+   (true false false 1 () true true 0))
+
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+        ($_gidreset (change-state! bwd_gid 0))
+        ($_pidreset (change-state! bwd_pid 0))
+        ($gid (ensure-goal-at-depth (test-runtime-fact (Goal) (brand Proof $prf) (STV 1.0 1.0)) 0))
+        ($pid
+           (store-proof-candidate $gid
+              (proof-candidate (leaf (test-runtime-fact (Goal) factA (STV 1.0 0.8)))
+                 0.8
+                 ((fact-ev (kb MAIN ()) factA (Goal)))
+                 ()))))
+      (materialize-proof $pid))
+   factA)
+
+;; Materialized facts retain their upstream evidence identity, but a later
+;; backward proof sees the materialized fact as one leaf and does not recreate
+;; every upstream leaf in its proof DAG. Missing leaves disable factoring
+;; instead of passing the no-tv sentinel into STV arithmetic.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($_pidreset (change-state! bwd_pid 0))
+       ($gid
+          (ensure-goal-at-depth
+             (test-runtime-fact
+                (MaterializedGoal) (brand Proof $prf) (STV 1.0 1.0))
+             0))
+       ($pid
+          (store-proof-candidate $gid
+             (proof-candidate
+                (leaf
+                   (test-runtime-fact
+                      (MaterializedGoal) materialized (STV 0.8 0.7)))
+                0.7
+                ((fact-ev (kb MAIN ()) source (SourceFact)))
+                ()))))
+      (collapse
+         (factor-required-leaf-tv $pid
+            (factor-fact-key
+               (fact-ev (kb MAIN ()) source (SourceFact))))))
+   ())
+
+!(test (proof-term-children-mode proof-walk-plain (custom-proof left right)) ())
+
+!(test (once (proof-term-evidence-list-mode proof-walk-plain (own_have (fact-ev (kb MAIN ()) i_have_max (Have (i max))))))
+   ((own_have (fact-ev (kb MAIN ()) i_have_max (Have (i max))))))
+
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+        ($_gidreset (change-state! bwd_gid 0))
+        ($_pidreset (change-state! bwd_pid 0))
+        ($agg-gid (ensure-goal-at-depth (CPU FoldAllCompiled dummy-agg-args $out) 0))
+        ($child-gid (ensure-goal-at-depth (test-runtime-fact (Child) (brand Proof $prf) (STV 1.0 1.0)) 1))
+        ($_agg0 (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ())))
+        ($pid-old
+           (store-proof-candidate $agg-gid
+              (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 1) ())))
+        ($_agg1
+           (progn
+              (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ()))
+              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))))
+        ($pid-new
+           (store-proof-candidate $agg-gid
+              (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) ())))
+        ($_agg2
+           (progn
+              (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))
+              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-new))
+              (invalidate-proof-live-caches))))
+      ((proof-live? $pid-old) (proof-live? $pid-new)))
+   (false true))
+
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+        ($_gidreset (change-state! bwd_gid 0))
+        ($_pidreset (change-state! bwd_pid 0))
+        ($agg-gid (ensure-goal-at-depth (CPU FoldAllCompiled dummy-agg-args $out) 0))
+        ($child-gid (ensure-goal-at-depth (test-runtime-fact (Child) (brand Proof $prf) (STV 1.0 1.0)) 1))
+        ($_agg0 (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ())))
+        ($pid-old
+           (store-proof-candidate $agg-gid
+              (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 1) ())))
+        ($_agg1
+           (progn
+              (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ()))
+              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))))
+        ($pid-new
+           (store-proof-candidate $agg-gid
+              (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) ())))
+        ($_agg2
+           (progn
+              (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))
+              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-new))
+              (invalidate-proof-live-caches))))
+      (waiter-live?
+         (frontier-waiter 99 bundle 1.0 () () ($pid-old)
+            (frontier-value-spec 1.0 1 1.0))))
+   false)
+
+;; Aggregate replacement is atomic from the caller's perspective: after the
+;; new aggregate becomes current but before its parent is rebuilt, the parent
+;; derived from the prior snapshot remains an available incumbent.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+        ($_gidreset (change-state! bwd_gid 0))
+        ($_pidreset (change-state! bwd_pid 0))
+        ($agg-gid
+           (ensure-goal-at-depth
+              (CPU FoldAllCompiled dummy-agg-args $out) 1))
+        ($child-gid
+           (ensure-goal-at-depth
+              (test-runtime-fact
+                 (Child) (brand Proof $prf) (STV 1.0 1.0)) 2))
+        ($parent-gid
+           (ensure-goal-at-depth
+              (assemble-runtime-fact
+                 (brand Statement (AggregateParent))
+                 (brand KBContext (incumbentMaterializeKb MAIN Nil))
+                 (brand Proof $parent-goal-proof)
+                 (the TV $parent-goal-tv))
+              0))
+        ($_agg0
+           (add-atom &aggregate
+              (stored-aggregate-row
+                 $agg-gid $child-gid dummy-agg-args 1.0 0.0 ())))
+        ($pid-old
+           (store-proof-candidate $agg-gid
+              (leaf-result-candidate
+                 (CPU FoldAllCompiled dummy-agg-args 1) ())))
+        ($_agg1
+           (progn
+              (remove-atom &aggregate
+                 (stored-aggregate-row
+                    $agg-gid $child-gid dummy-agg-args
+                    1.0 0.0 ()))
+              (add-atom &aggregate
+                 (stored-aggregate-row
+                    $agg-gid $child-gid dummy-agg-args
+                    1.0 0.0 $pid-old))))
+        ($parent-pid
+           (store-proof-candidate $parent-gid
+              (proof-candidate
+                 (rule
+                    (assemble-runtime-fact
+                       (brand Statement (AggregateParent))
+                       (brand KBContext
+                          (incumbentMaterializeKb MAIN Nil))
+                       (brand Proof aggregateParentProof)
+                       (the TV (STV 1.0 0.8))))
+                 0.8 () ($pid-old))))
+        ($pid-new
+           (store-proof-candidate $agg-gid
+              (leaf-result-candidate
+                 (CPU FoldAllCompiled dummy-agg-args 2) ())))
+        ($_agg2
+           (progn
+              (remove-atom &aggregate
+                 (stored-aggregate-row
+                    $agg-gid $child-gid dummy-agg-args
+                    1.0 0.0 $pid-old))
+              (add-atom &aggregate
+                 (stored-aggregate-row
+                    $agg-gid $child-gid dummy-agg-args
+                    1.0 0.0 $pid-new))
+              (invalidate-proof-live-caches)))
+        ($_materialize
+           (materialize-root-goal-proofs-to-kb $parent-gid)))
+      ((proof-live? $pid-old)
+       (proof-list-live? ($pid-old))
+       (== (proof-children-by-id $parent-pid) ($pid-old))
+       (proof-live? $parent-pid)
+       (goal-live-proof-ids $parent-gid)
+       (== (goal-incumbent-proof-ids $parent-gid) ($parent-pid))
+       (not (== (root-goal-results $parent-gid) ()))
+       (not
+          (==
+             (collapse
+                (match &kb
+                   ((AggregateParent)
+                      (incumbentMaterializeKb MAIN Nil) $_proof $_tv)
+                   true))
+             ()))))
+   (false false true false () true true true))
+
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+        ($_gidreset (change-state! bwd_gid 0))
+        ($_pidreset (change-state! bwd_pid 0))
+        ($agg-gid (ensure-goal-at-depth (CPU FoldAllCompiled dummy-agg-args $out) 0))
+        ($child-gid (ensure-goal-at-depth (test-runtime-fact (Child) (brand Proof $prf) (STV 1.0 1.0)) 1))
+        ($_agg0 (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ())))
+        ($pid-old
+           (store-proof-candidate $agg-gid
+              (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 1) ())))
+        ($_agg1
+           (progn
+              (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ()))
+              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))))
+        ($_prime-proof (proof-live? $pid-old))
+        ($_prime-goal (goal-live-proof-ids $agg-gid))
+        ($pid-new
+           (store-proof-candidate $agg-gid
+              (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) ())))
+        ($_invalidate (invalidate-proof-live-caches))
+        ($_agg2
+           (progn
+              (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))
+              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-new)))))
+      ((proof-live? $pid-old) (proof-live? $pid-new) (length (goal-live-proof-ids $agg-gid))))
+   (false true 1))

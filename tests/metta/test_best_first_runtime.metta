@@ -1,0 +1,294 @@
+!(import! &self ../../pettachainer/metta/petta_chainer)
+
+!(test (rule-marginal-score no-current 0.42) 0.42)
+
+;; First-proof and incumbent-refinement search use the same root bound,
+;; immediate-work estimate, and premise success prior.
+!(test
+   (root-proof-value-score 0.2 no-current 0.9 4 0.1)
+   (/ (* 0.2 0.1) 4))
+!(test
+   (root-proof-value-score 0.5 0.9 1.0 2 1.0)
+   (/ (rule-marginal-score 0.9 1.0) 2))
+!(test
+   (root-proof-value-score 0.02 0.1 0.9 1 0.25)
+   0.005)
+
+;; Cached base-rate refinement becomes less valuable as the already-observed
+;; evidence (and therefore the estimated rescan work) grows.
+!(test
+   (< (cached-base-rate-refinement-score 1.0 (STV 0.5 0.9))
+      (cached-base-rate-refinement-score 1.0 (STV 0.5 0.1)))
+   true)
+
+;; A cached premise contributes strength * confidence. Lookup prefers an exact
+;; key, then a generalized pattern; a missing cache gets the exploration prior.
+!(set-base-rate refinementPriorKb
+   (GeneralizedPrior $x) (STV 0.75 0.9))
+!(set-base-rate refinementPriorKb
+   (WeakExactPrior item) (STV 0.99 0.01))
+!(set-base-rate refinementPriorKb
+   (KnownBadPrior item) (STV 0.0 1.0))
+!(test
+   (premise-base-rate-prior
+      (assemble-runtime-fact
+         (brand Statement (MissingPrior item))
+         (brand KBContext (refinementPriorKb MAIN Nil))
+         (brand Proof $proof)
+         (STV 1.0 1.0)))
+   0.5)
+!(test
+   (premise-base-rate-prior
+      (assemble-runtime-fact
+         (brand Statement (GeneralizedPrior item))
+         (brand KBContext (refinementPriorKb MAIN Nil))
+         (brand Proof $proof)
+         (STV 1.0 1.0)))
+   (* 0.75 0.9))
+!(test
+   (premise-base-rate-prior
+      (assemble-runtime-fact
+         (brand Statement (WeakExactPrior item))
+         (brand KBContext (refinementPriorKb MAIN Nil))
+         (brand Proof $proof)
+         (STV 1.0 1.0)))
+   (* 0.99 0.01))
+!(test
+   (premise-base-rate-prior
+      (assemble-runtime-fact
+         (brand Statement (KnownBadPrior item))
+         (brand KBContext (refinementPriorKb MAIN Nil))
+         (brand Proof $proof)
+         (STV 1.0 1.0)))
+   0.000001)
+
+;; Expansion budget and beam width are independent. Larger budgets therefore
+;; extend the same deterministic search prefix instead of selecting a wider
+;; set of branches from the start.
+!(test (bounded-agenda-target-size 1) 1000)
+!(test (bounded-agenda-target-size 100) 1000)
+
+!(compileadd kb (: weakFact (WeakPremise) (STV 1.0 0.1)))
+
+!(compileadd kb (: baseFact (BasePremise) (STV 1.0 1.0)))
+
+!(compileadd kb
+   (: ruleHighThenDrop (Implication (And (WeakPremise) (BasePremise)) (SwitchGoal)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+
+!(compileadd kb
+   (: ruleStable (Implication (BasePremise) (SwitchGoal)) (CTV (STV 1.0 0.7) (STV 0.0 1.0))))
+
+!(test
+   (query 10 kb (: $prf (SwitchGoal) $tv))
+   (: (merge/revision (by ruleStable baseFact) (by ruleHighThenDrop (conjunction weakFact baseFact))) (SwitchGoal) (STV 1.0 0.7094641445679878)))
+
+!(test
+   (query 30 kb
+      (: (by ruleHighThenDrop (conjunction weakFact baseFact))
+         (SwitchGoal)
+         (STV 1.0 0.1)))
+   ())
+
+;; Completed answers survive the per-query search reset. A zero-budget query
+;; can therefore read the durable proof without expanding a new frontier.
+!(test (query 0 kb (: $prf (SwitchGoal) $tv))
+   (: (merge/revision
+         (by ruleStable baseFact)
+         (by ruleHighThenDrop (conjunction weakFact baseFact)))
+      (SwitchGoal)
+      (STV 1.0 0.7094641445679878)))
+
+!(test (query 4 kb (: $prf (SwitchGoal) $tv))
+   (: (merge/revision
+         (by ruleStable baseFact)
+         (by ruleHighThenDrop (conjunction weakFact baseFact)))
+      (SwitchGoal)
+      (STV 1.0 0.7094641445679878)))
+
+!(test (query 7 kb (: $prf (SwitchGoal) $tv))
+   (: (merge/revision (by ruleStable baseFact) (by ruleHighThenDrop (conjunction weakFact baseFact))) (SwitchGoal) (STV 1.0 0.7094641445679878)))
+
+!(test (query 100 kb (: $prf (SwitchGoal) $tv))
+   (: (merge/revision (by ruleStable baseFact) (by ruleHighThenDrop (conjunction weakFact baseFact))) (SwitchGoal) (STV 1.0 0.7094641445679878)))
+
+;; A completed non-root proof is a frontier input for a later bounded search.
+;; Two steps suffice for the new root plus its new CPU formula because the
+;; middle premise is read directly from durable history.
+!(compileadd durableFrontierKb
+   (: durable-frontier-seed (DurableFrontierSeed) (STV 1.0 1.0)))
+!(compileadd durableFrontierKb
+   (: durable-frontier-first
+      (Implication (DurableFrontierSeed) (DurableFrontierMiddle))
+      (CTV (STV 1.0 1.0) (STV 0.11 1.0))))
+!(test
+   (not
+      (==
+         (collapse
+            (query 20 durableFrontierKb
+               (: $proof (DurableFrontierMiddle) $tv)))
+         ()))
+   true)
+
+!(compileadd durableFrontierKb
+   (: durable-frontier-second
+      (Implication (DurableFrontierMiddle) (DurableFrontierGoal))
+      (CTV (STV 1.0 1.0) (STV 0.17 1.0))))
+!(test
+   (not
+      (==
+         (collapse
+            (query 2 durableFrontierKb
+               (: $proof (DurableFrontierGoal) $tv)))
+         ()))
+   true)
+
+;; Proof and TV constraints still filter the durable index rather than leaking
+;; incompatible historical results into the new query.
+!(test
+   (query 0 durableFrontierKb
+      (: incompatible-proof (DurableFrontierMiddle) $tv))
+   ())
+!(test
+   (query 0 durableFrontierKb
+      (: $proof (DurableFrontierMiddle) (STV 0.5 0.5)))
+   ())
+
+!(compileadd priorityStrengthKb (: weakInput (WeakInput) (STV 0.2 1.0)))
+
+!(compileadd priorityStrengthKb (: strongInput (StrongInput) (STV 0.8 1.0)))
+
+!(compileadd priorityStrengthKb
+   (: weakRule (Implication (WeakInput) (StrengthPriorityGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+
+!(compileadd priorityStrengthKb
+   (: strongRule (Implication (StrongInput) (StrengthPriorityGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+
+!(test (query 2 priorityStrengthKb (: $prf (StrengthPriorityGoal) $tv))
+   (: (by strongRule strongInput) (StrengthPriorityGoal) (STV 0.8 0.9999000095740854)))
+
+!(test (query 3 priorityStrengthKb (: $prf (StrengthPriorityGoal) $tv))
+   (: (merge/revision
+         (by strongRule strongInput)
+         (by weakRule weakInput))
+      (StrengthPriorityGoal)
+      (STV 0.5000000000000001 0.9999499975003537)))
+
+!(compileadd chainedPriorityKb (: weakEvidence (WeakEvidence) (STV 0.2 1.0)))
+
+!(compileadd chainedPriorityKb (: strongEvidence (StrongEvidence) (STV 0.8 1.0)))
+
+!(compileadd chainedPriorityKb
+   (: weakToA (Implication (WeakEvidence) (AForPriority)) (CTV (STV 0.1 1.0) (STV 0.0 1.0))))
+
+!(compileadd chainedPriorityKb
+   (: strongToA (Implication (StrongEvidence) (AForPriority)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+
+!(compileadd chainedPriorityKb
+   (: aToGoal (Implication (AForPriority) (ChainedPriorityGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+
+!(test (query 4 chainedPriorityKb (: $prf (ChainedPriorityGoal) $tv))
+   (: (by aToGoal (by strongToA strongEvidence)) (ChainedPriorityGoal) (STV 0.8 0.9998999995760428)))
+
+!(test (query 5 chainedPriorityKb (: $prf (ChainedPriorityGoal) $tv))
+   (: (by aToGoal (by strongToA strongEvidence)) (ChainedPriorityGoal) (STV 0.8 0.9998999995760428)))
+
+!(compileadd priorityNegKb (: highInput (HighInput) (STV 0.9 1.0)))
+
+!(compileadd priorityNegKb (: lowInput (LowInput) (STV 0.1 1.0)))
+
+!(compileadd priorityNegKb
+   (: highNegRule (Implication (Not (HighInput)) (NegPriorityGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+
+!(compileadd priorityNegKb
+   (: lowNegRule (Implication (Not (LowInput)) (NegPriorityGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+
+!(test (query 3 priorityNegKb (: $prf (NegPriorityGoal) $tv))
+   (: (by lowNegRule (negated lowInput)) (NegPriorityGoal) (STV 0.9 0.999900009088072)))
+
+!(test (query 4 priorityNegKb (: $prf (NegPriorityGoal) $tv))
+   (: (by lowNegRule (negated lowInput)) (NegPriorityGoal) (STV 0.9 0.999900009088072)))
+
+!(test (query 5 priorityNegKb (: $prf (NegPriorityGoal) $tv))
+   (: (merge/revision
+         (by lowNegRule (negated lowInput))
+         (by highNegRule (negated highInput)))
+      (NegPriorityGoal)
+      (STV 0.5 0.9999499975003294)))
+
+!(compileadd incumbentPriorityKb (: directB (IncumbentB) (STV 1.0 0.9)))
+
+!(compileadd incumbentPriorityKb (: directA (IncumbentA) (STV 1.0 1.0)))
+
+!(compileadd incumbentPriorityKb (: directC (IncumbentC) (STV 1.0 1.0)))
+
+!(compileadd incumbentPriorityKb
+   (: bToGoal
+      (Implication (IncumbentB) (IncumbentGoal))
+      (CTV (STV 1.0 0.99) (STV 0.0 1.0))))
+
+!(compileadd incumbentPriorityKb
+   (: dToGoal
+      (Implication (IncumbentD) (IncumbentGoal))
+      (CTV (STV 1.0 0.7) (STV 0.0 1.0))))
+
+!(compileadd incumbentPriorityKb
+   (: aToB
+      (Implication (IncumbentA) (IncumbentB))
+      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+
+!(compileadd incumbentPriorityKb
+   (: cToD
+      (Implication (IncumbentC) (IncumbentD))
+      (CTV (STV 1.0 0.7) (STV 0.0 1.0))))
+
+!(test (query 2 incumbentPriorityKb (: $prf (IncumbentGoal) $tv))
+   (: (by bToGoal directB) (IncumbentGoal) (STV 1.0 0.8918896597655677)))
+
+!(test (query 7 incumbentPriorityKb (: $prf (IncumbentGoal) $tv))
+   (: (by bToGoal (merge/revision (by aToB directA) directB))
+      (IncumbentGoal)
+      (STV 1.0 0.9898043659034145)))
+
+!(test
+   (query 7 incumbentPriorityKb
+      (: (merge/revision (by bToGoal (by aToB directA)) $_other)
+         (IncumbentGoal)
+         $tv))
+   ())
+
+;; Once a canonical KB answer exists (including a materialized one), expected
+;; gain alone favors the certain three-premise alternative. Value per immediate
+;; expansion instead spends the fixed budget on the slightly weaker one-premise
+;; alternative and improves the root while retaining the incumbent.
+!(compileadd refinementValueKb
+   (: incumbentValueRoot (RefinementValueGoal) (STV 1.0 0.9)))
+!(compileadd refinementValueKb
+   (: cheapRefinementSeed (CheapRefinementSeed) (STV 1.0 1.0)))
+!(compileadd refinementValueKb
+   (: expensiveRefinementSeed1 (ExpensiveRefinementSeed1) (STV 1.0 1.0)))
+!(compileadd refinementValueKb
+   (: expensiveRefinementSeed2 (ExpensiveRefinementSeed2) (STV 1.0 1.0)))
+!(compileadd refinementValueKb
+   (: expensiveRefinementSeed3 (ExpensiveRefinementSeed3) (STV 1.0 1.0)))
+
+!(compileadd refinementValueKb
+   (: cheapRootRefinement
+      (Implication (CheapRefinementSeed) (RefinementValueGoal))
+      (CTV (STV 1.0 0.95) (STV 0.0 1.0))))
+!(compileadd refinementValueKb
+   (: expensiveRootRefinement
+      (Implication
+         (And
+            (ExpensiveRefinementSeed1)
+            (ExpensiveRefinementSeed2)
+            (ExpensiveRefinementSeed3))
+         (RefinementValueGoal))
+      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+
+!(test
+   (query 3 refinementValueKb (: $prf (RefinementValueGoal) $tv))
+   (: (merge/revision
+         (by cheapRootRefinement cheapRefinementSeed)
+         incumbentValueRoot)
+      (RefinementValueGoal)
+      (STV 1.0 0.9654743387542188)))
