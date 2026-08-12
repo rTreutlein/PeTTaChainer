@@ -1,5 +1,5 @@
-;; Public query orchestration sits above the backward chainer. Keeping these
-;; wrappers out of knowledge_store lets compilation/storage remain a
+;; Public query orchestration sits above the backward chainer. Keeping this
+;; boundary out of knowledge_store lets compilation/storage remain a
 ;; foundational dependency of both chainers.
 
 (: append-annotated-statements
@@ -38,14 +38,13 @@
       (externalize-proof-structure $result)
       (externalize-results $rest)))
 
-(: IndexedQuery Type)
-(: indexed-query (-[det]-> Number AnnotatedStatement IndexedQuery))
-(: IndexedCompiledQuery Type)
-(: indexed-compiled-query
-   (-[det]-> Number CompiledQuery IndexedCompiledQuery))
-(: IndexedRuntimeResults Type)
-(: indexed-runtime-results
-   (-[det]-> Number (List RuntimeResult) IndexedRuntimeResults))
+;; One plan is one execution group. The root list preserves source identity,
+;; compiler-alternative order, and duplicates; additions are already in their
+;; final installation order for that group.
+(: QueryExecutionPlan Type)
+(: query-execution-plan
+   (-[det]-> (List (Number CompiledQueryGoal))
+       (List RuntimeAddition) QueryExecutionPlan))
 
 (: append-runtime-additions
    (-[det]-> (List RuntimeAddition) (List RuntimeAddition)
@@ -54,184 +53,169 @@
 (= (append-runtime-additions (cons $head $tail) $right)
    (cons $head (append-runtime-additions $tail $right)))
 
-(: append-indexed-compiled-queries
-   (-[det]-> (List IndexedCompiledQuery) (List IndexedCompiledQuery)
-       (List IndexedCompiledQuery)))
-(= (append-indexed-compiled-queries () $right) $right)
-(= (append-indexed-compiled-queries (cons $head $tail) $right)
-   (cons $head
-      (append-indexed-compiled-queries $tail $right)))
+(: append-query-plan-roots
+   (-[det]-> (List (Number CompiledQueryGoal))
+       (List (Number CompiledQueryGoal))
+       (List (Number CompiledQueryGoal))))
+(= (append-query-plan-roots () $right) $right)
+(= (append-query-plan-roots (cons $head $tail) $right)
+   (cons $head (append-query-plan-roots $tail $right)))
 
-(: append-query-batch-results
-   (-[det]-> (List QueryBatchResult) (List QueryBatchResult)
-       (List QueryBatchResult)))
-(= (append-query-batch-results () $right) $right)
-(= (append-query-batch-results (cons $head $tail) $right)
-   (cons $head (append-query-batch-results $tail $right)))
+(: merge-query-execution-plans
+   (-[det]-> QueryExecutionPlan QueryExecutionPlan QueryExecutionPlan))
+(= (merge-query-execution-plans
+      (query-execution-plan $left-roots $left-adds)
+      (query-execution-plan $right-roots $right-adds))
+   (query-execution-plan
+      (append-query-plan-roots $left-roots $right-roots)
+      (append-runtime-additions $left-adds $right-adds)))
 
-(: index-queries-from
-   (-[det]-> Number (List AnnotatedStatement) (List IndexedQuery)))
-(= (index-queries-from $_index ()) ())
-(= (index-queries-from $index (cons $statement $rest))
-   (cons
-      (indexed-query $index $statement)
-      (index-queries-from (+ $index 1) $rest)))
+(: compiled-query-execution-plan
+   (-[nondet]-> Number CompiledQuery QueryExecutionPlan))
+(= (compiled-query-execution-plan
+      $key (compiled-query $goal $adds))
+   (if (or (is-var $goal) (is-var $adds))
+      (empty)
+      (query-execution-plan (($key $goal)) $adds)))
 
-(: compile-indexed-query
-   (-[nondet]-> KB IndexedQuery (List IndexedCompiledQuery)))
-(= (compile-indexed-query $kb (indexed-query $index $statement))
+;; Each source statement is copied before compilation so variables cannot
+;; become shared between roots in a batch. Compiler alternatives remain in
+;; compiler order and repeated roots remain represented separately.
+(: prepare-query-many-plan
+   (-[nondet]-> Number KB (List AnnotatedStatement) QueryExecutionPlan))
+(= (prepare-query-many-plan $_key $_kb ())
+   (query-execution-plan () ()))
+(= (prepare-query-many-plan $key $kb (cons $statement $rest))
    (let*
       (($statement-copy (copy_term $statement))
        ($materialized
           (the AnnotatedStatement
              (materialize-stmt-lambdas $statement-copy)))
-       ($compiled (collapse (mm2compileQuery $kb $materialized))))
-      (map-flat
-         (|-> ((compiled-query $goal $adds))
-            (if (or (is-var $goal) (is-var $adds))
-               (empty)
-               (indexed-compiled-query $index
-                  (compiled-query $goal $adds))))
-         $compiled)))
+       ($compiled (collapse (mm2compileQuery $kb $materialized)))
+       ($statement-plan
+          (foldr-flat merge-query-execution-plans
+             (query-execution-plan () ())
+             (map-flat
+                (compiled-query-execution-plan $key)
+                $compiled)))
+       ($rest-plan
+          (prepare-query-many-plan (+ $key 1) $kb $rest)))
+      (merge-query-execution-plans $statement-plan $rest-plan)))
 
-(: attach-indexed-runtime-results
-   (-[det]-> (List IndexedCompiledQuery)
+(: append-keyed-query-results
+   (-[det]-> Number (List AnnotatedStatement)
+       (List (Number AnnotatedStatement))
+       (List (Number AnnotatedStatement))))
+(= (append-keyed-query-results $_key () $right) $right)
+(= (append-keyed-query-results
+      $key (cons $answer $rest) $right)
+   (cons ($key $answer)
+      (append-keyed-query-results $key $rest $right)))
+
+(: present-query-plan-results
+   (-[nondet]-> (List (Number CompiledQueryGoal))
        (List (List RuntimeResult))
-       (List IndexedRuntimeResults)))
-(= (attach-indexed-runtime-results () ()) ())
-(= (attach-indexed-runtime-results
-      (cons (indexed-compiled-query $index $_query) $queries)
+       (List (Number AnnotatedStatement))))
+(= (present-query-plan-results () ()) ())
+(= (present-query-plan-results
+      (cons ($key $_goal) $roots)
       (cons $results $rest-results))
-   (cons
-      (indexed-runtime-results $index $results)
-      (attach-indexed-runtime-results $queries $rest-results)))
+   (append-keyed-query-results
+      $key
+      (pretty-results (externalize-results $results))
+      (present-query-plan-results $roots $rest-results)))
 
-(: indexed-query-result-rows
-   (-[nondet]-> IndexedRuntimeResults (List QueryBatchResult)))
-(= (indexed-query-result-rows
-      (indexed-runtime-results $index $results))
-   (map-flat
-      (|-> ($answer) (query-result $index $answer))
-      (pretty-results (externalize-results $results))))
+(: query-plan-runtime-goal
+   (-[nondet]-> (Number CompiledQueryGoal)
+       (| Goal (Statement KBContext Proof TV))))
+(= (query-plan-runtime-goal ($_key $goal))
+   (typed-runtime-premise $goal))
 
-(: run-compiled-query-many
-   (-[nondet]-> Number (List IndexedCompiledQuery)
-       Bool QueryBatchResult))
-(= (run-compiled-query-many
-      $steps $compiled-queries $materialize?)
+;; Temporary additions stay installed through proof externalization and pretty
+;; printing. Direct chainer entrypoints intentionally do not own this bracket.
+(: run-query-execution-plan
+   (-[nondet]-> Number QueryExecutionPlan Bool
+       (List (Number AnnotatedStatement))))
+(= (run-query-execution-plan
+      $steps (query-execution-plan $roots $adds) $materialize?)
    (let*
       (($_clear-temp-before (clear-temp-query-adds))
-       ($adds
-          (list_to_set
-             (foldr-flat append-runtime-additions ()
-                (map-flat
-                   (|-> ((indexed-compiled-query $_index
-                            (compiled-query $_goal $query-adds)))
-                      $query-adds)
-                   $compiled-queries))))
        ($_inject
           (collapse (once (inject-compiled-adds $adds))))
        ($goals
           (map-flat
-             (|-> ((indexed-compiled-query $_index
-                      (compiled-query $goal $_adds)))
-                (typed-runtime-premise $goal))
-             $compiled-queries))
+             query-plan-runtime-goal
+             $roots))
        ($runtime-results
           (if $materialize?
              (chainer-many-materialize $steps $goals)
              (chainer-many $steps $goals)))
-       ($indexed-results
-          (attach-indexed-runtime-results
-             $compiled-queries $runtime-results))
        ($rows
-          (foldr-flat append-query-batch-results ()
-             (map-flat
-                indexed-query-result-rows
-                $indexed-results)))
+          (present-query-plan-results $roots $runtime-results))
        ($_clear-temp-after (clear-temp-query-adds)))
-      (superpose $rows)))
+      $rows))
+
+(: keyed-query-answers
+   (-[det]-> (List (Number AnnotatedStatement))
+       (List AnnotatedStatement)))
+(= (keyed-query-answers ()) ())
+(= (keyed-query-answers (cons ($_key $answer) $rest))
+   (cons $answer (keyed-query-answers $rest)))
+
+(: keyed-query-batch-results
+   (-[det]-> (List (Number AnnotatedStatement))
+       (List QueryBatchResult)))
+(= (keyed-query-batch-results ()) ())
+(= (keyed-query-batch-results (cons ($key $answer) $rest))
+   (cons (query-result $key $answer)
+      (keyed-query-batch-results $rest)))
+
+(: query-mode
+   (-[nondet]-> Number KB AnnotatedStatement Bool AnnotatedStatement))
+(= (query-mode $steps $kb $statement $materialize?)
+   (let*
+      (($materialized
+          (the AnnotatedStatement
+             (materialize-stmt-lambdas $statement)))
+       ($compiled-queries
+          (collapse (mm2compileQuery $kb $materialized)))
+       ($answers
+          (fold-flat append-annotated-statements ()
+             (map-flat
+                (|-> ($compiled-query)
+                   (keyed-query-answers
+                      (run-query-execution-plan
+                         $steps
+                         (compiled-query-execution-plan
+                            0 $compiled-query)
+                         $materialize?)))
+                $compiled-queries))))
+      (superpose $answers)))
 
 (: query-many-mode
    (-[nondet]-> Number KB (List AnnotatedStatement) Bool
        QueryBatchResult))
 (= (query-many-mode $steps $kb $statements $materialize?)
    (let*
-      (($indexed (index-queries-from 0 $statements))
-       ($compiled
-          (foldr-flat append-indexed-compiled-queries ()
-             (map-flat
-                (compile-indexed-query $kb)
-                $indexed))))
-      (run-compiled-query-many
-         $steps $compiled $materialize?)))
-
-(: run-compiled-query
-   (-[nondet]-> Number CompiledQuery (List AnnotatedStatement)))
-(= (run-compiled-query $steps (compiled-query $goal $adds))
-   (if (or (is-var $goal) (is-var $adds))
-      (empty)
-      (let*
-         (($_clear-temp-before (clear-temp-query-adds))
-          ($_
-             (collapse
-                (once (inject-compiled-adds $adds))))
-          ($results
-             (chainer $steps (typed-runtime-premise $goal)))
-          ($externalized (externalize-results $results))
-          ($pres (pretty-results $externalized))
-          ($_clear-temp-after (clear-temp-query-adds)))
-         $pres)))
-
-(: run-compiled-query-materialize
-   (-[nondet]-> Number CompiledQuery (List AnnotatedStatement)))
-(= (run-compiled-query-materialize $steps (compiled-query $goal $adds))
-   (if (or (is-var $goal) (is-var $adds))
-      (empty)
-      (let*
-         (($_clear-temp-before (clear-temp-query-adds))
-          ($_
-             (collapse
-                (once (inject-compiled-adds $adds))))
-          ($results
-             (chainer-materialize
-                $steps (typed-runtime-premise $goal)))
-          ($externalized (externalize-results $results))
-          ($pres (pretty-results $externalized))
-          ($_clear-temp-after (clear-temp-query-adds)))
-         $pres)))
+      (($plan0 (prepare-query-many-plan 0 $kb $statements))
+       ((query-execution-plan $roots $adds) $plan0)
+       ($plan
+          (query-execution-plan $roots (list_to_set $adds)))
+       ($rows
+          (keyed-query-batch-results
+             (run-query-execution-plan
+                $steps $plan $materialize?))))
+      (superpose $rows)))
 
 (: query
    (-[nondet]-> Number KB AnnotatedStatement AnnotatedStatement))
-(= (query $steps $kb $stmt)
-   (let*
-      (($stmt1
-          (the AnnotatedStatement
-             (materialize-stmt-lambdas $stmt)))
-       ($compiled-queries
-          (collapse (mm2compileQuery $kb $stmt1)))
-       ($pres
-          (fold-flat append-annotated-statements ()
-             (map-flat
-                (run-compiled-query $steps)
-                $compiled-queries))))
-      (superpose $pres)))
+(= (query $steps $kb $statement)
+   (query-mode $steps $kb $statement false))
 
 (: query-materialize
    (-[nondet]-> Number KB AnnotatedStatement AnnotatedStatement))
-(= (query-materialize $steps $kb $stmt)
-   (let*
-      (($stmt1
-          (the AnnotatedStatement
-             (materialize-stmt-lambdas $stmt)))
-       ($compiled-queries
-          (collapse (mm2compileQuery $kb $stmt1)))
-       ($pres
-          (fold-flat append-annotated-statements ()
-             (map-flat
-                (run-compiled-query-materialize $steps)
-                $compiled-queries))))
-      (superpose $pres)))
+(= (query-materialize $steps $kb $statement)
+   (query-mode $steps $kb $statement true))
 
 (: query-many
    (-[nondet]-> Number KB (List AnnotatedStatement) QueryBatchResult))

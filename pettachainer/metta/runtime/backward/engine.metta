@@ -308,11 +308,11 @@
 ;; be absent.  The public runner creates its root ID immediately above, so turn
 ;; an impossible missing-root result into an empty, deterministic search
 ;; rather than letting the whole query vanish.
-(: chainer-run-many
+(: execute-backward
    (-[nondet]-> Number
        (List (| Goal (Statement KBContext Proof TV)))
-       (List (Number (List RuntimeResult)))))
-(= (chainer-run-many $steps $goals)
+       Bool (List (List RuntimeResult))))
+(= (execute-backward $steps $goals $materialize?)
    (let*
       (;; Goals, waiters, and aggregate execution rows belong to one search.
        ;; Completed proof rows and their dependency indexes are monotonic
@@ -352,66 +352,46 @@
           $search-result)
        ($_harvest (harvest-base-rates))
        ($_empty-member-cache
-          (harvest-complete-member-inheritance-empty-caches!)))
-      (map-flat
-         (|-> ($root-gid)
-            (data
-               $root-gid
-               (chainer-first-or ()
-                  (collapse
-                     (once (root-goal-results $root-gid))))))
-         $root-gids)))
+          (harvest-complete-member-inheritance-empty-caches!))
+       ($results
+          (map-flat
+             (|-> ($root-gid)
+                (chainer-first-or ()
+                   (collapse
+                      (once (root-goal-results $root-gid)))))
+             $root-gids))
+       ($_materialized
+          (if $materialize?
+             (foreach-flat
+                materialize-root-goal-proofs-to-kb
+                $root-gids)
+             ())))
+      $results))
 
-(: chainer-run
-   (-[nondet]-> Number (| Goal (Statement KBContext Proof TV))
-       (Number (List RuntimeResult))))
-(= (chainer-run $steps $goal)
-   (chainer-first-or
-      (data 0 ())
-      (chainer-run-many $steps ($goal))))
-
-(: chainer-run-results
-   (-[det]-> (Number (List RuntimeResult)) (List RuntimeResult)))
-(= (chainer-run-results ($_root-gid $results)) $results)
 (: chainer-many
    (-[nondet]-> Number
        (List (| Goal (Statement KBContext Proof TV)))
        (List (List RuntimeResult))))
 (= (chainer-many $steps $goals)
-   (map-flat
-      chainer-run-results
-      (chainer-run-many $steps $goals)))
+   (execute-backward $steps $goals false))
 
 (: chainer
    (-[nondet]-> Number (| Goal (Statement KBContext Proof TV))
        (List RuntimeResult)))
 (= (chainer $steps $goal)
-   (let ($_root-gid $results) (chainer-run $steps $goal)
-      $results))
+   (chainer-first-or ()
+      (execute-backward $steps ($goal) false)))
 
 (: chainer-materialize
    (-[nondet]-> Number (| Goal (Statement KBContext Proof TV))
        (List RuntimeResult)))
 (= (chainer-materialize $steps $goal)
-   (let ($root-gid $results) (chainer-run $steps $goal)
-      (let $_materialized (materialize-root-goal-proofs-to-kb $root-gid)
-         $results)))
+   (chainer-first-or ()
+      (execute-backward $steps ($goal) true)))
 
-(: materialize-chainer-run-root!
-   (-[det]-> (Number (List RuntimeResult)) (List $none)))
-(= (materialize-chainer-run-root! ($root-gid $_results))
-   (materialize-root-goal-proofs-to-kb $root-gid))
 (: chainer-many-materialize
    (-[nondet]-> Number
        (List (| Goal (Statement KBContext Proof TV)))
        (List (List RuntimeResult))))
 (= (chainer-many-materialize $steps $goals)
-   (let*
-      (($runs (chainer-run-many $steps $goals))
-       ($_materialized
-          (foreach-flat
-             materialize-chainer-run-root!
-             $runs)))
-      (map-flat
-         chainer-run-results
-         $runs)))
+   (execute-backward $steps $goals true))
