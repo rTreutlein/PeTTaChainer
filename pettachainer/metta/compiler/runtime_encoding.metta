@@ -56,17 +56,9 @@
          (if (is-expr $term)
             (cons
                (internalize-proof-structure-any (car-atom $term))
-               (internalize-proof-structure-list
+               (map-flat internalize-proof-structure-any
                   (cdr-atom $term)))
             $term)))))
-
-(: internalize-proof-structure-list
-   (-[det]-> (List Atom) (List Atom)))
-(= (internalize-proof-structure-list ()) ())
-(= (internalize-proof-structure-list (cons $head $rest))
-   (cons
-      (internalize-proof-structure-any $head)
-      (internalize-proof-structure-list $rest)))
 
 ;; Reverse the runtime tuple layout for diagnostics and public results. Only a
 ;; shaped KB can be recognized safely; arbitrary four-element expressions must
