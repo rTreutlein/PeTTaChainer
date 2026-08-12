@@ -42,61 +42,20 @@ done < "$examples_dir/supported.txt"
 
 run_dir=$(mktemp -d /tmp/petta-suite.XXXXXX)
 trap 'rm -rf "$run_dir"' EXIT
+manifest="$run_dir/files"
+printf '%s\n' "${files[@]}" >"$manifest"
 
-run_file() {
-  local index=$1
-  local file=$2
-  local args=("$file")
-
-  if [[ ${PETTA_STRICT:-0} == 1 ]]; then
-    args+=(--strict)
-  fi
-  if [[ ${PETTA_STRICT_DET:-0} == 1 ]]; then
-    args+=(--strict-det)
-  fi
-
-  if (cd "$metta_dir" && "$petta_bin" "${args[@]}") \
-      >"$run_dir/$index.log" 2>&1; then
-    printf 'PASS\n' >"$run_dir/$index.status"
-  else
-    printf 'FAIL\n' >"$run_dir/$index.status"
-  fi
-}
-
-active=0
-for index in "${!files[@]}"; do
-  run_file "$index" "${files[$index]}" &
-  active=$((active + 1))
-  if (( active >= PETTA_JOBS )); then
-    wait -n
-    active=$((active - 1))
-  fi
-done
-wait
-
-pass=0
-fail=0
-fail_files=()
-for index in "${!files[@]}"; do
-  status=$(<"$run_dir/$index.status")
-  if [[ $status == PASS ]]; then
-    pass=$((pass + 1))
-    printf 'PASS %s\n' "${files[$index]}"
-  else
-    fail=$((fail + 1))
-    fail_files+=("${files[$index]}")
-    printf 'FAIL %s\n' "${files[$index]}"
-    sed 's/^/  /' "$run_dir/$index.log"
-  fi
-done
-
-printf '\nSummary: %d passed, %d failed\n' "$pass" "$fail"
-
-if (( fail > 0 )); then
-  printf 'Failing files:\n'
-  for file in "${fail_files[@]}"; do
-    printf ' - %s\n' "$file"
-  done
+args=("$script_dir/fork_test_runner.metta" --silent)
+if [[ ${PETTA_STRICT:-0} == 1 ]]; then
+  args+=(--strict)
+fi
+if [[ ${PETTA_STRICT_DET:-0} == 1 ]]; then
+  args+=(--strict-det)
 fi
 
-exit "$fail"
+export PETTA_FORK_TEST_MANIFEST="$manifest"
+export PETTA_FORK_LOG_DIR="$run_dir"
+export PETTA_JOBS
+
+cd "$metta_dir"
+"$petta_bin" "${args[@]}"
