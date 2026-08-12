@@ -795,7 +795,6 @@
 (: ground-specialization-with-fact
    (-[nondet]-> KB Statement (List Atom) (List Atom) SpecializationJob
        SpecializationJob))
-(= (ground-specialization-with-fact $_kb $_fact () $_before $_job) (empty))
 (= (ground-specialization-with-fact $kb $fact
       (cons $trigger $rest) $before $job)
    (superpose

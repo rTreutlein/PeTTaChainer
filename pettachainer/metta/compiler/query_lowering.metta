@@ -159,12 +159,8 @@
    (-[nondet]-> KB AnnotatedStatement  CompiledQueryParts))
 (= (compileQuery $kb (: $prf $Type $tv))
    (if (is-var $Type)
-      (data
-         ()
-         (: (kbctx $kb) $prf $Type $tv)
-         ())
-      (if (contains-explicit-exists? $Type)
-         (empty)
+      (data () (: (kbctx $kb) $prf $Type $tv) ())
+      (if (contains-explicit-exists? $Type) (empty)
       (if (= $Type (Implication $antecedent $consequent))
          (let*
             (($_syntax-valid
@@ -193,8 +189,7 @@
                   ($known-pos-goal $known-neg-goal))
                $known-goal
                $all-adds))
-         (if (implication-type? $Type)
-            (empty)
+         (if (implication-type? $Type) (empty)
          (if (bidirectional-implication-type? $Type)
             (let ($_head $left $right) $Type
                (let*
@@ -220,8 +215,7 @@
                      $goal
                      (union-compiled-additions $left-adds $right-adds))))
             (if (and (= $Type (Inheritance $subj $concept)) (concrete-inheritance-link? $subj $concept))
-               (compile-inheritance-query
-                  $kb (brand Term $subj) (brand Term $concept))
+               (compile-inheritance-query $kb (brand Term $subj) (brand Term $concept))
                (data
                   ()
                   (: (kbctx $kb) $prf $Type $tv)

@@ -803,7 +803,6 @@
                    (compile-adapter-chain plain
                       (: $kb $prfa $exec-type $atv)))))))
       (empty)))
-(= (compile-adapter-chain plain (: $_kb $_prf $_type $_tv)) (empty))
 
 ;; Query adapters differ from stored-rule adapters in three places:
 ;; 1. Not is exposed as an explicit negated proof;
