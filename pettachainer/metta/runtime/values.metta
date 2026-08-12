@@ -52,13 +52,6 @@
 ;; Re-establish a TV read from untyped storage without first attaching one
 ;; broad union guard to an open constructor. Dispatching on the runtime tag
 ;; lets CTV fields receive their precise STV constraints immediately.
-(: checked-stored-stv (-[det]-> Atom STVType))
-(= (checked-stored-stv $tv)
-   (case $tv
-      (((STV $s $c)
-          (STV $s $c))
-       ($other (the STVType $other)))))
-
 (: checked-stored-tv (-[det]-> Atom TV))
 (= (checked-stored-tv $tv)
    (if (is-var $tv)
@@ -68,10 +61,9 @@
              (STV $s $c))
           ((CTV $pos $neg)
              (CTV
-                (checked-stored-stv $pos)
-                (checked-stored-stv $neg)))
-          (no-evidence no-evidence)
-          ($other $other)))))
+                $pos
+                $neg))
+          (no-evidence no-evidence)))))
 
 (: normalize-expected-tv (-[det]-> $truth-value TV))
 (= (normalize-expected-tv $tv)
