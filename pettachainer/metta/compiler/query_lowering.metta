@@ -92,7 +92,7 @@
 
 (: compile-inheritance-query
    (-[semidet]-> KB Term Term
-       CompiledQueryParts))
+       CompilationPlan))
 (= (compile-inheritance-query $kb $subj $concept)
    (let*
       (;; Constrain the root proof so ordinary public Inheritance rules cannot
@@ -142,10 +142,7 @@
          (union-compiled-additions
             (stored-compiled-additions $member-adds)
             (stored-compiled-additions $scaffold-adds))))
-      (data
-         ()
-         $goal
-         $query-adds)))
+      (compilation-plan $goal $query-adds)))
 
 ;; Compile a public query into one goal rule plus temporary additions.
 ;; Implication queries require positive and refuting assumption contexts;
@@ -156,10 +153,10 @@
 ;; Ordinary queries remain a direct known goal with only the adapters their
 ;; source syntax requires.
 (: compileQuery
-   (-[nondet]-> KB AnnotatedStatement  CompiledQueryParts))
+   (-[nondet]-> KB AnnotatedStatement CompilationPlan))
 (= (compileQuery $kb (: $prf $Type $tv))
    (if (is-var $Type)
-      (data () (: (kbctx $kb) $prf $Type $tv) ())
+      (compilation-plan (: (kbctx $kb) $prf $Type $tv) ())
       (if (contains-explicit-exists? $Type) (empty)
       (if (= $Type (Implication $antecedent $consequent))
          (let*
@@ -184,11 +181,14 @@
                 (total-implication-frontier
                    (total-implication $pos-prf $neg-prf))
                 $Type $known-tv)))
-            (data
-               (the (List Goal)
-                  ($known-pos-goal $known-neg-goal))
+            (compilation-plan
                $known-goal
-               $all-adds))
+               (cons
+                  (brand CompiledAddition
+                     ((the (List Goal)
+                          ($known-pos-goal $known-neg-goal))
+                        |- $known-goal))
+                  $all-adds)))
          (if (implication-type? $Type) (empty)
          (if (bidirectional-implication-type? $Type)
             (let ($_head $left $right) $Type
@@ -208,16 +208,20 @@
                     ($left-goal (: $left-shape-kb $left-prf $left-goal-expr $left-tv))
                     ($right-goal (: $right-shape-kb $right-prf $right-goal-expr $right-tv))
                     ($goal (: (kbctx $kb) (bidirectional $left-prf $right-prf) $Type $tv)))
-                  (data
-                     (the (List Goal)
-                        ($left-goal $right-goal
-                           (CPU AndFormula ($left-tv $right-tv) $tv)))
+                  (compilation-plan
                      $goal
-                     (union-compiled-additions $left-adds $right-adds))))
+                     (cons
+                        (brand CompiledAddition
+                           ((the (List Goal)
+                                ($left-goal $right-goal
+                                   (CPU AndFormula
+                                      ($left-tv $right-tv) $tv)))
+                              |- $goal))
+                        (union-compiled-additions
+                           $left-adds $right-adds)))))
             (if (and (= $Type (Inheritance $subj $concept)) (concrete-inheritance-link? $subj $concept))
                (compile-inheritance-query $kb (brand Term $subj) (brand Term $concept))
-               (data
-                  ()
+               (compilation-plan
                   (: (kbctx $kb) $prf $Type $tv)
                   (collapse
                      (compile-adapter-chain query
@@ -354,63 +358,3 @@
    (let*
       (($state (fold-flat (query-context-premise-adds-step $kbid $ctx $mvars) (0 ()) $premises)))
       (snd $state)))
-
-;; Normalize the few structural result shapes produced by compileQuery into a
-;; uniform `(compiled-query goal additions)` value. The middle case introduces
-;; a fresh contextual witness when the compiler returned a rule whose premise
-;; is the queried fact itself.
-(: mm2compileQuery-from-direct
-   (-[semidet]-> KB AnnotatedStatement (List Goal) Goal
-       (List CompiledAddition) CompiledQuery))
-(= (mm2compileQuery-from-direct $kb $_stmt $premises $conclusion $adds)
-   (case ($premises $conclusion)
-      (((((: ($kbid $_ctx $_vars) $prf $type $tv))
-          (: ($kbid $_ctx $_vars) $prf1 $type1 $tv1))
-         (let*
-            (($vars (extract-vars $type))
-             ($mvars (query-variables $vars))
-             ($ctx (nextctx))
-             ($ctxatom
-                (: (make-kb-context $kbid $ctx $mvars)
-                   (brand Proof (ctx proof $ctx))
-                   (brand Statement $type) $tv))
-             ($goal
-                (: (make-kb-context $kbid $ctx $mvars)
-                   (brand Proof $prf1) (brand Statement $type1) $tv1))
-             ($all-adds
-                (cons
-                   (internalize-goal-addition $ctxatom)
-                   (map-flat compile-internalize-runtime-addition
-                      (adds-mm2stmts $adds)))))
-            (compiled-query
-               (brand CompiledQueryGoal
-                  (internalize-proof-structure $goal))
-               $all-adds)))
-       ($_other
-          (mm2compileQuery-from-direct-default
-             $premises $conclusion $adds)))))
-
-(: mm2compileQuery-from-direct-default
-   (-[semidet]-> (List Goal) Goal
-       (List CompiledAddition) CompiledQuery))
-(= (mm2compileQuery-from-direct-default $premises $conclusion $adds)
-   (compiled-query
-      (brand CompiledQueryGoal
-         (internalize-proof-structure $conclusion))
-      (map-flat compile-internalize-runtime-addition
-         (if (== $premises ())
-            (compiled-adds-mm2stmts $adds)
-            (let $rule
-               (brand CompiledAddition
-                  (quote ($premises |- $conclusion)))
-               (cons
-                  (mm2stmt $rule)
-                  (compiled-adds-mm2stmts $adds)))))))
-
-(: mm2compileQuery-from-compiled
-   (-[semidet]-> KB AnnotatedStatement CompiledQueryParts CompiledQuery))
-(= (mm2compileQuery-from-compiled
-      $kb $stmt
-      ($premises $conclusion $adds))
-   (mm2compileQuery-from-direct
-      $kb $stmt $premises $conclusion $adds))

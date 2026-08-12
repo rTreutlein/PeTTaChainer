@@ -15,8 +15,9 @@
    (Alias (Goal Atom TV Proof)))
 (: CompiledPremises
    (Alias ((List Goal) (List Proof) TV)))
-(: CompiledQueryParts
-   (Alias ((List Goal) Goal (List CompiledAddition))))
+(: CompilationPlan Type)
+(: compilation-plan
+   (-[det]-> Goal (List CompiledAddition) CompilationPlan))
 
 (: atom_concat (-[det]-> Atom Atom Atom))
 

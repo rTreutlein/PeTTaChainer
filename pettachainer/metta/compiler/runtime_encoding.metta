@@ -31,10 +31,6 @@
 (= (compiled-adds-mm2stmts $adds)
    (map-flat compiled-add-mm2stmt $adds))
 
-(: adds-mm2stmts
-   (-[det]-> (List CompiledAddition) (List RuntimeAddition)))
-(= (adds-mm2stmts $adds) (map-flat mm2stmt $adds))
-
 ;; MORK indexes facts as `(type kb proof tv)`, whereas the public/compiler form
 ;; is `(: kb proof type tv)`. Convert recursively because these atoms may appear
 ;; inside generated rules and query additions, not only at the top level.
@@ -49,12 +45,6 @@
        (Statement KBContext Proof TV)))
 (= (internalize-proof-fields $kb $proof $statement $truth-value)
    (quote ($statement $kb $proof $truth-value)))
-
-(: internalize-goal-addition
-   (-[semidet]-> Goal RuntimeAddition))
-(= (internalize-goal-addition $goal)
-   (brand RuntimeAddition
-      (internalize-proof-structure $goal)))
 
 (: compile-internalize-runtime-addition
    (-[det]-> RuntimeAddition RuntimeAddition))
