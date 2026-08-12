@@ -446,30 +446,21 @@
       (CPU $formula (quote ($left $right)) $result)
       (the TV $result)))
 
-(: aggregate-cpu-formula? (-[det]-> Atom Bool))
-(= (aggregate-cpu-formula? $formula)
-   (case $formula (
-      (FoldAllCompiled true)
-      (GroupedFoldAllCompiled true)
-      ($_other false))))
-
-(: result-tv-cpu-formula? (-[det]-> Atom Bool))
-(= (result-tv-cpu-formula? $formula)
-   (case $formula (
-      (() true)
-      (NotFormula true)
-      (DistGreaterThanFormula true)
-      (DistGreaterThanDistFormula true)
-      ($_other false))))
-
 (= (cpu-premise-tv $f $args $res)
-   (if (aggregate-cpu-formula? $f)
-      (if (== (aggregate-args-tv-mode $args) result-tv)
-         (checked-cpu-premise-tv $res)
-         (STV 1.0 1.0))
-      (if (result-tv-cpu-formula? $f)
-         (checked-cpu-premise-tv $res)
-         (STV 1.0 1.0))))
+   (case $f (
+      (FoldAllCompiled
+         (if (== (aggregate-args-tv-mode $args) result-tv)
+            (checked-cpu-premise-tv $res)
+            (STV 1.0 1.0)))
+      (GroupedFoldAllCompiled
+         (if (== (aggregate-args-tv-mode $args) result-tv)
+            (checked-cpu-premise-tv $res)
+            (STV 1.0 1.0)))
+      (() (checked-cpu-premise-tv $res))
+      (NotFormula (checked-cpu-premise-tv $res))
+      (DistGreaterThanFormula (checked-cpu-premise-tv $res))
+      (DistGreaterThanDistFormula (checked-cpu-premise-tv $res))
+      ($_other (STV 1.0 1.0)))))
 
 (: make-kb-context (-[det]-> KB $context $variables KBContext))
 (= (make-kb-context $kb $ctx $vars)
