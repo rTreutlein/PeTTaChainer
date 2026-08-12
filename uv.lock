@@ -14,7 +14,7 @@ wheels = [
 [[package]]
 name = "petta"
 version = "0.1.0"
-source = { git = "file:///tmp/petta-unified-checker?rev=436757a5772da1dff3427839e4ca2903b4da6466#436757a5772da1dff3427839e4ca2903b4da6466" }
+source = { git = "file:///tmp/petta-unified-checker?rev=08eb4aa5964279d005e032e03121fdf8bc5e5122#08eb4aa5964279d005e032e03121fdf8bc5e5122" }
 dependencies = [
     { name = "janus-swi" },
 ]
@@ -28,4 +28,4 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "petta", git = "file:///tmp/petta-unified-checker?rev=436757a5772da1dff3427839e4ca2903b4da6466" }]
+requires-dist = [{ name = "petta", git = "file:///tmp/petta-unified-checker?rev=08eb4aa5964279d005e032e03121fdf8bc5e5122" }]

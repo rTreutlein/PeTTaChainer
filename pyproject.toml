@@ -12,7 +12,7 @@ description = "Backward and forward PLN chaining on top of PeTTa"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "petta @ git+file:///tmp/petta-unified-checker@436757a5772da1dff3427839e4ca2903b4da6466",
+    "petta @ git+file:///tmp/petta-unified-checker@08eb4aa5964279d005e032e03121fdf8bc5e5122",
 ]
 
 [tool.setuptools.packages.find]
