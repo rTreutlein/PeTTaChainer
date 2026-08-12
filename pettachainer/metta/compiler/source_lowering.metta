@@ -664,12 +664,6 @@
                   (leaf-source-bundle $kb $ctx $vars $premise))))
          (leaf-source-bundle $kb $ctx $vars $premise))))
 
-(: query-compound-premise-state
-   (-[det]-> PremiseBundle CompiledPremises))
-(= (query-compound-premise-state
-      (premise-bundle $execs $tv $proof))
-   (data $execs ($proof) $tv))
-
 ;; Accumulate a direct compound-query rule in source order. Appending both goals
 ;; and proofs is intentional: the returned `(conjunction ...)` proof mirrors the
 ;; order written by the caller, while each TV fold consumes the same ordering.
@@ -701,9 +695,9 @@
            (fold-flat
               (query-compound-premise-step
                  $kb $ctx $vars (atom_concat $head Formula))
-              (query-compound-premise-state
-                 (query-compound-child-bundle
-                    $kb $ctx $vars $fst))
+              (let (premise-bundle $first-execs $first-tv $first-proof)
+                 (query-compound-child-bundle $kb $ctx $vars $fst)
+                 (data $first-execs ($first-proof) $first-tv))
               $rst))
         ($rcclprf $proofs)
         ($proof-token
