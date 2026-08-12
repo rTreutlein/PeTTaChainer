@@ -136,10 +136,6 @@
 (= (factor-fact-key (fact-ev $kb $prf $type))
    (proof-output-key (quote ($type $kb))))
 
-;; the shared premise's actual TV, found in the proof DAG by output key
-(: factor-checked-tv (-[det]-> $value TV))
-(= (factor-checked-tv $tv) (the TV $tv))
-
 (: factor-leaf-tv-work
    (-[semidet]-> (List Number) ProofOutputKey (| TV NoTV)))
 (= (factor-leaf-tv-work () $_key) no-tv)
@@ -152,7 +148,7 @@
                   (proof-children-by-id $pid) $rest) $key))
          (($t $kb $prf $tv)
             (if (=alpha (candidate-output-key $out) $key)
-               (factor-checked-tv $tv)
+               (the TV $tv)
                (factor-leaf-tv-work
                   (append-numbers
                      (proof-children-by-id $pid) $rest) $key)))

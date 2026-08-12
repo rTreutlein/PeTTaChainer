@@ -283,12 +283,6 @@
                ())))
       ()))
 
-;; Rule indexes are erased spaces. Validate their scalar id at this infrequent
-;; removal boundary rather than checking the complete collected list.
-(: stored-rule-id (-[det]-> Atom Number))
-(= (stored-rule-id $id)
-   (the Number $id))
-
 (: remove-compiled-statement (-[det]-> Proof (List $none)))
 ;; Deprecated compatibility boundary. It removes current KB/compiler rows but
 ;; deliberately does not forget durable backward proof history.
@@ -300,7 +294,7 @@
           (list_to_set
              (collapse
                 (match rule_name_index ($name $id)
-                   (stored-rule-id $id)))))
+                   (the Number $id)))))
        ($_rules (foreach-flat remove-rule-row! $ids))
        ($_index
           (if (== $ids ()) ()
