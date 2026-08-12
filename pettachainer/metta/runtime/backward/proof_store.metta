@@ -127,7 +127,7 @@
 (= (proof-output-atom $pid)
    (match &proof
       (stored-proof-row
-         $pid $_gid $output $_kind $_score $_ev $_children)
+         $pid $_gid $output $_kind $_support $_children)
       $output))
 
 (: proof-output-atom-by-id
@@ -318,7 +318,7 @@
    (once
       (match &proof
          (stored-proof-row
-            $pid $_owner $_output $kind $_score $_ev $_children)
+            $pid $_owner $_output $kind $_support $_children)
          (materialize-proof-kind $kind $pid))))
 
 (: proof-output-satisfies-goal?
@@ -355,7 +355,7 @@
    (once
       (match &proof
          (stored-proof-row
-            $pid $owner $_output $_kind $_score $_ev $_children)
+            $pid $owner $_output $_kind $_support $_children)
          (proof-owner-goal-key $owner))))
 
 (: proof-children-by-id (-[semidet]-> Number (List Number)))
@@ -363,7 +363,7 @@
    (once
       (match &proof
          (stored-proof-row
-            $pid $_owner $_output $_kind $_score $_ev $children)
+            $pid $_owner $_output $_kind $_support $children)
          $children)))
 
 (: proof-kind-by-id (-[semidet]-> Number ProofKind))
@@ -371,7 +371,7 @@
    (once
       (match &proof
          (stored-proof-row
-            $pid $_owner $_output $kind $_score $_ev $_children)
+            $pid $_owner $_output $kind $_support $_children)
          $kind)))
 
 (: materializable-proof-kind? (-[det]-> $kind Bool))

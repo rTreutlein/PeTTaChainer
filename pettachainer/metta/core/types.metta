@@ -192,11 +192,17 @@
 (: merged
    (-[det]-> (| Goal (Statement KBContext Proof TV)) ProofKind))
 
+;; Everything needed to compare and combine a proof belongs to the proof, not
+;; to the query-local frontier currently consuming it.
+(: ProofSupport Type)
+(: proof-support
+   (-[det]-> Number (List Evidence) ProofSupport))
+
 (: StoredProofRow Type)
 (: stored-proof-row
    (-[det]-> Number ProofOwner
        (| Goal (Statement KBContext Proof TV))
-       ProofKind Number (List Evidence) (List Number)
+       ProofKind ProofSupport (List Number)
        StoredProofRow))
 
 (: BaseRateSource Type)

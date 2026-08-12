@@ -365,7 +365,7 @@
                   ((durableGroupedKb $_ctx $_vars)
                    $_pattern $_group $_extractor $_init $_fun $_finish $_mode)
                   $_result)
-               $_kind $_score $_evidence $_children)
+               $_kind $_support $_children)
             true)))
    2)
 
@@ -398,6 +398,6 @@
                   ((durableGroupedKb $_ctx $_vars)
                    $_pattern $_group $_extractor $_init $_fun $_finish $_mode)
                   $_result)
-               $_kind $_score $_evidence $_children)
+               $_kind $_support $_children)
             true)))
    3)
