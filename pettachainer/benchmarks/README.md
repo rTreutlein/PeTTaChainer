@@ -135,3 +135,56 @@ Output columns:
 - `setup_s`: mean KB construction time
 - `run_s`: mean measured query/forward time
 - `result_count`: number of backward query results or canonical facts changed by the forward run
+
+## Core Runtime Suite
+
+`core_suite.py` runs the stable performance checks used when reviewing runtime
+and compiler changes:
+
+- bounded backward agenda;
+- bounded forward agenda;
+- incremental Member-to-Inheritance updates;
+- a 1000-object forward-populated Member-to-Inheritance query.
+
+Every repetition is launched in a fresh Python process. This is required for a
+valid comparison because combining several Janus/PeTTa workloads in one process
+can retain native state and has caused process crashes during benchmark runs.
+
+Record a baseline:
+
+```bash
+.venv/bin/python pettachainer/benchmarks/core_suite.py \
+  --json-out /tmp/pettachainer-baseline.json
+```
+
+Then compare another commit or worktree:
+
+```bash
+.venv/bin/python pettachainer/benchmarks/core_suite.py \
+  --baseline-json /tmp/pettachainer-baseline.json \
+  --json-out /tmp/pettachainer-current.json
+```
+
+Use `--repository /path/to/worktree` to benchmark another checkout while using
+the current virtual environment. Both checkouts must contain these benchmark
+files. Use `--repetitions 1 --population-members 100` for a quick smoke run;
+the defaults are three repetitions and 1000 objects.
+
+The underlying Member-inheritance workloads are also directly runnable:
+
+```bash
+.venv/bin/python pettachainer/benchmarks/member_inheritance.py
+
+.venv/bin/python pettachainer/benchmarks/member_inheritance.py \
+  --population-mode forward-populate \
+  --initial-members 1000 \
+  --query-steps 2 \
+  --forward-steps 2
+```
+
+Both workloads validate the expected public truth value before reporting a
+successful timing. `core_suite.py` writes the raw values plus mean, median,
+minimum, and maximum for every metric. The terminal comparison uses medians to
+reduce sensitivity to isolated noisy runs. The JSON also records the Git commit
+and whether the measured checkout was dirty. Baseline comparisons require
+identical repetition and population-size parameters.

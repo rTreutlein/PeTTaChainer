@@ -62,6 +62,29 @@ Run the bounded priority queue benchmark:
 
 Add `--compare-pruning` to compare pruning enabled and disabled within the same checkout.
 
+Run the core performance checks used for runtime refactoring reviews:
+
+```bash
+.venv/bin/python pettachainer/benchmarks/core_suite.py \
+  --json-out /tmp/pettachainer-baseline.json
+```
+
+The suite covers bounded backward and forward agendas, incremental
+Member-to-Inheritance maintenance, and a 1000-object forward-populated
+inheritance query. Each repetition runs in a fresh process so native runtime
+state cannot leak between measurements. Compare a later checkout with the
+saved baseline using:
+
+```bash
+.venv/bin/python pettachainer/benchmarks/core_suite.py \
+  --baseline-json /tmp/pettachainer-baseline.json \
+  --json-out /tmp/pettachainer-current.json
+```
+
+StationOps is not part of this suite because its pinned fixture currently
+fails its semantic acceptance threshold even on the reference PeTTaChainer
+commit; timings from a semantically invalid run would be misleading.
+
 Run the full ConceptNet `Own ∧ Pet` query benchmark:
 
 ```bash
