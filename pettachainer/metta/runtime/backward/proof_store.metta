@@ -87,13 +87,6 @@
        (| Goal (Statement KBContext Proof TV))))
 (= (proof-output-identity $term) $term)
 
-(: replace-runtime-proof
-   (-[det]-> (Statement KBContext Proof TV) Number
-       (Statement KBContext Proof TV)))
-(= (replace-runtime-proof ($type $kb $_proof $tv) $pid)
-   (quote
-      ($type $kb (brand Proof (proof-ref $pid)) $tv)))
-
 ;; The structural fact arm of the Goal-or-fact union cannot currently be
 ;; narrowed as a whole by case. Restore the erased roles field-by-field and
 ;; validate only the TV payload that affects numeric inference.

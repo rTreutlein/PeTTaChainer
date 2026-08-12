@@ -238,9 +238,6 @@
 (: proof-from-atom (-[det]-> Expression Proof))
 (= (proof-from-atom $proof) (brand Proof $proof))
 
-(: kb-from-atom (-[det]-> Atom KB))
-(= (kb-from-atom $kb) (brand KB $kb))
-
 (: proof-term-evidence-list-mode
    (-[semidet]-> $mode Atom (List Evidence)))
 (= (proof-term-evidence-list-mode $mode $prf)
@@ -319,13 +316,6 @@
    (if (== (evidence-intersection $set-a $set-b) ())
       false
       true))
-
-(: fact-evidence-only-step
-   (-[det]-> (List Evidence) Evidence (List Evidence)))
-(= (fact-evidence-only-step $acc $entry)
-   (if (= $entry (rule-ev $_kb $_name))
-      $acc
-      (append-evidence $acc (cons $entry ()))))
 
 (: fact-evidence-only
    (-[det]-> (List Evidence) (List Evidence)))

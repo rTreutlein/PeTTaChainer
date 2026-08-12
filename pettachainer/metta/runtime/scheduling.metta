@@ -76,13 +76,6 @@
 (= (premises-expected-confidence (cons $prem $rest))
    (premises-expected-confidence-step $prem $rest))
 
-(: premise-cons
-   (-[det]-> (| Goal (Statement KBContext Proof TV))
-       (List (| Goal (Statement KBContext Proof TV)))
-       (List (| Goal (Statement KBContext Proof TV)))))
-(= (premise-cons $premise $rest)
-   (cons $premise $rest))
-
 (: score-tv (-[det]-> Number STVType))
 (= (score-tv $score) (STV 1.0 (max 0.0 (min 1.0 $score))))
 

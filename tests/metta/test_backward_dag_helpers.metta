@@ -116,16 +116,16 @@
 
 !(test
    (premises-expected-confidence
-      (premise-cons
+      (cons
          (assemble-runtime-fact
             (brand Statement (Creature $c))
             (brand KBContext (kb MAIN Nil))
             (brand Proof $prfC)
             (STV 1.0 1.0))
-         (premise-cons (CPU FoldAllCompiled (kb (Animal $a) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $tvA)
-            (premise-cons (CPU FoldAllCompiled (kb (Creature $c2) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $tvBr)
-               (premise-cons (CPU CTVInversionFormula ($tvA $tvBr (CTV (STV 0.8 0.632121) (STV 0.1 0.632121))) $iitv)
-                  (premise-cons (CPU CTVModusPonensFormula ((STV 1.0 1.0) $iitv) $mp-tv) ()))))))
+         ((CPU FoldAllCompiled (kb (Animal $a) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $tvA)
+          (CPU FoldAllCompiled (kb (Creature $c2) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $tvBr)
+          (CPU CTVInversionFormula ($tvA $tvBr (CTV (STV 0.8 0.632121) (STV 0.1 0.632121))) $iitv)
+          (CPU CTVModusPonensFormula ((STV 1.0 1.0) $iitv) $mp-tv))))
    0.5689089)
 
 !(compileadd inverseTotalKb

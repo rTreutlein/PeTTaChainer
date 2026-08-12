@@ -1,10 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
-!(test
-   (== (length (compile-query-adds
-      (: (kbctx queryComputeKb) $prf (And (P $x) (Compute + ($x 1) $y) (P $y)) $tv))) 1)
-   true)
-
 !(compileadd queryComputeKb (: p1 (P 1) (STV 1.0 1.0)))
 
 !(compileadd queryComputeKb (: p2 (P 2) (STV 1.0 1.0)))

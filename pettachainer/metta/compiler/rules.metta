@@ -889,7 +889,13 @@
 (: compile-ordinary-fact
    (-[nondet]-> KB Proof Statement TV CompiledAddition))
 (= (compile-ordinary-fact $kb $prf $Type $tv)
-   (let $fact-kb (compile-fact-kb $kb)
+   (let $fact-kb
+      (if (is-expr $kb)
+         (existing-kb-context $kb)
+         (let $kbid (brand KB $kb)
+            (if (context-polymorphic-facts? $kbid)
+               (make-kb-context $kbid $ctx $vars)
+               (make-kb-context $kbid MAIN Nil))))
       (if (= $Type (Member $obj $class))
          (superpose ((brand CompiledAddition
                         (() |- (: $fact-kb $prf $Type $tv)))

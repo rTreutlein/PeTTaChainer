@@ -1521,26 +1521,6 @@
                      (cons $pid $rev-pids)
                      $value-spec)))))))
 
-(: frontier-waiter-step
-   (-[det]-> $waiter (List (| FrontierWaiter AggregateWaiter Atom))  (List (| FrontierWaiter AggregateWaiter Atom))))
-(= (frontier-waiter-step $waiter $rest)
-   (case $waiter
-      (((frontier-waiter $parent-gid $bundle $score
-           $seen $parts $rev-pids $value-spec)
-          (cons
-             (frontier-waiter
-                $parent-gid $bundle $score
-                $seen $parts $rev-pids $value-spec)
-             $rest))
-       ($_other $rest))))
-
-(: aggregate-waiter-step
-   (-[det]-> $waiter (List (| Number FrontierWaiter AggregateWaiter Atom))  (List (| Number FrontierWaiter AggregateWaiter Atom))))
-(= (aggregate-waiter-step $waiter $rest)
-   (case $waiter
-      (((aggregate-waiter $agg-gid $_spec) (cons $agg-gid $rest))
-       ($_other $rest))))
-
 (: stored-atom-list
    (-[det]-> Expression (List Atom)))
 (= (stored-atom-list ())

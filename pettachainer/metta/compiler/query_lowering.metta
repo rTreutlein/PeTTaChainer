@@ -225,8 +225,9 @@
                (data
                   ()
                   (: (kbctx $kb) $prf $Type $tv)
-                  (compile-query-adds
-                     (: (kbctx $kb) $prf $Type $tv))))))))))
+                  (collapse
+                     (compile-adapter-chain query
+                        (: (kbctx $kb) $prf $Type $tv)))))))))))
 
 
 (: query-temp-rule-premise (-[det]-> Atom Statement))

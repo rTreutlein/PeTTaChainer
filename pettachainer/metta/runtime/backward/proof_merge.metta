@@ -543,20 +543,6 @@
                (goal-incumbent-proof-ids $gid)))
          $current)))
 
-(: goal-current-output
-   (-[semidet]-> Number
-       (| Goal (Statement KBContext Proof TV) NoCurrentScore)))
-(= (goal-current-output $gid)
-   (let*
-      (($pids (goal-merged-proof-ids $gid))
-        ((stored-goal-row
-             $_stored-gid $_depth $goal $_expanded $_pending)
-           (goal-by-id $gid)))
-      (if (goal-has-type-vars? $goal) no-current
-         (case $pids (
-              (() no-current)
-              ((cons $pid $rest) (merge-proof-id-output (cons $pid $rest))))))))
-
 (: goal-current-confidence
    (-[semidet]-> Number (| Number NoCurrentScore)))
 (= (goal-current-confidence $gid)

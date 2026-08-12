@@ -2,22 +2,12 @@
 ;; Translate the external `premises |- conclusions` compiler form into the
 ;; single-conclusion `rules` form consumed by MORK. Facts are already
 ;; zero-premise conclusions and therefore need no wrapper.
-(: runtime-fact-addition
-   (-[det]-> Atom RuntimeAddition))
-(= (runtime-fact-addition $conclusion)
-   (brand RuntimeAddition $conclusion))
-
-(: runtime-rule-addition
-   (-[det]-> Atom Atom RuntimeAddition))
-(= (runtime-rule-addition $premises $conclusion)
-   (brand RuntimeAddition
-      (rules (quote ($premises |- $conclusion)))))
-
 (: mm2stmt (-[det]-> CompiledAddition RuntimeAddition))
 (= (mm2stmt ($premises |- $conclusion))
    (if (== $premises ())
-      (runtime-fact-addition $conclusion)
-      (runtime-rule-addition $premises $conclusion)))
+      (brand RuntimeAddition $conclusion)
+      (brand RuntimeAddition
+         (rules (quote ($premises |- $conclusion))))))
 
 ;; Some query additions arrive wrapped in an extra singleton list after
 ;; collapse. Unwrap that shape explicitly before applying the normal MM2 rule

@@ -549,13 +549,6 @@
       (cons (exec-goal-type $goal)
          (compound-exec-source-types $formula $rest))))
 
-(: compound-execs-goal-type
-   (-[det]-> Atom (List Goal) Expression))
-(= (compound-execs-goal-type $head $execs)
-   (seq2expr
-      (compound-exec-source-types
-         (atom_concat $head Formula) $execs)))
-
 ;; Lower a connective whose configured premise mode is All. Every child must
 ;; succeed, child TVs are folded with <Head>Formula, and the proof token records
 ;; the conjunction of the child proofs. This is the general conjunction-
@@ -602,26 +595,16 @@
         ($proof-token (if (= $rcclprf (cons $proof ())) $proof (cons conjunction $rcclprf))))
       (premise-bundle $execs $ccltv $proof-token)))
 
-;; Lower one alternative of an Any-mode connective. Only one child is evidence,
-;; so the proof is labelled as an introduction of the enclosing connective
-;; rather than as a conjunction of all children.
-(: compound-any-premise-child-bundle
-   (-[det]-> KB $context $variables
-       Atom Atom PremiseBundle))
-(= (compound-any-premise-child-bundle $kb $ctx $vars $head $elem)
-   (let*
-      (($prem-kb (source-premise-kb $kb $ctx $vars))
-        (($goal $_elem $tv $proof) (in_map $prem-kb $elem)))
-      (premise-bundle
-         ($goal) $tv ((atom_concat $head introduction) $proof))))
-
 (: compound-any-premise-bundle
    (-[nondet]-> KB $context $variables Atom Atom
        PremiseBundle))
-(= (compound-any-premise-bundle $_kb $_ctx $_vars $_head ()) (empty))
 (= (compound-any-premise-bundle $kb $ctx $vars $head (cons $elem $rest))
    (superpose (
-      (compound-any-premise-child-bundle $kb $ctx $vars $head $elem)
+      (let*
+         (($prem-kb (source-premise-kb $kb $ctx $vars))
+           (($goal $_elem $tv $proof) (in_map $prem-kb $elem)))
+         (premise-bundle
+            ($goal) $tv ((atom_concat $head introduction) $proof)))
       (compound-any-premise-bundle $kb $ctx $vars $head $rest))))
 
 (: compound-premise-bundle
@@ -809,7 +792,9 @@
                  (compound-premise-bundle
                     $kbid $ctx $vars $head $tail))
               ($exec-type
-                 (compound-execs-goal-type $head $execs)))
+                 (seq2expr
+                    (compound-exec-source-types
+                       (atom_concat $head Formula) $execs))))
             (superpose
                ((brand CompiledAddition
                     ($execs |-
@@ -1239,26 +1224,17 @@
             (bidirectional-implication-form? $head)))
       false))
 
-(: compile-query-adds (-[semidet]-> Goal (List CompiledAddition)))
-(= (compile-query-adds (: $kb $prf $type $tv))
-   (collapse (compile-adapter-chain query (: $kb $prf $type $tv))))
-
-
 ;; Normalize a public KB id to its default runtime shape. Query contexts already
 ;; arrive shaped as `(kbid ctx vars)` and must pass through unchanged.
 (: existing-kb-context (-[det]-> Atom KBContext))
 (= (existing-kb-context $kb)
    (brand KBContext $kb))
 
-(: default-kb-context (-[det]-> Atom KBContext))
-(= (default-kb-context $kb)
-   (make-kb-context (brand KB $kb) MAIN Nil))
-
 (: kbctx (-[det]-> Atom KBContext))
 (= (kbctx $kb)
    (if (is-expr $kb)
       (existing-kb-context $kb)
-      (default-kb-context $kb)))
+      (make-kb-context (brand KB $kb) MAIN Nil)))
 
 (: context-polymorphic-facts-key (-[det]-> KB Atom))
 (= (context-polymorphic-facts-key $kb) (atom_concat context_polymorphic_facts_ $kb))
@@ -1278,19 +1254,6 @@
          false
          (if-error-bool
             (car-atom $state-values) false))))
-
-(: compile-fact-kb-from-id (-[det]-> Atom KBContext))
-(= (compile-fact-kb-from-id $kb)
-   (let $kbid (brand KB $kb)
-      (if (context-polymorphic-facts? $kbid)
-         (make-kb-context $kbid $ctx $vars)
-         (make-kb-context $kbid MAIN Nil))))
-
-(: compile-fact-kb (-[det]-> Atom KBContext))
-(= (compile-fact-kb $kb)
-   (if (is-expr $kb)
-      (existing-kb-context $kb)
-      (compile-fact-kb-from-id $kb)))
 
 ;; Base-rate scans must leave ordinary open expressions intact while replacing
 ;; compiler-generated existential witnesses with query variables. Traverse
