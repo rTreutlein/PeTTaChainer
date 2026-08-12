@@ -1030,37 +1030,27 @@
 (: aggregate-group-state
    (-[det]-> $group $accumulator (List Evidence) (List Number) AggregateGroupState))
 
-(: frontier-part-tv (-[det]-> FrontierPart TV))
+(: frontier-part-tv
+   (-[semidet]-> (| FrontierPart UnpoolablePart) TV))
 (= (frontier-part-tv $part)
    (case $part (
       ((indep-part $tv) $tv)
       ((pool-part $_base $btv $n $idxs $_ev $mtv)
-         (if (== (list-len $idxs) $n) $btv $mtv)))))
+         (if (== (list-len $idxs) $n) $btv $mtv))
+      (unpoolable-part (empty)))))
 
 (: frontier-parts-fold-acc
-   (-[semidet]-> TV (List FrontierPart) TV))
+   (-[semidet]-> TV
+       (List (| FrontierPart UnpoolablePart)) TV))
 (= (frontier-parts-fold-acc $acc ()) $acc)
 (= (frontier-parts-fold-acc $acc (cons $part $rest))
    (frontier-parts-fold-acc (AndFormula $acc (frontier-part-tv $part)) $rest))
 
 (: frontier-parts-fold
-   (-[semidet]-> (List FrontierPart) TV))
+   (-[semidet]->
+       (List (| FrontierPart UnpoolablePart)) TV))
 (= (frontier-parts-fold (cons $first $rest))
    (frontier-parts-fold-acc (frontier-part-tv $first) $rest))
-
-(: frontier-parts-checked
-   (-[nondet]-> (List (| FrontierPart UnpoolablePart))
-       (List FrontierPart)))
-(= (frontier-parts-checked ()) ())
-(= (frontier-parts-checked (cons $part $rest))
-   (case $part
-      (((indep-part $tv)
-          (cons (indep-part $tv) (frontier-parts-checked $rest)))
-       ((pool-part $base $btv $n $idxs $ev $mtv)
-          (cons
-             (pool-part $base $btv $n $idxs $ev $mtv)
-             (frontier-parts-checked $rest)))
-       (unpoolable-part (empty)))))
 
 (: frontier-premise-part
    (-[semidet]-> Number
@@ -1375,8 +1365,7 @@
       (($nparts (frontier-parts-add $parts $part))
        ($folded-hits
           (collapse
-             (frontier-parts-fold
-                (frontier-parts-checked $nparts)))))
+             (frontier-parts-fold $nparts))))
       (if (== $folded-hits ()) $agenda
          (let $next-bundle
             (frontier-pooled-bundle
