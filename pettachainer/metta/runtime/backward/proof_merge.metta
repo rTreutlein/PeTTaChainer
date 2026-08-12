@@ -380,7 +380,7 @@
                          (stored-proof-row
                             $stored-pid $owner
                             $output (merged $output)
-                            (proof-support $score $ev) $pids)
+                            (proof-support $score $ev $_contribution) $pids)
                          $stored-pid)))))
             (if (== $hits ())
                (let*
@@ -391,7 +391,10 @@
                             (stored-proof-row
                                $pid $owner $output
                                (merged $output)
-                               (proof-support $score $ev) $pids))))
+                               (proof-support $score $ev
+                                  (proof-contribution
+                                     (merged $output) $output))
+                               $pids))))
                    ($_index (index-proof-result-for-goal! $goal-key $pid))
                    ($_static (mark-proof-static! $gid $pid (merged $output) $pids))
                    ($_parents (register-proof-parent-edges! $pid $pids)))
@@ -718,7 +721,9 @@
            (chainer-add-atom &proof
               (stored-proof-row
                  $pid $owner $output $kind
-                 (proof-support $score $ev) $children)))
+                 (proof-support $score $ev
+                    (proof-contribution $kind $output))
+                 $children)))
         ($_index (index-proof-for-goal! $goal-key $pid))
         ($_2 (mark-proof-static! $gid $pid $kind $children))
         ($_parents (register-proof-parent-edges! $pid $children))

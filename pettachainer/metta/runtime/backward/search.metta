@@ -440,9 +440,6 @@
 ;; results that were previously dropped. Overlap that is not fully explained by
 ;; a same-source pool keeps today's rejection.
 
-(: expr-arity (-[det]-> $expression Number))
-(= (expr-arity $e) (if (== $e ()) 0 (+ 1 (expr-arity (cdr-atom $e)))))
-
 ;; Parts, one per consumed premise, in premise order:
 ;;   (indep-part $tv)                                -- ordinary premise
 ;;   (pool-part $base $base-tv $arity $idxs $ev $marginal-tv)
@@ -462,23 +459,6 @@
 (: unpoolable-part UnpoolablePart)
 (: NoPool Type)
 (: no-pool NoPool)
-(: SourceInfo Type)
-(: source-info (-[det]-> TV Number SourceInfo))
-(: NoSourceInfo Type)
-(: no-source-info NoSourceInfo)
-(: SourceEntry Type)
-(: source-entry (-[det]-> ProofOutputKey SourceInfo SourceEntry))
-(: NoSourceEntry Type)
-(: no-source-entry NoSourceEntry)
-(: FrontierProjection Type)
-(: projection
-   (-[det]-> Number (| Proof ProofRef) FrontierProjection))
-;; Keep the absence sentinel distinct from the public logic-config
-;; `NoProjection` output mode.
-(: NoFrontierProjection Type)
-(: no-projection NoFrontierProjection)
-(: NoTerm Type)
-(: no-term NoTerm)
 (: NoPoolKey Type)
 (: no-pool-key NoPoolKey)
 (: FrontierWaiter Type)
@@ -1055,7 +1035,7 @@
    (case $part (
       ((indep-part $tv) $tv)
       ((pool-part $_base $btv $n $idxs $_ev $mtv)
-         (if (== (expr-arity $idxs) $n) $btv $mtv)))))
+         (if (== (list-len $idxs) $n) $btv $mtv)))))
 
 (: frontier-parts-fold-acc
    (-[semidet]-> TV (List FrontierPart) TV))
@@ -1082,119 +1062,20 @@
              (frontier-parts-checked $rest)))
        (unpoolable-part (empty)))))
 
-;; TV and conjunct count of a projection's source conjunction. Stored proof
-;; outputs carry (proof-ref $pid) handles instead of proof terms, so the real
-;; projection term lives in the proof node's kind; its base is a (proof-ref
-;; $bpid) for chained sources (facts and derived conjunctions alike) or a
-;; statement name for kb-materialized projection facts.
-(: frontier-and-source-info
-   (-[det]-> (| Goal (Statement KBContext Proof TV))
-       (| SourceInfo NoSourceInfo)))
-(= (frontier-and-source-info ($type $_kb $_prf $tv))
-   (if (is-expr $type)
-      (if (== (car-atom $type) And)
-         (source-info $tv (expr-arity (cdr-atom $type)))
-         no-source-info)
-      no-source-info))
-
-;; Pools are keyed by the source's output key (type + kb), not by its proof
-;; node: different conjuncts can instantiate a projection rule's source premise
-;; differently (open vs ground goals), producing distinct proof nodes for the
-;; same source proposition.
-(: frontier-source-entry-from-atom
-   (-[det]-> (| Goal (Statement KBContext Proof TV))
-       (| SourceEntry NoSourceEntry)))
-(= (frontier-source-entry-from-atom $atom)
-   (let $i (frontier-and-source-info $atom)
-      (case $i (
-         (no-source-info no-source-entry)
-         ((source-info $tv $n)
-            (source-entry (candidate-output-key $atom)
-               (source-info $tv $n)))))))
-
-(: frontier-source-entry
-   (-[semidet]-> (| Proof ProofRef)
-       (| SourceEntry NoSourceEntry)))
-(= (frontier-source-entry $base)
-   (case $base (
-      ((proof-ref $bpid)
-         (frontier-source-entry-from-atom
-            (proof-output-atom-by-id $bpid)))
-      ($proof
-         (let $hits
-            (collapse
-               (match &kb
-                  (@ $fact ($_type $_kb $proof $_tv))
-                  (let $e
-                     (frontier-source-entry-from-atom $fact)
-                     (if (== $e no-source-entry) (empty) $e))))
-            (if (== $hits ()) no-source-entry (car-atom $hits)))))))
-
-(: frontier-proof-term (-[det]-> ProofKind (| $term NoTerm)))
-(= (frontier-proof-term $kind)
-   (case $kind (
-      ((rule $term) $term)
-      ((leaf $term) $term)
-      ($_ no-term))))
-
-(: frontier-proof-projection
-   (-[det]-> ProofKind (| FrontierProjection NoFrontierProjection)))
-(= (frontier-proof-projection $kind)
-   (let $term (frontier-proof-term $kind)
-      (case $term (
-         (($_t $_kb $prf $_tv)
-            (case $prf (
-               ((marginal-proj $idx $base)
-                  (projection $idx $base))
-               ($_other no-projection))))
-         ($_other no-projection)))))
-
-(: frontier-atom-part
-   (-[semidet]-> Number ($type $kb $proof TV)
-       FrontierPart))
-(= (frontier-atom-part $pid ($_type $_kb $_prf $tv))
-   (let $atom-tv $tv
-      (let $proj (frontier-proof-projection (proof-kind-by-id $pid))
-         (case $proj (
-            ((projection $idx $base)
-               (let $entry (frontier-source-entry $base)
-                  (if (= $entry (source-entry $key (source-info $btv $n)))
-                     (let ($_score $ev) (proof-stats-by-id $pid)
-                        (pool-part $key
-                           $btv
-                           $n
-                           ($idx)
-                           $ev
-                           $atom-tv))
-                     (indep-part $atom-tv))))
-            (no-projection
-               (indep-part $atom-tv)))))))
-
 (: frontier-premise-part
-   (-[semidet]-> Number (| FrontierPart SkipPart)))
-(= (frontier-premise-part $pid)
-   (once
-      (let $out (proof-output-atom-by-id $pid)
-         (if (= $out (CPU $f $args $res))
-            (if (== $f AndFormula) skip-part
-               (indep-part (cpu-premise-tv $f $args $res)))
-            (case $out
-               ((($type ($kbid $ctx $vars) $prf $tv)
-                  (let $fact-kb
-                     (make-kb-context
-                        (brand KB $kbid) $ctx $vars)
-                     (frontier-atom-part
-                        $pid
-                        (assemble-stored-runtime-fact
-                           $type $fact-kb $prf $tv))))))))))
-
-(: frontier-part-or-unpoolable
-   (-[det]-> (List (| FrontierPart SkipPart))
+   (-[semidet]-> Number
        (| FrontierPart SkipPart UnpoolablePart)))
-(= (frontier-part-or-unpoolable ()) unpoolable-part)
-(= (frontier-part-or-unpoolable
-      (cons $part $_rest))
-   $part)
+(= (frontier-premise-part $pid)
+   (let (proof-support $_score $evidence $contribution)
+      (proof-support-by-id $pid)
+      (case $contribution (
+         ((independent-contribution $tv)
+            (indep-part $tv))
+         ((projected-contribution $key $source-tv $arity $idx $marginal-tv)
+            (pool-part $key $source-tv $arity
+               ($idx) $evidence $marginal-tv))
+         (skip-contribution skip-part)
+         (unpoolable-contribution unpoolable-part)))))
 
 (: frontier-parts-idx-union
    (-[det]-> (List Number) (List Number) (List Number)))
@@ -1301,7 +1182,7 @@
 (= (frontier-pool-potential (cons $part $rest))
    (case $part (
       ((pool-part $_k $btv $n $idxs $_ev $_mtv)
-         (if (< (expr-arity $idxs) $n)
+         (if (< (list-len $idxs) $n)
             (max (tv-confidence $btv) (frontier-pool-potential $rest))
             (frontier-pool-potential $rest)))
       ($_ (frontier-pool-potential $rest)))))
@@ -1424,8 +1305,7 @@
          ((($pscore $pev) (proof-stats-by-id $pid))
           ($proof-output (proof-output-atom-by-id $pid))
           ($frontier-pscore (frontier-proof-score $proof-output $pscore))
-          ($part-hits (collapse (frontier-premise-part $pid)))
-          ($part (frontier-part-or-unpoolable $part-hits))
+          ($part (frontier-premise-part $pid))
           ($overlap
              (if (frontier-allows-shared-evidence? $bundle)
                 false

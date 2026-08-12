@@ -47,8 +47,6 @@
             $agg-gid $child-gid $args
             $base-score $pending $current-pid))))
 
-(: ProofOutputKey Type)
-(: proof-output-key (-[det]-> $term ProofOutputKey))
 (: ClosedGoalKey Type)
 (: closed-goal ClosedGoalKey)
 (: ProofOutputGroup Type)
@@ -162,6 +160,85 @@
 (: proof-output-key-by-id (-[semidet]-> Number ProofOutputKey))
 (= (proof-output-key-by-id $pid)
    (candidate-output-key (proof-output-atom-by-id $pid)))
+
+(: proof-support-by-id (-[semidet]-> Number ProofSupport))
+(= (proof-support-by-id $pid)
+   (once
+      (match &proof
+         (stored-proof-row
+            $pid $_owner $_output $_kind $support $_children)
+         $support)))
+
+(: proof-projected-contribution-from-source
+   (-[det]-> Number TV
+       (| Goal (Statement KBContext Proof TV))
+       ProofContribution))
+(= (proof-projected-contribution-from-source $idx $marginal-tv $source)
+   (case $source (
+      (($type $_kb $_proof $source-tv)
+         (if (is-expr $type)
+            (if (== (car-atom $type) And)
+               (projected-contribution
+                  (candidate-output-key $source)
+                  $source-tv
+                  (list-len (cdr-atom $type))
+                  $idx
+                  $marginal-tv)
+               (independent-contribution $marginal-tv))
+            (independent-contribution $marginal-tv)))
+      ($_other (independent-contribution $marginal-tv)))))
+
+(: proof-projected-contribution
+   (-[det]-> Number (| Proof ProofRef) TV ProofContribution))
+(= (proof-projected-contribution $idx $base $marginal-tv)
+   (case $base (
+      ((proof-ref $source-pid)
+         (let $contributions
+            (collapse
+               (once
+                  (proof-projected-contribution-from-source
+                     $idx $marginal-tv
+                     (proof-output-atom-by-id $source-pid))))
+            (if (== $contributions ())
+               (independent-contribution $marginal-tv)
+               (car-atom $contributions))))
+      ($proof
+         (let $contributions
+            (collapse
+               (match &kb
+                  (@ $fact ($_type $_kb $proof $_tv))
+                  (proof-projected-contribution-from-source
+                     $idx $marginal-tv $fact)))
+            (if (== $contributions ())
+               (independent-contribution $marginal-tv)
+               (car-atom $contributions)))))))
+
+(: proof-fact-contribution
+   (-[det]-> ProofKind TV ProofContribution))
+(= (proof-fact-contribution $kind $tv)
+   (case $kind (
+      ((leaf ($_type $_kb (marginal-proj $idx $base) $_source-tv))
+         (proof-projected-contribution
+            (the Number $idx) (brand Proof $base) $tv))
+      ((rule ($_type $_kb (marginal-proj $idx $base) $_source-tv))
+         (proof-projected-contribution
+            (the Number $idx) (brand Proof $base) $tv))
+      ($_other (independent-contribution $tv)))))
+
+(: proof-contribution
+   (-[det]-> ProofKind
+       (| Goal (Statement KBContext Proof TV))
+       ProofContribution))
+(= (proof-contribution $kind $output)
+   (case $output (
+      ((CPU $formula $arguments $result)
+         (if (== $formula AndFormula)
+            skip-contribution
+            (independent-contribution
+               (cpu-premise-tv $formula $arguments $result))))
+      (($_type $_kb $_proof $tv)
+         (proof-fact-contribution $kind $tv))
+      ($_other unpoolable-contribution))))
 
 (: materialize-proof-refs (-[semidet]-> $term $term))
 (= (materialize-proof-refs $term)

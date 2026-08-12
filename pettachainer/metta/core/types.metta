@@ -192,11 +192,21 @@
 (: merged
    (-[det]-> (| Goal (Statement KBContext Proof TV)) ProofKind))
 
+(: ProofOutputKey Type)
+(: proof-output-key (-[det]-> $term ProofOutputKey))
+
+(: ProofContribution Type)
+(: independent-contribution (-[det]-> TV ProofContribution))
+(: projected-contribution
+   (-[det]-> ProofOutputKey TV Number Number TV ProofContribution))
+(: skip-contribution ProofContribution)
+(: unpoolable-contribution ProofContribution)
+
 ;; Everything needed to compare and combine a proof belongs to the proof, not
 ;; to the query-local frontier currently consuming it.
 (: ProofSupport Type)
 (: proof-support
-   (-[det]-> Number (List Evidence) ProofSupport))
+   (-[det]-> Number (List Evidence) ProofContribution ProofSupport))
 
 (: StoredProofRow Type)
 (: stored-proof-row

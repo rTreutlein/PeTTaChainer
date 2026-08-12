@@ -163,7 +163,7 @@
       (match &proof
          (stored-proof-row
             $pid $_gid $_output $_kind
-            (proof-support $score $ev) $_children)
+            (proof-support $score $ev $_contribution) $_children)
          (quote ($score $ev)))))
 
 (: proof-term-leaf-head? (-[det]-> $head Bool))
