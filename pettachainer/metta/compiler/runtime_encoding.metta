@@ -75,7 +75,7 @@
                (cons
                   (externalize-query-proof-child
                      (car-atom $proof))
-                  (externalize-query-proof-children
+                  (map-flat externalize-query-proof-child
                      (cdr-atom $proof))))
             $proof)))))
 
@@ -84,22 +84,10 @@
 (= (externalize-query-proof-child $child)
    (externalize-query-proof (brand Proof $child)))
 
-(: externalize-query-proof-children
-   (-[nondet]-> (List Atom) (List Proof)))
-(= (externalize-query-proof-children ())
-   ())
-(= (externalize-query-proof-children
-      (cons $child $rest))
-   (cons
-      (externalize-query-proof-child $child)
-      (externalize-query-proof-children $rest)))
-
 (: externalize-proof-structure-list-core
    (-[nondet]-> (List Atom) (List Atom)))
 (= (externalize-proof-structure-list-core $terms)
-   (if (== $terms ()) ()
-      (cons (externalize-proof-structure (car-atom $terms))
-         (externalize-proof-structure-list-core (cdr-atom $terms)))))
+   (map-flat externalize-proof-structure $terms))
 
 ;; Inspect the second field without unifying it with a KB-context pattern.
 ;; A direct `= ($type ($kbid $ctx $vars) ...)` test can otherwise turn an
