@@ -69,7 +69,7 @@
                 (Member $member-obj $subj) $member-atv)
             (: (kbctx $kb) $member-bprf
                 (Member $member-obj $concept) $member-btv))
-             |- ($member-sample-goal)))
+             |- $member-sample-goal))
        ($member-rule
           (((CPU FoldAllCompiled
                  (quote
@@ -84,7 +84,7 @@
                  $member-fold-tv)
             (CPU MemberInheritanceEvidenceFormula
                ($member-fold-tv) $member-tv))
-             |- ($member-goal)))
+             |- $member-goal))
        ($member-adds
           (cons (brand CompiledAddition $member-sample-rule)
              (cons (brand CompiledAddition $member-rule) ()))))
@@ -128,7 +128,7 @@
          (Inheritance $subj $concept) $induction-tv))
       ($induction-rule
          (brand CompiledAddition
-            ((quote ($known-pos-goal $known-neg-goal)) |- ($induction-goal))))
+            ((quote ($known-pos-goal $known-neg-goal)) |- $induction-goal)))
       ($lift-and-induction-adds
          (union-compiled-additions
             (stored-compiled-additions $lift-adds)
@@ -236,28 +236,18 @@
          (brand Statement (Compute $f $args -> $res)))
       ($_other (brand Statement $premise)))))
 
-(: query-compound-type? (-[det]-> Statement Bool))
-(= (query-compound-type? $type)
-   (if (is-expr $type)
-      (let $head (car-atom $type)
+(: query-needs-temp-rule? (-[det]-> Statement Bool))
+(= (query-needs-temp-rule? $term)
+   (if (and
+          (is-expr $term)
+          (not (== $term ())))
+      (let $head (car-atom $term)
          (if (is-var $head)
             false
-            (case $head (
-               (And true)
-               (Or true)
-               (LikelierThan true)
-               ($_other false)))))
-      false))
-
-;; A temporary implication is needed only for compound children which cannot be
-;; lowered by the normal adapter chain (computations or nested compounds).
-;; Pure n-ary conjunctions use the direct query bundle in compileQuery instead,
-;; avoiding a persistent synthetic implication for a query-local operation.
-(: query-compound-needs-temp-rule? (-[det]-> Statement Bool))
-(= (query-compound-needs-temp-rule? $term)
-   (if (is-expr $term)
-      (compound-direct-query-bundle?
-         (statement-children (cdr-atom $term)))
+            (if (is-alpha-member $head (And Or LikelierThan))
+               (compound-direct-query-bundle?
+                  (statement-children (cdr-atom $term)))
+               false)))
       false))
 
 (: compound-query-temp-stmt
@@ -335,8 +325,8 @@
    (append-compiled-additions
       (cons
          (brand CompiledAddition
-            (() |- ((: (make-kb-context $kbid $ctx $mvars)
-                       $ctxprf $type $tv))))
+            (() |- (: (make-kb-context $kbid $ctx $mvars)
+                       $ctxprf $type $tv)))
          ())
       (query-context-assumed-implication-rules $kbid $ctx $mvars $ctxprf $type $tv)))
 
@@ -417,7 +407,7 @@
             (compiled-adds-mm2stmts $adds)
             (let $rule
                (brand CompiledAddition
-                  (quote ($premises |- ($conclusion))))
+                  (quote ($premises |- $conclusion)))
                (cons
                   (mm2stmt $rule)
                   (compiled-adds-mm2stmts $adds)))))))
@@ -429,22 +419,3 @@
       ($premises $conclusion $adds))
    (mm2compileQuery-from-direct
       $kb $stmt $premises $conclusion $adds))
-
-;; MM2 query entry point. Compound queries with computed/nested children take
-;; the temporary-rule route; all other statements use compileQuery and the
-;; structural normalization above.
-(: mm2compileQuery (-[nondet]-> KB AnnotatedStatement  CompiledQuery))
-(= (mm2compileQuery $kb $stmt)
-   (case $stmt (
-      ((: $prf $type $tv)
-         (if (query-compound-type? $type)
-            (if (query-compound-needs-temp-rule? $type)
-               (compiled-query
-                  (brand CompiledQueryGoal
-                     (internalize-proof-structure
-                        (: (kbctx $kb) $prf $type $tv)))
-                  (map-flat compile-internalize-runtime-addition
-                     (collapse (mm2compile $kb (compound-query-temp-stmt $stmt)))))
-               (mm2compileQuery-from-compiled $kb $stmt (compileQuery $kb $stmt)))
-            (mm2compileQuery-from-compiled $kb $stmt (compileQuery $kb $stmt))))
-      ($_ (mm2compileQuery-from-compiled $kb $stmt (compileQuery $kb $stmt))))))

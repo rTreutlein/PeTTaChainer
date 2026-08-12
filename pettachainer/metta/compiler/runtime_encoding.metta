@@ -2,12 +2,6 @@
 ;; Translate the external `premises |- conclusions` compiler form into the
 ;; single-conclusion `rules` form consumed by MORK. Facts are already
 ;; zero-premise conclusions and therefore need no wrapper.
-(: mm2compile
-   (-[nondet]-> KB AnnotatedStatement  RuntimeAddition))
-(= (mm2compile $kb $stmt)
-   (let $compiled (compile_ $kb $stmt)
-      (mm2stmt $compiled)))
-
 (: runtime-fact-addition
    (-[det]-> Atom RuntimeAddition))
 (= (runtime-fact-addition $conclusion)
@@ -20,7 +14,7 @@
       (rules (quote ($premises |- $conclusion)))))
 
 (: mm2stmt (-[det]-> CompiledAddition RuntimeAddition))
-(= (mm2stmt ($premises |- ($conclusion)))
+(= (mm2stmt ($premises |- $conclusion))
    (if (== $premises ())
       (runtime-fact-addition $conclusion)
       (runtime-rule-addition $premises $conclusion)))

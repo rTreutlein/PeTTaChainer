@@ -379,37 +379,31 @@
 (: compile-output-children
    (-[nondet]-> KBContext Statement Atom Number (List Statement)
        CompiledAddition))
-(= (compile-output-children $kb $type $head $idx ()) (empty))
 (= (compile-output-children $kb $type $head $idx (cons $elem $rest))
    (superpose (
-      (let $others
-         (remove-index
-            $idx (statement-children (cdr-atom $type)))
+      (let $others (remove-index $idx (statement-children (cdr-atom $type)))
          (if (== $others ())
             (brand CompiledAddition
                (((: $kb $prf $type $tvin)
                     (CPU (atom_concat $head Projection) ($tvin) $tvout)) |-
-                  ((: $kb (proj $idx $prf) $elem $tvout))))
+                  (: $kb (proj $idx $prf) $elem $tvout)))
             (let*
                (((premise-bundle $execs $evidence-tv $evidence-proof)
                     (projection-evidence-bundle $kb $head $others))
                  ($allargs
-                    (append-goals
-                       (cons (: $kb $prf $type $tvin) ())
+                    (cons (: $kb $prf $type $tvin)
                        (append-goals $execs
-                          (cons
-                             (CPU
+                             ((CPU
                                 (atom_concat $head Projection)
-                                ($tvin $evidence-tv) $tvout)
-                             ()))))
+                                ($tvin $evidence-tv) $tvout)))))
                  ($proof-token ((proj $idx $prf) $evidence-proof)))
                (brand CompiledAddition
-                  ($allargs |- ((: $kb $proof-token $elem $tvout)))))))
+                  ($allargs |- (: $kb $proof-token $elem $tvout))))))
       (if (== $head And)
          (brand CompiledAddition
             (((: $kb $prf $type $tvin)
                  (CPU AndMarginalProjection ($tvin) $tvout)) |-
-               ((: $kb (marginal-proj $idx $prf) $elem $tvout))))
+               (: $kb (marginal-proj $idx $prf) $elem $tvout)))
          (empty))
       (compile-outputs (: $kb $childprf $elem $childtv))
       (compile-output-children $kb $type $head (+ $idx 1) $rest))))
@@ -819,7 +813,7 @@
             (superpose
                ((brand CompiledAddition
                     ($execs |-
-                       ((: $kb $proof-token $type $result-tv))))
+                       (: $kb $proof-token $type $result-tv)))
                 (if (== $exec-type $type) (empty)
                    (compile-adapter-chain plain
                       (: $kb $prfa $exec-type $atv)))))))
@@ -844,7 +838,7 @@
             (((: $kb $inner-prf $a $inner-tv)
                  (CPU NotFormula ($inner-tv) $tv))
                |-
-               ((: $kb (negated $inner-prf) $type $tv)))))
+               (: $kb (negated $inner-prf) $type $tv))))
       (if (compound-source? $type)
          (if (query-compound-needs-bundle? $type)
             (let*
@@ -857,9 +851,9 @@
                              (statement-children $tail))))))
                (brand CompiledAddition
                   ($execs |-
-                     ((: $kb
+                     (: $kb
                          (query-compound-proof-token $prf $proof-token)
-                         $type $result-tv)))))
+                         $type $result-tv))))
             (compile-adapter-chain plain (: $kb $prf $type $tv)))
          (let*
             (((premise-bundle $execs $result-tv $proof-token)
@@ -873,8 +867,7 @@
                    (not (== $exec-type $type)))
                (superpose ((brand CompiledAddition
                               ($execs |-
-                                 ((: $kb ($prf $proof-token)
-                                     $type $result-tv))))
+                                 (: $kb ($prf $proof-token) $type $result-tv)))
                            (compile-adapter-chain plain (: $kb $prfa $exec-type $atv))))
                (empty))))))
 

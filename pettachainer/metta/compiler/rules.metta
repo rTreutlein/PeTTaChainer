@@ -289,7 +289,7 @@
                           $out-execs)))))
             (brand CompiledAddition
                ($allargs |-
-                  ((: $shape-kb $out-prf $out-type $out-tv))))))
+                  (: $shape-kb $out-prf $out-type $out-tv)))))
       (let $out-b
          (skolemize-conclusion-vars $prf $antecedent-vars $b)
          (if (is-var $out-b)
@@ -430,9 +430,9 @@
                  (cons $a-base-rate
                     (cons $b-base-rate $formula-goals))))))
       ($premises |-
-         ((: (make-kb-context $kb $ctx $vars)
+         (: (make-kb-context $kb $ctx $vars)
               ((inverted $prf with cpu cpu) $prfb_wit)
-              $a $mp-tv)))))
+              $a $mp-tv))))
 
 ;; Concrete Inheritance assertions also act as implication-like rules over
 ;; members. Materializing these views once at compile time lets ordinary rule
@@ -571,7 +571,7 @@
                 (the (List Goal)
                    $context-execs)
                 (the (List Goal) (quote ($all-evidence $modus-ponens))))))
-        |- ($out))))
+        |- $out)))
 
 ;; A grounded lift is one specialization job. The common specialization engine
 ;; below handles template indexing and late facts for both ordinary compiler
@@ -892,12 +892,12 @@
    (let $fact-kb (compile-fact-kb $kb)
       (if (= $Type (Member $obj $class))
          (superpose ((brand CompiledAddition
-                        (() |- ((: $fact-kb $prf $Type $tv))))
+                        (() |- (: $fact-kb $prf $Type $tv)))
                      (compile-specialization-fact-triggers $kb $Type)))
       (if (= $Type (Inheritance $subj $concept))
          (superpose (
             (brand CompiledAddition
-               (() |- ((: $fact-kb $prf $Type $tv))))
+               (() |- (: $fact-kb $prf $Type $tv)))
             (if (concrete-inheritance-link? $subj $concept)
                (compile-derived-inheritance-views
                   $kb $prf
@@ -907,7 +907,7 @@
             (compile-specialization-fact-triggers $kb $Type)
             (compile-outputs (: $fact-kb $prf $Type $tv))))
          (superpose ((brand CompiledAddition
-                        (() |- ((: $fact-kb $prf $Type $tv))))
+                        (() |- (: $fact-kb $prf $Type $tv)))
                      (compile-specialization-fact-triggers $kb $Type)
                      (compile-outputs (: $fact-kb $prf $Type $tv))))))))
 
