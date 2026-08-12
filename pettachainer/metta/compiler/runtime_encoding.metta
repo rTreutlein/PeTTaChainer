@@ -38,12 +38,6 @@
    (-[semidet]-> Goal
        (Statement KBContext Proof TV)))
 (= (internalize-proof-structure (: $kb $proof $statement $truth-value))
-   (internalize-proof-fields $kb $proof $statement $truth-value))
-
-(: internalize-proof-fields
-   (-[det]-> KBContext Proof Statement TV
-       (Statement KBContext Proof TV)))
-(= (internalize-proof-fields $kb $proof $statement $truth-value)
    (quote ($statement $kb $proof $truth-value)))
 
 (: compile-internalize-runtime-addition
