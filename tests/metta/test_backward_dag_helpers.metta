@@ -208,16 +208,23 @@
 (: clear-backward-state (-[det]-> (List Atom)))
 (= (clear-backward-state)
    (progn
-      (foreach-flat remove-all-atoms (() &goal &goal_lookup &goal_waiter &aggregate &proof &proof_goal &proof_result &proof_current &proof_current_output &proof_current_result &proof_current_result_output &proof_current_result_dirty &proof_parent &proof_invalidated &proof_live_cache &proof_static_live &proof_superseded &proof_retired))
+      (foreach-flat remove-all-atoms (() &goal &goal_lookup &goal_waiter &goal_current_confidence &aggregate &proof &proof_goal &proof_result &proof_current &proof_current_output &proof_current_result &proof_current_result_output &proof_current_result_dirty &proof_parent &proof_invalidated &proof_live_cache &proof_static_live &proof_superseded &proof_retired))
       ()))
 
 (: test-runtime-fact
    (-[det]-> Statement (| Atom Expression) $tv
        (Statement KBContext Proof TV)))
 (= (test-runtime-fact $statement $proof $tv)
+   (test-runtime-fact-in-context
+      $statement (brand KBContext (kb MAIN ())) $proof $tv))
+
+(: test-runtime-fact-in-context
+   (-[det]-> Statement KBContext (| Atom Expression) $tv
+       (Statement KBContext Proof TV)))
+(= (test-runtime-fact-in-context $statement $kbctx $proof $tv)
    (assemble-runtime-fact
       $statement
-      (brand KBContext (kb MAIN ()))
+      $kbctx
       (brand Proof $proof)
       (the TV $tv)))
 
@@ -266,6 +273,47 @@
                  ()))))
       (evidence-sets-overlap? (snd (proof-stats-by-id $pid-a)) (snd (proof-stats-by-id $pid-b))))
    false)
+
+;; Demand scoring caches the current confidence for each query-local goal.
+;; Storing another candidate must invalidate that value before revision.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($_pidreset (change-state! bwd_pid 0))
+       ($kbctx (brand KBContext (kb MAIN Nil)))
+       ($gid
+             (ensure-goal-at-depth
+             (test-runtime-fact-in-context
+                (ConfidenceCacheGoal) $kbctx (brand Proof $prf) $tv)
+             0))
+       ($empty (goal-current-confidence $gid))
+       ($_first
+          (store-proof-candidate $gid
+             (proof-candidate
+                (leaf
+                   (test-runtime-fact-in-context
+                      (ConfidenceCacheGoal) $kbctx
+                      cacheA (STV 1.0 0.4)))
+                0.4
+                ((fact-ev
+                    (kb MAIN Nil) cacheA (ConfidenceCacheGoal)))
+                ())))
+       ($first (goal-current-confidence $gid))
+       ($_second
+          (store-proof-candidate $gid
+             (proof-candidate
+                (leaf
+                   (test-runtime-fact-in-context
+                      (ConfidenceCacheGoal) $kbctx
+                      cacheB (STV 1.0 0.5)))
+                0.5
+                ((fact-ev
+                    (kb MAIN Nil) cacheB (ConfidenceCacheGoal)))
+                ())))
+       ($revised (goal-current-confidence $gid)))
+      ($empty $first $revised))
+   (no-current 0.4 0.625))
 
 ;; A raw proof stays live so it can be revised with later evidence. Ordinary
 ;; subgoal reasoning treats a parent that consumed the former representative
