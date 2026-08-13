@@ -77,7 +77,9 @@
             $_stored-gid $depth $goal $expanded $pending)
           (goal-by-id $gid)))
       (if $expanded
-         (search-agenda-heap $steps $agenda)
+         (let $_stale
+            (increment-backward-query-metric! stale-agenda-entries)
+            (search-agenda-heap $steps $agenda))
          (if (== $pending $score)
             (let*
                (($demands (goal-root-demands $gid))
@@ -109,7 +111,9 @@
                                (expand-goal-heap
                                   $agenda $steps $fresh-max $gid)))))
                      (search-agenda-heap $next-steps $nagenda))))
-            (search-agenda-heap $steps $agenda)))))
+            (let $_stale
+               (increment-backward-query-metric! stale-agenda-entries)
+               (search-agenda-heap $steps $agenda))))))
 
 (= (search-agenda-step $steps $agenda (qagg $score $agg-gid))
    (let*
@@ -125,7 +129,9 @@
                    (bounded-agenda-prune $next-steps
                       (once (run-aggregate-heap $agenda $agg-gid))))))
             (search-agenda-heap $next-steps $nagenda))
-         (search-agenda-heap $steps $agenda))))
+         (let $_stale
+            (increment-backward-query-metric! stale-agenda-entries)
+            (search-agenda-heap $steps $agenda)))))
 
 (: search-agenda-heap (-[nondet]-> Number (Heap (| QueueGoal QueueAggregate)) SearchState))
 (= (search-agenda-heap $steps $agenda)
@@ -134,7 +140,8 @@
       (if (== (heap_size $agenda) 0)
          (data $steps $agenda)
          (let*
-            ((($_priority $item $rest)
+            (($_metric (increment-backward-query-metric! agenda-pops))
+             (($_priority $item $rest)
                 (heap_pop $agenda)))
             (search-agenda-step $steps $rest
                (the (| QueueGoal QueueAggregate) $item))))))

@@ -70,6 +70,7 @@
 !(import! &self runtime/forward/engine)
 !(import! &self runtime/knowledge_store)
 !(import! &self runtime/ingest)
+!(import! &self runtime/backward/metrics)
 !(import! &self runtime/backward/proof_store)
 !(import! &self runtime/backward/proof_merge)
 !(import! &self runtime/backward/search)

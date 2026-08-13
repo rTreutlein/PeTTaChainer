@@ -132,11 +132,12 @@
              ($_other 2.0))))
        ($nagenda
           (if (<= $score 0.0) $agenda
-             (let $priority
-                (+ (* 1000000000.0 $depth)
-                   (- 0 (+ (* 1000000.0 $score) $bonus)))
-                (add_to_heap
-                   $agenda $priority (qgoal $score $gid)))))
+             (let* (($priority
+                       (+ (* 1000000000.0 $depth)
+                          (- 0 (+ (* 1000000.0 $score) $bonus))))
+                    ($_metric
+                       (increment-backward-query-metric! agenda-pushes)))
+                (add_to_heap $agenda $priority (qgoal $score $gid)))))
        ($_set
           (progn
              (remove-atom &goal
@@ -174,6 +175,7 @@
       (if (>= $current $base-score) $agenda
          (let*
             (($priority (+ (+ (* 1000000000.0 (+ 1 $depth)) (- 0 (* 1000000.0 $base-score))) 0.1))
+             ($_metric (increment-backward-query-metric! agenda-pushes))
              ($nagenda (add_to_heap $agenda $priority (qagg $base-score $agg-gid)))
              ($_set
                 (progn
@@ -612,6 +614,8 @@
 (= (bump-goal-demand-revision! $gid)
    (let* (($revision (goal-demand-revision $gid))
           ($next (+ $revision 1))
+          ($_metric
+             (increment-backward-query-metric! demand-revision-bumps))
           ($_old
              (collapse
                 (match &goal_demand_revision
@@ -716,20 +720,27 @@
 
 (: goal-root-demands (-[det]-> Number (List RootDemand)))
 (= (goal-root-demands $gid)
-   (let $hits
+   (let* (($_evaluation
+             (increment-backward-query-metric! goal-demand-evaluations))
+          ($hits
       (stored-atom-list
          (collapse
             (once
                (match &goal_demand_cache
                   (goal-demand-cache-row $gid $dependencies $demands)
                   (goal-demand-cache-value
-                     $dependencies $demands)))))
+                     $dependencies $demands)))))))
       (if (goal-demand-cache-hit-current?
             (the (List GoalDemandCacheValue) $hits))
-         (active-root-demands
-            (goal-demand-cache-value-demands
-               (the GoalDemandCacheValue (car-atom $hits))))
-         (let* (($demands (goal-root-demands-walk $gid))
+         (let $_hit
+            (increment-backward-query-metric! goal-demand-cache-hits)
+            (active-root-demands
+               (goal-demand-cache-value-demands
+                  (the GoalDemandCacheValue (car-atom $hits)))))
+         (let* (($_miss
+                   (increment-backward-query-metric!
+                      goal-demand-cache-misses))
+                ($demands (goal-root-demands-walk $gid))
                 ($dependencies
                    (goal-demand-dependencies
                       (goal-demand-parent-gids $gid)))

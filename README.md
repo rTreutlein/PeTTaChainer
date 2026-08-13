@@ -160,6 +160,18 @@ cached_results = handler.query_many_materialization(
 )
 ```
 
+### Backward-query diagnostics
+
+Set `PETTACHAINER_QUERY_METRICS_PATH` to append one JSON object per live
+`query` or `query_many` call. The counters cover durable proof rows, agenda
+operations, demand-cache work, proof-liveness checks, candidate comparisons,
+and stored proofs. Diagnostics require `timeout_sec=0` because timed queries
+run in an isolated subprocess.
+
+Metrics can also be enabled programmatically with
+`handler.set_query_metrics(True)` and read after a query with
+`handler.last_query_metrics()`.
+
 ## Python API: Forward Chaining
 
 ```python

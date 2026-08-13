@@ -826,22 +826,37 @@
 
 (: proof-live? (-[semidet]-> Number Bool))
 (= (proof-live? $pid)
-   (if (proof-statically-live? $pid) true
+   (let $_check
+      (increment-backward-query-metric! proof-liveness-checks)
+   (if (proof-statically-live? $pid)
+      (let $_hit
+         (increment-backward-query-metric! proof-liveness-cache-hits)
+         true)
       (let*
          (($hits (collapse (once (cached-proof-live? $pid)))))
          (if (== $hits ())
-            (let*
-               (($alive (proof-live-compute $pid))
+            (let* (($_miss
+                      (increment-backward-query-metric!
+                         proof-liveness-cache-misses))
+                   ($alive (proof-live-compute $pid))
                 ($_cache (cache-proof-live! $pid $alive)))
                $alive)
-            (car-atom $hits)))))
+            (let $_hit
+               (increment-backward-query-metric!
+                  proof-liveness-cache-hits)
+               (car-atom $hits)))))))
 
 (: goal-live-proof-step
    (-[semidet]-> (List Number) Number (List Number)))
 (= (goal-live-proof-step $acc $pid)
+   (let $_durable
+      (if (< $pid
+             (backward-query-metric-value durable-pid-boundary))
+         (increment-backward-query-metric! durable-proof-considerations)
+         0)
    (if (proof-live? $pid)
       (append-number $acc $pid)
-      $acc))
+      $acc)))
 
 (: append-number
    (-[det]-> (List Number) Number (List Number)))

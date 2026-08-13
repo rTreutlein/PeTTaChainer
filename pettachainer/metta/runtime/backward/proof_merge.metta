@@ -629,6 +629,8 @@
        ProofKind (List Evidence) Number Bool))
 (= (proof-overlap-dominates-score?
       $old-kind $old-ev $old-score $new-kind $new-ev $new-score)
+   (let $_metric
+      (increment-backward-query-metric! dominance-checks)
    (if (evidence-sets-dependent? $old-ev $new-ev)
       (if (backward-proof-kind-refines?
              $old-kind $old-ev $new-kind $new-ev)
@@ -640,7 +642,7 @@
                (if (== $old-score $new-score)
                   (evidence-subset? $new-ev $old-ev)
                   false))))
-      false))
+      false)))
 
 (: goal-proof-candidate-comparable?
    (-[semidet]-> Bool ProofOutputKey Number Bool))
@@ -654,6 +656,8 @@
 (= (goal-proof-candidate-step
       $_open $_outkey $_kind $_ev $_score false $_oldpid) false)
 (= (goal-proof-candidate-step $open $outkey $kind $ev $score true $oldpid)
+   (let $_metric
+      (increment-backward-query-metric! candidate-comparisons)
    (if (goal-proof-candidate-comparable? $open $outkey $oldpid)
       (let*
          ((($old-score $old-ev) (proof-stats-by-id $oldpid))
@@ -662,7 +666,7 @@
             (if (proof-overlap-dominates-score?
                    $old-kind $old-ev $old-score $kind $ev $score)
                false true)))
-      true))
+      true)))
 
 (: classify-goal-proof-candidate
    (-[semidet]-> Number ProofCandidate Bool))
@@ -707,7 +711,8 @@
 (: store-proof-candidate (-[nondet]-> Number ProofCandidate  Number))
 (= (store-proof-candidate $gid (proof-candidate $kind $score $ev $children))
    (let*
-      (($goal-key (proof-goal-key-by-goal-id $gid))
+      (($_metric (increment-backward-query-metric! proofs-stored))
+       ($goal-key (proof-goal-key-by-goal-id $gid))
         ($owner (proof-goal $goal-key))
         ($pid (next-pid))
         ($output (proof-output-atom-kind $kind $pid))

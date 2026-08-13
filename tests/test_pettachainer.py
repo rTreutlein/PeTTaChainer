@@ -48,6 +48,34 @@ class TestPeTTaChainer(unittest.TestCase):
         )
         self.assertEqual(handler.query_many([], timeout_sec=0), [])
 
+    def test_query_metrics_are_opt_in_and_reset_per_query(self):
+        handler = PeTTaChainer()
+        handler.add_atom("(: metric_a (MetricA) (STV 1.0 1.0))")
+        handler.set_query_metrics(True)
+
+        first = handler.query_many(
+            ["(: $prf (MetricA) $tv)"], steps=5, timeout_sec=0
+        )
+        first_metrics = handler.last_query_metrics()
+        second = handler.query_many(
+            ["(: $prf (MetricA) $tv)"], steps=0, timeout_sec=0
+        )
+        second_metrics = handler.last_query_metrics()
+
+        self.assertEqual(first, second)
+        self.assertGreater(
+            first_metrics["durable_proof_rows_after"],
+            first_metrics["durable_proof_rows_before"],
+        )
+        self.assertEqual(
+            second_metrics["durable_proof_rows_before"],
+            first_metrics["durable_proof_rows_after"],
+        )
+        self.assertEqual(second_metrics["proofs_stored"], 0)
+        self.assertEqual(second_metrics["agenda_pops"], 0)
+        self.assertEqual(second_metrics["roots"], 1)
+        self.assertEqual(second_metrics["steps"], 0)
+
     def test_query_many_materialization_saves_derived_proof_trees(self):
         handler = PeTTaChainer()
         handler.add_atom("(: materialize_seed (MaterializeSeed) (STV 1.0 1.0))")

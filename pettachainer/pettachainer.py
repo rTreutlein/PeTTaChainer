@@ -1,8 +1,12 @@
+import json
 import logging
 import multiprocessing as mp
+import os
 from pathlib import Path
+import re
 import sys
 import threading
+import time
 import traceback
 import uuid
 import warnings
@@ -77,6 +81,11 @@ def _group_query_many_results(rows: List[str], count: int) -> List[List[str]]:
 
 
 class PeTTaChainer:
+    _query_metric_re = re.compile(
+        r"\(query-metric\s+([a-z][a-z0-9-]*)\s+"
+        r"([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)\)"
+    )
+
     def __init__(self, logic_config: Optional[str] = None):
         global LOADEDLIB
         self.handler = PeTTa()
@@ -84,6 +93,11 @@ class PeTTaChainer:
         self._added_atoms: List[Tuple[str, bool]] = []
         self._pattern_mining_on_add = False
         self._logic_config_path: Optional[Path] = None
+        self._query_metrics_enabled = False
+        self._query_metrics_path = os.environ.get(
+            "PETTACHAINER_QUERY_METRICS_PATH"
+        )
+        self._last_query_metrics: dict[str, object] = {}
         base_dir = Path(__file__).resolve().parent
 
         if not LOADEDLIB:
@@ -95,6 +109,8 @@ class PeTTaChainer:
                     LOADEDLIB = True
 
         self.load_logic_config(logic_config or "pln")
+        if self._query_metrics_path:
+            self.set_query_metrics(True)
 
     def load_logic_config(self, logic_config: str) -> str:
         path = Path(logic_config)
@@ -140,6 +156,67 @@ class PeTTaChainer:
         """
         value = "true" if enabled else "false"
         self.handler.process_metta_string(f"!(set-backward-premise-prefilter {value})")
+
+    def set_query_metrics(self, enabled: bool) -> None:
+        """Enable backward-query diagnostic counters.
+
+        Metrics apply only to queries executed in this live runtime. Timed
+        subprocess queries intentionally do not replay this diagnostic state.
+        """
+        value = "true" if enabled else "false"
+        self.handler.process_metta_string(
+            f"!(set-backward-query-metrics {value})"
+        )
+        self._query_metrics_enabled = enabled
+
+    def last_query_metrics(self) -> dict[str, object]:
+        """Return a copy of the most recently recorded query metrics."""
+        return dict(self._last_query_metrics)
+
+    def _read_query_metrics(self) -> dict[str, int | float]:
+        raw = str(
+            self.handler.process_metta_string("!(backward-query-metrics)")
+        )
+        metrics: dict[str, int | float] = {}
+        for key, raw_value in self._query_metric_re.findall(raw):
+            value = float(raw_value)
+            metrics[key.replace("-", "_")] = (
+                int(value) if value.is_integer() else value
+            )
+        return metrics
+
+    def _begin_query_metrics(self, timeout_sec: Optional[float]) -> None:
+        if not self._query_metrics_enabled:
+            return
+        if timeout_sec is not None and timeout_sec > 0:
+            raise ValueError(
+                "query metrics require timeout_sec=0 so the instrumented live "
+                "runtime executes the query"
+            )
+        self.handler.process_metta_string("!(begin-backward-query-metrics!)")
+
+    def _record_query_metrics(
+        self,
+        *,
+        kind: str,
+        roots: int,
+        steps: int,
+        wall_seconds: float,
+    ) -> None:
+        if not self._query_metrics_enabled:
+            return
+        self.handler.process_metta_string("!(end-backward-query-metrics!)")
+        record: dict[str, object] = {
+            "kind": kind,
+            "roots": roots,
+            "steps": steps,
+            "wall_seconds": wall_seconds,
+        }
+        record.update(self._read_query_metrics())
+        self._last_query_metrics = record
+        if self._query_metrics_path:
+            with Path(self._query_metrics_path).open("a", encoding="utf-8") as stream:
+                stream.write(json.dumps(record, sort_keys=True) + "\n")
 
     def set_pattern_mining_on_add(self, enabled: bool) -> None:
         value = "true" if enabled else "false"
@@ -322,9 +399,18 @@ class PeTTaChainer:
 
     def query(self, atom: str, steps: int = 100, timeout_sec: Optional[float] = 10) -> List[str]:
         self._validate("query", atom, atom, check_query)
-        return self._run_query_expression(
+        self._begin_query_metrics(timeout_sec)
+        started = time.perf_counter()
+        results = self._run_query_expression(
             f"query {steps} {self.kb} {atom}", timeout_sec
         )
+        self._record_query_metrics(
+            kind="query",
+            roots=1,
+            steps=steps,
+            wall_seconds=time.perf_counter() - started,
+        )
+        return results
 
     def query_many(
         self,
@@ -346,9 +432,18 @@ class PeTTaChainer:
             f"query-many {steps} {self.kb} "
             f"({' '.join(queries)})"
         )
-        return _group_query_many_results(
+        self._begin_query_metrics(timeout_sec)
+        started = time.perf_counter()
+        results = _group_query_many_results(
             self._run_query_expression(expression, timeout_sec), len(queries)
         )
+        self._record_query_metrics(
+            kind="query_many",
+            roots=len(queries),
+            steps=steps,
+            wall_seconds=time.perf_counter() - started,
+        )
+        return results
 
     def query_many_materialization(
         self,
