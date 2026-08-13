@@ -58,6 +58,34 @@
 (: current-proof-result-dirty-row
    (-[det]-> ProofGoalKey ProofGoalKey ProofOutputKey
        CurrentProofResultDirtyRow))
+(: GoalCurrentConfidenceRow Type)
+(: goal-current-confidence-row
+   (-[det]-> Number (| Number NoCurrentScore)
+       GoalCurrentConfidenceRow))
+
+(: clear-goal-current-confidence! (-[det]-> Number (List $none)))
+(= (clear-goal-current-confidence! $gid)
+   (let $_removed
+      (collapse
+         (match &goal_current_confidence
+            (goal-current-confidence-row $gid $value)
+            (remove-atom &goal_current_confidence
+               (goal-current-confidence-row $gid $value))))
+      ()))
+
+(: clear-goal-current-confidence-for-key!
+   (-[det]-> ProofGoalKey (List $none)))
+(= (clear-goal-current-confidence-for-key! $key)
+   (let $lookup-key (copy_term $key)
+      (let $_cleared
+         (collapse
+            (match &goal_lookup
+               ($lookup-key $stored-key $gid)
+               (if (=alpha $stored-key $key)
+                  (clear-goal-current-confidence!
+                     (stored-number $gid))
+                  (empty))))
+         ())))
 
 (: index-current-proof-for-goal!
    (-[det]-> ProofGoalKey ProofOutputKey Number Bool))
@@ -95,7 +123,10 @@
 (: current-proof-ids-for-goal-key
    (-[semidet]-> ProofGoalKey (List Number)))
 (= (current-proof-ids-for-goal-key $key)
-   (let $lookup-key (copy_term $key)
+   (let* (($_metric
+             (increment-backward-query-metric!
+                current-proof-goal-lookups))
+          ($lookup-key (copy_term $key)))
       (collapse
          (match &proof_current
             ($lookup-key $stored-key $pid)
@@ -205,7 +236,10 @@
 (: current-proof-result-ids-for-goal-key
    (-[semidet]-> ProofGoalKey (List Number)))
 (= (current-proof-result-ids-for-goal-key $key)
-   (let $lookup-key (copy_term $key)
+   (let* (($_metric
+             (increment-backward-query-metric!
+                current-result-goal-lookups))
+          ($lookup-key (copy_term $key)))
       (list_to_set
          (collapse
             (match &proof_current_result
@@ -867,6 +901,8 @@
           ($_dirty
              (mark-current-proof-result-dirty!
                 $goal-key $output-key))
+          ($_confidence
+             (clear-goal-current-confidence-for-key! $goal-key))
           ($_dependents (invalidate-proof-dependents! $pid)))
       ()))
 

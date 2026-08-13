@@ -647,18 +647,32 @@
 (: goal-current-confidence
    (-[semidet]-> Number (| Number NoCurrentScore)))
 (= (goal-current-confidence $gid)
-   (let*
-      (($pids (goal-merged-proof-ids $gid))
-       ((stored-goal-row
-            $_stored-gid $_depth $goal $_expanded $_pending)
-          (goal-by-id $gid)))
-      (if (goal-has-type-vars? $goal) no-current
-         (case $pids
-            ((() no-current)
-             ((cons $pid $rest)
-                (term-confidence
-                   (merge-proof-id-output
-                      (cons $pid $rest)))))))))
+   (let $cached
+      (collapse
+         (once
+            (match &goal_current_confidence
+               (goal-current-confidence-row $gid $value)
+               $value)))
+      (if (== $cached ())
+         (let*
+            (($pids (goal-merged-proof-ids $gid))
+             ((stored-goal-row
+                  $_stored-gid $_depth $goal $_expanded $_pending)
+                (goal-by-id $gid))
+             ($value
+                (if (goal-has-type-vars? $goal) no-current
+                   (case $pids
+                      ((() no-current)
+                       ((cons $pid $rest)
+                          (term-confidence
+                             (merge-proof-id-output
+                                (cons $pid $rest))))))))
+             ($_cache
+                (once
+                   (add-atom &goal_current_confidence
+                      (goal-current-confidence-row $gid $value)))))
+            $value)
+         (car-atom $cached))))
 
 (: leaf-evidence-for-stored-fact
    (-[det]-> Atom Atom Atom Atom (List Evidence)))
@@ -844,6 +858,7 @@
               $goal-key $output-key $pid))
         ($_2 (mark-proof-static! $gid $pid $kind $children))
         ($_parents (register-proof-parent-edges! $pid $children))
+        ($_confidence (clear-goal-current-confidence! $gid))
         ($_result
            (if $result-dirty? ()
               (if (== $old-representative ())

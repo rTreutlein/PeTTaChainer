@@ -333,6 +333,7 @@
        ($_clear
           (foreach-flat remove-all-atoms
              (&goal &goal_lookup &goal_waiter &goal_child
+              &goal_current_confidence
               &goal_demand_cache &goal_demand_revision &root_goal
               &goal_demand_wake &root_goal_completed
               &aggregate &aggregate_search_budget &aggregate_forward_approx

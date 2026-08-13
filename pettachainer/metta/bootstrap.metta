@@ -30,14 +30,14 @@
          (callPredicate
             (Predicate (working_dir $metta-dir)))
          $metta-dir))
-    ($helper-relative "prolog/heap_helpers.pl")
-    ($heap-helper
+    ($helper-relative "prolog/runtime_helpers.pl")
+    ($runtime-helper
       (let $_
          (callPredicate
             (Predicate
                (directory_file_path
-                  $metta-dir $helper-relative $heap-helper)))
-         $heap-helper))
+                  $metta-dir $helper-relative $runtime-helper)))
+         $runtime-helper))
     ($metta-parent
       (let $_
          (callPredicate
@@ -45,21 +45,29 @@
                (file_directory_name
                   $metta-dir $metta-parent)))
          $metta-parent))
-    ($parent-heap-helper
+    ($parent-runtime-helper
       (let $_
          (callPredicate
             (Predicate
                (directory_file_path
-                  $metta-parent $helper-relative $parent-heap-helper)))
-         $parent-heap-helper)))
-   (if (== $heap-helper $parent-heap-helper)
+                  $metta-parent $helper-relative $parent-runtime-helper)))
+         $parent-runtime-helper)))
+   (if (== $runtime-helper $parent-runtime-helper)
       (import_prolog_functions_from_file
-         $heap-helper (heap_pop))
+         $runtime-helper
+         (heap_pop query_metrics_enabled query_metrics_set_enabled
+            query_metric_value query_metric_set query_metric_increment))
       (superpose
          ((import_prolog_functions_from_file
-             $heap-helper (heap_pop))
+             $runtime-helper
+             (heap_pop query_metrics_enabled query_metrics_set_enabled
+                query_metric_value query_metric_set
+                query_metric_increment))
           (import_prolog_functions_from_file
-             $parent-heap-helper (heap_pop))))))
+             $parent-runtime-helper
+             (heap_pop query_metrics_enabled query_metrics_set_enabled
+                query_metric_value query_metric_set
+                query_metric_increment))))))
 
 !(import! &self runtime/values)
 !(import! &self runtime/scheduling)

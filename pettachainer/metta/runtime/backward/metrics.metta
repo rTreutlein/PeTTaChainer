@@ -1,66 +1,55 @@
-;; Opt-in counters for diagnosing bounded backward-query cost. The metrics
-;; space is query-local diagnostic state: it is never consulted by reasoning.
+;; Opt-in counters for diagnosing bounded backward-query cost. Native scalar
+;; storage keeps disabled hooks cheap and is never consulted by reasoning.
+
+(: query_metrics_enabled (-[det]-> Bool))
+(: query_metrics_set_enabled (-[det]-> Bool Bool))
+(: query_metric_value (-[det]-> Atom Number))
+(: query_metric_set (-[det]-> Atom Number Number))
+(: query_metric_increment (-[det]-> Atom Number))
 
 (: backward-query-metrics-enabled? (-[det]-> Bool))
 (= (backward-query-metrics-enabled?)
-   (let $enabled
-      (collapse
-         (once
-            (match &backward_query_metrics_config
-               ($value) $value)))
-      (if (== $enabled ()) false (the Bool (car-atom $enabled)))))
+   (query_metrics_enabled))
 
 (: set-backward-query-metrics (-[det]-> Bool Bool))
 (= (set-backward-query-metrics $enabled)
-   (let $_old
-      (collapse
-         (match &backward_query_metrics_config
-            ($_value)
-            (remove-atom &backward_query_metrics_config ($_value))))
-      (let $_new
-         (collapse
-            (once
-               (add-atom &backward_query_metrics_config ($enabled))))
-         $enabled)))
+   (query_metrics_set_enabled $enabled))
 
 (: backward-query-metric-value (-[det]-> Atom Number))
 (= (backward-query-metric-value $key)
-   (let $values
-      (collapse
-         (once
-            (match &backward_query_metrics
-               ($key $value) $value)))
-      (if (== $values ()) 0 (the Number (car-atom $values)))))
+   (query_metric_value $key))
 
 (: set-backward-query-metric! (-[det]-> Atom Number Number))
 (= (set-backward-query-metric! $key $value)
-   (if (backward-query-metrics-enabled?)
-      (let $_removed
-         (collapse
-            (match &backward_query_metrics
-               ($key $_old)
-               (remove-atom &backward_query_metrics ($key $_old))))
-         (let $_added
-            (collapse
-               (once
-                  (add-atom &backward_query_metrics ($key $value))))
-            $value))
-      $value))
+   (query_metric_set $key $value))
 
 (: increment-backward-query-metric! (-[det]-> Atom Number))
 (= (increment-backward-query-metric! $key)
-   (if (backward-query-metrics-enabled?)
-      (set-backward-query-metric! $key
-         (+ 1 (backward-query-metric-value $key)))
-      0))
+   (query_metric_increment $key))
 
 (: begin-backward-query-metrics! (-[det]-> Number))
 (= (begin-backward-query-metrics!)
    (if (backward-query-metrics-enabled?)
       (let* (($_clear
-                (collapse
-                   (match &backward_query_metrics $row
-                      (remove-atom &backward_query_metrics $row))))
+                (map-flat
+                   (|-> ($key)
+                      (set-backward-query-metric! $key 0))
+                   (agenda-pushes
+                    agenda-pops
+                    stale-agenda-entries
+                    goal-demand-evaluations
+                    goal-demand-cache-hits
+                    goal-demand-cache-misses
+                    demand-revision-bumps
+                    proof-liveness-checks
+                    proof-liveness-cache-hits
+                    proof-liveness-cache-misses
+                    durable-proof-considerations
+                    current-proof-goal-lookups
+                    current-result-goal-lookups
+                    candidate-comparisons
+                    dominance-checks
+                    proofs-stored)))
               ($_proofs
                 (set-backward-query-metric! durable-proof-rows-before
                    (length
@@ -117,6 +106,8 @@
        proof-liveness-cache-hits
        proof-liveness-cache-misses
        durable-proof-considerations
+       current-proof-goal-lookups
+       current-result-goal-lookups
        candidate-comparisons
        dominance-checks
        proofs-stored)))
