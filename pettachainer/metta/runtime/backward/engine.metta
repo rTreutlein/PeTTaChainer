@@ -243,14 +243,18 @@
                   (($pid (the Number $current-pid))
                    ($output (proof-output-atom-by-id $pid)))
                   (if (= $output (CPU $_fun $_out-args (STV $s $c)))
-                     (let $_components
-                        (harvest-computed-member-inheritance-state!
-                           $args $pid)
-                        (store-computed-base-rate!
-                           $kbid
-                           $pattern
-                           (STV $s $c)
-                           $mode))
+                     (let* (($_components
+                               (harvest-computed-member-inheritance-state!
+                                  $args $pid))
+                            ($_cache
+                               (store-computed-base-rate!
+                                  $kbid
+                                  $pattern
+                                  (STV $s $c)
+                                  $mode))
+                            ($_retire
+                               (deactivate-current-proof! $pid)))
+                        ())
                      ()))))))))
 
 (: harvest-base-rates (-[det]-> (List $none)))
@@ -287,11 +291,16 @@
           $_extractor $_init $_fun
           (member-inheritance $kbid) $_tv-mode)
          (if (aggregate-no-evidence-pid? $current-pid)
-            (forward-store-member-inheritance-empty-cache!
-               (brand KB $kbid)
-               (brand Term $subj)
-               (brand Term $concept)
-               $budget)
+            (let* (($_cache
+                      (forward-store-member-inheritance-empty-cache!
+                         (brand KB $kbid)
+                         (brand Term $subj)
+                         (brand Term $concept)
+                         $budget))
+                   ($_retire
+                      (collapse
+                         (deactivate-current-proofs! $current-pid))))
+               ())
             ()))
       ($_other ()))))
 
@@ -327,11 +336,11 @@
               &goal_demand_cache &goal_demand_revision &root_goal
               &goal_demand_wake &root_goal_completed
               &aggregate &aggregate_search_budget &aggregate_forward_approx
-              &proof_invalidated_epoch &proof_live_cache &goal_live_cache)))
+              &proof_invalidated &proof_live_cache)))
        ($_reset
           (foreach-flat
              (|-> ($key) (change-state! $key 0))
-             (bwd_gid bwd_live_epoch)))
+             (bwd_gid)))
        ($root-gids
           (map-flat
              (|-> ($goal) (ensure-goal-at-depth $goal 0))

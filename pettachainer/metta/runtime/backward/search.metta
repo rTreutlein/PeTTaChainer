@@ -1585,9 +1585,8 @@
                    (stored-aggregate-row
                       $agg-gid $child-gid $args $base-score
                       $pending $pid)))))
-       ($_cache-invalidate
-          (if (== $current-pid ()) ()
-             (invalidate-proof-live-caches)))
+       ($_deactivate
+          (deactivate-current-proofs! $current-pid))
        ($nagenda (wake-proof-commit-heap $agenda $agg-gid $pid)))
       $nagenda))
 

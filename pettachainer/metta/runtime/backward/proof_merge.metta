@@ -360,12 +360,19 @@
 (: proof-output-group-representative-pid
    (-[semidet]-> Number ProofOutputGroup Number))
 (= (proof-output-group-representative-pid $gid (proof-output-group $_key $pids))
+   (proof-output-group-representative-for-key
+      (proof-goal-key-by-goal-id $gid)
+      (proof-output-group $_key $pids)))
+
+(: proof-output-group-representative-for-key
+   (-[semidet]-> ProofGoalKey ProofOutputGroup Number))
+(= (proof-output-group-representative-for-key
+      $goal-key (proof-output-group $_key $pids))
    (case $pids (
       ((cons $pid ()) $pid)
       ($_
          (let*
-            (($goal-key (proof-goal-key-by-goal-id $gid))
-             ($owner (merged-proof-group $goal-key))
+            (($owner (merged-proof-group $goal-key))
              ($output (merge-proof-id-output $pids))
              ($score (term-confidence $output))
              ($ev (proof-id-evidence-list $pids))
@@ -392,7 +399,6 @@
                                      (merged $output) $output))
                                $pids))))
                    ($_index (index-proof-result-for-goal! $goal-key $pid))
-                   ($_static (mark-proof-static! $gid $pid (merged $output) $pids))
                    ($_parents (register-proof-parent-edges! $pid $pids)))
                   $pid)
                (car-atom $hits)))))))
@@ -403,11 +409,6 @@
 (= (proof-output-group-representative-pids $gid (cons $group $rest))
    (cons (proof-output-group-representative-pid $gid $group)
       (proof-output-group-representative-pids $gid $rest)))
-
-(: goal-merged-proof-ids (-[semidet]-> Number (List Number)))
-(= (goal-merged-proof-ids $gid)
-   (proof-output-group-representative-pids $gid
-      (proof-output-groups (goal-live-proof-ids $gid))))
 
 (: proof-output-group-for-key-step
    (-[semidet]-> ProofOutputKey
@@ -420,16 +421,116 @@
 (: goal-live-proof-ids-for-output-key
    (-[semidet]-> Number ProofOutputKey (List Number)))
 (= (goal-live-proof-ids-for-output-key $gid $key)
+   (let* (((stored-goal-row
+              $_stored-gid $_depth $goal $_expanded $_pending)
+            (goal-by-id $gid))
+          ($goal-key (proof-goal-key-by-goal-id $gid)))
+      (proof-fold-flat-semidet
+         (goal-current-proof-step $goal) ()
+         (current-proof-ids-for-goal-output-key
+            $goal-key $key))))
+
+(: supersede-current-proof-result!
+   (-[semidet]-> (List Number) Number (List $none)))
+(= (supersede-current-proof-result! () $_new-pid) ())
+(= (supersede-current-proof-result!
+      (cons $old-pid $_rest) $new-pid)
+   (if (== $old-pid $new-pid) ()
+      (let* (($_mark
+                (once
+                   (add-atom &proof_superseded ($old-pid))))
+             ($_dependents
+                (invalidate-proof-dependents! $old-pid)))
+         ())))
+
+(: supersede-current-proof-result-without-replacement!
+   (-[semidet]-> (List Number) (List $none)))
+(= (supersede-current-proof-result-without-replacement! ()) ())
+(= (supersede-current-proof-result-without-replacement!
+      (cons $old-pid $_rest))
+   (let* (($_mark
+             (once
+                (add-atom &proof_superseded ($old-pid))))
+          ($_dependents
+             (invalidate-proof-dependents! $old-pid)))
+      ()))
+
+(: refresh-current-proof-result!
+   (-[semidet]-> ProofGoalKey ProofOutputKey (List $none)))
+(= (refresh-current-proof-result! $goal-key $output-key)
+   (let* (($old
+             (collapse
+                (once
+                   (current-proof-result-id-for-output-key
+                      $goal-key $output-key))))
+          ($pids
+             (current-proof-ids-for-goal-output-key
+                $goal-key $output-key)))
+      (if (== $pids ())
+         (let* (($_remove
+                   (remove-current-proof-result!
+                      $goal-key $output-key))
+                ($_supersede
+                   (supersede-current-proof-result-without-replacement!
+                      $old))
+                ($_clean
+                   (clear-current-proof-result-dirty!
+                      $goal-key $output-key)))
+            ())
+         (let* (($new-pid
+                   (proof-output-group-representative-for-key $goal-key
+                      (proof-output-group $output-key $pids)))
+                ($_replace
+                   (index-current-proof-result!
+                      $goal-key $output-key $new-pid))
+                ($_supersede
+                   (supersede-current-proof-result! $old $new-pid))
+                ($_clean
+                   (clear-current-proof-result-dirty!
+                      $goal-key $output-key)))
+            ()))))
+
+(: refresh-current-proof-result-step!
+   (-[semidet]-> ProofGoalKey (List $none) ProofOutputKey
+       (List $none)))
+(= (refresh-current-proof-result-step!
+      $goal-key $_none $output-key)
+   (refresh-current-proof-result! $goal-key $output-key))
+
+(: refresh-dirty-current-proof-results!
+   (-[semidet]-> ProofGoalKey (List $none)))
+(= (refresh-dirty-current-proof-results! $goal-key)
    (proof-fold-flat-semidet
-      (proof-output-group-for-key-step $key)
-      ()
-      (goal-live-proof-ids $gid)))
+      (refresh-current-proof-result-step! $goal-key) ()
+      (dirty-current-proof-result-output-keys $goal-key)))
+
+(: refresh-current-proof-result-if-dirty!
+   (-[semidet]-> ProofGoalKey ProofOutputKey (List $none)))
+(= (refresh-current-proof-result-if-dirty! $goal-key $output-key)
+   (if (current-proof-result-dirty? $goal-key $output-key)
+      (refresh-current-proof-result! $goal-key $output-key)
+      ()))
+
+(: goal-merged-proof-ids (-[semidet]-> Number (List Number)))
+(= (goal-merged-proof-ids $gid)
+   (let* (((stored-goal-row
+              $_stored-gid $_depth $goal $_expanded $_pending)
+            (goal-by-id $gid))
+          ($key (proof-goal-key-by-goal-id $gid))
+          ($_refresh (refresh-dirty-current-proof-results! $key)))
+      (proof-fold-flat-semidet
+         (goal-current-proof-step $goal) ()
+         (current-proof-result-ids-for-goal-key $key))))
 
 (: goal-merged-proof-id-for-pid (-[semidet]-> Number Number Number))
 (= (goal-merged-proof-id-for-pid $gid $pid)
-   (let $key (proof-output-key-by-id $pid)
-      (proof-output-group-representative-pid $gid
-         (proof-output-group $key (goal-live-proof-ids-for-output-key $gid $key)))))
+   (let* (($goal-key (proof-goal-key-by-goal-id $gid))
+          ($output-key (proof-output-key-by-id $pid))
+          ($_refresh
+             (refresh-current-proof-result-if-dirty!
+                $goal-key $output-key)))
+      (current-proof-result-id-for-output-key
+         $goal-key $output-key)))
 
 (: goal-results
    (-[semidet]-> Number
@@ -514,8 +615,7 @@
          (proof-output-group-representative-pids $gid
             (proof-output-groups
                (goal-incumbent-proof-ids $gid)))
-         (proof-output-group-representative-pids $gid
-            (proof-output-groups $live)))))
+         (goal-merged-proof-ids $gid))))
 
 (: materialize-root-goal-proofs-to-kb (-[det]-> Number (List $none)))
 (= (materialize-root-goal-proofs-to-kb $gid)
@@ -678,11 +778,15 @@
           (goal-by-id $gid))
        ($open (goal-has-type-vars? $goal))
        ($result (candidate-kind-term $kind))
-       ($outkey (candidate-output-key $result)))
+       ($outkey (candidate-output-key $result))
+       ($pids
+          (if $open
+             (goal-live-proof-ids-for-output-key $gid $outkey)
+             (goal-live-proof-ids $gid))))
       (proof-fold-flat-semidet
          (goal-proof-candidate-step $open $outkey $kind $ev $score)
          true
-         (goal-live-proof-ids $gid))))
+         $pids)))
 
 (: proof-candidate-stored-evidence
    (-[semidet]-> ProofCandidate (List Evidence)))
@@ -707,17 +811,26 @@
 
 ;; Rule candidates are normalized before classification; leaf and aggregate
 ;; candidates already carry their final evidence. Store that accepted evidence
-;; directly instead of walking rule proofs a second time.
+;; directly instead of walking rule proofs a second time.  The first candidate
+;; is its own representative.  Later candidates dirty that output group so a
+;; consumer rebuilds it once, rather than rebuilding after every insertion.
 (: store-proof-candidate (-[nondet]-> Number ProofCandidate  Number))
 (= (store-proof-candidate $gid (proof-candidate $kind $score $ev $children))
    (let*
       (($_metric (increment-backward-query-metric! proofs-stored))
        ($goal-key (proof-goal-key-by-goal-id $gid))
-        ($owner (proof-goal $goal-key))
-        ($pid (next-pid))
-        ($output (proof-output-atom-kind $kind $pid))
-        ($old-pids
-           (goal-live-proof-ids-for-output-key $gid (candidate-output-key $output)))
+       ($owner (proof-goal $goal-key))
+       ($pid (next-pid))
+       ($output (proof-output-atom-kind $kind $pid))
+       ($output-key (candidate-output-key $output))
+       ($old-representative
+           (collapse
+              (once
+                 (current-proof-result-id-for-output-key
+                    $goal-key $output-key))))
+        ($result-dirty?
+           (current-proof-result-dirty?
+              $goal-key $output-key))
         ($_1
            (chainer-add-atom &proof
               (stored-proof-row
@@ -726,22 +839,28 @@
                     (proof-contribution $kind $output))
                  $children)))
         ($_index (index-proof-for-goal! $goal-key $pid))
+        ($_current
+           (index-current-proof-for-goal!
+              $goal-key $output-key $pid))
         ($_2 (mark-proof-static! $gid $pid $kind $children))
         ($_parents (register-proof-parent-edges! $pid $children))
-        ($_3
-           (if (== $old-pids ()) ()
-              (let $old-representative
-                 (proof-output-group-representative-pid $gid
-                    (proof-output-group
-                       (candidate-output-key $output) $old-pids))
-                 (progn
-                    (add-atom &proof_superseded
-                       ($old-representative))
-                    (invalidate-proof-dependents!
-                       (proof-live-cache-epoch)
-                       $old-representative)))))
-        ($_4 (cache-proof-live! $pid true))
-        ($_5 (append-goal-live-cache! $gid $pid)))
+        ($_result
+           (if $result-dirty? ()
+              (if (== $old-representative ())
+                 (index-current-proof-result!
+                    $goal-key $output-key $pid)
+                 (let* (($_remove-result
+                           (remove-current-proof-result-rows!
+                              (current-proof-result-rows-for-output-key
+                                 $goal-key $output-key)))
+                        ($_supersede
+                           (supersede-current-proof-result-without-replacement!
+                              $old-representative))
+                        ($_dirty
+                           (mark-current-proof-result-dirty!
+                              $goal-key $output-key)))
+                    ()))))
+        ($_live (cache-proof-live! $pid true)))
       $pid))
 
 (: proof-atom-candidate

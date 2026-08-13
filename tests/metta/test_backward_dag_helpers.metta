@@ -73,6 +73,20 @@
 
 !(test (term-confidence (CPU OrFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out)) 0.8322690087859733)
 
+;; A direct CPU goal is a filter as well as a computation.  A mismatched
+;; requested result must not become a stored proof candidate.
+!(test
+   (collapse
+      (direct-goal-results-view 1
+         (CPU NotEqual (same same) true)))
+   ())
+
+!(test
+   (collapse
+      (direct-goal-results-view 1
+         (CPU NotEqual (left right) true)))
+   ((CPU NotEqual (left right) true)))
+
 ;; Inverse OR projection propagates uncertainty from both the total and the
 ;; known child rather than copying their minimum confidence.
 !(test
@@ -194,8 +208,7 @@
 (: clear-backward-state (-[det]-> (List Atom)))
 (= (clear-backward-state)
    (progn
-      (foreach-flat remove-all-atoms (() &goal &goal_lookup &goal_waiter &aggregate &proof &proof_goal &proof_result &proof_parent &proof_invalidated_epoch &proof_live_cache &goal_live_cache &proof_static_live &proof_superseded))
-      (change-state! bwd_live_epoch 0)
+      (foreach-flat remove-all-atoms (() &goal &goal_lookup &goal_waiter &aggregate &proof &proof_goal &proof_result &proof_current &proof_current_output &proof_current_result &proof_current_result_output &proof_current_result_dirty &proof_parent &proof_invalidated &proof_live_cache &proof_static_live &proof_superseded &proof_retired))
       ()))
 
 (: test-runtime-fact
@@ -283,9 +296,8 @@
        (length (goal-merged-proof-ids $child-gid))
        (goal-live-proof-ids $parent-gid)
        (== (goal-incumbent-proof-ids $parent-gid) ($old-parent))
-       (not (== (root-goal-results $parent-gid) ()))
-       (proof-live-cache-epoch)))
-   (true false false 1 () true true 0))
+       (not (== (root-goal-results $parent-gid) ()))))
+   (true false false 1 () true true))
 
 !(test
    (let*
@@ -358,7 +370,7 @@
            (progn
               (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))
               (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-new))
-              (invalidate-proof-live-caches))))
+              (deactivate-current-proof! $pid-old))))
       ((proof-live? $pid-old) (proof-live? $pid-new)))
    (false true))
 
@@ -384,7 +396,7 @@
            (progn
               (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))
               (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-new))
-              (invalidate-proof-live-caches))))
+              (deactivate-current-proof! $pid-old))))
       (waiter-live?
          (frontier-waiter 99 bundle 1.0 () () ($pid-old)
             (frontier-value-spec 1.0 1 1.0))))
@@ -456,7 +468,7 @@
                  (stored-aggregate-row
                     $agg-gid $child-gid dummy-agg-args
                     1.0 0.0 $pid-new))
-              (invalidate-proof-live-caches)))
+              (deactivate-current-proof! $pid-old)))
         ($_materialize
            (materialize-root-goal-proofs-to-kb $parent-gid)))
       ((proof-live? $pid-old)
@@ -496,10 +508,10 @@
         ($pid-new
            (store-proof-candidate $agg-gid
               (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) ())))
-        ($_invalidate (invalidate-proof-live-caches))
         ($_agg2
            (progn
               (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))
-              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-new)))))
+              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-new))
+              (deactivate-current-proof! $pid-old))))
       ((proof-live? $pid-old) (proof-live? $pid-new) (length (goal-live-proof-ids $agg-gid))))
    (false true 1))

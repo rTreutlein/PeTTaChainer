@@ -35,6 +35,262 @@
           ($row (make-space-row3 $lookup-key $key $pid)))
       (add-space-atom! &proof_result $row)))
 
+;; The durable proof table is historical.  This separate view contains only
+;; proofs which ordinary subgoal reasoning may consume now.  One row per proof
+;; keeps lookup and localized removal indexed by the semantic goal key; a
+;; growing PID list would make every update copy or rescan the complete view.
+(: ProofGoalOutputKey Type)
+(: proof-goal-output-key
+   (-[det]-> ProofGoalKey ProofOutputKey ProofGoalOutputKey))
+(: CurrentProofOutputRow Type)
+(: current-proof-output-row
+   (-[det]-> ProofGoalOutputKey ProofGoalKey ProofOutputKey Number
+       CurrentProofOutputRow))
+(: CurrentProofResultRow Type)
+(: current-proof-result-row
+   (-[det]-> Atom ProofGoalKey ProofOutputKey Number
+       CurrentProofResultRow))
+(: CurrentProofResultGoalRow Type)
+(: current-proof-result-goal-row
+   (-[det]-> ProofGoalKey ProofGoalKey ProofOutputKey
+       CurrentProofResultGoalRow))
+(: CurrentProofResultDirtyRow Type)
+(: current-proof-result-dirty-row
+   (-[det]-> ProofGoalKey ProofGoalKey ProofOutputKey
+       CurrentProofResultDirtyRow))
+
+(: index-current-proof-for-goal!
+   (-[det]-> ProofGoalKey ProofOutputKey Number Bool))
+(= (index-current-proof-for-goal! $key $output-key $pid)
+   (let* (($lookup-key (copy_term $key))
+          ($output-lookup-key
+             (copy_term (proof-goal-output-key $key $output-key)))
+          ($_goal
+             (add-space-atom! &proof_current
+                (make-space-row3 $lookup-key $key $pid))))
+      (add-space-atom! &proof_current_output
+         (current-proof-output-row
+            $output-lookup-key $key $output-key $pid))))
+
+(: remove-current-proof-for-goal!
+   (-[semidet]-> ProofGoalKey Number Bool))
+(= (remove-current-proof-for-goal! $key $pid)
+   (let* (($lookup-key (copy_term $key))
+          ($output-key (proof-output-key-by-id $pid))
+          ($output-lookup-key
+             (copy_term (proof-goal-output-key $key $output-key)))
+          ($_output
+             (collapse
+                (once
+                   (remove-atom &proof_current_output
+                      (current-proof-output-row
+                         $output-lookup-key $key $output-key $pid)))))
+          ($removed
+         (collapse
+            (once
+               (remove-atom &proof_current
+                  ($lookup-key $key $pid))))))
+      (not (== $removed ()))))
+
+(: current-proof-ids-for-goal-key
+   (-[semidet]-> ProofGoalKey (List Number)))
+(= (current-proof-ids-for-goal-key $key)
+   (let $lookup-key (copy_term $key)
+      (collapse
+         (match &proof_current
+            ($lookup-key $stored-key $pid)
+            (if (=alpha $stored-key $key)
+               (stored-number $pid)
+               (empty))))))
+
+(: current-proof-ids-for-goal-output-key
+   (-[semidet]-> ProofGoalKey ProofOutputKey (List Number)))
+(= (current-proof-ids-for-goal-output-key $key $output-key)
+   (let $lookup-key
+      (copy_term (proof-goal-output-key $key $output-key))
+      (collapse
+         (match &proof_current_output
+            (current-proof-output-row
+               $lookup-key $stored-key $stored-output-key $pid)
+            (if (and (=alpha $stored-key $key)
+                     (=alpha $stored-output-key $output-key))
+               (stored-number $pid)
+               (empty))))))
+
+(: remove-current-proof-result-row! (-[det]-> CurrentProofResultRow Bool))
+(= (remove-current-proof-result-row!
+      (current-proof-result-row
+         $lookup-key $key $output-key $pid))
+   (remove-atom &proof_current_result_output
+      (current-proof-result-row
+         $lookup-key $key $output-key $pid)))
+
+(: remove-current-proof-result-rows!
+   (-[det]-> (List CurrentProofResultRow) (List $none)))
+(= (remove-current-proof-result-rows! ()) ())
+(= (remove-current-proof-result-rows! (cons $row $rest))
+   (let $_removed (remove-current-proof-result-row! $row)
+      (remove-current-proof-result-rows! $rest)))
+
+(: current-proof-result-rows-for-output-key
+   (-[det]-> ProofGoalKey ProofOutputKey
+       (List CurrentProofResultRow)))
+(= (current-proof-result-rows-for-output-key $key $output-key)
+   (let $lookup-key
+      (copy_term (proof-goal-output-key $key $output-key))
+      (collapse
+         (match &proof_current_result_output
+            (current-proof-result-row
+               $lookup-key $stored-key $stored-output-key $pid)
+            (if (and (=alpha $stored-key $key)
+                     (=alpha $stored-output-key $output-key))
+               (current-proof-result-row
+                  $lookup-key
+                  $stored-key $stored-output-key (stored-number $pid))
+               (empty))))))
+
+(: current-proof-result-id-for-output-key
+   (-[semidet]-> ProofGoalKey ProofOutputKey Number))
+(= (current-proof-result-id-for-output-key $key $output-key)
+   (let $rows
+      (current-proof-result-rows-for-output-key $key $output-key)
+      (case $rows (
+         ((cons
+             (current-proof-result-row
+                $_lookup $_stored-key $_stored-output-key $pid)
+             $_rest)
+            (stored-number $pid))
+         ($_ (empty))))))
+
+(: current-proof-result-goal-row-exists?
+   (-[det]-> ProofGoalKey ProofOutputKey Bool))
+(= (current-proof-result-goal-row-exists? $key $output-key)
+   (let $lookup-key (copy_term $key)
+      (not
+         (==
+            (collapse
+               (once
+                  (match &proof_current_result
+                     (current-proof-result-goal-row
+                        $lookup-key $stored-key $stored-output-key)
+                     (if (and (=alpha $stored-key $key)
+                              (=alpha $stored-output-key $output-key))
+                        true
+                        (empty)))))
+            ()))))
+
+(: index-current-proof-result!
+   (-[semidet]-> ProofGoalKey ProofOutputKey Number Bool))
+(= (index-current-proof-result! $key $output-key $pid)
+   (let* (($goal-lookup-key (copy_term $key))
+          ($output-lookup-key
+             (copy_term (proof-goal-output-key $key $output-key)))
+          ($old
+             (current-proof-result-rows-for-output-key
+                $key $output-key))
+          ($goal-row-exists?
+             (current-proof-result-goal-row-exists?
+                $key $output-key))
+          ($_goal
+             (if $goal-row-exists? ()
+                (add-space-atom! &proof_current_result
+                   (current-proof-result-goal-row
+                      $goal-lookup-key $key $output-key))))
+          ($_old
+             (remove-current-proof-result-rows! $old)))
+      (add-space-atom! &proof_current_result_output
+         (current-proof-result-row
+            $output-lookup-key $key $output-key $pid))))
+
+(: current-proof-result-ids-for-goal-key
+   (-[semidet]-> ProofGoalKey (List Number)))
+(= (current-proof-result-ids-for-goal-key $key)
+   (let $lookup-key (copy_term $key)
+      (list_to_set
+         (collapse
+            (match &proof_current_result
+               (current-proof-result-goal-row
+                  $lookup-key $stored-key $output-key)
+               (if (=alpha $stored-key $key)
+                  (current-proof-result-id-for-output-key
+                     $stored-key $output-key)
+                  (empty)))))))
+
+(: remove-current-proof-result!
+   (-[semidet]-> ProofGoalKey ProofOutputKey (List $none)))
+(= (remove-current-proof-result! $key $output-key)
+   (let* (($_output
+             (remove-current-proof-result-rows!
+                (current-proof-result-rows-for-output-key
+                   $key $output-key)))
+          ($lookup-key (copy_term $key))
+          ($_goal
+             (collapse
+                (match &proof_current_result
+                   (current-proof-result-goal-row
+                      $lookup-key $stored-key $stored-output-key)
+                   (if (and (=alpha $stored-key $key)
+                            (=alpha $stored-output-key $output-key))
+                      (remove-atom &proof_current_result
+                         (current-proof-result-goal-row
+                            $lookup-key $stored-key $stored-output-key))
+                      (empty))))))
+      ()))
+
+(: mark-current-proof-result-dirty!
+   (-[det]-> ProofGoalKey ProofOutputKey Bool))
+(= (mark-current-proof-result-dirty! $key $output-key)
+   (let $lookup-key (copy_term $key)
+      (add-space-atom! &proof_current_result_dirty
+         (current-proof-result-dirty-row
+            $lookup-key $key $output-key))))
+
+(: current-proof-result-dirty?
+   (-[det]-> ProofGoalKey ProofOutputKey Bool))
+(= (current-proof-result-dirty? $key $output-key)
+   (let $lookup-key (copy_term $key)
+      (not
+         (==
+            (collapse
+               (once
+                  (match &proof_current_result_dirty
+                     (current-proof-result-dirty-row
+                        $lookup-key $stored-key $stored-output-key)
+                     (if (and (=alpha $stored-key $key)
+                              (=alpha $stored-output-key $output-key))
+                        true
+                        (empty)))))
+            ()))))
+
+(: dirty-current-proof-result-output-keys
+   (-[semidet]-> ProofGoalKey (List ProofOutputKey)))
+(= (dirty-current-proof-result-output-keys $key)
+   (let $lookup-key (copy_term $key)
+      (collapse
+         (match &proof_current_result_dirty
+            (current-proof-result-dirty-row
+               $lookup-key $stored-key $output-key)
+            (if (=alpha $stored-key $key)
+               $output-key
+               (empty))))))
+
+(: clear-current-proof-result-dirty!
+   (-[det]-> ProofGoalKey ProofOutputKey (List $none)))
+(= (clear-current-proof-result-dirty! $key $output-key)
+   (let $lookup-key (copy_term $key)
+      (let $_removed
+         (collapse
+            (match &proof_current_result_dirty
+               (current-proof-result-dirty-row
+                  $lookup-key $stored-key $stored-output-key)
+               (if (and (=alpha $stored-key $key)
+                        (=alpha $stored-output-key $output-key))
+                  (remove-atom &proof_current_result_dirty
+                     (current-proof-result-dirty-row
+                        $lookup-key $stored-key $stored-output-key))
+                  (empty))))
+         ())))
+
 (: aggregate-by-id
    (-[semidet]-> Number StoredAggregateRow))
 (= (aggregate-by-id $agg-gid)
@@ -511,81 +767,19 @@
 
 (: ProofLiveCacheRow Type)
 (: proof-live-cache-row
-   (-[det]-> Number Number Bool ProofLiveCacheRow))
-
-(: GoalLiveCacheRow Type)
-(: goal-live-cache-row
-   (-[det]-> Number Number (List Number) GoalLiveCacheRow))
-
-(: proof-live-cache-epoch (-[det]-> Number))
-(= (proof-live-cache-epoch)
-   (let $values
-      (collapse (catch (get-state bwd_live_epoch)))
-      (if (== $values ())
-         0
-         (if-error-number (car-atom $values) 0))))
-
-(: invalidate-proof-live-caches (-[det]-> Bool))
-(= (invalidate-proof-live-caches)
-   (let $epoch (proof-live-cache-epoch)
-      (change-state! bwd_live_epoch (+ $epoch 1))))
+   (-[det]-> Number Bool ProofLiveCacheRow))
 
 (: cache-proof-live! (-[det]-> Number Bool Bool))
 (= (cache-proof-live! $pid $alive)
-   (let $epoch (proof-live-cache-epoch)
-      (once
-         (add-atom &proof_live_cache
-            (proof-live-cache-row $epoch $pid $alive)))))
+   (once
+      (add-atom &proof_live_cache
+         (proof-live-cache-row $pid $alive))))
 
 (: cached-proof-live? (-[nondet]-> Number  Bool))
 (= (cached-proof-live? $pid)
-   (let $epoch (proof-live-cache-epoch)
-      (match &proof_live_cache
-         (proof-live-cache-row $epoch $pid $alive)
-         $alive)))
-
-(: goal-live-cache-store! (-[det]-> Number (List Number) Bool))
-(= (goal-live-cache-store! $gid $pids)
-   (let $epoch (proof-live-cache-epoch)
-      (once
-         (add-atom &goal_live_cache
-            (goal-live-cache-row $epoch $gid $pids)))))
-
-(: goal-live-cache-remove! (-[det]-> Number (List Number) Bool))
-(= (goal-live-cache-remove! $gid $pids)
-   (let $epoch (proof-live-cache-epoch)
-      (let $removed
-         (collapse
-            (remove-atom &goal_live_cache
-               (goal-live-cache-row $epoch $gid $pids)))
-         (not (== $removed ())))))
-
-(: cached-goal-live-proof-ids (-[nondet]-> Number  (List Number)))
-(= (cached-goal-live-proof-ids $gid)
-   (let $epoch (proof-live-cache-epoch)
-      (match &goal_live_cache
-         (goal-live-cache-row $epoch $gid $pids)
-         $pids)))
-
-(: append-goal-live-cache!
-   (-[det]-> Number Number (| Bool (List $none))))
-(= (append-goal-live-cache! $gid $pid)
-   (let*
-      (($epoch (proof-live-cache-epoch))
-       ($hits
-          (collapse
-             (once
-                (match &goal_live_cache
-                   (goal-live-cache-row $epoch $gid $pids)
-                   $pids)))))
-      (if (== $hits ())
-         ()
-         (let*
-            (($pids (car-atom $hits))
-             ($npids (append-number $pids $pid)))
-            (progn
-               (goal-live-cache-remove! $gid $pids)
-               (goal-live-cache-store! $gid $npids))))))
+   (match &proof_live_cache
+      (proof-live-cache-row $pid $alive)
+      $alive))
 
 (: register-proof-parent-edge!
    (-[det]-> Number Number (| Bool (List $none))))
@@ -601,67 +795,95 @@
       $children))
 
 (: invalidate-proof-dependent-step
-   (-[semidet]-> Number Number (List $none)))
+   (-[semidet]-> Number (List $none)))
+(: proof-live-compute (-[semidet]-> Number Bool))
+(: deactivate-current-proof! (-[semidet]-> Number (List $none)))
+
+;; Invalidation runs while aggregate and merged representatives are being
+;; replaced.  A proof whose dependencies cannot be resolved at that instant is
+;; not part of the current view; that must deactivate the proof, not abort the
+;; enclosing search operation.
+(: recomputed-proof-live? (-[det]-> Number Bool))
+(= (recomputed-proof-live? $pid)
+   (let $hits (collapse (once (proof-live-compute $pid)))
+      (if (== $hits ()) false
+         (the Bool (car-atom $hits)))))
 
 (: remove-proof-live-cache-row!
    (-[det]-> ProofLiveCacheRow Bool))
 (= (remove-proof-live-cache-row! $row)
    (remove-atom &proof_live_cache $row))
 
-(: remove-goal-live-cache-row!
-   (-[det]-> GoalLiveCacheRow Bool))
-(= (remove-goal-live-cache-row! $row)
-   (remove-atom &goal_live_cache $row))
-
-(: invalidate-proof-dependent! (-[semidet]-> Number Number (List $none)))
-(= (invalidate-proof-dependent! $epoch $parent-pid)
+(: invalidate-proof-dependent! (-[semidet]-> Number (List $none)))
+(= (invalidate-proof-dependent! $parent-pid)
    (let $seen
       (collapse
          (once
-            (match &proof_invalidated_epoch (($epoch $parent-pid)) true)))
+            (match &proof_invalidated ($parent-pid) true)))
       (if (not (== $seen ())) ()
          (let*
             (($_mark
                 (once
-                   (add-atom &proof_invalidated_epoch
-                      (($epoch $parent-pid)))))
+                   (add-atom &proof_invalidated ($parent-pid))))
              ($_proof-cache
                 (foreach-flat
                    remove-proof-live-cache-row!
                    (collapse
                       (match &proof_live_cache
-                         (proof-live-cache-row
-                            $epoch $parent-pid $alive)
-                         (proof-live-cache-row
-                            $epoch $parent-pid $alive)))))
-             ($_goal-cache
-                (foreach-flat
-                   remove-goal-live-cache-row!
-                   (collapse
-                      (match &goal_live_cache
-                         (goal-live-cache-row
-                            $epoch $_gid $pids)
-                         (goal-live-cache-row
-                            $epoch $_gid $pids)))))
-             ($_parents
-                (foreach-flat
-                   (invalidate-proof-dependent-step $epoch)
-                   (collapse
-                      (match &proof_parent ($parent-pid $dependent-pid)
-                         (stored-number $dependent-pid))))))
+                         (proof-live-cache-row $parent-pid $alive)
+                         (proof-live-cache-row $parent-pid $alive)))))
+             ($alive (recomputed-proof-live? $parent-pid))
+             ($_current
+                (if $alive
+                   (cache-proof-live! $parent-pid true)
+                   (deactivate-current-proof! $parent-pid))))
             ()))))
 
-(= (invalidate-proof-dependent-step $epoch $parent-pid)
-   (invalidate-proof-dependent! $epoch $parent-pid))
+(= (invalidate-proof-dependent-step $parent-pid)
+   (invalidate-proof-dependent! $parent-pid))
 
 (: invalidate-proof-dependents!
-   (-[semidet]-> Number Number (List $none)))
-(= (invalidate-proof-dependents! $epoch $child-pid)
+   (-[semidet]-> Number (List $none)))
+(= (invalidate-proof-dependents! $child-pid)
    (foreach-flat
-      (invalidate-proof-dependent-step $epoch)
+      invalidate-proof-dependent-step
       (collapse
          (match &proof_parent ($child-pid $parent-pid)
             (stored-number $parent-pid)))))
+
+(= (deactivate-current-proof! $pid)
+   (let* (($goal-key (proof-goal-key-by-id $pid))
+          ($output-key (proof-output-key-by-id $pid))
+          ($_remove (remove-current-proof-for-goal! $goal-key $pid))
+          ($_retire
+             (once (add-atom &proof_retired ($pid))))
+          ($_cache
+             (foreach-flat
+                remove-proof-live-cache-row!
+                (collapse
+                   (match &proof_live_cache
+                      (proof-live-cache-row $pid $alive)
+                      (proof-live-cache-row $pid $alive)))))
+          ($_dirty
+             (mark-current-proof-result-dirty!
+                $goal-key $output-key))
+          ($_dependents (invalidate-proof-dependents! $pid)))
+      ()))
+
+(: deactivate-current-proofs!
+   (-[semidet]-> (| Number (List Number)) (List $none)))
+(: deactivate-current-proof-list!
+   (-[semidet]-> (List Number) (List $none)))
+(= (deactivate-current-proof-list! ()) ())
+(= (deactivate-current-proof-list! (cons $pid $rest))
+   (let $_first (deactivate-current-proof! $pid)
+      (deactivate-current-proof-list! $rest)))
+
+(= (deactivate-current-proofs! $current)
+   (if (is-expr $current)
+      (deactivate-current-proof-list!
+         (the (List Number) $current))
+      (deactivate-current-proof! (the Number $current))))
 
 (: latest-proof-id (-[semidet]-> (List Number) Number))
 (= (latest-proof-id (cons $pid $rest))
@@ -720,7 +942,6 @@
                (proof-goal-key-by-id $pid))))
       (stored-list-member? $pid $latest)))
 
-(: proof-live-compute (-[semidet]-> Number Bool))
 (= (proof-live-compute $pid)
    (let*
       (($key (proof-goal-key-by-id $pid))
@@ -805,6 +1026,10 @@
 (= (proof-statically-live? $pid)
    (not (== (collapse (once (match &proof_static_live ($pid) true))) ())))
 
+(: proof-retired? (-[det]-> Number Bool))
+(= (proof-retired? $pid)
+   (not (== (collapse (once (match &proof_retired ($pid) true))) ())))
+
 (: mark-proof-static!
    (-[det]-> Number Number ProofKind (List Number) (| Bool (List $none))))
 (= (mark-proof-static! $gid $pid $kind $children)
@@ -828,6 +1053,7 @@
 (= (proof-live? $pid)
    (let $_check
       (increment-backward-query-metric! proof-liveness-checks)
+   (if (proof-retired? $pid) false
    (if (proof-statically-live? $pid)
       (let $_hit
          (increment-backward-query-metric! proof-liveness-cache-hits)
@@ -844,19 +1070,7 @@
             (let $_hit
                (increment-backward-query-metric!
                   proof-liveness-cache-hits)
-               (car-atom $hits)))))))
-
-(: goal-live-proof-step
-   (-[semidet]-> (List Number) Number (List Number)))
-(= (goal-live-proof-step $acc $pid)
-   (let $_durable
-      (if (< $pid
-             (backward-query-metric-value durable-pid-boundary))
-         (increment-backward-query-metric! durable-proof-considerations)
-         0)
-   (if (proof-live? $pid)
-      (append-number $acc $pid)
-      $acc)))
+               (car-atom $hits))))))))
 
 (: append-number
    (-[det]-> (List Number) Number (List Number)))
@@ -870,21 +1084,23 @@
 (= (append-numbers (cons $first $rest) $right)
    (cons $first (append-numbers $rest $right)))
 
-(: goal-live-proof-ids-compute (-[semidet]-> Number (List Number)))
-(= (goal-live-proof-ids-compute $gid)
-   (proof-fold-flat-semidet
-      goal-live-proof-step () (goal-live-source-proof-ids $gid)))
+(: goal-current-proof-step
+   (-[semidet]-> (| Goal (Statement KBContext Proof TV))
+      (List Number) Number (List Number)))
+(= (goal-current-proof-step $goal $acc $pid)
+   (if (proof-output-satisfies-goal? $pid $goal)
+      (append-number $acc $pid)
+      $acc))
 
 (: goal-live-proof-ids (-[semidet]-> Number (List Number)))
 (= (goal-live-proof-ids $gid)
-   (let*
-      (($hits (collapse (once (cached-goal-live-proof-ids $gid)))))
-      (if (== $hits ())
-         (let*
-            (($pids (goal-live-proof-ids-compute $gid))
-             ($_cache (goal-live-cache-store! $gid $pids)))
-            $pids)
-         (car-atom $hits))))
+   (let* (((stored-goal-row
+              $_stored-gid $_depth $goal $_expanded $_pending)
+            (goal-by-id $gid))
+          ($key (proof-goal-key-by-goal-id $gid)))
+      (proof-fold-flat-semidet
+         (goal-current-proof-step $goal) ()
+         (current-proof-ids-for-goal-key $key))))
 
 (: proof-output-groups-add
    (-[semidet]-> (List ProofOutputGroup) Number (List ProofOutputGroup)))
@@ -940,38 +1156,6 @@
    (-[semidet]-> (List Number) (List ProofOutputGroup)))
 (= (aggregate-snapshot-groups $pids)
    (proof-fold-flat-semidet aggregate-snapshot-groups-add () $pids))
-
-(: aggregate-goal? (-[semidet]-> Number Bool))
-(= (aggregate-goal? $gid)
-   (let
-      (stored-goal-row $_stored-gid $_depth $goal $_expanded $_pending)
-      (goal-by-id $gid)
-      (case $goal (
-         ((CPU FoldAllCompiled $_arguments $_result) true)
-         ((CPU GroupedFoldAllCompiled $_arguments $_result) true)
-         ($_other false)))))
-
-(: aggregate-execution-row? (-[det]-> Number Bool))
-(= (aggregate-execution-row? $gid)
-   (not
-      (==
-         (collapse
-            (once
-               (match &aggregate
-                  (stored-aggregate-row
-                     $gid $_child $_args $_base $_pending $_current)
-                  true)))
-         ())))
-
-(: goal-live-source-proof-ids (-[semidet]-> Number (List Number)))
-(= (goal-live-source-proof-ids $gid)
-   (let $pids (goal-proof-ids $gid)
-      (if (aggregate-goal? $gid)
-         (if (aggregate-execution-row? $gid)
-            $pids
-            (latest-proof-output-group-ids
-               (aggregate-snapshot-groups $pids)))
-         $pids)))
 
 (: merge-proof-id-output-step
    (-[semidet]-> (Statement KBContext Proof TV)

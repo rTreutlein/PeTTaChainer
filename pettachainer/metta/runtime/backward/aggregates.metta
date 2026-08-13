@@ -68,10 +68,7 @@
                       (stored-aggregate-row
                          $agg-gid $child-gid $args $score 0.0
                          $durable-current)))
-                ;; Installing the transient current representative changes
-                ;; aggregate liveness from the no-row fallback. Recompute only
-                ;; the query-local liveness answers; durable proof rows remain.
-                (invalidate-proof-live-caches))
+                ())
              ())))
       $child-gid))
 
@@ -366,6 +363,15 @@
       (grouped-current-pids-without-key $rest $key)
       (cons $pid
          (grouped-current-pids-without-key $rest $key))))
+
+(: grouped-current-pids-for-key
+   (-[semidet]-> (List Number) ProofOutputKey (List Number)))
+(= (grouped-current-pids-for-key () $_key) ())
+(= (grouped-current-pids-for-key (cons $pid $rest) $key)
+   (if (=alpha (aggregate-snapshot-key-by-id $pid) $key)
+      (cons $pid (grouped-current-pids-for-key $rest $key))
+      (grouped-current-pids-for-key $rest $key)))
+
 (= (append-grouped-aggregate-current-pid! $agg-gid $pid)
    (let*
       (((stored-aggregate-row
@@ -373,20 +379,26 @@
             $base-score $pending $stored-current-pids)
           (aggregate-by-id $agg-gid))
        ($current-pids (the (List Number) $stored-current-pids))
+       ($key (aggregate-snapshot-key-by-id $pid))
+       ($replaced
+          (grouped-current-pids-for-key $current-pids $key))
        ($next-pids
           (cons $pid
              (grouped-current-pids-without-key
-                $current-pids (aggregate-snapshot-key-by-id $pid)))))
-      (progn
-         (remove-atom &aggregate
-            (stored-aggregate-row
-               $agg-gid $child-gid $args $base-score
-               $pending $current-pids))
-         (once
-            (chainer-add-atom &aggregate
-               (stored-aggregate-row
-                  $agg-gid $child-gid $args $base-score
-                  $pending $next-pids))))))
+                $current-pids $key)))
+       ($_set
+          (progn
+             (remove-atom &aggregate
+                (stored-aggregate-row
+                   $agg-gid $child-gid $args $base-score
+                   $pending $current-pids))
+             (once
+                (chainer-add-atom &aggregate
+                   (stored-aggregate-row
+                      $agg-gid $child-gid $args $base-score
+                      $pending $next-pids)))))
+       ($_deactivate (deactivate-current-proofs! $replaced)))
+      true))
 
 (: commit-grouped-aggregate-candidate-heap
    (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number Bool ProofCandidate (Heap (| QueueGoal QueueAggregate))))
@@ -398,9 +410,7 @@
                 (once
                    (store-proof-candidate $agg-gid
                       (proof-candidate $kind $score $ev $children))))
-             ($_set (append-grouped-aggregate-current-pid! $agg-gid $pid))
-             ($_cache-invalidate
-                (invalidate-proof-live-caches)))
+             ($_set (append-grouped-aggregate-current-pid! $agg-gid $pid)))
             (wake-proof-commit-heap $agenda $agg-gid $pid)))))
 
 (: run-grouped-aggregate-heap
@@ -512,8 +522,11 @@
 (: direct-goal-results-view
    (-[nondet]-> Number (| Goal (Statement KBContext Proof TV))
        (| Goal (Statement KBContext Proof TV))))
-(= (direct-goal-results-view $steps (CPU $fun $args $_res))
-   (CPU $fun $args (reduce (cpu-call $steps $fun $args))))
+(= (direct-goal-results-view $steps (CPU $fun $args $res))
+   (let $computed (reduce (cpu-call $steps $fun $args))
+      (if (= $res $computed)
+         (CPU $fun $args $computed)
+         (empty))))
 (= (direct-goal-results-view $steps ($type $kb $prf $tv))
    (match &kb
       (@ $fact ($type $kb $prf $tv))
