@@ -58,16 +58,13 @@
        ($_query-adds (if (> $depth 0) (inject-special-subgoal-query-adds $goal) ()))
        ($nagenda0
           (if (= $goal (CPU $fun $_args $_res))
-             (if (== $fun FoldAllCompiled)
+             (if (or (== $fun FoldAllCompiled)
+                     (== $fun GroupedFoldAllCompiled))
                 (once
                    (spawn-aggregate-goal-heap
                       $agenda $steps $score $gid (the Goal $goal)))
-                (if (== $fun GroupedFoldAllCompiled)
-                   (once
-                      (spawn-aggregate-goal-heap
-                         $agenda $steps $score $gid (the Goal $goal)))
-                   (expand-direct-goal-heap
-                      $agenda $steps $gid $goal)))
+                (expand-direct-goal-heap
+                   $agenda $steps $gid $goal))
              (expand-direct-goal-heap $agenda $steps $gid $goal)))
        ($nagenda (if (== $nagenda0 ()) (empty_heap) $nagenda0)))
       $nagenda))

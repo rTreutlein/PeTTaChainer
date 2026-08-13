@@ -218,24 +218,6 @@
           (the CompiledQuery $raw-compiled-query)))
       (activate-compiled-query $compiled-query)))
 
-(: aggregate-step-value
-   (-[semidet]-> ExtractValue
-       $child-atom (| TV NoTV) $value))
-(: aggregate-step-value
-   (-[semidet]-> ExtractInheritanceTV
-       $child-atom TV WeightedTV))
-(: aggregate-step-value
-   (-[det]-> ExtractTV $child-atom TV TV))
-(= (aggregate-step-value (extract-value $pattern $value) $child-atom $_child-tv)
-   (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $value))
-(= (aggregate-step-value (extract-inheritance-tv $kbid $_pattern) $child-atom $child-tv)
-   (let ((Inheritance $subj $_concept) ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom)
-      (WeightedTv
-         (inheritance-subject-prior-tv
-            $kbid
-            (brand Statement $subj))
-         $child-tv)))
-(= (aggregate-step-value extract-tv $_child-atom $child-tv) $child-tv)
 (: aggregate-step-group-value
    (-[semidet]-> Statement $group-template $child-atom $group))
 (= (aggregate-step-group-value $pattern $group $child-atom)
@@ -264,58 +246,6 @@
       (extract-tv
          ($fun $acc $child-tv)))))
 
-(: aggregate-finish (-[det]-> IdentityFinish $acc $acc))
-(: aggregate-finish
-   (-[det]-> DistAverageFinish DistributionSumCount Distribution))
-(: aggregate-finish (-[det]-> BaseRateFinish BaseRateEvidenceState TV))
-(: aggregate-finish
-   (-[det]-> WeightedBaseRateFinish BaseRateEvidenceState TV))
-(: aggregate-finish
-   (-[semidet]-> WeightedBaseRateWithPriorFinish
-       BaseRateEvidenceWithPriorState TV))
-(: aggregate-finish
-   (-[det]-> MemberInheritanceFinish BaseRateEvidenceState TV))
-(: aggregate-finish
-   (-[det]-> WeightedBaseRateInUniverseFinish BaseRateEvidenceState TV))
-(: aggregate-finish
-   (-[det]-> WeightedBaseRateWithPriorInUniverseFinish BaseRateEvidenceWithPriorState TV))
-(: aggregate-finish
-   (-[det]-> UniformPriorFinish (List $subject) TV))
-(: aggregate-finish
-   (-[det]-> UniformPriorKnownFinish (List $subject) TV))
-(= (aggregate-finish identity $acc) $acc)
-(= (aggregate-finish dist-average $acc)
-   (the Distribution
-      (once
-         (reduce (reduce (DistAverageFromSumCount $acc))))))
-(= (aggregate-finish base-rate $acc)
-   (BaseRateTv (the BaseRateEvidenceState $acc)))
-(= (aggregate-finish weighted-base-rate $acc) (WeightedBaseRateTv $acc))
-(= (aggregate-finish weighted-base-rate-with-prior $acc)
-   (WeightedBaseRateWithPriorTv $acc))
-(= (aggregate-finish (member-inheritance $kbid) $acc)
-   (member-inheritance-tv $kbid $acc))
-(= (aggregate-finish (weighted-base-rate-in-universe $kbid) $acc)
-   (let $universe-size (kb-universe-size $kbid)
-      (if (== $universe-size no-universe-size)
-         (WeightedBaseRateTv $acc)
-         (WeightedUniverseBaseRateTv
-            (the Number $universe-size) $acc))))
-(= (aggregate-finish
-      (weighted-base-rate-with-prior-in-universe $kbid)
-      (BaseRateEvidenceWithPrior $prior $ev))
-   (let $universe-size (kb-universe-size $kbid)
-      (BaseRateWithPriorFormula
-         (resolve-base-rate-prior $prior)
-         (if (== $universe-size no-universe-size)
-            (WeightedBaseRateTv $ev)
-            (WeightedUniverseBaseRateTv
-               (the Number $universe-size) $ev)))))
-(= (aggregate-finish uniform-prior $acc) (UniformPriorTv $acc))
-(= (aggregate-finish uniform-prior-known $acc) (UniformPriorKnownTv $acc))
-
-;; Compiled aggregate arguments are a dynamic wire format.  Dispatching on the
-;; finish token is the point where its corresponding accumulator type is known.
 (: distribution-sum-count-acc
    (-[det]-> $value DistributionSumCount))
 (= (distribution-sum-count-acc $acc)
@@ -339,8 +269,7 @@
 
 ;; Aggregate CPU arguments are stored as an open, user-extensible wire format:
 ;; the finish token determines both the accumulator and result types.  Keep the
-;; dispatcher itself dynamic and validate only at the selected typed boundary;
-;; `aggregate-finish` above remains the fully typed API for direct callers.
+;; dispatcher itself dynamic and validate only at the selected typed boundary.
 (: finish-aggregate
    (-[semidet]-> Expression Expression Atom))
 
@@ -388,45 +317,6 @@
       (uniform-prior-known
          (UniformPriorKnownTv (list-aggregate-acc $acc))))))
 
-;; Stored aggregate arguments cross an untyped space boundary. Reconstruct the
-;; declared finish variant by its constructor instead of rechecking the whole
-;; nested value at runtime (which would also try to recover erased KB brands).
-(: finish-stored-aggregate
-   (-[semidet]-> Expression Expression Atom))
-(= (finish-stored-aggregate $finish $acc)
-   (case $finish (
-      (identity (finish-aggregate identity $acc))
-      (dist-average
-         (finish-aggregate dist-average
-            (distribution-sum-count-acc $acc)))
-      (base-rate
-         (finish-aggregate base-rate
-            (base-rate-evidence-acc $acc)))
-      (weighted-base-rate
-         (finish-aggregate weighted-base-rate
-            (base-rate-evidence-acc $acc)))
-      (weighted-base-rate-with-prior
-         (finish-aggregate weighted-base-rate-with-prior
-            (base-rate-evidence-with-prior-acc $acc)))
-      ((member-inheritance $kbid)
-         (finish-aggregate
-            (member-inheritance $kbid)
-            (base-rate-evidence-acc $acc)))
-      ((weighted-base-rate-in-universe $kbid)
-         (finish-aggregate
-            (weighted-base-rate-in-universe $kbid)
-            (base-rate-evidence-acc $acc)))
-      ((weighted-base-rate-with-prior-in-universe $kbid)
-         (finish-aggregate
-            (weighted-base-rate-with-prior-in-universe
-               $kbid)
-            (base-rate-evidence-with-prior-acc $acc)))
-      (uniform-prior
-         (finish-aggregate uniform-prior
-            (list-aggregate-acc $acc)))
-      (uniform-prior-known
-         (finish-aggregate uniform-prior-known
-            (list-aggregate-acc $acc))))))
 ;; --- Frontier pooling of same-source projections -----------------------------
 ;; A conjunction frontier rejects a premise proof whose fact evidence overlaps
 ;; evidence already consumed (AndFormula would double count it). When the
@@ -1069,25 +959,12 @@
 
 (: frontier-parts-idx-union
    (-[det]-> (List Number) (List Number) (List Number)))
-(: frontier-append-index
-   (-[det]-> (List Number) Number (List Number)))
-(: frontier-index-member?
-   (-[det]-> Number (List Number) Bool))
-(= (frontier-index-member? $_index ()) false)
-(= (frontier-index-member? $index (cons $head $rest))
-   (if (== $index $head)
-      true
-      (frontier-index-member? $index $rest)))
-(= (frontier-append-index () $index)
-   (cons $index ()))
-(= (frontier-append-index (cons $head $rest) $index)
-   (cons $head (frontier-append-index $rest $index)))
 (= (frontier-parts-idx-union $a ()) $a)
 (= (frontier-parts-idx-union $a (cons $i $rest))
    (frontier-parts-idx-union
-      (if (frontier-index-member? $i $a)
+      (if (stored-list-member? $i $a)
          $a
-         (frontier-append-index $a $i))
+         (append-number $a $i))
       $rest))
 
 (: frontier-pool-key
@@ -1209,21 +1086,12 @@
             (if (frontier-and-step-premise? $step)
                (if (= $prem (proof-output-atom-by-id $pid))
                   (if (= (CPU AndFormula $_fargs $folded) $step)
-                     (make-and-bundle $goal $rest)
+                     (and-bundle $goal $rest)
                      ())
                   ())
                ()))
          ($_ ())))))
 
-(: make-and-bundle
-   (-[det]-> (| Goal (Statement KBContext Proof TV))
-       (List (| Goal (Statement KBContext Proof TV)))
-       AndBundle))
-(= (make-and-bundle $goal $args) (and-bundle $goal $args))
-(: present-and-bundle
-   (-[det]-> (| AndBundle (List $none)) AndBundle))
-(= (present-and-bundle (and-bundle $goal $premises))
-   (make-and-bundle $goal $premises))
 (: and-bundle-goal
    (-[det]-> AndBundle
        (| Goal (Statement KBContext Proof TV))))
@@ -1244,7 +1112,7 @@
            (() ())
            ((cons $prem $rest)
               (if (= $prem (proof-output-atom-by-id $pid))
-                 (make-and-bundle $goal $rest) ()))))))
+                 (and-bundle $goal $rest) ()))))))
 
 (: waiter-live? (-[semidet]-> FrontierWaiter Bool))
 (= (waiter-live? (frontier-waiter $_parent-gid $_bundle $_score
@@ -1309,7 +1177,7 @@
                   (if (== $next-bundle ()) $agenda
                      (let*
                         (($typed-next-bundle
-                            (present-and-bundle $next-bundle))
+                            (the AndBundle $next-bundle))
                          ($nparts (frontier-parts-add $parts $part))
                          ($next-score
                             (min-atom ($score
@@ -1374,7 +1242,7 @@
             (if (== $next-bundle ()) $agenda
                (let*
                   (($typed-next-bundle
-                      (present-and-bundle $next-bundle))
+                      (the AndBundle $next-bundle))
                    ($next-score
                       (min-atom ($score
                                  (frontier-part-score $part 0.000001)
@@ -1408,7 +1276,7 @@
    (if (proof-depends-on-cycle-keys?
          $pid $consumer-gid $cycle-keys)
       $acc
-      (frontier-append-index $acc $pid)))
+      (append-number $acc $pid)))
 
 (: proof-depends-on-cycle-keys?
    (-[semidet]-> Number Number

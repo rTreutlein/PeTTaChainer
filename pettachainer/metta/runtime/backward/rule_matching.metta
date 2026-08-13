@@ -6,10 +6,15 @@
        (| Goal (Statement KBContext Proof TV))
        Number)))
 
-(: rule-goal-full-view
+;; Preserve the complete conclusion shape during lookup. SWI's deep JIT index
+;; can then discriminate connective children (And, Or, configured compounds)
+;; and ordinary predicate arguments instead of enumerating every rule sharing
+;; only the outer head. Variables in the query or stored conclusion still
+;; unify through ccls_index, including variable-headed rules.
+(: rule-goal-view
    (-[nondet]-> (| Goal (Statement KBContext Proof TV))
       Number RuleGoalMatch))
-(= (rule-goal-full-view $goal $parent-gid)
+(= (rule-goal-view $goal $parent-gid)
    (case $goal (
       ((CPU $_fun $_args $_result)
          (empty))
@@ -88,17 +93,6 @@
 (= (contextualize-rule-args $goal (cons $premise $rest))
    (cons (contextualize-rule-premise $premise $goal)
       (contextualize-rule-args $goal $rest)))
-
-(: rule-goal-view
-   (-[nondet]-> (| Goal (Statement KBContext Proof TV))
-      Number RuleGoalMatch))
-;; Preserve the complete conclusion shape during lookup. SWI's deep JIT index
-;; can then discriminate connective children (And, Or, configured compounds)
-;; and ordinary predicate arguments instead of enumerating every rule sharing
-;; only the outer head. Variables in the query or stored conclusion still
-;; unify through ccls_index, including variable-headed rules.
-(= (rule-goal-view $goal $parent-gid)
-   (rule-goal-full-view $goal $parent-gid))
 
 (: expand-rule-goal-heap
    (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number
@@ -250,7 +244,7 @@
       (let*
          (($expected-score
              (rule-expected-score $rule-id $goal $args))
-          ($bundle (copy_term (make-and-bundle $goal $args))))
+          ($bundle (copy_term (and-bundle $goal $args))))
          (spawn-frontier-heap $agenda
             $parent-gid
             $bundle

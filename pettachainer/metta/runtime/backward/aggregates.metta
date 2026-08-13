@@ -210,7 +210,7 @@
        ($nev
           (list_to_set (append-evidence $ev $pev)))
        ($nchildren
-          (frontier-append-index $children $pid)))
+          (append-number $children $pid)))
       (aggregate-state $nacc $nev $nchildren)))
 
 ;; Cycle rejection must happen before equivalent outputs are merged.  Otherwise
@@ -256,7 +256,7 @@
           ($nev
              (list_to_set (append-evidence $ev $pev)))
           ($nchildren
-             (frontier-append-index $children $pid)))
+             (append-number $children $pid)))
          (cons (aggregate-group-state $old-group $nacc $nev $nchildren) $rest))
       (cons (aggregate-group-state $old-group $acc $ev $children)
          (aggregate-group-update $extractor $fun $init $group $child-atom $child-tv $pev $pid $rest))))
@@ -292,16 +292,7 @@
    (-[semidet]-> (KB Statement $group-template
           (| ExtractValue ExtractInheritanceTV ExtractTV) $initial
           (-[semidet]-> $accumulator $value $accumulator)
-          (| IdentityFinish
-             DistAverageFinish
-             BaseRateFinish
-             WeightedBaseRateFinish
-             WeightedBaseRateWithPriorFinish
-             MemberInheritanceFinish
-             WeightedBaseRateInUniverseFinish
-             WeightedBaseRateWithPriorInUniverseFinish
-             UniformPriorFinish
-             UniformPriorKnownFinish)
+          AggregateFinish
           AggregateTVMode)
        AggregateGroupState Goal))
 (= (grouped-aggregate-result $args (aggregate-group-state $group $acc $_ev $_children))
@@ -319,16 +310,7 @@
        (KB Statement $group-template
           (| ExtractValue ExtractInheritanceTV ExtractTV) $initial
           (-[semidet]-> $accumulator $value $accumulator)
-          (| IdentityFinish
-             DistAverageFinish
-             BaseRateFinish
-             WeightedBaseRateFinish
-             WeightedBaseRateWithPriorFinish
-             MemberInheritanceFinish
-             WeightedBaseRateInUniverseFinish
-             WeightedBaseRateWithPriorInUniverseFinish
-             UniformPriorFinish
-             UniformPriorKnownFinish)
+          AggregateFinish
           AggregateTVMode)
        (Heap (| QueueGoal QueueAggregate)) AggregateGroupState (Heap (| QueueGoal QueueAggregate))))
 (: aggregate-candidate-current-in-pids?
@@ -426,16 +408,7 @@
        (KB Statement $group-template
           (| ExtractValue ExtractInheritanceTV ExtractTV) $initial
           (-[semidet]-> $accumulator $value $accumulator)
-          (| IdentityFinish
-             DistAverageFinish
-             BaseRateFinish
-             WeightedBaseRateFinish
-             WeightedBaseRateWithPriorFinish
-             MemberInheritanceFinish
-             WeightedBaseRateInUniverseFinish
-             WeightedBaseRateWithPriorInUniverseFinish
-             UniformPriorFinish
-             UniformPriorKnownFinish)
+          AggregateFinish
           AggregateTVMode)
        (Heap (| QueueGoal QueueAggregate))))
 (= (run-grouped-aggregate-heap $agenda $agg-gid $child-gid $args)
@@ -474,16 +447,7 @@
                (KB Statement $group-template
                   (| ExtractValue ExtractInheritanceTV ExtractTV) $initial
                   (-[semidet]-> $accumulator $value $accumulator)
-                  (| IdentityFinish
-                     DistAverageFinish
-                     BaseRateFinish
-                     WeightedBaseRateFinish
-                     WeightedBaseRateWithPriorFinish
-                     MemberInheritanceFinish
-                     WeightedBaseRateInUniverseFinish
-                     WeightedBaseRateWithPriorInUniverseFinish
-                     UniformPriorFinish
-                     UniformPriorKnownFinish)
+                  AggregateFinish
                   AggregateTVMode)
                (copy_term $args)))
          (let*
@@ -494,23 +458,14 @@
                       (KB Statement
                          (| ExtractValue ExtractInheritanceTV ExtractTV) $initial
                          (-[semidet]-> $accumulator $value $accumulator)
-                         (| IdentityFinish
-                            DistAverageFinish
-                            BaseRateFinish
-                            WeightedBaseRateFinish
-                            WeightedBaseRateWithPriorFinish
-                            MemberInheritanceFinish
-                            WeightedBaseRateInUniverseFinish
-                            WeightedBaseRateWithPriorInUniverseFinish
-                            UniformPriorFinish
-                            UniformPriorKnownFinish)
+                         AggregateFinish
                          AggregateTVMode)
                       (copy_term $args))))
              (($_kb $_pattern $_extractor $_init $_fun $finish $_tv-mode)
                 $args)
              ($result
                 (CPU FoldAllCompiled $args
-                   (finish-stored-aggregate $finish $acc)))
+                   (finish-aggregate $finish $acc)))
              ($commit-ev (aggregate-commit-evidence $finish $ev)))
             (if
                (base-rate-refinement-degrades?

@@ -254,6 +254,18 @@
 (: uniform-prior UniformPriorFinish)
 (: UniformPriorKnownFinish Type)
 (: uniform-prior-known UniformPriorKnownFinish)
+(: AggregateFinish
+   (Alias
+      (| IdentityFinish
+         DistAverageFinish
+         BaseRateFinish
+         WeightedBaseRateFinish
+         WeightedBaseRateWithPriorFinish
+         MemberInheritanceFinish
+         WeightedBaseRateInUniverseFinish
+         WeightedBaseRateWithPriorInUniverseFinish
+         UniformPriorFinish
+         UniformPriorKnownFinish)))
 
 (: ConceptPriorConfidence Type)
 (: concept-prior-confidence
