@@ -135,7 +135,7 @@
 
     .graph {
       position: relative;
-      min-height: 500px;
+      min-height: 720px;
       overflow: hidden;
       border: 1px solid #293545;
       border-radius: 12px;
@@ -166,22 +166,31 @@
     .node.changed { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(88, 213, 232, 0.12); transform: translateY(-2px); }
     .node.dirty { border-style: dashed; border-color: var(--amber); }
     .node.root { border-color: rgba(194, 157, 240, 0.7); }
+    .node.producer { width: 105px; min-height: 78px; padding: 8px 9px; }
+    .node.producer.undiscovered { opacity: 0.16; border-style: dashed; }
+    .node.producer .node-title { font-size: 14px; }
+    .node.producer .node-conf { margin: 4px 0; font-size: 17px; }
+    .node.producer .node-meta { font-size: 9px; }
     .node-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 18px; font-weight: 850; }
     .node-conf { margin: 6px 0 4px; color: var(--green); font: 800 24px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
     .node.empty .node-conf { color: #617184; }
     .node-meta { color: var(--muted); font-size: 11px; }
-    .sources { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
-    .source { padding: 1px 5px; border: 1px solid #3a4a5d; border-radius: 999px; color: #788a9d; font-size: 9px; }
-    .source.found { border-color: rgba(98, 212, 155, 0.45); color: var(--green); background: rgba(98, 212, 155, 0.08); }
     .badge { padding: 2px 6px; border-radius: 999px; background: rgba(242, 198, 109, 0.14); color: var(--amber); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
     .badge.expanded { background: rgba(98, 212, 155, 0.12); color: var(--green); }
 
-    .node-a { left: 5%; top: 7%; }
-    .node-c { left: 5%; top: 37%; }
-    .node-d { left: 5%; top: 69%; }
-    .node-b { left: 40%; top: 27%; }
-    .node-e { left: 40%; top: 68%; }
-    .node-goal { right: 5%; top: 42%; }
+    .node-a1 { left: 2%; top: 3%; }
+    .node-a2 { left: 2%; top: 14%; }
+    .node-a3 { left: 2%; top: 25%; }
+    .node-a { left: 22%; top: 14%; }
+    .node-c1 { left: 2%; top: 40%; }
+    .node-c2 { left: 2%; top: 51%; }
+    .node-c { left: 22%; top: 45%; }
+    .node-d1 { left: 2%; top: 67%; }
+    .node-d { left: 22%; top: 66%; }
+    .node-b { left: 49%; top: 34%; }
+    .node-e1 { left: 22%; top: 84%; }
+    .node-e { left: 49%; top: 78%; }
+    .node-goal { right: 3%; top: 52%; }
 
     .legend {
       display: flex;
@@ -291,14 +300,22 @@
       header { align-items: start; flex-direction: column; }
       .buttons { width: 100%; margin-left: 0; }
       .buttons button { flex: 1; }
-      .graph { min-height: 660px; }
+      .graph { min-height: 1080px; }
       .node { width: 132px; }
-      .node-a { left: 3%; top: 3%; }
-      .node-c { left: 3%; top: 23%; }
-      .node-d { left: 3%; top: 43%; }
-      .node-b { left: 53%; top: 18%; }
-      .node-e { left: 3%; top: 67%; }
-      .node-goal { right: 3%; top: 61%; }
+      .node.producer { width: 104px; }
+      .node-a1 { left: 2%; top: 2%; }
+      .node-a2 { left: 2%; top: 10%; }
+      .node-a3 { left: 2%; top: 18%; }
+      .node-a { left: 53%; top: 10%; }
+      .node-c1 { left: 2%; top: 29%; }
+      .node-c2 { left: 2%; top: 37%; }
+      .node-c { left: 53%; top: 33%; }
+      .node-d1 { left: 2%; top: 49%; }
+      .node-d { left: 53%; top: 49%; }
+      .node-b { left: 53%; top: 63%; }
+      .node-e1 { left: 2%; top: 76%; }
+      .node-e { left: 53%; top: 76%; }
+      .node-goal { right: 3%; top: 88%; }
       .edges { display: none; }
       .stats { grid-template-columns: repeat(2, 1fr); }
       .event { grid-template-columns: 34px 72px 1fr; }
@@ -346,20 +363,34 @@
           <span class="hint">Dashed nodes have a queued recomputation</span>
         </div>
         <div class="graph" id="graph">
-          <svg class="edges" viewBox="0 0 900 500" preserveAspectRatio="none" aria-hidden="true">
+          <svg class="edges" viewBox="0 0 900 720" preserveAspectRatio="none" aria-hidden="true">
             <defs>
               <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                 <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"></path>
               </marker>
             </defs>
-            <path class="edge" data-rule="rAC" d="M 190 82 C 300 82, 300 180, 390 190"></path>
-            <path class="edge" data-rule="rAC" d="M 190 235 C 300 235, 305 205, 390 200"></path>
-            <path class="edge" data-rule="rD" d="M 190 395 C 315 395, 315 235, 390 215"></path>
-            <path class="edge" data-rule="rGoal" d="M 545 205 C 650 205, 660 260, 730 270"></path>
-            <path class="edge" data-rule="rGoal" d="M 545 405 C 660 405, 670 305, 730 290"></path>
-            <text class="edge-label" data-rule="rAC" x="270" y="140">A ∧ C → B</text>
-            <text class="edge-label" data-rule="rD" x="265" y="344">D → B</text>
-            <text class="edge-label" data-rule="rGoal" x="620" y="350">B ∧ E → Goal</text>
+            <path class="edge" data-rule="rA1" d="M 115 54 C 155 54, 158 132, 196 142"></path>
+            <path class="edge" data-rule="rA2" d="M 115 132 L 196 150"></path>
+            <path class="edge" data-rule="rA3" d="M 115 210 C 155 210, 160 168, 196 160"></path>
+            <path class="edge" data-rule="rC1" d="M 115 318 C 155 318, 160 346, 196 350"></path>
+            <path class="edge" data-rule="rC2" d="M 115 397 C 155 397, 160 370, 196 360"></path>
+            <path class="edge" data-rule="rD1" d="M 115 512 L 196 512"></path>
+            <path class="edge" data-rule="rE1" d="M 350 642 C 392 642, 400 593, 438 588"></path>
+            <path class="edge" data-rule="rAC" d="M 350 150 C 415 150, 412 267, 438 278"></path>
+            <path class="edge" data-rule="rAC" d="M 350 360 C 410 360, 415 300, 438 290"></path>
+            <path class="edge" data-rule="rD" d="M 350 512 C 425 512, 418 322, 438 302"></path>
+            <path class="edge" data-rule="rGoal" d="M 592 290 C 665 290, 672 386, 720 390"></path>
+            <path class="edge" data-rule="rGoal" d="M 592 588 C 675 588, 676 422, 720 410"></path>
+            <text class="edge-label" data-rule="rA1" x="130" y="78">×0.98</text>
+            <text class="edge-label" data-rule="rA2" x="132" y="127">×0.96</text>
+            <text class="edge-label" data-rule="rA3" x="130" y="202">×0.30</text>
+            <text class="edge-label" data-rule="rC1" x="132" y="327">×0.97</text>
+            <text class="edge-label" data-rule="rC2" x="132" y="397">×0.85</text>
+            <text class="edge-label" data-rule="rD1" x="132" y="505">×0.90</text>
+            <text class="edge-label" data-rule="rE1" x="376" y="632">×0.95</text>
+            <text class="edge-label" data-rule="rAC" x="375" y="223">A ∧ C → B</text>
+            <text class="edge-label" data-rule="rD" x="380" y="457">D → B</text>
+            <text class="edge-label" data-rule="rGoal" x="626" y="482">B ∧ E → Goal</text>
           </svg>
           <div id="node-A" class="node node-a"></div>
           <div id="node-C" class="node node-c"></div>
@@ -367,6 +398,13 @@
           <div id="node-B" class="node node-b"></div>
           <div id="node-E" class="node node-e"></div>
           <div id="node-Goal" class="node node-goal root"></div>
+          <div id="node-A1" class="node producer node-a1"></div>
+          <div id="node-A2" class="node producer node-a2"></div>
+          <div id="node-A3" class="node producer node-a3"></div>
+          <div id="node-C1" class="node producer node-c1"></div>
+          <div id="node-C2" class="node producer node-c2"></div>
+          <div id="node-D1" class="node producer node-d1"></div>
+          <div id="node-E1" class="node producer node-e1"></div>
         </div>
         <div class="legend">
           <span class="changed-key">changed this step</span>
@@ -389,7 +427,7 @@
           <span class="hint">The highlighted row runs next</span>
         </div>
         <div class="priority-guide">
-          <strong>Every score is additive.</strong> Root demand is <code>1.0</code> throughout this single-root example. Expansion prefers unresolved goals; a leaf goal also carries its estimated representative improvement; refresh uses the predicted improvement of the goal's merged representative. Settle mode subtracts an explicit waiting penalty for valuable unfinished sibling producers. Age slowly prevents starvation.
+          <strong>Every score is additive.</strong> Root demand is <code>1.0</code>. Before a producer goal is popped, its proof confidence is unknown, so its headroom signal is <code>rule confidence × (1 − current-or-pending parent confidence)</code>. Refresh priority uses the predicted improvement of the merged representative. Settle mode subtracts an explicit waiting penalty for valuable unfinished sibling producers. Age slowly prevents starvation.
         </div>
         <div class="stats">
           <div class="stat"><div class="stat-value" id="stepCount">0</div><div class="stat-label">Steps</div></div>
@@ -431,26 +469,26 @@
       rAC: { id: "rAC", label: "A ∧ C → B", inputs: ["A", "C"], output: "B", strength: 0.92, depth: 1 },
       rD: { id: "rD", label: "D → B", inputs: ["D"], output: "B", strength: 0.78, depth: 1 },
       rGoal: { id: "rGoal", label: "B ∧ E → Goal", inputs: ["B", "E"], output: "Goal", strength: 0.95, depth: 0 },
-      rA1: { id: "rA1", label: "A1 → A", inputs: ["A1"], output: "A", strength: 1, depth: 2 },
-      rA2: { id: "rA2", label: "A2 → A", inputs: ["A2"], output: "A", strength: 1, depth: 2 },
-      rA3: { id: "rA3", label: "A3 → A", inputs: ["A3"], output: "A", strength: 1, depth: 2, dominatedWhen: 0.80 },
-      rC1: { id: "rC1", label: "C1 → C", inputs: ["C1"], output: "C", strength: 1, depth: 2 },
-      rC2: { id: "rC2", label: "C2 → C", inputs: ["C2"], output: "C", strength: 1, depth: 2 },
-      rD1: { id: "rD1", label: "D1 → D", inputs: ["D1"], output: "D", strength: 1, depth: 2 },
-      rE1: { id: "rE1", label: "E1 → E", inputs: ["E1"], output: "E", strength: 1, depth: 1 }
+      rA1: { id: "rA1", label: "A1 → A", inputs: ["A1"], output: "A", strength: 0.98, depth: 2 },
+      rA2: { id: "rA2", label: "A2 → A", inputs: ["A2"], output: "A", strength: 0.96, depth: 2 },
+      rA3: { id: "rA3", label: "A3 → A", inputs: ["A3"], output: "A", strength: 0.30, depth: 2, dominatedWhen: 0.78 },
+      rC1: { id: "rC1", label: "C1 → C", inputs: ["C1"], output: "C", strength: 0.97, depth: 2 },
+      rC2: { id: "rC2", label: "C2 → C", inputs: ["C2"], output: "C", strength: 0.85, depth: 2 },
+      rD1: { id: "rD1", label: "D1 → D", inputs: ["D1"], output: "D", strength: 0.90, depth: 2 },
+      rE1: { id: "rE1", label: "E1 → E", inputs: ["E1"], output: "E", strength: 0.95, depth: 1 }
     };
     const goalDepth = {
       Goal: 0, B: 1, E: 1, A: 2, C: 2, D: 2,
       A1: 3, A2: 3, A3: 3, C1: 3, C2: 3, D1: 3, E1: 2
     };
     const concreteFacts = {
-      A1: { confidence: 0.52, potential: 0.52 },
-      A2: { confidence: 0.62, potential: 0.30 },
-      A3: { confidence: 0.28, potential: 0.04 },
-      C1: { confidence: 0.66, potential: 0.55 },
-      C2: { confidence: 0.58, potential: 0.22 },
-      D1: { confidence: 0.74, potential: 0.28 },
-      E1: { confidence: 0.86, potential: 0.75 }
+      A1: { confidence: 0.52 },
+      A2: { confidence: 0.62 },
+      A3: { confidence: 0.28 },
+      C1: { confidence: 0.66 },
+      C2: { confidence: 0.58 },
+      D1: { confidence: 0.74 },
+      E1: { confidence: 0.86 }
     };
     const consumers = {};
     Object.values(rules).forEach(rule => {
@@ -550,6 +588,18 @@
       return found;
     }
 
+    function producerRuleFor(goal) {
+      return Object.values(rules).find(rule => rule.inputs.length === 1 && rule.inputs[0] === goal && concreteFacts[goal]);
+    }
+
+    function producerPotential(goal) {
+      const rule = producerRuleFor(goal);
+      if (!rule) return 0;
+      const parentConfidence = predictedRepresentative(rule.output);
+      if (rule.dominatedWhen && parentConfidence >= rule.dominatedWhen) return 0;
+      return mergeConfidence([parentConfidence, rule.strength]) - parentConfidence;
+    }
+
     function blockersFor(task) {
       if (task.type !== "refresh" || policy.value !== "settle") return [];
       const relevant = ancestorsOf([task.goal]);
@@ -558,7 +608,7 @@
         if (candidate === task) return false;
         if (candidate.type === "expand") {
           const fact = concreteFacts[candidate.goal];
-          return relevant.has(candidate.goal) && (!fact || fact.potential >= minimum);
+          return relevant.has(candidate.goal) && (!fact || producerPotential(candidate.goal) >= minimum);
         }
         return relevant.has(candidate.goal);
       });
@@ -580,11 +630,12 @@
       const age = Math.min(counters.steps - task.createdAt, 20);
       if (task.type === "expand") {
         const fact = concreteFacts[task.goal];
+        const potential = fact ? producerPotential(task.goal) : 0;
         return [
           ["base", 80],
           ["demand", 20],
           ["missing", nodeState[task.goal].confidence === 0 ? 25 : 0],
-          ["potential", fact ? fact.potential * 40 : 0],
+          ["headroom", potential * 40],
           ["depth", -goalDepth[task.goal] * 6],
           ["age", age * 0.3]
         ];
@@ -617,8 +668,10 @@
     function taskReason(task) {
       if (task.type === "expand") {
         const fact = concreteFacts[task.goal];
+        const rule = fact ? producerRuleFor(task.goal) : null;
+        const potential = fact ? producerPotential(task.goal) : 0;
         return fact
-          ? `Pop ${task.goal}; its indexed concrete fact is returned synchronously with estimated value ${fact.potential.toFixed(2)}.`
+          ? `Pop ${task.goal}; before seeing its fact, ${rule.label} can add at most ${potential.toFixed(2)} given ${rule.output}'s current and pending confidence.`
           : `Expand ${task.goal} backward to discover its producer rules and premise goals.`;
       }
       const blockers = blockersFor(task);
@@ -730,34 +783,26 @@
     }
 
     function renderNodes() {
-      visibleNodeOrder.forEach(name => {
+      nodeOrder.forEach(name => {
         const node = nodeState[name];
         const element = document.querySelector(`#node-${name}`);
+        const producerRule = concreteFacts[name] ? producerRuleFor(name) : null;
         element.classList.toggle("empty", node.confidence === 0);
         element.classList.toggle("changed", changedNodes.has(name));
         element.classList.toggle("dirty", node.dirtyRules.size > 0);
+        element.classList.toggle("undiscovered", Boolean(producerRule && !discoveredRules.has(producerRule.id)));
         const candidateLabel = node.candidates.size === 1 ? "candidate" : "candidates";
         const badges = [
           node.expanded ? '<span class="badge expanded">expanded</span>' : "",
           node.dirtyRules.size ? '<span class="badge">dirty</span>' : ""
         ].join("");
-        const producers = Object.values(rules).filter(rule =>
-          rule.output === name &&
-          rule.inputs.length === 1 &&
-          concreteFacts[rule.inputs[0]] &&
-          discoveredRules.has(rule.id)
-        );
-        const sources = producers.length
-          ? `<div class="sources">${producers.map(rule => {
-              const source = rule.inputs[0];
-              return `<span class="source ${nodeState[source].confidence > 0 ? "found" : ""}">${source}${nodeState[source].confidence > 0 ? " ✓" : ""}</span>`;
-            }).join("")}</div>`
-          : "";
+        const meta = producerRule
+          ? `rule cap ${producerRule.strength.toFixed(2)} · headroom ≤${producerPotential(name).toFixed(2)}`
+          : `revision ${node.revision} · ${node.candidates.size} ${candidateLabel}`;
         element.innerHTML = `
           <div class="node-title"><span>${name}</span><span>${badges}</span></div>
           <div class="node-conf">${formatConfidence(node.confidence)}</div>
-          <div class="node-meta">revision ${node.revision} · ${node.candidates.size} ${candidateLabel}</div>
-          ${sources}
+          <div class="node-meta">${meta}</div>
         `;
       });
       document.querySelectorAll(".edge, .edge-label").forEach(edge => {
