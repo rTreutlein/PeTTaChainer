@@ -788,7 +788,7 @@
             $rest))))
 
 (: update-goal-demand-cache-for-waiter!
-   (-[semidet]-> Number Number
+   (-[semidet]-> Number Number (List RootDemand)
        (| FrontierWaiter AggregateWaiter Atom) (List $none)))
 (: first-goal-demand-dependencies-or-empty
    (-[det]-> (List (List GoalDemandDependency))
@@ -799,10 +799,9 @@
    $dependencies)
 
 (= (update-goal-demand-cache-for-waiter!
-      $child-gid $parent-gid $waiter)
+      $child-gid $parent-gid $current-demands $waiter)
    (let*
-      (($current-demands (goal-root-demands $child-gid))
-       ((stored-goal-row
+      (((stored-goal-row
             $_gid $child-depth $_goal $_expanded $_pending)
           (goal-by-id $child-gid))
        ($hits
@@ -850,7 +849,7 @@
    (-[semidet]-> Number Number
        (| FrontierWaiter AggregateWaiter Atom) (List $none)))
 (= (register-goal-waiter! $child-gid $parent-gid $waiter)
-   (let* (($_current
+   (let* (($current-demands
               (goal-root-demands $child-gid))
            ($_wait
               (once
@@ -862,7 +861,7 @@
                     ($parent-gid $child-gid))))
            ($_update
               (update-goal-demand-cache-for-waiter!
-                 $child-gid $parent-gid $waiter)))
+                 $child-gid $parent-gid $current-demands $waiter)))
       ()))
 
 (: goal-demand-child-gids (-[det]-> Number (List Number)))
