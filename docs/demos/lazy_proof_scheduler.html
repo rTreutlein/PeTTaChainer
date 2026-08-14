@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lazy proof scheduler</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0d1117;
+      --panel: #151b23;
+      --panel-2: #1b2430;
+      --line: #344253;
+      --text: #e6edf3;
+      --muted: #91a0af;
+      --cyan: #58d5e8;
+      --blue: #74a7ff;
+      --green: #62d49b;
+      --amber: #f2c66d;
+      --red: #ff7b72;
+      --purple: #c29df0;
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 15% 0%, rgba(88, 213, 232, 0.11), transparent 31rem),
+        radial-gradient(circle at 90% 12%, rgba(194, 157, 240, 0.09), transparent 28rem),
+        var(--bg);
+      color: var(--text);
+      font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button, select, input { font: inherit; }
+
+    .shell {
+      width: min(1500px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 48px;
+    }
+
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 20px;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 6px; font-size: clamp(26px, 4vw, 42px); letter-spacing: -0.04em; }
+    h2 { margin-bottom: 14px; font-size: 16px; letter-spacing: 0.02em; }
+    .lede { max-width: 780px; margin-bottom: 0; color: var(--muted); }
+    .query-pill {
+      flex: 0 0 auto;
+      padding: 10px 14px;
+      border: 1px solid rgba(88, 213, 232, 0.35);
+      border-radius: 999px;
+      background: rgba(88, 213, 232, 0.08);
+      color: var(--cyan);
+      font-weight: 700;
+    }
+
+    .toolbar, .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(21, 27, 35, 0.94);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: end;
+      gap: 12px 18px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+
+    .control { display: grid; gap: 5px; }
+    .control label { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; }
+    .control select {
+      min-width: 230px;
+      padding: 9px 34px 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-2);
+      color: var(--text);
+    }
+
+    .threshold { min-width: 260px; }
+    .threshold-row { display: flex; align-items: center; gap: 10px; }
+    .threshold input { width: 190px; accent-color: var(--cyan); }
+    #thresholdValue { min-width: 42px; color: var(--cyan); font-variant-numeric: tabular-nums; }
+
+    .buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+    button {
+      padding: 9px 13px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-2);
+      color: var(--text);
+      cursor: pointer;
+      transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+    }
+    button:hover { transform: translateY(-1px); border-color: #58708a; }
+    button.primary { border-color: rgba(88, 213, 232, 0.6); background: rgba(88, 213, 232, 0.14); color: var(--cyan); font-weight: 800; }
+    button:disabled { cursor: default; opacity: 0.45; transform: none; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.22fr) minmax(420px, 0.78fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .panel { padding: 16px; overflow: hidden; }
+    .graph-panel { grid-column: 1; }
+    .queue-panel { grid-column: 2; grid-row: 1 / span 2; }
+    .log-panel { grid-column: 1; }
+
+    .panel-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: baseline;
+      margin-bottom: 12px;
+    }
+    .panel-heading h2 { margin: 0; }
+    .hint, .small { color: var(--muted); font-size: 12px; }
+
+    .graph {
+      position: relative;
+      min-height: 500px;
+      overflow: hidden;
+      border: 1px solid #293545;
+      border-radius: 12px;
+      background:
+        linear-gradient(rgba(116, 167, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(116, 167, 255, 0.035) 1px, transparent 1px),
+        #101720;
+      background-size: 24px 24px;
+    }
+
+    .edges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .edge { stroke: #43546a; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+    .edge.active { stroke: var(--cyan); stroke-width: 3; filter: drop-shadow(0 0 4px rgba(88, 213, 232, 0.55)); }
+    .edge-label { fill: #8091a4; font-size: 12px; font-weight: 700; }
+
+    .node {
+      position: absolute;
+      width: 154px;
+      min-height: 105px;
+      padding: 11px 12px;
+      border: 1px solid #3d4c5e;
+      border-radius: 12px;
+      background: rgba(27, 36, 48, 0.97);
+      transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+    }
+    .node.changed { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(88, 213, 232, 0.12); transform: translateY(-2px); }
+    .node.dirty { border-style: dashed; border-color: var(--amber); }
+    .node.root { border-color: rgba(194, 157, 240, 0.7); }
+    .node-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 18px; font-weight: 850; }
+    .node-conf { margin: 6px 0 4px; color: var(--green); font: 800 24px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .node.empty .node-conf { color: #617184; }
+    .node-meta { color: var(--muted); font-size: 11px; }
+    .badge { padding: 2px 6px; border-radius: 999px; background: rgba(242, 198, 109, 0.14); color: var(--amber); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+    .node-a { left: 5%; top: 7%; }
+    .node-c { left: 5%; top: 37%; }
+    .node-d { left: 5%; top: 69%; }
+    .node-b { left: 40%; top: 27%; }
+    .node-e { left: 40%; top: 68%; }
+    .node-goal { right: 5%; top: 42%; }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .legend span::before { content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; background: var(--line); }
+    .legend .changed-key::before { background: var(--cyan); }
+    .legend .dirty-key::before { background: var(--amber); }
+    .legend .root-key::before { background: var(--purple); }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(90px, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .stat { padding: 9px; border-radius: 9px; background: #101720; border: 1px solid #293545; }
+    .stat-value { font: 800 18px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--blue); }
+    .stat-label { margin-top: 4px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+    .queue-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { padding: 8px 7px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 10px; text-align: left; text-transform: uppercase; letter-spacing: 0.07em; }
+    td { padding: 10px 7px; border-bottom: 1px solid #26313e; vertical-align: top; }
+    tbody tr:first-child { background: rgba(88, 213, 232, 0.07); }
+    tbody tr:first-child td:first-child { box-shadow: inset 3px 0 var(--cyan); }
+    .score { color: var(--cyan); font: 800 14px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .kind { color: var(--purple); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .work { font-weight: 700; }
+    .why { max-width: 290px; color: var(--muted); font-size: 11px; }
+    .blocked { color: var(--amber); }
+    .empty-state { padding: 30px 10px; color: var(--muted); text-align: center; }
+
+    .event-log {
+      display: grid;
+      gap: 7px;
+      max-height: 245px;
+      overflow-y: auto;
+      padding-right: 5px;
+    }
+    .event {
+      display: grid;
+      grid-template-columns: 42px 92px 1fr;
+      gap: 8px;
+      align-items: baseline;
+      padding: 8px 10px;
+      border: 1px solid #293545;
+      border-radius: 8px;
+      background: #101720;
+      font-size: 12px;
+    }
+    .event-step { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .event-type { color: var(--purple); font-weight: 800; text-transform: uppercase; }
+    .event-detail strong { color: var(--cyan); }
+
+    .explanation {
+      margin-top: 16px;
+      padding: 13px 14px;
+      border-left: 3px solid var(--cyan);
+      border-radius: 0 9px 9px 0;
+      background: rgba(88, 213, 232, 0.06);
+      color: #b8c7d6;
+      font-size: 13px;
+    }
+
+    @media (max-width: 1050px) {
+      .layout { grid-template-columns: 1fr; }
+      .graph-panel, .queue-panel, .log-panel { grid-column: 1; grid-row: auto; }
+      .queue-panel { order: 2; }
+    }
+
+    @media (max-width: 680px) {
+      .shell { width: min(100% - 18px, 1500px); padding-top: 16px; }
+      header { align-items: start; flex-direction: column; }
+      .buttons { width: 100%; margin-left: 0; }
+      .buttons button { flex: 1; }
+      .graph { min-height: 660px; }
+      .node { width: 132px; }
+      .node-a { left: 3%; top: 3%; }
+      .node-c { left: 3%; top: 23%; }
+      .node-d { left: 3%; top: 43%; }
+      .node-b { left: 53%; top: 18%; }
+      .node-e { left: 3%; top: 67%; }
+      .node-goal { right: 3%; top: 61%; }
+      .edges { display: none; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .event { grid-template-columns: 34px 72px 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <h1>Lazy proof scheduler</h1>
+        <p class="lede">Step through evidence discovery, representative merging, dirty-rule coalescing, and propagation. Switch policy at any time to see why computing an intermediate result too early can create repeated downstream work. Confidence arithmetic is deliberately illustrative; the demo is about scheduling.</p>
+      </div>
+      <div class="query-pill">Query: Goal</div>
+    </header>
+
+    <section class="toolbar" aria-label="Simulation controls">
+      <div class="control">
+        <label for="policy">Scheduling policy</label>
+        <select id="policy">
+          <option value="settle">Settle valuable inputs</option>
+          <option value="eager">Eager propagation</option>
+        </select>
+      </div>
+      <div class="control threshold" id="thresholdControl">
+        <label for="threshold">Evidence value that may delay propagation</label>
+        <div class="threshold-row">
+          <input id="threshold" type="range" min="0" max="0.30" value="0.08" step="0.01">
+          <output id="thresholdValue" for="threshold">0.08</output>
+        </div>
+      </div>
+      <div class="buttons">
+        <button id="reset">Reset</button>
+        <button id="auto">Autoplay</button>
+        <button class="primary" id="step">Step once</button>
+      </div>
+    </section>
+
+    <div class="layout">
+      <section class="panel graph-panel">
+        <div class="panel-heading">
+          <h2>Current proof graph</h2>
+          <span class="hint">Dashed nodes have a queued recomputation</span>
+        </div>
+        <div class="graph" id="graph">
+          <svg class="edges" viewBox="0 0 900 500" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"></path>
+              </marker>
+            </defs>
+            <path class="edge" data-rule="rAC" d="M 190 82 C 300 82, 300 180, 390 190"></path>
+            <path class="edge" data-rule="rAC" d="M 190 235 C 300 235, 305 205, 390 200"></path>
+            <path class="edge" data-rule="rD" d="M 190 395 C 315 395, 315 235, 390 215"></path>
+            <path class="edge" data-rule="rGoal" d="M 545 205 C 650 205, 660 260, 730 270"></path>
+            <path class="edge" data-rule="rGoal" d="M 545 405 C 660 405, 670 305, 730 290"></path>
+            <text class="edge-label" x="270" y="140">A ∧ C → B</text>
+            <text class="edge-label" x="265" y="344">D → B</text>
+            <text class="edge-label" x="620" y="350">B ∧ E → Goal</text>
+          </svg>
+          <div id="node-A" class="node node-a"></div>
+          <div id="node-C" class="node node-c"></div>
+          <div id="node-D" class="node node-d"></div>
+          <div id="node-B" class="node node-b"></div>
+          <div id="node-E" class="node node-e"></div>
+          <div id="node-Goal" class="node node-goal root"></div>
+        </div>
+        <div class="legend">
+          <span class="changed-key">changed this step</span>
+          <span class="dirty-key">dirty and queued</span>
+          <span class="root-key">query root</span>
+        </div>
+        <div class="explanation" id="explanation"></div>
+      </section>
+
+      <section class="panel queue-panel">
+        <div class="panel-heading">
+          <h2>Priority queue</h2>
+          <span class="hint">The highlighted row runs next</span>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="stat-value" id="stepCount">0</div><div class="stat-label">Steps</div></div>
+          <div class="stat"><div class="stat-value" id="searchCount">0</div><div class="stat-label">Evidence</div></div>
+          <div class="stat"><div class="stat-value" id="recomputeCount">0</div><div class="stat-label">Rule runs</div></div>
+          <div class="stat"><div class="stat-value" id="coalescedCount">0</div><div class="stat-label">Coalesced</div></div>
+          <div class="stat"><div class="stat-value" id="supersededCount">0</div><div class="stat-label">Replaced</div></div>
+        </div>
+        <div class="queue-wrap">
+          <table>
+            <thead>
+              <tr><th>Priority</th><th>Kind</th><th>Work</th><th>Why now or later?</th></tr>
+            </thead>
+            <tbody id="queueBody"></tbody>
+          </table>
+          <div class="empty-state" id="queueEmpty" hidden>No work remains. Reset or switch policy to run again.</div>
+        </div>
+      </section>
+
+      <section class="panel log-panel">
+        <div class="panel-heading">
+          <h2>Execution trace</h2>
+          <span class="hint">Newest event first</span>
+        </div>
+        <div class="event-log" id="eventLog"></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    "use strict";
+
+    const nodeOrder = ["A", "C", "D", "B", "E", "Goal"];
+    const nodeState = {};
+    const rules = {
+      rAC: { id: "rAC", label: "A ∧ C → B", inputs: ["A", "C"], output: "B", strength: 0.92, depth: 1 },
+      rD: { id: "rD", label: "D → B", inputs: ["D"], output: "B", strength: 0.78, depth: 1 },
+      rGoal: { id: "rGoal", label: "B ∧ E → Goal", inputs: ["B", "E"], output: "Goal", strength: 0.95, depth: 0 }
+    };
+    const evidencePlan = [
+      { id: "A1", output: "A", confidence: 0.52, potential: 0.52, priority: 98 },
+      { id: "C1", output: "C", confidence: 0.66, potential: 0.55, priority: 96 },
+      { id: "E1", output: "E", confidence: 0.86, potential: 0.75, priority: 91 },
+      { id: "A2", output: "A", confidence: 0.62, potential: 0.30, priority: 88 },
+      { id: "C2", output: "C", confidence: 0.58, potential: 0.22, priority: 84 },
+      { id: "D1", output: "D", confidence: 0.74, potential: 0.28, priority: 76 },
+      { id: "A3", output: "A", confidence: 0.28, potential: 0.04, priority: 55 }
+    ];
+    const consumers = {};
+    Object.values(rules).forEach(rule => {
+      rule.inputs.forEach(input => (consumers[input] ??= []).push(rule.id));
+    });
+
+    let queue = [];
+    let events = [];
+    let counters = {};
+    let timer = null;
+    let changedNodes = new Set();
+    let activeRule = null;
+
+    const policy = document.querySelector("#policy");
+    const threshold = document.querySelector("#threshold");
+    const thresholdValue = document.querySelector("#thresholdValue");
+    const thresholdControl = document.querySelector("#thresholdControl");
+    const stepButton = document.querySelector("#step");
+    const autoButton = document.querySelector("#auto");
+
+    function blankNode(name) {
+      return { name, confidence: 0, revision: 0, candidates: new Map(), dirtyRules: new Set() };
+    }
+
+    function reset() {
+      stopAutoplay();
+      nodeOrder.forEach(name => { nodeState[name] = blankNode(name); });
+      queue = evidencePlan.map((item, index) => ({ ...item, type: "evidence", age: index, createdAt: 0 }));
+      events = [];
+      counters = { steps: 0, searches: 0, recomputes: 0, coalesced: 0, superseded: 0 };
+      changedNodes = new Set();
+      activeRule = null;
+      addEvent("ready", "The queue contains seven simulated evidence discoveries. Step through them or compare policies.");
+      render();
+    }
+
+    function mergeConfidence(values) {
+      return values.length === 0 ? 0 : 1 - values.reduce((remaining, value) => remaining * (1 - value), 1);
+    }
+
+    function updateRepresentative(name, candidateId, confidence) {
+      const node = nodeState[name];
+      const previous = node.confidence;
+      const previousCandidate = node.candidates.get(candidateId);
+      node.candidates.set(candidateId, confidence);
+      node.confidence = mergeConfidence([...node.candidates.values()]);
+      if (previousCandidate !== undefined && Math.abs(previousCandidate - confidence) > 1e-9) counters.superseded += 1;
+      if (Math.abs(previous - node.confidence) <= 1e-9) return false;
+      node.revision += 1;
+      changedNodes.add(name);
+      (consumers[name] || []).forEach(markRuleDirty);
+      return true;
+    }
+
+    function ruleReady(rule) {
+      return rule.inputs.every(input => nodeState[input].confidence > 0);
+    }
+
+    function markRuleDirty(ruleId) {
+      const rule = rules[ruleId];
+      if (!ruleReady(rule)) return;
+      const existing = queue.find(item => item.type === "rule" && item.ruleId === ruleId);
+      nodeState[rule.output].dirtyRules.add(ruleId);
+      if (existing) {
+        existing.targetRevisions = rule.inputs.map(input => nodeState[input].revision);
+        counters.coalesced += 1;
+        return;
+      }
+      queue.push({
+        id: `run-${ruleId}`,
+        type: "rule",
+        ruleId,
+        age: evidencePlan.length + counters.steps,
+        createdAt: counters.steps,
+        targetRevisions: rule.inputs.map(input => nodeState[input].revision)
+      });
+    }
+
+    function ancestorsOf(names) {
+      const found = new Set(names);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        Object.values(rules).forEach(rule => {
+          if (found.has(rule.output)) {
+            rule.inputs.forEach(input => {
+              if (!found.has(input)) {
+                found.add(input);
+                changed = true;
+              }
+            });
+          }
+        });
+      }
+      return found;
+    }
+
+    function blockersFor(task) {
+      if (task.type !== "rule" || policy.value !== "settle") return [];
+      const relevant = ancestorsOf(rules[task.ruleId].inputs);
+      const minimum = Number(threshold.value);
+      return queue.filter(candidate => {
+        if (candidate === task) return false;
+        if (candidate.type === "evidence") {
+          return relevant.has(candidate.output) && candidate.potential >= minimum;
+        }
+        return relevant.has(rules[candidate.ruleId].output);
+      });
+    }
+
+    function scoreTask(task) {
+      if (task.type === "evidence") return task.priority + Math.min(counters.steps - task.createdAt, 20) * 0.12;
+      const rule = rules[task.ruleId];
+      const output = nodeState[rule.output];
+      const inputConfidence = rule.inputs.reduce((product, input) => product * nodeState[input].confidence, 1);
+      const predicted = inputConfidence * rule.strength;
+      const missingBonus = output.confidence === 0 ? 28 : 0;
+      const rootBonus = rule.output === "Goal" ? 16 : 0;
+      const improvement = Math.max(0, predicted - output.confidence);
+      const ageBonus = Math.min(counters.steps - task.createdAt, 20) * 0.8;
+      const blockers = blockersFor(task);
+      const settlePenalty = blockers.length ? 75 + blockers.length * 4 : 0;
+      return 86 + missingBonus + rootBonus + improvement * 50 + ageBonus - settlePenalty;
+    }
+
+    function taskReason(task) {
+      if (task.type === "evidence") {
+        return `Potential ${task.potential.toFixed(2)} representative improvement for ${task.output}.`;
+      }
+      const rule = rules[task.ruleId];
+      const blockers = blockersFor(task);
+      if (blockers.length) {
+        const labels = blockers.map(item => item.type === "rule" ? rules[item.ruleId].label : item.id);
+        return `Deferred: ${labels.join(", ")} may still materially change ${rule.inputs.join(" or ")}.`;
+      }
+      if (nodeState[rule.output].confidence === 0) return `Ready to create the first ${rule.output} representative.`;
+      return `Inputs changed; recompute ${rule.output} once from their latest revisions.`;
+    }
+
+    function sortedQueue() {
+      return [...queue].sort((left, right) => {
+        const difference = scoreTask(right) - scoreTask(left);
+        return Math.abs(difference) > 1e-9 ? difference : left.age - right.age;
+      });
+    }
+
+    function runEvidence(task) {
+      counters.searches += 1;
+      const before = nodeState[task.output].confidence;
+      updateRepresentative(task.output, task.id, task.confidence);
+      const after = nodeState[task.output].confidence;
+      addEvent("evidence", `<strong>${task.id}</strong> (${formatConfidence(task.confidence)}) changed ${task.output} from ${formatConfidence(before)} to <strong>${formatConfidence(after)}</strong>.`);
+    }
+
+    function runRule(task) {
+      counters.recomputes += 1;
+      const rule = rules[task.ruleId];
+      const confidence = rule.inputs.reduce((product, input) => product * nodeState[input].confidence, 1) * rule.strength;
+      const before = nodeState[rule.output].confidence;
+      nodeState[rule.output].dirtyRules.delete(rule.id);
+      updateRepresentative(rule.output, rule.id, confidence);
+      const after = nodeState[rule.output].confidence;
+      activeRule = rule.id;
+      addEvent("rule", `<strong>${rule.label}</strong> used ${rule.inputs.map(input => `${input}@r${nodeState[input].revision}`).join(" and ")}; ${rule.output} changed from ${formatConfidence(before)} to <strong>${formatConfidence(after)}</strong>.`);
+    }
+
+    function step() {
+      if (queue.length === 0) {
+        stopAutoplay();
+        return;
+      }
+      changedNodes = new Set();
+      activeRule = null;
+      const task = sortedQueue()[0];
+      queue.splice(queue.indexOf(task), 1);
+      counters.steps += 1;
+      if (task.type === "evidence") runEvidence(task); else runRule(task);
+      render();
+      if (queue.length === 0) stopAutoplay();
+    }
+
+    function addEvent(type, detail) {
+      events.unshift({ step: counters.steps, type, detail });
+    }
+
+    function formatConfidence(value) {
+      return value === 0 ? "—" : value.toFixed(3);
+    }
+
+    function renderNodes() {
+      nodeOrder.forEach(name => {
+        const node = nodeState[name];
+        const element = document.querySelector(`#node-${name}`);
+        element.classList.toggle("empty", node.confidence === 0);
+        element.classList.toggle("changed", changedNodes.has(name));
+        element.classList.toggle("dirty", node.dirtyRules.size > 0);
+        const candidateLabel = node.candidates.size === 1 ? "candidate" : "candidates";
+        element.innerHTML = `
+          <div class="node-title"><span>${name}</span>${node.dirtyRules.size ? '<span class="badge">dirty</span>' : ""}</div>
+          <div class="node-conf">${formatConfidence(node.confidence)}</div>
+          <div class="node-meta">revision ${node.revision} · ${node.candidates.size} ${candidateLabel}</div>
+        `;
+      });
+      document.querySelectorAll(".edge").forEach(edge => edge.classList.toggle("active", edge.dataset.rule === activeRule));
+    }
+
+    function renderQueue() {
+      const body = document.querySelector("#queueBody");
+      const sorted = sortedQueue();
+      body.innerHTML = sorted.map(task => {
+        const rule = task.type === "rule" ? rules[task.ruleId] : null;
+        const blockers = blockersFor(task);
+        return `
+          <tr>
+            <td class="score">${scoreTask(task).toFixed(1)}</td>
+            <td class="kind">${task.type === "rule" ? "propagate" : "search"}</td>
+            <td class="work">${rule ? rule.label : `Find ${task.id}`}</td>
+            <td class="why ${blockers.length ? "blocked" : ""}">${taskReason(task)}</td>
+          </tr>
+        `;
+      }).join("");
+      document.querySelector("#queueEmpty").hidden = sorted.length !== 0;
+      stepButton.disabled = sorted.length === 0;
+    }
+
+    function renderEvents() {
+      document.querySelector("#eventLog").innerHTML = events.map(event => `
+        <div class="event">
+          <div class="event-step">#${event.step}</div>
+          <div class="event-type">${event.type}</div>
+          <div class="event-detail">${event.detail}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderExplanation() {
+      const settle = policy.value === "settle";
+      const dirty = Object.values(nodeState).filter(node => node.dirtyRules.size > 0).map(node => node.name);
+      const next = sortedQueue()[0];
+      let text = settle
+        ? `Settle mode keeps propagation work in the queue, but lowers its priority while evidence worth at least ${Number(threshold.value).toFixed(2)} remains upstream.`
+        : "Eager mode gives ready propagation work its full priority, even when more evidence for its inputs is already queued.";
+      if (dirty.length) text += ` Dirty representatives: ${dirty.join(", ")}. Multiple input changes are coalesced into one rule run.`;
+      if (next) text += ` Next: ${next.type === "rule" ? rules[next.ruleId].label : `find ${next.id}`}.`;
+      document.querySelector("#explanation").textContent = text;
+    }
+
+    function render() {
+      thresholdValue.textContent = Number(threshold.value).toFixed(2);
+      thresholdControl.style.opacity = policy.value === "settle" ? "1" : "0.45";
+      document.querySelector("#stepCount").textContent = counters.steps;
+      document.querySelector("#searchCount").textContent = counters.searches;
+      document.querySelector("#recomputeCount").textContent = counters.recomputes;
+      document.querySelector("#coalescedCount").textContent = counters.coalesced;
+      document.querySelector("#supersededCount").textContent = counters.superseded;
+      renderNodes();
+      renderQueue();
+      renderEvents();
+      renderExplanation();
+    }
+
+    function stopAutoplay() {
+      if (timer !== null) window.clearInterval(timer);
+      timer = null;
+      autoButton.textContent = "Autoplay";
+    }
+
+    function toggleAutoplay() {
+      if (timer !== null) {
+        stopAutoplay();
+        return;
+      }
+      if (queue.length === 0) reset();
+      autoButton.textContent = "Pause";
+      timer = window.setInterval(step, 700);
+    }
+
+    document.querySelector("#reset").addEventListener("click", reset);
+    stepButton.addEventListener("click", step);
+    autoButton.addEventListener("click", toggleAutoplay);
+    policy.addEventListener("change", render);
+    threshold.addEventListener("input", render);
+    reset();
+  </script>
+</body>
+</html>
