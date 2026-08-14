@@ -452,7 +452,7 @@
           <span class="hint">The highlighted row runs next</span>
         </div>
         <div class="priority-guide">
-          <strong>Every score is additive.</strong> Root demand is inherited from the most demanding reachable query root. Before a producer goal is popped, its proof confidence is unknown, so its headroom signal is <code>rule confidence × (1 − current-or-pending parent confidence)</code>. Refresh uses predicted representative improvement. The deadline policy adds a completion bonus when four or fewer pops remain and penalizes work that cannot reach either root in time.
+          <strong>Every score is additive.</strong> Distinct reachable root demands are summed; repeated paths to the same root count once. Before a producer goal is popped, its proof confidence is unknown, so its headroom signal is <code>rule confidence × (1 − current-or-pending parent confidence)</code>. Refresh uses predicted representative improvement. The deadline policy adds a completion bonus when four or fewer pops remain and penalizes work that cannot reach either root in time.
         </div>
         <div class="stats">
           <div class="stat"><div class="stat-value" id="stepCount">0</div><div class="stat-label">Steps</div></div>
@@ -623,11 +623,19 @@
       return found;
     }
 
-    function demandFor(goal, visited = new Set()) {
-      if (rootDemand[goal] !== undefined) return rootDemand[goal];
-      if (visited.has(goal)) return 0;
+    function reachableRoots(goal, visited = new Set()) {
+      if (rootDemand[goal] !== undefined) return new Set([goal]);
+      if (visited.has(goal)) return new Set();
       const nextVisited = new Set(visited).add(goal);
-      return Math.max(0, ...(consumers[goal] || []).map(ruleId => demandFor(rules[ruleId].output, nextVisited)));
+      const roots = new Set();
+      (consumers[goal] || [])
+        .filter(ruleId => discoveredRules.has(ruleId))
+        .forEach(ruleId => reachableRoots(rules[ruleId].output, nextVisited).forEach(root => roots.add(root)));
+      return roots;
+    }
+
+    function demandFor(goal) {
+      return [...reachableRoots(goal)].reduce((total, root) => total + rootDemand[root], 0);
     }
 
     function downstreamDistance(goal, root, visited = new Set()) {
@@ -670,7 +678,13 @@
         .sort((left, right) => right.demand - left.demand || left.cost - right.cost);
       if (!finishable.length) return -90;
       const best = finishable[0];
-      return 160 + best.demand * 20 - (remaining - best.cost) * 10;
+      return 160 + best.demand * 20 + (remaining - best.cost) * 10;
+    }
+
+    function deadlineStalled() {
+      const remaining = remainingBudget();
+      if (policy.value !== "deadline" || remaining === 0 || remaining > 4) return false;
+      return !queue.some(task => completionOptions(task).some(option => option.cost <= remaining));
     }
 
     function producerRuleFor(goal) {
@@ -695,7 +709,8 @@
           const fact = concreteFacts[candidate.goal];
           return relevant.has(candidate.goal) && (!fact || producerPotential(candidate.goal) >= minimum);
         }
-        return relevant.has(candidate.goal);
+        const improvement = predictedRepresentative(candidate.goal) - nodeState[candidate.goal].confidence;
+        return relevant.has(candidate.goal) && improvement >= minimum;
       });
     }
 
@@ -856,7 +871,7 @@
     }
 
     function step() {
-      if (queue.length === 0 || remainingBudget() === 0) {
+      if (queue.length === 0 || remainingBudget() === 0 || deadlineStalled()) {
         stopAutoplay();
         return;
       }
@@ -868,7 +883,7 @@
       if (task.type === "expand") runExpansion(task);
       else runRefresh(task);
       render();
-      if (queue.length === 0 || remainingBudget() === 0) stopAutoplay();
+      if (queue.length === 0 || remainingBudget() === 0 || deadlineStalled()) stopAutoplay();
     }
 
     function addEvent(type, detail) {
@@ -952,6 +967,7 @@
       if (dirty.length) text += ` Dirty representatives: ${dirty.join(", ")}. Multiple producer changes are coalesced into one goal refresh.`;
       if (next) text += ` Next: ${next.type === "refresh" ? `refresh ${next.goal}` : `expand ${next.goal}`}.`;
       if (remainingBudget() === 0 && queue.length) text += ` The goal-pop budget is exhausted; remaining work stays visible but cannot run.`;
+      if (deadlineStalled()) text += ` Search stops with ${remainingBudget()} unused pops because no queued item can reach either root within them.`;
       document.querySelector("#explanation").textContent = text;
     }
 
@@ -970,7 +986,7 @@
       renderQueue();
       renderEvents();
       renderExplanation();
-      stepButton.disabled = queue.length === 0 || remainingBudget() === 0;
+      stepButton.disabled = queue.length === 0 || remainingBudget() === 0 || deadlineStalled();
     }
 
     function stopAutoplay() {
@@ -984,7 +1000,7 @@
         stopAutoplay();
         return;
       }
-      if (queue.length === 0 || remainingBudget() === 0) reset();
+      if (queue.length === 0 || remainingBudget() === 0 || deadlineStalled()) reset();
       autoButton.textContent = "Pause";
       timer = window.setInterval(step, 700);
     }
