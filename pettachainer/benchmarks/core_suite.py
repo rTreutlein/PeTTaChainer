@@ -136,8 +136,9 @@ def main(argv: list[str] | None = None) -> int:
 
     benchmark_directory = repository / "pettachainer" / "benchmarks"
     bounded = str(benchmark_directory / "bounded_queue.py")
+    durable = str(benchmark_directory / "durable_query_many.py")
     member = str(benchmark_directory / "member_inheritance.py")
-    for benchmark in (Path(bounded), Path(member)):
+    for benchmark in (Path(bounded), Path(durable), Path(member)):
         if not benchmark.is_file():
             parser.error(f"benchmark is absent from --repository: {benchmark}")
     with tempfile.TemporaryDirectory(prefix="pettachainer-bench-") as raw_temp:
@@ -182,6 +183,48 @@ def main(argv: list[str] | None = None) -> int:
                 selectors={
                     "setup_seconds": lambda payload: float(payload[0]["setup_s"]),
                     "runtime_seconds": lambda payload: float(payload[0]["run_s"]),
+                },
+                temporary_directory=temporary_directory,
+            ),
+            "durable_query_many": run_workload(
+                name="durable-query-many",
+                repository=repository,
+                repetitions=arguments.repetitions,
+                command=[
+                    durable,
+                    "--repository",
+                    str(repository),
+                    "--roots",
+                    "8",
+                    "--stable-roots",
+                    "2",
+                    "--shifts",
+                    "5",
+                    "--steps",
+                    "300",
+                ],
+                selectors={
+                    "setup_seconds": lambda payload: float(
+                        payload["setup_seconds"]
+                    ),
+                    "shift_1_seconds": lambda payload: float(
+                        payload["shift_seconds"][0]
+                    ),
+                    "shift_2_seconds": lambda payload: float(
+                        payload["shift_seconds"][1]
+                    ),
+                    "shift_3_seconds": lambda payload: float(
+                        payload["shift_seconds"][2]
+                    ),
+                    "shift_4_seconds": lambda payload: float(
+                        payload["shift_seconds"][3]
+                    ),
+                    "shift_5_seconds": lambda payload: float(
+                        payload["shift_seconds"][4]
+                    ),
+                    "query_total_seconds": lambda payload: float(
+                        payload["query_total_seconds"]
+                    ),
                 },
                 temporary_directory=temporary_directory,
             ),

@@ -69,11 +69,11 @@ Run the core performance checks used for runtime refactoring reviews:
   --json-out /tmp/pettachainer-baseline.json
 ```
 
-The suite covers bounded backward and forward agendas, incremental
-Member-to-Inheritance maintenance, and a 1000-object forward-populated
-inheritance query. Each repetition runs in a fresh process so native runtime
-state cannot leak between measurements. Compare a later checkout with the
-saved baseline using:
+The suite covers bounded backward and forward agendas, fixed-budget evolving
+queries with retained durable proofs, incremental Member-to-Inheritance
+maintenance, and a 1000-object forward-populated inheritance query. Each
+repetition runs in a fresh process so native runtime state cannot leak between
+measurements. Compare a later checkout with the saved baseline using:
 
 ```bash
 .venv/bin/python pettachainer/benchmarks/core_suite.py \
@@ -81,9 +81,11 @@ saved baseline using:
   --json-out /tmp/pettachainer-current.json
 ```
 
-StationOps is not part of this suite because its pinned fixture currently
-fails its semantic acceptance threshold even on the reference PeTTaChainer
-commit; timings from a semantically invalid run would be misleading.
+The in-repository durable-query workload is a small proxy for the retained-proof
+behavior exercised by StationOps. The complete StationOps benchmark remains an
+external acceptance workload because it depends on the sibling ChainerGame
+repository. Compare its timing only when the per-shift answers and coverage are
+the same.
 
 Run the full ConceptNet `Own ∧ Pet` query benchmark:
 

@@ -170,6 +170,19 @@ the current virtual environment. Both checkouts must contain these benchmark
 files. Use `--repetitions 1 --population-members 100` for a quick smoke run;
 the defaults are three repetitions and 1000 objects.
 
+`durable_query_many.py` keeps one PeTTaChainer instance alive across five
+fixed-budget batches. Two roots reuse completed proofs in every batch while six
+structurally identical roots evolve with small monotonic statement additions.
+Every batch must prove all eight roots. This keeps the requested work and answer
+cardinality fixed while the durable proof graph grows, exposing accidental
+whole-history scans without requiring the external StationOps fixture.
+
+Run that workload directly with:
+
+```bash
+.venv/bin/python pettachainer/benchmarks/durable_query_many.py
+```
+
 The underlying Member-inheritance workloads are also directly runnable:
 
 ```bash
