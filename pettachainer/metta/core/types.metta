@@ -88,6 +88,7 @@
 (: CounterKey Type)
 (: bwd_gid CounterKey)
 (: bwd_pid CounterKey)
+(: bwd_frontier_path CounterKey)
 (: ruleid CounterKey)
 (: bwd_tmp_ruleid CounterKey)
 (: fwd_br_id CounterKey)

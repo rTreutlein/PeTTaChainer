@@ -251,7 +251,7 @@
             1.0
             ()
             ()
-            ()
+            0
             (frontier-value-spec
                $expected-score
                (list-len $args)

@@ -337,11 +337,13 @@
               &goal_demand_cache &goal_demand_revision &root_goal
               &goal_demand_wake &root_goal_completed
               &aggregate &aggregate_search_budget &aggregate_forward_approx
-              &proof_invalidated &proof_live_cache)))
+              &proof_invalidated &proof_live_cache
+              &frontier_path_lookup &frontier_path &frontier_path_child
+              &proof_frontier_path &frontier_path_dead)))
        ($_reset
           (foreach-flat
              (|-> ($key) (change-state! $key 0))
-             (bwd_gid)))
+             (bwd_gid bwd_frontier_path)))
        ($root-gids
           (map-flat
              (|-> ($goal) (ensure-goal-at-depth $goal 0))

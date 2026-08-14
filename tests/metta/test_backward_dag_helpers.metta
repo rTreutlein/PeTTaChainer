@@ -208,7 +208,7 @@
 (: clear-backward-state (-[det]-> (List Atom)))
 (= (clear-backward-state)
    (progn
-      (foreach-flat remove-all-atoms (() &goal &goal_lookup &goal_waiter &goal_current_confidence &aggregate &proof &proof_goal &proof_result &proof_current &proof_current_output &proof_current_result &proof_current_result_output &proof_current_result_dirty &proof_parent &proof_invalidated &proof_live_cache &proof_static_live &proof_superseded &proof_retired))
+      (foreach-flat remove-all-atoms (() &goal &goal_lookup &goal_waiter &goal_current_confidence &aggregate &proof &proof_goal &proof_result &proof_current &proof_current_output &proof_current_result &proof_current_result_output &proof_current_result_dirty &proof_parent &proof_invalidated &proof_live_cache &proof_static_live &proof_superseded &proof_retired &frontier_path_lookup &frontier_path &frontier_path_child &proof_frontier_path &frontier_path_dead))
       ()))
 
 (: test-runtime-fact
@@ -440,15 +440,35 @@
         ($pid-new
            (store-proof-candidate $agg-gid
               (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) ())))
+        ($path-id (ensure-frontier-path 0 $pid-old))
         ($_agg2
            (progn
               (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))
               (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-new))
               (deactivate-current-proof! $pid-old))))
       (waiter-live?
-         (frontier-waiter 99 bundle 1.0 () () ($pid-old)
+         (frontier-waiter 99 bundle 1.0 () () $path-id
             (frontier-value-spec 1.0 1 1.0))))
    false)
+
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_pathreset (change-state! bwd_frontier_path 0))
+       ($first (ensure-frontier-path 0 10))
+       ($same-first (ensure-frontier-path 0 10))
+       ($second (ensure-frontier-path $first 20))
+       ($proofs (frontier-path-rev-proof-ids $second))
+       ($before
+          ((frontier-path-live? $first)
+           (frontier-path-live? $second)))
+       ($_invalidate (invalidate-proof-dependents! 10)))
+      ((== $first $same-first)
+       $proofs
+       $before
+       (frontier-path-live? $first)
+       (frontier-path-live? $second)))
+   (true (20 10) (true true) false false))
 
 ;; Aggregate replacement is atomic from the caller's perspective: after the
 ;; new aggregate becomes current but before its parent is rebuilt, the parent

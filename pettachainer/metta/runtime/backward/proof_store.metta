@@ -803,6 +803,88 @@
 (: proof-live-cache-row
    (-[det]-> Number Bool ProofLiveCacheRow))
 
+;; A frontier path is a query-local cons list with a stable numeric identity.
+;; Waiters carry only that identity: extending a frontier stores one new node,
+;; and completing it reconstructs the proof list once.  A superseded proof
+;; invalidates exactly the path nodes that contain it and their descendants,
+;; making repeated waiter liveness checks an indexed lookup instead of a walk
+;; over every proof already consumed by the frontier.
+(: next-frontier-path-id (-[det]-> Number))
+(= (next-frontier-path-id)
+   (+ 1 (next-search-id bwd_frontier_path)))
+
+(: ensure-frontier-path (-[semidet]-> Number Number Number))
+(= (ensure-frontier-path $parent-path-id $pid)
+   (let $hits
+      (collapse
+         (once
+            (match &frontier_path_lookup
+               ($parent-path-id $pid $path-id) $path-id)))
+      (if (== $hits ())
+         (let* (($path-id (next-frontier-path-id))
+                ($_lookup
+                   (add-space-atom! &frontier_path_lookup
+                      (make-space-row3
+                         $parent-path-id $pid $path-id)))
+                ($_node
+                   (add-space-atom! &frontier_path
+                      (make-space-row3
+                         $path-id $parent-path-id $pid)))
+                ($_child
+                   (add-space-atom! &frontier_path_child
+                      (make-space-pair $parent-path-id $path-id)))
+                ($_proof
+                   (add-space-atom! &proof_frontier_path
+                      (make-space-pair $pid $path-id))))
+            $path-id)
+         (the Number (car-atom $hits)))))
+
+(: frontier-path-live? (-[det]-> Number Bool))
+(= (frontier-path-live? $path-id)
+   (==
+      (collapse
+         (once (match &frontier_path_dead ($path-id) true)))
+      ()))
+
+(: frontier-path-rev-proof-ids
+   (-[semidet]-> Number (List Number)))
+(= (frontier-path-rev-proof-ids $path-id)
+   (if (== $path-id 0) ()
+      (once
+         (match &frontier_path
+            ($path-id $stored-parent-path-id $stored-pid)
+            (let* (($parent-path-id
+                       (stored-number $stored-parent-path-id))
+                    ($pid (stored-number $stored-pid)))
+               (cons $pid
+                  (frontier-path-rev-proof-ids $parent-path-id)))))))
+
+(: invalidate-frontier-path! (-[det]-> Number (List $none)))
+(= (invalidate-frontier-path! $path-id)
+   (if (frontier-path-live? $path-id)
+      (let* (($_dead
+                (once (add-atom &frontier_path_dead ($path-id))))
+             ($_children
+                (foreach-flat
+                   invalidate-frontier-path!
+                   (the (List Number)
+                      (collapse
+                         (match &frontier_path_child
+                            ($path-id $child-path-id)
+                            (stored-number $child-path-id)))))))
+         ())
+      ()))
+
+(: invalidate-frontier-paths-for-proof!
+   (-[det]-> Number (List $none)))
+(= (invalidate-frontier-paths-for-proof! $pid)
+   (foreach-flat
+      invalidate-frontier-path!
+      (the (List Number)
+         (collapse
+            (match &proof_frontier_path
+               ($pid $path-id) (stored-number $path-id))))))
+
 (: cache-proof-live! (-[det]-> Number Bool Bool))
 (= (cache-proof-live! $pid $alive)
    (once
@@ -879,11 +961,15 @@
 (: invalidate-proof-dependents!
    (-[semidet]-> Number (List $none)))
 (= (invalidate-proof-dependents! $child-pid)
-   (foreach-flat
-      invalidate-proof-dependent-step
-      (collapse
-         (match &proof_parent ($child-pid $parent-pid)
-            (stored-number $parent-pid)))))
+   (let* (($_frontiers
+             (invalidate-frontier-paths-for-proof! $child-pid))
+          ($_proofs
+             (foreach-flat
+                invalidate-proof-dependent-step
+                (collapse
+                   (match &proof_parent ($child-pid $parent-pid)
+                      (stored-number $parent-pid))))))
+      ()))
 
 (= (deactivate-current-proof! $pid)
    (let* (($goal-key (proof-goal-key-by-id $pid))

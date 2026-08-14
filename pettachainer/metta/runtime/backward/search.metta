@@ -359,7 +359,7 @@
    (-[det]-> Number Number Number FrontierValueSpec))
 (: frontier-waiter
    (-[det]-> Number AndBundle Number (List Evidence)
-       (List (| FrontierPart UnpoolablePart)) (List Number)
+       (List (| FrontierPart UnpoolablePart)) Number
        FrontierValueSpec FrontierWaiter))
 (: AggregateWaiter Type)
 (: AggregateDemandSpec Type)
@@ -512,18 +512,13 @@
          ((cons $value $_rest)
             (the (| Number NoCurrentScore) $value))))))
 
-(: proof-list-live-bool (-[det]-> (List Number) Bool))
-(= (proof-list-live-bool $pids)
-   (let $hits (collapse (once (proof-list-live? $pids)))
-      (if (== $hits ()) false (car-atom $hits))))
-
 (: waiter-root-demands
    (-[det]-> (| FrontierWaiter AggregateWaiter Atom)
        Number (List RootDemand)))
 (= (waiter-root-demands $waiter $child-depth)
    (case $waiter (
       ((frontier-waiter $parent-gid $_bundle $score-cap
-          $_seen $_parts $rev-pids
+          $_seen $_parts $path-id
           (frontier-value-spec $candidate $premise-count $success-prior))
          (let $parent-hits
             (collapse
@@ -536,8 +531,8 @@
                    $_rest)
                   (if (< $parent-depth $child-depth)
                      (if
-                        (proof-list-live-bool
-                           (the (List Number) $rev-pids))
+                        (frontier-path-live?
+                           (the Number $path-id))
                         (frontier-root-demands-map
                            (goal-confidence-or-none
                               (the Number $parent-gid))
@@ -1127,8 +1122,8 @@
 
 (: waiter-live? (-[semidet]-> FrontierWaiter Bool))
 (= (waiter-live? (frontier-waiter $_parent-gid $_bundle $_score
-      $_seen $_parts $rev-pids $_value-spec))
-   (proof-list-live? $rev-pids))
+      $_seen $_parts $path-id $_value-spec))
+   (frontier-path-live? $path-id))
 
 ;; These compiler-generated joins keep their premise TVs separate instead of
 ;; combining them through AndFormula. Their premises may therefore share
@@ -1166,10 +1161,10 @@
    (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) FrontierWaiter Number (Heap (| QueueGoal QueueAggregate))))
 (= (advance-frontier-waiter-heap $agenda
       (frontier-waiter $parent-gid $bundle $score
-         $seen $parts $rev-pids $value-spec)
+         $seen $parts $path-id $value-spec)
       $pid)
    (if (waiter-live? (frontier-waiter $parent-gid $bundle $score
-         $seen $parts $rev-pids $value-spec))
+         $seen $parts $path-id $value-spec))
       (let*
          ((($pscore $pev) (proof-stats-by-id $pid))
           ($proof-output (proof-output-atom-by-id $pid))
@@ -1181,7 +1176,7 @@
                 (premise-evidence-overlap? $seen $pev))))
          (if (frontier-pool-join? $part $parts $seen $pev)
             (frontier-advance-pooled-heap $agenda $parent-gid $bundle
-               $score $seen $parts $rev-pids $value-spec
+               $score $seen $parts $path-id $value-spec
                $pid $pev $part)
             (if $overlap $agenda
                (let $next-bundle (advance-frontier-bundle (copy_term $bundle) $pid)
@@ -1205,7 +1200,7 @@
                            (list_to_set
                               (append-evidence $seen $pev))
                            $nparts
-                           (cons $pid $rev-pids)
+                           (ensure-frontier-path $path-id $pid)
                            $value-spec)))))))
       $agenda))
 
@@ -1235,11 +1230,11 @@
    (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number AndBundle Number
        (List Evidence)
        (List (| FrontierPart UnpoolablePart))
-       (List Number) FrontierValueSpec Number (List Evidence)
+       Number FrontierValueSpec Number (List Evidence)
        (| FrontierPart SkipPart UnpoolablePart)
        (Heap (| QueueGoal QueueAggregate))))
 (= (frontier-advance-pooled-heap $agenda $parent-gid $bundle
-      $score $seen $parts $rev-pids $value-spec $pid $pev $part)
+      $score $seen $parts $path-id $value-spec $pid $pev $part)
    (let*
       (($nparts (frontier-parts-add $parts $part))
        ($folded-hits
@@ -1266,7 +1261,7 @@
                      (list_to_set
                         (append-evidence $seen $pev))
                      $nparts
-                     (cons $pid $rev-pids)
+                     (ensure-frontier-path $path-id $pid)
                      $value-spec)))))))
 
 (: stored-atom-list
@@ -1435,10 +1430,10 @@
 (= (advance-conditioned-frontier-waiter-heap
       $agenda $child-gid $pid
       (frontier-waiter $parent-gid $bundle $score
-         $seen $parts $rev-pids $value-spec))
+         $seen $parts $path-id $value-spec))
    (let $waiter
       (frontier-waiter $parent-gid $bundle $score
-         $seen $parts $rev-pids $value-spec)
+         $seen $parts $path-id $value-spec)
       (let*
          (($key (proof-output-key-by-id $pid))
           ($compatible
@@ -1472,11 +1467,11 @@
 (= (advance-unconditioned-frontier-waiter-heap
       $agenda $child-gid $pid
       (frontier-waiter $parent-gid $bundle $score
-         $seen $parts $rev-pids $value-spec))
+         $seen $parts $path-id $value-spec))
    (let*
       (($waiter
           (frontier-waiter $parent-gid $bundle $score
-             $seen $parts $rev-pids $value-spec))
+             $seen $parts $path-id $value-spec))
        ($representative-pid
           (goal-merged-proof-id-for-pid $child-gid $pid)))
       (if (== $representative-pid $pid)
@@ -1500,11 +1495,11 @@
       $agenda $child-gid $pid (cons $waiter $rest))
    (case $waiter
       (((frontier-waiter $parent-gid $bundle $score
-           $seen $parts $rev-pids $value-spec)
+           $seen $parts $path-id $value-spec)
           (let*
              (($typed-waiter
                  (frontier-waiter $parent-gid $bundle $score
-                    $seen $parts $rev-pids $value-spec))
+                    $seen $parts $path-id $value-spec))
               ($nagenda
                  (if (frontier-needs-conditioned-proofs? $bundle)
                     (advance-conditioned-frontier-waiter-heap
@@ -1623,11 +1618,11 @@
 
 (= (spawn-frontier-goal-heap $agenda $gid
       (frontier-waiter $parent-gid $bundle $waiter-score
-         $seen $parts $rev-pids $value-spec))
+         $seen $parts $path-id $value-spec))
    (let*
       (($waiter
           (frontier-waiter $parent-gid $bundle $waiter-score
-             $seen $parts $rev-pids $value-spec))
+             $seen $parts $path-id $value-spec))
        ($_1 (register-goal-waiter! $gid $parent-gid $waiter))
        ($agenda1
           (proof-fold-flat-semidet (advance-frontier-waiter-fold-step $waiter)
@@ -1670,17 +1665,19 @@
 
 (: spawn-frontier-heap
    (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number AndBundle Number
-       (List Evidence) (List (| FrontierPart UnpoolablePart)) (List Number)
+       (List Evidence) (List (| FrontierPart UnpoolablePart)) Number
        FrontierValueSpec (Heap (| QueueGoal QueueAggregate))))
 (= (spawn-frontier-heap $agenda $parent-gid $bundle $score
-      $seen $parts $rev-pids $value-spec)
+      $seen $parts $path-id $value-spec)
    (let*
       (($goal (and-bundle-goal $bundle))
        ($premises (and-bundle-premises $bundle)))
       (case $premises (
            (()
               (let*
-                 (($pid-list (reverse-number-list $rev-pids))
+                 (($pid-list
+                     (reverse-number-list
+                        (frontier-path-rev-proof-ids $path-id)))
                   ($proof-score (term-confidence $goal))
                   ($candidate
                      (normalize-proof-candidate-evidence
@@ -1706,5 +1703,5 @@
                        $score
                        $seen
                        $parts
-                       $rev-pids
+                       $path-id
                        $value-spec))))))))
