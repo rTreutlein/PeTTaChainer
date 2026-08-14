@@ -170,6 +170,9 @@
     .node-conf { margin: 6px 0 4px; color: var(--green); font: 800 24px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
     .node.empty .node-conf { color: #617184; }
     .node-meta { color: var(--muted); font-size: 11px; }
+    .sources { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+    .source { padding: 1px 5px; border: 1px solid #3a4a5d; border-radius: 999px; color: #788a9d; font-size: 9px; }
+    .source.found { border-color: rgba(98, 212, 155, 0.45); color: var(--green); background: rgba(98, 212, 155, 0.08); }
     .badge { padding: 2px 6px; border-radius: 999px; background: rgba(242, 198, 109, 0.14); color: var(--amber); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
     .badge.expanded { background: rgba(98, 212, 155, 0.12); color: var(--green); }
 
@@ -192,6 +195,22 @@
     .legend .changed-key::before { background: var(--cyan); }
     .legend .dirty-key::before { background: var(--amber); }
     .legend .root-key::before { background: var(--purple); }
+
+    .agenda-model {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      gap: 8px;
+      align-items: center;
+      margin-top: 12px;
+      padding: 10px;
+      border: 1px solid #293545;
+      border-radius: 9px;
+      background: #101720;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .agenda-model strong { display: block; margin-bottom: 2px; color: var(--text); }
+    .agenda-arrow { color: var(--cyan); font-size: 18px; }
 
     .stats {
       display: grid;
@@ -283,6 +302,8 @@
       .edges { display: none; }
       .stats { grid-template-columns: repeat(2, 1fr); }
       .event { grid-template-columns: 34px 72px 1fr; }
+      .agenda-model { grid-template-columns: 1fr; }
+      .agenda-arrow { transform: rotate(90deg); justify-self: center; }
     }
   </style>
 </head>
@@ -291,7 +312,7 @@
     <header>
       <div>
         <h1>Lazy proof scheduler</h1>
-        <p class="lede">Step through evidence discovery, representative merging, dirty-rule coalescing, and propagation. Switch policy at any time to see why computing an intermediate result too early can create repeated downstream work. Confidence arithmetic is deliberately illustrative; the demo is about scheduling.</p>
+        <p class="lede">Step through backward goal expansion, synchronous concrete matches, representative merging, dirty-goal coalescing, and propagation. The queue contains only goal expansion and goal refresh work—never proof objects. Switch policy to see why refreshing an intermediate result too early can create repeated downstream work. Confidence arithmetic is deliberately illustrative.</p>
       </div>
       <div class="query-pill">Query: Goal</div>
     </header>
@@ -305,7 +326,7 @@
         </select>
       </div>
       <div class="control threshold" id="thresholdControl">
-        <label for="threshold">Evidence value that may delay propagation</label>
+        <label for="threshold">Producer value that may delay propagation</label>
         <div class="threshold-row">
           <input id="threshold" type="range" min="0" max="0.30" value="0.08" step="0.01">
           <output id="thresholdValue" for="threshold">0.08</output>
@@ -352,6 +373,13 @@
           <span class="dirty-key">dirty and queued</span>
           <span class="root-key">query root</span>
         </div>
+        <div class="agenda-model">
+          <div><strong>Current agenda</strong>Expand A schedules premise goals A1, A2, A3.</div>
+          <div class="agenda-arrow">→</div>
+          <div><strong>Current concrete match</strong>Pop A1 and return its indexed fact synchronously.</div>
+          <div class="agenda-arrow">→</div>
+          <div><strong>Proposed lazy boundary</strong>Mark A dirty and queue one Refresh A goal; never queue the proof.</div>
+        </div>
         <div class="explanation" id="explanation"></div>
       </section>
 
@@ -361,13 +389,13 @@
           <span class="hint">The highlighted row runs next</span>
         </div>
         <div class="priority-guide">
-          <strong>Every score is additive.</strong> Root demand is <code>1.0</code> throughout this single-root example. Expansion prefers unresolved goals; evidence uses its estimated representative improvement; propagation uses its predicted output improvement. Settle mode subtracts an explicit waiting penalty. Age slowly prevents starvation.
+          <strong>Every score is additive.</strong> Root demand is <code>1.0</code> throughout this single-root example. Expansion prefers unresolved goals; a leaf goal also carries its estimated representative improvement; refresh uses the predicted improvement of the goal's merged representative. Settle mode subtracts an explicit waiting penalty for valuable unfinished sibling producers. Age slowly prevents starvation.
         </div>
         <div class="stats">
           <div class="stat"><div class="stat-value" id="stepCount">0</div><div class="stat-label">Steps</div></div>
           <div class="stat"><div class="stat-value" id="expansionCount">0</div><div class="stat-label">Expansions</div></div>
-          <div class="stat"><div class="stat-value" id="searchCount">0</div><div class="stat-label">Evidence</div></div>
-          <div class="stat"><div class="stat-value" id="recomputeCount">0</div><div class="stat-label">Rule runs</div></div>
+          <div class="stat"><div class="stat-value" id="searchCount">0</div><div class="stat-label">Concrete</div></div>
+          <div class="stat"><div class="stat-value" id="recomputeCount">0</div><div class="stat-label">Refreshes</div></div>
           <div class="stat"><div class="stat-value" id="coalescedCount">0</div><div class="stat-label">Coalesced</div></div>
           <div class="stat"><div class="stat-value" id="supersededCount">0</div><div class="stat-label">Replaced</div></div>
         </div>
@@ -395,23 +423,35 @@
   <script>
     "use strict";
 
-    const nodeOrder = ["A", "C", "D", "B", "E", "Goal"];
+    const visibleNodeOrder = ["A", "C", "D", "B", "E", "Goal"];
+    const producerGoalOrder = ["A1", "A2", "A3", "C1", "C2", "D1", "E1"];
+    const nodeOrder = [...visibleNodeOrder, ...producerGoalOrder];
     const nodeState = {};
     const rules = {
       rAC: { id: "rAC", label: "A ∧ C → B", inputs: ["A", "C"], output: "B", strength: 0.92, depth: 1 },
       rD: { id: "rD", label: "D → B", inputs: ["D"], output: "B", strength: 0.78, depth: 1 },
-      rGoal: { id: "rGoal", label: "B ∧ E → Goal", inputs: ["B", "E"], output: "Goal", strength: 0.95, depth: 0 }
+      rGoal: { id: "rGoal", label: "B ∧ E → Goal", inputs: ["B", "E"], output: "Goal", strength: 0.95, depth: 0 },
+      rA1: { id: "rA1", label: "A1 → A", inputs: ["A1"], output: "A", strength: 1, depth: 2 },
+      rA2: { id: "rA2", label: "A2 → A", inputs: ["A2"], output: "A", strength: 1, depth: 2 },
+      rA3: { id: "rA3", label: "A3 → A", inputs: ["A3"], output: "A", strength: 1, depth: 2, dominatedWhen: 0.80 },
+      rC1: { id: "rC1", label: "C1 → C", inputs: ["C1"], output: "C", strength: 1, depth: 2 },
+      rC2: { id: "rC2", label: "C2 → C", inputs: ["C2"], output: "C", strength: 1, depth: 2 },
+      rD1: { id: "rD1", label: "D1 → D", inputs: ["D1"], output: "D", strength: 1, depth: 2 },
+      rE1: { id: "rE1", label: "E1 → E", inputs: ["E1"], output: "E", strength: 1, depth: 1 }
     };
-    const goalDepth = { Goal: 0, B: 1, E: 1, A: 2, C: 2, D: 2 };
-    const evidencePlan = [
-      { id: "A1", output: "A", confidence: 0.52, potential: 0.52 },
-      { id: "A2", output: "A", confidence: 0.62, potential: 0.30 },
-      { id: "A3", output: "A", confidence: 0.28, potential: 0.04, dominatedWhen: 0.80 },
-      { id: "C1", output: "C", confidence: 0.66, potential: 0.55 },
-      { id: "C2", output: "C", confidence: 0.58, potential: 0.22 },
-      { id: "D1", output: "D", confidence: 0.74, potential: 0.28 },
-      { id: "E1", output: "E", confidence: 0.86, potential: 0.75 }
-    ];
+    const goalDepth = {
+      Goal: 0, B: 1, E: 1, A: 2, C: 2, D: 2,
+      A1: 3, A2: 3, A3: 3, C1: 3, C2: 3, D1: 3, E1: 2
+    };
+    const concreteFacts = {
+      A1: { confidence: 0.52, potential: 0.52 },
+      A2: { confidence: 0.62, potential: 0.30 },
+      A3: { confidence: 0.28, potential: 0.04 },
+      C1: { confidence: 0.66, potential: 0.55 },
+      C2: { confidence: 0.58, potential: 0.22 },
+      D1: { confidence: 0.74, potential: 0.28 },
+      E1: { confidence: 0.86, potential: 0.75 }
+    };
     const consumers = {};
     Object.values(rules).forEach(rule => {
       rule.inputs.forEach(input => (consumers[input] ??= []).push(rule.id));
@@ -422,7 +462,7 @@
     let counters = {};
     let timer = null;
     let changedNodes = new Set();
-    let activeRule = null;
+    let activeRules = new Set();
     let discoveredRules = new Set();
     let nextAge = 0;
 
@@ -445,7 +485,7 @@
       events = [];
       counters = { steps: 0, expansions: 0, searches: 0, recomputes: 0, coalesced: 0, superseded: 0 };
       changedNodes = new Set();
-      activeRule = null;
+      activeRules = new Set();
       discoveredRules = new Set();
       addEvent("ready", "Only the query root is queued. Expanding Goal will discover its rules and premises; leaf expansion will reveal evidence searches.");
       render();
@@ -476,20 +516,18 @@
     function markRuleDirty(ruleId) {
       const rule = rules[ruleId];
       if (!discoveredRules.has(ruleId) || !ruleReady(rule)) return;
-      const existing = queue.find(item => item.type === "rule" && item.ruleId === ruleId);
       nodeState[rule.output].dirtyRules.add(ruleId);
+      const existing = queue.find(item => item.type === "refresh" && item.goal === rule.output);
       if (existing) {
-        existing.targetRevisions = rule.inputs.map(input => nodeState[input].revision);
         counters.coalesced += 1;
         return;
       }
       queue.push({
-        id: `run-${ruleId}`,
-        type: "rule",
-        ruleId,
+        id: `refresh-${rule.output}`,
+        type: "refresh",
+        goal: rule.output,
         age: nextAge++,
-        createdAt: counters.steps,
-        targetRevisions: rule.inputs.map(input => nodeState[input].revision)
+        createdAt: counters.steps
       });
     }
 
@@ -513,50 +551,52 @@
     }
 
     function blockersFor(task) {
-      if (task.type !== "rule" || policy.value !== "settle") return [];
-      const relevant = ancestorsOf(rules[task.ruleId].inputs);
+      if (task.type !== "refresh" || policy.value !== "settle") return [];
+      const relevant = ancestorsOf([task.goal]);
       const minimum = Number(threshold.value);
       return queue.filter(candidate => {
         if (candidate === task) return false;
-        if (candidate.type === "evidence") {
-          return relevant.has(candidate.output) && candidate.potential >= minimum;
+        if (candidate.type === "expand") {
+          const fact = concreteFacts[candidate.goal];
+          return relevant.has(candidate.goal) && (!fact || fact.potential >= minimum);
         }
-        if (candidate.type === "expand") return relevant.has(candidate.goal);
-        return relevant.has(rules[candidate.ruleId].output);
+        return relevant.has(candidate.goal);
       });
+    }
+
+    function predictedRepresentative(goal) {
+      const candidates = new Map(nodeState[goal].candidates);
+      nodeState[goal].dirtyRules.forEach(ruleId => {
+        const rule = rules[ruleId];
+        const confidence = rule.inputs.reduce((product, input) => product * nodeState[input].confidence, 1) * rule.strength;
+        if (!(rule.dominatedWhen && nodeState[goal].confidence >= rule.dominatedWhen && confidence <= nodeState[goal].confidence)) {
+          candidates.set(rule.id, confidence);
+        }
+      });
+      return mergeConfidence([...candidates.values()]);
     }
 
     function priorityParts(task) {
       const age = Math.min(counters.steps - task.createdAt, 20);
       if (task.type === "expand") {
+        const fact = concreteFacts[task.goal];
         return [
           ["base", 80],
           ["demand", 20],
           ["missing", nodeState[task.goal].confidence === 0 ? 25 : 0],
+          ["potential", fact ? fact.potential * 40 : 0],
           ["depth", -goalDepth[task.goal] * 6],
           ["age", age * 0.3]
         ];
       }
-      if (task.type === "evidence") {
-        return [
-          ["base", 50],
-          ["demand", 20],
-          ["potential", task.potential * 40],
-          ["depth", -goalDepth[task.output] * 5],
-          ["age", age * 0.3]
-        ];
-      }
-      const rule = rules[task.ruleId];
-      const output = nodeState[rule.output];
-      const inputConfidence = rule.inputs.reduce((product, input) => product * nodeState[input].confidence, 1);
-      const predicted = inputConfidence * rule.strength;
-      const improvement = Math.max(0, predicted - output.confidence);
+      const output = nodeState[task.goal];
+      const improvement = Math.max(0, predictedRepresentative(task.goal) - output.confidence);
       const blockers = blockersFor(task);
       return [
         ["base", 70],
         ["demand", 20],
         ["missing", output.confidence === 0 ? 25 : 0],
-        ["root", rule.output === "Goal" ? 15 : 0],
+        ["root", task.goal === "Goal" ? 15 : 0],
         ["gain", improvement * 40],
         ["age", age * 0.8],
         ["waiting", blockers.length ? -(75 + blockers.length * 4) : 0]
@@ -576,19 +616,19 @@
 
     function taskReason(task) {
       if (task.type === "expand") {
-        return `Expand ${task.goal} backward to discover rules, premises, or indexed evidence.`;
+        const fact = concreteFacts[task.goal];
+        return fact
+          ? `Pop ${task.goal}; its indexed concrete fact is returned synchronously with estimated value ${fact.potential.toFixed(2)}.`
+          : `Expand ${task.goal} backward to discover its producer rules and premise goals.`;
       }
-      if (task.type === "evidence") {
-        return `${task.dominatedWhen ? `Likely dominated once ${task.output} reaches ${task.dominatedWhen.toFixed(2)}; ` : ""}potential ${task.potential.toFixed(2)} representative improvement.`;
-      }
-      const rule = rules[task.ruleId];
       const blockers = blockersFor(task);
       if (blockers.length) {
-        const labels = blockers.map(item => item.type === "rule" ? rules[item.ruleId].label : item.type === "expand" ? `expand ${item.goal}` : item.id);
-        return `Deferred: ${labels.join(", ")} may still materially change ${rule.inputs.join(" or ")}.`;
+        const labels = blockers.map(item => item.type === "refresh" ? `refresh ${item.goal}` : `expand ${item.goal}`);
+        return `Deferred: ${labels.join(", ")} may still materially change ${task.goal}.`;
       }
-      if (nodeState[rule.output].confidence === 0) return `Ready to create the first ${rule.output} representative.`;
-      return `Inputs changed; recompute ${rule.output} once from their latest revisions.`;
+      const producers = [...nodeState[task.goal].dirtyRules].map(ruleId => rules[ruleId].label);
+      if (nodeState[task.goal].confidence === 0) return `Ready to create the first ${task.goal} representative from ${producers.join(", ")}.`;
+      return `Refresh ${task.goal} once from the latest ready producers: ${producers.join(", ")}.`;
     }
 
     function sortedQueue() {
@@ -603,8 +643,14 @@
       const node = nodeState[task.goal];
       node.expanded = true;
       changedNodes.add(task.goal);
+      const fact = concreteFacts[task.goal];
+      if (fact) {
+        counters.searches += 1;
+        updateRepresentative(task.goal, `fact-${task.goal}`, fact.confidence);
+        addEvent("expand", `<strong>${task.goal}</strong> synchronously returned its indexed concrete proof (${formatConfidence(fact.confidence)}). No proof item was added to the queue.`);
+        return;
+      }
       const discovered = Object.values(rules).filter(rule => rule.output === task.goal);
-      const evidence = evidencePlan.filter(item => item.output === task.goal);
       discovered.forEach(rule => {
         discoveredRules.add(rule.id);
         rule.inputs.forEach(input => {
@@ -613,39 +659,50 @@
             queue.push({ id: `expand-${input}`, type: "expand", goal: input, age: nextAge++, createdAt: counters.steps });
           }
         });
+        markRuleDirty(rule.id);
       });
-      evidence.forEach(item => {
-        queue.push({ ...item, type: "evidence", age: nextAge++, createdAt: counters.steps });
-      });
-      const findings = [
-        ...discovered.map(rule => rule.label),
-        ...evidence.map(item => item.id)
-      ];
+      const findings = discovered.map(rule => rule.label);
       addEvent("expand", `<strong>${task.goal}</strong> exposed ${findings.length ? findings.join(", ") : "no matching work"}.`);
     }
 
-    function runEvidence(task) {
-      counters.searches += 1;
-      const before = nodeState[task.output].confidence;
-      if (task.dominatedWhen && before >= task.dominatedWhen) {
-        addEvent("dominated", `<strong>${task.id}</strong> (${formatConfidence(task.confidence)}) was dominated by ${task.output}*=<strong>${formatConfidence(before)}</strong>; no revision or downstream wake was produced.`);
-        return;
-      }
-      updateRepresentative(task.output, task.id, task.confidence);
-      const after = nodeState[task.output].confidence;
-      addEvent("evidence", `<strong>${task.id}</strong> (${formatConfidence(task.confidence)}) changed ${task.output} from ${formatConfidence(before)} to <strong>${formatConfidence(after)}</strong>.`);
-    }
-
-    function runRule(task) {
+    function runRefresh(task) {
       counters.recomputes += 1;
-      const rule = rules[task.ruleId];
-      const confidence = rule.inputs.reduce((product, input) => product * nodeState[input].confidence, 1) * rule.strength;
-      const before = nodeState[rule.output].confidence;
-      nodeState[rule.output].dirtyRules.delete(rule.id);
-      updateRepresentative(rule.output, rule.id, confidence);
-      const after = nodeState[rule.output].confidence;
-      activeRule = rule.id;
-      addEvent("rule", `<strong>${rule.label}</strong> used ${rule.inputs.map(input => `${input}@r${nodeState[input].revision}`).join(" and ")}; ${rule.output} changed from ${formatConfidence(before)} to <strong>${formatConfidence(after)}</strong>.`);
+      const node = nodeState[task.goal];
+      const dirtyRuleIds = [...node.dirtyRules];
+      const proposed = new Map(node.candidates);
+      const calculated = dirtyRuleIds.map(ruleId => {
+        const rule = rules[ruleId];
+        return {
+          rule,
+          confidence: rule.inputs.reduce((product, input) => product * nodeState[input].confidence, 1) * rule.strength
+        };
+      });
+      calculated.filter(item => !item.rule.dominatedWhen).forEach(item => proposed.set(item.rule.id, item.confidence));
+      const dominated = [];
+      calculated.filter(item => item.rule.dominatedWhen).forEach(item => {
+        const alternatives = new Map(proposed);
+        alternatives.delete(item.rule.id);
+        const alternativeConfidence = mergeConfidence([...alternatives.values()]);
+        if (alternativeConfidence >= item.rule.dominatedWhen && item.confidence <= alternativeConfidence) dominated.push(item.rule.label);
+        else proposed.set(item.rule.id, item.confidence);
+      });
+      calculated.forEach(item => {
+        const previous = node.candidates.get(item.rule.id);
+        if (previous !== undefined && Math.abs(previous - item.confidence) > 1e-9) counters.superseded += 1;
+      });
+      const before = node.confidence;
+      node.candidates = proposed;
+      node.confidence = mergeConfidence([...proposed.values()]);
+      node.dirtyRules.clear();
+      activeRules = new Set(dirtyRuleIds);
+      if (Math.abs(before - node.confidence) > 1e-9) {
+        node.revision += 1;
+        changedNodes.add(task.goal);
+        (consumers[task.goal] || []).forEach(markRuleDirty);
+      }
+      const used = calculated.filter(item => !dominated.includes(item.rule.label)).map(item => item.rule.label);
+      const domination = dominated.length ? ` Dominated without propagation: ${dominated.join(", ")}.` : "";
+      addEvent("refresh", `<strong>${task.goal}</strong> folded ${used.length ? used.join(", ") : "no new candidate"} into one representative: ${formatConfidence(before)} → <strong>${formatConfidence(node.confidence)}</strong>.${domination}`);
     }
 
     function step() {
@@ -654,13 +711,12 @@
         return;
       }
       changedNodes = new Set();
-      activeRule = null;
+      activeRules = new Set();
       const task = sortedQueue()[0];
       queue.splice(queue.indexOf(task), 1);
       counters.steps += 1;
       if (task.type === "expand") runExpansion(task);
-      else if (task.type === "evidence") runEvidence(task);
-      else runRule(task);
+      else runRefresh(task);
       render();
       if (queue.length === 0) stopAutoplay();
     }
@@ -674,7 +730,7 @@
     }
 
     function renderNodes() {
-      nodeOrder.forEach(name => {
+      visibleNodeOrder.forEach(name => {
         const node = nodeState[name];
         const element = document.querySelector(`#node-${name}`);
         element.classList.toggle("empty", node.confidence === 0);
@@ -685,15 +741,28 @@
           node.expanded ? '<span class="badge expanded">expanded</span>' : "",
           node.dirtyRules.size ? '<span class="badge">dirty</span>' : ""
         ].join("");
+        const producers = Object.values(rules).filter(rule =>
+          rule.output === name &&
+          rule.inputs.length === 1 &&
+          concreteFacts[rule.inputs[0]] &&
+          discoveredRules.has(rule.id)
+        );
+        const sources = producers.length
+          ? `<div class="sources">${producers.map(rule => {
+              const source = rule.inputs[0];
+              return `<span class="source ${nodeState[source].confidence > 0 ? "found" : ""}">${source}${nodeState[source].confidence > 0 ? " ✓" : ""}</span>`;
+            }).join("")}</div>`
+          : "";
         element.innerHTML = `
           <div class="node-title"><span>${name}</span><span>${badges}</span></div>
           <div class="node-conf">${formatConfidence(node.confidence)}</div>
           <div class="node-meta">revision ${node.revision} · ${node.candidates.size} ${candidateLabel}</div>
+          ${sources}
         `;
       });
       document.querySelectorAll(".edge, .edge-label").forEach(edge => {
         edge.classList.toggle("undiscovered", !discoveredRules.has(edge.dataset.rule));
-        edge.classList.toggle("active", edge.classList.contains("edge") && edge.dataset.rule === activeRule);
+        edge.classList.toggle("active", edge.classList.contains("edge") && activeRules.has(edge.dataset.rule));
       });
     }
 
@@ -701,10 +770,9 @@
       const body = document.querySelector("#queueBody");
       const sorted = sortedQueue();
       body.innerHTML = sorted.map(task => {
-        const rule = task.type === "rule" ? rules[task.ruleId] : null;
         const blockers = blockersFor(task);
-        const kind = task.type === "rule" ? "propagate" : task.type;
-        const work = rule ? rule.label : task.type === "expand" ? `Expand ${task.goal}` : `Find ${task.id}`;
+        const kind = task.type === "refresh" ? "propagate" : "expand";
+        const work = task.type === "refresh" ? `Refresh ${task.goal}` : `Expand ${task.goal}`;
         return `
           <tr>
             <td><div class="score">${scoreTask(task).toFixed(1)}</div><div class="calculation">${priorityCalculation(task)}</div></td>
@@ -733,10 +801,10 @@
       const dirty = Object.values(nodeState).filter(node => node.dirtyRules.size > 0).map(node => node.name);
       const next = sortedQueue()[0];
       let text = settle
-        ? `Settle mode keeps propagation work in the queue, but lowers its priority while evidence worth at least ${Number(threshold.value).toFixed(2)} remains upstream.`
-        : "Eager mode gives ready propagation work its full priority, even when more evidence for its inputs is already queued.";
-      if (dirty.length) text += ` Dirty representatives: ${dirty.join(", ")}. Multiple input changes are coalesced into one rule run.`;
-      if (next) text += ` Next: ${next.type === "rule" ? rules[next.ruleId].label : next.type === "expand" ? `expand ${next.goal}` : `find ${next.id}`}.`;
+        ? `Settle mode keeps propagation work queued, but lowers its priority while unfinished producer goals worth at least ${Number(threshold.value).toFixed(2)} can still change the same representative.`
+        : "Eager mode gives ready propagation work its full priority, even when sibling producer goals for the same representative remain queued.";
+      if (dirty.length) text += ` Dirty representatives: ${dirty.join(", ")}. Multiple producer changes are coalesced into one goal refresh.`;
+      if (next) text += ` Next: ${next.type === "refresh" ? `refresh ${next.goal}` : `expand ${next.goal}`}.`;
       document.querySelector("#explanation").textContent = text;
     }
 
