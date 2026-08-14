@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lazy proof scheduler</title>
+  <title>Multi-root lazy proof scheduler</title>
   <style>
     :root {
       color-scheme: dark;
@@ -95,7 +95,7 @@
     .threshold { min-width: 260px; }
     .threshold-row { display: flex; align-items: center; gap: 10px; }
     .threshold input { width: 190px; accent-color: var(--cyan); }
-    #thresholdValue { min-width: 42px; color: var(--cyan); font-variant-numeric: tabular-nums; }
+    #thresholdValue, #budgetValue { min-width: 42px; color: var(--cyan); font-variant-numeric: tabular-nums; }
 
     .buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
     button {
@@ -135,7 +135,7 @@
 
     .graph {
       position: relative;
-      min-height: 720px;
+      min-height: 820px;
       overflow: hidden;
       border: 1px solid #293545;
       border-radius: 12px;
@@ -185,12 +185,15 @@
     .node-c1 { left: 2%; top: 40%; }
     .node-c2 { left: 2%; top: 51%; }
     .node-c { left: 22%; top: 45%; }
-    .node-d1 { left: 2%; top: 67%; }
-    .node-d { left: 22%; top: 66%; }
-    .node-b { left: 49%; top: 34%; }
-    .node-e1 { left: 22%; top: 84%; }
-    .node-e { left: 49%; top: 78%; }
-    .node-goal { right: 3%; top: 52%; }
+    .node-d1 { left: 2%; top: 61%; }
+    .node-d { left: 22%; top: 60%; }
+    .node-b { left: 49%; top: 32%; }
+    .node-e1 { left: 22%; top: 75%; }
+    .node-e { left: 49%; top: 68%; }
+    .node-f1 { left: 22%; top: 89%; }
+    .node-f { left: 49%; top: 84%; }
+    .node-goal1 { right: 2%; top: 48%; }
+    .node-goal2 { right: 2%; top: 72%; }
 
     .legend {
       display: flex;
@@ -223,7 +226,7 @@
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(6, minmax(78px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
       gap: 8px;
       margin-bottom: 12px;
     }
@@ -300,7 +303,7 @@
       header { align-items: start; flex-direction: column; }
       .buttons { width: 100%; margin-left: 0; }
       .buttons button { flex: 1; }
-      .graph { min-height: 1080px; }
+      .graph { min-height: 1280px; }
       .node { width: 132px; }
       .node.producer { width: 104px; }
       .node-a1 { left: 2%; top: 2%; }
@@ -310,12 +313,15 @@
       .node-c1 { left: 2%; top: 29%; }
       .node-c2 { left: 2%; top: 37%; }
       .node-c { left: 53%; top: 33%; }
-      .node-d1 { left: 2%; top: 49%; }
-      .node-d { left: 53%; top: 49%; }
-      .node-b { left: 53%; top: 63%; }
-      .node-e1 { left: 2%; top: 76%; }
-      .node-e { left: 53%; top: 76%; }
-      .node-goal { right: 3%; top: 88%; }
+      .node-d1 { left: 2%; top: 48%; }
+      .node-d { left: 53%; top: 48%; }
+      .node-b { left: 53%; top: 59%; }
+      .node-e1 { left: 2%; top: 69%; }
+      .node-e { left: 53%; top: 69%; }
+      .node-f1 { left: 2%; top: 79%; }
+      .node-f { left: 53%; top: 79%; }
+      .node-goal1 { left: 2%; top: 89%; }
+      .node-goal2 { left: 53%; top: 89%; }
       .edges { display: none; }
       .stats { grid-template-columns: repeat(2, 1fr); }
       .event { grid-template-columns: 34px 72px 1fr; }
@@ -328,19 +334,30 @@
   <main class="shell">
     <header>
       <div>
-        <h1>Lazy proof scheduler</h1>
+        <h1>Multi-root lazy proof scheduler</h1>
         <p class="lede">Step through backward goal expansion, synchronous concrete matches, representative merging, dirty-goal coalescing, and propagation. The queue contains only goal expansion and goal refresh work—never proof objects. Switch policy to see why refreshing an intermediate result too early can create repeated downstream work. Confidence arithmetic is deliberately illustrative.</p>
       </div>
-      <div class="query-pill">Query: Goal</div>
+      <div>
+        <div class="query-pill">Goal 1 · demand 1.00</div>
+        <div class="query-pill" style="margin-top: 7px">Goal 2 · demand 0.72</div>
+      </div>
     </header>
 
     <section class="toolbar" aria-label="Simulation controls">
       <div class="control">
         <label for="policy">Scheduling policy</label>
         <select id="policy">
+          <option value="deadline">Settle + finish roots</option>
           <option value="settle">Settle valuable inputs</option>
           <option value="eager">Eager propagation</option>
         </select>
+      </div>
+      <div class="control threshold">
+        <label for="budget">Goal-pop budget</label>
+        <div class="threshold-row">
+          <input id="budget" type="range" min="12" max="36" value="22" step="1">
+          <output id="budgetValue" for="budget">22</output>
+        </div>
       </div>
       <div class="control threshold" id="thresholdControl">
         <label for="threshold">Producer value that may delay propagation</label>
@@ -363,7 +380,7 @@
           <span class="hint">Dashed nodes have a queued recomputation</span>
         </div>
         <div class="graph" id="graph">
-          <svg class="edges" viewBox="0 0 900 720" preserveAspectRatio="none" aria-hidden="true">
+          <svg class="edges" viewBox="0 0 900 820" preserveAspectRatio="none" aria-hidden="true">
             <defs>
               <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                 <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"></path>
@@ -375,29 +392,36 @@
             <path class="edge" data-rule="rC1" d="M 115 318 C 155 318, 160 346, 196 350"></path>
             <path class="edge" data-rule="rC2" d="M 115 397 C 155 397, 160 370, 196 360"></path>
             <path class="edge" data-rule="rD1" d="M 115 512 L 196 512"></path>
-            <path class="edge" data-rule="rE1" d="M 350 642 C 392 642, 400 593, 438 588"></path>
+            <path class="edge" data-rule="rE1" d="M 350 654 C 392 654, 400 585, 438 575"></path>
+            <path class="edge" data-rule="rF1" d="M 350 770 C 392 770, 400 710, 438 700"></path>
             <path class="edge" data-rule="rAC" d="M 350 150 C 415 150, 412 267, 438 278"></path>
             <path class="edge" data-rule="rAC" d="M 350 360 C 410 360, 415 300, 438 290"></path>
             <path class="edge" data-rule="rD" d="M 350 512 C 425 512, 418 322, 438 302"></path>
-            <path class="edge" data-rule="rGoal" d="M 592 290 C 665 290, 672 386, 720 390"></path>
-            <path class="edge" data-rule="rGoal" d="M 592 588 C 675 588, 676 422, 720 410"></path>
+            <path class="edge" data-rule="rGoal1" d="M 592 290 C 665 290, 672 430, 720 430"></path>
+            <path class="edge" data-rule="rGoal1" d="M 592 575 C 675 575, 676 450, 720 445"></path>
+            <path class="edge" data-rule="rGoal2" d="M 592 290 C 680 290, 675 610, 720 610"></path>
+            <path class="edge" data-rule="rGoal2" d="M 592 700 C 670 700, 675 630, 720 625"></path>
             <text class="edge-label" data-rule="rA1" x="130" y="78">×0.98</text>
             <text class="edge-label" data-rule="rA2" x="132" y="127">×0.96</text>
             <text class="edge-label" data-rule="rA3" x="130" y="202">×0.30</text>
             <text class="edge-label" data-rule="rC1" x="132" y="327">×0.97</text>
             <text class="edge-label" data-rule="rC2" x="132" y="397">×0.85</text>
             <text class="edge-label" data-rule="rD1" x="132" y="505">×0.90</text>
-            <text class="edge-label" data-rule="rE1" x="376" y="632">×0.95</text>
+            <text class="edge-label" data-rule="rE1" x="376" y="642">×0.95</text>
+            <text class="edge-label" data-rule="rF1" x="376" y="760">×0.92</text>
             <text class="edge-label" data-rule="rAC" x="375" y="223">A ∧ C → B</text>
             <text class="edge-label" data-rule="rD" x="380" y="457">D → B</text>
-            <text class="edge-label" data-rule="rGoal" x="626" y="482">B ∧ E → Goal</text>
+            <text class="edge-label" data-rule="rGoal1" x="626" y="495">B ∧ E → Goal 1</text>
+            <text class="edge-label" data-rule="rGoal2" x="620" y="665">B ∧ F → Goal 2</text>
           </svg>
           <div id="node-A" class="node node-a"></div>
           <div id="node-C" class="node node-c"></div>
           <div id="node-D" class="node node-d"></div>
           <div id="node-B" class="node node-b"></div>
           <div id="node-E" class="node node-e"></div>
-          <div id="node-Goal" class="node node-goal root"></div>
+          <div id="node-F" class="node node-f"></div>
+          <div id="node-Goal1" class="node node-goal1 root"></div>
+          <div id="node-Goal2" class="node node-goal2 root"></div>
           <div id="node-A1" class="node producer node-a1"></div>
           <div id="node-A2" class="node producer node-a2"></div>
           <div id="node-A3" class="node producer node-a3"></div>
@@ -405,6 +429,7 @@
           <div id="node-C2" class="node producer node-c2"></div>
           <div id="node-D1" class="node producer node-d1"></div>
           <div id="node-E1" class="node producer node-e1"></div>
+          <div id="node-F1" class="node producer node-f1"></div>
         </div>
         <div class="legend">
           <span class="changed-key">changed this step</span>
@@ -427,10 +452,11 @@
           <span class="hint">The highlighted row runs next</span>
         </div>
         <div class="priority-guide">
-          <strong>Every score is additive.</strong> Root demand is <code>1.0</code>. Before a producer goal is popped, its proof confidence is unknown, so its headroom signal is <code>rule confidence × (1 − current-or-pending parent confidence)</code>. Refresh priority uses the predicted improvement of the merged representative. Settle mode subtracts an explicit waiting penalty for valuable unfinished sibling producers. Age slowly prevents starvation.
+          <strong>Every score is additive.</strong> Root demand is inherited from the most demanding reachable query root. Before a producer goal is popped, its proof confidence is unknown, so its headroom signal is <code>rule confidence × (1 − current-or-pending parent confidence)</code>. Refresh uses predicted representative improvement. The deadline policy adds a completion bonus when four or fewer pops remain and penalizes work that cannot reach either root in time.
         </div>
         <div class="stats">
           <div class="stat"><div class="stat-value" id="stepCount">0</div><div class="stat-label">Steps</div></div>
+          <div class="stat"><div class="stat-value" id="remainingCount">0</div><div class="stat-label">Remaining</div></div>
           <div class="stat"><div class="stat-value" id="expansionCount">0</div><div class="stat-label">Expansions</div></div>
           <div class="stat"><div class="stat-value" id="searchCount">0</div><div class="stat-label">Concrete</div></div>
           <div class="stat"><div class="stat-value" id="recomputeCount">0</div><div class="stat-label">Refreshes</div></div>
@@ -461,25 +487,28 @@
   <script>
     "use strict";
 
-    const visibleNodeOrder = ["A", "C", "D", "B", "E", "Goal"];
-    const producerGoalOrder = ["A1", "A2", "A3", "C1", "C2", "D1", "E1"];
+    const visibleNodeOrder = ["A", "C", "D", "B", "E", "F", "Goal1", "Goal2"];
+    const producerGoalOrder = ["A1", "A2", "A3", "C1", "C2", "D1", "E1", "F1"];
     const nodeOrder = [...visibleNodeOrder, ...producerGoalOrder];
+    const rootDemand = { Goal1: 1.00, Goal2: 0.72 };
     const nodeState = {};
     const rules = {
       rAC: { id: "rAC", label: "A ∧ C → B", inputs: ["A", "C"], output: "B", strength: 0.92, depth: 1 },
       rD: { id: "rD", label: "D → B", inputs: ["D"], output: "B", strength: 0.78, depth: 1 },
-      rGoal: { id: "rGoal", label: "B ∧ E → Goal", inputs: ["B", "E"], output: "Goal", strength: 0.95, depth: 0 },
+      rGoal1: { id: "rGoal1", label: "B ∧ E → Goal 1", inputs: ["B", "E"], output: "Goal1", strength: 0.95, depth: 0 },
+      rGoal2: { id: "rGoal2", label: "B ∧ F → Goal 2", inputs: ["B", "F"], output: "Goal2", strength: 0.90, depth: 0 },
       rA1: { id: "rA1", label: "A1 → A", inputs: ["A1"], output: "A", strength: 0.98, depth: 2 },
       rA2: { id: "rA2", label: "A2 → A", inputs: ["A2"], output: "A", strength: 0.96, depth: 2 },
       rA3: { id: "rA3", label: "A3 → A", inputs: ["A3"], output: "A", strength: 0.30, depth: 2, dominatedWhen: 0.78 },
       rC1: { id: "rC1", label: "C1 → C", inputs: ["C1"], output: "C", strength: 0.97, depth: 2 },
       rC2: { id: "rC2", label: "C2 → C", inputs: ["C2"], output: "C", strength: 0.85, depth: 2 },
       rD1: { id: "rD1", label: "D1 → D", inputs: ["D1"], output: "D", strength: 0.90, depth: 2 },
-      rE1: { id: "rE1", label: "E1 → E", inputs: ["E1"], output: "E", strength: 0.95, depth: 1 }
+      rE1: { id: "rE1", label: "E1 → E", inputs: ["E1"], output: "E", strength: 0.95, depth: 1 },
+      rF1: { id: "rF1", label: "F1 → F", inputs: ["F1"], output: "F", strength: 0.92, depth: 1 }
     };
     const goalDepth = {
-      Goal: 0, B: 1, E: 1, A: 2, C: 2, D: 2,
-      A1: 3, A2: 3, A3: 3, C1: 3, C2: 3, D1: 3, E1: 2
+      Goal1: 0, Goal2: 0, B: 1, E: 1, F: 1, A: 2, C: 2, D: 2,
+      A1: 3, A2: 3, A3: 3, C1: 3, C2: 3, D1: 3, E1: 2, F1: 2
     };
     const concreteFacts = {
       A1: { confidence: 0.52 },
@@ -488,7 +517,8 @@
       C1: { confidence: 0.66 },
       C2: { confidence: 0.58 },
       D1: { confidence: 0.74 },
-      E1: { confidence: 0.86 }
+      E1: { confidence: 0.86 },
+      F1: { confidence: 0.78 }
     };
     const consumers = {};
     Object.values(rules).forEach(rule => {
@@ -508,6 +538,8 @@
     const threshold = document.querySelector("#threshold");
     const thresholdValue = document.querySelector("#thresholdValue");
     const thresholdControl = document.querySelector("#thresholdControl");
+    const budget = document.querySelector("#budget");
+    const budgetValue = document.querySelector("#budgetValue");
     const stepButton = document.querySelector("#step");
     const autoButton = document.querySelector("#auto");
 
@@ -519,13 +551,16 @@
       stopAutoplay();
       nodeOrder.forEach(name => { nodeState[name] = blankNode(name); });
       nextAge = 0;
-      queue = [{ id: "expand-Goal", type: "expand", goal: "Goal", age: nextAge++, createdAt: 0 }];
+      queue = [
+        { id: "expand-Goal1", type: "expand", goal: "Goal1", age: nextAge++, createdAt: 0 },
+        { id: "expand-Goal2", type: "expand", goal: "Goal2", age: nextAge++, createdAt: 0 }
+      ];
       events = [];
       counters = { steps: 0, expansions: 0, searches: 0, recomputes: 0, coalesced: 0, superseded: 0 };
       changedNodes = new Set();
       activeRules = new Set();
       discoveredRules = new Set();
-      addEvent("ready", "Only the query root is queued. Expanding Goal will discover its rules and premises; leaf expansion will reveal evidence searches.");
+      addEvent("ready", "Only the two query roots are queued. Their backward expansions will discover a shared B branch and independent E/F branches.");
       render();
     }
 
@@ -588,6 +623,56 @@
       return found;
     }
 
+    function demandFor(goal, visited = new Set()) {
+      if (rootDemand[goal] !== undefined) return rootDemand[goal];
+      if (visited.has(goal)) return 0;
+      const nextVisited = new Set(visited).add(goal);
+      return Math.max(0, ...(consumers[goal] || []).map(ruleId => demandFor(rules[ruleId].output, nextVisited)));
+    }
+
+    function downstreamDistance(goal, root, visited = new Set()) {
+      if (goal === root) return 0;
+      if (visited.has(goal)) return Infinity;
+      const nextVisited = new Set(visited).add(goal);
+      return Math.min(Infinity, ...(consumers[goal] || [])
+        .map(ruleId => rules[ruleId])
+        .filter(rule => discoveredRules.has(rule.id))
+        .filter(rule => rule.inputs.every(input => input === goal || nodeState[input].confidence > 0))
+        .map(rule => 1 + downstreamDistance(rule.output, root, nextVisited)));
+    }
+
+    function completionOptions(task) {
+      let startGoal;
+      let initialCost = 1;
+      if (task.type === "refresh") startGoal = task.goal;
+      else {
+        const rule = producerRuleFor(task.goal);
+        if (!rule || !discoveredRules.has(rule.id)) return [];
+        startGoal = rule.output;
+        initialCost = 2;
+      }
+      return Object.keys(rootDemand).map(root => ({
+        root,
+        cost: initialCost + downstreamDistance(startGoal, root),
+        demand: rootDemand[root]
+      })).filter(option => Number.isFinite(option.cost));
+    }
+
+    function remainingBudget() {
+      return Math.max(0, Number(budget.value) - counters.steps);
+    }
+
+    function deadlinePriority(task) {
+      const remaining = remainingBudget();
+      if (policy.value !== "deadline" || remaining > 4) return 0;
+      const finishable = completionOptions(task)
+        .filter(option => option.cost <= remaining)
+        .sort((left, right) => right.demand - left.demand || left.cost - right.cost);
+      if (!finishable.length) return -90;
+      const best = finishable[0];
+      return 160 + best.demand * 20 - (remaining - best.cost) * 10;
+    }
+
     function producerRuleFor(goal) {
       return Object.values(rules).find(rule => rule.inputs.length === 1 && rule.inputs[0] === goal && concreteFacts[goal]);
     }
@@ -601,7 +686,7 @@
     }
 
     function blockersFor(task) {
-      if (task.type !== "refresh" || policy.value !== "settle") return [];
+      if (task.type !== "refresh" || policy.value === "eager") return [];
       const relevant = ancestorsOf([task.goal]);
       const minimum = Number(threshold.value);
       return queue.filter(candidate => {
@@ -633,11 +718,12 @@
         const potential = fact ? producerPotential(task.goal) : 0;
         return [
           ["base", 80],
-          ["demand", 20],
+          ["demand", demandFor(task.goal) * 20],
           ["missing", nodeState[task.goal].confidence === 0 ? 25 : 0],
           ["headroom", potential * 40],
           ["depth", -goalDepth[task.goal] * 6],
-          ["age", age * 0.3]
+          ["age", age * 0.3],
+          ["deadline", deadlinePriority(task)]
         ];
       }
       const output = nodeState[task.goal];
@@ -645,12 +731,13 @@
       const blockers = blockersFor(task);
       return [
         ["base", 70],
-        ["demand", 20],
+        ["demand", demandFor(task.goal) * 20],
         ["missing", output.confidence === 0 ? 25 : 0],
-        ["root", task.goal === "Goal" ? 15 : 0],
+        ["root", rootDemand[task.goal] !== undefined ? 15 : 0],
         ["gain", improvement * 40],
         ["age", age * 0.8],
-        ["waiting", blockers.length ? -(75 + blockers.length * 4) : 0]
+        ["waiting", blockers.length ? -(75 + blockers.length * 4) : 0],
+        ["deadline", deadlinePriority(task)]
       ];
     }
 
@@ -665,23 +752,33 @@
         .join(" ");
     }
 
+    function deadlineReason(task) {
+      if (policy.value !== "deadline" || remainingBudget() > 4) return "";
+      const finishable = completionOptions(task)
+        .filter(option => option.cost <= remainingBudget())
+        .sort((left, right) => right.demand - left.demand || left.cost - right.cost);
+      return finishable.length
+        ? ` Deadline: ${finishable[0].cost} of ${remainingBudget()} remaining pops reaches ${finishable[0].root}.`
+        : ` Deadline: this work cannot reach either root in ${remainingBudget()} remaining pops.`;
+    }
+
     function taskReason(task) {
       if (task.type === "expand") {
         const fact = concreteFacts[task.goal];
         const rule = fact ? producerRuleFor(task.goal) : null;
         const potential = fact ? producerPotential(task.goal) : 0;
         return fact
-          ? `Pop ${task.goal}; before seeing its fact, ${rule.label} can add at most ${potential.toFixed(2)} given ${rule.output}'s current and pending confidence.`
-          : `Expand ${task.goal} backward to discover its producer rules and premise goals.`;
+          ? `Pop ${task.goal}; before seeing its fact, ${rule.label} can add at most ${potential.toFixed(2)} given ${rule.output}'s current and pending confidence.${deadlineReason(task)}`
+          : `Expand ${task.goal} backward to discover its producer rules and premise goals.${deadlineReason(task)}`;
       }
       const blockers = blockersFor(task);
       if (blockers.length) {
         const labels = blockers.map(item => item.type === "refresh" ? `refresh ${item.goal}` : `expand ${item.goal}`);
-        return `Deferred: ${labels.join(", ")} may still materially change ${task.goal}.`;
+        return `Deferred: ${labels.join(", ")} may still materially change ${task.goal}.${deadlineReason(task)}`;
       }
       const producers = [...nodeState[task.goal].dirtyRules].map(ruleId => rules[ruleId].label);
-      if (nodeState[task.goal].confidence === 0) return `Ready to create the first ${task.goal} representative from ${producers.join(", ")}.`;
-      return `Refresh ${task.goal} once from the latest ready producers: ${producers.join(", ")}.`;
+      if (nodeState[task.goal].confidence === 0) return `Ready to create the first ${task.goal} representative from ${producers.join(", ")}.${deadlineReason(task)}`;
+      return `Refresh ${task.goal} once from the latest ready producers: ${producers.join(", ")}.${deadlineReason(task)}`;
     }
 
     function sortedQueue() {
@@ -759,7 +856,7 @@
     }
 
     function step() {
-      if (queue.length === 0) {
+      if (queue.length === 0 || remainingBudget() === 0) {
         stopAutoplay();
         return;
       }
@@ -771,7 +868,7 @@
       if (task.type === "expand") runExpansion(task);
       else runRefresh(task);
       render();
-      if (queue.length === 0) stopAutoplay();
+      if (queue.length === 0 || remainingBudget() === 0) stopAutoplay();
     }
 
     function addEvent(type, detail) {
@@ -798,7 +895,9 @@
         ].join("");
         const meta = producerRule
           ? `rule cap ${producerRule.strength.toFixed(2)} · headroom ≤${producerPotential(name).toFixed(2)}`
-          : `revision ${node.revision} · ${node.candidates.size} ${candidateLabel}`;
+          : rootDemand[name] !== undefined
+            ? `demand ${rootDemand[name].toFixed(2)} · revision ${node.revision}`
+            : `revision ${node.revision} · ${node.candidates.size} ${candidateLabel}`;
         element.innerHTML = `
           <div class="node-title"><span>${name}</span><span>${badges}</span></div>
           <div class="node-conf">${formatConfidence(node.confidence)}</div>
@@ -842,21 +941,26 @@
     }
 
     function renderExplanation() {
-      const settle = policy.value === "settle";
+      const settle = policy.value !== "eager";
       const dirty = Object.values(nodeState).filter(node => node.dirtyRules.size > 0).map(node => node.name);
       const next = sortedQueue()[0];
-      let text = settle
+      let text = policy.value === "deadline"
+        ? `Deadline mode settles valuable producers, then reserves the final four pops for work that can still reach Goal 1 or Goal 2.`
+        : settle
         ? `Settle mode keeps propagation work queued, but lowers its priority while unfinished producer goals worth at least ${Number(threshold.value).toFixed(2)} can still change the same representative.`
         : "Eager mode gives ready propagation work its full priority, even when sibling producer goals for the same representative remain queued.";
       if (dirty.length) text += ` Dirty representatives: ${dirty.join(", ")}. Multiple producer changes are coalesced into one goal refresh.`;
       if (next) text += ` Next: ${next.type === "refresh" ? `refresh ${next.goal}` : `expand ${next.goal}`}.`;
+      if (remainingBudget() === 0 && queue.length) text += ` The goal-pop budget is exhausted; remaining work stays visible but cannot run.`;
       document.querySelector("#explanation").textContent = text;
     }
 
     function render() {
       thresholdValue.textContent = Number(threshold.value).toFixed(2);
-      thresholdControl.style.opacity = policy.value === "settle" ? "1" : "0.45";
+      budgetValue.textContent = Number(budget.value).toFixed(0);
+      thresholdControl.style.opacity = policy.value !== "eager" ? "1" : "0.45";
       document.querySelector("#stepCount").textContent = counters.steps;
+      document.querySelector("#remainingCount").textContent = remainingBudget();
       document.querySelector("#expansionCount").textContent = counters.expansions;
       document.querySelector("#searchCount").textContent = counters.searches;
       document.querySelector("#recomputeCount").textContent = counters.recomputes;
@@ -866,6 +970,7 @@
       renderQueue();
       renderEvents();
       renderExplanation();
+      stepButton.disabled = queue.length === 0 || remainingBudget() === 0;
     }
 
     function stopAutoplay() {
@@ -879,7 +984,7 @@
         stopAutoplay();
         return;
       }
-      if (queue.length === 0) reset();
+      if (queue.length === 0 || remainingBudget() === 0) reset();
       autoButton.textContent = "Pause";
       timer = window.setInterval(step, 700);
     }
@@ -889,6 +994,7 @@
     autoButton.addEventListener("click", toggleAutoplay);
     policy.addEventListener("change", render);
     threshold.addEventListener("input", render);
+    budget.addEventListener("input", render);
     reset();
   </script>
 </body>
