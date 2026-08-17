@@ -10,6 +10,8 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable
 
+from _benchmark_support import write_json
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -143,49 +145,31 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(f"benchmark is absent from --repository: {benchmark}")
     with tempfile.TemporaryDirectory(prefix="pettachainer-bench-") as raw_temp:
         temporary_directory = Path(raw_temp)
+        bounded_command = [
+            bounded,
+            "--fanouts",
+            "500",
+            "--steps",
+            "200",
+            "--repeats",
+            "1",
+        ]
+        bounded_selectors = {
+            "setup_seconds": lambda payload: float(payload[0]["setup_s"]),
+            "runtime_seconds": lambda payload: float(payload[0]["run_s"]),
+        }
         workloads = {
-            "bounded_backward": run_workload(
-                name="bounded-backward",
-                repository=repository,
-                repetitions=arguments.repetitions,
-                command=[
-                    bounded,
-                    "--fanouts",
-                    "500",
-                    "--steps",
-                    "200",
-                    "--repeats",
-                    "1",
-                    "--mode",
-                    "backward",
-                ],
-                selectors={
-                    "setup_seconds": lambda payload: float(payload[0]["setup_s"]),
-                    "runtime_seconds": lambda payload: float(payload[0]["run_s"]),
-                },
-                temporary_directory=temporary_directory,
-            ),
-            "bounded_forward": run_workload(
-                name="bounded-forward",
-                repository=repository,
-                repetitions=arguments.repetitions,
-                command=[
-                    bounded,
-                    "--fanouts",
-                    "500",
-                    "--steps",
-                    "200",
-                    "--repeats",
-                    "1",
-                    "--mode",
-                    "forward",
-                ],
-                selectors={
-                    "setup_seconds": lambda payload: float(payload[0]["setup_s"]),
-                    "runtime_seconds": lambda payload: float(payload[0]["run_s"]),
-                },
-                temporary_directory=temporary_directory,
-            ),
+            **{
+                f"bounded_{mode}": run_workload(
+                    name=f"bounded-{mode}",
+                    repository=repository,
+                    repetitions=arguments.repetitions,
+                    command=[*bounded_command, "--mode", mode],
+                    selectors=bounded_selectors,
+                    temporary_directory=temporary_directory,
+                )
+                for mode in ("backward", "forward")
+            },
             "durable_query_many": run_workload(
                 name="durable-query-many",
                 repository=repository,
@@ -314,10 +298,7 @@ def main(argv: list[str] | None = None) -> int:
             )
     print_comparison(result, baseline)
     if arguments.json_out:
-        arguments.json_out.write_text(
-            json.dumps(result, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
+        write_json(arguments.json_out, result)
         print(f"\nWrote JSON results to {arguments.json_out}")
     return 0
 

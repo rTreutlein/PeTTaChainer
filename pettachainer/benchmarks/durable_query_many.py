@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import argparse
-import importlib
 import json
 import sys
 import time
 from pathlib import Path
 from typing import Any
+
+from _benchmark_support import load_chainer, write_json
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -15,25 +16,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 class DurableQueryBenchmarkError(RuntimeError):
     pass
-
-
-def load_chainer(repository: Path):
-    package_root = repository.resolve()
-    if not (package_root / "pettachainer" / "pettachainer.py").is_file():
-        raise DurableQueryBenchmarkError(
-            f"not a PeTTaChainer repository: {package_root}"
-        )
-    sys.path.insert(0, str(package_root))
-    try:
-        module = importlib.import_module("pettachainer.pettachainer")
-    finally:
-        sys.path.pop(0)
-    module_path = Path(module.__file__).resolve()
-    if package_root not in module_path.parents:
-        raise DurableQueryBenchmarkError(
-            f"loaded PeTTaChainer from {module_path}, not {package_root}"
-        )
-    return module.PeTTaChainer
 
 
 def initial_statements(stable_roots: int) -> list[str]:
@@ -128,7 +110,7 @@ def run_benchmark(
             "steps must be positive, and shifts must be at least two"
         )
 
-    chainer_type = load_chainer(repository)
+    chainer_type = load_chainer(repository, DurableQueryBenchmarkError)
     started = time.perf_counter()
     handler = chainer_type()
     handler.add_atoms_no_check(initial_statements(stable_roots))
@@ -195,10 +177,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     print(json.dumps(metrics, indent=2, sort_keys=True))
     if arguments.json_out:
-        arguments.json_out.write_text(
-            json.dumps(metrics, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
+        write_json(arguments.json_out, metrics)
     return 0
 
 

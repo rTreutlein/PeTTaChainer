@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import importlib
 import json
 import math
 import re
@@ -10,6 +9,8 @@ import sys
 import time
 from pathlib import Path
 from typing import Any, Sequence
+
+from _benchmark_support import load_chainer, write_json
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -68,25 +69,6 @@ def inheritance_query() -> str:
     )
 
 
-def load_chainer(repository: Path):
-    package_root = repository.resolve()
-    if not (package_root / "pettachainer" / "pettachainer.py").is_file():
-        raise MemberInheritanceBenchmarkError(
-            f"not a PeTTaChainer repository: {package_root}"
-        )
-    sys.path.insert(0, str(package_root))
-    try:
-        module = importlib.import_module("pettachainer.pettachainer")
-    finally:
-        sys.path.pop(0)
-    module_path = Path(module.__file__).resolve()
-    if package_root not in module_path.parents:
-        raise MemberInheritanceBenchmarkError(
-            f"loaded PeTTaChainer from {module_path}, not {package_root}"
-        )
-    return module.PeTTaChainer
-
-
 def run_incremental_benchmark(
     *,
     repository: Path,
@@ -103,7 +85,7 @@ def run_incremental_benchmark(
     if not 0.0 <= member_strength <= 1.0:
         raise MemberInheritanceBenchmarkError("member-strength must be in [0, 1]")
 
-    chainer_type = load_chainer(repository)
+    chainer_type = load_chainer(repository, MemberInheritanceBenchmarkError)
     total_members = initial_members + deltas
 
     started = time.perf_counter()
@@ -192,7 +174,7 @@ def run_forward_population_benchmark(
     if not 0.0 <= member_strength <= 1.0:
         raise MemberInheritanceBenchmarkError("member-strength must be in [0, 1]")
 
-    chainer_type = load_chainer(repository)
+    chainer_type = load_chainer(repository, MemberInheritanceBenchmarkError)
     started = time.perf_counter()
     handler = chainer_type()
     handler.handler.process_metta_string(
@@ -304,10 +286,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     print(json.dumps(metrics, indent=2, sort_keys=True))
     if arguments.json_out:
-        arguments.json_out.write_text(
-            json.dumps(metrics, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
+        write_json(arguments.json_out, metrics)
     return 0
 
 
