@@ -6,6 +6,7 @@
 (: query_metric_value (-[det]-> Atom Number))
 (: query_metric_set (-[det]-> Atom Number Number))
 (: query_metric_increment (-[det]-> Atom Number))
+(: query_metric_liveness_event (-[det]-> Atom Atom))
 
 (: backward-query-metrics-enabled? (-[det]-> Bool))
 (= (backward-query-metrics-enabled?)

@@ -1195,26 +1195,21 @@
 
 (: proof-live? (-[semidet]-> Number Bool))
 (= (proof-live? $pid)
-   (let $_check
-      (increment-backward-query-metric! proof-liveness-checks)
-   (if (proof-retired? $pid) false
-   (if (proof-statically-live? $pid)
-      (let $_hit
-         (increment-backward-query-metric! proof-liveness-cache-hits)
-         true)
-      (let*
-         (($hits (collapse (once (cached-proof-live? $pid)))))
-         (if (== $hits ())
-            (let* (($_miss
-                      (increment-backward-query-metric!
-                         proof-liveness-cache-misses))
-                   ($alive (proof-live-compute $pid))
-                ($_cache (cache-proof-live! $pid $alive)))
-               $alive)
-            (let $_hit
-               (increment-backward-query-metric!
-                  proof-liveness-cache-hits)
-               (car-atom $hits))))))))
+   (if (proof-retired? $pid)
+      (let $_event (query_metric_liveness_event retired)
+         false)
+      (if (proof-statically-live? $pid)
+         (let $_event (query_metric_liveness_event hit)
+            true)
+         (let*
+            (($hits (collapse (once (cached-proof-live? $pid)))))
+            (if (== $hits ())
+               (let* (($_event (query_metric_liveness_event miss))
+                      ($alive (proof-live-compute $pid))
+                      ($_cache (cache-proof-live! $pid $alive)))
+                  $alive)
+               (let $_event (query_metric_liveness_event hit)
+                  (car-atom $hits)))))))
 
 (: append-number
    (-[det]-> (List Number) Number (List Number)))
