@@ -63,7 +63,8 @@
              (CTV
                 $pos
                 $neg))
-          (no-evidence no-evidence)))))
+          (no-evidence no-evidence)
+          ($other (the TV $other))))))
 
 (: normalize-expected-tv (-[det]-> $truth-value TV))
 (= (normalize-expected-tv $tv)

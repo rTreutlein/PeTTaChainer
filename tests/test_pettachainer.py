@@ -17,6 +17,14 @@ class TestPeTTaChainer(unittest.TestCase):
         self.assertIs(caught[0].category, DeprecationWarning)
         self.assertIn("does not forget durable proofs", str(caught[0].message))
 
+    def test_no_check_ingestion_rejects_malformed_tv_loudly(self):
+        handler = PeTTaChainer()
+
+        with self.assertRaises(Exception) as ctx:
+            handler.add_atoms_no_check(["(: bad_tv (Cat tom) (stv 0.9 0.9))"])
+
+        self.assertIn("Type mismatch", str(ctx.exception))
+
     def test_query_many_preserves_order_and_empty_roots(self):
         handler = PeTTaChainer()
         handler.add_atom("(: batch_a (BatchA) (STV 1.0 1.0))")
