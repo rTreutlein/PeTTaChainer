@@ -354,23 +354,20 @@
 
 (: append-grouped-aggregate-current-pid!
    (-[semidet]-> Number Number (| Bool (List $none))))
-(: grouped-current-pids-without-key
-   (-[semidet]-> (List Number) ProofOutputKey (List Number)))
-(= (grouped-current-pids-without-key () $_key) ())
-(= (grouped-current-pids-without-key
-      (cons $pid $rest) $key)
+(: GroupedCurrentPidPartition Type)
+(: grouped-current-pid-partition
+   (-[det]-> (List Number) (List Number)
+      GroupedCurrentPidPartition))
+(: grouped-current-pid-partition-step
+   (-[semidet]-> ProofOutputKey GroupedCurrentPidPartition Number
+      GroupedCurrentPidPartition))
+(= (grouped-current-pid-partition-step $key
+      (grouped-current-pid-partition $replaced $remaining) $pid)
    (if (=alpha (aggregate-snapshot-key-by-id $pid) $key)
-      (grouped-current-pids-without-key $rest $key)
-      (cons $pid
-         (grouped-current-pids-without-key $rest $key))))
-
-(: grouped-current-pids-for-key
-   (-[semidet]-> (List Number) ProofOutputKey (List Number)))
-(= (grouped-current-pids-for-key () $_key) ())
-(= (grouped-current-pids-for-key (cons $pid $rest) $key)
-   (if (=alpha (aggregate-snapshot-key-by-id $pid) $key)
-      (cons $pid (grouped-current-pids-for-key $rest $key))
-      (grouped-current-pids-for-key $rest $key)))
+      (grouped-current-pid-partition
+         (cons $pid $replaced) $remaining)
+      (grouped-current-pid-partition
+         $replaced (cons $pid $remaining))))
 
 (= (append-grouped-aggregate-current-pid! $agg-gid $pid)
    (let*
@@ -380,12 +377,15 @@
           (aggregate-by-id $agg-gid))
        ($current-pids (the (List Number) $stored-current-pids))
        ($key (aggregate-snapshot-key-by-id $pid))
-       ($replaced
-          (grouped-current-pids-for-key $current-pids $key))
-       ($next-pids
-          (cons $pid
-             (grouped-current-pids-without-key
-                $current-pids $key)))
+       ((grouped-current-pid-partition
+            $replaced-reversed $remaining-reversed)
+          (proof-fold-flat-semidet
+             (grouped-current-pid-partition-step $key)
+             (grouped-current-pid-partition () ())
+             $current-pids))
+       ($replaced (reverse-number-list $replaced-reversed))
+       ($remaining (reverse-number-list $remaining-reversed))
+       ($next-pids (cons $pid $remaining))
        ($_set
           (progn
              (remove-atom &aggregate

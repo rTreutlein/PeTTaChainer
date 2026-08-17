@@ -1228,12 +1228,22 @@
 (= (append-numbers (cons $first $rest) $right)
    (cons $first (append-numbers $rest $right)))
 
+(: reverse-number-list
+   (-[det]-> (List Number) (List Number)))
+(: reverse-number-list-into
+   (-[det]-> (List Number) (List Number) (List Number)))
+(= (reverse-number-list $items)
+   (reverse-number-list-into $items ()))
+(= (reverse-number-list-into () $acc) $acc)
+(= (reverse-number-list-into (cons $item $rest) $acc)
+   (reverse-number-list-into $rest (cons $item $acc)))
+
 (: goal-current-proof-step
    (-[semidet]-> (| Goal (Statement KBContext Proof TV))
       (List Number) Number (List Number)))
 (= (goal-current-proof-step $goal $acc $pid)
    (if (proof-output-satisfies-goal? $pid $goal)
-      (append-number $acc $pid)
+      (cons $pid $acc)
       $acc))
 
 (: goal-live-proof-ids (-[semidet]-> Number (List Number)))
@@ -1242,9 +1252,10 @@
               $_stored-gid $_depth $goal $_expanded $_pending)
             (goal-by-id $gid))
           ($key (proof-goal-key-by-goal-id $gid)))
-      (proof-fold-flat-semidet
-         (goal-current-proof-step $goal) ()
-         (current-proof-ids-for-goal-key $key))))
+      (reverse-number-list
+         (proof-fold-flat-semidet
+            (goal-current-proof-step $goal) ()
+            (current-proof-ids-for-goal-key $key)))))
 
 (: proof-output-groups-add
    (-[semidet]-> (List ProofOutputGroup) Number (List ProofOutputGroup)))

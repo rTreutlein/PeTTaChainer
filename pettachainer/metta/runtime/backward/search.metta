@@ -5,16 +5,6 @@
 (: qgoal (-[det]-> Number Number QueueGoal))
 (: QueueAggregate Type)
 (: qagg (-[det]-> Number Number QueueAggregate))
-;; SWI heap primitives imported by PeTTa.
-(: reverse-number-list
-   (-[det]-> (List Number) (List Number)))
-(: reverse-number-list-into
-   (-[det]-> (List Number) (List Number) (List Number)))
-(= (reverse-number-list $items)
-   (reverse-number-list-into $items ()))
-(= (reverse-number-list-into () $acc) $acc)
-(= (reverse-number-list-into (cons $item $rest) $acc)
-   (reverse-number-list-into $rest (cons $item $acc)))
 (: backward-acyclic-term? (-[det]-> Atom Bool))
 (= (backward-acyclic-term? $term)
    (== (collapse

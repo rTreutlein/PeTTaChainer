@@ -228,6 +228,123 @@
       (brand Proof $proof)
       (the TV $tv)))
 
+;; Refreshing a result to the representative it already exposes must not mark
+;; that proof superseded.
+!(test
+   (let* (($_clear (clear-backward-state))
+          ($_same
+             (supersede-current-proof-result! (42) 42)))
+      (collapse
+         (match &proof_superseded (42) true)))
+   ())
+
+;; Filtering current proofs preserves their indexed order while accumulating
+;; accepted IDs in linear time.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($_pidreset (change-state! bwd_pid 0))
+       ($gid
+          (ensure-goal-at-depth
+             (test-runtime-fact
+                (OrderedGoal) (brand Proof $proof) $tv)
+             0))
+       ($first
+          (store-proof-candidate $gid
+             (proof-candidate
+                (leaf
+                   (test-runtime-fact
+                      (OrderedGoal) orderedFirst (STV 1.0 0.8)))
+                0.8 () ())))
+       ($second
+          (store-proof-candidate $gid
+             (proof-candidate
+                (leaf
+                   (test-runtime-fact
+                      (OrderedGoal) orderedSecond (STV 1.0 0.7)))
+                0.7 () ())))
+       ($third
+          (store-proof-candidate $gid
+             (proof-candidate
+                (leaf
+                   (test-runtime-fact
+                      (OrderedGoal) orderedThird (STV 1.0 0.6)))
+                0.6 () ()))))
+      (== (goal-live-proof-ids $gid)
+         ($first $second $third)))
+   true)
+
+;; A grouped snapshot commit partitions the old representatives once. It
+;; retires every snapshot for the replaced key and preserves the relative
+;; order of all other groups.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($_pidreset (change-state! bwd_pid 0))
+       ($old-a-one-gid
+          (ensure-goal-at-depth
+             (CPU GroupedFoldAllCompiled (partition-key a) 1)
+             1))
+       ($b-gid
+          (ensure-goal-at-depth
+             (CPU GroupedFoldAllCompiled (partition-key b) 1)
+             1))
+       ($old-a-two-gid
+          (ensure-goal-at-depth
+             (CPU GroupedFoldAllCompiled (partition-key a) 2)
+             1))
+       ($new-a-gid
+          (ensure-goal-at-depth
+             (CPU GroupedFoldAllCompiled (partition-key a) 3)
+             1))
+       ($aggregate-gid
+          (ensure-goal-at-depth
+             (CPU FoldAllCompiled partition-controller $out)
+             0))
+       ($old-a-one
+          (store-proof-candidate $old-a-one-gid
+             (leaf-result-candidate
+                (CPU GroupedFoldAllCompiled
+                   (partition-key a) 1)
+                ())))
+       ($b
+          (store-proof-candidate $b-gid
+             (leaf-result-candidate
+                (CPU GroupedFoldAllCompiled
+                   (partition-key b) 1)
+                ())))
+       ($old-a-two
+          (store-proof-candidate $old-a-two-gid
+             (leaf-result-candidate
+                (CPU GroupedFoldAllCompiled
+                   (partition-key a) 2)
+                ())))
+       ($new-a
+          (store-proof-candidate $new-a-gid
+             (leaf-result-candidate
+                (CPU GroupedFoldAllCompiled
+                   (partition-key a) 3)
+                ())))
+       ($_aggregate
+          (add-atom &aggregate
+             (stored-aggregate-row
+                $aggregate-gid $old-a-one-gid partition-controller
+                1.0 0.0 ($old-a-one $b $old-a-two))))
+       ($_append
+          (append-grouped-aggregate-current-pid!
+             $aggregate-gid $new-a))
+       ((stored-aggregate-row
+            $_stored-gid $_child $_args $_base $_pending $current)
+          (aggregate-by-id $aggregate-gid)))
+      ((== $current ($new-a $b))
+       (proof-retired? $old-a-one)
+       (proof-retired? $old-a-two)
+       (proof-retired? $b)
+       (proof-retired? $new-a)))
+   (true true true false false))
+
 !(test
    (let*
       (($_clear (clear-backward-state))

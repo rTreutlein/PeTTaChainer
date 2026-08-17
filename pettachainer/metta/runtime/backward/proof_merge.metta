@@ -425,26 +425,23 @@
               $_stored-gid $_depth $goal $_expanded $_pending)
             (goal-by-id $gid))
           ($goal-key (proof-goal-key-by-goal-id $gid)))
-      (proof-fold-flat-semidet
-         (goal-current-proof-step $goal) ()
-         (current-proof-ids-for-goal-output-key
-            $goal-key $key))))
+      (reverse-number-list
+         (proof-fold-flat-semidet
+            (goal-current-proof-step $goal) ()
+            (current-proof-ids-for-goal-output-key
+               $goal-key $key)))))
 
 (: supersede-current-proof-result!
    (-[semidet]-> (List Number) Number (List $none)))
-(= (supersede-current-proof-result! () $_new-pid) ())
-(= (supersede-current-proof-result!
-      (cons $old-pid $_rest) $new-pid)
-   (if (== $old-pid $new-pid) ()
-      (let* (($_mark
-                (once
-                   (add-atom &proof_superseded ($old-pid))))
-             ($_dependents
-                (invalidate-proof-dependents! $old-pid)))
-         ())))
-
 (: supersede-current-proof-result-without-replacement!
    (-[semidet]-> (List Number) (List $none)))
+(= (supersede-current-proof-result! () $_new-pid) ())
+(= (supersede-current-proof-result!
+      (cons $old-pid $rest) $new-pid)
+   (if (== $old-pid $new-pid) ()
+      (supersede-current-proof-result-without-replacement!
+         (cons $old-pid $rest))))
+
 (= (supersede-current-proof-result-without-replacement! ()) ())
 (= (supersede-current-proof-result-without-replacement!
       (cons $old-pid $_rest))
@@ -518,9 +515,10 @@
             (goal-by-id $gid))
           ($key (proof-goal-key-by-goal-id $gid))
           ($_refresh (refresh-dirty-current-proof-results! $key)))
-      (proof-fold-flat-semidet
-         (goal-current-proof-step $goal) ()
-         (current-proof-result-ids-for-goal-key $key))))
+      (reverse-number-list
+         (proof-fold-flat-semidet
+            (goal-current-proof-step $goal) ()
+            (current-proof-result-ids-for-goal-key $key)))))
 
 (: goal-merged-proof-id-for-pid (-[semidet]-> Number Number Number))
 (= (goal-merged-proof-id-for-pid $gid $pid)
