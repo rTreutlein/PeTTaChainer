@@ -910,10 +910,16 @@
       (register-proof-parent-edge! $parent-pid)
       $children))
 
-(: invalidate-proof-dependent-step
-   (-[semidet]-> Number (List $none)))
+(: invalidate-proof-dependent-step-in-epoch
+   (-[semidet]-> Number Number (List $none)))
+(: invalidate-proof-dependent-in-epoch!
+   (-[semidet]-> Number Number (List $none)))
+(: invalidate-proof-dependents-in-epoch!
+   (-[semidet]-> Number Number (List $none)))
 (: proof-live-compute (-[semidet]-> Number Bool))
 (: deactivate-current-proof! (-[semidet]-> Number (List $none)))
+(: deactivate-current-proof-in-epoch!
+   (-[semidet]-> Number Number (List $none)))
 
 ;; Invalidation runs while aggregate and merged representatives are being
 ;; replaced.  A proof whose dependencies cannot be resolved at that instant is
@@ -932,15 +938,21 @@
 
 (: invalidate-proof-dependent! (-[semidet]-> Number (List $none)))
 (= (invalidate-proof-dependent! $parent-pid)
+   (invalidate-proof-dependent-in-epoch!
+      (next-search-id bwd_invalidation_epoch) $parent-pid))
+
+(= (invalidate-proof-dependent-in-epoch! $epoch $parent-pid)
    (let $seen
       (collapse
          (once
-            (match &proof_invalidated ($parent-pid) true)))
+            (match &proof_invalidated
+               (($epoch $parent-pid)) true)))
       (if (not (== $seen ())) ()
          (let*
             (($_mark
                 (once
-                   (add-atom &proof_invalidated ($parent-pid))))
+                   (add-atom &proof_invalidated
+                      (($epoch $parent-pid)))))
              ($_proof-cache
                 (foreach-flat
                    remove-proof-live-cache-row!
@@ -952,26 +964,35 @@
              ($_current
                 (if $alive
                    (cache-proof-live! $parent-pid true)
-                   (deactivate-current-proof! $parent-pid))))
+                   (deactivate-current-proof-in-epoch!
+                      $epoch $parent-pid))))
             ()))))
 
-(= (invalidate-proof-dependent-step $parent-pid)
-   (invalidate-proof-dependent! $parent-pid))
+(= (invalidate-proof-dependent-step-in-epoch $epoch $parent-pid)
+   (invalidate-proof-dependent-in-epoch! $epoch $parent-pid))
 
 (: invalidate-proof-dependents!
    (-[semidet]-> Number (List $none)))
 (= (invalidate-proof-dependents! $child-pid)
+   (invalidate-proof-dependents-in-epoch!
+      (next-search-id bwd_invalidation_epoch) $child-pid))
+
+(= (invalidate-proof-dependents-in-epoch! $epoch $child-pid)
    (let* (($_frontiers
              (invalidate-frontier-paths-for-proof! $child-pid))
           ($_proofs
              (foreach-flat
-                invalidate-proof-dependent-step
+                (invalidate-proof-dependent-step-in-epoch $epoch)
                 (collapse
                    (match &proof_parent ($child-pid $parent-pid)
                       (stored-number $parent-pid))))))
       ()))
 
 (= (deactivate-current-proof! $pid)
+   (deactivate-current-proof-in-epoch!
+      (next-search-id bwd_invalidation_epoch) $pid))
+
+(= (deactivate-current-proof-in-epoch! $epoch $pid)
    (let* (($goal-key (proof-goal-key-by-id $pid))
           ($output-key (proof-output-key-by-id $pid))
           ($_remove (remove-current-proof-for-goal! $goal-key $pid))
@@ -989,7 +1010,8 @@
                 $goal-key $output-key))
           ($_confidence
              (clear-goal-current-confidence-for-key! $goal-key))
-          ($_dependents (invalidate-proof-dependents! $pid)))
+          ($_dependents
+             (invalidate-proof-dependents-in-epoch! $epoch $pid)))
       ()))
 
 (: deactivate-current-proofs!

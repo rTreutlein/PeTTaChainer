@@ -347,6 +347,75 @@
        (not (== (root-goal-results $parent-gid) ()))))
    (true false false 1 () true true))
 
+;; One invalidation cascade may revisit a shared parent through multiple paths,
+;; but a later cascade must re-evaluate it.  This conjunction parent survives
+;; the first child's supersession, then becomes stale when its other child is
+;; retired.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($_pidreset (change-state! bwd_pid 0))
+       ($child-one-gid
+          (ensure-goal-at-depth
+             (test-runtime-fact
+                (ChildOne) (brand Proof $p1) $tv1)
+             1))
+       ($child-two-gid
+          (ensure-goal-at-depth
+             (test-runtime-fact
+                (ChildTwo) (brand Proof $p2) $tv2)
+             1))
+       ($parent-gid
+          (ensure-goal-at-depth
+             (test-runtime-fact
+                (Parent) (brand Proof $pp) $ptv)
+             0))
+       ($child-one-pid
+          (store-proof-candidate $child-one-gid
+             (proof-candidate
+                (leaf
+                   (test-runtime-fact
+                      (ChildOne) childOne (STV 1.0 0.8)))
+                0.8
+                ((fact-ev (kb MAIN ()) childOne (ChildOne)))
+                ())))
+       ($child-two-pid
+          (store-proof-candidate $child-two-gid
+             (proof-candidate
+                (leaf
+                   (test-runtime-fact
+                      (ChildTwo) childTwo (STV 1.0 0.7)))
+                0.7
+                ((fact-ev (kb MAIN ()) childTwo (ChildTwo)))
+                ())))
+       ($parent-pid
+          (store-proof-candidate $parent-gid
+             (proof-candidate
+                (rule
+                   (test-runtime-fact
+                      (Parent)
+                      (conjunction childOne childTwo)
+                      (STV 1.0 0.6)))
+                0.6
+                ((fact-ev (kb MAIN ()) childOne (ChildOne))
+                 (fact-ev (kb MAIN ()) childTwo (ChildTwo)))
+                ($child-one-pid $child-two-pid))))
+       ($_prime (proof-live? $parent-pid))
+       ($_supersede
+          (once
+             (add-atom &proof_superseded ($child-one-pid))))
+       ($_first
+          (invalidate-proof-dependents! $child-one-pid))
+       ($after-first (proof-live? $parent-pid))
+       ($_second
+          (deactivate-current-proof! $child-two-pid)))
+      ($after-first
+       (proof-live? $parent-pid)
+       (proof-retired? $parent-pid)
+       (goal-live-proof-ids $parent-gid)))
+   (true false true ()))
+
 !(test
    (let*
       (($_clear (clear-backward-state))
