@@ -94,6 +94,7 @@ class PeTTaChainer:
         self._pattern_mining_on_add = False
         self._logic_config_path: Optional[Path] = None
         self._query_metrics_enabled = False
+        self._query_metrics_active = False
         self._query_metrics_path = os.environ.get(
             "PETTACHAINER_QUERY_METRICS_PATH"
         )
@@ -186,13 +187,18 @@ class PeTTaChainer:
         return metrics
 
     def _begin_query_metrics(self, timeout_sec: Optional[float]) -> None:
+        self._query_metrics_active = False
         if not self._query_metrics_enabled:
             return
         if timeout_sec is not None and timeout_sec > 0:
-            raise ValueError(
-                "query metrics require timeout_sec=0 so the instrumented live "
-                "runtime executes the query"
+            warnings.warn(
+                "query metrics skipped: timed queries run in a subprocess "
+                "that does not replay diagnostic state; pass timeout_sec=0 "
+                "to record metrics",
+                stacklevel=3,
             )
+            return
+        self._query_metrics_active = True
         self.handler.process_metta_string("!(begin-backward-query-metrics!)")
 
     def _record_query_metrics(
@@ -203,7 +209,7 @@ class PeTTaChainer:
         steps: int,
         wall_seconds: float,
     ) -> None:
-        if not self._query_metrics_enabled:
+        if not self._query_metrics_active:
             return
         self.handler.process_metta_string("!(end-backward-query-metrics!)")
         record: dict[str, object] = {

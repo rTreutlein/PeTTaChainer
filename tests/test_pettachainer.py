@@ -17,6 +17,20 @@ class TestPeTTaChainer(unittest.TestCase):
         self.assertIs(caught[0].category, DeprecationWarning)
         self.assertIn("does not forget durable proofs", str(caught[0].message))
 
+    def test_query_metrics_skip_timed_queries_with_warning(self):
+        handler = PeTTaChainer()
+        handler.add_atom("(: timed_m (TimedMetric) (STV 1.0 1.0))")
+        handler.set_query_metrics(True)
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            results = handler.query("(: $prf (TimedMetric) $tv)", steps=3)
+
+        self.assertEqual(results, ["(: timed_m (TimedMetric) (STV 1.0 1.0))"])
+        self.assertTrue(
+            any("query metrics skipped" in str(w.message) for w in caught)
+        )
+
     def test_no_check_ingestion_rejects_malformed_tv_loudly(self):
         handler = PeTTaChainer()
 

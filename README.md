@@ -167,8 +167,9 @@ cached_results = handler.query_many_materialization(
 Set `PETTACHAINER_QUERY_METRICS_PATH` to append one JSON object per live
 `query` or `query_many` call. The counters cover durable proof rows, agenda
 operations, demand-cache work, proof-liveness checks, candidate comparisons,
-and stored proofs. Diagnostics require `timeout_sec=0` because timed queries
-run in an isolated subprocess.
+and stored proofs. Diagnostics only cover queries run with `timeout_sec=0`;
+timed queries run in an isolated subprocess, so they are skipped with a
+warning instead of being recorded.
 
 Metrics can also be enabled programmatically with
 `handler.set_query_metrics(True)` and read after a query with
