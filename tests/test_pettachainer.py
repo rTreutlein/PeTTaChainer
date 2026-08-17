@@ -1,5 +1,9 @@
+import os
 import unittest
 import warnings
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from pettachainer import PeTTaChainer
 
@@ -17,19 +21,81 @@ class TestPeTTaChainer(unittest.TestCase):
         self.assertIs(caught[0].category, DeprecationWarning)
         self.assertIn("does not forget durable proofs", str(caught[0].message))
 
-    def test_query_metrics_skip_timed_queries_with_warning(self):
+    def test_query_metrics_env_skips_timed_queries_with_warning(self):
+        with TemporaryDirectory() as directory:
+            metrics_path = Path(directory) / "query-metrics.jsonl"
+            with patch.dict(
+                os.environ,
+                {"PETTACHAINER_QUERY_METRICS_PATH": str(metrics_path)},
+            ):
+                handler = PeTTaChainer()
+            handler.add_atom("(: timed_m (TimedMetric) (STV 1.0 1.0))")
+
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                results = handler.query("(: $prf (TimedMetric) $tv)", steps=3)
+
+            self.assertEqual(
+                results,
+                ["(: timed_m (TimedMetric) (STV 1.0 1.0))"],
+            )
+            self.assertTrue(
+                any("query metrics skipped" in str(w.message) for w in caught)
+            )
+            self.assertFalse(metrics_path.exists())
+
+    def test_query_metric_rows_are_parsed_exactly(self):
+        self.assertEqual(
+            PeTTaChainer._parse_query_metric_rows(
+                [
+                    "(query-metric agenda-pops 7)",
+                    "(query-metric candidate-comparisons 2.5e1)",
+                ]
+            ),
+            {"agenda_pops": 7, "candidate_comparisons": 25},
+        )
+
+        malformed_results = [
+            [],
+            "(query-metric agenda-pops 1)",
+            ["(query-metric agenda-pops nan)"],
+            ["(query-metric Agenda-pops 1)"],
+            ["(query-metric agenda-pops 1) trailing"],
+            ["(query-metric agenda-pops 1)", 2],
+            [
+                "(query-metric agenda-pops 1)",
+                "(query-metric agenda-pops 2)",
+            ],
+        ]
+        for rows in malformed_results:
+            with self.subTest(rows=rows):
+                with self.assertRaises(RuntimeError):
+                    PeTTaChainer._parse_query_metric_rows(rows)
+
+    def test_query_and_query_many_record_the_same_metric_schema(self):
         handler = PeTTaChainer()
-        handler.add_atom("(: timed_m (TimedMetric) (STV 1.0 1.0))")
+        handler.add_atom("(: metric_schema (MetricSchema) (STV 1.0 1.0))")
         handler.set_query_metrics(True)
 
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            results = handler.query("(: $prf (TimedMetric) $tv)", steps=3)
-
-        self.assertEqual(results, ["(: timed_m (TimedMetric) (STV 1.0 1.0))"])
-        self.assertTrue(
-            any("query metrics skipped" in str(w.message) for w in caught)
+        single = handler.query(
+            "(: $prf (MetricSchema) $tv)", steps=3, timeout_sec=0
         )
+        single_metrics = handler.last_query_metrics()
+        batch = handler.query_many(
+            ["(: $prf (MetricSchema) $tv)"], steps=3, timeout_sec=0
+        )
+        batch_metrics = handler.last_query_metrics()
+
+        self.assertEqual(single, batch[0])
+        self.assertEqual(set(single_metrics), set(batch_metrics))
+        self.assertEqual(single_metrics["kind"], "query")
+        self.assertEqual(batch_metrics["kind"], "query_many")
+        self.assertEqual(single_metrics["roots"], 1)
+        self.assertEqual(batch_metrics["roots"], 1)
+        self.assertEqual(single_metrics["steps"], 3)
+        self.assertEqual(batch_metrics["steps"], 3)
+        self.assertGreaterEqual(single_metrics["wall_seconds"], 0.0)
+        self.assertGreaterEqual(batch_metrics["wall_seconds"], 0.0)
 
     def test_no_check_ingestion_rejects_malformed_tv_loudly(self):
         handler = PeTTaChainer()

@@ -27,6 +27,25 @@
 (= (increment-backward-query-metric! $key)
    (query_metric_increment $key))
 
+(: backward-query-counter-keys (-[det]-> (List Atom)))
+(= (backward-query-counter-keys)
+   (agenda-pushes
+    agenda-pops
+    stale-agenda-entries
+    goal-demand-evaluations
+    goal-demand-cache-hits
+    goal-demand-cache-misses
+    demand-revision-bumps
+    proof-liveness-checks
+    proof-liveness-cache-hits
+    proof-liveness-cache-misses
+    durable-proof-considerations
+    current-proof-goal-lookups
+    current-result-goal-lookups
+    candidate-comparisons
+    dominance-checks
+    proofs-stored))
+
 (: begin-backward-query-metrics! (-[det]-> Number))
 (= (begin-backward-query-metrics!)
    (if (backward-query-metrics-enabled?)
@@ -34,22 +53,7 @@
                 (map-flat
                    (|-> ($key)
                       (set-backward-query-metric! $key 0))
-                   (agenda-pushes
-                    agenda-pops
-                    stale-agenda-entries
-                    goal-demand-evaluations
-                    goal-demand-cache-hits
-                    goal-demand-cache-misses
-                    demand-revision-bumps
-                    proof-liveness-checks
-                    proof-liveness-cache-hits
-                    proof-liveness-cache-misses
-                    durable-proof-considerations
-                    current-proof-goal-lookups
-                    current-result-goal-lookups
-                    candidate-comparisons
-                    dominance-checks
-                    proofs-stored)))
+                   (backward-query-counter-keys)))
               ($_proofs
                 (set-backward-query-metric! durable-proof-rows-before
                    (length
@@ -89,25 +93,11 @@
 
 (: backward-query-metrics (-[det]-> (List BackwardQueryMetric)))
 (= (backward-query-metrics)
-   (map-flat backward-query-metric-row
-      (durable-proof-rows-before
-       durable-proof-rows-after
-       durable-goal-index-rows-before
-       durable-result-index-rows-before
-       durable-parent-edge-rows-before
-       agenda-pushes
-       agenda-pops
-       stale-agenda-entries
-       goal-demand-evaluations
-       goal-demand-cache-hits
-       goal-demand-cache-misses
-       demand-revision-bumps
-       proof-liveness-checks
-       proof-liveness-cache-hits
-       proof-liveness-cache-misses
-       durable-proof-considerations
-       current-proof-goal-lookups
-       current-result-goal-lookups
-       candidate-comparisons
-       dominance-checks
-       proofs-stored)))
+   (let $counter-keys (backward-query-counter-keys)
+      (map-flat backward-query-metric-row
+         (cons durable-proof-rows-before
+            (cons durable-proof-rows-after
+               (cons durable-goal-index-rows-before
+                  (cons durable-result-index-rows-before
+                     (cons durable-parent-edge-rows-before
+                        $counter-keys))))))))

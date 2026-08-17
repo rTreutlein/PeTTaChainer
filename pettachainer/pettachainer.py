@@ -2,6 +2,7 @@ import json
 import logging
 import multiprocessing as mp
 import os
+from contextlib import contextmanager
 from pathlib import Path
 import re
 import sys
@@ -10,7 +11,7 @@ import time
 import traceback
 import uuid
 import warnings
-from typing import List, Optional, Sequence, Tuple
+from typing import Iterator, List, Optional, Sequence, Tuple
 import __main__
 
 from petta import PeTTa
@@ -81,7 +82,7 @@ def _group_query_many_results(rows: List[str], count: int) -> List[List[str]]:
 
 
 class PeTTaChainer:
-    _query_metric_re = re.compile(
+    _query_metric_row_re = re.compile(
         r"\(query-metric\s+([a-z][a-z0-9-]*)\s+"
         r"([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)\)"
     )
@@ -94,7 +95,6 @@ class PeTTaChainer:
         self._pattern_mining_on_add = False
         self._logic_config_path: Optional[Path] = None
         self._query_metrics_enabled = False
-        self._query_metrics_active = False
         self._query_metrics_path = os.environ.get(
             "PETTACHAINER_QUERY_METRICS_PATH"
         )
@@ -174,43 +174,60 @@ class PeTTaChainer:
         """Return a copy of the most recently recorded query metrics."""
         return dict(self._last_query_metrics)
 
-    def _read_query_metrics(self) -> dict[str, int | float]:
-        raw = str(
-            self.handler.process_metta_string("!(backward-query-metrics)")
-        )
+    @classmethod
+    def _parse_query_metric_rows(
+        cls, rows: object
+    ) -> dict[str, int | float]:
+        if not isinstance(rows, list) or not rows:
+            raise RuntimeError(f"Unexpected PeTTa query metrics: {rows!r}")
         metrics: dict[str, int | float] = {}
-        for key, raw_value in self._query_metric_re.findall(raw):
+        for row in rows:
+            if not isinstance(row, str):
+                raise RuntimeError(f"Unexpected PeTTa query metric row: {row!r}")
+            match = cls._query_metric_row_re.fullmatch(row.strip())
+            if match is None:
+                raise RuntimeError(f"Malformed PeTTa query metric row: {row}")
+            key, raw_value = match.groups()
+            normalized_key = key.replace("-", "_")
+            if normalized_key in metrics:
+                raise RuntimeError(f"Duplicate PeTTa query metric row: {key}")
             value = float(raw_value)
-            metrics[key.replace("-", "_")] = (
+            metrics[normalized_key] = (
                 int(value) if value.is_integer() else value
             )
         return metrics
 
-    def _begin_query_metrics(self, timeout_sec: Optional[float]) -> None:
-        self._query_metrics_active = False
-        if not self._query_metrics_enabled:
-            return
-        if timeout_sec is not None and timeout_sec > 0:
+    def _read_query_metrics(self) -> dict[str, int | float]:
+        rows = self.handler.process_metta_string(
+            "!(let $rows (backward-query-metrics) (superpose $rows))"
+        )
+        return self._parse_query_metric_rows(rows)
+
+    @contextmanager
+    def _query_metrics(
+        self,
+        *,
+        kind: str,
+        roots: int,
+        steps: int,
+        timeout_sec: Optional[float],
+    ) -> Iterator[None]:
+        record_metrics = self._query_metrics_enabled
+        if record_metrics and timeout_sec is not None and timeout_sec > 0:
             warnings.warn(
                 "query metrics skipped: timed queries run in a subprocess "
                 "that does not replay diagnostic state; pass timeout_sec=0 "
                 "to record metrics",
                 stacklevel=3,
             )
+            record_metrics = False
+        if record_metrics:
+            self.handler.process_metta_string("!(begin-backward-query-metrics!)")
+        started = time.perf_counter()
+        yield
+        if not record_metrics:
             return
-        self._query_metrics_active = True
-        self.handler.process_metta_string("!(begin-backward-query-metrics!)")
-
-    def _record_query_metrics(
-        self,
-        *,
-        kind: str,
-        roots: int,
-        steps: int,
-        wall_seconds: float,
-    ) -> None:
-        if not self._query_metrics_active:
-            return
+        wall_seconds = time.perf_counter() - started
         self.handler.process_metta_string("!(end-backward-query-metrics!)")
         record: dict[str, object] = {
             "kind": kind,
@@ -405,18 +422,15 @@ class PeTTaChainer:
 
     def query(self, atom: str, steps: int = 100, timeout_sec: Optional[float] = 10) -> List[str]:
         self._validate("query", atom, atom, check_query)
-        self._begin_query_metrics(timeout_sec)
-        started = time.perf_counter()
-        results = self._run_query_expression(
-            f"query {steps} {self.kb} {atom}", timeout_sec
-        )
-        self._record_query_metrics(
+        with self._query_metrics(
             kind="query",
             roots=1,
             steps=steps,
-            wall_seconds=time.perf_counter() - started,
-        )
-        return results
+            timeout_sec=timeout_sec,
+        ):
+            return self._run_query_expression(
+                f"query {steps} {self.kb} {atom}", timeout_sec
+            )
 
     def query_many(
         self,
@@ -438,18 +452,16 @@ class PeTTaChainer:
             f"query-many {steps} {self.kb} "
             f"({' '.join(queries)})"
         )
-        self._begin_query_metrics(timeout_sec)
-        started = time.perf_counter()
-        results = _group_query_many_results(
-            self._run_query_expression(expression, timeout_sec), len(queries)
-        )
-        self._record_query_metrics(
+        with self._query_metrics(
             kind="query_many",
             roots=len(queries),
             steps=steps,
-            wall_seconds=time.perf_counter() - started,
-        )
-        return results
+            timeout_sec=timeout_sec,
+        ):
+            return _group_query_many_results(
+                self._run_query_expression(expression, timeout_sec),
+                len(queries),
+            )
 
     def query_many_materialization(
         self,
