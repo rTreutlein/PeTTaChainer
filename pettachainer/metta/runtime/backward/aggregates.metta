@@ -31,7 +31,8 @@
       (durable-aggregate-current-pids $agg-gid $args)))
 
 (: commit-cached-aggregate-heap
-   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number $arguments TV (Heap (| QueueGoal QueueAggregate))))
+   (-[semidet]-> (Heap AgendaEntry) Number $arguments TV
+       (Heap AgendaEntry)))
 (= (commit-cached-aggregate-heap $agenda $agg-gid $args $tv)
    (let*
       (($result (CPU FoldAllCompiled $args $tv))
@@ -73,7 +74,8 @@
       $child-gid))
 
 (: spawn-refining-aggregate-heap
-   (-[nondet]-> (Heap (| QueueGoal QueueAggregate)) Number Number Goal $arguments TV BaseRateSource (Heap (| QueueGoal QueueAggregate))))
+   (-[nondet]-> (Heap AgendaEntry) Number Number Goal $arguments TV
+       BaseRateSource (Heap AgendaEntry)))
 (= (spawn-refining-aggregate-heap $agenda $score $agg-gid $goal-view $args $tv $source)
    (let*
       (($child-gid (ensure-aggregate-child-goal $agg-gid $goal-view $args $score))
@@ -104,7 +106,8 @@
       $nagenda))
 
 (: spawn-aggregate-goal-heap
-   (-[nondet]-> (Heap (| QueueGoal QueueAggregate)) Number Number Number Goal (Heap (| QueueGoal QueueAggregate))))
+   (-[nondet]-> (Heap AgendaEntry) Number Number Number Goal
+       (Heap AgendaEntry)))
 (= (spawn-aggregate-goal-heap $agenda $steps $score $agg-gid $goal-view)
    (let*
       (($args (copy_term (let (CPU $_agg-fun $view-args $_goalres) $goal-view $view-args)))
@@ -126,9 +129,9 @@
                $agenda $score $agg-gid $goal-view $args))))))
 
 (: spawn-aggregate-goal-cached-or-live-heap
-   (-[nondet]-> (Heap (| QueueGoal QueueAggregate))
+   (-[nondet]-> (Heap AgendaEntry)
        Number Number Number Goal $arguments (List BaseRateEntry)
-       (Heap (| QueueGoal QueueAggregate))))
+       (Heap AgendaEntry)))
 (= (spawn-aggregate-goal-cached-or-live-heap
       $agenda $steps $score $agg-gid $goal-view $args $entries)
    (case $entries (
@@ -164,7 +167,8 @@
    (-[det]-> Number Number AggregateSearchBudgetRow))
 
 (: spawn-aggregate-goal-live-heap
-   (-[nondet]-> (Heap (| QueueGoal QueueAggregate)) Number Number Goal $arguments (Heap (| QueueGoal QueueAggregate))))
+   (-[nondet]-> (Heap AgendaEntry) Number Number Goal $arguments
+       (Heap AgendaEntry)))
 (= (spawn-aggregate-goal-live-heap $agenda $score $agg-gid $goal-view $args)
    (let*
       (($child-gid (ensure-aggregate-child-goal $agg-gid $goal-view $args $score))
@@ -309,7 +313,7 @@
           (-[semidet]-> $accumulator $value $accumulator)
           AggregateFinish
           AggregateTVMode)
-       (Heap (| QueueGoal QueueAggregate)) AggregateGroupState (Heap (| QueueGoal QueueAggregate))))
+       (Heap AgendaEntry) AggregateGroupState (Heap AgendaEntry)))
 (: aggregate-candidate-current-in-pids?
    (-[semidet]-> ProofCandidate (List Number) Bool))
 (= (aggregate-candidate-current-in-pids?
@@ -401,7 +405,8 @@
       true))
 
 (: commit-grouped-aggregate-candidate-heap
-   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number Bool ProofCandidate (Heap (| QueueGoal QueueAggregate))))
+   (-[semidet]-> (Heap AgendaEntry) Number Bool ProofCandidate
+       (Heap AgendaEntry)))
 (= (commit-grouped-aggregate-candidate-heap $agenda $agg-gid $accepted (proof-candidate $kind $score $ev $children))
    (if (== $accepted false) $agenda
       (if (candidate-is-cyclic? $agg-gid $kind $children) $agenda
@@ -414,13 +419,13 @@
             (wake-proof-commit-heap $agenda $agg-gid $pid)))))
 
 (: run-grouped-aggregate-heap
-   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number Number
+   (-[semidet]-> (Heap AgendaEntry) Number Number
        (KB Statement $group-template
           (| ExtractValue ExtractInheritanceTV ExtractTV) $initial
           (-[semidet]-> $accumulator $value $accumulator)
           AggregateFinish
           AggregateTVMode)
-       (Heap (| QueueGoal QueueAggregate))))
+       (Heap AgendaEntry)))
 (= (run-grouped-aggregate-heap $agenda $agg-gid $child-gid $args)
    (proof-fold-flat-semidet (commit-grouped-aggregate-state-heap $agg-gid $args)
       $agenda
@@ -431,7 +436,8 @@
 (= (aggregate-commit-evidence $finish $ev)
    (if (background-aggregate-finish? $finish) () $ev))
 
-(: run-aggregate-heap (-[nondet]-> (Heap (| QueueGoal QueueAggregate)) Number (Heap (| QueueGoal QueueAggregate))))
+(: run-aggregate-heap
+   (-[nondet]-> (Heap AgendaEntry) Number (Heap AgendaEntry)))
 (= (run-aggregate-heap $agenda $agg-gid)
    (let*
       (((stored-aggregate-row
@@ -536,9 +542,9 @@
 
 (: expand-direct-goal-step
    (-[semidet]-> Number (| Goal (Statement KBContext Proof TV))
-       (Heap (| QueueGoal QueueAggregate))
+       (Heap AgendaEntry)
        (| Goal (Statement KBContext Proof TV))
-       (Heap (| QueueGoal QueueAggregate))))
+       (Heap AgendaEntry)))
 (= (expand-direct-goal-step $gid $_goal $agenda $result)
    (let*
       (($ev (leaf-evidence-for-result $result))
@@ -548,9 +554,9 @@
       $nagenda))
 
 (: expand-direct-goal-heap
-   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number Number
+   (-[semidet]-> (Heap AgendaEntry) Number Number
        (| Goal (Statement KBContext Proof TV))
-       (Heap (| QueueGoal QueueAggregate))))
+       (Heap AgendaEntry)))
 (= (expand-direct-goal-heap $agenda $steps $gid $goal)
    (let*
       (($results (collapse (direct-goal-results-view $steps $goal)))

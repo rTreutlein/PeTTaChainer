@@ -40,7 +40,8 @@
       ($_other ()))))
 
 (: expand-goal-heap
-   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number Number Number (Heap (| QueueGoal QueueAggregate))))
+   (-[semidet]-> (Heap AgendaEntry) Number Number Number
+       (Heap AgendaEntry)))
 (= (expand-goal-heap $agenda $steps $score $gid)
    (let*
       (((stored-goal-row
@@ -70,70 +71,57 @@
       $nagenda))
 
 (: search-agenda-step
-   (-[nondet]-> Number (Heap (| QueueGoal QueueAggregate)) (| QueueGoal QueueAggregate) SearchState))
-(= (search-agenda-step $steps $agenda (qgoal $score $gid))
-   (let*
-      (((stored-goal-row
-            $_stored-gid $depth $goal $expanded $pending)
-          (goal-by-id $gid)))
-      (if $expanded
-         (let $_stale
+   (-[nondet]-> Number (Heap AgendaEntry) AgendaEntry SearchState))
+(= (search-agenda-step $steps $agenda $entry)
+   (case (claim-goal-agenda-entry! $entry) (
+      (agenda-stale
+         (let $_metric
             (increment-backward-query-metric! stale-agenda-entries)
-            (search-agenda-heap $steps $agenda))
-         (if (== $pending $score)
-            (let*
-               (($demands (goal-root-demands $gid))
-                ($fresh-score (root-demands-sum $demands))
-                ($fresh-max (root-demands-max $demands)))
-               (if (not (== $fresh-score $score))
-                  ;; Reinsert a changed demand without consuming expansion
-                  ;; budget. Older heap entries become stale via $pending.
-                  (let $nagenda
-                     (force-schedule-goal-row
-                        $agenda $fresh-score $gid
-                        (stored-goal-row
-                           $gid $depth $goal $expanded $pending))
-                     (search-agenda-heap $steps $nagenda))
-                  (let*
-                     (($_clear
-                          (progn
-                             (remove-atom &goal
-                                (stored-goal-row
-                                   $gid $depth $goal $expanded $pending))
-                             (once
-                                (chainer-add-atom &goal
-                                   (stored-goal-row
-                                      $gid $depth $goal $expanded 0.0)))))
-                      ($next-steps (- $steps 1))
-                      ($nagenda
-                         (once
-                            (bounded-agenda-prune $next-steps
-                               (expand-goal-heap
-                                  $agenda $steps $fresh-max $gid)))))
-                     (search-agenda-heap $next-steps $nagenda))))
-            (let $_stale
-               (increment-backward-query-metric! stale-agenda-entries)
-               (search-agenda-heap $steps $agenda))))))
+            (search-agenda-heap $steps $agenda)))
+      (agenda-cancelled
+         (search-agenda-heap $steps $agenda))
+      (agenda-retoken
+         (let $next
+            (chainer-first-or $agenda
+               (collapse
+                  (once
+                     (retoken-goal-agenda-entry-heap
+                        $agenda $entry))))
+            (search-agenda-heap $steps $next)))
+      (agenda-claimed
+         (search-claimed-agenda-entry
+            $steps $agenda $entry)))))
 
-(= (search-agenda-step $steps $agenda (qagg $score $agg-gid))
-   (let*
-      (((stored-aggregate-row
-            $_stored-agg-gid $_child-gid $_args
-            $_base-score $pending $_current-pid)
-          (aggregate-by-id $agg-gid)))
-      (if (== $pending $score)
-         (let*
-            (($next-steps (- $steps 1))
-             ($nagenda
-                (once
-                   (bounded-agenda-prune $next-steps
-                      (once (run-aggregate-heap $agenda $agg-gid))))))
-            (search-agenda-heap $next-steps $nagenda))
-         (let $_stale
-            (increment-backward-query-metric! stale-agenda-entries)
-            (search-agenda-heap $steps $agenda)))))
+(: search-claimed-agenda-entry
+   (-[nondet]-> Number (Heap AgendaEntry) AgendaEntry SearchState))
+(= (search-claimed-agenda-entry $steps $agenda
+      (agenda-entry $kind $gid $_token))
+   (case $kind (
+      (agenda-expand
+         (let* (($fresh-max
+                   (root-demands-max
+                      (goal-root-demands $gid)))
+                ($next-steps (- $steps 1))
+                ($nagenda
+                   (once
+                      (bounded-backward-agenda-prune $next-steps
+                         (expand-goal-heap
+                            $agenda $steps $fresh-max $gid)))))
+            (search-agenda-heap $next-steps $nagenda)))
+      (agenda-aggregate
+         (let* (($next-steps (- $steps 1))
+                ($nagenda
+                   (once
+                      (bounded-backward-agenda-prune $next-steps
+                         (once (run-aggregate-heap $agenda $gid))))))
+            (search-agenda-heap $next-steps $nagenda)))
+      (agenda-refresh
+         (search-agenda-heap $steps $agenda))
+      (agenda-resume
+         (search-agenda-heap $steps $agenda)))))
 
-(: search-agenda-heap (-[nondet]-> Number (Heap (| QueueGoal QueueAggregate)) SearchState))
+(: search-agenda-heap
+   (-[nondet]-> Number (Heap AgendaEntry) SearchState))
 (= (search-agenda-heap $steps $agenda)
    (if (<= $steps 0)
       (data $steps $agenda)
@@ -144,7 +132,7 @@
              (($_priority $item $rest)
                 (heap_pop $agenda)))
             (search-agenda-step $steps $rest
-               (the (| QueueGoal QueueAggregate) $item))))))
+               (the AgendaEntry $item))))))
 
 (: computed-member-inheritance-observation
    (-[semidet]-> Number Number ForwardMemberInheritanceObservation))
@@ -330,16 +318,7 @@
       (;; Goals, waiters, and aggregate execution rows belong to one search.
        ;; Completed proof rows and their dependency indexes are monotonic
        ;; knowledge and intentionally survive this reset.
-       ($_clear
-          (foreach-flat remove-all-atoms
-             (&goal &goal_lookup &goal_waiter &goal_child
-              &goal_current_confidence
-              &goal_demand_cache &goal_demand_revision &root_goal
-              &goal_demand_wake &root_goal_completed
-              &aggregate &aggregate_search_budget &aggregate_forward_approx
-              &proof_invalidated &proof_live_cache
-              &frontier_path_lookup &frontier_path &frontier_path_child
-              &proof_frontier_path &frontier_path_dead)))
+       ($_clear (clear-backward-query-state!))
        ($_reset
           (foreach-flat
              (|-> ($key) (change-state! $key 0))

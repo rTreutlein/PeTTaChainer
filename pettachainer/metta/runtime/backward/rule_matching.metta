@@ -95,9 +95,9 @@
       (contextualize-rule-args $goal $rest)))
 
 (: expand-rule-goal-heap
-   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) Number
+   (-[semidet]-> (Heap AgendaEntry) Number
        (| Goal (Statement KBContext Proof TV))
-       (Heap (| QueueGoal QueueAggregate))))
+       (Heap AgendaEntry)))
 (= (expand-rule-goal-heap $agenda $parent-gid $goal)
    (proof-fold-flat-semidet expand-rule-goal-fold
       $agenda
@@ -237,8 +237,8 @@
       false))
 
 (: expand-rule-goal-fold
-   (-[semidet]-> (Heap (| QueueGoal QueueAggregate)) RuleGoalMatch
-       (Heap (| QueueGoal QueueAggregate))))
+   (-[semidet]-> (Heap AgendaEntry) RuleGoalMatch
+       (Heap AgendaEntry)))
 (= (expand-rule-goal-fold $agenda ($rule-id $args $goal $parent-gid))
    (if (rule-premise-prefilter-prunes? $args) $agenda
       (let*

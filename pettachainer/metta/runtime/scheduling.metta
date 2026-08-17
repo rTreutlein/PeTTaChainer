@@ -130,6 +130,24 @@
       (max 0.000001 $score)
       $score))
 
+;; Backward work shares one numeric priority policy.  Depth remains the
+;; dominant band, score orders work within a depth, and the small lane offset
+;; only breaks otherwise equal cross-kind work.
+(: backward-agenda-kind-offset (-[det]-> AgendaKind Number))
+(= (backward-agenda-kind-offset $kind)
+   (case $kind (
+      (agenda-resume -0.1)
+      (agenda-expand 0.0)
+      (agenda-refresh 0.1)
+      (agenda-aggregate 0.1))))
+
+(: backward-agenda-priority
+   (-[det]-> Number Number Number AgendaKind Number))
+(= (backward-agenda-priority $depth $score $bonus $kind)
+   (+ (+ (* 1000000000.0 $depth)
+         (- 0 (+ (* 1000000.0 $score) $bonus)))
+      (backward-agenda-kind-offset $kind)))
+
 (: bounded-agenda-target-size (-[det]-> Number Number))
 ;; Beam width is a search-policy parameter, not part of the expansion budget.
 ;; Keeping it fixed makes a larger budget extend the same deterministic search
@@ -181,21 +199,61 @@
 (= (heap-prune-to-size $target $agenda)
    (heap-take-best $target $agenda (empty_heap)))
 
+(: HeapSplit Type)
+(: heap-split (-[det]-> (Heap $item) (Heap $item) HeapSplit))
+
+(: heap-split-best
+   (-[det]-> Number (Heap $item) (Heap $item) HeapSplit))
+(= (heap-split-best $count $src $kept)
+   (if (<= $count 0)
+      (heap-split $kept $src)
+      (case (collapse (heap_pop $src)) (
+         (() (heap-split $kept (empty_heap)))
+         ((cons $pop $_rest)
+            (heap-split-best-pop $count $kept $pop))))))
+
+(: heap-split-best-pop
+   (-[det]-> Number (Heap $item)
+       (Number $item (Heap $item)) HeapSplit))
+(= (heap-split-best-pop $count $kept ($key $item $rest))
+   (heap-split-best
+      (- $count 1) $rest
+      (add_to_heap $kept $key $item)))
+
+(: heap-merge-into
+   (-[det]-> (Heap $item) (Heap $item) (Heap $item)))
+(= (heap-merge-into $src $dst)
+   (case (collapse (heap_pop $src)) (
+      (() $dst)
+      ((cons $pop $_tail)
+         (heap-merge-into-pop $dst $pop)))))
+
+(: heap-merge-into-pop
+   (-[det]-> (Heap $item)
+       (Number $item (Heap $item)) (Heap $item)))
+(= (heap-merge-into-pop $dst ($key $item $rest))
+   (heap-merge-into $rest
+      (add_to_heap $dst $key $item)))
+
+(: bounded-agenda-prune-needed?
+   (-[det]-> Number (Heap $item) Bool))
+(= (bounded-agenda-prune-needed? $steps $agenda)
+   (if (bounded-agenda-pruning?)
+      (let* (($target (bounded-agenda-target-size $steps))
+             ($size-values (collapse (heap_size $agenda)))
+             ($size
+                (if (== $size-values ())
+                   0
+                   (car-atom $size-values)))
+             ($threshold (* $target (bounded-agenda-prune-factor))))
+         (> $size $threshold))
+      false))
+
 (: bounded-agenda-prune (-[det]-> Number (Heap $item) (Heap $item)))
 (= (bounded-agenda-prune $steps $agenda)
-   (if (bounded-agenda-pruning?)
-      (let*
-         (($target (bounded-agenda-target-size $steps))
-          ($size-values
-             (collapse (heap_size $agenda)))
-          ($size
-             (if (== $size-values ())
-                0
-                (car-atom $size-values)))
-          ($threshold (* $target (bounded-agenda-prune-factor))))
-         (if (> $size $threshold)
-            (heap-prune-to-size $target $agenda)
-            $agenda))
+   (if (bounded-agenda-prune-needed? $steps $agenda)
+      (heap-prune-to-size
+         (bounded-agenda-target-size $steps) $agenda)
       $agenda))
 
 (: RevisionMergeProof

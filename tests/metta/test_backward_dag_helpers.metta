@@ -208,7 +208,14 @@
 (: clear-backward-state (-[det]-> (List Atom)))
 (= (clear-backward-state)
    (progn
-      (foreach-flat remove-all-atoms (() &goal &goal_lookup &goal_waiter &goal_current_confidence &aggregate &proof &proof_goal &proof_result &proof_current &proof_current_output &proof_current_result &proof_current_result_output &proof_current_result_dirty &proof_parent &proof_invalidated &proof_live_cache &proof_static_live &proof_superseded &proof_retired &frontier_path_lookup &frontier_path &frontier_path_child &proof_frontier_path &frontier_path_dead))
+      (clear-backward-query-state!)
+      (foreach-flat remove-all-atoms
+         (&proof &proof_goal &proof_result
+          &proof_current &proof_current_output
+          &proof_current_result &proof_current_result_output
+          &proof_current_result_dirty
+          &proof_parent &proof_static_live
+          &proof_superseded &proof_retired))
       ()))
 
 (: test-runtime-fact
@@ -227,6 +234,239 @@
       $kbctx
       (brand Proof $proof)
       (the TV $tv)))
+
+(: current-agenda-entry-count
+   (-[det]-> (Heap AgendaEntry) Number))
+(= (current-agenda-entry-count $agenda)
+   (case (collapse (heap_pop $agenda)) (
+      (() 0)
+      ((cons $pop $_rest)
+         (current-agenda-entry-count-pop $pop)))))
+
+(: current-agenda-entry-count-pop
+   (-[det]-> (Number AgendaEntry (Heap AgendaEntry)) Number))
+(= (current-agenda-entry-count-pop ($_priority $entry $rest))
+   (+ (if (agenda-entry-current? $entry) 1 0)
+      (current-agenda-entry-count $rest)))
+
+;; Repeated requests for one lane share one current entry.  Requesting another
+;; lane advances the work generation and reissues both lanes, leaving the
+;; previous generation stale rather than independently valid.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($gid
+          (ensure-goal-at-depth
+             (test-runtime-fact
+                (AgendaGoal) (brand Proof $proof) $tv)
+             0))
+       ($agenda1
+          (request-goal-agenda-kind-heap
+             (empty_heap) $gid agenda-refresh))
+       ($agenda2
+          (request-goal-agenda-kind-heap
+             $agenda1 $gid agenda-refresh))
+       ($current2 (current-agenda-entry-count $agenda2))
+       ($agenda3
+          (request-goal-agenda-kind-heap
+             $agenda2 $gid agenda-expand)))
+      ((heap_size $agenda2)
+       $current2
+       (heap_size $agenda3)
+       (current-agenda-entry-count $agenda3)))
+   (1 1 3 2))
+
+;; A prior-generation entry is rejected before demand evaluation. Even with a
+;; deliberately dirty cache, claiming it cannot rebuild the cache or advance
+;; the demand revision.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($gid
+          (ensure-goal-at-depth
+             (test-runtime-fact
+                (StaleAgendaGoal) (brand Proof $proof) $tv)
+             0))
+       ($agenda1
+          (request-goal-agenda-kind-heap
+             (empty_heap) $gid agenda-refresh))
+       (($_priority $stale-entry $_rest) (heap_pop $agenda1))
+       ($_agenda2
+          (request-goal-agenda-kind-heap
+             $agenda1 $gid agenda-expand))
+       ($_dirty (mark-goal-demand-dirty! $gid))
+       ($before (goal-demand-revision $gid))
+       ($disposition (claim-goal-agenda-entry! $stale-entry))
+       ($after (goal-demand-revision $gid))
+       ($cache
+          (collapse
+             (match &goal_demand_cache
+                (goal-demand-cache-row $gid $_dependencies $_demands)
+                cached))))
+      ($disposition $before $after $cache))
+   (agenda-stale 1 1 ()))
+
+;; A lane whose score rises while it is pending gets a fresh current entry
+;; immediately.  The stale 0.2 entry remains harmless in the heap while the
+;; 0.4 replacement becomes the next item by priority.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($gid
+          (ensure-goal-at-depth
+             (CPU FoldAllCompiled reprioritized-args $result)
+             0))
+       ($_aggregate1
+          (add-atom &aggregate
+             (stored-aggregate-row
+                $gid 99 reprioritized-args 0.2 0.0 ())))
+       ($agenda1
+          (request-goal-agenda-kind-heap
+             (empty_heap) $gid agenda-aggregate))
+       (($old-priority $_old-entry $_old-rest)
+          (heap_pop $agenda1))
+       ($_aggregate2
+          (progn
+             (remove-atom &aggregate
+                (stored-aggregate-row
+                   $gid 99 reprioritized-args 0.2 0.0 ()))
+             (add-atom &aggregate
+                (stored-aggregate-row
+                   $gid 99 reprioritized-args 0.4 0.0 ()))))
+       ($_revision (bump-goal-demand-revision! $gid))
+       ($agenda2
+          (request-goal-agenda-kind-heap
+             $agenda1 $gid agenda-aggregate))
+       (($fresh-priority
+          (agenda-entry agenda-aggregate $_fresh-gid
+             (agenda-revision-token $fresh-revision $fresh-generation))
+          $_fresh-rest)
+          (heap_pop $agenda2))
+       ($fresh-score (agenda-kind-score agenda-aggregate $gid)))
+      ((heap_size $agenda2)
+       (< $fresh-priority $old-priority)
+       $fresh-score $fresh-revision $fresh-generation
+       (current-agenda-entry-count $agenda2)))
+   (2 true 0.4 1 2 1))
+
+;; A lower score does not eagerly replace pending work.  When that entry is
+;; eventually popped, retokening refreshes its revision and score in place
+;; without advancing the work generation or spending a search step.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($gid
+          (ensure-goal-at-depth
+             (CPU FoldAllCompiled lowered-priority-args $result)
+             0))
+       ($_aggregate1
+          (add-atom &aggregate
+             (stored-aggregate-row
+                $gid 99 lowered-priority-args 0.4 0.0 ())))
+       ($agenda1
+          (request-goal-agenda-kind-heap
+             (empty_heap) $gid agenda-aggregate))
+       ($_aggregate2
+          (progn
+             (remove-atom &aggregate
+                (stored-aggregate-row
+                   $gid 99 lowered-priority-args 0.4 0.0 ()))
+             (add-atom &aggregate
+                (stored-aggregate-row
+                   $gid 99 lowered-priority-args 0.2 0.0 ()))))
+       ($_revision (bump-goal-demand-revision! $gid))
+       ($agenda2
+          (request-goal-agenda-kind-heap
+             $agenda1 $gid agenda-aggregate))
+       (($_priority $entry $_rest) (heap_pop $agenda2))
+       ($disposition (claim-goal-agenda-entry! $entry))
+       ($retokened
+          (retoken-goal-agenda-entry-heap
+             (empty_heap) $entry))
+       (($_new-priority $new-entry $_new-rest)
+          (heap_pop $retokened))
+       ((stored-goal-row
+            $_stored-gid $_depth $_goal $_expanded
+            (goal-agenda-state
+               $generation $issued-revision $issued-score
+               $_expand $_refresh $_resume $_aggregate))
+          (goal-by-id $gid)))
+      ((heap_size $agenda2) $disposition
+       (heap_size $retokened)
+       $generation $issued-revision $issued-score
+       (agenda-entry-current? $new-entry)))
+   (1 agenda-retoken 1 1 1 0.2 true))
+
+;; A revision-only change with the same score claims in place.  It refreshes
+;; the state's issued revision, clears the lane, and leaves no replacement
+;; entry to perturb equal-priority ordering or consume an extra step.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($gid
+          (ensure-goal-at-depth
+             (CPU FoldAllCompiled equal-priority-args $result)
+             0))
+       ($_aggregate
+          (add-atom &aggregate
+             (stored-aggregate-row
+                $gid 99 equal-priority-args 0.4 0.0 ())))
+       ($agenda1
+          (request-goal-agenda-kind-heap
+             (empty_heap) $gid agenda-aggregate))
+       ($_revision (bump-goal-demand-revision! $gid))
+       ($agenda2
+          (request-goal-agenda-kind-heap
+             $agenda1 $gid agenda-aggregate))
+       (($_priority $entry $rest) (heap_pop $agenda2))
+       ($disposition (claim-goal-agenda-entry! $entry))
+       ((stored-goal-row
+            $_stored-gid $_depth $_goal $_expanded
+            (goal-agenda-state
+               $generation $issued-revision $issued-score
+               $_expand $_refresh $_resume $aggregate-requested))
+          (goal-by-id $gid)))
+      ((heap_size $agenda2) $disposition (heap_size $rest)
+       $generation $issued-revision $issued-score
+       $aggregate-requested))
+   (1 agenda-claimed 0 1 1 0.4 false))
+
+;; Beam pruning retains current control work, releases a discarded current
+;; expansion, and permits a later request to enqueue that expansion again.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($gid
+          (ensure-goal-at-depth
+             (test-runtime-fact
+                (PrunedAgendaGoal) (brand Proof $proof) $tv)
+             0))
+       ($agenda1
+          (request-goal-agenda-kind-heap
+             (empty_heap) $gid agenda-refresh))
+       ($agenda2
+          (request-goal-agenda-kind-heap
+             $agenda1 $gid agenda-expand))
+       ($pruned (backward-agenda-prune-to-size 1 $agenda2))
+       ($expand-after-prune
+          (goal-agenda-kind-requested? $gid agenda-expand))
+       ($refresh-after-prune
+          (goal-agenda-kind-requested? $gid agenda-refresh))
+       ($rescheduled
+          (request-goal-agenda-kind-heap
+             $pruned $gid agenda-expand)))
+      ((heap_size $pruned)
+       $expand-after-prune
+       $refresh-after-prune
+       (current-agenda-entry-count $rescheduled)
+       (goal-agenda-kind-requested? $gid agenda-expand)))
+   (1 false true 2 true))
 
 ;; Refreshing a result to the representative it already exposes must not mark
 ;; that proof superseded.

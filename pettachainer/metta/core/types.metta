@@ -117,10 +117,28 @@
        (List (| Goal (Statement KBContext Proof TV))))))
 
 (: StoredGoalRow Type)
+(: AgendaKind Type)
+(: agenda-expand AgendaKind)
+(: agenda-refresh AgendaKind)
+(: agenda-resume AgendaKind)
+(: agenda-aggregate AgendaKind)
+
+(: AgendaRevisionToken Type)
+(: agenda-revision-token
+   (-[det]-> Number Number AgendaRevisionToken))
+
+(: AgendaEntry Type)
+(: agenda-entry
+   (-[det]-> AgendaKind Number AgendaRevisionToken AgendaEntry))
+
+(: GoalAgendaState Type)
+(: goal-agenda-state
+   (-[det]-> Number Number Number Bool Bool Bool Bool GoalAgendaState))
+
 (: stored-goal-row
    (-[det]-> Number Number
        (| Goal (Statement KBContext Proof TV))
-       Bool Number StoredGoalRow))
+       Bool GoalAgendaState StoredGoalRow))
 
 (: StoredAggregateRow Type)
 (: stored-aggregate-row
