@@ -21,7 +21,7 @@
       (&goal &goal_lookup &goal_waiter &goal_waiter_delivery
        &goal_child &goal_current_confidence
        &goal_demand_cache &goal_demand_revision &root_goal
-       &goal_demand_wake &root_goal_completed
+       &goal_demand_wake
        &aggregate &aggregate_search_budget &aggregate_forward_approx
        &proof_invalidated &proof_live_cache
        &frontier_path_lookup &frontier_path &frontier_path_child
@@ -81,33 +81,11 @@
                $agenda $gid agenda-expand)))))
 
 (: mark-root-goals (-[semidet]-> (List Number) (List $none)))
-(: goal-has-result-proof? (-[det]-> Number Bool))
-(= (goal-has-result-proof? $gid)
-   (let $hits (collapse (once (goal-incumbent-proof-ids $gid)))
-      (case $hits (
-         (() false)
-         ((cons $pids $_rest) (not (== $pids ())))))))
-
 (= (mark-root-goals ()) ())
 (= (mark-root-goals (cons $gid $rest))
-   (let* (($had-incumbent
-              (goal-has-result-proof? $gid))
-          ($_mark
-             (once
-                (chainer-add-atom &root_goal
-                   (root-goal $gid $had-incumbent)))))
+   (let $_mark
+      (once (chainer-add-atom &root_goal (root-goal $gid)))
       (mark-root-goals $rest)))
-
-(: mark-current-root-completed! (-[semidet]-> Number (List $none)))
-(= (mark-current-root-completed! $gid)
-   (let $started-empty
-      (collapse
-         (once
-            (match &root_goal (root-goal $gid false) true)))
-      (if (== $started-empty ()) ()
-         (let $_
-            (once (chainer-add-atom &root_goal_completed ($gid)))
-            ()))))
 
 ;; A foreign heap loses its nominal payload type through fold-flat. Keep the
 ;; typed schedule boundary explicit while constructing the one shared root
@@ -891,28 +869,11 @@
       false))
 
 (: root-goal-demand-seed (-[det]-> Number (List RootDemand)))
-(: multiple-query-roots? (-[det]-> Bool))
-(= (multiple-query-roots?)
-   (let $values (collapse (catch (get-state bwd_root_count)))
-      (if (== $values ()) false
-         (> (if-error-number (car-atom $values) 0) 1))))
-
 (= (root-goal-demand-seed $gid)
    (let $hits
-      (collapse
-         (match &root_goal
-            (root-goal $gid $had-incumbent) $had-incumbent))
+      (collapse (match &root_goal (root-goal $gid) true))
       (if (== $hits ()) ()
-         (if (car-atom $hits)
-            (cons (root-demand $gid 1.0) ())
-            (if (and (multiple-query-roots?)
-                   (not (==
-                      (collapse
-                         (once
-                            (match &root_goal_completed ($gid) true)))
-                      ())))
-               ()
-               (cons (root-demand $gid 1.0) ()))))))
+         (cons (root-demand $gid 1.0) ()))))
 
 (: frontier-root-demand-step
    (-[det]-> (| Number NoCurrentScore) Number Number Number Number
@@ -1151,24 +1112,6 @@
       (goal-demand-cache-value $_dependencies $demands))
    $demands)
 
-(: root-demand-active? (-[det]-> RootDemand Bool))
-(= (root-demand-active? (root-demand $root-gid $_score))
-   (if (multiple-query-roots?)
-      (==
-         (collapse
-            (once
-               (match &root_goal_completed ($root-gid) true)))
-         ())
-      true))
-
-(: active-root-demands
-   (-[det]-> (List RootDemand) (List RootDemand)))
-(= (active-root-demands ()) ())
-(= (active-root-demands (cons $demand $rest))
-   (if (root-demand-active? $demand)
-      (cons $demand (active-root-demands $rest))
-      (active-root-demands $rest)))
-
 (: goal-root-demands (-[det]-> Number (List RootDemand)))
 (= (goal-root-demands $gid)
    (let* (($_evaluation
@@ -1185,9 +1128,8 @@
             (the (List GoalDemandCacheValue) $hits))
          (let $_hit
             (increment-backward-query-metric! goal-demand-cache-hits)
-            (active-root-demands
-               (goal-demand-cache-value-demands
-                  (the GoalDemandCacheValue (car-atom $hits)))))
+            (goal-demand-cache-value-demands
+               (the GoalDemandCacheValue (car-atom $hits))))
          (let* (($_miss
                    (increment-backward-query-metric!
                       goal-demand-cache-misses))
@@ -1210,7 +1152,7 @@
                          (goal-demand-cache-row
                             $gid $dependencies $demands))))
                 ($_revision (bump-goal-demand-revision! $gid)))
-            (active-root-demands $demands)))))
+            $demands))))
 
 (: goal-demand-sum (-[det]-> Number Number))
 (= (goal-demand-sum $gid)
@@ -1985,7 +1927,6 @@
    (let*
       (($_demand-cache (mark-goal-demand-dirty! $gid))
        ($_demand-revision (bump-goal-demand-revision! $gid))
-       ($_root-completed (mark-current-root-completed! $gid))
        ($waiters
           (stored-atom-list
              (collapse

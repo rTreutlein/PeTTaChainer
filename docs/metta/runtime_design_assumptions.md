@@ -185,12 +185,12 @@ global to the query arena, so identical roots and common subgoals reuse the same
 goal and proof state. A shared goal retains one live demand contribution per
 distinct root: alternative waiters from the same root merge by maximum, while
 contributions from different roots add for queue ordering. Queue entries are
-refreshed before expansion. In a shared multi-root batch, a root that began
-without an incumbent yields its remaining demand after its first proof, so
-unresolved sibling roots are not starved by same-batch refinement. A compatible
-historical incumbent still contributes refinement demand in a later query, and
-single-root queries retain ordinary within-query refinement. This refresh does
-not spend an expansion step or reopen the goal's rules. Summed demand is queue
+refreshed before expansion. Every root uses the same value-of-computation
+calculation: an unanswered root values its first proof, while a root with an
+incumbent values only the expected marginal improvement. This naturally
+prioritizes unanswered roots without making refinement or proof propagation
+ineligible after a first result. This refresh does not spend an expansion step
+or reopen the goal's rules. Summed demand is queue
 utility only; completed proof candidates
 retain the confidence of their actual output. Demand follows only the
 shallower-parent edges created by ordinary frontier expansion, so recursive

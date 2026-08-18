@@ -9,7 +9,7 @@
 ;; their compiled query contexts. Results retain input order and empty roots.
 !(test
    (collapse
-      (query-many 3 batchKb
+      (query-many 7 batchKb
          ((: $prf (BatchA) $tv)
           (: $prf (BatchB) $tv)
           (: $prf (BatchMissing) $tv)
@@ -146,9 +146,9 @@
        (: (by duplicate-single duplicate-single-fact)
           (DuplicateSingleRoot) (STV 1.0 0.9998039984003787)))))
 
-;; Once the fast proof establishes the first root, its current-batch demand is
-;; removed from still-queued alternatives. Stale 0.35 work for that solved root
-;; must not outrank the second root's still-current 0.3 demand.
+;; Once the fast proof establishes the first root, its remaining alternatives
+;; are rescored by their marginal value. The unanswered second root should then
+;; outrank low-value refinement without requiring a completion special case.
 !(compileadd refreshedDemandKb
    (: refresh-fast-fact (RefreshFastPremise) (STV 1.0 1.0)))
 !(compileadd refreshedDemandKb
@@ -186,17 +186,8 @@
        (: (by refresh-medium refresh-medium-fact)
           (RefreshSecondRoot) (STV 1.0 0.9998059476404358)))))
 
-;; Roots that began without an incumbent yield after their first proof. A new
-;; query marks the same durable results as historical incumbents, so they remain
-;; eligible for bounded refinement rather than being mistaken for solved work
-;; from the new batch.
-!(test
-   (length
-      (collapse
-         (match &root_goal
-            (root-goal $gid false)
-            (match &root_goal_completed ($gid) $gid))))
-   2)
+;; Root demand does not depend on whether an incumbent was found in this batch
+;; or restored from durable history.
 !(test
    (length
       (collapse
@@ -207,11 +198,24 @@
 !(test
    (length
       (collapse
-         (match &root_goal (root-goal $gid true) $gid)))
+         (match &root_goal (root-goal $gid) $gid)))
    2)
+
+;; Once every root has an answer, remaining budget continues ordinary marginal
+;; refinement instead of treating the batch as complete.
 !(test
-   (collapse (match &root_goal_completed ($gid) $gid))
-   ())
+   (collapse
+      (query-many 20 refreshedDemandKb
+         ((: $prf (RefreshFirstRoot) $tv)
+          (: $prf (RefreshSecondRoot) $tv))))
+   ((query-result 0
+       (: (merge/revision
+             (by refresh-fast refresh-fast-fact)
+             (by refresh-slow refresh-slow-fact))
+          (RefreshFirstRoot) (STV 1.0 0.9999029644052249)))
+    (query-result 1
+       (: (by refresh-medium refresh-medium-fact)
+          (RefreshSecondRoot) (STV 1.0 0.9998059476404358)))))
 
 !(compileadd materializeBatchKb
    (: materialize-batch-seed
@@ -226,7 +230,7 @@
 !(test
    (let $_results
       (collapse
-         (query-many-materialize 3 materializeBatchKb
+         (query-many-materialize 6 materializeBatchKb
             ((: $prf (MaterializeBatchRoot) $tv))))
       (not
          (==
