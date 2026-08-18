@@ -335,14 +335,23 @@
        ($agenda0
           (schedule-root-goals-heap
              (empty_heap) $scheduled-root-gids))
+       ;; A semidet failure anywhere in the search loop lands in the empty
+       ;; case here. That is always an engine defect, never a legitimate
+       ;; quiescence, so announce it instead of silently returning whatever
+       ;; partial proof store the search had built by then.
+       ($search-hits
+          (collapse
+             (once
+                (if (<= $steps 0)
+                   (data 0 $agenda0)
+                   (search-agenda-heap (+ $steps 1) $agenda0)))))
        ($search-result
-          (chainer-first-or
-             (data 0 $agenda0)
-             (collapse
-                (once
-                   (if (<= $steps 0)
-                      (data 0 $agenda0)
-                      (search-agenda-heap (+ $steps 1) $agenda0))))))
+          (case $search-hits (
+             (() (let $_abort
+                    (println!
+                       (backward-search-aborted steps $steps))
+                    (data 0 $agenda0)))
+             ((cons $found $_rest) $found))))
        (($_steps-left $_agenda1)
           $search-result)
        ($_harvest (harvest-base-rates))
