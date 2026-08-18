@@ -59,8 +59,7 @@
        ($_query-adds (if (> $depth 0) (inject-special-subgoal-query-adds $goal) ()))
        ($nagenda0
           (if (= $goal (CPU $fun $_args $_res))
-             (if (or (== $fun FoldAllCompiled)
-                     (== $fun GroupedFoldAllCompiled))
+             (if (aggregate-fold-function? $fun)
                 (once
                    (spawn-aggregate-goal-heap
                       $agenda $steps $score $gid (the Goal $goal)))

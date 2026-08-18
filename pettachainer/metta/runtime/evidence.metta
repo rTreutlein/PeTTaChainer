@@ -147,12 +147,6 @@
    (let $n (search-id-value $key)
       (progn (change-state! $key (+ $n 1)) $n)))
 
-(: next-gid (-[det]-> Number))
-(= (next-gid) (next-search-id bwd_gid))
-
-(: next-pid (-[det]-> Number))
-(= (next-pid) (next-search-id bwd_pid))
-
 (: cpu-call (-[nondet]-> Number $formula $arguments  $result))
 (= (cpu-call $_steps $fun $args) (reduce (reduce (cons $fun $args))))
 

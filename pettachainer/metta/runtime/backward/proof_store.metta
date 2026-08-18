@@ -1,4 +1,10 @@
 ;; Durable proof DAG storage, indexes, liveness, and aggregate snapshots.
+(: next-gid (-[det]-> Number))
+(= (next-gid) (next-search-id bwd_gid))
+
+(: next-pid (-[det]-> Number))
+(= (next-pid) (next-search-id bwd_pid))
+
 (: goal-by-id
    (-[semidet]-> Number StoredGoalRow))
 (= (goal-by-id $gid)
@@ -607,6 +613,10 @@
       (($_type ($_kbid $_ctx $_vars) $prf $_tv)
          $prf)
       ($_other (brand Proof $raw)))))
+(: aggregate-fold-function? (-[det]-> $function Bool))
+(= (aggregate-fold-function? $function)
+   (or (== $function FoldAllCompiled)
+       (== $function GroupedFoldAllCompiled)))
 (: aggregate-proof-label (-[semidet]-> $aggregate Proof))
 (= (aggregate-proof-label (CPU FoldAllCompiled $args $_res))
    (brand Proof
@@ -628,9 +638,12 @@
 (= (aggregate-child-proof-tokens ()) ())
 (= (aggregate-child-proof-tokens (cons $pid $rest))
    (let $output (proof-output-atom-by-id $pid)
-      (if (or (= $output (CPU FoldAllCompiled $_args $_res)) (= $output (CPU GroupedFoldAllCompiled $_gargs $_gres)))
-         (cons (materialize-proof $pid) (aggregate-child-proof-tokens $rest))
-         (aggregate-child-proof-tokens $rest))))
+      (case $output (
+         ((CPU $function $_args $_res)
+            (if (aggregate-fold-function? $function)
+               (cons (materialize-proof $pid) (aggregate-child-proof-tokens $rest))
+               (aggregate-child-proof-tokens $rest)))
+         ($_other (aggregate-child-proof-tokens $rest))))))
 
 (: ProofTokenReplacement Type)
 (: proof-token-replacement

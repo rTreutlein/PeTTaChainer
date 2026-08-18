@@ -3,6 +3,166 @@
 ;; cache. A scalar fold has one representative; a grouped fold retains the
 ;; latest representative for every grounded group/output key. Specialized base
 ;; rates continue to use &base_rate_cache instead of this generic path.
+(: distribution-sum-count-acc
+   (-[det]-> $value DistributionSumCount))
+(= (distribution-sum-count-acc $acc)
+   (the DistributionSumCount $acc))
+(: base-rate-evidence-acc
+   (-[det]-> $value BaseRateEvidenceState))
+(= (base-rate-evidence-acc $acc)
+   (the BaseRateEvidenceState $acc))
+(: base-rate-evidence-with-prior-acc
+   (-[det]-> $value BaseRateEvidenceWithPriorState))
+(= (base-rate-evidence-with-prior-acc $acc)
+   (the BaseRateEvidenceWithPriorState $acc))
+(: list-aggregate-acc
+   (-[det]-> $value (List Atom)))
+(= (list-aggregate-acc $acc)
+   (the (List Atom) $acc))
+(: available-universe-size
+   (-[det]-> (| Number UniverseSizeUnavailable) Number))
+(= (available-universe-size $size)
+   (the Number $size))
+
+;; Aggregate CPU arguments are stored as an open, user-extensible wire format:
+;; the finish token determines both the accumulator and result types.  Keep the
+;; dispatcher itself dynamic and validate only at the selected typed boundary.
+(: finish-aggregate
+   (-[semidet]-> Expression Expression Atom))
+
+(= (finish-aggregate $finish $acc)
+   (case $finish (
+      (identity $acc)
+      (dist-average
+         (the Distribution
+            (once
+               (reduce
+                  (reduce
+                     (DistAverageFromSumCount
+                        (distribution-sum-count-acc $acc)))))))
+      (base-rate
+         (BaseRateTv (base-rate-evidence-acc $acc)))
+      (weighted-base-rate
+         (WeightedBaseRateTv (base-rate-evidence-acc $acc)))
+      (weighted-base-rate-with-prior
+         (WeightedBaseRateWithPriorTv
+            (base-rate-evidence-with-prior-acc $acc)))
+      ((member-inheritance $kbid)
+         (member-inheritance-tv $kbid
+            (base-rate-evidence-acc $acc)))
+      ((weighted-base-rate-in-universe $kbid)
+         (let $ev (base-rate-evidence-acc $acc)
+            (let $universe-size
+               (kb-universe-size $kbid)
+               (if (== $universe-size no-universe-size)
+                  (WeightedBaseRateTv $ev)
+                  (WeightedUniverseBaseRateTv
+                     (available-universe-size $universe-size) $ev)))))
+      ((weighted-base-rate-with-prior-in-universe $kbid)
+         (let (BaseRateEvidenceWithPrior $prior $ev)
+            (base-rate-evidence-with-prior-acc $acc)
+            (let $universe-size
+               (kb-universe-size $kbid)
+               (BaseRateWithPriorFormula
+                  (resolve-base-rate-prior $prior)
+                  (if (== $universe-size no-universe-size)
+                     (WeightedBaseRateTv $ev)
+                     (WeightedUniverseBaseRateTv
+                        (available-universe-size $universe-size) $ev))))))
+      (uniform-prior
+         (UniformPriorTv (list-aggregate-acc $acc)))
+      (uniform-prior-known
+         (UniformPriorKnownTv (list-aggregate-acc $acc))))))
+
+(: base-rate-finish? (-[det]-> $finish Bool))
+(= (base-rate-finish? $finish)
+   (case $finish (
+      (base-rate true)
+      (weighted-base-rate true)
+      (weighted-base-rate-with-prior true)
+      ((weighted-base-rate-in-universe $_kbid) true)
+      ((weighted-base-rate-with-prior-in-universe $_kbid) true)
+      ((member-inheritance $_kbid) true)
+      ($_other false))))
+
+(: BaseRateAggregateKey Type)
+(: base-rate-aggregate-key-value
+   (-[det]-> KB Statement $mode BaseRateAggregateKey))
+(: NoBaseRateAggregateKey Type)
+(: no-base-rate-aggregate-key NoBaseRateAggregateKey)
+
+(: base-rate-aggregate-key
+   (-[det]-> $arguments
+       (| BaseRateAggregateKey NoBaseRateAggregateKey)))
+(= (base-rate-aggregate-key $args)
+   (case $args (
+      (($kbid $pattern $_extractor $_init $_fun $finish $_tv-mode)
+         (if (base-rate-finish? $finish)
+            (base-rate-aggregate-key-value
+               (brand KB $kbid)
+               (brand Statement $pattern)
+               $finish)
+            no-base-rate-aggregate-key))
+      ($_other no-base-rate-aggregate-key))))
+
+;; FoldAllCompiled and GroupedFoldAllCompiled both carry the kb and pattern as
+;; the first two args; the child goal is the compiled query for that pattern.
+(: activate-compiled-query
+   (-[nondet]-> CompiledQuery
+       (| Goal (Statement KBContext Proof TV))))
+(= (activate-compiled-query
+      (compiled-query $child-goal $adds))
+   (if (or (is-var $child-goal) (is-var $adds))
+      (empty)
+      (let $_
+         (once
+            (inject-compiled-adds $adds))
+         (typed-runtime-premise $child-goal))))
+
+(: aggregate-child-goal
+   (-[nondet]-> Goal
+       (| Goal (Statement KBContext Proof TV))))
+(= (aggregate-child-goal (CPU $_fun $args $_goalres))
+   (let*
+      (($kb (car-atom $args))
+       ($pattern (car-atom (cdr-atom $args)))
+       ($raw-compiled-query
+          (eval
+             (mm2compileQuery
+                $kb
+                (: $prf $pattern $tvin))))
+       ($compiled-query
+          (the CompiledQuery $raw-compiled-query)))
+      (activate-compiled-query $compiled-query)))
+
+(: aggregate-step-group-value
+   (-[semidet]-> Statement $group-template $child-atom $group))
+(= (aggregate-step-group-value $pattern $group $child-atom)
+   (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv) (copy_term $child-atom) $group))
+
+(: aggregate-foldall-step-acc
+   (-[semidet]-> (| ExtractValue ExtractInheritanceTV ExtractTV)
+       (-[semidet]-> $accumulator Atom $accumulator)
+       $accumulator $child-atom (| TV NoTV) $accumulator))
+(= (aggregate-foldall-step-acc $extractor $fun $acc $child-atom $child-tv)
+   (case $extractor (
+      ((extract-value $pattern $value-template)
+         (let ($pattern ($_ckbid $_cctx $_cvars) $_cprf $_ctv)
+            (copy_term $child-atom)
+            ($fun $acc $value-template)))
+      ((extract-inheritance-tv $kbid $_pattern)
+         (let ((Inheritance $subj $_concept)
+                ($_ckbid $_cctx $_cvars) $_cprf $_ctv)
+            (copy_term $child-atom)
+            ($fun $acc
+               (WeightedTv
+                  (inheritance-subject-prior-tv
+                     $kbid
+                     (brand Statement $subj))
+                  $child-tv))))
+      (extract-tv
+         ($fun $acc $child-tv)))))
+
 (: durable-aggregate-current-pid
    (-[semidet]-> Number $arguments (List Number)))
 (= (durable-aggregate-current-pid $agg-gid $args)

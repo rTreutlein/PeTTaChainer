@@ -174,9 +174,8 @@
 ;; search machinery and store-scanning formulas are too costly for a filter.
 (: prefilter-cpu-opaque? (-[det]-> $function Bool))
 (= (prefilter-cpu-opaque? $fun)
-   (stored-list-member?
-      $fun
-      (FoldAllCompiled GroupedFoldAllCompiled ConceptNodePriorFormula)))
+   (or (aggregate-fold-function? $fun)
+       (== $fun ConceptNodePriorFormula)))
 
 (: prefilter-premise-blocks?
    (-[det]-> (| Goal (Statement KBContext Proof TV)) Bool))
