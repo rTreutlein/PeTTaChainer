@@ -9,14 +9,8 @@
 ;; the external ConceptNet export and enables PeTTaChainer's strict-det arrow
 ;; semantics.
 !(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self (library lib_datetime))
 !(static-import! &self .conceptnet_export/rules_dump)
-!(import_prolog_functions_from_file
-   "./query_timer.pl"
-   (benchmark_query))
-
-(: benchmark_query
-   (-[det]-> Expression
-      ((List AnnotatedStatement) Number Number)))
 
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
    (: max_dog (Dog max) (STV 1.0 1.0)))
@@ -112,20 +106,19 @@
 !(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
    (: missing_own_4 (Implication (MissingOwn4 $x) (Own (i $x))) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 
-!(let
-   ($results $cpu-seconds $inferences)
-   (benchmark_query
-      (quote
+!(let*
+   (($start (now))
+    ($results
+      (collapse
          (query 100 kb5b10000f8f9f4f0dbd120f99aa0f43ce
             (: $_proof (And (Own (i max)) (Pet max)) $_tv))))
+    ($finish (now)))
    (println!
       (CONCEPTNET_OWN_PET_RESULT_COUNT
          (length $results)
          RESULTS
          $results
          SECONDS
-         $cpu-seconds
+         (- $finish $start)
          CLOCK
-         process-cpu
-         INFERENCES
-         $inferences)))
+         wall)))
