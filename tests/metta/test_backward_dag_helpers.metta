@@ -407,7 +407,7 @@
             $_stored-gid $_depth $_goal $_expanded
             (goal-agenda-state
                $generation $issued-revision $issued-score
-               $_expand $_refresh $_resume $_aggregate))
+               $_requested-lanes))
           (goal-by-id $gid)))
       ((heap_size $agenda2) $disposition
        (heap_size $retokened)
@@ -443,11 +443,11 @@
             $_stored-gid $_depth $_goal $_expanded
             (goal-agenda-state
                $generation $issued-revision $issued-score
-               $_expand $_refresh $_resume $aggregate-requested))
+               $requested-lanes))
           (goal-by-id $gid)))
       ((heap_size $agenda2) $disposition (heap_size $rest)
        $generation $issued-revision $issued-score
-       $aggregate-requested))
+       (stored-list-member? agenda-aggregate $requested-lanes)))
    (1 agenda-claimed 0 1 1 0.4 false))
 
 ;; Beam pruning retains current control work, releases a discarded current

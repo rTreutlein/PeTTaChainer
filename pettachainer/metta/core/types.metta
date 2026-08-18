@@ -133,7 +133,7 @@
 
 (: GoalAgendaState Type)
 (: goal-agenda-state
-   (-[det]-> Number Number Number Bool Bool Bool Bool GoalAgendaState))
+   (-[det]-> Number Number Number (List AgendaKind) GoalAgendaState))
 
 (: stored-goal-row
    (-[det]-> Number Number

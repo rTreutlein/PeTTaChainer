@@ -55,7 +55,7 @@
                       (stored-goal-row
                          $gid $depth $stored-goal false
                          (goal-agenda-state
-                            0 0 0.0 false false false false)))))
+                            0 0 0.0 ())))))
              ($_2
                 (once
                    (chainer-add-atom &goal_lookup
@@ -100,60 +100,38 @@
 (= (goal-agenda-kind-requested-in-state? $kind
       (goal-agenda-state
          $_generation $_issued-revision $_issued-score
-         $expand $refresh $resume $aggregate))
-   (case $kind (
-      (agenda-expand $expand)
-      (agenda-refresh $refresh)
-      (agenda-resume $resume)
-      (agenda-aggregate $aggregate))))
+         $requested-lanes))
+   (stored-list-member? $kind $requested-lanes))
 
 (: goal-agenda-state-request
    (-[det]-> AgendaKind Number Number GoalAgendaState GoalAgendaState))
 (= (goal-agenda-state-request $kind $issued-revision $issued-score
       (goal-agenda-state
          $generation $_old-revision $_old-score
-         $expand $refresh $resume $aggregate))
-   (case $kind (
-      (agenda-expand
-         (goal-agenda-state
-            (+ $generation 1) $issued-revision $issued-score
-            true $refresh $resume $aggregate))
-      (agenda-refresh
-         (goal-agenda-state
-            (+ $generation 1) $issued-revision $issued-score
-            $expand true $resume $aggregate))
-      (agenda-resume
-         (goal-agenda-state
-            (+ $generation 1) $issued-revision $issued-score
-            $expand $refresh true $aggregate))
-      (agenda-aggregate
-         (goal-agenda-state
-            (+ $generation 1) $issued-revision $issued-score
-            $expand $refresh $resume true)))))
+         $requested-lanes))
+   (goal-agenda-state
+      (+ $generation 1) $issued-revision $issued-score
+      (if (stored-list-member? $kind $requested-lanes)
+         $requested-lanes
+         (cons $kind $requested-lanes))))
+
+(: remove-goal-agenda-kind
+   (-[det]-> AgendaKind (List AgendaKind) (List AgendaKind)))
+(= (remove-goal-agenda-kind $_kind ()) ())
+(= (remove-goal-agenda-kind $kind (cons $first $rest))
+   (if (== $kind $first)
+      (remove-goal-agenda-kind $kind $rest)
+      (cons $first (remove-goal-agenda-kind $kind $rest))))
 
 (: goal-agenda-state-clear
    (-[det]-> AgendaKind GoalAgendaState GoalAgendaState))
 (= (goal-agenda-state-clear $kind
       (goal-agenda-state
          $generation $issued-revision $issued-score
-         $expand $refresh $resume $aggregate))
-   (case $kind (
-      (agenda-expand
-         (goal-agenda-state
-            $generation $issued-revision $issued-score
-            false $refresh $resume $aggregate))
-      (agenda-refresh
-         (goal-agenda-state
-            $generation $issued-revision $issued-score
-            $expand false $resume $aggregate))
-      (agenda-resume
-         (goal-agenda-state
-            $generation $issued-revision $issued-score
-            $expand $refresh false $aggregate))
-      (agenda-aggregate
-         (goal-agenda-state
-            $generation $issued-revision $issued-score
-            $expand $refresh $resume false)))))
+         $requested-lanes))
+   (goal-agenda-state
+      $generation $issued-revision $issued-score
+      (remove-goal-agenda-kind $kind $requested-lanes)))
 
 ;; Replace a goal row's agenda state. The removal must see the exact stored
 ;; row, so callers pass the row they fetched via goal-by-id.
@@ -213,7 +191,7 @@
       $agenda $gid $depth $goal
       (goal-agenda-state
          $generation $issued-revision $_issued-score
-         $_expand $_refresh $_resume $_aggregate)
+         $_requested-lanes)
       $kind)
    (let* (($score (agenda-kind-score $kind $gid))
           ($effective-depth
@@ -239,29 +217,26 @@
        (Heap AgendaEntry)))
 (= (enqueue-requested-goal-agenda-heap
       $agenda $gid $depth $goal $state)
-   (let* (($agenda1
-             (if (goal-agenda-kind-requested-in-state?
-                    agenda-resume $state)
-                (enqueue-goal-agenda-kind-heap
-                   $agenda $gid $depth $goal $state agenda-resume)
-                $agenda))
-          ($agenda2
-             (if (goal-agenda-kind-requested-in-state?
-                    agenda-expand $state)
-                (enqueue-goal-agenda-kind-heap
-                   $agenda1 $gid $depth $goal $state agenda-expand)
-                $agenda1))
-          ($agenda3
-             (if (goal-agenda-kind-requested-in-state?
-                    agenda-refresh $state)
-                (enqueue-goal-agenda-kind-heap
-                   $agenda2 $gid $depth $goal $state agenda-refresh)
-                $agenda2)))
-      (if (goal-agenda-kind-requested-in-state?
-             agenda-aggregate $state)
+   (enqueue-requested-goal-agenda-kinds-heap
+      $agenda $gid $depth $goal $state
+      (agenda-resume agenda-expand agenda-refresh agenda-aggregate)))
+
+(: enqueue-requested-goal-agenda-kinds-heap
+   (-[semidet]-> (Heap AgendaEntry) Number Number
+       (| Goal (Statement KBContext Proof TV)) GoalAgendaState
+       (List AgendaKind) (Heap AgendaEntry)))
+(= (enqueue-requested-goal-agenda-kinds-heap
+      $agenda $_gid $_depth $_goal $_state ())
+   $agenda)
+(= (enqueue-requested-goal-agenda-kinds-heap
+      $agenda $gid $depth $goal $state (cons $kind $rest))
+   (let $next-agenda
+      (if (goal-agenda-kind-requested-in-state? $kind $state)
          (enqueue-goal-agenda-kind-heap
-            $agenda3 $gid $depth $goal $state agenda-aggregate)
-         $agenda3)))
+            $agenda $gid $depth $goal $state $kind)
+         $agenda)
+      (enqueue-requested-goal-agenda-kinds-heap
+         $next-agenda $gid $depth $goal $state $rest)))
 
 (: request-goal-agenda-kind-heap
    (-[semidet]-> (Heap AgendaEntry) Number AgendaKind
@@ -275,7 +250,7 @@
              $row)
           ((goal-agenda-state
                $_generation $issued-revision $issued-score
-               $_expand $_refresh $_resume $_aggregate)
+               $_requested-lanes)
              $state)
           ($coalesced
              (if
@@ -328,13 +303,13 @@
                 $_stored-gid $_depth $_goal $_expanded
                 (goal-agenda-state
                    $current-generation $issued-revision $_issued-score
-                   $expand $refresh $resume $aggregate))
+                   $requested-lanes))
              $_rest)
             (if (== $generation $current-generation)
                (goal-agenda-kind-requested-in-state? $kind
                   (goal-agenda-state
                      $current-generation $issued-revision $_issued-score
-                     $expand $refresh $resume $aggregate))
+                     $requested-lanes))
                false))))))
 
 (: goal-agenda-issued-score (-[det]-> Number Number))
@@ -347,7 +322,7 @@
                 $_stored-gid $_depth $_goal $_expanded
                 (goal-agenda-state
                    $_generation $_issued-revision $issued-score
-                   $_expand $_refresh $_resume $_aggregate))
+                   $_requested-lanes))
              $_rest)
             $issued-score)))))
 
@@ -370,7 +345,7 @@
           $row)
        ((goal-agenda-state
             $generation $_issued-revision $_issued-score
-            $_expand $_refresh $_resume $_aggregate)
+            $_requested-lanes)
           $state)
        ($_set
           (set-goal-agenda-state! $row
@@ -398,13 +373,13 @@
           $row)
        ((goal-agenda-state
             $generation $_issued-revision $_issued-score
-            $expand $refresh $resume $aggregate)
+            $requested-lanes)
           $state)
        ($next-state
           (goal-agenda-state-clear $kind
              (goal-agenda-state
                 $generation $revision $score
-                $expand $refresh $resume $aggregate)))
+                $requested-lanes)))
        ($_set (set-goal-agenda-state! $row $next-state)))
       ()))
 
@@ -479,12 +454,12 @@
              $row)
           ((goal-agenda-state
                $generation $_issued-revision $_issued-score
-               $expand $refresh $resume $aggregate)
+               $requested-lanes)
              $state)
           ($next-state
              (goal-agenda-state
                 $generation $current-revision $_score
-                $expand $refresh $resume $aggregate))
+                $requested-lanes))
           ($_set (set-goal-agenda-state! $row $next-state)))
       (enqueue-goal-agenda-kind-heap
          $agenda $gid $depth $goal $next-state $kind)))
