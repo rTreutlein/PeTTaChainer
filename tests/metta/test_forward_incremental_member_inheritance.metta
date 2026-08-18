@@ -42,6 +42,14 @@
                   ($id $_obj) $_subject $_concept $_weight $_mass)
                true)))))
 
+(: materialized-inheritance-facts
+   (-[det]-> KB Term Term (List AnnotatedStatement)))
+(= (materialized-inheritance-facts $kb $subj $concept)
+   (collapse
+      (match &kb
+         ((Inheritance $subj $concept) ($kb MAIN Nil) $proof $tv)
+         (: $proof (Inheritance $subj $concept) $tv))))
+
 ;; Open Inheritance queries compile the same fold vocabulary, but variable
 ;; classes cannot provide selective forward indexes and must register nothing.
 !(query 0 forwardOpenMemberFoldKb
@@ -352,6 +360,18 @@
              (member-inheritance-sample mcHuman mcMortal)))
       (Inheritance Human Mortal)
       (STV 0.64 0.003115264797507788)))
+
+!(test
+   (materialized-inheritance-facts
+      materializedForwardDeltaKb Human Mortal)
+   ((: (inheritance-query-result
+           (member-inheritance-fold
+              (foldall-proof
+                 (member-inheritance-sample mbHuman mbMortal)
+                 (member-inheritance-sample maHuman maMortal)
+                 (member-inheritance-sample mcHuman mcMortal))))
+       (Inheritance Human Mortal)
+       (STV 0.64 0.003115264797507788))))
 
 !(test
    (query 0 materializedForwardDeltaKb

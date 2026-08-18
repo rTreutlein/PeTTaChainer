@@ -628,24 +628,41 @@
             (root-goal-representative-proof-ids $gid)))
       ()))
 
-(: root-goal-results
-   (-[semidet]-> Number (List RuntimeResult)))
-(= (root-goal-results $gid)
+(: root-goal-results-with-materialization
+   (-[semidet]-> Number Bool (List RuntimeResult)))
+(= (root-goal-results-with-materialization $gid $materialize?)
    (let*
-      (($current-hits
+      (($representatives
+         (root-goal-representative-proof-ids $gid))
+       ($selected
+          (if (== $representatives ())
+             (goal-incumbent-proof-ids $gid)
+             $representatives))
+       ($current-hits
          (collapse
             (once
                (proof-map-flat-semidet materialize-result-atom
                   (proof-map-flat-semidet proof-output-atom-by-id
-                     (root-goal-representative-proof-ids $gid))))))
+                     $selected)))))
        ($current
           (if (== $current-hits ()) ()
-             (car-atom $current-hits))))
+             (car-atom $current-hits)))
+       ($_materialized
+          (if $materialize?
+             (let $_dependencies
+                (materialize-proof-list-to-kb $selected)
+                ())
+             ())))
       (if (== $current ())
          (proof-map-flat-semidet materialize-result-atom
             (proof-map-flat-semidet proof-output-atom-by-id
                (goal-incumbent-proof-ids $gid)))
          $current)))
+
+(: root-goal-results
+   (-[semidet]-> Number (List RuntimeResult)))
+(= (root-goal-results $gid)
+   (root-goal-results-with-materialization $gid false))
 
 (: goal-current-confidence
    (-[semidet]-> Number (| Number NoCurrentScore)))

@@ -817,8 +817,251 @@
             false))
       ($_other false))))
 
-(: materialize-proof-node-to-kb (-[semidet]-> Number (List $none)))
-(= (materialize-proof-node-to-kb $pid)
+(: MaterializedAggregateDependency Type)
+(: materialized-aggregate-dependency
+   (-[det]-> AggregateIdentity Number MaterializedAggregateDependency))
+
+;; Materialization is a projection of a durable proof into the canonical
+;; forward store.  Background aggregate evidence is deliberately absent, so a
+;; private lineage row carries the aggregate revisions which ordinary evidence
+;; dominance cannot see.  The output hash is first for indexed lookup; the full
+;; output identity remains in the row to reject hash collisions.
+(: MaterializedAggregateLineageRow Type)
+(: materialized-aggregate-lineage-row
+   (-[det]-> Number Statement KBContext
+       (Statement KBContext Proof TV) (List Evidence)
+       (List MaterializedAggregateDependency)
+       MaterializedAggregateLineageRow))
+
+(: materialized-dependency-identity-present?
+   (-[det]-> AggregateIdentity
+       (List MaterializedAggregateDependency) Bool))
+(= (materialized-dependency-identity-present? $_identity ()) false)
+(= (materialized-dependency-identity-present?
+      $identity
+      (cons
+         (materialized-aggregate-dependency $candidate $_revision)
+         $rest))
+   (if (=alpha $identity $candidate) true
+      (materialized-dependency-identity-present? $identity $rest)))
+
+(: materialized-dependency-at-least?
+   (-[det]-> MaterializedAggregateDependency
+       (List MaterializedAggregateDependency) Bool))
+(= (materialized-dependency-at-least? $_dependency ()) false)
+(= (materialized-dependency-at-least?
+      (materialized-aggregate-dependency $identity $revision)
+      (cons
+         (materialized-aggregate-dependency $candidate $candidate-revision)
+         $rest))
+   (if (=alpha $identity $candidate)
+      (>= $candidate-revision $revision)
+      (materialized-dependency-at-least?
+         (materialized-aggregate-dependency $identity $revision)
+         $rest)))
+
+(: materialized-dependency-strictly-newer?
+   (-[det]-> MaterializedAggregateDependency
+       (List MaterializedAggregateDependency) Bool))
+(= (materialized-dependency-strictly-newer? $_dependency ()) false)
+(= (materialized-dependency-strictly-newer?
+      (materialized-aggregate-dependency $identity $revision)
+      (cons
+         (materialized-aggregate-dependency $candidate $candidate-revision)
+         $rest))
+   (if (=alpha $identity $candidate)
+      (> $candidate-revision $revision)
+      (materialized-dependency-strictly-newer?
+         (materialized-aggregate-dependency $identity $revision)
+         $rest)))
+
+(: materialized-dependencies-covered-by?
+   (-[det]-> (List MaterializedAggregateDependency)
+       (List MaterializedAggregateDependency) Bool))
+(= (materialized-dependencies-covered-by? () $_candidates) true)
+(= (materialized-dependencies-covered-by?
+      (cons $dependency $rest) $candidates)
+   (and (materialized-dependency-at-least? $dependency $candidates)
+      (materialized-dependencies-covered-by? $rest $candidates)))
+
+(: materialized-dependency-identities-covered-by?
+   (-[det]-> (List MaterializedAggregateDependency)
+       (List MaterializedAggregateDependency) Bool))
+(= (materialized-dependency-identities-covered-by? () $_candidates) true)
+(= (materialized-dependency-identities-covered-by?
+      (cons
+         (materialized-aggregate-dependency $identity $_revision)
+         $rest)
+      $candidates)
+   (and (materialized-dependency-identity-present? $identity $candidates)
+      (materialized-dependency-identities-covered-by? $rest $candidates)))
+
+(: materialized-dependencies-have-newer?
+   (-[det]-> (List MaterializedAggregateDependency)
+       (List MaterializedAggregateDependency) Bool))
+(= (materialized-dependencies-have-newer? () $_candidates) false)
+(= (materialized-dependencies-have-newer?
+      (cons $dependency $rest) $candidates)
+   (if (materialized-dependency-strictly-newer? $dependency $candidates)
+      true
+      (materialized-dependencies-have-newer? $rest $candidates)))
+
+(: materialized-dependencies-refine?
+   (-[det]-> (List MaterializedAggregateDependency)
+       (List MaterializedAggregateDependency) Bool))
+(= (materialized-dependencies-refine? $old $new)
+   (and (not (== $old ()))
+      (and
+         (materialized-dependencies-covered-by? $old $new)
+         (and
+            (materialized-dependency-identities-covered-by? $new $old)
+            (materialized-dependencies-have-newer? $old $new)))))
+
+(: add-materialized-aggregate-dependency
+   (-[det]-> (List MaterializedAggregateDependency)
+       MaterializedAggregateDependency
+       (List MaterializedAggregateDependency)))
+(= (add-materialized-aggregate-dependency () $dependency)
+   (cons $dependency ()))
+(= (add-materialized-aggregate-dependency
+      (cons
+         (materialized-aggregate-dependency $identity $revision)
+         $rest)
+      (materialized-aggregate-dependency $new-identity $new-revision))
+   (if (=alpha $identity $new-identity)
+      (cons
+         (materialized-aggregate-dependency $identity
+            (if (> $new-revision $revision) $new-revision $revision))
+         $rest)
+      (cons
+         (materialized-aggregate-dependency $identity $revision)
+         (add-materialized-aggregate-dependency $rest
+            (materialized-aggregate-dependency
+               $new-identity $new-revision)))))
+
+(: merge-materialized-aggregate-dependencies
+   (-[det]-> (List MaterializedAggregateDependency)
+       (List MaterializedAggregateDependency)
+       (List MaterializedAggregateDependency)))
+(= (merge-materialized-aggregate-dependencies $left $right)
+   (fold-flat add-materialized-aggregate-dependency $left $right))
+
+(: first-materialized-dependency-list-or-empty
+   (-[det]-> (List (List MaterializedAggregateDependency))
+       (List MaterializedAggregateDependency)))
+(= (first-materialized-dependency-list-or-empty ()) ())
+(= (first-materialized-dependency-list-or-empty
+      (cons $first $_rest))
+   $first)
+
+(: proof-materialized-aggregate-dependencies
+   (-[det]-> Number (List MaterializedAggregateDependency)))
+(= (proof-materialized-aggregate-dependencies $pid)
+   (collapse
+      (match &aggregate_proof_revision
+         (aggregate-proof-revision-row $pid $identity $revision)
+         (materialized-aggregate-dependency $identity $revision))))
+
+(: materialized-refining-lineage-rows
+   (-[det]-> ForwardOutputKey
+       (List MaterializedAggregateDependency)
+       (List MaterializedAggregateLineageRow)))
+(= (materialized-refining-lineage-rows
+      (forward-output-key $kb $type) $dependencies)
+   (let $hash
+      (forward-output-index-hash (forward-output-key $kb $type))
+      (collapse
+         (match &materialized_aggregate_lineage
+            (materialized-aggregate-lineage-row
+               $hash $type $kb $old-fact $old-ev $old-dependencies)
+            (if
+               (and
+                  (materialized-dependencies-refine?
+                     $old-dependencies $dependencies)
+                  (forward-frontier-has-exact?
+                     (forward-output-key $kb $type)
+                     $old-fact $old-ev))
+               (materialized-aggregate-lineage-row
+                  $hash $type $kb
+                  $old-fact $old-ev $old-dependencies)
+               (empty))))))
+
+(: remove-materialized-lineage-frontier-row!
+   (-[det]-> MaterializedAggregateLineageRow (List $none)))
+(= (remove-materialized-lineage-frontier-row!
+      (materialized-aggregate-lineage-row
+         $hash $type $kb $fact $ev $dependencies))
+   (progn
+      (remove-atom &forward_frontier
+         (forward-frontier-row $hash $type $kb $fact $ev))
+      (remove-atom &materialized_aggregate_lineage
+         (materialized-aggregate-lineage-row
+            $hash $type $kb $fact $ev $dependencies))
+      ()))
+
+(: record-materialized-aggregate-lineage!
+   (-[det]-> ForwardOutputKey
+       (Statement KBContext Proof TV) (List Evidence)
+       (List MaterializedAggregateDependency) (List $none)))
+(= (record-materialized-aggregate-lineage!
+      (forward-output-key $kb $type) $fact $ev $dependencies)
+   (let $hash
+      (forward-output-index-hash (forward-output-key $kb $type))
+      (let $_row
+         (once
+            (add-atom &materialized_aggregate_lineage
+               (materialized-aggregate-lineage-row
+                  $hash $type $kb $fact $ev $dependencies)))
+         ())))
+
+(: materialized-forward-candidate-upsert!
+   (-[nondet]-> (Statement KBContext Proof TV) (List Evidence)
+       (List MaterializedAggregateDependency) ForwardOutputChange))
+(= (materialized-forward-candidate-upsert! $fact $ev $dependencies)
+   (let* (($output-key (forward-fact-key $fact))
+          ($refining-rows
+             (materialized-refining-lineage-rows
+                $output-key $dependencies)))
+      (if (== $refining-rows ())
+         (let $change
+            (forward-candidate-upsert! (forward-derived $fact $ev))
+            (let $_lineage
+               (if
+                  (and (not (== $dependencies ()))
+                     (forward-frontier-has-exact?
+                        $output-key $fact $ev))
+                  (record-materialized-aggregate-lineage!
+                     $output-key $fact $ev $dependencies)
+                  ())
+               $change))
+         (let*
+            (($_remove-old
+                (foreach-flat
+                   remove-materialized-lineage-frontier-row!
+                   $refining-rows))
+             ($_accept-new
+                (if (forward-frontier-has-exact? $output-key $fact $ev) ()
+                   (if (forward-frontier-rejects? $output-key $fact $ev) ()
+                      (let*
+                         (($_prune
+                             (forward-prune-frontier-for!
+                                $output-key $fact $ev))
+                          ($_add
+                             (forward-add-frontier-row!
+                                $output-key $fact $ev)))
+                         ()))))
+             ($change (forward-refresh-output-key! $output-key))
+             ($_lineage
+                (if (forward-frontier-has-exact? $output-key $fact $ev)
+                   (record-materialized-aggregate-lineage!
+                      $output-key $fact $ev $dependencies)
+                   ())))
+            $change))))
+
+(: materialize-proof-node-to-kb
+   (-[semidet]-> Number (List MaterializedAggregateDependency)
+       (List $none)))
+(= (materialize-proof-node-to-kb $pid $dependencies)
    (let*
       (($kind (proof-kind-by-id $pid))
        ($output (proof-output-atom-by-id $pid)))
@@ -830,8 +1073,8 @@
                 ($changes
                    (collapse
                       (once
-                         (forward-candidate-upsert!
-                            (forward-derived $fact $ev)))))
+                         (materialized-forward-candidate-upsert!
+                            $fact $ev $dependencies))))
                 ($change
                    (if (== $changes ()) no-forward-change
                       (car-atom $changes))))
@@ -841,17 +1084,34 @@
             ())
          ())))
 
-(: materialize-proof-tree-to-kb (-[det]-> Number (List $none)))
+(: materialize-proof-tree-to-kb
+   (-[det]-> Number (List MaterializedAggregateDependency)))
 (= (materialize-proof-tree-to-kb $pid)
-   (let $_children (collapse (materialize-proof-list-to-kb (proof-children-by-id $pid)))
-      (let $_node (collapse (materialize-proof-node-to-kb $pid))
-         ())))
+   (let* (($child-hits
+             (collapse
+                (once
+                   (materialize-proof-list-to-kb
+                      (proof-children-by-id $pid)))))
+          ($children
+             (first-materialized-dependency-list-or-empty
+                $child-hits))
+          ($dependencies
+             (merge-materialized-aggregate-dependencies
+                $children
+                (proof-materialized-aggregate-dependencies $pid)))
+          ($_node
+             (collapse
+                (materialize-proof-node-to-kb
+                   $pid $dependencies))))
+      $dependencies))
 
-(: materialize-proof-list-to-kb (-[det]-> (List Number) (List $none)))
+(: materialize-proof-list-to-kb
+   (-[det]-> (List Number) (List MaterializedAggregateDependency)))
 (= (materialize-proof-list-to-kb ()) ())
 (= (materialize-proof-list-to-kb (cons $pid $rest))
-   (let $_head (collapse (materialize-proof-tree-to-kb $pid))
-      (materialize-proof-list-to-kb $rest)))
+   (let* (($head (materialize-proof-tree-to-kb $pid))
+          ($tail (materialize-proof-list-to-kb $rest)))
+      (merge-materialized-aggregate-dependencies $head $tail)))
 
 (: ProofLiveCacheRow Type)
 (: proof-live-cache-row

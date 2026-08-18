@@ -361,14 +361,10 @@
              (|-> ($root-gid)
                 (chainer-first-or ()
                    (collapse
-                      (once (root-goal-results $root-gid)))))
+                      (once
+                         (root-goal-results-with-materialization
+                            $root-gid $materialize?)))))
              $root-gids))
-       ($_materialized
-          (if $materialize?
-             (foreach-flat
-                materialize-root-goal-proofs-to-kb
-                $root-gids)
-             ()))
        ($_harvest (harvest-base-rates))
        ($_empty-member-cache
           (harvest-complete-member-inheritance-empty-caches!)))
