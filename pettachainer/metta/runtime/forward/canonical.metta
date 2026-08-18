@@ -69,8 +69,8 @@
        (List Evidence)
        ForwardCanonicalEvidenceRow))
 
-(: ForwardBaseRateInterestRow Type)
-(: forward-base-rate-interest-row
+(: ForwardBaseRateInterest Type)
+(: forward-base-rate-interest
    (-[det]-> ForwardTriggerKey Number KB Statement
        (| ExtractTV ExtractInheritanceTV)
        (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)
@@ -79,7 +79,14 @@
           WeightedBaseRateInUniverseFinish
           WeightedBaseRateWithPriorInUniverseFinish)
        AggregateTVMode
-       ForwardBaseRateInterestRow))
+       ForwardBaseRateInterest))
+
+;; Both spaces expose the selective numeric key as their first generated
+;; Prolog argument while preserving the typed interest payload at reads.
+(: &forward_base_rate_interest_by_identity
+   (SpaceOf (Number ForwardBaseRateInterest)))
+(: &forward_base_rate_interest_by_trigger
+   (SpaceOf (Number ForwardBaseRateInterest)))
 
 (: ForwardMemberInheritanceInterestRow Type)
 (: forward-member-inheritance-interest-row

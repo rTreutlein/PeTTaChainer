@@ -15,6 +15,31 @@
          (if (= $extractor (extract-inheritance-tv $_kbid $_pattern)) true false))
       ($_other false))))
 
+;; Registration identity includes open compiler variables. Hash an
+;; alpha-invariant ground skeleton, then retain and compare the complete terms
+;; in the identity index so hash collisions cannot change deduplication.
+(: forward-base-rate-identity-key-leaf (-[det]-> Atom Atom))
+(= (forward-base-rate-identity-key-leaf $atom)
+   (if (is-var $atom) forward-base-rate-identity-variable $atom))
+
+(: forward-base-rate-identity-hash
+   (-[det]-> KB Statement
+       (| ExtractTV ExtractInheritanceTV)
+       $accumulator
+       (-[semidet]-> $accumulator $value $accumulator)
+       (| BaseRateFinish
+          WeightedBaseRateInUniverseFinish
+          WeightedBaseRateWithPriorInUniverseFinish)
+       AggregateTVMode
+       Number))
+(= (forward-base-rate-identity-hash
+      $kbid $pattern $extractor $init $fun $finish $tv-mode)
+   (term_hash
+      (map-nested forward-base-rate-identity-key-leaf
+         (quote
+            ($kbid $pattern ($extractor $init)
+               $fun $finish $tv-mode)))))
+
 (: forward-register-base-rate!
    (-[det]-> KB Statement
        (| ExtractTV ExtractInheritanceTV)
@@ -30,14 +55,21 @@
    (if (forward-base-rate-supported? $extractor $fun)
       (let*
          (($trigger (forward-type-trigger-key $kbid $pattern))
+          ($trigger-hash (term_hash $trigger))
+          ($identity-hash
+             (forward-base-rate-identity-hash
+                $kbid $pattern $extractor $init
+                $fun $finish $tv-mode))
           ($hits
              (collapse
                 (once
-                   (match &forward_base_rate_interest
-                      (forward-base-rate-interest-row
-                         $trigger $stored-id $kbid $stored-pattern
-                         $stored-extractor $stored-init
-                         $fun $finish $tv-mode)
+                   (match &forward_base_rate_interest_by_identity
+                      ($identity-hash
+                         (forward-base-rate-interest
+                            $_stored-trigger $stored-id
+                            $kbid $stored-pattern
+                            $stored-extractor $stored-init
+                            $fun $finish $tv-mode))
                       (if (and (=alpha $stored-pattern $pattern)
                                (=alpha
                                   (quote ($stored-extractor $stored-init))
@@ -52,13 +84,22 @@
                 ($stored-extractor (car-atom (cdr-atom $stored)))
                 ($stored-init
                    (car-atom (cdr-atom (cdr-atom $stored))))
-                ($_interest
+                ($_identity
                    (once
-                      (add-atom &forward_base_rate_interest
-                         (forward-base-rate-interest-row
-                            $trigger $id $kbid $stored-pattern
-                            $stored-extractor $stored-init
-                            $fun $finish $tv-mode))))
+                      (add-atom &forward_base_rate_interest_by_identity
+                         ($identity-hash
+                            (forward-base-rate-interest
+                               $trigger $id $kbid $stored-pattern
+                               $stored-extractor $stored-init
+                               $fun $finish $tv-mode)))))
+                ($_trigger
+                   (once
+                      (add-atom &forward_base_rate_interest_by_trigger
+                         ($trigger-hash
+                            (forward-base-rate-interest
+                               $trigger $id $kbid $stored-pattern
+                               $stored-extractor $stored-init
+                               $fun $finish $tv-mode)))))
                 ($_state
                    (once
                       (add-atom &forward_base_rate_state
@@ -446,14 +487,18 @@
 (: forward-update-base-rates-for-key
    (-[nondet]-> (Statement KBContext Proof TV) ForwardTriggerKey  (List $none)))
 (= (forward-update-base-rates-for-key $fact $trigger)
-   (match &forward_base_rate_interest
-      (forward-base-rate-interest-row
-         $trigger $id $kbid $pattern
-         $extractor $init $fun $finish $_tv-mode)
-      (forward-update-base-rate-interest
-         $fact $id
-         $kbid (copy_term $pattern)
-         $extractor $init $fun $finish)))
+   (let $trigger-hash (term_hash $trigger)
+      (match &forward_base_rate_interest_by_trigger
+         ($trigger-hash
+            (forward-base-rate-interest
+               $stored-trigger $id $kbid $pattern
+               $extractor $init $fun $finish $_tv-mode))
+         (if (== $stored-trigger $trigger)
+            (forward-update-base-rate-interest
+               $fact $id
+               $kbid (copy_term $pattern)
+               $extractor $init $fun $finish)
+            (empty)))))
 
 (: forward-update-base-rates
    (-[det]-> (Statement KBContext Proof TV) (List $none)))
@@ -1006,12 +1051,16 @@
    (-[nondet]-> (Statement KBContext Proof TV)
       ForwardTriggerKey  (List $none)))
 (= (forward-invalidate-base-rates-for-key! $fact $trigger)
-   (match &forward_base_rate_interest
-      (forward-base-rate-interest-row
-         $trigger $_id $kbid $pattern
-         $_extractor $_init $_fun $finish $_tv-mode)
-      (base-rate-cache-remove-derived!
-         $kbid (copy_term $pattern) $finish)))
+   (let $trigger-hash (term_hash $trigger)
+      (match &forward_base_rate_interest_by_trigger
+         ($trigger-hash
+            (forward-base-rate-interest
+               $stored-trigger $_id $kbid $pattern
+               $_extractor $_init $_fun $finish $_tv-mode))
+         (if (== $stored-trigger $trigger)
+            (base-rate-cache-remove-derived!
+               $kbid (copy_term $pattern) $finish)
+            (empty)))))
 
 (: forward-invalidate-base-rates! (-[det]-> (Statement KBContext Proof TV) (List $none)))
 (= (forward-invalidate-base-rates! $fact)
@@ -1090,14 +1139,18 @@
 (: forward-remove-base-rate-observations-for-key!
    (-[nondet]-> (Statement KBContext Proof TV) ForwardTriggerKey  (List $none)))
 (= (forward-remove-base-rate-observations-for-key! $fact $trigger)
-   (match &forward_base_rate_interest
-      (forward-base-rate-interest-row
-         $trigger $id $kbid $pattern
-         $extractor $init $fun $finish $_tv-mode)
-      (forward-remove-base-rate-observation!
-         $fact $id
-         $kbid (copy_term $pattern)
-         $extractor $init $fun $finish)))
+   (let $trigger-hash (term_hash $trigger)
+      (match &forward_base_rate_interest_by_trigger
+         ($trigger-hash
+            (forward-base-rate-interest
+               $stored-trigger $id $kbid $pattern
+               $extractor $init $fun $finish $_tv-mode))
+         (if (== $stored-trigger $trigger)
+            (forward-remove-base-rate-observation!
+               $fact $id
+               $kbid (copy_term $pattern)
+               $extractor $init $fun $finish)
+            (empty)))))
 
 (: forward-remove-base-rate-observations!
    (-[det]-> (Statement KBContext Proof TV) (List $none)))
