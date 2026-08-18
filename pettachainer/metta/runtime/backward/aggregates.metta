@@ -349,8 +349,9 @@
 (= (aggregate-proof-fold-step $args (aggregate-state $acc $ev $children) $pid)
    (let*
       ((($_agg-kb $_agg-pattern $extractor $_agg-init $fun $_agg-finish $_agg-tv-mode) (copy_term $args))
-       ($child-atom (proof-output-atom-by-id $pid))
-       (($_pscore $pev) (proof-stats-by-id $pid))
+       (($child-atom $_kind
+          (proof-support $_pscore $pev $_contribution) $_children)
+          (proof-row-by-id $pid))
        ($child-tv (aggregate-child-tv $child-atom))
        ($nacc (aggregate-foldall-step-acc $extractor $fun $acc $child-atom $child-tv))
        ($nev
@@ -416,8 +417,9 @@
 (= (grouped-aggregate-proof-fold-step $args $states $pid)
    (let*
       ((($_agg-kb $pattern $group-template $extractor $init $fun $_finish $_tv-mode) (copy_term $args))
-       ($child-atom (proof-output-atom-by-id $pid))
-       (($_pscore $pev) (proof-stats-by-id $pid))
+       (($child-atom $_kind
+          (proof-support $_pscore $pev $_contribution) $_children)
+          (proof-row-by-id $pid))
        ($group (aggregate-step-group-value $pattern $group-template $child-atom))
        ($child-tv (aggregate-child-tv $child-atom)))
       (aggregate-group-update $extractor $fun $init $group $child-atom $child-tv $pev $pid $states)))
@@ -469,8 +471,10 @@
       (cons $pid $rest))
    (let*
       (($output (candidate-kind-term $kind))
-       ($stored-output (proof-output-atom-by-id $pid))
-       (($stored-score $stored-ev) (proof-stats-by-id $pid)))
+       (($stored-output $_stored-kind
+          (proof-support $stored-score $stored-ev $_stored-contribution)
+          $_stored-children)
+          (proof-row-by-id $pid)))
       (if (and (=alpha $stored-output $output)
                (and (== $stored-score $score) (== $stored-ev $ev)))
          true

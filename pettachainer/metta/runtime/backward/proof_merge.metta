@@ -173,14 +173,14 @@
       (the STVType
          (factor-reeval $pid $keys (STV 0.0 1.0)))))
 (: factor-revise-residuals
-   (-[semidet]-> (List Number) (List ProofOutputKey) CTVType))
-(= (factor-revise-residuals (cons $pid ()) $keys) (factor-residual $pid $keys))
+   (-[semidet]-> (List CTVType) CTVType))
+(= (factor-revise-residuals (cons $residual ())) $residual)
 (= (factor-revise-residuals
-      (cons $pid (cons $next $rest)) $keys)
+      (cons $residual (cons $next $rest)))
    (factor-revise-ctv
-      (factor-residual $pid $keys)
+      $residual
       (factor-revise-residuals
-         (cons $next $rest) $keys)))
+         (cons $next $rest))))
 
 ;; the shared facts' keys, and their real conjunction TV (And-fold of leaf TVs)
 (: factor-shared-keys
@@ -226,24 +226,31 @@
          false)
       false))
 (: factor-roundtrip-one?
-   (-[semidet]-> Number (List ProofOutputKey) STVType Bool))
-(= (factor-roundtrip-one? $pid $keys $conj)
+   (-[semidet]-> TV CTVType STVType Bool))
+(= (factor-roundtrip-one? $stored $residual $conj)
+   (let $rebuilt
+      (CTVModusPonensFormula $conj $residual)
+      (factor-tv-close? $stored $rebuilt)))
+
+(: factor-roundtrip-residuals
+   (-[semidet]-> (List Number) (List ProofOutputKey) STVType
+      (Bool (List CTVType))))
+(= (factor-roundtrip-residuals () $_keys $_conj) (data true ()))
+(= (factor-roundtrip-residuals (cons $pid $rest) $keys $conj)
    (let* ((($_t $_k $_p $stored) (proof-output-atom-by-id $pid))
           ($residuals
              (collapse (once (factor-residual $pid $keys)))))
-      (if (== $residuals ()) false
-         (let $rebuilt
-            (CTVModusPonensFormula $conj
-               (car-atom $residuals))
-            (factor-tv-close? (the TV $stored) $rebuilt)))))
-(: factor-roundtrips?
-   (-[semidet]-> (List Number) (List ProofOutputKey)
-       STVType Bool))
-(= (factor-roundtrips? () $_keys $_conj) true)
-(= (factor-roundtrips? (cons $pid $rest) $keys $conj)
-   (if (factor-roundtrip-one? $pid $keys $conj)
-      (factor-roundtrips? $rest $keys $conj)
-      false))
+      (if (== $residuals ()) (data false ())
+         (let $residual (car-atom $residuals)
+            (if (factor-roundtrip-one?
+                   (the TV $stored) $residual $conj)
+               (let ($valid $rest-residuals)
+                  (factor-roundtrip-residuals $rest $keys $conj)
+                  (if $valid
+                     (data true
+                        (cons $residual $rest-residuals))
+                     (data false ())))
+               (data false ()))))))
 
 (: factor-ref-of (-[semidet]-> Number Proof))
 (= (factor-ref-of $pid)
@@ -292,37 +299,47 @@
 ;; Pool a group when: it shares at least one fact, every proof is standard
 ;; implication-shaped, the residual evidence sets are pairwise disjoint, and the
 ;; residuals round-trip (the shared facts factor through one conjunction).
-(: group-factorable? (-[semidet]-> (List Number) Bool))
-(= (group-factorable? ()) false)
-(= (group-factorable? (cons $first-pid $rest-pids))
+;; Return a singleton only when factoring succeeds so the caller can preserve
+;; the ordinary revision fallback without evaluating it eagerly.
+(: factor-lifting-merge-output
+   (-[semidet]-> (List Number)
+      (List (Statement KBContext Proof TV))))
+(= (factor-lifting-merge-output (cons $first-pid $rest-pids))
    (let $pids (cons $first-pid $rest-pids)
-   (let* (($shared (factor-shared-facts $pids))
-          ($keys (factor-shared-keys $shared)))
-      (if (== $shared ()) false
-         (if (factor-all? $pids)
-            (if
-               (factor-pairwise-disjoint?
-                  (factor-residual-evs $pids $shared))
-               (factor-roundtrips?
-                  $pids $keys
-                  (factor-real-conj $first-pid $keys))
-               false)
-            false)))))
-
-(: factor-merge-output
-   (-[semidet]-> (List Number) (Statement KBContext Proof TV)))
-(= (factor-merge-output (cons $first-pid $rest-pids))
-   (let* (($pids (cons $first-pid $rest-pids))
-          ($keys (factor-shared-keys (factor-shared-facts $pids)))
-          ($conj (factor-real-conj $first-pid $keys))
-          ($pooled (once (factor-revise-residuals $pids $keys)))
-          ($merged-tv (CTVModusPonensFormula $conj $pooled))
-          (($type $kb $_p $_t) (proof-output-atom-by-id $first-pid)))
-      (let $merged-prf (factor-merged-prf $pids)
-         (assemble-runtime-fact
-            (brand Statement $type)
-            (brand KBContext $kb)
-            $merged-prf $merged-tv))))
+      (let $shared (factor-shared-facts $pids)
+         (if (== $shared ()) ()
+            (if (factor-all? $pids)
+               (if
+                  (factor-pairwise-disjoint?
+                     (factor-residual-evs $pids $shared))
+                  (let* (($keys (factor-shared-keys $shared))
+                         ($conj
+                            (factor-real-conj $first-pid $keys))
+                         (($valid $residuals)
+                            (factor-roundtrip-residuals
+                               $pids $keys $conj)))
+                     (if $valid
+                        (let* (($pooled
+                                  (once
+                                     (factor-revise-residuals
+                                        $residuals)))
+                               ($merged-tv
+                                  (CTVModusPonensFormula
+                                     $conj $pooled))
+                               (($type $kb $_p $_t)
+                                  (proof-output-atom-by-id
+                                     $first-pid))
+                               ($merged-prf
+                                  (factor-merged-prf $pids)))
+                           (cons
+                              (assemble-runtime-fact
+                                 (brand Statement $type)
+                                 (brand KBContext $kb)
+                                 $merged-prf $merged-tv)
+                              ()))
+                        ()))
+                  ())
+               ())))))
 
 (: merge-proof-id-output
    (-[semidet]-> (List Number)
@@ -334,10 +351,12 @@
    ;; from this proof node's child list.
    (if (== $rest ())
       (proof-output-atom-by-id $pid)
-      (if (group-factorable? (cons $pid $rest))
-         (factor-merge-output (cons $pid $rest))
-         (proof-fold-flat-semidet merge-proof-id-output-step
-            (proof-fact-output-by-id $pid) $rest))))
+      (let $factored
+         (factor-lifting-merge-output (cons $pid $rest))
+         (if (== $factored ())
+            (proof-fold-flat-semidet merge-proof-id-output-step
+               (proof-fact-output-by-id $pid) $rest)
+            (car-atom $factored)))))
 
 (: proof-id-evidence-step
    (-[semidet]-> (List Evidence) Number (List Evidence)))

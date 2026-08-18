@@ -459,6 +459,17 @@
 (= (proof-output-atom-by-id $pid)
    (once (proof-output-atom $pid)))
 
+(: proof-row-by-id
+   (-[semidet]-> Number
+      ((| Goal (Statement KBContext Proof TV))
+       ProofKind ProofSupport (List Number))))
+(= (proof-row-by-id $pid)
+   (once
+      (match &proof
+         (stored-proof-row
+            $pid $_owner $output $kind $support $children)
+         (data $output $kind $support $children))))
+
 (: proof-fact-output-by-id
    (-[semidet]-> Number (Statement KBContext Proof TV)))
 (= (proof-fact-output-by-id $pid)

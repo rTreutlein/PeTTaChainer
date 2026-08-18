@@ -1134,11 +1134,11 @@
    (frontier-parts-fold-acc (frontier-part-tv $first) $rest))
 
 (: frontier-premise-part
-   (-[semidet]-> Number
+   (-[semidet]-> ProofSupport
        (| FrontierPart SkipPart UnpoolablePart)))
-(= (frontier-premise-part $pid)
+(= (frontier-premise-part $support)
    (let (proof-support $_score $evidence $contribution)
-      (proof-support-by-id $pid)
+      $support
       (case $contribution (
          ((independent-contribution $tv)
             (indep-part $tv))
@@ -1352,10 +1352,11 @@
    (if (waiter-live? (frontier-waiter $parent-gid $bundle $score
          $seen $parts $path-id $value-spec))
       (let*
-         ((($pscore $pev) (proof-stats-by-id $pid))
-          ($proof-output (proof-output-atom-by-id $pid))
+         ((($proof-output $_kind $support $_children)
+             (proof-row-by-id $pid))
+          ((proof-support $pscore $pev $_contribution) $support)
           ($frontier-pscore (frontier-proof-score $proof-output $pscore))
-          ($part (frontier-premise-part $pid))
+          ($part (frontier-premise-part $support))
           ($overlap
              (if (frontier-allows-shared-evidence? $bundle)
                 false
