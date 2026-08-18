@@ -8,24 +8,24 @@
 !(import! &self (library lib_datetime))
 !(static-import! &self .conceptnet_export/rules_dump)
 
-;; This is the KB identifier contained in the current full ConceptNet export.
+;; This is the KB identifier pinned by cnet load_pln_dump for every regenerated export.
 ;; If a regenerated export changes it, update these call sites and the runner's
 ;; non-empty-result validation together.
 
-!(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
+!(compileadd kbconceptnet
    (: max_dog (Dog max) (STV 1.0 1.0)))
-!(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
+!(compileadd kbconceptnet
    (: ann_dog (Dog ann) (STV 1.0 1.0)))
-!(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
+!(compileadd kbconceptnet
    (: i_have_max (Have (i max)) (STV 1.0 1.0)))
-!(compileadd kb5b10000f8f9f4f0dbd120f99aa0f43ce
+!(compileadd kbconceptnet
    (: i_have_ann (Have (i ann)) (STV 1.0 1.0)))
 
 !(let*
    (($start (now))
     ($results
       (collapse
-         (query 10 kb5b10000f8f9f4f0dbd120f99aa0f43ce
+         (query 100 kbconceptnet
             (: $_proof (And (Own (i $_pet)) (Pet $_pet)) $_tv))))
     ($finish (now)))
    (println!
