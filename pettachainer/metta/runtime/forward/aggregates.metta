@@ -642,8 +642,27 @@
                      (forward-member-inheritance-computed-row $id)
                      true)))
             ()))
-         (store-computed-base-rate!
-            $kbid $pattern $tv (member-inheritance $kbid))
+         (let*
+            (($mode (member-inheritance $kbid))
+             ($old-entries
+                (base-rate-cache-entries-for-mode
+                   $kbid $pattern $mode))
+             ($changed?
+                (if (== $old-entries ()) false
+                   (base-rate-cache-tv-changed?
+                      $old-entries $tv)))
+             ($_cache
+                (store-computed-base-rate!
+                   $kbid $pattern $tv $mode))
+             ($_revision
+                (if $changed?
+                   (let $_next
+                      (bump-aggregate-revision!
+                         (base-rate-aggregate-identity
+                            $kbid $pattern $mode))
+                      ())
+                   ())))
+            ())
          (store-forward-base-rate!
             $kbid $pattern $tv (member-inheritance $kbid)))))
 

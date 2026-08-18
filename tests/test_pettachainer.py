@@ -33,7 +33,9 @@ class TestPeTTaChainer(unittest.TestCase):
 
             with warnings.catch_warnings(record=True) as caught:
                 warnings.simplefilter("always")
-                results = handler.query("(: $prf (TimedMetric) $tv)", steps=3)
+                results = handler.query(
+                    "(: $prf (TimedMetric) $tv)", steps=3, timeout_sec=30
+                )
 
             self.assertEqual(
                 results,
@@ -348,7 +350,9 @@ class TestPeTTaChainer(unittest.TestCase):
         handler = PeTTaChainer()
         handler.add_atom("(: a (A) (STV 1.0 1.0))")
 
-        proofs = handler.query("(: $prf (Or (A) (B)) $tv)", steps=20)
+        proofs = handler.query(
+            "(: $prf (Or (A) (B)) $tv)", steps=20, timeout_sec=30
+        )
 
         self.assertEqual(proofs, [])
 

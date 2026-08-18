@@ -234,8 +234,16 @@
                                   $pattern
                                   (STV $s $c)
                                   $mode))
-                            ($_retire
-                               (deactivate-current-proof! $pid)))
+                            ($_supersede
+                               (if
+                                  (and
+                                     (aggregate-proof-revision-refined? $pid)
+                                     (not
+                                        (==
+                                           (proof-children-by-id $pid)
+                                           ())))
+                                  ()
+                                  (supersede-current-proof! $pid))))
                         ())
                      ()))))))))
 
@@ -348,9 +356,6 @@
              ((cons $found $_rest) $found))))
        (($_steps-left $_agenda1)
           $search-result)
-       ($_harvest (harvest-base-rates))
-       ($_empty-member-cache
-          (harvest-complete-member-inheritance-empty-caches!))
        ($results
           (map-flat
              (|-> ($root-gid)
@@ -363,7 +368,10 @@
              (foreach-flat
                 materialize-root-goal-proofs-to-kb
                 $root-gids)
-             ())))
+             ()))
+       ($_harvest (harvest-base-rates))
+       ($_empty-member-cache
+          (harvest-complete-member-inheritance-empty-caches!)))
       $results))
 
 (: chainer-many

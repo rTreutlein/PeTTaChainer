@@ -1757,12 +1757,14 @@
           $row)
        ($pid
           (once
-             (store-proof-candidate $agg-gid
+             (store-aggregate-proof-candidate $agg-gid
                 (aggregate-result-candidate $result $ev $children))))
        ($_set
           (set-aggregate-current-pid! $row (cons $pid ())))
-       ($_deactivate
-          (deactivate-current-proofs! $current-pid))
+       ($_replace
+          (if (aggregate-current-pids-stale? $current-pid)
+             (supersede-current-proofs! $current-pid)
+             (deactivate-current-proofs! $current-pid)))
        ($nagenda (wake-proof-commit-heap $agenda $agg-gid $pid)))
       $nagenda))
 

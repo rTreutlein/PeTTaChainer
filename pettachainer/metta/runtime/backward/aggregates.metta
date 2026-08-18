@@ -74,37 +74,6 @@
       (uniform-prior-known
          (UniformPriorKnownTv (list-aggregate-acc $acc))))))
 
-(: base-rate-finish? (-[det]-> $finish Bool))
-(= (base-rate-finish? $finish)
-   (case $finish (
-      (base-rate true)
-      (weighted-base-rate true)
-      (weighted-base-rate-with-prior true)
-      ((weighted-base-rate-in-universe $_kbid) true)
-      ((weighted-base-rate-with-prior-in-universe $_kbid) true)
-      ((member-inheritance $_kbid) true)
-      ($_other false))))
-
-(: BaseRateAggregateKey Type)
-(: base-rate-aggregate-key-value
-   (-[det]-> KB Statement $mode BaseRateAggregateKey))
-(: NoBaseRateAggregateKey Type)
-(: no-base-rate-aggregate-key NoBaseRateAggregateKey)
-
-(: base-rate-aggregate-key
-   (-[det]-> $arguments
-       (| BaseRateAggregateKey NoBaseRateAggregateKey)))
-(= (base-rate-aggregate-key $args)
-   (case $args (
-      (($kbid $pattern $_extractor $_init $_fun $finish $_tv-mode)
-         (if (base-rate-finish? $finish)
-            (base-rate-aggregate-key-value
-               (brand KB $kbid)
-               (brand Statement $pattern)
-               $finish)
-            no-base-rate-aggregate-key))
-      ($_other no-base-rate-aggregate-key))))
-
 ;; FoldAllCompiled and GroupedFoldAllCompiled both carry the kb and pattern as
 ;; the first two args; the child goal is the compiled query for that pattern.
 (: activate-compiled-query
@@ -165,9 +134,40 @@
 
 (: durable-aggregate-current-pid
    (-[semidet]-> Number $arguments (List Number)))
+(: restorable-base-rate-proof-ids
+   (-[semidet]-> (List Number) (List Number)))
+(= (restorable-base-rate-proof-ids ()) ())
+(= (restorable-base-rate-proof-ids (cons $pid $rest))
+   (let $remaining (restorable-base-rate-proof-ids $rest)
+      (if (== (proof-children-by-id $pid) ()) $remaining
+         (if
+            (or
+               (aggregate-proof-revision-stale? $pid)
+               (aggregate-proof-revision-refined? $pid))
+            (cons $pid $remaining)
+            $remaining))))
+
+(: wake-aggregate-proof-list-heap
+   (-[semidet]-> (Heap AgendaEntry) Number (List Number)
+       (Heap AgendaEntry)))
+(= (wake-aggregate-proof-list-heap $agenda $_agg-gid ()) $agenda)
+(= (wake-aggregate-proof-list-heap
+      $agenda $agg-gid (cons $pid $rest))
+   (wake-aggregate-proof-list-heap
+      (wake-proof-commit-heap $agenda $agg-gid $pid)
+      $agg-gid $rest))
+
 (= (durable-aggregate-current-pid $agg-gid $args)
    (case (base-rate-aggregate-key $args) (
-      ((base-rate-aggregate-key-value $_kbid $_pattern $_mode) ())
+      ((base-rate-aggregate-key-value $_kbid $_pattern $_mode)
+         (let $pids
+            (latest-proof-output-group-ids
+               (aggregate-snapshot-groups
+                  (restorable-base-rate-proof-ids
+                     (goal-proof-ids $agg-gid))))
+            (case $pids (
+               (() ())
+               ((cons $pid $_rest) (cons $pid ()))))))
       (no-base-rate-aggregate-key
          (let $pids
             (latest-proof-output-group-ids
@@ -187,7 +187,7 @@
       (($result (CPU FoldAllCompiled $args $tv))
        ($pid
           (once
-             (store-proof-candidate $agg-gid
+             (store-aggregate-proof-candidate $agg-gid
                 (aggregate-result-candidate $result () ())))))
       (wake-proof-commit-heap $agenda $agg-gid $pid)))
 
@@ -228,27 +228,44 @@
 (= (spawn-refining-aggregate-heap $agenda $score $agg-gid $goal-view $args $tv $source)
    (let*
       (($child-gid (ensure-aggregate-child-goal $agg-gid $goal-view $args $score))
-       ($pid
-          (once
-             (store-proof-candidate $agg-gid
-                (aggregate-result-candidate
-                   (CPU FoldAllCompiled $args $tv) () ()))))
+       ($row (aggregate-by-id $agg-gid))
+       ((stored-aggregate-row
+            $_stored-agg-gid $_stored-child-gid $_stored-args
+            $_stored-score $_stored-pending $current-pids)
+          $row)
        ($_source
           (if (== $source forward-approx)
              (add-atom &aggregate_forward_approx ($agg-gid))
-             ()))
-       ($_set
-          (set-aggregate-current-pid!
-             (stored-aggregate-row
-                $agg-gid $child-gid $args $score 0.0 ())
-             (cons $pid ())))
-       ($_wait
-          (register-goal-waiter! $child-gid $agg-gid
-             (aggregate-waiter $agg-gid
-                (cached-aggregate-demand $tv))))
-       ($agenda1 (wake-proof-commit-heap $agenda $agg-gid $pid))
-       ($nagenda (wake-goal-demand-heap $agenda1 $child-gid)))
-      $nagenda))
+             ())))
+      (if (aggregate-current-pids-stale? $current-pids)
+         (let $_wait
+            (register-goal-waiter! $child-gid $agg-gid
+               (aggregate-waiter $agg-gid live-aggregate-demand))
+            (wake-goal-demand-heap $agenda $child-gid))
+         (if (not (== $current-pids ()))
+            (let* (($_wait
+                      (register-goal-waiter! $child-gid $agg-gid
+                         (aggregate-waiter $agg-gid
+                            (cached-aggregate-demand $tv))))
+                   ($incumbent-agenda
+                      (wake-aggregate-proof-list-heap
+                         $agenda $agg-gid $current-pids)))
+               (wake-goal-demand-heap $incumbent-agenda $child-gid))
+            (let*
+               (($pid
+                   (once
+                      (store-aggregate-proof-candidate $agg-gid
+                         (aggregate-result-candidate
+                            (CPU FoldAllCompiled $args $tv) () ()))))
+                ($_set
+                   (set-aggregate-current-pid! $row (cons $pid ())))
+                ($_wait
+                   (register-goal-waiter! $child-gid $agg-gid
+                      (aggregate-waiter $agg-gid
+                         (cached-aggregate-demand $tv))))
+                ($agenda1
+                   (wake-proof-commit-heap $agenda $agg-gid $pid)))
+               (wake-goal-demand-heap $agenda1 $child-gid))))))
 
 (: spawn-aggregate-goal-heap
    (-[nondet]-> (Heap AgendaEntry) Number Number Number Goal
@@ -540,7 +557,10 @@
        ($remaining (reverse-number-list $remaining-reversed))
        ($next-pids (cons $pid $remaining))
        ($_set (set-aggregate-current-pid! $row $next-pids))
-       ($_deactivate (deactivate-current-proofs! $replaced)))
+       ($_replace
+          (if (aggregate-current-pids-stale? $replaced)
+             (supersede-current-proofs! $replaced)
+             (deactivate-current-proofs! $replaced))))
       true))
 
 (: commit-grouped-aggregate-candidate-heap
@@ -552,7 +572,7 @@
          (let*
             (($pid
                 (once
-                   (store-proof-candidate $agg-gid
+                   (store-aggregate-proof-candidate $agg-gid
                       (proof-candidate $kind $score $ev $children))))
              ($_set (append-grouped-aggregate-current-pid! $agg-gid $pid)))
             (wake-proof-commit-heap $agenda $agg-gid $pid)))))

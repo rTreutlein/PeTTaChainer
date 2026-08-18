@@ -1,6 +1,169 @@
 ;; Shared base-rate caches, universe metadata, concept priors, and finalizers.
 ;; Base-rate cache operations are shared by forward chaining and the compiled
 ;; query runtime, so they must be available before either consumer is loaded.
+(: base-rate-finish? (-[det]-> $finish Bool))
+(= (base-rate-finish? $finish)
+   (case $finish (
+      (base-rate true)
+      (weighted-base-rate true)
+      (weighted-base-rate-with-prior true)
+      ((weighted-base-rate-in-universe $_kbid) true)
+      ((weighted-base-rate-with-prior-in-universe $_kbid) true)
+      ((member-inheritance $_kbid) true)
+      ($_other false))))
+
+(: BaseRateAggregateKey Type)
+(: base-rate-aggregate-key-value
+   (-[det]-> KB Statement $mode BaseRateAggregateKey))
+(: NoBaseRateAggregateKey Type)
+(: no-base-rate-aggregate-key NoBaseRateAggregateKey)
+
+(: base-rate-aggregate-key
+   (-[det]-> $arguments
+       (| BaseRateAggregateKey NoBaseRateAggregateKey)))
+(= (base-rate-aggregate-key $args)
+   (case $args (
+      (($kbid $pattern $_extractor $_init $_fun $finish $_tv-mode)
+         (if (base-rate-finish? $finish)
+            (base-rate-aggregate-key-value
+               (brand KB $kbid)
+               (brand Statement $pattern)
+               $finish)
+            no-base-rate-aggregate-key))
+      ($_other no-base-rate-aggregate-key))))
+
+(: aggregate-identity-key (-[det]-> Atom AggregateIdentity))
+(= (aggregate-identity-key $key)
+   (brand AggregateIdentity
+      (sealed (extract-vars $key) $key)))
+
+(: base-rate-aggregate-identity
+   (-[det]-> KB Statement $mode AggregateIdentity))
+(= (base-rate-aggregate-identity $kbid $pattern $mode)
+   (aggregate-identity-key
+      (quote (base-rate-aggregate $kbid $pattern $mode))))
+
+(: aggregate-identity-for-cpu
+   (-[det]-> Atom $arguments AggregateIdentity))
+(= (aggregate-identity-for-cpu $function $args)
+   (case (base-rate-aggregate-key $args) (
+      ((base-rate-aggregate-key-value $kbid $pattern $mode)
+         (base-rate-aggregate-identity $kbid $pattern $mode))
+      (no-base-rate-aggregate-key
+         (aggregate-identity-key
+            (quote (aggregate $function $args)))))))
+
+(: aggregate-current-revision
+   (-[det]-> AggregateIdentity Number))
+(= (aggregate-current-revision $identity)
+   (let* (($lookup (copy_term $identity))
+          ($hits
+             (collapse
+                (once
+                   (match &aggregate_revision
+                      (aggregate-revision-row
+                         $lookup $stored-identity $revision)
+                      (if (=alpha $stored-identity $identity)
+                         $revision
+                         (empty)))))))
+      (if (== $hits ()) 0
+         (the Number (car-atom $hits)))))
+
+(: aggregate-revision-rows
+   (-[det]-> AggregateIdentity (List AggregateRevisionRow)))
+(= (aggregate-revision-rows $identity)
+   (let $lookup (copy_term $identity)
+      (collapse
+         (match &aggregate_revision
+            (aggregate-revision-row
+               $lookup $stored-identity $revision)
+            (if (=alpha $stored-identity $identity)
+               (aggregate-revision-row
+                  $lookup $stored-identity $revision)
+               (empty))))))
+
+(: remove-aggregate-revision-row!
+   (-[det]-> AggregateRevisionRow Bool))
+(= (remove-aggregate-revision-row! $row)
+   (remove-atom &aggregate_revision $row))
+
+(: bump-aggregate-revision!
+   (-[det]-> AggregateIdentity Number))
+(= (bump-aggregate-revision! $identity)
+   (let* (($next (+ (aggregate-current-revision $identity) 1))
+          ($_old
+             (foreach-flat remove-aggregate-revision-row!
+                (aggregate-revision-rows $identity)))
+          ($stored (copy_term $identity))
+          ($_new
+             (once
+                (add-atom &aggregate_revision
+                   (aggregate-revision-row
+                      $stored $stored $next)))))
+      $next))
+
+(: record-aggregate-proof-revision!
+   (-[det]-> Number ProofKind (List $none)))
+(= (record-aggregate-proof-revision! $pid $kind)
+   (case $kind (
+      ((aggregate (CPU FoldAllCompiled $_args $_result))
+         (let* (($identity
+                   (aggregate-identity-for-cpu
+                      FoldAllCompiled $_args))
+                ($revision
+                   (aggregate-current-revision $identity))
+                ($_row
+                   (once
+                      (add-atom &aggregate_proof_revision
+                         (aggregate-proof-revision-row
+                            $pid $identity $revision)))))
+            ()))
+      ((aggregate (CPU GroupedFoldAllCompiled $_args $_result))
+         (let* (($identity
+                   (aggregate-identity-for-cpu
+                      GroupedFoldAllCompiled $_args))
+                ($revision
+                   (aggregate-current-revision $identity))
+                ($_row
+                   (once
+                      (add-atom &aggregate_proof_revision
+                         (aggregate-proof-revision-row
+                            $pid $identity $revision)))))
+            ()))
+      ($_other ()))))
+
+(: aggregate-proof-revision-stale? (-[det]-> Number Bool))
+(= (aggregate-proof-revision-stale? $pid)
+   (let $hits
+      (collapse
+         (once
+            (match &aggregate_proof_revision
+               (aggregate-proof-revision-row
+                  $pid $identity $revision)
+               (if (< $revision
+                       (aggregate-current-revision $identity))
+                  true
+                  (empty)))))
+      (not (== $hits ()))))
+
+(: aggregate-proof-revision-refined? (-[det]-> Number Bool))
+(= (aggregate-proof-revision-refined? $pid)
+   (let $hits
+      (collapse
+         (once
+            (match &aggregate_proof_revision
+               (aggregate-proof-revision-row
+                  $pid $_identity $revision)
+               (if (> $revision 0) true (empty)))))
+      (not (== $hits ()))))
+
+(: aggregate-current-pids-stale?
+   (-[det]-> (List Number) Bool))
+(= (aggregate-current-pids-stale? ()) false)
+(= (aggregate-current-pids-stale? (cons $pid $rest))
+   (if (aggregate-proof-revision-stale? $pid) true
+      (aggregate-current-pids-stale? $rest)))
+
 (: base-rate-cache-entries (-[det]-> KB Statement (List BaseRateEntry)))
 (= (base-rate-cache-entries $kbid $pattern)
    (collapse
@@ -58,6 +221,12 @@
 (= (base-rate-entry-source
       (base-rate $_kbid $_stored $_tv $source $_mode))
    $source)
+
+(: base-rate-cache-tv-changed?
+   (-[det]-> (List BaseRateEntry) TV Bool))
+(= (base-rate-cache-tv-changed? () $_tv) true)
+(= (base-rate-cache-tv-changed? (cons $entry $_rest) $tv)
+   (not (=alpha (base-rate-entry-tv $entry) $tv)))
 
 (: matching-base-rate-cache-entries
    (-[det]-> KB Statement (List BaseRateEntry)))
@@ -174,11 +343,26 @@
    (if (== $tv no-evidence) ()
       (if (base-rate-user-set? $kbid $pattern) ()
          (let*
-            (($stored (copy_term $pattern))
+            (($old-entries
+                (base-rate-cache-entries-for-mode
+                   $kbid $pattern $mode))
+             ($changed?
+                (if (== $old-entries ()) false
+                   (base-rate-cache-tv-changed?
+                      $old-entries $tv)))
+             ($stored (copy_term $pattern))
              ($_old (base-rate-cache-remove-derived! $kbid $pattern $mode))
              ($_new
                 (add-atom &base_rate_cache
-                   (base-rate $kbid $stored $tv forward-approx $mode))))
+                   (base-rate $kbid $stored $tv forward-approx $mode)))
+             ($_revision
+                (if $changed?
+                   (let $_next
+                      (bump-aggregate-revision!
+                         (base-rate-aggregate-identity
+                            $kbid $pattern $mode))
+                      ())
+                   ())))
             ()))))
 
 (: invalidate-computed-base-rates! (-[det]-> KB (List $none)))

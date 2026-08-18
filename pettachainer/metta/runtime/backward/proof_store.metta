@@ -974,6 +974,7 @@
 (: deactivate-current-proof! (-[semidet]-> Number (List $none)))
 (: deactivate-current-proof-in-epoch!
    (-[semidet]-> Number Number (List $none)))
+(: supersede-current-proof! (-[semidet]-> Number (List $none)))
 
 ;; Invalidation runs while aggregate and merged representatives are being
 ;; replaced.  A proof whose dependencies cannot be resolved at that instant is
@@ -1067,6 +1068,36 @@
           ($_dependents
              (invalidate-proof-dependents-in-epoch! $epoch $pid)))
       ()))
+
+;; Refinement replaces a current aggregate view without retracting the older
+;; snapshot from the monotonic proof history.  It leaves the proof available as
+;; a historical incumbent, but removes it from ordinary live consumption and
+;; wakes dependent proofs through the same localized invalidation path.
+(= (supersede-current-proof! $pid)
+   (let* (($goal-key (proof-goal-key-by-id $pid))
+          ($output-key (proof-output-key-by-id $pid))
+          ($_remove (remove-current-proof-for-goal! $goal-key $pid))
+          ($_superseded
+             (once (add-atom &proof_superseded ($pid))))
+          ($_cache
+             (foreach-flat
+                remove-proof-live-cache-row!
+                (collapse
+                   (match &proof_live_cache
+                      (proof-live-cache-row $pid $alive)
+                      (proof-live-cache-row $pid $alive)))))
+          ($_dirty
+             (mark-current-proof-result-dirty!
+                $goal-key $output-key))
+          ($_confidence
+             (clear-goal-current-confidence-for-key! $goal-key))
+          ($_dependents (invalidate-proof-dependents! $pid)))
+      ()))
+
+(: supersede-current-proofs!
+   (-[semidet]-> (List Number) (List $none)))
+(= (supersede-current-proofs! $current)
+   (foreach-flat supersede-current-proof! $current))
 
 (: deactivate-current-proofs!
    (-[semidet]-> (List Number) (List $none)))
