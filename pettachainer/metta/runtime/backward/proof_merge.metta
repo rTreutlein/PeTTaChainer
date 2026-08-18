@@ -40,11 +40,6 @@
 (= (factor-and-fold (cons $tv $rest))
    (if (== $rest ()) $tv (AndFormula $tv (factor-and-fold $rest))))
 
-(: factor-key-in?
-   (-[det]-> ProofOutputKey (List ProofOutputKey) Bool))
-(= (factor-key-in? $_k ()) false)
-(= (factor-key-in? $k (cons $h $rest)) (if (=alpha $k $h) true (factor-key-in? $k $rest)))
-
 (: factor-reeval-premises
    (-[semidet]-> (List Number) (List ProofOutputKey)
       TV (List STVType)))
@@ -88,7 +83,7 @@
          (($t $kb $prf $tv)
             (let $stored $tv
                (if
-                  (factor-key-in?
+                  (is-alpha-member
                      (candidate-output-key $out) $keys)
                   $o
                   (factor-reeval-rule
@@ -219,10 +214,8 @@
 ;; Only strength is checked: confidence is non-linear under idealized
 ;; propagation, so the residual's re-derived branch confidences never reproduce
 ;; the stored confidence exactly -- checking it would reject every valid group.
-(: factor-abs-diff (-[det]-> Number Number Number))
-(= (factor-abs-diff $x $y) (let $d (- $x $y) (if (< $d 0.0) (- 0.0 $d) $d)))
 (: factor-close? (-[det]-> Number Number Bool))
-(= (factor-close? $x $y) (< (factor-abs-diff $x $y) 0.000001))
+(= (factor-close? $x $y) (< (abs-math (- $x $y)) 0.000001))
 ;; single clause: a bare catch-all (= (factor-tv-close? $a $b) false) would also
 ;; match the (STV STV) case and make the result non-deterministic.
 (: factor-tv-close? (-[det]-> TV TV Bool))
@@ -285,9 +278,9 @@
    (-[det]-> (List Evidence) (List (List Evidence)) Bool))
 (= (factor-disjoint-from-all? $_ev ()) true)
 (= (factor-disjoint-from-all? $ev (cons $other $rest))
-   (if (== (evidence-intersection $ev $other) ())
-      (factor-disjoint-from-all? $ev $rest)
-      false))
+   (if (evidence-sets-overlap? $ev $other)
+      false
+      (factor-disjoint-from-all? $ev $rest)))
 (: factor-pairwise-disjoint?
    (-[det]-> (List (List Evidence)) Bool))
 (= (factor-pairwise-disjoint? ()) true)
@@ -415,7 +408,7 @@
        (List Number) Number (List Number)))
 (= (proof-output-group-for-key-step $key $pids $pid)
    (if (=alpha (proof-output-key-by-id $pid) $key)
-      (append-number $pids $pid)
+      (cons $pid $pids)
       $pids))
 
 (: goal-live-proof-ids-for-output-key
@@ -530,15 +523,6 @@
       (current-proof-result-id-for-output-key
          $goal-key $output-key)))
 
-(: goal-results
-   (-[semidet]-> Number
-      (List RuntimeResult)))
-(= (goal-results $gid)
-   (let*
-      (($pids (goal-merged-proof-ids $gid)))
-      (proof-map-flat-semidet materialize-result-atom
-         (proof-map-flat-semidet proof-output-atom-by-id $pids))))
-
 ;; A completed root proof is an incumbent answer even if one of its revised
 ;; children is superseded near the end of a bounded search. Keep it out of
 ;; ordinary subgoal reasoning, but use the latest non-superseded root
@@ -548,13 +532,14 @@
    (-[semidet]-> (List Number) Number (List Number)))
 (= (goal-incumbent-proof-step $acc $pid)
    (if (proof-current-representative? $pid)
-      (append-number $acc $pid)
+      (cons $pid $acc)
       $acc))
 
 (: goal-raw-incumbent-proof-ids (-[semidet]-> Number (List Number)))
 (= (goal-raw-incumbent-proof-ids $gid)
-   (proof-fold-flat-semidet
-      goal-incumbent-proof-step () (goal-proof-ids $gid)))
+   (reverse-number-list
+      (proof-fold-flat-semidet
+         goal-incumbent-proof-step () (goal-proof-ids $gid))))
 
 (: goal-result-proof-ids (-[semidet]-> Number (List Number)))
 (= (goal-result-proof-ids $gid)
@@ -589,7 +574,7 @@
 (= (uncovered-incumbent-proof-step $covered $acc $pid)
    (if (proof-output-key-covered-by? $covered $pid)
       $acc
-      (append-number $acc $pid)))
+      (cons $pid $acc)))
 
 (: goal-incumbent-proof-ids (-[semidet]-> Number (List Number)))
 (= (goal-incumbent-proof-ids $gid)
@@ -600,9 +585,10 @@
                (goal-result-proof-ids $gid))))
        ($raw (goal-raw-incumbent-proof-ids $gid))
        ($uncovered
-          (proof-fold-flat-semidet
-             (uncovered-incumbent-proof-step $merged)
-             () $raw)))
+          (reverse-number-list
+             (proof-fold-flat-semidet
+                (uncovered-incumbent-proof-step $merged)
+                () $raw))))
       (append-numbers $merged $uncovered)))
 
 (: root-goal-representative-proof-ids

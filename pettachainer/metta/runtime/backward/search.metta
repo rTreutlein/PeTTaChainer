@@ -2,11 +2,6 @@
 ;; These mechanisms form one recursive search component: scheduling reads
 ;; demand while demand changes wake and reschedule existing frontier goals.
 ;; The backward heap has one payload shape and one revision protocol.
-(: backward-acyclic-term? (-[det]-> Atom Bool))
-(= (backward-acyclic-term? $term)
-   (== (collapse
-          (callPredicate (Predicate (cyclic_term $term))))
-       ()))
 (: SearchState
    (Alias (Number (Heap AgendaEntry))))
 (: chainer-first-or (-[det]-> $value (List $value) $value))
@@ -160,6 +155,20 @@
             $generation $issued-revision $issued-score
             $expand $refresh $resume false)))))
 
+;; Replace a goal row's agenda state. The removal must see the exact stored
+;; row, so callers pass the row they fetched via goal-by-id.
+(: set-goal-agenda-state!
+   (-[semidet]-> StoredGoalRow GoalAgendaState (| Bool (List $none))))
+(= (set-goal-agenda-state!
+      (stored-goal-row $gid $depth $goal $expanded $state)
+      $next-state)
+   (progn
+      (remove-atom &goal
+         (stored-goal-row $gid $depth $goal $expanded $state))
+      (once
+         (chainer-add-atom &goal
+            (stored-goal-row $gid $depth $goal $expanded $next-state)))))
+
 (: goal-agenda-kind-requested? (-[det]-> Number AgendaKind Bool))
 (= (goal-agenda-kind-requested? $gid $kind)
    (let $hits (collapse (once (goal-by-id $gid)))
@@ -260,16 +269,14 @@
 (= (request-goal-agenda-kind-heap $agenda $gid $kind)
    (let* (($current-score (agenda-kind-score $kind $gid))
           ($current-revision (goal-demand-revision $gid))
+          ($row (goal-by-id $gid))
           ((stored-goal-row
-               $_stored-gid $depth $goal $expanded
-               (goal-agenda-state
-                  $_generation $issued-revision $issued-score
-                  $_expand $_refresh $_resume $_aggregate))
-             (goal-by-id $gid))
-          ($state
-             (goal-agenda-state
-                $_generation $issued-revision $issued-score
-                $_expand $_refresh $_resume $_aggregate))
+               $_stored-gid $depth $goal $_expanded $state)
+             $row)
+          ((goal-agenda-state
+               $_generation $issued-revision $issued-score
+               $_expand $_refresh $_resume $_aggregate)
+             $state)
           ($coalesced
              (if
                 (goal-agenda-kind-requested-in-state? $kind $state)
@@ -281,16 +288,7 @@
          (let* (($next-state
                    (goal-agenda-state-request
                       $kind $current-revision $current-score $state))
-                ($_set
-                   (progn
-                      (remove-atom &goal
-                         (stored-goal-row
-                            $gid $depth $goal $expanded $state))
-                      (once
-                         (chainer-add-atom &goal
-                            (stored-goal-row
-                               $gid $depth $goal $expanded
-                               $next-state))))))
+                ($_set (set-goal-agenda-state! $row $next-state)))
             (enqueue-requested-goal-agenda-heap
                $agenda $gid $depth $goal $next-state)))))
 
@@ -298,27 +296,19 @@
    (-[semidet]-> (Heap AgendaEntry) Number (Heap AgendaEntry)))
 (= (schedule-aggregate-heap $agenda $agg-gid)
    (let*
-      (((stored-aggregate-row
-            $_stored-agg-gid $child-gid $args
-            $base-score $current $current-pid)
-          (aggregate-by-id $agg-gid))
-      ($requested
+      (($row (aggregate-by-id $agg-gid))
+       ((stored-aggregate-row
+            $_stored-agg-gid $_child-gid $_args
+            $base-score $_current $_current-pid)
+          $row)
+       ($requested
           (goal-agenda-kind-requested?
-             $agg-gid agenda-aggregate)))
-      (let* (($_set
-                (if $requested ()
-                   (progn
-                      (remove-atom &aggregate
-                         (stored-aggregate-row
-                            $agg-gid $child-gid $args $base-score
-                            $current $current-pid))
-                      (once
-                         (chainer-add-atom &aggregate
-                            (stored-aggregate-row
-                               $agg-gid $child-gid $args $base-score
-                               $base-score $current-pid)))))))
-         (request-goal-agenda-kind-heap
-            $agenda $agg-gid agenda-aggregate))))
+             $agg-gid agenda-aggregate))
+       ($_set
+          (if $requested ()
+             (set-aggregate-pending! $row $base-score))))
+      (request-goal-agenda-kind-heap
+         $agenda $agg-gid agenda-aggregate)))
 
 (: AgendaEntryDisposition Type)
 (: agenda-claimed AgendaEntryDisposition)
@@ -347,17 +337,6 @@
                      $expand $refresh $resume $aggregate))
                false))))))
 
-(: agenda-entry-current? (-[det]-> AgendaEntry Bool))
-(= (agenda-entry-current?
-      (agenda-entry $kind $gid
-         (agenda-revision-token $demand-revision $generation)))
-   (if
-      (agenda-entry-owned?
-         (agenda-entry $kind $gid
-            (agenda-revision-token $demand-revision $generation)))
-      (== $demand-revision (goal-demand-revision $gid))
-      false))
-
 (: goal-agenda-issued-score (-[det]-> Number Number))
 (= (goal-agenda-issued-score $gid)
    (let $hits (collapse (once (goal-by-id $gid)))
@@ -385,26 +364,17 @@
    (-[semidet]-> Number AgendaKind Number (List $none)))
 (= (clear-owned-goal-agenda-kind-row! $gid $kind $generation)
    (let*
-      (((stored-goal-row
-            $_stored-gid $depth $goal $expanded
-            (goal-agenda-state
-               $generation $issued-revision $issued-score
-               $expand $refresh $resume $aggregate))
-          (goal-by-id $gid))
-       ($state
-          (goal-agenda-state
-             $generation $issued-revision $issued-score
-             $expand $refresh $resume $aggregate))
-       ($next-state (goal-agenda-state-clear $kind $state))
+      (($row (goal-by-id $gid))
+       ((stored-goal-row
+            $_stored-gid $_depth $_goal $_expanded $state)
+          $row)
+       ((goal-agenda-state
+            $generation $_issued-revision $_issued-score
+            $_expand $_refresh $_resume $_aggregate)
+          $state)
        ($_set
-          (progn
-             (remove-atom &goal
-                (stored-goal-row
-                   $gid $depth $goal $expanded $state))
-             (once
-                (chainer-add-atom &goal
-                   (stored-goal-row
-                      $gid $depth $goal $expanded $next-state))))))
+          (set-goal-agenda-state! $row
+             (goal-agenda-state-clear $kind $state))))
       ()))
 
 (: claim-equal-score-goal-agenda-kind!
@@ -422,30 +392,20 @@
 (= (claim-equal-score-goal-agenda-kind-row!
       $gid $kind $generation $revision $score)
    (let*
-      (((stored-goal-row
-            $_stored-gid $depth $goal $expanded
-            (goal-agenda-state
-               $generation $issued-revision $issued-score
-               $expand $refresh $resume $aggregate))
-          (goal-by-id $gid))
-       ($state
-          (goal-agenda-state
-             $generation $issued-revision $issued-score
-             $expand $refresh $resume $aggregate))
+      (($row (goal-by-id $gid))
+       ((stored-goal-row
+            $_stored-gid $_depth $_goal $_expanded $state)
+          $row)
+       ((goal-agenda-state
+            $generation $_issued-revision $_issued-score
+            $expand $refresh $resume $aggregate)
+          $state)
        ($next-state
           (goal-agenda-state-clear $kind
              (goal-agenda-state
                 $generation $revision $score
                 $expand $refresh $resume $aggregate)))
-       ($_set
-          (progn
-             (remove-atom &goal
-                (stored-goal-row
-                   $gid $depth $goal $expanded $state))
-             (once
-                (chainer-add-atom &goal
-                   (stored-goal-row
-                      $gid $depth $goal $expanded $next-state))))))
+       ($_set (set-goal-agenda-state! $row $next-state)))
       ()))
 
 (: agenda-kind-runnable?
@@ -513,29 +473,19 @@
          (agenda-revision-token $_demand-revision $generation)))
    (let* (($_score (agenda-kind-score $kind $gid))
           ($current-revision (goal-demand-revision $gid))
+          ($row (goal-by-id $gid))
           ((stored-goal-row
-               $_stored-gid $depth $goal $expanded
-               (goal-agenda-state
-                  $generation $issued-revision $_issued-score
-                  $expand $refresh $resume $aggregate))
-             (goal-by-id $gid))
-          ($state
-             (goal-agenda-state
-                $generation $issued-revision $_issued-score
-                $expand $refresh $resume $aggregate))
+               $_stored-gid $depth $goal $_expanded $state)
+             $row)
+          ((goal-agenda-state
+               $generation $_issued-revision $_issued-score
+               $expand $refresh $resume $aggregate)
+             $state)
           ($next-state
              (goal-agenda-state
                 $generation $current-revision $_score
                 $expand $refresh $resume $aggregate))
-          ($_set
-             (progn
-                (remove-atom &goal
-                   (stored-goal-row
-                      $gid $depth $goal $expanded $state))
-                (once
-                   (chainer-add-atom &goal
-                      (stored-goal-row
-                         $gid $depth $goal $expanded $next-state))))))
+          ($_set (set-goal-agenda-state! $row $next-state)))
       (enqueue-goal-agenda-kind-heap
          $agenda $gid $depth $goal $next-state $kind)))
 
@@ -1188,14 +1138,6 @@
 (: update-goal-demand-cache-for-waiter!
    (-[semidet]-> Number Number (List RootDemand)
        (| FrontierWaiter AggregateWaiter Atom) (List $none)))
-(: first-goal-demand-dependencies-or-empty
-   (-[det]-> (List (List GoalDemandDependency))
-       (List GoalDemandDependency)))
-(= (first-goal-demand-dependencies-or-empty ()) ())
-(= (first-goal-demand-dependencies-or-empty
-      (cons $dependencies $_rest))
-   $dependencies)
-
 (= (update-goal-demand-cache-for-waiter!
       $child-gid $parent-gid $current-demands $waiter)
    (let*
@@ -1211,8 +1153,9 @@
                          $child-gid $dependencies $_demands)
                       $dependencies)))))
        ($dependencies
-          (first-goal-demand-dependencies-or-empty
-             (the (List (List GoalDemandDependency)) $hits)))
+          (the (List GoalDemandDependency)
+             (chainer-first-or ()
+                (the (List (List GoalDemandDependency)) $hits))))
        ($next-demands
           (root-demands-merge-max $current-demands
              (waiter-root-demands $waiter $child-depth)))
@@ -1679,7 +1622,7 @@
    (if (proof-depends-on-cycle-keys?
          $pid $consumer-gid $cycle-keys)
       $acc
-      (append-number $acc $pid)))
+      (cons $pid $acc)))
 
 (: proof-depends-on-cycle-keys?
    (-[semidet]-> Number Number
@@ -1697,10 +1640,11 @@
    (-[semidet]-> Number (List (| ProofOutputKey ClosedGoalKey))
        Number (List Number)))
 (= (noncyclic-proof-source-ids $consumer-gid $cycle-keys $source-gid)
-   (proof-fold-flat-semidet
-      (noncyclic-proof-source-step $consumer-gid $cycle-keys)
-      ()
-      (goal-live-proof-ids $source-gid)))
+   (reverse-number-list
+      (proof-fold-flat-semidet
+         (noncyclic-proof-source-step $consumer-gid $cycle-keys)
+         ()
+         (goal-live-proof-ids $source-gid))))
 
 ;; Compound goals are lowered into their child premises, so their proof DAG may
 ;; not contain a node for the compound itself. Include every recursively lowered
@@ -1837,9 +1781,10 @@
              (frontier-compatible-source-ids
                 $parent-gid $bundle $child-gid))
           ($pids
-             (proof-fold-flat-semidet
-                (proof-output-group-for-key-step $key)
-                () $compatible)))
+             (reverse-number-list
+                (proof-fold-flat-semidet
+                   (proof-output-group-for-key-step $key)
+                   () $compatible))))
          (if (== $pids ())
             $agenda
             (let*
@@ -1958,25 +1903,16 @@
        (List Evidence) (List Number) (Heap AgendaEntry)))
 (= (commit-aggregate-snapshot-heap $agenda $agg-gid $result $ev $children)
    (let*
-      (((stored-aggregate-row
-            $_stored-agg-gid $child-gid $args
-            $base-score $pending $current-pid)
-          (aggregate-by-id $agg-gid))
+      (($row (aggregate-by-id $agg-gid))
+       ((stored-aggregate-row
+            $_stored-agg-gid $_child-gid $_args
+            $_base-score $_pending $current-pid)
+          $row)
        ($pid
           (once
              (store-proof-candidate $agg-gid
                 (aggregate-result-candidate $result $ev $children))))
-       ($_set
-          (progn
-             (remove-atom &aggregate
-                (stored-aggregate-row
-                   $agg-gid $child-gid $args $base-score
-                   $pending $current-pid))
-             (once
-                (chainer-add-atom &aggregate
-                   (stored-aggregate-row
-                      $agg-gid $child-gid $args $base-score
-                      $pending $pid)))))
+       ($_set (set-aggregate-current-pid! $row $pid))
        ($_deactivate
           (deactivate-current-proofs! $current-pid))
        ($nagenda (wake-proof-commit-heap $agenda $agg-gid $pid)))

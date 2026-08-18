@@ -47,6 +47,10 @@
     dominance-checks
     proofs-stored))
 
+(: set-space-row-count-metric! (-[det]-> Atom $space Number))
+(= (set-space-row-count-metric! $key $space)
+   (set-backward-query-metric! $key (match-count $space $_row)))
+
 (: begin-backward-query-metrics! (-[det]-> Number))
 (= (begin-backward-query-metrics!)
    (if (backward-query-metrics-enabled?)
@@ -56,25 +60,17 @@
                       (set-backward-query-metric! $key 0))
                    (backward-query-counter-keys)))
               ($_proofs
-                (set-backward-query-metric! durable-proof-rows-before
-                   (length
-                      (collapse
-                         (match &proof $row $row)))))
+                (set-space-row-count-metric!
+                   durable-proof-rows-before &proof))
               ($_goal-index
-                (set-backward-query-metric! durable-goal-index-rows-before
-                   (length
-                      (collapse
-                         (match &proof_goal $row $row)))))
+                (set-space-row-count-metric!
+                   durable-goal-index-rows-before &proof_goal))
               ($_result-index
-                (set-backward-query-metric! durable-result-index-rows-before
-                   (length
-                      (collapse
-                         (match &proof_result $row $row)))))
+                (set-space-row-count-metric!
+                   durable-result-index-rows-before &proof_result))
               ($_parent-index
-                (set-backward-query-metric! durable-parent-edge-rows-before
-                   (length
-                      (collapse
-                         (match &proof_parent $row $row)))))
+                (set-space-row-count-metric!
+                   durable-parent-edge-rows-before &proof_parent))
               ($_pid-boundary
                 (set-backward-query-metric! durable-pid-boundary
                    (search-id-value bwd_pid))))
@@ -83,8 +79,7 @@
 
 (: end-backward-query-metrics! (-[det]-> Number))
 (= (end-backward-query-metrics!)
-   (set-backward-query-metric! durable-proof-rows-after
-      (length (collapse (match &proof $row $row)))))
+   (set-space-row-count-metric! durable-proof-rows-after &proof))
 
 (: BackwardQueryMetric Type)
 (: query-metric (-[det]-> Atom Number BackwardQueryMetric))

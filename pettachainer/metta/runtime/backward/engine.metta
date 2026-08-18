@@ -162,12 +162,6 @@
             (quote ($id $obj)))
          $candidate $candidate $weight $mass)))
 
-(: merge-computed-member-inheritance-child!
-   (-[semidet]-> Number Number (List $none)))
-(= (merge-computed-member-inheritance-child! $id $pid)
-   (forward-merge-computed-member-observation!
-      $id (computed-member-inheritance-observation $id $pid)))
-
 (: merge-computed-member-inheritance-children!
    (-[det]-> Number (List Number) (List $none)))
 (= (merge-computed-member-inheritance-children! $_id ()) ())
@@ -175,7 +169,8 @@
       $id (cons $pid $rest))
    (let $_merge
       (collapse
-         (merge-computed-member-inheritance-child! $id $pid))
+         (forward-merge-computed-member-observation!
+            $id (computed-member-inheritance-observation $id $pid)))
       (merge-computed-member-inheritance-children! $id $rest)))
 
 (: harvest-computed-member-inheritance-state-for-id!

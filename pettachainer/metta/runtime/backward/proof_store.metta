@@ -337,6 +337,41 @@
             $agg-gid $child-gid $args
             $base-score $pending $current-pid))))
 
+;; Single-field aggregate row updates. The removal must see the exact stored
+;; row, so callers pass the row they already fetched (or constructed).
+(: set-aggregate-pending!
+   (-[semidet]-> StoredAggregateRow Number (| Bool (List $none))))
+(= (set-aggregate-pending!
+      (stored-aggregate-row
+         $agg-gid $child-gid $args $base-score $pending $current-pid)
+      $next-pending)
+   (progn
+      (remove-atom &aggregate
+         (stored-aggregate-row
+            $agg-gid $child-gid $args $base-score $pending $current-pid))
+      (once
+         (chainer-add-atom &aggregate
+            (stored-aggregate-row
+               $agg-gid $child-gid $args $base-score $next-pending
+               $current-pid)))))
+
+(: set-aggregate-current-pid!
+   (-[semidet]-> StoredAggregateRow (| Number (List Number))
+       (| Bool (List $none))))
+(= (set-aggregate-current-pid!
+      (stored-aggregate-row
+         $agg-gid $child-gid $args $base-score $pending $current-pid)
+      $next-current)
+   (progn
+      (remove-atom &aggregate
+         (stored-aggregate-row
+            $agg-gid $child-gid $args $base-score $pending $current-pid))
+      (once
+         (chainer-add-atom &aggregate
+            (stored-aggregate-row
+               $agg-gid $child-gid $args $base-score $pending
+               $next-current)))))
+
 (: ClosedGoalKey Type)
 (: closed-goal ClosedGoalKey)
 (: ProofOutputGroup Type)
@@ -370,11 +405,6 @@
    (proof-fold-flat-semidet
       $fun ($fun $accumulator $item) $rest))
 
-(: proof-output-identity
-   (-[det]-> (| Goal (Statement KBContext Proof TV))
-       (| Goal (Statement KBContext Proof TV))))
-(= (proof-output-identity $term) $term)
-
 ;; The structural fact arm of the Goal-or-fact union cannot currently be
 ;; narrowed as a whole by case. Restore the erased roles field-by-field and
 ;; validate only the TV payload that affects numeric inference.
@@ -400,7 +430,7 @@
       (($type $kb $proof $tv)
          (replace-stored-runtime-proof
             $type $kb $proof $tv $pid))
-      ($_other (proof-output-identity $term)))))
+      ($_other $term))))
 
 (: proof-output-atom-kind
    (-[semidet]-> ProofKind Number

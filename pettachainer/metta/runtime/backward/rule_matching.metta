@@ -31,16 +31,6 @@
                      $parent-gid)
                   (empty))))))))
 
-(: same-var-in-list? (-[det]-> $variable (List $variable) Bool))
-(= (same-var-in-list? $_var ()) false)
-(= (same-var-in-list? $var (cons $head $tail))
-   (or (== $var $head) (same-var-in-list? $var $tail)))
-
-(: any-same-var? (-[det]-> (List $variable) (List $variable) Bool))
-(= (any-same-var? () $_vars) false)
-(= (any-same-var? (cons $var $rest) $vars)
-   (or (same-var-in-list? $var $vars) (any-same-var? $rest $vars)))
-
 (: context-vars-in-type?
    ;; KBContext is an erased newtype, so its destructured variables field is a
    ;; raw wire value here: Nil or a variable list.
@@ -49,7 +39,7 @@
    (-[det]-> (List Variable) (List Variable) Bool))
 (= (any-context-var-in? $_type-vars ()) false)
 (= (any-context-var-in? $type-vars (cons $var $rest))
-   (or (same-var-in-list? $var $type-vars)
+   (or (stored-list-member? $var $type-vars)
       (any-context-var-in? $type-vars $rest)))
 (= (context-vars-in-type? $type $vars)
    (if (== $vars Nil) false
@@ -184,7 +174,7 @@
 ;; search machinery and store-scanning formulas are too costly for a filter.
 (: prefilter-cpu-opaque? (-[det]-> $function Bool))
 (= (prefilter-cpu-opaque? $fun)
-   (same-var-in-list?
+   (stored-list-member?
       $fun
       (FoldAllCompiled GroupedFoldAllCompiled ConceptNodePriorFormula)))
 

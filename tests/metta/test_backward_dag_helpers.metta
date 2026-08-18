@@ -235,6 +235,20 @@
       (brand Proof $proof)
       (the TV $tv)))
 
+;; Test-only view of the claim protocol: an entry is current when it is owned
+;; by the goal's live work generation and carries the current demand revision.
+;; The engine itself validates entries through claim-goal-agenda-entry!.
+(: agenda-entry-current? (-[det]-> AgendaEntry Bool))
+(= (agenda-entry-current?
+      (agenda-entry $kind $gid
+         (agenda-revision-token $demand-revision $generation)))
+   (if
+      (agenda-entry-owned?
+         (agenda-entry $kind $gid
+            (agenda-revision-token $demand-revision $generation)))
+      (== $demand-revision (goal-demand-revision $gid))
+      false))
+
 (: current-agenda-entry-count
    (-[det]-> (Heap AgendaEntry) Number))
 (= (current-agenda-entry-count $agenda)

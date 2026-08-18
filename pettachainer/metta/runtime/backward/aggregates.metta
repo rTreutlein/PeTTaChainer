@@ -3,32 +3,21 @@
 ;; cache. A scalar fold has one representative; a grouped fold retains the
 ;; latest representative for every grounded group/output key. Specialized base
 ;; rates continue to use &base_rate_cache instead of this generic path.
-(: durable-aggregate-current-pids
-   (-[semidet]-> Number $arguments (List Number)))
-(= (durable-aggregate-current-pids $agg-gid $args)
-   (case (base-rate-aggregate-key $args) (
-      ((base-rate-aggregate-key-value $_kbid $_pattern $_mode) ())
-      (no-base-rate-aggregate-key
-         (latest-proof-output-group-ids
-            (aggregate-snapshot-groups
-               (goal-proof-ids $agg-gid)))))))
-
-(: aggregate-current-pid-shape
-   (-[semidet]-> $arguments (List Number) (| Number (List Number))))
-(= (aggregate-current-pid-shape $args $pids)
-   (case $args (
-      (($_kb $_pattern $_group $_extractor $_init $_fun $_finish $_tv-mode)
-         $pids)
-      ($_other
-         (case $pids (
-            (() ())
-            ((cons $pid $_rest) $pid)))))))
-
 (: durable-aggregate-current-pid
    (-[semidet]-> Number $arguments (| Number (List Number))))
 (= (durable-aggregate-current-pid $agg-gid $args)
-   (aggregate-current-pid-shape $args
-      (durable-aggregate-current-pids $agg-gid $args)))
+   (case (base-rate-aggregate-key $args) (
+      ((base-rate-aggregate-key-value $_kbid $_pattern $_mode) ())
+      (no-base-rate-aggregate-key
+         (let $pids
+            (latest-proof-output-group-ids
+               (aggregate-snapshot-groups
+                  (goal-proof-ids $agg-gid)))
+            (if (aggregate-args-grouped? $args)
+               $pids
+               (case $pids (
+                  (() ())
+                  ((cons $pid $_rest) $pid)))))))))
 
 (: commit-cached-aggregate-heap
    (-[semidet]-> (Heap AgendaEntry) Number $arguments TV
@@ -51,8 +40,6 @@
            $_stored-gid $depth $_goal $_expanded $_pending)
           (goal-by-id $agg-gid))
        ($child-gid (ensure-goal-at-depth $child-goal (+ 1 $depth)))
-       ($durable-current
-          (durable-aggregate-current-pid $agg-gid $args))
        ($hits
           (collapse
              (once
@@ -63,13 +50,15 @@
                    true))))
        ($_agg
           (if (== $hits ())
-             (progn
-                (once
-                   (chainer-add-atom &aggregate
-                      (stored-aggregate-row
-                         $agg-gid $child-gid $args $score 0.0
-                         $durable-current)))
-                ())
+             (let $durable-current
+                (durable-aggregate-current-pid $agg-gid $args)
+                (progn
+                   (once
+                      (chainer-add-atom &aggregate
+                         (stored-aggregate-row
+                            $agg-gid $child-gid $args $score 0.0
+                            $durable-current)))
+                   ()))
              ())))
       $child-gid))
 
@@ -89,14 +78,10 @@
              (add-atom &aggregate_forward_approx ($agg-gid))
              ()))
        ($_set
-          (progn
-             (remove-atom &aggregate
-                (stored-aggregate-row
-                   $agg-gid $child-gid $args $score 0.0 ()))
-             (once
-                (chainer-add-atom &aggregate
-                   (stored-aggregate-row
-                      $agg-gid $child-gid $args $score 0.0 $pid)))))
+          (set-aggregate-current-pid!
+             (stored-aggregate-row
+                $agg-gid $child-gid $args $score 0.0 ())
+             $pid))
        ($_wait
           (register-goal-waiter! $child-gid $agg-gid
              (aggregate-waiter $agg-gid
@@ -375,10 +360,11 @@
 
 (= (append-grouped-aggregate-current-pid! $agg-gid $pid)
    (let*
-      (((stored-aggregate-row
-            $_stored-agg-gid $child-gid $args
-            $base-score $pending $stored-current-pids)
-          (aggregate-by-id $agg-gid))
+      (($row (aggregate-by-id $agg-gid))
+       ((stored-aggregate-row
+            $_stored-agg-gid $_child-gid $_args
+            $_base-score $_pending $stored-current-pids)
+          $row)
        ($current-pids (the (List Number) $stored-current-pids))
        ($key (aggregate-snapshot-key-by-id $pid))
        ((grouped-current-pid-partition
@@ -390,17 +376,7 @@
        ($replaced (reverse-number-list $replaced-reversed))
        ($remaining (reverse-number-list $remaining-reversed))
        ($next-pids (cons $pid $remaining))
-       ($_set
-          (progn
-             (remove-atom &aggregate
-                (stored-aggregate-row
-                   $agg-gid $child-gid $args $base-score
-                   $pending $current-pids))
-             (once
-                (chainer-add-atom &aggregate
-                   (stored-aggregate-row
-                      $agg-gid $child-gid $args $base-score
-                      $pending $next-pids)))))
+       ($_set (set-aggregate-current-pid! $row $next-pids))
        ($_deactivate (deactivate-current-proofs! $replaced)))
       true))
 
@@ -440,22 +416,13 @@
    (-[nondet]-> (Heap AgendaEntry) Number (Heap AgendaEntry)))
 (= (run-aggregate-heap $agenda $agg-gid)
    (let*
-      (((stored-aggregate-row
+      (($row (aggregate-by-id $agg-gid))
+       ((stored-aggregate-row
             $_stored-agg-gid $child-gid $args
-            $base-score $pending $current-pid)
-          (aggregate-by-id $agg-gid))
+            $_base-score $_pending $current-pid)
+          $row)
        ($grouped? (aggregate-args-grouped? $args))
-       ($_clear
-          (progn
-             (remove-atom &aggregate
-                (stored-aggregate-row
-                   $agg-gid $child-gid $args $base-score
-                   $pending $current-pid))
-             (once
-                (chainer-add-atom &aggregate
-                   (stored-aggregate-row
-                      $agg-gid $child-gid $args $base-score
-                      0.0 $current-pid))))))
+       ($_clear (set-aggregate-pending! $row 0.0)))
       (if $grouped?
          (run-grouped-aggregate-heap
             $agenda $agg-gid $child-gid
@@ -536,7 +503,7 @@
 (= (direct-goal-results-view $steps ($type $kb $prf $tv))
    (match &kb
       (@ $fact ($type $kb $prf $tv))
-      (if (backward-acyclic-term? $fact)
+      (if (chainer-acyclic-term? $fact)
          $fact
          (empty))))
 
