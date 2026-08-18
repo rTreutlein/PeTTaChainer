@@ -139,8 +139,14 @@ def main(argv: list[str] | None = None) -> int:
     benchmark_directory = repository / "pettachainer" / "benchmarks"
     bounded = str(benchmark_directory / "bounded_queue.py")
     durable = str(benchmark_directory / "durable_query_many.py")
+    lifting_merge = str(benchmark_directory / "lifting_merge_stress.py")
     member = str(benchmark_directory / "member_inheritance.py")
-    for benchmark in (Path(bounded), Path(durable), Path(member)):
+    for benchmark in (
+        Path(bounded),
+        Path(durable),
+        Path(lifting_merge),
+        Path(member),
+    ):
         if not benchmark.is_file():
             parser.error(f"benchmark is absent from --repository: {benchmark}")
     with tempfile.TemporaryDirectory(prefix="pettachainer-bench-") as raw_temp:
@@ -208,6 +214,31 @@ def main(argv: list[str] | None = None) -> int:
                     ),
                     "query_total_seconds": lambda payload: float(
                         payload["query_total_seconds"]
+                    ),
+                },
+                temporary_directory=temporary_directory,
+            ),
+            "lifting_merge_stress": run_workload(
+                name="lifting-merge-stress",
+                repository=repository,
+                repetitions=arguments.repetitions,
+                command=[
+                    lifting_merge,
+                    "--repository",
+                    str(repository),
+                ],
+                selectors={
+                    "setup_seconds": lambda payload: float(
+                        payload["setup_seconds"]
+                    ),
+                    "cold_query_seconds": lambda payload: float(
+                        payload["cold_query_seconds"]
+                    ),
+                    "warm_query_seconds": lambda payload: float(
+                        payload["warm_query_seconds"]
+                    ),
+                    "warm_query_per_rep_seconds": lambda payload: float(
+                        payload["warm_query_per_rep_seconds"]
                     ),
                 },
                 temporary_directory=temporary_directory,
