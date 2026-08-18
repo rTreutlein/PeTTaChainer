@@ -850,14 +850,14 @@
         ($_agg1
            (progn
               (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ()))
-              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))))
+              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-old)))))
         ($pid-new
            (store-proof-candidate $agg-gid
               (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) ())))
         ($_agg2
            (progn
-              (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))
-              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-new))
+              (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-old)))
+              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-new)))
               (deactivate-current-proof! $pid-old))))
       ((proof-live? $pid-old) (proof-live? $pid-new)))
    (false true))
@@ -876,15 +876,15 @@
         ($_agg1
            (progn
               (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ()))
-              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))))
+              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-old)))))
         ($pid-new
            (store-proof-candidate $agg-gid
               (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) ())))
         ($path-id (ensure-frontier-path 0 $pid-old))
         ($_agg2
            (progn
-              (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))
-              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-new))
+              (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-old)))
+              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-new)))
               (deactivate-current-proof! $pid-old))))
       (waiter-live?
          (frontier-waiter 99 bundle 1.0 () () $path-id
@@ -950,7 +950,7 @@
               (add-atom &aggregate
                  (stored-aggregate-row
                     $agg-gid $child-gid dummy-agg-args
-                    1.0 0.0 $pid-old))))
+                    1.0 0.0 ($pid-old)))))
         ($parent-pid
            (store-proof-candidate $parent-gid
               (proof-candidate
@@ -971,11 +971,11 @@
               (remove-atom &aggregate
                  (stored-aggregate-row
                     $agg-gid $child-gid dummy-agg-args
-                    1.0 0.0 $pid-old))
+                    1.0 0.0 ($pid-old)))
               (add-atom &aggregate
                  (stored-aggregate-row
                     $agg-gid $child-gid dummy-agg-args
-                    1.0 0.0 $pid-new))
+                    1.0 0.0 ($pid-new)))
               (deactivate-current-proof! $pid-old)))
         ($_materialize
            (materialize-root-goal-proofs-to-kb $parent-gid)))
@@ -1010,7 +1010,7 @@
         ($_agg1
            (progn
               (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ()))
-              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))))
+              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-old)))))
         ($_prime-proof (proof-live? $pid-old))
         ($_prime-goal (goal-live-proof-ids $agg-gid))
         ($pid-new
@@ -1018,8 +1018,8 @@
               (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) ())))
         ($_agg2
            (progn
-              (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-old))
-              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 $pid-new))
+              (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-old)))
+              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-new)))
               (deactivate-current-proof! $pid-old))))
       ((proof-live? $pid-old) (proof-live? $pid-new) (length (goal-live-proof-ids $agg-gid))))
    (false true 1))

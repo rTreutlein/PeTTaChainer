@@ -143,7 +143,7 @@
 (: StoredAggregateRow Type)
 (: stored-aggregate-row
    (-[det]-> Number Number Atom Number Number
-       (| Number (List Number))
+       (List Number)
        StoredAggregateRow))
 
 ;; Executable goals are either CPU computations or fact goals. Fact KB,

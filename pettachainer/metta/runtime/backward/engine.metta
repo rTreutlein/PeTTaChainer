@@ -215,7 +215,7 @@
       ($_other ()))))
 
 (: harvest-base-rate-entry
-   (-[semidet]-> $arguments (| Number (List Number)) (List $none)))
+   (-[semidet]-> $arguments (List Number) (List $none)))
 (= (harvest-base-rate-entry $args $current-pid)
    (let $key (base-rate-aggregate-key $args)
       (case $key (
@@ -223,7 +223,7 @@
          ((base-rate-aggregate-key-value $kbid $pattern $mode)
             (if (== $current-pid ()) ()
                (let*
-                  (($pid (the Number $current-pid))
+                  (((cons $pid $_rest) $current-pid)
                    ($output (proof-output-atom-by-id $pid)))
                   (if (= $output (CPU $_fun $_out-args (STV $s $c)))
                      (let* (($_components
@@ -252,19 +252,19 @@
       ()))
 
 (: aggregate-no-evidence-pid?
-   (-[det]-> (| Number (List Number)) Bool))
+   (-[det]-> (List Number) Bool))
 (= (aggregate-no-evidence-pid? $current-pid)
    (case $current-pid (
       (() false)
-      ($pid
+      ((cons $pid $_rest)
          (case (collapse
-                  (proof-output-atom-by-id (the Number $pid))) (
+                  (proof-output-atom-by-id $pid)) (
             ((cons (CPU $_fold $_stored-args no-evidence) $_rest)
                true)
             ($_other false)))))))
 
 (: harvest-complete-member-inheritance-empty-cache!
-   (-[det]-> Number $arguments (| Number (List Number)) (List $none)))
+   (-[det]-> Number $arguments (List Number) (List $none)))
 (= (harvest-complete-member-inheritance-empty-cache!
       $budget $args $current-pid)
    (case $args (

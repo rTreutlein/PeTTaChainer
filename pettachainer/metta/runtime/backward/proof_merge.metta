@@ -966,11 +966,11 @@
          (candidate-is-cyclic? $gid $kind $pids))))
 
 (: aggregate-snapshot-changed?
-   (-[semidet]-> (| Number (List Number))
+   (-[semidet]-> (List Number)
        $result (List Evidence) Bool))
 (= (aggregate-snapshot-changed? $current-pid $result $ev)
    (if (== $current-pid ()) true
-      (let $pid (the Number $current-pid)
+      (let (cons $pid $_rest) $current-pid
          (let*
             (($current-output (proof-output-atom-by-id $pid))
              (($_current-score $current-ev) (proof-stats-by-id $pid)))

@@ -1912,7 +1912,8 @@
           (once
              (store-proof-candidate $agg-gid
                 (aggregate-result-candidate $result $ev $children))))
-       ($_set (set-aggregate-current-pid! $row $pid))
+       ($_set
+          (set-aggregate-current-pid! $row (cons $pid ())))
        ($_deactivate
           (deactivate-current-proofs! $current-pid))
        ($nagenda (wake-proof-commit-heap $agenda $agg-gid $pid)))

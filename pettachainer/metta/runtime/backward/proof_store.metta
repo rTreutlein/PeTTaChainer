@@ -356,7 +356,7 @@
                $current-pid)))))
 
 (: set-aggregate-current-pid!
-   (-[semidet]-> StoredAggregateRow (| Number (List Number))
+   (-[semidet]-> StoredAggregateRow (List Number)
        (| Bool (List $none))))
 (= (set-aggregate-current-pid!
       (stored-aggregate-row
@@ -1045,19 +1045,9 @@
       ()))
 
 (: deactivate-current-proofs!
-   (-[semidet]-> (| Number (List Number)) (List $none)))
-(: deactivate-current-proof-list!
    (-[semidet]-> (List Number) (List $none)))
-(= (deactivate-current-proof-list! ()) ())
-(= (deactivate-current-proof-list! (cons $pid $rest))
-   (let $_first (deactivate-current-proof! $pid)
-      (deactivate-current-proof-list! $rest)))
-
 (= (deactivate-current-proofs! $current)
-   (if (is-expr $current)
-      (deactivate-current-proof-list!
-         (the (List Number) $current))
-      (deactivate-current-proof! (the Number $current))))
+   (foreach-flat deactivate-current-proof! $current))
 
 (: latest-proof-id (-[semidet]-> (List Number) Number))
 (= (latest-proof-id (cons $pid $rest))
@@ -1072,12 +1062,9 @@
       (latest-proof-output-group-ids $rest)))
 
 (: aggregate-current-pid-live?
-   (-[det]-> (| Number (List Number)) Number Bool))
+   (-[det]-> (List Number) Number Bool))
 (= (aggregate-current-pid-live? $current-pid $pid)
-   (if (== $current-pid ()) false
-      (if (is-expr $current-pid)
-         (not (== (collapse (is-member $pid $current-pid)) ()))
-         (== $current-pid $pid))))
+   (stored-list-member? $pid $current-pid))
 
 ;; Membership only compares stored ids, so it does not need to revalidate each
 ;; numeric element from the erased aggregate row.
@@ -1089,12 +1076,6 @@
          (if (== $needle $first) true
             (stored-list-member? $needle $rest)))
       ($_other false))))
-
-(: first-aggregate-current-pid
-   (-[semidet]-> (List (| Number (List Number)))
-       (| Number (List Number))))
-(= (first-aggregate-current-pid (cons $current $_rest))
-   $current)
 
 (: proof-ids-for-goal-key
    (-[semidet]-> ProofGoalKey (List Number)))
@@ -1142,7 +1123,9 @@
                (proof-list-node-live? (proof-children-by-id $pid))
                (proof-list-live? (proof-children-by-id $pid)))))
          (aggregate-current-pid-live?
-            (first-aggregate-current-pid $current-hits) $pid))))
+            (let (cons $current-pids $_rest) $current-hits
+               $current-pids)
+            $pid))))
 
 ;; A conjunction dependency records one specific compatible combination of
 ;; premise proofs. It remains valid when another derivation later changes a

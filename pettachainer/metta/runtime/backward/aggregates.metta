@@ -4,7 +4,7 @@
 ;; latest representative for every grounded group/output key. Specialized base
 ;; rates continue to use &base_rate_cache instead of this generic path.
 (: durable-aggregate-current-pid
-   (-[semidet]-> Number $arguments (| Number (List Number))))
+   (-[semidet]-> Number $arguments (List Number)))
 (= (durable-aggregate-current-pid $agg-gid $args)
    (case (base-rate-aggregate-key $args) (
       ((base-rate-aggregate-key-value $_kbid $_pattern $_mode) ())
@@ -17,7 +17,7 @@
                $pids
                (case $pids (
                   (() ())
-                  ((cons $pid $_rest) $pid)))))))))
+                  ((cons $pid $_rest) (cons $pid ()))))))))))
 
 (: commit-cached-aggregate-heap
    (-[semidet]-> (Heap AgendaEntry) Number $arguments TV
@@ -81,7 +81,7 @@
           (set-aggregate-current-pid!
              (stored-aggregate-row
                 $agg-gid $child-gid $args $score 0.0 ())
-             $pid))
+             (cons $pid ())))
        ($_wait
           (register-goal-waiter! $child-gid $agg-gid
              (aggregate-waiter $agg-gid
@@ -326,7 +326,7 @@
          $_base-score $_pending $current-pids)
       (aggregate-by-id $agg-gid)
       (aggregate-candidate-current-in-pids?
-         $candidate (the (List Number) $current-pids))))
+         $candidate $current-pids)))
 
 (= (commit-grouped-aggregate-state-heap $agg-gid $args $agenda (aggregate-group-state $group $acc $ev $children))
    (let*
@@ -365,14 +365,13 @@
             $_stored-agg-gid $_child-gid $_args
             $_base-score $_pending $stored-current-pids)
           $row)
-       ($current-pids (the (List Number) $stored-current-pids))
        ($key (aggregate-snapshot-key-by-id $pid))
        ((grouped-current-pid-partition
             $replaced-reversed $remaining-reversed)
           (proof-fold-flat-semidet
              (grouped-current-pid-partition-step $key)
              (grouped-current-pid-partition () ())
-             $current-pids))
+             $stored-current-pids))
        ($replaced (reverse-number-list $replaced-reversed))
        ($remaining (reverse-number-list $remaining-reversed))
        ($next-pids (cons $pid $remaining))
@@ -471,7 +470,7 @@
       (if (== $finish uniform-prior) true (== $finish uniform-prior-known))))
 
 (: base-rate-refinement-degrades?
-   (-[semidet]-> Number $finish (| Number (List Number)) $result Bool))
+   (-[semidet]-> Number $finish (List Number) $result Bool))
 (= (base-rate-refinement-degrades? $agg-gid $finish $current-pid $result)
    (if (not (==
          (collapse (once (match &aggregate_forward_approx ($agg-gid) true)))
@@ -480,10 +479,11 @@
       (if (base-rate-finish? $finish)
       (if (== $current-pid ()) false
          (let*
-            (($new-tv (let (CPU $_fun $_args $ntv) $result $ntv))
+            (((cons $pid $_rest) $current-pid)
+             ($new-tv (let (CPU $_fun $_args $ntv) $result $ntv))
              ($current-tv
                 (let (CPU $_cfun $_cargs $ctv)
-                   (proof-output-atom-by-id (the Number $current-pid))
+                   (proof-output-atom-by-id $pid)
                    $ctv)))
             (if (= $current-tv (STV $_cs $_cc))
                (if (= $new-tv (STV $_ns $_nc))
