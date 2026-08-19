@@ -82,6 +82,16 @@
 (: fwd_member (-[det]-> KB Term ForwardTriggerKey))
 (: fwd_trigger_any ForwardTriggerKey)
 
+;; Forward aggregate subscriptions share one maintenance kernel.  Identity,
+;; descriptor, and observation roles stay distinct even though their branded
+;; values erase to ordinary MeTTa terms at runtime.
+(: ForwardAggregateIdentityKey Type)
+(: ForwardAggregateDescriptor Type)
+(: ForwardAggregateObservationKey (Newtype Atom))
+(: ForwardAggregateMaintenance Type)
+(: aggregate-update ForwardAggregateMaintenance)
+(: aggregate-remove ForwardAggregateMaintenance)
+
 ;; Keys for the monotonic counters shared by the compiler and both runtimes.
 ;; Naming the role prevents an arbitrary atom from being accepted by the state
 ;; mutation helper while retaining the existing symbol representation.
@@ -92,8 +102,7 @@
 (: bwd_invalidation_epoch CounterKey)
 (: ruleid CounterKey)
 (: bwd_tmp_ruleid CounterKey)
-(: fwd_br_id CounterKey)
-(: fwd_member_inheritance_id CounterKey)
+(: fwd_aggregate_id CounterKey)
 
 ;; Stored rule rows retain the existing conclusion/premise wire format. The
 ;; premise list contains executable goals and internal runtime fact tuples;

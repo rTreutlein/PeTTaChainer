@@ -134,14 +134,14 @@
                (the AgendaEntry $item))))))
 
 (: computed-member-inheritance-observation
-   (-[semidet]-> Number Number ForwardMemberInheritanceObservation))
+   (-[semidet]-> Number Number ForwardAggregateObservation))
 (= (computed-member-inheritance-observation $id $pid)
    (computed-member-inheritance-observation-for-fact
       $id $pid (proof-fact-output-by-id $pid)))
 
 (: computed-member-inheritance-observation-for-fact
    (-[semidet]-> Number Number (Statement KBContext Proof TV)
-       ForwardMemberInheritanceObservation))
+       ForwardAggregateObservation))
 (= (computed-member-inheritance-observation-for-fact
       $id $pid
       ((MemberInheritanceSample
@@ -156,10 +156,12 @@
              $antecedent-tv $consequent-tv))
        ($sample (proof-fact-output-by-id $pid))
        ($candidate (forward-output-candidate $sample $evidence)))
-      (ForwardMemberInheritanceObservation
-         (brand ForwardMemberInheritanceObservationKey
+      (forward-aggregate-observation
+         (brand ForwardAggregateObservationKey
             (quote ($id $obj)))
-         $candidate $candidate $weight $mass)))
+         (forward-member-inheritance-observation-value
+            $candidate $candidate)
+         $weight $mass)))
 
 (: merge-computed-member-inheritance-children!
    (-[det]-> Number (List Number) (List $none)))
@@ -204,10 +206,11 @@
           result-tv)
          (let $_harvest
             (collapse
-               (match &forward_member_inheritance_identity
-                  (forward-member-inheritance-identity-row
-                     (fwd_member_identity $kbid $subj $concept)
-                     $id)
+               (let $id
+                  (forward-member-inheritance-id
+                     (brand KB $kbid)
+                     (brand Term $subj)
+                     (brand Term $concept))
                   (harvest-computed-member-inheritance-state-for-id!
                      $id $current-pid)))
             ()))

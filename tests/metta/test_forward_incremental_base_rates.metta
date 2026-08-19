@@ -324,13 +324,14 @@
 !(test
    (list-count
       (collapse
-         (match &forward_base_rate_observation
-            (ForwardBaseRateObservation
+         (match &forward_aggregate_observation
+            (forward-aggregate-observation
                ($_id
                   (forward-output-key
                      (forwardBudgetBaseRateKb MAIN Nil)
                      (P $_which)))
-               $_fact $_weight $_count)
+               (forward-base-rate-observation-value $_fact)
+               $_weight $_count)
             true)))
    1)
 
@@ -344,13 +345,14 @@
 !(test
    (list-count
       (collapse
-         (match &forward_base_rate_observation
-            (ForwardBaseRateObservation
+         (match &forward_aggregate_observation
+            (forward-aggregate-observation
                ($_id
                   (forward-output-key
                      (forwardBudgetBaseRateKb MAIN Nil)
                      (P $_which)))
-               $_fact $_weight $_count)
+               (forward-base-rate-observation-value $_fact)
+               $_weight $_count)
             true)))
    2)
 

@@ -29,17 +29,15 @@
    (-[nondet]-> KB Term Term Number))
 (= (member-fold-observation-count $kb $subj $concept)
    (let $id
-      (once
-         (match &forward_member_inheritance_identity
-            (forward-member-inheritance-identity-row
-               (fwd_member_identity $kb $subj $concept)
-               $stored-id)
-            $stored-id))
+      (forward-member-inheritance-id $kb $subj $concept)
       (list-count
          (collapse
-            (match &forward_member_inheritance_observation
-               (ForwardMemberInheritanceObservation
-                  ($id $_obj) $_subject $_concept $_weight $_mass)
+            (match &forward_aggregate_observation
+               (forward-aggregate-observation
+                  ($id $_obj)
+                  (forward-member-inheritance-observation-value
+                     $_subject $_concept)
+                  $_weight $_mass)
                true)))))
 
 (: materialized-inheritance-facts
@@ -57,27 +55,35 @@
 
 !(test
    (collapse
-      (match &forward_member_inheritance_identity
-         (forward-member-inheritance-identity-row
-            (fwd_member_identity
-               forwardOpenMemberFoldKb $_subj $_concept)
-            $_id)
+      (match &forward_aggregate_identity
+         ($_hash
+            (forward-aggregate-identity-row
+               (forward-member-inheritance-identity
+                  forwardOpenMemberFoldKb $_subj $_concept)
+               $_id))
          true))
    ())
 
 !(test
    (collapse
-      (match &forward_member_inheritance_interest
-         ((fwd_member forwardOpenMemberFoldKb $_class)
-            $_id $_kb $_subj $_concept $_pattern)
+      (match &forward_aggregate_interest_by_trigger
+         ($_hash
+            (forward-aggregate-interest
+               (fwd_member forwardOpenMemberFoldKb $_class)
+               $_id
+               (forward-member-inheritance-descriptor
+                  $_kb $_subj $_concept $_pattern)))
          true))
    ())
 
 !(test
    (collapse
-      (match &forward_member_inheritance_observation
-         (ForwardMemberInheritanceObservation
-            $_key $_subject $_concept $_weight $_mass)
+      (match &forward_aggregate_observation
+         (forward-aggregate-observation
+            $_key
+            (forward-member-inheritance-observation-value
+               $_subject $_concept)
+            $_weight $_mass)
          true))
    ())
 
@@ -97,27 +103,35 @@
 
 !(test
    (collapse
-      (match &forward_member_inheritance_identity
-         (forward-member-inheritance-identity-row
-            (fwd_member_identity
-               forwardCompoundOpenMemberFoldKb $_subj $_concept)
-            $_id)
+      (match &forward_aggregate_identity
+         ($_hash
+            (forward-aggregate-identity-row
+               (forward-member-inheritance-identity
+                  forwardCompoundOpenMemberFoldKb $_subj $_concept)
+               $_id))
          true))
    ())
 
 !(test
    (collapse
-      (match &forward_member_inheritance_interest
-         ((fwd_member forwardCompoundOpenMemberFoldKb $_class)
-            $_id $_kb $_subj $_concept $_pattern)
+      (match &forward_aggregate_interest_by_trigger
+         ($_hash
+            (forward-aggregate-interest
+               (fwd_member forwardCompoundOpenMemberFoldKb $_class)
+               $_id
+               (forward-member-inheritance-descriptor
+                  $_kb $_subj $_concept $_pattern)))
          true))
    ())
 
 !(test
    (collapse
-      (match &forward_member_inheritance_observation
-         (ForwardMemberInheritanceObservation
-            $_key $_subject $_concept $_weight $_mass)
+      (match &forward_aggregate_observation
+         (forward-aggregate-observation
+            $_key
+            (forward-member-inheritance-observation-value
+               $_subject $_concept)
+            $_weight $_mass)
          true))
    ())
 
@@ -143,11 +157,12 @@
 !(test
    (list-count
       (collapse
-         (match &forward_member_inheritance_identity
-            (forward-member-inheritance-identity-row
-               (fwd_member_identity
-                  forwardMemberFoldKb Human Mortal)
-               $_id)
+         (match &forward_aggregate_identity
+            ($_hash
+               (forward-aggregate-identity-row
+                  (forward-member-inheritance-identity
+                     forwardMemberFoldKb Human Mortal)
+                  $_id))
             true)))
    1)
 
@@ -164,9 +179,12 @@
 !(test
    (list-count
       (collapse
-         (match &forward_member_inheritance_observation
-            (ForwardMemberInheritanceObservation
-               ($_id a) $_subject $_concept $_weight $_mass)
+         (match &forward_aggregate_observation
+            (forward-aggregate-observation
+               ($_id a)
+               (forward-member-inheritance-observation-value
+                  $_subject $_concept)
+               $_weight $_mass)
             true)))
    1)
 
@@ -185,9 +203,12 @@
 !(test
    (list-count
       (collapse
-         (match &forward_member_inheritance_observation
-            (ForwardMemberInheritanceObservation
-               ($_id $_obj) $_subject $_concept $_weight $_mass)
+         (match &forward_aggregate_observation
+            (forward-aggregate-observation
+               ($_id $_obj)
+               (forward-member-inheritance-observation-value
+                  $_subject $_concept)
+               $_weight $_mass)
             true)))
    2)
 
@@ -201,9 +222,12 @@
 !(test
    (list-count
       (collapse
-         (match &forward_member_inheritance_observation
-            (ForwardMemberInheritanceObservation
-               ($_id $_obj) $_subject $_concept $_weight $_mass)
+         (match &forward_aggregate_observation
+            (forward-aggregate-observation
+               ($_id $_obj)
+               (forward-member-inheritance-observation-value
+                  $_subject $_concept)
+               $_weight $_mass)
             true)))
    2)
 
@@ -218,11 +242,13 @@
 !(remove-compiled-statement aHuman)
 
 !(test
-   (collapse
-      (match &forward_member_inheritance_state
-         (forward-member-inheritance-state
-            $_id $weight $mass)
-         ($weight $mass)))
+   (let $id
+      (forward-member-inheritance-id
+         forwardMemberFoldKb Human Mortal)
+      (collapse
+         (match &forward_aggregate_state
+            (forward-aggregate-state $id $weight $mass)
+            ($weight $mass))))
    ((0.19999999999999996 0.5)))
 
 !(test
@@ -236,9 +262,12 @@
 !(test
    (list-count
       (collapse
-         (match &forward_member_inheritance_observation
-            (ForwardMemberInheritanceObservation
-               ($_id $_obj) $_subject $_concept $_weight $_mass)
+         (match &forward_aggregate_observation
+            (forward-aggregate-observation
+               ($_id $_obj)
+               (forward-member-inheritance-observation-value
+                  $_subject $_concept)
+               $_weight $_mass)
             true)))
    1)
 
@@ -385,7 +414,7 @@
       (STV 0.64 0.003115264797507788)))
 
 ;; Similar and arbitrary folds are outside the supported registration shape.
-!(register-forward-member-inheritance-premises!
+!(register-forward-aggregate-premises! false
    ((CPU FoldAllCompiled
        (forwardMemberFoldKb (Member $x Human) extract-tv
           (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)
@@ -394,10 +423,11 @@
 !(test
    (list-count
       (collapse
-         (match &forward_member_inheritance_identity
-            (forward-member-inheritance-identity-row
-               (fwd_member_identity
-                  forwardMemberFoldKb $subj $concept)
-               $_id)
+         (match &forward_aggregate_identity
+            ($_hash
+               (forward-aggregate-identity-row
+                  (forward-member-inheritance-identity
+                     forwardMemberFoldKb $subj $concept)
+                  $_id))
             true)))
    1)

@@ -1,182 +1,94 @@
 ;; Incremental aggregate subscriptions maintained as canonical outputs change.
-;; Compiler-generated base-rate folds all reduce to additive evidence totals.
-;; Keep those totals for forward-processed canonical outputs so each changed
-;; output costs one subtraction and one addition instead of another graph fold.
-(: forward-base-rate-supported?
-   (-[det]-> (| ExtractTV ExtractInheritanceTV)
-       (-[semidet]-> $accumulator $value $accumulator)
-       Bool))
-(= (forward-base-rate-supported? $extractor $fun)
-   (case $fun (
-      (BaseRateAcc (== $extractor extract-tv))
-      (WeightedBaseRateAcc
-         (if (= $extractor (extract-inheritance-tv $_kbid $_pattern)) true false))
-      (WeightedBaseRateWithPriorAcc
-         (if (= $extractor (extract-inheritance-tv $_kbid $_pattern)) true false))
-      ($_other false))))
-
+;; Both supported families reduce to additive evidence totals.  Their
+;; descriptors retain the family-specific extraction and cache policy while a
+;; single hash-indexed subscription/state/observation mechanism owns updates.
 ;; Registration identity includes open compiler variables. Hash an
-;; alpha-invariant ground skeleton, then retain and compare the complete terms
-;; in the identity index so hash collisions cannot change deduplication.
+;; alpha-invariant ground skeleton, then retain and compare the complete key so
+;; hash collisions cannot change deduplication.
 (: forward-base-rate-identity-key-leaf (-[det]-> Atom Atom))
 (= (forward-base-rate-identity-key-leaf $atom)
    (if (is-var $atom) forward-base-rate-identity-variable $atom))
 
-(: forward-base-rate-identity-hash
-   (-[det]-> KB Statement
-       (| ExtractTV ExtractInheritanceTV)
-       $accumulator
-       (-[semidet]-> $accumulator $value $accumulator)
-       (| BaseRateFinish
-          WeightedBaseRateInUniverseFinish
-          WeightedBaseRateWithPriorInUniverseFinish)
-       AggregateTVMode
-       Number))
-(= (forward-base-rate-identity-hash
-      $kbid $pattern $extractor $init $fun $finish $tv-mode)
+(: forward-aggregate-identity-hash
+   (-[det]-> ForwardAggregateIdentityKey Number))
+(= (forward-aggregate-identity-hash
+      (forward-base-rate-identity
+         $kbid $pattern $extractor $init $fun $finish $tv-mode))
    (term_hash
       (map-nested forward-base-rate-identity-key-leaf
          (quote
             ($kbid $pattern ($extractor $init)
                $fun $finish $tv-mode)))))
+(= (forward-aggregate-identity-hash
+      (forward-member-inheritance-identity $kbid $subj $concept))
+   (term_hash (quote ($kbid $subj $concept))))
 
-(: forward-register-base-rate!
-   (-[det]-> KB Statement
-       (| ExtractTV ExtractInheritanceTV)
-       $accumulator
-       (-[semidet]-> $accumulator $value $accumulator)
-       (| BaseRateFinish
-          WeightedBaseRateInUniverseFinish
-          WeightedBaseRateWithPriorInUniverseFinish)
-       AggregateTVMode
-       (List $none)))
-(= (forward-register-base-rate!
-      $kbid $pattern $extractor $init $fun $finish $tv-mode)
-   (if (forward-base-rate-supported? $extractor $fun)
-      (let*
-         (($trigger (forward-type-trigger-key $kbid $pattern))
-          ($trigger-hash (term_hash $trigger))
-          ($identity-hash
-             (forward-base-rate-identity-hash
-                $kbid $pattern $extractor $init
-                $fun $finish $tv-mode))
-          ($hits
-             (collapse
+(: forward-register-aggregate!
+   (-[det]-> ForwardAggregateIdentityKey ForwardAggregateDescriptor
+       ForwardTriggerKey Bool ForwardTriggerKey (List $none)))
+(= (forward-register-aggregate!
+      $identity $descriptor $trigger $has-other-trigger? $other-trigger)
+   (let*
+      (($identity-hash (forward-aggregate-identity-hash $identity))
+       ($trigger-hash (term_hash $trigger))
+       ($hits
+          (collapse
+             (once
+                (match &forward_aggregate_identity
+                   ($identity-hash
+                      (forward-aggregate-identity-row
+                         $stored-identity $stored-id))
+                   (if (=alpha $stored-identity $identity)
+                      $stored-id
+                      (empty)))))))
+      (if (== $hits ())
+         (let*
+            (($id (next-search-id fwd_aggregate_id))
+             (($stored-identity $stored-descriptor)
+                (copy_term (quote ($identity $descriptor))))
+             ($typed-stored-identity
+                (the ForwardAggregateIdentityKey $stored-identity))
+             ($typed-stored-descriptor
+                (the ForwardAggregateDescriptor $stored-descriptor))
+             ($_identity
                 (once
-                   (match &forward_base_rate_interest_by_identity
+                   (add-atom &forward_aggregate_identity
                       ($identity-hash
-                         (forward-base-rate-interest
-                            $_stored-trigger $stored-id
-                            $kbid $stored-pattern
-                            $stored-extractor $stored-init
-                            $fun $finish $tv-mode))
-                      (if (and (=alpha $stored-pattern $pattern)
-                               (=alpha
-                                  (quote ($stored-extractor $stored-init))
-                                  (quote ($extractor $init))))
-                         $stored-id
-                         (empty)))))))
-         (if (== $hits ())
-            (let*
-               (($id (next-search-id fwd_br_id))
-                ($stored (copy_term (quote ($pattern $extractor $init))))
-                ($stored-pattern (car-atom $stored))
-                ($stored-extractor (car-atom (cdr-atom $stored)))
-                ($stored-init
-                   (car-atom (cdr-atom (cdr-atom $stored))))
-                ($_identity
-                   (once
-                      (add-atom &forward_base_rate_interest_by_identity
-                         ($identity-hash
-                            (forward-base-rate-interest
-                               $trigger $id $kbid $stored-pattern
-                               $stored-extractor $stored-init
-                               $fun $finish $tv-mode)))))
-                ($_trigger
-                   (once
-                      (add-atom &forward_base_rate_interest_by_trigger
-                         ($trigger-hash
-                            (forward-base-rate-interest
-                               $trigger $id $kbid $stored-pattern
-                               $stored-extractor $stored-init
-                               $fun $finish $tv-mode)))))
-                ($_state
-                   (once
-                      (add-atom &forward_base_rate_state
-                         (forward-base-rate-state
-                            $id 0.0 0.0)))))
-               ())
-            ()))
-      ()))
+                         (forward-aggregate-identity-row
+                            $typed-stored-identity $id)))))
+             ($_trigger
+                (once
+                   (add-atom &forward_aggregate_interest_by_trigger
+                      ($trigger-hash
+                         (forward-aggregate-interest
+                            $trigger $id $typed-stored-descriptor)))))
+             ($_other-trigger
+                (if $has-other-trigger?
+                   (let*
+                      (($second-hash (term_hash $other-trigger))
+                       ($_stored
+                         (once
+                            (add-atom
+                               &forward_aggregate_interest_by_trigger
+                               ($second-hash
+                                  (forward-aggregate-interest
+                                     $other-trigger $id
+                                     $typed-stored-descriptor))))))
+                      ())
+                   ()))
+             ($_state
+                (once
+                   (add-atom &forward_aggregate_state
+                      (forward-aggregate-state $id 0.0 0.0)))))
+            ())
+         ())))
 
-(: forward-register-base-rate-premise!
-   (-[det]-> (| Goal (Statement KBContext Proof TV))
-       (List $none)))
-(= (forward-register-base-rate-premise! $premise)
-   (case $premise (
-      ((CPU FoldAllCompiled
-          ($kbid $pattern extract-tv
-             (BaseRateEvidence $initial-weight $initial-count)
-             BaseRateAcc base-rate result-tv)
-          $_result)
-         (forward-register-base-rate!
-            (brand KB $kbid) (brand Statement $pattern)
-            extract-tv
-            (BaseRateEvidence $initial-weight $initial-count)
-            BaseRateAcc base-rate result-tv))
-      ((CPU FoldAllCompiled
-          ($kbid $pattern
-             (extract-inheritance-tv $extract-kb $extract-pattern)
-             (BaseRateEvidence $initial-weight $initial-count)
-             WeightedBaseRateAcc
-             (weighted-base-rate-in-universe $finish-kb)
-             result-tv)
-          $_result)
-         (forward-register-base-rate!
-            (brand KB $kbid) (brand Statement $pattern)
-            (extract-inheritance-tv
-               (brand KB $extract-kb)
-               (brand Statement $extract-pattern))
-            (BaseRateEvidence $initial-weight $initial-count)
-            WeightedBaseRateAcc
-            (weighted-base-rate-in-universe
-               (brand KB $finish-kb))
-            result-tv))
-      ((CPU FoldAllCompiled
-          ($kbid $pattern
-             (extract-inheritance-tv $extract-kb $extract-pattern)
-             (BaseRateEvidenceWithPrior $prior
-                (BaseRateEvidence $initial-weight $initial-count))
-             WeightedBaseRateWithPriorAcc
-             (weighted-base-rate-with-prior-in-universe $finish-kb)
-             result-tv)
-          $_result)
-         (forward-register-base-rate!
-            (brand KB $kbid) (brand Statement $pattern)
-            (extract-inheritance-tv
-               (brand KB $extract-kb)
-               (brand Statement $extract-pattern))
-            (BaseRateEvidenceWithPrior
-               (brand BaseRatePrior $prior)
-               (BaseRateEvidence $initial-weight $initial-count))
-            WeightedBaseRateWithPriorAcc
-            (weighted-base-rate-with-prior-in-universe
-               (brand KB $finish-kb))
-            result-tv))
-      ($_other ()))))
-
-(: register-forward-base-rate-premises!
-   (-[det]-> (List (| Goal (Statement KBContext Proof TV))) (List $none)))
-(= (register-forward-base-rate-premises! $premises)
-   (foreach-flat forward-register-base-rate-premise! $premises))
-
-;; compile-inheritance-query emits this one two-sided fold shape.  Register it
-;; separately from ordinary base rates: its contribution is keyed by the
-;; shared Member object and must be recomputed from both canonical outputs.
-(: forward-register-member-inheritance-premise!
-   (-[det]-> (| Goal (Statement KBContext Proof TV))
-       (List $none)))
-(= (forward-register-member-inheritance-premise! $premise)
+;; Query-local additions do not register ordinary base-rate folds. Keep their
+;; hot path to the one Member-inheritance shape instead of testing every
+;; base-rate descriptor during each backward query compilation.
+(: forward-register-member-aggregate-premise!
+   (-[det]-> (| Goal (Statement KBContext Proof TV)) (List $none)))
+(= (forward-register-member-aggregate-premise! $premise)
    (case $premise (
       ((CPU FoldAllCompiled
           ($kbid
@@ -192,73 +104,132 @@
          (if (== (extract-vars $subj) ())
             (if (== (extract-vars $concept) ())
                (let*
-            (($pattern
-                (MemberInheritanceSample $obj $subj $concept $atv $btv))
-             ($key
-                (fwd_member_identity
-                   (brand KB $kbid)
-                   (brand Term $subj)
-                   (brand Term $concept)))
-             ($hits
-                (collapse
-                   (once
-                      (match &forward_member_inheritance_identity
-                         (forward-member-inheritance-identity-row
-                            $key $stored-id)
-                         $stored-id)))))
-            (if (== $hits ())
-               (let*
-                  (($id (next-search-id fwd_member_inheritance_id))
-                   ($stored (copy_term (quote ($pattern $subj $concept))))
-                   ($stored-pattern (car-atom $stored))
-                   ($stored-subj (car-atom (cdr-atom $stored)))
-                   ($stored-concept
-                      (car-atom (cdr-atom (cdr-atom $stored))))
-                   ($typed-stored-subj
-                      (brand Term $stored-subj))
-                   ($typed-stored-concept
-                      (brand Term $stored-concept))
-                   ($typed-stored-pattern
-                      (brand Statement $stored-pattern))
-                   ($_identity
-                      (once
-                         (add-atom &forward_member_inheritance_identity
-                            (forward-member-inheritance-identity-row
-                               $key $id))))
-                   ($_subject
-                      (once
-                         (add-atom &forward_member_inheritance_interest
-                            (forward-member-inheritance-interest-row
-                               (fwd_member $kbid $stored-subj)
-                               $id $kbid
-                               $typed-stored-subj
-                               $typed-stored-concept
-                               $typed-stored-pattern))))
-                   ($_concept
-                      (if (== $stored-subj $stored-concept) ()
-                         (once
-                            (add-atom &forward_member_inheritance_interest
-                               (forward-member-inheritance-interest-row
-                                  (fwd_member $kbid $stored-concept)
-                                  $id $kbid
-                                  $typed-stored-subj
-                                  $typed-stored-concept
-                                  $typed-stored-pattern)))))
-                   ($_state
-                      (once
-                         (add-atom &forward_member_inheritance_state
-                            (forward-member-inheritance-state
-                               $id 0.0 0.0)))))
-                  ())
-               ()))
+                  (($typed-kbid (brand KB $kbid))
+                   ($typed-subj (brand Term $subj))
+                   ($typed-concept (brand Term $concept))
+                   ($pattern
+                      (brand Statement
+                         (MemberInheritanceSample
+                            $obj $subj $concept $atv $btv)))
+                   ($subject-trigger
+                      (fwd_member $typed-kbid $typed-subj))
+                   ($distinct-triggers?
+                      (not (== $typed-subj $typed-concept)))
+                   ($concept-trigger
+                      (fwd_member $typed-kbid $typed-concept)))
+                  (forward-register-aggregate!
+                     (forward-member-inheritance-identity
+                        $typed-kbid $typed-subj $typed-concept)
+                     (forward-member-inheritance-descriptor
+                        $typed-kbid $typed-subj $typed-concept $pattern)
+                     $subject-trigger
+                     $distinct-triggers? $concept-trigger))
                ())
             ()))
       ($_other ()))))
 
-(: register-forward-member-inheritance-premises!
-   (-[det]-> (List (| Goal (Statement KBContext Proof TV))) (List $none)))
-(= (register-forward-member-inheritance-premises! $premises)
-   (foreach-flat forward-register-member-inheritance-premise! $premises))
+(: forward-register-aggregate-premise!
+   (-[det]-> Bool (| Goal (Statement KBContext Proof TV))
+       (List $none)))
+(= (forward-register-aggregate-premise! $register-base-rates? $premise)
+   (if $register-base-rates?
+      (case $premise (
+      ((CPU FoldAllCompiled
+          ($kbid $pattern extract-tv
+             (BaseRateEvidence $initial-weight $initial-count)
+             BaseRateAcc base-rate result-tv)
+          $_result)
+         (let*
+            (($typed-kbid (brand KB $kbid))
+             ($typed-pattern (brand Statement $pattern))
+             ($init
+                (BaseRateEvidence $initial-weight $initial-count)))
+            (forward-register-aggregate!
+               (forward-base-rate-identity
+                  $typed-kbid $typed-pattern extract-tv
+                  $init BaseRateAcc base-rate result-tv)
+               (forward-base-rate-descriptor
+                  $typed-kbid $typed-pattern extract-tv
+                  $init BaseRateAcc base-rate)
+               (forward-type-trigger-key
+                  $typed-kbid $typed-pattern)
+               false fwd_trigger_any)))
+      ((CPU FoldAllCompiled
+          ($kbid $pattern
+             (extract-inheritance-tv $extract-kb $extract-pattern)
+             (BaseRateEvidence $initial-weight $initial-count)
+             WeightedBaseRateAcc
+             (weighted-base-rate-in-universe $finish-kb)
+             result-tv)
+          $_result)
+         (let*
+            (($typed-kbid (brand KB $kbid))
+             ($typed-pattern (brand Statement $pattern))
+             ($extractor
+                (extract-inheritance-tv
+                   (brand KB $extract-kb)
+                   (brand Statement $extract-pattern)))
+             ($init
+                (BaseRateEvidence $initial-weight $initial-count))
+             ($finish
+                (weighted-base-rate-in-universe
+                   (brand KB $finish-kb))))
+            (forward-register-aggregate!
+               (forward-base-rate-identity
+                  $typed-kbid $typed-pattern $extractor
+                  $init WeightedBaseRateAcc $finish result-tv)
+               (forward-base-rate-descriptor
+                  $typed-kbid $typed-pattern $extractor
+                  $init WeightedBaseRateAcc $finish)
+               (forward-type-trigger-key
+                  $typed-kbid $typed-pattern)
+               false fwd_trigger_any)))
+      ((CPU FoldAllCompiled
+          ($kbid $pattern
+             (extract-inheritance-tv $extract-kb $extract-pattern)
+             (BaseRateEvidenceWithPrior $prior
+                (BaseRateEvidence $initial-weight $initial-count))
+             WeightedBaseRateWithPriorAcc
+             (weighted-base-rate-with-prior-in-universe $finish-kb)
+             result-tv)
+          $_result)
+         (let*
+            (($typed-kbid (brand KB $kbid))
+             ($typed-pattern (brand Statement $pattern))
+             ($extractor
+                (extract-inheritance-tv
+                   (brand KB $extract-kb)
+                   (brand Statement $extract-pattern)))
+             ($init
+                (BaseRateEvidenceWithPrior
+                   (brand BaseRatePrior $prior)
+                   (BaseRateEvidence
+                      $initial-weight $initial-count)))
+             ($finish
+                (weighted-base-rate-with-prior-in-universe
+                   (brand KB $finish-kb))))
+            (forward-register-aggregate!
+               (forward-base-rate-identity
+                  $typed-kbid $typed-pattern $extractor $init
+                  WeightedBaseRateWithPriorAcc $finish result-tv)
+               (forward-base-rate-descriptor
+                  $typed-kbid $typed-pattern $extractor $init
+                  WeightedBaseRateWithPriorAcc $finish)
+               (forward-type-trigger-key
+                  $typed-kbid $typed-pattern)
+               false fwd_trigger_any)))
+         ($_other
+            (forward-register-member-aggregate-premise! $premise))))
+      (forward-register-member-aggregate-premise! $premise)))
+
+(: register-forward-aggregate-premises!
+   (-[det]-> Bool (List (| Goal (Statement KBContext Proof TV)))
+       (List $none)))
+(= (register-forward-aggregate-premises!
+      $register-base-rates? $premises)
+   (foreach-flat
+      (forward-register-aggregate-premise! $register-base-rates?)
+      $premises))
 
 (: forward-positive-base-rate-contribution
    (-[det]-> TV BaseRateEvidenceState))
@@ -320,51 +291,31 @@
       (BaseRateEvidenceWithPrior $prior
          (BaseRateEvidence (* $scale $wsum) (* $scale $csum)))))
 
-(: forward-store-base-rate-state!
+(: forward-store-aggregate-state!
    (-[det]-> Number Number Number Number Number Bool))
-(= (forward-store-base-rate-state! $id $old-wsum $old-csum $wsum $csum)
+(= (forward-store-aggregate-state! $id $old-wsum $old-csum $wsum $csum)
    (progn
       (once
-         (remove-atom &forward_base_rate_state
-            (forward-base-rate-state
+         (remove-atom &forward_aggregate_state
+            (forward-aggregate-state
                $id $old-wsum $old-csum)))
       (once
-         (add-atom &forward_base_rate_state
-            (forward-base-rate-state $id $wsum $csum)))))
+         (add-atom &forward_aggregate_state
+            (forward-aggregate-state $id $wsum $csum)))))
 
-(: forward-base-rate-state-by-id
-   (-[semidet]-> Number ForwardBaseRateState))
-(= (forward-base-rate-state-by-id $id)
+(: forward-aggregate-state-by-id
+   (-[semidet]-> Number ForwardAggregateState))
+(= (forward-aggregate-state-by-id $id)
    (once
-      (match &forward_base_rate_state
-         (forward-base-rate-state $id $wsum $csum)
-         (forward-base-rate-state $id $wsum $csum))))
+      (match &forward_aggregate_state
+         (forward-aggregate-state $id $wsum $csum)
+         (forward-aggregate-state $id $wsum $csum))))
 
-(: ForwardBaseRateObservation
-   (-[det]-> ForwardBaseRateObservationKey
-       (Statement KBContext Proof TV)
-       Number Number ForwardBaseRateObservation))
-
-(: forward-remove-base-rate-observation!
-   (-[det]-> ForwardBaseRateObservation (| Bool (List $none))))
-(= (forward-remove-base-rate-observation! $observation)
+(: forward-remove-aggregate-observation!
+   (-[det]-> ForwardAggregateObservation (| Bool (List $none))))
+(= (forward-remove-aggregate-observation! $observation)
    (once
-      (remove-atom &forward_base_rate_observation $observation)))
-
-(: forward-store-base-rate-observation!
-   (-[det]-> ForwardBaseRateObservationKey
-       (List ForwardBaseRateObservation)
-       (Statement KBContext Proof TV) Number Number Bool))
-(= (forward-store-base-rate-observation!
-      $observation-key $old-observations $fact $weight $count)
-   (progn
-      (foreach-flat
-         forward-remove-base-rate-observation!
-         $old-observations)
-      (once
-         (add-atom &forward_base_rate_observation
-            (ForwardBaseRateObservation
-               $observation-key $fact $weight $count)))))
+      (remove-atom &forward_aggregate_observation $observation)))
 
 ;; Forward incremental folds support exactly these three additive accumulator
 ;; shapes. Keep their finalization local so calls are compiled only after the
@@ -420,99 +371,6 @@
                $kbid)
             $acc)))))
 
-(: forward-update-base-rate-interest
-   (-[semidet]-> (Statement KBContext Proof TV) Number KB Statement
-       (| ExtractTV ExtractInheritanceTV)
-       (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)
-       (-[semidet]-> $accumulator $value $accumulator)
-       (| BaseRateFinish
-          WeightedBaseRateInUniverseFinish
-          WeightedBaseRateWithPriorInUniverseFinish)
-       (List $none)))
-(= (forward-update-base-rate-interest
-      $fact $id $kbid $pattern $extractor $init $fun $finish)
-   (let*
-      (($cache-pattern (copy_term $pattern))
-       (($type ($fact-kbid $_ctx $_vars) $_proof $tv)
-          (copy_term $fact))
-       ;; The trigger key already includes the KB, so this row cannot have
-       ;; come from another knowledge base. Avoid re-unifying the nominal KB
-       ;; value through the erased KBContext representation.
-       ($_pattern (let $pattern $type ok))
-       ($output-key (forward-fact-key $fact))
-       ($observation-key
-          (brand ForwardBaseRateObservationKey
-             (quote ($id $output-key))))
-       ($old-observations
-          (collapse
-             (match &forward_base_rate_observation
-                (ForwardBaseRateObservation
-                   $observation-key $old-fact $old-weight $old-count)
-                (ForwardBaseRateObservation
-                   $observation-key $old-fact $old-weight $old-count))))
-       ($old-values
-          (if (== $old-observations ()) (quote (0.0 0.0))
-             (let (cons
-                     (ForwardBaseRateObservation
-                        $_old-key $_old-fact $ow $oc)
-                     $_rest)
-                $old-observations
-                (quote ($ow $oc)))))
-       ($old-weight (fst $old-values))
-       ($old-count (snd $old-values))
-       ((BaseRateEvidence $weight $count)
-          (forward-positive-base-rate-contribution $tv))
-       ((forward-base-rate-state
-            $_stored-id $old-wsum $old-csum)
-          (forward-base-rate-state-by-id $id))
-       ($wsum (+ (- $old-wsum $old-weight) $weight))
-       ($csum (+ (- $old-csum $old-count) $count))
-       ($_state
-          (forward-store-base-rate-state!
-             $id $old-wsum $old-csum $wsum $csum))
-       ($_observation
-          (forward-store-base-rate-observation!
-             $observation-key $old-observations $fact $weight $count))
-       ($acc
-             (forward-base-rate-accumulator
-                $kbid
-                $extractor $init $fun $wsum $csum))
-       ($estimate
-          (forward-finish-stored-aggregate $finish $acc))
-       ($_cache
-          (store-forward-base-rate!
-             $kbid $cache-pattern $estimate $finish)))
-      ()))
-
-(: forward-update-base-rates-for-key
-   (-[nondet]-> (Statement KBContext Proof TV) ForwardTriggerKey  (List $none)))
-(= (forward-update-base-rates-for-key $fact $trigger)
-   (let $trigger-hash (term_hash $trigger)
-      (match &forward_base_rate_interest_by_trigger
-         ($trigger-hash
-            (forward-base-rate-interest
-               $stored-trigger $id $kbid $pattern
-               $extractor $init $fun $finish $_tv-mode))
-         (if (== $stored-trigger $trigger)
-            (forward-update-base-rate-interest
-               $fact $id
-               $kbid (copy_term $pattern)
-               $extractor $init $fun $finish)
-            (empty)))))
-
-(: forward-update-base-rates
-   (-[det]-> (Statement KBContext Proof TV) (List $none)))
-(= (forward-update-base-rates $fact)
-   (let*
-      (($kbid (forward-fact-kb $fact))
-       ($trigger (forward-premise-index-key $fact))
-       ($wildcard (forward-premise-wildcard-key $fact))
-       ($_direct (collapse (forward-update-base-rates-for-key $fact $trigger)))
-       ($_wildcard
-          (if (== $trigger $wildcard) ()
-             (collapse (forward-update-base-rates-for-key $fact $wildcard)))))
-      ()))
-
 (: forward-member-canonical
    (-[det]-> KB Term Term
        (| ForwardOutputCandidate NoForwardOutputCandidate)))
@@ -555,37 +413,6 @@
          (emit-stored-forward-output-rows $stored)
          (emit-stored-forward-output-rows $rows))))
 
-(: forward-store-member-inheritance-state!
-   (-[det]-> Number Number Number Number Number Bool))
-(= (forward-store-member-inheritance-state!
-      $id $old-wsum $old-msum $wsum $msum)
-   (progn
-      (once
-         (remove-atom &forward_member_inheritance_state
-            (forward-member-inheritance-state
-               $id $old-wsum $old-msum)))
-      (once
-         (add-atom &forward_member_inheritance_state
-            (forward-member-inheritance-state
-               $id $wsum $msum)))))
-
-(: ForwardMemberInheritanceObservation
-   (-[det]-> ForwardMemberInheritanceObservationKey
-       ForwardOutputCandidate ForwardOutputCandidate Number Number
-       ForwardMemberInheritanceObservation))
-
-(: forward-remove-member-inheritance-observation!
-   (-[det]-> ForwardMemberInheritanceObservation
-       (| Bool (List $none))))
-(= (forward-remove-member-inheritance-observation! $observation)
-   (once
-      (remove-atom
-         &forward_member_inheritance_observation $observation)))
-
-(: ForwardMemberInheritanceState Type)
-(: forward-member-inheritance-state
-   (-[det]-> Number Number Number ForwardMemberInheritanceState))
-
 (: ForwardMemberInheritanceComputedRow Type)
 (: forward-member-inheritance-computed-row
    (-[det]-> Number ForwardMemberInheritanceComputedRow))
@@ -605,6 +432,24 @@
    (once
       (remove-atom &forward_member_inheritance_empty_cache $row)))
 
+(: forward-member-inheritance-id
+   (-[semidet]-> KB Term Term Number))
+(= (forward-member-inheritance-id $kbid $subj $concept)
+   (let*
+      (($identity
+          (forward-member-inheritance-identity
+             $kbid $subj $concept))
+       ($identity-hash
+          (forward-aggregate-identity-hash $identity)))
+      (once
+         (match &forward_aggregate_identity
+            ($identity-hash
+               (forward-aggregate-identity-row
+                  $stored-identity $id))
+            (if (== $stored-identity $identity)
+               $id
+               (empty))))))
+
 (: forward-member-inheritance-empty-cache-hit?
    (-[det]-> KB Term Term Number Bool))
 (= (forward-member-inheritance-empty-cache-hit?
@@ -613,9 +458,9 @@
       (==
          (collapse
             (once
-               (match &forward_member_inheritance_identity
-                  (forward-member-inheritance-identity-row
-                     (fwd_member_identity $kbid $subj $concept) $id)
+               (let $id
+                  (forward-member-inheritance-id
+                     $kbid $subj $concept)
                   (match &forward_member_inheritance_empty_cache
                      (forward-member-inheritance-empty-cache-row
                         $id $stored-budget)
@@ -667,9 +512,8 @@
       $kbid $subj $concept $budget)
    (let $_
       (collapse
-         (match &forward_member_inheritance_identity
-            (forward-member-inheritance-identity-row
-               (fwd_member_identity $kbid $subj $concept) $id)
+         (let $id
+            (forward-member-inheritance-id $kbid $subj $concept)
             (forward-store-member-inheritance-empty-cache-for-id!
                $id $budget)))
       ()))
@@ -715,45 +559,53 @@
 ;; exposing their child snapshots. Replace the matching object's component,
 ;; while retaining objects absent from a bounded computed pass.
 (: forward-merge-computed-member-observation!
-   (-[semidet]-> Number ForwardMemberInheritanceObservation (List $none)))
+   (-[semidet]-> Number ForwardAggregateObservation (List $none)))
 (= (forward-merge-computed-member-observation!
       $id
-      (ForwardMemberInheritanceObservation
-         $key $subject $concept $weight $mass))
+      (forward-aggregate-observation
+         $key
+         (forward-member-inheritance-observation-value
+            $subject $concept)
+         $weight $mass))
    (let*
       (($old-observations
           (collapse
-             (match &forward_member_inheritance_observation
-                (ForwardMemberInheritanceObservation
-                   $key $old-subject $old-concept $old-weight $old-mass)
-                (ForwardMemberInheritanceObservation
-                   $key $old-subject $old-concept $old-weight $old-mass))))
-       ((forward-member-inheritance-state
-            $_state-id $old-wsum $old-msum)
-          (once
-             (match &forward_member_inheritance_state
-                (forward-member-inheritance-state
-                   $id $stored-wsum $stored-msum)
-                (forward-member-inheritance-state
-                   $id $stored-wsum $stored-msum))))
+             (match &forward_aggregate_observation
+                (forward-aggregate-observation
+                   $key
+                   (forward-member-inheritance-observation-value
+                      $old-subject $old-concept)
+                   $old-weight $old-mass)
+                (forward-aggregate-observation
+                   $key
+                   (forward-member-inheritance-observation-value
+                      $old-subject $old-concept)
+                   $old-weight $old-mass))))
+       ((forward-aggregate-state $_state-id $old-wsum $old-msum)
+          (forward-aggregate-state-by-id $id))
        ($new-observation
-          (ForwardMemberInheritanceObservation
-             $key $subject $concept $weight $mass)))
+          (forward-aggregate-observation
+             $key
+             (forward-member-inheritance-observation-value
+                $subject $concept)
+             $weight $mass)))
       (if (== $old-observations ())
          (let*
             (($_state
-                (forward-store-member-inheritance-state!
+                (forward-store-aggregate-state!
                    $id $old-wsum $old-msum
                    (+ $old-wsum $weight) (+ $old-msum $mass)))
              ($_observation
                 (once
-                   (add-atom &forward_member_inheritance_observation
+                   (add-atom &forward_aggregate_observation
                       $new-observation))))
             ())
          (let $old-observation (car-atom $old-observations)
             (let
-               (ForwardMemberInheritanceObservation
-                  $_old-key $_old-subject $_old-concept
+               (forward-aggregate-observation
+                  $_old-key
+                  (forward-member-inheritance-observation-value
+                     $_old-subject $_old-concept)
                   $old-weight $old-mass)
                $old-observation
                (let*
@@ -780,18 +632,18 @@
                         ()
                         (let*
                            (($_state
-                               (forward-store-member-inheritance-state!
+                               (forward-store-aggregate-state!
                                   $id $old-wsum $old-msum
                                   (+ (- $old-wsum $old-weight) $weight)
                                   (+ (- $old-msum $old-mass) $mass)))
                             ($_old
                                (foreach-flat
-                                  forward-remove-member-inheritance-observation!
+                                  forward-remove-aggregate-observation!
                                   $old-observations))
                             ($_new
                                (once
                                   (add-atom
-                                     &forward_member_inheritance_observation
+                                     &forward_aggregate_observation
                                      $new-observation))))
                            ())))))))))
 
@@ -802,261 +654,312 @@
       (add-atom &forward_member_inheritance_computed
          (forward-member-inheritance-computed-row $id))))
 
-(: forward-update-member-inheritance-interest
-   (-[semidet]-> Term Number KB Term Term Statement (List $none)))
-(= (forward-update-member-inheritance-interest
-      $obj $id $kbid $subj $concept $pattern)
+(: forward-aggregate-sample
+   (-[det]-> Atom ForwardAggregateObservationValue Number Number
+       Atom))
+(: forward-empty-aggregate-sample
+   (-[det]-> Atom Atom))
+
+(: forward-aggregate-sample-for-fact
+   (-[semidet]-> (Statement KBContext Proof TV)
+       ForwardAggregateDescriptor Atom))
+(= (forward-aggregate-sample-for-fact
+      $fact
+      (forward-base-rate-descriptor
+         $_kbid $pattern $_extractor $_init $_fun $_finish))
    (let*
-      (($observation-key
-          (brand ForwardMemberInheritanceObservationKey
-             (quote ($id $obj))))
+      ((($type ($_fact-kbid $_ctx $_vars) $_proof $tv)
+          (copy_term $fact))
+       ($_pattern (let $pattern $type ok))
+       ((BaseRateEvidence $weight $count)
+          (forward-positive-base-rate-contribution $tv)))
+      (forward-aggregate-sample
+         (forward-fact-key $fact)
+         (forward-base-rate-observation-value $fact)
+         $weight $count)))
+(= (forward-aggregate-sample-for-fact
+      $fact
+      (forward-member-inheritance-descriptor
+         $kbid $subj $concept $_pattern))
+   (let*
+      ((((Member $obj $_class) ($_fact-kbid MAIN Nil) $_proof $_tv)
+          (copy_term $fact))
+       ($typed-obj (brand Term $obj))
+       ($subject (forward-member-canonical $kbid $typed-obj $subj))
+       ($consequent
+          (forward-member-canonical $kbid $typed-obj $concept)))
+      (case $subject (
+         ((forward-output-candidate $subject-fact $_subject-ev)
+            (case $consequent (
+               ((forward-output-candidate
+                     $consequent-fact $_consequent-ev)
+                  (let*
+                     ((($_stype $_skb $_sprf $atv) $subject-fact)
+                      (($_ctype $_ckb $_cprf $btv) $consequent-fact)
+                      ((BaseRateEvidence $weight $mass)
+                         (forward-weighted-base-rate-contribution
+                            $atv $btv)))
+                     (forward-aggregate-sample
+                        $typed-obj
+                        (forward-member-inheritance-observation-value
+                           $subject $consequent)
+                        $weight $mass)))
+               (no-forward-output-candidate
+                  (forward-empty-aggregate-sample $typed-obj)))))
+         (no-forward-output-candidate
+            (forward-empty-aggregate-sample $typed-obj))))))
+
+(: forward-store-aggregate-cache!
+   (-[semidet]-> ForwardAggregateMaintenance Number
+       ForwardAggregateDescriptor Number Number (List $none)))
+(= (forward-store-aggregate-cache!
+      $maintenance $_id
+      (forward-base-rate-descriptor
+         $kbid $pattern $extractor $init $fun $finish)
+      $wsum $csum)
+   (if (and (== $maintenance aggregate-remove) (<= $csum 0.0))
+      (base-rate-cache-remove-derived! $kbid $pattern $finish)
+      (let*
+         (($acc
+             (forward-base-rate-accumulator
+                $kbid $extractor $init $fun $wsum $csum))
+          ($estimate
+             (forward-finish-stored-aggregate $finish $acc)))
+         (store-forward-base-rate!
+            $kbid $pattern $estimate $finish))))
+(= (forward-store-aggregate-cache!
+      $_maintenance $id
+      (forward-member-inheritance-descriptor
+         $kbid $_subj $_concept $pattern)
+      $wsum $msum)
+   (if (<= $msum 0.0)
+      (base-rate-cache-remove-derived!
+         $kbid $pattern (member-inheritance $kbid))
+      (forward-store-member-inheritance-cache!
+         $id $kbid $pattern
+         (member-inheritance-tv $kbid
+            (BaseRateEvidence $wsum $msum)))))
+
+(: forward-update-aggregate-interest!
+   (-[semidet]-> (Statement KBContext Proof TV) Number
+       ForwardAggregateDescriptor (List $none)))
+(= (forward-update-aggregate-interest! $fact $id $descriptor)
+   (let*
+      (($cache-descriptor (copy_term $descriptor))
+       ($sample
+          (forward-aggregate-sample-for-fact $fact $descriptor))
+       (($item $value $weight $count $present?)
+          (case $sample (
+             ((forward-aggregate-sample
+                   $item $value $weight $count)
+                (data $item $value $weight $count true))
+             ((forward-empty-aggregate-sample $item)
+                (data $item no-forward-aggregate-observation-value
+                   0.0 0.0 false)))))
+       ($observation-key
+          (brand ForwardAggregateObservationKey
+             (quote ($id $item))))
        ($old-observations
           (collapse
-             (match &forward_member_inheritance_observation
-                (ForwardMemberInheritanceObservation
-                   $observation-key $old-subject $old-concept
-                   $old-weight $old-mass)
-                (ForwardMemberInheritanceObservation
-                   $observation-key $old-subject $old-concept
-                   $old-weight $old-mass))))
-       (($old-weight $old-mass)
+             (match &forward_aggregate_observation
+                (forward-aggregate-observation
+                   $observation-key $old-value
+                   $old-weight $old-count)
+                (forward-aggregate-observation
+                   $observation-key $old-value
+                   $old-weight $old-count))))
+       (($old-weight $old-count)
           (if (== $old-observations ())
              (data 0.0 0.0)
              (let
-                (ForwardMemberInheritanceObservation
-                   $_key $_asubj $_aconcept $old-weight $old-mass)
+                (forward-aggregate-observation
+                   $_key $_value $old-weight $old-count)
                 (car-atom $old-observations)
-                (data $old-weight $old-mass))))
-       ($subject (forward-member-canonical $kbid $obj $subj))
-       ($consequent (forward-member-canonical $kbid $obj $concept))
-       (($weight $mass)
-          (if (or
-                (== $subject no-forward-output-candidate)
-                (== $consequent no-forward-output-candidate))
-             (data 0.0 0.0)
-             (let*
-                (((forward-output-candidate
-                     $subject-fact $_subject-ev)
-                    $subject)
-                 ((forward-output-candidate
-                     $consequent-fact $_consequent-ev)
-                    $consequent)
-                 (($_stype $_skb $_sprf $atv) $subject-fact)
-                 (($_ctype $_ckb $_cprf $btv) $consequent-fact)
-                 ((BaseRateEvidence $joined-weight $joined-mass)
-                    (forward-weighted-base-rate-contribution
-                       $atv $btv)))
-                (data
-                   $joined-weight $joined-mass))))
-       ((forward-member-inheritance-state
-            $_state-id $old-wsum $old-msum)
-          (once
-             (match &forward_member_inheritance_state
-                (forward-member-inheritance-state
-                   $id $stored-wsum $stored-msum)
-                (forward-member-inheritance-state
-                   $id $stored-wsum $stored-msum))))
+                (data $old-weight $old-count))))
+       ((forward-aggregate-state $_stored-id $old-wsum $old-csum)
+          (forward-aggregate-state-by-id $id))
        ($wsum (+ (- $old-wsum $old-weight) $weight))
-       ($msum (+ (- $old-msum $old-mass) $mass))
+       ($csum (+ (- $old-csum $old-count) $count))
        ($_state
-          (forward-store-member-inheritance-state!
-             $id $old-wsum $old-msum $wsum $msum))
+          (forward-store-aggregate-state!
+             $id $old-wsum $old-csum $wsum $csum))
        ($_old
           (foreach-flat
-             forward-remove-member-inheritance-observation!
+             forward-remove-aggregate-observation!
              $old-observations))
        ($_observation
-          (if (or
-                (== $subject no-forward-output-candidate)
-                (== $consequent no-forward-output-candidate))
-             ()
+          (if $present?
              (once
-                (add-atom &forward_member_inheritance_observation
-                   (ForwardMemberInheritanceObservation
-                      $observation-key $subject $consequent
-                      $weight $mass)))))
+                (add-atom &forward_aggregate_observation
+                   (forward-aggregate-observation
+                      $observation-key $value $weight $count)))
+             ()))
        ($_cache
-          (if (<= $msum 0.0)
-             (base-rate-cache-remove-derived!
-                $kbid $pattern (member-inheritance $kbid))
-             (forward-store-member-inheritance-cache!
-                $id $kbid $pattern
-                (member-inheritance-tv $kbid
-                   (BaseRateEvidence $wsum $msum))))))
+          (forward-store-aggregate-cache!
+             aggregate-update $id $cache-descriptor $wsum $csum)))
       ()))
 
-(: forward-update-member-inheritances-for-key
-   (-[det]-> KB Term Term (List $none)))
-(= (forward-update-member-inheritances-for-key $kbid $obj $class)
-   (let $_
-      (collapse
-         (match &forward_member_inheritance_interest
-            (forward-member-inheritance-interest-row
-               $stored-trigger $id $stored-kbid
-               $subj $concept $pattern)
-            (if (and (== $stored-kbid $kbid)
-                     (== $stored-trigger
-                         (quote (fwd_member $kbid $class))))
-               (forward-update-member-inheritance-interest
-                  $obj $id $kbid
-                  $subj $concept (copy_term $pattern))
-               (empty))))
-      ()))
+(: forward-aggregate-observation-item
+   (-[semidet]-> (Statement KBContext Proof TV)
+       ForwardAggregateDescriptor Atom))
+(= (forward-aggregate-observation-item
+      $fact
+      (forward-base-rate-descriptor
+         $_kbid $_pattern $_extractor $_init $_fun $_finish))
+   (forward-fact-key $fact))
+(= (forward-aggregate-observation-item
+      $fact
+      (forward-member-inheritance-descriptor
+         $_kbid $_subj $_concept $_pattern))
+   (let ((Member $obj $_class) ($_fact-kbid MAIN Nil) $_proof $_tv)
+      (copy_term $fact)
+      (brand Term $obj)))
 
-(: forward-remove-member-inheritance-observation!
-   (-[semidet]-> Term Number KB Term Term Statement (List $none)))
-(= (forward-remove-member-inheritance-observation!
-      $obj $id $kbid $subj $concept $pattern)
+(: forward-remove-aggregate-interest!
+   (-[semidet]-> (Statement KBContext Proof TV) Number
+       ForwardAggregateDescriptor (List $none)))
+(= (forward-remove-aggregate-interest! $fact $id $descriptor)
    (let*
-      (($observation-key
-          (brand ForwardMemberInheritanceObservationKey
-             (quote ($id $obj))))
+      (($cache-descriptor (copy_term $descriptor))
+       ($item (forward-aggregate-observation-item $fact $descriptor))
+       ($observation-key
+          (brand ForwardAggregateObservationKey
+             (quote ($id $item))))
        ($old-observations
           (collapse
-             (match &forward_member_inheritance_observation
-                (ForwardMemberInheritanceObservation
-                   $observation-key $old-subject $old-concept
-                   $old-weight $old-mass)
-                (ForwardMemberInheritanceObservation
-                   $observation-key $old-subject $old-concept
-                   $old-weight $old-mass)))))
+             (match &forward_aggregate_observation
+                (forward-aggregate-observation
+                   $observation-key $old-value
+                   $old-weight $old-count)
+                (forward-aggregate-observation
+                   $observation-key $old-value
+                   $old-weight $old-count)))))
       (if (== $old-observations ())
-         ;; Removal invalidation may run after the canonical-change hook has
-         ;; already subtracted this row. Republish the surviving indexed state
-         ;; without touching ordinary base-rate cache behavior.
+         ;; Removal can run twice around canonical refresh. Member folds must
+         ;; republish a surviving computed state; ordinary base rates do not.
+         (case $cache-descriptor (
+            ((forward-member-inheritance-descriptor
+                  $_kbid $_subj $_concept $_pattern)
+               (let
+                  (forward-aggregate-state $_state-id $wsum $csum)
+                  (forward-aggregate-state-by-id $id)
+                  (if (<= $csum 0.0) ()
+                     (forward-store-aggregate-cache!
+                        aggregate-update $id $cache-descriptor
+                        $wsum $csum))))
+            ($_base-rate ())))
          (let*
-            (((forward-member-inheritance-state
-                  $_state-id $wsum $msum)
-               (once
-                  (match &forward_member_inheritance_state
-                     (forward-member-inheritance-state
-                        $id $stored-wsum $stored-msum)
-                     (forward-member-inheritance-state
-                        $id $stored-wsum $stored-msum)))))
-               (if (<= $msum 0.0) ()
-                  (forward-store-member-inheritance-cache!
-                     $id $kbid $pattern
-                     (member-inheritance-tv $kbid
-                        (BaseRateEvidence
-                           $wsum $msum)))))
-         (let*
-            (((ForwardMemberInheritanceObservation
-                  $_key $_subject $_concept $old-weight $old-mass)
+            (((forward-aggregate-observation
+                  $_key $_value $old-weight $old-count)
                 (car-atom $old-observations))
-             ((forward-member-inheritance-state
-                   $_state-id $old-wsum $old-msum)
-                (once
-                   (match &forward_member_inheritance_state
-                      (forward-member-inheritance-state
-                         $id $stored-wsum $stored-msum)
-                      (forward-member-inheritance-state
-                         $id $stored-wsum $stored-msum))))
+             ((forward-aggregate-state
+                   $_state-id $old-wsum $old-csum)
+                (forward-aggregate-state-by-id $id))
              ($wsum (- $old-wsum $old-weight))
-             ($msum (- $old-msum $old-mass))
+             ($csum (- $old-csum $old-count))
              ($_state
-                (forward-store-member-inheritance-state!
-                   $id $old-wsum $old-msum $wsum $msum))
+                (forward-store-aggregate-state!
+                   $id $old-wsum $old-csum $wsum $csum))
              ($_old
                 (foreach-flat
-                   forward-remove-member-inheritance-observation!
+                   forward-remove-aggregate-observation!
                    $old-observations))
              ($_cache
-                (if (<= $msum 0.0)
-                   (base-rate-cache-remove-derived!
-                      $kbid $pattern (member-inheritance $kbid))
-                   (forward-store-member-inheritance-cache!
-                      $id $kbid $pattern
-                      (member-inheritance-tv $kbid
-                         (BaseRateEvidence $wsum $msum)))))
-             ($replacement-pattern
-                (copy_term $pattern)))
-            ;; If another proof still supports the removed side, this replaces
-            ;; the stale observation; with no support it remains absent.
-            (progn
-               (forward-update-member-inheritance-interest
-                  $obj $id $kbid $subj $concept
-                  $replacement-pattern)
-               ())))))
+                (forward-store-aggregate-cache!
+                   aggregate-remove $id $cache-descriptor
+                   $wsum $csum)))
+            ;; A surviving canonical Member proof replaces the removed side;
+            ;; with no support, the joined observation remains absent.
+            (case $cache-descriptor (
+               ((forward-member-inheritance-descriptor
+                     $_kbid $_subj $_concept $_pattern)
+                  (progn
+                     (forward-update-aggregate-interest!
+                        $fact $id $cache-descriptor)
+                     ()))
+               ($_base-rate ())))))))
 
-(: forward-remove-member-inheritances-for-key
-   (-[det]-> KB Term Term (List $none)))
-(= (forward-remove-member-inheritances-for-key $kbid $obj $class)
-   (let $_
-      (collapse
-         (match &forward_member_inheritance_interest
-            (forward-member-inheritance-interest-row
-               $stored-trigger $id $stored-kbid
-               $subj $concept $pattern)
-            (if (and (== $stored-kbid $kbid)
-                     (== $stored-trigger
-                         (quote (fwd_member $kbid $class))))
-               (forward-remove-member-inheritance-observation!
-                  $obj $id $kbid
-                  $subj $concept (copy_term $pattern))
-               (empty))))
-      ()))
+(: forward-maintain-aggregates-for-key!
+   (-[nondet]-> ForwardAggregateMaintenance
+       (Statement KBContext Proof TV) ForwardTriggerKey (List $none)))
+(= (forward-maintain-aggregates-for-key!
+      $maintenance $fact $trigger)
+   (let $trigger-hash (term_hash $trigger)
+      (match &forward_aggregate_interest_by_trigger
+         ($trigger-hash
+            (forward-aggregate-interest
+               $stored-trigger $id $descriptor))
+         (if (== $stored-trigger $trigger)
+            (case $maintenance (
+               (aggregate-update
+                  (forward-update-aggregate-interest!
+                     $fact $id (copy_term $descriptor)))
+               (aggregate-remove
+                  (forward-remove-aggregate-interest!
+                     $fact $id (copy_term $descriptor)))))
+            (empty)))))
 
-(: forward-remove-member-inheritances
-   (-[det]-> (Statement KBContext Proof TV) (List $none)))
-(= (forward-remove-member-inheritances $fact)
-   (forward-remove-member-inheritances-raw $fact))
-
-(: forward-remove-member-inheritances-raw
-   (-[det]-> Atom (List $none)))
-(= (forward-remove-member-inheritances-raw $fact)
+(: forward-maintain-member-aggregates!
+   (-[det]-> ForwardAggregateMaintenance
+       (Statement KBContext Proof TV) (List $none)))
+(= (forward-maintain-member-aggregates! $maintenance $fact)
    (case $fact (
-      (((Member $obj $class) ($kbid MAIN Nil) $_prf $_tv)
-         (let*
-            (($typed-kbid (brand KB $kbid))
-             ($typed-obj (brand Term $obj))
-             ($typed-class (brand Term $class)))
-            (forward-remove-member-inheritances-for-key
-               $typed-kbid $typed-obj $typed-class)))
+      (((Member $_obj $class) ($kbid MAIN Nil) $_proof $_tv)
+         (collapse
+            (forward-maintain-aggregates-for-key!
+               $maintenance $fact
+               (fwd_member
+                  (brand KB $kbid) (brand Term $class)))))
       ($_other ()))))
 
-(: forward-update-member-inheritances
-   (-[det]-> (Statement KBContext Proof TV) (List $none)))
-(= (forward-update-member-inheritances $fact)
-   (forward-update-member-inheritances-raw $fact))
+(: forward-maintain-aggregates!
+   (-[det]-> ForwardAggregateMaintenance
+       (Statement KBContext Proof TV) (List $none)))
+(= (forward-maintain-aggregates! $maintenance $fact)
+   (let*
+      (($trigger (forward-premise-index-key $fact))
+       ($wildcard (forward-premise-wildcard-key $fact))
+       ($_direct
+          (collapse
+             (forward-maintain-aggregates-for-key!
+                $maintenance $fact $trigger)))
+       ($_wildcard
+          (if (== $trigger $wildcard) ()
+             (collapse
+                (forward-maintain-aggregates-for-key!
+                   $maintenance $fact $wildcard))))
+       ($_member
+          (forward-maintain-member-aggregates!
+             $maintenance $fact)))
+      ()))
 
-;; Knowledge insertion already refreshes the canonical fact. If an empty or
-;; populated Member-inheritance subscription exists, update only that affected
-;; object's sufficient statistic. This is bounded cache maintenance, not eager
-;; rule inference and not invalidation of the older approximation.
+;; Knowledge insertion already refreshes the canonical fact. Update only the
+;; affected Member join, not ordinary base-rate folds which remain lazy until
+;; a forward run processes the fact.
 (: forward-apply-unqueued-member-change!
    (-[det]-> ForwardOutputChange (List $none)))
 (= (forward-apply-unqueued-member-change! $change)
    (case $change (
       (no-forward-change ())
       ((forward-output-added $fact)
-         (forward-update-member-inheritances $fact))
+         (forward-maintain-member-aggregates!
+            aggregate-update $fact))
       ((forward-output-replaced $_old $fact)
-         (forward-update-member-inheritances $fact))
+         (forward-maintain-member-aggregates!
+            aggregate-update $fact))
       ((forward-output-removed $_old) ()))))
-
-(: forward-update-member-inheritances-raw
-   (-[det]-> Atom (List $none)))
-(= (forward-update-member-inheritances-raw $fact)
-   (case $fact (
-      (((Member $obj $class) ($kbid MAIN Nil) $_prf $_tv)
-         (let*
-            (($typed-kbid (brand KB $kbid))
-             ($typed-obj (brand Term $obj))
-             ($typed-class (brand Term $class)))
-            (forward-update-member-inheritances-for-key
-               $typed-kbid $typed-obj $typed-class)))
-      ($_other ()))))
 
 (: forward-invalidate-base-rates-for-key!
    (-[nondet]-> (Statement KBContext Proof TV)
       ForwardTriggerKey  (List $none)))
 (= (forward-invalidate-base-rates-for-key! $fact $trigger)
    (let $trigger-hash (term_hash $trigger)
-      (match &forward_base_rate_interest_by_trigger
+      (match &forward_aggregate_interest_by_trigger
          ($trigger-hash
-            (forward-base-rate-interest
-               $stored-trigger $_id $kbid $pattern
-               $_extractor $_init $_fun $finish $_tv-mode))
+            (forward-aggregate-interest
+               $stored-trigger $_id
+               (forward-base-rate-descriptor
+                  $kbid $pattern $_extractor $_init $_fun $finish)))
          (if (== $stored-trigger $trigger)
             (base-rate-cache-remove-derived!
                $kbid (copy_term $pattern) $finish)
@@ -1069,102 +972,8 @@
        ($wildcard (forward-premise-wildcard-key $fact))
        ($_direct
           (collapse (forward-invalidate-base-rates-for-key! $fact $trigger)))
-       ($_wildcard
+      ($_wildcard
           (if (== $trigger $wildcard) ()
              (collapse
                 (forward-invalidate-base-rates-for-key! $fact $wildcard)))))
-      ()))
-
-;; A removed canonical output will never be popped from the agenda, so remove
-;; its sufficient-statistic contribution immediately.  Changed outputs keep
-;; the observation until the replacement is processed; that update subtracts
-;; the old value and adds the new one atomically.
-(: forward-remove-base-rate-observation!
-   (-[semidet]-> (Statement KBContext Proof TV) Number KB Statement
-       (| ExtractTV ExtractInheritanceTV)
-       (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)
-       (-[semidet]-> $accumulator $value $accumulator)
-       (| BaseRateFinish
-          WeightedBaseRateInUniverseFinish
-          WeightedBaseRateWithPriorInUniverseFinish)
-       (List $none)))
-(= (forward-remove-base-rate-observation!
-      $fact $id $kbid $pattern $extractor $init $fun $finish)
-   (let*
-      (($output-key (forward-fact-key $fact))
-       ($observation-key
-          (brand ForwardBaseRateObservationKey
-             (quote ($id $output-key))))
-       ($old-observations
-          (collapse
-             (match &forward_base_rate_observation
-                (ForwardBaseRateObservation
-                   $observation-key $old-fact $old-weight $old-count)
-                (ForwardBaseRateObservation
-                   $observation-key $old-fact $old-weight $old-count)))))
-      (if (== $old-observations ()) ()
-         (let*
-            (((cons
-                  (ForwardBaseRateObservation
-                     $_key $_old-fact $old-weight $old-count)
-                  $_rest)
-                $old-observations)
-             ((forward-base-rate-state
-                  $_stored-id $old-wsum $old-csum)
-                (forward-base-rate-state-by-id $id))
-             ($wsum (- $old-wsum $old-weight))
-             ($csum (- $old-csum $old-count))
-             ($_state
-                (forward-store-base-rate-state!
-                   $id $old-wsum $old-csum $wsum $csum))
-             ($_observations
-                (foreach-flat
-                   forward-remove-base-rate-observation!
-                   $old-observations))
-             ($_cache
-                (if (<= $csum 0.0)
-                   (base-rate-cache-remove-derived! $kbid $pattern $finish)
-                   (let*
-                      (($acc
-                          (forward-base-rate-accumulator
-                             $kbid $extractor $init
-                             $fun $wsum $csum))
-                       ($estimate
-                          (forward-finish-stored-aggregate
-                             $finish $acc)))
-                      (store-forward-base-rate!
-                         $kbid $pattern $estimate $finish)))))
-            ()))))
-
-(: forward-remove-base-rate-observations-for-key!
-   (-[nondet]-> (Statement KBContext Proof TV) ForwardTriggerKey  (List $none)))
-(= (forward-remove-base-rate-observations-for-key! $fact $trigger)
-   (let $trigger-hash (term_hash $trigger)
-      (match &forward_base_rate_interest_by_trigger
-         ($trigger-hash
-            (forward-base-rate-interest
-               $stored-trigger $id $kbid $pattern
-               $extractor $init $fun $finish $_tv-mode))
-         (if (== $stored-trigger $trigger)
-            (forward-remove-base-rate-observation!
-               $fact $id
-               $kbid (copy_term $pattern)
-               $extractor $init $fun $finish)
-            (empty)))))
-
-(: forward-remove-base-rate-observations!
-   (-[det]-> (Statement KBContext Proof TV) (List $none)))
-(= (forward-remove-base-rate-observations! $fact)
-   (let*
-      (($trigger (forward-premise-index-key $fact))
-       ($wildcard (forward-premise-wildcard-key $fact))
-       ($_direct
-          (collapse
-             (forward-remove-base-rate-observations-for-key!
-                $fact $trigger)))
-       ($_wildcard
-          (if (== $trigger $wildcard) ()
-             (collapse
-                (forward-remove-base-rate-observations-for-key!
-                   $fact $wildcard)))))
       ()))

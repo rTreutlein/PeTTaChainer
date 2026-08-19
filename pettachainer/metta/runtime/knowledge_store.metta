@@ -176,12 +176,9 @@
            ($_expected (store-rule-expected-score! $backend $id $rule-args))
            ($_name-idx
               (register-rule-name! $backend $id $typed-ccls))
-           ($_base-rates
-              (if (== $backend live)
-                 (register-forward-base-rate-premises! $rule-args)
-                 ()))
-           ($_member-inheritance
-              (register-forward-member-inheritance-premises! $rule-args)))
+           ($_aggregates
+              (register-forward-aggregate-premises!
+                 (== $backend live) $rule-args)))
          ())
       (progn
          (let $fact
@@ -271,15 +268,12 @@
                 ($_base-rates
                    (invalidate-computed-base-rates!
                       (kb-context-kbid $kb)))
+                ($removed-fact
+                   (assemble-runtime-fact
+                      $type $kb $name (the TV $tv)))
                 ($_member-inheritance
-                   (case (quote ($type $kb $name $tv)) (
-                         (((Member $obj $class)
-                           ($kbid MAIN Nil) $_prf $_tv)
-                         (forward-remove-member-inheritances-for-key
-                            (brand KB $kbid)
-                            (brand Term $obj)
-                            (brand Term $class)))
-                      ($_other ())))))
+                   (forward-maintain-member-aggregates!
+                      aggregate-remove $removed-fact)))
                ())))
       ()))
 

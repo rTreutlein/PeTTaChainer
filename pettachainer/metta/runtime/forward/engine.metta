@@ -49,11 +49,9 @@
          ((no-forward-change
              (forward-agenda-identity $agenda))
           ((forward-output-removed $old)
-             (let*
-                (($_remove-base-rate
-                    (forward-remove-base-rate-observations! $old))
-                 ($_remove-member
-                    (forward-remove-member-inheritances $old)))
+             (let $_remove
+                (forward-maintain-aggregates!
+                   aggregate-remove $old)
                 (forward-agenda-identity $agenda)))
           ((forward-output-added $fact)
              (let $_invalidate
@@ -75,9 +73,8 @@
       (case $change
          ((no-forward-change ())
           ((forward-output-removed $old)
-             (progn
-                (forward-remove-base-rate-observations! $old)
-                (forward-remove-member-inheritances $old)))
+             (forward-maintain-aggregates!
+                aggregate-remove $old))
           ((forward-output-added $fact)
              (forward-invalidate-base-rates! $fact))
           ((forward-output-replaced $old $fact)
@@ -398,8 +395,8 @@
    (-[det]-> Number KB ForwardRun (Statement KBContext Proof TV) ForwardRun))
 (= (forward-step-fact $steps $kb $run $fact)
    (let*
-      (($_base-rates (forward-update-base-rates $fact))
-       ($_member-inheritances (forward-update-member-inheritances $fact))
+      (($_aggregates
+          (forward-maintain-aggregates! aggregate-update $fact))
        ($nrun
           (fold-flat forward-run-apply-derived $run
              (forward-rule-results $steps $kb $fact))))

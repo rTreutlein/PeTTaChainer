@@ -10,9 +10,8 @@
    (-[det]-> KB Term Term (List Number)))
 (= (member-empty-cache-budgets $kb $subj $concept)
    (collapse
-      (match &forward_member_inheritance_identity
-         (forward-member-inheritance-identity-row
-            (fwd_member_identity $kb $subj $concept) $id)
+      (let $id
+         (forward-member-inheritance-id $kb $subj $concept)
          (match &forward_member_inheritance_empty_cache
             (forward-member-inheritance-empty-cache-row $id $budget)
             $budget))))

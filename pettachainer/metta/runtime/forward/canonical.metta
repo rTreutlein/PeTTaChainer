@@ -9,15 +9,6 @@
 
 (: term_hash (-[det]-> $expression Number))
 
-(: ForwardMemberInheritanceIdentityKey Type)
-(: fwd_member_identity
-   (-[det]-> KB Term Term ForwardMemberInheritanceIdentityKey))
-
-(: ForwardMemberInheritanceIdentityRow Type)
-(: forward-member-inheritance-identity-row
-   (-[det]-> ForwardMemberInheritanceIdentityKey Number
-       ForwardMemberInheritanceIdentityRow))
-
 (: ForwardOutputCandidate Type)
 (: forward-output-candidate
    (-[det]-> (Statement KBContext Proof TV)
@@ -69,9 +60,8 @@
        (List Evidence)
        ForwardCanonicalEvidenceRow))
 
-(: ForwardBaseRateInterest Type)
-(: forward-base-rate-interest
-   (-[det]-> ForwardTriggerKey Number KB Statement
+(: forward-base-rate-identity
+   (-[det]-> KB Statement
        (| ExtractTV ExtractInheritanceTV)
        (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)
        (-[semidet]-> $accumulator $value $accumulator)
@@ -79,28 +69,60 @@
           WeightedBaseRateInUniverseFinish
           WeightedBaseRateWithPriorInUniverseFinish)
        AggregateTVMode
-       ForwardBaseRateInterest))
+       ForwardAggregateIdentityKey))
 
-;; Both spaces expose the selective numeric key as their first generated
-;; Prolog argument while preserving the typed interest payload at reads.
-(: &forward_base_rate_interest_by_identity
-   (SpaceOf (Number ForwardBaseRateInterest)))
-(: &forward_base_rate_interest_by_trigger
-   (SpaceOf (Number ForwardBaseRateInterest)))
+(: forward-member-inheritance-identity
+   (-[det]-> KB Term Term ForwardAggregateIdentityKey))
 
-(: ForwardMemberInheritanceInterestRow Type)
-(: forward-member-inheritance-interest-row
-   (-[det]-> ForwardTriggerKey Number KB Term Term Statement
-       ForwardMemberInheritanceInterestRow))
+(: forward-base-rate-descriptor
+   (-[det]-> KB Statement
+       (| ExtractTV ExtractInheritanceTV)
+       (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)
+       (-[semidet]-> $accumulator $value $accumulator)
+       (| BaseRateFinish
+          WeightedBaseRateInUniverseFinish
+          WeightedBaseRateWithPriorInUniverseFinish)
+       ForwardAggregateDescriptor))
 
-(: ForwardBaseRateState Type)
-(: forward-base-rate-state
-   (-[det]-> Number Number Number ForwardBaseRateState))
+(: forward-member-inheritance-descriptor
+   (-[det]-> KB Term Term Statement ForwardAggregateDescriptor))
 
-(: ForwardBaseRateObservationKey (Newtype Atom))
+(: ForwardAggregateIdentityRow Type)
+(: forward-aggregate-identity-row
+   (-[det]-> ForwardAggregateIdentityKey Number
+       ForwardAggregateIdentityRow))
 
-(: ForwardMemberInheritanceObservationKey
-   (Newtype Atom))
+(: ForwardAggregateInterest Type)
+(: forward-aggregate-interest
+   (-[det]-> ForwardTriggerKey Number ForwardAggregateDescriptor
+       ForwardAggregateInterest))
+
+;; Both indexes expose the selective numeric hash as their first generated
+;; Prolog argument.  Complete keys remain in the payload to reject collisions.
+(: &forward_aggregate_identity
+   (SpaceOf (Number ForwardAggregateIdentityRow)))
+(: &forward_aggregate_interest_by_trigger
+   (SpaceOf (Number ForwardAggregateInterest)))
+
+(: ForwardAggregateState Type)
+(: forward-aggregate-state
+   (-[det]-> Number Number Number ForwardAggregateState))
+
+(: ForwardAggregateObservationValue Type)
+(: no-forward-aggregate-observation-value
+   ForwardAggregateObservationValue)
+(: forward-base-rate-observation-value
+   (-[det]-> (Statement KBContext Proof TV)
+       ForwardAggregateObservationValue))
+(: forward-member-inheritance-observation-value
+   (-[det]-> ForwardOutputCandidate ForwardOutputCandidate
+       ForwardAggregateObservationValue))
+
+(: ForwardAggregateObservation Type)
+(: forward-aggregate-observation
+   (-[det]-> ForwardAggregateObservationKey
+       ForwardAggregateObservationValue Number Number
+       ForwardAggregateObservation))
 
 (: ForwardOutputChange Type)
 (: no-forward-change ForwardOutputChange)
