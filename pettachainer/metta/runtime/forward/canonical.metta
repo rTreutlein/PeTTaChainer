@@ -7,8 +7,6 @@
 (: nth0
    (-[nondet]-> $index (List $item) $item (List $item)))
 
-(: term_hash (-[det]-> $expression Number))
-
 (: ForwardOutputCandidate Type)
 (: forward-output-candidate
    (-[det]-> (Statement KBContext Proof TV)

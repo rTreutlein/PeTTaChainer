@@ -10,7 +10,7 @@
       (($compiled-adds
           (compile-member-inheritance-query-adds $kb $subj $concept))
        ($runtime-adds
-          (map-flat compile-internalize-runtime-addition
+          (map-flat internalize-runtime-addition
              (compiled-adds-mm2stmts $compiled-adds))))
       (once (inject-compiled-adds $runtime-adds))))
 

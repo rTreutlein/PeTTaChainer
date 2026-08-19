@@ -45,12 +45,6 @@
                (map-flat materialize-stmt-lambdas (cdr-atom $term))))
          $term))))
 
-(: internalize-runtime-addition
-   (-[det]-> RuntimeAddition RuntimeAddition))
-(= (internalize-runtime-addition $addition)
-   (brand RuntimeAddition
-      (internalize-proof-structure-any $addition)))
-
 (: externalize-compiled-addition
    (-[nondet]-> RuntimeAddition CompiledAddition))
 (= (externalize-compiled-addition $addition)
