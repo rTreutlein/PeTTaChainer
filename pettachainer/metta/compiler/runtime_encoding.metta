@@ -40,9 +40,9 @@
 (= (internalize-proof-structure (: $kb $proof $statement $truth-value))
    (quote ($statement $kb $proof $truth-value)))
 
-(: compile-internalize-runtime-addition
+(: internalize-runtime-addition
    (-[det]-> RuntimeAddition RuntimeAddition))
-(= (compile-internalize-runtime-addition $addition)
+(= (internalize-runtime-addition $addition)
    (brand RuntimeAddition
       (the Expression
          (internalize-proof-structure-any $addition))))
@@ -130,9 +130,7 @@
       (if (is-expr $kb)
          (if (= $kb ($kbid MAIN Nil)) (: $prf $type $tv)
             (let*
-                 (($idx (car-atom (cdr-atom $kb)))
-                 ($vars (car-atom (cdr-atom (cdr-atom $kb))))
-                 ($x
+                 (($x
                     (collapse
                        (match &kb
                           ($t $kb $_proof $_truth-value)

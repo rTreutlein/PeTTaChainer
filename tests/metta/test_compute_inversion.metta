@@ -20,13 +20,14 @@
 ;; A chain is inverted from the conclusion backwards. Each inverse computation
 ;; is followed by the original forward computation as an exact validation.
 !(test
-   (inverse-compute-plan-goals
+   (let (inverse-compute-plan $goals $_known)
       (compile-reversible-compute-plan
          (And
             (A $x)
             (Compute + ($x 1) -> $y)
             (Compute + ($y 1) -> $z))
-         (C $z)))
+         (C $z))
+      $goals)
    ((CPU - ($z 1) $y)
     (CPU + ($y 1) $z)
     (CPU - ($y 1) $x)

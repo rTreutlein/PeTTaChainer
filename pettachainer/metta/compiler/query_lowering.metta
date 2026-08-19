@@ -18,13 +18,14 @@
           (once (if $negative?
                    (lower-query-assumption-premises-negative $kb $ctx $mvars $premises)
                    (lower-query-assumption-premises $kb $ctx $mvars $premises))))
-       ($goal-expr $consequent)
        ($adds
           (union-compiled-additions
              (query-context-premise-adds $kb $ctx $mvars $execs)
-             (collapse (compile-adapter-chain query (: $shape-kb $prf $goal-expr $adapter-tv))))))
+             (collapse
+                (compile-adapter-chain query
+                   (: $shape-kb $prf $consequent $adapter-tv))))))
       (data
-         $shape-kb (brand Proof $prf) $goal-expr $adds)))
+         $shape-kb (brand Proof $prf) $consequent $adds)))
 
 ;; The two sides of a total-implication query share one conclusion $b and differ
 ;; only in polarity. Returns the ground shape-kbs, $b, the fresh pos/neg proof
@@ -116,10 +117,6 @@
        ($neg-lift-adds
           (collect-inheritance-lifts-for-context
              $kb $neg-shape-kb))
-       ($lift-adds
-          (union-compiled-additions
-             (stored-compiled-additions $pos-lift-adds)
-             (stored-compiled-additions $neg-lift-adds)))
        ($known-pos-goal (: $pos-shape-kb $pos-prf $b $induction-tv))
       ($known-neg-goal (: $neg-shape-kb $neg-prf $b $negative-tv))
       ($induction-goal (: (kbctx $kb) (inheritance-query-result
@@ -129,20 +126,33 @@
       ($induction-rule
          (brand CompiledAddition
             ((quote ($known-pos-goal $known-neg-goal)) |- $induction-goal)))
-      ($lift-and-induction-adds
-         (union-compiled-additions
-            (stored-compiled-additions $lift-adds)
-            (cons $induction-rule ())))
-      ($scaffold-adds
-         (union-compiled-additions
-            (stored-compiled-additions $all-adds)
-            (stored-compiled-additions
-               $lift-and-induction-adds)))
       ($query-adds
-         (union-compiled-additions
-            (stored-compiled-additions $member-adds)
-            (stored-compiled-additions $scaffold-adds))))
+         (list_to_set
+            (append-compiled-additions $member-adds
+               (append-compiled-additions $all-adds
+                  (append-compiled-additions $pos-lift-adds
+                     (append-compiled-additions $neg-lift-adds
+                        (cons $induction-rule ()))))))))
       (compilation-plan $goal $query-adds)))
+
+(: implication-query-known-tv-parts
+   (-[semidet]-> TV (STVType STVType CTVType)))
+(= (implication-query-known-tv-parts $tv)
+   (if (is-var $tv)
+      (data
+         (the STVType $pos-tv)
+         (the STVType $neg-tv)
+         (CTV $pos-tv $neg-tv))
+      (case $tv
+         (((CTV $pos-tv $neg-tv)
+             (data $pos-tv $neg-tv (CTV $pos-tv $neg-tv)))
+          ((STV $s $c)
+             (let $neg-tv (the STVType $stv-neg-tv)
+                (data
+                   (STV $s $c)
+                   $neg-tv
+                   (CTV (STV $s $c) $neg-tv))))
+          (no-evidence (empty))))))
 
 ;; Compile a public query into one goal rule plus temporary additions.
 ;; Implication queries require positive and refuting assumption contexts;
@@ -160,10 +170,7 @@
       (if (contains-explicit-exists? $Type) (empty)
       (if (= $Type (Implication $antecedent $consequent))
          (let*
-            (($_syntax-valid
-                (validate-explicit-exists-rule
-                   $antecedent $consequent))
-             ($vars (extract-vars $Type))
+            (($vars (extract-vars $Type))
              ($mvars (query-variables $vars))
              (($pos-shape-kb $neg-shape-kb $b
                   $pos-prf $neg-prf $all-adds)
@@ -237,16 +244,9 @@
 
 (: query-needs-temp-rule? (-[det]-> Statement Bool))
 (= (query-needs-temp-rule? $term)
-   (if (and
-          (is-expr $term)
-          (not (== $term ())))
-      (let $head (car-atom $term)
-         (if (is-var $head)
-            false
-            (if (is-alpha-member $head (And Or LikelierThan))
-               (compound-direct-query-bundle?
-                  (statement-children (cdr-atom $term)))
-               false)))
+   (if (head-is-member? $term (And Or LikelierThan))
+      (compound-direct-query-bundle?
+         (statement-children (cdr-atom $term)))
       false))
 
 (: compound-query-temp-stmt
@@ -321,13 +321,12 @@
    (-[det]-> KB $context $variables Proof Statement TV
        (List CompiledAddition)))
 (= (query-context-premise-assumption-adds $kbid $ctx $mvars $ctxprf $type $tv)
-   (append-compiled-additions
-      (cons
-         (brand CompiledAddition
-            (() |- (: (make-kb-context $kbid $ctx $mvars)
-                       $ctxprf $type $tv)))
-         ())
-      (query-context-assumed-implication-rules $kbid $ctx $mvars $ctxprf $type $tv)))
+   (cons
+      (brand CompiledAddition
+         (() |- (: (make-kb-context $kbid $ctx $mvars)
+                    $ctxprf $type $tv)))
+      (query-context-assumed-implication-rules
+         $kbid $ctx $mvars $ctxprf $type $tv)))
 
 (: query-context-premise-adds-step
    (-[det]-> KB $context $variables
@@ -344,10 +343,11 @@
          (((CPU $_fun $_args $_res) ($idx $adds))
              ((: $_kb $_prf $type $tv)
                 ((+ $idx 1)
-                (append-compiled-additions
-                   (stored-compiled-additions $adds)
-                   (query-context-premise-assumption-adds $kbid $ctx $mvars $ctxprf $type
-                      (default-query-assumption-tv $type $tv)))))
+                 (prepend-reversed-compiled-additions
+                    (query-context-premise-assumption-adds
+                       $kbid $ctx $mvars $ctxprf $type
+                       (default-query-assumption-tv $type $tv))
+                    $adds)))
           ($_other ($idx $adds))))))
 
 (: query-context-premise-adds
@@ -355,6 +355,10 @@
        (List Goal)
        (List CompiledAddition)))
 (= (query-context-premise-adds $kbid $ctx $mvars $premises)
-   (let*
-      (($state (fold-flat (query-context-premise-adds-step $kbid $ctx $mvars) (0 ()) $premises)))
-      (snd $state)))
+   (let $state
+      (fold-flat
+         (query-context-premise-adds-step $kbid $ctx $mvars)
+         (0 ()) $premises)
+      (list_to_set
+         (prepend-reversed-compiled-additions
+            (snd $state) ()))))
