@@ -527,13 +527,28 @@ concentration is not evidence about the reliability of that distribution. The
 source fact and rule TVs continue to carry epistemic confidence through normal
 proof composition.
 
-The particle budget can resample a distribution and thereby introduce numeric
-approximation error. That approximation quality is not represented yet. A
-future representation should carry evidence or approximation-quality metadata
-separately from both particle weights and the existing `ParticleDist` scale
-(which contributes to result strength). This separation is also required if
-particle distributions eventually replace STVs: distribution shape, epistemic
-support, and representation quality must not be conflated.
+The particle budget compresses a distribution and thereby introduces numeric
+approximation error. Structured samples with the same constructor and symbolic
+leaves, such as `(Coefficients 0.8 -0.2)`, opt into geometric condensation.
+The strongest samples become anchors; each weaker overflow sample is merged
+into the compatible anchor with the least weighted Ward loss. Every numeric
+leaf moves to the shared weighted centroid, so the coefficient vector remains
+one joint sample rather than being split into independent marginals. Samples
+with incompatible structure are never merged. If the support cannot be
+condensed geometrically, deterministic systematic resampling is used instead.
+
+Bare numbers retain systematic resampling because the representation does not
+say whether they are continuous values or discrete states such as Bernoulli
+counts. Wrap continuous parameters in a domain constructor to declare their
+geometry. Each model should own its own `ParticleDist`; the model name is not a
+coordinate inside a shared coefficient distribution.
+
+Approximation quality is not represented yet. A future representation should
+carry evidence or approximation-quality metadata separately from both particle
+weights and the existing `ParticleDist` scale (which contributes to result
+strength). This separation is also required if particle distributions
+eventually replace STVs: distribution shape, epistemic support, and
+representation quality must not be conflated.
 
 ## Particle Store Utilities
 

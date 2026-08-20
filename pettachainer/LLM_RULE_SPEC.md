@@ -273,6 +273,12 @@ Avoid encoding numeric values in `STV` strength for measurement semantics.
 (ParticleFromPairs ((x1 w1) (x2 w2) ...))
 ```
 
+When support exceeds `ParticleSetBudget`, a structured numeric sample such as
+`(Coefficients 0.8 -0.2)` is treated as one joint vector and condensed with
+nearby same-shaped samples. Use a separate `ParticleDist` for each model. Bare
+numbers and symbols retain deterministic systematic resampling; wrap continuous
+parameters in a domain constructor to opt into geometric merging.
+
 ## Example: Average Height Rule
 
 ```metta

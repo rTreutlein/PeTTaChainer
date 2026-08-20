@@ -7,11 +7,6 @@
 
 !(import! &self core/types)
 !(import! &self core/logic_config)
-!(import! &self core/formulas/distributions)
-!(import! &self core/formulas/fold_inverse)
-!(import! &self core/formulas/compute_inverse)
-!(import! &self core/formulas/truth_values)
-!(import! &self compiler/compiler)
 
 !(use-module! heaps)
 
@@ -55,20 +50,29 @@
    (if (== $runtime-helper $parent-runtime-helper)
       (import_prolog_functions_from_file
          $runtime-helper
-         (heap_pop query_metrics_enabled query_metrics_set_enabled
+         (heap_pop particle_merge_resample
+            query_metrics_enabled query_metrics_set_enabled
             query_metric_value query_metric_set query_metric_increment
             query_metric_liveness_event))
       (superpose
          ((import_prolog_functions_from_file
              $runtime-helper
-             (heap_pop query_metrics_enabled query_metrics_set_enabled
+             (heap_pop particle_merge_resample
+                query_metrics_enabled query_metrics_set_enabled
                 query_metric_value query_metric_set
                 query_metric_increment query_metric_liveness_event))
           (import_prolog_functions_from_file
              $parent-runtime-helper
-             (heap_pop query_metrics_enabled query_metrics_set_enabled
+             (heap_pop particle_merge_resample
+                query_metrics_enabled query_metrics_set_enabled
                 query_metric_value query_metric_set
                 query_metric_increment query_metric_liveness_event))))))
+
+!(import! &self core/formulas/distributions)
+!(import! &self core/formulas/fold_inverse)
+!(import! &self core/formulas/compute_inverse)
+!(import! &self core/formulas/truth_values)
+!(import! &self compiler/compiler)
 
 !(import! &self runtime/values)
 !(import! &self runtime/scheduling)

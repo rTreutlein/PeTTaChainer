@@ -1,5 +1,9 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
+(: TestCoefficientVector Type)
+(: TestCoefficients
+   (-[det]-> Number Number TestCoefficientVector))
+
 !(test (DistGreaterThanFormula (ParticleFromPairs ((0 0.25) (2 0.75))) 1)
    (STV 0.75 1.0))
 
@@ -136,6 +140,63 @@
 !(test (progn (ParticleSetBudget 128) (ParticleGetBudget)) 128)
 
 !(test (progn (ParticleSetBudget 512) (ParticleGetBudget)) 512)
+
+;; An over-budget vector is absorbed by the compatible retained mode with the
+;; least weighted second-moment loss. The whole coefficient vector moves to
+;; one weighted centroid, so its coordinates remain correlated.
+!(test
+   (let $pairs
+      (progn
+         (ParticleSetBudget 2)
+         (ParticlePairs
+            (ParticleFromPairs
+               (((TestCoefficients 0.8 -0.2) 0.25)
+                ((TestCoefficients 0.6 -0.1) 0.25)
+                ((TestCoefficients 4.0 5.0) 0.5)))))
+      (progn (ParticleSetBudget 512) (ParticleStoreClear) $pairs))
+   (((TestCoefficients 0.7 -0.15000000000000002) 0.5)
+    ((TestCoefficients 4.0 5.0) 0.5)))
+
+;; More than one overflow vector is absorbed independently into its closest
+;; retained mode, rather than flattening the coordinates into marginals.
+!(test
+   (let $pairs
+      (progn
+         (ParticleSetBudget 2)
+         (ParticlePairs
+            (ParticleFromPairs
+               (((TestCoefficients 0.0 0.0) 0.25)
+                ((TestCoefficients 10.0 10.0) 0.25)
+                ((TestCoefficients 2.0 0.0) 0.25)
+                ((TestCoefficients 8.0 10.0) 0.25)))))
+      (progn (ParticleSetBudget 512) (ParticleStoreClear) $pairs))
+   (((TestCoefficients 1.0 0.0) 0.5)
+    ((TestCoefficients 9.0 10.0) 0.5)))
+
+;; Categorical samples have no centroid. They retain the deterministic
+;; systematic fallback when their support exceeds the same budget.
+!(test
+   (let $pairs
+      (progn
+         (ParticleSetBudget 2)
+         (ParticlePairs
+            (ParticleFromPairs
+               ((red 0.2) (green 0.3) (blue 0.5)))))
+      (progn (ParticleSetBudget 512) (ParticleStoreClear) $pairs))
+   ((green 0.5) (blue 0.5)))
+
+;; Bare numbers may denote discrete states, such as a Bernoulli count, so they
+;; also retain systematic resampling. A structured term explicitly supplies
+;; the geometry needed for coefficient coalescing.
+!(test
+   (let $pairs
+      (progn
+         (ParticleSetBudget 2)
+         (ParticlePairs
+            (ParticleFromPairs
+               ((0.0 0.25) (1.0 0.25) (10.0 0.5)))))
+      (progn (ParticleSetBudget 512) (ParticleStoreClear) $pairs))
+   ((0.0 0.5) (10.0 0.5)))
 
 !(test (progn (ParticleFromPairs ((1 0.6) (2 0.4))) (ParticleFromPairs ((3 1.0))) (ParticleStoreCount))
    3)

@@ -13,6 +13,9 @@
 (: ParticleSample Type)
 (: particle (-[det]-> Number Atom Number ParticleSample))
 
+(: particle_merge_resample
+   (-[semidet]-> (List (Atom Number)) Number (List (Atom Number))))
+
 (: clamp01 (-[det]-> Number Number))
 (= (clamp01 $x) (max 0.0 (min 1.0 $x)))
 
@@ -177,6 +180,22 @@
            ($counts (resample-counts $cdf $n 0 ())))
          (scale-dist-pairs $counts (/ 1.0 $n)))))
 
+(: coalesce-pairs-to-budget
+   (-[det]-> (List (Atom Number)) Number (List (Atom Number))))
+(= (coalesce-pairs-to-budget $pairs $budget)
+   (if (<= $budget 0)
+      ()
+      (if (== $pairs ())
+         ()
+         (let ($first $_weight) (car-atom $pairs)
+            (if (is-expr $first)
+               (case
+                  (collapse
+                     (once (particle_merge_resample $pairs $budget)))
+                  ((() (pairs-resample-systematic $pairs $budget))
+                   ((cons $merged ()) $merged)))
+               (pairs-resample-systematic $pairs $budget))))))
+
 (: particle-budget-default (-[det]-> Number))
 (= (particle-budget-default) 512)
 
@@ -200,7 +219,9 @@
    (let*
       (($norm (normalize-pairs $pairs))
         ((Stats $_sum $_sumsq $count) (pairs-stats $norm)))
-      (if (<= $count (particle-budget)) $norm (pairs-resample-systematic $norm (particle-budget)))))
+      (if (<= $count (particle-budget))
+         $norm
+         (coalesce-pairs-to-budget $norm (particle-budget)))))
 
 (: particle-build-dist (-[det]-> Number (List ($value Number)) Distribution))
 (= (particle-build-dist $scale $pairs)
