@@ -21,11 +21,11 @@ from _benchmark_support import load_chainer, write_json
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 POINT_PATTERN = re.compile(
-    r"\(BenchmarkPoint\s+([^\s()]+)\s+([^\s()]+)\)\s+([^\s()]+)"
+    r"\(BenchmarkPoint\s+\(([^()]*)\)\)\s+([^\s()]+)"
 )
 BENCHMARK_DEFINITIONS = """
 (: BenchmarkPointType Type)
-(: BenchmarkPoint (-[det]-> Number Number BenchmarkPointType))
+(: BenchmarkPoint (-[det]-> (List Number) BenchmarkPointType))
 (: BenchmarkParticleStateType Type)
 (: BenchmarkParticleState
    (-[det]-> (List (Atom Number)) Number Number BenchmarkParticleStateType))
@@ -60,37 +60,30 @@ class ParticleMergeBenchmarkError(RuntimeError):
 
 @dataclass(frozen=True)
 class Point:
-    x: float
-    y: float
+    coordinates: tuple[float, ...]
     cluster: int
 
 
-def generate_points(count: int, seed: int) -> list[Point]:
+def generate_points(count: int, seed: int, dimensions: int) -> list[Point]:
     rng = random.Random(seed)
-    centers = ((-4.0, -4.0), (-4.0, 4.0), (4.0, -4.0), (4.0, 4.0))
     points = []
     for index in range(count):
-        cluster = index % len(centers)
-        center_x, center_y = centers[cluster]
+        cluster = index % 4
         points.append(
             Point(
-                rng.gauss(center_x, 0.6),
-                rng.gauss(center_y, 0.6),
+                tuple(
+                    rng.gauss(
+                        4.0
+                        if cluster & (1 << (dimension % 2))
+                        else -4.0,
+                        0.6,
+                    )
+                    for dimension in range(dimensions)
+                ),
                 cluster,
             )
         )
     return points
-
-
-def ordered_points(points: Sequence[Point], order: str, seed: int) -> list[Point]:
-    result = list(points)
-    if order == "clustered":
-        result.sort(key=lambda point: point.cluster)
-    elif order == "shuffled":
-        random.Random(seed + 1).shuffle(result)
-    else:
-        raise ParticleMergeBenchmarkError(f"unknown point order: {order}")
-    return result
 
 
 def metta_number(value: float) -> str:
@@ -98,7 +91,8 @@ def metta_number(value: float) -> str:
 
 
 def point_term(point: Point) -> str:
-    return f"(BenchmarkPoint {metta_number(point.x)} {metta_number(point.y)})"
+    coordinates = " ".join(metta_number(value) for value in point.coordinates)
+    return f"(BenchmarkPoint ({coordinates}))"
 
 
 def incremental_expression(points: Sequence[Point], budget: int) -> str:
@@ -131,81 +125,121 @@ def raw_eval(handler: Any, expression: str) -> list[str]:
     return [str(atom) for atom in result]
 
 
-def parse_particle_pairs(result: Sequence[str]) -> list[tuple[float, float, float]]:
+def parse_particle_pairs(
+    result: Sequence[str], dimensions: int
+) -> list[tuple[tuple[float, ...], float]]:
     if len(result) != 1:
         raise ParticleMergeBenchmarkError(
             f"particle expression returned {len(result)} results, expected one"
         )
     pairs = [
-        (float(match.group(1)), float(match.group(2)), float(match.group(3)))
+        (
+            tuple(float(value) for value in match.group(1).split()),
+            float(match.group(2)),
+        )
         for match in POINT_PATTERN.finditer(result[0])
     ]
     if not pairs:
         raise ParticleMergeBenchmarkError(
             f"could not parse BenchmarkPoint particles from: {result[0]}"
         )
+    if any(len(coordinates) != dimensions for coordinates, _ in pairs):
+        raise ParticleMergeBenchmarkError(
+            f"compressed particles do not have {dimensions} dimensions"
+        )
     return pairs
 
 
 def weighted_moments(
-    pairs: Sequence[tuple[float, float, float]],
-) -> tuple[tuple[float, float], tuple[float, float, float]]:
-    mass = sum(weight for _, _, weight in pairs)
-    mean_x = sum(x * weight for x, _, weight in pairs) / mass
-    mean_y = sum(y * weight for _, y, weight in pairs) / mass
-    covariance_xx = sum(
-        weight * (x - mean_x) ** 2 for x, _, weight in pairs
-    ) / mass
-    covariance_xy = sum(
-        weight * (x - mean_x) * (y - mean_y) for x, y, weight in pairs
-    ) / mass
-    covariance_yy = sum(
-        weight * (y - mean_y) ** 2 for _, y, weight in pairs
-    ) / mass
-    return (mean_x, mean_y), (covariance_xx, covariance_xy, covariance_yy)
+    pairs: Sequence[tuple[tuple[float, ...], float]],
+) -> tuple[tuple[float, ...], tuple[tuple[float, ...], ...]]:
+    mass = sum(weight for _, weight in pairs)
+    dimensions = len(pairs[0][0])
+    mean = tuple(
+        sum(coordinates[index] * weight for coordinates, weight in pairs) / mass
+        for index in range(dimensions)
+    )
+    covariance = tuple(
+        tuple(
+            sum(
+                weight
+                * (coordinates[row] - mean[row])
+                * (coordinates[column] - mean[column])
+                for coordinates, weight in pairs
+            )
+            / mass
+            for column in range(dimensions)
+        )
+        for row in range(dimensions)
+    )
+    return mean, covariance
 
 
 def quality_metrics(
-    source: Sequence[Point], compressed: Sequence[tuple[float, float, float]]
+    source: Sequence[Point],
+    compressed: Sequence[tuple[tuple[float, ...], float]],
 ) -> dict[str, float]:
-    source_pairs = [(point.x, point.y, 1.0 / len(source)) for point in source]
+    source_pairs = [
+        (point.coordinates, 1.0 / len(source)) for point in source
+    ]
     source_mean, source_covariance = weighted_moments(source_pairs)
     output_mean, output_covariance = weighted_moments(compressed)
     mean_error = math.dist(source_mean, output_mean)
     covariance_error = math.sqrt(
-        (source_covariance[0] - output_covariance[0]) ** 2
-        + 2.0 * (source_covariance[1] - output_covariance[1]) ** 2
-        + (source_covariance[2] - output_covariance[2]) ** 2
+        sum(
+            (source_value - output_value) ** 2
+            for source_row, output_row in zip(
+                source_covariance, output_covariance
+            )
+            for source_value, output_value in zip(source_row, output_row)
+        )
     )
     reconstruction_mse = statistics.mean(
-        min((point.x - x) ** 2 + (point.y - y) ** 2 for x, y, _ in compressed)
+        min(
+            sum(
+                (source_value - output_value) ** 2
+                for source_value, output_value in zip(
+                    point.coordinates, coordinates
+                )
+            )
+            for coordinates, _ in compressed
+        )
         for point in source
     )
     return {
         "mean_l2_error": mean_error,
         "covariance_frobenius_error": covariance_error,
         "nearest_reconstruction_mse": reconstruction_mse,
+        "nearest_reconstruction_mse_per_dimension": (
+            reconstruction_mse / len(source[0].coordinates)
+        ),
     }
 
 
-def result_digest(pairs: Sequence[tuple[float, float, float]]) -> str:
+def result_digest(
+    pairs: Sequence[tuple[tuple[float, ...], float]],
+) -> str:
     payload = json.dumps(list(pairs), separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def validate_result(
-    pairs: Sequence[tuple[float, float, float]], budget: int
+    pairs: Sequence[tuple[tuple[float, ...], float]], budget: int
 ) -> None:
     if len(pairs) != budget:
         raise ParticleMergeBenchmarkError(
             f"compressed support is {len(pairs)}, expected {budget}"
         )
-    mass = sum(weight for _, _, weight in pairs)
+    mass = sum(weight for _, weight in pairs)
     if not math.isclose(mass, 1.0, rel_tol=0.0, abs_tol=1e-9):
         raise ParticleMergeBenchmarkError(
             f"compressed particle mass is {mass}, expected 1.0"
         )
-    if not all(math.isfinite(value) for pair in pairs for value in pair):
+    if not all(
+        math.isfinite(value)
+        for coordinates, weight in pairs
+        for value in (*coordinates, weight)
+    ):
         raise ParticleMergeBenchmarkError("compressed particles are not finite")
 
 
@@ -213,13 +247,14 @@ def run_worker(
     *,
     repository: Path,
     mode: str,
-    order: str,
     points_count: int,
     budget: int,
+    dimensions: int,
     seed: int,
 ) -> dict[str, Any]:
     chainer_type = load_chainer(repository, ParticleMergeBenchmarkError)
-    points = ordered_points(generate_points(points_count, seed), order, seed)
+    points = generate_points(points_count, seed, dimensions)
+    random.Random(seed + 1).shuffle(points)
     expression = (
         incremental_expression(points, budget)
         if mode == "incremental"
@@ -232,14 +267,14 @@ def run_worker(
     result = raw_eval(chainer.handler, expression)
     elapsed = time.perf_counter() - started
 
-    pairs = parse_particle_pairs(result)
+    pairs = parse_particle_pairs(result, dimensions)
     validate_result(pairs, budget)
     return {
         "seconds": elapsed,
         "points_per_second": points_count / elapsed,
         "peak_rss_kib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
         "support": len(pairs),
-        "mass": sum(weight for _, _, weight in pairs),
+        "mass": sum(weight for _, weight in pairs),
         "digest": result_digest(pairs),
         "quality": quality_metrics(points, pairs),
     }
@@ -255,13 +290,35 @@ def metric_summary(values: Sequence[float]) -> dict[str, Any]:
     }
 
 
+def repository_metadata(repository: Path) -> dict[str, Any]:
+    return {
+        "path": str(repository),
+        "commit": subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repository,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip(),
+        "dirty": bool(
+            subprocess.run(
+                ["git", "status", "--porcelain=v1"],
+                cwd=repository,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+        ),
+    }
+
+
 def run_fresh_worker(
     *,
     repository: Path,
     mode: str,
-    order: str,
     points_count: int,
     budget: int,
+    dimensions: int,
     seed: int,
 ) -> dict[str, Any]:
     command = [
@@ -272,12 +329,12 @@ def run_fresh_worker(
         str(repository),
         "--mode",
         mode,
-        "--order",
-        order,
         "--points",
         str(points_count),
         "--budget",
         str(budget),
+        "--dimensions",
+        str(dimensions),
         "--seed",
         str(seed),
     ]
@@ -315,148 +372,218 @@ def summarize_workload(runs: Sequence[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def run_benchmark(
+def one_factor_configurations(
+    *,
+    base_points: int,
+    base_budget: int,
+    base_dimensions: int,
+    point_sweep: Sequence[int],
+    budget_sweep: Sequence[int],
+    dimension_sweep: Sequence[int],
+) -> list[dict[str, Any]]:
+    configurations: dict[tuple[int, int, int], dict[str, Any]] = {}
+    for axis, values in (
+        ("points", point_sweep),
+        ("budget", budget_sweep),
+        ("dimensions", dimension_sweep),
+    ):
+        for value in values:
+            config = {
+                "points": base_points,
+                "budget": base_budget,
+                "dimensions": base_dimensions,
+            }
+            config[axis] = value
+            if config["points"] <= config["budget"]:
+                raise ParticleMergeBenchmarkError(
+                    f"scaling configuration requires points > budget: {config}"
+                )
+            if value < 1:
+                raise ParticleMergeBenchmarkError(
+                    f"scaling values must be positive: {axis}={value}"
+                )
+            key = (config["points"], config["budget"], config["dimensions"])
+            entry = configurations.setdefault(key, {**config, "axes": []})
+            entry["axes"].append(axis)
+    return list(configurations.values())
+
+
+def run_scaling_benchmark(
     *,
     repository: Path,
-    points_count: int,
-    budget: int,
+    base_points: int,
+    base_budget: int,
+    base_dimensions: int,
+    point_sweep: Sequence[int],
+    budget_sweep: Sequence[int],
+    dimension_sweep: Sequence[int],
     repetitions: int,
     seed: int,
 ) -> dict[str, Any]:
-    if points_count <= budget:
-        raise ParticleMergeBenchmarkError("points must exceed the particle budget")
-    if budget < 1 or repetitions < 1:
-        raise ParticleMergeBenchmarkError(
-            "budget and repetitions must both be positive"
-        )
-    workloads = (
-        ("incremental_clustered", "incremental", "clustered"),
-        ("incremental_shuffled", "incremental", "shuffled"),
-        ("batch_shuffled_baseline", "batch", "shuffled"),
+    configurations = one_factor_configurations(
+        base_points=base_points,
+        base_budget=base_budget,
+        base_dimensions=base_dimensions,
+        point_sweep=point_sweep,
+        budget_sweep=budget_sweep,
+        dimension_sweep=dimension_sweep,
     )
-    results = {}
-    for name, mode, order in workloads:
-        runs = []
-        for repetition in range(1, repetitions + 1):
-            print(
-                f"[{name}] repetition {repetition}/{repetitions}",
-                file=sys.stderr,
+    results = []
+    for config in configurations:
+        result = dict(config)
+        result["estimated_candidate_coordinate_comparisons"] = (
+            (config["points"] - config["budget"])
+            * config["budget"]
+            * config["dimensions"]
+        )
+        for mode in ("incremental", "batch"):
+            runs = []
+            label = (
+                f"{mode} points={config['points']} budget={config['budget']} "
+                f"dimensions={config['dimensions']}"
             )
-            runs.append(
-                run_fresh_worker(
-                    repository=repository,
-                    mode=mode,
-                    order=order,
-                    points_count=points_count,
-                    budget=budget,
-                    seed=seed,
+            for repetition in range(1, repetitions + 1):
+                print(
+                    f"[{label}] repetition {repetition}/{repetitions}",
+                    file=sys.stderr,
                 )
-            )
-        results[name] = summarize_workload(runs)
+                runs.append(
+                    run_fresh_worker(
+                        repository=repository,
+                        mode=mode,
+                        points_count=config["points"],
+                        budget=config["budget"],
+                        dimensions=config["dimensions"],
+                        seed=seed,
+                    )
+                )
+            result[mode] = summarize_workload(runs)
+        results.append(result)
     return {
-        "repository": {
-            "path": str(repository),
-            "commit": subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                cwd=repository,
-                check=True,
-                capture_output=True,
-                text=True,
-            ).stdout.strip(),
-            "dirty": bool(
-                subprocess.run(
-                    ["git", "status", "--porcelain=v1"],
-                    cwd=repository,
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                ).stdout.strip()
-            ),
-        },
+        "repository": repository_metadata(repository),
         "config": {
-            "points": points_count,
-            "budget": budget,
+            "base_points": base_points,
+            "base_budget": base_budget,
+            "base_dimensions": base_dimensions,
+            "point_sweep": list(point_sweep),
+            "budget_sweep": list(budget_sweep),
+            "dimension_sweep": list(dimension_sweep),
             "repetitions": repetitions,
             "seed": seed,
-            "dimensions": 2,
             "distribution": "four_equal_gaussian_clusters",
+            "order": "shuffled",
         },
-        "workloads": results,
+        "configurations": results,
     }
 
 
-def print_summary(result: dict[str, Any]) -> None:
+def print_scaling_summary(result: dict[str, Any]) -> None:
     print(
-        "workload\tmedian_s\tpoints_per_s\tsupport\tmean_error\t"
-        "cov_error\treconstruction_mse"
+        "axes\tpoints\tbudget\tdimensions\tmode\tmedian_s\tpoints_per_s\t"
+        "ns_per_candidate_coordinate\treconstruction_mse_per_dimension"
     )
-    for name, workload in result["workloads"].items():
-        print(
-            "\t".join(
-                (
-                    name,
-                    f"{workload['seconds']['median']:.6f}",
-                    f"{workload['points_per_second']['median']:.1f}",
-                    str(workload["support"]),
-                    f"{workload['quality']['mean_l2_error']:.6g}",
-                    f"{workload['quality']['covariance_frobenius_error']:.6g}",
-                    f"{workload['quality']['nearest_reconstruction_mse']:.6g}",
+    for config in result["configurations"]:
+        comparisons = config["estimated_candidate_coordinate_comparisons"]
+        for mode in ("incremental", "batch"):
+            workload = config[mode]
+            normalized_ns = workload["seconds"]["median"] * 1e9 / comparisons
+            print(
+                "\t".join(
+                    (
+                        ",".join(config["axes"]),
+                        str(config["points"]),
+                        str(config["budget"]),
+                        str(config["dimensions"]),
+                        mode,
+                        f"{workload['seconds']['median']:.6f}",
+                        f"{workload['points_per_second']['median']:.1f}",
+                        f"{normalized_ns:.3f}",
+                        f"{workload['quality']['nearest_reconstruction_mse_per_dimension']:.6g}",
+                    )
                 )
             )
-        )
+
+
+def positive_int_list(raw: str) -> tuple[int, ...]:
+    try:
+        values = tuple(int(value.strip()) for value in raw.split(","))
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "expected comma-separated integers"
+        ) from error
+    if not values or any(value < 1 for value in values):
+        raise argparse.ArgumentTypeError("all sweep values must be positive")
+    return values
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Benchmark incremental structured-particle merge resampling, with "
-            "one-shot batch compression as a baseline"
+            "Benchmark one-factor scaling of incremental structured-particle "
+            "merge resampling, with batch compression as a baseline"
         )
     )
     parser.add_argument("--repository", type=Path, default=REPO_ROOT)
     parser.add_argument("--points", type=int, default=1024)
     parser.add_argument("--budget", type=int, default=128)
-    parser.add_argument("--repetitions", type=int, default=3)
+    parser.add_argument("--dimensions", type=int, default=2)
+    parser.add_argument("--repetitions", type=int, default=1)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--json-out", type=Path)
+    parser.add_argument(
+        "--point-sweep",
+        type=positive_int_list,
+        default=positive_int_list("256,512,1024,2048,4096"),
+    )
+    parser.add_argument(
+        "--budget-sweep",
+        type=positive_int_list,
+        default=positive_int_list("32,64,128,256"),
+    )
+    parser.add_argument(
+        "--dimension-sweep",
+        type=positive_int_list,
+        default=positive_int_list("1,2,4,8,16"),
+    )
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument(
         "--mode", choices=("incremental", "batch"), help=argparse.SUPPRESS
-    )
-    parser.add_argument(
-        "--order", choices=("clustered", "shuffled"), help=argparse.SUPPRESS
     )
     arguments = parser.parse_args(argv)
     repository = arguments.repository.resolve()
     try:
         if arguments.worker:
-            if arguments.mode is None or arguments.order is None:
-                parser.error("--worker requires --mode and --order")
+            if arguments.mode is None:
+                parser.error("--worker requires --mode")
             print(
                 json.dumps(
                     run_worker(
                         repository=repository,
                         mode=arguments.mode,
-                        order=arguments.order,
                         points_count=arguments.points,
                         budget=arguments.budget,
+                        dimensions=arguments.dimensions,
                         seed=arguments.seed,
                     ),
                     sort_keys=True,
                 )
             )
             return 0
-        result = run_benchmark(
+        result = run_scaling_benchmark(
             repository=repository,
-            points_count=arguments.points,
-            budget=arguments.budget,
+            base_points=arguments.points,
+            base_budget=arguments.budget,
+            base_dimensions=arguments.dimensions,
+            point_sweep=arguments.point_sweep,
+            budget_sweep=arguments.budget_sweep,
+            dimension_sweep=arguments.dimension_sweep,
             repetitions=arguments.repetitions,
             seed=arguments.seed,
         )
     except (ImportError, ParticleMergeBenchmarkError) as error:
         print(f"particle merge benchmark failed: {error}", file=sys.stderr)
         return 2
-    print_summary(result)
+    print_scaling_summary(result)
     if arguments.json_out:
         write_json(arguments.json_out, result)
     return 0

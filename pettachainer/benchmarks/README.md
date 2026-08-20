@@ -4,11 +4,10 @@
 
 `particle_merge_resampling.py` benchmarks the structured-particle merge
 compressor without depending on a finance-specific coefficient representation.
-Its primary workloads insert 1024 arbitrary two-dimensional observations one
-at a time while enforcing a maximum support of 128. Clustered and
-deterministically shuffled insertion orders use the same points, exposing order
-sensitivity as well as throughput. A one-shot shuffled 1024-to-128 compression
-is reported separately as a batch baseline.
+Its primary workload incrementally inserts arbitrary structured numeric
+observations in deterministic shuffled order. It varies observation count,
+maximum support, and dimensionality one axis at a time. One-shot batch
+compression is reported separately as a baseline for every configuration.
 
 Every workload runs in a fresh process and calls the normalized
 `coalesce-pairs-to-budget` core directly. It intentionally excludes
@@ -60,9 +59,18 @@ python pettachainer/benchmarks/particle_vs_nat.py --sizes 100,500,1000 --particl
 
 ```bash
 .venv/bin/python pettachainer/benchmarks/particle_merge_resampling.py \
-  --points 1024 --budget 128 --repetitions 3 \
-  --json-out /tmp/particle-merge-resampling.json
+  --points 1024 --budget 128 --dimensions 2 --repetitions 1 \
+  --point-sweep 256,512,1024,2048,4096 \
+  --budget-sweep 32,64,128,256 \
+  --dimension-sweep 1,2,4,8,16 \
+  --json-out /tmp/particle-merge-scaling.json
 ```
+
+Scaling mode uses shuffled incremental input as the primary workload and a
+shuffled batch compression as its baseline. It varies one axis at a time and
+deduplicates the shared base configuration. Besides raw time and throughput,
+it reports nanoseconds per estimated candidate-coordinate comparison, based on
+`(points - budget) * budget * dimensions`.
 
 ```bash
 .venv/bin/python pettachainer/benchmarks/forward_vs_backward.py --depths 10,25,50 --noise-branching 8 --repeats 3

@@ -30,17 +30,17 @@ finally:
 
 
 class ParticleMergeBenchmarkTests(unittest.TestCase):
-    def test_order_variants_preserve_the_same_generated_points(self) -> None:
-        points = BENCHMARK.generate_points(32, 7)
-        clustered = BENCHMARK.ordered_points(points, "clustered", 7)
-        shuffled = BENCHMARK.ordered_points(points, "shuffled", 7)
+    def test_generation_is_deterministic_and_multidimensional(self) -> None:
+        points = BENCHMARK.generate_points(32, 7, 4)
 
-        self.assertEqual(set(clustered), set(shuffled))
-        self.assertNotEqual(clustered, shuffled)
+        self.assertEqual(points, BENCHMARK.generate_points(32, 7, 4))
+        self.assertTrue(
+            all(len(point.coordinates) == 4 for point in points)
+        )
 
     def test_incremental_expression_uses_distribution_state(self) -> None:
         expression = BENCHMARK.incremental_expression(
-            BENCHMARK.generate_points(4, 3), 2
+            BENCHMARK.generate_points(4, 3, 2), 2
         )
 
         self.assertIn("fold-flat benchmark-particle-add", expression)
@@ -51,20 +51,24 @@ class ParticleMergeBenchmarkTests(unittest.TestCase):
     def test_parse_and_validate_particle_pairs(self) -> None:
         pairs = BENCHMARK.parse_particle_pairs(
             [
-                "(((BenchmarkPoint 1.0 -2.0) 0.25) "
-                "((BenchmarkPoint 3.0 4.0) 0.75))"
-            ]
+                "(((BenchmarkPoint (1.0 -2.0)) 0.25) "
+                "((BenchmarkPoint (3.0 4.0)) 0.75))"
+            ],
+            2,
         )
 
-        self.assertEqual(pairs, [(1.0, -2.0, 0.25), (3.0, 4.0, 0.75)])
+        self.assertEqual(
+            pairs,
+            [((1.0, -2.0), 0.25), ((3.0, 4.0), 0.75)],
+        )
         BENCHMARK.validate_result(pairs, 2)
 
     def test_quality_is_zero_for_an_uncompressed_distribution(self) -> None:
         points = [
-            BENCHMARK.Point(1.0, 2.0, 0),
-            BENCHMARK.Point(3.0, 4.0, 1),
+            BENCHMARK.Point((1.0, 2.0), 0),
+            BENCHMARK.Point((3.0, 4.0), 1),
         ]
-        compressed = [(1.0, 2.0, 0.5), (3.0, 4.0, 0.5)]
+        compressed = [((1.0, 2.0), 0.5), ((3.0, 4.0), 0.5)]
 
         quality = BENCHMARK.quality_metrics(points, compressed)
 
@@ -89,6 +93,29 @@ class ParticleMergeBenchmarkTests(unittest.TestCase):
             "different particle distributions",
         ):
             BENCHMARK.summarize_workload([first, second])
+
+    def test_one_factor_sweeps_share_the_base_configuration(self) -> None:
+        configurations = BENCHMARK.one_factor_configurations(
+            base_points=1024,
+            base_budget=128,
+            base_dimensions=2,
+            point_sweep=(512, 1024),
+            budget_sweep=(64, 128),
+            dimension_sweep=(2, 4),
+        )
+
+        self.assertEqual(len(configurations), 4)
+        base = next(
+            config
+            for config in configurations
+            if (
+                config["points"],
+                config["budget"],
+                config["dimensions"],
+            )
+            == (1024, 128, 2)
+        )
+        self.assertEqual(base["axes"], ["points", "budget", "dimensions"])
 
 
 if __name__ == "__main__":
