@@ -2,6 +2,24 @@
 
 `particle_vs_nat.py` benchmarks direct distribution folding and threshold probability evaluation.
 
+`particle_merge_resampling.py` benchmarks the structured-particle merge
+compressor without depending on a finance-specific coefficient representation.
+Its primary workloads insert 1024 arbitrary two-dimensional observations one
+at a time while enforcing a maximum support of 128. Clustered and
+deterministically shuffled insertion orders use the same points, exposing order
+sensitivity as well as throughput. A one-shot shuffled 1024-to-128 compression
+is reported separately as a batch baseline.
+
+Every workload runs in a fresh process and calls the normalized
+`coalesce-pairs-to-budget` core directly. It intentionally excludes
+`ParticleDist` allocation, particle-store retention, inference, and
+finance-specific terms. Timing also excludes point generation, MeTTa source
+construction, runtime loading, and benchmark-helper definition. The benchmark
+rejects results unless support is exactly the requested budget, mass is
+conserved, values are finite, and repeated runs produce the same final
+particles. It also reports mean error, covariance error, and nearest-centroid
+reconstruction error.
+
 `forward_vs_backward.py` benchmarks a simple unary implication chain with optional distractor branches.
 It reports:
 
@@ -38,6 +56,12 @@ Both modes evaluate:
 
 ```bash
 python pettachainer/benchmarks/particle_vs_nat.py --sizes 100,500,1000 --particle-budgets 128,256,512 --repeats 2
+```
+
+```bash
+.venv/bin/python pettachainer/benchmarks/particle_merge_resampling.py \
+  --points 1024 --budget 128 --repetitions 3 \
+  --json-out /tmp/particle-merge-resampling.json
 ```
 
 ```bash
