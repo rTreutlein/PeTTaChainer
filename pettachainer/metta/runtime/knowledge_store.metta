@@ -189,7 +189,7 @@
                    ($ev (cons (fact-ev $kb $prf $type) ()))
                    ($change
                       (forward-candidate-upsert!
-                         (forward-derived $fact $ev)))
+                         (forward-derived $fact $ev) true))
                    ($_member-cache
                       (forward-apply-unqueued-member-change! $change)))
                   ())

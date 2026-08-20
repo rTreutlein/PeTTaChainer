@@ -4,6 +4,7 @@
    (backward-query-counter-keys)
    (agenda-pushes
     agenda-pops
+    search-aborts
     stale-agenda-entries
     goal-demand-evaluations
     goal-demand-cache-hits
@@ -30,7 +31,7 @@
       (map-flat
          backward-query-metric-value
          (backward-query-counter-keys)))
-   (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
+   (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
 
 ;; Every proof-live? call records one native liveness event. A retired proof is
 ;; still a check, but is neither a cache hit nor a cache miss.

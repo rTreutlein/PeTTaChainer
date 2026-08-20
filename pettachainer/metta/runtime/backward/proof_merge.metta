@@ -628,36 +628,69 @@
             (root-goal-representative-proof-ids $gid)))
       ()))
 
+(: first-proof-id-list (-[det]-> (List Number) (List Number)))
+(= (first-proof-id-list ()) ())
+(= (first-proof-id-list (cons $pid $_rest)) (cons $pid ()))
+
 (: root-goal-results-with-materialization
    (-[semidet]-> Number Bool (List RuntimeResult)))
 (= (root-goal-results-with-materialization $gid $materialize?)
    (let*
-      (($representatives
+      (($materialized-current
+          (let (stored-goal-row
+                  $_stored-gid $_depth $goal $_expanded $_pending)
+             (goal-by-id $gid)
+             (case $goal (
+                (($type $kb $_proof $_tv)
+                   (let $hash
+                      (forward-output-index-hash
+                         (forward-output-key $kb $type))
+                      (collapse
+                         (once
+                            (match &materialized_aggregate_lineage
+                               (materialized-aggregate-lineage-row
+                                  $hash $type $kb $fact $_ev $dependencies)
+                               (if (materialized-dependencies-stale?
+                                      $dependencies)
+                                  (empty)
+                                  (let* (($goal-copy (copy_term $goal))
+                                         ($fact-copy (copy_term $fact)))
+                                     (if (= $goal-copy $fact-copy)
+                                        (materialize-result-atom $fact)
+                                        (empty)))))))))
+                ($_other ())))))
+       ($representatives
          (root-goal-representative-proof-ids $gid))
        ($selected
           (if (== $representatives ())
              (goal-incumbent-proof-ids $gid)
              $representatives))
+       ($committed
+          (if $materialize?
+             (first-proof-id-list $selected)
+             $selected))
        ($current-hits
          (collapse
             (once
                (proof-map-flat-semidet materialize-result-atom
                   (proof-map-flat-semidet proof-output-atom-by-id
-                     $selected)))))
+                     $committed)))))
        ($current
           (if (== $current-hits ()) ()
              (car-atom $current-hits)))
        ($_materialized
           (if $materialize?
              (let $_dependencies
-                (materialize-proof-list-to-kb $selected)
+                (materialize-root-proof-list-to-kb $committed)
                 ())
              ())))
+      (if (not (== $materialized-current ()))
+         $materialized-current
       (if (== $current ())
          (proof-map-flat-semidet materialize-result-atom
             (proof-map-flat-semidet proof-output-atom-by-id
                (goal-incumbent-proof-ids $gid)))
-         $current)))
+         $current))))
 
 (: root-goal-results
    (-[semidet]-> Number (List RuntimeResult)))

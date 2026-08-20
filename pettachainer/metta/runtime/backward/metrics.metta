@@ -32,6 +32,7 @@
 (= (backward-query-counter-keys)
    (agenda-pushes
     agenda-pops
+    search-aborts
     stale-agenda-entries
     goal-demand-evaluations
     goal-demand-cache-hits

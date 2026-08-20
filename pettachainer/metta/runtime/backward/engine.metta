@@ -93,6 +93,7 @@
 
 (: search-claimed-agenda-entry
    (-[nondet]-> Number (Heap AgendaEntry) AgendaEntry SearchState))
+
 (= (search-claimed-agenda-entry $steps $agenda
       (agenda-entry $kind $gid $_token))
    (case $kind (
@@ -352,9 +353,12 @@
                    (search-agenda-heap (+ $steps 1) $agenda0)))))
        ($search-result
           (case $search-hits (
-             (() (let $_abort
-                    (println!
-                       (backward-search-aborted steps $steps))
+             (() (let* (($_metric
+                           (increment-backward-query-metric!
+                              search-aborts))
+                        ($_announcement
+                           (println!
+                              (backward-search-aborted steps $steps))))
                     (data 0 $agenda0)))
              ((cons $found $_rest) $found))))
        (($_steps-left $_agenda1)

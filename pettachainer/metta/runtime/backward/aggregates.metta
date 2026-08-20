@@ -380,13 +380,28 @@
 ;; Cycle rejection must happen before equivalent outputs are merged.  Otherwise
 ;; one recursive proof can make a merged representative look cyclic and hide an
 ;; independent direct proof of the same grounded atom from the aggregate.
+(: aggregate-fold-source-step
+   (-[semidet]-> (List Number) Number (List Number)))
+(= (aggregate-fold-source-step $acc $pid)
+   (case (proof-kind-by-id $pid) (
+      ((leaf ($type $kb $proof $tv))
+         (if
+            (materialized-aggregate-forward-fact?
+               (assemble-stored-runtime-fact $type $kb $proof $tv))
+            $acc
+            (cons $pid $acc)))
+      ($_other (cons $pid $acc)))))
+
 (: aggregate-fold-source-ids
    (-[semidet]-> Number Number (List Number)))
 (= (aggregate-fold-source-ids $agg-gid $child-gid)
-   (proof-output-group-representative-pids $child-gid
-      (proof-output-groups
-         (noncyclic-proof-source-ids
-            $agg-gid (closed-goal) $child-gid))))
+   (let $sources
+      (reverse-number-list
+         (proof-fold-flat-semidet aggregate-fold-source-step ()
+            (noncyclic-proof-source-ids
+               $agg-gid (closed-goal) $child-gid)))
+      (proof-output-group-representative-pids $child-gid
+         (proof-output-groups $sources))))
 
 (: aggregate-final-state
    (-[semidet]-> Number Number
@@ -688,7 +703,9 @@
    (match &kb
       (@ $fact ($type $kb $prf $tv))
       (if (chainer-acyclic-term? $fact)
-         $fact
+         (if (materialized-forward-fact-stale? $fact)
+            (empty)
+            $fact)
          (empty))))
 
 (: expand-direct-goal-step
