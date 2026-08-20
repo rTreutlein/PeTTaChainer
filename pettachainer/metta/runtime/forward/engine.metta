@@ -239,17 +239,19 @@
                ())))))
 
 (: forward-record-inheritance-nodes!
-   (-[det]-> (Statement KBContext Proof TV)
+   (-[det]-> (Statement KBContext Proof TV) Bool
        (| Bool (List $none))))
-(= (forward-record-inheritance-nodes! $fact)
+(= (forward-record-inheritance-nodes! $fact $record-subject?)
    (case $fact (
       (((Inheritance $subj $concept) ($kbid $_ctx $_vars) $_prf $_tv)
          (if (is-var $subj) ()
             (progn
-               (once
-                  (let $row
-                     (make-space-pair $kbid $subj)
-                     (add-space-atom! &inheritance_subject $row)))
+               (if $record-subject?
+                  (once
+                     (let $row
+                        (make-space-pair $kbid $subj)
+                        (add-space-atom! &inheritance_subject $row)))
+                  ())
                (record-inheritance-nodes!
                   $kbid
                   (brand Statement $subj)
@@ -259,14 +261,16 @@
 (: forward-add-frontier-row!
    (-[nondet]-> ForwardOutputKey
       (Statement KBContext Proof TV) (List Evidence)
+      Bool
        (List $none)))
 (= (forward-add-frontier-row!
-      (forward-output-key $kb $type) $fact $ev)
+      (forward-output-key $kb $type) $fact $ev $record-subject?)
    (let*
       (($hash
           (forward-output-index-hash
              (forward-output-key $kb $type)))
-       ($_nodes (forward-record-inheritance-nodes! $fact))
+       ($_nodes
+          (forward-record-inheritance-nodes! $fact $record-subject?))
        ($_frontier
           (chainer-add-atom &forward_frontier
              (forward-frontier-row
@@ -276,9 +280,13 @@
 (: forward-add-first-candidate!
    (-[nondet]-> ForwardOutputKey
       (Statement KBContext Proof TV) (List Evidence)
+      Bool
        ForwardOutputChange))
-(= (forward-add-first-candidate! $output-key $fact $ev)
-   (let $_add (forward-add-frontier-row! $output-key $fact $ev)
+(= (forward-add-first-candidate!
+      $output-key $fact $ev $record-subject?)
+   (let $_add
+      (forward-add-frontier-row!
+         $output-key $fact $ev $record-subject?)
       (forward-store-output-candidate!
          $output-key (forward-output-candidate $fact $ev))))
 
@@ -287,12 +295,16 @@
 (: forward-add-disjoint-candidate!
    (-[nondet]-> ForwardOutputKey
       (Statement KBContext Proof TV) (List Evidence)
+      Bool
       (Statement KBContext Proof TV) (List Evidence)
        ForwardOutputChange))
 (= (forward-add-disjoint-candidate!
-      $output-key $canonical $canonical-ev $fact $ev)
+      $output-key $canonical $canonical-ev
+      $record-subject? $fact $ev)
    (let*
-      (($_add (forward-add-frontier-row! $output-key $fact $ev))
+      (($_add
+          (forward-add-frontier-row!
+             $output-key $fact $ev $record-subject?))
        ($merged-state
           (merge-proof-candidates
              (proof-candidate-pair $canonical $canonical-ev)
@@ -303,20 +315,23 @@
             (fst $merged-state) (snd $merged-state)))))
 
 (: forward-candidate-upsert!
-   (-[nondet]-> ForwardDerived  ForwardOutputChange))
-(= (forward-candidate-upsert! (forward-derived $fact $ev))
+   (-[nondet]-> ForwardDerived Bool ForwardOutputChange))
+(= (forward-candidate-upsert!
+      (forward-derived $fact $ev) $record-subject?)
    (let $output-key (forward-fact-key $fact)
       (if (forward-frontier-has-exact? $output-key $fact $ev) no-forward-change
          (let $canonical-rows
             (collapse (once (forward-output-row-for-fact $fact)))
             (if (== $canonical-rows ())
-               (forward-add-first-candidate! $output-key $fact $ev)
+               (forward-add-first-candidate!
+                  $output-key $fact $ev $record-subject?)
                   (let (forward-output-row
                         $canonical $canonical-ev)
                   (first-forward-output-row $canonical-rows)
                      (if (not (evidence-sets-overlap? $canonical-ev $ev))
                         (forward-add-disjoint-candidate!
-                           $output-key $canonical $canonical-ev $fact $ev)
+                           $output-key $canonical $canonical-ev
+                           $record-subject? $fact $ev)
                         (if (forward-frontier-rejects? $output-key $fact $ev)
                            no-forward-change
                            (let*
@@ -325,7 +340,8 @@
                                       $output-key $fact $ev))
                                ($_add
                                    (forward-add-frontier-row!
-                                      $output-key $fact $ev)))
+                                      $output-key $fact $ev
+                                      $record-subject?)))
                               (forward-refresh-output-key! $output-key))))))))))
 
 (: forward-rule-results-for-key
@@ -374,7 +390,8 @@
 (: forward-run-apply-derived
    (-[det]-> ForwardRun ForwardDerived ForwardRun))
 (= (forward-run-apply-derived ($agenda $changed) $derived)
-   (let $changes (collapse (once (forward-candidate-upsert! $derived)))
+   (let $changes
+      (collapse (once (forward-candidate-upsert! $derived true)))
       (let $change
          (if (== $changes ()) no-forward-change (car-atom $changes))
       (let $nagenda (agenda-push-forward-change $agenda $change)

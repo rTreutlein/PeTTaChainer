@@ -202,6 +202,65 @@ class TestPeTTaChainer(unittest.TestCase):
 
         self.assertEqual(handler.query_many_materialization([], steps=20), [])
 
+    def test_refined_materialization_replaces_zero_budget_incumbent(self):
+        handler = PeTTaChainer()
+        root = (
+            "(: $proof "
+            "(Inheritance (PressureNormal old oxygen-scrubber) "
+            "(SealLeak old oxygen-scrubber)) $tv)"
+        )
+
+        def add_states(rows):
+            statements = []
+            terms = []
+            for name, leak, normal in rows:
+                state_terms = [
+                    f"(Inheritance (State {name}) "
+                    "(EquipmentState old oxygen-scrubber))",
+                    f"(Inheritance (State {name}) "
+                    "(SealLeak old oxygen-scrubber))",
+                    f"(Inheritance (State {name}) "
+                    "(PressureNormal old oxygen-scrubber))",
+                ]
+                statements.extend(
+                    [
+                        f"(: {name}-equipment {state_terms[0]} (STV 1 1))",
+                        f"(: {name}-leak {state_terms[1]} (STV {leak} 1))",
+                        f"(: {name}-normal {state_terms[2]} (STV {normal} 1))",
+                    ]
+                )
+                terms.extend(state_terms)
+            handler.add_atoms_no_check(statements)
+            seeds = handler.select_facts(terms)
+            handler.forward_chain(seeds, steps=2 * len(seeds))
+
+        add_states([("s1", 1, 0), ("s2", 0, 1), ("s3", 0, 1)])
+        original = handler.query_many_materialization([root], steps=100)
+        self.assertEqual(
+            handler.query_many_materialization([root], steps=0), original
+        )
+
+        add_states([("s4", 1, 1)])
+        refined = handler.query_many_materialization([root], steps=100)
+
+        self.assertNotEqual(refined, original)
+        self.assertEqual(len(refined[0]), 1)
+        self.assertEqual(
+            handler.query_many_materialization([root], steps=0), refined
+        )
+
+        handler.set_query_metrics(True)
+        for _ in range(2):
+            handler.handler.process_metta_string(
+                "!(begin-backward-query-metrics!)"
+            )
+            repeated = handler.query_many_materialization([root], steps=100)
+            handler.handler.process_metta_string(
+                "!(end-backward-query-metrics!)"
+            )
+            self.assertEqual(repeated, refined)
+            self.assertEqual(handler._read_query_metrics()["search_aborts"], 0)
+
     def test_completed_proofs_survive_query_search_reset(self):
         handler = PeTTaChainer()
         handler.add_atom("(: durable_a (DurableA) (STV 1.0 0.8))")

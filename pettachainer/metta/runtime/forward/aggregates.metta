@@ -912,6 +912,29 @@
                   (brand KB $kbid) (brand Term $class)))))
       ($_other ()))))
 
+(: forward-bump-member-aggregate-revisions!
+   (-[det]-> KB Term (List $none)))
+(= (forward-bump-member-aggregate-revisions! $kbid $class)
+   (let* (($trigger (fwd_member $kbid $class))
+          ($hash (term_hash $trigger))
+          ($_
+            (collapse
+               (match &forward_aggregate_interest_by_trigger
+                  ($hash
+                     (forward-aggregate-interest
+                        $stored-trigger $_id
+                        (forward-member-inheritance-descriptor
+                           $stored-kbid $_subj $_concept $pattern)))
+                  (if (== $stored-trigger $trigger)
+                     (let $_revision
+                        (bump-aggregate-revision!
+                           (base-rate-aggregate-identity
+                              $stored-kbid $pattern
+                              (member-inheritance $stored-kbid)))
+                        ())
+                     (empty))))))
+      ()))
+
 (: forward-maintain-aggregates!
    (-[det]-> ForwardAggregateMaintenance
        (Statement KBContext Proof TV) (List $none)))

@@ -43,6 +43,12 @@
    (aggregate-identity-key
       (quote (base-rate-aggregate $kbid $pattern $mode))))
 
+(: inheritance-prior-universe-identity
+   (-[det]-> KB AggregateIdentity))
+(= (inheritance-prior-universe-identity $kbid)
+   (aggregate-identity-key
+      (quote (inheritance-prior-universe $kbid))))
+
 (: aggregate-identity-for-cpu
    (-[det]-> Atom $arguments AggregateIdentity))
 (= (aggregate-identity-for-cpu $function $args)
@@ -116,7 +122,10 @@
                    (once
                       (add-atom &aggregate_proof_revision
                          (aggregate-proof-revision-row
-                            $pid $identity $revision)))))
+                            $pid $identity $revision))))
+                ($_universe
+                   (record-aggregate-proof-universe-revision!
+                      $pid $_args)))
             ()))
       ((aggregate (CPU GroupedFoldAllCompiled $_args $_result))
          (let* (($identity
@@ -124,6 +133,26 @@
                       GroupedFoldAllCompiled $_args))
                 ($revision
                    (aggregate-current-revision $identity))
+                ($_row
+                   (once
+                      (add-atom &aggregate_proof_revision
+                         (aggregate-proof-revision-row
+                            $pid $identity $revision))))
+                ($_universe
+                   (record-aggregate-proof-universe-revision!
+                      $pid $_args)))
+            ()))
+      ($_other ()))))
+
+(: record-aggregate-proof-universe-revision!
+   (-[det]-> Number Atom (List $none)))
+(= (record-aggregate-proof-universe-revision! $pid $args)
+   (case (base-rate-aggregate-key $args) (
+      ((base-rate-aggregate-key-value $kbid $_pattern
+          (weighted-base-rate-with-prior-in-universe $_universe-kbid))
+         (let* (($identity
+                   (inheritance-prior-universe-identity $kbid))
+                ($revision (aggregate-current-revision $identity))
                 ($_row
                    (once
                       (add-atom &aggregate_proof_revision
@@ -145,6 +174,21 @@
                   true
                   (empty)))))
       (not (== $hits ()))))
+
+(: aggregate-proof-identity-recorded?
+   (-[det]-> AggregateIdentity Bool))
+(= (aggregate-proof-identity-recorded? $identity)
+   (not
+      (==
+         (collapse
+            (once
+               (match &aggregate_proof_revision
+                  (aggregate-proof-revision-row
+                     $_pid $stored-identity $_revision)
+                  (if (=alpha $stored-identity $identity)
+                     true
+                     (empty)))))
+         ())))
 
 (: aggregate-proof-revision-refined? (-[det]-> Number Bool))
 (= (aggregate-proof-revision-refined? $pid)
