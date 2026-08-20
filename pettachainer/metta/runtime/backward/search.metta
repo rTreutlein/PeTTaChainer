@@ -1,7 +1,24 @@
-;; Backward agenda, demand propagation, and proof-frontier expansion state.
-;; These mechanisms form one recursive search component: scheduling reads
-;; demand while demand changes wake and reschedule existing frontier goals.
-;; The backward heap has one payload shape and one revision protocol.
+;; Backward scheduler spine: the agenda heap loop that decides what runs next.
+;;
+;; This layer constructs and evolves the (Heap AgendaEntry): enqueueing
+;; goals, aggregates, and frontier waiters; waking demand-dirty subtrees;
+;; committing proof candidates and aggregate snapshots; spawning child
+;; frontiers; and pruning the agenda under a size bound. Every function
+;; threads the heap through and returns the next heap. Policy questions are
+;; delegated: entry validity to agenda.metta, priority values to
+;; demand.metta, TV and admissibility to frontier_parts.metta, proof facts
+;; to the proof store.
+;;
+;; It is one file because these functions form one mutually recursive
+;; component — advancing a waiter can spawn a goal whose registration wakes
+;; other goals back into the same heap — and the checker permits mutual
+;; recursion only within a file. The heap has one payload shape and one
+;; revision protocol: an entry records the demand revision and score at
+;; issue time and is revalidated at pop, never edited in the queue.
+;;
+;; This file also owns the query arena registry:
+;; clear-backward-query-state! lists every per-query space; the durable
+;; proof-store spaces are cleared separately.
 (: SearchState
    (Alias (Number (Heap AgendaEntry))))
 

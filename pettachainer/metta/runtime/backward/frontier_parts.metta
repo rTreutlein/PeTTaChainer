@@ -1,3 +1,22 @@
+;; Frontier part algebra: the truth-value and admissibility semantics of a
+;; conjunction frontier, independent of any scheduling order.
+;;
+;; This layer decides what a premise proof contributes to a partially
+;; consumed (And ...) frontier — an independent part, a projection pooled
+;; with other projections of the same source, or a poison value that forces
+;; rejection — and what the folded TV, score, and remaining potential of a
+;; part list are. It also holds the admissibility rules the scheduler
+;; consults before feeding a proof to a frontier: cycle-key conditions (a
+;; recursive proof must not be consumed by its own ancestors), the
+;; shared-evidence allowance for compiler-generated joins, and which proof
+;; representation (raw, merged, parent-conditioned) a bundle requires.
+;;
+;; It is a separate layer because these rules are the logical soundness of
+;; conjunction evidence combination and must hold under any scheduling. The
+;; file owns no spaces and mutates nothing; proof facts reach it only through
+;; proof_store accessors, so the same inputs always yield the same answers.
+;; The part row shapes are declared (for load order) in demand.metta, where
+;; the pooling model is documented alongside them.
 
 (: frontier-part-tv
    (-[semidet]-> (| FrontierPart UnpoolablePart) TV))

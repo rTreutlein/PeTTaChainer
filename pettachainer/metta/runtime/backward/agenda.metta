@@ -1,3 +1,19 @@
+;; Agenda entry ownership: which queued token for a goal is allowed to run.
+;;
+;; This layer owns the goal-agenda-state row stored on each goal row — a
+;; generation counter, the demand revision and score a token was issued at,
+;; and the set of requested lanes — together with the request, claim, clear,
+;; and release operations over it. A heap entry is only a token; this row is
+;; the lock. At pop time an entry runs only if it still owns its lane, its
+;; demand revision is current, and its score matches what was issued;
+;; otherwise it is stale, cancelled, or reissued.
+;;
+;; It exists because the agenda heap cannot be edited in place: goals are
+;; re-enqueued freely and correctness lives entirely in validation at pop.
+;; Concentrating that policy here means the scheduler never reasons about
+;; stale entries itself — claim-goal-agenda-entry! is the sole gate — and
+;; ownership is decided before demand is evaluated, so a dead token can
+;; never mutate the demand cache or revision.
 
 (: goal-agenda-kind-requested-in-state?
    (-[det]-> AgendaKind GoalAgendaState Bool))

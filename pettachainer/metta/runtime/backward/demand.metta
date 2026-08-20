@@ -1,3 +1,26 @@
+;; Demand: how much each backward goal is currently wanted, and by whom.
+;;
+;; This layer owns the waiter registry — the parent goals and aggregates
+;; waiting on a child's proofs — and the demand value derived from it: a list
+;; of per-query-root contributions, merged by maximum within a root and
+;; summed across roots only when a scalar queue priority is requested.
+;; Demand is memoized per goal under a revision counter; a cached value
+;; records the revisions of the goals it depends on, so staleness is a
+;; comparison rather than a recomputation. Goals whose demand inputs changed
+;; get a dirty mark (&goal_demand_wake) for the scheduler to consume.
+;;
+;; It is a separate layer because demand answers "what is this goal worth
+;; right now" as a function of the waiter graph alone. That keeps priority
+;; policy changeable without touching queue mechanics (search.metta), and
+;; gives the scheduler a single staleness protocol: compare a goal's demand
+;; revision against the revision its agenda token was issued at.
+;;
+;; This file loads before the rest of the search component, so it also hosts
+;; the component's shared row types (AndBundle, the FrontierPart family,
+;; FrontierWaiter, AggregateWaiter, the demand cache rows) and two small list
+;; utilities. The frontier-part pooling model is documented at its
+;; declarations below; the algebra over parts lives in frontier_parts.metta.
+
 (: chainer-first-or (-[det]-> $value (List $value) $value))
 (= (chainer-first-or $fallback ()) $fallback)
 (= (chainer-first-or $_fallback (cons $value $_rest)) $value)
