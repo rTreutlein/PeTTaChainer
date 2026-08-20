@@ -700,13 +700,21 @@
          (CPU $fun $args $computed)
          (empty))))
 (= (direct-goal-results-view $steps ($type $kb $prf $tv))
-   (match &kb
-      (@ $fact ($type $kb $prf $tv))
-      (if (chainer-acyclic-term? $fact)
-         (if (materialized-forward-fact-stale? $fact)
-            (empty)
-            $fact)
-         (empty))))
+   (let $no-materialized-lineage?
+      (==
+         (collapse
+            (once
+               (match &materialized_aggregate_lineage $_row true)))
+         ())
+      (match &kb
+         (@ $fact ($type $kb $prf $tv))
+         (if (chainer-acyclic-term? $fact)
+            (if $no-materialized-lineage?
+               $fact
+               (if (materialized-forward-fact-stale? $fact)
+                  (empty)
+                  $fact))
+            (empty)))))
 
 (: expand-direct-goal-step
    (-[semidet]-> Number (| Goal (Statement KBContext Proof TV))

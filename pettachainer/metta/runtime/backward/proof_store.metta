@@ -966,7 +966,7 @@
 (= (materialized-forward-fact-stale? ($type $kb $proof $tv))
    (let $hash
       (forward-output-index-hash (forward-output-key $kb $type))
-      (not
+      (if
          (==
             (collapse
                (once
@@ -977,14 +977,16 @@
                      (if (materialized-dependencies-stale? $dependencies)
                         true
                         (empty)))))
-            ()))))
+            ())
+         false
+         true)))
 
 (: materialized-aggregate-forward-fact?
    (-[det]-> (Statement KBContext Proof TV) Bool))
 (= (materialized-aggregate-forward-fact? ($type $kb $proof $tv))
    (let $hash
       (forward-output-index-hash (forward-output-key $kb $type))
-      (not
+      (if
          (==
             (collapse
                (once
@@ -993,7 +995,9 @@
                         $hash $type $kb
                         ($type $kb $proof $tv) $_ev $_dependencies)
                      true)))
-            ()))))
+            ())
+         false
+         true)))
 
 (: materialized-forward-candidate-upsert!
    (-[nondet]-> (Statement KBContext Proof TV) (List Evidence)
