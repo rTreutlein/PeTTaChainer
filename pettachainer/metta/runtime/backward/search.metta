@@ -29,7 +29,8 @@
    (foreach-flat remove-all-atoms
       (&goal &goal_lookup &goal_waiter &goal_waiter_delivery
        &goal_child &goal_current_confidence
-       &goal_demand_cache &goal_demand_revision &root_goal
+       &goal_demand_cache &goal_demand_revision
+       &goal_demand_wake_visited &root_goal
        &goal_demand_wake
        &aggregate &aggregate_search_budget &aggregate_forward_approx
        &proof_invalidated &proof_live_cache
@@ -302,31 +303,39 @@
 
 (: wake-goal-demand-children-heap
    (-[semidet]-> (Heap AgendaEntry) (List Number)
-       (List Number) (Heap AgendaEntry)))
-(= (wake-goal-demand-children-heap $agenda () $_visited) $agenda)
+       (Heap AgendaEntry)))
+(= (wake-goal-demand-children-heap $agenda ()) $agenda)
 (= (wake-goal-demand-children-heap
-      $agenda (cons $child-gid $rest) $visited)
+      $agenda (cons $child-gid $rest))
    (let $next
       (chainer-first-or $agenda
          (collapse
             (once
                (wake-goal-demand-walk-heap
-                  $agenda $child-gid $visited))))
-      (wake-goal-demand-children-heap $next $rest $visited)))
+                  $agenda $child-gid))))
+      (wake-goal-demand-children-heap $next $rest)))
 
+;; Visited marks live in a space scoped to the whole wake so each goal is
+;; visited once per wake. A path-local visited list re-walks shared
+;; descendants once per distinct path, which is exponential in DAG depth.
 (: wake-goal-demand-walk-heap
    (-[semidet]-> (Heap AgendaEntry) Number
-       (List Number) (Heap AgendaEntry)))
-(= (wake-goal-demand-walk-heap $agenda $gid $visited)
-   (if (stored-list-member? $gid $visited) $agenda
-      (let* (((stored-goal-row
-                   $_stored-gid $_depth $_goal $expanded $_pending)
-                (goal-by-id $gid))
-             ($next-visited (cons $gid $visited)))
-         (if $expanded
-            (wake-goal-demand-children-heap
-               $agenda (goal-demand-child-gids $gid) $next-visited)
-            (schedule-goal-heap $agenda $gid)))))
+       (Heap AgendaEntry)))
+(= (wake-goal-demand-walk-heap $agenda $gid)
+   (let $seen
+      (collapse
+         (once (match &goal_demand_wake_visited ($gid) true)))
+      (if (not (== $seen ())) $agenda
+         (let* (($_mark
+                   (once
+                      (add-atom &goal_demand_wake_visited ($gid))))
+                ((stored-goal-row
+                     $_stored-gid $_depth $_goal $expanded $_pending)
+                   (goal-by-id $gid)))
+            (if $expanded
+               (wake-goal-demand-children-heap
+                  $agenda (goal-demand-child-gids $gid))
+               (schedule-goal-heap $agenda $gid))))))
 
 ;; Most waiter registrations wake only their direct goal.  A goal that has just
 ;; acquired its first live root demand also wakes the already-expanded frontier
@@ -341,11 +350,16 @@
             (match &goal_demand_wake ($gid) true)))
       (if (== $hits ())
          (schedule-goal-heap $agenda $gid)
-         (let $_clear
-            (collapse
-               (match &goal_demand_wake ($gid)
-                  (remove-atom &goal_demand_wake ($gid))))
-            (wake-goal-demand-walk-heap $agenda $gid ())))))
+         (let* (($_clear
+                   (collapse
+                      (match &goal_demand_wake ($gid)
+                         (remove-atom &goal_demand_wake ($gid)))))
+                ($_fresh
+                   (collapse
+                      (match &goal_demand_wake_visited ($vgid)
+                         (remove-atom
+                            &goal_demand_wake_visited ($vgid))))))
+            (wake-goal-demand-walk-heap $agenda $gid)))))
 (: AggregateState Type)
 (: aggregate-state
    (-[det]-> $accumulator (List Evidence) (List Number) AggregateState))
