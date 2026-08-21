@@ -136,9 +136,16 @@ printf 'base:      %s (%s)\n' "$base_ref" "${base_commit:0:12}"
 printf 'candidate: %s\n' "$repo_root"
 printf 'pairs:     %d\n' "$pairs"
 
+# Alternate which side runs first each pair: a fixed order gives the
+# second side a small systematic penalty on short workloads.
 for ((pair = 1; pair <= pairs; pair++)); do
-  run_one base "$pair" "$base_worktree"
-  run_one candidate "$pair" "$repo_root"
+  if (( pair % 2 )); then
+    run_one base "$pair" "$base_worktree"
+    run_one candidate "$pair" "$repo_root"
+  else
+    run_one candidate "$pair" "$repo_root"
+    run_one base "$pair" "$base_worktree"
+  fi
 done
 
 json_files=()
