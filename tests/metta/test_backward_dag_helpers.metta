@@ -637,6 +637,65 @@
        (== $left-gid $right-gid)))
    (true false false true false false))
 
+;; Cycle checks memoize only the top-level empty-seen call. A colliding row
+;; with a different cycle key must be ignored, recursive child checks must not
+;; add their own rows, and ordinary query reset must clear the cache.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($_pidreset (change-state! bwd_pid 0))
+       ($child-gid
+          (ensure-goal-at-depth
+             (test-runtime-fact
+                (CycleMemoChild) (brand Proof $child-proof) $child-tv)
+             1))
+       ($parent-gid
+          (ensure-goal-at-depth
+             (test-runtime-fact
+                (CycleMemoParent) (brand Proof $parent-proof) $parent-tv)
+             0))
+       ($target-gid
+          (ensure-goal-at-depth
+             (test-runtime-fact
+                (CycleMemoTarget) (brand Proof $target-proof) $target-tv)
+             0))
+       ($child-pid
+          (store-proof-candidate $child-gid
+             (leaf-result-candidate
+                (test-runtime-fact
+                   (CycleMemoChild) child-cycle-proof (STV 1.0 0.8))
+                ())))
+       ($parent-pid
+          (store-proof-candidate $parent-gid
+             (aggregate-result-candidate
+                (test-runtime-fact
+                   (CycleMemoParent) parent-cycle-proof (STV 1.0 0.8))
+                () ($child-pid))))
+       ($_collision
+          (add-atom &proof_cycle_cache
+             ($parent-pid $target-gid different-cycle-key true)))
+       ($first
+          (proof-depends-on-goal-seen?
+             $parent-pid $target-gid closed-goal ()))
+       ($second
+          (proof-depends-on-goal-seen?
+             $parent-pid $target-gid closed-goal ()))
+       ($rows-before-clear
+          (collapse
+             (match &proof_cycle_cache
+                ($_cached-pid $_cached-gid $_cached-key $_cached-result)
+                true)))
+       ($_query-clear (clear-backward-query-state!))
+       ($rows-after-clear
+          (collapse
+             (match &proof_cycle_cache
+                ($_cleared-pid $_cleared-gid $_cleared-key $_cleared-result)
+                true))))
+      ($first $second
+       (length $rows-before-clear) (length $rows-after-clear)))
+   (false false 2 0))
+
 !(test
    (let*
       (($_clear (clear-backward-state))

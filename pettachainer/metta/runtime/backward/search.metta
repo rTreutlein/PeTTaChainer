@@ -33,7 +33,7 @@
        &goal_demand_wake_visited &root_goal
        &goal_demand_wake
        &aggregate &aggregate_search_budget &aggregate_forward_approx
-       &proof_invalidated &proof_live_cache
+       &proof_invalidated &proof_live_cache &proof_cycle_cache
        &frontier_path_lookup &frontier_path &frontier_path_child
        &proof_frontier_path &frontier_path_dead)))
 

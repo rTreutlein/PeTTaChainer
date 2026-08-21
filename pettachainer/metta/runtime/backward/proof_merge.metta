@@ -1012,14 +1012,38 @@
       (proof-depends-on-goal-seen?
          $child-pid $gid $cycle-key $seen-pids)))
 
-(= (proof-depends-on-goal-seen? $pid $gid $cycle-key $seen-pids)
+(= (proof-depends-on-goal-seen? $pid $gid $cycle-key ())
+   (let $hits
+      (collapse
+         (once
+            (match &proof_cycle_cache
+               ($pid $gid $stored-key $result)
+               (if (=alpha $stored-key $cycle-key)
+                  $result
+                  (empty)))))
+      (case $hits (
+         (()
+            (let* (($result
+                      (proof-depends-on-goal-seen?
+                         $pid $gid $cycle-key (cons -1 ())))
+                   (($stored-key $stored-result)
+                      (copy_term (quote ($cycle-key $result))))
+                   ($_cache
+                      (once
+                         (add-atom &proof_cycle_cache
+                            ($pid $gid $stored-key $stored-result)))))
+               $result))
+         ((cons $result $_rest) $result)))))
+(= (proof-depends-on-goal-seen?
+      $pid $gid $cycle-key (cons $seen-pid $rest-seen-pids))
+   (let $seen-pids (cons $seen-pid $rest-seen-pids)
    (if (stored-list-member? $pid $seen-pids) false
       (if (cyclic-dependency? $pid $gid $cycle-key) true
          (proof-fold-flat-semidet
             (proof-depends-on-goal-child-step
                $gid $cycle-key (cons $pid $seen-pids))
             false
-            (proof-children-by-id $pid)))))
+            (proof-children-by-id $pid))))))
 
 (: candidate-cycle-key
    (-[semidet]-> Number ProofKind
