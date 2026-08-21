@@ -399,6 +399,12 @@
              $agenda1 $gid agenda-aggregate))
        (($_priority $entry $_rest) (heap_pop $agenda2))
        ($disposition (claim-goal-agenda-entry! $entry))
+       ((stored-goal-row
+            $_claimed-gid $_claimed-depth $_claimed-goal $_claimed-expanded
+            (goal-agenda-state
+               $claimed-generation $claimed-revision $claimed-score
+               $claimed-lanes))
+          (goal-by-id $gid))
        ($retokened
           (retoken-goal-agenda-entry-heap
              (empty_heap) $entry))
@@ -411,10 +417,12 @@
                $_requested-lanes))
           (goal-by-id $gid)))
       ((heap_size $agenda2) $disposition
+       $claimed-generation $claimed-revision $claimed-score
+       (stored-list-member? agenda-aggregate $claimed-lanes)
        (heap_size $retokened)
        $generation $issued-revision $issued-score
        (agenda-entry-current? $new-entry)))
-   (1 agenda-retoken 1 1 1 0.2 true))
+   (1 agenda-retoken 1 1 0.2 true 1 1 1 0.2 true))
 
 ;; A revision-only change with the same score claims in place.  It refreshes
 ;; the state's issued revision, clears the lane, and leaves no replacement

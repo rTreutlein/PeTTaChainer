@@ -207,7 +207,17 @@
                $next-state)
             agenda-cancelled)
          (if (not (== $current-score $issued-score))
-            agenda-retoken
+            (let $_refresh
+               (set-goal-agenda-state!
+                  (stored-goal-row
+                     $gid $depth $goal $expanded
+                     (goal-agenda-state
+                        $generation $issued-revision $issued-score
+                        $requested-lanes))
+                  (goal-agenda-state
+                     $generation $current-revision $current-score
+                     $requested-lanes))
+               agenda-retoken)
             (let $_clear
                (set-goal-agenda-state!
                   (stored-goal-row
