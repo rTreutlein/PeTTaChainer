@@ -389,15 +389,6 @@
 ;; original consequence. The rule keeps the source implication's evidence
 ;; identity but uses joint base rates rather than composing whole-H inversion
 ;; with an And projection.
-(: antecedent-completion-variables-known?
-   (-[det]-> Atom Atom Bool))
-(= (antecedent-completion-variables-known? $missing $known)
-   (==
-      (\==
-         (list_to_set (extract-vars $missing))
-         (list_to_set (extract-vars $known)))
-      ()))
-
 (: antecedent-completion-rule-info
    (-[det]-> KB Statement Statement TV
        ((List Goal) $base-truth-value CTVType)))
@@ -432,7 +423,11 @@
       $kb $ctx $vars $shape-kb $prf $tv
       $full $consequent $missing $known $idx)
    (if
-      (antecedent-completion-variables-known? $missing $known)
+      (==
+         (\==
+            (list_to_set (extract-vars $missing))
+            (list_to_set (extract-vars $known)))
+         ())
       (let*
          ((($known-execs $known-proofs $known-witness-tv)
              (once
@@ -510,10 +505,6 @@
    (-[nondet]-> KB $context $variables KBContext Proof TV
        Statement Statement (List Statement) Number (List Statement)
        CompiledAddition))
-(= (compile-antecedent-completion-children
-      $_kb $_ctx $_vars $_shape-kb $_prf $_tv
-      $_full $_consequent $_children $_idx ())
-   (empty))
 (= (compile-antecedent-completion-children
       $kb $ctx $vars $shape-kb $prf $tv
       $full $consequent $children $idx (cons $missing $rest))
