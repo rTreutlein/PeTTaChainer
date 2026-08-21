@@ -410,7 +410,7 @@
 !(test
    (cached-base-rate
       forwardInheritanceBaseRateKb (Inheritance $x Bird))
-   ((STV 0.9333333333333333 0.9090909090909091)))
+   ((STV 0.33408249053148537 0.5002810918858142)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)
@@ -430,7 +430,7 @@
              ((inverted (inheritance-implication penguinBird) with cpu cpu)
                 (by (inheritance-implication ravenBird) (ctx proof 1)))))
       (Inheritance Raven Penguin)
-      (STV 0.3571428571428571 0.4727586120223953)))
+      (STV 0.9977575682073004 1.0e-06)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)

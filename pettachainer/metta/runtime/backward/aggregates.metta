@@ -43,7 +43,7 @@
       (base-rate
          (BaseRateTv (base-rate-evidence-acc $acc)))
       (weighted-base-rate
-         (WeightedBaseRateTv (base-rate-evidence-acc $acc)))
+         (WeightedCountBaseRateTv (base-rate-evidence-acc $acc)))
       (weighted-base-rate-with-prior
          (WeightedBaseRateWithPriorTv
             (base-rate-evidence-with-prior-acc $acc)))
@@ -55,7 +55,7 @@
             (let $universe-size
                (kb-universe-size $kbid)
                (if (== $universe-size no-universe-size)
-                  (WeightedBaseRateTv $ev)
+                  (WeightedCountBaseRateTv $ev)
                   (WeightedUniverseBaseRateTv
                      (available-universe-size $universe-size) $ev)))))
       ((weighted-base-rate-with-prior-in-universe $kbid)
@@ -66,7 +66,7 @@
                (BaseRateWithPriorFormula
                   (resolve-base-rate-prior $prior)
                   (if (== $universe-size no-universe-size)
-                     (WeightedBaseRateTv $ev)
+                     (WeightedCountBaseRateTv $ev)
                      (WeightedUniverseBaseRateTv
                         (available-universe-size $universe-size) $ev))))))
       (uniform-prior

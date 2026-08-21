@@ -1,5 +1,13 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
+;; With no configured universe, one full-weight observation carries one unit
+;; of evidence: confidence is 1 / (1 + 800), never min(1, 1).
+!(test
+   (finish-aggregate
+      (weighted-base-rate-in-universe fallbackCalibrationKb)
+      (BaseRateEvidence 1.0 1.0))
+   (STV 1.0 0.0012484394506866417))
+
 !(compileadd brKb (: r (Implication (P $x) (Q $x)) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 
 !(compileadd brKb (: qa (Q alice) (STV 0.9 0.8)))

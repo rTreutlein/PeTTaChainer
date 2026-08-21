@@ -190,11 +190,6 @@
 (= (WeightedBaseRateAcc $acc (WeightedTv $mass-tv (CTV $pos $_neg)))
    (WeightedBaseRateAcc $acc (WeightedTv $mass-tv $pos)))
 (= (WeightedBaseRateAcc $acc no-evidence) $acc)
-(: WeightedBaseRateTv
-   (-[det]-> BaseRateEvidenceState OptionalSTV))
-(= (WeightedBaseRateTv (BaseRateEvidence $wsum $msum))
-   (if (<= $msum 0.0) no-evidence
-      (STV (/ $wsum $msum) (min 1.0 $msum))))
 (: WeightedCountBaseRateTv
    (-[det]-> BaseRateEvidenceState OptionalSTV))
 (= (WeightedCountBaseRateTv (BaseRateEvidence $wsum $msum))

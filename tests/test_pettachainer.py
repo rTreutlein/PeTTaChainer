@@ -210,7 +210,7 @@ class TestPeTTaChainer(unittest.TestCase):
             "(SealLeak old oxygen-scrubber)) $tv)"
         )
 
-        def add_states(rows):
+        def add_states(target, rows):
             statements = []
             terms = []
             for name, leak, normal in rows:
@@ -230,21 +230,31 @@ class TestPeTTaChainer(unittest.TestCase):
                     ]
                 )
                 terms.extend(state_terms)
-            handler.add_atoms_no_check(statements)
-            seeds = handler.select_facts(terms)
-            handler.forward_chain(seeds, steps=2 * len(seeds))
+            target.add_atoms_no_check(statements)
+            seeds = target.select_facts(terms)
+            target.forward_chain(seeds, steps=2 * len(seeds))
 
-        add_states([("s1", 1, 0), ("s2", 0, 1), ("s3", 0, 1)])
+        initial_states = [("s1", 1, 0), ("s2", 0, 1), ("s3", 0, 1)]
+        added_states = [("s4", 1, 1)]
+        add_states(handler, initial_states)
         original = handler.query_many_materialization([root], steps=100)
         self.assertEqual(
             handler.query_many_materialization([root], steps=0), original
         )
 
-        add_states([("s4", 1, 1)])
+        add_states(handler, added_states)
         refined = handler.query_many_materialization([root], steps=100)
+
+        fresh = PeTTaChainer()
+        add_states(fresh, initial_states + added_states)
+        fresh_result = fresh.query_many_materialization([root], steps=100)
+        fixed_point = "(STV 0.47191878015453864 3.999988000035998e-06)"
 
         self.assertNotEqual(refined, original)
         self.assertEqual(len(refined[0]), 1)
+        self.assertEqual(len(fresh_result[0]), 1)
+        self.assertIn(fixed_point, refined[0][0])
+        self.assertIn(fixed_point, fresh_result[0][0])
         self.assertEqual(
             handler.query_many_materialization([root], steps=0), refined
         )

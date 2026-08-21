@@ -51,4 +51,4 @@
                        (foldall-proof rv1RavenObserved rv2RavenObserved))
                      (ctx proof 1))))))
       (Inheritance raven (IntSet black))
-      (STV 0.36411477909368595 0.642069567846394))))
+      (STV 0.4334414252610257 0.5239947002519733))))

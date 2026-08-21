@@ -22,7 +22,7 @@
                (by (inheritance-implication bInheritsD) (by (inheritance-implication aInheritsB) (ctx proof 1)))
                (by (inheritance-implication cInheritsD) (by (inheritance-implication aInheritsC) (ctx proof 1))))))
       (Inheritance A D)
-      (STV 0.49999983333327785 0.22475956376843811))))
+      (STV 0.4996671101868611 0.0022730948685900365))))
 
 
 

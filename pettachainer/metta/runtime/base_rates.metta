@@ -584,7 +584,7 @@
       (BaseRateEvidenceWithPrior $prior $ev))
    (BaseRateWithPriorFormula
       (resolve-base-rate-prior $prior)
-      (WeightedBaseRateTv $ev)))
+      (WeightedCountBaseRateTv $ev)))
 
 (: member-inheritance-tv
    (-[det]-> KB BaseRateEvidenceState OptionalSTV))

@@ -335,7 +335,7 @@
    (let $ev (BaseRateEvidence $wsum $msum)
       (let $universe-size (kb-universe-size $kbid)
          (if (== $universe-size no-universe-size)
-            (WeightedBaseRateTv $ev)
+            (WeightedCountBaseRateTv $ev)
             (WeightedUniverseBaseRateTv
                (the Number $universe-size) $ev)))))
 (= (forward-finish-aggregate
@@ -346,7 +346,7 @@
          (resolve-base-rate-prior
             $prior)
          (if (== $universe-size no-universe-size)
-            (WeightedBaseRateTv $ev)
+            (WeightedCountBaseRateTv $ev)
             (WeightedUniverseBaseRateTv
                (the Number $universe-size) $ev)))))
 

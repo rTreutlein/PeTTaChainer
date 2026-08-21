@@ -43,7 +43,7 @@
                               (foldall-proof ravenBird penguinBird))
                         (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1)))))))))
       (Inheritance Sam (IntSet flies))
-      (STV 0.9636833710183946 0.9020118546940846))))
+      (STV 0.978660812909457 0.6432519164525251))))
 
 !(test
    (collapse
@@ -53,17 +53,17 @@
       (inheritance-implication-fold
          (total-implication
             (merge/revision
-               (by (inheritance-implication birdFlies) (by (inheritance-implication penguinBird) (by (inheritance-implication pinguPenguin) (ctx proof 2))))
                (negated
                   (by penguinsDoNotFly
-                     (by (inheritance-implication pinguPenguin) (ctx proof 2)))))
+                     (by (inheritance-implication pinguPenguin) (ctx proof 2))))
+               (by (inheritance-implication birdFlies) (by (inheritance-implication penguinBird) (by (inheritance-implication pinguPenguin) (ctx proof 2)))))
             (merge/revision
                (by (inheritance-implication birdFlies) (by (inheritance-implication penguinBird) (by (inheritance-implication pinguPenguin) (ctx proof 3))))
                (negated
                   (by penguinsDoNotFly
                      (by (inheritance-implication pinguPenguin) (ctx proof 3)))))))
       (Inheritance Pingu (IntSet flies))
-      (STV 0.49640488254907433 0.9475028689002895))))
+      (STV 0.17169145424651658 0.9152685522975222))))
 
 !(test
    (collapse
@@ -73,14 +73,14 @@
       (inheritance-implication-fold
          (total-implication
             (merge/revision
-               (by (inheritance-implication birdFlies) (by (inheritance-implication penguinBird) (by (inheritance-implication pinguPenguin) (ctx proof 4))))
                (negated
                   (by penguinsDoNotFly
-                     (by (inheritance-implication pinguPenguin) (ctx proof 4)))))
+                     (by (inheritance-implication pinguPenguin) (ctx proof 4))))
+               (by (inheritance-implication birdFlies) (by (inheritance-implication penguinBird) (by (inheritance-implication pinguPenguin) (ctx proof 4)))))
             (merge/revision
                (by (inheritance-implication birdFlies) (by (inheritance-implication penguinBird) (by (inheritance-implication pinguPenguin) (ctx proof 5))))
                (negated
                   (by penguinsDoNotFly
                      (by (inheritance-implication pinguPenguin) (ctx proof 5)))))))
       (Inheritance Pingu (IntSet flies))
-      (STV 0.49640488254968673 0.9475028689003524))))
+      (STV 0.17169145424651658 0.9152685522975222))))

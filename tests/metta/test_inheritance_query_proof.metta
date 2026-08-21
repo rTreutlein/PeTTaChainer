@@ -15,4 +15,4 @@
 !(test (map-flat inheritance-query-result-tv
       (collapse (query 80 inheritanceQueryKb
          (: $prf (Inheritance Bird Flier) $tv))))
-   ((STV 0.9999999166665949 0.000833816330227536)))
+   ((STV 0.9993340727181494 1.9999980000019997e-06)))
