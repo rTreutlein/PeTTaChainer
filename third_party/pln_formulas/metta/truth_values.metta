@@ -320,6 +320,75 @@
             (STV $s_neg (ideal-conf-from-var $s_neg (ideal-ratio-var (- 1.0 $sb_a) $Va $sa $Vsa (- 1.0 $sb) $Vsb)))))
          (empty))))
 
+;; Complete one missing implication antecedent directly. For
+;;
+;;   (Implication (And O M) C)
+;;
+;; the completed rule is (Implication (And O C) M). Its positive branch is
+;; P(M|O,C) = P(C|O,M) P(O,M) / P(O,C). The negative branch follows from the
+;; same joint P(M,O,C): P(M|not(O,C)) = (P(M)-P(M,O,C))/(1-P(O,C)). This is
+;; ordinary inversion when O is empty, but retaining O in both base-rate
+;; patterns avoids the independence approximation introduced by inverting the
+;; complete conjunction and projecting it afterwards.
+(: ideal-antecedent-completion-neg-var
+   (-[det]-> Number Number Number Number Number Number Number Number Number))
+(= (ideal-antecedent-completion-neg-var
+      $sm $Vm $sc_h $Vc_h $sh $Vh $sk $Vk)
+   (let*
+      (($den (- 1.0 $sk))
+       ($joint (* $sc_h $sh))
+       ($d-m (/ 1.0 $den))
+       ($d-c_h (/ (- 0.0 $sh) $den))
+       ($d-h (/ (- 0.0 $sc_h) $den))
+       ($d-k (/ (- $sm $joint) (* $den $den))))
+      (+ (* (* $d-m $d-m) $Vm)
+         (+ (* (* $d-c_h $d-c_h) $Vc_h)
+            (+ (* (* $d-h $d-h) $Vh)
+               (* (* $d-k $d-k) $Vk))))))
+
+(: CTVAntecedentCompletionFormula
+   (-[semidet]-> TV TV TV TV TV))
+(= (CTVAntecedentCompletionFormula
+      no-evidence $_full-tv $_known-tv $_rule-ctv)
+   (empty))
+(= (CTVAntecedentCompletionFormula
+      (STV $_sm $_cm) no-evidence $_known-tv $_rule-ctv)
+   (empty))
+(= (CTVAntecedentCompletionFormula
+      (STV $_sm $_cm) (STV $_sh $_ch) no-evidence $_rule-ctv)
+   (empty))
+(= (CTVAntecedentCompletionFormula
+      (STV $sm $cm)
+      (STV $sh $ch)
+      (STV $sk $ck)
+      (CTV (STV $sc_h $cc_h) (STV $_sc_nh $_cc_nh)))
+   (if (or (<= $sk 0.0) (>= $sk 1.0))
+      (CTV (STV 0.0 0.0) (STV 0.0 0.0))
+      (let $joint (* $sc_h $sh)
+         (if
+            (and
+               (<= (max 0.0 (- (+ $sm $sk) 1.0)) $joint)
+               (<= $joint (min $sm $sk)))
+            (let*
+               (($Vm (ideal-var $sm $cm))
+                ($Vc_h (ideal-var $sc_h $cc_h))
+                ($Vh (ideal-var $sh $ch))
+                ($Vk (ideal-var $sk $ck))
+                ($s-pos (min 1.0 (/ $joint $sk)))
+                ($s-neg
+                   (min 1.0 (/ (- $sm $joint) (- 1.0 $sk)))))
+               (CTV
+                  (STV $s-pos
+                     (ideal-conf-from-var $s-pos
+                        (ideal-ratio-var
+                           $sc_h $Vc_h $sh $Vh $sk $Vk)))
+                  (STV $s-neg
+                     (ideal-conf-from-var $s-neg
+                        (ideal-antecedent-completion-neg-var
+                           $sm $Vm $sc_h $Vc_h $sh $Vh
+                           $sk $Vk)))))
+            (empty)))))
+
 (: Equal (-[det]-> $a $b Bool))
 (= (Equal $a $b) (== $a $b))
 

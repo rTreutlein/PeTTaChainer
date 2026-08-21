@@ -14,8 +14,8 @@
 ;; lowers through a TV-formula CPU, but an inverse rule can still derive the
 ;; complete disjunction and let its ordinary projection adapters recover one
 ;; child. Actual source computations remain restricted to the explicitly
-;; reversible subset. Multi-premise And retains its existing forward-only
-;; behavior unless it contains a supported reversible Compute.
+;; reversible subset. Pure And and Or antecedents can be inverted as complete
+;; compounds; And additionally receives direct antecedent-completion rules.
 (: SourceComputeGoals Type)
 (: source-computes
    (-[det]-> (List Goal) SourceComputeGoals))
@@ -151,7 +151,7 @@
          (implication-side-conjuncts $antecedent))
       (((source-computes $compute-goals)
           (if (== $compute-goals ())
-             (if (head-is? $antecedent Or)
+             (if (head-is-member? $antecedent (And Or))
                 (inverse-compute-plan
                    () (list_to_set (extract-vars $consequent)))
                 no-compute-inverse)
@@ -383,6 +383,141 @@
          (: (make-kb-context $kb $ctx $vars)
               ((inverted $prf with cpu cpu) $prfb_wit)
               $a $mp-tv))))
+
+;; For every child M of a pure conjunction H, compile the direct probabilistic
+;; completion (And O C) -> M, where O contains H's other children and C is the
+;; original consequence. The rule keeps the source implication's evidence
+;; identity but uses joint base rates rather than composing whole-H inversion
+;; with an And projection.
+(: antecedent-completion-variables-known?
+   (-[det]-> Atom Atom Bool))
+(= (antecedent-completion-variables-known? $missing $known)
+   (==
+      (\==
+         (list_to_set (extract-vars $missing))
+         (list_to_set (extract-vars $known)))
+      ()))
+
+(: antecedent-completion-rule-info
+   (-[nondet]-> KB Proof Statement Statement TV Number
+       ((List Goal) $base-truth-value CTVType Proof)))
+(= (antecedent-completion-rule-info
+      $kb $prf $full-pattern $_consequent-pattern
+      (CTV $pos $neg) $idx)
+   (let $full-base-rate
+      (base-rate-premise
+         $kb $full-pattern $full-base-tv)
+      (data
+         (cons $full-base-rate ())
+         $full-base-tv
+         (CTV $pos $neg)
+         (antecedent-completion $prf $idx with cpu cpu cpu))))
+(= (antecedent-completion-rule-info
+      $kb $prf $full-pattern $consequent-pattern
+      (STV $s $c) $idx)
+   (data
+      (the (List Goal)
+         ((base-rate-premise
+             $kb $full-pattern $full-base-tv)
+          (base-rate-premise
+             $kb $consequent-pattern $consequent-base-tv)
+          (CPU ImplicationCTVFormula
+             (quote
+                ($full-base-tv $consequent-base-tv (STV $s $c)))
+             $rule-ctv)))
+      $full-base-tv
+      (the CTVType $rule-ctv)
+      (antecedent-completion $prf $idx with cpu cpu cpu cpu)))
+
+(: compile-antecedent-completion
+   (-[nondet]-> KB $context $variables KBContext Proof TV
+       Statement Statement Statement Statement Number CompiledAddition))
+(= (compile-antecedent-completion
+      $kb $ctx $vars $shape-kb $prf $tv
+      $full $consequent $missing $known $idx)
+   (if
+      (antecedent-completion-variables-known? $missing $known)
+      (let*
+         ((($known-execs $known-proofs $known-witness-tv)
+             (once
+                (lower-implication-antecedent
+                   $kb $ctx $vars $known)))
+          ($missing-pattern
+             (copy_term (rule-query-pattern $missing)))
+          ($full-pattern
+             (copy_term (rule-query-pattern $full)))
+          ($known-pattern
+             (copy_term (rule-query-pattern $known)))
+          ($consequent-pattern
+             (copy_term
+                (rule-query-pattern $consequent)))
+          ($missing-base-rate
+             (base-rate-premise
+                $kb $missing-pattern $missing-base-tv))
+          ($known-base-rate
+             (base-rate-premise
+                $kb $known-pattern $known-base-tv))
+          (($rule-base-execs $full-base-tv $rule-ctv
+               $completion-label)
+             (antecedent-completion-rule-info
+                $kb $prf $full-pattern $consequent-pattern
+                $tv $idx))
+          ($proof-token
+             (implication-proof-token $known-proofs))
+          ($premises
+             (append-goals
+                $known-execs
+                (append-goals
+                   $rule-base-execs
+                   (cons $known-base-rate
+                      (cons $missing-base-rate
+                         (the (List Goal)
+                            ((CPU CTVAntecedentCompletionFormula
+                                (quote
+                                   ($missing-base-tv
+                                    $full-base-tv
+                                    $known-base-tv
+                                    $rule-ctv))
+                                $completion-ctv)
+                             (CPU CTVModusPonensFormula
+                                (quote
+                                   ($known-witness-tv
+                                    $completion-ctv))
+                                $out-tv)))))))))
+         (brand CompiledAddition
+            ($premises |-
+               (: $shape-kb
+                  ($completion-label $proof-token)
+                  $missing $out-tv))))
+      (empty)))
+
+(: compile-antecedent-completions
+   (-[nondet]-> KB $context $variables KBContext Proof TV
+       Statement Statement (List Statement) Number (List Statement)
+       CompiledAddition))
+(= (compile-antecedent-completions
+      $_kb $_ctx $_vars $_shape-kb $_prf $_tv
+      $_full $_consequent $_children $_idx ())
+   (empty))
+(= (compile-antecedent-completions
+      $kb $ctx $vars $shape-kb $prf $tv
+      $full $consequent $children $idx (cons $missing $rest))
+   (superpose (
+      (if (is-var $missing)
+         (empty)
+         (compile-antecedent-completion
+            $kb $ctx $vars $shape-kb $prf $tv
+            $full $consequent
+            (brand Statement $missing)
+            (brand Statement
+               (seq2expr
+                  (append
+                     (remove-index $idx $children)
+                     (cons $consequent ()))))
+            $idx))
+      (compile-antecedent-completions
+         $kb $ctx $vars $shape-kb $prf $tv
+         $full $consequent $children (+ $idx 1) $rest))))
 
 ;; Concrete Inheritance assertions also act as implication-like rules over
 ;; members. Materializing these views once at compile time lets ordinary rule
@@ -960,6 +1095,21 @@
                                  (compile-adapter-chain plain
                                     (: $adapter-kb $pb2 $b $btv2))))))))
                   (no-compute-inverse (empty))))
+               (if (if (head-is? $a And)
+                      (not (contains-explicit-exists? $a))
+                      false)
+                  (case
+                     (source-compute-goals
+                        (the (List Atom) (cdr-atom $a)))
+                     (((source-computes ())
+                         (let $children
+                            (statement-children
+                               (cdr-atom $a))
+                            (compile-antecedent-completions
+                               $kb $ctx $vars $shape-kb $prf $tv
+                               $a $b $children 0 $children)))
+                      ($_unsupported (empty))))
+                  (empty))
                (compile-inheritance-rule-lifts $kb (: $prf $Type $tv)
                   (brand Statement $antecedent)
                   (brand Statement $consequent)))))))
