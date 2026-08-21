@@ -614,9 +614,28 @@
        ($_gidreset (change-state! bwd_gid 0))
        ($open-a (ensure-goal-at-depth (test-runtime-fact (Pet $a) (brand Proof $prf) $tv) 0))
        ($open-x (ensure-goal-at-depth (test-runtime-fact (Pet $x) (brand Proof $p) $t) 0))
-       ($closed (ensure-goal-at-depth (test-runtime-fact (Pet max) (brand Proof $p2) $t2) 0)))
-      ((== $open-a $open-x) (== $open-a $closed)))
-   (true false))
+       ($closed (ensure-goal-at-depth (test-runtime-fact (Pet max) (brand Proof $p2) $t2) 0))
+       ($left-goal
+          (test-runtime-fact
+             (Shares $left $left $other-left)
+             (brand Proof $left-proof) $left-tv))
+       ($right-goal
+          (test-runtime-fact
+             (Shares $first-right $right $right)
+             (brand Proof $right-proof) $right-tv))
+       ($left-key (brand ProofGoalKey (goal-key $left-goal)))
+       ($right-key (brand ProofGoalKey (goal-key $right-goal)))
+       ($left-hash (goal-key-hash $left-key))
+       ($right-hash (goal-key-hash $right-key))
+       ($left-gid (ensure-goal-at-depth $left-goal 0))
+       ($right-gid (ensure-goal-at-depth $right-goal 0)))
+      ((== $open-a $open-x)
+       (== $open-a $closed)
+       (is-var $left-hash)
+       (== $left-hash $right-hash)
+       (=alpha $left-key $right-key)
+       (== $left-gid $right-gid)))
+   (true false false true false false))
 
 !(test
    (let*

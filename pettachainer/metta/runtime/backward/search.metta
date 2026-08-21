@@ -44,8 +44,8 @@
 (= (ensure-goal-at-depth $goal $depth)
    (let*
       (($stored-goal (copy_term $goal))
-       ($goal-key (goal-key $stored-goal))
-       ($lookup-key (copy_term $goal-key))
+       ($goal-key (brand ProofGoalKey (goal-key $stored-goal)))
+       ($lookup-key (goal-key-hash $goal-key))
        ($hits
           (collapse
              (once
@@ -56,7 +56,6 @@
       (if (== $hits ())
          (let*
             (($gid (next-gid))
-             ($index-key (copy_term $goal-key))
              ($_1
                 (once
                    (chainer-add-atom &goal
@@ -67,7 +66,7 @@
              ($_2
                 (once
                    (chainer-add-atom &goal_lookup
-                      ($index-key $goal-key $gid)))))
+                      ($lookup-key $goal-key $gid)))))
             $gid)
          (first-number $hits))))
 

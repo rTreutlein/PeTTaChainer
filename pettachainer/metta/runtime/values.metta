@@ -39,6 +39,25 @@
                 (quote ($type $vars)))
              (quote ($sealed-goal ($kbid $ctx))))))))
 
+;; term_hash leaves a nonground hash unbound. Replace variables with one
+;; stable marker for indexing, then retain the complete key in the indexed row
+;; so =alpha can distinguish hash collisions and variable-sharing patterns.
+(: goal-key-hash-leaf (-[det]-> Atom Atom))
+(= (goal-key-hash-leaf $atom)
+   (if (is-var $atom) goal-key-hash-variable $atom))
+
+(: goal-key-hash (-[det]-> ProofGoalKey Number))
+(= (goal-key-hash $key)
+   (case $key (
+      ((CPU $fun $args $result)
+         (term_hash
+            (map-nested goal-key-hash-leaf
+               (quote (CPU $fun $args $result)))))
+      (($sealed-goal ($kbid $context))
+         (term_hash
+            (map-nested goal-key-hash-leaf
+               (quote ($sealed-goal ($kbid $context)))))))))
+
 (: normalize-expected-stv (-[det]-> $truth-value STVType))
 (= (normalize-expected-stv $tv)
    (if (is-var $tv) (STV 1.0 1.0)

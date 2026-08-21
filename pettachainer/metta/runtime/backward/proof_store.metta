@@ -82,7 +82,7 @@
 (: clear-goal-current-confidence-for-key!
    (-[det]-> ProofGoalKey (List $none)))
 (= (clear-goal-current-confidence-for-key! $key)
-   (let $lookup-key (copy_term $key)
+   (let $lookup-key (goal-key-hash $key)
       (let $_cleared
          (collapse
             (match &goal_lookup
