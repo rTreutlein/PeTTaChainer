@@ -83,3 +83,100 @@
          (A2 current arbitrary)
          $tv))
    ())
+
+;; An explicit CTV compiles the same fused completion without an extra
+;; ImplicationCTVFormula CPU in the proof label.
+!(compileadd ctvCompletionKb (: a A (STV 1.0 0.9)))
+!(compileadd ctvCompletionKb (: c C (STV 1.0 0.9)))
+!(compileadd ctvCompletionKb
+   (: ab_c
+      (Implication (And A B) C)
+      (CTV (STV 1.0 0.9) (STV 0.0 0.9))))
+!(set-base-rate ctvCompletionKb (And A B) (STV 0.2 0.9))
+!(set-base-rate ctvCompletionKb C (STV 0.4 0.9))
+!(set-base-rate ctvCompletionKb (And A C) (STV 0.25 0.9))
+!(set-base-rate ctvCompletionKb B (STV 0.3 0.9))
+
+!(collapse
+   (query 2000 ctvCompletionKb (: $proof B $tv)))
+!(test
+   (query 2000 ctvCompletionKb
+      (: ((antecedent-completion ab_c 1 with cpu cpu cpu)
+          (conjunction a c))
+         B $tv))
+   (: ((antecedent-completion ab_c 1 with cpu cpu cpu)
+       (conjunction a c))
+      B
+      (STV 0.8 0.24255226513533926)))
+
+;; A three-child conjunction completes the middle child from the other
+;; children plus the original consequence: (And A D C) -> Mid.
+!(compileadd ternaryCompletionKb (: a A (STV 1.0 0.9)))
+!(compileadd ternaryCompletionKb (: d D (STV 1.0 0.9)))
+!(compileadd ternaryCompletionKb (: c C (STV 1.0 0.9)))
+!(compileadd ternaryCompletionKb
+   (: abd_c
+      (Implication (And A Mid D) C)
+      (CTV (STV 1.0 0.9) (STV 0.0 0.9))))
+!(set-base-rate ternaryCompletionKb (And A Mid D) (STV 0.2 0.9))
+!(set-base-rate ternaryCompletionKb C (STV 0.4 0.9))
+!(set-base-rate ternaryCompletionKb (And A D C) (STV 0.25 0.9))
+!(set-base-rate ternaryCompletionKb Mid (STV 0.3 0.9))
+
+!(collapse
+   (query 2000 ternaryCompletionKb (: $proof Mid $tv)))
+!(test
+   (query 2000 ternaryCompletionKb
+      (: ((antecedent-completion abd_c 1 with cpu cpu cpu)
+          (conjunction a d c))
+         Mid $tv))
+   (: ((antecedent-completion abd_c 1 with cpu cpu cpu)
+       (conjunction a d c))
+      Mid
+      (STV 0.8 0.24255224680855486)))
+
+;; Source computations in the antecedent block every child completion.
+!(compileadd computeSkipKb
+   (: addOne
+      (Implication
+         (And
+            (A $x)
+            (Compute + ($x 1) -> $y))
+         (B $y))
+      (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
+!(compileadd computeSkipKb (: a-one (A 1) (STV 0.7 0.8)))
+!(compileadd computeSkipKb (: b-two (B 2) (STV 0.9 0.8)))
+!(set-base-rate computeSkipKb
+   (And (A $x) (Compute + ($x 1) -> $y)) (STV 0.2 0.9))
+!(set-base-rate computeSkipKb (B $y) (STV 0.4 0.9))
+!(set-base-rate computeSkipKb
+   (And (Compute + ($x 1) -> $y) (B $y)) (STV 0.25 0.9))
+!(set-base-rate computeSkipKb (A $x) (STV 0.3 0.9))
+
+!(test
+   (query 300 computeSkipKb
+      (: ((antecedent-completion addOne 0 with cpu cpu cpu) $w)
+         (A 1) $tv))
+   ())
+
+;; An existential And is compiled as an ExistentialClaim, not as a
+;; conjunction that can complete a missing child.
+!(compileadd existsSkipKb (: p (P a) (STV 1.0 1.0)))
+!(compileadd existsSkipKb (: q Q (STV 1.0 0.9)))
+!(compileadd existsSkipKb
+   (: existsRule
+      (Implication
+         (Exists ($x) (And (P $x) Q))
+         R)
+      (CTV (STV 1.0 0.9) (STV 0.0 0.9))))
+!(compileadd existsSkipKb (: r R (STV 1.0 0.9)))
+!(set-base-rate existsSkipKb (And (P $x) Q) (STV 0.2 0.9))
+!(set-base-rate existsSkipKb R (STV 0.4 0.9))
+!(set-base-rate existsSkipKb (And Q R) (STV 0.25 0.9))
+!(set-base-rate existsSkipKb (P $x) (STV 0.3 0.9))
+
+!(test
+   (query 300 existsSkipKb
+      (: ((antecedent-completion existsRule 1 with cpu cpu cpu) $w)
+         Q $tv))
+   ())
