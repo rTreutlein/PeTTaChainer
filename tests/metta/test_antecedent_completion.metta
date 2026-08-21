@@ -34,10 +34,10 @@
    (query 2000 completionKb (: $proof B $tv)))
 !(test
    (query 2000 completionKb
-      (: ((antecedent-completion ab_c 1 with cpu cpu cpu cpu)
+      (: ((antecedent-completion ab_c 1 with cpu cpu)
           (conjunction a c))
          B $tv))
-   (: ((antecedent-completion ab_c 1 with cpu cpu cpu cpu)
+   (: ((antecedent-completion ab_c 1 with cpu cpu)
        (conjunction a c))
       B
       (STV 0.8 0.24255226513533926)))
@@ -78,14 +78,13 @@
 
 !(test
    (query 2000 unboundCompletionKb
-      (: ((antecedent-completion unsafe 0 with cpu cpu cpu)
+      (: ((antecedent-completion unsafe 0 with cpu cpu)
           $witness)
          (A2 current arbitrary)
          $tv))
    ())
 
-;; An explicit CTV compiles the same fused completion without an extra
-;; ImplicationCTVFormula CPU in the proof label.
+;; An explicit CTV compiles the same fused completion.
 !(compileadd ctvCompletionKb (: a A (STV 1.0 0.9)))
 !(compileadd ctvCompletionKb (: c C (STV 1.0 0.9)))
 !(compileadd ctvCompletionKb
@@ -101,10 +100,10 @@
    (query 2000 ctvCompletionKb (: $proof B $tv)))
 !(test
    (query 2000 ctvCompletionKb
-      (: ((antecedent-completion ab_c 1 with cpu cpu cpu)
+      (: ((antecedent-completion ab_c 1 with cpu cpu)
           (conjunction a c))
          B $tv))
-   (: ((antecedent-completion ab_c 1 with cpu cpu cpu)
+   (: ((antecedent-completion ab_c 1 with cpu cpu)
        (conjunction a c))
       B
       (STV 0.8 0.24255226513533926)))
@@ -127,10 +126,10 @@
    (query 2000 ternaryCompletionKb (: $proof Mid $tv)))
 !(test
    (query 2000 ternaryCompletionKb
-      (: ((antecedent-completion abd_c 1 with cpu cpu cpu)
+      (: ((antecedent-completion abd_c 1 with cpu cpu)
           (conjunction a d c))
          Mid $tv))
-   (: ((antecedent-completion abd_c 1 with cpu cpu cpu)
+   (: ((antecedent-completion abd_c 1 with cpu cpu)
        (conjunction a d c))
       Mid
       (STV 0.8 0.24255224680855486)))
@@ -155,7 +154,7 @@
 
 !(test
    (query 300 computeSkipKb
-      (: ((antecedent-completion addOne 0 with cpu cpu cpu) $w)
+      (: ((antecedent-completion addOne 0 with cpu cpu) $w)
          (A 1) $tv))
    ())
 
@@ -177,6 +176,6 @@
 
 !(test
    (query 300 existsSkipKb
-      (: ((antecedent-completion existsRule 1 with cpu cpu cpu) $w)
+      (: ((antecedent-completion existsRule 1 with cpu cpu) $w)
          Q $tv))
    ())

@@ -399,22 +399,19 @@
       ()))
 
 (: antecedent-completion-rule-info
-   (-[nondet]-> KB Proof Statement Statement TV Number
-       ((List Goal) $base-truth-value CTVType Proof)))
+   (-[det]-> KB Statement Statement TV
+       ((List Goal) $base-truth-value CTVType)))
 (= (antecedent-completion-rule-info
-      $kb $prf $full-pattern $_consequent-pattern
-      (CTV $pos $neg) $idx)
+      $kb $full-pattern $_consequent-pattern (CTV $pos $neg))
    (let $full-base-rate
       (base-rate-premise
          $kb $full-pattern $full-base-tv)
       (data
          (cons $full-base-rate ())
          $full-base-tv
-         (CTV $pos $neg)
-         (antecedent-completion $prf $idx with cpu cpu cpu))))
+         (CTV $pos $neg))))
 (= (antecedent-completion-rule-info
-      $kb $prf $full-pattern $consequent-pattern
-      (STV $s $c) $idx)
+      $kb $full-pattern $consequent-pattern (STV $s $c))
    (data
       (the (List Goal)
          ((base-rate-premise
@@ -426,8 +423,7 @@
                 ($full-base-tv $consequent-base-tv (STV $s $c)))
              $rule-ctv)))
       $full-base-tv
-      (the CTVType $rule-ctv)
-      (antecedent-completion $prf $idx with cpu cpu cpu cpu)))
+      (the CTVType $rule-ctv)))
 
 (: compile-antecedent-completion
    (-[nondet]-> KB $context $variables KBContext Proof TV
@@ -457,11 +453,9 @@
           ($known-base-rate
              (base-rate-premise
                 $kb $known-pattern $known-base-tv))
-          (($rule-base-execs $full-base-tv $rule-ctv
-               $completion-label)
+          (($rule-base-execs $full-base-tv $rule-ctv)
              (antecedent-completion-rule-info
-                $kb $prf $full-pattern $consequent-pattern
-                $tv $idx))
+                $kb $full-pattern $consequent-pattern $tv))
           ($proof-token
              (implication-proof-token $known-proofs))
           ($premises
@@ -487,7 +481,8 @@
          (brand CompiledAddition
             ($premises |-
                (: $shape-kb
-                  ($completion-label $proof-token)
+                  ((antecedent-completion $prf $idx with cpu cpu)
+                   $proof-token)
                   $missing $out-tv))))
       (empty)))
 

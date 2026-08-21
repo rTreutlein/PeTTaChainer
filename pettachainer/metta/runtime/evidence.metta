@@ -366,8 +366,7 @@
             (if (== $head by)
                (car-atom (cdr-atom $prf))
             (if (is-expr $head)
-               (if (== (car-atom $head) antecedent-completion)
-                  (car-atom (cdr-atom $head))
+               (if (= $head (antecedent-completion $src $_idx with $_c1 $_c2)) $src
                (if (= $head (inverted $inv with $_pa $_pb)) $inv
                   (if (= $head (bi-forward $fwd)) $fwd
                      (if (= $head (bi-backward $bwd)) $bwd
