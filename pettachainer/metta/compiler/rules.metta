@@ -488,13 +488,33 @@
 
 (: compile-antecedent-completions
    (-[nondet]-> KB $context $variables KBContext Proof TV
+       Statement Statement CompiledAddition))
+(= (compile-antecedent-completions
+      $kb $ctx $vars $shape-kb $prf $tv $a $b)
+   (if (head-is? $a And)
+      (if (contains-explicit-exists? $a)
+         (empty)
+         (let $conjuncts (implication-side-conjuncts $a)
+            (case
+               (source-compute-goals $conjuncts)
+               (((source-computes ())
+                   (let $children
+                      (statement-children $conjuncts)
+                      (compile-antecedent-completion-children
+                         $kb $ctx $vars $shape-kb $prf $tv
+                         $a $b $children 0 $children)))
+                ($_unsupported (empty))))))
+      (empty)))
+
+(: compile-antecedent-completion-children
+   (-[nondet]-> KB $context $variables KBContext Proof TV
        Statement Statement (List Statement) Number (List Statement)
        CompiledAddition))
-(= (compile-antecedent-completions
+(= (compile-antecedent-completion-children
       $_kb $_ctx $_vars $_shape-kb $_prf $_tv
       $_full $_consequent $_children $_idx ())
    (empty))
-(= (compile-antecedent-completions
+(= (compile-antecedent-completion-children
       $kb $ctx $vars $shape-kb $prf $tv
       $full $consequent $children $idx (cons $missing $rest))
    (superpose (
@@ -510,7 +530,7 @@
                      (remove-index $idx $children)
                      (cons $consequent ()))))
             $idx))
-      (compile-antecedent-completions
+      (compile-antecedent-completion-children
          $kb $ctx $vars $shape-kb $prf $tv
          $full $consequent $children (+ $idx 1) $rest))))
 
@@ -1090,21 +1110,8 @@
                                  (compile-adapter-chain plain
                                     (: $adapter-kb $pb2 $b $btv2))))))))
                   (no-compute-inverse (empty))))
-               (if (if (head-is? $a And)
-                      (not (contains-explicit-exists? $a))
-                      false)
-                  (case
-                     (source-compute-goals
-                        (the (List Atom) (cdr-atom $a)))
-                     (((source-computes ())
-                         (let $children
-                            (statement-children
-                               (cdr-atom $a))
-                            (compile-antecedent-completions
-                               $kb $ctx $vars $shape-kb $prf $tv
-                               $a $b $children 0 $children)))
-                      ($_unsupported (empty))))
-                  (empty))
+               (compile-antecedent-completions
+                  $kb $ctx $vars $shape-kb $prf $tv $a $b)
                (compile-inheritance-rule-lifts $kb (: $prf $Type $tv)
                   (brand Statement $antecedent)
                   (brand Statement $consequent)))))))
