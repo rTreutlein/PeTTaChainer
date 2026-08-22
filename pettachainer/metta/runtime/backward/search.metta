@@ -29,10 +29,9 @@
 (= (clear-backward-query-state!)
    (let $_clear
       (foreach-flat remove-all-atoms
-         (&goal &goal_lookup &goal_waiter &goal_waiter_delivery &goal_child
+         (&goal &goal_lookup &goal_waiter &goal_child
           &goal_demand_cache &goal_demand_revision &goal_demand_wake
-          &goal_demand_wake_visited &goal_current_confidence &root_goal
-          &search_wake_active
+          &goal_current_confidence &root_goal &search_wake_active
           &aggregate &aggregate_search_budget &aggregate_forward_approx
           &frontier_path &frontier_path_lookup &frontier_path_child
           &frontier_path_dead &proof_frontier_path
@@ -103,45 +102,30 @@
    (-[semidet]-> (Heap AgendaEntry) StoredGoalRow Number Number AgendaKind Number
        (Heap AgendaEntry)))
 (= (add-goal-agenda-entry-heap
-      $agenda
-      (stored-goal-row $gid $depth $goal $_expanded $_state)
-      $revision $generation $kind $score)
-   (let* (($agenda-depth
+      $agenda $row $revision $generation $kind $score)
+   (let* (((stored-goal-row
+              $gid $depth $goal $_expanded $_state)
+             $row)
+          ($child-hits
              (case $kind (
                 (agenda-aggregate
                    (let (stored-aggregate-row
                            $_agg-gid $child-gid $_args
                            $_base $_pending $_current)
                       (aggregate-by-id $gid)
-                      (let $child-hits
-                         (collapse (once (goal-by-id $child-gid)))
-                         (case $child-hits (
-                            (() $depth)
-                            ((cons
-                                (stored-goal-row
-                                   $_child-gid $child-depth $_child-goal
-                                   $_child-expanded $_child-state)
-                                $_other-child-rows)
-                               $child-depth))))))
-                ($_other $depth))))
+                      (collapse (once (goal-by-id $child-gid)))))
+                ($_other ()))))
+          ($agenda-row
+             (case $child-hits (
+                (() $row)
+                ((cons $child-row $_other-child-rows) $child-row))))
+          ((stored-goal-row
+              $_agenda-gid $agenda-depth $_agenda-goal
+              $agenda-expanded $_agenda-state)
+             $agenda-row)
           ($aggregate-bonus
-             (case $kind (
-                (agenda-aggregate
-                   (let (stored-aggregate-row
-                           $_agg-gid $child-gid $_args
-                           $_base $_pending $_current)
-                      (aggregate-by-id $gid)
-                      (let $child-hits
-                         (collapse (once (goal-by-id $child-gid)))
-                         (case $child-hits (
-                            (() 0.0)
-                            ((cons
-                                (stored-goal-row
-                                   $_child-gid $_child-depth $_child-goal
-                                   $child-expanded $_child-state)
-                                $_other-child-rows)
-                               (if $child-expanded 1.0 0.0)))))))
-                ($_other 0.0))))
+             (if (== $child-hits ()) 0.0
+                (if $agenda-expanded 1.0 0.0)))
           ($priority
              (case $goal (
                 ((CPU $_fun $_args $_result)
@@ -224,13 +208,9 @@
                     $generation $_next-revision $_next-score $lanes)
                    $next-state)
                 ($_state (set-goal-agenda-state! $row $next-state)))
-            (if (== $requested-lanes ())
-               (add-goal-agenda-entry-heap
-                  $agenda $row $revision $generation
-                  $kind $score)
-               (add-goal-agenda-lanes-heap
-                  $agenda $row $revision $generation
-                  $kind $score $lanes)))
+            (add-goal-agenda-lanes-heap
+               $agenda $row $revision $generation
+               $kind $score $lanes))
          $agenda)))
 
 (: retoken-goal-agenda-entry-heap
@@ -317,44 +297,30 @@
 
 ;; --- Demand wake-up ----------------------------------------------------------
 
-(: clear-goal-demand-wake! (-[det]-> Number (List $none)))
-(= (clear-goal-demand-wake! $gid)
-   (let $_removed
-      (collapse (match &goal_demand_wake ($gid)
-         (remove-atom &goal_demand_wake ($gid))))
-      ()))
-
-(: wake-goal-demand-list-heap
-   (-[semidet]-> (Heap AgendaEntry) (List Number)
-       (Heap AgendaEntry)))
-(= (wake-goal-demand-list-heap $agenda ()) $agenda)
-(= (wake-goal-demand-list-heap $agenda (cons $gid $rest))
-   (wake-goal-demand-list-heap
-      (wake-goal-demand-heap $agenda $gid) $rest))
-
 (: wake-goal-demand-heap
    (-[semidet]-> (Heap AgendaEntry) Number (Heap AgendaEntry)))
 (= (wake-goal-demand-heap $agenda $gid)
    (let* (($row (goal-by-id $gid))
           ((stored-goal-row
               $_stored-gid $_depth $goal $expanded $_state)
-             $row))
+             $row)
+          ($wake-descendants?
+             (not
+                (==
+                   (collapse
+                      (once
+                         (match &goal_demand_wake ($gid)
+                            (let $_clear
+                               (remove-atom &goal_demand_wake ($gid))
+                               true))))
+                   ()))))
       (if $expanded
-         (let $wake-descendants?
-            (not
-               (==
-                  (collapse
-                     (once
-                        (match &goal_demand_wake ($gid) true)))
-                  ()))
-            (if $wake-descendants?
-               (let $_clear (clear-goal-demand-wake! $gid)
-                  (if (<= (goal-demand-sum $gid) 0.0) $agenda
-                     (wake-goal-demand-list-heap
-                        $agenda (goal-demand-child-gids $gid))))
-               $agenda))
-         (let* (($_clear (clear-goal-demand-wake! $gid))
-                ($score (goal-demand-sum $gid)))
+         (if $wake-descendants?
+            (if (<= (goal-demand-sum $gid) 0.0) $agenda
+               (proof-fold-flat-semidet wake-goal-demand-heap
+                  $agenda (goal-demand-child-gids $gid)))
+            $agenda)
+         (let $score (goal-demand-sum $gid)
             (if (<= $score 0.0) $agenda
                (request-goal-agenda-kind-score-heap
                   $agenda $gid agenda-expand $score))))))
@@ -371,7 +337,7 @@
              (current-proof-ids-for-goal-key
                 (proof-goal-key-by-goal-id $gid)))
           ($next
-             (if (replayed-frontier-needs-wake? $gid $goal $pids)
+             (if (replayed-frontier-needs-wake? $goal $pids)
                 (wake-goal-demand-heap $agenda $gid)
                 $agenda)))
       (schedule-root-goals-heap $next $rest)))
@@ -442,17 +408,8 @@
 
 (= (commit-frontier-result-heap
       $agenda $parent-gid $bundle $evidence $path-id)
-   (let* (($raw-goal (and-bundle-goal $bundle))
-          ($goal
-             (case $raw-goal (
-                (($_type $_kb $proof $_tv)
-                   (if (and (is-expr $proof)
-                            (not (== $proof ())))
-                      (if (is-var (car-atom $proof))
-                         (normalize-frontier-goal-proof $raw-goal)
-                         $raw-goal)
-                      $raw-goal))
-                ($_other $raw-goal))))
+   (let* (($goal
+             (normalize-frontier-goal-proof (and-bundle-goal $bundle)))
           ($candidate
              (normalize-proof-candidate-evidence
                 (proof-candidate
@@ -473,23 +430,19 @@
        (List Evidence) (List (| FrontierPart UnpoolablePart)) Number
        FrontierValueSpec (Heap AgendaEntry)))
 (: frontier-waiter-step
-   (-[semidet]-> Number FrontierWaiter (Heap AgendaEntry) Number
+   (-[semidet]-> FrontierWaiter (Heap AgendaEntry) Number
        (Heap AgendaEntry)))
 (: owned-frontier-waiter-step
-   (-[semidet]-> Number FrontierWaiter (Heap AgendaEntry) Number
+   (-[semidet]-> FrontierWaiter (Heap AgendaEntry) Number
        (Heap AgendaEntry)))
 (: advance-frontier-waiter-heap
    (-[semidet]-> (Heap AgendaEntry) FrontierWaiter Number
        ((| Goal (Statement KBContext Proof TV))
           ProofKind ProofSupport (List Number))
-       (| FrontierPart SkipPart UnpoolablePart) Number (List Evidence) Bool
+       (| FrontierPart SkipPart UnpoolablePart) Number (List Evidence)
        (Heap AgendaEntry)))
-(: continue-frontier-heap
-   (-[semidet]-> (Heap AgendaEntry) Number AndBundle Number
-       (List Evidence) (List (| FrontierPart UnpoolablePart)) Number
-       Number (Heap AgendaEntry)))
 (: replayed-frontier-needs-wake?
-   (-[det]-> Number (| Goal (Statement KBContext Proof TV))
+   (-[det]-> (| Goal (Statement KBContext Proof TV))
        (List Number) Bool))
 (: proof-generated-by-rule?
    (-[det]-> Proof Proof Bool))
@@ -590,20 +543,18 @@
                                           true)))))
                               (empty)))))
                   ())))))))
-(= (replayed-frontier-needs-wake? $_gid $_premise ()) true)
-(= (replayed-frontier-needs-wake? $_gid $premise
-      (cons $_pid $_other-pids))
-   (if
-      (case $premise (
-         ((CPU $fun $_args $_result)
-            (aggregate-fold-function? $fun))
-         (($type $_kb $_proof $_tv)
-            (compound-source? (brand Statement $type)))
-         ($_other false)))
-      true
-      (if (goal-has-type-vars? $premise) true
-         (search-goal-has-untried-rule?
-            $premise (cons $_pid $_other-pids)))))
+(= (replayed-frontier-needs-wake? $premise $pids)
+   (if (== $pids ()) true
+      (if
+         (case $premise (
+            ((CPU $fun $_args $_result)
+               (aggregate-fold-function? $fun))
+            (($type $_kb $_proof $_tv)
+               (compound-source? (brand Statement $type)))
+            ($_other false)))
+         true
+         (if (goal-has-type-vars? $premise) true
+            (search-goal-has-untried-rule? $premise $pids)))))
 
 (= (spawn-frontier-heap
       $agenda $parent-gid $bundle $score $seen $parts $path-id $value-spec)
@@ -627,45 +578,22 @@
                    (frontier-existing-proof-ids
                       $parent-gid $bundle $child-gid))
                 ($existing-agenda
-                   (case $existing-pids (
-                      (() $agenda)
-                      ($_proofs
-                         (proof-fold-flat-semidet
-                            (frontier-waiter-step $child-gid $waiter)
-                            $agenda $existing-pids)))))
+                   (proof-fold-flat-semidet
+                      (frontier-waiter-step $waiter)
+                      $agenda $existing-pids))
                 ($wake?
                    (replayed-frontier-needs-wake?
-                      $child-gid $premise $existing-pids)))
+                      $premise $existing-pids)))
             (if $wake?
                (wake-goal-demand-heap $existing-agenda $child-gid)
                $existing-agenda))))))
 
-(= (continue-frontier-heap
-      $agenda $parent-gid $bundle $score $seen $parts $path-id
-      $candidate-score)
-   (let* (($remaining (and-bundle-premises $bundle))
-          ($next-value
-             (frontier-value-spec
-                (min $candidate-score
-                   (if (== $remaining ()) $score
-                      (min $score
-                         (frontier-remaining-score $bundle $parts))))
-                (list-len $remaining)
-                (premises-proof-success-prior $remaining))))
-      (spawn-frontier-heap
-         $agenda $parent-gid $bundle $score
-         $seen $parts $path-id $next-value)))
-
-(= (frontier-waiter-step $_child-gid
-      $waiter
-      $agenda $pid)
+(= (frontier-waiter-step $waiter $agenda $pid)
    (let $branch-waiter (copy_term $waiter)
       (owned-frontier-waiter-step
-         $_child-gid $branch-waiter $agenda $pid)))
+         $branch-waiter $agenda $pid)))
 
-(= (owned-frontier-waiter-step $_child-gid
-      $waiter
-      $agenda $pid)
+(= (owned-frontier-waiter-step $waiter $agenda $pid)
    (let (frontier-waiter
             $parent-gid $bundle $score $seen $parts $path-id
             (frontier-value-spec
@@ -690,14 +618,12 @@
                                   $parent-gid $bundle $seen $parts
                                   $pid $proof-evidence $part)
                                false))))))
-            (advance-frontier-waiter-heap
-               $agenda $waiter $pid $proof-row
-               $part $proof-score $proof-evidence $admissible?))))
+            (if $admissible?
+               (advance-frontier-waiter-heap
+                  $agenda $waiter $pid $proof-row
+                  $part $proof-score $proof-evidence)
+               $agenda))))
 
-(= (advance-frontier-waiter-heap
-      $agenda $_waiter $_pid $_proof-row
-      $_part $_proof-score $_proof-evidence false)
-   $agenda)
 (= (advance-frontier-waiter-heap
       $agenda
       (frontier-waiter
@@ -705,7 +631,7 @@
          (frontier-value-spec
             $candidate-score $_premise-count $_success-prior))
       $pid ($proof-output $proof-kind $_support $_children)
-      $part $proof-score $proof-evidence true)
+      $part $proof-score $proof-evidence)
    (let* (($next-parts
              (the (List (| FrontierPart UnpoolablePart))
                 (frontier-parts-add $parts $part)))
@@ -743,23 +669,25 @@
       (case $advanced (
          (() $agenda)
          ((and-bundle $goal $premises)
-            (continue-frontier-heap
-               $agenda $parent-gid
-               (and-bundle $goal $premises) $next-score
-               $next-seen $next-parts $next-path-id
-               $candidate-score))))))
-
-(: aggregate-waiter-step
-   (-[semidet]-> (Heap AgendaEntry) AggregateWaiter Number
-       (Heap AgendaEntry)))
-(= (aggregate-waiter-step $agenda
-      (aggregate-waiter $agg-gid $_demand-spec) $_pid)
-   (schedule-aggregate-heap $agenda $agg-gid))
+            (let* (($next-bundle
+                      (the AndBundle (and-bundle $goal $premises)))
+                   ($next-value
+                      (frontier-value-spec
+                         (min $candidate-score
+                            (if (== $premises ()) $next-score
+                               (min $next-score
+                                  (frontier-remaining-score
+                                     $next-bundle $next-parts))))
+                         (list-len $premises)
+                         (premises-proof-success-prior $premises))))
+               (spawn-frontier-heap
+                  $agenda $parent-gid $next-bundle $next-score
+                  $next-seen $next-parts $next-path-id $next-value)))))))
 
 (: wake-waiter-step
-   (-[det]-> Number Number (Heap AgendaEntry)
+   (-[det]-> Number (Heap AgendaEntry)
        (| FrontierWaiter AggregateWaiter Atom) (Heap AgendaEntry)))
-(= (wake-waiter-step $gid $pid $agenda $waiter)
+(= (wake-waiter-step $pid $agenda $waiter)
    (case $waiter (
       ((frontier-waiter $parent $bundle $score $seen $parts
           $path $value)
@@ -767,17 +695,15 @@
             (collapse
                (once
                   (owned-frontier-waiter-step
-                     $gid
                      (frontier-waiter
                         $parent $bundle $score $seen $parts $path $value)
                      $agenda $pid)))))
-      ((aggregate-waiter $agg $spec)
+      ((aggregate-waiter $agg $_spec)
          (chainer-first-or $agenda
             (collapse
                (once
-                  (aggregate-waiter-step
-                     $agenda
-                     (aggregate-waiter $agg $spec) $pid)))))
+                  (schedule-aggregate-heap
+                     $agenda (stored-number $agg))))))
       ($_other $agenda))))
 
 (: wake-proof-commit-heap
@@ -806,8 +732,20 @@
                 (chainer-first-or $agenda
                    (collapse
                       (once
-                         (wake-proof-commit-owned-heap
-                            $agenda $gid $pid)))))
+                         (let* (($_revision
+                                   (bump-goal-demand-revision! $gid))
+                                ($waiters
+                                   (stored-atom-list
+                                      (collapse
+                                         (match &goal_waiter
+                                            ($gid $waiter) $waiter))))
+                                ($propagated
+                                   (proof-fold-flat-semidet
+                                      (wake-waiter-step $pid)
+                                      $agenda $waiters)))
+                            (proof-fold-flat-semidet wake-goal-demand-heap
+                               $propagated
+                               (goal-demand-child-gids $gid)))))))
                 ($_done
                    (remove-atom &search_wake_active
                       ($gid $next-depth)))
@@ -817,23 +755,6 @@
                          (add-atom &search_wake_active
                             ($gid $depth))))))
             $next))))
-
-(: wake-proof-commit-owned-heap
-   (-[semidet]-> (Heap AgendaEntry) Number Number
-       (Heap AgendaEntry)))
-(= (wake-proof-commit-owned-heap $agenda $gid $pid)
-   (let* (($_revision (bump-goal-demand-revision! $gid))
-          ($waiters
-             (stored-atom-list
-                (collapse
-                   (match &goal_waiter
-                      ($gid $waiter) $waiter))))
-          ($propagated
-             (proof-fold-flat-semidet
-                (wake-waiter-step $gid $pid)
-                $agenda $waiters)))
-      (wake-goal-demand-list-heap
-         $propagated (goal-demand-child-gids $gid))))
 
 (: commit-proof-candidate-heap
    (-[semidet]-> (Heap AgendaEntry) Number Bool ProofCandidate
