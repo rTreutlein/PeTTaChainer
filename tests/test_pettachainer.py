@@ -9,6 +9,19 @@ from pettachainer import PeTTaChainer
 
 
 class TestPeTTaChainer(unittest.TestCase):
+    def test_loads_caller_owned_metta_module(self):
+        with TemporaryDirectory() as directory:
+            module = Path(directory) / "application_formula.metta"
+            module.write_text("(= (application-formula) 42)\n", encoding="utf-8")
+            handler = PeTTaChainer()
+
+            handler.load_metta_file(module)
+
+            self.assertEqual(
+                handler.evaluate_statement("(application-formula)"),
+                "42",
+            )
+
     def test_remove_statement_is_deprecated(self):
         handler = PeTTaChainer()
         handler.add_atom("(: deprecated_remove (DeprecatedRemove) (STV 1.0 1.0))")

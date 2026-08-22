@@ -130,6 +130,10 @@ class PeTTaChainer:
         self._logic_config_path = path
         return self.handler.load_metta_file(str(path))
 
+    def load_metta_file(self, path: str | Path) -> str:
+        """Load a caller-owned MeTTa module into this runtime."""
+        return self.handler.load_metta_file(str(Path(path).expanduser().resolve()))
+
     def _evaluate(self, atom: str) -> str:
         result = self.handler.process_metta_string(f"!(eval {atom})")
         if isinstance(result, list):

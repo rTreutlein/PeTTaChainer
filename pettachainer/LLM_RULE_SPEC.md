@@ -217,39 +217,6 @@ forward-only unless it contains a supported reversible `Compute`.
 (FoldAllValue pattern init fold-fn -> out)
 ```
 
-### Finite weighted subset posterior
-
-Use the compact DP when a known total should produce per-candidate posterior
-probabilities from a finite candidate list:
-
-```metta
-(Compute WeightedSubsetPosteriorDP
-   ($candidates $observedTotal)
-   ->
-   $posterior)
-
-(Compute WeightedSubsetPosteriorMarginal
-   ($posterior $candidate)
-   ->
-   $conditionalProbability)
-```
-
-Candidates have shape `(WeightedCandidate identity contribution prior)`.
-Contributions are exact and nonnegative, identities are unique, and priors are
-independent. The result is a `WeightedSubsetDP` containing one prefix and one
-postfix loss-distribution row at every candidate boundary. Observation mass is
-read from the final prefix row. A candidate marginal joins its preceding
-prefix row with its following postfix row after taking the candidate's selected
-branch. Rows stay sorted by loss, so both row construction and the
-prefix/postfix join are linear in their row sizes. All rows are currently built
-eagerly for each call. Fault sets are never enumerated. Use
-`EnumerateWeightedSubsetExplanations` only when the actual subsets are required;
-`WeightedSubsetSumInverse` is its legacy compatibility name.
-
-A candidate list may be produced by `FoldAll` over individual candidate facts,
-but the accumulator must canonicalize order, normally by an explicit candidate
-index. Do not rely on fact-match order.
-
 ## TV Modeling Rules
 
 - `STV` is truth uncertainty only.

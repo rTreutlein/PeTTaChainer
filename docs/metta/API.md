@@ -13,6 +13,10 @@ with it). When in doubt about whether a function is public, it is internal.
 The formula vocabulary under `third_party/pln_formulas/metta/` is a separate,
 independent surface usable inside rules; it is not enumerated here.
 
+Python callers can load application-owned formula modules with
+`PeTTaChainer.load_metta_file(path)`. This extends that handler's MeTTa runtime;
+it does not add statements to the handler's knowledge base.
+
 ## Knowledge base construction
 
 | Function | Meaning |
