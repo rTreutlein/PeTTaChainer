@@ -30,7 +30,6 @@ pettachainer = [
     "LLM_RULE_SPEC.md",
     "metta/*.metta",
     "metta/core/*.metta",
-    "metta/core/formulas/*.metta",
     "metta/core/logic_configs/*.metta",
     "metta/compiler/*.metta",
     "metta/runtime/*.metta",

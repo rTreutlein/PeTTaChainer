@@ -10,6 +10,7 @@ repo_root=$(cd "$script_dir/.." && pwd)
 metta_dir="$repo_root/pettachainer/metta"
 tests_dir="$repo_root/tests/metta"
 examples_dir="$repo_root/examples/metta"
+pln_formulas_dir="$repo_root/third_party/pln_formulas"
 petta_bin="$repo_root/.venv/bin/petta"
 
 if [[ ! -x "$petta_bin" ]]; then
@@ -24,7 +25,9 @@ if [[ ! $PETTA_JOBS =~ ^[1-9][0-9]*$ ]]; then
 fi
 
 files=()
-for file in "$tests_dir"/test*.metta; do
+for file in \
+  "$tests_dir"/test*.metta \
+  "$pln_formulas_dir"/tests/test*.metta; do
   files+=("$file")
 done
 
@@ -39,6 +42,10 @@ while IFS= read -r file || [[ -n $file ]]; do
   fi
   files+=("$examples_dir/$file")
 done < "$examples_dir/supported.txt"
+
+for file in "$pln_formulas_dir"/examples/*.metta; do
+  files+=("$file")
+done
 
 run_dir=$(mktemp -d /tmp/petta-suite.XXXXXX)
 trap 'rm -rf "$run_dir"' EXIT

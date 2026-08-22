@@ -68,10 +68,10 @@
                 query_metric_value query_metric_set
                 query_metric_increment query_metric_liveness_event))))))
 
-!(import! &self core/formulas/distributions)
-!(import! &self core/formulas/fold_inverse)
-!(import! &self core/formulas/compute_inverse)
-!(import! &self core/formulas/truth_values)
+!(import! &self ../../third_party/pln_formulas/metta/distributions)
+!(import! &self ../../third_party/pln_formulas/metta/fold_inverse)
+!(import! &self ../../third_party/pln_formulas/metta/compute_inverse)
+!(import! &self ../../third_party/pln_formulas/metta/truth_values)
 !(import! &self compiler/compiler)
 
 !(import! &self runtime/values)

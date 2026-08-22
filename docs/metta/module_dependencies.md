@@ -7,8 +7,8 @@ the implementation contract:
 
 1. `core/types.metta` defines shared nominal types and runtime row shapes.
 2. `core/logic_config.metta` defines selectable logic configuration.
-3. `core/formulas/` provides distributions, inverse operations, and truth-value
-   formulas used by compiled rules.
+3. `third_party/pln_formulas/metta/` provides distributions, inverse operations,
+   and truth-value formulas used by compiled rules.
 4. `compiler/compiler.metta` assembles source lowering, the recursive
    rule/specialization component, runtime encoding, and query lowering.
 5. `runtime/values.metta`, `scheduling.metta`, `evidence.metta`, and

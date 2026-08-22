@@ -1,4 +1,4 @@
-!(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ../../../pettachainer/metta/petta_chainer)
 
 (: station-candidates (-[det]-> (List WeightedSubsetCandidate)))
 (= (station-candidates)

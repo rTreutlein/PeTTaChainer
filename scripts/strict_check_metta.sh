@@ -4,6 +4,7 @@ set -euo pipefail
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(cd "$script_dir/.." && pwd)
 metta_dir="$repo_root/pettachainer/metta"
+formulas_dir="$repo_root/third_party/pln_formulas/metta"
 python_bin="${PYTHON_BIN:-$repo_root/.venv/bin/python}"
 if [[ ! -x "$python_bin" ]]; then
   printf 'Missing project interpreter: %s\n' "$python_bin" >&2
@@ -22,10 +23,10 @@ load_metta_file('$petta_dir/lib/lib_roman.metta',_),
 load_metta_file('$petta_dir/lib/lib_spaces.metta',_),
 load_metta_file('$metta_dir/core/types.metta',_),
 load_metta_file('$metta_dir/core/logic_config.metta',_),
-load_metta_file('$metta_dir/core/formulas/distributions.metta',_),
-load_metta_file('$metta_dir/core/formulas/fold_inverse.metta',_),
-load_metta_file('$metta_dir/core/formulas/compute_inverse.metta',_),
-load_metta_file('$metta_dir/core/formulas/truth_values.metta',_),
+load_metta_file('$formulas_dir/distributions.metta',_),
+load_metta_file('$formulas_dir/fold_inverse.metta',_),
+load_metta_file('$formulas_dir/compute_inverse.metta',_),
+load_metta_file('$formulas_dir/truth_values.metta',_),
 load_metta_file('$metta_dir/compiler/compiler.metta',_),
 load_metta_file('$metta_dir/runtime/values.metta',_),
 load_metta_file('$metta_dir/runtime/scheduling.metta',_),

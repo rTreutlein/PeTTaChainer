@@ -10,5 +10,4 @@ raveninduction.metta
 raveninduction_implication_pettachainer.metta
 refinement_base_rate_policies.metta
 smokes.metta
-stationops_fold_inverse.metta
 toothbrush.metta

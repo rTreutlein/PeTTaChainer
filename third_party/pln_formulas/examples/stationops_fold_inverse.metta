@@ -1,4 +1,4 @@
-!(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ../../../pettachainer/metta/petta_chainer)
 
 ;; A compact finite inverse-problem diagnosis. Each candidate records
 ;;   (identity, production loss, independent failure prior).
