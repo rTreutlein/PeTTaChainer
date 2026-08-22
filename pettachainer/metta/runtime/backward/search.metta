@@ -1,24 +1,14 @@
-;; Backward scheduler spine: the agenda heap loop that decides what runs next.
+;; Backward search owns scheduler transitions among goals, frontiers, waiters,
+;; aggregates, and agenda entries.  A spawned frontier replays compatible
+;; durable proofs before deciding whether to wake its child, so historical work
+;; is used before new search is scheduled.  A closed ordinary goal wakes only
+;; when no producer is represented by a current proof; stable-root re-queries
+;; therefore create no agenda work.  Wake propagation permits bounded
+;; synchronous re-entry so immediate revisions cannot escape the query budget.
 ;;
-;; This layer constructs and evolves the (Heap AgendaEntry): enqueueing
-;; goals, aggregates, and frontier waiters; waking demand-dirty subtrees;
-;; committing proof candidates and aggregate snapshots; spawning child
-;; frontiers; and pruning the agenda under a size bound. Every function
-;; threads the heap through and returns the next heap. Policy questions are
-;; delegated: entry validity to agenda.metta, priority values to
-;; demand.metta, TV and admissibility to frontier_parts.metta, proof facts
-;; to the proof store.
-;;
-;; It is one file because these functions form one mutually recursive
-;; component — advancing a waiter can spawn a goal whose registration wakes
-;; other goals back into the same heap — and the checker permits mutual
-;; recursion only within a file. The heap has one payload shape and one
-;; revision protocol: an entry records the demand revision and score at
-;; issue time and is revalidated at pop, never edited in the queue.
-;;
-;; This file also owns the query arena registry:
-;; clear-backward-query-state! lists every per-query space; the durable
-;; proof-store spaces are cleared separately.
+;; The scheduler owns the private &search_wake_active space.  This file also
+;; owns the query arena registry: clear-backward-query-state! lists every
+;; query-local space, while durable proof-store spaces are cleared separately.
 
 (: SearchState (Alias (Number (Heap AgendaEntry))))
 (: AggregateState Type)
