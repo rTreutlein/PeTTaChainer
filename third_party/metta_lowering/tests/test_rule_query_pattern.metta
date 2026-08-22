@@ -1,4 +1,4 @@
-!(import! &self ../../pettachainer/metta/petta_chainer)
+!(import! &self ../../../pettachainer/metta/petta_chainer)
 
 ;; Ordinary variable-headed expressions must remain proper expressions.
 !(test

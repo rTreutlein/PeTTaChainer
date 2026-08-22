@@ -13,10 +13,10 @@ Run an individual MeTTa regression from the repository root with:
 
 The shipped MeTTa runtime lives in `pettachainer/metta`. Its stable facade is
 `petta_chainer.metta`; `bootstrap.metta` loads the internal `core/`, `compiler/`,
-and `runtime/` layers in their required order. Tests, examples, benchmarks,
-documentation, and tools live in their corresponding top-level directories.
-See `docs/metta/module_dependencies.md` for module ownership and dependency
-rules.
+and `runtime/` layers plus the vendored libraries in `third_party/` in their
+required order. Tests, examples, benchmarks, documentation, and tools live in
+their corresponding top-level directories. See
+`docs/metta/module_dependencies.md` for module ownership and dependency rules.
 
 The MeTTa API can also be loaded directly from a pinned Git checkout when
 running under PeTTa:

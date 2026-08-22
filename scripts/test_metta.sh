@@ -11,6 +11,7 @@ metta_dir="$repo_root/pettachainer/metta"
 tests_dir="$repo_root/tests/metta"
 examples_dir="$repo_root/examples/metta"
 pln_formulas_dir="$repo_root/third_party/pln_formulas"
+metta_lowering_dir="$repo_root/third_party/metta_lowering"
 petta_bin="$repo_root/.venv/bin/petta"
 
 if [[ ! -x "$petta_bin" ]]; then
@@ -27,7 +28,8 @@ fi
 files=()
 for file in \
   "$tests_dir"/test*.metta \
-  "$pln_formulas_dir"/tests/test*.metta; do
+  "$pln_formulas_dir"/tests/test*.metta \
+  "$metta_lowering_dir"/tests/test*.metta; do
   files+=("$file")
 done
 

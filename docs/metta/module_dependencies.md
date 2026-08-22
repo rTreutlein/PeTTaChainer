@@ -9,8 +9,9 @@ the implementation contract:
 2. `core/logic_config.metta` defines selectable logic configuration.
 3. `third_party/pln_formulas/metta/` provides distributions, inverse operations,
    and truth-value formulas used by compiled rules.
-4. `compiler/compiler.metta` assembles source lowering, the recursive
-   rule/specialization component, runtime encoding, and query lowering.
+4. `third_party/metta_lowering/metta/` provides generic source lowering and
+   runtime encoding. `compiler/compiler.metta` combines them with the local
+   rule/specialization component and query lowering.
 5. `runtime/values.metta`, `scheduling.metta`, `evidence.metta`, and
    `base_rates.metta` provide shared runtime semantics without owning a search
    engine.
@@ -30,8 +31,9 @@ MeTTa suite, and relevant performance benchmarks.
 
 ## Ownership boundaries
 
-- The compiler owns source-to-runtime translation and compiler specialization
-  metadata. It does not own KB insertion or search.
+- The vendored lowering library owns generic source-to-runtime translation.
+  The local compiler owns PLN rule lowering, query lowering, and compiler
+  specialization metadata. Neither owns KB insertion or search.
 - `runtime/knowledge_store.metta` owns stored facts, rules, and their indexes.
   `runtime/ingest.metta` is the transaction boundary that combines compilation,
   metadata recording, and insertion.
