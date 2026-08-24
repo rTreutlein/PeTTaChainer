@@ -218,8 +218,8 @@
       ($_other ()))))
 
 (: harvest-base-rate-entry
-   (-[semidet]-> $arguments (List Number) (List $none)))
-(= (harvest-base-rate-entry $args $current-pid)
+   (-[semidet]-> Number $arguments (List Number) (List $none)))
+(= (harvest-base-rate-entry $agg-gid $args $current-pid)
    (let $key (base-rate-aggregate-key $args)
       (case $key (
          (no-base-rate-aggregate-key ())
@@ -239,14 +239,7 @@
                                   (STV $s $c)
                                   $mode))
                             ($_supersede
-                               (if
-                                  (and
-                                     (aggregate-proof-revision-refined? $pid)
-                                     (not
-                                        (==
-                                           (proof-children-by-id $pid)
-                                           ())))
-                                  ()
+                               (if (ba-materialized? $agg-gid) ()
                                   (supersede-current-proof! $pid))))
                         ())
                      ()))))))))
@@ -257,9 +250,10 @@
       (collapse
          (match &aggregate
             (stored-aggregate-row
-               $_agg-gid $_child $args
+               $agg-gid $_child $args
                $_base $_pending $current-pid)
-            (harvest-base-rate-entry $args $current-pid)))
+            (harvest-base-rate-entry
+               $agg-gid $args $current-pid)))
       ()))
 
 (: aggregate-no-evidence-pid?

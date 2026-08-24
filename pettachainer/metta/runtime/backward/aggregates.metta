@@ -1,9 +1,9 @@
 ;; Backward aggregates spawn, fold, restore and commit; forward owns subscriptions.
 ;; Wire args start with kb/pattern and share forward finish dispatch at typed boundaries.
-;; Scalar keeps one pid; grouped keeps the latest per snapshot key; base-rate restore requires nonempty stale/refined proofs.
-;; Refinement preserves stale/live, incumbent-replay and cached-seed scheduling; cycles are rejected before child merging.
+;; Scalar keeps one pid; grouped keeps the latest per snapshot key; base-rate restore requires a nonempty proof.
+;; Refinement publishes a changed cached snapshot before scheduling its live refold; cycles are rejected before child merging.
 ;; Background commits use empty evidence; degrading base rates drop unless forward-approx.
-;; Stale group incumbents supersede, fresh ones deactivate, and proof history stays durable.
+;; Replaced incumbents deactivate, and proof history stays durable.
 (: ba-child (-[nondet]-> Goal (| Goal (Statement KBContext Proof TV))))
 (= (ba-child (CPU $a $b $c))(let* (($d (car-atom $b))($e (car-atom (cdr-atom $b)))((compiled-query $f $g)(the CompiledQuery (eval (mm2compileQuery $d (: $h $e $i))))))(if (or (is-var $f)(is-var $g))(empty)(let $_ (once (inject-compiled-adds $g))(typed-runtime-premise $f)))))
 (: ba-step-acc (-[semidet]-> (| ExtractValue ExtractInheritanceTV ExtractTV)(-[semidet]-> $a Atom $a) $a $b (| TV NoTV) $a))
@@ -11,7 +11,7 @@
 (: ba-durable (-[semidet]-> Number $a (List Number)))
 (: ba-restorable (-[semidet]-> (List Number)(List Number)))
 (= (ba-restorable ())())
-(= (ba-restorable (cons $a $b))(let $c (ba-restorable $b)(if (== (proof-children-by-id $a)()) $c (if (or (aggregate-proof-revision-stale? $a)(aggregate-proof-revision-refined? $a))(cons $a $c) $c))))
+(= (ba-restorable (cons $a $b))(let $c (ba-restorable $b)(if (== (proof-children-by-id $a)()) $c (if (proof-current-representative? $a)(cons $a $c) $c))))
 (: ba-wake (-[semidet]-> (Heap AgendaEntry) Number (List Number)(Heap AgendaEntry)))
 (= (ba-wake $a $b ()) $a)
 (= (ba-wake $a $b (cons $c $d))(ba-wake (wake-proof-commit-heap $a $b $c) $b $d))
@@ -19,11 +19,11 @@
 (: ba-ensure-child (-[nondet]-> Number Goal $a Number Number))
 (= (ba-ensure-child $a $b $c $d)(let* (($e (ba-child $b))((stored-goal-row $f $g $h $i $j)(goal-by-id $a))($k (ensure-goal-at-depth $e (+ 1 $g)))($l (collapse (once (match &aggregate (stored-aggregate-row $a $m $n $o $p $q) true))))($r (if (== $l ())(let $s (ba-durable $a $c)(progn (once (chainer-add-atom &aggregate (stored-aggregate-row $a $k $c $d 0.0 $s)))()))()))) $k))
 (: ba-refine (-[nondet]-> (Heap AgendaEntry) Number Number Goal $a TV BaseRateSource (Heap AgendaEntry)))
-(= (ba-refine $a $b $c $d $e $f $g)(let* (($h (ba-ensure-child $c $d $e $b))($i (aggregate-by-id $c))((stored-aggregate-row $j $k $l $m $n $o) $i)($p (if (== $g forward-approx)(add-atom &aggregate_forward_approx ($c))())))(if (aggregate-current-pids-stale? $o)(let $q (register-goal-waiter! $h $c (aggregate-waiter $c live-aggregate-demand))(wake-goal-demand-heap $a $h))(if (not (== $o ()))(let* (($q (register-goal-waiter! $h $c (aggregate-waiter $c (cached-aggregate-demand $f))))($r (ba-wake $a $c $o)))(wake-goal-demand-heap $r $h))(let* (($s (once (store-aggregate-proof-candidate $c (aggregate-result-candidate (CPU FoldAllCompiled $e $f)()()))))($t (set-aggregate-current-pid! $i (cons $s ())))($q (register-goal-waiter! $h $c (aggregate-waiter $c (cached-aggregate-demand $f))))($u (wake-proof-commit-heap $a $c $s)))(wake-goal-demand-heap $u $h))))))
+(= (ba-refine $a $b $c $d $e $f $g)(let* (($h (ba-ensure-child $c $d $e $b))($i (aggregate-by-id $c))((stored-aggregate-row $j $k $l $m $n $o) $i)($p (if (== $g forward-approx)(add-atom &aggregate_forward_approx ($c))()))($q (register-goal-waiter! $h $c (aggregate-waiter $c (cached-aggregate-demand $f))))($r (CPU FoldAllCompiled $e $f))($s (if (aggregate-snapshot-changed? $o $r ())(commit-aggregate-snapshot-heap $a $c $r ()())(ba-wake $a $c $o))))(wake-goal-demand-heap $s $h)))
 (: spawn-aggregate-goal-heap (-[nondet]-> (Heap AgendaEntry) Number Number Number Goal (Heap AgendaEntry)))
 (= (spawn-aggregate-goal-heap $a $b $c $d $e)(let* (($f (copy_term (let (CPU $g $h $i) $e $h)))($j (once (chainer-add-atom &aggregate_search_budget (aggregate-search-budget-row $d $b))))($k (base-rate-aggregate-key $f)))(case $k ( ((base-rate-aggregate-key-value $l $m $n)(ba-spawn-cached $a $b $c $d $e $f (base-rate-cache-entries-for-mode $l $m $n)))(no-base-rate-aggregate-key (ba-spawn-live $a $c $d $e $f))))))
 (: ba-spawn-cached (-[nondet]-> (Heap AgendaEntry) Number Number Number Goal $a (List BaseRateEntry)(Heap AgendaEntry)))
-(= (ba-spawn-cached $a $b $c $d $e $f $g)(case $g ( (()(if (case $f ( (($h (MemberInheritanceSample $i $j $k $l $m) $n $o $p (member-inheritance $h) $q)(forward-member-inheritance-empty-cache-hit? (brand KB $h)(brand Term $j)(brand Term $k) $b))($r false))) $a (ba-spawn-live $a $c $d $e $f)))((cons $s $t)(let* (($u (base-rate-entry-tv $s))($v (base-rate-entry-source $s)))(if (== $v user)(let $w (once (store-aggregate-proof-candidate $d (aggregate-result-candidate (CPU FoldAllCompiled $f $u)()())))(wake-proof-commit-heap $a $d $w))(ba-refine $a $c $d $e $f $u $v)))))))
+(= (ba-spawn-cached $a $b $c $d $e $f $g)(case $g ( (()(if (case $f ( (($h (MemberInheritanceSample $i $j $k $l $m) $n $o $p (member-inheritance $h) $q)(forward-member-inheritance-empty-cache-hit? (brand KB $h)(brand Term $j)(brand Term $k) $b))($r false))) $a (ba-spawn-live $a $c $d $e $f)))((cons $s $t)(let* (($u (base-rate-entry-tv $s))($v (base-rate-entry-source $s)))(if (== $v user)(let $w (once (store-proof-candidate $d (aggregate-result-candidate (CPU FoldAllCompiled $f $u)()())))(wake-proof-commit-heap $a $d $w))(ba-refine $a $c $d $e $f $u $v)))))))
 (: AggregateSearchBudgetRow Type)
 (: aggregate-search-budget-row (-[det]-> Number Number AggregateSearchBudgetRow))
 (: ba-spawn-live (-[nondet]-> (Heap AgendaEntry) Number Number Goal $a (Heap AgendaEntry)))
@@ -57,13 +57,58 @@
 (: ba-pid-split (-[det]-> (List Number)(List Number) BaggPidSplit))
 (: ba-split-step (-[semidet]-> ProofOutputKey BaggPidSplit Number BaggPidSplit))
 (= (ba-split-step $a (ba-pid-split $b $c) $d)(if (=alpha (aggregate-snapshot-key-by-id $d) $a)(ba-pid-split (cons $d $b) $c)(ba-pid-split $b (cons $d $c))))
-(= (append-grouped-aggregate-current-pid! $a $b)(let* (($c (aggregate-by-id $a))((stored-aggregate-row $d $e $f $g $h $i) $c)($j (aggregate-snapshot-key-by-id $b))((ba-pid-split $k $l)(proof-fold-flat-semidet (ba-split-step $j)(ba-pid-split ()()) $i))($m (reverse-number-list $k))($n (reverse-number-list $l))($o (cons $b $n))($p (set-aggregate-current-pid! $c $o))($q (if (aggregate-current-pids-stale? $m)(supersede-current-proofs! $m)(deactivate-current-proofs! $m)))) true))
+(= (append-grouped-aggregate-current-pid! $a $b)(let* (($c (aggregate-by-id $a))((stored-aggregate-row $d $e $f $g $h $i) $c)($j (aggregate-snapshot-key-by-id $b))((ba-pid-split $k $l)(proof-fold-flat-semidet (ba-split-step $j)(ba-pid-split ()()) $i))($m (reverse-number-list $k))($n (reverse-number-list $l))($o (cons $b $n))($p (set-aggregate-current-pid! $c $o))($q (deactivate-current-proofs! $m))) true))
 (: ba-commit-group (-[semidet]-> (Heap AgendaEntry) Number Bool ProofCandidate (Heap AgendaEntry)))
-(= (ba-commit-group $a $b $c (proof-candidate $d $e $f $g))(if (== $c false) $a (if (candidate-is-cyclic? $b $d $g) $a (let* (($h (once (store-aggregate-proof-candidate $b (proof-candidate $d $e $f $g))))($i (append-grouped-aggregate-current-pid! $b $h)))(wake-proof-commit-heap $a $b $h)))))
+(= (ba-commit-group $a $b $c (proof-candidate $d $e $f $g))(if (== $c false) $a (if (candidate-is-cyclic? $b $d $g) $a (let* (($h (once (store-proof-candidate $b (proof-candidate $d $e $f $g))))($i (append-grouped-aggregate-current-pid! $b $h)))(wake-proof-commit-heap $a $b $h)))))
 (: ba-commit-ev (-[det]-> $a (List Evidence)(List Evidence)))
 (= (ba-commit-ev $a $b)(if (base-rate-finish? $a)()(if (== $a uniform-prior)()(if (== $a uniform-prior-known)() $b))))
+(: ba-materialized-step (-[det]-> Bool Number Bool))
+(= (ba-materialized-step $a $b)(if $a true (materialized-aggregate-proof? $b)))
+(: ba-materialized? (-[semidet]-> Number Bool))
+(= (ba-materialized? $a)(proof-fold-flat-semidet ba-materialized-step false (goal-proof-ids $a)))
 (: run-aggregate-heap (-[nondet]-> (Heap AgendaEntry) Number (Heap AgendaEntry)))
-(= (run-aggregate-heap $a $b)(let* (($c (aggregate-by-id $b))((stored-aggregate-row $d $e $f $g $h $i) $c)($j (ba-grouped? $f))($k (set-aggregate-pending! $c 0.0)))(if $j (let $l (the (KB Statement $m (| ExtractValue ExtractInheritanceTV ExtractTV) $n (-[semidet]-> $o $p $o) AggregateFinish AggregateTVMode)(copy_term $f))(proof-fold-flat-semidet (ba-commit-state $b $l) $a (ba-group-states $b $e $l)))(let* (((aggregate-state $q $r $s)(ba-scalar-state $b $e (the (KB Statement (| ExtractValue ExtractInheritanceTV ExtractTV) $n (-[semidet]-> $o $p $o) AggregateFinish AggregateTVMode)(copy_term $f))))(($t $u $v $w $x $y $z) $f)($v26 (CPU FoldAllCompiled $f (finish-aggregate $y $q)))($v27 (ba-commit-ev $y $r)))(if (ba-degrades? $b $y $i $v26) $a (if (aggregate-snapshot-changed? $i $v26 $v27)(commit-aggregate-snapshot-heap $a $b $v26 $v27 $s) $a))))))
+(= (run-aggregate-heap $a $b)
+   (let* (($c (aggregate-by-id $b))
+          ((stored-aggregate-row $d $e $f $g $h $i) $c)
+          ($j (ba-grouped? $f))
+          ($k (set-aggregate-pending! $c 0.0)))
+      (if $j
+         (let $l
+            (the
+               (KB Statement $m
+                  (| ExtractValue ExtractInheritanceTV ExtractTV) $n
+                  (-[semidet]-> $o $p $o) AggregateFinish AggregateTVMode)
+               (copy_term $f))
+            (proof-fold-flat-semidet
+               (ba-commit-state $b $l) $a
+               (ba-group-states $b $e $l)))
+         (let* (((aggregate-state $q $r $s)
+                    (ba-scalar-state $b $e
+                       (the
+                          (KB Statement
+                             (| ExtractValue ExtractInheritanceTV ExtractTV)
+                             $n (-[semidet]-> $o $p $o)
+                             AggregateFinish AggregateTVMode)
+                          (copy_term $f))))
+                (($t $u $v $w $x $y $z) $f)
+                ($v26 (CPU FoldAllCompiled $f (finish-aggregate $y $q)))
+                ($v27 (ba-commit-ev $y $r)))
+            (if (ba-degrades? $b $y $i $v26) $a
+               (if (aggregate-snapshot-changed? $i $v26 $v27)
+                  (commit-aggregate-snapshot-heap
+                     $a $b $v26 $v27 $s)
+                  (case $i (
+                     (() $a)
+                     ((cons $v28 $_v29)
+                        (if
+                           (and
+                              (== (proof-children-by-id $v28) ())
+                              (and
+                                 (not (== $s ()))
+                                 (ba-materialized? $b)))
+                           (commit-aggregate-snapshot-heap
+                              $a $b $v26 $v27 $s)
+                           $a))))))))))
 (: ba-degrades? (-[semidet]-> Number $a (List Number) $b Bool))
 (= (ba-degrades? $a $b $c $d)(if (not (== (collapse (once (match &aggregate_forward_approx ($a) true)))())) false (if (base-rate-finish? $b)(if (== $c ()) false (let* (((cons $e $f) $c)($g (let (CPU $h $i $j) $d $j))($k (let (CPU $l $m $n)(proof-output-atom-by-id $e) $n)))(if (= $k (STV $o $p))(if (= $g (STV $q $r))(< (tv-confidence $g)(tv-confidence $k)) true) false))) false)))
 (: direct-goal-results-view (-[nondet]-> Number (| Goal (Statement KBContext Proof TV))(| Goal (Statement KBContext Proof TV))))

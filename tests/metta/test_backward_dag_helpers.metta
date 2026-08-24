@@ -215,8 +215,7 @@
           &proof_current_result &proof_current_result_output
           &proof_current_result_dirty
           &proof_parent &proof_static_live
-          &proof_superseded &proof_retired
-          &aggregate_revision &aggregate_proof_revision))
+          &proof_superseded &proof_retired))
       ()))
 
 (: test-runtime-fact

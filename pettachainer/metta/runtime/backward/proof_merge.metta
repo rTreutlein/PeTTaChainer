@@ -179,8 +179,6 @@
 (= (leaf-result-candidate $result $ev) (once (case $result ( ((CPU $_formula $_arguments $_cpu-result) (proof-candidate (leaf $result) (term-confidence $result) $ev ())) (($type ($kbid $context $variables) $prf $tv) (atom-candidate (assemble-contextual-runtime-fact $type $kbid $context $variables $prf $tv) $ev)) ($_other (proof-candidate (leaf $result) (term-confidence $result) $ev ()))))))
 (: aggregate-result-candidate (-[det]-> (| Goal (Statement KBContext Proof TV)) (List Evidence) (List Number) ProofCandidate))
 (= (aggregate-result-candidate $result $ev $children) (proof-candidate (aggregate $result) (term-confidence $result) $ev $children))
-(: store-aggregate-proof-candidate (-[semidet]-> Number ProofCandidate Number))
-(= (store-aggregate-proof-candidate $agg-gid $candidate) (let* (($pid (once (store-proof-candidate $agg-gid $candidate))) ((proof-candidate $kind $_score $_ev $_children) $candidate) ($_revision (record-aggregate-proof-revision! $pid $kind))) $pid))
 (: candidate-kind-term (-[semidet]-> ProofKind (| Goal (Statement KBContext Proof TV))))
 (= (candidate-kind-term (leaf $term)) $term)
 (= (candidate-kind-term (rule $term)) $term)

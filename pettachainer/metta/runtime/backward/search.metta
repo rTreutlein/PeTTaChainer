@@ -828,14 +828,13 @@
             $children)
          $agenda
          (let* (($pid
-                   (store-aggregate-proof-candidate
-                      $agg-gid $candidate))
+                   (once
+                      (store-proof-candidate
+                         $agg-gid $candidate)))
                 ($_current
                    (set-aggregate-current-pid!
                       $row (cons $pid ())))
                 ($_replace
-                   (if (aggregate-current-pids-stale? $current-pids)
-                      (supersede-current-proofs! $current-pids)
-                      (deactivate-current-proofs! $current-pids))))
+                   (deactivate-current-proofs! $current-pids)))
             (wake-proof-commit-heap
                $agenda $agg-gid $pid)))))

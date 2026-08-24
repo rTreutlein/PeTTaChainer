@@ -15,29 +15,8 @@
    (case $expr (
       ((: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $_concept) $_tv)
          (if (is-var $subj) ()
-            (let* (($typed-kbid (brand KB $kbid))
-                   ($typed-subj (brand Statement $subj))
-                   ($known?
-                      (observed-inheritance-subject?
-                         $typed-kbid $typed-subj))
-                   ($universe-identity
-                      (inheritance-prior-universe-identity $typed-kbid))
-                   ($tracked?
-                      (aggregate-proof-identity-recorded?
-                         $universe-identity))
-                   ($row (make-space-pair $kbid $subj))
-                   ($_subject
-                      (add-space-atom! &inheritance_subject $row))
-                   ($_refresh
-                      (if (or $known? (not $tracked?)) ()
-                         (let* (($_next
-                                  (bump-aggregate-revision!
-                                     $universe-identity))
-                                ($_cache
-                                  (invalidate-computed-base-rates!
-                                     $typed-kbid)))
-                            ()))))
-               ())))
+            (add-space-atom! &inheritance_subject
+               (make-space-pair $kbid $subj))))
       ($_other ()))))
 
 (: record-compiled-inheritance-concepts!
@@ -91,12 +70,6 @@
            (collapse
               (foreach-flat
                  record-compiled-inheritance-concepts! $eatoms)))
-        ($_ (collapse (foreach-flat add-to-kb $iatoms)))
-        ($_member-revisions
-           (case $stmt1 (
-              ((: $_proof (Inheritance $_subj $concept) $_tv)
-                 (forward-bump-member-aggregate-revisions!
-                    (brand KB $kb) (brand Term $concept)))
-              ($_other ())))))
+        ($_ (collapse (foreach-flat add-to-kb $iatoms))))
       (superpose
          $eatoms)))

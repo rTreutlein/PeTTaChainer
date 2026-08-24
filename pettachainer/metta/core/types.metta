@@ -255,20 +255,6 @@
 (: base-rate
    (-[det]-> KB Statement TV BaseRateSource $mode BaseRateEntry))
 
-;; Aggregate revisions connect replaceable forward-maintained cache values to
-;; the durable backward proof snapshots which consumed them.  The identity is
-;; alpha-stable; the current row is keyed by that identity, while proof rows
-;; are keyed by numeric PID for dependency checks during query restoration.
-(: AggregateIdentity (Newtype Atom))
-(: AggregateRevisionRow Type)
-(: aggregate-revision-row
-   (-[det]-> AggregateIdentity AggregateIdentity Number
-       AggregateRevisionRow))
-(: AggregateProofRevisionRow Type)
-(: aggregate-proof-revision-row
-   (-[det]-> Number AggregateIdentity Number
-       AggregateProofRevisionRow))
-
 (: UniverseSizeEntry Type)
 (: universe-size (-[det]-> KB Number UniverseSizeEntry))
 

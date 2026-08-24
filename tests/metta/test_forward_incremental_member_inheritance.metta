@@ -338,10 +338,10 @@
       computedForwardDeltaKb Human Mortal)
    3)
 
-;; A materialized backward proof retains the aggregate revision it consumed.
-;; Forward maintenance can advance the cache without retracting that proof;
-;; the next query restores it as an incumbent, schedules a live refold, and
-;; materializes the refined a+b+c snapshot for zero-budget reuse.
+;; A materialized backward proof records the aggregate proof it consumed.
+;; Mere additions leave that proof current. Forward maintenance publishes the
+;; newer cached snapshot on demand, which can rebuild the conclusion before a
+;; later live refold materializes complete provenance for zero-budget reuse.
 !(compileadd materializedForwardDeltaKb
    (: maHuman (Member a Human) (STV 1.0 1.0)))
 !(compileadd materializedForwardDeltaKb
@@ -365,8 +365,26 @@
    (: mcHuman (Member c Human) (STV 1.0 1.0)))
 !(compileadd materializedForwardDeltaKb
    (: mcMortal (Member c Mortal) (STV 0.6 1.0)))
+
+!(test
+   (query 0 materializedForwardDeltaKb
+      (: $proof (Inheritance Human Mortal) $tv))
+   (: (member-inheritance-fold
+          (foldall-proof
+             (member-inheritance-sample mbHuman mbMortal)
+             (member-inheritance-sample maHuman maMortal)))
+      (Inheritance Human Mortal)
+      (STV 0.6666666666666666 0.0018714909544603868)))
+
 !(forward-chain 4 materializedForwardDeltaKb
    (member-test-fact materializedForwardDeltaKb c Mortal))
+
+!(test
+   (query 5 materializedForwardDeltaKb
+      (: $proof (Inheritance Human Mortal) $tv))
+   (: (member-inheritance-fold cpu)
+      (Inheritance Human Mortal)
+      (STV 0.64 0.003115264797507788)))
 
 !(test
    (query 1000 materializedForwardDeltaKb
