@@ -15,8 +15,19 @@
    (case $expr (
       ((: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $_concept) $_tv)
          (if (is-var $subj) ()
-            (add-space-atom! &inheritance_subject
-               (make-space-pair $kbid $subj))))
+            (let* (($typed-kbid (brand KB $kbid))
+                   ($typed-subj (brand Statement $subj))
+                   ($known?
+                      (observed-inheritance-subject?
+                         $typed-kbid $typed-subj))
+                   ($_retire
+                      (if $known? ()
+                         (retire-changed-base-rate-universe!
+                            $typed-kbid)))
+                   ($_subject
+                      (add-space-atom! &inheritance_subject
+                         (make-space-pair $kbid $subj))))
+               ())))
       ($_other ()))))
 
 (: record-compiled-inheritance-concepts!

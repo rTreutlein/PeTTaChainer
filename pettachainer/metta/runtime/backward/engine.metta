@@ -309,6 +309,21 @@
 ;; be absent.  The public runner creates its root ID immediately above, so turn
 ;; an impossible missing-root result into an empty, deterministic search
 ;; rather than letting the whole query vanish.
+(: schedule-execution-root-goals-heap
+   (-[semidet]-> (Heap AgendaEntry) (List Number) Bool
+       (Heap AgendaEntry)))
+(= (schedule-execution-root-goals-heap $agenda () $_reuse?) $agenda)
+(= (schedule-execution-root-goals-heap $agenda (cons $gid $rest) $reuse?)
+   (let $next
+      ;; The reuse flag must gate the lineage probe with a nested if:
+      ;; and-evaluation is strict, so an (and $reuse? probe) form would
+      ;; pay the per-root probe on every non-materializing query.
+      (if $reuse?
+         (if (== (current-materialized-root-results $gid) ())
+            (schedule-root-goals-heap $agenda (cons $gid ()))
+            $agenda)
+         (schedule-root-goals-heap $agenda (cons $gid ())))
+      (schedule-execution-root-goals-heap $next $rest $reuse?)))
 (: execute-backward
    (-[nondet]-> Number
        (List (| Goal (Statement KBContext Proof TV)))
@@ -333,8 +348,11 @@
           (change-state! bwd_root_count
              (length $scheduled-root-gids)))
        ($agenda0
-          (schedule-root-goals-heap
-             (empty_heap) $scheduled-root-gids))
+          (schedule-execution-root-goals-heap
+             (empty_heap) $scheduled-root-gids
+             (if $materialize?
+                (not (pending-base-rate-retires?))
+                false)))
        ;; A semidet failure anywhere in the search loop lands in the empty
        ;; case here. That is always an engine defect, never a legitimate
        ;; quiescence, so announce it instead of silently returning whatever

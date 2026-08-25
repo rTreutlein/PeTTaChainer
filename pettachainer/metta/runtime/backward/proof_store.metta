@@ -31,10 +31,20 @@
 (= (clear-current-confidence! $gid) (let $_removed (collapse (match &goal_current_confidence (current-confidence-row $gid $value) (remove-atom &goal_current_confidence (current-confidence-row $gid $value)))) ()))
 (: clear-key-confidence! (-[det]-> ProofGoalKey (List $none)))
 (= (clear-key-confidence! $key) (let $lkey (goal-key-hash $key) (let $_cleared (collapse (match &goal_lookup ($lkey $saved-key $gid) (if (=alpha $saved-key $key) (clear-current-confidence! (stored-number $gid)) (empty)))) ())))
+(: index-base-rate-aggregate-current-pid! (-[det]-> $arguments Number (List $none)))
+(= (index-base-rate-aggregate-current-pid! $arguments $pid)(case (base-rate-aggregate-key $arguments) ( ((base-rate-aggregate-key-value $kbid $pattern $mode)(let* (($key (base-rate-aggregate-key-value $kbid $pattern $mode))($lookup (base-rate-aggregate-key-hash $key))($_key (add-space-atom! &base_rate_aggregate_current (make-space-pair $lookup (base-rate-aggregate-current-entry $key $pid))))($_pid (add-space-atom! &base_rate_aggregate_current_by_pid (make-space-pair $pid (base-rate-aggregate-current-pid-entry $lookup $key))))($_kb (add-space-atom! &base_rate_aggregate_current_by_kb (make-space-pair $kbid (base-rate-aggregate-current-kb-entry $lookup $key $pid)))))()))(no-base-rate-aggregate-key ()))))
+(: remove-base-rate-aggregate-current-pid-index! (-[det]-> Number (List $none)))
+(= (remove-base-rate-aggregate-current-pid-index! $pid)(let $_removed (collapse (match &base_rate_aggregate_current_by_pid ($pid (base-rate-aggregate-current-pid-entry $lookup $key))(let (base-rate-aggregate-key-value $kbid $_pattern $_mode) $key (let* (($_key (remove-atom &base_rate_aggregate_current ($lookup (base-rate-aggregate-current-entry $key $pid))))($_kb (remove-atom &base_rate_aggregate_current_by_kb ($kbid (base-rate-aggregate-current-kb-entry $lookup $key $pid))))($_pid (remove-atom &base_rate_aggregate_current_by_pid ($pid (base-rate-aggregate-current-pid-entry $lookup $key)))))()))))()))
+(: remove-base-rate-aggregate-current-pid-indexes! (-[det]-> (List Number) (List $none)))
+(= (remove-base-rate-aggregate-current-pid-indexes! ()) ())
+(= (remove-base-rate-aggregate-current-pid-indexes! (cons $pid $rest))(let* (($_removed (remove-base-rate-aggregate-current-pid-index! $pid))($_remaining (remove-base-rate-aggregate-current-pid-indexes! $rest)))()))
+(: index-base-rate-aggregate-current-pids! (-[det]-> Atom (List Number) (List $none)))
+(= (index-base-rate-aggregate-current-pids! $_arguments ()) ())
+(= (index-base-rate-aggregate-current-pids! $arguments (cons $pid $rest))(let* (($_indexed (index-base-rate-aggregate-current-pid! $arguments $pid))($_remaining (index-base-rate-aggregate-current-pids! $arguments $rest)))()))
 (: index-current! (-[det]-> ProofGoalKey ProofOutputKey Number Bool))
 (= (index-current! $key $okey $pid) (let* (($lkey (copy_term $key)) ($out-lkey (copy_term (goal-output-key $key $okey))) ($_goal (once (add-atom &proof_current (current-row $lkey $key $okey $pid))))) (once (add-atom &proof_current (current-out-row $out-lkey $key $okey $pid)))))
 (: remove-current! (-[semidet]-> ProofGoalKey Number Bool))
-(= (remove-current! $key $pid) (let* (($lkey (copy_term $key)) ($okey (output-key $pid)) ($out-lkey (copy_term (goal-output-key $key $okey))) ($_output (collapse (once (remove-atom &proof_current (current-out-row $out-lkey $key $okey $pid))))) ($removed (collapse (once (remove-atom &proof_current (current-row $lkey $key $okey $pid)))))) (not (== $removed ()))))
+(= (remove-current! $key $pid) (let* (($lkey (copy_term $key)) ($okey (output-key $pid)) ($out-lkey (copy_term (goal-output-key $key $okey))) ($_aggregate (remove-base-rate-aggregate-current-pid-index! $pid)) ($_output (collapse (once (remove-atom &proof_current (current-out-row $out-lkey $key $okey $pid))))) ($removed (collapse (once (remove-atom &proof_current (current-row $lkey $key $okey $pid)))))) (not (== $removed ()))))
 (: current-proof-ids-for-goal-key (-[semidet]-> ProofGoalKey (List Number)))
 (= (current-proof-ids-for-goal-key $key) (let* (($_metric (increment-backward-query-metric! current-proof-goal-lookups)) ($lkey (copy_term $key))) (collapse (match &proof_current (current-row $lkey $saved-key $_output-key $pid) (if (=alpha $saved-key $key) (stored-number $pid) (empty))))))
 (: current-output-pids (-[semidet]-> ProofGoalKey ProofOutputKey (List Number)))
@@ -62,7 +72,7 @@
 (: set-aggregate-pending! (-[semidet]-> StoredAggregateRow Number (| Bool (List $none))))
 (= (set-aggregate-pending! (stored-aggregate-row $agg-gid $child-gid $args $base $pending $current) $next-pending) (progn (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid $args $base $pending $current)) (once (chainer-add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid $args $base $next-pending $current)))))
 (: set-aggregate-current-pid! (-[semidet]-> StoredAggregateRow (List Number) (| Bool (List $none))))
-(= (set-aggregate-current-pid! (stored-aggregate-row $agg-gid $child-gid $args $base $pending $current) $next-current) (progn (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid $args $base $pending $current)) (once (chainer-add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid $args $base $pending $next-current)))))
+(= (set-aggregate-current-pid! (stored-aggregate-row $agg-gid $child-gid $args $base $pending $current) $next-current) (let* (($_old-index (remove-base-rate-aggregate-current-pid-indexes! $current)) ($_new-index (index-base-rate-aggregate-current-pids! $args $next-current))) (progn (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid $args $base $pending $current)) (once (chainer-add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid $args $base $pending $next-current))))))
 (: ClosedGoalKey Type)
 (: closed-goal ClosedGoalKey)
 (: ProofOutputGroup Type)
@@ -269,33 +279,19 @@
 (= (supersede-current-proofs! $current) (foreach-flat supersede-current-proof! $current))
 (: deactivate-current-proofs! (-[semidet]-> (List Number) (List $none)))
 (= (deactivate-current-proofs! $current) (foreach-flat deactivate-current-proof! $current))
-(: base-rate-aggregate-proof-for? (-[semidet]-> KB Statement Number Bool))
-(= (base-rate-aggregate-proof-for? $kbid $pattern $pid)
-   (once
-      (match &proof
-         (stored-proof-row $pid $_owner $_output $kind $_support $_children)
-         (case $kind (
-            ((aggregate (CPU $_function $args $_result))
-               (case (base-rate-aggregate-key $args) (
-                  ((base-rate-aggregate-key-value $stored-kbid $stored-pattern $_mode)
-                     (if
-                        (and (== $stored-kbid $kbid)
-                           (=alpha $stored-pattern $pattern))
-                        true
-                        (empty)))
-                  (no-base-rate-aggregate-key (empty)))))
-            ($_other (empty)))))))
 (: current-base-rate-aggregate-pids (-[det]-> KB Statement (List Number)))
 (= (current-base-rate-aggregate-pids $kbid $pattern)
    (collapse
-      (match &proof_current
-         (current-row $_lookup $_key $_output-key $pid)
-         (let $saved-pid (stored-number $pid)
-            (if
-               (base-rate-aggregate-proof-for?
-                  $kbid $pattern $saved-pid)
-               $saved-pid
-               (empty))))))
+      (match &base_rate_aggregate_current_by_kb
+         ($kbid
+            (base-rate-aggregate-current-kb-entry
+               $_lookup
+               (base-rate-aggregate-key-value
+                  $_stored-kbid $stored-pattern $_mode)
+               $pid))
+         (if (=alpha $stored-pattern $pattern)
+            (stored-number $pid)
+            (empty)))))
 (: invalidate-base-rate-aggregate-proofs!
    (-[det]-> KB Statement (List $none)))
 (: store-base-rate! (-[det]-> KB Statement TV (List $none)))
@@ -323,8 +319,34 @@
          (foreach-flat supersede-current-proof!
             (current-base-rate-aggregate-pids $kbid $pattern)))
       ()))
+(: current-base-rate-aggregate-pids-for-key
+   (-[det]-> BaseRateAggregateKey (List Number)))
+(= (current-base-rate-aggregate-pids-for-key $key)
+   (let $lookup (base-rate-aggregate-key-hash $key)
+      (collapse
+         (match &base_rate_aggregate_current
+            ($lookup
+               (base-rate-aggregate-current-entry $stored-key $pid))
+            (if (=alpha $stored-key $key)
+               (stored-number $pid)
+               (empty))))))
+(: consume-pending-base-rate-retire-key!
+   (-[det]-> BaseRateAggregateKey Bool))
+(= (consume-pending-base-rate-retire-key! $key)
+   (if (pending-base-rate-retire? $key)
+      (let* (($_retired
+                (collapse
+                   (foreach-flat supersede-current-proof!
+                      (current-base-rate-aggregate-pids-for-key $key))))
+             ($_consumed (remove-pending-base-rate-retire! $key)))
+         true)
+      false))
 (: latest-proof-id (-[semidet]-> (List Number) Number))
 (= (latest-proof-id (cons $pid $rest)) (fold-flat max $pid $rest))
+(: latest-live-proof-id-step (-[semidet]-> Number Number Number))
+(= (latest-live-proof-id-step $latest $pid)(if (proof-current-representative? $pid)(if (proof-live? $pid)(max $latest $pid)$latest)$latest))
+(: latest-live-proof-id (-[semidet]-> (List Number) Number))
+(= (latest-live-proof-id $pids)(let $latest (fold-flat latest-live-proof-id-step -1 $pids)(if (< $latest 0)(latest-proof-id $pids)$latest)))
 (: latest-proof-output-group-ids (-[semidet]-> (List ProofOutputGroup) (List Number)))
 (= (latest-proof-output-group-ids ()) ())
 (= (latest-proof-output-group-ids (cons (proof-output-group $_key $pids) $rest)) (cons (latest-proof-id $pids) (latest-proof-output-group-ids $rest)))

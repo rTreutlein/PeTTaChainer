@@ -32,6 +32,129 @@
             no-base-rate-aggregate-key))
       ($_other no-base-rate-aggregate-key))))
 
+(: base-rate-aggregate-key-leaf (-[det]-> Atom Atom))
+(= (base-rate-aggregate-key-leaf $atom)
+   (if (is-var $atom) base-rate-aggregate-identity-variable $atom))
+
+(: base-rate-aggregate-key-hash
+   (-[det]-> BaseRateAggregateKey Number))
+(= (base-rate-aggregate-key-hash
+      (base-rate-aggregate-key-value $kbid $pattern $mode))
+   (term_hash
+      (map-nested base-rate-aggregate-key-leaf
+         (quote ($kbid $pattern $mode)))))
+
+(: PendingBaseRateRetireEntry Type)
+(: pending-base-rate-retire-entry
+   (-[det]-> BaseRateAggregateKey PendingBaseRateRetireEntry))
+(: BaseRateAggregateCurrentEntry Type)
+(: base-rate-aggregate-current-entry
+   (-[det]-> BaseRateAggregateKey Number BaseRateAggregateCurrentEntry))
+(: BaseRateAggregateCurrentPidEntry Type)
+(: base-rate-aggregate-current-pid-entry
+   (-[det]-> Number BaseRateAggregateKey
+       BaseRateAggregateCurrentPidEntry))
+(: BaseRateAggregateCurrentKbEntry Type)
+(: base-rate-aggregate-current-kb-entry
+   (-[det]-> Number BaseRateAggregateKey Number
+       BaseRateAggregateCurrentKbEntry))
+
+(: pending-base-rate-retire? (-[det]-> BaseRateAggregateKey Bool))
+(= (pending-base-rate-retire? $key)
+   (let $lookup (base-rate-aggregate-key-hash $key)
+      (not
+         (==
+            (collapse
+               (once
+                  (match &base_rate_pending_retire
+                     ($lookup
+                        (pending-base-rate-retire-entry $stored-key))
+                     (if (=alpha $stored-key $key) true (empty)))))
+            ()))))
+
+(: pending-base-rate-retires? (-[det]-> Bool))
+(= (pending-base-rate-retires?)
+   (not
+      (==
+         (collapse
+            (once
+               (match &base_rate_pending_retire
+                  ($_lookup (pending-base-rate-retire-entry $_key))
+                  true)))
+         ())))
+
+(: request-base-rate-aggregate-retire!
+   (-[det]-> Number BaseRateAggregateKey Bool))
+(= (request-base-rate-aggregate-retire! $lookup $key)
+   (add-space-atom! &base_rate_pending_retire
+      (make-space-pair $lookup
+         (pending-base-rate-retire-entry $key))))
+
+(: producer-universe-key? (-[det]-> KB BaseRateAggregateKey Bool))
+(= (producer-universe-key? $kbid
+      (base-rate-aggregate-key-value $_stored-kbid $_pattern $mode))
+   (case $mode (
+      ((weighted-base-rate-in-universe $universe-kbid)
+         (== $kbid $universe-kbid))
+      ((weighted-base-rate-with-prior-in-universe $universe-kbid)
+         (== $kbid $universe-kbid))
+      ((member-inheritance $universe-kbid)
+         (== $kbid $universe-kbid))
+      ($_other false))))
+(: producer-retire-base-rate-universe! (-[det]-> KB (List $none)))
+(= (producer-retire-base-rate-universe! $kbid)
+   (let $_requested
+      (collapse
+         (match &base_rate_aggregate_current_by_kb
+            ($kbid
+               (base-rate-aggregate-current-kb-entry
+                  $lookup $key $_pid))
+            (if (producer-universe-key?
+                  $kbid (the BaseRateAggregateKey $key))
+               (request-base-rate-aggregate-retire!
+                  (the Number $lookup)
+                  (the BaseRateAggregateKey $key))
+               (empty))))
+      ()))
+(: retire-changed-base-rate-aggregate!
+   (-[det]-> KB Statement $mode (List $none)))
+(= (retire-changed-base-rate-aggregate! $kbid $pattern $mode)
+   (let* (($key
+             (base-rate-aggregate-key-value $kbid $pattern $mode))
+          ($lookup (base-rate-aggregate-key-hash $key)))
+      (let $_requested
+         (collapse
+            (once
+               (match &base_rate_aggregate_current
+                  ($lookup
+                     (base-rate-aggregate-current-entry
+                        $stored-key $_pid))
+                  (if (=alpha $stored-key $key)
+                     (request-base-rate-aggregate-retire!
+                        $lookup
+                        (the BaseRateAggregateKey $stored-key))
+                     (empty)))))
+         ())))
+
+(: retire-changed-base-rate-universe! (-[det]-> KB (List $none)))
+(= (retire-changed-base-rate-universe! $kbid)
+   (producer-retire-base-rate-universe! $kbid))
+
+(: remove-pending-base-rate-retire!
+   (-[det]-> BaseRateAggregateKey (List $none)))
+(= (remove-pending-base-rate-retire! $key)
+   (let $lookup (base-rate-aggregate-key-hash $key)
+      (let $_removed
+         (collapse
+            (match &base_rate_pending_retire
+               ($lookup (pending-base-rate-retire-entry $stored-key))
+               (if (=alpha $stored-key $key)
+                  (remove-atom &base_rate_pending_retire
+                     ($lookup
+                        (pending-base-rate-retire-entry $stored-key)))
+                  (empty))))
+         ())))
+
 (: base-rate-cache-entries (-[det]-> KB Statement (List BaseRateEntry)))
 (= (base-rate-cache-entries $kbid $pattern)
    (collapse
@@ -55,6 +178,16 @@
 (= (base-rate-cache-remove-entry! $entry)
    (remove-atom &base_rate_cache $entry))
 
+(: base-rate-cache-remove-derived-entry!
+   (-[det]-> BaseRateEntry (List $none)))
+(= (base-rate-cache-remove-derived-entry!
+      (base-rate $kbid $stored $tv $source $mode))
+   (if (== $source user) ()
+      (let $_removed
+         (base-rate-cache-remove-entry!
+            (base-rate $kbid $stored $tv $source $mode))
+         ())))
+
 (: base-rate-cache-remove! (-[det]-> KB Statement (List $none)))
 (= (base-rate-cache-remove! $kbid $pattern)
    (let $_
@@ -66,13 +199,8 @@
    (-[det]-> KB Statement $mode (List $none)))
 (= (base-rate-cache-remove-derived! $kbid $pattern $mode)
    (let $_
-      (foreach-flat base-rate-cache-remove-entry!
-         (collapse
-            (match &base_rate_cache
-               (base-rate $kbid $stored $tv $source $mode)
-               (if (and (not (== $source user)) (=alpha $stored $pattern))
-                  (base-rate $kbid $stored $tv $source $mode)
-                  (empty)))))
+      (foreach-flat base-rate-cache-remove-derived-entry!
+         (base-rate-cache-entries-for-mode $kbid $pattern $mode))
       ()))
 
 (: base-rate-entry-tv (-[det]-> BaseRateEntry TV))
@@ -85,10 +213,32 @@
       (base-rate $_kbid $_stored $_tv $source $_mode))
    (== $source user))
 
+(: base-rate-cache-user-present?
+   (-[det]-> (List BaseRateEntry) Bool))
+(= (base-rate-cache-user-present? ()) false)
+(= (base-rate-cache-user-present? (cons $entry $rest))
+   (if (base-rate-entry-user? $entry) true
+      (base-rate-cache-user-present? $rest)))
+
 (: base-rate-entry-source (-[det]-> BaseRateEntry BaseRateSource))
 (= (base-rate-entry-source
       (base-rate $_kbid $_stored $_tv $source $_mode))
    $source)
+
+(: base-rate-cache-tv-replaced?
+   (-[det]-> (List BaseRateEntry) Atom Bool))
+(= (base-rate-cache-tv-replaced? () $_tv) false)
+(= (base-rate-cache-tv-replaced? (cons $entry $_rest) $tv)
+   (if (base-rate-entry-user? $entry) false
+      (not (=alpha (base-rate-entry-tv $entry) $tv))))
+
+(: base-rate-derived-cache-present?
+   (-[det]-> (List BaseRateEntry) Bool))
+(= (base-rate-derived-cache-present? ()) false)
+(= (base-rate-derived-cache-present? (cons $entry $rest))
+   (if (base-rate-entry-user? $entry)
+      (base-rate-derived-cache-present? $rest)
+      true))
 
 (: matching-base-rate-cache-entries
    (-[det]-> KB Statement (List BaseRateEntry)))
@@ -181,18 +331,49 @@
                 (base-rate $kbid $stored $tv computed $mode))))
          ())))
 
+(: store-produced-base-rate!
+   (-[det]-> KB Statement TV BaseRateSource $mode (List $none)))
+(= (store-produced-base-rate! $kbid $pattern $tv $source $mode)
+   (if (== $tv no-evidence) ()
+      (let $entries (base-rate-cache-entries-for-mode $kbid $pattern $mode)
+         (if (base-rate-cache-user-present? $entries)
+            ()
+            (let* (($replaced?
+                       (base-rate-cache-tv-replaced? $entries $tv))
+                   ($stored (copy_term $pattern))
+                   ($_old
+                      (foreach-flat
+                         base-rate-cache-remove-derived-entry! $entries))
+                   ($_new
+                      (add-atom &base_rate_cache
+                         (base-rate $kbid $stored $tv $source $mode)))
+                   ($_retire
+                      (if $replaced?
+                         (retire-changed-base-rate-aggregate!
+                            $kbid $pattern $mode)
+                         ())))
+               ())))))
+
 (: store-forward-base-rate!
    (-[det]-> KB Statement TV $mode (List $none)))
 (= (store-forward-base-rate! $kbid $pattern $tv $mode)
-   (if (== $tv no-evidence) ()
-      (if (base-rate-user-set? $kbid $pattern) ()
-         (let*
-            (($stored (copy_term $pattern))
-             ($_old (base-rate-cache-remove-derived! $kbid $pattern $mode))
-             ($_new
-                (add-atom &base_rate_cache
-                   (base-rate $kbid $stored $tv forward-approx $mode))))
-            ()))))
+   (store-produced-base-rate!
+      $kbid $pattern $tv forward-approx $mode))
+
+(: remove-produced-base-rate!
+   (-[det]-> KB Statement $mode (List $none)))
+(= (remove-produced-base-rate! $kbid $pattern $mode)
+   (let* (($entries
+             (base-rate-cache-entries-for-mode $kbid $pattern $mode))
+          ($removed? (base-rate-derived-cache-present? $entries))
+          ($_old
+             (foreach-flat base-rate-cache-remove-derived-entry! $entries))
+          ($_retire
+             (if $removed?
+                (retire-changed-base-rate-aggregate!
+                   $kbid $pattern $mode)
+                ())))
+      ()))
 
 (: invalidate-computed-base-rates! (-[det]-> KB (List $none)))
 (= (invalidate-computed-base-rates! $kbid)
