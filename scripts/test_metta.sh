@@ -30,6 +30,7 @@ for file in \
   "$tests_dir"/test*.metta \
   "$pln_formulas_dir"/tests/test*.metta \
   "$metta_lowering_dir"/tests/test*.metta; do
+  [[ -e $file ]] || continue
   files+=("$file")
 done
 
@@ -46,6 +47,7 @@ while IFS= read -r file || [[ -n $file ]]; do
 done < "$examples_dir/supported.txt"
 
 for file in "$pln_formulas_dir"/examples/*.metta; do
+  [[ -e $file ]] || continue
   files+=("$file")
 done
 
