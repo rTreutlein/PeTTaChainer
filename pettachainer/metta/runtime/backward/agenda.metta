@@ -181,13 +181,13 @@
                             (let* (($key
                                        (brand ProofGoalKey
                                           (goal-key $goal)))
-                                    ($lookup-key (copy_term $key)))
+                                    ($hash (goal-key-hash $key)))
                                (not
                                   (==
                                      (collapse
                                         (once
                                            (match &proof_goal
-                                              ($lookup-key
+                                              ($hash $_lookup-key
                                                  $stored-key $_pid)
                                               (if (=alpha $stored-key $key)
                                                  true

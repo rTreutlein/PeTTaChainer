@@ -5,6 +5,18 @@
 heap_pop(Heap, [Priority, Value, Rest]) :-
     get_from_heap(Heap, Priority, Value, Rest).
 
+% Hash a lookup column with every variable replaced by one marker, so a row
+% keeps an integer SWI can JIT-index; =alpha on the stored key still decides.
+'index-hash'(Term, Hash) :-
+    term_variables(Term, Variables),
+    (   Variables == []
+    ->  term_hash(Term, Hash)
+    ;   copy_term(Term, Copy),
+        term_variables(Copy, CopyVariables),
+        maplist(=('goal-key-hash-variable'), CopyVariables),
+        term_hash(Copy, Hash)
+    ).
+
 'rule-lookup-needs-occurs-check'(Term, Result) :-
     term_variables(Term, Variables),
     term_singletons(Term, Singletons),

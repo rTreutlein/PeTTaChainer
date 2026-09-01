@@ -39,24 +39,13 @@
                 (quote ($type $vars)))
              (quote ($sealed-goal ($kbid $ctx))))))))
 
-;; term_hash leaves a nonground hash unbound. Replace variables with one
-;; stable marker for indexing, then retain the complete key in the indexed row
-;; so =alpha can distinguish hash collisions and variable-sharing patterns.
-(: goal-key-hash-leaf (-[det]-> Atom Atom))
-(= (goal-key-hash-leaf $atom)
-   (if (is-var $atom) goal-key-hash-variable $atom))
-
+;; A lookup column is hashed with every variable replaced by one marker
+;; (imported Prolog helper index-hash): the integer lets SWI build a JIT hash
+;; index on the space, while the complete key stored beside it lets =alpha
+;; reject collisions and distinguish variable-sharing patterns.
+(: index-hash (-[det]-> $term Number))
 (: goal-key-hash (-[det]-> ProofGoalKey Number))
-(= (goal-key-hash $key)
-   (case $key (
-      ((CPU $fun $args $result)
-         (term_hash
-            (map-nested goal-key-hash-leaf
-               (quote (CPU $fun $args $result)))))
-      (($sealed-goal ($kbid $context))
-         (term_hash
-            (map-nested goal-key-hash-leaf
-               (quote ($sealed-goal ($kbid $context)))))))))
+(= (goal-key-hash $key) (index-hash $key))
 
 (: normalize-expected-stv (-[det]-> $truth-value STVType))
 (= (normalize-expected-stv $tv)

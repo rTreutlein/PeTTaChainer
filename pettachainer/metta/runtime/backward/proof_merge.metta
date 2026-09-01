@@ -162,11 +162,15 @@
 (= (proof-list-has-direct-leaf? (cons $pid $rest))
    (if (== (proof-leaf-class $pid) direct) true (proof-list-has-direct-leaf? $rest)))
 ;; Keyed by output rather than goal key: a premise that was never scheduled has
-;; no stored key, and sealing one costs more than the lookup it serves.
+;; no stored key. A ground output key goes through the hash column; a pattern
+;; with variables matches its instances by unification instead.
 (: current-proof-ids-for-output (-[det]-> (| Goal (Statement KBContext Proof TV)) (List Number)))
 (= (current-proof-ids-for-output $premise)
    (let $okey (copy_term (candidate-output-key $premise))
-      (collapse (match &proof_current (current-row $_lkey $_key $okey $pid) (stored-number $pid)))))
+      (if (== (extract-vars $okey) ())
+         (let $ohash (index-hash $okey)
+            (collapse (match &proof_current (current-row $_khash $ohash $_lkey $_key $okey $pid) (stored-number $pid))))
+         (collapse (match &proof_current (current-row $_khash $_ohash $_lkey $_key $okey $pid) (stored-number $pid))))))
 (: premise-current-pid-lists
    (-[semidet]-> Bool (List (| Goal (Statement KBContext Proof TV))) (List (List Number))))
 ;; Existence pass: an unestablished premise yields the sentinel (cons () ()) at

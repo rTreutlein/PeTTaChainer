@@ -4,11 +4,8 @@
 ;; Empty Member cache keeps the largest settled budget and only matching additions refine it.
 ;; Computed merges retain subset or no-heavier incomparable incumbents; double removal republishes and rejoins surviving Member state.
 ;; Unqueued additions touch only that Member join.
-(: fa-id-leaf (-[det]-> Atom Atom))
-(= (fa-id-leaf $a)(if (is-var $a) forward-base-rate-identity-variable $a))
 (: fa-id-hash (-[det]-> ForwardAggregateIdentityKey Number))
-(= (fa-id-hash (forward-base-rate-identity $a $b $c $d $e $f $g))(term_hash (map-nested fa-id-leaf (quote ($a $b ($c $d) $e $f $g)))))
-(= (fa-id-hash (forward-member-inheritance-identity $a $b $c))(term_hash (quote ($a $b $c))))
+(= (fa-id-hash $key)(index-hash $key))
 (: fa-register! (-[det]-> ForwardAggregateIdentityKey ForwardAggregateDescriptor ForwardTriggerKey Bool ForwardTriggerKey (List $a)))
 (= (fa-register! $a $b $c $d $e)(let* (($f (fa-id-hash $a))($g (term_hash $c))($h (collapse (once (match &forward_aggregate_identity ($f (forward-aggregate-identity-row $i $j))(if (=alpha $i $a) $j (empty)))))))(if (== $h ())(let* (($k (next-search-id fwd_aggregate_id))(($i $l)(copy_term (quote ($a $b))))($m (the ForwardAggregateIdentityKey $i))($n (the ForwardAggregateDescriptor $l))($o (once (add-atom &forward_aggregate_identity ($f (forward-aggregate-identity-row $m $k)))))($p (once (add-atom &forward_aggregate_interest_by_trigger ($g (forward-aggregate-interest $c $k $n)))))($q (if $d (let* (($r (term_hash $e))($s (once (add-atom &forward_aggregate_interest_by_trigger ($r (forward-aggregate-interest $e $k $n))))))())()))($t (once (add-atom &forward_aggregate_state (forward-aggregate-state $k 0.0 0.0)))))())())))
 (: fa-register-member! (-[det]-> (| Goal (Statement KBContext Proof TV))(List $a)))

@@ -32,17 +32,9 @@
             no-base-rate-aggregate-key))
       ($_other no-base-rate-aggregate-key))))
 
-(: base-rate-aggregate-key-leaf (-[det]-> Atom Atom))
-(= (base-rate-aggregate-key-leaf $atom)
-   (if (is-var $atom) base-rate-aggregate-identity-variable $atom))
-
 (: base-rate-aggregate-key-hash
    (-[det]-> BaseRateAggregateKey Number))
-(= (base-rate-aggregate-key-hash
-      (base-rate-aggregate-key-value $kbid $pattern $mode))
-   (term_hash
-      (map-nested base-rate-aggregate-key-leaf
-         (quote ($kbid $pattern $mode)))))
+(= (base-rate-aggregate-key-hash $key) (index-hash $key))
 
 (: PendingBaseRateRetireEntry Type)
 (: pending-base-rate-retire-entry
