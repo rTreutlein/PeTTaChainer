@@ -40,10 +40,9 @@ matching indexed interests, not to the full Member population. If the result
 scales with population size, profile the exact `match` or list operation before
 changing storage. This is the closest PeTTaChainer analogue of MM2 `7e80b80`.
 
-The weighted-subset posterior DP is a separate problem. Its current eager
-prefix/postfix construction and list-based DP cell lookup should receive its
-own benchmark and data-structure work; the Member-inheritance cache does not
-make that computation incremental automatically.
+The weighted-subset posterior DP (`fold_inverse`) has since been removed:
+direct antecedent completion replaced whole-conjunction inversion, so that
+data-structure work is no longer a candidate.
 
 ### 2. Add opt-in cached-proof refinement
 

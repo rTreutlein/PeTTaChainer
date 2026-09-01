@@ -176,8 +176,26 @@ compilation.
 A pure top-level `Or` antecedent remains invertible. Its TV-formula CPU is
 introduced by lowering and is not a source computation. Inversion derives the
 whole disjunction; ordinary OR projection may then recover one child from the
-disjunction and the other known children. Ordinary multi-premise `And` remains
-forward-only unless it contains a supported reversible `Compute`.
+disjunction and the other known children. Ordinary multi-premise `And`
+reconstructs no bindings unless it contains a supported reversible `Compute`;
+its children are proved by antecedent completion instead.
+
+### Antecedent completion
+
+A pure top-level `And` antecedent is completed automatically: from
+`(Implication (And O M) C)` the compiler also proves each child `M` from the
+other children `O` and the consequent `C`, with proofs of the form
+`((antecedent-completion rule idx with cpu cpu) witnesses)` (`idx` is the
+zero-based position of `M`). The truth value uses the joint base rates of
+`M`, `(And O M)` and `(And O C)` directly, plus the base rate of `C` for an
+`STV`-valued rule; pin them with `(set-base-rate kb pattern tv)` when the
+knowledge base cannot estimate them, otherwise the completion yields nothing.
+
+No completion is compiled for `Exists` antecedents, antecedents containing a
+source `Compute`, bare-variable children, or children whose variables do not
+all occur in the rest of the rule. `no_inverse` disables whole-antecedent
+inversion only. Do not write the reverse rule by hand for a pure `And`
+antecedent; write the forward implication and its base rates.
 
 ### Not
 

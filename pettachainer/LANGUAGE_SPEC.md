@@ -348,8 +348,66 @@ trigger that veto. A rule such as `(Or A B) -> C` may be inverted from `C` to
 the whole `Or`; the normal compound-output adapters can then project `A` given
 `B`, or vice versa. OR projection uses the noisy-OR inverse and propagates
 variance from both the reconstructed total and the known alternative. Ordinary
-multi-premise `And` rules remain forward-only unless they contain a supported
-reversible `Compute`.
+multi-premise `And` rules reconstruct no variable bindings unless they contain
+a supported reversible `Compute`; their children are instead proved directly
+by antecedent completion.
+
+### Antecedent completion
+
+A stored implication whose antecedent is a pure top-level `And` also proves
+each antecedent child from the other children plus the consequent. For
+
+```metta
+(Implication (And O M) C)
+```
+
+the compiler adds, per child `M`, the completion rule `(And O C) -> M`. Its
+proofs have the form
+
+```metta
+((antecedent-completion rule idx with cpu cpu) witnesses)
+```
+
+where `idx` is the zero-based position of `M` in the `And` and `witnesses`
+is the conjunction of the proofs of `O` and `C`. The truth value is computed
+directly from joint base rates rather than by inverting the whole conjunction
+and projecting `M` out of it, which would introduce an independence
+approximation. With `H = (And O M)` and `K = (And O C)`:
+
+- positive branch: `P(M | K) = P(C | H) * P(H) / P(K)`
+- negative branch: `P(M | not K) = (P(M) - P(C | H) * P(H)) / (1 - P(K))`
+
+When `O` is empty this is ordinary inversion. The rule consumes the base
+rates of `M`, `H` and `K`; an `STV`-valued implication additionally consumes
+the base rate of `C` to form the implication's CTV first. Pin base rates with
+`(set-base-rate kb pattern tv)` when the knowledge base cannot estimate them.
+The completion has no result when a base rate is unavailable, when `P(K)` is
+`0` or `1`, or when `P(C | H) * P(H)` is inconsistent with the marginals of
+`M` and `K` (Fréchet bounds).
+
+Completion is compiled only for a plain `And` antecedent (no `Exists`), only
+when the antecedent contains no source `Compute` premise, and only for
+children that are not bare variables and whose variables are exactly the
+variables of the other children plus the consequent. A child that carries a
+variable absent from the rest of the rule is skipped. `no_inverse` disables
+whole-antecedent inversion but not completion.
+
+```metta
+!(compileadd kb (: a A (STV 1.0 0.9)))
+!(compileadd kb (: c C (STV 1.0 0.9)))
+!(compileadd kb (: ab_c (Implication (And A B) C) (STV 1.0 0.9)))
+!(set-base-rate kb (And A B) (STV 0.2 0.9))
+!(set-base-rate kb C (STV 0.4 0.9))
+!(set-base-rate kb (And A C) (STV 0.25 0.9))
+!(set-base-rate kb B (STV 0.3 0.9))
+!(query 2000 kb (: $proof B $tv))
+```
+
+proves `B` through
+`(: ((antecedent-completion ab_c 1 with cpu cpu) (conjunction a c)) B (STV 0.8 0.24255226513533926))`.
+A query constrained to that proof pattern returns the same proof, and a
+completion for a child of a `CTV`-valued implication or of a three-way `And`
+works the same way.
 
 ### 3) FoldAll / FoldAllValue
 
