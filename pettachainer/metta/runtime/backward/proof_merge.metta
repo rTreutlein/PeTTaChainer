@@ -93,13 +93,144 @@
 (= (evidence-step $acc $pid) (let ($_score $ev) (proof-stats-by-id $pid) (list_to_set (append-evidence $acc $ev))))
 (: proof-evidence (-[semidet]-> (List Number) (List Evidence)))
 (= (proof-evidence $pids) (proof-fold-flat-semidet evidence-step () $pids))
+;; A marginal projection is a bound read off a conjunction, not an independent
+;; measurement. A direct leaf of the same output with higher confidence
+;; displaces it from the fact group when pooling would double-count the leaf
+;; (the projection's evidence contains the leaf's) or when the projection
+;; contradicts the leaf's strength; a corroborating projection with independent
+;; evidence still pools. Revising the leaf would also retire every proof built
+;; on it.
+(: proof-leaf-class (-[semidet]-> Number Atom))
+(= (proof-leaf-class $pid)
+   (case (proof-kind-by-id $pid) (
+      ((leaf ($_type $_kb (marginal-proj $_idx $_base) $_tv)) marginal)
+      ((rule ($_type $_kb (marginal-proj $_idx $_base) $_tv)) marginal)
+      ((leaf $_term) direct)
+      ($_other other))))
+(: marginal-direct-strength-conflict? (-[semidet]-> Number Number Bool))
+(= (marginal-direct-strength-conflict? $marginal $direct)
+   (case (proof-output-atom-by-id $marginal) (
+      (($_mtype $_mkb $_mproof (STV $mstrength $_mconfidence))
+         (case (proof-output-atom-by-id $direct) (
+            (($_dtype $_dkb $_dproof (STV $dstrength $_dconfidence)) (not (== $mstrength $dstrength)))
+            ($_other false))))
+      ($_other false))))
+(: marginal-displaced-by-direct? (-[semidet]-> Number Number (List Evidence) (List Number) Bool))
+(= (marginal-displaced-by-direct? $_marginal $_score $_ev ()) false)
+(= (marginal-displaced-by-direct? $marginal $score $ev (cons $pid $rest))
+   (if (== (proof-leaf-class $pid) direct)
+      (let ($direct-score $direct-ev) (proof-stats-by-id $pid)
+         (if (> $direct-score $score)
+            (if (== $direct-ev ())
+               (marginal-displaced-by-direct? $marginal $score $ev $rest)
+               (if (evidence-subset? $direct-ev $ev) true
+                  (if (marginal-direct-strength-conflict? $marginal $pid) true
+                     (marginal-displaced-by-direct? $marginal $score $ev $rest))))
+            (marginal-displaced-by-direct? $marginal $score $ev $rest)))
+      (marginal-displaced-by-direct? $marginal $score $ev $rest)))
+(: representative-input-step (-[semidet]-> (List Number) (List Number) Number (List Number)))
+(= (representative-input-step $pids $acc $pid)
+   (if (== (proof-leaf-class $pid) marginal)
+      (let ($score $ev) (proof-stats-by-id $pid)
+         (if (marginal-displaced-by-direct? $pid $score $ev $pids) $acc (cons $pid $acc)))
+      (cons $pid $acc)))
+(: representative-input-pids (-[semidet]-> (List Number) (List Number)))
+(= (representative-input-pids $pids) (reverse-number-list (proof-fold-flat-semidet (representative-input-step $pids) () $pids)))
+;; Generated reverse rules (inverted, projection, antecedent completion) are
+;; secondary derivations. For a goal that a direct leaf already proves they may
+;; only combine premises that are already established with independent
+;; evidence: opening new search through them re-derives the leaf from itself
+;; and, on fact-heavy KBs, costs a full search on every re-query.
+(: generated-rule-head (-[det]-> Proof Atom))
+(= (generated-rule-head $proof)
+   (if (is-expr $proof)
+      (let $outer (car-atom $proof)
+         (if (is-expr $outer)
+            (let $head (car-atom $outer) (if (is-var $head) none $head))
+            (if (is-var $outer) none $outer)))
+      none))
+(: inverted-rule-proof? (-[det]-> Proof Bool))
+(= (inverted-rule-proof? $proof) (== (generated-rule-head $proof) inverted))
+(: generated-reverse-rule-proof? (-[det]-> Proof Bool))
+(= (generated-reverse-rule-proof? $proof)
+   (let $head (generated-rule-head $proof)
+      (if (== $head inverted) true
+         (if (== $head proj) true
+            (if (== $head marginal-proj) true (== $head antecedent-completion))))))
+(: proof-list-has-direct-leaf? (-[semidet]-> (List Number) Bool))
+(= (proof-list-has-direct-leaf? ()) false)
+(= (proof-list-has-direct-leaf? (cons $pid $rest))
+   (if (== (proof-leaf-class $pid) direct) true (proof-list-has-direct-leaf? $rest)))
+;; Keyed by output rather than goal key: a premise that was never scheduled has
+;; no stored key, and sealing one costs more than the lookup it serves.
+(: current-proof-ids-for-output (-[det]-> (| Goal (Statement KBContext Proof TV)) (List Number)))
+(= (current-proof-ids-for-output $premise)
+   (let $okey (copy_term (candidate-output-key $premise))
+      (collapse (match &proof_current (current-row $_lkey $_key $okey $pid) (stored-number $pid)))))
+(: premise-current-pid-lists
+   (-[semidet]-> Bool (List (| Goal (Statement KBContext Proof TV))) (List (List Number))))
+;; Existence pass: an unestablished premise yields the sentinel (cons () ()) at
+;; once, before any evidence is folded. A stored fact without a current
+;; derivation may stand in only for inverted rules or compound premises.
+(= (premise-current-pid-lists $_stored-ok ()) ())
+(= (premise-current-pid-lists $stored-ok (cons $premise $rest))
+   (case $premise (
+      ((CPU $_function $_arguments $_result) (premise-current-pid-lists $stored-ok $rest))
+      (($type $_kb $_proof $_tv)
+         (let $pids (current-proof-ids-for-output $premise)
+            (if (== $pids ())
+               (if (if $stored-ok true (if (is-expr $type) (compound-connective? (car-atom $type)) false))
+                  (if (== (collapse (once (match &kb (@ $_stored $premise) true))) ())
+                     (cons () ())
+                     (premise-current-pid-lists $stored-ok $rest))
+                  (cons () ()))
+               (let $more (premise-current-pid-lists $stored-ok $rest)
+                  (if (== $more (cons () ())) $more (cons $pids $more)))))))))
+(: premise-evidence-independent? (-[semidet]-> (List Evidence) (List (List Number)) Bool))
+(= (premise-evidence-independent? $_evidence ()) true)
+(= (premise-evidence-independent? $incumbent-evidence (cons $pids $rest))
+   (if (== $pids ()) false
+      (if (evidence-sets-overlap? (proof-evidence $pids) $incumbent-evidence) false
+         (premise-evidence-independent? $incumbent-evidence $rest))))
+(: reverse-rule-premises-current?
+   (-[semidet]-> Bool (List Evidence) (List (| Goal (Statement KBContext Proof TV))) Bool))
+(= (reverse-rule-premises-current? $stored-ok $incumbent-evidence $premises)
+   (premise-evidence-independent? $incumbent-evidence (premise-current-pid-lists $stored-ok $premises)))
+(: generated-reverse-rule-needed?
+   (-[semidet]-> (List Number) (List (| Goal (Statement KBContext Proof TV))) Proof Bool))
+(= (generated-reverse-rule-needed? $pids $premises $proof)
+   (if (proof-list-has-direct-leaf? $pids)
+      (reverse-rule-premises-current? (inverted-rule-proof? $proof) (proof-evidence $pids) $premises)
+      true))
 (: representative-pid (-[semidet]-> Number ProofOutputGroup Number))
 (= (representative-pid $gid (proof-output-group $_key $pids)) (representative-for-key (proof-goal-key-by-goal-id $gid) (proof-output-group $_key $pids)))
 (: representative-for-key (-[semidet]-> ProofGoalKey ProofOutputGroup Number))
 ;; Output groups are keyed by output, so the head pid's output kind (CPU vs
 ;; fact) is uniform across the group: dispatch on it first and pay the
 ;; latest-live probe fold only for CPU groups.
-(= (representative-for-key $gkey (proof-output-group $_key $pids)) (case $pids ( ((cons $pid ()) $pid) ((cons $hpid $_rest) (case (proof-output-atom-by-id $hpid) ( ((CPU $_function $_arguments $_result)(latest-live-proof-id $pids))($_fact (let* (($owner (merged-proof-group $gkey))($output (merge-output $pids))($score (term-confidence $output))($ev (proof-evidence $pids))($hits (collapse (once (match &proof (stored-proof-row $saved-pid $owner $output (merged $output) (proof-support $score $ev $_contribution) $pids) $saved-pid)))))(if (== $hits ())(let* (($pid (next-pid))($_store (once (chainer-add-atom &proof (stored-proof-row $pid $owner $output (merged $output) (proof-support $score $ev (stored-contribution (merged $output) $output)) $pids))))($_index (index-proof-result-for-goal! $gkey $pid))($_parents (register-proof-parent-edges! $pid $pids)))$pid)(car-atom $hits))))))))))
+(= (representative-for-key $gkey (proof-output-group $_key $pids))
+   (case $pids (
+      ((cons $pid ()) $pid)
+      ((cons $hpid $_rest)
+         (case (proof-output-atom-by-id $hpid) (
+            ((CPU $_function $_arguments $_result) (latest-live-proof-id $pids))
+            ($_fact
+               (let $preferred (representative-input-pids $pids)
+                  (case $preferred (
+                     ((cons $pid ()) $pid)
+                     ($_multiple
+                        (let* (($owner (merged-proof-group $gkey))
+                               ($output (merge-output $preferred))
+                               ($score (term-confidence $output))
+                               ($ev (proof-evidence $preferred))
+                               ($hits (collapse (once (match &proof (stored-proof-row $saved-pid $owner $output (merged $output) (proof-support $score $ev $_contribution) $preferred) $saved-pid)))))
+                           (if (== $hits ())
+                              (let* (($pid (next-pid))
+                                     ($_store (once (chainer-add-atom &proof (stored-proof-row $pid $owner $output (merged $output) (proof-support $score $ev (stored-contribution (merged $output) $output)) $preferred))))
+                                     ($_index (index-proof-result-for-goal! $gkey $pid))
+                                     ($_parents (register-proof-parent-edges! $pid $preferred)))
+                                 $pid)
+                              (car-atom $hits))))))))))))))
 (: proof-output-group-representative-pids (-[semidet]-> Number (List ProofOutputGroup) (List Number)))
 (= (proof-output-group-representative-pids $_gid ()) ())
 (= (proof-output-group-representative-pids $gid (cons $group $rest)) (cons (representative-pid $gid $group) (proof-output-group-representative-pids $gid $rest)))
@@ -137,7 +268,20 @@
 (: goal-incumbent-proof-ids (-[semidet]-> Number (List Number)))
 (= (goal-incumbent-proof-ids $gid) (let* (($merged (latest-proof-output-group-ids (proof-output-groups (goal-result-proof-ids $gid)))) ($raw (raw-incumbents $gid)) ($uncovered (reverse-number-list (proof-fold-flat-semidet (uncovered-step $merged) () $raw)))) (append-numbers $merged $uncovered)))
 (: root-pids (-[semidet]-> Number (List Number)))
-(= (root-pids $gid) (let $live (goal-live-proof-ids $gid) (if (== $live ()) (proof-output-group-representative-pids $gid (proof-output-groups (goal-incumbent-proof-ids $gid))) (goal-merged-proof-ids $gid))))
+;; The goal key omits the proof pattern, so a re-query constrained to a proof
+;; that a merged representative absorbed has no current result of its own:
+;; surface its stored matches (absorbed, not retired) instead of nothing.
+(: unretired-proof-step (-[det]-> (List Number) Number (List Number)))
+(= (unretired-proof-step $acc $pid) (if (proof-retired? $pid) $acc (cons $pid $acc)))
+(= (root-pids $gid)
+   (let $current
+      (let $live (goal-live-proof-ids $gid)
+         (if (== $live ())
+            (proof-output-group-representative-pids $gid (proof-output-groups (goal-incumbent-proof-ids $gid)))
+            (goal-merged-proof-ids $gid)))
+      (if (== $current ())
+         (latest-proof-output-group-ids (proof-output-groups (reverse-number-list (proof-fold-flat-semidet unretired-proof-step () (goal-proof-ids $gid)))))
+         $current)))
 (: materialize-root-goal-proofs-to-kb (-[det]-> Number (List $none)))
 (= (materialize-root-goal-proofs-to-kb $gid) (let $_materialized (collapse (materialize-list! (root-pids $gid))) ()))
 (: first-pid-list (-[det]-> (List Number) (List Number)))

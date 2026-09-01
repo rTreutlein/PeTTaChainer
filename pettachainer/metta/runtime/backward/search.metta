@@ -473,6 +473,9 @@
    (-[det]-> (List Number) Proof Bool))
 (: proof-list-has-aggregate?
    (-[det]-> (List Number) Bool))
+(: replayed-rule-needs-wake?
+   (-[semidet]-> (List Number)
+      (List (| Goal (Statement KBContext Proof TV))) Proof Bool))
 (= (proof-list-has-aggregate? ()) false)
 (= (proof-list-has-aggregate? (cons $pid $rest))
    (let $row
@@ -502,6 +505,13 @@
                         $rest $rule-proof))))))
          ($_missing
             (replayed-proofs-use-rule? $rest $rule-proof))))))
+(= (replayed-rule-needs-wake? $pids $premises $rule-proof)
+   (if (inverted-rule-proof? $rule-proof) false
+      (if (generated-reverse-rule-proof? $rule-proof)
+         (if (generated-reverse-rule-needed? $pids $premises $rule-proof)
+            (not (replayed-proofs-use-rule? $pids $rule-proof))
+            false)
+         (not (replayed-proofs-use-rule? $pids $rule-proof)))))
 
 (: search-goal-has-untried-rule?
    (-[det]-> (| Goal (Statement KBContext Proof TV))
@@ -517,30 +527,16 @@
                   (collapse
                      (once
                         (match ccls_index
-                           ($lookup-goal $_rule-id $_args)
+                           ($lookup-goal $_rule-id $args)
                            (if (= $lookup-goal $goal)
                               (case $lookup-goal (
                                  (($_rule-type $_rule-kb
                                      $rule-proof $_rule-tv)
-                                    (if
-                                       (if (is-expr $rule-proof)
-                                          (let $outer-head
-                                             (car-atom $rule-proof)
-                                             (if (is-expr $outer-head)
-                                                (let $head
-                                                   (car-atom $outer-head)
-                                                   (if (is-var $head)
-                                                      false
-                                                      (== $head inverted)))
-                                                false))
-                                          false)
-                                       (empty)
-                                       (if
-                                          (replayed-proofs-use-rule?
-                                             $pids
-                                             (brand Proof $rule-proof))
-                                          (empty)
-                                          true)))))
+                                    (if (replayed-rule-needs-wake?
+                                           $pids $args
+                                           (brand Proof $rule-proof))
+                                       true
+                                       (empty)))))
                               (empty)))))
                   ())))))))
 (= (replayed-frontier-needs-wake? $premise $pids)

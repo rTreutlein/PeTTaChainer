@@ -6,11 +6,24 @@
        (| Goal (Statement KBContext Proof TV))
        Number)))
 
+(: RuleIndexMatch
+   (Alias
+      ((| Goal (Statement KBContext Proof TV))
+       Number
+       (List (| Goal (Statement KBContext Proof TV))))))
+(: ccls-index-occurs-matches
+   (-[det]-> Atom (List RuleIndexMatch)))
+(: rule-lookup-needs-occurs-check
+   (-[det]-> Atom Bool))
 ;; Preserve the complete conclusion shape during lookup. SWI's deep JIT index
 ;; can then discriminate connective children (And, Or, configured compounds)
 ;; and ordinary predicate arguments instead of enumerating every rule sharing
-;; only the outer head. Variables in the query or stored conclusion still
-;; unify through ccls_index, including variable-headed rules.
+;; only the outer head. Linear goals unify through ccls_index directly,
+;; including variable-headed rules. A goal that repeats a variable unifies
+;; under an occurs check: an exists witness term embeds the variable it
+;; witnesses for, so (Father $x (exists r 0 ($y $x))) against a projection
+;; rule concluding (Father (exists r2 0 ($s $_)) $s) would otherwise build a
+;; rational tree, and every later walk of the goal key diverges.
 (: rule-goal-view
    (-[nondet]-> (| Goal (Statement KBContext Proof TV))
       Number RuleGoalMatch))
@@ -22,14 +35,26 @@
          (let $lookup-goal
             (copy_term
                (data $_type $_kbctx $_proof $_tv))
-            (match ccls_index
-               ($lookup-goal $rule-id $args)
-               (if (= $lookup-goal $goal)
-                  (data $rule-id
-                     (contextualize-rule-args $goal $args)
-                     $goal
-                     $parent-gid)
-                  (empty))))))))
+            (if (rule-lookup-needs-occurs-check $lookup-goal)
+               ;; superpose takes a literal tuple, so bind the match list first.
+               (let $matches (ccls-index-occurs-matches $lookup-goal)
+                  (let ($matched-goal $rule-id $args) (superpose $matches)
+                     (if (= $matched-goal $goal)
+                        (data (stored-number $rule-id)
+                           (contextualize-rule-args $goal
+                              (the (List (| Goal (Statement KBContext Proof TV)))
+                                 $args))
+                           $goal
+                           $parent-gid)
+                        (empty))))
+               (match ccls_index
+                  ($lookup-goal $rule-id $args)
+                  (if (= $lookup-goal $goal)
+                     (data $rule-id
+                        (contextualize-rule-args $goal $args)
+                        $goal
+                        $parent-gid)
+                     (empty)))))))))
 
 (: context-vars-in-type?
    ;; KBContext is an erased newtype, so its destructured variables field is a
@@ -88,10 +113,36 @@
    (-[semidet]-> (Heap AgendaEntry) Number
        (| Goal (Statement KBContext Proof TV))
        (Heap AgendaEntry)))
+;; Generated reverse rules are pruned once per expansion, after the matches
+;; are collected: the structural scan is free and the current-proof probe runs
+;; only when one of them matched (see generated-reverse-rule-needed?).
+(: generated-rule-match-present? (-[det]-> (List RuleGoalMatch) Bool))
+(= (generated-rule-match-present? ()) false)
+(= (generated-rule-match-present? (cons ($_rule-id $_premises ($_type $_kb $proof $_tv) $_gid) $rest))
+   (if (generated-reverse-rule-proof? (brand Proof $proof)) true (generated-rule-match-present? $rest)))
+(: needed-rule-matches (-[semidet]-> (List Evidence) (List RuleGoalMatch) (List RuleGoalMatch)))
+(= (needed-rule-matches $_incumbent-evidence ()) ())
+(= (needed-rule-matches $incumbent-evidence (cons $match $rest))
+   (let ($_rule-id $premises ($_type $_kb $proof $_tv) $_gid) $match
+      (if (if (generated-reverse-rule-proof? (brand Proof $proof))
+             (reverse-rule-premises-current?
+                (inverted-rule-proof? (brand Proof $proof)) $incumbent-evidence $premises)
+             true)
+         (cons $match (needed-rule-matches $incumbent-evidence $rest))
+         (needed-rule-matches $incumbent-evidence $rest))))
+(: prune-generated-rule-matches (-[semidet]-> Number (List RuleGoalMatch) (List RuleGoalMatch)))
+(= (prune-generated-rule-matches $parent-gid $matches)
+   (if (generated-rule-match-present? $matches)
+      (let $pids (current-proof-ids-for-goal-key (proof-goal-key-by-goal-id $parent-gid))
+         (if (proof-list-has-direct-leaf? $pids)
+            (needed-rule-matches (proof-evidence $pids) $matches)
+            $matches))
+      $matches))
 (= (expand-rule-goal-heap $agenda $parent-gid $goal)
    (proof-fold-flat-semidet expand-rule-goal-fold
       $agenda
-      (collapse (rule-goal-view $goal $parent-gid))))
+      (prune-generated-rule-matches $parent-gid
+         (collapse (rule-goal-view $goal $parent-gid)))))
 
 ;; Cached expected score, computed at rule-add time (store-rule-expected-score!).
 ;; The cache assumes the goal's TV slot is unbound (the value depends only on

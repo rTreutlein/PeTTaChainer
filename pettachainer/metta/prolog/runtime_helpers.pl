@@ -5,6 +5,29 @@
 heap_pop(Heap, [Priority, Value, Rest]) :-
     get_from_heap(Heap, Priority, Value, Rest).
 
+'rule-lookup-needs-occurs-check'(Term, Result) :-
+    term_variables(Term, Variables),
+    term_singletons(Term, Singletons),
+    (   same_length(Variables, Singletons)
+    ->  Result = false
+    ;   Result = true
+    ).
+
+'ccls-index-occurs-matches'(LookupTemplate, Matches) :-
+    current_prolog_flag(occurs_check, Previous),
+    setup_call_cleanup(
+        set_prolog_flag(occurs_check, true),
+        (   current_predicate(ccls_index/3)
+        ->  findall(
+                [Matched, RuleId, Args],
+                ( copy_term(LookupTemplate, Matched),
+                  ccls_index(Matched, RuleId, Args)
+                ),
+                Matches)
+        ;   Matches = []
+        ),
+        set_prolog_flag(occurs_check, Previous)).
+
 % Deterministic bounded particle condensation. The strongest particles become
 % anchors; each overflow particle is absorbed by the compatible anchor with
 % the least Ward loss. This retains modes with meaningful mass, merges nearby

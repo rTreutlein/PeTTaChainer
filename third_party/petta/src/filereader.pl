@@ -48,8 +48,8 @@ claim_source_compile(CanonPath, compile_functions) :-
 
 rethrow_metta_file_error(_, Error) :- Error = error(_, context(_, _)), !,
                                       throw(Error).
-rethrow_metta_file_error(Filename, error(Type, _)) :- !,
-                                                      throw(error(Type, context(Filename, 'while loading MeTTa file'))).
+rethrow_metta_file_error(_, error(Type, Context)) :- !,
+                                                    throw(error(Type, Context)).
 rethrow_metta_file_error(_, Error) :- throw(Error).
 
 current_metta_file(File) :- catch(nb_getval('$metta_file', File), _, File = '<string>').
