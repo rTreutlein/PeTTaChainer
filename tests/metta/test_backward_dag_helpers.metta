@@ -972,9 +972,7 @@
               (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-old)))
               (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-new)))
               (deactivate-current-proof! $pid-old))))
-      (waiter-live?
-         (frontier-waiter 99 bundle 1.0 () () $path-id
-            (frontier-value-spec 1.0 1 1.0))))
+      (frontier-path-live? $path-id))
    false)
 
 !(test
