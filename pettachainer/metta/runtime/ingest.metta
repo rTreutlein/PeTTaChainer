@@ -48,12 +48,6 @@
                (map-flat materialize-stmt-lambdas (cdr-atom $term))))
          $term))))
 
-(: externalize-compiled-addition
-   (-[nondet]-> RuntimeAddition CompiledAddition))
-(= (externalize-compiled-addition $addition)
-   (brand CompiledAddition
-      (externalize-proof-structure $addition)))
-
 (: compileadd
    (-[nondet]-> KB AnnotatedStatement  CompiledAddition))
 (= (compileadd $kb $stmt)
@@ -64,7 +58,8 @@
            (list_to_set
               (map-flat internalize-runtime-addition $raw-atoms)))
         ($eatoms
-           (map-flat externalize-compiled-addition $iatoms))
+           (the (List CompiledAddition)
+              (map-flat externalize-proof-structure $iatoms)))
         ($_recorded
            (collapse
               (foreach-flat record-compiled-inheritance! $eatoms)))
