@@ -8,21 +8,9 @@
 (: query_metric_increment (-[det]-> Atom Number))
 (: query_metric_liveness_event (-[det]-> Atom Atom))
 
-(: backward-query-metrics-enabled? (-[det]-> Bool))
-(= (backward-query-metrics-enabled?)
-   (query_metrics_enabled))
-
 (: set-backward-query-metrics (-[det]-> Bool Bool))
 (= (set-backward-query-metrics $enabled)
    (query_metrics_set_enabled $enabled))
-
-(: backward-query-metric-value (-[det]-> Atom Number))
-(= (backward-query-metric-value $key)
-   (query_metric_value $key))
-
-(: set-backward-query-metric! (-[det]-> Atom Number Number))
-(= (set-backward-query-metric! $key $value)
-   (query_metric_set $key $value))
 
 (: increment-backward-query-metric! (-[det]-> Atom Number))
 (= (increment-backward-query-metric! $key)
@@ -50,15 +38,14 @@
 
 (: set-space-row-count-metric! (-[det]-> Atom $space Number))
 (= (set-space-row-count-metric! $key $space)
-   (set-backward-query-metric! $key (match-count $space $_row)))
+   (query_metric_set $key (match-count $space $_row)))
 
 (: begin-backward-query-metrics! (-[det]-> Number))
 (= (begin-backward-query-metrics!)
-   (if (backward-query-metrics-enabled?)
+   (if (query_metrics_enabled)
       (let* (($_clear
                 (map-flat
-                   (|-> ($key)
-                      (set-backward-query-metric! $key 0))
+                   (|-> ($key) (query_metric_set $key 0))
                    (backward-query-counter-keys)))
               ($_proofs
                 (set-space-row-count-metric!
@@ -73,7 +60,7 @@
                 (set-space-row-count-metric!
                    durable-parent-edge-rows-before &proof_parent))
               ($_pid-boundary
-                (set-backward-query-metric! durable-pid-boundary
+                (query_metric_set durable-pid-boundary
                    (search-id-value bwd_pid))))
          0)
       0))
@@ -84,17 +71,13 @@
 
 (: BackwardQueryMetric Type)
 (: query-metric (-[det]-> Atom Number BackwardQueryMetric))
-(: backward-query-metric-row (-[det]-> Atom BackwardQueryMetric))
-(= (backward-query-metric-row $key)
-   (query-metric $key (backward-query-metric-value $key)))
-
 (: backward-query-metrics (-[det]-> (List BackwardQueryMetric)))
 (= (backward-query-metrics)
-   (let $counter-keys (backward-query-counter-keys)
-      (map-flat backward-query-metric-row
-         (cons durable-proof-rows-before
-            (cons durable-proof-rows-after
-               (cons durable-goal-index-rows-before
-                  (cons durable-result-index-rows-before
-                     (cons durable-parent-edge-rows-before
-                        $counter-keys))))))))
+   (map-flat
+      (|-> ($key) (query-metric $key (query_metric_value $key)))
+      (cons durable-proof-rows-before
+         (cons durable-proof-rows-after
+            (cons durable-goal-index-rows-before
+               (cons durable-result-index-rows-before
+                  (cons durable-parent-edge-rows-before
+                     (backward-query-counter-keys))))))))

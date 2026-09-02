@@ -87,15 +87,6 @@
                          ()))))
             $gid))))
 
-(: mark-root-goals (-[det]-> (List Number) (List $none)))
-(= (mark-root-goals $gids)
-   (let $_marks
-      (foreach-flat
-         (|-> ($gid)
-            (once (add-atom &root_goal (root-goal $gid))))
-         $gids)
-      ()))
-
 ;; --- Agenda issue, refresh, and pruning -------------------------------------
 
 (: add-goal-agenda-entry-heap
@@ -140,14 +131,12 @@
                    (+
                       (backward-agenda-priority
                          $agenda-depth $score $aggregate-bonus $kind)
-                      (if (is-expr $type)
-                         (if (== (car-atom $type) Inheritance)
-                            (if (goal-has-type-vars? $goal)
-                               0.0
-                               (* 0.000001 $gid))
-                            (if (== $context MAIN)
-                               0.0
-                               (* -0.000001 $gid)))
+                      (if (if (is-expr $type)
+                             (== (car-atom $type) Inheritance)
+                             false)
+                         (if (goal-has-type-vars? $goal)
+                            0.0
+                            (* 0.000001 $gid))
                          (if (== $context MAIN)
                             0.0
                             (* -0.000001 $gid))))))))
@@ -192,7 +181,7 @@
               $_stored-gid $depth $_goal $_expanded $state)
              $row)
           ((goal-agenda-state
-              $_generation $_issued-revision $issued-score
+              $issued-generation $_issued-revision $issued-score
               $requested-lanes)
              $state)
           ($requested?
@@ -201,13 +190,14 @@
              (if $requested? (> $score $issued-score) true)))
       (if $issue?
          (let* (($revision (goal-demand-revision $gid))
-                ($next-state
-                   (goal-agenda-state-request
-                      $kind $revision $score $state))
-                ((goal-agenda-state
-                    $generation $_next-revision $_next-score $lanes)
-                   $next-state)
-                ($_state (set-goal-agenda-state! $row $next-state)))
+                ($generation (+ $issued-generation 1))
+                ($lanes
+                   (if $requested? $requested-lanes
+                      (cons $kind $requested-lanes)))
+                ($_state
+                   (set-goal-agenda-state! $row
+                      (goal-agenda-state
+                         $generation $revision $score $lanes))))
             (add-goal-agenda-lanes-heap
                $agenda $row $revision $generation
                $kind $score $lanes))
@@ -325,22 +315,18 @@
                (request-goal-agenda-kind-score-heap
                   $agenda $gid agenda-expand $score))))))
 
-(: schedule-root-goals-heap
-   (-[semidet]-> (Heap AgendaEntry) (List Number)
-       (Heap AgendaEntry)))
-(= (schedule-root-goals-heap $agenda ()) $agenda)
-(= (schedule-root-goals-heap $agenda (cons $gid $rest))
+(: schedule-root-goal-heap
+   (-[semidet]-> (Heap AgendaEntry) Number (Heap AgendaEntry)))
+(= (schedule-root-goal-heap $agenda $gid)
    (let* (((stored-goal-row
               $_stored-gid $_depth $goal $_expanded $_state)
              (goal-by-id $gid))
           ($pids
              (current-proof-ids-for-goal-key
-                (proof-goal-key-by-goal-id $gid)))
-          ($next
-             (if (replayed-frontier-needs-wake? $goal $pids)
-                (wake-goal-demand-heap $agenda $gid)
-                $agenda)))
-      (schedule-root-goals-heap $next $rest)))
+                (proof-goal-key-by-goal-id $gid))))
+      (if (replayed-frontier-needs-wake? $goal $pids)
+         (wake-goal-demand-heap $agenda $gid)
+         $agenda)))
 
 ;; --- Frontier advancement and proof propagation -----------------------------
 
@@ -381,7 +367,7 @@
    (-[semidet]-> (Heap AgendaEntry) Number AndBundle
        (List Evidence) Number (Heap AgendaEntry)))
 (: commit-checked-proof-candidate-heap
-   (-[semidet]-> (Heap AgendaEntry) Number Bool ProofCandidate
+   (-[semidet]-> (Heap AgendaEntry) Number ProofCandidate
        (Heap AgendaEntry)))
 (: normalize-frontier-goal-proof
    (-[det]-> (| Goal (Statement KBContext Proof TV))
@@ -422,8 +408,10 @@
                    (once
                       (classify-goal-proof-candidate
                          $parent-gid $candidate))))))
-      (commit-checked-proof-candidate-heap
-         $agenda $parent-gid $accepted $candidate)))
+      (if $accepted
+         (commit-checked-proof-candidate-heap
+            $agenda $parent-gid $candidate)
+         $agenda)))
 
 (: spawn-frontier-heap
    (-[semidet]-> (Heap AgendaEntry) Number AndBundle Number
@@ -650,9 +638,10 @@
                       ($_other ())))))))
           ($next-score
              (min $score
-                (frontier-proof-score
-                   $proof-output
-                   (frontier-part-score $part $proof-score))))
+                (let $part-score (frontier-part-score $part $proof-score)
+                   (if (= $proof-output (CPU $_fun $_args $_res))
+                      (max 0.000001 $part-score)
+                      $part-score))))
           ($advanced
              (case $part (
                 ((pool-part $_pool-key $_pool-tv $_pool-arity
@@ -761,14 +750,13 @@
    (if (== $accepted false) $agenda
       (if (candidate-is-cyclic? $gid $kind $children) $agenda
          (commit-checked-proof-candidate-heap
-            $agenda $gid true
+            $agenda $gid
             (proof-candidate $kind $score $evidence $children)))))
 
 (= (commit-checked-proof-candidate-heap
-      $agenda $gid $accepted
+      $agenda $gid
       (proof-candidate $kind $score $evidence $children))
-   (if (== $accepted false) $agenda
-      (let* (($goal-key (proof-goal-key-by-goal-id $gid))
+   (let* (($goal-key (proof-goal-key-by-goal-id $gid))
              ($output-key
                 (candidate-output-key (candidate-kind-term $kind)))
              ($pid
@@ -786,7 +774,7 @@
                    ((cons $current $_rest) $current)
                    (() (goal-merged-proof-id-for-pid $gid $pid))))))
          (wake-proof-commit-heap
-            $agenda $gid $representative))))
+            $agenda $gid $representative)))
 
 ;; --- Aggregate scheduling and atomic snapshot replacement -------------------
 

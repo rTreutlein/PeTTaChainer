@@ -3,17 +3,6 @@
 ;; subgoal. The root query's total-implication scaffold is intentionally not
 ;; copied here: ordinary premise resolution already sees those direct/rule
 ;; proofs, and adding the scaffold beside them would duplicate evidence.
-(: inject-member-inheritance-subgoal-adds
-   (-[semidet]-> KB Term Term (List $none)))
-(= (inject-member-inheritance-subgoal-adds $kb $subj $concept)
-   (let*
-      (($compiled-adds
-          (compile-member-inheritance-query-adds $kb $subj $concept))
-       ($runtime-adds
-          (map-flat internalize-runtime-addition
-             (compiled-adds-mm2stmts $compiled-adds))))
-      (once (inject-compiled-adds $runtime-adds))))
-
 (: inject-special-subgoal-query-adds
    (-[semidet]-> (| Goal (Statement KBContext Proof TV))
        (List $none)))
@@ -32,9 +21,13 @@
             (if (= $type (Inheritance $subj $concept))
                (if (concrete-inheritance-link?
                        (brand Term $subj) (brand Term $concept))
-                  (inject-member-inheritance-subgoal-adds
-                     (brand KB $kbid)
-                     (brand Term $subj) (brand Term $concept))
+                  (once
+                     (inject-compiled-adds
+                        (map-flat internalize-runtime-addition
+                           (compiled-adds-mm2stmts
+                              (compile-member-inheritance-query-adds
+                                 (brand KB $kbid)
+                                 (brand Term $subj) (brand Term $concept))))))
                   ())
                ())))
       ($_other ()))))
@@ -56,18 +49,14 @@
                 (chainer-add-atom &goal
                    (stored-goal-row
                       $gid $depth $goal true $pending)))))
-       ($_query-adds (if (> $depth 0) (inject-special-subgoal-query-adds $goal) ()))
-       ($nagenda0
-          (if (= $goal (CPU $fun $_args $_res))
-             (if (aggregate-fold-function? $fun)
-                (once
-                   (spawn-aggregate-goal-heap
-                      $agenda $steps $score $gid (the Goal $goal)))
-                (expand-direct-goal-heap
-                   $agenda $steps $gid $goal))
-             (expand-direct-goal-heap $agenda $steps $gid $goal)))
-       ($nagenda (if (== $nagenda0 ()) (empty_heap) $nagenda0)))
-      $nagenda))
+       ($_query-adds (if (> $depth 0) (inject-special-subgoal-query-adds $goal) ())))
+      (if (case $goal (
+             ((CPU $fun $_args $_res) (aggregate-fold-function? $fun))
+             ($_other false)))
+         (once
+            (spawn-aggregate-goal-heap
+               $agenda $steps $score $gid (the Goal $goal)))
+         (expand-direct-goal-heap $agenda $steps $gid $goal))))
 
 (: search-agenda-step
    (-[nondet]-> Number (Heap AgendaEntry) AgendaEntry SearchState))
@@ -96,29 +85,19 @@
 
 (= (search-claimed-agenda-entry $steps $agenda
       (agenda-entry $kind $gid $_token))
-   (case $kind (
-      (agenda-expand
-         (let* (($fresh-max
-                   (root-demands-max
-                      (goal-root-demands $gid)))
-                ($next-steps (- $steps 1))
-                ($nagenda
-                   (once
-                      (bounded-backward-agenda-prune $next-steps
+   (if (if (== $kind agenda-expand) true (== $kind agenda-aggregate))
+      (let* (($next-steps (- $steps 1))
+             ($nagenda
+                (once
+                   (bounded-backward-agenda-prune $next-steps
+                      (if (== $kind agenda-expand)
                          (expand-goal-heap
-                            $agenda $steps $fresh-max $gid)))))
-            (search-agenda-heap $next-steps $nagenda)))
-      (agenda-aggregate
-         (let* (($next-steps (- $steps 1))
-                ($nagenda
-                   (once
-                      (bounded-backward-agenda-prune $next-steps
-                         (once (run-aggregate-heap $agenda $gid))))))
-            (search-agenda-heap $next-steps $nagenda)))
-      (agenda-refresh
-         (search-agenda-heap $steps $agenda))
-      (agenda-resume
-         (search-agenda-heap $steps $agenda)))))
+                            $agenda $steps
+                            (root-demands-max (goal-root-demands $gid))
+                            $gid)
+                         (once (run-aggregate-heap $agenda $gid)))))))
+         (search-agenda-heap $next-steps $nagenda))
+      (search-agenda-heap $steps $agenda)))
 
 (: search-agenda-heap
    (-[nondet]-> Number (Heap AgendaEntry) SearchState))
@@ -134,42 +113,29 @@
             (search-agenda-step $steps $rest
                (the AgendaEntry $item))))))
 
-(: computed-member-inheritance-observation
-   (-[semidet]-> Number Number ForwardAggregateObservation))
-(= (computed-member-inheritance-observation $id $pid)
-   (computed-member-inheritance-observation-for-fact
-      $id $pid (proof-fact-output-by-id $pid)))
-
-(: computed-member-inheritance-observation-for-fact
-   (-[semidet]-> Number Number (Statement KBContext Proof TV)
-       ForwardAggregateObservation))
-(= (computed-member-inheritance-observation-for-fact
-      $id $pid
-      ((MemberInheritanceSample
-          $obj $_subj $_concept $atv $btv)
-       $_kbctx $_proof $_sample-tv))
-   (let*
-      ((($_score $evidence) (proof-stats-by-id $pid))
-       ($antecedent-tv (the TV $atv))
-       ($consequent-tv (the TV $btv))
-       ((BaseRateEvidence $weight $mass)
-          (forward-weighted-base-rate-contribution
-             $antecedent-tv $consequent-tv))
-       ($sample (proof-fact-output-by-id $pid))
-       ($candidate (forward-output-candidate $sample $evidence)))
-      (forward-aggregate-observation
-         (brand ForwardAggregateObservationKey
-            (quote ($id $obj)))
-         (forward-member-inheritance-observation-value
-            $candidate $candidate)
-         $weight $mass)))
-
 (: merge-computed-member-inheritance-child!
    (-[det]-> Number Number (List $none)))
 (= (merge-computed-member-inheritance-child! $id $pid)
    (collapse
-      (forward-merge-computed-member-observation!
-         $id (computed-member-inheritance-observation $id $pid))))
+      (let*
+         (($fact (proof-fact-output-by-id $pid))
+          (((MemberInheritanceSample
+               $obj $_subj $_concept $atv $btv)
+            $_kbctx $_proof $_sample-tv)
+             $fact)
+          (($_score $evidence) (proof-stats-by-id $pid))
+          ((BaseRateEvidence $weight $mass)
+             (forward-weighted-base-rate-contribution
+                (the TV $atv) (the TV $btv)))
+          ($candidate (forward-output-candidate $fact $evidence)))
+         (forward-merge-computed-member-observation!
+            $id
+            (forward-aggregate-observation
+               (brand ForwardAggregateObservationKey
+                  (quote ($id $obj)))
+               (forward-member-inheritance-observation-value
+                  $candidate $candidate)
+               $weight $mass)))))
 
 (: harvest-base-rate-child!
    (-[det]-> Number ForwardAggregateDescriptor Number (List $none)))
@@ -233,33 +199,6 @@
             ()))
       ($_other ()))))
 
-(: harvest-base-rate-entry
-   (-[semidet]-> Number $arguments (List Number) (List $none)))
-(= (harvest-base-rate-entry $agg-gid $args $current-pid)
-   (let $key (base-rate-aggregate-key $args)
-      (case $key (
-         (no-base-rate-aggregate-key ())
-         ((base-rate-aggregate-key-value $kbid $pattern $mode)
-            (if (== $current-pid ()) ()
-               (let*
-                  (((cons $pid $_rest) $current-pid)
-                   ($output (proof-output-atom-by-id $pid)))
-                  (if (= $output (CPU $_fun $_out-args (STV $s $c)))
-                     (let* (($_components
-                               (harvest-computed-aggregate-state!
-                                  $args $pid))
-                            ($_cache
-                               (store-computed-base-rate!
-                                  $kbid
-                                  $pattern
-                                  (STV $s $c)
-                                  $mode))
-                            ($_supersede
-                               (if (ba-materialized? $agg-gid) ()
-                                  (supersede-current-proof! $pid))))
-                        ())
-                     ()))))))))
-
 (: harvest-base-rates (-[det]-> (List $none)))
 (= (harvest-base-rates)
    (let $_
@@ -268,45 +207,30 @@
             (stored-aggregate-row
                $agg-gid $_child $args
                $_base $_pending $current-pid)
-            (harvest-base-rate-entry
-               $agg-gid $args $current-pid)))
+            (case (base-rate-aggregate-key $args) (
+               (no-base-rate-aggregate-key ())
+               ((base-rate-aggregate-key-value $kbid $pattern $mode)
+                  (case $current-pid (
+                     (() ())
+                     ((cons $stored-pid $_rest)
+                        (let $pid (stored-number $stored-pid)
+                           (if (= (proof-output-atom-by-id $pid)
+                                  (CPU $_fun $_out-args (STV $s $c)))
+                              (let* (($_components
+                                        (harvest-computed-aggregate-state!
+                                           $args $pid))
+                                     ($_cache
+                                        (store-computed-base-rate!
+                                           $kbid
+                                           $pattern
+                                           (STV $s $c)
+                                           $mode))
+                                     ($_supersede
+                                        (if (ba-materialized? $agg-gid) ()
+                                           (supersede-current-proof! $pid))))
+                                 ())
+                              ()))))))))))
       ()))
-
-(: aggregate-no-evidence-pid?
-   (-[det]-> (List Number) Bool))
-(= (aggregate-no-evidence-pid? $current-pid)
-   (case $current-pid (
-      (() false)
-      ((cons $pid $_rest)
-         (case (collapse
-                  (proof-output-atom-by-id $pid)) (
-            ((cons (CPU $_fold $_stored-args no-evidence) $_rest)
-               true)
-            ($_other false)))))))
-
-(: harvest-complete-member-inheritance-empty-cache!
-   (-[det]-> Number $arguments (List Number) (List $none)))
-(= (harvest-complete-member-inheritance-empty-cache!
-      $budget $args $current-pid)
-   (case $args (
-      (($kbid
-          (MemberInheritanceSample
-             $_obj $subj $concept $_atv $_btv)
-          $_extractor $_init $_fun
-          (member-inheritance $kbid) $_tv-mode)
-         (if (aggregate-no-evidence-pid? $current-pid)
-            (let* (($_cache
-                      (forward-store-member-inheritance-empty-cache!
-                         (brand KB $kbid)
-                         (brand Term $subj)
-                         (brand Term $concept)
-                         $budget))
-                   ($_retire
-                      (collapse
-                         (deactivate-current-proofs! $current-pid))))
-               ())
-            ()))
-      ($_other ()))))
 
 (: harvest-complete-member-inheritance-empty-caches! (-[det]-> (List $none)))
 (= (harvest-complete-member-inheritance-empty-caches!)
@@ -314,32 +238,48 @@
       (collapse
          (match &aggregate
             (stored-aggregate-row
-               $agg-gid $_child $args $_base 0.0 $current-pid)
+               $agg-gid $_child
+               ($kbid
+                (MemberInheritanceSample
+                   $_obj $subj $concept $_atv $_btv)
+                $_extractor $_init $_fun
+                (member-inheritance $kbid) $_tv-mode)
+               $_base 0.0 $current-pid)
             (match &aggregate_search_budget
                (aggregate-search-budget-row $agg-gid $budget)
-               (harvest-complete-member-inheritance-empty-cache!
-                  $budget $args $current-pid))))
+               (case (collapse
+                        (proof-output-atom-by-id
+                           (first-number (the (List Number) $current-pid)))) (
+                  ((cons (CPU $_fold $_stored-args no-evidence) $_outputs)
+                     (let* (($_cache
+                               (forward-store-member-inheritance-empty-cache!
+                                  (brand KB $kbid)
+                                  (brand Term $subj)
+                                  (brand Term $concept)
+                                  $budget))
+                            ($_retire
+                               (collapse
+                                  (deactivate-current-proofs!
+                                     (the (List Number) $current-pid)))))
+                        ()))
+                  ($_other ()))))))
       ()))
 
 ;; Internal queue operations are semidet because an arbitrary numeric ID may
 ;; be absent.  The public runner creates its root ID immediately above, so turn
 ;; an impossible missing-root result into an empty, deterministic search
 ;; rather than letting the whole query vanish.
-(: schedule-execution-root-goals-heap
-   (-[semidet]-> (Heap AgendaEntry) (List Number) Bool
-       (Heap AgendaEntry)))
-(= (schedule-execution-root-goals-heap $agenda () $_reuse?) $agenda)
-(= (schedule-execution-root-goals-heap $agenda (cons $gid $rest) $reuse?)
-   (let $next
-      ;; The reuse flag must gate the lineage probe with a nested if:
-      ;; and-evaluation is strict, so an (and $reuse? probe) form would
-      ;; pay the per-root probe on every non-materializing query.
-      (if $reuse?
-         (if (== (current-materialized-root-results $gid) ())
-            (schedule-root-goals-heap $agenda (cons $gid ()))
-            $agenda)
-         (schedule-root-goals-heap $agenda (cons $gid ())))
-      (schedule-execution-root-goals-heap $next $rest $reuse?)))
+(: schedule-execution-root-goal-heap
+   (-[semidet]-> Bool (Heap AgendaEntry) Number (Heap AgendaEntry)))
+(= (schedule-execution-root-goal-heap $reuse? $agenda $gid)
+   ;; The reuse flag must gate the lineage probe with a nested if:
+   ;; and-evaluation is strict, so an (and $reuse? probe) form would
+   ;; pay the per-root probe on every non-materializing query.
+   (if $reuse?
+      (if (== (current-materialized-root-results $gid) ())
+         (schedule-root-goal-heap $agenda $gid)
+         $agenda)
+      (schedule-root-goal-heap $agenda $gid)))
 (: execute-backward
    (-[nondet]-> Number
        (List (| Goal (Statement KBContext Proof TV)))
@@ -359,16 +299,21 @@
              (|-> ($goal) (ensure-goal-at-depth $goal 0))
              $goals))
        ($scheduled-root-gids (list_to_set $root-gids))
-       ($_root-markers (mark-root-goals $scheduled-root-gids))
+       ($_root-markers
+          (foreach-flat
+             (|-> ($gid)
+                (once (add-atom &root_goal (root-goal $gid))))
+             $scheduled-root-gids))
        ($_root-count
           (change-state! bwd_root_count
              (length $scheduled-root-gids)))
        ($agenda0
-          (schedule-execution-root-goals-heap
-             (empty_heap) $scheduled-root-gids
-             (if $materialize?
-                (not (pending-base-rate-retires?))
-                false)))
+          (proof-fold-flat-semidet
+             (schedule-execution-root-goal-heap
+                (if $materialize?
+                   (not (pending-base-rate-retires?))
+                   false))
+             (empty_heap) $scheduled-root-gids))
        ;; A semidet failure anywhere in the search loop lands in the empty
        ;; case here. That is always an engine defect, never a legitimate
        ;; quiescence, so announce it instead of silently returning whatever
@@ -379,18 +324,16 @@
                 (if (<= $steps 0)
                    (data 0 $agenda0)
                    (search-agenda-heap (+ $steps 1) $agenda0)))))
-       ($search-result
-          (case $search-hits (
-             (() (let* (($_metric
-                           (increment-backward-query-metric!
-                              search-aborts))
-                        ($_announcement
-                           (println!
-                              (backward-search-aborted steps $steps))))
-                    (data 0 $agenda0)))
-             ((cons $found $_rest) $found))))
-       (($_steps-left $_agenda1)
-          $search-result)
+       ($_abort
+          (if (== $search-hits ())
+             (let* (($_metric
+                       (increment-backward-query-metric!
+                          search-aborts))
+                    ($_announcement
+                       (println!
+                          (backward-search-aborted steps $steps))))
+                ())
+             ()))
        ($results
           (map-flat
              (|-> ($root-gid)

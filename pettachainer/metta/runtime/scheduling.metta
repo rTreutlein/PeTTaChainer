@@ -42,7 +42,10 @@
           (let $base
              (if (is-var $res)
                 (cpu-expected-confidence $fun $args)
-                (cpu-result-confidence $res))
+                (case $res (
+                   ((STV $_strength $_confidence) (tv-confidence $res))
+                   ((CTV $_positive $_negative) (tv-confidence $res))
+                   ($_other 1.0))))
              (if (== $fun AndMarginalProjection) (* 0.99 $base) $base)))
        (($_type ($_kbid $_ctx $_vars) $prf $tv)
           ;; Historically the marginal-projection arm of proof-score matched
@@ -54,15 +57,6 @@
              (proof-score
                 $prf $tv)))
        ($_other 0.0))))
-
-(: cpu-result-confidence (-[det]-> $result Number))
-(= (cpu-result-confidence $result)
-   (case $result (
-      ((STV $_strength $_confidence)
-         (tv-confidence $result))
-      ((CTV $_positive $_negative)
-         (tv-confidence $result))
-      ($_other 1.0))))
 
 (: proof-score (-[det]-> Proof TV Number))
 (= (proof-score $prf $tv)
@@ -79,20 +73,17 @@
 (: score-tv (-[det]-> Number STVType))
 (= (score-tv $score) (STV 1.0 (max 0.0 (min 1.0 $score))))
 
-(: optimistic-revision-score (-[det]-> Number Number Number))
-(= (optimistic-revision-score $current-score $candidate-score)
-   (tv-confidence
-      (merge-stvs
-         (score-tv $current-score)
-         (score-tv $candidate-score))))
-
 (: rule-marginal-score (-[det]-> (| Number NoCurrentScore) Number Number))
 (= (rule-marginal-score $current-score $candidate-score)
    (if (== $current-score no-current)
       $candidate-score
       (let $score (the Number $current-score)
          (max 0.000001
-            (- (max $candidate-score (optimistic-revision-score $score $candidate-score))
+            (- (max $candidate-score
+                  (tv-confidence
+                     (merge-stvs
+                        (score-tv $score)
+                        (score-tv $candidate-score))))
                $score)))))
 
 ;; The incoming score is the most value this goal can still contribute to the
@@ -105,11 +96,9 @@
 (= (root-proof-value-score
       $root-bound $current-score $candidate-score
       $premise-count $success-probability)
-   (let* (($gain
-             (if (== $current-score no-current)
-                $candidate-score
-                (rule-marginal-score $current-score $candidate-score)))
-          ($bounded (min $root-bound $gain)))
+   (let $bounded
+      (min $root-bound
+         (rule-marginal-score $current-score $candidate-score))
       (/ (* $bounded $success-probability)
          (max 1 $premise-count))))
 
@@ -124,29 +113,19 @@
        ($expected-steps (max 1.0 (confidence-to-count $confidence))))
       (/ (min $root-bound $gain-bound) $expected-steps)))
 
-(: frontier-proof-score (-[det]-> $proof-output Number Number))
-(= (frontier-proof-score $output $score)
-   (if (= $output (CPU $_fun $_args $_res))
-      (max 0.000001 $score)
-      $score))
-
 ;; Backward work shares one numeric priority policy.  Depth remains the
 ;; dominant band, score orders work within a depth, and the small lane offset
 ;; only breaks otherwise equal cross-kind work.
-(: backward-agenda-kind-offset (-[det]-> AgendaKind Number))
-(= (backward-agenda-kind-offset $kind)
-   (case $kind (
-      (agenda-resume -0.1)
-      (agenda-expand 0.0)
-      (agenda-refresh 0.1)
-      (agenda-aggregate 0.1))))
-
 (: backward-agenda-priority
    (-[det]-> Number Number Number AgendaKind Number))
 (= (backward-agenda-priority $depth $score $bonus $kind)
    (+ (+ (* 1000000000.0 $depth)
          (- 0 (+ (* 1000000.0 $score) $bonus)))
-      (backward-agenda-kind-offset $kind)))
+      (case $kind (
+         (agenda-resume -0.1)
+         (agenda-expand 0.0)
+         (agenda-refresh 0.1)
+         (agenda-aggregate 0.1)))))
 
 (: bounded-agenda-target-size (-[det]-> Number Number))
 ;; Beam width is a search-policy parameter, not part of the expansion budget.
@@ -160,8 +139,6 @@
          (if (== $state-values ())
             0
             (if-error-number (car-atom $state-values) 0)))))
-(: bounded-agenda-prune-factor (-[det]-> Number))
-(= (bounded-agenda-prune-factor) 64)
 
 (: set-bounded-agenda-pruning (-[det]-> Bool Bool))
 (= (set-bounded-agenda-pruning $enabled) (change-state! bounded_agenda_pruning $enabled))
@@ -176,28 +153,11 @@
          (if-error-bool
             (car-atom $state-values) true))))
 
-(: heap-take-best (-[det]-> Number (Heap $item) (Heap $item) (Heap $item)))
-(= (heap-take-best $count $src $dst)
-   (if (<= $count 0)
-      $dst
-      (case (collapse (heap_pop $src)) (
-         (() $dst)
-         ((cons $pop $_rest)
-            (heap-take-best-pop $count $dst $pop))))))
-
-(: heap-take-best-pop
-   (-[det]-> Number (Heap $item)
-       (Number $item (Heap $item))
-       (Heap $item)))
-(= (heap-take-best-pop $count $dst ($key $item $rest))
-   (heap-take-best
-      (- $count 1)
-      $rest
-      (add_to_heap $dst $key $item)))
-
 (: heap-prune-to-size (-[det]-> Number (Heap $item) (Heap $item)))
 (= (heap-prune-to-size $target $agenda)
-   (heap-take-best $target $agenda (empty_heap)))
+   (let (heap-split $kept $_discarded)
+      (heap-split-best $target $agenda (empty_heap))
+      $kept))
 
 (: HeapSplit Type)
 (: heap-split (-[det]-> (Heap $item) (Heap $item) HeapSplit))
@@ -244,9 +204,8 @@
              ($size
                 (if (== $size-values ())
                    0
-                   (car-atom $size-values)))
-             ($threshold (* $target (bounded-agenda-prune-factor))))
-         (> $size $threshold))
+                   (car-atom $size-values))))
+         (> $size (* $target 64)))
       false))
 
 (: bounded-agenda-prune (-[det]-> Number (Heap $item) (Heap $item)))
