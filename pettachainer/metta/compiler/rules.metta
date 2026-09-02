@@ -202,12 +202,12 @@
        (List Proof) TV  CompiledAddition))
 (= (compile-implication-forward-rules $kb $shape-kb $adapter-kb $prf $tv
       $a $b $antecedent-vars $execs $proofs $atv)
-   (superpose (
+   (let $out-b
+      (skolemize-conclusion-vars $prf $antecedent-vars $b)
+     (superpose (
       (once
          (let*
-            (($out-b
-                 (skolemize-conclusion-vars $prf $antecedent-vars $b))
-              ($proof-token (implication-proof-token $proofs))
+            (($proof-token (implication-proof-token $proofs))
               (($ctv-execs $rule-ctv)
                  (compile-implication-ctv-execs $kb $a $b $tv))
               (($out-execs $out-prf $out-type $out-tv)
@@ -224,15 +224,13 @@
             (brand CompiledAddition
                ($allargs |-
                   (: $shape-kb $out-prf $out-type $out-tv)))))
-      (let $out-b
-         (skolemize-conclusion-vars $prf $antecedent-vars $b)
-         (if (is-var $out-b)
-            (empty)
-            (compile-outputs
-               (: $adapter-kb (by $prf $prfb) $out-b $btv2))))
+      (if (is-var $out-b)
+         (empty)
+         (compile-outputs
+            (: $adapter-kb (by $prf $prfb) $out-b $btv2)))
       (if (is-var $a) (empty)
          (compile-adapter-chain plain
-            (: $adapter-kb $prfa $a $atv))))))
+            (: $adapter-kb $prfa $a $atv)))))))
 
 (: rule-evidence-base-name (-[det]-> Proof Proof))
 (= (rule-evidence-base-name $prf)
@@ -243,14 +241,12 @@
 
 (: rule-evidence-registered? (-[det]-> KB Proof Bool))
 (= (rule-evidence-registered? $kbid $name)
-   (if
-      (== (collapse
-             (once
-                (match &rule_evidence_names
-                   ($name $kbid) true)))
-          ())
-      false
-      true))
+   (not
+      (==
+         (collapse
+            (once
+               (match &rule_evidence_names ($name $kbid) true)))
+         ())))
 
 (: register-rule-evidence!
    (-[det]-> KB Proof (List $no-result)))
@@ -874,12 +870,9 @@
    (-[nondet]-> KB Proof Statement TV CompiledAddition))
 (= (compile-ordinary-fact $kb $prf $Type $tv)
    (let $fact-kb
-      (if (is-expr $kb)
-         (existing-kb-context $kb)
-         (let $kbid (brand KB $kb)
-            (if (context-polymorphic-facts? $kbid)
-               (make-kb-context $kbid $ctx $vars)
-               (make-kb-context $kbid MAIN Nil))))
+      (if (context-polymorphic-facts? $kb)
+         (make-kb-context $kb $ctx $vars)
+         (kbctx $kb))
       (superpose (
          (brand CompiledAddition
             (() |- (: $fact-kb $prf $Type $tv)))
