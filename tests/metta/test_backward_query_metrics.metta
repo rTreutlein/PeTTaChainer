@@ -25,11 +25,11 @@
           ($_seed
              (map-flat
                 (|-> ($key)
-                   (set-backward-query-metric! $key 7))
+                   (query_metric_set $key 7))
                 (backward-query-counter-keys)))
           ($_begin (begin-backward-query-metrics!)))
       (map-flat
-         backward-query-metric-value
+         query_metric_value
          (backward-query-counter-keys)))
    (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
 
@@ -67,9 +67,9 @@
        ($_retired (once (add-atom &proof_retired ($pid))))
        ($retired (proof-live? $pid)))
       ($miss $hit $static-hit $retired
-       (backward-query-metric-value proof-liveness-checks)
-       (backward-query-metric-value proof-liveness-cache-hits)
-       (backward-query-metric-value proof-liveness-cache-misses)))
+       (query_metric_value proof-liveness-checks)
+       (query_metric_value proof-liveness-cache-hits)
+       (query_metric_value proof-liveness-cache-misses)))
    (true true true false 4 2 1))
 
 !(set-backward-query-metrics false)
