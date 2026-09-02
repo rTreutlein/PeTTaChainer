@@ -811,33 +811,6 @@
                            $kb $head $triggers-copy $job-copy))))))
          (register-specialization-templates! $kb $rest $triggers $job))))
 
-;; Idempotency is per grounded statement, not merely per rule type: distinct
-;; proof ids or TVs are independent evidence even when their types coincide.
-;; The rule-add and fact-add paths may discover the same statement, so retain
-;; the full statement as the stable deduplication key.
-(: spec-done? (-[det]-> KB AnnotatedStatement Bool))
-(= (spec-done? $kb $gstmt)
-   (let*
-      (($candidate (copy_term $gstmt))
-       ($hash (term_hash $candidate)))
-      (not
-         (== (collapse
-                (once
-                   (match &spec_done
-                      ($hash
-                         (specialization-done-row $kb $stored))
-                      (if (=alpha $stored $candidate) true (empty)))))
-             ()))))
-
-(: mark-spec-done! (-[det]-> KB AnnotatedStatement Bool))
-(= (mark-spec-done! $kb $gstmt)
-   (let*
-      (($copy (copy_term $gstmt))
-       ($hash (term_hash $copy)))
-      (once
-         (add-atom &spec_done
-            ($hash (specialization-done-row $kb $copy))))))
-
 ;; Compiler backends may contribute additional fact providers for structural
 ;; specialization. PeTTaChainer's default provider reads its native KB; MM2
 ;; adds a provider that reads compiler metadata directly from MORK.
@@ -860,11 +833,27 @@
       (let $trigger $candidate
          (ground-triggers $kb $rest $body))))
 
+;; Idempotency is per grounded statement, not merely per rule type: distinct
+;; proof ids or TVs are independent evidence even when their types coincide.
+;; The rule-add and fact-add paths may discover the same statement, so retain
+;; the full statement as the stable deduplication key.
 (= (emit-specialization $kb
       (compile-specialization (: $gprf $gtype $gtv)))
-   (let $gstmt (: $gprf $gtype $gtv)
-      (if (spec-done? $kb $gstmt) (empty)
-         (let $_ (mark-spec-done! $kb $gstmt)
+   (let*
+      (($gstmt (: $gprf $gtype $gtv))
+       ($copy (copy_term $gstmt))
+       ($hash (term_hash $copy))
+       ($done
+          (collapse
+             (once
+                (match &spec_done
+                   ($hash (specialization-done-row $kb $stored))
+                   (if (=alpha $stored $copy) true (empty)))))))
+      (if (not (== $done ())) (empty)
+         (let $_
+            (once
+               (add-atom &spec_done
+                  ($hash (specialization-done-row $kb $copy))))
             (compile_ $kb $gstmt)))))
 
 ;; Rule-add: retain the job for later facts and also ground it against facts
