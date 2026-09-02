@@ -26,3 +26,15 @@
    (prefilter-head-concludable?
       (structural-prefilter-goal (Pair one two)))
    false)
+
+;; A ground premise with no fact and no concluding rule is always pruned.
+!(test
+   (rule-premise-prefilter-prunes?
+      (cons (structural-prefilter-goal (MissingThing)) ()))
+   true)
+
+!(compileadd structuralPrefilterKb (: seed0 (Seed one) (STV 1.0 1.0)))
+!(test
+   (rule-premise-prefilter-prunes?
+      (cons (structural-prefilter-goal (Seed one)) ()))
+   false)

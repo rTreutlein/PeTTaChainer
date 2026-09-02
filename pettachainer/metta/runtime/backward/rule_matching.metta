@@ -1,4 +1,4 @@
-;; Rule lookup, contextualization, optional premise filtering, and expansion.
+;; Rule lookup, contextualization, premise filtering, and expansion.
 (: RuleGoalMatch
    (Alias
       (Number
@@ -178,23 +178,12 @@
                (the Number (car-atom $hits))))
          (premises-expected-confidence (copy_term $args)))))
 
-;; --- Premise pre-filter (opt-in via set-backward-premise-prefilter) ---------
-;; Walks a copy of a candidate rule's premise list before any frontier state is
-;; created: ground deterministic CPU premises are evaluated eagerly (binding
-;; e.g. computed step variables for later premises), and a fully ground atom
-;; premise prunes the rule when no fact matches it AND no rule can conclude its
+;; Walk a copy of a candidate rule's premise list before any frontier state is
+;; created. Ground deterministic CPU premises are evaluated eagerly (binding
+;; e.g. computed step variables for later premises). A fully ground atom
+;; premise prunes the rule when no fact matches it and no rule can conclude its
 ;; head. In KBs where every premise head is also some rule's conclusion the
-;; filter never prunes, so behavior degrades to the unfiltered search.
-
-(: set-backward-premise-prefilter (-[det]-> Bool Bool))
-(= (set-backward-premise-prefilter $enabled) (change-state! bwd_premise_prefilter $enabled))
-(: backward-premise-prefilter? (-[det]-> Bool))
-(= (backward-premise-prefilter?)
-   (let $values
-      (collapse (catch (get-state bwd_premise_prefilter)))
-      (if (== $values ())
-         false
-         (if-error-bool (car-atom $values) false))))
+;; filter never prunes, so search degrades to the unfiltered walk.
 
 (: prefilter-head-concludable?
    (-[det]-> (| Goal (Statement KBContext Proof TV)) Bool))
@@ -212,8 +201,7 @@
                          $_rule-id $_stored-args)
                         true)))
                (if (== $hits ()) false true))))
-      ;; A malformed/non-fact premise must never make the optional prefilter
-      ;; prune a rule.
+      ;; A malformed/non-fact premise must never make the prefilter prune a rule.
       ($_other true))))
 
 (: prefilter-fact-missing?
@@ -271,10 +259,8 @@
 (: rule-premise-prefilter-prunes?
    (-[det]-> (List (| Goal (Statement KBContext Proof TV))) Bool))
 (= (rule-premise-prefilter-prunes? $args)
-   (if (backward-premise-prefilter?)
-      (let $hits (collapse (prefilter-prunes-walk (copy_term $args)))
-         (if (== $hits ()) false (car-atom $hits)))
-      false))
+   (let $hits (collapse (prefilter-prunes-walk (copy_term $args)))
+      (if (== $hits ()) false (car-atom $hits))))
 
 (: expand-rule-goal-fold
    (-[semidet]-> (Heap AgendaEntry) RuleGoalMatch
