@@ -8,51 +8,34 @@
 (: TempQueryRef Type)
 (: clause_ref (-[det]-> ClauseRef TempQueryRef))
 
-(: assert-space-atom-ref (-[det]-> $space SpaceAtom ClauseRef))
-(= (assert-space-atom-ref $space $expr)
-   (let*
-      (($term (Predicate (cons $space $expr)))
-        ($_ (callPredicate (Predicate (assertz $term $ref)))))
-      (brand ClauseRef $ref)))
-
-(: erase-clause-ref (-[det]-> ClauseRef Bool))
-(= (erase-clause-ref $ref)
-   (let $_erased
-      (callPredicate (Predicate (erase $ref)))
-      true))
-
-(: track-temp-query-ref (-[det]-> ClauseRef Bool))
-(= (track-temp-query-ref $ref) (add-atom &temp_query_ref (clause_ref $ref)))
-
 (: kb-add-atom (-[det]-> KbBackend $space SpaceAtom Bool))
 (= (kb-add-atom live $space $expr) (add-atom $space $expr))
 (= (kb-add-atom temp $space $expr)
-   (let $ref
-      (assert-space-atom-ref $space $expr)
-      (track-temp-query-ref $ref)))
+   (let*
+      (($term (Predicate (cons $space $expr)))
+       ($_ (callPredicate (Predicate (assertz $term $ref)))))
+      (add-atom &temp_query_ref (clause_ref $ref))))
 
 (: kb-add-prem
    (-[det]-> KbBackend Number Number
        (| Goal (Statement KBContext Proof TV))
        Number))
 (= (kb-add-prem $backend $id $idx $prem)
-   (let $key
-      (forward-indexable-premise-key $prem)
-      (progn
-         (if (== $key ()) ()
+   (progn
+      (case $prem (
+         (($type ($kbid $_ctx $_vars) $_prf $_tv)
             (once
-               (let $row
-                  (make-space-row4 $key $prem $id $idx)
-                  (kb-add-atom $backend prem_index $row))))
-         (+ $idx 1))))
-
-(: kb-context-kbid (-[det]-> KBContext KB))
-(= (kb-context-kbid ($kbid $_ctx $_vars))
-   $kbid)
+               (kb-add-atom $backend prem_index
+                  (make-space-row4
+                     (forward-type-trigger-key
+                        (brand KB $kbid) (brand Statement $type))
+                     $prem $id $idx))))
+         ($_cpu ())))
+      (+ $idx 1)))
 
 (: observed-inheritance-subject? (-[det]-> KB Statement Bool))
 (= (observed-inheritance-subject? $kbid $subj)
-   (not (== (collapse (once (match &inheritance_subject ($kbid $subj) true))) ())))
+   (space-row-present? &inheritance_subject ($kbid $subj)))
 
 ;; Keep an empty fold live so later sample proofs can refine it, but do not let
 ;; its provisional no-evidence value become a public Inheritance proof.
@@ -63,13 +46,8 @@
 (: inheritance-subject-prior-tv (-[det]-> KB Statement TV))
 (= (inheritance-subject-prior-tv $kbid $subj)
    (if (observed-inheritance-subject? $kbid $subj)
-      (let $universe-size (kb-universe-size $kbid)
-         (if (== $universe-size no-universe-size)
-            (let $n (list-len (inheritance-subjects $kbid))
-               (if (<= $n 0) no-evidence (STV (/ 1.0 $n) 1.0)))
-            (let $size (the Number $universe-size)
-               (if (<= $size 0.0) no-evidence
-                  (STV (/ 1.0 $size) 1.0)))))
+      (let $scale (fa-mass-scale $kbid)
+         (if (== $scale 0.0) no-evidence (STV $scale 1.0)))
       no-evidence))
 
 ;; A rule's expected premise confidence is a pure function of its premise
@@ -87,20 +65,12 @@
             (copy_term $args)))
       (if (== $hits ()) ()
          (once
-            (let*
-               (($expected (car-atom $hits))
-                ($row (make-space-pair $id $expected)))
-               (kb-add-atom $backend rule_expected $row))))))
+            (kb-add-atom $backend rule_expected
+               (make-space-pair $id (car-atom $hits)))))))
 
 ;; Temp (per-query) rule ids are offset so they can never collide with live
 ;; rule ids: both counters start at 0 and rules/rule_expected/prem_index rows
 ;; from both backends share the same spaces.
-(: next-rule-id (-[det]-> KbBackend Number))
-(= (next-rule-id $backend)
-   (if (== $backend live)
-      (next-search-id ruleid)
-      (+ 1000000000 (next-search-id bwd_tmp_ruleid))))
-
 ;; Index rules by the statement name embedded in their conclusion proof so
 ;; remove-compiled-statement can find them without scanning the rules space.
 ;; Rules whose proof carries no extractable name (open query adapters,
@@ -116,10 +86,8 @@
                (if (is-var $name) ()
                   (if (is-expr $name) ()
                      (once
-                        (let $row
-                           (make-space-pair $name $id)
-                           (kb-add-atom
-                              $backend rule_name_index $row))))))))
+                        (kb-add-atom $backend rule_name_index
+                           (make-space-pair $name $id))))))))
       ($_other ()))))
 
 (: typed-runtime-fact
@@ -162,7 +130,10 @@
       (let*
          (($typed-ccls (typed-runtime-fact $ccls))
           ($rule-args (typed-runtime-premises $args))
-          ($id (next-rule-id $backend))
+          ($id
+             (if (== $backend live)
+                (next-search-id ruleid)
+                (+ 1000000000 (next-search-id bwd_tmp_ruleid))))
            ($_1 (fold-flat (kb-add-prem $backend $id) 0 $rule-args))
            ($ccls-row
               (make-space-row3 $typed-ccls $id $rule-args))
@@ -180,37 +151,35 @@
               (register-forward-aggregate-premises!
                  (== $backend live) $rule-args)))
          ())
-      (progn
-         (let $fact
-            (typed-runtime-fact $expr)
-            (if (== $backend live)
-               (let*
-                  ((($type $kb $prf $_tv) $fact)
-                   ($ev (cons (fact-ev $kb $prf $type) ()))
-                   ($change
-                      (forward-candidate-upsert!
-                         (forward-derived $fact $ev) true))
-                   ($_member-cache
-                      (forward-apply-unqueued-member-change! $change)))
-                  ())
-               (kb-add-atom $backend &kb
-                  (brand SpaceAtom $fact)))))))
+      (let $fact
+         (typed-runtime-fact $expr)
+         (if (== $backend live)
+            (let*
+               ((($type $kb $prf $_tv) $fact)
+                ($ev (cons (fact-ev $kb $prf $type) ()))
+                ($change
+                   (forward-candidate-upsert!
+                      (forward-derived $fact $ev) true))
+                ($_member-cache
+                   (forward-apply-unqueued-member-change! $change)))
+               ())
+            (kb-add-atom $backend &kb
+               (brand SpaceAtom $fact))))))
 
 (: clear-temp-query-adds (-[det]-> (List $none)))
 (= (clear-temp-query-adds)
    (progn
       (collapse
          (match &temp_query_ref (clause_ref $ref)
-            (progn (erase-clause-ref $ref) (remove-atom &temp_query_ref (clause_ref $ref)))))
+            (progn
+               (callPredicate (Predicate (erase $ref)))
+               (remove-atom &temp_query_ref (clause_ref $ref)))))
       ()))
 
 (: inject-compiled-adds
    (-[nondet]-> (List RuntimeAddition)  (List $none)))
-(= (inject-compiled-adds ()) ())
-(= (inject-compiled-adds (cons $add $rest))
-   (progn
-      (kb-add-expr temp $add)
-      (inject-compiled-adds $rest)))
+(= (inject-compiled-adds $adds)
+   (foreach-flat (kb-add-expr temp) $adds))
 
 ;; --- Removal of compiled statements by name ---------------------------------
 ;; Inverse of compileadd for one named statement: retracts the &kb facts whose
@@ -229,51 +198,17 @@
             (runtime-rule-row $id $ccls $args)
             (let*
                (($_prems
-                   (collapse
-                      (match prem_index ($pkey $prem $id $pidx)
-                         (remove-atom prem_index ($pkey $prem $id $pidx)))))
+                   (remove-atom prem_index ($_pkey $_prem $id $_pidx)))
                 ($_ccls-idx
-                   (remove-atom ccls_index ($ccls $id $prems)))
+                   (remove-atom ccls_index ($ccls $id $_prems2)))
                 ($_expected
-                   (collapse
-                      (match rule_expected ($id $score)
-                         (remove-atom rule_expected ($id $score)))))
+                   (remove-atom rule_expected ($id $_score)))
+                (($_type ($kbid $_ctx $_vars) $_prf $_tv) $ccls)
                 ($_invalidate
-                   (let ($_type $kbctx $_prf $_tv) $ccls
-                      (invalidate-computed-base-rates!
-                         (kb-context-kbid $kbctx))))
+                   (invalidate-computed-base-rates! (brand KB $kbid)))
                 ($_row
                    (remove-atom rules
                       (runtime-rule-row $id $ccls $args))))
-               ())))
-      ()))
-
-(: remove-kb-facts-named! (-[det]-> Proof (List $none)))
-(= (remove-kb-facts-named! $name)
-   (let $_
-      (collapse
-         (match &forward_frontier
-            (forward-frontier-row
-               $hash $type $kb ($type $kb $name $tv) $ev)
-            (let*
-               (($_remove
-                   (remove-atom &forward_frontier
-                      (forward-frontier-row
-                         $hash $type $kb
-                         ($type $kb $name $tv) $ev)))
-                ($key (forward-output-key $kb $type))
-                ($change (forward-refresh-output-key! $key))
-                ($_forward-state
-                   (forward-apply-unqueued-change! $change))
-                ($_base-rates
-                   (invalidate-computed-base-rates!
-                      (kb-context-kbid $kb)))
-                ($removed-fact
-                   (assemble-runtime-fact
-                      $type $kb $name (the TV $tv)))
-                ($_member-inheritance
-                   (forward-maintain-member-aggregates!
-                      aggregate-remove $removed-fact)))
                ())))
       ()))
 
@@ -283,15 +218,36 @@
 (= (remove-compiled-statement $name)
    (let*
       (($_specialization (remove-specialization-state! $name))
-       ($_facts (remove-kb-facts-named! $name))
+       ($_facts
+          (collapse
+             (match &forward_frontier
+                (forward-frontier-row
+                   $hash $type $kb ($type $kb $name $tv) $ev)
+                (let*
+                   (($_remove
+                       (remove-atom &forward_frontier
+                          (forward-frontier-row
+                             $hash $type $kb
+                             ($type $kb $name $tv) $ev)))
+                    ($change
+                       (forward-refresh-output-key!
+                          (forward-output-key $kb $type)))
+                    ($_forward-state
+                       (forward-apply-unqueued-change! $change))
+                    (($kbid $_ctx $_vars) $kb)
+                    ($_base-rates
+                       (invalidate-computed-base-rates! (brand KB $kbid)))
+                    ($_member-inheritance
+                       (forward-maintain-member-aggregates!
+                          aggregate-remove
+                          (assemble-runtime-fact
+                             $type $kb $name (the TV $tv)))))
+                   ()))))
        ($ids
           (list_to_set
              (collapse
                 (match rule_name_index ($name $id)
                    (the Number $id)))))
        ($_rules (foreach-flat remove-rule-row! $ids))
-       ($_index
-          (if (== $ids ()) ()
-             (collapse
-                (remove-atom rule_name_index ($name $_any))))))
+       ($_index (collapse (remove-atom rule_name_index ($name $_any)))))
       ()))
