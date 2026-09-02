@@ -777,39 +777,32 @@
 ;; store. A job carries the emitter to run after its trigger list is grounded.
 ;; Keeping the triggers with the job lets a newly added fact use this one path
 ;; regardless of which compiler feature requested specialization.
-(: specialization-template-registered?
-   (-[det]-> KB Atom SpecializationJob Bool))
-(= (specialization-template-registered? $kb $head $job)
-   (let $hash (term_hash (quote ($kb $head)))
-      (not
-         (==
-            (collapse
-               (once
-                  (match &spec_template
-                     ($hash
-                        (specialization-template-row
-                           $kb $head $_triggers $stored-job))
-                     (if (=alpha $stored-job $job) true (empty)))))
-            ()))))
-
 (: register-specialization-templates!
    (-[det]-> KB (List Atom) (List Atom) SpecializationJob
        (| Bool (List $no-result))))
 (= (register-specialization-templates! $_kb () $_triggers $_job) ())
 (= (register-specialization-templates! $kb (cons $trigger $rest) $triggers $job)
-   (let $head (fact-head (brand Statement $trigger))
-      (let $_register
-         (if (specialization-template-registered? $kb $head $job) ()
-            (let*
-               (($hash (term_hash (quote ($kb $head))))
-                (($triggers-copy $job-copy)
-                   (copy_term (quote ($triggers $job)))))
-               (once
-                  (add-atom &spec_template
-                     ($hash
-                        (specialization-template-row
-                           $kb $head $triggers-copy $job-copy))))))
-         (register-specialization-templates! $kb $rest $triggers $job))))
+   (let*
+      (($head (fact-head (brand Statement $trigger)))
+       ($hash (term_hash (quote ($kb $head))))
+       ($registered
+          (collapse
+             (once
+                (match &spec_template
+                   ($hash
+                      (specialization-template-row
+                         $kb $head $_triggers $stored-job))
+                   (if (=alpha $stored-job $job) true (empty))))))
+       ($_register
+          (if (not (== $registered ())) ()
+             (let ($triggers-copy $job-copy)
+                (copy_term (quote ($triggers $job)))
+                (once
+                   (add-atom &spec_template
+                      ($hash
+                         (specialization-template-row
+                            $kb $head $triggers-copy $job-copy))))))))
+      (register-specialization-templates! $kb $rest $triggers $job)))
 
 ;; Compiler backends may contribute additional fact providers for structural
 ;; specialization. PeTTaChainer's default provider reads its native KB; MM2
