@@ -2,32 +2,12 @@
 ;; boundary out of knowledge_store lets compilation/storage remain a
 ;; foundational dependency of both chainers.
 
-(: pretty-result-list
-   (-[det]-> Atom (List AnnotatedStatement)))
-(= (pretty-result-list $result)
-   ;; pretty is semidet, so this list contains at most one value. Its declared
-   ;; result now propagates through collapse without a boundary ascription.
-   (let $raw-results
-      (collapse (pretty $result))
-      $raw-results))
-
+;; pretty is semidet, so each collapse contains at most one value.
 (: pretty-results
    (-[det]-> (List Atom) (List AnnotatedStatement)))
 (= (pretty-results ()) ())
 (= (pretty-results (cons $result $rest))
-   (let*
-      (($head-results (pretty-result-list $result))
-       ($rest-results (pretty-results $rest)))
-      (append-flat
-         $head-results $rest-results)))
-
-(: externalize-results
-   (-[nondet]-> (List RuntimeResult) (List Atom)))
-(= (externalize-results ()) ())
-(= (externalize-results (cons $result $rest))
-   (cons
-      (externalize-proof-structure $result)
-      (externalize-results $rest)))
+   (append-flat (collapse (pretty $result)) (pretty-results $rest)))
 
 ;; One plan is one execution group. The root list preserves source identity,
 ;; compiler-alternative order, and duplicates; additions are already in their
@@ -98,7 +78,7 @@
       (cons $results $rest-results))
    (append-keyed-query-results
       $key
-      (pretty-results (externalize-results $results))
+      (pretty-results (map-flat externalize-proof-structure $results))
       (present-query-plan-results $roots $rest-results)))
 
 (: query-plan-runtime-goal
@@ -173,14 +153,14 @@
        QueryBatchResult))
 (= (query-many-mode $steps $kb $statements $materialize?)
    (let*
-      (($plan0 (prepare-query-many-plan 0 $kb $statements))
-       ((query-execution-plan $roots $adds) $plan0)
-       ($plan
-          (query-execution-plan $roots (list_to_set $adds)))
+      (((query-execution-plan $roots $adds)
+          (prepare-query-many-plan 0 $kb $statements))
        ($rows
           (keyed-query-batch-results
              (run-query-execution-plan
-                $steps $plan $materialize?))))
+                $steps
+                (query-execution-plan $roots (list_to_set $adds))
+                $materialize?))))
       (superpose $rows)))
 
 (: query
