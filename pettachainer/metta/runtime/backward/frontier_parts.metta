@@ -273,30 +273,10 @@
             ($_other (frontier-goal-needs-conditioned-proofs? $goal)))))
       ($_other (frontier-goal-needs-conditioned-proofs? $goal)))))
 (: frontier-needs-raw-proofs? (-[det]-> AndBundle Bool))
-(: frontier-conjunction-proof? (-[det]-> Proof Bool))
-(= (frontier-conjunction-proof? $proof)
-   (if (is-var $proof)
-      false
-      (if (is-expr $proof)
-         (let $head (car-atom $proof)
-            (if (is-var $head)
-               false
-               (if (== $head conjunction)
-                  true
-                  (if (== $head by)
-                     (frontier-conjunction-proof?
-                        (brand Proof
-                           (car-atom (cdr-atom (cdr-atom $proof)))))
-                     (if (== $head negated)
-                        (frontier-conjunction-proof?
-                           (brand Proof
-                              (car-atom (cdr-atom $proof))))
-                        false)))))
-         false)))
 (= (frontier-needs-raw-proofs? (and-bundle $goal $_premises))
    (case $goal (
       (($_type $_kb $proof $_tv)
-         (frontier-conjunction-proof? (brand Proof $proof)))
+         (proof-term-conjunction-dependency? (brand Proof $proof)))
       ($_other false))))
 (: frontier-compatible-source-id-step (-[semidet]-> Number Atom
       (List Number) Number (List Number)))
