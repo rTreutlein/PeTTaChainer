@@ -161,16 +161,6 @@
                 (list_to_set (extract-vars $consequent)))))
        (unsupported-source-computes no-compute-inverse))))
 
-(: implication-inverse-compute-plan
-   (-[det]-> Statement Statement Bool ComputeInversePlan))
-(= (implication-inverse-compute-plan
-      $antecedent $consequent $has-cpu)
-   (if $has-cpu
-      (compile-reversible-compute-plan
-         $antecedent $consequent)
-      (inverse-compute-plan
-         () (list_to_set (extract-vars $consequent)))))
-
 ;; Rules stored with an STV need a CTV derived from antecedent/consequent base
 ;; rates before modus ponens can use them. An explicit CTV already carries both
 ;; directions and therefore needs no runtime base-rate scans.
@@ -491,19 +481,6 @@
       (compile-antecedent-completion
          $kb $ctx $vars $shape-kb $prf $tv
          $full $consequent $children (+ $idx 1) $rest))))
-
-(: compile-antecedent-completions
-   (-[nondet]-> KB $context $variables KBContext Proof TV
-       Statement Statement CompiledAddition))
-(= (compile-antecedent-completions
-      $kb $ctx $vars $shape-kb $prf $tv $a $b)
-   (if (pure-conjunction-antecedent? $a)
-      (let $children
-         (statement-children (the (List Atom) (cdr-atom $a)))
-         (compile-antecedent-completion
-            $kb $ctx $vars $shape-kb $prf $tv
-            $a $b $children 0 $children))
-      (empty)))
 
 ;; Concrete Inheritance assertions also act as implication-like rules over
 ;; members. Materializing these views once at compile time lets ordinary rule
@@ -1002,10 +979,12 @@
                    (implication-source-term $consequent)))
              ($antecedent-vars
                 (implication-antecedent-free-vars $antecedent))
-             ($has-cpu (contains-cpu? (execs-goal-type $execs)))
+             ($pure-conjunction? (pure-conjunction-antecedent? $a))
              ($inverse-plan
-                (implication-inverse-compute-plan
-                   $a $b $has-cpu)))
+                (if (contains-cpu? (execs-goal-type $execs))
+                   (compile-reversible-compute-plan $a $b)
+                   (inverse-compute-plan
+                      () (list_to_set (extract-vars $b))))))
             (superpose (
                (compile-implication-forward-rules
                   $kb $shape-kb $adapter-kb $prf $tv
@@ -1021,7 +1000,7 @@
                               (inverse-implication
                                  $kb $prf $na $b $tv $inverse-execs)
                               (if (is-var $na) (empty)
-                                 (if (pure-conjunction-antecedent? $a)
+                                 (if $pure-conjunction?
                                     (empty)
                                     (compile-outputs
                                        (: $adapter-kb
@@ -1031,8 +1010,13 @@
                                  (compile-adapter-chain plain
                                     (: $adapter-kb $pb2 $b $btv2))))))))
                   (no-compute-inverse (empty))))
-               (compile-antecedent-completions
-                  $kb $ctx $vars $shape-kb $prf $tv $a $b)
+               (if $pure-conjunction?
+                  (let $children
+                     (statement-children (the (List Atom) (cdr-atom $a)))
+                     (compile-antecedent-completion
+                        $kb $ctx $vars $shape-kb $prf $tv
+                        $a $b $children 0 $children))
+                  (empty))
                (compile-inheritance-rule-lifts $kb (: $prf $Type $tv)
                   (brand Statement $antecedent)
                   (brand Statement $consequent)))))))
