@@ -220,8 +220,8 @@
          $_hash $_type $_kb $fact $ev))
    (let $merged-state
       (merge-proof-candidates
-         (proof-candidate-pair $current $current-ev)
-         (proof-candidate-pair $fact $ev))
+         (data $current $current-ev)
+         (data $fact $ev))
       (forward-output-candidate
          (fst $merged-state)
          (snd $merged-state))))

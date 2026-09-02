@@ -296,8 +296,8 @@
              $output-key $fact $ev $record-subject?))
        ($merged-state
           (merge-proof-candidates
-             (proof-candidate-pair $canonical $canonical-ev)
-             (proof-candidate-pair $fact $ev))))
+             (data $canonical $canonical-ev)
+             (data $fact $ev))))
       (forward-store-output-candidate!
          $output-key
          (forward-output-candidate

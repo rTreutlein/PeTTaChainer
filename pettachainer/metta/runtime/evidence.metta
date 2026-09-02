@@ -165,9 +165,6 @@
             (proof-support $score $ev $_contribution) $_children)
          (quote ($score $ev)))))
 
-(: proof-term-leaf-head? (-[det]-> $head Bool))
-(= (proof-term-leaf-head? $head) (is-member $head (() fact-ev CPU STV CTV)))
-
 ;; cdr-atom exposes the erased proof representation as an untyped list. This
 ;; is the boundary that restores the semantic Proof brand to each raw child.
 (: proof-children (-[det]-> Expression (List Proof)))
@@ -179,6 +176,9 @@
             (brand Proof $child)
             (proof-children $rest)))
       ($_other ()))))
+
+(: proof-term-leaf-head? (-[det]-> $head Bool))
+(= (proof-term-leaf-head? $head) (is-member $head (() fact-ev CPU STV CTV)))
 
 (: proof-term-children-mode
    (-[det]-> $mode Proof (List Proof)))
@@ -213,12 +213,6 @@
       ((not-fact-ev $kb $prf $type) (fact-ev $kb $prf $type))
       ($other (not-ev $other)))))
 
-(: evidence-negate-list
-   (-[det]-> (List Evidence) (List Evidence)))
-(= (evidence-negate-list ()) ())
-(= (evidence-negate-list (cons $ev $rest))
-   (cons (evidence-negate $ev) (evidence-negate-list $rest)))
-
 (: proof-term-negated? (-[det]-> Proof Bool))
 (= (proof-term-negated? $prf)
    (if (is-expr $prf) (== (car-atom $prf) negated) false))
@@ -252,7 +246,7 @@
                (if (proof-term-negated? $proof)
                   (let $inner-proof
                      (brand Proof (car-atom (cdr-atom $proof)))
-                     (evidence-negate-list
+                     (map-flat evidence-negate
                         (proof-term-evidence-list-mode
                            $mode $inner-proof)))
                   (let $children (proof-term-children-mode $mode $proof)
@@ -305,9 +299,7 @@
 (: evidence-sets-overlap?
    (-[det]-> (List Evidence) (List Evidence) Bool))
 (= (evidence-sets-overlap? $set-a $set-b)
-   (if (== (evidence-intersection $set-a $set-b) ())
-      false
-      true))
+   (not (== (evidence-intersection $set-a $set-b) ())))
 
 (: fact-evidence-only
    (-[det]-> (List Evidence) (List Evidence)))
@@ -323,8 +315,11 @@
 ;; rule or hypothesis means pooling would double-count its uncertainty.
 (: non-fact-evidence
    (-[det]-> (List Evidence) (List Evidence)))
-(= (non-fact-evidence $ev)
-   (evidence-subtraction $ev (fact-evidence-only $ev)))
+(= (non-fact-evidence ()) ())
+(= (non-fact-evidence (cons $entry $rest))
+   (if (= $entry (rule-ev $_kb $_name))
+      (cons $entry (non-fact-evidence $rest))
+      (non-fact-evidence $rest)))
 (: evidence-sets-dependent?
    (-[det]-> (List Evidence) (List Evidence) Bool))
 (= (evidence-sets-dependent? $set-a $set-b)
@@ -359,34 +354,17 @@
 (: rule-evidence-head (-[det]-> Proof Proof))
 (= (rule-evidence-head $prf)
    (if (is-expr $prf)
-      (let $head (car-atom $prf)
-         (proof-from-atom
-            (if (== $head by)
-               (car-atom (cdr-atom $prf))
-            (if (is-expr $head)
-               (if (= $head (antecedent-completion $src $_idx with $_c1 $_c2)) $src
-               (if (= $head (inverted $inv with $_pa $_pb)) $inv
-                  (if (= $head (bi-forward $fwd)) $fwd
-                     (if (= $head (bi-backward $bwd)) $bwd
-                        (if (= $head (no_inverse $inner))
-                           $inner
-                           $head)))))
-               $head))))
+      (if (is-var (car-atom $prf)) (brand Proof (car-atom $prf))
+         (case $prf (
+            ((cons by (cons $name $_rest)) (brand Proof $name))
+            ((cons (antecedent-completion $src $_idx with $_c1 $_c2) $_rest)
+               (brand Proof $src))
+            ((cons (inverted $inv with $_pa $_pb) $_rest) (brand Proof $inv))
+            ((cons (bi-forward $fwd) $_rest) (brand Proof $fwd))
+            ((cons (bi-backward $bwd) $_rest) (brand Proof $bwd))
+            ((cons (no_inverse $inner) $_rest) (brand Proof $inner))
+            ((cons $head $_rest) (brand Proof $head)))))
       $prf))
-
-(: rule-application-evidence
-   (-[det]-> KBContext Proof (List Evidence)))
-(= (rule-application-evidence $kb $prf)
-   (once
-      (if (= $kb ($kbid $_ctx $_vars))
-         (let*
-            (($name (rule-evidence-head $prf))
-             ($typed-kbid (brand KB $kbid)))
-            (if (is-expr $name) ()
-               (if (rule-evidence-registered? $typed-kbid $name)
-                  (cons (rule-ev $typed-kbid $name) ())
-                  ())))
-         ())))
 
 ;; Forward materialization and backward rule application must attach exactly
 ;; the same provenance.  Otherwise a materialized rule result looks like a new
@@ -394,24 +372,18 @@
 (: rule-result-evidence
    (-[semidet]-> (Statement KBContext Proof TV)
        (List Evidence) (List Evidence)))
-(= (rule-result-evidence ($_type $kb $prf $_tv) $ev)
+(= (rule-result-evidence ($_type ($kbid $_ctx $_vars) $prf $_tv) $ev)
    (let*
       (($base
           (if (proof-term-contains-negated? $prf)
              (list_to_set (once (proof-term-evidence-list-mode proof-walk-in-kb $prf)))
              $ev))
-       ($rule-ev (rule-application-evidence $kb $prf)))
-      (if (== $rule-ev ())
-         $base
-         (list_to_set (append-flat $base $rule-ev)))))
-
-(: projection-proof-key
-   (-[det]-> Proof (| ProjectionKey NoProjectionKey)))
-(= (projection-proof-key $prf)
-   (case $prf (
-      ((marginal-proj $idx $base) (projection-key $idx $base))
-      (((proj $idx $base) $_evidence) (projection-key $idx $base))
-      ($_ no-projection-key))))
+       ($name (rule-evidence-head $prf))
+       ($typed-kbid (brand KB $kbid)))
+      (if (is-expr $name) $base
+         (if (rule-evidence-registered? $typed-kbid $name)
+            (list_to_set (append-flat $base (cons (rule-ev $typed-kbid $name) ())))
+            $base))))
 
 (: strict-projection-proof? (-[det]-> Proof Bool))
 (= (strict-projection-proof? $prf)
@@ -421,16 +393,10 @@
 
 (: projection-dominates? (-[det]-> Proof Proof Bool))
 (= (projection-dominates? $prf-a $prf-b)
-   (let*
-      (($key-a (projection-proof-key $prf-a))
-       ($key-b (projection-proof-key $prf-b)))
-      (if (== $key-a no-projection-key)
-         false
-         (if (== $key-a $key-b)
-            (if (strict-projection-proof? $prf-a)
-               (if (strict-projection-proof? $prf-b) false true)
-               false)
-            false))))
+   (case $prf-a (
+      (((proj $idx $base) $_evidence)
+         (== $prf-b (marginal-proj $idx $base)))
+      ($_ false))))
 
 (: merge-proof-candidates
    (-[det]-> ((Statement KBContext Proof TV) (List Evidence))
@@ -438,47 +404,30 @@
        ((Statement KBContext Proof TV) (List Evidence))))
 (= (merge-proof-candidates ($proof-a $ev-a) ($proof-b $ev-b))
    (if (== $proof-a $proof-b)
-      (data
-         $proof-a
-         (list_to_set (append-flat $ev-a $ev-b)))
+      (data $proof-a (list_to_set (append-flat $ev-a $ev-b)))
       (let*
-         (($overlap? (evidence-sets-overlap? $ev-a $ev-b))
-          ($all-ev (list_to_set (append-flat $ev-a $ev-b)))
-          ($proof-token-a (proof-atom-proof $proof-a))
+         (($proof-token-a (proof-atom-proof $proof-a))
           ($proof-token-b (proof-atom-proof $proof-b)))
          (if (projection-dominates? $proof-token-a $proof-token-b)
-            (data
-               $proof-a $ev-a)
+            (data $proof-a $ev-a)
             (if (projection-dominates? $proof-token-b $proof-token-a)
-               (data
-                  $proof-b $ev-b)
-               (if $overlap?
-                  (if (and (not (== $ev-a ()))
-                           (and (not (== $ev-b ()))
-                              (evidence-subset? $ev-a $ev-b)))
-                     (data $proof-b $ev-b)
-                     (if (and (not (== $ev-a ()))
-                              (and (not (== $ev-b ()))
-                                 (evidence-subset? $ev-b $ev-a)))
-                        (data $proof-a $ev-a)
-                        (if (>= (term-confidence $proof-a)
-                                (term-confidence $proof-b))
-                           (data
-                              $proof-a $ev-a)
-                           (data
-                              $proof-b $ev-b))))
-                  (if (>= (term-confidence $proof-a)
-                          (term-confidence $proof-b))
-                     (data
-                        (RevisionMergeProof $proof-a $proof-b) $all-ev)
-                     (data
-                        (RevisionMergeProof $proof-b $proof-a) $all-ev))))))))
-
-(: proof-candidate-pair
-   (-[det]-> (Statement KBContext Proof TV) (List Evidence)
-       ((Statement KBContext Proof TV) (List Evidence))))
-(= (proof-candidate-pair $proof $evidence)
-   (data $proof $evidence))
+               (data $proof-b $ev-b)
+               (if (evidence-sets-overlap? $ev-a $ev-b)
+                  (let $both-nonempty?
+                     (if (== $ev-a ()) false (not (== $ev-b ())))
+                     (if (if $both-nonempty? (evidence-subset? $ev-a $ev-b) false)
+                        (data $proof-b $ev-b)
+                        (if (if $both-nonempty? (evidence-subset? $ev-b $ev-a) false)
+                           (data $proof-a $ev-a)
+                           (if (>= (term-confidence $proof-a)
+                                   (term-confidence $proof-b))
+                              (data $proof-a $ev-a)
+                              (data $proof-b $ev-b)))))
+                  (let $all-ev (list_to_set (append-flat $ev-a $ev-b))
+                     (if (>= (term-confidence $proof-a)
+                             (term-confidence $proof-b))
+                        (data (RevisionMergeProof $proof-a $proof-b) $all-ev)
+                        (data (RevisionMergeProof $proof-b $proof-a) $all-ev)))))))))
 
 (: merge-proof-atoms
    (-[semidet]-> (Statement KBContext Proof TV)
@@ -487,8 +436,6 @@
 (= (merge-proof-atoms $proof-a $proof-b)
    (let ($merged $_ev)
       (merge-proof-candidates
-         (proof-candidate-pair
-            $proof-a (proof-atom-evidence-set $proof-a))
-         (proof-candidate-pair
-            $proof-b (proof-atom-evidence-set $proof-b)))
+         (data $proof-a (proof-atom-evidence-set $proof-a))
+         (data $proof-b (proof-atom-evidence-set $proof-b)))
       $merged))
