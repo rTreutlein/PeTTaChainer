@@ -111,13 +111,6 @@
        ($_clear-temp-after (clear-temp-query-adds)))
       $rows))
 
-(: keyed-query-answers
-   (-[det]-> (List (Number AnnotatedStatement))
-       (List AnnotatedStatement)))
-(= (keyed-query-answers ()) ())
-(= (keyed-query-answers (cons ($_key $answer) $rest))
-   (cons $answer (keyed-query-answers $rest)))
-
 (: keyed-query-batch-results
    (-[det]-> (List (Number AnnotatedStatement))
        (List QueryBatchResult)))
@@ -139,7 +132,7 @@
           (fold-flat append-flat ()
              (map-flat
                 (|-> ($compiled-query)
-                   (keyed-query-answers
+                   (map-flat snd
                       (run-query-execution-plan
                          $steps
                          (compiled-query-execution-plan
