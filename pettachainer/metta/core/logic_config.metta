@@ -16,8 +16,6 @@
 
 (: LogicNameConfig Type)
 (: logic-name (-[det]-> LogicName LogicNameConfig))
-(: CompoundConnectiveConfig Type)
-(: compound-connective (-[det]-> $head CompoundConnectiveConfig))
 (: CompoundPremiseConfig Type)
 (: compound-premise-mode
    (-[det]-> $head CompoundPremiseMode CompoundPremiseConfig))
@@ -38,9 +36,8 @@
 (: set-compound-connective
    (-[det]-> $head CompoundPremiseMode CompoundOutputMode Bool))
 (= (set-compound-connective $head $premise-mode $output-mode)
-   (let*
-      (($_connective (add-atom &logic_config (compound-connective $head)))
-        ($_premise-mode (add-atom &logic_config (compound-premise-mode $head $premise-mode))))
+   (let $_premise-mode
+      (add-atom &logic_config (compound-premise-mode $head $premise-mode))
       (add-atom &logic_config (compound-output-mode $head $output-mode))))
 
 (: set-compound-mode (-[det]-> $head CompoundPremiseMode Bool))
@@ -58,8 +55,7 @@
 
 (: compound-connective? (-[det]-> $head Bool))
 (= (compound-connective? $head)
-   (let $matches (collapse (match &logic_config (compound-connective $head) true))
-      (not (== $matches ()))))
+   (not (== (collapse (match &logic_config (compound-premise-mode $head $_mode) true)) ())))
 
 (: configured-compound-premise-mode
    (-[det]-> $head CompoundPremiseMode))
@@ -75,8 +71,7 @@
 
 (: bidirectional-implication-form? (-[det]-> $head Bool))
 (= (bidirectional-implication-form? $head)
-   (let $matches (collapse (match &logic_config (rule-form $head BidirectionalImplication) true))
-      (not (== $matches ()))))
+   (not (== (collapse (match &logic_config (rule-form $head BidirectionalImplication) true)) ())))
 
 (: mark-logic-rule (-[det]-> $name Bool))
 (= (mark-logic-rule $name)
@@ -84,8 +79,7 @@
 
 (: logic-rule? (-[det]-> $name Bool))
 (= (logic-rule? $name)
-   (let $matches (collapse (match &logic_config (logic-rule $name) true))
-      (not (== $matches ()))))
+   (not (== (collapse (match &logic_config (logic-rule $name) true)) ())))
 
 ;; A "specializing" predicate is one whose facts the compiler should resolve at
 ;; add-time: a rule premise headed by such a predicate (e.g. (Symmetric $r)) is
@@ -97,8 +91,7 @@
 
 (: specializing-predicate? (-[det]-> $head Bool))
 (= (specializing-predicate? $head)
-   (let $matches (collapse (match &logic_config (specializing-predicate $head) true))
-      (not (== $matches ()))))
+   (not (== (collapse (match &logic_config (specializing-predicate $head) true)) ())))
 
 !(clear-logic-config)
 !(set-logic-name PLN)
