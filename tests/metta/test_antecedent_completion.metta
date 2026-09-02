@@ -27,16 +27,11 @@
 !(set-base-rate completionKb (And A C) (STV 0.25 0.9))
 !(set-base-rate completionKb B (STV 0.3 0.9))
 
-;; The compiler also indexes the fused (And A C) -> B completion directly.
-;; Constraining the proof isolates it from the overlapping marginal projection
-;; of the whole-conjunction inverse.
-!(collapse
-   (query 2000 completionKb (: $proof B $tv)))
+;; The compiler indexes the fused (And A C) -> B completion as the only
+;; child-recovery operator. Whole-compound inversion still proves (And A B)
+;; itself and does not also project to B.
 !(test
-   (query 2000 completionKb
-      (: ((antecedent-completion ab_c 1 with cpu cpu)
-          (conjunction a c))
-         B $tv))
+   (query 2000 completionKb (: $proof B $tv))
    (: ((antecedent-completion ab_c 1 with cpu cpu)
        (conjunction a c))
       B
@@ -96,13 +91,8 @@
 !(set-base-rate ctvCompletionKb (And A C) (STV 0.25 0.9))
 !(set-base-rate ctvCompletionKb B (STV 0.3 0.9))
 
-!(collapse
-   (query 2000 ctvCompletionKb (: $proof B $tv)))
 !(test
-   (query 2000 ctvCompletionKb
-      (: ((antecedent-completion ab_c 1 with cpu cpu)
-          (conjunction a c))
-         B $tv))
+   (query 2000 ctvCompletionKb (: $proof B $tv))
    (: ((antecedent-completion ab_c 1 with cpu cpu)
        (conjunction a c))
       B
@@ -122,13 +112,8 @@
 !(set-base-rate ternaryCompletionKb (And A D C) (STV 0.25 0.9))
 !(set-base-rate ternaryCompletionKb Mid (STV 0.3 0.9))
 
-!(collapse
-   (query 2000 ternaryCompletionKb (: $proof Mid $tv)))
 !(test
-   (query 2000 ternaryCompletionKb
-      (: ((antecedent-completion abd_c 1 with cpu cpu)
-          (conjunction a d c))
-         Mid $tv))
+   (query 2000 ternaryCompletionKb (: $proof Mid $tv))
    (: ((antecedent-completion abd_c 1 with cpu cpu)
        (conjunction a d c))
       Mid

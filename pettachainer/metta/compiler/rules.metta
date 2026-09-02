@@ -15,7 +15,8 @@
 ;; complete disjunction and let its ordinary projection adapters recover one
 ;; child. Actual source computations remain restricted to the explicitly
 ;; reversible subset. Pure And and Or antecedents can be inverted as complete
-;; compounds; And additionally receives direct antecedent-completion rules.
+;; compounds. Child recovery for a pure And is only fused completion; Or still
+;; projects from the inverted disjunction.
 (: SourceComputeGoals Type)
 (: source-computes
    (-[det]-> (List Goal) SourceComputeGoals))
@@ -386,9 +387,16 @@
 
 ;; For every child M of a pure conjunction H, compile the direct probabilistic
 ;; completion (And O C) -> M, where O contains H's other children and C is the
-;; original consequence. The rule keeps the source implication's evidence
-;; identity but uses joint base rates rather than composing whole-H inversion
-;; with an And projection.
+;; original consequence. That is the only child-recovery operator for a pure
+;; And: whole-H inversion still proves H itself, but does not also project to
+;; each child.
+(: pure-conjunction-antecedent? (-[det]-> Statement Bool))
+(= (pure-conjunction-antecedent? $a)
+   (if (head-is? $a And)
+      (case (source-compute-goals (the (List Atom) (cdr-atom $a))) (
+         ((source-computes ()) true)
+         ($_other false)))
+      false))
 (: antecedent-completion-rule-info
    (-[det]-> KB Statement Statement TV
        ((List Goal) $base-truth-value CTVType)))
@@ -499,16 +507,12 @@
        Statement Statement CompiledAddition))
 (= (compile-antecedent-completions
       $kb $ctx $vars $shape-kb $prf $tv $a $b)
-   (if (head-is? $a And)
-      (let $conjuncts (the (List Atom) (cdr-atom $a))
-         (case
-            (source-compute-goals $conjuncts)
-            (((source-computes ())
-                (let $children (statement-children $conjuncts)
-                   (compile-antecedent-completion
-                      $kb $ctx $vars $shape-kb $prf $tv
-                      $a $b $children 0 $children)))
-             ($_unsupported (empty)))))
+   (if (pure-conjunction-antecedent? $a)
+      (let $children
+         (statement-children (the (List Atom) (cdr-atom $a)))
+         (compile-antecedent-completion
+            $kb $ctx $vars $shape-kb $prf $tv
+            $a $b $children 0 $children))
       (empty)))
 
 ;; Concrete Inheritance assertions also act as implication-like rules over
@@ -1079,10 +1083,12 @@
                               (inverse-implication
                                  $kb $prf $na $b $tv $inverse-execs)
                               (if (is-var $na) (empty)
-                                 (compile-outputs
-                                    (: $adapter-kb
-                                       ((inverted $prf $w $pa1 $pa2) $pb2)
-                                       $na $natv)))
+                                 (if (pure-conjunction-antecedent? $a)
+                                    (empty)
+                                    (compile-outputs
+                                       (: $adapter-kb
+                                          ((inverted $prf $w $pa1 $pa2) $pb2)
+                                          $na $natv))))
                               (if (is-var $b) (empty)
                                  (compile-adapter-chain plain
                                     (: $adapter-kb $pb2 $b $btv2))))))))
