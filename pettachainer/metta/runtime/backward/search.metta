@@ -87,15 +87,6 @@
                          ()))))
             $gid))))
 
-(: mark-root-goals (-[det]-> (List Number) (List $none)))
-(= (mark-root-goals $gids)
-   (let $_marks
-      (foreach-flat
-         (|-> ($gid)
-            (once (add-atom &root_goal (root-goal $gid))))
-         $gids)
-      ()))
-
 ;; --- Agenda issue, refresh, and pruning -------------------------------------
 
 (: add-goal-agenda-entry-heap
@@ -325,22 +316,18 @@
                (request-goal-agenda-kind-score-heap
                   $agenda $gid agenda-expand $score))))))
 
-(: schedule-root-goals-heap
-   (-[semidet]-> (Heap AgendaEntry) (List Number)
-       (Heap AgendaEntry)))
-(= (schedule-root-goals-heap $agenda ()) $agenda)
-(= (schedule-root-goals-heap $agenda (cons $gid $rest))
+(: schedule-root-goal-heap
+   (-[semidet]-> (Heap AgendaEntry) Number (Heap AgendaEntry)))
+(= (schedule-root-goal-heap $agenda $gid)
    (let* (((stored-goal-row
               $_stored-gid $_depth $goal $_expanded $_state)
              (goal-by-id $gid))
           ($pids
              (current-proof-ids-for-goal-key
-                (proof-goal-key-by-goal-id $gid)))
-          ($next
-             (if (replayed-frontier-needs-wake? $goal $pids)
-                (wake-goal-demand-heap $agenda $gid)
-                $agenda)))
-      (schedule-root-goals-heap $next $rest)))
+                (proof-goal-key-by-goal-id $gid))))
+      (if (replayed-frontier-needs-wake? $goal $pids)
+         (wake-goal-demand-heap $agenda $gid)
+         $agenda)))
 
 ;; --- Frontier advancement and proof propagation -----------------------------
 
