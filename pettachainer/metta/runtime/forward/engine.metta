@@ -54,16 +54,9 @@
                    aggregate-remove $old)
                 (forward-agenda-identity $agenda)))
           ((forward-output-added $fact)
-             (let $_invalidate
-                (forward-invalidate-base-rates! $fact)
-                (agenda-push-fact $agenda $fact)))
-          ((forward-output-replaced $old $fact)
-             (let*
-                (($_invalidate-old
-                    (forward-invalidate-base-rates! $old))
-                 ($_invalidate-new
-                    (forward-invalidate-base-rates! $fact)))
-                (agenda-push-fact $agenda $fact)))))))
+             (agenda-push-fact $agenda $fact))
+          ((forward-output-replaced $_old $fact)
+             (agenda-push-fact $agenda $fact))))))
 
 ;; Apply cache bookkeeping for canonical changes made outside a forward run.
 (: forward-apply-unqueued-change!
@@ -75,12 +68,8 @@
           ((forward-output-removed $old)
              (forward-maintain-aggregates!
                 aggregate-remove $old))
-          ((forward-output-added $fact)
-             (forward-invalidate-base-rates! $fact))
-          ((forward-output-replaced $old $fact)
-             (progn
-                (forward-invalidate-base-rates! $old)
-                (forward-invalidate-base-rates! $fact)))))))
+          ((forward-output-added $_fact) ())
+          ((forward-output-replaced $_old $_fact) ())))))
 
 (: forward-strict-evidence-subset?
    (-[det]-> (List Evidence) (List Evidence) Bool))

@@ -439,3 +439,95 @@
             forwardInheritanceBaseRateKb (Inheritance $x Bird)))
       $source)
    computed)
+
+;; A computed ordinary snapshot keeps that source across a later selected
+;; forward delta. compileadd records the fact but does not rewrite the cache;
+;; one seeded forward step patches the harvested statistics and republishes.
+!(compileadd computedForwardBaseRateKb
+   (: pToQ
+      (Implication (P $x) (Q $x))
+      (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
+!(compileadd computedForwardBaseRateKb (: qa (Q alice) (STV 0.9 0.8)))
+!(compileadd computedForwardBaseRateKb (: pb (P bob) (STV 0.7 0.8)))
+
+!(test
+   (query 200 computedForwardBaseRateKb (: $proof (P alice) $tv))
+   (: ((inverted pToQ with
+          (foldall-proof pb)
+          (foldall-proof qa (by pToQ pb)))
+       qa)
+      (P alice)
+      (STV 0.736162240263287 0.0003604307138536469)))
+
+!(test
+   (let (base-rate $_kb $_pattern $_tv $source $_mode)
+      (car-atom (base-rate-cache-entries computedForwardBaseRateKb (P $x)))
+      $source)
+   computed)
+
+!(test
+   (list-count
+      (collapse
+         (match &forward_aggregate_observation
+            (forward-aggregate-observation
+               ($_id
+                  (forward-output-key
+                     (computedForwardBaseRateKb MAIN Nil)
+                     (P $_which)))
+               (forward-base-rate-observation-value $_fact)
+               $_weight $_count)
+            true)))
+   1)
+
+!(compileadd computedForwardBaseRateKb (: pc (P carol) (STV 0.3 0.8)))
+
+!(test
+   (cached-base-rate computedForwardBaseRateKb (P $x))
+   ((STV 0.6999999999999998 0.0009990009990009992)))
+
+!(test
+   (let (base-rate $_kb $_pattern $_tv $source $_mode)
+      (car-atom (base-rate-cache-entries computedForwardBaseRateKb (P $x)))
+      $source)
+   computed)
+
+!(test
+   (list-count
+      (collapse
+         (match &forward_aggregate_observation
+            (forward-aggregate-observation
+               ($_id
+                  (forward-output-key
+                     (computedForwardBaseRateKb MAIN Nil)
+                     (P $_which)))
+               (forward-base-rate-observation-value $_fact)
+               $_weight $_count)
+            true)))
+   1)
+
+!(forward-chain 1 computedForwardBaseRateKb
+   (test-selected-facts computedForwardBaseRateKb (P carol)))
+
+!(test
+   (let (base-rate $_kb $_pattern $_tv $source $_mode)
+      (car-atom (base-rate-cache-entries computedForwardBaseRateKb (P $x)))
+      $source)
+   computed)
+
+!(test
+   (cached-base-rate computedForwardBaseRateKb (P $x))
+   ((STV 0.49999999999999994 0.0019960079840319364)))
+
+!(test
+   (list-count
+      (collapse
+         (match &forward_aggregate_observation
+            (forward-aggregate-observation
+               ($_id
+                  (forward-output-key
+                     (computedForwardBaseRateKb MAIN Nil)
+                     (P $_which)))
+               (forward-base-rate-observation-value $_fact)
+               $_weight $_count)
+            true)))
+   2)

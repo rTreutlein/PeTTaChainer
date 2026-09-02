@@ -164,37 +164,38 @@
             $candidate $candidate)
          $weight $mass)))
 
-(: merge-computed-member-inheritance-children!
-   (-[det]-> Number (List Number) (List $none)))
-(= (merge-computed-member-inheritance-children! $_id ()) ())
-(= (merge-computed-member-inheritance-children!
-      $id (cons $pid $rest))
-   (let $_merge
-      (collapse
-         (forward-merge-computed-member-observation!
-            $id (computed-member-inheritance-observation $id $pid)))
-      (merge-computed-member-inheritance-children! $id $rest)))
+(: merge-computed-member-inheritance-child!
+   (-[det]-> Number Number (List $none)))
+(= (merge-computed-member-inheritance-child! $id $pid)
+   (collapse
+      (forward-merge-computed-member-observation!
+         $id (computed-member-inheritance-observation $id $pid))))
 
-(: harvest-computed-member-inheritance-state-for-id!
-   (-[semidet]-> Number Number (List $none)))
-(= (harvest-computed-member-inheritance-state-for-id!
-      $id $current-pid)
-   (let*
-      (($children (proof-children-by-id $current-pid))
-       ($_merge
-          (merge-computed-member-inheritance-children!
-             $id $children))
-       ($_computed
-          (forward-mark-member-inheritance-computed! $id)))
-      ()))
+(: harvest-base-rate-child!
+   (-[det]-> Number ForwardAggregateDescriptor Number (List $none)))
+(= (harvest-base-rate-child! $id $desc $pid)
+   (collapse
+      (let*
+         (($fact (proof-fact-output-by-id $pid))
+          ((fa-sample $key $value $weight $mass $keep)
+             (fa-sample-for $fact $desc))
+          ($obs-key
+             (brand ForwardAggregateObservationKey
+                (quote ($id $key)))))
+         (fa-swap!
+            $id
+            (fa-obs $obs-key)
+            (forward-aggregate-observation
+               $obs-key $value $weight $mass)
+            $keep))))
 
 ;; A computed fold retains the accepted child proof IDs that produced its
 ;; snapshot.  Import those already overlap-resolved components into the same
 ;; per-object state used by forward chaining, so later selected deltas revise
 ;; the computed snapshot instead of replacing it with a partial approximation.
-(: harvest-computed-member-inheritance-state!
+(: harvest-computed-aggregate-state!
    (-[det]-> $arguments Number (List $none)))
-(= (harvest-computed-member-inheritance-state! $args $current-pid)
+(= (harvest-computed-aggregate-state! $args $current-pid)
    (case $args (
       (($kbid
           (MemberInheritanceSample $obj $subj $concept $atv $btv)
@@ -212,8 +213,23 @@
                      (brand KB $kbid)
                      (brand Term $subj)
                      (brand Term $concept))
-                  (harvest-computed-member-inheritance-state-for-id!
-                     $id $current-pid)))
+                  (foreach-flat
+                     (merge-computed-member-inheritance-child! $id)
+                     (proof-children-by-id $current-pid))))
+            ()))
+      (($kbid $pattern $_extractor $_init $_fun $finish $_tv-mode)
+         (if (base-rate-finish? $finish)
+            (let $_harvest
+               (collapse
+                  (let (data $id $desc)
+                     (fa-ordinary-row
+                        (brand KB $kbid) (brand Statement $pattern))
+                     (foreach-flat
+                        (harvest-base-rate-child!
+                           $id
+                           (the ForwardAggregateDescriptor $desc))
+                        (proof-children-by-id $current-pid))))
+               ())
             ()))
       ($_other ()))))
 
@@ -230,7 +246,7 @@
                    ($output (proof-output-atom-by-id $pid)))
                   (if (= $output (CPU $_fun $_out-args (STV $s $c)))
                      (let* (($_components
-                               (harvest-computed-member-inheritance-state!
+                               (harvest-computed-aggregate-state!
                                   $args $pid))
                             ($_cache
                                (store-computed-base-rate!

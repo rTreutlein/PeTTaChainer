@@ -84,6 +84,16 @@ it reports nanoseconds per estimated candidate-coordinate comparison, based on
 .venv/bin/python pettachainer/benchmarks/backward_materialize.py --mode sibling-targets --depths 5 --queries 20 --repeats 3
 ```
 
+`incremental_ordinary_base_rates.py` is optional and is not part of `core_suite` or
+`scripts/ab_bench.sh`. It times the inversion case those suites skip: a computed
+`P($x)` snapshot, then one-step forward patches of new `P` facts.
+
+```bash
+PYTHONPATH=pettachainer/benchmarks .venv/bin/python \
+  pettachainer/benchmarks/incremental_ordinary_base_rates.py \
+  --initial-facts 128 --deltas 32 --query-steps 2000
+```
+
 ## Output Columns
 
 - `n`: number of Bernoulli updates folded into the distribution
