@@ -120,24 +120,31 @@
 (= (root-demands-max (cons (root-demand $_root $score) $rest))
    (max $score (root-demands-max $rest)))
 
-(: root-demand-entry-member?
-   (-[det]-> RootDemand (List RootDemand) Bool))
-(= (root-demand-entry-member? $_entry ()) false)
-(= (root-demand-entry-member?
+;; Remove the entry with this root when it carries the same score; an absent
+;; or differently scored root leaves the list unchanged.
+(: root-demand-remove
+   (-[det]-> RootDemand (List RootDemand) (List RootDemand)))
+(= (root-demand-remove $_entry ()) ())
+(= (root-demand-remove
       (root-demand $root $score)
       (cons (root-demand $head-root $head-score) $rest))
    (if (== $root $head-root)
-      (== $score $head-score)
-      (root-demand-entry-member?
-         (root-demand $root $score) $rest)))
+      (if (== $score $head-score)
+         $rest
+         (cons (root-demand $head-root $head-score) $rest))
+      (cons (root-demand $head-root $head-score)
+         (root-demand-remove (root-demand $root $score) $rest))))
 
+;; Set equality: every left entry is removed from the right list exactly once
+;; and nothing may remain.
 (: root-demands-same?
    (-[det]-> (List RootDemand) (List RootDemand) Bool))
 (= (root-demands-same? () $right) (== $right ()))
 (= (root-demands-same? (cons $entry $rest) $right)
-   (if (root-demand-entry-member? $entry $right)
-      (root-demands-same? $rest $right)
-      false))
+   (let $remaining (root-demand-remove $entry $right)
+      (if (== $remaining $right)
+         false
+         (root-demands-same? $rest $remaining))))
 
 (: root-goal-demand-seed (-[det]-> Number (List RootDemand)))
 (= (root-goal-demand-seed $gid)

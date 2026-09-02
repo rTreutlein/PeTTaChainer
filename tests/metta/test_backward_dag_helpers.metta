@@ -54,6 +54,27 @@
 
 !(test (expected-tv no-evidence) no-evidence)
 
+;; Root-demand set equality ignores order, and differs on a changed score, a
+;; missing root, or an extra root.
+!(test
+   (root-demands-same?
+      ((root-demand 1 0.5) (root-demand 2 0.3))
+      ((root-demand 2 0.3) (root-demand 1 0.5)))
+   true)
+!(test
+   (root-demands-same?
+      ((root-demand 1 0.5) (root-demand 2 0.3))
+      ((root-demand 2 0.4) (root-demand 1 0.5)))
+   false)
+!(test
+   (root-demands-same? ((root-demand 1 0.5)) ())
+   false)
+!(test
+   (root-demands-same?
+      ((root-demand 1 0.5))
+      ((root-demand 1 0.5) (root-demand 2 0.3)))
+   false)
+
 !(test
    (term-confidence
       (CPU CTVModusPonensFormula ((STV 0.8 0.9) (CTV (STV 1.0 0.6) (STV 0.0 0.4))) $out))
