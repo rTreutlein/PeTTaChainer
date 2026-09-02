@@ -14,12 +14,10 @@
 (= (goal-has-type-vars? $goal)
    (case $goal
       (((CPU $fun $args $res)
-          (if
-             (== (extract-vars (CPU $fun $args $res)) ())
-             false true))
+          (not (== (extract-vars (CPU $fun $args $res)) ())))
        (($type ($_kbid $_ctx $vars) $_prf $_tv)
           (if (== (extract-vars $type) ())
-             (if (== $vars Nil) false true)
+             (not (== $vars Nil))
              true)))))
 
 (: goal-key
@@ -76,18 +74,6 @@
           (no-evidence no-evidence)
           ($other (the TV $other))))))
 
-(: normalize-expected-tv (-[det]-> $truth-value TV))
-(= (normalize-expected-tv $tv)
-   (if (is-var $tv) (STV 1.0 1.0)
-      (case $tv
-         (((STV $s $c) (STV (if (is-var $s) 1.0 $s) (if (is-var $c) 1.0 $c)))
-          ((CTV $pos $neg)
-             (CTV
-                (normalize-expected-stv $pos)
-                (normalize-expected-stv $neg)))
-          (no-evidence no-evidence)
-          ($other (the TV $other))))))
-
 (: normalize-expected-ctv
    (-[semidet]-> $truth-value CTVType))
 (= (normalize-expected-ctv
@@ -102,21 +88,24 @@
    (if (is-var $tv)
       (STV 1.0 1.0)
       (case $tv
-         (((STV $s $c)
-             (STV
-                (if (is-var $s) 1.0 $s)
-                (if (is-var $c) 1.0 $c)))
-          ((CTV $pos $neg)
-             (CTV
-                (normalize-expected-stv $pos)
-                (normalize-expected-stv $neg)))
+         (((STV $_s $_c) (normalize-expected-stv $tv))
+          ((CTV $_pos $_neg) (normalize-expected-ctv $tv))
           ($_other (empty))))))
 
 ;; CPU arguments are formula-dependent and enter through a generic execution
 ;; record. Normalize known TV constructors without reflective checks; retain
 ;; an explicit checked fallback for invalid or user-extended TV values.
 (: expected-tv (-[det]-> $candidate TV))
-(= (expected-tv $value) (normalize-expected-tv $value))
+(= (expected-tv $tv)
+   (if (is-var $tv) (STV 1.0 1.0)
+      (case $tv
+         (((STV $_s $_c) (normalize-expected-stv $tv))
+          ((CTV $pos $neg)
+             (CTV
+                (normalize-expected-stv $pos)
+                (normalize-expected-stv $neg)))
+          (no-evidence no-evidence)
+          ($other (the TV $other))))))
 
 ;; Expected TVs dispatch directly on the known formula set instead of going
 ;; through reduce: reduce's runtime dispatch (fun/1 + current_predicate +
@@ -180,8 +169,8 @@
 (: first-cpu-expected-tv
    (-[det]-> $formula $arguments (| TV (List Atom))))
 (= (first-cpu-expected-tv $fun $args)
-   (let $res (let $hits (collapse (cpu-expected-tv $fun $args)) (if (== $hits ()) () (car-atom $hits)))
-      $res))
+   (let $hits (collapse (cpu-expected-tv $fun $args))
+      (if (== $hits ()) () (car-atom $hits))))
 
 (: cpu-expected-confidence (-[det]-> $formula $arguments Number))
 (= (cpu-expected-confidence $fun $args)
