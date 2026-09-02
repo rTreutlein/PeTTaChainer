@@ -85,11 +85,9 @@
                  $member-fold-tv)
             (CPU MemberInheritanceEvidenceFormula
                ($member-fold-tv) $member-tv))
-             |- $member-goal))
-       ($member-adds
-          (cons (brand CompiledAddition $member-sample-rule)
-             (cons (brand CompiledAddition $member-rule) ()))))
-      $member-adds))
+             |- $member-goal)))
+      (cons (brand CompiledAddition $member-sample-rule)
+         (cons (brand CompiledAddition $member-rule) ()))))
 
 (: compile-inheritance-query
    (-[semidet]-> KB Term Term
@@ -170,8 +168,7 @@
       (if (contains-explicit-exists? $Type) (empty)
       (if (= $Type (Implication $antecedent $consequent))
          (let*
-            (($vars (extract-vars $Type))
-             ($mvars (query-variables $vars))
+            (($mvars (query-variables (extract-vars $Type)))
              (($pos-shape-kb $neg-shape-kb $b
                   $pos-prf $neg-prf $all-adds)
                 (query-pos-neg-scaffold $kb $mvars
@@ -198,34 +195,33 @@
                   $all-adds)))
          (if (implication-type? $Type) (empty)
          (if (bidirectional-implication-type? $Type)
-            (let ($_head $left $right) $Type
-               (let*
-                  (($vars (extract-vars $Type))
-                    ($mvars (query-variables $vars))
-                    (($left-shape-kb $left-prf
-                         $left-goal-expr $left-adds)
-                       (query-side $kb $mvars false
-                          (brand Statement $left)
-                          (brand Statement $right)))
-                    (($right-shape-kb $right-prf
-                         $right-goal-expr $right-adds)
-                       (query-side $kb $mvars false
-                          (brand Statement $right)
-                          (brand Statement $left)))
-                    ($left-goal (: $left-shape-kb $left-prf $left-goal-expr $left-tv))
-                    ($right-goal (: $right-shape-kb $right-prf $right-goal-expr $right-tv))
-                    ($goal (: (kbctx $kb) (bidirectional $left-prf $right-prf) $Type $tv)))
-                  (compilation-plan
-                     $goal
-                     (cons
-                        (brand CompiledAddition
-                           ((the (List Goal)
-                                ($left-goal $right-goal
-                                   (CPU AndFormula
-                                      ($left-tv $right-tv) $tv)))
-                              |- $goal))
-                        (union-compiled-additions
-                           $left-adds $right-adds)))))
+            (let*
+               ((($_head $left $right) $Type)
+                ($mvars (query-variables (extract-vars $Type)))
+                (($left-shape-kb $left-prf
+                      $left-goal-expr $left-adds)
+                    (query-side $kb $mvars false
+                       (brand Statement $left)
+                       (brand Statement $right)))
+                 (($right-shape-kb $right-prf
+                      $right-goal-expr $right-adds)
+                    (query-side $kb $mvars false
+                       (brand Statement $right)
+                       (brand Statement $left)))
+                 ($left-goal (: $left-shape-kb $left-prf $left-goal-expr $left-tv))
+                 ($right-goal (: $right-shape-kb $right-prf $right-goal-expr $right-tv))
+                 ($goal (: (kbctx $kb) (bidirectional $left-prf $right-prf) $Type $tv)))
+               (compilation-plan
+                  $goal
+                  (cons
+                     (brand CompiledAddition
+                        ((the (List Goal)
+                             ($left-goal $right-goal
+                                (CPU AndFormula
+                                   ($left-tv $right-tv) $tv)))
+                           |- $goal))
+                     (union-compiled-additions
+                        $left-adds $right-adds))))
             (if (and (= $Type (Inheritance $subj $concept)) (concrete-inheritance-link? $subj $concept))
                (compile-inheritance-query $kb (brand Term $subj) (brand Term $concept))
                (compilation-plan
