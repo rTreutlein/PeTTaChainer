@@ -166,34 +166,18 @@
          (let $head (car-atom $type) (if (is-var $head) (fwd_trigger $kbid any) (fwd_trigger $kbid $head)))
          (fwd_trigger $kbid $type))))
 
-(: forward-indexable-premise-key
+;; A fact premise is indexed under its type-head trigger and its kb-wide
+;; wildcard trigger; a CPU premise only under the global wildcard.
+(: forward-premise-keys
    (-[det]-> (| Goal (Statement KBContext Proof TV))
-       (| ForwardTriggerKey (List $no-key))))
-(= (forward-indexable-premise-key $prem)
-   (once
-      (if (= $prem ($_type ($kbid $_ctx $_vars) $_prf $_tv))
-         (forward-type-trigger-key
-            (brand KB $kbid) (brand Statement $_type))
-         ())))
-
-(: forward-premise-index-key
-   (-[det]-> (| Goal (Statement KBContext Proof TV))
-       ForwardTriggerKey))
-(= (forward-premise-index-key $prem)
-   (once
-      (if (= $prem ($_type ($kbid $_ctx $_vars) $_prf $_tv))
-         (forward-type-trigger-key
-            (brand KB $kbid) (brand Statement $_type))
-         fwd_trigger_any)))
-
-(: forward-premise-wildcard-key
-   (-[det]-> (| Goal (Statement KBContext Proof TV))
-       ForwardTriggerKey))
-(= (forward-premise-wildcard-key $prem)
-   (once
-      (if (= $prem ($_type ($kbid $_ctx $_vars) $_prf $_tv))
-         (fwd_trigger (brand KB $kbid) any)
-         fwd_trigger_any)))
+       (ForwardTriggerKey ForwardTriggerKey)))
+(= (forward-premise-keys $prem)
+   (case $prem (
+      (($type ($kbid $_ctx $_vars) $_prf $_tv)
+         (data
+            (forward-type-trigger-key (brand KB $kbid) (brand Statement $type))
+            (fwd_trigger (brand KB $kbid) any)))
+      ($_cpu (data fwd_trigger_any fwd_trigger_any)))))
 
 (: forward-fact-key
    (-[det]-> (Statement KBContext Proof TV) ForwardOutputKey))
@@ -218,13 +202,11 @@
       (forward-output-candidate $current $current-ev)
       (forward-frontier-row
          $_hash $_type $_kb $fact $ev))
-   (let $merged-state
+   (let ($merged $merged-ev)
       (merge-proof-candidates
          (data $current $current-ev)
          (data $fact $ev))
-      (forward-output-candidate
-         (fst $merged-state)
-         (snd $merged-state))))
+      (forward-output-candidate $merged $merged-ev)))
 
 (: forward-output-candidate-for-key
    (-[det]-> ForwardOutputKey

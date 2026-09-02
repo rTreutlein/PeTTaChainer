@@ -87,6 +87,6 @@
 (: forward-maintain-member-aggregates! (-[det]-> ForwardAggregateMaintenance (Statement KBContext Proof TV)(List $a)))
 (= (forward-maintain-member-aggregates! $a $b)(case $b ( (((Member $c $d)($e MAIN Nil) $f $g)(collapse (fa-maintain-key! $a $b (fwd_member (brand KB $e)(brand Term $d)))))($h ()))))
 (: forward-maintain-aggregates! (-[det]-> ForwardAggregateMaintenance (Statement KBContext Proof TV)(List $a)))
-(= (forward-maintain-aggregates! $a $b)(let* (($c (forward-premise-index-key $b))($d (forward-premise-wildcard-key $b))($e (collapse (fa-maintain-key! $a $b $c)))($f (if (== $c $d)()(collapse (fa-maintain-key! $a $b $d))))($g (forward-maintain-member-aggregates! $a $b)))()))
+(= (forward-maintain-aggregates! $a $b)(let* ((($c $d)(forward-premise-keys $b))($e (collapse (fa-maintain-key! $a $b $c)))($f (if (== $c $d)()(collapse (fa-maintain-key! $a $b $d))))($g (forward-maintain-member-aggregates! $a $b)))()))
 (: forward-apply-unqueued-member-change! (-[det]-> ForwardOutputChange (List $a)))
 (= (forward-apply-unqueued-member-change! $a)(case $a ( (no-forward-change ())((forward-output-added $b)(forward-maintain-member-aggregates! aggregate-update $b))((forward-output-replaced $c $b)(forward-maintain-member-aggregates! aggregate-update $b))((forward-output-removed $c)()))))

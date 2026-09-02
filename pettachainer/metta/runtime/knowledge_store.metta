@@ -21,14 +21,17 @@
        (| Goal (Statement KBContext Proof TV))
        Number))
 (= (kb-add-prem $backend $id $idx $prem)
-   (let $key
-      (forward-indexable-premise-key $prem)
-      (progn
-         (if (== $key ()) ()
+   (progn
+      (case $prem (
+         (($type ($kbid $_ctx $_vars) $_prf $_tv)
             (once
                (kb-add-atom $backend prem_index
-                  (make-space-row4 $key $prem $id $idx))))
-         (+ $idx 1))))
+                  (make-space-row4
+                     (forward-type-trigger-key
+                        (brand KB $kbid) (brand Statement $type))
+                     $prem $id $idx))))
+         ($_cpu ())))
+      (+ $idx 1)))
 
 (: observed-inheritance-subject? (-[det]-> KB Statement Bool))
 (= (observed-inheritance-subject? $kbid $subj)
