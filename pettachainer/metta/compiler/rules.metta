@@ -25,10 +25,6 @@
 (: source-compute-goals
    (-[det]-> (List Atom) SourceComputeGoals))
 
-(: contains-source-computation? (-[det]-> Atom Bool))
-(= (contains-source-computation? $term)
-   (contains-head? source-computation-head? $term))
-
 (= (source-compute-goals ()) (source-computes ()))
 (= (source-compute-goals (cons $premise $rest))
    (case $premise (
@@ -43,7 +39,7 @@
          (source-compute-goals
             (cons (Compute $function $args -> $result) $rest)))
       ($other
-         (if (contains-source-computation? $other)
+         (if (contains-head? source-computation-head? $other)
             unsupported-source-computes
             (source-compute-goals $rest))))))
 
@@ -77,49 +73,43 @@
    (-[det]-> Goal Goal (List Variable) ComputeInverseStep))
 (: no-compute-inverse-step ComputeInverseStep)
 
-(: inverse-compute-cpu-step
-   (-[det]-> Atom Atom Atom (List Variable) ComputeInverseStep))
-(= (inverse-compute-cpu-step $function $args $result $known)
-   (let*
-      (($result-unknown
-          (\==
-             (list_to_set (extract-vars $result)) $known))
-       ($input-unknown
-          (\==
-             (list_to_set (extract-vars $args)) $known)))
-      (if (not (== $result-unknown ()))
-         no-compute-inverse-step
-         (case $input-unknown (
-            ((cons $unknown ())
-               (let*
-                  (($arg-list (the (List Atom) $args))
-                   ($unknown-index
-                      (direct-variable-index-or-negative
-                         $arg-list $unknown 0)))
-                  (if (or (== $unknown-index -1)
-                          (not
-                             (compute-args-known-except?
-                                $arg-list $unknown-index $known)))
-                     no-compute-inverse-step
-                     (case
-                        (compute-inverse-goal-or-none
-                           $function $unknown-index $args $result)
-                        (((inverse-compute-goal $inverse-goal)
-                            (inverse-compute-step-result
-                               $inverse-goal
-                               (CPU $function $args $result)
-                               (list_to_set (cons $unknown $known))))
-                         (no-compute-inverse-goal
-                            no-compute-inverse-step))))))
-            ($_input-other no-compute-inverse-step))))))
-
 (: inverse-compute-step
    (-[det]-> Goal (List Variable) ComputeInverseStep))
 (= (inverse-compute-step $goal $known)
    (case $goal (
       ((CPU $function $args $result)
-         (inverse-compute-cpu-step
-            $function $args $result $known))
+         (let*
+            (($result-unknown
+                (\==
+                   (list_to_set (extract-vars $result)) $known))
+             ($input-unknown
+                (\==
+                   (list_to_set (extract-vars $args)) $known)))
+            (if (not (== $result-unknown ()))
+               no-compute-inverse-step
+               (case $input-unknown (
+                  ((cons $unknown ())
+                     (let*
+                        (($arg-list (the (List Atom) $args))
+                         ($unknown-index
+                            (direct-variable-index-or-negative
+                               $arg-list $unknown 0)))
+                        (if (or (== $unknown-index -1)
+                                (not
+                                   (compute-args-known-except?
+                                      $arg-list $unknown-index $known)))
+                           no-compute-inverse-step
+                           (case
+                              (compute-inverse-goal-or-none
+                                 $function $unknown-index $args $result)
+                              (((inverse-compute-goal $inverse-goal)
+                                  (inverse-compute-step-result
+                                     $inverse-goal
+                                     (CPU $function $args $result)
+                                     (list_to_set (cons $unknown $known))))
+                               (no-compute-inverse-goal
+                                  no-compute-inverse-step))))))
+                  ($_input-other no-compute-inverse-step))))))
       ($_goal-other no-compute-inverse-step))))
 
 (: ComputeInversePlan Type)
