@@ -43,6 +43,10 @@
             unsupported-source-computes
             (source-compute-goals $rest))))))
 
+(: vars-covered? (-[det]-> Atom (List Variable) Bool))
+(= (vars-covered? $term $known)
+   (== (\== (list_to_set (extract-vars $term)) $known) ()))
+
 (: direct-variable-index-or-negative
    (-[det]-> (List Atom) Variable Number Number))
 (= (direct-variable-index-or-negative () $_variable $_index) -1)
@@ -60,10 +64,7 @@
       (cons $arg $rest) $skip-index $known)
    (if (== $skip-index 0)
       (compute-args-known-except? $rest -1 $known)
-      (if (==
-             (\==
-                (list_to_set (extract-vars $arg)) $known)
-             ())
+      (if (vars-covered? $arg $known)
          (compute-args-known-except?
             $rest (- $skip-index 1) $known)
          false)))
@@ -78,16 +79,9 @@
 (= (inverse-compute-step $goal $known)
    (case $goal (
       ((CPU $function $args $result)
-         (let*
-            (($result-unknown
-                (\==
-                   (list_to_set (extract-vars $result)) $known))
-             ($input-unknown
-                (\==
-                   (list_to_set (extract-vars $args)) $known)))
-            (if (not (== $result-unknown ()))
-               no-compute-inverse-step
-               (case $input-unknown (
+         (if (not (vars-covered? $result $known))
+            no-compute-inverse-step
+            (case (\== (list_to_set (extract-vars $args)) $known) (
                   ((cons $unknown ())
                      (let*
                         (($arg-list (the (List Atom) $args))
@@ -109,7 +103,7 @@
                                      (list_to_set (cons $unknown $known))))
                                (no-compute-inverse-goal
                                   no-compute-inverse-step))))))
-                  ($_input-other no-compute-inverse-step))))))
+                  ($_input-other no-compute-inverse-step)))))
       ($_goal-other no-compute-inverse-step))))
 
 (: ComputeInversePlan Type)
@@ -406,12 +400,7 @@
                   (append
                      (remove-index $idx $children)
                      (cons $consequent ()))))
-            (if
-               (==
-                  (\==
-                     (list_to_set (extract-vars $missing))
-                     (list_to_set (extract-vars $known)))
-                  ())
+            (if (vars-covered? $missing (list_to_set (extract-vars $known)))
                (let*
                   ((($known-execs $known-proofs $known-witness-tv)
                       (once
@@ -470,9 +459,7 @@
 
 (: concrete-inheritance-link? (-[det]-> Atom Atom Bool))
 (= (concrete-inheritance-link? $subj $concept)
-   (if (is-var $subj)
-      false
-      (if (is-var $concept) false true)))
+   (not (or (is-var $subj) (is-var $concept))))
 
 ;; A total-implication context represents a hypothetical instance of the
 ;; queried subject. Top-level Inheritance premises about a rule's conclusion
@@ -539,49 +526,47 @@
          (Implication $source-antecedent
             (Inheritance $source-subj $_source-concept))
          $_source-tv))
-   (let ($kbid $ctx $vars) $lift-kb
-      (let*
-         (($ground-premises
-             (implication-side-conjuncts
-                (brand Statement $ground-antecedent)))
-          ($source-premises
-             (implication-side-conjuncts
-                (brand Statement $source-antecedent)))
-          (($contextual-premises $auxiliary-premises)
-             (inheritance-lift-parts
-                (the (List Atom) $ground-premises)
-                (the (List Atom) $source-premises)
-                $source-subj $instance))
-          ($lift-premises
-             (if (== $contextual-premises ())
-                (the (List Atom)
-                   ((Inheritance $instance $ground-subj)))
-                $contextual-premises))
-          (($main-execs $main-proofs $main-atv)
-             (once (lower-implication-antecedent $kbid MAIN Nil
-                (brand Statement
-                   (seq2expr
-                      (the (List Atom) $auxiliary-premises))))))
-          (($context-execs $context-proofs $context-atv)
-             (once (lower-implication-antecedent $kbid $ctx $vars
-                (brand Statement
-                   (seq2expr (the (List Atom) $lift-premises))))))
-          ($source-proof (implication-proof-token $main-proofs))
-          ($context-proof (implication-proof-token $context-proofs))
-          ($all-evidence
-             (CPU AndFormula (quote ($main-atv $context-atv)) $all-atv))
-          ($rule-ctv (inheritance-lift-ctv $tv))
-          ($modus-ponens
-             (CPU CTVModusPonensFormula
-                (quote ($all-atv $rule-ctv)) $out-tv))
-          ($out
-             (: $lift-kb
-                ((inheritance-rule-lift $prf) $source-proof $context-proof)
-                (Inheritance $instance $ground-concept) $out-tv)))
-         ((append-goals $main-execs
-             (append-goals $context-execs
-                (quote ($all-evidence $modus-ponens))))
-           |- $out))))
+   (let*
+      ((($kbid $ctx $vars) $lift-kb)
+       ($ground-premises
+          (implication-side-conjuncts
+             (brand Statement $ground-antecedent)))
+       ($source-premises
+          (implication-side-conjuncts
+             (brand Statement $source-antecedent)))
+       (($contextual-premises $auxiliary-premises)
+          (inheritance-lift-parts
+             (the (List Atom) $ground-premises)
+             (the (List Atom) $source-premises)
+             $source-subj $instance))
+       ($lift-premises
+          (if (== $contextual-premises ())
+             (the (List Atom)
+                ((Inheritance $instance $ground-subj)))
+             $contextual-premises))
+       (($main-execs $main-proofs $main-atv)
+          (once (lower-implication-antecedent $kbid MAIN Nil
+             (brand Statement
+                (seq2expr
+                   (the (List Atom) $auxiliary-premises))))))
+       (($context-execs $context-proofs $context-atv)
+          (once (lower-implication-antecedent $kbid $ctx $vars
+             (brand Statement
+                (seq2expr (the (List Atom) $lift-premises))))))
+       ($source-proof (implication-proof-token $main-proofs))
+       ($context-proof (implication-proof-token $context-proofs))
+       ($all-evidence
+          (CPU AndFormula (quote ($main-atv $context-atv)) $all-atv))
+       ($rule-ctv (inheritance-lift-ctv $tv))
+       ($modus-ponens
+          (CPU CTVModusPonensFormula
+             (quote ($all-atv $rule-ctv)) $out-tv)))
+      ((append-goals $main-execs
+          (append-goals $context-execs
+             (quote ($all-evidence $modus-ponens))))
+        |- (: $lift-kb
+              ((inheritance-rule-lift $prf) $source-proof $context-proof)
+              (Inheritance $instance $ground-concept) $out-tv))))
 
 ;; A grounded lift is one specialization job. The common specialization engine
 ;; below handles template indexing and late facts for both ordinary compiler
