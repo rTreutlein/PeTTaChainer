@@ -897,71 +897,37 @@
 ;; grounded completion markers must disappear with their source statement;
 ;; otherwise a later fact can resurrect a removed rule, and a clean re-add can
 ;; be suppressed by stale idempotency state.
-(: NoSpecializationName Type)
-(: no-specialization-name NoSpecializationName)
-
-(: NoSpecializationStatement Type)
-(: no-specialization-statement NoSpecializationStatement)
-
-(: NoSpecializationJob Type)
-(: no-specialization-job NoSpecializationJob)
-
-(: specialization-statement-name
-   (-[det]-> (| AnnotatedStatement NoSpecializationStatement)
-       (| Proof NoSpecializationName)))
-(= (specialization-statement-name $stmt)
-   (case $stmt (((: $name $_type $_tv) $name) ($_other no-specialization-name))))
-
-(: specialization-job-name
-   (-[det]-> (| SpecializationJob NoSpecializationJob)
-       (| Proof NoSpecializationName)))
-(= (specialization-job-name $job)
-   (case $job (
-      ((compile-specialization $stmt) (specialization-statement-name $stmt))
-      ((inheritance-lift-specialization $_ground $source) (specialization-statement-name $source))
-      ($_other no-specialization-name))))
-
 (: remove-specialization-state! (-[det]-> Proof (List $none)))
 (= (remove-specialization-state! $name)
    (let*
-      (($_templates
+      (($_rule-templates
           (collapse
-             (match &spec_template
-                ($hash
+             (remove-atom &spec_template
+                ($_rule-hash
                    (specialization-template-row
-                      $kb $head $triggers $job))
-                (if (== (specialization-job-name
-                           (the SpecializationJob $job))
-                        $name)
-                   (remove-atom &spec_template
-                      ($hash
-                         (specialization-template-row
-                            $kb $head $triggers $job)))
-                   (empty)))))
+                      $_rule-kb $_rule-head $_rule-triggers
+                      (compile-specialization (: $name $_rule-type $_rule-tv)))))))
+       ($_lift-templates
+          (collapse
+             (remove-atom &spec_template
+                ($_lift-hash
+                   (specialization-template-row
+                      $_lift-kb $_lift-head $_lift-triggers
+                      (inheritance-lift-specialization
+                         $_lift-ground (: $name $_lift-type $_lift-tv)))))))
        ($_done
           (collapse
-             (match &spec_done
-                ($hash (specialization-done-row $kb $stmt))
-                (if (== (specialization-statement-name
-                           (the AnnotatedStatement $stmt))
-                        $name)
-                   (remove-atom &spec_done
-                      ($hash (specialization-done-row $kb $stmt)))
-                   (empty)))))
+             (remove-atom &spec_done
+                ($_done-hash
+                   (specialization-done-row
+                      $_done-kb (: $name $_done-type $_done-tv))))))
        ($_lifts
           (collapse
-             (match &inheritance_lift_instance
-                ($hash
+             (remove-atom &inheritance_lift_instance
+                ($_instance-hash
                    (inheritance-lift-instance-row
-                      $kb $stmt $source))
-                (if (== (specialization-statement-name
-                           (the AnnotatedStatement $source))
-                        $name)
-                   (remove-atom &inheritance_lift_instance
-                      ($hash
-                         (inheritance-lift-instance-row
-                            $kb $stmt $source)))
-                   (empty))))))
+                      $_instance-kb $_instance-stmt
+                      (: $name $_source-type $_source-tv)))))))
       ()))
 
 ;; Store a non-rule fact and emit its ordinary derived views. Keeping this

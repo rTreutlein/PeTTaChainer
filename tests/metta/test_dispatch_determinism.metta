@@ -29,18 +29,6 @@
 !(test (collapse (base-rate-finish? weighted-base-rate)) (true))
 !(test (collapse (base-rate-finish? other-finish)) (false))
 
-!(test (collapse (specialization-statement-name (: named (A) (STV 1.0 1.0)))) (named))
-!(test
-   (collapse
-      (specialization-statement-name no-specialization-statement))
-   (no-specialization-name))
-!(test
-   (collapse (specialization-job-name (compile-specialization (: named (A) (STV 1.0 1.0)))))
-   (named))
-!(test
-   (collapse (specialization-job-name no-specialization-job))
-   (no-specialization-name))
-
 !(test (collapse (proof-term-children-mode proof-walk-in-kb (conjunction a b))) ((a b)))
 !(test (collapse (proof-term-children-mode proof-walk-in-kb (derived a b))) ((a b)))
 !(test (collapse (proof-term-children-mode proof-walk-in-kb (STV 1.0 1.0))) (()))
