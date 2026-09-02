@@ -201,10 +201,6 @@
    (forward-output-key
       (brand KBContext (quote ($kbid $ctx $vars)))
       $type))
-(: forward-fact-kb
-   (-[det]-> (Statement KBContext Proof TV) KB))
-(= (forward-fact-kb ($_type ($kbid $_ctx $_vars) $_prf $_tv))
-   $kbid)
 (: forward-output-index-hash (-[det]-> ForwardOutputKey Number))
 (= (forward-output-index-hash (forward-output-key $kb $type))
    (term_hash (quote ($kb $type))))

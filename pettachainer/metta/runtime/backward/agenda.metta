@@ -27,24 +27,17 @@
 (: agenda-retoken AgendaClaimDisposition)
 (: agenda-claimed AgendaClaimDisposition)
 
-(: goal-agenda-bonus
-   (-[det]-> (| Goal (Statement KBContext Proof TV)) Number))
-(= (goal-agenda-bonus $goal)
-   (if (= $goal (CPU $_fun $_args $_result)) 1.0 0.0))
-
 (: agenda-kind-score (-[det]-> AgendaKind Number Number))
 (= (agenda-kind-score $_kind $gid)
    (if (== $_kind agenda-aggregate)
-      (let $hits
-         (stored-atom-list
-            (collapse
-               (once
-                  (match &aggregate
-                     (stored-aggregate-row
-                        $gid $_child $_args $base-score
-                        $_pending $_current)
-                     $base-score))))
-         (if (== $hits ()) 0.0 (first-number $hits)))
+      (chainer-first-or 0.0
+         (collapse
+            (once
+               (match &aggregate
+                  (stored-aggregate-row
+                     $gid $_child $_args $base-score
+                     $_pending $_current)
+                  $base-score))))
       (goal-demand-sum $gid)))
 
 (: goal-agenda-kind-requested-in-state?

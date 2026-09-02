@@ -114,7 +114,7 @@
                   (cons
                      (pool-part $base $base-tv $arity
                         (list_to_set
-                           (append-numbers $other-idxs $idxs))
+                           (append-flat $other-idxs $idxs))
                         $evidence $marginal-tv)
                      $rest)
                   (cons $head
@@ -411,7 +411,7 @@
          (if (frontier-needs-raw-proofs? $bundle)
             (the (List Number)
                (list_to_set
-                  (append-numbers $compatible $representatives)))
+                  (append-flat $compatible $representatives)))
             $representatives))))
 (: frontier-existing-proof-ids
    (-[semidet]-> Number AndBundle Number (List Number)))

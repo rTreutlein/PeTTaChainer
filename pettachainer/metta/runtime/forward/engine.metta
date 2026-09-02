@@ -355,13 +355,6 @@
          (forward-derived $result
             (rule-result-evidence $result $premise-ev)))))
 
-(: append-forward-derived
-   (-[det]-> (List ForwardDerived) (List ForwardDerived)
-       (List ForwardDerived)))
-(= (append-forward-derived () $right) $right)
-(= (append-forward-derived (cons $head $tail) $right)
-   (cons $head (append-forward-derived $tail $right)))
-
 (: forward-rule-results
    (-[det]-> Number KB (Statement KBContext Proof TV)
        (List ForwardDerived)))
@@ -372,7 +365,7 @@
         ($direct (forward-rule-results-for-key $steps $kb $fact $key)))
       (if (== $key $wildcard-key)
          $direct
-         (append-forward-derived $direct
+         (append-flat $direct
             (forward-rule-results-for-key
                $steps $kb $fact $wildcard-key)))))
 

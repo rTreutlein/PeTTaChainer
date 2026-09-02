@@ -76,7 +76,7 @@
 (: mi-store-cache! (-[det]-> Number KB Statement TV (List $a)))
 (= (mi-store-cache! $a $b $c $d)(let* (($e (mi-clear-empty! $a))($f (fa-publish-cache! $b $c $d (member-inheritance $b))))()))
 (: fa-member-ev (-[semidet]-> ForwardAggregateObservationValue (List Evidence)))
-(= (fa-member-ev (forward-member-inheritance-observation-value (forward-output-candidate $a $b)(forward-output-candidate $c $d)))(list_to_set (append-evidence $b $d)))
+(= (fa-member-ev (forward-member-inheritance-observation-value (forward-output-candidate $a $b)(forward-output-candidate $c $d)))(list_to_set (append-flat $b $d)))
 (: forward-merge-computed-member-observation! (-[semidet]-> Number ForwardAggregateObservation (List $a)))
 (= (forward-merge-computed-member-observation! $a (forward-aggregate-observation $b $c $d $e))(let* (($f (fa-obs $b))($g (forward-aggregate-observation $b $c $d $e)))(if (== $f ())(let $h (fa-swap! $a $f $g true)())(let (forward-aggregate-observation $i $j $k $l)(car-atom $f)(let* (($m (fa-member-ev $j))($n (fa-member-ev $c)))(if (evidence-subset? $n $m)()(if (and (not (evidence-subset? $m $n))(<= $e $l))()(let $h (fa-swap! $a $f $g true)()))))))))
 (: FAggSample Type)

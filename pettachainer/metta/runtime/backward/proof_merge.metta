@@ -13,7 +13,7 @@
 (= (lift-cpu? $pid) (if (= (proof-output-atom-by-id $pid) (CPU $_f $_a $_r)) true false))
 (: lift-split (-[semidet]-> (List Number) (List Number) (List Number) ((List Number) (List Number))))
 (= (lift-split () $p $c) ($p $c))
-(= (lift-split (cons $pid $rest) $p $c) (if (lift-cpu? $pid) (lift-split $rest $p (append-number $c $pid)) (lift-split $rest (append-number $p $pid) $c)))
+(= (lift-split (cons $pid $rest) $p $c) (if (lift-cpu? $pid) (lift-split $rest $p (append-flat $c ($pid))) (lift-split $rest (append-flat $p ($pid)) $c)))
 (: lift-last (-[semidet]-> (List Number) Number))
 (= (lift-last (cons $x $rest)) (if (== $rest ()) $x (lift-last $rest)))
 (: lift-ctv (-[det]-> (List TV) (| CTVType NoCTV)))
@@ -42,7 +42,7 @@
 (= (factor-fact-key (fact-ev $kb $prf $type)) (proof-output-key (quote ($type $kb))))
 (: lift-leaf-work (-[semidet]-> (List Number) ProofOutputKey (| TV NoTV)))
 (= (lift-leaf-work () $_key) no-tv)
-(= (lift-leaf-work (cons $pid $rest) $key) (let $out (proof-output-atom-by-id $pid) (case $out ( ((CPU $_formula $_arguments $_result) (lift-leaf-work (append-numbers (proof-children-by-id $pid) $rest) $key)) (($t $kb $prf $tv) (if (=alpha (candidate-output-key $out) $key) (the TV $tv) (lift-leaf-work (append-numbers (proof-children-by-id $pid) $rest) $key))) ($_other (lift-leaf-work (append-numbers (proof-children-by-id $pid) $rest) $key))))))
+(= (lift-leaf-work (cons $pid $rest) $key) (let $out (proof-output-atom-by-id $pid) (case $out ( ((CPU $_formula $_arguments $_result) (lift-leaf-work (append-flat (proof-children-by-id $pid) $rest) $key)) (($t $kb $prf $tv) (if (=alpha (candidate-output-key $out) $key) (the TV $tv) (lift-leaf-work (append-flat (proof-children-by-id $pid) $rest) $key))) ($_other (lift-leaf-work (append-flat (proof-children-by-id $pid) $rest) $key))))))
 (: lift-leaf (-[semidet]-> Number ProofOutputKey (| TV NoTV)))
 (= (lift-leaf $pid $key) (lift-leaf-work ($pid) $key))
 (: lift-revise-ctv (-[semidet]-> CTVType CTVType CTVType))
@@ -90,7 +90,7 @@
 (: merge-output (-[semidet]-> (List Number) (| Goal (Statement KBContext Proof TV))))
 (= (merge-output (cons $pid $rest)) (if (== $rest ()) (proof-output-atom-by-id $pid) (case (proof-output-atom-by-id $pid) ( ((CPU $_function $_arguments $_result)(proof-output-atom-by-id (latest-live-proof-id (cons $pid $rest))))($_fact (let $factored (lifting-merge-output (cons $pid $rest)) (if (== $factored ()) (proof-fold-flat-semidet merge-output-step (proof-fact-output-by-id $pid) $rest) (car-atom $factored))))))))
 (: evidence-step (-[semidet]-> (List Evidence) Number (List Evidence)))
-(= (evidence-step $acc $pid) (let ($_score $ev) (proof-stats-by-id $pid) (list_to_set (append-evidence $acc $ev))))
+(= (evidence-step $acc $pid) (let ($_score $ev) (proof-stats-by-id $pid) (list_to_set (append-flat $acc $ev))))
 (: proof-evidence (-[semidet]-> (List Number) (List Evidence)))
 (= (proof-evidence $pids) (proof-fold-flat-semidet evidence-step () $pids))
 ;; A marginal projection is a bound read off a conjunction, not an independent
@@ -270,7 +270,7 @@
 (: uncovered-step (-[semidet]-> (List Number) (List Number) Number (List Number)))
 (= (uncovered-step $covered $acc $pid) (if (output-covered? $covered $pid) $acc (cons $pid $acc)))
 (: goal-incumbent-proof-ids (-[semidet]-> Number (List Number)))
-(= (goal-incumbent-proof-ids $gid) (let* (($merged (latest-proof-output-group-ids (proof-output-groups (goal-result-proof-ids $gid)))) ($raw (raw-incumbents $gid)) ($uncovered (reverse-number-list (proof-fold-flat-semidet (uncovered-step $merged) () $raw)))) (append-numbers $merged $uncovered)))
+(= (goal-incumbent-proof-ids $gid) (let* (($merged (latest-proof-output-group-ids (proof-output-groups (goal-result-proof-ids $gid)))) ($raw (raw-incumbents $gid)) ($uncovered (reverse-number-list (proof-fold-flat-semidet (uncovered-step $merged) () $raw)))) (append-flat $merged $uncovered)))
 (: root-pids (-[semidet]-> Number (List Number)))
 ;; The goal key omits the proof pattern, so a re-query constrained to a proof
 ;; that a merged representative absorbed has no current result of its own:

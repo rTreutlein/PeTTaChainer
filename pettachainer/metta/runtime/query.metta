@@ -2,15 +2,6 @@
 ;; boundary out of knowledge_store lets compilation/storage remain a
 ;; foundational dependency of both chainers.
 
-(: append-annotated-statements
-   (-[det]-> (List AnnotatedStatement) (List AnnotatedStatement)
-       (List AnnotatedStatement)))
-(= (append-annotated-statements () $right) $right)
-(= (append-annotated-statements
-      (cons $statement $rest) $right)
-   (cons $statement
-      (append-annotated-statements $rest $right)))
-
 (: pretty-result-list
    (-[det]-> Atom (List AnnotatedStatement)))
 (= (pretty-result-list $result)
@@ -27,7 +18,7 @@
    (let*
       (($head-results (pretty-result-list $result))
        ($rest-results (pretty-results $rest)))
-      (append-annotated-statements
+      (append-flat
          $head-results $rest-results)))
 
 (: externalize-results
@@ -46,29 +37,14 @@
    (-[det]-> (List (Number CompiledQueryGoal))
        (List RuntimeAddition) QueryExecutionPlan))
 
-(: append-runtime-additions
-   (-[det]-> (List RuntimeAddition) (List RuntimeAddition)
-       (List RuntimeAddition)))
-(= (append-runtime-additions () $right) $right)
-(= (append-runtime-additions (cons $head $tail) $right)
-   (cons $head (append-runtime-additions $tail $right)))
-
-(: append-query-plan-roots
-   (-[det]-> (List (Number CompiledQueryGoal))
-       (List (Number CompiledQueryGoal))
-       (List (Number CompiledQueryGoal))))
-(= (append-query-plan-roots () $right) $right)
-(= (append-query-plan-roots (cons $head $tail) $right)
-   (cons $head (append-query-plan-roots $tail $right)))
-
 (: merge-query-execution-plans
    (-[det]-> QueryExecutionPlan QueryExecutionPlan QueryExecutionPlan))
 (= (merge-query-execution-plans
       (query-execution-plan $left-roots $left-adds)
       (query-execution-plan $right-roots $right-adds))
    (query-execution-plan
-      (append-query-plan-roots $left-roots $right-roots)
-      (append-runtime-additions $left-adds $right-adds)))
+      (append-flat $left-roots $right-roots)
+      (append-flat $left-adds $right-adds)))
 
 (: compiled-query-execution-plan
    (-[nondet]-> Number CompiledQuery QueryExecutionPlan))
@@ -180,7 +156,7 @@
        ($compiled-queries
           (collapse (mm2compileQuery $kb $materialized)))
        ($answers
-          (fold-flat append-annotated-statements ()
+          (fold-flat append-flat ()
              (map-flat
                 (|-> ($compiled-query)
                    (keyed-query-answers

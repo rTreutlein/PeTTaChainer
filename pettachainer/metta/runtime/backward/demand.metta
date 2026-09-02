@@ -21,10 +21,6 @@
 ;; utilities. The frontier-part pooling model is documented at its
 ;; declarations below; the algebra over parts lives in frontier_parts.metta.
 
-(: chainer-first-or (-[det]-> $value (List $value) $value))
-(= (chainer-first-or $fallback ()) $fallback)
-(= (chainer-first-or $_fallback (cons $value $_rest)) $value)
-
 (: AndBundle Type)
 (: and-bundle
    (-[det]-> (| Goal (Statement KBContext Proof TV))
@@ -292,14 +288,12 @@
 
 (: goal-demand-revision (-[det]-> Number Number))
 (= (goal-demand-revision $gid)
-   (let $hits
-      (stored-atom-list
-         (collapse
-            (once
-               (match &goal_demand_revision
-                  (goal-demand-revision-row $gid $revision)
-                  $revision))))
-      (if (== $hits ()) 0 (first-number $hits))))
+   (chainer-first-or 0
+      (collapse
+         (once
+            (match &goal_demand_revision
+               (goal-demand-revision-row $gid $revision)
+               $revision)))))
 
 (: bump-goal-demand-revision! (-[det]-> Number Number))
 (= (bump-goal-demand-revision! $gid)

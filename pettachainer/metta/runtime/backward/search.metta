@@ -633,7 +633,7 @@
                 (frontier-parts-add $parts $part)))
           ($next-seen
              (list_to_set
-                (append-evidence $seen $proof-evidence)))
+                (append-flat $seen $proof-evidence)))
           ($next-path-id (ensure-frontier-path $path-id $pid))
           ($_retain-raw-path
              (case $proof-kind (

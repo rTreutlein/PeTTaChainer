@@ -20,6 +20,11 @@
 
 (: first-number (-[semidet]-> (List Number) Number))
 (= (first-number (cons $first $_rest)) $first)
+(: chainer-first-or (-[det]-> $value (List $value) $value))
+(= (chainer-first-or $fallback ()) $fallback)
+(= (chainer-first-or $_fallback (cons $value $_rest)) $value)
+(: space-row-present? (-[det]-> $space $row Bool))
+(= (space-row-present? $space $row) (not (== (collapse (once (match $space $row true))) ())))
 
 ;; Evidence rows are written only by typed constructors, but spaces erase that
 ;; element role. Rebuild the list while restoring the erased Evidence brands;
@@ -192,19 +197,12 @@
             (proof-children $children)))
       ()))
 
-(: append-evidence
-   (-[det]-> (List Evidence) (List Evidence) (List Evidence)))
-(= (append-evidence $left $right)
-   (case $left (
-      (() $right)
-      ((cons $head $tail)
-         (cons $head (append-evidence $tail $right))))))
 
 (: proof-term-evidence-children-mode
    (-[semidet]-> $mode (List Proof) (List Evidence)))
 (= (proof-term-evidence-children-mode $mode ()) ())
 (= (proof-term-evidence-children-mode $mode (cons $child $rest))
-   (append-evidence
+   (append-flat
       (proof-term-evidence-list-mode $mode $child)
       (proof-term-evidence-children-mode $mode $rest)))
 
@@ -244,7 +242,7 @@
          (let*
             (($left-proof (brand Proof $left))
              ($right-proof (brand Proof $right)))
-            (append-evidence
+            (append-flat
                (proof-term-evidence-list-mode $mode $left-proof)
                (proof-term-evidence-list-mode $mode $right-proof))))
       ($_other
@@ -405,7 +403,7 @@
        ($rule-ev (rule-application-evidence $kb $prf)))
       (if (== $rule-ev ())
          $base
-         (list_to_set (append-evidence $base $rule-ev)))))
+         (list_to_set (append-flat $base $rule-ev)))))
 
 (: projection-proof-key
    (-[det]-> Proof (| ProjectionKey NoProjectionKey)))
@@ -442,10 +440,10 @@
    (if (== $proof-a $proof-b)
       (data
          $proof-a
-         (list_to_set (append-evidence $ev-a $ev-b)))
+         (list_to_set (append-flat $ev-a $ev-b)))
       (let*
          (($overlap? (evidence-sets-overlap? $ev-a $ev-b))
-          ($all-ev (list_to_set (append-evidence $ev-a $ev-b)))
+          ($all-ev (list_to_set (append-flat $ev-a $ev-b)))
           ($proof-token-a (proof-atom-proof $proof-a))
           ($proof-token-b (proof-atom-proof $proof-b)))
          (if (projection-dominates? $proof-token-a $proof-token-b)
