@@ -288,11 +288,14 @@
                   ()))))))
 
 ;; Estimate the base rate required to reinterpret an STV rule as a CTV. Open
-;; inheritance antecedents use universe-aware weighted evidence; ordinary
+;; inheritance antecedents use universe-aware weighted evidence; a concrete
+;; inheritance target may have a configured/dynamic concept prior, so its fold
+;; is seeded with that prior and sparse observations revise the prior instead
+;; of silently behaving like an uninformative generic predicate. Ordinary
 ;; patterns use the generic evidence accumulator.
-(: base-rate-premise-default
+(: base-rate-premise
    (-[det]-> KB Statement $truth-value Goal))
-(= (base-rate-premise-default $kb $pattern $brtv)
+(= (base-rate-premise $kb $pattern $brtv)
    (let $generic
       (CPU FoldAllCompiled
          (quote
@@ -300,50 +303,37 @@
                (BaseRateEvidence 0.0 0.0)
                BaseRateAcc base-rate result-tv))
          $brtv)
-      (if (= $pattern (Inheritance $x $_concept))
+      (if (= $pattern (Inheritance $x $subj))
          (if (is-var $x)
-            (CPU FoldAllCompiled
-               (quote
-                  ($kb $pattern
-                     (extract-inheritance-tv $kb $pattern)
-                     (BaseRateEvidence 0.0 0.0)
-                     WeightedBaseRateAcc
-                     (weighted-base-rate-in-universe $kb)
-                     result-tv))
-               $brtv)
-            $generic)
-         $generic)))
-
-;; A concrete inheritance target may have a configured/dynamic concept prior.
-;; Seed its fold with that prior so sparse observations revise the prior instead
-;; of silently behaving like an uninformative generic predicate.
-(: base-rate-premise
-   (-[det]-> KB Statement $truth-value Goal))
-(= (base-rate-premise $kb $pattern $brtv)
-   (if (= $pattern (Inheritance $x $subj))
-      (if (is-var $x)
-         (if (is-var $subj)
-            (base-rate-premise-default
-               $kb $pattern $brtv)
-            (let*
-               (($prior-runtime
-                   (ConceptNodePriorRuntime $kb $subj))
-                ($prior
-                   (brand BaseRatePrior $prior-runtime)))
+            (if (is-var $subj)
                (CPU FoldAllCompiled
                   (quote
                      ($kb $pattern
                         (extract-inheritance-tv $kb $pattern)
-                        (BaseRateEvidenceWithPrior
-                           $prior
-                           (BaseRateEvidence 0.0 0.0))
-                        WeightedBaseRateWithPriorAcc
-                        (weighted-base-rate-with-prior-in-universe
-                           $kb)
+                        (BaseRateEvidence 0.0 0.0)
+                        WeightedBaseRateAcc
+                        (weighted-base-rate-in-universe $kb)
                         result-tv))
-                  $brtv)))
-         (base-rate-premise-default $kb $pattern $brtv))
-      (base-rate-premise-default $kb $pattern $brtv)))
+                  $brtv)
+               (let*
+                  (($prior-runtime
+                      (ConceptNodePriorRuntime $kb $subj))
+                   ($prior
+                      (brand BaseRatePrior $prior-runtime)))
+                  (CPU FoldAllCompiled
+                     (quote
+                        ($kb $pattern
+                           (extract-inheritance-tv $kb $pattern)
+                           (BaseRateEvidenceWithPrior
+                              $prior
+                              (BaseRateEvidence 0.0 0.0))
+                           WeightedBaseRateWithPriorAcc
+                           (weighted-base-rate-with-prior-in-universe
+                              $kb)
+                           result-tv))
+                     $brtv)))
+            $generic)
+         $generic)))
 
 ;; Compile the backward use of an implication by deriving its CTV, applying TV
 ;; inversion, and then using the observed consequent as modus-ponens evidence.
