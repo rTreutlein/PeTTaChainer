@@ -285,12 +285,11 @@
           (make-kb-context $kbid $ctx $mvars))
        ($a
           (brand Statement
-             (execs-goal-type $execs)))
-       ($b $consequent))
+             (execs-goal-type $execs))))
       (collapse
          (compile-implication-forward-rules
             $kbid $shape-kb $shape-kb
-            $ctxprf $tv $a $b
+            $ctxprf $tv $a $consequent
             (list_to_set (extract-vars $a))
             $execs $proofs $atv))))
 
@@ -355,10 +354,9 @@
        (List Goal)
        (List CompiledAddition)))
 (= (query-context-premise-adds $kbid $ctx $mvars $premises)
-   (let $state
+   (let ($_idx $adds)
       (fold-flat
          (query-context-premise-adds-step $kbid $ctx $mvars)
          (0 ()) $premises)
       (list_to_set
-         (prepend-reversed-compiled-additions
-            (snd $state) ()))))
+         (prepend-reversed-compiled-additions $adds ()))))
