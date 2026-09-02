@@ -38,7 +38,7 @@
           &proof_live_cache &proof_invalidated &proof_cycle_cache))
       ()))
 
-;; goal-key-hash seals variables before hashing.  The hash is the generated
+;; index-hash seals variables before hashing.  The hash is the generated
 ;; store predicate's indexed first argument; the full key and alpha check
 ;; reject collisions.
 (: ensure-goal-at-depth
@@ -46,7 +46,7 @@
 (= (ensure-goal-at-depth $goal $depth)
    (let* (($stored-goal (copy_term $goal))
           ($key (brand ProofGoalKey (goal-key $stored-goal)))
-          ($lookup-key (goal-key-hash $key))
+          ($lookup-key (index-hash $key))
           ($hits
              (collapse
                 (once

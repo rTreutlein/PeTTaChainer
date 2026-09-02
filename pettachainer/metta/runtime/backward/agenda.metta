@@ -174,7 +174,7 @@
                             (let* (($key
                                        (brand ProofGoalKey
                                           (goal-key $goal)))
-                                    ($hash (goal-key-hash $key)))
+                                    ($hash (index-hash $key)))
                                (not
                                   (==
                                      (collapse

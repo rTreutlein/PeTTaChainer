@@ -48,8 +48,6 @@
 (: append-flat (-[det]-> (List $a) (List $a) (List $a)))
 (= (append-flat () $right) $right)
 (= (append-flat (cons $head $tail) $right) (cons $head (append-flat $tail $right)))
-(: goal-key-hash (-[det]-> ProofGoalKey Number))
-(= (goal-key-hash $key) (index-hash $key))
 
 (: normalize-expected-stv (-[det]-> $truth-value STVType))
 (= (normalize-expected-stv $tv)

@@ -32,9 +32,6 @@
             no-base-rate-aggregate-key))
       ($_other no-base-rate-aggregate-key))))
 
-(: base-rate-aggregate-key-hash
-   (-[det]-> BaseRateAggregateKey Number))
-(= (base-rate-aggregate-key-hash $key) (index-hash $key))
 
 (: PendingBaseRateRetireEntry Type)
 (: pending-base-rate-retire-entry
@@ -53,7 +50,7 @@
 
 (: pending-base-rate-retire? (-[det]-> BaseRateAggregateKey Bool))
 (= (pending-base-rate-retire? $key)
-   (let $lookup (base-rate-aggregate-key-hash $key)
+   (let $lookup (index-hash $key)
       (not
          (==
             (collapse
@@ -113,7 +110,7 @@
 (= (retire-changed-base-rate-aggregate! $kbid $pattern $mode)
    (let* (($key
              (base-rate-aggregate-key-value $kbid $pattern $mode))
-          ($lookup (base-rate-aggregate-key-hash $key)))
+          ($lookup (index-hash $key)))
       (let $_requested
          (collapse
             (once
@@ -135,7 +132,7 @@
 (: remove-pending-base-rate-retire!
    (-[det]-> BaseRateAggregateKey (List $none)))
 (= (remove-pending-base-rate-retire! $key)
-   (let $lookup (base-rate-aggregate-key-hash $key)
+   (let $lookup (index-hash $key)
       (let $_removed
          (collapse
             (match &base_rate_pending_retire
