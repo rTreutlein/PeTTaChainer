@@ -64,7 +64,7 @@
    (-[det]-> (List Variable) (List Variable) Bool))
 (= (any-context-var-in? $_type-vars ()) false)
 (= (any-context-var-in? $type-vars (cons $var $rest))
-   (or (stored-list-member? $var $type-vars)
+   (if (stored-list-member? $var $type-vars) true
       (any-context-var-in? $type-vars $rest)))
 (= (context-vars-in-type? $type $vars)
    (if (== $vars Nil) false
@@ -78,36 +78,28 @@
    (-[det]-> (| Goal (Statement KBContext Proof TV))
        (| Goal (Statement KBContext Proof TV))
        (| Goal (Statement KBContext Proof TV))))
-(= (contextualize-rule-premise $premise
-      ($_goal-type ($kbid $ctx $vars) $_goal-prf $_goal-tv))
-   (let $typed-kbid (brand KB $kbid)
-      (once
-         (case $premise (
-            (($type ($kbid $prem-ctx $prem-vars) $prf $tv)
-            (if
-               (and (== $prem-ctx MAIN)
-                  (and (not (== $ctx MAIN))
-                     (context-vars-in-type? $type $vars)))
+(= (contextualize-rule-premise
+      ($_goal-type ($kbid $ctx $vars) $_goal-prf $_goal-tv) $premise)
+   (once
+      (case $premise (
+         (($type ($kbid $prem-ctx $prem-vars) $prf $tv)
+            (if (if (== $prem-ctx MAIN)
+                   (if (== $ctx MAIN) false
+                      (context-vars-in-type? $type $vars))
+                   false)
+               (let $fact-kb (make-kb-context (brand KB $kbid) $ctx $vars)
+                  (assemble-stored-runtime-fact $type $fact-kb $prf $tv))
                (let $fact-kb
-                  (make-kb-context
-                     $typed-kbid $ctx $vars)
-                  (assemble-stored-runtime-fact
-                     $type $fact-kb $prf $tv))
-               (let $fact-kb
-                  (make-kb-context
-                     $typed-kbid $prem-ctx $prem-vars)
-                  (assemble-stored-runtime-fact
-                     $type $fact-kb $prf $tv))))
-            ((CPU $fun $args $res) (CPU $fun $args $res)))))))
+                  (make-kb-context (brand KB $kbid) $prem-ctx $prem-vars)
+                  (assemble-stored-runtime-fact $type $fact-kb $prf $tv))))
+         ((CPU $fun $args $res) (CPU $fun $args $res))))))
 
 (: contextualize-rule-args
    (-[det]-> (| Goal (Statement KBContext Proof TV))
        (List (| Goal (Statement KBContext Proof TV)))
        (List (| Goal (Statement KBContext Proof TV)))))
-(= (contextualize-rule-args $_goal ()) ())
-(= (contextualize-rule-args $goal (cons $premise $rest))
-   (cons (contextualize-rule-premise $premise $goal)
-      (contextualize-rule-args $goal $rest)))
+(= (contextualize-rule-args $goal $args)
+   (map-flat (contextualize-rule-premise $goal) $args))
 
 (: expand-rule-goal-heap
    (-[semidet]-> (Heap AgendaEntry) Number
@@ -168,15 +160,16 @@
    ;; execute directly in the hypothetical context. Native implication views
    ;; must be allowed to finish before that bridge closes the parent goal.
    (if (inheritance-lift-rule-goal? $goal) 0.000001
-      (if
-         (case $goal (
-            (($_gtype $_gkb $_gprf $gtv) (is-var $gtv))
-            ($_other false)))
-         (let $hits (collapse (match rule_expected ($rule-id $score) $score))
-            (if (== $hits ())
-               (premises-expected-confidence (copy_term $args))
-               (the Number (car-atom $hits))))
-         (premises-expected-confidence (copy_term $args)))))
+      (let $hits
+         (if
+            (case $goal (
+               (($_gtype $_gkb $_gprf $gtv) (is-var $gtv))
+               ($_other false)))
+            (collapse (match rule_expected ($rule-id $score) $score))
+            ())
+         (if (== $hits ())
+            (premises-expected-confidence (copy_term $args))
+            (the Number (car-atom $hits))))))
 
 ;; Walk a copy of a candidate rule's premise list before any frontier state is
 ;; created. Ground deterministic CPU premises are evaluated eagerly (binding
@@ -204,25 +197,17 @@
       ;; A malformed/non-fact premise must never make the prefilter prune a rule.
       ($_other true))))
 
-(: prefilter-fact-missing?
-   (-[det]-> (Statement KBContext Proof TV) Bool))
-(= (prefilter-fact-missing? ($type ($kbid $_ctx $_vars) $_prf $_tv))
-   (== (collapse (once (match &kb ($type ($kbid $_c2 $_v2) $_p2 $_t2) true))) ()))
-
-;; CPU functions the filter must not run eagerly: aggregate folds have their own
-;; search machinery and store-scanning formulas are too costly for a filter.
-(: prefilter-cpu-opaque? (-[det]-> $function Bool))
-(= (prefilter-cpu-opaque? $fun)
-   (or (aggregate-fold-function? $fun)
-       (== $fun ConceptNodePriorFormula)))
-
 (: prefilter-premise-blocks?
    (-[det]-> (| Goal (Statement KBContext Proof TV)) Bool))
 (= (prefilter-premise-blocks? $premise)
    (once
       (case $premise (
          ((CPU $fun $args $res)
-            (if (prefilter-cpu-opaque? $fun) false
+            ;; Aggregate folds have their own search machinery and
+            ;; store-scanning formulas are too costly to run eagerly here.
+            (if (or (aggregate-fold-function? $fun)
+                    (== $fun ConceptNodePriorFormula))
+               false
                ;; Only run a CPU premise eagerly when its argument list is fully
                ;; ground. Building an ($fun ...) expression here would apply it
                ;; to unevaluated arguments.
@@ -234,18 +219,16 @@
                         (if (= $res (car-atom $hits)) false true)))
                   false)))
          (($type ($kbid $ctx $vars) $prf $tv)
-            (let*
-               (($fact-kb
-                   (make-kb-context
-                      $kbid $ctx $vars))
-                ($fact
-                   (assemble-stored-runtime-fact
-                      $type $fact-kb $prf $tv)))
-               (if (== (extract-vars $type) ())
-                  (if (prefilter-fact-missing? $fact)
-                     (if (prefilter-head-concludable? $fact) false true)
-                     false)
-                  false)))))))
+            (if (== (extract-vars $type) ())
+               (if (== (collapse (once (match &kb ($type ($kbid $_c2 $_v2) $_p2 $_t2) true))) ())
+                  (let*
+                     (($fact-kb (make-kb-context $kbid $ctx $vars))
+                      ($fact
+                         (assemble-stored-runtime-fact
+                            $type $fact-kb $prf $tv)))
+                     (not (prefilter-head-concludable? $fact)))
+                  false)
+               false))))))
 
 (: prefilter-prunes-walk
    (-[det]-> (List (| Goal (Statement KBContext Proof TV))) Bool))

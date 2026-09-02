@@ -369,33 +369,11 @@
 (: commit-checked-proof-candidate-heap
    (-[semidet]-> (Heap AgendaEntry) Number ProofCandidate
        (Heap AgendaEntry)))
-(: normalize-frontier-goal-proof
-   (-[det]-> (| Goal (Statement KBContext Proof TV))
-       (| Goal (Statement KBContext Proof TV))))
-(= (normalize-frontier-goal-proof $goal)
-   (case $goal (
-      (($type $kb $proof $tv)
-         (if (is-expr $proof)
-            (let* (($head (car-atom $proof))
-                   ($tail (cdr-atom $proof)))
-               (if (and (is-var $head)
-                        (not (== $tail ())))
-                  (let $rest (cdr-atom $tail)
-                     (if (== $rest ())
-                        (assemble-runtime-fact
-                           (brand Statement $type)
-                           (brand KBContext $kb)
-                           (brand Proof (car-atom $tail))
-                           (the TV $tv))
-                        $goal))
-                  $goal))
-            $goal))
-      ($_other $goal))))
 
 (= (commit-frontier-result-heap
       $agenda $parent-gid $bundle $evidence $path-id)
    (let* (($goal
-             (normalize-frontier-goal-proof (and-bundle-goal $bundle)))
+             (frontier-goal-proof-view (and-bundle-goal $bundle)))
           ($candidate
              (normalize-proof-candidate-evidence
                 (proof-candidate

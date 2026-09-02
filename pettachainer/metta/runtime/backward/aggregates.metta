@@ -33,7 +33,7 @@
 (: ba-source-step (-[semidet]-> (List Number) Number (List Number)))
 (= (ba-source-step $a $b)(case (proof-kind-by-id $b)( ((leaf ($c $d $e $f))(if (materialized-aggregate-forward-fact? (assemble-stored-runtime-fact $c $d $e $f)) $a (cons $b $a)))($g (cons $b $a)))))
 (: ba-source-pids (-[semidet]-> Number Number (List Number)))
-(= (ba-source-pids $a $b)(let $c (reverse-number-list (proof-fold-flat-semidet ba-source-step ()(noncyclic-proof-source-ids $a (closed-goal) $b)))(proof-output-group-representative-pids $b (proof-output-groups $c))))
+(= (ba-source-pids $a $b)(let $c (reverse-number-list (proof-fold-flat-semidet ba-source-step ()(noncyclic-proof-source-ids $a closed-goal $b)))(proof-output-group-representative-pids $b (proof-output-groups $c))))
 (: ba-child-tv (-[det]-> (| Goal (Statement KBContext Proof TV))(| TV NoTV)))
 (= (ba-child-tv $a)(case $a ( ((CPU $b $c $d) no-tv)(($e $f $g $h) $h))))
 (: ba-scalar-step (-[semidet]-> (KB Statement (| ExtractValue ExtractInheritanceTV ExtractTV) $a (-[semidet]-> $b $c $b) $d AggregateTVMode) AggregateState Number AggregateState))

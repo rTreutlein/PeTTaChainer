@@ -30,15 +30,13 @@
          (let $head (car-atom $proof)
             (if (is-var $head)
                false
-               (if (== $head total-implication-frontier)
+               (if (stored-list-member? $head
+                      (total-implication-frontier member-inheritance-sample))
                   true
-                  (if (== $head member-inheritance-sample)
-                     true
-                     (if (== $head inheritance-query-result)
-                        (shared-evidence-frontier-proof?
-                           (brand Proof
-                              (car-atom (cdr-atom $proof))))
-                        false)))))
+                  (if (== $head inheritance-query-result)
+                     (shared-evidence-frontier-proof?
+                        (brand Proof (car-atom (cdr-atom $proof))))
+                     false))))
          false)))
 (: frontier-allows-shared-evidence? (-[det]-> AndBundle Bool))
 (= (frontier-allows-shared-evidence?
@@ -130,14 +128,9 @@
 (= (frontier-parts-add $parts $part)
    (case $part (
       (skip-part $parts)
-      ((indep-part $tv)
-         (frontier-parts-put $parts (indep-part $tv)))
-      ((pool-part $base $base-tv $arity $idxs $evidence $marginal-tv)
+      ($_other
          (frontier-parts-put $parts
-            (pool-part $base $base-tv $arity
-               $idxs $evidence $marginal-tv)))
-      (unpoolable-part
-         (frontier-parts-put $parts unpoolable-part)))))
+            (the (| FrontierPart UnpoolablePart) $part))))))
 (: frontier-part-tv
    (-[semidet]-> (| FrontierPart SkipPart UnpoolablePart) TV))
 (= (frontier-part-tv $part)
@@ -147,47 +140,31 @@
          (if (== (list-count $idxs) $arity)
             $base-tv
             $marginal-tv))
-      (skip-part (empty))
-      (unpoolable-part (empty)))))
-(: frontier-parts-fold-acc (-[semidet]-> TV
-      (List (| FrontierPart UnpoolablePart)) TV))
-(= (frontier-parts-fold-acc $acc ()) $acc)
-(= (frontier-parts-fold-acc $acc (cons $part $rest))
-   (case $part (
-      (unpoolable-part (empty))
-      ($_other
-         (frontier-parts-fold-acc
-            (AndFormula $acc (frontier-part-tv $part))
-            $rest)))))
+      ($_other (empty)))))
+(: frontier-and-tv
+   (-[semidet]-> TV (| FrontierPart UnpoolablePart) TV))
+(= (frontier-and-tv $acc $part)
+   (AndFormula $acc (frontier-part-tv $part)))
 (: frontier-parts-fold
    (-[semidet]-> (List (| FrontierPart UnpoolablePart)) TV))
-(= (frontier-parts-fold $parts)
-   (case $parts (
-      (() (empty))
-      ((cons $part $rest)
-         (case $part (
-            (unpoolable-part (empty))
-            ($_other
-               (frontier-parts-fold-acc
-                  (frontier-part-tv $part) $rest))))))))
+(= (frontier-parts-fold (cons $part $rest))
+   (proof-fold-flat-semidet frontier-and-tv (frontier-part-tv $part) $rest))
 (: frontier-part-score
    (-[det]-> (| FrontierPart SkipPart UnpoolablePart)
        Number Number))
 (= (frontier-part-score $part $fallback)
    (case $part (
-      ((indep-part $_tv) $fallback)
       ((pool-part $_base $base-tv $_arity $_idxs $_evidence $_marginal-tv)
          (tv-confidence $base-tv))
       ($_other $fallback))))
+(: frontier-pool-potential-step
+   (-[det]-> Number (| FrontierPart UnpoolablePart) Number))
+(= (frontier-pool-potential-step $acc $part)
+   (max $acc (frontier-part-score $part 0.0)))
 (: frontier-pool-potential
    (-[det]-> (List (| FrontierPart UnpoolablePart)) Number))
-(= (frontier-pool-potential ()) 0.0)
-(= (frontier-pool-potential (cons $part $rest))
-   (case $part (
-      ((pool-part $_base $base-tv $_arity $_idxs $_evidence $_marginal-tv)
-         (max (tv-confidence $base-tv)
-            (frontier-pool-potential $rest)))
-      ($_other (frontier-pool-potential $rest)))))
+(= (frontier-pool-potential $parts)
+   (fold-flat frontier-pool-potential-step 0.0 $parts))
 (: frontier-remaining-score (-[det]-> AndBundle
        (List (| FrontierPart UnpoolablePart)) Number))
 (= (frontier-remaining-score
@@ -203,21 +180,20 @@
       (| Goal (Statement KBContext Proof TV))))
 (= (frontier-goal-proof-view $goal)
    (case $goal (
-      (($_type $_kb $proof $_tv)
+      (($type $kb $proof $tv)
          (if (is-var $proof)
             $goal
             (if (is-expr $proof)
-               (let $head (car-atom $proof)
-                  (if (is-var $head)
-                     (let $tail (cdr-atom $proof)
-                        (if (== $tail ())
-                           $goal
-                           (if (== (cdr-atom $tail) ())
-                              (let $inner (car-atom $tail)
-                                 (assemble-stored-runtime-fact
-                                    $_type $_kb $inner $_tv))
-                              $goal)))
-                     $goal))
+               (if (is-var (car-atom $proof))
+                  (let $tail (cdr-atom $proof)
+                     (if (== $tail ())
+                        $goal
+                        (if (== (cdr-atom $tail) ())
+                           (let $inner (car-atom $tail)
+                              (assemble-stored-runtime-fact
+                                 $type $kb $inner $tv))
+                           $goal)))
+                  $goal)
                $goal)))
       ($_other $goal))))
 (: advance-frontier-bundle
@@ -247,26 +223,6 @@
             no-pool-key
             (brand Proof $proof)))
       ($_other no-pool-key))))
-(: frontier-conjunction-proof? (-[det]-> Proof Bool))
-(= (frontier-conjunction-proof? $proof)
-   (if (is-var $proof)
-      false
-      (if (is-expr $proof)
-         (let $head (car-atom $proof)
-            (if (is-var $head)
-               false
-               (if (== $head conjunction)
-                  true
-                  (if (== $head by)
-                     (frontier-conjunction-proof?
-                        (brand Proof
-                           (car-atom (cdr-atom (cdr-atom $proof)))))
-                     (if (== $head negated)
-                        (frontier-conjunction-proof?
-                           (brand Proof
-                              (car-atom (cdr-atom $proof))))
-                        false)))))
-         false)))
 (: frontier-strict-projection-proof? (-[det]-> Proof Bool))
 (= (frontier-strict-projection-proof? $proof)
    (if (is-var $proof)
@@ -317,15 +273,11 @@
             ($_other (frontier-goal-needs-conditioned-proofs? $goal)))))
       ($_other (frontier-goal-needs-conditioned-proofs? $goal)))))
 (: frontier-needs-raw-proofs? (-[det]-> AndBundle Bool))
-(= (frontier-needs-raw-proofs?
-      (and-bundle $goal $premises))
-   (let $proof
-      (frontier-bundle-proof
-         (and-bundle $goal $premises))
-      (if (== $proof no-pool-key)
-         false
-         (frontier-conjunction-proof?
-            (the Proof $proof)))))
+(= (frontier-needs-raw-proofs? (and-bundle $goal $_premises))
+   (case $goal (
+      (($_type $_kb $proof $_tv)
+         (proof-term-conjunction-dependency? (brand Proof $proof)))
+      ($_other false))))
 (: frontier-compatible-source-id-step (-[semidet]-> Number Atom
       (List Number) Number (List Number)))
 (= (frontier-compatible-source-id-step
@@ -338,17 +290,11 @@
 (: noncyclic-proof-source-ids (-[semidet]-> Number Atom
       Number (List Number)))
 (= (noncyclic-proof-source-ids $parent-gid $cycle-key $child-gid)
-   (let $normalized-key
-      (if (or (== $cycle-key closed-goal)
-              (== $cycle-key (closed-goal)))
-         closed-goal
-         $cycle-key)
-      (reverse-number-list
-         (proof-fold-flat-semidet
-            (frontier-compatible-source-id-step
-               $parent-gid $normalized-key)
-            ()
-            (goal-live-proof-ids $child-gid)))))
+   (reverse-number-list
+      (proof-fold-flat-semidet
+         (frontier-compatible-source-id-step $parent-gid $cycle-key)
+         ()
+         (goal-live-proof-ids $child-gid))))
 ;; Opposite directions of one BiImplication are one definition. Reject the
 ;; immediate reverse even when lowering flattened its intermediate proof node.
 (: frontier-opposite-bi-direction? (-[det]-> Proof Proof Bool))
@@ -402,17 +348,16 @@
 (: frontier-conditioned-proof-ids
    (-[semidet]-> Number AndBundle Number (List Number)))
 (= (frontier-conditioned-proof-ids $parent-gid $bundle $child-gid)
-   (let $compatible
-      (frontier-compatible-source-ids
-         $parent-gid $bundle $child-gid)
-      (let $representatives
-         (proof-output-group-representative-pids $child-gid
-            (proof-output-groups $compatible))
-         (if (frontier-needs-raw-proofs? $bundle)
-            (the (List Number)
-               (list_to_set
-                  (append-flat $compatible $representatives)))
-            $representatives))))
+   (let* (($compatible
+             (frontier-compatible-source-ids
+                $parent-gid $bundle $child-gid))
+          ($representatives
+             (proof-output-group-representative-pids $child-gid
+                (proof-output-groups $compatible))))
+      (if (frontier-needs-raw-proofs? $bundle)
+         (the (List Number)
+            (list_to_set (append-flat $compatible $representatives)))
+         $representatives)))
 (: frontier-existing-proof-ids
    (-[semidet]-> Number AndBundle Number (List Number)))
 (= (frontier-existing-proof-ids $parent-gid $bundle $child-gid)
