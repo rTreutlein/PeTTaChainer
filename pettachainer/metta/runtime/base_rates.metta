@@ -436,11 +436,6 @@
                         (stored-number $c)))))))
       no-evidence))
 
-(: ConceptNodePriorFormula
-   (-[det]-> KB Statement OptionalSTV))
-(= (ConceptNodePriorFormula $kbid $node)
-   (concept-node-prior-tv $kbid $node))
-
 (: resolve-base-rate-prior
    (-[det]-> BaseRatePrior OptionalSTV))
 (= (resolve-base-rate-prior (ConceptNodePriorRuntime $kbid $node))

@@ -203,10 +203,8 @@
    (once
       (case $premise (
          ((CPU $fun $args $res)
-            ;; Aggregate folds have their own search machinery and
-            ;; store-scanning formulas are too costly to run eagerly here.
-            (if (or (aggregate-fold-function? $fun)
-                    (== $fun ConceptNodePriorFormula))
+            ;; Aggregate folds have their own search machinery.
+            (if (aggregate-fold-function? $fun)
                false
                ;; Only run a CPU premise eagerly when its argument list is fully
                ;; ground. Building an ($fun ...) expression here would apply it
