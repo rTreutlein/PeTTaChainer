@@ -34,23 +34,6 @@
    (-[det]-> (List ForwardOutputRow) ForwardOutputRow))
 (= (first-forward-output-row (cons $row $_rest)) $row)
 
-;; Dynamic-space collection erases both the list element type and the row's
-;; constructor roles. Iterate that representation directly and reconstruct one
-;; typed row at a time, avoiding a reflective check of the complete list.
-(: emit-stored-forward-output-rows
-   (-[nondet]-> Atom ForwardOutputRow))
-(= (emit-stored-forward-output-rows
-      (cons
-         (forward-output-row
-            $fact $evidence)
-         $_rest))
-   (forward-output-row
-      $fact
-      (stored-evidence-list $evidence)))
-(= (emit-stored-forward-output-rows
-      (cons $_row $rest))
-   (emit-stored-forward-output-rows $rest))
-
 (: ForwardCanonicalEvidenceRow Type)
 (: forward-canonical-evidence-row
    (-[det]-> Number Statement KBContext
@@ -225,87 +208,18 @@
                (forward-frontier-row
                   $hash $type $kb $fact $ev))))))
 
-(: forward-remove-canonical-fact!
-   (-[det]-> (Statement KBContext Proof TV) Bool))
-(= (forward-remove-canonical-fact! $fact) (remove-atom &kb $fact))
-(: forward-remove-canonical-evidence!
-   (-[det]-> ForwardCanonicalEvidenceRow Bool))
-(= (forward-remove-canonical-evidence! $row)
-   (remove-atom &forward_canonical_evidence $row))
-
-(: forward-candidate-from-canonical-rows
-   (-[det]-> (List ForwardCanonicalEvidenceRow)
-       (| ForwardOutputCandidate NoForwardOutputCandidate)))
-(= (forward-candidate-from-canonical-rows $rows)
-   (case $rows
-      ((() no-forward-output-candidate)
-       ((cons
-          (forward-canonical-evidence-row
-             $_hash $_type $_kb $fact $evidence)
-          $_rest)
-        (forward-output-candidate $fact $evidence)))))
-
 ;; &kb contains one canonical fact per grounded output.  The private frontier
 ;; keeps only the independent, non-dominated candidates required to update that
 ;; canonical fact when later evidence supersedes just one branch.  Exact-map
 ;; rows start with a hash of the complete output identity, followed by that
 ;; identity so unification still rejects the rare hash collision.
-(: forward-replace-output-candidate!
-   (-[nondet]-> Number Statement KBContext
-      (Statement KBContext Proof TV) (List Evidence)
-      (Statement KBContext Proof TV) (List Evidence)
-      (List ForwardCanonicalEvidenceRow)
-       ForwardOutputChange))
-(= (forward-replace-output-candidate!
-      $hash $type $kb $new-fact $new-ev $old-fact $old-ev
-      $old-evidence-rows)
-   (if (and
-         (== $old-fact $new-fact)
-         (== $old-ev $new-ev))
-      no-forward-change
-      (let*
-         (($_remove-fact
-              (forward-remove-canonical-fact! $old-fact))
-          ($_remove-evidence
-              (foreach-flat
-                 forward-remove-canonical-evidence!
-                 $old-evidence-rows))
-          ($_add-fact
-              (chainer-add-atom &kb $new-fact))
-          ($_add-evidence
-              (add-atom &forward_canonical_evidence
-                 (forward-canonical-evidence-row
-                    $hash $type $kb $new-fact $new-ev))))
-         (forward-output-replaced $old-fact $new-fact))))
-
-(: forward-add-output-candidate!
-   (-[nondet]-> Number Statement KBContext
-      (Statement KBContext Proof TV) (List Evidence)
-       ForwardOutputChange))
-(= (forward-add-output-candidate!
-      $hash $type $kb $new-fact $new-ev)
-   (let*
-      (($_add-fact
-           (chainer-add-atom &kb $new-fact))
-       ($_add-evidence
-           (add-atom &forward_canonical_evidence
-              (forward-canonical-evidence-row
-                 $hash $type $kb $new-fact $new-ev))))
-      (forward-output-added $new-fact)))
-
-(: forward-remove-output-candidate!
-   (-[nondet]-> (Statement KBContext Proof TV)
-      (List ForwardCanonicalEvidenceRow)
-       ForwardOutputChange))
-(= (forward-remove-output-candidate! $old-fact $old-evidence-rows)
-   (let*
-      (($_remove-fact
-           (forward-remove-canonical-fact! $old-fact))
-       ($_remove-evidence
-           (foreach-flat
-              forward-remove-canonical-evidence!
-              $old-evidence-rows)))
-      (forward-output-removed $old-fact)))
+(: forward-canonical-candidate
+   (-[det]-> (List ForwardCanonicalEvidenceRow)
+       (| ForwardOutputCandidate NoForwardOutputCandidate)))
+(= (forward-canonical-candidate ()) no-forward-output-candidate)
+(= (forward-canonical-candidate
+      (cons (forward-canonical-evidence-row $_hash $_type $_kb $fact $ev) $_rest))
+   (forward-output-candidate $fact $ev))
 
 (: forward-store-output-candidate!
    (-[nondet]-> ForwardOutputKey
@@ -317,33 +231,52 @@
       (($hash
           (forward-output-index-hash
              (forward-output-key $kb $type)))
-       ($old-evidence-rows
-          (collapse
-             (match &forward_canonical_evidence
-                (forward-canonical-evidence-row
-                   $hash $type $kb $stored-fact $stored-ev)
-                (forward-canonical-evidence-row
-                   $hash $type $kb $stored-fact $stored-ev))))
        ($old-candidate
-          (forward-candidate-from-canonical-rows
-             $old-evidence-rows)))
+          (forward-canonical-candidate
+             (collapse
+                (once
+                   (match &forward_canonical_evidence
+                      (forward-canonical-evidence-row
+                         $hash $type $kb $stored-fact $stored-ev)
+                      (forward-canonical-evidence-row
+                         $hash $type $kb $stored-fact $stored-ev)))))))
       (case $new-candidate
          (((forward-output-candidate $new-fact $new-ev)
             (case $old-candidate
                (((forward-output-candidate $old-fact $old-ev)
-                  (forward-replace-output-candidate!
-                     $hash $type $kb
-                     $new-fact $new-ev $old-fact $old-ev
-                     $old-evidence-rows))
+                  (if (if (== $old-fact $new-fact) (== $old-ev $new-ev) false)
+                     no-forward-change
+                     (let*
+                        (($_remove-fact (remove-atom &kb $old-fact))
+                         ($_remove-evidence
+                             (remove-atom &forward_canonical_evidence
+                                (forward-canonical-evidence-row
+                                   $hash $type $kb $_stored-fact $_stored-ev)))
+                         ($_add-fact (chainer-add-atom &kb $new-fact))
+                         ($_add-evidence
+                             (add-atom &forward_canonical_evidence
+                                (forward-canonical-evidence-row
+                                   $hash $type $kb $new-fact $new-ev))))
+                        (forward-output-replaced $old-fact $new-fact))))
                 (no-forward-output-candidate
-                   (forward-add-output-candidate!
-                      $hash $type $kb $new-fact $new-ev)))))
+                   (let*
+                      (($_add-fact (chainer-add-atom &kb $new-fact))
+                       ($_add-evidence
+                           (add-atom &forward_canonical_evidence
+                              (forward-canonical-evidence-row
+                                 $hash $type $kb $new-fact $new-ev))))
+                      (forward-output-added $new-fact))))))
           (no-forward-output-candidate
              (case $old-candidate
                 ((no-forward-output-candidate no-forward-change)
                  ((forward-output-candidate $old-fact $_old-ev)
-                    (forward-remove-output-candidate!
-                       $old-fact $old-evidence-rows)))))))))
+                    (let*
+                       (($_remove-fact (remove-atom &kb $old-fact))
+                        ($_remove-evidence
+                            (remove-atom &forward_canonical_evidence
+                               (forward-canonical-evidence-row
+                                  $hash $type $kb $_stored-fact $_stored-ev))))
+                       (forward-output-removed $old-fact))))))))))
 
 (: forward-refresh-output-key!
    (-[nondet]-> ForwardOutputKey  ForwardOutputChange))
