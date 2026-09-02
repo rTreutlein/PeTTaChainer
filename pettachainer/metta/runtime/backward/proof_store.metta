@@ -1,9 +1,10 @@
 ;; Durable backward proof-store contract.
-;; Owns append-only &proof history, shared goal/result/parent indexes, aggregate
-;; snapshots, current-view private rows, liveness caches, frontier paths, and
+;; Owns append-only &proof history, shared goal/result/parent indexes, fold
+;; source rows, current-view private rows, liveness caches, frontier paths, and
 ;; materialized aggregate lineage. Shared row shapes remain canonical.
 ;; Current candidate/result rows keep goal and output indexes; stable result-key
-;; rows preserve ordering while dirty groups rebuild once. Deactivation retires
+;; rows preserve ordering while dirty groups rebuild once. Fold snapshots use
+;; the replace policy (docs/metta/fold_node_contract.md). Deactivation retires
 ;; forever; supersession preserves root fallback but blocks ordinary use.
 ;; Merged and conjunction proofs retain raw children. Partial dependency lookup
 ;; deactivates during invalidation instead of aborting the enclosing operation.
@@ -27,20 +28,10 @@
 (= (clear-current-confidence! $gid) (let $_removed (collapse (match &goal_current_confidence (current-confidence-row $gid $value) (remove-atom &goal_current_confidence (current-confidence-row $gid $value)))) ()))
 (: clear-key-confidence! (-[det]-> ProofGoalKey (List $none)))
 (= (clear-key-confidence! $key) (let $lkey (index-hash $key) (let $_cleared (collapse (match &goal_lookup ($lkey $saved-key $gid) (if (=alpha $saved-key $key) (clear-current-confidence! (stored-number $gid)) (empty)))) ())))
-(: index-base-rate-aggregate-current-pid! (-[det]-> $arguments Number (List $none)))
-(= (index-base-rate-aggregate-current-pid! $arguments $pid)(case (base-rate-aggregate-key $arguments) ( ((base-rate-aggregate-key-value $kbid $pattern $mode)(let* (($key (base-rate-aggregate-key-value $kbid $pattern $mode))($lookup (index-hash $key))($_key (add-space-atom! &base_rate_aggregate_current (make-space-pair $lookup (base-rate-aggregate-current-entry $key $pid))))($_pid (add-space-atom! &base_rate_aggregate_current_by_pid (make-space-pair $pid (base-rate-aggregate-current-pid-entry $lookup $key))))($_kb (add-space-atom! &base_rate_aggregate_current_by_kb (make-space-pair $kbid (base-rate-aggregate-current-kb-entry $lookup $key $pid)))))()))(no-base-rate-aggregate-key ()))))
-(: remove-base-rate-aggregate-current-pid-index! (-[det]-> Number (List $none)))
-(= (remove-base-rate-aggregate-current-pid-index! $pid)(let $_removed (collapse (match &base_rate_aggregate_current_by_pid ($pid (base-rate-aggregate-current-pid-entry $lookup $key))(let (base-rate-aggregate-key-value $kbid $_pattern $_mode) $key (let* (($_key (remove-atom &base_rate_aggregate_current ($lookup (base-rate-aggregate-current-entry $key $pid))))($_kb (remove-atom &base_rate_aggregate_current_by_kb ($kbid (base-rate-aggregate-current-kb-entry $lookup $key $pid))))($_pid (remove-atom &base_rate_aggregate_current_by_pid ($pid (base-rate-aggregate-current-pid-entry $lookup $key)))))()))))()))
-(: remove-base-rate-aggregate-current-pid-indexes! (-[det]-> (List Number) (List $none)))
-(= (remove-base-rate-aggregate-current-pid-indexes! ()) ())
-(= (remove-base-rate-aggregate-current-pid-indexes! (cons $pid $rest))(let* (($_removed (remove-base-rate-aggregate-current-pid-index! $pid))($_remaining (remove-base-rate-aggregate-current-pid-indexes! $rest)))()))
-(: index-base-rate-aggregate-current-pids! (-[det]-> Atom (List Number) (List $none)))
-(= (index-base-rate-aggregate-current-pids! $_arguments ()) ())
-(= (index-base-rate-aggregate-current-pids! $arguments (cons $pid $rest))(let* (($_indexed (index-base-rate-aggregate-current-pid! $arguments $pid))($_remaining (index-base-rate-aggregate-current-pids! $arguments $rest)))()))
 (: index-current! (-[det]-> ProofGoalKey ProofOutputKey Number Bool))
 (= (index-current! $key $okey $pid) (let* (($lkey (copy_term $key)) ($gok (goal-output-key $key $okey)) ($out-lkey (copy_term $gok)) ($khash (index-hash $key)) ($ohash (index-hash $okey)) ($ghash (index-hash $gok)) ($_goal (once (add-atom &proof_current (current-row $khash $ohash $lkey $key $okey $pid))))) (once (add-atom &proof_current (current-out-row $ghash $out-lkey $key $okey $pid)))))
 (: remove-current! (-[semidet]-> ProofGoalKey Number Bool))
-(= (remove-current! $key $pid) (let* (($lkey (copy_term $key)) ($okey (output-key $pid)) ($gok (goal-output-key $key $okey)) ($out-lkey (copy_term $gok)) ($khash (index-hash $key)) ($ohash (index-hash $okey)) ($ghash (index-hash $gok)) ($_aggregate (remove-base-rate-aggregate-current-pid-index! $pid)) ($_output (collapse (once (remove-atom &proof_current (current-out-row $ghash $out-lkey $key $okey $pid))))) ($removed (collapse (once (remove-atom &proof_current (current-row $khash $ohash $lkey $key $okey $pid)))))) (not (== $removed ()))))
+(= (remove-current! $key $pid) (let* (($lkey (copy_term $key)) ($okey (output-key $pid)) ($gok (goal-output-key $key $okey)) ($out-lkey (copy_term $gok)) ($khash (index-hash $key)) ($ohash (index-hash $okey)) ($ghash (index-hash $gok)) ($_output (collapse (once (remove-atom &proof_current (current-out-row $ghash $out-lkey $key $okey $pid))))) ($removed (collapse (once (remove-atom &proof_current (current-row $khash $ohash $lkey $key $okey $pid)))))) (not (== $removed ()))))
 (: current-proof-ids-for-goal-key (-[semidet]-> ProofGoalKey (List Number)))
 (= (current-proof-ids-for-goal-key $key) (let* (($_metric (increment-backward-query-metric! current-proof-goal-lookups)) ($khash (index-hash $key))) (collapse (match &proof_current (current-row $khash $_ohash $_lkey $saved-key $_output-key $pid) (if (=alpha $saved-key $key) (stored-number $pid) (empty))))))
 (: current-output-pids (-[semidet]-> ProofGoalKey ProofOutputKey (List Number)))
@@ -63,12 +54,8 @@
 (= (dirty-keys $key) (let $khash (index-hash $key) (collapse (match &proof_current_result (dirty-key-row $khash $_lkey $saved-key $okey) (if (=alpha $saved-key $key) (the ProofOutputKey $okey) (empty))))))
 (: clear-dirty! (-[det]-> ProofGoalKey ProofOutputKey (List $none)))
 (= (clear-dirty! $key $okey) (let $khash (index-hash $key) (let $_removed (collapse (match &proof_current_result (dirty-key-row $khash $row-lkey $saved-key $saved-okey) (if (and (=alpha $saved-key $key) (=alpha $saved-okey $okey)) (remove-atom &proof_current_result (dirty-key-row $khash $row-lkey $saved-key $saved-okey)) (empty)))) ())))
-(: aggregate-by-id (-[semidet]-> Number StoredAggregateRow))
-(= (aggregate-by-id $agg-gid) (once (match &aggregate (stored-aggregate-row $agg-gid $child-gid $args $base $pending $current) (stored-aggregate-row $agg-gid $child-gid $args $base $pending $current))))
-(: set-aggregate-pending! (-[semidet]-> StoredAggregateRow Number (| Bool (List $none))))
-(= (set-aggregate-pending! (stored-aggregate-row $agg-gid $child-gid $args $base $pending $current) $next-pending) (progn (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid $args $base $pending $current)) (once (chainer-add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid $args $base $next-pending $current)))))
-(: set-aggregate-current-pid! (-[semidet]-> StoredAggregateRow (List Number) (| Bool (List $none))))
-(= (set-aggregate-current-pid! (stored-aggregate-row $agg-gid $child-gid $args $base $pending $current) $next-current) (let* (($_old-index (remove-base-rate-aggregate-current-pid-indexes! $current)) ($_new-index (index-base-rate-aggregate-current-pids! $args $next-current))) (progn (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid $args $base $pending $current)) (once (chainer-add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid $args $base $pending $next-current))))))
+(: fold-source-by-id (-[semidet]-> Number FoldSourceRow))
+(= (fold-source-by-id $gid) (once (match &fold_source (fold-source-row $gid $child $args $base $budget $approx) (fold-source-row $gid $child $args $base $budget $approx))))
 (: ClosedGoalKey Type)
 (: closed-goal ClosedGoalKey)
 (: ProofOutputGroup Type)
@@ -96,7 +83,7 @@
 (: proof-fact-output-by-id (-[semidet]-> Number (Statement KBContext Proof TV)))
 (= (proof-fact-output-by-id $pid) (let $output (proof-output-atom-by-id $pid) (case $output ( ((CPU $_formula $_arguments $_result) (empty)) (($type $kb $proof $tv) (assemble-stored-runtime-fact $type $kb $proof $tv)) ($_other (empty))))))
 (: candidate-output-key (-[det]-> (| Goal (Statement KBContext Proof TV)) ProofOutputKey))
-(= (candidate-output-key $term) (case $term ( ((CPU $formula $arguments $result) (proof-output-key (quote (CPU $formula $arguments $result)))) (($type $kb $_prf $_tv) (proof-output-key (quote ($type $kb)))) ($_other (proof-output-key $term)))))
+(= (candidate-output-key $term) (case $term ( ((CPU FoldAllCompiled $arguments $_result) (proof-output-key (quote (CPU FoldAllCompiled $arguments)))) ((CPU GroupedFoldAllCompiled $arguments $_result) (proof-output-key (quote (CPU GroupedFoldAllCompiled $arguments)))) ((CPU $formula $arguments $result) (proof-output-key (quote (CPU $formula $arguments $result)))) (($type $kb $_prf $_tv) (proof-output-key (quote ($type $kb)))) ($_other (proof-output-key $term)))))
 (: output-key (-[semidet]-> Number ProofOutputKey))
 (= (output-key $pid) (candidate-output-key (proof-output-atom-by-id $pid)))
 (: project-from-source (-[det]-> Number TV (| Goal (Statement KBContext Proof TV)) ProofContribution))
@@ -229,21 +216,24 @@
 (= (invalidate-dependents-epoch! $epoch $child) (let* (($_frontiers (invalidate-proof-paths! $child)) ($_proofs (foreach-flat (invalidate-dependent-epoch! $epoch) (collapse (match &proof_parent ($child $parent) (stored-number $parent)))))) ()))
 (= (deactivate-current-proof! $pid) (deactivate-proof-epoch! (next-search-id bwd_invalidation_epoch) $pid))
 (= (deactivate-proof-epoch! $epoch $pid) (let* (($gkey (owner-key $pid)) ($okey (output-key $pid)) ($_remove (remove-current! $gkey $pid)) ($_retire (once (add-atom &proof_retired ($pid)))) ($_cache (clear-proof-cache! $pid)) ($_dirty (mark-dirty! $gkey $okey)) ($_confidence (clear-key-confidence! $gkey)) ($_dependents (invalidate-dependents-epoch! $epoch $pid))) ()))
-(= (supersede-current-proof! $pid) (let* (($gkey (owner-key $pid)) ($okey (output-key $pid)) ($_remove (remove-current! $gkey $pid)) ($_superseded (once (add-atom &proof_superseded ($pid)))) ($_cache (clear-proof-cache! $pid)) ($_dirty (mark-dirty! $gkey $okey)) ($_confidence (clear-key-confidence! $gkey)) ($_dependents (invalidate-proof-dependents! $pid))) ()))
-(: deactivate-current-proofs! (-[semidet]-> (List Number) (List $none)))
-(= (deactivate-current-proofs! $current) (foreach-flat deactivate-current-proof! $current))
+(: drop-current-proof! (-[semidet]-> Number (List $none)))
+(= (drop-current-proof! $pid) (let* (($_remove (remove-current! (owner-key $pid) $pid)) ($_superseded (once (add-atom &proof_superseded ($pid)))) ($_cache (clear-proof-cache! $pid)) ($_dependents (invalidate-proof-dependents! $pid))) ()))
+(= (supersede-current-proof! $pid) (let* (($gkey (owner-key $pid)) ($okey (output-key $pid)) ($_drop (drop-current-proof! $pid)) ($_dirty (mark-dirty! $gkey $okey)) ($_confidence (clear-key-confidence! $gkey))) ()))
+;; Replace policy for fold snapshots: the previous representative of the key
+;; leaves the current view and is superseded; the new snapshot is the result.
+(: replace-result! (-[semidet]-> ProofGoalKey ProofOutputKey (List Number) Number Bool))
+(= (replace-result! $gkey $okey $old $pid) (let $_old (case $old ( (() ()) ((cons $old-pid $_rest) (drop-current-proof! $old-pid)))) (index-result! $gkey $okey $pid)))
 (: current-base-rate-aggregate-pids (-[det]-> KB Statement (List Number)))
 (= (current-base-rate-aggregate-pids $kbid $pattern)
    (collapse
-      (match &base_rate_aggregate_current_by_kb
-         ($kbid
-            (base-rate-aggregate-current-kb-entry
-               $_lookup
-               (base-rate-aggregate-key-value
-                  $_stored-kbid $stored-pattern $_mode)
-               $pid))
+      (match &base_rate_fold
+         ($_lookup
+            (base-rate-aggregate-key-value
+               $_stored-kbid $stored-pattern $_mode)
+            $kbid $gkey)
          (if (=alpha $stored-pattern $pattern)
-            (stored-number $pid)
+            (let $pids (result-ids (brand ProofGoalKey $gkey))
+               (superpose $pids))
             (empty)))))
 (: invalidate-base-rate-aggregate-proofs!
    (-[det]-> KB Statement (List $none)))
@@ -274,11 +264,11 @@
 (= (current-base-rate-aggregate-pids-for-key $key)
    (let $lookup (index-hash $key)
       (collapse
-         (match &base_rate_aggregate_current
-            ($lookup
-               (base-rate-aggregate-current-entry $stored-key $pid))
+         (match &base_rate_fold
+            ($lookup $stored-key $_kbid $gkey)
             (if (=alpha $stored-key $key)
-               (stored-number $pid)
+               (let $pids (result-ids (brand ProofGoalKey $gkey))
+                  (superpose $pids))
                (empty))))))
 (: consume-pending-base-rate-retire-key!
    (-[det]-> BaseRateAggregateKey Bool))
@@ -302,11 +292,9 @@
 (= (latest-proof-output-group-ids (cons (proof-output-group $_key $pids) $rest)) (cons (latest-proof-id $pids) (latest-proof-output-group-ids $rest)))
 (: stored-list-member? (-[det]-> Atom Atom Bool))
 (= (stored-list-member? $needle $values) (case $values ( (() false) ((cons $first $rest) (if (== $needle $first) true (stored-list-member? $needle $rest))) ($_other false))))
-(: indexed-proof-ids (-[semidet]-> ProofGoalKey (List Number)))
-(= (indexed-proof-ids $key) (let $hash (index-hash $key) (collapse (match &proof_goal ($hash $_lkey $saved-key $pid) (if (=alpha $saved-key $key) (stored-number $pid) (empty))))))
-(: durable-aggregate-representative? (-[semidet]-> Number Bool))
-(= (durable-aggregate-representative? $pid) (let $latest (latest-proof-output-group-ids (aggregate-snapshot-groups (indexed-proof-ids (owner-key $pid)))) (stored-list-member? $pid $latest)))
-(= (compute-live $pid) (let* (($key (owner-key $pid)) ($kind (proof-kind-by-id $pid)) ($current-rows (collapse (once (match &aggregate (stored-aggregate-row $gid $_child $_args $_base $_pending $current) (if (=alpha (proof-goal-key-by-goal-id $gid) $key) $current (empty))))))) (if (== $current-rows ()) (if (= $kind (aggregate $_output)) (if (durable-aggregate-representative? $pid) (proof-list-live? (proof-children-by-id $pid)) false) (if (keeps-raw-children? $kind) (raw-proof-list-live? (proof-children-by-id $pid)) (proof-list-live? (proof-children-by-id $pid)))) (let (cons $currents $_rest) $current-rows (stored-list-member? $pid $currents)))))
+;; A fold snapshot is live while it is the current representative of its fold
+;; key; replacement supersedes it. Every other kind follows its children.
+(= (compute-live $pid) (let $kind (proof-kind-by-id $pid) (if (= $kind (aggregate $_output)) (proof-current-representative? $pid) (if (keeps-raw-children? $kind) (raw-proof-list-live? (proof-children-by-id $pid)) (proof-list-live? (proof-children-by-id $pid))))))
 (: proof-term-conjunction-dependency? (-[det]-> Proof Bool))
 (= (proof-term-conjunction-dependency? $proof) (if (is-expr $proof) (if (== $proof ()) false (if (is-var (car-atom $proof)) false (if (== (car-atom $proof) conjunction) true (case $proof ( ((by $_rule $dependency) (proof-term-conjunction-dependency? (brand Proof $dependency))) ((negated $inner) (proof-term-conjunction-dependency? (brand Proof $inner))) ($_other false)))))) false))
 (: keeps-raw-children? (-[det]-> ProofKind Bool))
@@ -322,7 +310,7 @@
 (= (static-proof-live? $pid) (space-row-present? &proof_static_live ($pid)))
 (= (proof-retired? $pid) (space-row-present? &proof_retired ($pid)))
 (: mark-static-proof! (-[det]-> Number Number ProofKind (List Number) (| Bool (List $none))))
-(= (mark-static-proof! $gid $pid $kind $children) (if (= $kind (aggregate $_term)) () (if (== $children ()) (if (== (collapse (once (match &aggregate (stored-aggregate-row $gid $_child $_args $_base $_pending $_current) true))) ()) (once (add-atom &proof_static_live ($pid))) ()) ())))
+(= (mark-static-proof! $_gid $pid $kind $children) (if (= $kind (aggregate $_term)) () (if (== $children ()) (once (add-atom &proof_static_live ($pid))) ())))
 (= (proof-live? $pid) (if (proof-retired? $pid) (let $_event (query_metric_liveness_event retired) false) (if (static-proof-live? $pid) (let $_event (query_metric_liveness_event hit) true) (let* (($hits (collapse (once (match &proof_live_cache (proof-live-cache-row $pid $alive) $alive))))) (if (== $hits ()) (let* (($_event (query_metric_liveness_event miss)) ($alive (compute-live $pid)) ($_cache (cache-live! $pid $alive))) $alive) (let $_event (query_metric_liveness_event hit) (car-atom $hits)))))))
 (: reverse-number-list (-[det]-> (List Number) (List Number)))
 (: reverse-into (-[det]-> (List Number) (List Number) (List Number)))
@@ -340,11 +328,5 @@
 (= (group-add $groups $pid) (group-put $groups (output-key $pid) $pid))
 (: proof-output-groups (-[semidet]-> (List Number) (List ProofOutputGroup)))
 (= (proof-output-groups $pids) (proof-fold-flat-semidet group-add () $pids))
-(: aggregate-snapshot-key-by-id (-[semidet]-> Number ProofOutputKey))
-(= (aggregate-snapshot-key-by-id $pid) (let $output (proof-output-atom-by-id $pid) (case $output ( ((CPU FoldAllCompiled $arguments $_result) (proof-output-key (quote (CPU FoldAllCompiled $arguments)))) ((CPU GroupedFoldAllCompiled $arguments $_result) (proof-output-key (quote (CPU GroupedFoldAllCompiled $arguments)))) ($_other (candidate-output-key $output))))))
-(: snapshot-groups-add (-[semidet]-> (List ProofOutputGroup) Number (List ProofOutputGroup)))
-(= (snapshot-groups-add $groups $pid) (group-put $groups (aggregate-snapshot-key-by-id $pid) $pid))
-(: aggregate-snapshot-groups (-[semidet]-> (List Number) (List ProofOutputGroup)))
-(= (aggregate-snapshot-groups $pids) (proof-fold-flat-semidet snapshot-groups-add () $pids))
 (: merge-output-step (-[semidet]-> (Statement KBContext Proof TV) Number (Statement KBContext Proof TV)))
 (= (merge-output-step $acc $pid) (merge-proof-atoms $acc (proof-fact-output-by-id $pid)))

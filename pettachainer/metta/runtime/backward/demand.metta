@@ -120,32 +120,6 @@
 (= (root-demands-max (cons (root-demand $_root $score) $rest))
    (max $score (root-demands-max $rest)))
 
-;; Remove the entry with this root when it carries the same score; an absent
-;; or differently scored root leaves the list unchanged.
-(: root-demand-remove
-   (-[det]-> RootDemand (List RootDemand) (List RootDemand)))
-(= (root-demand-remove $_entry ()) ())
-(= (root-demand-remove
-      (root-demand $root $score)
-      (cons (root-demand $head-root $head-score) $rest))
-   (if (== $root $head-root)
-      (if (== $score $head-score)
-         $rest
-         (cons (root-demand $head-root $head-score) $rest))
-      (cons (root-demand $head-root $head-score)
-         (root-demand-remove (root-demand $root $score) $rest))))
-
-;; Set equality: every left entry is removed from the right list exactly once
-;; and nothing may remain.
-(: root-demands-same?
-   (-[det]-> (List RootDemand) (List RootDemand) Bool))
-(= (root-demands-same? () $right) (== $right ()))
-(= (root-demands-same? (cons $entry $rest) $right)
-   (let $remaining (root-demand-remove $entry $right)
-      (if (== $remaining $right)
-         false
-         (root-demands-same? $rest $remaining))))
-
 (: root-goal-demand-seed (-[det]-> Number (List RootDemand)))
 (= (root-goal-demand-seed $gid)
    (let $hits
@@ -476,10 +450,12 @@
              (add-atom &goal_demand_cache
                 (goal-demand-cache-row
                    $child-gid $next-dependencies $next-demands))))
-       ($_revision
-          (if (root-demands-same? $current-demands $next-demands)
-             0
-             (bump-goal-demand-revision! $child-gid)))
+       ;; A registration always bumps the revision, even when the merged
+       ;; demand list is unchanged: descendants cached against the previous
+       ;; revision must re-evaluate once a new parent path reaches this goal.
+       ;; Bumping only on a changed list (tried Sep 2026) left incremental
+       ;; refinements one source short at any budget.
+       ($_revision (bump-goal-demand-revision! $child-gid))
        ;; Only an empty-to-live transition can strand descendants that were
        ;; expanded while this goal was reachable solely through a cycle.  Mark
        ;; that rare transition for a transitive wake; ordinary waiter updates

@@ -385,12 +385,6 @@
             (list_to_set (append-flat $base (cons (rule-ev $typed-kbid $name) ())))
             $base))))
 
-(: strict-projection-proof? (-[det]-> Proof Bool))
-(= (strict-projection-proof? $prf)
-   (case $prf (
-      (((proj $_idx $_base) $_evidence) true)
-      ($_ false))))
-
 (: projection-dominates? (-[det]-> Proof Proof Bool))
 (= (projection-dominates? $prf-a $prf-b)
    (case $prf-a (

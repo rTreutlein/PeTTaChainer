@@ -32,7 +32,7 @@
          (&goal &goal_lookup &goal_waiter &goal_child
           &goal_demand_cache &goal_demand_revision &goal_demand_wake
           &goal_current_confidence &root_goal &search_wake_active
-          &aggregate &aggregate_search_budget &aggregate_forward_approx
+          &fold_source
           &frontier_path &frontier_path_lookup &frontier_path_child
           &frontier_path_dead &proof_frontier_path
           &proof_live_cache &proof_invalidated &proof_cycle_cache))
@@ -100,10 +100,10 @@
           ($child-hits
              (case $kind (
                 (agenda-aggregate
-                   (let (stored-aggregate-row
-                           $_agg-gid $child-gid $_args
-                           $_base $_pending $_current)
-                      (aggregate-by-id $gid)
+                   (let (fold-source-row
+                           $_fold-gid $child-gid $_args
+                           $_base $_budget $_approx)
+                      (fold-source-by-id $gid)
                       (collapse (once (goal-by-id $child-gid)))))
                 ($_other ()))))
           ($agenda-row
@@ -754,49 +754,13 @@
          (wake-proof-commit-heap
             $agenda $gid $representative)))
 
-;; --- Aggregate scheduling and atomic snapshot replacement -------------------
+;; --- Fold refresh scheduling -------------------------------------------------
 
 (: schedule-aggregate-heap
    (-[semidet]-> (Heap AgendaEntry) Number (Heap AgendaEntry)))
 (= (schedule-aggregate-heap $agenda $agg-gid)
-   (let* (($row (aggregate-by-id $agg-gid))
-          ((stored-aggregate-row
-              $_gid $_child $_args $base-score $pending $_current)
-             $row)
-          ($_pending
-             (if (> $pending 0.0) ()
-                (set-aggregate-pending! $row $base-score))))
+   (let (fold-source-row
+           $_gid $_child $_args $base-score $_budget $_approx)
+      (fold-source-by-id $agg-gid)
       (request-goal-agenda-kind-score-heap
          $agenda $agg-gid agenda-aggregate $base-score)))
-
-(: commit-aggregate-snapshot-heap
-   (-[semidet]-> (Heap AgendaEntry) Number
-       (| Goal (Statement KBContext Proof TV)) (List Evidence)
-       (List Number) (Heap AgendaEntry)))
-(= (commit-aggregate-snapshot-heap
-      $agenda $agg-gid $result $evidence $children)
-   (let* (($row (aggregate-by-id $agg-gid))
-          ((stored-aggregate-row
-              $_gid $_child $_args $_base $_pending $current-pids)
-             $row)
-          ($candidate
-             (aggregate-result-candidate
-                $result $evidence $children)))
-      (if
-         (candidate-is-cyclic?
-            $agg-gid
-            (let (proof-candidate $kind $_s $_e $_c)
-               $candidate $kind)
-            $children)
-         $agenda
-         (let* (($pid
-                   (once
-                      (store-proof-candidate
-                         $agg-gid $candidate)))
-                ($_current
-                   (set-aggregate-current-pid!
-                      $row (cons $pid ())))
-                ($_replace
-                   (deactivate-current-proofs! $current-pids)))
-            (wake-proof-commit-heap
-               $agenda $agg-gid $pid)))))

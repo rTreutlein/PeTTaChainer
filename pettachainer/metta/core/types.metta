@@ -149,11 +149,12 @@
        (| Goal (Statement KBContext Proof TV))
        Bool GoalAgendaState StoredGoalRow))
 
-(: StoredAggregateRow Type)
-(: stored-aggregate-row
-   (-[det]-> Number Number Atom Number Number
-       (List Number)
-       StoredAggregateRow))
+;; A fold goal's source link: fold gid, source gid, fold arguments, base
+;; agenda score, the spawning search budget, and whether the first snapshot
+;; came from a forward-approx cache entry.
+(: FoldSourceRow Type)
+(: fold-source-row
+   (-[det]-> Number Number Atom Number Number Bool FoldSourceRow))
 
 ;; Executable goals are either CPU computations or fact goals. Fact KB,
 ;; proof, and statement fields retain their original runtime shapes.

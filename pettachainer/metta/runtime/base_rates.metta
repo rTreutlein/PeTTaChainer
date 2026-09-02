@@ -36,17 +36,28 @@
 (: PendingBaseRateRetireEntry Type)
 (: pending-base-rate-retire-entry
    (-[det]-> BaseRateAggregateKey PendingBaseRateRetireEntry))
-(: BaseRateAggregateCurrentEntry Type)
-(: base-rate-aggregate-current-entry
-   (-[det]-> BaseRateAggregateKey Number BaseRateAggregateCurrentEntry))
-(: BaseRateAggregateCurrentPidEntry Type)
-(: base-rate-aggregate-current-pid-entry
-   (-[det]-> Number BaseRateAggregateKey
-       BaseRateAggregateCurrentPidEntry))
-(: BaseRateAggregateCurrentKbEntry Type)
-(: base-rate-aggregate-current-kb-entry
-   (-[det]-> Number BaseRateAggregateKey Number
-       BaseRateAggregateCurrentKbEntry))
+;; Base-rate fold goals register (key-hash key kb goal-key) once at spawn.
+;; Their current snapshots are read through the ordinary result index.
+(: register-base-rate-fold!
+   (-[det]-> BaseRateAggregateKey ProofGoalKey (List $none)))
+(= (register-base-rate-fold! $key $gkey)
+   (let* (($lookup (index-hash $key))
+          ($known
+             (collapse
+                (once
+                   (match &base_rate_fold
+                      ($lookup $stored-key $_kb $stored-gkey)
+                      (if (=alpha $stored-key $key)
+                         (if (=alpha $stored-gkey $gkey) true (empty))
+                         (empty)))))))
+      (if (== $known ())
+         (case $key (
+            ((base-rate-aggregate-key-value $kbid $_pattern $_mode)
+               (let $_row
+                  (add-space-atom! &base_rate_fold
+                     (make-space-row4 $lookup $key $kbid $gkey))
+                  ()))))
+         ())))
 
 (: pending-base-rate-retire? (-[det]-> BaseRateAggregateKey Bool))
 (= (pending-base-rate-retire? $key)
@@ -83,10 +94,8 @@
 (= (retire-changed-base-rate-universe! $kbid)
    (let $_requested
       (collapse
-         (match &base_rate_aggregate_current_by_kb
-            ($kbid
-               (base-rate-aggregate-current-kb-entry
-                  $lookup $key $_pid))
+         (match &base_rate_fold
+            ($lookup $key $kbid $_gkey)
             (if (case $key (
                    ((base-rate-aggregate-key-value $_skb $_pat
                        (weighted-base-rate-in-universe $universe-kbid))
@@ -112,10 +121,8 @@
       (let $_requested
          (collapse
             (once
-               (match &base_rate_aggregate_current
-                  ($lookup
-                     (base-rate-aggregate-current-entry
-                        $stored-key $_pid))
+               (match &base_rate_fold
+                  ($lookup $stored-key $_kbid $_gkey)
                   (if (=alpha $stored-key $key)
                      (request-base-rate-aggregate-retire!
                         $lookup

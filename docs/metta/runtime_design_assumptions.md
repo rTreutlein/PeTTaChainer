@@ -157,7 +157,7 @@ proof acceptance still uses the ordinary evidence, dominance, revision, and
 cycle rules.
 
 Completed backward proofs are durable search state. Ordinary query reset clears
-only the query arena: goals, waiters, aggregate execution rows, root-demand
+only the query arena: goals, waiters, fold source rows, root-demand
 state, and liveness caches. It does not clear proof rows, result or dependency
 indexes, semantic ownership, or the monotonic proof-ID counter. A later query
 may therefore use a compatible historical proof immediately as its incumbent
@@ -165,14 +165,15 @@ or as a premise on its frontier. The normal proof/type/TV constraints still
 classify every candidate, so a durable result is reusable only when it satisfies
 the new query rather than merely sharing a proposition key.
 
-Generic `FoldAllCompiled` results are durable provenance snapshots. A new query
-restores the latest compatible snapshot for the semantic aggregate goal as its
-query-local current representative and can expose it immediately, but always
-reopens the child goal. Refinement folds every currently live child proof from
-the original accumulator; it never resumes from the cached accumulator. A
-changed result becomes a new durable snapshot and replaces only the transient
-current pointer, leaving the older snapshot as history. Grouped folds restore
-one latest representative per output key. These generic folds use ordinary root
+Generic `FoldAllCompiled` results are durable provenance snapshots stored
+through the same result index as every other proof, keyed by the fold term
+without its result (see `fold_node_contract.md`). A new query therefore sees
+the latest snapshot as the fold goal's result immediately, but always reopens
+the source goal. Refinement folds every currently live source proof from the
+original accumulator; it never resumes from the cached accumulator. A changed
+result becomes a new durable snapshot that replaces and supersedes the previous
+one, leaving it as history. Grouped folds keep one current snapshot per group
+key. These generic folds use ordinary root
 demand because arbitrary accumulator values have no universal marginal-value
 metric. Base-rate folds retain their specialized cache and discounted-TV demand
 path.

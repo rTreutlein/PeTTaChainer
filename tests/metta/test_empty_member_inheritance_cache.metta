@@ -20,15 +20,15 @@
 (= (member-aggregate-count $kb $subj $concept)
    (list-count
       (collapse
-         (match &aggregate
-            (stored-aggregate-row
-               $_agg-gid $_child
+         (match &fold_source
+            (fold-source-row
+               $_fold-gid $_child
                ($kb
                   (MemberInheritanceSample
                      $_obj $subj $concept $_atv $_btv)
                   $_extractor $_init $_fun
                   (member-inheritance $kb) $_tv-mode)
-               $_base $_pending $_current-pid)
+               $_base $_budget $_approx)
             true))))
 
 ;; An interrupted search is not an authoritative empty cache entry.

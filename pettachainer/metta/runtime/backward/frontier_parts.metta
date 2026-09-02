@@ -335,16 +335,8 @@
                    (proof-fold-flat-semidet
                       (frontier-bi-compatible-source-id-step
                          (the Proof $parent-proof))
-                      () $compatible))))
-          ((stored-goal-row $_gid $_depth $child-goal $_expanded $_pending)
-             (goal-by-id $child-gid)))
-      (case $child-goal (
-         ((CPU $function $_arguments $_result)
-            (if (aggregate-fold-function? $function)
-               (latest-proof-output-group-ids
-                  (aggregate-snapshot-groups $direction-compatible))
-               $direction-compatible))
-         ($_other $direction-compatible)))))
+                      () $compatible)))))
+      $direction-compatible))
 (: frontier-conditioned-proof-ids
    (-[semidet]-> Number AndBundle Number (List Number)))
 (= (frontier-conditioned-proof-ids $parent-gid $bundle $child-gid)

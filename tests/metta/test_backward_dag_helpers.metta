@@ -54,27 +54,6 @@
 
 !(test (expected-tv no-evidence) no-evidence)
 
-;; Root-demand set equality ignores order, and differs on a changed score, a
-;; missing root, or an extra root.
-!(test
-   (root-demands-same?
-      ((root-demand 1 0.5) (root-demand 2 0.3))
-      ((root-demand 2 0.3) (root-demand 1 0.5)))
-   true)
-!(test
-   (root-demands-same?
-      ((root-demand 1 0.5) (root-demand 2 0.3))
-      ((root-demand 2 0.4) (root-demand 1 0.5)))
-   false)
-!(test
-   (root-demands-same? ((root-demand 1 0.5)) ())
-   false)
-!(test
-   (root-demands-same?
-      ((root-demand 1 0.5))
-      ((root-demand 1 0.5) (root-demand 2 0.3)))
-   false)
-
 !(test
    (term-confidence
       (CPU CTVModusPonensFormula ((STV 0.8 0.9) (CTV (STV 1.0 0.6) (STV 0.0 0.4))) $out))
@@ -355,9 +334,9 @@
              (CPU FoldAllCompiled reprioritized-args $result)
              0))
        ($_aggregate1
-          (add-atom &aggregate
-             (stored-aggregate-row
-                $gid 99 reprioritized-args 0.2 0.0 ())))
+          (add-atom &fold_source
+             (fold-source-row
+                $gid 99 reprioritized-args 0.2 0 false)))
        ($agenda1
           (request-goal-agenda-kind-heap
              (empty_heap) $gid agenda-aggregate))
@@ -365,12 +344,12 @@
           (heap_pop $agenda1))
        ($_aggregate2
           (progn
-             (remove-atom &aggregate
-                (stored-aggregate-row
-                   $gid 99 reprioritized-args 0.2 0.0 ()))
-             (add-atom &aggregate
-                (stored-aggregate-row
-                   $gid 99 reprioritized-args 0.4 0.0 ()))))
+             (remove-atom &fold_source
+                (fold-source-row
+                   $gid 99 reprioritized-args 0.2 0 false))
+             (add-atom &fold_source
+                (fold-source-row
+                   $gid 99 reprioritized-args 0.4 0 false))))
        ($_revision (bump-goal-demand-revision! $gid))
        ($agenda2
           (request-goal-agenda-kind-heap
@@ -399,20 +378,20 @@
              (CPU FoldAllCompiled lowered-priority-args $result)
              0))
        ($_aggregate1
-          (add-atom &aggregate
-             (stored-aggregate-row
-                $gid 99 lowered-priority-args 0.4 0.0 ())))
+          (add-atom &fold_source
+             (fold-source-row
+                $gid 99 lowered-priority-args 0.4 0 false)))
        ($agenda1
           (request-goal-agenda-kind-heap
              (empty_heap) $gid agenda-aggregate))
        ($_aggregate2
           (progn
-             (remove-atom &aggregate
-                (stored-aggregate-row
-                   $gid 99 lowered-priority-args 0.4 0.0 ()))
-             (add-atom &aggregate
-                (stored-aggregate-row
-                   $gid 99 lowered-priority-args 0.2 0.0 ()))))
+             (remove-atom &fold_source
+                (fold-source-row
+                   $gid 99 lowered-priority-args 0.4 0 false))
+             (add-atom &fold_source
+                (fold-source-row
+                   $gid 99 lowered-priority-args 0.2 0 false))))
        ($_revision (bump-goal-demand-revision! $gid))
        ($agenda2
           (request-goal-agenda-kind-heap
@@ -456,9 +435,9 @@
              (CPU FoldAllCompiled equal-priority-args $result)
              0))
        ($_aggregate
-          (add-atom &aggregate
-             (stored-aggregate-row
-                $gid 99 equal-priority-args 0.4 0.0 ())))
+          (add-atom &fold_source
+             (fold-source-row
+                $gid 99 equal-priority-args 0.4 0 false)))
        ($agenda1
           (request-goal-agenda-kind-heap
              (empty_heap) $gid agenda-aggregate))
@@ -558,75 +537,43 @@
          ($first $second $third)))
    true)
 
-;; A grouped snapshot commit partitions the old representatives once. It
-;; retires every snapshot for the replaced key and preserves the relative
-;; order of all other groups.
+;; Grouped fold snapshots replace per fold key: a newer snapshot of group a
+;; supersedes both older a snapshots and leaves group b's snapshot current.
 !(test
    (let*
       (($_clear (clear-backward-state))
        ($_gidreset (change-state! bwd_gid 0))
        ($_pidreset (change-state! bwd_pid 0))
-       ($old-a-one-gid
-          (ensure-goal-at-depth
-             (CPU GroupedFoldAllCompiled (partition-key a) 1)
-             1))
-       ($b-gid
-          (ensure-goal-at-depth
-             (CPU GroupedFoldAllCompiled (partition-key b) 1)
-             1))
-       ($old-a-two-gid
-          (ensure-goal-at-depth
-             (CPU GroupedFoldAllCompiled (partition-key a) 2)
-             1))
-       ($new-a-gid
-          (ensure-goal-at-depth
-             (CPU GroupedFoldAllCompiled (partition-key a) 3)
-             1))
        ($aggregate-gid
           (ensure-goal-at-depth
-             (CPU FoldAllCompiled partition-controller $out)
+             (CPU GroupedFoldAllCompiled (partition-key $group) $out)
              0))
        ($old-a-one
-          (store-proof-candidate $old-a-one-gid
-             (leaf-result-candidate
-                (CPU GroupedFoldAllCompiled
-                   (partition-key a) 1)
-                ())))
+          (store-proof-candidate $aggregate-gid
+             (aggregate-result-candidate
+                (CPU GroupedFoldAllCompiled (partition-key a) 1) () ())))
        ($b
-          (store-proof-candidate $b-gid
-             (leaf-result-candidate
-                (CPU GroupedFoldAllCompiled
-                   (partition-key b) 1)
-                ())))
+          (store-proof-candidate $aggregate-gid
+             (aggregate-result-candidate
+                (CPU GroupedFoldAllCompiled (partition-key b) 1) () ())))
        ($old-a-two
-          (store-proof-candidate $old-a-two-gid
-             (leaf-result-candidate
-                (CPU GroupedFoldAllCompiled
-                   (partition-key a) 2)
-                ())))
+          (store-proof-candidate $aggregate-gid
+             (aggregate-result-candidate
+                (CPU GroupedFoldAllCompiled (partition-key a) 2) () ())))
        ($new-a
-          (store-proof-candidate $new-a-gid
-             (leaf-result-candidate
-                (CPU GroupedFoldAllCompiled
-                   (partition-key a) 3)
-                ())))
-       ($_aggregate
-          (add-atom &aggregate
-             (stored-aggregate-row
-                $aggregate-gid $old-a-one-gid partition-controller
-                1.0 0.0 ($old-a-one $b $old-a-two))))
-       ($_append
-          (append-grouped-aggregate-current-pid!
-             $aggregate-gid $new-a))
-       ((stored-aggregate-row
-            $_stored-gid $_child $_args $_base $_pending $current)
-          (aggregate-by-id $aggregate-gid)))
-      ((== $current ($new-a $b))
-       (proof-retired? $old-a-one)
-       (proof-retired? $old-a-two)
-       (proof-retired? $b)
-       (proof-retired? $new-a)))
-   (true true true false false))
+          (store-proof-candidate $aggregate-gid
+             (aggregate-result-candidate
+                (CPU GroupedFoldAllCompiled (partition-key a) 3) () ())))
+       ($current (result-ids (proof-goal-key-by-goal-id $aggregate-gid))))
+      ((length $current)
+       (stored-list-member? $new-a $current)
+       (stored-list-member? $b $current)
+       (proof-live? $old-a-one)
+       (proof-live? $old-a-two)
+       (proof-live? $b)
+       (proof-live? $new-a)
+       (length (goal-live-proof-ids $aggregate-gid))))
+   (2 true true false false true true 2))
 
 !(test
    (let*
@@ -950,22 +897,13 @@
         ($_pidreset (change-state! bwd_pid 0))
         ($agg-gid (ensure-goal-at-depth (CPU FoldAllCompiled dummy-agg-args $out) 0))
         ($child-gid (ensure-goal-at-depth (test-runtime-fact (Child) (brand Proof $prf) (STV 1.0 1.0)) 1))
-        ($_agg0 (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ())))
         ($pid-old
            (store-proof-candidate $agg-gid
-              (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 1) ())))
-        ($_agg1
-           (progn
-              (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ()))
-              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-old)))))
+              (aggregate-result-candidate (CPU FoldAllCompiled dummy-agg-args 1) () ())))
         ($pid-new
            (store-proof-candidate $agg-gid
-              (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) ())))
-        ($_agg2
-           (progn
-              (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-old)))
-              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-new)))
-              (deactivate-current-proof! $pid-old))))
+              (aggregate-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) () ())))
+        )
       ((proof-live? $pid-old) (proof-live? $pid-new)))
    (false true))
 
@@ -976,23 +914,13 @@
         ($_pidreset (change-state! bwd_pid 0))
         ($agg-gid (ensure-goal-at-depth (CPU FoldAllCompiled dummy-agg-args $out) 0))
         ($child-gid (ensure-goal-at-depth (test-runtime-fact (Child) (brand Proof $prf) (STV 1.0 1.0)) 1))
-        ($_agg0 (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ())))
         ($pid-old
            (store-proof-candidate $agg-gid
-              (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 1) ())))
-        ($_agg1
-           (progn
-              (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ()))
-              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-old)))))
+              (aggregate-result-candidate (CPU FoldAllCompiled dummy-agg-args 1) () ())))
+        ($path-id (ensure-frontier-path 0 $pid-old))
         ($pid-new
            (store-proof-candidate $agg-gid
-              (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) ())))
-        ($path-id (ensure-frontier-path 0 $pid-old))
-        ($_agg2
-           (progn
-              (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-old)))
-              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-new)))
-              (deactivate-current-proof! $pid-old))))
+              (aggregate-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) () ()))))
       (frontier-path-live? $path-id))
    false)
 
@@ -1038,24 +966,10 @@
                  (brand Proof $parent-goal-proof)
                  (the TV $parent-goal-tv))
               0))
-        ($_agg0
-           (add-atom &aggregate
-              (stored-aggregate-row
-                 $agg-gid $child-gid dummy-agg-args 1.0 0.0 ())))
         ($pid-old
            (store-proof-candidate $agg-gid
-              (leaf-result-candidate
-                 (CPU FoldAllCompiled dummy-agg-args 1) ())))
-        ($_agg1
-           (progn
-              (remove-atom &aggregate
-                 (stored-aggregate-row
-                    $agg-gid $child-gid dummy-agg-args
-                    1.0 0.0 ()))
-              (add-atom &aggregate
-                 (stored-aggregate-row
-                    $agg-gid $child-gid dummy-agg-args
-                    1.0 0.0 ($pid-old)))))
+              (aggregate-result-candidate
+                 (CPU FoldAllCompiled dummy-agg-args 1) () ())))
         ($parent-pid
            (store-proof-candidate $parent-gid
               (proof-candidate
@@ -1069,19 +983,8 @@
                  0.8 () ($pid-old))))
         ($pid-new
            (store-proof-candidate $agg-gid
-              (leaf-result-candidate
-                 (CPU FoldAllCompiled dummy-agg-args 2) ())))
-        ($_agg2
-           (progn
-              (remove-atom &aggregate
-                 (stored-aggregate-row
-                    $agg-gid $child-gid dummy-agg-args
-                    1.0 0.0 ($pid-old)))
-              (add-atom &aggregate
-                 (stored-aggregate-row
-                    $agg-gid $child-gid dummy-agg-args
-                    1.0 0.0 ($pid-new)))
-              (deactivate-current-proof! $pid-old)))
+              (aggregate-result-candidate
+                 (CPU FoldAllCompiled dummy-agg-args 2) () ())))
         ($_materialize
            (let $_deps (collapse (materialize-list! (root-pids $parent-gid))) ())))
       ((proof-live? $pid-old)
@@ -1108,23 +1011,14 @@
         ($_pidreset (change-state! bwd_pid 0))
         ($agg-gid (ensure-goal-at-depth (CPU FoldAllCompiled dummy-agg-args $out) 0))
         ($child-gid (ensure-goal-at-depth (test-runtime-fact (Child) (brand Proof $prf) (STV 1.0 1.0)) 1))
-        ($_agg0 (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ())))
         ($pid-old
            (store-proof-candidate $agg-gid
-              (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 1) ())))
-        ($_agg1
-           (progn
-              (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ()))
-              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-old)))))
+              (aggregate-result-candidate (CPU FoldAllCompiled dummy-agg-args 1) () ())))
         ($_prime-proof (proof-live? $pid-old))
         ($_prime-goal (goal-live-proof-ids $agg-gid))
         ($pid-new
            (store-proof-candidate $agg-gid
-              (leaf-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) ())))
-        ($_agg2
-           (progn
-              (remove-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-old)))
-              (add-atom &aggregate (stored-aggregate-row $agg-gid $child-gid dummy-agg-args 1.0 0.0 ($pid-new)))
-              (deactivate-current-proof! $pid-old))))
+              (aggregate-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) () ())))
+        )
       ((proof-live? $pid-old) (proof-live? $pid-new) (length (goal-live-proof-ids $agg-gid))))
    (false true 1))

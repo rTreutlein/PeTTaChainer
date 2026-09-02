@@ -95,7 +95,7 @@
                             $agenda $steps
                             (root-demands-max (goal-root-demands $gid))
                             $gid)
-                         (once (run-aggregate-heap $agenda $gid)))))))
+                         (once (refresh-fold-heap $agenda $gid)))))))
          (search-agenda-heap $next-steps $nagenda))
       (search-agenda-heap $steps $agenda)))
 
@@ -203,17 +203,18 @@
 (= (harvest-base-rates)
    (let $_
       (collapse
-         (match &aggregate
-            (stored-aggregate-row
+         (match &fold_source
+            (fold-source-row
                $agg-gid $_child $args
-               $_base $_pending $current-pid)
+               $_base $_budget $_approx)
             (case (base-rate-aggregate-key $args) (
                (no-base-rate-aggregate-key ())
                ((base-rate-aggregate-key-value $kbid $pattern $mode)
-                  (case $current-pid (
+                  (case (current-fold-snapshot
+                           $agg-gid (CPU FoldAllCompiled $args $_result)) (
                      (() ())
-                     ((cons $stored-pid $_rest)
-                        (let $pid (stored-number $stored-pid)
+                     ((cons $pid $_rest)
+                        (let $_pid $pid
                            (if (= (proof-output-atom-by-id $pid)
                                   (CPU $_fun $_out-args (STV $s $c)))
                               (let* (($_components
@@ -236,33 +237,33 @@
 (= (harvest-complete-member-inheritance-empty-caches!)
    (let $_
       (collapse
-         (match &aggregate
-            (stored-aggregate-row
-               $agg-gid $_child
-               ($kbid
-                (MemberInheritanceSample
-                   $_obj $subj $concept $_atv $_btv)
-                $_extractor $_init $_fun
-                (member-inheritance $kbid) $_tv-mode)
-               $_base 0.0 $current-pid)
-            (match &aggregate_search_budget
-               (aggregate-search-budget-row $agg-gid $budget)
-               (case (collapse
-                        (proof-output-atom-by-id
-                           (first-number (the (List Number) $current-pid)))) (
-                  ((cons (CPU $_fold $_stored-args no-evidence) $_outputs)
-                     (let* (($_cache
-                               (forward-store-member-inheritance-empty-cache!
-                                  (brand KB $kbid)
-                                  (brand Term $subj)
-                                  (brand Term $concept)
-                                  $budget))
-                            ($_retire
-                               (collapse
-                                  (deactivate-current-proofs!
-                                     (the (List Number) $current-pid)))))
-                        ()))
-                  ($_other ()))))))
+         (match &fold_source
+            (fold-source-row
+               $agg-gid $_child $args $_base $budget $_approx)
+            (case $args (
+               (($kbid
+                 (MemberInheritanceSample
+                    $_obj $subj $concept $_atv $_btv)
+                 $_extractor $_init $_fun
+                 (member-inheritance $kbid) $_tv-mode)
+                  (if (goal-agenda-kind-requested? $agg-gid agenda-aggregate)
+                     ()
+                     (case (current-fold-snapshot
+                              $agg-gid (CPU FoldAllCompiled $args $_result)) (
+                        (() ())
+                        ((cons $pid $_rest)
+                           (case (proof-output-atom-by-id $pid) (
+                              ((CPU $_fold $_stored-args no-evidence)
+                                 (let* (($_cache
+                                           (forward-store-member-inheritance-empty-cache!
+                                              (brand KB $kbid)
+                                              (brand Term $subj)
+                                              (brand Term $concept)
+                                              $budget))
+                                        ($_retire (deactivate-current-proof! $pid)))
+                                    ()))
+                              ($_other ()))))))))
+               ($_other ())))))
       ()))
 
 ;; Internal queue operations are semidet because an arbitrary numeric ID may
@@ -286,7 +287,7 @@
        Bool (List (List RuntimeResult))))
 (= (execute-backward $steps $goals $materialize?)
    (let*
-      (;; Goals, waiters, and aggregate execution rows belong to one search.
+      (;; Goals, waiters, and fold source rows belong to one search.
        ;; Completed proof rows and their dependency indexes are monotonic
        ;; knowledge and intentionally survive this reset.
        ($_clear (clear-backward-query-state!))

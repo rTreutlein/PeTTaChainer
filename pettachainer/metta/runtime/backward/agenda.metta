@@ -33,10 +33,10 @@
       (chainer-first-or 0.0
          (collapse
             (once
-               (match &aggregate
-                  (stored-aggregate-row
+               (match &fold_source
+                  (fold-source-row
                      $gid $_child $_args $base-score
-                     $_pending $_current)
+                     $_budget $_approx)
                   $base-score))))
       (goal-demand-sum $gid)))
 
