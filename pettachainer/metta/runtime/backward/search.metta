@@ -131,14 +131,12 @@
                    (+
                       (backward-agenda-priority
                          $agenda-depth $score $aggregate-bonus $kind)
-                      (if (is-expr $type)
-                         (if (== (car-atom $type) Inheritance)
-                            (if (goal-has-type-vars? $goal)
-                               0.0
-                               (* 0.000001 $gid))
-                            (if (== $context MAIN)
-                               0.0
-                               (* -0.000001 $gid)))
+                      (if (if (is-expr $type)
+                             (== (car-atom $type) Inheritance)
+                             false)
+                         (if (goal-has-type-vars? $goal)
+                            0.0
+                            (* 0.000001 $gid))
                          (if (== $context MAIN)
                             0.0
                             (* -0.000001 $gid))))))))
@@ -369,7 +367,7 @@
    (-[semidet]-> (Heap AgendaEntry) Number AndBundle
        (List Evidence) Number (Heap AgendaEntry)))
 (: commit-checked-proof-candidate-heap
-   (-[semidet]-> (Heap AgendaEntry) Number Bool ProofCandidate
+   (-[semidet]-> (Heap AgendaEntry) Number ProofCandidate
        (Heap AgendaEntry)))
 (: normalize-frontier-goal-proof
    (-[det]-> (| Goal (Statement KBContext Proof TV))
@@ -410,8 +408,10 @@
                    (once
                       (classify-goal-proof-candidate
                          $parent-gid $candidate))))))
-      (commit-checked-proof-candidate-heap
-         $agenda $parent-gid $accepted $candidate)))
+      (if $accepted
+         (commit-checked-proof-candidate-heap
+            $agenda $parent-gid $candidate)
+         $agenda)))
 
 (: spawn-frontier-heap
    (-[semidet]-> (Heap AgendaEntry) Number AndBundle Number
@@ -638,9 +638,10 @@
                       ($_other ())))))))
           ($next-score
              (min $score
-                (frontier-proof-score
-                   $proof-output
-                   (frontier-part-score $part $proof-score))))
+                (let $part-score (frontier-part-score $part $proof-score)
+                   (if (= $proof-output (CPU $_fun $_args $_res))
+                      (max 0.000001 $part-score)
+                      $part-score))))
           ($advanced
              (case $part (
                 ((pool-part $_pool-key $_pool-tv $_pool-arity
@@ -749,14 +750,13 @@
    (if (== $accepted false) $agenda
       (if (candidate-is-cyclic? $gid $kind $children) $agenda
          (commit-checked-proof-candidate-heap
-            $agenda $gid true
+            $agenda $gid
             (proof-candidate $kind $score $evidence $children)))))
 
 (= (commit-checked-proof-candidate-heap
-      $agenda $gid $accepted
+      $agenda $gid
       (proof-candidate $kind $score $evidence $children))
-   (if (== $accepted false) $agenda
-      (let* (($goal-key (proof-goal-key-by-goal-id $gid))
+   (let* (($goal-key (proof-goal-key-by-goal-id $gid))
              ($output-key
                 (candidate-output-key (candidate-kind-term $kind)))
              ($pid
@@ -774,7 +774,7 @@
                    ((cons $current $_rest) $current)
                    (() (goal-merged-proof-id-for-pid $gid $pid))))))
          (wake-proof-commit-heap
-            $agenda $gid $representative))))
+            $agenda $gid $representative)))
 
 ;; --- Aggregate scheduling and atomic snapshot replacement -------------------
 

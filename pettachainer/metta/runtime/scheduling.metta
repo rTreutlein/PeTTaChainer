@@ -113,12 +113,6 @@
        ($expected-steps (max 1.0 (confidence-to-count $confidence))))
       (/ (min $root-bound $gain-bound) $expected-steps)))
 
-(: frontier-proof-score (-[det]-> $proof-output Number Number))
-(= (frontier-proof-score $output $score)
-   (if (= $output (CPU $_fun $_args $_res))
-      (max 0.000001 $score)
-      $score))
-
 ;; Backward work shares one numeric priority policy.  Depth remains the
 ;; dominant band, score orders work within a depth, and the small lane offset
 ;; only breaks otherwise equal cross-kind work.
