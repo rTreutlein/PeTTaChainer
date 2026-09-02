@@ -34,24 +34,16 @@
 !(test (collapse (proof-term-children-mode proof-walk-in-kb (STV 1.0 1.0))) (()))
 !(test (collapse (proof-term-children-mode shallow (derived a b))) (()))
 
-!(test (collapse (record-compiled-inheritance-subject! unrelated)) (()))
-!(test (collapse (record-compiled-inheritance-concepts! unrelated)) (()))
+!(test (collapse (record-compiled-inheritance! unrelated)) (()))
 !(test
    (let*
       (($_ (collapse
-              (record-compiled-inheritance-subject!
+              (record-compiled-inheritance!
                  (: (dispatchKb MAIN Nil) proof (Inheritance subject concept) tv))))
-       ($rows (collapse (match &inheritance_subject (dispatchKb subject) true))))
-      (length $rows))
-   1)
-!(test
-   (let*
-      (($_ (collapse
-              (record-compiled-inheritance-concepts!
-                 (: (dispatchKb MAIN Nil) proof (Inheritance subject concept) tv))))
-       ($rows (collapse (match &concept_node (dispatchKb concept) true))))
-      (length $rows))
-   1)
+       ($subjects (collapse (match &inheritance_subject (dispatchKb subject) true)))
+       ($concepts (collapse (match &concept_node (dispatchKb concept) true))))
+      ((length $subjects) (length $concepts)))
+   (1 1))
 
 !(test (collapse (query-temp-rule-premise (Compute f args result))) ((Compute f args -> result)))
 !(test (collapse (query-temp-rule-premise premise)) (premise))

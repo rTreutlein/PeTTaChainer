@@ -9,36 +9,29 @@
 (: register-inheritance-induction! (-[det]-> KB (List $none)))
 (= (register-inheritance-induction! $_kb) ())
 
-(: record-compiled-inheritance-subject!
+(: record-compiled-inheritance!
    (-[nondet]-> CompiledAddition  (| Bool (List $none))))
-(= (record-compiled-inheritance-subject! $expr)
-   (case $expr (
-      ((: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $_concept) $_tv)
-         (if (is-var $subj) ()
-            (let* (($typed-kbid (brand KB $kbid))
-                   ($typed-subj (brand Statement $subj))
-                   ($known?
-                      (observed-inheritance-subject?
-                         $typed-kbid $typed-subj))
-                   ($_retire
-                      (if $known? ()
-                         (retire-changed-base-rate-universe!
-                            $typed-kbid)))
-                   ($_subject
-                      (add-space-atom! &inheritance_subject
-                         (make-space-pair $kbid $subj))))
-               ())))
-      ($_other ()))))
-
-(: record-compiled-inheritance-concepts!
-   (-[nondet]-> CompiledAddition  (| Bool (List $none))))
-(= (record-compiled-inheritance-concepts! $expr)
+(= (record-compiled-inheritance! $expr)
    (case $expr (
       ((: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $concept) $_tv)
-         (record-inheritance-nodes!
-            (brand KB $kbid)
-            (brand Statement $subj)
-            (brand Statement $concept)))
+         (let*
+            (($typed-kbid (brand KB $kbid))
+             ($typed-subj (brand Statement $subj))
+             ($_subject
+                (if (is-var $subj) ()
+                   (let*
+                      (($_retire
+                          (if (observed-inheritance-subject?
+                                 $typed-kbid $typed-subj)
+                             ()
+                             (retire-changed-base-rate-universe!
+                                $typed-kbid)))
+                       ($_row
+                          (add-space-atom! &inheritance_subject
+                             (make-space-pair $kbid $subj))))
+                      ()))))
+            (record-inheritance-nodes!
+               $typed-kbid $typed-subj (brand Statement $concept))))
       ((: ($kbid $_ctx $_vars) $_prf (Member $_obj $class) $_tv)
          (record-concept-node!
             (brand KB $kbid)
@@ -65,22 +58,16 @@
    (-[nondet]-> KB AnnotatedStatement  CompiledAddition))
 (= (compileadd $kb $stmt)
    (let*
-      (($stmt1 (materialize-stmt-lambdas $stmt))
-        ($raw-atoms (collapse (mm2compile $kb $stmt1)))
-        ($atoms $raw-atoms)
+      (($raw-atoms
+          (collapse (mm2compile $kb (materialize-stmt-lambdas $stmt))))
         ($iatoms
            (list_to_set
-              (map-flat internalize-runtime-addition $atoms)))
+              (map-flat internalize-runtime-addition $raw-atoms)))
         ($eatoms
            (map-flat externalize-compiled-addition $iatoms))
-        ($_subjects
+        ($_recorded
            (collapse
-              (foreach-flat
-                 record-compiled-inheritance-subject! $eatoms)))
-        ($_concepts
-           (collapse
-              (foreach-flat
-                 record-compiled-inheritance-concepts! $eatoms)))
+              (foreach-flat record-compiled-inheritance! $eatoms)))
         ($_ (collapse (foreach-flat add-to-kb $iatoms))))
       (superpose
          $eatoms)))
