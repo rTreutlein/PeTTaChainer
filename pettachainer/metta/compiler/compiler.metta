@@ -15,16 +15,20 @@
 ;; the temporary-rule route; all other statements translate the canonical plan.
 (: mm2compileQuery (-[nondet]-> KB AnnotatedStatement  CompiledQuery))
 (= (mm2compileQuery $kb $stmt)
-         (if (and-then (= $stmt (: $prf $type $tv)) (query-needs-temp-rule? (the Statement $type)))
-             (compiled-query
-                (brand CompiledQueryGoal
-                   (internalize-proof-structure
-                      (: (kbctx $kb) $prf $type $tv)))
-                (map-flat internalize-runtime-addition
-                   (collapse (mm2compile $kb (compound-query-temp-stmt $stmt)))))
-            (let (compilation-plan $goal $adds) (compileQuery $kb $stmt)
-               (compiled-query
-                  (brand CompiledQueryGoal
-                     (internalize-proof-structure $goal))
-                  (map-flat internalize-runtime-addition
-                     (compiled-adds-mm2stmts $adds))))))
+   (if (and-then (= $stmt (: $prf $type $tv))
+          (if (head-is-member? $type (And Or LikelierThan))
+             (compound-direct-query-bundle?
+                (statement-children (cdr-atom $type)))
+             false))
+      (compiled-query
+         (brand CompiledQueryGoal
+            (internalize-proof-structure
+               (: (kbctx $kb) $prf $type $tv)))
+         (map-flat internalize-runtime-addition
+            (collapse (mm2compile $kb (compound-query-temp-stmt $stmt)))))
+      (let (compilation-plan $goal $adds) (compileQuery $kb $stmt)
+         (compiled-query
+            (brand CompiledQueryGoal
+               (internalize-proof-structure $goal))
+            (map-flat internalize-runtime-addition
+               (compiled-adds-mm2stmts $adds))))))

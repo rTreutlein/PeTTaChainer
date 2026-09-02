@@ -238,22 +238,15 @@
          (brand Statement (Compute $f $args -> $res)))
       ($_other (brand Statement $premise)))))
 
-(: query-needs-temp-rule? (-[det]-> Statement Bool))
-(= (query-needs-temp-rule? $term)
-   (if (head-is-member? $term (And Or LikelierThan))
-      (compound-direct-query-bundle?
-         (statement-children (cdr-atom $term)))
-      false))
-
 (: compound-query-temp-stmt
    (-[semidet]-> AnnotatedStatement AnnotatedStatement))
 (= (compound-query-temp-stmt (: $_prf $type $_tv))
-	(let $premises
-         (map-flat query-temp-rule-premise
-            (statement-children (cdr-atom $type)))
-	      (: query-compound
-	         (Implication (seq2expr $premises) $type)
-	         (CTV (STV 1.0 1.0) (STV 0.0 1.0)))))
+   (let $premises
+      (map-flat query-temp-rule-premise
+         (statement-children (cdr-atom $type)))
+      (: query-compound
+         (Implication (seq2expr $premises) $type)
+         (CTV (STV 1.0 1.0) (STV 0.0 1.0)))))
 
 ;; Query assumptions with no caller-supplied TV are treated as certain. An
 ;; implication needs a CTV-shaped default because its positive and negative
