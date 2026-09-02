@@ -801,7 +801,7 @@
        (length (goal-merged-proof-ids $child-gid))
        (goal-live-proof-ids $parent-gid)
        (== (goal-incumbent-proof-ids $parent-gid) ($old-parent))
-       (not (== (root-goal-results $parent-gid) ()))))
+       (not (== (root-goal-results-with-materialization $parent-gid false) ()))))
    (true false false 1 () true true))
 
 ;; One invalidation cascade may revisit a shared parent through multiple paths,
@@ -1064,14 +1064,14 @@
                     1.0 0.0 ($pid-new)))
               (deactivate-current-proof! $pid-old)))
         ($_materialize
-           (materialize-root-goal-proofs-to-kb $parent-gid)))
+           (let $_deps (collapse (materialize-list! (root-pids $parent-gid))) ())))
       ((proof-live? $pid-old)
        (proof-list-live? ($pid-old))
        (== (proof-children-by-id $parent-pid) ($pid-old))
        (proof-live? $parent-pid)
        (goal-live-proof-ids $parent-gid)
        (== (goal-incumbent-proof-ids $parent-gid) ($parent-pid))
-       (not (== (root-goal-results $parent-gid) ()))
+       (not (== (root-goal-results-with-materialization $parent-gid false) ()))
        (not
           (==
              (collapse
