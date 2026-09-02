@@ -472,32 +472,11 @@
          $kb $ctx $vars $shape-kb $prf $tv
          $full $consequent $children (+ $idx 1) $rest))))
 
-;; Concrete Inheritance assertions also act as implication-like rules over
-;; members. Materializing these views once at compile time lets ordinary rule
-;; indexing and inference handle inheritance without a separate chainer path.
 (: concrete-inheritance-link? (-[det]-> Atom Atom Bool))
 (= (concrete-inheritance-link? $subj $concept)
    (if (is-var $subj)
       false
       (if (is-var $concept) false true)))
-
-(: compile-derived-inheritance-views
-   (-[nondet]-> KB Proof Term Term TV  CompiledAddition))
-(= (compile-derived-inheritance-views $kb $prf $subj $concept $tv)
-   (superpose
-      ((compile_ $kb
-          (: (inheritance-implication $prf)
-             (Implication
-                (Inheritance $x $subj)
-                (Inheritance $x $concept))
-             $tv))
-       (let $ctv (inheritance-lift-ctv $tv)
-          (compile_ $kb
-             (: (no_inverse (member-inheritance-implication $prf))
-                (Implication
-                   (Member $x $subj)
-                   (Member $x $concept))
-                $ctv))))))
 
 ;; A total-implication context represents a hypothetical instance of the
 ;; queried subject. Top-level Inheritance premises about a rule's conclusion
@@ -657,27 +636,18 @@
                          $kb $stmt-copy $source-copy)))))
             (empty)))))
 
-(: compile-inheritance-lifts-for-context
-   (-[nondet]-> KB KBContext  CompiledAddition))
-(= (compile-inheritance-lifts-for-context $kb $lift-kb)
-   (match &inheritance_lift_instance
-      ($_hash
-         (inheritance-lift-instance-row
-            $kb $ground-stmt $source-stmt))
-      (let* (($ground-copy
-                (the AnnotatedStatement
-                   (copy_term $ground-stmt)))
-             ($source-copy
-                (the AnnotatedStatement
-                   (copy_term $source-stmt))))
-         (compile-inheritance-lift-instance
-            $kb $lift-kb $ground-copy $source-copy))))
-
 (: collect-inheritance-lifts-for-context
    (-[det]-> KB KBContext (List CompiledAddition)))
 (= (collect-inheritance-lifts-for-context $kb $lift-kb)
    (collapse
-      (compile-inheritance-lifts-for-context $kb $lift-kb)))
+      (match &inheritance_lift_instance
+         ($_hash
+            (inheritance-lift-instance-row
+               $kb $ground-stmt $source-stmt))
+         (compile-inheritance-lift-instance
+            $kb $lift-kb
+            (the AnnotatedStatement (copy_term $ground-stmt))
+            (the AnnotatedStatement (copy_term $source-stmt))))))
 
 ;; On rule addition, emit every instance already supported by stored facts and
 ;; retain the template for facts added later. No open lifted rule enters the KB.
@@ -913,12 +883,26 @@
       (superpose (
          (brand CompiledAddition
             (() |- (: $fact-kb $prf $Type $tv)))
+         ;; Concrete Inheritance assertions also act as implication-like
+         ;; rules over members. Materializing these views once at compile
+         ;; time lets ordinary rule indexing and inference handle inheritance
+         ;; without a separate chainer path.
          (if (= $Type (Inheritance $subj $concept))
             (if (concrete-inheritance-link? $subj $concept)
-               (compile-derived-inheritance-views
-                  $kb $prf
-                  (brand Term $subj) (brand Term $concept)
-                  $tv)
+               (superpose
+                  ((compile_ $kb
+                      (: (inheritance-implication $prf)
+                         (Implication
+                            (Inheritance $x $subj)
+                            (Inheritance $x $concept))
+                         $tv))
+                   (let $ctv (inheritance-lift-ctv $tv)
+                      (compile_ $kb
+                         (: (no_inverse (member-inheritance-implication $prf))
+                            (Implication
+                               (Member $x $subj)
+                               (Member $x $concept))
+                            $ctv)))))
                (empty))
             (empty))
          (compile-specialization-fact-triggers $kb $Type)
