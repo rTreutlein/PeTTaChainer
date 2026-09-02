@@ -183,7 +183,7 @@
               $_stored-gid $depth $_goal $_expanded $state)
              $row)
           ((goal-agenda-state
-              $_generation $_issued-revision $issued-score
+              $issued-generation $_issued-revision $issued-score
               $requested-lanes)
              $state)
           ($requested?
@@ -192,13 +192,14 @@
              (if $requested? (> $score $issued-score) true)))
       (if $issue?
          (let* (($revision (goal-demand-revision $gid))
-                ($next-state
-                   (goal-agenda-state-request
-                      $kind $revision $score $state))
-                ((goal-agenda-state
-                    $generation $_next-revision $_next-score $lanes)
-                   $next-state)
-                ($_state (set-goal-agenda-state! $row $next-state)))
+                ($generation (+ $issued-generation 1))
+                ($lanes
+                   (if $requested? $requested-lanes
+                      (cons $kind $requested-lanes)))
+                ($_state
+                   (set-goal-agenda-state! $row
+                      (goal-agenda-state
+                         $generation $revision $score $lanes))))
             (add-goal-agenda-lanes-heap
                $agenda $row $revision $generation
                $kind $score $lanes))

@@ -40,13 +40,6 @@
                   $base-score))))
       (goal-demand-sum $gid)))
 
-(: goal-agenda-kind-requested-in-state?
-   (-[det]-> AgendaKind GoalAgendaState Bool))
-(= (goal-agenda-kind-requested-in-state? $kind
-      (goal-agenda-state
-         $_generation $_issued-revision $_issued-score $requested-lanes))
-   (stored-list-member? $kind $requested-lanes))
-
 (: remove-goal-agenda-kind
    (-[det]-> AgendaKind (List AgendaKind) (List AgendaKind)))
 (= (remove-goal-agenda-kind $_kind ()) ())
@@ -54,17 +47,6 @@
    (if (== $kind $head)
       (remove-goal-agenda-kind $kind $rest)
       (cons $head (remove-goal-agenda-kind $kind $rest))))
-
-(: goal-agenda-state-request
-   (-[det]-> AgendaKind Number Number GoalAgendaState GoalAgendaState))
-(= (goal-agenda-state-request $kind $revision $score
-      (goal-agenda-state
-         $generation $_issued-revision $_issued-score $requested-lanes))
-   (goal-agenda-state
-      (+ $generation 1) $revision $score
-      (if (stored-list-member? $kind $requested-lanes)
-         $requested-lanes
-         (cons $kind $requested-lanes))))
 
 (: set-goal-agenda-state!
    (-[det]-> StoredGoalRow GoalAgendaState (List $none)))
@@ -92,9 +74,12 @@
          (() false)
          ((cons
              (stored-goal-row
-                $_stored-gid $_depth $_goal $_expanded $state)
+                $_stored-gid $_depth $_goal $_expanded
+                (goal-agenda-state
+                   $_generation $_issued-revision $_issued-score
+                   $requested-lanes))
              $_rest)
-            (goal-agenda-kind-requested-in-state? $kind $state))))))
+            (stored-list-member? $kind $requested-lanes))))))
 
 (: agenda-entry-owned? (-[det]-> AgendaEntry Bool))
 (= (agenda-entry-owned?
@@ -114,141 +99,97 @@
                (== $generation $stored-generation)
                (stored-list-member? $kind $requested-lanes)))))))
 
-(: clear-goal-agenda-kind!
-   (-[det]-> StoredGoalRow AgendaKind (List $none)))
-(= (clear-goal-agenda-kind!
-      (stored-goal-row
-         $gid $depth $goal $expanded
-         (goal-agenda-state
-            $generation $issued-revision $issued-score $requested-lanes))
-      $kind)
-   (set-goal-agenda-state!
-      (stored-goal-row
-         $gid $depth $goal $expanded
-         (goal-agenda-state
-            $generation $issued-revision $issued-score $requested-lanes))
-      (goal-agenda-state
-         $generation $issued-revision $issued-score
-         (remove-goal-agenda-kind $kind $requested-lanes))))
-
 (: release-pruned-agenda-entry!
    (-[det]-> AgendaEntry (List $none)))
-(= (release-pruned-agenda-entry! $entry)
-   (let $hits (collapse (once (goal-by-id
-      (case $entry (
-         ((agenda-entry $_kind $gid $_token) $gid))))))
+(= (release-pruned-agenda-entry!
+      (agenda-entry $kind $gid
+         (agenda-revision-token $_revision $generation)))
+   (let $hits (collapse (once (goal-by-id $gid)))
       (case $hits (
          (() ())
-         ((cons $row $_rest)
-            (case $entry (
-               ((agenda-entry $kind $_gid $_token)
-                  (if (agenda-entry-owned? $entry)
-                     (let $_clear
-                        (clear-goal-agenda-kind!
-                           (the StoredGoalRow $row) $kind)
-                        ())
-                     ())))))))))
-
-(: claim-owned-goal-agenda-entry!
-   (-[det]-> StoredGoalRow AgendaEntry AgendaClaimDisposition))
-(= (claim-owned-goal-agenda-entry!
-      (stored-goal-row
-         $gid $depth $goal $expanded
-         (goal-agenda-state
-            $generation $issued-revision $issued-score $requested-lanes))
-      (agenda-entry $kind $gid
-         (agenda-revision-token $entry-revision $generation)))
-   (let* (($current-score (agenda-kind-score $kind $gid))
-          ($current-revision (goal-demand-revision $gid))
-          ($next-state
-             (goal-agenda-state
-                $generation $current-revision $current-score
-                (remove-goal-agenda-kind $kind $requested-lanes)))
-          ($cancelled
-             (if (<= $current-score 0.0) true
-                (if (== $kind agenda-expand)
-                   (if
-                      (not (== $entry-revision $current-revision))
-                      (if (< (* $current-score 2.0) $issued-score)
-                         (if (goal-has-type-vars? $goal) false
-                            (let* (($key
-                                       (brand ProofGoalKey
-                                          (goal-key $goal)))
-                                    ($hash (index-hash $key)))
-                               (not
-                                  (==
-                                     (collapse
-                                        (once
-                                           (match &proof_goal
-                                              ($hash $_lookup-key
-                                                 $stored-key $_pid)
-                                              (if (=alpha $stored-key $key)
-                                                 true
-                                                 (empty)))))
-                                     ()))))
-                         false)
-                      false)
-                   false))))
-      (if $cancelled
-         (let $_clear
-            (set-goal-agenda-state!
-               (stored-goal-row
-                  $gid $depth $goal $expanded
-                  (goal-agenda-state
-                     $generation $issued-revision $issued-score
-                     $requested-lanes))
-               $next-state)
-            agenda-cancelled)
-         (if (not (== $current-score $issued-score))
-            (let $_refresh
-               (set-goal-agenda-state!
-                  (stored-goal-row
-                     $gid $depth $goal $expanded
+         ((cons
+             (stored-goal-row
+                $stored-gid $depth $goal $expanded
+                (goal-agenda-state
+                   $stored-generation $issued-revision $issued-score
+                   $requested-lanes))
+             $_rest)
+            (if (== $generation $stored-generation)
+               (if (stored-list-member? $kind $requested-lanes)
+                  (set-goal-agenda-state!
+                     (stored-goal-row
+                        $stored-gid $depth $goal $expanded
+                        (goal-agenda-state
+                           $stored-generation $issued-revision
+                           $issued-score $requested-lanes))
                      (goal-agenda-state
-                        $generation $issued-revision $issued-score
-                        $requested-lanes))
-                  (goal-agenda-state
-                     $generation $current-revision $current-score
-                     $requested-lanes))
-               agenda-retoken)
-            (let $_clear
-               (set-goal-agenda-state!
-                  (stored-goal-row
-                     $gid $depth $goal $expanded
-                     (goal-agenda-state
-                        $generation $issued-revision $issued-score
-                        $requested-lanes))
-                  $next-state)
-               agenda-claimed)))))
+                        $stored-generation $issued-revision $issued-score
+                        (remove-goal-agenda-kind $kind $requested-lanes)))
+                  ())
+               ()))))))
 
 (: claim-goal-agenda-entry!
    (-[det]-> AgendaEntry AgendaClaimDisposition))
-(= (claim-goal-agenda-entry! $entry)
-   (case $entry (
-      ((agenda-entry $kind $gid
-          (agenda-revision-token $revision $generation))
-         (let $hits (collapse (once (goal-by-id $gid)))
-            (case $hits (
-               (() agenda-cancelled)
-               ((cons
-                   (stored-goal-row
-                      $_stored-gid $_depth $_goal $_expanded
-                      (goal-agenda-state
-                         $stored-generation $stored-revision
-                         $_issued-score $requested-lanes))
-                   $_rest)
-                  (if
-                     (not (== $generation $stored-generation))
-                     agenda-stale
-                     (if
-                        (not
-                           (stored-list-member?
-                              $kind $requested-lanes))
-                        agenda-cancelled
-                        (claim-owned-goal-agenda-entry!
-                           (stored-goal-row
-                              $_stored-gid $_depth $_goal $_expanded
-                              (goal-agenda-state
-                                 $stored-generation $stored-revision
-                                 $_issued-score $requested-lanes))
-                           $entry)))))))))))
+(= (claim-goal-agenda-entry!
+      (agenda-entry $kind $gid
+         (agenda-revision-token $entry-revision $generation)))
+   (let $hits (collapse (once (goal-by-id $gid)))
+      (case $hits (
+         (() agenda-cancelled)
+         ((cons
+             (stored-goal-row
+                $_stored-gid $depth $goal $expanded
+                (goal-agenda-state
+                   $stored-generation $issued-revision
+                   $issued-score $requested-lanes))
+             $_rest)
+            (if (not (== $generation $stored-generation))
+               agenda-stale
+               (if (not (stored-list-member? $kind $requested-lanes))
+                  agenda-cancelled
+                  (let* (($current-score (agenda-kind-score $kind $gid))
+                         ($current-revision (goal-demand-revision $gid))
+                         ($cancelled
+                            (if (<= $current-score 0.0) true
+                               (if (== $kind agenda-expand)
+                                  (if
+                                     (not (== $entry-revision $current-revision))
+                                     (if (< (* $current-score 2.0) $issued-score)
+                                        (if (goal-has-type-vars? $goal) false
+                                           (let* (($key
+                                                      (brand ProofGoalKey
+                                                         (goal-key $goal)))
+                                                   ($hash (index-hash $key)))
+                                              (not
+                                                 (==
+                                                    (collapse
+                                                       (once
+                                                          (match &proof_goal
+                                                             ($hash $_lookup-key
+                                                                $stored-key $_pid)
+                                                             (if (=alpha $stored-key $key)
+                                                                true
+                                                                (empty)))))
+                                                    ()))))
+                                        false)
+                                     false)
+                                  false)))
+                         ($disposition
+                            (if $cancelled agenda-cancelled
+                               (if (== $current-score $issued-score)
+                                  agenda-claimed
+                                  agenda-retoken)))
+                         ($_state
+                            (set-goal-agenda-state!
+                               (stored-goal-row
+                                  $gid $depth $goal $expanded
+                                  (goal-agenda-state
+                                     $generation $issued-revision
+                                     $issued-score $requested-lanes))
+                               (goal-agenda-state
+                                  $generation $current-revision $current-score
+                                  (if (== $disposition agenda-retoken)
+                                     $requested-lanes
+                                     (remove-goal-agenda-kind
+                                        $kind $requested-lanes))))))
+                     $disposition))))))))
