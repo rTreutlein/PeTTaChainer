@@ -144,14 +144,8 @@
    (let $hash
       (forward-output-index-hash
          (forward-output-key $kb $type))
-      (not (==
-         (collapse
-            (once
-               (match &forward_frontier
-                  (forward-frontier-row
-                     $hash $type $kb $fact $ev)
-                  true)))
-         ()))))
+      (space-row-present? &forward_frontier
+         (forward-frontier-row $hash $type $kb $fact $ev))))
 
 (: forward-frontier-rejects?
    (-[det]-> ForwardOutputKey
