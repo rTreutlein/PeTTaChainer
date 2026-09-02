@@ -607,15 +607,15 @@
                       (inheritance-lift-instance-row
                          $kb $candidate $_source))
                    (if (=alpha $candidate $stmt-copy) true (empty)))))))
-      (if (not (== $stored ())) (empty)
-         (let*
-            (($source-copy (copy_term $source-stmt))
-             ($_instance
-                (add-atom &inheritance_lift_instance
-                   ($hash
-                      (inheritance-lift-instance-row
-                         $kb $stmt-copy $source-copy)))))
-            (empty)))))
+      (let $_instance
+         (if (== $stored ())
+            (let $source-copy (copy_term $source-stmt)
+               (add-atom &inheritance_lift_instance
+                  ($hash
+                     (inheritance-lift-instance-row
+                        $kb $stmt-copy $source-copy))))
+            ())
+         (empty))))
 
 (: collect-inheritance-lifts-for-context
    (-[det]-> KB KBContext (List CompiledAddition)))
@@ -722,25 +722,15 @@
                             $kb $head $triggers-copy $job-copy))))))))
       (register-specialization-templates! $kb $rest $triggers $job)))
 
-;; Compiler backends may contribute additional fact providers for structural
-;; specialization. PeTTaChainer's default provider reads its native KB; MM2
-;; adds a provider that reads compiler metadata directly from MORK.
-(: compiler-specialization-fact
-   (-[nondet]-> KB Statement  Statement))
-(= (compiler-specialization-fact $kb $trigger)
-   (match &kb ($trigger ($kb $_ctx $_vars) $_prf $_tv)
-      $trigger))
-
 ;; Bind the trigger variables by matching each remaining trigger against the
-;; compiler-visible fact providers; $body shares those variables, so it comes
-;; out ground.
+;; stored facts; $body shares those variables, so it comes out ground.
 (: ground-triggers
    (-[nondet]-> KB (List Atom) SpecializationJob
        SpecializationJob))
 (= (ground-triggers $_kb () $body) $body)
 (= (ground-triggers $kb (cons $trigger $rest) $body)
    (let $candidate
-      (compiler-specialization-fact $kb (brand Statement $trigger))
+      (match &kb ($trigger ($kb $_ctx $_vars) $_prf $_tv) $trigger)
       (let $trigger $candidate
          (ground-triggers $kb $rest $body))))
 
