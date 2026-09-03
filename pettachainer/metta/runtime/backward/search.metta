@@ -382,10 +382,9 @@
                    (once
                       (classify-goal-proof-candidate
                          $parent-gid $candidate))))))
-      (if $accepted
-         (commit-checked-proof-candidate-heap
-            $agenda $parent-gid $candidate)
-         $agenda)))
+      ;; Admissibility tested the premises against the open goal; the
+      ;; instantiated result is checked for cycles here like any commit.
+      (commit-proof-candidate-heap $agenda $parent-gid $accepted $candidate)))
 
 (: spawn-frontier-heap
    (-[semidet]-> (Heap AgendaEntry) Number AndBundle Number
