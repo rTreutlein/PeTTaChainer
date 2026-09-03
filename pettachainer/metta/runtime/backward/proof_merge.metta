@@ -280,14 +280,18 @@
 (= (kind-refines? $old-kind $old-ev $new-kind $new-ev) (let* (($old-proof-value (kind-value $old-kind)) ($new-proof-value (kind-value $new-kind))) (if (= $old-proof-value (proof-value $old-proof)) (if (= $new-proof-value (proof-value $new-proof)) (and (forward-strict-evidence-subset? $old-ev $new-ev) (forward-proof-refines? (brand Proof $old-proof) (brand Proof $new-proof))) false) false)))
 (: overlap-dominates? (-[det]-> ProofKind (List Evidence) Number ProofKind (List Evidence) Number Bool))
 (= (overlap-dominates? $old-kind $old-ev $old-score $new-kind $new-ev $new-score) (let $_metric (increment-backward-query-metric! dominance-checks) (if (evidence-sets-dependent? $old-ev $new-ev) (if (kind-refines? $old-kind $old-ev $new-kind $new-ev) false (if (kind-refines? $new-kind $new-ev $old-kind $old-ev) true (if (> $old-score $new-score) true (if (== $old-score $new-score) (evidence-subset? $new-ev $old-ev) false)))) false)))
-(: comparable-candidate? (-[semidet]-> Bool ProofOutputKey Number Bool))
-(= (comparable-candidate? false $_outkey $_oldpid) true)
-(= (comparable-candidate? true $outkey $oldpid) (== (output-key $oldpid) $outkey))
-(: candidate-step (-[semidet]-> Bool ProofOutputKey ProofKind (List Evidence) Number Bool Number Bool))
-(= (candidate-step $_open $_outkey $_kind $_ev $_score false $_oldpid) false)
-(= (candidate-step $open $outkey $kind $ev $score true $oldpid) (let $_metric (increment-backward-query-metric! candidate-comparisons) (if (comparable-candidate? $open $outkey $oldpid) (let* ((($old-score $old-ev) (proof-stats-by-id $oldpid)) ($old-kind (proof-kind-by-id $oldpid))) (if (and (== $old-score $score) (== $old-ev $ev)) false (if (overlap-dominates? $old-kind $old-ev $old-score $kind $ev $score) false true))) true)))
+;; Candidates compete within their output key. Equal score and equal
+;; non-empty evidence is the same derivation; without evidence
+;; (evidence-transparent chains) the children's outputs decide, so distinct
+;; instances stay distinct and a re-derivation is dropped.
+(: same-child-outputs? (-[semidet]-> (List Number) (List Number) Bool))
+(= (same-child-outputs? () $new) (== $new ()))
+(= (same-child-outputs? (cons $old $old-rest) $new) (case $new ( (() false) ((cons $pid $new-rest) (if (=alpha (proof-output-atom-by-id $old) (proof-output-atom-by-id $pid)) (same-child-outputs? $old-rest $new-rest) false)))))
+(: candidate-step (-[semidet]-> ProofKind (List Evidence) Number (List Number) Bool Number Bool))
+(= (candidate-step $_kind $_ev $_score $_children false $_oldpid) false)
+(= (candidate-step $kind $ev $score $children true $oldpid) (let* (($_metric (increment-backward-query-metric! candidate-comparisons)) (($old-score $old-ev) (proof-stats-by-id $oldpid)) ($old-kind (proof-kind-by-id $oldpid))) (if (if (== $old-score $score) (if (== $old-ev $ev) (if (== $ev ()) (same-child-outputs? (proof-children-by-id $oldpid) $children) true) false) false) false (if (overlap-dominates? $old-kind $old-ev $old-score $kind $ev $score) false true))))
 (: classify-goal-proof-candidate (-[semidet]-> Number ProofCandidate Bool))
-(= (classify-goal-proof-candidate $gid (proof-candidate $kind $score $ev $_children)) (let* (((stored-goal-row $_gid $_depth $goal $_expanded $_pending) (goal-by-id $gid)) ($open (goal-has-type-vars? $goal)) ($result (candidate-kind-term $kind)) ($outkey (candidate-output-key $result)) ($pids (if $open (live-output-pids $gid $outkey) (goal-live-proof-ids $gid)))) (proof-fold-flat-semidet (candidate-step $open $outkey $kind $ev $score) true $pids)))
+(= (classify-goal-proof-candidate $gid (proof-candidate $kind $score $ev $children)) (let $outkey (candidate-output-key (candidate-kind-term $kind)) (proof-fold-flat-semidet (candidate-step $kind $ev $score $children) true (live-output-pids $gid $outkey))))
 (: normalize-proof-candidate-evidence (-[semidet]-> ProofCandidate ProofCandidate))
 (= (normalize-proof-candidate-evidence (proof-candidate $kind $score $ev $children)) (proof-candidate $kind $score (case $kind ( ((rule ($type $kb $prf $tv)) (rule-result-evidence (assemble-runtime-fact (brand Statement $type) (brand KBContext $kb) (brand Proof $prf) (the TV $tv)) $ev)) ($_other $ev))) $children))
 (: store-proof-candidate (-[nondet]-> Number ProofCandidate Number))

@@ -75,12 +75,12 @@
             (merge/revision
                (negated
                   (by penguinsDoNotFly
-                     (by (inheritance-implication pinguPenguin) (ctx proof 2))))
-               (by (inheritance-implication birdFlies) (by (inheritance-implication penguinBird) (by (inheritance-implication pinguPenguin) (ctx proof 2)))))
+                     (by (inheritance-implication pinguPenguin) (ctx proof 4))))
+               (by (inheritance-implication birdFlies) (by (inheritance-implication penguinBird) (by (inheritance-implication pinguPenguin) (ctx proof 4)))))
             (merge/revision
-               (by (inheritance-implication birdFlies) (by (inheritance-implication penguinBird) (by (inheritance-implication pinguPenguin) (ctx proof 3))))
+               (by (inheritance-implication birdFlies) (by (inheritance-implication penguinBird) (by (inheritance-implication pinguPenguin) (ctx proof 5))))
                (negated
                   (by penguinsDoNotFly
-                     (by (inheritance-implication pinguPenguin) (ctx proof 3)))))))
+                     (by (inheritance-implication pinguPenguin) (ctx proof 5)))))))
       (Inheritance Pingu (IntSet flies))
       (STV 0.17169145424651658 0.9152685522975222))))
