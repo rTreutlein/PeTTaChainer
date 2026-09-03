@@ -55,21 +55,18 @@
                       (brand Proof metricLive)
                       (the TV (STV 1.0 0.8))))
                 0.8 () ())))
-       ($_nonstatic (remove-atom &proof_static_live ($pid)))
        ($_uncached
           (remove-atom &proof_live_cache
              (proof-live-cache-row $pid true)))
        ($_begin (begin-backward-query-metrics!))
        ($miss (proof-live? $pid))
        ($hit (proof-live? $pid))
-       ($_static (once (add-atom &proof_static_live ($pid))))
-       ($static-hit (proof-live? $pid))
        ($_retired (once (add-atom &proof_retired ($pid))))
        ($retired (proof-live? $pid)))
-      ($miss $hit $static-hit $retired
+      ($miss $hit $retired
        (query_metric_value proof-liveness-checks)
        (query_metric_value proof-liveness-cache-hits)
        (query_metric_value proof-liveness-cache-misses)))
-   (true true true false 4 2 1))
+   (true true false 3 1 1))
 
 !(set-backward-query-metrics false)

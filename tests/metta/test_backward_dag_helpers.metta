@@ -214,7 +214,7 @@
           &proof_current &proof_current_output
           &proof_current_result &proof_current_result_output
           &proof_current_result_dirty
-          &proof_parent &proof_static_live
+          &proof_parent
           &proof_superseded &proof_retired))
       ()))
 
