@@ -12,6 +12,7 @@
 (: record-compiled-inheritance!
    (-[nondet]-> CompiledAddition  (| Bool (List $none))))
 (= (record-compiled-inheritance! $expr)
+   (let $_folds (case $expr ( ((: ($kbid $_c $_v) $_p $stmt $_t) (retire-base-rate-folds-matching! (brand KB $kbid) (brand Statement $stmt))) ($_o ())))
    (case $expr (
       ((: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $concept) $_tv)
          (let*
@@ -36,7 +37,7 @@
          (record-concept-node!
             (brand KB $kbid)
             (brand Statement $class)))
-      ($_other ()))))
+      ($_other ())))))
 
 (: materialize-stmt-lambdas (-[nondet]-> $term  $term))
 (= (materialize-stmt-lambdas $term)

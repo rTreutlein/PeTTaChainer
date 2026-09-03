@@ -25,12 +25,12 @@
       (if (== $cached ()) no-cache-entry (car-atom $cached)))
    (STV 0.6999999999999998 0.0009990009990009992))
 
-; Second query answers from the cached base rates: the inverted proof keeps
-; its modus ponens TV but the base-rate premises are cache hits (cpu tokens,
-; no fold expansion).
+; Second query reuses the fold snapshots the first query left current (their
+; STVs are also in the cache): the inverted proof keeps its modus ponens TV
+; and its base-rate premises stay the fold proofs, no fold expansion.
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.736162240263287 0.0003604307138536469)))
+   (: ((inverted r with (foldall-proof pb) (foldall-proof qa (by r pb))) qa) (P alice) (STV 0.736162240263287 0.0003604307138536469)))
 
 ; Adding another proof is monotonic. The computed snapshot remains available
 ; until a later query refolds the larger proof set.

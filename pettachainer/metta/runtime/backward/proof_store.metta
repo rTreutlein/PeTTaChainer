@@ -301,6 +301,10 @@
                (let $pids (result-ids (brand ProofGoalKey $gkey))
                   (superpose $pids))
                (empty))))))
+;; Pending retirements are consumed when a query starts: the changed folds'
+;; snapshots leave the current view before the search reads their dependents.
+(: consume-pending-base-rate-retires! (-[det]-> (List $none)))
+(= (consume-pending-base-rate-retires!) (let $_consumed (collapse (match &base_rate_pending_retire ($_lookup (pending-base-rate-retire-entry $key)) (consume-pending-base-rate-retire-key! (the BaseRateAggregateKey $key)))) ()))
 (: consume-pending-base-rate-retire-key!
    (-[det]-> BaseRateAggregateKey Bool))
 (= (consume-pending-base-rate-retire-key! $key)

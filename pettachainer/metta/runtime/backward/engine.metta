@@ -224,10 +224,7 @@
                                            $args $pid))
                                      ($_cache
                                         (store-computed-base-rate!
-                                           $kbid $pattern (STV $s $c) $mode))
-                                     ($_supersede
-                                        (if (ba-materialized? $agg-gid) ()
-                                           (supersede-current-proof! $pid))))
+                                           $kbid $pattern (STV $s $c) $mode)))
                                  ()))
                            ((CPU $_fold $_stored-args no-evidence)
                               (case $args (
@@ -245,8 +242,7 @@
                                                     (brand Term $subj)
                                                     (brand Term $concept)
                                                     $budget))
-                                              ($_retire
-                                                 (deactivate-current-proof! $pid)))
+                                              ($_retire (deactivate-current-proof! $pid)))
                                           ())))
                                  ($_other ()))))
                            ($_other ())))))))))))
@@ -277,6 +273,7 @@
        ;; Completed proof rows and their dependency indexes are monotonic
        ;; knowledge and intentionally survive this reset.
        ($_clear (clear-backward-query-state!))
+       ($_retires (consume-pending-base-rate-retires!))
        ($_reset
           (foreach-flat
              (|-> ($key) (change-state! $key 0))

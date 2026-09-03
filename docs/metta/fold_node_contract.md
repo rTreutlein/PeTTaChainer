@@ -57,9 +57,12 @@ Result rows are durable across queries. A fold goal created in a later query
 resolves to the same goal key and finds its latest snapshot through the normal
 result index, exactly as an ordinary goal reuses a completed proof. There is no
 separate durable-restore walk for folds. Base-rate folds are harvested into the
-base-rate cache after each query and their snapshot is superseded then (unless
-materialized), so a later query restarts them from the cache rather than the
-snapshot; that is a base-rate policy, not a store rule.
+base-rate cache after each query and their snapshot stays current: it is
+superseded only when the facts it folded change (a new fact instantiating the
+fold's pattern, `set-base-rate`, `clear-base-rate`, a universe change request
+the retirement, consumed when the next query starts) and at the next spawn the
+cache seeds the refold. An empty member-inheritance fold is an exhausted-budget
+observation, not a value, and is retired at harvest so a larger budget retries.
 
 ## Scheduling (fold-specific)
 

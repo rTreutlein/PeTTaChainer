@@ -112,6 +112,12 @@
                   (the BaseRateAggregateKey $key))
                (empty))))
       ()))
+;; A new fact requests the retirement of every registered base-rate fold of
+;; its knowledge base whose pattern it instantiates (consumed at query start).
+(: pattern-covers? (-[det]-> Atom Atom Bool))
+(= (pattern-covers? $pattern $stmt) (case (copy_term (quote ($pattern $stmt))) ( (($same $same) true) ($_other false))))
+(: retire-base-rate-folds-matching! (-[det]-> KB Statement (List $none)))
+(= (retire-base-rate-folds-matching! $kbid $stmt) (let $_requested (collapse (match &base_rate_fold ($lookup $key $kbid $_gkey) (case $key ( ((base-rate-aggregate-key-value $_skb $pattern $_mode) (if (pattern-covers? $pattern $stmt) (request-base-rate-aggregate-retire! (the Number $lookup) (the BaseRateAggregateKey $key)) (empty))) ($_other (empty)))))) ()))
 (: retire-changed-base-rate-aggregate!
    (-[det]-> KB Statement $mode (List $none)))
 (= (retire-changed-base-rate-aggregate! $kbid $pattern $mode)
