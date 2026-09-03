@@ -13,7 +13,6 @@
     proof-liveness-checks
     proof-liveness-cache-hits
     proof-liveness-cache-misses
-    durable-proof-considerations
     current-proof-goal-lookups
     current-result-goal-lookups
     candidate-comparisons
@@ -31,7 +30,7 @@
       (map-flat
          query_metric_value
          (backward-query-counter-keys)))
-   (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
+   (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
 
 ;; Every proof-live? call records one native liveness event. A retired proof is
 ;; still a check, but is neither a cache hit nor a cache miss.
