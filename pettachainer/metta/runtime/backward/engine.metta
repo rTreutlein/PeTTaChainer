@@ -199,14 +199,17 @@
             ()))
       ($_other ()))))
 
+;; After a search, every base-rate fold row publishes its current snapshot:
+;; a computed STV seeds the cache and the forward statistics, and an empty
+;; member-inheritance fold with no refresh pending records its budget as an
+;; authoritative empty entry.
 (: harvest-base-rates (-[det]-> (List $none)))
 (= (harvest-base-rates)
    (let $_
       (collapse
          (match &fold_source
             (fold-source-row
-               $agg-gid $_child $args
-               $_base $_budget $_approx)
+               $agg-gid $_child $args $_base $budget $_approx)
             (case (base-rate-aggregate-key $args) (
                (no-base-rate-aggregate-key ())
                ((base-rate-aggregate-key-value $kbid $pattern $mode)
@@ -214,56 +217,39 @@
                            $agg-gid (CPU FoldAllCompiled $args $_result)) (
                      (() ())
                      ((cons $pid $_rest)
-                        (let $_pid $pid
-                           (if (= (proof-output-atom-by-id $pid)
-                                  (CPU $_fun $_out-args (STV $s $c)))
+                        (case (proof-output-atom-by-id $pid) (
+                           ((CPU $_fun $_out-args (STV $s $c))
                               (let* (($_components
                                         (harvest-computed-aggregate-state!
                                            $args $pid))
                                      ($_cache
                                         (store-computed-base-rate!
-                                           $kbid
-                                           $pattern
-                                           (STV $s $c)
-                                           $mode))
+                                           $kbid $pattern (STV $s $c) $mode))
                                      ($_supersede
                                         (if (ba-materialized? $agg-gid) ()
                                            (supersede-current-proof! $pid))))
-                                 ())
-                              ()))))))))))
-      ()))
-
-(: harvest-complete-member-inheritance-empty-caches! (-[det]-> (List $none)))
-(= (harvest-complete-member-inheritance-empty-caches!)
-   (let $_
-      (collapse
-         (match &fold_source
-            (fold-source-row
-               $agg-gid $_child $args $_base $budget $_approx)
-            (case $args (
-               (($kbid
-                 (MemberInheritanceSample
-                    $_obj $subj $concept $_atv $_btv)
-                 $_extractor $_init $_fun
-                 (member-inheritance $kbid) $_tv-mode)
-                  (if (goal-agenda-kind-requested? $agg-gid agenda-aggregate)
-                     ()
-                     (case (current-fold-snapshot
-                              $agg-gid (CPU FoldAllCompiled $args $_result)) (
-                        (() ())
-                        ((cons $pid $_rest)
-                           (case (proof-output-atom-by-id $pid) (
-                              ((CPU $_fold $_stored-args no-evidence)
-                                 (let* (($_cache
-                                           (forward-store-member-inheritance-empty-cache!
-                                              (brand KB $kbid)
-                                              (brand Term $subj)
-                                              (brand Term $concept)
-                                              $budget))
-                                        ($_retire (deactivate-current-proof! $pid)))
-                                    ()))
-                              ($_other ()))))))))
-               ($_other ())))))
+                                 ()))
+                           ((CPU $_fold $_stored-args no-evidence)
+                              (case $args (
+                                 (($_kb
+                                   (MemberInheritanceSample
+                                      $_obj $subj $concept $_atv $_btv)
+                                   $_extractor $_init $_acc
+                                   (member-inheritance $_kb2) $_tv-mode)
+                                    (if (goal-agenda-kind-requested?
+                                           $agg-gid agenda-aggregate)
+                                       ()
+                                       (let* (($_cache
+                                                 (forward-store-member-inheritance-empty-cache!
+                                                    (brand KB $kbid)
+                                                    (brand Term $subj)
+                                                    (brand Term $concept)
+                                                    $budget))
+                                              ($_retire
+                                                 (deactivate-current-proof! $pid)))
+                                          ())))
+                                 ($_other ()))))
+                           ($_other ())))))))))))
       ()))
 
 ;; Internal queue operations are semidet because an arbitrary numeric ID may
@@ -344,9 +330,7 @@
                          (root-goal-results-with-materialization
                             $root-gid $materialize?)))))
              $root-gids))
-       ($_harvest (harvest-base-rates))
-       ($_empty-member-cache
-          (harvest-complete-member-inheritance-empty-caches!)))
+       ($_harvest (harvest-base-rates)))
       $results))
 
 (: chainer-many

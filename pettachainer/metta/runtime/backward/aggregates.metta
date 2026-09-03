@@ -7,7 +7,7 @@
 ;; results only wake the existing representative.
 (: ba-child (-[nondet]-> Goal (| Goal (Statement KBContext Proof TV))))
 (= (ba-child (CPU $a $b $c))(let* (($d (car-atom $b))($e (car-atom (cdr-atom $b)))((compiled-query $f $g)(the CompiledQuery (eval (mm2compileQuery $d (: $h $e $i))))))(if (or (is-var $f)(is-var $g))(empty)(let $_ (once (inject-compiled-adds $g))(typed-runtime-premise $f)))))
-(: ba-step-acc (-[semidet]-> (| ExtractValue ExtractInheritanceTV ExtractTV)(-[semidet]-> $a Atom $a) $a $b (| TV NoTV) $a))
+(: ba-step-acc (-[semidet]-> $x (-[semidet]-> $a Atom $a) $a $b (| TV NoTV) $a))
 (= (ba-step-acc $a $b $c $d $e)(case $a ( ((extract-value $f $g)(let ($f ($h $i $j) $k $l)(copy_term $d)($b $c $g)))((extract-inheritance-tv $m $n)(let ((Inheritance $o $p)($h $i $j) $k $l)(copy_term $d)($b $c (WeightedTv (inheritance-subject-prior-tv $m (brand Statement $o)) $e))))(extract-tv ($b $c $e)))))
 ;; The empty-lineage probe must stay in front: without it every harvest and
 ;; unchanged-snapshot commit folds goal-proof-ids against an empty space.
@@ -33,62 +33,34 @@
 (: ba-refine (-[nondet]-> (Heap AgendaEntry) Number Number Number Goal $a TV BaseRateSource (Heap AgendaEntry)))
 (= (ba-refine $a $b $u $c $d $e $f $g)(let* (($h (ba-ensure-child $c $d $e $b $u (== $g forward-approx)))($q (register-goal-waiter! $h $c (aggregate-waiter $c (cached-aggregate-demand $f))))($s (commit-fold-snapshot-heap $a $c (CPU FoldAllCompiled $e $f) ()())))(wake-goal-demand-heap $s $h)))
 (: spawn-aggregate-goal-heap (-[nondet]-> (Heap AgendaEntry) Number Number Number Goal (Heap AgendaEntry)))
-(= (spawn-aggregate-goal-heap $a $b $c $d $e)(let* (($f (copy_term (let (CPU $g $h $i) $e $h)))($k (base-rate-aggregate-key $f))($l (if (pending-base-rate-retires?)(case $k ( ((base-rate-aggregate-key-value $_kbid $_pattern $_mode)(consume-pending-base-rate-retire-key! (the BaseRateAggregateKey $k)))(no-base-rate-aggregate-key false)))false)))(case $k ( ((base-rate-aggregate-key-value $m $n $o)(if (and $l (case $o ( ((member-inheritance $_member-kbid) false)($_other true))))(ba-spawn-live $a $c $b $d $e $f)(ba-spawn-cached $a $b $c $d $e $f (base-rate-cache-entries-for-mode $m $n $o))))(no-base-rate-aggregate-key (ba-spawn-live $a $c $b $d $e $f))))))
-(: ba-spawn-cached (-[nondet]-> (Heap AgendaEntry) Number Number Number Goal $a (List BaseRateEntry)(Heap AgendaEntry)))
-(= (ba-spawn-cached $a $b $c $d $e $f $g)(case $g ( (()(if (case $f ( (($h (MemberInheritanceSample $i $j $k $l $m) $n $o $p (member-inheritance $h) $q)(forward-member-inheritance-empty-cache-hit? (brand KB $h)(brand Term $j)(brand Term $k) $b))($r false))) $a (ba-spawn-live $a $c $b $d $e $f)))((cons $s $t)(let* (($u (base-rate-entry-tv $s))($v (base-rate-entry-source $s)))(if (== $v user)(commit-fold-snapshot-heap $a $d (CPU FoldAllCompiled $f $u)()())(ba-refine $a $c $b $d $e $f $u $v)))))))
+(= (spawn-aggregate-goal-heap $a $b $c $d $e)(let* (($f (copy_term (let (CPU $g $h $i) $e $h)))($k (base-rate-aggregate-key $f))($l (if (pending-base-rate-retires?)(case $k ( ((base-rate-aggregate-key-value $_kbid $_pattern $_mode)(consume-pending-base-rate-retire-key! (the BaseRateAggregateKey $k)))(no-base-rate-aggregate-key false)))false)))(case $k ( ((base-rate-aggregate-key-value $m $n $o)(if (and $l (case $o ( ((member-inheritance $_member-kbid) false)($_other true))))(ba-spawn-live $a $c $b $d $e $f)(case (base-rate-cache-entries-for-mode $m $n $o) ( (()(if (case $f ( (($p (MemberInheritanceSample $q $r $s $t $u) $v $w $x (member-inheritance $p) $y)(forward-member-inheritance-empty-cache-hit? (brand KB $p)(brand Term $r)(brand Term $s) $b))($z false))) $a (ba-spawn-live $a $c $b $d $e $f)))((cons $s2 $t2)(let* (($u2 (base-rate-entry-tv $s2))($v2 (base-rate-entry-source $s2)))(if (== $v2 user)(commit-fold-snapshot-heap $a $d (CPU FoldAllCompiled $f $u2)()())(ba-refine $a $c $b $d $e $f $u2 $v2))))))))(no-base-rate-aggregate-key (ba-spawn-live $a $c $b $d $e $f))))))
 (: ba-spawn-live (-[nondet]-> (Heap AgendaEntry) Number Number Number Goal $a (Heap AgendaEntry)))
 (= (ba-spawn-live $a $b $u $c $d $e)(let* (($f (ba-ensure-child $c $d $e $b $u false))($g (register-goal-waiter! $f $c (aggregate-waiter $c live-aggregate-demand))))(schedule-aggregate-heap (wake-goal-demand-heap $a $f) $c)))
-(: ba-grouped? (-[det]-> $a Bool))
-(= (ba-grouped? $a)(case $a ( (($b $c $d $e $f $g $h $i) true)($j false))))
 (: ba-source-step (-[semidet]-> (List Number) Number (List Number)))
 (= (ba-source-step $a $b)(case (proof-kind-by-id $b)( ((leaf ($c $d $e $f))(if (materialized-aggregate-forward-fact? (assemble-stored-runtime-fact $c $d $e $f)) $a (cons $b $a)))($g (cons $b $a)))))
 (: ba-source-pids (-[semidet]-> Number Number (List Number)))
 (= (ba-source-pids $a $b)(let $c (reverse-number-list (proof-fold-flat-semidet ba-source-step ()(noncyclic-proof-source-ids $a closed-goal $b)))(proof-output-group-representative-pids $b (proof-output-groups $c))))
 (: ba-child-tv (-[det]-> (| Goal (Statement KBContext Proof TV))(| TV NoTV)))
 (= (ba-child-tv $a)(case $a ( ((CPU $b $c $d) no-tv)(($e $f $g $h) $h))))
-(: ba-scalar-step (-[semidet]-> (KB Statement (| ExtractValue ExtractInheritanceTV ExtractTV) $a (-[semidet]-> $b $c $b) $d AggregateTVMode) AggregateState Number AggregateState))
-(= (ba-scalar-step $a (aggregate-state $b $c $d) $e)(let* ((($f $g $h $i $j $k $l)(copy_term $a))(($m $n (proof-support $o $p $q) $r)(proof-row-by-id $e))($s (ba-step-acc $h $j $b $m (ba-child-tv $m))))(aggregate-state $s (list_to_set (append-flat $c $p))(append-flat $d ($e)))))
-(: ba-scalar-state (-[semidet]-> Number Number (KB Statement (| ExtractValue ExtractInheritanceTV ExtractTV) $a (-[semidet]-> $b $c $b) $d AggregateTVMode) AggregateState))
-(= (ba-scalar-state $a $b $c)(let ($d $e $f $g $h $i $j)(copy_term $c)(proof-fold-flat-semidet (ba-scalar-step $c)(aggregate-state $g ()())(ba-source-pids $a $b))))
-(: ba-group-add (-[semidet]-> (| ExtractValue ExtractInheritanceTV ExtractTV)(-[semidet]-> $a $b $a) $a $c $d (| TV NoTV)(List Evidence) Number (List AggregateGroupState)(List AggregateGroupState)))
+(: ba-group-add (-[semidet]-> $x (-[semidet]-> $a $b $a) $a $c $d (| TV NoTV)(List Evidence) Number (List AggregateGroupState)(List AggregateGroupState)))
 (= (ba-group-add $a $b $c $d $e $f $g $h ())(let* (($i (ba-step-acc $a $b $c $e $f))($j (list_to_set $g)))(cons (aggregate-group-state $d $i $j ($h))())))
 (= (ba-group-add $a $b $c $d $e $f $g $h (cons (aggregate-group-state $i $j $k $l) $m))(if (== $d $i)(let* (($n (ba-step-acc $a $b $j $e $f))($o (list_to_set (append-flat $k $g)))($p (append-flat $l ($h))))(cons (aggregate-group-state $i $n $o $p) $m))(cons (aggregate-group-state $i $j $k $l)(ba-group-add $a $b $c $d $e $f $g $h $m))))
-(: ba-group-step (-[semidet]-> (KB Statement $a (| ExtractValue ExtractInheritanceTV ExtractTV) $b (-[semidet]-> $c $d $c) $e AggregateTVMode)(List AggregateGroupState) Number (List AggregateGroupState)))
-(= (ba-group-step $a $b $c)(let* ((($d $e $f $g $h $i $j $k)(copy_term $a))(($l $m (proof-support $n $o $p) $q)(proof-row-by-id $c))($r (let ($e ($s $t $u) $v $w)(copy_term $l) $f)))(ba-group-add $g $i $h $r $l (ba-child-tv $l) $o $c $b)))
-(: ba-group-states (-[semidet]-> Number Number (KB Statement $a (| ExtractValue ExtractInheritanceTV ExtractTV) $b (-[semidet]-> $c $d $c) $e AggregateTVMode)(List AggregateGroupState)))
-(= (ba-group-states $a $b $c)(proof-fold-flat-semidet (ba-group-step $c)()(ba-source-pids $a $b)))
-(: ba-commit-state (-[semidet]-> Number (KB Statement $a (| ExtractValue ExtractInheritanceTV ExtractTV) $b (-[semidet]-> $c $d $c) AggregateFinish AggregateTVMode)(Heap AgendaEntry) AggregateGroupState (Heap AgendaEntry)))
-(= (ba-commit-state $a $b $c (aggregate-group-state $d $e $f $g))(let* ((($h $i $j $k $l $m $n $o) $b)($p (CPU GroupedFoldAllCompiled (quote ($h $i $d $k $l $m $n $o))(finish-aggregate $n $e))))(commit-fold-snapshot-heap $c $a $p $f $g)))
+;; One accumulation state per group; a scalar fold is the single group `scalar`
+;; seeded with the accumulator's initial value so an empty source still commits.
+;; Each step copies the pattern, group variable and extractor so unification
+;; with one child output does not bind them for the next.
+(: ScalarFoldSpec (Alias (KB Statement (| ExtractValue ExtractInheritanceTV ExtractTV) $a (-[semidet]-> $b $c $b) AggregateFinish AggregateTVMode)))
+(: GroupedFoldSpec (Alias (KB Statement $a (| ExtractValue ExtractInheritanceTV ExtractTV) $b (-[semidet]-> $c $d $c) AggregateFinish AggregateTVMode)))
+(: fold-step-scalar (-[semidet]-> ScalarFoldSpec (List AggregateGroupState) Number (List AggregateGroupState)))
+(= (fold-step-scalar $a $b $c)(let* ((($d $e $g $h $i $j $k) $a)(($l $m (proof-support $n $o $p) $q)(proof-row-by-id $c))($g2 (copy_term $g)))(ba-group-add $g2 $i $h scalar $l (ba-child-tv $l) $o $c $b)))
+(: fold-step-grouped (-[semidet]-> GroupedFoldSpec (List AggregateGroupState) Number (List AggregateGroupState)))
+(= (fold-step-grouped $a $b $c)(let* ((($d $e $f $g $h $i $j $k) $a)(($l $m (proof-support $n $o $p) $q)(proof-row-by-id $c))(($e2 $f2 $g2)(copy_term (quote ($e $f $g))))($r (let ($e2 ($s $t $u) $v $w)(copy_term $l) $f2)))(ba-group-add $g2 $i $h $r $l (ba-child-tv $l) $o $c $b)))
+(: fold-commit-state (-[semidet]-> Number $spec Bool (Heap AgendaEntry) AggregateGroupState (Heap AgendaEntry)))
+(= (fold-commit-state $a $b $c $d (aggregate-group-state $e $f $g $h))(let* (($i (case $b ( (($k $l $m $n $o $p $q $r) $q)(($k $l $n $o $p $q $r) $q))))($j (case $b ( (($k $l $m $n $o $p $q $r)(CPU GroupedFoldAllCompiled (quote ($k $l $e $n $o $p $q $r))(finish-aggregate $q $f)))(($k $l $n $o $p $q $r)(CPU FoldAllCompiled $b (finish-aggregate $q $f)))))))(if (ba-degrades? $c $i $a $j) $d (commit-fold-snapshot-heap $d $a $j (ba-commit-ev $i $g) $h))))
 (: ba-commit-ev (-[det]-> $a (List Evidence)(List Evidence)))
 (= (ba-commit-ev $a $b)(if (base-rate-finish? $a)()(if (== $a uniform-prior)()(if (== $a uniform-prior-known)() $b))))
-;; unchanged-snapshot commit folds goal-proof-ids against an empty space.
 (: refresh-fold-heap (-[nondet]-> (Heap AgendaEntry) Number (Heap AgendaEntry)))
-(= (refresh-fold-heap $a $b)
-   (let* (((fold-source-row $d $e $f $g $h $i) (fold-source-by-id $b))
-          ($j (ba-grouped? $f)))
-      (if $j
-         (let $l
-            (the
-               (KB Statement $m
-                  (| ExtractValue ExtractInheritanceTV ExtractTV) $n
-                  (-[semidet]-> $o $p $o) AggregateFinish AggregateTVMode)
-               (copy_term $f))
-            (proof-fold-flat-semidet
-               (ba-commit-state $b $l) $a
-               (ba-group-states $b $e $l)))
-         (let* (((aggregate-state $q $r $s)
-                    (ba-scalar-state $b $e
-                       (the
-                          (KB Statement
-                             (| ExtractValue ExtractInheritanceTV ExtractTV)
-                             $n (-[semidet]-> $o $p $o)
-                             AggregateFinish AggregateTVMode)
-                          (copy_term $f))))
-                (($t $u $v $w $x $y $z) $f)
-                ($v26 (CPU FoldAllCompiled $f (finish-aggregate $y $q)))
-                ($v27 (ba-commit-ev $y $r)))
-            (if (ba-degrades? $i $y $b $v26) $a
-               (commit-fold-snapshot-heap $a $b $v26 $v27 $s))))))
+(= (refresh-fold-heap $a $b)(let* (((fold-source-row $d $e $f $g $h $i)(fold-source-by-id $b))($p (ba-source-pids $b $e))($j (case $f ( (($k $l $m $n $o $q $r $s)(proof-fold-flat-semidet (fold-step-grouped (the GroupedFoldSpec (copy_term $f)))() $p))(($k $l $n $o $q $r $s)(proof-fold-flat-semidet (fold-step-scalar (the ScalarFoldSpec (copy_term $f)))(cons (aggregate-group-state scalar $o ()()) ()) $p))))))(proof-fold-flat-semidet (fold-commit-state $b $f $i) $a $j)))
 ;; A complete base-rate refold may not lower the confidence of the current
 ;; snapshot; a forward-approx seed is partial work and is always replaced.
 (: ba-degrades? (-[semidet]-> Bool $a Number $b Bool))

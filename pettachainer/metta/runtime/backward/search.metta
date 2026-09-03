@@ -11,10 +11,6 @@
 ;; query-local space, while durable proof-store spaces are cleared separately.
 
 (: SearchState (Alias (Number (Heap AgendaEntry))))
-(: AggregateState Type)
-(: aggregate-state
-   (-[det]-> $accumulator (List Evidence) (List Number)
-       AggregateState))
 (: AggregateGroupState Type)
 (: aggregate-group-state
    (-[det]-> $group $accumulator (List Evidence) (List Number)
