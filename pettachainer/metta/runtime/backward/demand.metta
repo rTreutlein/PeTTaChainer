@@ -483,9 +483,8 @@
                  (chainer-add-atom &goal_waiter
                     ($child-gid $waiter))))
            ($_edge
-              (once
-                 (chainer-add-atom &goal_child
-                    ($parent-gid $child-gid))))
+              (if (space-row-present? &goal_child ($parent-gid $child-gid)) ()
+                 (once (chainer-add-atom &goal_child ($parent-gid $child-gid)))))
            ($_update
               (update-goal-demand-cache-for-waiter!
                  $child-gid $parent-gid $current-demands $waiter)))
