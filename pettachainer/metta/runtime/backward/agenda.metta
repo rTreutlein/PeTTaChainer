@@ -156,6 +156,8 @@
                                      (not (== $entry-revision $current-revision))
                                      (if (< (* $current-score 2.0) $issued-score)
                                         (if (goal-has-type-vars? $goal) false
+                                           ;; Only a current proof justifies dropping the
+                                           ;; expansion; retired proofs stay in &proof_goal.
                                            (let* (($key
                                                       (brand ProofGoalKey
                                                          (goal-key $goal)))
@@ -164,9 +166,10 @@
                                                  (==
                                                     (collapse
                                                        (once
-                                                          (match &proof_goal
-                                                             ($hash $_lookup-key
-                                                                $stored-key $_pid)
+                                                          (match &proof_current
+                                                             (current-row $hash $_ohash
+                                                                $_lkey $stored-key
+                                                                $_okey $_pid)
                                                              (if (=alpha $stored-key $key)
                                                                 true
                                                                 (empty)))))

@@ -26,6 +26,37 @@
 (: current-confidence-row (-[det]-> Number (| Number NoCurrentScore) GoalCurrentConfidenceRow))
 (: clear-current-confidence! (-[det]-> Number (List $none)))
 (= (clear-current-confidence! $gid) (let $_removed (collapse (match &goal_current_confidence (current-confidence-row $gid $value) (remove-atom &goal_current_confidence (current-confidence-row $gid $value)))) ()))
+(: GoalDemandRevisionRow Type)
+(: goal-demand-revision-row
+   (-[det]-> Number Number GoalDemandRevisionRow))
+(: GoalDemandCacheValue Type)
+(: goal-demand-revision (-[det]-> Number Number))
+(= (goal-demand-revision $gid)
+   (chainer-first-or 0
+      (collapse
+         (once
+            (match &goal_demand_revision
+               (goal-demand-revision-row $gid $revision)
+               $revision)))))
+
+(: bump-goal-demand-revision! (-[det]-> Number Number))
+(= (bump-goal-demand-revision! $gid)
+   (let* (($revision (goal-demand-revision $gid))
+          ($next (+ $revision 1))
+          ($_metric
+             (increment-backward-query-metric! demand-revision-bumps))
+          ($_old
+             (collapse
+                (match &goal_demand_revision
+                   (goal-demand-revision-row $gid $_old-revision)
+                   (remove-atom &goal_demand_revision
+                      (goal-demand-revision-row
+                         $gid $_old-revision)))))
+          ($_new
+             (once
+                (add-atom &goal_demand_revision
+                   (goal-demand-revision-row $gid $next)))))
+      $next))
 (: clear-key-confidence! (-[det]-> ProofGoalKey (List $none)))
 (= (clear-key-confidence! $key) (let $lkey (index-hash $key) (let $_cleared (collapse (match &goal_lookup ($lkey $saved-key $gid) (if (=alpha $saved-key $key) (clear-current-confidence! (stored-number $gid)) (empty)))) ())))
 (: index-current! (-[det]-> ProofGoalKey ProofOutputKey Number Bool))
@@ -215,7 +246,7 @@
 (= (invalidate-proof-dependents! $child) (invalidate-dependents-epoch! (next-search-id bwd_invalidation_epoch) $child))
 (= (invalidate-dependents-epoch! $epoch $child) (let* (($_frontiers (invalidate-proof-paths! $child)) ($_proofs (foreach-flat (invalidate-dependent-epoch! $epoch) (collapse (match &proof_parent ($child $parent) (stored-number $parent)))))) ()))
 (= (deactivate-current-proof! $pid) (deactivate-proof-epoch! (next-search-id bwd_invalidation_epoch) $pid))
-(= (deactivate-proof-epoch! $epoch $pid) (let* (($gkey (owner-key $pid)) ($okey (output-key $pid)) ($_remove (remove-current! $gkey $pid)) ($_retire (once (add-atom &proof_retired ($pid)))) ($_cache (clear-proof-cache! $pid)) ($_dirty (mark-dirty! $gkey $okey)) ($_confidence (clear-key-confidence! $gkey)) ($_dependents (invalidate-dependents-epoch! $epoch $pid))) ()))
+(= (deactivate-proof-epoch! $epoch $pid) (if (proof-retired? $pid) () (let* (($gkey (owner-key $pid)) ($okey (output-key $pid)) ($_remove (remove-current! $gkey $pid)) ($_retire (once (add-atom &proof_retired ($pid)))) ($_cache (clear-proof-cache! $pid)) ($_dirty (mark-dirty! $gkey $okey)) ($_confidence (clear-key-confidence! $gkey)) ($_dependents (invalidate-dependents-epoch! $epoch $pid))) ())))
 (: drop-current-proof! (-[semidet]-> Number (List $none)))
 (= (drop-current-proof! $pid) (let* (($_remove (remove-current! (owner-key $pid) $pid)) ($_superseded (once (add-atom &proof_superseded ($pid)))) ($_cache (clear-proof-cache! $pid)) ($_dependents (invalidate-proof-dependents! $pid))) ()))
 (= (supersede-current-proof! $pid) (let* (($gkey (owner-key $pid)) ($okey (output-key $pid)) ($_drop (drop-current-proof! $pid)) ($_dirty (mark-dirty! $gkey $okey)) ($_confidence (clear-key-confidence! $gkey))) ()))

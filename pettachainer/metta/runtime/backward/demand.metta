@@ -83,10 +83,6 @@
 (: goal-demand-cache-row
    (-[det]-> Number (List GoalDemandDependency)
        (List RootDemand) GoalDemandCacheRow))
-(: GoalDemandRevisionRow Type)
-(: goal-demand-revision-row
-   (-[det]-> Number Number GoalDemandRevisionRow))
-(: GoalDemandCacheValue Type)
 (: goal-demand-cache-value
    (-[det]-> (List GoalDemandDependency)
        (List RootDemand) GoalDemandCacheValue))
@@ -253,34 +249,6 @@
                      $waiters)
                   $depth
                   (root-goal-demand-seed $gid))))))))
-
-(: goal-demand-revision (-[det]-> Number Number))
-(= (goal-demand-revision $gid)
-   (chainer-first-or 0
-      (collapse
-         (once
-            (match &goal_demand_revision
-               (goal-demand-revision-row $gid $revision)
-               $revision)))))
-
-(: bump-goal-demand-revision! (-[det]-> Number Number))
-(= (bump-goal-demand-revision! $gid)
-   (let* (($revision (goal-demand-revision $gid))
-          ($next (+ $revision 1))
-          ($_metric
-             (increment-backward-query-metric! demand-revision-bumps))
-          ($_old
-             (collapse
-                (match &goal_demand_revision
-                   (goal-demand-revision-row $gid $_old-revision)
-                   (remove-atom &goal_demand_revision
-                      (goal-demand-revision-row
-                         $gid $_old-revision)))))
-          ($_new
-             (once
-                (add-atom &goal_demand_revision
-                   (goal-demand-revision-row $gid $next)))))
-      $next))
 
 (: shallower-parent-step
    (-[det]-> Number (List Number) Number (List Number)))
@@ -451,10 +419,11 @@
                 (goal-demand-cache-row
                    $child-gid $next-dependencies $next-demands))))
        ;; A registration always bumps the revision, even when the merged
-       ;; demand list is unchanged: descendants cached against the previous
-       ;; revision must re-evaluate once a new parent path reaches this goal.
-       ;; Bumping only on a changed list (tried Sep 2026) left incremental
-       ;; refinements one source short at any budget.
+       ;; demand list is unchanged. Retiring a proof clears the goal's cached
+       ;; confidence but nothing re-evaluates descendants whose cached demand
+       ;; was derived from it; the registrations that follow a replacement are
+       ;; what refresh those caches. Bumping only on a changed list, or at
+       ;; retirement time, both left searches quiescing one derivation short.
        ($_revision (bump-goal-demand-revision! $child-gid))
        ;; Only an empty-to-live transition can strand descendants that were
        ;; expanded while this goal was reachable solely through a cycle.  Mark
