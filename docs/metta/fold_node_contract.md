@@ -76,8 +76,12 @@ source goal's current representatives:
   agenda state; there is no separate pending counter.
 - Popping the lane runs `refresh-fold-heap`: collect source representatives
   (excluding proofs that depend on the fold goal itself and materialized
-  forward facts), fold them with the accumulator, then commit per fold key
-  through `commit-fold-snapshot-heap`.
+  forward facts), accumulate one state per group key, then commit each state
+  through `commit-fold-snapshot-heap`. A scalar fold is the single group
+  `scalar`, seeded with the accumulator's initial value so an empty source
+  still commits its neutral result. Only the typed step differs between the
+  two spec shapes; accumulation, result construction, the evidence policy and
+  the degrade guard are shared.
 - `commit-fold-snapshot-heap` is the single commit path for scalar, grouped,
   cached and user-supplied snapshots: unchanged result (alpha-equal term and
   equal evidence to the current representative) wakes the existing
@@ -94,6 +98,12 @@ source commits and be budgeted.
 
 - **Evidence**: base-rate, `uniform-prior` and `uniform-prior-known` finishes
   commit with empty evidence (population statistics are evidence-transparent).
+  The policy is keyed on the finish, so it applies to grouped folds too.
+- **Harvest**: after a search one pass over the fold-source rows publishes
+  each base-rate fold's current snapshot: a computed STV seeds the cache and
+  the forward statistics (and is superseded unless materialized); an empty
+  member-inheritance fold with no refresh pending records its budget as an
+  authoritative empty cache entry.
 - **Acceptance**: a base-rate fold that is not forward-approx may not replace a
   snapshot with a lower-confidence STV (`ba-degrades?`).
 - **Cache**: base-rate folds consult `&base_rate_cache` at spawn: a user entry
