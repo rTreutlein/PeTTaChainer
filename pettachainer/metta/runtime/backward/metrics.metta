@@ -26,9 +26,6 @@
     goal-demand-cache-hits
     goal-demand-cache-misses
     demand-revision-bumps
-    proof-liveness-checks
-    proof-liveness-cache-hits
-    proof-liveness-cache-misses
     current-proof-goal-lookups
     current-result-goal-lookups
     candidate-comparisons

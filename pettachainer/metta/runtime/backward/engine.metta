@@ -273,7 +273,6 @@
        ;; Completed proof rows and their dependency indexes are monotonic
        ;; knowledge and intentionally survive this reset.
        ($_clear (clear-backward-query-state!))
-       ($_retires (consume-pending-base-rate-retires!))
        ($_reset
           (foreach-flat
              (|-> ($key) (change-state! $key 0))

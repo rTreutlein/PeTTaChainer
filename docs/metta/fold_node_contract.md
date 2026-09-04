@@ -30,8 +30,8 @@ restore path. What remains specific to folds is listed at the end.
    candidate row in `&proof_current`, a result row in `&proof_current_result`.
 2. **Replace policy.** Storing a snapshot whose fold key already has a result
    representative replaces it: the old representative leaves `&proof_current`
-   and `&proof_current_result`, is marked superseded, its liveness cache and
-   dependents are invalidated, and the new snapshot becomes the result
+   and `&proof_current_result`, is marked superseded (its parents are left
+   alone), and the new snapshot becomes the result
    directly. No dirty flag, no merge, no dominance. The old row stays in
    `&proof` as history. This is `replace-result!`; the ordinary accumulate
    policy (candidate stays, key marked dirty, representative refreshed lazily)
@@ -45,11 +45,32 @@ restore path. What remains specific to folds is listed at the end.
 
 ## Liveness (shared)
 
-A snapshot is live iff it is still a current representative (not superseded,
-not retired) and every child is live. The `&aggregate` probe and
-`durable-aggregate-representative?` are gone; superseding at replacement is
-what makes the previous snapshot dead. Static liveness is decided by proof
-kind alone: aggregate-kind proofs are never static.
+A snapshot is live iff it is still the current representative of its fold key
+(replacement supersedes it). Every other proof is live until it is retired.
+Nothing propagates: replacing or retiring a proof leaves its parents current.
+There is no liveness cache, no invalidation epoch and no dependent walk.
+
+## Proof validity and supersession (shared)
+
+Every goal is always searchable. A stored proof never blocks a search; it only
+lowers the goal's demand. A re-query therefore re-expands its goals, and the
+source goal of a fold sees a newly added fact through the ordinary leaf
+expansion, so nothing is scheduled or recorded at ingestion.
+
+A proof stays a valid answer until a proof of the same derivation supersedes
+it. The derivation identity of a rule proof is its rule token with premise
+references (and merges of them) erased, plus the output keys of its premises
+in order, repeats collapsed, formula-evaluation leaves excluded. Rule proofs
+are indexed in `&proof_derivation` by the hash of (goal key, identity).
+Storing a candidate first supersedes every current proof of its goal key with
+the same identity whose evidence the candidate covers, whatever their output
+keys (`superseded-derivation-pids`); a candidate with the same identity and the
+same premise proofs is a duplicate and is rejected. Superseding drops the proof
+from the current view, removes it as its key's result and marks the key dirty;
+a commit refreshes a dirty key before it wakes waiters, so the waiters see the
+new representative. A parent built on a replaced child is not touched: it
+stays the answer until the same rule is re-derived over the new child, which
+happens through the child's waiters when the budget allows.
 
 ## Durable restore (shared)
 
@@ -57,12 +78,13 @@ Result rows are durable across queries. A fold goal created in a later query
 resolves to the same goal key and finds its latest snapshot through the normal
 result index, exactly as an ordinary goal reuses a completed proof. There is no
 separate durable-restore walk for folds. Base-rate folds are harvested into the
-base-rate cache after each query and their snapshot stays current: it is
-superseded only when the facts it folded change (a new fact instantiating the
-fold's pattern, `set-base-rate`, `clear-base-rate`, a universe change request
-the retirement, consumed when the next query starts) and at the next spawn the
-cache seeds the refold. An empty member-inheritance fold is an exhausted-budget
-observation, not a value, and is retired at harvest so a larger budget retries.
+base-rate cache after each query and their snapshot stays current. A new fact
+reaches the fold through its source goal on the next query (the replace policy
+supersedes the old snapshot); `set-base-rate`, `clear-base-rate` and universe
+changes request a retirement that the next spawn consumes. At the next spawn
+the cache seeds the refold. An empty member-inheritance fold is an
+exhausted-budget observation, not a value, and is retired at harvest so a
+larger budget retries.
 
 ## Scheduling (fold-specific)
 
@@ -104,7 +126,7 @@ source commits and be budgeted.
   The policy is keyed on the finish, so it applies to grouped folds too.
 - **Harvest**: after a search one pass over the fold-source rows publishes
   each base-rate fold's current snapshot: a computed STV seeds the cache and
-  the forward statistics (and is superseded unless materialized); an empty
+  the forward statistics (the snapshot stays current); an empty
   member-inheritance fold with no refresh pending records its budget as an
   authoritative empty cache entry.
 - **Acceptance**: a base-rate fold that is not forward-approx may not replace a
@@ -134,7 +156,7 @@ fold special case in `frontier-compatible-source-ids`.
 ## Invariants to test
 
 - Two snapshots of one fold key never coexist in `&proof_current`.
-- Replacing a snapshot supersedes the old one, invalidates its dependents,
+- Replacing a snapshot supersedes the old one, leaves its parents current,
   and leaves it retrievable from `&proof` as history.
 - A grouped fold keeps one current snapshot per group key.
 - A fold goal re-created in a later query sees its last snapshot as its

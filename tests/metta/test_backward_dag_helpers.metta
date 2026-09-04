@@ -214,7 +214,7 @@
           &proof_current &proof_current_output
           &proof_current_result &proof_current_result_output
           &proof_current_result_dirty
-          &proof_parent
+          &proof_parent &proof_derivation
           &proof_superseded &proof_retired))
       ()))
 
@@ -740,10 +740,10 @@
       ($empty $first $revised))
    (no-current 0.4 0.625))
 
-;; A raw proof stays live so it can be revised with later evidence. Ordinary
-;; subgoal reasoning treats a parent that consumed the former representative
-;; as stale, while the root result view retains it as a bounded-search
-;; incumbent until a replacement root is committed.
+;; A raw proof stays live so it can be revised with later evidence. A parent
+;; that consumed the former representative stays current: nothing marks it,
+;; and only a proof of the same derivation over the new representative
+;; supersedes it.
 !(test
    (let*
       (($_clear (clear-backward-state))
@@ -770,12 +770,10 @@
        (goal-live-proof-ids $parent-gid)
        (== (goal-incumbent-proof-ids $parent-gid) ($old-parent))
        (not (== (root-goal-results-with-materialization $parent-gid false) ()))))
-   (true false false 1 () true true))
+   (true false true 1 (1) true true))
 
-;; One invalidation cascade may revisit a shared parent through multiple paths,
-;; but a later cascade must re-evaluate it.  This conjunction parent survives
-;; the first child's supersession, then becomes stale when its other child is
-;; retired.
+;; Superseding or retiring a child leaves its parents alone: this conjunction
+;; parent stays live, current and unretired through both events.
 !(test
    (let*
       (($_clear (clear-backward-state))
@@ -831,7 +829,7 @@
           (once
              (add-atom &proof_superseded ($child-one-pid))))
        ($_first
-          (invalidate-proof-dependents! $child-one-pid))
+          (invalidate-proof-paths! $child-one-pid))
        ($after-first (proof-live? $parent-pid))
        ($_second
           (deactivate-current-proof! $child-two-pid)))
@@ -839,7 +837,7 @@
        (proof-live? $parent-pid)
        (proof-retired? $parent-pid)
        (goal-live-proof-ids $parent-gid)))
-   (true false true ()))
+   (true true false (2)))
 
 !(test
    (let*
@@ -935,7 +933,7 @@
        ($before
           ((frontier-path-live? $first)
            (frontier-path-live? $second)))
-       ($_invalidate (invalidate-proof-dependents! 10)))
+       ($_invalidate (invalidate-proof-paths! 10)))
       ((== $first $same-first)
        $proofs
        $before
@@ -988,7 +986,7 @@
         ($_materialize
            (let $_deps (collapse (materialize-list! (root-pids $parent-gid))) ())))
       ((proof-live? $pid-old)
-       (proof-list-live? ($pid-old))
+       (proof-current-representative? $pid-old)
        (== (proof-children-by-id $parent-pid) ($pid-old))
        (proof-live? $parent-pid)
        (goal-live-proof-ids $parent-gid)
@@ -1002,7 +1000,7 @@
                       (incumbentMaterializeKb MAIN Nil) $_proof $_tv)
                    true))
              ()))))
-   (false false true false () true true true))
+   (false false true true (1) true true true))
 
 !(test
    (let*

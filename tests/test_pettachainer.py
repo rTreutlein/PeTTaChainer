@@ -262,8 +262,8 @@ class TestPeTTaChainer(unittest.TestCase):
         add_states(fresh, initial_states + added_states)
         fresh_result = fresh.query_many_materialization([root], steps=100)
         # These finite-budget values are fold-order-sensitive at 100 steps.
-        refined_point = "(STV 0.4705270889977746 3.999988000035998e-06)"
-        fresh_point = "(STV 0.47191878015453864 3.999988000035998e-06)"
+        refined_point = "(STV 0.46265034325181975 2.9999940000119994e-06)"
+        fresh_point = "(STV 0.4753966096428084 3.999988000035998e-06)"
 
         self.assertNotEqual(refined, original)
         self.assertEqual(len(refined[0]), 1)
@@ -274,17 +274,23 @@ class TestPeTTaChainer(unittest.TestCase):
             handler.query_many_materialization([root], steps=0), refined
         )
 
+        # Every goal stays searchable: a re-query may refine the finite-budget
+        # point once more, then it settles.
         handler.set_query_metrics(True)
+        repeats = []
         for _ in range(2):
             handler.handler.process_metta_string(
                 "!(begin-backward-query-metrics!)"
             )
-            repeated = handler.query_many_materialization([root], steps=100)
+            repeats.append(
+                handler.query_many_materialization([root], steps=100)
+            )
             handler.handler.process_metta_string(
                 "!(end-backward-query-metrics!)"
             )
-            self.assertEqual(repeated, refined)
             self.assertEqual(handler._read_query_metrics()["search_aborts"], 0)
+        self.assertEqual(repeats[0], repeats[1])
+        self.assertNotEqual(repeats[0], original)
 
     def test_completed_proofs_survive_query_search_reset(self):
         handler = PeTTaChainer()

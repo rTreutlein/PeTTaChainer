@@ -1,6 +1,6 @@
 ;; Durable backward proof-store contract.
 ;; Owns append-only &proof history, shared goal/result/parent indexes, fold
-;; source rows, current-view private rows, liveness caches, frontier paths, and
+;; source rows, current-view private rows, the derivation index, frontier paths, and
 ;; materialized aggregate lineage. Shared row shapes remain canonical.
 ;; Current candidate/result rows keep goal and output indexes; stable result-key
 ;; rows preserve ordering while dirty groups rebuild once. Fold snapshots use
@@ -215,8 +215,6 @@
 (: materialize-root-list! (-[semidet]-> (List Number) (List Number)))
 (= (materialize-root-list! ()) ())
 (= (materialize-root-list! (cons $pid $rest)) (let* (($deps (materialize-tree! $pid)) ($fact (materialize-fact (proof-output-atom-by-id $pid))) ($okey (forward-fact-key $fact)) ($_alternatives (foreach-flat remove-lineage! (active-lineage $okey))) ($changes (collapse (once (forward-refresh-output-key! $okey)))) ($_refresh (forward-apply-unqueued-change! (if (== $changes ()) no-forward-change (car-atom $changes)))) (($_score $ev) (proof-stats-by-id $pid)) ($_node (collapse (once (upsert-materialized! $fact $ev $deps)))) ($tail (materialize-root-list! $rest))) (merge-mat-deps $deps $tail)))
-(: LiveCacheRow Type)
-(: proof-live-cache-row (-[det]-> Number Bool LiveCacheRow))
 (: ensure-frontier-path (-[semidet]-> Number Number Number))
 (= (ensure-frontier-path $parent-path $pid) (let $hits (collapse (once (match &frontier_path_lookup ($parent-path $pid $path-id) $path-id))) (if (== $hits ()) (let* (($path-id (+ 1 (next-search-id bwd_frontier_path))) ($_lookup (add-space-atom! &frontier_path_lookup (make-space-row3 $parent-path $pid $path-id))) ($_node (add-space-atom! &frontier_path (make-space-row3 $path-id $parent-path $pid))) ($_child (add-space-atom! &frontier_path_child (make-space-pair $parent-path $path-id))) ($_proof (add-space-atom! &proof_frontier_path (make-space-pair $pid $path-id)))) $path-id) (the Number (car-atom $hits)))))
 (: frontier-path-live? (-[det]-> Number Bool))
@@ -227,29 +225,16 @@
 (= (invalidate-path! $path-id) (if (frontier-path-live? $path-id) (let* (($_dead (once (add-atom &frontier_path_dead ($path-id)))) ($_children (foreach-flat invalidate-path! (the (List Number) (collapse (match &frontier_path_child ($path-id $child-path) (stored-number $child-path))))))) ()) ()))
 (: invalidate-proof-paths! (-[det]-> Number (List $none)))
 (= (invalidate-proof-paths! $pid) (foreach-flat invalidate-path! (the (List Number) (collapse (match &proof_frontier_path ($pid $path-id) (stored-number $path-id))))))
-(: cache-live! (-[det]-> Number Bool Bool))
-(= (cache-live! $pid $alive) (once (add-atom &proof_live_cache (proof-live-cache-row $pid $alive))))
 (: register-proof-parent-edge! (-[det]-> Number Number (| Bool (List $none))))
 (= (register-proof-parent-edge! $parent $child) (once (add-atom &proof_parent ($child $parent))))
 (: register-proof-parent-edges! (-[det]-> Number (List Number) (List $none)))
 (= (register-proof-parent-edges! $parent $children) (foreach-flat (register-proof-parent-edge! $parent) $children))
-(: invalidate-dependent-epoch! (-[semidet]-> Number Number (List $none)))
-(: invalidate-dependents-epoch! (-[semidet]-> Number Number (List $none)))
-(: compute-live (-[semidet]-> Number Bool))
 (: deactivate-current-proof! (-[semidet]-> Number (List $none)))
-(: deactivate-proof-epoch! (-[semidet]-> Number Number (List $none)))
 (: supersede-current-proof! (-[semidet]-> Number (List $none)))
-(: clear-proof-cache! (-[det]-> Number (List $none)))
-(= (clear-proof-cache! $pid) (let $_removed (collapse (match &proof_live_cache (proof-live-cache-row $pid $alive) (remove-atom &proof_live_cache (proof-live-cache-row $pid $alive)))) ()))
-(= (invalidate-dependent-epoch! $epoch $parent) (if (space-row-present? &proof_invalidated (($epoch $parent))) () (let* (($_mark (once (add-atom &proof_invalidated (($epoch $parent))))) ($_proof-cache (clear-proof-cache! $parent)) ($alive (chainer-first-or false (collapse (once (compute-live $parent))))) ($_current (if $alive (cache-live! $parent true) (deactivate-proof-epoch! $epoch $parent)))) ())))
-(: invalidate-proof-dependents! (-[semidet]-> Number (List $none)))
-(= (invalidate-proof-dependents! $child) (invalidate-dependents-epoch! (next-search-id bwd_invalidation_epoch) $child))
-(= (invalidate-dependents-epoch! $epoch $child) (let* (($_frontiers (invalidate-proof-paths! $child)) ($_proofs (foreach-flat (invalidate-dependent-epoch! $epoch) (collapse (match &proof_parent ($child $parent) (stored-number $parent)))))) ()))
-(= (deactivate-current-proof! $pid) (deactivate-proof-epoch! (next-search-id bwd_invalidation_epoch) $pid))
-(= (deactivate-proof-epoch! $epoch $pid) (if (proof-retired? $pid) () (let* (($gkey (owner-key $pid)) ($okey (output-key $pid)) ($_remove (remove-current! $gkey $pid)) ($_retire (once (add-atom &proof_retired ($pid)))) ($_cache (clear-proof-cache! $pid)) ($_dirty (mark-dirty! $gkey $okey)) ($_confidence (clear-key-confidence! $gkey)) ($_dependents (invalidate-dependents-epoch! $epoch $pid))) ())))
+(= (deactivate-current-proof! $pid) (if (proof-retired? $pid) () (let* (($gkey (owner-key $pid)) ($okey (output-key $pid)) ($_result (if (== (collapse (once (current-proof-result-id-for-output-key $gkey $okey))) ($pid)) (remove-result-output! $gkey $okey) ())) ($_remove (remove-current! $gkey $pid)) ($_retire (once (add-atom &proof_retired ($pid)))) ($_dirty (mark-dirty! $gkey $okey)) ($_confidence (clear-key-confidence! $gkey)) ($_paths (invalidate-proof-paths! $pid))) ())))
 (: drop-current-proof! (-[semidet]-> Number (List $none)))
-(= (drop-current-proof! $pid) (let* (($_remove (remove-current! (owner-key $pid) $pid)) ($_superseded (once (add-atom &proof_superseded ($pid)))) ($_cache (clear-proof-cache! $pid)) ($_dependents (invalidate-proof-dependents! $pid))) ()))
-(= (supersede-current-proof! $pid) (let* (($gkey (owner-key $pid)) ($okey (output-key $pid)) ($_drop (drop-current-proof! $pid)) ($_dirty (mark-dirty! $gkey $okey)) ($_confidence (clear-key-confidence! $gkey))) ()))
+(= (drop-current-proof! $pid) (let* (($_remove (remove-current! (owner-key $pid) $pid)) ($_superseded (once (add-atom &proof_superseded ($pid)))) ($_paths (invalidate-proof-paths! $pid))) ()))
+(= (supersede-current-proof! $pid) (let* (($gkey (owner-key $pid)) ($okey (output-key $pid)) ($_result (if (== (collapse (once (current-proof-result-id-for-output-key $gkey $okey))) ($pid)) (remove-result-output! $gkey $okey) ())) ($_drop (drop-current-proof! $pid)) ($_dirty (mark-dirty! $gkey $okey)) ($_confidence (clear-key-confidence! $gkey))) ()))
 ;; Replace policy for fold snapshots: the previous representative of the key
 ;; leaves the current view and is superseded; the new snapshot is the result.
 (: replace-result! (-[semidet]-> ProofGoalKey ProofOutputKey (List Number) Number Bool))
@@ -301,10 +286,6 @@
                (let $pids (result-ids (brand ProofGoalKey $gkey))
                   (superpose $pids))
                (empty))))))
-;; Pending retirements are consumed when a query starts: the changed folds'
-;; snapshots leave the current view before the search reads their dependents.
-(: consume-pending-base-rate-retires! (-[det]-> (List $none)))
-(= (consume-pending-base-rate-retires!) (let $_consumed (collapse (match &base_rate_pending_retire ($_lookup (pending-base-rate-retire-entry $key)) (consume-pending-base-rate-retire-key! (the BaseRateAggregateKey $key)))) ()))
 (: consume-pending-base-rate-retire-key!
    (-[det]-> BaseRateAggregateKey Bool))
 (= (consume-pending-base-rate-retire-key! $key)
@@ -327,22 +308,13 @@
 (= (latest-proof-output-group-ids (cons (proof-output-group $_key $pids) $rest)) (cons (latest-proof-id $pids) (latest-proof-output-group-ids $rest)))
 (: stored-list-member? (-[det]-> Atom Atom Bool))
 (= (stored-list-member? $needle $values) (case $values ( (() false) ((cons $first $rest) (if (== $needle $first) true (stored-list-member? $needle $rest))) ($_other false))))
-;; A fold snapshot is live while it is the current representative of its fold
-;; key; replacement supersedes it. Every other kind follows its children.
-(= (compute-live $pid) (let $kind (proof-kind-by-id $pid) (if (= $kind (aggregate $_output)) (proof-current-representative? $pid) (if (keeps-raw-children? $kind) (raw-proof-list-live? (proof-children-by-id $pid)) (proof-list-live? (proof-children-by-id $pid))))))
 (: proof-term-conjunction-dependency? (-[det]-> Proof Bool))
 (= (proof-term-conjunction-dependency? $proof) (if (is-expr $proof) (if (== $proof ()) false (if (is-var (car-atom $proof)) false (if (== (car-atom $proof) conjunction) true (case $proof ( ((by $_rule $dependency) (proof-term-conjunction-dependency? (brand Proof $dependency))) ((negated $inner) (proof-term-conjunction-dependency? (brand Proof $inner))) ($_other false)))))) false))
-(: keeps-raw-children? (-[det]-> ProofKind Bool))
-(= (keeps-raw-children? $kind) (case $kind ( ((merged $_output) true) ((rule ($_type $_kb $proof $_tv)) (proof-term-conjunction-dependency? (brand Proof $proof))) ($_other false))))
-(: raw-proof-list-live? (-[semidet]-> (List Number) Bool))
-(= (raw-proof-list-live? ()) true)
-(= (raw-proof-list-live? (cons $pid $rest)) (if (proof-live? $pid) (raw-proof-list-live? $rest) false))
 (= (proof-current-representative? $pid) (not (space-row-present? &proof_superseded ($pid))))
-(: proof-list-live? (-[semidet]-> (List Number) Bool))
-(= (proof-list-live? ()) true)
-(= (proof-list-live? (cons $pid $rest)) (if (proof-live? $pid) (if (proof-current-representative? $pid) (proof-list-live? $rest) false) false))
 (= (proof-retired? $pid) (space-row-present? &proof_retired ($pid)))
-(= (proof-live? $pid) (if (proof-retired? $pid) (let $_event (query_metric_liveness_event retired) false) (let* (($hits (collapse (once (match &proof_live_cache (proof-live-cache-row $pid $alive) $alive))))) (if (== $hits ()) (let* (($_event (query_metric_liveness_event miss)) ($alive (compute-live $pid)) ($_cache (cache-live! $pid $alive))) $alive) (let $_event (query_metric_liveness_event hit) (car-atom $hits))))))
+;; A proof is live until it is retired; a fold snapshot additionally only while
+;; it is the current representative of its fold key. Parents are never marked.
+(= (proof-live? $pid) (if (proof-retired? $pid) false (if (= (proof-kind-by-id $pid) (aggregate $_output)) (proof-current-representative? $pid) true)))
 (: reverse-number-list (-[det]-> (List Number) (List Number)))
 (: reverse-into (-[det]-> (List Number) (List Number) (List Number)))
 (= (reverse-number-list $items) (reverse-into $items ()))

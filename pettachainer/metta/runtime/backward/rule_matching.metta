@@ -107,7 +107,7 @@
        (Heap AgendaEntry)))
 ;; Generated reverse rules are pruned once per expansion, after the matches
 ;; are collected: the structural scan is free and the current-proof probe runs
-;; only when one of them matched (see generated-reverse-rule-needed?).
+;; only when one of them matched.
 (: generated-rule-match-present? (-[det]-> (List RuleGoalMatch) Bool))
 (= (generated-rule-match-present? ()) false)
 (= (generated-rule-match-present? (cons ($_rule-id $_premises ($_type $_kb $proof $_tv) $_gid) $rest))

@@ -96,6 +96,39 @@ The important tradeoff is intentional: a tightly budgeted query may initially
 use an older estimate. Add-time work must not eagerly make every cached estimate
 current.
 
+### Always searchable, superseded by derivation
+
+A stored proof never closes a goal. Every goal is woken when it is demanded;
+an existing result only lowers the demand. Re-querying therefore re-expands
+its goals, and a fact added between queries reaches the folds and rules that
+use it through the ordinary leaf expansion. Ingestion records nothing for
+the backward store and schedules nothing.
+
+No liveness propagates. A proof is live until it is retired (a fold snapshot:
+until it is replaced). Replacing or retiring a proof does not mark, retire or
+re-evaluate its parents. The only way a proof stops being an answer is
+supersession by a proof of the same derivation:
+
+- The derivation identity of a rule proof is its rule token with premise
+  references, and merges of them, erased, plus the output keys of its
+  premises in order with consecutive repeats collapsed. Formula-evaluation
+  leaves (`CPU` premises) are excluded: their arguments are functions of the
+  other premises, so including them would make every refined input a new
+  derivation. Fact output keys are (statement, context), so two proofs of one
+  statement under one context are the same premise; which atom supplied it is
+  carried by evidence, not identity.
+- Storing a candidate supersedes every current proof of its goal key with the
+  same identity, different premise proofs, and evidence the candidate covers,
+  whatever their output keys. A candidate with the same identity and the same
+  premise proofs is a duplicate and is rejected. Candidates whose identity
+  differs compete inside their output key exactly as before (evidence
+  dominance, revision); the cross-key supersession happens at store time,
+  before that classification sees the incumbents.
+- Consequence for sampling derivations: re-running a particle or distribution
+  derivation over the same premises produces the same identity and a new
+  value, so the new draw supersedes the earlier one rather than accumulating
+  beside it.
+
 ## Performance goals
 
 ### Atom addition should be constant time
@@ -132,11 +165,13 @@ Backward agenda width is a search-policy limit independent of the expansion
 budget. With the same KB and configuration, increasing the budget must extend
 the same deterministic search prefix rather than select a different beam from
 the first step. When later evidence supersedes the representative used for new
-work, completed parents that depend on the earlier representative remain valid
-historical proofs. Ordinary subgoal reasoning still prefers live revised
-representatives. If revision temporarily leaves the root with no live result,
-the root result view returns the completed incumbent until a refined root is
-committed. A finite-budget query may therefore improve or add answers, but must
+work, completed parents that depend on the earlier representative stay current
+answers; nothing marks them. They are superseded only when the same derivation
+is re-derived over the new representative, which the child's waiters do within
+the query budget (see "Derivation identity" below). A finite-budget query may
+therefore return a composite built on an earlier representative, and a
+re-query with the same budget may move it once more before it settles. A query
+may improve or add answers, but must
 not lose its only answer merely because it stopped between aggregate refinement
 and dependent-proof reconstruction.
 
@@ -157,8 +192,8 @@ proof acceptance still uses the ordinary evidence, dominance, revision, and
 cycle rules.
 
 Completed backward proofs are durable search state. Ordinary query reset clears
-only the query arena: goals, waiters, fold source rows, root-demand
-state, and liveness caches. It does not clear proof rows, result or dependency
+only the query arena: goals, waiters, fold source rows and root-demand
+state. It does not clear proof rows, result or dependency
 indexes, semantic ownership, or the monotonic proof-ID counter. A later query
 may therefore use a compatible historical proof immediately as its incumbent
 or as a premise on its frontier. The normal proof/type/TV constraints still

@@ -1,10 +1,9 @@
 ;; Backward search owns scheduler transitions among goals, frontiers, waiters,
 ;; aggregates, and agenda entries.  A spawned frontier replays compatible
-;; durable proofs before deciding whether to wake its child, so historical work
-;; is used before new search is scheduled.  A closed ordinary goal wakes only
-;; when no producer is represented by a current proof; stable-root re-queries
-;; therefore create no agenda work.  Wake propagation permits bounded
-;; synchronous re-entry so immediate revisions cannot escape the query budget.
+;; durable proofs and then wakes its child regardless: every goal is always
+;; searchable, and a stored proof only lowers its demand.  Wake propagation
+;; permits bounded synchronous re-entry so immediate revisions cannot escape
+;; the query budget.
 ;;
 ;; The scheduler owns the private &search_wake_active space.  This file also
 ;; owns the query arena registry: clear-backward-query-state! lists every
@@ -31,7 +30,7 @@
           &fold_source
           &frontier_path &frontier_path_lookup &frontier_path_child
           &frontier_path_dead &proof_frontier_path
-          &proof_live_cache &proof_invalidated &proof_cycle_cache))
+          &proof_cycle_cache))
       ()))
 
 ;; index-hash seals variables before hashing.  The hash is the generated
@@ -314,15 +313,7 @@
 (: schedule-root-goal-heap
    (-[semidet]-> (Heap AgendaEntry) Number (Heap AgendaEntry)))
 (= (schedule-root-goal-heap $agenda $gid)
-   (let* (((stored-goal-row
-              $_stored-gid $_depth $goal $_expanded $_state)
-             (goal-by-id $gid))
-          ($pids
-             (current-proof-ids-for-goal-key
-                (proof-goal-key-by-goal-id $gid))))
-      (if (replayed-frontier-needs-wake? $goal $pids)
-         (wake-goal-demand-heap $agenda $gid)
-         $agenda)))
+   (wake-goal-demand-heap $agenda $gid))
 
 ;; --- Frontier advancement and proof propagation -----------------------------
 
@@ -402,116 +393,8 @@
           ProofKind ProofSupport (List Number))
        (| FrontierPart SkipPart UnpoolablePart) Number (List Evidence)
        (Heap AgendaEntry)))
-(: replayed-frontier-needs-wake?
-   (-[det]-> (| Goal (Statement KBContext Proof TV))
-       (List Number) Bool))
-(: proof-generated-by-rule?
-   (-[det]-> Proof Proof Bool))
-(= (proof-generated-by-rule? $proof $rule-proof)
-   (if (is-var $proof) false
-      (if (and
-             (and (is-expr $proof) (is-expr $rule-proof))
-             (and (== (car-atom $proof) by)
-                  (== (car-atom $rule-proof) by)))
-         (=alpha
-            (car-atom (cdr-atom $proof))
-            (car-atom (cdr-atom $rule-proof)))
-         (if (and (is-expr $proof)
-                  (== (car-atom $proof) merge/revision))
-         (let* (($branches (cdr-atom $proof))
-                ($left (car-atom $branches))
-                ($right (car-atom (cdr-atom $branches))))
-            (or
-               (proof-generated-by-rule?
-                  (brand Proof $left) $rule-proof)
-               (proof-generated-by-rule?
-                  (brand Proof $right) $rule-proof)))
-         (let ($candidate $pattern)
-            (copy_term (quote ($proof $rule-proof)))
-            (if (= $pattern $candidate) true false))))))
 
-(: replayed-proofs-use-rule?
-   (-[det]-> (List Number) Proof Bool))
-(: proof-list-has-aggregate?
-   (-[det]-> (List Number) Bool))
-(: replayed-rule-needs-wake?
-   (-[semidet]-> (List Number)
-      (List (| Goal (Statement KBContext Proof TV))) Proof Bool))
-(= (proof-list-has-aggregate? ()) false)
-(= (proof-list-has-aggregate? (cons $pid $rest))
-   (let $row
-      (chainer-first-or no-proof-row
-         (collapse (once (proof-row-by-id $pid))))
-      (case $row (
-         (($_output (aggregate $_result) $_support $_children) true)
-         ($_other (proof-list-has-aggregate? $rest))))))
-(= (replayed-proofs-use-rule? () $_rule-proof) false)
-(= (replayed-proofs-use-rule? (cons $pid $rest) $rule-proof)
-   (let $row
-      (chainer-first-or no-proof-row
-         (collapse (once (proof-row-by-id $pid))))
-      (case $row (
-         (($_output $kind $_support $children)
-            (if (proof-list-has-aggregate? $children)
-               (replayed-proofs-use-rule? $rest $rule-proof)
-               (case $kind (
-                  ((rule ($_type $_kb $proof $_tv))
-                     (if (proof-generated-by-rule?
-                            (brand Proof $proof) $rule-proof)
-                        true
-                        (replayed-proofs-use-rule?
-                           $rest $rule-proof)))
-                  ($_other
-                     (replayed-proofs-use-rule?
-                        $rest $rule-proof))))))
-         ($_missing
-            (replayed-proofs-use-rule? $rest $rule-proof))))))
-(= (replayed-rule-needs-wake? $pids $premises $rule-proof)
-   (if (inverted-rule-proof? $rule-proof) false
-      (if (generated-reverse-rule-proof? $rule-proof)
-         (if (generated-reverse-rule-needed? $pids $premises $rule-proof)
-            (not (replayed-proofs-use-rule? $pids $rule-proof))
-            false)
-         (not (replayed-proofs-use-rule? $pids $rule-proof)))))
 
-(: search-goal-has-untried-rule?
-   (-[det]-> (| Goal (Statement KBContext Proof TV))
-      (List Number) Bool))
-(= (search-goal-has-untried-rule? $goal $pids)
-   (case $goal (
-      ((CPU $_fun $_args $_result) false)
-      (($_type $_kb $_proof $_tv)
-         (let $lookup-goal
-            (copy_term (data $_type $_kb $_proof $_tv))
-            (not
-               (==
-                  (collapse
-                     (once
-                        (match ccls_index
-                           ($lookup-goal $_rule-id $args)
-                           (if (= $lookup-goal $goal)
-                              (case $lookup-goal (
-                                 (($_rule-type $_rule-kb
-                                     $rule-proof $_rule-tv)
-                                    (if (replayed-rule-needs-wake?
-                                           $pids $args
-                                           (brand Proof $rule-proof))
-                                       true
-                                       (empty)))))
-                              (empty)))))
-                  ())))))))
-(= (replayed-frontier-needs-wake? $premise $pids)
-   (if (== $pids ()) true
-      (if
-         (case $premise (
-            ((CPU $fun $_args $_result)
-               (aggregate-fold-function? $fun))
-            (($type $_kb $_proof $_tv)
-               (compound-source? (brand Statement $type)))
-            ($_other false)))
-         true
-         (if (goal-has-type-vars? $premise) true
-            (search-goal-has-untried-rule? $premise $pids)))))
 
 (= (spawn-frontier-heap
       $agenda $parent-gid $bundle $score $seen $parts $path-id $value-spec)
@@ -537,13 +420,8 @@
                 ($existing-agenda
                    (proof-fold-flat-semidet
                       (frontier-waiter-step $waiter)
-                      $agenda $existing-pids))
-                ($wake?
-                   (replayed-frontier-needs-wake?
-                      $premise $existing-pids)))
-            (if $wake?
-               (wake-goal-demand-heap $existing-agenda $child-gid)
-               $existing-agenda))))))
+                      $agenda $existing-pids)))
+            (wake-goal-demand-heap $existing-agenda $child-gid))))))
 
 (= (frontier-waiter-step $waiter $agenda $pid)
    (let $branch-waiter (copy_term $waiter)
@@ -737,6 +615,10 @@
                    (store-proof-candidate $gid
                       (proof-candidate
                          $kind $score $evidence $children))))
+             ;; A dirty key would hand the waiters a stale representative.
+             ($_refresh
+                (if (result-dirty? $goal-key $output-key)
+                   (refresh-result! $goal-key $output-key) ()))
              ($indexed
                 (collapse
                    (once

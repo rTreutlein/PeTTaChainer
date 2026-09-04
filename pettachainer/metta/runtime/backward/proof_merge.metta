@@ -179,12 +179,6 @@
    (-[semidet]-> Bool (List Evidence) (List (| Goal (Statement KBContext Proof TV))) Bool))
 (= (reverse-rule-premises-current? $stored-ok $incumbent-evidence $premises)
    (premise-evidence-independent? $incumbent-evidence (premise-current-pid-lists $stored-ok $premises)))
-(: generated-reverse-rule-needed?
-   (-[semidet]-> (List Number) (List (| Goal (Statement KBContext Proof TV))) Proof Bool))
-(= (generated-reverse-rule-needed? $pids $premises $proof)
-   (if (proof-list-has-direct-leaf? $pids)
-      (reverse-rule-premises-current? (inverted-rule-proof? $proof) (proof-evidence $pids) $premises)
-      true))
 (: representative-for-key (-[semidet]-> ProofGoalKey ProofOutputGroup Number))
 ;; Output groups are keyed by output, so the head pid's output kind (CPU vs
 ;; fact) is uniform across the group: dispatch on it first and pay the
@@ -225,7 +219,7 @@
 (= (supersede-current-proof-result! () $_new-pid) ())
 (= (supersede-current-proof-result! (cons $old-pid $rest) $new-pid) (if (== $old-pid $new-pid) () (supersede-old! (cons $old-pid $rest))))
 (= (supersede-old! ()) ())
-(= (supersede-old! (cons $old-pid $_rest)) (let* (($_mark (once (add-atom &proof_superseded ($old-pid)))) ($_dependents (invalidate-proof-dependents! $old-pid))) ()))
+(= (supersede-old! (cons $old-pid $_rest)) (let* (($_mark (once (add-atom &proof_superseded ($old-pid)))) ($_paths (invalidate-proof-paths! $old-pid))) ()))
 (: refresh-result! (-[semidet]-> ProofGoalKey ProofOutputKey (List $none)))
 (= (refresh-result! $gkey $okey) (let* (($old (collapse (once (current-proof-result-id-for-output-key $gkey $okey)))) ($pids (current-output-pids $gkey $okey))) (if (== $pids ()) (let* (($_remove (remove-result! $gkey $okey)) ($_supersede (supersede-old! $old)) ($_clean (clear-dirty! $gkey $okey))) ()) (let* (($new-pid (representative-for-key $gkey (proof-output-group $okey $pids))) ($_replace (index-result! $gkey $okey $new-pid)) ($_restore (collapse (remove-atom &proof_superseded ($new-pid)))) ($_supersede (supersede-current-proof-result! $old $new-pid)) ($_clean (clear-dirty! $gkey $okey))) ()))))
 (: refresh-dirty! (-[semidet]-> ProofGoalKey (List (List $none))))
@@ -287,15 +281,49 @@
 (: same-child-outputs? (-[semidet]-> (List Number) (List Number) Bool))
 (= (same-child-outputs? () $new) (== $new ()))
 (= (same-child-outputs? (cons $old $old-rest) $new) (case $new ( (() false) ((cons $pid $new-rest) (if (=alpha (proof-output-atom-by-id $old) (proof-output-atom-by-id $pid)) (same-child-outputs? $old-rest $new-rest) false)))))
+;; Derivation identity: the rule token with premise references (and merges of
+;; them) erased plus the output keys of the premises, in order, repeats collapsed, that are not
+;; formula evaluations. A current proof with the identity of a new candidate
+;; and no evidence the candidate lacks is the same derivation over replaced
+;; inputs: storing the candidate supersedes it. Same identity and the same
+;; premise proofs is a duplicate.
+(: erase-proof-refs (-[det]-> $term $term))
+(= (erase-proof-refs $term) (if (is-expr $term) (if (== $term ()) () (if (is-var (car-atom $term)) $term (case $term ( ((proof-ref $_pid) ref) ((merge/revision $_left $_right) ref) ($_other (cons (erase-proof-refs (car-atom $term)) (map-flat erase-proof-refs (cdr-atom $term)))))))) $term))
+(: derivation-shape (-[det]-> $term $term))
+(= (derivation-shape $term) (case $term ( (($_type $_kb $proof $_tv) (erase-proof-refs $proof)) ($_other $term))))
+(: premise-keys (-[semidet]-> (List Number) (List ProofOutputKey)))
+(= (premise-keys ()) ())
+(= (premise-keys (cons $pid $rest)) (case (proof-kind-by-id $pid) ( ((leaf (CPU $_f $_a $_r)) (premise-keys $rest)) ($_other (let* (($key (output-key $pid)) ($keys (premise-keys $rest))) (case $keys ( (() (cons $key ())) ((cons $next $_more) (if (=alpha $key $next) $keys (cons $key $keys))))))))))
+(: same-derivation? (-[semidet]-> ProofKind (List Number) Number Bool))
+(= (same-derivation? (rule $term) $children $oldpid) (case (proof-kind-by-id $oldpid) ( ((rule $old-term) (if (=alpha (derivation-shape $term) (derivation-shape $old-term)) (=alpha (premise-keys $children) (premise-keys (proof-children-by-id $oldpid))) false)) ($_other false))))
+(= (same-derivation? (leaf $_term) $_children $_oldpid) false)
+(= (same-derivation? (aggregate $_term) $_children $_oldpid) false)
+(: supersedes-derivation? (-[semidet]-> ProofKind (List Evidence) (List Number) Number Bool))
+(= (supersedes-derivation? $kind $ev $children $oldpid) (if (same-derivation? $kind $children $oldpid) (if (== (proof-children-by-id $oldpid) $children) false (let ($_old-score $old-ev) (proof-stats-by-id $oldpid) (evidence-subset? $old-ev $ev))) false))
+;; Rule proofs are indexed in &proof_derivation by the hash of (goal key,
+;; derivation identity); -1 stands for kinds without one. Rows are durable and
+;; filtered by the current view on lookup.
+(: DerivationRow Type)
+(: derivation-row (-[det]-> Number Number DerivationRow))
+(: derivation-hash (-[semidet]-> ProofGoalKey ProofKind (List Number) Number))
+(= (derivation-hash $gkey (rule $term) $children) (let* (($shape (derivation-shape $term)) ($keys (premise-keys $children))) (index-hash (quote ($gkey $shape $keys)))))
+(= (derivation-hash $_gkey (leaf $_term) $_children) -1)
+(= (derivation-hash $_gkey (aggregate $_term) $_children) -1)
+(: proof-current-in-key? (-[det]-> Number Number Bool))
+(= (proof-current-in-key? $khash $pid) (not (== (collapse (once (match &proof_current (current-row $khash $_ohash $_lkey $_key $_okey $pid) true))) ())))
+(: superseded-derivation-pids (-[semidet]-> Number Number ProofKind (List Evidence) (List Number) (List Number)))
+(= (superseded-derivation-pids $khash $dhash $kind $ev $children) (collapse (match &proof_derivation (derivation-row $dhash $pid) (if (proof-current-in-key? $khash $pid) (if (supersedes-derivation? $kind $ev $children $pid) (stored-number $pid) (empty)) (empty)))))
 (: candidate-step (-[semidet]-> ProofKind (List Evidence) Number (List Number) Bool Number Bool))
 (= (candidate-step $_kind $_ev $_score $_children false $_oldpid) false)
-(= (candidate-step $kind $ev $score $children true $oldpid) (let* (($_metric (increment-backward-query-metric! candidate-comparisons)) (($old-score $old-ev) (proof-stats-by-id $oldpid)) ($old-kind (proof-kind-by-id $oldpid))) (if (if (== $old-score $score) (if (== $old-ev $ev) (if (== $ev ()) (same-child-outputs? (proof-children-by-id $oldpid) $children) true) false) false) false (if (overlap-dominates? $old-kind $old-ev $old-score $kind $ev $score) false true))))
+(= (candidate-step $kind $ev $score $children true $oldpid) (if (same-derivation? $kind $children $oldpid) (if (== (proof-children-by-id $oldpid) $children) false (if (supersedes-derivation? $kind $ev $children $oldpid) true (candidate-compare $kind $ev $score $children $oldpid))) (candidate-compare $kind $ev $score $children $oldpid)))
+(: candidate-compare (-[semidet]-> ProofKind (List Evidence) Number (List Number) Number Bool))
+(= (candidate-compare $kind $ev $score $children $oldpid) (let* (($_metric (increment-backward-query-metric! candidate-comparisons)) (($old-score $old-ev) (proof-stats-by-id $oldpid)) ($old-kind (proof-kind-by-id $oldpid))) (if (if (== $old-score $score) (if (== $old-ev $ev) (if (== $ev ()) (same-child-outputs? (proof-children-by-id $oldpid) $children) true) false) false) false (if (overlap-dominates? $old-kind $old-ev $old-score $kind $ev $score) false true))))
 (: classify-goal-proof-candidate (-[semidet]-> Number ProofCandidate Bool))
 (= (classify-goal-proof-candidate $gid (proof-candidate $kind $score $ev $children)) (let $outkey (candidate-output-key (candidate-kind-term $kind)) (proof-fold-flat-semidet (candidate-step $kind $ev $score $children) true (live-output-pids $gid $outkey))))
 (: normalize-proof-candidate-evidence (-[semidet]-> ProofCandidate ProofCandidate))
 (= (normalize-proof-candidate-evidence (proof-candidate $kind $score $ev $children)) (proof-candidate $kind $score (case $kind ( ((rule ($type $kb $prf $tv)) (rule-result-evidence (assemble-runtime-fact (brand Statement $type) (brand KBContext $kb) (brand Proof $prf) (the TV $tv)) $ev)) ($_other $ev))) $children))
 (: store-proof-candidate (-[nondet]-> Number ProofCandidate Number))
-(= (store-proof-candidate $gid (proof-candidate $kind $score $ev $children)) (let* (($_metric (increment-backward-query-metric! proofs-stored)) ($gkey (proof-goal-key-by-goal-id $gid)) ($owner (proof-goal $gkey)) ($pid (next-pid)) ($output (stored-output $kind $pid)) ($okey (candidate-output-key $output)) ($old-rep (collapse (once (current-proof-result-id-for-output-key $gkey $okey)))) ($result-dirty? (result-dirty? $gkey $okey)) ($_1 (chainer-add-atom &proof (stored-proof-row $pid $owner $output $kind (proof-support $score $ev (stored-contribution $kind $output)) $children))) ($_index (index-goal-proof! &proof_goal $gkey $pid)) ($_current (index-current! $gkey $okey $pid)) ($_parents (register-proof-parent-edges! $pid $children)) ($_confidence (clear-current-confidence! $gid)) ($_result (if (= $kind (aggregate $_snapshot)) (replace-result! $gkey $okey $old-rep $pid) (if $result-dirty? () (if (== $old-rep ()) (index-result! $gkey $okey $pid) (let* (($_remove-result (remove-result-output! $gkey $okey)) ($_supersede (supersede-old! $old-rep)) ($_dirty (mark-dirty! $gkey $okey))) ()))))) ($_live (cache-live! $pid true))) $pid))
+(= (store-proof-candidate $gid (proof-candidate $kind $score $ev $children)) (let* (($_metric (increment-backward-query-metric! proofs-stored)) ($gkey (proof-goal-key-by-goal-id $gid)) ($owner (proof-goal $gkey)) ($pid (next-pid)) ($output (stored-output $kind $pid)) ($okey (candidate-output-key $output)) ($dhash (derivation-hash $gkey $kind $children)) ($_stale (if (< $dhash 0) () (collapse (foreach-flat supersede-current-proof! (superseded-derivation-pids (index-hash $gkey) $dhash $kind $ev $children))))) ($old-rep (collapse (once (current-proof-result-id-for-output-key $gkey $okey)))) ($result-dirty? (result-dirty? $gkey $okey)) ($_1 (chainer-add-atom &proof (stored-proof-row $pid $owner $output $kind (proof-support $score $ev (stored-contribution $kind $output)) $children))) ($_index (index-goal-proof! &proof_goal $gkey $pid)) ($_current (index-current! $gkey $okey $pid)) ($_parents (register-proof-parent-edges! $pid $children)) ($_derivation (if (< $dhash 0) () (once (add-atom &proof_derivation (derivation-row $dhash $pid))))) ($_confidence (clear-current-confidence! $gid)) ($_result (if (= $kind (aggregate $_snapshot)) (replace-result! $gkey $okey $old-rep $pid) (if $result-dirty? () (if (== $old-rep ()) (index-result! $gkey $okey $pid) (let* (($_remove-result (remove-result-output! $gkey $okey)) ($_supersede (supersede-old! $old-rep)) ($_dirty (mark-dirty! $gkey $okey))) ())))))) $pid))
 (: leaf-result-candidate (-[det]-> (| Goal (Statement KBContext Proof TV)) (List Evidence) ProofCandidate))
 (= (leaf-result-candidate $result $ev) (once (case $result ( ((CPU $_formula $_arguments $_cpu-result) (proof-candidate (leaf $result) (term-confidence $result) $ev ())) (($type ($kbid $context $variables) $prf $tv) (let $fact (assemble-contextual-runtime-fact $type $kbid $context $variables $prf $tv) (proof-candidate (leaf $fact) (term-confidence $fact) $ev ()))) ($_other (proof-candidate (leaf $result) (term-confidence $result) $ev ()))))))
 (: aggregate-result-candidate (-[det]-> (| Goal (Statement KBContext Proof TV)) (List Evidence) (List Number) ProofCandidate))
