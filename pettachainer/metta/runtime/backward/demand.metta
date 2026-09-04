@@ -355,42 +355,6 @@
 (= (goal-demand-sum $gid)
    (root-demands-sum (goal-root-demands $gid)))
 
-;; A refined input changes the expected marginal value of every incumbent
-;; built on the replaced proof: those proofs stay valid answers, but the goals
-;; that own them (and, through their revisions, everything below) must
-;; re-evaluate their cached demand before the next wake decides whether
-;; improving them is worth a step.
-(: dependent-goal-gids (-[det]-> (List Number) (List Number) (List Number)))
-(= (dependent-goal-gids () $seen) $seen)
-(= (dependent-goal-gids (cons $pid $rest) $seen)
-   (let $parents
-      (the (List Number)
-         (collapse (match &proof_parent ($pid $parent) (stored-number $parent))))
-      (dependent-goal-gids
-         (append-flat $parents $rest)
-         (fold-flat owner-gid-step $seen $parents))))
-(: owner-gid-step (-[det]-> (List Number) Number (List Number)))
-(= (owner-gid-step $acc $pid)
-   (let $hits
-      (collapse
-         (once
-            (match &proof (stored-proof-row $pid $owner $_out $_kind $_support $_children)
-               (let* (($key (owner-goal-key $owner))
-                      ($hash (index-hash $key)))
-                  (collapse
-                     (match &goal_lookup ($hash $saved-key $gid)
-                        (if (=alpha $saved-key $key) (stored-number $gid) (empty))))))))
-      (case $hits (
-         (() $acc)
-         ((cons $gids $_rest) (append-flat (the (List Number) $gids) $acc))))))
-(: refine-dependent-demand! (-[det]-> Number (List $none)))
-(= (refine-dependent-demand! $pid)
-   (foreach-flat
-      (|-> ($gid)
-         (let* (($_dirty (mark-goal-demand-dirty! $gid))
-                ($_bump (bump-goal-demand-revision! $gid)))
-            ()))
-      (list_to_set (dependent-goal-gids ($pid) ()))))
 
 (: mark-goal-demand-dirty! (-[det]-> Number (List $none)))
 (= (mark-goal-demand-dirty! $gid)
@@ -455,11 +419,9 @@
              (add-atom &goal_demand_cache
                 (goal-demand-cache-row
                    $child-gid $next-dependencies $next-demands))))
-       ;; Registration still bumps unconditionally. refine-dependent-demand!
-       ;; refreshes the demand caches above a replaced snapshot, but a frontier
-       ;; that has not yet reached the refined premise is only replayed by the
-       ;; wakes these bumps cause; until frontier replay after a replacement is
-       ;; explicit, bumping only on a changed list stops one derivation short.
+       ;; Registration bumps unconditionally: a frontier that has not yet
+       ;; reached a refined premise is only replayed by the wakes these bumps
+       ;; cause, so bumping only on a changed list stops one derivation short.
        ($_revision (bump-goal-demand-revision! $child-gid))
        ;; Only an empty-to-live transition can strand descendants that were
        ;; expanded while this goal was reachable solely through a cycle.  Mark

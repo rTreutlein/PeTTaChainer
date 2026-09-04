@@ -52,9 +52,6 @@
               ($_result-index
                 (set-space-row-count-metric!
                    durable-result-index-rows-before &proof_result))
-              ($_parent-index
-                (set-space-row-count-metric!
-                   durable-parent-edge-rows-before &proof_parent))
               ($_pid-boundary
                 (query_metric_set durable-pid-boundary
                    (search-id-value bwd_pid))))
@@ -75,5 +72,4 @@
          (cons durable-proof-rows-after
             (cons durable-goal-index-rows-before
                (cons durable-result-index-rows-before
-                  (cons durable-parent-edge-rows-before
-                     (backward-query-counter-keys))))))))
+                  (backward-query-counter-keys)))))))

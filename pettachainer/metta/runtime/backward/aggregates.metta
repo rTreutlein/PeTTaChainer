@@ -25,7 +25,7 @@
 (: current-fold-snapshot (-[semidet]-> Number (| Goal (Statement KBContext Proof TV))(List Number)))
 (= (current-fold-snapshot $a $b)(collapse (once (current-proof-result-id-for-output-key (proof-goal-key-by-goal-id $a)(candidate-output-key $b)))))
 (: store-fold-snapshot-heap (-[semidet]-> (Heap AgendaEntry) Number (| Goal (Statement KBContext Proof TV))(List Evidence)(List Number)(List Number)(Heap AgendaEntry)))
-(= (store-fold-snapshot-heap $a $b $c $d $e $f)(if (candidate-is-cyclic? $b (aggregate $c) $e) $a (let* (($g (once (store-proof-candidate $b (aggregate-result-candidate $c $d $e))))($h (case $f ( (() ())((cons $old $_rest)(refine-dependent-demand! $old))))))(wake-proof-commit-heap $a $b $g))))
+(= (store-fold-snapshot-heap $a $b $c $d $e $f)(if (candidate-is-cyclic? $b (aggregate $c) $e) $a (let* (($g (once (store-proof-candidate $b (aggregate-result-candidate $c $d $e)))))(wake-proof-commit-heap $a $b $g))))
 (: commit-fold-snapshot-heap (-[semidet]-> (Heap AgendaEntry) Number (| Goal (Statement KBContext Proof TV))(List Evidence)(List Number)(Heap AgendaEntry)))
 (= (commit-fold-snapshot-heap $a $b $c $d $e)(case (current-fold-snapshot $b $c) ( (()(store-fold-snapshot-heap $a $b $c $d $e ()))((cons $f $g)(if (=alpha (proof-output-atom-by-id $f) $c)(let ($h $i)(proof-stats-by-id $f)(if (== $i $d)(if (== (proof-children-by-id $f)())(if (== $e ()) $a (if (ba-materialized? $b)(store-fold-snapshot-heap $a $b $c $d $e (cons $f ())) $a)) $a)(store-fold-snapshot-heap $a $b $c $d $e (cons $f ()))))(store-fold-snapshot-heap $a $b $c $d $e (cons $f ())))))))
 (: ba-ensure-child (-[nondet]-> Number Goal $a Number Number Bool Number))
