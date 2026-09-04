@@ -1,6 +1,5 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
-!(set-universe-size memberInheritanceRootKb 1.0)
 !(compileadd memberInheritanceRootKb
    (: tomHuman (Member Tom Human) (STV 1.0 1.0)))
 !(compileadd memberInheritanceRootKb
@@ -13,7 +12,6 @@
          (: $prf (Inheritance Human Mortal) $tv))) 0)
    true)
 
-!(set-universe-size memberInheritancePremiseKb 1.0)
 !(compileadd memberInheritancePremiseKb
    (: premiseTomHuman (Member Tom Human) (STV 1.0 1.0)))
 !(compileadd memberInheritancePremiseKb
@@ -36,11 +34,10 @@
                (member-inheritance-sample
                   premiseTomHuman premiseTomMortal))))
       (Member Goal Supported)
-      (STV 0.8 0.9999000095740854)))
+      (STV 0.8 0.0012484394506833685)))
 
 ;; Making the same fold available below a stored rule must not admit a
 ;; self-supporting member sample.
-!(set-universe-size memberInheritancePremiseCycleKb 1.0)
 !(compileadd memberInheritancePremiseCycleKb
    (: cycleTomHuman (Member Tom Human) (STV 1.0 1.0)))
 !(compileadd memberInheritancePremiseCycleKb

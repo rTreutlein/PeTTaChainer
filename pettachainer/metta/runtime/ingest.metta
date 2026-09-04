@@ -19,16 +19,9 @@
              ($typed-subj (brand Statement $subj))
              ($_subject
                 (if (is-var $subj) ()
-                   (let*
-                      (($_retire
-                          (if (observed-inheritance-subject?
-                                 $typed-kbid $typed-subj)
-                             ()
-                             (retire-changed-base-rate-universe!
-                                $typed-kbid)))
-                       ($_row
-                          (add-space-atom! &inheritance_subject
-                             (make-space-pair $kbid $subj))))
+                   (let $_row
+                      (add-space-atom! &inheritance_subject
+                         (make-space-pair $kbid $subj))
                       ()))))
             (record-inheritance-nodes!
                $typed-kbid $typed-subj (brand Statement $concept))))

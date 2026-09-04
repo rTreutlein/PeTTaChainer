@@ -44,8 +44,6 @@
 
 ;; A settled empty fold records its best exhausted budget without inventing an
 ;; STV or adding logical evidence.
-!(set-universe-size cachedEmptyMemberKb 1.0)
-
 !(test
    (query 80 cachedEmptyMemberKb
       (: $_proof (Inheritance EmptyClass MissingClass) $_tv))
@@ -126,14 +124,14 @@
    (cached-base-rate cachedEmptyMemberKb
       (MemberInheritanceSample
          $obj EmptyClass MissingClass $atv $btv))
-   ((STV 0.6 1.0)))
+   ((STV 0.6 0.0012484394506866417)))
 
 !(test
    (query 80 cachedEmptyMemberKb
       (: $proof (Inheritance EmptyClass MissingClass) $tv))
    (: (member-inheritance-fold cpu)
       (Inheritance EmptyClass MissingClass)
-      (STV 0.6 1.0)))
+      (STV 0.6 0.0012484394506866417)))
 
 !(test
    (member-empty-cache-hit?

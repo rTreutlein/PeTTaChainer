@@ -63,8 +63,7 @@ original assertion's proof and truth value.
 A concrete `Inheritance A B` query can also estimate the relationship from
 objects that have both `(Member $x A)` and `(Member $x B)`. Memberships derived
 by rules count as evidence; self-supporting and overlapping proof paths are
-checked before aggregation. A configured universe size controls how observed
-coverage contributes to confidence.
+checked before aggregation; confidence follows the observed count.
 
 Prefer `Member object class` for new instance data. Legacy object-style
 `Inheritance object class` data remains supported, but mixing the two forms for

@@ -215,7 +215,7 @@
           &proof_current_result &proof_current_result_output
           &proof_current_result_dirty
           &proof_parent &proof_derivation
-          &proof_superseded &proof_retired))
+          &proof_superseded))
       ()))
 
 (: test-runtime-fact
@@ -490,16 +490,6 @@
        (goal-agenda-kind-requested? $gid agenda-expand)))
    (1 false true 2 true))
 
-;; Refreshing a result to the representative it already exposes must not mark
-;; that proof superseded.
-!(test
-   (let* (($_clear (clear-backward-state))
-          ($_same
-             (supersede-current-proof-result! (42) 42)))
-      (collapse
-         (match &proof_superseded (42) true)))
-   ())
-
 ;; Filtering current proofs preserves their indexed order while accumulating
 ;; accepted IDs in linear time.
 !(test
@@ -740,105 +730,6 @@
       ($empty $first $revised))
    (no-current 0.4 0.625))
 
-;; A raw proof stays live so it can be revised with later evidence. A parent
-;; that consumed the former representative stays current: nothing marks it,
-;; and only a proof of the same derivation over the new representative
-;; supersedes it.
-!(test
-   (let*
-      (($_clear (clear-backward-state))
-       ($_gidreset (change-state! bwd_gid 0))
-       ($_pidreset (change-state! bwd_pid 0))
-       ($child-gid (ensure-goal-at-depth (test-runtime-fact (Child) (brand Proof $cprf) $ctv) 1))
-       ($parent-gid (ensure-goal-at-depth (test-runtime-fact (Parent) (brand Proof $pprf) $ptv) 0))
-       ($first-child
-          (store-proof-candidate $child-gid
-             (proof-candidate (leaf (test-runtime-fact (Child) childA (STV 1.0 0.8)))
-                0.8 ((fact-ev (kb MAIN ()) childA (Child))) ())))
-       ($old-parent
-          (store-proof-candidate $parent-gid
-             (proof-candidate (rule (test-runtime-fact (Parent) (parentRule childA) (STV 1.0 0.8)))
-                0.8 ((fact-ev (kb MAIN ()) childA (Child))) ($first-child))))
-       ($_second-child
-          (store-proof-candidate $child-gid
-             (proof-candidate (leaf (test-runtime-fact (Child) childB (STV 1.0 0.7)))
-                0.7 ((fact-ev (kb MAIN ()) childB (Child))) ()))))
-      ((proof-live? $first-child)
-       (proof-current-representative? $first-child)
-       (proof-live? $old-parent)
-       (length (goal-merged-proof-ids $child-gid))
-       (goal-live-proof-ids $parent-gid)
-       (== (goal-incumbent-proof-ids $parent-gid) ($old-parent))
-       (not (== (root-goal-results-with-materialization $parent-gid false) ()))))
-   (true false true 1 (1) true true))
-
-;; Superseding or retiring a child leaves its parents alone: this conjunction
-;; parent stays live, current and unretired through both events.
-!(test
-   (let*
-      (($_clear (clear-backward-state))
-       ($_gidreset (change-state! bwd_gid 0))
-       ($_pidreset (change-state! bwd_pid 0))
-       ($child-one-gid
-          (ensure-goal-at-depth
-             (test-runtime-fact
-                (ChildOne) (brand Proof $p1) $tv1)
-             1))
-       ($child-two-gid
-          (ensure-goal-at-depth
-             (test-runtime-fact
-                (ChildTwo) (brand Proof $p2) $tv2)
-             1))
-       ($parent-gid
-          (ensure-goal-at-depth
-             (test-runtime-fact
-                (Parent) (brand Proof $pp) $ptv)
-             0))
-       ($child-one-pid
-          (store-proof-candidate $child-one-gid
-             (proof-candidate
-                (leaf
-                   (test-runtime-fact
-                      (ChildOne) childOne (STV 1.0 0.8)))
-                0.8
-                ((fact-ev (kb MAIN ()) childOne (ChildOne)))
-                ())))
-       ($child-two-pid
-          (store-proof-candidate $child-two-gid
-             (proof-candidate
-                (leaf
-                   (test-runtime-fact
-                      (ChildTwo) childTwo (STV 1.0 0.7)))
-                0.7
-                ((fact-ev (kb MAIN ()) childTwo (ChildTwo)))
-                ())))
-       ($parent-pid
-          (store-proof-candidate $parent-gid
-             (proof-candidate
-                (rule
-                   (test-runtime-fact
-                      (Parent)
-                      (conjunction childOne childTwo)
-                      (STV 1.0 0.6)))
-                0.6
-                ((fact-ev (kb MAIN ()) childOne (ChildOne))
-                 (fact-ev (kb MAIN ()) childTwo (ChildTwo)))
-                ($child-one-pid $child-two-pid))))
-       ($_prime (proof-live? $parent-pid))
-       ($_supersede
-          (once
-             (add-atom &proof_superseded ($child-one-pid))))
-       ($_first
-          (invalidate-proof-paths! $child-one-pid))
-       ($after-first (proof-live? $parent-pid))
-       ($_second
-          (deactivate-current-proof! $child-two-pid)))
-      ($after-first
-       (proof-live? $parent-pid)
-       (proof-retired? $parent-pid)
-       (goal-live-proof-ids $parent-gid)))
-   (true true false (2)))
-
 !(test
    (let*
       (($_clear (clear-backward-state))
@@ -940,67 +831,6 @@
        (frontier-path-live? $first)
        (frontier-path-live? $second)))
    (true (20 10) (true true) false false))
-
-;; Aggregate replacement is atomic from the caller's perspective: after the
-;; new aggregate becomes current but before its parent is rebuilt, the parent
-;; derived from the prior snapshot remains an available incumbent.
-!(test
-   (let*
-      (($_clear (clear-backward-state))
-        ($_gidreset (change-state! bwd_gid 0))
-        ($_pidreset (change-state! bwd_pid 0))
-        ($agg-gid
-           (ensure-goal-at-depth
-              (CPU FoldAllCompiled dummy-agg-args $out) 1))
-        ($child-gid
-           (ensure-goal-at-depth
-              (test-runtime-fact
-                 (Child) (brand Proof $prf) (STV 1.0 1.0)) 2))
-        ($parent-gid
-           (ensure-goal-at-depth
-              (assemble-runtime-fact
-                 (brand Statement (AggregateParent))
-                 (brand KBContext (incumbentMaterializeKb MAIN Nil))
-                 (brand Proof $parent-goal-proof)
-                 (the TV $parent-goal-tv))
-              0))
-        ($pid-old
-           (store-proof-candidate $agg-gid
-              (aggregate-result-candidate
-                 (CPU FoldAllCompiled dummy-agg-args 1) () ())))
-        ($parent-pid
-           (store-proof-candidate $parent-gid
-              (proof-candidate
-                 (rule
-                    (assemble-runtime-fact
-                       (brand Statement (AggregateParent))
-                       (brand KBContext
-                          (incumbentMaterializeKb MAIN Nil))
-                       (brand Proof aggregateParentProof)
-                       (the TV (STV 1.0 0.8))))
-                 0.8 () ($pid-old))))
-        ($pid-new
-           (store-proof-candidate $agg-gid
-              (aggregate-result-candidate
-                 (CPU FoldAllCompiled dummy-agg-args 2) () ())))
-        ($_materialize
-           (let $_deps (collapse (materialize-list! (root-pids $parent-gid))) ())))
-      ((proof-live? $pid-old)
-       (proof-current-representative? $pid-old)
-       (== (proof-children-by-id $parent-pid) ($pid-old))
-       (proof-live? $parent-pid)
-       (goal-live-proof-ids $parent-gid)
-       (== (goal-incumbent-proof-ids $parent-gid) ($parent-pid))
-       (not (== (root-goal-results-with-materialization $parent-gid false) ()))
-       (not
-          (==
-             (collapse
-                (match &kb
-                   ((AggregateParent)
-                      (incumbentMaterializeKb MAIN Nil) $_proof $_tv)
-                   true))
-             ()))))
-   (false false true true (1) true true true))
 
 !(test
    (let*

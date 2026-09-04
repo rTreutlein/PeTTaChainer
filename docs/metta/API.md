@@ -94,14 +94,13 @@ existential proof. See `examples/metta/existential_residual.metta` for a runnabl
 example in which two weak known cats leave a strong residual and a later Felix
 witness moves support from that residual into the enumerated disjunction.
 
-## Base rates and universe size
+## Base rates
 
 | Function | Meaning |
 |---|---|
 | `(set-base-rate $kbid $pattern $tv)` | Pin a user-provided base rate for `$pattern` (overrides computed values). |
 | `(clear-base-rate $kbid $pattern)` | Remove any base-rate cache entry for `$pattern`. |
 | `(cached-base-rate $kbid $pattern)` | Read the cached base-rate TV for `$pattern` (or `()`). A value may be a provisional forward estimate until a full backward fold refines it. |
-| `(set-universe-size $kbid $n)` / `(clear-universe-size $kbid)` / `(kb-universe-size $kbid)` | Set / clear / read the universe size used by extension-based estimates. |
 
 ## Logic configuration (`core/logic_config.metta`)
 

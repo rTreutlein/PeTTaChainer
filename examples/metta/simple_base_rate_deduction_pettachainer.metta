@@ -31,8 +31,6 @@
 
 !(compileadd estimatedDeductionKb (: estAB (Inheritance A_est B_est) (STV 0.25 0.9)))
 !(compileadd estimatedDeductionKb (: estBC (Inheritance B_est C_est) (STV 0.5 0.9)))
-!(set-universe-size estimatedDeductionKb 10.0)
-
 !(compileadd estimatedDeductionKb (: aObs1 (Inheritance sample1 A_est) (STV 1.0 1.0)))
 !(compileadd estimatedDeductionKb (: aObs2 (Inheritance sample2 A_est) (STV 1.0 1.0)))
 !(compileadd estimatedDeductionKb (: aObs3 (Inheritance sample3 A_est) (STV 1.0 1.0)))

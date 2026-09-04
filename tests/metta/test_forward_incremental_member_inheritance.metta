@@ -143,7 +143,6 @@
          true))
    ())
 
-!(set-universe-size forwardMemberFoldKb 2.0)
 !(compileadd forwardMemberFoldKb
    (: aHuman (Member a Human) (STV 1.0 1.0)))
 !(compileadd forwardMemberFoldKb
@@ -174,7 +173,7 @@
 
 !(test
    (member-fold-cache forwardMemberFoldKb Human Mortal)
-   ((STV 0.8 0.5)))
+   ((STV 0.8 0.0012484394506866417)))
 
 !(test
    (list-count
@@ -198,7 +197,7 @@
 
 !(test
    (member-fold-cache forwardMemberFoldKb Human Mortal)
-   ((STV 0.6666666666666666 0.75)))
+   ((STV 0.6666666666666666 0.0018714909544603868)))
 
 !(test
    (list-count
@@ -237,7 +236,7 @@
 
 !(test
    (member-fold-cache forwardMemberFoldKb Human Mortal)
-   ((STV 0.6666666666666666 0.75)))
+   ((STV 0.6666666666666666 0.0018714909544603868)))
 
 !(remove-compiled-statement aHuman)
 
@@ -257,7 +256,7 @@
 
 !(test
    (member-fold-cache forwardMemberFoldKb Human Mortal)
-   ((STV 0.3999999999999999 0.25)))
+   ((STV 0.3999999999999999 0.0006246096189881324)))
 
 !(test
    (list-count
@@ -280,7 +279,7 @@
           (foldall-proof
              (member-inheritance-sample bHuman bMortal)))
       (Inheritance Human Mortal)
-      (STV 0.4 0.25)))
+      (STV 0.4 0.0006246096189881324)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)
@@ -295,7 +294,6 @@
 ;; extend that complete snapshot without replaying the older population, and
 ;; the cache remains a computed snapshot rather than regressing to a partial
 ;; forward approximation.
-!(set-universe-size computedForwardDeltaKb 3.0)
 !(compileadd computedForwardDeltaKb
    (: caHuman (Member a Human) (STV 1.0 1.0)))
 !(compileadd computedForwardDeltaKb
@@ -323,7 +321,7 @@
 
 !(test
    (member-fold-cache computedForwardDeltaKb Human Mortal)
-   ((STV 0.64 0.8333333333333334)))
+   ((STV 0.64 0.003115264797507788)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)

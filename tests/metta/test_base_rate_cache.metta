@@ -1,6 +1,6 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
-;; With no configured universe, one full-weight observation carries one unit
+;; One full-weight observation carries one unit
 ;; of evidence: confidence is 1 / (1 + 800), never min(1, 1).
 !(test
    (finish-aggregate

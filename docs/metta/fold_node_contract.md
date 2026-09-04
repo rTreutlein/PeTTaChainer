@@ -46,7 +46,7 @@ restore path. What remains specific to folds is listed at the end.
 ## Liveness (shared)
 
 A snapshot is live iff it is still the current representative of its fold key
-(replacement supersedes it). Every other proof is live until it is retired.
+(replacement supersedes it). Every other proof is always live.
 Nothing propagates: replacing or retiring a proof leaves its parents current.
 There is no liveness cache, no invalidation epoch and no dependent walk.
 
@@ -80,11 +80,14 @@ result index, exactly as an ordinary goal reuses a completed proof. There is no
 separate durable-restore walk for folds. Base-rate folds are harvested into the
 base-rate cache after each query and their snapshot stays current. A new fact
 reaches the fold through its source goal on the next query (the replace policy
-supersedes the old snapshot); `set-base-rate`, `clear-base-rate` and universe
-changes request a retirement that the next spawn consumes. At the next spawn
-the cache seeds the refold. An empty member-inheritance fold is an
-exhausted-budget observation, not a value, and is retired at harvest so a
-larger budget retries.
+supersedes the old snapshot); a user entry set by `set-base-rate` commits
+directly at the next spawn and replaces the snapshot; `clear-base-rate`
+supersedes the current snapshots of the matching folds synchronously so the
+degrade guard cannot keep the user value alive. At the next spawn the cache
+seeds the refold. An empty member-inheritance fold is an exhausted-budget
+observation, not a value, and is dropped at harvest so a larger budget retries.
+Nothing is retired anywhere: a proof leaves the current view only by being
+superseded.
 
 ## Scheduling (fold-specific)
 
@@ -136,10 +139,9 @@ source commits and be budgeted.
   commits as the first snapshot and schedules the live refold with the
   discounted demand spec.
 - **Index**: base-rate fold goals register their base-rate key against their
-  goal key in `&base_rate_fold` once, at spawn. Invalidation on `set-base-rate`,
-  `clear-base-rate`, universe or prior changes looks up the goal keys for the
-  affected base-rate keys and supersedes their current results. No per-pid
-  index maintenance.
+  goal key in `&base_rate_fold` once, at spawn. `clear-base-rate` looks up
+  the goal keys for the affected pattern and supersedes their current results.
+  No per-pid index maintenance, no pending retirements.
 
 ## What this removes
 

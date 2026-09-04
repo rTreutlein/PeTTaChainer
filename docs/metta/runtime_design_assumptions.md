@@ -88,9 +88,12 @@ statistics when it processes additional canonical proofs.
 Base-rate invalidation is reserved for non-monotonic or interpretive changes:
 
 - removing facts, rules, or supporting proofs;
-- changing or clearing universe size;
 - changing or clearing runtime prior parameters;
 - explicitly clearing or replacing a base rate.
+
+Even then nothing is scheduled: the next spawn of the fold commits the new
+cache state through the replace policy, and only `clear-base-rate` supersedes
+the affected snapshots directly.
 
 The important tradeoff is intentional: a tightly budgeted query may initially
 use an older estimate. Add-time work must not eagerly make every cached estimate
@@ -104,9 +107,9 @@ its goals, and a fact added between queries reaches the folds and rules that
 use it through the ordinary leaf expansion. Ingestion records nothing for
 the backward store and schedules nothing.
 
-No liveness propagates. A proof is live until it is retired (a fold snapshot:
-until it is replaced). Replacing or retiring a proof does not mark, retire or
-re-evaluate its parents. The only way a proof stops being an answer is
+No liveness propagates. A proof is live until it is superseded (a fold
+snapshot: until it is replaced); there is no retirement. Superseding a proof
+does not mark or re-evaluate its parents. The only way a proof stops being an answer is
 supersession by a proof of the same derivation:
 
 - The derivation identity of a rule proof is its rule token with premise

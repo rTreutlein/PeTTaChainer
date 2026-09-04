@@ -255,11 +255,7 @@
 (: base-rate
    (-[det]-> KB Statement TV BaseRateSource $mode BaseRateEntry))
 
-(: UniverseSizeEntry Type)
-(: universe-size (-[det]-> KB Number UniverseSizeEntry))
 
-(: UniverseSizeUnavailable Type)
-(: no-universe-size UniverseSizeUnavailable)
 
 (: IdentityFinish Type)
 (: identity IdentityFinish)

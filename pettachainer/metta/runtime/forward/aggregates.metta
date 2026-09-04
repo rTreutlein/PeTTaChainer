@@ -24,7 +24,7 @@
 (: forward-weighted-base-rate-contribution (-[det]-> TV TV BaseRateEvidenceState))
 (= (forward-weighted-base-rate-contribution $a $b)(case $a ( ((STV $c $d)(case $b ( ((STV $e $f)(let $g (* (* $c $d) $f)(BaseRateEvidence (* $e $g) $g)))((CTV $h $i)(forward-weighted-base-rate-contribution $a $h))($j (BaseRateEvidence 0.0 0.0)))))($k (BaseRateEvidence 0.0 0.0)))))
 (: fa-mass-scale (-[det]-> KB Number))
-(= (fa-mass-scale $a)(let $b (kb-universe-size $a)(if (== $b no-universe-size)(let $c (list-len (inheritance-subjects $a))(if (<= $c 0) 0.0 (/ 1.0 $c)))(let $d (the Number $b)(if (<= $d 0.0) 0.0 (/ 1.0 $d))))))
+(= (fa-mass-scale $a)(let $c (list-len (inheritance-subjects $a))(if (<= $c 0) 0.0 (/ 1.0 $c))))
 (: fa-acc (-[det]-> KB (| ExtractTV ExtractInheritanceTV)(| BaseRateEvidenceState BaseRateEvidenceWithPriorState)(-[semidet]-> $a $b $a) Number Number (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)))
 (= (fa-acc $a $b (BaseRateEvidence $c $d) BaseRateAcc $e $f)(BaseRateEvidence $e $f))
 (= (fa-acc $a (extract-inheritance-tv $b $c)(BaseRateEvidence $d $e) WeightedBaseRateAcc $f $g)(let $h (fa-mass-scale $a)(BaseRateEvidence (* $h $f)(* $h $g))))

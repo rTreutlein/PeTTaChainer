@@ -33,9 +33,6 @@
       ($_other no-base-rate-aggregate-key))))
 
 
-(: PendingBaseRateRetireEntry Type)
-(: pending-base-rate-retire-entry
-   (-[det]-> BaseRateAggregateKey PendingBaseRateRetireEntry))
 ;; Base-rate fold goals register (key-hash key kb goal-key) once at spawn.
 ;; Their current snapshots are read through the ordinary result index.
 (: register-base-rate-fold!
@@ -59,91 +56,10 @@
                   ()))))
          ())))
 
-(: pending-base-rate-retire? (-[det]-> BaseRateAggregateKey Bool))
-(= (pending-base-rate-retire? $key)
-   (let $lookup (index-hash $key)
-      (not
-         (==
-            (collapse
-               (once
-                  (match &base_rate_pending_retire
-                     ($lookup
-                        (pending-base-rate-retire-entry $stored-key))
-                     (if (=alpha $stored-key $key) true (empty)))))
-            ()))))
 
-(: pending-base-rate-retires? (-[det]-> Bool))
-(= (pending-base-rate-retires?)
-   (not
-      (==
-         (collapse
-            (once
-               (match &base_rate_pending_retire
-                  ($_lookup (pending-base-rate-retire-entry $_key))
-                  true)))
-         ())))
 
-(: request-base-rate-aggregate-retire!
-   (-[det]-> Number BaseRateAggregateKey Bool))
-(= (request-base-rate-aggregate-retire! $lookup $key)
-   (add-space-atom! &base_rate_pending_retire
-      (make-space-pair $lookup
-         (pending-base-rate-retire-entry $key))))
 
-(: retire-changed-base-rate-universe! (-[det]-> KB (List $none)))
-(= (retire-changed-base-rate-universe! $kbid)
-   (let $_requested
-      (collapse
-         (match &base_rate_fold
-            ($lookup $key $kbid $_gkey)
-            (if (case $key (
-                   ((base-rate-aggregate-key-value $_skb $_pat
-                       (weighted-base-rate-in-universe $universe-kbid))
-                      (== $kbid $universe-kbid))
-                   ((base-rate-aggregate-key-value $_skb $_pat
-                       (weighted-base-rate-with-prior-in-universe $universe-kbid))
-                      (== $kbid $universe-kbid))
-                   ((base-rate-aggregate-key-value $_skb $_pat
-                       (member-inheritance $universe-kbid))
-                      (== $kbid $universe-kbid))
-                   ($_other false)))
-               (request-base-rate-aggregate-retire!
-                  (the Number $lookup)
-                  (the BaseRateAggregateKey $key))
-               (empty))))
-      ()))
-(: retire-changed-base-rate-aggregate!
-   (-[det]-> KB Statement $mode (List $none)))
-(= (retire-changed-base-rate-aggregate! $kbid $pattern $mode)
-   (let* (($key
-             (base-rate-aggregate-key-value $kbid $pattern $mode))
-          ($lookup (index-hash $key)))
-      (let $_requested
-         (collapse
-            (once
-               (match &base_rate_fold
-                  ($lookup $stored-key $_kbid $_gkey)
-                  (if (=alpha $stored-key $key)
-                     (request-base-rate-aggregate-retire!
-                        $lookup
-                        (the BaseRateAggregateKey $stored-key))
-                     (empty)))))
-         ())))
 
-(: remove-pending-base-rate-retire!
-   (-[det]-> BaseRateAggregateKey (List $none)))
-(= (remove-pending-base-rate-retire! $key)
-   (let $lookup (index-hash $key)
-      (let $_removed
-         (collapse
-            (match &base_rate_pending_retire
-               ($lookup (pending-base-rate-retire-entry $stored-key))
-               (if (=alpha $stored-key $key)
-                  (remove-atom &base_rate_pending_retire
-                     ($lookup
-                        (pending-base-rate-retire-entry $stored-key)))
-                  (empty))))
-         ())))
 
 (: base-rate-cache-entries (-[det]-> KB Statement (List BaseRateEntry)))
 (= (base-rate-cache-entries $kbid $pattern)
@@ -206,20 +122,7 @@
       (base-rate $_kbid $_stored $_tv $source $_mode))
    $source)
 
-(: base-rate-cache-tv-replaced?
-   (-[det]-> (List BaseRateEntry) Atom Bool))
-(= (base-rate-cache-tv-replaced? () $_tv) false)
-(= (base-rate-cache-tv-replaced? (cons $entry $_rest) $tv)
-   (if (base-rate-entry-user? $entry) false
-      (not (=alpha (base-rate-entry-tv $entry) $tv))))
 
-(: base-rate-derived-cache-present?
-   (-[det]-> (List BaseRateEntry) Bool))
-(= (base-rate-derived-cache-present? ()) false)
-(= (base-rate-derived-cache-present? (cons $entry $rest))
-   (if (base-rate-entry-user? $entry)
-      (base-rate-derived-cache-present? $rest)
-      true))
 
 (: matching-base-rate-cache-entries
    (-[det]-> KB Statement (List BaseRateEntry)))
@@ -309,20 +212,13 @@
       (let $entries (base-rate-cache-entries-for-mode $kbid $pattern $mode)
          (if (base-rate-cache-user-present? $entries)
             ()
-            (let* (($replaced?
-                       (base-rate-cache-tv-replaced? $entries $tv))
-                   ($stored (copy_term $pattern))
+            (let* (($stored (copy_term $pattern))
                    ($_old
                       (foreach-flat
                          base-rate-cache-remove-derived-entry! $entries))
                    ($_new
                       (add-atom &base_rate_cache
-                         (base-rate $kbid $stored $tv $source $mode)))
-                   ($_retire
-                      (if $replaced?
-                         (retire-changed-base-rate-aggregate!
-                            $kbid $pattern $mode)
-                         ())))
+                         (base-rate $kbid $stored $tv $source $mode))))
                ())))))
 
 (: store-forward-base-rate!
@@ -334,18 +230,10 @@
 (: remove-produced-base-rate!
    (-[det]-> KB Statement $mode (List $none)))
 (= (remove-produced-base-rate! $kbid $pattern $mode)
-   (let* (($entries
-             (base-rate-cache-entries-for-mode $kbid $pattern $mode))
-          ($removed? (base-rate-derived-cache-present? $entries))
-          ($_old
-             (foreach-flat base-rate-cache-remove-derived-entry! $entries))
-          ($_retire
-             (if $removed?
-                (retire-changed-base-rate-aggregate!
-                   $kbid $pattern $mode)
-                ())))
+   (let $_old
+      (foreach-flat base-rate-cache-remove-derived-entry!
+         (base-rate-cache-entries-for-mode $kbid $pattern $mode))
       ()))
-
 (: invalidate-computed-base-rates! (-[det]-> KB (List $none)))
 (= (invalidate-computed-base-rates! $kbid)
    (let*
@@ -357,26 +245,8 @@
              (base-rate $kbid $_s2 $_tv2 forward-approx $_m2))))
       ()))
 
-(: clear-universe-size (-[det]-> KB (List $none)))
-(= (clear-universe-size $kbid)
-   (let*
-      (($_remove (remove-atom &universe_size (universe-size $kbid $_n)))
-       ($_invalidate (invalidate-computed-base-rates! $kbid)))
-      ()))
 
-(: set-universe-size (-[det]-> KB Number (List $none)))
-(= (set-universe-size $kbid $n)
-   (let*
-      (($_old (clear-universe-size $kbid))
-       ($_new (add-atom &universe_size (universe-size $kbid $n))))
-      ()))
 
-(: kb-universe-size
-   (-[det]-> KB (| Number UniverseSizeUnavailable)))
-(= (kb-universe-size $kbid)
-   (case (collapse (match &universe_size (universe-size $kbid $n) (stored-number $n))) (
-      (() no-universe-size)
-      ((cons $n $_rest) $n))))
 
 (: inheritance-subjects (-[det]-> KB (List Statement)))
 (= (inheritance-subjects $kbid)
@@ -453,9 +323,4 @@
 
 (: member-inheritance-tv
    (-[det]-> KB BaseRateEvidenceState OptionalSTV))
-(= (member-inheritance-tv $kbid $ev)
-   (let $universe-size (kb-universe-size $kbid)
-      (if (== $universe-size no-universe-size)
-         (WeightedCountBaseRateTv $ev)
-         (WeightedUniverseBaseRateTv
-            (the Number $universe-size) $ev))))
+(= (member-inheritance-tv $_kbid $ev) (WeightedCountBaseRateTv $ev))

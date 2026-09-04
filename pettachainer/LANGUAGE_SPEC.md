@@ -179,14 +179,8 @@ collector uses the normal backward chainer, so rule-derived memberships count
 along with directly stored facts. It retains proof identities, rejects
 self-supporting cycles, and avoids treating overlapping evidence as independent.
 
-Set a known closed-world population size when one is available:
-
-```metta
-!(set-universe-size kb 100.0)
-```
-
-The universe size affects the confidence assigned to observed population
-coverage. Without it, the member estimator uses its count-based confidence.
+The member estimator uses count-based confidence: every observed member adds
+evidence, and there is no closed-world population size to declare.
 Forward chaining can maintain a provisional estimate incrementally after a
 ground inheritance query has registered interest; a later backward query folds
 the complete currently derivable sample set and refines that estimate.

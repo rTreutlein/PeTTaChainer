@@ -240,11 +240,6 @@
 (: goal-incumbent-proof-ids (-[semidet]-> Number (List Number)))
 (= (goal-incumbent-proof-ids $gid) (let* (($merged (latest-proof-output-group-ids (proof-output-groups (indexed-goal-pids &proof_result $gid)))) ($raw (raw-incumbents $gid)) ($uncovered (reverse-number-list (proof-fold-flat-semidet (uncovered-step $merged) () $raw)))) (append-flat $merged $uncovered)))
 (: root-pids (-[semidet]-> Number (List Number)))
-;; The goal key omits the proof pattern, so a re-query constrained to a proof
-;; that a merged representative absorbed has no current result of its own:
-;; surface its stored matches (absorbed, not retired) instead of nothing.
-(: unretired-proof-step (-[det]-> (List Number) Number (List Number)))
-(= (unretired-proof-step $acc $pid) (if (proof-retired? $pid) $acc (cons $pid $acc)))
 (= (root-pids $gid)
    (let $current
       (let $live (goal-live-proof-ids $gid)
@@ -252,7 +247,7 @@
             (proof-output-group-representative-pids $gid (proof-output-groups (goal-incumbent-proof-ids $gid)))
             (goal-merged-proof-ids $gid)))
       (if (== $current ())
-         (latest-proof-output-group-ids (proof-output-groups (reverse-number-list (proof-fold-flat-semidet unretired-proof-step () (goal-proof-ids $gid)))))
+         (latest-proof-output-group-ids (proof-output-groups (goal-proof-ids $gid)))
          $current)))
 (: first-pid-list (-[det]-> (List Number) (List Number)))
 (= (first-pid-list ()) ())

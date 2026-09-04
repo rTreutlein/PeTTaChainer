@@ -176,7 +176,6 @@
 (: materializable-proof-output? (-[det]-> $output Bool))
 (= (materializable-proof-output? $output) (case $output ( (($type ($_kbid MAIN Nil) $_prf $tv) (if (== (extract-vars $type) ()) (if (is-var $tv) false (case $tv (((STV $_strength $_confidence) (== (extract-vars $tv) ())) ($_other false)))) false)) ($_other false))))
 (: proof-current-representative? (-[det]-> Number Bool))
-(: proof-retired? (-[det]-> Number Bool))
 (: proof-live? (-[semidet]-> Number Bool))
 (: MatAggregateLineageRow Type)
 (: materialized-aggregate-lineage-row (-[det]-> Number Statement KBContext (Statement KBContext Proof TV) (List Evidence) (List Number) MatAggregateLineageRow))
@@ -184,7 +183,7 @@
 (= (materialized-aggregate-proof? $pid) (not (== (collapse (once (match &materialized_aggregate_lineage (materialized-aggregate-lineage-row $_hash $_type $_kb $_fact $_ev $deps) (if (stored-list-member? $pid $deps) true (empty))))) ())))
 (: mat-stale? (-[det]-> (List Number) Bool))
 (= (mat-stale? ()) false)
-(= (mat-stale? (cons $pid $rest)) (if (or (proof-retired? $pid) (not (proof-current-representative? $pid))) true (mat-stale? $rest)))
+(= (mat-stale? (cons $pid $rest)) (if (proof-current-representative? $pid) (mat-stale? $rest) true))
 (: add-mat-dep (-[det]-> (List Number) Number (List Number)))
 (= (add-mat-dep $deps $pid) (if (stored-list-member? $pid $deps) $deps (append-flat $deps ($pid))))
 (: merge-mat-deps (-[det]-> (List Number) (List Number) (List Number)))
@@ -229,9 +228,7 @@
 (= (register-proof-parent-edge! $parent $child) (once (add-atom &proof_parent ($child $parent))))
 (: register-proof-parent-edges! (-[det]-> Number (List Number) (List $none)))
 (= (register-proof-parent-edges! $parent $children) (foreach-flat (register-proof-parent-edge! $parent) $children))
-(: deactivate-current-proof! (-[semidet]-> Number (List $none)))
 (: supersede-current-proof! (-[semidet]-> Number (List $none)))
-(= (deactivate-current-proof! $pid) (if (proof-retired? $pid) () (let* (($gkey (owner-key $pid)) ($okey (output-key $pid)) ($_result (if (== (collapse (once (current-proof-result-id-for-output-key $gkey $okey))) ($pid)) (remove-result-output! $gkey $okey) ())) ($_remove (remove-current! $gkey $pid)) ($_retire (once (add-atom &proof_retired ($pid)))) ($_dirty (mark-dirty! $gkey $okey)) ($_confidence (clear-key-confidence! $gkey)) ($_paths (invalidate-proof-paths! $pid))) ())))
 (: drop-current-proof! (-[semidet]-> Number (List $none)))
 (= (drop-current-proof! $pid) (let* (($_remove (remove-current! (owner-key $pid) $pid)) ($_superseded (once (add-atom &proof_superseded ($pid)))) ($_paths (invalidate-proof-paths! $pid))) ()))
 (= (supersede-current-proof! $pid) (let* (($gkey (owner-key $pid)) ($okey (output-key $pid)) ($_result (if (== (collapse (once (current-proof-result-id-for-output-key $gkey $okey))) ($pid)) (remove-result-output! $gkey $okey) ())) ($_drop (drop-current-proof! $pid)) ($_dirty (mark-dirty! $gkey $okey)) ($_confidence (clear-key-confidence! $gkey))) ()))
@@ -259,9 +256,7 @@
           ($_old (base-rate-cache-remove! $kbid $pattern))
           ($_new
              (add-atom &base_rate_cache
-                (base-rate $kbid $stored $tv user any)))
-          ($_proofs
-             (invalidate-base-rate-aggregate-proofs! $kbid $pattern)))
+                (base-rate $kbid $stored $tv user any))))
       ()))
 (: clear-base-rate (-[det]-> KB Statement (List $none)))
 (= (clear-base-rate $kbid $pattern)
@@ -275,28 +270,6 @@
          (foreach-flat supersede-current-proof!
             (current-base-rate-aggregate-pids $kbid $pattern)))
       ()))
-(: current-base-rate-aggregate-pids-for-key
-   (-[det]-> BaseRateAggregateKey (List Number)))
-(= (current-base-rate-aggregate-pids-for-key $key)
-   (let $lookup (index-hash $key)
-      (collapse
-         (match &base_rate_fold
-            ($lookup $stored-key $_kbid $gkey)
-            (if (=alpha $stored-key $key)
-               (let $pids (result-ids (brand ProofGoalKey $gkey))
-                  (superpose $pids))
-               (empty))))))
-(: consume-pending-base-rate-retire-key!
-   (-[det]-> BaseRateAggregateKey Bool))
-(= (consume-pending-base-rate-retire-key! $key)
-   (if (pending-base-rate-retire? $key)
-      (let* (($_retired
-                (collapse
-                   (foreach-flat supersede-current-proof!
-                      (current-base-rate-aggregate-pids-for-key $key))))
-             ($_consumed (remove-pending-base-rate-retire! $key)))
-         true)
-      false))
 (: latest-proof-id (-[semidet]-> (List Number) Number))
 (= (latest-proof-id (cons $pid $rest)) (fold-flat max $pid $rest))
 (: latest-live-proof-id-step (-[semidet]-> Number Number Number))
@@ -311,10 +284,9 @@
 (: proof-term-conjunction-dependency? (-[det]-> Proof Bool))
 (= (proof-term-conjunction-dependency? $proof) (if (is-expr $proof) (if (== $proof ()) false (if (is-var (car-atom $proof)) false (if (== (car-atom $proof) conjunction) true (case $proof ( ((by $_rule $dependency) (proof-term-conjunction-dependency? (brand Proof $dependency))) ((negated $inner) (proof-term-conjunction-dependency? (brand Proof $inner))) ($_other false)))))) false))
 (= (proof-current-representative? $pid) (not (space-row-present? &proof_superseded ($pid))))
-(= (proof-retired? $pid) (space-row-present? &proof_retired ($pid)))
-;; A proof is live until it is retired; a fold snapshot additionally only while
-;; it is the current representative of its fold key. Parents are never marked.
-(= (proof-live? $pid) (if (proof-retired? $pid) false (if (= (proof-kind-by-id $pid) (aggregate $_output)) (proof-current-representative? $pid) true)))
+;; A fold snapshot is live while it is the current representative of its fold
+;; key; every other proof is always live. Parents are never marked.
+(= (proof-live? $pid) (if (= (proof-kind-by-id $pid) (aggregate $_output)) (proof-current-representative? $pid) true))
 (: reverse-number-list (-[det]-> (List Number) (List Number)))
 (: reverse-into (-[det]-> (List Number) (List Number) (List Number)))
 (= (reverse-number-list $items) (reverse-into $items ()))

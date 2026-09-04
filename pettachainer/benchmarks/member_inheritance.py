@@ -51,6 +51,14 @@ def validate_truth_value(
     )
 
 
+COUNT_CONFIDENCE_K = 800.0
+
+
+def count_confidence(mass: float) -> float:
+    """Count-based confidence of a member fold over `mass` unit observations."""
+    return mass / (mass + COUNT_CONFIDENCE_K)
+
+
 def member_statements(index: int, strength: float) -> tuple[str, str]:
     object_name = f"memberBenchObject{index}"
     return (
@@ -86,13 +94,8 @@ def run_incremental_benchmark(
         raise MemberInheritanceBenchmarkError("member-strength must be in [0, 1]")
 
     chainer_type = load_chainer(repository, MemberInheritanceBenchmarkError)
-    total_members = initial_members + deltas
-
     started = time.perf_counter()
     handler = chainer_type()
-    handler.handler.process_metta_string(
-        f"!(set-universe-size {handler.kb} {float(total_members)})"
-    )
     initial_atoms = [
         atom
         for index in range(initial_members)
@@ -108,7 +111,7 @@ def run_incremental_benchmark(
     validate_truth_value(
         warm_answers,
         expected_strength=member_strength,
-        expected_confidence=initial_members / total_members,
+        expected_confidence=count_confidence(initial_members),
     )
 
     add_seconds = 0.0
@@ -140,7 +143,7 @@ def run_incremental_benchmark(
         final_strength, final_confidence = validate_truth_value(
             answers,
             expected_strength=member_strength,
-            expected_confidence=(index + 1) / total_members,
+            expected_confidence=count_confidence(index + 1),
         )
         final_result_count = len(answers)
 
@@ -177,9 +180,6 @@ def run_forward_population_benchmark(
     chainer_type = load_chainer(repository, MemberInheritanceBenchmarkError)
     started = time.perf_counter()
     handler = chainer_type()
-    handler.handler.process_metta_string(
-        f"!(set-universe-size {handler.kb} {float(members)})"
-    )
     setup_seconds = time.perf_counter() - started
 
     query = inheritance_query()

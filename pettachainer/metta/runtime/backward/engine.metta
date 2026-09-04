@@ -242,27 +242,12 @@
                                                     (brand Term $subj)
                                                     (brand Term $concept)
                                                     $budget))
-                                              ($_retire (deactivate-current-proof! $pid)))
+                                              ($_drop (supersede-current-proof! $pid)))
                                           ())))
                                  ($_other ()))))
                            ($_other ())))))))))))
       ()))
 
-;; Internal queue operations are semidet because an arbitrary numeric ID may
-;; be absent.  The public runner creates its root ID immediately above, so turn
-;; an impossible missing-root result into an empty, deterministic search
-;; rather than letting the whole query vanish.
-(: schedule-execution-root-goal-heap
-   (-[semidet]-> Bool (Heap AgendaEntry) Number (Heap AgendaEntry)))
-(= (schedule-execution-root-goal-heap $reuse? $agenda $gid)
-   ;; The reuse flag must gate the lineage probe with a nested if:
-   ;; and-evaluation is strict, so an (and $reuse? probe) form would
-   ;; pay the per-root probe on every non-materializing query.
-   (if $reuse?
-      (if (== (current-materialized-root-results $gid) ())
-         (schedule-root-goal-heap $agenda $gid)
-         $agenda)
-      (schedule-root-goal-heap $agenda $gid)))
 (: execute-backward
    (-[nondet]-> Number
        (List (| Goal (Statement KBContext Proof TV)))
@@ -291,11 +276,7 @@
           (change-state! bwd_root_count
              (length $scheduled-root-gids)))
        ($agenda0
-          (proof-fold-flat-semidet
-             (schedule-execution-root-goal-heap
-                (if $materialize?
-                   (not (pending-base-rate-retires?))
-                   false))
+          (proof-fold-flat-semidet schedule-root-goal-heap
              (empty_heap) $scheduled-root-gids))
        ;; A semidet failure anywhere in the search loop lands in the empty
        ;; case here. That is always an engine defect, never a legitimate
