@@ -1,4 +1,5 @@
 import os
+import re
 import unittest
 import warnings
 from pathlib import Path
@@ -274,23 +275,34 @@ class TestPeTTaChainer(unittest.TestCase):
             handler.query_many_materialization([root], steps=0), refined
         )
 
-        # Every goal stays searchable: a re-query may refine the finite-budget
-        # point once more, then it settles.
+        # Every goal stays searchable: re-queries keep refining the
+        # finite-budget point until it settles (from the second 200-step
+        # query on).
         handler.set_query_metrics(True)
         repeats = []
-        for _ in range(2):
+        for _ in range(3):
             handler.handler.process_metta_string(
                 "!(begin-backward-query-metrics!)"
             )
             repeats.append(
-                handler.query_many_materialization([root], steps=100)
+                handler.query_many_materialization([root], steps=200)
             )
             handler.handler.process_metta_string(
                 "!(end-backward-query-metrics!)"
             )
             self.assertEqual(handler._read_query_metrics()["search_aborts"], 0)
-        self.assertEqual(repeats[0], repeats[1])
-        self.assertNotEqual(repeats[0], original)
+        # Context sample numbers in proof labels are per-query counters.
+        def without_context_numbers(answers):
+            return [
+                [re.sub(r"\(ctx proof \d+\)", "(ctx proof _)", row) for row in batch]
+                for batch in answers
+            ]
+
+        self.assertEqual(
+            without_context_numbers(repeats[1]),
+            without_context_numbers(repeats[2]),
+        )
+        self.assertNotEqual(repeats[2], original)
 
     def test_completed_proofs_survive_query_search_reset(self):
         handler = PeTTaChainer()

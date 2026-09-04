@@ -1,15 +1,13 @@
 ;; Durable backward proof-store contract.
 ;; Owns append-only &proof history, shared goal/result/parent indexes, fold
 ;; source rows, current-view private rows, the derivation index, frontier paths, and
-;; materialized aggregate lineage. Shared row shapes remain canonical.
+;; materialized-fact marks. Shared row shapes remain canonical.
 ;; Current candidate/result rows keep goal and output indexes; stable result-key
 ;; rows preserve ordering while dirty groups rebuild once. Fold snapshots use
 ;; the replace policy (docs/metta/fold_node_contract.md). Deactivation retires
 ;; forever; supersession preserves root fallback but blocks ordinary use.
 ;; Merged and conjunction proofs retain raw children. Partial dependency lookup
 ;; deactivates during invalidation instead of aborting the enclosing operation.
-;; Materialized lineage is hash-indexed but verifies full identity and removes
-;; only exact stale forward-frontier rows.
 (: next-gid (-[det]-> Number))
 (= (next-gid) (next-search-id bwd_gid))
 (: next-pid (-[det]-> Number))
@@ -175,45 +173,30 @@
 (= (materializable-proof-kind? $kind) (case $kind (((rule $_term) true) ($_other false))))
 (: materializable-proof-output? (-[det]-> $output Bool))
 (= (materializable-proof-output? $output) (case $output ( (($type ($_kbid MAIN Nil) $_prf $tv) (if (== (extract-vars $type) ()) (if (is-var $tv) false (case $tv (((STV $_strength $_confidence) (== (extract-vars $tv) ())) ($_other false)))) false)) ($_other false))))
+;; Materialized facts are forward rows marked in &materialized_facts. A
+;; re-materialization of an output key replaces the key's earlier materialized
+;; rows; marked facts are never leaf results or fold sources of the backward
+;; search, which re-derives them. No dependency lists, no staleness. The fold
+;; goals a materialization walked are marked in &materialized_folds so a later
+;; refold replaces their cached seed and the provenance stays complete.
+(: MaterializedRow Type)
+(: materialized-row (-[det]-> Number Statement KBContext (Statement KBContext Proof TV) (List Evidence) MaterializedRow))
+(: materialized-forward-fact? (-[det]-> (Statement KBContext Proof TV) Bool))
+(= (materialized-forward-fact? ($type $kb $proof $tv)) (let $hash (forward-output-index-hash (forward-output-key $kb $type)) (space-row-present? &materialized_facts (materialized-row $hash $type $kb ($type $kb $proof $tv) $_ev))))
+(: materialized-rows (-[det]-> ForwardOutputKey (List MaterializedRow)))
+(= (materialized-rows (forward-output-key $kb $type)) (let $hash (forward-output-index-hash (forward-output-key $kb $type)) (collapse (match &materialized_facts (materialized-row $hash $type $kb $fact $ev) (materialized-row $hash $type $kb $fact $ev)))))
+(: remove-materialized! (-[det]-> MaterializedRow (List $none)))
+(= (remove-materialized! (materialized-row $hash $type $kb $fact $ev)) (let* (($_frontier (remove-atom &forward_frontier (forward-frontier-row $hash $type $kb $fact $ev))) ($_mark (remove-atom &materialized_facts (materialized-row $hash $type $kb $fact $ev)))) ()))
+(: upsert-materialized! (-[nondet]-> (Statement KBContext Proof TV) (List Evidence) ForwardOutputChange))
+(= (upsert-materialized! $fact $ev) (let* (($okey (forward-fact-key $fact)) ((forward-output-key $kb $type) $okey) ($hash (forward-output-index-hash $okey))) (if (forward-frontier-has-exact? $okey $fact $ev) no-forward-change (let* (($old (materialized-rows $okey)) ($_remove (foreach-flat remove-materialized! $old)) ($_refresh (if (== $old ()) () (progn (forward-apply-unqueued-change! (chainer-first-or no-forward-change (collapse (once (forward-refresh-output-key! $okey))))) ()))) ($change (forward-candidate-upsert! (forward-derived $fact $ev) false)) ($_mark (if (forward-frontier-has-exact? $okey $fact $ev) (once (add-atom &materialized_facts (materialized-row $hash $type $kb $fact $ev))) ()))) $change))))
+(: materialize-node! (-[semidet]-> Number (List $none)))
+(= (materialize-node! $pid) (let* (($kind (proof-kind-by-id $pid)) ($output (proof-output-atom-by-id $pid))) (if (materializable-proof-kind? $kind) (if (materializable-proof-output? $output) (let* (($fact (materialize-fact $output)) (($_score $ev) (proof-stats-by-id $pid)) ($changes (collapse (once (upsert-materialized! $fact $ev)))) ($change (if (== $changes ()) no-forward-change (car-atom $changes)))) (progn (forward-apply-unqueued-change! $change) ())) ()) ())))
+(: materialize-tree! (-[semidet]-> Number (List $none)))
+(= (materialize-tree! $pid) (let* (($_children (materialize-list! (proof-children-by-id $pid))) ($_fold (if (= (proof-kind-by-id $pid) (aggregate $_output)) (let $hash (index-hash (owner-key $pid)) (once (add-atom &materialized_folds ($hash)))) ())) ($_node (collapse (materialize-node! $pid)))) ()))
+(: materialize-list! (-[semidet]-> (List Number) (List $none)))
+(= (materialize-list! $pids) (foreach-flat materialize-tree! $pids))
 (: proof-current-representative? (-[det]-> Number Bool))
 (: proof-live? (-[semidet]-> Number Bool))
-(: MatAggregateLineageRow Type)
-(: materialized-aggregate-lineage-row (-[det]-> Number Statement KBContext (Statement KBContext Proof TV) (List Evidence) (List Number) MatAggregateLineageRow))
-(: materialized-aggregate-proof? (-[det]-> Number Bool))
-(= (materialized-aggregate-proof? $pid) (not (== (collapse (once (match &materialized_aggregate_lineage (materialized-aggregate-lineage-row $_hash $_type $_kb $_fact $_ev $deps) (if (stored-list-member? $pid $deps) true (empty))))) ())))
-(: mat-stale? (-[det]-> (List Number) Bool))
-(= (mat-stale? ()) false)
-(= (mat-stale? (cons $pid $rest)) (if (proof-current-representative? $pid) (mat-stale? $rest) true))
-(: add-mat-dep (-[det]-> (List Number) Number (List Number)))
-(= (add-mat-dep $deps $pid) (if (stored-list-member? $pid $deps) $deps (append-flat $deps ($pid))))
-(: merge-mat-deps (-[det]-> (List Number) (List Number) (List Number)))
-(= (merge-mat-deps $left $right) (fold-flat add-mat-dep $left $right))
-(: proof-mat-deps (-[det]-> Number (List Number)))
-(= (proof-mat-deps $pid) (collapse (once (match &proof (stored-proof-row $pid $_owner $_output $kind $_support $_children) (case $kind (((aggregate $_result) $pid) ($_other (empty))))))))
-(: stale-lineage (-[det]-> ForwardOutputKey (List MatAggregateLineageRow)))
-(= (stale-lineage (forward-output-key $kb $type)) (let $hash (forward-output-index-hash (forward-output-key $kb $type)) (collapse (match &materialized_aggregate_lineage (materialized-aggregate-lineage-row $hash $type $kb $old-fact $old-ev $old-deps) (if (and (mat-stale? $old-deps) (forward-frontier-has-exact? (forward-output-key $kb $type) $old-fact $old-ev)) (materialized-aggregate-lineage-row $hash $type $kb $old-fact $old-ev $old-deps) (empty))))))
-(: active-lineage (-[det]-> ForwardOutputKey (List MatAggregateLineageRow)))
-(= (active-lineage (forward-output-key $kb $type)) (let $hash (forward-output-index-hash (forward-output-key $kb $type)) (collapse (match &materialized_aggregate_lineage (materialized-aggregate-lineage-row $hash $type $kb $fact $ev $deps) (if (forward-frontier-has-exact? (forward-output-key $kb $type) $fact $ev) (materialized-aggregate-lineage-row $hash $type $kb $fact $ev $deps) (empty))))))
-(: remove-lineage! (-[det]-> MatAggregateLineageRow (List $none)))
-(= (remove-lineage! (materialized-aggregate-lineage-row $hash $type $kb $fact $ev $_deps)) (progn (remove-atom &forward_frontier (forward-frontier-row $hash $type $kb $fact $ev)) ()))
-(: record-lineage! (-[det]-> ForwardOutputKey (Statement KBContext Proof TV) (List Evidence) (List Number) (List $none)))
-(= (record-lineage! (forward-output-key $kb $type) $fact $ev $deps) (let* (($hash (forward-output-index-hash (forward-output-key $kb $type))) ($_old (collapse (match &materialized_aggregate_lineage (materialized-aggregate-lineage-row $hash $type $kb $fact $_old-ev $old-deps) (if (mat-stale? $old-deps) (remove-atom &materialized_aggregate_lineage (materialized-aggregate-lineage-row $hash $type $kb $fact $_old-ev $old-deps)) (empty))))) ($_row (once (add-atom &materialized_aggregate_lineage (materialized-aggregate-lineage-row $hash $type $kb $fact $ev $deps))))) ()))
-(: materialized-forward-fact-stale? (-[det]-> (Statement KBContext Proof TV) Bool))
-(= (materialized-forward-fact-stale? ($type $kb $proof $tv)) (let $hash (forward-output-index-hash (forward-output-key $kb $type)) (if (== (collapse (once (match &materialized_aggregate_lineage (materialized-aggregate-lineage-row $hash $type $kb ($type $kb $proof $tv) $_ev $deps) (if (mat-stale? $deps) true (empty))))) ()) false true)))
-(: materialized-aggregate-forward-fact? (-[det]-> (Statement KBContext Proof TV) Bool))
-(= (materialized-aggregate-forward-fact? ($type $kb $proof $tv)) (let $hash (forward-output-index-hash (forward-output-key $kb $type)) (if (== (collapse (once (match &materialized_aggregate_lineage (materialized-aggregate-lineage-row $hash $type $kb ($type $kb $proof $tv) $_ev $_deps) true))) ()) false true)))
-(: upsert-materialized! (-[nondet]-> (Statement KBContext Proof TV) (List Evidence) (List Number) ForwardOutputChange))
-(= (upsert-materialized! $fact $ev $deps) (let* (($okey (forward-fact-key $fact)) ($refining (stale-lineage $okey))) (if (== $refining ()) (let $change (forward-candidate-upsert! (forward-derived $fact $ev) false) (let $_lineage (if (and (not (== $deps ())) (forward-frontier-has-exact? $okey $fact $ev)) (record-lineage! $okey $fact $ev $deps) ()) $change)) (let* (($_remove-old (foreach-flat remove-lineage! $refining)) ($change (forward-candidate-upsert! (forward-derived $fact $ev) false)) ($_lineage (if (forward-frontier-has-exact? $okey $fact $ev) (record-lineage! $okey $fact $ev $deps) ()))) $change))))
-(: materialize-node! (-[semidet]-> Number (List Number) (List $none)))
-(= (materialize-node! $pid $deps) (let* (($kind (proof-kind-by-id $pid)) ($output (proof-output-atom-by-id $pid))) (if (materializable-proof-kind? $kind) (if (materializable-proof-output? $output) (let* (($fact (materialize-fact $output)) (($_score $ev) (proof-stats-by-id $pid)) ($changes (collapse (once (upsert-materialized! $fact $ev $deps)))) ($change (if (== $changes ()) no-forward-change (car-atom $changes)))) (progn (forward-apply-unqueued-change! $change) ())) ()) ())))
-(: materialize-tree! (-[det]-> Number (List Number)))
-(= (materialize-tree! $pid) (let* (($child-hits (collapse (once (materialize-list! (proof-children-by-id $pid))))) ($children (chainer-first-or () $child-hits)) ($deps (merge-mat-deps $children (proof-mat-deps $pid))) ($_node (collapse (materialize-node! $pid $deps)))) $deps))
-(: materialize-list! (-[det]-> (List Number) (List Number)))
-(= (materialize-list! ()) ())
-(= (materialize-list! (cons $pid $rest)) (let* (($head (materialize-tree! $pid)) ($tail (materialize-list! $rest))) (merge-mat-deps $head $tail)))
-(: materialize-root-list! (-[semidet]-> (List Number) (List Number)))
-(= (materialize-root-list! ()) ())
-(= (materialize-root-list! (cons $pid $rest)) (let* (($deps (materialize-tree! $pid)) ($fact (materialize-fact (proof-output-atom-by-id $pid))) ($okey (forward-fact-key $fact)) ($_alternatives (foreach-flat remove-lineage! (active-lineage $okey))) ($changes (collapse (once (forward-refresh-output-key! $okey)))) ($_refresh (forward-apply-unqueued-change! (if (== $changes ()) no-forward-change (car-atom $changes)))) (($_score $ev) (proof-stats-by-id $pid)) ($_node (collapse (once (upsert-materialized! $fact $ev $deps)))) ($tail (materialize-root-list! $rest))) (merge-mat-deps $deps $tail)))
 (: ensure-frontier-path (-[semidet]-> Number Number Number))
 (= (ensure-frontier-path $parent-path $pid) (let $hits (collapse (once (match &frontier_path_lookup ($parent-path $pid $path-id) $path-id))) (if (== $hits ()) (let* (($path-id (+ 1 (next-search-id bwd_frontier_path))) ($_lookup (add-space-atom! &frontier_path_lookup (make-space-row3 $parent-path $pid $path-id))) ($_node (add-space-atom! &frontier_path (make-space-row3 $path-id $parent-path $pid))) ($_child (add-space-atom! &frontier_path_child (make-space-pair $parent-path $path-id))) ($_proof (add-space-atom! &proof_frontier_path (make-space-pair $pid $path-id)))) $path-id) (the Number (car-atom $hits)))))
 (: frontier-path-live? (-[det]-> Number Bool))
