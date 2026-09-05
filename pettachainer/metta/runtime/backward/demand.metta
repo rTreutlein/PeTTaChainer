@@ -6,12 +6,12 @@
 ;; summed across roots only when a scalar queue priority is requested.
 ;; Demand is memoized per goal under a revision counter; a cached value
 ;; records the revisions of the goals it depends on, so staleness is a
-;; comparison rather than a recomputation. Goals whose demand inputs changed
-;; get a dirty mark (&goal_demand_wake) for the scheduler to consume.
+;; comparison rather than a recomputation. An empty-to-live registration also
+;; marks &goal_demand_wake so the scheduler wakes existing descendants.
 ;;
 ;; It is a separate layer because demand answers "what is this goal worth
-;; right now" as a function of the waiter graph alone. That keeps priority
-;; policy changeable without touching queue mechanics (search.metta), and
+;; right now" from waiters, parent confidence, and frontier-path liveness.
+;; That keeps priority policy separate from queue mechanics (search.metta), and
 ;; gives the scheduler a single staleness protocol: compare a goal's demand
 ;; revision against the revision its agenda token was issued at.
 ;;
@@ -256,12 +256,8 @@
 (: mark-goal-demand-dirty! (-[det]-> Number (List $none)))
 (= (mark-goal-demand-dirty! $gid)
    (let $_
-      (collapse
-         (match &goal_demand_cache
-            (goal-demand-cache-row $gid $dependencies $demands)
-            (remove-atom &goal_demand_cache
-               (goal-demand-cache-row
-                  $gid $dependencies $demands))))
+      (remove-atom &goal_demand_cache
+         (goal-demand-cache-row $gid $_dependencies $_demands))
       ()))
 
 (: goal-root-demands (-[det]-> Number (List RootDemand)))
@@ -359,9 +355,9 @@
              (add-atom &goal_demand_cache
                 (goal-demand-cache-row
                    $child-gid $next-dependencies $next-demands))))
-       ;; Registration bumps unconditionally: a frontier that has not yet
-       ;; reached a refined premise is only replayed by the wakes these bumps
-       ;; cause, so bumping only on a changed list stops one derivation short.
+       ;; Demand equality does not imply unchanged child priorities: this
+       ;; revision can expose a dead frontier path in a descendant's cache
+       ;; even when this goal has published no proof. Replay is separate.
        ($_revision (bump-goal-demand-revision! $child-gid))
        ;; Only an empty-to-live transition can strand descendants that were
        ;; expanded while this goal was reachable solely through a cycle.  Mark

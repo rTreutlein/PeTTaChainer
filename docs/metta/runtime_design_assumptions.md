@@ -242,6 +242,16 @@ without enumerating the goal's rules again. Query-local compiled additions are
 unioned and installed once, while source variables and result lists remain
 isolated per input root.
 
+Priority-cache invalidation is independent of bounded proof delivery. Publishing
+a proof advances the publishing goal's revision even when the synchronous
+re-entry limit suppresses its waiter callbacks; it does not queue deferred
+callbacks or relax that limit. A demand vector alone is not a complete priority
+fingerprint: parent confidence and frontier-path liveness also affect downstream
+scores. Registration and cache-rebuild revisions remain unconditional because
+they can expose changes in those other inputs. Removing same-valued revisions
+requires a complete input-invalidation contract, not just list equality. The
+controlled state-transition regressions are in `test_demand_invalidation.metta`.
+
 Forward chaining always starts from facts selected by its caller. Its agenda is
 local to that invocation and is discarded when the agenda empties or the step
 budget is exhausted. The canonical facts derived before that point remain in

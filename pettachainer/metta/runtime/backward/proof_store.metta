@@ -22,7 +22,7 @@
 (: GoalCurrentConfidenceRow Type)
 (: current-confidence-row (-[det]-> Number (| Number NoCurrentScore) GoalCurrentConfidenceRow))
 (: clear-current-confidence! (-[det]-> Number (List $none)))
-(= (clear-current-confidence! $gid) (let $_removed (collapse (match &goal_current_confidence (current-confidence-row $gid $value) (remove-atom &goal_current_confidence (current-confidence-row $gid $value)))) ()))
+(= (clear-current-confidence! $gid) (let $_removed (remove-atom &goal_current_confidence (current-confidence-row $gid $_value)) ()))
 (: GoalDemandRevisionRow Type)
 (: goal-demand-revision-row
    (-[det]-> Number Number GoalDemandRevisionRow))
@@ -42,12 +42,8 @@
           ($_metric
              (increment-backward-query-metric! demand-revision-bumps))
           ($_old
-             (collapse
-                (match &goal_demand_revision
-                   (goal-demand-revision-row $gid $_old-revision)
-                   (remove-atom &goal_demand_revision
-                      (goal-demand-revision-row
-                         $gid $_old-revision)))))
+             (remove-atom &goal_demand_revision
+                (goal-demand-revision-row $gid $_old-revision)))
           ($_new
              (once
                 (add-atom &goal_demand_revision

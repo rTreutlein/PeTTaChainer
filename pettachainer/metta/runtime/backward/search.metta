@@ -510,7 +510,10 @@
    (-[det]-> (Heap AgendaEntry) Number Number
        (Heap AgendaEntry)))
 (= (wake-proof-commit-heap $agenda $gid $pid)
-   (let* (($active-hits
+   ;; Publication changes priority inputs even when synchronous delivery has
+   ;; reached its re-entry limit. The guard bounds callbacks, not freshness.
+   (let* (($_revision (bump-goal-demand-revision! $gid))
+          ($active-hits
              (collapse
                 (once
                    (match &search_wake_active
@@ -532,9 +535,7 @@
                 (chainer-first-or $agenda
                    (collapse
                       (once
-                         (let* (($_revision
-                                   (bump-goal-demand-revision! $gid))
-                                ($waiters
+                         (let* (($waiters
                                    (stored-atom-list
                                       (collapse
                                          (match &goal_waiter
