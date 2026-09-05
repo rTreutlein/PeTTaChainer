@@ -41,7 +41,10 @@ run_test_child(File) :-
     ;  close(Log), halt(1)
     ).
 
-report_test_status(_, exited(0), File, Failed, Failed) :-
+report_test_status(Pid, exited(0), File, Failed, Failed) :-
+    test_log_file(Pid, LogFile),
+    read_file_to_string(LogFile, Log, []),
+    \+ sub_string(Log, _, _, _, 'backward-search-aborted'),
     !,
     format('PASS ~w~n', [File]).
 report_test_status(Pid, Status, File, Failed0, Failed) :-

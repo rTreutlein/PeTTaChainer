@@ -279,32 +279,25 @@
 ;; and no evidence the candidate lacks is the same derivation over replaced
 ;; inputs: storing the candidate supersedes it. Same identity and the same
 ;; premise proofs is a duplicate.
-(: erase-proof-refs (-[det]-> $term $term))
-(= (erase-proof-refs $term) (if (is-expr $term) (if (== $term ()) () (if (is-var (car-atom $term)) $term (case $term ( ((proof-ref $_pid) ref) ((merge/revision $_left $_right) ref) ($_other (cons (erase-proof-refs (car-atom $term)) (map-flat erase-proof-refs (cdr-atom $term)))))))) $term))
-(: derivation-shape (-[det]-> $term $term))
-(= (derivation-shape $term) (case $term ( (($_type $_kb $proof $_tv) (erase-proof-refs $proof)) ($_other $term))))
-(: premise-keys (-[semidet]-> (List Number) (List ProofOutputKey)))
-(= (premise-keys ()) ())
-(= (premise-keys (cons $pid $rest)) (case (proof-kind-by-id $pid) ( ((leaf (CPU $_f $_a $_r)) (premise-keys $rest)) ($_other (let* (($key (output-key $pid)) ($keys (premise-keys $rest))) (case $keys ( (() (cons $key ())) ((cons $next $_more) (if (=alpha $key $next) $keys (cons $key $keys))))))))))
 (: same-derivation? (-[semidet]-> ProofKind (List Number) Number Bool))
 (= (same-derivation? (rule $term) $children $oldpid) (case (proof-kind-by-id $oldpid) ( ((rule $old-term) (if (=alpha (derivation-shape $term) (derivation-shape $old-term)) (=alpha (premise-keys $children) (premise-keys (proof-children-by-id $oldpid))) false)) ($_other false))))
 (= (same-derivation? (leaf $_term) $_children $_oldpid) false)
 (= (same-derivation? (aggregate $_term) $_children $_oldpid) false)
 (: supersedes-derivation? (-[semidet]-> ProofKind (List Evidence) (List Number) Number Bool))
 (= (supersedes-derivation? $kind $ev $children $oldpid) (if (same-derivation? $kind $children $oldpid) (if (== (proof-children-by-id $oldpid) $children) false (let ($_old-score $old-ev) (proof-stats-by-id $oldpid) (evidence-subset? $old-ev $ev))) false))
-;; Rule proofs are indexed in &proof_derivation by the hash of (goal key,
-;; derivation identity); -1 stands for kinds without one. Rows are durable and
-;; filtered by the current view on lookup.
-(: DerivationRow Type)
-(: derivation-row (-[det]-> Number Number DerivationRow))
-(: derivation-hash (-[semidet]-> ProofGoalKey ProofKind (List Number) Number))
-(= (derivation-hash $gkey (rule $term) $children) (let* (($shape (derivation-shape $term)) ($keys (premise-keys $children))) (index-hash (quote ($gkey $shape $keys)))))
-(= (derivation-hash $_gkey (leaf $_term) $_children) -1)
-(= (derivation-hash $_gkey (aggregate $_term) $_children) -1)
-(: proof-current-in-key? (-[det]-> Number Number Bool))
-(= (proof-current-in-key? $khash $pid) (not (== (collapse (once (match &proof_current (current-row $khash $_ohash $_lkey $_key $_okey $pid) true))) ())))
-(: superseded-derivation-pids (-[semidet]-> Number Number ProofKind (List Evidence) (List Number) (List Number)))
-(= (superseded-derivation-pids $khash $dhash $kind $ev $children) (collapse (match &proof_derivation (derivation-row $dhash $pid) (if (proof-current-in-key? $khash $pid) (if (supersedes-derivation? $kind $ev $children $pid) (stored-number $pid) (empty)) (empty)))))
+;; Current rule candidates are indexed by the hash of (goal key, derivation
+;; identity); -1 stands for kinds without one. Dropping a current candidate
+;; removes its index row; merely losing the merged-result role does not.
+;; The full goal key and derivation comparison reject hash collisions.
+(: superseded-derivation-pids (-[semidet]-> ProofGoalKey Number ProofKind (List Evidence) (List Number) (List Number)))
+(= (superseded-derivation-pids $gkey $dhash $kind $ev $children)
+   (collapse
+      (match &proof_derivation (derivation-row $dhash $saved-key $pid)
+         (if (=alpha $saved-key $gkey)
+            (if (supersedes-derivation? $kind $ev $children $pid)
+               (stored-number $pid)
+               (empty))
+            (empty)))))
 (: candidate-step (-[semidet]-> ProofKind (List Evidence) Number (List Number) Bool Number Bool))
 (= (candidate-step $_kind $_ev $_score $_children false $_oldpid) false)
 (= (candidate-step $kind $ev $score $children true $oldpid) (if (same-derivation? $kind $children $oldpid) (if (== (proof-children-by-id $oldpid) $children) false (if (supersedes-derivation? $kind $ev $children $oldpid) true (candidate-compare $kind $ev $score $children $oldpid))) (candidate-compare $kind $ev $score $children $oldpid)))
@@ -315,7 +308,7 @@
 (: normalize-proof-candidate-evidence (-[semidet]-> ProofCandidate ProofCandidate))
 (= (normalize-proof-candidate-evidence (proof-candidate $kind $score $ev $children)) (proof-candidate $kind $score (case $kind ( ((rule ($type $kb $prf $tv)) (rule-result-evidence (assemble-runtime-fact (brand Statement $type) (brand KBContext $kb) (brand Proof $prf) (the TV $tv)) $ev)) ($_other $ev))) $children))
 (: store-proof-candidate (-[nondet]-> Number ProofCandidate Number))
-(= (store-proof-candidate $gid (proof-candidate $kind $score $ev $children)) (let* (($_metric (increment-backward-query-metric! proofs-stored)) ($gkey (proof-goal-key-by-goal-id $gid)) ($owner (proof-goal $gkey)) ($pid (next-pid)) ($output (stored-output $kind $pid)) ($okey (candidate-output-key $output)) ($dhash (derivation-hash $gkey $kind $children)) ($_stale (if (< $dhash 0) () (collapse (foreach-flat supersede-current-proof! (superseded-derivation-pids (index-hash $gkey) $dhash $kind $ev $children))))) ($old-rep (collapse (once (current-proof-result-id-for-output-key $gkey $okey)))) ($result-dirty? (result-dirty? $gkey $okey)) ($_1 (chainer-add-atom &proof (stored-proof-row $pid $owner $output $kind (proof-support $score $ev (stored-contribution $kind $output)) $children))) ($_index (index-goal-proof! &proof_goal $gkey $pid)) ($_current (index-current! $gkey $okey $pid)) ($_derivation (if (< $dhash 0) () (once (add-atom &proof_derivation (derivation-row $dhash $pid))))) ($_confidence (clear-current-confidence! $gid)) ($_result (if (= $kind (aggregate $_snapshot)) (replace-result! $gkey $okey $old-rep $pid) (if $result-dirty? () (if (== $old-rep ()) (index-result! $gkey $okey $pid) (let* (($_remove-result (remove-result-output! $gkey $okey)) ($_supersede (supersede-old! $old-rep)) ($_dirty (mark-dirty! $gkey $okey))) ())))))) $pid))
+(= (store-proof-candidate $gid (proof-candidate $kind $score $ev $children)) (let* (($_metric (increment-backward-query-metric! proofs-stored)) ($gkey (proof-goal-key-by-goal-id $gid)) ($owner (proof-goal $gkey)) ($pid (next-pid)) ($output (stored-output $kind $pid)) ($okey (candidate-output-key $output)) ($dhash (derivation-hash $gkey $kind $children)) ($_stale (if (< $dhash 0) () (collapse (foreach-flat supersede-current-proof! (superseded-derivation-pids $gkey $dhash $kind $ev $children))))) ($old-rep (collapse (once (current-proof-result-id-for-output-key $gkey $okey)))) ($result-dirty? (result-dirty? $gkey $okey)) ($_1 (chainer-add-atom &proof (stored-proof-row $pid $owner $output $kind (proof-support $score $ev (stored-contribution $kind $output)) $children))) ($_index (index-goal-proof! &proof_goal $gkey $pid)) ($_current (index-current! $gkey $okey $pid)) ($_derivation (if (< $dhash 0) () (once (add-atom &proof_derivation (derivation-row $dhash $gkey $pid))))) ($_confidence (clear-current-confidence! $gid)) ($_result (if (= $kind (aggregate $_snapshot)) (replace-result! $gkey $okey $old-rep $pid) (if $result-dirty? () (if (== $old-rep ()) (index-result! $gkey $okey $pid) (let* (($_remove-result (remove-result-output! $gkey $okey)) ($_supersede (supersede-old! $old-rep)) ($_dirty (mark-dirty! $gkey $okey))) ())))))) $pid))
 (: leaf-result-candidate (-[det]-> (| Goal (Statement KBContext Proof TV)) (List Evidence) ProofCandidate))
 (= (leaf-result-candidate $result $ev) (once (case $result ( ((CPU $_formula $_arguments $_cpu-result) (proof-candidate (leaf $result) (term-confidence $result) $ev ())) (($type ($kbid $context $variables) $prf $tv) (let $fact (assemble-contextual-runtime-fact $type $kbid $context $variables $prf $tv) (proof-candidate (leaf $fact) (term-confidence $fact) $ev ()))) ($_other (proof-candidate (leaf $result) (term-confidence $result) $ev ()))))))
 (: aggregate-result-candidate (-[det]-> (| Goal (Statement KBContext Proof TV)) (List Evidence) (List Number) ProofCandidate))

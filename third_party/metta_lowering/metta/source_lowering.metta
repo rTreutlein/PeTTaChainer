@@ -102,11 +102,14 @@
       $accum))
 
 (: extract-vars (-[det]-> Atom (List Variable)))
+;; Ground terms need no source walk. An open native closure remains opaque,
+;; so failed groundness checks still use source-expression traversal.
 (= (extract-vars $expr)
-   (if (is-var $expr) (cons (brand Variable $expr) ())
-      (if (is-expr $expr)
-         (fold-nested collect-var-step () $expr)
-         ())))
+   (if (is-ground $expr) ()
+      (if (is-var $expr) (cons (brand Variable $expr) ())
+         (if (is-expr $expr)
+            (fold-nested collect-var-step () $expr)
+            ()))))
 
 ;; Source existential binders use `(Exists ($x $y ...) body)`. Keep the binder
 ;; explicit until rule lowering so its declared scope is available to premise

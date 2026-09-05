@@ -1,13 +1,12 @@
 ;; Durable backward proof-store contract.
-;; Owns append-only &proof history, shared goal/result/parent indexes, fold
-;; source rows, current-view private rows, the derivation index, frontier paths, and
+;; Owns append-only &proof history, shared goal/result indexes, fold
+;; source rows, current-view private rows and derivation index, frontier paths, and
 ;; materialized-fact marks. Shared row shapes remain canonical.
 ;; Current candidate/result rows keep goal and output indexes; stable result-key
 ;; rows preserve ordering while dirty groups rebuild once. Fold snapshots use
-;; the replace policy (docs/metta/fold_node_contract.md). Deactivation retires
-;; forever; supersession preserves root fallback but blocks ordinary use.
-;; Merged and conjunction proofs retain raw children. Partial dependency lookup
-;; deactivates during invalidation instead of aborting the enclosing operation.
+;; the replace policy (docs/metta/fold_node_contract.md). Supersession removes
+;; current candidates without deleting their durable proof rows.
+;; Merged and conjunction proofs retain raw children.
 (: next-gid (-[det]-> Number))
 (= (next-gid) (next-search-id bwd_gid))
 (: next-pid (-[det]-> Number))
@@ -95,6 +94,9 @@
 (: no-tv NoTV)
 (: ProofCandidate Type)
 (: proof-candidate (-[det]-> ProofKind Number (List Evidence) (List Number) ProofCandidate))
+(: DerivationRow Type)
+(: derivation-row (-[det]-> Number ProofGoalKey Number DerivationRow))
+(: derivation-hash (-[semidet]-> ProofGoalKey ProofKind (List Number) Number))
 (: map-semidet (-[semidet]-> (-[semidet]-> $input $output) (List $input) (List $output)))
 (= (map-semidet $_fun ()) ())
 (= (map-semidet $fun (cons $item $rest)) (cons ($fun $item) (map-semidet $fun $rest)))
@@ -169,6 +171,18 @@
 (= (proof-children-by-id $pid) (once (match &proof (stored-proof-row $pid $_owner $_output $_kind $_support $children) $children)))
 (: proof-kind-by-id (-[semidet]-> Number ProofKind))
 (= (proof-kind-by-id $pid) (once (match &proof (stored-proof-row $pid $_owner $_output $kind $_support $_children) $kind)))
+;; A derivation keeps its rule skeleton and non-CPU premise output keys while
+;; those premises acquire new proof IDs. Consecutive equal keys collapse.
+(: erase-proof-refs (-[det]-> $term $term))
+(= (erase-proof-refs $term) (if (is-expr $term) (if (== $term ()) () (if (is-var (car-atom $term)) $term (case $term ( ((proof-ref $_pid) ref) ((merge/revision $_left $_right) ref) ($_other (cons (erase-proof-refs (car-atom $term)) (map-flat erase-proof-refs (cdr-atom $term)))))))) $term))
+(: derivation-shape (-[det]-> $term $term))
+(= (derivation-shape $term) (case $term ( (($_type $_kb $proof $_tv) (erase-proof-refs $proof)) ($_other $term))))
+(: premise-keys (-[semidet]-> (List Number) (List ProofOutputKey)))
+(= (premise-keys ()) ())
+(= (premise-keys (cons $pid $rest)) (case (proof-kind-by-id $pid) ( ((leaf (CPU $_f $_a $_r)) (premise-keys $rest)) ($_other (let* (($key (output-key $pid)) ($keys (premise-keys $rest))) (case $keys ( (() (cons $key ())) ((cons $next $_more) (if (=alpha $key $next) $keys (cons $key $keys))))))))))
+(= (derivation-hash $gkey (rule $term) $children) (let* (($shape (derivation-shape $term)) ($keys (premise-keys $children))) (index-hash (quote ($gkey $shape $keys)))))
+(= (derivation-hash $_gkey (leaf $_term) $_children) -1)
+(= (derivation-hash $_gkey (aggregate $_term) $_children) -1)
 (: materializable-proof-kind? (-[det]-> $kind Bool))
 (= (materializable-proof-kind? $kind) (case $kind (((rule $_term) true) ($_other false))))
 (: materializable-proof-output? (-[det]-> $output Bool))
@@ -209,7 +223,19 @@
 (= (invalidate-proof-paths! $pid) (foreach-flat invalidate-path! (the (List Number) (collapse (match &proof_frontier_path ($pid $path-id) (stored-number $path-id))))))
 (: supersede-current-proof! (-[semidet]-> Number (List $none)))
 (: drop-current-proof! (-[semidet]-> Number (List $none)))
-(= (drop-current-proof! $pid) (let* (($_remove (remove-current! (owner-key $pid) $pid)) ($_superseded (once (add-atom &proof_superseded ($pid)))) ($_paths (invalidate-proof-paths! $pid))) ()))
+(= (drop-current-proof! $pid)
+   (let* (($gkey (owner-key $pid))
+          (($_output $kind $_support $children) (proof-row-by-id $pid))
+          ($dhash (derivation-hash $gkey $kind $children))
+          ($_remove (remove-current! $gkey $pid))
+          ($_derivation
+             (if (< $dhash 0) ()
+                (collapse
+                   (remove-atom &proof_derivation
+                      (derivation-row $dhash $gkey $pid)))))
+          ($_superseded (once (add-atom &proof_superseded ($pid))))
+          ($_paths (invalidate-proof-paths! $pid)))
+      ()))
 (= (supersede-current-proof! $pid) (let* (($gkey (owner-key $pid)) ($okey (output-key $pid)) ($_result (if (== (collapse (once (current-proof-result-id-for-output-key $gkey $okey))) ($pid)) (remove-result-output! $gkey $okey) ())) ($_drop (drop-current-proof! $pid)) ($_dirty (mark-dirty! $gkey $okey)) ($_confidence (clear-key-confidence! $gkey))) ()))
 ;; Replace policy for fold snapshots: the previous representative of the key
 ;; leaves the current view and is superseded; the new snapshot is the result.

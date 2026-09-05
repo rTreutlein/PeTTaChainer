@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import importlib.util
-import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -32,17 +33,14 @@ class BenchmarkSupportTests(unittest.TestCase):
             ):
                 SUPPORT.load_chainer(repository, BenchmarkError)
 
-    def test_write_json_uses_stable_pretty_format_with_trailing_newline(self) -> None:
+    def test_load_chainer_rejects_a_module_cached_from_another_checkout(self) -> None:
         with tempfile.TemporaryDirectory() as raw_directory:
-            output_path = Path(raw_directory) / "result.json"
-            payload = {"second": [2, 3], "first": 1}
-
-            SUPPORT.write_json(output_path, payload)
-
-            self.assertEqual(
-                output_path.read_text(encoding="utf-8"),
-                json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            other_module = SimpleNamespace(
+                __file__=str(Path(raw_directory) / "pettachainer" / "pettachainer.py")
             )
+            with patch.object(SUPPORT.importlib, "import_module", return_value=other_module):
+                with self.assertRaisesRegex(BenchmarkError, "loaded PeTTaChainer from"):
+                    SUPPORT.load_chainer(REPO_ROOT, BenchmarkError)
 
 
 if __name__ == "__main__":

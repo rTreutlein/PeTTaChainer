@@ -100,7 +100,7 @@ def time_forward_goal(depth: int, noise_branching: int) -> float:
     t0 = time.perf_counter()
     handler.forward_chain(seeds, steps=depth)
     elapsed = time.perf_counter() - t0
-    assert_query_succeeds(handler, depth=depth, steps=query_budget(depth))
+    handler.select_facts(f"(Reach {goal_symbol(depth)})")
     return elapsed
 
 
@@ -111,7 +111,14 @@ def time_forward_full(depth: int, noise_branching: int, full_steps: int) -> floa
     t0 = time.perf_counter()
     handler.forward_chain(seeds, steps=full_steps)
     elapsed = time.perf_counter() - t0
-    assert_query_succeeds(handler, depth=depth, steps=query_budget(depth))
+    handler.select_facts(
+        [f"(Reach {goal_symbol(i)})" for i in range(depth + 1)]
+        + [
+            f"(Noise {noise_symbol(i, branch)})"
+            for i in range(depth)
+            for branch in range(noise_branching)
+        ]
+    )
     return elapsed
 
 

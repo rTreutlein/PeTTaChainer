@@ -83,7 +83,7 @@ PY
   else
     case $gate_id in
       metta)
-        defect_status[$gate_id]='counter unavailable; successful child logs suppressed'
+        defect_status[$gate_id]='every child log checked for aborts'
         ;;
       python)
         defect_status[$gate_id]='metric stream missing'

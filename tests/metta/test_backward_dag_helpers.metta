@@ -178,43 +178,13 @@
       ($item1 $item2 (heap_size $rest)))
    (high mid 1))
 
-!(test
-   (let*
-      (($heap0 (empty_heap))
-       ($heap1 (add_to_heap $heap0 1.0 high))
-       ($heap2 (add_to_heap $heap1 2.0 low))
-       ($kept (bounded-agenda-prune 1 $heap2)))
-      (heap_size $kept))
-   2)
-
-!(test
-   (let*
-      (($heap0 (empty_heap))
-       ($heap1 (add_to_heap $heap0 1.0 high))
-       ($empty (bounded-agenda-prune 0 $heap1)))
-      (heap_size $empty))
-   1)
-
-!(test
-   (let*
-      (($heap0 (empty_heap))
-       ($heap1 (add_to_heap $heap0 1.0 high))
-       ($_disable (set-bounded-agenda-pruning false))
-       ($kept (bounded-agenda-prune 0 $heap1))
-       ($_enable (set-bounded-agenda-pruning true)))
-      (heap_size $kept))
-   1)
-
 (: clear-backward-state (-[det]-> (List Atom)))
 (= (clear-backward-state)
    (progn
       (clear-backward-query-state!)
       (foreach-flat remove-all-atoms
          (&proof &proof_goal &proof_result
-          &proof_current &proof_current_output
-          &proof_current_result &proof_current_result_output
-          &proof_current_result_dirty
-          &proof_derivation
+          &proof_current &proof_current_result &proof_derivation
           &proof_superseded))
       ()))
 
@@ -526,6 +496,78 @@
       (== (goal-live-proof-ids $gid)
          ($first $second $third)))
    true)
+
+;; A raw rule candidate stays in the derivation index after a merge takes its
+;; result role. Refining that candidate removes only its current index entry:
+;; its durable proof remains materializable, and replaying the refinement is a
+;; duplicate. The independent rule still contributes to the output.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($input-gid
+          (ensure-goal-at-depth
+             (test-runtime-fact (DerivationInput) (brand Proof $input-proof) $input-tv) 1))
+       ($root-gid
+          (ensure-goal-at-depth
+             (test-runtime-fact (DerivationRoot) (brand Proof $root-proof) $root-tv) 0))
+       ($gkey (proof-goal-key-by-goal-id $root-gid))
+       ($old-input
+          (store-proof-candidate $input-gid
+             (leaf-result-candidate
+                (test-runtime-fact
+                   (DerivationInput) derivation-old-input (STV 1.0 0.8)) ())))
+       ($new-input
+          (store-proof-candidate $input-gid
+             (leaf-result-candidate
+                (test-runtime-fact
+                   (DerivationInput) derivation-new-input (STV 1.0 0.9)) ())))
+       ($evidence (cons (rule-ev kb derivation-main) ()))
+       ($old
+          (store-proof-candidate $root-gid
+             (proof-candidate
+                (rule
+                   (test-runtime-fact (DerivationRoot)
+                      (brand Proof (by derivation-main (proof-ref $old-input))) (STV 1.0 0.8)))
+                0.8 $evidence (cons $old-input ()))))
+       ($other
+          (store-proof-candidate $root-gid
+             (proof-candidate
+                (rule
+                   (test-runtime-fact
+                      (DerivationRoot) derivation-other (STV 1.0 0.7)))
+                0.7 (cons (rule-ev kb derivation-other) ()) ())))
+       ($_merged (goal-merged-proof-ids $root-gid))
+       ($old-is-representative (proof-current-representative? $old))
+       ($old-is-current
+          (== (current-proof-ids-for-goal-key $gkey) ($old $other)))
+       ($before-index (length (collapse (get-atoms &proof_derivation))))
+       ($refined-kind
+          (rule
+             (test-runtime-fact (DerivationRoot)
+                (brand Proof (by derivation-main (proof-ref $new-input))) (STV 1.0 0.9))))
+       ($refined (proof-candidate $refined-kind 0.9 $evidence (cons $new-input ())))
+       ($dhash (derivation-hash $gkey $refined-kind (cons $new-input ())))
+       ($foreign-key
+          (brand ProofGoalKey
+             (goal-key (test-runtime-fact (ForeignDerivationRoot) any (STV 1.0 1.0)))))
+       ($collision (derivation-row $dhash $foreign-key $old))
+       ($_collision (add-atom &proof_derivation $collision))
+       ($matching
+          (superseded-derivation-pids $gkey $dhash $refined-kind $evidence (cons $new-input ())))
+       ($_remove-collision (remove-atom &proof_derivation $collision))
+       ($new (store-proof-candidate $root-gid $refined))
+       ($_merged-new (goal-merged-proof-ids $root-gid))
+       ($duplicate-accepted (classify-goal-proof-candidate $root-gid $refined))
+       ($_reset (clear-backward-query-state!)))
+      ($old-is-representative
+       $old-is-current
+       $before-index
+       (length (collapse (get-atoms &proof_derivation)))
+       (== $matching ($old))
+       (== (current-proof-ids-for-goal-key $gkey) ($other $new))
+       $duplicate-accepted
+       (materialize-proof $old)))
+   (false true 2 2 true true false (by derivation-main derivation-old-input)))
 
 ;; Grouped fold snapshots replace per fold key: a newer snapshot of group a
 ;; supersedes both older a snapshots and leaves group b's snapshot current.

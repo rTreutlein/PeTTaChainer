@@ -68,6 +68,34 @@
 !(test (bounded-agenda-target-size 1) 1000)
 !(test (bounded-agenda-target-size 100) 1000)
 
+;; Exercise the actual pruning threshold: the older one- and two-entry heap
+;; checks never entered pruning after the beam became independent of budget.
+;; Native numlist supplies the fixture without a recursive MeTTa list builder.
+(: pruning-test-add-number (-[det]-> (Heap Number) Number (Heap Number)))
+(= (pruning-test-add-number $heap $index)
+   (add_to_heap $heap $index $index))
+
+!(test
+   (let*
+      (($_numbers
+          (callPredicate (Predicate (numlist 1 64000 $numbers))))
+       ($at-limit
+          (fold-flat pruning-test-add-number
+             (empty_heap)
+             (the (List Number) $numbers)))
+       ($over-limit (add_to_heap $at-limit 64001 64001))
+       ($needed-at-limit (bounded-agenda-prune-needed? 1 $at-limit))
+       ($needed-over-limit (bounded-agenda-prune-needed? 1 $over-limit))
+       ($pruned (bounded-agenda-prune 1 $over-limit))
+       ($_disable (set-bounded-agenda-pruning false))
+       ($unpruned (bounded-agenda-prune 1 $over-limit))
+       ($_enable (set-bounded-agenda-pruning true))
+       (($best-priority $best-item $_rest) (heap_pop $pruned)))
+      ($needed-at-limit $needed-over-limit
+       (heap_size $pruned) (heap_size $unpruned)
+       $best-priority $best-item))
+   (false true 1000 64001 1 1))
+
 !(compileadd kb (: weakFact (WeakPremise) (STV 1.0 0.1)))
 
 !(compileadd kb (: baseFact (BasePremise) (STV 1.0 1.0)))

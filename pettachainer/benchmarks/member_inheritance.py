@@ -15,21 +15,14 @@ from _benchmark_support import load_chainer, write_json
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 NUMBER = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
-TV_PATTERN = re.compile(rf"\(STV\s+({NUMBER})\s+({NUMBER})\)")
+ANSWER_PATTERN = re.compile(
+    rf"\(: .+ \(Inheritance MemberBenchSubject MemberBenchConcept\) "
+    rf"\(STV\s+({NUMBER})\s+({NUMBER})\)\)"
+)
 
 
 class MemberInheritanceBenchmarkError(RuntimeError):
     pass
-
-
-def extract_truth_values(answers: Sequence[Any]) -> list[tuple[float, float]]:
-    values: list[tuple[float, float]] = []
-    for answer in answers:
-        values.extend(
-            (float(strength), float(confidence))
-            for strength, confidence in TV_PATTERN.findall(str(answer))
-        )
-    return values
 
 
 def validate_truth_value(
@@ -39,15 +32,16 @@ def validate_truth_value(
     expected_confidence: float,
     tolerance: float = 1e-6,
 ) -> tuple[float, float]:
-    values = extract_truth_values(answers)
-    for strength, confidence in values:
+    match = ANSWER_PATTERN.fullmatch(str(answers[0])) if len(answers) == 1 else None
+    if match is not None:
+        strength, confidence = map(float, match.groups())
         if math.isclose(
             strength, expected_strength, abs_tol=tolerance
         ) and math.isclose(confidence, expected_confidence, abs_tol=tolerance):
             return strength, confidence
     raise MemberInheritanceBenchmarkError(
-        "member inheritance query did not contain the expected truth value "
-        f"(STV {expected_strength} {expected_confidence}); got {values or answers!r}"
+        "member inheritance query did not return exactly one expected answer "
+        f"with (STV {expected_strength} {expected_confidence}); got {answers!r}"
     )
 
 
@@ -211,13 +205,28 @@ def run_forward_population_benchmark(
         handler.forward_chain(selected, steps=forward_steps)
         forward_seconds += time.perf_counter() - started
 
+    # Check forward maintenance before a backward query can fill missing work.
+    started = time.perf_counter()
+    cached = handler.handler.process_metta_string(
+        "!(let ((STV $strength $confidence)) "
+        f"(cached-base-rate {handler.kb} "
+        "(MemberInheritanceSample $obj MemberBenchSubject MemberBenchConcept $atv $btv)) "
+        "(: forward-cache (Inheritance MemberBenchSubject MemberBenchConcept) "
+        "(STV $strength $confidence)))"
+    )
+    cache_read_seconds = time.perf_counter() - started
+    cached_strength, cached_confidence = validate_truth_value(
+        cached, expected_strength=member_strength,
+        expected_confidence=count_confidence(members),
+    )
+
     started = time.perf_counter()
     answers = handler.query(query, steps=query_steps, timeout_sec=0)
     final_query_seconds = time.perf_counter() - started
     final_strength, final_confidence = validate_truth_value(
         answers,
         expected_strength=member_strength,
-        expected_confidence=1.0,
+        expected_confidence=count_confidence(members),
     )
 
     build_seconds = add_seconds + select_seconds + forward_seconds
@@ -228,11 +237,15 @@ def run_forward_population_benchmark(
         "member_population_select_seconds": select_seconds,
         "member_population_forward_seconds": forward_seconds,
         "member_population_build_seconds": build_seconds,
-        "member_population_final_query_seconds": final_query_seconds,
+        "member_population_cache_read_seconds": cache_read_seconds,
+        "member_population_query_seconds": final_query_seconds,
         "member_population_total_seconds": (
-            setup_seconds + registration_seconds + build_seconds + final_query_seconds
+            setup_seconds + registration_seconds + build_seconds
+            + cache_read_seconds + final_query_seconds
         ),
         "member_population_expected_tv_present": 1.0,
+        "member_population_cached_strength": cached_strength,
+        "member_population_cached_confidence": cached_confidence,
         "member_population_final_strength": final_strength,
         "member_population_final_confidence": final_confidence,
         "member_population_final_result_count": float(len(answers)),

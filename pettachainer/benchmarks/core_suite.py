@@ -14,6 +14,7 @@ from _benchmark_support import write_json
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+SCHEMA_VERSION = 2
 
 
 def repository_commit(repository: Path) -> str:
@@ -101,6 +102,8 @@ def print_comparison(
 ) -> None:
     current = median_metrics(result)
     previous = median_metrics(baseline) if baseline else {}
+    if baseline and current.keys() != previous.keys():
+        raise ValueError("baseline workload metrics differ from this suite")
     columns = ["workload", "metric", "median_s"]
     if baseline:
         columns.extend(["baseline_s", "delta"])
@@ -127,6 +130,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repository", type=Path, default=REPO_ROOT)
     parser.add_argument("--repetitions", type=int, default=3)
     parser.add_argument("--population-members", type=int, default=1000)
+    parser.add_argument(
+        "--population-query-steps", type=int, default=2,
+        help="Explicit query budget after forward population (default: 2 for cache reuse)",
+    )
     parser.add_argument("--baseline-json", type=Path)
     parser.add_argument("--json-out", type=Path)
     arguments = parser.parse_args(argv)
@@ -135,17 +142,34 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--repetitions must be positive")
     if arguments.population_members < 1:
         parser.error("--population-members must be positive")
+    if arguments.population_query_steps < 1:
+        parser.error("--population-query-steps must be positive")
+
+    parameters = {
+        "repetitions": arguments.repetitions,
+        "population_members": arguments.population_members,
+        "population_query_steps": arguments.population_query_steps,
+    }
+    baseline = None
+    if arguments.baseline_json:
+        baseline = json.loads(arguments.baseline_json.read_text(encoding="utf-8"))
+        if baseline.get("schema_version") != SCHEMA_VERSION:
+            parser.error("baseline schema differs; record a new baseline with this suite")
+        if baseline.get("parameters") != parameters:
+            parser.error("baseline parameters differ; use matching repetitions, population size, and query budget")
 
     benchmark_directory = repository / "pettachainer" / "benchmarks"
     bounded = str(benchmark_directory / "bounded_queue.py")
     durable = str(benchmark_directory / "durable_query_many.py")
     lifting_merge = str(benchmark_directory / "lifting_merge_stress.py")
     member = str(benchmark_directory / "member_inheritance.py")
+    refinement = str(benchmark_directory / "refinement_query.py")
     for benchmark in (
         Path(bounded),
         Path(durable),
         Path(lifting_merge),
         Path(member),
+        Path(refinement),
     ):
         if not benchmark.is_file():
             parser.error(f"benchmark is absent from --repository: {benchmark}")
@@ -166,8 +190,8 @@ def main(argv: list[str] | None = None) -> int:
         }
         workloads = {
             **{
-                f"bounded_{mode}": run_workload(
-                    name=f"bounded-{mode}",
+                f"agenda_{mode}": run_workload(
+                    name=f"agenda-{mode}",
                     repository=repository,
                     repetitions=arguments.repetitions,
                     command=[*bounded_command, "--mode", mode],
@@ -237,9 +261,6 @@ def main(argv: list[str] | None = None) -> int:
                     "warm_query_seconds": lambda payload: float(
                         payload["warm_query_seconds"]
                     ),
-                    "warm_query_per_rep_seconds": lambda payload: float(
-                        payload["warm_query_per_rep_seconds"]
-                    ),
                 },
                 temporary_directory=temporary_directory,
             ),
@@ -289,7 +310,7 @@ def main(argv: list[str] | None = None) -> int:
                     "--initial-members",
                     str(arguments.population_members),
                     "--query-steps",
-                    "2",
+                    str(parameters["population_query_steps"]),
                     "--forward-steps",
                     "2",
                 ],
@@ -297,8 +318,11 @@ def main(argv: list[str] | None = None) -> int:
                     "build_seconds": lambda payload: float(
                         payload["member_population_build_seconds"]
                     ),
-                    "final_query_seconds": lambda payload: float(
-                        payload["member_population_final_query_seconds"]
+                    "cache_read_seconds": lambda payload: float(
+                        payload["member_population_cache_read_seconds"]
+                    ),
+                    "query_seconds": lambda payload: float(
+                        payload["member_population_query_seconds"]
                     ),
                     "total_seconds": lambda payload: float(
                         payload["member_population_total_seconds"]
@@ -306,27 +330,30 @@ def main(argv: list[str] | None = None) -> int:
                 },
                 temporary_directory=temporary_directory,
             ),
+            "repeated_derivation_refinement": run_workload(
+                name="repeated-derivation-refinement",
+                repository=repository,
+                repetitions=arguments.repetitions,
+                command=[refinement, "--repository", str(repository)],
+                selectors={
+                    metric: lambda payload, key=metric: float(payload[key])
+                    for metric in (
+                        "setup_seconds", "query_total_seconds",
+                        "first_window_median_seconds", "last_window_median_seconds",
+                    )
+                },
+                temporary_directory=temporary_directory,
+            ),
         }
 
     result = {
-        "schema_version": 1,
+        "schema_version": SCHEMA_VERSION,
         "repository": str(repository),
         "commit": repository_commit(repository),
         "dirty": repository_dirty(repository),
-        "parameters": {
-            "repetitions": arguments.repetitions,
-            "population_members": arguments.population_members,
-        },
+        "parameters": parameters,
         "workloads": workloads,
     }
-    baseline = None
-    if arguments.baseline_json:
-        baseline = json.loads(arguments.baseline_json.read_text(encoding="utf-8"))
-        if baseline.get("parameters") != result["parameters"]:
-            parser.error(
-                "baseline parameters differ from this run; use the same "
-                "--repetitions and --population-members values"
-            )
     print_comparison(result, baseline)
     if arguments.json_out:
         write_json(arguments.json_out, result)

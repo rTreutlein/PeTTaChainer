@@ -135,14 +135,22 @@ For `backward_materialize.py`:
 - `total_speedup`: `plain_batch_s / materialized_batch_s`
 - `tail_speedup`: estimated non-materialized tail cost divided by `materialized_tail_s`
 
-## Bounded Queue Pruning
+## Agenda Growth and Pruning
 
-`bounded_queue.py` stresses priority agenda growth in both the backward and forward chainer paths.
-It separates setup time from measured run time so the cost of compiling thousands of generated rules
-does not hide the queue behavior.
+`bounded_queue.py` measures priority agenda growth in both chainers. Input
+generation and runtime loading are outside setup timing; compilation is timed
+separately from reasoning. The backward fixture has one productive weak proof
+and alternative branches with intermediate producers. Those branches survive
+the structural feasibility filter and enter the agenda. Every run checks the
+complete productive proof and truth value, zero search aborts, and sufficient
+agenda pushes and pops. Backward timings include opt-in query metrics.
 
-Run the same command on two commits to compare the bounded queue implementation against the previous
-unbounded heap behavior:
+Forward runs require exactly the complete derived fact groups for the seeds
+processed within the budget, including their proofs and truth values. They do
+not use backward queries to validate forward work. Seed groups may appear in
+any order because equally ranked seeds have no public ordering guarantee.
+
+Run the same benchmark version on both checkouts:
 
 ```bash
 .venv/bin/python pettachainer/benchmarks/bounded_queue.py --fanouts 2000,8000 --steps 100 --repeats 3
@@ -160,8 +168,10 @@ To test many goals that each have a small fanout below the pruning factor:
 .venv/bin/python pettachainer/benchmarks/bounded_queue.py --mode forward_many_small --fanouts 32 --seeds 100 --steps 100 --repeats 3 --compare-pruning
 ```
 
-The backward counterpart expands a chain of hub goals where each hub has only `fanout` dead-end
-alternatives plus one link to the next hub:
+The backward counterpart connects hubs with small local fanouts. It reports
+`expanded_hubs` from the final query arena, outside timing, and rejects a
+many-small run that never explores beyond the first hub. Increase `--steps`
+if the chosen fanout prevents reaching another hub:
 
 ```bash
 .venv/bin/python pettachainer/benchmarks/bounded_queue.py --mode backward_many_small --fanouts 32 --seeds 100 --steps 100 --repeats 3 --compare-pruning
@@ -172,21 +182,33 @@ Output columns:
 - `pruning`: whether bounded agenda pruning was enabled
 - `mode`: backward query agenda, forward chaining agenda, or a many-small-fanout variant
 - `fanout`: number of generated rules/facts that can accumulate in the agenda
-- `seeds`: number of independent seed goals for `forward_many_small`
+- `seeds`: number of forward seeds or backward hubs (one for single-fanout modes)
 - `steps`: search or forward steps per run
 - `setup_s`: mean KB construction time
 - `run_s`: mean measured query/forward time
 - `result_count`: number of backward query results or canonical facts changed by the forward run
+- `agenda_pushes`, `agenda_pops`: backward work counters (zero for forward runs)
+- `expanded_hubs`: distinct backward hubs expanded (zero for forward runs)
+
+The current beam floor is 1000 and pruning starts only above 64000 pending
+entries. The default core workload has fanout 500: it measures agenda growth,
+not pruning throughput. `test_best_first_runtime.metta` exercises the actual
+64000/64001 threshold, retained size and best entry, plus disabled pruning.
+For optional end-to-end pruning stress, use a fanout above the threshold, e.g.
+`--mode forward --fanouts 64001 --steps 2 --repeats 1 --compare-pruning`.
+That workload is substantially larger than the core suite.
 
 ## Core Runtime Suite
 
 `core_suite.py` runs the stable performance checks used when reviewing runtime
 and compiler changes:
 
-- bounded backward agenda;
-- bounded forward agenda;
+- backward and forward agenda growth with checked results;
+- repeated multi-root queries across monotonic additions;
+- cold and warm lifting-merge queries;
 - incremental Member-to-Inheritance updates;
-- a 1000-object forward-populated Member-to-Inheritance query.
+- a 1000-object forward-populated Member-to-Inheritance cache and budgeted query;
+- repeated refinement of one sampling derivation over unchanged evidence.
 
 Every repetition is launched in a fresh Python process. This is required for a
 valid comparison because combining several Janus/PeTTa workloads in one process
@@ -209,8 +231,30 @@ Then compare another commit or worktree:
 
 Use `--repository /path/to/worktree` to benchmark another checkout while using
 the current virtual environment. Both checkouts must contain these benchmark
-files. Use `--repetitions 1 --population-members 100` for a quick smoke run;
-the defaults are three repetitions and 1000 objects.
+files. Use `--repetitions 1 --population-members 12 --population-query-steps 100`
+for a smaller smoke run. The defaults are three repetitions, 1000 objects, and
+a two-step population query that measures reuse of the forward cache.
+
+Schema version 2 changes the agenda fixtures and records the population query
+budget explicitly. Old JSON baselines are rejected before benchmarks run. The
+population workload checks and times its cached base rate before any backward
+query; cache reads and budgeted public queries are reported separately. Every
+query must return the full expected truth value within the chosen budget.
+Small populations can have a correct forward cache but need more than two
+query steps to expose a complete answer: 12 objects with 100 steps is checked
+by the Python suite. `--population-query-steps` (standalone `--query-steps`)
+never adapts silently, and insufficient budgets fail validation.
+
+Large budgets can trigger expensive live refolding after reading the cache.
+Use the explicit query budget to study that separate workload; a larger budget
+can expose a partial refold before the full population has been processed.
+
+`refinement_query.py` repeats a Map2Dist query 25 times with the same evidence.
+Each answer must carry the complete proof and a new ParticleDist draw with the
+expected truth value; final particle mass and mean are also checked. It reports
+early and late query medians plus retained derivation-index and durable-proof
+row counts. This catches work that grows with obsolete sampling results even
+when every individual query still returns the right answer.
 
 `durable_query_many.py` keeps one PeTTaChainer instance alive across five
 fixed-budget batches. Two roots reuse completed proofs in every batch while six
@@ -242,4 +286,4 @@ successful timing. `core_suite.py` writes the raw values plus mean, median,
 minimum, and maximum for every metric. The terminal comparison uses medians to
 reduce sensitivity to isolated noisy runs. The JSON also records the Git commit
 and whether the measured checkout was dirty. Baseline comparisons require
-identical repetition and population-size parameters.
+identical repetition, population-size, and population-query-budget parameters.
