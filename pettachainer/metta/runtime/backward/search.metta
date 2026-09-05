@@ -57,7 +57,7 @@
                       (chainer-add-atom &goal
                          (stored-goal-row
                             $gid $depth $stored-goal false
-                            (goal-agenda-state 0 0 0.0 ())))))
+                            (goal-agenda-state 0 0 0.0 false)))))
                 ($_lookup
                    (add-space-atom! &goal_lookup
                       (make-space-row3 $lookup-key $key $gid))))
@@ -140,27 +140,6 @@
          (agenda-entry $kind $gid
             (agenda-revision-token $revision $generation)))))
 
-(: add-goal-agenda-lanes-heap
-   (-[semidet]-> (Heap AgendaEntry) StoredGoalRow Number Number
-       AgendaKind Number (List AgendaKind) (Heap AgendaEntry)))
-(= (add-goal-agenda-lanes-heap
-      $agenda $_row $_revision $_generation
-      $_requested-kind $_requested-score ())
-   $agenda)
-(= (add-goal-agenda-lanes-heap
-      $agenda $row $revision $generation
-      $requested-kind $requested-score (cons $kind $rest))
-   (add-goal-agenda-lanes-heap
-      (add-goal-agenda-entry-heap
-         $agenda $row $revision $generation $kind
-         (if (== $kind $requested-kind)
-            $requested-score
-            (let (stored-goal-row $gid $_depth $_goal $_expanded $_state)
-               $row
-               (agenda-kind-score $kind $gid))))
-      $row $revision $generation
-      $requested-kind $requested-score $rest))
-
 (: request-goal-agenda-kind-score-heap
    (-[semidet]-> (Heap AgendaEntry) Number AgendaKind Number
        (Heap AgendaEntry)))
@@ -171,25 +150,19 @@
              $row)
           ((goal-agenda-state
               $issued-generation $_issued-revision $issued-score
-              $requested-lanes)
+              $requested?)
              $state)
-          ($requested?
-             (stored-list-member? $kind $requested-lanes))
           ($issue?
-             (if $requested? (> $score $issued-score) true)))
+             (if (== $requested? true) (> $score $issued-score) true)))
       (if $issue?
          (let* (($revision (goal-demand-revision $gid))
                 ($generation (+ $issued-generation 1))
-                ($lanes
-                   (if $requested? $requested-lanes
-                      (cons $kind $requested-lanes)))
                 ($_state
                    (set-goal-agenda-state! $row
                       (goal-agenda-state
-                         $generation $revision $score $lanes))))
-            (add-goal-agenda-lanes-heap
-               $agenda $row $revision $generation
-               $kind $score $lanes))
+                         $generation $revision $score true))))
+            (add-goal-agenda-entry-heap
+               $agenda $row $revision $generation $kind $score))
          $agenda)))
 
 (: retoken-goal-agenda-entry-heap
@@ -204,7 +177,7 @@
               $_stored-gid $_depth $_goal $_expanded $state)
              $row)
           ((goal-agenda-state
-              $generation $revision $score $_lanes)
+              $generation $revision $score $_requested?)
              $state))
       (add-goal-agenda-entry-heap
          $agenda $row $revision $generation $kind $score)))

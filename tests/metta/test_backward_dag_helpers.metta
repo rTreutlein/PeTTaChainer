@@ -233,9 +233,8 @@
    (+ (if (agenda-entry-current? $entry) 1 0)
       (current-agenda-entry-count $rest)))
 
-;; Repeated requests for one lane share one current entry.  Requesting another
-;; lane advances the work generation and reissues both lanes, leaving the
-;; previous generation stale rather than independently valid.
+;; Repeated requests share one current entry. A higher score advances the work
+;; generation, leaving the previous token stale rather than independently valid.
 !(test
    (let*
       (($_clear (clear-backward-state))
@@ -247,22 +246,22 @@
              0))
        ($agenda1
           (request-goal-agenda-kind-score-heap
-             (empty_heap) $gid agenda-refresh
-             (agenda-kind-score agenda-refresh $gid)))
+             (empty_heap) $gid agenda-expand
+             (agenda-kind-score agenda-expand $gid)))
        ($agenda2
           (request-goal-agenda-kind-score-heap
-             $agenda1 $gid agenda-refresh
-             (agenda-kind-score agenda-refresh $gid)))
+             $agenda1 $gid agenda-expand
+             (agenda-kind-score agenda-expand $gid)))
        ($current2 (current-agenda-entry-count $agenda2))
        ($agenda3
           (request-goal-agenda-kind-score-heap
              $agenda2 $gid agenda-expand
-             (agenda-kind-score agenda-expand $gid))))
+             (+ 0.2 (agenda-kind-score agenda-expand $gid)))))
       ((heap_size $agenda2)
        $current2
        (heap_size $agenda3)
        (current-agenda-entry-count $agenda3)))
-   (1 1 3 2))
+   (1 1 2 1))
 
 ;; A prior-generation entry is rejected before demand evaluation. Even with a
 ;; deliberately dirty cache, claiming it cannot rebuild the cache or advance
@@ -278,13 +277,13 @@
              0))
        ($agenda1
           (request-goal-agenda-kind-score-heap
-             (empty_heap) $gid agenda-refresh
-             (agenda-kind-score agenda-refresh $gid)))
+             (empty_heap) $gid agenda-expand
+             (agenda-kind-score agenda-expand $gid)))
        (($_priority $stale-entry $_rest) (heap_pop $agenda1))
        ($_agenda2
           (request-goal-agenda-kind-score-heap
              $agenda1 $gid agenda-expand
-             (agenda-kind-score agenda-expand $gid)))
+             (+ 0.2 (agenda-kind-score agenda-expand $gid))))
        ($_dirty (mark-goal-demand-dirty! $gid))
        ($before (goal-demand-revision $gid))
        ($disposition (claim-goal-agenda-entry! $stale-entry))
@@ -297,7 +296,37 @@
       ($disposition $before $after $cache))
    (agenda-stale 1 1 ()))
 
-;; A lane whose score rises while it is pending gets a fresh current entry
+;; Expansion releases ownership before creating the fold source. Its old token
+;; cannot claim or release the aggregate work issued in the next generation.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($gid
+          (ensure-goal-at-depth
+             (CPU FoldAllCompiled
+                (singleFlightKb (SingleFlightSource $x) extract-tv
+                   (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)
+                $result)
+             0))
+       ($_root (once (add-atom &root_goal (root-goal $gid))))
+       ($agenda (schedule-root-goal-heap (empty_heap) $gid))
+       (($_priority $expand-entry $rest) (heap_pop $agenda))
+       ($claim (claim-goal-agenda-entry! $expand-entry))
+       ($after-claim (goal-agenda-requested? $gid))
+       ($fold-agenda (expand-goal-heap $rest 20 1.0 $gid))
+       ((stored-goal-row $_gid $_depth $_goal $expanded $_state)
+          (goal-by-id $gid))
+       ($stale-claim (claim-goal-agenda-entry! $expand-entry))
+       ($_release (release-pruned-agenda-entry! $expand-entry))
+       ($after-release (goal-agenda-requested? $gid))
+       ($rewoken (wake-goal-demand-heap $fold-agenda $gid)))
+      ($claim $after-claim $expanded $stale-claim $after-release
+       (current-agenda-entry-count $fold-agenda)
+       (heap_size $rewoken)))
+   (agenda-claimed false true agenda-stale true 2 2))
+
+;; Work whose score rises while it is pending gets a fresh current entry
 ;; immediately.  The stale 0.2 entry remains harmless in the heap while the
 ;; 0.4 replacement becomes the next item by priority.
 !(test
@@ -381,7 +410,7 @@
             $_claimed-gid $_claimed-depth $_claimed-goal $_claimed-expanded
             (goal-agenda-state
                $claimed-generation $claimed-revision $claimed-score
-               $claimed-lanes))
+               $claimed-requested?))
           (goal-by-id $gid))
        ($retokened
           (retoken-goal-agenda-entry-heap
@@ -392,18 +421,18 @@
             $_stored-gid $_depth $_goal $_expanded
             (goal-agenda-state
                $generation $issued-revision $issued-score
-               $_requested-lanes))
+               $_requested?))
           (goal-by-id $gid)))
       ((heap_size $agenda2) $disposition
        $claimed-generation $claimed-revision $claimed-score
-       (stored-list-member? agenda-aggregate $claimed-lanes)
+       $claimed-requested?
        (heap_size $retokened)
        $generation $issued-revision $issued-score
        (agenda-entry-current? $new-entry)))
    (1 agenda-retoken 1 1 0.2 true 1 1 1 0.2 true))
 
 ;; A revision-only change with the same score claims in place.  It refreshes
-;; the state's issued revision, clears the lane, and leaves no replacement
+;; the state's issued revision, clears pending work, and leaves no replacement
 ;; entry to perturb equal-priority ordering or consume an extra step.
 !(test
    (let*
@@ -432,15 +461,15 @@
             $_stored-gid $_depth $_goal $_expanded
             (goal-agenda-state
                $generation $issued-revision $issued-score
-               $requested-lanes))
+               $requested?))
           (goal-by-id $gid)))
       ((heap_size $agenda2) $disposition (heap_size $rest)
        $generation $issued-revision $issued-score
-       (stored-list-member? agenda-aggregate $requested-lanes)))
+       $requested?))
    (1 agenda-claimed 0 1 1 0.4 false))
 
-;; Beam pruning retains current control work, releases a discarded current
-;; expansion, and permits a later request to enqueue that expansion again.
+;; Beam pruning retains an aggregate's current control work, releases another
+;; goal's discarded expansion, and permits that expansion to be requested again.
 !(test
    (let*
       (($_clear (clear-backward-state))
@@ -450,19 +479,26 @@
              (test-runtime-fact
                 (PrunedAgendaGoal) (brand Proof $proof) $tv)
              0))
+       ($agg-gid
+          (ensure-goal-at-depth
+             (CPU FoldAllCompiled pruned-aggregate-args $result) 0))
+       ($_aggregate
+          (add-atom &fold_source
+             (fold-source-row
+                $agg-gid 99 pruned-aggregate-args 0.2 0 false)))
        ($agenda1
           (request-goal-agenda-kind-score-heap
-             (empty_heap) $gid agenda-refresh
-             (agenda-kind-score agenda-refresh $gid)))
+             (empty_heap) $agg-gid agenda-aggregate
+             (agenda-kind-score agenda-aggregate $agg-gid)))
        ($agenda2
           (request-goal-agenda-kind-score-heap
              $agenda1 $gid agenda-expand
              (agenda-kind-score agenda-expand $gid)))
        ($pruned (backward-agenda-prune-to-size 1 $agenda2))
        ($expand-after-prune
-          (goal-agenda-kind-requested? $gid agenda-expand))
+          (goal-agenda-requested? $gid))
        ($refresh-after-prune
-          (goal-agenda-kind-requested? $gid agenda-refresh))
+          (goal-agenda-requested? $agg-gid))
        ($rescheduled
           (request-goal-agenda-kind-score-heap
              $pruned $gid agenda-expand
@@ -471,7 +507,7 @@
        $expand-after-prune
        $refresh-after-prune
        (current-agenda-entry-count $rescheduled)
-       (goal-agenda-kind-requested? $gid agenda-expand)))
+       (goal-agenda-requested? $gid)))
    (1 false true 2 true))
 
 ;; Filtering current proofs preserves their indexed order while accumulating
@@ -620,6 +656,43 @@
        (proof-live? $new-a)
        (length (goal-live-proof-ids $aggregate-gid))))
    (2 true true false false true true 2))
+
+;; A late root connection must wake an expanded goal's unexpanded descendant.
+;; The pre-existing reverse waiter is cyclic and contributes no demand.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($root
+          (ensure-goal-at-depth
+             (test-runtime-fact (LateDemandRoot) (brand Proof $rp) $rtv) 0))
+       ($middle
+          (ensure-goal-at-depth
+             (test-runtime-fact (LateDemandMiddle) (brand Proof $mp) $mtv) 1))
+       ($leaf
+          (ensure-goal-at-depth
+             (test-runtime-fact (LateDemandLeaf) (brand Proof $lp) $ltv) 2))
+       ($_root (once (add-atom &root_goal (root-goal $root))))
+       ($_cycle
+          (register-goal-waiter! $middle $leaf
+             (aggregate-waiter $leaf live-aggregate-demand)))
+       ($_descendant
+          (register-goal-waiter! $leaf $middle
+             (aggregate-waiter $middle live-aggregate-demand)))
+       ($empty (goal-root-demands $leaf))
+       ($agenda (expand-goal-heap (empty_heap) 20 0.0 $middle))
+       ($_late
+          (register-goal-waiter! $middle $root
+             (aggregate-waiter $root live-aggregate-demand)))
+       ($woken (wake-goal-demand-heap $agenda $middle))
+       ((stored-goal-row $_gid $_depth $_goal $expanded $_state)
+          (goal-by-id $middle)))
+      ((== $empty ()) $expanded
+       (== (goal-root-demands $leaf) (cons (root-demand $root 1.0) ()))
+       (goal-agenda-requested? $middle)
+       (goal-agenda-requested? $leaf)
+       (current-agenda-entry-count $woken)))
+   (true true true false true 1))
 
 ;; An empty demand list is a cache hit, not a missing row. A live waiter and
 ;; then a stale parent revision must each rebuild only the child's one cache row.

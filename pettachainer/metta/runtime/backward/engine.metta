@@ -85,19 +85,17 @@
 
 (= (search-claimed-agenda-entry $steps $agenda
       (agenda-entry $kind $gid $_token))
-   (if (if (== $kind agenda-expand) true (== $kind agenda-aggregate))
-      (let* (($next-steps (- $steps 1))
-             ($nagenda
-                (once
-                   (bounded-backward-agenda-prune $next-steps
-                      (if (== $kind agenda-expand)
-                         (expand-goal-heap
-                            $agenda $steps
-                            (root-demands-max (goal-root-demands $gid))
-                            $gid)
-                         (once (refresh-fold-heap $agenda $gid)))))))
-         (search-agenda-heap $next-steps $nagenda))
-      (search-agenda-heap $steps $agenda)))
+   (let* (($next-steps (- $steps 1))
+          ($nagenda
+             (once
+                (bounded-backward-agenda-prune $next-steps
+                   (if (== $kind agenda-expand)
+                      (expand-goal-heap
+                         $agenda $steps
+                         (root-demands-max (goal-root-demands $gid))
+                         $gid)
+                      (once (refresh-fold-heap $agenda $gid)))))))
+      (search-agenda-heap $next-steps $nagenda)))
 
 (: search-agenda-heap
    (-[nondet]-> Number (Heap AgendaEntry) SearchState))
@@ -233,8 +231,7 @@
                                       $_obj $subj $concept $_atv $_btv)
                                    $_extractor $_init $_acc
                                    (member-inheritance $_kb2) $_tv-mode)
-                                    (if (goal-agenda-kind-requested?
-                                           $agg-gid agenda-aggregate)
+                                    (if (goal-agenda-requested? $agg-gid)
                                        ()
                                        (let* (($_cache
                                                  (forward-store-member-inheritance-empty-cache!
