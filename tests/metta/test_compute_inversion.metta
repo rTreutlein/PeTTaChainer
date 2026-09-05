@@ -88,3 +88,28 @@
           observed-b-three))
       (A 2)
       (STV 0.7361622402584586 0.00026536071629869475)))
+
+;; The same reversible computation remains executable when inversion is
+;; disabled. The observations above demonstrate that its reverse would
+;; otherwise have enough evidence to derive A(2).
+!(compileadd noInverseComputeKb
+   (: (no_inverse addOne)
+      (Implication
+         (And
+            (A $x)
+            (Compute + ($x 1) -> $y))
+         (B $y))
+      (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
+!(compileadd noInverseComputeKb
+   (: a-one (A 1) (STV 0.7 0.8)))
+!(compileadd noInverseComputeKb
+   (: observed-b-three (B 3) (STV 0.9 0.8)))
+
+!(test
+   (query 300 noInverseComputeKb (: $proof (B 2) $tv))
+   (: (by (no_inverse addOne) (conjunction a-one cpu))
+      (B 2)
+      (STV 0.59 0.8725449129775122)))
+!(test
+   (query 300 noInverseComputeKb (: $proof (A 2) $tv))
+   ())

@@ -1,6 +1,7 @@
 # Runtime and benchmark review — 2026-09-05
 
-Baseline: `26a04bc0`. Public API signatures and proof history are preserved.
+Initial baseline: `26a04bc0`. First checkpoint: `aa63ea0b`.
+Public API signatures and proof history are preserved.
 
 ## Runtime changes
 
@@ -12,7 +13,8 @@ Baseline: `26a04bc0`. Public API signatures and proof history are preserved.
   keys and derivation comparisons reject hash collisions. Historical proof
   records remain available after query reset.
 - Removed `proof-current-in-key?`: derivation lookup no longer visits historical
-  entries to test whether each is current. The three affected MeTTa files have
+  entries to test whether each is current. At the first checkpoint, the three
+  affected MeTTa files have
   one fewer named function and 22 additional source lines, including clearer
   formatting and comments. This is a lookup-cost improvement with a small
   source-size tradeoff.
@@ -25,7 +27,8 @@ productive path and alternatives with intermediate producers. Timing requires
 the expected proof and TV, agenda work, and multiple expanded hubs in the
 many-small mode. Forward timing requires complete groups of exact derived
 facts without assuming an order for equal-priority seeds. Four separate
-benchmark execution paths now share one runner.
+benchmark execution paths now share one runner; the script shrank from 293 to
+209 lines.
 
 The core agenda workloads measure agenda growth at fanout 500. A dedicated
 MeTTa regression checks the actual pruning boundary at 64000/64001 entries,
@@ -58,11 +61,19 @@ lifting-merge total/per-repetition timing was removed from the core report.
 - `scripts/test_metta.sh`: 69 passed, 0 failed, strict determinism enabled.
 - `.venv/bin/python -m unittest discover -s tests`: 48 passed.
 - Python query metrics: 43 rows, 0 search aborts.
-- `scripts/check_import_scaling.sh`: PASS; late/early ratio 1.002 over 8000 rules.
+- `scripts/check_import_scaling.sh`: PASS; late/early ratio 1.008 over 8000 rules.
 - ConceptNet own/pet query: two complete expected proofs; no engine abort.
 - `git diff --check`: clean.
 
-## Performance method
+The final `scripts/verify.sh` ran all four gates in 168 seconds; its log is
+`/tmp/pettachainer-goal-followup-verify.log`. The earlier checkpoint passed the
+same gates, with import-scaling ratio 1.002.
+
+## First checkpoint performance
+
+Local environment: AMD Ryzen 7 5700X3D (8 cores / 16 threads), WSL2 Linux,
+Python 3.10.16, and the repository-pinned PeTTa 0.1.0 environment. Measurements
+use one benchmark process at a time; no test suites run concurrently with them.
 
 Three alternating baseline/candidate pairs use isolated processes, 1000-member
 population workloads and identical benchmark source on both revisions. The
@@ -91,9 +102,70 @@ largest relative regression was approximately half a millisecond. Runtime
 setup costs changed by less than 0.4%. Full values, including every shift and
 setup measurement, are in `comparison.json`.
 
+An additional three alternating pairs increased repeated refinement to 50
+queries. Total query time decreased from 22.377038 s to 20.655591 s (-7.69%);
+the final ten-query median decreased from 0.991257 s to 0.893081 s (-9.90%).
+The first ten-query median rose 1.83%. Every run preserved 50 fresh results,
+the exact final proof/TV, distribution mass 1 and mean 50, and 1329 durable
+proof rows. Derivation-index rows decreased from 1274 to 1. The removed index
+scan matters more with longer history, but repeated replay still creates
+quadratically many durable rule records; this patch does not solve that cost.
+Full per-query timings are in `refinement50-comparison.json`.
+
 Raw runs and comparison output are retained under
 `/tmp/pettachainer-goal-ab.Km4W14/`. The comparison driver is `run_pairs.py` in
 that directory. These are local run artifacts, not permanent repository data.
+
+## Follow-up: smaller index rows and exact removal
+
+The follow-up removes eight `copy_term` calls and the unused detached-key fields
+from five backward index row shapes. Full actual keys remain available for
+alpha checks; their sharing with output keys is preserved. Protective copies
+at real unification boundaries remain.
+
+A new lifecycle regression exposed a pre-existing deletion bug on both the
+checkpoint and the cleanup. Two open keys with different variable-sharing
+patterns can share a hash and a concrete output. The old alpha guard selected
+the right row, but `remove-atom` then unified its open pattern with the other
+row too. Result-key and dirty-key removal now enumerate indexed clauses with
+fresh saved fields, apply the same alpha checks, and erase the exact selected
+clause reference. No extra identity state or helper is needed. The regression
+checks surviving colliding entries, renamed-key lookup, stable result order,
+durable history, unbound input variables, and empty/absent removals.
+
+Across the four changed MeTTa implementation files, the combined pass adds 51
+source lines and removes one named function. It simplifies stored data and
+lookup work, not total line count; exact collision-safe deletion accounts for
+most of the follow-up's added lines. Tests and documentation grow to cover the
+previously untested boundaries.
+
+### Follow-up performance
+
+Three more alternating pairs compare the final frozen working tree against
+the clean `aa63ea0b` snapshot, again using identical benchmark source. All six
+runs passed. Medians in seconds:
+
+| Workload / measured window | Checkpoint | Final | Change |
+| --- | ---: | ---: | ---: |
+| Backward agenda | 2.792545 | 2.787413 | -0.18% |
+| Forward agenda | 0.615644 | 0.617308 | +0.27% |
+| Durable multi-root queries, total | 0.422419 | 0.416306 | -1.45% |
+| Incremental Member delta queries | 0.488233 | 0.479858 | -1.72% |
+| Forward population build | 19.738591 | 19.536635 | -1.02% |
+| Forward population cache read | 0.000804 | 0.000817 | +1.62% |
+| Forward population public query | 0.022237 | 0.022391 | +0.70% |
+| Lifting merge, cold query | 0.384178 | 0.386826 | +0.69% |
+| Lifting merge, warm queries | 3.843853 | 3.808294 | -0.93% |
+| Repeated refinement, 25 queries | 3.725525 | 3.742868 | +0.47% |
+| Refinement, last ten-query median | 0.247988 | 0.247667 | -0.13% |
+
+No metric regressed by more than 1.62%. These small differences do not establish
+a further general speedup: this follow-up primarily simplifies storage and
+fixes collision handling without a material measured performance penalty.
+Raw runs, all metrics, and the comparison driver are under
+`/tmp/pettachainer-key-ab.JPcr4k/` (`comparison.json`, `run_pairs.py`). The 50-query
+scaling figures above measure the first checkpoint; this follow-up comparison
+uses the core suite's 25-query workload.
 
 ## Remaining investigation
 
@@ -103,7 +175,19 @@ five-observation estimate at 20 steps; 100 steps completes all 12. Larger
 budgets trigger live refolding, so they are a separate workload from cache
 reuse. No general population-to-completion-budget formula is assumed.
 
-Further candidates identified by source review are redundant copied-key
-columns in backward hash indexes, repeated replay of historical CPU draws,
-and inverse-plan construction for compiler outputs that disable inversion.
-They are not implemented in this pass.
+Repeated replay of historical CPU draws remains a separate candidate. Generic
+pruning of old CPU outputs is unsafe: different nondeterministic results can
+satisfy different later premises. A further change needs to distinguish exact
+completed-derivation replay from new computation alternatives.
+
+The attempted early inversion-plan gate was rejected. A rule whose Compute
+function comes from another premise exposed a hidden binding dependency:
+the old planner binds it to `+`; skipping that work allows the intended `-`
+through but then raises a runtime type error (numeric result versus TV).
+Neither behavior is accepted as a correct forward result. The compiler guard
+remains at its original position. New passing regressions retain coverage for
+non-inverted fixed-function Compute and independent conjunction completion.
+The separate dynamic-function defect needs its own reproducer-driven fix.
+Diagnostic inputs and logs are retained as
+`/tmp/pettachainer-open-compute-{baseline,current}.{metta,log}`; the `current`
+error log describes the rejected candidate, not the final code.

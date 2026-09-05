@@ -148,8 +148,8 @@
    (let $okey (copy_term (candidate-output-key $premise))
       (if (== (extract-vars $okey) ())
          (let $ohash (index-hash $okey)
-            (collapse (match &proof_current (current-row $_khash $ohash $_lkey $_key $okey $pid) (stored-number $pid))))
-         (collapse (match &proof_current (current-row $_khash $_ohash $_lkey $_key $okey $pid) (stored-number $pid))))))
+            (collapse (match &proof_current (current-row $_khash $ohash $_key $okey $pid) (stored-number $pid))))
+         (collapse (match &proof_current (current-row $_khash $_ohash $_key $okey $pid) (stored-number $pid))))))
 (: premise-current-pid-lists
    (-[semidet]-> Bool (List (| Goal (Statement KBContext Proof TV))) (List (List Number))))
 ;; Existence pass: an unestablished premise yields the sentinel (cons () ()) at

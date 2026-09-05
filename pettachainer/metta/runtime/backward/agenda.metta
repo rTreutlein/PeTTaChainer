@@ -168,7 +168,7 @@
                                                        (once
                                                           (match &proof_current
                                                              (current-row $hash $_ohash
-                                                                $_lkey $stored-key
+                                                                $stored-key
                                                                 $_okey $_pid)
                                                              (if (=alpha $stored-key $key)
                                                                 true

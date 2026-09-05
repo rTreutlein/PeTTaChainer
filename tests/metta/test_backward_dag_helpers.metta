@@ -607,10 +607,13 @@
        (length (goal-live-proof-ids $aggregate-gid))))
    (2 true true false false true true 2))
 
+;; Hash collisions must preserve alias patterns through proof insertion, renamed-key
+;; lookup, stable result ordering, dirty clearing, and current/result removal.
 !(test
    (let*
       (($_clear (clear-backward-state))
        ($_gidreset (change-state! bwd_gid 0))
+       ($_pidreset (change-state! bwd_pid 0))
        ($open-a (ensure-goal-at-depth (test-runtime-fact (Pet $a) (brand Proof $prf) $tv) 0))
        ($open-x (ensure-goal-at-depth (test-runtime-fact (Pet $x) (brand Proof $p) $t) 0))
        ($closed (ensure-goal-at-depth (test-runtime-fact (Pet max) (brand Proof $p2) $t2) 0))
@@ -627,14 +630,84 @@
        ($left-hash (index-hash $left-key))
        ($right-hash (index-hash $right-key))
        ($left-gid (ensure-goal-at-depth $left-goal 0))
-       ($right-gid (ensure-goal-at-depth $right-goal 0)))
+       ($right-gid (ensure-goal-at-depth $right-goal 0))
+       ($renamed-key (copy_term $left-key))
+       ($absent-output (proof-output-key (quote absent-output)))
+       ($empty-remove (remove-result! $renamed-key $absent-output))
+       ($empty-clear (clear-dirty! $renamed-key $absent-output))
+       ($left-pid
+          (store-proof-candidate $left-gid
+             (leaf-result-candidate
+                (test-runtime-fact
+                   (Shares a a a) left-index-proof (STV 1.0 0.8))
+                ())))
+       ($right-pid
+          (store-proof-candidate $right-gid
+             (leaf-result-candidate
+                (test-runtime-fact
+                   (Shares a a a) right-index-proof (STV 1.0 0.7))
+                ())))
+       ($other-pid
+          (store-proof-candidate $left-gid
+             (leaf-result-candidate
+                (test-runtime-fact
+                   (Shares b b b) other-index-proof (STV 1.0 0.6))
+                ())))
+       ($okey (output-key $left-pid))
+       ($goal-left
+          (== (goal-proof-ids $left-gid) ($left-pid $other-pid)))
+       ($goal-right
+          (== (goal-proof-ids $right-gid) ($right-pid)))
+       ($current-left
+          (== (current-proof-ids-for-goal-key $renamed-key)
+              ($left-pid $other-pid)))
+       ($output-left
+          (== (current-output-pids $renamed-key $okey) ($left-pid)))
+       ($result-left
+          (== (result-ids $renamed-key) ($left-pid $other-pid)))
+       ($_reindex (index-result! $renamed-key $okey $left-pid))
+       ($result-order
+          (== (result-ids $renamed-key) ($left-pid $other-pid)))
+       ($_dirty-left (mark-dirty! $left-key $okey))
+       ($_dirty-right (mark-dirty! $right-key $okey))
+       ($_dirty-again (mark-dirty! $renamed-key $okey))
+       ($dirty-left (== (dirty-keys $renamed-key) ($okey)))
+       ($dirty-right (== (dirty-keys $right-key) ($okey)))
+       ($_clear-left (clear-dirty! $renamed-key $okey))
+       ($_remove-result (remove-result! $renamed-key $okey))
+       ($_remove-current (remove-current! $renamed-key $left-pid))
+       ($absent-remove (remove-result! $renamed-key $okey))
+       ($absent-clear (clear-dirty! $renamed-key $okey)))
       ((== $open-a $open-x)
        (== $open-a $closed)
        (is-var $left-hash)
        (== $left-hash $right-hash)
        (=alpha $left-key $right-key)
-       (== $left-gid $right-gid)))
-   (true false false true false false))
+       (== $left-gid $right-gid)
+       $goal-left $goal-right $current-left $output-left $result-left
+       $result-order $dirty-left $dirty-right
+       (== (dirty-keys $renamed-key) ())
+       (result-dirty? $renamed-key $okey)
+       (result-dirty? $right-key $okey)
+       (== (result-ids $renamed-key) ($other-pid))
+       (== (result-ids $right-key) ($right-pid))
+       (== (current-proof-ids-for-goal-key $renamed-key) ($other-pid))
+       (== (current-output-pids $right-key $okey) ($right-pid))
+       (== (goal-proof-ids $left-gid) ($left-pid $other-pid))
+       (== (goal-proof-ids $right-gid) ($right-pid))
+       (=alpha $left-key $renamed-key)
+       (length (extract-vars $left-key))
+       (length (extract-vars $renamed-key))
+       (is-var $left)
+       (is-var $other-left)
+       (== $empty-remove ())
+       (== $empty-clear ())
+       (== $absent-remove ())
+       (== $absent-clear ())))
+   (true false false true false false
+    true true true true true true true true
+    true false true true true true true true true true 3 3 true true
+    true true true true))
 
 ;; Cycle checks memoize only the top-level empty-seen call. A colliding row
 ;; with a different cycle key must be ignored, recursive child checks must not

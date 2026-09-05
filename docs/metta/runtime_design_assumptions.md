@@ -154,8 +154,11 @@ Internal exact-map side tables must expose a selective scalar as their first
 argument to the generated Prolog predicate when benchmarks show that compound
 same-head keys scale poorly. Key ground terms with `term_hash` and retain the
 complete key in the row so unification rejects hash collisions. A variable-
-bearing exact key would require `variant_hash`, but do not add it unless its
-lookup benchmark pays for the hashing cost. Never hash indexes whose purpose is
+bearing exact key may use a coarse scalar hash provided a nonbinding alpha
+comparison checks the full key; a more selective `variant_hash` must justify
+its cost in lookup benchmarks. After selecting an open row by alpha identity,
+do not remove it with an unifying pattern: use a ground unique row ID or erase
+the exact selected clause reference. Never hash indexes whose purpose is
 structural or variable-bearing pattern matching.
 
 ### Reasoning work is lazy and budgeted
