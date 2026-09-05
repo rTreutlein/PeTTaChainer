@@ -237,7 +237,6 @@
 (= (materialize-tree! $pid) (let* (($_children (materialize-list! (proof-children-by-id $pid))) ($_fold (if (= (proof-kind-by-id $pid) (aggregate $_output)) (let $hash (index-hash (owner-key $pid)) (once (add-atom &materialized_folds ($hash)))) ())) ($_node (collapse (materialize-node! $pid)))) ()))
 (: materialize-list! (-[semidet]-> (List Number) (List $none)))
 (= (materialize-list! $pids) (foreach-flat materialize-tree! $pids))
-(: proof-current-representative? (-[det]-> Number Bool))
 (: proof-live? (-[semidet]-> Number Bool))
 (: ensure-frontier-path (-[semidet]-> Number Number Number))
 (= (ensure-frontier-path $parent-path $pid) (let $hits (collapse (once (match &frontier_path_lookup ($parent-path $pid $path-id) $path-id))) (if (== $hits ()) (let* (($path-id (+ 1 (next-search-id bwd_frontier_path))) ($_lookup (add-space-atom! &frontier_path_lookup (make-space-row3 $parent-path $pid $path-id))) ($_node (add-space-atom! &frontier_path (make-space-row3 $path-id $parent-path $pid))) ($_child (add-space-atom! &frontier_path_child (make-space-pair $parent-path $path-id))) ($_proof (add-space-atom! &proof_frontier_path (make-space-pair $pid $path-id)))) $path-id) (the Number (car-atom $hits)))))
@@ -261,7 +260,6 @@
                 (collapse
                    (remove-atom &proof_derivation
                       (derivation-row $dhash $gkey $pid)))))
-          ($_superseded (once (add-atom &proof_superseded ($pid))))
           ($_paths (invalidate-proof-paths! $pid)))
       ()))
 (= (supersede-current-proof! $pid) (let* (($gkey (owner-key $pid)) ($okey (output-key $pid)) ($_result (if (== (collapse (once (current-proof-result-id-for-output-key $gkey $okey))) ($pid)) (remove-result-output! $gkey $okey) ())) ($_drop (drop-current-proof! $pid)) ($_dirty (mark-dirty! $gkey $okey)) ($_confidence (clear-key-confidence! $gkey))) ()))
@@ -306,7 +304,7 @@
 (: latest-proof-id (-[semidet]-> (List Number) Number))
 (= (latest-proof-id (cons $pid $rest)) (fold-flat max $pid $rest))
 (: latest-live-proof-id-step (-[semidet]-> Number Number Number))
-(= (latest-live-proof-id-step $latest $pid)(if (proof-current-representative? $pid)(if (proof-live? $pid)(max $latest $pid)$latest)$latest))
+(= (latest-live-proof-id-step $latest $pid) (if (proof-live? $pid) (max $latest $pid) $latest))
 (: latest-live-proof-id (-[semidet]-> (List Number) Number))
 (= (latest-live-proof-id $pids)(let $latest (fold-flat latest-live-proof-id-step -1 $pids)(if (< $latest 0)(latest-proof-id $pids)$latest)))
 (: latest-proof-output-group-ids (-[semidet]-> (List ProofOutputGroup) (List Number)))
@@ -316,10 +314,12 @@
 (= (stored-list-member? $needle $values) (case $values ( (() false) ((cons $first $rest) (if (== $needle $first) true (stored-list-member? $needle $rest))) ($_other false))))
 (: proof-term-conjunction-dependency? (-[det]-> Proof Bool))
 (= (proof-term-conjunction-dependency? $proof) (if (is-expr $proof) (if (== $proof ()) false (if (is-var (car-atom $proof)) false (if (== (car-atom $proof) conjunction) true (case $proof ( ((by $_rule $dependency) (proof-term-conjunction-dependency? (brand Proof $dependency))) ((negated $inner) (proof-term-conjunction-dependency? (brand Proof $inner))) ($_other false)))))) false))
-(= (proof-current-representative? $pid) (not (space-row-present? &proof_superseded ($pid))))
 ;; A fold snapshot is live while it is the current representative of its fold
 ;; key; every other proof is always live. Parents are never marked.
-(= (proof-live? $pid) (if (= (proof-kind-by-id $pid) (aggregate $_output)) (proof-current-representative? $pid) true))
+(= (proof-live? $pid)
+   (if (= (proof-kind-by-id $pid) (aggregate $_output))
+      (== (collapse (current-proof-result-id-for-output-key (owner-key $pid) (output-key $pid))) ($pid))
+      true))
 (: reverse-number-list (-[det]-> (List Number) (List Number)))
 (: reverse-into (-[det]-> (List Number) (List Number) (List Number)))
 (= (reverse-number-list $items) (reverse-into $items ()))

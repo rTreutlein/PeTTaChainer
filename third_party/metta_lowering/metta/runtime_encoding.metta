@@ -1,36 +1,3 @@
-;; Conversion between compiler products and the MORK runtime tuple layout.
-;; Translate the external `premises |- conclusions` compiler form into the
-;; single-conclusion `rules` form consumed by MORK. Facts are already
-;; zero-premise conclusions and therefore need no wrapper.
-(: mm2stmt (-[det]-> CompiledAddition RuntimeAddition))
-(= (mm2stmt ($premises |- $conclusion))
-   (if (== $premises ())
-      (brand RuntimeAddition $conclusion)
-      (brand RuntimeAddition
-         (rules (quote ($premises |- $conclusion))))))
-
-;; Some query additions arrive wrapped in an extra singleton list after
-;; collapse. Unwrap that shape explicitly before applying the normal MM2 rule
-;; conversion; treating it as a fact would install the list itself as a goal.
-(: compiled-add-mm2stmt
-   (-[det]-> CompiledAddition RuntimeAddition))
-(= (compiled-add-mm2stmt $add)
-   (if (== (cdr-atom $add) ())
-      (let*
-         (($rule (car-atom $add))
-           ($prms (car-atom $rule))
-           ($tail (cdr-atom $rule))
-           ($ccls (car-atom (cdr-atom $tail)))
-           ($ccl (car-atom $ccls)))
-         (brand RuntimeAddition
-            (rules (quote ($prms |- $ccl)))))
-      (mm2stmt $add)))
-
-(: compiled-adds-mm2stmts
-   (-[det]-> (List CompiledAddition) (List RuntimeAddition)))
-(= (compiled-adds-mm2stmts $adds)
-   (map-flat compiled-add-mm2stmt $adds))
-
 ;; MORK indexes facts as `(type kb proof tv)`, whereas the public/compiler form
 ;; is `(: kb proof type tv)`. Convert recursively because these atoms may appear
 ;; inside generated rules and query additions, not only at the top level.
@@ -39,13 +6,6 @@
        (Statement KBContext Proof TV)))
 (= (internalize-proof-structure (: $kb $proof $statement $truth-value))
    (quote ($statement $kb $proof $truth-value)))
-
-(: internalize-runtime-addition
-   (-[det]-> RuntimeAddition RuntimeAddition))
-(= (internalize-runtime-addition $addition)
-   (brand RuntimeAddition
-      (the Expression
-         (internalize-proof-structure-any $addition))))
 
 (: internalize-proof-structure-any
    (-[det]-> Expression Atom))
@@ -59,6 +19,17 @@
                (map-flat internalize-proof-structure-any
                   (cdr-atom $term)))
             $term)))))
+
+;; Every compiler addition has one premise list and one conclusion. Encode
+;; that product directly; no external RuntimeAddition is exposed to consumers.
+(: mm2stmt (-[det]-> CompiledAddition RuntimeAddition))
+(= (mm2stmt ($premises |- $conclusion))
+   (brand RuntimeAddition
+      (the Expression
+         (internalize-proof-structure-any
+            (if (== $premises ())
+               $conclusion
+               (rules (quote ($premises |- $conclusion))))))))
 
 ;; Reverse the runtime tuple layout for diagnostics and public results. Only a
 ;; shaped KB can be recognized safely; arbitrary four-element expressions must

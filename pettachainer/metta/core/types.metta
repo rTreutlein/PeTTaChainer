@@ -127,8 +127,6 @@
 (: StoredGoalRow Type)
 (: AgendaKind Type)
 (: agenda-expand AgendaKind)
-(: agenda-refresh AgendaKind)
-(: agenda-resume AgendaKind)
 (: agenda-aggregate AgendaKind)
 
 (: AgendaRevisionToken Type)
@@ -141,7 +139,7 @@
 
 (: GoalAgendaState Type)
 (: goal-agenda-state
-   (-[det]-> Number Number Number (List AgendaKind) GoalAgendaState))
+   (-[det]-> Number Number Number Bool GoalAgendaState))
 
 (: stored-goal-row
    (-[det]-> Number Number

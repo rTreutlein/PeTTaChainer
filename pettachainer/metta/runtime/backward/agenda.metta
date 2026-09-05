@@ -2,9 +2,11 @@
 ;;
 ;; This layer owns the goal-agenda-state row stored on each goal row — a
 ;; generation counter, the demand revision and score a token was issued at,
-;; and the set of requested lanes — together with the request, claim, clear,
-;; and release operations over it. A heap entry is only a token; this row is
-;; the lock. At pop time an entry runs only if it still owns its lane, its
+;; and whether work is pending. A goal has one pending operation: expansion
+;; before it is expanded, then fold refreshes if it is an aggregate. Expansion
+;; is claimed before the fold source exists, so those operations never coexist.
+;; A heap entry is only a token; this row is the lock. At pop time an entry runs
+;; only if it still owns the pending operation, its
 ;; demand revision is current, and its score matches what was issued;
 ;; otherwise it is stale, cancelled, or reissued.
 ;;
@@ -40,14 +42,6 @@
                   $base-score))))
       (goal-demand-sum $gid)))
 
-(: remove-goal-agenda-kind
-   (-[det]-> AgendaKind (List AgendaKind) (List AgendaKind)))
-(= (remove-goal-agenda-kind $_kind ()) ())
-(= (remove-goal-agenda-kind $kind (cons $head $rest))
-   (if (== $kind $head)
-      (remove-goal-agenda-kind $kind $rest)
-      (cons $head (remove-goal-agenda-kind $kind $rest))))
-
 (: set-goal-agenda-state!
    (-[det]-> StoredGoalRow GoalAgendaState (List $none)))
 (= (set-goal-agenda-state!
@@ -66,9 +60,8 @@
                           $gid $depth $goal $expanded $next-state))))))
       ()))
 
-(: goal-agenda-kind-requested?
-   (-[det]-> Number AgendaKind Bool))
-(= (goal-agenda-kind-requested? $gid $kind)
+(: goal-agenda-requested? (-[det]-> Number Bool))
+(= (goal-agenda-requested? $gid)
    (let $hits (collapse (once (goal-by-id $gid)))
       (case $hits (
          (() false)
@@ -77,13 +70,13 @@
                 $_stored-gid $_depth $_goal $_expanded
                 (goal-agenda-state
                    $_generation $_issued-revision $_issued-score
-                   $requested-lanes))
+                   $requested?))
              $_rest)
-            (stored-list-member? $kind $requested-lanes))))))
+            (== $requested? true))))))
 
 (: agenda-entry-owned? (-[det]-> AgendaEntry Bool))
 (= (agenda-entry-owned?
-      (agenda-entry $kind $gid
+      (agenda-entry $_kind $gid
          (agenda-revision-token $_revision $generation)))
    (let $hits (collapse (once (goal-by-id $gid)))
       (case $hits (
@@ -93,16 +86,16 @@
                 $_stored-gid $_depth $_goal $_expanded
                 (goal-agenda-state
                    $stored-generation $_stored-revision
-                   $_issued-score $requested-lanes))
+                   $_issued-score $requested?))
              $_rest)
             (and
                (== $generation $stored-generation)
-               (stored-list-member? $kind $requested-lanes)))))))
+               (== $requested? true)))))))
 
 (: release-pruned-agenda-entry!
    (-[det]-> AgendaEntry (List $none)))
 (= (release-pruned-agenda-entry!
-      (agenda-entry $kind $gid
+      (agenda-entry $_kind $gid
          (agenda-revision-token $_revision $generation)))
    (let $hits (collapse (once (goal-by-id $gid)))
       (case $hits (
@@ -112,19 +105,18 @@
                 $stored-gid $depth $goal $expanded
                 (goal-agenda-state
                    $stored-generation $issued-revision $issued-score
-                   $requested-lanes))
+                   $requested?))
              $_rest)
             (if (== $generation $stored-generation)
-               (if (stored-list-member? $kind $requested-lanes)
+               (if (== $requested? true)
                   (set-goal-agenda-state!
                      (stored-goal-row
                         $stored-gid $depth $goal $expanded
                         (goal-agenda-state
                            $stored-generation $issued-revision
-                           $issued-score $requested-lanes))
+                           $issued-score $requested?))
                      (goal-agenda-state
-                        $stored-generation $issued-revision $issued-score
-                        (remove-goal-agenda-kind $kind $requested-lanes)))
+                        $stored-generation $issued-revision $issued-score false))
                   ())
                ()))))))
 
@@ -141,11 +133,11 @@
                 $_stored-gid $depth $goal $expanded
                 (goal-agenda-state
                    $stored-generation $issued-revision
-                   $issued-score $requested-lanes))
+                   $issued-score $requested?))
              $_rest)
             (if (not (== $generation $stored-generation))
                agenda-stale
-               (if (not (stored-list-member? $kind $requested-lanes))
+               (if (== $requested? false)
                   agenda-cancelled
                   (let* (($current-score (agenda-kind-score $kind $gid))
                          ($current-revision (goal-demand-revision $gid))
@@ -188,11 +180,8 @@
                                   $gid $depth $goal $expanded
                                   (goal-agenda-state
                                      $generation $issued-revision
-                                     $issued-score $requested-lanes))
+                                     $issued-score $requested?))
                                (goal-agenda-state
                                   $generation $current-revision $current-score
-                                  (if (== $disposition agenda-retoken)
-                                     $requested-lanes
-                                     (remove-goal-agenda-kind
-                                        $kind $requested-lanes))))))
+                                  (== $disposition agenda-retoken)))))
                      $disposition))))))))

@@ -45,11 +45,9 @@
    (-[nondet]-> KB AnnotatedStatement  CompiledAddition))
 (= (compileadd $kb $stmt)
    (let*
-      (($raw-atoms
-          (collapse (mm2compile $kb (materialize-stmt-lambdas $stmt))))
-        ($iatoms
-           (list_to_set
-              (map-flat internalize-runtime-addition $raw-atoms)))
+      (($iatoms
+          (list_to_set
+             (collapse (mm2compile $kb (materialize-stmt-lambdas $stmt)))))
         ($eatoms
            (the (List CompiledAddition)
               (map-flat externalize-proof-structure $iatoms)))

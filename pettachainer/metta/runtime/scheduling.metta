@@ -107,7 +107,7 @@
       (/ (min $root-bound $gain-bound) $expected-steps)))
 
 ;; Backward work shares one numeric priority policy.  Depth remains the
-;; dominant band, score orders work within a depth, and the small lane offset
+;; dominant band, score orders work within a depth, and the small work-kind offset
 ;; only breaks otherwise equal cross-kind work.
 (: backward-agenda-priority
    (-[det]-> Number Number Number AgendaKind Number))
@@ -115,9 +115,7 @@
    (+ (+ (* 1000000000.0 $depth)
          (- 0 (+ (* 1000000.0 $score) $bonus)))
       (case $kind (
-         (agenda-resume -0.1)
          (agenda-expand 0.0)
-         (agenda-refresh 0.1)
          (agenda-aggregate 0.1)))))
 
 (: bounded-agenda-target-size (-[det]-> Number Number))

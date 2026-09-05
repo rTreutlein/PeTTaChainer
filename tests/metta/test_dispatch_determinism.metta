@@ -1,5 +1,21 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
+;; The public compiler plans keep their distinct wire formats and variable
+;; sharing, even though statement compilation now encodes each addition once.
+!(test
+   (compileQuery compilerWireKb (: wire (Pair $x $x) (STV 1.0 1.0)))
+   (compilation-plan
+      (: (compilerWireKb MAIN Nil) wire (Pair $x $x) (STV 1.0 1.0)) ()))
+!(test
+   (mm2compileQuery compilerWireKb (: wire (Pair $x $y) (STV 1.0 1.0)))
+   (compiled-query
+      ((Pair $x $y) (compilerWireKb MAIN Nil) wire (STV 1.0 1.0)) ()))
+!(test
+   (compileadd compilerWireKb
+      (: opaque (Payload (: a b c d) (data (x y z) p value)) (STV 1.0 1.0)))
+   (: (compilerWireKb MAIN Nil) opaque
+      (Payload (: a b c d) (data (x y z) p value)) (STV 1.0 1.0)))
+
 ;; Fixed-input dispatch helpers must each reduce to exactly one result.
 !(test (collapse (BaseRateWithPriorFormula no-evidence no-evidence)) (no-evidence))
 !(test (collapse (BaseRateWithPriorFormula no-evidence (STV 0.8 0.6))) ((STV 0.8 0.6)))
