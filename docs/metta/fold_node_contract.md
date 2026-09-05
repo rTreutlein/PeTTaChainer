@@ -30,8 +30,8 @@ restore path. What remains specific to folds is listed at the end.
    candidate row in `&proof_current`, a result row in `&proof_current_result`.
 2. **Replace policy.** Storing a snapshot whose fold key already has a result
    representative replaces it: the old representative leaves `&proof_current`
-   and `&proof_current_result`, is marked superseded (its parents are left
-   alone), and the new snapshot becomes the result
+   and `&proof_current_result`, its frontier paths are invalidated (its parents
+   are left alone), and the new snapshot becomes the result
    directly. No dirty flag, no merge, no dominance. The old row stays in
    `&proof` as history. This is `replace-result!`; the ordinary accumulate
    policy (candidate stays, key marked dirty, representative refreshed lazily)
@@ -49,6 +49,9 @@ A snapshot is live iff it is still the current representative of its fold key
 (replacement supersedes it). Every other proof is always live.
 Nothing propagates: replacing or retiring a proof leaves its parents current.
 There is no liveness cache, no invalidation epoch and no dependent walk.
+Current candidate membership and published result membership are authoritative;
+there is no separate superseded flag to synchronize or clear when a raw
+candidate becomes its output's representative again.
 
 ## Proof validity and supersession (shared)
 

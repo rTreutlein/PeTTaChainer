@@ -184,8 +184,7 @@
       (clear-backward-query-state!)
       (foreach-flat remove-all-atoms
          (&proof &proof_goal &proof_result
-          &proof_current &proof_current_result &proof_derivation
-          &proof_superseded))
+          &proof_current &proof_current_result &proof_derivation))
       ()))
 
 (: test-runtime-fact
@@ -551,7 +550,8 @@
                       (DerivationRoot) derivation-other (STV 1.0 0.7)))
                 0.7 (cons (rule-ev kb derivation-other) ()) ())))
        ($_merged (goal-merged-proof-ids $root-gid))
-       ($old-is-representative (proof-current-representative? $old))
+       ($old-is-representative
+          (== (collapse (current-proof-result-id-for-output-key $gkey (output-key $old))) ($old)))
        ($old-is-current
           (== (current-proof-ids-for-goal-key $gkey) ($old $other)))
        ($before-index (length (collapse (get-atoms &proof_derivation))))
@@ -582,6 +582,45 @@
        $duplicate-accepted
        (materialize-proof $old)))
    (false true 2 2 true true false (by derivation-main derivation-old-input)))
+
+;; A raw candidate can regain the published role after the other input is
+;; superseded. History and active membership survive role loss; frontier paths
+;; do not. Query reset preserves the selected result and the old merged proof.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($gid
+          (ensure-goal-at-depth
+             (test-runtime-fact (RoleLifecycle) (brand Proof $proof) $tv) 0))
+       ($gkey (proof-goal-key-by-goal-id $gid))
+       ($first
+          (store-proof-candidate $gid
+             (leaf-result-candidate
+                (test-runtime-fact (RoleLifecycle) lifecycle-first (STV 1.0 0.8))
+                (cons (rule-ev kb lifecycle-first) ()))))
+       ($first-path (ensure-frontier-path 0 $first))
+       ($second
+          (store-proof-candidate $gid
+             (leaf-result-candidate
+                (test-runtime-fact (RoleLifecycle) lifecycle-second (STV 1.0 0.7))
+                (cons (rule-ev kb lifecycle-second) ()))))
+       ($merged (car-atom (goal-merged-proof-ids $gid)))
+       ($merged-path (ensure-frontier-path 0 $merged))
+       ($both-current (== (goal-live-proof-ids $gid) ($first $second)))
+       ($_drop (supersede-current-proof! $second))
+       ($incumbent
+          (== (current-proof-result-id-for-output-key $gkey (output-key $first)) $merged))
+       ($restored (== (goal-merged-proof-ids $gid) ($first)))
+       ($paths-invalidated
+          (and (not (frontier-path-live? $first-path))
+               (not (frontier-path-live? $merged-path))))
+       ($_reset (clear-backward-query-state!)))
+      ($both-current $incumbent $restored $paths-invalidated
+       (== (result-ids $gkey) ($first))
+       (== (current-proof-ids-for-goal-key $gkey) ($first))
+       (== (materialize-proof $merged) (merge/revision lifecycle-first lifecycle-second))
+       (== (materialize-proof $second) lifecycle-second)))
+   (true true true true true true true true))
 
 ;; Grouped fold snapshots replace per fold key: a newer snapshot of group a
 ;; supersedes both older a snapshots and leaves group b's snapshot current.

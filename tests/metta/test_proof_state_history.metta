@@ -1,0 +1,52 @@
+!(import! &self ../../pettachainer/metta/petta_chainer)
+
+!(compileadd historyKb (: left-a (HistoryLeft a) (STV 1.0 0.8)))
+!(compileadd historyKb (: left-b (HistoryLeft b) (STV 1.0 0.8)))
+!(compileadd historyKb (: right-a (HistoryRight a) (STV 1.0 0.7)))
+!(compileadd historyKb
+   (: (no_inverse left-rule)
+      (Implication (HistoryLeft $x) (HistoryOutput $x))
+      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd historyKb
+   (: (no_inverse right-rule)
+      (Implication (HistoryRight $x) (HistoryOutput $x))
+      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+
+;; Output a has two active raw candidates and a merged representative. Output
+;; b has one raw representative. All three raw proofs remain durable history.
+!(test
+   (collapse (query 50 historyKb (: $proof (HistoryOutput $x) $tv)))
+   ((: (merge/revision
+          (by (no_inverse left-rule) left-a)
+          (by (no_inverse right-rule) right-a))
+       (HistoryOutput a) (STV 1.0 0.8635964607600216))
+    (: (by (no_inverse left-rule) left-b)
+       (HistoryOutput b) (STV 1.0 0.7999359651197002))))
+
+;; A zero-budget read returns compatible published groups. It does not backfill
+;; a partially covered result set from raw history: a's merged representative
+;; fails this proof constraint, while b's representative satisfies it.
+!(test
+   (collapse
+      (query 0 historyKb
+         (: (by (no_inverse left-rule) $source) (HistoryOutput $x) $tv)))
+   ((: (by (no_inverse left-rule) left-b)
+       (HistoryOutput b) (STV 1.0 0.7999359651197002))))
+
+;; With no compatible published group, the historical fallback can still
+;; retrieve a raw proof which previously lost the representative role.
+!(test
+   (collapse
+      (query 0 historyKb
+         (: (by (no_inverse left-rule) left-a) (HistoryOutput $x) $tv)))
+   ((: (by (no_inverse left-rule) left-a)
+       (HistoryOutput a) (STV 1.0 0.7999359651197002))))
+
+;; TV constraints likewise must not leak the incompatible merged a result or
+;; add an extra raw a group behind the valid published b group.
+!(test
+   (collapse
+      (query 0 historyKb
+         (: $proof (HistoryOutput $x) (STV 1.0 0.7999359651197002))))
+   ((: (by (no_inverse left-rule) left-b)
+       (HistoryOutput b) (STV 1.0 0.7999359651197002))))
