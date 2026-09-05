@@ -24,11 +24,9 @@
          (brand CompiledQueryGoal
             (internalize-proof-structure
                (: (kbctx $kb) $prf $type $tv)))
-         (map-flat internalize-runtime-addition
-            (collapse (mm2compile $kb (compound-query-temp-stmt $stmt)))))
+         (collapse (mm2compile $kb (compound-query-temp-stmt $stmt))))
       (let (compilation-plan $goal $adds) (compileQuery $kb $stmt)
          (compiled-query
             (brand CompiledQueryGoal
                (internalize-proof-structure $goal))
-            (map-flat internalize-runtime-addition
-               (compiled-adds-mm2stmts $adds))))))
+            (map-flat mm2stmt $adds)))))

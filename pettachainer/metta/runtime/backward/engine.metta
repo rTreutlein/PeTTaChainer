@@ -23,11 +23,10 @@
                        (brand Term $subj) (brand Term $concept))
                   (once
                      (inject-compiled-adds
-                        (map-flat internalize-runtime-addition
-                           (compiled-adds-mm2stmts
-                              (compile-member-inheritance-query-adds
-                                 (brand KB $kbid)
-                                 (brand Term $subj) (brand Term $concept))))))
+                        (map-flat mm2stmt
+                           (compile-member-inheritance-query-adds
+                              (brand KB $kbid)
+                              (brand Term $subj) (brand Term $concept)))))
                   ())
                ())))
       ($_other ()))))
