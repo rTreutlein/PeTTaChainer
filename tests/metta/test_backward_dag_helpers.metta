@@ -246,15 +246,18 @@
                 (AgendaGoal) (brand Proof $proof) $tv)
              0))
        ($agenda1
-          (request-goal-agenda-kind-heap
-             (empty_heap) $gid agenda-refresh))
+          (request-goal-agenda-kind-score-heap
+             (empty_heap) $gid agenda-refresh
+             (agenda-kind-score agenda-refresh $gid)))
        ($agenda2
-          (request-goal-agenda-kind-heap
-             $agenda1 $gid agenda-refresh))
+          (request-goal-agenda-kind-score-heap
+             $agenda1 $gid agenda-refresh
+             (agenda-kind-score agenda-refresh $gid)))
        ($current2 (current-agenda-entry-count $agenda2))
        ($agenda3
-          (request-goal-agenda-kind-heap
-             $agenda2 $gid agenda-expand)))
+          (request-goal-agenda-kind-score-heap
+             $agenda2 $gid agenda-expand
+             (agenda-kind-score agenda-expand $gid))))
       ((heap_size $agenda2)
        $current2
        (heap_size $agenda3)
@@ -274,12 +277,14 @@
                 (StaleAgendaGoal) (brand Proof $proof) $tv)
              0))
        ($agenda1
-          (request-goal-agenda-kind-heap
-             (empty_heap) $gid agenda-refresh))
+          (request-goal-agenda-kind-score-heap
+             (empty_heap) $gid agenda-refresh
+             (agenda-kind-score agenda-refresh $gid)))
        (($_priority $stale-entry $_rest) (heap_pop $agenda1))
        ($_agenda2
-          (request-goal-agenda-kind-heap
-             $agenda1 $gid agenda-expand))
+          (request-goal-agenda-kind-score-heap
+             $agenda1 $gid agenda-expand
+             (agenda-kind-score agenda-expand $gid)))
        ($_dirty (mark-goal-demand-dirty! $gid))
        ($before (goal-demand-revision $gid))
        ($disposition (claim-goal-agenda-entry! $stale-entry))
@@ -308,8 +313,9 @@
              (fold-source-row
                 $gid 99 reprioritized-args 0.2 0 false)))
        ($agenda1
-          (request-goal-agenda-kind-heap
-             (empty_heap) $gid agenda-aggregate))
+          (request-goal-agenda-kind-score-heap
+             (empty_heap) $gid agenda-aggregate
+             (agenda-kind-score agenda-aggregate $gid)))
        (($old-priority $_old-entry $_old-rest)
           (heap_pop $agenda1))
        ($_aggregate2
@@ -322,8 +328,9 @@
                    $gid 99 reprioritized-args 0.4 0 false))))
        ($_revision (bump-goal-demand-revision! $gid))
        ($agenda2
-          (request-goal-agenda-kind-heap
-             $agenda1 $gid agenda-aggregate))
+          (request-goal-agenda-kind-score-heap
+             $agenda1 $gid agenda-aggregate
+             (agenda-kind-score agenda-aggregate $gid)))
        (($fresh-priority
           (agenda-entry agenda-aggregate $_fresh-gid
              (agenda-revision-token $fresh-revision $fresh-generation))
@@ -352,8 +359,9 @@
              (fold-source-row
                 $gid 99 lowered-priority-args 0.4 0 false)))
        ($agenda1
-          (request-goal-agenda-kind-heap
-             (empty_heap) $gid agenda-aggregate))
+          (request-goal-agenda-kind-score-heap
+             (empty_heap) $gid agenda-aggregate
+             (agenda-kind-score agenda-aggregate $gid)))
        ($_aggregate2
           (progn
              (remove-atom &fold_source
@@ -364,8 +372,9 @@
                    $gid 99 lowered-priority-args 0.2 0 false))))
        ($_revision (bump-goal-demand-revision! $gid))
        ($agenda2
-          (request-goal-agenda-kind-heap
-             $agenda1 $gid agenda-aggregate))
+          (request-goal-agenda-kind-score-heap
+             $agenda1 $gid agenda-aggregate
+             (agenda-kind-score agenda-aggregate $gid)))
        (($_priority $entry $_rest) (heap_pop $agenda2))
        ($disposition (claim-goal-agenda-entry! $entry))
        ((stored-goal-row
@@ -409,12 +418,14 @@
              (fold-source-row
                 $gid 99 equal-priority-args 0.4 0 false)))
        ($agenda1
-          (request-goal-agenda-kind-heap
-             (empty_heap) $gid agenda-aggregate))
+          (request-goal-agenda-kind-score-heap
+             (empty_heap) $gid agenda-aggregate
+             (agenda-kind-score agenda-aggregate $gid)))
        ($_revision (bump-goal-demand-revision! $gid))
        ($agenda2
-          (request-goal-agenda-kind-heap
-             $agenda1 $gid agenda-aggregate))
+          (request-goal-agenda-kind-score-heap
+             $agenda1 $gid agenda-aggregate
+             (agenda-kind-score agenda-aggregate $gid)))
        (($_priority $entry $rest) (heap_pop $agenda2))
        ($disposition (claim-goal-agenda-entry! $entry))
        ((stored-goal-row
@@ -440,19 +451,22 @@
                 (PrunedAgendaGoal) (brand Proof $proof) $tv)
              0))
        ($agenda1
-          (request-goal-agenda-kind-heap
-             (empty_heap) $gid agenda-refresh))
+          (request-goal-agenda-kind-score-heap
+             (empty_heap) $gid agenda-refresh
+             (agenda-kind-score agenda-refresh $gid)))
        ($agenda2
-          (request-goal-agenda-kind-heap
-             $agenda1 $gid agenda-expand))
+          (request-goal-agenda-kind-score-heap
+             $agenda1 $gid agenda-expand
+             (agenda-kind-score agenda-expand $gid)))
        ($pruned (backward-agenda-prune-to-size 1 $agenda2))
        ($expand-after-prune
           (goal-agenda-kind-requested? $gid agenda-expand))
        ($refresh-after-prune
           (goal-agenda-kind-requested? $gid agenda-refresh))
        ($rescheduled
-          (request-goal-agenda-kind-heap
-             $pruned $gid agenda-expand)))
+          (request-goal-agenda-kind-score-heap
+             $pruned $gid agenda-expand
+             (agenda-kind-score agenda-expand $gid))))
       ((heap_size $pruned)
        $expand-after-prune
        $refresh-after-prune
@@ -606,6 +620,48 @@
        (proof-live? $new-a)
        (length (goal-live-proof-ids $aggregate-gid))))
    (2 true true false false true true 2))
+
+;; An empty demand list is a cache hit, not a missing row. A live waiter and
+;; then a stale parent revision must each rebuild only the child's one cache row.
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+       ($_gidreset (change-state! bwd_gid 0))
+       ($parent
+          (ensure-goal-at-depth
+             (test-runtime-fact (DemandParent) (brand Proof $parent-proof) $parent-tv)
+             0))
+       ($child
+          (ensure-goal-at-depth
+             (test-runtime-fact (DemandChild) (brand Proof $child-proof) $child-tv)
+             1))
+       ($empty (goal-root-demands $child))
+       ($empty-revision (goal-demand-revision $child))
+       ($empty-hit (goal-root-demands $child))
+       ($hit-revision (goal-demand-revision $child))
+       ($_root (once (add-atom &root_goal (root-goal $parent))))
+       ($_parent-demand (goal-root-demands $parent))
+       ($_waiter
+          (register-goal-waiter! $child $parent
+             (aggregate-waiter $parent live-aggregate-demand)))
+       ($live (goal-root-demands $child))
+       ($live-revision (goal-demand-revision $child))
+       ($_parent-revision (bump-goal-demand-revision! $parent))
+       ($refreshed (goal-root-demands $child))
+       ($refreshed-revision (goal-demand-revision $child)))
+      ((== $empty ())
+       (== $empty-hit ())
+       $empty-revision
+       (== $hit-revision $empty-revision)
+       (== $live (cons (root-demand $parent 1.0) ()))
+       (== $refreshed $live)
+       (== $refreshed-revision (+ $live-revision 1))
+       (length
+          (collapse
+             (match &goal_demand_cache
+                (goal-demand-cache-row $child $_dependencies $_demands)
+                cached)))))
+   (true true 1 true true true true 1))
 
 ;; Hash collisions must preserve alias patterns through proof insertion, renamed-key
 ;; lookup, stable result ordering, dirty clearing, and current/result removal.

@@ -7,21 +7,12 @@
 (: nth0
    (-[nondet]-> $index (List $item) $item (List $item)))
 
-(: ForwardOutputCandidate Type)
-(: forward-output-candidate
-   (-[det]-> (Statement KBContext Proof TV)
-       (List Evidence) ForwardOutputCandidate))
-
 (: NoForwardOutputCandidate Type)
 (: no-forward-output-candidate NoForwardOutputCandidate)
 
 (: ForwardOutputKey Type)
 (: forward-output-key
    (-[det]-> KBContext Statement ForwardOutputKey))
-
-(: ForwardOutputRow Type)
-(: forward-output-row
-   (-[det]-> (Statement KBContext Proof TV) (List Evidence) ForwardOutputRow))
 
 (: ForwardFrontierRow Type)
 (: forward-frontier-row
@@ -31,7 +22,7 @@
        ForwardFrontierRow))
 
 (: first-forward-output-row
-   (-[det]-> (List ForwardOutputRow) ForwardOutputRow))
+   (-[det]-> (List ForwardDerived) ForwardDerived))
 (= (first-forward-output-row (cons $row $_rest)) $row)
 
 (: ForwardCanonicalEvidenceRow Type)
@@ -96,7 +87,7 @@
    (-[det]-> (Statement KBContext Proof TV)
        ForwardAggregateObservationValue))
 (: forward-member-inheritance-observation-value
-   (-[det]-> ForwardOutputCandidate ForwardOutputCandidate
+   (-[det]-> ForwardDerived ForwardDerived
        ForwardAggregateObservationValue))
 
 (: ForwardAggregateObservation Type)
@@ -173,27 +164,27 @@
    (term_hash (quote ($kb $type))))
 
 (: forward-output-candidate-step
-   (-[det]-> (| ForwardOutputCandidate NoForwardOutputCandidate)
+   (-[det]-> (| ForwardDerived NoForwardOutputCandidate)
        ForwardFrontierRow
-       ForwardOutputCandidate))
+       ForwardDerived))
 (= (forward-output-candidate-step
       no-forward-output-candidate
       (forward-frontier-row
          $_hash $_type $_kb $fact $ev))
-   (forward-output-candidate $fact $ev))
+   (forward-derived $fact $ev))
 (= (forward-output-candidate-step
-      (forward-output-candidate $current $current-ev)
+      (forward-derived $current $current-ev)
       (forward-frontier-row
          $_hash $_type $_kb $fact $ev))
    (let ($merged $merged-ev)
       (merge-proof-candidates
          (data $current $current-ev)
          (data $fact $ev))
-      (forward-output-candidate $merged $merged-ev)))
+      (forward-derived $merged $merged-ev)))
 
 (: forward-output-candidate-for-key
    (-[det]-> ForwardOutputKey
-       (| ForwardOutputCandidate NoForwardOutputCandidate)))
+       (| ForwardDerived NoForwardOutputCandidate)))
 (= (forward-output-candidate-for-key
       (forward-output-key $kb $type))
    (let $hash
@@ -213,17 +204,9 @@
 ;; canonical fact when later evidence supersedes just one branch.  Exact-map
 ;; rows start with a hash of the complete output identity, followed by that
 ;; identity so unification still rejects the rare hash collision.
-(: forward-canonical-candidate
-   (-[det]-> (List ForwardCanonicalEvidenceRow)
-       (| ForwardOutputCandidate NoForwardOutputCandidate)))
-(= (forward-canonical-candidate ()) no-forward-output-candidate)
-(= (forward-canonical-candidate
-      (cons (forward-canonical-evidence-row $_hash $_type $_kb $fact $ev) $_rest))
-   (forward-output-candidate $fact $ev))
-
 (: forward-store-output-candidate!
    (-[nondet]-> ForwardOutputKey
-      (| ForwardOutputCandidate NoForwardOutputCandidate)
+      (| ForwardDerived NoForwardOutputCandidate)
        ForwardOutputChange))
 (= (forward-store-output-candidate!
       (forward-output-key $kb $type) $new-candidate)
@@ -232,18 +215,18 @@
           (forward-output-index-hash
              (forward-output-key $kb $type)))
        ($old-candidate
-          (forward-canonical-candidate
-             (collapse
+          (case (collapse
                 (once
                    (match &forward_canonical_evidence
                       (forward-canonical-evidence-row
                          $hash $type $kb $stored-fact $stored-ev)
-                      (forward-canonical-evidence-row
-                         $hash $type $kb $stored-fact $stored-ev)))))))
+                      (forward-derived $stored-fact $stored-ev))))
+             ((() no-forward-output-candidate)
+              ((cons $candidate $_rest) $candidate)))))
       (case $new-candidate
-         (((forward-output-candidate $new-fact $new-ev)
+         (((forward-derived $new-fact $new-ev)
             (case $old-candidate
-               (((forward-output-candidate $old-fact $old-ev)
+               (((forward-derived $old-fact $old-ev)
                   (if (if (== $old-fact $new-fact) (== $old-ev $new-ev) false)
                      no-forward-change
                      (let*
@@ -269,7 +252,7 @@
           (no-forward-output-candidate
              (case $old-candidate
                 ((no-forward-output-candidate no-forward-change)
-                 ((forward-output-candidate $old-fact $_old-ev)
+                 ((forward-derived $old-fact $_old-ev)
                     (let*
                        (($_remove-fact (remove-atom &kb $old-fact))
                         ($_remove-evidence
@@ -285,7 +268,7 @@
       $key (forward-output-candidate-for-key $key)))
 
 (: forward-output-row-for-fact
-   (-[semidet]-> (Statement KBContext Proof TV) ForwardOutputRow))
+   (-[semidet]-> (Statement KBContext Proof TV) ForwardDerived))
 (= (forward-output-row-for-fact ($type $kb $proof $tv))
    (let*
       (($hash (term_hash (quote ($kb $type)))))
@@ -293,4 +276,4 @@
          (match &forward_canonical_evidence
             (forward-canonical-evidence-row
                $hash $type $kb $canonical $ev)
-            (forward-output-row $canonical $ev)))))
+            (forward-derived $canonical $ev)))))

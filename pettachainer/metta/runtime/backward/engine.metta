@@ -127,7 +127,7 @@
           ((BaseRateEvidence $weight $mass)
              (forward-weighted-base-rate-contribution
                 (the TV $atv) (the TV $btv)))
-          ($candidate (forward-output-candidate $fact $evidence)))
+          ($candidate (forward-derived $fact $evidence)))
          (forward-merge-computed-member-observation!
             $id
             (forward-aggregate-observation
@@ -223,8 +223,8 @@
                                         (harvest-computed-aggregate-state!
                                            $args $pid))
                                      ($_cache
-                                        (store-computed-base-rate!
-                                           $kbid $pattern (STV $s $c) $mode)))
+                                        (store-produced-base-rate!
+                                           $kbid $pattern (STV $s $c) computed $mode)))
                                  ()))
                            ((CPU $_fold $_stored-args no-evidence)
                               (case $args (

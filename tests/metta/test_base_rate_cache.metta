@@ -72,7 +72,7 @@
 
 ; Adding a rule likewise preserves computed snapshots. The rule only enlarges
 ; the proof search space; it does not retract any evidence behind the cache.
-!(store-computed-base-rate! ruleAddCacheKb (P $x) (STV 0.4 0.2) base-rate)
+!(store-produced-base-rate! ruleAddCacheKb (P $x) (STV 0.4 0.2) computed base-rate)
 
 !(compileadd ruleAddCacheKb
    (: rToP
@@ -120,7 +120,7 @@
 ; A weak computed entry gets refined: the refold has higher confidence, so the
 ; snapshot replaces the cached value, the conclusion uses the refined base
 ; rate, and the harvest writes the refined value back to the cache.
-!(store-computed-base-rate! brKb2 (P $x) (STV 0.2 0.0001) base-rate)
+!(store-produced-base-rate! brKb2 (P $x) (STV 0.2 0.0001) computed base-rate)
 
 !(test
    (query 200 brKb2 (: $prf (P alice) $tv))
@@ -139,7 +139,7 @@
 
 !(compileadd brKb3 (: pb (P bob) (STV 0.7 0.8)))
 
-!(store-computed-base-rate! brKb3 (P $x) (STV 0.5 0.9) base-rate)
+!(store-produced-base-rate! brKb3 (P $x) (STV 0.5 0.9) computed base-rate)
 
 !(test
    (query 200 brKb3 (: $prf (P alice) $tv))

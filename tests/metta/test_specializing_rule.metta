@@ -1,5 +1,17 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
+;; Shared open subjects stay contextual; only the auxiliary premise grounds
+;; an Inheritance lift. A callback that copies captured variables breaks this.
+!(compileadd openSubjectLiftKb
+   (: open-subject-lift
+      (Implication (And (Inheritance $x A) (Aux $x)) (Inheritance $x B))
+      (CTV (STV 0.9 0.9) (STV 0.0 1.0))))
+!(test
+   (match &spec_template
+      ($_hash (specialization-template-row openSubjectLiftKb $head $triggers $_job))
+      (quote ($head $triggers)))
+   (Aux ((Aux $x))))
+
 !(set-specializing-predicate Symmetric)
 
 ;; Rule added before any Symmetric facts: stored as a template, no rule emitted yet.

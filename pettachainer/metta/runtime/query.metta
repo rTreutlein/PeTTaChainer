@@ -58,16 +58,6 @@
           (prepare-query-many-plan (+ $key 1) $kb $rest)))
       (merge-query-execution-plans $statement-plan $rest-plan)))
 
-(: append-keyed-query-results
-   (-[det]-> Number (List AnnotatedStatement)
-       (List (Number AnnotatedStatement))
-       (List (Number AnnotatedStatement))))
-(= (append-keyed-query-results $_key () $right) $right)
-(= (append-keyed-query-results
-      $key (cons $answer $rest) $right)
-   (cons ($key $answer)
-      (append-keyed-query-results $key $rest $right)))
-
 (: present-query-plan-results
    (-[nondet]-> (List (Number CompiledQueryGoal))
        (List (List RuntimeResult))
@@ -76,9 +66,9 @@
 (= (present-query-plan-results
       (cons ($key $_goal) $roots)
       (cons $results $rest-results))
-   (append-keyed-query-results
-      $key
-      (pretty-results (map-flat externalize-proof-structure $results))
+   (append-flat
+      (map-flat (|-> ($answer) (data $key $answer))
+         (pretty-results (map-flat externalize-proof-structure $results)))
       (present-query-plan-results $roots $rest-results)))
 
 (: query-plan-runtime-goal
@@ -111,14 +101,6 @@
        ($_clear-temp-after (clear-temp-query-adds)))
       $rows))
 
-(: keyed-query-batch-results
-   (-[det]-> (List (Number AnnotatedStatement))
-       (List QueryBatchResult)))
-(= (keyed-query-batch-results ()) ())
-(= (keyed-query-batch-results (cons ($key $answer) $rest))
-   (cons (query-result $key $answer)
-      (keyed-query-batch-results $rest)))
-
 (: query-mode
    (-[nondet]-> Number KB AnnotatedStatement Bool AnnotatedStatement))
 (= (query-mode $steps $kb $statement $materialize?)
@@ -149,7 +131,8 @@
       (((query-execution-plan $roots $adds)
           (prepare-query-many-plan 0 $kb $statements))
        ($rows
-          (keyed-query-batch-results
+          (map-flat
+             (|-> ($row) (query-result (fst $row) (snd $row)))
              (run-query-execution-plan
                 $steps
                 (query-execution-plan $roots (list_to_set $adds))

@@ -33,7 +33,7 @@
 (= (forward-current-version $fact)
    (let $rows (collapse (once (forward-output-row-for-fact $fact)))
       (if (== $rows ()) $fact
-         (let (forward-output-row $canonical $_ev)
+         (let (forward-derived $canonical $_ev)
             (first-forward-output-row $rows)
             $canonical))))
 
@@ -239,8 +239,8 @@
                   (forward-add-frontier-row!
                      $output-key $fact $ev $record-subject?)
                   (forward-store-output-candidate!
-                     $output-key (forward-output-candidate $fact $ev)))
-               (let (forward-output-row $canonical $canonical-ev)
+                     $output-key (forward-derived $fact $ev)))
+               (let (forward-derived $canonical $canonical-ev)
                   (first-forward-output-row $canonical-rows)
                   (if (not (evidence-sets-overlap? $canonical-ev $ev))
                      ;; Disjoint evidence cannot evict an existing frontier
@@ -256,7 +256,7 @@
                                (data $fact $ev))))
                         (forward-store-output-candidate!
                            $output-key
-                           (forward-output-candidate $merged $merged-ev)))
+                           (forward-derived $merged $merged-ev)))
                      (if (forward-frontier-rejects? $output-key $fact $ev)
                         no-forward-change
                         (let*
@@ -282,7 +282,7 @@
                  (runtime-rule-row $id $ccls $prems)))
            ($rprems
               (nth0 $idx $prems $fact))
-           ((forward-output-row
+           ((forward-derived
                 $trigger-fact $trigger-ev)
               (forward-output-row-for-fact $fact))
            (($result $premise-ev)

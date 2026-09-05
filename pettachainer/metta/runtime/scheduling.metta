@@ -1,9 +1,8 @@
 ;; Shared proof scoring and bounded-agenda policy.
-(: premises-expected-confidence-step
-   (-[det]-> (| Goal (Statement KBContext Proof TV))
-       (List (| Goal (Statement KBContext Proof TV)))
-       Number))
-(= (premises-expected-confidence-step $prem $rest)
+(: premises-expected-confidence
+   (-[det]-> (List (| Goal (Statement KBContext Proof TV))) Number))
+(= (premises-expected-confidence ()) 1.0)
+(= (premises-expected-confidence (cons $prem $rest))
    (case $prem
       (((CPU $fun $args $res)
           (if (= $rest
@@ -63,12 +62,6 @@
    (case $prf (
       ((marginal-proj $_idx $_inner) (* 0.99 (tv-confidence $tv)))
       ($_other (tv-confidence $tv)))))
-
-(: premises-expected-confidence
-   (-[det]-> (List (| Goal (Statement KBContext Proof TV))) Number))
-(= (premises-expected-confidence ()) 1.0)
-(= (premises-expected-confidence (cons $prem $rest))
-   (premises-expected-confidence-step $prem $rest))
 
 (: score-tv (-[det]-> Number STVType))
 (= (score-tv $score) (STV 1.0 (max 0.0 (min 1.0 $score))))

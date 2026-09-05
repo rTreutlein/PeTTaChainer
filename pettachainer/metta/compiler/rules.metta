@@ -681,13 +681,6 @@
                false)))
       false))
 
-(: rule-trigger-premises (-[det]-> (List Atom) (List Atom)))
-(= (rule-trigger-premises ()) ())
-(= (rule-trigger-premises (cons $prem $rest))
-   (if (specialization-trigger? (brand Statement $prem))
-      (cons $prem (rule-trigger-premises $rest))
-      (rule-trigger-premises $rest)))
-
 (: fact-head (-[det]-> Statement Atom))
 (= (fact-head $type) (if (is-expr $type) (car-atom $type) $type))
 
@@ -894,9 +887,10 @@
                   (validate-explicit-exists-rule
                      $antecedent $consequent))
                ($triggers
-                  (rule-trigger-premises
-                     (implication-side-conjuncts
-                        (brand Statement $antecedent)))))
+                  (the (List Atom)
+                     (filter-atom
+                        (implication-side-conjuncts (brand Statement $antecedent))
+                        $premise (specialization-trigger? (brand Statement $premise))))))
         (if (not (== $triggers ()))
          (specialize-rule-add $kb $triggers
             (compile-specialization (: $prf $Type $tv)))

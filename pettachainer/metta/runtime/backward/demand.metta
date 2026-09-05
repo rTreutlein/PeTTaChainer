@@ -83,10 +83,6 @@
 (: goal-demand-cache-row
    (-[det]-> Number (List GoalDemandDependency)
        (List RootDemand) GoalDemandCacheRow))
-(: goal-demand-cache-value
-   (-[det]-> (List GoalDemandDependency)
-       (List RootDemand) GoalDemandCacheValue))
-
 ;; A shared goal carries one contribution per distinct query root. Alternative
 ;; waiters from the same root merge by maximum; independent roots add only when
 ;; the final scalar queue priority is requested.
@@ -100,11 +96,6 @@
       (cons (root-demand $root (max $score $head-score)) $rest)
       (cons (root-demand $head-root $head-score)
          (root-demand-put-max $rest (root-demand $root $score)))))
-
-(: root-demands-merge-max
-   (-[det]-> (List RootDemand) (List RootDemand) (List RootDemand)))
-(= (root-demands-merge-max $acc $entries)
-   (fold-flat root-demand-put-max $acc $entries))
 
 (: root-demands-sum (-[det]-> (List RootDemand) Number))
 (= (root-demands-sum ()) 0.0)
@@ -134,24 +125,6 @@
          (root-proof-value-score
             $root-bound $current $candidate
             $premise-count $success-prior))))
-
-(: frontier-root-demands-map
-   (-[det]-> (| Number NoCurrentScore) Number Number Number Number
-       (List RootDemand) (List RootDemand)))
-(= (frontier-root-demands-map
-      $_current $_candidate $_premise-count $_success-prior $_score-cap
-      ())
-   ())
-(= (frontier-root-demands-map
-      $current $candidate $premise-count $success-prior $score-cap
-      (cons $entry $rest))
-   (cons
-      (frontier-root-demand-step
-         $current $candidate $premise-count $success-prior $score-cap
-         $entry)
-      (frontier-root-demands-map
-         $current $candidate $premise-count $success-prior $score-cap
-         $rest)))
 
 (: aggregate-root-demands-map
    (-[det]-> AggregateDemandSpec (List RootDemand) (List RootDemand)))
@@ -198,12 +171,13 @@
           (frontier-value-spec $candidate $premise-count $success-prior))
          (if (goal-shallower? (the Number $parent-gid) $child-depth)
             (if (frontier-path-live? (the Number $path-id))
-               (frontier-root-demands-map
-                  (goal-confidence-or-none (the Number $parent-gid))
-                  (the Number $candidate)
-                  (the Number $premise-count)
-                  (the Number $success-prior)
-                  (the Number $score-cap)
+               (map-flat
+                  (frontier-root-demand-step
+                     (goal-confidence-or-none (the Number $parent-gid))
+                     (the Number $candidate)
+                     (the Number $premise-count)
+                     (the Number $success-prior)
+                     (the Number $score-cap))
                   (goal-root-demands (the Number $parent-gid)))
                ())
             ()))
@@ -215,17 +189,11 @@
             ()))
       ($_other ()))))
 
-(: waiters-root-demands
-   (-[det]-> (List (| FrontierWaiter AggregateWaiter Atom))
-       Number (List RootDemand)
-       (List RootDemand)))
-(= (waiters-root-demands $waiters $child-depth $acc)
-   (fold-flat (waiter-demands-step $child-depth) $acc $waiters))
 (: waiter-demands-step
    (-[det]-> Number (List RootDemand)
        (| FrontierWaiter AggregateWaiter Atom) (List RootDemand)))
 (= (waiter-demands-step $child-depth $acc $waiter)
-   (root-demands-merge-max $acc
+   (fold-flat root-demand-put-max $acc
       (waiter-root-demands
          (the (| FrontierWaiter AggregateWaiter Atom) $waiter)
          $child-depth)))
@@ -243,12 +211,11 @@
                   (collapse
                      (match &goal_waiter
                         ($gid $waiter) $waiter)))
-               (waiters-root-demands
+               (fold-flat (waiter-demands-step $depth)
+                  (root-goal-demand-seed $gid)
                   (the
                      (List (| FrontierWaiter AggregateWaiter Atom))
-                     $waiters)
-                  $depth
-                  (root-goal-demand-seed $gid))))))))
+                     $waiters))))))))
 
 (: shallower-parent-step
    (-[det]-> Number (List Number) Number (List Number)))
@@ -275,14 +242,6 @@
                (reverse-number-list
                   (fold-flat (shallower-parent-step $depth) () $parents))))))))
 
-(: goal-demand-dependencies
-   (-[det]-> (List Number) (List GoalDemandDependency)))
-(= (goal-demand-dependencies $parents)
-   (map-flat parent-dependency $parents))
-(: parent-dependency (-[det]-> Number GoalDemandDependency))
-(= (parent-dependency $parent-gid)
-   (goal-demand-dependency $parent-gid (goal-demand-revision $parent-gid)))
-
 (: goal-demand-dependencies-current?
    (-[det]-> (List GoalDemandDependency) Bool))
 (= (goal-demand-dependencies-current? ()) true)
@@ -294,68 +253,6 @@
       (goal-demand-dependencies-current? $rest)
       false))
 
-(: goal-root-demands (-[det]-> Number (List RootDemand)))
-(= (goal-root-demands $gid)
-   (let* (($_evaluation
-             (increment-backward-query-metric! goal-demand-evaluations))
-          ($hits
-      (stored-atom-list
-         (collapse
-            (once
-               (match &goal_demand_cache
-                  (goal-demand-cache-row $gid $dependencies $demands)
-                  (goal-demand-cache-value
-                     $dependencies $demands)))))))
-      (if (goal-demand-cache-hit-current?
-            (the (List GoalDemandCacheValue) $hits))
-         (let $_hit
-            (increment-backward-query-metric! goal-demand-cache-hits)
-            (goal-demand-cache-value-demands
-               (the GoalDemandCacheValue (car-atom $hits))))
-         (let* (($_miss
-                   (increment-backward-query-metric!
-                      goal-demand-cache-misses))
-                ($demands (goal-root-demands-walk $gid))
-                ($dependencies
-                   (goal-demand-dependencies
-                      (goal-demand-parent-gids $gid)))
-                ($_old
-                   (collapse
-                      (match &goal_demand_cache
-                         (goal-demand-cache-row
-                            $gid $_old-dependencies $_old-demands)
-                         (remove-atom &goal_demand_cache
-                            (goal-demand-cache-row
-                               $gid $_old-dependencies
-                               $_old-demands)))))
-                ($_store
-                   (once
-                      (add-atom &goal_demand_cache
-                         (goal-demand-cache-row
-                            $gid $dependencies $demands))))
-                ($_revision (bump-goal-demand-revision! $gid)))
-            $demands))))
-
-(: goal-demand-cache-hit-current?
-   (-[det]-> (List GoalDemandCacheValue) Bool))
-(= (goal-demand-cache-hit-current? ()) false)
-(= (goal-demand-cache-hit-current?
-      (cons
-         (goal-demand-cache-value $dependencies $_demands)
-         $_rest))
-   (goal-demand-dependencies-current? $dependencies))
-
-(: goal-demand-cache-value-demands
-   (-[det]-> GoalDemandCacheValue (List RootDemand)))
-(= (goal-demand-cache-value-demands
-      (goal-demand-cache-value $_dependencies $demands))
-   $demands)
-
-(: goal-demand-sum (-[det]-> Number Number))
-(= (goal-demand-sum $gid)
-   (root-demands-sum (goal-root-demands $gid)))
-
-
 (: mark-goal-demand-dirty! (-[det]-> Number (List $none)))
 (= (mark-goal-demand-dirty! $gid)
    (let $_
@@ -366,6 +263,49 @@
                (goal-demand-cache-row
                   $gid $dependencies $demands))))
       ()))
+
+(: goal-root-demands (-[det]-> Number (List RootDemand)))
+(= (goal-root-demands $gid)
+   (let*
+      (($_evaluation
+          (increment-backward-query-metric! goal-demand-evaluations))
+       ($hits
+          (collapse
+             (let (goal-demand-cache-row $_gid $dependencies $demands)
+                (once
+                   (match &goal_demand_cache
+                      (goal-demand-cache-row $gid $dependencies $demands)
+                      (goal-demand-cache-row $gid $dependencies $demands)))
+                (if (goal-demand-dependencies-current? $dependencies)
+                   $demands
+                   (empty))))))
+      (if (not (== $hits ()))
+         (let $_hit
+            (increment-backward-query-metric! goal-demand-cache-hits)
+            (the (List RootDemand) (car-atom $hits)))
+         (let* (($_miss
+                   (increment-backward-query-metric!
+                      goal-demand-cache-misses))
+                ($demands (goal-root-demands-walk $gid))
+                ($dependencies
+                   (map-flat
+                      (|-> ($parent-gid)
+                         (goal-demand-dependency
+                            $parent-gid (goal-demand-revision $parent-gid)))
+                      (goal-demand-parent-gids $gid)))
+                ($_old (mark-goal-demand-dirty! $gid))
+                ($_store
+                   (once
+                      (add-atom &goal_demand_cache
+                         (goal-demand-cache-row
+                            $gid $dependencies $demands))))
+                ($_revision (bump-goal-demand-revision! $gid)))
+            $demands))))
+
+(: goal-demand-sum (-[det]-> Number Number))
+(= (goal-demand-sum $gid)
+   (root-demands-sum (goal-root-demands $gid)))
+
 
 (: goal-demand-dependency-put
    (-[det]-> GoalDemandDependency (List GoalDemandDependency)
@@ -405,7 +345,7 @@
              (chainer-first-or ()
                 (the (List (List GoalDemandDependency)) $hits))))
        ($next-demands
-          (root-demands-merge-max $current-demands
+          (fold-flat root-demand-put-max $current-demands
              (waiter-root-demands $waiter $child-depth)))
        ($next-dependencies
           (goal-demand-dependency-put

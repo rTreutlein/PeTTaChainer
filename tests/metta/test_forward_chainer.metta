@@ -26,6 +26,13 @@
 !(compileadd fwdkb
    (: pathIdempotent (Implication (Path $x $y) (Path $x $y)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
+;; Empty agendas and exhausted budgets return exactly one empty change list.
+!(test (collapse (forward-chain 20 fwdkb ())) (()))
+!(test
+   (collapse (forward-chain 0 fwdkb (test-selected-facts fwdkb (Edge A B))))
+   (()))
+!(test (forward-has-derived? fwdkb (Path A B)) false)
+
 !(test
    (let $changed (forward-chain 50 fwdkb (test-selected-facts fwdkb (Edge A B)))
       (and (== (list-count $changed) 3)

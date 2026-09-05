@@ -381,8 +381,8 @@
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 !(compileadd forwardApproxRefineKb (: qa (Q alice) (STV 0.9 0.8)))
 !(compileadd forwardApproxRefineKb (: pb (P bob) (STV 0.7 0.8)))
-!(store-forward-base-rate!
-   forwardApproxRefineKb (P $x) (STV 0.5 0.9) base-rate)
+!(store-produced-base-rate!
+   forwardApproxRefineKb (P $x) (STV 0.5 0.9) forward-approx base-rate)
 
 !(test
    (query 200 forwardApproxRefineKb (: $proof (P alice) $tv))

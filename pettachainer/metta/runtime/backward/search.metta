@@ -161,15 +161,9 @@
       $row $revision $generation
       $requested-kind $requested-score $rest))
 
-(: request-goal-agenda-kind-heap
-   (-[semidet]-> (Heap AgendaEntry) Number AgendaKind
-       (Heap AgendaEntry)))
 (: request-goal-agenda-kind-score-heap
    (-[semidet]-> (Heap AgendaEntry) Number AgendaKind Number
        (Heap AgendaEntry)))
-(= (request-goal-agenda-kind-heap $agenda $gid $kind)
-   (request-goal-agenda-kind-score-heap
-      $agenda $gid $kind (agenda-kind-score $kind $gid)))
 (= (request-goal-agenda-kind-score-heap $agenda $gid $kind $score)
    (let* (($row (goal-by-id $gid))
           ((stored-goal-row
@@ -353,9 +347,6 @@
 (: commit-frontier-result-heap
    (-[semidet]-> (Heap AgendaEntry) Number AndBundle
        (List Evidence) Number (Heap AgendaEntry)))
-(: commit-checked-proof-candidate-heap
-   (-[semidet]-> (Heap AgendaEntry) Number ProofCandidate
-       (Heap AgendaEntry)))
 
 (= (commit-frontier-result-heap
       $agenda $parent-gid $bundle $evidence $path-id)
@@ -600,36 +591,12 @@
       (proof-candidate $kind $score $evidence $children))
    (if (== $accepted false) $agenda
       (if (candidate-is-cyclic? $gid $kind $children) $agenda
-         (commit-checked-proof-candidate-heap
-            $agenda $gid
-            (proof-candidate $kind $score $evidence $children)))))
-
-(= (commit-checked-proof-candidate-heap
-      $agenda $gid
-      (proof-candidate $kind $score $evidence $children))
-   (let* (($goal-key (proof-goal-key-by-goal-id $gid))
-             ($output-key
-                (candidate-output-key (candidate-kind-term $kind)))
-             ($pid
-                (once
-                   (store-proof-candidate $gid
-                      (proof-candidate
-                         $kind $score $evidence $children))))
-             ;; A dirty key would hand the waiters a stale representative.
-             ($_refresh
-                (if (result-dirty? $goal-key $output-key)
-                   (refresh-result! $goal-key $output-key) ()))
-             ($indexed
-                (collapse
+         (let* (($pid
                    (once
-                      (current-proof-result-id-for-output-key
-                         $goal-key $output-key))))
-             ($representative
-                (case $indexed (
-                   ((cons $current $_rest) $current)
-                   (() (goal-merged-proof-id-for-pid $gid $pid))))))
-         (wake-proof-commit-heap
-            $agenda $gid $representative)))
+                      (store-proof-candidate $gid
+                         (proof-candidate $kind $score $evidence $children))))
+                ($representative (goal-merged-proof-id-for-pid $gid $pid)))
+            (wake-proof-commit-heap $agenda $gid $representative)))))
 
 ;; --- Fold refresh scheduling -------------------------------------------------
 

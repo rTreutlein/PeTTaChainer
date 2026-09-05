@@ -191,20 +191,6 @@
       ((cons $entry $_rest)
          (cons (base-rate-entry-tv $entry) ())))))
 
-(: store-computed-base-rate!
-   (-[det]-> KB Statement TV $mode (List $none)))
-(= (store-computed-base-rate! $kbid $pattern $tv $mode)
-   (if (base-rate-cache-user-present? (base-rate-cache-entries $kbid $pattern)) ()
-      (let*
-         (($stored (copy_term $pattern))
-          ($_old
-             (foreach-flat base-rate-cache-remove-derived-entry!
-                (base-rate-cache-entries-for-mode $kbid $pattern $mode)))
-          ($_new
-             (add-atom &base_rate_cache
-                (base-rate $kbid $stored $tv computed $mode))))
-         ())))
-
 (: store-produced-base-rate!
    (-[det]-> KB Statement TV BaseRateSource $mode (List $none)))
 (= (store-produced-base-rate! $kbid $pattern $tv $source $mode)
@@ -220,12 +206,6 @@
                       (add-atom &base_rate_cache
                          (base-rate $kbid $stored $tv $source $mode))))
                ())))))
-
-(: store-forward-base-rate!
-   (-[det]-> KB Statement TV $mode (List $none)))
-(= (store-forward-base-rate! $kbid $pattern $tv $mode)
-   (store-produced-base-rate!
-      $kbid $pattern $tv forward-approx $mode))
 
 (: remove-produced-base-rate!
    (-[det]-> KB Statement $mode (List $none)))

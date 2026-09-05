@@ -26,7 +26,6 @@
 (: GoalDemandRevisionRow Type)
 (: goal-demand-revision-row
    (-[det]-> Number Number GoalDemandRevisionRow))
-(: GoalDemandCacheValue Type)
 (: goal-demand-revision (-[det]-> Number Number))
 (= (goal-demand-revision $gid)
    (chainer-first-or 0
