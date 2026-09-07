@@ -685,7 +685,7 @@
           (store-proof-candidate $aggregate-gid
              (aggregate-result-candidate
                 (CPU GroupedFoldAllCompiled (partition-key a) 3) () ())))
-       ($current (result-ids (proof-goal-key-by-goal-id $aggregate-gid))))
+       ($current (goal-merged-proof-ids $aggregate-gid)))
       ((length $current)
        (stored-list-member? $new-a $current)
        (stored-list-member? $b $current)
@@ -1075,7 +1075,7 @@
         ($pid-new
            (store-proof-candidate $agg-gid
               (aggregate-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) () ())))
-        )
+        ($_refresh (goal-merged-proof-ids $agg-gid)))
       ((proof-live? $pid-old) (proof-live? $pid-new)))
    (false true))
 
@@ -1130,6 +1130,6 @@
         ($pid-new
            (store-proof-candidate $agg-gid
               (aggregate-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) () ())))
-        )
+        ($_refresh (goal-merged-proof-ids $agg-gid)))
       ((proof-live? $pid-old) (proof-live? $pid-new) (length (goal-live-proof-ids $agg-gid))))
    (false true 1))

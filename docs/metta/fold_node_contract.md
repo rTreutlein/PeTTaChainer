@@ -28,14 +28,15 @@ restore path. What remains specific to folds is listed at the end.
 1. A snapshot is stored through `store-proof-candidate` like any proof: a row
    in `&proof` owned by the fold goal's key, indexed in `&proof_goal`, a
    candidate row in `&proof_current`, a result row in `&proof_current_result`.
-2. **Replace policy.** Storing a snapshot whose fold key already has a result
-   representative replaces it: the old representative leaves `&proof_current`
-   and `&proof_current_result`, its frontier paths are invalidated (its parents
-   are left alone), and the new snapshot becomes the result
-   directly. No dirty flag, no merge, no dominance. The old row stays in
-   `&proof` as history. This is `replace-result!`; the ordinary accumulate
-   policy (candidate stays, key marked dirty, representative refreshed lazily)
-   is unchanged for every other kind.
+2. **Replace policy.** Storing a snapshot whose fold key already has current
+   snapshots supersedes every one of them first (`supersede-current-proof!`):
+   each leaves `&proof_current` and `&proof_current_result`, its frontier
+   paths are invalidated (its parents are left alone), and the key is marked
+   dirty. From there the snapshot takes the ordinary path: the key refreshes
+   lazily, the sole remaining candidate represents itself, and the result
+   index points at it. The old rows stay in `&proof` as history. No merge, no
+   dominance. `store-proof-candidate` has no snapshot-specific publish branch;
+   the supersede step is the only kind-specific line.
 3. A fold goal therefore has at most one current candidate per fold key. The
    normal representative rule for CPU groups (`latest-live-proof-id`) is
    consistent with that and needs no special case.
@@ -108,16 +109,19 @@ source goal's current representatives:
 - Popping the lane runs `refresh-fold-heap`: collect source representatives
   (excluding proofs that depend on the fold goal itself and materialized
   forward facts), accumulate one state per group key, then commit each state
-  through `commit-fold-snapshot-heap`. A scalar fold is the single group
+  as an `aggregate-result-candidate` through `commit-proof-candidate-heap`.
+  A scalar fold is the single group
   `scalar`, seeded with the accumulator's initial value so an empty source
   still commits its neutral result. Only the typed step differs between the
   two spec shapes; accumulation, result construction, the evidence policy and
   the degrade guard are shared.
-- `commit-fold-snapshot-heap` is the single commit path for scalar, grouped,
-  cached and user-supplied snapshots: unchanged result (alpha-equal term and
-  equal evidence to the current representative) wakes the existing
-  representative; a cyclic candidate is dropped; otherwise the snapshot is
-  stored with the replace policy and its waiters are woken.
+- Scalar, grouped, cached and user-supplied snapshots all commit through
+  `commit-proof-candidate-heap` like direct facts and rule results. The
+  snapshot acceptance rule is `snapshot-changed?`: an unchanged result
+  (alpha-equal term and equal evidence to the current representative) is a
+  duplicate, except a childless cached seed of a fold that materialization
+  has walked, which a source-carrying refold replaces. The common path drops
+  cyclic candidates, stores with the replace policy, and wakes waiters.
 
 The residual difference to ordinary goals is timing: an ordinary goal refreshes
 its representative at read time because revision is cheap and per-key; a fold

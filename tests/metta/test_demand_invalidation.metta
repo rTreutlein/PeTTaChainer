@@ -43,7 +43,7 @@
        ($_active (once (add-atom &search_wake_active ($parent 2))))
        ($_metrics (begin-backward-query-metrics!))
        ($agenda
-          (commit-proof-candidate-heap (empty_heap) $parent true
+          (commit-proof-candidate-heap (empty_heap) $parent
              (leaf-result-candidate
                 (demand-test-fact (PublicationParent) observed (STV 1.0 0.8))
                 ((rule-ev demandTest observed)))))

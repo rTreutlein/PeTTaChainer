@@ -330,16 +330,10 @@
                 (proof-candidate
                    (rule $goal) (term-confidence $goal) $evidence
                    (reverse-number-list
-                      (frontier-path-rev-proof-ids $path-id)))))
-          ($accepted
-             (chainer-first-or false
-                (collapse
-                   (once
-                      (classify-goal-proof-candidate
-                         $parent-gid $candidate))))))
+                      (frontier-path-rev-proof-ids $path-id))))))
       ;; Admissibility tested the premises against the open goal; the
-      ;; instantiated result is checked for cycles here like any commit.
-      (commit-proof-candidate-heap $agenda $parent-gid $accepted $candidate)))
+      ;; instantiated result is classified and cycle-checked like any commit.
+      (commit-proof-candidate-heap $agenda $parent-gid $candidate)))
 
 (: spawn-frontier-heap
    (-[semidet]-> (Heap AgendaEntry) Number AndBundle Number
@@ -557,20 +551,17 @@
                             ($gid $depth))))))
             $next))))
 
+;; Every producer (direct fact, rule result, fold snapshot) commits here:
+;; classify, reject cycles, store, resolve the representative, deliver.
 (: commit-proof-candidate-heap
-   (-[semidet]-> (Heap AgendaEntry) Number Bool ProofCandidate
-       (Heap AgendaEntry)))
-(= (commit-proof-candidate-heap
-      $agenda $gid $accepted
-      (proof-candidate $kind $score $evidence $children))
-   (if (== $accepted false) $agenda
-      (if (candidate-is-cyclic? $gid $kind $children) $agenda
-         (let* (($pid
-                   (once
-                      (store-proof-candidate $gid
-                         (proof-candidate $kind $score $evidence $children))))
-                ($representative (goal-merged-proof-id-for-pid $gid $pid)))
-            (wake-proof-commit-heap $agenda $gid $representative)))))
+   (-[semidet]-> (Heap AgendaEntry) Number ProofCandidate (Heap AgendaEntry)))
+(= (commit-proof-candidate-heap $agenda $gid $candidate)
+   (if (chainer-first-or false (collapse (once (classify-goal-proof-candidate $gid $candidate))))
+      (let (proof-candidate $kind $_score $_evidence $children) $candidate
+         (if (candidate-is-cyclic? $gid $kind $children) $agenda
+            (wake-proof-commit-heap $agenda $gid
+               (goal-merged-proof-id-for-pid $gid (once (store-proof-candidate $gid $candidate))))))
+      $agenda))
 
 ;; --- Fold refresh scheduling -------------------------------------------------
 

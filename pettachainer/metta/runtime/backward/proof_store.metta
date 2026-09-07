@@ -128,7 +128,11 @@
 (= (proof-fold-flat-semidet $_fun $acc ()) $acc)
 (= (proof-fold-flat-semidet $fun $acc (cons $item $rest)) (proof-fold-flat-semidet $fun ($fun $acc $item) $rest))
 (: stored-output (-[semidet]-> ProofKind Number (| Goal (Statement KBContext Proof TV))))
-(= (stored-output $kind $pid) (case $kind ( ((aggregate $term) $term) ((leaf $term) (normalize-output $term $pid)) ((rule $term) (normalize-output $term $pid)))))
+(= (stored-output $kind $pid) (case $kind ( ((aggregate $term) $term) ((merged $term) $term) ((leaf $term) (normalize-output $term $pid)) ((rule $term) (normalize-output $term $pid)))))
+;; One durable row writer for raw candidates and synthetic revision
+;; representatives; the latter are indexed as results, never as inputs.
+(: store-proof-record! (-[nondet]-> ProofGoalKey ProofCandidate Number))
+(= (store-proof-record! $gkey (proof-candidate $kind $score $ev $children)) (let* (($pid (next-pid)) ($output (stored-output $kind $pid)) ($synthetic (case $kind (((merged $_output) true) ($_other false)))) ($owner (if $synthetic (merged-proof-group $gkey) (proof-goal $gkey))) ($_store (chainer-add-atom &proof (stored-proof-row $pid $owner $output $kind (proof-support $score $ev (stored-contribution $kind $output)) $children))) ($_index (index-goal-proof! (if $synthetic &proof_result &proof_goal) $gkey $pid))) $pid))
 (: normalize-output (-[det]-> (| Goal (Statement KBContext Proof TV)) Number (| Goal (Statement KBContext Proof TV))))
 (= (normalize-output $term $pid) (case $term ( ((CPU $fun $args $result) (CPU $fun $args $result)) (($type $kb $_proof $tv) (data (brand Statement $type) (brand KBContext $kb) (brand Proof (proof-ref $pid)) (the TV $tv))) ($_other $term))))
 (: proof-row-by-id (-[semidet]-> Number ((| Goal (Statement KBContext Proof TV)) ProofKind ProofSupport (List Number))))
@@ -259,10 +263,6 @@
           ($_paths (invalidate-proof-paths! $pid)))
       ()))
 (= (supersede-current-proof! $pid) (let* (($gkey (owner-key $pid)) ($okey (output-key $pid)) ($_result (if (== (collapse (once (current-proof-result-id-for-output-key $gkey $okey))) ($pid)) (remove-result-output! $gkey $okey) ())) ($_drop (drop-current-proof! $pid)) ($_dirty (mark-dirty! $gkey $okey)) ($_confidence (clear-key-confidence! $gkey))) ()))
-;; Replace policy for fold snapshots: the previous representative of the key
-;; leaves the current view and is superseded; the new snapshot is the result.
-(: replace-result! (-[semidet]-> ProofGoalKey ProofOutputKey (List Number) Number Bool))
-(= (replace-result! $gkey $okey $old $pid) (let $_old (case $old ( (() ()) ((cons $old-pid $_rest) (drop-current-proof! $old-pid)))) (index-result! $gkey $okey $pid)))
 (: current-base-rate-aggregate-pids (-[det]-> KB Statement (List Number)))
 (= (current-base-rate-aggregate-pids $kbid $pattern)
    (collapse
