@@ -1,0 +1,4562 @@
+{
+  "baseline_revision": "cb90add27517c1beaadc884c410d03a7607eb4fc",
+  "game_revision": "99fc56e4ddd0d718f00e494146b0ff1884e5fc5e",
+  "runs": {
+    "baseline": {
+      "environment": {
+        "repository": "/tmp/stationops-cost-model/runtime",
+        "chainergame": "/nexus/Dev/OpenCog/ChainerGame",
+        "petta": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          0.966796875,
+          0.60791015625,
+          0.67041015625
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "workload": {
+        "seed": 7,
+        "shifts": 2,
+        "modules": 4,
+        "budget": 600,
+        "action_budget": 1
+      },
+      "batches": [
+        {
+          "shift": 1,
+          "seconds": 17.019718857001862,
+          "inferences": 66969946,
+          "cpu_seconds": 17.0637639,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 17.006160856995848,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1186,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 786,
+            "agenda_pops": 686,
+            "search_aborts": 0,
+            "stale_agenda_entries": 7,
+            "goal_demand_evaluations": 73068,
+            "goal_demand_cache_hits": 64341,
+            "goal_demand_cache_misses": 8727,
+            "demand_revision_bumps": 16806,
+            "current_proof_goal_lookups": 242,
+            "current_result_goal_lookups": 7856,
+            "candidate_comparisons": 653,
+            "dominance_checks": 646,
+            "proofs_stored": 925
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "cost_model": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "factor": 0.10185476160022515
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "factor": 1.696315258202618
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "factor": 0.17585732560427675
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "factor": 0.1150562668153741
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "factor": 0.07372883612327594
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "factor": 0.7775059539789694
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "factor": 0.06355833607096661
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "factor": 0.165796114939255
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "factor": 0.07724822143587788
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "factor": 0.08395632490405142
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "factor": 0.6228766413540683
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "factor": 0.15162712665944802
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "factor": 0.1059118428900381
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "factor": 1.2428060447266696
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "factor": 0.2650413229034368
+            }
+          ],
+          "cost_priority_applied": false,
+          "normalized_answers_sha256": "6d739e3b955a1409f6f241f7f43e2082f05d368936d441fb433b01d0f57004aa",
+          "cost_sample_statistics": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "count": 9,
+              "mean": 10979,
+              "median": 9686,
+              "max": 21751
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "count": 187,
+              "mean": 182847.07486631017,
+              "median": 21120,
+              "max": 11482481
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "count": 67,
+              "mean": 18955.79104477612,
+              "median": 8008,
+              "max": 227665
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "count": 3,
+              "mean": 12402,
+              "median": 12131,
+              "max": 14880
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "count": 14,
+              "mean": 7947.285714285715,
+              "median": 6416.0,
+              "max": 12848
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "count": 68,
+              "mean": 83807.94117647059,
+              "median": 15853.0,
+              "max": 353079
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "count": 1,
+              "mean": 6851,
+              "median": 6851,
+              "max": 6851
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "count": 7,
+              "mean": 17871.285714285714,
+              "median": 20993,
+              "max": 22843
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "count": 28,
+              "mean": 8326.642857142857,
+              "median": 5500.0,
+              "max": 31882
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "count": 7,
+              "mean": 9049.714285714286,
+              "median": 9168,
+              "max": 15018
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "count": 6,
+              "mean": 67140.33333333333,
+              "median": 11477.5,
+              "max": 226676
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "count": 20,
+              "mean": 16344,
+              "median": 12301.0,
+              "max": 36771
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "count": 19,
+              "mean": 11416.315789473685,
+              "median": 12252,
+              "max": 16022
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "count": 164,
+              "mean": 133962.98170731709,
+              "median": 42855.5,
+              "max": 1568422
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "count": 1,
+              "mean": 28569,
+              "median": 28569,
+              "max": 28569
+            }
+          ],
+          "issued_cost_max": 1,
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 4,
+            "missing_count": 0,
+            "coverage": 1.0,
+            "mean_confidence": 4.999974500137998e-06,
+            "confidence_weighted_coverage": 4.999974500137998e-06,
+            "mean_absolute_error": 0.06243918033702377,
+            "max_absolute_error": 0.2458786578166763,
+            "brier_score": 0.015144839376570313,
+            "log_loss": 0.07066705835483388
+          },
+          "beliefs": {
+            "shift-01-M01": 0.0,
+            "shift-01-M02": 6.709449258904199e-05,
+            "shift-01-M03": 0.2461287233338418,
+            "shift-01-M04": 6.748824686222115e-05
+          },
+          "belief_truth_values": {
+            "shift-01-M01": {
+              "strength": 0.0,
+              "confidence": 1e-06
+            },
+            "shift-01-M02": {
+              "strength": 6.709449258904199e-05,
+              "confidence": 6.9999580002519965e-06
+            },
+            "shift-01-M03": {
+              "strength": 0.2461287233338418,
+              "confidence": 5.9999700001499974e-06
+            },
+            "shift-01-M04": {
+              "strength": 6.748824686222115e-05,
+              "confidence": 5.9999700001499974e-06
+            }
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 32.90962515800493,
+          "inferences": 124176770,
+          "cpu_seconds": 33.0059895,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 32.86981847698917,
+            "durable_proof_rows_before": 1223,
+            "durable_proof_rows_after": 2591,
+            "durable_goal_index_rows_before": 962,
+            "durable_result_index_rows_before": 261,
+            "agenda_pushes": 1144,
+            "agenda_pops": 824,
+            "search_aborts": 0,
+            "stale_agenda_entries": 102,
+            "goal_demand_evaluations": 99437,
+            "goal_demand_cache_hits": 83848,
+            "goal_demand_cache_misses": 15589,
+            "demand_revision_bumps": 33134,
+            "current_proof_goal_lookups": 230,
+            "current_result_goal_lookups": 17364,
+            "candidate_comparisons": 1315,
+            "dominance_checks": 1123,
+            "proofs_stored": 941
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureAlarm new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "cost_model": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "factor": 0.10185476160022515
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "factor": 1.696315258202618
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "factor": 0.17585732560427675
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "factor": 0.1150562668153741
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "factor": 0.07372883612327594
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "factor": 0.7775059539789694
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "factor": 0.06355833607096661
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "factor": 0.165796114939255
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "factor": 0.07724822143587788
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "factor": 0.08395632490405142
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "factor": 0.6228766413540683
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "factor": 0.15162712665944802
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "factor": 0.1059118428900381
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "factor": 1.2428060447266696
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "factor": 0.2650413229034368
+            }
+          ],
+          "cost_priority_applied": false,
+          "normalized_answers_sha256": "33eb03a6b32b76566c41f55a05a2a35a7b1d16a4501ba7038312fbc54a9f706c",
+          "cost_sample_statistics": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "count": 13,
+              "mean": 10000.461538461539,
+              "median": 9123,
+              "max": 11412
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "count": 189,
+              "mean": 229187.60317460317,
+              "median": 21733,
+              "max": 2482981
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "count": 62,
+              "mean": 10430.40322580645,
+              "median": 6506.0,
+              "max": 78649
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "count": 2,
+              "mean": 10185,
+              "median": 10185.0,
+              "max": 10312
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "count": 11,
+              "mean": 7900.454545454545,
+              "median": 7623,
+              "max": 9248
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "count": 63,
+              "mean": 466756.3968253968,
+              "median": 123705,
+              "max": 2349027
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "count": 1,
+              "mean": 8401,
+              "median": 8401,
+              "max": 8401
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "count": 6,
+              "mean": 16797.666666666668,
+              "median": 15410.5,
+              "max": 25191
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "count": 10,
+              "mean": 8603.8,
+              "median": 6740.0,
+              "max": 25378
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "count": 6,
+              "mean": 8767.5,
+              "median": 8452.0,
+              "max": 10662
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "count": 3,
+              "mean": 12278.333333333334,
+              "median": 7655,
+              "max": 21525
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "count": 145,
+              "mean": 295896.64137931034,
+              "median": 103913,
+              "max": 3493296
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "count": 48,
+              "mean": 28217.958333333332,
+              "median": 15825.5,
+              "max": 416045
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "count": 39,
+              "mean": 19963.589743589742,
+              "median": 14459,
+              "max": 189991
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "count": 3,
+              "mean": 44410.666666666664,
+              "median": 36310,
+              "max": 73978
+            }
+          ],
+          "issued_cost_max": 1,
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 4,
+            "missing_count": 0,
+            "coverage": 1.0,
+            "mean_confidence": 2.7499910000404995e-06,
+            "confidence_weighted_coverage": 2.7499910000404995e-06,
+            "mean_absolute_error": 0.20404169980783593,
+            "max_absolute_error": 0.6565202043227341,
+            "brier_score": 0.1635811225621628,
+            "log_loss": 0.4388703950946871
+          },
+          "beliefs": {
+            "shift-02-M01": 0.22050793373327351,
+            "shift-02-M02": 6.713159982100908e-05,
+            "shift-02-M03": 0.2161402317620351,
+            "shift-02-M04": 6.769846733950714e-05
+          },
+          "belief_truth_values": {
+            "shift-02-M01": {
+              "strength": 0.22050793373327351,
+              "confidence": 1e-06
+            },
+            "shift-02-M02": {
+              "strength": 6.713159982100908e-05,
+              "confidence": 5.9999700001499974e-06
+            },
+            "shift-02-M03": {
+              "strength": 0.2161402317620351,
+              "confidence": 2.9999940000119994e-06
+            },
+            "shift-02-M04": {
+              "strength": 6.769846733950714e-05,
+              "confidence": 1e-06
+            }
+          }
+        }
+      ],
+      "score": 637.0,
+      "regret": 0.0
+    },
+    "candidate": {
+      "environment": {
+        "repository": "/tmp/stationops-cost-model/runtime",
+        "chainergame": "/nexus/Dev/OpenCog/ChainerGame",
+        "petta": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.046875,
+          0.7353515625,
+          0.71435546875
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "workload": {
+        "seed": 7,
+        "shifts": 2,
+        "modules": 4,
+        "budget": 600,
+        "action_budget": 1
+      },
+      "batches": [
+        {
+          "shift": 1,
+          "seconds": 16.805674914008705,
+          "inferences": 66969059,
+          "cpu_seconds": 16.9042184,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 16.792379311009427,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1186,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 786,
+            "agenda_pops": 686,
+            "search_aborts": 0,
+            "stale_agenda_entries": 7,
+            "goal_demand_evaluations": 73068,
+            "goal_demand_cache_hits": 64341,
+            "goal_demand_cache_misses": 8727,
+            "demand_revision_bumps": 16806,
+            "current_proof_goal_lookups": 242,
+            "current_result_goal_lookups": 7856,
+            "candidate_comparisons": 653,
+            "dominance_checks": 646,
+            "proofs_stored": 925
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "cost_model": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "factor": 0.10185615621731361
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "factor": 1.6962944790578696
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "factor": 0.17585973348023234
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "factor": 0.11505784219028357
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "factor": 0.07372984563420262
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "factor": 0.7775165997560815
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "factor": 0.06355920632524051
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "factor": 0.16579838505497138
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "factor": 0.07724927913497781
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "factor": 0.08395747445193269
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "factor": 0.6228851699136996
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "factor": 0.1516292027703592
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "factor": 0.10591329305754765
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "factor": 1.242823061491722
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "factor": 0.26504495190567745
+            }
+          ],
+          "cost_priority_applied": false,
+          "normalized_answers_sha256": "6d739e3b955a1409f6f241f7f43e2082f05d368936d441fb433b01d0f57004aa",
+          "cost_sample_statistics": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "count": 9,
+              "mean": 10979,
+              "median": 9686,
+              "max": 21751
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "count": 187,
+              "mean": 182842.33155080213,
+              "median": 21120,
+              "max": 11482481
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "count": 67,
+              "mean": 18955.79104477612,
+              "median": 8008,
+              "max": 227665
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "count": 3,
+              "mean": 12402,
+              "median": 12131,
+              "max": 14880
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "count": 14,
+              "mean": 7947.285714285715,
+              "median": 6416.0,
+              "max": 12848
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "count": 68,
+              "mean": 83807.94117647059,
+              "median": 15853.0,
+              "max": 353079
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "count": 1,
+              "mean": 6851,
+              "median": 6851,
+              "max": 6851
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "count": 7,
+              "mean": 17871.285714285714,
+              "median": 20993,
+              "max": 22843
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "count": 28,
+              "mean": 8326.642857142857,
+              "median": 5500.0,
+              "max": 31882
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "count": 7,
+              "mean": 9049.714285714286,
+              "median": 9168,
+              "max": 15018
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "count": 6,
+              "mean": 67140.33333333333,
+              "median": 11477.5,
+              "max": 226676
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "count": 20,
+              "mean": 16344,
+              "median": 12301.0,
+              "max": 36771
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "count": 19,
+              "mean": 11416.315789473685,
+              "median": 12252,
+              "max": 16022
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "count": 164,
+              "mean": 133962.98170731709,
+              "median": 42855.5,
+              "max": 1567535
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "count": 1,
+              "mean": 28569,
+              "median": 28569,
+              "max": 28569
+            }
+          ],
+          "issued_cost_max": 1,
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 4,
+            "missing_count": 0,
+            "coverage": 1.0,
+            "mean_confidence": 4.999974500137998e-06,
+            "confidence_weighted_coverage": 4.999974500137998e-06,
+            "mean_absolute_error": 0.06243918033702377,
+            "max_absolute_error": 0.2458786578166763,
+            "brier_score": 0.015144839376570313,
+            "log_loss": 0.07066705835483388
+          },
+          "beliefs": {
+            "shift-01-M01": 0.0,
+            "shift-01-M02": 6.709449258904199e-05,
+            "shift-01-M03": 0.2461287233338418,
+            "shift-01-M04": 6.748824686222115e-05
+          },
+          "belief_truth_values": {
+            "shift-01-M01": {
+              "strength": 0.0,
+              "confidence": 1e-06
+            },
+            "shift-01-M02": {
+              "strength": 6.709449258904199e-05,
+              "confidence": 6.9999580002519965e-06
+            },
+            "shift-01-M03": {
+              "strength": 0.2461287233338418,
+              "confidence": 5.9999700001499974e-06
+            },
+            "shift-01-M04": {
+              "strength": 6.748824686222115e-05,
+              "confidence": 5.9999700001499974e-06
+            }
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 53.86645175499143,
+          "inferences": 225712118,
+          "cpu_seconds": 53.962002600000005,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 53.826615054000285,
+            "durable_proof_rows_before": 1223,
+            "durable_proof_rows_after": 2674,
+            "durable_goal_index_rows_before": 962,
+            "durable_result_index_rows_before": 261,
+            "agenda_pushes": 1175,
+            "agenda_pops": 878,
+            "search_aborts": 0,
+            "stale_agenda_entries": 116,
+            "goal_demand_evaluations": 123018,
+            "goal_demand_cache_hits": 104269,
+            "goal_demand_cache_misses": 18749,
+            "demand_revision_bumps": 38363,
+            "current_proof_goal_lookups": 245,
+            "current_result_goal_lookups": 19430,
+            "candidate_comparisons": 1555,
+            "dominance_checks": 1351,
+            "proofs_stored": 1061
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureAlarm new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "cost_model": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "factor": 0.10185615621731361
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "factor": 1.6962944790578696
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "factor": 0.17585973348023234
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "factor": 0.11505784219028357
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "factor": 0.07372984563420262
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "factor": 0.7775165997560815
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "factor": 0.06355920632524051
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "factor": 0.16579838505497138
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "factor": 0.07724927913497781
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "factor": 0.08395747445193269
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "factor": 0.6228851699136996
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "factor": 0.1516292027703592
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "factor": 0.10591329305754765
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "factor": 1.242823061491722
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "factor": 0.26504495190567745
+            }
+          ],
+          "cost_priority_applied": true,
+          "normalized_answers_sha256": "6411a929942519bd2101c4b091ec67c44eab6cedacb3d097133e97f3c848622c",
+          "cost_sample_statistics": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "count": 14,
+              "mean": 8692.92857142857,
+              "median": 8158.0,
+              "max": 9482
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "count": 198,
+              "mean": 261698.4292929293,
+              "median": 20240.0,
+              "max": 6681146
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "count": 2,
+              "mean": 9220,
+              "median": 9220.0,
+              "max": 9347
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "count": 65,
+              "mean": 72989.56923076924,
+              "median": 5541,
+              "max": 4235110
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "count": 11,
+              "mean": 7725,
+              "median": 7623,
+              "max": 8283
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "count": 7,
+              "mean": 21033.14285714286,
+              "median": 13652,
+              "max": 61772
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "count": 66,
+              "mean": 452999.75757575757,
+              "median": 21485.0,
+              "max": 3924435
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "count": 1,
+              "mean": 8401,
+              "median": 8401,
+              "max": 8401
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "count": 10,
+              "mean": 7831.8,
+              "median": 6740.0,
+              "max": 17658
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "count": 11,
+              "mean": 8311.545454545454,
+              "median": 8452,
+              "max": 9471
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "count": 5,
+              "mean": 207716.8,
+              "median": 16701,
+              "max": 977931
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "count": 45,
+              "mean": 22210.466666666667,
+              "median": 10911,
+              "max": 171128
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "count": 125,
+              "mean": 987924.36,
+              "median": 109759,
+              "max": 12867407
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "count": 38,
+              "mean": 19827.763157894737,
+              "median": 10905.0,
+              "max": 147906
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "count": 3,
+              "mean": 43445.666666666664,
+              "median": 35345,
+              "max": 73013
+            }
+          ],
+          "issued_cost_max": 1,
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 4,
+            "missing_count": 0,
+            "coverage": 1.0,
+            "mean_confidence": 4.7499680002419975e-06,
+            "confidence_weighted_coverage": 4.7499680002419975e-06,
+            "mean_absolute_error": 0.20434671386841533,
+            "max_absolute_error": 0.6565202043227341,
+            "brier_score": 0.16371333718773826,
+            "log_loss": 0.439259810550136
+          },
+          "beliefs": {
+            "shift-02-M01": 0.22050793373327351,
+            "shift-02-M02": 6.721561742599627e-05,
+            "shift-02-M03": 0.2173602039867476,
+            "shift-02-M04": 6.769846733950714e-05
+          },
+          "belief_truth_values": {
+            "shift-02-M01": {
+              "strength": 0.22050793373327351,
+              "confidence": 1e-06
+            },
+            "shift-02-M02": {
+              "strength": 6.721561742599627e-05,
+              "confidence": 7.999944000391995e-06
+            },
+            "shift-02-M03": {
+              "strength": 0.2173602039867476,
+              "confidence": 8.999928000575993e-06
+            },
+            "shift-02-M04": {
+              "strength": 6.769846733950714e-05,
+              "confidence": 1e-06
+            }
+          }
+        }
+      ],
+      "score": 637.0,
+      "regret": 0.0
+    },
+    "fanout-final-7-baseline": {
+      "environment": {
+        "repository": "/tmp/stationops-cost-model/fanout-final-runtime",
+        "chainergame": "/nexus/Dev/OpenCog/ChainerGame",
+        "petta": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          0.953125,
+          0.8798828125,
+          0.76611328125
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "workload": {
+        "seed": 7,
+        "shifts": 2,
+        "modules": 4,
+        "budget": 600,
+        "action_budget": 1
+      },
+      "batches": [
+        {
+          "shift": 1,
+          "seconds": 17.12513064299128,
+          "inferences": 67672026,
+          "cpu_seconds": 17.2138127,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 17.111710529992706,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1186,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 786,
+            "agenda_pops": 686,
+            "search_aborts": 0,
+            "stale_agenda_entries": 7,
+            "goal_demand_evaluations": 73068,
+            "goal_demand_cache_hits": 64341,
+            "goal_demand_cache_misses": 8727,
+            "demand_revision_bumps": 16806,
+            "current_proof_goal_lookups": 242,
+            "current_result_goal_lookups": 7856,
+            "candidate_comparisons": 653,
+            "dominance_checks": 646,
+            "proofs_stored": 925
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "cost_priority_kind": "waiting-consumer-count",
+          "cost_priority_applied": false,
+          "normalized_answers_sha256": "6d739e3b955a1409f6f241f7f43e2082f05d368936d441fb433b01d0f57004aa",
+          "cost_sample_statistics": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "count": 9,
+              "mean": 11003,
+              "median": 9704,
+              "max": 21787
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "count": 187,
+              "mean": 182871.51871657753,
+              "median": 21120,
+              "max": 11482763
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "count": 67,
+              "mean": 19002.089552238805,
+              "median": 8048,
+              "max": 227815
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "count": 3,
+              "mean": 12432,
+              "median": 12167,
+              "max": 14898
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "count": 14,
+              "mean": 7952.428571428572,
+              "median": 6416.0,
+              "max": 12866
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "count": 68,
+              "mean": 83821.20588235294,
+              "median": 15853.0,
+              "max": 353123
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "count": 1,
+              "mean": 6851,
+              "median": 6851,
+              "max": 6851
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "count": 7,
+              "mean": 17905.85714285714,
+              "median": 21047,
+              "max": 22865
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "count": 28,
+              "mean": 8342.07142857143,
+              "median": 5500.0,
+              "max": 32026
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "count": 7,
+              "mean": 9057.42857142857,
+              "median": 9168,
+              "max": 15036
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "count": 6,
+              "mean": 67206.33333333333,
+              "median": 11499.5,
+              "max": 226830
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "count": 20,
+              "mean": 16383.6,
+              "median": 12323.0,
+              "max": 36881
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "count": 19,
+              "mean": 11438.315789473685,
+              "median": 12274,
+              "max": 16044
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "count": 164,
+              "mean": 133975.24390243902,
+              "median": 42855.5,
+              "max": 1567667
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "count": 1,
+              "mean": 28591,
+              "median": 28591,
+              "max": 28591
+            }
+          ],
+          "issued_cost_max": 1.0,
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 4,
+            "missing_count": 0,
+            "coverage": 1.0,
+            "mean_confidence": 4.999974500137998e-06,
+            "confidence_weighted_coverage": 4.999974500137998e-06,
+            "mean_absolute_error": 0.06243918033702377,
+            "max_absolute_error": 0.2458786578166763,
+            "brier_score": 0.015144839376570313,
+            "log_loss": 0.07066705835483388
+          },
+          "beliefs": {
+            "shift-01-M01": 0.0,
+            "shift-01-M02": 6.709449258904199e-05,
+            "shift-01-M03": 0.2461287233338418,
+            "shift-01-M04": 6.748824686222115e-05
+          },
+          "belief_truth_values": {
+            "shift-01-M01": {
+              "strength": 0.0,
+              "confidence": 1e-06
+            },
+            "shift-01-M02": {
+              "strength": 6.709449258904199e-05,
+              "confidence": 6.9999580002519965e-06
+            },
+            "shift-01-M03": {
+              "strength": 0.2461287233338418,
+              "confidence": 5.9999700001499974e-06
+            },
+            "shift-01-M04": {
+              "strength": 6.748824686222115e-05,
+              "confidence": 5.9999700001499974e-06
+            }
+          },
+          "diagnostic_operation_averages": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "factor": 0.10205643121748754
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "factor": 1.6961932719745416
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "factor": 0.17625060850464405
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "factor": 0.11531087457019042
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "factor": 0.07376138139707196
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "factor": 0.7774691568389726
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "factor": 0.06354527040543553
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "factor": 0.16608269361902733
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "factor": 0.0773754466019602
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "factor": 0.08401061855923897
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "factor": 0.6233607684461395
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "factor": 0.15196325970142952
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "factor": 0.10609412783898235
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "factor": 1.2426642973893833
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "factor": 0.26519089565929166
+            }
+          ]
+        },
+        {
+          "shift": 2,
+          "seconds": 32.79467073100386,
+          "inferences": 124929523,
+          "cpu_seconds": 32.899851899999994,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 32.755848754008184,
+            "durable_proof_rows_before": 1223,
+            "durable_proof_rows_after": 2591,
+            "durable_goal_index_rows_before": 962,
+            "durable_result_index_rows_before": 261,
+            "agenda_pushes": 1144,
+            "agenda_pops": 824,
+            "search_aborts": 0,
+            "stale_agenda_entries": 102,
+            "goal_demand_evaluations": 99437,
+            "goal_demand_cache_hits": 83848,
+            "goal_demand_cache_misses": 15589,
+            "demand_revision_bumps": 33134,
+            "current_proof_goal_lookups": 230,
+            "current_result_goal_lookups": 17364,
+            "candidate_comparisons": 1315,
+            "dominance_checks": 1123,
+            "proofs_stored": 941
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureAlarm new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "cost_priority_kind": "waiting-consumer-count",
+          "cost_priority_applied": false,
+          "normalized_answers_sha256": "33eb03a6b32b76566c41f55a05a2a35a7b1d16a4501ba7038312fbc54a9f706c",
+          "cost_sample_statistics": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "count": 13,
+              "mean": 10025.384615384615,
+              "median": 9141,
+              "max": 11448
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "count": 189,
+              "mean": 229251.92592592593,
+              "median": 21733,
+              "max": 2482204
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "count": 62,
+              "mean": 10457.951612903225,
+              "median": 6524.0,
+              "max": 78715
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "count": 2,
+              "mean": 10203,
+              "median": 10203.0,
+              "max": 10330
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "count": 11,
+              "mean": 7903.727272727273,
+              "median": 7623,
+              "max": 9266
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "count": 63,
+              "mean": 466768.50793650793,
+              "median": 123705,
+              "max": 2349049
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "count": 1,
+              "mean": 8401,
+              "median": 8401,
+              "max": 8401
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "count": 6,
+              "mean": 16852.333333333332,
+              "median": 15464.5,
+              "max": 25267
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "count": 10,
+              "mean": 8618.2,
+              "median": 6740.0,
+              "max": 25522
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "count": 6,
+              "mean": 8773.5,
+              "median": 8452.0,
+              "max": 10680
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "count": 3,
+              "mean": 12315,
+              "median": 7655,
+              "max": 21635
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "count": 145,
+              "mean": 295911.01379310346,
+              "median": 103935,
+              "max": 3493314
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "count": 48,
+              "mean": 28246.375,
+              "median": 15847.5,
+              "max": 416265
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "count": 39,
+              "mean": 19990.666666666668,
+              "median": 14503,
+              "max": 190101
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "count": 3,
+              "mean": 44431.333333333336,
+              "median": 36332,
+              "max": 74000
+            }
+          ],
+          "issued_cost_max": 1.0,
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 4,
+            "missing_count": 0,
+            "coverage": 1.0,
+            "mean_confidence": 2.7499910000404995e-06,
+            "confidence_weighted_coverage": 2.7499910000404995e-06,
+            "mean_absolute_error": 0.20404169980783593,
+            "max_absolute_error": 0.6565202043227341,
+            "brier_score": 0.1635811225621628,
+            "log_loss": 0.4388703950946871
+          },
+          "beliefs": {
+            "shift-02-M01": 0.22050793373327351,
+            "shift-02-M02": 6.713159982100908e-05,
+            "shift-02-M03": 0.2161402317620351,
+            "shift-02-M04": 6.769846733950714e-05
+          },
+          "belief_truth_values": {
+            "shift-02-M01": {
+              "strength": 0.22050793373327351,
+              "confidence": 1e-06
+            },
+            "shift-02-M02": {
+              "strength": 6.713159982100908e-05,
+              "confidence": 5.9999700001499974e-06
+            },
+            "shift-02-M03": {
+              "strength": 0.2161402317620351,
+              "confidence": 2.9999940000119994e-06
+            },
+            "shift-02-M04": {
+              "strength": 6.769846733950714e-05,
+              "confidence": 1e-06
+            }
+          },
+          "diagnostic_operation_averages": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "factor": 0.10205643121748754
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "factor": 1.6961932719745416
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "factor": 0.17625060850464405
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "factor": 0.11531087457019042
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "factor": 0.07376138139707196
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "factor": 0.7774691568389726
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "factor": 0.06354527040543553
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "factor": 0.16608269361902733
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "factor": 0.0773754466019602
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "factor": 0.08401061855923897
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "factor": 0.6233607684461395
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "factor": 0.15196325970142952
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "factor": 0.10609412783898235
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "factor": 1.2426642973893833
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "factor": 0.26519089565929166
+            }
+          ]
+        }
+      ],
+      "score": 637.0,
+      "regret": 0.0
+    },
+    "fanout-final-7-candidate": {
+      "environment": {
+        "repository": "/tmp/stationops-cost-model/fanout-final-runtime",
+        "chainergame": "/nexus/Dev/OpenCog/ChainerGame",
+        "petta": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.16748046875,
+          0.9638671875,
+          0.80517578125
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "workload": {
+        "seed": 7,
+        "shifts": 2,
+        "modules": 4,
+        "budget": 600,
+        "action_budget": 1
+      },
+      "batches": [
+        {
+          "shift": 1,
+          "seconds": 17.39425375899009,
+          "inferences": 67672026,
+          "cpu_seconds": 17.4894308,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 17.38097925200418,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1186,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 786,
+            "agenda_pops": 686,
+            "search_aborts": 0,
+            "stale_agenda_entries": 7,
+            "goal_demand_evaluations": 73068,
+            "goal_demand_cache_hits": 64341,
+            "goal_demand_cache_misses": 8727,
+            "demand_revision_bumps": 16806,
+            "current_proof_goal_lookups": 242,
+            "current_result_goal_lookups": 7856,
+            "candidate_comparisons": 653,
+            "dominance_checks": 646,
+            "proofs_stored": 925
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "cost_priority_kind": "waiting-consumer-count",
+          "cost_priority_applied": false,
+          "normalized_answers_sha256": "6d739e3b955a1409f6f241f7f43e2082f05d368936d441fb433b01d0f57004aa",
+          "cost_sample_statistics": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "count": 9,
+              "mean": 11003,
+              "median": 9704,
+              "max": 21787
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "count": 187,
+              "mean": 182871.51871657753,
+              "median": 21120,
+              "max": 11482763
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "count": 67,
+              "mean": 19002.089552238805,
+              "median": 8048,
+              "max": 227815
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "count": 3,
+              "mean": 12432,
+              "median": 12167,
+              "max": 14898
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "count": 14,
+              "mean": 7952.428571428572,
+              "median": 6416.0,
+              "max": 12866
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "count": 68,
+              "mean": 83821.20588235294,
+              "median": 15853.0,
+              "max": 353123
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "count": 1,
+              "mean": 6851,
+              "median": 6851,
+              "max": 6851
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "count": 7,
+              "mean": 17905.85714285714,
+              "median": 21047,
+              "max": 22865
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "count": 28,
+              "mean": 8342.07142857143,
+              "median": 5500.0,
+              "max": 32026
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "count": 7,
+              "mean": 9057.42857142857,
+              "median": 9168,
+              "max": 15036
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "count": 6,
+              "mean": 67206.33333333333,
+              "median": 11499.5,
+              "max": 226830
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "count": 20,
+              "mean": 16383.6,
+              "median": 12323.0,
+              "max": 36881
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "count": 19,
+              "mean": 11438.315789473685,
+              "median": 12274,
+              "max": 16044
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "count": 164,
+              "mean": 133980.6524390244,
+              "median": 42855.5,
+              "max": 1568554
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "count": 1,
+              "mean": 28591,
+              "median": 28591,
+              "max": 28591
+            }
+          ],
+          "issued_cost_max": 1.0,
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 4,
+            "missing_count": 0,
+            "coverage": 1.0,
+            "mean_confidence": 4.999974500137998e-06,
+            "confidence_weighted_coverage": 4.999974500137998e-06,
+            "mean_absolute_error": 0.06243918033702377,
+            "max_absolute_error": 0.2458786578166763,
+            "brier_score": 0.015144839376570313,
+            "log_loss": 0.07066705835483388
+          },
+          "beliefs": {
+            "shift-01-M01": 0.0,
+            "shift-01-M02": 6.709449258904199e-05,
+            "shift-01-M03": 0.2461287233338418,
+            "shift-01-M04": 6.748824686222115e-05
+          },
+          "belief_truth_values": {
+            "shift-01-M01": {
+              "strength": 0.0,
+              "confidence": 1e-06
+            },
+            "shift-01-M02": {
+              "strength": 6.709449258904199e-05,
+              "confidence": 6.9999580002519965e-06
+            },
+            "shift-01-M03": {
+              "strength": 0.2461287233338418,
+              "confidence": 5.9999700001499974e-06
+            },
+            "shift-01-M04": {
+              "strength": 6.748824686222115e-05,
+              "confidence": 5.9999700001499974e-06
+            }
+          },
+          "diagnostic_operation_averages": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "factor": 0.10205503416460789
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "factor": 1.6961700527450743
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "factor": 0.176248195805932
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "factor": 0.11530929607692496
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "factor": 0.07376037167579268
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "factor": 0.7774585140454567
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "factor": 0.06354440053273913
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "factor": 0.1660804201091406
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "factor": 0.0773743874076576
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "factor": 0.08400946853591189
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "factor": 0.6233522352459656
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "factor": 0.15196117947280469
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "factor": 0.106092675513979
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "factor": 1.2426974517914287
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "factor": 0.2651872654549036
+            }
+          ]
+        },
+        {
+          "shift": 2,
+          "seconds": 28.402034720013035,
+          "inferences": 116536526,
+          "cpu_seconds": 28.480226100000003,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 28.3636481249996,
+            "durable_proof_rows_before": 1223,
+            "durable_proof_rows_after": 2495,
+            "durable_goal_index_rows_before": 962,
+            "durable_result_index_rows_before": 261,
+            "agenda_pushes": 1491,
+            "agenda_pops": 1143,
+            "search_aborts": 0,
+            "stale_agenda_entries": 110,
+            "goal_demand_evaluations": 94304,
+            "goal_demand_cache_hits": 79119,
+            "goal_demand_cache_misses": 15185,
+            "demand_revision_bumps": 30316,
+            "current_proof_goal_lookups": 220,
+            "current_result_goal_lookups": 14970,
+            "candidate_comparisons": 1163,
+            "dominance_checks": 938,
+            "proofs_stored": 894
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureAlarm new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "cost_priority_kind": "waiting-consumer-count",
+          "cost_priority_applied": true,
+          "normalized_answers_sha256": "544aa0f8fa2a60dc349a0318162aa393cf619105a8f96713c685aec3519323ca",
+          "cost_sample_statistics": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "count": 13,
+              "mean": 8715.538461538461,
+              "median": 8195,
+              "max": 9556
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "count": 200,
+              "mean": 240510.58,
+              "median": 20170.0,
+              "max": 5117271
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "count": 64,
+              "mean": 9017.65625,
+              "median": 5578.0,
+              "max": 75949
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "count": 2,
+              "mean": 9257,
+              "median": 9257.0,
+              "max": 9384
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "count": 11,
+              "mean": 7731.727272727273,
+              "median": 7623,
+              "max": 8320
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "count": 38,
+              "mean": 324905.63157894736,
+              "median": 100522.5,
+              "max": 1810614
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "count": 1,
+              "mean": 8401,
+              "median": 8401,
+              "max": 8401
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "count": 7,
+              "mean": 20773,
+              "median": 12634,
+              "max": 61325
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "count": 10,
+              "mean": 7861.4,
+              "median": 6740.0,
+              "max": 17954
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "count": 6,
+              "mean": 8458.166666666666,
+              "median": 8452.0,
+              "max": 9734
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "count": 4,
+              "mean": 15255.25,
+              "median": 12280.0,
+              "max": 28806
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "count": 49,
+              "mean": 19617.20408163265,
+              "median": 13719,
+              "max": 131717
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "count": 152,
+              "mean": 316730.9210526316,
+              "median": 84265.5,
+              "max": 3626474
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "count": 41,
+              "mean": 17639.268292682926,
+              "median": 12611,
+              "max": 120055
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "count": 3,
+              "mean": 43485.333333333336,
+              "median": 35386,
+              "max": 73054
+            }
+          ],
+          "issued_cost_max": 591.0,
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 4,
+            "missing_count": 0,
+            "coverage": 1.0,
+            "mean_confidence": 2.9999895000464992e-06,
+            "confidence_weighted_coverage": 2.9999895000464992e-06,
+            "mean_absolute_error": 0.20424798860626492,
+            "max_absolute_error": 0.6565202043227341,
+            "brier_score": 0.16367046739984092,
+            "log_loss": 0.4391337042493603
+          },
+          "beliefs": {
+            "shift-02-M01": 0.22050793373327351,
+            "shift-02-M02": 6.713159982100908e-05,
+            "shift-02-M03": 0.21696538695575104,
+            "shift-02-M04": 6.769846733950714e-05
+          },
+          "belief_truth_values": {
+            "shift-02-M01": {
+              "strength": 0.22050793373327351,
+              "confidence": 1e-06
+            },
+            "shift-02-M02": {
+              "strength": 6.713159982100908e-05,
+              "confidence": 5.9999700001499974e-06
+            },
+            "shift-02-M03": {
+              "strength": 0.21696538695575104,
+              "confidence": 3.999988000035998e-06
+            },
+            "shift-02-M04": {
+              "strength": 6.769846733950714e-05,
+              "confidence": 1e-06
+            }
+          },
+          "diagnostic_operation_averages": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "factor": 0.10205503416460789
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "factor": 1.6961700527450743
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "factor": 0.176248195805932
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "factor": 0.11530929607692496
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "factor": 0.07376037167579268
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "factor": 0.7774585140454567
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "factor": 0.06354440053273913
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "factor": 0.1660804201091406
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "factor": 0.0773743874076576
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "factor": 0.08400946853591189
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "factor": 0.6233522352459656
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "factor": 0.15196117947280469
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "factor": 0.106092675513979
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "factor": 1.2426974517914287
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "factor": 0.2651872654549036
+            }
+          ]
+        }
+      ],
+      "score": 637.0,
+      "regret": 0.0
+    },
+    "fanout-final-11-baseline": {
+      "environment": {
+        "repository": "/tmp/stationops-cost-model/fanout-final-runtime",
+        "chainergame": "/nexus/Dev/OpenCog/ChainerGame",
+        "petta": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.10888671875,
+          0.96875,
+          0.8125
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "workload": {
+        "seed": 11,
+        "shifts": 2,
+        "modules": 4,
+        "budget": 300,
+        "action_budget": 1
+      },
+      "batches": [
+        {
+          "shift": 1,
+          "seconds": 2.497608963007224,
+          "inferences": 9219071,
+          "cpu_seconds": 2.5129780000000004,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 300,
+            "wall_seconds": 2.491061452004942,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 158,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 405,
+            "agenda_pops": 312,
+            "search_aborts": 0,
+            "stale_agenda_entries": 2,
+            "goal_demand_evaluations": 6766,
+            "goal_demand_cache_hits": 4752,
+            "goal_demand_cache_misses": 2014,
+            "demand_revision_bumps": 3360,
+            "current_proof_goal_lookups": 146,
+            "current_result_goal_lookups": 1354,
+            "candidate_comparisons": 56,
+            "dominance_checks": 56,
+            "proofs_stored": 138
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) $tv)",
+            "(: $prf (Inheritance (PressureAlarm new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "cost_priority_kind": "waiting-consumer-count",
+          "cost_priority_applied": false,
+          "normalized_answers_sha256": "5ab8e29543247e23d81e20740602c4b24bb75bf68c98d0497c991d9250387780",
+          "cost_sample_statistics": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "count": 7,
+              "mean": 11631.142857142857,
+              "median": 9704,
+              "max": 21787
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "count": 128,
+              "mean": 31689.8828125,
+              "median": 27525.5,
+              "max": 69288
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "count": 52,
+              "mean": 7709.25,
+              "median": 6765.0,
+              "max": 11261
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "count": 2,
+              "mean": 13532.5,
+              "median": 13532.5,
+              "max": 14898
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "count": 12,
+              "mean": 8199.333333333334,
+              "median": 6394.0,
+              "max": 12866
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "count": 21,
+              "mean": 77021.42857142857,
+              "median": 6865,
+              "max": 338827
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "count": 1,
+              "mean": 6851,
+              "median": 6851,
+              "max": 6851
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "count": 4,
+              "mean": 18348.25,
+              "median": 19387.5,
+              "max": 21047
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "count": 28,
+              "mean": 8342.07142857143,
+              "median": 5500.0,
+              "max": 32026
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "count": 5,
+              "mean": 9975.6,
+              "median": 9681,
+              "max": 15036
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "count": 3,
+              "mean": 9804.666666666666,
+              "median": 11438,
+              "max": 11561
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "count": 8,
+              "mean": 13209.875,
+              "median": 12302.5,
+              "max": 20285
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "count": 6,
+              "mean": 12515.833333333334,
+              "median": 12284.0,
+              "max": 16825
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "count": 23,
+              "mean": 50838.13043478261,
+              "median": 55012,
+              "max": 84814
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "count": 1,
+              "mean": 28591,
+              "median": 28591,
+              "max": 28591
+            }
+          ],
+          "issued_cost_max": 1.0,
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 2,
+            "missing_count": 2,
+            "coverage": 0.5,
+            "mean_confidence": 0.01293437769701714,
+            "confidence_weighted_coverage": 0.00646718884850857,
+            "mean_absolute_error": 0.0894987318690752,
+            "max_absolute_error": 0.12084415750484531,
+            "brier_score": 0.0097134490312265,
+            "log_loss": 0.09952662819868503
+          },
+          "beliefs": {
+            "shift-01-M01": 0.06555591110653683,
+            "shift-01-M03": 0.12300130316970158
+          },
+          "belief_truth_values": {
+            "shift-01-M01": {
+              "strength": 0.06555591110653683,
+              "confidence": 0.025860755450033888
+            },
+            "shift-01-M03": {
+              "strength": 0.12300130316970158,
+              "confidence": 7.999944000391995e-06
+            }
+          },
+          "diagnostic_operation_averages": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "factor": 0.434727173456437
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "factor": 1.1844453594500841
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "factor": 0.2881419739343052
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "factor": 0.50579255599001
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "factor": 0.30645939509187187
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "factor": 2.8787633639863173
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "factor": 0.2560639054932613
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "factor": 0.6857866813555294
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "factor": 0.3117943935051452
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "factor": 0.3728493790159944
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "factor": 0.366460551558351
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "factor": 0.49373408021862436
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "factor": 0.46779348472282534
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "factor": 1.9001328604738381
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "factor": 1.0686210950164698
+            }
+          ]
+        },
+        {
+          "shift": 2,
+          "seconds": 3.3448639839916723,
+          "inferences": 12759830,
+          "cpu_seconds": 3.3698751000000016,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 300,
+            "wall_seconds": 3.334341071997187,
+            "durable_proof_rows_before": 193,
+            "durable_proof_rows_after": 409,
+            "durable_goal_index_rows_before": 173,
+            "durable_result_index_rows_before": 20,
+            "agenda_pushes": 563,
+            "agenda_pops": 384,
+            "search_aborts": 0,
+            "stale_agenda_entries": 42,
+            "goal_demand_evaluations": 11141,
+            "goal_demand_cache_hits": 8211,
+            "goal_demand_cache_misses": 2930,
+            "demand_revision_bumps": 5241,
+            "current_proof_goal_lookups": 122,
+            "current_result_goal_lookups": 2309,
+            "candidate_comparisons": 167,
+            "dominance_checks": 147,
+            "proofs_stored": 175
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "cost_priority_kind": "waiting-consumer-count",
+          "cost_priority_applied": false,
+          "normalized_answers_sha256": "cb257e987204e7c27a97ad29ca98b339d78f42778a686b0adb59de8ac353b62b",
+          "cost_sample_statistics": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "count": 12,
+              "mean": 10150.833333333334,
+              "median": 9531.5,
+              "max": 11432
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "count": 115,
+              "mean": 40090.22608695652,
+              "median": 21447,
+              "max": 908004
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "count": 55,
+              "mean": 7443.345454545454,
+              "median": 6961,
+              "max": 24816
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "count": 2,
+              "mean": 10187,
+              "median": 10187.0,
+              "max": 10314
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "count": 12,
+              "mean": 8001.25,
+              "median": 7618.0,
+              "max": 9250
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "count": 16,
+              "mean": 16918.8125,
+              "median": 2215.0,
+              "max": 80996
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "count": 1,
+              "mean": 8381,
+              "median": 8381,
+              "max": 8381
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "count": 6,
+              "mean": 15198.833333333334,
+              "median": 15441.0,
+              "max": 16585
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "count": 19,
+              "mean": 8701.052631578947,
+              "median": 6724,
+              "max": 25506
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "count": 7,
+              "mean": 9313.57142857143,
+              "median": 8436,
+              "max": 13355
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "count": 2,
+              "mean": 76009,
+              "median": 76009.0,
+              "max": 107283
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "count": 30,
+              "mean": 171683.7,
+              "median": 49474.0,
+              "max": 1907905
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "count": 13,
+              "mean": 11549.692307692309,
+              "median": 8644,
+              "max": 20635
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "count": 3,
+              "mean": 21142.666666666668,
+              "median": 27336,
+              "max": 27475
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "count": 8,
+              "mean": 11756,
+              "median": 11863.0,
+              "max": 17574
+            }
+          ],
+          "issued_cost_max": 1.0,
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 3,
+            "missing_count": 1,
+            "coverage": 0.75,
+            "mean_confidence": 0.01037045673600398,
+            "confidence_weighted_coverage": 0.007777842552002985,
+            "mean_absolute_error": 0.053545104223374,
+            "max_absolute_error": 0.11010281789368354,
+            "brier_score": 0.005095297047853207,
+            "log_loss": 0.058164247956267956
+          },
+          "beliefs": {
+            "shift-02-M01": 0.05601543270646637,
+            "shift-02-M03": 0.11021868197245134,
+            "shift-02-M04": 6.77238701415107e-05
+          },
+          "belief_truth_values": {
+            "shift-02-M01": {
+              "strength": 0.05601543270646637,
+              "confidence": 0.031103370250011687
+            },
+            "shift-02-M03": {
+              "strength": 0.11021868197245134,
+              "confidence": 6.9999580002519965e-06
+            },
+            "shift-02-M04": {
+              "strength": 6.77238701415107e-05,
+              "confidence": 1e-06
+            }
+          },
+          "diagnostic_operation_averages": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "factor": 0.434727173456437
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "factor": 1.1844453594500841
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "factor": 0.2881419739343052
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "factor": 0.50579255599001
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "factor": 0.30645939509187187
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "factor": 2.8787633639863173
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "factor": 0.2560639054932613
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "factor": 0.6857866813555294
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "factor": 0.3117943935051452
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "factor": 0.3728493790159944
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "factor": 0.366460551558351
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "factor": 0.49373408021862436
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "factor": 0.46779348472282534
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "factor": 1.9001328604738381
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "factor": 1.0686210950164698
+            }
+          ]
+        }
+      ],
+      "score": 642.0,
+      "regret": 17.29234716622964
+    },
+    "fanout-final-11-candidate": {
+      "environment": {
+        "repository": "/tmp/stationops-cost-model/fanout-final-runtime",
+        "chainergame": "/nexus/Dev/OpenCog/ChainerGame",
+        "petta": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.0771484375,
+          0.9716796875,
+          0.818359375
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "workload": {
+        "seed": 11,
+        "shifts": 2,
+        "modules": 4,
+        "budget": 300,
+        "action_budget": 1
+      },
+      "batches": [
+        {
+          "shift": 1,
+          "seconds": 2.41628678800771,
+          "inferences": 9219071,
+          "cpu_seconds": 2.4147776999999984,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 300,
+            "wall_seconds": 2.4107485029962845,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 158,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 405,
+            "agenda_pops": 312,
+            "search_aborts": 0,
+            "stale_agenda_entries": 2,
+            "goal_demand_evaluations": 6766,
+            "goal_demand_cache_hits": 4752,
+            "goal_demand_cache_misses": 2014,
+            "demand_revision_bumps": 3360,
+            "current_proof_goal_lookups": 146,
+            "current_result_goal_lookups": 1354,
+            "candidate_comparisons": 56,
+            "dominance_checks": 56,
+            "proofs_stored": 138
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) $tv)",
+            "(: $prf (Inheritance (PressureAlarm new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "cost_priority_kind": "waiting-consumer-count",
+          "cost_priority_applied": false,
+          "normalized_answers_sha256": "5ab8e29543247e23d81e20740602c4b24bb75bf68c98d0497c991d9250387780",
+          "cost_sample_statistics": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "count": 7,
+              "mean": 11631.142857142857,
+              "median": 9704,
+              "max": 21787
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "count": 128,
+              "mean": 31689.8828125,
+              "median": 27525.5,
+              "max": 69288
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "count": 52,
+              "mean": 7709.25,
+              "median": 6765.0,
+              "max": 11261
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "count": 2,
+              "mean": 13532.5,
+              "median": 13532.5,
+              "max": 14898
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "count": 12,
+              "mean": 8199.333333333334,
+              "median": 6394.0,
+              "max": 12866
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "count": 21,
+              "mean": 77021.42857142857,
+              "median": 6865,
+              "max": 338827
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "count": 1,
+              "mean": 6851,
+              "median": 6851,
+              "max": 6851
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "count": 4,
+              "mean": 18348.25,
+              "median": 19387.5,
+              "max": 21047
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "count": 28,
+              "mean": 8342.07142857143,
+              "median": 5500.0,
+              "max": 32026
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "count": 5,
+              "mean": 9975.6,
+              "median": 9681,
+              "max": 15036
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "count": 3,
+              "mean": 9804.666666666666,
+              "median": 11438,
+              "max": 11561
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "count": 8,
+              "mean": 13209.875,
+              "median": 12302.5,
+              "max": 20285
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "count": 6,
+              "mean": 12515.833333333334,
+              "median": 12284.0,
+              "max": 16825
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "count": 23,
+              "mean": 50838.13043478261,
+              "median": 55012,
+              "max": 84814
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "count": 1,
+              "mean": 28591,
+              "median": 28591,
+              "max": 28591
+            }
+          ],
+          "issued_cost_max": 1.0,
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 2,
+            "missing_count": 2,
+            "coverage": 0.5,
+            "mean_confidence": 0.01293437769701714,
+            "confidence_weighted_coverage": 0.00646718884850857,
+            "mean_absolute_error": 0.0894987318690752,
+            "max_absolute_error": 0.12084415750484531,
+            "brier_score": 0.0097134490312265,
+            "log_loss": 0.09952662819868503
+          },
+          "beliefs": {
+            "shift-01-M01": 0.06555591110653683,
+            "shift-01-M03": 0.12300130316970158
+          },
+          "belief_truth_values": {
+            "shift-01-M01": {
+              "strength": 0.06555591110653683,
+              "confidence": 0.025860755450033888
+            },
+            "shift-01-M03": {
+              "strength": 0.12300130316970158,
+              "confidence": 7.999944000391995e-06
+            }
+          },
+          "diagnostic_operation_averages": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "factor": 0.434727173456437
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "factor": 1.1844453594500841
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "factor": 0.2881419739343052
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "factor": 0.50579255599001
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "factor": 0.30645939509187187
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "factor": 2.8787633639863173
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "factor": 0.2560639054932613
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "factor": 0.6857866813555294
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "factor": 0.3117943935051452
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "factor": 0.3728493790159944
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "factor": 0.366460551558351
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "factor": 0.49373408021862436
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "factor": 0.46779348472282534
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "factor": 1.9001328604738381
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "factor": 1.0686210950164698
+            }
+          ]
+        },
+        {
+          "shift": 2,
+          "seconds": 2.927462703999481,
+          "inferences": 11966704,
+          "cpu_seconds": 2.9368254,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 300,
+            "wall_seconds": 2.917801599003724,
+            "durable_proof_rows_before": 193,
+            "durable_proof_rows_after": 409,
+            "durable_goal_index_rows_before": 173,
+            "durable_result_index_rows_before": 20,
+            "agenda_pushes": 618,
+            "agenda_pops": 442,
+            "search_aborts": 0,
+            "stale_agenda_entries": 42,
+            "goal_demand_evaluations": 11225,
+            "goal_demand_cache_hits": 8320,
+            "goal_demand_cache_misses": 2905,
+            "demand_revision_bumps": 5216,
+            "current_proof_goal_lookups": 122,
+            "current_result_goal_lookups": 2309,
+            "candidate_comparisons": 167,
+            "dominance_checks": 147,
+            "proofs_stored": 175
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "cost_priority_kind": "waiting-consumer-count",
+          "cost_priority_applied": true,
+          "normalized_answers_sha256": "96e6c9296726baa85d2866ac710fe7be5f4d6789e430faf3e1d0e85287f49217",
+          "cost_sample_statistics": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "count": 12,
+              "mean": 8810.666666666666,
+              "median": 8585.5,
+              "max": 9540
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "count": 115,
+              "mean": 37131.2347826087,
+              "median": 19884,
+              "max": 1016548
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "count": 55,
+              "mean": 5769.763636363637,
+              "median": 5072,
+              "max": 21679
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "count": 2,
+              "mean": 9241,
+              "median": 9241.0,
+              "max": 9368
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "count": 12,
+              "mean": 7764.75,
+              "median": 7618.0,
+              "max": 8304
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "count": 16,
+              "mean": 16859.6875,
+              "median": 2215.0,
+              "max": 80996
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "count": 1,
+              "mean": 8381,
+              "median": 8381,
+              "max": 8381
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "count": 6,
+              "mean": 12518.5,
+              "median": 12603.0,
+              "max": 13747
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "count": 19,
+              "mean": 7904.421052631579,
+              "median": 6724,
+              "max": 17938
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "count": 7,
+              "mean": 8908.142857142857,
+              "median": 8436,
+              "max": 12409
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "count": 2,
+              "mean": 68145,
+              "median": 68145.0,
+              "max": 98177
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "count": 30,
+              "mean": 171968.46666666667,
+              "median": 51472.0,
+              "max": 1910822
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "count": 13,
+              "mean": 11040.307692307691,
+              "median": 8644,
+              "max": 18743
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "count": 3,
+              "mean": 20512,
+              "median": 26390,
+              "max": 26529
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "count": 8,
+              "mean": 11164.75,
+              "median": 10917.0,
+              "max": 16628
+            }
+          ],
+          "issued_cost_max": 211.0,
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 3,
+            "missing_count": 1,
+            "coverage": 0.75,
+            "mean_confidence": 0.01037045673600398,
+            "confidence_weighted_coverage": 0.007777842552002985,
+            "mean_absolute_error": 0.053545104223374,
+            "max_absolute_error": 0.11010281789368354,
+            "brier_score": 0.005095297047853207,
+            "log_loss": 0.058164247956267956
+          },
+          "beliefs": {
+            "shift-02-M01": 0.05601543270646637,
+            "shift-02-M03": 0.11021868197245134,
+            "shift-02-M04": 6.77238701415107e-05
+          },
+          "belief_truth_values": {
+            "shift-02-M01": {
+              "strength": 0.05601543270646637,
+              "confidence": 0.031103370250011687
+            },
+            "shift-02-M03": {
+              "strength": 0.11021868197245134,
+              "confidence": 6.9999580002519965e-06
+            },
+            "shift-02-M04": {
+              "strength": 6.77238701415107e-05,
+              "confidence": 1e-06
+            }
+          },
+          "diagnostic_operation_averages": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "factor": 0.434727173456437
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "factor": 1.1844453594500841
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "factor": 0.2881419739343052
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "factor": 0.50579255599001
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "factor": 0.30645939509187187
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "factor": 2.8787633639863173
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "factor": 0.2560639054932613
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "factor": 0.6857866813555294
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "factor": 0.3117943935051452
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "factor": 0.3728493790159944
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "factor": 0.366460551558351
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "factor": 0.49373408021862436
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "factor": 0.46779348472282534
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "factor": 1.9001328604738381
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "factor": 1.0686210950164698
+            }
+          ]
+        }
+      ],
+      "score": 642.0,
+      "regret": 17.29234716622964
+    },
+    "fanout-final-23-baseline": {
+      "environment": {
+        "repository": "/tmp/stationops-cost-model/fanout-final-runtime",
+        "chainergame": "/nexus/Dev/OpenCog/ChainerGame",
+        "petta": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.0546875,
+          0.9736328125,
+          0.822265625
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "workload": {
+        "seed": 23,
+        "shifts": 2,
+        "modules": 4,
+        "budget": 300,
+        "action_budget": 1
+      },
+      "batches": [
+        {
+          "shift": 1,
+          "seconds": 2.366239837007015,
+          "inferences": 9130014,
+          "cpu_seconds": 2.3856310999999994,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 300,
+            "wall_seconds": 2.3603265800047666,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 154,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 398,
+            "agenda_pops": 312,
+            "search_aborts": 0,
+            "stale_agenda_entries": 2,
+            "goal_demand_evaluations": 6574,
+            "goal_demand_cache_hits": 4649,
+            "goal_demand_cache_misses": 1925,
+            "demand_revision_bumps": 3250,
+            "current_proof_goal_lookups": 151,
+            "current_result_goal_lookups": 1338,
+            "candidate_comparisons": 55,
+            "dominance_checks": 55,
+            "proofs_stored": 135
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureAlarm old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "cost_priority_kind": "waiting-consumer-count",
+          "cost_priority_applied": false,
+          "normalized_answers_sha256": "7af3b6fe6f343350257135dea6f2845878004c49a985a26e0ffc3ba369745faf",
+          "cost_sample_statistics": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "count": 7,
+              "mean": 11631.142857142857,
+              "median": 9704,
+              "max": 21787
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "count": 129,
+              "mean": 31670.821705426355,
+              "median": 27523,
+              "max": 69288
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "count": 52,
+              "mean": 7709.25,
+              "median": 6765.0,
+              "max": 11261
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "count": 2,
+              "mean": 13532.5,
+              "median": 13532.5,
+              "max": 14898
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "count": 12,
+              "mean": 8199.333333333334,
+              "median": 6394.0,
+              "max": 12866
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "count": 21,
+              "mean": 73918.61904761905,
+              "median": 6865,
+              "max": 338599
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "count": 1,
+              "mean": 6851,
+              "median": 6851,
+              "max": 6851
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "count": 4,
+              "mean": 18348.25,
+              "median": 19387.5,
+              "max": 21047
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "count": 28,
+              "mean": 8342.07142857143,
+              "median": 5500.0,
+              "max": 32026
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "count": 5,
+              "mean": 9975.6,
+              "median": 9681,
+              "max": 15036
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "count": 3,
+              "mean": 9804.666666666666,
+              "median": 11438,
+              "max": 11561
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "count": 8,
+              "mean": 11999.875,
+              "median": 12206.5,
+              "max": 14477
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "count": 6,
+              "mean": 11870.5,
+              "median": 12284.0,
+              "max": 12953
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "count": 22,
+              "mean": 52082.22727272727,
+              "median": 51324.0,
+              "max": 97842
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "count": 1,
+              "mean": 28591,
+              "median": 28591,
+              "max": 28591
+            }
+          ],
+          "issued_cost_max": 1.0,
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 2,
+            "missing_count": 2,
+            "coverage": 0.5,
+            "mean_confidence": 4.499972000195998e-06,
+            "confidence_weighted_coverage": 2.249986000097999e-06,
+            "mean_absolute_error": 0.06274462917611927,
+            "max_absolute_error": 0.12365093117239047,
+            "brier_score": 0.007904478438452047,
+            "log_loss": 0.06718511468686796
+          },
+          "beliefs": {
+            "shift-01-M01": 0.0,
+            "shift-01-M03": 0.12573367439514402
+          },
+          "belief_truth_values": {
+            "shift-01-M01": {
+              "strength": 0.0,
+              "confidence": 1e-06
+            },
+            "shift-01-M03": {
+              "strength": 0.12573367439514402,
+              "confidence": 7.999944000391995e-06
+            }
+          },
+          "diagnostic_operation_averages": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "factor": 0.4387010093205547
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "factor": 1.1945534173926298
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "factor": 0.29077587625256585
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "factor": 0.5104159996611665
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "factor": 0.3092607367366309
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "factor": 2.7880469857575036
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "factor": 0.25840458257370413
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "factor": 0.6920554491618693
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "factor": 0.3146445023062362
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "factor": 0.376257590705334
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "factor": 0.36981036305273846
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "factor": 0.4526087710278249
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "factor": 0.44772903188456503
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "factor": 1.9644265359681623
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "factor": 1.0783893475937492
+            }
+          ]
+        },
+        {
+          "shift": 2,
+          "seconds": 2.492730109996046,
+          "inferences": 9272443,
+          "cpu_seconds": 2.4601439999999997,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 300,
+            "wall_seconds": 2.4829564659885364,
+            "durable_proof_rows_before": 191,
+            "durable_proof_rows_after": 353,
+            "durable_goal_index_rows_before": 172,
+            "durable_result_index_rows_before": 19,
+            "agenda_pushes": 545,
+            "agenda_pops": 368,
+            "search_aborts": 0,
+            "stale_agenda_entries": 5,
+            "goal_demand_evaluations": 9946,
+            "goal_demand_cache_hits": 7042,
+            "goal_demand_cache_misses": 2904,
+            "demand_revision_bumps": 4812,
+            "current_proof_goal_lookups": 139,
+            "current_result_goal_lookups": 1931,
+            "candidate_comparisons": 54,
+            "dominance_checks": 42,
+            "proofs_stored": 145
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "cost_priority_kind": "waiting-consumer-count",
+          "cost_priority_applied": false,
+          "normalized_answers_sha256": "96d62754d8ce26a1918f562f8a63c90762efd8b4e74e2bf2ee6fb6c776b922d9",
+          "cost_sample_statistics": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "count": 12,
+              "mean": 10166.833333333334,
+              "median": 9547.5,
+              "max": 11448
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "count": 135,
+              "mean": 28644.222222222223,
+              "median": 20170,
+              "max": 371977
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "count": 55,
+              "mean": 7287.345454545454,
+              "median": 6961,
+              "max": 23276
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "count": 2,
+              "mean": 10203,
+              "median": 10203.0,
+              "max": 10330
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "count": 11,
+              "mean": 7903.727272727273,
+              "median": 7623,
+              "max": 9266
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "count": 15,
+              "mean": 17454.8,
+              "median": 2204,
+              "max": 74716
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "count": 1,
+              "mean": 8401,
+              "median": 8401,
+              "max": 8401
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "count": 6,
+              "mean": 15439.166666666666,
+              "median": 15457.0,
+              "max": 16862
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "count": 11,
+              "mean": 8659,
+              "median": 6740,
+              "max": 27849
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "count": 7,
+              "mean": 9329.57142857143,
+              "median": 8452,
+              "max": 13371
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "count": 2,
+              "mean": 33295.5,
+              "median": 33295.5,
+              "max": 44751
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "count": 23,
+              "mean": 124641.26086956522,
+              "median": 79907,
+              "max": 912759
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "count": 12,
+              "mean": 11882.916666666666,
+              "median": 10213.0,
+              "max": 22179
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "count": 2,
+              "mean": 64769,
+              "median": 64769.0,
+              "max": 66215
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "count": 7,
+              "mean": 12697.57142857143,
+              "median": 11892,
+              "max": 18749
+            }
+          ],
+          "issued_cost_max": 1.0,
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 3,
+            "missing_count": 1,
+            "coverage": 0.75,
+            "mean_confidence": 1.6666646666706663e-06,
+            "confidence_weighted_coverage": 1.2499985000029997e-06,
+            "mean_absolute_error": 0.03661902922699082,
+            "max_absolute_error": 0.10839765002924127,
+            "brier_score": 0.00392241904422696,
+            "log_loss": 0.0382969507705992
+          },
+          "beliefs": {
+            "shift-02-M01": 0.0,
+            "shift-02-M03": 0.10847696836068535,
+            "shift-02-M04": 6.68427688516869e-05
+          },
+          "belief_truth_values": {
+            "shift-02-M01": {
+              "strength": 0.0,
+              "confidence": 1e-06
+            },
+            "shift-02-M03": {
+              "strength": 0.10847696836068535,
+              "confidence": 2.9999940000119994e-06
+            },
+            "shift-02-M04": {
+              "strength": 6.68427688516869e-05,
+              "confidence": 1e-06
+            }
+          },
+          "diagnostic_operation_averages": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "factor": 0.4387010093205547
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "factor": 1.1945534173926298
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "factor": 0.29077587625256585
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "factor": 0.5104159996611665
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "factor": 0.3092607367366309
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "factor": 2.7880469857575036
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "factor": 0.25840458257370413
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "factor": 0.6920554491618693
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "factor": 0.3146445023062362
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "factor": 0.376257590705334
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "factor": 0.36981036305273846
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "factor": 0.4526087710278249
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "factor": 0.44772903188456503
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "factor": 1.9644265359681623
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "factor": 1.0783893475937492
+            }
+          ]
+        }
+      ],
+      "score": 642.0,
+      "regret": 0
+    },
+    "fanout-final-23-candidate": {
+      "environment": {
+        "repository": "/tmp/stationops-cost-model/fanout-final-runtime",
+        "chainergame": "/nexus/Dev/OpenCog/ChainerGame",
+        "petta": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.03857421875,
+          0.9755859375,
+          0.826171875
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "workload": {
+        "seed": 23,
+        "shifts": 2,
+        "modules": 4,
+        "budget": 300,
+        "action_budget": 1
+      },
+      "batches": [
+        {
+          "shift": 1,
+          "seconds": 2.4423399980005343,
+          "inferences": 9130014,
+          "cpu_seconds": 2.4581833999999994,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 300,
+            "wall_seconds": 2.436601141002029,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 154,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 398,
+            "agenda_pops": 312,
+            "search_aborts": 0,
+            "stale_agenda_entries": 2,
+            "goal_demand_evaluations": 6574,
+            "goal_demand_cache_hits": 4649,
+            "goal_demand_cache_misses": 1925,
+            "demand_revision_bumps": 3250,
+            "current_proof_goal_lookups": 151,
+            "current_result_goal_lookups": 1338,
+            "candidate_comparisons": 55,
+            "dominance_checks": 55,
+            "proofs_stored": 135
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureAlarm old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "cost_priority_kind": "waiting-consumer-count",
+          "cost_priority_applied": false,
+          "normalized_answers_sha256": "7af3b6fe6f343350257135dea6f2845878004c49a985a26e0ffc3ba369745faf",
+          "cost_sample_statistics": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "count": 7,
+              "mean": 11631.142857142857,
+              "median": 9704,
+              "max": 21787
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "count": 129,
+              "mean": 31670.821705426355,
+              "median": 27523,
+              "max": 69288
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "count": 52,
+              "mean": 7709.25,
+              "median": 6765.0,
+              "max": 11261
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "count": 2,
+              "mean": 13532.5,
+              "median": 13532.5,
+              "max": 14898
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "count": 12,
+              "mean": 8199.333333333334,
+              "median": 6394.0,
+              "max": 12866
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "count": 21,
+              "mean": 73918.61904761905,
+              "median": 6865,
+              "max": 338599
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "count": 1,
+              "mean": 6851,
+              "median": 6851,
+              "max": 6851
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "count": 4,
+              "mean": 18348.25,
+              "median": 19387.5,
+              "max": 21047
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "count": 28,
+              "mean": 8342.07142857143,
+              "median": 5500.0,
+              "max": 32026
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "count": 5,
+              "mean": 9975.6,
+              "median": 9681,
+              "max": 15036
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "count": 3,
+              "mean": 9804.666666666666,
+              "median": 11438,
+              "max": 11561
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "count": 8,
+              "mean": 11999.875,
+              "median": 12206.5,
+              "max": 14477
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "count": 6,
+              "mean": 11870.5,
+              "median": 12284.0,
+              "max": 12953
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "count": 22,
+              "mean": 52082.22727272727,
+              "median": 51324.0,
+              "max": 97842
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "count": 1,
+              "mean": 28591,
+              "median": 28591,
+              "max": 28591
+            }
+          ],
+          "issued_cost_max": 1.0,
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 2,
+            "missing_count": 2,
+            "coverage": 0.5,
+            "mean_confidence": 4.499972000195998e-06,
+            "confidence_weighted_coverage": 2.249986000097999e-06,
+            "mean_absolute_error": 0.06274462917611927,
+            "max_absolute_error": 0.12365093117239047,
+            "brier_score": 0.007904478438452047,
+            "log_loss": 0.06718511468686796
+          },
+          "beliefs": {
+            "shift-01-M01": 0.0,
+            "shift-01-M03": 0.12573367439514402
+          },
+          "belief_truth_values": {
+            "shift-01-M01": {
+              "strength": 0.0,
+              "confidence": 1e-06
+            },
+            "shift-01-M03": {
+              "strength": 0.12573367439514402,
+              "confidence": 7.999944000391995e-06
+            }
+          },
+          "diagnostic_operation_averages": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "factor": 0.4387010093205547
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "factor": 1.1945534173926298
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "factor": 0.29077587625256585
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "factor": 0.5104159996611665
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "factor": 0.3092607367366309
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "factor": 2.7880469857575036
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "factor": 0.25840458257370413
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "factor": 0.6920554491618693
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "factor": 0.3146445023062362
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "factor": 0.376257590705334
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "factor": 0.36981036305273846
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "factor": 0.4526087710278249
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "factor": 0.44772903188456503
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "factor": 1.9644265359681623
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "factor": 1.0783893475937492
+            }
+          ]
+        },
+        {
+          "shift": 2,
+          "seconds": 2.3216838209918933,
+          "inferences": 9044931,
+          "cpu_seconds": 2.3388741999999993,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 300,
+            "wall_seconds": 2.3121899659890914,
+            "durable_proof_rows_before": 191,
+            "durable_proof_rows_after": 350,
+            "durable_goal_index_rows_before": 172,
+            "durable_result_index_rows_before": 19,
+            "agenda_pushes": 601,
+            "agenda_pops": 428,
+            "search_aborts": 0,
+            "stale_agenda_entries": 13,
+            "goal_demand_evaluations": 10521,
+            "goal_demand_cache_hits": 7511,
+            "goal_demand_cache_misses": 3010,
+            "demand_revision_bumps": 4945,
+            "current_proof_goal_lookups": 141,
+            "current_result_goal_lookups": 1961,
+            "candidate_comparisons": 73,
+            "dominance_checks": 62,
+            "proofs_stored": 142
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "cost_priority_kind": "waiting-consumer-count",
+          "cost_priority_applied": true,
+          "normalized_answers_sha256": "d030a9890de626d5c221909ff42eff649025bf27a4c0aa7b371a7ae8620f53e9",
+          "cost_sample_statistics": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "count": 12,
+              "mean": 8826.666666666666,
+              "median": 8601.5,
+              "max": 9556
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "count": 137,
+              "mean": 27057.963503649637,
+              "median": 19900,
+              "max": 342450
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "count": 55,
+              "mean": 5654.218181818182,
+              "median": 5072,
+              "max": 20438
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "count": 2,
+              "mean": 9257,
+              "median": 9257.0,
+              "max": 9384
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "count": 11,
+              "mean": 7731.727272727273,
+              "median": 7623,
+              "max": 8320
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "count": 15,
+              "mean": 17915.066666666666,
+              "median": 2204,
+              "max": 82566
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "count": 1,
+              "mean": 8401,
+              "median": 8401,
+              "max": 8401
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "count": 6,
+              "mean": 12527.166666666666,
+              "median": 12619.0,
+              "max": 13719
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "count": 11,
+              "mean": 7885,
+              "median": 6740,
+              "max": 19335
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "count": 7,
+              "mean": 8924.142857142857,
+              "median": 8452,
+              "max": 12425
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "count": 2,
+              "mean": 27619.5,
+              "median": 27619.5,
+              "max": 38129
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "count": 22,
+              "mean": 148654.63636363635,
+              "median": 72673.0,
+              "max": 1107267
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "count": 12,
+              "mean": 11363.166666666666,
+              "median": 9740.0,
+              "max": 20672
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "count": 2,
+              "mean": 65524.5,
+              "median": 65524.5,
+              "max": 70211
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "count": 6,
+              "mean": 11640.5,
+              "median": 11107.5,
+              "max": 16648
+            }
+          ],
+          "issued_cost_max": 87.0,
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 3,
+            "missing_count": 1,
+            "coverage": 0.75,
+            "mean_confidence": 3.333314666797332e-06,
+            "confidence_weighted_coverage": 2.499986000097999e-06,
+            "mean_absolute_error": 0.036844714741345305,
+            "max_absolute_error": 0.10907470657230474,
+            "brier_score": 0.003971535206881322,
+            "log_loss": 0.038550192971688664
+          },
+          "beliefs": {
+            "shift-02-M01": 0.0,
+            "shift-02-M03": 0.10915402490374881,
+            "shift-02-M04": 6.68427688516869e-05
+          },
+          "belief_truth_values": {
+            "shift-02-M01": {
+              "strength": 0.0,
+              "confidence": 1e-06
+            },
+            "shift-02-M03": {
+              "strength": 0.10915402490374881,
+              "confidence": 7.999944000391995e-06
+            },
+            "shift-02-M04": {
+              "strength": 6.68427688516869e-05,
+              "confidence": 1e-06
+            }
+          },
+          "diagnostic_operation_averages": [
+            {
+              "kind": "agenda-expand",
+              "class": "LocalProblem",
+              "factor": 0.4387010093205547
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Inheritance",
+              "factor": 1.1945534173926298
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "FoldAllCompiled",
+              "factor": 0.29077587625256585
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Or",
+              "factor": 0.5104159996611665
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceSample",
+              "factor": 0.3092607367366309
+            },
+            {
+              "kind": "agenda-aggregate",
+              "class": "FoldAllCompiled",
+              "factor": 2.7880469857575036
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "MemberInheritanceEvidenceFormula",
+              "factor": 0.25840458257370413
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Problem",
+              "factor": 0.6920554491618693
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "Member",
+              "factor": 0.3146445023062362
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ProblemDependency",
+              "factor": 0.376257590705334
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "PressureAlarm",
+              "factor": 0.36981036305273846
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "ImplicationCTVFormula",
+              "factor": 0.4526087710278249
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVInversionFormula",
+              "factor": 0.44772903188456503
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "CTVModusPonensFormula",
+              "factor": 1.9644265359681623
+            },
+            {
+              "kind": "agenda-expand",
+              "class": "OrProjection",
+              "factor": 1.0783893475937492
+            }
+          ]
+        }
+      ],
+      "score": 642.0,
+      "regret": 0
+    }
+  },
+  "patches": {
+    "operation-average": "--- a/pettachainer/metta/runtime/backward/search.metta\n+++ b/pettachainer/metta/runtime/backward/search.metta\n@@ -19,6 +19,26 @@\n ;; open frontiers.  Two active frames admit the immediate revision while\n ;; preventing a proof cascade from bypassing the agenda's step budget.\n !(bind! &search_wake_active (new-space))\n+\n+!(bind! &agenda_cost_samples (new-space))\n+!(bind! &agenda_cost_factors (new-space))\n+\n+(: agenda-cost-class (-[det]-> (| Goal (Statement KBContext Proof TV)) Atom))\n+(= (agenda-cost-class $goal)\n+   (case $goal (\n+      ((CPU $fun $_args $_result) $fun)\n+      (($type $_context $_proof $_tv)\n+         (if (is-var $type) open-goal\n+            (if (is-expr $type) (car-atom $type) $type))))))\n+\n+(: agenda-cost-factor (-[det]-> AgendaKind (| Goal (Statement KBContext Proof TV)) Number))\n+(= (agenda-cost-factor $kind $goal)\n+   (let* (($class (agenda-cost-class $goal))\n+          ($hits (collapse (match &agenda_cost_factors\n+                    ($class $kind $factor) $factor))))\n+      (case $hits (\n+         (() 1.0)\n+         ((cons $factor $_rest) (the Number $factor))))))\n \n (: clear-backward-query-state! (-[det]-> (List $none)))\n (= (clear-backward-query-state!)\n@@ -117,7 +137,7 @@\n                 ((CPU $_fun $_args $_result)\n                    (+\n                       (backward-agenda-priority\n-                         $agenda-depth $score\n+                         $agenda-depth (/ $score (agenda-cost-factor $kind $goal))\n                          (if (== $kind agenda-aggregate)\n                             $aggregate-bonus 1.0)\n                          $kind)\n@@ -125,7 +145,7 @@\n                 (($type ($_kbid $context $_vars) $_proof $_tv)\n                    (+\n                       (backward-agenda-priority\n-                         $agenda-depth $score $aggregate-bonus $kind)\n+                         $agenda-depth (/ $score (agenda-cost-factor $kind $goal)) $aggregate-bonus $kind)\n                       (if (if (is-expr $type)\n                              (== (car-atom $type) Inheritance)\n                              false)\n--- a/pettachainer/metta/runtime/backward/engine.metta\n+++ b/pettachainer/metta/runtime/backward/engine.metta\n@@ -84,7 +84,11 @@\n \n (= (search-claimed-agenda-entry $steps $agenda\n       (agenda-entry $kind $gid $_token))\n-   (let* (($next-steps (- $steps 1))\n+   (let* (((stored-goal-row $_gid $_depth $cost-goal $_expanded $_state)\n+             (goal-by-id $gid))\n+          ($cost-class (agenda-cost-class $cost-goal))\n+          ($_before (callPredicate (Predicate (statistics inferences $before))))\n+          ($next-steps (- $steps 1))\n           ($nagenda\n              (once\n                 (bounded-backward-agenda-prune $next-steps\n@@ -93,7 +97,10 @@\n                          $agenda $steps\n                          (root-demands-max (goal-root-demands $gid))\n                          $gid)\n-                      (once (refresh-fold-heap $agenda $gid)))))))\n+                      (once (refresh-fold-heap $agenda $gid))))))\n+          ($_after (callPredicate (Predicate (statistics inferences $after))))\n+          ($cost (- (the Number $after) (the Number $before)))\n+          ($_sample (once (add-atom &agenda_cost_samples ($kind $cost-class $cost)))))\n       (search-agenda-heap $next-steps $nagenda)))\n \n (: search-agenda-heap\n",
+    "waiting-consumers": "--- a/pettachainer/metta/runtime/backward/search.metta\n+++ b/pettachainer/metta/runtime/backward/search.metta\n@@ -20,11 +20,20 @@\n ;; preventing a proof cascade from bypassing the agenda's step budget.\n !(bind! &search_wake_active (new-space))\n \n+\n+(: agenda-cost-class (-[det]-> (| Goal (Statement KBContext Proof TV)) Atom))\n+(= (agenda-cost-class $goal)\n+   (case $goal (\n+      ((CPU $fun $_args $_result) $fun)\n+      (($type $_context $_proof $_tv)\n+         (if (is-var $type) open-goal\n+            (if (is-expr $type) (car-atom $type) $type))))))\n+\n (: clear-backward-query-state! (-[det]-> (List $none)))\n (= (clear-backward-query-state!)\n    (let $_clear\n       (foreach-flat remove-all-atoms\n-         (&goal &goal_lookup &goal_waiter &goal_child\n+         (&agenda_cost_issued &goal &goal_lookup &goal_waiter &goal_child\n           &goal_demand_cache &goal_demand_revision &goal_demand_wake\n           &goal_current_confidence &root_goal &search_wake_active\n           &fold_source\n@@ -92,6 +101,7 @@\n    (let* (((stored-goal-row\n               $gid $depth $goal $_expanded $_state)\n              $row)\n+          ($cost-factor (issue-agenda-cost! $gid))\n           ($child-hits\n              (case $kind (\n                 (agenda-aggregate\n@@ -117,7 +127,7 @@\n                 ((CPU $_fun $_args $_result)\n                    (+\n                       (backward-agenda-priority\n-                         $agenda-depth $score\n+                         $agenda-depth (/ $score $cost-factor)\n                          (if (== $kind agenda-aggregate)\n                             $aggregate-bonus 1.0)\n                          $kind)\n@@ -125,7 +135,7 @@\n                 (($type ($_kbid $context $_vars) $_proof $_tv)\n                    (+\n                       (backward-agenda-priority\n-                         $agenda-depth $score $aggregate-bonus $kind)\n+                         $agenda-depth (/ $score $cost-factor) $aggregate-bonus $kind)\n                       (if (if (is-expr $type)\n                              (== (car-atom $type) Inheritance)\n                              false)\n--- a/pettachainer/metta/runtime/backward/engine.metta\n+++ b/pettachainer/metta/runtime/backward/engine.metta\n@@ -84,7 +84,11 @@\n \n (= (search-claimed-agenda-entry $steps $agenda\n       (agenda-entry $kind $gid $_token))\n-   (let* (($next-steps (- $steps 1))\n+   (let* (((stored-goal-row $_gid $_depth $cost-goal $_expanded $_state)\n+             (goal-by-id $gid))\n+          ($cost-class (agenda-cost-class $cost-goal))\n+          ($_before (callPredicate (Predicate (statistics inferences $before))))\n+          ($next-steps (- $steps 1))\n           ($nagenda\n              (once\n                 (bounded-backward-agenda-prune $next-steps\n@@ -93,7 +97,10 @@\n                          $agenda $steps\n                          (root-demands-max (goal-root-demands $gid))\n                          $gid)\n-                      (once (refresh-fold-heap $agenda $gid)))))))\n+                      (once (refresh-fold-heap $agenda $gid))))))\n+          ($_after (callPredicate (Predicate (statistics inferences $after))))\n+          ($cost (- (the Number $after) (the Number $before)))\n+          ($_sample (once (add-atom &agenda_cost_samples ($kind $cost-class $cost)))))\n       (search-agenda-heap $next-steps $nagenda)))\n \n (: search-agenda-heap\n--- a/pettachainer/metta/runtime/backward/agenda.metta\n+++ b/pettachainer/metta/runtime/backward/agenda.metta\n@@ -23,6 +23,23 @@\n ;; Ordinary claims pay no proof bookkeeping; that lookup belongs to this\n ;; rare re-wake path only.\n \n+!(bind! &agenda_cost_samples (new-space))\n+!(bind! &agenda_cost_factors (new-space))\n+!(bind! &agenda_cost_issued (new-space))\n+\n+(: agenda-cost-factor (-[det]-> Number Number))\n+(= (agenda-cost-factor $gid)\n+   (if (space-row-present? &agenda_cost_factors (enabled true))\n+      (max 1 (length (collapse (match &goal_waiter ($gid $_waiter) true))))\n+      1.0))\n+\n+(: issue-agenda-cost! (-[det]-> Number Number))\n+(= (issue-agenda-cost! $gid)\n+   (let* (($cost (agenda-cost-factor $gid))\n+          ($_clear (remove-atom &agenda_cost_issued ($gid $_old-cost)))\n+          ($_store (once (add-atom &agenda_cost_issued ($gid $cost)))))\n+      $cost))\n+\n (: AgendaClaimDisposition Type)\n (: agenda-stale AgendaClaimDisposition)\n (: agenda-cancelled AgendaClaimDisposition)\n@@ -141,6 +158,7 @@\n                   agenda-cancelled\n                   (let* (($current-score (agenda-kind-score $kind $gid))\n                          ($current-revision (goal-demand-revision $gid))\n+                         ($current-cost (agenda-cost-factor $gid))\n                          ($cancelled\n                             (if (<= $current-score 0.0) true\n                                (if (== $kind agenda-expand)\n@@ -171,7 +189,8 @@\n                                   false)))\n                          ($disposition\n                             (if $cancelled agenda-cancelled\n-                               (if (== $current-score $issued-score)\n+                               (if (and (== $current-score $issued-score)\n+                                        (space-row-present? &agenda_cost_issued ($gid $current-cost)))\n                                   agenda-claimed\n                                   agenda-retoken)))\n                          ($_state\n"
+  },
+  "drivers": {
+    "benchmark.py": "#!/usr/bin/env python3\n\"\"\"Run the real ChainerGame two-shift workload in a selected PeTTaChainer tree.\n\nUse the repository's .venv/bin/python. No StationOps model is duplicated here.\n\"\"\"\nfrom __future__ import annotations\n\nimport argparse\nimport functools\nfrom importlib.metadata import version\nimport json\nimport re\nfrom collections import defaultdict\nimport os\nfrom pathlib import Path\nimport sys\nimport time\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=__doc__)\n    parser.add_argument(\"--repository\", type=Path, required=True)\n    parser.add_argument(\"--chainergame\", type=Path, required=True)\n    parser.add_argument(\"--petta\", type=Path, required=True)\n    parser.add_argument(\"--json-out\", type=Path, required=True)\n    parser.add_argument(\"--cost-priority\", action=\"store_true\")\n    args = parser.parse_args()\n    repository = args.repository.resolve()\n    game = args.chainergame.resolve()\n    runtime = args.petta.resolve()\n    os.environ[\"PETTA_PATH\"] = str(runtime)\n    sys.path[:0] = [str(repository), str(runtime / \"python\"), str(game / \"src\")]\n\n    import janus_swi as janus\n    import petta\n    import pettachainer\n    import stationops\n    from pettachainer import PeTTaChainer\n    from stationops.backends import PeTTaChainerBackend\n    from stationops.game import GameConfig, run_game_episode\n\n    for module, root in ((pettachainer, repository), (petta, runtime), (stationops, game)):\n        if root not in Path(module.__file__).resolve().parents:\n            raise RuntimeError(f\"Wrong import: {module.__file__}; expected {root}\")\n\n    events = []\n    batches = []\n    shift = 1\n\n    def timed(name, function):\n        @functools.wraps(function)\n        def call(*values, **kwargs):\n            started = time.perf_counter()\n            try:\n                return function(*values, **kwargs)\n            finally:\n                event = dict(shift=shift, name=name, seconds=time.perf_counter() - started)\n                events.append(event)\n                print(json.dumps(event), flush=True)\n        return call\n\n    for name in (\"_new_handler\", \"_reconcile\", \"infer\", \"propose_actions\"):\n        setattr(PeTTaChainerBackend, name, timed(name, getattr(PeTTaChainerBackend, name)))\n    learned_costs = {}\n    query_many = PeTTaChainer.query_many\n\n    def query(self, atoms, steps=100, timeout_sec=10):\n        nonlocal learned_costs\n        self.handler.process_metta_string(\"!(remove-all-atoms &agenda_cost_samples)\")\n        if args.cost_priority and shift == 2:\n            for (kind, cls), factor in learned_costs.items():\n                self.handler.process_metta_string(\n                    f\"!(add-atom &agenda_cost_factors ({cls} {kind} {factor}))\"\n                )\n        self.set_query_metrics(True)\n        before = janus.query_once(\"statistics(inferences, I), statistics(cputime, C)\")\n        started = time.perf_counter()\n        answers = query_many(self, atoms, steps=steps, timeout_sec=timeout_sec)\n        elapsed = time.perf_counter() - started\n        after = janus.query_once(\"statistics(inferences, I), statistics(cputime, C)\")\n        batch = dict(\n            shift=shift, seconds=elapsed,\n            inferences=after[\"I\"] - before[\"I\"], cpu_seconds=after[\"C\"] - before[\"C\"],\n            metrics=self.last_query_metrics(), queries=atoms, answers=answers,\n        )\n        samples = []\n        for row in self.handler.process_metta_string(\n            \"!(match &agenda_cost_samples ($kind $cls $cost) (cost-sample $kind $cls $cost))\"\n        ):\n            match = re.fullmatch(r\"\\(cost-sample ([^ ]+) ([^ ]+) (\\d+)\\)\", row)\n            if not match:\n                raise RuntimeError(f\"Unexpected cost row: {row}\")\n            samples.append((match[1], match[2], int(match[3])))\n        groups = defaultdict(list)\n        for kind, cls, cost in samples:\n            groups[(kind, cls)].append(cost)\n        average = sum(cost for _, _, cost in samples) / len(samples)\n        if shift == 1:\n            learned_costs = {key: (sum(values) / len(values)) / average\n                             for key, values in groups.items()}\n        batch[\"cost_samples\"] = samples\n        batch[\"cost_model\"] = [{\"kind\":kind,\"class\":cls,\"factor\":factor}\n                               for (kind,cls),factor in learned_costs.items()]\n        batch[\"cost_priority_applied\"] = bool(args.cost_priority and shift == 2)\n        batches.append(batch)\n        self.set_query_metrics(False)\n        print(json.dumps({key: batch[key] for key in (\"shift\", \"seconds\", \"inferences\")}), flush=True)\n        self.handler.process_metta_string(\"!(remove-all-atoms &agenda_cost_factors)\")\n        return answers\n\n    PeTTaChainer.query_many = query\n\n    def completed(row):\n        nonlocal shift\n        print(json.dumps({key: row[key] for key in (\"shift\", \"wall_time_seconds\", \"regret\")}), flush=True)\n        shift = row[\"shift\"] + 1\n\n    result = run_game_episode(\n        GameConfig(seed=7, shifts=2, modules=4), \"pettachainer\", 600,\n        action_budget=1, on_shift=completed,\n    )\n    payload = dict(\n        environment=dict(\n            repository=str(repository), chainergame=str(game), petta=str(runtime),\n            python=sys.version, executable=sys.executable, loadavg=os.getloadavg(),\n            janus_version=version(\"janus-swi\"),\n            swi_version=janus.query_once(\"current_prolog_flag(version, V)\")[\"V\"],\n        ),\n        workload=dict(seed=7, shifts=2, modules=4, budget=600, action_budget=1),\n        batches=batches, events=events, result=result,\n    )\n    args.json_out.write_text(json.dumps(payload, indent=2) + \"\\n\")\n    if len(batches) != 2 or any(b[\"metrics\"][\"search_aborts\"] for b in batches):\n        raise RuntimeError(\"Expected two diagnosis batches with zero search aborts\")\n    if any(row[\"belief_metrics\"][\"coverage\"] != 1 for row in result[\"rounds\"]):\n        raise RuntimeError(\"Incomplete diagnosis coverage\")\n    if result[\"aggregate\"][\"regret\"] != 0 or result[\"aggregate\"][\"station_score\"] != 637:\n        raise RuntimeError(\"StationOps acceptance result changed\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+    "fanout-final-benchmark.py": "#!/usr/bin/env python3\n\"\"\"Run the real ChainerGame two-shift workload in a selected PeTTaChainer tree.\n\nUse the repository's .venv/bin/python. No StationOps model is duplicated here.\n\"\"\"\nfrom __future__ import annotations\n\nimport argparse\nimport functools\nfrom importlib.metadata import version\nimport json\nimport re\nfrom collections import defaultdict\nimport os\nfrom pathlib import Path\nimport sys\nimport time\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=__doc__)\n    parser.add_argument(\"--repository\", type=Path, required=True)\n    parser.add_argument(\"--chainergame\", type=Path, required=True)\n    parser.add_argument(\"--petta\", type=Path, required=True)\n    parser.add_argument(\"--json-out\", type=Path, required=True)\n    parser.add_argument(\"--cost-priority\", action=\"store_true\")\n    parser.add_argument(\"--seed\", type=int, default=7)\n    parser.add_argument(\"--budget\", type=int, default=600)\n    args = parser.parse_args()\n    repository = args.repository.resolve()\n    game = args.chainergame.resolve()\n    runtime = args.petta.resolve()\n    os.environ[\"PETTA_PATH\"] = str(runtime)\n    sys.path[:0] = [str(repository), str(runtime / \"python\"), str(game / \"src\")]\n\n    import janus_swi as janus\n    import petta\n    import pettachainer\n    import stationops\n    from pettachainer import PeTTaChainer\n    from stationops.backends import PeTTaChainerBackend\n    from stationops.game import GameConfig, run_game_episode\n\n    for module, root in ((pettachainer, repository), (petta, runtime), (stationops, game)):\n        if root not in Path(module.__file__).resolve().parents:\n            raise RuntimeError(f\"Wrong import: {module.__file__}; expected {root}\")\n\n    events = []\n    batches = []\n    shift = 1\n\n    def timed(name, function):\n        @functools.wraps(function)\n        def call(*values, **kwargs):\n            started = time.perf_counter()\n            try:\n                return function(*values, **kwargs)\n            finally:\n                event = dict(shift=shift, name=name, seconds=time.perf_counter() - started)\n                events.append(event)\n                print(json.dumps(event), flush=True)\n        return call\n\n    for name in (\"_new_handler\", \"_reconcile\", \"infer\", \"propose_actions\"):\n        setattr(PeTTaChainerBackend, name, timed(name, getattr(PeTTaChainerBackend, name)))\n    learned_costs = {}\n    query_many = PeTTaChainer.query_many\n\n    def query(self, atoms, steps=100, timeout_sec=10):\n        nonlocal learned_costs\n        self.handler.process_metta_string(\"!(remove-all-atoms &agenda_cost_samples)\")\n        if args.cost_priority and shift == 2:\n            self.handler.process_metta_string(\"!(add-atom &agenda_cost_factors (enabled true))\")\n            assert self.handler.process_metta_string(\n                \"!(space-row-present? &agenda_cost_factors (enabled true))\"\n            ) == [\"true\"], \"Cost policy flag failed to activate\"\n        self.set_query_metrics(True)\n        before = janus.query_once(\"statistics(inferences, I), statistics(cputime, C)\")\n        started = time.perf_counter()\n        answers = query_many(self, atoms, steps=steps, timeout_sec=timeout_sec)\n        elapsed = time.perf_counter() - started\n        after = janus.query_once(\"statistics(inferences, I), statistics(cputime, C)\")\n        batch = dict(\n            shift=shift, seconds=elapsed,\n            inferences=after[\"I\"] - before[\"I\"], cpu_seconds=after[\"C\"] - before[\"C\"],\n            metrics=self.last_query_metrics(), queries=atoms, answers=answers,\n        )\n        samples = []\n        for row in self.handler.process_metta_string(\n            \"!(match &agenda_cost_samples ($kind $cls $cost) (cost-sample $kind $cls $cost))\"\n        ):\n            match = re.fullmatch(r\"\\(cost-sample ([^ ]+) ([^ ]+) (\\d+)\\)\", row)\n            if not match:\n                raise RuntimeError(f\"Unexpected cost row: {row}\")\n            samples.append((match[1], match[2], int(match[3])))\n        groups = defaultdict(list)\n        for kind, cls, cost in samples:\n            groups[(kind, cls)].append(cost)\n        average = sum(cost for _, _, cost in samples) / len(samples)\n        if shift == 1:\n            learned_costs = {key: (sum(values) / len(values)) / average\n                             for key, values in groups.items()}\n        batch[\"issued_cost_factors\"] = [float(value) for value in self.handler.process_metta_string(\n            \"!(match &agenda_cost_issued ($gid $factor) $factor)\"\n        )]\n        batch[\"cost_samples\"] = samples\n        batch[\"cost_model\"] = [{\"kind\":kind,\"class\":cls,\"factor\":factor}\n                               for (kind,cls),factor in learned_costs.items()]\n        batch[\"cost_priority_kind\"] = \"waiting-consumer-count\"\n        batch[\"cost_priority_applied\"] = bool(args.cost_priority and shift == 2)\n        batches.append(batch)\n        self.set_query_metrics(False)\n        print(json.dumps({key: batch[key] for key in (\"shift\", \"seconds\", \"inferences\")}), flush=True)\n        self.handler.process_metta_string(\"!(remove-all-atoms &agenda_cost_factors)\")\n        return answers\n\n    PeTTaChainer.query_many = query\n\n    def completed(row):\n        nonlocal shift\n        print(json.dumps({key: row[key] for key in (\"shift\", \"wall_time_seconds\", \"regret\")}), flush=True)\n        shift = row[\"shift\"] + 1\n\n    result = run_game_episode(\n        GameConfig(seed=args.seed, shifts=2, modules=4), \"pettachainer\", args.budget,\n        action_budget=1, on_shift=completed,\n    )\n    payload = dict(\n        environment=dict(\n            repository=str(repository), chainergame=str(game), petta=str(runtime),\n            python=sys.version, executable=sys.executable, loadavg=os.getloadavg(),\n            janus_version=version(\"janus-swi\"),\n            swi_version=janus.query_once(\"current_prolog_flag(version, V)\")[\"V\"],\n        ),\n        workload=dict(seed=args.seed, shifts=2, modules=4, budget=args.budget, action_budget=1),\n        batches=batches, events=events, result=result,\n    )\n    args.json_out.write_text(json.dumps(payload, indent=2) + \"\\n\")\n    if len(batches) != 2 or any(b[\"metrics\"][\"search_aborts\"] for b in batches):\n        raise RuntimeError(\"Expected two diagnosis batches with zero search aborts\")\n    if any(row[\"belief_metrics\"][\"coverage\"] != 1 for row in result[\"rounds\"]):\n        raise RuntimeError(\"Incomplete diagnosis coverage\")\n    if args.seed == 7 and (result[\"aggregate\"][\"regret\"] != 0 or result[\"aggregate\"][\"station_score\"] != 637):\n        raise RuntimeError(\"StationOps acceptance result changed\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+    "fanout-final-sanity.metta": "!(import! &self /tmp/stationops-cost-model/fanout-final-runtime/pettachainer/metta/petta_chainer)\n!(add-atom &agenda_cost_factors (enabled true))\n!(test (space-row-present? &agenda_cost_factors (enabled true)) true)\n!(add-atom &goal_waiter (42 first))\n!(add-atom &goal_waiter (42 second))\n!(add-atom &goal_waiter (42 third))\n!(test (agenda-cost-factor 42) 3)\n!(test (issue-agenda-cost! 42) 3)\n!(add-atom &goal_waiter (42 fourth))\n!(test (agenda-cost-factor 42) 4)\n!(test (space-row-present? &agenda_cost_issued (42 3)) true)\n",
+    "operation-average-baseline.py": "#!/usr/bin/env python3\n\"\"\"Run the real ChainerGame two-shift workload in a selected PeTTaChainer tree.\n\nUse the repository's .venv/bin/python. No StationOps model is duplicated here.\n\"\"\"\nfrom __future__ import annotations\n\nimport argparse\nimport functools\nfrom importlib.metadata import version\nimport json\nimport re\nfrom collections import defaultdict\nimport os\nfrom pathlib import Path\nimport sys\nimport time\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=__doc__)\n    parser.add_argument(\"--repository\", type=Path, required=True)\n    parser.add_argument(\"--chainergame\", type=Path, required=True)\n    parser.add_argument(\"--petta\", type=Path, required=True)\n    parser.add_argument(\"--json-out\", type=Path, required=True)\n    parser.add_argument(\"--cost-priority\", action=\"store_true\")\n    args = parser.parse_args()\n    repository = args.repository.resolve()\n    game = args.chainergame.resolve()\n    runtime = args.petta.resolve()\n    os.environ[\"PETTA_PATH\"] = str(runtime)\n    sys.path[:0] = [str(repository), str(runtime / \"python\"), str(game / \"src\")]\n\n    import janus_swi as janus\n    import petta\n    import pettachainer\n    import stationops\n    from pettachainer import PeTTaChainer\n    from stationops.backends import PeTTaChainerBackend\n    from stationops.game import GameConfig, run_game_episode\n\n    for module, root in ((pettachainer, repository), (petta, runtime), (stationops, game)):\n        if root not in Path(module.__file__).resolve().parents:\n            raise RuntimeError(f\"Wrong import: {module.__file__}; expected {root}\")\n\n    events = []\n    batches = []\n    shift = 1\n\n    def timed(name, function):\n        @functools.wraps(function)\n        def call(*values, **kwargs):\n            started = time.perf_counter()\n            try:\n                return function(*values, **kwargs)\n            finally:\n                event = dict(shift=shift, name=name, seconds=time.perf_counter() - started)\n                events.append(event)\n                print(json.dumps(event), flush=True)\n        return call\n\n    for name in (\"_new_handler\", \"_reconcile\", \"infer\", \"propose_actions\"):\n        setattr(PeTTaChainerBackend, name, timed(name, getattr(PeTTaChainerBackend, name)))\n    learned_costs = {}\n    query_many = PeTTaChainer.query_many\n\n    def query(self, atoms, steps=100, timeout_sec=10):\n        nonlocal learned_costs\n        self.handler.process_metta_string(\"!(remove-all-atoms &agenda_cost_samples)\")\n        if args.cost_priority and shift == 2:\n            for (kind, cls), factor in learned_costs.items():\n                self.handler.process_metta_string(\n                    f\"!(add-atom &agenda_cost_factors ({cls} {kind} {factor}))\"\n                )\n        self.set_query_metrics(True)\n        before = janus.query_once(\"statistics(inferences, I), statistics(cputime, C)\")\n        started = time.perf_counter()\n        answers = query_many(self, atoms, steps=steps, timeout_sec=timeout_sec)\n        elapsed = time.perf_counter() - started\n        after = janus.query_once(\"statistics(inferences, I), statistics(cputime, C)\")\n        batch = dict(\n            shift=shift, seconds=elapsed,\n            inferences=after[\"I\"] - before[\"I\"], cpu_seconds=after[\"C\"] - before[\"C\"],\n            metrics=self.last_query_metrics(), queries=atoms, answers=answers,\n        )\n        samples = []\n        for row in self.handler.process_metta_string(\n            \"!(match &agenda_cost_samples ($kind $cls $cost) (cost-sample $kind $cls $cost))\"\n        ):\n            match = re.fullmatch(r\"\\(cost-sample ([^ ]+) ([^ ]+) (\\d+)\\)\", row)\n            if not match:\n                raise RuntimeError(f\"Unexpected cost row: {row}\")\n            samples.append((match[1], match[2], int(match[3])))\n        groups = defaultdict(list)\n        for kind, cls, cost in samples:\n            groups[(kind, cls)].append(cost)\n        average = sum(cost for _, _, cost in samples) / len(samples)\n        if shift == 1:\n            learned_costs = {key: (sum(values) / len(values)) / average\n                             for key, values in groups.items()}\n        batch[\"cost_samples\"] = samples\n        batch[\"cost_model\"] = [{\"kind\":kind,\"class\":cls,\"factor\":factor}\n                               for (kind,cls),factor in learned_costs.items()]\n        batch[\"cost_priority_applied\"] = bool(args.cost_priority and shift == 2)\n        batches.append(batch)\n        self.set_query_metrics(False)\n        print(json.dumps({key: batch[key] for key in (\"shift\", \"seconds\", \"inferences\")}), flush=True)\n        return answers\n\n    PeTTaChainer.query_many = query\n\n    def completed(row):\n        nonlocal shift\n        print(json.dumps({key: row[key] for key in (\"shift\", \"wall_time_seconds\", \"regret\")}), flush=True)\n        shift = row[\"shift\"] + 1\n\n    result = run_game_episode(\n        GameConfig(seed=7, shifts=2, modules=4), \"pettachainer\", 600,\n        action_budget=1, on_shift=completed,\n    )\n    payload = dict(\n        environment=dict(\n            repository=str(repository), chainergame=str(game), petta=str(runtime),\n            python=sys.version, executable=sys.executable, loadavg=os.getloadavg(),\n            janus_version=version(\"janus-swi\"),\n            swi_version=janus.query_once(\"current_prolog_flag(version, V)\")[\"V\"],\n        ),\n        workload=dict(seed=7, shifts=2, modules=4, budget=600, action_budget=1),\n        batches=batches, events=events, result=result,\n    )\n    args.json_out.write_text(json.dumps(payload, indent=2) + \"\\n\")\n    if len(batches) != 2 or any(b[\"metrics\"][\"search_aborts\"] for b in batches):\n        raise RuntimeError(\"Expected two diagnosis batches with zero search aborts\")\n    if any(row[\"belief_metrics\"][\"coverage\"] != 1 for row in result[\"rounds\"]):\n        raise RuntimeError(\"Incomplete diagnosis coverage\")\n    if result[\"aggregate\"][\"regret\"] != 0 or result[\"aggregate\"][\"station_score\"] != 637:\n        raise RuntimeError(\"StationOps acceptance result changed\")\n\n\nif __name__ == \"__main__\":\n    main()\n"
+  },
+  "runtime_tree": "502d08ba468480093d22e710db17f21ab4c3ac59",
+  "fetched": false,
+  "rebuilt": false,
+  "runtime_changed": false,
+  "validation": {
+    "strict_probe_compilation": "passed for both final variants",
+    "waiting_consumer_sanity_checks": 5,
+    "full_suite_run": false,
+    "excluded_trials": "Early consumer-count markers failed activation; only fanout-final-* results are authoritative."
+  }
+}
