@@ -6,6 +6,14 @@ scheduler: full refinement almost doubles seed 7's second-shift diagnosis time,
 and increasing the setting does not monotonically improve belief quality.
 Depth and the existing demand formula were kept unchanged.
 
+Follow-up: the [derivation investigation](stationops_reuse_derivation_2026-09-08.md)
+separates the settings between shifts. Keeping shift one at 0 and refining
+shift two recovers the alarm-based 0.722300 answer. The weak 0.5/0.5 run never
+finishes that local alarm proof; its upstream alarm remains at an extra depth
+level. Thus the aggregate table below confounds first-shift history with
+second-shift refinement, and is not evidence that extra refinement alone
+causes the large quality loss.
+
 ## What was tested
 
 The proposed setting `r` is the fraction of the remaining expansion budget spent

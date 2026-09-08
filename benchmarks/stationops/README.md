@@ -52,3 +52,7 @@ new benchmark acceptance defaults.
 The [reuse and refinement screening report](../../docs/metta/stationops_reuse_refinement_2026-09-08.md)
 compares a 0–1 refinement allowance on three seeds and generic evidence updates.
 It preserves depth and remains an isolated prototype, with no new default.
+
+The [proof derivation follow-up](../../docs/metta/stationops_reuse_derivation_2026-09-08.md)
+identifies the alarm-based answer and uses crossed per-shift settings to isolate
+the retained-proof-history effect from second-shift refinement.
