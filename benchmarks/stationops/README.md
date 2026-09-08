@@ -42,3 +42,9 @@ a fixed baseline. This expensive application benchmark is separate from
 `scripts/verify.sh`; passing that script does not establish StationOps
 performance. The historical runner is independent of benchmark files in the
 tested revisions, so the same instrumentation executes on both sides.
+
+The [refinement trace and depth ablation report](../../docs/metta/stationops_refinement_trace_2026-09-08.md)
+records elapsed-time quality comparisons, additional seeds, and the existing
+MeTTa suite results for the isolated scheduling experiment. Its compact evidence
+includes the probe patches and drivers; these are diagnostic experiments, not
+new benchmark acceptance defaults.
