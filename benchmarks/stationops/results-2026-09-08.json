@@ -1,0 +1,1369 @@
+{
+  "metadata": {
+    "revisions": {
+      "base": "2e61e42f021b7ca90a015025289ac274e6ebe6c4",
+      "candidate": "0b938c26a410b4aa393b07e2a118c2c0f64cc417"
+    },
+    "pairs": 3,
+    "max_regression_percent": 5,
+    "game_commit": "99fc56e4ddd0d718f00e494146b0ff1884e5fc5e",
+    "runtime_commit": "ccf0862d40eebbf9adb1a274d2e51f98b4a53f84",
+    "runtime_tree": "502d08ba468480093d22e710db17f21ab4c3ac59",
+    "repository_status": "?? .claude/\n?? baseline_agenda_incumbent.json\n?? benchmarks/stationops/\n?? docs/metta/stationops_regression_2026-09-08.md\n?? tmp.txt",
+    "game_status": "?? benchmark-runs/",
+    "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+    "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+    "command": [
+      "benchmarks/stationops/compare.py",
+      "2e61e42",
+      "0b938c26",
+      "--pairs",
+      "3",
+      "--output-dir",
+      "/tmp/stationops-endpoint-ab"
+    ],
+    "fetched": false,
+    "rebuilt": false
+  },
+  "cpu": "AMD Ryzen 7 5700X3D 8-Core Processor",
+  "workload": {
+    "seed": 7,
+    "shifts": 2,
+    "modules": 4,
+    "budget": 600,
+    "action_budget": 1
+  },
+  "screening": [
+    {
+      "label": "old-1",
+      "revision": "2e61e42",
+      "diagnosis": [
+        {
+          "shift": 1,
+          "seconds": 18.925816090995795,
+          "inferences": 83631925,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 18.912287519997335,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1094,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "durable_parent_edge_rows_before": 0,
+            "agenda_pushes": 855,
+            "agenda_pops": 715,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 38163,
+            "goal_demand_cache_hits": 30125,
+            "goal_demand_cache_misses": 8038,
+            "demand_revision_bumps": 16282,
+            "proof_liveness_checks": 7196,
+            "proof_liveness_cache_hits": 2065,
+            "proof_liveness_cache_misses": 122,
+            "durable_proof_considerations": 0,
+            "current_proof_goal_lookups": 265,
+            "current_result_goal_lookups": 8342,
+            "candidate_comparisons": 555,
+            "dominance_checks": 93,
+            "proofs_stored": 873
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 49.163837865009555,
+          "inferences": 131543895,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 49.117535195007804,
+            "durable_proof_rows_before": 1131,
+            "durable_proof_rows_after": 2380,
+            "durable_goal_index_rows_before": 910,
+            "durable_result_index_rows_before": 221,
+            "durable_parent_edge_rows_before": 3091,
+            "agenda_pushes": 1041,
+            "agenda_pops": 793,
+            "search_aborts": 0,
+            "stale_agenda_entries": 39,
+            "goal_demand_evaluations": 72560,
+            "goal_demand_cache_hits": 59663,
+            "goal_demand_cache_misses": 12897,
+            "demand_revision_bumps": 23863,
+            "proof_liveness_checks": 15253,
+            "proof_liveness_cache_hits": 3438,
+            "proof_liveness_cache_misses": 166,
+            "durable_proof_considerations": 0,
+            "current_proof_goal_lookups": 395,
+            "current_result_goal_lookups": 11208,
+            "candidate_comparisons": 933,
+            "dominance_checks": 262,
+            "proofs_stored": 970
+          }
+        }
+      ],
+      "coverage": [
+        1.0,
+        1.0
+      ],
+      "shift_seconds": [
+        34.19163008099713,
+        50.47773076601152
+      ],
+      "station_score": 637.0,
+      "regret": 0.0,
+      "commit": "2e61e42f021b7ca90a015025289ac274e6ebe6c4"
+    },
+    {
+      "label": "pre-policy-1",
+      "revision": "4152fd71",
+      "diagnosis": [
+        {
+          "shift": 1,
+          "seconds": 14.391127032999066,
+          "inferences": 69445962,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 14.376884804005385,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1093,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "durable_parent_edge_rows_before": 0,
+            "agenda_pushes": 849,
+            "agenda_pops": 714,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 37219,
+            "goal_demand_cache_hits": 29403,
+            "goal_demand_cache_misses": 7816,
+            "demand_revision_bumps": 16287,
+            "proof_liveness_checks": 1475,
+            "proof_liveness_cache_hits": 906,
+            "proof_liveness_cache_misses": 84,
+            "current_proof_goal_lookups": 260,
+            "current_result_goal_lookups": 8309,
+            "candidate_comparisons": 555,
+            "dominance_checks": 536,
+            "proofs_stored": 872
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 25.581786270005978,
+          "inferences": 113562131,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 25.534834876001696,
+            "durable_proof_rows_before": 1130,
+            "durable_proof_rows_after": 2418,
+            "durable_goal_index_rows_before": 909,
+            "durable_result_index_rows_before": 221,
+            "durable_parent_edge_rows_before": 3085,
+            "agenda_pushes": 1031,
+            "agenda_pops": 806,
+            "search_aborts": 0,
+            "stale_agenda_entries": 57,
+            "goal_demand_evaluations": 74694,
+            "goal_demand_cache_hits": 61332,
+            "goal_demand_cache_misses": 13362,
+            "demand_revision_bumps": 24666,
+            "proof_liveness_checks": 5736,
+            "proof_liveness_cache_hits": 2915,
+            "proof_liveness_cache_misses": 285,
+            "current_proof_goal_lookups": 213,
+            "current_result_goal_lookups": 11258,
+            "candidate_comparisons": 969,
+            "dominance_checks": 817,
+            "proofs_stored": 992
+          }
+        }
+      ],
+      "coverage": [
+        1.0,
+        1.0
+      ],
+      "shift_seconds": [
+        29.41955753599177,
+        26.885663501001545
+      ],
+      "station_score": 637.0,
+      "regret": 0.0,
+      "commit": "4152fd71d19ebea0d262f17675e743355cf61a31"
+    },
+    {
+      "label": "policy-1",
+      "revision": "afbfafc9",
+      "diagnosis": [
+        {
+          "shift": 1,
+          "seconds": 19.266887966994545,
+          "inferences": 99499185,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 19.25348552200012,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1158,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "durable_parent_edge_rows_before": 0,
+            "agenda_pushes": 866,
+            "agenda_pops": 725,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 42501,
+            "goal_demand_cache_hits": 33926,
+            "goal_demand_cache_misses": 8575,
+            "demand_revision_bumps": 18183,
+            "current_proof_goal_lookups": 259,
+            "current_result_goal_lookups": 9320,
+            "candidate_comparisons": 618,
+            "dominance_checks": 606,
+            "proofs_stored": 931
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 24.086657694992027,
+          "inferences": 163883579,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 24.04088945800322,
+            "durable_proof_rows_before": 1195,
+            "durable_proof_rows_after": 2102,
+            "durable_goal_index_rows_before": 968,
+            "durable_result_index_rows_before": 227,
+            "durable_parent_edge_rows_before": 3339,
+            "agenda_pushes": 918,
+            "agenda_pops": 754,
+            "search_aborts": 0,
+            "stale_agenda_entries": 53,
+            "goal_demand_evaluations": 44458,
+            "goal_demand_cache_hits": 36641,
+            "goal_demand_cache_misses": 7817,
+            "demand_revision_bumps": 16039,
+            "current_proof_goal_lookups": 322,
+            "current_result_goal_lookups": 8183,
+            "candidate_comparisons": 581,
+            "dominance_checks": 487,
+            "proofs_stored": 737
+          }
+        }
+      ],
+      "coverage": [
+        1.0,
+        0.75
+      ],
+      "shift_seconds": [
+        34.07406557801005,
+        25.229881182996905
+      ],
+      "station_score": 637.0,
+      "regret": 0.0,
+      "commit": "afbfafc97436eea61258a3c5cab50067b9b5c251"
+    },
+    {
+      "label": "retirement-1",
+      "revision": "5e6d1ece",
+      "diagnosis": [
+        {
+          "shift": 1,
+          "seconds": 19.25633131999348,
+          "inferences": 99113688,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 19.242685598001117,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1158,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "durable_parent_edge_rows_before": 0,
+            "agenda_pushes": 866,
+            "agenda_pops": 725,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 42501,
+            "goal_demand_cache_hits": 33926,
+            "goal_demand_cache_misses": 8575,
+            "demand_revision_bumps": 18183,
+            "current_proof_goal_lookups": 259,
+            "current_result_goal_lookups": 9320,
+            "candidate_comparisons": 618,
+            "dominance_checks": 606,
+            "proofs_stored": 931
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 95.75493715600169,
+          "inferences": 518077958,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 95.69747906600242,
+            "durable_proof_rows_before": 1195,
+            "durable_proof_rows_after": 3211,
+            "durable_goal_index_rows_before": 968,
+            "durable_result_index_rows_before": 227,
+            "durable_parent_edge_rows_before": 3339,
+            "agenda_pushes": 1130,
+            "agenda_pops": 842,
+            "search_aborts": 0,
+            "stale_agenda_entries": 75,
+            "goal_demand_evaluations": 139235,
+            "goal_demand_cache_hits": 119268,
+            "goal_demand_cache_misses": 19967,
+            "demand_revision_bumps": 36580,
+            "current_proof_goal_lookups": 185,
+            "current_result_goal_lookups": 16400,
+            "candidate_comparisons": 2227,
+            "dominance_checks": 2057,
+            "proofs_stored": 1349
+          }
+        }
+      ],
+      "coverage": [
+        1.0,
+        1.0
+      ],
+      "shift_seconds": [
+        33.59360154499882,
+        97.54135044799477
+      ],
+      "station_score": 637.0,
+      "regret": 0.0,
+      "commit": "5e6d1ece816b53c44700aee8de747002afe87e20"
+    },
+    {
+      "label": "demand-walk-1",
+      "revision": "6ae53c00",
+      "diagnosis": [
+        {
+          "shift": 1,
+          "seconds": 19.59010964499612,
+          "inferences": 99057319,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 19.576388476998545,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1158,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 866,
+            "agenda_pops": 725,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 42501,
+            "goal_demand_cache_hits": 33926,
+            "goal_demand_cache_misses": 8575,
+            "demand_revision_bumps": 18183,
+            "current_proof_goal_lookups": 259,
+            "current_result_goal_lookups": 9320,
+            "candidate_comparisons": 618,
+            "dominance_checks": 606,
+            "proofs_stored": 931
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 93.96210846799659,
+          "inferences": 510077784,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 93.91802882400225,
+            "durable_proof_rows_before": 1195,
+            "durable_proof_rows_after": 3211,
+            "durable_goal_index_rows_before": 968,
+            "durable_result_index_rows_before": 227,
+            "agenda_pushes": 1130,
+            "agenda_pops": 842,
+            "search_aborts": 0,
+            "stale_agenda_entries": 75,
+            "goal_demand_evaluations": 139235,
+            "goal_demand_cache_hits": 119268,
+            "goal_demand_cache_misses": 19967,
+            "demand_revision_bumps": 36580,
+            "current_proof_goal_lookups": 185,
+            "current_result_goal_lookups": 16400,
+            "candidate_comparisons": 2227,
+            "dominance_checks": 2057,
+            "proofs_stored": 1349
+          }
+        }
+      ],
+      "coverage": [
+        1.0,
+        1.0
+      ],
+      "shift_seconds": [
+        33.605429335992085,
+        95.71040022399393
+      ],
+      "station_score": 637.0,
+      "regret": 0.0,
+      "commit": "6ae53c00b2591d98c742e506e55ac4bfe9e0e7af"
+    },
+    {
+      "label": "lineage-1",
+      "revision": "26a04bc0",
+      "diagnosis": [
+        {
+          "shift": 1,
+          "seconds": 19.062883539998438,
+          "inferences": 99055752,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 19.04970478299947,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1158,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 866,
+            "agenda_pops": 725,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 42501,
+            "goal_demand_cache_hits": 33926,
+            "goal_demand_cache_misses": 8575,
+            "demand_revision_bumps": 18183,
+            "current_proof_goal_lookups": 259,
+            "current_result_goal_lookups": 9320,
+            "candidate_comparisons": 618,
+            "dominance_checks": 606,
+            "proofs_stored": 931
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 93.53158510300273,
+          "inferences": 510076172,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 93.48778228100855,
+            "durable_proof_rows_before": 1195,
+            "durable_proof_rows_after": 3211,
+            "durable_goal_index_rows_before": 968,
+            "durable_result_index_rows_before": 227,
+            "agenda_pushes": 1130,
+            "agenda_pops": 842,
+            "search_aborts": 0,
+            "stale_agenda_entries": 75,
+            "goal_demand_evaluations": 139235,
+            "goal_demand_cache_hits": 119268,
+            "goal_demand_cache_misses": 19967,
+            "demand_revision_bumps": 36580,
+            "current_proof_goal_lookups": 185,
+            "current_result_goal_lookups": 16400,
+            "candidate_comparisons": 2227,
+            "dominance_checks": 2057,
+            "proofs_stored": 1349
+          }
+        }
+      ],
+      "coverage": [
+        1.0,
+        1.0
+      ],
+      "shift_seconds": [
+        33.056216523007606,
+        95.26696897199145
+      ],
+      "station_score": 637.0,
+      "regret": 0.0,
+      "commit": "26a04bc080c79076ff7b77e3e7da42656b7b8813"
+    },
+    {
+      "label": "merge-1",
+      "revision": "207490e8",
+      "diagnosis": [
+        {
+          "shift": 1,
+          "seconds": 18.58137654500024,
+          "inferences": 93365483,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 18.567758760007564,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1158,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 866,
+            "agenda_pops": 725,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 42501,
+            "goal_demand_cache_hits": 33926,
+            "goal_demand_cache_misses": 8575,
+            "demand_revision_bumps": 18183,
+            "current_proof_goal_lookups": 259,
+            "current_result_goal_lookups": 9320,
+            "candidate_comparisons": 618,
+            "dominance_checks": 606,
+            "proofs_stored": 931
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 91.3349674029887,
+          "inferences": 490214548,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 91.29035523001221,
+            "durable_proof_rows_before": 1195,
+            "durable_proof_rows_after": 3211,
+            "durable_goal_index_rows_before": 968,
+            "durable_result_index_rows_before": 227,
+            "agenda_pushes": 1130,
+            "agenda_pops": 842,
+            "search_aborts": 0,
+            "stale_agenda_entries": 75,
+            "goal_demand_evaluations": 139235,
+            "goal_demand_cache_hits": 119268,
+            "goal_demand_cache_misses": 19967,
+            "demand_revision_bumps": 36580,
+            "current_proof_goal_lookups": 185,
+            "current_result_goal_lookups": 16400,
+            "candidate_comparisons": 2227,
+            "dominance_checks": 2057,
+            "proofs_stored": 1349
+          }
+        }
+      ],
+      "coverage": [
+        1.0,
+        1.0
+      ],
+      "shift_seconds": [
+        32.32254247101082,
+        93.08980673900805
+      ],
+      "station_score": 637.0,
+      "regret": 0.0,
+      "commit": "207490e800c073d15aadbffe5c2a6aad5ad9455d"
+    },
+    {
+      "label": "new-1",
+      "revision": "0b938c26",
+      "diagnosis": [
+        {
+          "shift": 1,
+          "seconds": 18.290092730996548,
+          "inferences": 92797795,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 18.276088953993167,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1158,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 866,
+            "agenda_pops": 725,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 42501,
+            "goal_demand_cache_hits": 33926,
+            "goal_demand_cache_misses": 8575,
+            "demand_revision_bumps": 18183,
+            "current_proof_goal_lookups": 259,
+            "current_result_goal_lookups": 9320,
+            "candidate_comparisons": 618,
+            "dominance_checks": 606,
+            "proofs_stored": 931
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 90.95356907400128,
+          "inferences": 489061743,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 90.90259968899773,
+            "durable_proof_rows_before": 1195,
+            "durable_proof_rows_after": 3211,
+            "durable_goal_index_rows_before": 968,
+            "durable_result_index_rows_before": 227,
+            "agenda_pushes": 1130,
+            "agenda_pops": 842,
+            "search_aborts": 0,
+            "stale_agenda_entries": 75,
+            "goal_demand_evaluations": 139235,
+            "goal_demand_cache_hits": 119268,
+            "goal_demand_cache_misses": 19967,
+            "demand_revision_bumps": 36580,
+            "current_proof_goal_lookups": 185,
+            "current_result_goal_lookups": 16400,
+            "candidate_comparisons": 2227,
+            "dominance_checks": 2057,
+            "proofs_stored": 1349
+          }
+        }
+      ],
+      "coverage": [
+        1.0,
+        1.0
+      ],
+      "shift_seconds": [
+        32.11225886600732,
+        92.7413332159922
+      ],
+      "station_score": 637.0,
+      "regret": 0.0,
+      "commit": "0b938c26a410b4aa393b07e2a118c2c0f64cc417"
+    },
+    {
+      "label": "skip-retirement-1",
+      "revision": "afbfafc9 + skip-retirement.patch",
+      "diagnosis": [
+        {
+          "shift": 1,
+          "seconds": 19.223380965006072,
+          "inferences": 99432205,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 19.210292182004196,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1158,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "durable_parent_edge_rows_before": 0,
+            "agenda_pushes": 866,
+            "agenda_pops": 725,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 42501,
+            "goal_demand_cache_hits": 33926,
+            "goal_demand_cache_misses": 8575,
+            "demand_revision_bumps": 18183,
+            "current_proof_goal_lookups": 259,
+            "current_result_goal_lookups": 9320,
+            "candidate_comparisons": 618,
+            "dominance_checks": 606,
+            "proofs_stored": 931
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 95.31174652700429,
+          "inferences": 518502325,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 95.25638387299841,
+            "durable_proof_rows_before": 1195,
+            "durable_proof_rows_after": 3211,
+            "durable_goal_index_rows_before": 968,
+            "durable_result_index_rows_before": 227,
+            "durable_parent_edge_rows_before": 3339,
+            "agenda_pushes": 1130,
+            "agenda_pops": 842,
+            "search_aborts": 0,
+            "stale_agenda_entries": 75,
+            "goal_demand_evaluations": 139235,
+            "goal_demand_cache_hits": 119268,
+            "goal_demand_cache_misses": 19967,
+            "demand_revision_bumps": 36580,
+            "current_proof_goal_lookups": 185,
+            "current_result_goal_lookups": 16400,
+            "candidate_comparisons": 2227,
+            "dominance_checks": 2057,
+            "proofs_stored": 1349
+          }
+        }
+      ],
+      "coverage": [
+        1.0,
+        1.0
+      ],
+      "shift_seconds": [
+        33.85249932199076,
+        97.09287578900694
+      ],
+      "station_score": 637.0,
+      "regret": 0.0,
+      "commit": "afbfafc97436eea61258a3c5cab50067b9b5c251"
+    }
+  ],
+  "ablation": {
+    "base": "afbfafc9",
+    "patch": "--- a/pettachainer/metta/runtime/base_rates.metta\n+++ b/pettachainer/metta/runtime/base_rates.metta\n@@ -73,15 +73,7 @@\n             ()))))\n \n (: pending-base-rate-retires? (-[det]-> Bool))\n-(= (pending-base-rate-retires?)\n-   (not\n-      (==\n-         (collapse\n-            (once\n-               (match &base_rate_pending_retire\n-                  ($_lookup (pending-base-rate-retire-entry $_key))\n-                  true)))\n-         ())))\n+(= (pending-base-rate-retires?) false)\n \n (: request-base-rate-aggregate-retire!\n    (-[det]-> Number BaseRateAggregateKey Bool))\n",
+    "all_non_timing_query_metrics_equal_to_5e6d1ece": true,
+    "normalized_proofs_equal_to_5e6d1ece": true,
+    "episode_results_equal_to_5e6d1ece": true
+  },
+  "paired_runs": [
+    {
+      "sample": "base-1",
+      "environment": {
+        "repository": "/tmp/stationops-endpoint-ab/base",
+        "chainergame": "/tmp/stationops-endpoint-ab/game",
+        "petta": "/tmp/stationops-endpoint-ab/runtime/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          0.9833984375,
+          1.0,
+          0.81396484375
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "diagnosis": [
+        {
+          "shift": 1,
+          "seconds": 19.04818548601179,
+          "cpu_seconds": 19.0690772,
+          "inferences": 83631925,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 19.03557135099254,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1094,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "durable_parent_edge_rows_before": 0,
+            "agenda_pushes": 855,
+            "agenda_pops": 715,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 38163,
+            "goal_demand_cache_hits": 30125,
+            "goal_demand_cache_misses": 8038,
+            "demand_revision_bumps": 16282,
+            "proof_liveness_checks": 7196,
+            "proof_liveness_cache_hits": 2065,
+            "proof_liveness_cache_misses": 122,
+            "durable_proof_considerations": 0,
+            "current_proof_goal_lookups": 265,
+            "current_result_goal_lookups": 8342,
+            "candidate_comparisons": 555,
+            "dominance_checks": 93,
+            "proofs_stored": 873
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 49.665224177006166,
+          "cpu_seconds": 49.886203900000005,
+          "inferences": 131543895,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 49.61703572500846,
+            "durable_proof_rows_before": 1131,
+            "durable_proof_rows_after": 2380,
+            "durable_goal_index_rows_before": 910,
+            "durable_result_index_rows_before": 221,
+            "durable_parent_edge_rows_before": 3091,
+            "agenda_pushes": 1041,
+            "agenda_pops": 793,
+            "search_aborts": 0,
+            "stale_agenda_entries": 39,
+            "goal_demand_evaluations": 72560,
+            "goal_demand_cache_hits": 59663,
+            "goal_demand_cache_misses": 12897,
+            "demand_revision_bumps": 23863,
+            "proof_liveness_checks": 15253,
+            "proof_liveness_cache_hits": 3438,
+            "proof_liveness_cache_misses": 166,
+            "durable_proof_considerations": 0,
+            "current_proof_goal_lookups": 395,
+            "current_result_goal_lookups": 11208,
+            "candidate_comparisons": 933,
+            "dominance_checks": 262,
+            "proofs_stored": 970
+          }
+        }
+      ],
+      "shift_seconds": [
+        34.23399513801269,
+        51.02026720099093
+      ],
+      "total_seconds": 85.25642169600178,
+      "coverage": [
+        1.0,
+        1.0
+      ],
+      "station_score": 637.0,
+      "regret": 0.0,
+      "episode_sha256": "04eaea46d2aa5eee6c8c3e089b483bc28bbef24a49da8da3167de39452bfe422",
+      "proof_sha256": "8e27c225ffe05a17a19feada09781dfdb214fec81643ac4e49afafeede34c20f"
+    },
+    {
+      "sample": "base-2",
+      "environment": {
+        "repository": "/tmp/stationops-endpoint-ab/base",
+        "chainergame": "/tmp/stationops-endpoint-ab/game",
+        "petta": "/tmp/stationops-endpoint-ab/runtime/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.02978515625,
+          1.01123046875,
+          0.8916015625
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "diagnosis": [
+        {
+          "shift": 1,
+          "seconds": 18.705457627002033,
+          "cpu_seconds": 18.817152999999998,
+          "inferences": 83631925,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 18.692611267004395,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1094,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "durable_parent_edge_rows_before": 0,
+            "agenda_pushes": 855,
+            "agenda_pops": 715,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 38163,
+            "goal_demand_cache_hits": 30125,
+            "goal_demand_cache_misses": 8038,
+            "demand_revision_bumps": 16282,
+            "proof_liveness_checks": 7196,
+            "proof_liveness_cache_hits": 2065,
+            "proof_liveness_cache_misses": 122,
+            "durable_proof_considerations": 0,
+            "current_proof_goal_lookups": 265,
+            "current_result_goal_lookups": 8342,
+            "candidate_comparisons": 555,
+            "dominance_checks": 93,
+            "proofs_stored": 873
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 49.51816313499876,
+          "cpu_seconds": 49.659455099999995,
+          "inferences": 131543895,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 49.4721893100068,
+            "durable_proof_rows_before": 1131,
+            "durable_proof_rows_after": 2380,
+            "durable_goal_index_rows_before": 910,
+            "durable_result_index_rows_before": 221,
+            "durable_parent_edge_rows_before": 3091,
+            "agenda_pushes": 1041,
+            "agenda_pops": 793,
+            "search_aborts": 0,
+            "stale_agenda_entries": 39,
+            "goal_demand_evaluations": 72560,
+            "goal_demand_cache_hits": 59663,
+            "goal_demand_cache_misses": 12897,
+            "demand_revision_bumps": 23863,
+            "proof_liveness_checks": 15253,
+            "proof_liveness_cache_hits": 3438,
+            "proof_liveness_cache_misses": 166,
+            "durable_proof_considerations": 0,
+            "current_proof_goal_lookups": 395,
+            "current_result_goal_lookups": 11208,
+            "candidate_comparisons": 933,
+            "dominance_checks": 262,
+            "proofs_stored": 970
+          }
+        }
+      ],
+      "shift_seconds": [
+        33.758007291005924,
+        50.835847499998636
+      ],
+      "total_seconds": 84.59584750099748,
+      "coverage": [
+        1.0,
+        1.0
+      ],
+      "station_score": 637.0,
+      "regret": 0.0,
+      "episode_sha256": "04eaea46d2aa5eee6c8c3e089b483bc28bbef24a49da8da3167de39452bfe422",
+      "proof_sha256": "8e27c225ffe05a17a19feada09781dfdb214fec81643ac4e49afafeede34c20f"
+    },
+    {
+      "sample": "base-3",
+      "environment": {
+        "repository": "/tmp/stationops-endpoint-ab/base",
+        "chainergame": "/tmp/stationops-endpoint-ab/game",
+        "petta": "/tmp/stationops-endpoint-ab/runtime/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.1083984375,
+          1.04736328125,
+          0.91943359375
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "diagnosis": [
+        {
+          "shift": 1,
+          "seconds": 18.85363411299477,
+          "cpu_seconds": 18.8836261,
+          "inferences": 83631925,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 18.841006568996818,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1094,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "durable_parent_edge_rows_before": 0,
+            "agenda_pushes": 855,
+            "agenda_pops": 715,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 38163,
+            "goal_demand_cache_hits": 30125,
+            "goal_demand_cache_misses": 8038,
+            "demand_revision_bumps": 16282,
+            "proof_liveness_checks": 7196,
+            "proof_liveness_cache_hits": 2065,
+            "proof_liveness_cache_misses": 122,
+            "durable_proof_considerations": 0,
+            "current_proof_goal_lookups": 265,
+            "current_result_goal_lookups": 8342,
+            "candidate_comparisons": 555,
+            "dominance_checks": 93,
+            "proofs_stored": 873
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 51.134222135995515,
+          "cpu_seconds": 51.33311880000001,
+          "inferences": 131543895,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 51.08656348999648,
+            "durable_proof_rows_before": 1131,
+            "durable_proof_rows_after": 2380,
+            "durable_goal_index_rows_before": 910,
+            "durable_result_index_rows_before": 221,
+            "durable_parent_edge_rows_before": 3091,
+            "agenda_pushes": 1041,
+            "agenda_pops": 793,
+            "search_aborts": 0,
+            "stale_agenda_entries": 39,
+            "goal_demand_evaluations": 72560,
+            "goal_demand_cache_hits": 59663,
+            "goal_demand_cache_misses": 12897,
+            "demand_revision_bumps": 23863,
+            "proof_liveness_checks": 15253,
+            "proof_liveness_cache_hits": 3438,
+            "proof_liveness_cache_misses": 166,
+            "durable_proof_considerations": 0,
+            "current_proof_goal_lookups": 395,
+            "current_result_goal_lookups": 11208,
+            "candidate_comparisons": 933,
+            "dominance_checks": 262,
+            "proofs_stored": 970
+          }
+        }
+      ],
+      "shift_seconds": [
+        33.965613673004555,
+        52.49081802900764
+      ],
+      "total_seconds": 86.45844765199581,
+      "coverage": [
+        1.0,
+        1.0
+      ],
+      "station_score": 637.0,
+      "regret": 0.0,
+      "episode_sha256": "04eaea46d2aa5eee6c8c3e089b483bc28bbef24a49da8da3167de39452bfe422",
+      "proof_sha256": "8e27c225ffe05a17a19feada09781dfdb214fec81643ac4e49afafeede34c20f"
+    },
+    {
+      "sample": "candidate-1",
+      "environment": {
+        "repository": "/tmp/stationops-endpoint-ab/candidate",
+        "chainergame": "/tmp/stationops-endpoint-ab/game",
+        "petta": "/tmp/stationops-endpoint-ab/runtime/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.0390625,
+          1.0126953125,
+          0.84521484375
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "diagnosis": [
+        {
+          "shift": 1,
+          "seconds": 18.809597339990432,
+          "cpu_seconds": 18.856706,
+          "inferences": 92797795,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 18.796399715007283,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1158,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 866,
+            "agenda_pops": 725,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 42501,
+            "goal_demand_cache_hits": 33926,
+            "goal_demand_cache_misses": 8575,
+            "demand_revision_bumps": 18183,
+            "current_proof_goal_lookups": 259,
+            "current_result_goal_lookups": 9320,
+            "candidate_comparisons": 618,
+            "dominance_checks": 606,
+            "proofs_stored": 931
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 91.10599644799368,
+          "cpu_seconds": 91.5674259,
+          "inferences": 489061743,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 91.06308484499459,
+            "durable_proof_rows_before": 1195,
+            "durable_proof_rows_after": 3211,
+            "durable_goal_index_rows_before": 968,
+            "durable_result_index_rows_before": 227,
+            "agenda_pushes": 1130,
+            "agenda_pops": 842,
+            "search_aborts": 0,
+            "stale_agenda_entries": 75,
+            "goal_demand_evaluations": 139235,
+            "goal_demand_cache_hits": 119268,
+            "goal_demand_cache_misses": 19967,
+            "demand_revision_bumps": 36580,
+            "current_proof_goal_lookups": 185,
+            "current_result_goal_lookups": 16400,
+            "candidate_comparisons": 2227,
+            "dominance_checks": 2057,
+            "proofs_stored": 1349
+          }
+        }
+      ],
+      "shift_seconds": [
+        32.80879205701058,
+        92.81590626398975
+      ],
+      "total_seconds": 125.62804749100178,
+      "coverage": [
+        1.0,
+        1.0
+      ],
+      "station_score": 637.0,
+      "regret": 0.0,
+      "episode_sha256": "1851c96901a13e64fc62d3544c94a84dd012799d342c63793bc32c341a039bf3",
+      "proof_sha256": "203e2403cf361393d47b57257e7c88ff0123751312dfd522abe0953d93631126"
+    },
+    {
+      "sample": "candidate-2",
+      "environment": {
+        "repository": "/tmp/stationops-endpoint-ab/candidate",
+        "chainergame": "/tmp/stationops-endpoint-ab/game",
+        "petta": "/tmp/stationops-endpoint-ab/runtime/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.00244140625,
+          1.00048828125,
+          0.86962890625
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "diagnosis": [
+        {
+          "shift": 1,
+          "seconds": 18.38606420799624,
+          "cpu_seconds": 18.416287099999998,
+          "inferences": 92797795,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 18.37270541500766,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1158,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 866,
+            "agenda_pops": 725,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 42501,
+            "goal_demand_cache_hits": 33926,
+            "goal_demand_cache_misses": 8575,
+            "demand_revision_bumps": 18183,
+            "current_proof_goal_lookups": 259,
+            "current_result_goal_lookups": 9320,
+            "candidate_comparisons": 618,
+            "dominance_checks": 606,
+            "proofs_stored": 931
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 90.98385800799588,
+          "cpu_seconds": 91.43954450000001,
+          "inferences": 489061743,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 90.94058394100284,
+            "durable_proof_rows_before": 1195,
+            "durable_proof_rows_after": 3211,
+            "durable_goal_index_rows_before": 968,
+            "durable_result_index_rows_before": 227,
+            "agenda_pushes": 1130,
+            "agenda_pops": 842,
+            "search_aborts": 0,
+            "stale_agenda_entries": 75,
+            "goal_demand_evaluations": 139235,
+            "goal_demand_cache_hits": 119268,
+            "goal_demand_cache_misses": 19967,
+            "demand_revision_bumps": 36580,
+            "current_proof_goal_lookups": 185,
+            "current_result_goal_lookups": 16400,
+            "candidate_comparisons": 2227,
+            "dominance_checks": 2057,
+            "proofs_stored": 1349
+          }
+        }
+      ],
+      "shift_seconds": [
+        32.12885626699426,
+        92.69533023799886
+      ],
+      "total_seconds": 124.826185834012,
+      "coverage": [
+        1.0,
+        1.0
+      ],
+      "station_score": 637.0,
+      "regret": 0.0,
+      "episode_sha256": "1851c96901a13e64fc62d3544c94a84dd012799d342c63793bc32c341a039bf3",
+      "proof_sha256": "203e2403cf361393d47b57257e7c88ff0123751312dfd522abe0953d93631126"
+    },
+    {
+      "sample": "candidate-3",
+      "environment": {
+        "repository": "/tmp/stationops-endpoint-ab/candidate",
+        "chainergame": "/tmp/stationops-endpoint-ab/game",
+        "petta": "/tmp/stationops-endpoint-ab/runtime/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.1845703125,
+          1.0732421875,
+          0.9482421875
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "diagnosis": [
+        {
+          "shift": 1,
+          "seconds": 18.78055528200639,
+          "cpu_seconds": 18.790853299999995,
+          "inferences": 92797795,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 18.767485286996816,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1158,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 866,
+            "agenda_pops": 725,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 42501,
+            "goal_demand_cache_hits": 33926,
+            "goal_demand_cache_misses": 8575,
+            "demand_revision_bumps": 18183,
+            "current_proof_goal_lookups": 259,
+            "current_result_goal_lookups": 9320,
+            "candidate_comparisons": 618,
+            "dominance_checks": 606,
+            "proofs_stored": 931
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 92.67718545399839,
+          "cpu_seconds": 93.1673585,
+          "inferences": 489061743,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 92.63476206400082,
+            "durable_proof_rows_before": 1195,
+            "durable_proof_rows_after": 3211,
+            "durable_goal_index_rows_before": 968,
+            "durable_result_index_rows_before": 227,
+            "agenda_pushes": 1130,
+            "agenda_pops": 842,
+            "search_aborts": 0,
+            "stale_agenda_entries": 75,
+            "goal_demand_evaluations": 139235,
+            "goal_demand_cache_hits": 119268,
+            "goal_demand_cache_misses": 19967,
+            "demand_revision_bumps": 36580,
+            "current_proof_goal_lookups": 185,
+            "current_result_goal_lookups": 16400,
+            "candidate_comparisons": 2227,
+            "dominance_checks": 2057,
+            "proofs_stored": 1349
+          }
+        }
+      ],
+      "shift_seconds": [
+        32.85829789900163,
+        94.39315393500146
+      ],
+      "total_seconds": 127.25352767300501,
+      "coverage": [
+        1.0,
+        1.0
+      ],
+      "station_score": 637.0,
+      "regret": 0.0,
+      "episode_sha256": "1851c96901a13e64fc62d3544c94a84dd012799d342c63793bc32c341a039bf3",
+      "proof_sha256": "203e2403cf361393d47b57257e7c88ff0123751312dfd522abe0953d93631126"
+    }
+  ],
+  "comparison": {
+    "semantic_results_equal": false,
+    "proof_answers_equal": false,
+    "acceptance": [
+      {
+        "sample": "base-1",
+        "passed": true
+      },
+      {
+        "sample": "candidate-1",
+        "passed": true
+      },
+      {
+        "sample": "candidate-2",
+        "passed": true
+      },
+      {
+        "sample": "base-2",
+        "passed": true
+      },
+      {
+        "sample": "base-3",
+        "passed": true
+      },
+      {
+        "sample": "candidate-3",
+        "passed": true
+      }
+    ],
+    "comparisons": [
+      {
+        "shift": 1,
+        "metric": "seconds",
+        "base": 18.85363411299477,
+        "candidate": 18.78055528200639,
+        "delta_percent": -0.387611377999586,
+        "passed": true
+      },
+      {
+        "shift": 1,
+        "metric": "inferences",
+        "base": 83631925,
+        "candidate": 92797795,
+        "delta_percent": 10.959774033659997,
+        "passed": false
+      },
+      {
+        "shift": 2,
+        "metric": "seconds",
+        "base": 49.665224177006166,
+        "candidate": 91.10599644799368,
+        "delta_percent": 83.44021990778332,
+        "passed": false
+      },
+      {
+        "shift": 2,
+        "metric": "inferences",
+        "base": 131543895,
+        "candidate": 489061743,
+        "delta_percent": 271.7859677182282,
+        "passed": false
+      }
+    ],
+    "passed": false
+  },
+  "validation": {
+    "within_revision_episode_and_proof_repeatability": true,
+    "independent_equivalent_ablation_gate_passed": true,
+    "historical_regression_gate_rejected": true,
+    "failed_acceptance_gate_rejected": true
+  }
+}
