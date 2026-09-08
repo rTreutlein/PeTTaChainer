@@ -184,14 +184,10 @@ and dependent-proof reconstruction.
 Rule priority is a value-of-computation estimate, not a claim that a proof will
 succeed. A descendant may not receive a larger score than the root branch that
 requested it can contribute. Both first-proof search and incumbent refinement
-multiply attainable root gain by cached premise strength times confidence, then
-divide by immediate premise work. Exact base-rate keys override generalized matching
-patterns. A missing rate receives the neutral scheduler-only exploration prior
-`0.5`: supported cached paths may outrank it, while known bad paths fall below
-it.
-Cached factors have a `0.000001` floor so a known-bad branch remains reachable
-after the more promising work is exhausted.
-The scheduler never computes a base rate merely to obtain this priority. Cached
+divide attainable root gain by immediate premise work. Base-rate strength describes
+statement probability, not the probability of finding a proof: a low-strength
+proof is still a useful answer. Ordinary rule priority therefore does not use
+base rates or a missing-rate exploration multiplier. Cached
 base-rate refolds use their remaining confidence gap and implied evidence count
 instead of a fixed discount. These are deterministic ordering heuristics only:
 proof acceptance still uses the ordinary evidence, dominance, revision, and

@@ -10,6 +10,36 @@ from pettachainer import PeTTaChainer
 
 
 class TestPeTTaChainer(unittest.TestCase):
+    def test_rule_search_ignores_base_rate_strength(self):
+        answers = []
+        for rate in (None, 0.0, 1.0):
+            with self.subTest(rate=rate):
+                handler = PeTTaChainer()
+                handler.add_atoms_no_check([
+                    "(: low (LowInput) (STV 0.0 1.0))",
+                    "(: high (HighInput) (STV 1.0 1.0))",
+                    "(: lowRule (Implication (LowInput) (PriorityGoal)) "
+                    "(CTV (STV 1.0 0.9) (STV 0.0 1.0)))",
+                    "(: highRule (Implication (HighInput) (PriorityGoal)) "
+                    "(CTV (STV 1.0 0.8) (STV 0.0 1.0)))",
+                ])
+                if rate is not None:
+                    handler.handler.process_metta_string(
+                        f"!(set-base-rate {handler.kb} (LowInput) (STV {rate} 1.0))"
+                    )
+                    handler.handler.process_metta_string(
+                        f"!(set-base-rate {handler.kb} (HighInput) (STV {1 - rate} 1.0))"
+                    )
+                result = handler.query(
+                    "(: $proof (PriorityGoal) $tv)", steps=2, timeout_sec=0
+                )
+                answers.append(result)
+                self.assertEqual(len(result), 1)
+                self.assertIn("(by lowRule low)", result[0])
+                self.assertIn("(STV 0.0 ", result[0])
+        self.assertEqual(answers[0], answers[1])
+        self.assertEqual(answers[0], answers[2])
+
     def test_loads_caller_owned_metta_module(self):
         with TemporaryDirectory() as directory:
             module = Path(directory) / "application_formula.metta"
@@ -263,7 +293,7 @@ class TestPeTTaChainer(unittest.TestCase):
         add_states(fresh, initial_states + added_states)
         fresh_result = fresh.query_many_materialization([root], steps=100)
         # These finite-budget values are fold-order-sensitive at 100 steps.
-        refined_point = "(STV 0.46265034325181975 2.9999940000119994e-06)"
+        refined_point = "(STV 0.47191878015453864 3.999988000035998e-06)"
         fresh_point = "(STV 0.4753966096428084 3.999988000035998e-06)"
 
         self.assertNotEqual(refined, original)

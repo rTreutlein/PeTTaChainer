@@ -63,7 +63,7 @@
 (: FrontierWaiter Type)
 (: FrontierValueSpec Type)
 (: frontier-value-spec
-   (-[det]-> Number Number Number FrontierValueSpec))
+   (-[det]-> Number Number FrontierValueSpec))
 (: frontier-waiter
    (-[det]-> Number AndBundle Number (List Evidence)
        (List (| FrontierPart UnpoolablePart)) Number
@@ -115,16 +115,16 @@
          (cons (root-demand $gid 1.0) ()))))
 
 (: frontier-root-demand-step
-   (-[det]-> (| Number NoCurrentScore) Number Number Number Number
+   (-[det]-> (| Number NoCurrentScore) Number Number Number
        RootDemand RootDemand))
 (= (frontier-root-demand-step
-      $current $candidate $premise-count $success-prior $score-cap
+      $current $candidate $premise-count $score-cap
       (root-demand $root $root-bound))
    (root-demand $root
       (min $score-cap
          (root-proof-value-score
             $root-bound $current $candidate
-            $premise-count $success-prior))))
+            $premise-count))))
 
 (: aggregate-root-demands-map
    (-[det]-> AggregateDemandSpec (List RootDemand) (List RootDemand)))
@@ -168,7 +168,7 @@
    (case $waiter (
       ((frontier-waiter $parent-gid $_bundle $score-cap
           $_seen $_parts $path-id
-          (frontier-value-spec $candidate $premise-count $success-prior))
+          (frontier-value-spec $candidate $premise-count))
          (if (goal-shallower? (the Number $parent-gid) $child-depth)
             (if (frontier-path-live? (the Number $path-id))
                (map-flat
@@ -176,7 +176,6 @@
                      (goal-confidence-or-none (the Number $parent-gid))
                      (the Number $candidate)
                      (the Number $premise-count)
-                     (the Number $success-prior)
                      (the Number $score-cap))
                   (goal-root-demands (the Number $parent-gid)))
                ())

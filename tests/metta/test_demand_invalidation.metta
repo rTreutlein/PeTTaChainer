@@ -31,13 +31,13 @@
                 (and-bundle
                    (demand-test-fact (PublicationRoot) callback-result (STV 1.0 0.8))
                    ((demand-test-fact (PublicationParent) $parent-proof $parent-tv)))
-                1.0 () () 0 (frontier-value-spec 1.0 1 1.0))))
+                1.0 () () 0 (frontier-value-spec 1.0 1))))
        ($waiter
           (frontier-waiter $parent
              (and-bundle
                 (demand-test-fact (PublicationParent) result $tv)
                 ((demand-test-fact (PublicationChild) input $input-tv)))
-             1.0 () () 0 (frontier-value-spec 1.0 1 1.0)))
+             1.0 () () 0 (frontier-value-spec 1.0 1)))
        ($_child (register-goal-waiter! $child $parent $waiter))
        ($before (goal-demand-sum $child))
        ($_active (once (add-atom &search_wake_active ($parent 2))))
@@ -99,14 +99,14 @@
                 (demand-test-fact (PathG $value) g-proof $gtv)
                 ((demand-test-fact (PathX) $xgp $xgtv)
                  (demand-test-fact (PathC $value) $cp $ctv)))
-             1.0 () () 0 (frontier-value-spec 1.0 2 1.0)))
+             1.0 () () 0 (frontier-value-spec 1.0 2)))
        ($h-frontier
           (spawn-frontier-heap $g-frontier $h
              (and-bundle
                 (demand-test-fact (PathH $value) h-proof $htv)
                 ((demand-test-fact (PathX) $xhp $xhtv)
                  (demand-test-fact (PathG $value) $hgp $hgtv)))
-             1.0 () () 0 (frontier-value-spec 1.0 2 1.0)))
+             1.0 () () 0 (frontier-value-spec 1.0 2)))
        ($c
           (ensure-goal-at-depth
              (demand-test-fact (PathC $value) $cp $ctv) 1))

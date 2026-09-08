@@ -124,65 +124,6 @@
 
 
 
-(: matching-base-rate-cache-entries
-   (-[det]-> KB Statement (List BaseRateEntry)))
-(= (matching-base-rate-cache-entries $kbid $pattern)
-   (collapse
-      (match &base_rate_cache
-         (base-rate $kbid $stored $tv $source $mode)
-         (let*
-            (($stored-copy (copy_term $stored))
-             ($pattern-copy (copy_term $pattern))
-             ($unifies
-                (collapse
-                   (let $stored-copy $pattern-copy true))))
-            (if (== $unifies ()) (empty)
-               (base-rate $kbid $stored $tv $source $mode))))))
-
-(: base-rate-prior-factor (-[det]-> BaseRateEntry Number))
-(= (base-rate-prior-factor
-      (base-rate $_kbid $_stored $tv $_source $_entry-mode))
-   ;; Keep a known-bad branch reachable after every more promising branch has
-   ;; been exhausted; a zero score would prevent it from entering the agenda.
-   (max 0.000001
-      (* (case $tv (
-            ((STV $strength $_confidence) $strength)
-            ((CTV (STV $strength $_confidence) $_negative) $strength)
-            (no-evidence 1.0)))
-         (tv-confidence $tv))))
-
-;; A missing rate receives the neutral scheduler-only exploration prior.
-(: selected-base-rate-prior-factor
-   (-[det]-> (List BaseRateEntry) Number))
-(= (selected-base-rate-prior-factor ()) 0.5)
-(= (selected-base-rate-prior-factor (cons $entry $rest))
-   (if (== $rest ())
-      (base-rate-prior-factor $entry)
-      (min (base-rate-prior-factor $entry)
-         (selected-base-rate-prior-factor $rest))))
-
-(: premise-base-rate-prior
-   (-[det]-> (| Goal (Statement KBContext Proof TV)) Number))
-(= (premise-base-rate-prior $premise)
-   (case $premise (
-      ((CPU $_fun $_args $_result) 1.0)
-      (($type ($kbid $_ctx $_vars) $_proof $_tv)
-         (let $exact (base-rate-cache-entries $kbid $type)
-            ;; Exact rates override generalized matches. Among ambiguous
-            ;; generalized patterns, the minimum is deterministic and avoids
-            ;; selecting an accidentally optimistic prior.
-            (if (not (== $exact ()))
-               (selected-base-rate-prior-factor $exact)
-               (selected-base-rate-prior-factor
-                  (matching-base-rate-cache-entries $kbid $type))))))))
-
-(: premises-proof-success-prior
-   (-[det]-> (List (| Goal (Statement KBContext Proof TV))) Number))
-(= (premises-proof-success-prior ()) 1.0)
-(= (premises-proof-success-prior (cons $premise $rest))
-   (* (premise-base-rate-prior $premise)
-      (premises-proof-success-prior $rest)))
-
 (: cached-base-rate
    (-[nondet]-> KB Statement (List TV)))
 (= (cached-base-rate $kbid $pattern)

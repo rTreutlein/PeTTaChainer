@@ -3,16 +3,16 @@
 !(test (rule-marginal-score no-current 0.42) 0.42)
 
 ;; First-proof and incumbent-refinement search use the same root bound,
-;; immediate-work estimate, and premise success prior.
+;; and immediate-work estimate.
 !(test
-   (root-proof-value-score 0.2 no-current 0.9 4 0.1)
-   (/ (* 0.2 0.1) 4))
+   (root-proof-value-score 0.2 no-current 0.9 4)
+   (/ 0.2 4))
 !(test
-   (root-proof-value-score 0.5 0.9 1.0 2 1.0)
+   (root-proof-value-score 0.5 0.9 1.0 2)
    (/ (rule-marginal-score 0.9 1.0) 2))
 !(test
-   (root-proof-value-score 0.02 0.1 0.9 1 0.25)
-   0.005)
+   (root-proof-value-score 0.02 0.1 0.9 1)
+   0.02)
 
 ;; Cached base-rate refinement becomes less valuable as the already-observed
 ;; evidence (and therefore the estimated rescan work) grows.
@@ -20,47 +20,6 @@
    (< (cached-base-rate-refinement-score 1.0 (STV 0.5 0.9))
       (cached-base-rate-refinement-score 1.0 (STV 0.5 0.1)))
    true)
-
-;; A cached premise contributes strength * confidence. Lookup prefers an exact
-;; key, then a generalized pattern; a missing cache gets the exploration prior.
-!(set-base-rate refinementPriorKb
-   (GeneralizedPrior $x) (STV 0.75 0.9))
-!(set-base-rate refinementPriorKb
-   (WeakExactPrior item) (STV 0.99 0.01))
-!(set-base-rate refinementPriorKb
-   (KnownBadPrior item) (STV 0.0 1.0))
-!(test
-   (premise-base-rate-prior
-      (assemble-runtime-fact
-         (brand Statement (MissingPrior item))
-         (brand KBContext (refinementPriorKb MAIN Nil))
-         (brand Proof $proof)
-         (STV 1.0 1.0)))
-   0.5)
-!(test
-   (premise-base-rate-prior
-      (assemble-runtime-fact
-         (brand Statement (GeneralizedPrior item))
-         (brand KBContext (refinementPriorKb MAIN Nil))
-         (brand Proof $proof)
-         (STV 1.0 1.0)))
-   (* 0.75 0.9))
-!(test
-   (premise-base-rate-prior
-      (assemble-runtime-fact
-         (brand Statement (WeakExactPrior item))
-         (brand KBContext (refinementPriorKb MAIN Nil))
-         (brand Proof $proof)
-         (STV 1.0 1.0)))
-   (* 0.99 0.01))
-!(test
-   (premise-base-rate-prior
-      (assemble-runtime-fact
-         (brand Statement (KnownBadPrior item))
-         (brand KBContext (refinementPriorKb MAIN Nil))
-         (brand Proof $proof)
-         (STV 1.0 1.0)))
-   0.000001)
 
 ;; Expansion budget and beam width are independent. Larger budgets therefore
 ;; extend the same deterministic search prefix instead of selecting a wider

@@ -390,7 +390,7 @@
    (let (frontier-waiter
             $parent-gid $bundle $score $seen $parts $path-id
             (frontier-value-spec
-               $candidate-score $_premise-count $_success-prior))
+               $candidate-score $_premise-count))
          $waiter
          (let* (($proof-row (proof-row-by-id $pid))
                 (($_output $_kind $support $_children) $proof-row)
@@ -422,7 +422,7 @@
       (frontier-waiter
          $parent-gid $bundle $score $seen $parts $path-id
          (frontier-value-spec
-            $candidate-score $_premise-count $_success-prior))
+            $candidate-score $_premise-count))
       $pid ($proof-output $proof-kind $_support $_children)
       $part $proof-score $proof-evidence)
    (let* (($next-parts
@@ -472,8 +472,7 @@
                                (min $next-score
                                   (frontier-remaining-score
                                      $next-bundle $next-parts))))
-                         (list-len $premises)
-                         (premises-proof-success-prior $premises))))
+                         (list-len $premises))))
                (spawn-frontier-heap
                   $agenda $parent-gid $next-bundle $next-score
                   $next-seen $next-parts $next-path-id $next-value)))))))

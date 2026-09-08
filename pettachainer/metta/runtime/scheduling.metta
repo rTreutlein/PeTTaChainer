@@ -83,16 +83,16 @@
 ;; requesting root branch. The same value-of-computation rule applies before
 ;; and after the first proof: use the candidate confidence as initial gain, or
 ;; marginal improvement over an incumbent, then discount by immediate premise
-;; work and the cached probability that every premise can be proved.
+;; work. Statement probability does not estimate whether a proof can be found.
 (: root-proof-value-score
-   (-[det]-> Number (| Number NoCurrentScore) Number Number Number Number))
+   (-[det]-> Number (| Number NoCurrentScore) Number Number Number))
 (= (root-proof-value-score
       $root-bound $current-score $candidate-score
-      $premise-count $success-probability)
+      $premise-count)
    (let $bounded
       (min $root-bound
          (rule-marginal-score $current-score $candidate-score))
-      (/ (* $bounded $success-probability)
+      (/ $bounded
          (max 1 $premise-count))))
 
 ;; A cached base-rate snapshot is usable immediately.  Its optional live fold

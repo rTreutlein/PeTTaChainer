@@ -85,19 +85,15 @@
 !(compileadd summedDemandKb
    (: summed-shared-left
       (Implication (SummedSharedPremise) (SummedSharedLeft))
-      (CTV (STV 1.0 1.0) (STV 0.01 1.0))))
+      (CTV (STV 1.0 0.2) (STV 0.01 1.0))))
 !(compileadd summedDemandKb
    (: summed-shared-right
       (Implication (SummedSharedPremise) (SummedSharedRight))
-      (CTV (STV 1.0 1.0) (STV 0.01 1.0))))
+      (CTV (STV 1.0 0.2) (STV 0.01 1.0))))
 !(compileadd summedDemandKb
    (: summed-single
       (Implication (SummedSinglePremise) (SummedSingleRoot))
-      (CTV (STV 1.0 1.0) (STV 0.01 1.0))))
-!(set-base-rate summedDemandKb
-   (SummedSharedPremise) (STV 0.2 1.0))
-!(set-base-rate summedDemandKb
-   (SummedSinglePremise) (STV 0.3 1.0))
+      (CTV (STV 1.0 0.3) (STV 0.01 1.0))))
 
 !(test
    (collapse
@@ -107,13 +103,13 @@
           (: $prf (SummedSingleRoot) $tv))))
    ((query-result 0
        (: (by summed-shared-left summed-shared-fact)
-          (SummedSharedLeft) (STV 1.0 0.9998020291758253)))
+          (SummedSharedLeft) (STV 1.0 0.19999604037636698)))
     (query-result 1
        (: (by summed-shared-right summed-shared-fact)
-          (SummedSharedRight) (STV 1.0 0.9998020291758253)))))
+          (SummedSharedRight) (STV 1.0 0.19999604037636698)))))
 
 ;; Two alternative rules from one root are not two independent consumers.
-;; Their 0.2 requests merge by maximum, so another root's 0.3 request wins.
+;; Their confidence-based requests merge by maximum, so the stronger single request wins.
 !(compileadd duplicateDemandKb
    (: duplicate-shared-fact
       (DuplicateSharedPremise) (STV 1.0 1.0)))
@@ -123,19 +119,15 @@
 !(compileadd duplicateDemandKb
    (: duplicate-shared-first
       (Implication (DuplicateSharedPremise) (DuplicateSharedRoot))
-      (CTV (STV 1.0 1.0) (STV 0.02 1.0))))
+      (CTV (STV 1.0 0.2) (STV 0.02 1.0))))
 !(compileadd duplicateDemandKb
    (: duplicate-shared-second
       (Implication (DuplicateSharedPremise) (DuplicateSharedRoot))
-      (CTV (STV 1.0 1.0) (STV 0.02 1.0))))
+      (CTV (STV 1.0 0.2) (STV 0.02 1.0))))
 !(compileadd duplicateDemandKb
    (: duplicate-single
       (Implication (DuplicateSinglePremise) (DuplicateSingleRoot))
-      (CTV (STV 1.0 1.0) (STV 0.02 1.0))))
-!(set-base-rate duplicateDemandKb
-   (DuplicateSharedPremise) (STV 0.2 1.0))
-!(set-base-rate duplicateDemandKb
-   (DuplicateSinglePremise) (STV 0.3 1.0))
+      (CTV (STV 1.0 0.3) (STV 0.02 1.0))))
 
 !(test
    (collapse
@@ -144,9 +136,9 @@
           (: $prf (DuplicateSingleRoot) $tv))))
    ((query-result 1
        (: (by duplicate-single duplicate-single-fact)
-          (DuplicateSingleRoot) (STV 1.0 0.9998039984003787)))))
+          (DuplicateSingleRoot) (STV 1.0 0.2999913061574112)))))
 
-;; Once the fast proof establishes the first root, its remaining alternatives
+;; Once one proof establishes the first root, its remaining alternatives
 ;; are rescored by their marginal value. The unanswered second root should then
 ;; outrank low-value refinement without requiring a completion special case.
 !(compileadd refreshedDemandKb
@@ -167,12 +159,6 @@
    (: refresh-medium
       (Implication (RefreshMediumPremise) (RefreshSecondRoot))
       (CTV (STV 1.0 1.0) (STV 0.03 1.0))))
-!(set-base-rate refreshedDemandKb
-   (RefreshFastPremise) (STV 0.4 1.0))
-!(set-base-rate refreshedDemandKb
-   (RefreshSlowPremise) (STV 0.35 1.0))
-!(set-base-rate refreshedDemandKb
-   (RefreshMediumPremise) (STV 0.3 1.0))
 
 !(test
    (collapse
@@ -180,7 +166,7 @@
          ((: $prf (RefreshFirstRoot) $tv)
           (: $prf (RefreshSecondRoot) $tv))))
    ((query-result 0
-       (: (by refresh-fast refresh-fast-fact)
+       (: (by refresh-slow refresh-slow-fact)
           (RefreshFirstRoot) (STV 1.0 0.9998059476404358)))
     (query-result 1
        (: (by refresh-medium refresh-medium-fact)
@@ -210,8 +196,8 @@
           (: $prf (RefreshSecondRoot) $tv))))
    ((query-result 0
        (: (merge/revision
-             (by refresh-fast refresh-fast-fact)
-             (by refresh-slow refresh-slow-fact))
+             (by refresh-slow refresh-slow-fact)
+             (by refresh-fast refresh-fast-fact))
           (RefreshFirstRoot) (STV 1.0 0.9999029644052249)))
     (query-result 1
        (: (by refresh-medium refresh-medium-fact)

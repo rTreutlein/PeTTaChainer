@@ -261,5 +261,4 @@
             0
             (frontier-value-spec
                $expected-score
-               (list-len $args)
-               (premises-proof-success-prior $args))))))
+               (list-len $args))))))
