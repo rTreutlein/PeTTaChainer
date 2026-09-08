@@ -48,3 +48,7 @@ records elapsed-time quality comparisons, additional seeds, and the existing
 MeTTa suite results for the isolated scheduling experiment. Its compact evidence
 includes the probe patches and drivers; these are diagnostic experiments, not
 new benchmark acceptance defaults.
+
+The [reuse and refinement screening report](../../docs/metta/stationops_reuse_refinement_2026-09-08.md)
+compares a 0–1 refinement allowance on three seeds and generic evidence updates.
+It preserves depth and remains an isolated prototype, with no new default.
