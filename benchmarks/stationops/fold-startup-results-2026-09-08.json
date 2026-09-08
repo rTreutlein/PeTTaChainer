@@ -1,0 +1,569 @@
+{
+  "revision": "c47e780015832bcb857448addda0718e3c18dd74",
+  "runtime_tree": "502d08ba468480093d22e710db17f21ab4c3ac59",
+  "order": [
+    "baseline",
+    "retain-incumbent",
+    "retain-incumbent-repeat",
+    "baseline-repeat"
+  ],
+  "repetitions_per_side": 2,
+  "production_runtime_changed": false,
+  "runs": {
+    "baseline": {
+      "environment": {
+        "repository": "/tmp/stationops-fold-startup/baseline",
+        "chainergame": "/nexus/Dev/OpenCog/ChainerGame",
+        "petta": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          0.97998046875,
+          0.43017578125,
+          0.2880859375
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "workload": {
+        "seed": 7,
+        "shifts": 2,
+        "modules": 4,
+        "budget": 600,
+        "action_budget": 1
+      },
+      "batches": [
+        {
+          "shift": 1,
+          "seconds": 18.460091054992517,
+          "inferences": 92815231,
+          "cpu_seconds": 18.5046877,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 18.446994719008217,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1158,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 866,
+            "agenda_pops": 725,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 42501,
+            "goal_demand_cache_hits": 33926,
+            "goal_demand_cache_misses": 8575,
+            "demand_revision_bumps": 18183,
+            "current_proof_goal_lookups": 259,
+            "current_result_goal_lookups": 9320,
+            "candidate_comparisons": 618,
+            "dominance_checks": 606,
+            "proofs_stored": 931,
+            "seed-first": 20,
+            "seed-replace": 0,
+            "seed-unchanged": 0,
+            "seed-forward": 20,
+            "seed-computed": 0
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "normalized_answers_sha256": "25dbd2e8243b23b08a074c120ed4a220d2f0b801ed1c4d74ae6b96b25458b9bb"
+        },
+        {
+          "shift": 2,
+          "seconds": 92.28480066500197,
+          "inferences": 489095529,
+          "cpu_seconds": 92.5056327,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 92.24284299300052,
+            "durable_proof_rows_before": 1195,
+            "durable_proof_rows_after": 3211,
+            "durable_goal_index_rows_before": 968,
+            "durable_result_index_rows_before": 227,
+            "agenda_pushes": 1130,
+            "agenda_pops": 842,
+            "search_aborts": 0,
+            "stale_agenda_entries": 75,
+            "goal_demand_evaluations": 139235,
+            "goal_demand_cache_hits": 119268,
+            "goal_demand_cache_misses": 19967,
+            "demand_revision_bumps": 36580,
+            "current_proof_goal_lookups": 185,
+            "current_result_goal_lookups": 16400,
+            "candidate_comparisons": 2227,
+            "dominance_checks": 2057,
+            "proofs_stored": 1349,
+            "seed-first": 20,
+            "seed-replace": 12,
+            "seed-unchanged": 38,
+            "seed-forward": 20,
+            "seed-computed": 50
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureAlarm new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "normalized_answers_sha256": "fc8f9f46d0c1d3697bc8f4ec6a96b4f1725cc711823795bf5668859624daa35e"
+        }
+      ],
+      "belief_metrics": [
+        {
+          "expected_count": 4,
+          "evaluated_count": 4,
+          "missing_count": 0,
+          "coverage": 1.0,
+          "mean_confidence": 5.749964500233497e-06,
+          "confidence_weighted_coverage": 5.749964500233497e-06,
+          "mean_absolute_error": 0.06209114097531969,
+          "max_absolute_error": 0.244486872176813,
+          "brier_score": 0.014974044419535088,
+          "log_loss": 0.07020584474028276
+        },
+        {
+          "expected_count": 4,
+          "evaluated_count": 4,
+          "missing_count": 0,
+          "coverage": 1.0,
+          "mean_confidence": 5.088915577253914e-05,
+          "confidence_weighted_coverage": 5.088915577253914e-05,
+          "mean_absolute_error": 0.07877224161289006,
+          "max_absolute_error": 0.1602258754297,
+          "brier_score": 0.031035823560901725,
+          "log_loss": 0.14247159442951918
+        }
+      ],
+      "score": 637.0,
+      "regret": 0.0
+    },
+    "retain-incumbent": {
+      "environment": {
+        "repository": "/tmp/stationops-fold-startup/retain-incumbent",
+        "chainergame": "/nexus/Dev/OpenCog/ChainerGame",
+        "petta": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          0.96728515625,
+          0.60205078125,
+          0.37109375
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "workload": {
+        "seed": 7,
+        "shifts": 2,
+        "modules": 4,
+        "budget": 600,
+        "action_budget": 1
+      },
+      "batches": [
+        {
+          "shift": 1,
+          "seconds": 18.107275488000596,
+          "inferences": 92816111,
+          "cpu_seconds": 18.2341938,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 18.094281640995177,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1158,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 866,
+            "agenda_pops": 725,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 42501,
+            "goal_demand_cache_hits": 33926,
+            "goal_demand_cache_misses": 8575,
+            "demand_revision_bumps": 18183,
+            "current_proof_goal_lookups": 259,
+            "current_result_goal_lookups": 9320,
+            "candidate_comparisons": 618,
+            "dominance_checks": 606,
+            "proofs_stored": 931,
+            "seed-first": 20,
+            "seed-replace": 0,
+            "seed-unchanged": 0,
+            "seed-forward": 20,
+            "seed-computed": 0
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "normalized_answers_sha256": "25dbd2e8243b23b08a074c120ed4a220d2f0b801ed1c4d74ae6b96b25458b9bb"
+        },
+        {
+          "shift": 2,
+          "seconds": 79.70528229699994,
+          "inferences": 483129205,
+          "cpu_seconds": 79.9197979,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 79.66360572700796,
+            "durable_proof_rows_before": 1195,
+            "durable_proof_rows_after": 3091,
+            "durable_goal_index_rows_before": 968,
+            "durable_result_index_rows_before": 227,
+            "agenda_pushes": 1067,
+            "agenda_pops": 804,
+            "search_aborts": 0,
+            "stale_agenda_entries": 69,
+            "goal_demand_evaluations": 103515,
+            "goal_demand_cache_hits": 87820,
+            "goal_demand_cache_misses": 15695,
+            "demand_revision_bumps": 30670,
+            "current_proof_goal_lookups": 214,
+            "current_result_goal_lookups": 14819,
+            "candidate_comparisons": 1920,
+            "dominance_checks": 1771,
+            "proofs_stored": 1244,
+            "seed-first": 20,
+            "seed-replace": 12,
+            "seed-unchanged": 38,
+            "seed-forward": 20,
+            "seed-computed": 50
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureAlarm new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "normalized_answers_sha256": "6350db2be1d94e4c3b0496c0a285d3a1034c6eff483e1a91f00e99cffd09c484"
+        }
+      ],
+      "belief_metrics": [
+        {
+          "expected_count": 4,
+          "evaluated_count": 4,
+          "missing_count": 0,
+          "coverage": 1.0,
+          "mean_confidence": 5.749964500233497e-06,
+          "confidence_weighted_coverage": 5.749964500233497e-06,
+          "mean_absolute_error": 0.06209114097531969,
+          "max_absolute_error": 0.244486872176813,
+          "brier_score": 0.014974044419535088,
+          "log_loss": 0.07020584474028276
+        },
+        {
+          "expected_count": 4,
+          "evaluated_count": 4,
+          "missing_count": 0,
+          "coverage": 1.0,
+          "mean_confidence": 4.9460796579568553e-05,
+          "confidence_weighted_coverage": 4.9460796579568553e-05,
+          "mean_absolute_error": 0.07895970902496553,
+          "max_absolute_error": 0.1601875583537766,
+          "brier_score": 0.03114126286060349,
+          "log_loss": 0.14273231538641906
+        }
+      ],
+      "score": 637.0,
+      "regret": 0.0
+    },
+    "retain-incumbent-repeat": {
+      "environment": {
+        "repository": "/tmp/stationops-fold-startup/retain-incumbent",
+        "chainergame": "/nexus/Dev/OpenCog/ChainerGame",
+        "petta": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.013671875,
+          0.6650390625,
+          0.43212890625
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "workload": {
+        "seed": 7,
+        "shifts": 2,
+        "modules": 4,
+        "budget": 600,
+        "action_budget": 1
+      },
+      "batches": [
+        {
+          "shift": 1,
+          "seconds": 18.470030444004806,
+          "inferences": 92816111,
+          "cpu_seconds": 18.506369,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 18.45663010199496,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1158,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 866,
+            "agenda_pops": 725,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 42501,
+            "goal_demand_cache_hits": 33926,
+            "goal_demand_cache_misses": 8575,
+            "demand_revision_bumps": 18183,
+            "current_proof_goal_lookups": 259,
+            "current_result_goal_lookups": 9320,
+            "candidate_comparisons": 618,
+            "dominance_checks": 606,
+            "proofs_stored": 931,
+            "seed-first": 20,
+            "seed-replace": 0,
+            "seed-unchanged": 0,
+            "seed-forward": 20,
+            "seed-computed": 0
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "normalized_answers_sha256": "25dbd2e8243b23b08a074c120ed4a220d2f0b801ed1c4d74ae6b96b25458b9bb"
+        },
+        {
+          "shift": 2,
+          "seconds": 80.2651219570107,
+          "inferences": 483129205,
+          "cpu_seconds": 80.5716653,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 80.22176987199055,
+            "durable_proof_rows_before": 1195,
+            "durable_proof_rows_after": 3091,
+            "durable_goal_index_rows_before": 968,
+            "durable_result_index_rows_before": 227,
+            "agenda_pushes": 1067,
+            "agenda_pops": 804,
+            "search_aborts": 0,
+            "stale_agenda_entries": 69,
+            "goal_demand_evaluations": 103515,
+            "goal_demand_cache_hits": 87820,
+            "goal_demand_cache_misses": 15695,
+            "demand_revision_bumps": 30670,
+            "current_proof_goal_lookups": 214,
+            "current_result_goal_lookups": 14819,
+            "candidate_comparisons": 1920,
+            "dominance_checks": 1771,
+            "proofs_stored": 1244,
+            "seed-first": 20,
+            "seed-replace": 12,
+            "seed-unchanged": 38,
+            "seed-forward": 20,
+            "seed-computed": 50
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureAlarm new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "normalized_answers_sha256": "6350db2be1d94e4c3b0496c0a285d3a1034c6eff483e1a91f00e99cffd09c484"
+        }
+      ],
+      "belief_metrics": [
+        {
+          "expected_count": 4,
+          "evaluated_count": 4,
+          "missing_count": 0,
+          "coverage": 1.0,
+          "mean_confidence": 5.749964500233497e-06,
+          "confidence_weighted_coverage": 5.749964500233497e-06,
+          "mean_absolute_error": 0.06209114097531969,
+          "max_absolute_error": 0.244486872176813,
+          "brier_score": 0.014974044419535088,
+          "log_loss": 0.07020584474028276
+        },
+        {
+          "expected_count": 4,
+          "evaluated_count": 4,
+          "missing_count": 0,
+          "coverage": 1.0,
+          "mean_confidence": 4.9460796579568553e-05,
+          "confidence_weighted_coverage": 4.9460796579568553e-05,
+          "mean_absolute_error": 0.07895970902496553,
+          "max_absolute_error": 0.1601875583537766,
+          "brier_score": 0.03114126286060349,
+          "log_loss": 0.14273231538641906
+        }
+      ],
+      "score": 637.0,
+      "regret": 0.0
+    },
+    "baseline-repeat": {
+      "environment": {
+        "repository": "/tmp/stationops-fold-startup/baseline",
+        "chainergame": "/nexus/Dev/OpenCog/ChainerGame",
+        "petta": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.30029296875,
+          0.908203125,
+          0.55810546875
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "workload": {
+        "seed": 7,
+        "shifts": 2,
+        "modules": 4,
+        "budget": 600,
+        "action_budget": 1
+      },
+      "batches": [
+        {
+          "shift": 1,
+          "seconds": 18.3480317700014,
+          "inferences": 92815231,
+          "cpu_seconds": 18.4038121,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 18.33450686899596,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1158,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 866,
+            "agenda_pops": 725,
+            "search_aborts": 0,
+            "stale_agenda_entries": 17,
+            "goal_demand_evaluations": 42501,
+            "goal_demand_cache_hits": 33926,
+            "goal_demand_cache_misses": 8575,
+            "demand_revision_bumps": 18183,
+            "current_proof_goal_lookups": 259,
+            "current_result_goal_lookups": 9320,
+            "candidate_comparisons": 618,
+            "dominance_checks": 606,
+            "proofs_stored": 931,
+            "seed-first": 20,
+            "seed-replace": 0,
+            "seed-unchanged": 0,
+            "seed-forward": 20,
+            "seed-computed": 0
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "normalized_answers_sha256": "25dbd2e8243b23b08a074c120ed4a220d2f0b801ed1c4d74ae6b96b25458b9bb"
+        },
+        {
+          "shift": 2,
+          "seconds": 94.01774076800211,
+          "inferences": 489095529,
+          "cpu_seconds": 94.3219672,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 93.97492043499369,
+            "durable_proof_rows_before": 1195,
+            "durable_proof_rows_after": 3211,
+            "durable_goal_index_rows_before": 968,
+            "durable_result_index_rows_before": 227,
+            "agenda_pushes": 1130,
+            "agenda_pops": 842,
+            "search_aborts": 0,
+            "stale_agenda_entries": 75,
+            "goal_demand_evaluations": 139235,
+            "goal_demand_cache_hits": 119268,
+            "goal_demand_cache_misses": 19967,
+            "demand_revision_bumps": 36580,
+            "current_proof_goal_lookups": 185,
+            "current_result_goal_lookups": 16400,
+            "candidate_comparisons": 2227,
+            "dominance_checks": 2057,
+            "proofs_stored": 1349,
+            "seed-first": 20,
+            "seed-replace": 12,
+            "seed-unchanged": 38,
+            "seed-forward": 20,
+            "seed-computed": 50
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureAlarm new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "normalized_answers_sha256": "fc8f9f46d0c1d3697bc8f4ec6a96b4f1725cc711823795bf5668859624daa35e"
+        }
+      ],
+      "belief_metrics": [
+        {
+          "expected_count": 4,
+          "evaluated_count": 4,
+          "missing_count": 0,
+          "coverage": 1.0,
+          "mean_confidence": 5.749964500233497e-06,
+          "confidence_weighted_coverage": 5.749964500233497e-06,
+          "mean_absolute_error": 0.06209114097531969,
+          "max_absolute_error": 0.244486872176813,
+          "brier_score": 0.014974044419535088,
+          "log_loss": 0.07020584474028276
+        },
+        {
+          "expected_count": 4,
+          "evaluated_count": 4,
+          "missing_count": 0,
+          "coverage": 1.0,
+          "mean_confidence": 5.088915577253914e-05,
+          "confidence_weighted_coverage": 5.088915577253914e-05,
+          "mean_absolute_error": 0.07877224161289006,
+          "max_absolute_error": 0.1602258754297,
+          "brier_score": 0.031035823560901725,
+          "log_loss": 0.14247159442951918
+        }
+      ],
+      "score": 637.0,
+      "regret": 0.0
+    }
+  },
+  "repeatable_inferences_proofs_belief_metrics": true,
+  "median_shift2_seconds": {
+    "baseline": 93.15127071650204,
+    "retain-incumbent": 79.98520212700532
+  },
+  "archive_patches": {
+    "baseline": "--- a/pettachainer/metta/runtime/backward/aggregates.metta\n+++ b/pettachainer/metta/runtime/backward/aggregates.metta\n@@ -12,7 +12,7 @@\n (: ba-ensure-child (-[nondet]-> Number Goal $a Number Number Bool Number))\n (= (ba-ensure-child $a $b $c $d $e $f)(let* (($g (ba-child $b))((stored-goal-row $h $i $j $k $l)(goal-by-id $a))($m (ensure-goal-at-depth $g (+ 1 $i)))($n (collapse (once (match &fold_source (fold-source-row $a $o $p $q $r $s) true))))($t (if (== $n ())(let* (($u (once (chainer-add-atom &fold_source (fold-source-row $a $m $c $d $e $f))))($v (case (base-rate-aggregate-key $c) ( ((base-rate-aggregate-key-value $w $x $y)(register-base-rate-fold! (base-rate-aggregate-key-value $w $x $y)(proof-goal-key-by-goal-id $a)))(no-base-rate-aggregate-key ())))))())()))) $m))\n (: ba-refine (-[nondet]-> (Heap AgendaEntry) Number Number Number Goal $a TV BaseRateSource (Heap AgendaEntry)))\n-(= (ba-refine $a $b $u $c $d $e $f $g)(let* (($h (ba-ensure-child $c $d $e $b $u (== $g forward-approx)))($q (register-goal-waiter! $h $c (aggregate-waiter $c (cached-aggregate-demand $f))))($s (commit-proof-candidate-heap $a $c (aggregate-result-candidate (CPU FoldAllCompiled $e $f) () ()))))(wake-goal-demand-heap $s $h)))\n+(= (ba-refine $a $b $u $c $d $e $f $g)(let* (($h (ba-ensure-child $c $d $e $b $u (== $g forward-approx)))($q (register-goal-waiter! $h $c (aggregate-waiter $c (cached-aggregate-demand $f))))($_probe (if (== (current-fold-snapshot $c (CPU FoldAllCompiled $e $f)) ()) (increment-backward-query-metric! seed-first) (if (snapshot-changed? $c (CPU FoldAllCompiled $e $f) () ()) (increment-backward-query-metric! seed-replace) (increment-backward-query-metric! seed-unchanged))))($_source-probe (if (== $g forward-approx) (increment-backward-query-metric! seed-forward) (increment-backward-query-metric! seed-computed)))($s (commit-proof-candidate-heap $a $c (aggregate-result-candidate (CPU FoldAllCompiled $e $f) () ()))))(wake-goal-demand-heap $s $h)))\n (: spawn-aggregate-goal-heap (-[nondet]-> (Heap AgendaEntry) Number Number Number Goal (Heap AgendaEntry)))\n (= (spawn-aggregate-goal-heap $a $b $c $d $e)(let* (($f (copy_term (let (CPU $g $h $i) $e $h)))($k (base-rate-aggregate-key $f)))(case $k ( ((base-rate-aggregate-key-value $m $n $o)(case (base-rate-cache-entries-for-mode $m $n $o) ( (()(if (case $f ( (($p (MemberInheritanceSample $q $r $s $t $u) $v $w $x (member-inheritance $p) $y)(forward-member-inheritance-empty-cache-hit? (brand KB $p)(brand Term $r)(brand Term $s) $b))($z false))) $a (ba-spawn-live $a $c $b $d $e $f)))((cons $s2 $t2)(let* (($u2 (base-rate-entry-tv $s2))($v2 (base-rate-entry-source $s2)))(if (== $v2 user)(commit-proof-candidate-heap $a $d (aggregate-result-candidate (CPU FoldAllCompiled $f $u2) () ()))(ba-refine $a $c $b $d $e $f $u2 $v2)))))))(no-base-rate-aggregate-key (ba-spawn-live $a $c $b $d $e $f))))))\n (: ba-spawn-live (-[nondet]-> (Heap AgendaEntry) Number Number Number Goal $a (Heap AgendaEntry)))\n",
+    "retain-incumbent": "--- a/pettachainer/metta/runtime/backward/aggregates.metta\n+++ b/pettachainer/metta/runtime/backward/aggregates.metta\n@@ -12,7 +12,7 @@\n (: ba-ensure-child (-[nondet]-> Number Goal $a Number Number Bool Number))\n (= (ba-ensure-child $a $b $c $d $e $f)(let* (($g (ba-child $b))((stored-goal-row $h $i $j $k $l)(goal-by-id $a))($m (ensure-goal-at-depth $g (+ 1 $i)))($n (collapse (once (match &fold_source (fold-source-row $a $o $p $q $r $s) true))))($t (if (== $n ())(let* (($u (once (chainer-add-atom &fold_source (fold-source-row $a $m $c $d $e $f))))($v (case (base-rate-aggregate-key $c) ( ((base-rate-aggregate-key-value $w $x $y)(register-base-rate-fold! (base-rate-aggregate-key-value $w $x $y)(proof-goal-key-by-goal-id $a)))(no-base-rate-aggregate-key ())))))())()))) $m))\n (: ba-refine (-[nondet]-> (Heap AgendaEntry) Number Number Number Goal $a TV BaseRateSource (Heap AgendaEntry)))\n-(= (ba-refine $a $b $u $c $d $e $f $g)(let* (($h (ba-ensure-child $c $d $e $b $u (== $g forward-approx)))($q (register-goal-waiter! $h $c (aggregate-waiter $c (cached-aggregate-demand $f))))($s (commit-proof-candidate-heap $a $c (aggregate-result-candidate (CPU FoldAllCompiled $e $f) () ()))))(wake-goal-demand-heap $s $h)))\n+(= (ba-refine $a $b $u $c $d $e $f $g)(let* (($h (ba-ensure-child $c $d $e $b $u (== $g forward-approx)))($q (register-goal-waiter! $h $c (aggregate-waiter $c (cached-aggregate-demand $f))))($_probe (if (== (current-fold-snapshot $c (CPU FoldAllCompiled $e $f)) ()) (increment-backward-query-metric! seed-first) (if (snapshot-changed? $c (CPU FoldAllCompiled $e $f) () ()) (increment-backward-query-metric! seed-replace) (increment-backward-query-metric! seed-unchanged))))($_source-probe (if (== $g forward-approx) (increment-backward-query-metric! seed-forward) (increment-backward-query-metric! seed-computed)))($s (if (== (current-fold-snapshot $c (CPU FoldAllCompiled $e $f)) ()) (commit-proof-candidate-heap $a $c (aggregate-result-candidate (CPU FoldAllCompiled $e $f) () ())) $a)))(wake-goal-demand-heap $s $h)))\n (: spawn-aggregate-goal-heap (-[nondet]-> (Heap AgendaEntry) Number Number Number Goal (Heap AgendaEntry)))\n (= (spawn-aggregate-goal-heap $a $b $c $d $e)(let* (($f (copy_term (let (CPU $g $h $i) $e $h)))($k (base-rate-aggregate-key $f)))(case $k ( ((base-rate-aggregate-key-value $m $n $o)(case (base-rate-cache-entries-for-mode $m $n $o) ( (()(if (case $f ( (($p (MemberInheritanceSample $q $r $s $t $u) $v $w $x (member-inheritance $p) $y)(forward-member-inheritance-empty-cache-hit? (brand KB $p)(brand Term $r)(brand Term $s) $b))($z false))) $a (ba-spawn-live $a $c $b $d $e $f)))((cons $s2 $t2)(let* (($u2 (base-rate-entry-tv $s2))($v2 (base-rate-entry-source $s2)))(if (== $v2 user)(commit-proof-candidate-heap $a $d (aggregate-result-candidate (CPU FoldAllCompiled $f $u2) () ()))(ba-refine $a $c $b $d $e $f $u2 $v2)))))))(no-base-rate-aggregate-key (ba-spawn-live $a $c $b $d $e $f))))))\n (: ba-spawn-live (-[nondet]-> (Heap AgendaEntry) Number Number Number Goal $a (Heap AgendaEntry)))\n"
+  },
+  "focused_validation": {
+    "baseline": "3 passed",
+    "candidate": "2 passed; exact refined TV assertion failed",
+    "candidate_exploratory": "Bypassing only the two 100-step TV assertions reaches failure of the second-versus-third 200-step query settling assertion",
+    "full_suite_run": false
+  }
+}
