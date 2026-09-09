@@ -11,7 +11,9 @@ heap_pop(Heap, [Priority, Value, Rest]) :-
     term_variables(Term, Variables),
     (   Variables == []
     ->  term_hash(Term, Hash)
-    ;   copy_term(Term, Copy),
+    ;   % Hash markers must not run attributes on copied typed variables.
+        % The original term keeps its constraints for actual matching.
+        copy_term_nat(Term, Copy),
         term_variables(Copy, CopyVariables),
         maplist(=('goal-key-hash-variable'), CopyVariables),
         term_hash(Copy, Hash)
