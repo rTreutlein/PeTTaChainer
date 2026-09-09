@@ -4,9 +4,8 @@
 (= (reduction-test-fact $proof $tv)
    (assemble-runtime-fact (Observation) (brand KBContext (reductionTest MAIN Nil)) $proof $tv))
 
-;; Revision and snapshot replacement use the same publication contract. Both
-;; invalidate consumed frontier paths; revision retains independent input
-;; candidates, while a snapshot replaces its previous input. Replaying either
+;; Revision retains independently selected input paths. A fold snapshot
+;; replacement invalidates paths consuming that snapshot. Replaying either
 ;; accepted candidate must neither publish again nor advance the revision.
 !(test
    (let* (($_clear (clear-backward-state))
@@ -21,8 +20,8 @@
           ($agenda (commit-proof-candidate-heap $agenda $fold
              (aggregate-result-candidate (CPU FoldAllCompiled reduction-test 1) () ($old-source))))
           ((cons $old-fold ()) (goal-merged-proof-ids $fold))
-          ($source-path (ensure-frontier-path 0 $old-source))
-          ($fold-path (ensure-frontier-path 0 $old-fold))
+          ($source-path (ensure-frontier-path 0 0 $old-source))
+          ($fold-path (ensure-frontier-path 0 0 $old-fold))
           ($agenda (commit-proof-candidate-heap $agenda $source $second))
           ((cons $new-source ()) (goal-merged-proof-ids $source))
           ($_cap (once (add-atom &search_wake_active ($fold 2))))
@@ -48,7 +47,7 @@
        (length (goal-live-proof-ids $fold))
        (proof-output-atom-by-id $old-fold)
        (heap_size $agenda)))
-   (true true true true true true false false false 2 1
+   (true true true true true true false true false 2 1
       (CPU FoldAllCompiled reduction-test 1) 0))
 
 ;; A cached numerical result is a duplicate until materialization requires its

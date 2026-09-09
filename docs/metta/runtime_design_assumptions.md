@@ -132,6 +132,33 @@ supersession by a proof of the same derivation:
   value, so the new draw supersedes the earlier one rather than accumulating
   beside it.
 
+### Proof selection belongs to the consumer
+
+The global current/merged result remains the general estimate of a goal. A rule
+frontier selects and merges candidates under its own goal, rule direction,
+already-used evidence, and accumulated premise constraints. A same-derivation
+proof superseded in the global view remains available as an alternative: a
+broader replacement may depend on the receiving goal or reuse its evidence.
+Supersession among these alternatives happens only after compatibility filtering.
+Fold source selection uses the same retained alternatives and local supersession.
+Explicit candidate removal and replacement of fold snapshots do not retain the
+removed candidate as an alternative.
+
+Query-local selection caches are keyed by the frontier's compatibility context
+and the source proof-set revision. Their partial paths are scoped to that
+consumer. A change to the global representative alone does not invalidate a
+selected path. Replacing the consumer's selected premise invalidates only that
+consumer's affected paths; replacing a fold snapshot still invalidates paths
+consuming that snapshot. Re-selecting a previously retired premise creates a
+fresh path ID rather than reusing a dead path and its descendants.
+
+Each selected proof is delivered once per consumer until that selection is
+retired. Publishing a binding of an open goal delivers only that output, not
+unrelated bindings. Selection, source-pool, and delivery caches are cleared with
+the query arena; durable proof alternatives remain alongside the proof history.
+These changes do not relax candidate cycle checks or evidence accounting, and
+priority revision invalidation remains independent of bounded synchronous delivery.
+
 ## Performance goals
 
 ### Atom addition should be constant time

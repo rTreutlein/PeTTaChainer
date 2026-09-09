@@ -183,7 +183,7 @@
    (progn
       (clear-backward-query-state!)
       (foreach-flat remove-all-atoms
-         (&proof &proof_goal &proof_result
+         (&proof_alternative &proof &proof_goal &proof_result
           &proof_current &proof_current_result &proof_derivation))
       ()))
 
@@ -620,8 +620,7 @@
    (false true 2 2 true true false (by derivation-main derivation-old-input)))
 
 ;; A raw candidate can regain the published role after the other input is
-;; superseded. History and active membership survive role loss; frontier paths
-;; do not. Query reset preserves the selected result and the old merged proof.
+;; superseded. History, active membership and selected frontier paths survive role loss. Query reset preserves the selected result and the old merged proof.
 !(test
    (let*
       (($_clear (clear-backward-state))
@@ -634,24 +633,24 @@
              (leaf-result-candidate
                 (test-runtime-fact (RoleLifecycle) lifecycle-first (STV 1.0 0.8))
                 (cons (rule-ev kb lifecycle-first) ()))))
-       ($first-path (ensure-frontier-path 0 $first))
+       ($first-path (ensure-frontier-path 0 0 $first))
        ($second
           (store-proof-candidate $gid
              (leaf-result-candidate
                 (test-runtime-fact (RoleLifecycle) lifecycle-second (STV 1.0 0.7))
                 (cons (rule-ev kb lifecycle-second) ()))))
        ($merged (car-atom (goal-merged-proof-ids $gid)))
-       ($merged-path (ensure-frontier-path 0 $merged))
+       ($merged-path (ensure-frontier-path 0 0 $merged))
        ($both-current (== (goal-live-proof-ids $gid) ($first $second)))
        ($_drop (supersede-current-proof! $second))
        ($incumbent
           (== (current-proof-result-id-for-output-key $gkey (output-key $first)) $merged))
        ($restored (== (goal-merged-proof-ids $gid) ($first)))
-       ($paths-invalidated
-          (and (not (frontier-path-live? $first-path))
-               (not (frontier-path-live? $merged-path))))
+       ($paths-retained
+          (and (frontier-path-live? $first-path)
+               (frontier-path-live? $merged-path)))
        ($_reset (clear-backward-query-state!)))
-      ($both-current $incumbent $restored $paths-invalidated
+      ($both-current $incumbent $restored $paths-retained
        (== (result-ids $gkey) ($first))
        (== (current-proof-ids-for-goal-key $gkey) ($first))
        (== (materialize-proof $merged) (merge/revision lifecycle-first lifecycle-second))
@@ -1089,7 +1088,7 @@
         ($pid-old
            (store-proof-candidate $agg-gid
               (aggregate-result-candidate (CPU FoldAllCompiled dummy-agg-args 1) () ())))
-        ($path-id (ensure-frontier-path 0 $pid-old))
+        ($path-id (ensure-frontier-path 0 0 $pid-old))
         ($pid-new
            (store-proof-candidate $agg-gid
               (aggregate-result-candidate (CPU FoldAllCompiled dummy-agg-args 2) () ()))))
@@ -1100,9 +1099,9 @@
    (let*
       (($_clear (clear-backward-state))
        ($_pathreset (change-state! bwd_frontier_path 0))
-       ($first (ensure-frontier-path 0 10))
-       ($same-first (ensure-frontier-path 0 10))
-       ($second (ensure-frontier-path $first 20))
+       ($first (ensure-frontier-path 0 0 10))
+       ($same-first (ensure-frontier-path 0 0 10))
+       ($second (ensure-frontier-path 0 $first 20))
        ($proofs (frontier-path-rev-proof-ids $second))
        ($before
           ((frontier-path-live? $first)

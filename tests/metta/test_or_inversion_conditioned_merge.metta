@@ -41,8 +41,8 @@
 !(compileadd orInversionConditionedMergeKb
    (: h2Alarm (Alarm h2) (STV 0.0 1.0)))
 
-;; Ordinary OR introduction must remain available.  Conditioning compound
-;; leaves globally would incorrectly reject this direct proof.
+;; OR introduction stays available alongside independent alarm inversion.
+;; Consumer-specific selection preserves both branches for the global OR.
 !(test
    (query 2000 orInversionConditionedMergeKb
       (: $proof
@@ -50,25 +50,17 @@
             (LocalProblem current)
             (ProblemDependency current))
          $tv))
-   (: (conjunction localPrior dependencyPrior)
-      (Or
-         (LocalProblem current)
-         (ProblemDependency current))
-      (STV 0.52 0.9140621948732192)))
+   (: (merge/revision (conjunction localPrior dependencyPrior) (by (bi-backward problemDefinition) ((inverted problemRaisesAlarm with (foldall-proof h1Problem h2Problem (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior))) (foldall-proof (merge/revision currentAlarm (by problemRaisesAlarm (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)))) h1Alarm h2Alarm)) currentAlarm))) (Or (LocalProblem current) (ProblemDependency current)) (STV 0.520004534224267 0.9140643699222947)))
 
-;; The durable definitional proof is an immediate incumbent. Its derived alarm
-;; joins the later population graph, so revisiting the inversion through that
-;; graph is self-dependent and the cycle guard retains the incumbent.
+;; The general Problem estimate can use both the definition and the alarm.
+;; The complete proof assertions retain the population evidence explicitly.
 !(test
    (query 5000 orInversionConditionedMergeKb
       (: $proof (Problem current) $tv))
-   (: (by (bi-forward problemDefinition)
-         (conjunction localPrior dependencyPrior))
-      (Problem current)
-      (STV 0.52 0.9140621947055227)))
+   (: (merge/revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) ((inverted problemRaisesAlarm with (foldall-proof h1Problem h2Problem (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior))) (foldall-proof (merge/revision currentAlarm (by problemRaisesAlarm (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)))) h1Alarm h2Alarm)) currentAlarm)) (Problem current) (STV 0.5200045342242767 0.9140643697546067)))
 
-;; The same durable cycle boundary prevents feeding that self-dependent
-;; Problem/Alarm refinement back through the bi-implication to LocalProblem.
+;; LocalProblem cannot reuse evidence that depends on itself. Its constrained
+;; view retains the direct prior even though the general Problem estimate changes.
 !(test
    (query 20000 orInversionConditionedMergeKb
       (: $proof (LocalProblem current) $tv))

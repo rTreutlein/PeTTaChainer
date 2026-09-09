@@ -110,7 +110,7 @@
        ($c
           (ensure-goal-at-depth
              (demand-test-fact (PathC $value) $cp $ctv) 1))
-       ($old-path (ensure-frontier-path 0 $old-merged))
+       ($old-path (ensure-frontier-path 0 0 $old-merged))
        ($g-before (goal-root-demands $g))
        ($c-before (goal-demand-sum $c))
        ($g-revision-before (goal-demand-revision $g))

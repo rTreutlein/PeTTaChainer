@@ -42,7 +42,7 @@
 
 !(test
    (query 20 plnProjectionKb (: $prf (B) $tv))
-   (: (marginal-proj 1 ab) (B) (STV 1.0 0.9)))
+   (: ((proj 1 ab) a) (B) (STV 1.0 0.9)))
 
 !(compileadd plnOrProjectionKb (: ab (Or (A) (B)) (STV 1.0 0.9)))
 !(compileadd plnOrProjectionKb (: a (A) (STV 1.0 1.0)))
