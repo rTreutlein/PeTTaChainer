@@ -24,7 +24,7 @@
 (= (clear-backward-query-state!)
    (let $_clear
       (foreach-flat remove-all-atoms
-         (&goal &goal_lookup &goal_waiter &goal_child
+         (&goal &goal_lookup &goal_waiter &goal_waiter_demand &goal_child
           &goal_demand_cache &goal_demand_revision &goal_demand_wake
           &goal_current_confidence &root_goal &search_wake_active
           &fold_source

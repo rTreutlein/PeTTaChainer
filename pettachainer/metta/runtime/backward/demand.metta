@@ -152,17 +152,15 @@
 
 (: goal-shallower? (-[det]-> Number Number Bool))
 (= (goal-shallower? $gid $depth)
-   (let $hits
-      (collapse (once (match &goal
-         (stored-goal-row $gid $goal-depth $_goal $_expanded $_pending)
-         (stored-number $goal-depth))))
-      (case $hits (
-         ((cons $goal-depth $_rest) (< (the Number $goal-depth) $depth))
-         ($_other false)))))
+   (case (collapse (once (match &goal
+            (stored-goal-row $gid $goal-depth $_goal $_expanded $_pending)
+            (< (the Number $goal-depth) $depth)))) (
+      (() false)
+      ((cons $shallower $_rest) (the Bool $shallower)))))
 
-;; Demand traversals carry only scheduling inputs. Proof-bearing waiter
-;; context stays in the delivery registry rather than being copied into every
-;; demand walk. Projection preserves registry order and multiplicity.
+;; Demand traversals read scheduling inputs projected once at registration.
+;; The full proof-bearing waiter remains in the delivery registry. Both stores
+;; append in the same order, retain duplicates, and live until query reset.
 (: WaiterDemand Type)
 (: frontier-demand (-[det]-> Number Number Number Number Number WaiterDemand))
 (: aggregate-demand (-[det]-> Number AggregateDemandSpec WaiterDemand))
@@ -178,6 +176,16 @@
       ((aggregate-waiter $parent $spec)
          (aggregate-demand (the Number $parent) (the AggregateDemandSpec $spec)))
       ($_other no-waiter-demand))))
+
+;; Re-establish the stored constructor at the erased-space boundary without
+;; a reflective nominal-type check for every repeated demand read.
+(: stored-waiter-demand (-[semidet]-> Atom WaiterDemand))
+(= (stored-waiter-demand
+      (frontier-demand $parent $score $path $candidate $count))
+   (frontier-demand $parent $score $path $candidate $count))
+(= (stored-waiter-demand (aggregate-demand $parent $spec))
+   (aggregate-demand $parent $spec))
+(= (stored-waiter-demand no-waiter-demand) no-waiter-demand)
 
 (: waiter-root-demands
    (-[det]-> WaiterDemand Number (List RootDemand)))
@@ -219,8 +227,8 @@
              $_rest)
             (let $waiters
                (collapse
-                  (match &goal_waiter
-                     ($gid $waiter) (waiter-demand-view $waiter)))
+                  (match &goal_waiter_demand
+                     ($gid $demand) (stored-waiter-demand $demand)))
                (fold-flat (waiter-demands-step $depth)
                   (root-goal-demand-seed $gid)
                   (the
@@ -329,13 +337,17 @@
             (goal-demand-dependency $parent-gid $revision)
             $rest))))
 
-(: update-goal-demand-cache-for-waiter!
-   (-[semidet]-> Number Number (List RootDemand)
+(: register-goal-waiter!
+   (-[semidet]-> Number Number
        (| FrontierWaiter AggregateWaiter Atom) (List $none)))
-(= (update-goal-demand-cache-for-waiter!
-      $child-gid $parent-gid $current-demands $waiter)
+(= (register-goal-waiter! $child-gid $parent-gid $waiter)
    (let*
-      (((stored-goal-row
+      (($current-demands (goal-root-demands $child-gid))
+       ($_wait (once (chainer-add-atom &goal_waiter ($child-gid $waiter))))
+       ($_edge
+          (if (space-row-present? &goal_child ($parent-gid $child-gid)) ()
+             (once (chainer-add-atom &goal_child ($parent-gid $child-gid)))))
+       ((stored-goal-row
             $_gid $child-depth $_goal $_expanded $_pending)
           (goal-by-id $child-gid))
        ($hits
@@ -350,9 +362,12 @@
           (the (List GoalDemandDependency)
              (chainer-first-or ()
                 (the (List (List GoalDemandDependency)) $hits))))
+       ($demand (waiter-demand-view $waiter))
+       ($_demand
+          (once (add-atom &goal_waiter_demand ($child-gid $demand))))
        ($next-demands
           (fold-flat root-demand-put-max $current-demands
-             (waiter-root-demands (waiter-demand-view $waiter) $child-depth)))
+             (waiter-root-demands $demand $child-depth)))
        ($next-dependencies
           (goal-demand-dependency-put
              (goal-demand-dependency $parent-gid
@@ -378,24 +393,6 @@
                    (not (== $next-demands ())))
              (once (add-atom &goal_demand_wake ($child-gid)))
              ())))
-      ()))
-
-(: register-goal-waiter!
-   (-[semidet]-> Number Number
-       (| FrontierWaiter AggregateWaiter Atom) (List $none)))
-(= (register-goal-waiter! $child-gid $parent-gid $waiter)
-   (let* (($current-demands
-              (goal-root-demands $child-gid))
-           ($_wait
-              (once
-                 (chainer-add-atom &goal_waiter
-                    ($child-gid $waiter))))
-           ($_edge
-              (if (space-row-present? &goal_child ($parent-gid $child-gid)) ()
-                 (once (chainer-add-atom &goal_child ($parent-gid $child-gid)))))
-           ($_update
-              (update-goal-demand-cache-for-waiter!
-                 $child-gid $parent-gid $current-demands $waiter)))
       ()))
 
 (: goal-demand-child-gids (-[det]-> Number (List Number)))
