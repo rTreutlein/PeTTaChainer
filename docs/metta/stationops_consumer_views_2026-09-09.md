@@ -215,7 +215,7 @@ the source patch, benchmark runner, and validation logs. Apply
 `consumer-views.patch` to an archive of `c0cd54e3` for the tested implementation;
 add `shorter-path.patch` only for the separate combined diagnostic.
 Run the included `benchmark.py` with the repository's `.venv/bin/python`,
-`--repository <archive> --chainergame ../../ChainerGame --petta third_party/petta
+`--repository <archive> --chainergame ../../ChainerGame --petta ../../PeTTa
 --json-out <output> --seed 7 --budget 600`. Use seeds 11 and 23 with budget 300
 for the other workloads. Validation uses `PETTA_STRICT=1 PETTA_JOBS=8
 scripts/verify.sh`, with `scripts/test_metta.sh` preserving the MeTTa runtime

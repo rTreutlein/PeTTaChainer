@@ -14,7 +14,7 @@ wheels = [
 [[package]]
 name = "petta"
 version = "0.1.0"
-source = { directory = "third_party/petta" }
+source = { directory = "../../PeTTa" }
 dependencies = [
     { name = "janus-swi" },
 ]
@@ -31,4 +31,4 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "petta", directory = "third_party/petta" }]
+requires-dist = [{ name = "petta", directory = "../../PeTTa" }]

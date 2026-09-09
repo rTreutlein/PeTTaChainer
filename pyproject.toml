@@ -15,10 +15,11 @@ dependencies = [
     "petta",
 ]
 
-# Vendored PeTTa with the unified checker (upstream e038e4d + local unified-checker
-# work, reconstructed from the former /tmp/petta-unified-checker@c33851b pin).
+# PeTTa is the sibling checkout. PeTTaChainer needs its branch
+# pettachainer-runtime-fixes (unified-checker pin c33851b plus the runtime
+# fixes) until that branch is merged upstream.
 [tool.uv.sources]
-petta = { path = "third_party/petta" }
+petta = { path = "../../PeTTa" }
 
 [tool.setuptools.packages.find]
 include = ["pettachainer*"]

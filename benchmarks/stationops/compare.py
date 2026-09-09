@@ -58,12 +58,16 @@ def main():
     parser.add_argument("--chainergame-ref", default="99fc56e")
     parser.add_argument("--pairs", type=int, default=3)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--petta", type=Path, default=None,
+                        help="PeTTa repository (default: <repository>/../../PeTTa)")
+    parser.add_argument("--petta-ref", default="HEAD")
     parser.add_argument("--max-regression-percent", type=float, default=5)
     args = parser.parse_args()
     if args.pairs < 1 or args.max_regression_percent < 0:
         parser.error("pairs must be positive and regression threshold nonnegative")
     repo = args.repository.resolve()
     game = (args.chainergame or repo / "../../ChainerGame").resolve()
+    petta = (args.petta or repo / "../../PeTTa").resolve()
     output = args.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=False)
 
@@ -77,13 +81,13 @@ def main():
         **{side: (repo, rev, ["pettachainer", "third_party"])
            for side, rev in revisions.items()},
         "game": (game, git("rev-parse", f"{args.chainergame_ref}^{{commit}}", cwd=game), ["src"]),
-        "runtime": (repo, git("rev-parse", "HEAD"), ["third_party/petta"]),
+        "runtime": (petta, git("rev-parse", f"{args.petta_ref}^{{commit}}", cwd=petta), []),
     }
     metadata = dict(
         revisions=revisions, pairs=args.pairs, max_regression_percent=args.max_regression_percent,
         game_commit=sources["game"][1], runtime_commit=sources["runtime"][1],
-        runtime_tree=git("rev-parse", "HEAD:third_party/petta"),
         repository_status=git("status", "--short"), game_status=git("status", "--short", cwd=game),
+        runtime_status=git("status", "--short", cwd=petta),
         python=sys.version, executable=sys.executable, command=sys.argv,
         fetched=False, rebuilt=False,
     )
@@ -106,7 +110,7 @@ def main():
                 process = subprocess.run(
                     [str(repo / ".venv/bin/python"), str(Path(__file__).with_name("benchmark.py")),
                      "--repository", str(output / side), "--chainergame", str(output / "game"),
-                     "--petta", str(output / "runtime/third_party/petta"), "--json-out", str(path)],
+                     "--petta", str(output / "runtime"), "--json-out", str(path)],
                     cwd=output, env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1"),
                     stdout=log, stderr=subprocess.STDOUT,
                 )
