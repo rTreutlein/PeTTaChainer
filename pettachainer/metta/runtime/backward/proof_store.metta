@@ -58,14 +58,13 @@
          (match &proof_revision ($hash $saved $revision)
             (if (=alpha $saved $key) (stored-number $revision) (empty))))))))
 (: advance-proof-revision! (-[det]-> ProofGoalKey Bool))
+;; Revision numbers are globally unique, so the old number alone identifies
+;; the row to drop; 0 is the no-row default.
 (= (advance-proof-revision! $key)
    (let* (($hash (index-hash $key))
-          ($revision (+ 1 (next-search-id bwd_proof_revision)))
-          ($head (Predicate (cons &proof_revision ($hash $saved $_old))))
-          ($_remove (collapse
-             (let $_found (callPredicate (Predicate (clause $head true $ref)))
-                (if (=alpha $saved $key)
-                   (callPredicate (Predicate (erase $ref))) (empty))))))
+          ($old (proof-revision $key))
+          ($_remove (if (== $old 0) () (remove-atom &proof_revision ($hash $_saved $old))))
+          ($revision (+ 1 (next-search-id bwd_proof_revision))))
       (add-atom &proof_revision ($hash $key $revision))))
 (: index-current! (-[det]-> ProofGoalKey ProofOutputKey Number Bool))
 (= (index-current! $key $okey $pid) (let* (($_revision (advance-proof-revision! $key)) ($khash (index-hash $key)) ($ohash (index-hash $okey)) ($ghash (index-hash (goal-output-key $key $okey))) ($_goal (once (add-atom &proof_current (current-row $khash $ohash $key $okey $pid))))) (once (add-atom &proof_current (current-out-row $ghash $key $okey $pid)))))
@@ -289,7 +288,7 @@
                       (derivation-row $dhash $gkey $pid)))))
           ($_paths (case $kind (((aggregate $_snapshot) (invalidate-proof-paths! $pid)) ($_ordinary ())))))
       ()))
-(= (supersede-current-proof! $pid) (let* (($_alternative (remove-atom &proof_alternative ($pid))) ($gkey (owner-key $pid)) ($okey (output-key $pid)) ($_result (if (== (collapse (once (current-proof-result-id-for-output-key $gkey $okey))) ($pid)) (remove-result-output! $gkey $okey) ())) ($_drop (drop-current-proof! $pid)) ($_dirty (mark-dirty! $gkey $okey)) ($_confidence (clear-key-confidence! $gkey))) ()))
+(= (supersede-current-proof! $pid) (let* (($gkey (owner-key $pid)) ($okey (output-key $pid)) ($_result (if (== (collapse (once (current-proof-result-id-for-output-key $gkey $okey))) ($pid)) (remove-result-output! $gkey $okey) ())) ($_drop (drop-current-proof! $pid)) ($_dirty (mark-dirty! $gkey $okey)) ($_confidence (clear-key-confidence! $gkey))) ()))
 (: current-base-rate-aggregate-pids (-[det]-> KB Statement (List Number)))
 (= (current-base-rate-aggregate-pids $kbid $pattern)
    (collapse
