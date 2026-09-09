@@ -47,7 +47,7 @@
                 ((rule-ev consumerViews h)))))
           ($current (goal-live-proof-ids $a)))
       ((stored-list-member? $old $current)
-       (space-row-present? &proof_alternative ($old))
+       (space-row-present? &proof_alternative ($_hash $_key $old))
        (map-semidet frontier-path-live? $old-paths)
        (collapse (match &proof
           (stored-proof-row $_pid $_owner ((G) $_kb $_proof $value)

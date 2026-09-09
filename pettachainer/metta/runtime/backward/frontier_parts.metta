@@ -229,24 +229,21 @@
       (($_type $_kb $proof $_tv)
          (proof-term-conjunction-dependency? (brand Proof $proof)))
       ($_other false))))
-(: frontier-compatible-source-id-step (-[semidet]-> Number Atom
+(: noncyclic-source-step (-[semidet]-> Number Atom ProofGoalKey
       (List Number) Number (List Number)))
-(= (frontier-compatible-source-id-step
-      $parent-gid $cycle-key $acc $pid)
+(= (noncyclic-source-step $parent-gid $cycle-key $key $acc $pid)
    (if (proof-depends-on-goal-seen?
           $pid $parent-gid
           (the (| ProofOutputKey ClosedGoalKey) $cycle-key) ())
       $acc
-      (cons $pid $acc)))
+      (prefer-compatible-derivation-step $key $acc $pid)))
 (: noncyclic-proof-source-ids (-[semidet]-> Number Atom
       Number (List Number)))
 (= (noncyclic-proof-source-ids $parent-gid $cycle-key $child-gid)
-   (let $compatible (reverse-number-list
+   (let $key (proof-goal-key-by-goal-id $child-gid)
       (proof-fold-flat-semidet
-         (frontier-compatible-source-id-step $parent-gid $cycle-key) ()
-         (goal-source-proof-ids $child-gid
-            (proof-revision (proof-goal-key-by-goal-id $child-gid)))))
-      (proof-fold-flat-semidet prefer-compatible-derivation-step () $compatible)))
+         (noncyclic-source-step $parent-gid $cycle-key $key) ()
+         (goal-source-proof-ids $child-gid (proof-revision $key)))))
 ;; Opposite directions of one BiImplication are one definition. Reject the
 ;; immediate reverse even when lowering flattened its intermediate proof node.
 (: frontier-opposite-bi-direction? (-[det]-> Proof Proof Bool))

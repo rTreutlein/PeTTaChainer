@@ -32,7 +32,7 @@
           &frontier_path_dead &proof_frontier_path
           &proof_cycle_cache &proof_revision
           &frontier_view_lookup &frontier_selection_cache &goal_source_cache
-          &frontier_delivered))
+          &frontier_delivered &proof_derivation_hash))
       ()))
 
 ;; index-hash seals variables before hashing.  The hash is the generated
@@ -346,11 +346,11 @@
              (frontier-premise-part $support))))
       (frontier-proof-admissible? $parent $bundle $seen $parts $pid $evidence $part)))
 
-(: frontier-select-source-step (-[semidet]-> FrontierWaiter
+(: frontier-select-source-step (-[semidet]-> ProofGoalKey FrontierWaiter
       (List Number) Number (List Number)))
-(= (frontier-select-source-step $waiter $acc $pid)
+(= (frontier-select-source-step $key $waiter $acc $pid)
    (if (frontier-source-admissible? $waiter $pid)
-      (prefer-compatible-derivation-step $acc $pid) $acc))
+      (prefer-compatible-derivation-step $key $acc $pid) $acc))
 (: frontier-retire-selection-step (-[det]-> Number (List Number) Number (List Atom)))
 (= (frontier-retire-selection-step $view $selected $pid)
    (if (stored-list-member? $pid $selected) ()
@@ -361,12 +361,13 @@
 (: frontier-selected-proof-ids (-[semidet]-> Number Number FrontierWaiter (List Number)))
 (= (frontier-selected-proof-ids $gid $view
       (frontier-waiter $parent $bundle $score $seen $parts $path $value))
-   (let* (($revision (proof-revision (proof-goal-key-by-goal-id $gid)))
+   (let* (($key (proof-goal-key-by-goal-id $gid))
+          ($revision (proof-revision $key))
           ($cached (collapse (once (match &frontier_selection_cache
              ($view $revision $pids) (the (List Number) $pids))))))
       (if (== $cached ())
          (let* (($sources (proof-fold-flat-semidet
-                   (frontier-select-source-step
+                   (frontier-select-source-step $key
                       (frontier-waiter $parent $bundle $score $seen $parts $path $value))
                    () (goal-source-proof-ids $gid $revision)))
                 ($representatives (proof-output-group-representative-pids $gid
