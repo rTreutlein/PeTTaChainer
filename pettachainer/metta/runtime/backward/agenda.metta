@@ -161,9 +161,10 @@
                                                           (match &proof_current
                                                              (current-row $hash $_ohash
                                                                 $stored-key
-                                                                $_okey $_pid)
+                                                                $_okey $pid)
                                                              (if (=alpha $stored-key $key)
-                                                                true
+                                                                (if (satisfies-goal? (stored-number $pid) $gid)
+                                                                   true (empty))
                                                                 (empty)))))
                                                     ()))))
                                         false)

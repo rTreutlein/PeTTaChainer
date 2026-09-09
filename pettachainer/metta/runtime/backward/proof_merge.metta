@@ -355,7 +355,7 @@
           ($_derivation
              (if (< $dhash 0) ()
                 (once (add-atom &proof_derivation (derivation-row $dhash $gkey $pid)))))
-          ($_confidence (clear-current-confidence! $gid))
+          ($_confidence (clear-key-confidence! $gkey))
           ($_result
              (if $result-dirty? ()
                 (if (== $old-rep ())
@@ -373,12 +373,28 @@
 (= (candidate-kind-term (aggregate $term)) $term)
 (: cyclic-dependency? (-[semidet]-> Number Number (| ProofOutputKey ClosedGoalKey) Bool))
 (= (cyclic-dependency? $pid $gid $cycle) (if (== $cycle closed-goal) (=alpha (owner-key $pid) (proof-goal-key-by-goal-id $gid)) (=alpha (output-key $pid) $cycle)))
-(: proof-depends-on-goal-seen? (-[semidet]-> Number Number (| ProofOutputKey ClosedGoalKey) (List Number) Bool))
-(: depends-step (-[semidet]-> Number (| ProofOutputKey ClosedGoalKey) (List Number) Bool Number Bool))
-(= (depends-step $gid $cycle $seen-pids $acc $child) (if $acc true (proof-depends-on-goal-seen? $child $gid $cycle $seen-pids)))
-(= (proof-depends-on-goal-seen? $pid $gid $cycle ()) (let $hits (collapse (once (match &proof_cycle_cache ($pid $gid $saved-key $result) (if (=alpha $saved-key $cycle) $result (empty))))) (case $hits ( (() (let* (($result (proof-depends-on-goal-seen? $pid $gid $cycle (cons -1 ()))) (($saved-key $stored-result) (copy_term (quote ($cycle $result)))) ($_cache (once (add-atom &proof_cycle_cache ($pid $gid $saved-key $stored-result))))) $result)) ((cons $result $_rest) $result)))))
-(= (proof-depends-on-goal-seen? $pid $gid $cycle (cons $seen-pid $rest-seen-pids)) (let $seen-pids (cons $seen-pid $rest-seen-pids) (if (stored-list-member? $pid $seen-pids) false (if (cyclic-dependency? $pid $gid $cycle) true (proof-fold-flat-semidet (depends-step $gid $cycle (cons $pid $seen-pids)) false (proof-children-by-id $pid))))))
+(: proof-depends-on-goal? (-[semidet]-> Number Number (| ProofOutputKey ClosedGoalKey) Bool))
+(: depends-step (-[semidet]-> Number (| ProofOutputKey ClosedGoalKey) Bool Number Bool))
+(= (depends-step $gid $cycle $acc $child)
+   (if $acc true (proof-depends-on-goal? $child $gid $cycle)))
+;; Stored children always precede their immutable parent PID. Memoize each
+;; DAG node, including shared descendants; logical self-support is still
+;; rejected by the receiving goal/output key rather than physical PID cycles.
+(= (proof-depends-on-goal? $pid $gid $cycle)
+   (let $hits (collapse (once (match &proof_cycle_cache
+         ($pid $gid $saved-key $result)
+         (if (=alpha $saved-key $cycle) $result (empty)))))
+      (case $hits (
+         (() (let* (($result
+                       (if (cyclic-dependency? $pid $gid $cycle) true
+                          (proof-fold-flat-semidet (depends-step $gid $cycle)
+                             false (proof-children-by-id $pid))))
+                    (($saved-key $stored-result) (copy_term (quote ($cycle $result))))
+                    ($_cache (once (add-atom &proof_cycle_cache
+                       ($pid $gid $saved-key $stored-result)))))
+                $result))
+         ((cons $result $_rest) $result)))))
 (: candidate-cycle-key (-[semidet]-> Number ProofKind (| ProofOutputKey ClosedGoalKey)))
 (= (candidate-cycle-key $gid $kind) (let* (((stored-goal-row $_gid $_depth $goal $_expanded $_pending) (goal-by-id $gid))) (if (goal-has-type-vars? $goal) (candidate-output-key (candidate-kind-term $kind)) closed-goal)))
 (: candidate-is-cyclic? (-[semidet]-> Number ProofKind (List Number) Bool))
-(= (candidate-is-cyclic? $gid $kind $children) (if (== $children ()) false (let $cycle (candidate-cycle-key $gid $kind) (proof-fold-flat-semidet (depends-step $gid $cycle ()) false $children))))
+(= (candidate-is-cyclic? $gid $kind $children) (if (== $children ()) false (let $cycle (candidate-cycle-key $gid $kind) (proof-fold-flat-semidet (depends-step $gid $cycle) false $children))))

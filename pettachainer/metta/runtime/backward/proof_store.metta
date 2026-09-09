@@ -50,7 +50,7 @@
                    (goal-demand-revision-row $gid $next)))))
       $next))
 (: clear-key-confidence! (-[det]-> ProofGoalKey (List $none)))
-(= (clear-key-confidence! $key) (let $lkey (index-hash $key) (let $_cleared (collapse (match &goal_lookup ($lkey $saved-key $gid) (if (=alpha $saved-key $key) (clear-current-confidence! (stored-number $gid)) (empty)))) ())))
+(= (clear-key-confidence! $key) (let $lkey (index-hash $key) (let $_cleared (collapse (match &goal_lookup ($lkey $saved-key $_pattern $gid) (if (=alpha $saved-key $key) (clear-current-confidence! (stored-number $gid)) (empty)))) ())))
 (: proof-revision (-[det]-> ProofGoalKey Number))
 (= (proof-revision $key)
    (let $hash (index-hash $key)
@@ -202,28 +202,23 @@
 (= (materialize-kind (rule $term) $pid) (let $prf (rule-proof-token $term) (if (== $prf $term) $prf (let $rule-prf (materialize-rule $prf $pid) (normalize-rule-proof $rule-prf)))))
 (: materialize-proof (-[semidet]-> Number Proof))
 (= (materialize-proof $pid) (once (match &proof (stored-proof-row $pid $_owner $_output $kind $_support $_children) (materialize-kind $kind $pid))))
-;; Durable proof rows do not change, but a goal row can gain constraints when
-;; a shallower occurrence is registered. Reuse compatibility only for the same
-;; complete goal pattern, including its proof, TV, and variable sharing.
+;; A PID's materialized output and a live GID's complete goal pattern are
+;; immutable. Scheduler rewrites change only metadata, and query reset clears
+;; this cache before GIDs are reused. Compatibility therefore depends only on
+;; PID/GID; proof liveness and consumer-specific admissibility are separate.
 (: satisfies-goal? (-[semidet]-> Number Number Bool))
 (= (satisfies-goal? $pid $gid)
-   (let* (((stored-goal-row $_gid $_depth $goal $_expanded $_pending)
-              (goal-by-id $gid))
-          ($cached (collapse (once (match &proof_goal_eligibility
-             ($pid $gid $saved-goal $compatible)
-             ;; Native variant equality preserves attributed constraints;
-             ;; MeTTa's =alpha deliberately ignores them.
-             (if (not (== (collapse (callPredicate
-                       (Predicate (quote (=@= $saved-goal $goal))))) ()))
-                (the Bool $compatible) (empty)))))))
+   (let $cached (collapse (once (match &proof_goal_eligibility
+          ($pid $gid $compatible) (the Bool $compatible))))
       (case $cached
-         ((() (let* (($result (materialize-result (proof-output-atom-by-id $pid)))
+         ((() (let* (((stored-goal-row $_gid $_depth $goal $_expanded $_pending)
+                         (goal-by-id $gid))
+                     ($result (materialize-result (proof-output-atom-by-id $pid)))
                      ($result-copy (copy_term $result))
                      ($goal-copy (copy_term $goal))
                      ($compatible (if (= $goal-copy $result-copy) true false))
-                     ($saved-goal (copy_term $goal))
                      ($_store (once (add-atom &proof_goal_eligibility
-                        ($pid $gid $saved-goal $compatible)))))
+                        ($pid $gid $compatible)))))
                   $compatible))
           ((cons $compatible $_rest) $compatible)))))
 (: indexed-goal-pids (-[semidet]-> $space Number (List Number)))

@@ -201,7 +201,11 @@
 (= (advance-frontier-bundle
       (and-bundle $goal (cons $premise $rest)) $pid)
    (let $output (proof-output-atom-by-id $pid)
-      (if (= $premise $output)
+      ;; Ordinary premises bind the compact reference directly. A constrained
+      ;; proof pattern must instead see the full proof it matched at selection.
+      (if (if (= $premise $output) true
+             (let $materialized (materialize-result $output)
+                (= $premise $materialized)))
          (and-bundle (frontier-goal-proof-view $goal) $rest)
          ())))
 (: frontier-pooled-bundle
@@ -232,9 +236,9 @@
 (: noncyclic-source-step (-[semidet]-> Number Atom ProofGoalKey
       (List Number) Number (List Number)))
 (= (noncyclic-source-step $parent-gid $cycle-key $key $acc $pid)
-   (if (proof-depends-on-goal-seen?
+   (if (proof-depends-on-goal?
           $pid $parent-gid
-          (the (| ProofOutputKey ClosedGoalKey) $cycle-key) ())
+          (the (| ProofOutputKey ClosedGoalKey) $cycle-key))
       $acc
       (prefer-compatible-derivation-step $key $acc $pid)))
 (: noncyclic-proof-source-ids (-[semidet]-> Number Atom

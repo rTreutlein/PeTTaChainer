@@ -35,9 +35,9 @@
           &frontier_delivered &proof_derivation_hash))
       ()))
 
-;; index-hash seals variables before hashing.  The hash is the generated
-;; store predicate's indexed first argument; the full key and alpha check
-;; reject collisions.
+;; Durable proof identity omits proof/TV constraints, while each query goal
+;; retains its complete pattern. Index by the semantic hash, then compare both
+;; the semantic key and full pattern without binding either stored request.
 (: ensure-goal-at-depth
    (-[semidet]-> (| Goal (Statement KBContext Proof TV)) Number Number))
 (= (ensure-goal-at-depth $goal $depth)
@@ -48,9 +48,11 @@
              (collapse
                 (once
                    (match &goal_lookup
-                      ($lookup-key $stored-key $gid)
+                      ($lookup-key $stored-key $stored-pattern $gid)
                       (if (=alpha $stored-key $key)
-                         (stored-number $gid)
+                         (if (=alpha $stored-pattern $stored-goal)
+                            (stored-number $gid)
+                            (empty))
                          (empty)))))))
       (if (== $hits ())
          (let* (($gid (next-gid))
@@ -62,12 +64,12 @@
                             (goal-agenda-state 0 0 0.0 false)))))
                 ($_lookup
                    (add-space-atom! &goal_lookup
-                      (make-space-row3 $lookup-key $key $gid))))
+                      (make-space-row4 $lookup-key $key $stored-goal $gid))))
             $gid)
          (let* (($gid (first-number $hits))
                 ($row (goal-by-id $gid))
                 ((stored-goal-row
-                    $_stored-gid $stored-depth $stored-goal
+                    $_stored-gid $stored-depth $existing-goal
                     $expanded $state)
                    $row)
                 ($_lower
@@ -78,7 +80,7 @@
                                    (once
                                       (chainer-add-atom &goal
                                          (stored-goal-row
-                                            $gid $depth $stored-goal
+                                            $gid $depth $existing-goal
                                             false $state)))))
                             ())
                          ()))))
@@ -307,9 +309,9 @@
          $opposite-bi-direction?
          false
          (if
-            (proof-depends-on-goal-seen?
+            (proof-depends-on-goal?
                $pid $parent-gid
-               (candidate-cycle-key $parent-gid (rule $goal)) ())
+               (candidate-cycle-key $parent-gid (rule $goal)))
             (case $goal (
                (($type $_kb $_proof $_tv)
                   (implication-type? (brand Statement $type)))
@@ -567,9 +569,9 @@
       ($_other $agenda))))
 
 (: wake-proof-commit-heap
-   (-[det]-> (Heap AgendaEntry) Number Number
+   (-[det]-> Number (Heap AgendaEntry) Number
        (Heap AgendaEntry)))
-(= (wake-proof-commit-heap $agenda $gid $pid)
+(= (wake-proof-commit-heap $pid $agenda $gid)
    ;; Publication changes priority inputs even when synchronous delivery has
    ;; reached its re-entry limit. The guard bounds callbacks, not freshness.
    (let* (($_revision (bump-goal-demand-revision! $gid))
@@ -625,8 +627,20 @@
    (if (chainer-first-or false (collapse (once (classify-goal-proof-candidate $gid $candidate))))
       (let (proof-candidate $kind $_score $_evidence $children) $candidate
          (if (candidate-is-cyclic? $gid $kind $children) $agenda
-            (wake-proof-commit-heap $agenda $gid
-               (goal-merged-proof-id-for-pid $gid (once (store-proof-candidate $gid $candidate))))))
+            (let* (($pid (goal-merged-proof-id-for-pid $gid
+                           (once (store-proof-candidate $gid $candidate))))
+                   ($key (proof-goal-key-by-goal-id $gid))
+                   ($hash (index-hash $key))
+                   ($consumers (the (List Number)
+                      (collapse (match &goal_lookup
+                         ($hash $saved-key $_pattern $consumer)
+                         (if (=alpha $saved-key $key)
+                            (stored-number $consumer) (empty)))))))
+               ;; Constraint variants share durable proofs. Publishing through
+               ;; one variant must notify the others even if their later
+               ;; attempt to store the same candidate is deduplicated.
+               (proof-fold-flat-semidet (wake-proof-commit-heap $pid)
+                  $agenda $consumers))))
       $agenda))
 
 ;; --- Fold refresh scheduling -------------------------------------------------

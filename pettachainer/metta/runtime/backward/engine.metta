@@ -10,14 +10,22 @@
    (case $goal (
       (($type ($kbid MAIN Nil) $prf $tv)
          (if (implication-type? (brand Statement $type))
-            (let $compiled-queries
-               (collapse
-                  (mm2compileQuery
-                     (brand KB $kbid)
-                     (: $prf $type $tv)))
-               (foreach-flat
-                  inject-compiled-query-adds
-                  $compiled-queries))
+            ;; A compiler-marked query source already installed its scaffold
+            ;; before entering the arena, including sources created by folds.
+            (if (if (is-expr $prf)
+                   (if (== (list-len (the (List Atom) $prf)) 2)
+                      (== (car-atom $prf) total-implication-frontier)
+                      false)
+                   false)
+               ()
+               (let $compiled-queries
+                  (collapse
+                     (mm2compileQuery
+                        (brand KB $kbid)
+                        (: $prf $type $tv)))
+                  (foreach-flat
+                     inject-compiled-query-adds
+                     $compiled-queries)))
             (if (= $type (Inheritance $subj $concept))
                (if (concrete-inheritance-link?
                        (brand Term $subj) (brand Term $concept))
