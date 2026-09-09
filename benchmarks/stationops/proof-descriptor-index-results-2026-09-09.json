@@ -1,0 +1,992 @@
+{
+  "schema_version": 1,
+  "scope": "Exact derivation descriptor cache added to committed waiter-demand index; no scheduler policy or truth-value change",
+  "base": {
+    "commit": "30b811922c3276a3344dea21d9a1529643832f67",
+    "branch": "experiment/waiter-demand-index",
+    "path": "/tmp/pettachainer-waiter-demand-index",
+    "clean_before_and_after": true
+  },
+  "candidate": {
+    "path": "/tmp/exact-cache-combined/candidate",
+    "form": "git archive of exact committed parent plus frozen core and test patch; no commits",
+    "source_manifest_sha256": "2aeadb8c501c010aff7d0c5ac3cfa5c7c8446dd205b27f8ab60f2b4e9087fa25",
+    "runtime_manifest_sha256": "f3aa003ace0b288b9e738b56ab38db6553a02f09b817e1a7af81fde4f2331035",
+    "runtime_files_changed": [
+      "pettachainer/metta/runtime/backward/proof_merge.metta",
+      "pettachainer/metta/runtime/backward/search.metta"
+    ]
+  },
+  "runtime": {
+    "path": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+    "revision": "e1aac8b791cf70b7843173b613f04b869b666979",
+    "source_manifest_sha256": "cfec0b9b5afbe909e20576e69ef0a8b7ed5a6a3b435a3c07e1740eedf833d825"
+  },
+  "game": {
+    "path": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/game",
+    "revision": "99fc56e4ddd0d718f00e494146b0ff1884e5fc5e",
+    "source_manifest_sha256": "efe7c12bf1404aee14d9d726c5acdc9ad749be5b81d8f7ae7992f4e81b3ebc4b"
+  },
+  "validation": {
+    "focused_metta_files_passed": 10,
+    "full_metta_files_passed": 79,
+    "python_tests_passed": 57,
+    "python_metric_rows": 46,
+    "python_search_aborts": 0,
+    "import_scaling_ratio": 1.001,
+    "import_scaling_limit": 1.5,
+    "conceptnet_result_count": 2,
+    "maintained_test_cases_passed": 1,
+    "maintained_query_metric_rows": 4,
+    "maintained_search_aborts": 0,
+    "maintained_test_sha256": "eabc582b910b4412b10e6db55167af0d2a3d01a1d09fbbdedd4dc5add131129e",
+    "all_four_verify_gates_passed": true,
+    "source_unchanged": true,
+    "runtime_unchanged": true,
+    "conceptnet_files_unchanged": true,
+    "conceptnet_export_link_restored": true,
+    "full_verify_command": [
+      "/tmp/exact-cache-combined/candidate/scripts/verify.sh"
+    ],
+    "no_retries": true
+  },
+  "development": [
+    {
+      "seed": 7,
+      "budget": 600,
+      "shifts": 2,
+      "modules": 4,
+      "action_budget": 1,
+      "reference": "/tmp/exact-demand-combined-development/seed7.json",
+      "reference_sha256": "08af47ebe81cc875a6167417fe9d4fdd717d591645929160004b439b75a12b09",
+      "exit_code": 0,
+      "watchdog_timeout": false,
+      "hash_invariance": {
+        "source": true,
+        "runtime": true,
+        "game": true,
+        "reference": true,
+        "benchmark": true
+      },
+      "correctness": {
+        "workload_equal": true,
+        "full_proof_answers_equal": true,
+        "queries_equal": true,
+        "public_results_including_backend_counters_equal": true,
+        "all_non_time_query_metrics_equal": true,
+        "zero_aborts": true
+      },
+      "inferences": [
+        {
+          "shift": 1,
+          "reference": 44789974,
+          "candidate": 44271618,
+          "delta_percent": -1.157303641212204
+        },
+        {
+          "shift": 2,
+          "reference": 322059768,
+          "candidate": 313495524,
+          "delta_percent": -2.6592095166633745
+        }
+      ],
+      "result_sha256": "a28ee1b13866181db1a158ebe63c7c5829d9ffa9ea5e22a1193c54848f7f6f86"
+    },
+    {
+      "seed": 11,
+      "budget": 300,
+      "shifts": 2,
+      "modules": 4,
+      "action_budget": 1,
+      "reference": "/tmp/exact-demand-combined/pair1-candidate.json",
+      "reference_sha256": "cc4f319ac2977859322aec2bd24bbf0f9f90fd1ad14ff1ebee631f2a43fab41c",
+      "exit_code": 0,
+      "watchdog_timeout": false,
+      "hash_invariance": {
+        "source": true,
+        "runtime": true,
+        "game": true,
+        "reference": true,
+        "benchmark": true
+      },
+      "correctness": {
+        "workload_equal": true,
+        "full_proof_answers_equal": true,
+        "queries_equal": true,
+        "public_results_including_backend_counters_equal": true,
+        "all_non_time_query_metrics_equal": true,
+        "zero_aborts": true
+      },
+      "inferences": [
+        {
+          "shift": 1,
+          "reference": 8163110,
+          "candidate": 8073999,
+          "delta_percent": -1.0916305182706143
+        },
+        {
+          "shift": 2,
+          "reference": 18925517,
+          "candidate": 18432222,
+          "delta_percent": -2.6065073942233674
+        }
+      ],
+      "result_sha256": "cf5485358fa39ebe6e5fb021bd850625ef25886b1747fa2a4c6334bf89b31e73"
+    },
+    {
+      "seed": 23,
+      "budget": 300,
+      "shifts": 2,
+      "modules": 4,
+      "action_budget": 1,
+      "reference": "/tmp/exact-demand-combined-development/seed23.json",
+      "reference_sha256": "0d4af0c93bbb8a96f117c1c603a2a18e12ac9a5841cdd03ae485e5965c959e1d",
+      "exit_code": 0,
+      "watchdog_timeout": false,
+      "hash_invariance": {
+        "source": true,
+        "runtime": true,
+        "game": true,
+        "reference": true,
+        "benchmark": true
+      },
+      "correctness": {
+        "workload_equal": true,
+        "full_proof_answers_equal": true,
+        "queries_equal": true,
+        "public_results_including_backend_counters_equal": true,
+        "all_non_time_query_metrics_equal": true,
+        "zero_aborts": true
+      },
+      "inferences": [
+        {
+          "shift": 1,
+          "reference": 7921838,
+          "candidate": 7850543,
+          "delta_percent": -0.8999805348203327
+        },
+        {
+          "shift": 2,
+          "reference": 10786518,
+          "candidate": 10683942,
+          "delta_percent": -0.9509648989599828
+        }
+      ],
+      "result_sha256": "8038bea36c9d26d0188d5f7511dae518ea55247c6f73c2e2dfac3a8fa2f2ffdc"
+    }
+  ],
+  "timing": {
+    "order": "AB, BA, AB; A=base, B=candidate",
+    "workload": {
+      "seed": 11,
+      "shifts": 2,
+      "modules": 4,
+      "budget": 300,
+      "action_budget": 1
+    },
+    "watchdog_seconds": 180,
+    "all_six_completed": true,
+    "all_exact_correctness_checks_passed": true,
+    "all_source_invariance": {
+      "base": true,
+      "candidate": true,
+      "runtime": true,
+      "game": true,
+      "reference": true,
+      "benchmark": true,
+      "driver": true,
+      "base_head": true,
+      "base_status": true
+    },
+    "benchmark_sha256": "a4ddd7fc26a2d793b411fd6f888abdfba0e1cf85d37e137373327fd58b7de68c",
+    "driver_sha256": "ced299813f4b59e4743ffe6f6e6f08ddc5109c1e06076f47461358b4d1f74abc",
+    "plan_sha256": "e4c8b0b4c2cef892990bdf72d6950080f80dbd63fcec161a476dbd85f22b4fa0",
+    "median_results": {
+      "shift1_diagnosis_seconds": {
+        "base": 1.7843815129890572,
+        "candidate": 1.78795867000008,
+        "median_paired_delta_percent": 0.09761293699195317,
+        "ratio_of_medians_delta_percent": 0.2004704142574587
+      },
+      "shift2_diagnosis_seconds": {
+        "base": 3.766142995998962,
+        "candidate": 3.6832224979880266,
+        "median_paired_delta_percent": -2.7065921153544448,
+        "ratio_of_medians_delta_percent": -2.2017352527248013
+      },
+      "diagnosis_seconds": {
+        "base": 5.552358088985784,
+        "candidate": 5.471947112993803,
+        "median_paired_delta_percent": -1.695534530636389,
+        "ratio_of_medians_delta_percent": -1.4482310885440275
+      },
+      "shift1_diagnosis_cpu_seconds": {
+        "base": 1.7931820999999992,
+        "candidate": 1.7844448999999987,
+        "median_paired_delta_percent": -0.4864369324230844,
+        "ratio_of_medians_delta_percent": -0.4872455508004747
+      },
+      "shift2_diagnosis_cpu_seconds": {
+        "base": 3.783905100000002,
+        "candidate": 3.6860074999999988,
+        "median_paired_delta_percent": -2.504207046724727,
+        "ratio_of_medians_delta_percent": -2.5872107627647134
+      },
+      "diagnosis_cpu_seconds": {
+        "base": 5.577087200000001,
+        "candidate": 5.470452399999997,
+        "median_paired_delta_percent": -1.9349253268472921,
+        "ratio_of_medians_delta_percent": -1.9120160072089942
+      },
+      "episode_seconds": {
+        "base": 19.85578142601298,
+        "candidate": 19.862367926019942,
+        "median_paired_delta_percent": -0.1827009337876162,
+        "ratio_of_medians_delta_percent": 0.033171698789602466
+      },
+      "shift1_inferences": {
+        "base": 8163110,
+        "candidate": 8073999,
+        "median_paired_delta_percent": -1.0916305182706143,
+        "ratio_of_medians_delta_percent": -1.0916305182706143
+      },
+      "shift2_inferences": {
+        "base": 18925517,
+        "candidate": 18432222,
+        "median_paired_delta_percent": -2.6065073942233674,
+        "ratio_of_medians_delta_percent": -2.6065073942233674
+      },
+      "diagnosis_inferences": {
+        "base": 27088627,
+        "candidate": 26506221,
+        "median_paired_delta_percent": -2.1500019177789986,
+        "ratio_of_medians_delta_percent": -2.1500019177789986
+      },
+      "peak_rss_kib": {
+        "base": 181928,
+        "candidate": 181124,
+        "median_paired_delta_percent": -0.9454289609076127,
+        "ratio_of_medians_delta_percent": -0.44193307242426094
+      }
+    },
+    "paired_results": [
+      {
+        "pair": 1,
+        "metrics": {
+          "shift1_diagnosis_seconds": {
+            "base": 1.7843815129890572,
+            "candidate": 1.7740889310080092,
+            "delta_percent": -0.576815098459893
+          },
+          "shift2_diagnosis_seconds": {
+            "base": 3.763312719995156,
+            "candidate": 3.657697905000532,
+            "delta_percent": -2.8064320680413646
+          },
+          "diagnosis_seconds": {
+            "base": 5.547694232984213,
+            "candidate": 5.431786836008541,
+            "delta_percent": -2.0892895698277014
+          },
+          "shift1_diagnosis_cpu_seconds": {
+            "base": 1.7941917000000007,
+            "candidate": 1.7809375999999997,
+            "delta_percent": -0.7387226236751143
+          },
+          "shift2_diagnosis_cpu_seconds": {
+            "base": 3.770043700000002,
+            "candidate": 3.6756340000000005,
+            "delta_percent": -2.504207046724727
+          },
+          "diagnosis_cpu_seconds": {
+            "base": 5.564235400000003,
+            "candidate": 5.4565716,
+            "delta_percent": -1.9349253268472921
+          },
+          "episode_seconds": {
+            "base": 19.83702231501229,
+            "candidate": 19.800779890007107,
+            "delta_percent": -0.1827009337876162
+          },
+          "shift1_inferences": {
+            "base": 8163110,
+            "candidate": 8073999,
+            "delta_percent": -1.0916305182706143
+          },
+          "shift2_inferences": {
+            "base": 18925517,
+            "candidate": 18432222,
+            "delta_percent": -2.6065073942233674
+          },
+          "diagnosis_inferences": {
+            "base": 27088627,
+            "candidate": 26506221,
+            "delta_percent": -2.1500019177789986
+          },
+          "peak_rss_kib": {
+            "base": 181928,
+            "candidate": 180208,
+            "delta_percent": -0.9454289609076127
+          }
+        }
+      },
+      {
+        "pair": 2,
+        "metrics": {
+          "shift1_diagnosis_seconds": {
+            "base": 1.7806405290029943,
+            "candidate": 1.7887246150057763,
+            "delta_percent": 0.45399876455178845
+          },
+          "shift2_diagnosis_seconds": {
+            "base": 3.7856855650024954,
+            "candidate": 3.6832224979880266,
+            "delta_percent": -2.7065921153544448
+          },
+          "diagnosis_seconds": {
+            "base": 5.56632609400549,
+            "candidate": 5.471947112993803,
+            "delta_percent": -1.695534530636389
+          },
+          "shift1_diagnosis_cpu_seconds": {
+            "base": 1.7906741999999998,
+            "candidate": 1.7844448999999987,
+            "delta_percent": -0.34787456031929453
+          },
+          "shift2_diagnosis_cpu_seconds": {
+            "base": 3.7885615999999978,
+            "candidate": 3.6860074999999988,
+            "delta_percent": -2.7069402804483667
+          },
+          "diagnosis_cpu_seconds": {
+            "base": 5.5792357999999975,
+            "candidate": 5.470452399999997,
+            "delta_percent": -1.9497903279155238
+          },
+          "episode_seconds": {
+            "base": 19.85578142601298,
+            "candidate": 19.862367926019942,
+            "delta_percent": 0.033171698789602466
+          },
+          "shift1_inferences": {
+            "base": 8163110,
+            "candidate": 8073999,
+            "delta_percent": -1.0916305182706143
+          },
+          "shift2_inferences": {
+            "base": 18925517,
+            "candidate": 18432222,
+            "delta_percent": -2.6065073942233674
+          },
+          "diagnosis_inferences": {
+            "base": 27088627,
+            "candidate": 26506221,
+            "delta_percent": -2.1500019177789986
+          },
+          "peak_rss_kib": {
+            "base": 184444,
+            "candidate": 182048,
+            "delta_percent": -1.2990392747934343
+          }
+        }
+      },
+      {
+        "pair": 3,
+        "metrics": {
+          "shift1_diagnosis_seconds": {
+            "base": 1.7862150929868221,
+            "candidate": 1.78795867000008,
+            "delta_percent": 0.09761293699195317
+          },
+          "shift2_diagnosis_seconds": {
+            "base": 3.766142995998962,
+            "candidate": 3.7060542769904714,
+            "delta_percent": -1.5954975441008767
+          },
+          "diagnosis_seconds": {
+            "base": 5.552358088985784,
+            "candidate": 5.494012946990551,
+            "delta_percent": -1.0508173475153204
+          },
+          "shift1_diagnosis_cpu_seconds": {
+            "base": 1.7931820999999992,
+            "candidate": 1.7844593999999994,
+            "delta_percent": -0.4864369324230844
+          },
+          "shift2_diagnosis_cpu_seconds": {
+            "base": 3.783905100000002,
+            "candidate": 3.710177800000002,
+            "delta_percent": -1.9484447429720109
+          },
+          "diagnosis_cpu_seconds": {
+            "base": 5.577087200000001,
+            "candidate": 5.494637200000001,
+            "delta_percent": -1.478370286195263
+          },
+          "episode_seconds": {
+            "base": 19.978231059998507,
+            "candidate": 19.88898793698172,
+            "delta_percent": -0.4467018263467404
+          },
+          "shift1_inferences": {
+            "base": 8163110,
+            "candidate": 8073999,
+            "delta_percent": -1.0916305182706143
+          },
+          "shift2_inferences": {
+            "base": 18925517,
+            "candidate": 18432222,
+            "delta_percent": -2.6065073942233674
+          },
+          "diagnosis_inferences": {
+            "base": 27088627,
+            "candidate": 26506221,
+            "delta_percent": -2.1500019177789986
+          },
+          "peak_rss_kib": {
+            "base": 181072,
+            "candidate": 181124,
+            "delta_percent": 0.0287178580895997
+          }
+        }
+      }
+    ],
+    "runs": [
+      {
+        "pair": 1,
+        "side": "base",
+        "label": "pair1-base",
+        "command": [
+          "/usr/bin/time",
+          "-f",
+          "%M",
+          "-o",
+          "/tmp/exact-cache-combined/timing/pair1-base.rss",
+          "/tmp/pettachainer-waiter-demand-index/.venv/bin/python",
+          "/tmp/exact-cache-combined/timing/benchmark.py",
+          "--repository",
+          "/tmp/pettachainer-waiter-demand-index",
+          "--chainergame",
+          "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/game",
+          "--petta",
+          "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+          "--json-out",
+          "/tmp/exact-cache-combined/timing/pair1-base.json",
+          "--seed",
+          "11",
+          "--budget",
+          "300"
+        ],
+        "machine_before": {
+          "utc": "2026-09-09T19:43:14Z",
+          "load_average": [
+            0.3173828125,
+            0.70263671875,
+            0.62939453125
+          ],
+          "memory": {
+            "MemTotal": "30806344 kB",
+            "MemAvailable": "26683592 kB",
+            "SwapTotal": "8388608 kB",
+            "SwapFree": "8388608 kB"
+          }
+        },
+        "machine_after": {
+          "utc": "2026-09-09T19:43:34Z",
+          "load_average": [
+            0.57373046875,
+            0.7392578125,
+            0.64306640625
+          ],
+          "memory": {
+            "MemTotal": "30806344 kB",
+            "MemAvailable": "26673528 kB",
+            "SwapTotal": "8388608 kB",
+            "SwapFree": "8388608 kB"
+          }
+        },
+        "exit_code": 0,
+        "watchdog_timeout": false,
+        "correctness": {
+          "workload_equal": true,
+          "full_proof_answers_equal": true,
+          "queries_equal": true,
+          "public_results_including_backend_counters_equal": true,
+          "all_non_time_query_metrics_equal": true,
+          "zero_aborts": true
+        },
+        "measurements": {
+          "shift1_diagnosis_seconds": 1.7843815129890572,
+          "shift2_diagnosis_seconds": 3.763312719995156,
+          "diagnosis_seconds": 5.547694232984213,
+          "shift1_diagnosis_cpu_seconds": 1.7941917000000007,
+          "shift2_diagnosis_cpu_seconds": 3.770043700000002,
+          "diagnosis_cpu_seconds": 5.564235400000003,
+          "episode_seconds": 19.83702231501229,
+          "shift1_inferences": 8163110,
+          "shift2_inferences": 18925517,
+          "diagnosis_inferences": 27088627,
+          "peak_rss_kib": 181928
+        },
+        "result_sha256": "eec6cd62fac7fbdea3ed6158f6e4e19501a0ba5c38871bd2c2897b10d3a14752"
+      },
+      {
+        "pair": 1,
+        "side": "candidate",
+        "label": "pair1-candidate",
+        "command": [
+          "/usr/bin/time",
+          "-f",
+          "%M",
+          "-o",
+          "/tmp/exact-cache-combined/timing/pair1-candidate.rss",
+          "/tmp/exact-cache-combined/candidate/.venv/bin/python",
+          "/tmp/exact-cache-combined/timing/benchmark.py",
+          "--repository",
+          "/tmp/exact-cache-combined/candidate",
+          "--chainergame",
+          "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/game",
+          "--petta",
+          "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+          "--json-out",
+          "/tmp/exact-cache-combined/timing/pair1-candidate.json",
+          "--seed",
+          "11",
+          "--budget",
+          "300"
+        ],
+        "machine_before": {
+          "utc": "2026-09-09T19:43:34Z",
+          "load_average": [
+            0.57373046875,
+            0.7392578125,
+            0.64306640625
+          ],
+          "memory": {
+            "MemTotal": "30806344 kB",
+            "MemAvailable": "26673528 kB",
+            "SwapTotal": "8388608 kB",
+            "SwapFree": "8388608 kB"
+          }
+        },
+        "machine_after": {
+          "utc": "2026-09-09T19:43:54Z",
+          "load_average": [
+            0.69580078125,
+            0.7568359375,
+            0.65087890625
+          ],
+          "memory": {
+            "MemTotal": "30806344 kB",
+            "MemAvailable": "26676908 kB",
+            "SwapTotal": "8388608 kB",
+            "SwapFree": "8388608 kB"
+          }
+        },
+        "exit_code": 0,
+        "watchdog_timeout": false,
+        "correctness": {
+          "workload_equal": true,
+          "full_proof_answers_equal": true,
+          "queries_equal": true,
+          "public_results_including_backend_counters_equal": true,
+          "all_non_time_query_metrics_equal": true,
+          "zero_aborts": true
+        },
+        "measurements": {
+          "shift1_diagnosis_seconds": 1.7740889310080092,
+          "shift2_diagnosis_seconds": 3.657697905000532,
+          "diagnosis_seconds": 5.431786836008541,
+          "shift1_diagnosis_cpu_seconds": 1.7809375999999997,
+          "shift2_diagnosis_cpu_seconds": 3.6756340000000005,
+          "diagnosis_cpu_seconds": 5.4565716,
+          "episode_seconds": 19.800779890007107,
+          "shift1_inferences": 8073999,
+          "shift2_inferences": 18432222,
+          "diagnosis_inferences": 26506221,
+          "peak_rss_kib": 180208
+        },
+        "result_sha256": "da0a9cdcdca34225765e8671344df19db4f2017034550eeba28ad14c0f2f548c"
+      },
+      {
+        "pair": 2,
+        "side": "candidate",
+        "label": "pair2-candidate",
+        "command": [
+          "/usr/bin/time",
+          "-f",
+          "%M",
+          "-o",
+          "/tmp/exact-cache-combined/timing/pair2-candidate.rss",
+          "/tmp/exact-cache-combined/candidate/.venv/bin/python",
+          "/tmp/exact-cache-combined/timing/benchmark.py",
+          "--repository",
+          "/tmp/exact-cache-combined/candidate",
+          "--chainergame",
+          "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/game",
+          "--petta",
+          "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+          "--json-out",
+          "/tmp/exact-cache-combined/timing/pair2-candidate.json",
+          "--seed",
+          "11",
+          "--budget",
+          "300"
+        ],
+        "machine_before": {
+          "utc": "2026-09-09T19:43:54Z",
+          "load_average": [
+            0.69580078125,
+            0.7568359375,
+            0.65087890625
+          ],
+          "memory": {
+            "MemTotal": "30806344 kB",
+            "MemAvailable": "26676908 kB",
+            "SwapTotal": "8388608 kB",
+            "SwapFree": "8388608 kB"
+          }
+        },
+        "machine_after": {
+          "utc": "2026-09-09T19:44:14Z",
+          "load_average": [
+            0.78271484375,
+            0.7734375,
+            0.65869140625
+          ],
+          "memory": {
+            "MemTotal": "30806344 kB",
+            "MemAvailable": "26666384 kB",
+            "SwapTotal": "8388608 kB",
+            "SwapFree": "8388608 kB"
+          }
+        },
+        "exit_code": 0,
+        "watchdog_timeout": false,
+        "correctness": {
+          "workload_equal": true,
+          "full_proof_answers_equal": true,
+          "queries_equal": true,
+          "public_results_including_backend_counters_equal": true,
+          "all_non_time_query_metrics_equal": true,
+          "zero_aborts": true
+        },
+        "measurements": {
+          "shift1_diagnosis_seconds": 1.7887246150057763,
+          "shift2_diagnosis_seconds": 3.6832224979880266,
+          "diagnosis_seconds": 5.471947112993803,
+          "shift1_diagnosis_cpu_seconds": 1.7844448999999987,
+          "shift2_diagnosis_cpu_seconds": 3.6860074999999988,
+          "diagnosis_cpu_seconds": 5.470452399999997,
+          "episode_seconds": 19.862367926019942,
+          "shift1_inferences": 8073999,
+          "shift2_inferences": 18432222,
+          "diagnosis_inferences": 26506221,
+          "peak_rss_kib": 182048
+        },
+        "result_sha256": "b996773cebe0b5a6f3248a69d2bc8b055e40b2bc92ddc8ca35979f01376369f1"
+      },
+      {
+        "pair": 2,
+        "side": "base",
+        "label": "pair2-base",
+        "command": [
+          "/usr/bin/time",
+          "-f",
+          "%M",
+          "-o",
+          "/tmp/exact-cache-combined/timing/pair2-base.rss",
+          "/tmp/pettachainer-waiter-demand-index/.venv/bin/python",
+          "/tmp/exact-cache-combined/timing/benchmark.py",
+          "--repository",
+          "/tmp/pettachainer-waiter-demand-index",
+          "--chainergame",
+          "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/game",
+          "--petta",
+          "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+          "--json-out",
+          "/tmp/exact-cache-combined/timing/pair2-base.json",
+          "--seed",
+          "11",
+          "--budget",
+          "300"
+        ],
+        "machine_before": {
+          "utc": "2026-09-09T19:44:14Z",
+          "load_average": [
+            0.78271484375,
+            0.7734375,
+            0.65869140625
+          ],
+          "memory": {
+            "MemTotal": "30806344 kB",
+            "MemAvailable": "26666384 kB",
+            "SwapTotal": "8388608 kB",
+            "SwapFree": "8388608 kB"
+          }
+        },
+        "machine_after": {
+          "utc": "2026-09-09T19:44:35Z",
+          "load_average": [
+            0.85595703125,
+            0.78955078125,
+            0.666015625
+          ],
+          "memory": {
+            "MemTotal": "30806344 kB",
+            "MemAvailable": "26671188 kB",
+            "SwapTotal": "8388608 kB",
+            "SwapFree": "8388608 kB"
+          }
+        },
+        "exit_code": 0,
+        "watchdog_timeout": false,
+        "correctness": {
+          "workload_equal": true,
+          "full_proof_answers_equal": true,
+          "queries_equal": true,
+          "public_results_including_backend_counters_equal": true,
+          "all_non_time_query_metrics_equal": true,
+          "zero_aborts": true
+        },
+        "measurements": {
+          "shift1_diagnosis_seconds": 1.7806405290029943,
+          "shift2_diagnosis_seconds": 3.7856855650024954,
+          "diagnosis_seconds": 5.56632609400549,
+          "shift1_diagnosis_cpu_seconds": 1.7906741999999998,
+          "shift2_diagnosis_cpu_seconds": 3.7885615999999978,
+          "diagnosis_cpu_seconds": 5.5792357999999975,
+          "episode_seconds": 19.85578142601298,
+          "shift1_inferences": 8163110,
+          "shift2_inferences": 18925517,
+          "diagnosis_inferences": 27088627,
+          "peak_rss_kib": 184444
+        },
+        "result_sha256": "3567ef854aed454519504bc5199fe726b05a1c1b4458994a020c704382458802"
+      },
+      {
+        "pair": 3,
+        "side": "base",
+        "label": "pair3-base",
+        "command": [
+          "/usr/bin/time",
+          "-f",
+          "%M",
+          "-o",
+          "/tmp/exact-cache-combined/timing/pair3-base.rss",
+          "/tmp/pettachainer-waiter-demand-index/.venv/bin/python",
+          "/tmp/exact-cache-combined/timing/benchmark.py",
+          "--repository",
+          "/tmp/pettachainer-waiter-demand-index",
+          "--chainergame",
+          "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/game",
+          "--petta",
+          "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+          "--json-out",
+          "/tmp/exact-cache-combined/timing/pair3-base.json",
+          "--seed",
+          "11",
+          "--budget",
+          "300"
+        ],
+        "machine_before": {
+          "utc": "2026-09-09T19:44:35Z",
+          "load_average": [
+            0.85595703125,
+            0.78955078125,
+            0.666015625
+          ],
+          "memory": {
+            "MemTotal": "30806344 kB",
+            "MemAvailable": "26671188 kB",
+            "SwapTotal": "8388608 kB",
+            "SwapFree": "8388608 kB"
+          }
+        },
+        "machine_after": {
+          "utc": "2026-09-09T19:44:55Z",
+          "load_average": [
+            1.0576171875,
+            0.83740234375,
+            0.6845703125
+          ],
+          "memory": {
+            "MemTotal": "30806344 kB",
+            "MemAvailable": "26673280 kB",
+            "SwapTotal": "8388608 kB",
+            "SwapFree": "8388608 kB"
+          }
+        },
+        "exit_code": 0,
+        "watchdog_timeout": false,
+        "correctness": {
+          "workload_equal": true,
+          "full_proof_answers_equal": true,
+          "queries_equal": true,
+          "public_results_including_backend_counters_equal": true,
+          "all_non_time_query_metrics_equal": true,
+          "zero_aborts": true
+        },
+        "measurements": {
+          "shift1_diagnosis_seconds": 1.7862150929868221,
+          "shift2_diagnosis_seconds": 3.766142995998962,
+          "diagnosis_seconds": 5.552358088985784,
+          "shift1_diagnosis_cpu_seconds": 1.7931820999999992,
+          "shift2_diagnosis_cpu_seconds": 3.783905100000002,
+          "diagnosis_cpu_seconds": 5.577087200000001,
+          "episode_seconds": 19.978231059998507,
+          "shift1_inferences": 8163110,
+          "shift2_inferences": 18925517,
+          "diagnosis_inferences": 27088627,
+          "peak_rss_kib": 181072
+        },
+        "result_sha256": "3825575765a860683e3b33ee46d224b8e0759d4895887d441bfa9e483c6815f9"
+      },
+      {
+        "pair": 3,
+        "side": "candidate",
+        "label": "pair3-candidate",
+        "command": [
+          "/usr/bin/time",
+          "-f",
+          "%M",
+          "-o",
+          "/tmp/exact-cache-combined/timing/pair3-candidate.rss",
+          "/tmp/exact-cache-combined/candidate/.venv/bin/python",
+          "/tmp/exact-cache-combined/timing/benchmark.py",
+          "--repository",
+          "/tmp/exact-cache-combined/candidate",
+          "--chainergame",
+          "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/game",
+          "--petta",
+          "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+          "--json-out",
+          "/tmp/exact-cache-combined/timing/pair3-candidate.json",
+          "--seed",
+          "11",
+          "--budget",
+          "300"
+        ],
+        "machine_before": {
+          "utc": "2026-09-09T19:44:55Z",
+          "load_average": [
+            1.0576171875,
+            0.83740234375,
+            0.6845703125
+          ],
+          "memory": {
+            "MemTotal": "30806344 kB",
+            "MemAvailable": "26673280 kB",
+            "SwapTotal": "8388608 kB",
+            "SwapFree": "8388608 kB"
+          }
+        },
+        "machine_after": {
+          "utc": "2026-09-09T19:45:15Z",
+          "load_average": [
+            1.037109375,
+            0.85205078125,
+            0.6943359375
+          ],
+          "memory": {
+            "MemTotal": "30806344 kB",
+            "MemAvailable": "26681688 kB",
+            "SwapTotal": "8388608 kB",
+            "SwapFree": "8388608 kB"
+          }
+        },
+        "exit_code": 0,
+        "watchdog_timeout": false,
+        "correctness": {
+          "workload_equal": true,
+          "full_proof_answers_equal": true,
+          "queries_equal": true,
+          "public_results_including_backend_counters_equal": true,
+          "all_non_time_query_metrics_equal": true,
+          "zero_aborts": true
+        },
+        "measurements": {
+          "shift1_diagnosis_seconds": 1.78795867000008,
+          "shift2_diagnosis_seconds": 3.7060542769904714,
+          "diagnosis_seconds": 5.494012946990551,
+          "shift1_diagnosis_cpu_seconds": 1.7844593999999994,
+          "shift2_diagnosis_cpu_seconds": 3.710177800000002,
+          "diagnosis_cpu_seconds": 5.494637200000001,
+          "episode_seconds": 19.88898793698172,
+          "shift1_inferences": 8073999,
+          "shift2_inferences": 18432222,
+          "diagnosis_inferences": 26506221,
+          "peak_rss_kib": 181124
+        },
+        "result_sha256": "60baed39bc99cc5e1db70aaf904569eb7990414deeb9abd332f51293eace3918"
+      }
+    ],
+    "source_authorization": "Explicit root release after full combined verify and maintained fixture passed; causal runtime terminal, fair offline-only, root avoids CPU/compression work.",
+    "no_replacement_runs": true,
+    "fetched": false,
+    "rebuilt_dependencies": false
+  },
+  "memory": {
+    "measured_rss_scope": "Whole process peak; includes runtime allocation, stacks and GC. No material observed increase; not an isolated descriptor footprint.",
+    "previous_recorded_state_probe": {
+      "source": "/tmp/proof-descriptor-index/hash-replay-candidate.json",
+      "sha256": "4ac92df40c61951469ab0310ea84df311ed0314f7d1108c3a940a33d9cc48531",
+      "descriptor_rows": 214,
+      "descriptor_logical_cells": 58752,
+      "scalar_hash_rows": 216,
+      "scalar_hash_logical_cells": 1296,
+      "hash_hit_calls": 21600,
+      "hash_hit_inferences": 540204,
+      "hash_hit_retained_heap_bytes": 7776024,
+      "transient_match_bytes_per216reads": 51840,
+      "scalar_path_matches_parent": true,
+      "note": "Final cleanup changes only the duplicate identity call; indexed scalar representation and read path are unchanged."
+    }
+  },
+  "limits": [
+    "Three declared pairs on seed11 only; unrelated host activity was not controlled.",
+    "Whole-episode time essentially unchanged; median paired changes differ from ratios of independent medians.",
+    "All development quality gaps of the committed parent are preserved; no historical quality restoration or held-out result claimed."
+  ],
+  "raw_evidence": {
+    "/tmp/exact-cache-combined/candidate-source-before.json": "2aeadb8c501c010aff7d0c5ac3cfa5c7c8446dd205b27f8ab60f2b4e9087fa25",
+    "/tmp/exact-cache-combined/frozen-runtime-sha256.json": "f3aa003ace0b288b9e738b56ab38db6553a02f09b817e1a7af81fde4f2331035",
+    "/tmp/exact-cache-combined/union-audit.json": "b678e2dfe3ae3f6293416edd5b951b2212c4e3301a6a77a0a239594a247388af",
+    "/tmp/exact-cache-combined/metadata.json": "08acc70b9cbd7ac903ae872db22258fd8b77fe39a2e4e103f87c9cdaccac5981",
+    "/tmp/exact-cache-combined/focused.log": "edb8dc7c2e8b68923c0eaf4e8434a04df4e2ab53d03a6cb40287e38cd9a5c6c5",
+    "/tmp/exact-cache-combined/validation/plan.json": "3b545867a92cd085881178d974067f5224316d71ea229f160f9a1490d76b4610",
+    "/tmp/exact-cache-combined/validation/summary.json": "7d11c14138e07d5244a7f744bec7a8122f4177e6b2202b13d438c30447e868fc",
+    "/tmp/exact-cache-combined/validation/verify.log": "531c9d6d3685e11a98e304639e47c09de5d944235d8fb94304ec57337312a500",
+    "/tmp/exact-cache-combined/validation/maintained.log": "94cc5222ae11d78e22ed4fb15a652b15c381b2358f4eba981e02e67a4347e0f0",
+    "/tmp/exact-cache-combined/validation/maintained.metrics.jsonl": "c9eb95a6b878c2123f4b2cbbb58c2ea9d277ce53b3f78b86bfd703da88b44be6",
+    "/tmp/exact-cache-combined/development/plan.json": "349afbcd2a6f728e3ba4bc68b1cf658c72fe93ef109bef22a18f4288d5f33bff",
+    "/tmp/exact-cache-combined/development/summary.json": "abef365e4a14b2731016e81d078b5d235e51c300ac4cee323a03a0e5d75121af",
+    "/tmp/exact-cache-combined/timing/timing-plan.json": "e4c8b0b4c2cef892990bdf72d6950080f80dbd63fcec161a476dbd85f22b4fa0",
+    "/tmp/exact-cache-combined/timing/comparison.json": "72a939608946b925114c561a27d12197eca5227fe00e66d5bcf0ceeb88882e9c",
+    "/tmp/exact-cache-combined/timing/runs.json": "64ba2223fa634ab06b79ff57ace54a583d05130fe95a4acb02a424c74c1d3ff8",
+    "/tmp/exact-cache-combined/timing/benchmark.py": "a4ddd7fc26a2d793b411fd6f888abdfba0e1cf85d37e137373327fd58b7de68c",
+    "/tmp/exact-cache-combined/timing/run_pairs.py": "ced299813f4b59e4743ffe6f6e6f08ddc5109c1e06076f47461358b4d1f74abc",
+    "/tmp/exact-cache-combined/development/seed7.json": "a28ee1b13866181db1a158ebe63c7c5829d9ffa9ea5e22a1193c54848f7f6f86",
+    "/tmp/exact-cache-combined/development/seed11.json": "cf5485358fa39ebe6e5fb021bd850625ef25886b1747fa2a4c6334bf89b31e73",
+    "/tmp/exact-cache-combined/development/seed23.json": "8038bea36c9d26d0188d5f7511dae518ea55247c6f73c2e2dfac3a8fa2f2ffdc",
+    "/tmp/exact-cache-combined/timing/pair1-base.json": "eec6cd62fac7fbdea3ed6158f6e4e19501a0ba5c38871bd2c2897b10d3a14752",
+    "/tmp/exact-cache-combined/timing/pair1-candidate.json": "da0a9cdcdca34225765e8671344df19db4f2017034550eeba28ad14c0f2f548c",
+    "/tmp/exact-cache-combined/timing/pair2-candidate.json": "b996773cebe0b5a6f3248a69d2bc8b055e40b2bc92ddc8ca35979f01376369f1",
+    "/tmp/exact-cache-combined/timing/pair2-base.json": "3567ef854aed454519504bc5199fe726b05a1c1b4458994a020c704382458802",
+    "/tmp/exact-cache-combined/timing/pair3-base.json": "3825575765a860683e3b33ee46d224b8e0759d4895887d441bfa9e483c6815f9",
+    "/tmp/exact-cache-combined/timing/pair3-candidate.json": "60baed39bc99cc5e1db70aaf904569eb7990414deeb9abd332f51293eace3918"
+  },
+  "implementation": {
+    "core_commit": "e33d679cd5ae9212aa0d79a6fa189ae2f70bda4e",
+    "branch": "experiment/proof-descriptor-index",
+    "worktree": "/tmp/pettachainer-proof-descriptor-index",
+    "validated_files_byte_identical_after_core_commit": 286,
+    "measured_archive_unchanged": true
+  },
+  "independent_review": {
+    "result": "No blocking defect; no follow-up code changes recommended",
+    "report": "/tmp/exact-cache-combined-review/REPORT.md",
+    "sha256": "9465537fcea225134b1c4dbec0fac9d8f0b12295c57923eb10144f36ce272bc5",
+    "read_only": true
+  }
+}
