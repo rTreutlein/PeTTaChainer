@@ -1,0 +1,1248 @@
+{
+  "metadata": {
+    "revision": "ca15dd984a1da6d2031e17daba800f33e943a65b",
+    "branch": "experiment/no-base-rate-success-prior",
+    "petta_tree": "502d08ba468480093d22e710db17f21ab4c3ac59",
+    "chainergame_revision": "99fc56e4ddd0d718f00e494146b0ff1884e5fc5e",
+    "runtime": "Isolated archive at /tmp/stationops-depth plus included final patch; repository runtime unchanged",
+    "repetitions": 1,
+    "fetch_or_rebuild": false,
+    "order": "Original alternating control/draft matrix; final corrected candidates rerun in seed order 7,11,23 after validation. Only final candidates appear here.",
+    "python_validation": "GIT_DIR references read-only base repository metadata; GIT_WORK_TREE points to archive. This resolves metadata-only tests that need git rev-parse HEAD.",
+    "scope": "No exploration setting; no new priority coefficient; stored depth, demand-cache invalidation, and heap refreshing changed."
+  },
+  "summary": [
+    {
+      "run": "control-11",
+      "shift": 1,
+      "seconds": 2.206047880987171,
+      "coverage": 0.5,
+      "brier": 0.0097134490312265,
+      "beliefs": {
+        "shift-01-M01": 0.06555591110653683,
+        "shift-01-M03": 0.12300130316970158
+      },
+      "score": 642.0,
+      "regret": 17.29234716622964,
+      "aborts": 0,
+      "pops": 312
+    },
+    {
+      "run": "control-11",
+      "shift": 2,
+      "seconds": 2.9601135140110273,
+      "coverage": 0.75,
+      "brier": 0.005095297047853207,
+      "beliefs": {
+        "shift-02-M01": 0.05601543270646637,
+        "shift-02-M03": 0.11021868197245134,
+        "shift-02-M04": 6.77238701415107e-05
+      },
+      "score": 642.0,
+      "regret": 17.29234716622964,
+      "aborts": 0,
+      "pops": 384
+    },
+    {
+      "run": "control-23",
+      "shift": 1,
+      "seconds": 2.1757984410069184,
+      "coverage": 0.5,
+      "brier": 0.007904478438452047,
+      "beliefs": {
+        "shift-01-M01": 0.0,
+        "shift-01-M03": 0.12573367439514402
+      },
+      "score": 642.0,
+      "regret": 0,
+      "aborts": 0,
+      "pops": 312
+    },
+    {
+      "run": "control-23",
+      "shift": 2,
+      "seconds": 2.1422252920019673,
+      "coverage": 0.75,
+      "brier": 0.00392241904422696,
+      "beliefs": {
+        "shift-02-M01": 0.0,
+        "shift-02-M03": 0.10847696836068535,
+        "shift-02-M04": 6.68427688516869e-05
+      },
+      "score": 642.0,
+      "regret": 0,
+      "aborts": 0,
+      "pops": 368
+    },
+    {
+      "run": "control-7",
+      "shift": 1,
+      "seconds": 17.124223973005428,
+      "coverage": 1.0,
+      "brier": 0.015144839376570313,
+      "beliefs": {
+        "shift-01-M01": 0.0,
+        "shift-01-M02": 6.709449258904199e-05,
+        "shift-01-M03": 0.2461287233338418,
+        "shift-01-M04": 6.748824686222115e-05
+      },
+      "score": 637.0,
+      "regret": 0.0,
+      "aborts": 0,
+      "pops": 686
+    },
+    {
+      "run": "control-7",
+      "shift": 2,
+      "seconds": 31.527833021013066,
+      "coverage": 1.0,
+      "brier": 0.1635811225621628,
+      "beliefs": {
+        "shift-02-M01": 0.22050793373327351,
+        "shift-02-M02": 6.713159982100908e-05,
+        "shift-02-M03": 0.2161402317620351,
+        "shift-02-M04": 6.769846733950714e-05
+      },
+      "score": 637.0,
+      "regret": 0.0,
+      "aborts": 0,
+      "pops": 824
+    },
+    {
+      "run": "shorter-11",
+      "shift": 1,
+      "seconds": 4.281142610008828,
+      "coverage": 0.5,
+      "brier": 0.0097134490312265,
+      "beliefs": {
+        "shift-01-M01": 0.06555591110653683,
+        "shift-01-M03": 0.12300130316970158
+      },
+      "score": 642.0,
+      "regret": 17.29234716622964,
+      "aborts": 0,
+      "pops": 347
+    },
+    {
+      "run": "shorter-11",
+      "shift": 2,
+      "seconds": 4.20998795000196,
+      "coverage": 0.75,
+      "brier": 0.005095297047853207,
+      "beliefs": {
+        "shift-02-M01": 0.05601543270646637,
+        "shift-02-M03": 0.11021868197245134,
+        "shift-02-M04": 6.77238701415107e-05
+      },
+      "score": 642.0,
+      "regret": 17.29234716622964,
+      "aborts": 0,
+      "pops": 384
+    },
+    {
+      "run": "shorter-23",
+      "shift": 1,
+      "seconds": 4.2674901639984455,
+      "coverage": 0.5,
+      "brier": 0.007904478438452047,
+      "beliefs": {
+        "shift-01-M01": 0.0,
+        "shift-01-M03": 0.12573367439514402
+      },
+      "score": 642.0,
+      "regret": 0,
+      "aborts": 0,
+      "pops": 349
+    },
+    {
+      "run": "shorter-23",
+      "shift": 2,
+      "seconds": 7.806125153001631,
+      "coverage": 0.5,
+      "brier": 0.0058806106578229754,
+      "beliefs": {
+        "shift-02-M01": 0.0,
+        "shift-02-M03": 0.10844916466089516
+      },
+      "score": 642.0,
+      "regret": 0,
+      "aborts": 0,
+      "pops": 346
+    },
+    {
+      "run": "shorter-7",
+      "shift": 1,
+      "seconds": 26.971428538003238,
+      "coverage": 1.0,
+      "brier": 0.015087763473502302,
+      "beliefs": {
+        "shift-01-M01": 0.0,
+        "shift-01-M02": 6.709449258904199e-05,
+        "shift-01-M03": 0.2456644965301374,
+        "shift-01-M04": 6.735675455066426e-05
+      },
+      "score": 637.0,
+      "regret": 0.0,
+      "aborts": 0,
+      "pops": 962
+    },
+    {
+      "run": "shorter-7",
+      "shift": 2,
+      "seconds": 41.20085345300322,
+      "coverage": 1.0,
+      "brier": 0.16375105417801242,
+      "beliefs": {
+        "shift-02-M01": 0.22050793373327351,
+        "shift-02-M02": 6.709836316157187e-05,
+        "shift-02-M03": 0.21770697337018438,
+        "shift-02-M04": 6.769846733950714e-05
+      },
+      "score": 637.0,
+      "regret": 0.0,
+      "aborts": 0,
+      "pops": 887
+    }
+  ],
+  "runs": {
+    "control-7": {
+      "environment": {
+        "repository": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer",
+        "chainergame": "/nexus/Dev/OpenCog/ChainerGame",
+        "petta": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.21630859375,
+          0.57421875,
+          0.23046875
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "workload": {
+        "seed": 7,
+        "shifts": 2,
+        "modules": 4,
+        "budget": 600,
+        "action_budget": 1
+      },
+      "batches": [
+        {
+          "shift": 1,
+          "seconds": 17.124223973005428,
+          "inferences": 66176359,
+          "cpu_seconds": 17.279940500000002,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 17.105934421007987,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1186,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 786,
+            "agenda_pops": 686,
+            "search_aborts": 0,
+            "stale_agenda_entries": 7,
+            "goal_demand_evaluations": 73068,
+            "goal_demand_cache_hits": 64341,
+            "goal_demand_cache_misses": 8727,
+            "demand_revision_bumps": 16806,
+            "current_proof_goal_lookups": 242,
+            "current_result_goal_lookups": 7856,
+            "candidate_comparisons": 653,
+            "dominance_checks": 646,
+            "proofs_stored": 925
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "answers": [
+            [
+              "(: ((proj 0 (by (bi-backward problem-from-disjunction-shift-01-M01) ((inverted problem-alarm-old-coolant-pump with cpu cpu) alarm-shift-01-M01))) (by (bi-forward dependency-problem-shift-01-M03-M01) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03))) (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) (STV 0.0 1.0e-06))"
+            ],
+            [
+              "(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 0))) (by (inheritance-implication state-leak-h-0001-M02) ((inverted (inheritance-implication state-normal-h-0001-M02) with cpu cpu) (ctx proof 0)))) (by (inheritance-implication state-leak-h-0002-M02) ((inverted (inheritance-implication state-normal-h-0002-M02) with cpu cpu) (ctx proof 0)))) (by (inheritance-implication state-leak-h-0003-M02) ((inverted (inheritance-implication state-normal-h-0003-M02) with cpu cpu) (ctx proof 0)))) (by (inheritance-implication state-leak-h-0004-M02) ((inverted (inheritance-implication state-normal-h-0004-M02) with cpu cpu) (ctx proof 0)))) (by (inheritance-implication state-leak-h-0005-M02) ((inverted (inheritance-implication state-normal-h-0005-M02) with cpu cpu) (ctx proof 0)))) (by (inheritance-implication state-leak-h-0007-M02) ((inverted (inheritance-implication state-normal-h-0007-M02) with cpu cpu) (ctx proof 0)))) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 1))) (by (inheritance-implication state-leak-h-0001-M02) (merge/revision (merge/revision ((inverted (inheritance-implication state-normal-h-0001-M02) with cpu cpu) (ctx proof 1)) ((inverted (inheritance-implication state-equipment-h-0001-M02) with cpu cpu) (by (inheritance-implication state-equipment-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 1))))) ((inverted (inheritance-implication state-alarm-h-0001-M02) with cpu cpu) (by (inheritance-implication state-alarm-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 1))))))) (by (inheritance-implication state-leak-h-0002-M02) (merge/revision (merge/revision ((inverted (inheritance-implication state-normal-h-0002-M02) with cpu cpu) (ctx proof 1)) ((inverted (inheritance-implication state-equipment-h-0002-M02) with cpu cpu) (by (inheritance-implication state-equipment-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 1))))) ((inverted (inheritance-implication state-alarm-h-0002-M02) with cpu cpu) (by (inheritance-implication state-alarm-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 1))))))) (by (inheritance-implication state-leak-h-0003-M02) (merge/revision (merge/revision ((inverted (inheritance-implication state-normal-h-0003-M02) with cpu cpu) (ctx proof 1)) ((inverted (inheritance-implication state-equipment-h-0003-M02) with cpu cpu) (by (inheritance-implication state-equipment-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 1))))) ((inverted (inheritance-implication state-alarm-h-0003-M02) with cpu cpu) (by (inheritance-implication state-alarm-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 1))))))) (by (inheritance-implication state-leak-h-0004-M02) (merge/revision (merge/revision ((inverted (inheritance-implication state-normal-h-0004-M02) with cpu cpu) (ctx proof 1)) ((inverted (inheritance-implication state-equipment-h-0004-M02) with cpu cpu) (by (inheritance-implication state-equipment-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 1))))) ((inverted (inheritance-implication state-alarm-h-0004-M02) with cpu cpu) (by (inheritance-implication state-alarm-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 1))))))) (by (inheritance-implication state-leak-h-0005-M02) (merge/revision (merge/revision ((inverted (inheritance-implication state-normal-h-0005-M02) with cpu cpu) (ctx proof 1)) ((inverted (inheritance-implication state-equipment-h-0005-M02) with cpu cpu) (by (inheritance-implication state-equipment-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 1))))) ((inverted (inheritance-implication state-alarm-h-0005-M02) with cpu cpu) (by (inheritance-implication state-alarm-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 1))))))) (by (inheritance-implication state-leak-h-0007-M02) (merge/revision (merge/revision ((inverted (inheritance-implication state-normal-h-0007-M02) with cpu cpu) (ctx proof 1)) ((inverted (inheritance-implication state-equipment-h-0007-M02) with cpu cpu) (by (inheritance-implication state-equipment-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 1))))) ((inverted (inheritance-implication state-alarm-h-0007-M02) with cpu cpu) (by (inheritance-implication state-alarm-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 1))))))))) (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) (STV 6.709449258904199e-05 6.9999580002519965e-06))"
+            ],
+            [
+              "(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 2))) (by (inheritance-implication state-leak-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0005-M03) (merge/revision ((inverted (inheritance-implication state-alarm-h-0005-M03) with cpu cpu) (merge/revision (merge/revision (by (inheritance-implication state-alarm-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 2))) (by (inheritance-implication state-alarm-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-alarm-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 2))))) (merge/revision ((inverted (inheritance-implication state-equipment-h-0005-M03) with cpu cpu) (merge/revision (merge/revision (by (inheritance-implication state-equipment-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 2))) (by (inheritance-implication state-equipment-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-equipment-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 2))))) ((inverted (inheritance-implication state-normal-h-0005-M03) with cpu cpu) (ctx proof 2)))))) (by (inheritance-implication state-leak-h-0000-M03) (merge/revision ((inverted (inheritance-implication state-alarm-h-0000-M03) with cpu cpu) (merge/revision (merge/revision (by (inheritance-implication state-alarm-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 2))) (by (inheritance-implication state-alarm-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-alarm-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 2))))) (merge/revision ((inverted (inheritance-implication state-equipment-h-0000-M03) with cpu cpu) (merge/revision (merge/revision (by (inheritance-implication state-equipment-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 2))) (by (inheritance-implication state-equipment-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-equipment-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 2))))) ((inverted (inheritance-implication state-normal-h-0000-M03) with cpu cpu) (ctx proof 2)))))) (by (inheritance-implication state-leak-h-0001-M03) (merge/revision ((inverted (inheritance-implication state-alarm-h-0001-M03) with cpu cpu) (merge/revision (merge/revision (by (inheritance-implication state-alarm-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 2))) (by (inheritance-implication state-alarm-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-alarm-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 2))))) (merge/revision ((inverted (inheritance-implication state-equipment-h-0001-M03) with cpu cpu) (merge/revision (merge/revision (by (inheritance-implication state-equipment-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 2))) (by (inheritance-implication state-equipment-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-equipment-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 2))))) ((inverted (inheritance-implication state-normal-h-0001-M03) with cpu cpu) (ctx proof 2)))))) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 3))) (by (inheritance-implication state-leak-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0000-M03) (merge/revision (merge/revision ((inverted (inheritance-implication state-normal-h-0000-M03) with cpu cpu) (ctx proof 3)) ((inverted (inheritance-implication state-equipment-h-0000-M03) with cpu cpu) (merge/revision (merge/revision (by (inheritance-implication state-equipment-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 3))) (by (inheritance-implication state-equipment-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-equipment-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 3)))))) ((inverted (inheritance-implication state-alarm-h-0000-M03) with cpu cpu) (merge/revision (merge/revision (by (inheritance-implication state-alarm-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 3))) (by (inheritance-implication state-alarm-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-alarm-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 3)))))))) (by (inheritance-implication state-leak-h-0001-M03) (merge/revision (merge/revision ((inverted (inheritance-implication state-normal-h-0001-M03) with cpu cpu) (ctx proof 3)) ((inverted (inheritance-implication state-equipment-h-0001-M03) with cpu cpu) (merge/revision (merge/revision (by (inheritance-implication state-equipment-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 3))) (by (inheritance-implication state-equipment-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-equipment-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 3)))))) ((inverted (inheritance-implication state-alarm-h-0001-M03) with cpu cpu) (merge/revision (merge/revision (by (inheritance-implication state-alarm-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 3))) (by (inheritance-implication state-alarm-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-alarm-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 3)))))))) (by (inheritance-implication state-leak-h-0005-M03) (merge/revision (merge/revision ((inverted (inheritance-implication state-normal-h-0005-M03) with cpu cpu) (ctx proof 3)) ((inverted (inheritance-implication state-equipment-h-0005-M03) with cpu cpu) (merge/revision (merge/revision (by (inheritance-implication state-equipment-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 3))) (by (inheritance-implication state-equipment-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-equipment-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 3)))))) ((inverted (inheritance-implication state-alarm-h-0005-M03) with cpu cpu) (merge/revision (merge/revision (by (inheritance-implication state-alarm-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 3))) (by (inheritance-implication state-alarm-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-alarm-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 3)))))))))) (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) (STV 0.2461287233338418 5.9999700001499974e-06))"
+            ],
+            [
+              "(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 4))) (by (inheritance-implication state-leak-h-0002-M04) (merge/revision (merge/revision ((inverted (inheritance-implication state-equipment-h-0002-M04) with cpu cpu) (by (inheritance-implication state-equipment-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 4)))) ((inverted (inheritance-implication state-normal-h-0002-M04) with cpu cpu) (ctx proof 4))) ((inverted (inheritance-implication state-alarm-h-0002-M04) with cpu cpu) (by (inheritance-implication state-alarm-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 4))))))) (by (inheritance-implication state-leak-h-0003-M04) (merge/revision (merge/revision ((inverted (inheritance-implication state-equipment-h-0003-M04) with cpu cpu) (by (inheritance-implication state-equipment-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 4)))) ((inverted (inheritance-implication state-normal-h-0003-M04) with cpu cpu) (ctx proof 4))) ((inverted (inheritance-implication state-alarm-h-0003-M04) with cpu cpu) (by (inheritance-implication state-alarm-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 4))))))) (by (inheritance-implication state-leak-h-0001-M04) (merge/revision (merge/revision ((inverted (inheritance-implication state-normal-h-0001-M04) with cpu cpu) (ctx proof 4)) ((inverted (inheritance-implication state-equipment-h-0001-M04) with cpu cpu) (by (inheritance-implication state-equipment-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 4))))) ((inverted (inheritance-implication state-alarm-h-0001-M04) with cpu cpu) (by (inheritance-implication state-alarm-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 4))))))) (by (inheritance-implication state-leak-h-0004-M04) (merge/revision (merge/revision ((inverted (inheritance-implication state-normal-h-0004-M04) with cpu cpu) (ctx proof 4)) ((inverted (inheritance-implication state-equipment-h-0004-M04) with cpu cpu) (by (inheritance-implication state-equipment-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 4))))) ((inverted (inheritance-implication state-alarm-h-0004-M04) with cpu cpu) (by (inheritance-implication state-alarm-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 4))))))) (by (inheritance-implication state-leak-h-0005-M04) (merge/revision (merge/revision ((inverted (inheritance-implication state-normal-h-0005-M04) with cpu cpu) (ctx proof 4)) ((inverted (inheritance-implication state-equipment-h-0005-M04) with cpu cpu) (by (inheritance-implication state-equipment-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 4))))) ((inverted (inheritance-implication state-alarm-h-0005-M04) with cpu cpu) (by (inheritance-implication state-alarm-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 4))))))) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 5))) (by (inheritance-implication state-leak-h-0001-M04) ((inverted (inheritance-implication state-normal-h-0001-M04) with cpu cpu) (ctx proof 5)))) (by (inheritance-implication state-leak-h-0004-M04) ((inverted (inheritance-implication state-normal-h-0004-M04) with cpu cpu) (ctx proof 5)))) (by (inheritance-implication state-leak-h-0005-M04) ((inverted (inheritance-implication state-normal-h-0005-M04) with cpu cpu) (ctx proof 5)))) (by (inheritance-implication state-leak-h-0002-M04) (merge/revision (merge/revision ((inverted (inheritance-implication state-normal-h-0002-M04) with cpu cpu) (ctx proof 5)) ((inverted (inheritance-implication state-equipment-h-0002-M04) with cpu cpu) (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-equipment-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 5))) (by (inheritance-implication state-equipment-h-0001-M04) ((inverted (inheritance-implication state-normal-h-0001-M04) with cpu cpu) (ctx proof 5)))) (by (inheritance-implication state-equipment-h-0004-M04) ((inverted (inheritance-implication state-normal-h-0004-M04) with cpu cpu) (ctx proof 5)))) (by (inheritance-implication state-equipment-h-0005-M04) ((inverted (inheritance-implication state-normal-h-0005-M04) with cpu cpu) (ctx proof 5)))))) ((inverted (inheritance-implication state-alarm-h-0002-M04) with cpu cpu) (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-alarm-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 5))) (by (inheritance-implication state-alarm-h-0001-M04) ((inverted (inheritance-implication state-normal-h-0001-M04) with cpu cpu) (ctx proof 5)))) (by (inheritance-implication state-alarm-h-0004-M04) ((inverted (inheritance-implication state-normal-h-0004-M04) with cpu cpu) (ctx proof 5)))) (by (inheritance-implication state-alarm-h-0005-M04) ((inverted (inheritance-implication state-normal-h-0005-M04) with cpu cpu) (ctx proof 5)))))))) (by (inheritance-implication state-leak-h-0003-M04) (merge/revision (merge/revision ((inverted (inheritance-implication state-normal-h-0003-M04) with cpu cpu) (ctx proof 5)) ((inverted (inheritance-implication state-equipment-h-0003-M04) with cpu cpu) (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-equipment-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 5))) (by (inheritance-implication state-equipment-h-0001-M04) ((inverted (inheritance-implication state-normal-h-0001-M04) with cpu cpu) (ctx proof 5)))) (by (inheritance-implication state-equipment-h-0004-M04) ((inverted (inheritance-implication state-normal-h-0004-M04) with cpu cpu) (ctx proof 5)))) (by (inheritance-implication state-equipment-h-0005-M04) ((inverted (inheritance-implication state-normal-h-0005-M04) with cpu cpu) (ctx proof 5)))))) ((inverted (inheritance-implication state-alarm-h-0003-M04) with cpu cpu) (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-alarm-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 5))) (by (inheritance-implication state-alarm-h-0001-M04) ((inverted (inheritance-implication state-normal-h-0001-M04) with cpu cpu) (ctx proof 5)))) (by (inheritance-implication state-alarm-h-0004-M04) ((inverted (inheritance-implication state-normal-h-0004-M04) with cpu cpu) (ctx proof 5)))) (by (inheritance-implication state-alarm-h-0005-M04) ((inverted (inheritance-implication state-normal-h-0005-M04) with cpu cpu) (ctx proof 5)))))))))) (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) (STV 6.748824686222115e-05 5.9999700001499974e-06))"
+            ]
+          ],
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 4,
+            "missing_count": 0,
+            "coverage": 1.0,
+            "mean_confidence": 4.999974500137998e-06,
+            "confidence_weighted_coverage": 4.999974500137998e-06,
+            "mean_absolute_error": 0.06243918033702377,
+            "max_absolute_error": 0.2458786578166763,
+            "brier_score": 0.015144839376570313,
+            "log_loss": 0.07066705835483388
+          },
+          "beliefs": {
+            "shift-01-M01": 0.0,
+            "shift-01-M02": 6.709449258904199e-05,
+            "shift-01-M03": 0.2461287233338418,
+            "shift-01-M04": 6.748824686222115e-05
+          },
+          "inspections": {
+            "shift-01-M01": "seal intact",
+            "shift-01-M03": "seal intact"
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 31.527833021013066,
+          "inferences": 123031434,
+          "cpu_seconds": 31.648435,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 31.489253559993813,
+            "durable_proof_rows_before": 1223,
+            "durable_proof_rows_after": 2591,
+            "durable_goal_index_rows_before": 962,
+            "durable_result_index_rows_before": 261,
+            "agenda_pushes": 1144,
+            "agenda_pops": 824,
+            "search_aborts": 0,
+            "stale_agenda_entries": 102,
+            "goal_demand_evaluations": 99437,
+            "goal_demand_cache_hits": 83848,
+            "goal_demand_cache_misses": 15589,
+            "demand_revision_bumps": 33134,
+            "current_proof_goal_lookups": 230,
+            "current_result_goal_lookups": 17364,
+            "candidate_comparisons": 1315,
+            "dominance_checks": 1123,
+            "proofs_stored": 941
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureAlarm new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "answers": [
+            [
+              "(: (by (bi-forward local-problem-shift-02-M01) (by (inheritance-implication state-leak-h-0000-M01) ((inverted (inheritance-implication state-equipment-h-0000-M01) with cpu (foldall-proof state-leak-h-0000-M01 state-leak-h-0001-M01 state-leak-h-0002-M01 state-leak-h-0003-M01 state-leak-h-0004-M01 state-leak-h-0005-M01 state-leak-h-0006-M01 state-leak-h-0007-M01 state-leak-shift-01-M01 (by (bi-backward local-problem-shift-01-M01) ((proj 0 (by (bi-backward problem-from-disjunction-shift-01-M01) ((inverted problem-alarm-old-coolant-pump with cpu cpu) alarm-shift-01-M01))) (by (bi-forward dependency-problem-shift-01-M03-M01) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03)))))) current-equipment-state-shift-02-M01))) (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (STV 0.22050793373327351 1.0e-06))"
+            ],
+            [
+              "(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0001-M02) (merge/revision ((inverted (inheritance-implication state-equipment-h-0001-M02) with cpu cpu) (by (inheritance-implication state-equipment-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 6)))) ((inverted (inheritance-implication state-normal-h-0001-M02) with cpu cpu) (ctx proof 6)))) (by (inheritance-implication state-leak-h-0002-M02) (merge/revision ((inverted (inheritance-implication state-equipment-h-0002-M02) with cpu cpu) (by (inheritance-implication state-equipment-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 6)))) ((inverted (inheritance-implication state-normal-h-0002-M02) with cpu cpu) (ctx proof 6))))) (by (inheritance-implication state-leak-h-0003-M02) (merge/revision ((inverted (inheritance-implication state-equipment-h-0003-M02) with cpu cpu) (by (inheritance-implication state-equipment-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 6)))) ((inverted (inheritance-implication state-normal-h-0003-M02) with cpu cpu) (ctx proof 6))))) (by (inheritance-implication state-leak-h-0004-M02) (merge/revision ((inverted (inheritance-implication state-equipment-h-0004-M02) with cpu cpu) (by (inheritance-implication state-equipment-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 6)))) ((inverted (inheritance-implication state-normal-h-0004-M02) with cpu cpu) (ctx proof 6))))) (by (inheritance-implication state-leak-h-0007-M02) (merge/revision ((inverted (inheritance-implication state-equipment-h-0007-M02) with cpu cpu) (by (inheritance-implication state-equipment-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 6)))) ((inverted (inheritance-implication state-normal-h-0007-M02) with cpu cpu) (ctx proof 6))))) (by (inheritance-implication state-leak-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 6)))) (by (inheritance-implication state-leak-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 7))))) (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) (STV 6.713159982100908e-05 5.9999700001499974e-06))"
+            ],
+            [
+              "(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu (foldall-proof state-leak-h-0000-M03 state-leak-h-0001-M03 state-leak-h-0002-M03 state-leak-h-0003-M03 state-leak-h-0004-M03 state-leak-h-0005-M03 state-leak-h-0006-M03 state-leak-h-0007-M03 state-leak-shift-01-M03 (by (bi-backward local-problem-shift-01-M03) (by (bi-backward root-problem-shift-01-M03) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03))))) (ctx proof 8))) (by (inheritance-implication state-leak-h-0006-M03) (merge/revision ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu (foldall-proof state-leak-h-0000-M03 state-leak-h-0001-M03 state-leak-h-0002-M03 state-leak-h-0003-M03 state-leak-h-0004-M03 state-leak-h-0005-M03 state-leak-h-0006-M03 state-leak-h-0007-M03 state-leak-shift-01-M03 (by (bi-backward local-problem-shift-01-M03) (by (bi-backward root-problem-shift-01-M03) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03))))) (ctx proof 8)) ((inverted (inheritance-implication state-equipment-h-0006-M03) with cpu cpu) (by (inheritance-implication state-equipment-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 8))))))) (by (inheritance-implication state-leak-h-0007-M03) (merge/revision ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu (foldall-proof state-leak-h-0000-M03 state-leak-h-0001-M03 state-leak-h-0002-M03 state-leak-h-0003-M03 state-leak-h-0004-M03 state-leak-h-0005-M03 state-leak-h-0006-M03 state-leak-h-0007-M03 state-leak-shift-01-M03 (by (bi-backward local-problem-shift-01-M03) (by (bi-backward root-problem-shift-01-M03) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03))))) (ctx proof 8)) ((inverted (inheritance-implication state-equipment-h-0007-M03) with cpu cpu) (by (inheritance-implication state-equipment-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 8))))))) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu (foldall-proof state-leak-h-0000-M03 state-leak-h-0001-M03 state-leak-h-0002-M03 state-leak-h-0003-M03 state-leak-h-0004-M03 state-leak-h-0005-M03 state-leak-h-0006-M03 state-leak-h-0007-M03 state-leak-shift-01-M03 (by (bi-backward local-problem-shift-01-M03) (by (bi-backward root-problem-shift-01-M03) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03))))) (ctx proof 9))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu (foldall-proof state-leak-h-0000-M03 state-leak-h-0001-M03 state-leak-h-0002-M03 state-leak-h-0003-M03 state-leak-h-0004-M03 state-leak-h-0005-M03 state-leak-h-0006-M03 state-leak-h-0007-M03 state-leak-shift-01-M03 (by (bi-backward local-problem-shift-01-M03) (by (bi-backward root-problem-shift-01-M03) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03))))) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu (foldall-proof state-leak-h-0000-M03 state-leak-h-0001-M03 state-leak-h-0002-M03 state-leak-h-0003-M03 state-leak-h-0004-M03 state-leak-h-0005-M03 state-leak-h-0006-M03 state-leak-h-0007-M03 state-leak-shift-01-M03 (by (bi-backward local-problem-shift-01-M03) (by (bi-backward root-problem-shift-01-M03) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03))))) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0001-M03) ((inverted (inheritance-implication state-normal-h-0001-M03) with cpu (foldall-proof state-leak-h-0000-M03 state-leak-h-0001-M03 state-leak-h-0002-M03 state-leak-h-0003-M03 state-leak-h-0004-M03 state-leak-h-0005-M03 state-leak-h-0006-M03 state-leak-h-0007-M03 state-leak-shift-01-M03 (by (bi-backward local-problem-shift-01-M03) (by (bi-backward root-problem-shift-01-M03) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03))))) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0002-M03) ((inverted (inheritance-implication state-normal-h-0002-M03) with cpu (foldall-proof state-leak-h-0000-M03 state-leak-h-0001-M03 state-leak-h-0002-M03 state-leak-h-0003-M03 state-leak-h-0004-M03 state-leak-h-0005-M03 state-leak-h-0006-M03 state-leak-h-0007-M03 state-leak-shift-01-M03 (by (bi-backward local-problem-shift-01-M03) (by (bi-backward root-problem-shift-01-M03) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03))))) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0003-M03) ((inverted (inheritance-implication state-normal-h-0003-M03) with cpu (foldall-proof state-leak-h-0000-M03 state-leak-h-0001-M03 state-leak-h-0002-M03 state-leak-h-0003-M03 state-leak-h-0004-M03 state-leak-h-0005-M03 state-leak-h-0006-M03 state-leak-h-0007-M03 state-leak-shift-01-M03 (by (bi-backward local-problem-shift-01-M03) (by (bi-backward root-problem-shift-01-M03) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03))))) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-normal-h-0005-M03) with cpu (foldall-proof state-leak-h-0000-M03 state-leak-h-0001-M03 state-leak-h-0002-M03 state-leak-h-0003-M03 state-leak-h-0004-M03 state-leak-h-0005-M03 state-leak-h-0006-M03 state-leak-h-0007-M03 state-leak-shift-01-M03 (by (bi-backward local-problem-shift-01-M03) (by (bi-backward root-problem-shift-01-M03) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03))))) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-normal-h-0000-M03) with cpu (foldall-proof state-leak-h-0000-M03 state-leak-h-0001-M03 state-leak-h-0002-M03 state-leak-h-0003-M03 state-leak-h-0004-M03 state-leak-h-0005-M03 state-leak-h-0006-M03 state-leak-h-0007-M03 state-leak-shift-01-M03 (by (bi-backward local-problem-shift-01-M03) (by (bi-backward root-problem-shift-01-M03) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03))))) (ctx proof 9)))))) (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) (STV 0.2161402317620351 2.9999940000119994e-06))"
+            ],
+            [
+              "(: (inheritance-implication-fold (total-implication (by (inheritance-implication state-leak-h-0007-M04) ((inverted (inheritance-implication state-alarm-h-0007-M04) with cpu cpu) (ctx proof 10))) (by (inheritance-implication state-leak-h-0000-M04) ((inverted (inheritance-implication state-alarm-h-0000-M04) with cpu cpu) (ctx proof 11))))) (Inheritance (PressureAlarm new thermal-loop-pump) (SealLeak new thermal-loop-pump)) (STV 6.769846733950714e-05 1.0e-06))"
+            ]
+          ],
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 4,
+            "missing_count": 0,
+            "coverage": 1.0,
+            "mean_confidence": 2.7499910000404995e-06,
+            "confidence_weighted_coverage": 2.7499910000404995e-06,
+            "mean_absolute_error": 0.20404169980783593,
+            "max_absolute_error": 0.6565202043227341,
+            "brier_score": 0.1635811225621628,
+            "log_loss": 0.4388703950946871
+          },
+          "beliefs": {
+            "shift-02-M01": 0.22050793373327351,
+            "shift-02-M02": 6.713159982100908e-05,
+            "shift-02-M03": 0.2161402317620351,
+            "shift-02-M04": 6.769846733950714e-05
+          },
+          "inspections": {
+            "shift-02-M03": "seal intact",
+            "shift-02-M01": "seal leak confirmed"
+          },
+          "relevant_goals": [
+            "(stored-goal-row 5 1 ((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) $_24458692 $_24458698) true (goal-agenda-state 1 3 0.33 false))",
+            "(stored-goal-row 258 2 ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) $_24437620 $_24437626) true (goal-agenda-state 1 5 5.0e-07 false))",
+            "(stored-goal-row 275 3 ((Problem old power-converter shift-02-M03) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) $_24417520 $_24417526) true (goal-agenda-state 2 3 7.362542062908026e-05 false))",
+            "(stored-goal-row 473 4 ((PressureAlarm old power-converter shift-02-M03) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) $_24417376 $_24417382) false (goal-agenda-state 1 2 1.2270903438180043e-05 true))"
+          ],
+          "relevant_proofs": [
+            "(stored-proof-row 1291 (proof-goal (((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) Nil) (kb70dee2474ac24319987649a8cc272f71 MAIN))) ((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) (proof-ref 1291) (STV 0.24828607441330708 1.0e-06)) (rule ((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) (by (bi-forward local-problem-shift-02-M01) (proof-ref 1282)) (STV 0.24828607441330708 1.0e-06))) (proof-support 1.0e-06 ((fact-ev (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump)))) (independent-contribution (STV 0.24828607441330708 1.0e-06))) (1282 1290))",
+            "(stored-proof-row 1297 (proof-goal (((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) Nil) (kb70dee2474ac24319987649a8cc272f71 MAIN))) ((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) (proof-ref 1297) (STV 0.22050632435037623 1.0e-06)) (rule ((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) (by (bi-forward local-problem-shift-02-M01) (proof-ref 1295)) (STV 0.22050632435037623 1.0e-06))) (proof-support 1.0e-06 ((fact-ev (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump)))) (independent-contribution (STV 0.22050632435037623 1.0e-06))) (1295 1296))",
+            "(stored-proof-row 1481 (proof-goal (((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) Nil) (kb70dee2474ac24319987649a8cc272f71 MAIN))) ((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) (proof-ref 1481) (STV 0.7371764629894552 0.000294502271433838)) (rule ((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) (by (bi-backward problem-from-disjunction-shift-02-M01) (proof-ref 1479)) (STV 0.7371764629894552 0.000294502271433838))) (proof-support 0.000294502271433838 ((fact-ev (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) alarm-shift-02-M01 (PressureAlarm old coolant-pump shift-02-M01)) (rule-ev kb70dee2474ac24319987649a8cc272f71 problem-alarm-old-coolant-pump)) (independent-contribution (STV 0.7371764629894552 0.000294502271433838))) (1479 1480))",
+            "(stored-proof-row 1484 (proof-goal (((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) Nil) (kb70dee2474ac24319987649a8cc272f71 MAIN))) ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) (proof-ref 1484) (STV 0.6628278776072047 1.0e-06)) (rule ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) ((proj 1 (proof-ref 1481)) (proof-ref 1297)) (STV 0.6628278776072047 1.0e-06))) (proof-support 1.0e-06 ((fact-ev (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) alarm-shift-02-M01 (PressureAlarm old coolant-pump shift-02-M01)) (rule-ev kb70dee2474ac24319987649a8cc272f71 problem-alarm-old-coolant-pump) (fact-ev (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump)))) (independent-contribution (STV 0.6628278776072047 1.0e-06))) (1481 1297 1483))",
+            "(stored-proof-row 1547 (proof-goal (((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) Nil) (kb70dee2474ac24319987649a8cc272f71 MAIN))) ((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) (proof-ref 1547) (STV 0.22050795803970344 1.0e-06)) (rule ((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) (by (bi-forward local-problem-shift-02-M01) (proof-ref 1545)) (STV 0.22050795803970344 1.0e-06))) (proof-support 1.0e-06 ((fact-ev (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump)))) (independent-contribution (STV 0.22050795803970344 1.0e-06))) (1545 1546))",
+            "(stored-proof-row 1565 (proof-goal (((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) Nil) (kb70dee2474ac24319987649a8cc272f71 MAIN))) ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) (proof-ref 1565) (STV 0.6628271709489347 1.0e-06)) (rule ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) ((proj 1 (proof-ref 1481)) (proof-ref 1547)) (STV 0.6628271709489347 1.0e-06))) (proof-support 1.0e-06 ((fact-ev (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) alarm-shift-02-M01 (PressureAlarm old coolant-pump shift-02-M01)) (rule-ev kb70dee2474ac24319987649a8cc272f71 problem-alarm-old-coolant-pump) (fact-ev (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump)))) (independent-contribution (STV 0.6628271709489347 1.0e-06))) (1481 1547 1564))",
+            "(stored-proof-row 1728 (proof-goal (((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) Nil) (kb70dee2474ac24319987649a8cc272f71 MAIN))) ((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) (proof-ref 1728) (STV 0.22050793373327351 1.0e-06)) (rule ((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) (by (bi-forward local-problem-shift-02-M01) (proof-ref 1726)) (STV 0.22050793373327351 1.0e-06))) (proof-support 1.0e-06 ((fact-ev (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump)))) (independent-contribution (STV 0.22050793373327351 1.0e-06))) (1726 1727))",
+            "(stored-proof-row 1730 (proof-goal (((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) Nil) (kb70dee2474ac24319987649a8cc272f71 MAIN))) ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) (proof-ref 1730) (STV 0.6628271814627913 1.0e-06)) (rule ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) ((proj 1 (proof-ref 1481)) (proof-ref 1728)) (STV 0.6628271814627913 1.0e-06))) (proof-support 1.0e-06 ((fact-ev (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) alarm-shift-02-M01 (PressureAlarm old coolant-pump shift-02-M01)) (rule-ev kb70dee2474ac24319987649a8cc272f71 problem-alarm-old-coolant-pump) (fact-ev (kb70dee2474ac24319987649a8cc272f71 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump)))) (independent-contribution (STV 0.6628271814627913 1.0e-06))) (1481 1728 1729))"
+          ]
+        }
+      ],
+      "score": 637.0,
+      "regret": 0.0
+    },
+    "control-11": {
+      "environment": {
+        "repository": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer",
+        "chainergame": "/nexus/Dev/OpenCog/ChainerGame",
+        "petta": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.20068359375,
+          0.79833984375,
+          0.36328125
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "workload": {
+        "seed": 11,
+        "shifts": 2,
+        "modules": 4,
+        "budget": 300,
+        "action_budget": 1
+      },
+      "batches": [
+        {
+          "shift": 1,
+          "seconds": 2.206047880987171,
+          "inferences": 8488743,
+          "cpu_seconds": 2.2152177999999996,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 300,
+            "wall_seconds": 2.2002148809988284,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 158,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 405,
+            "agenda_pops": 312,
+            "search_aborts": 0,
+            "stale_agenda_entries": 2,
+            "goal_demand_evaluations": 6766,
+            "goal_demand_cache_hits": 4752,
+            "goal_demand_cache_misses": 2014,
+            "demand_revision_bumps": 3360,
+            "current_proof_goal_lookups": 146,
+            "current_result_goal_lookups": 1354,
+            "candidate_comparisons": 56,
+            "dominance_checks": 56,
+            "proofs_stored": 138
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) $tv)",
+            "(: $prf (Inheritance (PressureAlarm new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "answers": [
+            [
+              "(: ((proj 0 (by (bi-backward problem-from-disjunction-shift-01-M01) ((inverted problem-alarm-old-coolant-pump with cpu cpu) alarm-shift-01-M01))) (by (bi-forward dependency-problem-shift-01-M03-M01) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03))) (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) (STV 0.06555591110653683 0.025860755450033888))"
+            ],
+            [],
+            [
+              "(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 2))) (by (inheritance-implication state-leak-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0002-M03) ((inverted (inheritance-implication state-normal-h-0002-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0003-M03) ((inverted (inheritance-implication state-normal-h-0003-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-normal-h-0005-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-normal-h-0000-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0001-M03) ((inverted (inheritance-implication state-normal-h-0001-M03) with cpu cpu) (ctx proof 2)))) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 3))) (by (inheritance-implication state-leak-h-0002-M03) ((inverted (inheritance-implication state-normal-h-0002-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0003-M03) ((inverted (inheritance-implication state-normal-h-0003-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-normal-h-0005-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-normal-h-0000-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0001-M03) ((inverted (inheritance-implication state-normal-h-0001-M03) with cpu cpu) (ctx proof 3)))))) (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) (STV 0.12300130316970158 7.999944000391995e-06))"
+            ],
+            []
+          ],
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 2,
+            "missing_count": 2,
+            "coverage": 0.5,
+            "mean_confidence": 0.01293437769701714,
+            "confidence_weighted_coverage": 0.00646718884850857,
+            "mean_absolute_error": 0.0894987318690752,
+            "max_absolute_error": 0.12084415750484531,
+            "brier_score": 0.0097134490312265,
+            "log_loss": 0.09952662819868503
+          },
+          "beliefs": {
+            "shift-01-M01": 0.06555591110653683,
+            "shift-01-M03": 0.12300130316970158
+          },
+          "inspections": {
+            "shift-01-M03": "seal intact",
+            "shift-01-M01": "seal intact"
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 2.9601135140110273,
+          "inferences": 11838647,
+          "cpu_seconds": 2.9804275999999987,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 300,
+            "wall_seconds": 2.95020716599538,
+            "durable_proof_rows_before": 193,
+            "durable_proof_rows_after": 409,
+            "durable_goal_index_rows_before": 173,
+            "durable_result_index_rows_before": 20,
+            "agenda_pushes": 563,
+            "agenda_pops": 384,
+            "search_aborts": 0,
+            "stale_agenda_entries": 42,
+            "goal_demand_evaluations": 11141,
+            "goal_demand_cache_hits": 8211,
+            "goal_demand_cache_misses": 2930,
+            "demand_revision_bumps": 5241,
+            "current_proof_goal_lookups": 122,
+            "current_result_goal_lookups": 2309,
+            "candidate_comparisons": 167,
+            "dominance_checks": 147,
+            "proofs_stored": 175
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "answers": [
+            [
+              "(: ((proj 0 (by (bi-backward problem-from-disjunction-shift-02-M01) ((inverted problem-alarm-old-coolant-pump with cpu cpu) alarm-shift-02-M01))) (by (bi-forward dependency-problem-shift-02-M03-M01) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-02-M03))) (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (STV 0.05601543270646637 0.031103370250011687))"
+            ],
+            [],
+            [
+              "(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-normal-h-0000-M03) with cpu cpu) (ctx proof 8))) (by (inheritance-implication state-leak-h-0003-M03) ((inverted (inheritance-implication state-normal-h-0003-M03) with cpu cpu) (ctx proof 8)))) (by (inheritance-implication state-leak-h-0001-M03) ((inverted (inheritance-implication state-normal-h-0001-M03) with cpu cpu) (ctx proof 8)))) (by (inheritance-implication state-leak-h-0002-M03) ((inverted (inheritance-implication state-normal-h-0002-M03) with cpu cpu) (ctx proof 8)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 8)))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-normal-h-0005-M03) with cpu cpu) (ctx proof 8)))) (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 8)))) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-normal-h-0000-M03) with cpu cpu) (ctx proof 9))) (by (inheritance-implication state-leak-h-0003-M03) ((inverted (inheritance-implication state-normal-h-0003-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0001-M03) ((inverted (inheritance-implication state-normal-h-0001-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0002-M03) ((inverted (inheritance-implication state-normal-h-0002-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-normal-h-0005-M03) with cpu cpu) (ctx proof 9)))))) (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) (STV 0.11021868197245134 6.9999580002519965e-06))"
+            ],
+            [
+              "(: (inheritance-implication-fold (total-implication (by (inheritance-implication state-leak-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 10))) (by (inheritance-implication state-leak-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 11))))) (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) (STV 6.77238701415107e-05 1.0e-06))"
+            ]
+          ],
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 3,
+            "missing_count": 1,
+            "coverage": 0.75,
+            "mean_confidence": 0.01037045673600398,
+            "confidence_weighted_coverage": 0.007777842552002985,
+            "mean_absolute_error": 0.053545104223374,
+            "max_absolute_error": 0.11010281789368354,
+            "brier_score": 0.005095297047853207,
+            "log_loss": 0.058164247956267956
+          },
+          "beliefs": {
+            "shift-02-M01": 0.05601543270646637,
+            "shift-02-M03": 0.11021868197245134,
+            "shift-02-M04": 6.77238701415107e-05
+          },
+          "inspections": {
+            "shift-02-M03": "seal intact",
+            "shift-02-M01": "seal intact"
+          }
+        }
+      ],
+      "score": 642.0,
+      "regret": 17.29234716622964
+    },
+    "control-23": {
+      "environment": {
+        "repository": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer",
+        "chainergame": "/nexus/Dev/OpenCog/ChainerGame",
+        "petta": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.291015625,
+          0.8447265625,
+          0.38818359375
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "workload": {
+        "seed": 23,
+        "shifts": 2,
+        "modules": 4,
+        "budget": 300,
+        "action_budget": 1
+      },
+      "batches": [
+        {
+          "shift": 1,
+          "seconds": 2.1757984410069184,
+          "inferences": 8406724,
+          "cpu_seconds": 2.160565700000001,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 300,
+            "wall_seconds": 2.1701353490061592,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 154,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 398,
+            "agenda_pops": 312,
+            "search_aborts": 0,
+            "stale_agenda_entries": 2,
+            "goal_demand_evaluations": 6574,
+            "goal_demand_cache_hits": 4649,
+            "goal_demand_cache_misses": 1925,
+            "demand_revision_bumps": 3250,
+            "current_proof_goal_lookups": 151,
+            "current_result_goal_lookups": 1338,
+            "candidate_comparisons": 55,
+            "dominance_checks": 55,
+            "proofs_stored": 135
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureAlarm old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "answers": [
+            [
+              "(: ((proj 0 (by (bi-backward problem-from-disjunction-shift-01-M01) ((inverted problem-alarm-old-coolant-pump with cpu cpu) alarm-shift-01-M01))) (by (bi-forward dependency-problem-shift-01-M03-M01) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03))) (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) (STV 0.0 1.0e-06))"
+            ],
+            [],
+            [
+              "(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-alarm-h-0006-M03) with cpu cpu) (ctx proof 2))) (by (inheritance-implication state-leak-h-0007-M03) ((inverted (inheritance-implication state-alarm-h-0007-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0002-M03) ((inverted (inheritance-implication state-alarm-h-0002-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0003-M03) ((inverted (inheritance-implication state-alarm-h-0003-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-alarm-h-0004-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-alarm-h-0005-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-alarm-h-0000-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0001-M03) ((inverted (inheritance-implication state-alarm-h-0001-M03) with cpu cpu) (ctx proof 2)))) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-alarm-h-0006-M03) with cpu cpu) (ctx proof 3))) (by (inheritance-implication state-leak-h-0007-M03) ((inverted (inheritance-implication state-alarm-h-0007-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0003-M03) ((inverted (inheritance-implication state-alarm-h-0003-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-alarm-h-0004-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-alarm-h-0005-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-alarm-h-0000-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0001-M03) ((inverted (inheritance-implication state-alarm-h-0001-M03) with cpu cpu) (ctx proof 3)))))) (Inheritance (PressureAlarm old power-converter) (SealLeak old power-converter)) (STV 0.12573367439514402 7.999944000391995e-06))"
+            ],
+            []
+          ],
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 2,
+            "missing_count": 2,
+            "coverage": 0.5,
+            "mean_confidence": 4.499972000195998e-06,
+            "confidence_weighted_coverage": 2.249986000097999e-06,
+            "mean_absolute_error": 0.06274462917611927,
+            "max_absolute_error": 0.12365093117239047,
+            "brier_score": 0.007904478438452047,
+            "log_loss": 0.06718511468686796
+          },
+          "beliefs": {
+            "shift-01-M01": 0.0,
+            "shift-01-M03": 0.12573367439514402
+          },
+          "inspections": {
+            "shift-01-M01": "seal intact",
+            "shift-01-M03": "seal intact"
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 2.1422252920019673,
+          "inferences": 8347897,
+          "cpu_seconds": 2.1333918999999995,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 300,
+            "wall_seconds": 2.1326200639887247,
+            "durable_proof_rows_before": 191,
+            "durable_proof_rows_after": 353,
+            "durable_goal_index_rows_before": 172,
+            "durable_result_index_rows_before": 19,
+            "agenda_pushes": 545,
+            "agenda_pops": 368,
+            "search_aborts": 0,
+            "stale_agenda_entries": 5,
+            "goal_demand_evaluations": 9946,
+            "goal_demand_cache_hits": 7042,
+            "goal_demand_cache_misses": 2904,
+            "demand_revision_bumps": 4812,
+            "current_proof_goal_lookups": 139,
+            "current_result_goal_lookups": 1931,
+            "candidate_comparisons": 54,
+            "dominance_checks": 42,
+            "proofs_stored": 145
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "answers": [
+            [
+              "(: ((proj 0 (by (bi-backward problem-from-disjunction-shift-02-M01) ((inverted problem-alarm-old-coolant-pump with cpu cpu) alarm-shift-02-M01))) (by (bi-forward dependency-problem-shift-02-M03-M01) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-02-M03))) (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (STV 0.0 1.0e-06))"
+            ],
+            [],
+            [
+              "(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-normal-h-0000-M03) with cpu cpu) (ctx proof 8))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-normal-h-0005-M03) with cpu cpu) (ctx proof 8)))) (by (inheritance-implication state-leak-h-0002-M03) ((inverted (inheritance-implication state-normal-h-0002-M03) with cpu cpu) (ctx proof 8)))) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-normal-h-0000-M03) with cpu cpu) (ctx proof 9))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-normal-h-0005-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0002-M03) ((inverted (inheritance-implication state-normal-h-0002-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0001-M03) ((inverted (inheritance-implication state-normal-h-0001-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0003-M03) ((inverted (inheritance-implication state-normal-h-0003-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 9)))))) (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) (STV 0.10847696836068535 2.9999940000119994e-06))"
+            ],
+            [
+              "(: (inheritance-implication-fold (total-implication (by (inheritance-implication state-leak-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 10))) (by (inheritance-implication state-leak-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 11))))) (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) (STV 6.68427688516869e-05 1.0e-06))"
+            ]
+          ],
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 3,
+            "missing_count": 1,
+            "coverage": 0.75,
+            "mean_confidence": 1.6666646666706663e-06,
+            "confidence_weighted_coverage": 1.2499985000029997e-06,
+            "mean_absolute_error": 0.03661902922699082,
+            "max_absolute_error": 0.10839765002924127,
+            "brier_score": 0.00392241904422696,
+            "log_loss": 0.0382969507705992
+          },
+          "beliefs": {
+            "shift-02-M01": 0.0,
+            "shift-02-M03": 0.10847696836068535,
+            "shift-02-M04": 6.68427688516869e-05
+          },
+          "inspections": {
+            "shift-02-M01": "seal intact",
+            "shift-02-M03": "seal intact"
+          }
+        }
+      ],
+      "score": 642.0,
+      "regret": 0
+    },
+    "shorter-7": {
+      "environment": {
+        "repository": "/tmp/stationops-depth",
+        "chainergame": "/nexus/Dev/OpenCog/ChainerGame",
+        "petta": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.27587890625,
+          1.033203125,
+          0.6015625
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "workload": {
+        "seed": 7,
+        "shifts": 2,
+        "modules": 4,
+        "budget": 600,
+        "action_budget": 1
+      },
+      "batches": [
+        {
+          "shift": 1,
+          "seconds": 26.971428538003238,
+          "inferences": 99280887,
+          "cpu_seconds": 27.1167959,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 26.958686404992477,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 1118,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 1841,
+            "agenda_pops": 962,
+            "search_aborts": 0,
+            "stale_agenda_entries": 342,
+            "goal_demand_evaluations": 136160,
+            "goal_demand_cache_hits": 122480,
+            "goal_demand_cache_misses": 13680,
+            "demand_revision_bumps": 35041,
+            "current_proof_goal_lookups": 352,
+            "current_result_goal_lookups": 10902,
+            "candidate_comparisons": 410,
+            "dominance_checks": 347,
+            "proofs_stored": 904
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "answers": [
+            [
+              "(: ((proj 0 (by (bi-backward problem-from-disjunction-shift-01-M01) ((inverted problem-alarm-old-coolant-pump with cpu cpu) alarm-shift-01-M01))) (by (bi-forward dependency-problem-shift-01-M03-M01) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03))) (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) (STV 0.0 1.0e-06))"
+            ],
+            [
+              "(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 0))) (by (inheritance-implication state-leak-h-0001-M02) ((inverted (inheritance-implication state-normal-h-0001-M02) with cpu cpu) (ctx proof 0)))) (by (inheritance-implication state-leak-h-0002-M02) ((inverted (inheritance-implication state-normal-h-0002-M02) with cpu cpu) (ctx proof 0)))) (by (inheritance-implication state-leak-h-0003-M02) ((inverted (inheritance-implication state-normal-h-0003-M02) with cpu cpu) (ctx proof 0)))) (by (inheritance-implication state-leak-h-0004-M02) ((inverted (inheritance-implication state-normal-h-0004-M02) with cpu cpu) (ctx proof 0)))) (by (inheritance-implication state-leak-h-0005-M02) ((inverted (inheritance-implication state-normal-h-0005-M02) with cpu cpu) (ctx proof 0)))) (by (inheritance-implication state-leak-h-0007-M02) ((inverted (inheritance-implication state-normal-h-0007-M02) with cpu cpu) (ctx proof 0)))) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 1))) (by (inheritance-implication state-leak-h-0001-M02) ((inverted (inheritance-implication state-normal-h-0001-M02) with cpu cpu) (ctx proof 1)))) (by (inheritance-implication state-leak-h-0002-M02) ((inverted (inheritance-implication state-normal-h-0002-M02) with cpu cpu) (ctx proof 1)))) (by (inheritance-implication state-leak-h-0003-M02) ((inverted (inheritance-implication state-normal-h-0003-M02) with cpu cpu) (ctx proof 1)))) (by (inheritance-implication state-leak-h-0004-M02) ((inverted (inheritance-implication state-normal-h-0004-M02) with cpu cpu) (ctx proof 1)))) (by (inheritance-implication state-leak-h-0005-M02) ((inverted (inheritance-implication state-normal-h-0005-M02) with cpu cpu) (ctx proof 1)))) (by (inheritance-implication state-leak-h-0007-M02) ((inverted (inheritance-implication state-normal-h-0007-M02) with cpu cpu) (ctx proof 1)))))) (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) (STV 6.709449258904199e-05 6.9999580002519965e-06))"
+            ],
+            [
+              "(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 2))) (by (inheritance-implication state-leak-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-normal-h-0005-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-normal-h-0000-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0001-M03) ((inverted (inheritance-implication state-normal-h-0001-M03) with cpu cpu) (ctx proof 2)))) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 3))) (by (inheritance-implication state-leak-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-normal-h-0005-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-normal-h-0000-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0001-M03) ((inverted (inheritance-implication state-normal-h-0001-M03) with cpu cpu) (ctx proof 3)))))) (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) (STV 0.2456644965301374 5.9999700001499974e-06))"
+            ],
+            [
+              "(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 4))) (by (inheritance-implication state-leak-h-0001-M04) ((inverted (inheritance-implication state-normal-h-0001-M04) with cpu cpu) (ctx proof 4)))) (by (inheritance-implication state-leak-h-0002-M04) ((inverted (inheritance-implication state-normal-h-0002-M04) with cpu cpu) (ctx proof 4)))) (by (inheritance-implication state-leak-h-0003-M04) ((inverted (inheritance-implication state-normal-h-0003-M04) with cpu cpu) (ctx proof 4)))) (by (inheritance-implication state-leak-h-0004-M04) ((inverted (inheritance-implication state-normal-h-0004-M04) with cpu cpu) (ctx proof 4)))) (by (inheritance-implication state-leak-h-0005-M04) ((inverted (inheritance-implication state-normal-h-0005-M04) with cpu cpu) (ctx proof 4)))) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 5))) (by (inheritance-implication state-leak-h-0001-M04) ((inverted (inheritance-implication state-normal-h-0001-M04) with cpu cpu) (ctx proof 5)))) (by (inheritance-implication state-leak-h-0002-M04) ((inverted (inheritance-implication state-normal-h-0002-M04) with cpu cpu) (ctx proof 5)))) (by (inheritance-implication state-leak-h-0003-M04) ((inverted (inheritance-implication state-normal-h-0003-M04) with cpu cpu) (ctx proof 5)))) (by (inheritance-implication state-leak-h-0004-M04) ((inverted (inheritance-implication state-normal-h-0004-M04) with cpu cpu) (ctx proof 5)))) (by (inheritance-implication state-leak-h-0005-M04) ((inverted (inheritance-implication state-normal-h-0005-M04) with cpu cpu) (ctx proof 5)))))) (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) (STV 6.735675455066426e-05 5.9999700001499974e-06))"
+            ]
+          ],
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 4,
+            "missing_count": 0,
+            "coverage": 1.0,
+            "mean_confidence": 4.999974500137998e-06,
+            "confidence_weighted_coverage": 4.999974500137998e-06,
+            "mean_absolute_error": 0.06232309076301977,
+            "max_absolute_error": 0.2454144310129719,
+            "brier_score": 0.015087763473502302,
+            "log_loss": 0.07051312522379236
+          },
+          "beliefs": {
+            "shift-01-M01": 0.0,
+            "shift-01-M02": 6.709449258904199e-05,
+            "shift-01-M03": 0.2456644965301374,
+            "shift-01-M04": 6.735675455066426e-05
+          },
+          "inspections": {
+            "shift-01-M01": "seal intact",
+            "shift-01-M03": "seal intact"
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 41.20085345300322,
+          "inferences": 135376607,
+          "cpu_seconds": 41.3758122,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 600,
+            "wall_seconds": 41.16216708200227,
+            "durable_proof_rows_before": 1155,
+            "durable_proof_rows_after": 2670,
+            "durable_goal_index_rows_before": 941,
+            "durable_result_index_rows_before": 214,
+            "agenda_pushes": 1306,
+            "agenda_pops": 887,
+            "search_aborts": 0,
+            "stale_agenda_entries": 159,
+            "goal_demand_evaluations": 119150,
+            "goal_demand_cache_hits": 101119,
+            "goal_demand_cache_misses": 18031,
+            "demand_revision_bumps": 38271,
+            "current_proof_goal_lookups": 277,
+            "current_result_goal_lookups": 18268,
+            "candidate_comparisons": 1060,
+            "dominance_checks": 887,
+            "proofs_stored": 969
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureAlarm new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "answers": [
+            [
+              "(: (by (bi-forward local-problem-shift-02-M01) (by (inheritance-implication state-leak-h-0000-M01) ((inverted (inheritance-implication state-equipment-h-0000-M01) with cpu (foldall-proof state-leak-h-0000-M01 state-leak-h-0001-M01 state-leak-h-0002-M01 state-leak-h-0003-M01 state-leak-h-0004-M01 state-leak-h-0005-M01 state-leak-h-0006-M01 state-leak-h-0007-M01 (by (bi-backward local-problem-shift-01-M01) ((proj 0 (by (bi-backward problem-from-disjunction-shift-01-M01) ((inverted problem-alarm-old-coolant-pump with cpu cpu) alarm-shift-01-M01))) (by (bi-forward dependency-problem-shift-01-M03-M01) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03)))) state-leak-shift-01-M01)) current-equipment-state-shift-02-M01))) (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (STV 0.22050793373327351 1.0e-06))"
+            ],
+            [
+              "(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0007-M02) ((inverted (inheritance-implication state-normal-h-0007-M02) with cpu cpu) (ctx proof 6))) (by (inheritance-implication state-leak-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 6)))) (by (inheritance-implication state-leak-h-0001-M02) ((inverted (inheritance-implication state-normal-h-0001-M02) with cpu cpu) (ctx proof 6)))) (by (inheritance-implication state-leak-h-0002-M02) ((inverted (inheritance-implication state-normal-h-0002-M02) with cpu cpu) (ctx proof 6)))) (by (inheritance-implication state-leak-h-0003-M02) ((inverted (inheritance-implication state-normal-h-0003-M02) with cpu cpu) (ctx proof 6)))) (by (inheritance-implication state-leak-h-0004-M02) ((inverted (inheritance-implication state-normal-h-0004-M02) with cpu cpu) (ctx proof 6)))) (by (inheritance-implication state-leak-h-0000-M02) ((inverted (inheritance-implication state-normal-h-0000-M02) with cpu cpu) (ctx proof 7))))) (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) (STV 6.709836316157187e-05 5.9999700001499974e-06))"
+            ],
+            [
+              "(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-shift-01-M03) ((inverted (inheritance-implication state-normal-shift-01-M03) with cpu cpu) (ctx proof 8))) (by (inheritance-implication state-leak-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 8)))) (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 8)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 8)))) (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-shift-01-M03) ((inverted (inheritance-implication state-normal-shift-01-M03) with cpu cpu) (ctx proof 9))) (by (inheritance-implication state-leak-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 9)))))) (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) (STV 0.21770697337018438 3.999988000035998e-06))"
+            ],
+            [
+              "(: (inheritance-implication-fold (total-implication (by (inheritance-implication state-leak-h-0007-M04) ((inverted (inheritance-implication state-alarm-h-0007-M04) with cpu cpu) (ctx proof 10))) (merge/revision (by (inheritance-implication state-leak-h-0007-M04) ((inverted (inheritance-implication state-alarm-h-0007-M04) with cpu cpu) (ctx proof 11))) (by (inheritance-implication state-leak-h-0000-M04) ((inverted (inheritance-implication state-alarm-h-0000-M04) with cpu cpu) (ctx proof 11)))))) (Inheritance (PressureAlarm new thermal-loop-pump) (SealLeak new thermal-loop-pump)) (STV 6.769846733950714e-05 1.0e-06))"
+            ]
+          ],
+          "dependency_cycle_checks": [
+            "(1254 (STV 0.6628278881209392 1.0e-06) (rule ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) ((proj 1 (proof-ref 1251)) (proof-ref 1176)) (STV 0.6628278881209392 1.0e-06))) true)",
+            "(1257 (STV 0.05625 0.05074710155177991) (rule ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (by (bi-forward dependency-problem-shift-02-M03-M01) (proof-ref 1256)) (STV 0.05625 0.05074710155177991))) false)",
+            "(1258 (STV 0.05626134617753962 0.050748002632890844) (merged ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (merge/revision (proof-ref 1257) (proof-ref 1254)) (STV 0.05626134617753962 0.050748002632890844))) true)",
+            "(1285 (STV 0.05357142857142858 0.054880042047731635) (rule ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (by (bi-forward dependency-problem-shift-02-M03-M01) (proof-ref 1283)) (STV 0.05357142857142858 0.054880042047731635))) false)",
+            "(1286 (STV 0.053581920748136044 0.05488093529951558) (merged ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (merge/revision (proof-ref 1285) (proof-ref 1254)) (STV 0.053581920748136044 0.05488093529951558))) true)"
+          ],
+          "noncyclic_dependency_sources": [
+            "(1285)"
+          ],
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 4,
+            "missing_count": 0,
+            "coverage": 1.0,
+            "mean_confidence": 2.9999895000464992e-06,
+            "confidence_weighted_coverage": 2.9999895000464992e-06,
+            "mean_absolute_error": 0.2044333769007084,
+            "max_absolute_error": 0.6565202043227341,
+            "brier_score": 0.16375105417801242,
+            "log_loss": 0.43937057493261006
+          },
+          "beliefs": {
+            "shift-02-M01": 0.22050793373327351,
+            "shift-02-M02": 6.709836316157187e-05,
+            "shift-02-M03": 0.21770697337018438,
+            "shift-02-M04": 6.769846733950714e-05
+          },
+          "inspections": {
+            "shift-02-M03": "seal intact",
+            "shift-02-M01": "seal leak confirmed"
+          },
+          "relevant_goals": [
+            "(stored-goal-row 5 1 ((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) $_11303426 $_11303432) true (goal-agenda-state 1 3 0.33 false))",
+            "(stored-goal-row 215 1 ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) $_11278880 $_11278886) true (goal-agenda-state 1 5 5.0e-07 false))",
+            "(stored-goal-row 232 2 ((Problem old power-converter shift-02-M03) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) $_11277332 $_11277338) true (goal-agenda-state 3 6 7.362542062908026e-05 false))",
+            "(stored-goal-row 368 3 ((PressureAlarm old power-converter shift-02-M03) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) $_11276702 $_11276708) true (goal-agenda-state 1 3 1.2270903438180043e-05 false))"
+          ],
+          "relevant_proofs": [
+            "(stored-proof-row 1170 (proof-goal (((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) Nil) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN))) ((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (proof-ref 1170) (STV 0.24796970643904592 1.0e-06)) (rule ((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (by (bi-forward local-problem-shift-02-M01) (proof-ref 1161)) (STV 0.24796970643904592 1.0e-06))) (proof-support 1.0e-06 ((fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump)))) (independent-contribution (STV 0.24796970643904592 1.0e-06))) (1161 1169))",
+            "(stored-proof-row 1176 (proof-goal (((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) Nil) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN))) ((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (proof-ref 1176) (STV 0.22050630004412644 1.0e-06)) (rule ((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (by (bi-forward local-problem-shift-02-M01) (proof-ref 1174)) (STV 0.22050630004412644 1.0e-06))) (proof-support 1.0e-06 ((fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump)))) (independent-contribution (STV 0.22050630004412644 1.0e-06))) (1174 1175))",
+            "(stored-proof-row 1251 (proof-goal (((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) Nil) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN))) ((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (proof-ref 1251) (STV 0.7371764629894552 0.000294502271433838)) (rule ((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (by (bi-backward problem-from-disjunction-shift-02-M01) (proof-ref 1249)) (STV 0.7371764629894552 0.000294502271433838))) (proof-support 0.000294502271433838 ((fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M01 (PressureAlarm old coolant-pump shift-02-M01)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-coolant-pump)) (independent-contribution (STV 0.7371764629894552 0.000294502271433838))) (1249 1250))",
+            "(stored-proof-row 1254 (proof-goal (((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) Nil) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN))) ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (proof-ref 1254) (STV 0.6628278881209392 1.0e-06)) (rule ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) ((proj 1 (proof-ref 1251)) (proof-ref 1176)) (STV 0.6628278881209392 1.0e-06))) (proof-support 1.0e-06 ((fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M01 (PressureAlarm old coolant-pump shift-02-M01)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-coolant-pump) (fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump)))) (independent-contribution (STV 0.6628278881209392 1.0e-06))) (1251 1176 1253))",
+            "(stored-proof-row 1257 (proof-goal (((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) Nil) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN))) ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (proof-ref 1257) (STV 0.05625 0.05074710155177991)) (rule ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (by (bi-forward dependency-problem-shift-02-M03-M01) (proof-ref 1256)) (STV 0.05625 0.05074710155177991))) (proof-support 0.05074710155177991 ((fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M03 (PressureAlarm old power-converter shift-02-M03)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-power-converter)) (independent-contribution (STV 0.05625 0.05074710155177991))) (1256 25))",
+            "(stored-proof-row 1258 (merged-proof-group (((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) Nil) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN))) ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (merge/revision (proof-ref 1257) (proof-ref 1254)) (STV 0.05626134617753962 0.050748002632890844)) (merged ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (merge/revision (proof-ref 1257) (proof-ref 1254)) (STV 0.05626134617753962 0.050748002632890844))) (proof-support 0.050748002632890844 ((fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M01 (PressureAlarm old coolant-pump shift-02-M01)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-coolant-pump) (fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump))) (fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M03 (PressureAlarm old power-converter shift-02-M03)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-power-converter)) (independent-contribution (STV 0.05626134617753962 0.050748002632890844))) (1254 1257))",
+            "(stored-proof-row 1285 (proof-goal (((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) Nil) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN))) ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (proof-ref 1285) (STV 0.05357142857142858 0.054880042047731635)) (rule ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (by (bi-forward dependency-problem-shift-02-M03-M01) (proof-ref 1283)) (STV 0.05357142857142858 0.054880042047731635))) (proof-support 0.054880042047731635 ((fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M03 (PressureAlarm old power-converter shift-02-M03)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-power-converter)) (independent-contribution (STV 0.05357142857142858 0.054880042047731635))) (1283 1284))",
+            "(stored-proof-row 1286 (merged-proof-group (((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) Nil) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN))) ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (merge/revision (proof-ref 1285) (proof-ref 1254)) (STV 0.053581920748136044 0.05488093529951558)) (merged ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (merge/revision (proof-ref 1285) (proof-ref 1254)) (STV 0.053581920748136044 0.05488093529951558))) (proof-support 0.05488093529951558 ((fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M01 (PressureAlarm old coolant-pump shift-02-M01)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-coolant-pump) (fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump))) (fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M03 (PressureAlarm old power-converter shift-02-M03)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-power-converter)) (independent-contribution (STV 0.053581920748136044 0.05488093529951558))) (1254 1285))",
+            "(stored-proof-row 1323 (proof-goal (((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) Nil) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN))) ((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (proof-ref 1323) (STV 0.22050793373327354 1.0e-06)) (rule ((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (by (bi-forward local-problem-shift-02-M01) (proof-ref 1321)) (STV 0.22050793373327354 1.0e-06))) (proof-support 1.0e-06 ((fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump)))) (independent-contribution (STV 0.22050793373327354 1.0e-06))) (1321 1322))",
+            "(stored-proof-row 1325 (proof-goal (((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) Nil) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN))) ((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (proof-ref 1325) (STV 0.26226643728327675 0.0003135660157241556)) (rule ((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (conjunction (proof-ref 1323) (proof-ref 1285)) (STV 0.26226643728327675 0.0003135660157241556))) (proof-support 0.0003135660157241556 ((fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump))) (fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M03 (PressureAlarm old power-converter shift-02-M03)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-power-converter)) (independent-contribution (STV 0.26226643728327675 0.0003135660157241556))) (1323 1285 1324))",
+            "(stored-proof-row 1326 (merged-proof-group (((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) Nil) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN))) ((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (merge/revision (proof-ref 1325) (proof-ref 1251)) (STV 0.4922746598625189 0.0006078836514858084)) (merged ((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (merge/revision (proof-ref 1325) (proof-ref 1251)) (STV 0.4922746598625189 0.0006078836514858084))) (proof-support 0.0006078836514858084 ((fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M01 (PressureAlarm old coolant-pump shift-02-M01)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-coolant-pump) (fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump))) (fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M03 (PressureAlarm old power-converter shift-02-M03)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-power-converter)) (independent-contribution (STV 0.4922746598625189 0.0006078836514858084))) (1251 1325))",
+            "(stored-proof-row 1348 (proof-goal (((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) Nil) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN))) ((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (proof-ref 1348) (STV 0.4922746598634188 0.0006078836514846289)) (rule ((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (by (bi-backward problem-from-disjunction-shift-02-M01) (merge/revision (proof-ref 1345) (proof-ref 1249))) (STV 0.4922746598634188 0.0006078836514846289))) (proof-support 0.0006078836514846289 ((fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M01 (PressureAlarm old coolant-pump shift-02-M01)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-coolant-pump) (fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump))) (fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M03 (PressureAlarm old power-converter shift-02-M03)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-power-converter)) (independent-contribution (STV 0.4922746598634188 0.0006078836514846289))) (1346 1347))",
+            "(stored-proof-row 1349 (merged-proof-group (((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) Nil) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN))) ((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (proof-ref 1348) (STV 0.4922746598634188 0.0006078836514846289)) (merged ((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (proof-ref 1348) (STV 0.4922746598634188 0.0006078836514846289))) (proof-support 0.0006078836514846289 ((fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump))) (fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M03 (PressureAlarm old power-converter shift-02-M03)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-power-converter) (fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M01 (PressureAlarm old coolant-pump shift-02-M01)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-coolant-pump)) (independent-contribution (STV 0.4922746598634188 0.0006078836514846289))) (1325 1348))",
+            "(stored-proof-row 1494 (proof-goal (((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) Nil) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN))) ((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (proof-ref 1494) (STV 0.22050793373327351 1.0e-06)) (rule ((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (by (bi-forward local-problem-shift-02-M01) (proof-ref 1492)) (STV 0.22050793373327351 1.0e-06))) (proof-support 1.0e-06 ((fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump)))) (independent-contribution (STV 0.22050793373327351 1.0e-06))) (1492 1493))",
+            "(stored-proof-row 1500 (proof-goal (((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) Nil) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN))) ((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (proof-ref 1500) (STV 0.49227465986341884 0.0006078836514846289)) (rule ((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (by (bi-backward problem-from-disjunction-shift-02-M01) (merge/revision (proof-ref 1497) (proof-ref 1249))) (STV 0.49227465986341884 0.0006078836514846289))) (proof-support 0.0006078836514846289 ((fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M01 (PressureAlarm old coolant-pump shift-02-M01)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-coolant-pump) (fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump))) (fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M03 (PressureAlarm old power-converter shift-02-M03)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-power-converter)) (independent-contribution (STV 0.49227465986341884 0.0006078836514846289))) (1498 1499))",
+            "(stored-proof-row 1501 (merged-proof-group (((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) Nil) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN))) ((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (proof-ref 1500) (STV 0.49227465986341884 0.0006078836514846289)) (merged ((Or (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (ProblemDependency shift-02 M01 old coolant-pump shift-02-M01)) (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) (proof-ref 1500) (STV 0.49227465986341884 0.0006078836514846289))) (proof-support 0.0006078836514846289 ((fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) current-equipment-state-shift-02-M01 (Inheritance (ModuleState shift-02 M01) (EquipmentState old coolant-pump))) (fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M03 (PressureAlarm old power-converter shift-02-M03)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-power-converter) (fact-ev (kb32a8d9a390fd40b79a3d0986c7ea3f00 MAIN Nil) alarm-shift-02-M01 (PressureAlarm old coolant-pump shift-02-M01)) (rule-ev kb32a8d9a390fd40b79a3d0986c7ea3f00 problem-alarm-old-coolant-pump)) (independent-contribution (STV 0.49227465986341884 0.0006078836514846289))) (1325 1500))"
+          ]
+        }
+      ],
+      "score": 637.0,
+      "regret": 0.0
+    },
+    "shorter-11": {
+      "environment": {
+        "repository": "/tmp/stationops-depth",
+        "chainergame": "/nexus/Dev/OpenCog/ChainerGame",
+        "petta": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.16552734375,
+          1.0283203125,
+          0.6162109375
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "workload": {
+        "seed": 11,
+        "shifts": 2,
+        "modules": 4,
+        "budget": 300,
+        "action_budget": 1
+      },
+      "batches": [
+        {
+          "shift": 1,
+          "seconds": 4.281142610008828,
+          "inferences": 16204238,
+          "cpu_seconds": 4.296322100000001,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 300,
+            "wall_seconds": 4.27490181500616,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 204,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 918,
+            "agenda_pops": 347,
+            "search_aborts": 0,
+            "stale_agenda_entries": 34,
+            "goal_demand_evaluations": 16176,
+            "goal_demand_cache_hits": 12387,
+            "goal_demand_cache_misses": 3789,
+            "demand_revision_bumps": 10711,
+            "current_proof_goal_lookups": 147,
+            "current_result_goal_lookups": 2520,
+            "candidate_comparisons": 56,
+            "dominance_checks": 56,
+            "proofs_stored": 184
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) $tv)",
+            "(: $prf (Inheritance (PressureAlarm new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "answers": [
+            [
+              "(: ((proj 0 (by (bi-backward problem-from-disjunction-shift-01-M01) ((inverted problem-alarm-old-coolant-pump with cpu cpu) alarm-shift-01-M01))) (by (bi-forward dependency-problem-shift-01-M03-M01) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03))) (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) (STV 0.06555591110653683 0.025860755450033888))"
+            ],
+            [],
+            [
+              "(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 2))) (by (inheritance-implication state-leak-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0002-M03) ((inverted (inheritance-implication state-normal-h-0002-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0003-M03) ((inverted (inheritance-implication state-normal-h-0003-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-normal-h-0005-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-normal-h-0000-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0001-M03) ((inverted (inheritance-implication state-normal-h-0001-M03) with cpu cpu) (ctx proof 2)))) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 3))) (by (inheritance-implication state-leak-h-0002-M03) ((inverted (inheritance-implication state-normal-h-0002-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0003-M03) ((inverted (inheritance-implication state-normal-h-0003-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-normal-h-0005-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-normal-h-0000-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0001-M03) ((inverted (inheritance-implication state-normal-h-0001-M03) with cpu cpu) (ctx proof 3)))))) (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) (STV 0.12300130316970158 7.999944000391995e-06))"
+            ],
+            []
+          ],
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 2,
+            "missing_count": 2,
+            "coverage": 0.5,
+            "mean_confidence": 0.01293437769701714,
+            "confidence_weighted_coverage": 0.00646718884850857,
+            "mean_absolute_error": 0.0894987318690752,
+            "max_absolute_error": 0.12084415750484531,
+            "brier_score": 0.0097134490312265,
+            "log_loss": 0.09952662819868503
+          },
+          "beliefs": {
+            "shift-01-M01": 0.06555591110653683,
+            "shift-01-M03": 0.12300130316970158
+          },
+          "inspections": {
+            "shift-01-M03": "seal intact",
+            "shift-01-M01": "seal intact"
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 4.20998795000196,
+          "inferences": 15866208,
+          "cpu_seconds": 4.2403289000000015,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 300,
+            "wall_seconds": 4.19893237100041,
+            "durable_proof_rows_before": 239,
+            "durable_proof_rows_after": 457,
+            "durable_goal_index_rows_before": 219,
+            "durable_result_index_rows_before": 20,
+            "agenda_pushes": 579,
+            "agenda_pops": 384,
+            "search_aborts": 0,
+            "stale_agenda_entries": 51,
+            "goal_demand_evaluations": 15929,
+            "goal_demand_cache_hits": 12239,
+            "goal_demand_cache_misses": 3690,
+            "demand_revision_bumps": 6793,
+            "current_proof_goal_lookups": 120,
+            "current_result_goal_lookups": 3090,
+            "candidate_comparisons": 183,
+            "dominance_checks": 155,
+            "proofs_stored": 169
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "answers": [
+            [
+              "(: ((proj 0 (by (bi-backward problem-from-disjunction-shift-02-M01) ((inverted problem-alarm-old-coolant-pump with cpu cpu) alarm-shift-02-M01))) (by (bi-forward dependency-problem-shift-02-M03-M01) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-02-M03))) (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (STV 0.05601543270646637 0.031103370250011687))"
+            ],
+            [],
+            [
+              "(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-normal-h-0000-M03) with cpu cpu) (ctx proof 8))) (by (inheritance-implication state-leak-h-0003-M03) ((inverted (inheritance-implication state-normal-h-0003-M03) with cpu cpu) (ctx proof 8)))) (by (inheritance-implication state-leak-h-0001-M03) ((inverted (inheritance-implication state-normal-h-0001-M03) with cpu cpu) (ctx proof 8)))) (by (inheritance-implication state-leak-h-0002-M03) ((inverted (inheritance-implication state-normal-h-0002-M03) with cpu cpu) (ctx proof 8)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 8)))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-normal-h-0005-M03) with cpu cpu) (ctx proof 8)))) (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 8)))) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 9))) (by (inheritance-implication state-leak-h-0002-M03) ((inverted (inheritance-implication state-normal-h-0002-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-normal-h-0005-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0001-M03) ((inverted (inheritance-implication state-normal-h-0001-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0003-M03) ((inverted (inheritance-implication state-normal-h-0003-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-normal-h-0000-M03) with cpu cpu) (ctx proof 9)))))) (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) (STV 0.11021868197245134 6.9999580002519965e-06))"
+            ],
+            [
+              "(: (inheritance-implication-fold (total-implication (by (inheritance-implication state-leak-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 10))) (by (inheritance-implication state-leak-h-0006-M04) ((inverted (inheritance-implication state-normal-h-0006-M04) with cpu cpu) (ctx proof 11))))) (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) (STV 6.77238701415107e-05 1.0e-06))"
+            ]
+          ],
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 3,
+            "missing_count": 1,
+            "coverage": 0.75,
+            "mean_confidence": 0.01037045673600398,
+            "confidence_weighted_coverage": 0.007777842552002985,
+            "mean_absolute_error": 0.053545104223374,
+            "max_absolute_error": 0.11010281789368354,
+            "brier_score": 0.005095297047853207,
+            "log_loss": 0.058164247956267956
+          },
+          "beliefs": {
+            "shift-02-M01": 0.05601543270646637,
+            "shift-02-M03": 0.11021868197245134,
+            "shift-02-M04": 6.77238701415107e-05
+          },
+          "inspections": {
+            "shift-02-M03": "seal intact",
+            "shift-02-M01": "seal intact"
+          }
+        }
+      ],
+      "score": 642.0,
+      "regret": 17.29234716622964
+    },
+    "shorter-23": {
+      "environment": {
+        "repository": "/tmp/stationops-depth",
+        "chainergame": "/nexus/Dev/OpenCog/ChainerGame",
+        "petta": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta",
+        "python": "3.10.16 (main, Dec  6 2024, 19:59:16) [Clang 18.1.8 ]",
+        "executable": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python",
+        "loadavg": [
+          1.18212890625,
+          1.04248046875,
+          0.6337890625
+        ],
+        "janus_version": "1.5.2",
+        "swi_version": 90333
+      },
+      "workload": {
+        "seed": 23,
+        "shifts": 2,
+        "modules": 4,
+        "budget": 300,
+        "action_budget": 1
+      },
+      "batches": [
+        {
+          "shift": 1,
+          "seconds": 4.2674901639984455,
+          "inferences": 16544596,
+          "cpu_seconds": 4.258125799999998,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 300,
+            "wall_seconds": 4.261592434006161,
+            "durable_proof_rows_before": 0,
+            "durable_proof_rows_after": 193,
+            "durable_goal_index_rows_before": 0,
+            "durable_result_index_rows_before": 0,
+            "agenda_pushes": 866,
+            "agenda_pops": 349,
+            "search_aborts": 0,
+            "stale_agenda_entries": 36,
+            "goal_demand_evaluations": 16713,
+            "goal_demand_cache_hits": 12987,
+            "goal_demand_cache_misses": 3726,
+            "demand_revision_bumps": 10647,
+            "current_proof_goal_lookups": 155,
+            "current_result_goal_lookups": 2532,
+            "candidate_comparisons": 55,
+            "dominance_checks": 55,
+            "proofs_stored": 174
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureAlarm old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "answers": [
+            [
+              "(: ((proj 0 (by (bi-backward problem-from-disjunction-shift-01-M01) ((inverted problem-alarm-old-coolant-pump with cpu cpu) alarm-shift-01-M01))) (by (bi-forward dependency-problem-shift-01-M03-M01) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-01-M03))) (LocalProblem shift-01 M01 old coolant-pump shift-01-M01) (STV 0.0 1.0e-06))"
+            ],
+            [],
+            [
+              "(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-alarm-h-0006-M03) with cpu cpu) (ctx proof 2))) (by (inheritance-implication state-leak-h-0007-M03) ((inverted (inheritance-implication state-alarm-h-0007-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0002-M03) ((inverted (inheritance-implication state-alarm-h-0002-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0003-M03) ((inverted (inheritance-implication state-alarm-h-0003-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-alarm-h-0004-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-alarm-h-0005-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-alarm-h-0000-M03) with cpu cpu) (ctx proof 2)))) (by (inheritance-implication state-leak-h-0001-M03) ((inverted (inheritance-implication state-alarm-h-0001-M03) with cpu cpu) (ctx proof 2)))) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-alarm-h-0006-M03) with cpu cpu) (ctx proof 3))) (by (inheritance-implication state-leak-h-0007-M03) ((inverted (inheritance-implication state-alarm-h-0007-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0003-M03) ((inverted (inheritance-implication state-alarm-h-0003-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-alarm-h-0004-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-alarm-h-0005-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-alarm-h-0000-M03) with cpu cpu) (ctx proof 3)))) (by (inheritance-implication state-leak-h-0001-M03) ((inverted (inheritance-implication state-alarm-h-0001-M03) with cpu cpu) (ctx proof 3)))))) (Inheritance (PressureAlarm old power-converter) (SealLeak old power-converter)) (STV 0.12573367439514402 7.999944000391995e-06))"
+            ],
+            []
+          ],
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 2,
+            "missing_count": 2,
+            "coverage": 0.5,
+            "mean_confidence": 4.499972000195998e-06,
+            "confidence_weighted_coverage": 2.249986000097999e-06,
+            "mean_absolute_error": 0.06274462917611927,
+            "max_absolute_error": 0.12365093117239047,
+            "brier_score": 0.007904478438452047,
+            "log_loss": 0.06718511468686796
+          },
+          "beliefs": {
+            "shift-01-M01": 0.0,
+            "shift-01-M03": 0.12573367439514402
+          },
+          "inspections": {
+            "shift-01-M01": "seal intact",
+            "shift-01-M03": "seal intact"
+          }
+        },
+        {
+          "shift": 2,
+          "seconds": 7.806125153001631,
+          "inferences": 30574309,
+          "cpu_seconds": 7.8437491,
+          "metrics": {
+            "kind": "query_many",
+            "roots": 4,
+            "steps": 300,
+            "wall_seconds": 7.79455186999985,
+            "durable_proof_rows_before": 230,
+            "durable_proof_rows_after": 570,
+            "durable_goal_index_rows_before": 211,
+            "durable_result_index_rows_before": 19,
+            "agenda_pushes": 561,
+            "agenda_pops": 346,
+            "search_aborts": 0,
+            "stale_agenda_entries": 9,
+            "goal_demand_evaluations": 34005,
+            "goal_demand_cache_hits": 28288,
+            "goal_demand_cache_misses": 5717,
+            "demand_revision_bumps": 10370,
+            "current_proof_goal_lookups": 129,
+            "current_result_goal_lookups": 4553,
+            "candidate_comparisons": 152,
+            "dominance_checks": 138,
+            "proofs_stored": 281
+          },
+          "queries": [
+            "(: $prf (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) $tv)",
+            "(: $prf (Inheritance (PressureNormal new oxygen-scrubber) (SealLeak new oxygen-scrubber)) $tv)",
+            "(: $prf (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) $tv)",
+            "(: $prf (Inheritance (PressureNormal new thermal-loop-pump) (SealLeak new thermal-loop-pump)) $tv)"
+          ],
+          "answers": [
+            [
+              "(: ((proj 0 (by (bi-backward problem-from-disjunction-shift-02-M01) ((inverted problem-alarm-old-coolant-pump with cpu cpu) alarm-shift-02-M01))) (by (bi-forward dependency-problem-shift-02-M03-M01) ((inverted problem-alarm-old-power-converter with cpu cpu) alarm-shift-02-M03))) (LocalProblem shift-02 M01 old coolant-pump shift-02-M01) (STV 0.0 1.0e-06))"
+            ],
+            [],
+            [
+              "(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0002-M03) ((inverted (inheritance-implication state-normal-h-0002-M03) with cpu cpu) (ctx proof 8))) (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-normal-h-0000-M03) with cpu cpu) (ctx proof 8)))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-normal-h-0005-M03) with cpu cpu) (ctx proof 8)))) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by (inheritance-implication state-leak-h-0002-M03) ((inverted (inheritance-implication state-normal-h-0002-M03) with cpu cpu) (ctx proof 9))) (by (inheritance-implication state-leak-h-0000-M03) ((inverted (inheritance-implication state-normal-h-0000-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0005-M03) ((inverted (inheritance-implication state-normal-h-0005-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0001-M03) ((inverted (inheritance-implication state-normal-h-0001-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0006-M03) ((inverted (inheritance-implication state-normal-h-0006-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0007-M03) ((inverted (inheritance-implication state-normal-h-0007-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0003-M03) ((inverted (inheritance-implication state-normal-h-0003-M03) with cpu cpu) (ctx proof 9)))) (by (inheritance-implication state-leak-h-0004-M03) ((inverted (inheritance-implication state-normal-h-0004-M03) with cpu cpu) (ctx proof 9)))))) (Inheritance (PressureNormal old power-converter) (SealLeak old power-converter)) (STV 0.10844916466089516 2.9999940000119994e-06))"
+            ],
+            []
+          ],
+          "belief_metrics": {
+            "expected_count": 4,
+            "evaluated_count": 2,
+            "missing_count": 2,
+            "coverage": 0.5,
+            "mean_confidence": 1.9999970000059996e-06,
+            "confidence_weighted_coverage": 9.999985000029998e-07,
+            "mean_absolute_error": 0.054881220606165286,
+            "max_absolute_error": 0.10836984632945108,
+            "brier_score": 0.0058806106578229754,
+            "log_loss": 0.05739641052601295
+          },
+          "beliefs": {
+            "shift-02-M01": 0.0,
+            "shift-02-M03": 0.10844916466089516
+          },
+          "inspections": {
+            "shift-02-M01": "seal intact",
+            "shift-02-M03": "seal intact"
+          }
+        }
+      ],
+      "score": 642.0,
+      "regret": 0
+    }
+  },
+  "source": {
+    "benchmark.py": "#!/usr/bin/env python3\n\"\"\"Run the real ChainerGame two-shift workload in a selected PeTTaChainer tree.\n\nUse the repository's .venv/bin/python. No StationOps model is duplicated here.\n\"\"\"\nfrom __future__ import annotations\n\nimport argparse\nimport functools\nfrom importlib.metadata import version\nimport json\nimport os\nfrom pathlib import Path\nimport sys\nimport time\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=__doc__)\n    parser.add_argument(\"--repository\", type=Path, required=True)\n    parser.add_argument(\"--chainergame\", type=Path, required=True)\n    parser.add_argument(\"--petta\", type=Path, required=True)\n    parser.add_argument(\"--json-out\", type=Path, required=True)\n    parser.add_argument('--seed', type=int, default=7)\n    parser.add_argument('--budget', type=int, default=600)\n    args = parser.parse_args()\n    repository = args.repository.resolve()\n    game = args.chainergame.resolve()\n    runtime = args.petta.resolve()\n    os.environ[\"PETTA_PATH\"] = str(runtime)\n    sys.path[:0] = [str(repository), str(runtime / \"python\"), str(game / \"src\")]\n\n    import janus_swi as janus\n    import petta\n    import pettachainer\n    import stationops\n    from pettachainer import PeTTaChainer\n    from stationops.backends import PeTTaChainerBackend\n    from stationops.game import GameConfig, run_game_episode\n\n    for module, root in ((pettachainer, repository), (petta, runtime), (stationops, game)):\n        if root not in Path(module.__file__).resolve().parents:\n            raise RuntimeError(f\"Wrong import: {module.__file__}; expected {root}\")\n\n    events = []\n    batches = []\n    shift = 1\n\n    def timed(name, function):\n        @functools.wraps(function)\n        def call(*values, **kwargs):\n            started = time.perf_counter()\n            try:\n                return function(*values, **kwargs)\n            finally:\n                event = dict(shift=shift, name=name, seconds=time.perf_counter() - started)\n                events.append(event)\n                print(json.dumps(event), flush=True)\n        return call\n\n    for name in (\"_new_handler\", \"_reconcile\", \"infer\", \"propose_actions\"):\n        setattr(PeTTaChainerBackend, name, timed(name, getattr(PeTTaChainerBackend, name)))\n    query_many = PeTTaChainer.query_many\n\n    def query(self, atoms, steps=100, timeout_sec=10):\n        self.set_query_metrics(True)\n        before = janus.query_once(\"statistics(inferences, I), statistics(cputime, C)\")\n        started = time.perf_counter()\n        answers = query_many(self, atoms, steps=steps, timeout_sec=timeout_sec)\n        elapsed = time.perf_counter() - started\n        after = janus.query_once(\"statistics(inferences, I), statistics(cputime, C)\")\n        batch = dict(\n            shift=shift, seconds=elapsed,\n            inferences=after[\"I\"] - before[\"I\"], cpu_seconds=after[\"C\"] - before[\"C\"],\n            metrics=self.last_query_metrics(), queries=atoms, answers=answers,\n        )\n        batch['stores'] = {space: self.handler.process_metta_string(f'!(match &{space} $row $row)') for space in ['proof','proof_current','proof_current_result','goal','goal_waiter']}\n        if shift == 2 and args.seed == 7:\n            batch['dependency_cycle_checks'] = self.handler.process_metta_string('!(match &goal (stored-goal-row $gid $_depth ((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) ($kb MAIN Nil) $_root-proof $_root-tv) $_expanded $_state) (match &proof (stored-proof-row $pid $_owner ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) ($kb MAIN Nil) $_proof $tv) $kind $_support $_children) ($pid $tv $kind (proof-depends-on-goal-seen? (stored-number $pid) (stored-number $gid) closed-goal ()))))')\n        if shift == 2 and args.seed == 7:\n            batch['noncyclic_dependency_sources'] = self.handler.process_metta_string('!(match &goal (stored-goal-row $root $_rd ((LocalProblem shift-02 M01 old coolant-pump shift-02-M01) ($kb MAIN Nil) $_rp $_rt) $_re $_rs) (match &goal (stored-goal-row $child $_cd ((ProblemDependency shift-02 M01 old coolant-pump shift-02-M01) ($kb MAIN Nil) $_cp $_ct) $_ce $_cs) (noncyclic-proof-source-ids (stored-number $root) closed-goal (stored-number $child))))')\n        batches.append(batch)\n        self.set_query_metrics(False)\n        print(json.dumps({key: batch[key] for key in (\"shift\", \"seconds\", \"inferences\")}), flush=True)\n        return answers\n\n    PeTTaChainer.query_many = query\n\n    def completed(row):\n        nonlocal shift\n        print(json.dumps({key: row[key] for key in (\"shift\", \"wall_time_seconds\", \"regret\")}), flush=True)\n        shift = row[\"shift\"] + 1\n\n    result = run_game_episode(\n        GameConfig(seed=args.seed, shifts=2, modules=4), \"pettachainer\", args.budget,\n        action_budget=1, on_shift=completed,\n    )\n    payload = dict(\n        environment=dict(\n            repository=str(repository), chainergame=str(game), petta=str(runtime),\n            python=sys.version, executable=sys.executable, loadavg=os.getloadavg(),\n            janus_version=version(\"janus-swi\"),\n            swi_version=janus.query_once(\"current_prolog_flag(version, V)\")[\"V\"],\n        ),\n        workload=dict(seed=args.seed, shifts=2, modules=4, budget=args.budget, action_budget=1),\n        batches=batches, events=events, result=result,\n    )\n    args.json_out.write_text(json.dumps(payload, indent=2) + \"\\n\")\n    if len(batches) != 2 or any(b[\"metrics\"][\"search_aborts\"] for b in batches):\n        raise RuntimeError(\"Expected two diagnosis batches with zero search aborts\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+    "run.py": "import subprocess,os\nfrom pathlib import Path\nroot=Path('/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer');b=Path('/tmp/stationops-depth-results')\nfor seed,budget in [(7,600),(11,300),(23,300)]:\n for label,repo in ([('control',root),('shorter',Path('/tmp/stationops-depth'))] if seed!=11 else [('shorter',Path('/tmp/stationops-depth')),('control',root)]):\n  name=f'{label}-{seed}'\n  with (b/(name+'.log')).open('w') as log:\n   try:\n    p=subprocess.run([str(root/'.venv/bin/python'),str(b/'benchmark.py'),'--repository',str(repo),'--chainergame',str(root/'../../ChainerGame'),'--petta',str(root/'third_party/petta'),'--json-out',str(b/(name+'.json')),'--seed',str(seed),'--budget',str(budget)],stdout=log,stderr=subprocess.STDOUT,timeout=240,env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'})\n    print(name,p.returncode,flush=True)\n   except subprocess.TimeoutExpired:print(name,'TIMEOUT',flush=True)\n",
+    "rerun.py": "import subprocess,os\nfrom pathlib import Path\nroot=Path('/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer');b=Path('/tmp/stationops-depth-results')\nfor seed,budget in [(7,600),(11,300),(23,300)]:\n name=f'shorter-{seed}'\n with (b/(name+'.log')).open('w') as log:\n  try:\n   p=subprocess.run([str(root/'.venv/bin/python'),str(b/'benchmark.py'),'--repository','/tmp/stationops-depth','--chainergame',str(root/'../../ChainerGame'),'--petta',str(root/'third_party/petta'),'--json-out',str(b/(name+'.json')),'--seed',str(seed),'--budget',str(budget)],stdout=log,stderr=subprocess.STDOUT,timeout=240,env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'})\n   print(name,p.returncode,flush=True)\n  except subprocess.TimeoutExpired:print(name,'TIMEOUT',flush=True)\n",
+    "validate.sh": "#!/usr/bin/env bash\nset -u\ncd /tmp/stationops-depth\nPETTA_STRICT=1 PETTA_JOBS=8 bash scripts/test_metta.sh > /tmp/stationops-depth-results/suite.log 2>&1\nprintf 'suite exit %s\\n' \"$?\"\nGIT_DIR=/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.git GIT_WORK_TREE=/tmp/stationops-depth PETTA_PATH=/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/third_party/petta .venv/bin/python -m unittest discover -s tests > /tmp/stationops-depth-results/python.log 2>&1\nprintf 'python exit %s\\n' \"$?\"\ncd pettachainer/metta\n/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/petta /tmp/stationops-depth/tests/metta/probe_or_inversion.metta --strict --strict-det --silent > /tmp/stationops-depth-results/or-probe.log 2>&1\nprintf 'or probe exit %s\\n' \"$?\"\n",
+    "analyze.py": "import json,re\nfrom pathlib import Path\nb=Path('/tmp/stationops-depth-results')\nrows=[]\nfor f in sorted(b.glob('*-*.json')):\n d=json.loads(f.read_text())\n for batch,r in zip(d['batches'],d['result']['rounds']):\n  rows.append(dict(run=f.stem,shift=batch['shift'],seconds=batch['seconds'],coverage=r['belief_metrics']['coverage'],brier=r['belief_metrics']['brier_score'],beliefs=r['beliefs'],score=d['result']['aggregate']['station_score'],regret=d['result']['aggregate']['regret'],aborts=batch['metrics']['search_aborts'],pops=batch['metrics']['agenda_pops']))\n  assert batch['metrics']['search_aborts']==0\n if f.stem.startswith('control'):\n  seed=d['workload']['seed'];old=json.load(open(f'/tmp/stationops-reuse/seed{seed}-rcontrol.json'))\n  normalize=lambda x:re.sub(r'kb[0-9a-f]{32}','kbUUID',json.dumps(x))\n  assert normalize([x['answers'] for x in d['batches']])==normalize([x['answers'] for x in old['batches']])\n(b/'summary.json').write_text(json.dumps(rows,indent=2)+'\\n')\nfor row in rows:print(row['run'],row['shift'],round(row['seconds'],2),row['coverage'],round(row['brier'],6),row['score'],row['regret'],row['aborts'],row['pops'])\n",
+    "shorter-path.patch": "--- a/pettachainer/metta/core/types.metta\n+++ b/pettachainer/metta/core/types.metta\n@@ -97,6 +97,7 @@\n ;; mutation helper while retaining the existing symbol representation.\n (: CounterKey Type)\n (: bwd_gid CounterKey)\n+(: bwd_depth_pass CounterKey)\n (: bwd_pid CounterKey)\n (: bwd_frontier_path CounterKey)\n (: ruleid CounterKey)\n--- a/pettachainer/metta/runtime/backward/search.metta\n+++ b/pettachainer/metta/runtime/backward/search.metta\n@@ -19,6 +19,7 @@\n ;; open frontiers.  Two active frames admit the immediate revision while\n ;; preventing a proof cascade from bypassing the agenda's step budget.\n !(bind! &search_wake_active (new-space))\n+!(bind! &goal_depth_dirty (new-space))\n \n (: clear-backward-query-state! (-[det]-> (List $none)))\n (= (clear-backward-query-state!)\n@@ -26,7 +27,7 @@\n       (foreach-flat remove-all-atoms\n          (&goal &goal_lookup &goal_waiter &goal_child\n           &goal_demand_cache &goal_demand_revision &goal_demand_wake\n-          &goal_current_confidence &root_goal &search_wake_active\n+          &goal_current_confidence &root_goal &search_wake_active &goal_depth_dirty\n           &fold_source\n           &frontier_path &frontier_path_lookup &frontier_path_child\n           &frontier_path_dead &proof_frontier_path\n@@ -63,24 +64,63 @@\n                       (make-space-row3 $lookup-key $key $gid))))\n             $gid)\n          (let* (($gid (first-number $hits))\n-                ($row (goal-by-id $gid))\n-                ((stored-goal-row\n-                    $_stored-gid $stored-depth $stored-goal\n-                    $expanded $state)\n-                   $row)\n-                ($_lower\n-                   (if $expanded ()\n-                      (if (< $depth $stored-depth)\n-                         (let* (($_remove (remove-atom &goal $row))\n-                                ($_add\n-                                   (once\n-                                      (chainer-add-atom &goal\n-                                         (stored-goal-row\n-                                            $gid $depth $stored-goal\n-                                            false $state)))))\n-                            ())\n-                         ()))))\n+                ($_lower (lower-goal-depth! $depth $gid)))\n             $gid))))\n+\n+;; Mark the reachable closure once per shortening pass, including children whose depth need not\n+;; change: a newly shallower parent can become a new demand dependency.\n+(: invalidate-depth-descendants! (-[det]-> Number Number (List $none)))\n+(= (invalidate-depth-descendants! $pass $gid)\n+   (if (space-row-present? &goal_depth_dirty ($gid $pass)) ()\n+      (let* (($_old (remove-atom &goal_depth_dirty ($gid $_pass)))\n+             ($_mark (once (add-atom &goal_depth_dirty ($gid $pass))))\n+             ($_cache (mark-goal-demand-dirty! $gid))\n+             ($_revision (bump-goal-demand-revision! $gid))\n+             ($_wake (once (add-atom &goal_demand_wake ($gid))))\n+             ($_children (foreach-flat (invalidate-depth-descendants! $pass)\n+                            (goal-demand-child-gids $gid))))\n+         ())))\n+\n+;; Strictly decreasing nonnegative depths terminate even with recursive edges.\n+;; Expanded goals retain their rules/proofs; only scheduling state changes.\n+(: lower-goal-depth! (-[semidet]-> Number Number (List $none)))\n+(= (lower-goal-depth! $depth $gid)\n+   (let* (($row (goal-by-id $gid))\n+          ((stored-goal-row $_gid $old-depth $goal $expanded $state) $row))\n+      (if (< $depth $old-depth)\n+         (let* (($_remove (remove-atom &goal $row))\n+                ($_add (once (chainer-add-atom &goal\n+                          (stored-goal-row $gid $depth $goal $expanded $state))))\n+                ($_dirty (invalidate-depth-descendants! (next-search-id bwd_depth_pass) $gid))\n+                ($_aggregate-parents\n+                   (collapse (match &goal_waiter\n+                      ($gid (aggregate-waiter $parent $_mode))\n+                      (invalidate-depth-descendants! (next-search-id bwd_depth_pass) (stored-number $parent)))))\n+                ($_children\n+                   (map-semidet (lower-goal-depth! (+ $depth 1))\n+                      (goal-demand-child-gids $gid))))\n+            ())\n+         ())))\n+\n+;; Reissue before the next pop; waiting for an old deep token to reach the top\n+;; would defeat the shorter path. Pending aggregate keys use source depth too.\n+(: refresh-depth-goal-heap\n+   (-[semidet]-> (Heap AgendaEntry) Number (Heap AgendaEntry)))\n+(= (refresh-depth-goal-heap $agenda $gid)\n+   (let* (($row (goal-by-id $gid))\n+          ((stored-goal-row $_gid $_depth $_goal $expanded\n+             (goal-agenda-state $generation $revision $score $requested)) $row)\n+          ($next\n+             (if $requested\n+                (let* (($_release (set-goal-agenda-state! $row\n+                           (goal-agenda-state $generation $revision $score false)))\n+                       ($kind (if $expanded agenda-aggregate agenda-expand))\n+                       ($current-score (agenda-kind-score $kind $gid)))\n+                   (if (> $current-score 0.0)\n+                      (request-goal-agenda-kind-score-heap $agenda $gid $kind $current-score)\n+                      $agenda))\n+                $agenda)))\n+      (wake-goal-demand-heap $next $gid)))\n \n ;; --- Agenda issue, refresh, and pruning -------------------------------------\n \n--- a/pettachainer/metta/runtime/backward/engine.metta\n+++ b/pettachainer/metta/runtime/backward/engine.metta\n@@ -99,16 +99,20 @@\n (: search-agenda-heap\n    (-[nondet]-> Number (Heap AgendaEntry) SearchState))\n (= (search-agenda-heap $steps $agenda)\n+   (let* (($changed (the (List Number)\n+                      (collapse (match &goal_depth_dirty ($gid $_pass) $gid))))\n+          ($_clear (remove-all-atoms &goal_depth_dirty))\n+          ($refreshed (proof-fold-flat-semidet refresh-depth-goal-heap $agenda $changed)))\n    (if (<= $steps 0)\n-      (data $steps $agenda)\n-      (if (== (heap_size $agenda) 0)\n-         (data $steps $agenda)\n+      (data $steps $refreshed)\n+      (if (== (heap_size $refreshed) 0)\n+         (data $steps $refreshed)\n          (let*\n             (($_metric (increment-backward-query-metric! agenda-pops))\n              (($_priority $item $rest)\n-                (heap_pop $agenda)))\n+                (heap_pop $refreshed)))\n             (search-agenda-step $steps $rest\n-               (the AgendaEntry $item))))))\n+               (the AgendaEntry $item)))))))\n \n (: merge-computed-member-inheritance-child!\n    (-[det]-> Number Number (List $none)))\n--- /dev/null\n+++ b/tests/metta/test_late_shorter_path.metta\n@@ -0,0 +1,105 @@\n+!(import! &self ../../pettachainer/metta/petta_chainer)\n+\n+(: depth-test-goal (-[semidet]-> Atom Number Number))\n+(= (depth-test-goal $name $depth)\n+   (ensure-goal-at-depth\n+      (assemble-runtime-fact (brand Statement ($name))\n+         (brand KBContext (depthTest MAIN Nil)) (brand Proof $p) (the TV $tv))\n+      $depth))\n+\n+(: depth-test-connect (-[semidet]-> Number Number (List $none)))\n+(= (depth-test-connect $parent $child)\n+   (let (stored-goal-row $_id $_depth $goal $_expanded $_pending) (goal-by-id $parent)\n+      (register-goal-waiter! $child $parent\n+         (frontier-waiter $parent (and-bundle $goal ())\n+            1.0 () () 0 (frontier-value-spec 1.0 1)))))\n+\n+(: depth-test-expand (-[semidet]-> Number (List $none)))\n+(= (depth-test-expand $gid)\n+   (let* (($row (goal-by-id $gid))\n+          ((stored-goal-row $_id $depth $goal $_expanded $state) $row)\n+          ($_remove (remove-atom &goal $row))\n+          ($_add (once (add-atom &goal (stored-goal-row $gid $depth $goal true $state)))))\n+      ()))\n+\n+;; A shorter path reaches an already expanded goal and its expanded child.\n+;; The child graph has a cycle and an equal-depth edge. The X branch gains a\n+;; shallower parent without itself changing depth; its warmed empty cache must\n+;; be invalidated, and pending leaf tokens must move immediately.\n+!(test\n+   (let* (($_clear (clear-backward-query-state!))\n+          ($root (depth-test-goal Root 0))\n+          ($parent (depth-test-goal Parent 4))\n+          ($child (depth-test-goal Child 5))\n+          ($leaf (depth-test-goal Leaf 6))\n+          ($x (depth-test-goal X 2))\n+          ($y (depth-test-goal Y 3))\n+          ($_root (once (add-atom &root_goal (root-goal $root))))\n+          ($_rp (depth-test-connect $root $parent))\n+          ($_pc (depth-test-connect $parent $child))\n+          ($_cl (depth-test-connect $child $leaf))\n+          ($_cp (depth-test-connect $child $parent))\n+          ($_px (depth-test-connect $parent $x))\n+          ($_xy (depth-test-connect $x $y))\n+          ($_cx (depth-test-connect $child $x))\n+          ($_p (depth-test-expand $parent))\n+          ($_c (depth-test-expand $child))\n+          ($_x (depth-test-expand $x))\n+          ($before (goal-demand-sum $y))\n+          ($agenda (wake-goal-demand-heap (empty_heap) $leaf))\n+          (($_old-key $old-token $_old-rest) (heap_pop $agenda))\n+          ($_lower (lower-goal-depth! 1 $parent))\n+          (($steps $updated) (search-agenda-heap 0 $agenda))\n+          ((stored-goal-row $_p-id $pd $_p-goal $pe $_p-state) (goal-by-id $parent))\n+          ((stored-goal-row $_c-id $cd $_c-goal $ce $_c-state) (goal-by-id $child))\n+          ((stored-goal-row $_l-id $ld $_l-goal $le $_l-state) (goal-by-id $leaf))\n+          (($new-key $_new-token $_new-rest) (heap_pop $updated)))\n+      ($before (goal-demand-sum $y) $pd $cd $ld $pe $ce $le\n+         (< $new-key 4000000000) (claim-goal-agenda-entry! $old-token)\n+         (goal-demand-sum $parent)))\n+   (0.0 1.0 1 2 3 true true false true agenda-stale 1.0))\n+\n+;; A pending fold's heap key follows its source depth, even when the fold's\n+;; own depth is unchanged. Lowering the source must stale the fold's old token.\n+!(test\n+   (let* (($_clear (clear-backward-query-state!))\n+          ($root (depth-test-goal FoldRoot 0))\n+          ($fold (ensure-goal-at-depth (CPU FoldAllCompiled () $result) 4))\n+          ($source (depth-test-goal Source 5))\n+          ($_root (once (add-atom &root_goal (root-goal $root))))\n+          ($_rf (depth-test-connect $root $fold))\n+          ($_rs (depth-test-connect $root $source))\n+          ($_fs (register-goal-waiter! $source $fold\n+                   (aggregate-waiter $fold live-aggregate-demand)))\n+          ($_row (once (add-atom &fold_source\n+                    (fold-source-row $fold $source () 1.0 100 false))))\n+          ($_expanded (depth-test-expand $fold))\n+          ($agenda (request-goal-agenda-kind-score-heap\n+                     (empty_heap) $fold agenda-aggregate 1.0))\n+          (($_key $old-token $_rest) (heap_pop $agenda))\n+          ($_lower (lower-goal-depth! 2 $source))\n+          (($_steps $updated) (search-agenda-heap 0 $agenda))\n+          (($new-key $_token $_tail) (heap_pop $updated))\n+          ((stored-goal-row $_id $depth $_goal $expanded $_state) (goal-by-id $fold)))\n+      ($depth $expanded (< $new-key 3000000000)\n+         (claim-goal-agenda-entry! $old-token)))\n+   (4 true true agenda-stale))\n+\n+;; Two shortenings before the heap is drained, with caches rebuilt in between.\n+;; The second move removes a formerly shallower parent; no cached demand may\n+;; survive merely because this goal was already waiting for a heap refresh.\n+!(test\n+   (let* (($_clear (clear-backward-query-state!))\n+          ($root (depth-test-goal TwiceRoot 0))\n+          ($parent (depth-test-goal TwiceParent 2))\n+          ($child (depth-test-goal TwiceChild 4))\n+          ($leaf (depth-test-goal TwiceLeaf 5))\n+          ($_root (once (add-atom &root_goal (root-goal $root))))\n+          ($_rp (depth-test-connect $root $parent))\n+          ($_pc (depth-test-connect $parent $child))\n+          ($_cl (depth-test-connect $child $leaf))\n+          ($_first (lower-goal-depth! 3 $child))\n+          ($before (goal-demand-sum $leaf))\n+          ($_second (lower-goal-depth! 1 $child)))\n+      ($before (goal-demand-sum $leaf)))\n+   (1.0 0.0))\n",
+    "probe_or_inversion.metta": "!(import! &self ../../pettachainer/metta/petta_chainer)\n\n;; Problem is definitionally equivalent to an OR of its two causes.  The\n;; generated BiImplication directions are already explicit and must not create\n;; another pair of Bayesian inversions.\n!(compileadd orInversionConditionedMergeKb\n   (: localPrior\n      (LocalProblem current)\n      (STV 0.4 0.9)))\n!(compileadd orInversionConditionedMergeKb\n   (: dependencyPrior\n      (ProblemDependency current)\n      (STV 0.2 0.9)))\n!(compileadd orInversionConditionedMergeKb\n   (: problemDefinition\n      (BiImplication\n         (Or\n            (LocalProblem current)\n            (ProblemDependency current))\n         (Problem current))\n      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))\n\n;; The current alarm supplies independent evidence for Problem.  Historical\n;; cases provide the base rates needed to invert this ordinary implication.\n!(compileadd orInversionConditionedMergeKb\n   (: problemRaisesAlarm\n      (Implication\n         (Problem $unit)\n         (Alarm $unit))\n      (CTV (STV 0.9 1.0) (STV 0.1 1.0))))\n!(compileadd orInversionConditionedMergeKb\n   (: currentAlarm\n      (Alarm current)\n      (STV 1.0 1.0)))\n!(compileadd orInversionConditionedMergeKb\n   (: h1Problem (Problem h1) (STV 1.0 1.0)))\n!(compileadd orInversionConditionedMergeKb\n   (: h1Alarm (Alarm h1) (STV 1.0 1.0)))\n!(compileadd orInversionConditionedMergeKb\n   (: h2Problem (Problem h2) (STV 0.0 1.0)))\n!(compileadd orInversionConditionedMergeKb\n   (: h2Alarm (Alarm h2) (STV 0.0 1.0)))\n\n;; Ordinary OR introduction must remain available.  Conditioning compound\n;; leaves globally would incorrectly reject this direct proof.\n!(query 2000 orInversionConditionedMergeKb\n      (: $proof\n         (Or\n            (LocalProblem current)\n            (ProblemDependency current))\n         $tv))\n\n;; The durable definitional proof is an immediate incumbent. Its derived alarm\n;; joins the later population graph, so revisiting the inversion through that\n;; graph is self-dependent and the cycle guard retains the incumbent.\n!(query 5000 orInversionConditionedMergeKb\n      (: $proof (Problem current) $tv))\n\n;; The same durable cycle boundary prevents feeding that self-dependent\n;; Problem/Alarm refinement back through the bi-implication to LocalProblem.\n!(query 20000 orInversionConditionedMergeKb\n      (: $proof (LocalProblem current) $tv))\n"
+  },
+  "logs": {
+    "suite.log": "SKIP base_rate_acceptance_game_libpln.metta (libPLN is outside strict scope)\nPASS /tmp/stationops-depth/tests/metta/test_backward_query_metrics.metta\nPASS /tmp/stationops-depth/tests/metta/test_chainer_add_atom.metta\nPASS /tmp/stationops-depth/tests/metta/test.metta\nPASS /tmp/stationops-depth/tests/metta/test_base_rate_cache.metta\nPASS /tmp/stationops-depth/tests/metta/test_direct_compound_fact.metta\nPASS /tmp/stationops-depth/tests/metta/test_compute_inversion.metta\nPASS /tmp/stationops-depth/tests/metta/test_dispatch_determinism.metta\nPASS /tmp/stationops-depth/tests/metta/test_backward_open_query_results.metta\nPASS /tmp/stationops-depth/tests/metta/test_antecedent_completion.metta\nPASS /tmp/stationops-depth/tests/metta/test_demand_invalidation.metta\nPASS /tmp/stationops-depth/tests/metta/test_backward_dag_helpers.metta\nPASS /tmp/stationops-depth/tests/metta/test_foldall_merged_outputs.metta\nPASS /tmp/stationops-depth/tests/metta/test_distribution_values.metta\nPASS /tmp/stationops-depth/tests/metta/test_evidence_semantics.metta\nPASS /tmp/stationops-depth/tests/metta/test_foldall_query_goal.metta\nPASS /tmp/stationops-depth/tests/metta/test_empty_member_inheritance_cache.metta\nPASS /tmp/stationops-depth/tests/metta/test_forward_chainer.metta\nPASS /tmp/stationops-depth/tests/metta/test_height_average.metta\nPASS /tmp/stationops-depth/tests/metta/test_idealized_confidence.metta\nPASS /tmp/stationops-depth/tests/metta/test_forward_incremental_member_inheritance.metta\nPASS /tmp/stationops-depth/tests/metta/test_implication_inversion.metta\nPASS /tmp/stationops-depth/tests/metta/test_forward_incremental_base_rates.metta\nPASS /tmp/stationops-depth/tests/metta/test_explicit_exists.metta\nPASS /tmp/stationops-depth/tests/metta/test_frontier_pooling.metta\nPASS /tmp/stationops-depth/tests/metta/test_inverse_compound_adapters.metta\nPASS /tmp/stationops-depth/tests/metta/test_inheritance_aggregate_cycle.metta\nPASS /tmp/stationops-depth/tests/metta/test_late_shorter_path.metta\nPASS /tmp/stationops-depth/tests/metta/test_lazy_proof_refresh.metta\nPASS /tmp/stationops-depth/tests/metta/test_implication_premise.metta\nPASS /tmp/stationops-depth/tests/metta/test_math.metta\nPASS /tmp/stationops-depth/tests/metta/test_member_concept_node.metta\nPASS /tmp/stationops-depth/tests/metta/test_member_compat.metta\nPASS /tmp/stationops-depth/tests/metta/test_lifting_merge.metta\nPASS /tmp/stationops-depth/tests/metta/test_logic_config.metta\nPASS /tmp/stationops-depth/tests/metta/test_module_boundaries.metta\nPASS /tmp/stationops-depth/tests/metta/test_nary_conjuction.metta\nPASS /tmp/stationops-depth/tests/metta/test_member_inheritance_premise.metta\nPASS /tmp/stationops-depth/tests/metta/test_merged_subgoal_rule_application.metta\nPASS /tmp/stationops-depth/tests/metta/test_negated_evidence_merge.metta\nPASS /tmp/stationops-depth/tests/metta/test_negated_facts.metta\nPASS /tmp/stationops-depth/tests/metta/test_forward_backward_compose.metta\nPASS /tmp/stationops-depth/tests/metta/test_numeric_pattern_dist.metta\nPASS /tmp/stationops-depth/tests/metta/test_proof_reduction_lifecycle.metta\nPASS /tmp/stationops-depth/tests/metta/test_benchgen_metta.metta\nPASS /tmp/stationops-depth/tests/metta/test_multi_root_query.metta\nFAIL /tmp/stationops-depth/tests/metta/test_or_inversion_conditioned_merge.metta (exited(1))\nis (: (by (bi-backward problemDefinition) (merge/revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) ((inverted problemRaisesAlarm with (foldall-proof h1Problem h2Problem (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior))) (foldall-proof currentAlarm h1Alarm h2Alarm)) currentAlarm))) (Or (LocalProblem current) (ProblemDependency current)) (STV 0.5200045678777936 0.9140643895638585)), should (: (conjunction localPrior dependencyPrior) (Or (LocalProblem current) (ProblemDependency current)) (STV 0.52 0.9140621948732192)). \u274c \nPASS /tmp/stationops-depth/tests/metta/test_proof_state_history.metta\nPASS /tmp/stationops-depth/tests/metta/test_query_materialize.metta\nPASS /tmp/stationops-depth/tests/metta/test_rectangle_area.metta\nPASS /tmp/stationops-depth/tests/metta/test_query_compute_in_compound.metta\nPASS /tmp/stationops-depth/tests/metta/test_query_adds.metta\nFAIL /tmp/stationops-depth/tests/metta/test_inheritance_query_proof.metta (exited(1))\nis 1, should 1. \u2705 \nis ((STV 0.9993340727181494 1.0e-06)), should ((STV 0.9993340727181494 1.9999980000019997e-06)). \u274c \nPASS /tmp/stationops-depth/tests/metta/test_structural_conclusion_prefilter.metta\nPASS /tmp/stationops-depth/third_party/metta_lowering/tests/test_rule_query_pattern.metta\nPASS /tmp/stationops-depth/third_party/metta_lowering/tests/test_variable_extraction.metta\nPASS /tmp/stationops-depth/tests/metta/test_uniform_prior.metta\nPASS /tmp/stationops-depth/tests/metta/test_stv_implication_derived_ctv.metta\nPASS /tmp/stationops-depth/tests/metta/test_particle_values.metta\nPASS /tmp/stationops-depth/tests/metta/test_var_head.metta\nPASS /tmp/stationops-depth/examples/metta/existential_residual.metta\nPASS /tmp/stationops-depth/tests/metta/test_specializing_rule.metta\nPASS /tmp/stationops-depth/examples/metta/direct.metta\nPASS /tmp/stationops-depth/examples/metta/deductionrevision.metta\nPASS /tmp/stationops-depth/examples/metta/raveninduction_implication_pettachainer.metta\nPASS /tmp/stationops-depth/examples/metta/machine_failure_inversion.metta\nPASS /tmp/stationops-depth/examples/metta/refinement_base_rate_policies.metta\nPASS /tmp/stationops-depth/tests/metta/test_total_implication_aggregate.metta\nPASS /tmp/stationops-depth/examples/metta/base_rate_acceptance_game_pettachainer.metta\nPASS /tmp/stationops-depth/examples/metta/raveninduction.metta\nPASS /tmp/stationops-depth/examples/metta/toothbrush.metta\nPASS /tmp/stationops-depth/examples/metta/flyingraven.metta\nPASS /tmp/stationops-depth/examples/metta/smokes.metta\nPASS /tmp/stationops-depth/tests/metta/test_best_first_runtime.metta\n\nSummary: 71 passed, 2 failed\n",
+    "python.log": "2026-09-09 08:54:59,465 [INFO] Loading MeTTa library from /tmp/stationops-depth/pettachainer/metta/petta_chainer.metta\n.................2026-09-09 08:55:19,500 [INFO] Loading MeTTa library from /tmp/stationops-depth/pettachainer/metta/petta_chainer.metta\n........Warning: a constructor declared after current-logic was compiled changes a type it matched on; recompiling current-logic\nWarning: a constructor declared after set-logic-name was compiled changes a type it matched on; recompiling set-logic-name\n......2026-09-09 08:55:28,642 [INFO] Loading MeTTa library from /tmp/stationops-depth/pettachainer/metta/petta_chainer.metta\n.F................\n======================================================================\nFAIL: test_refined_materialization_replaces_zero_budget_incumbent (test_pettachainer.TestPeTTaChainer)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/stationops-depth/tests/test_pettachainer.py\", line 302, in test_refined_materialization_replaces_zero_budget_incumbent\n    self.assertIn(refined_point, refined[0][0])\nAssertionError: '(STV 0.47191878015453864 3.999988000035998e-06)' not found in '(: (inheritance-implication-fold (total-implication (merge/revision (merge/revision (merge/revision (by (inheritance-implication s1-leak) ((inverted (inheritance-implication s1-normal) with cpu (foldall-proof s1-leak s2-leak s3-leak s4-leak)) (ctx proof 4))) (by (inheritance-implication s3-leak) ((inverted (inheritance-implication s3-normal) with cpu (foldall-proof s1-leak s2-leak s3-leak s4-leak)) (ctx proof 4)))) (by (inheritance-implication s2-leak) ((inverted (inheritance-implication s2-normal) with cpu (foldall-proof s1-leak s2-leak s3-leak s4-leak)) (ctx proof 4)))) (by (inheritance-implication s4-leak) (merge/revision ((inverted (inheritance-implication s4-equipment) with cpu (foldall-proof s1-leak s2-leak s3-leak s4-leak)) (merge/revision (merge/revision (by (inheritance-implication s3-equipment) ((inverted (inheritance-implication s3-normal) with cpu cpu) (ctx proof 4))) (by (inheritance-implication s2-equipment) ((inverted (inheritance-implication s2-normal) with cpu cpu) (ctx proof 4)))) (by (inheritance-implication s1-equipment) ((inverted (inheritance-implication s1-normal) with cpu cpu) (ctx proof 4))))) ((inverted (inheritance-implication s4-normal) with cpu cpu) (ctx proof 4))))) (merge/revision (merge/revision (merge/revision (by (inheritance-implication s1-leak) ((inverted (inheritance-implication s1-normal) with cpu (foldall-proof s1-leak s2-leak s3-leak s4-leak)) (ctx proof 5))) (by (inheritance-implication s3-leak) ((inverted (inheritance-implication s3-normal) with cpu (foldall-proof s1-leak s2-leak s3-leak s4-leak)) (ctx proof 5)))) (by (inheritance-implication s2-leak) ((inverted (inheritance-implication s2-normal) with cpu (foldall-proof s1-leak s2-leak s3-leak s4-leak)) (ctx proof 5)))) (by (inheritance-implication s4-leak) ((inverted (inheritance-implication s4-normal) with cpu (foldall-proof s1-leak s2-leak s3-leak s4-leak)) (ctx proof 5)))))) (Inheritance (PressureNormal old oxygen-scrubber) (SealLeak old oxygen-scrubber)) (STV 0.468431920415455 3.999988000035998e-06))'\n\n----------------------------------------------------------------------\nRan 49 tests in 52.294s\n\nFAILED (failures=1)\n",
+    "or-probe.log": "true\n(: (orInversionConditionedMergeKb MAIN Nil) localPrior (LocalProblem current) (STV 0.4 0.9))\n(: (orInversionConditionedMergeKb MAIN Nil) dependencyPrior (ProblemDependency current) (STV 0.2 0.9))\n(rules (((: (orInversionConditionedMergeKb MAIN Nil) $_240178 (LocalProblem current) $_240208) (: (orInversionConditionedMergeKb MAIN Nil) $_240288 (ProblemDependency current) $_240318) (CPU OrFormula ($_240208 $_240318) $_240404) (CPU CTVModusPonensFormula ($_240404 (CTV (STV 1.0 1.0) (STV 0.0 1.0))) $_240568)) |- (: (orInversionConditionedMergeKb $_240618 $_240624) (by (bi-forward problemDefinition) (conjunction $_240178 $_240288)) (Problem current) $_240568)))\n(rules (((: (orInversionConditionedMergeKb MAIN Nil) $_239752 (LocalProblem current) $_239782) (: (orInversionConditionedMergeKb MAIN Nil) $_239862 (ProblemDependency current) $_239892) (CPU OrFormula ($_239782 $_239892) $_239978)) |- (: (orInversionConditionedMergeKb MAIN Nil) (conjunction $_239752 $_239862) (Or (LocalProblem current) (ProblemDependency current)) $_239978)))\n(rules (((: (orInversionConditionedMergeKb MAIN Nil) $_239326 (LocalProblem current) $_239356) (: (orInversionConditionedMergeKb MAIN Nil) $_239436 (ProblemDependency current) $_239466) (CPU AndFormula ($_239356 $_239466) $_239552)) |- (: (orInversionConditionedMergeKb MAIN Nil) (conjunction $_239326 $_239436) (And (LocalProblem current) (ProblemDependency current)) $_239552)))\n(rules (((: (orInversionConditionedMergeKb $_238952 $_238958) $_238964 (Problem current) $_238988) (CPU CTVModusPonensFormula ($_238988 (CTV (STV 1.0 1.0) (STV 0.0 1.0))) $_239114)) |- (: (orInversionConditionedMergeKb $_238952 $_238958) (by (bi-backward problemDefinition) $_238964) (Or (LocalProblem current) (ProblemDependency current)) $_239114)))\n(rules (((: (orInversionConditionedMergeKb MAIN Nil) $_238614 (Or (LocalProblem current) (ProblemDependency current)) $_238668) (: (orInversionConditionedMergeKb MAIN Nil) $_238710 (ProblemDependency current) $_238728) (CPU OrProjection ($_238668 $_238728) $_238808)) |- (: (orInversionConditionedMergeKb MAIN Nil) ((proj 0 $_238614) $_238710) (LocalProblem current) $_238808)))\n(rules (((: (orInversionConditionedMergeKb MAIN Nil) $_238264 (Or (LocalProblem current) (ProblemDependency current)) $_238318) (: (orInversionConditionedMergeKb MAIN Nil) $_238360 (LocalProblem current) $_238378) (CPU OrProjection ($_238318 $_238378) $_238458)) |- (: (orInversionConditionedMergeKb MAIN Nil) ((proj 1 $_238264) $_238360) (ProblemDependency current) $_238458)))\n(rules (((: (orInversionConditionedMergeKb $_241462 $_241468) $_241474 (Problem $_241492) $_241498) (CPU CTVModusPonensFormula ($_241498 (CTV (STV 0.9 1.0) (STV 0.1 1.0))) $_241624)) |- (: (orInversionConditionedMergeKb $_241462 $_241468) (by problemRaisesAlarm $_241474) (Alarm $_241492) $_241624)))\n(rules (((: (orInversionConditionedMergeKb $_240814 $_240820) $_240826 (Alarm $_240844) $_240850) (CPU FoldAllCompiled (orInversionConditionedMergeKb (Problem $_240898) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $_240964) (CPU FoldAllCompiled (orInversionConditionedMergeKb (Alarm $_241012) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $_241078) (CPU ImplicationCTVFormula ($_240964 $_241078 (CTV (STV 0.9 1.0) (STV 0.1 1.0))) $_241204) (CPU CTVInversionFormula ($_240964 $_241078 $_241204) $_241252) (CPU CTVModusPonensFormula ($_240850 $_241252) $_241294)) |- (: (orInversionConditionedMergeKb $_240814 $_240820) ((inverted problemRaisesAlarm with cpu cpu) $_240826) (Problem $_240844) $_241294)))\n(: (orInversionConditionedMergeKb MAIN Nil) currentAlarm (Alarm current) (STV 1.0 1.0))\n(: (orInversionConditionedMergeKb MAIN Nil) h1Problem (Problem h1) (STV 1.0 1.0))\n(: (orInversionConditionedMergeKb MAIN Nil) h1Alarm (Alarm h1) (STV 1.0 1.0))\n(: (orInversionConditionedMergeKb MAIN Nil) h2Problem (Problem h2) (STV 0.0 1.0))\n(: (orInversionConditionedMergeKb MAIN Nil) h2Alarm (Alarm h2) (STV 0.0 1.0))\n(: (by (bi-backward problemDefinition) (merge/revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) ((inverted problemRaisesAlarm with (foldall-proof h1Problem h2Problem (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior))) (foldall-proof currentAlarm h1Alarm h2Alarm)) currentAlarm))) (Or (LocalProblem current) (ProblemDependency current)) (STV 0.5200045678777936 0.9140643895638585))\n(: (merge/revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) ((inverted problemRaisesAlarm with (foldall-proof h1Problem h2Problem (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior))) (foldall-proof currentAlarm h1Alarm h2Alarm)) currentAlarm)) (Problem current) (STV 0.5200045678777936 0.9140643897315559))\n(: localPrior (LocalProblem current) (STV 0.4 0.9))\n"
+  }
+}

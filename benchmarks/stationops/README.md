@@ -56,3 +56,7 @@ It preserves depth and remains an isolated prototype, with no new default.
 The [proof derivation follow-up](../../docs/metta/stationops_reuse_derivation_2026-09-08.md)
 identifies the alarm-based answer and uses crossed per-shift settings to isolate
 the retained-proof-history effect from second-shift refinement.
+
+The [late shorter-path experiment](../../docs/metta/stationops_shorter_paths_2026-09-09.md)
+reaches the missing upstream alarm but exposes a consumer-specific proof-delivery
+blockage. It is slower, loses coverage on another seed, and remains isolated.
