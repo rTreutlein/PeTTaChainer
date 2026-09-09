@@ -466,7 +466,7 @@
                $candidate-score $_premise-count))
          $waiter
          (let* (($proof-row (proof-row-by-id $pid))
-                (($_output $_kind $support $_children) $proof-row)
+                (($_output $kind $support $_children) $proof-row)
                 ((proof-support $proof-score $proof-evidence
                     $contribution) $support)
                 ($part
@@ -475,14 +475,21 @@
                          (proof-support
                             $proof-score $proof-evidence
                             $contribution))))
+                ;; Raw sources passed this check at selection. A merged
+                ;; representative is first vetted here, over its combined
+                ;; evidence and children. The path can die between selection
+                ;; and delivery, so liveness is rechecked for every proof.
                 ($admissible?
                    (chainer-first-or false
                       (collapse
                          (once
                             (if (frontier-path-live? $path-id)
-                               (frontier-proof-admissible?
-                                  $parent-gid $bundle $seen $parts
-                                  $pid $proof-evidence $part)
+                               (case $kind (
+                                  ((merged $_merged)
+                                     (frontier-proof-admissible?
+                                        $parent-gid $bundle $seen $parts
+                                        $pid $proof-evidence $part))
+                                  ($_raw true)))
                                false))))))
             (if $admissible?
                (advance-frontier-waiter-heap
