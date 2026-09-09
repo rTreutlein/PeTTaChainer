@@ -268,8 +268,8 @@
 (= (same-derivation? (rule $term) $children $oldpid) (case (proof-kind-by-id $oldpid) ( ((rule $old-term) (if (=alpha (derivation-shape $term) (derivation-shape $old-term)) (=alpha (premise-keys $children) (premise-keys (proof-children-by-id $oldpid))) false)) ($_other false))))
 (= (same-derivation? (leaf $_term) $_children $_oldpid) false)
 (= (same-derivation? (aggregate $_term) $_children $_oldpid) false)
-(: supersedes-derivation? (-[semidet]-> ProofKind (List Evidence) (List Number) Number Bool))
-(= (supersedes-derivation? $kind $ev $children $oldpid) (if (same-derivation? $kind $children $oldpid) (if (== (proof-children-by-id $oldpid) $children) false (let ($_old-score $old-ev) (proof-stats-by-id $oldpid) (evidence-subset? $old-ev $ev))) false))
+(: supersedes-derivation? (-[semidet]-> Bool (List Evidence) (List Number) Number Bool))
+(= (supersedes-derivation? $same $ev $children $oldpid) (if $same (if (== (proof-children-by-id $oldpid) $children) false (let ($_old-score $old-ev) (proof-stats-by-id $oldpid) (evidence-subset? $old-ev $ev))) false))
 ;; Current rule candidates are indexed by the hash of (goal key, derivation
 ;; identity); -1 stands for kinds without one. Dropping a current candidate
 ;; removes its index row; merely losing the merged-result role does not.
@@ -279,26 +279,43 @@
    (collapse
       (match &proof_derivation (derivation-row $dhash $saved-key $pid)
          (if (=alpha $saved-key $gkey)
-            (if (supersedes-derivation? $kind $ev $children $pid)
+            (if (supersedes-derivation? (same-derivation? $kind $children $pid) $ev $children $pid)
                (stored-number $pid)
                (empty))
             (empty)))))
-;; Query-local memo of a stored proof's derivation identity hash under its
-;; goal key; -1 for kinds without one. Only equal hashes need the full check.
+;; The scalar hash memo stays small: ordinary hits do not copy descriptors.
+;; A rule miss also retains its immutable normalized shape and premise keys
+;; in a PID-indexed space used only for equal-hash comparisons. Both spaces
+;; have this sole writer and are cleared together with the query arena.
 (: proof-derivation-hash (-[semidet]-> ProofGoalKey Number Number))
 (= (proof-derivation-hash $gkey $pid)
    (let $cached (collapse (once (match &proof_derivation_hash ($pid $dhash) (stored-number $dhash))))
       (if (== $cached ())
          (let* ((($_output $kind $_support $children) (proof-row-by-id $pid))
-                ($dhash (derivation-hash $gkey $kind $children))
+                ($dhash
+                   (case $kind (
+                      ((rule $term)
+                         (let* (($shape (derivation-shape $term))
+                                ($keys (premise-keys $children))
+                                ($hash (index-hash (quote ($gkey $shape $keys))))
+                                ($_descriptor (add-atom &proof_derivation_descriptor
+                                   ($pid $shape $keys))))
+                            $hash))
+                      ($_other (derivation-hash $gkey $kind $children)))))
                 ($_store (add-atom &proof_derivation_hash ($pid $dhash))))
             $dhash)
          (first-number $cached))))
-(: retain-compatible-derivation-step (-[semidet]-> ProofGoalKey Number ProofKind
+(: retain-compatible-derivation-step (-[semidet]-> ProofGoalKey Number Number
       (List Evidence) (List Number) (List Number) Number (List Number)))
-(= (retain-compatible-derivation-step $gkey $dhash $kind $evidence $children $acc $old)
+(= (retain-compatible-derivation-step $gkey $dhash $pid $evidence $children $acc $old)
    (if (== (proof-derivation-hash $gkey $old) $dhash)
-      (if (supersedes-derivation? $kind $evidence $children $old) $acc (cons $old $acc))
+      (let $same
+         (once (match &proof_derivation_descriptor ($pid $shape $keys)
+            (once (match &proof_derivation_descriptor ($old $old-shape $old-keys)
+               (if (=alpha $shape $old-shape)
+                  (=alpha $keys $old-keys) false)))))
+         (if (supersedes-derivation? $same $evidence $children $old)
+            $acc (cons $old $acc)))
       (cons $old $acc)))
 (: prefer-compatible-derivation-step
    (-[semidet]-> ProofGoalKey (List Number) Number (List Number)))
@@ -306,15 +323,15 @@
    (let $dhash (proof-derivation-hash $gkey $pid)
       (if (< $dhash 0)
          (append-flat $acc (cons $pid ()))
-         (let* ((($_output $kind (proof-support $_score $evidence $_contribution) $children)
+         (let* ((($_output $_kind (proof-support $_score $evidence $_contribution) $children)
                    (proof-row-by-id $pid))
                 ($retained (reverse-number-list (proof-fold-flat-semidet
-                   (retain-compatible-derivation-step $gkey $dhash $kind $evidence $children)
+                   (retain-compatible-derivation-step $gkey $dhash $pid $evidence $children)
                    () $acc))))
             (append-flat $retained (cons $pid ()))))))
 (: candidate-step (-[semidet]-> ProofKind (List Evidence) Number (List Number) Bool Number Bool))
 (= (candidate-step $_kind $_ev $_score $_children false $_oldpid) false)
-(= (candidate-step $kind $ev $score $children true $oldpid) (if (same-derivation? $kind $children $oldpid) (if (== (proof-children-by-id $oldpid) $children) false (if (supersedes-derivation? $kind $ev $children $oldpid) true (candidate-compare $kind $ev $score $children $oldpid))) (candidate-compare $kind $ev $score $children $oldpid)))
+(= (candidate-step $kind $ev $score $children true $oldpid) (if (same-derivation? $kind $children $oldpid) (if (== (proof-children-by-id $oldpid) $children) false (if (supersedes-derivation? true $ev $children $oldpid) true (candidate-compare $kind $ev $score $children $oldpid))) (candidate-compare $kind $ev $score $children $oldpid)))
 (: candidate-compare (-[semidet]-> ProofKind (List Evidence) Number (List Number) Number Bool))
 (= (candidate-compare $kind $ev $score $children $oldpid) (let* (($_metric (increment-backward-query-metric! candidate-comparisons)) (($old-score $old-ev) (proof-stats-by-id $oldpid)) ($old-kind (proof-kind-by-id $oldpid))) (if (if (== $old-score $score) (if (== $old-ev $ev) (if (== $ev ()) (same-child-outputs? (proof-children-by-id $oldpid) $children) true) false) false) false (if (overlap-dominates? $old-kind $old-ev $old-score $kind $ev $score) false true))))
 (: current-fold-snapshot (-[semidet]-> Number (| Goal (Statement KBContext Proof TV)) (List Number)))

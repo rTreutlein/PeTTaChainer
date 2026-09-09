@@ -32,7 +32,8 @@
           &frontier_path_dead &proof_frontier_path
           &proof_cycle_cache &proof_goal_eligibility &proof_revision
           &frontier_view_lookup &frontier_selection_cache &goal_source_cache
-          &frontier_delivered &proof_derivation_hash))
+          &frontier_delivered &proof_derivation_hash
+          &proof_derivation_descriptor))
       ()))
 
 ;; Durable proof identity omits proof/TV constraints, while each query goal
