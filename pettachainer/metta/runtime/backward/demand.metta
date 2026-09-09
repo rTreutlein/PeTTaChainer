@@ -152,50 +152,62 @@
 
 (: goal-shallower? (-[det]-> Number Number Bool))
 (= (goal-shallower? $gid $depth)
-   (let $hits (collapse (once (goal-by-id $gid)))
+   (let $hits
+      (collapse (once (match &goal
+         (stored-goal-row $gid $goal-depth $_goal $_expanded $_pending)
+         (stored-number $goal-depth))))
       (case $hits (
-         ((cons
-             (stored-goal-row
-                $_gid $goal-depth $_goal $_expanded $_pending)
-             $_rest)
-            (< $goal-depth $depth))
+         ((cons $goal-depth $_rest) (< (the Number $goal-depth) $depth))
          ($_other false)))))
 
+;; Demand traversals carry only scheduling inputs. Proof-bearing waiter
+;; context stays in the delivery registry rather than being copied into every
+;; demand walk. Projection preserves registry order and multiplicity.
+(: WaiterDemand Type)
+(: frontier-demand (-[det]-> Number Number Number Number Number WaiterDemand))
+(: aggregate-demand (-[det]-> Number AggregateDemandSpec WaiterDemand))
+(: no-waiter-demand WaiterDemand)
+(: waiter-demand-view
+   (-[det]-> Atom WaiterDemand))
+(= (waiter-demand-view $waiter)
+   (case $waiter (
+      ((frontier-waiter $parent $_bundle $score $_seen $_parts $path
+          (frontier-value-spec $candidate $count))
+         (frontier-demand (the Number $parent) (the Number $score)
+            (the Number $path) (the Number $candidate) (the Number $count)))
+      ((aggregate-waiter $parent $spec)
+         (aggregate-demand (the Number $parent) (the AggregateDemandSpec $spec)))
+      ($_other no-waiter-demand))))
+
 (: waiter-root-demands
-   (-[det]-> (| FrontierWaiter AggregateWaiter Atom)
-       Number (List RootDemand)))
+   (-[det]-> WaiterDemand Number (List RootDemand)))
 (= (waiter-root-demands $waiter $child-depth)
    (case $waiter (
-      ((frontier-waiter $parent-gid $_bundle $score-cap
-          $_seen $_parts $path-id
-          (frontier-value-spec $candidate $premise-count))
-         (if (goal-shallower? (the Number $parent-gid) $child-depth)
-            (if (frontier-path-live? (the Number $path-id))
+      ((frontier-demand $parent-gid $score-cap $path-id $candidate $premise-count)
+         (if (goal-shallower? $parent-gid $child-depth)
+            (if (frontier-path-live? $path-id)
                (map-flat
                   (frontier-root-demand-step
-                     (goal-confidence-or-none (the Number $parent-gid))
-                     (the Number $candidate)
-                     (the Number $premise-count)
-                     (the Number $score-cap))
-                  (goal-root-demands (the Number $parent-gid)))
+                     (goal-confidence-or-none $parent-gid)
+                     $candidate
+                     $premise-count
+                     $score-cap)
+                  (goal-root-demands $parent-gid))
                ())
             ()))
-      ((aggregate-waiter $agg-gid $spec)
-         (if (goal-shallower? (the Number $agg-gid) $child-depth)
+      ((aggregate-demand $agg-gid $spec)
+         (if (goal-shallower? $agg-gid $child-depth)
             (aggregate-root-demands-map
-               (the AggregateDemandSpec $spec)
-               (goal-root-demands (the Number $agg-gid)))
+               $spec
+               (goal-root-demands $agg-gid))
             ()))
-      ($_other ()))))
+      (no-waiter-demand ()))))
 
 (: waiter-demands-step
-   (-[det]-> Number (List RootDemand)
-       (| FrontierWaiter AggregateWaiter Atom) (List RootDemand)))
+   (-[det]-> Number (List RootDemand) WaiterDemand (List RootDemand)))
 (= (waiter-demands-step $child-depth $acc $waiter)
    (fold-flat root-demand-put-max $acc
-      (waiter-root-demands
-         (the (| FrontierWaiter AggregateWaiter Atom) $waiter)
-         $child-depth)))
+      (waiter-root-demands $waiter $child-depth)))
 
 (= (goal-root-demands-walk $gid)
    (let $goal-hits (collapse (once (goal-by-id $gid)))
@@ -206,14 +218,13 @@
                 $_stored-gid $depth $_goal $_expanded $_pending)
              $_rest)
             (let $waiters
-               (stored-atom-list
-                  (collapse
-                     (match &goal_waiter
-                        ($gid $waiter) $waiter)))
+               (collapse
+                  (match &goal_waiter
+                     ($gid $waiter) (waiter-demand-view $waiter)))
                (fold-flat (waiter-demands-step $depth)
                   (root-goal-demand-seed $gid)
                   (the
-                     (List (| FrontierWaiter AggregateWaiter Atom))
+                     (List WaiterDemand)
                      $waiters))))))))
 
 (: shallower-parent-step
@@ -341,7 +352,7 @@
                 (the (List (List GoalDemandDependency)) $hits))))
        ($next-demands
           (fold-flat root-demand-put-max $current-demands
-             (waiter-root-demands $waiter $child-depth)))
+             (waiter-root-demands (waiter-demand-view $waiter) $child-depth)))
        ($next-dependencies
           (goal-demand-dependency-put
              (goal-demand-dependency $parent-gid
