@@ -1132,3 +1132,117 @@
         ($_refresh (goal-merged-proof-ids $agg-gid)))
       ((proof-live? $pid-old) (proof-live? $pid-new) (length (goal-live-proof-ids $agg-gid))))
    (false true 1))
+
+;; Eligibility caching must retain the first check's complete proof, TV, and
+;; shared-variable constraints, and it must never instantiate caller variables.
+!(test
+   (let* (($_clear (clear-backward-state))
+          ($gid (ensure-goal-at-depth
+             (test-runtime-fact (EligibilityPattern $x)
+                (by fixed $x) (STV 1.0 0.8)) 0))
+          ($key (proof-goal-key-by-goal-id $gid))
+          ($good (store-proof-record! $key
+             (proof-candidate
+                (leaf (test-runtime-fact (EligibilityPattern a)
+                   (by fixed a) (STV 1.0 0.8))) 0.8 () ())))
+          ($wrong-proof (store-proof-record! $key
+             (proof-candidate
+                (leaf (test-runtime-fact (EligibilityPattern a)
+                   (by fixed b) (STV 1.0 0.8))) 0.8 () ())))
+          ($wrong-tv (store-proof-record! $key
+             (proof-candidate
+                (leaf (test-runtime-fact (EligibilityPattern a)
+                   (by fixed a) (STV 1.0 0.7))) 0.7 () ())))
+          ($first ((satisfies-goal? $good $gid)
+                   (satisfies-goal? $wrong-proof $gid)
+                   (satisfies-goal? $wrong-tv $gid)))
+          ($second ((satisfies-goal? $good $gid)
+                    (satisfies-goal? $wrong-proof $gid)
+                    (satisfies-goal? $wrong-tv $gid))))
+      ($first $second (is-var $x)
+       (length (collapse (get-atoms &proof_goal_eligibility)))
+       (collapse (satisfies-goal? -1 $gid))))
+   ((true false false) (true false false) true 3 ()))
+
+;; Query reset must discard eligibility even if test code deliberately reuses
+;; a goal ID for another proof constraint over the same durable proof.
+!(test
+   (let* (($_clear (clear-backward-state))
+          ($_ids (change-state! bwd_gid 0))
+          ($gid (ensure-goal-at-depth
+             (test-runtime-fact (EligibilityReset) accepted $tv) 0))
+          ($pid (store-proof-record! (proof-goal-key-by-goal-id $gid)
+             (proof-candidate
+                (leaf (test-runtime-fact (EligibilityReset)
+                   accepted (STV 1.0 0.8))) 0.8 () ())))
+          ($before (satisfies-goal? $pid $gid))
+          ($_reset (clear-backward-query-state!))
+          ($empty (collapse (get-atoms &proof_goal_eligibility)))
+          ($_ids-again (change-state! bwd_gid 0))
+          ($next (ensure-goal-at-depth
+             (test-runtime-fact (EligibilityReset) rejected $other-tv) 0)))
+      ($before $empty (== $gid $next)
+       (satisfies-goal? $pid $next)
+       (satisfies-goal? $pid $next)))
+   (true () true false false))
+
+;; CPU goals keep their result constraints; they do not have a fact proof field.
+!(test
+   (let* (($_clear (clear-backward-state))
+          ($gid (ensure-goal-at-depth (CPU eligibility-function (a) a) 0))
+          ($key (proof-goal-key-by-goal-id $gid))
+          ($good (store-proof-record! $key
+             (proof-candidate (leaf (CPU eligibility-function (a) a))
+                1.0 () ())))
+          ($bad (store-proof-record! $key
+             (proof-candidate (leaf (CPU eligibility-function (a) b))
+                1.0 () ()))))
+      ((satisfies-goal? $good $gid) (satisfies-goal? $bad $gid)
+       (satisfies-goal? $good $gid) (satisfies-goal? $bad $gid)))
+   (true false true false))
+
+;; Replacing a goal row can strengthen its proof/TV constraints without a new
+;; GID. Exercise that cache contract independently of scheduler rewrite policy.
+!(test
+   (let* (($_clear (clear-backward-state))
+          ($gid (ensure-goal-at-depth
+             (test-runtime-fact (EligibilityProofConstraint)
+                (brand Proof $proof) (STV 1.0 0.8)) 4))
+          ($pid (store-proof-record! (proof-goal-key-by-goal-id $gid)
+             (proof-candidate
+                (leaf (test-runtime-fact (EligibilityProofConstraint)
+                   accepted (STV 1.0 0.8))) 0.8 () ())))
+          ($before (satisfies-goal? $pid $gid))
+          ($_remove (remove-atom &goal
+             (stored-goal-row $gid $_depth $_goal $_expanded $_pending)))
+          ($_replace (once (chainer-add-atom &goal
+             (stored-goal-row $gid 0
+                (test-runtime-fact (EligibilityProofConstraint)
+                   rejected (STV 1.0 0.8))
+                false (goal-agenda-state 0 0 0.0 false)))))
+          ($after (satisfies-goal? $pid $gid))
+          ($_clear-cache (remove-all-atoms &proof_goal_eligibility)))
+      ($before $after (satisfies-goal? $pid $gid)))
+   (true false false))
+
+!(test
+   (let* (($_clear (clear-backward-state))
+          ($gid (ensure-goal-at-depth
+             (test-runtime-fact (EligibilityTVConstraint)
+                accepted (STV 1.0 $confidence)) 4))
+          ($pid (store-proof-record! (proof-goal-key-by-goal-id $gid)
+             (proof-candidate
+                (leaf (test-runtime-fact (EligibilityTVConstraint)
+                   accepted (STV 1.0 0.8))) 0.8 () ())))
+          ($before (satisfies-goal? $pid $gid))
+          ($_remove (remove-atom &goal
+             (stored-goal-row $gid $_depth $_goal $_expanded $_pending)))
+          ($_replace (once (chainer-add-atom &goal
+             (stored-goal-row $gid 0
+                (test-runtime-fact (EligibilityTVConstraint)
+                   accepted (STV 1.0 0.7))
+                false (goal-agenda-state 0 0 0.0 false)))))
+          ($after (satisfies-goal? $pid $gid))
+          ($_clear-cache (remove-all-atoms &proof_goal_eligibility)))
+      ($before $after (satisfies-goal? $pid $gid)))
+   (true false false))
