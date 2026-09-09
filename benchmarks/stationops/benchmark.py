@@ -21,6 +21,8 @@ def main():
     parser.add_argument("--chainergame", type=Path, required=True)
     parser.add_argument("--petta", type=Path, required=True)
     parser.add_argument("--json-out", type=Path, required=True)
+    parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--budget", type=int, default=600)
     args = parser.parse_args()
     repository = args.repository.resolve()
     game = args.chainergame.resolve()
@@ -85,7 +87,7 @@ def main():
         shift = row["shift"] + 1
 
     result = run_game_episode(
-        GameConfig(seed=7, shifts=2, modules=4), "pettachainer", 600,
+        GameConfig(seed=args.seed, shifts=2, modules=4), "pettachainer", args.budget,
         action_budget=1, on_shift=completed,
     )
     payload = dict(
@@ -95,16 +97,17 @@ def main():
             janus_version=version("janus-swi"),
             swi_version=janus.query_once("current_prolog_flag(version, V)")["V"],
         ),
-        workload=dict(seed=7, shifts=2, modules=4, budget=600, action_budget=1),
+        workload=dict(seed=args.seed, shifts=2, modules=4, budget=args.budget, action_budget=1),
         batches=batches, events=events, result=result,
     )
     args.json_out.write_text(json.dumps(payload, indent=2) + "\n")
     if len(batches) != 2 or any(b["metrics"]["search_aborts"] for b in batches):
         raise RuntimeError("Expected two diagnosis batches with zero search aborts")
-    if any(row["belief_metrics"]["coverage"] != 1 for row in result["rounds"]):
-        raise RuntimeError("Incomplete diagnosis coverage")
-    if result["aggregate"]["regret"] != 0 or result["aggregate"]["station_score"] != 637:
-        raise RuntimeError("StationOps acceptance result changed")
+    if args.seed == 7:
+        if any(row["belief_metrics"]["coverage"] != 1 for row in result["rounds"]):
+            raise RuntimeError("Incomplete diagnosis coverage")
+        if result["aggregate"]["regret"] != 0 or result["aggregate"]["station_score"] != 637:
+            raise RuntimeError("StationOps acceptance result changed")
 
 
 if __name__ == "__main__":
