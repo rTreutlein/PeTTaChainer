@@ -225,13 +225,25 @@ typed_space_runtime_value_ok(Space, Value) :-
       -> throw(error(literal_type_mismatch(Value, RowT), typecheck))
     ; true ).
 
+% A space is a predicate per row arity, created by the first add-atom. A
+% space that is read before it is written does not exist to Prolog, and each
+% call would take the undefined-procedure path with an autoload search.
+% Reading a space creates it: declare the predicate dynamic on first
+% reference, so an empty space is a defined predicate with no clauses.
+space_call(Term) :- functor(Term, Space, Arity),
+                    (   current_predicate(Space/Arity)
+                    ->  true
+                    ;   dynamic(Space/Arity)
+                    ),
+                    catch(Term, _, fail).
+
 %Match for conjunctive pattern
 match(_, LComma, OutPattern, Result) :- LComma == [','], !,
                                         Result = OutPattern.
 match(Space, [Comma|[Head|Tail]], OutPattern, Result) :- Comma == ',', !,
                                                          append([Space], Head, List),
                                                          Term =.. List,
-                                                         catch(Term, _, fail),
+                                                         space_call(Term),
                                                          \+ cyclic_term(OutPattern),
                                                          match(Space, [','|Tail], OutPattern, Result).
 
@@ -243,7 +255,7 @@ match(Space, PatternVar, OutPattern, Result) :- var(PatternVar), !,
 
 %Match for pattern:
 match(Space, [Rel|PatArgs], OutPattern, Result) :- Term =.. [Space, Rel | PatArgs],
-                                                   catch(Term, _, fail),
+                                                   space_call(Term),
                                                    \+ cyclic_term(OutPattern),
                                                    Result = OutPattern.
 
