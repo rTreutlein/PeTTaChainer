@@ -40,7 +40,7 @@
                 (stored-proof-row $pid $_owner
                    ((G) $_kb $_proof (STV 0.9 0.8))
                    (rule ((G) $_ctx (by h-to-g (proof-ref $source)) $_tv)) $_support $_children)
-                (proof-depends-on-goal-seen? (stored-number $source) $g closed-goal ()))))
+                (proof-depends-on-goal? (stored-number $source) $g closed-goal))))
           ($replayed (frontier-selected-proof-ids $h
              (frontier-view-id $g $bundle () () 0)
              (frontier-waiter $g $bundle 1.0 () () 0 (frontier-value-spec 1.0 1))))
@@ -49,7 +49,7 @@
              $replayed))
           ($merged (car-atom (goal-merged-proof-ids $h))))
       ($before $live-good $replayed-tv
-         (proof-depends-on-goal-seen? $merged $g closed-goal ())
+         (proof-depends-on-goal? $merged $g closed-goal)
          (== (proof-children-by-id (car-atom (goal-merged-proof-ids $observer))) ($merged))))
    (() (false) ((STV 0.9 0.8)) true true))
 

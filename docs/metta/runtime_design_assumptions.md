@@ -229,6 +229,14 @@ or as a premise on its frontier. The normal proof/type/TV constraints still
 classify every candidate, so a durable result is reusable only when it satisfies
 the new query rather than merely sharing a proposition key.
 
+Stored proof children form a DAG. The sole proof-row writer allocates a fresh
+monotonic parent ID after its callers have selected already stored child IDs;
+no production operation rewrites a proof's children or inserts future child IDs.
+Logical self-support is a different property: a physically acyclic proof can
+still depend on the receiving goal or output. Dependency checks reject that
+logical cycle and memoize every visited proof node for the same query-local
+consumer key. They do not require a path-local visited list for the stored DAG.
+
 Generic `FoldAllCompiled` results are durable provenance snapshots stored
 through the same result index as every other proof, keyed by the fold term
 without its result (see `fold_node_contract.md`). A new query therefore sees
@@ -245,9 +253,17 @@ path.
 A multi-root query creates every root at depth zero before search and schedules
 them into one agenda. Its step budget and beam are shared by the complete batch;
 the beam floor is at least the number of roots so pruning cannot discard an
-unexpanded root merely because it joined a batch. Goal-key indexing remains
-global to the query arena, so identical roots and common subgoals reuse the same
-goal and proof state. A shared goal retains one live demand contribution per
+unexpanded root merely because it joined a batch. Query goals have immutable
+complete patterns: proof/TV constraints and variable sharing are part of their
+identity. Alpha-equivalent roots and common subgoals reuse one arena goal;
+distinct constraints have separate scheduling and frontier state. Their semantic
+proposition/context key still shares durable proofs, so a publication invalidates
+confidence caches and wakes every matching constraint view. Lowering a goal's
+depth never strengthens its stored pattern. Query-local proof eligibility is
+memoized by PID/GID because both the stored proof and complete goal pattern are
+immutable; query reset clears eligibility before reusing goal IDs. Proof liveness
+and consumer-specific admissibility remain separate checks. A shared goal retains
+one live demand contribution per
 distinct root: alternative waiters from the same root merge by maximum, while
 contributions from different roots add for queue ordering. Queue entries are
 refreshed before expansion. Every root uses the same value-of-computation
@@ -263,7 +279,9 @@ waiter edges cannot manufacture demand. If a late waiter connects an
 already-expanded goal to a root, its existing unexpanded descendants are woken
 without enumerating the goal's rules again. Query-local compiled additions are
 unioned and installed once, while source variables and result lists remain
-isolated per input root.
+isolated per input root. Compiler-marked total-implication sources already had
+their scaffolds installed by query orchestration or fold-source compilation;
+expanding such a source must not allocate a second set of assumption contexts.
 
 Priority-cache invalidation is independent of bounded proof delivery. Publishing
 a proof advances the publishing goal's revision even when the synchronous

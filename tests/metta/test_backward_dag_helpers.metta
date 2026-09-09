@@ -876,9 +876,8 @@
     true false true true true true true true true true 3 3 true true
     true true true true))
 
-;; Cycle checks memoize only the top-level empty-seen call. A colliding row
-;; with a different cycle key must be ignored, recursive child checks must not
-;; add their own rows, and ordinary query reset must clear the cache.
+;; Cycle checks memoize shared descendants as well as the requested node.
+;; A different cycle key must be ignored, and query reset clears every row.
 !(test
    (let*
       (($_clear (clear-backward-state))
@@ -915,11 +914,11 @@
           (add-atom &proof_cycle_cache
              ($parent-pid $target-gid different-cycle-key true)))
        ($first
-          (proof-depends-on-goal-seen?
-             $parent-pid $target-gid closed-goal ()))
+          (proof-depends-on-goal?
+             $parent-pid $target-gid closed-goal))
        ($second
-          (proof-depends-on-goal-seen?
-             $parent-pid $target-gid closed-goal ()))
+          (proof-depends-on-goal?
+             $parent-pid $target-gid closed-goal))
        ($rows-before-clear
           (collapse
              (match &proof_cycle_cache
@@ -933,7 +932,7 @@
                 true))))
       ($first $second
        (length $rows-before-clear) (length $rows-after-clear)))
-   (false false 2 0))
+   (false false 3 0))
 
 !(test
    (let*
@@ -1201,8 +1200,8 @@
        (satisfies-goal? $good $gid) (satisfies-goal? $bad $gid)))
    (true false true false))
 
-;; Replacing a goal row can strengthen its proof/TV constraints without a new
-;; GID. Exercise that cache contract independently of scheduler rewrite policy.
+;; Different proof constraints receive distinct goal IDs. A shallower request
+;; cannot rewrite the original goal or change its warmed eligibility result.
 !(test
    (let* (($_clear (clear-backward-state))
           ($gid (ensure-goal-at-depth
@@ -1213,17 +1212,15 @@
                 (leaf (test-runtime-fact (EligibilityProofConstraint)
                    accepted (STV 1.0 0.8))) 0.8 () ())))
           ($before (satisfies-goal? $pid $gid))
-          ($_remove (remove-atom &goal
-             (stored-goal-row $gid $_depth $_goal $_expanded $_pending)))
-          ($_replace (once (chainer-add-atom &goal
-             (stored-goal-row $gid 0
-                (test-runtime-fact (EligibilityProofConstraint)
-                   rejected (STV 1.0 0.8))
-                false (goal-agenda-state 0 0 0.0 false)))))
-          ($after (satisfies-goal? $pid $gid))
-          ($_clear-cache (remove-all-atoms &proof_goal_eligibility)))
-      ($before $after (satisfies-goal? $pid $gid)))
-   (true false false))
+          ($specific (ensure-goal-at-depth
+             (test-runtime-fact (EligibilityProofConstraint)
+                rejected (STV 1.0 0.8)) 0))
+          ($after (satisfies-goal? $pid $specific)))
+      ((== $gid $specific) $before $after
+       (satisfies-goal? $pid $gid)
+       (satisfies-goal? $pid $specific)
+       (is-var $proof)))
+   (false true false true false true))
 
 !(test
    (let* (($_clear (clear-backward-state))
@@ -1235,14 +1232,42 @@
                 (leaf (test-runtime-fact (EligibilityTVConstraint)
                    accepted (STV 1.0 0.8))) 0.8 () ())))
           ($before (satisfies-goal? $pid $gid))
-          ($_remove (remove-atom &goal
-             (stored-goal-row $gid $_depth $_goal $_expanded $_pending)))
-          ($_replace (once (chainer-add-atom &goal
-             (stored-goal-row $gid 0
-                (test-runtime-fact (EligibilityTVConstraint)
-                   accepted (STV 1.0 0.7))
-                false (goal-agenda-state 0 0 0.0 false)))))
-          ($after (satisfies-goal? $pid $gid))
-          ($_clear-cache (remove-all-atoms &proof_goal_eligibility)))
-      ($before $after (satisfies-goal? $pid $gid)))
-   (true false false))
+          ($specific (ensure-goal-at-depth
+             (test-runtime-fact (EligibilityTVConstraint)
+                accepted (STV 1.0 0.7)) 0))
+          ($after (satisfies-goal? $pid $specific)))
+      ((== $gid $specific) $before $after
+       (satisfies-goal? $pid $gid)
+       (satisfies-goal? $pid $specific)
+       (is-var $confidence)))
+   (false true false true false true))
+
+;; Alpha-equivalent requests preserve full variable sharing through a real
+;; lowering and agenda issue/claim. The one warmed cache entry remains valid.
+!(test
+   (let* (($_clear (clear-backward-state))
+          ($gid (ensure-goal-at-depth
+             (test-runtime-fact (EligibilityLowering $x)
+                (by fixed $x) (STV 1.0 $confidence)) 4))
+          ($pid (store-proof-record! (proof-goal-key-by-goal-id $gid)
+             (proof-candidate
+                (leaf (test-runtime-fact (EligibilityLowering a)
+                   (by fixed a) (STV 1.0 0.8))) 0.8 () ())))
+          ($before (satisfies-goal? $pid $gid))
+          ($same (ensure-goal-at-depth
+             (test-runtime-fact (EligibilityLowering $renamed)
+                (by fixed $renamed) (STV 1.0 $renamed-confidence)) 1))
+          ($after-lowering (satisfies-goal? $pid $same))
+          ($heap (request-goal-agenda-kind-score-heap
+             (empty_heap) $gid agenda-expand 1.0))
+          (($_priority $entry $_rest) (heap_pop $heap))
+          ($_claim (claim-goal-agenda-entry! $entry))
+          ((stored-goal-row $_id $depth $pattern $_expanded $_state)
+             (goal-by-id $gid)))
+      ((== $gid $same) $before $after-lowering
+       (satisfies-goal? $pid $gid) $depth
+       (=alpha $pattern (test-runtime-fact (EligibilityLowering $y)
+          (by fixed $y) (STV 1.0 $c)))
+       (is-var $x) (is-var $confidence)
+       (length (collapse (get-atoms &proof_goal_eligibility)))))
+   (true true true true 1 true true true 1))

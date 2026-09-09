@@ -50,3 +50,42 @@
          (: $proof (HistoryOutput $x) (STV 1.0 0.7999359651197002))))
    ((: (by (no_inverse left-rule) left-b)
        (HistoryOutput b) (STV 1.0 0.7999359651197002))))
+
+;; Warm the grounded goal key used below; the earlier queries used a variable
+;; statement pattern with its own durable search index.
+!(test
+   (collapse (query 50 historyKb (: $proof (HistoryOutput a) $tv)))
+   ((: (merge/revision
+          (by (no_inverse left-rule) left-a)
+          (by (no_inverse right-rule) right-a))
+       (HistoryOutput a) (STV 1.0 0.8635964607600216))))
+
+;; Constraint variants share durable history, but each root independently
+;; selects its compatible published group or falls back to its raw incumbent.
+!(test
+   (collapse
+      (query-many 0 historyKb
+         ((: (by (no_inverse left-rule) left-a) (HistoryOutput a) $tv)
+          (: $proof (HistoryOutput a) $tv))))
+   ((query-result 0
+       (: (by (no_inverse left-rule) left-a)
+          (HistoryOutput a) (STV 1.0 0.7999359651197002)))
+    (query-result 1
+       (: (merge/revision
+             (by (no_inverse left-rule) left-a)
+             (by (no_inverse right-rule) right-a))
+          (HistoryOutput a) (STV 1.0 0.8635964607600216)))))
+
+!(test
+   (collapse
+      (query-many 0 historyKb
+         ((: $proof (HistoryOutput a) (STV 1.0 0.7999359651197002))
+          (: $proof (HistoryOutput a) (STV 1.0 0.8635964607600216)))))
+   ((query-result 0
+       (: (by (no_inverse left-rule) left-a)
+          (HistoryOutput a) (STV 1.0 0.7999359651197002)))
+    (query-result 1
+       (: (merge/revision
+             (by (no_inverse left-rule) left-a)
+             (by (no_inverse right-rule) right-a))
+          (HistoryOutput a) (STV 1.0 0.8635964607600216)))))

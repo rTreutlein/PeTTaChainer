@@ -121,7 +121,7 @@
                 (demand-test-fact (PathX) x-changing (STV 1.0 0.01))
                 (cons (rule-ev demandTest x-changing) ()))))
        ($new-merged (car-atom (goal-merged-proof-ids $x)))
-       ($_delivered (wake-proof-commit-heap $h-frontier $x $new-merged))
+       ($_delivered (wake-proof-commit-heap $new-merged $h-frontier $x))
        ($g-after (goal-root-demands $g))
        ((stored-goal-row $_gid $_depth $_goal $_expanded
              (goal-agenda-state $generation $revision $_score $pending))
