@@ -42,6 +42,7 @@
                    (rule ((G) $_ctx (by h-to-g (proof-ref $source)) $_tv)) $_support $_children)
                 (proof-depends-on-goal-seen? (stored-number $source) $g closed-goal ()))))
           ($replayed (frontier-selected-proof-ids $h
+             (frontier-view-id $g $bundle () () 0)
              (frontier-waiter $g $bundle 1.0 () () 0 (frontier-value-spec 1.0 1))))
           ($replayed-tv (map-semidet
              (|-> ($pid) (let ($_type $_kb $_proof $tv) (proof-output-atom-by-id $pid) $tv))
