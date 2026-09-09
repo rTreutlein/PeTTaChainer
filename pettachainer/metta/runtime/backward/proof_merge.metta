@@ -206,10 +206,10 @@
 (= (proof-output-group-representative-pids $gid $groups) (let $gkey (proof-goal-key-by-goal-id $gid) (map-semidet (representative-for-key $gkey) $groups)))
 (: live-output-pids (-[semidet]-> Number ProofOutputKey (List Number)))
 (= (live-output-pids $gid $key) (let* (((stored-goal-row $_gid $_depth $goal $_expanded $_pending) (goal-by-id $gid)) ($gkey (proof-goal-key-by-goal-id $gid))) (reverse-number-list (proof-fold-flat-semidet (current-proof-step $goal) () (current-output-pids $gkey $key)))))
-;; Candidate membership and the published result are authoritative. Replacing
-;; a result invalidates its query-local frontier paths, not its proof history.
+;; The published result is the unconstrained estimate. Consumer selections
+;; own path replacement; refreshing this estimate does not invalidate them.
 (: refresh-result! (-[semidet]-> ProofGoalKey ProofOutputKey (List $none)))
-(= (refresh-result! $gkey $okey) (let* (($old (collapse (once (current-proof-result-id-for-output-key $gkey $okey)))) ($pids (current-output-pids $gkey $okey))) (if (== $pids ()) (let* (($_remove (remove-result! $gkey $okey)) ($_paths (foreach-flat invalidate-proof-paths! $old)) ($_clean (clear-dirty! $gkey $okey))) ()) (let* (($new-pid (representative-for-key $gkey (proof-output-group $okey $pids))) ($_replace (index-result! $gkey $okey $new-pid)) ($_paths (foreach-flat (|-> ($old-pid) (if (== $old-pid $new-pid) () (invalidate-proof-paths! $old-pid))) $old)) ($_clean (clear-dirty! $gkey $okey))) ()))))
+(= (refresh-result! $gkey $okey) (let $pids (current-output-pids $gkey $okey) (if (== $pids ()) (let* (($_remove (remove-result! $gkey $okey))  ($_clean (clear-dirty! $gkey $okey))) ()) (let* (($new-pid (representative-for-key $gkey (proof-output-group $okey $pids))) ($_replace (index-result! $gkey $okey $new-pid))  ($_clean (clear-dirty! $gkey $okey))) ()))))
 (: refresh-dirty! (-[semidet]-> ProofGoalKey (List (List $none))))
 (= (refresh-dirty! $gkey) (map-semidet (refresh-result! $gkey) (dirty-keys $gkey)))
 (: goal-merged-proof-ids (-[semidet]-> Number (List Number)))
@@ -283,6 +283,19 @@
                (stored-number $pid)
                (empty))
             (empty)))))
+(: retain-compatible-derivation-step (-[semidet]-> ProofKind (List Evidence)
+      (List Number) (List Number) Number (List Number)))
+(= (retain-compatible-derivation-step $kind $evidence $children $acc $old)
+   (if (supersedes-derivation? $kind $evidence $children $old)
+      $acc (cons $old $acc)))
+(: prefer-compatible-derivation-step
+   (-[semidet]-> (List Number) Number (List Number)))
+(= (prefer-compatible-derivation-step $acc $pid)
+   (let* ((($_output $kind (proof-support $_score $evidence $_contribution) $children)
+             (proof-row-by-id $pid))
+          ($retained (reverse-number-list (proof-fold-flat-semidet
+             (retain-compatible-derivation-step $kind $evidence $children) () $acc))))
+      (append-flat $retained (cons $pid ()))))
 (: candidate-step (-[semidet]-> ProofKind (List Evidence) Number (List Number) Bool Number Bool))
 (= (candidate-step $_kind $_ev $_score $_children false $_oldpid) false)
 (= (candidate-step $kind $ev $score $children true $oldpid) (if (same-derivation? $kind $children $oldpid) (if (== (proof-children-by-id $oldpid) $children) false (if (supersedes-derivation? $kind $ev $children $oldpid) true (candidate-compare $kind $ev $score $children $oldpid))) (candidate-compare $kind $ev $score $children $oldpid)))
@@ -302,7 +315,38 @@
 (: store-proof-candidate (-[nondet]-> Number ProofCandidate Number))
 ;; A snapshot supersedes every current snapshot of its key before it is stored,
 ;; then takes the ordinary path: the key is dirty and refreshes to the newcomer.
-(= (store-proof-candidate $gid (proof-candidate $kind $score $ev $children)) (let* (($_metric (increment-backward-query-metric! proofs-stored)) ($gkey (proof-goal-key-by-goal-id $gid)) ($okey (candidate-output-key (candidate-kind-term $kind))) ($dhash (derivation-hash $gkey $kind $children)) ($_stale (if (< $dhash 0) () (collapse (foreach-flat supersede-current-proof! (superseded-derivation-pids $gkey $dhash $kind $ev $children))))) ($_replaced (if (= $kind (aggregate $_snapshot)) (foreach-flat supersede-current-proof! (current-output-pids $gkey $okey)) ())) ($old-rep (collapse (once (current-proof-result-id-for-output-key $gkey $okey)))) ($result-dirty? (result-dirty? $gkey $okey)) ($pid (store-proof-record! $gkey (proof-candidate $kind $score $ev $children))) ($_current (index-current! $gkey $okey $pid)) ($_derivation (if (< $dhash 0) () (once (add-atom &proof_derivation (derivation-row $dhash $gkey $pid))))) ($_confidence (clear-current-confidence! $gid)) ($_result (if $result-dirty? () (if (== $old-rep ()) (index-result! $gkey $okey $pid) (let* (($_remove-result (remove-result-output! $gkey $okey)) ($_paths (foreach-flat invalidate-proof-paths! $old-rep)) ($_dirty (mark-dirty! $gkey $okey))) ()))))) $pid))
+(= (store-proof-candidate $gid (proof-candidate $kind $score $ev $children))
+   (let* (($_metric (increment-backward-query-metric! proofs-stored))
+          ($gkey (proof-goal-key-by-goal-id $gid))
+          ($okey (candidate-output-key (candidate-kind-term $kind)))
+          ($dhash (derivation-hash $gkey $kind $children))
+          ($_stale
+             (if (< $dhash 0) ()
+                (collapse
+                   (foreach-flat
+                      (|-> ($old)
+                         (progn (supersede-current-proof! $old)
+                            (add-atom &proof_alternative ($old))))
+                      (superseded-derivation-pids $gkey $dhash $kind $ev $children)))))
+          ($_replaced
+             (if (= $kind (aggregate $_snapshot))
+                (foreach-flat supersede-current-proof! (current-output-pids $gkey $okey))
+                ()))
+          ($old-rep (collapse (once (current-proof-result-id-for-output-key $gkey $okey))))
+          ($result-dirty? (result-dirty? $gkey $okey))
+          ($pid (store-proof-record! $gkey (proof-candidate $kind $score $ev $children)))
+          ($_current (index-current! $gkey $okey $pid))
+          ($_derivation
+             (if (< $dhash 0) ()
+                (once (add-atom &proof_derivation (derivation-row $dhash $gkey $pid)))))
+          ($_confidence (clear-current-confidence! $gid))
+          ($_result
+             (if $result-dirty? ()
+                (if (== $old-rep ())
+                   (index-result! $gkey $okey $pid)
+                   (let* (($_remove-result (remove-result-output! $gkey $okey))
+                          ($_dirty (mark-dirty! $gkey $okey))) ())))))
+      $pid))
 (: leaf-result-candidate (-[det]-> (| Goal (Statement KBContext Proof TV)) (List Evidence) ProofCandidate))
 (= (leaf-result-candidate $result $ev) (once (case $result ( ((CPU $_formula $_arguments $_cpu-result) (proof-candidate (leaf $result) (term-confidence $result) $ev ())) (($type ($kbid $context $variables) $prf $tv) (let $fact (assemble-contextual-runtime-fact $type $kbid $context $variables $prf $tv) (proof-candidate (leaf $fact) (term-confidence $fact) $ev ()))) ($_other (proof-candidate (leaf $result) (term-confidence $result) $ev ()))))))
 (: aggregate-result-candidate (-[det]-> (| Goal (Statement KBContext Proof TV)) (List Evidence) (List Number) ProofCandidate))

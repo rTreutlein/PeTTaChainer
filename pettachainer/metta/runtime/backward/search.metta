@@ -30,7 +30,9 @@
           &fold_source
           &frontier_path &frontier_path_lookup &frontier_path_child
           &frontier_path_dead &proof_frontier_path
-          &proof_cycle_cache))
+          &proof_cycle_cache &proof_revision
+          &frontier_view_lookup &frontier_selection_cache &goal_source_cache
+          &frontier_delivered))
       ()))
 
 ;; index-hash seals variables before hashing.  The hash is the generated
@@ -317,6 +319,72 @@
                   (frontier-pool-join?
                      $part $parts $seen $evidence)))))))
 
+(: frontier-view-id
+   (-[det]-> Number AndBundle (List Evidence)
+      (List (| FrontierPart UnpoolablePart)) Number Number))
+(= (frontier-view-id $parent $bundle $seen $parts $path)
+   (let* (($context (quote ($parent $bundle $seen $parts $path)))
+          ($hash (index-hash $context))
+          ($hits (collapse (once (match &frontier_view_lookup ($hash $saved $id)
+             (if (=alpha $saved $context) (stored-number $id) (empty)))))))
+      (if (== $hits ())
+         (let* (($id (next-search-id bwd_frontier_view))
+                ($_store (add-atom &frontier_view_lookup ($hash $context $id)))) $id)
+         (first-number $hits))))
+
+(: frontier-source-admissible? (-[semidet]-> FrontierWaiter Number Bool))
+(= (frontier-source-admissible?
+      (frontier-waiter $parent $bundle $_score $seen $parts $_path $_value) $pid)
+   (let* ((($_output $_kind $support $_children) (proof-row-by-id $pid))
+          ((proof-support $_proof-score $evidence $_contribution) $support)
+          ($part (the (| FrontierPart SkipPart UnpoolablePart)
+             (frontier-premise-part $support))))
+      (frontier-proof-admissible? $parent $bundle $seen $parts $pid $evidence $part)))
+
+(: frontier-select-source-step (-[semidet]-> FrontierWaiter
+      (List Number) Number (List Number)))
+(= (frontier-select-source-step $waiter $acc $pid)
+   (if (frontier-source-admissible? $waiter $pid)
+      (prefer-compatible-derivation-step $acc $pid) $acc))
+(: frontier-retire-selection-step (-[det]-> Number (List Number) Number (List Atom)))
+(= (frontier-retire-selection-step $view $selected $pid)
+   (if (stored-list-member? $pid $selected) ()
+      (let $_delivered (remove-atom &frontier_delivered ($view $pid))
+         (collapse (match &frontier_path_lookup ($view $_parent $pid $path)
+            (invalidate-path! (stored-number $path)))))))
+
+(: frontier-selected-proof-ids (-[semidet]-> Number FrontierWaiter (List Number)))
+(= (frontier-selected-proof-ids $gid
+      (frontier-waiter $parent $bundle $score $seen $parts $path $value))
+   (let* (($view (frontier-view-id $parent $bundle $seen $parts $path))
+          ($revision (proof-revision (proof-goal-key-by-goal-id $gid)))
+          ($cached (collapse (once (match &frontier_selection_cache
+             ($view $revision $pids) (the (List Number) $pids))))))
+      (if (== $cached ())
+         (let* (($sources (proof-fold-flat-semidet
+                   (frontier-select-source-step
+                      (frontier-waiter $parent $bundle $score $seen $parts $path $value))
+                   () (goal-source-proof-ids $gid $revision)))
+                ($representatives (proof-output-group-representative-pids $gid
+                   (proof-output-groups $sources)))
+                ($selected (if (frontier-needs-raw-proofs? $bundle)
+                   (the (List Number) (list_to_set (append-flat $sources $representatives)))
+                   $representatives))
+                ($_retire (collapse (match &frontier_selection_cache
+                   ($view $_old-revision $old)
+                   (foreach-flat (frontier-retire-selection-step $view $selected)
+                      (the (List Number) $old)))))
+                ($_remove (remove-atom &frontier_selection_cache ($view $_rev $_pids)))
+                ($_store (add-atom &frontier_selection_cache ($view $revision $selected))))
+            $selected)
+         (the (List Number) (car-atom $cached)))))
+
+(: frontier-deliver-output-step (-[semidet]-> ProofOutputKey FrontierWaiter
+      (Heap AgendaEntry) Number (Heap AgendaEntry)))
+(= (frontier-deliver-output-step $output $waiter $agenda $pid)
+   (if (=alpha $output (output-key $pid))
+      (frontier-waiter-step $waiter $agenda $pid) $agenda))
+
 (: commit-frontier-result-heap
    (-[semidet]-> (Heap AgendaEntry) Number AndBundle
        (List Evidence) Number (Heap AgendaEntry)))
@@ -372,19 +440,21 @@
                 ($_wait
                    (register-goal-waiter!
                       $child-gid $parent-gid $waiter))
-                ($existing-pids
-                   (frontier-existing-proof-ids
-                      $parent-gid $bundle $child-gid))
+                ($existing-pids (frontier-selected-proof-ids $child-gid $waiter))
                 ($existing-agenda
                    (proof-fold-flat-semidet
                       (frontier-waiter-step $waiter)
                       $agenda $existing-pids)))
             (wake-goal-demand-heap $existing-agenda $child-gid))))))
 
-(= (frontier-waiter-step $waiter $agenda $pid)
-   (let $branch-waiter (copy_term $waiter)
-      (owned-frontier-waiter-step
-         $branch-waiter $agenda $pid)))
+(= (frontier-waiter-step
+      (frontier-waiter $parent $bundle $score $seen $parts $path $value) $agenda $pid)
+   (let $view (frontier-view-id $parent $bundle $seen $parts $path)
+      (if (space-row-present? &frontier_delivered ($view $pid)) $agenda
+         (let* (($_delivered (add-atom &frontier_delivered ($view $pid)))
+                ($branch (copy_term
+                   (frontier-waiter $parent $bundle $score $seen $parts $path $value))))
+            (owned-frontier-waiter-step $branch $agenda $pid)))))
 
 (= (owned-frontier-waiter-step $waiter $agenda $pid)
    (let (frontier-waiter
@@ -431,20 +501,9 @@
           ($next-seen
              (list_to_set
                 (append-flat $seen $proof-evidence)))
-          ($next-path-id (ensure-frontier-path $path-id $pid))
-          ($_retain-raw-path
-             (case $proof-kind (
-                ((merged $_output) ())
-                ($_raw
-                   (case (and-bundle-goal $bundle) (
-                      (($_type $_kb $proof $_tv)
-                         (if
-                            (proof-term-conjunction-dependency?
-                               (brand Proof (copy_term $proof)))
-                            (remove-atom &proof_frontier_path
-                               ($pid $next-path-id))
-                            ()))
-                      ($_other ())))))))
+          ($next-path-id (ensure-frontier-path
+             (frontier-view-id $parent-gid $bundle $seen $parts $path-id)
+             $path-id $pid))
           ($next-score
              (min $score
                 (let $part-score (frontier-part-score $part $proof-score)
@@ -478,25 +537,22 @@
                   $next-seen $next-parts $next-path-id $next-value)))))))
 
 (: wake-waiter-step
-   (-[det]-> Number (Heap AgendaEntry)
+   (-[det]-> Number Number (Heap AgendaEntry)
        (| FrontierWaiter AggregateWaiter Atom) (Heap AgendaEntry)))
-(= (wake-waiter-step $pid $agenda $waiter)
+(= (wake-waiter-step $gid $pid $agenda $waiter)
    (case $waiter (
-      ((frontier-waiter $parent $bundle $score $seen $parts
-          $path $value)
-         (chainer-first-or $agenda
-            (collapse
-               (once
-                  (owned-frontier-waiter-step
-                     (frontier-waiter
-                        $parent $bundle $score $seen $parts $path $value)
-                     $agenda $pid)))))
+      ((frontier-waiter $parent $bundle $score $seen $parts $path $value)
+         (if (frontier-path-live? (stored-number $path))
+            (chainer-first-or $agenda (collapse (once
+               (let* (($typed (frontier-waiter $parent $bundle $score $seen $parts $path $value))
+                      ($selected (frontier-selected-proof-ids $gid $typed)))
+                  (proof-fold-flat-semidet
+                     (frontier-deliver-output-step (output-key $pid) $typed)
+                     $agenda $selected)))))
+            $agenda))
       ((aggregate-waiter $agg $_spec)
-         (chainer-first-or $agenda
-            (collapse
-               (once
-                  (schedule-aggregate-heap
-                     $agenda (stored-number $agg))))))
+         (chainer-first-or $agenda (collapse (once
+            (schedule-aggregate-heap $agenda (stored-number $agg))))))
       ($_other $agenda))))
 
 (: wake-proof-commit-heap
@@ -535,7 +591,7 @@
                                             ($gid $waiter) $waiter))))
                                 ($propagated
                                    (proof-fold-flat-semidet
-                                      (wake-waiter-step $pid)
+                                      (wake-waiter-step $gid $pid)
                                       $agenda $waiters)))
                             (proof-fold-flat-semidet wake-goal-demand-heap
                                $propagated

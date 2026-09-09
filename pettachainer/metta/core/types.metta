@@ -99,6 +99,8 @@
 (: bwd_gid CounterKey)
 (: bwd_pid CounterKey)
 (: bwd_frontier_path CounterKey)
+(: bwd_frontier_view CounterKey)
+(: bwd_proof_revision CounterKey)
 (: ruleid CounterKey)
 (: bwd_tmp_ruleid CounterKey)
 (: fwd_aggregate_id CounterKey)

@@ -223,55 +223,6 @@
             no-pool-key
             (brand Proof $proof)))
       ($_other no-pool-key))))
-(: frontier-strict-projection-proof? (-[det]-> Proof Bool))
-(= (frontier-strict-projection-proof? $proof)
-   (if (is-var $proof)
-      false
-      (if (is-expr $proof)
-         (let $projection (car-atom $proof)
-            (if (is-var $projection)
-               false
-               (if (is-expr $projection)
-                  (let $head (car-atom $projection)
-                     (if (is-var $head)
-                        false
-                        (if (== $head proj)
-                           (let $tail (cdr-atom $proof)
-                              (if (== $tail ())
-                                 false
-                                 (== (cdr-atom $tail) ())))
-                           false)))
-                  false)))
-         false)))
-(: frontier-goal-needs-conditioned-proofs?
-   (-[det]-> (| Goal (Statement KBContext Proof TV)) Bool))
-(= (frontier-goal-needs-conditioned-proofs? $goal)
-   (case $goal (
-      (($_type $_kb $proof $_tv)
-         (if (compound-source? (brand Statement $_type))
-            true
-            (if (is-var $proof)
-               false
-               (if (and (is-expr $proof)
-                        (is-var (car-atom $proof)))
-                  true
-                  (frontier-strict-projection-proof?
-                     (brand Proof $proof))))))
-      ($_other false))))
-(: frontier-needs-conditioned-proofs? (-[det]-> AndBundle Bool))
-(= (frontier-needs-conditioned-proofs?
-      (and-bundle $goal $premises))
-   (case $premises (
-      ((cons $premise $_rest)
-         (case $premise (
-            ((CPU $_function $_arguments $_result)
-               (frontier-goal-needs-conditioned-proofs? $goal))
-            (($type $_kb $_proof $_tv)
-               (if (compound-source? (brand Statement $type))
-                  true
-                  (frontier-goal-needs-conditioned-proofs? $goal)))
-            ($_other (frontier-goal-needs-conditioned-proofs? $goal)))))
-      ($_other (frontier-goal-needs-conditioned-proofs? $goal)))))
 (: frontier-needs-raw-proofs? (-[det]-> AndBundle Bool))
 (= (frontier-needs-raw-proofs? (and-bundle $goal $_premises))
    (case $goal (
@@ -290,11 +241,12 @@
 (: noncyclic-proof-source-ids (-[semidet]-> Number Atom
       Number (List Number)))
 (= (noncyclic-proof-source-ids $parent-gid $cycle-key $child-gid)
-   (reverse-number-list
+   (let $compatible (reverse-number-list
       (proof-fold-flat-semidet
-         (frontier-compatible-source-id-step $parent-gid $cycle-key)
-         ()
-         (goal-live-proof-ids $child-gid))))
+         (frontier-compatible-source-id-step $parent-gid $cycle-key) ()
+         (goal-source-proof-ids $child-gid
+            (proof-revision (proof-goal-key-by-goal-id $child-gid)))))
+      (proof-fold-flat-semidet prefer-compatible-derivation-step () $compatible)))
 ;; Opposite directions of one BiImplication are one definition. Reject the
 ;; immediate reverse even when lowering flattened its intermediate proof node.
 (: frontier-opposite-bi-direction? (-[det]-> Proof Proof Bool))
@@ -311,61 +263,3 @@
                (== $name $other))
             ($_other false))))
       ($_other false))))
-(: frontier-bi-compatible-source-id-step (-[semidet]-> Proof
-      (List Number) Number (List Number)))
-(= (frontier-bi-compatible-source-id-step $parent-proof $acc $pid)
-   (if (frontier-opposite-bi-direction?
-          $parent-proof (materialize-proof $pid))
-      $acc
-      (cons $pid $acc)))
-(: frontier-compatible-source-ids
-   (-[semidet]-> Number AndBundle Number (List Number)))
-(= (frontier-compatible-source-ids $parent-gid $bundle $child-gid)
-   (let* (($goal (and-bundle-goal $bundle))
-          ($cycle-key
-             (candidate-cycle-key $parent-gid (rule $goal)))
-          ($compatible
-             (noncyclic-proof-source-ids
-                $parent-gid $cycle-key $child-gid))
-          ($parent-proof (frontier-bundle-proof $bundle))
-          ($direction-compatible
-             (if (== $parent-proof no-pool-key)
-                $compatible
-                (reverse-number-list
-                   (proof-fold-flat-semidet
-                      (frontier-bi-compatible-source-id-step
-                         (the Proof $parent-proof))
-                      () $compatible)))))
-      $direction-compatible))
-(: frontier-conditioned-proof-ids
-   (-[semidet]-> Number AndBundle Number (List Number)))
-(= (frontier-conditioned-proof-ids $parent-gid $bundle $child-gid)
-   (let* (($compatible
-             (frontier-compatible-source-ids
-                $parent-gid $bundle $child-gid))
-          ($representatives
-             (proof-output-group-representative-pids $child-gid
-                (proof-output-groups $compatible))))
-      (if (frontier-needs-raw-proofs? $bundle)
-         (the (List Number)
-            (list_to_set (append-flat $compatible $representatives)))
-         $representatives)))
-(: frontier-existing-proof-ids
-   (-[semidet]-> Number AndBundle Number (List Number)))
-(= (frontier-existing-proof-ids $parent-gid $bundle $child-gid)
-   (case $bundle (
-      ((and-bundle $_goal
-           (cons (CPU $function $_arguments $_result) ()))
-         (if (aggregate-fold-function? $function)
-            (if (not (== (goal-live-proof-ids $parent-gid) ()))
-               ()
-               (frontier-conditioned-proof-ids
-                  $parent-gid $bundle $child-gid))
-            (goal-merged-proof-ids $child-gid)))
-      ($_other
-         (if (frontier-needs-conditioned-proofs? $bundle)
-            (frontier-conditioned-proof-ids
-               $parent-gid $bundle $child-gid)
-            (if (frontier-needs-raw-proofs? $bundle)
-               (goal-live-proof-ids $child-gid)
-               (goal-merged-proof-ids $child-gid)))))))
