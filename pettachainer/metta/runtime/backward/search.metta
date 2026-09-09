@@ -340,7 +340,8 @@
 (: frontier-source-admissible? (-[semidet]-> FrontierWaiter Number Bool))
 (= (frontier-source-admissible?
       (frontier-waiter $parent $bundle $_score $seen $parts $_path $_value) $pid)
-   (let* ((($_output $_kind $support $_children) (proof-row-by-id $pid))
+   (let* (($_metric (increment-backward-query-metric! admissibility-checks))
+          (($_output $_kind $support $_children) (proof-row-by-id $pid))
           ((proof-support $_proof-score $evidence $_contribution) $support)
           ($part (the (| FrontierPart SkipPart UnpoolablePart)
              (frontier-premise-part $support))))
@@ -366,7 +367,8 @@
           ($cached (collapse (once (match &frontier_selection_cache
              ($view $revision $pids) (the (List Number) $pids))))))
       (if (== $cached ())
-         (let* (($sources (proof-fold-flat-semidet
+         (let* (($_metric (increment-backward-query-metric! selection-rebuilds))
+                ($sources (proof-fold-flat-semidet
                    (frontier-select-source-step $key
                       (frontier-waiter $parent $bundle $score $seen $parts $path $value))
                    () (goal-source-proof-ids $gid $revision)))

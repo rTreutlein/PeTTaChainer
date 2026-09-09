@@ -30,7 +30,9 @@
     current-result-goal-lookups
     candidate-comparisons
     dominance-checks
-    proofs-stored))
+    proofs-stored
+    selection-rebuilds
+    admissibility-checks))
 
 (: set-space-row-count-metric! (-[det]-> Atom $space Number))
 (= (set-space-row-count-metric! $key $space)

@@ -14,7 +14,9 @@
     current-result-goal-lookups
     candidate-comparisons
     dominance-checks
-    proofs-stored))
+    proofs-stored
+    selection-rebuilds
+    admissibility-checks))
 
 !(test
    (let* (($_enabled (set-backward-query-metrics true))
@@ -27,7 +29,7 @@
       (map-flat
          query_metric_value
          (backward-query-counter-keys)))
-   (0 0 0 0 0 0 0 0 0 0 0 0 0))
+   (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
 
 
 !(set-backward-query-metrics false)
