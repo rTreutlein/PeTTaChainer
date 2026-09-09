@@ -49,7 +49,7 @@
                 ((rule-ev demandTest observed)))))
        ($after (goal-demand-sum $child))
        ($current-contribution
-          (root-demands-sum (waiter-root-demands $waiter 2)))
+          (root-demands-sum (waiter-root-demands (waiter-demand-view $waiter) 2)))
        ($root-untouched (== (goal-live-proof-ids $root) ()))
        ($parent-published (== (length (goal-merged-proof-ids $parent)) 1))
        ($_done (remove-atom &search_wake_active ($parent 2))))
@@ -200,3 +200,32 @@
    (true true 0 1 2 0 0 (2) true 2 0))
 
 !(set-backward-query-metrics false)
+
+;; Distinct proof contexts can have identical scheduling inputs. Projection
+;; must preserve their order and multiplicity, plus aggregate demand modes.
+!(test
+   (let* (($_clear (clear-backward-query-state!))
+          ($parent (demand-test-goal (ProjectionParent) 1))
+          ($child (demand-test-goal (ProjectionChild) 2))
+          ($first (frontier-waiter $parent
+             (and-bundle (demand-test-fact (ProjectionParent) first (STV 1 1)) ())
+             0.7 () () 0 (frontier-value-spec 0.8 2)))
+          ($second (frontier-waiter $parent
+             (and-bundle (demand-test-fact (ProjectionParent) second (STV 1 1)) ())
+             0.7 () () 0 (frontier-value-spec 0.8 2)))
+          ($_first (chainer-add-atom &goal_waiter ($child $first)))
+          ($_second (chainer-add-atom &goal_waiter ($child $second)))
+          ($views (collapse (match &goal_waiter ($child $waiter)
+             (waiter-demand-view $waiter)))))
+      ((== $views
+          ((frontier-demand $parent 0.7 0 0.8 2)
+           (frontier-demand $parent 0.7 0 0.8 2)))
+       (waiter-demand-view (aggregate-waiter 42 live-aggregate-demand))
+       (waiter-demand-view (aggregate-waiter 43 (cached-aggregate-demand (STV 0.2 0.8))))
+       (waiter-demand-view irrelevant)
+       (goal-shallower? $parent 2)
+       (goal-shallower? $parent 1)
+       (goal-shallower? 999999999 2)))
+   (true (aggregate-demand 42 live-aggregate-demand)
+      (aggregate-demand 43 (cached-aggregate-demand (STV 0.2 0.8)))
+      no-waiter-demand true false false))
