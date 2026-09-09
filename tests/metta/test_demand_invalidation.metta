@@ -201,31 +201,87 @@
 
 !(set-backward-query-metrics false)
 
-;; Distinct proof contexts can have identical scheduling inputs. Projection
-;; must preserve their order and multiplicity, plus aggregate demand modes.
+;; The compact registry retains full registration order and multiplicity,
+;; including identical waiters, equal projections, and interleaved child IDs.
 !(test
    (let* (($_clear (clear-backward-query-state!))
           ($parent (demand-test-goal (ProjectionParent) 1))
           ($child (demand-test-goal (ProjectionChild) 2))
+          ($other (demand-test-goal (ProjectionOther) 2))
           ($first (frontier-waiter $parent
              (and-bundle (demand-test-fact (ProjectionParent) first (STV 1 1)) ())
              0.7 () () 0 (frontier-value-spec 0.8 2)))
           ($second (frontier-waiter $parent
              (and-bundle (demand-test-fact (ProjectionParent) second (STV 1 1)) ())
              0.7 () () 0 (frontier-value-spec 0.8 2)))
-          ($_first (chainer-add-atom &goal_waiter ($child $first)))
-          ($_second (chainer-add-atom &goal_waiter ($child $second)))
+          ($_first (register-goal-waiter! $child $parent $first))
+          ($_other (register-goal-waiter! $other $parent $first))
+          ($_second (register-goal-waiter! $child $parent $second))
+          ($_duplicate (register-goal-waiter! $child $parent $first))
+          ($_cached (register-goal-waiter! $child $parent
+             (aggregate-waiter $parent (cached-aggregate-demand (STV 0.2 0.8)))))
+          ($_live (register-goal-waiter! $child $parent
+             (aggregate-waiter $parent live-aggregate-demand)))
           ($views (collapse (match &goal_waiter ($child $waiter)
-             (waiter-demand-view $waiter)))))
-      ((== $views
+             (waiter-demand-view $waiter))))
+          ($indexed (collapse (match &goal_waiter_demand ($child $demand) $demand)))
+          ($other-indexed (collapse (match &goal_waiter_demand ($other $demand) $demand))))
+      ((== $indexed $views)
+       (== $views
           ((frontier-demand $parent 0.7 0 0.8 2)
-           (frontier-demand $parent 0.7 0 0.8 2)))
+           (frontier-demand $parent 0.7 0 0.8 2)
+           (frontier-demand $parent 0.7 0 0.8 2)
+           (aggregate-demand $parent (cached-aggregate-demand (STV 0.2 0.8)))
+           (aggregate-demand $parent live-aggregate-demand)))
+       (== $other-indexed ((frontier-demand $parent 0.7 0 0.8 2)))
        (waiter-demand-view (aggregate-waiter 42 live-aggregate-demand))
        (waiter-demand-view (aggregate-waiter 43 (cached-aggregate-demand (STV 0.2 0.8))))
        (waiter-demand-view irrelevant)
        (goal-shallower? $parent 2)
        (goal-shallower? $parent 1)
        (goal-shallower? 999999999 2)))
-   (true (aggregate-demand 42 live-aggregate-demand)
+   (true true true (aggregate-demand 42 live-aggregate-demand)
       (aggregate-demand 43 (cached-aggregate-demand (STV 0.2 0.8)))
       no-waiter-demand true false false))
+
+;; Binding a retrieved delivery context cannot specialize the registered
+;; proof variables or their sharing, nor its independently stored demand row.
+!(test
+   (let* (($_clear (clear-backward-query-state!))
+          ($parent (demand-test-goal (ProjectionOpenParent) 0))
+          ($child (demand-test-goal (ProjectionOpenChild) 1))
+          ($waiter (frontier-waiter $parent
+             (and-bundle
+                (demand-test-fact (ProjectionAlias $label $label) $proof (STV 1 1))
+                ((demand-test-fact (ProjectionPremise $label) $proof (STV 1 1))))
+             0.7 () () 0 (frontier-value-spec 0.8 2)))
+          ($_wait (register-goal-waiter! $child $parent $waiter))
+          ($bound (collapse (match &goal_waiter
+             ($child (frontier-waiter $parent
+                (and-bundle ((ProjectionAlias chosen chosen) $_ctx accepted $_tv) $_premises)
+                $_score $_seen $_parts $_path $_value)) true)))
+          ($full (collapse (match &goal_waiter ($child $saved) $saved)))
+          ($views (collapse (match &goal_waiter ($child $saved)
+             (waiter-demand-view $saved))))
+          ($indexed (collapse (match &goal_waiter_demand ($child $demand) $demand))))
+      ((is-var $label) (is-var $proof) (== $bound (true))
+       (=alpha $full ($waiter)) (== $indexed $views)))
+   (true true true true true))
+
+;; Query reset clears both registries before the next query reuses GIDs.
+!(test
+   (let* (($_clear (clear-backward-query-state!))
+          ($_ids (change-state! bwd_gid 0))
+          ($parent (demand-test-goal (ProjectionResetParent) 0))
+          ($child (demand-test-goal (ProjectionResetChild) 1))
+          ($_wait (register-goal-waiter! $child $parent
+             (aggregate-waiter $parent live-aggregate-demand)))
+          ($_reset (clear-backward-query-state!))
+          ($_ids-again (change-state! bwd_gid 0))
+          ($next-parent (demand-test-goal (ProjectionResetNextParent) 0))
+          ($next-child (demand-test-goal (ProjectionResetNextChild) 1)))
+      ((== $parent $next-parent) (== $child $next-child)
+       (== (collapse (match &goal_waiter ($_gid $_waiter) true)) ())
+       (== (collapse (match &goal_waiter_demand ($_gid $_demand) true)) ())
+       (== (goal-root-demands $next-child) ())))
+   (true true true true true))

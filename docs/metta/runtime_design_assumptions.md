@@ -293,6 +293,17 @@ they can expose changes in those other inputs. Removing same-valued revisions
 requires a complete input-invalidation contract, not just list equality. The
 controlled state-transition regressions are in `test_demand_invalidation.metta`.
 
+Waiter registration appends both the complete delivery context and its compact
+`WaiterDemand` projection, keyed by the receiving child GID. Both registries
+preserve insertion order and duplicates until query reset. They have no
+individual deletion path: retiring a proof path marks that path dead, and demand
+evaluation still reads its current liveness. The compact registry stores only
+the registered inputs, never evaluated demand, current confidence, or depth.
+Projection retains its original evaluation position after full registration so
+binding a caller's proof variables cannot specialize the saved delivery context.
+If individual waiter removal is introduced, equal projections must be
+distinguished by their full registration identity rather than removed together.
+
 Forward chaining always starts from facts selected by its caller. Its agenda is
 local to that invocation and is discarded when the agenda empties or the step
 budget is exhausted. The canonical facts derived before that point remain in

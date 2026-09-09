@@ -1,0 +1,1427 @@
+{
+  "base_commit": "68f76534ff69cb8165445c9ca036c2a00c5b8328",
+  "core_commit": "bb1664ef82942a8ac814d0d0ff5508283482209c",
+  "branch": "experiment/waiter-demand-index",
+  "candidate_source_manifest_sha256": "12cfaf233e26520cff56a10d23825416d77c2cc5fc3729f80a5f5cad726ed7a0",
+  "runtime_revision": "e1aac8b791cf70b7843173b613f04b869b666979",
+  "game_revision": "99fc56e4ddd0d718f00e494146b0ff1884e5fc5e",
+  "fetched": false,
+  "rebuilt_dependencies": false,
+  "timing_plan": {
+    "source_commit": "68f76534ff69cb8165445c9ca036c2a00c5b8328",
+    "source_parent": "/tmp/pettachainer-indexed-proof-checks",
+    "source_parent_status": "",
+    "candidate_factors": [
+      "compact WaiterDemand registration index with constructor extraction",
+      "goal-shallower? direct Boolean projection/case"
+    ],
+    "base_source_manifest_sha256": "30d86e2b054e265561ef145bba8671cb95f6e63044d74bfd64b956585a02a181",
+    "candidate_source_manifest_sha256": "12cfaf233e26520cff56a10d23825416d77c2cc5fc3729f80a5f5cad726ed7a0",
+    "runtime_source_manifest_sha256": "cfec0b9b5afbe909e20576e69ef0a8b7ed5a6a3b435a3c07e1740eedf833d825",
+    "game_source_manifest_sha256": "efe7c12bf1404aee14d9d726c5acdc9ad749be5b81d8f7ae7992f4e81b3ebc4b",
+    "reference": "/tmp/pettachainer-indexed-proof-checks/scratch/indexed-proof-checks-2026-09-09/combined-11.json",
+    "reference_sha256": "dd43b61f563a95bb088f65a0c0659a99ed37e0a4b4932d9a8f89ed56d5e6d9df",
+    "runtime": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+    "runtime_revision": "e1aac8b791cf70b7843173b613f04b869b666979",
+    "game": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/game",
+    "game_revision": "99fc56e4ddd0d718f00e494146b0ff1884e5fc5e",
+    "workload": {
+      "seed": 11,
+      "shifts": 2,
+      "modules": 4,
+      "budget": 300,
+      "action_budget": 1
+    },
+    "order": "AB, BA, AB; A=base, B=candidate",
+    "runs": [
+      {
+        "pair": 1,
+        "side": "base",
+        "label": "pair1-base"
+      },
+      {
+        "pair": 1,
+        "side": "candidate",
+        "label": "pair1-candidate"
+      },
+      {
+        "pair": 2,
+        "side": "candidate",
+        "label": "pair2-candidate"
+      },
+      {
+        "pair": 2,
+        "side": "base",
+        "label": "pair2-base"
+      },
+      {
+        "pair": 3,
+        "side": "base",
+        "label": "pair3-base"
+      },
+      {
+        "pair": 3,
+        "side": "candidate",
+        "label": "pair3-candidate"
+      }
+    ],
+    "watchdog_seconds": 180,
+    "benchmark_sha256": "a4ddd7fc26a2d793b411fd6f888abdfba0e1cf85d37e137373327fd58b7de68c",
+    "driver_sha256": "93cd347f2616e3f174b06b85a9de96a7980709607c734ebe365bd5f4250adabb",
+    "common_environment": {
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "GIT_DIR": "/tmp/pettachainer-indexed-proof-checks/.git"
+    },
+    "fetched": false,
+    "rebuilt_dependencies": false,
+    "runner_restored": true,
+    "cpu_window_authorized_by_parent": "After combined seven-file strict pass; root heavy/archive work done and other agents read-only.",
+    "timing_acceptance_threshold": null,
+    "stop_rule": "Stop without retry on nonzero exit, watchdog, missing result, or any exact correctness mismatch. Retain all completed results.",
+    "normalization": "Random KB UUIDs only in string values; remove seconds/*_seconds fields for correctness; include public backend counters and all other query metrics.",
+    "source_hash_exclusions": [
+      ".git",
+      ".venv",
+      "__pycache__",
+      ".pytest_cache",
+      "*.pyc"
+    ],
+    "machine": {
+      "uname": [
+        "Linux",
+        "RPC",
+        "5.15.167.4-microsoft-standard-WSL2",
+        "#1 SMP Tue Nov 5 00:21:55 UTC 2024",
+        "x86_64",
+        "x86_64"
+      ],
+      "logical_cpus": 16,
+      "cpu_models": [
+        "AMD Ryzen 7 5700X3D 8-Core Processor"
+      ],
+      "before_freeze": {
+        "utc": "2026-09-09T18:45:20Z",
+        "load_average": [
+          0.1552734375,
+          0.22802734375,
+          0.32421875
+        ],
+        "memory": {
+          "MemTotal": "30806344 kB",
+          "MemAvailable": "26671972 kB",
+          "SwapTotal": "8388608 kB",
+          "SwapFree": "8388608 kB"
+        }
+      }
+    },
+    "pinned_binaries": {
+      "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/petta": "6df3da807ec6bce548e0039574297da2dfe7e470c5b1676732adac1480d1a8b1",
+      "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/bin/python": "320cae583cc01f7e60f68a23881277843b4868352aa214e63f6fc8dde5d18bd5",
+      "/usr/bin/time": "3b11dec50514a8473e9f6efa7a34d584d0657538c09988f61b72d38ad4991a10"
+    }
+  },
+  "timing_results": {
+    "all_six_completed": true,
+    "all_correctness_gates_passed": true,
+    "source_invariance": {
+      "base": true,
+      "candidate": true,
+      "runtime": true,
+      "game": true,
+      "reference": true,
+      "benchmark": true,
+      "driver": true
+    },
+    "paired_results": [
+      {
+        "pair": 1,
+        "metrics": {
+          "shift1_diagnosis_seconds": {
+            "base": 1.8044158300035633,
+            "candidate": 1.7809816139924806,
+            "delta_percent": -1.2987148317711528
+          },
+          "shift2_diagnosis_seconds": {
+            "base": 4.016000491013983,
+            "candidate": 3.8090191739902366,
+            "delta_percent": -5.15391662642668
+          },
+          "diagnosis_seconds": {
+            "base": 5.820416321017547,
+            "candidate": 5.590000787982717,
+            "delta_percent": -3.9587465969195046
+          },
+          "shift1_diagnosis_cpu_seconds": {
+            "base": 1.8118494999999992,
+            "candidate": 1.7885963,
+            "delta_percent": -1.2833957787332317
+          },
+          "shift2_diagnosis_cpu_seconds": {
+            "base": 3.9962852999999985,
+            "candidate": 3.8263921000000014,
+            "delta_percent": -4.251278055648255
+          },
+          "diagnosis_cpu_seconds": {
+            "base": 5.808134799999998,
+            "candidate": 5.614988400000001,
+            "delta_percent": -3.3254462344778246
+          },
+          "episode_seconds": {
+            "base": 20.053052829025546,
+            "candidate": 19.9923777510121,
+            "delta_percent": -0.3025727729875749
+          },
+          "shift1_inferences": {
+            "base": 8169070,
+            "candidate": 8163110,
+            "delta_percent": -0.0729581213038899
+          },
+          "shift2_inferences": {
+            "base": 19016912,
+            "candidate": 18925517,
+            "delta_percent": -0.48059853250622675
+          },
+          "diagnosis_inferences": {
+            "base": 27185982,
+            "candidate": 27088627,
+            "delta_percent": -0.3581073510605548
+          },
+          "peak_rss_kib": {
+            "base": 169356,
+            "candidate": 181248,
+            "delta_percent": 7.021894707007714
+          }
+        }
+      },
+      {
+        "pair": 2,
+        "metrics": {
+          "shift1_diagnosis_seconds": {
+            "base": 1.8102640350116417,
+            "candidate": 1.8094539180165157,
+            "delta_percent": -0.04475131690503398
+          },
+          "shift2_diagnosis_seconds": {
+            "base": 4.039841523015639,
+            "candidate": 3.7599042330111843,
+            "delta_percent": -6.929412661600853
+          },
+          "diagnosis_seconds": {
+            "base": 5.8501055580272805,
+            "candidate": 5.5693581510277,
+            "delta_percent": -4.79901438042174
+          },
+          "shift1_diagnosis_cpu_seconds": {
+            "base": 1.8071460999999989,
+            "candidate": 1.811497600000001,
+            "delta_percent": 0.2407940343064796
+          },
+          "shift2_diagnosis_cpu_seconds": {
+            "base": 4.023974199999998,
+            "candidate": 3.769893100000001,
+            "delta_percent": -6.314183127714812
+          },
+          "diagnosis_cpu_seconds": {
+            "base": 5.831120299999997,
+            "candidate": 5.581390700000002,
+            "delta_percent": -4.282703617004691
+          },
+          "episode_seconds": {
+            "base": 20.164700698980596,
+            "candidate": 19.879297088977182,
+            "delta_percent": -1.4153624904427287
+          },
+          "shift1_inferences": {
+            "base": 8169070,
+            "candidate": 8163110,
+            "delta_percent": -0.0729581213038899
+          },
+          "shift2_inferences": {
+            "base": 19016912,
+            "candidate": 18925517,
+            "delta_percent": -0.48059853250622675
+          },
+          "diagnosis_inferences": {
+            "base": 27185982,
+            "candidate": 27088627,
+            "delta_percent": -0.3581073510605548
+          },
+          "peak_rss_kib": {
+            "base": 169068,
+            "candidate": 180100,
+            "delta_percent": 6.525185132609357
+          }
+        }
+      },
+      {
+        "pair": 3,
+        "metrics": {
+          "shift1_diagnosis_seconds": {
+            "base": 1.8189506159978919,
+            "candidate": 1.800403286004439,
+            "delta_percent": -1.0196719927592746
+          },
+          "shift2_diagnosis_seconds": {
+            "base": 3.9798341570131015,
+            "candidate": 3.7807478010072373,
+            "delta_percent": -5.002378193449153
+          },
+          "diagnosis_seconds": {
+            "base": 5.798784773010993,
+            "candidate": 5.581151087011676,
+            "delta_percent": -3.753091285819732
+          },
+          "shift1_diagnosis_cpu_seconds": {
+            "base": 1.8270013999999986,
+            "candidate": 1.8032123000000002,
+            "delta_percent": -1.3020843881125899
+          },
+          "shift2_diagnosis_cpu_seconds": {
+            "base": 3.9989307000000007,
+            "candidate": 3.7918336000000004,
+            "delta_percent": -5.178811925898097
+          },
+          "diagnosis_cpu_seconds": {
+            "base": 5.825932099999999,
+            "candidate": 5.595045900000001,
+            "delta_percent": -3.9630774275587366
+          },
+          "episode_seconds": {
+            "base": 20.085448747006012,
+            "candidate": 19.954313024005387,
+            "delta_percent": -0.6528891868555986
+          },
+          "shift1_inferences": {
+            "base": 8169070,
+            "candidate": 8163110,
+            "delta_percent": -0.0729581213038899
+          },
+          "shift2_inferences": {
+            "base": 19016912,
+            "candidate": 18925517,
+            "delta_percent": -0.48059853250622675
+          },
+          "diagnosis_inferences": {
+            "base": 27185982,
+            "candidate": 27088627,
+            "delta_percent": -0.3581073510605548
+          },
+          "peak_rss_kib": {
+            "base": 168968,
+            "candidate": 183880,
+            "delta_percent": 8.825339709294067
+          }
+        }
+      }
+    ],
+    "median_results": {
+      "shift1_diagnosis_seconds": {
+        "base": 1.8102640350116417,
+        "candidate": 1.800403286004439,
+        "median_paired_delta_percent": -1.0196719927592746,
+        "ratio_of_medians_delta_percent": -0.5447133023962047
+      },
+      "shift2_diagnosis_seconds": {
+        "base": 4.016000491013983,
+        "candidate": 3.7807478010072373,
+        "median_paired_delta_percent": -5.15391662642668,
+        "ratio_of_medians_delta_percent": -5.85788499112827
+      },
+      "diagnosis_seconds": {
+        "base": 5.820416321017547,
+        "candidate": 5.581151087011676,
+        "median_paired_delta_percent": -3.9587465969195046,
+        "ratio_of_medians_delta_percent": -4.110792438367039
+      },
+      "shift1_diagnosis_cpu_seconds": {
+        "base": 1.8118494999999992,
+        "candidate": 1.8032123000000002,
+        "median_paired_delta_percent": -1.2833957787332317,
+        "ratio_of_medians_delta_percent": -0.47670626064687527
+      },
+      "shift2_diagnosis_cpu_seconds": {
+        "base": 3.9989307000000007,
+        "candidate": 3.7918336000000004,
+        "median_paired_delta_percent": -5.178811925898097,
+        "ratio_of_medians_delta_percent": -5.178811925898097
+      },
+      "diagnosis_cpu_seconds": {
+        "base": 5.825932099999999,
+        "candidate": 5.595045900000001,
+        "median_paired_delta_percent": -3.9630774275587366,
+        "ratio_of_medians_delta_percent": -3.9630774275587366
+      },
+      "episode_seconds": {
+        "base": 20.085448747006012,
+        "candidate": 19.954313024005387,
+        "median_paired_delta_percent": -0.6528891868555986,
+        "ratio_of_medians_delta_percent": -0.6528891868555986
+      },
+      "shift1_inferences": {
+        "base": 8169070,
+        "candidate": 8163110,
+        "median_paired_delta_percent": -0.0729581213038899,
+        "ratio_of_medians_delta_percent": -0.0729581213038899
+      },
+      "shift2_inferences": {
+        "base": 19016912,
+        "candidate": 18925517,
+        "median_paired_delta_percent": -0.48059853250622675,
+        "ratio_of_medians_delta_percent": -0.48059853250622675
+      },
+      "diagnosis_inferences": {
+        "base": 27185982,
+        "candidate": 27088627,
+        "median_paired_delta_percent": -0.3581073510605548,
+        "ratio_of_medians_delta_percent": -0.3581073510605548
+      },
+      "peak_rss_kib": {
+        "base": 169068,
+        "candidate": 181248,
+        "median_paired_delta_percent": 7.021894707007714,
+        "ratio_of_medians_delta_percent": 7.204201859606796
+      }
+    },
+    "timing_scope": "Sequential declared AB,BA,AB after root confirmed our CPU tasks quiet; single seed11 development gate, no threshold or adoption decision."
+  },
+  "timing_runs": [
+    {
+      "pair": 1,
+      "side": "base",
+      "label": "pair1-base",
+      "command": [
+        "/usr/bin/time",
+        "-f",
+        "%M",
+        "-o",
+        "/tmp/exact-demand-combined/pair1-base.rss",
+        "/tmp/exact-demand-combined/base/.venv/bin/python",
+        "/tmp/exact-demand-combined/benchmark.py",
+        "--repository",
+        "/tmp/exact-demand-combined/base",
+        "--chainergame",
+        "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/game",
+        "--petta",
+        "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+        "--json-out",
+        "/tmp/exact-demand-combined/pair1-base.json",
+        "--seed",
+        "11",
+        "--budget",
+        "300"
+      ],
+      "machine_before": {
+        "utc": "2026-09-09T18:45:42Z",
+        "load_average": [
+          0.341796875,
+          0.2587890625,
+          0.3310546875
+        ],
+        "memory": {
+          "MemTotal": "30806344 kB",
+          "MemAvailable": "26682932 kB",
+          "SwapTotal": "8388608 kB",
+          "SwapFree": "8388608 kB"
+        }
+      },
+      "machine_after": {
+        "utc": "2026-09-09T18:46:02Z",
+        "load_average": [
+          0.529296875,
+          0.3076171875,
+          0.3466796875
+        ],
+        "memory": {
+          "MemTotal": "30806344 kB",
+          "MemAvailable": "26690908 kB",
+          "SwapTotal": "8388608 kB",
+          "SwapFree": "8388608 kB"
+        }
+      },
+      "exit_code": 0,
+      "watchdog_timeout": false,
+      "correctness": {
+        "workload_equal": true,
+        "full_proof_answers_equal": true,
+        "queries_equal": true,
+        "public_results_including_backend_counters_equal": true,
+        "all_non_time_query_metrics_equal": true,
+        "zero_aborts": true
+      },
+      "measurements": {
+        "shift1_diagnosis_seconds": 1.8044158300035633,
+        "shift2_diagnosis_seconds": 4.016000491013983,
+        "diagnosis_seconds": 5.820416321017547,
+        "shift1_diagnosis_cpu_seconds": 1.8118494999999992,
+        "shift2_diagnosis_cpu_seconds": 3.9962852999999985,
+        "diagnosis_cpu_seconds": 5.808134799999998,
+        "episode_seconds": 20.053052829025546,
+        "shift1_inferences": 8169070,
+        "shift2_inferences": 19016912,
+        "diagnosis_inferences": 27185982,
+        "peak_rss_kib": 169356
+      },
+      "result_sha256": "9bee710e46051e82f113140b4eae16d22c0335a72c3ee4ad71157d7edfce9354"
+    },
+    {
+      "pair": 1,
+      "side": "candidate",
+      "label": "pair1-candidate",
+      "command": [
+        "/usr/bin/time",
+        "-f",
+        "%M",
+        "-o",
+        "/tmp/exact-demand-combined/pair1-candidate.rss",
+        "/tmp/exact-demand-combined/candidate/.venv/bin/python",
+        "/tmp/exact-demand-combined/benchmark.py",
+        "--repository",
+        "/tmp/exact-demand-combined/candidate",
+        "--chainergame",
+        "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/game",
+        "--petta",
+        "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+        "--json-out",
+        "/tmp/exact-demand-combined/pair1-candidate.json",
+        "--seed",
+        "11",
+        "--budget",
+        "300"
+      ],
+      "machine_before": {
+        "utc": "2026-09-09T18:46:02Z",
+        "load_average": [
+          0.529296875,
+          0.3076171875,
+          0.3466796875
+        ],
+        "memory": {
+          "MemTotal": "30806344 kB",
+          "MemAvailable": "26690908 kB",
+          "SwapTotal": "8388608 kB",
+          "SwapFree": "8388608 kB"
+        }
+      },
+      "machine_after": {
+        "utc": "2026-09-09T18:46:23Z",
+        "load_average": [
+          0.798828125,
+          0.3857421875,
+          0.3720703125
+        ],
+        "memory": {
+          "MemTotal": "30806344 kB",
+          "MemAvailable": "26700408 kB",
+          "SwapTotal": "8388608 kB",
+          "SwapFree": "8388608 kB"
+        }
+      },
+      "exit_code": 0,
+      "watchdog_timeout": false,
+      "correctness": {
+        "workload_equal": true,
+        "full_proof_answers_equal": true,
+        "queries_equal": true,
+        "public_results_including_backend_counters_equal": true,
+        "all_non_time_query_metrics_equal": true,
+        "zero_aborts": true
+      },
+      "measurements": {
+        "shift1_diagnosis_seconds": 1.7809816139924806,
+        "shift2_diagnosis_seconds": 3.8090191739902366,
+        "diagnosis_seconds": 5.590000787982717,
+        "shift1_diagnosis_cpu_seconds": 1.7885963,
+        "shift2_diagnosis_cpu_seconds": 3.8263921000000014,
+        "diagnosis_cpu_seconds": 5.614988400000001,
+        "episode_seconds": 19.9923777510121,
+        "shift1_inferences": 8163110,
+        "shift2_inferences": 18925517,
+        "diagnosis_inferences": 27088627,
+        "peak_rss_kib": 181248
+      },
+      "result_sha256": "cc4f319ac2977859322aec2bd24bbf0f9f90fd1ad14ff1ebee631f2a43fab41c"
+    },
+    {
+      "pair": 2,
+      "side": "candidate",
+      "label": "pair2-candidate",
+      "command": [
+        "/usr/bin/time",
+        "-f",
+        "%M",
+        "-o",
+        "/tmp/exact-demand-combined/pair2-candidate.rss",
+        "/tmp/exact-demand-combined/candidate/.venv/bin/python",
+        "/tmp/exact-demand-combined/benchmark.py",
+        "--repository",
+        "/tmp/exact-demand-combined/candidate",
+        "--chainergame",
+        "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/game",
+        "--petta",
+        "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+        "--json-out",
+        "/tmp/exact-demand-combined/pair2-candidate.json",
+        "--seed",
+        "11",
+        "--budget",
+        "300"
+      ],
+      "machine_before": {
+        "utc": "2026-09-09T18:46:23Z",
+        "load_average": [
+          0.798828125,
+          0.3857421875,
+          0.3720703125
+        ],
+        "memory": {
+          "MemTotal": "30806344 kB",
+          "MemAvailable": "26700408 kB",
+          "SwapTotal": "8388608 kB",
+          "SwapFree": "8388608 kB"
+        }
+      },
+      "machine_after": {
+        "utc": "2026-09-09T18:46:43Z",
+        "load_average": [
+          0.9189453125,
+          0.44189453125,
+          0.39111328125
+        ],
+        "memory": {
+          "MemTotal": "30806344 kB",
+          "MemAvailable": "26697360 kB",
+          "SwapTotal": "8388608 kB",
+          "SwapFree": "8388608 kB"
+        }
+      },
+      "exit_code": 0,
+      "watchdog_timeout": false,
+      "correctness": {
+        "workload_equal": true,
+        "full_proof_answers_equal": true,
+        "queries_equal": true,
+        "public_results_including_backend_counters_equal": true,
+        "all_non_time_query_metrics_equal": true,
+        "zero_aborts": true
+      },
+      "measurements": {
+        "shift1_diagnosis_seconds": 1.8094539180165157,
+        "shift2_diagnosis_seconds": 3.7599042330111843,
+        "diagnosis_seconds": 5.5693581510277,
+        "shift1_diagnosis_cpu_seconds": 1.811497600000001,
+        "shift2_diagnosis_cpu_seconds": 3.769893100000001,
+        "diagnosis_cpu_seconds": 5.581390700000002,
+        "episode_seconds": 19.879297088977182,
+        "shift1_inferences": 8163110,
+        "shift2_inferences": 18925517,
+        "diagnosis_inferences": 27088627,
+        "peak_rss_kib": 180100
+      },
+      "result_sha256": "567940cc8027d9ce8fdfc44a7706b9b019a65f52864fca2f21e9e4850e91b335"
+    },
+    {
+      "pair": 2,
+      "side": "base",
+      "label": "pair2-base",
+      "command": [
+        "/usr/bin/time",
+        "-f",
+        "%M",
+        "-o",
+        "/tmp/exact-demand-combined/pair2-base.rss",
+        "/tmp/exact-demand-combined/base/.venv/bin/python",
+        "/tmp/exact-demand-combined/benchmark.py",
+        "--repository",
+        "/tmp/exact-demand-combined/base",
+        "--chainergame",
+        "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/game",
+        "--petta",
+        "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+        "--json-out",
+        "/tmp/exact-demand-combined/pair2-base.json",
+        "--seed",
+        "11",
+        "--budget",
+        "300"
+      ],
+      "machine_before": {
+        "utc": "2026-09-09T18:46:43Z",
+        "load_average": [
+          0.9189453125,
+          0.44189453125,
+          0.39111328125
+        ],
+        "memory": {
+          "MemTotal": "30806344 kB",
+          "MemAvailable": "26697360 kB",
+          "SwapTotal": "8388608 kB",
+          "SwapFree": "8388608 kB"
+        }
+      },
+      "machine_after": {
+        "utc": "2026-09-09T18:47:03Z",
+        "load_average": [
+          0.943359375,
+          0.47900390625,
+          0.40478515625
+        ],
+        "memory": {
+          "MemTotal": "30806344 kB",
+          "MemAvailable": "26699304 kB",
+          "SwapTotal": "8388608 kB",
+          "SwapFree": "8388608 kB"
+        }
+      },
+      "exit_code": 0,
+      "watchdog_timeout": false,
+      "correctness": {
+        "workload_equal": true,
+        "full_proof_answers_equal": true,
+        "queries_equal": true,
+        "public_results_including_backend_counters_equal": true,
+        "all_non_time_query_metrics_equal": true,
+        "zero_aborts": true
+      },
+      "measurements": {
+        "shift1_diagnosis_seconds": 1.8102640350116417,
+        "shift2_diagnosis_seconds": 4.039841523015639,
+        "diagnosis_seconds": 5.8501055580272805,
+        "shift1_diagnosis_cpu_seconds": 1.8071460999999989,
+        "shift2_diagnosis_cpu_seconds": 4.023974199999998,
+        "diagnosis_cpu_seconds": 5.831120299999997,
+        "episode_seconds": 20.164700698980596,
+        "shift1_inferences": 8169070,
+        "shift2_inferences": 19016912,
+        "diagnosis_inferences": 27185982,
+        "peak_rss_kib": 169068
+      },
+      "result_sha256": "f03ae2c85601068949b117b68c68e248697b1f5a17436a114575794081bb5ef6"
+    },
+    {
+      "pair": 3,
+      "side": "base",
+      "label": "pair3-base",
+      "command": [
+        "/usr/bin/time",
+        "-f",
+        "%M",
+        "-o",
+        "/tmp/exact-demand-combined/pair3-base.rss",
+        "/tmp/exact-demand-combined/base/.venv/bin/python",
+        "/tmp/exact-demand-combined/benchmark.py",
+        "--repository",
+        "/tmp/exact-demand-combined/base",
+        "--chainergame",
+        "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/game",
+        "--petta",
+        "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+        "--json-out",
+        "/tmp/exact-demand-combined/pair3-base.json",
+        "--seed",
+        "11",
+        "--budget",
+        "300"
+      ],
+      "machine_before": {
+        "utc": "2026-09-09T18:47:03Z",
+        "load_average": [
+          0.943359375,
+          0.47900390625,
+          0.40478515625
+        ],
+        "memory": {
+          "MemTotal": "30806344 kB",
+          "MemAvailable": "26699304 kB",
+          "SwapTotal": "8388608 kB",
+          "SwapFree": "8388608 kB"
+        }
+      },
+      "machine_after": {
+        "utc": "2026-09-09T18:47:23Z",
+        "load_average": [
+          1.10693359375,
+          0.54638671875,
+          0.42919921875
+        ],
+        "memory": {
+          "MemTotal": "30806344 kB",
+          "MemAvailable": "26696732 kB",
+          "SwapTotal": "8388608 kB",
+          "SwapFree": "8388608 kB"
+        }
+      },
+      "exit_code": 0,
+      "watchdog_timeout": false,
+      "correctness": {
+        "workload_equal": true,
+        "full_proof_answers_equal": true,
+        "queries_equal": true,
+        "public_results_including_backend_counters_equal": true,
+        "all_non_time_query_metrics_equal": true,
+        "zero_aborts": true
+      },
+      "measurements": {
+        "shift1_diagnosis_seconds": 1.8189506159978919,
+        "shift2_diagnosis_seconds": 3.9798341570131015,
+        "diagnosis_seconds": 5.798784773010993,
+        "shift1_diagnosis_cpu_seconds": 1.8270013999999986,
+        "shift2_diagnosis_cpu_seconds": 3.9989307000000007,
+        "diagnosis_cpu_seconds": 5.825932099999999,
+        "episode_seconds": 20.085448747006012,
+        "shift1_inferences": 8169070,
+        "shift2_inferences": 19016912,
+        "diagnosis_inferences": 27185982,
+        "peak_rss_kib": 168968
+      },
+      "result_sha256": "f1b134f318c65bc9c778c7e5516be120541af1d370cbef9887799eaf43661a3f"
+    },
+    {
+      "pair": 3,
+      "side": "candidate",
+      "label": "pair3-candidate",
+      "command": [
+        "/usr/bin/time",
+        "-f",
+        "%M",
+        "-o",
+        "/tmp/exact-demand-combined/pair3-candidate.rss",
+        "/tmp/exact-demand-combined/candidate/.venv/bin/python",
+        "/tmp/exact-demand-combined/benchmark.py",
+        "--repository",
+        "/tmp/exact-demand-combined/candidate",
+        "--chainergame",
+        "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/game",
+        "--petta",
+        "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+        "--json-out",
+        "/tmp/exact-demand-combined/pair3-candidate.json",
+        "--seed",
+        "11",
+        "--budget",
+        "300"
+      ],
+      "machine_before": {
+        "utc": "2026-09-09T18:47:23Z",
+        "load_average": [
+          1.10693359375,
+          0.54638671875,
+          0.42919921875
+        ],
+        "memory": {
+          "MemTotal": "30806344 kB",
+          "MemAvailable": "26696732 kB",
+          "SwapTotal": "8388608 kB",
+          "SwapFree": "8388608 kB"
+        }
+      },
+      "machine_after": {
+        "utc": "2026-09-09T18:47:44Z",
+        "load_average": [
+          1.07568359375,
+          0.57666015625,
+          0.44287109375
+        ],
+        "memory": {
+          "MemTotal": "30806344 kB",
+          "MemAvailable": "26684668 kB",
+          "SwapTotal": "8388608 kB",
+          "SwapFree": "8388608 kB"
+        }
+      },
+      "exit_code": 0,
+      "watchdog_timeout": false,
+      "correctness": {
+        "workload_equal": true,
+        "full_proof_answers_equal": true,
+        "queries_equal": true,
+        "public_results_including_backend_counters_equal": true,
+        "all_non_time_query_metrics_equal": true,
+        "zero_aborts": true
+      },
+      "measurements": {
+        "shift1_diagnosis_seconds": 1.800403286004439,
+        "shift2_diagnosis_seconds": 3.7807478010072373,
+        "diagnosis_seconds": 5.581151087011676,
+        "shift1_diagnosis_cpu_seconds": 1.8032123000000002,
+        "shift2_diagnosis_cpu_seconds": 3.7918336000000004,
+        "diagnosis_cpu_seconds": 5.595045900000001,
+        "episode_seconds": 19.954313024005387,
+        "shift1_inferences": 8163110,
+        "shift2_inferences": 18925517,
+        "diagnosis_inferences": 27088627,
+        "peak_rss_kib": 183880
+      },
+      "result_sha256": "854e493535102eb513f08f70c73e456a9a3e1c1b415341aac24274fa0a96218c"
+    }
+  ],
+  "functional_development": {
+    "passed": true,
+    "episodes_completed": 2,
+    "rows": [
+      {
+        "seed": 7,
+        "budget": 600,
+        "shifts": 2,
+        "modules": 4,
+        "action_budget": 1,
+        "reference": "/tmp/pettachainer-indexed-proof-checks/scratch/indexed-proof-checks-2026-09-09/combined-7.json",
+        "reference_sha256": "c17e9f7beff2ffd68f9bfa0b370e10439c9036b0446b8a7d5be694e16ce51904",
+        "command": [
+          "/tmp/exact-demand-combined/candidate/.venv/bin/python",
+          "/tmp/exact-demand-combined/benchmark.py",
+          "--repository",
+          "/tmp/exact-demand-combined/candidate",
+          "--chainergame",
+          "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/game",
+          "--petta",
+          "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+          "--json-out",
+          "/tmp/exact-demand-combined-development/seed7.json",
+          "--seed",
+          "7",
+          "--budget",
+          "600"
+        ],
+        "machine_before": {
+          "utc": "2026-09-09T18:51:16Z",
+          "load_average": [
+            1.126953125,
+            0.70068359375,
+            0.505859375
+          ],
+          "memory": {
+            "MemTotal": "30806344 kB",
+            "MemAvailable": "26599064 kB",
+            "SwapTotal": "8388608 kB",
+            "SwapFree": "8388608 kB"
+          }
+        },
+        "exit_code": 0,
+        "watchdog_timeout": false,
+        "machine_after": {
+          "utc": "2026-09-09T18:52:41Z",
+          "load_average": [
+            2.052734375,
+            1.1015625,
+            0.6669921875
+          ],
+          "memory": {
+            "MemTotal": "30806344 kB",
+            "MemAvailable": "26548404 kB",
+            "SwapTotal": "8388608 kB",
+            "SwapFree": "8388608 kB"
+          }
+        },
+        "hash_invariance": {
+          "source": true,
+          "runtime": true,
+          "game": true,
+          "reference": true,
+          "benchmark": true
+        },
+        "correctness": {
+          "workload_equal": true,
+          "full_proof_answers_equal": true,
+          "queries_equal": true,
+          "public_results_including_backend_counters_equal": true,
+          "all_non_time_query_metrics_equal": true,
+          "zero_aborts": true
+        },
+        "inferences": [
+          {
+            "shift": 1,
+            "reference": 44890760,
+            "candidate": 44789974,
+            "delta_percent": -0.22451390887567868
+          },
+          {
+            "shift": 2,
+            "reference": 325231470,
+            "candidate": 322059768,
+            "delta_percent": -0.9752137454595022
+          }
+        ],
+        "result_sha256": "08af47ebe81cc875a6167417fe9d4fdd717d591645929160004b439b75a12b09"
+      },
+      {
+        "seed": 23,
+        "budget": 300,
+        "shifts": 2,
+        "modules": 4,
+        "action_budget": 1,
+        "reference": "/tmp/pettachainer-indexed-proof-checks/scratch/indexed-proof-checks-2026-09-09/combined-23.json",
+        "reference_sha256": "f5f1ef35dc7660a2d57a8c0256001ef0be6e944351078c9b0607c254b866e212",
+        "command": [
+          "/tmp/exact-demand-combined/candidate/.venv/bin/python",
+          "/tmp/exact-demand-combined/benchmark.py",
+          "--repository",
+          "/tmp/exact-demand-combined/candidate",
+          "--chainergame",
+          "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/game",
+          "--petta",
+          "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+          "--json-out",
+          "/tmp/exact-demand-combined-development/seed23.json",
+          "--seed",
+          "23",
+          "--budget",
+          "300"
+        ],
+        "machine_before": {
+          "utc": "2026-09-09T18:52:41Z",
+          "load_average": [
+            2.052734375,
+            1.1015625,
+            0.6669921875
+          ],
+          "memory": {
+            "MemTotal": "30806344 kB",
+            "MemAvailable": "26550040 kB",
+            "SwapTotal": "8388608 kB",
+            "SwapFree": "8388608 kB"
+          }
+        },
+        "exit_code": 0,
+        "watchdog_timeout": false,
+        "machine_after": {
+          "utc": "2026-09-09T18:53:00Z",
+          "load_average": [
+            1.95703125,
+            1.14404296875,
+            0.69091796875
+          ],
+          "memory": {
+            "MemTotal": "30806344 kB",
+            "MemAvailable": "26685916 kB",
+            "SwapTotal": "8388608 kB",
+            "SwapFree": "8388608 kB"
+          }
+        },
+        "hash_invariance": {
+          "source": true,
+          "runtime": true,
+          "game": true,
+          "reference": true,
+          "benchmark": true
+        },
+        "correctness": {
+          "workload_equal": true,
+          "full_proof_answers_equal": true,
+          "queries_equal": true,
+          "public_results_including_backend_counters_equal": true,
+          "all_non_time_query_metrics_equal": true,
+          "zero_aborts": true
+        },
+        "inferences": [
+          {
+            "shift": 1,
+            "reference": 7926935,
+            "candidate": 7921838,
+            "delta_percent": -0.06429975772477281
+          },
+          {
+            "shift": 2,
+            "reference": 10804578,
+            "candidate": 10786518,
+            "delta_percent": -0.16715136861430446
+          }
+        ],
+        "result_sha256": "0d4af0c93bbb8a96f117c1c603a2a18e12ac9a5841cdd03ae485e5965c959e1d"
+      }
+    ],
+    "timing_evidence": false
+  },
+  "validation": {
+    "started": "2026-09-09T18:49:39.056956+00:00",
+    "source": "/tmp/exact-demand-combined/candidate",
+    "source_manifest_sha256": "12cfaf233e26520cff56a10d23825416d77c2cc5fc3729f80a5f5cad726ed7a0",
+    "runtime": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+    "runtime_revision": "e1aac8b791cf70b7843173b613f04b869b666979",
+    "environment": {
+      "PETTA_PATH": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+      "PETTA_STRICT": "1",
+      "PETTA_STRICT_DET": "1",
+      "PETTA_JOBS": "4",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONPATH": "/tmp/exact-demand-combined/candidate:/tmp/exact-demand-combined/candidate/tests:/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported/python",
+      "GIT_DIR": "/tmp/pettachainer-indexed-proof-checks/.git",
+      "GIT_WORK_TREE": "/tmp/exact-demand-combined/candidate",
+      "CNET_DIR": "/nexus/Dev/OpenCog/NL2PLN_Project/cnet",
+      "CNET_REFRESH": "0"
+    },
+    "commands": [
+      {
+        "name": "verify",
+        "command": [
+          "/tmp/exact-demand-combined/candidate/scripts/verify.sh"
+        ],
+        "cwd": "/tmp/exact-demand-combined/candidate",
+        "started": "2026-09-09T18:49:39.057176+00:00",
+        "exit_code": 0,
+        "finished": "2026-09-09T18:52:32.182831+00:00",
+        "seconds": 172.8415004319977,
+        "abort_marker_seen": false,
+        "metta_summaries": [
+          [
+            "78",
+            "0"
+          ]
+        ],
+        "python_summaries": [
+          [
+            "57",
+            "69.157s"
+          ]
+        ],
+        "gates": [
+          {
+            "name": "MeTTa suite",
+            "status": "PASS",
+            "detail": "every child log checked for aborts"
+          },
+          {
+            "name": "Python unittest",
+            "status": "PASS",
+            "detail": "46 query row(s), 0 abort(s)"
+          },
+          {
+            "name": "Import scaling",
+            "status": "PASS",
+            "detail": "no backward queries"
+          },
+          {
+            "name": "ConceptNet query",
+            "status": "PASS",
+            "detail": "counter unavailable; abort marker scan"
+          }
+        ],
+        "conceptnet_result_counts": [
+          "2"
+        ],
+        "all_four_gates_passed": true
+      },
+      {
+        "name": "maintained",
+        "command": [
+          "/tmp/exact-demand-combined/candidate/.venv/bin/python",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "/tmp/exact-demand-combined-validation/maintained",
+          "-p",
+          "test_priority_refinement.py",
+          "-v"
+        ],
+        "cwd": "/tmp/exact-demand-combined/candidate",
+        "started": "2026-09-09T18:52:32.184571+00:00",
+        "exit_code": 0,
+        "finished": "2026-09-09T18:52:50.410624+00:00",
+        "seconds": 18.22558160198969,
+        "abort_marker_seen": false,
+        "query_metric_rows": 4,
+        "search_aborts": 0
+      }
+    ],
+    "functional_only": true,
+    "complete": true,
+    "finished": "2026-09-09T18:52:50.540874+00:00",
+    "source_unchanged": true,
+    "runtime_unchanged": true,
+    "conceptnet_files_unchanged": true,
+    "conceptnet_export_link_restored": true
+  },
+  "source_file_hashes": {
+    ".githooks/README.md": "066609813de501c4849ac2c0a35b018c52f097bc8e2922210adf19e15ac9d8d1",
+    ".gitignore": "9e5fa9cd838e40926adba0c85d5ca643ba944e2bb331f8d3ea1113310d7ce436",
+    ".myclaw/Dockerfile": "49886fd83ee5891575e1c00b38b25073f551111843727239595825bed40da22b",
+    ".myclaw/environment.json": "a74fe389a7e831096b646b4a32f4883dd318c5a218885677f093a7686e78b7d8",
+    ".myclaw/pydistutils.cfg": "90aa5d9939548284561cbdf35e7bf8e1031a69ca4a810fd5a90f04544d8f0f47",
+    ".python-version": "7a41a41354ab8049091ef1a00253ca00567f5a1d3f9aef5502c0b4b5ce9ae707",
+    "AGENTS.md": "375c08b8b92d4c598e6d3443cbec1a5d085c9f9674566d55e5782ba506f792dd",
+    "README.md": "6806ffe8568fb1f5f84bed6f955c47fabc624d3e7e87cc281db8e84bb2959ba0",
+    "TODO.md": "14d73cbdbf2aa1a72c825f4e81fa63dad0dc6ecb3c84ba5c2c6ea6adfe0fa852",
+    "benchmarks/metta/benchgen_metta.metta": "e32cf2e319c61122174ace831e6e700343e027006c0c86e660b4b09768936fa4",
+    "benchmarks/metta/benchgen_pln_compare.metta": "fa1c5e1b56f3cca4fc9d4ff76814c0483e21a18a8bc197df9e19b839b92b8cf6",
+    "benchmarks/metta/conceptnet_own_pet_query.metta": "6e4f55308de2581c567e4be3e4e914184ae534a6fef0b5843d9c6579fe1ef838",
+    "benchmarks/metta/conceptnet_revision_stress_query.metta": "bc102bc1d553688269940faedc753eaca73640bec3052e20f8a11d6371febdce",
+    "benchmarks/metta/demo_benchgen_case_small_a.metta": "43f64fc3e8693a6939dbe7e270d2fcc41cbc5554c5ca57ae95a30fc26ef839ed",
+    "benchmarks/metta/demo_benchgen_case_small_b.metta": "d2e3f3a7223c69e7f33e31a34f90645409e523968f78f0cd329371b6c949ef55",
+    "benchmarks/metta/demo_benchgen_compare_tuffy.metta": "d25284c72a3c33fb7d3600afb35cdf4e51bde33cb68882ecaeeadab677964fa1",
+    "benchmarks/metta/run_conceptnet_own_pet_query.sh": "6fe7b16ea8c6099d22dfe7a2e6a90611bffda94306668fc9b1c8adaaa980705b",
+    "benchmarks/metta/run_conceptnet_revision_stress.sh": "e4d65d9cdc84b8c3495cecdf6418699288662903661e672580e1ee84d1bde561",
+    "benchmarks/metta/typecheck_compileadd_probe.metta": "1c0cada33203c6f76267485a73e64d377aa8a444bbdea818661bd3eec1d96408",
+    "benchmarks/metta/typecheck_import_probe.metta": "91d4fdd0d21c5fb8693337d2a6e9127153307f32f2cd850225b6c4c74f382e39",
+    "benchmarks/metta/typecheck_inheritance_query_probe.metta": "02fd323acdd9ea63cab68839f8dcbd5303b1702be0f1d9aaa2b59f470fd4de2d",
+    "benchmarks/metta/typecheck_query_probe.metta": "ea2101813312b6f56d0f0c65384725799512944e032083261d2ce15f40575f18",
+    "benchmarks/stationops/README.md": "c09e13f7975258704e45c2c3f4ec5b95a8456f38ffb0f9d6894f62494c14c3c9",
+    "benchmarks/stationops/benchmark.py": "22a25e83d2f6cd0d795df0b61fdfb1e3b3019520f3d80bb9ef9668e7ec60a255",
+    "benchmarks/stationops/compact-demand-results-2026-09-09.json": "5cf90e6ec6aa36a859821b5eae13b323f04b8829ecf536e916296c6a33c66040",
+    "benchmarks/stationops/compare.py": "107d41a034b2ae96183b5f259567fef82ec07afc7ab523979bcccd7583c847ba",
+    "benchmarks/stationops/consumer-delivery-results-2026-09-09.json": "9da72309bdb0f809f0fee655da4efac483513e68e21202f4dd2d8861d0b65f00",
+    "benchmarks/stationops/consumer-views-results-2026-09-09.json": "01e5edcf1eebe7b05c886e7ac6df2071a8c74f56a318f9992d771e9a11d6a2a7",
+    "benchmarks/stationops/cost-model-results-2026-09-08.json": "b363c13eb8d481b35731db3c6a31d037d35cd50f1b85fcf5927b8f67542aecfb",
+    "benchmarks/stationops/fold-startup-results-2026-09-08.json": "975e481dd1b51ac0dc8f8e54ebc6f35440fb90ba312034d1db150fac2eba7895",
+    "benchmarks/stationops/no-success-prior-results-2026-09-08.json": "93bdb650eda26a564b4f90d07d1f3728ede35079604bc164449a7ae48f9afe52",
+    "benchmarks/stationops/original-quality-results-2026-09-09.json": "fd11ecbd19baa8d9fbdd587a57f4f715d84ef81cd4592a994b10ecb372be334a",
+    "benchmarks/stationops/quality_gate.py": "30736d5eaf67385251488cf142be50da326345d9830aac03bd0987568baa13d6",
+    "benchmarks/stationops/refinement-trace-results-2026-09-08.json": "7da260003e606ae82bfc57519674bdb0763d0ee17a22a50b8fd6b345d5329959",
+    "benchmarks/stationops/results-2026-09-08.json": "6bb9f7e1a64d8c5f7cd12a4491b6ebdf32ad1e7af4f473780a84a9098699861b",
+    "benchmarks/stationops/reuse-derivation-results-2026-09-08.json": "b35208487496c543c4900d4c319464573f8287440ac97a8801eaa4e139742795",
+    "benchmarks/stationops/reuse-refinement-results-2026-09-08.json": "07136ae0dc3480cb477ce7b6c179ba1045e76cd99b7bdd4e6cd2269821e00730",
+    "benchmarks/stationops/shorter-path-results-2026-09-09.json": "015e813ecea497b0a27931df6a2408ccbb816a04c7f5248293a582bef4500462",
+    "docs/demos/lazy_proof_scheduler.html": "f944e4c41298b4364ed073c2d74b75195fea6497916ded10bf255b7d39945d7d",
+    "docs/metta/API.md": "213857942dbcd51f115dedbbff9fbccaa8d0e8ab206b78643c7330652b205c1e",
+    "docs/metta/compact_demand_2026-09-09.md": "cac62332fece32d00b25b998531329349e658ffcde5659288ce348dffe1b4a49",
+    "docs/metta/core_reduction_2026-09-05.md": "09b2d411118d58d1708eccee0f4005115dca9f96a35b80008d7aa07b6b2ff952",
+    "docs/metta/equation_dispatch_audit.md": "41dea7da7a70ab9d6552d6f742d03c17e9b0acf510eaea04d1d3f7fa32c53f88",
+    "docs/metta/fold_node_contract.md": "6db7aa7f15ec1177a54910270ad0991f66253a2cb2ca44fda7906df52186ae19",
+    "docs/metta/hash_foldall_design_note.md": "3936fd23c25c4c7e1e717bd712483c9610c124929bf8290a6af532f2a9a7595d",
+    "docs/metta/indexed_proof_checks_2026-09-09.md": "2a59bf64286902e6fa78e2c31214d9c373c76cc933c87e79e005ee650b85da36",
+    "docs/metta/libpln_pettachainer_examples.txt": "8c3d59aac492facbe0690acc81fe624eb1b3b2abe48b665067ff8e6a42dbe39d",
+    "docs/metta/materialized_composed_rules.md": "078cfec58114b65aba642eaea7e33fbfd0fdff29fcd0c06b311007c1ee287cc6",
+    "docs/metta/mm2_followup_candidates.md": "195d38104b12c1fcc846128bdedd31101bb207e397eeae1b1bcab0e356084433",
+    "docs/metta/module_dependencies.md": "863642ede206046a21ccf3ed5a43ed9ac349d0f904032f83ec32eed2eb03199c",
+    "docs/metta/pattern_mining_discussion_summary.md": "abe168fca6cd5576a4e08e281f70b088e3313319b943b9b35d0cb3caecf908c6",
+    "docs/metta/performance_review_2026-09-05.md": "305f8425784c4f5b40837aeaf17484f5f4a4480f75df7cbf47d23bcc29f29524",
+    "docs/metta/proof_dependency_cache_2026-09-09.md": "2d692830b5be66cd8e19847e5e1a7e9479a6a6d09d4dc0b840e8aceb8bf2896a",
+    "docs/metta/proof_eligibility_cache_2026-09-09.md": "1da93e3cb1a30b0aeada8b3d4f41cba594bd35b82429a1a26992858e4361fd40",
+    "docs/metta/runtime_design_assumptions.md": "cc95ccb667af26aa62292da8d578e61a3f3befb662be884e16d997efef4e7f79",
+    "docs/metta/stationops_consumer_delivery_2026-09-09.md": "206a9004301951503135429fdb455f153215b4df479a87057009515953b7140a",
+    "docs/metta/stationops_consumer_views_2026-09-09.md": "b0536f8d1ed37f10e8195454a31be4ba260e213e714d575ab8324a3dd9607e88",
+    "docs/metta/stationops_cost_models_2026-09-08.md": "79d34355c55cbeb4e75745042d61926eefd5768e2d1798b42ab5c30fe93bc4ac",
+    "docs/metta/stationops_fold_startup_2026-09-08.md": "10ed37e7d2cf458691a7ccf789ddf81371d98249e2bb6baeb5bad823b33ccdaa",
+    "docs/metta/stationops_no_success_prior_2026-09-08.md": "d1781f8a257a08bf7ef2e397022a03779a310dfa47bd05e4f5a33c8caa858a0c",
+    "docs/metta/stationops_quality_gate_2026-09-09.md": "6db0756be88a1d2da5931db6906e4e21f7f42a380f4f3f01795f502ebd420707",
+    "docs/metta/stationops_refinement_trace_2026-09-08.md": "68206abbed6ab20d6ee14d394261be618e4817b647089a09b3433d1d5959d62d",
+    "docs/metta/stationops_regression_2026-09-08.md": "68df6f94bce813fc2f405221e2f91cf122e4ba1ad8f6ace71f9ffb1b1e634e08",
+    "docs/metta/stationops_reuse_derivation_2026-09-08.md": "c35ec3bb209f7c666de7671236bb067963893a22cb4acf07ddfe39573221a7ac",
+    "docs/metta/stationops_reuse_refinement_2026-09-08.md": "bff8febde2a444c8ab49511afddd81c8ed263fee811d50faea5320063575180c",
+    "docs/metta/stationops_shorter_paths_2026-09-09.md": "f5e2ae2da2decddc9b6affe7a5468272e233d942d297ac9ed5f91f858463f95e",
+    "docs/metta/typechecker_soundness_followup.md": "7ab2d514fbebbb82910f685bf56607db77f87428fd667536054d3259b36ae354",
+    "examples/metta/README.md": "db9e104b90813567480fa3d216c4563e65c3169ebaa2ac12ed7ef51321cb80ab",
+    "examples/metta/base_rate_acceptance_game_libpln.metta": "0fc389f3dbfd7c5b1c2b73a8b761481d3ee4da82dbdf802588af6fce1315fbe8",
+    "examples/metta/base_rate_acceptance_game_pettachainer.metta": "ccdd45236d9c43591ef2980f0d03470caea550211c8ac29b83b086bba67b0238",
+    "examples/metta/deductionrevision.metta": "c79e0c40cfa2569c5e63798c4a05831df08dfb894cedb81734139d331a05d84d",
+    "examples/metta/direct.metta": "63c401453c4cf2a483472c012deb3a65cea384cf613f7f31536129e8dbdb75ca",
+    "examples/metta/existential_residual.metta": "1dda57745f62677ab93aff6634073d584e2d967142552be49a50955fe1c0db30",
+    "examples/metta/flyingraven.metta": "45da59afab5af990a17874bbe582434f9f2af81396ca9aaca00384ef2bfccc66",
+    "examples/metta/machine_failure_inversion.metta": "8cac1d5108f0157c44dbee7420d9cadace1c448127bb2c70d7f47fcd4a68b33f",
+    "examples/metta/raveninduction.metta": "570075f1b01663c969ab77e292fb9704a900b1d8081ff07816685300d1c9c6a5",
+    "examples/metta/raveninduction_implication_pettachainer.metta": "842318bd79f3660670196083a3abadf4ac3fadf728fd9f5e4446fa3348e89ba5",
+    "examples/metta/refinement_base_rate_policies.metta": "b60d7ca9b7bcf56bb337af58be58a3e44486076c3dd1d1667e605550ab01c588",
+    "examples/metta/robot.metta": "bfa55eeec74c03ab191fd9e968c5bf922bb43b7f780159b276bc9a8ceda119cb",
+    "examples/metta/simple_base_rate_deduction_libpln.metta": "70027944ef378df860e18515b8023abc366345cfdd5961f0ae2265c1a467bfec",
+    "examples/metta/simple_base_rate_deduction_pettachainer.metta": "e55e87ceb6ee0211ebbcab38029bf8453b2ac337ad6c30992b42bcff2eb03a80",
+    "examples/metta/smokes.metta": "18ff7d5d27eaa1eb749401ad31a679e423952632ac5cceee383a08ea8d945592",
+    "examples/metta/supported.txt": "a9b21d0acdfc914a74fc607c375c124970e6e1455db411912cf4d2e5f1b47b07",
+    "examples/metta/toothbrush.metta": "982a606325228ae8b56b7540e67dece7f0de4fb6c2c3746df4ef3a7badb86e2f",
+    "lib_pettachainer.metta": "9533d7ce52a8963a9c9809664667aa4cf4cada542b380d53775d174235d00fe6",
+    "pettachainer/.gitignore": "7f2c21caa9789706be35f664dcf54edf331c764b5bc3aaec7c152c3f842e5096",
+    "pettachainer/LANGUAGE_SPEC.md": "41aec9ddcb2748cb50ae7d8fda400efa3e71ebbc57079484cff1a406935b51ae",
+    "pettachainer/LLM_RULE_SPEC.md": "d52b9bc80bbe0df3fb4d9c8f34ad2575be304d07bdb5b8108c218d2c5f718475",
+    "pettachainer/__init__.py": "8e93d04ccad37bc9e5415d2c7ec86991df6f04bdf296d1bb18f131164432599f",
+    "pettachainer/benchmarks/README.md": "c9be548508e5d79e747372575a795e076fc8f41a3bd8502f18ff4965f539a54e",
+    "pettachainer/benchmarks/_benchmark_support.py": "7c503c7917f0edd3b9d863bc527d684c6d5c90d6b4837d55ef8527cbe531a549",
+    "pettachainer/benchmarks/backward_materialize.py": "1c99110298666ba82235c1fe6d3e9b50de1c92083288c2218db7b4d64b3eb6eb",
+    "pettachainer/benchmarks/bounded_queue.py": "c9f75596c6871249211e4052af3bcca8b02c234c52ebfa7b1238bec90d79085b",
+    "pettachainer/benchmarks/core_suite.py": "a3d3f325188d1ae1d8ece5f4dbbd3ffb082c192271d42a6c2c09807d82034bef",
+    "pettachainer/benchmarks/durable_query_many.py": "7bacfca7ec0751821eb7908e57f46426b8a9279a860867aa3dcf91b4da7b5df5",
+    "pettachainer/benchmarks/export_rule_dump.py": "ccc17c783d690996482ef8eaf29deec7660d9d6396798d2a4f9c84809969f677",
+    "pettachainer/benchmarks/forward_vs_backward.py": "b8f2dec5fea0011e385027012f1bab1b2376df292c6dc1dc29edd5a7eb82351a",
+    "pettachainer/benchmarks/incremental_ordinary_base_rates.py": "e06850760db811de0dc8e73d0d65ef4513a18b0ec08931b3c57641fb908939b7",
+    "pettachainer/benchmarks/lifting_merge_stress.py": "1f62aeca8b2f543cc4a794caf774864235818cbbe3a29b3002a767bcc21178e7",
+    "pettachainer/benchmarks/member_inheritance.py": "6c4b7b754e3cafd29e0cf7941a86282d647ef24014a9be32a2ed6e0e757b3b59",
+    "pettachainer/benchmarks/particle_merge_resampling.py": "5c0b0cd967f524f8e9a46c149e363338dacc91dc6375dca531821c8c699b62b2",
+    "pettachainer/benchmarks/particle_vs_nat.py": "1966e0e7be5048738a4077f5481742b740d9a758a1f37f5d3279d6045a23084c",
+    "pettachainer/benchmarks/refinement_query.py": "7de72de54d4376b95ee012e1fe024d5f9e273cc5bfbfa7b231ee499b541898af",
+    "pettachainer/metta/bootstrap.metta": "686ee6fb75e32a1cd5e02984dda8da42d3743c9e90708b3630bb52fcb4f82bc1",
+    "pettachainer/metta/compiler/compiler.metta": "d2d9332faa6ec512a452abcd5096ac9a00418bbf888f2b761040ef509d128949",
+    "pettachainer/metta/compiler/query_lowering.metta": "dacd146e702ee3b25f753a4ae9a665a75bf005a2f3a1a3b70773e9c388461de0",
+    "pettachainer/metta/compiler/rules.metta": "83b1c6c184a0379900ce45660feac3fc6c75bccbec0e05be14e84756f1790601",
+    "pettachainer/metta/core/logic_config.metta": "c39d44e9f13aef504040175ad0249471de92ceecca241b67f4a9c69d072a5857",
+    "pettachainer/metta/core/logic_configs/pln.metta": "f58126974d79f24225f06ab61adf852205279feb2c65592495603a12a8b63eab",
+    "pettachainer/metta/core/logic_configs/predicate_logic.metta": "0ef7076d5333d6a22f15ae373c24fd07f24afb0365336256c2d5737aadebb75d",
+    "pettachainer/metta/core/types.metta": "3fc8087e1887b7481fd723086ed8ab858865a74dc4572a1d61f161219ca1d1bc",
+    "pettachainer/metta/petta_chainer.metta": "d5f3133fc4bd9329195f9d6224c2895b2824523abc984f259e9287679481966a",
+    "pettachainer/metta/prolog/runtime_helpers.pl": "5510839fe751cb738938d31c455017e501c90d28b4c7b9b5e4523f81c89b27c5",
+    "pettachainer/metta/runtime/backward/agenda.metta": "77dfe7436ce1dd98a099f2e05fcc657bdf96c82c10adeddd88836518637d3cef",
+    "pettachainer/metta/runtime/backward/aggregates.metta": "50a19fe19aea228f300af46d54aefd6512f455b29010b5ab837839f830c12b62",
+    "pettachainer/metta/runtime/backward/demand.metta": "3873187e1401beab2070eb9a0b2e1744785e6e122e4833f75c1eb483a0314297",
+    "pettachainer/metta/runtime/backward/engine.metta": "419763b359144dc3c8c83b5dd91859a086511ed13392f21e16a60abf19d99513",
+    "pettachainer/metta/runtime/backward/frontier_parts.metta": "f9382c8bea52a69266e0c0480d30a764071c1ff4dec348a3c85a818c323a9a21",
+    "pettachainer/metta/runtime/backward/metrics.metta": "c0e376855a974c2e58fe2fb476e719f3e8a4f6b6300554bf381e8c817185ddbc",
+    "pettachainer/metta/runtime/backward/proof_merge.metta": "5089021482fda05f05994213c6ae5ee868e68372944dcc0ebe968d37df8841c2",
+    "pettachainer/metta/runtime/backward/proof_store.metta": "76cc9c1a22fde46569a76e14b91b67e17d628f9da5ce3546dea16e4abc2f549f",
+    "pettachainer/metta/runtime/backward/rule_matching.metta": "3e2d714ce35fcd30a9db85e3676a3ca624d2ff6f8f8218e755e381277b298769",
+    "pettachainer/metta/runtime/backward/search.metta": "874b2d723e0f978974b25bdf8e389a90ae52e610c189356af96ce613bd996dc4",
+    "pettachainer/metta/runtime/base_rates.metta": "bb3e71a7f535240969bdc9b9f6c0673f4f80dff87976972ba5e9e49e27cc8dcb",
+    "pettachainer/metta/runtime/evidence.metta": "ccd2d3fd67e44dd0e5e00c1a8656a042de238a33c81d7e9f6db1dc085197340b",
+    "pettachainer/metta/runtime/forward/aggregates.metta": "fd9f7cbd23f0bbc531b964422ab98503f1e85a0140216a62789f881167a4d481",
+    "pettachainer/metta/runtime/forward/canonical.metta": "058b885c93b0108b70accf28089afff3fde454e66d0db93d9287b914471d6952",
+    "pettachainer/metta/runtime/forward/engine.metta": "257aa457c6fa6c24c6bac4ec6366b37c8144de1e5d143a75593090b07e3ddf3d",
+    "pettachainer/metta/runtime/ingest.metta": "e99d5d4e7f41af2ad1782fd77139214ebde464f2df1697a10f8751e92d898ff6",
+    "pettachainer/metta/runtime/knowledge_store.metta": "845d31a615edec36689cfe0680f55012ea1e7c023e913caa658a59bd4e1b8e22",
+    "pettachainer/metta/runtime/query.metta": "f9577d24719f601633d14b063349c8fe63a645a0784be43677e34eace5300dec",
+    "pettachainer/metta/runtime/scheduling.metta": "c06d9db1fe24c3953cc3f6c3c38c47d28417eac1fa7bca1831c98882eae67980",
+    "pettachainer/metta/runtime/values.metta": "fd82a88202a46a36353edde285af549858dc20b17fd60f59ef7c7dba074a6005",
+    "pettachainer/pettachainer.py": "ac7ad6bd07fbd5a57cd1a043ab8574ba88c4174bb096a97e73df0ed801f324c4",
+    "pettachainer/pln_validator.py": "37ab93a651c18dcad05211036204e41031c78d80a7c1a839bac3cde2a95c1a2c",
+    "pettachainer/simulations/__init__.py": "828bd568ccb232332bddcd2a9c7639fc798d1c1e5447b708cd5410ebeee35d69",
+    "pettachainer/simulations/base_rate_acceptance_game.py": "420f1fb77ee4bce8c2fa1c4d7753f4c42d21dcd6355991e5b8a1ca92ccb5046d",
+    "pettachainer/simulations/stationops_base_rate.py": "0ed3a5269913a953ef7a84ea42cf9caefa6989ca888ceee94c73b15bc0728ba4",
+    "piPLN_riposte_draft_v6.pdf": "ab8a762db1497430a16730ba8cbcb0e3b925d95455aba95fc359aa3c7dfc5a34",
+    "pyproject.toml": "c091d961b65c4f2c18fda307d5c2a8afbfe971e2f4a05b208a956987ab3d6bd4",
+    "research/piPLN/README.md": "2ab82a2c1220bc6c51c9ae5afb96f0512e1b9996955870d0db381791f6c524a1",
+    "research/piPLN/chart_selection_prototype.metta": "3abc211b9c3c6afb8f2c34e4830a5a9d6796f28d2e3765b1805fab8c31ce5b7b",
+    "research/piPLN/paper_translation.metta": "3e411acfe6ccd777a1b1abf92176d7ed0fab852926df788b8cd79083e0724b89",
+    "scripts/ab_bench.sh": "e521edac2bed1c25e338f9fae781a88bfc075882f5d1028e38f8acc273ab0198",
+    "scripts/check_import_scaling.py": "14a334e34d7ae460fca4bd0791f36a6f9830f97aa62396d80d5de8812004b1ea",
+    "scripts/check_import_scaling.sh": "99142777de797f49fc6b3a771b743a50482095b80ed56b9d1c9c4d4aeba4940f",
+    "scripts/fork_test_runner.metta": "d0953d4bf93e312369b4a07ec0fef3bc23990ef0d6e015ac36ef139ec4345816",
+    "scripts/fork_test_runner.pl": "4148ba86d5f2b261bf276caebea9d6be2a0f22773486f7cbaade645ab8dded51",
+    "scripts/install-hooks.sh": "1095316fc455cee274da7b2c8e5aca64ece1d538819d53522c2fa5c8093eea73",
+    "scripts/lint_metta.sh": "32d5118ec63a1507b9411365e45e5d558add828b9a7bc5011aa9cc8a45febfc8",
+    "scripts/performance.sh": "88b2b22593a38113cd9d27bbd3a847cb617812665f86d80702b6d4526d7933f4",
+    "scripts/profile_no_show_hook.pl": "9366550ed2b32a0f5c5fa1f1c7144688e4a9aeac362ef66c7e30b34c55e0a1ce",
+    "scripts/profile_petta.sh": "57316547196e9dee8198698f87ca884e222abcf7b6dfec2849acbe4c8f363ce2",
+    "scripts/strict_check_metta.sh": "2567327efd4ca49a96635a57b79c295e68ea4dad77978d5872678f82a80d1aae",
+    "scripts/test_metta.sh": "c7efce2488e8a55c3661f1724d89573040fb742c0243a7114ad36fe00068e4fa",
+    "scripts/verify.sh": "393a9bbe33ef46b2af062f606e2e6a36bb00b9f7b0c7a283b77d8c42bccc4765",
+    "tests/__init__.py": "ca29bf9437f206964426695a09a2d8a24acee61f685432bf5c14f84681bc6dab",
+    "tests/metta/repro_petta_ax_k_revision.metta": "46527546912f67f239b889a97acb9be96e0c665894106407917022ac8aaddd85",
+    "tests/metta/test.metta": "11ba4f70a7e3d4aed1bd2445be4a65dd9a182be6ac27e208a2930ed69932ab6d",
+    "tests/metta/test_antecedent_completion.metta": "dc48261512043bed4a957b2ed1bcd6ff4074e6368e5c0777657585374d46c235",
+    "tests/metta/test_backward_dag_helpers.metta": "fa7da3960e466ac0daaf23209e218b6138a20238027ff0c716a59da0e09ae82b",
+    "tests/metta/test_backward_open_query_results.metta": "767b93b842ce7ef738d9e1dfbc6105fce698c453141b953a5d6b86077fcee7d0",
+    "tests/metta/test_backward_query_metrics.metta": "641ec8021ab0a3c1a231ce4f93c312de26895e90cddfbc3d3ac15c064b66bcbf",
+    "tests/metta/test_base_rate_cache.metta": "c6176b8abed334ebb1348a756111db8d59a3e10fb2c5da4863cd449843ec4d9b",
+    "tests/metta/test_benchgen_metta.metta": "c4a943c25aa97b69c7a37fe5941a419bf9e566bc6eb1a12f942c6344f2462b9e",
+    "tests/metta/test_best_first_runtime.metta": "e907a4450231d473b2e85be8e5170cf642134cbad02e80cd32b37feaf1337400",
+    "tests/metta/test_chainer_add_atom.metta": "aae7ff90f18baf29dbb549b3b45ccaf439c562e5e11d7a56e4b0643a96d65b0b",
+    "tests/metta/test_compute_inversion.metta": "e3b39b1ecb5b6a1ba33b4d66449875e30b02c40963430bf07c13c936c5825c63",
+    "tests/metta/test_consumer_delivery.metta": "675099315c5d3cb154b00bc16d9427e9a8ccb5650379346daf0eb0d09a7b4956",
+    "tests/metta/test_consumer_path_lifetime.metta": "7957d3d76b1a3deb663462314b4a0aa80ccbd1686b42f3afcbd3bd97ecf8a6da",
+    "tests/metta/test_consumer_views.metta": "4640fd12cd9d25642358a5c7b95e486af4884a853c143e0f64c4e664af216e3d",
+    "tests/metta/test_demand_invalidation.metta": "12902986a92cbc330dce4b79b0389656e0b5db83f21041d57495358887e3ff68",
+    "tests/metta/test_direct_compound_fact.metta": "10ae70e9b21f120d0659a50409fe6703bad9256586d54bac88237038d9dcc1a1",
+    "tests/metta/test_dispatch_determinism.metta": "595780007272369e890e732aaf77a02885b1b7131e399025d631c03cea23f850",
+    "tests/metta/test_distribution_values.metta": "1708d40ffc26a5dc297408291573aaf5500e8039d9d3beb3695717c55422c1f7",
+    "tests/metta/test_empty_member_inheritance_cache.metta": "47098b0780f7f38c3dc35f5ea752694b6ef5d58b63e3fbcb10ae2603e9c92af7",
+    "tests/metta/test_evidence_semantics.metta": "02c0edfdc16e5e40f0dc2f55841eaee7cafc6eeb1e6aa91e13753ffb63d57582",
+    "tests/metta/test_explicit_exists.metta": "7a8d1ba386a836655ff02c703129a42bf6eb0647452f123fd8523c5c801c5b61",
+    "tests/metta/test_foldall_merged_outputs.metta": "e361e5304956c09500fd2e3a18d8fc53711b6940cc27d6877fe7cf63f73ea7a3",
+    "tests/metta/test_foldall_query_goal.metta": "a780f2841b63fb39a6b113a8aec2e59014b44b561a8cf77f13c0d5cfe79c074d",
+    "tests/metta/test_forward_backward_compose.metta": "9dfd448737b8fc3cc211c76e40dc939aecfd552a25f73ab06149b0eddab03e12",
+    "tests/metta/test_forward_chainer.metta": "418d3ee6237164406b730161c76df89f34355c66c21aff37ec928dc2ee679033",
+    "tests/metta/test_forward_incremental_base_rates.metta": "45c699d188174bd08ebdc03a99a01ffabbe45fcd6b9aec065f6258a262a9df33",
+    "tests/metta/test_forward_incremental_member_inheritance.metta": "a90f2b89a8784553f058995339fe5f3f6f62f13c533108f1e05cba05e2a9f938",
+    "tests/metta/test_frontier_pooling.metta": "bbededf88d58d21d00798b138919eef6ed63a69c1dc575c945c02181d084fc76",
+    "tests/metta/test_goal_constraint_identity.metta": "58ebd85074e62eb6e998901a265f27a389b3d4ec66ddd5f1cf40fea9652488e6",
+    "tests/metta/test_goal_shallower.metta": "6bee2e572b9e600ca1e620fd88d980e878850ddcbde3097c64f79251e9d99c43",
+    "tests/metta/test_height_average.metta": "2095dfe0708faeafc431faa3bc150fc630e587b2e8bfdad8ed7dca4f1f17a50b",
+    "tests/metta/test_idealized_confidence.metta": "d5eabc7e09fe9770c1f2505f27ee1caf459e8e3489bffd64cd49104e750ed124",
+    "tests/metta/test_implication_inversion.metta": "568688f91b547318fe24094749d94e6595882cfa727514dad4a52eae1b6edaa9",
+    "tests/metta/test_implication_premise.metta": "e42a2929ac7712a6a661b9a53088d1660d8e56e3030cc87278ef1ccb5d1afe2a",
+    "tests/metta/test_inheritance_aggregate_cycle.metta": "21a047e0ccc987f06978552db80f3ae404b43d800458d9119797a21f780c90d5",
+    "tests/metta/test_inheritance_query_proof.metta": "2bbab88e8348fcbb7eeb4f1cc3a459652436d4993efc37d09197e09a9e2d53f2",
+    "tests/metta/test_inverse_compound_adapters.metta": "de33539c34b76c8a4217275cb4eb667de3aff63db41ab4ee8ca17a3d60ef091b",
+    "tests/metta/test_lazy_proof_refresh.metta": "954e33223eaa084d09b2766dc0e4defb5552e660c37852150a8f460afaa5f017",
+    "tests/metta/test_lifting_merge.metta": "16d7f436ff4ae4e7695a8e6581a73343509b910904581378b11d044949509197",
+    "tests/metta/test_logic_config.metta": "2458547e3b1e880d9f90fbcfabd78f9b4066fc994feee98a6c8df5865d45d6c7",
+    "tests/metta/test_math.metta": "00b9b4ccacdaaf31e25a463bf4774ade4d11e7e938c3938329ef0ba262470943",
+    "tests/metta/test_member_compat.metta": "9c9dc8ff40eb8f82873896a92311c1985ef5e2c1b212cdce1544978db17599cc",
+    "tests/metta/test_member_concept_node.metta": "e21ce204b1529b207d68521f0f953994c4a7602f47754f4bb4a6fd0f0ff72298",
+    "tests/metta/test_member_inheritance_premise.metta": "a8b056c1fd92249a3d2263039df539073a9ebd75b232ff5e3c7a00e2f1d095ef",
+    "tests/metta/test_merged_subgoal_rule_application.metta": "ef59da3aa7be16610cb20f486eeb827c944a4f57abd86e0d22fca3fabd3edb04",
+    "tests/metta/test_module_boundaries.metta": "cc4551d80b7c0934ceb4e2b9caf20c5a78c7945eb2b0e96a3450e0462c3c9931",
+    "tests/metta/test_multi_root_query.metta": "4edeb029183b9ad9e3c9adfeb3c5340d684fa4294466f27598d9698a8f47b296",
+    "tests/metta/test_nary_conjuction.metta": "8543088e4c43cddb89b4fcdeca761e0b6d947c8b0827cd42eb5c1b5860936830",
+    "tests/metta/test_negated_evidence_merge.metta": "cc83ebf7fdb48c8c355a5575ac38128f3dde4b389a3fc41991c8c4758c9f98f5",
+    "tests/metta/test_negated_facts.metta": "cc99bee33c79a4d8b12721301e58e1dfdf2f4fcff5aad337479eb8424e8b8b16",
+    "tests/metta/test_numeric_pattern_dist.metta": "e36ca1a8196e12fbfd656d86f19a97cbcbc2bea0707a8ba5f06958d77fb30165",
+    "tests/metta/test_or_inversion_conditioned_merge.metta": "3f6c819f52e6aa1d48981aeb90e4f8edb3bae131fd796aa6e7996d6e8cad89e5",
+    "tests/metta/test_particle_values.metta": "bd90bea192ae6b11ee40adadcd06bfee74133adc6eabff7172d3dcdf2d5678fa",
+    "tests/metta/test_proof_dependency_memo.metta": "e43c2d6b7962ae918a6add2a1babadc8e4e37f1725fdf352ce6bcf62b6fbef0c",
+    "tests/metta/test_proof_reduction_lifecycle.metta": "2140cef45a0707cb5aa08a8dc976b0cffba9a309093e70319cc1471be546c1a3",
+    "tests/metta/test_proof_state_history.metta": "8041ef015796744a8c420db4fae70b95088b1e6971bd2daa31fb65d3d80d9790",
+    "tests/metta/test_query_adds.metta": "9dce8f72f335221ae340ecdb486ede2be5bae01768b96deaa42caaddee08ce1d",
+    "tests/metta/test_query_compute_in_compound.metta": "4a3cf3d118fb25a470c7354d0c6c30d8af9d6858c9fb027ad4531635a23f96cf",
+    "tests/metta/test_query_materialize.metta": "575d80fd56975b037c8e316a5f799d458f5e07b98c63ac7359e1af2bdf12c0db",
+    "tests/metta/test_rectangle_area.metta": "fabffc1f409a35a9955a3e361cca5a4f96fc96ed8543965115607b536fd53cfa",
+    "tests/metta/test_specializing_rule.metta": "23e739363a9f782a3933ad9551d86076aa38b137d6eb6a688db1b7475dfc0ca2",
+    "tests/metta/test_structural_conclusion_prefilter.metta": "b7f81979de6fb8ee9e33f6a058293a25e78bd756d344438e4feada9dd764a10d",
+    "tests/metta/test_stv_implication_derived_ctv.metta": "320d985ec568ab3c6ecc7818c413a93fab58c30ab8e6c587a7ea31b38c0e4f9b",
+    "tests/metta/test_total_implication_aggregate.metta": "88f080301b598b8c305f1c20572ad3b3b5f78983d013a0bbf8b5ccba0a02dbea",
+    "tests/metta/test_uniform_prior.metta": "80184d651c8452422fb49b9cf0467b30b9d067897bce77137d2ca3e04a113a6c",
+    "tests/metta/test_var_head.metta": "5c3164dc8002e12fcd4f5974c9b985bdaec167979ad6066a6bce7adc25ec906f",
+    "tests/test_base_rate_acceptance_game.py": "b6804fbcb1f184ca5243433b0276f072214e3263057f2ba3ce8ec34f774f1628",
+    "tests/test_benchmark_support.py": "60d9ab420860ec457c2fc2c98c04fd72f9caca9b54df9e33deeeb3b6eebf92fd",
+    "tests/test_forward_benchmark.py": "0de696e9d249d027dfa37b9b0e71567a36de099f11837cf730922f29dbc2cf89",
+    "tests/test_metta_runner.py": "09acb44db8e60387113e6cf00801ea1d6fa114a4ea1e9dc7875f8f9b2c2af0ac",
+    "tests/test_particle_merge_benchmark.py": "7e27c81617b2614fb92da8151cca067ec01335db0bb7d88e20fcb2d640acee55",
+    "tests/test_pettachainer.py": "b14736f477f83892d6f4b5004a7aee2704435ef6330aa90e6868659c3cb03dd5",
+    "tests/test_pln_validator.py": "715c82a051e75aa6e7706f01aa702fdae812f9ecbcc6d059eef08da6e6df9638",
+    "tests/test_runtime_benchmarks.py": "1ace90df391d367299069581b9190c133b749e981864ba47837985c9368e02e6",
+    "tests/test_stationops_quality_gate.py": "f9152bde2ae955006ad1a66ed1393d38bf254d66537b977e9bad0f1a0d27996c",
+    "tests/typechecker_repros/README.md": "85346c69b1eb5c070a3b288465dac1777a6b321816f6f2a8a5f42e2bb420f387",
+    "tests/typechecker_repros/brand_after_control_flow.metta": "4036a24be371b1dddd13b68c65592373957ccbc5a9c39010324e992c56b2b43c",
+    "tests/typechecker_repros/car_atom_after_collapse.metta": "f7a6a9443b31722e0a9296c6cd143bec9627aeeaa6623130c2e3cbfb39bbb152",
+    "tests/typechecker_repros/case_structural_union.metta": "cf00db40ca90e4c520fc389b4aa409a44ee8cfdc94a4252b21083d9a66352f19",
+    "tests/typechecker_repros/det_add_atom_expression.metta": "26bbf6f7cfbbe3722fbf8b44540b2a00dae451a1648962236b483d9a0ec71829",
+    "tests/typechecker_repros/det_and_bool.metta": "eaf6efac7ec091b732ceeab35f42757caa429bdda58693d3fcff73472530ed40",
+    "tests/typechecker_repros/det_bool_call_operand.metta": "d51d839f7da9e681b6a6f2fa57acf55e0a1b4d7ca668f947048d6a40e20aa25c",
+    "tests/typechecker_repros/det_callpredicate_assertz.metta": "a15bef512278b2bd1eafae79872c858e9d0b7f3f129e31cf267dd98f77826997",
+    "tests/typechecker_repros/det_callpredicate_erase.metta": "94eee2f76e0cfcd4e001fce3b36fd23b5b04321e4a31f9a27ffe19f629a0f815",
+    "tests/typechecker_repros/det_collapse_union_bound_list.metta": "c40785385764c983491e36899640bdc9e81f8c6883226d248adc875e5d8daab7",
+    "tests/typechecker_repros/det_forward_mutual_bool_operand.metta": "c94b2f3b28e9629d12127e57990fd18d7fecf6840a6826d82177b36db629f8b1",
+    "tests/typechecker_repros/det_is_member_concrete_list.metta": "6bd929b5166f496699bcbd31e66373a29beca798cb767a734d624df1ce0147a4",
+    "tests/typechecker_repros/det_min_computed_nonempty.metta": "e04846b3d28cf9c398a0b4f2cbd6e1eff3b9bc6c7dc01e1f5a028c5a3ba12b1e",
+    "tests/typechecker_repros/det_mutual_bool_output.metta": "2501fc7fff8c5538ad98925473368258f04fe561beef649462ac2a297ce71168",
+    "tests/typechecker_repros/det_nested_bool_operand.metta": "93b56c95a74c1fb94b234932a239d0cd610cacf9bc3300a4c0707b60fd532a68",
+    "tests/typechecker_repros/det_nominal_pattern_if.metta": "bf1806351002d3e86da07b364ff2b212fd7129bfeae5b3106fd458d1c382ba05",
+    "tests/typechecker_repros/det_nonempty_collapse_binding.metta": "3ad34932637216b2ef3d32e54d31c2947c4e91e60666e7ab39f2a05e8e98b751",
+    "tests/typechecker_repros/det_nonempty_collapse_let_star.metta": "ccf1b11c43df44e0c5665506cc0a7e18a84b697d0ed273850ecc9aa9071929a2",
+    "tests/typechecker_repros/det_nonempty_min_atom.metta": "dab7f22e2655a93fa47922e88b0c9c19a2499783cb28f2450c429b0703c7d4ae",
+    "tests/typechecker_repros/det_nonempty_semidet_branch.metta": "61fe998e75dd2b3dedfd204cd28ae724ac6879fe83cba1e8a32ad4fb3d2ac716",
+    "tests/typechecker_repros/det_not_bool.metta": "42642614fb42fc3877e16fcbdb393e3a08861aea6f89e263697833f9bdc9b099",
+    "tests/typechecker_repros/det_or_bool.metta": "677e88a9aef73d008b6647a2be1da8864b6751a860e585416481f9440695ae87",
+    "tests/typechecker_repros/det_remove_atom_typed_expression.metta": "35265d275de195bd498063ba8097dbf48ff556922455b9517c01b12057c9281c",
+    "tests/typechecker_repros/foldall_compileadd_timeout.metta": "84c6244b5529186b76f69a7b9788b020e1677bc69503b96e331858d975eab82b",
+    "tests/typechecker_repros/if_union_subtraction_variable_head.metta": "75d0ba107b94d55da95a7429d0ada0ad9985c4a96667ce473fb2529f0071a6d8",
+    "tests/typechecker_repros/import_only_control.metta": "0d1d94e25293bed3c1c8840edb20387ed178beed9513902b572a907eed6ddee6",
+    "tests/typechecker_repros/malformed_import_missing_paren_defs.metta": "738e730c0d8d3a020a5990b9f1dfea57b382820d1b4cd589045f3af85ac4c720",
+    "tests/typechecker_repros/malformed_import_missing_paren_main.metta": "2d2c03c3efe221f2eae66bea415c9adb07297a35374d59dc537f7033411a31c3",
+    "tests/typechecker_repros/mixed_list_atom_widening.metta": "d1fbc0a14afeec835c3c1d93a783ede3818684ff1087450d4772cf738bf92808",
+    "tests/typechecker_repros/named_union_alias.metta": "35200e653dc17f61307897f4c7955be89f35c9bd7a5688a6653c340d1bfb78a7",
+    "tests/typechecker_repros/nested_constructed_tuple_case_newtype_field.metta": "71f7958649003f930693725e13be42e7a371ef05be49a6f50aac0efc47e0fc8a",
+    "tests/typechecker_repros/nested_nominal_call_argument_not_reduced.metta": "8eb9c87bd76514ed933bbd8430719e3e8e3d31d7edba8729cde5c53d51b96b0a",
+    "tests/typechecker_repros/outer_brand_case_open_fallthrough.metta": "6326b5a71de0d6b0cbb5ccfefc0660c6f227166561212b3115364cac8e01ab67",
+    "tests/typechecker_repros/outer_brand_let_binding.metta": "997c36f798d82ebf72cd74dc6f0a528c42e8957ecea4c7a018306be3da607ebc",
+    "tests/typechecker_repros/semidet_nested_arguments.metta": "e02ce500c1bca8aba1161fec6625fcb4e35d19a906d34b705dbded4d632256fb",
+    "tests/typechecker_repros/strict_lib_import_missing_types.metta": "16ea7b3f3bab8844520e07187dbdcecfddb0ec1f2f8cfbed86edc7fcf83e77ce",
+    "third_party/metta_lowering/README.md": "d8c6185022ae86b83f501a3487557d8567ad26cbaeb9e942f2b208743a36327e",
+    "third_party/metta_lowering/metta/runtime_encoding.metta": "80d7af49d5b02706192d02f023f6c11b04c21425aeee4bfef656dc348810d749",
+    "third_party/metta_lowering/metta/source_lowering.metta": "158d8f971cd79b0b149f0c9be5c1f486c9bd19ad4497876edf8c5c1b94fa72e2",
+    "third_party/metta_lowering/tests/test_rule_query_pattern.metta": "52266d1721ea295d92ddb650cd20cf2f3705dd39428a6554aa25a1b84f3f8a6d",
+    "third_party/metta_lowering/tests/test_variable_extraction.metta": "2fe0e70ed32fdf91f3db6a4e75261a72a24871628b0a697f10279fc4fdcd22d4",
+    "third_party/pln_formulas/README.md": "f80e25d1bc7341d283f5ace879a7adeb5891caac539bff4845a5d444c5481178",
+    "third_party/pln_formulas/metta/compute_inverse.metta": "cdc9b865a5b86cba02478bd5010304bdd3d258df2684c6cc12bd0a037395472d",
+    "third_party/pln_formulas/metta/distributions.metta": "01942985240d810115997024ff5fe63577e7d3469f62c7d005d9d9fa88adb628",
+    "third_party/pln_formulas/metta/truth_values.metta": "027fa8ee63e057d50c6c8f57b711dae01867ae4f5df56ca063824b7632bc46a2",
+    "tools/metta-linter/metta_linter.metta": "8c08f6471de07b691f9b551843ca63879258804d26e225b0af5f2f3b7e79adcd",
+    "tools/metta-linter/metta_linter_source.pl": "13388b51a44d6ae08936d2281a1f3cca3d2f85015eb672e2adbd0cef87430452",
+    "tools/metta-linter/metta_linter_todos.md": "4b31088bf2873711f507a2e053efd51b5505dc14bb40acc52ccd89ef89739b35",
+    "tools/metta-linter/tests/fixtures/lint_sample.metta": "069e7f5ff45e2310698dc5194eb11c564d075af5b3425601a4942595bb56a65a",
+    "tools/metta-linter/tests/test_metta_linter.metta": "4ab81dfb3abaad0840379b61de6a4695e3e6027f5e98290de698bf50e94a3a0d",
+    "uv.lock": "0082d84f417dedc5fe2a847fe2ff39fa62324e8d987731c5ae393bf9c0a553da"
+  },
+  "artifact_roots": [
+    "/tmp/exact-demand-combined",
+    "/tmp/exact-demand-combined-development",
+    "/tmp/exact-demand-combined-validation"
+  ],
+  "durable_evidence_archive": "scratch/priority-causal-audit-2026-09-09/waiter-demand-index-validated-evidence.tar.gz in the original checkout",
+  "scope": "Behavior-preserving bookkeeping optimization relative to parent68; older historical coverage and accuracy deficits remain. No held-out workloads consumed.",
+  "coverage_note": "Raw belief coverage remains 100% for seed7 and 50% for seeds11/23 on both shifts; decision coverage remains 100% on these workloads."
+}
