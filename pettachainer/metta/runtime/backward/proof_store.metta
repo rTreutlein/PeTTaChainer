@@ -202,10 +202,32 @@
 (= (materialize-kind (rule $term) $pid) (let $prf (rule-proof-token $term) (if (== $prf $term) $prf (let $rule-prf (materialize-rule $prf $pid) (normalize-rule-proof $rule-prf)))))
 (: materialize-proof (-[semidet]-> Number Proof))
 (= (materialize-proof $pid) (once (match &proof (stored-proof-row $pid $_owner $_output $kind $_support $_children) (materialize-kind $kind $pid))))
-(: satisfies-goal? (-[semidet]-> Number (| Goal (Statement KBContext Proof TV)) Bool))
-(= (satisfies-goal? $pid $goal) (let* (($result (materialize-result (proof-output-atom-by-id $pid))) ($result-copy (copy_term $result)) ($goal-copy (copy_term $goal))) (if (= $goal-copy $result-copy) true false)))
+;; Durable proof rows do not change, but a goal row can gain constraints when
+;; a shallower occurrence is registered. Reuse compatibility only for the same
+;; complete goal pattern, including its proof, TV, and variable sharing.
+(: satisfies-goal? (-[semidet]-> Number Number Bool))
+(= (satisfies-goal? $pid $gid)
+   (let* (((stored-goal-row $_gid $_depth $goal $_expanded $_pending)
+              (goal-by-id $gid))
+          ($cached (collapse (once (match &proof_goal_eligibility
+             ($pid $gid $saved-goal $compatible)
+             ;; Native variant equality preserves attributed constraints;
+             ;; MeTTa's =alpha deliberately ignores them.
+             (if (not (== (collapse (callPredicate
+                       (Predicate (quote (=@= $saved-goal $goal))))) ()))
+                (the Bool $compatible) (empty)))))))
+      (case $cached
+         ((() (let* (($result (materialize-result (proof-output-atom-by-id $pid)))
+                     ($result-copy (copy_term $result))
+                     ($goal-copy (copy_term $goal))
+                     ($compatible (if (= $goal-copy $result-copy) true false))
+                     ($saved-goal (copy_term $goal))
+                     ($_store (once (add-atom &proof_goal_eligibility
+                        ($pid $gid $saved-goal $compatible)))))
+                  $compatible))
+          ((cons $compatible $_rest) $compatible)))))
 (: indexed-goal-pids (-[semidet]-> $space Number (List Number)))
-(= (indexed-goal-pids $space $gid) (let* (((stored-goal-row $_gid $_depth $goal $_expanded $_pending) (goal-by-id $gid)) ($key (brand ProofGoalKey (goal-key $goal))) ($hash (index-hash $key))) (collapse (match $space ($hash $saved-key $pid) (if (=alpha $saved-key $key) (let $saved-pid (stored-number $pid) (if (satisfies-goal? $saved-pid $goal) $saved-pid (empty))) (empty))))))
+(= (indexed-goal-pids $space $gid) (let* (((stored-goal-row $_gid $_depth $goal $_expanded $_pending) (goal-by-id $gid)) ($key (brand ProofGoalKey (goal-key $goal))) ($hash (index-hash $key))) (collapse (match $space ($hash $saved-key $pid) (if (=alpha $saved-key $key) (let $saved-pid (stored-number $pid) (if (satisfies-goal? $saved-pid $gid) $saved-pid (empty))) (empty))))))
 (: goal-proof-ids (-[semidet]-> Number (List Number)))
 (= (goal-proof-ids $gid) (indexed-goal-pids &proof_goal $gid))
 (: owner-key (-[semidet]-> Number ProofGoalKey))
@@ -347,10 +369,10 @@
 (= (reverse-number-list $items) (reverse-into $items ()))
 (= (reverse-into () $acc) $acc)
 (= (reverse-into (cons $item $rest) $acc) (reverse-into $rest (cons $item $acc)))
-(: current-proof-step (-[semidet]-> (| Goal (Statement KBContext Proof TV)) (List Number) Number (List Number)))
-(= (current-proof-step $goal $acc $pid) (if (satisfies-goal? $pid $goal) (cons $pid $acc) $acc))
+(: current-proof-step (-[semidet]-> Number (List Number) Number (List Number)))
+(= (current-proof-step $gid $acc $pid) (if (satisfies-goal? $pid $gid) (cons $pid $acc) $acc))
 (: goal-live-proof-ids (-[semidet]-> Number (List Number)))
-(= (goal-live-proof-ids $gid) (let* (((stored-goal-row $_gid $_depth $goal $_expanded $_pending) (goal-by-id $gid)) ($key (brand ProofGoalKey (goal-key $goal)))) (reverse-number-list (proof-fold-flat-semidet (current-proof-step $goal) () (current-proof-ids-for-goal-key $key)))))
+(= (goal-live-proof-ids $gid) (let $key (proof-goal-key-by-goal-id $gid) (reverse-number-list (proof-fold-flat-semidet (current-proof-step $gid) () (current-proof-ids-for-goal-key $key)))))
 (: alternative-proof-ids-for-goal-key (-[semidet]-> ProofGoalKey (List Number)))
 (= (alternative-proof-ids-for-goal-key $key)
    (let $hash (index-hash $key)
@@ -363,12 +385,11 @@
    (let $cached (collapse (once (match &goal_source_cache ($gid $revision $pids)
          (the (List Number) $pids))))
       (if (== $cached ())
-         (let* (((stored-goal-row $_gid $_depth $goal $_expanded $_state) (goal-by-id $gid))
-                ($key (proof-goal-key-by-goal-id $gid))
+         (let* (($key (proof-goal-key-by-goal-id $gid))
                 ($sources (append-flat (alternative-proof-ids-for-goal-key $key)
                    (current-proof-ids-for-goal-key $key)))
                 ($pids (reverse-number-list (proof-fold-flat-semidet
-                   (current-proof-step $goal) () $sources)))
+                   (current-proof-step $gid) () $sources)))
                 ($_old (remove-atom &goal_source_cache ($gid $_revision $_pids)))
                 ($_store (add-atom &goal_source_cache ($gid $revision $pids))))
             $pids)

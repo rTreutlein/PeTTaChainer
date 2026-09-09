@@ -30,7 +30,7 @@
           &fold_source
           &frontier_path &frontier_path_lookup &frontier_path_child
           &frontier_path_dead &proof_frontier_path
-          &proof_cycle_cache &proof_revision
+          &proof_cycle_cache &proof_goal_eligibility &proof_revision
           &frontier_view_lookup &frontier_selection_cache &goal_source_cache
           &frontier_delivered &proof_derivation_hash))
       ()))

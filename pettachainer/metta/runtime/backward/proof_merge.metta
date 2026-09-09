@@ -205,7 +205,7 @@
 (: proof-output-group-representative-pids (-[semidet]-> Number (List ProofOutputGroup) (List Number)))
 (= (proof-output-group-representative-pids $gid $groups) (let $gkey (proof-goal-key-by-goal-id $gid) (map-semidet (representative-for-key $gkey) $groups)))
 (: live-output-pids (-[semidet]-> Number ProofOutputKey (List Number)))
-(= (live-output-pids $gid $key) (let* (((stored-goal-row $_gid $_depth $goal $_expanded $_pending) (goal-by-id $gid)) ($gkey (proof-goal-key-by-goal-id $gid))) (reverse-number-list (proof-fold-flat-semidet (current-proof-step $goal) () (current-output-pids $gkey $key)))))
+(= (live-output-pids $gid $key) (let $gkey (proof-goal-key-by-goal-id $gid) (reverse-number-list (proof-fold-flat-semidet (current-proof-step $gid) () (current-output-pids $gkey $key)))))
 ;; The published result is the unconstrained estimate. Consumer selections
 ;; own path replacement; refreshing this estimate does not invalidate them.
 (: refresh-result! (-[semidet]-> ProofGoalKey ProofOutputKey (List $none)))
@@ -213,7 +213,7 @@
 (: refresh-dirty! (-[semidet]-> ProofGoalKey (List (List $none))))
 (= (refresh-dirty! $gkey) (map-semidet (refresh-result! $gkey) (dirty-keys $gkey)))
 (: goal-merged-proof-ids (-[semidet]-> Number (List Number)))
-(= (goal-merged-proof-ids $gid) (let* (((stored-goal-row $_gid $_depth $goal $_expanded $_pending) (goal-by-id $gid)) ($key (proof-goal-key-by-goal-id $gid)) ($_refresh (refresh-dirty! $key))) (reverse-number-list (proof-fold-flat-semidet (current-proof-step $goal) () (result-ids $key)))))
+(= (goal-merged-proof-ids $gid) (let* (($key (proof-goal-key-by-goal-id $gid)) ($_refresh (refresh-dirty! $key))) (reverse-number-list (proof-fold-flat-semidet (current-proof-step $gid) () (result-ids $key)))))
 (: goal-merged-proof-id-for-pid (-[semidet]-> Number Number Number))
 (= (goal-merged-proof-id-for-pid $gid $pid) (let* (($gkey (proof-goal-key-by-goal-id $gid)) ($okey (output-key $pid)) ($_refresh (if (result-dirty? $gkey $okey) (refresh-result! $gkey $okey) ()))) (current-proof-result-id-for-output-key $gkey $okey)))
 (: output-covered? (-[semidet]-> (List Number) Number Bool))
