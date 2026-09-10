@@ -86,7 +86,7 @@ tests passed (`python -m unittest tests.test_stationops_quality_gate
 tests.test_benchmark_support -v`). No runtime code changed in this follow-up,
 so the MeTTa suite was not rerun. Full inputs, returned proofs, metrics,
 environments, and gate output are retained in
-[the result artifact](../../benchmarks/stationops/original-quality-results-2026-09-09.json).
+the result artifact, `original-quality-results-2026-09-09.json` (removed from the tree to keep it small; retrieve it with `git show 3ada65a7:benchmarks/stationops/original-quality-results-2026-09-09.json`).
 Raw logs and the frozen-source driver remain in local
 `scratch/original-quality-2026-09-09/`.
 

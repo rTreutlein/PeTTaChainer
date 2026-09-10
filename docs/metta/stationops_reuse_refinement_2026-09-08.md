@@ -160,7 +160,7 @@ exact committed archive. ChainerGame revision:
 pre-existing untracked `.claude/`, `baseline_agenda_incumbent.json`, and `tmp.txt`
 were excluded. Master remains unchanged.
 
-The [compact evidence](../../benchmarks/stationops/reuse-refinement-results-2026-09-08.json)
+The compact evidence, `reuse-refinement-results-2026-09-08.json` (removed from the tree to keep it small; retrieve it with `git show 205ef1ac:benchmarks/stationops/reuse-refinement-results-2026-09-08.json`),
 contains the final runtime patch, exact local drivers, all diagnosis answers,
 metrics, environments, and validation logs. Raw files are retained locally in
 `scratch/stationops-reuse-2026-09-08/`. To reproduce locally, archive the named

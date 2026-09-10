@@ -209,7 +209,7 @@ repository-pinned runtime. Local master is
 The starting tree had only the pre-existing untracked `.claude/`,
 `baseline_agenda_incumbent.json`, and `tmp.txt`; these are untouched.
 
-The [machine-readable evidence](../../benchmarks/stationops/consumer-views-results-2026-09-09.json)
+The machine-readable evidence, `consumer-views-results-2026-09-09.json` (removed from the tree to keep it small; retrieve it with `git show 77ed45a2:benchmarks/stationops/consumer-views-results-2026-09-09.json`),
 contains both shifts of every run, metrics, answers, relevant seed-7 proof rows,
 the source patch, benchmark runner, and validation logs. Apply
 `consumer-views.patch` to an archive of `c0cd54e3` for the tested implementation;

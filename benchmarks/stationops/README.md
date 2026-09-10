@@ -37,6 +37,11 @@ comparisons that cross intentional reasoning changes may therefore fail
 the semantic gate as well as the performance gate. Inspect the retained
 results instead of treating equal scores as proof of equivalence.
 
+Committed result files in this directory are compact summaries. Raw evidence
+larger than about 150 KB is not kept in the tree: the reports under
+`docs/metta/` name the commit that introduced each removed file, and
+`git show <commit>:benchmarks/stationops/<file>` retrieves it.
+
 For future changes, compare against both the preceding validated revision and
 a fixed baseline. This expensive application benchmark is separate from
 `scripts/verify.sh`; passing that script does not establish StationOps

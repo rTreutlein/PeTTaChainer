@@ -167,7 +167,7 @@ The baseline had only the pre-existing untracked `.claude/`,
 `baseline_agenda_incumbent.json`, and `tmp.txt`. Runtime source in the working
 branch and local master remain unchanged by this experiment.
 
-The [machine-readable evidence](../../benchmarks/stationops/consumer-delivery-results-2026-09-09.json)
+The machine-readable evidence, `consumer-delivery-results-2026-09-09.json` (removed from the tree to keep it small; retrieve it with `git show c0cd54e3:benchmarks/stationops/consumer-delivery-results-2026-09-09.json`),
 contains the complete final patches, focused fixtures, failing path probe,
 runner, selected proof/goal/waiter stores, metrics, and validation logs. Apply
 `fallback.patch` to an archive of `b4d6ee51` for delivery alone; additionally

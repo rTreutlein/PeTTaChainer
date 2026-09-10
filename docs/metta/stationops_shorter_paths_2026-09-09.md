@@ -152,7 +152,7 @@ is `502d08ba468480093d22e710db17f21ab4c3ac59`. The production working tree and
 master are unchanged. Pre-existing untracked `.claude/`,
 `baseline_agenda_incumbent.json`, and `tmp.txt` were excluded.
 
-The [compact evidence](../../benchmarks/stationops/shorter-path-results-2026-09-09.json)
+The compact evidence, `shorter-path-results-2026-09-09.json` (removed from the tree to keep it small; retrieve it with `git show b4d6ee51:benchmarks/stationops/shorter-path-results-2026-09-09.json`),
 contains the final patch, focused tests, drivers, environments, diagnosis
 answers/counters, selected proof stores, cycle-check results, and validation
 logs. Full raw stores and logs remain locally in

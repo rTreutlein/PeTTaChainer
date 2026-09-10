@@ -182,7 +182,7 @@ so a solution must preserve that invariant and validate queue freshness and
 coverage on generic shared-goal cases. No extra coefficient or game-specific
 priority is justified by these results.
 
-The [compact evidence](../../benchmarks/stationops/refinement-trace-results-2026-09-08.json)
+The compact evidence, `refinement-trace-results-2026-09-08.json` (removed from the tree to keep it small; retrieve it with `git show 135fca5e:benchmarks/stationops/refinement-trace-results-2026-09-08.json`),
 contains exact revisions, per-run environments, answers, metrics, selected goal
 traces, source patches, drivers, and the full MeTTa suite log. Raw per-run JSON
 and logs are retained locally under

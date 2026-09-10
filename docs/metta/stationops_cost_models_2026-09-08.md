@@ -113,7 +113,7 @@ not match in the space, so they were no-op trials. The final probe uses a tuple
 marker, asserts activation before diagnosis, and records issued costs. The
 final version also includes explicit cost freshness in the claim path.
 
-The committed [compact results](../../benchmarks/stationops/cost-model-results-2026-09-08.json)
+The committed compact results, `cost-model-results-2026-09-08.json` (removed from the tree to keep it small; retrieve it with `git show 454564c4:benchmarks/stationops/cost-model-results-2026-09-08.json`),
 include metrics, normalized proof hashes, operation statistics, source patches,
 and probe drivers. Full raw JSON, logs, and probe sources are retained locally
 under `scratch/stationops-cost-models-2026-09-08/`.

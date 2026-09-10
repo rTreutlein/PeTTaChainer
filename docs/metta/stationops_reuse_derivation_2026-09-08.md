@@ -139,7 +139,7 @@ Treating the entire difference as evidence that refinement is harmful would
 miss the history-dependent scheduling failure. No production code, depth
 coefficient, truth-value formula, or public API was changed in this investigation.
 
-The [compact proof evidence](../../benchmarks/stationops/reuse-derivation-results-2026-09-08.json)
+The compact proof evidence, `reuse-derivation-results-2026-09-08.json` (removed from the tree to keep it small; retrieve it with `git show ca15dd98:benchmarks/stationops/reuse-derivation-results-2026-09-08.json`),
 contains all root-proof ancestry, relevant goal snapshots, crossed settings,
 answers, metrics, and read-only dump driver. Full raw stores and logs are local
 in `scratch/stationops-derivation-2026-09-08/`. The runtime is the unchanged
