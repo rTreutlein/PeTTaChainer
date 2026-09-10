@@ -1,0 +1,451 @@
+{
+  "plan": {
+    "baseline_commit": "4a9593dd5eea83f3ba0277f8fe4d216b9033a5e9",
+    "candidate_commit": "a4ea17453c22256d24c9e1307a6e3457da1e02d2",
+    "runtime_commit": "e1aac8b791cf70b7843173b613f04b869b666979",
+    "game_commit": "99fc56e4ddd0d718f00e494146b0ff1884e5fc5e",
+    "roots": {
+      "baseline": "/tmp/pettachainer-verified-measurements/baseline",
+      "candidate": "/tmp/pettachainer-verified-optimizations",
+      "runtime": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/runtime-supported",
+      "game": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/consumer-cleanup-rerun-2026-09-09/game"
+    },
+    "workloads": [
+      {
+        "seed": 7,
+        "budget": 600,
+        "order": [
+          "baseline",
+          "candidate"
+        ]
+      },
+      {
+        "seed": 11,
+        "budget": 300,
+        "order": [
+          "candidate",
+          "baseline"
+        ]
+      },
+      {
+        "seed": 23,
+        "budget": 300,
+        "order": [
+          "baseline",
+          "candidate"
+        ]
+      }
+    ],
+    "shifts": 2,
+    "modules": 4,
+    "action_budget": 1,
+    "watchdog_seconds": 240,
+    "repetitions_per_workload": 1,
+    "timing_scope": "Sequential full-stack screening, one pair per seed; no other agent jobs; unrelated host activity uncontrolled. No statistical significance claim.",
+    "fetched": false,
+    "rebuilt": false,
+    "driver_sha256": "764357f66679117b1226335e057872de45d46a5a7e7fc1d72fbce612e8bcfa85",
+    "benchmark_sha256": "a4ddd7fc26a2d793b411fd6f888abdfba0e1cf85d37e137373327fd58b7de68c",
+    "helper_sha256": "93cd347f2616e3f174b06b85a9de96a7980709607c734ebe365bd5f4250adabb"
+  },
+  "completed": {
+    "source_invariance": {
+      "baseline": true,
+      "candidate": true,
+      "runtime": true,
+      "game": true
+    },
+    "all_six_runs_completed": true,
+    "all_exact": true,
+    "machine": {
+      "utc": "2026-09-10T07:25:33Z",
+      "load_average": [
+        1.1064453125,
+        0.7900390625,
+        0.3759765625
+      ],
+      "memory": {
+        "MemTotal": "30806344 kB",
+        "MemAvailable": "26656092 kB",
+        "SwapTotal": "8388608 kB",
+        "SwapFree": "8388608 kB"
+      }
+    }
+  },
+  "comparison": [
+    {
+      "seed": 7,
+      "budget": 600,
+      "exact": {
+        "workload_equal": true,
+        "full_proof_answers_equal": true,
+        "queries_equal": true,
+        "public_results_including_backend_counters_equal": true,
+        "all_non_time_query_metrics_equal": true,
+        "zero_aborts": true
+      },
+      "metrics": {
+        "shift1_diagnosis_seconds": {
+          "baseline": 14.072208563011372,
+          "candidate": 8.759836455021286,
+          "change_percent": -37.75080566922232
+        },
+        "shift2_diagnosis_seconds": {
+          "baseline": 109.71028564299922,
+          "candidate": 56.157464326010086,
+          "change_percent": -48.81294493321413
+        },
+        "diagnosis_seconds": {
+          "baseline": 123.7824942060106,
+          "candidate": 64.91730078103137,
+          "change_percent": -47.55534601444544
+        },
+        "shift1_diagnosis_cpu_seconds": {
+          "baseline": 14.124352100000001,
+          "candidate": 8.770609300000002,
+          "change_percent": -37.904342529099075
+        },
+        "shift2_diagnosis_cpu_seconds": {
+          "baseline": 109.82544419999999,
+          "candidate": 56.216721500000006,
+          "change_percent": -48.812661847626735
+        },
+        "diagnosis_cpu_seconds": {
+          "baseline": 123.94979629999999,
+          "candidate": 64.98733080000001,
+          "change_percent": -47.56963485223572
+        },
+        "episode_seconds": {
+          "baseline": 140.97755561300437,
+          "candidate": 83.03794479800854,
+          "change_percent": -41.09846461946404
+        },
+        "shift1_inferences": {
+          "baseline": 69207032,
+          "candidate": 44271618,
+          "change_percent": -36.03017392799044
+        },
+        "shift2_inferences": {
+          "baseline": 436243039,
+          "candidate": 313495524,
+          "change_percent": -28.13741516228526
+        },
+        "diagnosis_inferences": {
+          "baseline": 505450071,
+          "candidate": 357767142,
+          "change_percent": -29.21810431400652
+        },
+        "peak_rss_kib": {
+          "baseline": 933984,
+          "candidate": 605744,
+          "change_percent": -35.14407099050947
+        }
+      },
+      "coverage": [
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "seed": 11,
+      "budget": 300,
+      "exact": {
+        "workload_equal": true,
+        "full_proof_answers_equal": true,
+        "queries_equal": true,
+        "public_results_including_backend_counters_equal": true,
+        "all_non_time_query_metrics_equal": true,
+        "zero_aborts": true
+      },
+      "metrics": {
+        "shift1_diagnosis_seconds": {
+          "baseline": 2.23778400500305,
+          "candidate": 1.830394814023748,
+          "change_percent": -18.20502738729455
+        },
+        "shift2_diagnosis_seconds": {
+          "baseline": 5.804356661974452,
+          "candidate": 3.8470701620099135,
+          "change_percent": -33.72098949031044
+        },
+        "diagnosis_seconds": {
+          "baseline": 8.042140666977502,
+          "candidate": 5.6774649760336615,
+          "change_percent": -29.403560430789668
+        },
+        "shift1_diagnosis_cpu_seconds": {
+          "baseline": 2.2463955,
+          "candidate": 1.8178926000000004,
+          "change_percent": -19.0751316943076
+        },
+        "shift2_diagnosis_cpu_seconds": {
+          "baseline": 5.8275845,
+          "candidate": 3.836499999999999,
+          "change_percent": -34.16654876475839
+        },
+        "diagnosis_cpu_seconds": {
+          "baseline": 8.07398,
+          "candidate": 5.6543925999999995,
+          "change_percent": -29.967716045865867
+        },
+        "episode_seconds": {
+          "baseline": 22.691044953011442,
+          "candidate": 20.460544497007504,
+          "change_percent": -9.829871037772175
+        },
+        "shift1_inferences": {
+          "baseline": 9858333,
+          "candidate": 8073999,
+          "change_percent": -18.099753781902074
+        },
+        "shift2_inferences": {
+          "baseline": 23464220,
+          "candidate": 18432222,
+          "change_percent": -21.445409223063884
+        },
+        "diagnosis_inferences": {
+          "baseline": 33322553,
+          "candidate": 26506221,
+          "change_percent": -20.455611549331167
+        },
+        "peak_rss_kib": {
+          "baseline": 236124,
+          "candidate": 180788,
+          "change_percent": -23.4351442462435
+        }
+      },
+      "coverage": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "seed": 23,
+      "budget": 300,
+      "exact": {
+        "workload_equal": true,
+        "full_proof_answers_equal": true,
+        "queries_equal": true,
+        "public_results_including_backend_counters_equal": true,
+        "all_non_time_query_metrics_equal": true,
+        "zero_aborts": true
+      },
+      "metrics": {
+        "shift1_diagnosis_seconds": {
+          "baseline": 2.1677755569980945,
+          "candidate": 1.8152004380244762,
+          "change_percent": -16.264373764867955
+        },
+        "shift2_diagnosis_seconds": {
+          "baseline": 3.1489621069922578,
+          "candidate": 2.487429151980905,
+          "change_percent": -21.00796810296388
+        },
+        "diagnosis_seconds": {
+          "baseline": 5.316737663990352,
+          "candidate": 4.302629590005381,
+          "change_percent": -19.073878345614226
+        },
+        "shift1_diagnosis_cpu_seconds": {
+          "baseline": 2.1733819000000008,
+          "candidate": 1.8107490000000013,
+          "change_percent": -16.685190025738194
+        },
+        "shift2_diagnosis_cpu_seconds": {
+          "baseline": 3.1592266,
+          "candidate": 2.486872899999998,
+          "change_percent": -21.282224579902
+        },
+        "diagnosis_cpu_seconds": {
+          "baseline": 5.332608500000001,
+          "candidate": 4.297621899999999,
+          "change_percent": -19.40863650500504
+        },
+        "episode_seconds": {
+          "baseline": 19.86989531700965,
+          "candidate": 18.945103851991007,
+          "change_percent": -4.654234208405583
+        },
+        "shift1_inferences": {
+          "baseline": 9386049,
+          "candidate": 7850543,
+          "change_percent": -16.35945007318841
+        },
+        "shift2_inferences": {
+          "baseline": 12462598,
+          "candidate": 10683942,
+          "change_percent": -14.271951963787966
+        },
+        "diagnosis_inferences": {
+          "baseline": 21848647,
+          "candidate": 18534485,
+          "change_percent": -15.168728754691308
+        },
+        "peak_rss_kib": {
+          "baseline": 232916,
+          "candidate": 184852,
+          "change_percent": -20.63576568376582
+        }
+      },
+      "coverage": [
+        0.5,
+        0.5
+      ]
+    }
+  ],
+  "complexity": {
+    "files": {
+      "baseline": 10,
+      "candidate": 10,
+      "delta": 0,
+      "change_percent": 0.0
+    },
+    "physical_lines": {
+      "baseline": 3002,
+      "candidate": 3087,
+      "delta": 85,
+      "change_percent": 2.8314457028647544
+    },
+    "nonblank_noncomment_lines": {
+      "baseline": 2600,
+      "candidate": 2663,
+      "delta": 63,
+      "change_percent": 2.423076923076928
+    },
+    "named_function_units": {
+      "baseline": 321,
+      "candidate": 322,
+      "delta": 1,
+      "change_percent": 0.31152647975076775
+    },
+    "cyclomatic_sum": {
+      "baseline": 878,
+      "candidate": 891,
+      "delta": 13,
+      "change_percent": 1.480637813211838
+    },
+    "cognitive_sum": {
+      "baseline": 929,
+      "candidate": 965,
+      "delta": 36,
+      "change_percent": 3.8751345532830994
+    },
+    "halstead_tokens": {
+      "baseline": 13391,
+      "candidate": 13512,
+      "delta": 121,
+      "change_percent": 0.9035919647524482
+    },
+    "cyclomatic_max": {
+      "baseline": 13,
+      "candidate": 14,
+      "delta": 1,
+      "change_percent": 7.692307692307687
+    },
+    "cognitive_max": {
+      "baseline": 64,
+      "candidate": 75,
+      "delta": 11,
+      "change_percent": 17.1875
+    }
+  },
+  "diff_categories_before_report": {
+    "benchmark tooling": [
+      105,
+      6
+    ],
+    "raw benchmark evidence": [
+      23738,
+      0
+    ],
+    "documentation": [
+      678,
+      4
+    ],
+    "runtime": [
+      205,
+      120
+    ],
+    "tests": [
+      814,
+      12
+    ]
+  },
+  "metrics_tool": {
+    "repository_head": "6507f711246dedb3ce514dcd385977b0429fcb30",
+    "dirty": true,
+    "note": "Metrics implementation is untracked in the sibling checkout; archived actual package source, not claimed to be the committed implementation. Same local CLI used for both snapshots.",
+    "sha256": {
+      "config.py": "7ad9ddf8ea5db4d402f1c0e4fef51c31f556c0c2d6730f1116768f8dbdef7593",
+      "__init__.py": "0af6ce3a9d17871e3b0335206dbe6ece166607ddbc7fc666bccc2b01f4eb930a",
+      "metrics.py": "8873b242cfa05019f640f11311aea54b4e67d90cf38c05cee19ac76548c3c805",
+      "formatter.py": "e509613d1326a398524fd825c3a2241b39e06de8da125f5833af0ce2ef9a5373",
+      "metrics_cli.py": "e9c753a8e1744d9a6b91ebbeff0da4a5ba5e64531fbf8a172ccbf766a9602505",
+      "__main__.py": "2e7dc2890ae3c29f73bdae5006d5ea688c3b893c1cb00ce3779898c79e8d1ea9",
+      "syntax.py": "cda74271be921415efdcaa74da9b6b3914de4f498d58767ba34aa89ec6d4f94d"
+    },
+    "command": "../metta-formatter/.venv/bin/mettametrics <snapshot>/pettachainer/metta/runtime/backward --json"
+  },
+  "validation": {
+    "previous_full_suite": {
+      "metta_files": 79,
+      "python_tests": 57,
+      "verify_exit_code": 0,
+      "query_rows": 46,
+      "aborts": 0,
+      "conceptnet_results": 2
+    },
+    "validated_source_files_identical": 286,
+    "new_branch_extra_regression": {
+      "tests": 1,
+      "exit_code": 0,
+      "seconds": 17.235
+    },
+    "full_suite_rerun_this_campaign": false
+  },
+  "raw_evidence_directory": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/scratch/verified-optimizations-2026-09-10",
+  "artifact_sha256": {
+    "seed7-baseline.rss": "955f84cdc04abd654ddad2ecf439c005a5d7408e81d614db3183b8cee78639f9",
+    "benchmark.py": "a4ddd7fc26a2d793b411fd6f888abdfba0e1cf85d37e137373327fd58b7de68c",
+    "game-source-before.json": "efe7c12bf1404aee14d9d726c5acdc9ad749be5b81d8f7ae7992f4e81b3ebc4b",
+    "baseline-source-before.json": "381c5db5d83c9cd44df814d6d20a4850e8ff217314040a346c0ec0f0c294a3e6",
+    "seed23-baseline.log": "055ffbf21cc8b92d54b187da27e3f9c521cfc3038d81d021ece05394ce854132",
+    "seed11-candidate.rss": "b2f9c3f6aabdd251c0bfe17639f7a1274ce7d05ac6a607d09eba34798d619e0d",
+    "comparison.json": "c50266b1529a5f66fbd08d08b0a4b79260951df4ddd61a43f93a1fb11ca9b80d",
+    "seed7-baseline.log": "aa34086d851589bc7a5f5163232912520a87dfe0650033a8a4bbceea9e466cbf",
+    "helpers.py": "93cd347f2616e3f174b06b85a9de96a7980709607c734ebe365bd5f4250adabb",
+    "metrics-tool-provenance.json": "d3ad2ff9cd12ac016b4f8b0676b3e307090dd3f8b1d3ec978b40562eac65a470",
+    "plan.json": "75aaa2318d5084b6502bfcadde71b9a157247399c7c29a2f9402d03cb2de7b74",
+    "diff-categories.json": "2a8c7b5743f1901084d97e4b5e98b1995d0ec13f041c673ebba26c382b504090",
+    "seed7-candidate.log": "9f0a24c8299fbe96e6d99c8925e23e5ed49631e8499aebff3569668498a09373",
+    "seed11-baseline.rss": "9b915f9bafcbd049231cfe0148eb78ed8f033fc18e8b70eea5a29fb87b019c10",
+    "completed.json": "22adf719ffff598b59036f084b48a979cce8ff1df9d1d51731f57841d4bb74f6",
+    "seed11-baseline.json": "f27999e9450c6e9aaaed512b38eaa01ac915c21f448698f6d720b32acaa98c20",
+    "runtime-source-after.json": "cfec0b9b5afbe909e20576e69ef0a8b7ed5a6a3b435a3c07e1740eedf833d825",
+    "seed7-candidate.rss": "42020c678c2db35aace6b96ad7b8aacd92b9d141dbed7b9a2c85fc4d4fb1eee6",
+    "seed23-baseline.json": "4a201be09bc729e23e3069a64c797fef999be61b0ac47f08e95d8becb269759d",
+    "baseline-source-after.json": "381c5db5d83c9cd44df814d6d20a4850e8ff217314040a346c0ec0f0c294a3e6",
+    "started.json": "fb27743c8d56580e6d15a6ddba5ed7ba1b2cf8c549a53e29f8a452bceec89e43",
+    "seed11-candidate.log": "ba14c070efe0f339b4ab306a912033cc9c02c357e0a2d5fce15f477f19bdb4e1",
+    "complexity-summary.json": "4fdef21a4051a8d128fab6165bb4e3b5b42ba1125d298150e1ae879d25de7f4a",
+    "seed23-candidate.log": "70de6321f7c8bf9f49a60dea89b8ae6aa5ea2d018f73a4c06d867428eb573399",
+    "seed23-candidate.rss": "20a8aa258182205e4e517c474ad21be0e21deaeb4b752268a97a058a6f9b67e1",
+    "complexity-baseline.json": "5ff4fe209c3d4dadb4c56e46f5864baff12f76dd4981fd9ab304bcf34040210e",
+    "seed7-candidate.json": "05a5c33ca11d2b8d9e3cef75e1ce69bda60c336d409d2ad003d1d5287c855391",
+    "previously-validated-source.json": "2aeadb8c501c010aff7d0c5ac3cfa5c7c8446dd205b27f8ab60f2b4e9087fa25",
+    "runs.json": "f9439d7ab3e34888df532ccd508e541238eac82555bf19b1c7a9ec693a629ad3",
+    "seed11-baseline.log": "cd93a1515355719f8b28ee725be1fa9fbf511926d8f8cd74799fad785f0ef84b",
+    "game-source-after.json": "efe7c12bf1404aee14d9d726c5acdc9ad749be5b81d8f7ae7992f4e81b3ebc4b",
+    "maintained-test.log": "20f77da769a1d2dfaabf69d8caa3e63d020b3db636c674dcf2817a7a0c48aebd",
+    "run.log": "16cf8bbbc6276e4da0300d922e79fc701408d1a2e9dc9ddb6eae303b391848e5",
+    "seed23-candidate.json": "c40dc036385cd58ccd7b1f1a54d079d2f885ba7a89ab1cdc21f687c65d3824fc",
+    "candidate-source-before.json": "cd92674455b7a6aa75b417dc1921a0ee9ee5480273ab59f459879d23e537af39",
+    "run.py": "764357f66679117b1226335e057872de45d46a5a7e7fc1d72fbce612e8bcfa85",
+    "complexity-candidate.json": "a44ff6dcdfeb0f6af4de47b06e9f405e6c47676442820f2d4efed20c52631a10",
+    "seed11-candidate.json": "d8b9c052980f2f3ec405bd553942d5efd92871240a00f75ecadc622649fa4ad6",
+    "candidate-source-after.json": "cd92674455b7a6aa75b417dc1921a0ee9ee5480273ab59f459879d23e537af39",
+    "runtime-source-before.json": "cfec0b9b5afbe909e20576e69ef0a8b7ed5a6a3b435a3c07e1740eedf833d825",
+    "seed7-baseline.json": "0cee7335467aea82fdfd97aec5dda1cce8872a1a902806e41e4b796edd2101b5",
+    "seed23-baseline.rss": "5dabb1559b98f6adc810605562630be6fbc2682162e5d4ab75907d49e32171ba"
+  }
+}
