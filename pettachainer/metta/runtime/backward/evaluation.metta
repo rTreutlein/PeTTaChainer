@@ -530,18 +530,49 @@
    (if (not (== (collapse (once (match &sk_queued ($pass $khash $rhash) true))) ())) false
       (let $_queued (add-atom &sk_queued ($pass $khash $rhash)) true)))
 
+;; What changed for a key's readers: a new row view with its dependencies,
+;; the same with the key's open merged value unchanged and the dependencies of
+;; that value before and after, or anything (folds, outside changes).
+(: SkeletonChange Type)
+(: sk-view-change (-[det]-> (List Number) SkeletonChange))
+(: sk-value-same (-[det]-> (List Number) (List Number) SkeletonChange))
+(: sk-any-change SkeletonChange)
+
+;; Every fact premise on the key asks for an open pattern.
+(: sk-reads-open? (-[det]-> SkeletonKey Atom SkPattern Bool))
+(= (sk-reads-open? $key $open $premise)
+   (if $open
+      (case $premise (
+         (($type $kbctx $proof $tv)
+            (if (=alpha (sk-key $type $kbctx) $key) (if (is-var $proof) (is-var $tv) false) true))
+         ($_cpu true)))
+      false))
+
+;; A reader whose own key the new view depends on does not admit it. When the
+;; key's open merged value did not change, a reader outside its dependencies
+;; that reads it openly gets that same value.
+(: sk-reader-affected? (-[semidet]-> SkeletonKey SkeletonChange SkeletonItem Bool))
+(= (sk-reader-affected? $key $change (sk-row-item $_seq $khash $_rkey $_rhash (sk-row $_ident $_concl $premises $_s)))
+   (case $change (
+      (sk-any-change true)
+      ((sk-view-change $deps) (if (stored-list-member? $khash $deps) false true))
+      ((sk-value-same $deps $merged-deps)
+         (if (stored-list-member? $khash $deps) false
+            (if (stored-list-member? $khash $merged-deps) true
+               (if (fold-semidet (sk-reads-open? $key) true $premises) false true)))))))
+
 ;; A reader created after the row that changed its input is still ahead in
-;; this pass; an earlier one waits for the next. A reader whose own key the
-;; new view depends on does not admit it, so nothing changed for that reader.
+;; this pass; an earlier one waits for the next.
 (: sk-schedule-reader
-   (-[det]-> Number Number (List Number) SkeletonWork SkeletonItem SkeletonWork))
-(= (sk-schedule-reader $pass $seq $deps (sk-work $todo $next) $item)
-   (if (stored-list-member? (sk-item-key-hash $item) $deps) (sk-work $todo $next)
-   (if (> (sk-item-seq $item) $seq)
-      (if (sk-queue-new? $pass $item) (sk-work (sk-insert $item $todo) $next) (sk-work $todo $next))
-      (if (< (+ $pass 1) 4)
-         (if (sk-queue-new? (+ $pass 1) $item) (sk-work $todo (cons $item $next)) (sk-work $todo $next))
-         (sk-work $todo $next)))))
+   (-[semidet]-> Number Number SkeletonKey SkeletonChange SkeletonWork SkeletonItem SkeletonWork))
+(= (sk-schedule-reader $pass $seq $key $change (sk-work $todo $next) $item)
+   (if (sk-reader-affected? $key $change $item)
+      (if (> (sk-item-seq $item) $seq)
+         (if (sk-queue-new? $pass $item) (sk-work (sk-insert $item $todo) $next) (sk-work $todo $next))
+         (if (< (+ $pass 1) 4)
+            (if (sk-queue-new? (+ $pass 1) $item) (sk-work $todo (cons $item $next)) (sk-work $todo $next))
+            (sk-work $todo $next)))
+      (sk-work $todo $next)))
 
 (: sk-drop-fold-view! (-[det]-> SkeletonKey Atom))
 (= (sk-drop-fold-view! $key)
@@ -551,23 +582,23 @@
                 (if (=alpha $stored $key) (remove-atom &sk_view ($hash $stored 0 $view)) (empty))))))
       ()))
 
-;; A changed key schedules the rows reading it, given the dependencies of the
-;; view that changed it. A fold or group over it is recomputed when next read,
-;; and its own readers are scheduled.
+;; A changed key schedules the rows it affects. A fold or group over it is
+;; recomputed when next read, and all of its readers are scheduled.
 (: sk-key-changed
-   (-[semidet]-> Number Number (List Number) SkeletonWork SkeletonKey SkeletonWork))
-(= (sk-key-changed $pass $seq $deps $work $key)
-   (let* (($_merged (sk-drop-merged! $key))
-          ($hash (index-hash $key))
+   (-[semidet]-> Number Number SkeletonChange SkeletonWork SkeletonKey SkeletonWork))
+(= (sk-key-changed $pass $seq $change $work $key)
+   (let* (($hash (index-hash $key))
           ($folds
              (collapse (match &sk_use ($hash $stored $fold)
                 (if (=alpha $stored $key) $fold (empty)))))
-          ($scheduled (fold-semidet (sk-schedule-reader $pass $seq $deps) $work (sk-readers $key))))
+          ($scheduled (fold-semidet (sk-schedule-reader $pass $seq $key $change) $work (sk-readers $key))))
       (fold-semidet (sk-fold-changed $pass $seq) $scheduled $folds)))
 
 (: sk-fold-changed (-[semidet]-> Number Number SkeletonWork SkeletonKey SkeletonWork))
 (= (sk-fold-changed $pass $seq $work $fold)
-   (let $_dropped (sk-drop-fold-view! $fold) (sk-key-changed $pass $seq () $work $fold)))
+   (let* (($_view (sk-drop-fold-view! $fold))
+          ($_merged (sk-drop-merged! $fold)))
+      (sk-key-changed $pass $seq sk-any-change $work $fold)))
 
 (: sk-row-versions (-[det]-> Number SkeletonKey Number (List SkeletonValue)))
 (= (sk-row-versions $hash $key $rhash)
@@ -588,8 +619,25 @@
          (sk-none $work)
          ($_view
             (if (=alpha $new (sk-last (sk-row-versions $hash $key $rhash))) $work
-               (let $_stored (sk-store-view! $hash $key $rhash $new)
-                  (sk-key-changed $pass $seq (fold-semidet sk-view-deps-step () (cons $new ())) $work $key))))))))
+               (let* (($before
+                         (collapse (once (match &sk_merged (sk-merged $hash $stored $deps $value)
+                            (if (=alpha $stored $key) (sk-merged $hash $stored $deps $value) (empty))))))
+                      ($_stored (sk-store-view! $hash $key $rhash $new))
+                      ($_merged (sk-drop-merged! $key))
+                      ($deps (fold-semidet sk-view-deps-step () (cons $new ()))))
+                  (sk-key-changed $pass $seq (sk-value-change $hash $key $deps $before) $work $key))))))))
+
+;; An unchanged open merged value is known only when it was cached before.
+(: sk-value-change (-[semidet]-> Number SkeletonKey (List Number) (List SkeletonMerged) SkeletonChange))
+(= (sk-value-change $hash $key $deps $before)
+   (case $before (
+      (() (sk-view-change $deps))
+      ((cons (sk-merged $_h $_k $old-deps $old-value) $_rest)
+         (case (sk-open-value $hash $key sk-any-filter) (
+            ((sk-merged $_h2 $_k2 $new-deps $new-value)
+               (if (=alpha $old-value $new-value)
+                  (sk-value-same $deps (sk-union $old-deps $new-deps))
+                  (sk-view-change $deps)))))))))
 
 (: sk-work-off! (-[semidet]-> Number SkeletonWork Atom))
 (= (sk-work-off! $pass (sk-work $todo $next))
@@ -601,11 +649,12 @@
 ;; read, and every changed key's readers are scheduled.
 (: sk-dirty-seed (-[semidet]-> SkeletonWork SkeletonKey SkeletonWork))
 (= (sk-dirty-seed $work $key)
-   (let $_dropped
-      (case $key (
-         ((sk-key $_type $_kbctx) ())
-         ($_fold (sk-drop-fold-view! $key))))
-      (sk-key-changed 0 -1 () $work $key)))
+   (let* (($_view
+             (case $key (
+                ((sk-key $_type $_kbctx) ())
+                ($_fold (sk-drop-fold-view! $key)))))
+          ($_merged (sk-drop-merged! $key)))
+      (sk-key-changed 0 -1 sk-any-change $work $key)))
 
 (: sk-seed-new (-[det]-> (List SkeletonItem) SkeletonItem (List SkeletonItem)))
 (= (sk-seed-new $todo $item) (if (sk-queue-new? 0 $item) (cons $item $todo) $todo))
