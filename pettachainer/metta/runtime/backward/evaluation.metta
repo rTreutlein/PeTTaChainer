@@ -155,7 +155,7 @@
 
 (: sk-store-view! (-[det]-> Number SkeletonKey Number SkeletonValue Atom))
 (= (sk-store-view! $hash $key $rhash $view)
-   (let $_view (add-space-atom! &sk_view (make-space-row4 $hash $key $rhash $view)) ()))
+   (let $_view (add-atom &sk_view ($hash $key $rhash $view)) ()))
 
 ;; --- Folds ------------------------------------------------------------------
 
@@ -470,7 +470,7 @@
 (= (sk-collect! $_acc $key)
    (let $hash (index-hash $key)
       (if (sk-reached? $hash $key) ()
-         (let* (($_mark (add-space-atom! &sk_reach (make-space-pair $hash $key)))
+         (let* (($_mark (add-atom &sk_reach ($hash $key)))
                 ($items
                    (collapse (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
                       (if (=alpha $stored $key)
@@ -479,11 +479,10 @@
             (fold-semidet sk-collect-row () $items)))))
 
 (: sk-collect-row (-[semidet]-> Atom SkeletonItem Atom))
-(= (sk-collect-row $_acc $item)
-   (case $item (
-      ((sk-row-item $_seq $_hash $_key $_rhash (sk-row $_ident $_concl $premises $_s))
-         (let $_listed (add-atom &sk_order $item)
-            (fold-semidet sk-collect! () (fold-semidet sk-premise-key-step () $premises)))))))
+(= (sk-collect-row $_acc (sk-row-item $seq $hash $key $rhash (sk-row $ident $concl $premises $s)))
+   (let $_listed
+      (add-atom &sk_order (sk-row-item $seq $hash $key $rhash (sk-row $ident $concl $premises $s)))
+      (fold-semidet sk-collect! () (fold-semidet sk-premise-key-step () $premises))))
 
 (: sk-changed-in? (-[det]-> Number Number Bool))
 (= (sk-changed-in? $pass $hash)
@@ -505,7 +504,7 @@
              ($_dropped
                 (collapse (match &sk_view ($hash $stored 0 $view)
                    (if (=alpha $stored $key)
-                      (let $entry (make-space-row4 $hash $stored 0 $view) (remove-atom &sk_view $entry))
+                      (remove-atom &sk_view ($hash $stored 0 $view))
                       (empty))))))
          ())
       ()))
@@ -565,9 +564,11 @@
 
 (: sk-evaluate! (-[semidet]-> (List SkeletonKey) Atom))
 (= (sk-evaluate! $keys)
-   (let* (($_reach (remove-all-atoms &sk_reach))
-          ($_order (remove-all-atoms &sk_order))
-          ($_changed (remove-all-atoms &sk_changed))
+   (let* (($_reach (collapse (match &sk_reach ($hash $key) (remove-atom &sk_reach ($hash $key)))))
+          ($_order
+             (collapse (match &sk_order (sk-row-item $seq $hash $key $rhash $row)
+                (remove-atom &sk_order (sk-row-item $seq $hash $key $rhash $row)))))
+          ($_changed (collapse (match &sk_changed (sk-changed $pass $hash) (remove-atom &sk_changed (sk-changed $pass $hash)))))
           ($_collect (fold-semidet sk-collect! () $keys)))
       (sk-run-passes! 0
          (sort-atom
@@ -582,12 +583,11 @@
 (= (sk-invalidate-step $_acc $key)
    (let $hash (index-hash $key)
       (if (sk-invalidated? $hash $key) ()
-         (let* (($_seen (add-space-atom! &sk_dirty_seen (make-space-pair $hash $key)))
+         (let* (($_seen (add-atom &sk_dirty_seen ($hash $key)))
                 ($_drop
                    (collapse (match &sk_view ($hash $stored $rhash $view)
                       (if (=alpha $stored $key)
-                         (let $entry (make-space-row4 $hash $stored $rhash $view)
-                            (remove-atom &sk_view $entry))
+                         (remove-atom &sk_view ($hash $stored $rhash $view))
                          (empty)))))
                 ($parents
                    (collapse (match &sk_use ($hash $stored $parent)
@@ -607,7 +607,7 @@
          (let $_removed (remove-atom &sk_dirty (sk-dirty $key)) $key)))
       (if (== $seeds ()) ()
          (let* (($_walk (fold-semidet sk-invalidate-step () $seeds))
-                ($_clear (remove-all-atoms &sk_dirty_seen)))
+                ($_clear (collapse (match &sk_dirty_seen ($hash $key) (remove-atom &sk_dirty_seen ($hash $key))))))
             ()))))
 
 ;; --- Base-rate API ----------------------------------------------------------
@@ -619,13 +619,13 @@
    (let* (($stored (copy_term $pattern))
           ($_old (base-rate-cache-remove! $kbid $pattern))
           ($_new (add-atom &base_rate_cache (base-rate $kbid $stored $tv user any)))
-          ($_values (remove-all-atoms &sk_view)))
+          ($_values (collapse (match &sk_view ($hash $key $rhash $view) (remove-atom &sk_view ($hash $key $rhash $view))))))
       ()))
 
 (: clear-base-rate (-[det]-> KB Statement (List $none)))
 (= (clear-base-rate $kbid $pattern)
    (let* (($_old (base-rate-cache-remove! $kbid $pattern))
-          ($_values (remove-all-atoms &sk_view)))
+          ($_values (collapse (match &sk_view ($hash $key $rhash $view) (remove-atom &sk_view ($hash $key $rhash $view))))))
       ()))
 
 ;; --- Materialization --------------------------------------------------------
@@ -746,8 +746,8 @@
 (: execute-backward
    (-[nondet]-> Number (List (| Goal (Statement KBContext Proof TV))) Bool (List (List RuntimeResult))))
 (= (execute-backward $steps $goals $materialize?)
-   (let* (($_seen (remove-all-atoms &sk_seen))
-          ($_fresh (remove-all-atoms &sk_fresh))
+   (let* (($_seen (collapse (match &sk_seen ($hash $node) (remove-atom &sk_seen ($hash $node)))))
+          ($_fresh (collapse (match &sk_fresh (sk-fresh $node) (remove-atom &sk_fresh (sk-fresh $node)))))
           ($_budget (change-state! sk_budget $steps))
           ($_rows (change-state! sk_row_budget (* 10 $steps)))
           ($_activate (sk-activate-pending!))

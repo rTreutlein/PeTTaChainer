@@ -80,11 +80,12 @@
 (: sk-mark-expanded! (-[det]-> SkPattern Atom))
 (= (sk-mark-expanded! $pattern)
    (let* (($hash (sk-node-hash $pattern))
-          ($_row (add-space-atom! &sk_expanded (make-space-pair $hash $pattern))))
+          ($_row (add-atom &sk_expanded ($hash $pattern))))
       (case $pattern (
          ((CPU $_fun $_args $_res) ())
          (($type $_kbctx $_proof $_tv)
-            (let $_head (add-space-atom! &sk_node_head (make-space-pair (sk-type-head $type) $pattern))
+            (let* (($head (sk-type-head $type))
+                   ($_head (add-atom &sk_node_head ($head $pattern))))
                ()))))))
 
 (: sk-answers (-[det]-> SkPattern (List SkeletonKey)))
@@ -102,13 +103,14 @@
       (if (== (collapse (once (match &sk_link ($hash $stored)
                  (if (=alpha $stored $link) true (empty)))))
               ())
-         (add-space-atom! &sk_link (make-space-pair $hash $link))
+         (add-atom &sk_link ($hash $link))
          false)))
 
 (: sk-add-child! (-[det]-> SkPattern SkPattern Atom))
 (= (sk-add-child! $owner $child)
    (if (sk-link-new! (sk-child-link $owner $child))
-      (let* (($_row (add-space-atom! &sk_child (make-space-row3 (sk-node-hash $owner) $owner $child)))
+      (let* (($hash (sk-node-hash $owner))
+             ($_row (add-atom &sk_child ($hash $owner $child)))
              ($_fresh (add-atom &sk_fresh (sk-fresh $child))))
          ())
       ()))
@@ -147,7 +149,7 @@
 (= (sk-add-answer! $node $key)
    (if (sk-link-new! (sk-answer-link $node $key))
       (let* (($hash (sk-node-hash $node))
-             ($_row (add-space-atom! &sk_answer (make-space-row3 $hash $node $key)))
+             ($_row (add-atom &sk_answer ($hash $node $key)))
              ($folds
                 (collapse (match &sk_member_of ($hash $stored $fold)
                    (if (=alpha $stored $node) $fold (empty)))))
@@ -176,7 +178,9 @@
 (: sk-add-use! (-[det]-> SkeletonKey SkeletonKey Atom))
 (= (sk-add-use! $key $parent)
    (if (sk-link-new! (sk-use-link $key $parent))
-      (let $_row (add-space-atom! &sk_use (make-space-row3 (index-hash $key) $key $parent)) ())
+      (let* (($hash (index-hash $key))
+             ($_row (add-atom &sk_use ($hash $key $parent))))
+         ())
       ()))
 
 (: sk-mark-dirty! (-[det]-> SkeletonKey Atom))
@@ -222,7 +226,7 @@
       (if (== (collapse (once (match &sk_group_of ($hash $stored $_fold)
                  (if (=alpha $stored $group-key) true (empty)))))
               ())
-         (let $_row (add-space-atom! &sk_group_of (make-space-row3 $hash $group-key $fold)) ())
+         (let $_row (add-atom &sk_group_of ($hash $group-key $fold)) ())
          ())))
 
 ;; --- Partial joins and rows -------------------------------------------------
@@ -267,10 +271,10 @@
 
 (= (sk-wait-on! $owner $rule $premise $waiter)
    (let* (($hash (sk-node-hash $premise))
-          ($_wait (add-space-atom! &sk_wait (make-space-row3 $hash $premise $waiter)))
+          ($_wait (add-atom &sk_wait ($hash $premise $waiter)))
           ($_temp
              (if (>= $rule 1000000000)
-                (let $_t (add-space-atom! &sk_temp_waits (make-space-row3 $hash $premise $waiter)) ())
+                (let $_t (add-atom &sk_temp_waits ($hash $premise $waiter)) ())
                 ()))
           ($_child (sk-add-child! $owner (copy_term $premise))))
       (fold-semidet (sk-extend-waiter-step $waiter) () (sk-answers $premise))))
@@ -309,17 +313,17 @@
          (sk-add-answer! $owner $key)
          (if (if $local true (sk-take-row!))
             (let* (($row (sk-row $ident $concl $premises (next-search-id sk_row_seq)))
-                   ($_add (collapse (once (chainer-add-atom &sk_row (make-space-row4 $khash $key $rhash $row)))))
+                   ($_add (if (chainer-acyclic-term? $row) (add-atom &sk_row ($khash $key $rhash $row)) false))
                    ($_temp
                       (if $local
-                         (let $_t (add-space-atom! &sk_temp_rows (make-space-row4 $khash $key $rhash $row)) ())
+                         (let $_t (add-atom &sk_temp_rows ($khash $key $rhash $row)) ())
                          ()))
                    ($_uses (fold-semidet (sk-use-step $key) () $keys))
                    ($_dirty (sk-mark-dirty! $key)))
                (sk-add-answer! $owner $key))
-            (let $_deferred
-               (add-space-atom! &sk_deferred
-                  (make-space-pair (sk-node-hash $owner) (sk-deferred $owner $rule $concl $premises $keys)))
+            (let* (($hash (sk-node-hash $owner))
+                   ($_deferred
+                      (add-atom &sk_deferred ($hash (sk-deferred $owner $rule $concl $premises $keys)))))
                ())))))
 
 (: sk-use-step (-[semidet]-> SkeletonKey Atom SkeletonKey Atom))
@@ -354,23 +358,22 @@
           ($_deliveries
              (collapse (match &sk_parked ($hash (sk-delivery $owner $key))
                 (if (=alpha $owner $node)
-                   (let* (($entry (make-space-pair $hash (sk-delivery $owner $key)))
-                          ($_removed (remove-atom &sk_parked $entry)))
+                   (let $_removed (remove-atom &sk_parked ($hash (sk-delivery $owner $key)))
                       (add-atom &sk_answer_queue (sk-delivery $owner $key)))
                    (empty)))))
           ($deferred
              (collapse (match &sk_deferred ($hash (sk-deferred $owner $rule $concl $premises $keys))
                 (if (=alpha $owner $node)
-                   (let* (($entry (make-space-pair $hash (sk-deferred $owner $rule $concl $premises $keys)))
-                          ($_removed (remove-atom &sk_deferred $entry)))
+                   (let $_removed
+                      (remove-atom &sk_deferred ($hash (sk-deferred $owner $rule $concl $premises $keys)))
                       (sk-deferred $owner $rule $concl $premises $keys))
                    (empty))))))
       (fold-semidet sk-deferred-step () $deferred)))
 
 (: sk-park-step (-[det]-> Atom SkeletonDelivery Atom))
 (= (sk-park-step $_acc (sk-delivery $node $key))
-   (let $_row
-      (add-space-atom! &sk_parked (make-space-pair (sk-node-hash $node) (sk-delivery $node $key)))
+   (let* (($hash (sk-node-hash $node))
+          ($_row (add-atom &sk_parked ($hash (sk-delivery $node $key)))))
       ()))
 
 (: sk-park-deliveries! (-[semidet]-> Atom))
@@ -529,10 +532,10 @@
             (case $members (
                (() ())
                ((cons $member $_rest)
-                  (let* (($_fold (add-space-atom! &sk_fold
-                                    (make-space-row3 (sk-node-hash $node) $node $member)))
-                         ($_member-of (add-space-atom! &sk_member_of
-                                         (make-space-row3 (sk-node-hash $member) $member $node)))
+                  (let* (($node-hash (sk-node-hash $node))
+                         ($member-hash (sk-node-hash $member))
+                         ($_fold (add-atom &sk_fold ($node-hash $node $member)))
+                         ($_member-of (add-atom &sk_member_of ($member-hash $member $node)))
                          ($_child (sk-add-child! $node $member)))
                      (fold-semidet (sk-fold-answer-step $node) () (sk-answers $member))))))))
       (($type $kbctx $proof $tv)
@@ -627,7 +630,7 @@
       (if (== (collapse (once (match &sk_seen ($hash $stored)
                  (if (=alpha $stored $node) true (empty)))))
               ())
-         (let $_row (add-space-atom! &sk_seen (make-space-pair $hash $node)) false)
+         (let $_row (add-atom &sk_seen ($hash $node)) false)
          true)))
 
 ;; Joins extended after their owner was walked link new children to it; the
@@ -667,19 +670,16 @@
    (let* (($_deferred
              (collapse (match &sk_deferred ($h (sk-deferred $o $rule $c $p $k))
                 (if (>= $rule 1000000000)
-                   (let $entry (make-space-pair $h (sk-deferred $o $rule $c $p $k))
-                      (remove-atom &sk_deferred $entry))
+                   (remove-atom &sk_deferred ($h (sk-deferred $o $rule $c $p $k)))
                    (empty)))))
           ($_waits
              (collapse (match &sk_temp_waits ($hash $pattern $waiter)
-                (let* (($entry (make-space-row3 $hash $pattern $waiter))
-                       ($_temp (remove-atom &sk_temp_waits $entry)))
-                   (remove-atom &sk_wait $entry)))))
+                (let $_temp (remove-atom &sk_temp_waits ($hash $pattern $waiter))
+                   (remove-atom &sk_wait ($hash $pattern $waiter))))))
           ($keys
              (collapse (match &sk_temp_rows ($khash $key $rhash $row)
-                (let* (($entry (make-space-row4 $khash $key $rhash $row))
-                       ($_temp (remove-atom &sk_temp_rows $entry))
-                       ($_row (remove-atom &sk_row $entry)))
+                (let* (($_temp (remove-atom &sk_temp_rows ($khash $key $rhash $row)))
+                       ($_row (remove-atom &sk_row ($khash $key $rhash $row))))
                    $key)))))
       (fold-semidet sk-dirty-step () $keys)))
 
