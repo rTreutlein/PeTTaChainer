@@ -46,8 +46,10 @@
 !(bind! &sk_pending (new-space))
 ;; (sk-delivery node key): new answers waiting to reach the joins on their node
 !(bind! &sk_answer_queue (new-space))
-;; (sk-deferred owner rule conclusion premises keys): rows found after the
-;; budget ran out
+;; (node-hash (sk-delivery node key)): deliveries an earlier query left over
+!(bind! &sk_parked (new-space))
+;; (owner-hash (sk-deferred owner rule conclusion premises keys)): rows found
+;; after the row allowance ran out
 !(bind! &sk_deferred (new-space))
 ;; rows and waiters created from query-local rules, removed after the query
 !(bind! &sk_temp (new-space))

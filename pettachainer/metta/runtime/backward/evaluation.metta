@@ -70,6 +70,11 @@
 
 ;; --- Values -----------------------------------------------------------------
 
+;; Views merge as proofs do: an identical proof pools its evidence, a
+;; projection gives way to its full proof, overlapping evidence keeps the view
+;; whose evidence contains the other's or else the more confident one, and
+;; disjoint evidence revises. A dominated view contributes neither evidence
+;; nor dependencies.
 (: sk-merge-step (-[semidet]-> %Undefined% %Undefined% Atom))
 (= (sk-merge-step $acc $view)
    (case $acc (
@@ -77,18 +82,63 @@
       ((sk-val $fact $ev $deps)
          (case $view (
             ((sk-val $other $other-ev $other-deps)
-               (let* ((($merged $merged-ev)
-                         (merge-proof-candidates
-                            (the ((Statement KBContext Proof TV) (List Evidence)) (data $fact $ev))
-                            (the ((Statement KBContext Proof TV) (List Evidence)) (data $other $other-ev)))))
-                  ;; A dominated candidate contributes nothing, so neither do
-                  ;; its dependencies.
-                  (sk-val $merged $merged-ev
-                     (if (=alpha $merged $fact) $deps
-                        (if (=alpha $merged $other) $other-deps (sk-union $deps $other-deps))))))))))))
+               (sk-merge-views $fact $ev $deps $other $other-ev $other-deps))))))))
 
-;; A view is admissible when it does not depend on the excluded key and
-;; matches the requested proof and truth-value pattern.
+(: sk-merge-views (-[semidet]-> %Undefined% %Undefined% %Undefined% %Undefined% %Undefined% %Undefined% Atom))
+(= (sk-merge-views $a $ev-a $deps-a $b $ev-b $deps-b)
+   (let* ((($_ta $_ca $proof-a $_tva) $a)
+          (($_tb $_cb $proof-b $_tvb) $b))
+      (if (== $a $b) (sk-val $a (sk-union $ev-a $ev-b) $deps-a)
+         (if (projection-dominates? (brand Proof $proof-a) (brand Proof $proof-b)) (sk-val $a $ev-a $deps-a)
+            (if (projection-dominates? (brand Proof $proof-b) (brand Proof $proof-a)) (sk-val $b $ev-b $deps-b)
+               (if (sk-overlap? $ev-a $ev-b)
+                  (if (sk-subset? $ev-a $ev-b) (sk-val $b $ev-b $deps-b)
+                     (if (sk-subset? $ev-b $ev-a) (sk-val $a $ev-a $deps-a)
+                        (if (>= (sk-confidence $a) (sk-confidence $b))
+                           (sk-val $a $ev-a $deps-a)
+                           (sk-val $b $ev-b $deps-b))))
+                  (let $pooled (sk-union $ev-a $ev-b)
+                     (if (>= (sk-confidence $a) (sk-confidence $b))
+                        (sk-val (sk-revise $a $b) $pooled (sk-union $deps-a $deps-b))
+                        (sk-val (sk-revise $b $a) $pooled (sk-union $deps-a $deps-b))))))))))
+
+(: sk-confidence (-[det]-> %Undefined% Number))
+(= (sk-confidence ($_type $_kbctx $proof $tv))
+   (case $proof (
+      ((marginal-proj $_idx $_base) (* 0.99 (tv-confidence $tv)))
+      ($_other (tv-confidence $tv)))))
+
+(: sk-revise (-[semidet]-> %Undefined% %Undefined% Atom))
+(= (sk-revise ($type $kbctx $proof-a $tv-a) ($_t $_c $proof-b $tv-b))
+   (let* (($tv
+             (case $tv-a (
+                ((STV $m1 $c1)
+                   (case $tv-b (
+                      ((STV $m2 $c2)
+                         (merge-stv-fields (the Number $m1) (the Number $c1) (the Number $m2) (the Number $c2)))
+                      ($_other $tv-a))))
+                ($_other $tv-a))))
+          ($proof (merge/revision $proof-a $proof-b)))
+      (assemble-stored-runtime-fact $type $kbctx $proof $tv)))
+
+(: sk-overlap? (-[det]-> %Undefined% %Undefined% Bool))
+(= (sk-overlap? () $_other) false)
+(= (sk-overlap? (cons $entry $rest) $other)
+   (if (stored-list-member? $entry $other) true (sk-overlap? $rest $other)))
+
+(: sk-subset? (-[det]-> %Undefined% %Undefined% Bool))
+(= (sk-subset? () $_other) true)
+(= (sk-subset? (cons $entry $rest) $other)
+   (if (stored-list-member? $entry $other) (sk-subset? $rest $other) false))
+
+;; Premises may share rules but not facts.
+(: sk-fact-overlap? (-[det]-> %Undefined% %Undefined% Bool))
+(= (sk-fact-overlap? () $_other) false)
+(= (sk-fact-overlap? (cons $entry $rest) $other)
+   (case $entry (
+      ((rule-ev $_kb $_name) (sk-fact-overlap? $rest $other))
+      ($_fact (if (stored-list-member? $entry $other) true (sk-fact-overlap? $rest $other))))))
+
 ;; Each row keeps the versions of its view in the order they were computed.
 ;; A consumer takes, per row, the latest version that does not depend on the
 ;; excluded key and matches the requested proof and truth-value pattern; an
@@ -112,14 +162,23 @@
 (: sk-version-view (-[semidet]-> %Undefined% %Undefined% Atom))
 (= (sk-version-view $views (sk-version $_rhash $view)) (cons $view $views))
 
-(: sk-view-matches? (-[semidet]-> %Undefined% %Undefined% Bool))
-(= (sk-view-matches? $filter $fact)
+(: sk-fact-matches? (-[semidet]-> %Undefined% %Undefined% Bool))
+(= (sk-fact-matches? $filter $fact)
    (case $fact (
-      ((sk-fold-result $_goal $_proof) true)
       (($_type $_kbctx $proof $tv)
          (let* (((sk-filter $want-proof $want-tv) (copy_term $filter))
                 (($_t $_c $got-proof $got-tv) (copy_term $fact)))
             (= (quote ($got-proof $got-tv)) (quote ($want-proof $want-tv))))))))
+
+(: sk-view-matches? (-[semidet]-> %Undefined% %Undefined% Bool))
+(= (sk-view-matches? $filter $fact)
+   (case $fact (
+      ((sk-fold-result $_goal $_proof) true)
+      ($_any-fact
+         (let* (((sk-filter $want-proof $want-tv) $filter))
+            (if (is-var $want-proof)
+               (if (is-var $want-tv) true (sk-fact-matches? $filter $fact))
+               (sk-fact-matches? $filter $fact)))))))
 
 (: sk-stored-views (-[det]-> %Undefined% %Undefined% Atom))
 (= (sk-stored-views $hash $key)
@@ -172,6 +231,19 @@
          false)))
 
 ;; --- Token replacement ------------------------------------------------------
+
+;; A compiled query adapter proves (_ inner) with an open head; its proof is
+;; the inner proof.
+(: sk-unwrap-proof (-[det]-> %Undefined% Atom))
+(= (sk-unwrap-proof $proof)
+   (if (is-expr $proof)
+      (if (== $proof ()) $proof
+         (if (is-var (car-atom $proof))
+            (let $tail (cdr-atom $proof)
+               (if (== $tail ()) $proof
+                  (if (== (cdr-atom $tail) ()) (car-atom $tail) $proof)))
+            $proof))
+      $proof))
 
 ;; A rule proof marks each fold premise with a `cpu` token; the tokens are
 ;; replaced, in premise order, by the folds' proofs.
@@ -284,7 +356,8 @@
          ((sk-acc $fold-proofs $ev $deps)
             (let* (((token-state $full-proof $_unused)
                       (replace-token $proof (fold-semidet sk-cons-step () $fold-proofs)))
-                   ($fact (assemble-stored-runtime-fact $type $kbctx $full-proof $tv)))
+                   ($final-proof (sk-unwrap-proof $full-proof))
+                   ($fact (assemble-stored-runtime-fact $type $kbctx $final-proof $tv)))
                (sk-val $fact (rule-result-evidence $fact (the (List Evidence) $ev)) (cons $khash $deps))))
          (sk-fail sk-none)))))
 
@@ -307,8 +380,7 @@
                   (sk-none sk-fail)
                   ((sk-val $fact $premise-ev $premise-deps)
                      (if (if $shared false
-                            (premise-evidence-overlap?
-                               (the (List Evidence) $ev) (the (List Evidence) $premise-ev)))
+                            (sk-fact-overlap? $ev $premise-ev))
                         sk-fail
                         (if (= $premise $fact)
                            (sk-acc $fold-proofs (sk-union $ev $premise-ev) (sk-union $deps $premise-deps))
@@ -482,6 +554,33 @@
       (() ())
       ((cons $member $_rest) (sk-answers $member)))))
 
+;; A fold read in a pass after one of its members changed is recomputed.
+(: sk-refresh-fold-step (-[semidet]-> Number %Undefined% %Undefined% Atom))
+(= (sk-refresh-fold-step $pass $_acc $premise)
+   (case $premise (
+      ((CPU $fun $args $_res)
+         (if (== $fun FoldAllCompiled)
+            (sk-refresh-fold! $pass (sk-fold $args)
+               (sk-fold-member-keys (CPU FoldAllCompiled $args $_result)))
+            (if (== $fun GroupedFoldAllCompiled)
+               (case (sk-group-members (sk-group $args) $args) (
+                  ((sk-group-found $_member $members) (sk-refresh-fold! $pass (sk-group $args) $members))
+                  ($_missing ())))
+               ())))
+      ($_fact ()))))
+
+(: sk-refresh-fold! (-[semidet]-> Number %Undefined% %Undefined% Atom))
+(= (sk-refresh-fold! $pass $key $members)
+   (if (sk-reads-changed? $pass (fold-semidet sk-hash-step () $members))
+      (let* (($hash (index-hash $key))
+             ($_dropped
+                (collapse (match &sk_view ($hash $stored 0 $view)
+                   (if (=alpha $stored $key)
+                      (let $row (make-space-row4 $hash $stored 0 $view) (remove-atom &sk_view $row))
+                      (empty))))))
+         ())
+      ()))
+
 ;; Views are computed in the order rows were created, so a first pass reads
 ;; only what was derived earlier, as a proof is built from proofs that already
 ;; exist. Support found later reaches earlier readers in further passes: a row
@@ -492,7 +591,8 @@
    (let* ((($_ident $_concl $premises $_s) $body)
           ($versions (sk-row-versions $hash $key $rhash)))
       (if (if (== $versions ()) (== $pass 0) (sk-reads-changed? $pass (sk-read-hashes $premises)))
-         (let $new (sk-row-view $hash (copy_term $body))
+         (let* (($_folds (fold-semidet (sk-refresh-fold-step $pass) () $premises))
+                ($new (sk-row-view $hash (copy_term $body))))
             (case $new (
                (sk-none ())
                ($_view
@@ -732,7 +832,7 @@
           ($_budget (change-state! sk_budget $steps))
           ($_rows (change-state! sk_row_budget (* 10 $steps)))
           ($_activate (sk-activate-pending!))
-          ($_deferred (sk-complete-deferred!))
+          ($_parked (sk-park-deliveries!))
           ($_search (sk-search! 0 $goals ()))
           ($_before (sk-flush-dirty!))
           ($_evaluated (sk-evaluate! (fold-semidet sk-root-keys-step () $goals)))

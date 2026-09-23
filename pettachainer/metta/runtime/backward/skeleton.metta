@@ -314,7 +314,7 @@
           ($rhash (index-hash $ident)))
       (if (sk-row-present? $khash $key $rhash $ident)
          (sk-add-answer! $owner $key)
-         (if (sk-take-row!)
+         (if (if (>= (the Number $rule) 1000000000) true (sk-take-row!))
             (let* (($seq (next-search-id sk_row_seq))
                    ($body (quote ($ident $concl $premises $seq)))
                    ($row (make-space-row4 $khash $key $rhash $body))
@@ -327,13 +327,14 @@
                    ($_dirty (sk-mark-dirty! $key)))
                (sk-add-answer! $owner $key))
             (let $_deferred
-               (add-atom &sk_deferred (sk-deferred $owner $rule $concl $premises $keys))
+               (add-space-atom! &sk_deferred
+                  (make-space-pair (sk-node-hash $owner) (sk-deferred $owner $rule $concl $premises $keys)))
                ())))))
 
 ;; The budget counts expansions. New rows have their own allowance of ten per
 ;; step, so recursive rules cannot grow the skeleton without bound; a row found
-;; after the allowance is spent waits in &sk_deferred and the next search
-;; completes it first.
+;; after the allowance is spent waits in &sk_deferred for a later walk. Rows of
+;; query-local rules are the query's own compiled scaffold and always fit.
 (: sk-take-step! (-[det]-> Bool))
 (= (sk-take-step!) (sk-take! sk_budget))
 
@@ -346,16 +347,48 @@
       (if (<= $left 0) false
          (progn (change-state! $counter (- $left 1)) true))))
 
-(: sk-complete-deferred! (-[semidet]-> Atom))
-(= (sk-complete-deferred!)
-   (let $entries
-      (collapse (match &sk_deferred $entry
-         (let $_removed (remove-atom &sk_deferred $entry) $entry)))
+(: sk-complete-deferred! (-[semidet]-> %Undefined% Atom))
+(= (sk-complete-deferred! $node)
+   (let* (($hash (sk-node-hash $node))
+          ($entries
+             (collapse (match &sk_deferred ($hash (sk-deferred $owner $rule $concl $premises $keys))
+                (if (=alpha $owner $node)
+                   (let $entry (make-space-pair $hash (sk-deferred $owner $rule $concl $premises $keys))
+                      (let $_removed (remove-atom &sk_deferred $entry)
+                         (sk-deferred $owner $rule $concl $premises $keys)))
+                   (empty))))))
       (fold-semidet sk-deferred-step () $entries)))
 
 (: sk-deferred-step (-[semidet]-> %Undefined% %Undefined% Atom))
 (= (sk-deferred-step $_acc (sk-deferred $owner $rule $concl $premises $keys))
    (sk-complete-row! $owner $rule $concl $premises $keys))
+
+;; Work left over by an earlier query waits with its node and resumes when a
+;; later walk reaches that node, so it never spends an unrelated query's
+;; budget: deferred rows are completed and parked deliveries are queued again.
+(: sk-park-deliveries! (-[semidet]-> Atom))
+(= (sk-park-deliveries!)
+   (let $entries
+      (collapse (match &sk_answer_queue (sk-delivery $node $key)
+         (let $_removed (remove-atom &sk_answer_queue (sk-delivery $node $key))
+            (sk-delivery $node $key))))
+      (fold-semidet sk-park-step () $entries)))
+
+(: sk-park-step (-[det]-> %Undefined% %Undefined% Atom))
+(= (sk-park-step $_acc (sk-delivery $node $key))
+   (let $_row (add-space-atom! &sk_parked (make-space-pair (sk-node-hash $node) (sk-delivery $node $key))) ()))
+
+(: sk-resume! (-[semidet]-> %Undefined% Atom))
+(= (sk-resume! $node)
+   (let* (($hash (sk-node-hash $node))
+          ($_deliveries
+             (collapse (match &sk_parked ($hash (sk-delivery $owner $key))
+                (if (=alpha $owner $node)
+                   (let* (($entry (make-space-pair $hash (sk-delivery $owner $key)))
+                          ($_removed (remove-atom &sk_parked $entry)))
+                      (add-atom &sk_answer_queue (sk-delivery $owner $key)))
+                   (empty))))))
+      (sk-complete-deferred! $node)))
 
 (= (sk-use-step $parent $_acc $key) (sk-add-use! $key $parent))
 
@@ -630,7 +663,8 @@
          (if (sk-seen! $node)
             (sk-search! $depth $rest $next)
             (if (sk-expanded? $node)
-               (sk-search! $depth $rest (fold-semidet sk-enqueue $next (sk-children $node)))
+               (let $_resumed (sk-resume! $node)
+                  (sk-search! $depth $rest (fold-semidet sk-enqueue $next (sk-children $node))))
                (if (sk-take-step!)
                   (let $_expand (sk-expand! $node $depth)
                      (sk-search! $depth $rest
@@ -642,9 +676,10 @@
 (: sk-clear-temp! (-[semidet]-> Atom))
 (= (sk-clear-temp!)
    (let* (($_deferred
-             (collapse (match &sk_deferred (sk-deferred $o $rule $c $p $k)
+             (collapse (match &sk_deferred ($h (sk-deferred $o $rule $c $p $k))
                 (if (>= (the Number $rule) 1000000000)
-                   (remove-atom &sk_deferred (sk-deferred $o $rule $c $p $k))
+                   (let $entry (make-space-pair $h (sk-deferred $o $rule $c $p $k))
+                      (remove-atom &sk_deferred $entry))
                    (empty)))))
           ($entries
              (collapse (match &sk_temp $entry
