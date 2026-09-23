@@ -33,7 +33,6 @@
 
 ;; Signatures of the mutually recursive functions below.
 (: sk-value (-[semidet]-> SkeletonKey SkeletonFilter Number SkeletonValue))
-(: sk-collect! (-[semidet]-> Atom SkeletonKey Atom))
 
 (: sk-union (-[det]-> (List $item) (List $item) (List $item)))
 (= (sk-union $left $right) (list_to_set (append-flat $left $right)))
@@ -164,12 +163,6 @@
    (let $hash (sk-node-hash $node)
       (collapse (once (match &sk_fold ($hash $stored $member)
          (if (=alpha $stored $node) $member (empty)))))))
-
-(: sk-fold-members (-[det]-> SkPattern (List SkeletonKey)))
-(= (sk-fold-members $node)
-   (case (sk-fold-node-member $node) (
-      (() ())
-      ((cons $member $_rest) (sk-answers $member)))))
 
 (: sk-member-filter (-[det]-> SkPattern SkeletonFilter))
 (= (sk-member-filter $member)
@@ -333,19 +326,70 @@
 (= (sk-keep-view $hash $key $view)
    (let $_stored (sk-store-view! $hash $key 0 $view) (cons (sk-version 0 $view) ())))
 
-;; The merged value of a key on behalf of a consumer: leaves first, then one
-;; version per row in the order the rows were found.
+;; The versions a consumer takes: per row, the latest one it admits.
+(: sk-admitted (-[semidet]-> Number SkeletonKey SkeletonFilter Number (List SkeletonValue)))
+(= (sk-admitted $hash $key $filter $exclude)
+   (let* (($stored (sk-stored-views $hash $key))
+          ($versions (if (== $stored ()) (sk-fold-views $hash $key) $stored)))
+      (fold-semidet sk-cons-step ()
+         (fold-semidet sk-version-view ()
+            (fold-semidet (sk-admit-step $exclude $filter) () $versions)))))
+
+;; Leaves first, then one version per row in the order the rows were found.
+(: sk-merge-key (-[semidet]-> Number SkeletonKey SkeletonFilter (List SkeletonValue) SkeletonValue))
+(= (sk-merge-key $hash $key $filter $views)
+   (fold-semidet sk-merge-step
+      (fold-semidet sk-merge-step sk-none (map-semidet (sk-leaf-view $hash) (sk-key-leaves $key $filter)))
+      $views))
+
+(: sk-view-deps-step (-[semidet]-> (List Number) SkeletonValue (List Number)))
+(= (sk-view-deps-step $deps $view)
+   (case $view (
+      ((sk-val $_fact $_ev $view-deps) (sk-union $deps $view-deps))
+      ((sk-goal-val $_goal $_proof $_ev $view-deps) (sk-union $deps $view-deps))
+      (sk-none $deps))))
+
+(: sk-open-filter? (-[det]-> SkeletonFilter Bool))
+(= (sk-open-filter? $filter)
+   (case $filter (
+      (sk-any-filter true)
+      ((sk-filter $proof $tv) (if (is-var $proof) (is-var $tv) false)))))
+
+;; An open read without exclusion is cached per key with the dependencies of
+;; the versions it merged. A consumer outside those dependencies admits every
+;; latest version, so it reads the same value.
+(: sk-open-value (-[semidet]-> Number SkeletonKey SkeletonFilter SkeletonMerged))
+(= (sk-open-value $hash $key $filter)
+   (case (collapse (once (match &sk_merged (sk-merged $hash $stored $deps $value)
+            (if (=alpha $stored $key) (sk-merged $hash $stored $deps $value) (empty))))) (
+      ((cons $merged $_rest) $merged)
+      (()
+         (let* (($views (sk-admitted $hash $key $filter -1))
+                ($deps (fold-semidet sk-view-deps-step () $views))
+                ($value (sk-merge-key $hash $key $filter $views))
+                ($_cached (add-atom &sk_merged (sk-merged $hash $key $deps $value))))
+            (sk-merged $hash $key $deps $value))))))
+
+;; The merged value of a key on behalf of a consumer.
 (= (sk-value $key $filter $exclude)
+   (let $hash (index-hash $key)
+      (if (sk-open-filter? $filter)
+         (case (sk-open-value $hash $key $filter) (
+            ((sk-merged $_hash $_key $deps $value)
+               (if (stored-list-member? $exclude $deps)
+                  (sk-merge-key $hash $key $filter (sk-admitted $hash $key $filter $exclude))
+                  $value))))
+         (sk-merge-key $hash $key $filter (sk-admitted $hash $key $filter $exclude)))))
+
+(: sk-drop-merged! (-[det]-> SkeletonKey Atom))
+(= (sk-drop-merged! $key)
    (let* (($hash (index-hash $key))
-          ($stored (sk-stored-views $hash $key))
-          ($versions (if (== $stored ()) (sk-fold-views $hash $key) $stored))
-          ($views
-             (fold-semidet sk-cons-step ()
-                (fold-semidet sk-version-view ()
-                   (fold-semidet (sk-admit-step $exclude $filter) () $versions)))))
-      (fold-semidet sk-merge-step
-         (fold-semidet sk-merge-step sk-none (map-semidet (sk-leaf-view $hash) (sk-key-leaves $key $filter)))
-         $views)))
+          ($_dropped
+             (collapse (match &sk_merged (sk-merged $hash $stored $deps $value)
+                (if (=alpha $stored $key)
+                   (remove-atom &sk_merged (sk-merged $hash $stored $deps $value))
+                   (empty))))))
+      ()))
 
 ;; --- Row views --------------------------------------------------------------
 
@@ -442,173 +486,143 @@
                (sk-val $fact (rule-result-evidence $fact $ev) $deps)))
          (sk-fail sk-none)))))
 
-;; --- Evaluation order and passes ----------------------------------------------
+;; --- Evaluation -------------------------------------------------------------
 
-(: sk-reached? (-[det]-> Number SkeletonKey Bool))
-(= (sk-reached? $hash $key)
-   (not (== (collapse (once (match &sk_reach ($hash $stored)
-               (if (=alpha $stored $key) true (empty)))))
-            ())))
+;; Evaluation starts from what changed since the last one: rows never
+;; evaluated, and the readers of keys whose value changed outside evaluation
+;; (added facts, removed query-local rows, new fold members). Rows are computed
+;; in creation order, so a first computation reads only what was derived
+;; earlier, as a proof is built from proofs that already exist. When a row's
+;; view changes, the rows reading its key are scheduled: later rows in the same
+;; pass, earlier rows in the next one. Passes stop at four. Nothing whose inputs
+;; did not change is visited.
 
-;; The keys a row reads: its fact premises and folds, and for a fold the keys
-;; of its members.
-(: sk-premise-key-step (-[semidet]-> (List SkeletonKey) SkPattern (List SkeletonKey)))
-(= (sk-premise-key-step $keys $premise)
-   (case $premise (
-      ((CPU FoldAllCompiled $fold-args $_fold-res)
-         (fold-semidet sk-cons-step (cons (sk-fold $fold-args) $keys)
-            (sk-fold-members (CPU FoldAllCompiled $fold-args $_result))))
-      ((CPU GroupedFoldAllCompiled $group-args $_group-res)
-         (case (sk-group-members (sk-group $group-args) $group-args) (
-            ((sk-group-found $_member $members)
-               (fold-semidet sk-cons-step (cons (sk-group $group-args) $keys) $members))
-            (sk-group-missing (cons (sk-group $group-args) $keys)))))
-      ((CPU $_fun $_args $_res) $keys)
-      (($type $kbctx $_proof $_tv) (cons (sk-key $type $kbctx) $keys)))))
-
-;; The rows the roots can reach are listed with their creation numbers.
-(= (sk-collect! $_acc $key)
+;; The rows that read a key directly, as fact premise, fold or group.
+(: sk-readers (-[det]-> SkeletonKey (List SkeletonItem)))
+(= (sk-readers $key)
    (let $hash (index-hash $key)
-      (if (sk-reached? $hash $key) ()
-         (let* (($_mark (add-atom &sk_reach ($hash $key)))
-                ($items
-                   (collapse (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
-                      (if (=alpha $stored $key)
-                         (sk-row-item $seq $hash $stored $rhash (sk-row $ident $concl $premises $seq))
-                         (empty))))))
-            (fold-semidet sk-collect-row () $items)))))
+      (collapse (match &sk_reader ($hash $stored $khash $rhash)
+         (if (=alpha $stored $key)
+            (match &sk_row ($khash $rkey $rhash (sk-row $ident $concl $premises $seq))
+               (sk-row-item $seq $khash $rkey $rhash (sk-row $ident $concl $premises $seq)))
+            (empty))))))
 
-(: sk-collect-row (-[semidet]-> Atom SkeletonItem Atom))
-(= (sk-collect-row $_acc (sk-row-item $seq $hash $key $rhash (sk-row $ident $concl $premises $s)))
-   (let $_listed
-      (add-atom &sk_order (sk-row-item $seq $hash $key $rhash (sk-row $ident $concl $premises $s)))
-      (fold-semidet sk-collect! () (fold-semidet sk-premise-key-step () $premises))))
+(: sk-item-seq (-[det]-> SkeletonItem Number))
+(= (sk-item-seq (sk-row-item $seq $_khash $_key $_rhash $_row)) $seq)
 
-(: sk-changed-in? (-[det]-> Number Number Bool))
-(= (sk-changed-in? $pass $hash)
-   (not (== (collapse (once (match &sk_changed (sk-changed $pass $hash) true))) ())))
+(: sk-item-key-hash (-[det]-> SkeletonItem Number))
+(= (sk-item-key-hash (sk-row-item $_seq $khash $_key $_rhash $_row)) $khash)
 
-;; A key changed in this pass or the previous one.
-(: sk-reads-changed? (-[det]-> Number (List SkeletonKey) Bool))
-(= (sk-reads-changed? $_pass ()) false)
-(= (sk-reads-changed? $pass (cons $key $rest))
-   (let $hash (index-hash $key)
-      (if (sk-changed-in? $pass $hash) true
-         (if (sk-changed-in? (- $pass 1) $hash) true (sk-reads-changed? $pass $rest)))))
+;; Todo lists are ordered by creation number.
+(: sk-insert (-[det]-> SkeletonItem (List SkeletonItem) (List SkeletonItem)))
+(= (sk-insert $item ()) (cons $item ()))
+(= (sk-insert $item (cons $first $rest))
+   (if (< (sk-item-seq $item) (sk-item-seq $first))
+      (cons $item (cons $first $rest))
+      (cons $first (sk-insert $item $rest))))
 
-;; A fold read in a pass after one of its members changed is recomputed.
-(: sk-refresh-fold! (-[semidet]-> Number SkeletonKey (List SkeletonKey) Atom))
-(= (sk-refresh-fold! $pass $key $members)
-   (if (sk-reads-changed? $pass $members)
-      (let* (($hash (index-hash $key))
-             ($_dropped
-                (collapse (match &sk_view ($hash $stored 0 $view)
-                   (if (=alpha $stored $key)
-                      (remove-atom &sk_view ($hash $stored 0 $view))
-                      (empty))))))
-         ())
+;; this pass's remaining rows, the next pass's rows
+(: SkeletonWork Type)
+(: sk-work (-[det]-> (List SkeletonItem) (List SkeletonItem) SkeletonWork))
+
+(: sk-queue-new? (-[det]-> Number SkeletonItem Bool))
+(= (sk-queue-new? $pass (sk-row-item $_seq $khash $_key $rhash $_row))
+   (if (not (== (collapse (once (match &sk_queued ($pass $khash $rhash) true))) ())) false
+      (let $_queued (add-atom &sk_queued ($pass $khash $rhash)) true)))
+
+;; A reader created after the row that changed its input is still ahead in
+;; this pass; an earlier one waits for the next. A reader whose own key the
+;; new view depends on does not admit it, so nothing changed for that reader.
+(: sk-schedule-reader
+   (-[det]-> Number Number (List Number) SkeletonWork SkeletonItem SkeletonWork))
+(= (sk-schedule-reader $pass $seq $deps (sk-work $todo $next) $item)
+   (if (stored-list-member? (sk-item-key-hash $item) $deps) (sk-work $todo $next)
+   (if (> (sk-item-seq $item) $seq)
+      (if (sk-queue-new? $pass $item) (sk-work (sk-insert $item $todo) $next) (sk-work $todo $next))
+      (if (< (+ $pass 1) 4)
+         (if (sk-queue-new? (+ $pass 1) $item) (sk-work $todo (cons $item $next)) (sk-work $todo $next))
+         (sk-work $todo $next)))))
+
+(: sk-drop-fold-view! (-[det]-> SkeletonKey Atom))
+(= (sk-drop-fold-view! $key)
+   (let* (($hash (index-hash $key))
+          ($_dropped
+             (collapse (match &sk_view ($hash $stored 0 $view)
+                (if (=alpha $stored $key) (remove-atom &sk_view ($hash $stored 0 $view)) (empty))))))
       ()))
 
-(: sk-refresh-fold-step (-[semidet]-> Number Atom SkPattern Atom))
-(= (sk-refresh-fold-step $pass $_acc $premise)
-   (case $premise (
-      ((CPU FoldAllCompiled $fold-args $_fold-res)
-         (sk-refresh-fold! $pass (sk-fold $fold-args)
-            (sk-fold-members (CPU FoldAllCompiled $fold-args $_result))))
-      ((CPU GroupedFoldAllCompiled $group-args $_group-res)
-         (case (sk-group-members (sk-group $group-args) $group-args) (
-            ((sk-group-found $_member $members) (sk-refresh-fold! $pass (sk-group $group-args) $members))
-            (sk-group-missing ()))))
-      ($_other ()))))
+;; A changed key schedules the rows reading it, given the dependencies of the
+;; view that changed it. A fold or group over it is recomputed when next read,
+;; and its own readers are scheduled.
+(: sk-key-changed
+   (-[semidet]-> Number Number (List Number) SkeletonWork SkeletonKey SkeletonWork))
+(= (sk-key-changed $pass $seq $deps $work $key)
+   (let* (($_merged (sk-drop-merged! $key))
+          ($hash (index-hash $key))
+          ($folds
+             (collapse (match &sk_use ($hash $stored $fold)
+                (if (=alpha $stored $key) $fold (empty)))))
+          ($scheduled (fold-semidet (sk-schedule-reader $pass $seq $deps) $work (sk-readers $key))))
+      (fold-semidet (sk-fold-changed $pass $seq) $scheduled $folds)))
+
+(: sk-fold-changed (-[semidet]-> Number Number SkeletonWork SkeletonKey SkeletonWork))
+(= (sk-fold-changed $pass $seq $work $fold)
+   (let $_dropped (sk-drop-fold-view! $fold) (sk-key-changed $pass $seq () $work $fold)))
 
 (: sk-row-versions (-[det]-> Number SkeletonKey Number (List SkeletonValue)))
 (= (sk-row-versions $hash $key $rhash)
    (collapse (match &sk_view ($hash $stored $rhash $view)
       (if (=alpha $stored $key) $view (empty)))))
 
-(: sk-known-version? (-[det]-> SkeletonValue (List SkeletonValue) Bool))
-(= (sk-known-version? $_view ()) false)
-(= (sk-known-version? $view (cons $version $rest))
-   (if (=alpha $view $version) true (sk-known-version? $view $rest)))
+(: sk-last (-[det]-> (List SkeletonValue) SkeletonValue))
+(= (sk-last ()) sk-none)
+(= (sk-last (cons $view ())) $view)
+(= (sk-last (cons $_view (cons $next $rest))) (sk-last (cons $next $rest)))
 
-;; Views are computed in the order rows were created, so a first pass reads
-;; only what was derived earlier, as a proof is built from proofs that already
-;; exist. Support found later reaches earlier readers in further passes: a row
-;; is recomputed when a key it reads changed in this pass or the previous one.
-;; A new version is kept only if it differs from every earlier one, so the
-;; passes end.
-(: sk-compute-step (-[semidet]-> Number Atom SkeletonItem Atom))
-(= (sk-compute-step $pass $_acc (sk-row-item $_seq $hash $key $rhash $row))
-   (let* (((sk-row $_ident $_concl $premises $_s) $row)
-          ($versions (sk-row-versions $hash $key $rhash)))
-      (if (if (== $versions ()) (== $pass 0)
-             (sk-reads-changed? $pass (fold-semidet sk-premise-key-step () $premises)))
-         (let* (($_folds (fold-semidet (sk-refresh-fold-step $pass) () $premises))
-                ($new (sk-row-view $hash (copy_term $row))))
-            (case $new (
-               (sk-none ())
-               ($_view
-                  (if (sk-known-version? $new $versions) ()
-                     (let $_stored (sk-store-view! $hash $key $rhash $new)
-                        (let $_changed (add-atom &sk_changed (sk-changed $pass $hash)) ())))))))
-         ())))
+;; A row whose view differs from its latest version stores a new version and
+;; changes its key.
+(: sk-compute (-[semidet]-> Number SkeletonWork SkeletonItem SkeletonWork))
+(= (sk-compute $pass $work (sk-row-item $seq $hash $key $rhash $row))
+   (let $new (sk-row-view $hash (copy_term $row))
+      (case $new (
+         (sk-none $work)
+         ($_view
+            (if (=alpha $new (sk-last (sk-row-versions $hash $key $rhash))) $work
+               (let $_stored (sk-store-view! $hash $key $rhash $new)
+                  (sk-key-changed $pass $seq (fold-semidet sk-view-deps-step () (cons $new ())) $work $key))))))))
 
-(: sk-run-passes! (-[semidet]-> Number (List SkeletonItem) Atom))
-(= (sk-run-passes! $pass $items)
-   (let $_pass (fold-semidet (sk-compute-step $pass) () $items)
-      (if (< (+ $pass 1) 4)
-         (if (not (== (collapse (once (match &sk_changed (sk-changed $pass $_hash) true))) ()))
-            (sk-run-passes! (+ $pass 1) $items)
-            ())
-         ())))
+(: sk-work-off! (-[semidet]-> Number SkeletonWork Atom))
+(= (sk-work-off! $pass (sk-work $todo $next))
+   (case $todo (
+      ((cons $item $rest) (sk-work-off! $pass (sk-compute $pass (sk-work $rest $next) $item)))
+      (() (if (== $next ()) () (sk-work-off! (+ $pass 1) (sk-work (sort-atom $next) ())))))))
 
-(: sk-evaluate! (-[semidet]-> (List SkeletonKey) Atom))
-(= (sk-evaluate! $keys)
-   (let* (($_reach (collapse (match &sk_reach ($hash $key) (remove-atom &sk_reach ($hash $key)))))
-          ($_order
-             (collapse (match &sk_order (sk-row-item $seq $hash $key $rhash $row)
-                (remove-atom &sk_order (sk-row-item $seq $hash $key $rhash $row)))))
-          ($_changed (collapse (match &sk_changed (sk-changed $pass $hash) (remove-atom &sk_changed (sk-changed $pass $hash)))))
-          ($_collect (fold-semidet sk-collect! () $keys)))
-      (sk-run-passes! 0
-         (sort-atom
-            (collapse (match &sk_order (sk-row-item $seq $hash $key $rhash $row)
-               (sk-row-item $seq $hash $key $rhash $row)))))))
+;; Keys changed outside evaluation: a fold or group key recomputes when next
+;; read, and every changed key's readers are scheduled.
+(: sk-dirty-seed (-[semidet]-> SkeletonWork SkeletonKey SkeletonWork))
+(= (sk-dirty-seed $work $key)
+   (let $_dropped
+      (case $key (
+         ((sk-key $_type $_kbctx) ())
+         ($_fold (sk-drop-fold-view! $key))))
+      (sk-key-changed 0 -1 () $work $key)))
 
-;; --- Invalidation -----------------------------------------------------------
+(: sk-seed-new (-[det]-> (List SkeletonItem) SkeletonItem (List SkeletonItem)))
+(= (sk-seed-new $todo $item) (if (sk-queue-new? 0 $item) (cons $item $todo) $todo))
 
-;; Every view that read a changed key is dropped, following use edges up to the
-;; roots. Walking stops at keys this flush already visited.
-(: sk-invalidate-step (-[semidet]-> Atom SkeletonKey Atom))
-(= (sk-invalidate-step $_acc $key)
-   (let $hash (index-hash $key)
-      (if (sk-invalidated? $hash $key) ()
-         (let* (($_seen (add-atom &sk_dirty_seen ($hash $key)))
-                ($_drop
-                   (collapse (match &sk_view ($hash $stored $rhash $view)
-                      (if (=alpha $stored $key)
-                         (remove-atom &sk_view ($hash $stored $rhash $view))
-                         (empty)))))
-                ($parents
-                   (collapse (match &sk_use ($hash $stored $parent)
-                      (if (=alpha $stored $key) $parent (empty))))))
-            (fold-semidet sk-invalidate-step () $parents)))))
-
-(: sk-invalidated? (-[det]-> Number SkeletonKey Bool))
-(= (sk-invalidated? $hash $key)
-   (not (== (collapse (once (match &sk_dirty_seen ($hash $stored)
-               (if (=alpha $stored $key) true (empty)))))
-            ())))
-
-(: sk-flush-dirty! (-[semidet]-> Atom))
-(= (sk-flush-dirty!)
-   (let $seeds
-      (collapse (match &sk_dirty (sk-dirty $key)
-         (let $_removed (remove-atom &sk_dirty (sk-dirty $key)) $key)))
-      (if (== $seeds ()) ()
-         (let* (($_walk (fold-semidet sk-invalidate-step () $seeds))
-                ($_clear (collapse (match &sk_dirty_seen ($hash $key) (remove-atom &sk_dirty_seen ($hash $key))))))
-            ()))))
+(: sk-evaluate! (-[semidet]-> Atom))
+(= (sk-evaluate!)
+   (let* (($_queued (collapse (match &sk_queued ($pass $khash $rhash) (remove-atom &sk_queued ($pass $khash $rhash)))))
+          ($new
+             (collapse (match &sk_new (sk-row-item $seq $hash $key $rhash $row)
+                (let $_taken (remove-atom &sk_new (sk-row-item $seq $hash $key $rhash $row))
+                   (sk-row-item $seq $hash $key $rhash $row)))))
+          ($dirty
+             (collapse (match &sk_dirty (sk-dirty $key)
+                (let $_taken (remove-atom &sk_dirty (sk-dirty $key)) $key))))
+          ((sk-work $todo $next)
+             (fold-semidet sk-dirty-seed (sk-work (fold-semidet sk-seed-new () $new) ()) $dirty)))
+      (sk-work-off! 0 (sk-work (sort-atom $todo) $next))))
 
 ;; --- Base-rate API ----------------------------------------------------------
 
@@ -619,13 +633,19 @@
    (let* (($stored (copy_term $pattern))
           ($_old (base-rate-cache-remove! $kbid $pattern))
           ($_new (add-atom &base_rate_cache (base-rate $kbid $stored $tv user any)))
-          ($_values (collapse (match &sk_view ($hash $key $rhash $view) (remove-atom &sk_view ($hash $key $rhash $view))))))
+          ($_values (collapse (match &sk_view ($hash $key $rhash $view) (remove-atom &sk_view ($hash $key $rhash $view)))))
+          ($_merged
+             (collapse (match &sk_merged (sk-merged $hash $key $deps $value)
+                (remove-atom &sk_merged (sk-merged $hash $key $deps $value))))))
       ()))
 
 (: clear-base-rate (-[det]-> KB Statement (List $none)))
 (= (clear-base-rate $kbid $pattern)
    (let* (($_old (base-rate-cache-remove! $kbid $pattern))
-          ($_values (collapse (match &sk_view ($hash $key $rhash $view) (remove-atom &sk_view ($hash $key $rhash $view))))))
+          ($_values (collapse (match &sk_view ($hash $key $rhash $view) (remove-atom &sk_view ($hash $key $rhash $view)))))
+          ($_merged
+             (collapse (match &sk_merged (sk-merged $hash $key $deps $value)
+                (remove-atom &sk_merged (sk-merged $hash $key $deps $value))))))
       ()))
 
 ;; --- Materialization --------------------------------------------------------
@@ -690,16 +710,6 @@
 
 ;; --- Entry points -----------------------------------------------------------
 
-(: sk-root-keys-step (-[semidet]-> (List SkeletonKey) SkPattern (List SkeletonKey)))
-(= (sk-root-keys-step $keys $goal)
-   (case $goal (
-      ((CPU $fun $args $_res)
-         (if (== $fun FoldAllCompiled) (cons (sk-fold $args) $keys)
-            (if (== $fun GroupedFoldAllCompiled)
-               (fold-semidet sk-cons-step $keys (sk-answers $goal))
-               $keys)))
-      ($_fact (fold-semidet sk-cons-step $keys (sk-answers $goal))))))
-
 (: sk-root-value (-[semidet]-> SkeletonFilter SkeletonKey SkeletonValue))
 (= (sk-root-value $filter $key) (sk-value $key $filter -1))
 
@@ -753,11 +763,9 @@
           ($_activate (sk-activate-pending!))
           ($_parked (sk-park-deliveries!))
           ($_search (sk-search! 0 $goals ()))
-          ($_before (sk-flush-dirty!))
-          ($_evaluated (sk-evaluate! (fold-semidet sk-root-keys-step () $goals)))
+          ($_evaluated (sk-evaluate!))
           ($results (map-semidet (sk-root-results $materialize?) $goals))
-          ($_temp (sk-clear-temp!))
-          ($_after (sk-flush-dirty!)))
+          ($_temp (sk-clear-temp!)))
       $results))
 
 (: chainer-many

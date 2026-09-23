@@ -312,22 +312,48 @@
       (if (sk-row-present? $khash $key $rhash $ident)
          (sk-add-answer! $owner $key)
          (if (if $local true (sk-take-row!))
-            (let* (($row (sk-row $ident $concl $premises (next-search-id sk_row_seq)))
-                   ($_add (if (chainer-acyclic-term? $row) (add-atom &sk_row ($khash $key $rhash $row)) false))
+            (let* (($seq (next-search-id sk_row_seq))
+                   ($row (sk-row $ident $concl $premises $seq))
+                   ($_add
+                      (if (chainer-acyclic-term? $row)
+                         (let $_stored (add-atom &sk_row ($khash $key $rhash $row))
+                            (add-atom &sk_new (sk-row-item $seq $khash $key $rhash $row)))
+                         false))
                    ($_temp
                       (if $local
                          (let $_t (add-atom &sk_temp_rows ($khash $key $rhash $row)) ())
                          ()))
-                   ($_uses (fold-semidet (sk-use-step $key) () $keys))
-                   ($_dirty (sk-mark-dirty! $key)))
+                   ($_readers
+                      (fold-semidet (sk-add-reader! $khash $rhash) ()
+                         (fold-semidet sk-direct-key-step () $premises))))
                (sk-add-answer! $owner $key))
             (let* (($hash (sk-node-hash $owner))
                    ($_deferred
                       (add-atom &sk_deferred ($hash (sk-deferred $owner $rule $concl $premises $keys)))))
                ())))))
 
-(: sk-use-step (-[semidet]-> SkeletonKey Atom SkeletonKey Atom))
-(= (sk-use-step $parent $_acc $key) (sk-add-use! $key $parent))
+;; The keys a row reads directly: its fact premises, folds and groups.
+(: sk-direct-key-step (-[det]-> (List SkeletonKey) SkPattern (List SkeletonKey)))
+(= (sk-direct-key-step $keys $premise)
+   (case $premise (
+      ((CPU FoldAllCompiled $fold-args $_fold-res) (cons (sk-fold $fold-args) $keys))
+      ((CPU GroupedFoldAllCompiled $group-args $_group-res) (cons (sk-group $group-args) $keys))
+      ((CPU $_fun $_args $_res) $keys)
+      (($type $kbctx $_proof $_tv) (cons (sk-key $type $kbctx) $keys)))))
+
+(: sk-add-reader! (-[det]-> Number Number Atom SkeletonKey Atom))
+(= (sk-add-reader! $khash $rhash $_acc $key)
+   (let* (($hash (index-hash $key))
+          ($_row (add-atom &sk_reader ($hash $key $khash $rhash))))
+      ()))
+
+(: sk-remove-reader! (-[det]-> Number Number Atom SkeletonKey Atom))
+(= (sk-remove-reader! $khash $rhash $_acc $key)
+   (let* (($hash (index-hash $key))
+          ($_removed
+             (collapse (match &sk_reader ($hash $stored $khash $rhash)
+                (if (=alpha $stored $key) (remove-atom &sk_reader ($hash $stored $khash $rhash)) (empty))))))
+      ()))
 
 ;; The budget counts expansions. New rows have their own allowance of ten per
 ;; step, so recursive rules cannot grow the skeleton without bound; a row found
@@ -663,8 +689,8 @@
                            (fold-semidet sk-cons-step $next (sk-children $node))))
                      (sk-drain!)))))))))
 
-;; Query-local rules leave with their query: their rows, waiters and deferred
-;; rows are removed and every value that read one of those rows goes stale.
+;; Query-local rules leave with their query: their rows, waiters, deferred rows
+;; and views are removed, and the keys of the removed rows changed.
 (: sk-clear-temp! (-[semidet]-> Atom))
 (= (sk-clear-temp!)
    (let* (($_deferred
@@ -679,7 +705,16 @@
           ($keys
              (collapse (match &sk_temp_rows ($khash $key $rhash $row)
                 (let* (($_temp (remove-atom &sk_temp_rows ($khash $key $rhash $row)))
-                       ($_row (remove-atom &sk_row ($khash $key $rhash $row))))
+                       ($_row (remove-atom &sk_row ($khash $key $rhash $row)))
+                       ((sk-row $_ident $_concl $premises $_seq) $row)
+                       ($_readers
+                          (fold-semidet (sk-remove-reader! $khash $rhash) ()
+                             (fold-semidet sk-direct-key-step () $premises)))
+                       ($_views
+                          (collapse (match &sk_view ($khash $stored $rhash $view)
+                             (if (=alpha $stored $key)
+                                (remove-atom &sk_view ($khash $stored $rhash $view))
+                                (empty))))))
                    $key)))))
       (fold-semidet sk-dirty-step () $keys)))
 

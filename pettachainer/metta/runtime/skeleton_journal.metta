@@ -62,8 +62,6 @@
 ;; creation-number key-hash key row-hash row
 (: SkeletonItem Type)
 (: sk-row-item (-[det]-> Number Number SkeletonKey Number SkeletonRow SkeletonItem))
-(: SkeletonChanged Type)
-(: sk-changed (-[det]-> Number Number SkeletonChanged))
 (: SkeletonDirty Type)
 (: sk-dirty (-[det]-> SkeletonKey SkeletonDirty))
 (: SkeletonFresh Type)
@@ -96,9 +94,12 @@
 ;; child links, answers and use edges already recorded, by link hash
 (: &sk_link (SpaceOf (Number SkeletonLink)))
 !(bind! &sk_link (new-space))
-;; key -> a key whose value depends on it
+;; member key -> a fold or group key over it
 (: &sk_use (SpaceOf (Number SkeletonKey SkeletonKey)))
 !(bind! &sk_use (new-space))
+;; key -> a row reading it directly, by row key hash and row hash
+(: &sk_reader (SpaceOf (Number SkeletonKey Number Number)))
+!(bind! &sk_reader (new-space))
 ;; fold node -> member node
 (: &sk_fold (SpaceOf (Number SkPattern SkPattern)))
 !(bind! &sk_fold (new-space))
@@ -111,15 +112,18 @@
 ;; every version of each row's and fold's view
 (: &sk_view (SpaceOf (Number SkeletonKey Number SkeletonValue)))
 !(bind! &sk_view (new-space))
-;; one evaluation's reachable keys, reachable rows, and the keys each pass
-;; changed
-(: &sk_reach (SpaceOf (Number SkeletonKey)))
-!(bind! &sk_reach (new-space))
-(: &sk_order (SpaceOf (sk-row-item Number Number SkeletonKey Number SkeletonRow)))
-!(bind! &sk_order (new-space))
-(: &sk_changed (SpaceOf (sk-changed Number Number)))
-!(bind! &sk_changed (new-space))
-;; keys whose readers' views are stale
+;; a key's merged value for an open pattern and no exclusion, with the
+;; dependencies of the versions it merged
+(: SkeletonMerged Type)
+(: sk-merged (-[det]-> Number SkeletonKey (List Number) SkeletonValue SkeletonMerged))
+(: &sk_merged (SpaceOf (sk-merged Number SkeletonKey (List Number) SkeletonValue)))
+!(bind! &sk_merged (new-space))
+;; rows not evaluated yet, and the rows one evaluation scheduled per pass
+(: &sk_new (SpaceOf (sk-row-item Number Number SkeletonKey Number SkeletonRow)))
+!(bind! &sk_new (new-space))
+(: &sk_queued (SpaceOf (Number Number Number)))
+!(bind! &sk_queued (new-space))
+;; keys whose value changed outside evaluation
 (: &sk_dirty (SpaceOf (sk-dirty SkeletonKey)))
 !(bind! &sk_dirty (new-space))
 ;; rules and facts added since the last activation
@@ -148,9 +152,6 @@
 ;; nodes the current walk visited
 (: &sk_seen (SpaceOf (Number SkPattern)))
 !(bind! &sk_seen (new-space))
-;; keys the current invalidation walk visited
-(: &sk_dirty_seen (SpaceOf (Number SkeletonKey)))
-!(bind! &sk_dirty_seen (new-space))
 
 ;; --- Journal ------------------------------------------------------------------
 
