@@ -104,6 +104,9 @@
 (: ruleid CounterKey)
 (: bwd_tmp_ruleid CounterKey)
 (: fwd_aggregate_id CounterKey)
+(: sk_budget CounterKey)
+(: sk_row_budget CounterKey)
+(: sk_row_seq CounterKey)
 
 ;; Stored rule rows retain the existing conclusion/premise wire format. The
 ;; premise list contains executable goals and internal runtime fact tuples;

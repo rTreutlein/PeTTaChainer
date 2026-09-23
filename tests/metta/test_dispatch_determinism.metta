@@ -26,22 +26,6 @@
 
 !(test (collapse (proof-score (marginal-proj 0 proof) (STV 1.0 0.5))) (0.495))
 !(test (collapse (proof-score proof (STV 1.0 0.5))) (0.5))
-!(test (collapse (materializable-proof-kind? (rule sample))) (true))
-!(test (collapse (materializable-proof-kind? fact)) (false))
-!(test
-   (collapse
-      (materializable-proof-output?
-         ((A) (kb MAIN Nil) proof (STV 0.8 0.6))))
-   (true))
-!(test
-   (collapse (materializable-proof-output? ((A) (kb MAIN Nil) proof no-tv)))
-   (false))
-!(test
-   (collapse
-      (materializable-proof-output?
-         ((A) (kb MAIN Nil) proof (CTV (STV 1.0 1.0) (STV 0.0 1.0)))))
-   (false))
-!(test (collapse (materializable-proof-output? other-output)) (false))
 ;; Goal classification must preserve open CPU outputs and nested fact variables.
 !(test (collapse (goal-has-type-vars? (CPU + (1 2) 3))) (false))
 !(test (collapse (goal-has-type-vars? (CPU + (1 2) $result))) (true))

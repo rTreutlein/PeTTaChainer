@@ -211,7 +211,8 @@
 (= (forward-store-output-candidate!
       (forward-output-key $kb $type) $new-candidate)
    (let*
-      (($hash
+      (($_journal (sk-note-fact! $type $kb))
+       ($hash
           (forward-output-index-hash
              (forward-output-key $kb $type)))
        ($old-candidate
