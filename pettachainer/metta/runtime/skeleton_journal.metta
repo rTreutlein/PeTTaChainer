@@ -1,102 +1,177 @@
-;; Skeleton spaces and the ingestion journal.
+;; Skeleton types, spaces and the ingestion journal.
 ;;
 ;; The backward chainer keeps a durable skeleton: expanded goal patterns, their
 ;; answers, complete rule instances (rows), and partial joins waiting on a
-;; premise. Truth values are never stored there; evaluation computes them and keeps
-;; each row's view in &sk_view until something below it changes.
+;; premise. Truth values are never stored there; evaluation computes them and
+;; keeps each row's view in &sk_view until something below it changes.
 ;;
 ;; This module loads before every writer of &kb and of the rule spaces so they
 ;; can journal their additions. Ingestion only records; the next query
 ;; activates new facts and rules against already-expanded patterns.
 
-;; (node-hash pattern)
-!(bind! &sk_expanded (new-space))
-;; (head pattern): expanded fact patterns by statement head, for activation
-!(bind! &sk_node_head (new-space))
-;; (node-hash pattern key)
-!(bind! &sk_answer (new-space))
-;; (node-hash pattern waiter): a partial join or a group fold waiting on a node
-!(bind! &sk_wait (new-space))
-;; (node-hash pattern child-pattern)
-!(bind! &sk_child (new-space))
-;; (key-hash key row-hash (row-ident conclusion premises))
-!(bind! &sk_row (new-space))
-;; (link-hash (kind from to)): child links, answers and use edges already
-;; recorded
-!(bind! &sk_link (new-space))
-;; (key-hash key parent-key): the parent's value depends on key
-!(bind! &sk_use (new-space))
-;; (fold-args-hash fold-node member-pattern)
-!(bind! &sk_fold (new-space))
-;; (member-node-hash member-pattern fold-node)
-!(bind! &sk_member_of (new-space))
-;; (group-key-hash group-key group-node)
-!(bind! &sk_group_of (new-space))
-;; (key-hash key row-hash view): the current view of each row and fold
-!(bind! &sk_view (new-space))
-;; One evaluation's reachable keys (key-hash key), reachable rows by creation
-;; number (seq item), and the keys whose views each pass changed
-;; (sk-changed pass key-hash)
-!(bind! &sk_reach (new-space))
-!(bind! &sk_order (new-space))
-!(bind! &sk_changed (new-space))
-;; (sk-dirty key): cached evaluations above key are stale
-!(bind! &sk_dirty (new-space))
-;; (sk-pending-rule id) and (sk-pending-fact key)
-!(bind! &sk_pending (new-space))
-;; (sk-delivery node key): new answers waiting to reach the joins on their node
-!(bind! &sk_answer_queue (new-space))
-;; (node-hash (sk-delivery node key)): deliveries an earlier query left over
-!(bind! &sk_parked (new-space))
-;; (owner-hash (sk-deferred owner rule conclusion premises keys)): rows found
-;; after the row allowance ran out
-!(bind! &sk_deferred (new-space))
-;; rows and waiters created from query-local rules, removed after the query
-!(bind! &sk_temp (new-space))
-;; (sk-fresh pattern): children linked since the walk last looked
-!(bind! &sk_fresh (new-space))
-;; (node-hash pattern): nodes visited by the current search walk
-!(bind! &sk_seen (new-space))
-;; (key-hash key): keys already invalidated by the current dirty walk
-!(bind! &sk_dirty_seen (new-space))
+;; --- Types --------------------------------------------------------------------
 
+(: SkFact (Alias (Statement KBContext Proof TV)))
+;; A goal pattern: a fact goal or a computation, as rule premises are.
+(: SkPattern (Alias (| Goal (Statement KBContext Proof TV))))
+
+(: ScalarFoldSpec
+   (Alias (KB Statement (| ExtractValue ExtractInheritanceTV ExtractTV) $a
+             (-[semidet]-> $b $c $b) AggregateFinish AggregateTVMode)))
+(: GroupedFoldSpec
+   (Alias (KB Statement $a (| ExtractValue ExtractInheritanceTV ExtractTV) $b
+             (-[semidet]-> $c $d $c) AggregateFinish AggregateTVMode)))
+
+;; What a value belongs to: a statement in a context, a fold, or one group of
+;; a grouped fold.
 (: SkeletonKey Type)
-(: sk-key (-[det]-> Atom Atom SkeletonKey))
-(: sk-fold (-[det]-> Atom SkeletonKey))
-(: sk-group (-[det]-> Atom SkeletonKey))
+;; A fold's arguments come out of a CPU goal, whose arguments are polymorphic;
+;; they are typed as a fold spec once, where the fold is computed.
+(: sk-key (-[det]-> Statement KBContext SkeletonKey))
+(: sk-fold (-[det]-> $spec SkeletonKey))
+(: sk-group (-[det]-> $spec SkeletonKey))
 
+;; owner rule-id conclusion premises remaining-premises premise-keys
+(: SkeletonWaiter Type)
+(: sk-partial
+   (-[det]-> SkPattern Number SkFact (List SkPattern) (List SkPattern) (List SkeletonKey)
+       SkeletonWaiter))
+
+;; A row: which rule over which premise keys, its conclusion and premises with
+;; proof and truth-value variables unbound, and its creation number.
+(: SkeletonIdent Type)
+(: sk-ident (-[det]-> Number (List SkeletonKey) SkeletonKey SkeletonIdent))
+(: SkeletonRow Type)
+(: sk-row (-[det]-> SkeletonIdent SkFact (List SkPattern) Number SkeletonRow))
+
+;; A computed value: a fact with its evidence and the hashes of the keys it
+;; depends on, a computation or fold result with the proof that replaces a `cpu`
+;; token, or nothing.
+(: SkeletonValue Type)
+(: sk-val (-[det]-> SkFact (List Evidence) (List Number) SkeletonValue))
+(: sk-goal-val (-[det]-> Goal Proof (List Evidence) (List Number) SkeletonValue))
+(: sk-none SkeletonValue)
+(: SkeletonVersion Type)
+(: sk-version (-[det]-> Number SkeletonValue SkeletonVersion))
+
+(: SkeletonLink Type)
+(: sk-child-link (-[det]-> SkPattern SkPattern SkeletonLink))
+(: sk-answer-link (-[det]-> SkPattern SkeletonKey SkeletonLink))
+(: sk-use-link (-[det]-> SkeletonKey SkeletonKey SkeletonLink))
+
+;; creation-number key-hash key row-hash row
+(: SkeletonItem Type)
+(: sk-row-item (-[det]-> Number Number SkeletonKey Number SkeletonRow SkeletonItem))
+(: SkeletonChanged Type)
+(: sk-changed (-[det]-> Number Number SkeletonChanged))
 (: SkeletonDirty Type)
-(: sk-dirty (-[det]-> Atom SkeletonDirty))
-
+(: sk-dirty (-[det]-> SkeletonKey SkeletonDirty))
 (: SkeletonFresh Type)
-(: sk-fresh (-[det]-> Atom SkeletonFresh))
+(: sk-fresh (-[det]-> SkPattern SkeletonFresh))
 (: SkeletonDelivery Type)
-(: sk-delivery (-[det]-> Atom Atom SkeletonDelivery))
+(: sk-delivery (-[det]-> SkPattern SkeletonKey SkeletonDelivery))
 (: SkeletonDeferred Type)
-(: sk-deferred (-[det]-> Atom Atom Atom Atom Atom SkeletonDeferred))
-
+(: sk-deferred
+   (-[det]-> SkPattern Number SkFact (List SkPattern) (List SkeletonKey) SkeletonDeferred))
 (: SkeletonPending Type)
 (: sk-pending-rule (-[det]-> Number SkeletonPending))
 (: sk-pending-fact (-[det]-> SkeletonKey SkeletonPending))
 
-(: sk-space-nonempty? (-[det]-> %Undefined% Bool))
+;; --- Spaces -------------------------------------------------------------------
+
+(: &sk_expanded (SpaceOf (Number SkPattern)))
+!(bind! &sk_expanded (new-space))
+;; expanded fact patterns by statement head, for activation
+(: &sk_node_head (SpaceOf (Atom SkPattern)))
+!(bind! &sk_node_head (new-space))
+(: &sk_answer (SpaceOf (Number SkPattern SkeletonKey)))
+!(bind! &sk_answer (new-space))
+;; partial joins waiting on a node
+(: &sk_wait (SpaceOf (Number SkPattern SkeletonWaiter)))
+!(bind! &sk_wait (new-space))
+(: &sk_child (SpaceOf (Number SkPattern SkPattern)))
+!(bind! &sk_child (new-space))
+(: &sk_row (SpaceOf (Number SkeletonKey Number SkeletonRow)))
+!(bind! &sk_row (new-space))
+;; child links, answers and use edges already recorded, by link hash
+(: &sk_link (SpaceOf (Number SkeletonLink)))
+!(bind! &sk_link (new-space))
+;; key -> a key whose value depends on it
+(: &sk_use (SpaceOf (Number SkeletonKey SkeletonKey)))
+!(bind! &sk_use (new-space))
+;; fold node -> member node
+(: &sk_fold (SpaceOf (Number SkPattern SkPattern)))
+!(bind! &sk_fold (new-space))
+;; member node -> fold node
+(: &sk_member_of (SpaceOf (Number SkPattern SkPattern)))
+!(bind! &sk_member_of (new-space))
+;; group key -> its grouped fold node
+(: &sk_group_of (SpaceOf (Number SkeletonKey SkPattern)))
+!(bind! &sk_group_of (new-space))
+;; every version of each row's and fold's view
+(: &sk_view (SpaceOf (Number SkeletonKey Number SkeletonValue)))
+!(bind! &sk_view (new-space))
+;; one evaluation's reachable keys, reachable rows, and the keys each pass
+;; changed
+(: &sk_reach (SpaceOf (Number SkeletonKey)))
+!(bind! &sk_reach (new-space))
+(: &sk_order (SpaceOf (sk-row-item Number Number SkeletonKey Number SkeletonRow)))
+!(bind! &sk_order (new-space))
+(: &sk_changed (SpaceOf (sk-changed Number Number)))
+!(bind! &sk_changed (new-space))
+;; keys whose readers' views are stale
+(: &sk_dirty (SpaceOf (sk-dirty SkeletonKey)))
+!(bind! &sk_dirty (new-space))
+;; rules and facts added since the last activation
+(: &sk_pending_rules (SpaceOf (sk-pending-rule Number)))
+!(bind! &sk_pending_rules (new-space))
+(: &sk_pending_facts (SpaceOf (sk-pending-fact SkeletonKey)))
+!(bind! &sk_pending_facts (new-space))
+;; new answers waiting to reach the joins on their node
+(: &sk_answer_queue (SpaceOf (sk-delivery SkPattern SkeletonKey)))
+!(bind! &sk_answer_queue (new-space))
+;; deliveries an earlier query left over, by node hash
+(: &sk_parked (SpaceOf (Number (sk-delivery SkPattern SkeletonKey))))
+!(bind! &sk_parked (new-space))
+;; rows found after the row allowance ran out, by owner hash
+(: &sk_deferred
+   (SpaceOf (Number (sk-deferred SkPattern Number SkFact (List SkPattern) (List SkeletonKey)))))
+!(bind! &sk_deferred (new-space))
+;; rows and waiters created from query-local rules, removed after the query
+(: &sk_temp_rows (SpaceOf (Number SkeletonKey Number SkeletonRow)))
+!(bind! &sk_temp_rows (new-space))
+(: &sk_temp_waits (SpaceOf (Number SkPattern SkeletonWaiter)))
+!(bind! &sk_temp_waits (new-space))
+;; children linked since the walk last looked
+(: &sk_fresh (SpaceOf (sk-fresh SkPattern)))
+!(bind! &sk_fresh (new-space))
+;; nodes the current walk visited
+(: &sk_seen (SpaceOf (Number SkPattern)))
+!(bind! &sk_seen (new-space))
+;; keys the current invalidation walk visited
+(: &sk_dirty_seen (SpaceOf (Number SkeletonKey)))
+!(bind! &sk_dirty_seen (new-space))
+
+;; --- Journal ------------------------------------------------------------------
+
+(: sk-space-nonempty? (-[det]-> Atom Bool))
 (= (sk-space-nonempty? $space)
-   (not (== (collapse (once (match $space $_row true))) ())))
+   (not (== (collapse (once (match $space $row $row))) ())))
 
 ;; Nothing has been expanded before the first query, so bulk loading journals
 ;; nothing.
-(: sk-note-rule! (-[det]-> %Undefined% Atom))
+(: sk-note-rule! (-[det]-> Number Atom))
 (= (sk-note-rule! $id)
    (if (sk-space-nonempty? &sk_expanded)
-      (let $_row (add-atom &sk_pending (sk-pending-rule $id)) ())
+      (let $_row (add-atom &sk_pending_rules (sk-pending-rule $id)) ())
       ()))
 
-(: sk-note-fact! (-[det]-> %Undefined% %Undefined% Atom))
+(: sk-note-fact! (-[det]-> Statement KBContext Atom))
 (= (sk-note-fact! $type $kbctx)
    (let* (($key (sk-key $type $kbctx))
           ($_pending
              (if (sk-space-nonempty? &sk_expanded)
-                (let $_row (add-atom &sk_pending (sk-pending-fact $key)) ())
+                (let $_row (add-atom &sk_pending_facts (sk-pending-fact $key)) ())
                 ()))
           ($_dirty
              (if (sk-space-nonempty? &sk_view)

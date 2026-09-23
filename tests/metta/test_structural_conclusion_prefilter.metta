@@ -19,22 +19,20 @@
 ;; The stored conclusion (Pair $x $x) can produce the first shape but not the
 ;; second. An outer-head-only index treated both as potentially concludable.
 !(test
-   (prefilter-head-concludable?
-      (structural-prefilter-goal (Pair one one)))
+   (prefilter-head-concludable? (brand Statement (Pair one one)) structuralPrefilterKb)
    true)
 !(test
-   (prefilter-head-concludable?
-      (structural-prefilter-goal (Pair one two)))
+   (prefilter-head-concludable? (brand Statement (Pair one two)) structuralPrefilterKb)
    false)
 
 ;; A ground premise with no fact and no concluding rule is always pruned.
 !(test
-   (rule-premise-prefilter-prunes?
+   (prefilter-prunes-walk
       (cons (structural-prefilter-goal (MissingThing)) ()))
    true)
 
 !(compileadd structuralPrefilterKb (: seed0 (Seed one) (STV 1.0 1.0)))
 !(test
-   (rule-premise-prefilter-prunes?
+   (prefilter-prunes-walk
       (cons (structural-prefilter-goal (Seed one)) ()))
    false)
