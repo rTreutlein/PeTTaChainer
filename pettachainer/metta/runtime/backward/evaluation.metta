@@ -315,8 +315,12 @@
       (sk-cached-fold-view $hash $args $entry)
       (let $computed (sk-computed-fold-view $hash $args)
          (case $computed (
+            ;; A computed snapshot is kept unless the fold is at least as
+            ;; confident; a forward approximation is partial work and always
+            ;; gives way to the fold.
             ((sk-goal-val (CPU $_f $_a $tv) $_p $_ev $_deps)
-               (if (>= (tv-confidence $tv) (tv-confidence (base-rate-entry-tv $entry)))
+               (if (if (== (base-rate-entry-source $entry) forward-approx) true
+                      (>= (tv-confidence $tv) (tv-confidence (base-rate-entry-tv $entry))))
                   (sk-store-computed-rate $kbid $pattern $mode $computed)
                   (sk-cached-fold-view $hash $args $entry)))
             ($_none (sk-cached-fold-view $hash $args $entry)))))))
@@ -595,9 +599,42 @@
 (: sk-parts-tv (-[semidet]-> (List SkeletonPart) TV))
 (= (sk-parts-tv (cons $first $rest)) (fold-semidet sk-parts-tv-step (sk-part-tv $first) $rest))
 
+;; A premise value whose evidence overlaps what the row already uses is
+;; replaced by the merge of the key's leaves and views that do not overlap it:
+;; the consumer selects the proofs compatible with its other premises.
+(: sk-compatible-step (-[semidet]-> (List Evidence) SkeletonValue SkeletonValue SkeletonValue))
+(= (sk-compatible-step $ev $acc $view)
+   (case $view (
+      ((sk-val $_fact $view-ev $_deps)
+         (if (premise-evidence-overlap? $ev $view-ev) $acc (sk-merge-step $acc $view)))
+      ($_other $acc))))
+
+(: sk-compatible-value (-[semidet]-> SkeletonKey SkeletonFilter (List Number) (List Evidence) SkeletonValue))
+(= (sk-compatible-value $key $filter $exclude $ev)
+   (let $hash (index-hash $key)
+      (fold-semidet (sk-compatible-step $ev) sk-none
+         (append-flat (map-semidet (sk-leaf-view $hash) (sk-key-leaves $key $filter))
+            (sk-admitted $hash $key $filter $exclude)))))
+
+;; A fact premise takes a value unless its evidence overlaps the row's own,
+;; except in joins the compiler marked as sharing their sources and for
+;; projections joining a pool of the same source.
+(: sk-use-premise (-[semidet]-> Bool SkeletonRowState SkPattern SkeletonValue SkeletonRowState))
+(= (sk-use-premise $shared (sk-acc $fold-proofs $ev $deps $parts) ($type $kbctx $proof $tv) $value)
+   (case $value (
+      ((sk-val $fact $premise-ev $premise-deps)
+         (let $part (sk-premise-part $fact)
+            (if (if $shared false
+                   (if (premise-evidence-overlap? $ev $premise-ev) (not (sk-joins-pool? $parts $part)) false))
+               sk-fail
+               (if (= ($type $kbctx $proof $tv) (if (is-var $proof) $fact (sk-full-fact $fact)))
+                  (sk-acc $fold-proofs (sk-union $ev $premise-ev) (sk-union $deps $premise-deps)
+                     (sk-add-part $parts $part))
+                  sk-fail))))
+      ($_none sk-fail))))
+
 ;; Each premise reads its key's value without the views that depend on the
-;; row's conclusion. Premises may share rules but not facts, except in joins
-;; the compiler marked as sharing their sources.
+;; row's conclusion.
 (: sk-premise-step (-[semidet]-> (List Number) Bool SkeletonRowState SkPattern SkeletonRowState))
 (= (sk-premise-step $exclude $shared $state $premise)
    (case $state (
@@ -617,17 +654,13 @@
                      ((cons $result $_rest) (if (= $res $result) $state sk-fail))
                      (() sk-fail)))))
             (($type $kbctx $proof $tv)
-               (case (sk-value (sk-key $type $kbctx) (sk-filter $proof $tv) $exclude) (
-                  ((sk-val $fact $premise-ev $premise-deps)
-                     (let $part (sk-premise-part $fact)
-                        (if (if $shared false
-                               (if (premise-evidence-overlap? $ev $premise-ev) (not (sk-joins-pool? $parts $part)) false))
-                           sk-fail
-                           (if (= $premise (if (is-var $proof) $fact (sk-full-fact $fact)))
-                              (sk-acc $fold-proofs (sk-union $ev $premise-ev) (sk-union $deps $premise-deps)
-                                 (sk-add-part $parts $part))
-                              sk-fail))))
-                  ($_none sk-fail))))))))))
+               (let* (($key (sk-key $type $kbctx))
+                      ($filter (sk-filter $proof $tv)))
+                  (case (sk-use-premise $shared $state $premise (sk-value $key $filter $exclude)) (
+                     (sk-fail
+                        (if $shared sk-fail
+                           (sk-use-premise $shared $state $premise (sk-compatible-value $key $filter $exclude $ev))))
+                     ($taken $taken)))))))))))
 
 ;; A computation whose arguments were ground when its join was built was
 ;; computed then and bound its result; recomputing a sampling formula would

@@ -292,7 +292,7 @@
 ;; estimate and upgrades the cache source even when the TV itself is unchanged.
 !(test
    (query 200 forwardBaseRateKb (: $proof (P alice) $tv))
-   (: ((inverted pToQ with cpu cpu) qa)
+   (: ((inverted pToQ with (foldall-proof pb) (foldall-proof qa (by pToQ pb))) qa)
       (P alice)
       (STV 0.736162240263287 0.0003604307138536469)))
 
@@ -425,9 +425,9 @@
       (: $proof (Inheritance Raven Penguin) $tv))
    (: (inheritance-implication-fold
           (total-implication
-             ((inverted (inheritance-implication penguinBird) with cpu cpu)
+             ((inverted (inheritance-implication penguinBird) with cpu (foldall-proof ravenBird penguinBird))
                 (by (inheritance-implication ravenBird) (ctx proof 0)))
-             ((inverted (inheritance-implication penguinBird) with cpu cpu)
+             ((inverted (inheritance-implication penguinBird) with cpu (foldall-proof ravenBird penguinBird))
                 (by (inheritance-implication ravenBird) (ctx proof 1)))))
       (Inheritance Raven Penguin)
       (STV 0.9977575682073004 1.0e-06)))

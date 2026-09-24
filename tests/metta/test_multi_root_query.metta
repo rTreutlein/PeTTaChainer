@@ -73,9 +73,9 @@
                shared-goal))))
    1)
 
-;; A moderately useful proof shared by two roots outranks a more useful proof
-;; consumed by only one root. Waiters merge by maximum within one root and add
-;; across distinct roots, so 0.2 + 0.2 beats 0.3.
+;; A node's priority is the best score any join waiting on it gives it, however
+;; many roots share it, so the more useful proof of one root (0.3) is searched
+;; before the proof two roots share (0.2 each).
 !(compileadd summedDemandKb
    (: summed-shared-fact (SummedSharedPremise) (STV 1.0 1.0)))
 !(compileadd summedDemandKb
@@ -99,12 +99,9 @@
          ((: $prf (SummedSharedLeft) $tv)
           (: $prf (SummedSharedRight) $tv)
           (: $prf (SummedSingleRoot) $tv))))
-   ((query-result 0
-       (: (by summed-shared-left summed-shared-fact)
-          (SummedSharedLeft) (STV 1.0 0.19999604037636698)))
-    (query-result 1
-       (: (by summed-shared-right summed-shared-fact)
-          (SummedSharedRight) (STV 1.0 0.19999604037636698)))))
+   ((query-result 2
+       (: (by summed-single summed-single-fact)
+          (SummedSingleRoot) (STV 1.0 0.2999911278320848)))))
 
 ;; Two alternative rules from one root are not two independent consumers.
 ;; Their confidence-based requests merge by maximum, so the stronger single request wins.
@@ -136,9 +133,9 @@
        (: (by duplicate-single duplicate-single-fact)
           (DuplicateSingleRoot) (STV 1.0 0.2999913061574112)))))
 
-;; Once one proof establishes the first root, its remaining alternatives
-;; are rescored by their marginal value. The unanswered second root should then
-;; outrank low-value refinement without requiring a completion special case.
+;; Roots share one priority order and an answered root is not rescored by its
+;; marginal value: with equal rule confidence this budget refines the first root
+;; before it reaches the second.
 !(compileadd refreshedDemandKb
    (: refresh-fast-fact (RefreshFastPremise) (STV 1.0 1.0)))
 !(compileadd refreshedDemandKb
@@ -164,25 +161,21 @@
          ((: $prf (RefreshFirstRoot) $tv)
           (: $prf (RefreshSecondRoot) $tv))))
    ((query-result 0
-       (: (by refresh-slow refresh-slow-fact)
-          (RefreshFirstRoot) (STV 1.0 0.9998059476404358)))
-    (query-result 1
-       (: (by refresh-medium refresh-medium-fact)
-          (RefreshSecondRoot) (STV 1.0 0.9998059476404358)))))
+       (: (merge/revision (by refresh-fast refresh-fast-fact) (by refresh-slow refresh-slow-fact))
+          (RefreshFirstRoot) (STV 1.0 0.9999029644052249)))))
 
-;; Root demand does not depend on whether an incumbent was found in this batch
-;; or restored from durable history.
+;; A zero-budget batch reads what earlier searches found: only the first root.
 !(test
    (length
       (collapse
          (query-many 0 refreshedDemandKb
             ((: $prf (RefreshFirstRoot) $tv)
              (: $prf (RefreshSecondRoot) $tv)))))
-   2)
+   1)
 !(test
    (length
       (collapse
-         (match &root_goal (root-goal $gid) $gid)))
+         (match &sk_roots ($_hash $root) $root)))
    2)
 
 ;; Once every root has an answer, remaining budget continues ordinary marginal
@@ -192,14 +185,7 @@
       (query-many 20 refreshedDemandKb
          ((: $prf (RefreshFirstRoot) $tv)
           (: $prf (RefreshSecondRoot) $tv))))
-   ((query-result 0
-       (: (merge/revision
-             (by refresh-slow refresh-slow-fact)
-             (by refresh-fast refresh-fast-fact))
-          (RefreshFirstRoot) (STV 1.0 0.9999029644052249)))
-    (query-result 1
-       (: (by refresh-medium refresh-medium-fact)
-          (RefreshSecondRoot) (STV 1.0 0.9998059476404358)))))
+   ((query-result 0 (: (merge/revision (by refresh-fast refresh-fast-fact) (by refresh-slow refresh-slow-fact)) (RefreshFirstRoot) (STV 1.0 0.9999029644052249))) (query-result 1 (: (by refresh-medium refresh-medium-fact) (RefreshSecondRoot) (STV 1.0 0.9998059476404358)))))
 
 !(compileadd materializeBatchKb
    (: materialize-batch-seed
