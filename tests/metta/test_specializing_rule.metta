@@ -47,6 +47,8 @@
 
 ;; Equal grounded rule types with distinct proof ids/TVs remain independent
 ;; specialization results. Deduplicating only by type used to discard alt_rel.
+;; Both use the same facts, so the answer is the more confident one, and
+;; alt_rel's own result stays available.
 !(compileadd kb3 (: tag3 (Symmetric Related) (STV 1.0 1.0)))
 !(compileadd kb3 (: r1 (Related bob alice) (STV 1.0 1.0)))
 !(compileadd kb3
@@ -64,9 +66,11 @@
 
 !(test
    (query 100 kb3 (: $prf (Related alice bob) $tv))
-   (: (merge/revision (by main_rel (conjunction tag3 r1))
-                      (by alt_rel (conjunction tag3 r1)))
-      (Related alice bob) (STV 0.8076923077136262 0.9285714285102494)))
+   (: (by main_rel (conjunction tag3 r1)) (Related alice bob) (STV 0.9 0.8999999999819711)))
+
+!(test
+   (query 100 kb3 (: (by alt_rel $prf) (Related alice bob) $tv))
+   (: (by alt_rel (conjunction tag3 r1)) (Related alice bob) (STV 0.6 0.799999999914573)))
 
 ;; Removing a specializing rule also removes its deferred template. A later
 ;; structural fact must not resurrect it, and re-adding it must work normally.

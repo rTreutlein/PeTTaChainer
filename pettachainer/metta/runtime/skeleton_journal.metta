@@ -109,6 +109,9 @@
 ;; base-rate cache key -> a fold key whose value is read from that cache entry
 (: &sk_rate_folds (SpaceOf (Number SkeletonKey)))
 !(bind! &sk_rate_folds (new-space))
+;; base-rate cache key -> the truth value a fold last cached there
+(: &sk_rate_own (SpaceOf (Number TV)))
+!(bind! &sk_rate_own (new-space))
 ;; key -> a row reading it directly, by row key hash and row hash
 (: &sk_reader (SpaceOf (Number SkeletonKey Number Number)))
 !(bind! &sk_reader (new-space))

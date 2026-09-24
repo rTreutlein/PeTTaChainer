@@ -83,7 +83,7 @@
 
 ;; Views merge as proofs do: an identical proof pools its evidence, a
 ;; projection gives way to its full proof, overlapping evidence keeps the view
-;; whose evidence contains the other's or else the more confident one, and
+;; whose evidence strictly contains the other's or else the more confident one, and
 ;; disjoint evidence revises. A dominated view contributes neither evidence
 ;; nor dependencies.
 (: sk-merge-facts
@@ -96,11 +96,13 @@
          (if (projection-dominates? $proof-a $proof-b) (sk-val $a $ev-a $deps-a)
             (if (projection-dominates? $proof-b $proof-a) (sk-val $b $ev-b $deps-b)
                (if (evidence-sets-overlap? $ev-a $ev-b)
-                  (if (evidence-subset? $ev-a $ev-b) (sk-val $b $ev-b $deps-b)
-                     (if (evidence-subset? $ev-b $ev-a) (sk-val $a $ev-a $deps-a)
-                        (if (>= (term-confidence $a) (term-confidence $b))
-                           (sk-val $a $ev-a $deps-a)
-                           (sk-val $b $ev-b $deps-b))))
+                  (let* (($a-in-b (evidence-subset? $ev-a $ev-b))
+                         ($b-in-a (evidence-subset? $ev-b $ev-a)))
+                     (if (if $a-in-b (if $b-in-a false true) false) (sk-val $b $ev-b $deps-b)
+                        (if (if $b-in-a (if $a-in-b false true) false) (sk-val $a $ev-a $deps-a)
+                           (if (>= (term-confidence $a) (term-confidence $b))
+                              (sk-val $a $ev-a $deps-a)
+                              (sk-val $b $ev-b $deps-b)))))
                   (let* (($pooled (sk-union $ev-a $ev-b))
                          ($deps (sk-union $deps-a $deps-b)))
                      (if (>= (term-confidence $a) (term-confidence $b))
@@ -283,12 +285,12 @@
       ((sk-fold-state $value (cons $proof $_rest) $ev $deps)
          (sk-goal-val (CPU $kind $args $value) $proof $ev (cons $hash $deps))))))
 
-;; A user base rate is authoritative. An unexpanded fold falls back to a cached
-;; estimate when one exists. A computed base rate is cached for reuse.
-;; A base rate's value is its user base rate, or else the better of its
+;; A base rate's value is its user base rate, or else the better of its cached
 ;; estimate and a fold over the members the search found; a fold that improves
-;; on the estimate replaces it, and so does a fold refining its own earlier
-;; snapshot. Without either it is the empty fold. The fold key watches the
+;; on the estimate replaces it and is cached for reuse. The fold's own cached
+;; value and a forward approximation are partial work, taken before the search
+;; found all members, and always give way to the fold. An unexpanded fold reads
+;; the estimate, and without one it is the empty fold. The fold key watches the
 ;; cache entry. Any other fold is computed from its members.
 (: sk-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
 (= (sk-fold-view $hash $args)
@@ -305,39 +307,45 @@
             (case $entries (
                ((cons $entry $_rest)
                   (if (base-rate-entry-user? $entry) (sk-cached-fold-view $hash $args $entry)
-                     (sk-better-rate-view $hash $args $kbid $pattern $mode $entry)))
-               (() (sk-store-computed-rate $kbid $pattern $mode (sk-computed-fold-view $hash $args)))))))
+                     (sk-better-rate-view $hash $args $rate-hash $kbid $pattern $mode $entry)))
+               (() (sk-store-computed-rate $rate-hash $kbid $pattern $mode () (sk-computed-fold-view $hash $args)))))))
       (no-base-rate-aggregate-key (sk-computed-fold-view $hash $args)))))
 
 (: sk-better-rate-view
-   (-[semidet]-> Number ScalarFoldSpec KB Statement $mode BaseRateEntry SkeletonValue))
-(= (sk-better-rate-view $hash $args $kbid $pattern $mode $entry)
+   (-[semidet]-> Number ScalarFoldSpec Number KB Statement $mode BaseRateEntry SkeletonValue))
+(= (sk-better-rate-view $hash $args $rate-hash $kbid $pattern $mode $entry)
    (if (== (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) ())
       (sk-cached-fold-view $hash $args $entry)
       (let $computed (sk-computed-fold-view $hash $args)
          (case $computed (
-            ;; A computed snapshot is kept unless the fold is at least as
-            ;; confident. A forward approximation is partial work, and so is
-            ;; the fold's own earlier snapshot, taken before the search found
-            ;; all its members: both always give way to the fold.
             ((sk-goal-val (CPU $_f $_a $tv) $_p $_ev $_deps)
                (if (if (== (base-rate-entry-source $entry) forward-approx) true
-                      (if (case (sk-latest-view $hash (sk-fold $args) 0) (
-                             ((sk-goal-val (CPU $_of $_oa $own) $own-proof $_oev $_odeps)
-                                (if (== $own-proof cpu) false (== $own (base-rate-entry-tv $entry))))
-                             ($_other false)))
+                      (if (== (collapse (once (match &sk_rate_own ($rate-hash $own) $own)))
+                              (cons (base-rate-entry-tv $entry) ()))
                          true
                          (>= (tv-confidence $tv) (tv-confidence (base-rate-entry-tv $entry)))))
-                  (sk-store-computed-rate $kbid $pattern $mode $computed)
+                  (sk-store-computed-rate $rate-hash $kbid $pattern $mode (cons $entry ()) $computed)
                   (sk-cached-fold-view $hash $args $entry)))
             ($_none (sk-cached-fold-view $hash $args $entry)))))))
 
-(: sk-store-computed-rate (-[det]-> KB Statement $mode SkeletonValue SkeletonValue))
-(= (sk-store-computed-rate $kbid $pattern $mode $view)
+;; Caching the computed value the entry already holds would only wake the fold
+;; again.
+(: sk-store-computed-rate
+   (-[det]-> Number KB Statement $mode (List BaseRateEntry) SkeletonValue SkeletonValue))
+(= (sk-store-computed-rate $rate-hash $kbid $pattern $mode $cached $view)
    (let $_stored
       (case $view (
          ((sk-goal-val (CPU $_f $_a (STV $s $c)) $_p $_ev $_deps)
-            (store-produced-base-rate! $kbid $pattern (STV $s $c) computed $mode))
+            (if (case $cached (
+                   ((cons $entry $_rest)
+                      (if (== (base-rate-entry-source $entry) computed)
+                         (== (base-rate-entry-tv $entry) (STV $s $c))
+                         false))
+                   (() false)))
+               ()
+            (let* (($_cached (store-produced-base-rate! $kbid $pattern (STV $s $c) computed $mode))
+                   ($_old (collapse (match &sk_rate_own ($rate-hash $old) (remove-atom &sk_rate_own ($rate-hash $old))))))
+               (add-atom &sk_rate_own ($rate-hash (STV $s $c))))))
          ($_other ())))
       $view))
 

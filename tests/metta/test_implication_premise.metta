@@ -22,7 +22,7 @@
 
 !(test
    (query 60 implicationPremiseKb (: $prf (C) $tv))
-   (: (by ab_c (total-implication (by a_b (ctx proof 4)) (by a_b (ctx proof 5)))) (C) (STV 1.0 0.999700089898053)))
+   (: (by ab_c (total-implication (by a_b (ctx proof 2)) (by a_b (ctx proof 3)))) (C) (STV 1.0 0.999700089898053)))
 
 !(test
    (query 60 implicationPremiseKb

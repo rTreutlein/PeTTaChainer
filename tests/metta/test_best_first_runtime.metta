@@ -65,9 +65,11 @@
 !(compileadd kb
    (: ruleStable (Implication (BasePremise) (SwitchGoal)) (CTV (STV 1.0 0.7) (STV 0.0 1.0))))
 
+;; Both proofs use baseFact, so revising them would count it twice: the
+;; answer is the more confident one.
 !(test
    (query 10 kb (: $prf (SwitchGoal) $tv))
-   (: (merge/revision (by ruleStable baseFact) (by ruleHighThenDrop (conjunction weakFact baseFact))) (SwitchGoal) (STV 1.0 0.7094641445679878)))
+   (: (by ruleStable baseFact) (SwitchGoal) (STV 1.0 0.699950950923023)))
 
 !(test
    (query 30 kb
@@ -79,24 +81,16 @@
 ;; Completed answers survive the per-query search reset. A zero-budget query
 ;; can therefore read the durable proof without expanding a new frontier.
 !(test (query 0 kb (: $prf (SwitchGoal) $tv))
-   (: (merge/revision
-         (by ruleStable baseFact)
-         (by ruleHighThenDrop (conjunction weakFact baseFact)))
-      (SwitchGoal)
-      (STV 1.0 0.7094641445679878)))
+   (: (by ruleStable baseFact) (SwitchGoal) (STV 1.0 0.699950950923023)))
 
 !(test (query 4 kb (: $prf (SwitchGoal) $tv))
-   (: (merge/revision
-         (by ruleStable baseFact)
-         (by ruleHighThenDrop (conjunction weakFact baseFact)))
-      (SwitchGoal)
-      (STV 1.0 0.7094641445679878)))
+   (: (by ruleStable baseFact) (SwitchGoal) (STV 1.0 0.699950950923023)))
 
 !(test (query 7 kb (: $prf (SwitchGoal) $tv))
-   (: (merge/revision (by ruleStable baseFact) (by ruleHighThenDrop (conjunction weakFact baseFact))) (SwitchGoal) (STV 1.0 0.7094641445679878)))
+   (: (by ruleStable baseFact) (SwitchGoal) (STV 1.0 0.699950950923023)))
 
 !(test (query 100 kb (: $prf (SwitchGoal) $tv))
-   (: (merge/revision (by ruleStable baseFact) (by ruleHighThenDrop (conjunction weakFact baseFact))) (SwitchGoal) (STV 1.0 0.7094641445679878)))
+   (: (by ruleStable baseFact) (SwitchGoal) (STV 1.0 0.699950950923023)))
 
 ;; A completed non-root proof is a frontier input for a later bounded search.
 ;; Two steps suffice for the new root plus its new CPU formula because the
@@ -150,13 +144,13 @@
 !(compileadd priorityStrengthKb
    (: strongRule (Implication (StrongInput) (StrengthPriorityGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(test (query 2 priorityStrengthKb (: $prf (StrengthPriorityGoal) $tv))
-   (: (by strongRule strongInput) (StrengthPriorityGoal) (STV 0.8 0.9999000095740854)))
-
-!(test (query 3 priorityStrengthKb (: $prf (StrengthPriorityGoal) $tv))
+;; Premises that are stored facts are read when a rule starts and cost no
+;; expansion, so the first expansion of a goal answers with every rule whose
+;; premises are facts, and small budgets already revise disjoint evidence in.
+!(test (query 1 priorityStrengthKb (: $prf (StrengthPriorityGoal) $tv))
    (: (merge/revision
-         (by strongRule strongInput)
-         (by weakRule weakInput))
+         (by weakRule weakInput)
+         (by strongRule strongInput))
       (StrengthPriorityGoal)
       (STV 0.5000000000000001 0.9999499975003537)))
 
@@ -174,10 +168,12 @@
    (: aToGoal (Implication (AForPriority) (ChainedPriorityGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 4 chainedPriorityKb (: $prf (ChainedPriorityGoal) $tv))
-   (: (by aToGoal (by strongToA strongEvidence)) (ChainedPriorityGoal) (STV 0.8 0.9998999995760428)))
-
-!(test (query 5 chainedPriorityKb (: $prf (ChainedPriorityGoal) $tv))
-   (: (by aToGoal (by strongToA strongEvidence)) (ChainedPriorityGoal) (STV 0.8 0.9998999995760428)))
+   (: (by aToGoal
+         (merge/revision
+            (by weakToA weakEvidence)
+            (by strongToA strongEvidence)))
+      (ChainedPriorityGoal)
+      (STV 0.40998567493086896 0.9999000047863282)))
 
 !(compileadd priorityNegKb (: highInput (HighInput) (STV 0.9 1.0)))
 
@@ -190,15 +186,9 @@
    (: lowNegRule (Implication (Not (LowInput)) (NegPriorityGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 3 priorityNegKb (: $prf (NegPriorityGoal) $tv))
-   (: (by lowNegRule (negated lowInput)) (NegPriorityGoal) (STV 0.9 0.999900009088072)))
-
-!(test (query 4 priorityNegKb (: $prf (NegPriorityGoal) $tv))
-   (: (by lowNegRule (negated lowInput)) (NegPriorityGoal) (STV 0.9 0.999900009088072)))
-
-!(test (query 5 priorityNegKb (: $prf (NegPriorityGoal) $tv))
    (: (merge/revision
-         (by lowNegRule (negated lowInput))
-         (by highNegRule (negated highInput)))
+         (by highNegRule (negated highInput))
+         (by lowNegRule (negated lowInput)))
       (NegPriorityGoal)
       (STV 0.5 0.9999499975003294)))
 
@@ -229,12 +219,16 @@
       (CTV (STV 1.0 0.7) (STV 0.0 1.0))))
 
 !(test (query 2 incumbentPriorityKb (: $prf (IncumbentGoal) $tv))
-   (: (by bToGoal directB) (IncumbentGoal) (STV 1.0 0.8918896597655677)))
-
-!(test (query 7 incumbentPriorityKb (: $prf (IncumbentGoal) $tv))
    (: (by bToGoal (merge/revision (by aToB directA) directB))
       (IncumbentGoal)
       (STV 1.0 0.9898043659034145)))
+
+!(test (query 7 incumbentPriorityKb (: $prf (IncumbentGoal) $tv))
+   (: (merge/revision
+         (by bToGoal (merge/revision (by aToB directA) directB))
+         (by dToGoal (by cToD directC)))
+      (IncumbentGoal)
+      (STV 1.0 0.9899241391237336)))
 
 !(test
    (query 7 incumbentPriorityKb
@@ -243,10 +237,9 @@
          $tv))
    ())
 
-;; Once a canonical KB answer exists (including a materialized one), expected
-;; gain alone favors the certain three-premise alternative. Value per immediate
-;; expansion instead spends the fixed budget on the slightly weaker one-premise
-;; alternative and improves the root while retaining the incumbent.
+;; A stored answer for the goal is revised with both refinements: the
+;; three-premise alternative costs no more expansions than the one-premise one,
+;; because all its premises are facts.
 !(compileadd refinementValueKb
    (: incumbentValueRoot (RefinementValueGoal) (STV 1.0 0.9)))
 !(compileadd refinementValueKb
@@ -275,7 +268,10 @@
 !(test
    (query 3 refinementValueKb (: $prf (RefinementValueGoal) $tv))
    (: (merge/revision
-         (by cheapRootRefinement cheapRefinementSeed)
-         incumbentValueRoot)
+         (by expensiveRootRefinement
+            (conjunction expensiveRefinementSeed1 expensiveRefinementSeed2 expensiveRefinementSeed3))
+         (merge/revision
+            (by cheapRootRefinement cheapRefinementSeed)
+            incumbentValueRoot))
       (RefinementValueGoal)
-      (STV 1.0 0.9654743387542188)))
+      (STV 1.0 0.9996045810122057)))
