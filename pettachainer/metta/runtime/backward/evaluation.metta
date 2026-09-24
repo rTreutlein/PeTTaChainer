@@ -12,10 +12,6 @@
 ;; Views are computed in the order rows were created and refreshed while
 ;; support grows; they persist until something below them changes.
 
-(: SkeletonFilter Type)
-;; the proof and truth-value pattern a consumer asks for
-(: sk-filter (-[det]-> Proof TV SkeletonFilter))
-(: sk-any-filter SkeletonFilter)
 (: SkeletonRowState Type)
 ;; fold proofs (newest first), evidence, dependency hashes
 (: sk-acc (-[det]-> (List Proof) (List Evidence) (List Number) SkeletonRowState))
@@ -57,10 +53,7 @@
 (= (sk-key-leaves $key $filter)
    (case (copy_term $key) (
       ((sk-key $type $kbctx)
-         (fold-semidet (sk-keep-leaf $key) ()
-            (case $filter (
-               ((sk-filter $proof $tv) (sk-leaf-facts $type $kbctx $proof $tv))
-               (sk-any-filter (sk-leaf-facts $type $kbctx $_proof $_tv))))))
+         (fold-semidet (sk-keep-leaf $key) () (sk-leaf-facts $type $kbctx $filter)))
       ($_fold ()))))
 
 ;; --- Values -----------------------------------------------------------------
@@ -104,20 +97,6 @@
                (sk-merge-facts $fact $ev $deps $other $other-ev $other-deps))
             ($_goal $acc))))
       ($_goal $acc))))
-
-;; Tries the pattern on fresh copies so neither side gets bound.
-(: sk-fact-matches? (-[det]-> SkeletonFilter SkFact Bool))
-(= (sk-fact-matches? $filter $fact)
-   (case (copy_term $filter) (
-      (sk-any-filter true)
-      ((sk-filter $want-proof $want-tv)
-         (if (is-var $want-proof)
-            (if (is-var $want-tv) true (sk-pattern-matches? $want-proof $want-tv (copy_term $fact)))
-            (sk-pattern-matches? $want-proof $want-tv (copy_term $fact)))))))
-
-(: sk-pattern-matches? (-[det]-> Proof TV SkFact Bool))
-(= (sk-pattern-matches? $want-proof $want-tv ($_type $_kbctx $got-proof $got-tv))
-   (if (= $got-proof $want-proof) (= $got-tv $want-tv) false))
 
 ;; Each row keeps its latest view and the views it replaced, in the order
 ;; they were computed. A consumer takes, per row, the latest view that does

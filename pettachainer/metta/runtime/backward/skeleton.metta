@@ -204,17 +204,40 @@
       (space-row-present? &materialized_facts
          (materialized-row $hash $type $kb ($type $kb $proof $tv) $_ev))))
 
-;; Every fact matching a goal; the probe for materialized rows runs only when
-;; some materialization happened.
-;; The pieces of a node pattern destructured from SkPattern arrive as raw terms.
-(: sk-leaf-facts (-[det]-> Atom Atom Atom Atom (List SkFact)))
-(= (sk-leaf-facts $type $kbctx $proof $tv)
+(: SkeletonFilter Type)
+;; the proof and truth-value pattern a consumer asks for
+(: sk-filter (-[det]-> Proof TV SkeletonFilter))
+(: sk-any-filter SkeletonFilter)
+
+;; Tries the pattern on fresh copies so neither side gets bound.
+(: sk-fact-matches? (-[det]-> SkeletonFilter SkFact Bool))
+(= (sk-fact-matches? $filter $fact)
+   (case (copy_term $filter) (
+      (sk-any-filter true)
+      ((sk-filter $want-proof $want-tv)
+         (if (is-var $want-proof)
+            (if (is-var $want-tv) true (sk-pattern-matches? $want-proof $want-tv (copy_term $fact)))
+            (sk-pattern-matches? $want-proof $want-tv (copy_term $fact)))))))
+
+(: sk-pattern-matches? (-[det]-> Proof TV SkFact Bool))
+(= (sk-pattern-matches? $want-proof $want-tv ($_type $_kbctx $got-proof $got-tv))
+   (if (= $got-proof $want-proof) (= $got-tv $want-tv) false))
+
+;; Every fact of a goal's statement and context that passes the filter. The
+;; statement and context lead the match pattern, so the lookup uses the index
+;; of &kb; the probe for materialized rows runs only when some materialization
+;; happened.
+(: sk-leaf-facts (-[det]-> Statement KBContext SkeletonFilter (List SkFact)))
+(= (sk-leaf-facts $type $kbctx $filter)
    (let $plain (not (sk-space-nonempty? &materialized_facts))
-      (collapse (match &kb (@ $fact ($type $kbctx $proof $tv))
-         (if (chainer-acyclic-term? $fact)
-            (if $plain $fact
-               (if (materialized-forward-fact? $fact) (empty) $fact))
-            (empty))))))
+      (collapse (match &kb ($type $kbctx $proof $tv)
+         (let $fact (data $type $kbctx $proof $tv)
+            (if (sk-fact-matches? $filter $fact)
+               (if (chainer-acyclic-term? $fact)
+                  (if $plain $fact
+                     (if (materialized-forward-fact? $fact) (empty) $fact))
+                  (empty))
+               (empty)))))))
 
 (: sk-fact-key (-[det]-> SkFact SkeletonKey))
 (= (sk-fact-key ($type $kbctx $_proof $_tv)) (sk-key $type $kbctx))
@@ -694,7 +717,7 @@
                 ($_activate (sk-activate-pending!))
                 ($_mark (sk-mark-expanded! $node))
                 ($_leaves
-                   (fold-semidet (sk-leaf-answer-step $node) () (sk-leaf-facts $type $kbctx $proof $tv)))
+                   (fold-semidet (sk-leaf-answer-step $node) () (sk-leaf-facts $type $kbctx (sk-filter $proof $tv))))
                 ($owner (copy_term $node))
                 ($matches (collapse (sk-rule-match (copy_term (assemble-stored-runtime-fact $type $kbctx $proof $tv))))))
             (fold-semidet (sk-start-rule-step $owner) () $matches)))))))
@@ -757,11 +780,11 @@
 (: sk-activate-fact-on (-[semidet]-> SkeletonKey Atom SkPattern Atom))
 (= (sk-activate-fact-on $key $_acc $node)
    (case (copy_term $node) (
+      ((CPU $_fun $_args $_res) ())
       (($type $kbctx $proof $tv)
          (if (= (sk-key $type $kbctx) (copy_term $key))
-            (fold-semidet (sk-leaf-answer-step $node) () (sk-leaf-facts $type $kbctx $proof $tv))
-            ()))
-      ($_cpu ()))))
+            (fold-semidet (sk-leaf-answer-step $node) () (sk-leaf-facts $type $kbctx (sk-filter $proof $tv)))
+            ())))))
 
 ;; --- Budgeted search walk ---------------------------------------------------
 
