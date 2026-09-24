@@ -72,10 +72,10 @@
 ;; whose evidence contains the other's or else the more confident one, and
 ;; disjoint evidence revises. A dominated view contributes neither evidence
 ;; nor dependencies.
-;; The last rule application of a fact's proof, with its premise proofs still
+;; The last rule application of a proof, with its premise proofs still
 ;; references.
-(: sk-step-proof (-[det]-> SkFact Proof))
-(= (sk-step-proof ($_type $_kbctx $proof $_tv))
+(: sk-step-proof (-[det]-> Proof Proof))
+(= (sk-step-proof $proof)
    (case $proof (
       ((proof-ref $pid)
          (case (collapse (once (match &proof ($pid $stored $_ev $_negated) $stored))) (
@@ -83,12 +83,15 @@
             (() $proof))))
       ($_leaf $proof))))
 
+(: sk-fact-step-proof (-[det]-> SkFact Proof))
+(= (sk-fact-step-proof ($_type $_kbctx $proof $_tv)) (sk-step-proof $proof))
+
 (: sk-merge-facts
    (-[det]-> SkFact (List Evidence) (List Number) SkFact (List Evidence) (List Number)
        SkeletonValue))
 (= (sk-merge-facts $a $ev-a $deps-a $b $ev-b $deps-b)
-   (let* (($proof-a (sk-step-proof $a))
-          ($proof-b (sk-step-proof $b)))
+   (let* (($proof-a (sk-fact-step-proof $a))
+          ($proof-b (sk-fact-step-proof $b)))
       (if (== $a $b) (sk-val $a (sk-union $ev-a $ev-b) $deps-a)
          (if (projection-dominates? $proof-a $proof-b) (sk-val $a $ev-a $deps-a)
             (if (projection-dominates? $proof-b $proof-a) (sk-val $b $ev-b $deps-b)
@@ -546,7 +549,7 @@
 
 (: sk-premise-part (-[det]-> SkFact SkeletonPart))
 (= (sk-premise-part ($type $kbctx $proof $tv))
-   (case (sk-step-proof (data $type $kbctx $proof $tv)) (
+   (case (sk-step-proof $proof) (
          ((marginal-proj $idx $base)
             (case (sk-proof-source (brand Proof $base)) (
                ((cons (sk-source $statement $source-tv) $_rest)
@@ -848,6 +851,15 @@
             ($_other false))))
       (sk-none (== $old sk-none)))))
 
+;; A fold's provenance counts as a change: a complete fold may replace a cached
+;; estimate of the same truth value.
+(: sk-view-step-proof (-[det]-> SkeletonValue Proof))
+(= (sk-view-step-proof $view)
+   (case $view (
+      ((sk-goal-val $_goal $proof $_ev $_deps) (sk-step-proof $proof))
+      ((sk-val $fact $_ev $_deps) (sk-fact-step-proof $fact))
+      (sk-none (brand Proof none)))))
+
 ;; A fold check recomputes the fold once for the members that changed since
 ;; the last one; when its value changed, every reader is forced by those
 ;; members, in the next pass.
@@ -862,13 +874,15 @@
                 ($_merged (sk-drop-merged! $fold)))
             (case (sk-fold-views $hash $fold) (
                ((cons (sk-version $_seq $_rhash $new) $_rest)
-                  (if (sk-same-view? $new $old) $work
+                  (if (if (sk-same-view? $new $old) (== (sk-view-step-proof $new) (sk-view-step-proof $old)) false)
+                     $work
                      (sk-key-changed $pass (sk-check-seq) (sk-outside-change $causes) $work $fold)))
                (() (sk-key-changed $pass (sk-check-seq) (sk-outside-change $causes) $work $fold))))))))
 
 ;; A row whose view differs from its latest version stores a new version and
 ;; changes its key, when it is the row's first view, it was forced, or it
-;; brings new support.
+;; brings new support. A forced row also stores a view that differs only in
+;; its proof: an outside change such as a completed fold improves provenance.
 (: sk-compute (-[semidet]-> Number SkeletonWork SkeletonItem SkeletonWork))
 (= (sk-compute $pass $work (sk-fold-check $hash $fold)) (sk-check-fold $pass $work $hash $fold))
 (= (sk-compute $pass $work (sk-row-item $seq $hash $key $rhash $row))
@@ -876,10 +890,18 @@
           ($forced (sk-take-forced! $hash $rhash))
           ($new (sk-row-view $hash $key (copy_term $row))))
       (case $new (
-         (sk-none $work)
+         ;; A row forced by an outside change that no longer derives anything
+         ;; (a premise fact was removed) drops its views, and its key changed.
+         (sk-none
+            (if (if $forced (not (== (sk-latest-view $hash $key $rhash) sk-none)) false)
+               (let* (($_views (sk-drop-row-views! $hash $key $rhash))
+                      ($_merged (sk-drop-merged! $key)))
+                  (sk-key-changed $pass $seq (sk-view-change ()) $work $key))
+               $work))
          ($_view
             (let $latest (sk-latest-view $hash $key $rhash)
-            (if (if (sk-same-view? $new $latest) true
+            (if (if (sk-same-view? $new $latest)
+                   (if $forced (== (sk-view-step-proof $new) (sk-view-step-proof $latest)) true)
                    (if $forced false
                       (if (== $latest sk-none) false
                          (if (sk-new-support? $hash $key $rhash $new) false
@@ -1146,10 +1168,16 @@
                 ())))
       (fold-semidet sk-cons-step () (fold-semidet sk-result-step () $values))))
 
-(: sk-root-score-step (-[det]-> Atom SkPattern Atom))
+;; A root's Member producer is part of its scaffold and installed even when
+;; the budget expands nothing.
+(: sk-root-score-step (-[semidet]-> Atom SkPattern Atom))
 (= (sk-root-score-step $_acc $goal)
    (let* (($hash (sk-node-hash $goal))
-          ($_root (add-atom &sk_roots ($hash $goal))))
+          ($_root (add-atom &sk_roots ($hash $goal)))
+          ($_member
+             (case (copy_term $goal) (
+                ((CPU $_fun $_args $_res) ())
+                (($type $kbctx $_proof $_tv) (install-member-inheritance-rules! $type $kbctx))))))
       (sk-raise-score! $goal 1.0)))
 
 (: execute-backward

@@ -359,70 +359,50 @@
 !(compileadd materializedForwardDeltaKb
    (: mcMortal (Member c Mortal) (STV 0.6 1.0)))
 
+;; The forward-maintained estimate already counts c, so a zero-budget read
+;; takes it over the older fold.
 !(test
    (query 0 materializedForwardDeltaKb
       (: $proof (Inheritance Human Mortal) $tv))
-   (: (member-inheritance-fold
-          (foldall-proof
-             (member-inheritance-sample mbHuman mbMortal)
-             (member-inheritance-sample maHuman maMortal)))
+   (: (member-inheritance-fold cpu)
       (Inheritance Human Mortal)
-      (STV 0.6666666666666666 0.0018714909544603868)))
+      (STV 0.64 0.003115264797507788)))
 
 !(forward-chain 4 materializedForwardDeltaKb
    (member-test-fact materializedForwardDeltaKb c Mortal))
 
+;; The fold over a, b and c computed when c arrived is as confident as the
+;; estimate and carries its provenance.
 !(test
    (query 5 materializedForwardDeltaKb
       (: $proof (Inheritance Human Mortal) $tv))
-   (: (member-inheritance-fold cpu)
+   (: (member-inheritance-fold
+          (foldall-proof
+             (member-inheritance-sample maHuman maMortal)
+             (member-inheritance-sample mbHuman mbMortal)
+             (member-inheritance-sample mcHuman mcMortal)))
       (Inheritance Human Mortal)
       (STV 0.64 0.003115264797507788)))
 
 !(test
    (query 1000 materializedForwardDeltaKb
       (: $proof (Inheritance Human Mortal) $tv))
-   (: (member-inheritance-fold
-          (foldall-proof
-             (member-inheritance-sample mbHuman mbMortal)
-             (member-inheritance-sample maHuman maMortal)
-             (member-inheritance-sample mcHuman mcMortal)))
-      (Inheritance Human Mortal)
-      (STV 0.64 0.003115264797507788)))
+   (: (member-inheritance-fold (foldall-proof (member-inheritance-sample maHuman maMortal) (member-inheritance-sample mbHuman mbMortal) (member-inheritance-sample mcHuman mcMortal))) (Inheritance Human Mortal) (STV 0.64 0.003115264797507788)))
 
 !(test
    (query-materialize 1000 materializedForwardDeltaKb
       (: $proof (Inheritance Human Mortal) $tv))
-   (: (member-inheritance-fold
-          (foldall-proof
-             (member-inheritance-sample mbHuman mbMortal)
-             (member-inheritance-sample maHuman maMortal)
-             (member-inheritance-sample mcHuman mcMortal)))
-      (Inheritance Human Mortal)
-      (STV 0.64 0.003115264797507788)))
+   (: (member-inheritance-fold (foldall-proof (member-inheritance-sample maHuman maMortal) (member-inheritance-sample mbHuman mbMortal) (member-inheritance-sample mcHuman mcMortal))) (Inheritance Human Mortal) (STV 0.64 0.003115264797507788)))
 
 !(test
    (materialized-inheritance-facts
       materializedForwardDeltaKb Human Mortal)
-   ((: (inheritance-query-result
-           (member-inheritance-fold
-              (foldall-proof
-                 (member-inheritance-sample mbHuman mbMortal)
-                 (member-inheritance-sample maHuman maMortal)
-                 (member-inheritance-sample mcHuman mcMortal))))
-       (Inheritance Human Mortal)
-       (STV 0.64 0.003115264797507788))))
+   ((: (inheritance-query-result (member-inheritance-fold (foldall-proof (member-inheritance-sample maHuman maMortal) (member-inheritance-sample mbHuman mbMortal) (member-inheritance-sample mcHuman mcMortal)))) (Inheritance Human Mortal) (STV 0.64 0.003115264797507788))))
 
 !(test
    (query 0 materializedForwardDeltaKb
       (: $proof (Inheritance Human Mortal) $tv))
-   (: (member-inheritance-fold
-          (foldall-proof
-             (member-inheritance-sample mbHuman mbMortal)
-             (member-inheritance-sample maHuman maMortal)
-             (member-inheritance-sample mcHuman mcMortal)))
-      (Inheritance Human Mortal)
-      (STV 0.64 0.003115264797507788)))
+   (: (member-inheritance-fold (foldall-proof (member-inheritance-sample maHuman maMortal) (member-inheritance-sample mbHuman mbMortal) (member-inheritance-sample mcHuman mcMortal))) (Inheritance Human Mortal) (STV 0.64 0.003115264797507788)))
 
 ;; Similar and arbitrary folds are outside the supported registration shape.
 !(register-forward-aggregate-premises! false

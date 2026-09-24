@@ -1,6 +1,8 @@
 (: KbBackend Type)
 (: live KbBackend)
 (: temp KbBackend)
+;; permanent rules only the backward chainer uses: no forward premise index
+(: backward KbBackend)
 
 ;; The raw clause reference crosses the Prolog FFI and has no MeTTa-level
 ;; representation.  This is one of the intentionally dynamic boundaries.
@@ -10,6 +12,7 @@
 
 (: kb-add-atom (-[det]-> KbBackend $space SpaceAtom Bool))
 (= (kb-add-atom live $space $expr) (add-atom $space $expr))
+(= (kb-add-atom backward $space $expr) (add-atom $space $expr))
 (= (kb-add-atom temp $space $expr)
    (let*
       (($term (Predicate (cons $space $expr)))
@@ -131,10 +134,10 @@
          (($typed-ccls (typed-runtime-fact $ccls))
           ($rule-args (typed-runtime-premises $args))
           ($id
-             (if (== $backend live)
-                (next-search-id ruleid)
-                (+ 1000000000 (next-search-id bwd_tmp_ruleid))))
-           ($_1 (fold-flat (kb-add-prem $backend $id) 0 $rule-args))
+             (if (== $backend temp)
+                (+ 1000000000 (next-search-id bwd_tmp_ruleid))
+                (next-search-id ruleid)))
+           ($_1 (if (== $backend backward) 0 (fold-flat (kb-add-prem $backend $id) 0 $rule-args)))
            ($ccls-row
               (make-space-row3 $typed-ccls $id $rule-args))
            ($_2

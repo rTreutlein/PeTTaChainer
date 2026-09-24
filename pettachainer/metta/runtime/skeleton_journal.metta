@@ -189,6 +189,9 @@
 ;; with it, its own first
 (: &sk_unifiers (SpaceOf (Number Bool SkeletonKey (List Number))))
 !(bind! &sk_unifiers (new-space))
+;; (kb subject concept) of the Member producers installed, by hash
+(: &sk_member_rules (SpaceOf (Number Atom)))
+!(bind! &sk_member_rules (new-space))
 ;; the current query's roots
 (: &sk_roots (SpaceOf (Number SkPattern)))
 !(bind! &sk_roots (new-space))

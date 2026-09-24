@@ -744,9 +744,8 @@
 (: sk-leaf-answer-step (-[semidet]-> SkPattern Atom SkFact Atom))
 (= (sk-leaf-answer-step $node $_acc $fact) (sk-add-answer! $node (sk-fact-key $fact)))
 
-;; Install only the empirical Member producer for a concrete Inheritance
-;; subgoal, and the compiled scaffold of a nested implication subgoal that is
-;; not itself a compiled total-implication source.
+;; The compiled scaffold of a nested implication subgoal that is not itself a
+;; compiled total-implication source; its assumption contexts are the query's.
 (: inject-special-subgoal-query-adds (-[semidet]-> Statement KBContext Proof TV Atom))
 (= (inject-special-subgoal-query-adds $type $kbctx $prf $tv)
    (case $kbctx (
@@ -764,16 +763,34 @@
                ()
                (foreach-flat inject-compiled-query-adds
                   (collapse (mm2compileQuery (brand KB $kbid) (: $prf $type $tv)))))
-            (case $type (
-               ((Inheritance $subj $concept)
-                  (if (concrete-inheritance-link? $subj $concept)
-                     (once
-                        (inject-compiled-adds
-                           (map-flat mm2stmt
-                              (compile-member-inheritance-query-adds
-                                 (brand KB $kbid) (brand Term $subj) (brand Term $concept)))))
-                     ()))
-               ($_other ())))))
+            ()))
+      ($_other ()))))
+
+;; The empirical Member producer of a concrete Inheritance link depends only on
+;; the link, so it is installed once as permanent backward rules: its rows
+;; survive the query, and a later zero-budget read still has them. Forward
+;; chaining keeps member inheritance through its own aggregate.
+(: install-member-inheritance-rules! (-[semidet]-> Statement KBContext Atom))
+(= (install-member-inheritance-rules! $type $kbctx)
+   (case $kbctx (
+      (($kbid MAIN Nil)
+         (case $type (
+            ((Inheritance $subj $concept)
+               (if (concrete-inheritance-link? $subj $concept)
+                  (let* (($link (quote ($kbid $subj $concept)))
+                         ($hash (index-hash $link)))
+                     (if (== (collapse (once (match &sk_member_rules ($hash $stored)
+                                (if (=alpha $stored $link) true (empty))))) ())
+                        (let* (($_row (add-atom &sk_member_rules ($hash $link)))
+                               ($_rules
+                                  (once (foreach-flat (kb-add-expr backward)
+                                     (map-flat mm2stmt
+                                        (compile-member-inheritance-query-adds
+                                           (brand KB $kbid) (brand Term $subj) (brand Term $concept)))))))
+                           ())
+                        ()))
+                  ()))
+            ($_other ()))))
       ($_other ()))))
 
 (: inject-compiled-query-adds (-[semidet]-> CompiledQuery Atom))
@@ -819,6 +836,7 @@
       (($type $kbctx $proof $tv)
          (let* (($_special
                    (if (> $depth 0) (inject-special-subgoal-query-adds $type $kbctx $proof $tv) ()))
+                ($_member (install-member-inheritance-rules! $type $kbctx))
                 ($_activate (sk-activate-pending!))
                 ($_mark (sk-mark-expanded! $node))
                 ($_leaves

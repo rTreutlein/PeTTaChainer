@@ -99,8 +99,6 @@
        ;; when results are externalized; it is selection state, not evidence.
        ($goal (: (kbctx $kb) (inheritance-query-result $proof)
           (Inheritance $subj $concept) $tv))
-       ($member-adds
-          (compile-member-inheritance-query-adds $kb $subj $concept))
        ($antecedent (Inheritance $x $subj))
        ($consequent (Inheritance $x $concept))
        ($mvars (cons (brand Variable $x) ()))
@@ -126,11 +124,10 @@
             ((quote ($known-pos-goal $known-neg-goal)) |- $induction-goal)))
       ($query-adds
          (list_to_set
-            (append-compiled-additions $member-adds
-               (append-compiled-additions $all-adds
-                  (append-compiled-additions $pos-lift-adds
-                     (append-compiled-additions $neg-lift-adds
-                        (cons $induction-rule ()))))))))
+            (append-compiled-additions $all-adds
+               (append-compiled-additions $pos-lift-adds
+                  (append-compiled-additions $neg-lift-adds
+                     (cons $induction-rule ())))))))
       (compilation-plan $goal $query-adds)))
 
 (: implication-query-known-tv-parts
@@ -156,8 +153,9 @@
 ;; Implication queries require positive and refuting assumption contexts;
 ;; bidirectional queries require one context per direction. A concrete
 ;; Inheritance query accepts only the total-implication producer plus the
-;; explicitly separate Member producer; ordinary direct proofs cannot answer
-;; its constrained root goal.
+;; Member producer, which the chainer installs as ordinary rules when it
+;; expands the link; ordinary direct proofs cannot answer its constrained root
+;; goal.
 ;; Ordinary queries remain a direct known goal with only the adapters their
 ;; source syntax requires.
 (: compileQuery
