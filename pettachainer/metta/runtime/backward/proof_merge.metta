@@ -159,11 +159,11 @@
 (= (premise-current-pid-lists $stored-ok (cons $premise $rest))
    (case $premise (
       ((CPU $_function $_arguments $_result) (premise-current-pid-lists $stored-ok $rest))
-      (($type $_kb $_proof $_tv)
+      (($type $kb $proof $tv)
          (let $pids (current-proof-ids-for-output $premise)
             (if (== $pids ())
                (if (if $stored-ok true (if (is-expr $type) (compound-connective? (car-atom $type)) false))
-                  (if (== (collapse (once (match &kb (@ $_stored $premise) true))) ())
+                  (if (== (collapse (once (match &kb ($type $kb $proof $tv) true))) ())
                      (cons () ())
                      (premise-current-pid-lists $stored-ok $rest))
                   (cons () ()))

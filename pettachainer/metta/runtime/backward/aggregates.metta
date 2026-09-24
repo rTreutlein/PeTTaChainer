@@ -48,7 +48,7 @@
 (= (ba-degrades? $a $b $c $d)(if $a false (if (base-rate-finish? $b)(case (current-fold-snapshot $c $d) ( (() false)((cons $e $f)(let* (($g (let (CPU $h $i $j) $d $j))($k (let (CPU $l $m $n)(proof-output-atom-by-id $e) $n)))(if (= $k (STV $o $p))(if (= $g (STV $q $r))(< (tv-confidence $g)(tv-confidence $k)) true) false))))) false)))
 (: direct-goal-results-view (-[nondet]-> Number (| Goal (Statement KBContext Proof TV))(| Goal (Statement KBContext Proof TV))))
 (= (direct-goal-results-view $a (CPU $b $c $d))(let $e (reduce (cpu-call $a $b $c))(if (= $d $e)(CPU $b $c $e)(empty))))
-(= (direct-goal-results-view $a ($b $c $d $e))(let $f (== (collapse (once (match &materialized_facts $g true)))())(match &kb (@ $h ($b $c $d $e))(if (chainer-acyclic-term? $h)(if $f $h (if (materialized-forward-fact? $h)(empty) $h))(empty)))))
+(= (direct-goal-results-view $a ($b $c $d $e))(let $f (== (collapse (once (match &materialized_facts (materialized-row $_g1 $_g2 $_g3 $_g4 $_g5) true)))())(match &kb ($b $c $d $e)(let $h (data $b $c $d $e)(if (chainer-acyclic-term? $h)(if $f $h (if (materialized-forward-fact? $h)(empty) $h))(empty))))))
 (: ba-direct-step (-[semidet]-> Number (| Goal (Statement KBContext Proof TV))(Heap AgendaEntry)(| Goal (Statement KBContext Proof TV))(Heap AgendaEntry)))
 (= (ba-direct-step $a $b $c $d)(commit-proof-candidate-heap $c $a (leaf-result-candidate $d (leaf-evidence-for-result $d))))
 (: expand-direct-goal-heap (-[semidet]-> (Heap AgendaEntry) Number Number (| Goal (Statement KBContext Proof TV))(Heap AgendaEntry)))
