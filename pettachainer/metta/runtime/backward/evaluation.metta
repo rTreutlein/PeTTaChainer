@@ -273,10 +273,15 @@
          ;; ties its readers to none of its members.
          (if (base-rate-finish? $finish) () $deps))))
 
-(: sk-fold-goal-val (-[semidet]-> Number Goal SkeletonFold SkeletonValue))
-(= (sk-fold-goal-val $hash $goal (sk-fold-state $_acc $proofs $ev $deps))
-   (case $proofs (
-      ((cons $proof $_rest) (sk-goal-val $goal $proof $ev (cons $hash $deps))))))
+;; A fold's or group's view over its member keys; with no members it is the
+;; finished initial value, proved by `cpu`.
+(: sk-folded-view
+   (-[semidet]-> Number Atom $args (-[semidet]-> $acc SkFact $acc) Atom $acc AggregateFinish
+       (List SkeletonKey) SkeletonFilter SkeletonValue))
+(= (sk-folded-view $hash $kind $args $step $function $init $finish $members $filter)
+   (case (sk-fold-over $step $function $init $finish $members $filter (cons $hash ())) (
+      ((sk-fold-state $value (cons $proof $_rest) $ev $deps)
+         (sk-goal-val (CPU $kind $args $value) $proof $ev (cons $hash $deps))))))
 
 ;; A user base rate is authoritative. An unexpanded fold falls back to a cached
 ;; estimate when one exists. A computed base rate is cached for reuse.
@@ -330,24 +335,15 @@
    (sk-goal-val (CPU FoldAllCompiled $args (base-rate-entry-tv $entry)) (brand Proof cpu) ()
       (cons $hash ())))
 
-(: sk-empty-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
-(= (sk-empty-fold-view $hash $args)
-   (let* ((($_kb $_pattern $_extractor $init $_function $finish $_mode) $args))
-      (sk-goal-val (CPU FoldAllCompiled $args (finish-aggregate $finish $init)) (brand Proof cpu) ()
-         (cons $hash ()))))
-
 (: sk-computed-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
 (= (sk-computed-fold-view $hash $args)
-   (let* ((($_kb $_pattern $extractor $init $function $finish $_mode) $args)
-          ($goal (CPU FoldAllCompiled $args $_result)))
-      (case (sk-fold-node-member $goal) (
-         (() (sk-empty-fold-view $hash $args))
+   (let* ((($_kb $_pattern $extractor $init $function $finish $_mode) $args))
+      (case (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) (
+         (() (sk-folded-view $hash FoldAllCompiled $args (sk-accumulate $extractor $function) $function $init $finish
+            () sk-any-filter))
          ((cons $member $_rest)
-            (let* (((sk-fold-state $value $proofs $ev $deps)
-                      (sk-fold-over (sk-accumulate $extractor $function) $function $init $finish
-                         (sk-answers $member) (sk-member-filter $member) (cons $hash ()))))
-               (sk-fold-goal-val $hash (CPU FoldAllCompiled $args $value)
-                  (sk-fold-state $value $proofs $ev $deps))))))))
+            (sk-folded-view $hash FoldAllCompiled $args (sk-accumulate $extractor $function) $function $init
+               $finish (sk-answers $member) (sk-member-filter $member)))))))
 
 (: sk-group-node (-[det]-> SkeletonKey (List SkPattern)))
 (= (sk-group-node $key)
@@ -383,11 +379,8 @@
    (let* ((($_kbctx $_pattern $_group $extractor $init $function $finish $_mode) $args))
       (case (sk-group-members $key $args) (
          ((sk-group-found $member $members)
-            (let* (((sk-fold-state $value $proofs $ev $deps)
-                      (sk-fold-over (sk-accumulate $extractor $function) $function $init $finish
-                         $members (sk-member-filter $member) (cons $hash ()))))
-               (sk-fold-goal-val $hash (CPU GroupedFoldAllCompiled $args $value)
-                  (sk-fold-state $value $proofs $ev $deps))))
+            (sk-folded-view $hash GroupedFoldAllCompiled $args (sk-accumulate $extractor $function) $function
+               $init $finish $members (sk-member-filter $member)))
          (sk-group-missing sk-none)))))
 
 ;; A fold or group gets its view when first read, from its members' views at
@@ -448,13 +441,8 @@
             (sk-merged $hash $key $deps $value))))))
 
 ;; The merged value of a key on behalf of a consumer. A proof or truth-value
-;; pattern takes the whole merged value when it matches it, and otherwise the
-;; merge of the views that match.
-(: sk-value-matches? (-[det]-> SkeletonFilter SkeletonValue Bool))
-(= (sk-value-matches? $filter $value)
-   (case $value (
-      ((sk-val $fact $_ev $_deps) (sk-fact-matches? $filter $fact))
-      ($_other false))))
+;; pattern takes the whole merged value when it admits it, and otherwise the
+;; merge of the views it admits.
 
 (= (sk-value $key $filter $exclude)
    (let* (($hash (index-hash $key))
@@ -465,7 +453,7 @@
                       (sk-merge-key $hash $key sk-any-filter (sk-admitted $hash $key sk-any-filter $exclude))
                       $value))))))
       (if (sk-open-filter? $filter) $merged
-         (if (sk-value-matches? $filter $merged) $merged
+         (if (sk-admits? $filter () $merged) $merged
             (sk-merge-key $hash $key $filter (sk-admitted $hash $key $filter $exclude))))))
 
 (: sk-drop-merged! (-[det]-> SkeletonKey Atom))
