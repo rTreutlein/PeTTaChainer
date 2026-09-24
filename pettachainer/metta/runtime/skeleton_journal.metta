@@ -176,6 +176,14 @@
 !(bind! &sk_forced (new-space))
 (: &sk_forced_used (SpaceOf (Number Number Number)))
 !(bind! &sk_forced_used (new-space))
+;; fact keys that answered a node, by statement head, whether they contain a
+;; variable, key hash
+(: &sk_key_head (SpaceOf (Atom Bool Number SkeletonKey)))
+!(bind! &sk_key_head (new-space))
+;; per reading key: whether it is open, and the hashes of the keys unifying
+;; with it, its own first
+(: &sk_unifiers (SpaceOf (Number Bool SkeletonKey (List Number))))
+!(bind! &sk_unifiers (new-space))
 ;; the current query's roots
 (: &sk_roots (SpaceOf (Number SkPattern)))
 !(bind! &sk_roots (new-space))

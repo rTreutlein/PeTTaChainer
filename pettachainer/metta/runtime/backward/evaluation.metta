@@ -6,9 +6,10 @@
 ;; and one version per row; overlapping evidence resolves by dominance,
 ;; disjoint evidence revises.
 ;;
-;; A premise reads, per row of its key, the latest version that does not
-;; depend on the reading row's own conclusion. Dependency sets are transitive,
-;; so no value supports itself, through inverted rules or any longer cycle.
+;; A premise reads, per row of its key, the latest version that depends
+;; neither on the reading row's own conclusion key nor on a key unifying with
+;; it. Dependency sets are transitive, so no value supports itself, through
+;; inverted rules, longer cycles, or a more general or more specific key.
 ;; Views are computed in the order rows were created and refreshed while
 ;; support grows; they persist until something below them changes.
 
@@ -28,7 +29,7 @@
 (: sort-atom (-[det]-> (List $item) (List $item)))
 
 ;; Signatures of the mutually recursive functions below.
-(: sk-value (-[semidet]-> SkeletonKey SkeletonFilter Number SkeletonValue))
+(: sk-value (-[semidet]-> SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 
 (: sk-union (-[det]-> (List $item) (List $item) (List $item)))
 (= (sk-union $left $right) (list_to_set (append-flat $left $right)))
@@ -110,21 +111,27 @@
 ;; they were computed. A consumer takes, per row, the latest view that does
 ;; not depend on the excluded key and matches its pattern; an older one stays
 ;; usable when a newer one came to depend on that key.
-(: sk-admits? (-[det]-> SkeletonFilter Number SkeletonValue Bool))
+;; Whether a view depends on any of the excluded keys.
+(: sk-excluded? (-[det]-> (List Number) (List Number) Bool))
+(= (sk-excluded? () $_deps) false)
+(= (sk-excluded? (cons $hash $rest) $deps)
+   (if (stored-list-member? $hash $deps) true (sk-excluded? $rest $deps)))
+
+(: sk-admits? (-[det]-> SkeletonFilter (List Number) SkeletonValue Bool))
 (= (sk-admits? $filter $exclude $view)
    (case $view (
       ((sk-val $fact $_ev $deps)
-         (if (stored-list-member? $exclude $deps) false (sk-fact-matches? $filter $fact)))
+         (if (sk-excluded? $exclude $deps) false (sk-fact-matches? $filter $fact)))
       ((sk-goal-val $_goal $_proof $_ev $deps)
-         (if (stored-list-member? $exclude $deps) false true))
+         (if (sk-excluded? $exclude $deps) false true))
       (sk-none false))))
 
-(: sk-admit-older (-[det]-> SkeletonFilter Number SkeletonValue SkeletonValue SkeletonValue))
+(: sk-admit-older (-[det]-> SkeletonFilter (List Number) SkeletonValue SkeletonValue SkeletonValue))
 (= (sk-admit-older $filter $exclude $kept $view)
    (if (sk-admits? $filter $exclude $view) $view $kept))
 
 (: sk-admit-step
-   (-[semidet]-> Number SkeletonKey SkeletonFilter Number (List SkeletonValue) SkeletonVersion
+   (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonValue) SkeletonVersion
        (List SkeletonValue)))
 (= (sk-admit-step $hash $key $filter $exclude $kept (sk-version $_seq $rhash $view))
    (if (sk-admits? $filter $exclude $view) (cons $view $kept)
@@ -216,7 +223,7 @@
 ;; Members are read without the views that depend on the fold itself: a
 ;; member derived through this fold's own output is left out of it.
 (: sk-fold-step
-   (-[semidet]-> (-[semidet]-> $acc SkFact $acc) SkeletonFilter Number SkeletonFold SkeletonKey
+   (-[semidet]-> (-[semidet]-> $acc SkFact $acc) SkeletonFilter (List Number) SkeletonFold SkeletonKey
        SkeletonFold))
 (= (sk-fold-step $step $filter $exclude (sk-fold-state $acc $proofs $ev $deps) $key)
    (case (sk-value $key $filter $exclude) (
@@ -244,7 +251,7 @@
 
 (: sk-fold-over
    (-[semidet]-> (-[semidet]-> $acc SkFact $acc) Atom $acc AggregateFinish (List SkeletonKey)
-       SkeletonFilter Number SkeletonFold))
+       SkeletonFilter (List Number) SkeletonFold))
 (= (sk-fold-over $step $function $init $finish $members $filter $exclude)
    (let* (((sk-fold-state $acc $proofs $ev $deps)
              (fold-semidet (sk-fold-step $step $filter $exclude) (sk-fold-state $init () () ()) $members)))
@@ -326,7 +333,7 @@
          ((cons $member $_rest)
             (let* (((sk-fold-state $value $proofs $ev $deps)
                       (sk-fold-over (sk-accumulate $extractor $function) $function $init $finish
-                         (sk-answers $member) (sk-member-filter $member) $hash)))
+                         (sk-answers $member) (sk-member-filter $member) (cons $hash ()))))
                (sk-fold-goal-val $hash (CPU FoldAllCompiled $args $value)
                   (sk-fold-state $value $proofs $ev $deps))))))))
 
@@ -366,7 +373,7 @@
          ((sk-group-found $member $members)
             (let* (((sk-fold-state $value $proofs $ev $deps)
                       (sk-fold-over (sk-accumulate $extractor $function) $function $init $finish
-                         $members (sk-member-filter $member) $hash)))
+                         $members (sk-member-filter $member) (cons $hash ()))))
                (sk-fold-goal-val $hash (CPU GroupedFoldAllCompiled $args $value)
                   (sk-fold-state $value $proofs $ev $deps))))
          (sk-group-missing sk-none)))))
@@ -386,7 +393,7 @@
    (cons (sk-version 0 0 (sk-store-view! $hash $key 0 0 $view)) ()))
 
 ;; The versions a consumer takes: per row, the latest one it admits.
-(: sk-admitted (-[semidet]-> Number SkeletonKey SkeletonFilter Number (List SkeletonValue)))
+(: sk-admitted (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonValue)))
 (= (sk-admitted $hash $key $filter $exclude)
    (let* (($stored (sk-latest-versions $hash $key))
           ($versions (if (== $stored ()) (sk-fold-views $hash $key) $stored)))
@@ -422,7 +429,7 @@
       ((cons $merged $_rest) (let $_counted (query_metric_increment merged-cache-hits) $merged))
       (()
          (let* (($_counted (query_metric_increment merged-cache-misses))
-                ($views (sk-admitted $hash $key $filter -1))
+                ($views (sk-admitted $hash $key $filter ()))
                 ($deps (fold-semidet sk-view-deps-step () $views))
                 ($value (sk-merge-key $hash $key $filter $views))
                 ($_cached (add-atom &sk_merged (sk-merged $hash $key $deps $value))))
@@ -434,7 +441,7 @@
       (if (sk-open-filter? $filter)
          (case (sk-open-value $hash $key $filter) (
             ((sk-merged $_hash $_key $deps $value)
-               (if (stored-list-member? $exclude $deps)
+               (if (sk-excluded? $exclude $deps)
                   (sk-merge-key $hash $key $filter (sk-admitted $hash $key $filter $exclude))
                   $value))))
          (sk-merge-key $hash $key $filter (sk-admitted $hash $key $filter $exclude)))))
@@ -508,7 +515,7 @@
 ;; Each premise reads its key's value without the views that depend on the
 ;; row's conclusion. Premises may share rules but not facts, except in joins
 ;; the compiler marked as sharing their sources.
-(: sk-premise-step (-[semidet]-> Number Bool SkeletonRowState SkPattern SkeletonRowState))
+(: sk-premise-step (-[semidet]-> (List Number) Bool SkeletonRowState SkPattern SkeletonRowState))
 (= (sk-premise-step $exclude $shared $state $premise)
    (case $state (
       (sk-fail sk-fail)
@@ -532,10 +539,12 @@
                            sk-fail)))
                   ($_none sk-fail))))))))))
 
-(: sk-row-view (-[semidet]-> Number SkeletonRow SkeletonValue))
-(= (sk-row-view $khash (sk-row $_ident $concl $premises $_seq))
+;; A row reads its premises without the views that depend on its key or on a
+;; key unifying with it.
+(: sk-row-view (-[semidet]-> Number SkeletonKey SkeletonRow SkeletonValue))
+(= (sk-row-view $khash $key (sk-row $_ident $concl $premises $_seq))
    (let* ((($type $kbctx $proof $tv) $concl))
-      (case (fold-semidet (sk-premise-step $khash (shared-evidence-frontier-proof? $proof))
+      (case (fold-semidet (sk-premise-step (sk-unifier-hashes $khash $key) (shared-evidence-frontier-proof? $proof))
                (sk-acc () () (cons $khash ())) $premises) (
          ((sk-acc $fold-proofs $ev $deps)
             (let* (((token-state $full-proof $_unused)
@@ -751,7 +760,7 @@
 (= (sk-compute $pass $work (sk-row-item $seq $hash $key $rhash $row))
    (let* (($_computed (query_metric_increment row-computes))
           ($forced (sk-take-forced! $hash $rhash))
-          ($new (sk-row-view $hash (copy_term $row))))
+          ($new (sk-row-view $hash $key (copy_term $row))))
       (case $new (
          (sk-none $work)
          ($_view
@@ -960,14 +969,14 @@
 ;; --- Entry points -----------------------------------------------------------
 
 (: sk-root-value (-[semidet]-> SkeletonFilter SkeletonKey SkeletonValue))
-(= (sk-root-value $filter $key) (sk-value $key $filter -1))
+(= (sk-root-value $filter $key) (sk-value $key $filter ()))
 
 (: sk-root-values (-[semidet]-> SkPattern (List SkeletonValue)))
 (= (sk-root-values $goal)
    (case $goal (
       ((CPU $fun $args $res)
          (if (== $fun FoldAllCompiled)
-            (cons (sk-value (sk-fold $args) sk-any-filter -1) ())
+            (cons (sk-value (sk-fold $args) sk-any-filter ()) ())
             (if (== $fun GroupedFoldAllCompiled)
                (map-semidet (sk-root-value sk-any-filter) (sk-answers $goal))
                (collapse (let $result (cpu-call 0 $fun $args)
