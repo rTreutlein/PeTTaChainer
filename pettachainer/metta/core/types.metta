@@ -198,6 +198,8 @@
 ;; they form a DAG, and a proof term stays as small as one rule application.
 (: proof-ref (-[det]-> Number Proof))
 (: &proof (SpaceOf (Number Proof (List Evidence) Bool)))
+;; the statement and truth value a stored fact proof proves
+(: &proof_fact (SpaceOf (Number Statement TV)))
 
 (: Evidence (Newtype Atom))
 (: fact-ev (-[det]-> KBContext Proof Statement Evidence))

@@ -13,9 +13,17 @@
 ;; Views are computed in the order rows were created and refreshed while
 ;; support grows; they persist until something below them changes.
 
+;; A conjunction part: an independent premise, or the projections of one
+;; stored (And ...) source pooled back together: source proof, source truth
+;; value, source arity, projected indices, the first projection's truth value.
+(: SkeletonPart Type)
+(: sk-indep-part (-[det]-> TV SkeletonPart))
+(: sk-pool-part (-[det]-> Proof TV Number (List Atom) TV SkeletonPart))
+(: SkeletonSource Type)
+(: sk-source (-[det]-> Statement TV SkeletonSource))
 (: SkeletonRowState Type)
-;; fold proofs (newest first), evidence, dependency hashes
-(: sk-acc (-[det]-> (List Proof) (List Evidence) (List Number) SkeletonRowState))
+;; fold proofs (newest first), evidence, dependency hashes, conjunction parts
+(: sk-acc (-[det]-> (List Proof) (List Evidence) (List Number) (List SkeletonPart) SkeletonRowState))
 (: sk-fail SkeletonRowState)
 (: SkeletonFold Type)
 ;; accumulator, member proofs (newest first), evidence, dependency hashes
@@ -174,7 +182,9 @@
 (= (sk-ref-view! $view)
    (case $view (
       ((sk-val ($type $kbctx $proof $tv) $ev $deps)
-         (sk-val (data $type $kbctx (sk-store-proof! $proof) $tv) $ev $deps))
+         (let* (($ref (sk-store-proof! $proof))
+                ($_fact (case $ref (((proof-ref $pid) (add-atom &proof_fact ($pid $type $tv)))))))
+            (sk-val (data $type $kbctx $ref $tv) $ev $deps)))
       ((sk-goal-val $goal $proof $ev $deps) (sk-goal-val $goal (sk-store-proof! $proof) $ev $deps))
       (sk-none sk-none))))
 
@@ -514,13 +524,88 @@
          $proof)))
 
 (: sk-consume-fold (-[semidet]-> SkeletonRowState $result SkeletonValue SkeletonRowState))
-(= (sk-consume-fold (sk-acc $fold-proofs $ev $deps) $res $value)
+(= (sk-consume-fold (sk-acc $fold-proofs $ev $deps $parts) $res $value)
    (case $value (
       ((sk-goal-val (CPU $_fun $_args $result) $proof $fold-ev $fold-deps)
          (if (= $res $result)
-            (sk-acc (cons $proof $fold-proofs) (sk-union $ev $fold-ev) (sk-union $deps $fold-deps))
+            (sk-acc (cons $proof $fold-proofs) (sk-union $ev $fold-ev) (sk-union $deps $fold-deps) $parts)
             sk-fail))
       ($_none sk-fail))))
+
+;; --- Conjunction pooling ----------------------------------------------------
+
+;; Projections of one stored (And ...) source are not independent: they share
+;; the source's evidence. A conjunction pools them back into the source, whose
+;; truth value it takes once every member is projected, and the first
+;; projection's marginal truth value before.
+(: sk-proof-source (-[det]-> Proof (List SkeletonSource)))
+(= (sk-proof-source $base)
+   (case $base (
+      ((proof-ref $pid) (collapse (once (match &proof_fact ($pid $statement $tv) (sk-source $statement $tv)))))
+      ($_leaf (collapse (once (match &kb ($statement $_kbctx $base $tv) (sk-source $statement $tv))))))))
+
+(: sk-premise-part (-[det]-> SkFact SkeletonPart))
+(= (sk-premise-part ($type $kbctx $proof $tv))
+   (case (sk-step-proof (data $type $kbctx $proof $tv)) (
+         ((marginal-proj $idx $base)
+            (case (sk-proof-source (brand Proof $base)) (
+               ((cons (sk-source $statement $source-tv) $_rest)
+                  (if (is-expr $statement)
+                     (if (== (car-atom $statement) And)
+                        (sk-pool-part (brand Proof $base) $source-tv (list-len (cdr-atom $statement)) (cons $idx ()) $tv)
+                        (sk-indep-part $tv))
+                     (sk-indep-part $tv)))
+               (() (sk-indep-part $tv)))))
+         ($_other (sk-indep-part $tv)))))
+
+(: sk-same-pool? (-[det]-> SkeletonPart SkeletonPart Bool))
+(= (sk-same-pool? $part $other)
+   (case $part (
+      ((sk-pool-part $base $_tv $_arity $_idxs $_marginal)
+         (case $other (
+            ((sk-pool-part $other-base $_other-tv $_other-arity $_other-idxs $_other-marginal)
+               (=alpha $base $other-base))
+            ($_indep false))))
+      ($_part-indep false))))
+
+(: sk-joins-pool? (-[det]-> (List SkeletonPart) SkeletonPart Bool))
+(= (sk-joins-pool? () $_part) false)
+(= (sk-joins-pool? (cons $head $rest) $part)
+   (if (sk-same-pool? $part $head) true (sk-joins-pool? $rest $part)))
+
+(: sk-add-part (-[det]-> (List SkeletonPart) SkeletonPart (List SkeletonPart)))
+(= (sk-add-part () $part) (cons $part ()))
+(= (sk-add-part (cons $head $rest) $part)
+   (case $head (
+      ((sk-pool-part $base $tv $arity $idxs $marginal)
+         (case $part (
+            ((sk-pool-part $part-base $_part-tv $_part-arity $new-idxs $_part-marginal)
+               (if (=alpha $base $part-base)
+                  (cons (sk-pool-part $base $tv $arity (list_to_set (append-flat $idxs $new-idxs)) $marginal) $rest)
+                  (cons $head (sk-add-part $rest $part))))
+            ($_indep-part (cons $head (sk-add-part $rest $part))))))
+      ($_indep-head (cons $head (sk-add-part $rest $part))))))
+
+(: sk-pooled? (-[det]-> (List SkeletonPart) Bool))
+(= (sk-pooled? ()) false)
+(= (sk-pooled? (cons $head $rest))
+   (case $head (
+      ((sk-pool-part $_base $_tv $_arity $idxs $_marginal)
+         (if (> (list-len $idxs) 1) true (sk-pooled? $rest)))
+      ($_indep (sk-pooled? $rest)))))
+
+(: sk-part-tv (-[det]-> SkeletonPart TV))
+(= (sk-part-tv $part)
+   (case $part (
+      ((sk-indep-part $tv) $tv)
+      ((sk-pool-part $_base $tv $arity $idxs $marginal)
+         (if (== (list-len $idxs) $arity) $tv $marginal)))))
+
+(: sk-parts-tv-step (-[semidet]-> TV SkeletonPart TV))
+(= (sk-parts-tv-step $acc $part) (AndFormula $acc (sk-part-tv $part)))
+
+(: sk-parts-tv (-[semidet]-> (List SkeletonPart) TV))
+(= (sk-parts-tv (cons $first $rest)) (fold-semidet sk-parts-tv-step (sk-part-tv $first) $rest))
 
 ;; Each premise reads its key's value without the views that depend on the
 ;; row's conclusion. Premises may share rules but not facts, except in joins
@@ -529,24 +614,31 @@
 (= (sk-premise-step $exclude $shared $state $premise)
    (case $state (
       (sk-fail sk-fail)
-      ((sk-acc $fold-proofs $ev $deps)
+      ((sk-acc $fold-proofs $ev $deps $parts)
          (case $premise (
             ((CPU FoldAllCompiled $fold-args $fold-res)
                (sk-consume-fold $state $fold-res (sk-value (sk-fold $fold-args) sk-any-filter $exclude)))
             ((CPU GroupedFoldAllCompiled $group-args $group-res)
                (sk-consume-fold $state $group-res (sk-value (sk-group $group-args) sk-any-filter $exclude)))
+            ;; A conjunction step over pooled projections takes the pooled
+            ;; truth value instead of multiplying shared evidence.
             ((CPU $fun $args $res)
-               (case (collapse (once (cpu-call 0 $fun $args))) (
-                  ((cons $result $_rest) (if (= $res $result) $state sk-fail))
-                  (() sk-fail))))
+               (if (if (== $fun AndFormula) (sk-pooled? $parts) false)
+                  (if (= $res (sk-parts-tv $parts)) $state sk-fail)
+                  (case (collapse (once (cpu-call 0 $fun $args))) (
+                     ((cons $result $_rest) (if (= $res $result) $state sk-fail))
+                     (() sk-fail)))))
             (($type $kbctx $proof $tv)
                (case (sk-value (sk-key $type $kbctx) (sk-filter $proof $tv) $exclude) (
                   ((sk-val $fact $premise-ev $premise-deps)
-                     (if (if $shared false (premise-evidence-overlap? $ev $premise-ev))
-                        sk-fail
-                        (if (= $premise (if (is-var $proof) $fact (sk-full-fact $fact)))
-                           (sk-acc $fold-proofs (sk-union $ev $premise-ev) (sk-union $deps $premise-deps))
-                           sk-fail)))
+                     (let $part (sk-premise-part $fact)
+                        (if (if $shared false
+                               (if (premise-evidence-overlap? $ev $premise-ev) (not (sk-joins-pool? $parts $part)) false))
+                           sk-fail
+                           (if (= $premise (if (is-var $proof) $fact (sk-full-fact $fact)))
+                              (sk-acc $fold-proofs (sk-union $ev $premise-ev) (sk-union $deps $premise-deps)
+                                 (sk-add-part $parts $part))
+                              sk-fail))))
                   ($_none sk-fail))))))))))
 
 ;; A computation whose arguments were ground when its join was built was
@@ -566,9 +658,9 @@
 (= (sk-row-view $khash $key (sk-row $_ident $concl $premises $_seq))
    (let* ((($type $kbctx $proof $tv) $concl))
       (case (fold-semidet (sk-premise-step (sk-unifier-hashes $khash $key) (shared-evidence-frontier-proof? $proof))
-               (sk-acc () () (cons $khash ()))
+               (sk-acc () () (cons $khash ()) ())
                (fold-semidet sk-cons-step () (fold-semidet sk-evaluated-premise-step () $premises))) (
-         ((sk-acc $fold-proofs $ev $deps)
+         ((sk-acc $fold-proofs $ev $deps $_parts)
             (let* (((token-state $full-proof $_unused)
                       (replace-token $proof (fold-semidet sk-cons-step () $fold-proofs)))
                    ($fact (assemble-runtime-fact $type $kbctx (sk-unwrap-proof $full-proof) $tv)))
