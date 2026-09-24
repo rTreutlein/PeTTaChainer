@@ -176,9 +176,9 @@
 ;; waiting on it assigned
 (: &sk_score (SpaceOf (Number SkPattern Number)))
 !(bind! &sk_score (new-space))
-;; rows one evaluation must recompute for a change from outside it, and which
-;; row was already forced by which changed key
-(: &sk_forced (SpaceOf (Number Number)))
+;; rows one evaluation must recompute for a change from outside it, with the
+;; changed keys that forced them, and which row was already forced by which
+(: &sk_forced (SpaceOf (Number Number Number)))
 !(bind! &sk_forced (new-space))
 (: &sk_forced_used (SpaceOf (Number Number Number)))
 !(bind! &sk_forced_used (new-space))

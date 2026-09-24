@@ -295,10 +295,17 @@
       (: $proof (OtherWitnessEstimate fido) $tv))
    (: (by exposeOtherWitness (conjunction (by dogChasesCat fidoDog) (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna) (conjunction felixCat fidoOftenChasesFelix)))) (OtherWitnessEstimate fido) (STV 0.8685041026719965 0.7430346472921185)))
 
-;; Grouped aggregate snapshots are restored one per grounded output group. A
-;; zero-budget repeat reads both representatives immediately; adding a third
-;; group commits only its new snapshot while the two unchanged groups remain
-;; current historical representatives.
+;; A grouped fold keeps one view per grounded output group. A zero-budget
+;; repeat reads both groups immediately; adding a third group adds only its
+;; view while the two unchanged groups keep theirs.
+(: grouped-view-count (-[det]-> KB Number))
+(= (grouped-view-count $kb)
+   (list-count
+      (collapse
+         (match &sk_latest
+            ($_hash (sk-group (($kb $_ctx $_vars) $_pattern $_group $_e $_i $_f $_fi $_m)) $_version)
+            true))))
+
 !(compileadd durableGroupedKb
    (: grouped-alice-bob (Parent alice bob) (STV 1.0 1.0)))
 !(compileadd durableGroupedKb
@@ -329,19 +336,7 @@
             (: $proof (DurableDoctorChild $person) $tv))))
    2)
 
-!(test
-   (list-count
-      (collapse
-         (match &proof
-            (stored-proof-row
-               $_pid $_owner
-               (CPU GroupedFoldAllCompiled
-                  ((durableGroupedKb $_ctx $_vars)
-                   $_pattern $_group $_extractor $_init $_fun $_finish $_mode)
-                  $_result)
-               $_kind $_support $_children)
-            true)))
-   2)
+!(test (grouped-view-count durableGroupedKb) 2)
 
 !(compileadd durableGroupedKb
    (: grouped-carol-erin (Parent carol erin) (STV 1.0 1.0)))
@@ -362,16 +357,4 @@
             (: $proof (DurableDoctorChild $person) $tv))))
    3)
 
-!(test
-   (list-count
-      (collapse
-         (match &proof
-            (stored-proof-row
-               $_pid $_owner
-               (CPU GroupedFoldAllCompiled
-                  ((durableGroupedKb $_ctx $_vars)
-                   $_pattern $_group $_extractor $_init $_fun $_finish $_mode)
-                  $_result)
-               $_kind $_support $_children)
-            true)))
-   3)
+!(test (grouped-view-count durableGroupedKb) 3)

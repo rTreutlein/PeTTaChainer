@@ -287,8 +287,9 @@
 ;; estimate when one exists. A computed base rate is cached for reuse.
 ;; A base rate's value is its user base rate, or else the better of its
 ;; estimate and a fold over the members the search found; a fold that improves
-;; on the estimate replaces it. Without either it is the empty fold. The fold
-;; key watches the cache entry. Any other fold is computed from its members.
+;; on the estimate replaces it, and so does a fold refining its own earlier
+;; snapshot. Without either it is the empty fold. The fold key watches the
+;; cache entry. Any other fold is computed from its members.
 (: sk-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
 (= (sk-fold-view $hash $args)
    (case (base-rate-aggregate-key $args) (
@@ -316,11 +317,17 @@
       (let $computed (sk-computed-fold-view $hash $args)
          (case $computed (
             ;; A computed snapshot is kept unless the fold is at least as
-            ;; confident; a forward approximation is partial work and always
-            ;; gives way to the fold.
+            ;; confident. A forward approximation is partial work, and so is
+            ;; the fold's own earlier snapshot, taken before the search found
+            ;; all its members: both always give way to the fold.
             ((sk-goal-val (CPU $_f $_a $tv) $_p $_ev $_deps)
                (if (if (== (base-rate-entry-source $entry) forward-approx) true
-                      (>= (tv-confidence $tv) (tv-confidence (base-rate-entry-tv $entry))))
+                      (if (case (sk-latest-view $hash (sk-fold $args) 0) (
+                             ((sk-goal-val (CPU $_of $_oa $own) $own-proof $_oev $_odeps)
+                                (if (== $own-proof cpu) false (== $own (base-rate-entry-tv $entry))))
+                             ($_other false)))
+                         true
+                         (>= (tv-confidence $tv) (tv-confidence (base-rate-entry-tv $entry)))))
                   (sk-store-computed-rate $kbid $pattern $mode $computed)
                   (sk-cached-fold-view $hash $args $entry)))
             ($_none (sk-cached-fold-view $hash $args $entry)))))))
@@ -706,7 +713,8 @@
 ;; to an older admissible version or a merge's dominance flips, keeps the view
 ;; it had. A change from outside the rows (a fact, a removed query-local row, a
 ;; fold member) makes each reader recompute without that test, once per
-;; evaluation for each key that caused it.
+;; evaluation for each key that caused it, and a reader whose value changes
+;; passes it on to its own readers the same way.
 
 ;; The rows that read a key directly, as fact premise, fold or group.
 (: sk-readers (-[det]-> SkeletonKey (List SkeletonItem)))
@@ -823,23 +831,24 @@
 ;; A row is forced once per evaluation by each changed key: a fold's readers
 ;; follow its members as they change, and a fold feeding back into its own
 ;; members still ends.
-(: sk-force-step (-[det]-> Number Number Bool Number Bool))
-(= (sk-force-step $khash $rhash $forced $cause)
+(: sk-force-cause! (-[det]-> Number Number Number Atom))
+(= (sk-force-cause! $khash $rhash $cause)
    (if (== (collapse (once (match &sk_forced_used ($khash $rhash $cause) true))) ())
-      (let $_used (add-atom &sk_forced_used ($khash $rhash $cause)) true)
-      $forced))
+      (let* (($_used (add-atom &sk_forced_used ($khash $rhash $cause)))
+             ($_forced (add-atom &sk_forced ($khash $rhash $cause))))
+         ())
+      ()))
 
 (: sk-force! (-[det]-> (List Number) SkeletonItem Atom))
 (= (sk-force! $causes (sk-row-item $_seq $khash $_key $rhash $_row))
-   (if (fold-flat (sk-force-step $khash $rhash) false $causes)
-      (let $_forced (add-atom &sk_forced ($khash $rhash)) ())
-      ()))
+   (let $_forced (map-flat (sk-force-cause! $khash $rhash) $causes) ()))
 (= (sk-force! $_causes (sk-fold-check $_hash $_fold)) ())
 
-(: sk-take-forced! (-[det]-> Number Number Bool))
+;; The keys that forced a row since it was last computed.
+(: sk-take-forced! (-[det]-> Number Number (List Number)))
 (= (sk-take-forced! $khash $rhash)
-   (if (== (collapse (once (match &sk_forced ($khash $rhash) true))) ()) false
-      (let $_taken (remove-atom &sk_forced ($khash $rhash)) true)))
+   (collapse (match &sk_forced ($khash $rhash $cause)
+      (let $_taken (remove-atom &sk_forced ($khash $rhash $cause)) $cause))))
 
 ;; Whether a view brings a dependency none of the row's views had.
 (: sk-new-support? (-[semidet]-> Number SkeletonKey Number SkeletonValue Bool))
@@ -905,7 +914,8 @@
 (= (sk-compute $pass $work (sk-fold-check $hash $fold)) (sk-check-fold $pass $work $hash $fold))
 (= (sk-compute $pass $work (sk-row-item $seq $hash $key $rhash $row))
    (let* (($_computed (query_metric_increment row-computes))
-          ($forced (sk-take-forced! $hash $rhash))
+          ($causes (sk-take-forced! $hash $rhash))
+          ($forced (not (== $causes ())))
           ($new (sk-row-view $hash $key (copy_term $row))))
       (case $new (
          ;; A row forced by an outside change that no longer derives anything
@@ -914,7 +924,7 @@
             (if (if $forced (not (== (sk-latest-view $hash $key $rhash) sk-none)) false)
                (let* (($_views (sk-drop-row-views! $hash $key $rhash))
                       ($_merged (sk-drop-merged! $key)))
-                  (sk-key-changed $pass $seq (sk-view-change ()) $work $key))
+                  (sk-key-changed $pass $seq (sk-outside-change $causes) $work $key))
                $work))
          ($_view
             (let $latest (sk-latest-view $hash $key $rhash)
@@ -932,7 +942,11 @@
                       ($_stored-count (query_metric_increment views-stored))
                       ($_merged (sk-drop-merged! $key))
                       ($deps (fold-semidet sk-view-deps-step () (cons $new ()))))
-                  (sk-key-changed $pass $seq (sk-value-change $hash $key $deps $before) $work $key)))))))))
+                  (sk-key-changed $pass $seq
+                     (if (if $forced (not (sk-same-view? $new $latest)) false)
+                        (sk-outside-change $causes)
+                        (sk-value-change $hash $key $deps $before))
+                     $work $key)))))))))
 
 ;; An unchanged open merged value is known only when it was cached before.
 (: sk-value-change (-[semidet]-> Number SkeletonKey (List Number) (List SkeletonMerged) SkeletonChange))
@@ -977,7 +991,7 @@
 (: sk-evaluate! (-[semidet]-> Atom))
 (= (sk-evaluate!)
    (let* (($_queued (collapse (match &sk_queued ($pass $khash $rhash) (remove-atom &sk_queued ($pass $khash $rhash)))))
-          ($_forced (collapse (match &sk_forced ($khash $rhash) (remove-atom &sk_forced ($khash $rhash)))))
+          ($_forced (collapse (match &sk_forced ($khash $rhash $cause) (remove-atom &sk_forced ($khash $rhash $cause)))))
           ($_used (collapse (match &sk_forced_used ($khash $rhash $cause) (remove-atom &sk_forced_used ($khash $rhash $cause)))))
           ($_pending (collapse (match &sk_fold_pending ($fhash $member) (remove-atom &sk_fold_pending ($fhash $member)))))
           ($new
