@@ -655,12 +655,23 @@
           ($scheduled (fold-semidet (sk-schedule-reader $pass $seq $key $change) $work (sk-readers $key))))
       (fold-semidet (sk-fold-changed $pass $seq $hash) $scheduled $folds)))
 
-;; A fold's readers are forced by each member that changes it.
+;; A member change recomputes a fold that was read, and its readers are forced
+;; by each member that changes its value. A fold nobody read since it last
+;; changed is computed when next read.
 (: sk-fold-changed (-[semidet]-> Number Number Number SkeletonWork SkeletonKey SkeletonWork))
 (= (sk-fold-changed $pass $seq $member $work $fold)
-   (let* (($_view (sk-drop-fold-view! $fold))
+   (let* (($hash (index-hash $fold))
+          ($old (sk-latest-view $hash $fold 0))
+          ($_view (sk-drop-fold-view! $fold))
           ($_merged (sk-drop-merged! $fold)))
-      (sk-key-changed $pass $seq (sk-outside-change $member) $work $fold)))
+      (case $old (
+         (sk-none $work)
+         ($_read
+            (case (sk-fold-views $hash $fold) (
+               ((cons (sk-version $_seq $_rhash $new) $_rest)
+                  (if (sk-same-view? $new $old) $work
+                     (sk-key-changed $pass $seq (sk-outside-change $member) $work $fold)))
+               (() (sk-key-changed $pass $seq (sk-outside-change $member) $work $fold)))))))))
 
 ;; A row is forced once per evaluation by each changed key: a fold's readers
 ;; follow its members as they arrive, and a fold feeding back into its own
