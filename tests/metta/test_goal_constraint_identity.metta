@@ -76,12 +76,11 @@
 !(test
    (let* (($before (nextctx))
           ($_adds (inject-special-subgoal-query-adds
-             (assemble-runtime-fact
-                (brand Statement
+             (brand Statement
                    (Implication (MarkerInput $head) (MarkerOutput $head)))
                 (brand KBContext (markerKb MAIN Nil))
                 (brand Proof (quote ($head $payload)))
-                (the TV $tv))))
+                (the TV $tv)))
           ($after (nextctx)))
       ((is-var $head) (is-var $payload) (- $after $before)))
    (true true 3))
@@ -91,13 +90,12 @@
 !(test
    (let* (($before (nextctx))
           ($_adds (inject-special-subgoal-query-adds
-             (assemble-runtime-fact
-                (brand Statement
+             (brand Statement
                    (Implication (MarkerInput $shared) (MarkerOutput $shared)))
                 (brand KBContext (markerKb MAIN Nil))
                 (brand Proof
                    (total-implication-frontier (quote ($shared $shared))))
-                (the TV $tv))))
+                (the TV $tv)))
           ($after (nextctx)))
       ((is-var $shared) (- $after $before)))
    (true 1))
@@ -107,10 +105,9 @@
 !(test
    (let* (($before (nextctx))
           ($_adds (inject-special-subgoal-query-adds
-             (assemble-runtime-fact
-                (brand Statement (Implication (MarkerInput) (MarkerOutput)))
+             (brand Statement (Implication (MarkerInput) (MarkerOutput)))
                 (brand KBContext (markerKb MAIN Nil))
-                (brand Proof (quote ())) (the TV $tv))))
+                (brand Proof (quote ())) (the TV $tv)))
           ($after (nextctx)))
       (- $after $before))
    3)
@@ -118,10 +115,9 @@
 !(test
    (let* (($before (nextctx))
           ($_adds (inject-special-subgoal-query-adds
-             (assemble-runtime-fact
-                (brand Statement (Implication (MarkerInput) (MarkerOutput)))
+             (brand Statement (Implication (MarkerInput) (MarkerOutput)))
                 (brand KBContext (markerKb MAIN Nil))
-                (brand Proof (quote total-implication-frontier)) (the TV $tv))))
+                (brand Proof (quote total-implication-frontier)) (the TV $tv)))
           ($after (nextctx)))
       (- $after $before))
    3)
@@ -129,10 +125,9 @@
 !(test
    (let* (($before (nextctx))
           ($_adds (inject-special-subgoal-query-adds
-             (assemble-runtime-fact
-                (brand Statement (Implication (MarkerInput) (MarkerOutput)))
+             (brand Statement (Implication (MarkerInput) (MarkerOutput)))
                 (brand KBContext (markerKb MAIN Nil))
-                (brand Proof (quote (total-implication-frontier))) (the TV $tv))))
+                (brand Proof (quote (total-implication-frontier))) (the TV $tv)))
           ($after (nextctx)))
       (- $after $before))
    3)
@@ -140,10 +135,9 @@
 !(test
    (let* (($before (nextctx))
           ($_adds (inject-special-subgoal-query-adds
-             (assemble-runtime-fact
-                (brand Statement (Implication (MarkerInput) (MarkerOutput)))
+             (brand Statement (Implication (MarkerInput) (MarkerOutput)))
                 (brand KBContext (markerKb MAIN Nil))
-                (brand Proof (quote (total-implication-frontier one two))) (the TV $tv))))
+                (brand Proof (quote (total-implication-frontier one two))) (the TV $tv)))
           ($after (nextctx)))
       (- $after $before))
    3)

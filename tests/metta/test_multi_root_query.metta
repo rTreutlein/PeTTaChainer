@@ -68,10 +68,8 @@
              (: $prf (SharedBatchRight) $tv))))
       (length
          (collapse
-            (match &goal
-               (stored-goal-row $_gid $_depth
-                  ((SharedBatchPremise) (sharedBatchKb MAIN Nil) $_prf $_tv)
-                  $_expanded $_pending)
+            (match &sk_expanded
+               ($_hash ((SharedBatchPremise) (sharedBatchKb MAIN Nil) $_prf $_tv))
                shared-goal))))
    1)
 

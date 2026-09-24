@@ -23,14 +23,15 @@
     (: (by (no_inverse left-rule) left-b)
        (HistoryOutput b) (STV 1.0 0.7999359651197002))))
 
-;; A zero-budget read returns compatible published groups. It does not backfill
-;; a partially covered result set from raw history: a's merged representative
-;; fails this proof constraint, while b's representative satisfies it.
+;; A zero-budget read restricts each output's value to the proofs matching the
+;; pattern: a's left-rule derivation answers although its merged value does not.
 !(test
    (collapse
       (query 0 historyKb
          (: (by (no_inverse left-rule) $source) (HistoryOutput $x) $tv)))
-   ((: (by (no_inverse left-rule) left-b)
+   ((: (by (no_inverse left-rule) left-a)
+       (HistoryOutput a) (STV 1.0 0.7999359651197002))
+    (: (by (no_inverse left-rule) left-b)
        (HistoryOutput b) (STV 1.0 0.7999359651197002))))
 
 ;; With no compatible published group, the historical fallback can still
@@ -42,13 +43,15 @@
    ((: (by (no_inverse left-rule) left-a)
        (HistoryOutput a) (STV 1.0 0.7999359651197002))))
 
-;; TV constraints likewise must not leak the incompatible merged a result or
-;; add an extra raw a group behind the valid published b group.
+;; A TV constraint likewise selects the proofs with that truth value: a's
+;; left-rule derivation, never its merged value.
 !(test
    (collapse
       (query 0 historyKb
          (: $proof (HistoryOutput $x) (STV 1.0 0.7999359651197002))))
-   ((: (by (no_inverse left-rule) left-b)
+   ((: (by (no_inverse left-rule) left-a)
+       (HistoryOutput a) (STV 1.0 0.7999359651197002))
+    (: (by (no_inverse left-rule) left-b)
        (HistoryOutput b) (STV 1.0 0.7999359651197002))))
 
 ;; Warm the grounded goal key used below; the earlier queries used a variable

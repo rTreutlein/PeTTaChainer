@@ -342,18 +342,19 @@
                 (collapse (match &sk_member_of ($hash $stored $fold)
                    (if (=alpha $stored $node) $fold (empty)))))
              ($_members (fold-semidet (sk-member-step $key) () $folds))
-             ($_queued (add-atom &sk_answer_queue (sk-delivery $node $key))))
+             ($seq (next-search-id sk_delivery_seq))
+             ($_queued (add-atom &sk_answer_queue ($seq (sk-delivery $node $key)))))
          ())
       ()))
 
 ;; Deliveries run in the order answers were found, so derivations grow level
 ;; by level and a budget cut keeps the shallow ones.
 (= (sk-drain!)
-   (case (collapse (once (match &sk_answer_queue (sk-delivery $n $k) (sk-delivery $n $k)))) (
+   (case (collapse (once (match &sk_answer_queue ($s (sk-delivery $n $k)) (sk-queued $s (sk-delivery $n $k))))) (
       (() ())
-      ((cons (sk-delivery $node $key) $_rest)
+      ((cons (sk-queued $seq (sk-delivery $node $key)) $_rest)
          (if (<= (search-id-value sk_row_budget) 0) ()
-            (let* (($_removed (remove-atom &sk_answer_queue (sk-delivery $node $key)))
+            (let* (($_removed (remove-atom &sk_answer_queue ($seq (sk-delivery $_n $_k))))
                    ($hash (sk-node-hash $node))
                    ($waiters
                       (collapse (match &sk_wait ($hash $stored $waiter)
@@ -604,10 +605,10 @@
 (= (sk-resume! $node)
    (let* (($hash (sk-node-hash $node))
           ($_deliveries
-             (collapse (match &sk_parked ($hash (sk-delivery $owner $key))
+             (collapse (match &sk_parked ($hash $seq (sk-delivery $owner $key))
                 (if (=alpha $owner $node)
-                   (let $_removed (remove-atom &sk_parked ($hash (sk-delivery $owner $key)))
-                      (add-atom &sk_answer_queue (sk-delivery $owner $key)))
+                   (let $_removed (remove-atom &sk_parked ($hash $seq (sk-delivery $_o $_k)))
+                      (add-atom &sk_answer_queue ($seq (sk-delivery $owner $key))))
                    (empty))))))
       (if (<= (search-id-value sk_row_budget) 0) ()
          (let* (($joins
@@ -632,18 +633,18 @@
 (: sk-deferred-join-step (-[semidet]-> Atom SkeletonJoin Atom))
 (= (sk-deferred-join-step $_acc (sk-join $waiter $key)) (sk-extend! (copy_term $waiter) $key))
 
-(: sk-park-step (-[det]-> Atom SkeletonDelivery Atom))
-(= (sk-park-step $_acc (sk-delivery $node $key))
+(: sk-park-step (-[det]-> Atom SkeletonQueued Atom))
+(= (sk-park-step $_acc (sk-queued $seq (sk-delivery $node $key)))
    (let* (($hash (sk-node-hash $node))
-          ($_row (add-atom &sk_parked ($hash (sk-delivery $node $key)))))
+          ($_row (add-atom &sk_parked ($hash $seq (sk-delivery $node $key)))))
       ()))
 
 (: sk-park-deliveries! (-[semidet]-> Atom))
 (= (sk-park-deliveries!)
    (let $entries
-      (collapse (match &sk_answer_queue (sk-delivery $node $key)
-         (let $_removed (remove-atom &sk_answer_queue (sk-delivery $node $key))
-            (sk-delivery $node $key))))
+      (collapse (match &sk_answer_queue ($seq (sk-delivery $node $key))
+         (let $_removed (remove-atom &sk_answer_queue ($seq (sk-delivery $_n $_k)))
+            (sk-queued $seq (sk-delivery $node $key)))))
       (fold-semidet sk-park-step () $entries)))
 
 ;; --- Expansion --------------------------------------------------------------
@@ -751,11 +752,18 @@
    (case $kbctx (
       (($kbid MAIN Nil)
          (if (implication-type? $type)
-            (case $prf (
-               ((total-implication-frontier $_inner) ())
-               ($_other
-                  (foreach-flat inject-compiled-query-adds
-                     (collapse (mm2compileQuery (brand KB $kbid) (: $prf $type $tv)))))))
+            ;; A compiler-marked source already installed its scaffold. The
+            ;; marker test compares without unifying, so an open proof head
+            ;; stays an ordinary constraint.
+            (if (if (is-expr $prf)
+                   (if (== $prf ()) false
+                      (if (== (car-atom $prf) total-implication-frontier)
+                         (let $args (cdr-atom $prf) (if (== $args ()) false (== (cdr-atom $args) ())))
+                         false))
+                   false)
+               ()
+               (foreach-flat inject-compiled-query-adds
+                  (collapse (mm2compileQuery (brand KB $kbid) (: $prf $type $tv)))))
             (case $type (
                ((Inheritance $subj $concept)
                   (if (concrete-inheritance-link? $subj $concept)
@@ -785,6 +793,13 @@
                   (cons (typed-runtime-premise $goal) ()))))
          ($_none ())))))
 
+;; A rule applies to a node when its conclusion fits the whole node pattern.
+(: sk-fitting-match-step (-[det]-> SkPattern (List SkeletonMatch) SkeletonMatch (List SkeletonMatch)))
+(= (sk-fitting-match-step $node $kept (sk-match $rule $premises $conclusion))
+   (if (= (copy_term $conclusion) (copy_term $node))
+      (cons (sk-match $rule $premises $conclusion) $kept)
+      $kept))
+
 (= (sk-expand! $node $depth)
    (let $_counted (query_metric_increment expansions)
    (case $node (
@@ -809,8 +824,13 @@
                 ($_leaves
                    (fold-semidet (sk-leaf-answer-step $node) () (sk-leaf-facts $type $kbctx (sk-filter $proof $tv))))
                 ($owner (copy_term $node))
-                ($matches (collapse (sk-rule-match (copy_term (assemble-stored-runtime-fact $type $kbctx $proof $tv))))))
-            (fold-semidet (sk-start-rule-step $owner) () $matches)))))))
+                ;; A rule applies when its conclusion fits the whole node, but
+                ;; its row is built from the statement and context alone: a row
+                ;; belongs to its key, and each reader applies its own proof
+                ;; and truth-value pattern.
+                (($rule-type $rule-kbctx $_node-proof $_node-tv) (copy_term $node))
+                ($matches (collapse (sk-rule-match (assemble-stored-runtime-fact $rule-type $rule-kbctx $_rule-proof $_rule-tv)))))
+            (fold-semidet (sk-start-rule-step $owner) () (fold-semidet sk-cons-step () (fold-semidet (sk-fitting-match-step $node) () $matches)))))))))
 
 (: sk-fold-answer-step (-[semidet]-> SkPattern Atom SkeletonKey Atom))
 (= (sk-fold-answer-step $fold $acc $key) (sk-member-step $key $acc $fold))
@@ -858,9 +878,13 @@
 
 (: sk-activate-rule-on (-[semidet]-> Number SkFact (List SkPattern) Atom SkPattern Atom))
 (= (sk-activate-rule-on $id $ccls $args $_acc $node)
-   (let* (($goal (copy_term $node))
-          ((sk-rule-def $conclusion $premises) (copy_term (sk-rule-def $ccls $args))))
-      (if (= $conclusion $goal)
+   (let* (((sk-rule-def $conclusion $premises) (copy_term (sk-rule-def $ccls $args))))
+      (if (if (= (copy_term $conclusion) (copy_term $node))
+             (case (copy_term $node) (
+                ((CPU $_fun $_args $_res) false)
+                (($type $kbctx $_proof $_tv)
+                   (= $conclusion (assemble-stored-runtime-fact $type $kbctx $_rule-proof $_rule-tv)))))
+             false)
          (if (chainer-acyclic-term? $conclusion)
             (sk-start-rule-step $node ()
                (sk-match $id (contextualize-rule-args $conclusion $premises) $conclusion))

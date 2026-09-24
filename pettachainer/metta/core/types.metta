@@ -105,6 +105,7 @@
 (: sk_row_budget CounterKey)
 (: sk_row_seq CounterKey)
 (: sk_push_seq CounterKey)
+(: sk_delivery_seq CounterKey)
 
 ;; Stored rule rows retain the existing conclusion/premise wire format. The
 ;; premise list contains executable goals and internal runtime fact tuples;

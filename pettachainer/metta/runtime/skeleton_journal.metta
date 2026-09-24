@@ -71,6 +71,9 @@
 (: sk-fresh (-[det]-> SkPattern SkeletonFresh))
 (: SkeletonDelivery Type)
 (: sk-delivery (-[det]-> SkPattern SkeletonKey SkeletonDelivery))
+;; a delivery taken off the queue with its number
+(: SkeletonQueued Type)
+(: sk-queued (-[det]-> Number SkeletonDelivery SkeletonQueued))
 (: SkeletonJoin Type)
 (: sk-join (-[det]-> SkeletonWaiter SkeletonKey SkeletonJoin))
 (: SkeletonDeferred Type)
@@ -145,10 +148,12 @@
 (: &sk_pending_facts (SpaceOf (sk-pending-fact SkeletonKey)))
 !(bind! &sk_pending_facts (new-space))
 ;; new answers waiting to reach the joins on their node
-(: &sk_answer_queue (SpaceOf (sk-delivery SkPattern SkeletonKey)))
+;; by a unique delivery number: nodes may unify, so a delivery is removed by
+;; its number, never by its pattern
+(: &sk_answer_queue (SpaceOf (Number SkeletonDelivery)))
 !(bind! &sk_answer_queue (new-space))
 ;; deliveries an earlier query left over, by node hash
-(: &sk_parked (SpaceOf (Number (sk-delivery SkPattern SkeletonKey))))
+(: &sk_parked (SpaceOf (Number Number SkeletonDelivery)))
 !(bind! &sk_parked (new-space))
 ;; joins an answer reached after the row allowance ran out, by owner hash and
 ;; join hash

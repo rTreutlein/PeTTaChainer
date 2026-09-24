@@ -435,16 +435,26 @@
                 ($_cached (add-atom &sk_merged (sk-merged $hash $key $deps $value))))
             (sk-merged $hash $key $deps $value))))))
 
-;; The merged value of a key on behalf of a consumer.
+;; The merged value of a key on behalf of a consumer. A proof or truth-value
+;; pattern takes the whole merged value when it matches it, and otherwise the
+;; merge of the views that match.
+(: sk-value-matches? (-[det]-> SkeletonFilter SkeletonValue Bool))
+(= (sk-value-matches? $filter $value)
+   (case $value (
+      ((sk-val $fact $_ev $_deps) (sk-fact-matches? $filter $fact))
+      ($_other false))))
+
 (= (sk-value $key $filter $exclude)
-   (let $hash (index-hash $key)
-      (if (sk-open-filter? $filter)
-         (case (sk-open-value $hash $key $filter) (
-            ((sk-merged $_hash $_key $deps $value)
-               (if (sk-excluded? $exclude $deps)
-                  (sk-merge-key $hash $key $filter (sk-admitted $hash $key $filter $exclude))
-                  $value))))
-         (sk-merge-key $hash $key $filter (sk-admitted $hash $key $filter $exclude)))))
+   (let* (($hash (index-hash $key))
+          ($merged
+             (case (sk-open-value $hash $key sk-any-filter) (
+                ((sk-merged $_hash $_key $deps $value)
+                   (if (sk-excluded? $exclude $deps)
+                      (sk-merge-key $hash $key sk-any-filter (sk-admitted $hash $key sk-any-filter $exclude))
+                      $value))))))
+      (if (sk-open-filter? $filter) $merged
+         (if (sk-value-matches? $filter $merged) $merged
+            (sk-merge-key $hash $key $filter (sk-admitted $hash $key $filter $exclude))))))
 
 (: sk-drop-merged! (-[det]-> SkeletonKey Atom))
 (= (sk-drop-merged! $key)
@@ -539,13 +549,25 @@
                            sk-fail)))
                   ($_none sk-fail))))))))))
 
+;; A computation whose arguments were ground when its join was built was
+;; computed then and bound its result; recomputing a sampling formula would
+;; draw again. The formulas over premise truth values run in evaluation.
+(: sk-evaluated-premise-step (-[det]-> (List SkPattern) SkPattern (List SkPattern)))
+(= (sk-evaluated-premise-step $kept $premise)
+   (case $premise (
+      ((CPU $fun $args $_res)
+         (if (aggregate-fold-function? $fun) (cons $premise $kept)
+            (if (== (extract-vars $args) ()) $kept (cons $premise $kept))))
+      ($_fact (cons $premise $kept)))))
+
 ;; A row reads its premises without the views that depend on its key or on a
 ;; key unifying with it.
 (: sk-row-view (-[semidet]-> Number SkeletonKey SkeletonRow SkeletonValue))
 (= (sk-row-view $khash $key (sk-row $_ident $concl $premises $_seq))
    (let* ((($type $kbctx $proof $tv) $concl))
       (case (fold-semidet (sk-premise-step (sk-unifier-hashes $khash $key) (shared-evidence-frontier-proof? $proof))
-               (sk-acc () () (cons $khash ())) $premises) (
+               (sk-acc () () (cons $khash ()))
+               (fold-semidet sk-cons-step () (fold-semidet sk-evaluated-premise-step () $premises))) (
          ((sk-acc $fold-proofs $ev $deps)
             (let* (((token-state $full-proof $_unused)
                       (replace-token $proof (fold-semidet sk-cons-step () $fold-proofs)))
@@ -971,6 +993,27 @@
 (: sk-root-value (-[semidet]-> SkeletonFilter SkeletonKey SkeletonValue))
 (= (sk-root-value $filter $key) (sk-value $key $filter ()))
 
+;; A root reads the answers of every node of its statement and context,
+;; whatever their proof and truth-value patterns: a root whose pattern is new
+;; has no answers of its own before it is searched.
+(: sk-statement-answers (-[det]-> Statement KBContext (List SkeletonKey)))
+(= (sk-statement-answers $type $kbctx)
+   (let* (($key (sk-key $type $kbctx))
+          ($hash (index-hash $key)))
+      (collapse (match &sk_answer ($hash ($node-type $node-kbctx $_proof $_tv) $answer)
+         (if (=alpha (sk-key $node-type $node-kbctx) $key) $answer (empty))))))
+
+;; A root's proof and truth-value pattern may share variables with its
+;; statement, so each key is read with the pattern instantiated by that key.
+(: sk-root-key-value (-[semidet]-> SkPattern SkeletonKey SkeletonValue))
+(= (sk-root-key-value $goal $key)
+   (case (copy_term $goal) (
+      ((CPU $_fun $_args $_res) sk-none)
+      (($type $kbctx $proof $tv)
+         (if (= (sk-key $type $kbctx) (copy_term $key))
+            (sk-value $key (sk-filter $proof $tv) ())
+            sk-none)))))
+
 (: sk-root-values (-[semidet]-> SkPattern (List SkeletonValue)))
 (= (sk-root-values $goal)
    (case $goal (
@@ -983,8 +1026,8 @@
                   (if (= $res $result)
                      (sk-goal-val (CPU $fun $args $result) (brand Proof cpu) () ())
                      (empty)))))))
-      (($_type $_kbctx $proof $tv)
-         (map-semidet (sk-root-value (sk-filter $proof $tv)) (sk-answers $goal))))))
+      (($type $kbctx $_proof $_tv)
+         (map-semidet (sk-root-key-value $goal) (list_to_set (sk-statement-answers $type $kbctx)))))))
 
 (: sk-proven-step (-[semidet]-> (List SkeletonValue) SkeletonValue (List SkeletonValue)))
 (= (sk-proven-step $kept $value)
