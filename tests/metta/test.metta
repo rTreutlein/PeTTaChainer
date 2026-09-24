@@ -201,7 +201,7 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test (query 30 kb (: $prf (Cardinality (DogsIn house1) $x) $tv))
-   (: (by dogsInHouseRule (conjunction prf1 (foldall-proof (conjunction prf5 prf10) (conjunction prf4 prf8)))) (Cardinality (DogsIn house1) 5) (STV 1.0 0.999700089898053)))
+   (: (by dogsInHouseRule (conjunction prf1 (foldall-proof (conjunction prf4 prf8) (conjunction prf5 prf10)))) (Cardinality (DogsIn house1) 5) (STV 1.0 0.999700089898053)))
 
 !(compileadd kb
    (: apbisc (Implication (And (Count A $a) (Count B $b) (Compute + ($a $b) -> $c)) (Count C $c)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))

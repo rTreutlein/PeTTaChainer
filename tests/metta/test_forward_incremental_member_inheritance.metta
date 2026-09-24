@@ -352,12 +352,7 @@
 !(test
    (query-materialize 1000 materializedForwardDeltaKb
       (: $proof (Inheritance Human Mortal) $tv))
-   (: (member-inheritance-fold
-          (foldall-proof
-             (member-inheritance-sample mbHuman mbMortal)
-             (member-inheritance-sample maHuman maMortal)))
-      (Inheritance Human Mortal)
-      (STV 0.6666666666666666 0.0018714909544603868)))
+   (: (member-inheritance-fold (foldall-proof (member-inheritance-sample maHuman maMortal) (member-inheritance-sample mbHuman mbMortal))) (Inheritance Human Mortal) (STV 0.6666666666666666 0.0018714909544603868)))
 
 !(compileadd materializedForwardDeltaKb
    (: mcHuman (Member c Human) (STV 1.0 1.0)))

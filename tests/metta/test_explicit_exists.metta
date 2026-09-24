@@ -270,12 +270,7 @@
 !(test
    (query 300 existentialResidualKb
       (: $proof (KnownWitnessDisjunction fido) $tv))
-   (: (by exposeKnownWitnesses
-          (disjunction
-             (conjunction lunaCat fidoRarelyChasesLuna)
-             (conjunction miloCat fidoRarelyChasesMilo)))
-      (KnownWitnessDisjunction fido)
-      (STV 0.0494 0.9010944415002473)))
+   (: (by exposeKnownWitnesses (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna))) (KnownWitnessDisjunction fido) (STV 0.0494 0.9010944415002473)))
 
 !(test
    (query 300 existentialResidualKb
