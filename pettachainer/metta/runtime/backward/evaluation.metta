@@ -26,6 +26,8 @@
 ;; fold proofs (newest first), evidence, dependency hashes, conjunction parts
 (: sk-acc (-[det]-> (List Proof) (List Evidence) (List Number) (List SkeletonPart) SkeletonRowState))
 (: sk-fail SkeletonRowState)
+;; a premise had values, all overlapping the evidence the row already used
+(: sk-clash SkeletonRowState)
 (: SkeletonFold Type)
 ;; accumulator, member proofs (newest first), evidence, dependency hashes
 (: sk-fold-state (-[det]-> Atom (List Proof) (List Evidence) (List Number) SkeletonFold))
@@ -750,12 +752,12 @@
          (if (premise-evidence-overlap? $ev $view-ev) $acc (sk-merge-step $acc $view)))
       ($_other $acc))))
 
-(: sk-compatible-value (-[semidet]-> SkeletonKey SkeletonFilter (List Number) (List Evidence) SkeletonValue))
-(= (sk-compatible-value $key $filter $exclude $ev)
-   (let $hash (index-hash $key)
+(: sk-compatible-value (-[semidet]-> SkeletonKey SkeletonFilter (List Number) (List Evidence) Bool SkeletonValue))
+(= (sk-compatible-value $key $filter $exclude $ev $views)
+   (let* (($hash (index-hash $key))
+          ($leaves (map-semidet (sk-leaf-view $hash) (sk-key-leaves $key $filter))))
       (fold-semidet (sk-compatible-step $ev) sk-none
-         (append-flat (map-semidet (sk-leaf-view $hash) (sk-key-leaves $key $filter))
-            (sk-admitted $hash $key $filter $exclude)))))
+         (if $views (append-flat $leaves (sk-admitted $hash $key $filter $exclude)) $leaves))))
 
 ;; A fact premise takes a value unless its evidence overlaps the row's own,
 ;; except in joins the compiler marked as sharing their sources and for
@@ -775,11 +777,13 @@
       ($_none sk-fail))))
 
 ;; Each premise reads its key's value without the views that depend on the
-;; row's conclusion.
-(: sk-premise-step (-[semidet]-> (List Number) Bool SkeletonRowState SkPattern SkeletonRowState))
-(= (sk-premise-step $exclude $shared $state $premise)
+;; row's conclusion; reading stored facts first, it takes the facts compatible
+;; with the row so far when there are any.
+(: sk-premise-step (-[semidet]-> (List Number) Bool Bool SkeletonRowState SkPattern SkeletonRowState))
+(= (sk-premise-step $exclude $shared $facts-first $state $premise)
    (case $state (
       (sk-fail sk-fail)
+      (sk-clash sk-clash)
       ((sk-acc $fold-proofs $ev $deps $parts)
          (case $premise (
             ((CPU FoldAllCompiled $fold-args $fold-res)
@@ -796,11 +800,16 @@
                      (() sk-fail)))))
             (($type $kbctx $proof $tv)
                (let* (($key (sk-key $type $kbctx))
-                      ($filter (sk-filter $proof $tv)))
-                  (case (sk-use-premise $shared $state $premise (sk-value $key $filter $exclude)) (
+                      ($filter (sk-filter $proof $tv))
+                      ($value
+                         (if $facts-first (sk-compatible-value $key $filter $exclude $ev false)
+                            (sk-value $key $filter $exclude))))
+                  (case (sk-use-premise $shared $state $premise $value) (
                      (sk-fail
                         (if $shared sk-fail
-                           (sk-use-premise $shared $state $premise (sk-compatible-value $key $filter $exclude $ev))))
+                           (case (sk-use-premise $shared $state $premise (sk-compatible-value $key $filter $exclude $ev true)) (
+                              (sk-fail (case $value (((sk-val $_fact $_value-ev $_deps) sk-clash) ($_none sk-fail))))
+                              ($compatible $compatible)))))
                      ($taken $taken)))))))))))
 
 ;; A computation whose arguments were ground when its join was built was
@@ -815,19 +824,34 @@
       ($_fact (cons $premise $kept)))))
 
 ;; A row reads its premises without the views that depend on its key or on a
-;; key unifying with it.
+;; key unifying with it. Premises take values greedily in order, so a merged
+;; value may hold evidence a later premise needs: on such a clash the row reads
+;; again, on a fresh copy, taking stored facts first.
 (: sk-row-view (-[semidet]-> Number SkeletonKey SkeletonRow SkeletonValue))
-(= (sk-row-view $khash $key (sk-row $_ident $concl $premises $_seq))
-   (let* ((($type $kbctx $proof $tv) $concl))
-      (case (fold-semidet (sk-premise-step (sk-unifier-hashes $khash $key) (shared-evidence-frontier-proof? $proof))
-               (sk-acc () () (cons $khash ()) ())
-               (fold-semidet sk-cons-step () (fold-semidet sk-evaluated-premise-step () $premises))) (
-         ((sk-acc $fold-proofs $ev $deps $_parts)
-            (let* (((token-state $full-proof $_unused)
-                      (replace-token $proof (fold-semidet sk-cons-step () $fold-proofs)))
-                   ($fact (assemble-runtime-fact $type $kbctx (sk-unwrap-proof $full-proof) $tv)))
-               (sk-val $fact (rule-result-evidence $fact $ev) $deps)))
-         (sk-fail sk-none)))))
+(= (sk-row-view $khash $key $row)
+   (let* (($greedy (copy_term $row))
+          ($state (sk-row-state $khash $key false $greedy)))
+      (case $state (
+         (sk-clash
+            (let $retry (copy_term $row) (sk-row-result $retry (sk-row-state $khash $key true $retry))))
+         ($_other (sk-row-result $greedy $state))))))
+
+(: sk-row-state (-[semidet]-> Number SkeletonKey Bool SkeletonRow SkeletonRowState))
+(= (sk-row-state $khash $key $facts-first (sk-row $_ident ($_type $_kbctx $proof $_tv) $premises $_seq))
+   (fold-semidet
+      (sk-premise-step (sk-unifier-hashes $khash $key) (shared-evidence-frontier-proof? $proof) $facts-first)
+      (sk-acc () () (cons $khash ()) ())
+      (fold-semidet sk-cons-step () (fold-semidet sk-evaluated-premise-step () $premises))))
+
+(: sk-row-result (-[semidet]-> SkeletonRow SkeletonRowState SkeletonValue))
+(= (sk-row-result (sk-row $_ident ($type $kbctx $proof $tv) $_premises $_seq) $state)
+   (case $state (
+      ((sk-acc $fold-proofs $ev $deps $_parts)
+         (let* (((token-state $full-proof $_unused)
+                   (replace-token $proof (fold-semidet sk-cons-step () $fold-proofs)))
+                ($fact (assemble-runtime-fact $type $kbctx (sk-unwrap-proof $full-proof) $tv)))
+            (sk-val $fact (rule-result-evidence $fact $ev) $deps)))
+      ($_failed sk-none))))
 
 ;; --- Evaluation -------------------------------------------------------------
 
@@ -1050,7 +1074,7 @@
    (let* (($_computed (query_metric_increment row-computes))
           ($causes (sk-take-forced! $hash $rhash))
           ($forced (not (== $causes ())))
-          ($new (sk-row-view $hash $key (copy_term $row))))
+          ($new (sk-row-view $hash $key $row)))
       (case $new (
          ;; A row forced by an outside change that no longer derives anything
          ;; (a premise fact was removed) drops its views, and its key changed.
@@ -1312,7 +1336,10 @@
 
 ;; A root reads the answers of every node of its statement and context,
 ;; whatever their proof and truth-value patterns: a root whose pattern is new
-;; has no answers of its own before it is searched.
+;; has no answers of its own before it is searched. Its stored facts cost no
+;; expansion, as for any premise. A materialized answer is the result an
+;; earlier query left, not independent evidence: the root falls back to it when
+;; the search has no value for the key.
 (: sk-statement-answers (-[det]-> Statement KBContext (List SkeletonKey)))
 (= (sk-statement-answers $type $kbctx)
    (let* (($key (sk-key $type $kbctx))
@@ -1328,8 +1355,22 @@
       ((CPU $_fun $_args $_res) sk-none)
       (($type $kbctx $proof $tv)
          (if (= (sk-key $type $kbctx) (copy_term $key))
-            (sk-value $key (sk-filter $proof $tv) ())
+            (let $filter (sk-filter $proof $tv)
+               (case (sk-value $key $filter ()) (
+                  (sk-none
+                     (case (sk-materialized-views $type $kbctx $filter) (
+                        ((cons $incumbent $_rest) $incumbent)
+                        (() sk-none))))
+                  ($current $current))))
             sk-none)))))
+
+(: sk-materialized-views (-[det]-> Statement KBContext SkeletonFilter (List SkeletonValue)))
+(= (sk-materialized-views $type $kbctx $filter)
+   (if (== (extract-vars $type) ())
+      (let $hash (forward-output-index-hash (forward-output-key $kbctx $type))
+         (collapse (match &materialized_facts (materialized-row $hash $type $kbctx $fact $ev)
+            (if (sk-fact-matches? $filter $fact) (sk-val $fact $ev ()) (empty)))))
+      ()))
 
 (: sk-root-values (-[semidet]-> SkPattern (List SkeletonValue)))
 (= (sk-root-values $goal)
@@ -1344,7 +1385,17 @@
                      (sk-goal-val (CPU $fun $args $result) (brand Proof cpu) () ())
                      (empty)))))))
       (($type $kbctx $_proof $_tv)
-         (map-semidet (sk-root-key-value $goal) (list_to_set (sk-statement-answers $type $kbctx)))))))
+         (map-semidet (sk-root-key-value $goal)
+            (fold-semidet sk-cons-step ()
+               (fold-flat sk-new-key-step ()
+                  (append-flat (sk-statement-answers $type $kbctx)
+                     (collapse (match &kb ($type $kbctx $_proof $_tv) (sk-key $type $kbctx)))))))))))
+
+(: sk-new-key-step (-[det]-> (List SkeletonKey) SkeletonKey (List SkeletonKey)))
+(= (sk-new-key-step $kept $key) (if (fold-flat (sk-alpha-step $key) false $kept) $kept (cons $key $kept)))
+
+(: sk-alpha-step (-[det]-> SkeletonKey Bool SkeletonKey Bool))
+(= (sk-alpha-step $key $found $other) (if $found true (=alpha $key $other)))
 
 (: sk-proven-step (-[semidet]-> (List SkeletonValue) SkeletonValue (List SkeletonValue)))
 (= (sk-proven-step $kept $value)
