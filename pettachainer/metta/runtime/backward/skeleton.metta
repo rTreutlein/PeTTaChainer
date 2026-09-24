@@ -329,7 +329,22 @@
 (: sk-extend-waiter-step (-[semidet]-> SkeletonWaiter Atom SkeletonKey Atom))
 (= (sk-extend-waiter-step $waiter $_acc $key) (sk-extend! (copy_term $waiter) $key))
 
+;; Once the row allowance is spent, a join an answer reaches stops there: the
+;; pair waits once with the join's owner, so a recursive rule cannot keep
+;; extending joins whose rows could not be kept anyway. Joins of the query's
+;; roots always proceed.
 (= (sk-extend! (sk-partial $owner $rule $concl $premises $remaining $keys) $key)
+   (if (if (sk-root? $owner) true (> (search-id-value sk_row_budget) 0))
+      (sk-extend-now! (sk-partial $owner $rule $concl $premises $remaining $keys) $key)
+      (let* (($hash (sk-node-hash $owner))
+             ($join (sk-join (sk-partial $owner $rule $concl $premises $remaining $keys) $key))
+             ($jhash (index-hash $join)))
+         (if (== (collapse (once (match &sk_deferred_joins ($hash $jhash $_join) true))) ())
+            (let $_deferred (add-atom &sk_deferred_joins ($hash $jhash $join)) ())
+            ()))))
+
+(: sk-extend-now! (-[semidet]-> SkeletonWaiter SkeletonKey Atom))
+(= (sk-extend-now! (sk-partial $owner $rule $concl $premises $remaining $keys) $key)
    (case $remaining (
       ((cons $premise $rest)
          (if (case $premise (
@@ -358,7 +373,9 @@
           ($local (>= $rule 1000000000)))
       (if (sk-row-present? $khash $key $rhash $ident)
          (sk-add-answer! $owner $key)
-         (if (if $local true (sk-take-row!))
+         ;; The rows of the query's roots are its compiled scaffold and always
+         ;; fit; every other row spends the allowance.
+         (if (if (sk-root? $owner) true (sk-take-row!))
             (let* (($seq (next-search-id sk_row_seq))
                    ($row (sk-row $ident $concl $premises $seq))
                    ($_add
@@ -407,8 +424,12 @@
 
 ;; The budget counts expansions. New rows have their own allowance of ten per
 ;; step, so recursive rules cannot grow the skeleton without bound; a row found
-;; after the allowance is spent waits in &sk_deferred for a later walk. Rows of
-;; query-local rules are the query's own compiled scaffold and always fit.
+;; after the allowance is spent waits in &sk_deferred for a later walk.
+(: sk-root? (-[det]-> SkPattern Bool))
+(= (sk-root? $node)
+   (let $hash (sk-node-hash $node)
+      (not (== (collapse (once (match &sk_roots ($hash $root) (if (=alpha $root $node) true (empty))))) ()))))
+
 (: sk-take! (-[det]-> CounterKey Bool))
 (= (sk-take! $counter)
    (let $left (search-id-value $counter)
@@ -423,7 +444,8 @@
 
 ;; Work left over by an earlier query waits with its node and resumes when a
 ;; later walk reaches that node, so it never spends an unrelated query's
-;; budget: deferred rows are completed and parked deliveries are queued again.
+;; budget: parked deliveries are queued again, and while rows are allowed,
+;; deferred joins are extended and deferred rows completed.
 (: sk-deferred-step (-[semidet]-> Atom SkeletonDeferred Atom))
 (= (sk-deferred-step $_acc (sk-deferred $owner $rule $concl $premises $keys))
    (sk-complete-row! $owner $rule $concl $premises $keys))
@@ -436,15 +458,29 @@
                 (if (=alpha $owner $node)
                    (let $_removed (remove-atom &sk_parked ($hash (sk-delivery $owner $key)))
                       (add-atom &sk_answer_queue (sk-delivery $owner $key)))
-                   (empty)))))
-          ($deferred
-             (collapse (match &sk_deferred ($hash $rhash (sk-deferred $owner $rule $concl $premises $keys))
-                (if (=alpha $owner $node)
-                   (let $_removed
-                      (remove-atom &sk_deferred ($hash $rhash (sk-deferred $owner $rule $concl $premises $keys)))
-                      (sk-deferred $owner $rule $concl $premises $keys))
                    (empty))))))
-      (fold-semidet sk-deferred-step () $deferred)))
+      (if (<= (search-id-value sk_row_budget) 0) ()
+         (let* (($joins
+                   (collapse (match &sk_deferred_joins ($hash $jhash (sk-join $waiter $key))
+                      (if (=alpha (sk-waiter-owner $waiter) $node)
+                         (let $_removed (remove-atom &sk_deferred_joins ($hash $jhash (sk-join $waiter $key)))
+                            (sk-join $waiter $key))
+                         (empty)))))
+                ($_joined (fold-semidet sk-deferred-join-step () $joins))
+                ($deferred
+                   (collapse (match &sk_deferred ($hash $rhash (sk-deferred $owner $rule $concl $premises $keys))
+                      (if (=alpha $owner $node)
+                         (let $_removed
+                            (remove-atom &sk_deferred ($hash $rhash (sk-deferred $owner $rule $concl $premises $keys)))
+                            (sk-deferred $owner $rule $concl $premises $keys))
+                         (empty))))))
+            (fold-semidet sk-deferred-step () $deferred)))))
+
+(: sk-waiter-owner (-[det]-> SkeletonWaiter SkPattern))
+(= (sk-waiter-owner (sk-partial $owner $_rule $_concl $_premises $_remaining $_keys)) $owner)
+
+(: sk-deferred-join-step (-[semidet]-> Atom SkeletonJoin Atom))
+(= (sk-deferred-join-step $_acc (sk-join $waiter $key)) (sk-extend! (copy_term $waiter) $key))
 
 (: sk-park-step (-[det]-> Atom SkeletonDelivery Atom))
 (= (sk-park-step $_acc (sk-delivery $node $key))

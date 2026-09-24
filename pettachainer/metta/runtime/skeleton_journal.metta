@@ -69,6 +69,8 @@
 (: sk-fresh (-[det]-> SkPattern SkeletonFresh))
 (: SkeletonDelivery Type)
 (: sk-delivery (-[det]-> SkPattern SkeletonKey SkeletonDelivery))
+(: SkeletonJoin Type)
+(: sk-join (-[det]-> SkeletonWaiter SkeletonKey SkeletonJoin))
 (: SkeletonDeferred Type)
 (: sk-deferred
    (-[det]-> SkPattern Number SkFact (List SkPattern) (List SkeletonKey) SkeletonDeferred))
@@ -140,6 +142,10 @@
 ;; deliveries an earlier query left over, by node hash
 (: &sk_parked (SpaceOf (Number (sk-delivery SkPattern SkeletonKey))))
 !(bind! &sk_parked (new-space))
+;; joins an answer reached after the row allowance ran out, by owner hash and
+;; join hash
+(: &sk_deferred_joins (SpaceOf (Number Number SkeletonJoin)))
+!(bind! &sk_deferred_joins (new-space))
 ;; rows found after the row allowance ran out, by owner hash and row hash
 (: &sk_deferred
    (SpaceOf (Number Number (sk-deferred SkPattern Number SkFact (List SkPattern) (List SkeletonKey)))))
@@ -156,6 +162,9 @@
 ;; waiting on it assigned
 (: &sk_score (SpaceOf (Number SkPattern Number)))
 !(bind! &sk_score (new-space))
+;; the current query's roots
+(: &sk_roots (SpaceOf (Number SkPattern)))
+!(bind! &sk_roots (new-space))
 ;; nodes the current walk visited
 (: &sk_seen (SpaceOf (Number SkPattern)))
 !(bind! &sk_seen (new-space))

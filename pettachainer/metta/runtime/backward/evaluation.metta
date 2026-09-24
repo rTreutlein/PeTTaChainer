@@ -811,7 +811,10 @@
       (fold-semidet sk-cons-step () (fold-semidet sk-result-step () $values))))
 
 (: sk-root-score-step (-[det]-> Atom SkPattern Atom))
-(= (sk-root-score-step $_acc $goal) (sk-raise-score! $goal 1.0))
+(= (sk-root-score-step $_acc $goal)
+   (let* (($hash (sk-node-hash $goal))
+          ($_root (add-atom &sk_roots ($hash $goal))))
+      (sk-raise-score! $goal 1.0)))
 
 (: execute-backward
    (-[nondet]-> Number (List (| Goal (Statement KBContext Proof TV))) Bool (List (List RuntimeResult))))
@@ -823,6 +826,7 @@
           ($_activate (sk-activate-pending!))
           ($_parked (sk-park-deliveries!))
           ($_pushes (change-state! sk_push_seq 0))
+          ($_old-roots (collapse (match &sk_roots ($hash $root) (remove-atom &sk_roots ($hash $root)))))
           ($_scored (fold-semidet sk-root-score-step () $goals))
           ($_search (sk-search! (fold-semidet (sk-push 0) (empty_heap) $goals)))
           ($_evaluated (sk-evaluate!))
