@@ -63,6 +63,8 @@
 ;; creation-number key-hash key row-hash row
 (: SkeletonItem Type)
 (: sk-row-item (-[det]-> Number Number SkeletonKey Number SkeletonRow SkeletonItem))
+;; a fold to recompute at the end of a pass: fold key hash, fold key
+(: sk-fold-check (-[det]-> Number SkeletonKey SkeletonItem))
 (: SkeletonDirty Type)
 (: sk-dirty (-[det]-> SkeletonKey SkeletonDirty))
 (: SkeletonFresh Type)
@@ -131,6 +133,9 @@
 !(bind! &sk_new (new-space))
 (: &sk_queued (SpaceOf (Number Number Number)))
 !(bind! &sk_queued (new-space))
+;; fold key hash -> hash of a member key that changed since the fold's check
+(: &sk_fold_pending (SpaceOf (Number Number)))
+!(bind! &sk_fold_pending (new-space))
 ;; keys whose value changed outside evaluation
 (: &sk_dirty (SpaceOf (sk-dirty SkeletonKey)))
 !(bind! &sk_dirty (new-space))

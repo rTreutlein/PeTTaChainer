@@ -576,27 +576,30 @@
 
 (: sk-item-seq (-[det]-> SkeletonItem Number))
 (= (sk-item-seq (sk-row-item $seq $_khash $_key $_rhash $_row)) $seq)
-
-(: sk-item-key-hash (-[det]-> SkeletonItem Number))
-(= (sk-item-key-hash (sk-row-item $_seq $khash $_key $_rhash $_row)) $khash)
+(= (sk-item-seq (sk-fold-check $_hash $_fold)) (sk-check-seq))
 
 ;; this pass's remaining rows and the next pass's rows, by creation number
 (: SkeletonWork Type)
 (: sk-work (-[det]-> (Heap SkeletonItem) (Heap SkeletonItem) SkeletonWork))
 
-(: sk-queue-new? (-[det]-> Number SkeletonItem Bool))
-(= (sk-queue-new? $pass (sk-row-item $_seq $khash $_key $rhash $_row))
+(: sk-queued-new? (-[det]-> Number Number Number Bool))
+(= (sk-queued-new? $pass $khash $rhash)
    (if (not (== (collapse (once (match &sk_queued ($pass $khash $rhash) true))) ())) false
       (let $_queued (add-atom &sk_queued ($pass $khash $rhash)) true)))
+
+;; A row is queued by its key and row hashes, a fold check by its fold's hash.
+(: sk-queue-new? (-[det]-> Number SkeletonItem Bool))
+(= (sk-queue-new? $pass (sk-row-item $_seq $khash $_key $rhash $_row)) (sk-queued-new? $pass $khash $rhash))
+(= (sk-queue-new? $pass (sk-fold-check $hash $_fold)) (sk-queued-new? $pass $hash -1))
 
 ;; What changed for a key's readers: a new row view with its dependencies,
 ;; the same with the key's open merged value unchanged and the dependencies of
 ;; that value before and after, or a change from outside the rows (a fact, a
-;; removed query-local row, a fold member) caused by the key with that hash.
+;; removed query-local row, fold members) caused by the keys with these hashes.
 (: SkeletonChange Type)
 (: sk-view-change (-[det]-> (List Number) SkeletonChange))
 (: sk-value-same (-[det]-> (List Number) (List Number) SkeletonChange))
-(: sk-outside-change (-[det]-> Number SkeletonChange))
+(: sk-outside-change (-[det]-> (List Number) SkeletonChange))
 
 ;; Every fact premise on the key asks for an open pattern.
 (: sk-reads-open? (-[det]-> SkeletonKey Atom SkPattern Bool))
@@ -628,7 +631,7 @@
 (= (sk-schedule-reader $pass $seq $key $change (sk-work $todo $next) $item)
    (if (let $_forced
           (case $change (
-             ((sk-outside-change $cause) (sk-force! $cause $item))
+             ((sk-outside-change $causes) (sk-force! $causes $item))
              ($_view ())))
           (sk-reader-affected? $key $change $item))
       (if (> (sk-item-seq $item) $seq)
@@ -655,34 +658,39 @@
           ($scheduled (fold-semidet (sk-schedule-reader $pass $seq $key $change) $work (sk-readers $key))))
       (fold-semidet (sk-fold-changed $pass $seq $hash) $scheduled $folds)))
 
-;; A member change recomputes a fold that was read, and its readers are forced
-;; by each member that changes its value. A fold nobody read since it last
-;; changed is computed when next read.
+;; A member change of a fold that was read queues the fold's check at the end
+;; of the pass, so the members changed in one pass recompute it once; until
+;; then its readers read the value it had. A fold nobody read since it last
+;; changed is computed when next read. A check queued for this pass is also
+;; queued for the next, in case this pass's check already ran.
+(: sk-check-seq (-[det]-> Number))
+(= (sk-check-seq) 1000000000000000)
+
 (: sk-fold-changed (-[semidet]-> Number Number Number SkeletonWork SkeletonKey SkeletonWork))
-(= (sk-fold-changed $pass $seq $member $work $fold)
-   (let* (($hash (index-hash $fold))
-          ($old (sk-latest-view $hash $fold 0))
-          ($_view (sk-drop-fold-view! $fold))
-          ($_merged (sk-drop-merged! $fold)))
-      (case $old (
-         (sk-none $work)
-         ($_read
-            (case (sk-fold-views $hash $fold) (
-               ((cons (sk-version $_seq $_rhash $new) $_rest)
-                  (if (sk-same-view? $new $old) $work
-                     (sk-key-changed $pass $seq (sk-outside-change $member) $work $fold)))
-               (() (sk-key-changed $pass $seq (sk-outside-change $member) $work $fold)))))))))
+(= (sk-fold-changed $pass $_seq $member (sk-work $todo $next) $fold)
+   (let $hash (index-hash $fold)
+      (if (== (sk-latest-view $hash $fold 0) sk-none) (sk-work $todo $next)
+         (let* (($_pending (add-atom &sk_fold_pending ($hash $member)))
+                ($check (sk-fold-check $hash $fold)))
+            (if (sk-queue-new? $pass $check) (sk-work (add_to_heap $todo (sk-check-seq) $check) $next)
+               (if (sk-queue-new? (+ $pass 1) $check) (sk-work $todo (add_to_heap $next (sk-check-seq) $check))
+                  (sk-work $todo $next)))))))
 
 ;; A row is forced once per evaluation by each changed key: a fold's readers
-;; follow its members as they arrive, and a fold feeding back into its own
+;; follow its members as they change, and a fold feeding back into its own
 ;; members still ends.
-(: sk-force! (-[det]-> Number SkeletonItem Atom))
-(= (sk-force! $cause (sk-row-item $_seq $khash $_key $rhash $_row))
+(: sk-force-step (-[det]-> Number Number Bool Number Bool))
+(= (sk-force-step $khash $rhash $forced $cause)
    (if (== (collapse (once (match &sk_forced_used ($khash $rhash $cause) true))) ())
-      (let* (($_used (add-atom &sk_forced_used ($khash $rhash $cause)))
-             ($_forced (add-atom &sk_forced ($khash $rhash))))
-         ())
+      (let $_used (add-atom &sk_forced_used ($khash $rhash $cause)) true)
+      $forced))
+
+(: sk-force! (-[det]-> (List Number) SkeletonItem Atom))
+(= (sk-force! $causes (sk-row-item $_seq $khash $_key $rhash $_row))
+   (if (fold-flat (sk-force-step $khash $rhash) false $causes)
+      (let $_forced (add-atom &sk_forced ($khash $rhash)) ())
       ()))
+(= (sk-force! $_causes (sk-fold-check $_hash $_fold)) ())
 
 (: sk-take-forced! (-[det]-> Number Number Bool))
 (= (sk-take-forced! $khash $rhash)
@@ -717,10 +725,29 @@
             ($_other false))))
       (sk-none (== $old sk-none)))))
 
+;; A fold check recomputes the fold once for the members that changed since
+;; the last one; when its value changed, every reader is forced by those
+;; members, in the next pass.
+(: sk-check-fold (-[semidet]-> Number SkeletonWork Number SkeletonKey SkeletonWork))
+(= (sk-check-fold $pass $work $hash $fold)
+   (let* (($causes
+             (list_to_set (collapse (match &sk_fold_pending ($hash $member)
+                (let $_taken (remove-atom &sk_fold_pending ($hash $member)) $member)))))
+          ($old (sk-latest-view $hash $fold 0)))
+      (if (if (== $causes ()) true (== $old sk-none)) $work
+         (let* (($_view (sk-drop-fold-view! $fold))
+                ($_merged (sk-drop-merged! $fold)))
+            (case (sk-fold-views $hash $fold) (
+               ((cons (sk-version $_seq $_rhash $new) $_rest)
+                  (if (sk-same-view? $new $old) $work
+                     (sk-key-changed $pass (sk-check-seq) (sk-outside-change $causes) $work $fold)))
+               (() (sk-key-changed $pass (sk-check-seq) (sk-outside-change $causes) $work $fold))))))))
+
 ;; A row whose view differs from its latest version stores a new version and
 ;; changes its key, when it is the row's first view, it was forced, or it
 ;; brings new support.
 (: sk-compute (-[semidet]-> Number SkeletonWork SkeletonItem SkeletonWork))
+(= (sk-compute $pass $work (sk-fold-check $hash $fold)) (sk-check-fold $pass $work $hash $fold))
 (= (sk-compute $pass $work (sk-row-item $seq $hash $key $rhash $row))
    (let* (($_computed (query_metric_increment row-computes))
           ($forced (sk-take-forced! $hash $rhash))
@@ -778,7 +805,7 @@
                 ((sk-key $_type $_kbctx) ())
                 ($_fold (sk-drop-fold-view! $key)))))
           ($_merged (sk-drop-merged! $key)))
-      (sk-key-changed 0 -1 (sk-outside-change (index-hash $key)) $work $key)))
+      (sk-key-changed 0 -1 (sk-outside-change (cons (index-hash $key) ())) $work $key)))
 
 (: sk-seed-new (-[det]-> (Heap SkeletonItem) SkeletonItem (Heap SkeletonItem)))
 (= (sk-seed-new $todo $item)
@@ -789,6 +816,7 @@
    (let* (($_queued (collapse (match &sk_queued ($pass $khash $rhash) (remove-atom &sk_queued ($pass $khash $rhash)))))
           ($_forced (collapse (match &sk_forced ($khash $rhash) (remove-atom &sk_forced ($khash $rhash)))))
           ($_used (collapse (match &sk_forced_used ($khash $rhash $cause) (remove-atom &sk_forced_used ($khash $rhash $cause)))))
+          ($_pending (collapse (match &sk_fold_pending ($fhash $member) (remove-atom &sk_fold_pending ($fhash $member)))))
           ($new
              (collapse (match &sk_new (sk-row-item $seq $hash $key $rhash $row)
                 (let $_taken (remove-atom &sk_new (sk-row-item $seq $hash $key $rhash $row))
