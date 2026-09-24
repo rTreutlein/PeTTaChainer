@@ -63,14 +63,15 @@ aborts = 0
 try:
     for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         row = json.loads(line)
-        value = row["search_aborts"]
+        # An engine without an abort path reports none.
+        value = row.get("search_aborts", 0)
         if not isinstance(value, (int, float)) or not math.isfinite(value):
             raise ValueError(f"line {line_number} has invalid search_aborts")
         if value < 0 or int(value) != value:
             raise ValueError(f"line {line_number} has invalid search_aborts")
         rows += 1
         aborts += int(value)
-except (KeyError, OSError, ValueError, json.JSONDecodeError) as error:
+except (OSError, ValueError, json.JSONDecodeError) as error:
     print(f"invalid metric stream: {error}")
     raise SystemExit(2)
 

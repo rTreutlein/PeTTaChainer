@@ -340,7 +340,9 @@
              ($join (sk-join (sk-partial $owner $rule $concl $premises $remaining $keys) $key))
              ($jhash (index-hash $join)))
          (if (== (collapse (once (match &sk_deferred_joins ($hash $jhash $_join) true))) ())
-            (let $_deferred (add-atom &sk_deferred_joins ($hash $jhash $join)) ())
+            (let* (($_deferred (add-atom &sk_deferred_joins ($hash $jhash $join)))
+                   ($_counted (query_metric_increment joins-deferred)))
+               ())
             ()))))
 
 (: sk-extend-now! (-[semidet]-> SkeletonWaiter SkeletonKey Atom))
@@ -380,7 +382,8 @@
                    ($row (sk-row $ident $concl $premises $seq))
                    ($_add
                       (if (chainer-acyclic-term? $row)
-                         (let $_stored (add-atom &sk_row ($khash $key $rhash $row))
+                         (let* (($_stored (add-atom &sk_row ($khash $key $rhash $row)))
+                                ($_counted (query_metric_increment rows-created)))
                             (add-atom &sk_new (sk-row-item $seq $khash $key $rhash $row)))
                          false))
                    ($_temp
@@ -394,8 +397,9 @@
             ;; A row waits once, however often its join completes meanwhile.
             (let $hash (sk-node-hash $owner)
                (if (== (collapse (once (match &sk_deferred ($hash $rhash $_deferred) true))) ())
-                  (let $_deferred
-                     (add-atom &sk_deferred ($hash $rhash (sk-deferred $owner $rule $concl $premises $keys)))
+                  (let* (($_deferred
+                            (add-atom &sk_deferred ($hash $rhash (sk-deferred $owner $rule $concl $premises $keys))))
+                         ($_counted (query_metric_increment rows-deferred)))
                      ())
                   ()))))))
 
@@ -636,6 +640,7 @@
          ($_none ())))))
 
 (= (sk-expand! $node $depth)
+   (let $_counted (query_metric_increment expansions)
    (case $node (
       ((CPU $_fun $args $_res)
          (let* (($_mark (sk-mark-expanded! $node))
@@ -659,7 +664,7 @@
                    (fold-semidet (sk-leaf-answer-step $node) () (sk-leaf-facts $type $kbctx $proof $tv)))
                 ($owner (copy_term $node))
                 ($matches (collapse (sk-rule-match (copy_term (assemble-stored-runtime-fact $type $kbctx $proof $tv))))))
-            (fold-semidet (sk-start-rule-step $owner) () $matches))))))
+            (fold-semidet (sk-start-rule-step $owner) () $matches)))))))
 
 (: sk-fold-answer-step (-[semidet]-> SkPattern Atom SkeletonKey Atom))
 (= (sk-fold-answer-step $fold $acc $key) (sk-member-step $key $acc $fold))

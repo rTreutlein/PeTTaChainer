@@ -52,21 +52,20 @@
          $runtime-helper
          (heap_pop heap-empty? index-hash rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
             query_metrics_enabled query_metrics_set_enabled
-            query_metric_value query_metric_set query_metric_increment
-            query_metric_liveness_event))
+            query_metric_value query_metric_set query_metric_increment))
       (superpose
          ((import_prolog_functions_from_file
              $runtime-helper
              (heap_pop heap-empty? index-hash rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
                 query_metrics_enabled query_metrics_set_enabled
                 query_metric_value query_metric_set
-                query_metric_increment query_metric_liveness_event))
+                query_metric_increment))
           (import_prolog_functions_from_file
              $parent-runtime-helper
              (heap_pop heap-empty? index-hash rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
                 query_metrics_enabled query_metrics_set_enabled
                 query_metric_value query_metric_set
-                query_metric_increment query_metric_liveness_event))))))
+                query_metric_increment))))))
 
 !(import! &self ../../third_party/pln_formulas/metta/distributions)
 !(import! &self ../../third_party/pln_formulas/metta/compute_inverse)

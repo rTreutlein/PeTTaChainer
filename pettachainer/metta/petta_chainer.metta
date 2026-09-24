@@ -10,6 +10,8 @@
    (-[nondet]-> Number KB (List AnnotatedStatement) QueryBatchResult))
 (: query-many-materialize
    (-[nondet]-> Number KB (List AnnotatedStatement) QueryBatchResult))
+(: set-backward-query-metrics (-[det]-> Bool Bool))
+(: backward-query-metrics (-[det]-> (List BackwardQueryMetric)))
 (: chainer-many
    (-[nondet]-> Number
        (List (| Goal (Statement KBContext Proof TV)))

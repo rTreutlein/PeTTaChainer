@@ -198,15 +198,15 @@ class TestPeTTaChainer(unittest.TestCase):
 
         self.assertEqual(first, second)
         self.assertGreater(
-            first_metrics["durable_proof_rows_after"],
-            first_metrics["durable_proof_rows_before"],
+            first_metrics["skeleton_nodes_after"],
+            first_metrics["skeleton_nodes_before"],
         )
         self.assertEqual(
-            second_metrics["durable_proof_rows_before"],
-            first_metrics["durable_proof_rows_after"],
+            second_metrics["skeleton_nodes_before"],
+            first_metrics["skeleton_nodes_after"],
         )
-        self.assertEqual(second_metrics["proofs_stored"], 0)
-        self.assertEqual(second_metrics["agenda_pops"], 0)
+        self.assertEqual(first_metrics["expansions"], 1)
+        self.assertEqual(second_metrics["expansions"], 0)
         self.assertEqual(second_metrics["roots"], 1)
         self.assertEqual(second_metrics["steps"], 0)
 

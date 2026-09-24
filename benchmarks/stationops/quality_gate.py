@@ -28,7 +28,7 @@ def compare_quality(reference, candidate):
         shift = index + 1
         if any(row["shift"] != shift for row in rows + batches):
             raise ValueError("Shift order differs")
-        if any(batch["metrics"]["search_aborts"] for batch in batches):
+        if any(batch["metrics"].get("search_aborts", 0) for batch in batches):
             failures.append(f"shift {shift}: search aborted")
         comparisons = {}
         for field, metrics in (("beliefs", "belief_metrics"),

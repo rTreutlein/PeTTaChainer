@@ -175,6 +175,15 @@
 (: &sk_seen (SpaceOf (Number SkPattern)))
 !(bind! &sk_seen (new-space))
 
+;; --- Query metrics ------------------------------------------------------------
+
+;; Opt-in diagnostic counters kept natively; reasoning never reads them.
+(: query_metrics_enabled (-[det]-> Bool))
+(: query_metrics_set_enabled (-[det]-> Bool Bool))
+(: query_metric_value (-[det]-> Atom Number))
+(: query_metric_set (-[det]-> Atom Number Number))
+(: query_metric_increment (-[det]-> Atom Number))
+
 ;; --- Journal ------------------------------------------------------------------
 
 (: sk-space-nonempty? (-[det]-> Atom Bool))

@@ -380,9 +380,10 @@
 (= (sk-open-value $hash $key $filter)
    (case (collapse (once (match &sk_merged (sk-merged $hash $stored $deps $value)
             (if (=alpha $stored $key) (sk-merged $hash $stored $deps $value) (empty))))) (
-      ((cons $merged $_rest) $merged)
+      ((cons $merged $_rest) (let $_counted (query_metric_increment merged-cache-hits) $merged))
       (()
-         (let* (($views (sk-admitted $hash $key $filter -1))
+         (let* (($_counted (query_metric_increment merged-cache-misses))
+                ($views (sk-admitted $hash $key $filter -1))
                 ($deps (fold-semidet sk-view-deps-step () $views))
                 ($value (sk-merge-key $hash $key $filter $views))
                 ($_cached (add-atom &sk_merged (sk-merged $hash $key $deps $value))))
@@ -654,7 +655,8 @@
 ;; brings new support.
 (: sk-compute (-[semidet]-> Number SkeletonWork SkeletonItem SkeletonWork))
 (= (sk-compute $pass $work (sk-row-item $seq $hash $key $rhash $row))
-   (let* (($forced (sk-take-forced! $hash $rhash))
+   (let* (($_counted (query_metric_increment row-computes))
+          ($forced (sk-take-forced! $hash $rhash))
           ($new (sk-row-view $hash (copy_term $row))))
       (case $new (
          (sk-none $work)
@@ -663,12 +665,14 @@
             (if (if (=alpha $new $latest) true
                    (if $forced false
                       (if (== $latest sk-none) false
-                         (if (sk-new-support? $hash $key $rhash $new) false true))))
+                         (if (sk-new-support? $hash $key $rhash $new) false
+                            (let $_counted (query_metric_increment views-without-support) true)))))
                $work
                (let* (($before
                          (collapse (once (match &sk_merged (sk-merged $hash $stored $deps $value)
                             (if (=alpha $stored $key) (sk-merged $hash $stored $deps $value) (empty))))))
                       ($_stored (sk-store-view! $hash $key $seq $rhash $new))
+                      ($_counted (query_metric_increment views-stored))
                       ($_merged (sk-drop-merged! $key))
                       ($deps (fold-semidet sk-view-deps-step () (cons $new ()))))
                   (sk-key-changed $pass $seq (sk-value-change $hash $key $deps $before) $work $key)))))))))
@@ -813,6 +817,46 @@
                (let $_applied (forward-apply-unqueued-change! $change) ()))
             ()))
       ($_other ()))))
+
+;; --- Query metrics ----------------------------------------------------------
+
+(: set-backward-query-metrics (-[det]-> Bool Bool))
+(= (set-backward-query-metrics $enabled) (query_metrics_set_enabled $enabled))
+
+(: backward-query-counter-keys (-[det]-> (List Atom)))
+(= (backward-query-counter-keys)
+   (expansions rows-created rows-deferred joins-deferred row-computes views-stored
+    views-without-support merged-cache-hits merged-cache-misses))
+
+(: sk-counter-reset (-[det]-> Atom Atom Atom))
+(= (sk-counter-reset $_acc $key) (let $_zero (query_metric_set $key 0) ()))
+
+(: sk-size-metrics! (-[det]-> Atom Atom Number))
+(= (sk-size-metrics! $nodes $rows)
+   (let $_nodes (query_metric_set $nodes (match-count &sk_expanded $_node))
+      (query_metric_set $rows (match-count &sk_row $_row))))
+
+(: begin-backward-query-metrics! (-[det]-> Number))
+(= (begin-backward-query-metrics!)
+   (if (query_metrics_enabled)
+      (let $_reset (fold-flat sk-counter-reset () (backward-query-counter-keys))
+         (sk-size-metrics! skeleton-nodes-before skeleton-rows-before))
+      0))
+
+(: end-backward-query-metrics! (-[det]-> Number))
+(= (end-backward-query-metrics!)
+   (if (query_metrics_enabled) (sk-size-metrics! skeleton-nodes-after skeleton-rows-after) 0))
+
+(: BackwardQueryMetric Type)
+(: query-metric (-[det]-> Atom Number BackwardQueryMetric))
+(: sk-metric-row (-[det]-> Atom BackwardQueryMetric))
+(= (sk-metric-row $key) (query-metric $key (query_metric_value $key)))
+
+(: backward-query-metrics (-[det]-> (List BackwardQueryMetric)))
+(= (backward-query-metrics)
+   (map-flat sk-metric-row
+      (cons skeleton-nodes-before (cons skeleton-nodes-after
+         (cons skeleton-rows-before (cons skeleton-rows-after (backward-query-counter-keys)))))))
 
 ;; --- Entry points -----------------------------------------------------------
 

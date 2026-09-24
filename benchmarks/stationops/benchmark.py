@@ -101,7 +101,7 @@ def main():
         batches=batches, events=events, result=result,
     )
     args.json_out.write_text(json.dumps(payload, indent=2) + "\n")
-    if len(batches) != 2 or any(b["metrics"]["search_aborts"] for b in batches):
+    if len(batches) != 2 or any(b["metrics"].get("search_aborts", 0) for b in batches):
         raise RuntimeError("Expected two diagnosis batches with zero search aborts")
     if args.seed == 7:
         if any(row["belief_metrics"]["coverage"] != 1 for row in result["rounds"]):

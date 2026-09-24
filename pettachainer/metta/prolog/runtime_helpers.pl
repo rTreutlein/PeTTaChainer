@@ -201,18 +201,3 @@ query_metric_increment_enabled(Key, Result) :-
     Result is Old + 1,
     nb_setval(GlobalKey, Result).
 
-% One native call records the complete outcome of a proof liveness lookup.
-% Retired proofs are checks, but are neither cache hits nor cache misses.
-query_metric_liveness_event(Outcome, Outcome) :-
-    query_metrics_enabled(Enabled),
-    (   Enabled == true
-    ->  query_metric_increment_enabled('proof-liveness-checks', _),
-        query_metric_liveness_outcome(Outcome)
-    ;   true
-    ).
-
-query_metric_liveness_outcome(hit) :-
-    query_metric_increment_enabled('proof-liveness-cache-hits', _).
-query_metric_liveness_outcome(miss) :-
-    query_metric_increment_enabled('proof-liveness-cache-misses', _).
-query_metric_liveness_outcome(retired).
