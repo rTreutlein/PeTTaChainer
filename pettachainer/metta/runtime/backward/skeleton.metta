@@ -235,20 +235,18 @@
 (: sk-full-fact (-[det]-> SkFact SkFact))
 (= (sk-full-fact ($type $kbctx $proof $tv)) (data $type $kbctx (sk-full-proof $proof) $tv))
 
-;; Tries the pattern on fresh copies so neither side gets bound.
+;; Tries the pattern on fresh copies so neither side gets bound; a proof
+;; pattern sees the full proof.
 (: sk-fact-matches? (-[det]-> SkeletonFilter SkFact Bool))
 (= (sk-fact-matches? $filter $fact)
    (case (copy_term $filter) (
       (sk-any-filter true)
-      ((sk-filter $want-proof $want-tv)
-         (if (is-var $want-proof)
-            (if (is-var $want-tv) true (sk-pattern-matches? $want-proof $want-tv (copy_term $fact)))
-            (sk-pattern-matches? $want-proof $want-tv (copy_term $fact)))))))
+      ((sk-filter $want-proof $want-tv) (sk-pattern-matches? $want-proof $want-tv (copy_term $fact))))))
 
 (: sk-pattern-matches? (-[det]-> Proof TV SkFact Bool))
 (= (sk-pattern-matches? $want-proof $want-tv ($_type $_kbctx $got-proof $got-tv))
    (if (if (is-var $want-proof) true (= (sk-full-proof $got-proof) $want-proof))
-      (= $got-tv $want-tv)
+      (if (is-var $want-tv) true (= $got-tv $want-tv))
       false))
 
 ;; Every fact of a goal's statement and context that passes the filter. The
@@ -299,9 +297,6 @@
                ())))
       ($_fold ()))))
 
-(: sk-keys-unify? (-[det]-> SkeletonKey SkeletonKey Bool))
-(= (sk-keys-unify? $a $b) (= (copy_term $a) (copy_term $b)))
-
 ;; Keys of one statement head, or of every head for a key whose head is open,
 ;; that unify with the key; a ground key considers only open ones.
 (: sk-unifying-keys (-[det]-> Number SkeletonKey Bool Atom (List Number)))
@@ -309,7 +304,7 @@
    (collapse (match &sk_key_head ($head $other-open $hash $other)
       (if (== $hash $khash) (empty)
          (if (if $open true $other-open)
-            (if (sk-keys-unify? $key $other) $hash (empty))
+            (if (= (copy_term $key) (copy_term $other)) $hash (empty))
             (empty))))))
 
 (: sk-unifier-hashes (-[det]-> Number SkeletonKey (List Number)))
@@ -524,7 +519,7 @@
          (sk-add-answer! $owner $key)
          ;; The rows of the query's roots are its compiled scaffold and always
          ;; fit; every other row spends the allowance.
-         (if (if (sk-root? $owner) true (sk-take-row!))
+         (if (if (sk-root? $owner) true (sk-take! sk_row_budget))
             (let* (($seq (next-search-id sk_row_seq))
                    ($row (sk-row $ident $concl $premises $seq))
                    ($_add
@@ -586,12 +581,6 @@
    (let $left (search-id-value $counter)
       (if (<= $left 0) false
          (progn (change-state! $counter (- $left 1)) true))))
-
-(: sk-take-step! (-[det]-> Bool))
-(= (sk-take-step!) (sk-take! sk_budget))
-
-(: sk-take-row! (-[det]-> Bool))
-(= (sk-take-row!) (sk-take! sk_row_budget))
 
 ;; Work left over by an earlier query waits with its node and resumes when a
 ;; later walk reaches that node, so it never spends an unrelated query's
@@ -737,9 +726,14 @@
 (= (prefilter-prunes-walk (cons $prem $rest))
    (if (prefilter-premise-blocks? $prem) true (prefilter-prunes-walk $rest)))
 
+;; A rule applies to a node when its conclusion fits the whole node pattern;
+;; its row is built from the statement and context alone, since a row belongs
+;; to its key and each reader applies its own proof and truth-value pattern.
 (= (sk-start-rule-step $owner $_acc (sk-match $rule $premises $goal))
-   (if (prefilter-prunes-walk (copy_term $premises)) ()
-      (sk-advance! (sk-partial $owner $rule $goal $premises $premises ()))))
+   (if (= (copy_term $goal) (copy_term $owner))
+      (if (prefilter-prunes-walk (copy_term $premises)) ()
+         (sk-advance! (sk-partial $owner $rule $goal $premises $premises ())))
+      ()))
 
 (: sk-leaf-answer-step (-[semidet]-> SkPattern Atom SkFact Atom))
 (= (sk-leaf-answer-step $node $_acc $fact) (sk-add-answer! $node (sk-fact-key $fact)))
@@ -810,13 +804,6 @@
                   (cons (typed-runtime-premise $goal) ()))))
          ($_none ())))))
 
-;; A rule applies to a node when its conclusion fits the whole node pattern.
-(: sk-fitting-match-step (-[det]-> SkPattern (List SkeletonMatch) SkeletonMatch (List SkeletonMatch)))
-(= (sk-fitting-match-step $node $kept (sk-match $rule $premises $conclusion))
-   (if (= (copy_term $conclusion) (copy_term $node))
-      (cons (sk-match $rule $premises $conclusion) $kept)
-      $kept))
-
 (= (sk-expand! $node $depth)
    (let $_counted (query_metric_increment expansions)
    (case $node (
@@ -842,13 +829,9 @@
                 ($_leaves
                    (fold-semidet (sk-leaf-answer-step $node) () (sk-leaf-facts $type $kbctx (sk-filter $proof $tv))))
                 ($owner (copy_term $node))
-                ;; A rule applies when its conclusion fits the whole node, but
-                ;; its row is built from the statement and context alone: a row
-                ;; belongs to its key, and each reader applies its own proof
-                ;; and truth-value pattern.
                 (($rule-type $rule-kbctx $_node-proof $_node-tv) (copy_term $node))
                 ($matches (collapse (sk-rule-match (assemble-stored-runtime-fact $rule-type $rule-kbctx $_rule-proof $_rule-tv)))))
-            (fold-semidet (sk-start-rule-step $owner) () (fold-semidet sk-cons-step () (fold-semidet (sk-fitting-match-step $node) () $matches)))))))))
+            (fold-semidet (sk-start-rule-step $owner) () $matches)))))))
 
 (: sk-fold-answer-step (-[semidet]-> SkPattern Atom SkeletonKey Atom))
 (= (sk-fold-answer-step $fold $acc $key) (sk-member-step $key $acc $fold))
@@ -897,12 +880,10 @@
 (: sk-activate-rule-on (-[semidet]-> Number SkFact (List SkPattern) Atom SkPattern Atom))
 (= (sk-activate-rule-on $id $ccls $args $_acc $node)
    (let* (((sk-rule-def $conclusion $premises) (copy_term (sk-rule-def $ccls $args))))
-      (if (if (= (copy_term $conclusion) (copy_term $node))
-             (case (copy_term $node) (
-                ((CPU $_fun $_args $_res) false)
-                (($type $kbctx $_proof $_tv)
-                   (= $conclusion (assemble-stored-runtime-fact $type $kbctx $_rule-proof $_rule-tv)))))
-             false)
+      (if (case (copy_term $node) (
+             ((CPU $_fun $_args $_res) false)
+             (($type $kbctx $_proof $_tv)
+                (= $conclusion (assemble-stored-runtime-fact $type $kbctx $_rule-proof $_rule-tv)))))
          (if (chainer-acyclic-term? $conclusion)
             (sk-start-rule-step $node ()
                (sk-match $id (contextualize-rule-args $conclusion $premises) $conclusion))
@@ -972,7 +953,7 @@
       (sk-search! $rest)
       (if (sk-expanded? $node)
          (let $_resumed (sk-resume! $node) (sk-search! (sk-push-children $depth $node $rest)))
-         (if (sk-take-step!)
+         (if (sk-take! sk_budget)
             (let $_expand (sk-expand! $node $depth) (sk-search! (sk-push-children $depth $node $rest)))
             (sk-drain!)))))
 

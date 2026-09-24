@@ -67,11 +67,6 @@
 
 ;; --- Values -----------------------------------------------------------------
 
-;; Views merge as proofs do: an identical proof pools its evidence, a
-;; projection gives way to its full proof, overlapping evidence keeps the view
-;; whose evidence contains the other's or else the more confident one, and
-;; disjoint evidence revises. A dominated view contributes neither evidence
-;; nor dependencies.
 ;; The last rule application of a proof, with its premise proofs still
 ;; references.
 (: sk-step-proof (-[det]-> Proof Proof))
@@ -86,6 +81,11 @@
 (: sk-fact-step-proof (-[det]-> SkFact Proof))
 (= (sk-fact-step-proof ($_type $_kbctx $proof $_tv)) (sk-step-proof $proof))
 
+;; Views merge as proofs do: an identical proof pools its evidence, a
+;; projection gives way to its full proof, overlapping evidence keeps the view
+;; whose evidence contains the other's or else the more confident one, and
+;; disjoint evidence revises. A dominated view contributes neither evidence
+;; nor dependencies.
 (: sk-merge-facts
    (-[det]-> SkFact (List Evidence) (List Number) SkFact (List Evidence) (List Number)
        SkeletonValue))
@@ -119,10 +119,9 @@
       ($_goal $acc))))
 
 ;; Each row keeps its latest view and the views it replaced, in the order
-;; they were computed. A consumer takes, per row, the latest view that does
-;; not depend on the excluded key and matches its pattern; an older one stays
-;; usable when a newer one came to depend on that key.
-;; Whether a view depends on any of the excluded keys.
+;; they were computed. A consumer takes, per row, the latest view that depends
+;; on none of the excluded keys and matches its pattern; an older one stays
+;; usable when a newer one came to depend on one of them.
 (: sk-excluded? (-[det]-> (List Number) (List Number) Bool))
 (= (sk-excluded? () $_deps) false)
 (= (sk-excluded? (cons $hash $rest) $deps)
@@ -548,18 +547,16 @@
       ($_leaf (collapse (once (match &kb ($statement $_kbctx $base $tv) (sk-source $statement $tv))))))))
 
 (: sk-premise-part (-[det]-> SkFact SkeletonPart))
-(= (sk-premise-part ($type $kbctx $proof $tv))
+(= (sk-premise-part ($_type $_kbctx $proof $tv))
    (case (sk-step-proof $proof) (
-         ((marginal-proj $idx $base)
-            (case (sk-proof-source (brand Proof $base)) (
-               ((cons (sk-source $statement $source-tv) $_rest)
-                  (if (is-expr $statement)
-                     (if (== (car-atom $statement) And)
-                        (sk-pool-part (brand Proof $base) $source-tv (list-len (cdr-atom $statement)) (cons $idx ()) $tv)
-                        (sk-indep-part $tv))
-                     (sk-indep-part $tv)))
-               (() (sk-indep-part $tv)))))
-         ($_other (sk-indep-part $tv)))))
+      ((marginal-proj $idx $base)
+         (case (sk-proof-source (brand Proof $base)) (
+            ((cons (sk-source $statement $source-tv) $_rest)
+               (if (if (is-expr $statement) (== (car-atom $statement) And) false)
+                  (sk-pool-part (brand Proof $base) $source-tv (list-len (cdr-atom $statement)) (cons $idx ()) $tv)
+                  (sk-indep-part $tv)))
+            (() (sk-indep-part $tv)))))
+      ($_other (sk-indep-part $tv)))))
 
 (: sk-same-pool? (-[det]-> SkeletonPart SkeletonPart Bool))
 (= (sk-same-pool? $part $other)
@@ -976,29 +973,30 @@
 
 ;; --- Base-rate API ----------------------------------------------------------
 
-;; A user base rate replaces whatever every fold over its pattern computed, so
-;; all cached values are dropped.
+;; Setting or clearing a user base rate replaces whatever every fold over its
+;; pattern computed, so all views and merged values are dropped.
+(: sk-drop-all-views! (-[det]-> Atom))
+(= (sk-drop-all-views!)
+   (let* (($_older (collapse (match &sk_view ($h $k $r $v) (remove-atom &sk_view ($h $k $r $v)))))
+          ($_latest (collapse (match &sk_latest ($h2 $k2 $v2) (remove-atom &sk_latest ($h2 $k2 $v2)))))
+          ($_merged
+             (collapse (match &sk_merged (sk-merged $h3 $k3 $d3 $v3)
+                (remove-atom &sk_merged (sk-merged $h3 $k3 $d3 $v3))))))
+      ()))
+
 (: set-base-rate (-[det]-> KB Statement TV (List $none)))
 (= (set-base-rate $kbid $pattern $tv)
    (let* (($stored (copy_term $pattern))
           ($hash (base-rate-cache-hash $kbid $pattern))
           ($_old (base-rate-cache-remove! $kbid $pattern))
           ($_new (add-atom &base_rate_cache ($hash (base-rate $kbid $stored $tv user any))))
-          ($_values (collapse (match &sk_view ($hash $key $rhash $view) (remove-atom &sk_view ($hash $key $rhash $view)))))
-          ($_latest (collapse (match &sk_latest ($hash $key $version) (remove-atom &sk_latest ($hash $key $version)))))
-          ($_merged
-             (collapse (match &sk_merged (sk-merged $hash $key $deps $value)
-                (remove-atom &sk_merged (sk-merged $hash $key $deps $value))))))
+          ($_views (sk-drop-all-views!)))
       ()))
 
 (: clear-base-rate (-[det]-> KB Statement (List $none)))
 (= (clear-base-rate $kbid $pattern)
    (let* (($_old (base-rate-cache-remove! $kbid $pattern))
-          ($_values (collapse (match &sk_view ($hash $key $rhash $view) (remove-atom &sk_view ($hash $key $rhash $view)))))
-          ($_latest (collapse (match &sk_latest ($hash $key $version) (remove-atom &sk_latest ($hash $key $version)))))
-          ($_merged
-             (collapse (match &sk_merged (sk-merged $hash $key $deps $value)
-                (remove-atom &sk_merged (sk-merged $hash $key $deps $value))))))
+          ($_views (sk-drop-all-views!)))
       ()))
 
 ;; --- Materialization --------------------------------------------------------
