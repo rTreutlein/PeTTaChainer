@@ -33,43 +33,58 @@
       ($_other no-base-rate-aggregate-key))))
 
 
+;; Cache rows lead with a hash of the knowledge base and pattern, so a lookup
+;; reads only that pattern's entries; the alpha comparison rejects collisions.
+(: base-rate-cache-hash (-[det]-> KB Statement Number))
+(= (base-rate-cache-hash $kbid $pattern) (index-hash (quote ($kbid $pattern))))
+
 (: base-rate-cache-entries (-[det]-> KB Statement (List BaseRateEntry)))
 (= (base-rate-cache-entries $kbid $pattern)
+   (let $hash (base-rate-cache-hash $kbid $pattern)
+      (collapse
+         (match &base_rate_cache ($hash (base-rate $kbid $stored $tv $source $mode))
+            (if (=alpha $stored $pattern)
+               (base-rate $kbid $stored $tv $source $mode)
+               (empty))))))
+
+;; Binding the hash in a let around this match makes the checker lose the
+;; entries' determinism at foreach-flat callers, so it is passed in.
+(: base-rate-cache-mode-rows
+   (-[det]-> Number KB Statement $mode (List BaseRateEntry)))
+(= (base-rate-cache-mode-rows $hash $kbid $pattern $mode)
    (collapse
-      (match &base_rate_cache (base-rate $kbid $stored $tv $source $mode)
-         (if (=alpha $stored $pattern)
-            (base-rate $kbid $stored $tv $source $mode)
+      (match &base_rate_cache ($hash (base-rate $kbid $stored $tv $source $emode))
+         (if (and (=alpha $stored $pattern)
+                  (or (== $emode any) (== $emode $mode)))
+            (base-rate $kbid $stored $tv $source $emode)
             (empty)))))
 
 (: base-rate-cache-entries-for-mode
    (-[det]-> KB Statement $mode (List BaseRateEntry)))
 (= (base-rate-cache-entries-for-mode $kbid $pattern $mode)
-   (collapse
-      (match &base_rate_cache (base-rate $kbid $stored $tv $source $emode)
-         (if (and (=alpha $stored $pattern)
-                  (or (== $emode any) (== $emode $mode)))
-            (base-rate $kbid $stored $tv $source $emode)
-            (empty)))))
+   (base-rate-cache-mode-rows (base-rate-cache-hash $kbid $pattern) $kbid $pattern $mode))
 
 (: base-rate-cache-remove-derived-entry!
    (-[det]-> BaseRateEntry (List $none)))
 (= (base-rate-cache-remove-derived-entry!
       (base-rate $kbid $stored $tv $source $mode))
    (if (== $source user) ()
-      (let $_removed
-         (remove-atom &base_rate_cache
-            (base-rate $kbid $stored $tv $source $mode))
+      (let* (($hash (base-rate-cache-hash $kbid $stored))
+             ($_removed
+                (remove-atom &base_rate_cache
+                   ($hash (base-rate $kbid $stored $tv $source $mode)))))
          ())))
 
 (: base-rate-cache-remove! (-[det]-> KB Statement (List $none)))
 (= (base-rate-cache-remove! $kbid $pattern)
-   (let $_
-      (collapse
-         (match &base_rate_cache (base-rate $kbid $stored $tv $source $mode)
-            (if (=alpha $stored $pattern)
-               (remove-atom &base_rate_cache
-                  (base-rate $kbid $stored $tv $source $mode))
-               (empty))))
+   (let* (($hash (base-rate-cache-hash $kbid $pattern))
+          ($_
+             (collapse
+                (match &base_rate_cache ($hash (base-rate $kbid $stored $tv $source $mode))
+                   (if (=alpha $stored $pattern)
+                      (remove-atom &base_rate_cache
+                         ($hash (base-rate $kbid $stored $tv $source $mode)))
+                      (empty))))))
       ()))
 
 (: base-rate-entry-tv (-[det]-> BaseRateEntry TV))
@@ -120,12 +135,13 @@
          (if (base-rate-cache-user-present? $entries)
             ()
             (let* (($stored (copy_term $pattern))
+                   ($hash (base-rate-cache-hash $kbid $pattern))
                    ($_old
                       (foreach-flat
                          base-rate-cache-remove-derived-entry! $entries))
                    ($_new
                       (add-atom &base_rate_cache
-                         (base-rate $kbid $stored $tv $source $mode)))
+                         ($hash (base-rate $kbid $stored $tv $source $mode))))
                    ($_readers (base-rate-readers-changed! $kbid $pattern $mode)))
                ())))))
 
@@ -142,10 +158,10 @@
    (let*
       (($_computed
           (remove-atom &base_rate_cache
-             (base-rate $kbid $_s1 $_tv1 computed $_m1)))
+             ($_h1 (base-rate $kbid $_s1 $_tv1 computed $_m1))))
        ($_forward
           (remove-atom &base_rate_cache
-             (base-rate $kbid $_s2 $_tv2 forward-approx $_m2))))
+             ($_h2 (base-rate $kbid $_s2 $_tv2 forward-approx $_m2)))))
       ()))
 
 

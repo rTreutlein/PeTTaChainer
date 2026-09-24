@@ -836,8 +836,9 @@
 (: set-base-rate (-[det]-> KB Statement TV (List $none)))
 (= (set-base-rate $kbid $pattern $tv)
    (let* (($stored (copy_term $pattern))
+          ($hash (base-rate-cache-hash $kbid $pattern))
           ($_old (base-rate-cache-remove! $kbid $pattern))
-          ($_new (add-atom &base_rate_cache (base-rate $kbid $stored $tv user any)))
+          ($_new (add-atom &base_rate_cache ($hash (base-rate $kbid $stored $tv user any))))
           ($_values (collapse (match &sk_view ($hash $key $rhash $view) (remove-atom &sk_view ($hash $key $rhash $view)))))
           ($_latest (collapse (match &sk_latest ($hash $key $version) (remove-atom &sk_latest ($hash $key $version)))))
           ($_merged

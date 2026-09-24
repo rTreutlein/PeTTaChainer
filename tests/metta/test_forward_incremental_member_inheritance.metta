@@ -90,7 +90,7 @@
 !(test
    (collapse
       (match &base_rate_cache
-         (base-rate forwardOpenMemberFoldKb $_pattern $_tv $_source $_mode)
+         ($_hash (base-rate forwardOpenMemberFoldKb $_pattern $_tv $_source $_mode))
          true))
    ())
 
@@ -138,8 +138,8 @@
 !(test
    (collapse
       (match &base_rate_cache
-         (base-rate forwardCompoundOpenMemberFoldKb
-            $_pattern $_tv $_source $_mode)
+         ($_hash (base-rate forwardCompoundOpenMemberFoldKb
+            $_pattern $_tv $_source $_mode))
          true))
    ())
 

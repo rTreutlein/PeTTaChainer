@@ -194,15 +194,11 @@
 
 ;; --- Journal ------------------------------------------------------------------
 
-(: sk-space-nonempty? (-[det]-> Atom Bool))
-(= (sk-space-nonempty? $space)
-   (not (== (collapse (once (match $space $row $row))) ())))
-
 ;; Nothing has been expanded before the first query, so bulk loading journals
 ;; nothing.
 (: sk-note-rule! (-[det]-> Number Atom))
 (= (sk-note-rule! $id)
-   (if (sk-space-nonempty? &sk_expanded)
+   (if (not (== (collapse (once (match &sk_expanded ($_hash $_pattern) true))) ()))
       (let $_row (add-atom &sk_pending_rules (sk-pending-rule $id)) ())
       ()))
 
@@ -210,11 +206,11 @@
 (= (sk-note-fact! $type $kbctx)
    (let* (($key (sk-key $type $kbctx))
           ($_pending
-             (if (sk-space-nonempty? &sk_expanded)
+             (if (not (== (collapse (once (match &sk_expanded ($_hash $_pattern) true))) ()))
                 (let $_pending-row (add-atom &sk_pending_facts (sk-pending-fact $key)) ())
                 ()))
           ($_dirty
-             (if (sk-space-nonempty? &sk_latest)
+             (if (not (== (collapse (once (match &sk_latest ($_hash $_key $_version) true))) ()))
                 (let $_dirty-row (add-atom &sk_dirty (sk-dirty $key)) ())
                 ())))
       ()))

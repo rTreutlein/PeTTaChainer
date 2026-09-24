@@ -257,7 +257,7 @@
 ;; happened.
 (: sk-leaf-facts (-[det]-> Statement KBContext SkeletonFilter (List SkFact)))
 (= (sk-leaf-facts $type $kbctx $filter)
-   (let $plain (not (sk-space-nonempty? &materialized_facts))
+   (let $plain (== (collapse (once (match &materialized_facts (materialized-row $_hash $_type $_kb $_fact $_ev) true))) ())
       (collapse (match &kb ($type $kbctx $proof $tv)
          (let $fact (data $type $kbctx $proof $tv)
             (if (sk-fact-matches? $filter $fact)
@@ -311,7 +311,7 @@
 
 (: sk-mark-dirty! (-[det]-> SkeletonKey Atom))
 (= (sk-mark-dirty! $key)
-   (if (sk-space-nonempty? &sk_latest)
+   (if (not (== (collapse (once (match &sk_latest ($_hash $_key $_version) true))) ()))
       (let $_row (add-atom &sk_dirty (sk-dirty $key)) ())
       ()))
 
