@@ -1081,6 +1081,42 @@
             ()))
       ($_other ()))))
 
+;; The stored proofs a proof term refers to directly.
+(: sk-proof-refs (-[det]-> Atom (List Number)))
+(: sk-proof-refs-in (-[det]-> Atom (List Number)))
+(= (sk-proof-refs $term)
+   (if (is-expr $term)
+      (case $term (
+         ((proof-ref $pid) (cons $pid ()))
+         ($_other (sk-proof-refs-in $term))))
+      ()))
+;; Atom parameters take their arguments unevaluated, so each part is bound first.
+(= (sk-proof-refs-in $terms)
+   (if (== $terms ()) ()
+      (let* (($first (car-atom $terms))
+             ($rest (cdr-atom $terms)))
+         (append-flat (sk-proof-refs $first) (sk-proof-refs-in $rest)))))
+
+;; A materialized answer brings the derived facts of its proof along: each
+;; stored fact proof it uses materializes that statement's current value, once.
+(: sk-materialize-ref! (-[semidet]-> KBContext (List Number) Number (List Number)))
+(= (sk-materialize-ref! $kbctx $visited $pid)
+   (if (stored-list-member? $pid $visited) $visited
+      (let* (($_fact
+                (case (collapse (once (match &proof_fact ($pid $statement $_tv) $statement))) (
+                   ((cons $statement $_rest) (sk-materialize! (sk-value (sk-key $statement $kbctx) sk-any-filter ())))
+                   (() ()))))
+             ($step (sk-step-proof (proof-ref $pid))))
+         (fold-semidet (sk-materialize-ref! $kbctx) (cons $pid $visited) (sk-proof-refs $step)))))
+
+(: sk-materialize-answer! (-[semidet]-> SkeletonValue Atom))
+(= (sk-materialize-answer! $value)
+   (let $_answer (sk-materialize! $value)
+      (case $value (
+         ((sk-val ($type $kbctx $proof $tv) $_ev $_deps)
+            (let $_derived (fold-semidet (sk-materialize-ref! $kbctx) () (sk-proof-refs (sk-step-proof $proof))) ()))
+         ($_other ())))))
+
 ;; --- Query metrics ----------------------------------------------------------
 
 (: set-backward-query-metrics (-[det]-> Bool Bool))
@@ -1208,7 +1244,7 @@
           ($_materialized
              (if $materialize?
                 (case $values (
-                   ((cons $first $_rest) (sk-materialize! $first))
+                   ((cons $first $_rest) (sk-materialize-answer! $first))
                    (() ())))
                 ()))
           ($answers (fold-semidet sk-cons-step () (fold-semidet sk-result-step () $values))))

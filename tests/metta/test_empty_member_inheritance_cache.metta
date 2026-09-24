@@ -1,63 +1,29 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
-(: member-empty-cache-hit?
-   (-[det]-> KB Term Term Bool))
-(= (member-empty-cache-hit? $kb $subj $concept)
-   (forward-member-inheritance-empty-cache-hit?
-      $kb $subj $concept 80))
-
-(: member-empty-cache-budgets
-   (-[det]-> KB Term Term (List Number)))
-(= (member-empty-cache-budgets $kb $subj $concept)
-   (collapse
-      (let $id
-         (forward-member-inheritance-id $kb $subj $concept)
-         (match &forward_member_inheritance_empty_cache
-            (forward-member-inheritance-empty-cache-row $id $budget)
-            $budget))))
-
-(: member-aggregate-count (-[det]-> KB Term Term Number))
-(= (member-aggregate-count $kb $subj $concept)
+;; The Member folds over one subject/concept pair the skeleton has expanded.
+(: member-fold-node-count (-[det]-> KB Term Term Number))
+(= (member-fold-node-count $kb $subj $concept)
    (list-count
       (collapse
-         (match &fold_source
-            (fold-source-row
-               $_fold-gid $_child
-               ($kb
-                  (MemberInheritanceSample
-                     $_obj $subj $concept $_atv $_btv)
-                  $_extractor $_init $_fun
-                  (member-inheritance $kb) $_tv-mode)
-               $_base $_budget $_approx)
+         (match &sk_expanded
+            ($_hash
+               (CPU FoldAllCompiled
+                  ($kb (MemberInheritanceSample $_obj $subj $concept $_atv $_btv)
+                     $_extractor $_init $_fun (member-inheritance $kb) $_tv-mode)
+                  $_result))
             true))))
 
-;; An interrupted search is not an authoritative empty cache entry.
+;; An interrupted search answers nothing.
 !(test
    (query 1 boundedEmptyMemberKb
       (: $_proof (Inheritance EmptyClass MissingClass) $_tv))
    ())
 
-!(test
-   (member-empty-cache-hit?
-      boundedEmptyMemberKb EmptyClass MissingClass)
-   false)
-
-;; A settled empty fold records its best exhausted budget without inventing an
-;; STV or adding logical evidence.
+;; An empty Member population answers nothing and invents no estimate.
 !(test
    (query 80 cachedEmptyMemberKb
       (: $_proof (Inheritance EmptyClass MissingClass) $_tv))
    ())
-
-!(test
-   (member-empty-cache-hit?
-      cachedEmptyMemberKb EmptyClass MissingClass)
-   true)
-
-!(test
-   (member-empty-cache-budgets
-      cachedEmptyMemberKb EmptyClass MissingClass)
-   (80))
 
 !(test
    (cached-base-rate cachedEmptyMemberKb
@@ -65,60 +31,31 @@
          $obj EmptyClass MissingClass $atv $btv))
    ())
 
-;; Unrelated monotonic knowledge leaves the approximation usable.
+!(test (member-fold-node-count cachedEmptyMemberKb EmptyClass MissingClass) 1)
+
+;; Unrelated knowledge and warm queries, with any budget, reuse the expanded
+;; fold instead of building it again.
 !(compileadd cachedEmptyMemberKb
    (: unrelatedMember (Member unrelated OtherClass) (STV 1.0 1.0)))
 
-!(test
-   (member-empty-cache-hit?
-      cachedEmptyMemberKb EmptyClass MissingClass)
-   true)
-
-!(test
-   (member-empty-cache-budgets
-      cachedEmptyMemberKb EmptyClass MissingClass)
-   (80))
-
-;; A warm query skips construction of the Member aggregate altogether.
 !(test
    (query 80 cachedEmptyMemberKb
       (: $_proof (Inheritance EmptyClass MissingClass) $_tv))
    ())
 
 !(test
-   (member-aggregate-count
-      cachedEmptyMemberKb EmptyClass MissingClass)
-   0)
-
-;; A larger budget is not subsumed by the earlier bounded observation.
-!(test
    (query 81 cachedEmptyMemberKb
       (: $_proof (Inheritance EmptyClass MissingClass) $_tv))
    ())
 
-!(test
-   (member-aggregate-count
-      cachedEmptyMemberKb EmptyClass MissingClass)
-   1)
+!(test (member-fold-node-count cachedEmptyMemberKb EmptyClass MissingClass) 1)
 
-;; The mutable optimization row retains only the best exhausted budget.
-!(test
-   (member-empty-cache-budgets
-      cachedEmptyMemberKb EmptyClass MissingClass)
-   (81))
-
-;; Matching monotonic additions refine the registered subscription directly.
-;; The second side produces a real cached estimate and replaces the empty
-;; optimization marker; unrelated knowledge needs no cache invalidation.
+;; Matching monotonic additions refine the registered subscription directly:
+;; the second side produces a real cached estimate.
 !(compileadd cachedEmptyMemberKb
    (: firstEmpty (Member first EmptyClass) (STV 1.0 1.0)))
 !(compileadd cachedEmptyMemberKb
    (: firstMissing (Member first MissingClass) (STV 0.6 1.0)))
-
-!(test
-   (member-empty-cache-hit?
-      cachedEmptyMemberKb EmptyClass MissingClass)
-   false)
 
 !(test
    (cached-base-rate cachedEmptyMemberKb
@@ -126,20 +63,7 @@
          $obj EmptyClass MissingClass $atv $btv))
    ((STV 0.6 0.0012484394506866417)))
 
-!(test
-   (query 80 cachedEmptyMemberKb
-      (: $proof (Inheritance EmptyClass MissingClass) $tv))
-   (: (member-inheritance-fold cpu)
-      (Inheritance EmptyClass MissingClass)
-      (STV 0.6 0.0012484394506866417)))
-
-!(test
-   (member-empty-cache-hit?
-      cachedEmptyMemberKb EmptyClass MissingClass)
-   false)
-
-;; A cached empty Member population suppresses only that fold. Direct
-;; Inheritance evidence remains available on every warm query.
+;; Direct Inheritance evidence is always available beside the Member fold.
 !(compileadd directEmptyMemberKb
    (: directInheritance
       (Inheritance EmptyClass DirectTarget)
@@ -156,25 +80,3 @@
          (and (> $strength 0.699) (< $strength 0.701))
          (> $confidence 0.89)))
    true)
-
-!(test
-   (member-empty-cache-hit?
-      directEmptyMemberKb EmptyClass DirectTarget)
-   true)
-
-!(test
-   (let (: $_proof
-            (Inheritance EmptyClass DirectTarget)
-            (STV $strength $confidence))
-      (query 80 directEmptyMemberKb
-         (: $_proof (Inheritance EmptyClass DirectTarget)
-            (STV $strength $confidence)))
-      (and
-         (and (> $strength 0.699) (< $strength 0.701))
-         (> $confidence 0.89)))
-   true)
-
-!(test
-   (member-aggregate-count
-      directEmptyMemberKb EmptyClass DirectTarget)
-   0)
