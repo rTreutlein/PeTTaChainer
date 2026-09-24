@@ -26,7 +26,7 @@
 !(compileadd diffImplKb (: ab2 (Implication (A $x) (B $x)) (CTV (STV 0.6 0.9) (STV 0.0 1.0))))
 !(test
    (query 40 diffImplKb (: $prf (B i) $tv))
-   (: (merge/revision (by ab2 a) (by ab1 a)) (B i) (STV 0.6499999999812448 0.9473684207998814)))
+   (: (merge/revision (by ab1 a) (by ab2 a)) (B i) (STV 0.6499999999812448 0.9473684207998814)))
 
 ;; --- A,X->B / A,Y->B sharing only A. The bare implication query cannot express
 ;; this shape, so factoring at the conclusion is the only route to the pooled
@@ -39,7 +39,7 @@
 
 !(test
    (query 80 conjKb (: $prf (B i) $tv))
-   (: (merge/revision (by r2 (conjunction a yy)) (by r1 (conjunction a xx))) (B i) (STV 0.6 0.947368420783305)))
+   (: (merge/revision (by r1 (conjunction a xx)) (by r2 (conjunction a yy))) (B i) (STV 0.6 0.947368420783305)))
 
 ;; --- Not independent: both paths to D share the uncertain bImpliesD rule, so
 ;; their residuals overlap and the group must NOT pool (dominance instead). ---

@@ -65,11 +65,10 @@
 !(compileadd kb
    (: ruleStable (Implication (BasePremise) (SwitchGoal)) (CTV (STV 1.0 0.7) (STV 0.0 1.0))))
 
-;; Both proofs use baseFact, so revising them would count it twice: the
-;; answer is the more confident one.
+;; Both proofs use baseFact: lifting factors it out and pools the two rules.
 !(test
    (query 10 kb (: $prf (SwitchGoal) $tv))
-   (: (by ruleStable baseFact) (SwitchGoal) (STV 1.0 0.699950950923023)))
+   (: (merge/revision (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact)) (SwitchGoal) (STV 1.0 0.7094641445679878)))
 
 !(test
    (query 30 kb
@@ -81,16 +80,16 @@
 ;; Completed answers survive the per-query search reset. A zero-budget query
 ;; can therefore read the durable proof without expanding a new frontier.
 !(test (query 0 kb (: $prf (SwitchGoal) $tv))
-   (: (by ruleStable baseFact) (SwitchGoal) (STV 1.0 0.699950950923023)))
+   (: (merge/revision (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact)) (SwitchGoal) (STV 1.0 0.7094641445679878)))
 
 !(test (query 4 kb (: $prf (SwitchGoal) $tv))
-   (: (by ruleStable baseFact) (SwitchGoal) (STV 1.0 0.699950950923023)))
+   (: (merge/revision (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact)) (SwitchGoal) (STV 1.0 0.7094641445679878)))
 
 !(test (query 7 kb (: $prf (SwitchGoal) $tv))
-   (: (by ruleStable baseFact) (SwitchGoal) (STV 1.0 0.699950950923023)))
+   (: (merge/revision (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact)) (SwitchGoal) (STV 1.0 0.7094641445679878)))
 
 !(test (query 100 kb (: $prf (SwitchGoal) $tv))
-   (: (by ruleStable baseFact) (SwitchGoal) (STV 1.0 0.699950950923023)))
+   (: (merge/revision (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact)) (SwitchGoal) (STV 1.0 0.7094641445679878)))
 
 ;; A completed non-root proof is a frontier input for a later bounded search.
 ;; Two steps suffice for the new root plus its new CPU formula because the

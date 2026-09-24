@@ -110,7 +110,8 @@
           (SummedSingleRoot) (STV 1.0 0.2999911278320848)))))
 
 ;; Two alternative rules from one root are not two independent consumers; with
-;; stored facts reaching the joins directly this budget answers both roots.
+;; stored facts reaching the joins directly this budget answers both roots, and
+;; the two rules over the shared fact pool by lifting.
 !(compileadd duplicateDemandKb
    (: duplicate-shared-fact
       (DuplicateSharedPremise) (STV 1.0 1.0)))
@@ -136,8 +137,10 @@
          ((: $prf (DuplicateSharedRoot) $tv)
           (: $prf (DuplicateSingleRoot) $tv))))
    ((query-result 0
-       (: (by duplicate-shared-first duplicate-shared-fact)
-          (DuplicateSharedRoot) (STV 1.0 0.19999611996322178)))
+       (: (merge/revision
+             (by duplicate-shared-first duplicate-shared-fact)
+             (by duplicate-shared-second duplicate-shared-fact))
+          (DuplicateSharedRoot) (STV 1.0 0.3333172205330562)))
     (query-result 1
        (: (by duplicate-single duplicate-single-fact)
           (DuplicateSingleRoot) (STV 1.0 0.2999913061574112)))))
