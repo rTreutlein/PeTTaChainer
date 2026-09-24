@@ -63,15 +63,23 @@
 ;; whose evidence contains the other's or else the more confident one, and
 ;; disjoint evidence revises. A dominated view contributes neither evidence
 ;; nor dependencies.
-(: sk-fact-proof (-[det]-> SkFact Proof))
-(= (sk-fact-proof ($_type $_kbctx $proof $_tv)) $proof)
+;; The last rule application of a fact's proof, with its premise proofs still
+;; references.
+(: sk-step-proof (-[det]-> SkFact Proof))
+(= (sk-step-proof ($_type $_kbctx $proof $_tv))
+   (case $proof (
+      ((proof-ref $pid)
+         (case (collapse (once (match &proof ($pid $stored $_ev $_negated) $stored))) (
+            ((cons $stored $_rest) $stored)
+            (() $proof))))
+      ($_leaf $proof))))
 
 (: sk-merge-facts
    (-[det]-> SkFact (List Evidence) (List Number) SkFact (List Evidence) (List Number)
        SkeletonValue))
 (= (sk-merge-facts $a $ev-a $deps-a $b $ev-b $deps-b)
-   (let* (($proof-a (sk-fact-proof $a))
-          ($proof-b (sk-fact-proof $b)))
+   (let* (($proof-a (sk-step-proof $a))
+          ($proof-b (sk-step-proof $b)))
       (if (== $a $b) (sk-val $a (sk-union $ev-a $ev-b) $deps-a)
          (if (projection-dominates? $proof-a $proof-b) (sk-val $a $ev-a $deps-a)
             (if (projection-dominates? $proof-b $proof-a) (sk-val $b $ev-b $deps-b)
@@ -143,17 +151,38 @@
       ((cons $view $_rest) $view)
       (() sk-none))))
 
+;; A stored view's proof moves to &proof under a fresh id and the view keeps a
+;; reference to it, so a view stays the size of one rule application however
+;; deep its derivation is. What the evidence of a proof needs from its whole
+;; tree, its leaves and whether it negates anything, is summarized with it.
+(: sk-store-proof! (-[semidet]-> Proof Proof))
+(= (sk-store-proof! $proof)
+   (let* (($pid (next-search-id proof_id))
+          ($leaves (list_to_set (once (proof-term-evidence-list-mode proof-walk-in-kb $proof))))
+          ($negated (proof-term-contains-negated? $proof))
+          ($_row (add-atom &proof ($pid $proof $leaves $negated))))
+      (proof-ref $pid)))
+
+(: sk-ref-view! (-[semidet]-> SkeletonValue SkeletonValue))
+(= (sk-ref-view! $view)
+   (case $view (
+      ((sk-val ($type $kbctx $proof $tv) $ev $deps)
+         (sk-val (data $type $kbctx (sk-store-proof! $proof) $tv) $ev $deps))
+      ((sk-goal-val $goal $proof $ev $deps) (sk-goal-val $goal (sk-store-proof! $proof) $ev $deps))
+      (sk-none sk-none))))
+
 ;; A new view becomes the row's latest; the one it replaces is kept.
-(: sk-store-view! (-[det]-> Number SkeletonKey Number Number SkeletonValue Atom))
-(= (sk-store-view! $hash $key $seq $rhash $view)
-   (let* (($_moved
+(: sk-store-view! (-[semidet]-> Number SkeletonKey Number Number SkeletonValue SkeletonValue))
+(= (sk-store-view! $hash $key $seq $rhash $computed)
+   (let* (($view (sk-ref-view! $computed))
+          ($_moved
              (collapse (match &sk_latest ($hash $stored (sk-version $old-seq $rhash $old))
                 (if (=alpha $stored $key)
                    (let $_removed (remove-atom &sk_latest ($hash $stored (sk-version $old-seq $rhash $old)))
                       (add-atom &sk_view ($hash $stored $rhash $old)))
                    (empty)))))
           ($_added (add-atom &sk_latest ($hash $key (sk-version $seq $rhash $view)))))
-      ()))
+      $view))
 
 ;; --- Folds ------------------------------------------------------------------
 
@@ -352,9 +381,9 @@
          (sk-keep-view $hash $key (sk-group-view $hash $key (the GroupedFoldSpec $group-args))))
       ((sk-key $_type $_kbctx) ()))))
 
-(: sk-keep-view (-[det]-> Number SkeletonKey SkeletonValue (List SkeletonVersion)))
+(: sk-keep-view (-[semidet]-> Number SkeletonKey SkeletonValue (List SkeletonVersion)))
 (= (sk-keep-view $hash $key $view)
-   (let $_stored (sk-store-view! $hash $key 0 0 $view) (cons (sk-version 0 0 $view) ())))
+   (cons (sk-version 0 0 (sk-store-view! $hash $key 0 0 $view)) ()))
 
 ;; The versions a consumer takes: per row, the latest one it admits.
 (: sk-admitted (-[semidet]-> Number SkeletonKey SkeletonFilter Number (List SkeletonValue)))
@@ -498,7 +527,7 @@
                   ((sk-val $fact $premise-ev $premise-deps)
                      (if (if $shared false (premise-evidence-overlap? $ev $premise-ev))
                         sk-fail
-                        (if (= $premise $fact)
+                        (if (= $premise (if (is-var $proof) $fact (sk-full-fact $fact)))
                            (sk-acc $fold-proofs (sk-union $ev $premise-ev) (sk-union $deps $premise-deps))
                            sk-fail)))
                   ($_none sk-fail))))))))))
@@ -660,6 +689,23 @@
 (: sk-gains-step (-[det]-> (List Number) Bool Number Bool))
 (= (sk-gains-step $had $gained $dep) (if $gained true (if (stored-list-member? $dep $had) false true)))
 
+;; Two views of a row are the same when they agree on all but the proof: the
+;; stored proof stays a valid derivation of the same value.
+(: sk-same-view? (-[det]-> SkeletonValue SkeletonValue Bool))
+(= (sk-same-view? $new $old)
+   (case $new (
+      ((sk-val ($_type $_kbctx $_proof $tv) $ev $deps)
+         (case $old (
+            ((sk-val ($_old-type $_old-kbctx $_old-proof $old-tv) $old-ev $old-deps)
+               (if (=alpha $tv $old-tv) (if (=alpha $ev $old-ev) (=alpha $deps $old-deps) false) false))
+            ($_other false))))
+      ((sk-goal-val $goal $_proof $ev $deps)
+         (case $old (
+            ((sk-goal-val $old-goal $_old-proof $old-ev $old-deps)
+               (if (=alpha $goal $old-goal) (if (=alpha $ev $old-ev) (=alpha $deps $old-deps) false) false))
+            ($_other false))))
+      (sk-none (== $old sk-none)))))
+
 ;; A row whose view differs from its latest version stores a new version and
 ;; changes its key, when it is the row's first view, it was forced, or it
 ;; brings new support.
@@ -672,7 +718,7 @@
          (sk-none $work)
          ($_view
             (let $latest (sk-latest-view $hash $key $rhash)
-            (if (if (=alpha $new $latest) true
+            (if (if (sk-same-view? $new $latest) true
                    (if $forced false
                       (if (== $latest sk-none) false
                          (if (sk-new-support? $hash $key $rhash $new) false
@@ -825,7 +871,8 @@
    (case $value (
       ((sk-val $fact $ev $_deps)
          (if (materializable-result? $fact)
-            (let $change (chainer-first-or no-forward-change (collapse (once (upsert-materialized! $fact $ev))))
+            (let $change
+               (chainer-first-or no-forward-change (collapse (once (upsert-materialized! (sk-full-fact $fact) $ev))))
                (let $_applied (forward-apply-unqueued-change! $change) ()))
             ()))
       ($_other ()))))
@@ -899,7 +946,7 @@
 (: sk-result-step (-[semidet]-> (List RuntimeResult) SkeletonValue (List RuntimeResult)))
 (= (sk-result-step $kept $value)
    (case $value (
-      ((sk-val $fact $_ev $_deps) (cons (brand RuntimeResult $fact) $kept))
+      ((sk-val $fact $_ev $_deps) (cons (brand RuntimeResult (sk-full-fact $fact)) $kept))
       ((sk-goal-val $goal $_proof $_ev $_deps) (cons (brand RuntimeResult $goal) $kept))
       (sk-none $kept))))
 

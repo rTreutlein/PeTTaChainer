@@ -209,6 +209,32 @@
 (: sk-filter (-[det]-> Proof TV SkeletonFilter))
 (: sk-any-filter SkeletonFilter)
 
+;; A view's proof is one rule application whose premise proofs are references
+;; to stored proofs; the full proof expands every reference.
+(: sk-proof-part (-[det]-> Atom Atom))
+(: sk-proof-parts (-[det]-> Atom Atom))
+(= (sk-proof-part $term)
+   (if (is-expr $term)
+      (case $term (
+         ((proof-ref $pid)
+            (case (collapse (once (match &proof ($pid $proof $_ev $_negated) $proof))) (
+               ((cons $proof $_rest) (sk-proof-part $proof))
+               (() $term))))
+         ($_other (sk-proof-parts $term))))
+      $term))
+;; Atom parameters take their arguments unevaluated, so each part is bound first.
+(= (sk-proof-parts $terms)
+   (if (== $terms ()) ()
+      (let* (($first (car-atom $terms))
+             ($rest (cdr-atom $terms)))
+         (cons-atom (sk-proof-part $first) (sk-proof-parts $rest)))))
+
+(: sk-full-proof (-[det]-> Proof Proof))
+(= (sk-full-proof $proof) (brand Proof (sk-proof-part $proof)))
+
+(: sk-full-fact (-[det]-> SkFact SkFact))
+(= (sk-full-fact ($type $kbctx $proof $tv)) (data $type $kbctx (sk-full-proof $proof) $tv))
+
 ;; Tries the pattern on fresh copies so neither side gets bound.
 (: sk-fact-matches? (-[det]-> SkeletonFilter SkFact Bool))
 (= (sk-fact-matches? $filter $fact)
@@ -221,7 +247,9 @@
 
 (: sk-pattern-matches? (-[det]-> Proof TV SkFact Bool))
 (= (sk-pattern-matches? $want-proof $want-tv ($_type $_kbctx $got-proof $got-tv))
-   (if (= $got-proof $want-proof) (= $got-tv $want-tv) false))
+   (if (if (is-var $want-proof) true (= (sk-full-proof $got-proof) $want-proof))
+      (= $got-tv $want-tv)
+      false))
 
 ;; Every fact of a goal's statement and context that passes the filter. The
 ;; statement and context lead the match pattern, so the lookup uses the index

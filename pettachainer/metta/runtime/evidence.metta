@@ -155,15 +155,17 @@
 (: cpu-call (-[nondet]-> Number $formula $arguments  $result))
 (= (cpu-call $_steps $fun $args) (reduce (reduce (cons $fun $args))))
 
-(: proof-stats-by-id
-   (-[semidet]-> Number (Number (List Evidence))))
-(= (proof-stats-by-id $pid)
-   (once
-      (match &proof
-         (stored-proof-row
-            $pid $_gid $_output $_kind
-            (proof-support $score $ev $_contribution) $_children)
-         (quote ($score $ev)))))
+(: proof-ref-evidence (-[det]-> Number (List Evidence)))
+(= (proof-ref-evidence $pid)
+   (case (collapse (once (match &proof ($pid $_proof $ev $_negated) $ev))) (
+      ((cons $ev $_rest) $ev)
+      (() ()))))
+
+(: proof-ref-negated? (-[det]-> Number Bool))
+(= (proof-ref-negated? $pid)
+   (case (collapse (once (match &proof ($pid $_proof $_ev $negated) $negated))) (
+      ((cons $negated $_rest) $negated)
+      (() false))))
 
 ;; cdr-atom exposes the erased proof representation as an untyped list. This
 ;; is the boundary that restores the semantic Proof brand to each raw child.
@@ -228,10 +230,7 @@
    (-[semidet]-> $mode Atom (List Evidence)))
 (= (proof-term-evidence-list-mode $mode $prf)
    (case $prf (
-      ((@ $_ref (proof-ref $pid))
-         (let ($_score $evidence)
-            (proof-stats-by-id (the Number $pid))
-            $evidence))
+      ((proof-ref $pid) (proof-ref-evidence $pid))
       ((@ $_merge (merge/revision $left $right))
          (let*
             (($left-proof (brand Proof $left))
@@ -347,8 +346,11 @@
    (if (is-var $prf) false
       (if (proof-term-negated? $prf) true
          (if (is-expr $prf)
-            (proof-term-contains-negated-list?
-               (proof-term-children-mode proof-walk-in-kb $prf))
+            (case $prf (
+               ((proof-ref $pid) (proof-ref-negated? $pid))
+               ($_other
+                  (proof-term-contains-negated-list?
+                     (proof-term-children-mode proof-walk-in-kb $prf)))))
             false))))
 
 (: rule-evidence-head (-[det]-> Proof Proof))

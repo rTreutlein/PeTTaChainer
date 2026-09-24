@@ -97,11 +97,7 @@
 ;; Naming the role prevents an arbitrary atom from being accepted by the state
 ;; mutation helper while retaining the existing symbol representation.
 (: CounterKey Type)
-(: bwd_gid CounterKey)
-(: bwd_pid CounterKey)
-(: bwd_frontier_path CounterKey)
-(: bwd_frontier_view CounterKey)
-(: bwd_proof_revision CounterKey)
+(: proof_id CounterKey)
 (: ruleid CounterKey)
 (: bwd_tmp_ruleid CounterKey)
 (: fwd_aggregate_id CounterKey)
@@ -195,61 +191,18 @@
 (: NoCurrentScore Type)
 (: no-current NoCurrentScore)
 
-(: NoProjectionKey Type)
-(: no-projection-key NoProjectionKey)
-(: ProjectionKey Type)
-(: projection-key (-[det]-> Atom Atom ProjectionKey))
-
-(: ProofRef Type)
-(: proof-ref (-[det]-> Number ProofRef))
+;; A stored proof: a reference in a proof term stands for the proof stored
+;; under that id, with the evidence a walk of its leaves finds and whether it
+;; contains a negation anywhere. Stored proofs refer only to earlier ids, so
+;; they form a DAG, and a proof term stays as small as one rule application.
+(: proof-ref (-[det]-> Number Proof))
+(: &proof (SpaceOf (Number Proof (List Evidence) Bool)))
 
 (: Evidence (Newtype Atom))
 (: fact-ev (-[det]-> KBContext Proof Statement Evidence))
 (: not-fact-ev (-[det]-> KBContext Proof Statement Evidence))
 (: rule-ev (-[det]-> KB Proof Evidence))
 (: not-ev (-[det]-> Evidence Evidence))
-
-;; Completed proofs outlive the query-local goal rows that discovered them.
-;; Their owner is therefore the alpha-stable semantic goal key, never a
-;; numeric search gid. Synthetic merged representatives use a distinct owner
-;; so they are not folded back into the raw candidate group they summarize.
-(: ProofGoalKey (Newtype Atom))
-(: ProofOwner Type)
-(: proof-goal (-[det]-> ProofGoalKey ProofOwner))
-(: merged-proof-group (-[det]-> ProofGoalKey ProofOwner))
-
-(: ProofKind Type)
-(: leaf
-   (-[det]-> (| Goal (Statement KBContext Proof TV)) ProofKind))
-(: rule
-   (-[det]-> (| Goal (Statement KBContext Proof TV)) ProofKind))
-(: aggregate
-   (-[det]-> (| Goal (Statement KBContext Proof TV)) ProofKind))
-(: merged
-   (-[det]-> (| Goal (Statement KBContext Proof TV)) ProofKind))
-
-(: ProofOutputKey Type)
-(: proof-output-key (-[det]-> $term ProofOutputKey))
-
-(: ProofContribution Type)
-(: independent-contribution (-[det]-> TV ProofContribution))
-(: projected-contribution
-   (-[det]-> ProofOutputKey TV Number Number TV ProofContribution))
-(: skip-contribution ProofContribution)
-(: unpoolable-contribution ProofContribution)
-
-;; Everything needed to compare and combine a proof belongs to the proof, not
-;; to the query-local frontier currently consuming it.
-(: ProofSupport Type)
-(: proof-support
-   (-[det]-> Number (List Evidence) ProofContribution ProofSupport))
-
-(: StoredProofRow Type)
-(: stored-proof-row
-   (-[det]-> Number ProofOwner
-       (| Goal (Statement KBContext Proof TV))
-       ProofKind ProofSupport (List Number)
-       StoredProofRow))
 
 (: BaseRateSource Type)
 (: user BaseRateSource)
