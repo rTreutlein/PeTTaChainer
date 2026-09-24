@@ -343,7 +343,7 @@
 (= (forward-queued-fact-current? $fact)
    (== (forward-current-version $fact) $fact))
 
-(: forward-loop (-[det]-> Number KB ForwardRun ForwardRun))
+(: forward-loop (-[semidet]-> Number KB ForwardRun ForwardRun))
 (= (forward-loop $steps $kb ($agenda $changed))
    (if (<= $steps 0)
        (data $agenda $changed)

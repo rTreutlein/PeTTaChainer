@@ -12,6 +12,7 @@
 (: heap_pop
    (-[semidet]-> (Heap $item)
        (Number $item (Heap $item))))
+(: heap-empty? (-[det]-> (Heap $item) Bool))
 
 ;; Truth values retain their existing tagged runtime representation, while
 ;; distinct result types let constructor patterns narrow a TV to the fields
@@ -107,6 +108,7 @@
 (: sk_budget CounterKey)
 (: sk_row_budget CounterKey)
 (: sk_row_seq CounterKey)
+(: sk_push_seq CounterKey)
 
 ;; Stored rule rows retain the existing conclusion/premise wire format. The
 ;; premise list contains executable goals and internal runtime fact tuples;
@@ -128,6 +130,8 @@
       ((Statement KBContext Proof TV)
        Number
        (List (| Goal (Statement KBContext Proof TV))))))
+;; rule id -> the rule's expected premise confidence
+(: rule_expected (SpaceOf (Number Number)))
 
 (: StoredGoalRow Type)
 (: AgendaKind Type)

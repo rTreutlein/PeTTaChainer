@@ -5,6 +5,11 @@
 heap_pop(Heap, [Priority, Value, Rest]) :-
     get_from_heap(Heap, Priority, Value, Rest).
 
+% Test before popping, so a caller can pop without collecting the result: a
+% collected pop copies the whole remaining heap.
+'heap-empty?'(Heap, Empty) :-
+    (   empty_heap(Heap) -> Empty = true ; Empty = false ).
+
 % Hash a lookup column with every variable replaced by one marker, so a row
 % keeps an integer SWI can JIT-index; =alpha on the stored key still decides.
 'index-hash'(Term, Hash) :-

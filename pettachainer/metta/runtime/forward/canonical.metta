@@ -117,18 +117,13 @@
 (: no-forward-agenda-pop ForwardAgendaPop)
 (: forward-agenda-pop (-[det]-> (Heap ForwardQueueItem) ForwardQueueItem ForwardAgendaPop))
 
-(: forward-pop-agenda (-[det]-> (Heap ForwardQueueItem) ForwardAgendaPop))
+(: forward-pop-agenda (-[semidet]-> (Heap ForwardQueueItem) ForwardAgendaPop))
 (= (forward-pop-agenda $agenda)
-   (let $pops
-      (collapse
-         (once
-            (let ($_priority $item $rest)
-               (heap_pop $agenda)
-               (forward-agenda-pop
-                  $rest $item))))
-      (if (== $pops ())
-         no-forward-agenda-pop
-         (car-atom $pops))))
+   (if (heap-empty? $agenda) no-forward-agenda-pop (forward-agenda-popped (heap_pop $agenda))))
+
+(: forward-agenda-popped
+   (-[det]-> (Number ForwardQueueItem (Heap ForwardQueueItem)) ForwardAgendaPop))
+(= (forward-agenda-popped ($_priority $item $rest)) (forward-agenda-pop $rest $item))
 
 (: ForwardRun
    (Alias ((Heap ForwardQueueItem) (List ForwardOutputKey))))

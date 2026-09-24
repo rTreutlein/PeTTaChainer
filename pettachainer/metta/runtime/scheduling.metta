@@ -144,7 +144,7 @@
          (if-error-bool
             (car-atom $state-values) true))))
 
-(: heap-prune-to-size (-[det]-> Number (Heap $item) (Heap $item)))
+(: heap-prune-to-size (-[semidet]-> Number (Heap $item) (Heap $item)))
 (= (heap-prune-to-size $target $agenda)
    (let (heap-split $kept $_discarded)
       (heap-split-best $target $agenda (empty_heap))
@@ -154,37 +154,21 @@
 (: heap-split (-[det]-> (Heap $item) (Heap $item) HeapSplit))
 
 (: heap-split-best
-   (-[det]-> Number (Heap $item) (Heap $item) HeapSplit))
+   (-[semidet]-> Number (Heap $item) (Heap $item) HeapSplit))
 (= (heap-split-best $count $src $kept)
    (if (<= $count 0)
       (heap-split $kept $src)
-      (case (collapse (heap_pop $src)) (
-         (() (heap-split $kept (empty_heap)))
-         ((cons $pop $_rest)
-            (heap-split-best-pop $count $kept $pop))))))
+      (if (heap-empty? $src)
+         (heap-split $kept $src)
+         (heap-split-best-pop $count $kept (heap_pop $src)))))
 
 (: heap-split-best-pop
-   (-[det]-> Number (Heap $item)
+   (-[semidet]-> Number (Heap $item)
        (Number $item (Heap $item)) HeapSplit))
 (= (heap-split-best-pop $count $kept ($key $item $rest))
    (heap-split-best
       (- $count 1) $rest
       (add_to_heap $kept $key $item)))
-
-(: heap-merge-into
-   (-[det]-> (Heap $item) (Heap $item) (Heap $item)))
-(= (heap-merge-into $src $dst)
-   (case (collapse (heap_pop $src)) (
-      (() $dst)
-      ((cons $pop $_tail)
-         (heap-merge-into-pop $dst $pop)))))
-
-(: heap-merge-into-pop
-   (-[det]-> (Heap $item)
-       (Number $item (Heap $item)) (Heap $item)))
-(= (heap-merge-into-pop $dst ($key $item $rest))
-   (heap-merge-into $rest
-      (add_to_heap $dst $key $item)))
 
 (: bounded-agenda-prune-needed?
    (-[det]-> Number (Heap $item) Bool))
@@ -199,7 +183,7 @@
          (> $size (* $target 64)))
       false))
 
-(: bounded-agenda-prune (-[det]-> Number (Heap $item) (Heap $item)))
+(: bounded-agenda-prune (-[semidet]-> Number (Heap $item) (Heap $item)))
 (= (bounded-agenda-prune $steps $agenda)
    (if (bounded-agenda-prune-needed? $steps $agenda)
       (heap-prune-to-size

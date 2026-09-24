@@ -53,7 +53,10 @@
 (: sk-start-rule-step (-[semidet]-> SkPattern Atom SkeletonMatch Atom))
 (: sk-activate-pending! (-[semidet]-> Atom))
 (: sk-expand! (-[semidet]-> SkPattern Number Atom))
-(: sk-search! (-[semidet]-> Number (List SkPattern) (List SkPattern) Atom))
+;; node, depth
+(: SkeletonFrontier Type)
+(: sk-frontier (-[det]-> SkPattern Number SkeletonFrontier))
+(: sk-search! (-[semidet]-> (Heap SkeletonFrontier) Atom))
 
 ;; --- Node identity ----------------------------------------------------------
 
@@ -106,9 +109,50 @@
          (add-atom &sk_link ($hash $link))
          false)))
 
-(: sk-add-child! (-[det]-> SkPattern SkPattern Atom))
-(= (sk-add-child! $owner $child)
-   (if (sk-link-new! (sk-child-link $owner $child))
+(: sk-node-score (-[det]-> SkPattern Number))
+(= (sk-node-score $node)
+   (let $hash (sk-node-hash $node)
+      (case (collapse (once (match &sk_score ($hash $stored $score)
+               (if (=alpha $stored $node) $score (empty))))) (
+         ((cons $score $_rest) $score)
+         (() 0.0)))))
+
+(: sk-raise-score! (-[det]-> SkPattern Number Atom))
+(= (sk-raise-score! $node $score)
+   (let* (($hash (sk-node-hash $node))
+          ($old (sk-node-score $node)))
+      (if (> $score $old)
+         (let* (($_removed
+                   (collapse (match &sk_score ($hash $stored $old-score)
+                      (if (=alpha $stored $node) (remove-atom &sk_score ($hash $stored $old-score)) (empty)))))
+                ($_added (add-atom &sk_score ($hash $node $score))))
+            ())
+         ())))
+
+;; A rule's expected confidence, computed when the rule was stored.
+(: sk-rule-score (-[det]-> Number Number))
+(= (sk-rule-score $rule)
+   (case (collapse (once (match rule_expected ($rule $score) $score))) (
+      ((cons $score $_rest) $score)
+      (() 1.0))))
+
+;; Premises a join still has to prove: facts and folds; formulas are computed.
+(: sk-open-premise-step (-[det]-> Number SkPattern Number))
+(= (sk-open-premise-step $count $premise)
+   (case $premise (
+      ((CPU $fun $_args $_res) (if (aggregate-fold-function? $fun) (+ $count 1) $count))
+      ($_fact (+ $count 1)))))
+
+;; The value of a join's next premise: what its owner is worth, times the
+;; rule's expected confidence, shared among the premises still open.
+(: sk-join-score (-[semidet]-> SkPattern Number (List SkPattern) Number))
+(= (sk-join-score $owner $rule $remaining)
+   (/ (* (sk-node-score $owner) (sk-rule-score $rule))
+      (max 1 (fold-semidet sk-open-premise-step 0 $remaining))))
+
+(: sk-add-child! (-[det]-> SkPattern SkPattern Number Atom))
+(= (sk-add-child! $owner $child $score)
+   (if (let $_scored (sk-raise-score! $child $score) (sk-link-new! (sk-child-link $owner $child)))
       (let* (($hash (sk-node-hash $owner))
              ($_row (add-atom &sk_child ($hash $owner $child)))
              ($_fresh (add-atom &sk_fresh (sk-fresh $child))))
@@ -185,7 +229,7 @@
 
 (: sk-mark-dirty! (-[det]-> SkeletonKey Atom))
 (= (sk-mark-dirty! $key)
-   (if (sk-space-nonempty? &sk_view)
+   (if (sk-space-nonempty? &sk_latest)
       (let $_row (add-atom &sk_dirty (sk-dirty $key)) ())
       ()))
 
@@ -238,7 +282,7 @@
          (case $premise (
             ((CPU $fun $args $_res)
                (if (== $fun FoldAllCompiled)
-                  (let $_child (sk-add-child! $owner (copy_term $premise))
+                  (let $_child (sk-add-child! $owner (copy_term $premise) (sk-join-score $owner $rule $remaining))
                      (sk-advance!
                         (sk-partial $owner $rule $concl $premises $rest
                            (cons (sk-fold $args) $keys))))
@@ -276,7 +320,10 @@
              (if (>= $rule 1000000000)
                 (let $_t (add-atom &sk_temp_waits ($hash $premise $waiter)) ())
                 ()))
-          ($_child (sk-add-child! $owner (copy_term $premise))))
+          ($_child
+             (case $waiter (
+                ((sk-partial $_owner $_rule $_concl $_premises $remaining $_keys)
+                   (sk-add-child! $owner (copy_term $premise) (sk-join-score $owner $rule $remaining)))))))
       (fold-semidet (sk-extend-waiter-step $waiter) () (sk-answers $premise))))
 
 (: sk-extend-waiter-step (-[semidet]-> SkeletonWaiter Atom SkeletonKey Atom))
@@ -327,10 +374,13 @@
                       (fold-semidet (sk-add-reader! $khash $rhash) ()
                          (fold-semidet sk-direct-key-step () $premises))))
                (sk-add-answer! $owner $key))
-            (let* (($hash (sk-node-hash $owner))
-                   ($_deferred
-                      (add-atom &sk_deferred ($hash (sk-deferred $owner $rule $concl $premises $keys)))))
-               ())))))
+            ;; A row waits once, however often its join completes meanwhile.
+            (let $hash (sk-node-hash $owner)
+               (if (== (collapse (once (match &sk_deferred ($hash $rhash $_deferred) true))) ())
+                  (let $_deferred
+                     (add-atom &sk_deferred ($hash $rhash (sk-deferred $owner $rule $concl $premises $keys)))
+                     ())
+                  ()))))))
 
 ;; The keys a row reads directly: its fact premises, folds and groups.
 (: sk-direct-key-step (-[det]-> (List SkeletonKey) SkPattern (List SkeletonKey)))
@@ -388,10 +438,10 @@
                       (add-atom &sk_answer_queue (sk-delivery $owner $key)))
                    (empty)))))
           ($deferred
-             (collapse (match &sk_deferred ($hash (sk-deferred $owner $rule $concl $premises $keys))
+             (collapse (match &sk_deferred ($hash $rhash (sk-deferred $owner $rule $concl $premises $keys))
                 (if (=alpha $owner $node)
                    (let $_removed
-                      (remove-atom &sk_deferred ($hash (sk-deferred $owner $rule $concl $premises $keys)))
+                      (remove-atom &sk_deferred ($hash $rhash (sk-deferred $owner $rule $concl $premises $keys)))
                       (sk-deferred $owner $rule $concl $premises $keys))
                    (empty))))))
       (fold-semidet sk-deferred-step () $deferred)))
@@ -562,7 +612,7 @@
                          ($member-hash (sk-node-hash $member))
                          ($_fold (add-atom &sk_fold ($node-hash $node $member)))
                          ($_member-of (add-atom &sk_member_of ($member-hash $member $node)))
-                         ($_child (sk-add-child! $node $member)))
+                         ($_child (sk-add-child! $node $member (sk-node-score $node))))
                      (fold-semidet (sk-fold-answer-step $node) () (sk-answers $member))))))))
       (($type $kbctx $proof $tv)
          (let* (($_special
@@ -666,37 +716,58 @@
    (collapse (match &sk_fresh (sk-fresh $node)
       (let $_removed (remove-atom &sk_fresh (sk-fresh $node)) $node))))
 
-;; The current level is walked in order; children are collected, newest
-;; first, into the next level, which is reversed when the level is done.
-;; Roots are depth 0: their compiled scaffolding was installed by the query.
-(= (sk-search! $depth $level $next)
-   (case $level (
-      (()
-         (let* (($_drained (sk-drain!))
-                ($level-next (fold-semidet sk-cons-step $next (sk-take-fresh!))))
-            (if (== $level-next ()) ()
-               (sk-search! (+ $depth 1) (fold-semidet sk-cons-step () $level-next) ()))))
-      ((cons $node $rest)
-         (let $_drained (sk-drain!)
-            (if (sk-seen! $node)
-               (sk-search! $depth $rest $next)
-               (if (sk-expanded? $node)
-                  (let $_resumed (sk-resume! $node)
-                     (sk-search! $depth $rest (fold-semidet sk-cons-step $next (sk-children $node))))
-                  (if (sk-take-step!)
-                     (let $_expand (sk-expand! $node $depth)
-                        (sk-search! $depth $rest
-                           (fold-semidet sk-cons-step $next (sk-children $node))))
-                     (sk-drain!)))))))))
+;; The walk is best-first by score. Walking an expanded node is free; an
+;; unexpanded one costs a step, and the walk ends at the first one the budget
+;; cannot pay for. Equal scores go shallowest first, then in insertion order.
+(: sk-push (-[det]-> Number (Heap SkeletonFrontier) SkPattern (Heap SkeletonFrontier)))
+(= (sk-push $depth $heap $node)
+   (add_to_heap $heap
+      (+ (- 0 (sk-node-score $node)) (+ (* $depth 0.000001) (* (next-search-id sk_push_seq) 0.000000000001)))
+      (sk-frontier $node $depth)))
+
+(: sk-push-children (-[semidet]-> Number SkPattern (Heap SkeletonFrontier) (Heap SkeletonFrontier)))
+(= (sk-push-children $depth $node $heap)
+   (fold-semidet (sk-push (+ $depth 1)) (fold-semidet (sk-push (+ $depth 1)) $heap (sk-children $node)) (sk-take-fresh!)))
+
+(= (sk-search! $heap)
+   (let $_drained (sk-drain!)
+      (if (heap-empty? $heap)
+         (case (sk-take-fresh!) (
+            (() ())
+            ($fresh (sk-search! (fold-semidet (sk-push 1) $heap $fresh)))))
+         (sk-search-pop! (heap_pop $heap)))))
+
+(: sk-search-pop! (-[semidet]-> (Number SkeletonFrontier (Heap SkeletonFrontier)) Atom))
+(= (sk-search-pop! ($_priority (sk-frontier $node $depth) $rest))
+   (if (sk-seen! $node)
+      (sk-search! $rest)
+      (if (sk-expanded? $node)
+         (let $_resumed (sk-resume! $node) (sk-search! (sk-push-children $depth $node $rest)))
+         (if (sk-take-step!)
+            (let $_expand (sk-expand! $node $depth) (sk-search! (sk-push-children $depth $node $rest)))
+            (sk-drain!)))))
+
+;; A row's latest view and the views it replaced.
+(: sk-drop-row-views! (-[det]-> Number SkeletonKey Number Atom))
+(= (sk-drop-row-views! $hash $key $rhash)
+   (let* (($_latest
+             (collapse (match &sk_latest ($hash $stored (sk-version $seq $rhash $view))
+                (if (=alpha $stored $key)
+                   (remove-atom &sk_latest ($hash $stored (sk-version $seq $rhash $view)))
+                   (empty)))))
+          ($_older
+             (collapse (match &sk_view ($hash $stored $rhash $view)
+                (if (=alpha $stored $key) (remove-atom &sk_view ($hash $stored $rhash $view)) (empty))))))
+      ()))
 
 ;; Query-local rules leave with their query: their rows, waiters, deferred rows
 ;; and views are removed, and the keys of the removed rows changed.
 (: sk-clear-temp! (-[semidet]-> Atom))
 (= (sk-clear-temp!)
    (let* (($_deferred
-             (collapse (match &sk_deferred ($h (sk-deferred $o $rule $c $p $k))
+             (collapse (match &sk_deferred ($h $rh (sk-deferred $o $rule $c $p $k))
                 (if (>= $rule 1000000000)
-                   (remove-atom &sk_deferred ($h (sk-deferred $o $rule $c $p $k)))
+                   (remove-atom &sk_deferred ($h $rh (sk-deferred $o $rule $c $p $k)))
                    (empty)))))
           ($_waits
              (collapse (match &sk_temp_waits ($hash $pattern $waiter)
@@ -710,11 +781,7 @@
                        ($_readers
                           (fold-semidet (sk-remove-reader! $khash $rhash) ()
                              (fold-semidet sk-direct-key-step () $premises)))
-                       ($_views
-                          (collapse (match &sk_view ($khash $stored $rhash $view)
-                             (if (=alpha $stored $key)
-                                (remove-atom &sk_view ($khash $stored $rhash $view))
-                                (empty))))))
+                       ($_views (sk-drop-row-views! $khash $key $rhash)))
                    $key)))))
       (fold-semidet sk-dirty-step () $keys)))
 

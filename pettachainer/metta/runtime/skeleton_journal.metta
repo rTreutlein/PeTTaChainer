@@ -52,7 +52,8 @@
 (: sk-goal-val (-[det]-> Goal Proof (List Evidence) (List Number) SkeletonValue))
 (: sk-none SkeletonValue)
 (: SkeletonVersion Type)
-(: sk-version (-[det]-> Number SkeletonValue SkeletonVersion))
+;; row creation number, row hash, view
+(: sk-version (-[det]-> Number Number SkeletonValue SkeletonVersion))
 
 (: SkeletonLink Type)
 (: sk-child-link (-[det]-> SkPattern SkPattern SkeletonLink))
@@ -109,7 +110,9 @@
 ;; group key -> its grouped fold node
 (: &sk_group_of (SpaceOf (Number SkeletonKey SkPattern)))
 !(bind! &sk_group_of (new-space))
-;; every version of each row's and fold's view
+;; each row's and fold's latest view, and the views it replaced
+(: &sk_latest (SpaceOf (Number SkeletonKey SkeletonVersion)))
+!(bind! &sk_latest (new-space))
 (: &sk_view (SpaceOf (Number SkeletonKey Number SkeletonValue)))
 !(bind! &sk_view (new-space))
 ;; a key's merged value for an open pattern and no exclusion, with the
@@ -137,9 +140,9 @@
 ;; deliveries an earlier query left over, by node hash
 (: &sk_parked (SpaceOf (Number (sk-delivery SkPattern SkeletonKey))))
 !(bind! &sk_parked (new-space))
-;; rows found after the row allowance ran out, by owner hash
+;; rows found after the row allowance ran out, by owner hash and row hash
 (: &sk_deferred
-   (SpaceOf (Number (sk-deferred SkPattern Number SkFact (List SkPattern) (List SkeletonKey)))))
+   (SpaceOf (Number Number (sk-deferred SkPattern Number SkFact (List SkPattern) (List SkeletonKey)))))
 !(bind! &sk_deferred (new-space))
 ;; rows and waiters created from query-local rules, removed after the query
 (: &sk_temp_rows (SpaceOf (Number SkeletonKey Number SkeletonRow)))
@@ -149,6 +152,10 @@
 ;; children linked since the walk last looked
 (: &sk_fresh (SpaceOf (sk-fresh SkPattern)))
 !(bind! &sk_fresh (new-space))
+;; each expanded or linked node's search score: the best value a join
+;; waiting on it assigned
+(: &sk_score (SpaceOf (Number SkPattern Number)))
+!(bind! &sk_score (new-space))
 ;; nodes the current walk visited
 (: &sk_seen (SpaceOf (Number SkPattern)))
 !(bind! &sk_seen (new-space))
@@ -175,7 +182,7 @@
                 (let $_row (add-atom &sk_pending_facts (sk-pending-fact $key)) ())
                 ()))
           ($_dirty
-             (if (sk-space-nonempty? &sk_view)
+             (if (sk-space-nonempty? &sk_latest)
                 (let $_row (add-atom &sk_dirty (sk-dirty $key)) ())
                 ())))
       ()))
