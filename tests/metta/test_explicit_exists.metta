@@ -275,14 +275,7 @@
 !(test
    (query 300 existentialResidualKb
       (: $proof (OtherWitnessEstimate fido) $tv))
-   (: (by exposeOtherWitness
-          (conjunction
-             (by dogChasesCat fidoDog)
-             (disjunction
-                (conjunction lunaCat fidoRarelyChasesLuna)
-                (conjunction miloCat fidoRarelyChasesMilo))))
-      (OtherWitnessEstimate fido)
-      (STV 0.9474016410687987 0.8948358186906257)))
+   (: (by exposeOtherWitness (conjunction (by dogChasesCat fidoDog) (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna)))) (OtherWitnessEstimate fido) (STV 0.9474016410687987 0.8948358186906257)))
 
 ;; Adding a stronger known witness leaves the direct existential proof intact,
 ;; increases D, and refines the residual estimate downward.
@@ -295,26 +288,12 @@
 !(test
    (query 300 existentialResidualKb
       (: $proof (KnownWitnessDisjunction fido) $tv))
-   (: (by exposeKnownWitnesses
-          (disjunction
-             (conjunction lunaCat fidoRarelyChasesLuna)
-             (conjunction miloCat fidoRarelyChasesMilo)
-             (conjunction felixCat fidoOftenChasesFelix)))
-      (KnownWitnessDisjunction fido)
-      (STV 0.61976 0.9043600864574071)))
+   (: (by exposeKnownWitnesses (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna) (conjunction felixCat fidoOftenChasesFelix))) (KnownWitnessDisjunction fido) (STV 0.61976 0.9043600864574071)))
 
 !(test
    (query 300 existentialResidualKb
       (: $proof (OtherWitnessEstimate fido) $tv))
-   (: (by exposeOtherWitness
-          (conjunction
-             (by dogChasesCat fidoDog)
-             (disjunction
-                (conjunction lunaCat fidoRarelyChasesLuna)
-                (conjunction miloCat fidoRarelyChasesMilo)
-                (conjunction felixCat fidoOftenChasesFelix))))
-      (OtherWitnessEstimate fido)
-      (STV 0.8685041026719965 0.7430346472921185)))
+   (: (by exposeOtherWitness (conjunction (by dogChasesCat fidoDog) (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna) (conjunction felixCat fidoOftenChasesFelix)))) (OtherWitnessEstimate fido) (STV 0.8685041026719965 0.7430346472921185)))
 
 ;; Grouped aggregate snapshots are restored one per grounded output group. A
 ;; zero-budget repeat reads both representatives immediately; adding a third

@@ -268,6 +268,9 @@
 (: sk-fact-key (-[det]-> SkFact SkeletonKey))
 (= (sk-fact-key ($type $kbctx $_proof $_tv)) (sk-key $type $kbctx))
 
+(: sk-leaf-answer-step (-[semidet]-> SkPattern Atom SkFact Atom))
+(= (sk-leaf-answer-step $node $_acc $fact) (sk-add-answer! $node (sk-fact-key $fact)))
+
 ;; --- Keys ------------------------------------------------------------------
 
 ;; A value must not depend on its own key, nor on another key that unifies
@@ -455,9 +458,21 @@
                ()))
          ($_other ())))))
 
+;; A join waiting on a ground fact premise sees that premise's stored facts at
+;; once: looking them up is one indexed read, so only expanding the premise's
+;; rules costs a step. An open premise waits for its expansion, which bounds
+;; recursion through its own answers.
 (= (sk-wait-on! $owner $rule $premise $waiter)
    (let* (($hash (sk-node-hash $premise))
           ($_wait (add-atom &sk_wait ($hash $premise $waiter)))
+          ($_leaves
+             (if (sk-expanded? $premise) ()
+                (case (copy_term $premise) (
+                   ((CPU $_fun $_args $_res) ())
+                   (($type $kbctx $proof $tv)
+                      (if (== (extract-vars $type) ())
+                         (fold-semidet (sk-leaf-answer-step $premise) () (sk-leaf-facts $type $kbctx (sk-filter $proof $tv)))
+                         ()))))))
           ($_temp
              (if (>= $rule 1000000000)
                 (let $_t (add-atom &sk_temp_waits ($hash $premise $waiter)) ())
@@ -471,13 +486,17 @@
 (: sk-extend-waiter-step (-[semidet]-> SkeletonWaiter Atom SkeletonKey Atom))
 (= (sk-extend-waiter-step $waiter $_acc $key) (sk-extend! (copy_term $waiter) $key))
 
-;; Once the row allowance is spent, a join an answer reaches stops there: the
-;; pair waits once with the join's owner, so a recursive rule cannot keep
-;; extending joins whose rows could not be kept anyway. Joins of the query's
-;; roots always proceed.
+;; A join is extended by an answer once, however the answer reaches it (read
+;; when the join starts waiting, or delivered later); a computation that
+;; samples would otherwise draw again. Once the row allowance is spent, a join
+;; an answer reaches stops there: the pair waits once with the join's owner, so
+;; a recursive rule cannot keep extending joins whose rows could not be kept
+;; anyway. Joins of the query's roots always proceed.
 (= (sk-extend! (sk-partial $owner $rule $concl $premises $remaining $keys) $key)
    (if (if (sk-root? $owner) true (> (search-id-value sk_row_budget) 0))
-      (sk-extend-now! (sk-partial $owner $rule $concl $premises $remaining $keys) $key)
+      (if (sk-link-new! (sk-join-link (sk-partial $owner $rule $concl $premises $remaining $keys) $key))
+         (sk-extend-now! (sk-partial $owner $rule $concl $premises $remaining $keys) $key)
+         ())
       (let* (($hash (sk-node-hash $owner))
              ($join (sk-join (sk-partial $owner $rule $concl $premises $remaining $keys) $key))
              ($jhash (index-hash $join)))
@@ -735,9 +754,6 @@
          (sk-advance! (sk-partial $owner $rule $goal $premises $premises ())))
       ()))
 
-(: sk-leaf-answer-step (-[semidet]-> SkPattern Atom SkFact Atom))
-(= (sk-leaf-answer-step $node $_acc $fact) (sk-add-answer! $node (sk-fact-key $fact)))
-
 ;; The compiled scaffold of a nested implication subgoal that is not itself a
 ;; compiled total-implication source; its assumption contexts are the query's.
 (: inject-special-subgoal-query-adds (-[semidet]-> Statement KBContext Proof TV Atom))
@@ -791,18 +807,28 @@
 (= (inject-compiled-query-adds (compiled-query $_goal $adds))
    (if (is-var $adds) (empty) (once (inject-compiled-adds $adds))))
 
-;; The fold's source goal is compiled as an ordinary query; its additions are
-;; query-local rules.
+;; The fold's source goal is compiled as an ordinary query once per pattern.
+;; Its additions depend only on the pattern, so they are installed as
+;; permanent backward rules: the member rows outlive the query, and a later
+;; fold over the same pattern reuses the goal.
 (: sk-fold-member (-[semidet]-> $arguments (List SkPattern)))
 (= (sk-fold-member $args)
    (let* (($kb (brand KB (car-atom $args)))
-          ($pattern (brand Statement (car-atom (cdr-atom $args)))))
-      (case (collapse (once (mm2compileQuery $kb (: $_h $pattern $_i)))) (
-         ((cons (compiled-query $goal $adds) $_rest)
-            (if (if (is-var $goal) true (is-var $adds)) ()
-               (let $_ (once (inject-compiled-adds $adds))
-                  (cons (typed-runtime-premise $goal) ()))))
-         ($_none ())))))
+          ($pattern (brand Statement (car-atom (cdr-atom $args))))
+          ($source (quote ($kb $pattern)))
+          ($hash (index-hash $source)))
+      (case (collapse (once (match &sk_fold_members ($hash $stored $member)
+               (if (=alpha $stored $source) $member (empty))))) (
+         ((cons $found $_rest) (cons $found ()))
+         (()
+            (case (collapse (once (mm2compileQuery $kb (: $_h $pattern $_i)))) (
+               ((cons (compiled-query $goal $adds) $_rest)
+                  (if (if (is-var $goal) true (is-var $adds)) ()
+                     (let* (($_rules (once (foreach-flat (kb-add-expr backward) $adds)))
+                            ($compiled (typed-runtime-premise $goal))
+                            ($_row (add-atom &sk_fold_members ($hash $source $compiled))))
+                        (cons $compiled ()))))
+               ($_none ()))))))))
 
 (= (sk-expand! $node $depth)
    (let $_counted (query_metric_increment expansions)

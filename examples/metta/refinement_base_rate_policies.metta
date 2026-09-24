@@ -50,11 +50,16 @@
    (CorrelatedTelemetry $incident)
    (STV 0.75 0.9))
 
-;; A tight budget retains the incumbent. With enough work, the actual
-;; telemetry proof refines it regardless of the cached population rates.
+;; The telemetry proof refines the incumbent regardless of the cached
+;; population rates. Its premise is a stored fact, which reaches the waiting
+;; rule without an expansion, so even a tight budget finds it.
 !(test
    (query 2 incidentPolicyKb (: $proof (ServiceAtRisk incident42) $tv))
-   (: existingAssessment (ServiceAtRisk incident42) (STV 1.0 0.7)))
+   (: (merge/revision
+         (by telemetryAssessment correlatedTelemetry)
+         existingAssessment)
+      (ServiceAtRisk incident42)
+      (STV 1.0 0.9551515146764331)))
 
 !(test
    (query 20 incidentPolicyKb (: $proof (ServiceAtRisk incident42) $tv))

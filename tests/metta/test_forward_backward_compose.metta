@@ -17,7 +17,10 @@
 
 !(compileadd bwdOnlyKb (: r2 (Implication (B) (Goal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(test (query 2 bwdOnlyKb (: $p (Goal) $tv)) ())
+;; Stored facts reach a waiting join without an expansion, so two steps expand
+;; Goal and B and read A.
+!(test (query 2 bwdOnlyKb (: $p (Goal) $tv))
+   (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
 
 !(test (query 4 bwdOnlyKb (: $p (Goal) $tv))
    (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.999700089898053)))

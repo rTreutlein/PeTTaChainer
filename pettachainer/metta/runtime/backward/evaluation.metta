@@ -1175,7 +1175,33 @@
       ((sk-goal-val $goal $_proof $_ev $_deps) (cons (brand RuntimeResult $goal) $kept))
       (sk-none $kept))))
 
-;; Proven answers in root order; a materializing query writes back the first.
+;; An answer is redundant when another answer has the same proof and a more
+;; general statement: it is that derivation instantiated.
+(: sk-instance-of? (-[det]-> RuntimeResult RuntimeResult Bool))
+(= (sk-instance-of? $answer $general)
+   (if (=alpha $answer $general) false
+      (case (copy_term $answer) (
+         (($type $kbctx $proof $tv)
+            (case (copy_term $general) (
+               (($general-type $general-kbctx $general-proof $_general-tv)
+                  (if (== $proof $general-proof)
+                     (if (= $general-type $type) (=alpha $type (sk-fact-type $answer)) false)
+                     false))
+               ($_goal false))))
+         ($_goal-answer false)))))
+
+(: sk-fact-type (-[det]-> RuntimeResult Atom))
+(= (sk-fact-type $answer) (case $answer ((($type $_kbctx $_proof $_tv) $type) ($_goal $answer))))
+
+(: sk-subsumed-step (-[semidet]-> (List RuntimeResult) (List RuntimeResult) RuntimeResult (List RuntimeResult)))
+(= (sk-subsumed-step $all $kept $answer)
+   (if (fold-flat (sk-instance-step $answer) false $all) $kept (cons $answer $kept)))
+
+(: sk-instance-step (-[det]-> RuntimeResult Bool RuntimeResult Bool))
+(= (sk-instance-step $answer $found $general) (if $found true (sk-instance-of? $answer $general)))
+
+;; Proven answers in root order without redundant instances; a materializing
+;; query writes back the first.
 (: sk-root-results (-[semidet]-> Bool SkPattern (List RuntimeResult)))
 (= (sk-root-results $materialize? $goal)
    (let* (($values (fold-semidet sk-cons-step () (fold-semidet sk-proven-step () (sk-root-values $goal))))
@@ -1184,8 +1210,9 @@
                 (case $values (
                    ((cons $first $_rest) (sk-materialize! $first))
                    (() ())))
-                ())))
-      (fold-semidet sk-cons-step () (fold-semidet sk-result-step () $values))))
+                ()))
+          ($answers (fold-semidet sk-cons-step () (fold-semidet sk-result-step () $values))))
+      (fold-semidet sk-cons-step () (fold-semidet (sk-subsumed-step $answers) () $answers))))
 
 ;; A root's Member producer is part of its scaffold and installed even when
 ;; the budget expands nothing.

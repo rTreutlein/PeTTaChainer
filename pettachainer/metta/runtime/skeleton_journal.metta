@@ -59,6 +59,7 @@
 (: sk-child-link (-[det]-> SkPattern SkPattern SkeletonLink))
 (: sk-answer-link (-[det]-> SkPattern SkeletonKey SkeletonLink))
 (: sk-use-link (-[det]-> SkeletonKey SkeletonKey SkeletonLink))
+(: sk-join-link (-[det]-> SkeletonWaiter SkeletonKey SkeletonLink))
 
 ;; creation-number key-hash key row-hash row
 (: SkeletonItem Type)
@@ -189,6 +190,9 @@
 ;; with it, its own first
 (: &sk_unifiers (SpaceOf (Number Bool SkeletonKey (List Number))))
 !(bind! &sk_unifiers (new-space))
+;; (kb pattern) of a fold's compiled member goal, by hash
+(: &sk_fold_members (SpaceOf (Number Atom SkPattern)))
+!(bind! &sk_fold_members (new-space))
 ;; (kb subject concept) of the Member producers installed, by hash
 (: &sk_member_rules (SpaceOf (Number Atom)))
 !(bind! &sk_member_rules (new-space))

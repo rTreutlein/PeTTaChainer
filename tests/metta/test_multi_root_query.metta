@@ -74,8 +74,8 @@
    1)
 
 ;; A node's priority is the best score any join waiting on it gives it, however
-;; many roots share it, so the more useful proof of one root (0.3) is searched
-;; before the proof two roots share (0.2 each).
+;; many roots share it. Stored facts reach waiting joins without an expansion,
+;; so this budget answers all three roots.
 !(compileadd summedDemandKb
    (: summed-shared-fact (SummedSharedPremise) (STV 1.0 1.0)))
 !(compileadd summedDemandKb
@@ -99,12 +99,18 @@
          ((: $prf (SummedSharedLeft) $tv)
           (: $prf (SummedSharedRight) $tv)
           (: $prf (SummedSingleRoot) $tv))))
-   ((query-result 2
+   ((query-result 0
+       (: (by summed-shared-left summed-shared-fact)
+          (SummedSharedLeft) (STV 1.0 0.19999604037636698)))
+    (query-result 1
+       (: (by summed-shared-right summed-shared-fact)
+          (SummedSharedRight) (STV 1.0 0.19999604037636698)))
+    (query-result 2
        (: (by summed-single summed-single-fact)
           (SummedSingleRoot) (STV 1.0 0.2999911278320848)))))
 
-;; Two alternative rules from one root are not two independent consumers.
-;; Their confidence-based requests merge by maximum, so the stronger single request wins.
+;; Two alternative rules from one root are not two independent consumers; with
+;; stored facts reaching the joins directly this budget answers both roots.
 !(compileadd duplicateDemandKb
    (: duplicate-shared-fact
       (DuplicateSharedPremise) (STV 1.0 1.0)))
@@ -129,13 +135,16 @@
       (query-many 3 duplicateDemandKb
          ((: $prf (DuplicateSharedRoot) $tv)
           (: $prf (DuplicateSingleRoot) $tv))))
-   ((query-result 1
+   ((query-result 0
+       (: (by duplicate-shared-first duplicate-shared-fact)
+          (DuplicateSharedRoot) (STV 1.0 0.19999611996322178)))
+    (query-result 1
        (: (by duplicate-single duplicate-single-fact)
           (DuplicateSingleRoot) (STV 1.0 0.2999913061574112)))))
 
 ;; Roots share one priority order and an answered root is not rescored by its
-;; marginal value: with equal rule confidence this budget refines the first root
-;; before it reaches the second.
+;; marginal value; stored facts reach the joins without expansions, so this
+;; budget answers both roots and refines the first.
 !(compileadd refreshedDemandKb
    (: refresh-fast-fact (RefreshFastPremise) (STV 1.0 1.0)))
 !(compileadd refreshedDemandKb
@@ -162,16 +171,19 @@
           (: $prf (RefreshSecondRoot) $tv))))
    ((query-result 0
        (: (merge/revision (by refresh-fast refresh-fast-fact) (by refresh-slow refresh-slow-fact))
-          (RefreshFirstRoot) (STV 1.0 0.9999029644052249)))))
+          (RefreshFirstRoot) (STV 1.0 0.9999029644052249)))
+    (query-result 1
+       (: (by refresh-medium refresh-medium-fact)
+          (RefreshSecondRoot) (STV 1.0 0.9998059476404358)))))
 
-;; A zero-budget batch reads what earlier searches found: only the first root.
+;; A zero-budget batch reads what earlier searches found for both roots.
 !(test
    (length
       (collapse
          (query-many 0 refreshedDemandKb
             ((: $prf (RefreshFirstRoot) $tv)
              (: $prf (RefreshSecondRoot) $tv)))))
-   1)
+   2)
 !(test
    (length
       (collapse
