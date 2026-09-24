@@ -253,37 +253,68 @@
 
 ;; A user base rate is authoritative. An unexpanded fold falls back to a cached
 ;; estimate when one exists. A computed base rate is cached for reuse.
+;; A base rate's value is its user base rate, or else the better of its
+;; estimate and a fold over the members the search found; a fold that improves
+;; on the estimate replaces it. Without either it is the empty fold. The fold
+;; key watches the cache entry. Any other fold is computed from its members.
 (: sk-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
 (= (sk-fold-view $hash $args)
    (case (base-rate-aggregate-key $args) (
       ((base-rate-aggregate-key-value $kbid $pattern $mode)
-         (let $entries (base-rate-cache-entries-for-mode $kbid $pattern $mode)
-            (if (base-rate-cache-user-present? $entries)
-               (sk-cached-fold-view $hash $args $entries)
-               (let* (($view (sk-computed-fold-view $hash $args $entries))
-                      ($_stored
-                         (case $view (
-                            ((sk-goal-val (CPU $_f $_a (STV $s $c)) $_p $_ev $_deps)
-                               (store-produced-base-rate! $kbid $pattern (STV $s $c) computed $mode))
-                            ($_other ())))))
-                  $view))))
-      (no-base-rate-aggregate-key (sk-computed-fold-view $hash $args ())))))
+         (let* (($entries (sk-rate-entries $args))
+                ($rate-hash (index-hash (base-rate-aggregate-key-value $kbid $pattern $mode)))
+                ($key (sk-fold $args))
+                ($_watched
+                   (if (== (collapse (once (match &sk_rate_folds ($rate-hash $stored)
+                              (if (=alpha $stored $key) true (empty))))) ())
+                      (add-atom &sk_rate_folds ($rate-hash $key))
+                      true)))
+            (case $entries (
+               ((cons $entry $_rest)
+                  (if (base-rate-entry-user? $entry) (sk-cached-fold-view $hash $args $entry)
+                     (sk-better-rate-view $hash $args $kbid $pattern $mode $entry)))
+               (() (sk-store-computed-rate $kbid $pattern $mode (sk-computed-fold-view $hash $args)))))))
+      (no-base-rate-aggregate-key (sk-computed-fold-view $hash $args)))))
 
-(: sk-cached-fold-view (-[semidet]-> Number ScalarFoldSpec (List BaseRateEntry) SkeletonValue))
-(= (sk-cached-fold-view $hash $args (cons $entry $_rest))
+(: sk-better-rate-view
+   (-[semidet]-> Number ScalarFoldSpec KB Statement $mode BaseRateEntry SkeletonValue))
+(= (sk-better-rate-view $hash $args $kbid $pattern $mode $entry)
+   (if (== (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) ())
+      (sk-cached-fold-view $hash $args $entry)
+      (let $computed (sk-computed-fold-view $hash $args)
+         (case $computed (
+            ((sk-goal-val (CPU $_f $_a $tv) $_p $_ev $_deps)
+               (if (>= (tv-confidence $tv) (tv-confidence (base-rate-entry-tv $entry)))
+                  (sk-store-computed-rate $kbid $pattern $mode $computed)
+                  (sk-cached-fold-view $hash $args $entry)))
+            ($_none (sk-cached-fold-view $hash $args $entry)))))))
+
+(: sk-store-computed-rate (-[det]-> KB Statement $mode SkeletonValue SkeletonValue))
+(= (sk-store-computed-rate $kbid $pattern $mode $view)
+   (let $_stored
+      (case $view (
+         ((sk-goal-val (CPU $_f $_a (STV $s $c)) $_p $_ev $_deps)
+            (store-produced-base-rate! $kbid $pattern (STV $s $c) computed $mode))
+         ($_other ())))
+      $view))
+
+(: sk-cached-fold-view (-[semidet]-> Number ScalarFoldSpec BaseRateEntry SkeletonValue))
+(= (sk-cached-fold-view $hash $args $entry)
    (sk-goal-val (CPU FoldAllCompiled $args (base-rate-entry-tv $entry)) (brand Proof cpu) ()
       (cons $hash ())))
 
-(: sk-computed-fold-view (-[semidet]-> Number ScalarFoldSpec (List BaseRateEntry) SkeletonValue))
-(= (sk-computed-fold-view $hash $args $entries)
+(: sk-empty-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
+(= (sk-empty-fold-view $hash $args)
+   (let* ((($_kb $_pattern $_extractor $init $_function $finish $_mode) $args))
+      (sk-goal-val (CPU FoldAllCompiled $args (finish-aggregate $finish $init)) (brand Proof cpu) ()
+         (cons $hash ()))))
+
+(: sk-computed-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
+(= (sk-computed-fold-view $hash $args)
    (let* ((($_kb $_pattern $extractor $init $function $finish $_mode) $args)
           ($goal (CPU FoldAllCompiled $args $_result)))
       (case (sk-fold-node-member $goal) (
-         (()
-            (if (== $entries ())
-               (sk-goal-val (CPU FoldAllCompiled $args (finish-aggregate $finish $init))
-                  (brand Proof cpu) () (cons $hash ()))
-               (sk-cached-fold-view $hash $args $entries)))
+         (() (sk-empty-fold-view $hash $args))
          ((cons $member $_rest)
             (let* (((sk-fold-state $value $proofs $ev $deps)
                       (sk-fold-over (sk-accumulate $extractor $function) $function $init $finish
@@ -655,7 +686,7 @@
 ;; brings new support.
 (: sk-compute (-[semidet]-> Number SkeletonWork SkeletonItem SkeletonWork))
 (= (sk-compute $pass $work (sk-row-item $seq $hash $key $rhash $row))
-   (let* (($_counted (query_metric_increment row-computes))
+   (let* (($_computed (query_metric_increment row-computes))
           ($forced (sk-take-forced! $hash $rhash))
           ($new (sk-row-view $hash (copy_term $row))))
       (case $new (
@@ -666,13 +697,13 @@
                    (if $forced false
                       (if (== $latest sk-none) false
                          (if (sk-new-support? $hash $key $rhash $new) false
-                            (let $_counted (query_metric_increment views-without-support) true)))))
+                            (let $_unsupported (query_metric_increment views-without-support) true)))))
                $work
                (let* (($before
                          (collapse (once (match &sk_merged (sk-merged $hash $stored $deps $value)
                             (if (=alpha $stored $key) (sk-merged $hash $stored $deps $value) (empty))))))
                       ($_stored (sk-store-view! $hash $key $seq $rhash $new))
-                      ($_counted (query_metric_increment views-stored))
+                      ($_stored-count (query_metric_increment views-stored))
                       ($_merged (sk-drop-merged! $key))
                       ($deps (fold-semidet sk-view-deps-step () (cons $new ()))))
                   (sk-key-changed $pass $seq (sk-value-change $hash $key $deps $before) $work $key)))))))))
@@ -697,8 +728,10 @@
 
 (: sk-work-pop!
    (-[semidet]-> Number (Heap SkeletonItem) (Number SkeletonItem (Heap SkeletonItem)) Atom))
+;; Each row commits to its one result, so the loop leaves no choice points and
+;; runs in constant stack however many rows it computes.
 (= (sk-work-pop! $pass $next ($_seq $item $rest))
-   (sk-work-off! $pass (sk-compute $pass (sk-work $rest $next) $item)))
+   (sk-work-off! $pass (once (sk-compute $pass (sk-work $rest $next) $item))))
 
 ;; Keys changed outside evaluation: a fold or group key recomputes when next
 ;; read, and every changed key's readers are scheduled.

@@ -33,34 +33,6 @@
       ($_other no-base-rate-aggregate-key))))
 
 
-;; Base-rate fold goals register (key-hash key kb goal-key) once at spawn.
-;; Their current snapshots are read through the ordinary result index.
-(: register-base-rate-fold!
-   (-[det]-> BaseRateAggregateKey ProofGoalKey (List $none)))
-(= (register-base-rate-fold! $key $gkey)
-   (let* (($lookup (index-hash $key))
-          ($known
-             (collapse
-                (once
-                   (match &base_rate_fold
-                      ($lookup $stored-key $_kb $stored-gkey)
-                      (if (=alpha $stored-key $key)
-                         (if (=alpha $stored-gkey $gkey) true (empty))
-                         (empty)))))))
-      (if (== $known ())
-         (case $key (
-            ((base-rate-aggregate-key-value $kbid $_pattern $_mode)
-               (let $_row
-                  (add-space-atom! &base_rate_fold
-                     (make-space-row4 $lookup $key $kbid $gkey))
-                  ()))))
-         ())))
-
-
-
-
-
-
 (: base-rate-cache-entries (-[det]-> KB Statement (List BaseRateEntry)))
 (= (base-rate-cache-entries $kbid $pattern)
    (collapse
@@ -132,6 +104,14 @@
       ((cons $entry $_rest)
          (cons (base-rate-entry-tv $entry) ())))))
 
+;; The backward folds reading a cache entry recompute when it changes.
+(: base-rate-readers-changed! (-[det]-> KB Statement $mode Atom))
+(= (base-rate-readers-changed! $kbid $pattern $mode)
+   (let* (($hash (index-hash (base-rate-aggregate-key-value $kbid $pattern $mode)))
+          ($_dirty
+             (collapse (match &sk_rate_folds ($hash $key) (add-atom &sk_dirty (sk-dirty $key))))))
+      ()))
+
 (: store-produced-base-rate!
    (-[det]-> KB Statement TV BaseRateSource $mode (List $none)))
 (= (store-produced-base-rate! $kbid $pattern $tv $source $mode)
@@ -145,15 +125,17 @@
                          base-rate-cache-remove-derived-entry! $entries))
                    ($_new
                       (add-atom &base_rate_cache
-                         (base-rate $kbid $stored $tv $source $mode))))
+                         (base-rate $kbid $stored $tv $source $mode)))
+                   ($_readers (base-rate-readers-changed! $kbid $pattern $mode)))
                ())))))
 
 (: remove-produced-base-rate!
    (-[det]-> KB Statement $mode (List $none)))
 (= (remove-produced-base-rate! $kbid $pattern $mode)
-   (let $_old
-      (foreach-flat base-rate-cache-remove-derived-entry!
-         (base-rate-cache-entries-for-mode $kbid $pattern $mode))
+   (let* (($_old
+             (foreach-flat base-rate-cache-remove-derived-entry!
+                (base-rate-cache-entries-for-mode $kbid $pattern $mode)))
+          ($_readers (base-rate-readers-changed! $kbid $pattern $mode)))
       ()))
 (: invalidate-computed-base-rates! (-[det]-> KB (List $none)))
 (= (invalidate-computed-base-rates! $kbid)
@@ -169,27 +151,45 @@
 
 
 
-(: inheritance-subjects (-[det]-> KB (List Statement)))
-(= (inheritance-subjects $kbid)
-   (list_to_set
-      (collapse
-         (match &inheritance_subject ($kbid $subj)
-            (brand Statement $subj)))))
+;; Inheritance subjects and concept nodes are recorded once per KB, and their
+;; number per KB is kept as they arrive: priors divide by it on every fold step.
+(: KbNodeKind Type)
+(: subject-node KbNodeKind)
+(: concept-node KbNodeKind)
+(: &kb_node_count (SpaceOf (KB KbNodeKind Number)))
+!(bind! &kb_node_count (new-space))
 
-;; Concept metadata and aggregate finalizers are shared by both forward and
-;; backward execution, so they must be available before the forward runtime.
-(: record-concept-node! (-[det]-> KB Statement (| Bool (List $none))))
+(: kb-node-count (-[det]-> KB KbNodeKind Number))
+(= (kb-node-count $kbid $kind)
+   (case (collapse (once (match &kb_node_count ($kbid $kind $count) $count))) (
+      ((cons $count $_rest) $count)
+      (() 0))))
+
+(: count-kb-node! (-[det]-> KB KbNodeKind Atom))
+(= (count-kb-node! $kbid $kind)
+   (let* (($count (kb-node-count $kbid $kind))
+          ($_old (collapse (match &kb_node_count ($kbid $kind $old) (remove-atom &kb_node_count ($kbid $kind $old)))))
+          ($next (+ $count 1))
+          ($_new (add-atom &kb_node_count ($kbid $kind $next))))
+      ()))
+
+(: record-inheritance-subject! (-[det]-> KB Statement Atom))
+(= (record-inheritance-subject! $kbid $subj)
+   (if (is-var $subj) ()
+      (if (space-row-present? &inheritance_subject ($kbid $subj)) ()
+         (let $_row (add-space-atom! &inheritance_subject (make-space-pair $kbid $subj))
+            (count-kb-node! $kbid subject-node)))))
+
+(: record-concept-node! (-[det]-> KB Statement Atom))
 (= (record-concept-node! $kbid $node)
    (if (is-var $node) ()
-      (once
-         (add-space-atom! &concept_node (make-space-pair $kbid $node)))))
+      (if (space-row-present? &concept_node ($kbid $node)) ()
+         (let $_row (add-space-atom! &concept_node (make-space-pair $kbid $node))
+            (count-kb-node! $kbid concept-node)))))
 
-(: record-inheritance-nodes!
-   (-[det]-> KB Statement Statement (| Bool (List $none))))
+(: record-inheritance-nodes! (-[det]-> KB Statement Statement Atom))
 (= (record-inheritance-nodes! $kbid $subj $concept)
-   (progn
-      (record-concept-node! $kbid $subj)
-      (record-concept-node! $kbid $concept)))
+   (let $_subject (record-concept-node! $kbid $subj) (record-concept-node! $kbid $concept)))
 
 (: clear-concept-prior-confidence (-[det]-> KB (List $none)))
 (= (clear-concept-prior-confidence $kbid)
@@ -213,18 +213,11 @@
 (= (known-concept-node? $kbid $node)
    (space-row-present? &concept_node ($kbid $node)))
 
-(: concept-nodes (-[det]-> KB (List Statement)))
-(= (concept-nodes $kbid)
-   (list_to_set
-      (collapse
-         (match &concept_node ($kbid $node)
-            (brand Statement $node)))))
-
 (: concept-node-prior-tv
    (-[det]-> KB Statement OptionalSTV))
 (= (concept-node-prior-tv $kbid $node)
    (if (known-concept-node? $kbid $node)
-      (let $n (list-len (concept-nodes $kbid))
+      (let $n (kb-node-count $kbid concept-node)
          (if (<= $n 0) no-evidence
             (STV (/ 1.0 $n)
                (chainer-first-or 0.000001

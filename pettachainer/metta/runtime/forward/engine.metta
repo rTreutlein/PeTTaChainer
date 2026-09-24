@@ -188,23 +188,15 @@
                      (forward-frontier-row
                         $hash $type $kb $old-fact $old-ev)))))))))
 
-(: forward-record-inheritance-nodes!
-   (-[det]-> (Statement KBContext Proof TV) Bool
-       (| Bool (List $none))))
+(: forward-record-inheritance-nodes! (-[det]-> (Statement KBContext Proof TV) Bool Atom))
 (= (forward-record-inheritance-nodes! $fact $record-subject?)
    (case $fact (
       (((Inheritance $subj $concept) ($kbid $_ctx $_vars) $_prf $_tv)
          (if (is-var $subj) ()
-            (progn
-               (if $record-subject?
-                  (once
-                     (add-space-atom! &inheritance_subject
-                        (make-space-pair $kbid $subj)))
-                  ())
-               (record-inheritance-nodes!
-                  $kbid
-                  (brand Statement $subj)
-                  (brand Statement $concept)))))
+            (let* (($typed-kb (brand KB $kbid))
+                   ($typed-subj (brand Statement $subj))
+                   ($_subject (if $record-subject? (record-inheritance-subject! $typed-kb $typed-subj) ())))
+               (record-inheritance-nodes! $typed-kb $typed-subj (brand Statement $concept)))))
       ($_other ()))))
 
 (: forward-add-frontier-row!

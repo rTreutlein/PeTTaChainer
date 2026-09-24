@@ -36,145 +36,17 @@
    (:
       (inheritance-implication-fold
          (total-implication
-            (by
-               smokingCancerRule
+            (by smokingCancerRule
                (merge/revision
                   ((inheritance-rule-lift friendSmokingRule)
-                     (conjunction
-                        (merge/revision
-                           (inheritance-implication-fold
-                              (total-implication
-                                 (merge/revision
-                                    (merge/revision
-                                       (merge/revision
-                                          (merge/revision
-                                             (merge/revision
-                                                (by
-                                                   (inheritance-implication
-                                                      friendAnnaBob)
-                                                   (ctx proof 2))
-                                                (by
-                                                   (inheritance-implication
-                                                      friendAnnaEdward)
-                                                   (ctx proof 2)))
-                                             (by
-                                                (inheritance-implication
-                                                   friendAnnaFrank)
-                                                (ctx proof 2)))
-                                          (by
-                                             (inheritance-implication
-                                                friendEdwardFrank)
-                                             (ctx proof 2)))
-                                       (by
-                                          (inheritance-implication
-                                             friendGaryHelen)
-                                          (ctx proof 2)))
-                                    (by
-                                       (inheritance-implication
-                                          notFriendGaryFrank)
-                                       (ctx proof 2)))
-                                 (merge/revision
-                                    (merge/revision
-                                       (merge/revision
-                                          (merge/revision
-                                             (merge/revision
-                                                (by
-                                                   (inheritance-implication
-                                                      friendAnnaBob)
-                                                   (ctx proof 3))
-                                                (by
-                                                   (inheritance-implication
-                                                      friendAnnaEdward)
-                                                   (ctx proof 3)))
-                                             (by
-                                                (inheritance-implication
-                                                   friendAnnaFrank)
-                                                (ctx proof 3)))
-                                          (by
-                                             (inheritance-implication
-                                                friendEdwardFrank)
-                                             (ctx proof 3)))
-                                       (by
-                                          (inheritance-implication
-                                             friendGaryHelen)
-                                          (ctx proof 3)))
-                                    (by
-                                       (inheritance-implication
-                                          notFriendGaryFrank)
-                                       (ctx proof 3)))))
-                           friendAnnaEdward)
-                        smokesAnna)
+                     (conjunction friendAnnaEdward smokesAnna)
                      (ctx proof 0))
                   (by (inheritance-implication smokesEdward) (ctx proof 0))))
-            (by
-               smokingCancerRule
+            (by smokingCancerRule
                (merge/revision
                   ((inheritance-rule-lift friendSmokingRule)
-                     (conjunction
-                        (merge/revision
-                           (inheritance-implication-fold
-                              (total-implication
-                                 (merge/revision
-                                    (merge/revision
-                                       (merge/revision
-                                          (merge/revision
-                                             (merge/revision
-                                                (by
-                                                   (inheritance-implication
-                                                      friendAnnaBob)
-                                                   (ctx proof 2))
-                                                (by
-                                                   (inheritance-implication
-                                                      friendAnnaEdward)
-                                                   (ctx proof 2)))
-                                             (by
-                                                (inheritance-implication
-                                                   friendAnnaFrank)
-                                                (ctx proof 2)))
-                                          (by
-                                             (inheritance-implication
-                                                friendEdwardFrank)
-                                             (ctx proof 2)))
-                                       (by
-                                          (inheritance-implication
-                                             friendGaryHelen)
-                                          (ctx proof 2)))
-                                    (by
-                                       (inheritance-implication
-                                          notFriendGaryFrank)
-                                       (ctx proof 2)))
-                                 (merge/revision
-                                    (merge/revision
-                                       (merge/revision
-                                          (merge/revision
-                                             (merge/revision
-                                                (by
-                                                   (inheritance-implication
-                                                      friendAnnaBob)
-                                                   (ctx proof 3))
-                                                (by
-                                                   (inheritance-implication
-                                                      friendAnnaEdward)
-                                                   (ctx proof 3)))
-                                             (by
-                                                (inheritance-implication
-                                                   friendAnnaFrank)
-                                                (ctx proof 3)))
-                                          (by
-                                             (inheritance-implication
-                                                friendEdwardFrank)
-                                             (ctx proof 3)))
-                                       (by
-                                          (inheritance-implication
-                                             friendGaryHelen)
-                                          (ctx proof 3)))
-                                    (by
-                                       (inheritance-implication
-                                          notFriendGaryFrank)
-                                       (ctx proof 3)))))
-                           friendAnnaEdward)
-                        smokesAnna)
+                     (conjunction friendAnnaEdward smokesAnna)
                      (ctx proof 1))
                   (by (inheritance-implication smokesEdward) (ctx proof 1))))))
       (Inheritance Edward (IntSet cancerous))
-      (STV 0.380368798018931 0.9404064182603203)))
+      (STV 0.4199998330935358 0.9335532845458568)))

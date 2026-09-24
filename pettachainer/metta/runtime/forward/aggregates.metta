@@ -11,20 +11,93 @@
 (= (fa-ordinary-row $a $b)(let* (($c (forward-type-trigger-key $a $b))($d (term_hash $c)))(once (match &forward_aggregate_interest_by_trigger ($d (forward-aggregate-interest $e $f $g))(if (== $e $c)(case $g ( ((forward-base-rate-descriptor $h $i $j $k $l $m)(if (and (== $h $a)(=alpha $i $b))(data $f (the ForwardAggregateDescriptor $g))(empty)))($n (empty))))(empty))))))
 (: fa-register! (-[det]-> ForwardAggregateIdentityKey ForwardAggregateDescriptor ForwardTriggerKey Bool ForwardTriggerKey (List $a)))
 (= (fa-register! $a $b $c $d $e)(let $h (collapse (once (fa-id $a)))(if (== $h ())(let* (($f (index-hash $a))($g (term_hash $c))($k (next-search-id fwd_aggregate_id))(($i $l)(copy_term (quote ($a $b))))($m (the ForwardAggregateIdentityKey $i))($n (the ForwardAggregateDescriptor $l))($o (once (add-atom &forward_aggregate_identity ($f (forward-aggregate-identity-row $m $k)))))($p (once (add-atom &forward_aggregate_interest_by_trigger ($g (forward-aggregate-interest $c $k $n)))))($q (if $d (let* (($r (term_hash $e))($s (once (add-atom &forward_aggregate_interest_by_trigger ($r (forward-aggregate-interest $e $k $n))))))())()))($t (once (add-atom &forward_aggregate_state (forward-aggregate-state $k 0.0 0.0)))))())())))
-(: fa-register-member! (-[det]-> (| Goal (Statement KBContext Proof TV))(List $a)))
-(= (fa-register-member! $a)(case $a ( ((CPU FoldAllCompiled ($b (MemberInheritanceSample $c $d $e $f $g)(extract-value (MemberInheritanceSample $c $d $e $f $g)(WeightedTv $f $g))(BaseRateEvidence 0.0 0.0) WeightedBaseRateAcc (member-inheritance $b) result-tv) $h)(if (== (extract-vars $d)())(if (== (extract-vars $e)())(let* (($i (brand KB $b))($j (brand Term $d))($k (brand Term $e))($l (brand Statement (MemberInheritanceSample $c $d $e $f $g)))($m (fwd_member $i $j))($n (not (== $j $k)))($o (fwd_member $i $k)))(fa-register! (forward-member-inheritance-identity $i $j $k)(forward-member-inheritance-descriptor $i $j $k $l) $m $n $o))())()))($p ()))))
-(: fa-register-rate! (-[det]-> KB Statement (| ExtractTV ExtractInheritanceTV)(| BaseRateEvidenceState BaseRateEvidenceWithPriorState)(-[semidet]-> $a $b $a)(| BaseRateFinish WeightedBaseRateInUniverseFinish WeightedBaseRateWithPriorInUniverseFinish)(List $c)))
-(= (fa-register-rate! $a $b $c $d $e $f)(fa-register! (forward-base-rate-identity $a $b $c $d $e $f result-tv)(forward-base-rate-descriptor $a $b $c $d $e $f)(forward-type-trigger-key $a $b) false fwd_trigger_any))
-(: fa-register-premise! (-[det]-> Bool (| Goal (Statement KBContext Proof TV))(List $a)))
-(= (fa-register-premise! $a $b)(if $a (case $b ( ((CPU FoldAllCompiled ($c $d extract-tv (BaseRateEvidence $e $f) BaseRateAcc base-rate result-tv) $g)(fa-register-rate! (brand KB $c)(brand Statement $d) extract-tv (BaseRateEvidence $e $f) BaseRateAcc base-rate))((CPU FoldAllCompiled ($c $d (extract-inheritance-tv $h $i)(BaseRateEvidence $e $f) WeightedBaseRateAcc (weighted-base-rate-in-universe $j) result-tv) $g)(fa-register-rate! (brand KB $c)(brand Statement $d)(extract-inheritance-tv (brand KB $h)(brand Statement $i))(BaseRateEvidence $e $f) WeightedBaseRateAcc (weighted-base-rate-in-universe (brand KB $j))))((CPU FoldAllCompiled ($c $d (extract-inheritance-tv $h $i)(BaseRateEvidenceWithPrior $k (BaseRateEvidence $e $f)) WeightedBaseRateWithPriorAcc (weighted-base-rate-with-prior-in-universe $j) result-tv) $g)(fa-register-rate! (brand KB $c)(brand Statement $d)(extract-inheritance-tv (brand KB $h)(brand Statement $i))(BaseRateEvidenceWithPrior (brand BaseRatePrior $k)(BaseRateEvidence $e $f)) WeightedBaseRateWithPriorAcc (weighted-base-rate-with-prior-in-universe (brand KB $j))))($l (fa-register-member! $b))))(fa-register-member! $b)))
-(: register-forward-aggregate-premises! (-[det]-> Bool (List (| Goal (Statement KBContext Proof TV)))(List $a)))
-(= (register-forward-aggregate-premises! $a $b)(foreach-flat (fa-register-premise! $a) $b))
+;; What a fold premise asks the forward chainer to maintain: its aggregate
+;; identity and descriptor, and the trigger keys whose facts update it (a
+;; second trigger only for member inheritance between two concepts).
+(: ForwardAggregateSubscription Type)
+(: fa-subscription
+   (-[det]-> ForwardAggregateIdentityKey ForwardAggregateDescriptor ForwardTriggerKey Bool
+       ForwardTriggerKey ForwardAggregateSubscription))
+
+(: fa-rate-subscription
+   (-[det]-> KB Statement (| ExtractTV ExtractInheritanceTV)
+       (| BaseRateEvidenceState BaseRateEvidenceWithPriorState) (-[semidet]-> $a $b $a)
+       (| BaseRateFinish WeightedBaseRateInUniverseFinish WeightedBaseRateWithPriorInUniverseFinish)
+       ForwardAggregateSubscription))
+(= (fa-rate-subscription $kb $pattern $extractor $init $step $finish)
+   (fa-subscription
+      (forward-base-rate-identity $kb $pattern $extractor $init $step $finish result-tv)
+      (forward-base-rate-descriptor $kb $pattern $extractor $init $step $finish)
+      (forward-type-trigger-key $kb $pattern) false fwd_trigger_any))
+
+;; The fold premises the forward chainer can maintain: plain and inheritance
+;; base rates, and member inheritance between two ground concepts.
+(: fa-premise-subscriptions
+   (-[det]-> (| Goal (Statement KBContext Proof TV)) (List ForwardAggregateSubscription)))
+(= (fa-premise-subscriptions $premise)
+   (case $premise (
+      ((CPU FoldAllCompiled ($kb $pattern extract-tv (BaseRateEvidence $e $f) BaseRateAcc base-rate result-tv) $_r)
+         (cons (fa-rate-subscription (brand KB $kb) (brand Statement $pattern) extract-tv
+                  (BaseRateEvidence $e $f) BaseRateAcc base-rate)
+            ()))
+      ((CPU FoldAllCompiled
+          ($kb $pattern (extract-inheritance-tv $ekb $estmt) (BaseRateEvidence $e $f) WeightedBaseRateAcc
+             (weighted-base-rate-in-universe $ukb) result-tv) $_r)
+         (cons (fa-rate-subscription (brand KB $kb) (brand Statement $pattern)
+                  (extract-inheritance-tv (brand KB $ekb) (brand Statement $estmt))
+                  (BaseRateEvidence $e $f) WeightedBaseRateAcc (weighted-base-rate-in-universe (brand KB $ukb)))
+            ()))
+      ((CPU FoldAllCompiled
+          ($kb $pattern (extract-inheritance-tv $ekb $estmt) (BaseRateEvidenceWithPrior $prior (BaseRateEvidence $e $f))
+             WeightedBaseRateWithPriorAcc (weighted-base-rate-with-prior-in-universe $ukb) result-tv) $_r)
+         (cons (fa-rate-subscription (brand KB $kb) (brand Statement $pattern)
+                  (extract-inheritance-tv (brand KB $ekb) (brand Statement $estmt))
+                  (BaseRateEvidenceWithPrior (brand BaseRatePrior $prior) (BaseRateEvidence $e $f))
+                  WeightedBaseRateWithPriorAcc (weighted-base-rate-with-prior-in-universe (brand KB $ukb)))
+            ()))
+      ((CPU FoldAllCompiled
+          ($kb (MemberInheritanceSample $x $sub $super $s $c)
+             (extract-value (MemberInheritanceSample $x $sub $super $s $c) (WeightedTv $s $c))
+             (BaseRateEvidence 0.0 0.0) WeightedBaseRateAcc (member-inheritance $kb) result-tv) $_r)
+         (if (== (extract-vars $sub) ())
+            (if (== (extract-vars $super) ())
+               (let* (($k (brand KB $kb))
+                      ($j (brand Term $sub))
+                      ($i (brand Term $super)))
+                  (cons (fa-subscription (forward-member-inheritance-identity $k $j $i)
+                           (forward-member-inheritance-descriptor $k $j $i
+                              (brand Statement (MemberInheritanceSample $x $sub $super $s $c)))
+                           (fwd_member $k $j) (not (== $j $i)) (fwd_member $k $i))
+                     ()))
+               ())
+            ()))
+      ($_other ()))))
+
+;; A rule's fold premises register when the rule is stored. Query-local rules
+;; register only member inheritance; their base rates wait for a reader.
+(: fa-register-subscription! (-[det]-> Bool (List $a) ForwardAggregateSubscription (List $a)))
+(= (fa-register-subscription! $live $acc (fa-subscription $identity $descriptor $trigger $both $second))
+   (if (if $live true
+          (case $descriptor (
+             ((forward-member-inheritance-descriptor $_kb $_sub $_super $_stmt) true)
+             ($_rate false))))
+      (fa-register! $identity $descriptor $trigger $both $second)
+      $acc))
+
+(: fa-register-premise-step! (-[det]-> Bool (List $a) (| Goal (Statement KBContext Proof TV)) (List $a)))
+(= (fa-register-premise-step! $live $acc $premise)
+   (fold-flat (fa-register-subscription! $live) $acc (fa-premise-subscriptions $premise)))
+
+(: register-forward-aggregate-premises! (-[det]-> Bool (List (| Goal (Statement KBContext Proof TV))) (List $a)))
+(= (register-forward-aggregate-premises! $live $premises)
+   (fold-flat (fa-register-premise-step! $live) () $premises))
+
 (: fa-positive-ev (-[det]-> TV BaseRateEvidenceState))
 (= (fa-positive-ev $a)(case $a ( ((STV $b $c)(BaseRateEvidence (* $b $c) $c))((CTV $d $e)(fa-positive-ev $d))($f (BaseRateEvidence 0.0 0.0)))))
 (: forward-weighted-base-rate-contribution (-[det]-> TV TV BaseRateEvidenceState))
 (= (forward-weighted-base-rate-contribution $a $b)(case $a ( ((STV $c $d)(case $b ( ((STV $e $f)(let $g (* (* $c $d) $f)(BaseRateEvidence (* $e $g) $g)))((CTV $h $i)(forward-weighted-base-rate-contribution $a $h))($j (BaseRateEvidence 0.0 0.0)))))($k (BaseRateEvidence 0.0 0.0)))))
 (: fa-mass-scale (-[det]-> KB Number))
-(= (fa-mass-scale $a)(let $c (list-len (inheritance-subjects $a))(if (<= $c 0) 0.0 (/ 1.0 $c))))
+(= (fa-mass-scale $a)(let $c (kb-node-count $a subject-node)(if (<= $c 0) 0.0 (/ 1.0 $c))))
 (: fa-acc (-[det]-> KB (| ExtractTV ExtractInheritanceTV)(| BaseRateEvidenceState BaseRateEvidenceWithPriorState)(-[semidet]-> $a $b $a) Number Number (| BaseRateEvidenceState BaseRateEvidenceWithPriorState)))
 (= (fa-acc $a $b (BaseRateEvidence $c $d) BaseRateAcc $e $f)(BaseRateEvidence $e $f))
 (= (fa-acc $a (extract-inheritance-tv $b $c)(BaseRateEvidence $d $e) WeightedBaseRateAcc $f $g)(let $h (fa-mass-scale $a)(BaseRateEvidence (* $h $f)(* $h $g))))
@@ -82,6 +155,44 @@
 (= (fa-remove! $a $b $c)(let* (($d (copy_term $c))($e (fa-item $a $c))($f (brand ForwardAggregateObservationKey (quote ($b $e))))($g (fa-obs $f)))(if (== $g ())(case $d ( ((forward-member-inheritance-descriptor $h $i $j $k)(let (forward-aggregate-state $l $m $n)(fa-state $b)(if (<= $n 0.0)()(fa-store-cache! aggregate-update $b $d $m $n))))($o ())))(let* (((forward-aggregate-state $l $m $n)(fa-swap! $b $g (forward-aggregate-observation $f no-forward-aggregate-observation-value 0.0 0.0) false))($p (fa-store-cache! aggregate-remove $b $d $m $n)))(case $d ( ((forward-member-inheritance-descriptor $h $i $j $k)(progn (fa-update! $a $b $d)()))($o ())))))))
 (: fa-maintain-key! (-[nondet]-> ForwardAggregateMaintenance (Statement KBContext Proof TV) ForwardTriggerKey (List $a)))
 (= (fa-maintain-key! $a $b $c)(let $d (term_hash $c)(match &forward_aggregate_interest_by_trigger ($d (forward-aggregate-interest $e $f $g))(if (== $e $c)(case $a ( (aggregate-update (fa-update! $b $f (copy_term $g)))(aggregate-remove (fa-remove! $b $f (copy_term $g)))))(empty)))))
+;; A base rate a reader finds without an estimate is seeded: its aggregate
+;; registers if it is new, and the facts already in the KB are counted as the
+;; forward chainer counts them. Counting is per fact, so seeding an aggregate
+;; the forward chainer already fed counts nothing twice. From then on forward
+;; chaining keeps the estimate current as it processes facts. Only fold
+;; premises with a forward subscription (at most one each) can be seeded.
+(: fa-seed-facts
+   (-[det]-> ForwardAggregateDescriptor ForwardTriggerKey (List (Statement KBContext Proof TV))))
+(= (fa-seed-facts (forward-base-rate-descriptor $kb $pattern $_extractor $_init $_step $_finish) $_trigger)
+   (let* (($kbctx (make-kb-context $kb MAIN Nil))
+          ($type (copy_term $pattern)))
+      (collapse (match &kb (@ $fact ($type $kbctx $_proof $_tv)) $fact))))
+(= (fa-seed-facts (forward-member-inheritance-descriptor $kb $_sub $_super $_stmt) $trigger)
+   (case $trigger (
+      ((fwd_member $_kb $concept)
+         (let $kbctx (make-kb-context $kb MAIN Nil)
+            (collapse (match &kb (@ $fact ((Member $_x $concept) $kbctx $_proof $_tv)) $fact))))
+      ($_other ()))))
+
+(: fa-seed-step (-[det]-> Number ForwardAggregateDescriptor Atom (Statement KBContext Proof TV) Atom))
+(= (fa-seed-step $id $descriptor $_acc $fact)
+   (let $_counted (collapse (fa-update! $fact $id (copy_term $descriptor))) ()))
+
+(: fa-seed! (-[det]-> ForwardAggregateSubscription Atom))
+(= (fa-seed! (fa-subscription $identity $descriptor $trigger $both $second))
+   (let $_registered (fa-register! $identity $descriptor $trigger $both $second)
+      (case (collapse (fa-id $identity)) (
+         ((cons $id $_rest)
+            (let $_first (fold-flat (fa-seed-step $id $descriptor) () (fa-seed-facts $descriptor $trigger))
+               (if $both (fold-flat (fa-seed-step $id $descriptor) () (fa-seed-facts $descriptor $second)) ())))
+         (() ())))))
+
+(: forward-seed-fold! (-[semidet]-> (| Goal (Statement KBContext Proof TV)) Bool))
+(= (forward-seed-fold! $premise)
+   (case (fa-premise-subscriptions $premise) (
+      (() false)
+      ((cons $subscription $_none) (let $_seeded (fa-seed! $subscription) true)))))
+
 (: forward-maintain-member-aggregates! (-[det]-> ForwardAggregateMaintenance (Statement KBContext Proof TV)(List $a)))
 (= (forward-maintain-member-aggregates! $a $b)(case $b ( (((Member $c $d)($e MAIN Nil) $f $g)(collapse (fa-maintain-key! $a $b (fwd_member (brand KB $e)(brand Term $d)))))($h ()))))
 (: forward-maintain-aggregates! (-[det]-> ForwardAggregateMaintenance (Statement KBContext Proof TV)(List $a)))

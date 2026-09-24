@@ -159,6 +159,37 @@
          ())
       ()))
 
+;; --- Base rates -------------------------------------------------------------
+
+;; A base rate's estimate: a user base rate, or a cached one that an earlier
+;; fold computed or forward chaining keeps. A base rate without one is seeded
+;; from the facts already known when forward chaining can maintain it.
+(: sk-rate-entries (-[semidet]-> $args (List BaseRateEntry)))
+(= (sk-rate-entries $args)
+   (case (base-rate-aggregate-key $args) (
+      ((base-rate-aggregate-key-value $kbid $pattern $mode)
+         (let $entries (base-rate-cache-entries-for-mode $kbid $pattern $mode)
+            (if (== $entries ())
+               (if (forward-seed-fold! (CPU FoldAllCompiled $args $_result))
+                  (base-rate-cache-entries-for-mode $kbid $pattern $mode)
+                  ())
+               $entries)))
+      ($_none ()))))
+
+;; What searching a fold's members is worth: a user base rate is never
+;; refolded; an estimate by what one more member could add to its confidence,
+;; since every member costs at least one expansion; a fold without an estimate
+;; by its join.
+(: sk-fold-child-score (-[semidet]-> $args Number (List BaseRateEntry) Number))
+(= (sk-fold-child-score $args $join-score $entries)
+   (case $entries (
+      (() $join-score)
+      ((cons $entry $_rest)
+         (if (base-rate-entry-user? $entry) 0.0
+            (let* (($confidence (tv-confidence (base-rate-entry-tv $entry)))
+                   ($count (confidence-to-count $confidence)))
+               (* $join-score (- (count-confidence (+ $count 1.0)) $confidence))))))))
+
 ;; --- Leaves -----------------------------------------------------------------
 
 ;; Materialized facts are forward rows marked in &materialized_facts. They are
@@ -282,7 +313,9 @@
          (case $premise (
             ((CPU $fun $args $_res)
                (if (== $fun FoldAllCompiled)
-                  (let $_child (sk-add-child! $owner (copy_term $premise) (sk-join-score $owner $rule $remaining))
+                  (let $_child
+                     (let $score (sk-fold-child-score $args (sk-join-score $owner $rule $remaining) (sk-rate-entries $args))
+                        (if (> $score 0.0) (sk-add-child! $owner (copy_term $premise) $score) ()))
                      (sk-advance!
                         (sk-partial $owner $rule $concl $premises $rest
                            (cons (sk-fold $args) $keys))))

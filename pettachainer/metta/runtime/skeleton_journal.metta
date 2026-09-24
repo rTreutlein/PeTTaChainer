@@ -100,6 +100,9 @@
 ;; member key -> a fold or group key over it
 (: &sk_use (SpaceOf (Number SkeletonKey SkeletonKey)))
 !(bind! &sk_use (new-space))
+;; base-rate cache key -> a fold key whose value is read from that cache entry
+(: &sk_rate_folds (SpaceOf (Number SkeletonKey)))
+!(bind! &sk_rate_folds (new-space))
 ;; key -> a row reading it directly, by row key hash and row hash
 (: &sk_reader (SpaceOf (Number SkeletonKey Number Number)))
 !(bind! &sk_reader (new-space))
@@ -203,10 +206,10 @@
    (let* (($key (sk-key $type $kbctx))
           ($_pending
              (if (sk-space-nonempty? &sk_expanded)
-                (let $_row (add-atom &sk_pending_facts (sk-pending-fact $key)) ())
+                (let $_pending-row (add-atom &sk_pending_facts (sk-pending-fact $key)) ())
                 ()))
           ($_dirty
              (if (sk-space-nonempty? &sk_latest)
-                (let $_row (add-atom &sk_dirty (sk-dirty $key)) ())
+                (let $_dirty-row (add-atom &sk_dirty (sk-dirty $key)) ())
                 ())))
       ()))

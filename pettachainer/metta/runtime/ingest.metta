@@ -10,19 +10,14 @@
 (= (register-inheritance-induction! $_kb) ())
 
 (: record-compiled-inheritance!
-   (-[nondet]-> CompiledAddition  (| Bool (List $none))))
+   (-[nondet]-> CompiledAddition Atom))
 (= (record-compiled-inheritance! $expr)
    (case $expr (
       ((: ($kbid $_ctx $_vars) $_prf (Inheritance $subj $concept) $_tv)
          (let*
             (($typed-kbid (brand KB $kbid))
              ($typed-subj (brand Statement $subj))
-             ($_subject
-                (if (is-var $subj) ()
-                   (let $_row
-                      (add-space-atom! &inheritance_subject
-                         (make-space-pair $kbid $subj))
-                      ()))))
+             ($_subject (record-inheritance-subject! $typed-kbid $typed-subj)))
             (record-inheritance-nodes!
                $typed-kbid $typed-subj (brand Statement $concept))))
       ((: ($kbid $_ctx $_vars) $_prf (Member $_obj $class) $_tv)
