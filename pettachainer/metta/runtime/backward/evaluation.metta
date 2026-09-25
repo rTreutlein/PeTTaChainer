@@ -30,7 +30,7 @@
 (: sk-clash SkeletonRowState)
 (: SkeletonFold Type)
 ;; accumulator, member proofs (newest first), evidence, dependency hashes
-(: sk-fold-state (-[det]-> Atom (List Proof) (List Evidence) (List Number) SkeletonFold))
+(: sk-fold-state (-[det]-> Atom (List Proof) (List (List Evidence)) (List (List Number)) SkeletonFold))
 (: SkeletonGroup Type)
 (: sk-group-found (-[det]-> SkPattern (List SkeletonKey) SkeletonGroup))
 (: sk-group-missing SkeletonGroup)
@@ -386,7 +386,9 @@
             ($fun $acc $tv))))))
 
 ;; Members are read without the views that depend on the fold itself: a
-;; member derived through this fold's own output is left out of it.
+;; member derived through this fold's own output is left out of it. Their
+;; evidence and dependencies are collected per member and joined once, when the
+;; fold keeps them.
 (: sk-fold-step
    (-[semidet]-> (-[semidet]-> $acc SkFact $acc) SkeletonFilter (List Number) SkeletonFold SkeletonKey
        SkeletonFold))
@@ -395,8 +397,12 @@
       ((sk-val $fact $member-ev $member-deps)
          (let* ((($_type $_kbctx $proof $_tv) $fact))
             (sk-fold-state ($step $acc $fact) (cons $proof $proofs)
-               (sk-union $ev $member-ev) (sk-union $deps $member-deps))))
+               (cons $member-ev $ev) (cons $member-deps $deps))))
       ($_none (sk-fold-state $acc $proofs $ev $deps)))))
+
+;; The distinct items of a fold's per-member lists.
+(: sk-join-parts (-[det]-> (List (List $item)) (List $item)))
+(= (sk-join-parts $parts) (list_to_set (foldr-flat append-flat () $parts)))
 
 ;; A fold with members proves by its members, in the order they were found.
 (: sk-fold-proof (-[semidet]-> Atom (List Proof) Proof))
@@ -421,8 +427,8 @@
          (sk-fold-proof $function $proofs)
          (if $base-rate ()
             (if (== $finish uniform-prior) ()
-               (if (== $finish uniform-prior-known) () $ev)))
-         (cons $hash (if $base-rate () $deps)))))
+               (if (== $finish uniform-prior-known) () (sk-join-parts $ev))))
+         (cons $hash (if $base-rate () (sk-join-parts $deps))))))
 
 ;; A base rate's value is its user base rate, or else the better of its cached
 ;; estimate and a fold over the members the search found; a fold that improves
