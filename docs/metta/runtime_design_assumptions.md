@@ -99,11 +99,12 @@ The important tradeoff is intentional: a tightly budgeted query may initially
 use an older estimate. Add-time work must not eagerly make every cached estimate
 current.
 
-### The backward chainer keeps a durable skeleton, not beliefs
+### The backward chainer keeps a durable skeleton
 
-The backward chainer caches the structure of search, never truth values. Its
-state lives in `runtime/skeleton_journal.metta` and is append-only across
-queries:
+The backward chainer keeps the structure of search across queries, in
+`runtime/skeleton_journal.metta`. Nodes, answers, joins and permanent rows are
+append-only; truth values live only in views, which evaluation recomputes when
+something below them changes:
 
 - a **node** is an expanded goal pattern: a fact goal
   `(statement context proof tv)` or a fold goal
@@ -115,7 +116,12 @@ queries:
 - a **row** is a complete join: a rule instance with bound premise keys and no
   truth value.
 
-Ingestion only journals added facts and rules. The next query activates them
+A rule applies to a node when its conclusion fits the whole node pattern, but
+its row is built from the statement and context alone: a row belongs to its
+key, and each reader applies its own proof and truth-value pattern.
+
+For the backward chainer, ingestion only journals added facts and rules (the
+forward canonical store still updates as before). The next query activates them
 against the patterns already expanded, so a fact added between queries reaches
 the rows that use it through ordinary leaf answers.
 
@@ -131,7 +137,9 @@ Evaluation computes each row's **view**: its conclusion from the premises'
 values by the rule's formulas, with the evidence behind it and the hashes of
 the keys it depends on, transitively. A view's proof is one rule application
 whose premise proofs are references into `&proof`; the full proof tree is built
-only for output. A row keeps its latest view and the views it replaced.
+only for output. Stored proofs refer only to earlier ids, so they form a DAG. A
+row keeps its latest view and the views it replaced, and later queries read
+them until something below them changes.
 
 A key's value merges its stored facts and one view per row:
 
@@ -145,7 +153,8 @@ A key's value merges its stored facts and one view per row:
   pairwise disjoint, the lifting merge factors the shared facts out, revises
   the residual implications, and applies the shared conjunction once. It
   requires a strength linear in the shared conjunction (a two-point round
-  trip); otherwise views merge pairwise.
+  trip); otherwise views merge pairwise. Lifting applies to a key's merged
+  value; compatible selection below merges pairwise.
 
 No value supports itself. A consumer reads, per row of a premise key, the
 latest view that depends neither on its own key nor on any key unifying with
@@ -153,9 +162,9 @@ it; older views stay available to exactly the consumers a newer one came to
 depend on. Because dependency sets are transitive, this rejects self-support
 through inverted rules, longer cycles, and more general or more specific keys.
 
-Premises are selected by the consumer. A premise whose value overlaps the
-evidence the row already used is replaced by the merge of that key's facts and
-views that do not overlap it. Premises are taken greedily in order; when every
+Premises are selected by the consumer. A premise whose value shares fact
+evidence with what the row already used is replaced by the merge of that key's
+facts and views that share none; a shared rule is not a clash. Premises are taken greedily in order; when every
 value of a premise clashes, the row reads again on a fresh copy, taking
 compatible stored facts first. Projections of one stored `(And ...)` source pool
 back into that source instead of multiplying shared evidence, and
@@ -182,7 +191,7 @@ A base rate is the user's value when one is set. Otherwise an unexpanded fold
 reads the cached estimate, and an expanded fold replaces the estimate when it
 is at least as confident. The fold's own earlier snapshot and a forward
 approximation are partial work and always give way to the fold; the skeleton
-records which cached value each fold wrote. Storing the value a computed entry
+records the last value folds cached for each pattern and mode. Storing the value a computed entry
 already holds is skipped, since every store wakes the folds over the pattern.
 
 ### Queries read what their roots reach
@@ -199,7 +208,8 @@ Stored facts cost no expansion: a join waiting on a ground fact premise reads
 its facts at once, and a root reads its own stored facts. An open premise waits
 for its expansion, which bounds recursion. Before any state is created, a rule
 whose ground fact premise has no fact and no concluding rule is pruned. New
-rows have an allowance of ten per step; rows beyond it wait with their node
+rows have an allowance of ten per step, except the rows of the query's own
+roots; rows beyond it wait with their node
 and are completed when a later walk reaches that node, so leftover work never
 spends an unrelated query's budget.
 
@@ -215,8 +225,8 @@ another answer with the same proof. When the search has no value for a key, a
 materialized answer an earlier query left is returned as the incumbent; it is
 never revised with the current value, since it is not independent evidence.
 
-A materializing query writes back its first answer and every stored fact proof
-that answer uses. Materialized facts are never leaves of later searches: the
+A materializing query writes back its first answer and, for every statement
+that answer's proof uses, that statement's current value. Materialized facts are never leaves of later searches: the
 backward chainer re-derives them.
 
 ## Performance goals

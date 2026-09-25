@@ -30,9 +30,10 @@ small active frontier retains only the independent proof candidates needed to
 update that fact; superseded candidates are discarded rather than accumulated.
 
 The backward chainer keeps a durable skeleton across calls: expanded goals,
-their answers, and complete rule instances, without truth values. A later query
-continues from what earlier queries built and recomputes only the values its
-roots read that changed; rows compiled for one query leave with it. Proof IDs
+their answers, complete rule instances, and the truth-value views evaluation
+computed for them. A later query continues from what earlier queries built and
+recomputes only the values its roots read that changed; rows compiled for one
+query leave with it. Proof IDs
 are monotonic. Aggregates are recomputed from their members when a member
 changes. See `runtime_design_assumptions.md` for the contracts.
 
@@ -40,10 +41,10 @@ changes. See `runtime_design_assumptions.md` for the contracts.
 
 | Function | Meaning |
 |---|---|
-| `(query $steps $kb $stmt)` | Backward-chain up to `$steps` expansions to answer `$stmt` against `$kb`; yields the proven results. A larger budget extends the same search order. Stored facts cost no expansion, so a zero-step query answers from stored facts and from what earlier queries derived. When the search has no value for a statement, a result an earlier query materialized is returned instead. A candidate rule is skipped before search state is created when a ground premise has no matching fact and no rule can conclude its head; ground deterministic CPU premises are evaluated during that check so later premises become checkable. |
-| `(query-materialize $steps $kb $stmt)` | As `query`, but also writes the first result and every stored fact proof it uses back into the KB. |
+| `(query $steps $kb $stmt)` | Backward-chain up to `$steps` expansions to answer `$stmt` against `$kb`; yields the proven results. A larger budget extends the same search order. Stored facts cost no expansion, so a zero-step query answers from stored facts and from what earlier queries derived through permanent rules. When the search has no value for a statement, a result an earlier query materialized is returned instead. A candidate rule is skipped before search state is created when a ground premise has no matching fact and no rule can conclude its head; ground deterministic CPU premises are evaluated during that check so later premises become checkable. |
+| `(query-materialize $steps $kb $stmt)` | As `query`, but also writes back the first result and, for every statement its proof uses, that statement's current value. |
 | `(query-many $steps $kb $statements)` | Compile every statement, inject their temporary additions once, and answer all roots in one shared backward search. `$steps` is one total expansion budget. All roots share one priority order: a goal's priority is the best score any join waiting on it gives it. Emits `(query-result $index $answer)` for each answer; unanswered roots emit no row. Python: `PeTTaChainer.query_many(statements, steps)` returns an input-aligned `list[list[str]]`, including empty lists for unanswered roots. |
-| `(query-many-materialize $steps $kb $statements)` | As `query-many`, but materializes each root's first result and the stored fact proofs it uses. Python: `PeTTaChainer.query_many_materialization(statements, steps)` runs in the caller's live process so the KB writes persist. |
+| `(query-many-materialize $steps $kb $statements)` | As `query-many`, but materializes each root's first result and the current values of the statements its proof uses. Python: `PeTTaChainer.query_many_materialization(statements, steps)` runs in the caller's live process so the KB writes persist. |
 | `(forward-chain $steps $kb $facts)` | Forward-chain from a caller-selected list of compiled canonical facts. The temporary agenda is discarded when the run finishes or exhausts its budget. Returns an unordered, deduplicated list containing the final canonical facts changed by this run; that list can directly seed another run. |
 | `(forward-has-derived? $kb $type)` | True if a fact of `$type` exists in `$kb`. |
 | `(chainer $steps $goal)` / `(chainer-materialize $steps $goal)` | Lower-level backward chainer over an already-compiled goal. |
