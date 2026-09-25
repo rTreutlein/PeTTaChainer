@@ -1005,7 +1005,8 @@
                    (empty)))))
           ($_older
              (collapse (match &sk_view ($hash $stored $rhash $view)
-                (if (=alpha $stored $key) (remove-atom &sk_view ($hash $stored $rhash $view)) (empty))))))
+                (if (=alpha $stored $key) (remove-atom &sk_view ($hash $stored $rhash $view)) (empty)))))
+          ($_support (remove-data-rows! &sk_support (quote ($hash $rhash $_deps)))))
       ()))
 
 ;; Query-local rules leave with their query: their rows, waiters, deferred rows

@@ -250,7 +250,9 @@
 ;; Each row keeps its latest view and the views it replaced, in the order
 ;; they were computed. A consumer takes, per row, the latest view that depends
 ;; on none of the excluded keys and matches its pattern; an older one stays
-;; usable when a newer one came to depend on one of them.
+;; usable when a newer one came to depend on one of them. An older view whose
+;; dependencies include all of a newer one's is admitted only where the newer
+;; one is, so storing a view drops those.
 (: sk-excluded? (-[det]-> (List Number) (List Number) Bool))
 (= (sk-excluded? () $_deps) false)
 (= (sk-excluded? (cons $hash $rest) $deps)
@@ -323,14 +325,36 @@
 (: sk-store-view! (-[semidet]-> Number SkeletonKey Number Number SkeletonValue SkeletonValue))
 (= (sk-store-view! $hash $key $seq $rhash $computed)
    (let* (($view (sk-ref-view! $computed))
+          ($deps (fold-semidet sk-view-deps-step () (cons $view ())))
           ($_moved
              (collapse (match &sk_latest ($hash $stored (sk-version $old-seq $rhash $old))
                 (if (=alpha $stored $key)
                    (let $_removed (remove-atom &sk_latest ($hash $stored (sk-version $old-seq $rhash $old)))
-                      (add-atom &sk_view ($hash $stored $rhash $old)))
+                      (if (sk-dominated? $deps $old) () (add-atom &sk_view ($hash $stored $rhash $old))))
                    (empty)))))
+          ($_pruned
+             (collapse (match &sk_view ($hash $stored $rhash $older)
+                (if (=alpha $stored $key)
+                   (if (sk-dominated? $deps $older) (remove-variant-row! &sk_view (quote ($hash $stored $rhash $older))) (empty))
+                   (empty)))))
+          ($support (sk-union (sk-row-support $hash $rhash) $deps))
+          ($_old-support (remove-data-rows! &sk_support (quote ($hash $rhash $_had))))
+          ($_support (add-atom &sk_support ($hash $rhash $support)))
           ($_added (add-atom &sk_latest ($hash $key (sk-version $seq $rhash $view)))))
       $view))
+
+(: sk-dominated? (-[semidet]-> (List Number) SkeletonValue Bool))
+(= (sk-dominated? $deps $older)
+   (fold-flat (sk-contains-step (fold-semidet sk-view-deps-step () (cons $older ()))) true $deps))
+
+(: sk-contains-step (-[det]-> (List Number) Bool Number Bool))
+(= (sk-contains-step $within $all $dep) (if $all (stored-list-member? $dep $within) false))
+
+(: sk-row-support (-[det]-> Number Number (List Number)))
+(= (sk-row-support $hash $rhash)
+   (case (collapse (once (match &sk_support ($hash $rhash $deps) $deps))) (
+      ((cons $deps $_rest) $deps)
+      (() ()))))
 
 ;; --- Folds ------------------------------------------------------------------
 
@@ -991,12 +1015,10 @@
 (= (sk-force! $_causes (sk-fold-check $_hash $_fold)) ())
 
 ;; Whether a view brings a dependency none of the row's views had.
-(: sk-new-support? (-[semidet]-> Number SkeletonKey Number SkeletonValue Bool))
-(= (sk-new-support? $hash $key $rhash $new)
-   (let $had
-      (fold-semidet sk-view-deps-step ()
-         (cons (sk-latest-view $hash $key $rhash) (sk-older-views $hash $key $rhash)))
-      (fold-semidet (sk-gains-step $had) false (fold-semidet sk-view-deps-step () (cons $new ())))))
+(: sk-new-support? (-[semidet]-> Number Number SkeletonValue Bool))
+(= (sk-new-support? $hash $rhash $new)
+   (fold-semidet (sk-gains-step (sk-row-support $hash $rhash)) false
+      (fold-semidet sk-view-deps-step () (cons $new ()))))
 
 (: sk-gains-step (-[det]-> (List Number) Bool Number Bool))
 (= (sk-gains-step $had $gained $dep) (if $gained true (if (stored-list-member? $dep $had) false true)))
@@ -1073,7 +1095,7 @@
                    (if $forced (== (sk-view-step-proof $new) (sk-view-step-proof $latest)) true)
                    (if $forced false
                       (if (== $latest sk-none) false
-                         (if (sk-new-support? $hash $key $rhash $new) false
+                         (if (sk-new-support? $hash $rhash $new) false
                             (let $_unsupported (query_metric_increment views-without-support) true)))))
                $work
                (let* (($before

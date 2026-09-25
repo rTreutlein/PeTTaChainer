@@ -131,6 +131,9 @@
 !(bind! &sk_latest (new-space))
 (: &sk_view (SpaceOf (Number SkeletonKey Number SkeletonValue)))
 !(bind! &sk_view (new-space))
+;; every dependency a row's views ever had, by key hash and row hash
+(: &sk_support (SpaceOf (Number Number (List Number))))
+!(bind! &sk_support (new-space))
 ;; a key's merged value for an open pattern and no exclusion, with the
 ;; dependencies of the versions it merged
 (: SkeletonMerged Type)
