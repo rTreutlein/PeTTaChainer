@@ -275,9 +275,7 @@
 !(test
    (query 80 forwardMemberFoldKb
       (: $proof (Inheritance Human Mortal) $tv))
-   (: (member-inheritance-fold
-          (foldall-proof
-             (member-inheritance-sample bHuman bMortal)))
+   (: (member-inheritance-fold cpu)
       (Inheritance Human Mortal)
       (STV 0.4 0.0006246096189881324)))
 
@@ -336,10 +334,11 @@
       computedForwardDeltaKb Human Mortal)
    3)
 
-;; A materialized backward proof records the aggregate proof it consumed.
-;; Mere additions leave that proof current. Forward maintenance publishes the
+;; A materialized backward answer records the aggregate value it consumed.
+;; Mere additions leave that answer current. Forward maintenance publishes the
 ;; newer cached snapshot on demand, which can rebuild the conclusion before a
-;; later live refold materializes complete provenance for zero-budget reuse.
+;; later live fold takes the new members and materializes them for zero-budget
+;; reuse.
 !(compileadd materializedForwardDeltaKb
    (: maHuman (Member a Human) (STV 1.0 1.0)))
 !(compileadd materializedForwardDeltaKb
@@ -352,7 +351,7 @@
 !(test
    (query-materialize 1000 materializedForwardDeltaKb
       (: $proof (Inheritance Human Mortal) $tv))
-   (: (member-inheritance-fold (foldall-proof (member-inheritance-sample maHuman maMortal) (member-inheritance-sample mbHuman mbMortal))) (Inheritance Human Mortal) (STV 0.6666666666666666 0.0018714909544603868)))
+   (: (member-inheritance-fold cpu) (Inheritance Human Mortal) (STV 0.6666666666666666 0.0018714909544603868)))
 
 !(compileadd materializedForwardDeltaKb
    (: mcHuman (Member c Human) (STV 1.0 1.0)))
@@ -372,37 +371,33 @@
    (member-test-fact materializedForwardDeltaKb c Mortal))
 
 ;; The fold over a, b and c computed when c arrived is as confident as the
-;; estimate and carries its provenance.
+;; estimate.
 !(test
    (query 5 materializedForwardDeltaKb
       (: $proof (Inheritance Human Mortal) $tv))
-   (: (member-inheritance-fold
-          (foldall-proof
-             (member-inheritance-sample maHuman maMortal)
-             (member-inheritance-sample mbHuman mbMortal)
-             (member-inheritance-sample mcHuman mcMortal)))
+   (: (member-inheritance-fold cpu)
       (Inheritance Human Mortal)
       (STV 0.64 0.003115264797507788)))
 
 !(test
    (query 1000 materializedForwardDeltaKb
       (: $proof (Inheritance Human Mortal) $tv))
-   (: (member-inheritance-fold (foldall-proof (member-inheritance-sample maHuman maMortal) (member-inheritance-sample mbHuman mbMortal) (member-inheritance-sample mcHuman mcMortal))) (Inheritance Human Mortal) (STV 0.64 0.003115264797507788)))
+   (: (member-inheritance-fold cpu) (Inheritance Human Mortal) (STV 0.64 0.003115264797507788)))
 
 !(test
    (query-materialize 1000 materializedForwardDeltaKb
       (: $proof (Inheritance Human Mortal) $tv))
-   (: (member-inheritance-fold (foldall-proof (member-inheritance-sample maHuman maMortal) (member-inheritance-sample mbHuman mbMortal) (member-inheritance-sample mcHuman mcMortal))) (Inheritance Human Mortal) (STV 0.64 0.003115264797507788)))
+   (: (member-inheritance-fold cpu) (Inheritance Human Mortal) (STV 0.64 0.003115264797507788)))
 
 !(test
    (materialized-inheritance-facts
       materializedForwardDeltaKb Human Mortal)
-   ((: (inheritance-query-result (member-inheritance-fold (foldall-proof (member-inheritance-sample maHuman maMortal) (member-inheritance-sample mbHuman mbMortal) (member-inheritance-sample mcHuman mcMortal)))) (Inheritance Human Mortal) (STV 0.64 0.003115264797507788))))
+   ((: (inheritance-query-result (member-inheritance-fold cpu)) (Inheritance Human Mortal) (STV 0.64 0.003115264797507788))))
 
 !(test
    (query 0 materializedForwardDeltaKb
       (: $proof (Inheritance Human Mortal) $tv))
-   (: (member-inheritance-fold (foldall-proof (member-inheritance-sample maHuman maMortal) (member-inheritance-sample mbHuman mbMortal) (member-inheritance-sample mcHuman mcMortal))) (Inheritance Human Mortal) (STV 0.64 0.003115264797507788)))
+   (: (member-inheritance-fold cpu) (Inheritance Human Mortal) (STV 0.64 0.003115264797507788)))
 
 ;; Similar and arbitrary folds are outside the supported registration shape.
 !(register-forward-aggregate-premises! false

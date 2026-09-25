@@ -185,7 +185,18 @@ A fold's or group's view is computed from its member keys when first read and
 recomputed when a member changes; the members changed in one pass recompute it
 once. Members are read without views that depend on the fold itself. Base-rate
 folds estimate a population: they carry neither member evidence nor member
-dependencies, like a prior.
+dependencies, like a prior, and are proved by `cpu`.
+
+A base-rate fold is incremental, since its population grows with everything
+ingested. It keeps its accumulated evidence and each member's contribution; a
+member that joined or whose value changed is taken again, replacing its old
+contribution, when a query needs the fold or it is next read. Needing the fold
+needs only those members, not the population. A member whose inputs changed
+while no query needed it keeps its last contribution until a query recomputes
+it, so a base rate may lag the members' current values; every step costs the
+members that changed. Inheritance-weighted members count at unit mass and the
+evidence is scaled by the current subject mass when the fold finishes, so a
+growing universe does not leave contributions stale.
 
 A base rate is the user's value when one is set. Otherwise an unexpanded fold
 reads the cached estimate, and an expanded fold replaces the estimate when it
@@ -215,7 +226,7 @@ spends an unrelated query's budget.
 
 Evaluation then brings current only what the roots read: their keys, the
 premise keys of those keys' rows, and the members of folds and groups among
-them. Any other row whose input changed is marked stale, once, together with
+them (for a base-rate fold, the members it has yet to take). Any other row whose input changed is marked stale, once, together with
 everything reading it; a later query that reaches it recomputes it. A stale row
 leaves the reader lists of the keys it reads until then, so a change walks only
 readers that are current. Rows built for earlier queries therefore cost nothing
@@ -305,7 +316,9 @@ nondeterminism from overlapping clauses or unstable iteration order.
 
 - Reject cyclic self-support before it reaches proof merging or aggregation.
 - Preserve complete proof structure in examples that are intended to test proof
-  identity, not just their final truth values.
+  identity, not just their final truth values. Base rates are the exception:
+  they are proved by `cpu`, so their tests check the truth value, which counts
+  the members.
 - Never revise a proof with itself through a materialized forward/backward view.
 - Truth-value confidence is not assumed to be monotonic. A proof that contains
   more evidence can produce a lower-confidence conclusion through the rule

@@ -18,11 +18,7 @@
 ;; the shared `$x`, so it counts only valid same-entity conjunctions.
 !(test
    (query 300 inverseCompoundKb (: $prf (P alice) $tv))
-   (: ((inverted p_qr with
-          (foldall-proof p-bob)
-          (foldall-proof
-             (by p_qr p-bob)
-             (conjunction q-alice r-alice)))
+   (: ((inverted p_qr with cpu cpu)
        (conjunction q-alice r-alice))
       (P alice)
       (STV 0.730644992235394 0.0020226270843351274)))

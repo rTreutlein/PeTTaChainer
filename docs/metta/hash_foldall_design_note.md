@@ -161,8 +161,8 @@ knowledge base in `&base_rate_cache`:
   precedence and survive knowledge-base changes.
 - When a base-rate fold goal expands and a *user* entry exists, the aggregate
   commits the cached TV directly and the fold never runs — user values are
-  authoritative (the proof shows a bare `cpu` token instead of a
-  `foldall-proof`).
+  authoritative. A base rate's proof is always the bare `cpu` token, whether
+  it comes from the cache or the fold.
 - A *computed* entry instead becomes the aggregate's initial snapshot: the
   cached value answers immediately, and the fold machinery still spawns at a
   value-of-computation priority capped by the requesting root branch. The

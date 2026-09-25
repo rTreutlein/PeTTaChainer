@@ -53,31 +53,19 @@
    (: (by (bi-backward problemDefinition)
          (merge/revision
             (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior))
-            ((inverted problemRaisesAlarm with
-               (foldall-proof h1Problem h2Problem (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)))
-               (foldall-proof
-                  (merge/revision currentAlarm
-                     (by problemRaisesAlarm (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior))))
-                  (merge/revision h1Alarm (by problemRaisesAlarm h1Problem))
-                  (merge/revision h2Alarm (by problemRaisesAlarm h2Problem))))
+            ((inverted problemRaisesAlarm with cpu cpu)
             currentAlarm)))
       (Or (LocalProblem current) (ProblemDependency current))
       (STV 0.5200045346920863 0.9140643698869183)))
 
 ;; The general Problem estimate can use both the definition and the alarm.
-;; The complete proof assertions retain the population evidence explicitly.
+;; The base rates count the whole population, including the derived alarm.
 !(test
    (query 5000 orInversionConditionedMergeKb
       (: $proof (Problem current) $tv))
    (: (merge/revision
          (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior))
-         ((inverted problemRaisesAlarm with
-            (foldall-proof h1Problem h2Problem (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)))
-            (foldall-proof
-               (merge/revision currentAlarm
-                  (by problemRaisesAlarm (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior))))
-               (merge/revision h1Alarm (by problemRaisesAlarm h1Problem))
-               (merge/revision h2Alarm (by problemRaisesAlarm h2Problem))))
+         ((inverted problemRaisesAlarm with cpu cpu)
          currentAlarm))
       (Problem current)
       (STV 0.5200045346920863 0.9140643700546157)))

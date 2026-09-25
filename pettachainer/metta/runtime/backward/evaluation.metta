@@ -422,7 +422,7 @@
          (if $base-rate (cons $hash ()) (deps-join (cons (cons $hash ()) $deps))))))
 
 ;; A base rate's value is its user base rate, or else the better of its cached
-;; estimate and a fold over the members the search found; a fold that improves
+;; estimate and the fold over the members the search found; a fold that improves
 ;; on the estimate replaces it and is cached for reuse. The fold's own cached
 ;; value and a forward approximation are partial work, taken before the search
 ;; found all members, and always give way to the fold. An unexpanded fold reads
@@ -445,7 +445,7 @@
                ((cons $entry $_rest)
                   (if (base-rate-entry-user? $entry) (sk-cached-fold-view $hash $args $entry)
                      (sk-better-rate-view $hash $args $rate-hash $kbid $pattern $mode $entry)))
-               (() (sk-store-computed-rate $rate-hash $kbid $pattern $mode () (sk-computed-fold-view $hash $args)))))))
+               (() (sk-store-computed-rate $rate-hash $kbid $pattern $mode () (sk-rate-fold-view $hash $args)))))))
       (no-base-rate-aggregate-key (sk-computed-fold-view $hash $args)))))
 
 (: sk-better-rate-view
@@ -453,7 +453,7 @@
 (= (sk-better-rate-view $hash $args $rate-hash $kbid $pattern $mode $entry)
    (if (== (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) ())
       (sk-cached-fold-view $hash $args $entry)
-      (let $computed (sk-computed-fold-view $hash $args)
+      (let $computed (sk-rate-fold-view $hash $args)
          (case $computed (
             ((sk-goal-val (CPU $_f $_a $tv) $_p $_ev $_deps)
                (if (if (== (base-rate-entry-source $entry) forward-approx) true
@@ -485,6 +485,91 @@
                (add-atom &sk_rate_own ($rate-hash (STV $s $c))))))
          ($_other ())))
       $view))
+
+;; A base-rate fold follows its members incrementally. Each member contributes
+;; the evidence of its value when the fold last took it; a member that joined
+;; or whose value changed is taken again when a query needs the fold or it is
+;; next read, replacing its old contribution. A member that went stale without
+;; being recomputed keeps its contribution, so the rate lags until a query
+;; recomputes that member; each step costs the members that changed, never the
+;; population. An inheritance-weighted member counts at unit mass, and the
+;; evidence is scaled by the current subject mass when the fold finishes, as
+;; that mass changes with the universe. The rate is proved by `cpu`, as a
+;; cached one is.
+(: sk-rate-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
+(= (sk-rate-fold-view $hash $args)
+   (let* ((($_kb $_pattern $extractor $init $_function $finish $_mode) $args)
+          ($acc (sk-rate-evidence! $hash $args)))
+      (sk-goal-val
+         (CPU FoldAllCompiled $args
+            (finish-aggregate $finish
+               (case $extractor (
+                  ((extract-inheritance-tv $kbid $_statement) (sk-rate-shift (fa-mass-scale $kbid) $init $acc))
+                  ($_other $acc)))))
+         (brand Proof cpu) () (cons $hash ()))))
+
+;; The fold's evidence with the members that changed taken in.
+(: sk-rate-evidence! (-[semidet]-> Number ScalarFoldSpec Atom))
+(= (sk-rate-evidence! $hash $args)
+   (let* ((($_kb $_pattern $extractor $init $function $_finish $_mode) $args)
+          ($key (sk-fold $args))
+          ($filter
+             (case (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) (
+                ((cons $member $_rest) (sk-member-filter $member))
+                (() sk-any-filter))))
+          ($held
+             (collapse (match &sk_rate_acc ($hash $stored $stored-acc)
+                (if (=alpha $stored $key)
+                   (let $_taken (remove-variant-row! &sk_rate_acc (quote ($hash $stored $stored-acc))) $stored-acc)
+                   (empty)))))
+          ($acc
+             (fold-semidet (sk-rate-take $hash $key $extractor $function $init $filter)
+                (case $held (((cons $old $_rest) $old) (() $init)))
+                (collapse (match &sk_rate_dirty ($hash $fold $changed)
+                   (if (=alpha $fold $key) $changed (empty))))))
+          ($_acc (add-atom &sk_rate_acc ($hash $key $acc))))
+      $acc))
+
+;; Takes a member's current value into the fold's evidence in place of what it
+;; contributed before. A member without a value yet was needed with the fold,
+;; and its first value changes it, so it is taken again then.
+(: sk-rate-take
+   (-[semidet]-> Number SkeletonKey $extractor (-[semidet]-> $acc Atom $acc) $acc SkeletonFilter $acc
+       SkeletonKey $acc))
+(= (sk-rate-take $hash $fold $extractor $function $init $filter $acc $member)
+   (let* (($mhash (index-hash $member))
+          ($was
+             (collapse (match &sk_rate_part ($mhash $hash $stored $stored-fold $stored-part)
+                (if (=alpha $stored $member)
+                   (if (=alpha $stored-fold $fold)
+                      (let $_old (remove-variant-row! &sk_rate_part (quote ($mhash $hash $stored $stored-fold $stored-part))) $stored-part)
+                      (empty))
+                   (empty)))))
+          ($without (case $was (((cons $old $_rest) (sk-rate-shift -1.0 $acc $old)) (() $acc))))
+          ($_clean (remove-variant-row! &sk_rate_dirty (quote ($hash $fold $member)))))
+      (case (sk-value $member $filter (cons $hash ())) (
+         ((sk-val $fact $_ev $_deps)
+            (let* (($part
+                      (case $extractor (
+                         ((extract-inheritance-tv $kbid $_statement)
+                            (let* ((((Inheritance $subject $_concept) $_kbctx $_proof $tv) (copy_term $fact)))
+                               (if (observed-inheritance-subject? $kbid (brand Statement $subject))
+                                  ($function $init (WeightedTv (STV 1.0 1.0) $tv))
+                                  $init)))
+                         ($_other (sk-accumulate $extractor $function $init $fact)))))
+                   ($_part (add-atom &sk_rate_part ($mhash $hash $member $fold $part))))
+               (case $was (
+                  ((cons $old $_rest) (if (== $old $part) $acc (sk-rate-shift 1.0 $without $part)))
+                  (() (sk-rate-shift 1.0 $acc $part))))))
+         ($_none $without)))))
+
+;; Base-rate evidence plus a multiple of other evidence: one member's
+;; contribution added or removed, or, from the empty evidence, a scaling.
+(: sk-rate-shift (-[det]-> Number Atom Atom Atom))
+(= (sk-rate-shift $sign (BaseRateEvidence $w $c) (BaseRateEvidence $dw $dc))
+   (BaseRateEvidence (+ $w (* $sign $dw)) (+ $c (* $sign $dc))))
+(= (sk-rate-shift $sign (BaseRateEvidenceWithPrior $prior $ev) (BaseRateEvidenceWithPrior $_prior $delta))
+   (BaseRateEvidenceWithPrior $prior (sk-rate-shift $sign $ev $delta)))
 
 (: sk-cached-fold-view (-[semidet]-> Number ScalarFoldSpec BaseRateEntry SkeletonValue))
 (= (sk-cached-fold-view $hash $args $entry)
@@ -972,28 +1057,30 @@
              (collapse (match &sk_use ($hash $stored $fold)
                 (if (=alpha $stored $key) $fold (empty)))))
           ($scheduled (fold-semidet (sk-schedule-reader $pass $seq $key $change) $work (sk-readers $key))))
-      (fold-semidet (sk-fold-changed $pass $seq $hash $change) $scheduled $folds)))
+      (fold-semidet (sk-fold-changed $pass $seq $key $change) $scheduled $folds)))
 
 ;; A member change of a fold that was read queues the fold's check at the end
 ;; of the pass, unless the member's new view depends on the fold, which the fold
 ;; does not admit; so the members changed in one pass recompute it once; until
 ;; then its readers read the value it had. A fold nobody read since it last
-;; changed is computed when next read. A check queued for this pass is also
-;; queued for the next, in case this pass's check already ran.
+;; changed is computed when next read. A base-rate fold also records the
+;; member to take. A check queued for this pass is also queued for the next, in
+;; case this pass's check already ran.
 (: sk-check-seq (-[det]-> Number))
 (= (sk-check-seq) 1000000000000000)
 
-(: sk-fold-changed (-[semidet]-> Number Number Number SkeletonChange SkeletonWork SkeletonKey SkeletonWork))
+(: sk-fold-changed (-[semidet]-> Number Number SkeletonKey SkeletonChange SkeletonWork SkeletonKey SkeletonWork))
 (= (sk-fold-changed $pass $_seq $member $change (sk-work $todo $next) $fold)
    (let $hash (index-hash $fold)
-      (if (if (== (sk-latest-view $hash $fold 0) sk-none) true (deps-meet? (cons $hash ()) (sk-change-deps $change)))
-         (sk-work $todo $next)
+      (if (deps-meet? (cons $hash ()) (sk-change-deps $change)) (sk-work $todo $next)
+      (if (let $_rate (sk-rate-dirty! $fold $member) (== (sk-latest-view $hash $fold 0) sk-none)) (sk-work $todo $next)
       (if (if (sk-needed? $hash $fold) false (let $_stale (sk-stale-fold! $fold) true)) (sk-work $todo $next)
-         (let* (($_pending (add-atom &sk_fold_pending ($hash $member)))
+         (let* (($mhash (index-hash $member))
+                ($_pending (add-atom &sk_fold_pending ($hash $mhash)))
                 ($check (sk-fold-check $hash $fold)))
             (if (sk-queue-new? $pass $check) (sk-work (add_to_heap $todo (sk-check-seq) $check) $next)
                (if (sk-queue-new? (+ $pass 1) $check) (sk-work $todo (add_to_heap $next (sk-check-seq) $check))
-                  (sk-work $todo $next))))))))
+                  (sk-work $todo $next)))))))))
 
 ;; A row is forced once per evaluation by each changed key: a fold's readers
 ;; follow its members as they change, and a fold feeding back into its own
@@ -1188,9 +1275,17 @@
                            (sk-row-item $seq $hash $stored $rhash (sk-row $ident $concl $premises $seq))
                            (empty))))))
                ((sk-fold $args)
-                  (case (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) (
-                     ((cons $member $_rest) (fold-semidet sk-need! () (sk-answers $member)))
-                     (() ()))))
+                  (if (sk-rate-fold? $key)
+                     (let $changed
+                        (collapse (match &sk_rate_dirty ($hash $fold $joined)
+                           (if (=alpha $fold $key) $joined (empty))))
+                        (if (== $changed ()) ()
+                           (let* (($_members (fold-semidet sk-need! () $changed))
+                                  ($_taken (sk-rate-evidence! $hash (the ScalarFoldSpec $args))))
+                              (sk-mark-dirty! $key))))
+                     (case (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) (
+                        ((cons $member $_rest) (fold-semidet sk-need! () (sk-answers $member)))
+                        (() ())))))
                ((sk-group $group-args)
                   (case (sk-group-members $key $group-args) (
                      ((sk-group-found $_member $members) (fold-semidet sk-need! () $members))
@@ -1224,7 +1319,8 @@
    (let* (($hash (index-hash $key))
           ($_readers (foreach-flat sk-mark-stale! (sk-readers $key))))
       (foreach-flat sk-stale-fold!
-         (collapse (match &sk_use ($hash $stored $fold) (if (=alpha $stored $key) $fold (empty)))))))
+         (collapse (match &sk_use ($hash $stored $fold)
+            (if (=alpha $stored $key) (if (sk-rate-fold? $fold) (empty) $fold) (empty)))))))
 
 (: sk-item-needed? (-[det]-> SkeletonItem Bool))
 (= (sk-item-needed? (sk-row-item $_seq $hash $key $_rhash $_row)) (sk-needed? $hash $key))

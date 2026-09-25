@@ -31,16 +31,14 @@
                (negated
                   (by penguinsDoNotFly
                      ((inverted (inheritance-implication penguinBird)
-                         with (foldall-proof pinguPenguin)
-                              (foldall-proof ravenBird penguinBird))
+                         with cpu cpu)
                         (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 0)))))))
             (merge/revision
                (by (inheritance-implication birdFlies) (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1))))
                (negated
                   (by penguinsDoNotFly
                      ((inverted (inheritance-implication penguinBird)
-                         with (foldall-proof pinguPenguin)
-                              (foldall-proof ravenBird penguinBird))
+                         with cpu cpu)
                         (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1)))))))))
       (Inheritance Sam (IntSet flies))
       (STV 0.978660812909457 0.6432519164525251))))

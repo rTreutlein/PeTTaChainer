@@ -17,10 +17,10 @@
       (inheritance-implication-fold
          (total-implication
             ((inverted (inheritance-implication penguinBird)
-                with cpu (foldall-proof ravenBird penguinBird))
+                with cpu cpu)
              (by (inheritance-implication ravenBird) (ctx proof 0)))
             ((inverted (inheritance-implication penguinBird)
-                with cpu (foldall-proof ravenBird penguinBird))
+                with cpu cpu)
              (by (inheritance-implication ravenBird) (ctx proof 1)))))
       (Inheritance Raven Penguin)
       (STV 0.9977575682073004 1.0e-06))))

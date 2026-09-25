@@ -29,10 +29,7 @@
    (query 100 memberInheritancePremiseKb
       (: $prf (Member Goal Supported) $tv))
    (: (by inheritanceToGoal
-         (member-inheritance-fold
-            (foldall-proof
-               (member-inheritance-sample
-                  premiseTomHuman premiseTomMortal))))
+         (member-inheritance-fold cpu))
       (Member Goal Supported)
       (STV 0.8 0.0012484394506833685)))
 

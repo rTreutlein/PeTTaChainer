@@ -363,13 +363,34 @@
       (let $_row (add-atom &sk_dirty (sk-dirty $key)) ())
       ()))
 
+;; Base rates follow their members incrementally, see sk-rate-fold-view.
+(: sk-rate-fold? (-[det]-> SkeletonKey Bool))
+(= (sk-rate-fold? $key)
+   (case $key (
+      ((sk-fold ($_kb $_pattern $_extractor $_init $_function $finish $_mode)) (base-rate-finish? $finish))
+      ($_other false))))
+
+;; A member that joined a base-rate fold, or whose value changed, is taken into
+;; it when a query next needs the fold or it is next read.
+(: sk-rate-dirty! (-[det]-> SkeletonKey SkeletonKey Atom))
+(= (sk-rate-dirty! $fold $member)
+   (if (sk-rate-fold? $fold)
+      (let $hash (index-hash $fold)
+         (if (== (collapse (once (match &sk_rate_dirty ($hash $stored-fold $stored)
+                    (if (=alpha $stored $member) (if (=alpha $stored-fold $fold) true (empty)) (empty)))))
+                 ())
+            (let $_row (add-atom &sk_rate_dirty ($hash $fold $member)) ())
+            ()))
+      ()))
+
 ;; A new member answer changes the value of every fold over its node; a group
 ;; fold additionally gains the answer's group as one of its own answers.
 (= (sk-member-step $key $_acc $fold)
    (case $fold (
       ((CPU FoldAllCompiled $args $_res)
          (let* (($fold-key (sk-fold $args))
-                ($_use (sk-add-use! $key $fold-key)))
+                ($_use (sk-add-use! $key $fold-key))
+                ($_rate (sk-rate-dirty! $fold-key $key)))
             (sk-mark-dirty! $fold-key)))
       ((CPU GroupedFoldAllCompiled $grouped-args $_res)
          (case (let $unbound (copy_term $grouped-args)

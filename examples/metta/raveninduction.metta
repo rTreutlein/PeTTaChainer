@@ -30,25 +30,17 @@
          (total-implication
             (merge/revision
                (by (inheritance-implication rv1BlackObserved) ((inverted (inheritance-implication rv1RavenObserved)
-                       with
-                       cpu
-                       (foldall-proof rv1RavenObserved rv2RavenObserved))
+                       with cpu cpu)
                      (ctx proof 0)))
                (by (inheritance-implication rv2BlackObserved) ((inverted (inheritance-implication rv2RavenObserved)
-                       with
-                       cpu
-                       (foldall-proof rv1RavenObserved rv2RavenObserved))
+                       with cpu cpu)
                      (ctx proof 0))))
             (merge/revision
                (by (inheritance-implication rv1BlackObserved) ((inverted (inheritance-implication rv1RavenObserved)
-                       with
-                       cpu
-                       (foldall-proof rv1RavenObserved rv2RavenObserved))
+                       with cpu cpu)
                      (ctx proof 1)))
                (by (inheritance-implication rv2BlackObserved) ((inverted (inheritance-implication rv2RavenObserved)
-                       with
-                       cpu
-                       (foldall-proof rv1RavenObserved rv2RavenObserved))
+                       with cpu cpu)
                      (ctx proof 1))))))
       (Inheritance raven (IntSet black))
       (STV 0.4334414252610257 0.5239947002519733))))
