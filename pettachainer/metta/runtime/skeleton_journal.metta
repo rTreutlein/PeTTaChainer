@@ -190,23 +190,18 @@
 !(bind! &sk_forced (new-space))
 (: &sk_forced_used (SpaceOf (Number Number Number)))
 !(bind! &sk_forced_used (new-space))
-;; fact keys that answered a node, by statement head, whether they contain a
-;; variable, key hash
-(: &sk_key_head (SpaceOf (Atom Bool Number SkeletonKey)))
-!(bind! &sk_key_head (new-space))
-;; the open ones among them, by statement head and key hash
-(: &sk_open_key_head (SpaceOf (Atom Number SkeletonKey)))
-!(bind! &sk_open_key_head (new-space))
-;; per reading key: whether it is open, and the hashes of the keys unifying
-;; with it, its own first
-(: &sk_unifiers (SpaceOf (Number Bool SkeletonKey (List Number))))
+;; fact keys that answered a node, by key hash, and by their statement and
+;; context for structural lookup
+(: &sk_keys (SpaceOf (Number SkeletonKey)))
+!(bind! &sk_keys (new-space))
+(: &sk_key_terms (SpaceOf (Statement KBContext Number)))
+!(bind! &sk_key_terms (new-space))
+;; per reading key: the hashes of the keys unifying with it, its own first
+(: &sk_unifiers (SpaceOf (Number SkeletonKey (List Number))))
 !(bind! &sk_unifiers (new-space))
-;; reading keys with a cached set, by statement head and key hash; the open
-;; ones also separately
-(: &sk_reader_head (SpaceOf (Atom Number SkeletonKey)))
-!(bind! &sk_reader_head (new-space))
-(: &sk_open_reader_head (SpaceOf (Atom Number SkeletonKey)))
-!(bind! &sk_open_reader_head (new-space))
+;; reading keys with a cached set, by their statement and context
+(: &sk_reader_terms (SpaceOf (Statement KBContext Number SkeletonKey)))
+!(bind! &sk_reader_terms (new-space))
 ;; (kb pattern) of a fold's compiled member goal, by hash
 (: &sk_fold_members (SpaceOf (Number Atom SkPattern)))
 !(bind! &sk_fold_members (new-space))

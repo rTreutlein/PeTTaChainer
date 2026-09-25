@@ -275,88 +275,59 @@
 
 ;; A value must not depend on its own key, nor on another key that unifies
 ;; with it: an open key such as ($p bob) may be answered by a derivation of
-;; (Female bob) itself. The keys unifying with a reading key are found among
-;; the answered keys once and cached. A ground key can unify only with open
-;; keys, so its set is found among those. A new answered key joins the cached
-;; sets it unifies with: a ground key is tried against the open readers of its
-;; head, an open key against all readers of its head, and readers of any head
-;; always; a key with an open head drops every cached set.
-(: sk-key-open? (-[det]-> SkeletonKey Bool))
-(= (sk-key-open? $key) (not (== (extract-vars $key) ())))
-
+;; (Female bob) itself. The keys unifying with a reading key are found once and
+;; cached, and a new answered key joins the cached sets of the readers it
+;; unifies with. Keys and readers are stored by statement and context, so
+;; finding the ones that unify with a key is one structural match.
 (: sk-unifier-add! (-[det]-> Number Number SkeletonKey Atom))
 (= (sk-unifier-add! $khash $rhash $reader)
    (let $_updated
-      (collapse (match &sk_unifiers ($rhash $open $stored $hashes)
+      (collapse (match &sk_unifiers ($rhash $stored $hashes)
          (if (=alpha $stored $reader)
-            (let* (($_old (remove-variant-row! &sk_unifiers (quote ($rhash $open $stored $hashes))))
+            (let* (($_old (remove-variant-row! &sk_unifiers (quote ($rhash $stored $hashes))))
                    ($extended (cons $khash $hashes)))
-               (add-atom &sk_unifiers ($rhash $open $stored $extended)))
+               (add-atom &sk_unifiers ($rhash $stored $extended)))
             (empty))))
       ()))
-
-(: sk-unifier-join! (-[det]-> Number SkeletonKey Number SkeletonKey Atom))
-(= (sk-unifier-join! $khash $key $rhash $reader)
-   (if (== $rhash $khash) ()
-      (if (= (copy_term $reader) (copy_term $key)) (sk-unifier-add! $khash $rhash $reader) ())))
 
 (: sk-register-key! (-[det]-> SkeletonKey Atom))
 (= (sk-register-key! $key)
    (case $key (
-      ((sk-key $type $_kbctx)
-         (let* (($hash (index-hash $key))
-                ($head (sk-type-head $type)))
-            (if (== (collapse (once (match &sk_key_head ($head $_known-open $hash $stored)
-                       (if (=alpha $stored $key) true (empty))))) ())
-               (let* (($open (sk-key-open? $key))
-                      ($_row (add-atom &sk_key_head ($head $open $hash $key)))
-                      ($_open-row (if $open (add-atom &sk_open_key_head ($head $hash $key)) true)))
-                  (if (== $head sk-any)
-                     (let* (($_sets (remove-data-rows! &sk_unifiers (quote ($h $o $k $hs))))
-                            ($_readers (remove-data-rows! &sk_reader_head (quote ($rh $rk $r))))
-                            ($_open-readers (remove-data-rows! &sk_open_reader_head (quote ($oh $ok $or)))))
-                        ())
-                     (let* (($_same
-                               (if $open
-                                  (collapse (match &sk_reader_head ($head $rhash $reader) (sk-unifier-join! $hash $key $rhash $reader)))
-                                  (collapse (match &sk_open_reader_head ($head $rhash $reader) (sk-unifier-join! $hash $key $rhash $reader)))))
-                            ($_any
-                               (collapse (match &sk_reader_head (sk-any $any-hash $any-reader) (sk-unifier-join! $hash $key $any-hash $any-reader)))))
-                        ())))
+      ((sk-key $type $kbctx)
+         (let $hash (index-hash $key)
+            (if (== (collapse (once (match &sk_keys ($hash $stored) (if (=alpha $stored $key) true (empty))))) ())
+               (let* (($_key (add-atom &sk_keys ($hash $key)))
+                      ($_terms (add-atom &sk_key_terms ($type $kbctx $hash))))
+                  (case (copy_term $key) (
+                     ((sk-key $reader-type $reader-kbctx)
+                        (let $_joined
+                           (collapse (match &sk_reader_terms ($reader-type $reader-kbctx $rhash $reader)
+                              (if (== $rhash $hash) (empty) (sk-unifier-add! $hash $rhash $reader))))
+                           ()))
+                     ($_copy ()))))
                ())))
       ($_fold ()))))
 
-;; Keys of one statement head, or of every head for a key whose head is open,
-;; that unify with the key: all of them for an open key, the open ones for a
-;; ground key.
-(: sk-unifying-keys (-[det]-> Number SkeletonKey Bool Atom (List Number)))
-(= (sk-unifying-keys $khash $key $open $head)
-   (if $open
-      (collapse (match &sk_key_head ($head $_other-open $hash $other)
-         (if (== $hash $khash) (empty)
-            (if (= (copy_term $key) (copy_term $other)) $hash (empty)))))
-      (collapse (match &sk_open_key_head ($head $open-hash $open-other)
-         (if (== $open-hash $khash) (empty)
-            (if (= (copy_term $key) (copy_term $open-other)) $open-hash (empty)))))))
+;; the key itself first, then every other registered key whose term unifies
+(: sk-key-term-hashes (-[det]-> Number Statement KBContext (List Number)))
+(= (sk-key-term-hashes $khash $type $kbctx)
+   (cons $khash
+      (collapse (match &sk_key_terms ($type $kbctx $hash) (if (== $hash $khash) (empty) $hash)))))
 
 (: sk-unifier-hashes (-[det]-> Number SkeletonKey (List Number)))
 (= (sk-unifier-hashes $khash $key)
-   (case (collapse (once (match &sk_unifiers ($khash $_cached-open $stored $hashes)
+   (case (collapse (once (match &sk_unifiers ($khash $stored $hashes)
             (if (=alpha $stored $key) $hashes (empty))))) (
       ((cons $hashes $_rest) $hashes)
       (()
          (case $key (
-            ((sk-key $type $_kbctx)
-               (let* (($open (sk-key-open? $key))
-                      ($head (sk-type-head $type))
-                      ($others
-                         (if (== $head sk-any) (sk-unifying-keys $khash $key $open $_any-head)
-                            (append-flat (sk-unifying-keys $khash $key $open $head)
-                               (sk-unifying-keys $khash $key $open sk-any))))
-                      ($hashes (cons $khash $others))
-                      ($_cached (add-atom &sk_unifiers ($khash $open $key $hashes)))
-                      ($_reader (add-atom &sk_reader_head ($head $khash $key)))
-                      ($_open-reader (if $open (add-atom &sk_open_reader_head ($head $khash $key)) true)))
+            ((sk-key $type $kbctx)
+               (let* (($hashes
+                         (case (copy_term $key) (
+                            ((sk-key $other-type $other-kbctx) (sk-key-term-hashes $khash $other-type $other-kbctx))
+                            ($_copy (cons $khash ())))))
+                      ($_cached (add-atom &sk_unifiers ($khash $key $hashes)))
+                      ($_reader (add-atom &sk_reader_terms ($type $kbctx $khash $key))))
                   $hashes))
             ($_fold (cons $khash ()))))))))
 
