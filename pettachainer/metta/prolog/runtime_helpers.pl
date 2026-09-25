@@ -40,32 +40,46 @@ alpha_unique_keys([Key|Keys], Seen, Unique) :-
     ),
     alpha_unique_keys(Keys, Seen, Rest).
 
-% Compare only answers with identical ground proofs. Nonground proofs cannot
-% be identical after the independent copies used for subsumption. The local
-% index shares the inputs; findall retains order and copies each survivor just
-% as MeTTa's collapse does, isolating variables between returned answers.
+% An answer is redundant when another answer with the same proof has a
+% strictly more general statement, or a variant statement earlier in the list:
+% of answers that instantiate each other, the first stays. Only identical
+% ground proofs are compared; nonground proofs cannot be identical after the
+% independent copies used for subsumption. The local index shares the inputs;
+% findall retains order and copies each survivor just as MeTTa's collapse does,
+% isolating variables between returned answers.
 prune_answer_instances(Answers, Kept) :-
+    numbered_answers(Answers, 1, Numbered),
     empty_assoc(Empty),
-    reverse(Answers, Reversed),
+    reverse(Numbered, Reversed),
     foldl(index_answer_proof, Reversed, Empty, Index),
-    findall(Answer, (member(Answer, Answers), \+ answer_instance(Index, Answer)), Kept).
+    findall(Answer, (member(Position-Answer, Numbered),
+                     \+ answer_instance(Index, Position, Answer)), Kept).
 
-index_answer_proof(Answer, Before, After) :-
+numbered_answers([], _, []).
+numbered_answers([Answer|Answers], Position, [Position-Answer|Numbered]) :-
+    Next is Position + 1,
+    numbered_answers(Answers, Next, Numbered).
+
+index_answer_proof(Position-Answer, Before, After) :-
     (   nonvar(Answer), Answer = [_, _, Proof, _], ground(Proof)
     ->  (get_assoc(Proof, Before, Previous) -> true ; Previous = []),
-        put_assoc(Proof, Before, [Answer|Previous], After)
+        put_assoc(Proof, Before, [Position-Answer|Previous], After)
     ;   After = Before
     ).
 
-answer_instance(Index, Answer) :-
-    nonvar(Answer), Answer = [Type, _, Proof, _], ground(Proof),
+answer_instance(Index, Position, Answer) :-
+    nonvar(Answer), Answer = [_, _, Proof, _], ground(Proof),
     get_assoc(Proof, Index, Candidates),
-    member(General, Candidates),
+    member(Other-General, Candidates),
+    Other \== Position,
     '=alpha'(Answer, General, false),
     copy_term(Answer, [SpecificType, _, _, _]),
     copy_term(General, [GeneralType, _, _, _]),
-    GeneralType = SpecificType,
-    '=alpha'(SpecificType, Type, true),
+    subsumes_term(GeneralType, SpecificType),
+    (   Other < Position
+    ->  true
+    ;   \+ subsumes_term(SpecificType, GeneralType)
+    ),
     !.
 
 'rule-lookup-needs-occurs-check'(Term, Result) :-

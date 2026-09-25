@@ -56,8 +56,8 @@
       (((Pair $x $x) ctx first tv) ((Pair $x $x) ctx second tv))))
    (((Pair $a $a) ctx first tv) ((Pair $b $b) ctx second tv)))
 
-;; Preserve the existing result contract: context/TV affect the initial
-;; variant check, but do not constrain statement subsumption afterwards.
+;; Context and TV affect only the initial variant check, not statement
+;; subsumption. Of answers that instantiate each other, the first stays.
 !(test
    (prune_answer_instances (the (List RuntimeResult)
       (((Pair a a) one shared (STV 1 0.8))
@@ -67,7 +67,13 @@
    (prune_answer_instances (the (List RuntimeResult)
       (((Pair a b) ctx shared (STV 1 0.8))
        ((Pair a b) ctx shared (STV 1 0.9)))))
-   ())
+   (((Pair a b) ctx shared (STV 1 0.8))))
+!(test
+   (prune_answer_instances (the (List RuntimeResult)
+      (((Pair a b) one shared tv)
+       ((Pair $x $y) other shared tv)
+       ((Pair a b) two shared tv))))
+   (((Pair $x $y) other shared tv)))
 
 ;; Non-fact goals also use RuntimeResult. Leave other shapes alone, and keep
 ;; the existing four-field CPU result behavior.
