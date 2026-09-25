@@ -939,6 +939,7 @@
 (: sk-schedule-reader
    (-[semidet]-> Number Number SkeletonKey SkeletonChange SkeletonWork SkeletonItem SkeletonWork))
 (= (sk-schedule-reader $pass $seq $key $change (sk-work $todo $next) $item)
+   (if (if (sk-item-needed? $item) false (let $_stale (sk-mark-stale! $item) true)) (sk-work $todo $next)
    (if (let $_forced
           (case $change (
              ((sk-outside-change $causes) (sk-force! $causes $item))
@@ -951,7 +952,7 @@
          (if (sk-queue-new? (+ $pass 1) $item)
             (sk-work $todo (add_to_heap $next (sk-item-seq $item) $item))
             (sk-work $todo $next)))
-      (sk-work $todo $next)))
+      (sk-work $todo $next))))
 
 (: sk-drop-fold-view! (-[det]-> SkeletonKey Atom))
 (= (sk-drop-fold-view! $key) (sk-drop-row-views! (index-hash $key) $key 0))
@@ -980,11 +981,12 @@
 (= (sk-fold-changed $pass $_seq $member (sk-work $todo $next) $fold)
    (let $hash (index-hash $fold)
       (if (== (sk-latest-view $hash $fold 0) sk-none) (sk-work $todo $next)
+      (if (if (sk-needed? $hash $fold) false (let $_stale (sk-stale-fold! $fold) true)) (sk-work $todo $next)
          (let* (($_pending (add-atom &sk_fold_pending ($hash $member)))
                 ($check (sk-fold-check $hash $fold)))
             (if (sk-queue-new? $pass $check) (sk-work (add_to_heap $todo (sk-check-seq) $check) $next)
                (if (sk-queue-new? (+ $pass 1) $check) (sk-work $todo (add_to_heap $next (sk-check-seq) $check))
-                  (sk-work $todo $next)))))))
+                  (sk-work $todo $next))))))))
 
 ;; A row is forced once per evaluation by each changed key: a fold's readers
 ;; follow its members as they change, and a fold feeding back into its own
@@ -1142,9 +1144,93 @@
           ($_merged (sk-drop-merged! $key)))
       (sk-key-changed 0 -1 (sk-outside-change (cons (index-hash $key) ())) $work $key)))
 
+;; --- Demand -----------------------------------------------------------------
+;; A query brings current only what its roots read: their keys, the premise
+;; keys of those keys' rows, and the members of the folds and groups among
+;; them. A row outside that set whose input changes is marked stale instead of
+;; computed, and so is everything reading it, once; a later query that reads it
+;; again recomputes it. Earlier queries' rows thus cost nothing per query.
+
+;; Signatures of the mutually recursive functions below.
+(: sk-need! (-[semidet]-> Atom SkeletonKey Atom))
+(: sk-stale-key! (-[det]-> SkeletonKey Atom))
+
+(: sk-needed? (-[det]-> Number SkeletonKey Bool))
+(= (sk-needed? $hash $key)
+   (not (== (collapse (once (match &sk_needed ($hash $stored) (if (=alpha $stored $key) true (empty))))) ())))
+
+(: sk-need-premise! (-[semidet]-> Atom SkPattern Atom))
+(= (sk-need-premise! $_acc $premise)
+   (case $premise (
+      ((CPU FoldAllCompiled $fold-args $_fold-res) (sk-need! () (sk-fold $fold-args)))
+      ((CPU GroupedFoldAllCompiled $group-args $_group-res) (sk-need! () (sk-group $group-args)))
+      ((CPU $_fun $_args $_res) ())
+      (($type $kbctx $_proof $_tv) (sk-need! () (sk-key $type $kbctx))))))
+
+;; A stale row the query reaches is recomputed by its evaluation.
+(: sk-need-row! (-[semidet]-> Atom SkeletonItem Atom))
+(= (sk-need-row! $_acc (sk-row-item $_seq $khash $_key $rhash (sk-row $_ident $_concl $premises $_s)))
+   (let $_refresh
+      (if (== (collapse (once (match &sk_stale ($khash $rhash) true))) ()) ()
+         (let $_fresh (remove-atom &sk_stale ($khash $rhash)) (add-atom &sk_refresh ($khash $rhash))))
+      (fold-semidet sk-need-premise! () $premises)))
+
+(= (sk-need! $_acc $key)
+   (let $hash (index-hash $key)
+      (if (sk-needed? $hash $key) ()
+         (let $_needed (add-atom &sk_needed ($hash $key))
+            (case $key (
+               ((sk-key $_type $_kbctx)
+                  (fold-semidet sk-need-row! ()
+                     (collapse (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
+                        (if (=alpha $stored $key)
+                           (sk-row-item $seq $hash $stored $rhash (sk-row $ident $concl $premises $seq))
+                           (empty))))))
+               ((sk-fold $args)
+                  (case (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) (
+                     ((cons $member $_rest) (fold-semidet sk-need! () (sk-answers $member)))
+                     (() ()))))
+               ((sk-group $group-args)
+                  (case (sk-group-members $key $group-args) (
+                     ((sk-group-found $_member $members) (fold-semidet sk-need! () $members))
+                     (sk-group-missing ()))))))))))
+
+(: sk-need-root! (-[semidet]-> Atom SkPattern Atom))
+(= (sk-need-root! $_acc $goal) (fold-semidet sk-need! () (sk-root-keys $goal)))
+
+(: sk-mark-stale! (-[det]-> SkeletonItem Atom))
+(= (sk-mark-stale! (sk-row-item $_seq $khash $key $rhash $_row))
+   (if (== (collapse (once (match &sk_stale ($khash $rhash) true))) ())
+      (let $_stale (add-atom &sk_stale ($khash $rhash)) (sk-stale-key! $key))
+      ()))
+(= (sk-mark-stale! (sk-fold-check $_hash $_fold)) ())
+
+;; A fold over a stale key drops its view, so it is recomputed when read.
+(: sk-stale-fold! (-[det]-> SkeletonKey Atom))
+(= (sk-stale-fold! $fold)
+   (if (== (sk-latest-view (index-hash $fold) $fold 0) sk-none) ()
+      (let* (($_view (sk-drop-fold-view! $fold))
+             ($_merged (sk-drop-merged! $fold)))
+         (sk-stale-key! $fold))))
+
+(= (sk-stale-key! $key)
+   (let* (($hash (index-hash $key))
+          ($_readers (foreach-flat sk-mark-stale! (sk-readers $key))))
+      (foreach-flat sk-stale-fold!
+         (collapse (match &sk_use ($hash $stored $fold) (if (=alpha $stored $key) $fold (empty)))))))
+
+(: sk-item-key (-[det]-> SkeletonItem SkeletonKey))
+(= (sk-item-key (sk-row-item $_seq $_khash $key $_rhash $_row)) $key)
+(= (sk-item-key (sk-fold-check $_hash $fold)) $fold)
+
+(: sk-item-needed? (-[det]-> SkeletonItem Bool))
+(= (sk-item-needed? $item) (let $key (sk-item-key $item) (sk-needed? (index-hash $key) $key)))
+
 (: sk-seed-new (-[det]-> (Heap SkeletonItem) SkeletonItem (Heap SkeletonItem)))
 (= (sk-seed-new $todo $item)
-   (if (sk-queue-new? 0 $item) (add_to_heap $todo (sk-item-seq $item) $item) $todo))
+   (if (sk-item-needed? $item)
+      (if (sk-queue-new? 0 $item) (add_to_heap $todo (sk-item-seq $item) $item) $todo)
+      (let $_stale (sk-mark-stale! $item) $todo)))
 
 (: sk-evaluate! (-[semidet]-> Atom))
 (= (sk-evaluate!)
@@ -1159,9 +1245,17 @@
           ($dirty
              (collapse (match &sk_dirty (sk-dirty $key)
                 (let $_taken (remove-atom &sk_dirty (sk-dirty $key)) $key))))
+          ;; a stale row the query needs is forced by its own key
+          ($refresh
+             (collapse (match &sk_refresh ($khash $rhash)
+                (let $_taken (remove-atom &sk_refresh ($khash $rhash))
+                   (match &sk_row ($khash $key $rhash (sk-row $ident $concl $premises $seq))
+                      (let $item (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $seq))
+                         (let $_forced (sk-force! (cons $khash ()) $item) $item)))))))
           ($seeded
              (fold-semidet sk-dirty-seed
-                (sk-work (fold-semidet sk-seed-new (empty_heap) $new) (empty_heap)) $dirty)))
+                (sk-work (fold-semidet sk-seed-new (empty_heap) (append-flat $new $refresh)) (empty_heap))
+                $dirty)))
       (sk-work-off! 0 $seeded)))
 
 ;; --- Base-rate API ----------------------------------------------------------
@@ -1372,6 +1466,19 @@
             (if (sk-fact-matches? $filter $fact) (sk-val $fact $ev ()) (empty)))))
       ()))
 
+;; The keys a root reads.
+(: sk-root-keys (-[semidet]-> SkPattern (List SkeletonKey)))
+(= (sk-root-keys $goal)
+   (case $goal (
+      ((CPU $fun $args $_res)
+         (if (== $fun FoldAllCompiled) (cons (sk-fold $args) ())
+            (if (== $fun GroupedFoldAllCompiled) (sk-answers $goal) ())))
+      (($type $kbctx $_proof $_tv)
+         (fold-semidet sk-cons-step ()
+            (fold-flat sk-new-key-step ()
+               (append-flat (sk-statement-answers $type $kbctx)
+                  (collapse (match &kb ($type $kbctx $_proof $_tv) (sk-key $type $kbctx))))))))))
+
 (: sk-root-values (-[semidet]-> SkPattern (List SkeletonValue)))
 (= (sk-root-values $goal)
    (case $goal (
@@ -1379,17 +1486,12 @@
          (if (== $fun FoldAllCompiled)
             (cons (sk-value (sk-fold $args) sk-any-filter ()) ())
             (if (== $fun GroupedFoldAllCompiled)
-               (map-semidet (sk-root-value sk-any-filter) (sk-answers $goal))
+               (map-semidet (sk-root-value sk-any-filter) (sk-root-keys $goal))
                (collapse (let $result (cpu-call 0 $fun $args)
                   (if (= $res $result)
                      (sk-goal-val (CPU $fun $args $result) (brand Proof cpu) () ())
                      (empty)))))))
-      (($type $kbctx $_proof $_tv)
-         (map-semidet (sk-root-key-value $goal)
-            (fold-semidet sk-cons-step ()
-               (fold-flat sk-new-key-step ()
-                  (append-flat (sk-statement-answers $type $kbctx)
-                     (collapse (match &kb ($type $kbctx $_proof $_tv) (sk-key $type $kbctx)))))))))))
+      ($_fact (map-semidet (sk-root-key-value $goal) (sk-root-keys $goal))))))
 
 (: sk-new-key-step (-[det]-> (List SkeletonKey) SkeletonKey (List SkeletonKey)))
 (= (sk-new-key-step $kept $key) (if (fold-flat (sk-alpha-step $key) false $kept) $kept (cons $key $kept)))
@@ -1474,6 +1576,8 @@
           ($_old-roots (collapse (match &sk_roots ($hash $root) (remove-atom &sk_roots ($hash $root)))))
           ($_scored (fold-semidet sk-root-score-step () $goals))
           ($_search (sk-search! (fold-semidet (sk-push 0) (empty_heap) $goals)))
+          ($_unneeded (collapse (match &sk_needed ($hash $key) (remove-atom &sk_needed ($hash $key)))))
+          ($_needed (fold-semidet sk-need-root! () $goals))
           ($_evaluated (sk-evaluate!))
           ($results (map-semidet (sk-root-results $materialize?) $goals))
           ($_temp (sk-clear-temp!)))

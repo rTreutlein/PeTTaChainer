@@ -205,6 +205,15 @@
 ;; nodes the current walk visited
 (: &sk_seen (SpaceOf (Number SkPattern)))
 !(bind! &sk_seen (new-space))
+;; keys the current query's roots read, directly or through rows and folds
+(: &sk_needed (SpaceOf (Number SkeletonKey)))
+!(bind! &sk_needed (new-space))
+;; rows whose inputs changed while no query needed them, by key and row hash
+(: &sk_stale (SpaceOf (Number Number)))
+!(bind! &sk_stale (new-space))
+;; stale rows the current query needs, recomputed by its evaluation
+(: &sk_refresh (SpaceOf (Number Number)))
+!(bind! &sk_refresh (new-space))
 
 ;; --- Query metrics ------------------------------------------------------------
 
