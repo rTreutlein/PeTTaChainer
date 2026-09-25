@@ -31,6 +31,16 @@ heap_pop(Heap, [Priority, Value, Rest]) :-
         term_hash(Copy, Hash)
     ).
 
+% Dependency sets are SWI ordered sets of key hashes, so union, containment
+% and intersection are linear merges.
+'deps-set'(Hashes, Set) :- sort(Hashes, Set).
+'deps-union'(Left, Right, Set) :- ord_union(Left, Right, Set).
+'deps-join'(Sets, Set) :- ord_union(Sets, Set).
+'deps-within?'(Set, Within, Result) :-
+    (   ord_subset(Set, Within) -> Result = true ; Result = false ).
+'deps-meet?'(Left, Right, Result) :-
+    (   ord_disjoint(Left, Right) -> Result = false ; Result = true ).
+
 % The trie compares variants exactly, without binding caller variables or
 % confusing hash collisions. Destroy query-local storage even on an exception.
 alpha_unique_keys(Keys, Unique) :-

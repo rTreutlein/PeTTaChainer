@@ -14,6 +14,13 @@
        (Number $item (Heap $item))))
 (: heap-empty? (-[det]-> (Heap $item) Bool))
 
+;; Dependency sets of key hashes, kept as SWI ordered sets (runtime_helpers.pl).
+(: deps-set (-[det]-> (List Number) (List Number)))
+(: deps-union (-[det]-> (List Number) (List Number) (List Number)))
+(: deps-join (-[det]-> (List (List Number)) (List Number)))
+(: deps-within? (-[det]-> (List Number) (List Number) Bool))
+(: deps-meet? (-[det]-> (List Number) (List Number) Bool))
+
 ;; The first of each group of variant terms, in order (runtime_helpers.pl).
 (: alpha_unique_keys (-[det]-> (List $item) (List $item)))
 

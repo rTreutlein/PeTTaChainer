@@ -107,7 +107,7 @@
                               (sk-val $a $ev-a $deps-a)
                               (sk-val $b $ev-b $deps-b)))))
                   (let* (($pooled (sk-union $ev-a $ev-b))
-                         ($deps (sk-union $deps-a $deps-b)))
+                         ($deps (deps-union $deps-a $deps-b)))
                      (if (>= (term-confidence $a) (term-confidence $b))
                         (sk-val (RevisionMergeProof $a $b) $pooled $deps)
                         (sk-val (RevisionMergeProof $b $a) $pooled $deps)))))))))
@@ -223,7 +223,7 @@
 (= (sk-lift-merge-step (sk-val ($type $kbctx $proof $tv) $ev $deps)
       (sk-val ($_other-type $_other-kbctx $other $_other-tv) $other-ev $other-deps))
    (sk-val ($type $kbctx (brand Proof (merge/revision $proof $other)) $tv)
-      (sk-union $ev $other-ev) (sk-union $deps $other-deps)))
+      (sk-union $ev $other-ev) (deps-union $deps $other-deps)))
 
 (: sk-lift-with-tv (-[semidet]-> SkeletonValue TV SkeletonValue))
 (= (sk-lift-with-tv (sk-val ($type $kbctx $proof $_old) $ev $deps) $tv)
@@ -253,18 +253,13 @@
 ;; usable when a newer one came to depend on one of them. An older view whose
 ;; dependencies include all of a newer one's is admitted only where the newer
 ;; one is, so storing a view drops those.
-(: sk-excluded? (-[det]-> (List Number) (List Number) Bool))
-(= (sk-excluded? () $_deps) false)
-(= (sk-excluded? (cons $hash $rest) $deps)
-   (if (stored-list-member? $hash $deps) true (sk-excluded? $rest $deps)))
-
 (: sk-admits? (-[det]-> SkeletonFilter (List Number) SkeletonValue Bool))
 (= (sk-admits? $filter $exclude $view)
    (case $view (
       ((sk-val $fact $_ev $deps)
-         (if (sk-excluded? $exclude $deps) false (sk-fact-matches? $filter $fact)))
+         (if (deps-meet? $exclude $deps) false (sk-fact-matches? $filter $fact)))
       ((sk-goal-val $_goal $_proof $_ev $deps)
-         (if (sk-excluded? $exclude $deps) false true))
+         (if (deps-meet? $exclude $deps) false true))
       (sk-none false))))
 
 (: sk-admit-older (-[det]-> SkeletonFilter (List Number) SkeletonValue SkeletonValue SkeletonValue))
@@ -325,7 +320,7 @@
 (: sk-store-view! (-[semidet]-> Number SkeletonKey Number Number SkeletonValue SkeletonValue))
 (= (sk-store-view! $hash $key $seq $rhash $computed)
    (let* (($view (sk-ref-view! $computed))
-          ($deps (fold-semidet sk-view-deps-step () (cons $view ())))
+          ($deps (sk-view-deps-step () $view))
           ($_moved
              (collapse (match &sk_latest ($hash $stored (sk-version $old-seq $rhash $old))
                 (if (=alpha $stored $key)
@@ -337,18 +332,14 @@
                 (if (=alpha $stored $key)
                    (if (sk-dominated? $deps $older) (remove-variant-row! &sk_view (quote ($hash $stored $rhash $older))) (empty))
                    (empty)))))
-          ($support (sk-union (sk-row-support $hash $rhash) $deps))
+          ($support (deps-union (sk-row-support $hash $rhash) $deps))
           ($_old-support (remove-data-rows! &sk_support (quote ($hash $rhash $_had))))
           ($_support (add-atom &sk_support ($hash $rhash $support)))
           ($_added (add-atom &sk_latest ($hash $key (sk-version $seq $rhash $view)))))
       $view))
 
 (: sk-dominated? (-[semidet]-> (List Number) SkeletonValue Bool))
-(= (sk-dominated? $deps $older)
-   (fold-flat (sk-contains-step (fold-semidet sk-view-deps-step () (cons $older ()))) true $deps))
-
-(: sk-contains-step (-[det]-> (List Number) Bool Number Bool))
-(= (sk-contains-step $within $all $dep) (if $all (stored-list-member? $dep $within) false))
+(= (sk-dominated? $deps $older) (deps-within? $deps (sk-view-deps-step () $older)))
 
 (: sk-row-support (-[det]-> Number Number (List Number)))
 (= (sk-row-support $hash $rhash)
@@ -400,9 +391,9 @@
                (cons $member-ev $ev) (cons $member-deps $deps))))
       ($_none (sk-fold-state $acc $proofs $ev $deps)))))
 
-;; The distinct items of a fold's per-member lists.
-(: sk-join-parts (-[det]-> (List (List $item)) (List $item)))
-(= (sk-join-parts $parts) (list_to_set (foldr-flat append-flat () $parts)))
+;; The distinct evidence of a fold's members.
+(: sk-join-evidence (-[det]-> (List (List Evidence)) (List Evidence)))
+(= (sk-join-evidence $parts) (list_to_set (foldr-flat append-flat () $parts)))
 
 ;; A fold with members proves by its members, in the order they were found.
 (: sk-fold-proof (-[semidet]-> Atom (List Proof) Proof))
@@ -427,8 +418,8 @@
          (sk-fold-proof $function $proofs)
          (if $base-rate ()
             (if (== $finish uniform-prior) ()
-               (if (== $finish uniform-prior-known) () (sk-join-parts $ev))))
-         (cons $hash (if $base-rate () (sk-join-parts $deps))))))
+               (if (== $finish uniform-prior-known) () (sk-join-evidence $ev))))
+         (if $base-rate (cons $hash ()) (deps-join (cons (cons $hash ()) $deps))))))
 
 ;; A base rate's value is its user base rate, or else the better of its cached
 ;; estimate and a fold over the members the search found; a fold that improves
@@ -580,8 +571,8 @@
 (: sk-view-deps-step (-[semidet]-> (List Number) SkeletonValue (List Number)))
 (= (sk-view-deps-step $deps $view)
    (case $view (
-      ((sk-val $_fact $_ev $view-deps) (sk-union $deps $view-deps))
-      ((sk-goal-val $_goal $_proof $_ev $view-deps) (sk-union $deps $view-deps))
+      ((sk-val $_fact $_ev $view-deps) (deps-union $deps $view-deps))
+      ((sk-goal-val $_goal $_proof $_ev $view-deps) (deps-union $deps $view-deps))
       (sk-none $deps))))
 
 (: sk-open-filter? (-[det]-> SkeletonFilter Bool))
@@ -615,7 +606,7 @@
           ($merged
              (case (sk-open-value $hash $key sk-any-filter) (
                 ((sk-merged $_hash $_key $deps $value)
-                   (if (sk-excluded? $exclude $deps)
+                   (if (deps-meet? $exclude $deps)
                       (sk-merge-key $hash $key sk-any-filter (sk-admitted $hash $key sk-any-filter $exclude))
                       $value))))))
       (if (sk-open-filter? $filter) $merged
@@ -684,7 +675,7 @@
    (case $value (
       ((sk-goal-val (CPU $_fun $_args $result) $proof $fold-ev $fold-deps)
          (if (= $res $result)
-            (sk-acc (cons $proof $fold-proofs) (sk-union $ev $fold-ev) (sk-union $deps $fold-deps) $parts)
+            (sk-acc (cons $proof $fold-proofs) (sk-union $ev $fold-ev) (deps-union $deps $fold-deps) $parts)
             sk-fail))
       ($_none sk-fail))))
 
@@ -790,7 +781,7 @@
                    (if (premise-evidence-overlap? $ev $premise-ev) (not (sk-joins-pool? $parts $part)) false))
                sk-fail
                (if (= ($type $kbctx $proof $tv) (if (is-var $proof) $fact (sk-full-fact $fact)))
-                  (sk-acc $fold-proofs (sk-union $ev $premise-ev) (sk-union $deps $premise-deps)
+                  (sk-acc $fold-proofs (sk-union $ev $premise-ev) (deps-union $deps $premise-deps)
                      (sk-add-part $parts $part))
                   sk-fail))))
       ($_none sk-fail))))
@@ -942,10 +933,10 @@
 (= (sk-reader-affected? $key $change (sk-row-item $_seq $khash $_rkey $_rhash (sk-row $_ident $_concl $premises $_s)))
    (case $change (
       ((sk-outside-change $_causes $_deps) true)
-      ((sk-view-change $deps) (if (stored-list-member? $khash $deps) false true))
+      ((sk-view-change $deps) (if (deps-meet? (cons $khash ()) $deps) false true))
       ((sk-value-same $deps $merged-deps)
-         (if (stored-list-member? $khash $deps) false
-            (if (stored-list-member? $khash $merged-deps) true
+         (if (deps-meet? (cons $khash ()) $deps) false
+            (if (deps-meet? (cons $khash ()) $merged-deps) true
                (if (fold-semidet (sk-reads-open? $key) true $premises) false true)))))))
 
 ;; A reader created after the row that changed its input is still ahead in
@@ -995,7 +986,7 @@
 (: sk-fold-changed (-[semidet]-> Number Number Number SkeletonChange SkeletonWork SkeletonKey SkeletonWork))
 (= (sk-fold-changed $pass $_seq $member $change (sk-work $todo $next) $fold)
    (let $hash (index-hash $fold)
-      (if (if (== (sk-latest-view $hash $fold 0) sk-none) true (stored-list-member? $hash (sk-change-deps $change)))
+      (if (if (== (sk-latest-view $hash $fold 0) sk-none) true (deps-meet? (cons $hash ()) (sk-change-deps $change)))
          (sk-work $todo $next)
       (if (if (sk-needed? $hash $fold) false (let $_stale (sk-stale-fold! $fold) true)) (sk-work $todo $next)
          (let* (($_pending (add-atom &sk_fold_pending ($hash $member)))
@@ -1023,11 +1014,7 @@
 ;; Whether a view brings a dependency none of the row's views had.
 (: sk-new-support? (-[semidet]-> Number Number SkeletonValue Bool))
 (= (sk-new-support? $hash $rhash $new)
-   (fold-semidet (sk-gains-step (sk-row-support $hash $rhash)) false
-      (fold-semidet sk-view-deps-step () (cons $new ()))))
-
-(: sk-gains-step (-[det]-> (List Number) Bool Number Bool))
-(= (sk-gains-step $had $gained $dep) (if $gained true (if (stored-list-member? $dep $had) false true)))
+   (if (deps-within? (sk-view-deps-step () $new) (sk-row-support $hash $rhash)) false true))
 
 ;; Two views of a row are the same when they agree on all but the proof: the
 ;; stored proof stays a valid derivation of the same value.
@@ -1071,7 +1058,7 @@
                   (if (if (sk-same-view? $new $old) (== (sk-view-step-proof $new) (sk-view-step-proof $old)) false)
                      $work
                      (sk-key-changed $pass (sk-check-seq)
-                        (sk-outside-change $causes (fold-semidet sk-view-deps-step () (cons $new ()))) $work $fold)))
+                        (sk-outside-change $causes (sk-view-deps-step () $new)) $work $fold)))
                (() (sk-key-changed $pass (sk-check-seq) (sk-outside-change $causes ()) $work $fold))))))))
 
 ;; A row whose view differs from its latest version stores a new version and
@@ -1110,7 +1097,7 @@
                       ($_stored (sk-store-view! $hash $key $seq $rhash $new))
                       ($_stored-count (query_metric_increment views-stored))
                       ($_merged (sk-drop-merged! $key))
-                      ($deps (fold-semidet sk-view-deps-step () (cons $new ()))))
+                      ($deps (sk-view-deps-step () $new)))
                   (sk-key-changed $pass $seq
                      (if (if $forced (not (sk-same-view? $new $latest)) false)
                         (sk-outside-change $causes $deps)
@@ -1126,7 +1113,7 @@
          (case (sk-open-value $hash $key sk-any-filter) (
             ((sk-merged $_h2 $_k2 $new-deps $new-value)
                (if (=alpha $old-value $new-value)
-                  (sk-value-same $deps (sk-union $old-deps $new-deps))
+                  (sk-value-same $deps (deps-union $old-deps $new-deps))
                   (sk-view-change $deps)))))))))
 
 (: sk-work-off! (-[semidet]-> Number SkeletonWork Atom))
