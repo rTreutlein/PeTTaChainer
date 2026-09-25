@@ -10,6 +10,7 @@
 ;; activates new facts and rules against already-expanded patterns.
 
 (: remove-data-rows! (-[det]-> Atom $pattern Bool))
+(: remove-variant-row! (-[det]-> Atom $row Bool))
 
 ;; --- Types --------------------------------------------------------------------
 
@@ -90,9 +91,11 @@
 
 (: &sk_expanded (SpaceOf (Number SkPattern)))
 !(bind! &sk_expanded (new-space))
-;; expanded fact patterns by statement head, for activation
-(: &sk_node_head (SpaceOf (Atom SkPattern)))
-!(bind! &sk_node_head (new-space))
+;; expanded fact patterns by a copy of their statement and context, so
+;; activation finds the ones a new fact or rule conclusion unifies with in one
+;; match and gets them back uninstantiated
+(: &sk_node_terms (SpaceOf (Statement KBContext SkPattern)))
+!(bind! &sk_node_terms (new-space))
 (: &sk_answer (SpaceOf (Number SkPattern SkeletonKey)))
 !(bind! &sk_answer (new-space))
 ;; partial joins waiting on a node
@@ -199,7 +202,7 @@
 ;; per reading key: the hashes of the keys unifying with it, its own first
 (: &sk_unifiers (SpaceOf (Number SkeletonKey (List Number))))
 !(bind! &sk_unifiers (new-space))
-;; reading keys with a cached set, by their statement and context
+;; reading keys with a cached set, by a copy of their statement and context
 (: &sk_reader_terms (SpaceOf (Statement KBContext Number SkeletonKey)))
 !(bind! &sk_reader_terms (new-space))
 ;; (kb pattern) of a fold's compiled member goal, by hash

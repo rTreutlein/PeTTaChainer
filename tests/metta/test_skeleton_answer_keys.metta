@@ -33,3 +33,17 @@
    (collapse (query 0 keyKb (: $proof (Pair $x $y) $tv)))
    ((: generalKey (Pair $x $x) (STV 1.0 0.8))
     (: concreteKey (Pair one two) (STV 1.0 0.9))))
+
+;; A key answered after an open reader cached its unifying keys joins that
+;; reader's set, and the reader stays open.
+!(test
+   (let* (($reader (the SkeletonKey (sk-key (Late $x) (lateKb MAIN Nil))))
+          ($rhash (index-hash $reader))
+          ($before (sk-unifier-hashes $rhash $reader))
+          ($late (the SkeletonKey (sk-key (Late bob) (lateKb MAIN Nil))))
+          ($_registered (sk-register-key! $late))
+          ($after (sk-unifier-hashes $rhash $reader)))
+      ((== $before (cons $rhash ()))
+       (== $after (deps-set (cons $rhash (cons (index-hash $late) ()))))
+       (is-var $x)))
+   (true true true))

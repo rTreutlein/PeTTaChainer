@@ -7,6 +7,15 @@
     Row =.. [Space|Pattern],
     retractall(Row).
 
+% Erase the one stored row that is a variant of Row. A removal by unification
+% could also take a different row with the same coarse hash; a variant cannot.
+'remove-variant-row!'(Space, Row, true) :-
+    Head =.. [Space|Row],
+    functor(Head, Name, Arity),
+    functor(Stored, Name, Arity),
+    (   Row = [First|_], ground(First) -> arg(1, Stored, First) ; true ),
+    (   clause(Stored, true, Ref), Stored =@= Head -> erase(Ref) ; true ).
+
 % PeTTa arrows have one result position. Package SWI's three relational
 % get_from_heap/4 outputs into one positional product.
 heap_pop(Heap, [Priority, Value, Rest]) :-

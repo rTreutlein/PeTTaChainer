@@ -66,13 +66,6 @@
       ((CPU $_fun $args $_res) (index-hash $args))
       (($type $kbctx $_proof $_tv) (index-hash (sk-key $type $kbctx))))))
 
-(: sk-type-head (-[det]-> Statement Atom))
-(= (sk-type-head $type)
-   (if (is-var $type) sk-any
-      (if (is-expr $type)
-         (let $head (car-atom $type) (if (is-var $head) sk-any $head))
-         $type)))
-
 (: sk-expanded? (-[det]-> SkPattern Bool))
 (= (sk-expanded? $pattern)
    (let $hash (sk-node-hash $pattern)
@@ -84,12 +77,10 @@
 (= (sk-mark-expanded! $pattern)
    (let* (($hash (sk-node-hash $pattern))
           ($_row (add-atom &sk_expanded ($hash $pattern))))
-      (case $pattern (
+      (case (copy_term $pattern) (
          ((CPU $_fun $_args $_res) ())
-         (($type $_kbctx $_proof $_tv)
-            (let* (($head (sk-type-head $type))
-                   ($_head (add-atom &sk_node_head ($head $pattern))))
-               ()))))))
+         (($type $kbctx $_proof $_tv)
+            (let $_terms (add-atom &sk_node_terms ($type $kbctx $pattern)) ()))))))
 
 (: sk-answers (-[det]-> SkPattern (List SkeletonKey)))
 (= (sk-answers $pattern)
@@ -278,7 +269,8 @@
 ;; (Female bob) itself. The keys unifying with a reading key are found once and
 ;; cached, and a new answered key joins the cached sets of the readers it
 ;; unifies with. Keys and readers are stored by statement and context, so
-;; finding the ones that unify with a key is one structural match.
+;; finding the ones that unify with a key is one structural match; a reader's
+;; lookup columns are a copy, so a match leaves the returned reader open.
 (: sk-unifier-add! (-[det]-> Number Number SkeletonKey Atom))
 (= (sk-unifier-add! $khash $rhash $reader)
    (let $_updated
@@ -297,14 +289,11 @@
          (let $hash (index-hash $key)
             (if (== (collapse (once (match &sk_keys ($hash $stored) (if (=alpha $stored $key) true (empty))))) ())
                (let* (($_key (add-atom &sk_keys ($hash $key)))
-                      ($_terms (add-atom &sk_key_terms ($type $kbctx $hash))))
-                  (case (copy_term $key) (
-                     ((sk-key $reader-type $reader-kbctx)
-                        (let $_joined
-                           (collapse (match &sk_reader_terms ($reader-type $reader-kbctx $rhash $reader)
-                              (if (== $rhash $hash) (empty) (sk-unifier-add! $hash $rhash $reader))))
-                           ()))
-                     ($_copy ()))))
+                      ($_terms (add-atom &sk_key_terms ($type $kbctx $hash)))
+                      ($_joined
+                         (collapse (match &sk_reader_terms ($type $kbctx $rhash $reader)
+                            (if (== $rhash $hash) (empty) (sk-unifier-add! $hash $rhash $reader))))))
+                  ())
                ())))
       ($_fold ()))))
 
@@ -319,12 +308,9 @@
             (if (=alpha $stored $key) $hashes (empty))))) (
       ((cons $hashes $_rest) $hashes)
       (()
-         (case $key (
+         (case (copy_term $key) (
             ((sk-key $type $kbctx)
-               (let* (($hashes
-                         (case (copy_term $key) (
-                            ((sk-key $other-type $other-kbctx) (sk-key-term-hashes $khash $other-type $other-kbctx))
-                            ($_copy (cons $khash ())))))
+               (let* (($hashes (sk-key-term-hashes $khash $type $kbctx))
                       ($_cached (add-atom &sk_unifiers ($khash $key $hashes)))
                       ($_reader (add-atom &sk_reader_terms ($type $kbctx $khash $key))))
                   $hashes))
@@ -877,17 +863,6 @@
 
 ;; --- Activation of facts and rules added after expansion --------------------
 
-;; The expanded fact patterns a statement could match: those with its head
-;; and those with an open head.
-(: sk-nodes-with-head (-[semidet]-> Statement (List SkPattern)))
-(= (sk-nodes-with-head $type)
-   (let $head (sk-type-head $type)
-      (if (== $head sk-any)
-         (collapse (match &sk_node_head ($_head $pattern) $pattern))
-         (fold-semidet sk-cons-step
-            (collapse (match &sk_node_head (sk-any $pattern) $pattern))
-            (collapse (match &sk_node_head ($head $pattern) $pattern))))))
-
 (= (sk-activate-pending!)
    (let* (($rules
              (collapse (match &sk_pending_rules (sk-pending-rule $id)
@@ -906,15 +881,16 @@
 (: sk-activate-fact-step (-[semidet]-> Atom SkeletonKey Atom))
 (= (sk-activate-fact-step $_acc $key)
    (case $key (
-      ((sk-key $type $_kbctx)
-         (fold-semidet (sk-activate-fact-on $key) () (sk-nodes-with-head $type)))
+      ((sk-key $type $kbctx)
+         (fold-semidet (sk-activate-fact-on $key) ()
+            (collapse (match &sk_node_terms ($type $kbctx $node) $node))))
       ($_fold ()))))
 
 (: sk-activate-rule-row (-[semidet]-> Number Atom SkeletonRuleDef Atom))
 (= (sk-activate-rule-row $id $_acc (sk-rule-def $conclusion $args))
-   (let* ((($type $_kbctx $_proof $_tv) $conclusion))
+   (let* ((($type $kbctx $_proof $_tv) $conclusion))
       (fold-semidet (sk-activate-rule-on $id $conclusion $args) ()
-         (sk-nodes-with-head $type))))
+         (collapse (match &sk_node_terms ($type $kbctx $node) $node)))))
 
 (: sk-activate-rule-on (-[semidet]-> Number SkFact (List SkPattern) Atom SkPattern Atom))
 (= (sk-activate-rule-on $id $ccls $args $_acc $node)
