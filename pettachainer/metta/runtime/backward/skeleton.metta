@@ -527,6 +527,17 @@
                   (empty)))))
             ())))
 
+;; A computation whose arguments were ground when its join was built was
+;; computed then and bound its result; recomputing a sampling formula would
+;; draw again. The formulas over premise truth values run in evaluation.
+(: sk-evaluated-premise-step (-[det]-> (List SkPattern) SkPattern (List SkPattern)))
+(= (sk-evaluated-premise-step $kept $premise)
+   (case $premise (
+      ((CPU $fun $args $_res)
+         (if (aggregate-fold-function? $fun) (cons $premise $kept)
+            (if (== (extract-vars $args) ()) $kept (cons $premise $kept))))
+      ($_fact (cons $premise $kept)))))
+
 (= (sk-complete-row! $owner $rule $concl $premises $keys)
    (let* ((($type $kbctx $_proof $_tv) $concl)
           ($key (sk-key $type $kbctx))
@@ -540,7 +551,8 @@
          ;; fit; every other row spends the allowance.
          (if (if (sk-root? $owner) true (sk-take! sk_row_budget))
             (let* (($seq (next-search-id sk_row_seq))
-                   ($row (sk-row $ident $concl $premises $seq))
+                   ($row (sk-row $ident $concl
+                            (fold-semidet sk-cons-step () (fold-semidet sk-evaluated-premise-step () $premises)) $seq))
                    ($_add
                       (if (chainer-acyclic-term? $row)
                          (let* (($_stored (add-atom &sk_row ($khash $key $rhash $row)))

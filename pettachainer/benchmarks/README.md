@@ -287,3 +287,17 @@ minimum, and maximum for every metric. The terminal comparison uses medians to
 reduce sensitivity to isolated noisy runs. The JSON also records the Git commit
 and whether the measured checkout was dirty. Baseline comparisons require
 identical repetition, population-size, and population-query-budget parameters.
+
+## Skeleton broad-answer queries
+
+`skeleton_answers.py` checks every complete proof and truth value returned by a
+cold and a warm zero-step query over stored facts. It measures result processing
+separately from expansion and ingestion. Launch a fresh process for each repeat:
+
+```bash
+.venv/bin/python pettachainer/benchmarks/skeleton_answers.py \
+  --facts 600 --json-out /tmp/skeleton-answers.json
+```
+
+Use `--repository /path/to/checkout` to compare another checkout with the same
+harness and interpreter; sweep `--facts 100`, `600`, and `1800` for scaling.

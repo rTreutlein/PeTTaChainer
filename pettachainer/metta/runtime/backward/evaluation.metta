@@ -374,14 +374,6 @@
                (sk-union $ev $member-ev) (sk-union $deps $member-deps))))
       ($_none (sk-fold-state $acc $proofs $ev $deps)))))
 
-;; Folds that finish as base rates carry no evidence of their own; the others
-;; carry their members' evidence.
-(: sk-fold-evidence (-[det]-> AggregateFinish (List Evidence) (List Evidence)))
-(= (sk-fold-evidence $finish $ev)
-   (if (base-rate-finish? $finish) ()
-      (if (== $finish uniform-prior) ()
-         (if (== $finish uniform-prior-known) () $ev))))
-
 ;; A fold with members proves by its members, in the order they were found.
 (: sk-fold-proof (-[semidet]-> Atom (List Proof) Proof))
 (= (sk-fold-proof $function $proofs)
@@ -390,27 +382,23 @@
          (cons (if (== $function OrFormula) disjunction foldall-proof)
             (fold-semidet sk-cons-step () $proofs)))))
 
-(: sk-fold-over
-   (-[semidet]-> (-[semidet]-> $acc SkFact $acc) Atom $acc AggregateFinish (List SkeletonKey)
-       SkeletonFilter (List Number) SkeletonFold))
-(= (sk-fold-over $step $function $init $finish $members $filter $exclude)
-   (let* (((sk-fold-state $acc $proofs $ev $deps)
-             (fold-semidet (sk-fold-step $step $filter $exclude) (sk-fold-state $init () () ()) $members)))
-      (sk-fold-state (finish-aggregate $finish $acc) (cons (sk-fold-proof $function $proofs) ())
-         (sk-fold-evidence $finish $ev)
-         ;; A base rate is an estimate about the population, like a prior: it
-         ;; ties its readers to none of its members.
-         (if (base-rate-finish? $finish) () $deps))))
-
 ;; A fold's or group's view over its member keys; with no members it is the
-;; finished initial value, proved by `cpu`.
+;; finished initial value, proved by `cpu`. Base rates estimate the population
+;; and carry neither member evidence nor member dependencies.
 (: sk-folded-view
    (-[semidet]-> Number Atom $args (-[semidet]-> $acc SkFact $acc) Atom $acc AggregateFinish
        (List SkeletonKey) SkeletonFilter SkeletonValue))
 (= (sk-folded-view $hash $kind $args $step $function $init $finish $members $filter)
-   (case (sk-fold-over $step $function $init $finish $members $filter (cons $hash ())) (
-      ((sk-fold-state $value (cons $proof $_rest) $ev $deps)
-         (sk-goal-val (CPU $kind $args $value) $proof $ev (cons $hash $deps))))))
+   (let* (((sk-fold-state $acc $proofs $ev $deps)
+             (fold-semidet (sk-fold-step $step $filter (cons $hash ()))
+                (sk-fold-state $init () () ()) $members))
+          ($base-rate (base-rate-finish? $finish)))
+      (sk-goal-val (CPU $kind $args (finish-aggregate $finish $acc))
+         (sk-fold-proof $function $proofs)
+         (if $base-rate ()
+            (if (== $finish uniform-prior) ()
+               (if (== $finish uniform-prior-known) () $ev)))
+         (cons $hash (if $base-rate () $deps)))))
 
 ;; A base rate's value is its user base rate, or else the better of its cached
 ;; estimate and a fold over the members the search found; a fold that improves
@@ -813,17 +801,6 @@
                               ($compatible $compatible)))))
                      ($taken $taken)))))))))))
 
-;; A computation whose arguments were ground when its join was built was
-;; computed then and bound its result; recomputing a sampling formula would
-;; draw again. The formulas over premise truth values run in evaluation.
-(: sk-evaluated-premise-step (-[det]-> (List SkPattern) SkPattern (List SkPattern)))
-(= (sk-evaluated-premise-step $kept $premise)
-   (case $premise (
-      ((CPU $fun $args $_res)
-         (if (aggregate-fold-function? $fun) (cons $premise $kept)
-            (if (== (extract-vars $args) ()) $kept (cons $premise $kept))))
-      ($_fact (cons $premise $kept)))))
-
 ;; A row reads its premises without the views that depend on its key or on a
 ;; key unifying with it. Premises take values greedily in order, so a merged
 ;; value may hold evidence a later premise needs: on such a clash the row reads
@@ -842,7 +819,7 @@
    (fold-semidet
       (sk-premise-step (sk-unifier-hashes $khash $key) (shared-evidence-frontier-proof? $proof) $facts-first)
       (sk-acc () () (cons $khash ()) ())
-      (fold-semidet sk-cons-step () (fold-semidet sk-evaluated-premise-step () $premises))))
+      $premises))
 
 (: sk-row-result (-[semidet]-> SkeletonRow SkeletonRowState SkeletonValue))
 (= (sk-row-result (sk-row $_ident ($type $kbctx $proof $tv) $_premises $_seq) $state)
@@ -1220,12 +1197,9 @@
       (foreach-flat sk-stale-fold!
          (collapse (match &sk_use ($hash $stored $fold) (if (=alpha $stored $key) $fold (empty)))))))
 
-(: sk-item-key (-[det]-> SkeletonItem SkeletonKey))
-(= (sk-item-key (sk-row-item $_seq $_khash $key $_rhash $_row)) $key)
-(= (sk-item-key (sk-fold-check $_hash $fold)) $fold)
-
 (: sk-item-needed? (-[det]-> SkeletonItem Bool))
-(= (sk-item-needed? $item) (let $key (sk-item-key $item) (sk-needed? (index-hash $key) $key)))
+(= (sk-item-needed? (sk-row-item $_seq $hash $key $_rhash $_row)) (sk-needed? $hash $key))
+(= (sk-item-needed? (sk-fold-check $hash $fold)) (sk-needed? $hash $fold))
 
 (: sk-seed-new (-[det]-> (Heap SkeletonItem) SkeletonItem (Heap SkeletonItem)))
 (= (sk-seed-new $todo $item)
@@ -1456,7 +1430,7 @@
             (if (sk-fact-matches? $filter $fact) (sk-val $fact $ev ()) (empty)))))
       ()))
 
-;; The keys a root reads.
+;; The keys a root reads, in first-answer order.
 (: sk-root-keys (-[semidet]-> SkPattern (List SkeletonKey)))
 (= (sk-root-keys $goal)
    (case $goal (
@@ -1464,10 +1438,9 @@
          (if (== $fun FoldAllCompiled) (cons (sk-fold $args) ())
             (if (== $fun GroupedFoldAllCompiled) (sk-answers $goal) ())))
       (($type $kbctx $_proof $_tv)
-         (fold-semidet sk-cons-step ()
-            (fold-flat sk-new-key-step ()
-               (append-flat (sk-statement-answers $type $kbctx)
-                  (collapse (match &kb ($type $kbctx $_proof $_tv) (sk-key $type $kbctx))))))))))
+         (alpha_unique_keys
+            (append-flat (sk-statement-answers $type $kbctx)
+               (collapse (match &kb ($type $kbctx $_proof $_tv) (sk-key $type $kbctx)))))))))
 
 (: sk-root-values (-[semidet]-> SkPattern (List SkeletonValue)))
 (= (sk-root-values $goal)
@@ -1482,18 +1455,6 @@
                      (sk-goal-val (CPU $fun $args $result) (brand Proof cpu) () ())
                      (empty)))))))
       ($_fact (map-semidet (sk-root-key-value $goal) (sk-root-keys $goal))))))
-
-(: sk-new-key-step (-[det]-> (List SkeletonKey) SkeletonKey (List SkeletonKey)))
-(= (sk-new-key-step $kept $key) (if (fold-flat (sk-alpha-step $key) false $kept) $kept (cons $key $kept)))
-
-(: sk-alpha-step (-[det]-> SkeletonKey Bool SkeletonKey Bool))
-(= (sk-alpha-step $key $found $other) (if $found true (=alpha $key $other)))
-
-(: sk-proven-step (-[semidet]-> (List SkeletonValue) SkeletonValue (List SkeletonValue)))
-(= (sk-proven-step $kept $value)
-   (case $value (
-      (sk-none $kept)
-      ($_proven (cons $value $kept)))))
 
 (: sk-result-step (-[semidet]-> (List RuntimeResult) SkeletonValue (List RuntimeResult)))
 (= (sk-result-step $kept $value)
@@ -1520,26 +1481,23 @@
 (: sk-fact-type (-[det]-> RuntimeResult Atom))
 (= (sk-fact-type $answer) (case $answer ((($type $_kbctx $_proof $_tv) $type) ($_goal $answer))))
 
-(: sk-subsumed-step (-[semidet]-> (List RuntimeResult) (List RuntimeResult) RuntimeResult (List RuntimeResult)))
-(= (sk-subsumed-step $all $kept $answer)
-   (if (fold-flat (sk-instance-step $answer) false $all) $kept (cons $answer $kept)))
-
-(: sk-instance-step (-[det]-> RuntimeResult Bool RuntimeResult Bool))
-(= (sk-instance-step $answer $found $general) (if $found true (sk-instance-of? $answer $general)))
-
 ;; Proven answers in root order without redundant instances; a materializing
 ;; query writes back the first.
 (: sk-root-results (-[semidet]-> Bool SkPattern (List RuntimeResult)))
 (= (sk-root-results $materialize? $goal)
-   (let* (($values (fold-semidet sk-cons-step () (fold-semidet sk-proven-step () (sk-root-values $goal))))
+   (let* (($values (sk-root-values $goal))
           ($_materialized
              (if $materialize?
-                (case $values (
+                (case (collapse (once (let $value (superpose $values)
+                         (if (== $value sk-none) (empty) $value)))) (
                    ((cons $first $_rest) (sk-materialize-answer! $first))
                    (() ())))
                 ()))
           ($answers (fold-semidet sk-cons-step () (fold-semidet sk-result-step () $values))))
-      (fold-semidet sk-cons-step () (fold-semidet (sk-subsumed-step $answers) () $answers))))
+      (collapse (let $answer (superpose $answers)
+         (if (== (collapse (once (let $general (superpose $answers)
+                    (if (sk-instance-of? $answer $general) true (empty))))) ())
+            $answer (empty))))))
 
 ;; A root's Member producer is part of its scaffold and installed even when
 ;; the budget expands nothing.

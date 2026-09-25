@@ -14,6 +14,9 @@
        (Number $item (Heap $item))))
 (: heap-empty? (-[det]-> (Heap $item) Bool))
 
+;; The first of each group of variant terms, in order (runtime_helpers.pl).
+(: alpha_unique_keys (-[det]-> (List $item) (List $item)))
+
 ;; Truth values retain their existing tagged runtime representation, while
 ;; distinct result types let constructor patterns narrow a TV to the fields
 ;; that are actually present.  A CTV contains two STVs; absence of an entire
