@@ -32,9 +32,13 @@
    (: (marginal-proj 1 ab) (B) (STV 0.25 0.6923076923076924)))
 
 !(test
-   (merge-proof-atoms
-      (logic-test-runtime-fact (B) ((proj 1 ab) a) (STV 1.0 0.9))
-      (logic-test-runtime-fact (B) (marginal-proj 1 ab) (STV 1.0 0.9)))
+   (let* (($full (logic-test-runtime-fact (B) ((proj 1 ab) a) (STV 1.0 0.9)))
+          ($marginal (logic-test-runtime-fact (B) (marginal-proj 1 ab) (STV 1.0 0.9)))
+          (($merged $_evidence)
+             (merge-proof-candidates
+                (data $full (proof-atom-evidence-set $full))
+                (data $marginal (proof-atom-evidence-set $marginal)))))
+      $merged)
    (logic-test-runtime-fact (B) ((proj 1 ab) a) (STV 1.0 0.9)))
 
 !(compileadd plnProjectionKb (: ab (And (A) (B)) (STV 1.0 0.9)))

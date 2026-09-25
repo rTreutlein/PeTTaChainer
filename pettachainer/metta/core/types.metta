@@ -133,35 +133,6 @@
 ;; rule id -> the rule's expected premise confidence
 (: rule_expected (SpaceOf (Number Number)))
 
-(: StoredGoalRow Type)
-(: AgendaKind Type)
-(: agenda-expand AgendaKind)
-(: agenda-aggregate AgendaKind)
-
-(: AgendaRevisionToken Type)
-(: agenda-revision-token
-   (-[det]-> Number Number AgendaRevisionToken))
-
-(: AgendaEntry Type)
-(: agenda-entry
-   (-[det]-> AgendaKind Number AgendaRevisionToken AgendaEntry))
-
-(: GoalAgendaState Type)
-(: goal-agenda-state
-   (-[det]-> Number Number Number Bool GoalAgendaState))
-
-(: stored-goal-row
-   (-[det]-> Number Number
-       (| Goal (Statement KBContext Proof TV))
-       Bool GoalAgendaState StoredGoalRow))
-
-;; A fold goal's source link: fold gid, source gid, fold arguments, base
-;; agenda score, the spawning search budget, and whether the first snapshot
-;; came from a forward-approx cache entry.
-(: FoldSourceRow Type)
-(: fold-source-row
-   (-[det]-> Number Number Atom Number Number Bool FoldSourceRow))
-
 ;; Executable goals are either CPU computations or fact goals. Fact KB,
 ;; proof, and statement fields retain their original runtime shapes.
 (: Goal Type)
@@ -192,9 +163,6 @@
 (: NilType Type)
 (: Nil NilType)
 
-(: NoCurrentScore Type)
-(: no-current NoCurrentScore)
-
 ;; A stored proof: a reference in a proof term stands for the proof stored
 ;; under that id, with the evidence a walk of its leaves finds and whether it
 ;; contains a negation anywhere. Stored proofs refer only to earlier ids, so
@@ -222,8 +190,6 @@
    (-[det]-> KB Statement TV BaseRateSource $mode BaseRateEntry))
 ;; entries by a hash of their knowledge base and pattern
 (: &base_rate_cache (SpaceOf (Number BaseRateEntry)))
-
-
 
 (: IdentityFinish Type)
 (: identity IdentityFinish)

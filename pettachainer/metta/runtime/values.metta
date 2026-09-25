@@ -7,36 +7,6 @@
           ((CTV $pos $neg) (min (tv-confidence $pos) (tv-confidence $neg)))
           ($_other 1.0)))))
 
-(: goal-has-type-vars?
-   (-[det]-> (| Goal
-          (Statement KBContext Proof TV))
-       Bool))
-(= (goal-has-type-vars? $goal)
-   (case $goal
-      (((CPU $fun $args $res)
-          (not (== (extract-vars (CPU $fun $args $res)) ())))
-       (($type ($_kbid $_ctx $vars) $_prf $_tv)
-          (if (== (extract-vars $type) ())
-             (not (== $vars Nil))
-             true)))))
-
-(: goal-key
-   (-[det]-> (| Goal
-          (Statement KBContext Proof TV))
-       Expression))
-(= (goal-key $goal)
-   (case $goal
-      (((CPU $fun $args $res)
-          (sealed
-             (extract-vars (CPU $fun $args $res))
-             (CPU $fun $args $res)))
-       (($type ($kbid $ctx $vars) $_prf $_tv)
-          (let $sealed-goal
-             (sealed
-                (extract-vars (quote ($type $vars)))
-                (quote ($type $vars)))
-             (quote ($sealed-goal ($kbid $ctx))))))))
-
 ;; A lookup column is hashed with every variable replaced by one marker
 ;; (imported Prolog helper index-hash): the integer lets SWI build a JIT hash
 ;; index on the space, while the complete key stored beside it lets =alpha

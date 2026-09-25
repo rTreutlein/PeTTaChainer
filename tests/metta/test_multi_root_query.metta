@@ -40,14 +40,6 @@
           (STV 0.5 0.7999999999359401)))
     (query-result 1 (: batch-a (BatchA) (STV 1.0 1.0)))))
 
-!(test
-   (let $_set (change-state! bwd_root_count 1500)
-      (let $target (bounded-agenda-target-size 1)
-         (progn
-            (change-state! bwd_root_count 0)
-            $target)))
-   1500)
-
 !(compileadd sharedBatchKb
    (: shared-batch-fact (SharedBatchPremise) (STV 1.0 1.0)))
 !(compileadd sharedBatchKb

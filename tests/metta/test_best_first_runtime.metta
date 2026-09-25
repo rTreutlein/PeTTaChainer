@@ -1,31 +1,8 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
-!(test (rule-marginal-score no-current 0.42) 0.42)
-
-;; First-proof and incumbent-refinement search use the same root bound,
-;; and immediate-work estimate.
-!(test
-   (root-proof-value-score 0.2 no-current 0.9 4)
-   (/ 0.2 4))
-!(test
-   (root-proof-value-score 0.5 0.9 1.0 2)
-   (/ (rule-marginal-score 0.9 1.0) 2))
-!(test
-   (root-proof-value-score 0.02 0.1 0.9 1)
-   0.02)
-
-;; Cached base-rate refinement becomes less valuable as the already-observed
-;; evidence (and therefore the estimated rescan work) grows.
-!(test
-   (< (cached-base-rate-refinement-score 1.0 (STV 0.5 0.9))
-      (cached-base-rate-refinement-score 1.0 (STV 0.5 0.1)))
-   true)
-
-;; Expansion budget and beam width are independent. Larger budgets therefore
-;; extend the same deterministic search prefix instead of selecting a wider
-;; set of branches from the start.
-!(test (bounded-agenda-target-size 1) 1000)
-!(test (bounded-agenda-target-size 100) 1000)
+;; The forward agenda keeps a fixed beam, independent of the remaining
+;; budget; skeleton backward search uses its own expansion and row allowances.
+!(test (bounded-agenda-target-size) 1000)
 
 ;; Exercise the actual pruning threshold: the older one- and two-entry heap
 ;; checks never entered pruning after the beam became independent of budget.
@@ -43,11 +20,11 @@
              (empty_heap)
              (the (List Number) $numbers)))
        ($over-limit (add_to_heap $at-limit 64001 64001))
-       ($needed-at-limit (bounded-agenda-prune-needed? 1 $at-limit))
-       ($needed-over-limit (bounded-agenda-prune-needed? 1 $over-limit))
-       ($pruned (bounded-agenda-prune 1 $over-limit))
+       ($needed-at-limit (bounded-agenda-prune-needed? $at-limit))
+       ($needed-over-limit (bounded-agenda-prune-needed? $over-limit))
+       ($pruned (bounded-agenda-prune $over-limit))
        ($_disable (set-bounded-agenda-pruning false))
-       ($unpruned (bounded-agenda-prune 1 $over-limit))
+       ($unpruned (bounded-agenda-prune $over-limit))
        ($_enable (set-bounded-agenda-pruning true))
        (($best-priority $best-item $_rest) (heap_pop $pruned)))
       ($needed-at-limit $needed-over-limit

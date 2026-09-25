@@ -26,20 +26,6 @@
 
 !(test (collapse (proof-score (marginal-proj 0 proof) (STV 1.0 0.5))) (0.495))
 !(test (collapse (proof-score proof (STV 1.0 0.5))) (0.5))
-;; Goal classification must preserve open CPU outputs and nested fact variables.
-!(test (collapse (goal-has-type-vars? (CPU + (1 2) 3))) (false))
-!(test (collapse (goal-has-type-vars? (CPU + (1 2) $result))) (true))
-!(test (collapse (goal-has-type-vars? (CPU + (1 $value) 3))) (true))
-!(test
-   (collapse
-      (goal-has-type-vars?
-         ((Nested $x $x) (kb MAIN Nil) proof (STV 1.0 1.0))))
-   (true))
-!(test
-   (collapse
-      (goal-has-type-vars?
-         ((Nested a a) (kb MAIN Nil) proof (STV 1.0 1.0))))
-   (false))
 !(test (collapse (base-rate-finish? weighted-base-rate)) (true))
 !(test (collapse (base-rate-finish? other-finish)) (false))
 

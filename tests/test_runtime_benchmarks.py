@@ -23,20 +23,19 @@ finally:
 
 
 class RuntimeBenchmarkTests(unittest.TestCase):
-    def test_backward_validator_rejects_skipped_work_and_aborts(self):
+    def test_backward_validator_rejects_skipped_work_and_excess_budget(self):
         arguments = dict(mode="backward", fanout=5, seeds=1, steps=20, kb="kb")
         answers = ["(: (by success seed) (QueueBenchHub 0) "
                    "(STV 1.0 0.49997493871706983))"]
-        metrics = dict(search_aborts=0, agenda_pushes=10, agenda_pops=8, expanded_hubs=1)
+        metrics = dict(expansions=8, expanded_hubs=1)
         AGENDA.validate_results(answers, metrics=metrics, **arguments)
         for bad_answers, bad_metrics in (
             ([], metrics),
             (answers + answers, metrics),
             ([answers[0].replace("success", "wrong_rule")], metrics),
             ([answers[0].replace("1.0", "0.1")], metrics),
-            (answers, {**metrics, "search_aborts": 1}),
-            (answers, {**metrics, "agenda_pushes": 1}),
-            (answers, {**metrics, "agenda_pops": 1}),
+            (answers, {**metrics, "expansions": 1}),
+            (answers, {**metrics, "expansions": 21}),
         ):
             with self.subTest(answers=bad_answers, metrics=bad_metrics):
                 with self.assertRaises(RuntimeError):

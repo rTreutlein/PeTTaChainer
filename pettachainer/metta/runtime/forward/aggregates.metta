@@ -1,14 +1,12 @@
-;; Forward subscriptions maintain additive canonical state with fixed rows and copy points.
-;; Alpha-ground identity hashes always verify full keys; query-local registration tests only MemberInheritance.
-;; Shared finish dispatch preserves wire tokens, universe fallback and prior order; ordinary base rates stay lazy at add time.
-;; Empty Member cache keeps the largest settled budget and only matching additions refine it.
-;; Computed rows keep that source while forward deltas patch sufficient statistics.
-;; Computed merges retain subset or no-heavier incomparable incumbents; double removal republishes and rejoins surviving Member state.
-;; Unqueued additions touch only that Member join.
+;; Forward subscriptions maintain additive state from canonical observations.
+;; Identity hashes select candidates; full alpha comparison decides identity.
+;; Fold descriptors share registration, observation replacement and cache publication.
+;; Ordinary base rates are seeded lazily when a fold first reads them.
+;; Computed cache entries keep that source while forward deltas update statistics.
+;; Removal rejoins the surviving canonical Member facts before publishing the cache.
+;; Unqueued Member additions update only their subscribed joins.
 (: fa-id (-[semidet]-> ForwardAggregateIdentityKey Number))
 (= (fa-id $a)(let $b (index-hash $a)(once (match &forward_aggregate_identity ($b (forward-aggregate-identity-row $c $d))(if (=alpha $c $a) $d (empty))))))
-(: fa-ordinary-row (-[semidet]-> KB Statement Atom))
-(= (fa-ordinary-row $a $b)(let* (($c (forward-type-trigger-key $a $b))($d (term_hash $c)))(once (match &forward_aggregate_interest_by_trigger ($d (forward-aggregate-interest $e $f $g))(if (== $e $c)(case $g ( ((forward-base-rate-descriptor $h $i $j $k $l $m)(if (and (== $h $a)(=alpha $i $b))(data $f (the ForwardAggregateDescriptor $g))(empty)))($n (empty))))(empty))))))
 (: fa-register! (-[det]-> ForwardAggregateIdentityKey ForwardAggregateDescriptor ForwardTriggerKey Bool ForwardTriggerKey (List $a)))
 (= (fa-register! $a $b $c $d $e)(let $h (collapse (once (fa-id $a)))(if (== $h ())(let* (($f (index-hash $a))($g (term_hash $c))($k (next-search-id fwd_aggregate_id))(($i $l)(copy_term (quote ($a $b))))($m (the ForwardAggregateIdentityKey $i))($n (the ForwardAggregateDescriptor $l))($o (once (add-atom &forward_aggregate_identity ($f (forward-aggregate-identity-row $m $k)))))($p (once (add-atom &forward_aggregate_interest_by_trigger ($g (forward-aggregate-interest $c $k $n)))))($q (if $d (let* (($r (term_hash $e))($s (once (add-atom &forward_aggregate_interest_by_trigger ($r (forward-aggregate-interest $e $k $n))))))())()))($t (once (add-atom &forward_aggregate_state (forward-aggregate-state $k 0.0 0.0)))))())())))
 ;; What a fold premise asks the forward chainer to maintain: its aggregate
@@ -120,14 +118,8 @@
 (= (finish-aggregate $a $b)(case $a ( (identity $b)(dist-average (the Distribution (once (reduce (reduce (DistAverageFromSumCount (fa-dist-acc $b)))))))(base-rate (BaseRateTv (fa-ev-acc $b)))(weighted-base-rate (WeightedCountBaseRateTv (fa-ev-acc $b)))(weighted-base-rate-with-prior (let (BaseRateEvidenceWithPrior $f $d)(fa-prior-acc $b)(BaseRateWithPriorFormula (resolve-base-rate-prior $f)(WeightedCountBaseRateTv $d))))((member-inheritance $c)(member-inheritance-tv $c (fa-ev-acc $b)))((weighted-base-rate-in-universe $c)(member-inheritance-tv $c (fa-ev-acc $b)))((weighted-base-rate-with-prior-in-universe $c)(let (BaseRateEvidenceWithPrior $f $d)(fa-prior-acc $b)(BaseRateWithPriorFormula (resolve-base-rate-prior $f)(member-inheritance-tv $c $d))))(uniform-prior (UniformPriorTv (fa-list-acc $b)))(uniform-prior-known (UniformPriorKnownTv (fa-list-acc $b))))))
 (: fa-member (-[det]-> KB Term Term (| ForwardDerived NoForwardOutputCandidate)))
 (= (fa-member $a $b $c)(let* (($d (brand Statement (Member $b $c)))($e (make-kb-context $a MAIN Nil))($g (collapse (once (match &forward_canonical_evidence (forward-canonical-evidence-row (term_hash (quote ($e $d))) $d $e $h $i)(forward-derived $h (stored-evidence-list $i))))))($j (if (== $g ())(collapse (once (match &kb ($d $e $l $m)(forward-derived (data $d $e $l $m)(forward-fact-evidence $d $e $l $m))))) $g)))(case $j ((() no-forward-output-candidate)((cons $candidate $_rest) $candidate)))))
-(: forward-member-inheritance-id (-[semidet]-> KB Term Term Number))
-(= (forward-member-inheritance-id $a $b $c)(fa-id (forward-member-inheritance-identity $a $b $c)))
 (: fa-publish-cache! (-[det]-> KB Statement TV $a (List $b)))
 (= (fa-publish-cache! $a $b $c $d)(case (base-rate-cache-entries-for-mode $a $b $d) ((()(store-produced-base-rate! $a $b $c forward-approx $d))((cons $e $f)(if (== (base-rate-entry-source $e) computed)(store-produced-base-rate! $a $b $c computed $d)(store-produced-base-rate! $a $b $c forward-approx $d))))))
-(: fa-member-ev (-[semidet]-> ForwardAggregateObservationValue (List Evidence)))
-(= (fa-member-ev (forward-member-inheritance-observation-value (forward-derived $a $b)(forward-derived $c $d)))(list_to_set (append-flat $b $d)))
-(: forward-merge-computed-member-observation! (-[semidet]-> Number ForwardAggregateObservation (List $a)))
-(= (forward-merge-computed-member-observation! $a (forward-aggregate-observation $b $c $d $e))(let* (($f (fa-obs $b))($g (forward-aggregate-observation $b $c $d $e)))(if (== $f ())(let $h (fa-swap! $a $f $g true)())(let (forward-aggregate-observation $i $j $k $l)(car-atom $f)(let* (($m (fa-member-ev $j))($n (fa-member-ev $c)))(if (evidence-subset? $n $m)()(if (and (not (evidence-subset? $m $n))(<= $e $l))()(let $h (fa-swap! $a $f $g true)()))))))))
 (: FAggSample Type)
 (: fa-sample (-[det]-> Atom ForwardAggregateObservationValue Number Number Bool FAggSample))
 (: fa-sample-for (-[semidet]-> (Statement KBContext Proof TV) ForwardAggregateDescriptor Atom))

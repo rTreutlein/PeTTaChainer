@@ -34,8 +34,8 @@ class BenchmarkRow:
     setup_s: float
     run_s: float
     result_count: int
-    agenda_pushes: int
-    agenda_pops: int
+    skeleton_nodes: int
+    expansions: int
     expanded_hubs: int
 
 
@@ -96,12 +96,8 @@ def validate_results(
         expected = ["(: (by success seed) (QueueBenchHub 0)"]
         if proofs != expected:
             raise RuntimeError(f"{mode} returned a wrong proof or truth value: {results}")
-        if metrics["search_aborts"] != 0:
-            raise RuntimeError(f"{mode} aborted search: {metrics}")
-        if int(metrics["agenda_pushes"]) < fanout:
-            raise RuntimeError(f"{mode} did not schedule its alternatives: {metrics}")
-        if int(metrics["agenda_pops"]) < min(fanout, steps):
-            raise RuntimeError(f"{mode} skipped its search workload: {metrics}")
+        if not min(fanout, steps) <= int(metrics["expansions"]) <= steps:
+            raise RuntimeError(f"{mode} skipped or exceeded its search budget: {metrics}")
         if seeds > 1 and int(metrics["expanded_hubs"]) < 2:
             raise RuntimeError(f"{mode} only explored one hub; increase --steps: {metrics}")
     else:
@@ -152,10 +148,9 @@ def run_case(mode: str, fanout: int, seeds: int, steps: int, pruning: bool) -> B
     metrics = handler.last_query_metrics() if backward else {}
     if backward:
         metrics["expanded_hubs"] = int(handler.evaluate_statement(
-            "(length (collapse (match &goal "
-            "(stored-goal-row $_gid $_depth "
-            f"((QueueBenchHub $hub) ({handler.kb} MAIN Nil) $_proof $_tv) "
-            "true $_agenda) $hub)))"
+            "(length (collapse (match &sk_expanded "
+            f"($_hash ((QueueBenchHub $hub) ({handler.kb} MAIN Nil) $_proof $_tv)) "
+            "$hub)))"
         ))
     validate_results(
         results, mode=mode, fanout=fanout, seeds=seeds, steps=steps,
@@ -164,8 +159,8 @@ def run_case(mode: str, fanout: int, seeds: int, steps: int, pruning: bool) -> B
     return BenchmarkRow(
         pruning="on" if pruning else "off", mode=mode, fanout=fanout,
         seeds=seeds, steps=steps, repeats=1, setup_s=setup_s, run_s=run_s,
-        result_count=len(results), agenda_pushes=int(metrics.get("agenda_pushes", 0)),
-        agenda_pops=int(metrics.get("agenda_pops", 0)),
+        result_count=len(results), skeleton_nodes=int(metrics.get("skeleton_nodes_after", 0)),
+        expansions=int(metrics.get("expansions", 0)),
         expanded_hubs=int(metrics.get("expanded_hubs", 0)),
     )
 

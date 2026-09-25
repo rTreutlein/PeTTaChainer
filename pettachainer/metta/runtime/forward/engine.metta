@@ -351,7 +351,7 @@
                           (data $rest $changed) $fact)))
                    (forward-loop $next-steps $kb
                       (data
-                         (bounded-agenda-prune $next-steps $nagenda)
+                         (bounded-agenda-prune $nagenda)
                          $nchanged)))
                 (forward-loop
                    $steps $kb

@@ -142,8 +142,8 @@ generation and runtime loading are outside setup timing; compilation is timed
 separately from reasoning. The backward fixture has one productive weak proof
 and alternative branches with intermediate producers. Those branches survive
 the structural feasibility filter and enter the agenda. Every run checks the
-complete productive proof and truth value, zero search aborts, and sufficient
-agenda pushes and pops. Backward timings include opt-in query metrics.
+complete productive proof and truth value, and sufficient expansions within the
+step budget. Backward timings include opt-in skeleton query metrics.
 
 Forward runs require exactly the complete derived fact groups for the seeds
 processed within the budget, including their proofs and truth values. They do
@@ -169,7 +169,7 @@ To test many goals that each have a small fanout below the pruning factor:
 ```
 
 The backward counterpart connects hubs with small local fanouts. It reports
-`expanded_hubs` from the final query arena, outside timing, and rejects a
+`expanded_hubs` from the durable skeleton, outside timing, and rejects a
 many-small run that never explores beyond the first hub. Increase `--steps`
 if the chosen fanout prevents reaching another hub:
 

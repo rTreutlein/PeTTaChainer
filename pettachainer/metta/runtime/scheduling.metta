@@ -63,73 +63,9 @@
       ((marginal-proj $_idx $_inner) (* 0.99 (tv-confidence $tv)))
       ($_other (tv-confidence $tv)))))
 
-(: score-tv (-[det]-> Number STVType))
-(= (score-tv $score) (STV 1.0 (max 0.0 (min 1.0 $score))))
-
-(: rule-marginal-score (-[det]-> (| Number NoCurrentScore) Number Number))
-(= (rule-marginal-score $current-score $candidate-score)
-   (if (== $current-score no-current)
-      $candidate-score
-      (let $score (the Number $current-score)
-         (max 0.000001
-            (- (max $candidate-score
-                  (tv-confidence
-                     (merge-stvs
-                        (score-tv $score)
-                        (score-tv $candidate-score))))
-               $score)))))
-
-;; The incoming score is the most value this goal can still contribute to the
-;; requesting root branch. The same value-of-computation rule applies before
-;; and after the first proof: use the candidate confidence as initial gain, or
-;; marginal improvement over an incumbent, then discount by immediate premise
-;; work. Statement probability does not estimate whether a proof can be found.
-(: root-proof-value-score
-   (-[det]-> Number (| Number NoCurrentScore) Number Number Number))
-(= (root-proof-value-score
-      $root-bound $current-score $candidate-score
-      $premise-count)
-   (let $bounded
-      (min $root-bound
-         (rule-marginal-score $current-score $candidate-score))
-      (/ $bounded
-         (max 1 $premise-count))))
-
-;; A cached base-rate snapshot is usable immediately.  Its optional live fold
-;; can improve confidence by at most the remaining confidence mass, while the
-;; snapshot's evidence count is a lower-bound estimate of the rescan work.
-(: cached-base-rate-refinement-score (-[det]-> Number TV Number))
-(= (cached-base-rate-refinement-score $root-bound $tv)
-   (let*
-      (($confidence (tv-confidence $tv))
-       ($gain-bound (max 0.000001 (- 1.0 $confidence)))
-       ($expected-steps (max 1.0 (confidence-to-count $confidence))))
-      (/ (min $root-bound $gain-bound) $expected-steps)))
-
-;; Backward work shares one numeric priority policy.  Depth remains the
-;; dominant band, score orders work within a depth, and the small work-kind offset
-;; only breaks otherwise equal cross-kind work.
-(: backward-agenda-priority
-   (-[det]-> Number Number Number AgendaKind Number))
-(= (backward-agenda-priority $depth $score $bonus $kind)
-   (+ (+ (* 1000000000.0 $depth)
-         (- 0 (+ (* 1000000.0 $score) $bonus)))
-      (case $kind (
-         (agenda-expand 0.0)
-         (agenda-aggregate 0.1)))))
-
-(: bounded-agenda-target-size (-[det]-> Number Number))
-;; Beam width is a search-policy parameter, not part of the expansion budget.
-;; Keeping it fixed makes a larger budget extend the same deterministic search
-;; prefix instead of changing which branches survive pruning. A batch may have
-;; more roots than the ordinary beam, and unexpanded roots must never be
-;; discarded merely because they share one arena.
-(= (bounded-agenda-target-size $_steps)
-   (let $state-values (collapse (catch (get-state bwd_root_count)))
-      (max 1000
-         (if (== $state-values ())
-            0
-            (if-error-number (car-atom $state-values) 0)))))
+;; Forward beam width is independent of the invocation's remaining budget.
+(: bounded-agenda-target-size (-[det]-> Number))
+(= (bounded-agenda-target-size) 1000)
 
 (: set-bounded-agenda-pruning (-[det]-> Bool Bool))
 (= (set-bounded-agenda-pruning $enabled) (change-state! bounded_agenda_pruning $enabled))
@@ -170,11 +106,10 @@
       (- $count 1) $rest
       (add_to_heap $kept $key $item)))
 
-(: bounded-agenda-prune-needed?
-   (-[det]-> Number (Heap $item) Bool))
-(= (bounded-agenda-prune-needed? $steps $agenda)
+(: bounded-agenda-prune-needed? (-[det]-> (Heap $item) Bool))
+(= (bounded-agenda-prune-needed? $agenda)
    (if (bounded-agenda-pruning?)
-      (let* (($target (bounded-agenda-target-size $steps))
+      (let* (($target (bounded-agenda-target-size))
              ($size-values (collapse (heap_size $agenda)))
              ($size
                 (if (== $size-values ())
@@ -183,11 +118,10 @@
          (> $size (* $target 64)))
       false))
 
-(: bounded-agenda-prune (-[semidet]-> Number (Heap $item) (Heap $item)))
-(= (bounded-agenda-prune $steps $agenda)
-   (if (bounded-agenda-prune-needed? $steps $agenda)
-      (heap-prune-to-size
-         (bounded-agenda-target-size $steps) $agenda)
+(: bounded-agenda-prune (-[semidet]-> (Heap $item) (Heap $item)))
+(= (bounded-agenda-prune $agenda)
+   (if (bounded-agenda-prune-needed? $agenda)
+      (heap-prune-to-size (bounded-agenda-target-size) $agenda)
       $agenda))
 
 (: RevisionMergeProof
@@ -200,14 +134,3 @@
        (Statement KBContext Proof TV)))
 (= (assemble-runtime-fact $type $kb $proof $tv)
    (data $type $kb $proof $tv))
-
-(: assemble-contextual-runtime-fact
-   (-[det]-> Statement KB Atom Atom Proof TV
-       (Statement KBContext Proof TV)))
-(= (assemble-contextual-runtime-fact
-      $type $kbid $context $variables $proof $tv)
-   (data
-      $type
-      (brand KBContext (data $kbid $context $variables))
-      $proof
-      $tv))

@@ -29,7 +29,7 @@
    (-[nondet]-> KB Term Term Number))
 (= (member-fold-observation-count $kb $subj $concept)
    (let $id
-      (forward-member-inheritance-id $kb $subj $concept)
+      (fa-id (forward-member-inheritance-identity $kb $subj $concept))
       (list-count
          (collapse
             (match &forward_aggregate_observation
@@ -242,8 +242,8 @@
 
 !(test
    (let $id
-      (forward-member-inheritance-id
-         forwardMemberFoldKb Human Mortal)
+      (fa-id (forward-member-inheritance-identity
+         forwardMemberFoldKb Human Mortal))
       (collapse
          (match &forward_aggregate_state
             (forward-aggregate-state $id $weight $mass)

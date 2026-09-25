@@ -18,8 +18,6 @@
 (= (stored-number $value)
    (the Number $value))
 
-(: first-number (-[semidet]-> (List Number) Number))
-(= (first-number (cons $first $_rest)) $first)
 (: chainer-first-or (-[det]-> $value (List $value) $value))
 (= (chainer-first-or $fallback ()) $fallback)
 (= (chainer-first-or $_fallback (cons $value $_rest)) $value)
@@ -199,7 +197,6 @@
             (proof-children $children)))
       ()))
 
-
 (: proof-term-evidence-children-mode
    (-[semidet]-> $mode (List Proof) (List Evidence)))
 (= (proof-term-evidence-children-mode $mode ()) ())
@@ -308,22 +305,10 @@
       (fact-evidence-only $rest)
       (cons $entry (fact-evidence-only $rest))))
 
-;; The non-fact part of an evidence set (rule applications and hypotheses).
-;; Two proofs are genuinely *dependent* only when these overlap: sharing a fact
-;; is poolable (lifting-merge factors the shared fact out), whereas sharing a
-;; rule or hypothesis means pooling would double-count its uncertainty.
-(: non-fact-evidence
-   (-[det]-> (List Evidence) (List Evidence)))
-(= (non-fact-evidence ()) ())
-(= (non-fact-evidence (cons $entry $rest))
-   (if (= $entry (rule-ev $_kb $_name))
-      (cons $entry (non-fact-evidence $rest))
-      (non-fact-evidence $rest)))
-(: evidence-sets-dependent?
-   (-[det]-> (List Evidence) (List Evidence) Bool))
-(= (evidence-sets-dependent? $set-a $set-b)
-   (evidence-sets-overlap? (non-fact-evidence $set-a) (non-fact-evidence $set-b)))
-
+;; Ordinary conjunction premises cannot reuse the same fact evidence.
+;; This check excludes rule applications from the compared evidence sets.
+;; Projection pooling and compiler-marked shared-evidence joins decide their
+;; exceptions at the consumer before accepting a premise.
 (: premise-evidence-overlap?
    (-[det]-> (List Evidence) (List Evidence) Bool))
 (= (premise-evidence-overlap? $seen $pev)
@@ -422,14 +407,3 @@
                              (term-confidence $proof-b))
                         (data (RevisionMergeProof $proof-a $proof-b) $all-ev)
                         (data (RevisionMergeProof $proof-b $proof-a) $all-ev)))))))))
-
-(: merge-proof-atoms
-   (-[semidet]-> (Statement KBContext Proof TV)
-       (Statement KBContext Proof TV)
-       (Statement KBContext Proof TV)))
-(= (merge-proof-atoms $proof-a $proof-b)
-   (let ($merged $_ev)
-      (merge-proof-candidates
-         (data $proof-a (proof-atom-evidence-set $proof-a))
-         (data $proof-b (proof-atom-evidence-set $proof-b)))
-      $merged))
