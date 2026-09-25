@@ -216,8 +216,10 @@ spends an unrelated query's budget.
 Evaluation then brings current only what the roots read: their keys, the
 premise keys of those keys' rows, and the members of folds and groups among
 them. Any other row whose input changed is marked stale, once, together with
-everything reading it; a later query that reaches it recomputes it. Rows built
-for earlier queries therefore cost nothing per query.
+everything reading it; a later query that reaches it recomputes it. A stale row
+leaves the reader lists of the keys it reads until then, so a change walks only
+readers that are current. Rows built for earlier queries therefore cost nothing
+per query or per change.
 
 A root reads the answers of every node of its statement and context, whatever
 their proof and truth-value patterns, and drops answers that instantiate

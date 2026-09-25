@@ -1145,7 +1145,9 @@
 ;; keys of those keys' rows, and the members of the folds and groups among
 ;; them. A row outside that set whose input changes is marked stale instead of
 ;; computed, and so is everything reading it, once; a later query that reads it
-;; again recomputes it. Earlier queries' rows thus cost nothing per query.
+;; again recomputes it. A stale row leaves the reader lists of the keys it
+;; reads until then, so a change walks only readers that are current, and
+;; earlier queries' rows cost nothing per query or per change.
 
 ;; Signatures of the mutually recursive functions below.
 (: sk-need! (-[semidet]-> Atom SkeletonKey Atom))
@@ -1163,12 +1165,15 @@
       ((CPU $_fun $_args $_res) ())
       (($type $kbctx $_proof $_tv) (sk-need! () (sk-key $type $kbctx))))))
 
-;; A stale row the query reaches is recomputed by its evaluation.
+;; A stale row the query reaches rejoins its keys' readers and is recomputed
+;; by its evaluation.
 (: sk-need-row! (-[semidet]-> Atom SkeletonItem Atom))
 (= (sk-need-row! $_acc (sk-row-item $_seq $khash $_key $rhash (sk-row $_ident $_concl $premises $_s)))
    (let $_refresh
       (if (== (collapse (once (match &sk_stale ($khash $rhash) true))) ()) ()
-         (let $_fresh (remove-atom &sk_stale ($khash $rhash)) (add-atom &sk_refresh ($khash $rhash))))
+         (let* (($_fresh (remove-atom &sk_stale ($khash $rhash)))
+                ($_linked (fold-semidet (sk-add-reader! $khash $rhash) () (fold-semidet sk-direct-key-step () $premises))))
+            (add-atom &sk_refresh ($khash $rhash))))
       (fold-semidet sk-need-premise! () $premises)))
 
 (= (sk-need! $_acc $key)
@@ -1194,10 +1199,16 @@
 (: sk-need-root! (-[semidet]-> Atom SkPattern Atom))
 (= (sk-need-root! $_acc $goal) (fold-semidet sk-need! () (sk-root-keys $goal)))
 
+(: sk-unlink-reader! (-[det]-> Number Number (List SkPattern) Atom))
+(= (sk-unlink-reader! $khash $rhash $premises)
+   (fold-flat (sk-remove-reader! $khash $rhash) () (fold-flat sk-direct-key-step () $premises)))
+
 (: sk-mark-stale! (-[det]-> SkeletonItem Atom))
-(= (sk-mark-stale! (sk-row-item $_seq $khash $key $rhash $_row))
+(= (sk-mark-stale! (sk-row-item $_seq $khash $key $rhash (sk-row $_ident $_concl $premises $_s)))
    (if (== (collapse (once (match &sk_stale ($khash $rhash) true))) ())
-      (let $_stale (add-atom &sk_stale ($khash $rhash)) (sk-stale-key! $key))
+      (let* (($_stale (add-atom &sk_stale ($khash $rhash)))
+             ($_unlinked (sk-unlink-reader! $khash $rhash $premises)))
+         (sk-stale-key! $key))
       ()))
 (= (sk-mark-stale! (sk-fold-check $_hash $_fold)) ())
 
