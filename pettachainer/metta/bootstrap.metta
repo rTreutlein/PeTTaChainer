@@ -50,19 +50,19 @@
    (if (== $runtime-helper $parent-runtime-helper)
       (import_prolog_functions_from_file
          $runtime-helper
-         (heap_pop heap-empty? index-hash alpha_unique_keys rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
+         (heap_pop heap-empty? index-hash alpha_unique_keys prune_answer_instances rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
             query_metrics_enabled query_metrics_set_enabled
             query_metric_value query_metric_set query_metric_increment))
       (superpose
          ((import_prolog_functions_from_file
              $runtime-helper
-             (heap_pop heap-empty? index-hash alpha_unique_keys rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
+             (heap_pop heap-empty? index-hash alpha_unique_keys prune_answer_instances rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
                 query_metrics_enabled query_metrics_set_enabled
                 query_metric_value query_metric_set
                 query_metric_increment))
           (import_prolog_functions_from_file
              $parent-runtime-helper
-             (heap_pop heap-empty? index-hash alpha_unique_keys rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
+             (heap_pop heap-empty? index-hash alpha_unique_keys prune_answer_instances rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
                 query_metrics_enabled query_metrics_set_enabled
                 query_metric_value query_metric_set
                 query_metric_increment))))))

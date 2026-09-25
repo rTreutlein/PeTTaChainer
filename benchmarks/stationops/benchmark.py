@@ -11,6 +11,7 @@ from importlib.metadata import version
 import json
 import os
 from pathlib import Path
+import resource
 import sys
 import time
 
@@ -19,16 +20,18 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--chainergame", type=Path, required=True)
-    parser.add_argument("--petta", type=Path, required=True)
+    parser.add_argument("--petta", type=Path,
+                        help="PeTTa checkout; default: the interpreter's installed runtime")
     parser.add_argument("--json-out", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--budget", type=int, default=600)
     args = parser.parse_args()
     repository = args.repository.resolve()
     game = args.chainergame.resolve()
-    runtime = args.petta.resolve()
-    os.environ["PETTA_PATH"] = str(runtime)
-    sys.path[:0] = [str(repository), str(runtime / "python"), str(game / "src")]
+    if args.petta:
+        os.environ["PETTA_PATH"] = str(args.petta.resolve())
+        sys.path.insert(0, str(args.petta.resolve() / "python"))
+    sys.path[:0] = [str(repository), str(game / "src")]
 
     import janus_swi as janus
     import petta
@@ -38,7 +41,11 @@ def main():
     from stationops.backends import PeTTaChainerBackend
     from stationops.game import GameConfig, run_game_episode
 
-    for module, root in ((pettachainer, repository), (petta, runtime), (stationops, game)):
+    runtime = args.petta.resolve() if args.petta else Path(petta._resolve_petta_path()).resolve()
+    sources = [(pettachainer, repository), (stationops, game)]
+    if args.petta:
+        sources.append((petta, args.petta.resolve()))
+    for module, root in sources:
         if root not in Path(module.__file__).resolve().parents:
             raise RuntimeError(f"Wrong import: {module.__file__}; expected {root}")
 
@@ -73,6 +80,7 @@ def main():
             shift=shift, seconds=elapsed,
             inferences=after["I"] - before["I"], cpu_seconds=after["C"] - before["C"],
             metrics=self.last_query_metrics(), queries=atoms, answers=answers,
+            peak_rss_kib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
         )
         batches.append(batch)
         self.set_query_metrics(False)
@@ -93,6 +101,7 @@ def main():
     payload = dict(
         environment=dict(
             repository=str(repository), chainergame=str(game), petta=str(runtime),
+            petta_module=str(Path(petta.__file__).resolve()),
             python=sys.version, executable=sys.executable, loadavg=os.getloadavg(),
             janus_version=version("janus-swi"),
             swi_version=janus.query_once("current_prolog_flag(version, V)")["V"],

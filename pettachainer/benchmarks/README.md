@@ -301,3 +301,26 @@ separately from expansion and ingestion. Launch a fresh process for each repeat:
 
 Use `--repository /path/to/checkout` to compare another checkout with the same
 harness and interpreter; sweep `--facts 100`, `600`, and `1800` for scaling.
+
+## Skeleton sessions
+
+`skeleton_sessions.py` measures 40 rounds in one KB, with three unchanged
+queries after each addition. `unrelated` grows six disjoint derived roots per
+round while probing two stable roots. `history` adds members to an inheritance
+fold and queries it together with a downstream rule. Every unchanged query must
+preserve the complete answers; the fold's confidence is checked against its
+member count. Proof digests allow comparisons across fresh processes.
+
+```bash
+.venv/bin/python pettachainer/benchmarks/skeleton_sessions.py \
+  --mode unrelated --json-out /tmp/skeleton-unrelated.json
+.venv/bin/python pettachainer/benchmarks/skeleton_sessions.py \
+  --mode history --json-out /tmp/skeleton-history.json
+```
+
+Both modes record query time, Prolog inferences, skeleton/view counts, and peak
+process RSS. Inspection runs outside query timing. Use `--repository` for
+paired comparisons; `--rounds` and `--repeats` control session length.
+
+The [2026-09-25 answer-index report](../../docs/metta/skeleton_answer_index_2026-09-25.md)
+includes broad-query scaling, session measurements, and the StationOps comparison.

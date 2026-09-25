@@ -1463,23 +1463,8 @@
       ((sk-goal-val $goal $_proof $_ev $_deps) (cons (brand RuntimeResult $goal) $kept))
       (sk-none $kept))))
 
-;; An answer is redundant when another answer has the same proof and a more
-;; general statement: it is that derivation instantiated.
-(: sk-instance-of? (-[det]-> RuntimeResult RuntimeResult Bool))
-(= (sk-instance-of? $answer $general)
-   (if (=alpha $answer $general) false
-      (case (copy_term $answer) (
-         (($type $kbctx $proof $tv)
-            (case (copy_term $general) (
-               (($general-type $general-kbctx $general-proof $_general-tv)
-                  (if (== $proof $general-proof)
-                     (if (= $general-type $type) (=alpha $type (sk-fact-type $answer)) false)
-                     false))
-               ($_goal false))))
-         ($_goal-answer false)))))
-
-(: sk-fact-type (-[det]-> RuntimeResult Atom))
-(= (sk-fact-type $answer) (case $answer ((($type $_kbctx $_proof $_tv) $type) ($_goal $answer))))
+;; Proof-indexed subsumption preserves root order (runtime_helpers.pl).
+(: prune_answer_instances (-[det]-> (List RuntimeResult) (List RuntimeResult)))
 
 ;; Proven answers in root order without redundant instances; a materializing
 ;; query writes back the first.
@@ -1494,10 +1479,7 @@
                    (() ())))
                 ()))
           ($answers (fold-semidet sk-cons-step () (fold-semidet sk-result-step () $values))))
-      (collapse (let $answer (superpose $answers)
-         (if (== (collapse (once (let $general (superpose $answers)
-                    (if (sk-instance-of? $answer $general) true (empty))))) ())
-            $answer (empty))))))
+      (prune_answer_instances $answers)))
 
 ;; A root's Member producer is part of its scaffold and installed even when
 ;; the budget expands nothing.

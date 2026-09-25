@@ -1,0 +1,2441 @@
+{
+  "metadata": {
+    "base_commit": "4f2ec882ad7e8fc705996591b8b4b5e5574b8778",
+    "candidate_head": "4f2ec882ad7e8fc705996591b8b4b5e5574b8778",
+    "candidate_branch": "skeleton-core",
+    "status": " M benchmarks/stationops/README.md\n M benchmarks/stationops/benchmark.py\n M docs/metta/runtime_design_assumptions.md\n M pettachainer/benchmarks/README.md\n M pettachainer/metta/bootstrap.metta\n M pettachainer/metta/prolog/runtime_helpers.pl\n M pettachainer/metta/runtime/backward/evaluation.metta\n?? benchmarks/metta/.conceptnet_export\n?? benchmarks/metta/scratch_own_pet_budgets.metta\n?? benchmarks/metta/scratch_own_pet_profile.metta\n?? benchmarks/metta/zz_bench.metta\n?? benchmarks/metta/zz_graph.metta\n?? benchmarks/metta/zz_prof_base.metta\n?? pettachainer/benchmarks/skeleton_sessions.py\n?? tests/metta/test_skeleton_answer_subsumption.metta\n",
+    "production_diff_sha256": "8f5b05acf58dfa52c9926efd45ded59fc097dbd3c57b2e8099c78caaf86ce47b",
+    "runtime": "/nexus/Dev/OpenCog/NL2PLN_Project/PeTTaChainer/.venv/lib/python3.10/site-packages/petta/_runtime",
+    "runtime_sha256": {
+      "lib/lib_builtin_types.metta": "75dd62047c40585ad629446cbddc5e493362b2fbb78e2fdc5ea883b694e4eb97",
+      "lib/lib_combinatorics.metta": "70c86219346d6bab79decc4d291ee830035e10f044b614f82259c4c1ed1f40ad",
+      "lib/lib_datastructures.metta": "3392c952a7ac473a50876e70e4b3517798ca7d856fea238b0e3c8db225d34d55",
+      "lib/lib_datetime.metta": "21bab4f93557e04e8d2357c7a07b67a2b49956644138a92f2242824317f1812a",
+      "lib/lib_datetime.pl": "097f00a01450cba70c6ea262b61d6510b85ab0e6a2fb8f2b177697edfc3d462f",
+      "lib/lib_he.metta": "6a31ec02d3368aed5d2ce8f268cd1e7a668874c01cbfa62b524d49334d7c1566",
+      "lib/lib_import.metta": "a4c34edbda6e07a1e78f6111198304633b854c3a80c1e3ba5e05b95280316cb8",
+      "lib/lib_import.pl": "0ab7b063d0287843fe4a2eb848eafc3a81cb365cdb9ea3c31ff7d2ba2578d86b",
+      "lib/lib_llm.metta": "1c9b3272b800b4a6ebadb292d9ee149af60e5f1427d31193f8487d1d23e02ad7",
+      "lib/lib_llm.py": "cbdeef7260308604acf0185e896e1d4268e57abeab250e37c09fc5a97139d273",
+      "lib/lib_memo.metta": "dfba3fb47b17d353f879b4205d331430a4a97200bc16ed9bece1556f24ae9d40",
+      "lib/lib_memo.pl": "0622de3bafd35bf0590e0af2654edccb734721b24a5d3bd13ab2caf08cf1aa8f",
+      "lib/lib_mm2.metta": "8561ece893cfd34d2365c0ea81a37557fa4c3fac5332398e8051ef2034ddb97e",
+      "lib/lib_nars.metta": "f2a1ab3be59c59128894367a2f52a12c0fafdf1fb26b4affedd48270b47d4b43",
+      "lib/lib_patrick.metta": "105e489cad703d2e8ab4fe731a7e339c3283280ecf91901969098dade26d3d22",
+      "lib/lib_pln.metta": "d864c3cf376ad1f9252d153306d92b7aae72a184701c2eb4805c9661eed27ece",
+      "lib/lib_roman.metta": "d0aa0d56db328f2d148d5e4a09ee79a0598eb0dd9b82c2b0d3e4727983fb15c0",
+      "lib/lib_spaces.metta": "2b9ef9a34d502cb37a36a7057f0806c5c0fc9e8b0c9a754a6830a0ea12b3b393",
+      "lib/lib_tabling.metta": "9254e48466ebb7eb1919b1b1905b5b7e510d54ca706009a164005e0a817352a0",
+      "lib/lib_trust_fixture.metta": "562c70ed612fff41ca53e8eef4a72adfecf08e197f6677578432933d4b6a4d4b",
+      "lib/lib_unified_cache_fixture.metta": "62cc249dd9578919b479890002a03ccc6c81cf181957d7c4fddfd8d00652d1c3",
+      "lib/lib_vector.metta": "7fedc76b1fefe1bf92a70db6e0c0961f9c51cc507631497d77f9fbb41afa8982",
+      "lib/lib_zar.metta": "412c8e5773f81f21231adcf571b6c4363f29d314186f5843ceb3d2f0aac16047",
+      "lib/lib_zar.pl": "d2e160b3cfb447dfe33b014e39b39321cdba26b08d2aee026b305b13c2b4d6d1",
+      "python/helper.pl": "d5290997ca20a4b5af56bfd20e6069f95eabc76c652b02d22b0dd6e254092ade",
+      "src/ext_points.pl": "0b5f1b115e29892ab1bf5833c022df4c2f3f1558cb04f57a8f52de5ccdad8436",
+      "src/filereader.pl": "2cfcfee3cd12d29c42bacf7959a82456dc404e4d9f9a70124653dc2ffda599bc",
+      "src/main.pl": "dd077108366340f69891e58d496e84458ab9e440ff58e0da2adf29f39f068f6c",
+      "src/metta.pl": "2d7950e871f68af8127ed4082b8fb8485f66ebf4f3e1bf9ce38698c32b2913b7",
+      "src/parser.pl": "5abc89c3e8ddd58769a4995919cd18d72d5b86224d6ed58363f25450e32cf45d",
+      "src/spaces.pl": "6e1f7b36baae4c5d9d10f070631eefeb6958ac5517cad382ef931facc8f94646",
+      "src/specializer.pl": "17c406b2a69f8d633bfd2e6ed10df777dab9a20659761bf2f465d6a69c573587",
+      "src/translator.pl": "304fcd307a6f867aedb26ca0cf4e7500639b5c8112b83a2634a1d0697392ffde",
+      "src/typecheck/abstract_domain.pl": "bb5103047a40714798ecc73fb0771a685a4391328b56d9aaaadb316ad8c5b10d",
+      "src/typecheck/analysis_proofs.pl": "3438c40b5eac0d6ef0bb71cfad171a396d221ee053095520c6f18f70df493398",
+      "src/typecheck/builtin_registry.pl": "8049c283a6c881830d10210345787eea5909dc7b65a499dfc2349a2378c67961",
+      "src/typecheck/call_summaries.pl": "65e8c27ed395f75d5184e277317797882bc141982ca487be0fb5a5ceac05a786",
+      "src/typecheck/clause_checks.pl": "c8556f0fbe084234863a8fc1cacc15f586e3cf8b086f30b2cf5c9675d031e476",
+      "src/typecheck/decl_store.pl": "ca39d71191136e3641476e1938a0f0ed3cf486b69f1204314234b269cc7c3682",
+      "src/typecheck/dependency_graph.pl": "cd8b6d2e5cd0cd4c6f27a761465d9c6ac98f107d29e231e028d0419327f9cae6",
+      "src/typecheck/det_analysis.pl": "0fa5e2c31a0cb3955289bb8da925ec4ec1589fe2223fac15b20411cc46e9e5aa",
+      "src/typecheck/det_builtins.pl": "5784b61c5836470356b1da1ff8e5fdd8ed1eced6714913a12728a1502076864d",
+      "src/typecheck/det_proofs.pl": "c8ef06b55459e2348c621bbe89f07989f4401dd70a00f44edb4d600fc3bc0a16",
+      "src/typecheck/det_validate.pl": "11cb60bf6a8a7e490ebd19efa7bc37261d12c60582d8b4d3df2c1704810c9f51",
+      "src/typecheck/flags_arrows.pl": "06c72cb77c1f55b749d975bef39f432ed6ac2c48c15b06c61f25fefc6f96de9a",
+      "src/typecheck/inference.pl": "6983ff2198d7daade355b49b8c112dad893c966f1725775a5ff131c14997546e",
+      "src/typecheck/ir_analyzer.pl": "0d3666ef8dca87bf8c78ca377041b427704ac0d9f725de0477695b1b8823268a",
+      "src/typecheck/oracles.pl": "016e6ea04f7483a332b16148167ad84df55c019b3126ef2e80bf4d7eae5fb7b8",
+      "src/typecheck/relational_ir.pl": "a6da6f9fc5b2b5601427f93d1dfd03f83a2bf9225ccfb146cca0e8185ef7be52",
+      "src/typecheck/type_lang.pl": "e3d3795e9255b852cf09b363e68c01655f28ebf42e555fe6608eb74aa8f66e0a",
+      "src/typecheck/unified_checker_bridge.pl": "67fb577b563ae07b8688261ba30b1bdb7350606b017377ad675e66a13a6d5493",
+      "src/typecheck/unified_checker_cache.pl": "1cc88a76bc05beec2e6c8f3c19e69854e9137616c8c31e0c3df3644033d064af",
+      "src/typecheck/value_checks.pl": "3b9d348a18b30aa91ea5a8de22be6cc9432cae4a2401f5ae711ab1508eb737c1",
+      "src/typecheck.pl": "870c320872ea78ba21e51d45db39f97560ac26283543acd3d6161f179a12563c"
+    },
+    "game_commit": "db031348f395926e2ff9da6e6d7a89ceef0025d2",
+    "game_status": "?? benchmark-runs/\n",
+    "python": "/home/roman/.local/share/uv/python/cpython-3.10.16-linux-x86_64-gnu/bin/python3.10",
+    "platform": "Linux-5.15.167.4-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "cpu": "\t: AMD Ryzen 7 5700X3D 8-Core Processor",
+    "fetched": false,
+    "rebuilt": false,
+    "benchmark_helpers_sha256": {
+      "pettachainer/benchmarks/skeleton_answers.py": "961d6368f9122c8d33c860d0cf8b50448cf9ccc23cffad803737534f8a88a3d9",
+      "pettachainer/benchmarks/skeleton_sessions.py": "3d63faba23080713ba67e83b295eace2af59a451eea7e238498790cee2f73cd0",
+      "benchmarks/stationops/benchmark.py": "e4f9a3eae7d52c2667357eba4546512f7db4da3957df02937853b07c3e117141"
+    },
+    "commands": [
+      ".venv/bin/python pettachainer/benchmarks/skeleton_answers.py --repository TREE --facts N --json-out FILE",
+      ".venv/bin/python pettachainer/benchmarks/skeleton_sessions.py --repository TREE --mode MODE --rounds 40 --repeats 3 --json-out FILE",
+      ".venv/bin/python benchmarks/stationops/benchmark.py --repository TREE --chainergame /tmp/skeleton-answer-index/game --json-out FILE",
+      "scripts/strict_check_metta.sh",
+      "scripts/verify.sh"
+    ]
+  },
+  "wide_raw": [
+    {
+      "n": 100,
+      "pair": 0,
+      "side": "base",
+      "answers": 100,
+      "cold_seconds": 0.03066077799985578,
+      "facts": 100,
+      "warm_seconds": 0.02777781499980847
+    },
+    {
+      "n": 100,
+      "pair": 0,
+      "side": "candidate",
+      "answers": 100,
+      "cold_seconds": 0.01196648199993433,
+      "facts": 100,
+      "warm_seconds": 0.00912135299995498
+    },
+    {
+      "n": 100,
+      "pair": 1,
+      "side": "candidate",
+      "answers": 100,
+      "cold_seconds": 0.01202070699991964,
+      "facts": 100,
+      "warm_seconds": 0.009166157999970892
+    },
+    {
+      "n": 100,
+      "pair": 1,
+      "side": "base",
+      "answers": 100,
+      "cold_seconds": 0.03012319200024649,
+      "facts": 100,
+      "warm_seconds": 0.027572158000111813
+    },
+    {
+      "n": 100,
+      "pair": 2,
+      "side": "base",
+      "answers": 100,
+      "cold_seconds": 0.03052954699978727,
+      "facts": 100,
+      "warm_seconds": 0.027681408999796986
+    },
+    {
+      "n": 100,
+      "pair": 2,
+      "side": "candidate",
+      "answers": 100,
+      "cold_seconds": 0.012281174000236206,
+      "facts": 100,
+      "warm_seconds": 0.009287803999995958
+    },
+    {
+      "n": 600,
+      "pair": 0,
+      "side": "base",
+      "answers": 600,
+      "cold_seconds": 0.7523587020000377,
+      "facts": 600,
+      "warm_seconds": 0.7355256640003063
+    },
+    {
+      "n": 600,
+      "pair": 0,
+      "side": "candidate",
+      "answers": 600,
+      "cold_seconds": 0.06345129700002872,
+      "facts": 600,
+      "warm_seconds": 0.047936843000115914
+    },
+    {
+      "n": 600,
+      "pair": 1,
+      "side": "candidate",
+      "answers": 600,
+      "cold_seconds": 0.06324343500000396,
+      "facts": 600,
+      "warm_seconds": 0.04808978399978514
+    },
+    {
+      "n": 600,
+      "pair": 1,
+      "side": "base",
+      "answers": 600,
+      "cold_seconds": 0.758411661000082,
+      "facts": 600,
+      "warm_seconds": 0.7367129009999189
+    },
+    {
+      "n": 600,
+      "pair": 2,
+      "side": "base",
+      "answers": 600,
+      "cold_seconds": 0.7515427230000569,
+      "facts": 600,
+      "warm_seconds": 0.737767169000108
+    },
+    {
+      "n": 600,
+      "pair": 2,
+      "side": "candidate",
+      "answers": 600,
+      "cold_seconds": 0.06315424299964434,
+      "facts": 600,
+      "warm_seconds": 0.04767084500008423
+    },
+    {
+      "n": 1800,
+      "pair": 0,
+      "side": "base",
+      "answers": 1800,
+      "cold_seconds": 6.372616413000287,
+      "facts": 1800,
+      "warm_seconds": 6.351620551999986
+    },
+    {
+      "n": 1800,
+      "pair": 0,
+      "side": "candidate",
+      "answers": 1800,
+      "cold_seconds": 0.19333824699970137,
+      "facts": 1800,
+      "warm_seconds": 0.14795360400012214
+    },
+    {
+      "n": 1800,
+      "pair": 1,
+      "side": "candidate",
+      "answers": 1800,
+      "cold_seconds": 0.21107912200022838,
+      "facts": 1800,
+      "warm_seconds": 0.14270634200011045
+    },
+    {
+      "n": 1800,
+      "pair": 1,
+      "side": "base",
+      "answers": 1800,
+      "cold_seconds": 6.492671737999899,
+      "facts": 1800,
+      "warm_seconds": 6.398071129000073
+    },
+    {
+      "n": 1800,
+      "pair": 2,
+      "side": "base",
+      "answers": 1800,
+      "cold_seconds": 6.418778160999864,
+      "facts": 1800,
+      "warm_seconds": 6.34255997199989
+    },
+    {
+      "n": 1800,
+      "pair": 2,
+      "side": "candidate",
+      "answers": 1800,
+      "cold_seconds": 0.1858956619998935,
+      "facts": 1800,
+      "warm_seconds": 0.14188039199962077
+    },
+    {
+      "n": 5400,
+      "pair": 0,
+      "side": "candidate",
+      "answers": 5400,
+      "cold_seconds": 0.5820718380000471,
+      "facts": 5400,
+      "warm_seconds": 0.4349181950001366
+    },
+    {
+      "n": 5400,
+      "pair": 1,
+      "side": "candidate",
+      "answers": 5400,
+      "cold_seconds": 0.584506046000115,
+      "facts": 5400,
+      "warm_seconds": 0.43389842799979306
+    },
+    {
+      "n": 5400,
+      "pair": 2,
+      "side": "candidate",
+      "answers": 5400,
+      "cold_seconds": 0.5846177070002341,
+      "facts": 5400,
+      "warm_seconds": 0.4347409020001578
+    }
+  ],
+  "wide_medians": {
+    "100": {
+      "base": {
+        "cold_seconds": 0.03052954699978727,
+        "warm_seconds": 0.027681408999796986
+      },
+      "candidate": {
+        "cold_seconds": 0.01202070699991964,
+        "warm_seconds": 0.009166157999970892
+      }
+    },
+    "600": {
+      "base": {
+        "cold_seconds": 0.7523587020000377,
+        "warm_seconds": 0.7367129009999189
+      },
+      "candidate": {
+        "cold_seconds": 0.06324343500000396,
+        "warm_seconds": 0.047936843000115914
+      }
+    },
+    "1800": {
+      "base": {
+        "cold_seconds": 6.418778160999864,
+        "warm_seconds": 6.351620551999986
+      },
+      "candidate": {
+        "cold_seconds": 0.19333824699970137,
+        "warm_seconds": 0.14270634200011045
+      }
+    },
+    "5400": {
+      "candidate": {
+        "cold_seconds": 0.584506046000115,
+        "warm_seconds": 0.4347409020001578
+      }
+    }
+  },
+  "sessions": {
+    "unrelated": {
+      "proofs_equal": true,
+      "runs": [
+        {
+          "side": "base",
+          "pair": 0,
+          "source": "/tmp/skeleton-answer-index/session-unrelated-0-base.json",
+          "sha256": "4c80cabd9d997d110a6f589edd18f859a6507d0d9a081afffb4a83748af7ca8e",
+          "phases": {
+            "growth": {
+              "total_seconds": 68.68143576700095,
+              "first_10_seconds": 0.30399516400007087,
+              "last_10_seconds": 3.569148696499724,
+              "first_inferences": 421409,
+              "last_inferences": 17427269
+            },
+            "first_unchanged": {
+              "total_seconds": 9.3542373819987,
+              "first_10_seconds": 0.04443667800001094,
+              "last_10_seconds": 0.45469214949980596,
+              "first_inferences": 41185,
+              "last_inferences": 2148817
+            },
+            "steady_unchanged": {
+              "total_seconds": 0.34108490300195626,
+              "first_10_seconds": 0.003362827000046309,
+              "last_10_seconds": 0.003342714500377042,
+              "first_inferences": 21928,
+              "last_inferences": 21928
+            }
+          },
+          "initial": {
+            "iteration": 0,
+            "peak_rss_kib": 137572,
+            "sk_expanded": 35,
+            "sk_latest": 26,
+            "sk_needed": 8,
+            "sk_row": 52,
+            "sk_view": 0
+          },
+          "final": {
+            "iteration": 39,
+            "peak_rss_kib": 920008,
+            "sk_expanded": 620,
+            "sk_latest": 962,
+            "sk_needed": 8,
+            "sk_row": 1924,
+            "sk_view": 9594
+          }
+        },
+        {
+          "side": "candidate",
+          "pair": 0,
+          "source": "/tmp/skeleton-answer-index/session-unrelated-0-candidate.json",
+          "sha256": "f1c1cb9b8663485bd899ee5ac7f4e40ac5e07af23400d3a10712ce43a477dccf",
+          "phases": {
+            "growth": {
+              "total_seconds": 69.55193190900081,
+              "first_10_seconds": 0.3051720739999837,
+              "last_10_seconds": 3.6001707875002467,
+              "first_inferences": 421417,
+              "last_inferences": 17427277
+            },
+            "first_unchanged": {
+              "total_seconds": 9.488508562999414,
+              "first_10_seconds": 0.04508703700003025,
+              "last_10_seconds": 0.4600794875000247,
+              "first_inferences": 41187,
+              "last_inferences": 2148819
+            },
+            "steady_unchanged": {
+              "total_seconds": 0.3622062919948803,
+              "first_10_seconds": 0.003424783999889769,
+              "last_10_seconds": 0.0033350304997838975,
+              "first_inferences": 21930,
+              "last_inferences": 21930
+            }
+          },
+          "initial": {
+            "iteration": 0,
+            "peak_rss_kib": 136064,
+            "sk_expanded": 35,
+            "sk_latest": 26,
+            "sk_needed": 8,
+            "sk_row": 52,
+            "sk_view": 0
+          },
+          "final": {
+            "iteration": 39,
+            "peak_rss_kib": 917992,
+            "sk_expanded": 620,
+            "sk_latest": 962,
+            "sk_needed": 8,
+            "sk_row": 1924,
+            "sk_view": 9594
+          }
+        }
+      ]
+    },
+    "history": {
+      "proofs_equal": true,
+      "runs": [
+        {
+          "side": "base",
+          "pair": 0,
+          "source": "/tmp/skeleton-answer-index/session-history-0-base.json",
+          "sha256": "0215c81b07017b88a93357de4ce1790d91b7c1e7e7b9121ef77c0a0eab3a67bb",
+          "phases": {
+            "growth": {
+              "total_seconds": 1.2365268690045923,
+              "first_10_seconds": 0.01767356300024403,
+              "last_10_seconds": 0.0447539894998954,
+              "first_inferences": 183606,
+              "last_inferences": 275050
+            },
+            "first_unchanged": {
+              "total_seconds": 0.7044108759964729,
+              "first_10_seconds": 0.009576447999734228,
+              "last_10_seconds": 0.02567441749988575,
+              "first_inferences": 48728,
+              "last_inferences": 150274
+            },
+            "steady_unchanged": {
+              "total_seconds": 1.3844962719995237,
+              "first_10_seconds": 0.008638022499781073,
+              "last_10_seconds": 0.025058154500129604,
+              "first_inferences": 39039,
+              "last_inferences": 151308
+            }
+          },
+          "initial": {
+            "iteration": 0,
+            "peak_rss_kib": 138376,
+            "sk_expanded": 26,
+            "sk_latest": 19,
+            "sk_needed": 51,
+            "sk_row": 18,
+            "sk_view": 1
+          },
+          "final": {
+            "iteration": 39,
+            "peak_rss_kib": 138376,
+            "sk_expanded": 221,
+            "sk_latest": 58,
+            "sk_needed": 168,
+            "sk_row": 57,
+            "sk_view": 118
+          }
+        },
+        {
+          "side": "candidate",
+          "pair": 0,
+          "source": "/tmp/skeleton-answer-index/session-history-0-candidate.json",
+          "sha256": "ba603556003ae9ca089ff5c956c1204f16f102ea3b9350bb33e6743657e93895",
+          "phases": {
+            "growth": {
+              "total_seconds": 1.2493230529953507,
+              "first_10_seconds": 0.01748542749965054,
+              "last_10_seconds": 0.0460766874998626,
+              "first_inferences": 183609,
+              "last_inferences": 275052
+            },
+            "first_unchanged": {
+              "total_seconds": 0.7198017950022404,
+              "first_10_seconds": 0.009546780499931629,
+              "last_10_seconds": 0.02642553499981659,
+              "first_inferences": 48730,
+              "last_inferences": 150276
+            },
+            "steady_unchanged": {
+              "total_seconds": 1.4112912130012774,
+              "first_10_seconds": 0.008896886500224355,
+              "last_10_seconds": 0.025420835000204534,
+              "first_inferences": 39041,
+              "last_inferences": 151310
+            }
+          },
+          "initial": {
+            "iteration": 0,
+            "peak_rss_kib": 136036,
+            "sk_expanded": 26,
+            "sk_latest": 19,
+            "sk_needed": 51,
+            "sk_row": 18,
+            "sk_view": 1
+          },
+          "final": {
+            "iteration": 39,
+            "peak_rss_kib": 136036,
+            "sk_expanded": 221,
+            "sk_latest": 58,
+            "sk_needed": 168,
+            "sk_row": 57,
+            "sk_view": 118
+          }
+        }
+      ]
+    }
+  },
+  "stationops": {
+    "semantic_results_equal": true,
+    "proof_answers_equal": true,
+    "acceptance": [
+      {
+        "sample": "base-0",
+        "passed": true
+      },
+      {
+        "sample": "base-1",
+        "passed": true
+      },
+      {
+        "sample": "base-2",
+        "passed": true
+      },
+      {
+        "sample": "candidate-0",
+        "passed": true
+      },
+      {
+        "sample": "candidate-1",
+        "passed": true
+      },
+      {
+        "sample": "candidate-2",
+        "passed": true
+      }
+    ],
+    "comparisons": [
+      {
+        "shift": 1,
+        "metric": "seconds",
+        "base": 12.51945773800071,
+        "candidate": 12.466539068999737,
+        "delta_percent": -0.4226913825536416,
+        "passed": true
+      },
+      {
+        "shift": 1,
+        "metric": "inferences",
+        "base": 49624635,
+        "candidate": 49624640,
+        "delta_percent": 1.0075640854978474e-05,
+        "passed": true
+      },
+      {
+        "shift": 2,
+        "metric": "seconds",
+        "base": 23.9731021030002,
+        "candidate": 23.970935631999964,
+        "delta_percent": -0.009037090781693902,
+        "passed": true
+      },
+      {
+        "shift": 2,
+        "metric": "inferences",
+        "base": 96853567,
+        "candidate": 96853571,
+        "delta_percent": 4.129945985198447e-06,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "runs": [
+      {
+        "side": "base",
+        "pair": 0,
+        "source": "/tmp/skeleton-answer-index/stationops-0-base.json",
+        "sha256": "2fddca0f62ed08c6a64241e6689ddf3189b76d041cb50b8343b52e2b6271666c",
+        "batches": [
+          {
+            "shift": 1,
+            "seconds": 12.50432952599931,
+            "inferences": 49624635,
+            "peak_rss_kib": 625112
+          },
+          {
+            "shift": 2,
+            "seconds": 24.027411107000262,
+            "inferences": 96853567,
+            "peak_rss_kib": 1786476
+          }
+        ],
+        "coverage": [
+          1.0,
+          1.0
+        ],
+        "aggregate": {
+          "expected_utility": 185.0,
+          "oracle_utility": 185.0,
+          "regret": 0.0,
+          "normalized_score": 1.0,
+          "station_score": 637.0,
+          "total_production": 650,
+          "production_recovered": 190,
+          "root_cause_repairs": 1,
+          "symptom_repairs": 0,
+          "confirmed_history_size": 84,
+          "learning_curve": [
+            {
+              "shift_start": 1,
+              "shift_end": 2,
+              "mean_brier_score": 0.025163514186242315,
+              "mean_log_loss": 0.12348806607494345,
+              "mean_coverage": 1.0,
+              "mean_regret": 0.0,
+              "total_regret": 0.0,
+              "confirmed_cases_added": 4,
+              "station_score": 637
+            }
+          ],
+          "early_to_late_brier_improvement": null,
+          "early_to_late_log_loss_improvement": null,
+          "early_to_late_regret_improvement": null,
+          "early_to_late_coverage_change": null,
+          "resolved_model_before": {
+            "new|coolant-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.125
+            },
+            "new|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.375,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "new|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 0.5,
+              "alarm_given_available": 0.0
+            },
+            "new|power-converter": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.25,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.25
+            },
+            "new|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.5,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.2
+            },
+            "old|coolant-pump": {
+              "cases": 8,
+              "leak_rate": 0.25,
+              "alarm_given_leak": 0.5,
+              "alarm_given_intact": 0.5,
+              "leak_given_alarm": 0.25,
+              "leak_given_normal": 0.25,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.4
+            },
+            "old|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.75,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.5,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "old|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            },
+            "old|power-converter": {
+              "cases": 8,
+              "leak_rate": 0.25,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.16666666666666666,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.16666666666666666
+            },
+            "old|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            }
+          },
+          "resolved_model_after": {
+            "new|coolant-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.125
+            },
+            "new|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.375,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "new|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 0.5,
+              "alarm_given_available": 0.0
+            },
+            "new|power-converter": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.25,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.25
+            },
+            "new|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.5,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.2
+            },
+            "old|coolant-pump": {
+              "cases": 10,
+              "leak_rate": 0.3,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.42857142857142855,
+              "leak_given_alarm": 0.4,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.4
+            },
+            "old|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.75,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.5,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "old|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            },
+            "old|power-converter": {
+              "cases": 10,
+              "leak_rate": 0.2,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.16666666666666666
+            },
+            "old|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            }
+          }
+        }
+      },
+      {
+        "side": "base",
+        "pair": 1,
+        "source": "/tmp/skeleton-answer-index/stationops-1-base.json",
+        "sha256": "11d5a1b27f5b98e383e8e1b33ec74496a26454493b986bf5b3095dfb275716a3",
+        "batches": [
+          {
+            "shift": 1,
+            "seconds": 12.614179673000763,
+            "inferences": 49624635,
+            "peak_rss_kib": 625348
+          },
+          {
+            "shift": 2,
+            "seconds": 23.896803908000038,
+            "inferences": 96853567,
+            "peak_rss_kib": 1783600
+          }
+        ],
+        "coverage": [
+          1.0,
+          1.0
+        ],
+        "aggregate": {
+          "expected_utility": 185.0,
+          "oracle_utility": 185.0,
+          "regret": 0.0,
+          "normalized_score": 1.0,
+          "station_score": 637.0,
+          "total_production": 650,
+          "production_recovered": 190,
+          "root_cause_repairs": 1,
+          "symptom_repairs": 0,
+          "confirmed_history_size": 84,
+          "learning_curve": [
+            {
+              "shift_start": 1,
+              "shift_end": 2,
+              "mean_brier_score": 0.025163514186242315,
+              "mean_log_loss": 0.12348806607494345,
+              "mean_coverage": 1.0,
+              "mean_regret": 0.0,
+              "total_regret": 0.0,
+              "confirmed_cases_added": 4,
+              "station_score": 637
+            }
+          ],
+          "early_to_late_brier_improvement": null,
+          "early_to_late_log_loss_improvement": null,
+          "early_to_late_regret_improvement": null,
+          "early_to_late_coverage_change": null,
+          "resolved_model_before": {
+            "new|coolant-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.125
+            },
+            "new|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.375,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "new|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 0.5,
+              "alarm_given_available": 0.0
+            },
+            "new|power-converter": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.25,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.25
+            },
+            "new|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.5,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.2
+            },
+            "old|coolant-pump": {
+              "cases": 8,
+              "leak_rate": 0.25,
+              "alarm_given_leak": 0.5,
+              "alarm_given_intact": 0.5,
+              "leak_given_alarm": 0.25,
+              "leak_given_normal": 0.25,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.4
+            },
+            "old|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.75,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.5,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "old|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            },
+            "old|power-converter": {
+              "cases": 8,
+              "leak_rate": 0.25,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.16666666666666666,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.16666666666666666
+            },
+            "old|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            }
+          },
+          "resolved_model_after": {
+            "new|coolant-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.125
+            },
+            "new|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.375,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "new|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 0.5,
+              "alarm_given_available": 0.0
+            },
+            "new|power-converter": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.25,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.25
+            },
+            "new|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.5,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.2
+            },
+            "old|coolant-pump": {
+              "cases": 10,
+              "leak_rate": 0.3,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.42857142857142855,
+              "leak_given_alarm": 0.4,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.4
+            },
+            "old|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.75,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.5,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "old|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            },
+            "old|power-converter": {
+              "cases": 10,
+              "leak_rate": 0.2,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.16666666666666666
+            },
+            "old|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            }
+          }
+        }
+      },
+      {
+        "side": "base",
+        "pair": 2,
+        "source": "/tmp/skeleton-answer-index/stationops-2-base.json",
+        "sha256": "ec46748846681b84e7453cdd53153d28a5d61cfd2efe905739f0a5af828770d5",
+        "batches": [
+          {
+            "shift": 1,
+            "seconds": 12.51945773800071,
+            "inferences": 49624635,
+            "peak_rss_kib": 625816
+          },
+          {
+            "shift": 2,
+            "seconds": 23.9731021030002,
+            "inferences": 96853567,
+            "peak_rss_kib": 1782168
+          }
+        ],
+        "coverage": [
+          1.0,
+          1.0
+        ],
+        "aggregate": {
+          "expected_utility": 185.0,
+          "oracle_utility": 185.0,
+          "regret": 0.0,
+          "normalized_score": 1.0,
+          "station_score": 637.0,
+          "total_production": 650,
+          "production_recovered": 190,
+          "root_cause_repairs": 1,
+          "symptom_repairs": 0,
+          "confirmed_history_size": 84,
+          "learning_curve": [
+            {
+              "shift_start": 1,
+              "shift_end": 2,
+              "mean_brier_score": 0.025163514186242315,
+              "mean_log_loss": 0.12348806607494345,
+              "mean_coverage": 1.0,
+              "mean_regret": 0.0,
+              "total_regret": 0.0,
+              "confirmed_cases_added": 4,
+              "station_score": 637
+            }
+          ],
+          "early_to_late_brier_improvement": null,
+          "early_to_late_log_loss_improvement": null,
+          "early_to_late_regret_improvement": null,
+          "early_to_late_coverage_change": null,
+          "resolved_model_before": {
+            "new|coolant-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.125
+            },
+            "new|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.375,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "new|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 0.5,
+              "alarm_given_available": 0.0
+            },
+            "new|power-converter": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.25,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.25
+            },
+            "new|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.5,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.2
+            },
+            "old|coolant-pump": {
+              "cases": 8,
+              "leak_rate": 0.25,
+              "alarm_given_leak": 0.5,
+              "alarm_given_intact": 0.5,
+              "leak_given_alarm": 0.25,
+              "leak_given_normal": 0.25,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.4
+            },
+            "old|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.75,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.5,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "old|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            },
+            "old|power-converter": {
+              "cases": 8,
+              "leak_rate": 0.25,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.16666666666666666,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.16666666666666666
+            },
+            "old|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            }
+          },
+          "resolved_model_after": {
+            "new|coolant-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.125
+            },
+            "new|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.375,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "new|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 0.5,
+              "alarm_given_available": 0.0
+            },
+            "new|power-converter": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.25,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.25
+            },
+            "new|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.5,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.2
+            },
+            "old|coolant-pump": {
+              "cases": 10,
+              "leak_rate": 0.3,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.42857142857142855,
+              "leak_given_alarm": 0.4,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.4
+            },
+            "old|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.75,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.5,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "old|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            },
+            "old|power-converter": {
+              "cases": 10,
+              "leak_rate": 0.2,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.16666666666666666
+            },
+            "old|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            }
+          }
+        }
+      },
+      {
+        "side": "candidate",
+        "pair": 0,
+        "source": "/tmp/skeleton-answer-index/stationops-0-candidate.json",
+        "sha256": "d675a97e801831b2b5dc9001b4bbe339822003204d80cb8d62eef5e53c5e8b12",
+        "batches": [
+          {
+            "shift": 1,
+            "seconds": 12.466539068999737,
+            "inferences": 49624640,
+            "peak_rss_kib": 625008
+          },
+          {
+            "shift": 2,
+            "seconds": 24.110077115999957,
+            "inferences": 96853571,
+            "peak_rss_kib": 1786372
+          }
+        ],
+        "coverage": [
+          1.0,
+          1.0
+        ],
+        "aggregate": {
+          "expected_utility": 185.0,
+          "oracle_utility": 185.0,
+          "regret": 0.0,
+          "normalized_score": 1.0,
+          "station_score": 637.0,
+          "total_production": 650,
+          "production_recovered": 190,
+          "root_cause_repairs": 1,
+          "symptom_repairs": 0,
+          "confirmed_history_size": 84,
+          "learning_curve": [
+            {
+              "shift_start": 1,
+              "shift_end": 2,
+              "mean_brier_score": 0.025163514186242315,
+              "mean_log_loss": 0.12348806607494345,
+              "mean_coverage": 1.0,
+              "mean_regret": 0.0,
+              "total_regret": 0.0,
+              "confirmed_cases_added": 4,
+              "station_score": 637
+            }
+          ],
+          "early_to_late_brier_improvement": null,
+          "early_to_late_log_loss_improvement": null,
+          "early_to_late_regret_improvement": null,
+          "early_to_late_coverage_change": null,
+          "resolved_model_before": {
+            "new|coolant-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.125
+            },
+            "new|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.375,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "new|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 0.5,
+              "alarm_given_available": 0.0
+            },
+            "new|power-converter": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.25,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.25
+            },
+            "new|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.5,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.2
+            },
+            "old|coolant-pump": {
+              "cases": 8,
+              "leak_rate": 0.25,
+              "alarm_given_leak": 0.5,
+              "alarm_given_intact": 0.5,
+              "leak_given_alarm": 0.25,
+              "leak_given_normal": 0.25,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.4
+            },
+            "old|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.75,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.5,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "old|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            },
+            "old|power-converter": {
+              "cases": 8,
+              "leak_rate": 0.25,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.16666666666666666,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.16666666666666666
+            },
+            "old|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            }
+          },
+          "resolved_model_after": {
+            "new|coolant-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.125
+            },
+            "new|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.375,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "new|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 0.5,
+              "alarm_given_available": 0.0
+            },
+            "new|power-converter": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.25,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.25
+            },
+            "new|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.5,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.2
+            },
+            "old|coolant-pump": {
+              "cases": 10,
+              "leak_rate": 0.3,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.42857142857142855,
+              "leak_given_alarm": 0.4,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.4
+            },
+            "old|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.75,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.5,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "old|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            },
+            "old|power-converter": {
+              "cases": 10,
+              "leak_rate": 0.2,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.16666666666666666
+            },
+            "old|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            }
+          }
+        }
+      },
+      {
+        "side": "candidate",
+        "pair": 1,
+        "source": "/tmp/skeleton-answer-index/stationops-1-candidate.json",
+        "sha256": "0d91920023b2b57532da03d712362321a443bea158e83f24a72a0a2548114f01",
+        "batches": [
+          {
+            "shift": 1,
+            "seconds": 12.600535552999645,
+            "inferences": 49624640,
+            "peak_rss_kib": 625944
+          },
+          {
+            "shift": 2,
+            "seconds": 23.970935631999964,
+            "inferences": 96853571,
+            "peak_rss_kib": 1783636
+          }
+        ],
+        "coverage": [
+          1.0,
+          1.0
+        ],
+        "aggregate": {
+          "expected_utility": 185.0,
+          "oracle_utility": 185.0,
+          "regret": 0.0,
+          "normalized_score": 1.0,
+          "station_score": 637.0,
+          "total_production": 650,
+          "production_recovered": 190,
+          "root_cause_repairs": 1,
+          "symptom_repairs": 0,
+          "confirmed_history_size": 84,
+          "learning_curve": [
+            {
+              "shift_start": 1,
+              "shift_end": 2,
+              "mean_brier_score": 0.025163514186242315,
+              "mean_log_loss": 0.12348806607494345,
+              "mean_coverage": 1.0,
+              "mean_regret": 0.0,
+              "total_regret": 0.0,
+              "confirmed_cases_added": 4,
+              "station_score": 637
+            }
+          ],
+          "early_to_late_brier_improvement": null,
+          "early_to_late_log_loss_improvement": null,
+          "early_to_late_regret_improvement": null,
+          "early_to_late_coverage_change": null,
+          "resolved_model_before": {
+            "new|coolant-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.125
+            },
+            "new|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.375,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "new|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 0.5,
+              "alarm_given_available": 0.0
+            },
+            "new|power-converter": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.25,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.25
+            },
+            "new|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.5,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.2
+            },
+            "old|coolant-pump": {
+              "cases": 8,
+              "leak_rate": 0.25,
+              "alarm_given_leak": 0.5,
+              "alarm_given_intact": 0.5,
+              "leak_given_alarm": 0.25,
+              "leak_given_normal": 0.25,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.4
+            },
+            "old|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.75,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.5,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "old|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            },
+            "old|power-converter": {
+              "cases": 8,
+              "leak_rate": 0.25,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.16666666666666666,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.16666666666666666
+            },
+            "old|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            }
+          },
+          "resolved_model_after": {
+            "new|coolant-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.125
+            },
+            "new|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.375,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "new|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 0.5,
+              "alarm_given_available": 0.0
+            },
+            "new|power-converter": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.25,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.25
+            },
+            "new|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.5,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.2
+            },
+            "old|coolant-pump": {
+              "cases": 10,
+              "leak_rate": 0.3,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.42857142857142855,
+              "leak_given_alarm": 0.4,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.4
+            },
+            "old|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.75,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.5,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "old|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            },
+            "old|power-converter": {
+              "cases": 10,
+              "leak_rate": 0.2,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.16666666666666666
+            },
+            "old|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            }
+          }
+        }
+      },
+      {
+        "side": "candidate",
+        "pair": 2,
+        "source": "/tmp/skeleton-answer-index/stationops-2-candidate.json",
+        "sha256": "12c10b609f3ec9941e91cc76a4a060542926971cb506de089096c2fb1ded78ed",
+        "batches": [
+          {
+            "shift": 1,
+            "seconds": 12.452699010999822,
+            "inferences": 49624640,
+            "peak_rss_kib": 624836
+          },
+          {
+            "shift": 2,
+            "seconds": 23.872048127999733,
+            "inferences": 96853571,
+            "peak_rss_kib": 1782144
+          }
+        ],
+        "coverage": [
+          1.0,
+          1.0
+        ],
+        "aggregate": {
+          "expected_utility": 185.0,
+          "oracle_utility": 185.0,
+          "regret": 0.0,
+          "normalized_score": 1.0,
+          "station_score": 637.0,
+          "total_production": 650,
+          "production_recovered": 190,
+          "root_cause_repairs": 1,
+          "symptom_repairs": 0,
+          "confirmed_history_size": 84,
+          "learning_curve": [
+            {
+              "shift_start": 1,
+              "shift_end": 2,
+              "mean_brier_score": 0.025163514186242315,
+              "mean_log_loss": 0.12348806607494345,
+              "mean_coverage": 1.0,
+              "mean_regret": 0.0,
+              "total_regret": 0.0,
+              "confirmed_cases_added": 4,
+              "station_score": 637
+            }
+          ],
+          "early_to_late_brier_improvement": null,
+          "early_to_late_log_loss_improvement": null,
+          "early_to_late_regret_improvement": null,
+          "early_to_late_coverage_change": null,
+          "resolved_model_before": {
+            "new|coolant-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.125
+            },
+            "new|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.375,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "new|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 0.5,
+              "alarm_given_available": 0.0
+            },
+            "new|power-converter": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.25,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.25
+            },
+            "new|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.5,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.2
+            },
+            "old|coolant-pump": {
+              "cases": 8,
+              "leak_rate": 0.25,
+              "alarm_given_leak": 0.5,
+              "alarm_given_intact": 0.5,
+              "leak_given_alarm": 0.25,
+              "leak_given_normal": 0.25,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.4
+            },
+            "old|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.75,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.5,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "old|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            },
+            "old|power-converter": {
+              "cases": 8,
+              "leak_rate": 0.25,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.16666666666666666,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.16666666666666666
+            },
+            "old|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            }
+          },
+          "resolved_model_after": {
+            "new|coolant-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.125
+            },
+            "new|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.375,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "new|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 0.5,
+              "alarm_given_available": 0.0
+            },
+            "new|power-converter": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.25,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.0,
+              "alarm_given_problem": null,
+              "alarm_given_available": 0.25
+            },
+            "new|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.0,
+              "alarm_given_leak": null,
+              "alarm_given_intact": 0.5,
+              "leak_given_alarm": 0.0,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.2
+            },
+            "old|coolant-pump": {
+              "cases": 10,
+              "leak_rate": 0.3,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.42857142857142855,
+              "leak_given_alarm": 0.4,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.4
+            },
+            "old|ore-feed-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.75,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.5,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.0
+            },
+            "old|oxygen-scrubber": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            },
+            "old|power-converter": {
+              "cases": 10,
+              "leak_rate": 0.2,
+              "alarm_given_leak": 1.0,
+              "alarm_given_intact": 0.125,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.0,
+              "problem_cases": 8,
+              "problem_rate": 0.25,
+              "alarm_given_problem": 1.0,
+              "alarm_given_available": 0.16666666666666666
+            },
+            "old|thermal-loop-pump": {
+              "cases": 8,
+              "leak_rate": 0.375,
+              "alarm_given_leak": 0.6666666666666666,
+              "alarm_given_intact": 0.2,
+              "leak_given_alarm": 0.6666666666666666,
+              "leak_given_normal": 0.2,
+              "problem_cases": 8,
+              "problem_rate": 0.375,
+              "alarm_given_problem": 0.6666666666666666,
+              "alarm_given_available": 0.2
+            }
+          }
+        }
+      }
+    ]
+  },
+  "validation": {
+    "metta_files": 71,
+    "python_tests": 58,
+    "strict": true,
+    "differential_cases": 1500,
+    "verify_gates": "all four pass",
+    "query_rows": 50,
+    "search_aborts": 0,
+    "logs": "/tmp/skeleton-subsumption-final",
+    "differential_fixture_sha256": "b8b7d94ccfc69d14e82e7a602fb2922232d81c60b7780eaa1bdb31862c00cbc4"
+  },
+  "profile": {
+    "source": "/tmp/skeleton-answer-index/profiles.json",
+    "sha256": "699658b36c00ac349fd1141699d579837c58758bb40a54df58163a71ce124d9c",
+    "limitation": "Call-entry counts only. No statistical time samples were captured; raw redo fields are not used.",
+    "queries": [
+      {
+        "phase": "last_growth",
+        "index": 157,
+        "calls": {
+          "user:'sk-need!'/3": 6533,
+          "user:'sk-search!'/2": 3090,
+          "user:'sk-force-cause!'/4": 186552,
+          "user:'sk-new-support?'/5": 0,
+          "user:'sk-older-views'/4": 2634,
+          "user:'sk-mark-stale!'/2": 0,
+          "user:'remove-atom-proven'/3": 183364,
+          "user:add_sexp/2": 366188,
+          "user:'sk-root-results'/3": 8
+        }
+      },
+      {
+        "phase": "first_stable",
+        "index": 158,
+        "calls": {
+          "user:'sk-need!'/3": 12,
+          "user:'sk-search!'/2": 15,
+          "user:'sk-force-cause!'/4": 0,
+          "user:'sk-new-support?'/5": 0,
+          "user:'sk-older-views'/4": 0,
+          "user:'sk-mark-stale!'/2": 10800,
+          "user:'remove-atom-proven'/3": 182426,
+          "user:add_sexp/2": 1938,
+          "user:'sk-root-results'/3": 2
+        }
+      },
+      {
+        "phase": "second_stable",
+        "index": 159,
+        "calls": {
+          "user:'sk-need!'/3": 12,
+          "user:'sk-search!'/2": 15,
+          "user:'sk-force-cause!'/4": 0,
+          "user:'sk-new-support?'/5": 0,
+          "user:'sk-older-views'/4": 0,
+          "user:'sk-mark-stale!'/2": 0,
+          "user:'remove-atom-proven'/3": 18,
+          "user:add_sexp/2": 18,
+          "user:'sk-root-results'/3": 2
+        }
+      },
+      {
+        "phase": "third_stable",
+        "index": 160,
+        "calls": {
+          "user:'sk-need!'/3": 12,
+          "user:'sk-search!'/2": 15,
+          "user:'sk-force-cause!'/4": 0,
+          "user:'sk-new-support?'/5": 0,
+          "user:'sk-older-views'/4": 0,
+          "user:'sk-mark-stale!'/2": 0,
+          "user:'remove-atom-proven'/3": 18,
+          "user:add_sexp/2": 18,
+          "user:'sk-root-results'/3": 2
+        }
+      }
+    ]
+  }
+}

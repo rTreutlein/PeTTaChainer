@@ -37,6 +37,19 @@ comparisons that cross intentional reasoning changes may therefore fail
 the semantic gate as well as the performance gate. Inspect the retained
 results instead of treating equal scores as proof of equivalence.
 
+To exercise a working tree with the repository-pinned installed PeTTa runtime,
+invoke `benchmark.py` directly and omit `--petta`:
+
+```sh
+.venv/bin/python benchmarks/stationops/benchmark.py \
+  --repository "$PWD" --chainergame /path/to/ChainerGame \
+  --json-out /tmp/stationops-working-tree.json
+```
+
+The result records the resolved runtime and Python module paths and peak RSS
+after each diagnosis batch. This does not freeze either checkout; record their
+commits and dirty state, or use archived sources, for a reproducible comparison.
+
 Committed result files in this directory are compact summaries. Raw evidence
 larger than about 150 KB is not kept in the tree: the reports under
 `docs/metta/` name the commit that introduced each removed file, and

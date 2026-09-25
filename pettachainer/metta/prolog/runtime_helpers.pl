@@ -1,4 +1,5 @@
 :- use_module(library(heaps)).
+:- use_module(library(assoc)).
 
 % PeTTa arrows have one result position. Package SWI's three relational
 % get_from_heap/4 outputs into one positional product.
@@ -38,6 +39,34 @@ alpha_unique_keys([Key|Keys], Seen, Unique) :-
     ;   Unique = Rest
     ),
     alpha_unique_keys(Keys, Seen, Rest).
+
+% Compare only answers with identical ground proofs. Nonground proofs cannot
+% be identical after the independent copies used for subsumption. The local
+% index shares the inputs; findall retains order and copies each survivor just
+% as MeTTa's collapse does, isolating variables between returned answers.
+prune_answer_instances(Answers, Kept) :-
+    empty_assoc(Empty),
+    reverse(Answers, Reversed),
+    foldl(index_answer_proof, Reversed, Empty, Index),
+    findall(Answer, (member(Answer, Answers), \+ answer_instance(Index, Answer)), Kept).
+
+index_answer_proof(Answer, Before, After) :-
+    (   nonvar(Answer), Answer = [_, _, Proof, _], ground(Proof)
+    ->  (get_assoc(Proof, Before, Previous) -> true ; Previous = []),
+        put_assoc(Proof, Before, [Answer|Previous], After)
+    ;   After = Before
+    ).
+
+answer_instance(Index, Answer) :-
+    nonvar(Answer), Answer = [Type, _, Proof, _], ground(Proof),
+    get_assoc(Proof, Index, Candidates),
+    member(General, Candidates),
+    '=alpha'(Answer, General, false),
+    copy_term(Answer, [SpecificType, _, _, _]),
+    copy_term(General, [GeneralType, _, _, _]),
+    GeneralType = SpecificType,
+    '=alpha'(SpecificType, Type, true),
+    !.
 
 'rule-lookup-needs-occurs-check'(Term, Result) :-
     term_variables(Term, Variables),
@@ -215,4 +244,3 @@ query_metric_increment_enabled(Key, Result) :-
     ),
     Result is Old + 1,
     nb_setval(GlobalKey, Result).
-
