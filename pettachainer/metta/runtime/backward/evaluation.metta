@@ -883,11 +883,17 @@
 ;; What changed for a key's readers: a new row view with its dependencies,
 ;; the same with the key's open merged value unchanged and the dependencies of
 ;; that value before and after, or a change from outside the rows (a fact, a
-;; removed query-local row, fold members) caused by the keys with these hashes.
+;; removed query-local row, fold members) caused by the keys with these hashes,
+;; with the dependencies of the new view.
 (: SkeletonChange Type)
 (: sk-view-change (-[det]-> (List Number) SkeletonChange))
 (: sk-value-same (-[det]-> (List Number) (List Number) SkeletonChange))
-(: sk-outside-change (-[det]-> (List Number) SkeletonChange))
+(: sk-outside-change (-[det]-> (List Number) (List Number) SkeletonChange))
+
+(: sk-change-deps (-[det]-> SkeletonChange (List Number)))
+(= (sk-change-deps (sk-view-change $deps)) $deps)
+(= (sk-change-deps (sk-value-same $deps $_merged-deps)) $deps)
+(= (sk-change-deps (sk-outside-change $_causes $deps)) $deps)
 
 ;; Every fact premise on the key asks for an open pattern.
 (: sk-reads-open? (-[det]-> SkeletonKey Atom SkPattern Bool))
@@ -905,7 +911,7 @@
 (: sk-reader-affected? (-[semidet]-> SkeletonKey SkeletonChange SkeletonItem Bool))
 (= (sk-reader-affected? $key $change (sk-row-item $_seq $khash $_rkey $_rhash (sk-row $_ident $_concl $premises $_s)))
    (case $change (
-      ((sk-outside-change $_cause) true)
+      ((sk-outside-change $_causes $_deps) true)
       ((sk-view-change $deps) (if (stored-list-member? $khash $deps) false true))
       ((sk-value-same $deps $merged-deps)
          (if (stored-list-member? $khash $deps) false
@@ -920,7 +926,7 @@
    (if (if (sk-item-needed? $item) false (let $_stale (sk-mark-stale! $item) true)) (sk-work $todo $next)
    (if (let $_forced
           (case $change (
-             ((sk-outside-change $causes) (sk-force! $causes $item))
+             ((sk-outside-change $causes $_deps) (sk-force! $causes $item))
              ($_view ())))
           (sk-reader-affected? $key $change $item))
       (if (> (sk-item-seq $item) $seq)
@@ -945,20 +951,22 @@
              (collapse (match &sk_use ($hash $stored $fold)
                 (if (=alpha $stored $key) $fold (empty)))))
           ($scheduled (fold-semidet (sk-schedule-reader $pass $seq $key $change) $work (sk-readers $key))))
-      (fold-semidet (sk-fold-changed $pass $seq $hash) $scheduled $folds)))
+      (fold-semidet (sk-fold-changed $pass $seq $hash $change) $scheduled $folds)))
 
 ;; A member change of a fold that was read queues the fold's check at the end
-;; of the pass, so the members changed in one pass recompute it once; until
+;; of the pass, unless the member's new view depends on the fold, which the fold
+;; does not admit; so the members changed in one pass recompute it once; until
 ;; then its readers read the value it had. A fold nobody read since it last
 ;; changed is computed when next read. A check queued for this pass is also
 ;; queued for the next, in case this pass's check already ran.
 (: sk-check-seq (-[det]-> Number))
 (= (sk-check-seq) 1000000000000000)
 
-(: sk-fold-changed (-[semidet]-> Number Number Number SkeletonWork SkeletonKey SkeletonWork))
-(= (sk-fold-changed $pass $_seq $member (sk-work $todo $next) $fold)
+(: sk-fold-changed (-[semidet]-> Number Number Number SkeletonChange SkeletonWork SkeletonKey SkeletonWork))
+(= (sk-fold-changed $pass $_seq $member $change (sk-work $todo $next) $fold)
    (let $hash (index-hash $fold)
-      (if (== (sk-latest-view $hash $fold 0) sk-none) (sk-work $todo $next)
+      (if (if (== (sk-latest-view $hash $fold 0) sk-none) true (stored-list-member? $hash (sk-change-deps $change)))
+         (sk-work $todo $next)
       (if (if (sk-needed? $hash $fold) false (let $_stale (sk-stale-fold! $fold) true)) (sk-work $todo $next)
          (let* (($_pending (add-atom &sk_fold_pending ($hash $member)))
                 ($check (sk-fold-check $hash $fold)))
@@ -1034,8 +1042,9 @@
                ((cons (sk-version $_seq $_rhash $new) $_rest)
                   (if (if (sk-same-view? $new $old) (== (sk-view-step-proof $new) (sk-view-step-proof $old)) false)
                      $work
-                     (sk-key-changed $pass (sk-check-seq) (sk-outside-change $causes) $work $fold)))
-               (() (sk-key-changed $pass (sk-check-seq) (sk-outside-change $causes) $work $fold))))))))
+                     (sk-key-changed $pass (sk-check-seq)
+                        (sk-outside-change $causes (fold-semidet sk-view-deps-step () (cons $new ()))) $work $fold)))
+               (() (sk-key-changed $pass (sk-check-seq) (sk-outside-change $causes ()) $work $fold))))))))
 
 ;; A row whose view differs from its latest version stores a new version and
 ;; changes its key, when it is the row's first view, it was forced, or it
@@ -1056,7 +1065,7 @@
             (if (if $forced (not (== (sk-latest-view $hash $key $rhash) sk-none)) false)
                (let* (($_views (sk-drop-row-views! $hash $key $rhash))
                       ($_merged (sk-drop-merged! $key)))
-                  (sk-key-changed $pass $seq (sk-outside-change $causes) $work $key))
+                  (sk-key-changed $pass $seq (sk-outside-change $causes ()) $work $key))
                $work))
          ($_view
             (let $latest (sk-latest-view $hash $key $rhash)
@@ -1076,7 +1085,7 @@
                       ($deps (fold-semidet sk-view-deps-step () (cons $new ()))))
                   (sk-key-changed $pass $seq
                      (if (if $forced (not (sk-same-view? $new $latest)) false)
-                        (sk-outside-change $causes)
+                        (sk-outside-change $causes $deps)
                         (sk-value-change $hash $key $deps $before))
                      $work $key)))))))))
 
@@ -1114,7 +1123,7 @@
                 ((sk-key $_type $_kbctx) ())
                 ($_fold (sk-drop-fold-view! $key)))))
           ($_merged (sk-drop-merged! $key)))
-      (sk-key-changed 0 -1 (sk-outside-change (cons (index-hash $key) ())) $work $key)))
+      (sk-key-changed 0 -1 (sk-outside-change (cons (index-hash $key) ()) ()) $work $key)))
 
 ;; --- Demand -----------------------------------------------------------------
 ;; A query brings current only what its roots read: their keys, the premise
