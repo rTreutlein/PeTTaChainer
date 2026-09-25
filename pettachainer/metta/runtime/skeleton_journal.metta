@@ -194,10 +194,19 @@
 ;; variable, key hash
 (: &sk_key_head (SpaceOf (Atom Bool Number SkeletonKey)))
 !(bind! &sk_key_head (new-space))
+;; the open ones among them, by statement head and key hash
+(: &sk_open_key_head (SpaceOf (Atom Number SkeletonKey)))
+!(bind! &sk_open_key_head (new-space))
 ;; per reading key: whether it is open, and the hashes of the keys unifying
 ;; with it, its own first
 (: &sk_unifiers (SpaceOf (Number Bool SkeletonKey (List Number))))
 !(bind! &sk_unifiers (new-space))
+;; reading keys with a cached set, by statement head and key hash; the open
+;; ones also separately
+(: &sk_reader_head (SpaceOf (Atom Number SkeletonKey)))
+!(bind! &sk_reader_head (new-space))
+(: &sk_open_reader_head (SpaceOf (Atom Number SkeletonKey)))
+!(bind! &sk_open_reader_head (new-space))
 ;; (kb pattern) of a fold's compiled member goal, by hash
 (: &sk_fold_members (SpaceOf (Number Atom SkPattern)))
 !(bind! &sk_fold_members (new-space))
