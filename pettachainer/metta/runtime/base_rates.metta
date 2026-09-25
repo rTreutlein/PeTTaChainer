@@ -119,10 +119,11 @@
       ((cons $entry $_rest)
          (cons (base-rate-entry-tv $entry) ())))))
 
-;; The backward folds reading a cache entry recompute when it changes.
-(: base-rate-readers-changed! (-[det]-> KB Statement $mode Atom))
-(= (base-rate-readers-changed! $kbid $pattern $mode)
-   (let* (($hash (index-hash (base-rate-aggregate-key-value $kbid $pattern $mode)))
+;; The backward folds reading a pattern's cache entries, in any mode,
+;; recompute when one changes.
+(: base-rate-readers-changed! (-[det]-> KB Statement (List $none)))
+(= (base-rate-readers-changed! $kbid $pattern)
+   (let* (($hash (base-rate-cache-hash $kbid $pattern))
           ($_dirty
              (collapse (match &sk_rate_folds ($hash $key) (add-atom &sk_dirty (sk-dirty $key))))))
       ()))
@@ -142,7 +143,7 @@
                    ($_new
                       (add-atom &base_rate_cache
                          ($hash (base-rate $kbid $stored $tv $source $mode))))
-                   ($_readers (base-rate-readers-changed! $kbid $pattern $mode)))
+                   ($_readers (base-rate-readers-changed! $kbid $pattern)))
                ())))))
 
 (: remove-produced-base-rate!
@@ -151,7 +152,7 @@
    (let* (($_old
              (foreach-flat base-rate-cache-remove-derived-entry!
                 (base-rate-cache-entries-for-mode $kbid $pattern $mode)))
-          ($_readers (base-rate-readers-changed! $kbid $pattern $mode)))
+          ($_readers (base-rate-readers-changed! $kbid $pattern)))
       ()))
 (: invalidate-computed-base-rates! (-[det]-> KB (List $none)))
 (= (invalidate-computed-base-rates! $kbid)

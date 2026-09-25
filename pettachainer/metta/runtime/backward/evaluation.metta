@@ -426,10 +426,11 @@
          (let* (($entries (sk-rate-entries $args))
                 ($rate-hash (index-hash (base-rate-aggregate-key-value $kbid $pattern $mode)))
                 ($key (sk-fold $args))
+                ($cache-hash (base-rate-cache-hash $kbid $pattern))
                 ($_watched
-                   (if (== (collapse (once (match &sk_rate_folds ($rate-hash $stored)
+                   (if (== (collapse (once (match &sk_rate_folds ($cache-hash $stored)
                               (if (=alpha $stored $key) true (empty))))) ())
-                      (add-atom &sk_rate_folds ($rate-hash $key))
+                      (add-atom &sk_rate_folds ($cache-hash $key))
                       true)))
             (case $entries (
                ((cons $entry $_rest)
@@ -1260,31 +1261,20 @@
 
 ;; --- Base-rate API ----------------------------------------------------------
 
-;; Setting or clearing a user base rate replaces whatever every fold over its
-;; pattern computed, so all views and merged values are dropped.
-(: sk-drop-all-views! (-[det]-> Atom))
-(= (sk-drop-all-views!)
-   (let* (($_older (collapse (match &sk_view ($h $k $r $v) (remove-atom &sk_view ($h $k $r $v)))))
-          ($_latest (collapse (match &sk_latest ($h2 $k2 $v2) (remove-atom &sk_latest ($h2 $k2 $v2)))))
-          ($_merged
-             (collapse (match &sk_merged (sk-merged $h3 $k3 $d3 $v3)
-                (remove-atom &sk_merged (sk-merged $h3 $k3 $d3 $v3))))))
-      ()))
-
+;; Setting or clearing a user base rate changes the folds over its pattern,
+;; which recompute with their readers at the next evaluation.
 (: set-base-rate (-[det]-> KB Statement TV (List $none)))
 (= (set-base-rate $kbid $pattern $tv)
    (let* (($stored (copy_term $pattern))
           ($hash (base-rate-cache-hash $kbid $pattern))
           ($_old (base-rate-cache-remove! $kbid $pattern))
-          ($_new (add-atom &base_rate_cache ($hash (base-rate $kbid $stored $tv user any))))
-          ($_views (sk-drop-all-views!)))
-      ()))
+          ($_new (add-atom &base_rate_cache ($hash (base-rate $kbid $stored $tv user any)))))
+      (base-rate-readers-changed! $kbid $pattern)))
 
 (: clear-base-rate (-[det]-> KB Statement (List $none)))
 (= (clear-base-rate $kbid $pattern)
-   (let* (($_old (base-rate-cache-remove! $kbid $pattern))
-          ($_views (sk-drop-all-views!)))
-      ()))
+   (let $_old (base-rate-cache-remove! $kbid $pattern)
+      (base-rate-readers-changed! $kbid $pattern)))
 
 ;; --- Materialization --------------------------------------------------------
 

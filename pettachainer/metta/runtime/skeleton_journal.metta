@@ -106,7 +106,7 @@
 ;; member key -> a fold or group key over it
 (: &sk_use (SpaceOf (Number SkeletonKey SkeletonKey)))
 !(bind! &sk_use (new-space))
-;; base-rate cache key -> a fold key whose value is read from that cache entry
+;; base-rate cache pattern hash -> a fold key reading that pattern's entries
 (: &sk_rate_folds (SpaceOf (Number SkeletonKey)))
 !(bind! &sk_rate_folds (new-space))
 ;; base-rate cache key -> the truth value a fold last cached there

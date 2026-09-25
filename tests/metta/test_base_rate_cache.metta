@@ -149,3 +149,25 @@
    (let $cached (cached-base-rate brKb3 (P $x))
       (if (== $cached ()) no-cache-entry (car-atom $cached)))
    (STV 0.5 0.9))
+
+; A base rate set or cleared elsewhere leaves unrelated derived answers alone:
+; only the folds over the changed pattern recompute.
+!(compileadd unrelatedRateKb (: a (A x) (STV 1.0 0.9)))
+!(compileadd unrelatedRateKb
+   (: ab (Implication (A $v) (B $v)) (CTV (STV 0.9 0.9) (STV 0.1 0.9))))
+
+!(test
+   (query 20 unrelatedRateKb (: $prf (B x) $tv))
+   (: (by ab a) (B x) (STV 0.9 0.8999993598872059)))
+
+!(set-base-rate unrelatedRateOtherKb (Z $y) (STV 0.5 0.5))
+
+!(test
+   (query 20 unrelatedRateKb (: $prf (B x) $tv))
+   (: (by ab a) (B x) (STV 0.9 0.8999993598872059)))
+
+!(clear-base-rate unrelatedRateOtherKb (Z $y))
+
+!(test
+   (query 20 unrelatedRateKb (: $prf (B x) $tv))
+   (: (by ab a) (B x) (STV 0.9 0.8999993598872059)))
