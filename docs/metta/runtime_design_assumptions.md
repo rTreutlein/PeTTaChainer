@@ -41,13 +41,13 @@ The public `remove-compiled-statement`, cache `clear-*`, and replace-style
 configuration operations predate the decision that ordinary system history
 should be append-only. Statement removal remains callable only for compatibility
 and is deprecated; normal reasoning and knowledge ingestion must not depend on
-it. In particular, removal does not erase durable proof rows, result indexes,
-dependency indexes, or reset the monotonic proof ID counter.
+it. In particular, removal does not erase stored proofs or skeleton rows, or
+reset the monotonic proof ID counter.
 
 A future API pass should represent corrections, supersession, and configuration
 changes as scoped events instead of retracting prior knowledge. Explicit proof
 forgetting needs its own temporal or scope policy and must not be smuggled into
-statement removal. Mutable query arenas and replaceable cache/index rows are not
+statement removal. Query-local rows and replaceable cache/index rows are not
 logical retractions as long as deleting those optimization tables would leave
 the unbounded logical answers unchanged.
 
@@ -91,73 +91,133 @@ Base-rate invalidation is reserved for non-monotonic or interpretive changes:
 - changing or clearing runtime prior parameters;
 - explicitly clearing or replacing a base rate.
 
-Even then nothing is scheduled: the next spawn of the fold commits the new
-cache state through the replace policy, and only `clear-base-rate` supersedes
-the affected snapshots directly.
+Setting or clearing a base rate marks dirty only the folds that read that
+pattern's cache entries, in any fold mode; they and their readers recompute at
+the next evaluation through the ordinary change path. Nothing else is dropped.
 
 The important tradeoff is intentional: a tightly budgeted query may initially
 use an older estimate. Add-time work must not eagerly make every cached estimate
 current.
 
-### Always searchable, superseded by derivation
+### The backward chainer keeps a durable skeleton, not beliefs
 
-A stored proof never closes a goal. Every goal is woken when it is demanded;
-an existing result only lowers the demand. Re-querying therefore re-expands
-its goals, and a fact added between queries reaches the folds and rules that
-use it through the ordinary leaf expansion. Ingestion records nothing for
-the backward store and schedules nothing.
+The backward chainer caches the structure of search, never truth values. Its
+state lives in `runtime/skeleton_journal.metta` and is append-only across
+queries:
 
-No liveness propagates. A proof is live until it is superseded (a fold
-snapshot: until it is replaced); there is no retirement. Superseding a proof
-does not mark or re-evaluate its parents. The only way a proof stops being an answer is
-supersession by a proof of the same derivation:
+- a **node** is an expanded goal pattern: a fact goal
+  `(statement context proof tv)` or a fold goal
+  `(CPU FoldAllCompiled args result)`;
+- an **answer** links a node to a **key**, a statement in a context (or a fold,
+  or one group of a grouped fold) that matches it;
+- a **partial join** is a rule application waiting on its next premise node;
+  every answer of that node extends it once;
+- a **row** is a complete join: a rule instance with bound premise keys and no
+  truth value.
 
-- The derivation identity of a rule proof is its rule token with premise
-  references, and merges of them, erased, plus the output keys of its
-  premises in order with consecutive repeats collapsed. Formula-evaluation
-  leaves (`CPU` premises) are excluded: their arguments are functions of the
-  other premises, so including them would make every refined input a new
-  derivation. Fact output keys are (statement, context), so two proofs of one
-  statement under one context are the same premise; which atom supplied it is
-  carried by evidence, not identity.
-- Storing a candidate supersedes every current proof of its goal key with the
-  same identity, different premise proofs, and evidence the candidate covers,
-  whatever their output keys. A candidate with the same identity and the same
-  premise proofs is a duplicate and is rejected. Candidates whose identity
-  differs compete inside their output key exactly as before (evidence
-  dominance, revision); the cross-key supersession happens at store time,
-  before that classification sees the incumbents.
-- Consequence for sampling derivations: re-running a particle or distribution
-  derivation over the same premises produces the same identity and a new
-  value, so the new draw supersedes the earlier one rather than accumulating
-  beside it.
+Ingestion only journals added facts and rules. The next query activates them
+against the patterns already expanded, so a fact added between queries reaches
+the rows that use it through ordinary leaf answers.
 
-### Proof selection belongs to the consumer
+Rules compiled for one query (query adapters, implication scaffolds) leave with
+it: their rows, waiters and views are removed and the keys they fed change.
+Producers that depend only on the pattern (the Member inheritance producer of a
+concrete `Inheritance` link, the compiled source of a fold pattern) are
+installed once as permanent backward rules, so their rows outlive the query.
 
-The global current/merged result remains the general estimate of a goal. A rule
-frontier selects and merges candidates under its own goal, rule direction,
-already-used evidence, and accumulated premise constraints. A same-derivation
-proof superseded in the global view remains available as an alternative: a
-broader replacement may depend on the receiving goal or reuse its evidence.
-Supersession among these alternatives happens only after compatibility filtering.
-Fold source selection uses the same retained alternatives and local supersession.
-Explicit candidate removal and replacement of fold snapshots do not retain the
-removed candidate as an alternative.
+### Truth values are views, recomputed from what changed
 
-Query-local selection caches are keyed by the frontier's compatibility context
-and the source proof-set revision. Their partial paths are scoped to that
-consumer. A change to the global representative alone does not invalidate a
-selected path. Replacing the consumer's selected premise invalidates only that
-consumer's affected paths; replacing a fold snapshot still invalidates paths
-consuming that snapshot. Re-selecting a previously retired premise creates a
-fresh path ID rather than reusing a dead path and its descendants.
+Evaluation computes each row's **view**: its conclusion from the premises'
+values by the rule's formulas, with the evidence behind it and the hashes of
+the keys it depends on, transitively. A view's proof is one rule application
+whose premise proofs are references into `&proof`; the full proof tree is built
+only for output. A row keeps its latest view and the views it replaced.
 
-Each selected proof is delivered once per consumer until that selection is
-retired. Publishing a binding of an open goal delivers only that output, not
-unrelated bindings. Selection, source-pool, and delivery caches are cleared with
-the query arena; durable proof alternatives remain alongside the proof history.
-These changes do not relax candidate cycle checks or evidence accounting, and
-priority revision invalidation remains independent of bounded synchronous delivery.
+A key's value merges its stored facts and one view per row:
+
+- an identical proof pools its evidence; a marginal projection gives way to its
+  full proof;
+- overlapping evidence keeps the view whose evidence strictly contains the
+  other's, or else the more confident one;
+- disjoint evidence revises;
+- when every proof of the key is modus ponens over conjunctions of facts, the
+  proofs share fact premises, and their residual evidence is nonempty and
+  pairwise disjoint, the lifting merge factors the shared facts out, revises
+  the residual implications, and applies the shared conjunction once. It
+  requires a strength linear in the shared conjunction (a two-point round
+  trip); otherwise views merge pairwise.
+
+No value supports itself. A consumer reads, per row of a premise key, the
+latest view that depends neither on its own key nor on any key unifying with
+it; older views stay available to exactly the consumers a newer one came to
+depend on. Because dependency sets are transitive, this rejects self-support
+through inverted rules, longer cycles, and more general or more specific keys.
+
+Premises are selected by the consumer. A premise whose value overlaps the
+evidence the row already used is replaced by the merge of that key's facts and
+views that do not overlap it. Premises are taken greedily in order; when every
+value of a premise clashes, the row reads again on a fresh copy, taking
+compatible stored facts first. Projections of one stored `(And ...)` source pool
+back into that source instead of multiplying shared evidence, and
+compiler-marked joins may share source evidence deliberately.
+
+Evaluation starts from what changed: new rows, and the readers of keys changed
+outside evaluation (added facts, removed query-local rows, fold members). Rows
+are computed in creation order. A recomputed view is kept only when it brings
+support, a dependency the row never had; the keys a row can depend on are
+finite, so evaluation ends even though inverted rules make real skeletons
+cyclic. A change from outside the rows forces each reader once per evaluation
+and per causing key, and a forced reader whose value changes passes the change
+on to its own readers the same way, so a refined fold reaches the roots.
+
+### Folds and base rates
+
+A fold's or group's view is computed from its member keys when first read and
+recomputed when a member changes; the members changed in one pass recompute it
+once. Members are read without views that depend on the fold itself. Base-rate
+folds estimate a population: they carry neither member evidence nor member
+dependencies, like a prior.
+
+A base rate is the user's value when one is set. Otherwise an unexpanded fold
+reads the cached estimate, and an expanded fold replaces the estimate when it
+is at least as confident. The fold's own earlier snapshot and a forward
+approximation are partial work and always give way to the fold; the skeleton
+records which cached value each fold wrote. Storing the value a computed entry
+already holds is skipped, since every store wakes the folds over the pattern.
+
+### Queries read what their roots reach
+
+A query walks the skeleton best-first from its roots. Expanding a new node costs
+one step of the budget; walking an expanded node is free. A node's priority is
+the best value any join waiting on it gives it: the owner's value times the
+rule's expected confidence, shared among the premises still open. Equal scores
+go shallowest first, then in insertion order, and the walk stops at the first
+node the budget cannot pay for, so a larger budget extends the same search
+prefix. A multi-root query shares one budget and one order.
+
+Stored facts cost no expansion: a join waiting on a ground fact premise reads
+its facts at once, and a root reads its own stored facts. An open premise waits
+for its expansion, which bounds recursion. Before any state is created, a rule
+whose ground fact premise has no fact and no concluding rule is pruned. New
+rows have an allowance of ten per step; rows beyond it wait with their node
+and are completed when a later walk reaches that node, so leftover work never
+spends an unrelated query's budget.
+
+Evaluation then brings current only what the roots read: their keys, the
+premise keys of those keys' rows, and the members of folds and groups among
+them. Any other row whose input changed is marked stale, once, together with
+everything reading it; a later query that reaches it recomputes it. Rows built
+for earlier queries therefore cost nothing per query.
+
+A root reads the answers of every node of its statement and context, whatever
+their proof and truth-value patterns, and drops answers that instantiate
+another answer with the same proof. When the search has no value for a key, a
+materialized answer an earlier query left is returned as the incumbent; it is
+never revised with the current value, since it is not independent evidence.
+
+A materializing query writes back its first answer and every stored fact proof
+that answer uses. Materialized facts are never leaves of later searches: the
+backward chainer re-derives them.
 
 ## Performance goals
 
@@ -194,121 +254,18 @@ structural or variable-bearing pattern matching.
 may run forward chaining after one or many additions. Queries and chainer calls
 must respect their explicit step budgets.
 
-Backward agenda width is a search-policy limit independent of the expansion
-budget. With the same KB and configuration, increasing the budget must extend
-the same deterministic search prefix rather than select a different beam from
-the first step. When later evidence supersedes the representative used for new
-work, completed parents that depend on the earlier representative stay current
-answers; nothing marks them. They are superseded only when the same derivation
-is re-derived over the new representative, which the child's waiters do within
-the query budget (see "Derivation identity" below). A finite-budget query may
-therefore return a composite built on an earlier representative, and a
-re-query with the same budget may move it once more before it settles. A query
-may improve or add answers, but must
-not lose its only answer merely because it stopped between aggregate refinement
-and dependent-proof reconstruction.
-
 Rule priority is a value-of-computation estimate, not a claim that a proof will
-succeed. A descendant may not receive a larger score than the root branch that
-requested it can contribute. Both first-proof search and incumbent refinement
-divide attainable root gain by immediate premise work. Base-rate strength describes
-statement probability, not the probability of finding a proof: a low-strength
-proof is still a useful answer. Ordinary rule priority therefore does not use
-base rates or a missing-rate exploration multiplier. Cached
-base-rate refolds use their remaining confidence gap and implied evidence count
-instead of a fixed discount. These are deterministic ordering heuristics only:
-proof acceptance still uses the ordinary evidence, dominance, revision, and
-cycle rules.
-
-Completed backward proofs are durable search state. Ordinary query reset clears
-only the query arena: goals, waiters, fold source rows and root-demand
-state. It does not clear proof rows, result or dependency
-indexes, semantic ownership, or the monotonic proof-ID counter. A later query
-may therefore use a compatible historical proof immediately as its incumbent
-or as a premise on its frontier. The normal proof/type/TV constraints still
-classify every candidate, so a durable result is reusable only when it satisfies
-the new query rather than merely sharing a proposition key.
-
-Stored proof children form a DAG. The sole proof-row writer allocates a fresh
-monotonic parent ID after its callers have selected already stored child IDs;
-no production operation rewrites a proof's children or inserts future child IDs.
-Logical self-support is a different property: a physically acyclic proof can
-still depend on the receiving goal or output. Dependency checks reject that
-logical cycle and memoize every visited proof node for the same query-local
-consumer key. They do not require a path-local visited list for the stored DAG.
-
-Generic `FoldAllCompiled` results are durable provenance snapshots stored
-through the same result index as every other proof, keyed by the fold term
-without its result (see `fold_node_contract.md`). A new query therefore sees
-the latest snapshot as the fold goal's result immediately, but always reopens
-the source goal. Refinement folds every currently live source proof from the
-original accumulator; it never resumes from the cached accumulator. A changed
-result becomes a new durable snapshot that replaces and supersedes the previous
-one, leaving it as history. Grouped folds keep one current snapshot per group
-key. These generic folds use ordinary root
-demand because arbitrary accumulator values have no universal marginal-value
-metric. Base-rate folds retain their specialized cache and discounted-TV demand
-path.
-
-A multi-root query creates every root at depth zero before search and schedules
-them into one agenda. Its step budget and beam are shared by the complete batch;
-the beam floor is at least the number of roots so pruning cannot discard an
-unexpanded root merely because it joined a batch. Query goals have immutable
-complete patterns: proof/TV constraints and variable sharing are part of their
-identity. Alpha-equivalent roots and common subgoals reuse one arena goal;
-distinct constraints have separate scheduling and frontier state. Their semantic
-proposition/context key still shares durable proofs, so a publication invalidates
-confidence caches and wakes every matching constraint view. Lowering a goal's
-depth never strengthens its stored pattern. Query-local proof eligibility is
-memoized by PID/GID because both the stored proof and complete goal pattern are
-immutable; query reset clears eligibility before reusing goal IDs. Proof liveness
-and consumer-specific admissibility remain separate checks. A shared goal retains
-one live demand contribution per
-distinct root: alternative waiters from the same root merge by maximum, while
-contributions from different roots add for queue ordering. Queue entries are
-refreshed before expansion. Every root uses the same value-of-computation
-calculation: an unanswered root values its first proof, while a root with an
-incumbent values only the expected marginal improvement. This naturally
-prioritizes unanswered roots without making refinement or proof propagation
-ineligible after a first result. This refresh does not spend an expansion step
-or reopen the goal's rules. Summed demand is queue
-utility only; completed proof candidates
-retain the confidence of their actual output. Demand follows only the
-shallower-parent edges created by ordinary frontier expansion, so recursive
-waiter edges cannot manufacture demand. If a late waiter connects an
-already-expanded goal to a root, its existing unexpanded descendants are woken
-without enumerating the goal's rules again. Query-local compiled additions are
-unioned and installed once, while source variables and result lists remain
-isolated per input root. Compiler-marked total-implication sources already had
-their scaffolds installed by query orchestration or fold-source compilation;
-expanding such a source must not allocate a second set of assumption contexts.
-
-Priority-cache invalidation is independent of bounded proof delivery. Publishing
-a proof advances the publishing goal's revision even when the synchronous
-re-entry limit suppresses its waiter callbacks; it does not queue deferred
-callbacks or relax that limit. A demand vector alone is not a complete priority
-fingerprint: parent confidence and frontier-path liveness also affect downstream
-scores. Registration and cache-rebuild revisions remain unconditional because
-they can expose changes in those other inputs. Removing same-valued revisions
-requires a complete input-invalidation contract, not just list equality. The
-controlled state-transition regressions are in `test_demand_invalidation.metta`.
-
-Waiter registration appends both the complete delivery context and its compact
-`WaiterDemand` projection, keyed by the receiving child GID. Both registries
-preserve insertion order and duplicates until query reset. They have no
-individual deletion path: retiring a proof path marks that path dead, and demand
-evaluation still reads its current liveness. The compact registry stores only
-the registered inputs, never evaluated demand, current confidence, or depth.
-Projection retains its original evaluation position after full registration so
-binding a caller's proof variables cannot specialize the saved delivery context.
-If individual waiter removal is introduced, equal projections must be
-distinguished by their full registration identity rather than removed together.
+succeed. Base-rate strength describes statement probability, not the
+probability of finding a proof: a low-strength proof is still a useful answer,
+so rule priority does not use base rates. Searching a base-rate fold's members
+is valued by what one more member could add to the estimate's confidence.
 
 Forward chaining always starts from facts selected by its caller. Its agenda is
-local to that invocation and is discarded when the agenda empties or the step
-budget is exhausted. The canonical facts derived before that point remain in
-`&kb`, and the inference controller may select any of them as seeds for a later
-run. No unfinished search state is retained by the chainer.
+local to that invocation, keeps a fixed beam independent of the remaining
+budget, and is discarded when the agenda empties or the step budget is
+exhausted. The canonical facts derived before that point remain in `&kb`, and
+the inference controller may select any of them as seeds for a later run. No
+unfinished search state is retained by the forward chainer.
 
 Full saturation is not a separate operation. It is the special case in which
 the caller selects every canonical KB fact and supplies enough budget. Adding a
@@ -349,13 +306,14 @@ nondeterminism from overlapping clauses or unstable iteration order.
 
 ## Known performance work
 
-At the time this document was written, base-rate invalidation on monotonic
-addition and global forward-agenda invalidation were removed. The remaining
-insertion paths still need separate measurement and review:
-
-- canonical proof-frontier insertion and merging;
-- rule indexes and late rule activation;
-- any compiler-generated registration performed per added rule.
+- Answer subsumption at the roots is quadratic in the number of answers when
+  none subsumes another.
+- A warm query still walks its reachable skeleton and rebuilds the set of keys
+  it needs; repeating a query is not constant time.
+- The support test unions dependencies over a row's retained views, so its cost
+  grows with that history. Older views serve compatibility-filtered consumers
+  and cannot simply be dropped.
+- A new open answer key invalidates cached unifier sets broadly.
 
 The acceptance test for each change is not merely a faster benchmark. It must
 preserve monotonic proof semantics, evidence deduplication, strict step budgets,

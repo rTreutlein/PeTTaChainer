@@ -23,31 +23,31 @@ it does not add statements to the handler's knowledge base.
 |---|---|
 | `(compileadd $kb $stmt)` | Compile a statement (fact or rule) and add it to KB `$kb`. The primary entry point. |
 | `(add-to-kb $expr)` | Add an already-compiled, internal-form atom to the live KB. Lower-level. |
-| `(remove-compiled-statement $name)` | **Deprecated compatibility operation.** Retracts the current kb facts, rules, index rows, and cached scores for one named statement, but does not forget durable backward proofs. It is outside the monotonic query contract; rules whose compiled proof carries no extractable name are not covered. Python: deprecated `PeTTaChainer.remove_statement(name)`, which emits `DeprecationWarning`. |
+| `(remove-compiled-statement $name)` | **Deprecated compatibility operation.** Retracts the current kb facts, rules, index rows, and cached scores for one named statement, but does not forget stored backward proofs or skeleton rows. It is outside the monotonic query contract; rules whose compiled proof carries no extractable name are not covered. Python: deprecated `PeTTaChainer.remove_statement(name)`, which emits `DeprecationWarning`. |
 
 The live `&kb` keeps one canonical merged fact per grounded type. Internally, a
 small active frontier retains only the independent proof candidates needed to
 update that fact; superseded candidates are discarded rather than accumulated.
 
-Backward proof rows are durable across calls. A compatible completed proof may
-seed a later bounded query or refinement directly. Query reset discards only
-the transient search arena; proof IDs and proof/result/dependency indexes remain
-monotonic. Generic aggregate queries may return their latest durable snapshot
-immediately while reopening the aggregate from its original accumulator to
-refresh that snapshot from all currently live child proofs.
+The backward chainer keeps a durable skeleton across calls: expanded goals,
+their answers, and complete rule instances, without truth values. A later query
+continues from what earlier queries built and recomputes only the values its
+roots read that changed; rows compiled for one query leave with it. Proof IDs
+are monotonic. Aggregates are recomputed from their members when a member
+changes. See `runtime_design_assumptions.md` for the contracts.
 
 ## Querying and chaining
 
 | Function | Meaning |
 |---|---|
-| `(query $steps $kb $stmt)` | Backward-chain up to `$steps` to answer `$stmt` against `$kb`; yields the proven results. The expansion budget does not change the beam width. If dependent-proof revision temporarily leaves the root with no live result, its completed incumbent is returned instead. A candidate rule is skipped before search state is created when a ground premise has no matching fact and no rule can conclude its head; ground deterministic CPU premises are evaluated during that check so later premises become checkable. |
-| `(query-materialize $steps $kb $stmt)` | As `query`, but also writes the derived proofs back into the KB. |
+| `(query $steps $kb $stmt)` | Backward-chain up to `$steps` expansions to answer `$stmt` against `$kb`; yields the proven results. A larger budget extends the same search order. Stored facts cost no expansion, so a zero-step query answers from stored facts and from what earlier queries derived. When the search has no value for a statement, a result an earlier query materialized is returned instead. A candidate rule is skipped before search state is created when a ground premise has no matching fact and no rule can conclude its head; ground deterministic CPU premises are evaluated during that check so later premises become checkable. |
+| `(query-materialize $steps $kb $stmt)` | As `query`, but also writes the first result and every stored fact proof it uses back into the KB. |
 | `(query-many $steps $kb $statements)` | Compile every statement, inject their temporary additions once, and answer all roots in one shared backward search. `$steps` is one total expansion budget. All roots share one priority order: a goal's priority is the best score any join waiting on it gives it. Emits `(query-result $index $answer)` for each answer; unanswered roots emit no row. Python: `PeTTaChainer.query_many(statements, steps)` returns an input-aligned `list[list[str]]`, including empty lists for unanswered roots. |
-| `(query-many-materialize $steps $kb $statements)` | As `query-many`, but materializes the selected representative proof trees for every root. Python: `PeTTaChainer.query_many_materialization(statements, steps)` runs in the caller's live process so the KB writes persist. |
+| `(query-many-materialize $steps $kb $statements)` | As `query-many`, but materializes each root's first result and the stored fact proofs it uses. Python: `PeTTaChainer.query_many_materialization(statements, steps)` runs in the caller's live process so the KB writes persist. |
 | `(forward-chain $steps $kb $facts)` | Forward-chain from a caller-selected list of compiled canonical facts. The temporary agenda is discarded when the run finishes or exhausts its budget. Returns an unordered, deduplicated list containing the final canonical facts changed by this run; that list can directly seed another run. |
 | `(forward-has-derived? $kb $type)` | True if a fact of `$type` exists in `$kb`. |
 | `(chainer $steps $goal)` / `(chainer-materialize $steps $goal)` | Lower-level backward chainer over an already-compiled goal. |
-| `(chainer-many $steps $goals)` / `(chainer-many-materialize $steps $goals)` | Lower-level shared-arena variants over compiled goals; return one result list per input goal. Duplicate and common subgoals share their goal/proof state. |
+| `(chainer-many $steps $goals)` / `(chainer-many-materialize $steps $goals)` | Lower-level multi-root variants over compiled goals; return one result list per input goal. Duplicate and common subgoals share their skeleton nodes. |
 | `(compileQuery $kb (: $prf $Type $tv))` / `(mm2compileQuery $kb $stmt)` | Compile a query without running it. `compileQuery` returns `(compilation-plan goal additions)`; `mm2compileQuery` returns the runtime-encoded equivalent. Advanced. |
 
 ## Existential rules and witness views
@@ -98,8 +98,8 @@ witness moves support from that residual into the enumerated disjunction.
 
 | Function | Meaning |
 |---|---|
-| `(set-base-rate $kbid $pattern $tv)` | Pin a user-provided base rate for `$pattern` (overrides computed values). |
-| `(clear-base-rate $kbid $pattern)` | Remove any base-rate cache entry for `$pattern`. |
+| `(set-base-rate $kbid $pattern $tv)` | Pin a user-provided base rate for `$pattern` (overrides computed values). The folds over `$pattern` and their readers recompute at the next query. |
+| `(clear-base-rate $kbid $pattern)` | Remove any base-rate cache entry for `$pattern`; its folds recompute at the next query. |
 | `(cached-base-rate $kbid $pattern)` | Read the cached base-rate TV for `$pattern` (or `()`). A value may be a provisional forward estimate until a full backward fold refines it. |
 
 ## Logic configuration (`core/logic_config.metta`)
