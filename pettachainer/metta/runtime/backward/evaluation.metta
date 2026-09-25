@@ -982,12 +982,6 @@
    (let $_forced (map-flat (sk-force-cause! $khash $rhash) $causes) ()))
 (= (sk-force! $_causes (sk-fold-check $_hash $_fold)) ())
 
-;; The keys that forced a row since it was last computed.
-(: sk-take-forced! (-[det]-> Number Number (List Number)))
-(= (sk-take-forced! $khash $rhash)
-   (collapse (match &sk_forced ($khash $rhash $cause)
-      (let $_taken (remove-atom &sk_forced ($khash $rhash $cause)) $cause))))
-
 ;; Whether a view brings a dependency none of the row's views had.
 (: sk-new-support? (-[semidet]-> Number SkeletonKey Number SkeletonValue Bool))
 (= (sk-new-support? $hash $key $rhash $new)
@@ -1030,9 +1024,8 @@
 ;; members, in the next pass.
 (: sk-check-fold (-[semidet]-> Number SkeletonWork Number SkeletonKey SkeletonWork))
 (= (sk-check-fold $pass $work $hash $fold)
-   (let* (($causes
-             (list_to_set (collapse (match &sk_fold_pending ($hash $member)
-                (let $_taken (remove-atom &sk_fold_pending ($hash $member)) $member)))))
+   (let* (($causes (list_to_set (collapse (match &sk_fold_pending ($hash $member) $member))))
+          ($_taken (remove-data-rows! &sk_fold_pending (quote ($hash $member))))
           ($old (sk-latest-view $hash $fold 0)))
       (if (if (== $causes ()) true (== $old sk-none)) $work
          (let* (($_view (sk-drop-fold-view! $fold))
@@ -1052,7 +1045,8 @@
 (= (sk-compute $pass $work (sk-fold-check $hash $fold)) (sk-check-fold $pass $work $hash $fold))
 (= (sk-compute $pass $work (sk-row-item $seq $hash $key $rhash $row))
    (let* (($_computed (query_metric_increment row-computes))
-          ($causes (sk-take-forced! $hash $rhash))
+          ($causes (collapse (match &sk_forced ($hash $rhash $cause) $cause)))
+          ($_taken (remove-data-rows! &sk_forced (quote ($hash $rhash $cause))))
           ($forced (not (== $causes ())))
           ($new (sk-row-view $hash $key $row)))
       (case $new (
@@ -1209,17 +1203,15 @@
 
 (: sk-evaluate! (-[semidet]-> Atom))
 (= (sk-evaluate!)
-   (let* (($_queued (collapse (match &sk_queued ($pass $khash $rhash) (remove-atom &sk_queued ($pass $khash $rhash)))))
-          ($_forced (collapse (match &sk_forced ($khash $rhash $cause) (remove-atom &sk_forced ($khash $rhash $cause)))))
-          ($_used (collapse (match &sk_forced_used ($khash $rhash $cause) (remove-atom &sk_forced_used ($khash $rhash $cause)))))
-          ($_pending (collapse (match &sk_fold_pending ($fhash $member) (remove-atom &sk_fold_pending ($fhash $member)))))
-          ($new
-             (collapse (match &sk_new (sk-row-item $seq $hash $key $rhash $row)
-                (let $_taken (remove-atom &sk_new (sk-row-item $seq $hash $key $rhash $row))
-                   (sk-row-item $seq $hash $key $rhash $row)))))
-          ($dirty
-             (collapse (match &sk_dirty (sk-dirty $key)
-                (let $_taken (remove-atom &sk_dirty (sk-dirty $key)) $key))))
+   (let* (($_queued (remove-data-rows! &sk_queued (quote ($pass $khash $rhash))))
+          ($_cleared-forced (remove-data-rows! &sk_forced (quote ($khash $rhash $cause))))
+          ($_used (remove-data-rows! &sk_forced_used (quote ($khash $rhash $cause))))
+          ($_pending (remove-data-rows! &sk_fold_pending (quote ($fhash $member))))
+          ($new (collapse (match &sk_new (sk-row-item $seq $hash $key $rhash $row)
+             (sk-row-item $seq $hash $key $rhash $row))))
+          ($_new (remove-data-rows! &sk_new (quote (sk-row-item $seq $hash $key $rhash $row))))
+          ($dirty (collapse (match &sk_dirty (sk-dirty $key) $key)))
+          ($_dirty (remove-data-rows! &sk_dirty (quote (sk-dirty $key))))
           ;; a stale row the query needs is forced by its own key
           ($refresh
              (collapse (match &sk_refresh ($khash $rhash)
@@ -1496,17 +1488,17 @@
 (: execute-backward
    (-[nondet]-> Number (List (| Goal (Statement KBContext Proof TV))) Bool (List (List RuntimeResult))))
 (= (execute-backward $steps $goals $materialize?)
-   (let* (($_seen (collapse (match &sk_seen ($hash $node) (remove-atom &sk_seen ($hash $node)))))
-          ($_fresh (collapse (match &sk_fresh (sk-fresh $node) (remove-atom &sk_fresh (sk-fresh $node)))))
+   (let* (($_seen (remove-data-rows! &sk_seen (quote ($hash $node))))
+          ($_fresh (remove-data-rows! &sk_fresh (quote (sk-fresh $node))))
           ($_budget (change-state! sk_budget $steps))
           ($_rows (change-state! sk_row_budget (* 10 $steps)))
           ($_activate (sk-activate-pending!))
           ($_parked (sk-park-deliveries!))
           ($_pushes (change-state! sk_push_seq 0))
-          ($_old-roots (collapse (match &sk_roots ($hash $root) (remove-atom &sk_roots ($hash $root)))))
+          ($_old-roots (remove-data-rows! &sk_roots (quote ($hash $root))))
           ($_scored (fold-semidet sk-root-score-step () $goals))
           ($_search (sk-search! (fold-semidet (sk-push 0) (empty_heap) $goals)))
-          ($_unneeded (collapse (match &sk_needed ($hash $key) (remove-atom &sk_needed ($hash $key)))))
+          ($_unneeded (remove-data-rows! &sk_needed (quote ($hash $key))))
           ($_needed (fold-semidet sk-need-root! () $goals))
           ($_evaluated (sk-evaluate!))
           ($results (map-semidet (sk-root-results $materialize?) $goals))

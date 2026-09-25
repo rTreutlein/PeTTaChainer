@@ -9,6 +9,8 @@
 ;; can journal their additions. Ingestion only records; the next query
 ;; activates new facts and rules against already-expanded patterns.
 
+(: remove-data-rows! (-[det]-> Atom $pattern Bool))
+
 ;; --- Types --------------------------------------------------------------------
 
 (: SkFact (Alias (Statement KBContext Proof TV)))

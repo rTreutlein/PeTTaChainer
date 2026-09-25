@@ -1,6 +1,12 @@
 :- use_module(library(heaps)).
 :- use_module(library(assoc)).
 
+% Data-only spaces have no function definitions or compiler metadata. In
+% particular, an open first column must not enter remove-atom's function case.
+'remove-data-rows!'(Space, Pattern, true) :-
+    Row =.. [Space|Pattern],
+    retractall(Row).
+
 % PeTTa arrows have one result position. Package SWI's three relational
 % get_from_heap/4 outputs into one positional product.
 heap_pop(Heap, [Priority, Value, Rest]) :-

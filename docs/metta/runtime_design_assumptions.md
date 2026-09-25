@@ -324,10 +324,11 @@ nondeterminism from overlapping clauses or unstable iteration order.
   independent copies used for subsumption and pass through unchanged.
 - A warm query still walks its reachable skeleton and rebuilds the set of keys
   it needs; repeating a query is not constant time.
-- Per-cause forcing can accumulate many temporary records. The next evaluation
-  clears them one atom at a time and propagates stale marks, so switching to
-  small roots can still be costly; see the
-  [session profile](skeleton_answer_index_2026-09-25.md#profile-and-next-target).
+- Per-cause forcing can accumulate many temporary records. Evaluation resets
+  bulk-remove these data rows; consuming a row's pending causes preserves their
+  order and retains its used causes until the next evaluation. Stale propagation
+  and creating the cause records still cost work; see the
+  [cleanup measurements](skeleton_bookkeeping_2026-09-25.md).
 - The support test unions dependencies over a row's retained views, so its cost
   grows with that history. Older views serve compatibility-filtered consumers
   and cannot simply be dropped.
