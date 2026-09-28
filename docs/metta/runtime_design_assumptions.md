@@ -208,7 +208,10 @@ already holds is skipped, since every store wakes the folds over the pattern.
 ### Queries read what their roots reach
 
 A query walks the skeleton best-first from its roots. Expanding a new node costs
-one step of the budget; walking an expanded node is free. A node's priority is
+one step of the budget; walking through an expanded node spends a separate walk
+allowance of one per step, so revisiting what is already built never takes a
+step from new expansions, and once the allowance is spent expanded nodes are
+passed over while the walk goes on. A node's priority is
 the best value any join waiting on it gives it: the owner's value times the
 rule's expected confidence, shared among the premises still open. Equal scores
 go shallowest first, then in insertion order, and the walk stops at the first
@@ -231,6 +234,13 @@ everything reading it; a later query that reaches it recomputes it. A stale row
 leaves the reader lists of the keys it reads until then, so a change walks only
 readers that are current. Rows built for earlier queries therefore cost nothing
 per query or per change.
+
+Evaluation is bounded too. A needed key records its depth, the fewest rows or
+folds between it and a root. Rows of keys within two such steps are always
+computed; deeper rows spend an allowance of two recomputations per step, and
+what it cannot pay for is left stale, to be recomputed by a later query that
+reads it. Rows are computed in creation order either way, so an allowance that
+covers everything computes what an unbounded evaluation would.
 
 A root reads the answers of every node of its statement and context, whatever
 their proof and truth-value patterns, and drops answers that instantiate

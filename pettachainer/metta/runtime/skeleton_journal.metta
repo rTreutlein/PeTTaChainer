@@ -226,8 +226,9 @@
 ;; nodes the current walk visited
 (: &sk_seen (SpaceOf (Number SkPattern)))
 !(bind! &sk_seen (new-space))
-;; keys the current query's roots read, directly or through rows and folds
-(: &sk_needed (SpaceOf (Number SkeletonKey)))
+;; keys the current query's roots read, directly or through rows and folds,
+;; with the fewest such steps from a root
+(: &sk_needed (SpaceOf (Number SkeletonKey Number)))
 !(bind! &sk_needed (new-space))
 ;; rows whose inputs changed while no query needed them, by key and row hash
 (: &sk_stale (SpaceOf (Number Number)))

@@ -1214,7 +1214,30 @@
 ;; Each row commits to its one result, so the loop leaves no choice points and
 ;; runs in constant stack however many rows it computes.
 (= (sk-work-pop! $pass $next ($_seq $item $rest))
-   (sk-work-off! $pass (once (sk-compute $pass (sk-work $rest $next) $item))))
+   (if (if (<= (sk-item-depth $item) (sk-evaluation-free-depth)) true (sk-take! sk_eval_budget))
+      (sk-work-off! $pass (once (sk-compute $pass (sk-work $rest $next) $item)))
+      (let $_stale (sk-mark-stale! $item) (sk-work-off! $pass (sk-work $rest $next)))))
+
+;; A query computes the rows near its roots in full and spends an allowance on
+;; the rest; what the allowance cannot pay for is left stale, as if no query
+;; needed it, and a later query that reads it recomputes it from its inputs
+;; then. Creation order is kept, so an allowance that covers everything
+;; computes what a query without one would.
+(: sk-item-depth (-[det]-> SkeletonItem Number))
+(= (sk-item-depth (sk-row-item $_seq $khash $key $_rhash $_row)) (sk-need-depth $khash $key))
+(= (sk-item-depth (sk-fold-check $hash $fold)) (sk-need-depth $hash $fold))
+
+;; How near a root a key must be for its rows to be computed in full.
+(: sk-evaluation-free-depth (-[det]-> Number))
+(= (sk-evaluation-free-depth) 2)
+
+;; Row recomputations a query may spend per step of its budget beyond that.
+(: sk-evaluation-per-step (-[det]-> Number))
+(= (sk-evaluation-per-step) 2)
+
+;; Expanded nodes a query's walk may pass through per step of its budget.
+(: sk-walk-per-step (-[det]-> Number))
+(= (sk-walk-per-step) 1)
 
 ;; Keys changed outside evaluation: a fold or group key recomputes when next
 ;; read, and every changed key's readers are scheduled.
@@ -1237,62 +1260,84 @@
 ;; earlier queries' rows cost nothing per query or per change.
 
 ;; Signatures of the mutually recursive functions below.
-(: sk-need! (-[semidet]-> Atom SkeletonKey Atom))
+(: sk-need! (-[semidet]-> Number Atom SkeletonKey Atom))
 (: sk-stale-key! (-[det]-> SkeletonKey Atom))
 
 (: sk-needed? (-[det]-> Number SkeletonKey Bool))
 (= (sk-needed? $hash $key)
-   (not (== (collapse (once (match &sk_needed ($hash $stored) (if (=alpha $stored $key) true (empty))))) ())))
+   (not (== (collapse (once (match &sk_needed ($hash $stored $_depth) (if (=alpha $stored $key) true (empty))))) ())))
 
-(: sk-need-premise! (-[semidet]-> Atom SkPattern Atom))
-(= (sk-need-premise! $_acc $premise)
+;; How many rows or folds lie between a needed key and the nearest root.
+(: sk-need-depth (-[det]-> Number SkeletonKey Number))
+(= (sk-need-depth $hash $key)
+   (case (collapse (once (match &sk_needed ($hash $stored $depth) (if (=alpha $stored $key) $depth (empty))))) (
+      ((cons $depth $_rest) $depth)
+      (() 1000000))))
+
+(: sk-need-premise! (-[semidet]-> Number Atom SkPattern Atom))
+(= (sk-need-premise! $depth $_acc $premise)
    (case $premise (
-      ((CPU FoldAllCompiled $fold-args $_fold-res) (sk-need! () (sk-fold $fold-args)))
-      ((CPU GroupedFoldAllCompiled $group-args $_group-res) (sk-need! () (sk-group $group-args)))
+      ((CPU FoldAllCompiled $fold-args $_fold-res) (sk-need! $depth () (sk-fold $fold-args)))
+      ((CPU GroupedFoldAllCompiled $group-args $_group-res) (sk-need! $depth () (sk-group $group-args)))
       ((CPU $_fun $_args $_res) ())
-      (($type $kbctx $_proof $_tv) (sk-need! () (sk-key $type $kbctx))))))
+      (($type $kbctx $_proof $_tv) (sk-need! $depth () (sk-key $type $kbctx))))))
 
 ;; A stale row the query reaches rejoins its keys' readers and is recomputed
 ;; by its evaluation.
-(: sk-need-row! (-[semidet]-> Atom SkeletonItem Atom))
-(= (sk-need-row! $_acc (sk-row-item $_seq $khash $_key $rhash (sk-row $_ident $_concl $premises $_s)))
+(: sk-need-row! (-[semidet]-> Number Atom SkeletonItem Atom))
+(= (sk-need-row! $depth $_acc (sk-row-item $_seq $khash $_key $rhash (sk-row $_ident $_concl $premises $_s)))
    (let $_refresh
       (if (== (collapse (once (match &sk_stale ($khash $rhash) true))) ()) ()
          (let* (($_fresh (remove-atom &sk_stale ($khash $rhash)))
                 ($_linked (fold-semidet (sk-add-reader! $khash $rhash) () (fold-semidet sk-direct-key-step () $premises))))
             (add-atom &sk_refresh ($khash $rhash))))
-      (fold-semidet sk-need-premise! () $premises)))
+      (fold-semidet (sk-need-premise! $depth) () $premises)))
 
-(= (sk-need! $_acc $key)
+;; A key is needed at the fewest steps from a root it is reached by; reaching
+;; it more closely than before passes the smaller depth on to what it reads.
+(= (sk-need! $depth $_acc $key)
    (let $hash (index-hash $key)
-      (if (sk-needed? $hash $key) ()
-         (let $_needed (add-atom &sk_needed ($hash $key))
-            (case $key (
-               ((sk-key $_type $_kbctx)
-                  (fold-semidet sk-need-row! ()
-                     (collapse (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
-                        (if (=alpha $stored $key)
-                           (sk-row-item $seq $hash $stored $rhash (sk-row $ident $concl $premises $seq))
-                           (empty))))))
-               ((sk-fold $args)
-                  (if (sk-rate-fold? $key)
-                     (let $changed
-                        (collapse (match &sk_rate_dirty ($hash $fold $joined)
-                           (if (=alpha $fold $key) $joined (empty))))
-                        (if (== $changed ()) ()
-                           (let* (($_members (fold-semidet sk-need! () $changed))
-                                  ($_taken (sk-rate-evidence! $hash (the ScalarFoldSpec $args))))
-                              (sk-mark-dirty! $key))))
-                     (case (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) (
-                        ((cons $member $_rest) (fold-semidet sk-need! () (sk-answers $member)))
-                        (() ())))))
-               ((sk-group $group-args)
-                  (case (sk-group-members $key $group-args) (
-                     ((sk-group-found $_member $members) (fold-semidet sk-need! () $members))
-                     (sk-group-missing ()))))))))))
+      (case (collapse (once (match &sk_needed ($hash $stored $was)
+               (if (=alpha $stored $key) (sk-need-was $stored $was) (empty))))) (
+         ((cons (sk-need-was $stored $was) $_rest)
+            (if (<= $was $depth) ()
+               (let* (($_old (remove-variant-row! &sk_needed (quote ($hash $stored $was))))
+                      ($_new (add-atom &sk_needed ($hash $key $depth))))
+                  (sk-need-below! $depth $hash $key))))
+         (() (let $_new (add-atom &sk_needed ($hash $key $depth)) (sk-need-below! $depth $hash $key)))))))
+
+(: SkeletonNeedWas Type)
+(: sk-need-was (-[det]-> SkeletonKey Number SkeletonNeedWas))
+
+(: sk-need-below! (-[semidet]-> Number Number SkeletonKey Atom))
+(= (sk-need-below! $depth $hash $key)
+   (let $below (+ $depth 1)
+      (case $key (
+         ((sk-key $_type $_kbctx)
+            (fold-semidet (sk-need-row! $below) ()
+               (collapse (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
+                  (if (=alpha $stored $key)
+                     (sk-row-item $seq $hash $stored $rhash (sk-row $ident $concl $premises $seq))
+                     (empty))))))
+         ((sk-fold $args)
+            (if (sk-rate-fold? $key)
+               (let $changed
+                  (collapse (match &sk_rate_dirty ($hash $fold $joined)
+                     (if (=alpha $fold $key) $joined (empty))))
+                  (if (== $changed ()) ()
+                     (let* (($_members (fold-semidet (sk-need! $below) () $changed))
+                            ($_taken (sk-rate-evidence! $hash (the ScalarFoldSpec $args))))
+                        (sk-mark-dirty! $key))))
+               (case (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) (
+                  ((cons $member $_rest) (fold-semidet (sk-need! $below) () (sk-answers $member)))
+                  (() ())))))
+         ((sk-group $group-args)
+            (case (sk-group-members $key $group-args) (
+               ((sk-group-found $_member $members) (fold-semidet (sk-need! $below) () $members))
+               (sk-group-missing ()))))))))
 
 (: sk-need-root! (-[semidet]-> Atom SkPattern Atom))
-(= (sk-need-root! $_acc $goal) (fold-semidet sk-need! () (sk-root-keys $goal)))
+(= (sk-need-root! $_acc $goal) (fold-semidet (sk-need! 0) () (sk-root-keys $goal)))
 
 (: sk-unlink-reader! (-[det]-> Number Number (List SkPattern) Atom))
 (= (sk-unlink-reader! $khash $rhash $premises)
@@ -1305,7 +1350,7 @@
              ($_unlinked (sk-unlink-reader! $khash $rhash $premises)))
          (sk-stale-key! $key))
       ()))
-(= (sk-mark-stale! (sk-fold-check $_hash $_fold)) ())
+(= (sk-mark-stale! (sk-fold-check $_hash $fold)) (sk-stale-fold! $fold))
 
 ;; A fold over a stale key drops its view, so it is recomputed when read.
 (: sk-stale-fold! (-[det]-> SkeletonKey Atom))
@@ -1623,13 +1668,15 @@
           ($_fresh (remove-data-rows! &sk_fresh (quote (sk-fresh $node))))
           ($_budget (change-state! sk_budget $steps))
           ($_rows (change-state! sk_row_budget (* 10 $steps)))
+          ($_evaluation (change-state! sk_eval_budget (* (sk-evaluation-per-step) $steps)))
+          ($_walk (change-state! sk_walk_budget (* (sk-walk-per-step) $steps)))
           ($_activate (sk-activate-pending!))
           ($_parked (sk-park-deliveries!))
           ($_pushes (change-state! sk_push_seq 0))
           ($_old-roots (remove-data-rows! &sk_roots (quote ($hash $root))))
           ($_scored (fold-semidet sk-root-score-step () $goals))
           ($_search (sk-search! (fold-semidet (sk-push 0) (empty_heap) $goals)))
-          ($_unneeded (remove-data-rows! &sk_needed (quote ($hash $key))))
+          ($_unneeded (remove-data-rows! &sk_needed (quote ($hash $key $depth))))
           ($_needed (fold-semidet sk-need-root! () $goals))
           ($_evaluated (sk-evaluate!))
           ($results (map-semidet (sk-root-results $materialize?) $goals))

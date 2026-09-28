@@ -113,6 +113,8 @@
 (: fwd_aggregate_id CounterKey)
 (: sk_budget CounterKey)
 (: sk_row_budget CounterKey)
+(: sk_eval_budget CounterKey)
+(: sk_walk_budget CounterKey)
 (: sk_row_seq CounterKey)
 (: sk_push_seq CounterKey)
 (: sk_delivery_seq CounterKey)

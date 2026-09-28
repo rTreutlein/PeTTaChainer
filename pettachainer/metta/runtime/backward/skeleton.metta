@@ -937,9 +937,9 @@
 
 ;; --- Budgeted search walk ---------------------------------------------------
 
-;; Breadth-first from the roots over child links. Walking an expanded node is
-;; free; expanding a new node costs one step. Increasing the budget extends
-;; the same deterministic order.
+;; Breadth-first from the roots over child links. Expanding a new node costs
+;; one step and walking an expanded node spends the walk allowance. Increasing
+;; the budget extends the same deterministic order.
 (: sk-children (-[det]-> SkPattern (List SkPattern)))
 (= (sk-children $node)
    (let $hash (sk-node-hash $node)
@@ -962,9 +962,12 @@
    (collapse (match &sk_fresh (sk-fresh $node)
       (let $_removed (remove-atom &sk_fresh (sk-fresh $node)) $node))))
 
-;; The walk is best-first by score. Walking an expanded node is free; an
-;; unexpanded one costs a step, and the walk ends at the first one the budget
-;; cannot pay for. Equal scores go shallowest first, then in insertion order.
+;; The walk is best-first by score. Expanding a node costs a step, and the walk
+;; ends at the first unexpanded node the budget cannot pay for. Passing through
+;; an expanded node spends a separate walk allowance, so revisiting what is
+;; already built never takes a step from new expansions; once the allowance is
+;; spent, expanded nodes are passed over and the walk goes on to what is left.
+;; Equal scores go shallowest first, then in insertion order.
 (: sk-push (-[det]-> Number (Heap SkeletonFrontier) SkPattern (Heap SkeletonFrontier)))
 (= (sk-push $depth $heap $node)
    (add_to_heap $heap
@@ -988,7 +991,9 @@
    (if (sk-seen! $node)
       (sk-search! $rest)
       (if (sk-expanded? $node)
-         (let $_resumed (sk-resume! $node) (sk-search! (sk-push-children $depth $node $rest)))
+         (if (sk-take! sk_walk_budget)
+            (let $_resumed (sk-resume! $node) (sk-search! (sk-push-children $depth $node $rest)))
+            (sk-search! $rest))
          (if (sk-take! sk_budget)
             (let $_expand (sk-expand! $node $depth) (sk-search! (sk-push-children $depth $node $rest)))
             (sk-drain!)))))
