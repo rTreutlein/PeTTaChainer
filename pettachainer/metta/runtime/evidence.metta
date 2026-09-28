@@ -76,6 +76,19 @@
           (case $tv2
              (((STV $m2 $c2)
                  (merge-stv-fields $m1 $c1 $m2 $c2))
+              ;; A plain proof of a conditional is its positive branch; the
+              ;; conditional proof supplies the negative branch.
+              ((CTV (STV $pm2 $pc2) $neg2)
+                 (CTV (merge-stv-fields $m1 $c1 $pm2 $pc2) $neg2))
+              ($_other-tv $tv1))))
+       ;; Two conditional proofs revise branch by branch.
+       ((CTV (STV $pm1 $pc1) (STV $nm1 $nc1))
+          (case $tv2
+             (((CTV (STV $pm2 $pc2) (STV $nm2 $nc2))
+                 (CTV (merge-stv-fields $pm1 $pc1 $pm2 $pc2)
+                    (merge-stv-fields $nm1 $nc1 $nm2 $nc2)))
+              ((STV $m2 $c2)
+                 (CTV (merge-stv-fields $pm1 $pc1 $m2 $c2) (STV $nm1 $nc1)))
               ($_other-tv $tv1))))
        ($_other $tv1))))
 
@@ -303,16 +316,28 @@
 (= (fact-evidence-only (cons $entry $rest))
    (if (= $entry (rule-ev $_kb $_name))
       (fact-evidence-only $rest)
-      (cons $entry (fact-evidence-only $rest))))
+      (if (= $entry (rule-excluded $_kb $_name))
+         (fact-evidence-only $rest)
+         (cons $entry (fact-evidence-only $rest)))))
+
+;; The rules a row excludes, as the evidence a premise using them carries.
+(: excluded-rule-step (-[det]-> (List Evidence) Evidence (List Evidence)))
+(= (excluded-rule-step $acc $entry)
+   (case $entry (
+      ((rule-excluded $kb $name) (cons (rule-ev $kb $name) $acc))
+      ($_other $acc))))
 
 ;; Ordinary conjunction premises cannot reuse the same fact evidence.
-;; This check excludes rule applications from the compared evidence sets.
+;; This check excludes rule applications from the compared evidence sets,
+;; except the rules the row excludes, which no premise may use.
 ;; Projection pooling and compiler-marked shared-evidence joins decide their
 ;; exceptions at the consumer before accepting a premise.
 (: premise-evidence-overlap?
    (-[det]-> (List Evidence) (List Evidence) Bool))
 (= (premise-evidence-overlap? $seen $pev)
-   (evidence-sets-overlap? (fact-evidence-only $seen) (fact-evidence-only $pev)))
+   (if (evidence-sets-overlap? (fact-evidence-only $seen) (fact-evidence-only $pev))
+      true
+      (evidence-sets-overlap? (fold-flat excluded-rule-step () $seen) $pev)))
 
 (: evidence-subset?
    (-[det]-> (List Evidence) (List Evidence) Bool))

@@ -416,9 +416,12 @@
           ($base-rate (base-rate-finish? $finish)))
       (sk-goal-val (CPU $kind $args (finish-aggregate $finish $acc))
          (sk-fold-proof $function $proofs)
+         ;; Priors and implication instance estimates, like base rates, are
+         ;; not revised against their members' evidence; their dependencies
+         ;; still reach their readers.
          (if $base-rate ()
-            (if (== $finish uniform-prior) ()
-               (if (== $finish uniform-prior-known) () (sk-join-evidence $ev))))
+            (if (stored-list-member? $finish (uniform-prior uniform-prior-known implication-instance)) ()
+               (sk-join-evidence $ev)))
          (if $base-rate (cons $hash ()) (deps-join (cons (cons $hash ()) $deps))))))
 
 ;; A base rate's value is its user base rate, or else the better of its cached
@@ -921,11 +924,34 @@
          ($_other (sk-row-result $greedy $state))))))
 
 (: sk-row-state (-[semidet]-> Number SkeletonKey Bool SkeletonRow SkeletonRowState))
-(= (sk-row-state $khash $key $facts-first (sk-row $_ident ($_type $_kbctx $proof $_tv) $premises $_seq))
+(= (sk-row-state $khash $key $facts-first (sk-row $_ident ($type $kbctx $proof $_tv) $premises $_seq))
    (fold-semidet
       (sk-premise-step (sk-unifier-hashes $khash $key) (shared-evidence-frontier-proof? $proof) $facts-first)
-      (sk-acc () () (cons $khash ()) ())
+      (sk-acc () (sk-sample-exclusions $type $kbctx) (cons $khash ()) ())
       $premises))
+
+;; An implication instance sample must not restate the implication it
+;; estimates: its row starts out excluding every rule whose premises and
+;; conclusion match the sample's antecedent and consequent, so a premise value
+;; using one of them clashes and the sample reads the key's other proofs. The
+;; rules are found through the conclusion index, by the consequent.
+(: sk-sample-exclusions (-[semidet]-> Atom KBContext (List Evidence)))
+(= (sk-sample-exclusions $type $kbctx)
+   (if (if (is-expr $type) (== (car-atom $type) ImplicationInstanceSample) false)
+      (let* (((ImplicationInstanceSample $a $b $_atv $_btv) (copy_term $type))
+             (($kbid $_ctx $_vars) $kbctx))
+         (collapse
+            (match ccls_index (($b ($kbid $_rctx $_rvars) $prf $_tv) $_id $prems)
+               (if (= (foldr-flat sk-fact-premise-type () $prems) (implication-side-conjuncts (the Statement $a)))
+                  (rule-excluded (brand KB $kbid) (rule-evidence-head $prf))
+                  (empty)))))
+      ()))
+
+(: sk-fact-premise-type (-[det]-> Atom (List Atom) (List Atom)))
+(= (sk-fact-premise-type $premise $types)
+   (case $premise (
+      ((CPU $_fun $_args $_res) $types)
+      (($type $_kbctx $_prf $_tv) (cons $type $types)))))
 
 (: sk-row-result (-[semidet]-> SkeletonRow SkeletonRowState SkeletonValue))
 (= (sk-row-result (sk-row $_ident ($type $kbctx $proof $tv) $_premises $_seq) $state)

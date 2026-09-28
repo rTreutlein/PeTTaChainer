@@ -185,6 +185,7 @@
 (: fact-ev (-[det]-> KBContext Proof Statement Evidence))
 (: not-fact-ev (-[det]-> KBContext Proof Statement Evidence))
 (: rule-ev (-[det]-> KB Proof Evidence))
+(: rule-excluded (-[det]-> KB Proof Evidence))
 (: not-ev (-[det]-> Evidence Evidence))
 
 (: BaseRateSource Type)
@@ -212,6 +213,8 @@
 (: weighted-base-rate-with-prior WeightedBaseRateWithPriorFinish)
 (: MemberInheritanceFinish Type)
 (: member-inheritance (-[det]-> KB MemberInheritanceFinish))
+(: ImplicationInstanceFinish Type)
+(: implication-instance ImplicationInstanceFinish)
 (: WeightedBaseRateInUniverseFinish Type)
 (: weighted-base-rate-in-universe
    (-[det]-> KB WeightedBaseRateInUniverseFinish))
@@ -230,6 +233,7 @@
          WeightedBaseRateFinish
          WeightedBaseRateWithPriorFinish
          MemberInheritanceFinish
+         ImplicationInstanceFinish
          WeightedBaseRateInUniverseFinish
          WeightedBaseRateWithPriorInUniverseFinish
          UniformPriorFinish

@@ -298,6 +298,43 @@ corresponding direct `ExistentialClaim` E and calculates the remaining U from
 copying the existential confidence onto U. Both forms are lazy FoldAll-backed
 premises and their bound variables do not escape into the conclusion.
 
+### Querying an implication
+
+A query for an implication is answered by two producers whose proofs revise
+into one answer:
+
+```metta
+!(query 100 kb (: $prf (Implication (A $x) (B $x)) $tv))
+```
+
+The hypothetical producer assumes the antecedent in a fresh context and derives
+the consequent through the stored rules, once positively and once for the
+refuting branch. It answers only when some rule connects the two sides.
+
+The empirical producer samples the instances. For every binding of the
+antecedent variables whose antecedent and consequent are both provable, it
+folds one sample whose value is the consequent strength weighted by both
+sides' confidence. With the facts `(A a)`, `(A b)`, `(A c)`, `(B a)`, `(B b)`
+the query above answers strength 1.0 with count-based confidence from two
+samples. `c` contributes nothing: an antecedent instance without a provable
+consequent is not a counterexample, so no universe size is needed. A stored
+`(Not (B c))` is a sample with consequent strength 0 and lowers the strength.
+The fold measures the positive branch. The negative branch is derived from the
+base rates of both sides by the same heuristic that reinterprets a stored STV
+rule as a CTV, so the empirical proof and a stored rule revise on equal terms
+and the answer can serve as a rule premise.
+
+Consequent proofs are resolved through the backward chainer, so instances
+derived by other rules count as samples with their proof identities intact,
+unless the derivation uses the sample's own antecedent facts. A consequent
+proof through a rule that restates the queried implication is never a sample,
+so a rule's own derivations never confirm it: the sample takes the
+consequent's other proofs, and is dropped when there are none. When both
+producers answer, the rule's proof and the independent samples revise. The
+empirical producer applies when every consequent variable occurs in the
+antecedent and both sides are plain predicate conjuncts; conditional,
+computed, negated, or existential sides are answered hypothetically only.
+
 ## Built-in Premise Forms
 
 ### 1) Plain predicates

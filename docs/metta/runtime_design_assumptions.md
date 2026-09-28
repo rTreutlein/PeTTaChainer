@@ -164,7 +164,9 @@ through inverted rules, longer cycles, and more general or more specific keys.
 
 Premises are selected by the consumer. A premise whose value shares fact
 evidence with what the row already used is replaced by the merge of that key's
-facts and views that share none; a shared rule is not a clash. Premises are taken greedily in order; when every
+facts and views that share none; a shared rule is not a clash, except a rule
+the row excludes: an implication instance sample excludes the rules restating
+its implication, so it reads the consequent's other proofs. Premises are taken greedily in order; when every
 value of a premise clashes, the row reads again on a fresh copy, taking
 compatible stored facts first. Projections of one stored `(And ...)` source pool
 back into that source instead of multiplying shared evidence, and
@@ -185,7 +187,9 @@ A fold's or group's view is computed from its member keys when first read and
 recomputed when a member changes; the members changed in one pass recompute it
 once. Members are read without views that depend on the fold itself. Base-rate
 folds estimate a population: they carry neither member evidence nor member
-dependencies, like a prior, and are proved by `cpu`.
+dependencies, like a prior, and are proved by `cpu`. An implication instance
+fold carries no member evidence either, so its estimate revises with a rule's
+stated truth, but it keeps its members' dependencies.
 
 A base-rate fold is incremental, since its population grows with everything
 ingested. It keeps its accumulated evidence and each member's contribution; a

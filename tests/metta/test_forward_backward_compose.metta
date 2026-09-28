@@ -83,10 +83,18 @@
          (CTV (STV 0.9639 0.5) (STV 0.5 0.0))))
    ())
 
+;; No rule derives the implication hypothetically, but the stored instances
+;; support it empirically: the instance fold answers with count confidence.
 !(test
    (query 100 openVariableConclusionImplicationKb
       (: $p (Implication (Tall $x) (Female $x)) $tv))
-   ())
+   (: (implication-instance-fold
+         (foldall-proof
+            (implication-instance-sample tallAlice femaleAlice)
+            (implication-instance-sample tallMary femaleMary)))
+      (Implication (Tall $_x) (Female $_x))
+      (CTV (STV 0.9 0.000562183771628459)
+           (STV 0.8999999999999999 0.00014054594290711475))))
 
 !(test
    (query 100 openVariableConclusionImplicationKb

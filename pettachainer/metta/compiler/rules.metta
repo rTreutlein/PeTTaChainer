@@ -305,6 +305,108 @@
             $generic)
          $generic)))
 
+;; An implication is also estimated from its instances: one sample per
+;; antecedent binding whose consequent is provable, both sides resolved through
+;; the backward chainer so derived instances count. Open world: an antecedent
+;; instance without a provable consequent is not a sample. A sample never uses
+;; a rule that restates the implication (see `sk-sample-exclusions`). The fold's
+;; strength is the mass-weighted consequent strength and its confidence
+;; count-based. Sampling needs plain predicate conjuncts whose consequent
+;; variables the antecedent binds.
+(: unsampled-conjunct? (-[det]-> Bool Atom Bool))
+(= (unsampled-conjunct? $seen $conjunct)
+   (if $seen true
+      (if (is-var $conjunct) true
+         (head-is-member? $conjunct
+            (And Or Not Implication BiImplication Exists Compute
+               KnownExistential ExistentialResidual)))))
+
+(: implication-instance-supported? (-[det]-> Statement Statement Bool))
+(= (implication-instance-supported? $antecedent $consequent)
+   (if (is-var $antecedent) false
+      (if (is-expr $consequent)
+         (if (fold-flat unsampled-conjunct? false
+                (cons $consequent (implication-side-conjuncts $antecedent)))
+            false
+            (vars-covered? $consequent (list_to_set (extract-vars $antecedent))))
+         false)))
+
+;; A sample rule's premises and its proof's arguments, built conjunct by
+;; conjunct, and the antecedent truth values.
+(: InstanceSampleParts Type)
+(: instance-sample-parts
+   (-[det]-> (List Goal) (List Atom) (List Atom) InstanceSampleParts))
+(: implication-instance-premise
+   (-[det]-> KB Atom InstanceSampleParts InstanceSampleParts))
+(= (implication-instance-premise $kb $conjunct (instance-sample-parts $premises $proofs $tvs))
+   (instance-sample-parts
+      (cons (: (kbctx $kb) $prf $conjunct $tv) $premises)
+      (cons $prf $proofs)
+      (cons $tv $tvs)))
+
+;; The sample rule and the fold rule concluding `$Type`. With `$ctv?` the fold
+;; derives the negative branch from both sides' base rates, as a stored STV
+;; rule does; otherwise it concludes the positive branch as an STV.
+(: compile-implication-instance-adds
+   (-[det]-> Bool KB Statement Statement Statement (List CompiledAddition)))
+(= (compile-implication-instance-adds $ctv? $kb $Type $antecedent $consequent)
+   (if (implication-instance-supported? $antecedent $consequent)
+      (let*
+         (($conjuncts (implication-side-conjuncts $antecedent))
+          ($single (== (cdr-atom $conjuncts) ()))
+          ;; The antecedent premises come first, then the conjunction of
+          ;; their truth values (`$tvs`, bound by the fold below), then the
+          ;; consequent; the sample proof lists their proofs in that order.
+          ($consequent-goals
+             (if $single (cons (: (kbctx $kb) $bprf $consequent $btv) ())
+                (cons (CPU AndFormula $tvs $and-tv)
+                   (cons (: (kbctx $kb) $bprf $consequent $btv) ()))))
+          ($parts
+             (foldr-flat (implication-instance-premise $kb)
+                (instance-sample-parts $consequent-goals (cons $bprf ()) ())
+                $conjuncts)))
+         (case $parts (
+            ((instance-sample-parts $premises $proofs $tvs)
+               (let*
+                  (($atv (if $single (car-atom $tvs) $and-tv))
+                   ($sample-pattern
+                      (ImplicationInstanceSample $antecedent $consequent $atv $btv))
+                   ($fold
+                      (CPU FoldAllCompiled
+                         (quote
+                            ($kb $sample-pattern
+                               (extract-value $sample-pattern (WeightedTv $atv $btv))
+                               (BaseRateEvidence 0.0 0.0)
+                               WeightedBaseRateAcc implication-instance result-tv))
+                         $fold-tv))
+                   ($positive (CPU MemberInheritanceEvidenceFormula ($fold-tv) $instance-tv))
+                   ($fold-premises
+                      (cons $fold
+                         (cons $positive
+                            (if $ctv?
+                               (cons (base-rate-premise $kb (copy_term (rule-query-pattern $antecedent)) $rule-atv)
+                                  (cons (base-rate-premise $kb (copy_term (rule-query-pattern $consequent)) $rule-btv)
+                                     (cons (CPU ImplicationCTVFormula
+                                              (quote ($rule-atv $rule-btv $instance-tv)) $instance-ctv)
+                                        ())))
+                               ()))))
+                   ($fold-result (if $ctv? $instance-ctv $instance-tv)))
+                  (cons
+                     (brand CompiledAddition
+                        (cons $premises
+                           (cons |-
+                              (cons (: (kbctx $kb) (cons implication-instance-sample $proofs)
+                                       $sample-pattern (STV 1.0 1.0))
+                                 ()))))
+                     (cons
+                        (brand CompiledAddition
+                           (cons $fold-premises
+                              (cons |-
+                                 (cons (: (kbctx $kb) (implication-instance-fold cpu) $Type $fold-result)
+                                    ()))))
+                        ())))))))
+      ()))
+
 ;; Compile the backward use of an implication by deriving its CTV, applying TV
 ;; inversion, and then using the observed consequent as modus-ponens evidence.
 ;; This is emitted only when the main compiler has proved the antecedent is

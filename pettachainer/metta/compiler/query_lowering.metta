@@ -183,14 +183,21 @@
                 (total-implication-frontier
                    (total-implication $pos-prf $neg-prf))
                 $Type $known-tv)))
+            ;; The root proof is open so the instance fold answers beside the
+            ;; hypothetical producer and the two revise into one answer.
             (compilation-plan
-               $known-goal
+               (: (kbctx $kb) $root-prf $Type $known-tv)
                (cons
                   (brand CompiledAddition
                      ((the (List Goal)
                           ($known-pos-goal $known-neg-goal))
                         |- $known-goal))
-                  $all-adds)))
+                  (append-compiled-additions
+                     (compile-implication-instance-adds true $kb
+                        (brand Statement $Type)
+                        (brand Statement $antecedent)
+                        (brand Statement $consequent))
+                     $all-adds))))
          (if (implication-type? $Type) (empty)
          (if (bidirectional-implication-type? $Type)
             (let*
