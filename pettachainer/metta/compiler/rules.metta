@@ -147,13 +147,15 @@
 
 ;; Rules stored with an STV need a CTV derived from antecedent/consequent base
 ;; rates before modus ponens can use them. An explicit CTV already carries both
-;; directions and therefore needs no runtime base-rate scans.
+;; directions and therefore needs no runtime base-rate scans. `$value` is the
+;; truth the rule applies with, of its stored truth's kind: the stored truth,
+;; or a refined rule's resolved truth.
 (: compile-implication-ctv-execs
-   (-[semidet]-> KB Statement Statement TV
+   (-[semidet]-> KB Statement Statement TV Atom
        ((List Goal) CTVType)))
-(= (compile-implication-ctv-execs $_kb $_a $_b (CTV $pos $neg))
-   (data () (CTV $pos $neg)))
-(= (compile-implication-ctv-execs $kb $a $b (STV $s $c))
+(= (compile-implication-ctv-execs $_kb $_a $_b (CTV $_pos $_neg) $value)
+   (data () (the CTVType $value)))
+(= (compile-implication-ctv-execs $kb $a $b (STV $_s $_c) $value)
    (let*
       (($a1 (copy_term (rule-query-pattern $a)))
         ($b1 (copy_term (rule-query-pattern $b))))
@@ -162,7 +164,7 @@
             ((base-rate-premise $kb $a1 $rule-atv)
              (base-rate-premise $kb $b1 $rule-btv)
              (CPU ImplicationCTVFormula
-                (quote ($rule-atv $rule-btv (STV $s $c)))
+                (quote ($rule-atv $rule-btv $value))
                 $rule-ctv)))
          (the CTVType $rule-ctv))))
 
@@ -191,11 +193,11 @@
 ;; context-sensitive for assumption queries, while adapter-kb controls where
 ;; reusable source-shape adapters are indexed.
 (: compile-implication-forward-rules
-   (-[nondet]-> KB KBContext KBContext Proof TV Statement Statement
+   (-[nondet]-> KB KBContext KBContext Proof TV (List Goal) Atom Statement Statement
        (List Variable) (List Goal)
        (List Proof) TV  CompiledAddition))
 (= (compile-implication-forward-rules $kb $shape-kb $adapter-kb $prf $tv
-      $a $b $antecedent-vars $execs $proofs $atv)
+      $truth-premises $value $a $b $antecedent-vars $execs $proofs $atv)
    (let $out-b
       (skolemize-conclusion-vars $prf $antecedent-vars $b)
      (superpose (
@@ -203,18 +205,20 @@
          (let*
             (($proof-token (implication-proof-token $proofs))
               (($ctv-execs $rule-ctv)
-                 (compile-implication-ctv-execs $kb $a $b $tv))
+                 (compile-implication-ctv-execs $kb $a $b $tv $value))
               (($out-execs $out-prf $out-type $out-tv)
                  (compile-implication-output
                     $prf $proof-token $out-b (the STVType $btv)))
               ($allargs
                  (append-goals
-                    $execs
+                    $truth-premises
                     (append-goals
-                       $ctv-execs
+                       $execs
                        (append-goals
-                          ((CPU CTVModusPonensFormula ($atv $rule-ctv) $btv))
-                          $out-execs)))))
+                          $ctv-execs
+                          (append-goals
+                             ((CPU CTVModusPonensFormula ($atv $rule-ctv) $btv))
+                             $out-execs))))))
             (brand CompiledAddition
                ($allargs |-
                   (: $shape-kb $out-prf $out-type $out-tv)))))
@@ -413,9 +417,9 @@
 ;; invertible. Reversible Compute goals bind antecedent variables first and
 ;; validate the generated binding with the original forward computation.
 (: inverse-implication
-   (-[det]-> KB Proof Statement Statement TV (List Goal)
+   (-[det]-> KB Proof Statement Statement Atom (List Goal) (List Goal)
        CompiledAddition))
-(= (inverse-implication $kb $prf $a $b $itv $inverse-execs)
+(= (inverse-implication $kb $prf $a $b $itv $truth-premises $inverse-execs)
    (let*
       (($a1 (copy_term (rule-query-pattern $a)))
         ($b1 (copy_term (rule-query-pattern $b)))
@@ -434,10 +438,11 @@
                     ()))))
         ($premises
            (append-goals
-              (cons
-                 (: (make-kb-context $kb $ctx $vars)
-                    $prfb_wit $b $btv_wit)
-                 ())
+              (append-goals $truth-premises
+                 (cons
+                    (: (make-kb-context $kb $ctx $vars)
+                       $prfb_wit $b $btv_wit)
+                    ()))
               (append-goals
                  $inverse-execs
                  (cons $a-base-rate
@@ -973,6 +978,35 @@
             (empty)
             (compile-outputs (: $fact-kb $prf $Type $tv)))))))
 
+;; Rule refinement is opt-in per KB and set before its rules are added. A
+;; refined rule's truth is the goal (RuleTruth (Implication a b)): the stored
+;; truth is its axiom, the rule's instance fold a second proof, and the rule
+;; applies, forward, backward and inverted, with their revision. Only named
+;; user rules whose sides the instance producer samples are refined.
+(: set-rule-refinement (-[det]-> KB Bool Bool))
+(= (set-rule-refinement $kb $enabled)
+   (let* (($_old
+             (collapse (match &rule_refinement ($kb $stored)
+                (remove-atom &rule_refinement ($kb $stored)))))
+          ($_new (add-atom &rule_refinement ($kb $enabled))))
+      $enabled))
+
+;; A refined rule reads its truth `$truth-tv` from the goal first, over a copy
+;; of the implication so all its applications share the one general goal.
+(: rule-truth-premises (-[det]-> Bool KB Atom Atom (List Goal)))
+(= (rule-truth-premises $refine? $kb $truth-type $truth-tv)
+   (if $refine?
+      (cons (: (kbctx $kb) $truth-prf (copy_term $truth-type) $truth-tv) ())
+      ()))
+
+(: refined-rule? (-[det]-> KB Proof Statement Statement Bool))
+(= (refined-rule? $kb $prf $a $b)
+   (if (== (collapse (once (match &rule_refinement ($kb true) true))) ()) false
+      (let $name (rule-evidence-base-name $prf)
+         (if (is-expr $name) false
+            (if (logic-rule? $name) false
+               (implication-instance-supported? $a $b))))))
+
 ;; Main statement compiler.
 ;;
 ;; Implications become forward rules, optional inverse rules, and adapters.
@@ -1022,11 +1056,28 @@
                 (if (contains-cpu? (execs-goal-type $execs))
                    (compile-reversible-compute-plan $a $b)
                    (inverse-compute-plan
-                      () (list_to_set (extract-vars $b))))))
+                      () (list_to_set (extract-vars $b)))))
+             ($refine? (refined-rule? $kb $prf $a $b))
+             ($truth-type (RuleTruth (Implication $a $b)))
+             ($truth-premises (rule-truth-premises $refine? $kb $truth-type $truth-tv))
+             ($_truth-shape
+                (if $refine?
+                   (collapse (once (add-atom &rule_truth_shapes ($kb $truth-type))))
+                   ()))
+             ($value (if $refine? $truth-tv $tv)))
             (superpose (
                (compile-implication-forward-rules
-                  $kb $shape-kb $adapter-kb $prf $tv
+                  $kb $shape-kb $adapter-kb $prf $tv $truth-premises $value
                   $a $b $antecedent-vars $execs $proofs $atv)
+               ;; The stored truth is the goal's axiom, and the rule's
+               ;; instances are folded into a second proof of it.
+               (if $refine?
+                  (let $refinement
+                     (cons (brand CompiledAddition
+                              (() |- (: (kbctx $kb) (rule-axiom $prf) $truth-type $tv)))
+                        (compile-implication-instance-adds false $kb (brand Statement $truth-type) $a $b))
+                     (superpose $refinement))
+                  (empty))
                (case $inverse-plan (
                   ((inverse-compute-plan $inverse-execs $inverse-known)
                      (if (disable-inversion-proof-id? $prf)
@@ -1036,7 +1087,7 @@
                               $prf $inverse-known $a)
                            (superpose (
                               (inverse-implication
-                                 $kb $prf $na $b $tv $inverse-execs)
+                                 $kb $prf $na $b $value $truth-premises $inverse-execs)
                               (if (is-var $na) (empty)
                                  (if $pure-conjunction?
                                     (empty)

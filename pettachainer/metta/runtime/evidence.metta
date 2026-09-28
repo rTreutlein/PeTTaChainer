@@ -41,6 +41,15 @@
    (-[semidet]-> (List (List Evidence)) (List Evidence)))
 (= (first-evidence-list (cons $first $_rest)) $first)
 
+;; A stored fact is its own evidence, except a refined rule's axiom, which
+;; carries the rule's evidence: a proof through the axiom and a proof through
+;; the rule are dependent and never revise.
+(: fact-evidence-entry (-[det]-> KBContext Proof Statement Evidence))
+(= (fact-evidence-entry $kb $prf $type)
+   (case $prf (
+      ((rule-axiom $name) (rule-ev (brand KB (car-atom $kb)) $name))
+      ($_other (fact-ev $kb $prf $type)))))
+
 ;; Shared by backward proof construction and forward candidate handling, so it
 ;; lives before either chainer module is loaded.
 (: forward-fact-evidence
@@ -65,7 +74,7 @@
                         $hash $type $kb $fact $ev)
                      (stored-evidence-list $ev))))
             (if (== $frontier-hits ())
-               (cons (fact-ev $kb $prf $type) ())
+               (cons (fact-evidence-entry $kb $prf $type) ())
                (first-evidence-list $frontier-hits)))
          (first-evidence-list $hits))))
 

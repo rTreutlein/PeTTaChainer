@@ -335,6 +335,34 @@ empirical producer applies when every consequent variable occurs in the
 antecedent and both sides are plain predicate conjuncts; conditional,
 computed, negated, or existential sides are answered hypothetically only.
 
+### Refining rules from their instances
+
+Rule refinement is opt-in per KB and must be set before the rules are added:
+
+```metta
+!(set-rule-refinement kb true)
+!(compileadd kb (: ab (Implication (A $x) (B $x)) (CTV (STV 0.8 0.9) (STV 0.0 1.0))))
+```
+
+A refined rule no longer applies with its stored truth. Its truth is the goal
+`(RuleTruth (Implication (A $x) (B $x)))`, shared by every application of the
+rule: the stored truth is that goal's axiom fact `(rule-axiom ab)`, the rule's
+instance fold is a second proof, and revision merges them. The rule applies
+with the merged truth forward, backward, and inverted, so an observation of
+the consequent is explained through the refined rule too. A rule's own
+derivations never count as its samples. Facts added later join the fold at
+the next query that reads the goal. The axiom carries the rule's own evidence,
+so a proof through the axiom and a proof through the rule are dependent and
+never revise twice.
+
+An STV rule's truth merges as an STV and is converted through base rates
+where it is applied; a CTV rule's negative branch comes from its axiom. An
+implication query of a refined rule's shape answers through the goal (proof
+`(rule-truth ...)`) instead of folding the instances again. Rules whose shape
+the instance producer does not sample keep their stored truth. Forward
+chaining fires refined rules from the axiom fact, so facts it materializes
+carry the stored truth.
+
 ## Built-in Premise Forms
 
 ### 1) Plain predicates

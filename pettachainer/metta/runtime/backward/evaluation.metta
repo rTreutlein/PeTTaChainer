@@ -951,6 +951,7 @@
 (= (sk-fact-premise-type $premise $types)
    (case $premise (
       ((CPU $_fun $_args $_res) $types)
+      (((RuleTruth $_implication) $_kbctx $_prf $_tv) $types)
       (($type $_kbctx $_prf $_tv) (cons $type $types)))))
 
 (: sk-row-result (-[semidet]-> SkeletonRow SkeletonRowState SkeletonValue))

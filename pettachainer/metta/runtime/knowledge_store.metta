@@ -160,7 +160,7 @@
          (if (== $backend live)
             (let*
                ((($type $kb $prf $_tv) $fact)
-                ($ev (cons (fact-ev $kb $prf $type) ()))
+                ($ev (cons (fact-evidence-entry $kb $prf $type) ()))
                 ($change
                    (forward-candidate-upsert!
                       (forward-derived $fact $ev) true))

@@ -89,6 +89,28 @@
       (cons (brand CompiledAddition $member-sample-rule)
          (cons (brand CompiledAddition $member-rule) ()))))
 
+;; Under rule refinement a rule's instance fold proves its rule-truth goal
+;; (see `set-rule-refinement`), so an implication query of that shape reads
+;; the goal instead of folding the instances again; an STV truth gets its
+;; negative branch from both sides' base rates.
+(: rule-truth-installed? (-[det]-> KB Atom Bool))
+(= (rule-truth-installed? $kb $Type)
+   (let $truth (copy_term (RuleTruth $Type))
+      (not (== (collapse (once (match &rule_truth_shapes ($kb $truth) true))) ()))))
+
+(: rule-truth-query-adds (-[det]-> KB Atom Atom Atom (List CompiledAddition)))
+(= (rule-truth-query-adds $kb $Type $antecedent $consequent)
+   (let $premises
+      (cons (: (kbctx $kb) $truth-prf (RuleTruth $Type) $truth-tv)
+         (cons (base-rate-premise $kb (copy_term (rule-query-pattern (brand Statement $antecedent))) $atv)
+            (cons (base-rate-premise $kb (copy_term (rule-query-pattern (brand Statement $consequent))) $btv)
+               (cons (CPU ImplicationCTVFormula (quote ($atv $btv $truth-tv)) $ctv) ()))))
+      (cons
+         (brand CompiledAddition
+            (cons $premises
+               (cons |- (cons (: (kbctx $kb) (rule-truth $truth-prf) $Type $ctv) ()))))
+         ())))
+
 (: compile-inheritance-query
    (-[semidet]-> KB Term Term
        CompilationPlan))
@@ -193,10 +215,12 @@
                           ($known-pos-goal $known-neg-goal))
                         |- $known-goal))
                   (append-compiled-additions
-                     (compile-implication-instance-adds true $kb
-                        (brand Statement $Type)
-                        (brand Statement $antecedent)
-                        (brand Statement $consequent))
+                     (if (rule-truth-installed? $kb $Type)
+                        (rule-truth-query-adds $kb $Type $antecedent $consequent)
+                        (compile-implication-instance-adds true $kb
+                           (brand Statement $Type)
+                           (brand Statement $antecedent)
+                           (brand Statement $consequent)))
                      $all-adds))))
          (if (implication-type? $Type) (empty)
          (if (bidirectional-implication-type? $Type)
@@ -283,7 +307,7 @@
       (collapse
          (compile-implication-forward-rules
             $kbid $shape-kb $shape-kb
-            $ctxprf $tv $a $consequent
+            $ctxprf $tv () $tv $a $consequent
             (list_to_set (extract-vars $a))
             $execs $proofs $atv))))
 
