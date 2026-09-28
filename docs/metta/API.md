@@ -143,6 +143,7 @@ for deep queries, where the per-node rule count compounds with search depth.
 | Function | Meaning |
 |---|---|
 | `(set-context-polymorphic-facts $kb $enabled)` | Toggle context-polymorphic fact storage for `$kb`. |
+| `(set-evidence-confidence-k $k)` | Set PLN's evidence parameter k (default 800): n observations have confidence n/(n+k). Process-wide and read when a formula runs, so set it before adding knowledge; values already derived keep their k. Python: `PeTTaChainer.set_evidence_confidence_k(k)`, which timed subprocess queries replay. |
 | `(set-bounded-agenda-pruning $enabled)` | Toggle forward-agenda pruning. Skeleton backward search is bounded by its expansion and row budgets. |
 | `(ParticleSetBudget $n)` / `(ParticleGetBudget)` | Set / read the maximum particle support. Over-budget structured numeric samples are condensed as complete vectors; bare numeric or symbolic samples use deterministic systematic resampling. |
 | `(ParticleStoreClear)` / `(ParticleStorePruneKB)` | Clear the particle store / garbage-collect particles no longer referenced by the KB. |

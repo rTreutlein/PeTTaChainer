@@ -1,5 +1,5 @@
 ;; Idealized confidence via second-order uncertainty propagation. Treat each TV
-;; as a Beta (strength = mean, confidence = count/(count+800)); propagate the
+;; as a Beta (strength = mean, confidence = count/(count+k)); propagate the
 ;; exact variance of sB = bs_a*as + bs_na*(1-as) through modus ponens, then
 ;; convert back to a confidence. Strengths are clipped off 0/1 so the Beta
 ;; variance and the back-conversion stay finite.
@@ -18,10 +18,18 @@
 (= (ideal-clip $s) (max 0.000001 (min 0.999999 $s)))
 
 (: confidence-to-count (-[det]-> Number Number))
-(= (confidence-to-count $conf) (/ (* $conf 800) (- 1 (min-atom ($conf 0.9999)))))
+(= (confidence-to-count $conf) (/ (* $conf (evidence-confidence-k)) (- 1 (min-atom ($conf 0.9999)))))
+
+;; PLN's evidence parameter k: n pieces of evidence have confidence n/(n+k).
+;; It is process-wide and read when a formula runs, so set it before building
+;; knowledge bases; values already derived keep the k they were derived with.
+!(change-state! evidence_confidence_k 800.0)
 
 (: evidence-confidence-k (-[det]-> Number))
-(= (evidence-confidence-k) 800.0)
+(= (evidence-confidence-k) (the Number (car-atom (collapse (get-state evidence_confidence_k)))))
+
+(: set-evidence-confidence-k (-[det]-> Number Bool))
+(= (set-evidence-confidence-k $k) (change-state! evidence_confidence_k $k))
 
 (: count-confidence (-[det]-> Number Number))
 (= (count-confidence $n) (/ $n (+ $n (evidence-confidence-k))))
@@ -42,7 +50,7 @@
           ($maxvar (* $cs (- 1.0 $cs)))
           ($v (min $Var $maxvar))
           ($nB (- (/ $maxvar $v) 1.0)))
-         (max 0.000001 (/ $nB (+ $nB 800.0))))))
+         (max 0.000001 (count-confidence $nB)))))
 
 (: ideal-mp-confidence (-[det]-> Number Number Number Number Number Number Number))
 (= (ideal-mp-confidence $as $ac $bs_a $bc_a $bs_na $bc_na)
@@ -405,7 +413,7 @@
         ($c (+ $count1 $count2)))
       (if (<= $c 0.0)
          (STV (/ (+ $m1 $m2) 2) 0.0)
-         (STV (/ (+ (* $m1 $count1) (* $m2 $count2)) $c) (/ $c (+ $c 800))))))
+         (STV (/ (+ (* $m1 $count1) (* $m2 $count2)) $c) (count-confidence $c)))))
 
 (: merge-stvs
    (-[det]-> STVType STVType STVType))

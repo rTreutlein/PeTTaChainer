@@ -10,6 +10,28 @@ from pettachainer import PeTTaChainer
 
 
 class TestPeTTaChainer(unittest.TestCase):
+    def test_evidence_confidence_k_applies_in_process_and_to_timed_queries(self):
+        handler = PeTTaChainer()
+        handler.set_evidence_confidence_k(1)
+        self.addCleanup(handler.set_evidence_confidence_k, 800)
+        handler.add_atoms_no_check([
+            "(: n-1 (Member h1 Normal) (STV 1 1))",
+            "(: l-1 (Member h1 Leak) (STV 1 1))",
+            "(: n-2 (Member h2 Normal) (STV 1 1))",
+            "(: l-2 (Member h2 Leak) (STV 0 1))",
+        ])
+        # Two observed members give confidence 2/(2+k) with k = 1, both live
+        # and in the subprocess that a timed query spawns.
+        for timeout_sec in (0, 30):
+            with self.subTest(timeout_sec=timeout_sec):
+                result = handler.query(
+                    "(: $prf (Inheritance Normal Leak) $tv)",
+                    steps=100,
+                    timeout_sec=timeout_sec,
+                )
+                self.assertEqual(len(result), 1)
+                self.assertIn("(STV 0.5 0.6666666666666666)", result[0])
+
     def test_rule_search_ignores_base_rate_strength(self):
         answers = []
         for rate in (None, 0.0, 1.0):

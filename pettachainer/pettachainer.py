@@ -41,10 +41,12 @@ def _query_worker(
     kb: str,
     expression: str,
     logic_config_path: Optional[str],
+    evidence_confidence_k: float,
     conn,
 ):
     try:
         handler = PeTTaChainer(logic_config=logic_config_path)
+        handler.set_evidence_confidence_k(evidence_confidence_k)
         handler.kb = kb
         if added_atoms:
             handler.add_atoms_no_check(added_atoms)
@@ -94,6 +96,7 @@ class PeTTaChainer:
         self._added_atoms: List[Tuple[str, bool]] = []
         self._pattern_mining_on_add = False
         self._logic_config_path: Optional[Path] = None
+        self._evidence_confidence_k = 800.0
         self._query_metrics_enabled = False
         self._query_metrics_path = os.environ.get(
             "PETTACHAINER_QUERY_METRICS_PATH"
@@ -231,6 +234,17 @@ class PeTTaChainer:
         if self._query_metrics_path:
             with Path(self._query_metrics_path).open("a", encoding="utf-8") as stream:
                 stream.write(json.dumps(record, sort_keys=True) + "\n")
+
+    def set_evidence_confidence_k(self, k: float) -> None:
+        """Set PLN's evidence parameter k: n observations have confidence n/(n+k).
+
+        The setting is process-wide and read when a formula runs, so set it
+        before adding knowledge; timed subprocess queries replay it.
+        """
+        self.handler.process_metta_string(
+            f"!(set-evidence-confidence-k {float(k)!r})"
+        )
+        self._evidence_confidence_k = float(k)
 
     def set_pattern_mining_on_add(self, enabled: bool) -> None:
         value = "true" if enabled else "false"
@@ -386,6 +400,7 @@ class PeTTaChainer:
                 self.kb,
                 expression,
                 str(self._logic_config_path) if self._logic_config_path else None,
+                self._evidence_confidence_k,
                 child_conn,
             ),
             daemon=True,
