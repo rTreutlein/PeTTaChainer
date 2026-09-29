@@ -460,6 +460,35 @@
               ((inverted $prf with cpu cpu) $prfb_wit)
               $a $mp-tv))))
 
+;; A rule declared `(WithPrior p (Implication a b))` is also inverted per
+;; instance: P(a) is the truth of `p` for the observed instance, and P(b)
+;; follows from it and the rule by total probability, so an observation of b
+;; updates what is believed about this instance rather than the population
+;; rate. Its evidence contains the base-rate inversion's, so it replaces that
+;; answer wherever the prior is provable.
+(: prior-inverse-implication
+   (-[semidet]-> KB Proof (List Variable) Statement Statement Statement TV Atom
+       (List Goal) (List Goal) CompiledAddition))
+(= (prior-inverse-implication $kb $prf $params $prior $a $b $tv $value
+      $truth-premises $inverse-execs)
+   (let*
+      ((($ctv-execs $rule-ctv)
+          (compile-implication-ctv-execs $kb $params $a $b $tv $value))
+       ($premises
+          (append-goals $truth-premises
+             (cons (: (make-kb-context $kb $ctx $vars) $prfb_wit $b $btv_wit)
+                (append-goals $inverse-execs
+                   (cons (: (make-kb-context $kb $ctx $vars) $prior-prf $prior $atv)
+                      (append-goals $ctv-execs
+                         (cons (CPU CTVModusPonensFormula (quote ($atv $rule-ctv)) $btv)
+                            (cons (CPU CTVInversionFormula (quote ($atv $btv $rule-ctv)) $iitv)
+                               (cons (CPU CTVModusPonensFormula (quote ($btv_wit $iitv)) $mp-tv)
+                                  ()))))))))))
+      ($premises |-
+         (: (make-kb-context $kb $ctx $vars)
+            ((inverted $prf with $prior-prf derived) $prfb_wit)
+            $a $mp-tv))))
+
 ;; For every child M of a pure conjunction H, compile the direct probabilistic
 ;; completion (And O C) -> M, where O contains H's other children and C is the
 ;; original consequence. That is the only child-recovery operator for a pure
@@ -1013,10 +1042,12 @@
 ;; A rule `(Implication a b)`. `$params` are the variables a surrounding
 ;; `(ForAll $params ...)` binds: the rule holds for each of their values with
 ;; the same truth, so its instances pool across them, while its base rates are
-;; taken per value (see `rule-base-rate-pattern`).
+;; taken per value (see `rule-base-rate-pattern`). `$prior` is the proposition
+;; a surrounding `(WithPrior $prior ...)` names as the instance prior of `a`,
+;; or `no-prior` (see `prior-inverse-implication`).
 (: compile-rule
-   (-[nondet]-> KB (List Variable) Proof Statement Statement TV CompiledAddition))
-(= (compile-rule $kb $params $prf $antecedent $consequent $tv)
+   (-[nondet]-> KB (List Variable) Atom Proof Statement Statement TV CompiledAddition))
+(= (compile-rule $kb $params $prior $prf $antecedent $consequent $tv)
    (let $Type (brand Statement (Implication $antecedent $consequent))
       (let* (($_exists-valid
                   (validate-explicit-exists-rule
@@ -1087,6 +1118,10 @@
                            (superpose (
                               (inverse-implication
                                  $kb $prf $params $na $b $value $truth-premises $inverse-execs)
+                              (if (== $prior no-prior) (empty)
+                                 (prior-inverse-implication $kb $prf $params
+                                    (skolemize-conclusion-vars $prf $inverse-known (brand Statement $prior))
+                                    $na $b $tv $value $truth-premises $inverse-execs))
                               (if (is-var $na) (empty)
                                  (if $pure-conjunction?
                                     (empty)
@@ -1121,9 +1156,15 @@
 (= (compile_ $kb (: $prf $Type $tv))
    (if (is-var $Type) (empty)
       (if (= $Type (Implication $antecedent $consequent))
-       (compile-rule $kb () $prf (brand Statement $antecedent) (brand Statement $consequent) $tv)
+       (compile-rule $kb () no-prior $prf (brand Statement $antecedent) (brand Statement $consequent) $tv)
       (if (= $Type (ForAll $params (Implication $antecedent $consequent)))
-       (compile-rule $kb (extract-vars $params) $prf
+       (compile-rule $kb (extract-vars $params) no-prior $prf
+          (brand Statement $antecedent) (brand Statement $consequent) $tv)
+      (if (= $Type (WithPrior $prior (Implication $antecedent $consequent)))
+       (compile-rule $kb () $prior $prf
+          (brand Statement $antecedent) (brand Statement $consequent) $tv)
+      (if (= $Type (ForAll $params (WithPrior $prior (Implication $antecedent $consequent))))
+       (compile-rule $kb (extract-vars $params) $prior $prf
           (brand Statement $antecedent) (brand Statement $consequent) $tv)
          (if (implication-type? $Type)
             (empty)
@@ -1151,4 +1192,4 @@
                         (: $prf $inner (STV (- 1.0 $s) $c))))
                   ($_unsupported-tv
                      (compile-ordinary-fact $kb $prf $Type $tv))))
-               (compile-ordinary-fact $kb $prf $Type $tv)))))))))
+               (compile-ordinary-fact $kb $prf $Type $tv)))))))))))

@@ -355,6 +355,28 @@ is taken per parameter value: inverting the sensor rule for an alarm in cohort
 rule pools its instances across the parameter values, since they share one
 truth.
 
+### Updating an instance's own belief
+
+Inverting a rule normally uses population base rates: an alarm on unit `m`
+yields P(leak | alarm) for a random unit. When `m` has its own prior belief,
+name it with `WithPrior`:
+
+```metta
+!(compileadd kb (: sensor (WithPrior (LeakPredicted $u)
+                            (Implication (SealLeak $u) (Alarm $u)))
+                   (CTV (STV 0.9 1.0) (STV 0.2 1.0))))
+```
+
+The rule is then also inverted per instance: the observation `(Alarm m)`
+updates `(LeakPredicted m)` by Bayes' rule, with P(alarm) derived from that
+prior and the rule by total probability, and the result proves `(SealLeak m)`.
+Its evidence contains the base-rate inversion's, so it replaces that answer
+wherever the prior is provable; for an instance without one, the base-rate
+inversion still answers. Together with a transition rule that predicts the
+next state from the current one, this is a filter over time: each state's
+posterior predicts the next, and each observation updates that prediction.
+`WithPrior` may appear inside `ForAll`.
+
 ### Refining rules from their instances
 
 Rule refinement is opt-in per KB and must be set before the rules are added:
