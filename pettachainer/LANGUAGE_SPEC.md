@@ -402,7 +402,9 @@ An STV rule's truth merges as an STV and is converted through base rates
 where it is applied; a CTV rule's negative branch comes from its axiom. An
 implication query of a refined rule's shape answers through the goal (proof
 `(rule-truth ...)`) instead of folding the instances again. Rules whose shape
-the instance producer does not sample keep their stored truth. Forward
+the instance producer does not sample keep their stored truth, and so do rules
+stated with confidence 1 (for a CTV, in its positive branch): revision leaves
+a certain truth unchanged, so their instances are not folded. Forward
 chaining fires refined rules from the axiom fact, so facts it materializes
 carry the stored truth.
 

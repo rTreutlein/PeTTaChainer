@@ -183,3 +183,20 @@
 !(test
    (query 400 refineInvKb (: $p (P alice) $tv))
    (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.944020245153045 0.0036569130927513807)))
+
+;; --- A certain rule is not refined --------------------------------------------
+;; Revision leaves a truth stated with confidence 1 unchanged, so the rule
+;; applies with its stored truth and has no rule-truth goal.
+
+!(set-rule-refinement certainRuleKb true)
+!(compileadd certainRuleKb (: ab (Implication (A $x) (B $x)) (CTV (STV 0.8 1.0) (STV 0.0 1.0))))
+!(compileadd certainRuleKb (: a1 (A a) (STV 1.0 0.9)))
+!(compileadd certainRuleKb (: b1 (B a) (STV 0.0 0.9)))
+!(compileadd certainRuleKb (: a2 (A b) (STV 1.0 0.9)))
+
+!(test
+   (query 400 certainRuleKb (: $p (B b) $tv))
+   (: (by ab a2) (B b) (STV 0.8 0.9998995657056552)))
+!(test
+   (collapse (query 400 certainRuleKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)))
+   ())

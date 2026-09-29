@@ -1092,13 +1092,18 @@
       (cons (: (kbctx $kb) $truth-prf (copy_term $truth-type) $truth-tv) ())
       ()))
 
-(: refined-rule? (-[det]-> KB Proof Statement Statement Bool))
-(= (refined-rule? $kb $prf $a $b)
+;; A rule stated with confidence 1 (the positive branch of a CTV) is certain:
+;; revision leaves it unchanged, so its instances are not folded.
+(: refined-rule? (-[det]-> KB Proof Statement Statement TV Bool))
+(= (refined-rule? $kb $prf $a $b $tv)
    (if (== (collapse (once (match &rule_refinement ($kb true) true))) ()) false
-      (let $name (rule-evidence-base-name $prf)
+      (let* (($name (rule-evidence-base-name $prf))
+             ($c (case $tv (((STV $_s $c) $c) ((CTV (STV $_s $c) $_neg) $c)))))
          (if (is-expr $name) false
             (if (logic-rule? $name) false
-               (implication-instance-supported? $a $b))))))
+               (if (is-var $c) false
+                  (if (>= $c 1.0) false
+                     (implication-instance-supported? $a $b))))))))
 
 ;; A rule `(Implication a b)`. `$params` are the variables a surrounding
 ;; `(ForAll $params ...)` binds: the rule holds for each of their values with
@@ -1148,7 +1153,7 @@
                    (compile-reversible-compute-plan $a $b)
                    (inverse-compute-plan
                       () (list_to_set (extract-vars $b)))))
-             ($refine? (refined-rule? $kb $prf $a $b))
+             ($refine? (refined-rule? $kb $prf $a $b $tv))
              ($truth-type (RuleTruth (Implication $a $b)))
              ($truth-premises (rule-truth-premises $refine? $kb $truth-type $truth-tv))
              ($_truth-shape
