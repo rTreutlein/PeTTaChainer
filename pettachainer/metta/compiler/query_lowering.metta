@@ -307,7 +307,7 @@
       (collapse
          (compile-implication-forward-rules
             $kbid $shape-kb $shape-kb
-            $ctxprf $tv () $tv $a $consequent
+            $ctxprf $tv () $tv () $a $consequent
             (list_to_set (extract-vars $a))
             $execs $proofs $atv))))
 

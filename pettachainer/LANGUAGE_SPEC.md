@@ -335,6 +335,26 @@ empirical producer applies when every consequent variable occurs in the
 antecedent and both sides are plain predicate conjuncts; conditional,
 computed, negated, or existential sides are answered hypothetically only.
 
+### Rules that hold for each value of a parameter
+
+An implication's variables are averaged over: `(Implication (Leak $c $u)
+(Alarm $c $u))` states the probability of an alarm given a leak for a random
+cohort and unit. When the rule instead holds for each cohort with the same
+truth, wrap it in `ForAll`:
+
+```metta
+!(compileadd kb (: sensor (ForAll ($c) (Implication (Leak $c $u) (Alarm $c $u)))
+                   (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
+```
+
+The variables `ForAll` binds are parameters; the others are the individuals
+the rule's probability ranges over. The rule applies as an ordinary rule, but
+every base rate it needs, to reinterpret an STV truth or to invert the rule,
+is taken per parameter value: inverting the sensor rule for an alarm in cohort
+`old` uses the leak and alarm rates of `old` units only. A refined `ForAll`
+rule pools its instances across the parameter values, since they share one
+truth.
+
 ### Refining rules from their instances
 
 Rule refinement is opt-in per KB and must be set before the rules are added:

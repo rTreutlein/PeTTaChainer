@@ -145,20 +145,28 @@
                 (list_to_set (extract-vars $consequent)))))
        (unsupported-source-computes no-compute-inverse))))
 
+;; The pattern a rule's base rate is taken over: a fresh copy of one of its
+;; sides, except the variables a surrounding ForAll binds, which stay shared
+;; with the rule application so the rate is taken per parameter value.
+(: rule-base-rate-pattern (-[semidet]-> (List Variable) Statement Statement))
+(= (rule-base-rate-pattern $params $side)
+   (case (copy_term ($params (rule-query-pattern $side))) (
+      (($params $pattern) (brand Statement $pattern)))))
+
 ;; Rules stored with an STV need a CTV derived from antecedent/consequent base
 ;; rates before modus ponens can use them. An explicit CTV already carries both
 ;; directions and therefore needs no runtime base-rate scans. `$value` is the
 ;; truth the rule applies with, of its stored truth's kind: the stored truth,
 ;; or a refined rule's resolved truth.
 (: compile-implication-ctv-execs
-   (-[semidet]-> KB Statement Statement TV Atom
+   (-[semidet]-> KB (List Variable) Statement Statement TV Atom
        ((List Goal) CTVType)))
-(= (compile-implication-ctv-execs $_kb $_a $_b (CTV $_pos $_neg) $value)
+(= (compile-implication-ctv-execs $_kb $_params $_a $_b (CTV $_pos $_neg) $value)
    (data () (the CTVType $value)))
-(= (compile-implication-ctv-execs $kb $a $b (STV $_s $_c) $value)
+(= (compile-implication-ctv-execs $kb $params $a $b (STV $_s $_c) $value)
    (let*
-      (($a1 (copy_term (rule-query-pattern $a)))
-        ($b1 (copy_term (rule-query-pattern $b))))
+      (($a1 (rule-base-rate-pattern $params $a))
+        ($b1 (rule-base-rate-pattern $params $b)))
       (data
          (the (List Goal)
             ((base-rate-premise $kb $a1 $rule-atv)
@@ -193,11 +201,11 @@
 ;; context-sensitive for assumption queries, while adapter-kb controls where
 ;; reusable source-shape adapters are indexed.
 (: compile-implication-forward-rules
-   (-[nondet]-> KB KBContext KBContext Proof TV (List Goal) Atom Statement Statement
-       (List Variable) (List Goal)
+   (-[nondet]-> KB KBContext KBContext Proof TV (List Goal) Atom (List Variable)
+       Statement Statement (List Variable) (List Goal)
        (List Proof) TV  CompiledAddition))
 (= (compile-implication-forward-rules $kb $shape-kb $adapter-kb $prf $tv
-      $truth-premises $value $a $b $antecedent-vars $execs $proofs $atv)
+      $truth-premises $value $params $a $b $antecedent-vars $execs $proofs $atv)
    (let $out-b
       (skolemize-conclusion-vars $prf $antecedent-vars $b)
      (superpose (
@@ -205,7 +213,7 @@
          (let*
             (($proof-token (implication-proof-token $proofs))
               (($ctv-execs $rule-ctv)
-                 (compile-implication-ctv-execs $kb $a $b $tv $value))
+                 (compile-implication-ctv-execs $kb $params $a $b $tv $value))
               (($out-execs $out-prf $out-type $out-tv)
                  (compile-implication-output
                     $prf $proof-token $out-b (the STVType $btv)))
@@ -417,12 +425,12 @@
 ;; invertible. Reversible Compute goals bind antecedent variables first and
 ;; validate the generated binding with the original forward computation.
 (: inverse-implication
-   (-[det]-> KB Proof Statement Statement Atom (List Goal) (List Goal)
+   (-[semidet]-> KB Proof (List Variable) Statement Statement Atom (List Goal) (List Goal)
        CompiledAddition))
-(= (inverse-implication $kb $prf $a $b $itv $truth-premises $inverse-execs)
+(= (inverse-implication $kb $prf $params $a $b $itv $truth-premises $inverse-execs)
    (let*
-      (($a1 (copy_term (rule-query-pattern $a)))
-        ($b1 (copy_term (rule-query-pattern $b)))
+      (($a1 (rule-base-rate-pattern $params $a))
+        ($b1 (rule-base-rate-pattern $params $b))
         ($a-base-rate (base-rate-premise $kb $a1 $atv))
         ($b-base-rate (base-rate-premise $kb $b1 $btv))
         ($formula-goals
@@ -492,11 +500,11 @@
       (the CTVType $rule-ctv)))
 
 (: compile-antecedent-completion
-   (-[nondet]-> KB $context $variables KBContext Proof TV
+   (-[nondet]-> KB $context $variables KBContext Proof TV (List Variable)
        Statement Statement (List Statement) Number (List Statement)
        CompiledAddition))
 (= (compile-antecedent-completion
-      $kb $ctx $vars $shape-kb $prf $tv
+      $kb $ctx $vars $shape-kb $prf $tv $params
       $full $consequent $children $idx (cons $missing $rest))
    (superpose (
       (if (is-var $missing)
@@ -513,15 +521,10 @@
                       (once
                          (lower-implication-antecedent
                             $kb $ctx $vars $known)))
-                   ($missing-pattern
-                      (copy_term (rule-query-pattern $missing)))
-                   ($full-pattern
-                      (copy_term (rule-query-pattern $full)))
-                   ($known-pattern
-                      (copy_term (rule-query-pattern $known)))
-                   ($consequent-pattern
-                      (copy_term
-                         (rule-query-pattern $consequent)))
+                   ($missing-pattern (rule-base-rate-pattern $params $missing))
+                   ($full-pattern (rule-base-rate-pattern $params $full))
+                   ($known-pattern (rule-base-rate-pattern $params $known))
+                   ($consequent-pattern (rule-base-rate-pattern $params $consequent))
                    ($missing-base-rate
                       (base-rate-premise
                          $kb $missing-pattern $missing-base-tv))
@@ -561,7 +564,7 @@
                            $missing $out-tv))))
                (empty))))
       (compile-antecedent-completion
-         $kb $ctx $vars $shape-kb $prf $tv
+         $kb $ctx $vars $shape-kb $prf $tv $params
          $full $consequent $children (+ $idx 1) $rest))))
 
 (: concrete-inheritance-link? (-[det]-> Atom Atom Bool))
@@ -1007,19 +1010,15 @@
             (if (logic-rule? $name) false
                (implication-instance-supported? $a $b))))))
 
-;; Main statement compiler.
-;;
-;; Implications become forward rules, optional inverse rules, and adapters.
-;; Bidirectional forms are split into two ordinary implications. Facts are
-;; stored directly, with extra derived views for concrete Inheritance links and
-;; projections for configured compound outputs. Structural specialization is
-;; checked before generic implication compilation so variable-headed templates
-;; never leak into the broad `any` index.
-(: compile_ (-[nondet]-> KB AnnotatedStatement  CompiledAddition))
-(= (compile_ $kb (: $prf $Type $tv))
-   (if (is-var $Type) (empty)
-      (if (= $Type (Implication $antecedent $consequent))
-       (let* (($_exists-valid
+;; A rule `(Implication a b)`. `$params` are the variables a surrounding
+;; `(ForAll $params ...)` binds: the rule holds for each of their values with
+;; the same truth, so its instances pool across them, while its base rates are
+;; taken per value (see `rule-base-rate-pattern`).
+(: compile-rule
+   (-[nondet]-> KB (List Variable) Proof Statement Statement TV CompiledAddition))
+(= (compile-rule $kb $params $prf $antecedent $consequent $tv)
+   (let $Type (brand Statement (Implication $antecedent $consequent))
+      (let* (($_exists-valid
                   (validate-explicit-exists-rule
                      $antecedent $consequent))
                ($triggers
@@ -1067,7 +1066,7 @@
              ($value (if $refine? $truth-tv $tv)))
             (superpose (
                (compile-implication-forward-rules
-                  $kb $shape-kb $adapter-kb $prf $tv $truth-premises $value
+                  $kb $shape-kb $adapter-kb $prf $tv $truth-premises $value $params
                   $a $b $antecedent-vars $execs $proofs $atv)
                ;; The stored truth is the goal's axiom, and the rule's
                ;; instances are folded into a second proof of it.
@@ -1087,7 +1086,7 @@
                               $prf $inverse-known $a)
                            (superpose (
                               (inverse-implication
-                                 $kb $prf $na $b $value $truth-premises $inverse-execs)
+                                 $kb $prf $params $na $b $value $truth-premises $inverse-execs)
                               (if (is-var $na) (empty)
                                  (if $pure-conjunction?
                                     (empty)
@@ -1103,12 +1102,29 @@
                   (let $children
                      (statement-children (the (List Atom) (cdr-atom $a)))
                      (compile-antecedent-completion
-                        $kb $ctx $vars $shape-kb $prf $tv
+                        $kb $ctx $vars $shape-kb $prf $tv $params
                         $a $b $children 0 $children))
                   (empty))
                (compile-inheritance-rule-lifts $kb (: $prf $Type $tv)
                   (brand Statement $antecedent)
-                  (brand Statement $consequent)))))))
+                  (brand Statement $consequent)))))))))
+
+;; Main statement compiler.
+;;
+;; Implications become forward rules, optional inverse rules, and adapters.
+;; Bidirectional forms are split into two ordinary implications. Facts are
+;; stored directly, with extra derived views for concrete Inheritance links and
+;; projections for configured compound outputs. Structural specialization is
+;; checked before generic implication compilation so variable-headed templates
+;; never leak into the broad `any` index.
+(: compile_ (-[nondet]-> KB AnnotatedStatement  CompiledAddition))
+(= (compile_ $kb (: $prf $Type $tv))
+   (if (is-var $Type) (empty)
+      (if (= $Type (Implication $antecedent $consequent))
+       (compile-rule $kb () $prf (brand Statement $antecedent) (brand Statement $consequent) $tv)
+      (if (= $Type (ForAll $params (Implication $antecedent $consequent)))
+       (compile-rule $kb (extract-vars $params) $prf
+          (brand Statement $antecedent) (brand Statement $consequent) $tv)
          (if (implication-type? $Type)
             (empty)
          (if (bidirectional-implication-type? $Type)
@@ -1135,4 +1151,4 @@
                         (: $prf $inner (STV (- 1.0 $s) $c))))
                   ($_unsupported-tv
                      (compile-ordinary-fact $kb $prf $Type $tv))))
-               (compile-ordinary-fact $kb $prf $Type $tv))))))))
+               (compile-ordinary-fact $kb $prf $Type $tv)))))))))
