@@ -635,6 +635,7 @@
       (AverageDist true)
       (FoldAllValue true)
       (FoldAll true)
+      (FoldAllTruth true)
       (Not true)
       (GreaterThan true)
       (> true)
@@ -903,6 +904,20 @@
               (premise-bundle
                  ((CPU FoldAllCompiled
                        ($kb $pattern extract-tv $init $fun identity unit-stv)
+                       $out))
+                 (STV 1.0 1.0)
+                 cpu))
+           ;; Like FoldAll, with each member's truth value matched against
+           ;; `$truth` so `$value` can use it.
+           ((FoldAllTruth $pattern $truth $value $init $fun -> $out)
+              (premise-bundle
+                 ((CPU FoldAllCompiled
+                       ($kb $pattern
+                          (extract-with-truth $pattern $truth $value)
+                          $init
+                          $fun
+                          identity
+                          unit-stv)
                        $out))
                  (STV 1.0 1.0)
                  cpu))

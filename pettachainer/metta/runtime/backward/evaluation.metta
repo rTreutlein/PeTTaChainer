@@ -369,6 +369,9 @@
       ((extract-value $pattern $value)
          (let* ((($pattern ($_kb $_ctx $_vars) $_proof $_tv) (copy_term $fact)))
             ($fun $acc $value)))
+      ((extract-with-truth $pattern $truth $value)
+         (let* ((($pattern ($_kb $_ctx $_vars) $_proof $truth) (copy_term $fact)))
+            ($fun $acc $value)))
       ((extract-inheritance-tv $kbid $_statement)
          (let* ((((Inheritance $subject $_concept) ($_kb $_ctx $_vars) $_proof $tv) (copy_term $fact)))
             ($fun $acc (WeightedTv (inheritance-subject-prior-tv $kbid (brand Statement $subject)) $tv))))
@@ -416,12 +419,15 @@
           ($base-rate (base-rate-finish? $finish)))
       (sk-goal-val (CPU $kind $args (finish-aggregate (brand KB (car-atom $args)) $finish $acc))
          (sk-fold-proof $function $proofs)
-         ;; Priors and implication instance estimates, like base rates, are
-         ;; not revised against their members' evidence; their dependencies
-         ;; still reach their readers.
+         ;; Priors, implication instance estimates and folds that read their
+         ;; members' truth values as data, like base rates, are not revised
+         ;; against their members' evidence; their dependencies still reach
+         ;; their readers.
          (if $base-rate ()
             (if (stored-list-member? $finish (uniform-prior uniform-prior-known implication-instance)) ()
-               (sk-join-evidence $ev)))
+               (case $args (
+                  (($_kb $_pattern (extract-with-truth $_p $_t $_v) $_init $_fn $_fin $_mode) ())
+                  ($_other (sk-join-evidence $ev))))))
          (if $base-rate (cons $hash ()) (deps-join (cons (cons $hash ()) $deps))))))
 
 ;; A base rate's value is its user base rate, or else the better of its cached

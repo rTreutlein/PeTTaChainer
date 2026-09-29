@@ -193,7 +193,9 @@ once. Members are read without views that depend on the fold itself. Base-rate
 folds estimate a population: they carry neither member evidence nor member
 dependencies, like a prior, and are proved by `cpu`. An implication instance
 fold carries no member evidence either, so its estimate revises with a rule's
-stated truth, but it keeps its members' dependencies.
+stated truth, but it keeps its members' dependencies. A `FoldAllTruth` fold
+reads its members' truth values as data and is treated the same way, so a rule
+can fold a group's beliefs and read one member of the group again.
 
 A base-rate fold is incremental, since its population grows with everything
 ingested. It keeps its accumulated evidence and each member's contribution; a

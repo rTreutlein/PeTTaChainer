@@ -165,6 +165,7 @@
 (: extract-tv ExtractTV)
 (: ExtractValue Type)
 (: extract-value (-[det]-> Statement $value ExtractValue))
+(: extract-with-truth (-[det]-> Statement Atom $value ExtractValue))
 (: ExtractInheritanceTV Type)
 (: extract-inheritance-tv
    (-[det]-> KB Statement ExtractInheritanceTV))

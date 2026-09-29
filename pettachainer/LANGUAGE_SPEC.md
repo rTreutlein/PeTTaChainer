@@ -532,6 +532,30 @@ Typical distribution fold:
               -> $dist)
 ```
 
+`FoldAllTruth` also matches each member's truth value against a pattern, so
+the value can read it:
+
+```metta
+(FoldAllTruth pattern truth value init fold-fn -> out)
+```
+
+The fold reads its members' truth values as data, so it is not revised
+against their evidence: a rule may fold every candidate's belief and then read
+one of the same candidates again. Normalizing beliefs over a group:
+
+```metta
+(: share
+   (Implication
+      (And (FoldAllTruth (Leak $v) (STV $s $_c) $s 0.0
+              (|-> ($acc $elem) (+ $acc $elem)) -> $total)
+           (Leak $u)
+           (FoldAllTruth (Leak $u) (STV $su $_cu) $su 0.0
+              (|-> ($acc $elem) $elem) -> $mine)
+           (Compute / ($mine $total) -> $p))
+      (Share $u))
+   (CTV (STV $p 1.0) (STV $p 1.0)))
+```
+
 ### 4) Not
 
 ```metta
