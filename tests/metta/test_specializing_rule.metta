@@ -31,7 +31,7 @@
 ;; The structurally indexed conclusion remains reachable from an open query.
 !(test
    (query 100 kb (: $prf (Friend alice $x) $tv))
-   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.9 0.03220967768118125)))
+   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.9 0.03943409189052804)))
 
 ;; The (Symmetric Friend) fact is still stored as a normal fact.
 !(test (match &kb ((Symmetric $x) ($kb MAIN Nil) $p $tv) ($x $p)) (Friend tag))
@@ -70,7 +70,7 @@
 
 !(test
    (query 100 kb3 (: (by alt_rel $prf) (Related alice bob) $tv))
-   (: (by alt_rel (conjunction tag3 r1)) (Related alice bob) (STV 0.6 0.7999999999095193)))
+   (: (by alt_rel (conjunction tag3 r1)) (Related alice bob) (STV 0.6 0.7999999999145729)))
 
 ;; Removing a specializing rule also removes its deferred template. A later
 ;; structural fact must not resurrect it, and re-adding it must work normally.

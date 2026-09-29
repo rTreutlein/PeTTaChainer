@@ -165,6 +165,10 @@ latest view that depends neither on its own key nor on any key unifying with
 it; older views stay available to exactly the consumers a newer one came to
 depend on. Because dependency sets are transitive, this rejects self-support
 through inverted rules, longer cycles, and more general or more specific keys.
+A compound And or Or antecedent is lowered into its parts, so what a rule
+concludes from it depends on the parts' keys and never on the compound's; a
+row inverting such a rule into the compound therefore also excludes views that
+depend on any of its parts.
 
 Premises are selected by the consumer. A premise whose value shares fact
 evidence with what the row already used is replaced by the merge of that key's

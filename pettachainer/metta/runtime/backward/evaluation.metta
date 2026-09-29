@@ -930,10 +930,46 @@
             (let $retry (copy_term $row) (sk-row-result $retry (sk-row-state $khash $key true $retry))))
          ($_other (sk-row-result $greedy $state))))))
 
+(: sk-compound-parts (-[det]-> Atom (List Atom)))
+(= (sk-compound-parts $term)
+   (if (if (is-expr $term) (stored-list-member? (car-atom $term) (And Or)) false)
+      (the (List Atom) (cdr-atom $term))
+      ()))
+
+;; The statements with, after each compound And or Or, its parts, nested parts
+;; included.
+(: sk-statement-parts (-[det]-> (List Atom) (List Atom)))
+(= (sk-statement-parts ()) ())
+(= (sk-statement-parts (cons $term $rest))
+   (cons $term (sk-statement-parts (append-flat (sk-compound-parts $term) $rest))))
+
+(: sk-part-exclusions (-[det]-> KBContext Atom (List Number) (List Number)))
+(= (sk-part-exclusions $kbctx $part $hashes)
+   (let $key (sk-key $part $kbctx)
+      (append-flat (sk-unifier-hashes (index-hash $key) $key) $hashes)))
+
+;; A compound And or Or antecedent is lowered into its parts, so what a rule
+;; concludes from it depends on the parts' keys, never on the compound's.
+;; Inverting that rule concludes the compound again, so its row also excludes
+;; views depending on any part: the premise it inverts was derived from them.
+(: sk-row-exclusions (-[det]-> Number SkeletonKey Atom (List Number)))
+(= (sk-row-exclusions $khash $key $proof)
+   (let $own (sk-unifier-hashes $khash $key)
+      (if (if (is-expr $proof)
+             (let $head (car-atom $proof)
+                (if (is-var $head) false
+                   (case (copy_term $head) (((inverted $_rule with $_prior $_token) true) ($_other false)))))
+             false)
+         (case $key (
+            ((sk-key $type $kbctx)
+               (deps-set (foldr-flat (sk-part-exclusions $kbctx) $own (sk-statement-parts (cons $type ())))))
+            ($_fold $own)))
+         $own)))
+
 (: sk-row-state (-[semidet]-> Number SkeletonKey Bool SkeletonRow SkeletonRowState))
 (= (sk-row-state $khash $key $facts-first (sk-row $_ident ($type $kbctx $proof $_tv) $premises $_seq))
    (fold-semidet
-      (sk-premise-step (sk-unifier-hashes $khash $key) (shared-evidence-frontier-proof? $proof) $facts-first)
+      (sk-premise-step (sk-row-exclusions $khash $key $proof) (shared-evidence-frontier-proof? $proof) $facts-first)
       (sk-acc () (sk-sample-exclusions $type $kbctx) (cons $khash ()) ())
       $premises))
 

@@ -31,11 +31,6 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 ;; 0.7 OR 0.4 = 0.82, not an evidence-weighted merge of the two causes.
-;; Known issue (TODO.md): the answer currently comes from inverting
-;; failureStopsOutput on a NoOutput derived from this very Or. Its strength is
-;; the same 0.82, but the direct proof below is the one that should stand.
-;;   (conjunction pressDefect (by propagateUpstreamFailure
-;;      (conjunction feederFeedsPress feederDefect)))  (STV 0.82 0.9318166197352297)
 !(test
    (query 100 machineForwardKb
       (: $proof
@@ -43,14 +38,12 @@
             (Defective press)
             (UpstreamFailure press))
          $tv))
-   (: ((inverted failureStopsOutput with cpu cpu)
-         (by failureStopsOutput
-            (conjunction
-               pressDefect
-               (by propagateUpstreamFailure
-                  (conjunction feederFeedsPress feederDefect)))))
+   (: (conjunction
+          pressDefect
+          (by propagateUpstreamFailure
+             (conjunction feederFeedsPress feederDefect)))
       (Or (Defective press) (UpstreamFailure press))
-      (STV 0.8200000000000001 0.9286647861227523)))
+      (STV 0.8200000000000001 0.9318166197352297)))
 
 !(test
    (query 150 machineForwardKb
