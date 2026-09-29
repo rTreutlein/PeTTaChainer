@@ -370,9 +370,10 @@ name it with `WithPrior`:
 The rule is then also inverted per instance: the observation `(Alarm m)`
 updates `(LeakPredicted m)` by Bayes' rule, with P(alarm) derived from that
 prior and the rule by total probability, and the result proves `(SealLeak m)`.
-Its evidence contains the base-rate inversion's, so it replaces that answer
-wherever the prior is provable; for an instance without one, the base-rate
-inversion still answers. Together with a transition rule that predicts the
+For an instance without a provable prior, the base rate of the rule's
+antecedent stands in as the prior, still with P(alarm) derived from it, so the
+update never contradicts the rule; the instance's own update carries more
+evidence and replaces that answer wherever its prior is provable. Together with a transition rule that predicts the
 next state from the current one, this is a filter over time: each state's
 posterior predicts the next, and each observation updates that prediction.
 `WithPrior` may appear inside `ForAll`.

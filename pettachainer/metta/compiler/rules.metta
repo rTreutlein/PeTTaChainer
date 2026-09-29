@@ -460,25 +460,32 @@
               ((inverted $prf with cpu cpu) $prfb_wit)
               $a $mp-tv))))
 
-;; A rule declared `(WithPrior p (Implication a b))` is also inverted per
-;; instance: P(a) is the truth of `p` for the observed instance, and P(b)
-;; follows from it and the rule by total probability, so an observation of b
-;; updates what is believed about this instance rather than the population
-;; rate. Its evidence contains the base-rate inversion's, so it replaces that
-;; answer wherever the prior is provable.
+;; A rule declared `(WithPrior p (Implication a b))` is inverted per
+;; instance: P(a) is the instance's prior and P(b) follows from it and the rule
+;; by total probability, so an observation of b updates what is believed about
+;; this instance, never contradicting the rule. The prior is the truth of `p`
+;; for the observed instance, or, with `population`, a's base rate for an
+;; instance without one; the first's evidence contains the second's, so it
+;; replaces that answer wherever `p` is provable.
 (: prior-inverse-implication
-   (-[semidet]-> KB Proof (List Variable) Statement Statement Statement TV Atom
+   (-[semidet]-> KB Proof (List Variable) Atom Statement Statement TV Atom
        (List Goal) (List Goal) CompiledAddition))
 (= (prior-inverse-implication $kb $prf $params $prior $a $b $tv $value
       $truth-premises $inverse-execs)
    (let*
-      ((($ctv-execs $rule-ctv)
+      (($population (== $prior population))
+       ($prior-goal
+          (if $population
+             (base-rate-premise $kb (rule-base-rate-pattern $params $a) $atv)
+             (: (make-kb-context $kb $ctx $vars) $prior-prf (brand Statement $prior) $atv)))
+       ($prior-token (if $population cpu $prior-prf))
+       (($ctv-execs $rule-ctv)
           (compile-implication-ctv-execs $kb $params $a $b $tv $value))
        ($premises
           (append-goals $truth-premises
              (cons (: (make-kb-context $kb $ctx $vars) $prfb_wit $b $btv_wit)
                 (append-goals $inverse-execs
-                   (cons (: (make-kb-context $kb $ctx $vars) $prior-prf $prior $atv)
+                   (cons $prior-goal
                       (append-goals $ctv-execs
                          (cons (CPU CTVModusPonensFormula (quote ($atv $rule-ctv)) $btv)
                             (cons (CPU CTVInversionFormula (quote ($atv $btv $rule-ctv)) $iitv)
@@ -486,7 +493,7 @@
                                   ()))))))))))
       ($premises |-
          (: (make-kb-context $kb $ctx $vars)
-            ((inverted $prf with $prior-prf derived) $prfb_wit)
+            ((inverted $prf with $prior-token derived) $prfb_wit)
             $a $mp-tv))))
 
 ;; For every child M of a pure conjunction H, compile the direct probabilistic
@@ -1116,12 +1123,16 @@
                            (skolemize-conclusion-vars
                               $prf $inverse-known $a)
                            (superpose (
-                              (inverse-implication
-                                 $kb $prf $params $na $b $value $truth-premises $inverse-execs)
-                              (if (== $prior no-prior) (empty)
-                                 (prior-inverse-implication $kb $prf $params
-                                    (skolemize-conclusion-vars $prf $inverse-known (brand Statement $prior))
-                                    $na $b $tv $value $truth-premises $inverse-execs))
+                              (if (== $prior no-prior)
+                                 (inverse-implication
+                                    $kb $prf $params $na $b $value $truth-premises $inverse-execs)
+                                 (superpose (
+                                    (let $instance-prior
+                                       (skolemize-conclusion-vars $prf $inverse-known (brand Statement $prior))
+                                       (prior-inverse-implication $kb $prf $params $instance-prior
+                                          $na $b $tv $value $truth-premises $inverse-execs))
+                                    (prior-inverse-implication $kb $prf $params population
+                                       $na $b $tv $value $truth-premises $inverse-execs))))
                               (if (is-var $na) (empty)
                                  (if $pure-conjunction?
                                     (empty)
