@@ -42,12 +42,14 @@ def _query_worker(
     expression: str,
     logic_config_path: Optional[str],
     evidence_confidence_k: float,
+    rule_refinement: bool,
     conn,
 ):
     try:
         handler = PeTTaChainer(logic_config=logic_config_path)
         handler.set_evidence_confidence_k(evidence_confidence_k)
         handler.kb = kb
+        handler.set_rule_refinement(rule_refinement)
         if added_atoms:
             handler.add_atoms_no_check(added_atoms)
         atoms = handler.handler.process_metta_string(f"!({expression})")
@@ -97,6 +99,7 @@ class PeTTaChainer:
         self._pattern_mining_on_add = False
         self._logic_config_path: Optional[Path] = None
         self._evidence_confidence_k = 800.0
+        self._rule_refinement = False
         self._query_metrics_enabled = False
         self._query_metrics_path = os.environ.get(
             "PETTACHAINER_QUERY_METRICS_PATH"
@@ -245,6 +248,16 @@ class PeTTaChainer:
             f"!(set-evidence-confidence-k {float(k)!r})"
         )
         self._evidence_confidence_k = float(k)
+
+    def set_rule_refinement(self, enabled: bool) -> None:
+        """Refine this KB's rules from their instances; set before adding rules.
+
+        A refined rule applies with the revision of its stated truth and the
+        fold of its instances. Timed subprocess queries replay the setting.
+        """
+        value = "true" if enabled else "false"
+        self.handler.process_metta_string(f"!(set-rule-refinement {self.kb} {value})")
+        self._rule_refinement = enabled
 
     def set_pattern_mining_on_add(self, enabled: bool) -> None:
         value = "true" if enabled else "false"
@@ -401,6 +414,7 @@ class PeTTaChainer:
                 expression,
                 str(self._logic_config_path) if self._logic_config_path else None,
                 self._evidence_confidence_k,
+                self._rule_refinement,
                 child_conn,
             ),
             daemon=True,

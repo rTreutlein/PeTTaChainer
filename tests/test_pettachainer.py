@@ -10,6 +10,27 @@ from pettachainer import PeTTaChainer
 
 
 class TestPeTTaChainer(unittest.TestCase):
+    def test_rule_refinement_applies_in_process_and_to_timed_queries(self):
+        handler = PeTTaChainer()
+        handler.set_rule_refinement(True)
+        handler.add_atoms_no_check([
+            "(: a1 (A a) (STV 1.0 0.9))",
+            "(: a2 (A b) (STV 1.0 0.9))",
+            "(: b1 (B a) (STV 1.0 0.9))",
+            "(: ab (Implication (A $x) (B $x)) (CTV (STV 0.8 0.9) (STV 0.0 1.0)))",
+        ])
+        # The instance a revises the rule's stated truth, live and in the
+        # subprocess a timed query spawns.
+        for timeout_sec in (0, 30):
+            with self.subTest(timeout_sec=timeout_sec):
+                result = handler.query(
+                    "(: $prf (B b) $tv)", steps=400, timeout_sec=timeout_sec
+                )
+                self.assertEqual(
+                    result,
+                    ["(: (by ab a2) (B b) (STV 0.8000224974690348 0.9000097638542305))"],
+                )
+
     def test_evidence_confidence_k_applies_in_process_and_to_timed_queries(self):
         handler = PeTTaChainer()
         handler.set_evidence_confidence_k(1)
