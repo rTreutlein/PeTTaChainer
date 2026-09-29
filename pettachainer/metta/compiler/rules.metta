@@ -168,12 +168,12 @@
       (($a1 (rule-base-rate-pattern $params $a))
         ($b1 (rule-base-rate-pattern $params $b)))
       (data
-         (the (List Goal)
-            ((base-rate-premise $kb $a1 $rule-atv)
-             (base-rate-premise $kb $b1 $rule-btv)
-             (CPU ImplicationCTVFormula
-                (quote ($rule-atv $rule-btv $value))
-                $rule-ctv)))
+         (append-goals (base-rate-premises $kb $a1 $rule-atv)
+            (append-goals (base-rate-premises $kb $b1 $rule-btv)
+               (cons (CPU ImplicationCTVFormula
+                        (quote ($rule-atv $rule-btv $value))
+                        $rule-ctv)
+                  ())))
          (the CTVType $rule-ctv))))
 
 ;; A negated conclusion is stored as positive evidence for its inner expression
@@ -275,9 +275,9 @@
 ;; is seeded with that prior and sparse observations revise the prior instead
 ;; of silently behaving like an uninformative generic predicate. Ordinary
 ;; patterns use the generic evidence accumulator.
-(: base-rate-premise
+(: base-rate-fold
    (-[det]-> KB Statement $truth-value Goal))
-(= (base-rate-premise $kb $pattern $brtv)
+(= (base-rate-fold $kb $pattern $brtv)
    (let $generic
       (CPU FoldAllCompiled
          (quote
@@ -316,6 +316,61 @@
                      $brtv)))
             $generic)
          $generic)))
+
+;; A conjunction's conjuncts grouped into parts that share no variables;
+;; ground conjuncts join the first part that has variables, since a single
+;; instance multiplies nothing.
+(: ConjunctSplit Type)
+(: conjunct-split (-[det]-> (List Atom) (List Atom) ConjunctSplit))
+(: split-by-variables (-[det]-> (List Variable) (List Atom) ConjunctSplit ConjunctSplit))
+(= (split-by-variables $vars $part (conjunct-split $touching $apart))
+   (if (== (/==\ $vars (extract-vars $part)) ())
+      (conjunct-split $touching (cons $part $apart))
+      (conjunct-split (append $part $touching) $apart)))
+(: add-to-parts (-[det]-> (List Atom) Atom (List Atom)))
+(= (add-to-parts $parts $conjunct)
+   (if (== (extract-vars $conjunct) ()) $parts
+      (case (foldr-flat (split-by-variables (extract-vars $conjunct)) (conjunct-split () ()) $parts) (
+         ((conjunct-split $touching $apart) (cons (cons $conjunct $touching) $apart))))))
+(: add-ground-to-parts (-[det]-> (List Atom) Atom (List Atom)))
+(= (add-ground-to-parts $parts $conjunct)
+   (if (== (extract-vars $conjunct) ())
+      (case $parts (
+         (() (cons (cons $conjunct ()) ()))
+         ((cons $first $rest) (cons (cons $conjunct $first) $rest))))
+      $parts))
+(: conjunct-parts (-[det]-> (List Atom) (List Atom)))
+(= (conjunct-parts $conjuncts)
+   (fold-flat add-ground-to-parts (fold-flat add-to-parts () $conjuncts) $conjuncts))
+
+;; The premises estimating a pattern's base rate as `$brtv`. A conjunction
+;; whose conjuncts fall into parts sharing no variables ranges over the cross
+;; product of the parts' instances, so its rate is exactly the product of
+;; theirs: each part is folded alone and AndFormula combines them, instead of
+;; folding over every combination.
+(: BaseRateParts Type)
+(: base-rate-parts (-[det]-> (List Goal) (List Atom) BaseRateParts))
+(: base-rate-part (-[det]-> KB Atom BaseRateParts BaseRateParts))
+(= (base-rate-part $kb $part (base-rate-parts $goals $tvs))
+   (base-rate-parts
+      (cons (base-rate-fold $kb
+               (brand Statement (if (== (cdr-atom $part) ()) (car-atom $part) (cons-atom And $part)))
+               $tv)
+         $goals)
+      (cons $tv $tvs)))
+(: base-rate-premises (-[det]-> KB Statement $truth-value (List Goal)))
+(= (base-rate-premises $kb $pattern $brtv)
+   (base-rate-part-premises $kb $pattern $brtv
+      (conjunct-parts (implication-side-conjuncts $pattern))))
+;; The parts arrive as a parameter: the determinism checker proves the fold
+;; over a parameter list, not over a function result.
+(: base-rate-part-premises (-[det]-> KB Statement $truth-value (List Atom) (List Goal)))
+(= (base-rate-part-premises $kb $pattern $brtv $parts)
+   (if (== (cdr-atom $parts) ())
+      (cons (base-rate-fold $kb $pattern $brtv) ())
+      (case (foldr-flat (base-rate-part $kb) (base-rate-parts () ()) $parts) (
+         ((base-rate-parts $goals $tvs)
+            (append-goals $goals (cons (CPU AndFormula $tvs $brtv) ())))))))
 
 ;; An implication is also estimated from its instances: one sample per
 ;; antecedent binding whose consequent is provable, both sides resolved through
@@ -396,8 +451,10 @@
                       (cons $fold
                          (cons $positive
                             (if $ctv?
-                               (cons (base-rate-premise $kb (copy_term (rule-query-pattern $antecedent)) $rule-atv)
-                                  (cons (base-rate-premise $kb (copy_term (rule-query-pattern $consequent)) $rule-btv)
+                               (append-goals
+                                  (base-rate-premises $kb (copy_term (rule-query-pattern $antecedent)) $rule-atv)
+                                  (append-goals
+                                     (base-rate-premises $kb (copy_term (rule-query-pattern $consequent)) $rule-btv)
                                      (cons (CPU ImplicationCTVFormula
                                               (quote ($rule-atv $rule-btv $instance-tv)) $instance-ctv)
                                         ())))
@@ -431,8 +488,8 @@
    (let*
       (($a1 (rule-base-rate-pattern $params $a))
         ($b1 (rule-base-rate-pattern $params $b))
-        ($a-base-rate (base-rate-premise $kb $a1 $atv))
-        ($b-base-rate (base-rate-premise $kb $b1 $btv))
+        ($a-base-rates (base-rate-premises $kb $a1 $atv))
+        ($b-base-rates (base-rate-premises $kb $b1 $btv))
         ($formula-goals
            (cons
               (CPU ImplicationCTVFormula
@@ -453,8 +510,8 @@
                     ()))
               (append-goals
                  $inverse-execs
-                 (cons $a-base-rate
-                    (cons $b-base-rate $formula-goals))))))
+                 (append-goals $a-base-rates
+                    (append-goals $b-base-rates $formula-goals))))))
       ($premises |-
          (: (make-kb-context $kb $ctx $vars)
               ((inverted $prf with cpu cpu) $prfb_wit)
@@ -474,10 +531,10 @@
       $truth-premises $inverse-execs)
    (let*
       (($population (== $prior population))
-       ($prior-goal
+       ($prior-goals
           (if $population
-             (base-rate-premise $kb (rule-base-rate-pattern $params $a) $atv)
-             (: (make-kb-context $kb $ctx $vars) $prior-prf (brand Statement $prior) $atv)))
+             (base-rate-premises $kb (rule-base-rate-pattern $params $a) $atv)
+             (cons (: (make-kb-context $kb $ctx $vars) $prior-prf (brand Statement $prior) $atv) ())))
        ($prior-token (if $population cpu $prior-prf))
        (($ctv-execs $rule-ctv)
           (compile-implication-ctv-execs $kb $params $a $b $tv $value))
@@ -485,7 +542,7 @@
           (append-goals $truth-premises
              (cons (: (make-kb-context $kb $ctx $vars) $prfb_wit $b $btv_wit)
                 (append-goals $inverse-execs
-                   (cons $prior-goal
+                   (append-goals $prior-goals
                       (append-goals $ctv-execs
                          (cons (CPU CTVModusPonensFormula (quote ($atv $rule-ctv)) $btv)
                             (cons (CPU CTVInversionFormula (quote ($atv $btv $rule-ctv)) $iitv)
@@ -513,25 +570,20 @@
        ((List Goal) $base-truth-value CTVType)))
 (= (antecedent-completion-rule-info
       $kb $full-pattern $_consequent-pattern (CTV $pos $neg))
-   (let $full-base-rate
-      (base-rate-premise
-         $kb $full-pattern $full-base-tv)
-      (data
-         (cons $full-base-rate ())
-         $full-base-tv
-         (CTV $pos $neg))))
+   (data
+      (base-rate-premises $kb $full-pattern $full-base-tv)
+      $full-base-tv
+      (CTV $pos $neg)))
 (= (antecedent-completion-rule-info
       $kb $full-pattern $consequent-pattern (STV $s $c))
    (data
-      (the (List Goal)
-         ((base-rate-premise
-             $kb $full-pattern $full-base-tv)
-          (base-rate-premise
-             $kb $consequent-pattern $consequent-base-tv)
-          (CPU ImplicationCTVFormula
-             (quote
-                ($full-base-tv $consequent-base-tv (STV $s $c)))
-             $rule-ctv)))
+      (append-goals (base-rate-premises $kb $full-pattern $full-base-tv)
+         (append-goals (base-rate-premises $kb $consequent-pattern $consequent-base-tv)
+            (cons (CPU ImplicationCTVFormula
+                     (quote
+                        ($full-base-tv $consequent-base-tv (STV $s $c)))
+                     $rule-ctv)
+               ())))
       $full-base-tv
       (the CTVType $rule-ctv)))
 
@@ -551,7 +603,12 @@
                   (append
                      (remove-index $idx $children)
                      (cons $consequent ()))))
-            (if (vars-covered? $missing (list_to_set (extract-vars $known)))
+            ;; A missing conjunct that alone links the others' variables would be
+            ;; inferred for every combination of unrelated instances; only a
+            ;; conjunct whose variables the rest already connects is completed.
+            (if (if (vars-covered? $missing (list_to_set (extract-vars $known)))
+                   (== (cdr-atom (conjunct-parts (implication-side-conjuncts $known))) ())
+                   false)
                (let*
                   ((($known-execs $known-proofs $known-witness-tv)
                       (once
@@ -561,12 +618,10 @@
                    ($full-pattern (rule-base-rate-pattern $params $full))
                    ($known-pattern (rule-base-rate-pattern $params $known))
                    ($consequent-pattern (rule-base-rate-pattern $params $consequent))
-                   ($missing-base-rate
-                      (base-rate-premise
-                         $kb $missing-pattern $missing-base-tv))
-                   ($known-base-rate
-                      (base-rate-premise
-                         $kb $known-pattern $known-base-tv))
+                   ($missing-base-rates
+                      (base-rate-premises $kb $missing-pattern $missing-base-tv))
+                   ($known-base-rates
+                      (base-rate-premises $kb $known-pattern $known-base-tv))
                    (($rule-base-execs $full-base-tv $rule-ctv)
                       (antecedent-completion-rule-info
                          $kb $full-pattern $consequent-pattern $tv))
@@ -577,8 +632,8 @@
                          $known-execs
                          (append-goals
                             $rule-base-execs
-                            (cons $known-base-rate
-                               (cons $missing-base-rate
+                            (append-goals $known-base-rates
+                               (append-goals $missing-base-rates
                                   (the (List Goal)
                                      ((CPU CTVAntecedentCompletionFormula
                                          (quote

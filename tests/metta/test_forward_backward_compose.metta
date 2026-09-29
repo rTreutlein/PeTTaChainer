@@ -83,18 +83,25 @@
          (CTV (STV 0.9639 0.5) (STV 0.5 0.0))))
    ())
 
-;; No rule derives the implication hypothetically, but the stored instances
-;; support it empirically: the instance fold answers with count confidence.
+;; The stored instances support the implication empirically, and copying
+;; alice's predicates to a hypothetical tall individual derives it through
+;; copyPredicate; the two revise.
 !(test
    (query 100 openVariableConclusionImplicationKb
       (: $p (Implication (Tall $x) (Female $x)) $tv))
-   (: (implication-instance-fold
-         (foldall-proof
-            (implication-instance-sample tallAlice femaleAlice)
-            (implication-instance-sample tallMary femaleMary)))
+   (: (merge/revision
+         (implication-instance-fold
+            (foldall-proof
+               (implication-instance-sample tallAlice femaleAlice)
+               (implication-instance-sample tallMary femaleMary)))
+         (total-implication
+            ((antecedent-completion copyPredicate 1 with cpu cpu)
+               (conjunction (conjunction femaleAlice tallAlice) (ctx proof 8)))
+            ((antecedent-completion copyPredicate 1 with cpu cpu)
+               (conjunction (conjunction femaleAlice tallAlice) (ctx proof 9)))))
       (Implication (Tall $_x) (Female $_x))
-      (CTV (STV 0.9 0.000562183771628459)
-           (STV 0.8999999999999999 0.00014054594290711475))))
+      (CTV (STV 0.9280082285314655 0.008858675593265147)
+           (STV 0.8980997942345232 0.0001415456618351226))))
 
 !(test
    (query 100 openVariableConclusionImplicationKb

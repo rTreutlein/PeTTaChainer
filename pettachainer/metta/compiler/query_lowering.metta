@@ -102,8 +102,10 @@
 (= (rule-truth-query-adds $kb $Type $antecedent $consequent)
    (let $premises
       (cons (: (kbctx $kb) $truth-prf (RuleTruth $Type) $truth-tv)
-         (cons (base-rate-premise $kb (copy_term (rule-query-pattern (brand Statement $antecedent))) $atv)
-            (cons (base-rate-premise $kb (copy_term (rule-query-pattern (brand Statement $consequent))) $btv)
+         (append-goals
+            (base-rate-premises $kb (copy_term (rule-query-pattern (brand Statement $antecedent))) $atv)
+            (append-goals
+               (base-rate-premises $kb (copy_term (rule-query-pattern (brand Statement $consequent))) $btv)
                (cons (CPU ImplicationCTVFormula (quote ($atv $btv $truth-tv)) $ctv) ()))))
       (cons
          (brand CompiledAddition

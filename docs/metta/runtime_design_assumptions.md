@@ -202,6 +202,12 @@ members that changed. Inheritance-weighted members count at unit mass and the
 evidence is scaled by the current subject mass when the fold finishes, so a
 growing universe does not leave contributions stale.
 
+A conjunction whose conjuncts fall into parts sharing no variables ranges
+over the cross product of the parts' instances, so its base rate is exactly
+the product of the parts' rates: each part is folded on its own and the rates
+are combined, instead of folding over every combination. Ground conjuncts
+stay with a part, since a single instance multiplies nothing.
+
 A KB may opt into base-rate smoothing, which reads every computed base rate
 as its n observations plus k pseudo-observations at 0.5: the strength of a
 rate over few observations then stays uncertain, while its confidence is

@@ -491,8 +491,11 @@ Completion is compiled only for a plain `And` antecedent (no `Exists`), only
 when the antecedent contains no source `Compute` premise, and only for
 children that are not bare variables and whose variables are exactly the
 variables of the other children plus the consequent. A child that carries a
-variable absent from the rest of the rule is skipped. `no_inverse` disables
-whole-antecedent inversion but not completion.
+variable absent from the rest of the rule is skipped, and so is a child that
+alone links the others' variables: for `(Implication (And (Next $p $u) (Leak
+$p)) (Pred $u))`, recovering `(Next $p $u)` from `(Leak $p)` and `(Pred $u)`
+would infer a link for every pair of unrelated instances. `no_inverse`
+disables whole-antecedent inversion but not completion.
 
 ```metta
 !(compileadd kb (: a A (STV 1.0 0.9)))
