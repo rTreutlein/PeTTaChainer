@@ -259,6 +259,15 @@
 (: sk-fact-key (-[det]-> SkFact SkeletonKey))
 (= (sk-fact-key ($type $kbctx $_proof $_tv)) (sk-key $type $kbctx))
 
+;; A ground statement stored with confidence 1 is certain: no other proof
+;; could change its value.
+(: sk-certain-step (-[det]-> Bool SkFact Bool))
+(= (sk-certain-step $seen ($_type $_kbctx $_proof $tv))
+   (if $seen true (case $tv (((STV $_s $c) (>= $c 1.0)) ($_other false)))))
+(: sk-certain? (-[det]-> Statement (List SkFact) Bool))
+(= (sk-certain? $type $facts)
+   (if (== (extract-vars $type) ()) (fold-flat sk-certain-step false $facts) false))
+
 (: sk-leaf-answer-step (-[semidet]-> SkPattern Atom SkFact Atom))
 (= (sk-leaf-answer-step $node $_acc $fact) (sk-add-answer! $node (sk-fact-key $fact)))
 
@@ -872,12 +881,15 @@
                 ($_member (install-member-inheritance-rules! $type $kbctx))
                 ($_activate (sk-activate-pending!))
                 ($_mark (sk-mark-expanded! $node))
-                ($_leaves
-                   (fold-semidet (sk-leaf-answer-step $node) () (sk-leaf-facts $type $kbctx (sk-filter $proof $tv))))
+                ($leaf-facts (sk-leaf-facts $type $kbctx (sk-filter $proof $tv)))
+                ($_leaves (fold-semidet (sk-leaf-answer-step $node) () $leaf-facts))
                 ($owner (copy_term $node))
-                (($rule-type $rule-kbctx $_node-proof $_node-tv) (copy_term $node))
-                ($matches (collapse (sk-rule-match (assemble-stored-runtime-fact $rule-type $rule-kbctx $_rule-proof $_rule-tv)))))
-            (fold-semidet (sk-start-rule-step $owner) () $matches)))))))
+                (($rule-type $rule-kbctx $_node-proof $_node-tv) (copy_term $node)))
+            ;; No rule is applied to a certain statement.
+            (if (sk-certain? $type $leaf-facts) ()
+               (let $matches
+                  (collapse (sk-rule-match (assemble-stored-runtime-fact $rule-type $rule-kbctx $_rule-proof $_rule-tv)))
+                  (fold-semidet (sk-start-rule-step $owner) () $matches)))))))))
 
 (: sk-fold-answer-step (-[semidet]-> SkPattern Atom SkeletonKey Atom))
 (= (sk-fold-answer-step $fold $acc $key) (sk-member-step $key $acc $fold))

@@ -28,7 +28,7 @@ class TestPeTTaChainer(unittest.TestCase):
                 self.assertEqual(
                     handler.query("(: $prf (Leak q) $tv)", steps=400, timeout_sec=timeout_sec),
                     ["(: ((inverted sensor with cpu cpu) aq) (Leak q) "
-                     "(STV 0.22499624998295187 0.4048478801205712))"],
+                     "(STV 0.21599999999999994 0.43979285736925194))"],
                 )
 
     def test_rule_refinement_applies_in_process_and_to_timed_queries(self):

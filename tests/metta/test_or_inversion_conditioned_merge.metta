@@ -50,25 +50,14 @@
             (LocalProblem current)
             (ProblemDependency current))
          $tv))
-   (: (by (bi-backward problemDefinition)
-         (merge/revision
-            (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior))
-            ((inverted problemRaisesAlarm with cpu cpu)
-            currentAlarm)))
-      (Or (LocalProblem current) (ProblemDependency current))
-      (STV 0.5200045346920863 0.9140643698869183)))
+   (: (by (bi-backward problemDefinition) (merge/revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) ((inverted problemRaisesAlarm with cpu cpu) currentAlarm))) (Or (LocalProblem current) (ProblemDependency current)) (STV 0.5200045678777936 0.9140643895638585)))
 
 ;; The general Problem estimate can use both the definition and the alarm.
 ;; The base rates count the whole population, including the derived alarm.
 !(test
    (query 5000 orInversionConditionedMergeKb
       (: $proof (Problem current) $tv))
-   (: (merge/revision
-         (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior))
-         ((inverted problemRaisesAlarm with cpu cpu)
-         currentAlarm))
-      (Problem current)
-      (STV 0.5200045346920863 0.9140643700546157)))
+   (: (merge/revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) ((inverted problemRaisesAlarm with cpu cpu) currentAlarm)) (Problem current) (STV 0.5200045678777936 0.9140643897315559)))
 
 ;; LocalProblem cannot reuse evidence that depends on itself. Its constrained
 ;; view retains the direct prior even though the general Problem estimate changes.

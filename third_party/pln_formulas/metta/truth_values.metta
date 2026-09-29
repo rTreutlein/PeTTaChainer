@@ -406,14 +406,20 @@
 ;; average them at confidence 0 instead of dividing by the zero total count.
 (: merge-stv-fields
    (-[det]-> Number Number Number Number STVType))
+;; A certain truth value (confidence 1) stands for unlimited evidence, so
+;; revising it with finite evidence leaves it unchanged; two certain values
+;; average.
 (= (merge-stv-fields $m1 $conf1 $m2 $conf2)
-   (let*
-      (($count1 (confidence-to-count $conf1))
-        ($count2 (confidence-to-count $conf2))
-        ($c (+ $count1 $count2)))
-      (if (<= $c 0.0)
-         (STV (/ (+ $m1 $m2) 2) 0.0)
-         (STV (/ (+ (* $m1 $count1) (* $m2 $count2)) $c) (count-confidence $c)))))
+   (if (>= $conf1 1.0)
+      (if (>= $conf2 1.0) (STV (/ (+ $m1 $m2) 2) 1.0) (STV $m1 $conf1))
+      (if (>= $conf2 1.0) (STV $m2 $conf2)
+         (let*
+            (($count1 (confidence-to-count $conf1))
+              ($count2 (confidence-to-count $conf2))
+              ($c (+ $count1 $count2)))
+            (if (<= $c 0.0)
+               (STV (/ (+ $m1 $m2) 2) 0.0)
+               (STV (/ (+ (* $m1 $count1) (* $m2 $count2)) $c) (count-confidence $c)))))))
 
 (: merge-stvs
    (-[det]-> STVType STVType STVType))

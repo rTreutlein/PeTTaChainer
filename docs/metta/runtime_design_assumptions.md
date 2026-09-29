@@ -141,6 +141,10 @@ only for output. Stored proofs refer only to earlier ids, so they form a DAG. A
 row keeps its latest view and the views it replaced, and later queries read
 them until something below them changes.
 
+A certain truth value, confidence 1, stands for unlimited evidence: revision
+leaves it unchanged, and a ground key stored with one applies no rules,
+since no other proof could change its value.
+
 A key's value merges its stored facts and one view per row:
 
 - an identical proof pools its evidence; a marginal projection gives way to its
