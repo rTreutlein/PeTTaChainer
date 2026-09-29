@@ -161,22 +161,6 @@
 (: NotFormula (-[det]-> STVType STVType))
 (= (NotFormula (STV $s $c)) (STV (- 1 $s) $c))
 
-(: InversionSmallestIntersectionProbability (-[det]-> Number Number Number))
-(= (InversionSmallestIntersectionProbability $sa $sb)
-   (max 0.0 (/ (- (+ $sa $sb) 1.0) $sa)))
-
-(: InversionLargestIntersectionProbability (-[det]-> Number Number Number))
-(= (InversionLargestIntersectionProbability $sa $sb)
-   (min 1.0 (/ $sb $sa)))
-
-(: InversionConsistency
-   (-[det]-> STVType STVType STVType Bool))
-(= (InversionConsistency (STV $sa $_ca) (STV $sb $_cb) (STV $sab $_cab))
-   (if (<= $sa 0.0) false
-      (if (<= $sb 0.0) false
-         (and (<= (InversionSmallestIntersectionProbability $sa $sb) $sab)
-            (<= $sab (InversionLargestIntersectionProbability $sa $sb))))))
-
 (: BaseRateAcc (-[semidet]-> BaseRateEvidenceState TV BaseRateEvidenceState))
 (= (BaseRateAcc (BaseRateEvidence $wsum $csum) (STV $s $c))
    (BaseRateEvidence (+ $wsum (* $s $c)) (+ $csum $c)))
@@ -224,17 +208,106 @@
       (STV $ps $pc) (STV $es $ec))
    (mergetvs (STV $ps $pc) (STV $es $ec)))
 
-(: NegativeBranchStrength (-[det]-> Number Number Number Number))
-(= (NegativeBranchStrength $sa $sb $sb_a)
-   (if (>= $sa 1.0) $sb
-      (max 0.0 (min 1.0 (/ (- $sb (* $sa $sb_a)) (- 1.0 $sa))))))
+;; PLN admits P(B|A) only within the Frechet bounds its marginals set:
+;; max(0, P(A)+P(B)-1)/P(A) <= P(B|A) <= P(B)/P(A). Estimates of the three that
+;; violate them are reconciled by dropping the least evidence that satisfies
+;; them, so a formula still applies, at lower confidence. Either the counts are
+;; drained together, each in proportion to how far a unit of its evidence
+;; moves the violated bound (over P(B)/P(A): lowering P(A) or P(B|A) or raising
+;; P(B); under the lower bound: lowering P(A) or P(B) or raising P(B|A)), or one
+;; estimate loses all its evidence and so constrains nothing; whichever drops
+;; fewer counts is taken. Draining a positive count moves its mean by
+;; (1 - p)/n and a negative one by p/n, so evidence of one kind alone cannot
+;; move and only emptying removes it. Draining all movable counts restores the
+;; bound, so the least drain that does is found by bisection. Adapted from
+;; argset-chainer's tvconsistency.
+(: STVTriple Type)
+(: stv-triple (-[det]-> STVType STVType STVType STVTriple))
 
-(: HeuristicNegativeBranchFormula
-   (-[det]-> STVType STVType STVType STVType))
-(= (HeuristicNegativeBranchFormula (STV $sa $ca) (STV $sb $cb) (STV $sb_a $cb_a))
-   (STV
-      (NegativeBranchStrength $sa $sb $sb_a)
-      (* 0.25 (min $ca (min $cb $cb_a)))))
+(: EvidenceCounts Type)
+(: counts (-[det]-> Number Number Number Number Number Number EvidenceCounts))
+
+(: DrainPlan Type)
+(: drain-plan (-[det]-> Number STVTriple DrainPlan))
+
+(: frechet-excess (-[det]-> Bool EvidenceCounts Number))
+(= (frechet-excess $upper (counts $a1 $b1 $a2 $b2 $a3 $b3))
+   (let* (($pa (/ $a1 (+ $a1 $b1)))
+          ($pb (/ $a2 (+ $a2 $b2)))
+          ($pab (/ $a3 (+ $a3 $b3))))
+      (if $upper (- (* $pa $pab) $pb)
+         (- (max 0.0 (- (+ $pa $pb) 1.0)) (* $pa $pab)))))
+
+(: drain-counts (-[det]-> EvidenceCounts EvidenceCounts Number EvidenceCounts))
+(= (drain-counts (counts $a1 $b1 $a2 $b2 $a3 $b3) (counts $r1 $s1 $r2 $s2 $r3 $s3) $n)
+   (counts (- $a1 (* $n $r1)) (- $b1 (* $n $s1)) (- $a2 (* $n $r2))
+      (- $b2 (* $n $s2)) (- $a3 (* $n $r3)) (- $b3 (* $n $s3))))
+
+(: least-drain (-[det]-> Bool EvidenceCounts EvidenceCounts Number Number Number Number))
+(= (least-drain $upper $counts $rates $lo $hi $steps)
+   (if (<= $steps 0) $hi
+      (let $mid (/ (+ $lo $hi) 2.0)
+         (if (> (frechet-excess $upper (drain-counts $counts $rates $mid)) 0.0)
+            (least-drain $upper $counts $rates $mid $hi (- $steps 1))
+            (least-drain $upper $counts $rates $lo $mid (- $steps 1))))))
+
+;; The least drain that empties a count, among those drained at all.
+(: drain-limit (-[det]-> Number Number Number Number))
+(= (drain-limit $count $rate $limit)
+   (if (> $rate 0.0) (min (/ $count $rate) $limit) $limit))
+
+(: counts-stv (-[det]-> Number Number STVType))
+(= (counts-stv $a $b) (STV (/ $a (+ $a $b)) (count-confidence (+ $a $b))))
+
+;; The drain of the movable counts, weighted wa, wb, wab (summing to w > 0), that
+;; restores the bound, and the estimates it leaves.
+(: drain-evidence
+   (-[det]-> Bool EvidenceCounts Number Number Number Number Number Number Number Number Number
+       DrainPlan))
+(= (drain-evidence $upper $counts $wa $wb $wab $w $sb $sab $na $nb $nab)
+   (let* (($ra (/ $wa $w))
+          ($rb (/ $wb $w))
+          ($rab (/ $wab $w))
+          ($rates (if $upper (counts $ra 0.0 0.0 $rb $rab 0.0)
+                     (counts $ra 0.0 $rb 0.0 0.0 $rab)))
+          ($max (drain-limit (case $counts (((counts $alpha-a $_b1 $_a2 $_b2 $_a3 $_b3) $alpha-a))) $ra
+                   (drain-limit (* (if $upper (- 1.0 $sb) $sb) $nb) $rb
+                      (drain-limit (* (if $upper $sab (- 1.0 $sab)) $nab) $rab
+                         (+ $na (+ $nb $nab))))))
+          ($n (least-drain $upper $counts $rates 0.0 $max 60)))
+      (case (drain-counts $counts $rates $n) (
+         ((counts $a1 $b1 $a2 $b2 $a3 $b3)
+            (drain-plan $n
+               (stv-triple (counts-stv $a1 $b1) (counts-stv $a2 $b2) (counts-stv $a3 $b3))))))))
+
+;; The estimate with the least evidence loses all of it.
+(: empty-least-supported
+   (-[det]-> STVType STVType STVType Number Number Number STVTriple))
+(= (empty-least-supported (STV $sa $ca) (STV $sb $cb) (STV $sab $cab) $na $nb $nab)
+   (if (<= $na (min $nb $nab)) (stv-triple (STV $sa 0.0) (STV $sb $cb) (STV $sab $cab))
+      (if (<= $nb $nab) (stv-triple (STV $sa $ca) (STV $sb 0.0) (STV $sab $cab))
+         (stv-triple (STV $sa $ca) (STV $sb $cb) (STV $sab 0.0)))))
+
+(: ConsistentTriple (-[det]-> STVType STVType STVType STVTriple))
+(= (ConsistentTriple (STV $sa $ca) (STV $sb $cb) (STV $sab $cab))
+   (let* (($upper (> (* $sa $sab) $sb))
+          ($lower (> (- (+ $sa $sb) 1.0) (* $sa $sab))))
+      (if (if (if $upper true $lower) (> (min $ca (min $cb $cab)) 0.0) false)
+         (let* (($na (confidence-to-count $ca))
+                ($nb (confidence-to-count $cb))
+                ($nab (confidence-to-count $cab))
+                ($counts (counts (* $sa $na) (* (- 1.0 $sa) $na) (* $sb $nb)
+                            (* (- 1.0 $sb) $nb) (* $sab $nab) (* (- 1.0 $sab) $nab)))
+                ($wa (/ (* (if $upper $sab (- 1.0 $sab)) (- 1.0 $sa)) $na))
+                ($wb (/ (if $upper $sb (- 1.0 $sb)) $nb))
+                ($wab (/ (* $sa (if $upper (- 1.0 $sab) $sab)) $nab))
+                ($w (+ $wa (+ $wb $wab)))
+                ($emptied (empty-least-supported (STV $sa $ca) (STV $sb $cb) (STV $sab $cab) $na $nb $nab)))
+            (if (<= $w 0.0) $emptied
+               (case (drain-evidence $upper $counts $wa $wb $wab $w $sb $sab $na $nb $nab) (
+                  ((drain-plan $n $drained)
+                     (if (<= $n (min $na (min $nb $nab))) $drained $emptied))))))
+         (stv-triple (STV $sa $ca) (STV $sb $cb) (STV $sab $cab)))))
 
 (: normalize-stv
    (-[det]-> (| STVType NoEvidenceType) STVType))
@@ -249,14 +322,18 @@
 (= (ImplicationCTVFormula $atv $btv $itv)
    (case $itv
       (((CTV $pos $neg) (CTV $pos $neg))
+       ;; P(B|not A) = (P(B) - P(A) P(B|A)) / (1 - P(A)) over the reconciled
+       ;; estimates, which keeps it in [0, 1] up to rounding; its confidence is
+       ;; a heuristic quarter of the weakest input's.
        ((STV $s $c)
-          (let*
-             (($normalized-atv (normalize-stv $atv))
-              ($normalized-btv (normalize-stv $btv)))
-             (CTV
-                (STV $s $c)
-                (HeuristicNegativeBranchFormula
-                   $normalized-atv $normalized-btv (STV $s $c))))))))
+          (case (ConsistentTriple (normalize-stv $atv) (normalize-stv $btv) (STV $s $c)) (
+             ((stv-triple (STV $sa $ca) (STV $sb $cb) (STV $sab $cab))
+                (CTV
+                   (STV $sab $cab)
+                   (STV
+                      (if (>= $sa 1.0) $sb
+                         (max 0.0 (min 1.0 (/ (- $sb (* $sa $sab)) (- 1.0 $sa)))))
+                      (* 0.25 (min $ca (min $cb $cab))))))))))))
 
 ; Uniform 1/N node prior for individuals, where N is the number of distinct
 ; subjects observed. The fold collects each matched subject; UniformPriorTv
@@ -303,30 +380,23 @@
          (+ (* (* $d2 $d2) $Vsa)
             (* (* $d3 $d3) $Vq)))))
 
-(= (CTVInversionFormula (STV $sa $ca) (STV $sb $cb) (CTV (STV $sb_a $cb_a) (STV $sb_na $cb_na)))
-   (if (or (<= $sb 0.0) (>= $sb 1.0))
+(= (CTVInversionFormula (STV $sa0 $ca0) (STV $sb0 $cb0) (CTV (STV $sb_a0 $cb_a0) (STV $_sb_na $_cb_na)))
+   (if (or (<= $sb0 0.0) (>= $sb0 1.0))
       (CTV (STV 0.0 0.0) (STV 0.0 0.0))
-      ;; Reject contradictory inversions: when P(A) > 0, the implication's
-      ;; P(B|A) must lie within the Frechet bounds set by the base rates P(A),
-      ;; P(B). Outside them the marginals and conditional cannot coexist, so the
-      ;; inverse does not hold (clamping the ratio would assert it anyway).
-      (if
-         (if (> $sa 0.0)
-            (InversionConsistency
-               (STV $sa $ca)
-               (STV $sb $cb)
-               (STV $sb_a $cb_a))
-            True)
-         (let*
-         (($Va (ideal-var $sb_a $cb_a))
-          ($Vsa (ideal-var $sa $ca))
-          ($Vsb (ideal-var $sb $cb))
-          ($s_pos (min 1.0 (/ (* $sb_a $sa) $sb)))
-          ($s_neg (min 1.0 (/ (* (- 1.0 $sb_a) $sa) (- 1.0 $sb)))))
-         (CTV
-            (STV $s_pos (ideal-conf-from-var $s_pos (ideal-ratio-var $sb_a $Va $sa $Vsa $sb $Vsb)))
-            (STV $s_neg (ideal-conf-from-var $s_neg (ideal-ratio-var (- 1.0 $sb_a) $Va $sa $Vsa (- 1.0 $sb) $Vsb)))))
-         (empty))))
+      ;; The base rates and P(B|A) are reconciled first, so the ratios stay
+      ;; within [0, 1] up to rounding and contradictory inputs invert at the
+      ;; confidence their consistent part supports.
+      (case (ConsistentTriple (STV $sa0 $ca0) (STV $sb0 $cb0) (STV $sb_a0 $cb_a0)) (
+         ((stv-triple (STV $sa $ca) (STV $sb $cb) (STV $sb_a $cb_a))
+            (let*
+               (($Va (ideal-var $sb_a $cb_a))
+                ($Vsa (ideal-var $sa $ca))
+                ($Vsb (ideal-var $sb $cb))
+                ($s_pos (min 1.0 (/ (* $sb_a $sa) $sb)))
+                ($s_neg (min 1.0 (/ (* (- 1.0 $sb_a) $sa) (- 1.0 $sb)))))
+               (CTV
+                  (STV $s_pos (ideal-conf-from-var $s_pos (ideal-ratio-var $sb_a $Va $sa $Vsa $sb $Vsb)))
+                  (STV $s_neg (ideal-conf-from-var $s_neg (ideal-ratio-var (- 1.0 $sb_a) $Va $sa $Vsa (- 1.0 $sb) $Vsb))))))))))
 
 ;; Bayes' rule for an instance whose prior P(A) and likelihoods P(B|A),
 ;; P(B|not A) are independent inputs: P(A|B) = u sa / (u sa + v (1 - sa)) with

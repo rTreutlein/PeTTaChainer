@@ -36,11 +36,22 @@
 !(test (CTVInversionFormula (STV 0.3 0.9) (STV 0.5 0.9) (CTV (STV 0.7 0.9) (STV 0.0 1.0)))
    (CTV (STV 0.42 0.7676043390329106) (STV 0.18000000000000002 0.8785678145182892)))
 ;; Frechet-inconsistent inputs: P(A)=0.7 and P(B)=0.9 force P(B|A) >= (0.7+0.9-1)/0.7
-;; = 0.857, but the rule asserts P(B|A)=0.8. The marginals and conditional cannot
-;; coexist, so the inversion is rejected rather than computed from contradictory
-;; data (the old code silently clamped it to a near-worthless 0.622).
+;; = 0.857, but the rule asserts P(B|A)=0.8. The least evidence that restores the
+;; bound is dropped first; the weakly supported base rates give way, not the rule,
+;; and the inversion holds at the confidence what remains supports.
 !(test (CTVInversionFormula (STV 0.7 0.001) (STV 0.9 0.001) (CTV (STV 0.8 0.9) (STV 0.1 0.9)))
-   ())
+   (CTV (STV 0.5991684764483071 0.0007907267437587532) (STV 1.0 1.0e-06)))
+
+;; The reconciliation itself. Over the upper bound P(B)/P(A) = 0.5 < 0.99, the
+;; counts are drained until P(A) P(B|A) = P(B); a base rate of 1.0 from one
+;; observation cannot move by draining, so it loses its evidence instead of
+;; overriding a well-supported rule; nothing changes when the bounds hold.
+!(test (ConsistentTriple (STV 0.4 0.9) (STV 0.2 0.9) (STV 0.99 0.9))
+   (stv-triple (STV 0.21911294900796238 0.8736610061711604) (STV 0.2169183962662314 0.8924505836885637) (STV 0.9899843767715834 0.8998594129084929)))
+!(test (ConsistentTriple (STV 1.0 0.00224) (STV 1.0 0.00112) (STV 0.8 0.9))
+   (stv-triple (STV 1.0 0.00224) (STV 1.0 0.0) (STV 0.8 0.9)))
+!(test (ConsistentTriple (STV 0.3 0.9) (STV 0.5 0.9) (STV 0.7 0.9))
+   (stv-triple (STV 0.3 0.9) (STV 0.5 0.9) (STV 0.7 0.9)))
 
 ;; --- End-to-end realistic example ---
 ;; Diagnostic-style inference with one-sided rules and uncertain evidence.

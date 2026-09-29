@@ -66,7 +66,7 @@
 
 !(test
    (query 100 kb3 (: $prf (Related alice bob) $tv))
-   (: (by main_rel (conjunction tag3 r1)) (Related alice bob) (STV 0.9 0.8999999999819711)))
+   (: (by main_rel (conjunction tag3 r1)) (Related alice bob) (STV 0.9 0.8999999999819708)))
 
 !(test
    (query 100 kb3 (: (by alt_rel $prf) (Related alice bob) $tv))
@@ -93,4 +93,4 @@
       (STV 0.9 0.9)))
 !(test (query 100 kb4 (: $prf (Knows alice bob) $tv))
    (: (by removable_rel (conjunction tag4 k1))
-      (Knows alice bob) (STV 0.9 0.8999999999819711)))
+      (Knows alice bob) (STV 0.9 0.8999999999819708)))

@@ -456,6 +456,15 @@ multi-premise `And` rules reconstruct no variable bindings unless they contain
 a supported reversible `Compute`; their children are instead proved directly
 by antecedent completion.
 
+Inverting a rule, and reading an `STV` rule's negative branch from base rates,
+need `P(B|A)` within the Fréchet bounds `P(A)` and `P(B)` allow:
+`max(0, P(A)+P(B)-1)/P(A) <= P(B|A) <= P(B)/P(A)`. When the three estimates
+violate them, the least evidence that restores them is dropped first, either
+drained from all three or by giving up the one with the least evidence
+entirely, and the rule applies with what remains, at lower confidence. So a
+rate estimated from one observation gives way to a well-supported rule rather
+than overriding it.
+
 ### Antecedent completion
 
 A stored implication whose antecedent is a pure top-level `And` also proves

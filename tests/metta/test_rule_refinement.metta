@@ -122,7 +122,7 @@
 
 !(test
    (query 400 refineStvKb (: $p (B b) $tv))
-   (: (by ab a2) (B b) (STV 0.8000224974690348 0.9000100733362528)))
+   (: (by ab a2) (B b) (STV 0.8000225700971867 0.9000100932918952)))
 
 ;; --- Facts only: no refined rule carries the fold, so the query folds ------
 

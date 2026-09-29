@@ -225,4 +225,4 @@
 !(test
    (let $_answers (collapse (query 200 grownUniverseKb (: $prf (Inheritance pingu Bird) $tv)))
       (cached-base-rate grownUniverseKb (Inheritance $x Bird)))
-   ((STV 0.9968999083369325 0.0002821703584160559)))
+   ((STV 0.996896218978244 0.0002823402242641902)))

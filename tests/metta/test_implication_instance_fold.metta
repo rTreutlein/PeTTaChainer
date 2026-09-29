@@ -85,7 +85,7 @@
       (query 200 instanceRuleKb (: $prf (Implication (A $v) (B $v)) $tv))
       $tv)
    (CTV (STV 0.8000224974691158 0.9000101236509124)
-        (STV 3.4615653061434316e-08 0.9998360246640894)))
+        (STV 4.148156395837509e-08 0.9998360246640894)))
 
 ;; A rule-only KB keeps the plain hypothetical answer: nothing to sample.
 !(compileadd instanceRuleOnlyKb
@@ -114,7 +114,7 @@
             (implication-instance-sample a2 (by cb c2))))
       (Implication (A $_v) (B $_v))
       (CTV (STV 0.7500000125034592 0.0020209075611154013)
-           (STV 0.750000012503459 0.0005052268902788503))))
+           (STV 0.7500000125034592 0.0005052268902788503))))
 
 ;; --- Conjunctive antecedent and a variable only the antecedent uses ---------
 
