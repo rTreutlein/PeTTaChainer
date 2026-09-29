@@ -3,7 +3,7 @@
 ;; One full-weight observation carries one unit
 ;; of evidence: confidence is 1 / (1 + 800), never min(1, 1).
 !(test
-   (finish-aggregate
+   (finish-aggregate fallbackCalibrationKb
       (weighted-base-rate-in-universe fallbackCalibrationKb)
       (BaseRateEvidence 1.0 1.0))
    (STV 1.0 0.0012484394506866417))

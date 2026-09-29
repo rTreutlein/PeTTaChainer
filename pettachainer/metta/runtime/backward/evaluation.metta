@@ -414,7 +414,7 @@
              (fold-semidet (sk-fold-step $step $filter (cons $hash ()))
                 (sk-fold-state $init () () ()) $members))
           ($base-rate (base-rate-finish? $finish)))
-      (sk-goal-val (CPU $kind $args (finish-aggregate $finish $acc))
+      (sk-goal-val (CPU $kind $args (finish-aggregate (brand KB (car-atom $args)) $finish $acc))
          (sk-fold-proof $function $proofs)
          ;; Priors and implication instance estimates, like base rates, are
          ;; not revised against their members' evidence; their dependencies
@@ -501,11 +501,11 @@
 ;; cached one is.
 (: sk-rate-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
 (= (sk-rate-fold-view $hash $args)
-   (let* ((($_kb $_pattern $extractor $init $_function $finish $_mode) $args)
+   (let* ((($kb $_pattern $extractor $init $_function $finish $_mode) $args)
           ($acc (sk-rate-evidence! $hash $args)))
       (sk-goal-val
          (CPU FoldAllCompiled $args
-            (finish-aggregate $finish
+            (finish-aggregate (brand KB $kb) $finish
                (case $extractor (
                   ((extract-inheritance-tv $kbid $_statement) (sk-rate-shift (fa-mass-scale $kbid) $init $acc))
                   ($_other $acc)))))

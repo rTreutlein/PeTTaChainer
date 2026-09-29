@@ -12,6 +12,29 @@
       ((member-inheritance $_kbid) true)
       ($_other false))))
 
+;; A KB may read each computed base rate as a Beta estimate: its n
+;; observations plus k pseudo-observations of complete ignorance at 0.5, so a
+;; rate over few observations is uncertain in its strength as well as its
+;; confidence. The confidence n/(n+k) is unchanged, and n is recovered from it.
+;; Opt-in per KB, set before adding knowledge; user base rates are kept as set.
+(: set-base-rate-smoothing (-[det]-> KB Bool Bool))
+(= (set-base-rate-smoothing $kb $enabled)
+   (let* (($_old
+             (collapse (match &base_rate_smoothing ($kb $stored)
+                (remove-atom &base_rate_smoothing ($kb $stored)))))
+          ($_new (add-atom &base_rate_smoothing ($kb $enabled))))
+      $enabled))
+
+(: smoothed-base-rate-tv (-[det]-> KB Atom Atom))
+(= (smoothed-base-rate-tv $kb $tv)
+   (case $tv (
+      ((STV $s $c)
+         (if (== (collapse (once (match &base_rate_smoothing ($kb true) true))) ()) $tv
+            (let* (($n (confidence-to-count $c))
+                   ($k (evidence-confidence-k)))
+               (STV (/ (+ (* $s $n) (* 0.5 $k)) (+ $n $k)) $c))))
+      ($_other $tv))))
+
 (: BaseRateAggregateKey Type)
 (: base-rate-aggregate-key-value
    (-[det]-> KB Statement $mode BaseRateAggregateKey))

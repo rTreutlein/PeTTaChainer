@@ -43,6 +43,7 @@ def _query_worker(
     logic_config_path: Optional[str],
     evidence_confidence_k: float,
     rule_refinement: bool,
+    base_rate_smoothing: bool,
     conn,
 ):
     try:
@@ -50,6 +51,7 @@ def _query_worker(
         handler.set_evidence_confidence_k(evidence_confidence_k)
         handler.kb = kb
         handler.set_rule_refinement(rule_refinement)
+        handler.set_base_rate_smoothing(base_rate_smoothing)
         if added_atoms:
             handler.add_atoms_no_check(added_atoms)
         atoms = handler.handler.process_metta_string(f"!({expression})")
@@ -100,6 +102,7 @@ class PeTTaChainer:
         self._logic_config_path: Optional[Path] = None
         self._evidence_confidence_k = 800.0
         self._rule_refinement = False
+        self._base_rate_smoothing = False
         self._query_metrics_enabled = False
         self._query_metrics_path = os.environ.get(
             "PETTACHAINER_QUERY_METRICS_PATH"
@@ -259,6 +262,17 @@ class PeTTaChainer:
         self.handler.process_metta_string(f"!(set-rule-refinement {self.kb} {value})")
         self._rule_refinement = enabled
 
+    def set_base_rate_smoothing(self, enabled: bool) -> None:
+        """Read this KB's computed base rates as Beta estimates; set before adding.
+
+        A base rate over n observations gets strength (sum + k/2) / (n + k),
+        its evidence plus k pseudo-observations at 0.5; its confidence is
+        unchanged. Timed subprocess queries replay the setting.
+        """
+        value = "true" if enabled else "false"
+        self.handler.process_metta_string(f"!(set-base-rate-smoothing {self.kb} {value})")
+        self._base_rate_smoothing = enabled
+
     def set_pattern_mining_on_add(self, enabled: bool) -> None:
         value = "true" if enabled else "false"
         self.handler.process_metta_string(f"!(set-pattern-mining-on-add {self.kb} {value})")
@@ -415,6 +429,7 @@ class PeTTaChainer:
                 str(self._logic_config_path) if self._logic_config_path else None,
                 self._evidence_confidence_k,
                 self._rule_refinement,
+                self._base_rate_smoothing,
                 child_conn,
             ),
             daemon=True,

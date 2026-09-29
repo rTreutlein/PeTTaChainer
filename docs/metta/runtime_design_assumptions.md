@@ -202,6 +202,12 @@ members that changed. Inheritance-weighted members count at unit mass and the
 evidence is scaled by the current subject mass when the fold finishes, so a
 growing universe does not leave contributions stale.
 
+A KB may opt into base-rate smoothing, which reads every computed base rate
+as its n observations plus k pseudo-observations at 0.5: the strength of a
+rate over few observations then stays uncertain, while its confidence is
+still n/(n+k). The smoothing is applied where a fold's value is finished, so
+cached and forward-approximated rates carry it too.
+
 A base rate is the user's value when one is set. Otherwise an unexpanded fold
 reads the cached estimate, and an expanded fold replaces the estimate when it
 is at least as confident. The fold's own earlier snapshot and a forward

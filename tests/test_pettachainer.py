@@ -10,6 +10,27 @@ from pettachainer import PeTTaChainer
 
 
 class TestPeTTaChainer(unittest.TestCase):
+    def test_base_rate_smoothing_applies_in_process_and_to_timed_queries(self):
+        handler = PeTTaChainer()
+        handler.set_evidence_confidence_k(1)
+        self.addCleanup(handler.set_evidence_confidence_k, 800)
+        handler.set_base_rate_smoothing(True)
+        handler.add_atoms_no_check(
+            ["(: sensor (Implication (Leak $u) (Alarm $u)) (CTV (STV 0.9 1.0) (STV 0.2 1.0)))"]
+            + [f"(: l{i} (Leak u{i}) (STV 0 1))" for i in range(1, 5)]
+            + [f"(: a{i} (Alarm u{i}) (STV {1 if i == 3 else 0} 1))" for i in range(1, 5)]
+            + ["(: aq (Alarm q) (STV 1 1))"]
+        )
+        # No leak among four units: the smoothed leak rate keeps a leak on
+        # the alarmed unit q possible, live and in a timed query.
+        for timeout_sec in (0, 30):
+            with self.subTest(timeout_sec=timeout_sec):
+                self.assertEqual(
+                    handler.query("(: $prf (Leak q) $tv)", steps=400, timeout_sec=timeout_sec),
+                    ["(: ((inverted sensor with cpu cpu) aq) (Leak q) "
+                     "(STV 0.22499624998295187 0.4048478801205712))"],
+                )
+
     def test_rule_refinement_applies_in_process_and_to_timed_queries(self):
         handler = PeTTaChainer()
         handler.set_rule_refinement(True)
