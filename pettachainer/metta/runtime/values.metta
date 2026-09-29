@@ -101,6 +101,10 @@
          (CTVFormula
             (normalize-expected-evidence-tv $a)
             (normalize-expected-ctv $b)))
+       (CTVBayesFormula
+         (CTVBayesFormula
+            (normalize-expected-evidence-tv $a)
+            (normalize-expected-ctv $b)))
        (AndFormula
          (AndFormula
             (normalize-expected-stv $a)

@@ -328,6 +328,37 @@
             (STV $s_neg (ideal-conf-from-var $s_neg (ideal-ratio-var (- 1.0 $sb_a) $Va $sa $Vsa (- 1.0 $sb) $Vsb)))))
          (empty))))
 
+;; Bayes' rule for an instance whose prior P(A) and likelihoods P(B|A),
+;; P(B|not A) are independent inputs: P(A|B) = u sa / (u sa + v (1 - sa)) with
+;; u = P(B|A), v = P(B|not A), and P(A|not B) the same with 1 - u, 1 - v. P(B)
+;; is not an input, so the delta-method variance needs no independence between
+;; P(B) and the likelihoods it is computed from, and a certain prior keeps a
+;; certain posterior.
+(: ideal-bayes-stv (-[det]-> Number Number Number Number Number Number STVType))
+(= (ideal-bayes-stv $u $Vu $v $Vv $sa $Va)
+   (let $d (+ (* $u $sa) (* $v (- 1.0 $sa)))
+      (if (<= $d 0.0)
+         (STV $sa 0.0)
+         (let* (($s (/ (* $u $sa) $d))
+                ($d2 (* $d $d))
+                ($du (/ (* $v (* $sa (- 1.0 $sa))) $d2))
+                ($dv (/ (* $u (* $sa (- 1.0 $sa))) $d2))
+                ($ds (/ (* $u $v) $d2)))
+            (STV $s
+               (ideal-conf-from-var $s
+                  (+ (* (* $du $du) $Vu)
+                     (+ (* (* $dv $dv) $Vv) (* (* $ds $ds) $Va)))))))))
+
+(: CTVBayesFormula (-[semidet]-> TV TV TV))
+(= (CTVBayesFormula no-evidence $_ctv) (empty))
+(= (CTVBayesFormula (STV $sa $ca) (CTV (STV $u $cu) (STV $v $cv)))
+   (let* (($Va (ideal-var $sa $ca))
+          ($Vu (ideal-var $u $cu))
+          ($Vv (ideal-var $v $cv)))
+      (CTV
+         (ideal-bayes-stv $u $Vu $v $Vv $sa $Va)
+         (ideal-bayes-stv (- 1.0 $u) $Vu (- 1.0 $v) $Vv $sa $Va))))
+
 ;; Complete one missing implication antecedent directly. For
 ;;
 ;;   (Implication (And O M) C)

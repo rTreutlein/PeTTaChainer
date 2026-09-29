@@ -21,19 +21,27 @@
 ;; 0.9 * 0.1 / (0.9 * 0.1 + 0.2 * 0.9)
 !(test
    (query 400 priorKb (: $p (SealLeak m) $tv))
-   (: ((inverted sensor with pm derived) am) (SealLeak m) (STV 0.33333333333333337 0.9994095956587943)))
+   (: ((inverted sensor with pm derived) am) (SealLeak m) (STV 0.33333333333333337 0.9996618426374195)))
 ;; 0.1 * 0.1 / (0.1 * 0.1 + 0.8 * 0.9)
 !(test
    (query 400 priorKb (: $p (SealLeak n) $tv))
-   (: ((inverted sensor with pn derived) an) (SealLeak n) (STV 0.013698630136986299 0.999900006692114)))
+   (: ((inverted sensor with pn derived) an) (SealLeak n) (STV 0.013698630136986297 0.9999000064925436)))
 ;; 0.9 * 0.6 / (0.9 * 0.6 + 0.2 * 0.4)
 !(test
    (query 400 priorKb (: $p (SealLeak r) $tv))
-   (: ((inverted sensor with pr derived) ar) (SealLeak r) (STV 0.8709677419354838 0.9990621384608377)))
+   (: ((inverted sensor with pr derived) ar) (SealLeak r) (STV 0.8709677419354838 0.9999000002456949)))
+;; A sure prior stays sure whatever is observed, and its posterior stays
+;; confident: P(alarm) is not a separate uncertain input to Bayes' rule.
+!(compileadd surePriorKb (: sensor (WithPrior (LeakPredicted $u) (Implication (SealLeak $u) (Alarm $u))) (CTV (STV 0.9 1.0) (STV 0.2 1.0))))
+!(compileadd surePriorKb (: pc (LeakPredicted c) (STV 1.0 0.99)))
+!(compileadd surePriorKb (: ac (Alarm c) (STV 0.0 1.0)))
+!(test
+   (query 400 surePriorKb (: $p (SealLeak c) $tv))
+   (: ((inverted sensor with pc derived) ac) (SealLeak c) (STV 1.0 0.6071721767418005)))
 ;; Without a prior for z, the leak base rate stands in as the prior.
 !(test
    (query 400 priorKb (: $p (SealLeak z) $tv))
-   (: ((inverted sensor with cpu derived) az) (SealLeak z) (STV 0.7819856795213328 1.0e-06)))
+   (: ((inverted sensor with cpu derived) az) (SealLeak z) (STV 0.7820313142204182 0.009517399543634257)))
 
 ;; --- A filter over time --------------------------------------------------------
 ;; A leak persists and a sound seal starts leaking with hazard 0.05. Shift 1's
@@ -49,7 +57,7 @@
 ;; 1/3 + (2/3) * 0.05, then 0.9 * 0.3667 / (0.9 * 0.3667 + 0.2 * 0.6333)
 !(test
    (query 400 chainKb (: $p (LeakPredicted m2) $tv))
-   (: (by persist (conjunction n12 ((inverted sensor with p1 derived) a1))) (LeakPredicted m2) (STV 0.3666666666666667 0.9994809826760274)))
+   (: (by persist (conjunction n12 ((inverted sensor with p1 derived) a1))) (LeakPredicted m2) (STV 0.3666666666666667 0.9996988559387328)))
 !(test
    (query 400 chainKb (: $p (SealLeak m2) $tv))
-   (: ((inverted sensor with (by persist (conjunction n12 ((inverted sensor with p1 derived) a1))) derived) a2) (SealLeak m2) (STV 0.7226277372262774 0.9968109859472519)))
+   (: ((inverted sensor with (by persist (conjunction n12 ((inverted sensor with p1 derived) a1))) derived) a2) (SealLeak m2) (STV 0.7226277372262774 0.9996577117394115)))

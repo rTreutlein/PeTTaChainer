@@ -518,9 +518,9 @@
               $a $mp-tv))))
 
 ;; A rule declared `(WithPrior p (Implication a b))` is inverted per
-;; instance: P(a) is the instance's prior and P(b) follows from it and the rule
-;; by total probability, so an observation of b updates what is believed about
-;; this instance, never contradicting the rule. The prior is the truth of `p`
+;; instance by Bayes' rule: P(a) is the instance's prior and P(b) follows from
+;; it and the rule by total probability, so an observation of b updates what is
+;; believed about this instance, never contradicting the rule. The prior is the truth of `p`
 ;; for the observed instance, or, with `population`, a's base rate for an
 ;; instance without one; the first's evidence contains the second's, so it
 ;; replaces that answer wherever `p` is provable.
@@ -544,10 +544,9 @@
                 (append-goals $inverse-execs
                    (append-goals $prior-goals
                       (append-goals $ctv-execs
-                         (cons (CPU CTVModusPonensFormula (quote ($atv $rule-ctv)) $btv)
-                            (cons (CPU CTVInversionFormula (quote ($atv $btv $rule-ctv)) $iitv)
-                               (cons (CPU CTVModusPonensFormula (quote ($btv_wit $iitv)) $mp-tv)
-                                  ()))))))))))
+                         (cons (CPU CTVBayesFormula (quote ($atv $rule-ctv)) $iitv)
+                            (cons (CPU CTVModusPonensFormula (quote ($btv_wit $iitv)) $mp-tv)
+                               ())))))))))
       ($premises |-
          (: (make-kb-context $kb $ctx $vars)
             ((inverted $prf with $prior-token derived) $prfb_wit)
