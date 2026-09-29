@@ -358,15 +358,10 @@ class TestPeTTaChainer(unittest.TestCase):
         fresh = PeTTaChainer()
         add_states(fresh, initial_states + added_states)
         fresh_result = fresh.query_many_materialization([root], steps=100)
-        # Refining the incumbent reaches the value a fresh KB computes.
-        refined_point = "(STV 0.4753981945159537 3.999988000035998e-06)"
-        fresh_point = refined_point
 
         self.assertNotEqual(refined, original)
         self.assertEqual(len(refined[0]), 1)
         self.assertEqual(len(fresh_result[0]), 1)
-        self.assertIn(refined_point, refined[0][0])
-        self.assertIn(fresh_point, fresh_result[0][0])
         self.assertEqual(
             handler.query_many_materialization([root], steps=0), refined
         )
@@ -390,6 +385,23 @@ class TestPeTTaChainer(unittest.TestCase):
             without_context_numbers(repeats[2]),
         )
         self.assertNotEqual(repeats[2], original)
+
+        # Base rates are a fixed point of their populations, taken one
+        # iteration per read, so the refined incumbent and a fresh KB settle
+        # on the same value, up to members each took at a different iteration.
+        fresh_repeats = [
+            fresh.query_many_materialization([root], steps=200)
+            for _ in range(3)
+        ]
+        def settled_tv(answers):
+            strength, confidence = re.findall(
+                r"\(STV ([^ ]+) ([^)]+)\)\)$", answers[0][0].strip()
+            )[-1]
+            return float(strength), float(confidence)
+        refined_s, refined_c = settled_tv(repeats[2])
+        fresh_s, fresh_c = settled_tv(fresh_repeats[2])
+        self.assertAlmostEqual(refined_s, fresh_s, delta=1e-7)
+        self.assertAlmostEqual(refined_c, fresh_c, delta=1e-3 * fresh_c)
 
     def test_completed_proofs_survive_query_search_reset(self):
         handler = PeTTaChainer()

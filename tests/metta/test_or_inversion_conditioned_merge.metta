@@ -57,7 +57,7 @@
 !(test
    (query 5000 orInversionConditionedMergeKb
       (: $proof (Problem current) $tv))
-   (: (merge/revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) ((inverted problemRaisesAlarm with cpu cpu) currentAlarm)) (Problem current) (STV 0.5200045678777936 0.9140643897315559)))
+   (: (merge/revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) ((inverted problemRaisesAlarm with cpu cpu) currentAlarm)) (Problem current) (STV 0.5200045678183972 0.9140643896768536)))
 
 ;; LocalProblem cannot reuse evidence that depends on itself. Its constrained
 ;; view retains the direct prior even though the general Problem estimate changes.

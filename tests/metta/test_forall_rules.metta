@@ -61,7 +61,7 @@
    (: ((inverted sensor with cpu cpu) alarm-q) (Leak old q) (STV 0.5625000000000001 0.0026979326244233395)))
 !(test
    (query 400 plainKb (: $p (Leak new r) $tv))
-   (: ((inverted sensor with cpu cpu) alarm-r) (Leak new r) (STV 0.5625000000000001 0.0026979326244233395)))
+   (: ((inverted sensor with cpu cpu) alarm-r) (Leak new r) (STV 0.5626895705255284 0.002698275991493994)))
 
 ;; Refined, the ForAll rule's instances pool across cohorts: every
 ;; (cohort, unit) with a leak is a sample of the one shared truth.

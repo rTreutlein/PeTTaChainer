@@ -189,8 +189,8 @@ on to its own readers the same way, so a refined fold reaches the roots.
 
 A fold's or group's view is computed from its member keys when first read and
 recomputed when a member changes; the members changed in one pass recompute it
-once. Members are read without views that depend on the fold itself. Base-rate
-folds estimate a population: they carry neither member evidence nor member
+once. Members are read without views that depend on the fold itself, except
+by a base-rate fold (below). Base-rate folds estimate a population: they carry neither member evidence nor member
 dependencies, like a prior, and are proved by `cpu`. An implication instance
 fold carries no member evidence either, so its estimate revises with a rule's
 stated truth, but it keeps its members' dependencies. A `FoldAllTruth` fold
@@ -204,7 +204,13 @@ contribution, when a query needs the fold or it is next read. Needing the fold
 needs only those members, not the population. A member whose inputs changed
 while no query needed it keeps its last contribution until a query recomputes
 it, so a base rate may lag the members' current values; every step costs the
-members that changed. Inheritance-weighted members count at unit mass and the
+members that changed. A base-rate fold also takes members derived through
+itself, such as instances a rule concluded with a truth converted through this
+rate: the rate is then a fixed point of the population it describes, so two
+rates a rule relates count the same instances. Such a member's change is taken
+when the rate is next read, never by rechecking the rate at once, so each step
+moves one iteration toward the fixed point and the loop never runs on its own.
+Inheritance-weighted members count at unit mass and the
 evidence is scaled by the current subject mass when the fold finishes, so a
 growing universe does not leave contributions stale.
 

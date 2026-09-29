@@ -540,7 +540,8 @@
       $acc))
 
 ;; Takes a member's current value into the fold's evidence in place of what it
-;; contributed before. A member without a value yet was needed with the fold,
+;; contributed before, a value derived through this rate included, so the rate
+;; is a fixed point of its population. A member without a value yet was needed with the fold,
 ;; and its first value changes it, so it is taken again then.
 (: sk-rate-take
    (-[semidet]-> Number SkeletonKey $extractor (-[semidet]-> $acc Atom $acc) $acc SkeletonFilter $acc
@@ -556,7 +557,7 @@
                    (empty)))))
           ($without (case $was (((cons $old $_rest) (sk-rate-shift -1.0 $acc $old)) (() $acc))))
           ($_clean (remove-variant-row! &sk_rate_dirty (quote ($hash $fold $member)))))
-      (case (sk-value $member $filter (cons $hash ())) (
+      (case (sk-value $member $filter ()) (
          ((sk-val $fact $_ev $_deps)
             (let* (($part
                       (case $extractor (
@@ -1104,9 +1105,10 @@
 
 (: sk-fold-changed (-[semidet]-> Number Number SkeletonKey SkeletonChange SkeletonWork SkeletonKey SkeletonWork))
 (= (sk-fold-changed $pass $_seq $member $change (sk-work $todo $next) $fold)
-   (let $hash (index-hash $fold)
+   (let* (($hash (index-hash $fold))
+          ($_rate (sk-rate-dirty! $fold $member)))
       (if (deps-meet? (cons $hash ()) (sk-change-deps $change)) (sk-work $todo $next)
-      (if (let $_rate (sk-rate-dirty! $fold $member) (== (sk-latest-view $hash $fold 0) sk-none)) (sk-work $todo $next)
+      (if (== (sk-latest-view $hash $fold 0) sk-none) (sk-work $todo $next)
       (if (if (sk-needed? $hash $fold) false (let $_stale (sk-stale-fold! $fold) true)) (sk-work $todo $next)
          (let* (($mhash (index-hash $member))
                 ($_pending (add-atom &sk_fold_pending ($hash $mhash)))

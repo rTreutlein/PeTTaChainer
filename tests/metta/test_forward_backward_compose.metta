@@ -100,7 +100,7 @@
             ((antecedent-completion copyPredicate 1 with cpu cpu)
                (conjunction (conjunction femaleAlice tallAlice) (ctx proof 9)))))
       (Implication (Tall $_x) (Female $_x))
-      (CTV (STV 0.9280082285314655 0.008858675593265147)
+      (CTV (STV 0.9280082285314655 0.008858675593265137)
            (STV 0.8980997942345232 0.0001415456618351226))))
 
 ;; The open identity holds, and so do the ground instances the search reaches.

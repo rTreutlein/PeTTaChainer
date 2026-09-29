@@ -30,7 +30,7 @@
 ; and reads the same base rates, with no fold expansion.
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.736162240263287 0.0003604307138536469)))
+   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.7361793666997452 0.00036044262149447425)))
 
 ; Adding another proof is monotonic. The computed snapshot remains available
 ; until a later query takes the new member into the fold.
@@ -39,18 +39,18 @@
 !(test
    (let $cached (cached-base-rate brKb (P $x))
       (if (== $cached ()) no-cache-entry (car-atom $cached)))
-   (STV 0.6999999999999998 0.0009990009990009992))
+   (STV 0.7000162851405097 0.0009994506374639697))
 
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
    (: ((inverted r with cpu cpu)
        qa)
       (P alice)
-      (STV 0.6327793212325251 0.0003835400293329357)))
+      (STV 0.6328466409925699 0.00038360219937733043)))
 
 !(test
    (cached-base-rate brKb (P $x))
-   ((STV 0.49999999999999994 0.0019960079840319364)))
+   ((STV 0.5000531937104973 0.0019964567402861694)))
 
 ; User-provided base rates override the cache and feed inversion directly.
 !(set-base-rate brKb (P $x) (STV 0.5 0.5))
@@ -188,7 +188,7 @@
 
 !(test
    (query 200 revisedRateKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.4206641372933069 0.0008828650241330824)))
+   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.420807429535116 0.0008829885197815043)))
 
 !(test
    (cached-base-rate revisedRateKb (Q $x))
@@ -200,7 +200,7 @@
 
 !(test
    (query 200 revisedRateKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.4840541797751333 0.00028918689694523866)))
+   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.4840872721649921 0.00028919964432615305)))
 
 !(test
    (cached-base-rate revisedRateKb (Q $x))

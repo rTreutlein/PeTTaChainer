@@ -41,7 +41,7 @@
                          with cpu cpu)
                         (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1)))))))))
       (Inheritance Sam (IntSet flies))
-      (STV 0.978660812909457 0.6432519164525251))))
+      (STV 0.9788055720899559 0.6565467621949531))))
 
 !(test
    (collapse
@@ -61,7 +61,7 @@
                   (by penguinsDoNotFly
                      (by (inheritance-implication pinguPenguin) (ctx proof 3)))))))
       (Inheritance Pingu (IntSet flies))
-      (STV 0.17169145424651658 0.9152685522975222))))
+      (STV 0.18229919829754537 0.9162861496912612))))
 
 !(test
    (collapse
@@ -81,4 +81,4 @@
                   (by penguinsDoNotFly
                      (by (inheritance-implication pinguPenguin) (ctx proof 5)))))))
       (Inheritance Pingu (IntSet flies))
-      (STV 0.17169145424651658 0.9152685522975222))))
+      (STV 0.18308030030297698 0.9163611764422803))))
