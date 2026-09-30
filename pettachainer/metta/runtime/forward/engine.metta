@@ -305,10 +305,30 @@
             (forward-rule-results-for-key
                $steps $kb $fact $wildcard-key)))))
 
+;; The least evidence, in observations (n = c k / (1 - c)), a forward result
+;; needs to start an output of its own. Process-wide.
+!(change-state! forward_min_evidence 1.0)
+
+(: forward-min-evidence (-[det]-> Number))
+(= (forward-min-evidence) (the Number (car-atom (collapse (get-state forward_min_evidence)))))
+
+(: set-forward-min-evidence (-[det]-> Number Bool))
+(= (set-forward-min-evidence $n) (change-state! forward_min_evidence $n))
+
 ;; Stores a pending result; the fact it made canonical, when it changed its
-;; output.
+;; output. A result resting on less evidence than the minimum is stored only
+;; to revise an output that already has a value, so no output starts from
+;; next to nothing, however much budget is left.
 (: forward-store! (-[det]-> ForwardDerived (List (Statement KBContext Proof TV))))
-(= (forward-store! $derived)
+(= (forward-store! (forward-derived $candidate $candidate-ev))
+   (if (if (< (confidence-to-count (term-confidence $candidate)) (forward-min-evidence))
+          (== (collapse (once (forward-output-row-for-fact $candidate))) ())
+          false)
+      ()
+      (forward-commit! (forward-derived $candidate $candidate-ev))))
+
+(: forward-commit! (-[det]-> ForwardDerived (List (Statement KBContext Proof TV))))
+(= (forward-commit! $derived)
    (let* (($changes (collapse (once (forward-candidate-upsert! $derived true))))
           ($change (if (== $changes ()) no-forward-change (car-atom $changes)))
           ($_caches (forward-apply-unqueued-change! $change)))

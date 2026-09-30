@@ -228,3 +228,18 @@
    (let $_ (forward-chain 50 shareFwdKb (test-selected-facts shareFwdKb (Leak u1)))
       (collapse (match &kb ((Share u1) (shareFwdKb MAIN Nil) $prf $tv) $tv)))
    ((STV 0.25 0.9999320001831821)))
+
+;; A forward result resting on less than one observation's worth of evidence
+;; does not start an output of its own, however much budget is left. The
+;; minimum is configurable; at zero the result is stored.
+!(compileadd weakFwdKb (: seed (WeakSeed) (STV 1.0 0.9)))
+!(compileadd weakFwdKb (: weakRule (Implication (WeakSeed) (WeakGoal)) (CTV (STV 1.0 0.0005) (STV 0.0 1.0))))
+
+!(test (let $_ (forward-chain 50 weakFwdKb (test-selected-facts weakFwdKb (WeakSeed))) (forward-has-derived? weakFwdKb (WeakGoal))) false)
+!(test
+   (let* (($_min (set-forward-min-evidence 0.0))
+          ($_ (forward-chain 50 weakFwdKb (test-selected-facts weakFwdKb (WeakSeed))))
+          ($derived (forward-has-derived? weakFwdKb (WeakGoal)))
+          ($_restored (set-forward-min-evidence 1.0)))
+      $derived)
+   true)

@@ -252,6 +252,13 @@ class PeTTaChainer:
         )
         self._evidence_confidence_k = float(k)
 
+    def set_forward_min_evidence(self, n: float) -> None:
+        """Set the least evidence, in observations, a forward-chained result
+        needs to start an output of its own (default 1). Process-wide."""
+        self.handler.process_metta_string(
+            f"!(set-forward-min-evidence {float(n)!r})"
+        )
+
     def set_rule_refinement(self, enabled: bool) -> None:
         """Refine this KB's rules from their instances; set before adding rules.
 

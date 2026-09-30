@@ -358,14 +358,22 @@ confident item goes first. A seed has the rules it triggers run, and their
 results join the agenda beside the remaining seeds. A result that changes its
 output is stored and expanded the same way. The step budget counts stored
 results. A weak conclusion is therefore stored only when the budget outlasts
-every more confident one, and seeds the run never reaches are never expanded. The agenda is local to
+every more confident one, and seeds the run never reaches are never expanded.
+A result resting on less than a minimum of evidence (one observation, n =
+c·k/(1−c), by default; `set-forward-min-evidence`) never starts an output of
+its own, however much budget is left. It may still revise an output that
+already has a value, which the added evidence only strengthens. The agenda is local to
 that invocation, keeps a fixed beam independent of the remaining budget, and is
 discarded when it empties or the step budget is exhausted. The canonical facts derived before that point remain in `&kb`, and
 the inference controller may select any of them as seeds for a later run. No
 unfinished search state is retained by the forward chainer.
 
 The forward chainer runs rules in their stated direction only: inverted rules
-and antecedent completions get no forward premise index. A base-rate fold premise reads
+and antecedent completions get no forward premise index. It has no counterpart
+of the backward chainer's key dependencies. So an inverted rule would let an
+output be replaced by a derivation through its own consequence: the larger
+evidence set looks like a refinement. Running inversions forward needs
+self-support rejection first. A base-rate fold premise reads
 the base-rate cache, and any other fold premise the value a query last left in
 the skeleton for the fold. Only a fold with no stored value is computed by a
 backward query within the run's remaining steps. Such a query at a small forward budget is
