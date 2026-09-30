@@ -283,3 +283,74 @@ query_metric_increment_enabled(Key, Result) :-
     ),
     Result is Old + 1,
     nb_setval(GlobalKey, Result).
+
+% KL divergence of Beta(A1,B1) from Beta(A2,B2): how far a key's new value,
+% read as a Beta over its strength, moved from its old one.
+beta_kl(A1, B1, A2, B2, KL) :-
+    digamma(A1, PA), digamma(B1, PB), S1 is A1 + B1, digamma(S1, PS),
+    KL is lgamma(A2) + lgamma(B2) - lgamma(A2 + B2)
+        - (lgamma(A1) + lgamma(B1) - lgamma(S1))
+        + (A1 - A2) * PA + (B1 - B2) * PB
+        + (A2 - A1 + B2 - B1) * PS.
+
+% Digamma by the recurrence psi(x) = psi(x + 1) - 1/x up to x >= 6, then the
+% asymptotic series.
+digamma(X, P) :-
+    (   X < 6.0
+    ->  X1 is X + 1.0, digamma(X1, P1), P is P1 - 1.0 / X
+    ;   I is 1.0 / (X * X),
+        P is log(X) - 0.5 / X
+            - I * (1.0/12 - I * (1.0/120 - I * (1.0/252 - I * (1.0/240 - I / 132))))
+    ).
+
+% A stored proof is a DAG: each view's proof is one rule application whose
+% premise proofs are references to stored proofs. Expanding it as a tree
+% repeats every shared subproof, exponentially in how deeply values build on
+% merged values. The expansion instead prints a subproof that is referenced
+% more than once and itself refers to stored proofs in full at its first
+% occurrence, as (shared Id Proof), and as (shared Id) after that; a shared
+% subproof with no references of its own is a fixed-size term and is printed
+% where it occurs. Both passes visit each stored proof once.
+proof_dag_expand(Proof, Out) :-
+    empty_assoc(E),
+    proof_ref_counts(Proof, E, Counts),
+    proof_dag_term(Proof, Counts, E, _, Out).
+
+proof_ref_counts(T, C0, C) :-
+    (   var(T) -> C = C0
+    ;   T = ['proof-ref', Pid]
+    ->  (   get_assoc(Pid, C0, N)
+        ->  N1 is N + 1, put_assoc(Pid, C0, N1, C)
+        ;   put_assoc(Pid, C0, 1, C1),
+            (   '&proof'(Pid, Stored, _, _) -> proof_ref_counts(Stored, C1, C) ; C = C1 )
+        )
+    ;   is_list(T) -> foldl(proof_ref_counts, T, C0, C)
+    ;   C = C0
+    ).
+
+proof_dag_term(T, Counts, D0, D, Out) :-
+    (   var(T) -> Out = T, D = D0
+    ;   T = ['proof-ref', Pid], '&proof'(Pid, Stored, _, _)
+    ->  (   get_assoc(Pid, Counts, N), N > 1, proof_has_ref(Stored)
+        ->  (   get_assoc(Pid, D0, _)
+            ->  Out = [shared, Pid], D = D0
+            ;   put_assoc(Pid, D0, true, D1),
+                proof_dag_term(Stored, Counts, D1, D, X),
+                Out = [shared, Pid, X]
+            )
+        ;   proof_dag_term(Stored, Counts, D0, D, Out)
+        )
+    ;   is_list(T) -> proof_dag_list(T, Counts, D0, D, Out)
+    ;   Out = T, D = D0
+    ).
+
+proof_dag_list([], _, D, D, []).
+proof_dag_list([T|Ts], Counts, D0, D, [O|Os]) :-
+    proof_dag_term(T, Counts, D0, D1, O),
+    proof_dag_list(Ts, Counts, D1, D, Os).
+
+proof_has_ref(T) :-
+    nonvar(T),
+    (   T = ['proof-ref', _] -> true
+    ;   is_list(T), member(E, T), proof_has_ref(E) -> true
+    ).

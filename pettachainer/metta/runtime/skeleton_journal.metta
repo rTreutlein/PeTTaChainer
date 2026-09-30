@@ -129,6 +129,13 @@
 ;; key -> a row reading it directly, by row key hash and row hash
 (: &sk_reader (SpaceOf (Number SkeletonKey Number Number)))
 !(bind! &sk_reader (new-space))
+;; key -> the fact a forward run stored for it in &kb, with its value's
+;; evidence and what that value was derived through
+(: &sk_forward_stored (SpaceOf (Number SkeletonKey SkFact (List Evidence) (List Number))))
+!(bind! &sk_forward_stored (new-space))
+;; key -> a stale row that read it, by row key hash and row hash
+(: &sk_stale_reader (SpaceOf (Number SkeletonKey Number Number)))
+!(bind! &sk_stale_reader (new-space))
 ;; fold node -> member node
 (: &sk_fold (SpaceOf (Number SkPattern SkPattern)))
 !(bind! &sk_fold (new-space))

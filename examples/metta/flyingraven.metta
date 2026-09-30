@@ -27,19 +27,21 @@
       (inheritance-implication-fold
          (total-implication
             (merge/revision
-               (by (inheritance-implication birdFlies) (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 0))))
+               (by (inheritance-implication birdFlies)
+                  (shared 5 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 0)))))
                (negated
                   (by penguinsDoNotFly
                      ((inverted (inheritance-implication penguinBird)
                          with cpu cpu)
-                        (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 0)))))))
+                        (shared 5)))))
             (merge/revision
-               (by (inheritance-implication birdFlies) (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1))))
+               (by (inheritance-implication birdFlies)
+                  (shared 15 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1)))))
                (negated
                   (by penguinsDoNotFly
                      ((inverted (inheritance-implication penguinBird)
                          with cpu cpu)
-                        (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1)))))))))
+                        (shared 15)))))))
       (Inheritance Sam (IntSet flies))
       (STV 0.9786608129080705 0.6432519142192561))))
 

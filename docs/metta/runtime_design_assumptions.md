@@ -352,44 +352,51 @@ probability of finding a proof: a low-strength proof is still a useful answer,
 so rule priority does not use base rates. Searching a base-rate fold's members
 is valued by what one more member could add to the estimate's confidence.
 
-Forward chaining always starts from facts selected by its caller. Seeds and
-derived results wait on one agenda, each by its own confidence, and the most
-confident item goes first. A seed has the rules it triggers run, and their
-results join the agenda beside the remaining seeds. A result that changes its
-output is stored and expanded the same way. The step budget counts stored
-results. A weak conclusion is therefore stored only when the budget outlasts
-every more confident one, and seeds the run never reaches are never expanded.
-A result resting on less than a minimum of evidence (one observation, n =
-c·k/(1−c), by default; `set-forward-min-evidence`) never starts an output of
-its own, however much budget is left. It may still revise an output that
-already has a value, which the added evidence only strengthens. The agenda is local to
-that invocation, keeps a fixed beam independent of the remaining budget, and is
-discarded when it empties or the step budget is exhausted. The canonical facts derived before that point remain in `&kb`, and
-the inference controller may select any of them as seeds for a later run. No
-unfinished search state is retained by the forward chainer.
+Forward chaining always starts from facts selected by its caller, and grows
+the backward skeleton upward from them (`runtime/backward/upward.metta`,
+[forward_skeleton_unification.md](forward_skeleton_unification.md)).
+- Taking a key starts, for every rule premise the key matches, a join with
+  that premise bound. The join's other premises read the stored facts and the
+  keys the skeleton already has, never expanding anything. A complete join is
+  an ordinary row. Its owner is the rule's conclusion, and no node is marked
+  expanded, so a later query still starts every rule on that pattern.
+- The rows reading the taken key, including rows that went stale, are then
+  needed and evaluated by the ordinary evaluation. So self-support, admitted
+  versions, conditioning and dominance hold forward as they do for queries. A
+  fold premise is a fold key. A fold that no search expanded, other than a
+  base rate whose estimate the cache holds, is searched as a query would
+  search it.
+- The agenda holds keys by how far their value moved from the value a run
+  last built on: the KL divergence of the two, each read as a Beta
+  distribution over the strength (Beta(1, 1) for no value). Work a budget cut
+  off is therefore found again by a later run that reaches the key.
+- Seeds cost nothing; each derived key taken costs one step. A derived key
+  whose value rests on less than a minimum of evidence (one observation, n =
+  c·k/(1−c), by default; `set-forward-min-evidence`) is not built on,
+  however much budget is left.
+- Taking a key also updates the base-rate aggregates over it with its value.
+- Upward joins apply no rule to a certain statement, as expansion does not.
 
-The forward chainer records, per canonical output, the outputs its value was
-derived through, transitively; a join collects them from its premises, and a
-result derived through its own output supports itself and is dropped.
-Otherwise a derivation that merged a second source on the way back could
-replace the output it came from, since it is more confident. The forward
-chainer keeps one merged value per output and cannot give a consumer only the
-derivations that do not depend on it, as the backward chainer does. So an
-inverted rule stays out of the forward premise index, with antecedent
-completions. If an inversion revised an output, even weakly, rules leading
-back to the inversion's source could no longer read that output at all. A base-rate fold premise reads
-the base-rate cache, and any other fold premise the value a query last left in
-the skeleton for the fold. Only a fold with no stored value is computed by a
-backward query within the run's remaining steps. Such a query at a small forward budget is
-mostly overhead: querying every uncached fold cost StationOps 36% of its wall
-time. The backward module loads after
-the forward one, so the forward chainer reaches it by name through `cpu-call`.
-A forward join refuses a premise whose fact evidence overlaps what the rule
-already read. It does not condition as the backward chainer does, so such a
-conclusion is left to a backward query. A stored fact the forward chainer
-derived carries its evidence but not the keys it read. Under a condition, a
-backward read therefore leaves out a stored fact whose evidence contains a
-known statement, and takes that key from its rows instead.
+A run stores the value of each derived key it built on in `&kb`, so a later
+query reads it as a fact without searching for it: forward chaining exists to
+make later queries cheap.
+- The stored fact is a copy of the key's value, kept apart from the key's
+  user facts. It replaces the copy an earlier run stored.
+- It carries the value's evidence and what the value was derived through
+  (`&sk_forward_stored`). A reader that must not depend on one of those keys,
+  or a read conditioned on one, leaves it out.
+- It stands for the value only while the key has no computed versions. Once
+  it has, the live value wins and the copy never competes with it.
+
+`forward-chain` returns the values it stored, with each proof printed as a DAG
+(`proof_dag_expand`). The agenda is local to that invocation and discarded
+when it empties or the budget is exhausted.
+
+Output proofs print a shared subproof once: a stored subproof referenced more
+than once that itself refers to stored proofs appears in full at its first
+occurrence as `(shared N proof)` and as `(shared N)` after that. Expanding the
+DAG as a tree grows exponentially when values build on merged values, as
+beliefs carried from shift to shift do.
 
 Full saturation is not a separate operation. It is the special case in which
 the caller selects every canonical KB fact and supplies enough budget. Adding a

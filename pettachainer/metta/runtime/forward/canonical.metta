@@ -107,32 +107,6 @@
        (Statement KBContext Proof TV)
        ForwardOutputChange))
 
-(: ForwardQueueItem (Newtype Atom))
-;; A derived result with the hashes of the outputs it was derived through.
-(: ForwardCandidate Type)
-(: forward-candidate (-[det]-> ForwardDerived (List Number) ForwardCandidate))
-
-;; a pending result, or a seed fact whose rules have not run yet
-(: qitem (-[det]-> ForwardCandidate ForwardQueueItem))
-(: qseed (-[det]-> (Statement KBContext Proof TV) ForwardQueueItem))
-
-;; Total wrapper around SWI's relational heap pop. The foreign predicate binds
-;; priority and item through output arguments, which ordinary MeTTa arrows
-;; cannot express directly.
-(: ForwardAgendaPop Type)
-(: no-forward-agenda-pop ForwardAgendaPop)
-(: forward-agenda-pop (-[det]-> (Heap ForwardQueueItem) ForwardQueueItem ForwardAgendaPop))
-
-(: forward-pop-agenda (-[semidet]-> (Heap ForwardQueueItem) ForwardAgendaPop))
-(= (forward-pop-agenda $agenda)
-   (if (heap-empty? $agenda) no-forward-agenda-pop (forward-agenda-popped (heap_pop $agenda))))
-
-(: forward-agenda-popped
-   (-[det]-> (Number ForwardQueueItem (Heap ForwardQueueItem)) ForwardAgendaPop))
-(= (forward-agenda-popped ($_priority $item $rest)) (forward-agenda-pop $rest $item))
-
-(: ForwardRun
-   (Alias ((Heap ForwardQueueItem) (List ForwardOutputKey))))
 
 (: forward-type-trigger-key (-[det]-> KB Statement ForwardTriggerKey))
 (= (forward-type-trigger-key $kbid $type)
@@ -164,36 +138,6 @@
 (= (forward-output-index-hash (forward-output-key $kb $type))
    (term_hash (quote ($kb $type))))
 
-;; Per canonical output, the hashes of the outputs its value was derived
-;; through, transitively. Stored facts were derived through nothing.
-(: &forward_output_deps (SpaceOf (Number ForwardOutputKey (List Number))))
-!(bind! &forward_output_deps (new-space))
-
-(: forward-stored-deps (-[det]-> ForwardOutputKey (List Number)))
-(= (forward-stored-deps $key)
-   (let $hash (forward-output-index-hash $key)
-      (case (collapse (once (match &forward_output_deps ($hash $stored $deps)
-               (if (=alpha $stored $key) $deps (empty))))) (
-         ((cons $deps $_rest) (the (List Number) $deps))
-         (() ())))))
-
-;; What reading a fact depends on: its own output and what that was derived
-;; through.
-(: forward-read-deps (-[det]-> (Statement KBContext Proof TV) (List Number)))
-(= (forward-read-deps $fact)
-   (let $key (forward-fact-key $fact)
-      (deps-union (cons (forward-output-index-hash $key) ()) (forward-stored-deps $key))))
-
-;; An output's value may merge several derivations, so it keeps what each was
-;; derived through.
-(: forward-record-deps! (-[det]-> (Statement KBContext Proof TV) (List Number) Atom))
-(= (forward-record-deps! $fact $deps)
-   (let* (($key (forward-fact-key $fact))
-          ($hash (forward-output-index-hash $key))
-          ($merged (deps-union (forward-stored-deps $key) $deps))
-          ($_removed (collapse (match &forward_output_deps ($hash $stored $was)
-             (if (=alpha $stored $key) (remove-atom &forward_output_deps ($hash $stored $was)) (empty))))))
-      (add-atom &forward_output_deps ($hash $key $merged))))
 
 (: forward-output-candidate-step
    (-[det]-> (| ForwardDerived NoForwardOutputCandidate)

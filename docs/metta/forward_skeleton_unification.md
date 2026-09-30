@@ -1,6 +1,8 @@
 # Forward Chaining as a Mode of the Skeleton
 
-Design note, 2026-09-30. Status: proposal, nothing implemented.
+Design note, 2026-09-30. Status: steps 1–4 and 6 implemented
+(`runtime/backward/upward.metta`); step 5 (one base-rate estimate) and step 7's
+retirement of the canonical store remain.
 
 ## Why
 
@@ -153,7 +155,7 @@ key's value changed rather than by its confidence:
 Weak inversions then cost one row each and propagate nowhere. That was the
 original motivation for priority.
 
-### 5. Results stay in the skeleton
+### 5. Results stay in the skeleton (superseded: see below)
 
 A plain backward query writes nothing to `&kb`: its answers are views, and only
 a materializing query (`chainer-materialize`) writes back. Forward results
@@ -200,6 +202,44 @@ None at present. Decided on 2026-09-30:
 - priority by change, measured as the Beta divergence;
 - `forward-has-derived?` is removed;
 - one base-rate estimate updated from both sides.
+
+## What the implementation added
+
+**Stored results (decided after the first StationOps run).** Keeping results
+only in the skeleton halved the StationOps score (26,940). The action KB is
+queried with a budget of 1, relying on forward chaining to have derived what it
+reads, and a query reaches skeleton values only through expansions it cannot
+pay for. So a run now stores each derived key's value in `&kb` as a copy, with
+the value's evidence and dependencies. The copy stands for the value only
+while the key has no computed versions, so it never competes with the live
+value. An earlier attempt went through the canonical store, which merged
+the copy into the key's user facts; the copy's dependencies then made readers
+drop the user facts too.
+
+**Proof output.** StationOps crashed at shift 6 until output proofs printed
+shared subproofs once. Expanding the proof DAG as a tree doubled every shift.
+
+Four details the design did not anticipate:
+- **Last-taken values.** A key is compared with the value a run last built on,
+  not with its value before this evaluation. Otherwise a key evaluated but
+  not taken, because the budget ran out, never looks changed again, and its
+  work is lost.
+- **Stale readers.** A row that goes stale leaves the reader lists of the keys
+  it reads, which keeps backward change propagation cheap. A forward run needs
+  exactly those rows, so a stale row is kept as a *stale reader*
+  (`&sk_stale_reader`) until it is refreshed.
+- **Fold search.** A fold premise that no search expanded has no members. The
+  run searches it, as a query would, unless it is a base rate, whose estimate
+  the cache holds.
+- **Certain statements.** Expansion applies no rule to a certain statement.
+  Upward joins skip one where their conclusion is first bound, in
+  `sk-complete-row!`, during forward runs only.
+
+Baseline before this work (4 seeds × 20 shifts, budget 600, per seed):
+- about 72 s wall;
+- `forward_chain` about 24 s over 80 calls (0.3 s per call);
+- `query_many` about 30 s over 20 calls;
+- station score 52,236.
 
 ## Plan
 

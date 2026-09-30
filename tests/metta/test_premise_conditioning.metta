@@ -60,13 +60,16 @@
 !(test (map-flat conditioning-tv (collapse (query 50 budgetKb (: $p (D x) $tv))))
    ((STV 0.81 0.9047610934410989)))
 
-;; The forward chainer does not condition: it refuses a premise overlapping
-;; what the rule already read, so it derives C but not D. A stored fact it
-;; derived from a statement a later backward query conditions on is left out
-;; under the condition, so that query still conditions D correctly.
+;; A forward run evaluates the rows it builds as a query does, so it conditions
+;; too, and derives D with the value a backward query reads.
 (: fwd-selected (-[det]-> KB Statement (List (Statement KBContext Proof TV))))
 (= (fwd-selected $kb $type)
    (collapse (once (match &kb ($type ($kb MAIN Nil) $prf $tv) (assemble-stored-runtime-fact $type ($kb MAIN Nil) $prf $tv)))))
+
+(: forward-value-of (-[det]-> Atom (List (Statement KBContext Proof TV)) (List Atom)))
+(= (forward-value-of $_type ()) ())
+(= (forward-value-of $type (cons ($statement $_kbctx $proof $tv) $rest))
+   (if (== $statement $type) (cons ($proof $tv) ()) (forward-value-of $type $rest)))
 
 !(compileadd forwardKb (: a (A x) (STV 0.8 0.9)))
 !(compileadd forwardKb (: b (B x) (STV 0.5 0.9)))
@@ -74,20 +77,24 @@
 !(compileadd forwardKb (: r2 (Implication (And (A $v) (C $v)) (D $v)) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 
 !(test
-   (let $_ (forward-chain 50 forwardKb (append-flat (fwd-selected forwardKb (A x)) (fwd-selected forwardKb (B x))))
-      (collapse (match &kb (($statement x) (forwardKb MAIN Nil) $_prf $_tv) $statement)))
-   (A B C))
+   (forward-value-of (D x)
+      (forward-chain 50 forwardKb (append-flat (fwd-selected forwardKb (A x)) (fwd-selected forwardKb (B x)))))
+   (((conditioned a (by r2 (conjunction (given true) (by r1 (conjunction (given true) b))))
+        (by r2 (conjunction (given false) (by r1 (conjunction (given false) b)))))
+     (STV 0.43600000000000005 0.9446591724475807))))
 !(test (map-flat conditioning-tv (collapse (query 200 forwardKb (: $p (D x) $tv))))
    ((STV 0.43600000000000005 0.9446591724475807)))
 
 ;; A certain fact is exact whether its evidence is shared or not, so reusing it
-;; joins as usual, forward and backward, with no conditioning.
+;; joins as usual, with no conditioning.
 !(compileadd certainKb (: a (A x) (STV 1.0 1.0)))
 !(compileadd certainKb (: b (B x) (STV 0.5 0.9)))
 !(compileadd certainKb (: r1 (Implication (And (A $v) (B $v)) (C $v)) (CTV (STV 0.9 0.9) (STV 0.3 0.9))))
 !(compileadd certainKb (: r2 (Implication (And (A $v) (C $v)) (D $v)) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 
 !(test
-   (let $_ (forward-chain 50 certainKb (append-flat (fwd-selected certainKb (A x)) (fwd-selected certainKb (B x))))
-      (collapse (match &kb ((D x) (certainKb MAIN Nil) $prf $_tv) $prf)))
-   ((by r2 (conjunction a (by r1 (conjunction a b))))))
+   (case (forward-value-of (D x)
+            (forward-chain 50 certainKb (append-flat (fwd-selected certainKb (A x)) (fwd-selected certainKb (B x))))) (
+      ((cons ($proof $_tv) ()) $proof)
+      ($_other $_other)))
+   (by r2 (conjunction a (by r1 (conjunction a b)))))

@@ -23,6 +23,12 @@
             (assemble-stored-runtime-fact
                $type ($kb MAIN Nil) $prf $tv)))))
 
+;; A forward run returns the values of the keys it built on.
+(: result-for (-[det]-> Atom (List (Statement KBContext Proof TV)) (List Atom)))
+(= (result-for $_type ()) ())
+(= (result-for $type (cons ($statement $_kbctx $proof $tv) $rest))
+   (if (== $statement $type) (cons ($proof $tv) ()) (result-for $type $rest)))
+
 ;; A fact produced by the forward chainer is only a cached derivation.  When
 ;; backward chaining rediscovers the same rule path, both views must carry the
 ;; same evidence so the result is not revised with itself.
@@ -35,9 +41,11 @@
 
 !(forward-chain 20 forwardBackwardDedupKb
    (test-main-facts forwardBackwardDedupKb))
-;; Remove the cheap forward estimates so the query reads the complete folds:
-;; the forward-materialized Q(bob) counts once, so the TV matches the backward
-;; one.
+;; Remove the cheap forward estimates so the query reads the complete folds.
+;; Forward and backward share the skeleton, so the query reads the one
+;; inversion. The forward run already derived P(alice), a member of the P base
+;; rate, so the rate is one fixed-point iteration further along than without
+;; the run (0.736162...).
 !(clear-base-rate forwardBackwardDedupKb (P $x))
 !(clear-base-rate forwardBackwardDedupKb (Q $x))
 
@@ -46,11 +54,10 @@
    (: ((inverted pToQ with cpu cpu)
        qa)
       (P alice)
-      (STV 0.736162240263287 0.0003604307138536469)))
+      (STV 0.7361793666997452 0.00036044262149447425)))
 
-;; A rule derivation has a stable key based on the rule and its grounded input
-;; slots.  Revising an input therefore replaces that derivation and requeues
-;; its canonical output, allowing the change to reach downstream rules.
+;; Revising an input changes its key's value, so a later run that takes it
+;; carries the change to the rules downstream.
 !(compileadd forwardRevisionKb (: p1 (P a) (STV 0.2 0.5)))
 !(compileadd forwardRevisionKb
    (: pToQ
@@ -64,39 +71,13 @@
 !(forward-chain 20 forwardRevisionKb
    (test-main-facts forwardRevisionKb))
 !(compileadd forwardRevisionKb (: p2 (P a) (STV 0.8 0.5)))
-!(forward-chain 20 forwardRevisionKb
-   (test-main-facts forwardRevisionKb))
 
 !(test
-   (collapse
-      (match &kb
-         ((R a) (forwardRevisionKb MAIN Nil) $prf $tv)
-         ((R a) (forwardRevisionKb MAIN Nil) $prf $tv)))
-   (((R a) (forwardRevisionKb MAIN Nil)
-      (by qToR (by pToQ (merge/revision p1 p2)))
-      (STV 0.5 0.6666665676407715))))
+   (result-for (R a) (forward-chain 20 forwardRevisionKb (test-main-facts forwardRevisionKb)))
+   (((by qToR (by pToQ (merge/revision p1 p2))) (STV 0.5 0.6666665676407715))))
 
-!(test
-   (list-count
-      (collapse
-         (match &forward_frontier
-            (forward-frontier-row
-               $_hash (Q a) (forwardRevisionKb MAIN Nil) $_fact $_ev)
-            true)))
-   1)
-
-!(test
-   (list-count
-      (collapse
-         (match &forward_frontier
-            (forward-frontier-row
-               $_hash (R a) (forwardRevisionKb MAIN Nil) $_fact $_ev)
-            true)))
-   1)
-
-;; Keep only the active proof frontier.  The new pToQ result contains all of
-;; the evidence of its earlier result, so it replaces that branch even though
-;; the independent sToQ branch must remain available for the canonical merge.
+;; Two independent derivations of Q revise; revising one of their inputs
+;; reaches Q's value, which is the value a query reads.
 !(compileadd forwardFrontierKb (: frontierP1 (P a) (STV 0.2 0.5)))
 !(compileadd forwardFrontierKb (: frontierS1 (S a) (STV 0.7 0.6)))
 !(compileadd forwardFrontierKb
@@ -111,104 +92,28 @@
 !(forward-chain 20 forwardFrontierKb
    (test-main-facts forwardFrontierKb))
 !(compileadd forwardFrontierKb (: frontierP2 (P a) (STV 0.8 0.5)))
-!(forward-chain 20 forwardFrontierKb
-   (test-main-facts forwardFrontierKb))
 
 !(test
-   (list-count
-      (collapse
-         (match &forward_frontier
-            (forward-frontier-row
-               $_hash (Q a) (forwardFrontierKb MAIN Nil) $_fact $_ev)
-            true)))
-   2)
-
-!(test
-   (collapse
-      (match &forward_frontier
-            (forward-frontier-row
-            $_hash (Q a) (forwardFrontierKb MAIN Nil)
-            ((Q a) (forwardFrontierKb MAIN Nil)
-               (by pToQ (merge/revision frontierP1 frontierP2)) $_tv)
-            $_ev)
-         true))
-   (true))
-
-!(test
-   (collapse
-      (match &forward_frontier
-         (forward-frontier-row
-            $_hash (Q a) (forwardFrontierKb MAIN Nil)
-            ((Q a) (forwardFrontierKb MAIN Nil) (by sToQ frontierS1) $_tv)
-            $_ev)
-         true))
-   (true))
-
-!(test
-   (collapse
-      (match &forward_frontier
-         (forward-frontier-row
-            $_hash (Q a) (forwardFrontierKb MAIN Nil)
-            ((Q a) (forwardFrontierKb MAIN Nil) (by pToQ frontierP1) $_tv)
-            $_ev)
-         true))
-   ())
-
-!(test
-   (not (==
-      (collapse
-         (match &kb
-            ((Q a) (forwardFrontierKb MAIN Nil)
-               (merge/revision $left $right) $_tv)
-            (if (or
-                   (and (== $left (by pToQ (merge/revision frontierP1 frontierP2)))
-                        (== $right (by sToQ frontierS1)))
-                   (and (== $right (by pToQ (merge/revision frontierP1 frontierP2)))
-                        (== $left (by sToQ frontierS1))))
-               true
-               (empty))))
-      ()))
+   (let $forward (result-for (Q a) (forward-chain 20 forwardFrontierKb (test-main-facts forwardFrontierKb)))
+      (== $forward
+         (case (collapse (query 200 forwardFrontierKb (: $p (Q a) $tv))) (
+            ((cons (: $qp $_t $qv) $_more) (cons ($qp $qv) ()))
+            (() ())))))
    true)
-
-!(test
-   (list-count
-      (collapse
-         (match &kb
-            ((P a) (forwardFrontierKb MAIN Nil) $_prf $_tv)
-            true)))
-   1)
-
-!(test
-   (list-count
-      (collapse
-         (match &forward_frontier
-            (forward-frontier-row
-               $_hash (P a) (forwardFrontierKb MAIN Nil) $_fact $_ev)
-            true)))
-   2)
 
 !(remove-compiled-statement frontierP2)
 
+;; frontierP2 is gone; P a keeps frontierP1 and the weak inversion from Q a,
+;; which S a supports through sToQ.
 !(test
-   (collapse
-      (match &kb
-         ((P a) (forwardFrontierKb MAIN Nil) $prf $tv)
-         (: $prf (P a) $tv)))
-   ((: frontierP1 (P a) (STV 0.2 0.5))))
-
-!(test
-   (list-count
-      (collapse
-         (match &forward_frontier
-            (forward-frontier-row
-               $_hash (P a) (forwardFrontierKb MAIN Nil) $_fact $_ev)
-            true)))
-   1)
+   (query 200 forwardFrontierKb (: $prf (P a) $tv))
+   (: (merge/revision frontierP1 ((inverted pToQ with cpu cpu) (by sToQ frontierS1)))
+      (P a) (STV 0.20007356735832943 0.5002243066932902)))
 
 ;; Adding evidence can raise an antecedent's confidence while moving its
 ;; strength toward an implication branch with much greater uncertainty.  The
-;; derived confidence then decreases.  The replacement must still be queued,
-;; and the lower-confidence Q value must propagate through qToR.
+;; derived confidence then decreases.  The change must still be taken, and the
+;; lower-confidence Q value must propagate through qToR.
 !(compileadd forwardLowerConfidenceKb (: p1 (P a) (STV 0.9 0.8)))
 !(compileadd forwardLowerConfidenceKb
    (: pToQ
@@ -218,48 +123,16 @@
    (: qToR
       (Implication (Q $x) (R $x))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-!(forward-chain 20 forwardLowerConfidenceKb
-   (test-main-facts forwardLowerConfidenceKb))
 
 !(test
-   (collapse
-      (match &kb
-         ((R a) (forwardLowerConfidenceKb MAIN Nil) $prf $tv)
-         ((R a) (forwardLowerConfidenceKb MAIN Nil) $prf $tv)))
-   (((R a) (forwardLowerConfidenceKb MAIN Nil)
-      (by qToR (by pToQ p1))
-      (STV 0.77 0.8204934934752165))))
+   (result-for (R a) (forward-chain 20 forwardLowerConfidenceKb (test-main-facts forwardLowerConfidenceKb)))
+   (((by qToR (by pToQ p1)) (STV 0.77 0.8204934934752165))))
 
 !(compileadd forwardLowerConfidenceKb (: p2 (P a) (STV 0.1 0.8)))
-!(forward-chain 20 forwardLowerConfidenceKb
-   (test-main-facts forwardLowerConfidenceKb))
 
 !(test
-   (collapse
-      (match &kb
-         ((R a) (forwardLowerConfidenceKb MAIN Nil) $prf $tv)
-         ((R a) (forwardLowerConfidenceKb MAIN Nil) $prf $tv)))
-   (((R a) (forwardLowerConfidenceKb MAIN Nil)
-      (by qToR (by pToQ (merge/revision p1 p2)))
-      (STV 0.65 0.2869444474025344))))
-
-!(test
-   (list-count
-      (collapse
-         (match &forward_frontier
-            (forward-frontier-row
-               $_hash (Q a) (forwardLowerConfidenceKb MAIN Nil) $_fact $_ev)
-            true)))
-   1)
-
-!(test
-   (list-count
-      (collapse
-         (match &forward_frontier
-            (forward-frontier-row
-               $_hash (R a) (forwardLowerConfidenceKb MAIN Nil) $_fact $_ev)
-            true)))
-   1)
+   (result-for (R a) (forward-chain 20 forwardLowerConfidenceKb (test-main-facts forwardLowerConfidenceKb)))
+   (((by qToR (by pToQ (merge/revision p1 p2))) (STV 0.65 0.2869444474025344))))
 
 ;; Compiler-generated base-rate folds register additive sufficient statistics.
 ;; Forward chaining updates those statistics only for canonical outputs it
@@ -289,11 +162,13 @@
 
 ;; A full backward fold remains authoritative.  It refines the provisional
 ;; estimate and upgrades the cache source even when the TV itself is unchanged.
+;; The forward run's inverted P(alice) is a member of the P base rate, one
+;; fixed-point iteration ahead.
 !(test
    (query 200 forwardBaseRateKb (: $proof (P alice) $tv))
    (: ((inverted pToQ with cpu cpu) qa)
       (P alice)
-      (STV 0.736162240263287 0.0003604307138536469)))
+      (STV 0.7361793666997452 0.00036044262149447425)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)
@@ -427,7 +302,7 @@
              ((inverted (inheritance-implication penguinBird) with cpu cpu)
                 (by (inheritance-implication ravenBird) (ctx proof 1)))))
       (Inheritance Raven Penguin)
-      (STV 0.9977575682073004 1.0e-06)))
+      (STV 0.997757570693304 1.0e-06)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)
@@ -509,9 +384,11 @@
       $source)
    computed)
 
+;; The run's evaluation recomputes the P fold that the new fact made stale. The
+;; fold counts the earlier query's inverted P(alice) as a weak member.
 !(test
    (cached-base-rate computedForwardBaseRateKb (P $x))
-   ((STV 0.49999999999999994 0.0019960079840319364)))
+   ((STV 0.5000531880963873 0.001996456725460992)))
 
 !(test
    (list-count

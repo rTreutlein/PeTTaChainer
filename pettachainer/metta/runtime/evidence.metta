@@ -253,6 +253,9 @@
 (= (proof-term-evidence-list-mode $mode $prf)
    (case $prf (
       ((proof-ref $pid) (proof-ref-evidence $pid))
+      ;; A shared subproof counts once, at its first occurrence.
+      ((shared $_id $shared-proof) (proof-term-evidence-list-mode $mode (brand Proof $shared-proof)))
+      ((shared $_id) ())
       ((@ $_merge (merge/revision $left $right))
          (let*
             (($left-proof (brand Proof $left))

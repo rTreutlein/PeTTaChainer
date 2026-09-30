@@ -50,19 +50,19 @@
    (if (== $runtime-helper $parent-runtime-helper)
       (import_prolog_functions_from_file
          $runtime-helper
-         (remove-data-rows! remove-variant-row! heap_pop heap-empty? index-hash deps-set deps-union deps-join deps-within? deps-meet? alpha_unique_keys prune_answer_instances rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
+         (remove-data-rows! remove-variant-row! heap_pop heap-empty? index-hash deps-set deps-union deps-join deps-within? deps-meet? beta_kl proof_dag_expand alpha_unique_keys prune_answer_instances rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
             query_metrics_enabled query_metrics_set_enabled
             query_metric_value query_metric_set query_metric_increment))
       (superpose
          ((import_prolog_functions_from_file
              $runtime-helper
-             (remove-data-rows! remove-variant-row! heap_pop heap-empty? index-hash deps-set deps-union deps-join deps-within? deps-meet? alpha_unique_keys prune_answer_instances rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
+             (remove-data-rows! remove-variant-row! heap_pop heap-empty? index-hash deps-set deps-union deps-join deps-within? deps-meet? beta_kl proof_dag_expand alpha_unique_keys prune_answer_instances rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
                 query_metrics_enabled query_metrics_set_enabled
                 query_metric_value query_metric_set
                 query_metric_increment))
           (import_prolog_functions_from_file
              $parent-runtime-helper
-             (remove-data-rows! remove-variant-row! heap_pop heap-empty? index-hash deps-set deps-union deps-join deps-within? deps-meet? alpha_unique_keys prune_answer_instances rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
+             (remove-data-rows! remove-variant-row! heap_pop heap-empty? index-hash deps-set deps-union deps-join deps-within? deps-meet? beta_kl proof_dag_expand alpha_unique_keys prune_answer_instances rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
                 query_metrics_enabled query_metrics_set_enabled
                 query_metric_value query_metric_set
                 query_metric_increment))))))
@@ -84,4 +84,5 @@
 !(import! &self runtime/ingest)
 !(import! &self runtime/backward/skeleton)
 !(import! &self runtime/backward/evaluation)
+!(import! &self runtime/backward/upward)
 !(import! &self runtime/query)

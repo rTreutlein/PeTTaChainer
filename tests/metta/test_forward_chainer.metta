@@ -13,202 +13,109 @@
             (assemble-stored-runtime-fact
                $type ($kb MAIN Nil) $prf $tv)))))
 
+;; A forward run returns the values of the keys it built on; these read them.
+(: result-statements (-[det]-> (List (Statement KBContext Proof TV)) (List Atom)))
+(= (result-statements ()) ())
+(= (result-statements (cons ($type $_kbctx $_proof $_tv) $rest)) (cons $type (result-statements $rest)))
+
+(: result-for (-[det]-> Atom (List (Statement KBContext Proof TV)) (List Atom)))
+(= (result-for $_type ()) ())
+(= (result-for $type (cons ($statement $_kbctx $proof $tv) $rest))
+   (if (== $statement $type) (cons ($proof $tv) ()) (result-for $type $rest)))
+
+(: query-for (-[nondet]-> KB Statement (List Atom)))
+(= (query-for $kb $type)
+   (case (collapse (query 200 $kb (: $proof $type $tv))) (
+      ((cons (: $p $_t $v) $_more) (cons ($p $v) ()))
+      (() ()))))
+
 !(compileadd fwdkb (: edgeAB (Edge A B) (STV 1.0 1.0)))
-
 !(compileadd fwdkb (: edgeBC (Edge B C) (STV 1.0 1.0)))
-
 !(compileadd fwdkb
    (: edgeToPath (Implication (Edge $x $y) (Path $x $y)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-
 !(compileadd fwdkb
    (: pathStep (Implication (And (Path $x $y) (Edge $y $z)) (Path $x $z)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-
 !(compileadd fwdkb
    (: pathIdempotent (Implication (Path $x $y) (Path $x $y)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-;; Empty agendas and exhausted budgets return exactly one empty change list.
+;; No seeds, or no budget, builds nothing.
 !(test (collapse (forward-chain 20 fwdkb ())) (()))
-!(test
-   (collapse (forward-chain 0 fwdkb (test-selected-facts fwdkb (Edge A B))))
-   (()))
-!(test (forward-has-derived? fwdkb (Path A B)) false)
+!(test (forward-chain 0 fwdkb (test-selected-facts fwdkb (Edge A B))) ())
 
+;; A run joins what it derives with the facts already stored: Path A C needs
+;; Edge B C, which was never a seed.
 !(test
-   (let $changed (forward-chain 50 fwdkb (test-selected-facts fwdkb (Edge A B)))
-      (and (== (list-count $changed) 3)
-         (forward-has-derived? fwdkb (Path A C))))
-   true)
+   (result-for (Path A C) (forward-chain 50 fwdkb (test-selected-facts fwdkb (Edge A B))))
+   (((by pathStep (conjunction (by edgeToPath edgeAB) edgeBC)) (STV 1.0 0.9996001597861454))))
 
-;; A run returns each changed output once, using its final canonical proof.
-;; Reprocessing the same seed without new evidence changes nothing.
+;; Taking the same seed again changes nothing, so nothing is built.
 !(test (forward-chain 50 fwdkb (test-selected-facts fwdkb (Edge A B))) ())
 
-!(test
-   (let*
-      (($proofs
-           (collapse
-              (match &kb
-                 ((Path A C) (fwdkb MAIN Nil) $prf $_tv)
-                 (brand Proof $prf)))))
-      (list-count $proofs))
-   1)
+;; A forward result is the value a backward query reads for the statement.
+!(test (query-for fwdkb (Path A C))
+   (((by pathStep (conjunction (by edgeToPath edgeAB) edgeBC)) (STV 1.0 0.9996001597861454))))
 
+;; A rule concluding its own premise supports itself, and derives nothing.
 !(compileadd loopkb (: seedLoop (Loop Start) (STV 1.0 1.0)))
-
 !(compileadd loopkb
    (: keepLoop (Implication (Loop $x) (Loop $x)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(test
-   (let*
-      (($_ (forward-chain 200 loopkb (test-selected-facts loopkb (Loop Start))))
-       ($proofs
-           (collapse
-              (match &kb
-                 ((Loop Start) (loopkb MAIN Nil) $prf $_tv)
-                 (brand Proof $prf)))))
-      (list-count $proofs))
-   1)
+!(test (forward-chain 200 loopkb (test-selected-facts loopkb (Loop Start))) ())
 
-;; A longer idempotent derivation overlaps the direct seed, but it is not a
-;; refinement of the same rule application and must not evict that seed.
-!(test
-   (collapse
-      (match &kb
-         ((Loop Start) (loopkb MAIN Nil) $prf $_tv)
-         $prf))
-   (seedLoop))
-
+;; Two rules conclude SwitchGoal; the forward value is the one the backward
+;; chainer reads.
 !(compileadd mergekb (: weakFact (WeakPremise) (STV 1.0 0.1)))
-
 !(compileadd mergekb (: baseFact (BasePremise) (STV 1.0 1.0)))
-
 !(compileadd mergekb
    (: ruleHighThenDrop (Implication (And (WeakPremise) (BasePremise)) (SwitchGoal)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
-
 !(compileadd mergekb
    (: ruleStable (Implication (BasePremise) (SwitchGoal)) (CTV (STV 1.0 0.7) (STV 0.0 1.0))))
 
 !(test
-   (let*
-      (($_ (forward-chain 50 mergekb (test-selected-facts mergekb (BasePremise))))
-        ($merged
-           (collapse
-              (match &kb
-                 ((SwitchGoal) (mergekb MAIN Nil)
-                    (merge/revision $_p1 $_p2) $_tv)
-                 true))))
-      (== $merged ()))
+   (let $forward (result-for (SwitchGoal) (forward-chain 50 mergekb (test-selected-facts mergekb (BasePremise))))
+      (== $forward (query-for mergekb (SwitchGoal))))
    true)
 
-!(test
-   (let*
-      (($_ (forward-chain 50 mergekb (test-selected-facts mergekb (BasePremise))))
-        ($ev-ok
-           (collapse
-              (match &kb
-                 ((SwitchGoal) (mergekb MAIN Nil) $prf $tv)
-                 (==
-                    (proof-atom-evidence-set
-                       (assemble-runtime-fact
-                          (brand Statement (SwitchGoal))
-                          (brand KBContext (mergekb MAIN Nil))
-                          (brand Proof $prf)
-                          (the TV $tv)))
-                    (baseFact))))))
-      (not (== $ev-ok ())))
-   true)
-
-!(test
-   (let*
-      (($_ (forward-chain 50 mergekb (test-selected-facts mergekb (BasePremise))))
-        ($proofs
-           (collapse
-              (match &kb
-                 ((SwitchGoal) (mergekb MAIN Nil) $prf $_tv)
-                 (brand Proof $prf)))))
-      (list-count $proofs))
-   1)
-
+;; The most promising item goes first: with one step, a seed that triggers no
+;; rule builds nothing, and one that does builds its conclusion.
 !(compileadd deltakb (: highFact (HighPriority) (STV 1.0 1.0)))
-
 !(compileadd deltakb (: lowFact (LowPriority) (STV 1.0 0.8)))
-
 !(compileadd deltakb
    (: lowToGoal (Implication (LowPriority) (DeltaGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(test (let $_ (forward-chain 1 deltakb (test-selected-facts deltakb (HighPriority))) (forward-has-derived? deltakb (DeltaGoal))) false)
+!(test (forward-chain 1 deltakb (test-selected-facts deltakb (HighPriority))) ())
+!(test (result-statements (forward-chain 1 deltakb (test-selected-facts deltakb (LowPriority)))) ((DeltaGoal)))
 
-;; Exhausted work is not retained. Selecting the same irrelevant seed again
-;; cannot resume a discarded global agenda.
-!(test (let $_ (forward-chain 1 deltakb (test-selected-facts deltakb (HighPriority))) (forward-has-derived? deltakb (DeltaGoal))) false)
-
-!(test (let $_ (forward-chain 1 deltakb (test-selected-facts deltakb (LowPriority))) (forward-has-derived? deltakb (DeltaGoal))) true)
-
-!(compileadd selectedkb (: highFact (HighPriority) (STV 1.0 1.0)))
-
-!(compileadd selectedkb (: lowFact (LowPriority) (STV 1.0 0.8)))
-
-!(compileadd selectedkb
-   (: lowToGoal (Implication (LowPriority) (SelectedGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-
-!(test (let $_ (forward-chain 1 selectedkb (test-selected-facts selectedkb (LowPriority))) (forward-has-derived? selectedkb (SelectedGoal))) true)
-
-!(compileadd factseedkb (: highFact (HighPriority) (STV 1.0 1.0)))
-
-!(compileadd factseedkb (: lowFact (LowPriority) (STV 1.0 0.8)))
-
-!(compileadd factseedkb
-   (: lowToGoal (Implication (LowPriority) (FactSeedGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-
-!(test
-   (let*
-      (($facts
-          (collapse
-             (match &kb
-                ((LowPriority) (factseedkb MAIN Nil) $prf $tv)
-                (assemble-stored-runtime-fact
-                   (LowPriority)
-                   (factseedkb MAIN Nil)
-                   $prf $tv))))
-        ($_ (forward-chain 1 factseedkb $facts)))
-      (forward-has-derived? factseedkb (FactSeedGoal)))
-   true)
-
+;; Adding a rule schedules nothing by itself; a run whose seed triggers it
+;; builds its conclusion.
 !(compileadd ruleaddkb (: oldSeed (RuleSeed) (STV 1.0 1.0)))
-
-!(test (let $_ (forward-chain 1 ruleaddkb (test-selected-facts ruleaddkb (RuleSeed))) (forward-has-derived? ruleaddkb (RuleAddGoal))) false)
-
+!(test (forward-chain 1 ruleaddkb (test-selected-facts ruleaddkb (RuleSeed))) ())
 !(compileadd ruleaddkb
    (: seedToGoal (Implication (RuleSeed) (RuleAddGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(test (result-statements (forward-chain 2 ruleaddkb (test-selected-facts ruleaddkb (RuleSeed)))) ((RuleAddGoal)))
 
-;; Adding a rule does not schedule old facts globally. The caller explicitly
-;; selects the existing fact that should activate the new rule.
-!(test (let $_ (forward-chain 2 ruleaddkb (test-selected-facts ruleaddkb (RuleSeed))) (forward-has-derived? ruleaddkb (RuleAddGoal))) true)
-
+;; Formulas run in evaluation; a result's truth value is never an unevaluated
+;; call.
 !(compileadd dedupekb (: dedupeSeed (DedupeSeed) (STV 1.0 0.4)))
-
 !(compileadd dedupekb
    (: dedupeRule (Implication (DedupeSeed) (DedupeGoal)) (CTV (STV 1.0 0.5) (STV 0.0 1.0))))
 
 !(test
-   (let*
-      (($_ (forward-chain 10 dedupekb (test-selected-facts dedupekb (DedupeSeed))))
-        ($cpu-call-tvs
-           (collapse (match &kb ((DedupeGoal) (dedupekb MAIN Nil) $prf (cpu-call $steps $fun $args)) true))))
-      (== $cpu-call-tvs ()))
+   (case (result-for (DedupeGoal) (forward-chain 10 dedupekb (test-selected-facts dedupekb (DedupeSeed)))) (
+      ((cons ($_proof (STV $_s $_c)) ()) true)
+      ($_other false)))
    true)
 
-;; A rule whose truth needs base rates fires forward: a fold premise reads the
-;; cached base rate, and a fold with nothing cached is computed by a backward
-;; query within the run's remaining steps.
+;; A rule whose truth needs base rates fires forward: its fold premises are
+;; fold keys, read as a query reads them.
 !(compileadd stvFwdKb (: a (A x) (STV 1.0 0.9)))
 !(compileadd stvFwdKb (: b (B x) (STV 1.0 0.9)))
 !(compileadd stvFwdKb (: r1 (Implication (And (A $v) (B $v)) (C $v)) (STV 0.9 0.9)))
 
 !(test
-   (let $_ (forward-chain 50 stvFwdKb (test-selected-facts stvFwdKb (A x)))
-      (collapse (match &kb ((C x) (stvFwdKb MAIN Nil) $prf $tv) ($prf $tv))))
-   (((by r1 (conjunction a b)) (STV 0.9 0.8999998505003627))))
+   (let $forward (result-for (C x) (forward-chain 50 stvFwdKb (test-selected-facts stvFwdKb (A x))))
+      (== $forward (query-for stvFwdKb (C x))))
+   true)
 
 !(compileadd shareFwdKb (: l1 (Leak u1) (STV 0.2 0.9)))
 !(compileadd shareFwdKb (: l2 (Leak u2) (STV 0.6 0.8)))
@@ -225,28 +132,26 @@
       (CTV (STV $p 1.0) (STV $p 1.0))))
 
 !(test
-   (let $_ (forward-chain 50 shareFwdKb (test-selected-facts shareFwdKb (Leak u1)))
-      (collapse (match &kb ((Share u1) (shareFwdKb MAIN Nil) $prf $tv) $tv)))
-   ((STV 0.25 0.9999320001831821)))
+   (case (result-for (Share u1) (forward-chain 50 shareFwdKb (test-selected-facts shareFwdKb (Leak u1)))) (
+      ((cons ($_proof $tv) ()) $tv)
+      ($_other ())))
+   (STV 0.25 0.9999320001831821))
 
-;; A forward result resting on less than one observation's worth of evidence
-;; does not start an output of its own, however much budget is left. The
-;; minimum is configurable; at zero the result is stored.
+;; A key whose value rests on less than one observation's worth of evidence is
+;; not built on. The minimum is configurable.
 !(compileadd weakFwdKb (: seed (WeakSeed) (STV 1.0 0.9)))
 !(compileadd weakFwdKb (: weakRule (Implication (WeakSeed) (WeakGoal)) (CTV (STV 1.0 0.0005) (STV 0.0 1.0))))
 
-!(test (let $_ (forward-chain 50 weakFwdKb (test-selected-facts weakFwdKb (WeakSeed))) (forward-has-derived? weakFwdKb (WeakGoal))) false)
+!(test (forward-chain 50 weakFwdKb (test-selected-facts weakFwdKb (WeakSeed))) ())
 !(test
    (let* (($_min (set-forward-min-evidence 0.0))
-          ($_ (forward-chain 50 weakFwdKb (test-selected-facts weakFwdKb (WeakSeed))))
-          ($derived (forward-has-derived? weakFwdKb (WeakGoal)))
+          ($statements (result-statements (forward-chain 50 weakFwdKb (test-selected-facts weakFwdKb (WeakSeed)))))
           ($_restored (set-forward-min-evidence 1.0)))
-      $derived)
-   true)
+      $statements)
+   ((WeakGoal)))
 
-;; A forward result derived through its own output supports itself and is not
-;; stored. B revises A's and C's derivations, so it is more confident than A,
-;; and B -> A would replace A with a value resting on A itself.
+;; B revises A's and C's derivations. B -> A reads only B's derivation that
+;; does not depend on A, as a query does, so A never rests on itself.
 !(compileadd cycleFwdKb (: a0 (CycA) (STV 0.6 0.5)))
 !(compileadd cycleFwdKb (: c0 (CycC) (STV 0.6 0.5)))
 !(compileadd cycleFwdKb (: aToB (Implication (CycA) (CycB)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
@@ -254,7 +159,9 @@
 !(compileadd cycleFwdKb (: bToA (Implication (CycB) (CycA)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
-   (let $_ (forward-chain 50 cycleFwdKb
-              (append-flat (test-selected-facts cycleFwdKb (CycA)) (test-selected-facts cycleFwdKb (CycC))))
-      (collapse (match &kb ((CycA) (cycleFwdKb MAIN Nil) $prf $_tv) $prf)))
-   (a0))
+   (let $forward
+      (result-for (CycA)
+         (forward-chain 50 cycleFwdKb
+            (append-flat (test-selected-facts cycleFwdKb (CycA)) (test-selected-facts cycleFwdKb (CycC)))))
+      (== $forward (query-for cycleFwdKb (CycA))))
+   true)

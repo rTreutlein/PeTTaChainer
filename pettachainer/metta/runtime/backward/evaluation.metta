@@ -58,9 +58,31 @@
 (= (leaf-evidence-for-result ($type $kb $proof $tv))
    (if (assumption-proof? $proof) () (forward-fact-evidence $type $kb $proof $tv)))
 
+;; A stored fact is its own evidence and depends on its own key. The fact a
+;; forward run stored for a key carries its value's evidence and what that value
+;; was derived through (see sk-forward-store!).
 (: sk-leaf-view (-[det]-> Number SkFact SkeletonValue))
 (= (sk-leaf-view $hash $fact)
-   (sk-val $fact (leaf-evidence-for-result $fact) (cons $hash ())))
+   (case (collapse (once (match &sk_forward_stored ($hash $_key $fact $ev $deps) (sk-val $fact $ev $deps)))) (
+      ((cons $stored $_rest) $stored)
+      (() (sk-val $fact (leaf-evidence-for-result $fact) (cons $hash ()))))))
+
+;; The fact a forward run stored for a key is a copy of the key's own value: it
+;; lets a reader reach the key without searching for it, and stands for the
+;; value only while the key has no computed versions. A reader that must not
+;; depend on what it was derived through leaves it out.
+(: sk-leaf-step (-[semidet]-> Number Bool (List Number) (List SkeletonValue) SkFact (List SkeletonValue)))
+(= (sk-leaf-step $hash $computed $exclude $kept $fact)
+   (let $view (sk-leaf-view $hash $fact)
+      (if (== (sk-view-deps-step () $view) (cons $hash ())) (cons $view $kept)
+         (if $computed $kept
+            (if (deps-meet? $exclude (sk-view-deps-step () $view)) $kept (cons $view $kept))))))
+
+(: sk-leaf-views (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonValue)))
+(= (sk-leaf-views $hash $key $filter $exclude)
+   (let $computed (if (== (sk-latest-versions $hash $key) ()) false true)
+      (fold-semidet sk-cons-step ()
+         (fold-semidet (sk-leaf-step $hash $computed $exclude) () (sk-key-leaves $key $filter)))))
 
 (: sk-keep-leaf (-[semidet]-> SkeletonKey (List SkFact) SkFact (List SkFact)))
 (= (sk-keep-leaf $key $kept $fact)
@@ -669,15 +691,12 @@
    (map-flat sk-version-view (sk-admitted-versions $hash $key $filter $exclude)))
 
 ;; Leaves first, then one version per row in the order the rows were found.
-(: sk-merge-values (-[semidet]-> (List SkeletonValue) SkeletonValue))
-(= (sk-merge-values $values)
-   (case (sk-lift $values) (
-      ((cons $lifted $_rest) $lifted)
-      (() (fold-semidet sk-merge-step sk-none $values)))))
-
-(: sk-merge-key (-[semidet]-> Number SkeletonKey SkeletonFilter (List SkeletonValue) SkeletonValue))
-(= (sk-merge-key $hash $key $filter $views)
-   (sk-merge-values (append-flat (map-semidet (sk-leaf-view $hash) (sk-key-leaves $key $filter)) $views)))
+(: sk-merge-key (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonValue) SkeletonValue))
+(= (sk-merge-key $hash $key $filter $exclude $views)
+   (let $values (append-flat (sk-leaf-views $hash $key $filter $exclude) $views)
+      (case (sk-lift $values) (
+         ((cons $lifted $_rest) $lifted)
+         (() (fold-semidet sk-merge-step sk-none $values))))))
 
 (: sk-view-deps-step (-[semidet]-> (List Number) SkeletonValue (List Number)))
 (= (sk-view-deps-step $deps $view)
@@ -703,8 +722,9 @@
       (()
          (let* (($_counted (query_metric_increment merged-cache-misses))
                 ($views (sk-admitted $hash $key $filter ()))
-                ($deps (fold-semidet sk-view-deps-step () $views))
-                ($value (sk-merge-key $hash $key $filter $views))
+                ($leaves (sk-leaf-views $hash $key $filter ()))
+                ($deps (fold-semidet sk-view-deps-step () (append-flat $leaves $views)))
+                ($value (sk-merge-key $hash $key $filter () $views))
                 ($_cached (add-atom &sk_merged (sk-merged $hash $key $deps $value))))
             (sk-merged $hash $key $deps $value))))))
 
@@ -718,11 +738,11 @@
              (case (sk-open-value $hash $key sk-any-filter) (
                 ((sk-merged $_hash $_key $deps $value)
                    (if (deps-meet? $exclude $deps)
-                      (sk-merge-key $hash $key sk-any-filter (sk-admitted $hash $key sk-any-filter $exclude))
+                      (sk-merge-key $hash $key sk-any-filter $exclude (sk-admitted $hash $key sk-any-filter $exclude))
                       $value))))))
       (if (sk-open-filter? $filter) $merged
          (if (sk-admits? $filter () $merged) $merged
-            (sk-merge-key $hash $key $filter (sk-admitted $hash $key $filter $exclude))))))
+            (sk-merge-key $hash $key $filter $exclude (sk-admitted $hash $key $filter $exclude))))))
 
 (: sk-drop-merged! (-[det]-> SkeletonKey Atom))
 (= (sk-drop-merged! $key)
@@ -869,46 +889,21 @@
 ;; evaluated with such a statement known true and again known false, and the
 ;; two results mix by the statement's value, P(D) = P(K) P(D | K) + (1 - P(K))
 ;; P(D | not K), so the shared evidence counts once, through the weight. Under
-;; a condition a known statement reads as certain with no evidence, a view
-;; depending on one is its row evaluated again under the same condition, and a
-;; stored fact derived from one, by the forward chainer, is left out; other
+;; a condition a known statement reads as certain with no evidence, and a view
+;; depending on one is its row evaluated again under the same condition; other
 ;; views, and folds, read as they are.
 
 (: sk-given-hash (-[det]-> SkeletonGiven Number))
 (= (sk-given-hash (sk-given $hash $_key $_truth)) $hash)
 
-(: sk-given-entry-step (-[semidet]-> (List SkeletonGiven) Bool Evidence Bool))
-(= (sk-given-entry-step $given $found $entry)
-   (if $found true
-      (case $entry (
-         ((fact-ev $kbctx $_proof $type)
-            (not (== (fold-semidet (sk-pinned-step (sk-key $type $kbctx)) () $given) ())))
-         ($_other false)))))
+(: sk-given-hashes (-[det]-> (List SkeletonGiven) (List Number)))
+(= (sk-given-hashes $given) (map-flat sk-given-hash $given))
 
-(: sk-value-ev (-[det]-> SkeletonValue (List Evidence)))
-(= (sk-value-ev $value)
-   (case $value (
-      ((sk-val $_fact $ev $_deps) $ev)
-      ((sk-goal-val $_goal $_proof $ev $_deps) $ev)
-      (sk-none ()))))
-
-;; Whether a value depends on a given statement: through a key it read, or
-;; through a fact in its evidence, for a fact the forward chainer derived.
+;; Whether a value depends on a given statement.
 (: sk-given-meets? (-[semidet]-> (List SkeletonGiven) SkeletonValue Bool))
 (= (sk-given-meets? $given $value)
    (if (== $given ()) false
-      (if (deps-meet? (sk-view-deps-step () $value) (map-flat sk-given-hash $given)) true
-         (fold-semidet (sk-given-entry-step $given) false (sk-value-ev $value)))))
-
-;; The key's stored facts that do not depend on a given statement.
-(: sk-given-leaves (-[semidet]-> (List SkeletonGiven) Number SkeletonKey SkeletonFilter (List SkeletonValue)))
-(= (sk-given-leaves $given $hash $key $filter)
-   (fold-semidet (sk-given-leaf-step $given) ()
-      (map-semidet (sk-leaf-view $hash) (sk-key-leaves $key $filter))))
-
-(: sk-given-leaf-step (-[semidet]-> (List SkeletonGiven) (List SkeletonValue) SkeletonValue (List SkeletonValue)))
-(= (sk-given-leaf-step $given $kept $leaf)
-   (if (sk-given-meets? $given $leaf) $kept (append-flat $kept (cons $leaf ()))))
+      (deps-meet? (sk-view-deps-step () $value) (sk-given-hashes $given))))
 
 (: sk-pinned-step (-[semidet]-> SkeletonKey (List SkeletonValue) SkeletonGiven (List SkeletonValue)))
 (= (sk-pinned-step $key $found (sk-given $hash $given-key $truth))
@@ -938,10 +933,9 @@
    (let $value (sk-value $key $filter $exclude)
       (if (sk-given-meets? $given $value)
          (let $hash (index-hash $key)
-            (sk-merge-values
-               (append-flat (sk-given-leaves $given $hash $key $filter)
-                  (map-semidet (sk-given-view $given $exclude $hash $key)
-                     (sk-admitted-versions $hash $key $filter $exclude)))))
+            (sk-merge-key $hash $key $filter (append-flat $exclude (sk-given-hashes $given))
+               (map-semidet (sk-given-view $given $exclude $hash $key)
+                  (sk-admitted-versions $hash $key $filter $exclude))))
          $value)))
 
 ;; A premise value whose evidence overlaps what the row already uses is
@@ -958,7 +952,7 @@
    (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) (List Evidence) Bool SkeletonValue))
 (= (sk-compatible-value $given $key $filter $exclude $ev $views)
    (let* (($hash (index-hash $key))
-          ($leaves (sk-given-leaves $given $hash $key $filter)))
+          ($leaves (sk-leaf-views $hash $key $filter (append-flat $exclude (sk-given-hashes $given)))))
       (fold-semidet (sk-compatible-step $ev) sk-none
          (if $views
             (append-flat $leaves
@@ -1558,7 +1552,9 @@
    (let $_refresh
       (if (== (collapse (once (match &sk_stale ($khash $rhash) true))) ()) ()
          (let* (($_fresh (remove-atom &sk_stale ($khash $rhash)))
-                ($_linked (fold-semidet (sk-add-reader! $khash $rhash) () (fold-semidet sk-direct-key-step () $premises))))
+                ($keys (fold-semidet sk-direct-key-step () $premises))
+                ($_unmarked (fold-semidet (sk-drop-stale-reader! $khash $rhash) () $keys))
+                ($_linked (fold-semidet (sk-add-reader! $khash $rhash) () $keys)))
             (add-atom &sk_refresh ($khash $rhash))))
       (fold-semidet (sk-need-premise! $depth) () $premises)))
 
@@ -1608,9 +1604,12 @@
 (: sk-need-root! (-[semidet]-> Atom SkPattern Atom))
 (= (sk-need-root! $_acc $goal) (fold-semidet (sk-need! 0) () (sk-root-keys $goal)))
 
+;; A stale row leaves the reader lists of the keys it reads, so a change walks
+;; only current readers; it is kept as a stale reader of those keys, which a
+;; forward run taking one of them brings back.
 (: sk-unlink-reader! (-[det]-> Number Number (List SkPattern) Atom))
 (= (sk-unlink-reader! $khash $rhash $premises)
-   (fold-flat (sk-remove-reader! $khash $rhash) () (fold-flat sk-direct-key-step () $premises)))
+   (fold-flat (sk-stale-reader! $khash $rhash) () (fold-flat sk-direct-key-step () $premises)))
 
 (: sk-mark-stale! (-[det]-> SkeletonItem Atom))
 (= (sk-mark-stale! (sk-row-item $_seq $khash $key $rhash (sk-row $_ident $_concl $premises $_s)))
@@ -1699,28 +1698,6 @@
                       ($_forced (sk-force! (cons $item-hash ()) $item))
                       ($last (sk-work-off! $pass (sk-work (add_to_heap (empty_heap) $item-seq $item) (empty_heap)))))
                   (sk-pay-conditions! (+ $last 1)))))))))
-
-;; A fold premise the forward chainer reads: a base rate's cached estimate, any
-;; other fold's value as a query last left it in the skeleton, or else what a
-;; backward query for the fold finds within the forward run's remaining steps.
-(: forward-fold-value (-[semidet]-> Number Atom Expression Atom))
-(= (forward-fold-value $steps $fun $args)
-   (let $stored
-      (if (== $fun FoldAllCompiled)
-         (case (base-rate-aggregate-key $args) (
-            ((base-rate-aggregate-key-value $_kbid $_pattern $_mode)
-               (map-flat base-rate-entry-tv (sk-rate-entries $args)))
-            (no-base-rate-aggregate-key
-               (let $key (sk-fold $args)
-                  (case (sk-latest-view (index-hash $key) $key 0) (
-                     ((sk-goal-val (CPU $_view-fun $_view-args $view-value) $_proof $_ev $_deps) (cons $view-value ()))
-                     ($_none ())))))))
-         ())
-      (case $stored (
-         ((cons $tv $_rest) $tv)
-         (()
-            (case (collapse (once (execute-backward $steps ((CPU $fun $args $result)) false))) (
-               ((cons (cons (cons (CPU $_fun $_args $value) $_more) $_goals) $_runs) $value))))))))
 
 ;; --- Base-rate API ----------------------------------------------------------
 

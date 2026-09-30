@@ -368,22 +368,69 @@ class TestPeTTaChainer(unittest.TestCase):
 
         # Every goal stays searchable: re-queries keep refining the
         # finite-budget point until it settles (from the second 200-step
-        # query on).
+        # query on): the same proof, and a truth value that moves no more
+        # than the base-rate fixed point's last iteration.
         repeats = [
             handler.query_many_materialization([root], steps=200)
             for _ in range(3)
         ]
-        # Context sample numbers in proof labels are per-query counters.
-        def without_context_numbers(answers):
+        # Context sample numbers in proof labels are per-query counters, and a
+        # subproof printed once as (shared N P) and later as (shared N) is the
+        # same proof as P written out each time.
+        def inline_shared(text):
+            tokens = re.findall(r"\(|\)|[^\s()]+", text)
+            pos = 0
+
+            def parse():
+                nonlocal pos
+                token = tokens[pos]
+                pos += 1
+                if token != "(":
+                    return token
+                items = []
+                while tokens[pos] != ")":
+                    items.append(parse())
+                pos += 1
+                return items
+
+            shared = {}
+
+            def inline(term):
+                if not isinstance(term, list):
+                    return term
+                if term and term[0] == "shared":
+                    if len(term) == 3:
+                        shared[term[1]] = inline(term[2])
+                    return shared[term[1]]
+                return [inline(item) for item in term]
+
+            def show(term):
+                return term if not isinstance(term, list) else "(" + " ".join(map(show, term)) + ")"
+
+            return show(inline(parse()))
+
+        def proof_shape(answers):
             return [
-                [re.sub(r"\(ctx proof \d+\)", "(ctx proof _)", row) for row in batch]
+                [
+                    re.sub(
+                        r"\(STV [^ ]+ [^)]+\)\)$",
+                        "(STV _ _))",
+                        re.sub(r"\(ctx proof \d+\)", "(ctx proof _)", inline_shared(row.strip())),
+                    )
+                    for row in batch
+                ]
                 for batch in answers
             ]
 
-        self.assertEqual(
-            without_context_numbers(repeats[1]),
-            without_context_numbers(repeats[2]),
-        )
+        def settled_tv(answers):
+            strength, confidence = re.findall(
+                r"\(STV ([^ ]+) ([^)]+)\)\)$", answers[0][0].strip()
+            )[-1]
+            return float(strength), float(confidence)
+
+        self.assertEqual(proof_shape(repeats[1]), proof_shape(repeats[2]))
+        for before, after in zip(settled_tv(repeats[1]), settled_tv(repeats[2])):
+            self.assertAlmostEqual(before, after, delta=1e-9)
         self.assertNotEqual(repeats[2], original)
 
         # Base rates are a fixed point of their populations, taken one
@@ -393,11 +440,6 @@ class TestPeTTaChainer(unittest.TestCase):
             fresh.query_many_materialization([root], steps=200)
             for _ in range(3)
         ]
-        def settled_tv(answers):
-            strength, confidence = re.findall(
-                r"\(STV ([^ ]+) ([^)]+)\)\)$", answers[0][0].strip()
-            )[-1]
-            return float(strength), float(confidence)
         refined_s, refined_c = settled_tv(repeats[2])
         fresh_s, fresh_c = settled_tv(fresh_repeats[2])
         self.assertAlmostEqual(refined_s, fresh_s, delta=1e-7)

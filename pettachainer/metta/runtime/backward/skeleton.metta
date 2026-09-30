@@ -201,27 +201,10 @@
 (: sk-any-filter SkeletonFilter)
 
 ;; A view's proof is one rule application whose premise proofs are references
-;; to stored proofs; the full proof expands every reference.
-(: sk-proof-part (-[det]-> Atom Atom))
-(: sk-proof-parts (-[det]-> Atom Atom))
-(= (sk-proof-part $term)
-   (if (is-expr $term)
-      (case $term (
-         ((proof-ref $pid)
-            (case (collapse (once (match &proof ($pid $proof $_ev $_negated) $proof))) (
-               ((cons $proof $_rest) (sk-proof-part $proof))
-               (() $term))))
-         ($_other (sk-proof-parts $term))))
-      $term))
-;; Atom parameters take their arguments unevaluated, so each part is bound first.
-(= (sk-proof-parts $terms)
-   (if (== $terms ()) ()
-      (let* (($first (car-atom $terms))
-             ($rest (cdr-atom $terms)))
-         (cons-atom (sk-proof-part $first) (sk-proof-parts $rest)))))
-
+;; to stored proofs; the full proof expands them, printing each shared
+;; subproof once (proof_dag_expand in runtime_helpers.pl).
 (: sk-full-proof (-[det]-> Proof Proof))
-(= (sk-full-proof $proof) (brand Proof (sk-proof-part $proof)))
+(= (sk-full-proof $proof) (brand Proof (proof_dag_expand $proof)))
 
 (: sk-full-fact (-[det]-> SkFact SkFact))
 (= (sk-full-fact ($type $kbctx $proof $tv)) (data $type $kbctx (sk-full-proof $proof) $tv))
@@ -435,6 +418,37 @@
 
 ;; --- Partial joins and rows -------------------------------------------------
 
+;; A fold a forward join reads that no search has expanded, other than a base
+;; rate, whose estimate the cache holds; the run searches it before evaluating.
+(: &sk_forward_folds (SpaceOf (Number SkPattern)))
+!(bind! &sk_forward_folds (new-space))
+
+(: sk-forward-note-fold! (-[det]-> SkPattern Atom))
+(= (sk-forward-note-fold! $premise)
+   (case (copy_term $premise) (
+      ((CPU $fun $args $res)
+         (if (if (sk-expanded? (CPU $fun $args $res)) true
+                (case (base-rate-aggregate-key $args) (
+                   ((base-rate-aggregate-key-value $_kbid $_pattern $_mode) true)
+                   (no-base-rate-aggregate-key false))))
+            ()
+            (let $_noted (add-atom &sk_forward_folds ((sk-node-hash (CPU $fun $args $res)) (CPU $fun $args $res))) ())))
+      ($_fact ()))))
+
+;; The keys a forward join's premise can take: the statements with stored
+;; facts, and the keys the skeleton already has.
+(: sk-forward-keys (-[det]-> SkPattern (List SkeletonKey)))
+(= (sk-forward-keys $premise)
+   (case $premise (
+      (($type $kbctx $proof $tv)
+         (list_to_set
+            (append-flat
+               (map-flat sk-fact-key
+                  (sk-leaf-facts (brand Statement $type) (brand KBContext $kbctx) (sk-filter $proof $tv)))
+               (collapse (match &sk_key_terms ($type $kbctx $hash)
+                  (match &sk_keys ($hash $key) $key))))))
+      ($_cpu ()))))
+
 (= (sk-advance! (sk-partial $owner $rule $concl $premises $remaining $keys))
    (case $remaining (
       (() (sk-complete-row! $owner $rule $concl $premises $keys))
@@ -443,8 +457,9 @@
             ((CPU $fun $args $_res)
                (if (== $fun FoldAllCompiled)
                   (let $_child
-                     (let $score (sk-fold-child-score $args (sk-join-score $owner $rule $remaining) (sk-rate-entries $args))
-                        (if (> $score 0.0) (sk-add-child! $owner (copy_term $premise) $score) ()))
+                     (if (== (search-id-value sk_forward_run) 1) (sk-forward-note-fold! $premise)
+                        (let $score (sk-fold-child-score $args (sk-join-score $owner $rule $remaining) (sk-rate-entries $args))
+                           (if (> $score 0.0) (sk-add-child! $owner (copy_term $premise) $score) ())))
                      (sk-advance!
                         (sk-partial $owner $rule $concl $premises $rest
                            (cons (sk-fold $args) $keys))))
@@ -460,9 +475,13 @@
                         ;; Truth-value formulas run during evaluation.
                         (sk-advance!
                            (sk-partial $owner $rule $concl $premises $rest $keys))))))
+            ;; A forward run reads a premise from what exists, never waiting.
             ($_fact
-               (sk-wait-on! $owner $rule $premise
-                  (sk-partial $owner $rule $concl $premises $remaining $keys)))))))))
+               (if (== (search-id-value sk_forward_run) 1)
+                  (fold-semidet (sk-extend-waiter-step (sk-partial $owner $rule $concl $premises $remaining $keys)) ()
+                     (sk-forward-keys (copy_term $premise)))
+                  (sk-wait-on! $owner $rule $premise
+                     (sk-partial $owner $rule $concl $premises $remaining $keys))))))))))
 
 ;; A ground computation (for example arithmetic on bound statement terms)
 ;; binds its result before later premises are looked up.
@@ -562,6 +581,9 @@
           ($ident (sk-ident $rule $keys $key))
           ($rhash (index-hash $ident))
           ($local (>= $rule 1000000000)))
+      ;; Expansion applies no rule to a certain statement; a forward run's
+      ;; upward joins skip it here, where their conclusion is first bound.
+      (if (if (== (search-id-value sk_forward_run) 1) (sk-certain? $type (sk-leaf-facts $type $kbctx sk-any-filter)) false) ()
       (if (sk-row-present? $khash $key $rhash $ident)
          (sk-add-answer! $owner $key)
          ;; The rows of the query's roots are its compiled scaffold and always
@@ -591,7 +613,7 @@
                             (add-atom &sk_deferred ($hash $rhash (sk-deferred $owner $rule $concl $premises $keys))))
                          ($_counted (query_metric_increment rows-deferred)))
                      ())
-                  ()))))))
+                  ())))))))
 
 ;; The keys a row reads directly: its fact premises, folds and groups.
 (: sk-direct-key-step (-[det]-> (List SkeletonKey) SkPattern (List SkeletonKey)))
@@ -608,12 +630,29 @@
           ($_row (add-atom &sk_reader ($hash $key $khash $rhash))))
       ()))
 
+(: sk-drop-stale-reader! (-[det]-> Number Number Atom SkeletonKey Atom))
+(= (sk-drop-stale-reader! $khash $rhash $_acc $key)
+   (let* (($hash (index-hash $key))
+          ($_removed
+             (collapse (match &sk_stale_reader ($hash $stored $khash $rhash)
+                (if (=alpha $stored $key) (remove-atom &sk_stale_reader ($hash $stored $khash $rhash)) (empty))))))
+      ()))
+
 (: sk-remove-reader! (-[det]-> Number Number Atom SkeletonKey Atom))
 (= (sk-remove-reader! $khash $rhash $_acc $key)
    (let* (($hash (index-hash $key))
           ($_removed
              (collapse (match &sk_reader ($hash $stored $khash $rhash)
                 (if (=alpha $stored $key) (remove-atom &sk_reader ($hash $stored $khash $rhash)) (empty))))))
+      ()))
+
+;; A stale row moves from a key's readers to its stale readers (see
+;; sk-unlink-reader!).
+(: sk-stale-reader! (-[det]-> Number Number Atom SkeletonKey Atom))
+(= (sk-stale-reader! $khash $rhash $_acc $key)
+   (let* (($_removed (sk-remove-reader! $khash $rhash () $key))
+          ($hash (index-hash $key))
+          ($_row (add-atom &sk_stale_reader ($hash $key $khash $rhash))))
       ()))
 
 ;; The budget counts expansions. New rows have their own allowance of ten per

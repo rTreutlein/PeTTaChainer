@@ -149,12 +149,10 @@
 !(compileadd refineFwdKb (: a1 (A a) (STV 1.0 0.9)))
 
 !(test
-   (let $_
-      (forward-chain 1 refineFwdKb (test-selected-facts refineFwdKb (A a)))
-      (collapse
-         (match &kb ((B a) (refineFwdKb MAIN Nil) $prf $tv)
-            (quote ($prf $tv)))))
-   (((by ab a1) (STV 0.8 0.8999996399380039))))
+   (case (forward-chain 1 refineFwdKb (test-selected-facts refineFwdKb (A a))) (
+      ((cons ((B a) $_kbctx $prf $tv) $_rest) (quote ($prf $tv)))
+      ($_other $_other)))
+   ((by ab a1) (STV 0.8 0.8999996399380039)))
 
 ;; --- A shape the instance producer does not sample keeps its stored truth --
 

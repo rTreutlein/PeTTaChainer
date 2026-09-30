@@ -21,6 +21,12 @@
 (: deps-within? (-[det]-> (List Number) (List Number) Bool))
 (: deps-meet? (-[det]-> (List Number) (List Number) Bool))
 
+;; KL divergence of Beta(a1, b1) from Beta(a2, b2) (runtime_helpers.pl).
+(: beta_kl (-[det]-> Number Number Number Number Number))
+
+;; A stored proof expanded with each shared subproof printed once (runtime_helpers.pl).
+(: proof_dag_expand (-[det]-> Atom Atom))
+
 ;; The first of each group of variant terms, in order (runtime_helpers.pl).
 (: alpha_unique_keys (-[det]-> (List $item) (List $item)))
 
@@ -114,6 +120,8 @@
 (: sk_budget CounterKey)
 (: sk_row_budget CounterKey)
 (: sk_eval_budget CounterKey)
+;; 1 while a forward run grows the skeleton upward
+(: sk_forward_run CounterKey)
 (: sk_walk_budget CounterKey)
 (: sk_row_seq CounterKey)
 (: sk_push_seq CounterKey)
