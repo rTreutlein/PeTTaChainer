@@ -302,3 +302,20 @@ Beliefs carried from shift to shift form a chain. Needing a reader walks its
 premise ancestry, a change marks the chain's readers stale, and dependency and
 evidence sets grow along it. This is the next scalability problem: a step
 should cost the same at shift 20 as at shift 2.
+
+After 576d30a3 (need stops at current rows), wall time is 503 s with an
+unchanged score. `sk-need!` in the growing call roughly halved, but the call
+still grows (2.9 s at shift 12). What remains comes from the `SealLeak` base
+rate:
+- Every shift's `SealLeak` rows read it.
+- Each take that adds a member changes it and queues all of its readers across
+  the history.
+- Beyond the free depth those readers are marked stale, and the staleness
+  climbs the belief chain (`SealLeakAtShiftEnd`, then the next `SealLeak`).
+- The current shift then needs its stale predecessor and recomputes the chain
+  with the new rate.
+
+In the shift-12 call, each historical `SealLeak` row started a stale cascade
+about 12 times. Revising every past belief when the base rate moves is what
+the model says, so constant cost needs a decision about how far back a
+base-rate change should reach.
