@@ -1,6 +1,8 @@
 ;; Forward subscriptions maintain additive state from canonical observations.
 ;; Identity hashes select candidates; full alpha comparison decides identity.
 ;; Fold descriptors share registration, observation replacement and cache publication.
+;; The aggregate is a base rate's one estimate: backward folds update it too (sk-fold-view).
+;; Publishing a value the cache already holds is skipped, since every store wakes the folds.
 ;; Ordinary base rates are seeded lazily when a fold first reads them.
 ;; Computed cache entries keep that source while forward deltas update statistics.
 ;; Removal rejoins the surviving canonical Member facts before publishing the cache.
@@ -121,12 +123,23 @@
 (: fa-member (-[det]-> KB Term Term (| ForwardDerived NoForwardOutputCandidate)))
 (= (fa-member $a $b $c)(let* (($d (brand Statement (Member $b $c)))($e (make-kb-context $a MAIN Nil))($g (collapse (once (match &forward_canonical_evidence (forward-canonical-evidence-row (term_hash (quote ($e $d))) $d $e $h $i)(forward-derived $h (stored-evidence-list $i))))))($j (if (== $g ())(collapse (once (match &kb ($d $e $l $m)(forward-derived (data $d $e $l $m)(forward-fact-evidence $d $e $l $m))))) $g)))(case $j ((() no-forward-output-candidate)((cons $candidate $_rest) $candidate)))))
 (: fa-publish-cache! (-[det]-> KB Statement TV $a (List $b)))
-(= (fa-publish-cache! $a $b $c $d)(case (base-rate-cache-entries-for-mode $a $b $d) ((()(store-produced-base-rate! $a $b $c forward-approx $d))((cons $e $f)(if (== (base-rate-entry-source $e) computed)(store-produced-base-rate! $a $b $c computed $d)(store-produced-base-rate! $a $b $c forward-approx $d))))))
+(= (fa-publish-cache! $a $b $c $d)
+   (case (base-rate-cache-entries-for-mode $a $b $d) (
+      ((cons $entry $_rest) (if (== (base-rate-entry-tv $entry) $c) () (store-produced-base-rate! $a $b $c $d)))
+      (() (store-produced-base-rate! $a $b $c $d)))))
 (: FAggSample Type)
 (: fa-sample (-[det]-> Atom ForwardAggregateObservationValue Number Number Bool FAggSample))
 (: fa-sample-for (-[semidet]-> (Statement KBContext Proof TV) ForwardAggregateDescriptor Atom))
 (= (fa-sample-for $a (forward-base-rate-descriptor $b $c $d $e $f $g))(let* ((($h ($i $j $k) $l $m)(copy_term $a))($n (let $c $h ok))((BaseRateEvidence $o $p)(fa-positive-ev $m)))(fa-sample (forward-fact-key $a)(forward-base-rate-observation-value $a) $o $p true)))
-(= (fa-sample-for $a (forward-member-inheritance-descriptor $b $c $d $e))(let* ((((Member $f $g)($h MAIN Nil) $i $j)(copy_term $a))($k (brand Term $f))($l (fa-member $b $k $c))($m (fa-member $b $k $d)))(case $l ( ((forward-derived $n $o)(case $m ( ((forward-derived $p $q)(let* ((($r $s $t $u) $n)(($v $w $x $y) $p)((BaseRateEvidence $z $v26)(forward-weighted-base-rate-contribution $u $y)))(fa-sample $k (forward-member-inheritance-observation-value $l $m) $z $v26 true)))(no-forward-output-candidate (fa-sample $k no-forward-aggregate-observation-value 0.0 0.0 false)))))(no-forward-output-candidate (fa-sample $k no-forward-aggregate-observation-value 0.0 0.0 false))))))
+;; A Member fact counts for its subject with its membership in both concepts;
+;; a member-inheritance fold sample counts for its subject too, so the two
+;; replace each other.
+(= (fa-sample-for $a (forward-member-inheritance-descriptor $b $c $d $e))
+   (case (copy_term $a) (
+      (((MemberInheritanceSample $sx $_ssub $_ssuper $smass $struth) $_skbctx $_sproof $_stv)
+         (case (WeightedBaseRateAcc (BaseRateEvidence 0.0 0.0) (WeightedTv $smass $struth)) (
+            ((BaseRateEvidence $sw $sm) (fa-sample (brand Term $sx) no-forward-aggregate-observation-value $sw $sm true)))))
+      ($_member_fact(let* ((((Member $f $g)($h MAIN Nil) $i $j)(copy_term $a))($k (brand Term $f))($l (fa-member $b $k $c))($m (fa-member $b $k $d)))(case $l ( ((forward-derived $n $o)(case $m ( ((forward-derived $p $q)(let* ((($r $s $t $u) $n)(($v $w $x $y) $p)((BaseRateEvidence $z $v26)(forward-weighted-base-rate-contribution $u $y)))(fa-sample $k (forward-member-inheritance-observation-value $l $m) $z $v26 true)))(no-forward-output-candidate (fa-sample $k no-forward-aggregate-observation-value 0.0 0.0 false)))))(no-forward-output-candidate (fa-sample $k no-forward-aggregate-observation-value 0.0 0.0 false)))))))))
 (: fa-store-cache! (-[semidet]-> ForwardAggregateMaintenance Number ForwardAggregateDescriptor Number Number (List $a)))
 (= (fa-store-cache! $a $b (forward-base-rate-descriptor $c $d $e $f $g $h) $i $j)(if (and (== $a aggregate-remove)(<= $j 0.0))(remove-produced-base-rate! $c $d $h)(let* (($k (fa-acc $c $e $f $g $i $j))($l (the TV (finish-aggregate $c $h $k))))(fa-publish-cache! $c $d $l $h))))
 (= (fa-store-cache! $a $b (forward-member-inheritance-descriptor $c $d $e $f) $g $h)(if (<= $h 0.0)(remove-produced-base-rate! $c $f (member-inheritance $c))(fa-publish-cache! $c $f (the TV (finish-aggregate $c (member-inheritance $c) (BaseRateEvidence $g $h))) (member-inheritance $c))))

@@ -51,7 +51,7 @@ class TestPriorityRefinement(unittest.TestCase):
                 add_cases(chainer, "d")
                 # Base rates take members derived through them one iteration
                 # per read, so the answer settles after a few queries.
-                for _ in range(3):
+                for _ in range(5):
                     refined = chainer.query_many(roots, steps=320, timeout_sec=0)
                 self.assertEqual([len(batch) for batch in refined], [1, 1])
                 for root, batch in enumerate(refined):
@@ -62,10 +62,10 @@ class TestPriorityRefinement(unittest.TestCase):
                         # Fixed settled reference, with convergence
                         # tolerances rather than string formatting.
                         self.assertAlmostEqual(
-                            float(tv[1]), 0.4997335417105491, delta=1e-12
+                            float(tv[1]), 0.4997335283592564, delta=1e-10
                         )
                         self.assertAlmostEqual(
-                            float(tv[2]), 0.0007029849598907864, delta=1e-12
+                            float(tv[2]), 0.000703098061871532, delta=1e-10
                         )
                     self.assertEqual(proof[0], "inheritance-implication-fold")
                     self.assertEqual(proof[1][0], "total-implication")

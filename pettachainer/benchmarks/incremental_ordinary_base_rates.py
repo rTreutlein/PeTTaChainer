@@ -16,7 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 NUMBER = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
 STV_PATTERN = re.compile(rf"\(STV\s+({NUMBER})\s+({NUMBER})\)")
 SOURCE_PATTERN = re.compile(
-    rf"\(STV\s+{NUMBER}\s+{NUMBER}\)\s+(computed|forward-approx|user)\b"
+    rf"\(STV\s+{NUMBER}\s+{NUMBER}\)\s+(computed|user)\b"
 )
 
 

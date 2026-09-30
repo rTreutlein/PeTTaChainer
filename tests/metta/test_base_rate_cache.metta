@@ -46,11 +46,11 @@
    (: ((inverted r with cpu cpu)
        qa)
       (P alice)
-      (STV 0.6328466409925699 0.00038360219937733043)))
+      (STV 0.6328046825764474 0.00038356434939919185)))
 
 !(test
    (cached-base-rate brKb (P $x))
-   ((STV 0.5000531937104973 0.0019964567402861694)))
+   ((STV 0.50002003964342 0.001997551294706504)))
 
 ; User-provided base rates override the cache and feed inversion directly.
 !(set-base-rate brKb (P $x) (STV 0.5 0.5))
@@ -70,7 +70,7 @@
 
 ; Adding a rule likewise preserves computed snapshots. The rule only enlarges
 ; the proof search space; it does not retract any evidence behind the cache.
-!(store-produced-base-rate! ruleAddCacheKb (P $x) (STV 0.4 0.2) computed base-rate)
+!(store-produced-base-rate! ruleAddCacheKb (P $x) (STV 0.4 0.2) base-rate)
 
 !(compileadd ruleAddCacheKb
    (: rToP
@@ -115,10 +115,11 @@
 
 !(compileadd brKb2 (: pb (P bob) (STV 0.7 0.8)))
 
-; A weak computed entry gets refined: the fold has higher confidence, so the
-; snapshot replaces the cached value, the conclusion uses the refined base
-; rate, and the harvest writes the refined value back to the cache.
-!(store-produced-base-rate! brKb2 (P $x) (STV 0.2 0.0001) computed base-rate)
+; A cached estimate the aggregate did not produce is replaced once a fold takes
+; its members into the aggregate, however confident it was: partial work may be
+; confidently wrong. The conclusion uses the aggregate's estimate, which is
+; written back to the cache.
+!(store-produced-base-rate! brKb2 (P $x) (STV 0.5 0.9) base-rate)
 
 !(test
    (query 200 brKb2 (: $prf (P alice) $tv))
@@ -128,25 +129,6 @@
    (let $cached (cached-base-rate brKb2 (P $x))
       (if (== $cached ()) no-cache-entry (car-atom $cached)))
    (STV 0.6999999999999998 0.0009990009990009992))
-
-; A high-confidence computed entry is protected: the fold's confidence is
-; lower, so the cached estimate survives refinement and feeds the conclusion.
-!(compileadd brKb3 (: r (Implication (P $x) (Q $x)) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
-
-!(compileadd brKb3 (: qa (Q alice) (STV 0.9 0.8)))
-
-!(compileadd brKb3 (: pb (P bob) (STV 0.7 0.8)))
-
-!(store-produced-base-rate! brKb3 (P $x) (STV 0.5 0.9) computed base-rate)
-
-!(test
-   (query 200 brKb3 (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.5258301716166336 0.008091509912253481)))
-
-!(test
-   (let $cached (cached-base-rate brKb3 (P $x))
-      (if (== $cached ()) no-cache-entry (car-atom $cached)))
-   (STV 0.5 0.9))
 
 ; A base rate set or cleared elsewhere leaves unrelated derived answers alone:
 ; only the folds over the changed pattern recompute.
@@ -188,7 +170,7 @@
 
 !(test
    (query 200 revisedRateKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.420807429535116 0.0008829885197815043)))
+   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.4206858528172408 0.0008836791510647324)))
 
 !(test
    (cached-base-rate revisedRateKb (Q $x))
@@ -200,7 +182,7 @@
 
 !(test
    (query 200 revisedRateKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.4840872721649921 0.00028919964432615305)))
+   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.48408727210988356 0.0002891996443055476)))
 
 !(test
    (cached-base-rate revisedRateKb (Q $x))
@@ -225,4 +207,4 @@
 !(test
    (let $_answers (collapse (query 200 grownUniverseKb (: $prf (Inheritance pingu Bird) $tv)))
       (cached-base-rate grownUniverseKb (Inheritance $x Bird)))
-   ((STV 0.996896218978244 0.0002823402242641902)))
+   ((STV 0.9968887839636708 0.0002823432328885973)))

@@ -93,9 +93,11 @@
       (base-rate $kbid $stored $tv $source $mode))
    (if (== $source user) ()
       (let* (($hash (base-rate-cache-hash $kbid $stored))
+             ;; Exactly this row: an open pattern would also remove another
+             ;; pattern's entry that unifies with it.
              ($_removed
-                (remove-atom &base_rate_cache
-                   ($hash (base-rate $kbid $stored $tv $source $mode)))))
+                (remove-variant-row! &base_rate_cache
+                   (quote ($hash (base-rate $kbid $stored $tv computed $mode))))))
          ())))
 
 (: base-rate-cache-remove! (-[det]-> KB Statement (List $none)))
@@ -152,8 +154,8 @@
       ()))
 
 (: store-produced-base-rate!
-   (-[det]-> KB Statement TV BaseRateSource $mode (List $none)))
-(= (store-produced-base-rate! $kbid $pattern $tv $source $mode)
+   (-[det]-> KB Statement TV $mode (List $none)))
+(= (store-produced-base-rate! $kbid $pattern $tv $mode)
    (if (== $tv no-evidence) ()
       (let $entries (base-rate-cache-entries-for-mode $kbid $pattern $mode)
          (if (base-rate-cache-user-present? $entries)
@@ -165,7 +167,7 @@
                          base-rate-cache-remove-derived-entry! $entries))
                    ($_new
                       (add-atom &base_rate_cache
-                         ($hash (base-rate $kbid $stored $tv $source $mode))))
+                         ($hash (base-rate $kbid $stored $tv computed $mode))))
                    ($_readers (base-rate-readers-changed! $kbid $pattern)))
                ())))))
 
@@ -179,13 +181,9 @@
       ()))
 (: invalidate-computed-base-rates! (-[det]-> KB (List $none)))
 (= (invalidate-computed-base-rates! $kbid)
-   (let*
-      (($_computed
-          (remove-atom &base_rate_cache
-             ($_h1 (base-rate $kbid $_s1 $_tv1 computed $_m1))))
-       ($_forward
-          (remove-atom &base_rate_cache
-             ($_h2 (base-rate $kbid $_s2 $_tv2 forward-approx $_m2)))))
+   (let $_computed
+      (remove-atom &base_rate_cache
+         ($_h1 (base-rate $kbid $_s1 $_tv1 computed $_m1)))
       ()))
 
 

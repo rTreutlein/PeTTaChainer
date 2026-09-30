@@ -33,11 +33,7 @@
       (list-count
          (collapse
             (match &forward_aggregate_observation
-               (forward-aggregate-observation
-                  ($id $_obj)
-                  (forward-member-inheritance-observation-value
-                     $_subject $_concept)
-                  $_weight $_mass)
+               (forward-aggregate-observation ($id $_obj) $_value $_weight $_mass)
                true)))))
 
 (: materialized-inheritance-facts
@@ -277,7 +273,7 @@
       (: $proof (Inheritance Human Mortal) $tv))
    (: (member-inheritance-fold cpu)
       (Inheritance Human Mortal)
-      (STV 0.4 0.0006246096189881324)))
+      (STV 0.3999999999999999 0.0006246096189881324)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)

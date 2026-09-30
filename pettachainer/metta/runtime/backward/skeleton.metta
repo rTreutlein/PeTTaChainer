@@ -355,7 +355,7 @@
       (let $_row (add-atom &sk_dirty (sk-dirty $key)) ())
       ()))
 
-;; Base rates follow their members incrementally, see sk-rate-fold-view.
+;; Base rates follow their members incrementally, see sk-fold-view.
 (: sk-rate-fold? (-[det]-> SkeletonKey Bool))
 (= (sk-rate-fold? $key)
    (case $key (

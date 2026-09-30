@@ -70,20 +70,19 @@ lookup, may remain a separate path.
 
 ### Cached base rates are estimates, not exact memoized answers
 
-There are three kinds of base-rate entry:
+There are two kinds of base-rate entry:
 
 - `user`: an explicit estimate supplied by the user. It is authoritative until
   explicitly cleared or replaced.
-- `computed`: a snapshot harvested from backward folding at a particular point
-  in the monotonic proof history and within that query's step budget.
-- `forward-approx`: a provisional snapshot accumulated from facts that the
-  forward chainer has processed so far.
+- `computed`: the current value of the pattern's one estimate. The estimate is
+  a tally of per-member contributions (`&forward_aggregate_observation`, keyed
+  by aggregate and member). Forward steps and backward folds only update it: a
+  member already counted has its contribution replaced, never added twice.
 
-Adding a fact or rule does not invalidate a `computed` or `forward-approx`
-snapshot. The snapshot still summarizes valid evidence; it may simply know less
-than a later fold. A backward query may use it immediately and schedule a live
-fold that refines it. Forward chaining may incrementally improve the sufficient
-statistics when it processes additional canonical proofs.
+Adding a fact or rule does not invalidate a `computed` entry. It still
+summarizes valid evidence; it may simply know less than a later fold. A
+backward query may use it immediately and schedule a live fold that adds the
+members its search finds.
 
 Base-rate invalidation is reserved for non-monotonic or interpretive changes:
 
@@ -246,14 +245,14 @@ A KB may opt into base-rate smoothing, which reads every computed base rate
 as its n observations plus k pseudo-observations at 0.5: the strength of a
 rate over few observations then stays uncertain, while its confidence is
 still n/(n+k). The smoothing is applied where a fold's value is finished, so
-cached and forward-approximated rates carry it too.
+cached rates carry it too.
 
 A base rate is the user's value when one is set. Otherwise an unexpanded fold
-reads the cached estimate, and an expanded fold replaces the estimate when it
-is at least as confident. The fold's own earlier snapshot and a forward
-approximation are partial work and always give way to the fold; the skeleton
-records the last value folds cached for each pattern and mode. Storing the value a computed entry
-already holds is skipped, since every store wakes the folds over the pattern.
+reads the cached estimate, and an expanded fold takes its members into the
+tally and reads the tally's value, which is published to the cache. An entry
+the tally did not produce gives way however confident it was: partial work may
+be confidently wrong. Storing the value the entry already holds is skipped,
+since every store wakes the folds over the pattern.
 
 ### Queries read what their roots reach
 

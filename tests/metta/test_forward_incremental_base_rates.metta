@@ -150,20 +150,20 @@
    (cached-base-rate forwardBaseRateKb (P $x))
    ((STV 0.6999999999999998 0.0009990009990009992)))
 
+;; What forward chaining keeps is the base rate's one estimate, which backward
+;; folds update too.
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)
       (car-atom (base-rate-cache-entries forwardBaseRateKb (P $x)))
       $source)
-   forward-approx)
+   computed)
 
 !(test
    (cached-base-rate forwardBaseRateKb (Q $x))
    ((STV 0.7382770346341803 0.0020863193128742123)))
 
-;; A full backward fold remains authoritative.  It refines the provisional
-;; estimate and upgrades the cache source even when the TV itself is unchanged.
-;; The forward run's inverted P(alice) is a member of the P base rate, one
-;; fixed-point iteration ahead.
+;; A query's fold updates the same estimate. The forward run's inverted
+;; P(alice) is a member of the P base rate, one fixed-point iteration ahead.
 !(test
    (query 200 forwardBaseRateKb (: $proof (P alice) $tv))
    (: ((inverted pToQ with cpu cpu) qa)
@@ -246,29 +246,6 @@
    ((base-rate forwardUserBaseRateKb (P $x)
       (STV 0.42 0.75) user any)))
 
-;; Unlike a complete computed snapshot, a forward approximation is never
-;; protected by the monotone-confidence guard: partial work may be confidently
-;; wrong, so the complete fold below must replace this artificial estimate.
-!(compileadd forwardApproxRefineKb
-   (: pToQ
-      (Implication (P $x) (Q $x))
-      (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
-!(compileadd forwardApproxRefineKb (: qa (Q alice) (STV 0.9 0.8)))
-!(compileadd forwardApproxRefineKb (: pb (P bob) (STV 0.7 0.8)))
-!(store-produced-base-rate!
-   forwardApproxRefineKb (P $x) (STV 0.5 0.9) forward-approx base-rate)
-
-!(test
-   (query 200 forwardApproxRefineKb (: $proof (P alice) $tv))
-   (: ((inverted pToQ with cpu cpu)
-       qa)
-      (P alice)
-      (STV 0.736162240263287 0.0003604307138536469)))
-
-!(test
-   (cached-base-rate forwardApproxRefineKb (P $x))
-   ((STV 0.6999999999999998 0.0009990009990009992)))
-
 ;; Inheritance base rates use the same incremental path, with subject/universe
 ;; mass and the configured concept prior applied when the accumulator finishes.
 !(set-concept-prior-confidence forwardInheritanceBaseRateKb 0.5)
@@ -290,7 +267,7 @@
          (base-rate-cache-entries
             forwardInheritanceBaseRateKb (Inheritance $x Bird)))
       $source)
-   forward-approx)
+   computed)
 
 !(test
    (query 100 forwardInheritanceBaseRateKb
@@ -385,7 +362,8 @@
    computed)
 
 ;; The run's evaluation recomputes the P fold that the new fact made stale. The
-;; fold counts the earlier query's inverted P(alice) as a weak member.
+;; fold counts the earlier query's inverted P(alice) as a weak member, so the one
+;; tally holds bob, carol and alice.
 !(test
    (cached-base-rate computedForwardBaseRateKb (P $x))
    ((STV 0.5000531880963873 0.001996456725460992)))
@@ -402,4 +380,4 @@
                (forward-base-rate-observation-value $_fact)
                $_weight $_count)
             true)))
-   2)
+   3)

@@ -1,8 +1,9 @@
 # Forward Chaining as a Mode of the Skeleton
 
-Design note, 2026-09-30. Status: steps 1–4 and 6 implemented
-(`runtime/backward/upward.metta`); step 5 (one base-rate estimate) and step 7's
-retirement of the canonical store remain.
+Design note, 2026-09-30. Status: steps 1–6 implemented
+(`runtime/backward/upward.metta`, the base-rate fold view in
+`runtime/backward/evaluation.metta`); step 7's retirement of the canonical
+store remains.
 
 ## Why
 
@@ -104,12 +105,12 @@ existing machinery:
 Keeping base rates current cheaply, as facts arrive and before any query has
 folded them, is the forward chainer's main job. The skeleton does not do it:
 its incremental folds take a changed member only when a query needs the fold.
-Today, though, the two keep separate per-member tallies of the same base rate:
+Before this step the two kept separate per-member tallies of the same base rate:
 - the forward aggregates (`&forward_aggregate_observation`, per fact);
 - the skeleton's rate folds (`&sk_rate_part`, per member key).
 
-The cache entry holds whichever one last "won". A computed fold replaces a
-`forward-approx` entry when it is at least as confident.
+The cache entry held whichever one last "won". A computed fold replaced a
+`forward-approx` entry when it was at least as confident.
 
 Instead there is one estimate per base-rate pattern, made of per-member
 contributions, and every side only updates it:
@@ -126,6 +127,12 @@ enough. That is already how the skeleton scores a fold's member search: by what
 one more member could add to the estimate's confidence. With forward outputs as
 skeleton keys, both sides name members by the same key, which is what lets the
 two tallies become one.
+
+Implemented as: the forward aggregate is the one tally. A base-rate fold view
+takes its dirty members into it (`fa-update!` with each member key's value)
+and reads its value; the skeleton's own rate stores and the `forward-approx`
+source are gone. A cache entry the tally did not produce gives way to it
+however confident it was.
 
 ### 4. Priority, budget and the stopping rule
 

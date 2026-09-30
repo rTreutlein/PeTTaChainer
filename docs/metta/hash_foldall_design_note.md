@@ -173,15 +173,13 @@ knowledge base in `&base_rate_cache`:
 - Forward chaining maintains additive sufficient statistics for the base-rate
   folds emitted by the compiler. Each canonical output actually processed by
   the requested forward budget updates its contribution in constant work and
-  stores a `forward-approx` cache entry. `compileadd` itself still does no
+  publishes the tally's value as the `computed` cache entry. `compileadd` itself still does no
   chaining; callers choose which canonical facts to pass to `forward-chain`
   and how far to run it after an addition.
-- Refinement of a complete `computed` snapshot is monotone: a refold may only replace the current base-rate
-  snapshot when its confidence (instance count) is at least as high, so a
-  shallow refold can never degrade a deeper cached estimate, and `no-evidence`
-  never replaces a real value. A `forward-approx` snapshot is deliberately not
-  protected by that guard: it represents partial scheduled work, so a complete
-  fold is authoritative even when its confidence is lower.
+- There is one estimate per pattern: forward steps and backward folds update
+  the same per-member tally, a member already counted has its contribution
+  replaced, and the cache entry is the tally's value. `no-evidence` never
+  replaces a real value.
 - After each query the chainer harvests the computed base rates into the
   cache, so repeated inversions over an unchanged knowledge base get instant
   estimates plus cheap incremental refinement.
@@ -215,8 +213,8 @@ no support. Multiple proofs therefore contribute through the single canonical
 merged output rather than as duplicate samples. Work is proportional to the
 interests for the changed class/object, not the number of historical objects.
 
-The resulting cache row is `forward-approx`: it can answer immediately, but a
-normal backward fold remains live and authoritative, with its ordinary proof,
+The resulting cache row is the tally's `computed` value: it can answer
+immediately, and a normal backward fold remains live, with its ordinary proof,
 evidence deduplication, and cycle checks. Only facts actually processed by a
 requested forward-chain budget update the cache; `compileadd` never runs the
 fold. When that backward fold commits, its accepted child proofs seed the same

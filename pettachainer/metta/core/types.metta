@@ -200,7 +200,6 @@
 (: BaseRateSource Type)
 (: user BaseRateSource)
 (: computed BaseRateSource)
-(: forward-approx BaseRateSource)
 
 (: BaseRatePrior (Newtype Atom))
 
