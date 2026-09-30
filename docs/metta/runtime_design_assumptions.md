@@ -360,10 +360,10 @@ the inference controller may select any of them as seeds for a later run. No
 unfinished search state is retained by the forward chainer.
 
 The forward chainer runs rules in their stated direction only: inverted rules
-and antecedent completions get no forward premise index. A fold premise reads a
-base rate's cached estimate, or else the value a query last left in the
-skeleton for the fold. Only a fold with neither is computed by a backward query
-within the run's remaining steps. Such a query at a small forward budget is
+and antecedent completions get no forward premise index. A base-rate fold premise reads
+the base-rate cache, and any other fold premise the value a query last left in
+the skeleton for the fold. Only a fold with no stored value is computed by a
+backward query within the run's remaining steps. Such a query at a small forward budget is
 mostly overhead: querying every uncached fold cost StationOps 36% of its wall
 time. The backward module loads after
 the forward one, so the forward chainer reaches it by name through `cpu-call`.

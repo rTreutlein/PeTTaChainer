@@ -1700,22 +1700,23 @@
                       ($last (sk-work-off! $pass (sk-work (add_to_heap (empty_heap) $item-seq $item) (empty_heap)))))
                   (sk-pay-conditions! (+ $last 1)))))))))
 
-;; A fold premise the forward chainer reads: a base rate's cached estimate, or
-;; the value a query last left in the skeleton for the fold, or else what a
+;; A fold premise the forward chainer reads: a base rate's cached estimate, any
+;; other fold's value as a query last left it in the skeleton, or else what a
 ;; backward query for the fold finds within the forward run's remaining steps.
 (: forward-fold-value (-[semidet]-> Number Atom Expression Atom))
 (= (forward-fold-value $steps $fun $args)
-   (let $cached
+   (let $stored
       (if (== $fun FoldAllCompiled)
-         (let $rates (map-flat base-rate-entry-tv (sk-rate-entries $args))
-            (if (== $rates ())
+         (case (base-rate-aggregate-key $args) (
+            ((base-rate-aggregate-key-value $_kbid $_pattern $_mode)
+               (map-flat base-rate-entry-tv (sk-rate-entries $args)))
+            (no-base-rate-aggregate-key
                (let $key (sk-fold $args)
                   (case (sk-latest-view (index-hash $key) $key 0) (
                      ((sk-goal-val (CPU $_view-fun $_view-args $view-value) $_proof $_ev $_deps) (cons $view-value ()))
-                     ($_none ()))))
-               $rates))
+                     ($_none ())))))))
          ())
-      (case $cached (
+      (case $stored (
          ((cons $tv $_rest) $tv)
          (()
             (case (collapse (once (execute-backward $steps ((CPU $fun $args $result)) false))) (

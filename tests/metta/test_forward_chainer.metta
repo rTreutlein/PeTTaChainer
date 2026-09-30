@@ -208,7 +208,7 @@
 !(test
    (let $_ (forward-chain 50 stvFwdKb (test-selected-facts stvFwdKb (A x)))
       (collapse (match &kb ((C x) (stvFwdKb MAIN Nil) $prf $tv) ($prf $tv))))
-   (((by r1 (conjunction a b)) (STV 0.9 0.8999983797525327))))
+   (((by r1 (conjunction a b)) (STV 0.9 0.8999998505003627))))
 
 !(compileadd shareFwdKb (: l1 (Leak u1) (STV 0.2 0.9)))
 !(compileadd shareFwdKb (: l2 (Leak u2) (STV 0.6 0.8)))

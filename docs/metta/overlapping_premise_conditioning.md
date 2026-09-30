@@ -88,9 +88,9 @@ instead of conditioning, since it has no rows to evaluate again.
 
 It also never fired a rule with a fold premise, because nothing evaluated one
 outside a query; that covers every plain STV rule, whose truth needs base
-rates. A fold premise now reads the cached base rate, or else the fold's
-value stored in the skeleton, and only then asks the backward chainer for the
-fold. Querying directly on every cache miss cost StationOps 36% of its wall
+rates. A base-rate fold premise now reads the base-rate cache, any other
+fold premise the fold's value stored in the skeleton, and only a fold with
+neither asks the backward chainer. Querying directly on every cache miss cost StationOps 36% of its wall
 time (324 s → 441 s) for the same score. The misses were the shortfall DP fold,
 re-queried at the forward budget of 2 on every join. With the stored views the
 run takes 309 s. That made the compiled inverted rules and
