@@ -30,10 +30,14 @@
                   (forward-satisfy-premises $steps $rest $goal (list_to_set (append $ev $matched-ev))))))
          (empty))))
 
-;; A pending result waits on the agenda by its own confidence.
+;; A pending result or a seed waits on the agenda by its own confidence.
 (: forward-push-derived (-[det]-> (Heap ForwardQueueItem) ForwardDerived (Heap ForwardQueueItem)))
 (= (forward-push-derived $agenda (forward-derived $fact $ev))
    (add_to_heap $agenda (- 0 (term-confidence $fact)) (qitem (forward-derived $fact $ev))))
+
+(: forward-push-seed (-[det]-> (Heap ForwardQueueItem) (Statement KBContext Proof TV) (Heap ForwardQueueItem)))
+(= (forward-push-seed $agenda $fact)
+   (add_to_heap $agenda (- 0 (term-confidence $fact)) (qseed $fact)))
 
 ;; The canonical version of a fact, or the fact itself when it has no
 ;; canonical row (explicit non-KB seeds).
@@ -321,16 +325,21 @@
    (let $_aggregates (forward-maintain-aggregates! aggregate-update $fact)
       (fold-flat forward-push-derived $agenda (forward-rule-results $steps $kb $fact))))
 
-;; Each step stores the most confident pending result that changes its output
-;; and expands it, so a weak conclusion is stored only when the budget outlasts
-;; everything more confident. The outputs changed are kept as identities, and
-;; each resolves to its final canonical fact at the end of the run.
+;; The agenda takes the most confident item first. A seed has its rules run,
+;; and their results join the agenda beside the remaining seeds. A pending
+;; result that changes its output is stored, which is one step, and expanded
+;; the same way. A weak conclusion is therefore stored only when the budget
+;; outlasts everything more confident, and seeds the run never reaches are
+;; never expanded. The outputs changed are kept as identities, and each
+;; resolves to its final canonical fact at the end of the run.
 (: forward-loop (-[semidet]-> Number KB ForwardRun ForwardRun))
 (= (forward-loop $steps $kb ($agenda $changed))
    (if (<= $steps 0)
       (data $agenda $changed)
       (case (forward-pop-agenda $agenda) (
          (no-forward-agenda-pop (data $agenda $changed))
+         ((forward-agenda-pop $rest (qseed $seed))
+            (forward-loop $steps $kb (data (bounded-agenda-prune (forward-expand $steps $kb $rest $seed)) $changed)))
          ((forward-agenda-pop $rest (qitem $derived))
             (case (forward-store! $derived) (
                ((cons $fact $_none)
@@ -368,7 +377,7 @@
    (let ($_agenda $changed)
       (forward-loop $steps $kb
          (data
-            (fold-flat (forward-expand $steps $kb) (empty_heap)
+            (fold-flat forward-push-seed (empty_heap)
                (map-flat forward-current-version (list_to_set $facts)))
             ()))
       (forward-canonical-facts-for-keys (list_to_set $changed))))

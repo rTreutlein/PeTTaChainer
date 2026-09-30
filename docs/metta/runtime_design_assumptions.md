@@ -352,12 +352,13 @@ probability of finding a proof: a low-strength proof is still a useful answer,
 so rule priority does not use base rates. Searching a base-rate fold's members
 is valued by what one more member could add to the estimate's confidence.
 
-Forward chaining always starts from facts selected by its caller. The rules
-the seeds trigger run first, and their results wait on an agenda by their own
-confidence. A step stores the most confident pending result that changes its
-output and runs the rules it triggers, whose results join the agenda. A weak
-conclusion is therefore stored only when the budget outlasts every more
-confident one. The step budget counts stored results. The agenda is local to
+Forward chaining always starts from facts selected by its caller. Seeds and
+derived results wait on one agenda, each by its own confidence, and the most
+confident item goes first. A seed has the rules it triggers run, and their
+results join the agenda beside the remaining seeds. A result that changes its
+output is stored and expanded the same way. The step budget counts stored
+results. A weak conclusion is therefore stored only when the budget outlasts
+every more confident one, and seeds the run never reaches are never expanded. The agenda is local to
 that invocation, keeps a fixed beam independent of the remaining budget, and is
 discarded when it empties or the step budget is exhausted. The canonical facts derived before that point remain in `&kb`, and
 the inference controller may select any of them as seeds for a later run. No

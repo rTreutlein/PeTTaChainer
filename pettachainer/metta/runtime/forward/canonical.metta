@@ -108,7 +108,9 @@
        ForwardOutputChange))
 
 (: ForwardQueueItem (Newtype Atom))
+;; a pending result, or a seed fact whose rules have not run yet
 (: qitem (-[det]-> ForwardDerived ForwardQueueItem))
+(: qseed (-[det]-> (Statement KBContext Proof TV) ForwardQueueItem))
 
 ;; Total wrapper around SWI's relational heap pop. The foreign predicate binds
 ;; priority and item through output arguments, which ordinary MeTTa arrows
