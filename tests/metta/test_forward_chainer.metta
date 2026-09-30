@@ -243,3 +243,18 @@
           ($_restored (set-forward-min-evidence 1.0)))
       $derived)
    true)
+
+;; A forward result derived through its own output supports itself and is not
+;; stored. B revises A's and C's derivations, so it is more confident than A,
+;; and B -> A would replace A with a value resting on A itself.
+!(compileadd cycleFwdKb (: a0 (CycA) (STV 0.6 0.5)))
+!(compileadd cycleFwdKb (: c0 (CycC) (STV 0.6 0.5)))
+!(compileadd cycleFwdKb (: aToB (Implication (CycA) (CycB)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd cycleFwdKb (: cToB (Implication (CycC) (CycB)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(compileadd cycleFwdKb (: bToA (Implication (CycB) (CycA)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+
+!(test
+   (let $_ (forward-chain 50 cycleFwdKb
+              (append-flat (test-selected-facts cycleFwdKb (CycA)) (test-selected-facts cycleFwdKb (CycC))))
+      (collapse (match &kb ((CycA) (cycleFwdKb MAIN Nil) $prf $_tv) $prf)))
+   (a0))

@@ -368,12 +368,16 @@ discarded when it empties or the step budget is exhausted. The canonical facts d
 the inference controller may select any of them as seeds for a later run. No
 unfinished search state is retained by the forward chainer.
 
-The forward chainer runs rules in their stated direction only: inverted rules
-and antecedent completions get no forward premise index. It has no counterpart
-of the backward chainer's key dependencies. So an inverted rule would let an
-output be replaced by a derivation through its own consequence: the larger
-evidence set looks like a refinement. Running inversions forward needs
-self-support rejection first. A base-rate fold premise reads
+The forward chainer records, per canonical output, the outputs its value was
+derived through, transitively; a join collects them from its premises, and a
+result derived through its own output supports itself and is dropped.
+Otherwise a derivation that merged a second source on the way back could
+replace the output it came from, since it is more confident. The forward
+chainer keeps one merged value per output and cannot give a consumer only the
+derivations that do not depend on it, as the backward chainer does. So an
+inverted rule stays out of the forward premise index, with antecedent
+completions. If an inversion revised an output, even weakly, rules leading
+back to the inversion's source could no longer read that output at all. A base-rate fold premise reads
 the base-rate cache, and any other fold premise the value a query last left in
 the skeleton for the fold. Only a fold with no stored value is computed by a
 backward query within the run's remaining steps. Such a query at a small forward budget is

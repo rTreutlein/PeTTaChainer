@@ -4,36 +4,41 @@
        (List (| Goal (Statement KBContext Proof TV)))
        (Statement KBContext Proof TV)
        (List Evidence)
-       ((Statement KBContext Proof TV) (List Evidence))))
-(= (forward-satisfy-premises $steps () $goal $ev)
-   (data $goal $ev))
+       (List Number)
+       ((Statement KBContext Proof TV) (List Evidence) (List Number))))
+(= (forward-satisfy-premises $steps () $goal $ev $deps)
+   (data $goal $ev $deps))
 ;; A fold premise is read through the backward chainer, which is loaded later
 ;; and so is reached by name (`forward-fold-value`). A fact premise whose
 ;; evidence overlaps what the rule already read is refused: multiplying it
 ;; would count that evidence twice. The backward chainer conditions on it
-;; instead.
-(= (forward-satisfy-premises $steps (cons $prem $rest) $goal $ev)
+;; instead. The outputs the premises read are collected with their evidence.
+(= (forward-satisfy-premises $steps (cons $prem $rest) $goal $ev $deps)
    (if (= $prem (CPU $fun $args $res))
       (let $res
          (if (if (== $fun FoldAllCompiled) true (== $fun GroupedFoldAllCompiled))
             (reduce (cpu-call $steps forward-fold-value ($steps $fun $args)))
             (reduce (cpu-call $steps $fun $args)))
-         (forward-satisfy-premises $steps $rest $goal $ev))
+         (forward-satisfy-premises $steps $rest $goal $ev $deps))
       (if (= $prem ($_type ($_kbid $_ctx $_vars) $_prf $_tv))
          (match &kb $prem
-            (let $matched-ev
-               (forward-fact-evidence
-                  (brand Statement $_type)
-                  (brand KBContext ($_kbid $_ctx $_vars))
-                  (brand Proof $_prf) (the TV $_tv))
+            (let* (($matched
+                      (assemble-runtime-fact (brand Statement $_type) (brand KBContext ($_kbid $_ctx $_vars))
+                         (brand Proof $_prf) (the TV $_tv)))
+                   ($matched-ev
+                      (forward-fact-evidence
+                         (brand Statement $_type)
+                         (brand KBContext ($_kbid $_ctx $_vars))
+                         (brand Proof $_prf) (the TV $_tv))))
                (if (premise-evidence-overlap? $ev $matched-ev) (empty)
-                  (forward-satisfy-premises $steps $rest $goal (list_to_set (append $ev $matched-ev))))))
+                  (forward-satisfy-premises $steps $rest $goal (list_to_set (append $ev $matched-ev))
+                     (deps-union $deps (forward-read-deps $matched))))))
          (empty))))
 
 ;; A pending result or a seed waits on the agenda by its own confidence.
-(: forward-push-derived (-[det]-> (Heap ForwardQueueItem) ForwardDerived (Heap ForwardQueueItem)))
-(= (forward-push-derived $agenda (forward-derived $fact $ev))
-   (add_to_heap $agenda (- 0 (term-confidence $fact)) (qitem (forward-derived $fact $ev))))
+(: forward-push-derived (-[det]-> (Heap ForwardQueueItem) ForwardCandidate (Heap ForwardQueueItem)))
+(= (forward-push-derived $agenda (forward-candidate (forward-derived $fact $ev) $deps))
+   (add_to_heap $agenda (- 0 (term-confidence $fact)) (qitem (forward-candidate (forward-derived $fact $ev) $deps))))
 
 (: forward-push-seed (-[det]-> (Heap ForwardQueueItem) (Statement KBContext Proof TV) (Heap ForwardQueueItem)))
 (= (forward-push-seed $agenda $fact)
@@ -270,9 +275,10 @@
                                    $record-subject?)))
                            (forward-refresh-output-key! $output-key))))))))))
 
+;; A result derived through its own output supports itself and is dropped.
 (: forward-rule-results-for-key
    (-[det]-> Number KB (Statement KBContext Proof TV)
-      ForwardTriggerKey  (List ForwardDerived)))
+      ForwardTriggerKey  (List ForwardCandidate)))
 (= (forward-rule-results-for-key $steps $kb $fact $key)
    (collapse
       (let*
@@ -286,15 +292,15 @@
            ((forward-derived
                 $trigger-fact $trigger-ev)
               (forward-output-row-for-fact $fact))
-           (($result $premise-ev)
+           (($result $premise-ev $premise-deps)
               (forward-satisfy-premises
-                 $steps $rprems $ccls $trigger-ev)))
-         (forward-derived $result
-            (rule-result-evidence $result $premise-ev)))))
+                 $steps $rprems $ccls $trigger-ev (forward-read-deps $trigger-fact))))
+         (if (deps-meet? (cons (forward-output-index-hash (forward-fact-key $result)) ()) $premise-deps) (empty)
+            (forward-candidate (forward-derived $result (rule-result-evidence $result $premise-ev)) $premise-deps)))))
 
 (: forward-rule-results
    (-[det]-> Number KB (Statement KBContext Proof TV)
-       (List ForwardDerived)))
+       (List ForwardCandidate)))
 (= (forward-rule-results $steps $kb $fact)
    (let*
       ((($key $wildcard-key) (forward-premise-keys $fact))
@@ -316,16 +322,19 @@
 (= (set-forward-min-evidence $n) (change-state! forward_min_evidence $n))
 
 ;; Stores a pending result; the fact it made canonical, when it changed its
-;; output. A result resting on less evidence than the minimum is stored only
-;; to revise an output that already has a value, so no output starts from
-;; next to nothing, however much budget is left.
-(: forward-store! (-[det]-> ForwardDerived (List (Statement KBContext Proof TV))))
-(= (forward-store! (forward-derived $candidate $candidate-ev))
+;; output, which then records what the result was derived through. A result
+;; resting on less evidence than the minimum is stored only to revise an
+;; output that already has a value, so no output starts from next to nothing,
+;; however much budget is left.
+(: forward-store! (-[det]-> ForwardCandidate (List (Statement KBContext Proof TV))))
+(= (forward-store! (forward-candidate (forward-derived $candidate $candidate-ev) $deps))
    (if (if (< (confidence-to-count (term-confidence $candidate)) (forward-min-evidence))
           (== (collapse (once (forward-output-row-for-fact $candidate))) ())
           false)
       ()
-      (forward-commit! (forward-derived $candidate $candidate-ev))))
+      (case (forward-commit! (forward-derived $candidate $candidate-ev)) (
+         ((cons $fact $_none) (let $_deps (forward-record-deps! $fact $deps) (cons $fact ())))
+         (() ())))))
 
 (: forward-commit! (-[det]-> ForwardDerived (List (Statement KBContext Proof TV))))
 (= (forward-commit! $derived)
@@ -360,8 +369,8 @@
          (no-forward-agenda-pop (data $agenda $changed))
          ((forward-agenda-pop $rest (qseed $seed))
             (forward-loop $steps $kb (data (bounded-agenda-prune (forward-expand $steps $kb $rest $seed)) $changed)))
-         ((forward-agenda-pop $rest (qitem $derived))
-            (case (forward-store! $derived) (
+         ((forward-agenda-pop $rest (qitem $candidate))
+            (case (forward-store! $candidate) (
                ((cons $fact $_none)
                   (forward-loop (- $steps 1) $kb
                      (data (bounded-agenda-prune (forward-expand $steps $kb $rest $fact))
