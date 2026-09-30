@@ -30,9 +30,10 @@
                   (forward-satisfy-premises $steps $rest $goal (list_to_set (append $ev $matched-ev))))))
          (empty))))
 
-(: agenda-push-fact (-[det]-> (Heap ForwardQueueItem) (Statement KBContext Proof TV) (Heap ForwardQueueItem)))
-(= (agenda-push-fact $agenda $fact)
-   (add_to_heap $agenda (- 0 (term-confidence $fact)) (qitem $fact)))
+;; A pending result waits on the agenda by its own confidence.
+(: forward-push-derived (-[det]-> (Heap ForwardQueueItem) ForwardDerived (Heap ForwardQueueItem)))
+(= (forward-push-derived $agenda (forward-derived $fact $ev))
+   (add_to_heap $agenda (- 0 (term-confidence $fact)) (qitem (forward-derived $fact $ev))))
 
 ;; The canonical version of a fact, or the fact itself when it has no
 ;; canonical row (explicit non-KB seeds).
@@ -44,10 +45,6 @@
          (let (forward-derived $canonical $_ev)
             (first-forward-output-row $rows)
             $canonical))))
-
-(: forward-seed-agenda-step (-[det]-> (Heap ForwardQueueItem) (Statement KBContext Proof TV) (Heap ForwardQueueItem)))
-(= (forward-seed-agenda-step $agenda $fact)
-   (agenda-push-fact $agenda (forward-current-version $fact)))
 
 ;; Apply cache bookkeeping for canonical changes made outside a forward run.
 (: forward-apply-unqueued-change!
@@ -304,66 +301,43 @@
             (forward-rule-results-for-key
                $steps $kb $fact $wildcard-key)))))
 
-(: forward-run-apply-derived
-   (-[det]-> ForwardRun ForwardDerived ForwardRun))
-(= (forward-run-apply-derived ($agenda $changed) $derived)
-   (let*
-      (($changes
-          (collapse (once (forward-candidate-upsert! $derived true))))
-       ($change
-          (if (== $changes ()) no-forward-change (car-atom $changes)))
-       ($_caches (forward-apply-unqueued-change! $change)))
-      (case $change
-         (((forward-output-added $fact)
-             ;; Keep output identities, not intermediate fact versions. At
-             ;; the end of the run each identity resolves to its final
-             ;; canonical fact.
-             (data
-                (agenda-push-fact $agenda $fact)
-                (cons (forward-fact-key $fact) $changed)))
-          ((forward-output-replaced $_old $fact)
-             (data
-                (agenda-push-fact $agenda $fact)
-                (cons (forward-fact-key $fact) $changed)))
-          ($_other
-             (data $agenda $changed))))))
+;; Stores a pending result; the fact it made canonical, when it changed its
+;; output.
+(: forward-store! (-[det]-> ForwardDerived (List (Statement KBContext Proof TV))))
+(= (forward-store! $derived)
+   (let* (($changes (collapse (once (forward-candidate-upsert! $derived true))))
+          ($change (if (== $changes ()) no-forward-change (car-atom $changes)))
+          ($_caches (forward-apply-unqueued-change! $change)))
+      (case $change (
+         ((forward-output-added $fact) (cons $fact ()))
+         ((forward-output-replaced $_old $fact) (cons $fact ()))
+         ($_other ())))))
 
-(: forward-step-fact
-   (-[det]-> Number KB ForwardRun (Statement KBContext Proof TV) ForwardRun))
-(= (forward-step-fact $steps $kb $run $fact)
-   (let $_aggregates
-      (forward-maintain-aggregates! aggregate-update $fact)
-      (fold-flat forward-run-apply-derived $run
-         (forward-rule-results $steps $kb $fact))))
+;; A canonical fact updates the aggregates over it and queues what the rules it
+;; triggers derive from it.
+(: forward-expand
+   (-[det]-> Number KB (Heap ForwardQueueItem) (Statement KBContext Proof TV) (Heap ForwardQueueItem)))
+(= (forward-expand $steps $kb $agenda $fact)
+   (let $_aggregates (forward-maintain-aggregates! aggregate-update $fact)
+      (fold-flat forward-push-derived $agenda (forward-rule-results $steps $kb $fact))))
 
-;; If several derivations update one output before it is processed, only its
-;; latest canonical version should run.  Explicit non-KB seeds have no
-;; canonical row and are therefore always current.
-(: forward-queued-fact-current? (-[det]-> (Statement KBContext Proof TV) Bool))
-(= (forward-queued-fact-current? $fact)
-   (== (forward-current-version $fact) $fact))
-
+;; Each step stores the most confident pending result that changes its output
+;; and expands it, so a weak conclusion is stored only when the budget outlasts
+;; everything more confident. The outputs changed are kept as identities, and
+;; each resolves to its final canonical fact at the end of the run.
 (: forward-loop (-[semidet]-> Number KB ForwardRun ForwardRun))
 (= (forward-loop $steps $kb ($agenda $changed))
    (if (<= $steps 0)
-       (data $agenda $changed)
-       (case (forward-pop-agenda $agenda) (
-          (no-forward-agenda-pop
-             (data $agenda $changed))
-          ((forward-agenda-pop $rest (qitem $fact))
-             (if (forward-queued-fact-current? $fact)
-                (let*
-                   (($next-steps (- $steps 1))
-                    (($nagenda $nchanged)
-                       (forward-step-fact $steps $kb
-                          (data $rest $changed) $fact)))
-                   (forward-loop $next-steps $kb
-                      (data
-                         (bounded-agenda-prune $nagenda)
-                         $nchanged)))
-                (forward-loop
-                   $steps $kb
-                   (data $rest $changed))))))))
+      (data $agenda $changed)
+      (case (forward-pop-agenda $agenda) (
+         (no-forward-agenda-pop (data $agenda $changed))
+         ((forward-agenda-pop $rest (qitem $derived))
+            (case (forward-store! $derived) (
+               ((cons $fact $_none)
+                  (forward-loop (- $steps 1) $kb
+                     (data (bounded-agenda-prune (forward-expand $steps $kb $rest $fact))
+                        (cons (forward-fact-key $fact) $changed))))
+               (() (forward-loop $steps $kb (data $rest $changed))))))))))
 
 (: forward-canonical-facts-for-keys
    (-[det]-> (List ForwardOutputKey)
@@ -394,7 +368,8 @@
    (let ($_agenda $changed)
       (forward-loop $steps $kb
          (data
-            (fold-flat forward-seed-agenda-step (empty_heap) (list_to_set $facts))
+            (fold-flat (forward-expand $steps $kb) (empty_heap)
+               (map-flat forward-current-version (list_to_set $facts)))
             ()))
       (forward-canonical-facts-for-keys (list_to_set $changed))))
 

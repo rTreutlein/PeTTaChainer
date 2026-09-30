@@ -108,7 +108,7 @@
        ForwardOutputChange))
 
 (: ForwardQueueItem (Newtype Atom))
-(: qitem (-[det]-> (Statement KBContext Proof TV) ForwardQueueItem))
+(: qitem (-[det]-> ForwardDerived ForwardQueueItem))
 
 ;; Total wrapper around SWI's relational heap pop. The foreign predicate binds
 ;; priority and item through output arguments, which ordinary MeTTa arrows
