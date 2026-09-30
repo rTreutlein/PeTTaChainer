@@ -197,3 +197,34 @@
            (collapse (match &kb ((DedupeGoal) (dedupekb MAIN Nil) $prf (cpu-call $steps $fun $args)) true))))
       (== $cpu-call-tvs ()))
    true)
+
+;; A rule whose truth needs base rates fires forward: a fold premise reads the
+;; cached base rate, and a fold with nothing cached is computed by a backward
+;; query within the run's remaining steps.
+!(compileadd stvFwdKb (: a (A x) (STV 1.0 0.9)))
+!(compileadd stvFwdKb (: b (B x) (STV 1.0 0.9)))
+!(compileadd stvFwdKb (: r1 (Implication (And (A $v) (B $v)) (C $v)) (STV 0.9 0.9)))
+
+!(test
+   (let $_ (forward-chain 50 stvFwdKb (test-selected-facts stvFwdKb (A x)))
+      (collapse (match &kb ((C x) (stvFwdKb MAIN Nil) $prf $tv) ($prf $tv))))
+   (((by r1 (conjunction a b)) (STV 0.9 0.8999983797525327))))
+
+!(compileadd shareFwdKb (: l1 (Leak u1) (STV 0.2 0.9)))
+!(compileadd shareFwdKb (: l2 (Leak u2) (STV 0.6 0.8)))
+!(compileadd shareFwdKb
+   (: share
+      (Implication
+         (And (FoldAllTruth (Leak $v) (STV $s $_c) $s 0.0
+                 (|-> ($acc $elem) (+ $acc $elem)) -> $total)
+              (Leak $u)
+              (FoldAllTruth (Leak $u) (STV $su $_cu) $su 0.0
+                 (|-> ($acc $elem) $elem) -> $mine)
+              (Compute / ($mine $total) -> $p))
+         (Share $u))
+      (CTV (STV $p 1.0) (STV $p 1.0))))
+
+!(test
+   (let $_ (forward-chain 50 shareFwdKb (test-selected-facts shareFwdKb (Leak u1)))
+      (collapse (match &kb ((Share u1) (shareFwdKb MAIN Nil) $prf $tv) $tv)))
+   ((STV 0.25 0.9999320001831821)))

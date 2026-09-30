@@ -77,4 +77,32 @@ B))`, used in place of `P(C | A, not B)`, which the engine never estimates.
   `test_backward_open_query_results` returns 10 answers instead of 4.
 - Base-rate folds count members whose parts share evidence. The confidence in
   `test_specializing_rule`'s open query moved from 0.03943 to 0.03970.
-- The forward chainer is not covered; it is the next item.
+
+## Forward chainer
+
+The forward chainer joined premises with no overlap check at all, so it
+counted shared evidence twice. It derived D = 0.4024 in the example above, and
+because that stored fact carried the same evidence as the backward proof, it
+also won later backward queries. It now refuses the overlapping premise
+instead of conditioning, since it has no rows to evaluate again.
+
+It also never fired a rule with a fold premise, because nothing evaluated one
+outside a query; that covers every plain STV rule, whose truth needs base
+rates. A fold premise now reads the cached base rate, or else the fold's
+value stored in the skeleton, and only then asks the backward chainer for the
+fold. Querying directly on every cache miss cost StationOps 36% of its wall
+time (324 s → 441 s) for the same score. The misses were the shortfall DP fold,
+re-queried at the forward budget of 2 on every join. With the stored views the
+run takes 309 s. That made the compiled inverted rules and
+antecedent completions live in forward runs too. They derived near-empty
+Skolem conclusions and moved base rates, so they are kept out of the forward
+premise index: forward chaining runs rules in their stated direction, as it
+effectively did before.
+
+The refusal first halved the StationOps score (53,668 → 26,626 over 4 seeds).
+The action KB states its decision data as certain facts, `(STV 1 1)`, and
+derives values like RepairValue from LeakProbability. Its rules then read both,
+and the refusal cut those action-rule joins from the forward run.
+Sharing a certain fact counts nothing twice, since the join is exact either
+way. So evidence of a fact with strength 0 or 1 at confidence 1 is not
+overlap, in either chainer.

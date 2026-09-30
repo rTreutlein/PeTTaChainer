@@ -333,7 +333,9 @@ Conditioning is not used in these cases:
 In all three cases the premise is refused, as before. Folds read under a
 condition take their ordinary values. A query pays for conditioning from its
 evaluation allowance (see `docs/metta/runtime_design_assumptions.md`), so a
-small query may leave such a conclusion for a later one.
+small query may leave such a conclusion for a later one. Forward chaining does
+not condition: it refuses the overlapping premise and leaves the conclusion
+to a query.
 
 ### Querying an implication
 

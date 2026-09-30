@@ -7,19 +7,27 @@
        ((Statement KBContext Proof TV) (List Evidence))))
 (= (forward-satisfy-premises $steps () $goal $ev)
    (data $goal $ev))
+;; A fold premise is read through the backward chainer, which is loaded later
+;; and so is reached by name (`forward-fold-value`). A fact premise whose
+;; evidence overlaps what the rule already read is refused: multiplying it
+;; would count that evidence twice. The backward chainer conditions on it
+;; instead.
 (= (forward-satisfy-premises $steps (cons $prem $rest) $goal $ev)
    (if (= $prem (CPU $fun $args $res))
-      (let $res (reduce (cpu-call $steps $fun $args))
+      (let $res
+         (if (if (== $fun FoldAllCompiled) true (== $fun GroupedFoldAllCompiled))
+            (reduce (cpu-call $steps forward-fold-value ($steps $fun $args)))
+            (reduce (cpu-call $steps $fun $args)))
          (forward-satisfy-premises $steps $rest $goal $ev))
       (if (= $prem ($_type ($_kbid $_ctx $_vars) $_prf $_tv))
          (match &kb $prem
-            (forward-satisfy-premises $steps $rest $goal
-               (list_to_set
-                  (append $ev
-                     (forward-fact-evidence
-                        (brand Statement $_type)
-                        (brand KBContext ($_kbid $_ctx $_vars))
-                        (brand Proof $_prf) (the TV $_tv))))))
+            (let $matched-ev
+               (forward-fact-evidence
+                  (brand Statement $_type)
+                  (brand KBContext ($_kbid $_ctx $_vars))
+                  (brand Proof $_prf) (the TV $_tv))
+               (if (premise-evidence-overlap? $ev $matched-ev) (empty)
+                  (forward-satisfy-premises $steps $rest $goal (list_to_set (append $ev $matched-ev))))))
          (empty))))
 
 (: agenda-push-fact (-[det]-> (Heap ForwardQueueItem) (Statement KBContext Proof TV) (Heap ForwardQueueItem)))

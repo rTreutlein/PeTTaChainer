@@ -170,8 +170,9 @@ concludes from it depends on the parts' keys and never on the compound's; a
 row inverting such a rule into the compound therefore also excludes views that
 depend on any of its parts.
 
-Premises are selected by the consumer. A premise whose value shares fact
-evidence with what the row already used is replaced by the merge of that key's
+Premises are selected by the consumer. Evidence of a certain fact, strength 0
+or 1 at confidence 1, never counts as shared: a join over it is exact either
+way. A premise whose value shares other fact evidence with what the row already used is replaced by the merge of that key's
 facts and views that share none; a shared rule is not a clash, except a rule
 the row excludes: an implication instance sample excludes the rules restating
 its implication, so it reads the consequent's other proofs. Premises are taken greedily in order; when every
@@ -357,6 +358,21 @@ budget, and is discarded when the agenda empties or the step budget is
 exhausted. The canonical facts derived before that point remain in `&kb`, and
 the inference controller may select any of them as seeds for a later run. No
 unfinished search state is retained by the forward chainer.
+
+The forward chainer runs rules in their stated direction only: inverted rules
+and antecedent completions get no forward premise index. A fold premise reads a
+base rate's cached estimate, or else the value a query last left in the
+skeleton for the fold. Only a fold with neither is computed by a backward query
+within the run's remaining steps. Such a query at a small forward budget is
+mostly overhead: querying every uncached fold cost StationOps 36% of its wall
+time. The backward module loads after
+the forward one, so the forward chainer reaches it by name through `cpu-call`.
+A forward join refuses a premise whose fact evidence overlaps what the rule
+already read. It does not condition as the backward chainer does, so such a
+conclusion is left to a backward query. A stored fact the forward chainer
+derived carries its evidence but not the keys it read. Under a condition, a
+backward read therefore leaves out a stored fact whose evidence contains a
+known statement, and takes that key from its rows instead.
 
 Full saturation is not a separate operation. It is the special case in which
 the caller selects every canonical KB fact and supplies enough budget. Adding a

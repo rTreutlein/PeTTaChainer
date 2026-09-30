@@ -126,6 +126,19 @@
             (typed-runtime-premise $premise)
             (typed-runtime-premises $rest))))))
 
+;; Inverted rules and antecedent completions reason from a conclusion back to
+;; its premises. The forward chainer runs rules in their stated direction only,
+;; so they get no forward premise index.
+(: forward-direction-rule? (-[det]-> (Statement KBContext Proof TV) Bool))
+(= (forward-direction-rule? ($_type $_kbctx $proof $_tv))
+   (if (is-expr $proof)
+      (let $head (car-atom $proof)
+         (if (is-expr $head)
+            (let $kind (car-atom $head)
+               (if (== $kind inverted) false (not (== $kind antecedent-completion))))
+            true))
+      true))
+
 (: kb-add-expr
    (-[nondet]-> KbBackend RuntimeAddition  (| Bool (List $none))))
 (= (kb-add-expr $backend $expr)
@@ -137,7 +150,9 @@
              (if (== $backend temp)
                 (+ 1000000000 (next-search-id bwd_tmp_ruleid))
                 (next-search-id ruleid)))
-           ($_1 (if (== $backend backward) 0 (fold-flat (kb-add-prem $backend $id) 0 $rule-args)))
+           ($_1
+              (if (if (== $backend backward) true (not (forward-direction-rule? $typed-ccls))) 0
+                 (fold-flat (kb-add-prem $backend $id) 0 $rule-args)))
            ($ccls-row
               (make-space-row3 $typed-ccls $id $rule-args))
            ($_2

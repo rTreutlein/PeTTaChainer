@@ -339,15 +339,32 @@
       ((rule-excluded $kb $name) (cons (rule-ev $kb $name) $acc))
       ($_other $acc))))
 
-;; Ordinary conjunction premises cannot reuse the same fact evidence.
-;; This check excludes rule applications from the compared evidence sets,
-;; except the rules the row excludes, which no premise may use.
+;; A certain fact, strength 0 or 1 at confidence 1, joins the same whether its
+;; evidence is shared or not: P(K and X) is P(X) or 0 either way.
+(: certain-fact-evidence? (-[det]-> Evidence Bool))
+(= (certain-fact-evidence? $entry)
+   (case $entry (
+      ((fact-ev $kbctx $proof $type)
+         (case (collapse (once (match &kb ($type $kbctx $proof $tv) $tv))) (
+            ((cons (STV $s $c) $_rest)
+               (if (>= $c 1.0) (if (>= $s 1.0) true (<= $s 0.0)) false))
+            ($_other false))))
+      ($_other false))))
+
+(: uncertain-evidence-step (-[det]-> Bool Evidence Bool))
+(= (uncertain-evidence-step $found $entry)
+   (if $found true (not (certain-fact-evidence? $entry))))
+
+;; Ordinary conjunction premises cannot reuse the same uncertain fact
+;; evidence. This check excludes rule applications from the compared evidence
+;; sets, except the rules the row excludes, which no premise may use.
 ;; Projection pooling and compiler-marked shared-evidence joins decide their
 ;; exceptions at the consumer before accepting a premise.
 (: premise-evidence-overlap?
    (-[det]-> (List Evidence) (List Evidence) Bool))
 (= (premise-evidence-overlap? $seen $pev)
-   (if (evidence-sets-overlap? (fact-evidence-only $seen) (fact-evidence-only $pev))
+   (if (fold-flat uncertain-evidence-step false
+          (evidence-intersection (fact-evidence-only $seen) (fact-evidence-only $pev)))
       true
       (evidence-sets-overlap? (fold-flat excluded-rule-step () $seen) $pev)))
 
