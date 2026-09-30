@@ -273,3 +273,32 @@ Baseline before this work (4 seeds × 20 shifts, budget 600, per seed):
 7. Retire the forward engine, canonical store and dependency table. Rewrite
    the forward tests against keys.
 8. Full suites, then StationOps against the baseline from step 1.
+
+## Measured after step 7
+
+StationOps, 4 seeds × 20 shifts, budget 600:
+
+| | score | Brier | wall (4 seeds) | `forward_chain` per seed |
+|---|---|---|---|---|
+| before this work | 52,236 | 0.0908 | 289 s | ~24 s |
+| forward over the skeleton (e713c29a) | 52,310 | 0.0733 | 582 s | ~85 s |
+| one base-rate estimate (step 5) | 52,300 | 0.0722 | 576 s | ~88 s |
+| canonical store retired (step 7) | 52,300 | 0.0722 | 556 s | ~85 s |
+
+Per-phase timers over seed 7 (CPU, outermost calls only, inside
+`forward-chain`): 82 s in all. Upward starts take 24.6 s, evaluations 24.5 s
+(row views 11.8 s) and `sk-need!` 14.4 s. Almost every take is a seed: about
+110 per call.
+
+The cost is not spread evenly. Of the four forward calls per shift, three stay
+near 0.5–0.8 s. The first grows linearly with the number of shifts, from
+0.35 s to about 7.5 s by shift 20, on a constant ~28 seeds. Between shift 2 and
+shift 12 that call's:
+- `sk-need!` rose from 1.7 ms to 12 ms per call;
+- `sk-mark-stale!` calls rose from 218 to 2,497;
+- row-view cost rose from 0.2 ms to 0.58 ms.
+
+Beliefs carried from shift to shift form a chain. Needing a reader walks its
+premise ancestry, a change marks the chain's readers stale, and dependency and
+evidence sets grow along it. This is the next scalability problem: a step
+should cost the same at shift 20 as at shift 2.
