@@ -6,7 +6,15 @@
 ;; already has, never expanding anything. Complete joins are ordinary rows,
 ;; evaluated by the ordinary evaluation, so self-support, reader-specific
 ;; versions, conditioning and base rates behave as they do for queries.
-;; Results stay in the skeleton; a caller materializes them as with a query.
+;; A taken key's value is also stored in &kb (sk-forward-store!).
+
+!(import_prolog_function nth0)
+
+;; nth0/4 removes the indexed element while unifying it with its third
+;; argument. Its relational modes can branch, but every result preserves the
+;; element type of the input list.
+(: nth0
+   (-[nondet]-> $index (List $item) $item (List $item)))
 
 ;; The least evidence, in observations (n = c k / (1 - c)), a derived key's
 ;; value needs for the run to build on it. Process-wide.

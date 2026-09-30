@@ -74,7 +74,7 @@
 
 !(test
    (result-for (R a) (forward-chain 20 forwardRevisionKb (test-main-facts forwardRevisionKb)))
-   (((by qToR (by pToQ (merge/revision p1 p2))) (STV 0.5 0.6666665676407715))))
+   (((by qToR (by pToQ (merge/revision p2 p1))) (STV 0.5 0.6666665676407715))))
 
 ;; Two independent derivations of Q revise; revising one of their inputs
 ;; reaches Q's value, which is the value a query reads.
@@ -132,7 +132,7 @@
 
 !(test
    (result-for (R a) (forward-chain 20 forwardLowerConfidenceKb (test-main-facts forwardLowerConfidenceKb)))
-   (((by qToR (by pToQ (merge/revision p1 p2))) (STV 0.65 0.2869444474025344))))
+   (((by qToR (by pToQ (merge/revision p2 p1))) (STV 0.65 0.2869444474025344))))
 
 ;; Compiler-generated base-rate folds register additive sufficient statistics.
 ;; Forward chaining updates those statistics only for canonical outputs it

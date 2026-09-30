@@ -145,7 +145,7 @@
    (: aMortal (Member a Mortal) (STV 0.8 1.0)))
 
 ;; A zero-budget query installs the compiler-generated interest but performs no
-;; backward or forward inference.  The exact canonical shape registers once.
+;; backward or forward inference.  The exact interest shape registers once.
 !(query 0 forwardMemberFoldKb
    (: $proof (Inheritance Human Mortal) $tv))
 
@@ -207,8 +207,8 @@
             true)))
    2)
 
-;; A second proof path refreshes the one canonical Member output.  Reprocessing
-;; that key replaces a's contribution instead of adding a third observation.
+;; A second Member fact for a is merged with the first.  Reprocessing that key
+;; replaces a's contribution instead of adding a third observation.
 !(compileadd forwardMemberFoldKb
    (: aHumanSecond (Member a Human) (STV 0.5 1.0)))
 !(forward-chain 1 forwardMemberFoldKb
@@ -226,7 +226,7 @@
             true)))
    2)
 
-;; Removing one proof recomputes from the surviving canonical proof. Removing
+;; Removing one fact recomputes from the surviving one. Removing
 ;; the final support deletes a's joined contribution immediately.
 !(remove-compiled-statement aHumanSecond)
 

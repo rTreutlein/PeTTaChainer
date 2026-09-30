@@ -183,18 +183,6 @@
 
 ;; --- Leaves -----------------------------------------------------------------
 
-;; Materialized facts are forward rows marked in &materialized_facts. They are
-;; never leaves: the backward chainer re-derives them.
-(: MaterializedRow Type)
-(: materialized-row
-   (-[det]-> Number Statement KBContext (Statement KBContext Proof TV)
-       (List Evidence) MaterializedRow))
-(: materialized-forward-fact? (-[det]-> SkFact Bool))
-(= (materialized-forward-fact? ($type $kb $proof $tv))
-   (let $hash (forward-output-index-hash (forward-output-key $kb $type))
-      (space-row-present? &materialized_facts
-         (materialized-row $hash $type $kb ($type $kb $proof $tv) $_ev))))
-
 (: SkeletonFilter Type)
 ;; the proof and truth-value pattern a consumer asks for
 (: sk-filter (-[det]-> Proof TV SkeletonFilter))

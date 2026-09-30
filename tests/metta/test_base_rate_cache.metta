@@ -178,7 +178,7 @@
 
 !(test
    (query 200 revisedRateKb (: $prf (Q bob) $tv))
-   (: (by r (merge/revision pb pb2)) (Q bob) (STV 0.38 0.9176432113844136)))
+   (: (by r (merge/revision pb2 pb)) (Q bob) (STV 0.38 0.9176432113844136)))
 
 !(test
    (query 200 revisedRateKb (: $prf (P alice) $tv))

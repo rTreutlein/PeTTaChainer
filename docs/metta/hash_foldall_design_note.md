@@ -171,10 +171,10 @@ knowledge base in `&base_rate_cache`:
   better estimate, the ordinary anytime snapshot replacement swaps it in and
   re-propagates downstream conclusions.
 - Forward chaining maintains additive sufficient statistics for the base-rate
-  folds emitted by the compiler. Each canonical output actually processed by
+  folds emitted by the compiler. Each key actually processed by
   the requested forward budget updates its contribution in constant work and
   publishes the tally's value as the `computed` cache entry. `compileadd` itself still does no
-  chaining; callers choose which canonical facts to pass to `forward-chain`
+  chaining; callers choose which facts to pass to `forward-chain`
   and how far to run it after an addition.
 - There is one estimate per pattern: forward steps and backward folds update
   the same per-member tally, a member already counted has its contribution
@@ -205,12 +205,12 @@ If either complete class term contains a variable, whether at top level or
 nested inside a compound class, the fold is not registered and no identity,
 interest, observation, or cache row is created; such an open query cannot
 provide the selective class key required by this path.
-Forward processing of either affected canonical `Member` output looks up the
+Forward processing of either affected `Member` statement looks up the
 other side for the same object, replaces that object's prior joined
 contribution, and adjusts additive weight/mass totals. Removal recomputes from
-any surviving canonical proof or subtracts the observation when one side has
-no support. Multiple proofs therefore contribute through the single canonical
-merged output rather than as duplicate samples. Work is proportional to the
+the surviving facts or subtracts the observation when one side has no
+support. Several facts of one statement therefore contribute merged, not as
+duplicate samples. Work is proportional to the
 interests for the changed class/object, not the number of historical objects.
 
 The resulting cache row is the tally's `computed` value: it can answer
@@ -259,13 +259,9 @@ when they share no support. Two refinements make that the invariant
 3. **Materialized derivations keep their original evidence.** Forward chaining
    and `query-materialize` retain the source facts and rule applications of a
    cached result. If backward chaining later rediscovers that same path, it is
-   dependent evidence and cannot be revised with itself. `&kb` stores one
-   canonical merged fact per grounded type. A private forward frontier retains
-   only its active non-dominated contributors and their evidence: disjoint
-   additions merge directly into the canonical fact, while an overlapping
-   candidate scans that one frontier so it can replace a subsumed branch
-   without losing the other independent branches. Superseded candidates are
-   discarded rather than kept as proof history.
+   dependent evidence and cannot be revised with itself. `&kb` keeps each
+   added fact; a materialized result is a marked fact carrying its evidence,
+   replaced by the statement's next materialization.
 
 `rule-ev` entries participate in revision independence and dominance but are
 filtered out of the frontier conjunction guard: the positive and negative

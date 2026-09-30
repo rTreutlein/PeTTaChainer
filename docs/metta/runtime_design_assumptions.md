@@ -16,14 +16,13 @@ Adding a fact or rule only enlarges the available proof space. It does not
 replace or retract an existing fact, rule, proof, or evidence item.
 
 If another proof of the same proposition is found, both proofs still exist
-logically. The runtime may expose one canonical merged proof in `&kb` and keep
-supporting candidates in indexed side tables, but refreshing that materialized
-representative is evidence accumulation, not mutation of the proposition.
+logically. `&kb` keeps each added fact; readers merge a statement's facts, and
+that merging is evidence accumulation, not mutation of the proposition.
 
 Consequences:
 
 - Never describe an addition as "changing A". It adds another proof that may
-  contribute to the canonical proof of `A`.
+  contribute to what is known about `A`.
 - A previously valid proof remains valid after any addition.
 - Evidence identity must survive materialization so the same evidence is not
   counted twice when forward and backward paths meet.
@@ -119,8 +118,8 @@ A rule applies to a node when its conclusion fits the whole node pattern, but
 its row is built from the statement and context alone: a row belongs to its
 key, and each reader applies its own proof and truth-value pattern.
 
-For the backward chainer, ingestion only journals added facts and rules (the
-forward canonical store still updates as before). The next query activates them
+For the backward chainer, ingestion only journals added facts and rules. The
+next query activates them
 against the patterns already expanded, so a fact added between queries reaches
 the rows that use it through ordinary leaf answers.
 
@@ -398,14 +397,14 @@ DAG as a tree grows exponentially when values build on merged values, as
 beliefs carried from shift to shift do.
 
 Full saturation is not a separate operation. It is the special case in which
-the caller selects every canonical KB fact and supplies enough budget. Adding a
+the caller selects every KB fact and supplies enough budget. Adding a
 rule does not automatically replay old facts; the inference controller decides
 which existing facts should activate it.
 
 ### Derived state exists only for correctness or measured performance
 
-`&kb` contains the canonical merged proof exposed to reasoning. Side tables may
-retain proof candidates, evidence identities, indexes, accumulator state, or
+`&kb` contains the facts exposed to reasoning. Side tables may retain
+evidence identities, indexes, accumulator state, or
 pending work when they avoid repeated computation. They are implementation
 indexes, not a second logical KB.
 

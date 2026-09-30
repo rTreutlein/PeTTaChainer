@@ -25,9 +25,11 @@ it does not add statements to the handler's knowledge base.
 | `(add-to-kb $expr)` | Add an already-compiled, internal-form atom to the live KB. Lower-level. |
 | `(remove-compiled-statement $name)` | **Deprecated compatibility operation.** Retracts the current kb facts, rules, index rows, and cached scores for one named statement, but does not forget stored backward proofs or skeleton rows. It is outside the monotonic query contract; rules whose compiled proof carries no extractable name are not covered. Python: deprecated `PeTTaChainer.remove_statement(name)`, which emits `DeprecationWarning`. |
 
-The live `&kb` keeps one canonical merged fact per grounded type. Internally, a
-small active frontier retains only the independent proof candidates needed to
-update that fact; superseded candidates are discarded rather than accumulated.
+The live `&kb` keeps every added fact as stored; several facts of one
+statement are merged where they are read, as leaves of the backward search.
+Materialized results are marked facts in `&kb`: a statement's latest
+materialization replaces its earlier one, and marked facts are never read as
+leaves.
 
 The backward chainer keeps a durable skeleton across calls: expanded goals,
 their answers, complete rule instances, and the truth-value views evaluation
@@ -45,7 +47,7 @@ changes. See `runtime_design_assumptions.md` for the contracts.
 | `(query-materialize $steps $kb $stmt)` | As `query`, but also writes back the first result and, for every statement its proof uses, that statement's current value. |
 | `(query-many $steps $kb $statements)` | Compile every statement, inject their temporary additions once, and answer all roots in one shared backward search. `$steps` is one total expansion budget. All roots share one priority order: a goal's priority is the best score any join waiting on it gives it. Emits `(query-result $index $answer)` for each answer; unanswered roots emit no row. Python: `PeTTaChainer.query_many(statements, steps)` returns an input-aligned `list[list[str]]`, including empty lists for unanswered roots. |
 | `(query-many-materialize $steps $kb $statements)` | As `query-many`, but materializes each root's first result and the current values of the statements its proof uses. Python: `PeTTaChainer.query_many_materialization(statements, steps)` runs in the caller's live process so the KB writes persist. |
-| `(forward-chain $steps $kb $facts)` | Forward-chain from a caller-selected list of compiled canonical facts. The run grows the backward skeleton upward from them: rules triggered by a taken key join it with the facts and keys that already exist, and the rows are evaluated as a query evaluates them. Keys are taken by how far their value moved (Beta divergence); seeds cost nothing and each derived key costs one of `$steps`. Stores the values of the derived keys it built on in `&kb`, where later queries read them as facts, and returns them. Proofs print each shared subproof once, as `(shared N proof)` and then `(shared N)`. |
+| `(forward-chain $steps $kb $facts)` | Forward-chain from a caller-selected list of compiled facts. The run grows the backward skeleton upward from them: rules triggered by a taken key join it with the facts and keys that already exist, and the rows are evaluated as a query evaluates them. Keys are taken by how far their value moved (Beta divergence); seeds cost nothing and each derived key costs one of `$steps`. Stores the values of the derived keys it built on in `&kb`, where later queries read them as facts, and returns them. Proofs print each shared subproof once, as `(shared N proof)` and then `(shared N)`. |
 | `(chainer $steps $goal)` / `(chainer-materialize $steps $goal)` | Lower-level backward chainer over an already-compiled goal. |
 | `(chainer-many $steps $goals)` / `(chainer-many-materialize $steps $goals)` | Lower-level multi-root variants over compiled goals; return one result list per input goal. Duplicate and common subgoals share their skeleton nodes. |
 | `(compileQuery $kb (: $prf $Type $tv))` / `(mm2compileQuery $kb $stmt)` | Compile a query without running it. `compileQuery` returns `(compilation-plan goal additions)`; `mm2compileQuery` returns the runtime-encoded equivalent. Advanced. |

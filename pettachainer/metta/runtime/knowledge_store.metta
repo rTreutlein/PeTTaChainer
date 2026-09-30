@@ -126,6 +126,19 @@
             (typed-runtime-premise $premise)
             (typed-runtime-premises $rest))))))
 
+;; An Inheritance fact records its concepts as nodes, and its subject too when
+;; the fact is an observation rather than a materialized conclusion.
+(: record-fact-inheritance-nodes! (-[det]-> (Statement KBContext Proof TV) Bool Atom))
+(= (record-fact-inheritance-nodes! $fact $record-subject?)
+   (case $fact (
+      (((Inheritance $subj $concept) ($kbid $_ctx $_vars) $_prf $_tv)
+         (if (is-var $subj) ()
+            (let* (($typed-kb (brand KB $kbid))
+                   ($typed-subj (brand Statement $subj))
+                   ($_subject (if $record-subject? (record-inheritance-subject! $typed-kb $typed-subj) ())))
+               (record-inheritance-nodes! $typed-kb $typed-subj (brand Statement $concept)))))
+      ($_other ()))))
+
 (: kb-add-expr
    (-[nondet]-> KbBackend RuntimeAddition  (| Bool (List $none))))
 (= (kb-add-expr $backend $expr)
@@ -158,15 +171,14 @@
       (let $fact
          (typed-runtime-fact $expr)
          (if (== $backend live)
-            (let*
-               ((($type $kb $prf $_tv) $fact)
-                ($ev (cons (fact-evidence-entry $kb $prf $type) ()))
-                ($change
-                   (forward-candidate-upsert!
-                      (forward-derived $fact $ev) true))
-                ($_member-cache
-                   (forward-apply-unqueued-member-change! $change)))
-               ())
+            (if (space-row-present? &kb $fact) ()
+               (let*
+                  ((($type $kb $_prf $_tv) $fact)
+                   ($_add (chainer-add-atom &kb $fact))
+                   ($_journal (sk-note-fact! $type $kb))
+                   ($_nodes (record-fact-inheritance-nodes! $fact true))
+                   ($_members (forward-maintain-member-aggregates! aggregate-update $fact)))
+                  ()))
             (kb-add-atom $backend &kb
                (brand SpaceAtom $fact))))))
 
@@ -216,6 +228,18 @@
                ())))
       ()))
 
+;; A removed fact's statement is observed by the aggregates as what its
+;; remaining facts say, or not at all.
+(: remove-named-fact! (-[det]-> Proof (Statement KBContext TV) (List $none)))
+(= (remove-named-fact! $name ($type $kb $tv))
+   (let* (($_remove (remove-atom &kb ($type $kb $name $tv)))
+          ($_journal (sk-note-fact! $type $kb))
+          ($_base-rates (invalidate-computed-base-rates! (brand KB (car-atom $kb)))))
+      (case (stored-statement-candidate $type $kb) (
+         ((forward-derived $rest $_ev) (forward-maintain-aggregates! aggregate-update $rest))
+         (no-forward-output-candidate
+            (forward-maintain-aggregates! aggregate-remove (assemble-runtime-fact $type $kb $name $tv)))))))
+
 (: remove-compiled-statement (-[det]-> Proof (List $none)))
 ;; Deprecated compatibility boundary. It removes current KB/compiler rows but
 ;; deliberately does not forget durable backward proof history.
@@ -223,30 +247,8 @@
    (let*
       (($_specialization (remove-specialization-state! $name))
        ($_facts
-          (collapse
-             (match &forward_frontier
-                (forward-frontier-row
-                   $hash $type $kb ($type $kb $name $tv) $ev)
-                (let*
-                   (($_remove
-                       (remove-atom &forward_frontier
-                          (forward-frontier-row
-                             $hash $type $kb
-                             ($type $kb $name $tv) $ev)))
-                    ($change
-                       (forward-refresh-output-key!
-                          (forward-output-key $kb $type)))
-                    ($_forward-state
-                       (forward-apply-unqueued-change! $change))
-                    (($kbid $_ctx $_vars) $kb)
-                    ($_base-rates
-                       (invalidate-computed-base-rates! (brand KB $kbid)))
-                    ($_member-inheritance
-                       (forward-maintain-member-aggregates!
-                          aggregate-remove
-                          (assemble-runtime-fact
-                             $type $kb $name (the TV $tv)))))
-                   ()))))
+          (foreach-flat (remove-named-fact! $name)
+             (collapse (match &kb ($type $kb $name $tv) (data $type $kb $tv)))))
        ($ids
           (list_to_set
              (collapse

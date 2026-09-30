@@ -15,9 +15,11 @@ the implementation contract:
 5. `runtime/values.metta`, `scheduling.metta`, `evidence.metta`, and
    `base_rates.metta` provide shared runtime semantics without owning a search
    engine.
-6. `runtime/forward/` loads canonical candidate storage, incremental aggregate
-   subscriptions, and then the forward execution engine.
-7. `runtime/knowledge_store.metta` owns canonical KB, rule, and index insertion;
+6. `runtime/forward/` loads the forward schemas (trigger keys, aggregate
+   identities, materialization marks, a statement's merged stored facts) and
+   the incremental aggregate subscriptions. Forward chaining itself runs over
+   the skeleton, in `runtime/backward/upward.metta`.
+7. `runtime/knowledge_store.metta` owns KB fact, rule, and index insertion;
    `runtime/ingest.metta` coordinates the public compilation/add transaction.
 8. `runtime/backward/` loads durable proof storage, proof merging, the recursive
    demand/frontier search component, rule matching, aggregate execution, and the
@@ -37,9 +39,8 @@ MeTTa suite, and relevant performance benchmarks.
 - `runtime/knowledge_store.metta` owns stored facts, rules, and their indexes.
   `runtime/ingest.metta` is the transaction boundary that combines compilation,
   metadata recording, and insertion.
-- Forward canonical storage owns the one materialized KB representative per
-  grounded output. Forward aggregate subscriptions update their sufficient
-  statistics when that representative changes.
+- Forward aggregate subscriptions keep one observation per statement: its
+  stored facts merged, or the value a forward run or fold took for its key.
 - Backward proof storage owns durable proof DAG rows and liveness indexes.
   `proof_merge.metta` owns factoring, revision, dominance, and candidate
   commitment policy.

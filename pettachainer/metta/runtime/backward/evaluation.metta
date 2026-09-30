@@ -56,7 +56,7 @@
 ;; Hypothetical assumptions are not evidence.
 (: leaf-evidence-for-result (-[det]-> SkFact (List Evidence)))
 (= (leaf-evidence-for-result ($type $kb $proof $tv))
-   (if (assumption-proof? $proof) () (forward-fact-evidence $type $kb $proof $tv)))
+   (if (assumption-proof? $proof) () (cons (fact-evidence-entry $kb $proof $type) ())))
 
 ;; A stored fact is its own evidence and depends on its own key. The fact a
 ;; forward run stored for a key carries its value's evidence and what that value
@@ -1629,34 +1629,24 @@
          (materialized-row $hash $type $kb $fact $ev)))))
 
 (: remove-materialized! (-[det]-> MaterializedRow Atom))
-(= (remove-materialized! (materialized-row $hash $type $kb $fact $ev))
-   (let* (($_frontier (remove-atom &forward_frontier (forward-frontier-row $hash $type $kb $fact $ev)))
-          ($_mark (remove-atom &materialized_facts (materialized-row $hash $type $kb $fact $ev))))
+(= (remove-materialized! (materialized-row $hash $type $kb ($type $kb $proof $tv) $ev))
+   (let* (($_fact (remove-atom &kb ($type $kb $proof $tv)))
+          ($_mark (remove-atom &materialized_facts (materialized-row $hash $type $kb ($type $kb $proof $tv) $ev))))
       ()))
 
 ;; A re-materialization of an output key replaces the key's earlier
 ;; materialized rows. Marked facts are never leaves of the backward search.
-(: upsert-materialized! (-[nondet]-> SkFact (List Evidence) ForwardOutputChange))
-(= (upsert-materialized! $fact $ev)
-   (let* (($okey (forward-fact-key $fact))
-          ((forward-output-key $kb $type) $okey)
-          ($hash (forward-output-index-hash $okey)))
-      (if (forward-frontier-has-exact? $okey $fact $ev) no-forward-change
-         (let* (($old (materialized-rows $okey))
-                ($_remove (foreach-flat remove-materialized! $old))
-                ($_refresh
-                   (if (== $old ()) ()
-                      (progn
-                         (forward-apply-unqueued-change!
-                            (chainer-first-or no-forward-change
-                               (collapse (once (forward-refresh-output-key! $okey)))))
-                         ())))
-                ($change (forward-candidate-upsert! (forward-derived $fact $ev) false))
-                ($_mark
-                   (if (forward-frontier-has-exact? $okey $fact $ev)
-                      (once (add-atom &materialized_facts (materialized-row $hash $type $kb $fact $ev)))
-                      ())))
-            $change))))
+(: upsert-materialized! (-[semidet]-> SkFact (List Evidence) Atom))
+(= (upsert-materialized! ($type $kb $proof $tv) $ev)
+   (let* (($fact (data $type $kb $proof $tv))
+          ($hash (forward-output-index-hash (forward-output-key $kb $type)))
+          ($row (materialized-row $hash $type $kb $fact $ev)))
+      (if (space-row-present? &materialized_facts $row) ()
+         (let* (($_remove (foreach-flat remove-materialized! (materialized-rows (forward-output-key $kb $type))))
+                ($_add (chainer-add-atom &kb $fact))
+                ($_mark (add-atom &materialized_facts $row))
+                ($_journal (sk-note-fact! $type $kb)))
+            (record-fact-inheritance-nodes! $fact false)))))
 
 (: materializable-result? (-[det]-> SkFact Bool))
 (= (materializable-result? ($type ($_kbid $ctx $vars) $_prf $tv))
@@ -1675,9 +1665,7 @@
    (case $value (
       ((sk-val $fact $ev $_deps)
          (if (materializable-result? $fact)
-            (let $change
-               (chainer-first-or no-forward-change (collapse (once (upsert-materialized! (sk-full-fact $fact) $ev))))
-               (let $_applied (forward-apply-unqueued-change! $change) ()))
+            (upsert-materialized! (sk-full-fact $fact) $ev)
             ()))
       ($_other ()))))
 

@@ -24,23 +24,6 @@
 (: space-row-present? (-[det]-> $space $row Bool))
 (= (space-row-present? $space $row) (not (== (collapse (once (match $space $row true))) ())))
 
-;; Evidence rows are written only by typed constructors, but spaces erase that
-;; element role. Rebuild the list while restoring the erased Evidence brands;
-;; the reflective fallback is reached only for a malformed non-list row.
-(: stored-evidence-list (-[det]-> Atom (List Evidence)))
-(= (stored-evidence-list $values)
-   (case $values (
-      (() ())
-      ((cons $entry $rest)
-         (cons (brand Evidence $entry)
-            (stored-evidence-list $rest)))
-      ($_malformed
-         (the (List Evidence) $values)))))
-
-(: first-evidence-list
-   (-[semidet]-> (List (List Evidence)) (List Evidence)))
-(= (first-evidence-list (cons $first $_rest)) $first)
-
 ;; A stored fact is its own evidence, except a refined rule's axiom, which
 ;; carries the rule's evidence: a proof through the axiom and a proof through
 ;; the rule are dependent and never revise.
@@ -49,34 +32,6 @@
    (case $prf (
       ((rule-axiom $name) (rule-ev (brand KB (car-atom $kb)) $name))
       ($_other (fact-ev $kb $prf $type)))))
-
-;; Shared by backward proof construction and forward candidate handling, so it
-;; lives before either chainer module is loaded.
-(: forward-fact-evidence
-   (-[det]-> Statement KBContext Proof TV (List Evidence)))
-(= (forward-fact-evidence $type $kb $prf $tv)
-   (let*
-      (($fact (quote ($type $kb $prf $tv)))
-       ($hash (term_hash (quote ($kb $type))))
-       ($hits
-          (collapse
-             (once
-                (match &forward_canonical_evidence
-                   (forward-canonical-evidence-row
-                      $hash $type $kb $fact $ev)
-                   (stored-evidence-list $ev))))))
-      (if (== $hits ())
-         (let $frontier-hits
-            (collapse
-               (once
-                  (match &forward_frontier
-                     (forward-frontier-row
-                        $hash $type $kb $fact $ev)
-                     (stored-evidence-list $ev))))
-            (if (== $frontier-hits ())
-               (cons (fact-evidence-entry $kb $prf $type) ())
-               (first-evidence-list $frontier-hits)))
-         (first-evidence-list $hits))))
 
 (: revision-merge-tv (-[det]-> TV TV TV))
 (= (revision-merge-tv $tv1 $tv2)

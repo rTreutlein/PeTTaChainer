@@ -1,12 +1,12 @@
-;; Forward subscriptions maintain additive state from canonical observations.
+;; Forward subscriptions maintain additive state from per-key observations.
 ;; Identity hashes select candidates; full alpha comparison decides identity.
 ;; Fold descriptors share registration, observation replacement and cache publication.
 ;; The aggregate is a base rate's one estimate: backward folds update it too (sk-fold-view).
 ;; Publishing a value the cache already holds is skipped, since every store wakes the folds.
 ;; Ordinary base rates are seeded lazily when a fold first reads them.
 ;; Computed cache entries keep that source while forward deltas update statistics.
-;; Removal rejoins the surviving canonical Member facts before publishing the cache.
-;; Unqueued Member additions update only their subscribed joins.
+;; Removal rejoins the surviving Member facts before publishing the cache.
+;; An added Member fact updates only its subscribed joins.
 (: fa-id (-[semidet]-> ForwardAggregateIdentityKey Number))
 (= (fa-id $a)(let $b (index-hash $a)(once (match &forward_aggregate_identity ($b (forward-aggregate-identity-row $c $d))(if (=alpha $c $a) $d (empty))))))
 (: fa-register! (-[det]-> ForwardAggregateIdentityKey ForwardAggregateDescriptor ForwardTriggerKey Bool ForwardTriggerKey (List $a)))
@@ -121,7 +121,7 @@
 (: finish-aggregate (-[semidet]-> KB Expression Expression Atom))
 (= (finish-aggregate $kb $a $b)(let $tv (case $a ( (identity $b)(dist-average (the Distribution (once (reduce (reduce (DistAverageFromSumCount (fa-dist-acc $b)))))))(base-rate (BaseRateTv (fa-ev-acc $b)))(weighted-base-rate (WeightedCountBaseRateTv (fa-ev-acc $b)))(weighted-base-rate-with-prior (let (BaseRateEvidenceWithPrior $f $d)(fa-prior-acc $b)(BaseRateWithPriorFormula (resolve-base-rate-prior $f)(WeightedCountBaseRateTv $d))))((member-inheritance $c)(member-inheritance-tv $c (fa-ev-acc $b)))(implication-instance (WeightedCountBaseRateTv (fa-ev-acc $b)))((weighted-base-rate-in-universe $c)(member-inheritance-tv $c (fa-ev-acc $b)))((weighted-base-rate-with-prior-in-universe $c)(let (BaseRateEvidenceWithPrior $f $d)(fa-prior-acc $b)(BaseRateWithPriorFormula (resolve-base-rate-prior $f)(member-inheritance-tv $c $d))))(uniform-prior (UniformPriorTv (fa-list-acc $b)))(uniform-prior-known (UniformPriorKnownTv (fa-list-acc $b))))) (if (base-rate-finish? $a)(smoothed-base-rate-tv $kb $tv) $tv)))
 (: fa-member (-[det]-> KB Term Term (| ForwardDerived NoForwardOutputCandidate)))
-(= (fa-member $a $b $c)(let* (($d (brand Statement (Member $b $c)))($e (make-kb-context $a MAIN Nil))($g (collapse (once (match &forward_canonical_evidence (forward-canonical-evidence-row (term_hash (quote ($e $d))) $d $e $h $i)(forward-derived $h (stored-evidence-list $i))))))($j (if (== $g ())(collapse (once (match &kb ($d $e $l $m)(forward-derived (data $d $e $l $m)(forward-fact-evidence $d $e $l $m))))) $g)))(case $j ((() no-forward-output-candidate)((cons $candidate $_rest) $candidate)))))
+(= (fa-member $a $b $c)(stored-statement-candidate (brand Statement (Member $b $c)) (make-kb-context $a MAIN Nil)))
 (: fa-publish-cache! (-[det]-> KB Statement TV $a (List $b)))
 (= (fa-publish-cache! $a $b $c $d)
    (case (base-rate-cache-entries-for-mode $a $b $d) (
@@ -152,9 +152,17 @@
 (= (fa-remove! $a $b $c)(let* (($d (copy_term $c))($e (fa-item $a $c))($f (brand ForwardAggregateObservationKey (quote ($b $e))))($g (fa-obs $f)))(if (== $g ())(case $d ( ((forward-member-inheritance-descriptor $h $i $j $k)(let (forward-aggregate-state $l $m $n)(fa-state $b)(if (<= $n 0.0)()(fa-store-cache! aggregate-update $b $d $m $n))))($o ())))(let* (((forward-aggregate-state $l $m $n)(fa-swap! $b $g (forward-aggregate-observation $f no-forward-aggregate-observation-value 0.0 0.0) false))($p (fa-store-cache! aggregate-remove $b $d $m $n)))(case $d ( ((forward-member-inheritance-descriptor $h $i $j $k)(progn (fa-update! $a $b $d)()))($o ())))))))
 (: fa-maintain-key! (-[nondet]-> ForwardAggregateMaintenance (Statement KBContext Proof TV) ForwardTriggerKey (List $a)))
 (= (fa-maintain-key! $a $b $c)(let $d (term_hash $c)(match &forward_aggregate_interest_by_trigger ($d (forward-aggregate-interest $e $f $g))(if (== $e $c)(case $a ( (aggregate-update (fa-update! $b $f (copy_term $g)))(aggregate-remove (fa-remove! $b $f (copy_term $g)))))(empty)))))
+;; A statement counts once, with its stored facts merged.
+(: fa-seed-statement
+   (-[det]-> KBContext (List (Statement KBContext Proof TV)) Statement (List (Statement KBContext Proof TV))))
+(= (fa-seed-statement $kbctx $acc $statement)
+   (case (stored-statement-candidate $statement $kbctx) (
+      ((forward-derived $fact $_ev) (cons $fact $acc))
+      (no-forward-output-candidate $acc))))
+
 ;; A base rate a reader finds without an estimate is seeded: its aggregate
 ;; registers if it is new, and the facts already in the KB are counted as the
-;; forward chainer counts them. Counting is per fact, so seeding an aggregate
+;; forward chainer counts them. Counting is per statement, so seeding an aggregate
 ;; the forward chainer already fed counts nothing twice. From then on forward
 ;; chaining keeps the estimate current as it processes facts. Only fold
 ;; premises with a forward subscription (at most one each) can be seeded.
@@ -163,7 +171,8 @@
 (= (fa-seed-facts (forward-base-rate-descriptor $kb $pattern $_extractor $_init $_step $_finish) $_trigger)
    (let* (($kbctx (make-kb-context $kb MAIN Nil))
           ($type (copy_term $pattern)))
-      (collapse (match &kb ($type $kbctx $proof $tv) (data $type $kbctx $proof $tv)))))
+      (fold-flat (fa-seed-statement $kbctx) ()
+         (list_to_set (collapse (match &kb ($type $kbctx $_proof $_tv) (brand Statement $type)))))))
 (= (fa-seed-facts (forward-member-inheritance-descriptor $kb $_sub $_super $_stmt) $trigger)
    (case $trigger (
       ((fwd_member $_kb $concept)
@@ -195,5 +204,3 @@
 (= (forward-maintain-member-aggregates! $a $b)(case $b ( (((Member $c $d)($e MAIN Nil) $f $g)(collapse (fa-maintain-key! $a $b (fwd_member (brand KB $e)(brand Term $d)))))($h ()))))
 (: forward-maintain-aggregates! (-[det]-> ForwardAggregateMaintenance (Statement KBContext Proof TV)(List $a)))
 (= (forward-maintain-aggregates! $a $b)(let* ((($c $d)(forward-premise-keys $b))($e (collapse (fa-maintain-key! $a $b $c)))($f (if (== $c $d)()(collapse (fa-maintain-key! $a $b $d))))($g (forward-maintain-member-aggregates! $a $b)))()))
-(: forward-apply-unqueued-member-change! (-[det]-> ForwardOutputChange (List $a)))
-(= (forward-apply-unqueued-member-change! $a)(case $a ( (no-forward-change ())((forward-output-added $b)(forward-maintain-member-aggregates! aggregate-update $b))((forward-output-replaced $c $b)(forward-maintain-member-aggregates! aggregate-update $b))((forward-output-removed $c)()))))

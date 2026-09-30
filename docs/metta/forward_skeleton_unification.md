@@ -1,9 +1,8 @@
 # Forward Chaining as a Mode of the Skeleton
 
-Design note, 2026-09-30. Status: steps 1–6 implemented
-(`runtime/backward/upward.metta`, the base-rate fold view in
-`runtime/backward/evaluation.metta`); step 7's retirement of the canonical
-store remains.
+Design note, 2026-09-30. Status: implemented (`runtime/backward/upward.metta`,
+the base-rate fold view in `runtime/backward/evaluation.metta`); the forward
+engine and canonical store are gone.
 
 ## Why
 
@@ -182,6 +181,15 @@ was approved.
   candidate comparison (`forward-frontier-compare`, `forward-candidate-refines?`)
   and `&forward_output_deps`. A materializing query needs a plain writer for
   `&kb` in their place.
+
+Implemented as: `compileadd` stores each fact in `&kb` as it is, and readers
+that need one value per statement (member-inheritance joins, base-rate seeding,
+removal) merge its stored facts (`stored-statement-candidate`). The skeleton
+already read them as separate leaves. Materialization adds a marked fact and
+removes the statement's earlier marked ones. `remove-compiled-statement`
+removes the named facts from `&kb` and re-observes what remains of their
+statements. Two equally confident facts of one statement now merge in the
+skeleton's order rather than insertion order.
 - The special cases forward results forced into the backward chainer: the
   leaf exclusion under a condition and `forward-fold-value`.
 
