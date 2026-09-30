@@ -1451,16 +1451,29 @@
 
 ;; A stale row the query reaches rejoins its keys' readers and is recomputed
 ;; by its evaluation.
+;;
+;; Below the depth computed in full, the need goes on only through rows that
+;; may be out of date: stale, never computed, or waiting to be conditioned. A
+;; current row's inputs are current, since every change reaches its readers,
+;; so what lies under it has nothing to recompute. Needing a key then costs
+;; the part of its ancestry that is out of date, not all of it.
 (: sk-need-row! (-[semidet]-> Number Atom SkeletonItem Atom))
 (= (sk-need-row! $depth $_acc (sk-row-item $_seq $khash $_key $rhash (sk-row $_ident $_concl $premises $_s)))
-   (let $_refresh
-      (if (== (collapse (once (match &sk_stale ($khash $rhash) true))) ()) ()
-         (let* (($_fresh (remove-atom &sk_stale ($khash $rhash)))
-                ($keys (fold-semidet sk-direct-key-step () $premises))
-                ($_unmarked (fold-semidet (sk-drop-stale-reader! $khash $rhash) () $keys))
-                ($_linked (fold-semidet (sk-add-reader! $khash $rhash) () $keys)))
-            (add-atom &sk_refresh ($khash $rhash))))
-      (fold-semidet (sk-need-premise! $depth) () $premises)))
+   (let* (($stale (not (== (collapse (once (match &sk_stale ($khash $rhash) true))) ())))
+          ($_refresh
+             (if $stale
+                (let* (($_fresh (remove-atom &sk_stale ($khash $rhash)))
+                       ($keys (fold-semidet sk-direct-key-step () $premises))
+                       ($_unmarked (fold-semidet (sk-drop-stale-reader! $khash $rhash) () $keys))
+                       ($_linked (fold-semidet (sk-add-reader! $khash $rhash) () $keys)))
+                   (add-atom &sk_refresh ($khash $rhash)))
+                ())))
+      (if (if $stale true
+             (if (<= $depth (sk-evaluation-free-depth)) true
+                (if (== (collapse (once (match &sk_view ($khash $_vkey $rhash $_view) true))) ()) true
+                   (not (== (collapse (once (match &sk_given_pending ($khash $rhash $_cost) true))) ())))))
+         (fold-semidet (sk-need-premise! $depth) () $premises)
+         ())))
 
 ;; A key is needed at the fewest steps from a root it is reached by; reaching
 ;; it more closely than before passes the smaller depth on to what it reads.

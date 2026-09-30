@@ -290,6 +290,13 @@ what it cannot pay for is left stale, to be recomputed by a later query that
 reads it. Rows are computed in creation order either way, so an allowance that
 covers everything computes what an unbounded evaluation would.
 
+Beyond those two steps, need passes only through rows that may be out of date:
+stale, never computed, or waiting to be conditioned. A current row's inputs are
+current, because every change reaches the readers of what changed, so needing
+a key costs the out-of-date part of its ancestry rather than all of it. Beliefs
+carried from shift to shift form a chain as long as the history, and walking
+it on every run made each run's cost grow with that history.
+
 Conditioning is paid for from what that allowance has left, never at depth
 zero for free. A row whose clash needs it waits, keeping the views it had, with
 a cost bound of 2^k times one more than the clashing value's dependency count
