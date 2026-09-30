@@ -1449,26 +1449,31 @@
       ((CPU $_fun $_args $_res) ())
       (($type $kbctx $_proof $_tv) (sk-need! $depth () (sk-key $type $kbctx))))))
 
-;; A stale row the query reaches rejoins its keys' readers and is recomputed
-;; by its evaluation.
+;; A stale row within the depth computed in full rejoins its keys' readers and
+;; is recomputed by the evaluation. A deeper stale row keeps its value and stays
+;; out of the change path: only a need that reaches it that closely, such as a
+;; query asking for it, brings it current. So a change below a long chain, such
+;; as a base rate every past belief read, costs once per stale row and never
+;; recomputes the history no one asked for.
 ;;
-;; Below the depth computed in full, the need goes on only through rows that
-;; may be out of date: stale, never computed, or waiting to be conditioned. A
-;; current row's inputs are current, since every change reaches its readers,
-;; so what lies under it has nothing to recompute. Needing a key then costs
-;; the part of its ancestry that is out of date, not all of it.
+;; Below that depth the need goes on only through rows never computed or
+;; waiting to be conditioned. A current row's inputs are current, since every
+;; change reaches the readers of what changed, and a stale one is not brought
+;; current, so there is nothing under either to recompute.
 (: sk-need-row! (-[semidet]-> Number Atom SkeletonItem Atom))
 (= (sk-need-row! $depth $_acc (sk-row-item $_seq $khash $_key $rhash (sk-row $_ident $_concl $premises $_s)))
-   (let* (($stale (not (== (collapse (once (match &sk_stale ($khash $rhash) true))) ())))
-          ($_refresh
-             (if $stale
+   (let* (($near (<= $depth (+ (sk-evaluation-free-depth) 1)))
+          ($refresh
+             (if $near (not (== (collapse (once (match &sk_stale ($khash $rhash) true))) ())) false))
+          ($_refreshed
+             (if $refresh
                 (let* (($_fresh (remove-atom &sk_stale ($khash $rhash)))
                        ($keys (fold-semidet sk-direct-key-step () $premises))
                        ($_unmarked (fold-semidet (sk-drop-stale-reader! $khash $rhash) () $keys))
                        ($_linked (fold-semidet (sk-add-reader! $khash $rhash) () $keys)))
                    (add-atom &sk_refresh ($khash $rhash)))
                 ())))
-      (if (if $stale true
+      (if (if $refresh true
              (if (<= $depth (sk-evaluation-free-depth)) true
                 (if (== (collapse (once (match &sk_view ($khash $_vkey $rhash $_view) true))) ()) true
                    (not (== (collapse (once (match &sk_given_pending ($khash $rhash $_cost) true))) ())))))

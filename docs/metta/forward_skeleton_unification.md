@@ -319,3 +319,18 @@ In the shift-12 call, each historical `SealLeak` row started a stale cascade
 about 12 times. Revising every past belief when the base rate moves is what
 the model says, so constant cost needs a decision about how far back a
 base-rate change should reach.
+
+Past beliefs are now lazy: a stale row is refreshed only when a need reaches it
+within the depth computed in full, as a query asking for it does. StationOps:
+score 54,427 (from 52,300), Brier 0.0635 (from 0.0722), wall 451 s (from
+503 s), and queries take half as long.
+
+The first forward call of each shift still grows (0.41 s at shift 1 to about
+4.5 s at shift 20). What grows now is evaluation: the `SealLeak` base rate
+needs its changed members to take their values, and those members include
+every past shift's derived belief. So each move of the rate recomputes past
+beliefs one fixed-point iteration further. Taking members as they stand without
+needing them flattened the growth (wall 354 s) but cost quality: score 52,734
+and Brier 0.0846. The base rate is then estimated from beliefs computed with
+older rates, and every current belief it feeds is worse. That change is not
+kept.

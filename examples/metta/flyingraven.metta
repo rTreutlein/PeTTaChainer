@@ -83,4 +83,4 @@
                   (by penguinsDoNotFly
                      (by (inheritance-implication pinguPenguin) (ctx proof 5)))))))
       (Inheritance Pingu (IntSet flies))
-      (STV 0.21808909147712674 0.919737117859771))))
+      (STV 0.21808909147712682 0.919737117859771))))
