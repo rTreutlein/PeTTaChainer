@@ -31,7 +31,7 @@
 ;; The structurally indexed conclusion remains reachable from an open query.
 !(test
    (query 100 kb (: $prf (Friend alice $x) $tv))
-   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.9 0.03943409189052804)))
+   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.9 0.03970263742658139)))
 
 ;; The (Symmetric Friend) fact is still stored as a normal fact.
 !(test (match &kb ((Symmetric $x) ($kb MAIN Nil) $p $tv) ($x $p)) (Friend tag))

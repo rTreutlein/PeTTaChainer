@@ -238,9 +238,12 @@
 (= (proof-term-negated? $prf)
    (if (is-expr $prf) (== (car-atom $prf) negated) false))
 
+;; A context assumption, or a statement a conditioned read takes as known.
 (: assumption-proof? (-[det]-> Proof Bool))
 (= (assumption-proof? $prf)
-   (if (is-expr $prf) (== (car-atom $prf) ctx) false))
+   (if (is-expr $prf)
+      (let $head (car-atom $prf) (if (== $head ctx) true (== $head given)))
+      false))
 
 (: proof-from-atom (-[det]-> Expression Proof))
 (= (proof-from-atom $proof) (brand Proof $proof))

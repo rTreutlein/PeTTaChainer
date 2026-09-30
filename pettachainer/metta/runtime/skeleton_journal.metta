@@ -160,6 +160,12 @@
 ;; fold key hash -> hash of a member key that changed since the fold's check
 (: &sk_fold_pending (SpaceOf (Number Number)))
 !(bind! &sk_fold_pending (new-space))
+;; rows waiting for conditioning, by key and row hash, with its cost bound,
+;; and the rows this evaluation paid it for
+(: &sk_given_pending (SpaceOf (Number Number Number)))
+!(bind! &sk_given_pending (new-space))
+(: &sk_given_granted (SpaceOf (Number Number)))
+!(bind! &sk_given_granted (new-space))
 ;; keys whose value changed outside evaluation
 (: &sk_dirty (SpaceOf (sk-dirty SkeletonKey)))
 !(bind! &sk_dirty (new-space))

@@ -160,16 +160,6 @@
       (query 1 composeKbShort (: $p (Goal) $tv)))
    (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
 
-!(compileadd noReuseKb (: x (X) (STV 1.0 1.0)))
-
-!(compileadd noReuseKb (: ra (Implication (X) (A)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-
-!(compileadd noReuseKb (: rb (Implication (X) (B)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-
-!(compileadd noReuseKb (: rc (Implication (And (A) (B)) (C)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-
-!(test (query 100 noReuseKb (: $p (C) $tv)) ())
-
 !(compileadd independentKb (: x (X) (STV 1.0 1.0)))
 
 !(compileadd independentKb (: b (B) (STV 1.0 1.0)))

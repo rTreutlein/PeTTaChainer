@@ -180,6 +180,23 @@ compatible stored facts first. Projections of one stored `(And ...)` source pool
 back into that source instead of multiplying shared evidence, and
 compiler-marked joins may share source evidence deliberately.
 
+A clash that survives the fresh read is resolved by conditioning, not refused.
+The row is evaluated with the statement of a shared fact known true and again
+known false, and the two results mix by modus ponens over that statement's
+value, so the shared evidence counts once. Under a condition:
+- a known statement reads as certain, with no evidence;
+- a view depending on one is its row evaluated again under the same
+  condition, excluding what the enclosing rows exclude, so the recursion
+  follows only views that used a shared fact and cannot cycle;
+- other views, and folds, read as stored.
+
+A branch that still clashes over another shared statement conditions on it in
+turn. There is nothing to condition when a premise reads one of the shared
+statements itself (P(K and K) is P(K)), when the clashing value is a
+projection, or when the conclusion is not a simple truth value; such premises
+are refused as before. The mix needs the weight's evidence to be outside the
+branches.
+
 Evaluation starts from what changed: new rows, and the readers of keys changed
 outside evaluation (added facts, removed query-local rows, fold members). Rows
 are computed in creation order. A recomputed view is kept only when it brings
@@ -273,6 +290,15 @@ computed; deeper rows spend an allowance of two recomputations per step, and
 what it cannot pay for is left stale, to be recomputed by a later query that
 reads it. Rows are computed in creation order either way, so an allowance that
 covers everything computes what an unbounded evaluation would.
+
+Conditioning is paid for from what that allowance has left, never at depth
+zero for free. A row whose clash needs it waits, keeping the views it had, with
+a cost bound of 2^k times one more than the clashing value's dependency count
+for k shared statements. Once the rows are computed, the waiting rows the query
+needs are paid for nearest a root first, then cheapest, then oldest. Each is
+recomputed conditioned, with its readers, which may add waiting rows. The first
+row the allowance cannot pay for stops the payment, so a larger allowance
+extends the same prefix, and the rest wait for a later query that needs them.
 
 A root reads the answers of every node of its statement and context, whatever
 their proof and truth-value patterns, and drops answers that instantiate

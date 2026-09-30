@@ -298,6 +298,43 @@ corresponding direct `ExistentialClaim` E and calculates the remaining U from
 copying the existential confidence onto U. Both forms are lazy FoldAll-backed
 premises and their bound variables do not escape into the conclusion.
 
+### Premises that reuse evidence
+
+A rule may read a premise derived from a fact that it also reads, directly or
+through another derived premise:
+
+```metta
+!(compileadd kb (: a (A x) (STV 1.0 0.9)))
+!(compileadd kb (: b (B x) (STV 1.0 0.9)))
+!(compileadd kb (: r1 (Implication (And (A $v) (B $v)) (C $v)) (STV 0.9 0.9)))
+!(compileadd kb (: r2 (Implication (And (A $v) (C $v)) (D $v)) (STV 0.9 0.9)))
+```
+
+Multiplying the premises would count `a` twice, so `(D x)` is instead
+conditioned on `(A x)`. The rule is evaluated once with `(A x)` known true and
+once known false, and the two results are mixed by the value of `(A x)`, which
+is the chain rule P(A and C) = P(A) P(C | A). The proof records both branches:
+
+```metta
+(conditioned a
+   (by r2 (conjunction (given true) (by r1 (conjunction (given true) b))))
+   (by r2 (conjunction (given false) (by r1 (conjunction (given false) b)))))
+```
+
+`(given true)` and `(given false)` mark the statement taken as known. They are
+assumptions, not evidence: the evidence of the proof counts `a` once, through
+the weight `a` at the head.
+
+Conditioning is not used in these cases:
+- when a premise reads the same statement again, since P(K and K) is P(K);
+- for projections of one conjunction, which pool;
+- for rules whose conclusion is not a simple truth value.
+
+In all three cases the premise is refused, as before. Folds read under a
+condition take their ordinary values. A query pays for conditioning from its
+evaluation allowance (see `docs/metta/runtime_design_assumptions.md`), so a
+small query may leave such a conclusion for a later one.
+
 ### Querying an implication
 
 A query for an implication is answered by two producers whose proofs revise
