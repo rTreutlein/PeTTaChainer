@@ -16,7 +16,7 @@ class ForwardBenchmarkTests(unittest.TestCase):
                 ),
             ):
                 with self.subTest(run=run), self.assertRaisesRegex(
-                    ValueError, "No canonical KB fact"
+                    ValueError, "No KB fact"
                 ):
                     run()
 

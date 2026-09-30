@@ -346,7 +346,7 @@ class PeTTaChainer:
             print(atom)
 
     def select_facts(self, terms: str | Sequence[str]) -> List[str]:
-        """Return the canonical KB facts matching one or more surface terms.
+        """Return the KB facts matching one or more surface terms.
 
         Selection belongs to inference control, not to forward chaining. All
         requested terms are evaluated and selected in one PeTTa call so a
@@ -374,11 +374,11 @@ class PeTTaChainer:
             )
         ]
         if len(results) != len(raw_terms) or "missing-selected-fact" in results:
-            raise ValueError(f"No canonical KB fact matches every requested term: {raw_terms}")
+            raise ValueError(f"No KB fact matches every requested term: {raw_terms}")
         return results
 
     def all_facts(self) -> List[str]:
-        """Return every current canonical fact for caller-directed saturation."""
+        """Return every current KB fact for caller-directed saturation."""
         return [
             str(atom).strip()
             for atom in _as_list(
@@ -391,9 +391,10 @@ class PeTTaChainer:
         ]
 
     def forward_chain(self, facts: str | Sequence[str], steps: int = 100) -> List[str]:
-        """Forward-chain canonical facts and return changed canonical facts.
+        """Forward-chain from KB facts and return the derived facts it built on.
 
-        The returned facts are already valid input to a later run. Use
+        The returned facts are stored in the KB and are valid input to a later
+        run. Use
         ``select_facts`` to choose initial seeds by surface term, or
         ``all_facts`` to request the full-KB saturation special case.
         """
