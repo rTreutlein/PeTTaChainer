@@ -1473,6 +1473,22 @@
 ;; waiting to be conditioned. A current row's inputs are current, since every
 ;; change reaches the readers of what changed, and a stale one is not brought
 ;; current, so there is nothing under either to recompute.
+;;
+;; Known gap: "never computed" is tested on &sk_view, which holds only the
+;; views a row replaced. A row computed once has none, so the walk passes
+;; through most current rows as well, and needs far more than the rule above.
+;; Testing the row's latest view instead is the intended rule, but it exposes a
+;; second gap: the stale cascade (sk-stale-key!) marks every reader of a key
+;; stale while an evaluation runs, also readers this query needs, after the
+;; walk has passed them. Such a row is refreshed only by a later query, so the
+;; query reads a value from before (test_rule_refinement: B d misses the new
+;; instance sample). Keeping needed readers current instead is wrong too: a
+;; needed fold over stale members is refreshed only through its readers going
+;; stale (StationOps seed 7 lost a shortfall posterior). The correct design
+;; refreshes, within the same evaluation, each needed row the cascade reached
+;; and its readers. Rerunning whole evaluation passes for that (tried Oct 1)
+;; is correct but costs forward chaining about 30%; it needs a narrower
+;; recomputation of just those rows before the check here can be fixed.
 (: sk-need-row! (-[semidet]-> Number Atom SkeletonItem Atom))
 (= (sk-need-row! $depth $_acc (sk-row-item $_seq $khash $_key $rhash (sk-row $_ident $_concl $premises $_s)))
    (let* (($near (<= $depth (+ (sk-evaluation-free-depth) 1)))
