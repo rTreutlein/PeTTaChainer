@@ -208,3 +208,17 @@
    (let $_answers (collapse (query 200 grownUniverseKb (: $prf (Inheritance pingu Bird) $tv)))
       (cached-base-rate grownUniverseKb (Inheritance $x Bird)))
    ((STV 0.998669031501917 0.0005631826475775279)))
+
+; A member derived through its own base rate (the inverted sensor concludes
+; Leak q with the Leak rate as its prior) changes whenever the rate moves. The
+; rate does not count that version, so such a change does not mark the member
+; to be taken again: otherwise every past belief read through the rate would be
+; needed and recomputed each time the rate moved.
+!(compileadd rateEchoKb (: sensor (Implication (Leak $u) (Alarm $u)) (CTV (STV 0.9 1.0) (STV 0.2 1.0))))
+!(compileadd rateEchoKb (: l1 (Leak u1) (STV 1.0 1.0)))
+!(compileadd rateEchoKb (: l2 (Leak u2) (STV 0.0 1.0)))
+!(compileadd rateEchoKb (: aq (Alarm q) (STV 1.0 1.0)))
+!(collapse (query 200 rateEchoKb (: $p (Leak q) $tv)))
+!(compileadd rateEchoKb (: l3 (Leak u3) (STV 0.0 1.0)))
+!(collapse (query 200 rateEchoKb (: $p (Leak q) $tv)))
+!(test (collapse (match &sk_rate_dirty ($_hash $_fold (sk-key (Leak q) $_kbctx)) true)) ())

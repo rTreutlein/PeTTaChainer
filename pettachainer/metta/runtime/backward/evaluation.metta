@@ -1235,16 +1235,18 @@
 ;; does not admit; so the members changed in one pass recompute it once; until
 ;; then its readers read the value it had. A fold nobody read since it last
 ;; changed is computed when next read. A base-rate fold also records the
-;; member to take. A check queued for this pass is also queued for the next, in
-;; case this pass's check already ran.
+;; member to take, unless the change came through the rate itself: a past
+;; belief that reads the rate as its prior changes whenever the rate moves, and
+;; would otherwise be needed and taken again each time. A check queued for this
+;; pass is also queued for the next, in case this pass's check already ran.
 (: sk-check-seq (-[det]-> Number))
 (= (sk-check-seq) 1000000000000000)
 
 (: sk-fold-changed (-[semidet]-> Number Number SkeletonKey SkeletonChange SkeletonWork SkeletonKey SkeletonWork))
 (= (sk-fold-changed $pass $_seq $member $change (sk-work $todo $next) $fold)
-   (let* (($hash (index-hash $fold))
-          ($_rate (sk-rate-dirty! $fold $member)))
+   (let $hash (index-hash $fold)
       (if (deps-meet? (cons $hash ()) (sk-change-deps $change)) (sk-work $todo $next)
+      (let $_rate (sk-rate-dirty! $fold $member)
       (if (== (sk-latest-view $hash $fold 0) sk-none) (sk-work $todo $next)
       (if (if (sk-needed? $hash $fold) false (let $_stale (sk-stale-fold! $fold) true)) (sk-work $todo $next)
          (let* (($mhash (index-hash $member))
@@ -1252,7 +1254,7 @@
                 ($check (sk-fold-check $hash $fold)))
             (if (sk-queue-new? $pass $check) (sk-work (add_to_heap $todo (sk-check-seq) $check) $next)
                (if (sk-queue-new? (+ $pass 1) $check) (sk-work $todo (add_to_heap $next (sk-check-seq) $check))
-                  (sk-work $todo $next)))))))))
+                  (sk-work $todo $next))))))))))
 
 ;; A row is forced once per evaluation by each changed key: a fold's readers
 ;; follow its members as they change, and a fold feeding back into its own

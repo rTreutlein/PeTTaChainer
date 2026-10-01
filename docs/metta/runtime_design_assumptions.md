@@ -227,7 +227,10 @@ can fold a group's beliefs and read one member of the group again.
 A base-rate fold is incremental, since its population grows with everything
 ingested. It keeps its accumulated evidence and each member's contribution; a
 member that joined or whose value changed is taken again, replacing its old
-contribution, when a query needs the fold or it is next read. Needing the fold
+contribution, when a query needs the fold or it is next read. A member's
+change that came through the rate itself is not taken again: the rate does not
+count that version, and a past belief read through the rate would otherwise
+change, be needed and be recomputed every time the rate moved. Needing the fold
 needs only those members, not the population. A member whose inputs changed
 while no query needed it keeps its last contribution until a query recomputes
 it, so a base rate may lag the members' current values; every step costs the
