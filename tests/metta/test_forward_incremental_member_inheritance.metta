@@ -413,3 +413,18 @@
                   $_id))
             true)))
    1)
+
+;; A membership a forward run derives counts with the member's other, stored
+;; membership: taking (Member a B) keeps a in the A -> B estimate beside b,
+;; though the run stores its copy only when it ends.
+!(compileadd forwardDerivedMemberKb (: ma (Member a A) (STV 1.0 1.0)))
+!(compileadd forwardDerivedMemberKb (: mb (Member b A) (STV 1.0 1.0)))
+!(compileadd forwardDerivedMemberKb (: mbb (Member b B) (STV 1.0 1.0)))
+!(compileadd forwardDerivedMemberKb (: sa (Special a) (STV 1.0 1.0)))
+!(compileadd forwardDerivedMemberKb
+   (: specialB (Implication (Special $x) (Member $x B)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+!(collapse (query 100 forwardDerivedMemberKb (: $p (Inheritance A B) $tv)))
+!(forward-chain 20 forwardDerivedMemberKb
+   (collapse (once (match &kb ((Special a) (forwardDerivedMemberKb MAIN Nil) $p $tv)
+      (assemble-stored-runtime-fact (Special a) (forwardDerivedMemberKb MAIN Nil) $p $tv)))))
+!(test (member-fold-observation-count forwardDerivedMemberKb A B) 2)

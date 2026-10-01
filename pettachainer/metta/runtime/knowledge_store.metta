@@ -281,7 +281,7 @@
           ($_unindex (kb-unindex-fact! ($type $kb $name $tv)))
           ($_journal (sk-note-fact! $type $kb))
           ($_base-rates (invalidate-computed-base-rates! (brand KB (car-atom $kb)))))
-      (case (stored-statement-candidate $type $kb) (
+      (case (stored-statement-candidate $type $kb false) (
          ((forward-derived $rest $_ev) (forward-maintain-aggregates! aggregate-update $rest))
          (no-forward-output-candidate
             (forward-maintain-aggregates! aggregate-remove (assemble-runtime-fact $type $kb $name $tv)))))))

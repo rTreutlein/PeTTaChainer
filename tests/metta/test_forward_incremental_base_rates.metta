@@ -402,3 +402,18 @@
    (let $folds (forward-rate-folds (assemble-runtime-fact (Leak u1 z1) (ordKb MAIN Nil) l1 (STV 1.0 1.0)))
       (map-flat (excludes-one? $folds) $folds))
    (true true true))
+
+;; A fact is excluded only from the rates it counts in: (Leak u1 z1) belongs to
+;; the rate over (Leak $u z1), not to the one over (Leak $u z2), though both
+;; are triggered by Leak.
+!(compileadd colorKb (: red (Implication (Leak $u z1) (Seen1 $u)) (CTV (STV 0.9 1.0) (STV 0.2 1.0))))
+!(compileadd colorKb (: blue (Implication (Leak $u z2) (Seen2 $u)) (CTV (STV 0.9 1.0) (STV 0.2 1.0))))
+!(compileadd colorKb (: l1 (Leak u1 z1) (STV 1.0 1.0)))
+!(compileadd colorKb (: l2 (Leak u2 z2) (STV 0.0 1.0)))
+!(compileadd colorKb (: s1 (Seen1 q) (STV 1.0 1.0)))
+!(compileadd colorKb (: s2 (Seen2 q) (STV 1.0 1.0)))
+!(collapse (query 200 colorKb (: $p (Leak q z1) $tv)))
+!(collapse (query 200 colorKb (: $p (Leak q z2) $tv)))
+!(test
+   (forward-rate-folds (assemble-runtime-fact (Leak u1 z1) (colorKb MAIN Nil) l1 (STV 1.0 1.0)))
+   ((index-hash (sk-fold (colorKb (Leak $_u z1) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)))))

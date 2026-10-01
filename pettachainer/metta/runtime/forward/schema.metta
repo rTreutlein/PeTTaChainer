@@ -126,8 +126,12 @@
          (materialized-row $hash $type $kb ($type $kb $proof $tv) $_ev))))
 
 ;; A statement's stored facts merged into one candidate: what the facts say
-;; about the statement together. Materialized facts and a forward run's copy of
-;; a key's value are not stored facts: the skeleton derived them.
+;; about the statement together. Materialized facts are not stored facts: the
+;; skeleton derived them. A forward run's copy of a key's value is counted only
+;; when asked for: a base rate counts stored facts and hears of copies from the
+;; run that made them, while a membership read wants the latest value a run
+;; reported. A copy is looked up under the key of the row matched, which an open
+;; statement only finds once the match binds it.
 (: stored-candidate-step
    (-[det]-> (| ForwardDerived NoForwardOutputCandidate) (Statement KBContext Proof TV) ForwardDerived))
 (= (stored-candidate-step $acc ($type $kb $proof $tv))
@@ -140,11 +144,11 @@
                (forward-derived $merged $merged-ev)))))))
 
 (: stored-statement-candidate
-   (-[det]-> Statement KBContext (| ForwardDerived NoForwardOutputCandidate)))
-(= (stored-statement-candidate $type $kb)
+   (-[det]-> Statement KBContext Bool (| ForwardDerived NoForwardOutputCandidate)))
+(= (stored-statement-candidate $type $kb $copies)
    (fold-flat stored-candidate-step no-forward-output-candidate
-      (let $copy-hash (index-hash (sk-key $type $kb))
-         (collapse (match &kb ($type $kb $proof $tv)
-            (let $fact (data $type $kb $proof $tv)
-               (if (materialized-forward-fact? $fact) (empty)
-                  (if (space-row-present? &sk_forward_stored ($copy-hash $_key $fact $_ev $_deps)) (empty) $fact))))))))
+      (collapse (match &kb ($type $kb $proof $tv)
+         (let $fact (data $type $kb $proof $tv)
+            (if (materialized-forward-fact? $fact) (empty)
+               (if $copies $fact
+                  (if (space-row-present? &sk_forward_stored ((index-hash (sk-key $type $kb)) $_key $fact $_ev $_deps)) (empty) $fact))))))))
