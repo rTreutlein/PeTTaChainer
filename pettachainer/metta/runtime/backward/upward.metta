@@ -190,7 +190,9 @@
 ;; A derived key the run built on has its value stored in &kb, like a fact, so a
 ;; later query reads it without searching for it again. It replaces the fact an
 ;; earlier run stored for the key and keeps the value's evidence and what it
-;; was derived through, so no reader uses it to support itself.
+;; was derived through, so no reader uses it to support itself. A value that is
+;; one of the key's stored facts needs no copy: removing an identical copy
+;; would remove the fact too.
 (: sk-forward-store! (-[semidet]-> SkeletonKey Atom))
 (= (sk-forward-store! $key)
    (case (sk-key-value $key) (
@@ -205,9 +207,11 @@
                                 ($_row (remove-atom &sk_forward_stored ($hash $stored $old $old-ev $old-deps))))
                             ())
                          (empty)))))
-                ($_stored (add-atom &sk_forward_stored ($hash $key $fact $ev $deps)))
-                ($_kb (add-atom &kb $fact))
-                ($_index (kb-index-fact! live $fact)))
+                ($_copy
+                   (if (space-row-present? &kb $fact) ()
+                      (let* (($_stored (add-atom &sk_forward_stored ($hash $key $fact $ev $deps)))
+                             ($_kb (add-atom &kb $fact)))
+                         (kb-index-fact! live $fact)))))
             (sk-note-fact! $type $kbctx)))
       ($_none ()))))
 

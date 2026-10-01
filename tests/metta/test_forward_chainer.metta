@@ -76,6 +76,11 @@
       (== $forward (query-for mergekb (SwitchGoal))))
    true)
 
+;; A run that builds on a key whose value is one of its stored facts stores no
+;; copy of it, so replacing what an earlier run stored never removes the fact.
+!(forward-chain 50 mergekb (test-selected-facts mergekb (BasePremise)))
+!(test (collapse (match &kb ((WeakPremise) $_kbctx weakFact $tv) $tv)) ((STV 1.0 0.1)))
+
 ;; The most promising item goes first: with one step, a seed that triggers no
 ;; rule builds nothing, and one that does builds its conclusion.
 !(compileadd deltakb (: highFact (HighPriority) (STV 1.0 1.0)))
