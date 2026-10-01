@@ -211,21 +211,22 @@
       (if (is-var $want-tv) true (= $got-tv $want-tv))
       false))
 
-;; Every fact of a goal's statement and context that passes the filter. The
-;; statement and context lead the match pattern, so the lookup uses the index
-;; of &kb; the probe for materialized rows runs only when some materialization
-;; happened.
+;; Every fact of a goal's statement and context that passes the filter, read
+;; through the statement's prefix index (kb-facts); the probe for materialized
+;; rows runs only when some materialization happened.
 (: sk-leaf-facts (-[det]-> Statement KBContext SkeletonFilter (List SkFact)))
 (= (sk-leaf-facts $type $kbctx $filter)
    (let $plain (== (collapse (once (match &materialized_facts (materialized-row $_hash $_type $_kb $_fact $_ev) true))) ())
-      (collapse (match &kb ($type $kbctx $proof $tv)
-         (let $fact (data $type $kbctx $proof $tv)
-            (if (sk-fact-matches? $filter $fact)
-               (if (chainer-acyclic-term? $fact)
-                  (if $plain $fact
-                     (if (materialized-forward-fact? $fact) (empty) $fact))
-                  (empty))
-               (empty)))))))
+      (foldr-flat (sk-leaf-fact-step $plain $filter) () (kb-facts $type $kbctx))))
+
+(: sk-leaf-fact-step (-[det]-> Bool SkeletonFilter SkFact (List SkFact) (List SkFact)))
+(= (sk-leaf-fact-step $plain $filter $fact $facts)
+   (if (sk-fact-matches? $filter $fact)
+      (if (chainer-acyclic-term? $fact)
+         (if $plain (cons $fact $facts)
+            (if (materialized-forward-fact? $fact) $facts (cons $fact $facts)))
+         $facts)
+      $facts))
 
 (: sk-fact-key (-[det]-> SkFact SkeletonKey))
 (= (sk-fact-key ($type $kbctx $_proof $_tv)) (sk-key $type $kbctx))

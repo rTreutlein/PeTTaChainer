@@ -19,6 +19,50 @@
        ($_ (callPredicate (Predicate (assertz $term $ref)))))
       (add-atom &temp_query_ref (clause_ref $ref))))
 
+;; SWI indexes &kb by a statement's head only, so a lookup by head and
+;; arguments walked every fact with that head, across the whole history. Each
+;; ground fact is therefore also stored in &kb_prefix under the hash of every
+;; prefix of its statement (statement-prefix-hashes), and a fact whose statement
+;; has variables in &kb_open, which every prefix lookup also reads (see
+;; kb-facts). The rows follow &kb's: added with the same backend, removed with
+;; the fact.
+(: &kb_prefix (SpaceOf (Number Statement KBContext Proof TV)))
+!(bind! &kb_prefix (new-space))
+(: &kb_open (SpaceOf (Statement KBContext Proof TV)))
+!(bind! &kb_open (new-space))
+
+(: kb-index-fact! (-[det]-> KbBackend Atom Atom))
+(= (kb-index-fact! $backend ($type $kbctx $proof $tv))
+   (let $fact (data $type $kbctx $proof $tv)
+      (if (== (extract-vars $type) ())
+         (let $_rows (map-flat (kb-prefix-row! $backend $fact) (statement-prefix-hashes $type)) ())
+         (let $_open (kb-add-atom $backend &kb_open (brand SpaceAtom $fact)) ()))))
+
+(: kb-prefix-row! (-[det]-> KbBackend Atom Number Bool))
+(= (kb-prefix-row! $backend $fact $hash)
+   (kb-add-atom $backend &kb_prefix (brand SpaceAtom (cons-atom $hash $fact))))
+
+(: kb-unindex-fact! (-[det]-> Atom Atom))
+(= (kb-unindex-fact! ($type $kbctx $proof $tv))
+   (if (== (extract-vars $type) ())
+      (let $_rows (map-flat (kb-remove-prefix-row! (data $type $kbctx $proof $tv)) (statement-prefix-hashes $type)) ())
+      (let $_open (remove-atom &kb_open ($type $kbctx $proof $tv)) ())))
+
+(: kb-remove-prefix-row! (-[det]-> Atom Number Bool))
+(= (kb-remove-prefix-row! ($type $kbctx $proof $tv) $hash)
+   (remove-atom &kb_prefix ($hash $type $kbctx $proof $tv)))
+
+;; The stored facts that unify with a statement pattern: through the longest
+;; ground prefix of the pattern when it has one, otherwise through &kb.
+(: kb-facts (-[det]-> Statement KBContext (List (Statement KBContext Proof TV))))
+(= (kb-facts $type $kbctx)
+   (case (statement-prefix-hashes $type) (
+      (() (collapse (match &kb ($type $kbctx $proof $tv) (data $type $kbctx $proof $tv))))
+      ((cons $hash $_shorter)
+         (append-flat
+            (collapse (match &kb_prefix ($hash $type $kbctx $proof $tv) (data $type $kbctx $proof $tv)))
+            (collapse (match &kb_open ($type $kbctx $proof $tv) (data $type $kbctx $proof $tv))))))))
+
 (: kb-add-prem
    (-[det]-> KbBackend Number Number
        (| Goal (Statement KBContext Proof TV))
@@ -175,12 +219,13 @@
                (let*
                   ((($type $kb $_prf $_tv) $fact)
                    ($_add (chainer-add-atom &kb $fact))
+                   ($_index (kb-index-fact! live $fact))
                    ($_journal (sk-note-fact! $type $kb))
                    ($_nodes (record-fact-inheritance-nodes! $fact true))
                    ($_members (forward-maintain-member-aggregates! aggregate-update $fact)))
                   ()))
-            (kb-add-atom $backend &kb
-               (brand SpaceAtom $fact))))))
+            (let $_index (kb-index-fact! $backend $fact)
+               (kb-add-atom $backend &kb (brand SpaceAtom $fact)))))))
 
 (: clear-temp-query-adds (-[det]-> (List $none)))
 (= (clear-temp-query-adds)
@@ -233,6 +278,7 @@
 (: remove-named-fact! (-[det]-> Proof (Statement KBContext TV) (List $none)))
 (= (remove-named-fact! $name ($type $kb $tv))
    (let* (($_remove (remove-atom &kb ($type $kb $name $tv)))
+          ($_unindex (kb-unindex-fact! ($type $kb $name $tv)))
           ($_journal (sk-note-fact! $type $kb))
           ($_base-rates (invalidate-computed-base-rates! (brand KB (car-atom $kb)))))
       (case (stored-statement-candidate $type $kb) (

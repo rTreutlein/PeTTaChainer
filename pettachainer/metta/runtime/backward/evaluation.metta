@@ -1656,6 +1656,7 @@
 (: remove-materialized! (-[det]-> MaterializedRow Atom))
 (= (remove-materialized! (materialized-row $hash $type $kb ($type $kb $proof $tv) $ev))
    (let* (($_fact (remove-atom &kb ($type $kb $proof $tv)))
+          ($_unindex (kb-unindex-fact! ($type $kb $proof $tv)))
           ($_mark (remove-atom &materialized_facts (materialized-row $hash $type $kb ($type $kb $proof $tv) $ev))))
       ()))
 
@@ -1669,6 +1670,7 @@
       (if (space-row-present? &materialized_facts $row) ()
          (let* (($_remove (foreach-flat remove-materialized! (materialized-rows (forward-output-key $kb $type))))
                 ($_add (chainer-add-atom &kb $fact))
+                ($_index (kb-index-fact! live $fact))
                 ($_mark (add-atom &materialized_facts $row))
                 ($_journal (sk-note-fact! $type $kb)))
             (record-fact-inheritance-nodes! $fact false)))))

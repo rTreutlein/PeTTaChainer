@@ -40,6 +40,24 @@ heap_pop(Heap, [Priority, Value, Rest]) :-
         term_hash(Copy, Hash)
     ).
 
+% A list-shaped statement is JIT-indexed by its head only, so &kb rows are also
+% stored under the hash of each statement prefix: the head with its first one,
+% two, ... arguments, up to the first argument that is not ground. Longest
+% prefix first.
+'statement-prefix-hashes'(Statement, Hashes) :-
+    (   nonvar(Statement), Statement = [Head|Args], atomic(Head)
+    ->  prefix_hashes(Args, [Head], [], Hashes)
+    ;   Hashes = []
+    ).
+
+prefix_hashes([Arg|Args], Reversed, Hashes0, Hashes) :-
+    ground(Arg), !,
+    Prefix = [Arg|Reversed],
+    reverse(Prefix, Statement),
+    term_hash(Statement, Hash),
+    prefix_hashes(Args, Prefix, [Hash|Hashes0], Hashes).
+prefix_hashes(_, _, Hashes, Hashes).
+
 % Dependency sets are SWI ordered sets of key hashes, so union, containment
 % and intersection are linear merges.
 'deps-set'(Hashes, Set) :- sort(Hashes, Set).

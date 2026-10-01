@@ -364,6 +364,16 @@ do not remove it with an unifying pattern: use a ground unique row ID or erase
 the exact selected clause reference. Never hash indexes whose purpose is
 structural or variable-bearing pattern matching.
 
+`&kb` is the exception that shows the limit of SWI's own index: a statement is
+a list, and the JIT indexes it by its head only, so a lookup by head and
+arguments walks every fact with that head, across the whole history. Each
+ground fact is therefore also stored in `&kb_prefix` under the hash of every
+prefix of its statement (its head with its first one, two, ... arguments). A
+lookup hashes the pattern's longest ground prefix and still unifies each
+candidate; facts whose statements have variables sit in `&kb_open`, which every
+such lookup reads too, so no unifying fact is missed. Readers that bind only a
+statement's head read `&kb` directly.
+
 ### Reasoning work is lazy and budgeted
 
 `compileadd` stores knowledge; it does not silently perform inference. The user
