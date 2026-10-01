@@ -73,11 +73,11 @@ B))`, used in place of `P(C | A, not B)`, which the engine never estimates.
 - Rules that build terms from their own conclusions, such as
   `(AtTime x t) ∧ (AtTime y t) → (AtTime (And x y) t)`, now also derive
   redundant forms like `(And X (And X Y))`. Evidence disjointness used to bound
-  them, and then only the budget did: at budget 50,
-  `test_backward_open_query_results` returned 10 answers instead of 4. A
-  conclusion whose conjunction repeats a conjunct (nested conjunctions
-  flattened) now makes no row, since a shorter term says the same; the test is
-  back to 4 answers at any budget.
+  them, and now only the budget does. At budget 50,
+  `test_backward_open_query_results` returns 10 answers instead of 4. A
+  filter refusing conclusions that repeat a conjunct was tried and removed:
+  `And` inside a term is data, and a user's recursive rule is bounded by the
+  budget, as any recursive rule is.
 - Base-rate folds count members whose parts share evidence. The confidence in
   `test_specializing_rule`'s open query moved from 0.03943 to 0.03970.
 

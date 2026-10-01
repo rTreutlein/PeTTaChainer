@@ -21,15 +21,11 @@
          (AtTime (And $x $y) $t))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-;; The rule builds conjunctions from its own conclusions. A term that repeats
-;; a conjunct, such as (And (FeatureX 0) (And (FeatureX 0) (FeatureY 0))), says
-;; what a shorter one says and is not derived, so the answers are finite.
+;; The rule builds terms from its own conclusions, (And X (And X Y)) among
+;; them; only the budget bounds how many.
 !(test
    (query 50 openTimeKb (: $prf (AtTime $f $t) $tv))
-   ((: tx1 (AtTime (FeatureX 0) 1) (STV 1.0 0.9)) (: ty1 (AtTime (FeatureY 0) 1) (STV 1.0 0.9)) (: (by timeAndRule (conjunction ty1 tx1)) (AtTime (And (FeatureY 0) (FeatureX 0)) 1) (STV 1.0 0.8180941841825682)) (: (by timeAndRule (conjunction tx1 ty1)) (AtTime (And (FeatureX 0) (FeatureY 0)) 1) (STV 1.0 0.8180941841825682))))
-
-;; A larger budget finds nothing more.
-!(test (list-len (collapse (query 500 openTimeKb (: $prf (AtTime $f $t) $tv)))) 4)
+   ((: tx1 (AtTime (FeatureX 0) 1) (STV 1.0 0.9)) (: ty1 (AtTime (FeatureY 0) 1) (STV 1.0 0.9)) (: (by timeAndRule (conjunction ty1 tx1)) (AtTime (And (FeatureY 0) (FeatureX 0)) 1) (STV 1.0 0.8180941841825682)) (: (by timeAndRule (conjunction tx1 ty1)) (AtTime (And (FeatureX 0) (FeatureY 0)) 1) (STV 1.0 0.8180941841825682)) (: (conditioned tx1 (by timeAndRule (conjunction (given true) (by timeAndRule (conjunction (given true) ty1)))) (by timeAndRule (conjunction (given false) (by timeAndRule (conjunction (given false) ty1))))) (AtTime (And (FeatureX 0) (And (FeatureX 0) (FeatureY 0))) 1) (STV 1.0 0.8178933383970609)) (: (conditioned ty1 (by timeAndRule (conjunction (given true) (by timeAndRule (conjunction tx1 (given true))))) (by timeAndRule (conjunction (given false) (by timeAndRule (conjunction tx1 (given false)))))) (AtTime (And (FeatureY 0) (And (FeatureX 0) (FeatureY 0))) 1) (STV 1.0 0.8178933383970609)) (: (conditioned tx1 (by timeAndRule (conjunction (given true) (by timeAndRule (conjunction ty1 (given true))))) (by timeAndRule (conjunction (given false) (by timeAndRule (conjunction ty1 (given false)))))) (AtTime (And (FeatureX 0) (And (FeatureY 0) (FeatureX 0))) 1) (STV 1.0 0.8178933383970609)) (: (conditioned ty1 (by timeAndRule (conjunction (given true) (by timeAndRule (conjunction (given true) tx1)))) (by timeAndRule (conjunction (given false) (by timeAndRule (conjunction (given false) tx1))))) (AtTime (And (FeatureY 0) (And (FeatureY 0) (FeatureX 0))) 1) (STV 1.0 0.8178933383970609)) (: (conditioned tx1 (by timeAndRule (conjunction (given true) (conditioned ty1 (by timeAndRule (conjunction (given true) (by timeAndRule (conjunction (given true) (given true))))) (by timeAndRule (conjunction (given false) (by timeAndRule (conjunction (given true) (given false)))))))) (by timeAndRule (conjunction (given false) (conditioned ty1 (by timeAndRule (conjunction (given true) (by timeAndRule (conjunction (given false) (given true))))) (by timeAndRule (conjunction (given false) (by timeAndRule (conjunction (given false) (given false))))))))) (AtTime (And (FeatureX 0) (And (FeatureY 0) (And (FeatureX 0) (FeatureY 0)))) 1) (STV 1.0 0.8176925910538717)) (: (conditioned ty1 (by timeAndRule (conjunction (given true) (by timeAndRule (conjunction (given true) (by timeAndRule (conjunction tx1 (given true))))))) (by timeAndRule (conjunction (given false) (by timeAndRule (conjunction (given false) (by timeAndRule (conjunction tx1 (given false)))))))) (AtTime (And (FeatureY 0) (And (FeatureY 0) (And (FeatureX 0) (FeatureY 0)))) 1) (STV 1.0 0.8177594959013654))))
 
 !(compileadd openAndFairKb (: haveMax (Have (i max)) (STV 1.0 1.0)))
 

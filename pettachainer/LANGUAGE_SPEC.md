@@ -336,10 +336,11 @@ conditioning from its evaluation allowance (see
 `docs/metta/runtime_design_assumptions.md`), so a small one may leave such a
 conclusion for a later one.
 
-A conclusion whose conjunction repeats a conjunct, nested conjunctions
-flattened, is not derived: `(AtTime (And X (And X Y)) t)` says what
-`(AtTime (And X Y) t)` says. A rule that builds conjunctions from its own
-conclusions therefore derives finitely many terms.
+A rule that builds terms from its own conclusions, such as
+`(AtTime $x $t) ∧ (AtTime $y $t) → (AtTime (And $x $y) $t)`, derives ever
+larger terms, `(And X (And X Y))` among them: `And` inside a term is data, and
+each such conclusion is valid. Only the budget bounds them, as it bounds any
+recursive rule.
 
 ### Querying an implication
 
