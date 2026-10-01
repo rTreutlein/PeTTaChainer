@@ -848,7 +848,7 @@
    (let $value (sk-value $key $filter $exclude)
       (if (sk-given-meets? $given $value)
          (let $hash (index-hash $key)
-            (sk-merge-key $hash $key $filter (append-flat $exclude (sk-given-hashes $given))
+            (sk-merge-key $hash $key $filter (deps-union $exclude (deps-set (sk-given-hashes $given)))
                (map-semidet (sk-given-view $given $exclude $hash $key)
                   (sk-admitted-versions $hash $key $filter $exclude))))
          $value)))
@@ -867,7 +867,7 @@
    (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) (List Evidence) Bool SkeletonValue))
 (= (sk-compatible-value $given $key $filter $exclude $ev $views)
    (let* (($hash (index-hash $key))
-          ($leaves (sk-leaf-views $hash $key $filter (append-flat $exclude (sk-given-hashes $given)))))
+          ($leaves (sk-leaf-views $hash $key $filter (deps-union $exclude (deps-set (sk-given-hashes $given))))))
       (fold-semidet (sk-compatible-step $ev) sk-none
          (if $views
             (append-flat $leaves
@@ -984,7 +984,7 @@
 ;; that remains is resolved by conditioning on them.
 (= (sk-row-view $given $exclude $khash $key $rhash $row)
    (let* (((sk-row $_ident ($_type $_kbctx $proof $_tv) $_premises $_seq) $row)
-          ($exclusions (append-flat (sk-row-exclusions $khash $key $proof) $exclude))
+          ($exclusions (deps-union (sk-row-exclusions $khash $key $proof) $exclude))
           ($greedy (copy_term $row))
           ($state (sk-row-state $given $exclusions $khash false $greedy)))
       (case $state (

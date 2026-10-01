@@ -154,7 +154,8 @@
 (: fa-maintain-key! (-[nondet]-> ForwardAggregateMaintenance (Statement KBContext Proof TV) ForwardTriggerKey (List $a)))
 (= (fa-maintain-key! $a $b $c)(let $d (term_hash $c)(match &forward_aggregate_interest_by_trigger ($d (forward-aggregate-interest $e $f $g))(if (== $e $c)(case $a ( (aggregate-update (fa-update! $b $f (copy_term $g)))(aggregate-remove (fa-remove! $b $f (copy_term $g)))))(empty)))))
 ;; The base-rate folds a fact counts in: those of the aggregates interested in
-;; its triggers that a skeleton fold has read (see sk-rate-take!).
+;; its triggers that a skeleton fold has read (see sk-rate-take!), as an
+;; ordered set, since an exclusion is tested by ordered-set intersection.
 (: fa-trigger-folds (-[det]-> ForwardTriggerKey (List Number)))
 (= (fa-trigger-folds $trigger)
    (let $hash (term_hash $trigger)
@@ -164,8 +165,9 @@
 (: forward-rate-folds (-[det]-> (Statement KBContext Proof TV) (List Number)))
 (= (forward-rate-folds $fact)
    (let ($head $wildcard) (forward-premise-keys $fact)
-      (if (== $head $wildcard) (fa-trigger-folds $head)
-         (append-flat (fa-trigger-folds $head) (fa-trigger-folds $wildcard)))))
+      (deps-set
+         (if (== $head $wildcard) (fa-trigger-folds $head)
+            (append-flat (fa-trigger-folds $head) (fa-trigger-folds $wildcard))))))
 
 ;; A statement counts once, with its stored facts merged.
 (: fa-seed-statement
