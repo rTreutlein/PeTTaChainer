@@ -488,16 +488,21 @@
       (no-base-rate-aggregate-key (sk-computed-fold-view $hash $args)))))
 
 ;; Takes the members of a base-rate fold that joined or changed into its
-;; estimate, each with its current value, a value derived through the rate
-;; included, so the rate is a fixed point of its population. A member without a
-;; value keeps what it contributed; every step costs the members that changed,
-;; never the population.
+;; estimate, each with its current value without the versions derived through
+;; the rate. A key left without such a value leaves the tally; every step costs
+;; the members that changed, never the population.
 (: sk-rate-take-step (-[semidet]-> Number SkeletonKey Number ForwardAggregateDescriptor Atom SkeletonKey Atom))
 (= (sk-rate-take-step $hash $fold $id $descriptor $_acc $member)
    (let $_clean (remove-variant-row! &sk_rate_dirty (quote ($hash $fold $member)))
-      (case (sk-value $member sk-any-filter ()) (
+      (case (sk-value $member sk-any-filter (cons $hash ())) (
          ((sk-val $fact $_ev $_deps) (let $_updated (collapse (fa-update! $fact $id (copy_term $descriptor))) ()))
-         ($_none ())))))
+         ($_none
+            (case $member (
+               ((sk-key $type $kbctx)
+                  (let $_removed
+                     (collapse (fa-remove! (assemble-runtime-fact $type $kbctx (brand Proof cpu) (STV 0.0 0.0)) $id (copy_term $descriptor)))
+                     ()))
+               ($_fold ()))))))))
 
 (: sk-rate-take! (-[semidet]-> Number ScalarFoldSpec Atom))
 (= (sk-rate-take! $hash $args)
@@ -509,7 +514,9 @@
                       (collapse (match &sk_rate_dirty ($hash $fold $member)
                          (if (=alpha $fold $key) $member (empty))))))
                (case (collapse (fa-id $identity)) (
-                  ((cons $id $_more) (fold-semidet (sk-rate-take-step $hash $key $id $descriptor) () $changed))
+                  ((cons $id $_more)
+                     (let $_linked (link-aggregate-fold! $id $hash)
+                        (fold-semidet (sk-rate-take-step $hash $key $id $descriptor) () $changed)))
                   (() ())))))
          ($_other ())))))
 

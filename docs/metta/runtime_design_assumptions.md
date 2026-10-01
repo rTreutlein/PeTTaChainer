@@ -224,13 +224,7 @@ contribution, when a query needs the fold or it is next read. Needing the fold
 needs only those members, not the population. A member whose inputs changed
 while no query needed it keeps its last contribution until a query recomputes
 it, so a base rate may lag the members' current values; every step costs the
-members that changed. A base-rate fold also takes members derived through
-itself, such as instances a rule concluded with a truth converted through this
-rate: the rate is then a fixed point of the population it describes, so two
-rates a rule relates count the same instances. Such a member's change is taken
-when the rate is next read, never by rechecking the rate at once, so each step
-moves one iteration toward the fixed point and the loop never runs on its own.
-Inheritance-weighted members count at unit mass and the
+members that changed. Inheritance-weighted members count at unit mass and the
 evidence is scaled by the current subject mass when the fold finishes, so a
 growing universe does not leave contributions stale.
 
@@ -252,6 +246,21 @@ tally and reads the tally's value, which is published to the cache. An entry
 the tally did not produce gives way however confident it was: partial work may
 be confidently wrong. Storing the value the entry already holds is skipped,
 since every store wakes the folds over the pattern.
+
+A base rate counts each member without the member's values derived through
+that base rate. Otherwise a rule inverted with the rate as its prior concludes
+members of the rate's own population, the estimate becomes its own evidence,
+and keeping it current means iterating a fixed point through every past
+member. The fold's own take reads members with the fold excluded, as a
+computed fold does; a forward take reads the taken key with the base rates it
+is a member of excluded. Only stored facts count as seeded or remaining
+members: a forward run's copy of a key's value is reported by the run itself.
+
+Bayes' rule and inversion read a likelihood estimated from finite evidence
+under a prior of a pseudo-observations (`set-bayes-prior-count`) centred on
+independence: the pooled P(B) of both branches, or P(B) for P(B|A). Without
+it, a false-alarm rate estimated as 0 from a handful of cases makes every alarm
+certain. A certain likelihood, and the instance prior, are read as they are.
 
 ### Queries read what their roots reach
 

@@ -122,7 +122,7 @@
 
 !(test
    (query 400 refineStvKb (: $p (B b) $tv))
-   (: (by ab a2) (B b) (STV 0.8000225700971867 0.9000100932918952)))
+   (: (by ab a2) (B b) (STV 0.8000224974690348 0.9000101014614428)))
 
 ;; --- Facts only: no refined rule carries the fold, so the query folds ------
 
@@ -180,7 +180,7 @@
 
 !(test
    (query 400 refineInvKb (: $p (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.944020245153045 0.0036569130927513807)))
+   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.9440178790751412 0.0036560742556748)))
 
 ;; --- A certain rule is not refined --------------------------------------------
 ;; Revision leaves a truth stated with confidence 1 unchanged, so the rule

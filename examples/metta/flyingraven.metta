@@ -43,7 +43,7 @@
                          with cpu cpu)
                         (shared 15)))))))
       (Inheritance Sam (IntSet flies))
-      (STV 0.9786608129080705 0.6432519142192561))))
+      (STV 0.9786608160272537 0.6432518281069814))))
 
 !(test
    (collapse
@@ -63,7 +63,7 @@
                   (by penguinsDoNotFly
                      (by (inheritance-implication pinguPenguin) (ctx proof 3)))))))
       (Inheritance Pingu (IntSet flies))
-      (STV 0.2159496314302387 0.9195300688996186))))
+      (STV 0.17169140282260525 0.9152685473562443))))
 
 !(test
    (collapse
@@ -83,4 +83,4 @@
                   (by penguinsDoNotFly
                      (by (inheritance-implication pinguPenguin) (ctx proof 5)))))))
       (Inheritance Pingu (IntSet flies))
-      (STV 0.21808909147712682 0.919737117859771))))
+      (STV 0.17169140282260525 0.9152685473562443))))

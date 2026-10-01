@@ -18,7 +18,7 @@
 ; harvests them into the cache afterwards.
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.736162240263287 0.0003604307138536469)))
+   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.7361612357845151 0.0003604274173100072)))
 
 !(test
    (let $cached (cached-base-rate brKb (P $x))
@@ -30,7 +30,7 @@
 ; and reads the same base rates, with no fold expansion.
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.7361793666997452 0.00036044262149447425)))
+   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.7361612357845151 0.0003604274173100072)))
 
 ; Adding another proof is monotonic. The computed snapshot remains available
 ; until a later query takes the new member into the fold.
@@ -39,18 +39,18 @@
 !(test
    (let $cached (cached-base-rate brKb (P $x))
       (if (== $cached ()) no-cache-entry (car-atom $cached)))
-   (STV 0.7000162851405097 0.0009994506374639697))
+   (STV 0.6999999999999998 0.0009990009990009992))
 
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
    (: ((inverted r with cpu cpu)
        qa)
       (P alice)
-      (STV 0.6328046825764474 0.00038356434939919185)))
+      (STV 0.6327756330204969 0.00038353389027774137)))
 
 !(test
    (cached-base-rate brKb (P $x))
-   ((STV 0.50002003964342 0.001997551294706504)))
+   ((STV 0.49999999999999994 0.0019960079840319364)))
 
 ; User-provided base rates override the cache and feed inversion directly.
 !(set-base-rate brKb (P $x) (STV 0.5 0.5))
@@ -58,7 +58,7 @@
 
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.5 0.569301064166628)))
+   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.5 0.5691658648147646)))
 
 ; Monotonic additions also leave explicit user estimates unchanged.
 !(compileadd brKb (: pd (P dave) (STV 0.6 0.8)))
@@ -123,7 +123,7 @@
 
 !(test
    (query 200 brKb2 (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.736162240263287 0.0003604307138536469)))
+   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.7361612357845151 0.0003604274173100072)))
 
 !(test
    (let $cached (cached-base-rate brKb2 (P $x))
@@ -164,13 +164,13 @@
 
 !(test
    (query 200 revisedRateKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.736162240263287 0.0003604307138536469)))
+   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.7361612357845151 0.0003604274173100072)))
 
 !(compileadd revisedRateKb (: pb2 (P bob) (STV 0.1 0.8)))
 
 !(test
    (query 200 revisedRateKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.4206858528172408 0.0008836791510647324)))
+   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.4206635633054373 0.000882872802661841)))
 
 !(test
    (cached-base-rate revisedRateKb (Q $x))
@@ -182,7 +182,7 @@
 
 !(test
    (query 200 revisedRateKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.48408727210988356 0.0002891996443055476)))
+   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.4840518450016611 0.0002891856455941174)))
 
 !(test
    (cached-base-rate revisedRateKb (Q $x))
@@ -207,4 +207,4 @@
 !(test
    (let $_answers (collapse (query 200 grownUniverseKb (: $prf (Inheritance pingu Bird) $tv)))
       (cached-base-rate grownUniverseKb (Inheritance $x Bird)))
-   ((STV 0.9968887839636708 0.0002823432328885973)))
+   ((STV 0.998669031501917 0.0005631826475775279)))

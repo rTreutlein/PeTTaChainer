@@ -74,6 +74,25 @@ class TestPeTTaChainer(unittest.TestCase):
                 self.assertEqual(len(result), 1)
                 self.assertIn("(STV 0.5 0.6666666666666666)", result[0])
 
+    def test_bayes_prior_count_applies_in_process_and_to_timed_queries(self):
+        handler = PeTTaChainer()
+        handler.set_bayes_prior_count(1e6)
+        self.addCleanup(handler.set_bayes_prior_count, 0.2)
+        handler.add_atoms_no_check(
+            ["(: sensor (Implication (Leak $u) (Alarm $u)) (CTV (STV 0.9 0.01) (STV 0.2 1.0)))"]
+            + [f"(: l{i} (Leak u{i}) (STV {1 if i == 1 else 0} 1))" for i in range(1, 5)]
+            + ["(: aq (Alarm q) (STV 1 1))"]
+        )
+        # A prior this strong outweighs the weakly supported likelihood, so
+        # the alarm says nothing and the leak rate of one in four stands, live
+        # and in the subprocess that a timed query spawns.
+        for timeout_sec in (0, 30):
+            with self.subTest(timeout_sec=timeout_sec):
+                result = handler.query("(: $prf (Leak q) $tv)", steps=400, timeout_sec=timeout_sec)
+                self.assertEqual(len(result), 1)
+                strength = float(re.search(r"\(STV ([^ ]+) [^)]+\)\)$", result[0]).group(1))
+                self.assertAlmostEqual(strength, 0.25, delta=1e-5)
+
     def test_rule_search_ignores_base_rate_strength(self):
         answers = []
         for rate in (None, 0.0, 1.0):
@@ -366,15 +385,11 @@ class TestPeTTaChainer(unittest.TestCase):
             handler.query_many_materialization([root], steps=0), refined
         )
 
-        # Every goal stays searchable: re-queries keep refining the
-        # finite-budget point until it settles (from the second 200-step
-        # query on): the same proof, and a truth value that moves no more
-        # than the base-rate fixed point's iteration, which alternates
-        # between two values about 1e-9 apart.
-        repeats = [
-            handler.query_many_materialization([root], steps=200)
-            for _ in range(3)
-        ]
+        # The refined incumbent equals the fresh KB's answer: the same proof
+        # and truth value. A base rate does not count members derived through
+        # it, so nothing is left to settle by re-querying.
+        requery = handler.query_many_materialization([root], steps=200)
+
         # Context sample numbers in proof labels are per-query counters, and a
         # subproof printed once as (shared N P) and later as (shared N) is the
         # same proof as P written out each time.
@@ -423,30 +438,14 @@ class TestPeTTaChainer(unittest.TestCase):
                 for batch in answers
             ]
 
-        def settled_tv(answers):
-            strength, confidence = re.findall(
-                r"\(STV ([^ ]+) ([^)]+)\)\)$", answers[0][0].strip()
-            )[-1]
-            return float(strength), float(confidence)
+        def tv(answers):
+            return map(float, re.findall(r"\(STV ([^ ]+) ([^)]+)\)\)$", answers[0][0].strip())[-1])
 
-        self.assertEqual(proof_shape(repeats[1]), proof_shape(repeats[2]))
-        for before, after in zip(settled_tv(repeats[1]), settled_tv(repeats[2])):
-            self.assertAlmostEqual(before, after, delta=1e-8)
-        self.assertNotEqual(repeats[2], original)
-
-        # Base rates are a fixed point of their populations, taken one
-        # iteration per read, so the refined incumbent and a fresh KB settle
-        # on nearly the same value: members each took at a different
-        # iteration, and rows far below the root that went stale when s4
-        # arrived keep their earlier values until something asks for them.
-        fresh_repeats = [
-            fresh.query_many_materialization([root], steps=200)
-            for _ in range(3)
-        ]
-        refined_s, refined_c = settled_tv(repeats[2])
-        fresh_s, fresh_c = settled_tv(fresh_repeats[2])
-        self.assertAlmostEqual(refined_s, fresh_s, delta=1e-6)
-        self.assertAlmostEqual(refined_c, fresh_c, delta=1e-3 * fresh_c)
+        # Truth values compare up to summation order.
+        for answers, reference in ((refined, fresh_result), (requery, refined)):
+            self.assertEqual(proof_shape(answers), proof_shape(reference))
+            for value, expected in zip(tv(answers), tv(reference)):
+                self.assertAlmostEqual(value, expected, delta=1e-12)
 
     def test_completed_proofs_survive_query_search_reset(self):
         handler = PeTTaChainer()

@@ -334,3 +334,39 @@ needing them flattened the growth (wall 354 s) but cost quality: score 52,734
 and Brier 0.0846. The base rate is then estimated from beliefs computed with
 older rates, and every current belief it feeds is worse. That change is not
 kept.
+
+The loop itself is now gone: a base rate counts each member without the
+member's versions derived through that rate. The inverted rule whose prior is
+the `SealLeak` rate concludes `SealLeak` members, and before, those
+conclusions fed the rate that produced them, an echo of the rate in its own
+evidence. With the echo removed, a move of the rate no longer reaches back
+through past beliefs, and the first forward call stops growing. Wall time fell
+to 362 s.
+
+Without the echo, quality first got worse: Brier 0.079 and log loss 0.66. The
+loss came from beliefs of exactly 1.0 on sensors whose false-alarm rate is
+estimated as 0 from a few cases. Bayes' rule and inversion now read a
+likelihood estimated from finite evidence under a prior centred on
+independence, worth a = 0.2 pseudo-observations, so a likelihood from few
+observations moves a belief little instead of making it certain.
+
+Over 8 seeds, against the lazy past beliefs above:
+
+| | Lazy past beliefs | No echo, prior a = 0.2 |
+|---|---|---|
+| Score | 106,679 | 105,383 (-1.2%) |
+| Brier | 0.066 | 0.064 |
+| Log loss | 0.28 | 0.21 |
+| Wall time | | 13% faster |
+
+The score difference is 3 wins, 2 losses (about 1k each) and 3 ties.
+
+On the same shifts (about 95 per value), a = 0.05, 0.1 and 0.5 all did worse
+than 0.2 on both metrics:
+
+| a | Brier | Log loss |
+|---|---|---|
+| 0.05 | 0.071 | 0.238 |
+| 0.1 | 0.074 | 0.241 |
+| 0.2 | 0.068 | 0.225 |
+| 0.5 | 0.072 | 0.239 |

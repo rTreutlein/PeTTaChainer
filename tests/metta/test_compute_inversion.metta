@@ -82,7 +82,7 @@
          ((inverted addOne with cpu cpu)
           observed-b-three))
       (A 2)
-      (STV 0.7361622402584586 0.00026536071629869475)))
+      (STV 0.736161235779687 0.0002653579270660866)))
 
 ;; The same reversible computation remains executable when inversion is
 ;; disabled. The observations above demonstrate that its reverse would

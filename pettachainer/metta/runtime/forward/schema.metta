@@ -103,6 +103,16 @@
    (term_hash (quote ($kb $type))))
 
 
+;; The skeleton fold key each base-rate aggregate is the estimate of: aggregate
+;; id, fold key hash. A member whose value depends on that key was derived
+;; through the estimate and does not count in it.
+(: &forward_aggregate_fold (SpaceOf (Number Number)))
+!(bind! &forward_aggregate_fold (new-space))
+(: link-aggregate-fold! (-[det]-> Number Number Atom))
+(= (link-aggregate-fold! $id $hash)
+   (if (space-row-present? &forward_aggregate_fold ($id $hash)) ()
+      (let $_row (add-atom &forward_aggregate_fold ($id $hash)) ())))
+
 ;; Materialized facts are marked in &materialized_facts. They are never leaves:
 ;; the backward chainer re-derives them.
 (: MaterializedRow Type)
@@ -115,8 +125,9 @@
       (space-row-present? &materialized_facts
          (materialized-row $hash $type $kb ($type $kb $proof $tv) $_ev))))
 
-;; A statement's stored facts, other than materialized ones, merged into one
-;; candidate: what the facts say about the statement together.
+;; A statement's stored facts merged into one candidate: what the facts say
+;; about the statement together. Materialized facts and a forward run's copy of
+;; a key's value are not stored facts: the skeleton derived them.
 (: stored-candidate-step
    (-[det]-> (| ForwardDerived NoForwardOutputCandidate) (Statement KBContext Proof TV) ForwardDerived))
 (= (stored-candidate-step $acc ($type $kb $proof $tv))
@@ -132,6 +143,8 @@
    (-[det]-> Statement KBContext (| ForwardDerived NoForwardOutputCandidate)))
 (= (stored-statement-candidate $type $kb)
    (fold-flat stored-candidate-step no-forward-output-candidate
-      (collapse (match &kb ($type $kb $proof $tv)
-         (let $fact (data $type $kb $proof $tv)
-            (if (materialized-forward-fact? $fact) (empty) $fact))))))
+      (let $copy-hash (index-hash (sk-key $type $kb))
+         (collapse (match &kb ($type $kb $proof $tv)
+            (let $fact (data $type $kb $proof $tv)
+               (if (materialized-forward-fact? $fact) (empty)
+                  (if (space-row-present? &sk_forward_stored ($copy-hash $_key $fact $_ev $_deps)) (empty) $fact))))))))

@@ -13,4 +13,4 @@
 ; the witness qa via modus ponens.
 !(test
    (query 200 invKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.736162240263287 0.0003604307138536469)))
+   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.7361612357845151 0.0003604274173100072)))

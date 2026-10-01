@@ -21,4 +21,4 @@
    (: ((inverted p_qr with cpu cpu)
        (conjunction q-alice r-alice))
       (P alice)
-      (STV 0.730644992235394 0.0020226270843351274)))
+      (STV 0.730644141009255 0.0020225415592873453)))

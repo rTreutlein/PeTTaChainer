@@ -2,6 +2,7 @@
 ;; Identity hashes select candidates; full alpha comparison decides identity.
 ;; Fold descriptors share registration, observation replacement and cache publication.
 ;; The aggregate is a base rate's one estimate: backward folds update it too (sk-fold-view).
+;; A member counts without its values derived through the estimate itself.
 ;; Publishing a value the cache already holds is skipped, since every store wakes the folds.
 ;; Ordinary base rates are seeded lazily when a fold first reads them.
 ;; Computed cache entries keep that source while forward deltas update statistics.
@@ -152,6 +153,20 @@
 (= (fa-remove! $a $b $c)(let* (($d (copy_term $c))($e (fa-item $a $c))($f (brand ForwardAggregateObservationKey (quote ($b $e))))($g (fa-obs $f)))(if (== $g ())(case $d ( ((forward-member-inheritance-descriptor $h $i $j $k)(let (forward-aggregate-state $l $m $n)(fa-state $b)(if (<= $n 0.0)()(fa-store-cache! aggregate-update $b $d $m $n))))($o ())))(let* (((forward-aggregate-state $l $m $n)(fa-swap! $b $g (forward-aggregate-observation $f no-forward-aggregate-observation-value 0.0 0.0) false))($p (fa-store-cache! aggregate-remove $b $d $m $n)))(case $d ( ((forward-member-inheritance-descriptor $h $i $j $k)(progn (fa-update! $a $b $d)()))($o ())))))))
 (: fa-maintain-key! (-[nondet]-> ForwardAggregateMaintenance (Statement KBContext Proof TV) ForwardTriggerKey (List $a)))
 (= (fa-maintain-key! $a $b $c)(let $d (term_hash $c)(match &forward_aggregate_interest_by_trigger ($d (forward-aggregate-interest $e $f $g))(if (== $e $c)(case $a ( (aggregate-update (fa-update! $b $f (copy_term $g)))(aggregate-remove (fa-remove! $b $f (copy_term $g)))))(empty)))))
+;; The base-rate folds a fact counts in: those of the aggregates interested in
+;; its triggers that a skeleton fold has read (see sk-rate-take!).
+(: fa-trigger-folds (-[det]-> ForwardTriggerKey (List Number)))
+(= (fa-trigger-folds $trigger)
+   (let $hash (term_hash $trigger)
+      (collapse (match &forward_aggregate_interest_by_trigger ($hash (forward-aggregate-interest $stored $id $_descriptor))
+         (if (== $stored $trigger) (match &forward_aggregate_fold ($id $fold) $fold) (empty))))))
+
+(: forward-rate-folds (-[det]-> (Statement KBContext Proof TV) (List Number)))
+(= (forward-rate-folds $fact)
+   (let ($head $wildcard) (forward-premise-keys $fact)
+      (if (== $head $wildcard) (fa-trigger-folds $head)
+         (append-flat (fa-trigger-folds $head) (fa-trigger-folds $wildcard)))))
+
 ;; A statement counts once, with its stored facts merged.
 (: fa-seed-statement
    (-[det]-> KBContext (List (Statement KBContext Proof TV)) Statement (List (Statement KBContext Proof TV))))

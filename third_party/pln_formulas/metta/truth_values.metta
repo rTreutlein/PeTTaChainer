@@ -31,6 +31,29 @@
 (: set-evidence-confidence-k (-[det]-> Number Bool))
 (= (set-evidence-confidence-k $k) (change-state! evidence_confidence_k $k))
 
+;; The pseudo-observations of the prior with which Bayes' rule reads a
+;; likelihood (see bayes-shrink). Process-wide, like k.
+!(change-state! bayes_prior_count 0.2)
+
+(: bayes-prior-count (-[det]-> Number))
+(= (bayes-prior-count) (the Number (car-atom (collapse (get-state bayes_prior_count)))))
+
+(: set-bayes-prior-count (-[det]-> Number Bool))
+(= (set-bayes-prior-count $a) (change-state! bayes_prior_count $a))
+
+;; A likelihood as Bayes' rule reads it: the mean of its Beta under a prior of
+;; a observations centred on m, (s n + a m) / (n + a) for n = c k / (1 - c)
+;; observations. The centre is independence: the value the likelihood would
+;; have if the evidence told nothing about the hypothesis. So a likelihood
+;; estimated from few observations moves a belief little, instead of making it
+;; certain; a certain likelihood is unchanged.
+(: bayes-shrink (-[det]-> Number Number Number Number))
+(= (bayes-shrink $s $c $m)
+   (if (>= $c 1.0) $s
+      (let* (($n (confidence-to-count $c))
+             ($a (bayes-prior-count)))
+         (/ (+ (* $s $n) (* $a $m)) (+ $n $a)))))
+
 (: count-confidence (-[det]-> Number Number))
 (= (count-confidence $n) (/ $n (+ $n (evidence-confidence-k))))
 
@@ -364,6 +387,7 @@
 (: CTVInversionFormula (-[semidet]-> TV TV TV TV))
 (= (CTVInversionFormula no-evidence $_btv $_itv) (empty))
 (= (CTVInversionFormula (STV $_sa $_ca) no-evidence $_itv) (empty))
+;; P(B|A) is read under the Bayes prior centred on P(B) (bayes-shrink).
 ;; Idealized inversion confidence. The inverted strength is a Bayes ratio
 ;; P(A|B) = sb_a*sa/sb (and P(A|not B) = (1-sb_a)*sa/(1-sb)); both depend on the
 ;; implication's positive branch sb_a, the base rates sa, sb. Propagate variance
@@ -386,7 +410,7 @@
       ;; The base rates and P(B|A) are reconciled first, so the ratios stay
       ;; within [0, 1] up to rounding and contradictory inputs invert at the
       ;; confidence their consistent part supports.
-      (case (ConsistentTriple (STV $sa0 $ca0) (STV $sb0 $cb0) (STV $sb_a0 $cb_a0)) (
+      (case (ConsistentTriple (STV $sa0 $ca0) (STV $sb0 $cb0) (STV (bayes-shrink $sb_a0 $cb_a0 $sb0) $cb_a0)) (
          ((stv-triple (STV $sa $ca) (STV $sb $cb) (STV $sb_a $cb_a))
             (let*
                (($Va (ideal-var $sb_a $cb_a))
@@ -403,7 +427,9 @@
 ;; u = P(B|A), v = P(B|not A), and P(A|not B) the same with 1 - u, 1 - v. P(B)
 ;; is not an input, so the delta-method variance needs no independence between
 ;; P(B) and the likelihoods it is computed from, and a certain prior keeps a
-;; certain posterior.
+;; certain posterior. The likelihoods are read under the Bayes prior centred on
+;; their pooled value, P(B) over both branches (bayes-shrink), so a likelihood
+;; estimated from few observations moves the posterior little.
 (: ideal-bayes-stv (-[det]-> Number Number Number Number Number Number STVType))
 (= (ideal-bayes-stv $u $Vu $v $Vv $sa $Va)
    (let $d (+ (* $u $sa) (* $v (- 1.0 $sa)))
@@ -421,8 +447,13 @@
 
 (: CTVBayesFormula (-[semidet]-> TV TV TV))
 (= (CTVBayesFormula no-evidence $_ctv) (empty))
-(= (CTVBayesFormula (STV $sa $ca) (CTV (STV $u $cu) (STV $v $cv)))
-   (let* (($Va (ideal-var $sa $ca))
+(= (CTVBayesFormula (STV $sa $ca) (CTV (STV $u0 $cu) (STV $v0 $cv)))
+   (let* (($nu (confidence-to-count $cu))
+          ($nv (confidence-to-count $cv))
+          ($m (if (<= (+ $nu $nv) 0.0) 0.5 (/ (+ (* $u0 $nu) (* $v0 $nv)) (+ $nu $nv))))
+          ($u (bayes-shrink $u0 $cu $m))
+          ($v (bayes-shrink $v0 $cv $m))
+          ($Va (ideal-var $sa $ca))
           ($Vu (ideal-var $u $cu))
           ($Vv (ideal-var $v $cv)))
       (CTV

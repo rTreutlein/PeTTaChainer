@@ -43,4 +43,4 @@
                        with cpu cpu)
                      (ctx proof 1))))))
       (Inheritance raven (IntSet black))
-      (STV 0.4334414252610257 0.5239947002519733))))
+      (STV 0.43341898939100987 0.5240215261190763))))

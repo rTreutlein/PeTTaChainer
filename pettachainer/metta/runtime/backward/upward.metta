@@ -150,7 +150,10 @@
    (let* (($_taken (sk-record-taken! $key))
           ($_aggregates
              (case (sk-key-value $key) (
-                ((sk-val $fact $_ev $_deps) (forward-maintain-aggregates! aggregate-update $fact))
+                ((sk-val $fact $_ev $_deps)
+                   (case (sk-value $key sk-any-filter (forward-rate-folds $fact)) (
+                      ((sk-val $counted $_cev $_cdeps) (forward-maintain-aggregates! aggregate-update $counted))
+                      ($_derived (forward-maintain-aggregates! aggregate-remove $fact)))))
                 ($_none ()))))
           ($_joins (sk-forward-start! $key))
           ($folds

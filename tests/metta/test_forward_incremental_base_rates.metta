@@ -43,9 +43,9 @@
    (test-main-facts forwardBackwardDedupKb))
 ;; Remove the cheap forward estimates so the query reads the complete folds.
 ;; Forward and backward share the skeleton, so the query reads the one
-;; inversion. The forward run already derived P(alice), a member of the P base
-;; rate, so the rate is one fixed-point iteration further along than without
-;; the run (0.736162...).
+;; inversion. The forward run already derived P(alice) through the P base
+;; rate; the rate does not count that version, so the answer matches a query
+;; without the run.
 !(clear-base-rate forwardBackwardDedupKb (P $x))
 !(clear-base-rate forwardBackwardDedupKb (Q $x))
 
@@ -54,7 +54,7 @@
    (: ((inverted pToQ with cpu cpu)
        qa)
       (P alice)
-      (STV 0.7361793666997452 0.00036044262149447425)))
+      (STV 0.7361612357845151 0.0003604274173100072)))
 
 ;; Revising an input changes its key's value, so a later run that takes it
 ;; carries the change to the rules downstream.
@@ -108,7 +108,7 @@
 !(test
    (query 200 forwardFrontierKb (: $prf (P a) $tv))
    (: (merge/revision frontierP1 ((inverted pToQ with cpu cpu) (by sToQ frontierS1)))
-      (P a) (STV 0.20007356735832943 0.5002243066932902)))
+      (P a) (STV 0.2000713979305293 0.5002232242766069)))
 
 ;; Adding evidence can raise an antecedent's confidence while moving its
 ;; strength toward an implication branch with much greater uncertainty.  The
@@ -163,12 +163,12 @@
    ((STV 0.7382770346341803 0.0020863193128742123)))
 
 ;; A query's fold updates the same estimate. The forward run's inverted
-;; P(alice) is a member of the P base rate, one fixed-point iteration ahead.
+;; P(alice) was derived through the P base rate, which does not count it.
 !(test
    (query 200 forwardBaseRateKb (: $proof (P alice) $tv))
    (: ((inverted pToQ with cpu cpu) qa)
       (P alice)
-      (STV 0.7361793666997452 0.00036044262149447425)))
+      (STV 0.7361612357845151 0.0003604274173100072)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)
@@ -279,7 +279,7 @@
              ((inverted (inheritance-implication penguinBird) with cpu cpu)
                 (by (inheritance-implication ravenBird) (ctx proof 1)))))
       (Inheritance Raven Penguin)
-      (STV 0.997757570693304 1.0e-06)))
+      (STV 0.9977391124912127 1.0e-06)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)
@@ -304,7 +304,7 @@
    (: ((inverted pToQ with cpu cpu)
        qa)
       (P alice)
-      (STV 0.736162240263287 0.0003604307138536469)))
+      (STV 0.7361612357845151 0.0003604274173100072)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)
@@ -362,11 +362,11 @@
    computed)
 
 ;; The run's evaluation recomputes the P fold that the new fact made stale. The
-;; fold counts the earlier query's inverted P(alice) as a weak member, so the one
-;; tally holds bob, carol and alice.
+;; earlier query's inverted P(alice) was derived through this fold, so the one
+;; tally holds bob and carol only.
 !(test
    (cached-base-rate computedForwardBaseRateKb (P $x))
-   ((STV 0.5000531880963873 0.001996456725460992)))
+   ((STV 0.49999999999999994 0.0019960079840319364)))
 
 !(test
    (list-count
@@ -380,4 +380,4 @@
                (forward-base-rate-observation-value $_fact)
                $_weight $_count)
             true)))
-   3)
+   2)

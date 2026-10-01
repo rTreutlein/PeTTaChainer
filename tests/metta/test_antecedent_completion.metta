@@ -72,7 +72,7 @@
       (: $proof (And A B) $tv))
    (: ((inverted ab_c with cpu cpu) c)
       (And A B)
-      (STV 0.5 0.6205423660898484)))
+      (STV 0.49999166689814173 0.6205495495952107)))
 
 ;; A completion is not generated when the missing premise contains a variable
 ;; which neither the remaining antecedents nor the consequence can bind.

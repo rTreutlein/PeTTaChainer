@@ -42,6 +42,7 @@ def _query_worker(
     expression: str,
     logic_config_path: Optional[str],
     evidence_confidence_k: float,
+    bayes_prior_count: float,
     rule_refinement: bool,
     base_rate_smoothing: bool,
     conn,
@@ -49,6 +50,7 @@ def _query_worker(
     try:
         handler = PeTTaChainer(logic_config=logic_config_path)
         handler.set_evidence_confidence_k(evidence_confidence_k)
+        handler.set_bayes_prior_count(bayes_prior_count)
         handler.kb = kb
         handler.set_rule_refinement(rule_refinement)
         handler.set_base_rate_smoothing(base_rate_smoothing)
@@ -101,6 +103,7 @@ class PeTTaChainer:
         self._pattern_mining_on_add = False
         self._logic_config_path: Optional[Path] = None
         self._evidence_confidence_k = 800.0
+        self._bayes_prior_count = 0.2
         self._rule_refinement = False
         self._base_rate_smoothing = False
         self._query_metrics_enabled = False
@@ -251,6 +254,18 @@ class PeTTaChainer:
             f"!(set-evidence-confidence-k {float(k)!r})"
         )
         self._evidence_confidence_k = float(k)
+
+    def set_bayes_prior_count(self, a: float) -> None:
+        """Set the pseudo-observations of the prior with which Bayes' rule reads
+        a likelihood estimated from finite evidence. The prior is centred on
+        independence, so a likelihood from few observations moves a belief
+        little instead of making it certain. Process-wide; timed subprocess
+        queries replay it.
+        """
+        self.handler.process_metta_string(
+            f"!(set-bayes-prior-count {float(a)!r})"
+        )
+        self._bayes_prior_count = float(a)
 
     def set_forward_min_evidence(self, n: float) -> None:
         """Set the least evidence, in observations, a forward-chained result
@@ -436,6 +451,7 @@ class PeTTaChainer:
                 expression,
                 str(self._logic_config_path) if self._logic_config_path else None,
                 self._evidence_confidence_k,
+                self._bayes_prior_count,
                 self._rule_refinement,
                 self._base_rate_smoothing,
                 child_conn,
