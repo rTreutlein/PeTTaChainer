@@ -827,13 +827,17 @@
          ($_fold $found)))
       $found))
 
-;; A view that depends on a given statement, read under the condition.
+;; A view that depends on a given statement, read under the condition. The
+;; view read again is admitted as a stored one is: not when it depends on what
+;; the reading rows exclude.
 (: sk-given-view (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey SkeletonVersion SkeletonValue))
 (= (sk-given-view $given $exclude $hash $key (sk-version $_seq $rhash $view))
    (if (sk-given-meets? $given $view)
       (case (collapse (once (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
                (if (=alpha $stored $key) (sk-row $ident $concl $premises $seq) (empty))))) (
-         ((cons $row $_rest) (sk-row-view $given $exclude $hash $key $rhash $row))
+         ((cons $row $_rest)
+            (let $again (sk-row-view $given $exclude $hash $key $rhash $row)
+               (if (deps-meet? $exclude (sk-view-deps-step () $again)) sk-none $again)))
          (() $view)))
       $view))
 

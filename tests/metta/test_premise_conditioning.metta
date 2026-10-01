@@ -98,3 +98,20 @@
       ((cons ($proof $_tv) ()) $proof)
       ($_other $_other)))
    (by r2 (conjunction a (by r1 (conjunction a b)))))
+
+;; A view read again under a condition is admitted as a stored view is: not
+;; when it depends on what the reading rows exclude. Read for a row that
+;; excludes A, C's view under B known still used A's fact, so it is left out;
+;; otherwise A could support itself through it.
+!(compileadd givenKb (: a (A x) (STV 1.0 0.9)))
+!(compileadd givenKb (: b (B x) (STV 1.0 0.9)))
+!(compileadd givenKb (: r1 (Implication (And (A $v) (B $v)) (C $v)) (CTV (STV 0.9 0.9) (STV 0.0 1.0))))
+!(collapse (query 50 givenKb (: $p (C x) $tv)))
+!(test
+   (let* (($a (sk-key (A x) (givenKb MAIN Nil)))
+          ($b (sk-key (B x) (givenKb MAIN Nil)))
+          ($c (sk-key (C x) (givenKb MAIN Nil)))
+          ($ch (index-hash $c)))
+      (map-semidet (sk-given-view (cons (sk-given (index-hash $b) $b true) ()) (cons (index-hash $a) ()) $ch $c)
+         (sk-admitted-versions $ch $c sk-any-filter ())))
+   (sk-none))
