@@ -372,7 +372,9 @@ prefix of its statement (its head with its first one, two, ... arguments). A
 lookup hashes the pattern's longest ground prefix and still unifies each
 candidate; facts whose statements have variables sit in `&kb_open`, which every
 such lookup reads too, so no unifying fact is missed. Readers that bind only a
-statement's head read `&kb` directly.
+statement's head read `&kb` directly. The skeleton's registered keys are
+indexed the same way: `&sk_key_prefix` and `&sk_key_open` beside
+`&sk_key_terms`.
 
 ### Reasoning work is lazy and budgeted
 

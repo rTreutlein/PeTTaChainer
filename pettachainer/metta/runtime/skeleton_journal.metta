@@ -212,6 +212,12 @@
 !(bind! &sk_keys (new-space))
 (: &sk_key_terms (SpaceOf (Statement KBContext Number)))
 !(bind! &sk_key_terms (new-space))
+;; the same keys by statement prefix, as &kb_prefix and &kb_open index &kb:
+;; ground keys under each prefix hash, keys with variables apart
+(: &sk_key_prefix (SpaceOf (Number Statement KBContext Number)))
+!(bind! &sk_key_prefix (new-space))
+(: &sk_key_open (SpaceOf (Statement KBContext Number)))
+!(bind! &sk_key_open (new-space))
 ;; per reading key: the hashes of the keys unifying with it, its own first
 (: &sk_unifiers (SpaceOf (Number SkeletonKey (List Number))))
 !(bind! &sk_unifiers (new-space))

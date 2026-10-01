@@ -271,6 +271,10 @@
             (if (== (collapse (once (match &sk_keys ($hash $stored) (if (=alpha $stored $key) true (empty))))) ())
                (let* (($_key (add-atom &sk_keys ($hash $key)))
                       ($_terms (add-atom &sk_key_terms ($type $kbctx $hash)))
+                      ($_prefixes
+                         (if (== (extract-vars $type) ())
+                            (map-flat (sk-key-prefix-row! $type $kbctx $hash) (statement-prefix-hashes $type))
+                            (add-atom &sk_key_open ($type $kbctx $hash))))
                       ($_joined
                          (collapse (match &sk_reader_terms ($type $kbctx $rhash $reader)
                             (if (== $rhash $hash) (empty) (sk-unifier-add! $hash $rhash $reader))))))
@@ -278,10 +282,24 @@
                ())))
       ($_fold ()))))
 
+(: sk-key-prefix-row! (-[det]-> Statement KBContext Number Number Bool))
+(= (sk-key-prefix-row! $type $kbctx $hash $prefix) (add-atom &sk_key_prefix ($prefix $type $kbctx $hash)))
+
+;; The hashes of the registered keys whose term unifies with a pattern: through
+;; the longest ground prefix of the pattern when it has one (see kb-facts).
+(: sk-unifying-key-hashes (-[det]-> Statement KBContext (List Number)))
+(= (sk-unifying-key-hashes $type $kbctx)
+   (case (statement-prefix-hashes $type) (
+      (() (collapse (match &sk_key_terms ($type $kbctx $hash) $hash)))
+      ((cons $prefix $_shorter)
+         (append-flat
+            (collapse (match &sk_key_prefix ($prefix $type $kbctx $hash) $hash))
+            (collapse (match &sk_key_open ($type $kbctx $hash) $hash)))))))
+
 ;; the key itself and every registered key whose term unifies with it
 (: sk-key-term-hashes (-[det]-> Number Statement KBContext (List Number)))
 (= (sk-key-term-hashes $khash $type $kbctx)
-   (deps-set (cons $khash (collapse (match &sk_key_terms ($type $kbctx $hash) $hash)))))
+   (deps-set (cons $khash (sk-unifying-key-hashes $type $kbctx))))
 
 (: sk-unifier-hashes (-[det]-> Number SkeletonKey (List Number)))
 (= (sk-unifier-hashes $khash $key)
@@ -434,9 +452,12 @@
             (append-flat
                (map-flat sk-fact-key
                   (sk-leaf-facts (brand Statement $type) (brand KBContext $kbctx) (sk-filter $proof $tv)))
-               (collapse (match &sk_key_terms ($type $kbctx $hash)
-                  (match &sk_keys ($hash $key) $key))))))
+               (foldr-flat sk-hash-keys-step ()
+                  (sk-unifying-key-hashes (brand Statement $type) (brand KBContext $kbctx))))))
       ($_cpu ()))))
+
+(: sk-hash-keys-step (-[det]-> Number (List SkeletonKey) (List SkeletonKey)))
+(= (sk-hash-keys-step $hash $keys) (append-flat (collapse (match &sk_keys ($hash $key) $key)) $keys))
 
 (= (sk-advance! (sk-partial $owner $rule $concl $premises $remaining $keys))
    (case $remaining (
