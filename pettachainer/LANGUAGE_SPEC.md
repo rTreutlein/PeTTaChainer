@@ -331,11 +331,15 @@ Conditioning is not used in these cases:
 - for rules whose conclusion is not a simple truth value.
 
 In all three cases the premise is refused, as before. Folds read under a
-condition take their ordinary values. A query pays for conditioning from its
-evaluation allowance (see `docs/metta/runtime_design_assumptions.md`), so a
-small query may leave such a conclusion for a later one. Forward chaining does
-not condition: it refuses the overlapping premise and leaves the conclusion
-to a query.
+condition take their ordinary values. A query or forward run pays for
+conditioning from its evaluation allowance (see
+`docs/metta/runtime_design_assumptions.md`), so a small one may leave such a
+conclusion for a later one.
+
+A conclusion whose conjunction repeats a conjunct, nested conjunctions
+flattened, is not derived: `(AtTime (And X (And X Y)) t)` says what
+`(AtTime (And X Y) t)` says. A rule that builds conjunctions from its own
+conclusions therefore derives finitely many terms.
 
 ### Querying an implication
 

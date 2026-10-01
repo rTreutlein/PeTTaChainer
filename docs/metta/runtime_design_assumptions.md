@@ -196,6 +196,13 @@ projection, or when the conclusion is not a simple truth value; such premises
 are refused as before. The mix needs the weight's evidence to be outside the
 branches.
 
+Conditioning lets a rule that builds conjunctions from its own conclusions
+derive terms such as `(And X (And X Y))`, which evidence disjointness used to
+rule out. A conclusion whose conjunction repeats a conjunct, with nested
+conjunctions flattened, says what a shorter term says and makes no row
+(`redundant-conjunction?` in `sk-complete-row!`), so such rules derive
+finitely many terms.
+
 Evaluation starts from what changed: new rows, and the readers of keys changed
 outside evaluation (added facts, removed query-local rows, fold members). Rows
 are computed in creation order. A recomputed view is kept only when it brings

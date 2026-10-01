@@ -562,6 +562,26 @@
             (if (== (extract-vars $args) ()) $kept (cons $premise $kept))))
       ($_fact (cons $premise $kept)))))
 
+;; The conjuncts of a term, nested conjunctions flattened.
+(: and-conjuncts (-[det]-> Atom (List Atom)))
+(= (and-conjuncts $term)
+   (if (if (is-expr $term) (if (== $term ()) false (== (car-atom $term) And)) false)
+      (foldr-flat append-flat () (map-flat and-conjuncts (cdr-atom $term)))
+      (cons $term ())))
+
+;; Whether a term holds a conjunction that repeats a conjunct: (And X (And X Y))
+;; says what (And X Y) says. Rules that build conjunctions from their own
+;; conclusions would otherwise derive such terms without end, since premise
+;; conditioning evaluates them correctly.
+(: redundant-conjunction? (-[det]-> Atom Bool))
+(= (redundant-conjunction? $term)
+   (if (if (is-expr $term) (== $term ()) true) false
+      (if (if (== (car-atom $term) And)
+             (let $conjuncts (and-conjuncts $term) (not (== (list-len (list_to_set $conjuncts)) (list-len $conjuncts))))
+             false)
+         true
+         (stored-list-member? true (map-flat redundant-conjunction? (cons (car-atom $term) (cdr-atom $term)))))))
+
 (= (sk-complete-row! $owner $rule $concl $premises $keys)
    (let* ((($type $kbctx $_proof $_tv) $concl)
           ($key (sk-key $type $kbctx))
@@ -569,9 +589,12 @@
           ($ident (sk-ident $rule $keys $key))
           ($rhash (index-hash $ident))
           ($local (>= $rule 1000000000)))
-      ;; Expansion applies no rule to a certain statement; a forward run's
-      ;; upward joins skip it here, where their conclusion is first bound.
-      (if (if (== (search-id-value sk_forward_run) 1) (sk-certain? $type (sk-leaf-facts $type $kbctx sk-any-filter)) false) ()
+      ;; A conclusion that repeats a conjunct makes no row. Expansion applies no
+      ;; rule to a certain statement; a forward run's upward joins skip it here,
+      ;; where their conclusion is first bound.
+      (if (if (redundant-conjunction? $type) true
+             (if (== (search-id-value sk_forward_run) 1) (sk-certain? $type (sk-leaf-facts $type $kbctx sk-any-filter)) false))
+         ()
       (if (sk-row-present? $khash $key $rhash $ident)
          (sk-add-answer! $owner $key)
          ;; The rows of the query's roots are its compiled scaffold and always
