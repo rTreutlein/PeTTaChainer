@@ -46,13 +46,15 @@
 ;; observations. The centre is independence: the value the likelihood would
 ;; have if the evidence told nothing about the hypothesis. So a likelihood
 ;; estimated from few observations moves a belief little, instead of making it
-;; certain; a certain likelihood is unchanged.
+;; certain; a certain likelihood, or one with neither evidence nor prior, is
+;; unchanged.
 (: bayes-shrink (-[det]-> Number Number Number Number))
 (= (bayes-shrink $s $c $m)
    (if (>= $c 1.0) $s
       (let* (($n (confidence-to-count $c))
              ($a (bayes-prior-count)))
-         (/ (+ (* $s $n) (* $a $m)) (+ $n $a)))))
+         (if (<= (+ $n $a) 0.0) $s
+            (/ (+ (* $s $n) (* $a $m)) (+ $n $a))))))
 
 (: count-confidence (-[det]-> Number Number))
 (= (count-confidence $n) (/ $n (+ $n (evidence-confidence-k))))

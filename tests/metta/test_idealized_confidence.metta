@@ -71,3 +71,10 @@
 ;; Tired chains one more one-sided step; confidence erodes further down the chain.
 !(test (query 60 med (: $prf (Tired p) $tv))
    (: (by tiredRule (by fluRule (conjunction fever cough))) (Tired p) (STV 0.748 0.3402330502780622)))
+
+;; With no Bayes prior, a likelihood without evidence is read as it is:
+;; 0.9 * 0.5 / (0.9 * 0.5 + 0.2 * 0.5).
+!(set-bayes-prior-count 0.0)
+!(test (CTVBayesFormula (STV 0.5 0.9) (CTV (STV 0.9 0.0) (STV 0.2 0.9)))
+   (CTV (STV 0.8181818181818181 0.06857724870583486) (STV 0.11111111111111108 0.00015613340650492377)))
+!(set-bayes-prior-count 0.2)
