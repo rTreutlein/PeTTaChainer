@@ -216,8 +216,7 @@ on to its own readers the same way, so a refined fold reaches the roots.
 
 A fold's or group's view is computed from its member keys when first read and
 recomputed when a member changes; the members changed in one pass recompute it
-once. Members are read without views that depend on the fold itself, except
-by a base-rate fold (below). Base-rate folds estimate a population: they carry neither member evidence nor member
+once. Members are read without views that depend on the fold itself. Base-rate folds estimate a population: they carry neither member evidence nor member
 dependencies, like a prior, and are proved by `cpu`. An implication instance
 fold carries no member evidence either, so its estimate revises with a rule's
 stated truth, but it keeps its members' dependencies. A `FoldAllTruth` fold
