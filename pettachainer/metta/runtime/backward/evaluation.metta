@@ -24,7 +24,7 @@
 (: sk-source (-[det]-> Statement TV SkeletonSource))
 (: SkeletonRowState Type)
 ;; fold proofs (newest first), evidence, dependency hashes, conjunction parts
-(: sk-acc (-[det]-> (List Proof) (List Evidence) Number (List SkeletonPart) SkeletonRowState))
+(: sk-acc (-[det]-> (List Proof) (List Evidence) (List Number) (List SkeletonPart) SkeletonRowState))
 (: sk-fail SkeletonRowState)
 ;; a premise had values, all overlapping the evidence the row already used:
 ;; the statements of the shared facts, and a bound on the rows conditioning
@@ -717,7 +717,7 @@
    (case $value (
       ((sk-goal-val (CPU $_fun $_args $result) $proof $fold-ev $fold-deps)
          (if (= $res $result)
-            (sk-acc (cons $proof $fold-proofs) (sk-union $ev $fold-ev) (deps-union $deps $fold-deps) $parts)
+            (sk-acc (cons $proof $fold-proofs) (sk-union $ev $fold-ev) (cons $fold-deps $deps) $parts)
             sk-fail))
       ($_none sk-fail))))
 
@@ -886,7 +886,7 @@
                    (if (premise-evidence-overlap? $ev $premise-ev) (not (sk-joins-pool? $parts $part)) false))
                sk-fail
                (if (= ($type $kbctx $proof $tv) (if (is-var $proof) $fact (sk-full-fact $fact)))
-                  (sk-acc $fold-proofs (sk-union $ev $premise-ev) (deps-union $deps $premise-deps)
+                  (sk-acc $fold-proofs (sk-union $ev $premise-ev) (cons $premise-deps $deps)
                      (sk-add-part $parts $part))
                   sk-fail))))
       ($_none sk-fail))))
@@ -1071,7 +1071,7 @@
 (= (sk-row-state $given $exclusions $khash $facts-first (sk-row $_ident ($type $kbctx $proof $_tv) $premises $_seq))
    (fold-semidet
       (sk-premise-step $given $exclusions (shared-evidence-frontier-proof? $proof) $facts-first)
-      (sk-acc () (sk-sample-exclusions $type $kbctx) (deps-key $khash) ())
+      (sk-acc () (sk-sample-exclusions $type $kbctx) (cons (deps-key $khash) ()) ())
       $premises))
 
 ;; An implication instance sample must not restate the implication it
@@ -1105,7 +1105,7 @@
          (let* (((token-state $full-proof $_unused)
                    (replace-token $proof (fold-semidet sk-cons-step () $fold-proofs)))
                 ($fact (assemble-runtime-fact $type $kbctx (sk-unwrap-proof $full-proof) $tv)))
-            (sk-val $fact (rule-result-evidence $fact $ev) $deps)))
+            (sk-val $fact (rule-result-evidence $fact $ev) (deps-join $deps))))
       ($_failed sk-none))))
 
 ;; --- Evaluation -------------------------------------------------------------

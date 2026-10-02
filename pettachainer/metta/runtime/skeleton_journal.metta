@@ -106,7 +106,7 @@
 (: &sk_row (SpaceOf (Number SkeletonKey Number SkeletonRow)))
 !(bind! &sk_row (new-space))
 ;; child links, answers and use edges already recorded, by link hash
-(: &sk_link (SpaceOf (Number SkeletonLink)))
+(: &sk_link (SpaceOf (Number)))
 !(bind! &sk_link (new-space))
 ;; member key -> a fold or group key over it
 (: &sk_use (SpaceOf (Number SkeletonKey SkeletonKey)))

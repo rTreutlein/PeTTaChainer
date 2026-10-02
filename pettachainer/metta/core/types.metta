@@ -14,6 +14,9 @@
        (Number $item (Heap $item))))
 (: heap-empty? (-[det]-> (Heap $item) Bool))
 
+;; A 60-bit digest of a link term (runtime_helpers.pl).
+(: link-digest (-[det]-> Atom Number))
+
 ;; Sets of key hashes, kept as SWI ordered sets (runtime_helpers.pl).
 (: hash-set (-[det]-> (List Number) (List Number)))
 (: hash-union (-[det]-> (List Number) (List Number) (List Number)))

@@ -88,17 +88,14 @@
       (collapse (match &sk_answer ($hash $stored $key)
          (if (=alpha $stored $pattern) $key (empty))))))
 
-;; Child links, answers and use edges are each recorded once. A hash of the
-;; whole link makes that check one lookup instead of a scan over every link of
-;; the same source.
+;; Child links, answers, use edges and join extensions are each recorded
+;; once, by a digest of the link: one lookup, and a record of one integer
+;; however large the join it names.
 (: sk-link-new! (-[det]-> SkeletonLink Bool))
 (= (sk-link-new! $link)
-   (let $hash (index-hash $link)
-      (if (== (collapse (once (match &sk_link ($hash $stored)
-                 (if (=alpha $stored $link) true (empty)))))
-              ())
-         (add-atom &sk_link ($hash $link))
-         false)))
+   (let $digest (link-digest $link)
+      (if (space-row-present? &sk_link ($digest)) false
+         (add-atom &sk_link ($digest)))))
 
 (: sk-node-score (-[det]-> SkPattern Number))
 (= (sk-node-score $node)

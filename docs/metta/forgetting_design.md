@@ -49,6 +49,14 @@ rather than history, and come first.
 Stage 0 changes no answer; it removes most of the memory and leaves the
 linear growth of what history really costs.
 
+Built (October 2026): links are recorded by a 60-bit digest of the link term
+(`link-digest`, SHA-1 up to variable renaming), leaves compute their bit
+instead of storing a mask, and a row joins its premises' sets once instead of
+one node per premise. StationOps, 20 modules, 60 shifts: scores identical per
+seed; peak memory 11.6 → 3.2 GB (seed 3) and 10.9 → 2.9 GB (seed 7); forward
+310 → 294 s and 273 → 266 s. At 10 modules over 20 shifts (8 seeds) peak
+memory 2.3 → 0.8 GB.
+
 ## Stage 1: freezing settled keys
 
 Time is marked by the caller: `(advance-epoch $kb)` ends an epoch (StationOps:

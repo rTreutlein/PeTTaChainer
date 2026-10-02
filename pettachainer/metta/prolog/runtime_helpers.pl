@@ -60,6 +60,14 @@ prefix_hashes([Arg|Args], Reversed, Hashes0, Hashes) :-
     prefix_hashes(Args, Prefix, [Hash|Hashes0], Hashes).
 prefix_hashes(_, _, Hashes, Hashes).
 
+% A link is recorded once, by a 60-bit digest of the link term (SHA-1 of the
+% term up to variable renaming): a record stays one integer however large the
+% link, and two different links share a digest with probability about
+% n^2 / 2^61.
+'link-digest'(Link, Digest) :-
+    copy_term_nat(Link, Copy), variant_sha1(Copy, Hex),
+    sub_atom(Hex, 0, 15, _, Prefix), atom_concat('0x', Prefix, Number), atom_number(Number, Digest).
+
 % Hash sets (exclusion lists, unifier sets) are SWI ordered sets of key
 % hashes, so union and membership are linear merges over short lists.
 'hash-set'(Hashes, Set) :- sort(Hashes, Set).
@@ -72,20 +80,19 @@ prefix_hashes(_, _, Hashes, Hashes).
 % change, so an id names one set forever. Each node keeps a bitmask of its
 % keys' hashes, the OR of its children's, so a membership walk skips every
 % child whose mask lacks the key's bit.
-:- dynamic deps_leaf/2, deps_leaf_hash/3, deps_node/3, deps_interned/3, deps_size_memo/2.
+:- dynamic deps_leaf/2, deps_leaf_hash/2, deps_node/3, deps_interned/3, deps_size_memo/2.
 deps_mask_bits(65536).
 
 deps_bit(Hash, Bit) :- deps_mask_bits(W), Bit is 1 << (Hash mod W).
 
 deps_mask(0, 0) :- !.
-deps_mask(Id, Mask) :- deps_leaf_hash(Id, _, Mask), !.
+deps_mask(Id, Mask) :- deps_leaf_hash(Id, Hash), !, deps_bit(Hash, Mask).
 deps_mask(Id, Mask) :- deps_node(Id, _, Mask).
 
 'deps-key'(Hash, Id) :-
     (   deps_leaf(Hash, Id) -> true
     ;   flag(deps_next_id, Last, Last + 1), Id is Last + 1,
-        deps_bit(Hash, Mask),
-        assertz(deps_leaf(Hash, Id)), assertz(deps_leaf_hash(Id, Hash, Mask)) ).
+        assertz(deps_leaf(Hash, Id)), assertz(deps_leaf_hash(Id, Hash)) ).
 
 'deps-union'(Left, Right, Id) :- 'deps-join'([Left, Right], Id).
 
@@ -104,7 +111,7 @@ deps_mask(Id, Mask) :- deps_node(Id, _, Mask).
 deps_has(Id, Hash) :- deps_bit(Hash, Bit), empty_nb_set(Seen), deps_has(Id, Hash, Bit, Seen).
 deps_has(Id, Hash, Bit, Seen) :-
     deps_mask(Id, Mask), Mask /\ Bit =\= 0,
-    (   deps_leaf_hash(Id, Leaf, _) -> Leaf =:= Hash
+    (   deps_leaf_hash(Id, Leaf) -> Leaf =:= Hash
     ;   add_nb_set(Id, Seen, true),
         deps_node(Id, Children, _),
         member(Child, Children), deps_has(Child, Hash, Bit, Seen), ! ).
@@ -133,20 +140,20 @@ deps_within(Set, Within) :-
 deps_collect(0, _, _) :- !.
 deps_collect(Id, Nodes, Keys) :-
     (   add_nb_set(Id, Nodes, true)
-    ->  (   deps_leaf_hash(Id, Hash, _) -> add_nb_set(Hash, Keys, _)
+    ->  (   deps_leaf_hash(Id, Hash) -> add_nb_set(Hash, Keys, _)
         ;   deps_node(Id, Children, _), forall(member(Child, Children), deps_collect(Child, Nodes, Keys)) )
     ;   true ).
 deps_covered(Id, Nodes, Keys, Seen) :-
     (   add_nb_set(Id, Nodes, false) -> true
     ;   add_nb_set(Id, Seen, false) -> true
     ;   add_nb_set(Id, Seen, true),
-        (   deps_leaf_hash(Id, Hash, _) -> add_nb_set(Hash, Keys, false)
+        (   deps_leaf_hash(Id, Hash) -> add_nb_set(Hash, Keys, false)
         ;   deps_node(Id, Children, _), forall(member(Child, Children), deps_covered(Child, Nodes, Keys, Seen)) ) ).
 
 % The number of keys in a set; a node's count never changes once computed.
 'deps-size'(0, 0) :- !.
 'deps-size'(Id, Size) :-
-    (   deps_leaf_hash(Id, _, _) -> Size = 1
+    (   deps_leaf_hash(Id, _) -> Size = 1
     ;   deps_size_memo(Id, Size) -> true
     ;   empty_nb_set(Nodes), empty_nb_set(Keys), deps_collect(Id, Nodes, Keys),
         size_nb_set(Keys, Size), assertz(deps_size_memo(Id, Size)) ).
