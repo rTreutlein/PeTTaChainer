@@ -73,7 +73,7 @@ prefix_hashes(_, _, Hashes, Hashes).
 % keys' hashes, the OR of its children's, so a membership walk skips every
 % child whose mask lacks the key's bit.
 :- dynamic deps_leaf/2, deps_leaf_hash/3, deps_node/3, deps_interned/3, deps_size_memo/2.
-deps_mask_bits(8192).
+deps_mask_bits(65536).
 
 deps_bit(Hash, Bit) :- deps_mask_bits(W), Bit is 1 << (Hash mod W).
 
@@ -113,6 +113,14 @@ deps_has(Id, Hash, Bit, Seen) :-
 
 'deps-meet?'(Hashes, Id, Result) :-
     (   member(Hash, Hashes), deps_has(Id, Hash) -> Result = true ; Result = false ).
+
+% Whether a set's mask lies within another's: exact when it does not (the
+% first set has a key the second lacks); when it does, the keys may still
+% differ by hash collisions. View dominance uses it, so a collision drops an
+% older view a consumer could have read, never admits a self-supporting one.
+'deps-mask-within?'(Set, Within, Result) :-
+    (   ( Set == 0 ; Set == Within ) -> Result = true
+    ;   deps_mask(Set, M1), deps_mask(Within, M2), ( M1 /\ \ M2 =:= 0 -> Result = true ; Result = false ) ).
 
 % Whether every key of Set is in Within. A node reachable from Within is
 % covered whole; only the rest is walked down to its keys.

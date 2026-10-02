@@ -140,3 +140,29 @@ carrying the sets), and needs no decision on forgetting. Measure the late
 forward call against the merged head. If membership or dominance walks then
 dominate the profile, B is the fallback that is constant by construction, and
 the measurements above say it would change no StationOps exclusion at d = 2.
+
+## Result (option A, October 2026)
+
+Exact dominance made option A slower than flat sets: collecting an old view's
+closure (about 11,000 nodes for a late value) at every view store was 58% of
+a late forward call. Dominance now compares the masks (`deps-mask-within?`,
+65,536 bits): exact when the new view has a key the old one lacks, which keeps
+the old view; a collision can drop an older view a consumer could have read,
+never admit a self-supporting one. Termination and the clash cost stay exact
+(rare). Peak memory of a 20-module run: 4.0 GB against 3.8 GB with flat sets.
+
+StationOps against flat sets (0b4a4576), same batches:
+
+| | score | Brier | forward | queries |
+|---|---|---|---|---|
+| 10 modules, 8 seeds | identical per seed | 0.0591 / 0.0591 | 408 → 416 s | 136 → 136 s |
+| 20 modules, seeds 3, 7 | identical per seed | 0.0504 / 0.0503 | 177 → 174 s | 44 → 38 s |
+
+Largest forward call per shift at 20 modules (shifts 1, 5, 10, 15, 20), seed
+7: flat sets 1.0, 1.3, 1.5, 1.6, 1.8 s; option A 1.1, 1.2, 1.3, 1.3, 1.3 s.
+
+A mask's fill grows as 1 − e^(−n/65536) with closure size n (2.6% at 1,700
+keys, 53% at 50,000), so masks only postpone the growth: past a closure size
+they stop pruning membership and stop deciding dominance. Bounding closures
+by forgetting into decaying summaries (option B) is what keeps a step constant
+for good; the node DAG lets it cut old subtrees off at epoch nodes.

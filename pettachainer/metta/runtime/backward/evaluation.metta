@@ -367,7 +367,7 @@
       $view))
 
 (: sk-dominated? (-[semidet]-> Number SkeletonValue Bool))
-(= (sk-dominated? $deps $older) (deps-within? $deps (sk-view-deps-step 0 $older)))
+(= (sk-dominated? $deps $older) (deps-mask-within? $deps (sk-view-deps-step 0 $older)))
 
 (: sk-row-support (-[det]-> Number Number Number))
 (= (sk-row-support $hash $rhash)
