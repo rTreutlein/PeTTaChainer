@@ -1,6 +1,6 @@
 # Prior-factored merge
 
-Status: design, October 2026.
+Status: built, October 2026.
 
 ## Problem
 
@@ -134,3 +134,18 @@ precedence over keeping one view and over revising.
 - StationOps, 8 seeds, 10 modules, 20 shifts: plain game unchanged except for
   proof terms; `--distractor-signals 2` back to Brier 0.0591 and log loss
   0.203, or close.
+
+## Result
+
+StationOps, 8 seeds, 10 modules, 20 shifts (ChainerGame reads an answer's
+own truth value, the last in its text, since a proof now holds its prior's):
+
+| | score | Brier | log loss |
+|---|---|---|---|
+| plain game, before | 108,317 | 0.0591 | 0.203 |
+| plain game, factored merge | 108,317 (identical per seed) | 0.0591 | 0.203 |
+| two noise sensors, before | 107,440 | 0.0801 | 0.269 |
+| two noise sensors, factored merge | 107,786 | 0.0630 | 0.213 |
+
+Three of the eight seeds play the same game as without noise; the rest
+diverge on an inspection or repair, which moves the remaining gap.

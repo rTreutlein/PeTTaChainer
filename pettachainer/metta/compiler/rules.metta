@@ -523,7 +523,9 @@
 ;; believed about this instance, never contradicting the rule. The prior is the truth of `p`
 ;; for the observed instance, or, with `population`, a's base rate for an
 ;; instance without one; the first's evidence contains the second's, so it
-;; replaces that answer wherever `p` is provable.
+;; replaces that answer wherever `p` is provable. The proof carries the prior's
+;; truth value, so inversions of several observations over one prior merge by
+;; Bayes' rule (sk-factored-merge).
 (: prior-inverse-implication
    (-[semidet]-> KB Proof (List Variable) Atom Statement Statement TV Atom
        (List Goal) (List Goal) CompiledAddition))
@@ -549,7 +551,7 @@
                                ())))))))))
       ($premises |-
          (: (make-kb-context $kb $ctx $vars)
-            ((inverted $prf with $prior-token derived) $prfb_wit)
+            ((inverted $prf with $prior-token (prior $atv)) $prfb_wit)
             $a $mp-tv))))
 
 ;; For every child M of a pure conjunction H, compile the direct probabilistic

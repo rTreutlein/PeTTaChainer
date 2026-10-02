@@ -124,6 +124,68 @@
 (: sk-fact-step-proof (-[det]-> SkFact Proof))
 (= (sk-fact-step-proof ($_type $_kbctx $proof $_tv)) (sk-step-proof $proof))
 
+;; --- Prior-factored merge (docs/metta/prior_factored_merge.md) ---------------
+
+;; Inversions of independent observations over one prior combine as Bayes'
+;; rule does: the prior's log-odds plus each view's log-odds over it, with the
+;; log-odds variances of the views over the prior's added to the prior's once.
+(: sk-logit (-[det]-> Number Number))
+(= (sk-logit $p) (let $c (ideal-clip $p) (log-math 2.718281828459045 (/ $c (- 1.0 $c)))))
+
+(: sk-logit-var (-[det]-> Number Number Number))
+(= (sk-logit-var $s $c)
+   (let* (($x (ideal-clip $s)) ($q (* $x (- 1.0 $x)))) (/ (ideal-var $s $c) (* $q $q))))
+
+(: sk-factored-tv (-[det]-> Number Number Number Number Number Number STVType))
+(= (sk-factored-tv $sp $cp $sa $ca $sb $cb)
+   (let* (($vp (sk-logit-var $sp $cp))
+          ($x (- (+ (sk-logit $sa) (sk-logit $sb)) (sk-logit $sp)))
+          ($v (+ $vp (+ (max 0.0 (- (sk-logit-var $sa $ca) $vp)) (max 0.0 (- (sk-logit-var $sb $cb) $vp)))))
+          ($s (/ 1.0 (+ 1.0 (pow-math 2.718281828459045 (- 0.0 $x)))))
+          ($q (* $s (- 1.0 $s))))
+      (STV $s (ideal-conf-from-var $s (* (* $q $q) $v)))))
+
+;; A view updating a prior: one inversion, or a factored merge of several.
+(: SkeletonPriorUpdate Type)
+(: sk-prior-update (-[det]-> Proof Proof (List Proof) SkeletonPriorUpdate))
+(: sk-no-prior-update SkeletonPriorUpdate)
+
+(: sk-prior-update-of (-[det]-> Proof SkeletonPriorUpdate))
+(= (sk-prior-update-of $proof)
+   (case (sk-step-proof $proof) (
+      (((inverted $_rule with $prior (prior $tv)) $_observation)
+         (sk-prior-update $prior (brand Proof (prior $tv)) (cons $proof ())))
+      ((factored-revision $prior $prior-tv $parts) (sk-prior-update $prior $prior-tv $parts))
+      ($_other sk-no-prior-update))))
+
+;; The rules and observations of the inversions a view merges, by hash
+;; (defined at the end of the file). A list of proofs is walked by recursion:
+;; the determinism checker rejects a fold over Proof, a newtype of Atom.
+(: sk-part-sources (-[det]-> (List Proof) (List Number)))
+(: sk-sources-meet? (-[det]-> (List Proof) (List Proof) Bool))
+
+;; Two views updating the same prior with different rules and observations
+;; merge by Bayes' rule; anything else is left to the rules below. Two certain
+;; views that contradict each other are left too.
+(: sk-factored-merge
+   (-[det]-> SkFact (List Evidence) Number SkFact (List Evidence) Number SkeletonValue))
+(= (sk-factored-merge ($type $kbctx $proof-a $tv-a) $ev-a $deps-a ($_btype $_bkbctx $proof-b $tv-b) $ev-b $deps-b)
+   (case (sk-prior-update-of $proof-a) (
+      ((sk-prior-update $prior $prior-tv $parts-a)
+         (case (sk-prior-update-of $proof-b) (
+            ((sk-prior-update $prior-b $prior-tv-b $parts-b)
+               (if (if (=alpha $prior $prior-b) (if (=alpha $prior-tv $prior-tv-b) (not (sk-sources-meet? $parts-a $parts-b)) false) false)
+                  (case (data $prior-tv $tv-a $tv-b) (
+                     (((prior (STV $sp $cp)) (STV $sa $ca) (STV $sb $cb))
+                        (if (if (>= $sa 0.999999) (<= $sb 0.000001) (if (<= $sa 0.000001) (>= $sb 0.999999) false)) sk-none
+                           (sk-val ($type $kbctx (brand Proof (factored-revision $prior $prior-tv (append-flat $parts-a $parts-b)))
+                                       (sk-factored-tv (the Number $sp) (the Number $cp) (the Number $sa) (the Number $ca) (the Number $sb) (the Number $cb)))
+                              (sk-union $ev-a $ev-b) (deps-union $deps-a $deps-b))))
+                     ($_other sk-none)))
+                  sk-none))
+            (sk-no-prior-update sk-none))))
+      (sk-no-prior-update sk-none))))
+
 ;; Views merge as proofs do: an identical proof pools its evidence, a
 ;; projection gives way to its full proof, overlapping evidence keeps the view
 ;; whose evidence strictly contains the other's or else the more confident one, and
@@ -138,6 +200,8 @@
       (if (== $a $b) (sk-val $a (sk-union $ev-a $ev-b) $deps-a)
          (if (projection-dominates? $proof-a $proof-b) (sk-val $a $ev-a $deps-a)
             (if (projection-dominates? $proof-b $proof-a) (sk-val $b $ev-b $deps-b)
+               (let $factored (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b)
+               (if (not (== $factored sk-none)) $factored
                (if (evidence-sets-overlap? $ev-a $ev-b)
                   (let* (($a-in-b (evidence-subset? $ev-a $ev-b))
                          ($b-in-a (evidence-subset? $ev-b $ev-a)))
@@ -150,7 +214,7 @@
                          ($deps (deps-union $deps-a $deps-b)))
                      (if (>= (term-confidence $a) (term-confidence $b))
                         (sk-val (RevisionMergeProof $a $b) $pooled $deps)
-                        (sk-val (RevisionMergeProof $b $a) $pooled $deps)))))))))
+                        (sk-val (RevisionMergeProof $b $a) $pooled $deps)))))))))))
 
 (: sk-merge-step (-[semidet]-> SkeletonValue SkeletonValue SkeletonValue))
 (= (sk-merge-step $acc $view)
@@ -1995,3 +2059,15 @@
        (List (List RuntimeResult))))
 (= (chainer-many-materialize $steps $goals)
    (execute-backward $steps $goals true))
+
+;; --- Prior-factored merge: sources (declared above) --------------------------
+
+(= (sk-part-sources ()) ())
+(= (sk-part-sources (cons $part $rest))
+   (case (sk-step-proof $part) (
+      (((inverted $rule with $_prior $_tv) $observation)
+         (cons (index-hash $rule) (cons (index-hash $observation) (sk-part-sources $rest))))
+      ($_other (sk-part-sources $rest)))))
+
+(= (sk-sources-meet? $parts-a $parts-b)
+   (not (== (/==\ (sk-part-sources $parts-a) (sk-part-sources $parts-b)) ())))
