@@ -21,7 +21,7 @@
 (: result-for (-[det]-> Atom (List (Statement KBContext Proof TV)) (List Atom)))
 (= (result-for $_type ()) ())
 (= (result-for $type (cons ($statement $_kbctx $proof $tv) $rest))
-   (if (== $statement $type) (cons ($proof $tv) ()) (result-for $type $rest)))
+   (if (== $statement $type) (cons ((sk-full-proof $proof) $tv) ()) (result-for $type $rest)))
 
 (: query-for (-[nondet]-> KB Statement (List Atom)))
 (= (query-for $kb $type)

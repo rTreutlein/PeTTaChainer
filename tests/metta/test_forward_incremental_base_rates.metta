@@ -27,7 +27,7 @@
 (: result-for (-[det]-> Atom (List (Statement KBContext Proof TV)) (List Atom)))
 (= (result-for $_type ()) ())
 (= (result-for $type (cons ($statement $_kbctx $proof $tv) $rest))
-   (if (== $statement $type) (cons ($proof $tv) ()) (result-for $type $rest)))
+   (if (== $statement $type) (cons ((sk-full-proof $proof) $tv) ()) (result-for $type $rest)))
 
 ;; A fact produced by the forward chainer is only a cached derivation.  When
 ;; backward chaining rediscovers the same rule path, both views must carry the

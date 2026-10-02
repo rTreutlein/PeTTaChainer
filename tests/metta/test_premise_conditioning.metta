@@ -69,7 +69,7 @@
 (: forward-value-of (-[det]-> Atom (List (Statement KBContext Proof TV)) (List Atom)))
 (= (forward-value-of $_type ()) ())
 (= (forward-value-of $type (cons ($statement $_kbctx $proof $tv) $rest))
-   (if (== $statement $type) (cons ($proof $tv) ()) (forward-value-of $type $rest)))
+   (if (== $statement $type) (cons ((sk-full-proof $proof) $tv) ()) (forward-value-of $type $rest)))
 
 !(compileadd forwardKb (: a (A x) (STV 0.8 0.9)))
 !(compileadd forwardKb (: b (B x) (STV 0.5 0.9)))

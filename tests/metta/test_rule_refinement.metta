@@ -150,7 +150,7 @@
 
 !(test
    (case (forward-chain 1 refineFwdKb (test-selected-facts refineFwdKb (A a))) (
-      ((cons ((B a) $_kbctx $prf $tv) $_rest) (quote ($prf $tv)))
+      ((cons ((B a) $_kbctx $prf $tv) $_rest) (let $full (sk-full-proof $prf) (quote ($full $tv))))
       ($_other $_other)))
    ((by ab a1) (STV 0.8 0.8999996399380039)))
 

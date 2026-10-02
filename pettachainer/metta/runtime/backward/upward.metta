@@ -241,12 +241,13 @@
 (: sk-key-result (-[semidet]-> (List (Statement KBContext Proof TV)) SkeletonKey (List (Statement KBContext Proof TV))))
 (= (sk-key-result $results $key)
    (case (sk-key-value $key) (
-      ((sk-val $fact $_ev $_deps) (let $_stored (sk-forward-store! $key) (cons (sk-full-fact $fact) $results)))
+      ((sk-val $fact $_ev $_deps) (let $_stored (sk-forward-store! $key) (cons $fact $results)))
       ($_none $results))))
 
 ;; Forward-chains from caller-selected facts within `$steps` derived keys,
 ;; stores the values of the keys it built on and returns them, most recent
-;; first. A run has one
+;; first, with proof references as stored: expanding each proof would cost
+;; as much as the derivation history behind it. A run has one
 ;; result: backtracking into it would repeat its work.
 (: forward-chain
    (-[nondet]-> Number KB (List (Statement KBContext Proof TV))
