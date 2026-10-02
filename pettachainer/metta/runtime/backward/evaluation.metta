@@ -1388,7 +1388,14 @@
 ;; by its own key, each such row once per evaluation: the query reads no value
 ;; from before what it needs. A forward run leaves such rows stale for the
 ;; query that next needs them, so its cost does not grow with every reader of
-;; a fold its new facts change.
+;; a fold its new facts change. That includes readers of the keys the run
+;; takes: a reader computed early in a wave that a later change in the wave
+;; reaches stays stale, so the run can return and store its value from before
+;; that change. A query that needs it within the free depth refreshes it
+;; first; deeper, it is read like any other stale row.
+;; Refreshing those readers in the run (tried Oct 2) changed no StationOps
+;; answer and cost forward time growing with the KB (+1% at 10 modules, +9%
+;; at 20).
 (: sk-work-off! (-[semidet]-> Number SkeletonWork Number))
 (= (sk-work-off! $pass (sk-work $todo $next))
    (if (heap-empty? $todo)
