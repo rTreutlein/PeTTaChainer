@@ -311,6 +311,15 @@ waiting to be conditioned. A current row's inputs are current, because every
 change reaches the readers of what changed, so nothing under it needs
 recomputing.
 
+A change during a query's own evaluation can stale a row the query needs after
+the walk passed it, such as a reader of a fold that a new member moved. The
+query brings each such row current and computes it in a further pass, once per
+evaluation, so it reads no value from before what it needs. A forward run
+leaves those rows stale for the query that next needs them: refreshing them
+there would recompute every needed reader of each fold the new facts move,
+which grows with the knowledge base (StationOps at 20 modules: forward time
++106–243%; leaving them to queries: +1–10%).
+
 Conditioning is paid for from what that allowance has left, never at depth
 zero for free. A row whose clash needs it waits, keeping the views it had, with
 a cost bound of 2^k times one more than the clashing value's dependency count

@@ -1382,12 +1382,37 @@
                   (sk-value-same $deps (deps-union $old-deps $new-deps))
                   (sk-view-change $deps)))))))))
 
-;; Works off the queued rows and returns the last pass.
+;; Works off the queued rows and returns the last pass. A row a query needs
+;; that the stale cascade reached meanwhile (a fold it reads went stale over a
+;; member left stale) is brought current and computed in a further pass, forced
+;; by its own key, each such row once per evaluation: the query reads no value
+;; from before what it needs. A forward run leaves such rows stale for the
+;; query that next needs them, so its cost does not grow with every reader of
+;; a fold its new facts change.
 (: sk-work-off! (-[semidet]-> Number SkeletonWork Number))
 (= (sk-work-off! $pass (sk-work $todo $next))
    (if (heap-empty? $todo)
-      (if (heap-empty? $next) $pass (sk-work-off! (+ $pass 1) (sk-work $next (empty_heap))))
+      (if (heap-empty? $next)
+         (let* (($restale (collapse (match &sk_restale ($khash $rhash) ($khash $rhash))))
+                ($_taken (remove-data-rows! &sk_restale (quote ($khash $rhash))))
+                ($again (fold-semidet sk-restale-step (empty_heap) $restale)))
+            (if (heap-empty? $again) $pass (sk-work-off! (+ $pass 1) (sk-work $again (empty_heap)))))
+         (sk-work-off! (+ $pass 1) (sk-work $next (empty_heap))))
       (sk-work-pop! $pass $next (heap_pop $todo))))
+
+(: sk-restale-step (-[semidet]-> (Heap SkeletonItem) (Number Number) (Heap SkeletonItem)))
+(= (sk-restale-step $todo ($khash $rhash))
+   (if (if (space-row-present? &sk_stale ($khash $rhash)) (not (space-row-present? &sk_restaled ($khash $rhash))) false)
+      (case (collapse (once (match &sk_row ($khash $key $rhash (sk-row $ident $concl $premises $seq))
+               (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $seq))))) (
+         ((cons (sk-row-item $seq $khash2 $key $rhash2 (sk-row $ident $concl $premises $seq2)) $_rest)
+            (let* (($item (sk-row-item $seq $khash2 $key $rhash2 (sk-row $ident $concl $premises $seq2)))
+                   ($_seen (add-atom &sk_restaled ($khash $rhash)))
+                   ($_relinked (sk-relink-row! $khash $rhash $premises))
+                   ($_forced (sk-force! (cons $khash ()) $item)))
+               (add_to_heap $todo $seq $item)))
+         (() $todo)))
+      $todo))
 
 (: sk-work-pop!
    (-[semidet]-> Number (Heap SkeletonItem) (Number SkeletonItem (Heap SkeletonItem)) Number))
@@ -1474,37 +1499,28 @@
 ;; change reaches the readers of what changed, and a stale one is not brought
 ;; current, so there is nothing under either to recompute.
 ;;
-;; Known gap: "never computed" is tested on &sk_view, which holds only the
-;; views a row replaced. A row computed once has none, so the walk passes
-;; through most current rows as well, and needs far more than the rule above.
-;; Testing the row's latest view instead is the intended rule, but it exposes a
-;; second gap: the stale cascade (sk-stale-key!) marks every reader of a key
-;; stale while an evaluation runs, also readers this query needs, after the
-;; walk has passed them. Such a row is refreshed only by a later query, so the
-;; query reads a value from before (test_rule_refinement: B d misses the new
-;; instance sample). Keeping needed readers current instead is wrong too: a
-;; needed fold over stale members is refreshed only through its readers going
-;; stale (StationOps seed 7 lost a shortfall posterior). The correct design
-;; refreshes, within the same evaluation, each needed row the cascade reached
-;; and its readers. Rerunning whole evaluation passes for that (tried Oct 1)
-;; is correct but costs forward chaining about 30%; it needs a narrower
-;; recomputation of just those rows before the check here can be fixed.
+;; A stale row brought current leaves the stale set and rejoins its keys'
+;; readers.
+(: sk-relink-row! (-[semidet]-> Number Number (List SkPattern) Atom))
+(= (sk-relink-row! $khash $rhash $premises)
+   (let* (($_fresh (remove-atom &sk_stale ($khash $rhash)))
+          ($keys (fold-semidet sk-direct-key-step () $premises))
+          ($_unmarked (fold-semidet (sk-drop-stale-reader! $khash $rhash) () $keys))
+          ($_linked (fold-semidet (sk-add-reader! $khash $rhash) () $keys)))
+      ()))
+
 (: sk-need-row! (-[semidet]-> Number Atom SkeletonItem Atom))
-(= (sk-need-row! $depth $_acc (sk-row-item $_seq $khash $_key $rhash (sk-row $_ident $_concl $premises $_s)))
+(= (sk-need-row! $depth $_acc (sk-row-item $_seq $khash $key $rhash (sk-row $_ident $_concl $premises $_s)))
    (let* (($near (<= $depth (+ (sk-evaluation-free-depth) 1)))
           ($refresh
              (if $near (not (== (collapse (once (match &sk_stale ($khash $rhash) true))) ())) false))
           ($_refreshed
              (if $refresh
-                (let* (($_fresh (remove-atom &sk_stale ($khash $rhash)))
-                       ($keys (fold-semidet sk-direct-key-step () $premises))
-                       ($_unmarked (fold-semidet (sk-drop-stale-reader! $khash $rhash) () $keys))
-                       ($_linked (fold-semidet (sk-add-reader! $khash $rhash) () $keys)))
-                   (add-atom &sk_refresh ($khash $rhash)))
+                (let $_relinked (sk-relink-row! $khash $rhash $premises) (add-atom &sk_refresh ($khash $rhash)))
                 ())))
       (if (if $refresh true
              (if (<= $depth (sk-evaluation-free-depth)) true
-                (if (== (collapse (once (match &sk_view ($khash $_vkey $rhash $_view) true))) ()) true
+                (if (== (sk-latest-view $khash $key $rhash) sk-none) true
                    (not (== (collapse (once (match &sk_given_pending ($khash $rhash $_cost) true))) ())))))
          (fold-semidet (sk-need-premise! $depth) () $premises)
          ())))
@@ -1579,9 +1595,18 @@
              ($_merged (sk-drop-merged! $fold)))
          (sk-stale-key! $fold))))
 
+(: sk-stale-reader-step (-[det]-> Atom SkeletonItem Atom))
+(= (sk-stale-reader-step $_acc (sk-row-item $seq $khash $key $rhash $row))
+   (let $_restale
+      (if (if (== (search-id-value sk_forward_run) 0) (sk-needed? $khash $key) false)
+         (if (space-row-present? &sk_restale ($khash $rhash)) () (let $_row (add-atom &sk_restale ($khash $rhash)) ()))
+         ())
+      (sk-mark-stale! (sk-row-item $seq $khash $key $rhash $row))))
+(= (sk-stale-reader-step $_acc (sk-fold-check $hash $fold)) (sk-mark-stale! (sk-fold-check $hash $fold)))
+
 (= (sk-stale-key! $key)
    (let* (($hash (index-hash $key))
-          ($_readers (foreach-flat sk-mark-stale! (sk-readers $key))))
+          ($_readers (fold-flat sk-stale-reader-step () (sk-readers $key))))
       (foreach-flat sk-stale-fold!
          (collapse (match &sk_use ($hash $stored $fold)
             (if (=alpha $stored $key) (if (sk-rate-fold? $fold) (empty) $fold) (empty)))))))
@@ -1603,6 +1628,8 @@
           ($_used (remove-data-rows! &sk_forced_used (quote ($khash $rhash $cause))))
           ($_pending (remove-data-rows! &sk_fold_pending (quote ($fhash $member))))
           ($_granted (remove-data-rows! &sk_given_granted (quote ($khash $rhash))))
+          ($_restale (remove-data-rows! &sk_restale (quote ($khash $rhash))))
+          ($_restaled (remove-data-rows! &sk_restaled (quote ($khash $rhash))))
           ($new (collapse (match &sk_new (sk-row-item $seq $hash $key $rhash $row)
              (sk-row-item $seq $hash $key $rhash $row))))
           ($_new (remove-data-rows! &sk_new (quote (sk-row-item $seq $hash $key $rhash $row))))

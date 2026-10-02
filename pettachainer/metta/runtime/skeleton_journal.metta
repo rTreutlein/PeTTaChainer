@@ -246,6 +246,12 @@
 ;; stale rows the current query needs, recomputed by its evaluation
 (: &sk_refresh (SpaceOf (Number Number)))
 !(bind! &sk_refresh (new-space))
+;; rows the evaluation needs that the stale cascade reached while it ran, by
+;; key and row hash, and those it brought current again already
+(: &sk_restale (SpaceOf (Number Number)))
+!(bind! &sk_restale (new-space))
+(: &sk_restaled (SpaceOf (Number Number)))
+!(bind! &sk_restaled (new-space))
 
 ;; --- Query metrics ------------------------------------------------------------
 
