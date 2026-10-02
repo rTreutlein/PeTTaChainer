@@ -274,6 +274,19 @@ class PeTTaChainer:
             f"!(set-forward-min-evidence {float(n)!r})"
         )
 
+    def set_forgetting(self, horizon: int, decay: float = 1.0) -> None:
+        """Freeze keys idle for ``horizon`` epochs into summaries whose
+        observation count is multiplied by ``decay`` (horizon 0: never).
+        Process-wide; epochs end with ``advance_epoch``."""
+        self.handler.process_metta_string(
+            f"!(set-forgetting {int(horizon)} {float(decay)!r})"
+        )
+
+    def advance_epoch(self) -> int:
+        """End an epoch and freeze the keys idle for the horizon; returns
+        the new epoch."""
+        return int(self.handler.process_metta_string("!(advance-epoch)")[0])
+
     def set_rule_refinement(self, enabled: bool) -> None:
         """Refine this KB's rules from their instances; set before adding rules.
 

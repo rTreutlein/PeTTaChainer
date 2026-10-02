@@ -60,22 +60,34 @@
 
 ;; A stored fact is its own evidence and depends on its own key. The fact a
 ;; forward run stored for a key carries its value's evidence and what that value
-;; was derived through (see sk-forward-store!).
+;; was derived through (see sk-forward-store!), and a frozen key's summary its
+;; value's evidence and the keys near it (forgetting.metta).
 (: sk-leaf-view (-[det]-> Number SkFact SkeletonValue))
 (= (sk-leaf-view $hash $fact)
    (case (collapse (once (match &sk_forward_stored ($hash $_key $fact $ev $deps) (sk-val $fact $ev $deps)))) (
       ((cons $stored $_rest) $stored)
-      (() (sk-val $fact (leaf-evidence-for-result $fact) (deps-key $hash))))))
+      (() (case (collapse (once (match &sk_summary ($hash $_skey $fact $sev $sdeps) (sk-val $fact $sev $sdeps)))) (
+             ((cons $summary $_more) $summary)
+             (() (sk-val $fact (leaf-evidence-for-result $fact) (deps-key $hash)))))))))
+
+;; A frozen key's summary stands for its past, so it counts as a fact: kept
+;; beside the rows the key gets later.
+(: sk-summary-fact? (-[det]-> SkFact Bool))
+(= (sk-summary-fact? ($_type $_kbctx $proof $_tv))
+   (case $proof (
+      ((forgotten $_hash $_epoch) true)
+      ($_other false))))
 
 ;; The fact a forward run stored for a key is a copy of the key's own value: it
 ;; lets a reader reach the key without searching for it, and stands for the
-;; value only while the key has no computed versions. A reader that must not
-;; depend on what it was derived through leaves it out.
+;; value only while the key has no computed versions; a frozen key's summary
+;; stands beside them. A reader that must not depend on what either was
+;; derived through leaves it out.
 (: sk-leaf-step (-[semidet]-> Number Bool (List Number) (List SkeletonValue) SkFact (List SkeletonValue)))
 (= (sk-leaf-step $hash $computed $exclude $kept $fact)
    (let $view (sk-leaf-view $hash $fact)
       (if (== (sk-view-deps-step 0 $view) (deps-key $hash)) (cons $view $kept)
-         (if $computed $kept
+         (if (if $computed (not (sk-summary-fact? $fact)) false) $kept
             (if (deps-meet? $exclude (sk-view-deps-step 0 $view)) $kept (cons $view $kept))))))
 
 (: sk-leaf-views (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonValue)))
@@ -1543,7 +1555,9 @@
                (let* (($_old (remove-variant-row! &sk_needed (quote ($hash $stored $was))))
                       ($_new (add-atom &sk_needed ($hash $key $depth))))
                   (sk-need-below! $depth $hash $key))))
-         (() (let $_new (add-atom &sk_needed ($hash $key $depth)) (sk-need-below! $depth $hash $key)))))))
+         (() (let* (($_new (add-atom &sk_needed ($hash $key $depth)))
+                    ($_touched (sk-touch-key! $hash $key)))
+                (sk-need-below! $depth $hash $key)))))))
 
 (: SkeletonNeedWas Type)
 (: sk-need-was (-[det]-> SkeletonKey Number SkeletonNeedWas))

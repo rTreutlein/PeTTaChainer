@@ -124,6 +124,13 @@
 ;; evidence and what that value was derived through
 (: &sk_forward_stored (SpaceOf (Number SkeletonKey SkFact (List Evidence) Number)))
 !(bind! &sk_forward_stored (new-space))
+;; key -> the summary a frozen key keeps in &kb (see forgetting.metta), with
+;; its value's evidence and the keys within two steps of it
+(: &sk_summary (SpaceOf (Number SkeletonKey SkFact (List Evidence) Number)))
+!(bind! &sk_summary (new-space))
+;; key with rows -> the last epoch a row was created for it or it was needed
+(: &sk_key_epoch (SpaceOf (Number SkeletonKey Number)))
+!(bind! &sk_key_epoch (new-space))
 ;; key -> a stale row that read it, by row key hash and row hash
 (: &sk_stale_reader (SpaceOf (Number SkeletonKey Number Number)))
 !(bind! &sk_stale_reader (new-space))

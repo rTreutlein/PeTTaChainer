@@ -84,4 +84,5 @@
 !(import! &self runtime/backward/skeleton)
 !(import! &self runtime/backward/evaluation)
 !(import! &self runtime/backward/upward)
+!(import! &self runtime/backward/forgetting)
 !(import! &self runtime/query)

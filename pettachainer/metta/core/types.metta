@@ -134,6 +134,9 @@
 ;; 1 while a forward run grows the skeleton upward
 (: sk_forward_run CounterKey)
 (: sk_walk_budget CounterKey)
+(: sk_epoch CounterKey)
+(: forgetting_horizon CounterKey)
+(: forgetting_decay CounterKey)
 (: sk_row_seq CounterKey)
 (: sk_push_seq CounterKey)
 (: sk_delivery_seq CounterKey)

@@ -88,6 +88,21 @@
       (collapse (match &sk_answer ($hash $stored $key)
          (if (=alpha $stored $pattern) $key (empty))))))
 
+;; With forgetting on, a key records the last epoch it got a row or was
+;; needed; a key idle for the horizon is frozen (forgetting.metta).
+(: sk-touch-key! (-[det]-> Number SkeletonKey Atom))
+(= (sk-touch-key! $hash $key)
+   (if (<= (search-id-value forgetting_horizon) 0) ()
+      (case $key (
+         ((sk-key $_type $_kbctx)
+            (let $epoch (search-id-value sk_epoch)
+               (if (space-row-present? &sk_key_epoch ($hash $key $epoch)) ()
+                  (let $_old
+                     (collapse (match &sk_key_epoch ($hash $stored $was)
+                        (if (=alpha $stored $key) (remove-atom &sk_key_epoch ($hash $stored $was)) (empty))))
+                     (let $_new (add-atom &sk_key_epoch ($hash $key $epoch)) ())))))
+         ($_fold ())))))
+
 ;; Child links, answers, use edges and join extensions are each recorded
 ;; once, by a digest of the link: one lookup, and a record of one integer
 ;; however large the join it names.
@@ -602,6 +617,7 @@
                    ($_add
                       (if (chainer-acyclic-term? $row)
                          (let* (($_stored (add-atom &sk_row ($khash $key $rhash $row)))
+                                ($_touched (sk-touch-key! $khash $key))
                                 ($_counted (query_metric_increment rows-created)))
                             (add-atom &sk_new (sk-row-item $seq $khash $key $rhash $row)))
                          false))
