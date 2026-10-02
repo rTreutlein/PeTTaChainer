@@ -14,12 +14,19 @@
        (Number $item (Heap $item))))
 (: heap-empty? (-[det]-> (Heap $item) Bool))
 
-;; Dependency sets of key hashes, kept as SWI ordered sets (runtime_helpers.pl).
-(: deps-set (-[det]-> (List Number) (List Number)))
-(: deps-union (-[det]-> (List Number) (List Number) (List Number)))
-(: deps-join (-[det]-> (List (List Number)) (List Number)))
-(: deps-within? (-[det]-> (List Number) (List Number) Bool))
-(: deps-meet? (-[det]-> (List Number) (List Number) Bool))
+;; Sets of key hashes, kept as SWI ordered sets (runtime_helpers.pl).
+(: hash-set (-[det]-> (List Number) (List Number)))
+(: hash-union (-[det]-> (List Number) (List Number) (List Number)))
+
+;; A value's dependency set, an interned node id; 0 is the empty set
+;; (runtime_helpers.pl).
+(: deps-key (-[det]-> Number Number))
+(: deps-union (-[det]-> Number Number Number))
+(: deps-join (-[det]-> (List Number) Number))
+(: deps-has? (-[det]-> Number Number Bool))
+(: deps-meet? (-[det]-> (List Number) Number Bool))
+(: deps-within? (-[det]-> Number Number Bool))
+(: deps-size (-[det]-> Number Number))
 
 ;; KL divergence of Beta(a1, b1) from Beta(a2, b2) (runtime_helpers.pl).
 (: beta_kl (-[det]-> Number Number Number Number Number))

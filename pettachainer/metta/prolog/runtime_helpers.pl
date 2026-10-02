@@ -1,5 +1,7 @@
 :- use_module(library(heaps)).
 :- use_module(library(assoc)).
+:- use_module(library(nb_set)).
+:- use_module(library(yall)).
 
 % Data-only spaces have no function definitions or compiler metadata. In
 % particular, an open first column must not enter remove-atom's function case.
@@ -58,15 +60,88 @@ prefix_hashes([Arg|Args], Reversed, Hashes0, Hashes) :-
     prefix_hashes(Args, Prefix, [Hash|Hashes0], Hashes).
 prefix_hashes(_, _, Hashes, Hashes).
 
-% Dependency sets are SWI ordered sets of key hashes, so union, containment
-% and intersection are linear merges.
-'deps-set'(Hashes, Set) :- sort(Hashes, Set).
-'deps-union'(Left, Right, Set) :- ord_union(Left, Right, Set).
-'deps-join'(Sets, Set) :- ord_union(Sets, Set).
+% Hash sets (exclusion lists, unifier sets) are SWI ordered sets of key
+% hashes, so union and membership are linear merges over short lists.
+'hash-set'(Hashes, Set) :- sort(Hashes, Set).
+'hash-union'(Left, Right, Set) :- ord_union(Left, Right, Set).
+
+% A value's dependency set is an interned node id, so a value stays one
+% integer however long the derivation behind it (docs/metta/
+% dependency_tracking_design.md). 0 is the empty set; a key is a leaf; a union
+% is a node over its operands' ids, interned by that sorted list. Nodes never
+% change, so an id names one set forever. Each node keeps a bitmask of its
+% keys' hashes, the OR of its children's, so a membership walk skips every
+% child whose mask lacks the key's bit.
+:- dynamic deps_leaf/2, deps_leaf_hash/3, deps_node/3, deps_interned/3, deps_size_memo/2.
+deps_mask_bits(8192).
+
+deps_bit(Hash, Bit) :- deps_mask_bits(W), Bit is 1 << (Hash mod W).
+
+deps_mask(0, 0) :- !.
+deps_mask(Id, Mask) :- deps_leaf_hash(Id, _, Mask), !.
+deps_mask(Id, Mask) :- deps_node(Id, _, Mask).
+
+'deps-key'(Hash, Id) :-
+    (   deps_leaf(Hash, Id) -> true
+    ;   flag(deps_next_id, Last, Last + 1), Id is Last + 1,
+        deps_bit(Hash, Mask),
+        assertz(deps_leaf(Hash, Id)), assertz(deps_leaf_hash(Id, Hash, Mask)) ).
+
+'deps-union'(Left, Right, Id) :- 'deps-join'([Left, Right], Id).
+
+'deps-join'(Ids, Id) :-
+    sort(Ids, Sorted), exclude(==(0), Sorted, Children),
+    (   Children == [] -> Id = 0
+    ;   Children = [Only] -> Id = Only
+    ;   term_hash(Children, Key),
+        (   deps_interned(Key, Children, Id) -> true
+        ;   flag(deps_next_id, Last, Last + 1), Id is Last + 1,
+            foldl([Child, Acc0, Acc]>>(deps_mask(Child, M), Acc is Acc0 \/ M), Children, 0, Mask),
+            assertz(deps_node(Id, Children, Mask)), assertz(deps_interned(Key, Children, Id)) ) ).
+
+% Whether a set holds a key: the walk enters only children whose mask has the
+% key's bit and visits each node once.
+deps_has(Id, Hash) :- deps_bit(Hash, Bit), empty_nb_set(Seen), deps_has(Id, Hash, Bit, Seen).
+deps_has(Id, Hash, Bit, Seen) :-
+    deps_mask(Id, Mask), Mask /\ Bit =\= 0,
+    (   deps_leaf_hash(Id, Leaf, _) -> Leaf =:= Hash
+    ;   add_nb_set(Id, Seen, true),
+        deps_node(Id, Children, _),
+        member(Child, Children), deps_has(Child, Hash, Bit, Seen), ! ).
+
+'deps-has?'(Id, Hash, Result) :- ( deps_has(Id, Hash) -> Result = true ; Result = false ).
+
+'deps-meet?'(Hashes, Id, Result) :-
+    (   member(Hash, Hashes), deps_has(Id, Hash) -> Result = true ; Result = false ).
+
+% Whether every key of Set is in Within. A node reachable from Within is
+% covered whole; only the rest is walked down to its keys.
 'deps-within?'(Set, Within, Result) :-
-    (   ord_subset(Set, Within) -> Result = true ; Result = false ).
-'deps-meet?'(Left, Right, Result) :-
-    (   ord_disjoint(Left, Right) -> Result = false ; Result = true ).
+    (   deps_within(Set, Within) -> Result = true ; Result = false ).
+deps_within(Set, Within) :- ( Set == 0 ; Set == Within ), !.
+deps_within(Set, Within) :-
+    empty_nb_set(Nodes), empty_nb_set(Keys), deps_collect(Within, Nodes, Keys),
+    empty_nb_set(Seen), deps_covered(Set, Nodes, Keys, Seen).
+deps_collect(0, _, _) :- !.
+deps_collect(Id, Nodes, Keys) :-
+    (   add_nb_set(Id, Nodes, true)
+    ->  (   deps_leaf_hash(Id, Hash, _) -> add_nb_set(Hash, Keys, _)
+        ;   deps_node(Id, Children, _), forall(member(Child, Children), deps_collect(Child, Nodes, Keys)) )
+    ;   true ).
+deps_covered(Id, Nodes, Keys, Seen) :-
+    (   add_nb_set(Id, Nodes, false) -> true
+    ;   add_nb_set(Id, Seen, false) -> true
+    ;   add_nb_set(Id, Seen, true),
+        (   deps_leaf_hash(Id, Hash, _) -> add_nb_set(Hash, Keys, false)
+        ;   deps_node(Id, Children, _), forall(member(Child, Children), deps_covered(Child, Nodes, Keys, Seen)) ) ).
+
+% The number of keys in a set; a node's count never changes once computed.
+'deps-size'(0, 0) :- !.
+'deps-size'(Id, Size) :-
+    (   deps_leaf_hash(Id, _, _) -> Size = 1
+    ;   deps_size_memo(Id, Size) -> true
+    ;   empty_nb_set(Nodes), empty_nb_set(Keys), deps_collect(Id, Nodes, Keys),
+        size_nb_set(Keys, Size), assertz(deps_size_memo(Id, Size)) ).
 
 % The trie compares variants exactly, without binding caller variables or
 % confusing hash collisions. Destroy query-local storage even on an exception.

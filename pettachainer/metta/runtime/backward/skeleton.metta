@@ -258,7 +258,7 @@
       (collapse (match &sk_unifiers ($rhash $stored $hashes)
          (if (=alpha $stored $reader)
             (let* (($_old (remove-variant-row! &sk_unifiers (quote ($rhash $stored $hashes))))
-                   ($extended (deps-union (cons $khash ()) $hashes)))
+                   ($extended (hash-union (cons $khash ()) $hashes)))
                (add-atom &sk_unifiers ($rhash $stored $extended)))
             (empty))))
       ()))
@@ -299,7 +299,7 @@
 ;; the key itself and every registered key whose term unifies with it
 (: sk-key-term-hashes (-[det]-> Number Statement KBContext (List Number)))
 (= (sk-key-term-hashes $khash $type $kbctx)
-   (deps-set (cons $khash (sk-unifying-key-hashes $type $kbctx))))
+   (hash-set (cons $khash (sk-unifying-key-hashes $type $kbctx))))
 
 (: sk-unifier-hashes (-[det]-> Number SkeletonKey (List Number)))
 (= (sk-unifier-hashes $khash $key)

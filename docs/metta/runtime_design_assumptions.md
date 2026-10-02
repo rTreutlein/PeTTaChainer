@@ -163,6 +163,10 @@ latest view that depends neither on its own key nor on any key unifying with
 it; older views stay available to exactly the consumers a newer one came to
 depend on. Because dependency sets are transitive, this rejects self-support
 through inverted rules, longer cycles, and more general or more specific keys.
+A value carries its dependency set as one interned node id, a union of its
+premises' nodes, so it stays one integer however long its history; whether a
+set holds a key is a walk pruned by each node's bitmask of key hashes
+(`dependency_tracking_design.md`).
 A compound And or Or antecedent is lowered into its parts, so what a rule
 concludes from it depends on the parts' keys and never on the compound's; a
 row inverting such a rule into the compound therefore also excludes views that

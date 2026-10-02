@@ -51,8 +51,8 @@
 ;; depends on, a computation or fold result with the proof that replaces a `cpu`
 ;; token, or nothing.
 (: SkeletonValue Type)
-(: sk-val (-[det]-> SkFact (List Evidence) (List Number) SkeletonValue))
-(: sk-goal-val (-[det]-> Goal Proof (List Evidence) (List Number) SkeletonValue))
+(: sk-val (-[det]-> SkFact (List Evidence) Number SkeletonValue))
+(: sk-goal-val (-[det]-> Goal Proof (List Evidence) Number SkeletonValue))
 (: sk-none SkeletonValue)
 (: SkeletonVersion Type)
 ;; row creation number, row hash, view
@@ -122,7 +122,7 @@
 !(bind! &sk_reader (new-space))
 ;; key -> the fact a forward run stored for it in &kb, with its value's
 ;; evidence and what that value was derived through
-(: &sk_forward_stored (SpaceOf (Number SkeletonKey SkFact (List Evidence) (List Number))))
+(: &sk_forward_stored (SpaceOf (Number SkeletonKey SkFact (List Evidence) Number)))
 !(bind! &sk_forward_stored (new-space))
 ;; key -> a stale row that read it, by row key hash and row hash
 (: &sk_stale_reader (SpaceOf (Number SkeletonKey Number Number)))
@@ -142,13 +142,13 @@
 (: &sk_view (SpaceOf (Number SkeletonKey Number SkeletonValue)))
 !(bind! &sk_view (new-space))
 ;; every dependency a row's views ever had, by key hash and row hash
-(: &sk_support (SpaceOf (Number Number (List Number))))
+(: &sk_support (SpaceOf (Number Number Number)))
 !(bind! &sk_support (new-space))
 ;; a key's merged value for an open pattern and no exclusion, with the
 ;; dependencies of the versions it merged
 (: SkeletonMerged Type)
-(: sk-merged (-[det]-> Number SkeletonKey (List Number) SkeletonValue SkeletonMerged))
-(: &sk_merged (SpaceOf (sk-merged Number SkeletonKey (List Number) SkeletonValue)))
+(: sk-merged (-[det]-> Number SkeletonKey Number SkeletonValue SkeletonMerged))
+(: &sk_merged (SpaceOf (sk-merged Number SkeletonKey Number SkeletonValue)))
 !(bind! &sk_merged (new-space))
 ;; rows not evaluated yet, and the rows one evaluation scheduled per pass
 (: &sk_new (SpaceOf (sk-row-item Number Number SkeletonKey Number SkeletonRow)))

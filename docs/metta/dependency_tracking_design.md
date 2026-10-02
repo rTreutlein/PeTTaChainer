@@ -1,6 +1,6 @@
 # Dependency tracking that does not grow with history
 
-Status: design, October 2026. Branch `dependency-tracking`.
+Status: option A built, October 2026. Branch `dependency-tracking`.
 
 ## Problem
 

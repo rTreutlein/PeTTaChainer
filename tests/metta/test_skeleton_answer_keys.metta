@@ -44,6 +44,6 @@
           ($_registered (sk-register-key! $late))
           ($after (sk-unifier-hashes $rhash $reader)))
       ((== $before (cons $rhash ()))
-       (== $after (deps-set (cons $rhash (cons (index-hash $late) ()))))
+       (== $after (hash-set (cons $rhash (cons (index-hash $late) ()))))
        (is-var $x)))
    (true true true))

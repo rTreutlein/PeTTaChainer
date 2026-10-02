@@ -188,7 +188,7 @@
 (= (forward-rate-folds $fact)
    (let* ((($head $wildcard) (forward-premise-keys $fact))
           ($type (the Statement (car-atom $fact))))
-      (deps-set
+      (hash-set
          (if (== $head $wildcard) (fa-trigger-folds $type $head)
             (append-flat (fa-trigger-folds $type $head) (fa-trigger-folds $type $wildcard))))))
 

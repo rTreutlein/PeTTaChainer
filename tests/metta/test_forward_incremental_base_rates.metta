@@ -386,7 +386,7 @@
 ;; through any of them: the rates read here are (Leak $u $z), (Leak $u z1) and
 ;; (Leak u1 $z), and the exclusion holds each of them.
 (: excludes-one? (-[det]-> (List Number) Number Bool))
-(= (excludes-one? $folds $hash) (deps-meet? $folds (cons $hash ())))
+(= (excludes-one? $folds $hash) (stored-list-member? $hash $folds))
 !(compileadd ordKb (: sensor (Implication (Leak $u $z) (Alarm $u $z)) (CTV (STV 0.9 1.0) (STV 0.2 1.0))))
 !(compileadd ordKb (: narrow1 (Implication (Leak $u z1) (Seen1 $u)) (CTV (STV 0.9 1.0) (STV 0.2 1.0))))
 !(compileadd ordKb (: narrow2 (Implication (Leak u1 $z) (Seen2 $z)) (CTV (STV 0.9 1.0) (STV 0.2 1.0))))
