@@ -88,6 +88,26 @@ prefix_hashes(_, _, Hashes, Hashes).
 'deps-cut!'(Ids, Replacement, true) :-
     forall(( member(Id, Ids), deps_node(Id, _, _), \+ deps_cut(Id, _), Id \== Replacement ),
            assertz(deps_cut(Id, Replacement))).
+% Drops every dependency node no live value reaches. Roots are the sets the
+% stores hold; marking follows cuts; a dropped key leaf is interned anew when
+% a key is read again.
+'deps-gc!'(Roots, true) :-
+    empty_nb_set(Live),
+    forall(member(Root, Roots), deps_mark(Root, Live)),
+    forall(( clause(deps_node(Id, _, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
+    forall(( clause(deps_interned(_, _, Id), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
+    forall(( clause(deps_cut(Id, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
+    forall(( clause(deps_size_memo(Id, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
+    forall(( clause(deps_leaf_hash(Id, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
+    forall(( clause(deps_leaf(_, Id), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)).
+deps_mark(0, _) :- !.
+deps_mark(Id, Live) :-
+    (   add_nb_set(Id, Live, true)
+    ->  (   deps_cut(Id, Replacement) -> deps_mark(Replacement, Live)
+        ;   deps_node(Id, Children, _) -> forall(member(Child, Children), deps_mark(Child, Live))
+        ;   true )
+    ;   true ).
+
 deps_children(Id, Children) :-
     (   deps_cut(Id, Replacement) -> Children = [Replacement] ; deps_node(Id, Children, _) ).
 deps_mask_bits(65536).

@@ -337,6 +337,11 @@
       (let* (($_registered (sk-register-key! $key))
              ($hash (sk-node-hash $node))
              ($_row (add-atom &sk_answer ($hash $node $key)))
+             ($_indexed
+                (if (<= (search-id-value forgetting_horizon) 0) ()
+                   (let* (($khash (index-hash $key))
+                          ($_answered (add-atom &sk_answered ($khash $key $hash $node))))
+                      ())))
              ($folds
                 (collapse (match &sk_member_of ($hash $stored $fold)
                    (if (=alpha $stored $node) $fold (empty)))))

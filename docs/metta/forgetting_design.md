@@ -118,3 +118,25 @@ StationOps, 20 modules, 60 shifts, seeds 3 and 7, two jobs at a time
 
 The goal is a step whose cost and memory stop depending on how long the run
 has been, while the answers move as little as possible from H = ∞.
+
+## Results (October 2026)
+
+Stage 1 (b94502bd, 661e0a7a) and stage 2 are built. On StationOps (20
+modules, 60 shifts, seeds 3 and 7) answers are bit-identical at every horizon
+(2, 4, 8) and decay (1, 0.95, 0.8): the keys frozen are past shifts nothing
+current reads, so their summaries are never read. Freezing alone saved little
+until the frozen keys' dependency nodes were cut (old values otherwise reach
+the whole past through them) and only open readers were registered. Stage 2
+buries frozen keys nothing reads (they leave open nodes' answers and their
+registrations; their summaries stay facts their own ground node answers with)
+and collects unreachable dependency nodes each epoch.
+
+| | forward s3/s7 | queries s3/s7 | peak memory s3/s7 |
+|---|---|---|---|
+| no forgetting | 364 / 355 s | 123 / 113 s | 3.09 / 2.67 GB |
+| stage 1, H = 2 | 340 / 320 s | 116 / 95 s | 2.48 / 2.32 GB |
+| stage 2, H = 2 | 338 / 319 s | 119 / 95 s | 2.10 / 1.89 GB |
+
+What still grows: one summary fact per buried key and its `&kb` index entries,
+join-link digests, waiters, and the input facts. Stage 3 (dropping summaries
+and absorbed facts nobody can reach) is the remaining lever.

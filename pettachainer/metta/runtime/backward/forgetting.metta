@@ -64,6 +64,72 @@
             (empty))))
       ()))
 
+;; A frozen key nothing reads any more, and that is a member of no fold but
+;; base rates (which keep their members' contributions), is buried: it leaves
+;; the answers of open nodes, so a join or fold over an open pattern no longer
+;; meets it, and its key and reader registrations, unifier cache, uses and
+;; merged value go. Its summary stays a fact, and its own ground node still
+;; answers with it, so a query for it reads the summary.
+(: sk-read? (-[det]-> Number SkeletonKey Bool))
+(= (sk-read? $hash $key)
+   (if (space-row-present? &sk_reader ($hash $key $_khash $_rhash)) true
+      (if (space-row-present? &sk_stale_reader ($hash $key $_skhash $_srhash)) true
+         (not (== (collapse (once (match &sk_use ($hash $stored $fold)
+                     (if (=alpha $stored $key) (if (sk-rate-fold? $fold) (empty) true) (empty)))))
+                  ())))))
+
+(: sk-open-node? (-[det]-> SkPattern Bool))
+(= (sk-open-node? $node)
+   (case $node (
+      (($type $kbctx $_proof $_tv) (not (== (extract-vars (data $type $kbctx)) ())))
+      ($_cpu false))))
+
+(: sk-bury-answer! (-[det]-> SkeletonKey Atom (Number SkPattern) Atom))
+(= (sk-bury-answer! $key $_acc ($nhash $node))
+   (let* (($_answer (remove-atom &sk_answer ($nhash $node $key)))
+          ($digest (link-digest (sk-answer-link $node $key)))
+          ($_link (remove-atom &sk_link ($digest))))
+      ()))
+
+(: sk-bury! (-[semidet]-> Atom SkeletonFrozen Atom))
+(= (sk-bury! $_acc (sk-frozen $hash $key))
+   (if (sk-read? $hash $key) ()
+      (case $key (
+         ((sk-key $type $kbctx)
+            (let* (($answers
+                      (collapse (match &sk_answered ($hash $stored $nhash $node)
+                         (if (=alpha $stored $key)
+                            (let $_row (remove-atom &sk_answered ($hash $stored $nhash $node))
+                               (if (sk-open-node? $node) ($nhash $node) (empty)))
+                            (empty)))))
+                   ($_answers (fold-flat (sk-bury-answer! $key) () $answers))
+                   ($_uses
+                      (collapse (match &sk_use ($hash $stored $fold)
+                         (if (=alpha $stored $key) (remove-atom &sk_use ($hash $stored $fold)) (empty)))))
+                   ($_unifiers
+                      (collapse (match &sk_unifiers ($hash $stored $hashes)
+                         (if (=alpha $stored $key) (remove-atom &sk_unifiers ($hash $stored $hashes)) (empty)))))
+                   ($_merged (sk-drop-merged! $key))
+                   ($_keys (remove-variant-row! &sk_keys (quote ($hash $key))))
+                   ($_terms (remove-atom &sk_key_terms ($type $kbctx $hash)))
+                   ($_prefixes (remove-data-rows! &sk_key_prefix (quote ($_p $type $kbctx $hash))))
+                   ($_open (remove-atom &sk_key_open ($type $kbctx $hash)))
+                   ($_reader (remove-atom &sk_reader_terms ($type $kbctx $hash $key))))
+               (remove-variant-row! &sk_frozen (quote ($hash $key)))))
+         ($_fold ())))))
+
+;; The dependency sets the stores hold; every other node can go.
+(: sk-deps-roots (-[det]-> (List Number)))
+(= (sk-deps-roots)
+   (append-flat (collapse (match &sk_latest ($_h $_k (sk-version $_s $_r $view)) (sk-view-deps-step 0 $view)))
+   (append-flat (collapse (match &sk_view ($_vh $_vk $_vr $old) (sk-view-deps-step 0 $old)))
+   (append-flat (collapse (match &sk_merged (sk-merged $_mh $_mk $mdeps $_mv) $mdeps))
+   (append-flat (collapse (match &sk_merged (sk-merged $_nh $_nk $_nd $value) (sk-view-deps-step 0 $value)))
+   (append-flat (collapse (match &sk_support ($_sh $_sr $support) $support))
+   (append-flat (collapse (match &sk_forward_stored ($_fh $_fk $_ff $_fe $fdeps) $fdeps))
+   (append-flat (collapse (match &sk_forward_taken ($_th $_tk $taken) (sk-view-deps-step 0 $taken)))
+      (collapse (match &sk_summary ($_yh $_yk $_yf $_ye $ydeps) $ydeps))))))))))
+
 ;; Ends an epoch and freezes the keys idle for the horizon. Returns the new
 ;; epoch.
 (: advance-epoch (-[semidet]-> Number))
@@ -74,7 +140,9 @@
          (let* (($cutoff (- $epoch $horizon))
                 ($idle (collapse (match &sk_key_epoch ($hash $key $last)
                           (if (<= $last $cutoff) (sk-frozen $hash $key) (empty)))))
-                ($_frozen (fold-semidet (sk-freeze! $epoch) () $idle)))
+                ($_frozen (fold-semidet (sk-freeze! $epoch) () $idle))
+                ($_buried (fold-semidet sk-bury! () (collapse (match &sk_frozen ($fhash $fkey) (sk-frozen $fhash $fkey)))))
+                ($_collected (deps-gc! (sk-deps-roots))))
             $epoch))))
 
 (: SkeletonFrozen Type)
@@ -105,7 +173,8 @@
           ($_merged (sk-drop-merged! $key))
           ($_taken (sk-forget-taken! $hash $key))
           ($_copy (sk-forget-forward-copy! $hash $key))
-          ($_epoch (remove-data-rows! &sk_key_epoch (quote ($hash $key $_last)))))
+          ($_epoch (remove-data-rows! &sk_key_epoch (quote ($hash $key $_last))))
+          ($_frozen (add-atom &sk_frozen ($hash $key))))
       (case $value (
          ((sk-val ($type $kbctx $_proof $tv) $ev $_deps)
             (let* (($summary (assemble-runtime-fact $type $kbctx (brand Proof (forgotten $hash $epoch)) (sk-decayed-tv $tv)))

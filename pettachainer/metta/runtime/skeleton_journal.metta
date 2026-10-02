@@ -131,6 +131,13 @@
 ;; key with rows -> the last epoch a row was created for it or it was needed
 (: &sk_key_epoch (SpaceOf (Number SkeletonKey Number)))
 !(bind! &sk_key_epoch (new-space))
+;; frozen keys, until nothing reads them any more and they are buried
+(: &sk_frozen (SpaceOf (Number SkeletonKey)))
+!(bind! &sk_frozen (new-space))
+;; key -> a node it answers, by node hash, kept while forgetting is on so a
+;; buried key leaves its nodes' answers
+(: &sk_answered (SpaceOf (Number SkeletonKey Number SkPattern)))
+!(bind! &sk_answered (new-space))
 ;; key -> a stale row that read it, by row key hash and row hash
 (: &sk_stale_reader (SpaceOf (Number SkeletonKey Number Number)))
 !(bind! &sk_stale_reader (new-space))

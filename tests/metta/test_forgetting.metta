@@ -19,4 +19,9 @@
 !(advance-epoch)
 !(test (case (query 50 fgKb (: $p (C x) $tv)) (((: (forgotten $_h $_e) (C x) $tv) $tv))) (STV 0.6920000000000002 0.8569735134802743))
 !(test (query 50 fgKb (: $p (A x) $tv)) (: a1 (A x) (STV 0.8 0.9)))
+;; Nothing reads the frozen keys any more, so the next epoch buries them;
+;; the summary still answers a query.
+!(advance-epoch)
+!(test (collapse (match &sk_frozen ($h $k) $k)) ())
+!(test (case (query 50 fgKb (: $p (C x) $tv)) (((: (forgotten $_h $_e) (C x) $tv) $tv))) (STV 0.6920000000000002 0.8569735134802743))
 !(set-forgetting 0 1.0)
