@@ -142,11 +142,9 @@
          (add_to_heap $agenda (- 0 (sk-change $now $taken)) (sk-fwd-key $key)))))
 
 ;; Taking a key records the value built on, updates the base-rate estimates
-;; over it with that value, starts the joins it triggers, searches the folds
-;; they read that no search expanded yet, as a query would, and evaluates every
-;; row reading it. The readers whose value changed join the agenda.
-(: sk-forward-take! (-[semidet]-> (Heap SkeletonForwardItem) SkeletonKey (Heap SkeletonForwardItem)))
-(= (sk-forward-take! $agenda $key)
+;; over it with that value and starts the joins it triggers.
+(: sk-forward-take-step (-[semidet]-> Atom SkeletonKey Atom))
+(= (sk-forward-take-step $_acc $key)
    (let* (($_taken (sk-record-taken! $key))
           ($_aggregates
              (case (sk-key-value $key) (
@@ -154,33 +152,58 @@
                    (case (sk-value $key sk-any-filter (forward-rate-folds $fact)) (
                       ((sk-val $counted $_cev $_cdeps) (forward-maintain-aggregates! aggregate-update $counted))
                       ($_derived (forward-maintain-aggregates! aggregate-remove $fact)))))
-                ($_none ()))))
-          ($_joins (sk-forward-start! $key))
+                ($_none ())))))
+      (sk-forward-start! $key)))
+
+;; The keys of the rows reading a key, current or stale.
+(: sk-reader-keys-step (-[det]-> (List SkeletonKey) SkeletonKey (List SkeletonKey)))
+(= (sk-reader-keys-step $acc $key)
+   (append-flat (append-flat (map-flat sk-item-key (sk-readers $key)) (sk-stale-readers $key)) $acc))
+
+;; A wave takes its keys together, then searches the folds their joins read
+;; that no search expanded yet, as a query would, and evaluates every row
+;; reading them in one evaluation, so a row two of them reach is computed
+;; once. The readers whose value changed form the next agenda.
+(: sk-forward-wave! (-[semidet]-> (List SkeletonKey) (Heap SkeletonForwardItem)))
+(= (sk-forward-wave! $keys)
+   (let* (($_takes (fold-semidet sk-forward-take-step () $keys))
           ($folds
              (collapse (match &sk_forward_folds ($hash $fold)
-                (let $_taken (remove-atom &sk_forward_folds ($hash $fold)) $fold))))
+                (let $_removed (remove-atom &sk_forward_folds ($hash $fold)) $fold))))
           ($_searched (if (== $folds ()) () (sk-search! (fold-semidet (sk-push 0) (empty_heap) $folds))))
-          ($readers (list_to_set (append-flat (map-flat sk-item-key (sk-readers $key)) (sk-stale-readers $key))))
+          ($readers (list_to_set (fold-semidet sk-reader-keys-step () $keys)))
           ($_needed (fold-semidet (sk-need! 0) () $readers))
           ($_evaluated (sk-evaluate!)))
-      (fold-semidet sk-changed-step $agenda $readers)))
+      (fold-semidet sk-changed-step (empty_heap) $readers)))
 
-;; Each take commits to its one result, so the loop leaves no choice points.
-;; The agenda takes the key that changed most. A seed is taken when it is on
-;; top and costs no step; a derived key costs one, and one resting on less
-;; than the minimum evidence is not taken. Returns the derived keys taken.
-(: sk-forward-loop! (-[semidet]-> Number (Heap SkeletonForwardItem) (List SkeletonKey) (List SkeletonKey)))
-(= (sk-forward-loop! $steps $agenda $taken)
-   (if (heap-empty? $agenda) $taken
+(: SkeletonWave Type)
+(: sk-wave (-[det]-> (List SkeletonKey) Number (List SkeletonKey) SkeletonWave))
+
+;; The next wave is the agenda in order of how far each key changed: every
+;; seed, free, and each derived key for one step while steps last. A key taken
+;; already, or resting on less than the minimum evidence, is not taken.
+(: sk-forward-wave
+   (-[semidet]-> Number (Heap SkeletonForwardItem) (List SkeletonKey) (List SkeletonKey) SkeletonWave))
+(= (sk-forward-wave $steps $agenda $wave $taken)
+   (if (heap-empty? $agenda) (sk-wave $wave $steps $taken)
       (case (heap_pop $agenda) (
          (($_priority $item $rest)
             (case $item (
-               ((sk-fwd-seed $seed) (sk-forward-loop! $steps (bounded-agenda-prune (once (sk-forward-take! $rest $seed))) $taken))
+               ((sk-fwd-seed $seed) (sk-forward-wave $steps $rest (cons $seed $wave) $taken))
                ((sk-fwd-key $key)
-                  (if (<= $steps 0) $taken
+                  (if (<= $steps 0) (sk-wave $wave $steps $taken)
                      (if (if (stored-list-member? $key $taken) true (sk-forward-weak? $key))
-                        (sk-forward-loop! $steps $rest $taken)
-                        (sk-forward-loop! (- $steps 1) (bounded-agenda-prune (once (sk-forward-take! $rest $key))) (cons $key $taken))))))))))))
+                        (sk-forward-wave $steps $rest $wave $taken)
+                        (sk-forward-wave (- $steps 1) $rest (cons $key $wave) (cons $key $taken))))))))))))
+
+;; Each wave commits to its one result, so the loop leaves no choice points.
+;; Returns the derived keys taken.
+(: sk-forward-loop! (-[semidet]-> Number (Heap SkeletonForwardItem) (List SkeletonKey) (List SkeletonKey)))
+(= (sk-forward-loop! $steps $agenda $taken)
+   (case (sk-forward-wave $steps $agenda () $taken) (
+      ((sk-wave () $_left $all) $all)
+      ((sk-wave $wave $left $all)
+         (sk-forward-loop! $left (bounded-agenda-prune (once (sk-forward-wave! $wave))) $all)))))
 
 (: sk-seed-step (-[semidet]-> (Heap SkeletonForwardItem) (Statement KBContext Proof TV) (Heap SkeletonForwardItem)))
 (= (sk-seed-step $agenda ($type $kbctx $_proof $_tv))

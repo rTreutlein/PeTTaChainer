@@ -150,10 +150,13 @@ key's value changed rather than by its confidence:
     series is used. So a large revision of a known key outranks a
   confident key that barely moved, and a key whose value did not change is not
   taken at all.
-- A step takes the key that changed most and runs upward joins from it (1). It
-  then evaluates the rows those created (2) and puts their keys on the agenda.
-- The budget counts keys taken. A seed is taken lazily when it is the top
-  item and costs nothing, as now.
+- The run takes keys in waves. A wave is the agenda, in order of how much
+  each key changed, while the budget lasts: all seeds first, then the keys
+  their evaluation changed, and so on. It runs upward joins from every key
+  in the wave (1), then evaluates the rows those created and the rows reading
+  the wave's keys in one evaluation (2), so a row that several of them reach
+  is computed once. The keys whose value changed form the next wave.
+- The budget counts derived keys taken. A seed costs nothing.
 - A key whose merged value rests on less than the minimum evidence
   (`set-forward-min-evidence`) is not taken. Its row still has a view, which
   is cheap and useful to a later query, but nothing is built on top of it.

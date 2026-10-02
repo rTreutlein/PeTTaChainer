@@ -400,7 +400,7 @@ the backward skeleton upward from them (`runtime/backward/upward.metta`,
   keys the skeleton already has, never expanding anything. A complete join is
   an ordinary row. Its owner is the rule's conclusion, and no node is marked
   expanded, so a later query still starts every rule on that pattern.
-- The rows reading the taken key, including rows that went stale, are then
+- The rows reading the taken keys, including rows that went stale, are then
   needed and evaluated by the ordinary evaluation. So self-support, admitted
   versions, conditioning and dominance hold forward as they do for queries. A
   fold premise is a fold key. A fold that no search expanded, other than a
@@ -410,6 +410,9 @@ the backward skeleton upward from them (`runtime/backward/upward.metta`,
   last built on: the KL divergence of the two, each read as a Beta
   distribution over the strength (Beta(1, 1) for no value). Work a budget cut
   off is therefore found again by a later run that reaches the key.
+- Keys are taken in waves: the whole agenda, in that order, while the budget
+  lasts. One evaluation serves a wave, so a row several of its keys reach is
+  computed once; the keys it changed form the next wave.
 - Seeds cost nothing; each derived key taken costs one step. A derived key
   whose value rests on less than a minimum of evidence (one observation, n =
   c·k/(1−c), by default; `set-forward-min-evidence`) is not built on,
