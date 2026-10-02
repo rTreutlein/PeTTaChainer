@@ -84,14 +84,21 @@
 ;; stay as they are. It keeps that value's evidence, so overlap with facts
 ;; stays exact, and depends on the key and the keys within two steps of it, so
 ;; self-support through a rule and its inversion stays excluded. What lies
-;; further back is cut off; its confidence is discounted by the decay, so
-;; evidence counted twice through it enters with shrinking weight.
+;; further back is cut off, also for the values that read the key's views
+;; before: their dependency nodes walk the summary's instead. Its confidence
+;; is discounted by the decay, so evidence counted twice through what was cut
+;; off enters with shrinking weight.
 (: sk-freeze! (-[semidet]-> Number Atom SkeletonFrozen Atom))
 (= (sk-freeze! $epoch $_acc (sk-frozen $hash $key))
    (let* (($value (fold-semidet sk-merge-step sk-none (sk-admitted $hash $key sk-any-filter ())))
           ($near (sk-near-hashes-step (cons $hash ()) $hash))
           ($window (fold-semidet sk-near-hashes-step $near $near))
           ($deps (deps-join (map-flat deps-key (hash-set $window))))
+          ($views (collapse (match &sk_latest ($hash $stored (sk-version $_seq $_rhash $view))
+                     (if (=alpha $stored $key) (sk-view-deps-step 0 $view) (empty)))))
+          ($older (collapse (match &sk_view ($hash $stored $_rhash $view)
+                     (if (=alpha $stored $key) (sk-view-deps-step 0 $view) (empty)))))
+          ($_cut (deps-cut! (append-flat $views $older) $deps))
           ($rows (collapse (match &sk_row ($hash $stored $rhash $row)
                     (if (=alpha $stored $key) (sk-row-ref $stored $rhash $row) (empty)))))
           ($_rows (fold-semidet (sk-forget-row! $hash $key) () $rows))

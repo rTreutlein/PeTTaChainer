@@ -31,6 +31,7 @@
 (: deps-within? (-[det]-> Number Number Bool))
 (: deps-mask-within? (-[det]-> Number Number Bool))
 (: deps-size (-[det]-> Number Number))
+(: deps-cut! (-[det]-> (List Number) Number Bool))
 
 ;; KL divergence of Beta(a1, b1) from Beta(a2, b2) (runtime_helpers.pl).
 (: beta_kl (-[det]-> Number Number Number Number Number))

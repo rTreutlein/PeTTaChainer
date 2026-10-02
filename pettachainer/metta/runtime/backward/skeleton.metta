@@ -323,7 +323,10 @@
             ((sk-key $type $kbctx)
                (let* (($hashes (sk-key-term-hashes $khash $type $kbctx))
                       ($_cached (add-atom &sk_unifiers ($khash $key $hashes)))
-                      ($_reader (add-atom &sk_reader_terms ($type $kbctx $khash $key))))
+                      ;; A ground reader unifies with no other key, so only
+                      ;; an open one waits for the keys registered later.
+                      ($_reader (if (== (extract-vars $key) ()) ()
+                                   (add-atom &sk_reader_terms ($type $kbctx $khash $key)))))
                   $hashes))
             ($_fold (cons $khash ()))))))))
 

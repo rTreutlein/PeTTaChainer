@@ -80,7 +80,16 @@ prefix_hashes(_, _, Hashes, Hashes).
 % change, so an id names one set forever. Each node keeps a bitmask of its
 % keys' hashes, the OR of its children's, so a membership walk skips every
 % child whose mask lacks the key's bit.
-:- dynamic deps_leaf/2, deps_leaf_hash/2, deps_node/3, deps_interned/3, deps_size_memo/2.
+:- dynamic deps_leaf/2, deps_leaf_hash/2, deps_node/3, deps_interned/3, deps_size_memo/2, deps_cut/2.
+
+% A frozen key's views stand for its summary (forgetting.metta): a node cut
+% to another is walked as that one, so what a value read before the key was
+% frozen depends on the key's window, not its whole past.
+'deps-cut!'(Ids, Replacement, true) :-
+    forall(( member(Id, Ids), deps_node(Id, _, _), \+ deps_cut(Id, _), Id \== Replacement ),
+           assertz(deps_cut(Id, Replacement))).
+deps_children(Id, Children) :-
+    (   deps_cut(Id, Replacement) -> Children = [Replacement] ; deps_node(Id, Children, _) ).
 deps_mask_bits(65536).
 
 deps_bit(Hash, Bit) :- deps_mask_bits(W), Bit is 1 << (Hash mod W).
@@ -113,7 +122,7 @@ deps_has(Id, Hash, Bit, Seen) :-
     deps_mask(Id, Mask), Mask /\ Bit =\= 0,
     (   deps_leaf_hash(Id, Leaf) -> Leaf =:= Hash
     ;   add_nb_set(Id, Seen, true),
-        deps_node(Id, Children, _),
+        deps_children(Id, Children),
         member(Child, Children), deps_has(Child, Hash, Bit, Seen), ! ).
 
 'deps-has?'(Id, Hash, Result) :- ( deps_has(Id, Hash) -> Result = true ; Result = false ).
@@ -141,19 +150,20 @@ deps_collect(0, _, _) :- !.
 deps_collect(Id, Nodes, Keys) :-
     (   add_nb_set(Id, Nodes, true)
     ->  (   deps_leaf_hash(Id, Hash) -> add_nb_set(Hash, Keys, _)
-        ;   deps_node(Id, Children, _), forall(member(Child, Children), deps_collect(Child, Nodes, Keys)) )
+        ;   deps_children(Id, Children), forall(member(Child, Children), deps_collect(Child, Nodes, Keys)) )
     ;   true ).
 deps_covered(Id, Nodes, Keys, Seen) :-
     (   add_nb_set(Id, Nodes, false) -> true
     ;   add_nb_set(Id, Seen, false) -> true
     ;   add_nb_set(Id, Seen, true),
         (   deps_leaf_hash(Id, Hash) -> add_nb_set(Hash, Keys, false)
-        ;   deps_node(Id, Children, _), forall(member(Child, Children), deps_covered(Child, Nodes, Keys, Seen)) ) ).
+        ;   deps_children(Id, Children), forall(member(Child, Children), deps_covered(Child, Nodes, Keys, Seen)) ) ).
 
 % The number of keys in a set; a node's count never changes once computed.
 'deps-size'(0, 0) :- !.
 'deps-size'(Id, Size) :-
-    (   deps_leaf_hash(Id, _) -> Size = 1
+    (   deps_cut(Id, Replacement) -> 'deps-size'(Replacement, Size)
+    ;   deps_leaf_hash(Id, _) -> Size = 1
     ;   deps_size_memo(Id, Size) -> true
     ;   empty_nb_set(Nodes), empty_nb_set(Keys), deps_collect(Id, Nodes, Keys),
         size_nb_set(Keys, Size), assertz(deps_size_memo(Id, Size)) ).
