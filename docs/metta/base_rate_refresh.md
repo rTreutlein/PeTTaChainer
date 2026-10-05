@@ -1,6 +1,6 @@
 # Base-rate refresh
 
-Status: design, October 2026.
+Status: rejected by its go/no-go measurement, October 2026. Not built.
 
 ## Problem
 
@@ -137,3 +137,30 @@ scratch harness like the others until the curve says what it should be.
    - the plateau is at or below head's 0.0591;
    - the f 0.5, q ≥ 200 cells recover;
    - the frontier lies left of dormancy alone.
+
+## Go/no-go result
+
+A prototype refreshed every member of every base rate before each shift's
+queries: it needed all members at depth 0 with unbounded budgets, evaluated,
+and took the dirty members. Replayed StationOps, 8 seeds, 10 modules, 20
+shifts. Each cell is Brier, and compute per seed (queries + refresh):
+
+| | head | head + refresh | dormancy | dormancy + refresh |
+|---|---|---|---|---|
+| f 2, q 300 | 0.0591 (20 s) | 0.0591 (46 + 26 s) | 0.0600 (19 s) | 0.0601 (41 + 25 s) |
+| f 0.5, q 300 | 0.0607 (24 s) | 0.0608 (42 + 26 s) | 0.0655 (15 s) | 0.0654 (36 + 25 s) |
+| f 0.5, q 200 | 0.0615 (14 s) | 0.0614 (34 + 23 s) | 0.0728 (12 s) | 0.0722 (27 + 22 s) |
+
+The refresh moves rates (by up to 0.025 under dormancy, seed 1), but quality
+does not change, and the head-dormancy gap stays: rates still differ by up to
+0.07 between the two with refresh. Stale member values are not what
+separates them.
+
+What does is membership. On seed 1, shift 2, the rate `SealLeak new
+ore-feed-pump` holds observations of h-0000..0003 and shift-01 under head,
+but only h-0000..0003 under dormancy (forward aggregate 13), although the
+shift-01 key exists in both and another aggregate over the same pattern
+(80) has it in both. A key joins a rate only when it is delivered as an
+answer to the rate's open member node. Deliveries are paid from the row
+budget, and parked ones resume only when a later search walks that node. So
+which instances a rate counts depends on how search spent its budget.
