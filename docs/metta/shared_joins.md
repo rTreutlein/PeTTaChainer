@@ -1,6 +1,6 @@
 # Shared joins
 
-Status: design, October 2026.
+Status: parked, October 2026. Built on branch shared-joins (44700af0); with dormant rules it adds 1–4 s per seed for no quality gain. Results are in that branch's copy of this document.
 
 ## Problem
 
