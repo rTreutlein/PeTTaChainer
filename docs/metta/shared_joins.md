@@ -191,3 +191,30 @@ times the steps toward a row run, and when a second asker hears of it.
    dormancy, both with answers by index. Success: Brier unchanged per cell,
    compute down, most where answers are already found (f 2, q ≥ 200, where
    the index added 1.5–3 s per seed), and memory not up.
+
+## Follow-up: known keys at open waits
+
+Head with sharing gained because queries continued forward-built joins with
+the keys the forward run read. A narrower change tested whether dormant rules
+gain the same way:
+- a join waiting on an open premise of a known predicate reads, once, the
+  stored facts and registered ground keys that match it;
+- premises with a variable predicate are left out, since they read every
+  binary key, the compiler's `And` keys included;
+- root rows spend the row allowance while it lasts, so recursive rules stay
+  bounded.
+
+It is not adopted. Replayed StationOps, 8 seeds, dormant rules with answers
+by index; each cell is Brier, then compute per seed:
+
+| game | f | q | without | with known keys |
+|---|---|---|---|---|
+| plain | 1 | 50 | 0.0611 (11.2 s) | 0.0601 (12.0 s) |
+| plain | 2 | 50 | 0.0590 (14.0 s) | 0.0591 (13.7 s) |
+| plain | 2 | 200 | 0.0590 (17.1 s) | 0.0590 (17.4 s) |
+| consequence chains | 1 | 50 | 0.0611 (11.0 s) | 0.0601 (12.2 s) |
+| consequence chains | 2 | 50 | 0.0610 (14.4 s) | 0.0625 (15.4 s) |
+| consequence chains | 2 | 200 | 0.0598 (17.1 s) | 0.0597 (18.4 s) |
+
+Dormant rules already reach the plateau in these cells: head's gain was
+search it wasted, which dormancy does not waste.
