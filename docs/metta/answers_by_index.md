@@ -113,21 +113,30 @@ finite.
 
 ## Result
 
-Replayed StationOps, 8 seeds, 10 modules, 20 shifts. Each cell is Brier,
-then compute per seed (forward + query):
+Replayed StationOps, 8 seeds, 10 modules, 20 shifts, 6 runs at a time.
+Each cell is Brier, then compute per seed (forward + query):
 
-| | head | head + index | dormancy | dormancy + index |
-|---|---|---|---|---|
-| f 2, q 300 | 0.0591 (20.3 s) | 0.0591 (24.7 s) | 0.0600 (18.5 s) | 0.0600 (29.1 s) |
-| f 0.5, q 300 | 0.0607 (24.1 s) | 0.0597 (19.4 s) | 0.0655 (14.5 s) | 0.0603 (18.1 s) |
-| f 0.5, q 200 | 0.0615 (13.6 s) | 0.0600 (16.3 s) | 0.0728 (11.9 s) | 0.0610 (15.3 s) |
+| f | q | head | head + index | dormancy | dormancy + index |
+|---|---|---|---|---|---|
+| 0.5 | 200 | 0.0615 (12.7 s) | 0.0600 (15.1 s) | 0.0728 (11.0 s) | 0.0610 (14.1 s) |
+| 0.5 | 300 | 0.0607 (15.8 s) | 0.0597 (17.9 s) | 0.0655 (14.3 s) | 0.0603 (15.7 s) |
+| 1 | 50 | 0.0937 (7.2 s) | 0.0915 (8.3 s) | 0.0835 (9.4 s) | 0.0621 (11.5 s) |
+| 1 | 100 | 0.0820 (11.8 s) | 0.0748 (16.3 s) | 0.0760 (12.4 s) | 0.0614 (13.7 s) |
+| 1 | 200 | 0.0615 (15.0 s) | 0.0592 (17.2 s) | 0.0651 (13.2 s) | 0.0607 (14.8 s) |
+| 2 | 50 | 0.0861 (9.4 s) | 0.0856 (10.2 s) | 0.0607 (13.2 s) | 0.0600 (14.8 s) |
+| 2 | 100 | 0.0744 (17.0 s) | 0.0748 (17.1 s) | 0.0602 (14.4 s) | 0.0602 (17.0 s) |
+| 2 | 200 | 0.0591 (17.5 s) | 0.0591 (17.9 s) | 0.0599 (14.5 s) | 0.0599 (17.5 s) |
+| 2 | 300 | 0.0591 (20.0 s) | 0.0591 (22.5 s) | 0.0600 (17.2 s) | 0.0600 (20.5 s) |
 
-- **Dormancy gap closed at low forward:** f 0.5 cells drop from 0.073 to
-  0.061 and from 0.066 to 0.060.
-- **Head improves too:** f 0.5, q 300 goes from 0.0607 to 0.0597.
-- **Cost rises in some cells:** dormancy at f 2, q 300 goes from 18.5 s to
-  29.1 s. Nodes now receive answers they did not search for, and their
-  joins proceed.
-
-The rest of the grid has not run yet. The run stopped when the machine
-crashed.
+- **Dormancy no longer depends on the forward budget:** with the index,
+  every cell lies between 0.0599 and 0.0621. Without it, Brier ranges from
+  0.0599 to 0.0835. At about 12 s the best Brier goes from 0.073 to 0.062.
+- **Head gains where forward is low** (f 0.5 and 1) and is unchanged at
+  f 2.
+- **The plateau gap remains:** dormancy stays at 0.0599 at f 2 with or
+  without the index, against head's 0.0591. This defect is not the cause of
+  that gap.
+- **Cost:** compute rises by about 1 to 3 s per seed in most cells (up to
+  4.5 s in one), and peak memory by 10–30%. Where forward is high and the
+  answer is already found, the extra work buys nothing. At f 2, q 300 the
+  index costs 3.3 s and moves Brier by nothing.
