@@ -2006,6 +2006,7 @@
 (= (sk-root-score-step $_acc $goal)
    (let* (($hash (sk-node-hash $goal))
           ($_root (add-atom &sk_roots ($hash $goal)))
+          ($_indexed (sk-index-node! $goal))
           ($_member
              (case (copy_term $goal) (
                 ((CPU $_fun $_args $_res) ())

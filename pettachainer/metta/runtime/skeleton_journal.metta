@@ -96,6 +96,11 @@
 ;; match and gets them back uninstantiated
 (: &sk_node_terms (SpaceOf (Statement KBContext SkPattern)))
 !(bind! &sk_node_terms (new-space))
+;; ground nodes and fold member nodes reading any proof and value, by a copy of
+;; their statement and context, under the hash of the statement's longest
+;; ground prefix, or of its head when it has none, with the node's hash
+(: &sk_node_prefix (SpaceOf (Number Statement KBContext Number SkPattern)))
+!(bind! &sk_node_prefix (new-space))
 (: &sk_answer (SpaceOf (Number SkPattern SkeletonKey)))
 !(bind! &sk_answer (new-space))
 ;; partial joins waiting on a node

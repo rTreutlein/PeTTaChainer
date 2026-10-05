@@ -153,13 +153,49 @@
    (/ (* (sk-node-score $owner) (sk-rule-score $rule))
       (max 1 (fold-semidet sk-open-premise-step 0 $remaining))))
 
-(: sk-add-child! (-[det]-> SkPattern SkPattern Number Atom))
+;; A ground node reading any proof and value, or a fold's member node, is
+;; indexed once and takes the ground keys already registered that unify with
+;; it (see sk-register-key!). Any other open node is answered by its own
+;; search, which bounds recursion through its own conclusions.
+(: sk-index-key-step (-[semidet]-> SkPattern Atom Number Atom))
+(= (sk-index-key-step $node $_acc $khash)
+   (let $_answered
+      (collapse (match &sk_keys ($khash $key)
+         (if (== (extract-vars $key) ()) (sk-add-answer! $node $key) (empty))))
+      ()))
+
+(: sk-index-node! (-[semidet]-> SkPattern Atom))
+(= (sk-index-node! $node)
+   (case $node (
+      (($type $kbctx $proof $tv)
+         (if (if (is-var $proof)
+                (if (is-var $tv)
+                   (if (== (extract-vars $type) ()) true
+                      (space-row-present? &sk_member_of ((sk-node-hash $node) $_member $_fold)))
+                   false)
+                false)
+            (let* (($hash (sk-node-hash $node))
+                   ($prefix
+                      (case (statement-prefix-hashes $type) (
+                         (() (index-hash (car-atom $type)))
+                         ((cons $longest $_shorter) $longest)))))
+               (if (space-row-present? &sk_node_prefix ($prefix $_t $_c $hash $_n)) ()
+                  (let $_row
+                     (case (copy_term $node) (
+                        (($lookup-type $lookup-kbctx $_p $_v)
+                           (add-atom &sk_node_prefix ($prefix $lookup-type $lookup-kbctx $hash $node)))))
+                     (fold-semidet (sk-index-key-step $node) ()
+                        (sk-unifying-key-hashes (brand Statement $type) (brand KBContext $kbctx))))))
+            ()))
+      ($_cpu ()))))
+
+(: sk-add-child! (-[semidet]-> SkPattern SkPattern Number Atom))
 (= (sk-add-child! $owner $child $score)
    (if (let $_scored (sk-raise-score! $child $score) (sk-link-new! (sk-child-link $owner $child)))
       (let* (($hash (sk-node-hash $owner))
              ($_row (add-atom &sk_child ($hash $owner $child)))
              ($_fresh (add-atom &sk_fresh (sk-fresh $child))))
-         ())
+         (sk-index-node! $child))
       ()))
 
 ;; --- Base rates -------------------------------------------------------------
@@ -275,7 +311,18 @@
             (empty))))
       ()))
 
-(: sk-register-key! (-[det]-> SkeletonKey Atom))
+;; A ground node is answered by its key, and a fold's member node by every
+;; ground key unifying with it, whichever search registered the key
+;; (docs/metta/answers_by_index.md): a new key answers the indexed nodes it
+;; unifies with, found through its statement's prefixes, and a node indexed
+;; later takes the keys already registered (sk-index-node!).
+(: sk-member-join-step (-[semidet]-> Statement KBContext SkeletonKey Atom Number Atom))
+(= (sk-member-join-step $type $kbctx $key $_acc $prefix)
+   (let $_answered
+      (collapse (match &sk_node_prefix ($prefix $type $kbctx $_nhash $node) (sk-add-answer! $node $key)))
+      ()))
+
+(: sk-register-key! (-[semidet]-> SkeletonKey Atom))
 (= (sk-register-key! $key)
    (case $key (
       ((sk-key $type $kbctx)
@@ -283,14 +330,17 @@
             (if (== (collapse (once (match &sk_keys ($hash $stored) (if (=alpha $stored $key) true (empty))))) ())
                (let* (($_key (add-atom &sk_keys ($hash $key)))
                       ($_terms (add-atom &sk_key_terms ($type $kbctx $hash)))
+                      ($ground (== (extract-vars $type) ()))
                       ($_prefixes
-                         (if (== (extract-vars $type) ())
+                         (if $ground
                             (map-flat (sk-key-prefix-row! $type $kbctx $hash) (statement-prefix-hashes $type))
                             (add-atom &sk_key_open ($type $kbctx $hash))))
                       ($_joined
                          (collapse (match &sk_reader_terms ($type $kbctx $rhash $reader)
                             (if (== $rhash $hash) (empty) (sk-unifier-add! $hash $rhash $reader))))))
-                  ())
+                  (if $ground
+                     (fold-semidet (sk-member-join-step $type $kbctx $key) () (cons (index-hash (car-atom $type)) (statement-prefix-hashes $type)))
+                     ()))
                ())))
       ($_fold ()))))
 
