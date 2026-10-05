@@ -32,14 +32,13 @@
    (query 200 brKb (: $prf (P alice) $tv))
    (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.7361612357845151 0.0003604274173100072)))
 
-; Adding another proof is monotonic. The computed snapshot remains available
-; until a later query takes the new member into the fold.
+; A stored fact counts in the base rates observing it when it is added.
 !(compileadd brKb (: pc (P carol) (STV 0.3 0.8)))
 
 !(test
    (let $cached (cached-base-rate brKb (P $x))
       (if (== $cached ()) no-cache-entry (car-atom $cached)))
-   (STV 0.6999999999999998 0.0009990009990009992))
+   (STV 0.49999999999999994 0.0019960079840319364))
 
 !(test
    (query 200 brKb (: $prf (P alice) $tv))

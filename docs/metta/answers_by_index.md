@@ -140,3 +140,37 @@ Each cell is Brier, then compute per seed (forward + query):
   4.5 s in one), and peak memory by 10–30%. Where forward is high and the
   answer is already found, the extra work buys nothing. At f 2, q 300 the
   index costs 3.3 s and moves Brier by nothing.
+
+## The remaining plateau gap
+
+At f 2 dormancy stayed at 0.0599 against head's 0.0591, with or without the
+index. Traced on seed 8, M03, shift 4: the base rate `SealLeak old
+power-converter` counted the four history cases under dormancy, and also
+shift 3's confirmed leak under head.
+- Resolved outcomes (`leak-shift-*`) are added as facts but are not forward
+  seeds.
+- Adding a fact maintained the member-inheritance aggregates but not the
+  base rates; removing a fact maintained both.
+- So a confirmed outcome reached a rate only through a skeleton take, once
+  some search expanded that rate's fold. Head's search did, through a rule
+  that is dormant under dormancy.
+
+Now a stored fact counts in the base rates observing it when it is added
+(`kb-add-expr`, see runtime_design_assumptions.md). The same grid with that
+change:
+
+| f | q | head | head + index | dormancy | dormancy + index |
+|---|---|---|---|---|---|
+| 0.5 | 200 | 0.0614 (12.1 s) | 0.0599 (14.6 s) | 0.0706 (10.7 s) | 0.0602 (13.0 s) |
+| 0.5 | 300 | 0.0603 (14.9 s) | 0.0597 (17.9 s) | 0.0655 (13.6 s) | 0.0594 (15.7 s) |
+| 1 | 50 | 0.0863 (6.8 s) | 0.0844 (8.0 s) | 0.0782 (9.2 s) | 0.0611 (11.2 s) |
+| 1 | 100 | 0.0799 (11.5 s) | 0.0732 (14.7 s) | 0.0730 (10.7 s) | 0.0604 (13.1 s) |
+| 1 | 200 | 0.0620 (13.9 s) | 0.0591 (15.6 s) | 0.0638 (12.2 s) | 0.0598 (13.5 s) |
+| 2 | 50 | 0.0841 (9.1 s) | 0.0840 (9.4 s) | 0.0597 (12.7 s) | 0.0590 (14.0 s) |
+| 2 | 100 | 0.0738 (15.3 s) | 0.0743 (17.2 s) | 0.0592 (14.7 s) | 0.0592 (16.8 s) |
+| 2 | 200 | 0.0591 (19.2 s) | 0.0591 (19.0 s) | 0.0590 (16.2 s) | 0.0590 (17.1 s) |
+| 2 | 300 | 0.0591 (19.2 s) | 0.0591 (19.8 s) | 0.0591 (16.8 s) | 0.0591 (18.3 s) |
+
+- **Dormancy now reaches head's plateau** (0.0590–0.0591).
+- **Dormancy + index reaches it at f 2, q 50 in 14.0 s.** Head needs
+  q 200 and 19 s.

@@ -221,9 +221,13 @@
                    ($_add (chainer-add-atom &kb $fact))
                    ($_index (kb-index-fact! live $fact))
                    ($_journal (sk-note-fact! $type $kb))
-                   ($_nodes (record-fact-inheritance-nodes! $fact true))
-                   ($_members (forward-maintain-member-aggregates! aggregate-update $fact)))
-                  ()))
+                   ($_nodes (record-fact-inheritance-nodes! $fact true)))
+                  ;; The aggregates observing the statement count it at once,
+                  ;; with its stored facts merged, as a removal recounts it:
+                  ;; whether a forward run takes it is not theirs to decide.
+                  (case (stored-statement-candidate $type $kb false) (
+                     ((forward-derived $merged $_ev) (forward-maintain-aggregates! aggregate-update $merged))
+                     (no-forward-output-candidate ())))))
             (let $_index (kb-index-fact! $backend $fact)
                (kb-add-atom $backend &kb (brand SpaceAtom $fact)))))))
 

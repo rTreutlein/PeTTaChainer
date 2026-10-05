@@ -221,7 +221,11 @@ reads its members' truth values as data and is treated the same way, so a rule
 can fold a group's beliefs and read one member of the group again.
 
 A base-rate fold is incremental, since its population grows with everything
-ingested. It keeps its accumulated evidence and each member's contribution; a
+ingested. It keeps its accumulated evidence and each member's contribution. A
+stored fact counts in the base rates observing it when it is added, its
+statement with its stored facts merged, as a removal recounts it: one lookup
+of the aggregates interested in its head. Whether a forward run or a search
+reaches the fact does not change what the rate counts. A derived
 member that joined or whose value changed is taken again, replacing its old
 contribution, when a query needs the fold or it is next read. A member's
 change that came through the rate itself is not taken again: the rate does not

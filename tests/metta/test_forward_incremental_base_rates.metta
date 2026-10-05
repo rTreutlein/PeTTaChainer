@@ -176,24 +176,24 @@
       $source)
    computed)
 
-;; compileadd registers accumulator interests but performs no forward work.
-;; With an explicit one-step seed, exactly that canonical fact contributes;
-;; a second one-step seed adds the second fact and nothing else.
+;; A stored fact counts in the base rates observing it when it is added,
+;; whether or not a forward run takes it: counting is bookkeeping, not
+;; inference. A forward run over the facts changes nothing.
 !(compileadd forwardBudgetBaseRateKb
    (: pToQ
       (Implication (P $x) (Q $x))
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 !(compileadd forwardBudgetBaseRateKb (: high (P high) (STV 0.9 0.9)))
-!(compileadd forwardBudgetBaseRateKb (: low (P low) (STV 0.1 0.2)))
-
-!(test (cached-base-rate forwardBudgetBaseRateKb (P $x)) ())
-
-!(forward-chain 1 forwardBudgetBaseRateKb
-   (test-selected-facts forwardBudgetBaseRateKb (P high)))
 
 !(test
    (cached-base-rate forwardBudgetBaseRateKb (P $x))
    ((STV 0.9 0.0011237357972281184)))
+
+!(compileadd forwardBudgetBaseRateKb (: low (P low) (STV 0.1 0.2)))
+
+!(test
+   (cached-base-rate forwardBudgetBaseRateKb (P $x))
+   ((STV 0.7545454545454545 0.0013731119710398204)))
 
 !(test
    (list-count
@@ -207,7 +207,7 @@
                (forward-base-rate-observation-value $_fact)
                $_weight $_count)
             true)))
-   1)
+   2)
 
 !(forward-chain 1 forwardBudgetBaseRateKb
    (test-selected-facts forwardBudgetBaseRateKb (P low)))
@@ -289,9 +289,9 @@
       $source)
    computed)
 
-;; A computed ordinary snapshot keeps that source across a later selected
-;; forward delta. compileadd records the fact but does not rewrite the cache;
-;; one seeded forward step patches the harvested statistics and republishes.
+;; A computed ordinary snapshot keeps that source across later additions.
+;; compileadd counts the new fact in the harvested statistics and republishes;
+;; a seeded forward step over it changes nothing.
 !(compileadd computedForwardBaseRateKb
    (: pToQ
       (Implication (P $x) (Q $x))
@@ -330,7 +330,7 @@
 
 !(test
    (cached-base-rate computedForwardBaseRateKb (P $x))
-   ((STV 0.6999999999999998 0.0009990009990009992)))
+   ((STV 0.49999999999999994 0.0019960079840319364)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)
@@ -350,7 +350,7 @@
                (forward-base-rate-observation-value $_fact)
                $_weight $_count)
             true)))
-   1)
+   2)
 
 !(forward-chain 1 computedForwardBaseRateKb
    (test-selected-facts computedForwardBaseRateKb (P carol)))
@@ -361,9 +361,8 @@
       $source)
    computed)
 
-;; The run's evaluation recomputes the P fold that the new fact made stale. The
-;; earlier query's inverted P(alice) was derived through this fold, so the one
-;; tally holds bob and carol only.
+;; The earlier query's inverted P(alice) was derived through this fold, so
+;; the one tally holds bob and carol only.
 !(test
    (cached-base-rate computedForwardBaseRateKb (P $x))
    ((STV 0.49999999999999994 0.0019960079840319364)))
