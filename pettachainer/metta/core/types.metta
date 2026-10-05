@@ -34,6 +34,11 @@
 (: deps-cut! (-[det]-> (List Number) Number Bool))
 (: deps-gc! (-[det]-> (List Number) Bool))
 
+;; Rules whose premise only their own conclusion supports (runtime_helpers.pl).
+(: rule-dormant? (-[det]-> Number Bool))
+(: rule-dormancy-wake! (-[det]-> Atom (List Number)))
+(: rule-dormancy-reset! (-[det]-> (List Number)))
+
 ;; KL divergence of Beta(a1, b1) from Beta(a2, b2) (runtime_helpers.pl).
 (: beta_kl (-[det]-> Number Number Number Number Number))
 

@@ -1,6 +1,6 @@
 # Dormant rules
 
-Status: design, October 2026.
+Status: built, October 2026.
 
 ## Problem
 
@@ -57,6 +57,15 @@ would, but on patterns rather than on facts:
   branch.
 - Computed premises (`CPU`) and fold premises count as supported: a fold
   always has a value, and a computation has no evidence to loop on.
+- Only what the search fully sees is judged: user predicates in the main
+  context, or a context the rule leaves open. A premise in an assumption
+  context (the query-local rules of total implications) is supplied by its
+  assumptions, and the chainer's own vocabulary (`Inheritance`, `Member`,
+  member and implication samples, `RuleTruth`, implications and connectives)
+  has support the search does not model: rules installed when a node expands,
+  member folds. Such premises count as supported. (A first version judged
+  them and put the `smokes` example's inheritance-lift rules to sleep,
+  changing its answer from 0.420 to 0.380.)
 - Patterns already on the search path are not supported by that branch
   (recursion), and patterns already decided are memoized by variant.
 - The search is bounded (depth and patterns visited). When the bound is
@@ -108,3 +117,25 @@ they are.
   without dormancy, on the plain game and with consequence chains; query
   time and memory with chains back near the plain game's. Forward runs still
   derive the consequences, which is what forward chaining is for.
+
+## Result
+
+StationOps, 8 seeds, 10 modules, 20 shifts, replaying the same recorded
+inspections and repairs (ChainerGame `--replay`), so belief quality is
+comparable across settings. Grid over forward steps per fact (0.25 to 2)
+and query budget (50 to 300); compute is forward plus query time per seed.
+
+| | head | dormancy |
+|---|---|---|
+| best Brier within 12 s | 0.0861 | 0.0728 |
+| best Brier within 16 s | 0.0615 | 0.0602 |
+| f 2, q 50 | 0.0861 @ 9.6 s | 0.0607 @ 14.0 s |
+| f 0.5, q 300 | 0.0607 @ 24.1 s | 0.0655 @ 14.5 s |
+| plateau | 0.0591 @ 18.6 s | 0.0599 @ 16.3 s |
+
+Nearly every setting costs less, and the curve moves left in the middle of
+the range. The plateau is 0.0008 higher, and low forward with a high query
+budget is worse: base rates count derived members only when something
+happens to read them, and dormant rules no longer read some of them. That is
+a defect of base-rate refresh, not of dormancy (see
+`base_rate_refresh.md`).

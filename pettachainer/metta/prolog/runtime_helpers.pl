@@ -188,6 +188,84 @@ deps_covered(Id, Nodes, Keys, Seen) :-
     ;   empty_nb_set(Nodes), empty_nb_set(Keys), deps_collect(Id, Nodes, Keys),
         size_nb_set(Keys, Size), assertz(deps_size_memo(Id, Size)) ).
 
+% A rule is dormant when one of its statement premises can be proved, apart
+% from a stored fact, only through the rule's own conclusion with the same
+% arguments: self-support exclusion would drop whatever it derives
+% (docs/metta/dormant_rules.md). The search runs backward over rules and
+% facts on patterns, bounded: past the bound a premise counts as supported,
+% so a useful rule is never put to sleep. Forward copies of derived values
+% are not support. The verdict is memoized per rule with the heads the
+% search found no fact for; a new fact with one of those heads, or any new
+% rule, wakes the rule for another look.
+:- dynamic rule_dormancy/3.
+
+'rule-dormant?'(Id, Dormant) :-
+    (   rule_dormancy(Id, Dormant, _) -> true
+    ;   dormancy_analysis(Id, Dormant, Heads), assertz(rule_dormancy(Id, Dormant, Heads)) ).
+
+dormancy_analysis(Id, Dormant, Heads) :-
+    nb_setval(dormancy_budget, 2000), nb_setval(dormancy_heads, []),
+    (   dormancy_row(rules('runtime-rule-row', Id, [Type, Ctx|_], Premises)),
+        member([PType, PCtx, _, _], Premises), PType \== 'CPU',
+        \+ dormancy_supported(PType, PCtx, Type-Ctx, [], 8)
+    ->  Dormant = true
+    ;   Dormant = false ),
+    nb_getval(dormancy_heads, Heads0), sort(Heads0, Heads).
+
+dormancy_supported(Type, Ctx, Forbidden, Path, Depth) :-
+    nb_getval(dormancy_budget, Budget),
+    (   Budget =< 0 -> true
+    ;   Budget1 is Budget - 1, nb_setval(dormancy_budget, Budget1),
+        (   Type-Ctx == Forbidden -> fail
+        ;   member(Seen, Path), Seen =@= Type-Ctx -> fail
+        ;   Depth =< 0 -> true
+        ;   \+ dormancy_judged(Type, Ctx) -> true
+        ;   dormancy_fact(Type, Ctx) -> true
+        ;   \+ dormancy_row(rules('runtime-rule-row', _, [Type, Ctx|_], _)) -> true
+        ;   dormancy_note_head(Type),
+            Depth1 is Depth - 1,
+            dormancy_row(rules('runtime-rule-row', _, [Type, Ctx|_], Premises)),
+            forall(( member([PType, PCtx, _, _], Premises), PType \== 'CPU' ),
+                   dormancy_supported(PType, PCtx, Forbidden, [Type-Ctx|Path], Depth1)) ) ).
+
+% A statement no fact and no rule speaks of yet is an input still to come,
+% not one only the rule's conclusion supports, so it counts as supported.
+% The search judges only what it fully sees: user predicates in the main
+% context (or one a rule leaves open). An assumption context supplies its own
+% premises, and the chainer's own vocabulary has support the search does not
+% model: rules installed when a node expands (implications, member
+% inheritance), member folds and samples. Anything else counts as supported.
+dormancy_judged(Type, [_, Context|_]) :-
+    ( var(Context) ; Context == 'MAIN' ),
+    \+ ( Type = [Head|_], memberchk(Head, ['Inheritance', 'Member', 'MemberInheritanceSample',
+        'ImplicationInstanceSample', 'RuleTruth', 'Implication', 'Equivalence', 'And', 'Or', 'Not',
+        'ForAll', 'WithPrior', 'Evaluation', 'Similarity']) ).
+
+dormancy_fact(Type, Ctx) :-
+    \+ \+ ( dormancy_row('&kb'(Type, Ctx, Proof, Tv)),
+            \+ ( 'index-hash'(['sk-key', Type, Ctx], Hash),
+                 dormancy_row('&sk_forward_stored'(Hash, _, Copy, _, _)), Copy == [Type, Ctx, Proof, Tv] ) ).
+
+% A space has no clauses, and so no predicate, until its first row.
+dormancy_row(Row) :- catch(user:Row, error(existence_error(procedure, _), _), fail).
+
+dormancy_note_head(Type) :-
+    (   Type = [Head|_] -> true ; Head = Type ),
+    nb_getval(dormancy_heads, Heads), nb_setval(dormancy_heads, [Head|Heads]).
+
+% The dormant rules a new fact of this statement could wake; their verdicts
+% are dropped.
+'rule-dormancy-wake!'(Type, Ids) :-
+    (   Type = [Head|_] -> true ; Head = Type ),
+    findall(Id, ( rule_dormancy(Id, true, Heads), memberchk(Head, Heads) ), Ids0), sort(Ids0, Ids),
+    forall(member(Id, Ids), retractall(rule_dormancy(Id, _, _))).
+
+% A new rule can give any premise support: every dormant rule is looked at
+% again, and every verdict is dropped.
+'rule-dormancy-reset!'(Ids) :-
+    findall(Id, rule_dormancy(Id, true, _), Ids0), sort(Ids0, Ids),
+    retractall(rule_dormancy(_, _, _)).
+
 % The trie compares variants exactly, without binding caller variables or
 % confusing hash collisions. Destroy query-local storage even on an exception.
 alpha_unique_keys(Keys, Unique) :-

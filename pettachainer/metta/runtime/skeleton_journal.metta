@@ -279,20 +279,34 @@
 ;; --- Journal ------------------------------------------------------------------
 
 ;; Nothing has been expanded before the first query, so bulk loading journals
-;; nothing.
+;; nothing. A new rule can also give a dormant rule's premise support, and a
+;; new fact one whose search found no fact of its statement: those rules are
+;; started again on the nodes already expanded (docs/metta/dormant_rules.md).
+;; A forward run's copy of a derived value is no support and wakes nothing.
+(: sk-pend-rule! (-[det]-> Number Atom))
+(= (sk-pend-rule! $id) (let $_row (add-atom &sk_pending_rules (sk-pending-rule $id)) ()))
+
 (: sk-note-rule! (-[det]-> Number Atom))
 (= (sk-note-rule! $id)
-   (if (not (== (collapse (once (match &sk_expanded ($_hash $_pattern) true))) ()))
-      (let $_row (add-atom &sk_pending_rules (sk-pending-rule $id)) ())
-      ()))
+   (let $woken (rule-dormancy-reset!)
+      (if (not (== (collapse (once (match &sk_expanded ($_hash $_pattern) true))) ()))
+         (foreach-flat sk-pend-rule! (cons $id $woken))
+         ())))
+
+(: sk-wake-dormant! (-[det]-> Statement Bool Atom))
+(= (sk-wake-dormant! $type $expanded)
+   (let $woken (rule-dormancy-wake! $type)
+      (if $expanded (foreach-flat sk-pend-rule! (the (List Number) $woken)) ())))
 
 (: sk-note-fact! (-[det]-> Statement KBContext Atom))
 (= (sk-note-fact! $type $kbctx)
    (let* (($key (sk-key $type $kbctx))
+          ($expanded (not (== (collapse (once (match &sk_expanded ($_hash $_pattern) true))) ())))
           ($_pending
-             (if (not (== (collapse (once (match &sk_expanded ($_hash $_pattern) true))) ()))
+             (if $expanded
                 (let $_pending-row (add-atom &sk_pending_facts (sk-pending-fact $key)) ())
                 ()))
+          ($_woken (if (== (search-id-value sk_forward_run) 1) () (sk-wake-dormant! $type $expanded)))
           ($_dirty
              (if (not (== (collapse (once (match &sk_latest ($_hash $_key $_version) true))) ()))
                 (let $_dirty-row (add-atom &sk_dirty (sk-dirty $key)) ())

@@ -847,8 +847,9 @@
 ;; A rule applies to a node when its conclusion fits the whole node pattern;
 ;; its row is built from the statement and context alone, since a row belongs
 ;; to its key and each reader applies its own proof and truth-value pattern.
+;; A dormant rule is not started (docs/metta/dormant_rules.md).
 (= (sk-start-rule-step $owner $_acc (sk-match $rule $premises $goal))
-   (if (= (copy_term $goal) (copy_term $owner))
+   (if (if (rule-dormant? $rule) false (= (copy_term $goal) (copy_term $owner)))
       (if (prefilter-prunes-walk (copy_term $premises)) ()
          (sk-advance! (sk-partial $owner $rule $goal $premises $premises ())))
       ()))
