@@ -170,3 +170,37 @@ parent).
   but could not pay for was stale with no value, and queries refreshed stale
   rows only near their roots, so a fold above it lost the member (Brier up
   to 0.16). Fixed in 3f11d9d1; the table is after the fix.
+
+### Fixed slice per shift
+
+Forward compute given as N units per shift to one run without facts, new
+facts queued without units (`CG_FORWARD_SLICE`), so it no longer follows the
+number of facts a shift brings (about 25). Same games and seeds.
+
+| slice | q | plain, share 1 | plain, share 0.5 | distractor chains, share 1 |
+|---|---|---|---|---|
+| 25 | 50 | 0.0979 (8.6 s) | 0.1070 (6.6 s) | 0.0979 (8.9 s) |
+| 50 | 50 | 0.0607 (11.7 s) | 0.0971 (8.6 s) | 0.0617 (11.7 s) |
+| 75 | 50 | 0.0605 (12.4 s) | 0.0671 (11.4 s) | 0.0619 (13.1 s) |
+| 100 | 50 | 0.0605 (13.4 s) | 0.0594 (14.1 s) | 0.0610 (13.7 s) |
+| 125 | 50 | 0.0601 (14.3 s) | 0.0590 (14.2 s) | 0.0618 (14.3 s) |
+| 25 | 200 | 0.0689 (13.3 s) | 0.0714 (12.8 s) | 0.0689 (14.1 s) |
+| 50 | 200 | 0.0594 (14.2 s) | 0.0674 (13.7 s) | 0.0594 (16.1 s) |
+| 100 | 200 | 0.0593 (14.7 s) | 0.0590 (13.9 s) | 0.0594 (16.0 s) |
+| 150 | 200 | 0.0590 (15.6 s) | 0.0591 (14.9 s) | 0.0593 (16.7 s) |
+| 300 | 200 | 0.0590 (20.4 s) | 0.0590 (19.5 s) | 0.0594 (21.4 s) |
+
+- The curve is now continuous in the slice and monotone in the query budget
+  (q 200 never worse than q 50, unlike the per-fact grid before 3f11d9d1).
+- It matches the old steps-per-fact frontier (0.0611 at 11.2 s, 0.0590 at
+  14.0 s) rather than moving left of it; the per-fact run at 4 units with
+  share 1 (0.0591 at 12.5 s) stays the best single point.
+- Share 1 wins at small slices (50: 0.0607 against 0.0971), share 0.5 by a
+  little from 100 up (0.0594 against 0.0605): the seeds' consequences are
+  worth most, but once they are covered, derived keys of earlier shifts are
+  worth more than further seed work. A ranking that knew which keys
+  queries read would make the share unnecessary.
+- Below about 11 s quality drops fast (slice 25: 0.098): queries alone cost
+  about 7 s per seed at q 50, so forward compute is the smaller part.
+- Peak memory at q 50 is 1.1–1.4 GB against 0.5 GB at q 200 in both grids;
+  not yet explained.
