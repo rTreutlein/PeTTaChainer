@@ -121,3 +121,44 @@ missed. A rest item whose key has no stale readers costs nothing.
    Success means the Brier-vs-compute curve has points between today's 1 and
    2 steps per fact (0.0611 at 11.2 s, 0.0590 at 14.0 s), lies on or to the
    left of today's points, and that time per unit stays flat over a game.
+
+## Results
+
+Replayed StationOps, 8 seeds, 20 shifts, dormant rules with answers by index;
+Brier, then forward plus query compute per seed. f is units per fact, q the
+query budget; seed share 0.5 unless noted. Old: steps per fact (37eafc3e's
+parent).
+
+| game | setting | Brier | compute |
+|---|---|---|---|
+| plain | old f1 q50 | 0.0611 | 11.2 s |
+| plain | old f2 q50 | 0.0590 | 14.0 s |
+| plain | old f2 q200 | 0.0590 | 17.1 s |
+| plain | f2 q50 | 0.0861 | 8.9 s |
+| plain | f3 q50 | 0.0704 | 9.8 s |
+| plain | f4 q50 | 0.0629 | 12.5 s |
+| plain | f4 q50, share 1 | 0.0591 | 12.5 s |
+| plain | f4 q50, share 0 | 0.0921 | 12.7 s |
+| plain | f3 q200 | 0.0599 | 14.4 s |
+| plain | f4 q200 | 0.0592 | 14.8 s |
+| plain | f8 q200, share 1 / 0.5 / 0 | 0.0591 / 0.0592 / 0.0660 | 19.7 / 17.2 / 19.6 s |
+| distractor chains | old f1 q50 | 0.0611 | 11.0 s |
+| distractor chains | old f2 q50 | 0.0610 | 14.4 s |
+| distractor chains | f3 q50 | 0.0692 | 10.9 s |
+| distractor chains | f4 q50 | 0.0668 | 12.7 s |
+| distractor chains | f4 q50, share 1 | 0.0605 | 13.7 s |
+| distractor chains | f4 q50, share 0 | 0.1015 | 12.5 s |
+| distractor chains | f4 q200 | 0.0595 | 15.4 s |
+
+- The knob is finer: points now lie between 8 and 13 s, where steps had
+  none, and the plateau is reached from either budget.
+- Share 1 is best: on the plain game it reaches the plateau (0.0591) at
+  12.5 s, 1.5 s left of the old best point. The carried agenda's priorities
+  do not compare with new facts' across calls: with share 0 new facts
+  starve (0.09–0.10), and every share below 1 costs quality.
+- Peak memory at q 50 rose to 1.1–1.4 GB (old 0.7–0.9 GB); at q 200 it
+  is unchanged (0.5 GB). Not yet explained.
+- The first grid of this build found a defect: a row a forward run created
+  but could not pay for was stale with no value, and queries refreshed stale
+  rows only near their roots, so a fold above it lost the member (Brier up
+  to 0.16). Fixed in 3f11d9d1; the table is after the fix.
