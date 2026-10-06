@@ -427,7 +427,7 @@ agenda earlier runs left, and grows the backward skeleton upward from them (`run
   `bounded-agenda-target-size`) to the next run on its knowledge base, which
   continues from them. A run works the facts callers chose first (its own
   and those earlier runs queued; a run without budget only queues them), for
-  a share of its budget (`set-forward-seed-share`, default 0.5), so carried
+  a share of its budget (`set-forward-seed-share`, default 1), so carried
   derived keys never starve them, then everything by priority. Seeds are
   carried whatever the bound.
 - Keys are taken in waves, in agenda order, while the rows they bring (new

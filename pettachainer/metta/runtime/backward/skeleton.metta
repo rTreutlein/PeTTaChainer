@@ -426,6 +426,8 @@
          ())
       ()))
 
+;; Before anything was evaluated (no latest version of any key) there is no
+;; reader to schedule.
 (: sk-mark-dirty! (-[det]-> SkeletonKey Atom))
 (= (sk-mark-dirty! $key)
    (if (not (== (collapse (once (match &sk_latest ($_hash $_key $_version) true))) ()))

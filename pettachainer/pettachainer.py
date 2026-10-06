@@ -277,7 +277,7 @@ class PeTTaChainer:
     def set_forward_seed_share(self, share: float) -> None:
         """Set the share of a forward run's steps the chosen facts no run has
         taken yet get before carried derived results compete for the rest
-        (default 0.5). Process-wide."""
+        (default 1). Process-wide."""
         self.handler.process_metta_string(
             f"!(set-forward-seed-share {float(share)!r})"
         )

@@ -68,7 +68,7 @@ two parts:
 1. **Seeds first.** A run works the seeds no run has taken yet, its own facts
    and the seeds earlier calls queued, with the keys they change, alone,
    until that agenda is empty or a share of the units is spent
-   (`set-forward-seed-share`, default 0.5).
+   (`set-forward-seed-share`, default 1, chosen by the grids below).
 2. **Then everything by priority.** What is left of that agenda joins the
    carried derived keys, and the rest of the units go to the best items of
    both.

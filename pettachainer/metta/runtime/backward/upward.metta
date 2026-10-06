@@ -103,7 +103,7 @@
 
 ;; The share of a run's units its own facts get before the carried agenda
 ;; competes for the rest. Process-wide.
-!(change-state! forward_seed_share 0.5)
+!(change-state! forward_seed_share 1)
 
 (: forward-seed-share (-[det]-> Number))
 (= (forward-seed-share) (the Number (car-atom (collapse (get-state forward_seed_share)))))
