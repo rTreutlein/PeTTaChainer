@@ -212,8 +212,9 @@
    (-[det]-> (List SkeletonForwardEntry) (Heap SkeletonForwardItem) (List SkeletonKey) SkeletonWave))
 
 ;; A wave takes the agenda's keys in order of how far each key changed while
-;; the rows they bring, new rows from their joins and stale readers (counted
-;; by key hash), fit the room left; the key that fills it is the last. A seed
+;; the rows they bring fit the room: new rows of their joins (rows numbered
+;; since the wave began) and stale readers (counted by key hash). The key
+;; that fills it is the last. A seed
 ;; is always taken. A derived key is not taken twice in a run, nor when its
 ;; value is the one last built on or rests on less than the minimum evidence.
 (: sk-forward-wave
@@ -221,7 +222,7 @@
        SkeletonWave))
 (= (sk-forward-wave $room $stale $agenda $wave $taken)
    (if (if (heap-empty? $agenda) true
-          (if (== $wave ()) false (>= (+ $stale (match-count &sk_new $_row)) $room)))
+          (if (== $wave ()) false (>= (+ $stale (search-id-value sk_row_seq)) $room)))
       (sk-wave $wave $agenda $taken)
       (case (heap_pop $agenda) (
          (($priority $item $rest)
@@ -250,7 +251,7 @@
 (= (sk-forward-loop! $floor $agenda $taken)
    (let $room (- (search-id-value sk_eval_budget) $floor)
       (if (<= $room 0) (sk-run $agenda $taken)
-         (case (sk-forward-wave $room 0 $agenda () $taken) (
+         (case (sk-forward-wave $room (- 0 (search-id-value sk_row_seq)) $agenda () $taken) (
             ((sk-wave () $left $all) (sk-run $left $all))
             ((sk-wave $wave $left $all)
                (sk-forward-loop! $floor (bounded-agenda-prune (once (sk-forward-wave! $left $wave))) $all)))))))
