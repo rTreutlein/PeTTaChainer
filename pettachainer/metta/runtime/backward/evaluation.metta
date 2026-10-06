@@ -1574,7 +1574,9 @@
       (($type $kbctx $_proof $_tv) (sk-need! $depth () (sk-key $type $kbctx))))))
 
 ;; A stale row within the depth computed in full rejoins its keys' readers and
-;; is recomputed by the evaluation. A deeper stale row keeps its value and stays
+;; is recomputed by the evaluation, and so does a stale row at any depth that
+;; has no value yet: a row a forward run created but could not pay for. A
+;; deeper stale row keeps its value and stays
 ;; out of the change path: only a need that reaches it that closely, such as a
 ;; query asking for it, brings it current. So a change below a long chain, such
 ;; as a base rate every past belief read, costs once per stale row and never
@@ -1597,16 +1599,18 @@
 
 (: sk-need-row! (-[semidet]-> Number Atom SkeletonItem Atom))
 (= (sk-need-row! $depth $_acc (sk-row-item $_seq $khash $key $rhash (sk-row $_ident $_concl $premises $_s)))
-   (let* (($near (<= $depth (+ (sk-evaluation-free-depth) 1)))
+   (let* (($unseen (== (sk-latest-view $khash $key $rhash) sk-none))
           ($refresh
-             (if $near (not (== (collapse (once (match &sk_stale ($khash $rhash) true))) ())) false))
+             (if (if $unseen true (<= $depth (+ (sk-evaluation-free-depth) 1)))
+                (not (== (collapse (once (match &sk_stale ($khash $rhash) true))) ()))
+                false))
           ($_refreshed
              (if $refresh
                 (let $_relinked (sk-relink-row! $khash $rhash $premises) (add-atom &sk_refresh ($khash $rhash)))
                 ())))
       (if (if $refresh true
              (if (<= $depth (sk-evaluation-free-depth)) true
-                (if (== (sk-latest-view $khash $key $rhash) sk-none) true
+                (if $unseen true
                    (not (== (collapse (once (match &sk_given_pending ($khash $rhash $_cost) true))) ())))))
          (fold-semidet (sk-need-premise! $depth) () $premises)
          ())))

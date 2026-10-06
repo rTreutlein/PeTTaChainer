@@ -74,3 +74,20 @@
 !(compileadd halfShareKb (: l1 (Implication (Lo $x) (LoGoal $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
 !(forward-chain 2 halfShareKb (test-selected-facts halfShareKb (Lo a)))
 !(test (computed? halfShareKb (LoGoal a)) true)
+
+;; --- A row a run created but could not pay for is computed when needed ----
+
+;; One unit computes one of the two rows the seed's joins create. A query
+;; reaching the other below the depth it computes in full still computes it,
+;; since it has no value yet.
+!(set-forward-seed-share 0.5)
+!(compileadd deepKb (: pd (P d) (STV 1.0 0.9)))
+!(compileadd deepKb (: d1 (Implication (P $x) (Q1 $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+!(compileadd deepKb (: d2 (Implication (P $x) (Q2 $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+!(compileadd deepKb (: d3 (Implication (Q2 $x) (R $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+!(compileadd deepKb (: d4 (Implication (R $x) (S $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+!(compileadd deepKb (: d5 (Implication (S $x) (T $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+!(compileadd deepKb (: d6 (Implication (T $x) (U $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+!(forward-chain 1 deepKb (test-selected-facts deepKb (P d)))
+!(test (+ (if (computed? deepKb (Q1 d)) 1 0) (if (computed? deepKb (Q2 d)) 1 0)) 1)
+!(test (== (collapse (query 100 deepKb (: $prf (U d) $tv))) ()) false)
