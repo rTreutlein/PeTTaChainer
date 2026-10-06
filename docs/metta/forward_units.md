@@ -204,3 +204,25 @@ number of facts a shift brings (about 25). Same games and seeds.
   about 7 s per seed at q 50, so forward compute is the smaller part.
 - Peak memory at q 50 is 1.1–1.4 GB against 0.5 GB at q 200 in both grids;
   not yet explained.
+
+### Relevance by queried statement head (not adopted)
+
+Tried: queries record the statement heads of the keys they need, roots and
+premises; a forward item of a head no query needed weighs a twentieth of its
+change. Slice grid as above (patch kept outside the repository):
+
+| slice | q | plain, share 1 | without | distractor, share 1 | without |
+|---|---|---|---|---|---|
+| 50 | 50 | 0.0620 | 0.0607 | 0.0631 | 0.0617 |
+| 75 | 50 | 0.0602 | 0.0605 | 0.0629 | 0.0619 |
+| 50 | 200 | 0.0607 | 0.0594 | 0.0615 | 0.0594 |
+| 150 | 200 | 0.0590 | 0.0590 | 0.0593 | 0.0593 |
+
+With share 0, new facts still starve (0.08–0.10). Queries need 8 heads, and
+those cover nearly every key the forward run takes. The only ones demoted
+are `PatchPaysOff` and `ImplicationInstanceSample`, which feed base rates
+and rule refinement without being queried directly, hence the small loss.
+Distractor chains never reach the forward agenda: dormant rules already
+keep the run off them. Starvation at share 0 is between relevant keys: a
+derived key's change outranks a new fact's. A useful relevance would have
+to be finer than the head, such as the keys whose readers queries need.
