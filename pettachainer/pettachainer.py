@@ -275,9 +275,9 @@ class PeTTaChainer:
         )
 
     def set_forward_seed_share(self, share: float) -> None:
-        """Set the share of a forward run's steps its own facts get before
-        the agenda earlier runs left competes for the rest (default 0.5).
-        Process-wide."""
+        """Set the share of a forward run's steps the chosen facts no run has
+        taken yet get before carried derived results compete for the rest
+        (default 0.5). Process-wide."""
         self.handler.process_metta_string(
             f"!(set-forward-seed-share {float(share)!r})"
         )
@@ -429,9 +429,10 @@ class PeTTaChainer:
     def forward_chain(self, facts: str | Sequence[str], steps: int = 100) -> List[str]:
         """Forward-chain from KB facts and return the derived facts it built on.
 
-        ``steps`` counts row computations. The run works ``facts`` first, then
-        the agenda earlier runs left; with no facts it continues that agenda
-        only. The returned facts are stored in the KB and are valid input to a
+        ``steps`` counts row computations. The run works ``facts`` and the
+        facts earlier runs queued first, then the agenda earlier runs left;
+        with no facts it continues that agenda only, and with ``steps=0`` it
+        only queues ``facts``. The returned facts are stored in the KB and are valid input to a
         later run. Use ``select_facts`` to choose initial seeds by surface
         term, or ``all_facts`` to request the full-KB saturation special case.
         """

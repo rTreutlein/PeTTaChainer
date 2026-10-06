@@ -261,17 +261,28 @@
    (let $key (sk-key $type $kbctx)
       (add_to_heap $agenda (- 0 (sk-change (sk-key-value $key) sk-none)) (sk-fwd-seed $key))))
 
-(: sk-carried-step
-   (-[det]-> (Heap SkeletonForwardItem) (Number SkeletonForwardItem) (Heap SkeletonForwardItem)))
-(= (sk-carried-step $agenda ($priority $item)) (add_to_heap $agenda $priority $item))
+(: sk-seed-item? (-[det]-> SkeletonForwardItem Bool))
+(= (sk-seed-item? $item) (case $item (((sk-fwd-seed $_key) true) ($_other false))))
 
-;; The carried agenda keeps a run's best items, at most the agenda bound.
+;; Carried items join the run's first part when they are seeds, the second
+;; when they are not.
+(: sk-carried-step
+   (-[det]-> Bool (Heap SkeletonForwardItem) (Number SkeletonForwardItem) (Heap SkeletonForwardItem)))
+(= (sk-carried-step $seeds $agenda ($priority $item))
+   (if (== (sk-seed-item? $item) $seeds) (add_to_heap $agenda $priority $item) $agenda))
+
+;; The carried agenda keeps every seed, which a caller chose, and the run's
+;; best other items, at most the agenda bound.
 (: sk-carry! (-[semidet]-> KB Number (Heap SkeletonForwardItem) Atom))
 (= (sk-carry! $kb $count $agenda)
-   (if (if (<= $count 0) true (heap-empty? $agenda)) ()
+   (if (heap-empty? $agenda) ()
       (case (heap_pop $agenda) (
          (($priority $item $rest)
-            (let $_kept (add-atom &sk_forward_agenda ($kb $priority $item)) (sk-carry! $kb (- $count 1) $rest)))))))
+            (if (sk-seed-item? $item)
+               (let $_kept (add-atom &sk_forward_agenda ($kb $priority $item)) (sk-carry! $kb $count $rest))
+               (if (<= $count 0) (sk-carry! $kb $count $rest)
+                  (let $_kept (add-atom &sk_forward_agenda ($kb $priority $item))
+                     (sk-carry! $kb (- $count 1) $rest)))))))))
 
 ;; A derived key the run built on has its value stored in &kb, like a fact, so a
 ;; later query reads it without searching for it again. It replaces the fact an
@@ -311,9 +322,11 @@
 ;; computations, stores the values of the derived keys it built on and returns
 ;; them, most recent first, with proof references as stored: expanding each
 ;; proof would cost as much as the derivation history behind it. The run works
-;; its own facts first, for a share of its units, then everything on the
-;; carried agenda with them, and carries what it leaves. A run has one result:
-;; backtracking into it would repeat its work.
+;; the seeds no run has taken yet, its own facts and those earlier calls
+;; queued, first, for a share of its units, then everything on the carried
+;; agenda with them, and carries what it leaves. A run without units only
+;; queues its facts. A run has one result: backtracking into it would repeat
+;; its work.
 (: forward-chain
    (-[nondet]-> Number KB (List (Statement KBContext Proof TV))
        (List (Statement KBContext Proof TV))))
@@ -326,12 +339,14 @@
           ($_evaluation (change-state! sk_eval_budget $units))
           ($_unneeded (remove-data-rows! &sk_needed (quote ($hash $key $depth))))
           ($_activate (sk-activate-pending!))
-          ((sk-run $own $first)
-             (sk-forward-loop! (* $units (- 1 (forward-seed-share)))
-                (fold-semidet sk-seed-step (empty_heap) (list_to_set $facts)) ()))
           ($carried (collapse (match &sk_forward_agenda ($kb $priority $item) ($priority $item))))
           ($_cleared (remove-data-rows! &sk_forward_agenda (quote ($kb $priority $item))))
-          ((sk-run $left $taken) (sk-forward-loop! 0 (fold-flat sk-carried-step $own $carried) $first))
+          ((sk-run $own $first)
+             (sk-forward-loop! (* $units (- 1 (forward-seed-share)))
+                (fold-flat (sk-carried-step true)
+                   (fold-semidet sk-seed-step (empty_heap) (list_to_set $facts)) $carried)
+                ()))
+          ((sk-run $left $taken) (sk-forward-loop! 0 (fold-flat (sk-carried-step false) $own $carried) $first))
           ($_carry (sk-carry! $kb (bounded-agenda-target-size) $left))
           ($_off (change-state! sk_forward_run 0)))
       (fold-semidet sk-key-result () $taken))))

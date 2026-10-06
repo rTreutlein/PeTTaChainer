@@ -63,21 +63,28 @@ dropped then, as now.
 
 ### New seeds are not starved
 
-A run spends its units in two parts:
-1. **Its own seeds first.** A run works the agenda its new facts start, alone,
+A seed is a fact a caller passed to `forward-chain`. A run spends its units in
+two parts:
+1. **Seeds first.** A run works the seeds no run has taken yet, its own facts
+   and the seeds earlier calls queued, with the keys they change, alone,
    until that agenda is empty or a share of the units is spent
    (`set-forward-seed-share`, default 0.5).
-2. **Then everything by priority.** What is left of its own agenda joins the
-   carried agenda, and the rest of the units go to the best items of both.
+2. **Then everything by priority.** What is left of that agenda joins the
+   carried derived keys, and the rest of the units go to the best items of
+   both.
 
-So a share of every run's units goes to its own facts, however much higher the
-carried items rank. With share 1 a run is today's run, plus its leftovers
-being carried. With share 0 there is one ranking for everything.
+So a share of every run's units goes to the facts callers chose, however much
+higher the carried derived keys rank. Which facts those are stays the
+caller's choice: a run without units only queues its facts, so a caller can
+choose facts as they arrive and give units later, to a run without facts.
+With share 1 the chosen facts always come first; with share 0 there is one
+ranking for everything.
 
 ### Bounded
 
-The carried agenda keeps its best `bounded-agenda-target-size` items (1,000).
-The worst ones are dropped when it is stored at the end of a run. A dropped
+The carried agenda keeps every seed, since a caller chose it, and its best
+`bounded-agenda-target-size` other items (1,000). The worst ones are dropped
+when it is stored at the end of a run. A dropped
 item is lost the way every cut-off item is lost today: a later run that
 reaches the key finds it again. Loading and storing the carried agenda costs
 time proportional to its size, so this bound keeps the per-call cost fixed.
@@ -99,9 +106,10 @@ missed. A rest item whose key has no stale readers costs nothing.
 
 - Python: `forward_chain(facts, steps)` with no facts runs on the carried
   agenda instead of returning at once.
-- StationOps harness: `CG_FORWARD_STEPS` becomes units per fact, and an
-  optional `CG_FORWARD_SLICE` gives units per shift to a call without
-  facts.
+- StationOps harness: `CG_FORWARD_STEPS` becomes units per fact. With
+  `CG_FORWARD_SLICE` set instead, new facts are queued without units and
+  each shift gives that many units to one run without facts, so forward
+  compute no longer depends on how many facts a shift brings.
 
 ## Evaluation
 

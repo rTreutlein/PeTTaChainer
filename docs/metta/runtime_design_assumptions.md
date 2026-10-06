@@ -425,9 +425,11 @@ agenda earlier runs left, and grows the backward skeleton upward from them (`run
   the same however many readers a key has.
 - The agenda outlives the run: a run carries the best items it leaves (at most
   `bounded-agenda-target-size`) to the next run on its knowledge base, which
-  continues from them. A run works its own facts first, for a share of its
-  budget (`set-forward-seed-share`, default 0.5), so the carried agenda never
-  starves new facts, then everything by priority.
+  continues from them. A run works the facts callers chose first (its own
+  and those earlier runs queued; a run without budget only queues them), for
+  a share of its budget (`set-forward-seed-share`, default 0.5), so carried
+  derived keys never starve them, then everything by priority. Seeds are
+  carried whatever the bound.
 - Keys are taken in waves, in agenda order, while the rows they bring (new
   rows of their joins and stale readers) fit the budget left. One evaluation
   serves a wave, so a row several of its keys reach is computed once; the

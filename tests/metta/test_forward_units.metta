@@ -46,34 +46,36 @@
         (and (computed? fanKb (Q3 a)) (computed? fanKb (Q4 a))))
    true)
 
-;; --- A new seed gets its share of the units --------------------------------
+;; --- Seeds queued without units keep their share ------------------------
 
-;; A run without units carries a confident seed, which ranks above a weak
-;; new seed of the next run.
-
-;; With no share, the carried seed's rows take both units.
+;; A run without units queues its facts; a later run without facts gives the
+;; queued seeds the share, however high a carried derived key ranks: here
+;; (Mid a), which one unit computed and left to build on.
 !(set-forward-seed-share 0)
-!(compileadd noShareKb (: hi (Hi a) (STV 1.0 0.99)))
-!(compileadd noShareKb (: h1 (Implication (Hi $x) (H1 $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
-!(compileadd noShareKb (: h2 (Implication (Hi $x) (H2 $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
-!(compileadd noShareKb (: h3 (Implication (Hi $x) (H3 $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
-!(forward-chain 0 noShareKb (test-selected-facts noShareKb (Hi a)))
-!(compileadd noShareKb (: lo (Lo a) (STV 1.0 0.3)))
-!(compileadd noShareKb (: l1 (Implication (Lo $x) (LoGoal $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
-!(forward-chain 2 noShareKb (test-selected-facts noShareKb (Lo a)))
-!(test (computed? noShareKb (LoGoal a)) false)
+!(compileadd queuedNoShareKb (: hi (Hi a) (STV 1.0 0.99)))
+!(compileadd queuedNoShareKb (: hm (Implication (Hi $x) (Mid $x)) (CTV (STV 1.0 0.99) (STV 0.0 1.0))))
+!(compileadd queuedNoShareKb (: m1 (Implication (Mid $x) (M1 $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+!(compileadd queuedNoShareKb (: m2 (Implication (Mid $x) (M2 $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+!(compileadd queuedNoShareKb (: m3 (Implication (Mid $x) (M3 $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+!(forward-chain 1 queuedNoShareKb (test-selected-facts queuedNoShareKb (Hi a)))
+!(compileadd queuedNoShareKb (: lo (Lo a) (STV 1.0 0.3)))
+!(compileadd queuedNoShareKb (: l1 (Implication (Lo $x) (LoGoal $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+!(forward-chain 0 queuedNoShareKb (test-selected-facts queuedNoShareKb (Lo a)))
+!(forward-chain 2 queuedNoShareKb ())
+!(test (computed? queuedNoShareKb (LoGoal a)) false)
 
-;; With half, the new seed's conclusion is computed first.
 !(set-forward-seed-share 0.5)
-!(compileadd halfShareKb (: hi (Hi a) (STV 1.0 0.99)))
-!(compileadd halfShareKb (: h1 (Implication (Hi $x) (H1 $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
-!(compileadd halfShareKb (: h2 (Implication (Hi $x) (H2 $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
-!(compileadd halfShareKb (: h3 (Implication (Hi $x) (H3 $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
-!(forward-chain 0 halfShareKb (test-selected-facts halfShareKb (Hi a)))
-!(compileadd halfShareKb (: lo (Lo a) (STV 1.0 0.3)))
-!(compileadd halfShareKb (: l1 (Implication (Lo $x) (LoGoal $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
-!(forward-chain 2 halfShareKb (test-selected-facts halfShareKb (Lo a)))
-!(test (computed? halfShareKb (LoGoal a)) true)
+!(compileadd queuedHalfShareKb (: hi (Hi a) (STV 1.0 0.99)))
+!(compileadd queuedHalfShareKb (: hm (Implication (Hi $x) (Mid $x)) (CTV (STV 1.0 0.99) (STV 0.0 1.0))))
+!(compileadd queuedHalfShareKb (: m1 (Implication (Mid $x) (M1 $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+!(compileadd queuedHalfShareKb (: m2 (Implication (Mid $x) (M2 $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+!(compileadd queuedHalfShareKb (: m3 (Implication (Mid $x) (M3 $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+!(forward-chain 1 queuedHalfShareKb (test-selected-facts queuedHalfShareKb (Hi a)))
+!(compileadd queuedHalfShareKb (: lo (Lo a) (STV 1.0 0.3)))
+!(compileadd queuedHalfShareKb (: l1 (Implication (Lo $x) (LoGoal $x)) (CTV (STV 1.0 0.9) (STV 0.0 1.0))))
+!(forward-chain 0 queuedHalfShareKb (test-selected-facts queuedHalfShareKb (Lo a)))
+!(forward-chain 2 queuedHalfShareKb ())
+!(test (computed? queuedHalfShareKb (LoGoal a)) true)
 
 ;; --- A row a run created but could not pay for is computed when needed ----
 
