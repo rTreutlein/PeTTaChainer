@@ -274,6 +274,14 @@ class PeTTaChainer:
             f"!(set-forward-min-evidence {float(n)!r})"
         )
 
+    def set_forward_seed_share(self, share: float) -> None:
+        """Set the share of a forward run's steps its own facts get before
+        the agenda earlier runs left competes for the rest (default 0.5).
+        Process-wide."""
+        self.handler.process_metta_string(
+            f"!(set-forward-seed-share {float(share)!r})"
+        )
+
     def set_forgetting(self, horizon: int, decay: float = 1.0) -> None:
         """Freeze keys idle for ``horizon`` epochs into summaries whose
         observation count is multiplied by ``decay`` (horizon 0: never).
@@ -421,14 +429,13 @@ class PeTTaChainer:
     def forward_chain(self, facts: str | Sequence[str], steps: int = 100) -> List[str]:
         """Forward-chain from KB facts and return the derived facts it built on.
 
-        The returned facts are stored in the KB and are valid input to a later
-        run. Use
-        ``select_facts`` to choose initial seeds by surface term, or
-        ``all_facts`` to request the full-KB saturation special case.
+        ``steps`` counts row computations. The run works ``facts`` first, then
+        the agenda earlier runs left; with no facts it continues that agenda
+        only. The returned facts are stored in the KB and are valid input to a
+        later run. Use ``select_facts`` to choose initial seeds by surface
+        term, or ``all_facts`` to request the full-KB saturation special case.
         """
         selected_facts = [facts] if isinstance(facts, str) else list(facts)
-        if not selected_facts:
-            return []
         facts_expr = f"({' '.join(selected_facts)})"
         return self.handler.process_metta_string(
             f"!(let $changed (forward-chain {steps} {self.kb} {facts_expr}) "

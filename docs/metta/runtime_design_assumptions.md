@@ -400,8 +400,8 @@ probability of finding a proof: a low-strength proof is still a useful answer,
 so rule priority does not use base rates. Searching a base-rate fold's members
 is valued by what one more member could add to the estimate's confidence.
 
-Forward chaining always starts from facts selected by its caller, and grows
-the backward skeleton upward from them (`runtime/backward/upward.metta`,
+Forward chaining starts from facts selected by its caller, or continues the
+agenda earlier runs left, and grows the backward skeleton upward from them (`runtime/backward/upward.metta`,
 [forward_skeleton_unification.md](forward_skeleton_unification.md)).
 - Taking a key starts, for every rule premise the key matches, a join with
   that premise bound. The join's other premises read the stored facts and the
@@ -409,19 +409,29 @@ the backward skeleton upward from them (`runtime/backward/upward.metta`,
   an ordinary row. Its owner is the rule's conclusion, and no node is marked
   expanded, so a later query still starts every rule on that pattern.
 - The rows reading the taken keys, including rows that went stale, are then
-  needed and evaluated by the ordinary evaluation. So self-support, admitted
+  needed and evaluated by the ordinary evaluation; the need stops at those
+  readers. So self-support, admitted
   versions, conditioning and dominance hold forward as they do for queries. A
   fold premise is a fold key. A fold that no search expanded, other than a
   base rate whose estimate the cache holds, is searched as a query would
   search it.
 - The agenda holds keys by how far their value moved from the value a run
   last built on: the KL divergence of the two, each read as a Beta
-  distribution over the strength (Beta(1, 1) for no value). Work a budget cut
-  off is therefore found again by a later run that reaches the key.
-- Keys are taken in waves: the whole agenda, in that order, while the budget
-  lasts. One evaluation serves a wave, so a row several of its keys reach is
-  computed once; the keys it changed form the next wave.
-- Seeds cost nothing; each derived key taken costs one step. A derived key
+  distribution over the strength (Beta(1, 1) for no value).
+- The budget counts row computations, at any depth, a seed's readers
+  included ([forward_units.md](forward_units.md)). A row it cannot pay for is
+  left stale, and its key goes back on the agenda as a rest item, which
+  computes the stale readers without starting joins again. So a step costs
+  the same however many readers a key has.
+- The agenda outlives the run: a run carries the best items it leaves (at most
+  `bounded-agenda-target-size`) to the next run on its knowledge base, which
+  continues from them. A run works its own facts first, for a share of its
+  budget (`set-forward-seed-share`, default 0.5), so the carried agenda never
+  starves new facts, then everything by priority.
+- Keys are taken in waves, in agenda order, while the rows they bring (new
+  rows of their joins and stale readers) fit the budget left. One evaluation
+  serves a wave, so a row several of its keys reach is computed once; the
+  keys it changed join the agenda. A derived key
   whose value rests on less than a minimum of evidence (one observation, n =
   c·k/(1−c), by default; `set-forward-min-evidence`) is not built on,
   however much budget is left.
@@ -440,8 +450,7 @@ make later queries cheap.
   it has, the live value wins and the copy never competes with it.
 
 `forward-chain` returns the values it stored, with each proof printed as a DAG
-(`proof_dag_expand`). The agenda is local to that invocation and discarded
-when it empties or the budget is exhausted.
+(`proof_dag_expand`).
 
 Output proofs print a shared subproof once: a stored subproof referenced more
 than once that itself refers to stored proofs appears in full at its first

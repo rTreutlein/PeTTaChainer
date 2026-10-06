@@ -156,7 +156,9 @@ key's value changed rather than by its confidence:
   in the wave (1), then evaluates the rows those created and the rows reading
   the wave's keys in one evaluation (2), so a row that several of them reach
   is computed once. The keys whose value changed form the next wave.
-- The budget counts derived keys taken. A seed costs nothing.
+- The budget counts derived keys taken. A seed costs nothing. (Superseded:
+  the budget counts row computations and the agenda is carried between runs;
+  see forward_units.md.)
 - A key whose merged value rests on less than the minimum evidence
   (`set-forward-min-evidence`) is not taken. Its row still has a view, which
   is cheap and useful to a later query, but nothing is built on top of it.

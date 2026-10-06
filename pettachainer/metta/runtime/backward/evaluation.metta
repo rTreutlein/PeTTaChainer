@@ -1502,7 +1502,8 @@
 ;; Each row commits to its one result, so the loop leaves no choice points and
 ;; runs in constant stack however many rows it computes.
 (= (sk-work-pop! $pass $next ($_seq $item $rest))
-   (if (if (<= (sk-item-depth $item) (sk-evaluation-free-depth)) true (sk-take! sk_eval_budget))
+   (if (if (== (search-id-value sk_forward_run) 1) (sk-take! sk_eval_budget)
+          (if (<= (sk-item-depth $item) (sk-evaluation-free-depth)) true (sk-take! sk_eval_budget)))
       (sk-work-off! $pass (once (sk-compute $pass (sk-work $rest $next) $item)))
       (let $_stale (sk-mark-stale! $item) (sk-work-off! $pass (sk-work $rest $next)))))
 
@@ -1515,9 +1516,11 @@
 (= (sk-item-depth (sk-row-item $_seq $khash $key $_rhash $_row)) (sk-need-depth $khash $key))
 (= (sk-item-depth (sk-fold-check $hash $fold)) (sk-need-depth $hash $fold))
 
-;; How near a root a key must be for its rows to be computed in full.
+;; How near a root a key must be for its rows to be computed in full. A
+;; forward run computes nothing in full: every row it computes costs one of
+;; its units, and its need stops at the readers of the keys it takes.
 (: sk-evaluation-free-depth (-[det]-> Number))
-(= (sk-evaluation-free-depth) 2)
+(= (sk-evaluation-free-depth) (if (== (search-id-value sk_forward_run) 1) 0 2))
 
 ;; Row recomputations a query may spend per step of its budget beyond that.
 (: sk-evaluation-per-step (-[det]-> Number))

@@ -1,6 +1,6 @@
 # Forward compute in row units
 
-Status: design, October 2026.
+Status: built, October 2026.
 
 ## Problem
 
@@ -31,7 +31,10 @@ budget 50, replayed):
 
 Every row a forward run computes costs one unit, at any depth, its seeds'
 readers included. A row the allowance cannot pay for is left stale, as a
-query leaves one. The row allowance for joins is also one row per unit.
+query leaves one. Joins keep their own allowance of ten rows per unit: a row
+they create that the units cannot compute is left stale and computed by a
+later run (see Waves), whereas a row the join allowance refuses would wait
+for a query's walk.
 `(forward-chain $units $kb $facts)` keeps its signature; `$steps` becomes
 units.
 

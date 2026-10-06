@@ -533,12 +533,13 @@ class TestPeTTaChainer(unittest.TestCase):
         )
 
         seed = handler.select_facts("(LowPriority)")
-        result = handler.forward_chain(seed, steps=1)
+        # One step computes the goal's row and the other builds on it.
+        result = handler.forward_chain(seed, steps=2)
 
         self.assertIn("DeltaGoal", str(result))
         proofs = handler.query("(: $prf (DeltaGoal) $tv)", steps=10, timeout_sec=0)
         self.assertTrue(proofs)
-        self.assertEqual(handler.forward_chain(seed, steps=1), [])
+        self.assertEqual(handler.forward_chain(seed, steps=2), [])
 
     def test_forward_chain_accepts_canonical_facts(self):
         handler = PeTTaChainer()
@@ -549,7 +550,7 @@ class TestPeTTaChainer(unittest.TestCase):
         )
 
         canonical_fact = handler.select_facts("(LowPriority)")[0]
-        result = handler.forward_chain(canonical_fact, steps=1)
+        result = handler.forward_chain(canonical_fact, steps=2)
 
         self.assertIn("FactSeedGoal", str(result))
         proofs = handler.query("(: $prf (FactSeedGoal) $tv)", steps=10, timeout_sec=0)
@@ -579,8 +580,8 @@ class TestPeTTaChainer(unittest.TestCase):
             "(: b_to_c (Implication (B) (C)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
         )
 
-        first_changes = handler.forward_chain(handler.select_facts("(A)"), steps=1)
-        second_changes = handler.forward_chain(first_changes, steps=1)
+        first_changes = handler.forward_chain(handler.select_facts("(A)"), steps=2)
+        second_changes = handler.forward_chain(first_changes, steps=2)
 
         self.assertIn("(B)", str(first_changes))
         self.assertIn("(C)", str(second_changes))

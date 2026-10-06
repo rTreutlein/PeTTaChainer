@@ -81,15 +81,16 @@
 !(forward-chain 50 mergekb (test-selected-facts mergekb (BasePremise)))
 !(test (collapse (match &kb ((WeakPremise) $_kbctx weakFact $tv) $tv)) ((STV 1.0 0.1)))
 
-;; The most promising item goes first: with one step, a seed that triggers no
-;; rule builds nothing, and one that does builds its conclusion.
+;; The most promising item goes first: with two units, a seed that triggers
+;; no rule builds nothing, and one that does computes its conclusion with one
+;; and builds on it with the other.
 !(compileadd deltakb (: highFact (HighPriority) (STV 1.0 1.0)))
 !(compileadd deltakb (: lowFact (LowPriority) (STV 1.0 0.8)))
 !(compileadd deltakb
    (: lowToGoal (Implication (LowPriority) (DeltaGoal)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(test (forward-chain 1 deltakb (test-selected-facts deltakb (HighPriority))) ())
-!(test (result-statements (forward-chain 1 deltakb (test-selected-facts deltakb (LowPriority)))) ((DeltaGoal)))
+!(test (forward-chain 2 deltakb (test-selected-facts deltakb (HighPriority))) ())
+!(test (result-statements (forward-chain 2 deltakb (test-selected-facts deltakb (LowPriority)))) ((DeltaGoal)))
 
 ;; Adding a rule schedules nothing by itself; a run whose seed triggers it
 ;; builds its conclusion.
