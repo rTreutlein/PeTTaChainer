@@ -182,8 +182,12 @@
                (if (space-row-present? &sk_node_prefix ($prefix $_t $_c $hash $_n)) ()
                   (let $_row
                      (case (copy_term $node) (
+                        ;; Branded so the row's columns are proven when compiled,
+                        ;; not checked on every add.
                         (($lookup-type $lookup-kbctx $_p $_v)
-                           (add-atom &sk_node_prefix ($prefix $lookup-type $lookup-kbctx $hash $node)))))
+                           (let* (($row-type (brand Statement $lookup-type))
+                                  ($row-kbctx (brand KBContext $lookup-kbctx)))
+                              (add-atom &sk_node_prefix ($prefix $row-type $row-kbctx $hash $node))))))
                      (fold-semidet (sk-index-key-step $node) ()
                         (sk-unifying-key-hashes (brand Statement $type) (brand KBContext $kbctx))))))
             ()))
@@ -371,13 +375,15 @@
       (()
          (case (copy_term $key) (
             ((sk-key $type $kbctx)
-               (let* (($hashes (sk-key-term-hashes $khash $type $kbctx))
-                      ($_cached (add-atom &sk_unifiers ($khash $key $hashes)))
+               ;; Named apart from the match's $hashes: the translator loses
+               ;; a reused name's type and would check the row at run time.
+               (let* (($computed (sk-key-term-hashes $khash $type $kbctx))
+                      ($_cached (add-atom &sk_unifiers ($khash $key $computed)))
                       ;; A ground reader unifies with no other key, so only
                       ;; an open one waits for the keys registered later.
                       ($_reader (if (== (extract-vars $key) ()) ()
                                    (add-atom &sk_reader_terms ($type $kbctx $khash $key)))))
-                  $hashes))
+                  $computed))
             ($_fold (cons $khash ()))))))))
 
 ;; --- Answers and delivery ---------------------------------------------------
