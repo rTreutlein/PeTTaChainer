@@ -150,7 +150,7 @@
 (= (base-rate-readers-changed! $kbid $pattern)
    (let* (($hash (base-rate-cache-hash $kbid $pattern))
           ($_dirty
-             (collapse (match &sk_rate_folds ($hash $key) (add-atom &sk_dirty (sk-dirty $key))))))
+             (collapse (match &sk_rate_folds ($hash $key) (sk-dirty! $key)))))
       ()))
 
 (: store-produced-base-rate!

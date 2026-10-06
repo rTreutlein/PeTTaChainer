@@ -1725,8 +1725,8 @@
           ($new (collapse (match &sk_new (sk-row-item $seq $hash $key $rhash $row)
              (sk-row-item $seq $hash $key $rhash $row))))
           ($_new (remove-data-rows! &sk_new (quote (sk-row-item $seq $hash $key $rhash $row))))
-          ($dirty (collapse (match &sk_dirty (sk-dirty $key) $key)))
-          ($_dirty (remove-data-rows! &sk_dirty (quote (sk-dirty $key))))
+          ($dirty (collapse (match &sk_dirty ($hash $key) $key)))
+          ($_dirty (remove-data-rows! &sk_dirty (quote ($hash $key))))
           ;; a stale row the query needs is forced by its own key
           ($refresh
              (collapse (match &sk_refresh ($khash $rhash)

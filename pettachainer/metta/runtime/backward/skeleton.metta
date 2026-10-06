@@ -429,7 +429,7 @@
 (: sk-mark-dirty! (-[det]-> SkeletonKey Atom))
 (= (sk-mark-dirty! $key)
    (if (not (== (collapse (once (match &sk_latest ($_hash $_key $_version) true))) ()))
-      (let $_row (add-atom &sk_dirty (sk-dirty $key)) ())
+      (sk-dirty! $key)
       ()))
 
 ;; Base rates follow their members incrementally, see sk-fold-view.

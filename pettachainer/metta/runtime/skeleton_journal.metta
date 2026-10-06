@@ -69,8 +69,6 @@
 (: sk-row-item (-[det]-> Number Number SkeletonKey Number SkeletonRow SkeletonItem))
 ;; a fold to recompute at the end of a pass: fold key hash, fold key
 (: sk-fold-check (-[det]-> Number SkeletonKey SkeletonItem))
-(: SkeletonDirty Type)
-(: sk-dirty (-[det]-> SkeletonKey SkeletonDirty))
 (: SkeletonFresh Type)
 (: sk-fresh (-[det]-> SkPattern SkeletonFresh))
 (: SkeletonDelivery Type)
@@ -183,9 +181,18 @@
 !(bind! &sk_given_pending (new-space))
 (: &sk_given_granted (SpaceOf (Number Number)))
 !(bind! &sk_given_granted (new-space))
-;; keys whose value changed outside evaluation
-(: &sk_dirty (SpaceOf (sk-dirty SkeletonKey)))
+;; keys whose value changed outside evaluation, once each, by key hash
+(: &sk_dirty (SpaceOf (Number SkeletonKey)))
 !(bind! &sk_dirty (new-space))
+
+;; A key changed again before the evaluation took it is recorded once: each
+;; record schedules every reader of the key.
+(: sk-dirty! (-[det]-> SkeletonKey Atom))
+(= (sk-dirty! $key)
+   (let $hash (index-hash $key)
+      (if (== (collapse (once (match &sk_dirty ($hash $stored) (if (=alpha $stored $key) true (empty))))) ())
+         (let $_row (add-atom &sk_dirty ($hash $key)) ())
+         ())))
 ;; rules and facts added since the last activation
 (: &sk_pending_rules (SpaceOf (sk-pending-rule Number)))
 !(bind! &sk_pending_rules (new-space))
@@ -314,6 +321,6 @@
           ($_woken (if (== (search-id-value sk_forward_run) 1) () (sk-wake-dormant! $type $expanded)))
           ($_dirty
              (if (not (== (collapse (once (match &sk_latest ($_hash $_key $_version) true))) ()))
-                (let $_dirty-row (add-atom &sk_dirty (sk-dirty $key)) ())
+                (sk-dirty! $key)
                 ())))
       ()))
