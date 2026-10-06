@@ -1,6 +1,6 @@
 # Searching where the answer can still change
 
-Status: design, October 2026.
+Status: not adopted, October 2026 (see Results; patch kept outside the repository).
 
 ## Problem
 
@@ -84,3 +84,30 @@ most uncertain first. A larger budget still extends the same order.
 4. Live single-knowledge-base actions (ChainerGame `single-kb-actions`): the
    action budget at which decisions match the reference, and the compute per
    game against the separate knowledge bases (42 s, 4 seeds).
+
+## Results
+
+Built as above. The unit test behaved as designed: with (A x) answered by a
+forward run, budget 3 proved (G x) through the unexplored B and C where the
+old order spent budgets 2 to 6 refining A, and budget 16 refined A as well.
+It also changed `test_best_first_runtime.metta`'s incumbent case: refining
+an answered B whose subtree held a certain fact gave confidence 0.990 at
+budget 2; the new order took the unanswered D first and gave 0.904.
+
+Replayed StationOps, 8 seeds, share 1 (Brier, compute per seed):
+
+| slice, q | plain, before | plain, gain | distractor, before | distractor, gain |
+|---|---|---|---|---|
+| 50, q50 | 0.0607 (8.6 s) | 0.0717 (9.0 s) | 0.0617 (9.3 s) | 0.0713 (9.1 s) |
+| 50, q200 | 0.0594 (11.8 s) | 0.0647 (13.5 s) | 0.0594 (13.3 s) | 0.0646 (15.6 s) |
+| 100, q50 | 0.0605 (9.2 s) | 0.0603 (10.8 s) | 0.0610 (10.4 s) | 0.0715 (9.8 s) |
+| 150, q50 | 0.0590 (11.2 s) | 0.0592 (12.2 s) | 0.0609 (12.3 s) | 0.0700 (11.2 s) |
+| 150, q200 | 0.0590 (13.2 s) | 0.0593 (16.9 s) | 0.0593 (14.8 s) | 0.0642 (15.6 s) |
+
+Worse in nearly every cell, and slower. Most belief keys a query reaches
+already have a value: a forward run's, or an earlier shift's. One more
+observation's worth of confidence is far smaller than what refining them
+actually gains (shortfall posteriors, refined rules, newly revised
+evidence), so the beliefs' own refinement was starved. Whether a value can
+still change is not visible from its confidence alone; the incumbent test
+shows the same from the other side.
