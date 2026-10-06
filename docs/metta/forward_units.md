@@ -226,3 +226,26 @@ Distractor chains never reach the forward agenda: dormant rules already
 keep the run off them. Starvation at share 0 is between relevant keys: a
 derived key's change outranks a new fact's. A useful relevance would have
 to be finer than the head, such as the keys whose readers queries need.
+
+### The q 50 memory peak
+
+The peak memory at q 50 was not forward's: `&sk_dirty` recorded a key once
+per change, and a query that first reached a base-rate fold's member node
+delivered ~350 members, each marking the fold dirty, so its ~200 readers
+were scheduled ~350 times in one evaluation (seed 1: 68K reader schedules,
+3.6 s, stacks grown to 1.4 GB, which SWI keeps). A smaller query budget
+delays that catch-up to later shifts, where both counts are larger.
+c6ab256f records a key once. Slice grid at share 1, plain game, beliefs
+identical in all 48 runs:
+
+| slice | q | before | after |
+|---|---|---|---|
+| 50 | 50 | 0.0607, 11.7 s, 0.78 GB | 0.0607, 8.6 s, 0.28 GB |
+| 50 | 200 | 0.0594, 14.2 s, 0.46 GB | 0.0594, 11.8 s, 0.28 GB |
+| 100 | 50 | 0.0605, 13.4 s, 1.14 GB | 0.0605, 9.2 s, 0.27 GB |
+| 100 | 200 | 0.0593, 14.7 s, 0.45 GB | 0.0593, 12.2 s, 0.30 GB |
+| 150 | 50 | 0.0590, 15.9 s, 1.32 GB | 0.0590, 11.2 s, 0.29 GB |
+| 150 | 200 | 0.0590, 15.6 s, 0.52 GB | 0.0590, 13.2 s, 0.32 GB |
+
+The plateau (0.0590) now costs 11.2 s per seed, against 14.0 s for the old
+steps-per-fact frontier.
