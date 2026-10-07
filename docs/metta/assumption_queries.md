@@ -52,10 +52,12 @@ context that sees the world (`context-world!`).
 - **The goal** is read in C.
 - **Folds.** A fold premise whose member pattern the assumptions affect is
   scoped to C: its arguments name C instead of the KB, and its member node
-  lies in C. Limitation: a fold over an `And` pattern reads its members
-  through conjunction adapter rules compiled for the main context, so inside
-  C it finds none; fold over one statement instead (StationOps puts an
-  outcome's amount into the outcome statement).
+  lies in C (members cached per scope).
+- **The world's rules.** A goal in C is also concluded by the rules compiled
+  for the main context (connective adapters among them, for `And` and `Not`
+  goals), with C as the conclusion's context (`sk-world-rule-match`), and no
+  rule is skipped as dormant there: dormancy is judged in the main context,
+  and C's assumptions can support what the main context lacks.
 - **No variables.** C names no query variables, unlike an implication
   query's contexts (which name the hypothetical individual's), so its keys
   are ground.

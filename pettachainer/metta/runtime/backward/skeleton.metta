@@ -54,6 +54,7 @@
 (: sk-activate-pending! (-[semidet]-> Atom))
 (: sk-expand! (-[semidet]-> SkPattern Number Atom))
 (: sk-rule-match (-[nondet]-> SkFact SkeletonMatch))
+(: sk-world-rule-match (-[nondet]-> SkFact SkeletonMatch))
 ;; node, depth
 (: SkeletonFrontier Type)
 (: sk-frontier (-[det]-> SkPattern Number SkeletonFrontier))
@@ -845,6 +846,30 @@
 ;; Preserve the complete conclusion shape during lookup so SWI's deep index can
 ;; discriminate arguments. A goal that repeats a variable unifies under an
 ;; occurs check: an exists witness term embeds the variable it witnesses for.
+;; A goal in a context that sees the world is also concluded by the rules
+;; compiled for the main context (connective adapters among them), with the
+;; goal's context: the world's rules hold there too. Rules whose conclusion
+;; follows the goal's context are matched by sk-rule-match already.
+(= (sk-world-rule-match $goal)
+   (case (copy_term $goal) (
+      (($type ($kbid $ctx $_vars) $proof $tv)
+         (if (context-world? $ctx)
+            (let $main (make-kb-context (brand KB $kbid) MAIN Nil)
+               (match ccls_index (($type $rule-kbctx $proof $tv) $rule-id $args)
+                  (if (== $rule-kbctx $main)
+                     (if (= ($type $proof $tv) (sk-goal-parts $goal))
+                        (sk-match $rule-id (contextualize-rule-args $goal $args) $goal)
+                        (empty))
+                     (empty))))
+            (empty)))
+      ($_cpu (empty)))))
+
+(: sk-world-goal? (-[det]-> SkFact Bool))
+(= (sk-world-goal? ($_type ($_kbid $ctx $_vars) $_proof $_tv)) (context-world? $ctx))
+
+(: sk-goal-parts (-[det]-> SkFact Atom))
+(= (sk-goal-parts ($type $_kbctx $proof $tv)) ($type $proof $tv))
+
 (= (sk-rule-match $goal)
    (let $lookup-goal (copy_term $goal)
       (if (rule-lookup-needs-occurs-check $lookup-goal)
@@ -947,8 +972,10 @@
 ;; its row is built from the statement and context alone, since a row belongs
 ;; to its key and each reader applies its own proof and truth-value pattern.
 ;; A dormant rule is not started (docs/metta/dormant_rules.md).
+;; Dormancy is judged in the main context; in a context that sees the world,
+;; assumptions can support what the main context lacks, so every rule runs.
 (= (sk-start-rule-step $owner $_acc (sk-match $rule $premises $goal))
-   (if (if (rule-dormant? $rule) false (= (copy_term $goal) (copy_term $owner)))
+   (if (if (if (sk-world-goal? $goal) false (rule-dormant? $rule)) false (= (copy_term $goal) (copy_term $owner)))
       (if (prefilter-prunes-walk (copy_term $premises)) ()
          (sk-advance! (sk-partial $owner $rule $goal $premises $premises ())))
       ()))
@@ -1019,7 +1046,7 @@
    (let* (($scope (car-atom $args))
           ($kb (brand KB (if (is-expr $scope) (car-atom $scope) $scope)))
           ($pattern (brand Statement (car-atom (cdr-atom $args))))
-          ($source (quote ($kb $pattern)))
+          ($source (quote ($scope $pattern)))
           ($hash (index-hash $source)))
       (case (collapse (once (match &sk_fold_members ($hash $stored $member)
                (if (=alpha $stored $source) $member (empty))))) (
@@ -1066,8 +1093,8 @@
                 (($rule-type $rule-kbctx $_node-proof $_node-tv) (copy_term $node)))
             ;; No rule is applied to a certain statement.
             (if (sk-certain? $type $leaf-facts) ()
-               (let $matches
-                  (collapse (sk-rule-match (assemble-stored-runtime-fact $rule-type $rule-kbctx $_rule-proof $_rule-tv)))
+               (let* (($goal (assemble-stored-runtime-fact $rule-type $rule-kbctx $_rule-proof $_rule-tv))
+                      ($matches (append-flat (collapse (sk-rule-match $goal)) (collapse (sk-world-rule-match $goal)))))
                   (fold-semidet (sk-start-rule-step $owner) () $matches)))))))))
 
 (: sk-fold-answer-step (-[semidet]-> SkPattern Atom SkeletonKey Atom))

@@ -60,3 +60,32 @@
                     (ExpectedValue s1 (Repair x) $g)) $tv))))
       $g)
    36.0)
+
+;; The world's rules hold in the context, connective adapters included, and a
+;; rule dormant in the main context runs there: here the leak belief exists
+;; only through the assumed link, and an expected value folds a conjunction.
+!(compileadd worldKb (: s1 (SealLeak x) (STV 0.3 0.8)))
+!(compileadd worldKb
+   (: (no_inverse protects)
+      (Implication (And (Candidate $s $u) (LeakBelief $u)) (Outcome $s (Repair $u) protected))
+      (CTV (STV 1 1) (STV 0 1))))
+!(compileadd worldKb
+   (: (no_inverse unneeded)
+      (Implication (And (Candidate $s $u) (Not (LeakBelief $u))) (Outcome $s (Repair $u) unnecessary))
+      (CTV (STV 1 1) (STV 0 1))))
+!(compileadd worldKb
+   (: (no_inverse expected)
+      (Implication
+         (And (Candidate $s $u)
+              (FoldAllTruth (And (Outcome $s (Repair $u) $o) (Amount $s (Repair $u) $o $v)) (STV $p $_c)
+                 (Weighted $p $v) 0.0 (|-> ($acc (Weighted $w $x)) (+ $acc (* $w $x))) -> $g))
+         (ExpectedValue $s (Repair $u) $g))
+      (CTV (STV 1 1) (STV 0 1))))
+!(test
+   (let (: $_prf (Assuming $_facts (ExpectedValue $_s $_a $g)) $_tv)
+      (car-atom (collapse (query 200 worldKb
+         (: $prf (Assuming (And (Candidate s1 x) (Implication (SealLeak x) (LeakBelief x))
+                                (Amount s1 (Repair x) protected 120) (Amount s1 (Repair x) unnecessary -30))
+                    (ExpectedValue s1 (Repair x) $g)) $tv))))
+      $g)
+   15.0)
