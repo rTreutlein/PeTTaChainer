@@ -1099,10 +1099,10 @@
    (if (is-var $adds) (empty) (once (inject-compiled-adds $adds))))
 
 ;; The fold's source goal is compiled as an ordinary query once per pattern
-;; shape and KB (`pattern-shape`: constants of a connective over user
-;; predicates do not change what it compiles to). Its additions are installed
-;; as permanent backward rules: the member rows outlive the query, and a later
-;; fold over the same shape reuses the goal. The member is the compiled goal
+;; shape and KB (`pattern-shape`: constants of a user predicate, alone or
+;; under a connective, do not change what it compiles to). Its additions are
+;; installed as permanent backward rules: the member rows outlive the query,
+;; and a later fold over the same shape reuses the goal. The member is the compiled goal
 ;; for the fold's own pattern; a fold scoped to a context reads it there.
 (: sk-fold-member (-[semidet]-> $arguments (List SkPattern)))
 (= (sk-fold-member $args)
