@@ -9,6 +9,12 @@
     Row =.. [Space|Pattern],
     retractall(Row).
 
+% Remove the rows of each space whose first column is Hash: the stores keyed
+% by a node's or key's own hash, all at once.
+'remove-hash-rows!'(Spaces, Hash, true) :-
+    forall(( member(Space, Spaces), current_predicate(Space/Arity), Arity > 0 ),
+           ( functor(Row, Space, Arity), arg(1, Row, Hash), retractall(Row) )).
+
 % Erase the one stored row that is a variant of Row. A removal by unification
 % could also take a different row with the same coarse hash; a variant cannot.
 'remove-variant-row!'(Space, Row, true) :-

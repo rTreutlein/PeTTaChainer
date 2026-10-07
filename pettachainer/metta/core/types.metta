@@ -50,6 +50,7 @@
 (: context-pattern-affected? (-[det]-> Atom Atom Bool))
 (: context-affected-reset! (-[det]-> Bool))
 (: context-forget! (-[det]-> Atom Bool))
+(: remove-hash-rows! (-[det]-> Atom Number Bool))
 (: pattern-shape (-[det]-> Atom Atom))
 (: node-context (-[det]-> Atom Atom))
 (: key-context (-[det]-> Atom Atom))

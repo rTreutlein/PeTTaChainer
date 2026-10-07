@@ -1382,19 +1382,11 @@
 
 (: sk-drop-node-rows! (-[semidet]-> Number SkPattern Atom))
 (= (sk-drop-node-rows! $h $node)
-   (let* (($_child (remove-data-rows! &sk_child (quote ($h $_owner $_kid))))
-          ($_scores (remove-data-rows! &sk_score (quote ($h $_n1 $_score))))
-          ($_expanded (remove-data-rows! &sk_expanded (quote ($h $_n2))))
-          ($_wait (remove-data-rows! &sk_wait (quote ($h $_p1 $_waiter1))))
-          ($_temp-wait (remove-data-rows! &sk_temp_waits (quote ($h $_p2 $_waiter2))))
-          ($_answer (remove-data-rows! &sk_answer (quote ($h $_n3 $_key))))
-          ($_fold (remove-data-rows! &sk_fold (quote ($h $_f1 $_m1))))
-          ($_member-of (remove-data-rows! &sk_member_of (quote ($h $_m2 $_f2))))
-          ($_deferred (remove-data-rows! &sk_deferred (quote ($h $_rh $_d))))
-          ($_deferred-joins (remove-data-rows! &sk_deferred_joins (quote ($h $_jh $_j))))
-          ($_parked (remove-data-rows! &sk_parked (quote ($h $_seq $_delivery))))
-          ($_roots (remove-data-rows! &sk_roots (quote ($h $_n4))))
-          ($_seen (remove-data-rows! &sk_seen (quote ($h $_n5)))))
+   (let $_rows
+         (remove-hash-rows!
+            (&sk_child &sk_score &sk_expanded &sk_wait &sk_temp_waits &sk_answer &sk_fold
+             &sk_member_of &sk_deferred &sk_deferred_joins &sk_parked &sk_roots &sk_seen)
+            $h)
       (case (copy_term $node) (
          ;; A fold node in a context takes its fold's key along.
          ((CPU FoldAllCompiled $args $_res) (let $fold-key (sk-fold $args) (sk-drop-key-rows! (index-hash $fold-key) $fold-key)))
@@ -1411,30 +1403,14 @@
 (= (sk-drop-key-rows! $h $key)
    (let* (($rows (collapse (match &sk_row ($h $stored $rh (sk-row $ident $concl $premises $seq)) ($rh $premises))))
           ($_rows (fold-semidet (sk-drop-row-readers! $h) () $rows))
-          ($_row (remove-data-rows! &sk_row (quote ($h $_k1 $_rh1 $_r1))))
-          ($_stale (remove-data-rows! &sk_stale (quote ($h $_rs1))))
-          ($_support (remove-data-rows! &sk_support (quote ($h $_rs2 $_deps))))
-          ($_pending (remove-data-rows! &sk_given_pending (quote ($h $_rs3 $_cost))))
-          ($_granted (remove-data-rows! &sk_given_granted (quote ($h $_rs4))))
-          ($_forced (remove-data-rows! &sk_forced (quote ($h $_rs5 $_cause))))
-          ($_used (remove-data-rows! &sk_forced_used (quote ($h $_rs6 $_cause2))))
-          ($_refresh (remove-data-rows! &sk_refresh (quote ($h $_rs7))))
-          ($_restale (remove-data-rows! &sk_restale (quote ($h $_rs8))))
-          ($_restaled (remove-data-rows! &sk_restaled (quote ($h $_rs9))))
-          ($_temp (remove-data-rows! &sk_temp_rows (quote ($h $_k18 $_rs10 $_trow))))
-          ($_keys (remove-data-rows! &sk_keys (quote ($h $_k2))))
-          ($_epoch (remove-data-rows! &sk_key_epoch (quote ($h $_k3 $_e))))
-          ($_latest (remove-data-rows! &sk_latest (quote ($h $_k4 $_v1))))
-          ($_view (remove-data-rows! &sk_view (quote ($h $_k5 $_rh2 $_v2))))
-          ($_merged (remove-data-rows! &sk_merged (quote (sk-merged $h $_k6 $_d $_v3))))
-          ($_reader (remove-data-rows! &sk_reader (quote ($h $_k7 $_kh1 $_rh3))))
-          ($_stale-reader (remove-data-rows! &sk_stale_reader (quote ($h $_k8 $_kh2 $_rh4))))
-          ($_unifiers (remove-data-rows! &sk_unifiers (quote ($h $_k9 $_hs))))
-          ($_use (remove-data-rows! &sk_use (quote ($h $_k10 $_parent))))
-          ($_needed (remove-data-rows! &sk_needed (quote ($h $_k11 $_depth))))
-          ($_dirty (remove-data-rows! &sk_dirty (quote ($h $_k12))))
-          ($_group (remove-data-rows! &sk_group_of (quote ($h $_k13 $_fold))))
-          ($_answered (remove-data-rows! &sk_answered (quote ($h $_k14 $_nh $_node)))))
+          ($_hashed
+             (remove-hash-rows!
+                (&sk_row &sk_stale &sk_support &sk_given_pending &sk_given_granted &sk_forced
+                 &sk_forced_used &sk_refresh &sk_restale &sk_restaled &sk_temp_rows &sk_keys
+                 &sk_key_epoch &sk_latest &sk_view &sk_reader &sk_stale_reader &sk_unifiers
+                 &sk_use &sk_needed &sk_dirty &sk_group_of &sk_answered)
+                $h))
+          ($_merged (remove-data-rows! &sk_merged (quote (sk-merged $h $_k6 $_d $_v3)))))
       (case $key (
          ((sk-key $type $kbctx)
             (let* (($_terms (remove-data-rows! &sk_key_terms (quote ($type $kbctx $h))))
