@@ -45,9 +45,10 @@ context that sees the world (`context-world!`).
   in the main context. So beliefs the assumptions cannot change are read where
   they are, with the answers, rows and caches the main context already has,
   and no work on them is repeated or thrown away.
-- **Reading C.** A premise read in C sees C's facts and keys, and the main
-  context's facts and keys of the same statement: an assumption adds to what
-  is known, it does not hide it.
+- **Reading C.** A premise read in C sees C's facts and the main context's
+  stored facts of the same statement (not forward copies of derived values):
+  an assumption adds to what is known, it does not hide it. What follows from
+  them is derived in C.
 - **The goal** is read in C.
 
 ## Cleanup (not built)
