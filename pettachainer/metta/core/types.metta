@@ -39,6 +39,12 @@
 (: rule-dormancy-wake! (-[det]-> Atom (List Number)))
 (: rule-dormancy-reset! (-[det]-> (List Number)))
 
+;; Contexts of Assuming queries, which see the world, and whether their
+;; assumptions can change a statement (runtime_helpers.pl).
+(: context-world! (-[det]-> KBContext Bool))
+(: context-world? (-[det]-> Atom Bool))
+(: context-affected? (-[det]-> Atom Atom Bool))
+
 ;; KL divergence of Beta(a1, b1) from Beta(a2, b2) (runtime_helpers.pl).
 (: beta_kl (-[det]-> Number Number Number Number Number))
 

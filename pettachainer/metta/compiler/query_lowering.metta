@@ -189,6 +189,22 @@
    (if (is-var $Type)
       (compilation-plan (: (kbctx $kb) $prf $Type $tv) ())
       (if (contains-explicit-exists? $Type) (empty)
+      (if (= $Type (Assuming $facts $goal))
+         ;; The facts hold in a fresh context that sees the world: the goal's
+         ;; answers there, one per binding of its variables
+         ;; (docs/metta/assumption_queries.md).
+         (let*
+            (($mvars (query-variables (extract-vars $Type)))
+             (($shape-kb $prf $b $adds)
+                (query-side $kb $mvars false (brand Statement $facts) (brand Statement $goal)))
+             ($_world (context-world! $shape-kb)))
+            (compilation-plan
+               (: (kbctx $kb) $root-prf $Type $tv)
+               (cons
+                  (brand CompiledAddition
+                     ((the (List Goal) ((: $shape-kb $prf $b $tv)))
+                        |- (: (kbctx $kb) (assuming $prf) $Type $tv)))
+                  $adds)))
       (if (= $Type (Implication $antecedent $consequent))
          (if (if (is-var $tv) false (= $tv (STV $_s $_c)))
             ;; An STV asks only how the consequent stands when the antecedent
@@ -276,8 +292,7 @@
                   (: (kbctx $kb) $prf $Type $tv)
                   (collapse
                      (compile-adapter-chain query
-                        (: (kbctx $kb) $prf $Type $tv)))))))))))
-
+                        (: (kbctx $kb) $prf $Type $tv))))))))))))
 
 (: query-temp-rule-premise (-[det]-> Atom Statement))
 (= (query-temp-rule-premise $premise)

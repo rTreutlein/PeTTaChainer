@@ -270,7 +270,29 @@
 (: sk-leaf-facts (-[det]-> Statement KBContext SkeletonFilter (List SkFact)))
 (= (sk-leaf-facts $type $kbctx $filter)
    (let $plain (== (collapse (once (match &materialized_facts (materialized-row $_hash $_type $_kb $_fact $_ev) true))) ())
-      (foldr-flat (sk-leaf-fact-step $plain $filter) () (kb-facts $type $kbctx))))
+      (foldr-flat (sk-leaf-fact-step $plain $filter) ()
+         (append-flat (kb-facts $type $kbctx) (sk-world-facts $type $kbctx)))))
+
+;; A context that sees the world reads the main context's stored facts as its
+;; own: an assumption adds to what is known and hides nothing. Forward copies
+;; of derived values are not read; the context derives those itself.
+(: sk-world-facts (-[det]-> Statement KBContext (List SkFact)))
+(= (sk-world-facts $type $kbctx)
+   (case (sk-key $type $kbctx) (
+      ((sk-key $_type ($kbid $ctx $_vars))
+         (if (context-world? $ctx)
+            (foldr-flat (sk-world-fact-step $kbctx) ()
+               (kb-facts $type (make-kb-context (brand KB $kbid) MAIN Nil)))
+            ()))
+      ($_fold ()))))
+
+(: sk-world-fact-step (-[det]-> KBContext SkFact (List SkFact) (List SkFact)))
+(= (sk-world-fact-step $kbctx ($type $main $proof $tv) $facts)
+   (let $hash (index-hash (sk-key $type $main))
+      (if (== (collapse (once (match &sk_forward_stored ($hash $_key $copy $_ev $_deps)
+                 (if (=alpha $copy ($type $main $proof $tv)) true (empty))))) ())
+         (cons (data $type $kbctx $proof $tv) $facts)
+         $facts)))
 
 (: sk-leaf-fact-step (-[det]-> Bool SkeletonFilter SkFact (List SkFact) (List SkFact)))
 (= (sk-leaf-fact-step $plain $filter $fact $facts)
@@ -848,18 +870,27 @@
    (if (stored-list-member? $var $type-vars) true (sk-any-member? $type-vars $rest)))
 
 ;; A MAIN premise that mentions the goal's context variables is read in the
-;; goal's hypothetical context.
+;; goal's hypothetical context. In the context of an Assuming query, which sees
+;; the world, a premise is read in the context when the assumptions can change
+;; it, and in the main context otherwise, where its value is the same and its
+;; work is shared (docs/metta/assumption_queries.md).
 (: contextualize-rule-premise (-[det]-> SkFact SkPattern SkPattern))
 (= (contextualize-rule-premise ($_goal-type ($kbid $ctx $vars) $_goal-prf $_goal-tv) $premise)
    (once
       (case $premise (
          (($type ($kbid $prem-ctx $prem-vars) $prf $tv)
             (let $fact-kb
-               (if (if (== $prem-ctx MAIN)
-                      (if (== $ctx MAIN) false (context-vars-in-type? $type $vars))
-                      false)
-                  (make-kb-context (brand KB $kbid) $ctx $vars)
-                  (make-kb-context (brand KB $kbid) $prem-ctx $prem-vars))
+               (if (context-world? $ctx)
+                  (if (if (== $prem-ctx MAIN) true (== $prem-ctx $ctx))
+                     (if (context-affected? $ctx $type)
+                        (make-kb-context (brand KB $kbid) $ctx $vars)
+                        (make-kb-context (brand KB $kbid) MAIN Nil))
+                     (make-kb-context (brand KB $kbid) $prem-ctx $prem-vars))
+                  (if (if (== $prem-ctx MAIN)
+                         (if (== $ctx MAIN) false (context-vars-in-type? $type $vars))
+                         false)
+                     (make-kb-context (brand KB $kbid) $ctx $vars)
+                     (make-kb-context (brand KB $kbid) $prem-ctx $prem-vars)))
                (assemble-stored-runtime-fact $type $fact-kb $prf $tv)))
          ((CPU $fun $args $res) (CPU $fun $args $res))))))
 

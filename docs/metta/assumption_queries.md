@@ -1,6 +1,7 @@
 # Queries under assumptions
 
-Status: design, October 2026.
+Status: built except cleanup, October 2026. The context is not yet removed at
+the query's end (see Cleanup).
 
 ## Problem
 
@@ -12,24 +13,30 @@ StationOps' decision steps left about 10,000 nodes after 20 shifts, and
 action query time per shift rose 1.4 s → 5.7 s at a fixed budget
 (`client_practices.md`).
 
-An implication query, `(Implication A B)`, does not serve: it estimates the
-implication's truth. It assumes A in a positive and a refuting context, and a
-rule premise is read in that context only when it mentions the query's free
-variables; other premises are read in the main context, where A does not
-hold. Its contexts also stay after the query (two per query, with their
-nodes, rows and answers).
+An implication query, `(Implication A B)`, does not serve: it judges how
+strongly A implies B, from the assumption alone. Its contexts see nothing of
+the main context, and a premise is read in them only when it mentions the
+query's variables (the hypothetical individual); world facts about the
+statements it relates would make it hold trivially. A decision wants the
+opposite: the world as it is, plus the decision's facts. Placing premises in
+an implication query by what the assumptions affect, or letting its contexts
+see the world, broke the implication tests (patches kept outside the
+repository); the two questions need two query forms.
 
 ## Query form
 
     (: $prf (Assuming (And <fact> ...) <goal>) $tv)
 
 answers `<goal>` as if the facts were stored, together with everything the
-knowledge base holds. The answers are the goal's, with the facts' proofs as
-`(assumed n)`. Nothing of the query stays afterwards.
+knowledge base holds, with proof `(assuming <proof in the context>)`, one
+answer per binding of the goal's variables. A fact may be an implication: it
+is then a rule within the query, which lets a client link stored statements
+to the ones its question reads without adding rules to the knowledge base.
 
 ## Context
 
-The query opens a fresh context C (`(kb C Nil)`) holding the assumed facts.
+The query opens a fresh context C holding the assumed facts, marked as a
+context that sees the world (`context-world!`).
 
 - **What reads C.** A predicate is *affected* when it is an assumed fact's
   predicate, or concluded by a rule with an affected premise (a fixed point
@@ -43,7 +50,7 @@ The query opens a fresh context C (`(kb C Nil)`) holding the assumed facts.
   is known, it does not hide it.
 - **The goal** is read in C.
 
-## Cleanup
+## Cleanup (not built)
 
 Every node, key, row, view, answer, wait and deferred item whose context is
 C is recorded under C when created (`&sk_context_items`). When the query

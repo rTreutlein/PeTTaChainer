@@ -261,10 +261,69 @@ dormancy_note_head(Type) :-
     forall(member(Id, Ids), retractall(rule_dormancy(Id, _, _))).
 
 % A new rule can give any premise support: every dormant rule is looked at
-% again, and every verdict is dropped.
+% again, and every verdict is dropped, and so is every context's affected set.
 'rule-dormancy-reset!'(Ids) :-
     findall(Id, rule_dormancy(Id, true, _), Ids0), sort(Ids0, Ids),
-    retractall(rule_dormancy(_, _, _)).
+    retractall(rule_dormancy(_, _, _)),
+    retractall(context_affected_memo(_, _)).
+
+% Contexts of `Assuming` queries see the world: the main context's facts and
+% keys stay readable there, and a premise is placed in the context only when the
+% assumptions can change it (docs/metta/assumption_queries.md).
+:- dynamic world_context/1, context_affected_memo/2.
+
+'context-world!'([_, Ctx|_], true) :- ( world_context(Ctx) -> true ; assertz(world_context(Ctx)) ).
+
+'context-world?'(Ctx, Result) :- ( nonvar(Ctx), world_context(Ctx) -> Result = true ; Result = false ).
+
+% Whether a world context's assumptions can change a statement: its head is
+% stated in the context (an assumption, the statement a negated one negates,
+% or the conclusion of a rule the query compiled into it), or concluded by a
+% rule that is not dormant and one of whose premises, or the members a fold
+% premise reads, has an affected head. A variable head may be anything, so it
+% counts as affected, and a rule concluding a variable head from an affected
+% premise affects everything. Computed once per context and dropped when a
+% rule is added.
+'context-affected?'(Ctx, Type, Result) :-
+    (   context_affected_memo(Ctx, Heads) -> true
+    ;   context_affected_heads(Ctx, Heads), assertz(context_affected_memo(Ctx, Heads)) ),
+    statement_head(Type, Head),
+    (   ( Heads == all ; Head == '$var' ; memberchk(Head, Heads) ) -> Result = true ; Result = false ).
+
+context_affected_heads(Ctx, Heads) :-
+    findall(H, ( ( dormancy_row('&kb'(T, [_, C|_], _, _))
+                 ; dormancy_row(rules('runtime-rule-row', _, [T, [_, C|_]|_], _)) ),
+                 C == Ctx, assumed_head(T, H) ), Seeds0),
+    sort(Seeds0, Seeds),
+    findall(CH-PHs, ( dormancy_row(rules('runtime-rule-row', Id, [CT|_], Ps)),
+                      'rule-dormant?'(Id, false), statement_head(CT, CH),
+                      findall(PH, ( member(P, Ps), premise_head(P, PH) ), PHs) ), Edges),
+    affected_fixpoint(Seeds, Edges, Heads).
+
+assumed_head(T, H) :-
+    (   nonvar(T), T = ['Not', Inner] -> ( statement_head(T, H) ; statement_head(Inner, H) )
+    ;   statement_head(T, H) ).
+
+statement_head(T, H) :-
+    (   var(T) -> H = '$var'
+    ;   T = [H0|_] -> ( var(H0) -> H = '$var' ; H = H0 )
+    ;   H = T ).
+
+premise_head(['CPU', Fun, Args|_], H) :- !,
+    memberchk(Fun, ['FoldAllCompiled', 'GroupedFoldAllCompiled']),
+    nonvar(Args), Args = [_, Pattern|_], pattern_head(Pattern, H).
+premise_head([T|_], H) :- statement_head(T, H).
+
+pattern_head(Pattern, H) :-
+    (   nonvar(Pattern), Pattern = ['And'|Conjuncts] -> member(C, Conjuncts), pattern_head(C, H)
+    ;   statement_head(Pattern, H) ).
+
+affected_fixpoint(Heads, Edges, Result) :-
+    (   memberchk('$var', Heads) -> Result = all
+    ;   member(CH-PHs, Edges), \+ memberchk(CH, Heads),
+        member(PH, PHs), ( PH == '$var' ; memberchk(PH, Heads) )
+    ->  affected_fixpoint([CH|Heads], Edges, Result)
+    ;   Result = Heads ).
 
 % The trie compares variants exactly, without binding caller variables or
 % confusing hash collisions. Destroy query-local storage even on an exception.

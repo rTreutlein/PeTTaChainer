@@ -28,12 +28,13 @@ decision is made. StationOps' decision steps left about 10,000 nodes after 20
 shifts, and every later query scanned past them (action query time per shift
 1.4 s → 5.7 s over 20 shifts at a fixed budget).
 
-Ask the decision as a query under assumptions instead
-(`assumption_queries.md`, designed, not built yet): the facts hold only in
-the query's context and everything built in it leaves with the query. An
-implication query is not a substitute: it reads only premises that share the
-query's variables in its context, computes a refuting branch, and keeps its
-contexts' nodes.
+Ask the decision as `(Assuming (And <decision facts>) <conclusion>)` instead
+(`assumption_queries.md`): the facts hold only in the query's context, and a
+link from a stored statement to what the decision reads can be assumed as an
+implication instead of added as a rule. An implication query is not a
+substitute: it judges an implication from its assumption alone and sees no
+stored facts about the statements it relates. Open issue: the context's
+nodes are not yet removed when the query ends.
 
 ## Budgets that scale with the question
 
