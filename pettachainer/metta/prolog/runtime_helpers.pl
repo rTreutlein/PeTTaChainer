@@ -355,6 +355,10 @@ dormancy_note_head(Type) :-
     ;   findall(Id, ( rule_dormancy(Id, true, Heads), memberchk(Head, Heads) ), Ids0), sort(Ids0, Ids),
         forall(member(Id, Ids), retractall(rule_dormancy(Id, _, _))) ).
 
+% A query's own rules leave with it, and so do their verdicts.
+'rule-dormancy-forget-temp!'(true) :-
+    forall(( rule_dormancy(Id, _, _), Id >= 1000000000 ), retractall(rule_dormancy(Id, _, _))).
+
 % A new rule can give any premise support: every dormant rule is looked at
 % again, and every verdict is dropped.
 'rule-dormancy-reset!'(Ids) :-

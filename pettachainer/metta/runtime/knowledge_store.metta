@@ -239,6 +239,7 @@
             (progn
                (callPredicate (Predicate (erase $ref)))
                (remove-atom &temp_query_ref (clause_ref $ref)))))
+      (rule-dormancy-forget-temp!)
       ()))
 
 (: inject-compiled-adds

@@ -40,6 +40,7 @@
 (: rule-dormant? (-[det]-> Number Bool))
 (: rule-dormancy-wake! (-[det]-> Atom (List Number)))
 (: rule-dormancy-reset! (-[det]-> (List Number)))
+(: rule-dormancy-forget-temp! (-[det]-> Bool))
 
 ;; Contexts of Assuming queries, which see the world, and whether their
 ;; assumptions can change a statement (runtime_helpers.pl).
