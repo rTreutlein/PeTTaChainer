@@ -123,3 +123,32 @@ expanded for later queries, as any query's work does.
    Proposals equal the reference oracle. Over a 60-shift live game, action
    query time per shift stays flat without forgetting, and memory grows as in
    a replay without actions (about 5 MB per shift).
+
+## Results
+
+StationOps live temporal-model games (ChainerGame `single-kb-actions`),
+query budget 50, action budget 15 per candidate, forward slice 150.
+
+- **Decisions.** The reference oracle test passes. Over 60 shifts (seeds 1
+  and 2) regret is identical to the former design with one knowledge base per
+  decision (1310.9 and 636.1).
+- **Time.** Action query time per shift stays flat (about 2 s per shift of
+  three decisions, shift 1 to 60), against 0.3 s → 38.6 s for the
+  knowledge base per decision, whose forward runs also grew to 14 s per
+  shift. A 60-shift game takes about 3 minutes instead of 32.
+- **What made time grow, and was fixed.** Leftover contexts (the census below);
+  each decision's fold compiling its conjunction adapters again as permanent
+  rules (one compilation per pattern shape now, `sk-shape-members`); every
+  query rule dropping every dormancy verdict (query rules now wake by head);
+  scanning every stored fact for the affected heads; quadratic evidence-set
+  operations.
+- **Memory.** Before cleanup, contexts were 58% of skeleton rows. At shift 60
+  of seed 1, clause storage is 417 MB (1,315 MB before cleanup; 346 MB
+  replaying the same game without decisions) and RSS 1,129 MB (1,605 MB;
+  514 MB). The remaining RSS gap, about 8–10 MB per shift, is SWI-Prolog
+  virtual-machine code of erased clauses that clause garbage collection
+  does not reclaim in the full game. Neither plain SWI churn nor isolated
+  `Assuming` loops (mixed with `query_many`, forward runs and fact additions)
+  reproduce it. Open.
+- **Cost of cleanup.** Recording and removing a context's link digests costs
+  3–4% of decision query time (paired 20-shift runs).

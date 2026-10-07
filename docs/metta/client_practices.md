@@ -34,7 +34,9 @@ link from a stored statement to what the decision reads can be assumed as an
 implication instead of added as a rule. An implication query is not a
 substitute: it judges an implication from its assumption alone and sees no
 stored facts about the statements it relates. The context is removed when
-the query ends.
+the query ends: StationOps decisions asked this way keep a flat time per
+shift over 60 shifts, where a knowledge base per decision grew from 0.3 s
+to 39 s per shift (`assumption_queries.md`, Results).
 
 ## Budgets that scale with the question
 
