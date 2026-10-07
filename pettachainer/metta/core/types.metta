@@ -33,6 +33,8 @@
 (: deps-size (-[det]-> Number Number))
 (: deps-cut! (-[det]-> (List Number) Number Bool))
 (: deps-gc! (-[det]-> (List Number) Bool))
+(: deps-gc-due? (-[det]-> Bool))
+(: proofs-gc! (-[det]-> Bool))
 
 ;; Rules whose premise only their own conclusion supports (runtime_helpers.pl).
 (: rule-dormant? (-[det]-> Number Bool))

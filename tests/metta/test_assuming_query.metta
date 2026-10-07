@@ -91,7 +91,8 @@
    15.0)
 
 ;; The query's context leaves with it: a second decision leaves every store as
-;; the first one did, apart from the work in the main context they share.
+;; the first one did, apart from the work in the main context they share. Its
+;; stored proofs are reached by nothing and go with the next collection.
 (: store-sizes (-[det]-> Atom))
 (= (store-sizes)
    ((match-count &kb $_f) (match-count &sk_expanded $_n) (match-count &sk_node_terms $_t)
@@ -100,7 +101,8 @@
     (match-count &sk_row $_r) (match-count &sk_reader $_rd) (match-count &sk_stale_reader $_sr)
     (match-count &sk_view $_v) (match-count &sk_latest $_l) (match-count &sk_use $_u)
     (match-count &sk_fold_members $_m) (match-count &sk_answer_queue $_q) (match-count &sk_ctx_items $_i)
-    (match-count rules $_rule)))
+    (match-count rules $_rule) (match-count &sk_score $_sc) (match-count &sk_support $_su)
+    (match-count &proof $_pr) (match-count &proof_fact $_pf)))
 (: decide-in-world (-[det]-> Atom Atom))
 (= (decide-in-world $s)
    (collapse (query 200 worldKb
@@ -109,7 +111,9 @@
                  (ExpectedValue $s (Repair x) $g)) $tv))))
 !(test
    (let* (($_first (decide-in-world s2))
+          ($_collected (proofs-gc!))
           ($before (store-sizes))
-          ($_second (decide-in-world s3)))
+          ($_second (decide-in-world s3))
+          ($_recollected (proofs-gc!)))
       (== $before (store-sizes)))
    true)

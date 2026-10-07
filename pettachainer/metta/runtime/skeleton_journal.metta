@@ -146,6 +146,7 @@
 (: SkeletonContextItem Type)
 (: ctx-node (-[det]-> Number SkPattern SkeletonContextItem))
 (: ctx-key (-[det]-> Number SkeletonKey SkeletonContextItem))
+(: ctx-root (-[det]-> Number SkPattern SkeletonContextItem))
 (: ctx-wait (-[det]-> Number SkPattern SkeletonWaiter SkeletonContextItem))
 (: ctx-answer (-[det]-> Number SkPattern SkeletonKey SkeletonContextItem))
 (: ctx-child (-[det]-> Number SkPattern SkPattern SkeletonContextItem))

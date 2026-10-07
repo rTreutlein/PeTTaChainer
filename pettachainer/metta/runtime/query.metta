@@ -100,7 +100,9 @@
        ($rows
           (present-query-plan-results $roots $runtime-results))
        ($_clear-temp-after (clear-temp-query-adds))
-       ($_contexts (sk-clear-contexts!)))
+       ($_contexts (sk-clear-contexts!))
+       ;; What the contexts' rows interned and stored is reached by nothing now.
+       ($_collected (if (deps-gc-due?) (let $_deps (deps-gc! (sk-deps-roots)) (proofs-gc!)) true)))
       $rows))
 
 (: query-mode

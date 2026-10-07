@@ -136,12 +136,42 @@ argument_shape(Arg, Shape) :-
 'deps-gc!'(Roots, true) :-
     empty_nb_set(Live),
     forall(member(Root, Roots), deps_mark(Root, Live)),
+    size_nb_set(Live, Kept), flag(deps_gc_kept, _, Kept),
+    flag(deps_next_id, Next, Next), flag(deps_gc_next, _, Next),
     forall(( clause(deps_node(Id, _, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
     forall(( clause(deps_interned(_, _, Id), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
     forall(( clause(deps_cut(Id, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
     forall(( clause(deps_size_memo(Id, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
     forall(( clause(deps_leaf_hash(Id, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
     forall(( clause(deps_leaf(_, Id), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)).
+% A collection is due once more ids were interned since the last one than it
+% kept (at least 4096), so its cost, a walk of the stores, stays proportional
+% to what was interned.
+'deps-gc-due?'(Result) :-
+    flag(deps_next_id, Next, Next), flag(deps_gc_next, Last, Last), flag(deps_gc_kept, Kept, Kept),
+    (   Next - Last > max(Kept, 4096) -> Result = true ; Result = false ).
+
+% Drops every stored proof no store reaches: roots are the proof references in
+% any space but the proof store itself, and a stored proof keeps the proofs it
+% refers to. A replaced view's proof stays while an older view or a consumer's
+% proof still refers to it.
+'proofs-gc!'(true) :-
+    empty_nb_set(Live),
+    forall(( current_predicate(user:F/A), sub_atom(F, 0, 1, _, '&'),
+             F \== '&proof', F \== '&proof_fact',
+             functor(H, F, A), predicate_property(user:H, dynamic),
+             user:H, sub_term(S, H), nonvar(S), S = ['proof-ref', Pid], integer(Pid) ),
+           proof_mark(Pid, Live)),
+    forall(( clause(user:'&proof'(Pid, _, _, _), true, Ref), \+ add_nb_set(Pid, Live, false) ), erase(Ref)),
+    forall(( clause(user:'&proof_fact'(Pid, _, _), true, Ref), \+ add_nb_set(Pid, Live, false) ), erase(Ref)).
+
+proof_mark(Pid, Live) :-
+    (   add_nb_set(Pid, Live, true)
+    ->  forall(( user:'&proof'(Pid, Stored, _, _), sub_term(S, Stored), nonvar(S),
+                 S = ['proof-ref', Inner], integer(Inner) ),
+               proof_mark(Inner, Live))
+    ;   true ).
+
 deps_mark(0, _) :- !.
 deps_mark(Id, Live) :-
     (   add_nb_set(Id, Live, true)
