@@ -267,12 +267,13 @@ dormancy_note_head(Type) :-
     (   Type = [Head|_] -> true ; Head = Type ),
     nb_getval(dormancy_heads, Heads), nb_setval(dormancy_heads, [Head|Heads]).
 
-% The dormant rules a new fact of this statement could wake; their verdicts
-% are dropped.
+% The dormant rules a new fact or query rule concluding this statement could
+% wake; their verdicts are dropped. A statement of any head may wake any.
 'rule-dormancy-wake!'(Type, Ids) :-
-    (   Type = [Head|_] -> true ; Head = Type ),
-    findall(Id, ( rule_dormancy(Id, true, Heads), memberchk(Head, Heads) ), Ids0), sort(Ids0, Ids),
-    forall(member(Id, Ids), retractall(rule_dormancy(Id, _, _))).
+    statement_head(Type, Head),
+    (   Head == '$var' -> 'rule-dormancy-reset!'(Ids)
+    ;   findall(Id, ( rule_dormancy(Id, true, Heads), memberchk(Head, Heads) ), Ids0), sort(Ids0, Ids),
+        forall(member(Id, Ids), retractall(rule_dormancy(Id, _, _))) ).
 
 % A new rule can give any premise support: every dormant rule is looked at
 % again, and every verdict is dropped.

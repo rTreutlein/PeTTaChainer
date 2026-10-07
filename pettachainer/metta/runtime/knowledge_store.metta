@@ -207,7 +207,7 @@
            ($_expected (store-rule-expected-score! $backend $id $rule-args))
            ($_name-idx
               (register-rule-name! $backend $id $typed-ccls))
-           ($_journal (sk-note-rule! $id))
+           ($_journal (sk-note-rule! $id $typed-ccls))
            ($_aggregates
               (register-forward-aggregate-premises!
                  (== $backend live) $rule-args)))

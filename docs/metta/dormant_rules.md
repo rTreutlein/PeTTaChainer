@@ -99,6 +99,11 @@ it did not have.
   pending-rule activation (`&sk_pending_rules`, `sk-activate-rule-step`),
   which starts a rule on the expanded nodes it matches. A rule woken this way
   is analysed again when next matched.
+- A new permanent rule drops every verdict, since it can also give a rule
+  that had support a path back to its own conclusion. A query's own rule
+  (an `Assuming` or implication query's) wakes only by its conclusion's head,
+  as a fact does: it leaves with the query, and dropping every verdict would
+  make each such query judge every rule again over a growing store.
 
 ## Where it applies
 

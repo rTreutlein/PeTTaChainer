@@ -308,13 +308,17 @@
 ;; new fact one whose search found no fact of its statement: those rules are
 ;; started again on the nodes already expanded (docs/metta/dormant_rules.md).
 ;; A forward run's copy of a derived value is no support and wakes nothing.
+;; A query's own rule leaves with the query, so it wakes, as a fact does, only
+;; the dormant rules whose search lacked its conclusion: dropping every
+;; verdict would make each query judge every rule again.
 (: sk-pend-rule! (-[det]-> Number Atom))
 (= (sk-pend-rule! $id) (let $_row (add-atom &sk_pending_rules (sk-pending-rule $id)) ()))
 
-(: sk-note-rule! (-[det]-> Number Atom))
-(= (sk-note-rule! $id)
-   (let* (($_contexts (if (< $id 1000000000) (context-affected-reset!) true))
-          ($woken (rule-dormancy-reset!)))
+(: sk-note-rule! (-[det]-> Number (Statement KBContext Proof TV) Atom))
+(= (sk-note-rule! $id ($type $_kbctx $_proof $_tv))
+   (let* (($permanent (< $id 1000000000))
+          ($_contexts (if $permanent (context-affected-reset!) true))
+          ($woken (if $permanent (rule-dormancy-reset!) (rule-dormancy-wake! $type))))
       (if (not (== (collapse (once (match &sk_expanded ($_hash $_pattern) true))) ()))
          (foreach-flat sk-pend-rule! (cons $id $woken))
          ())))
