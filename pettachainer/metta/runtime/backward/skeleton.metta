@@ -892,7 +892,16 @@
                      (make-kb-context (brand KB $kbid) $ctx $vars)
                      (make-kb-context (brand KB $kbid) $prem-ctx $prem-vars)))
                (assemble-stored-runtime-fact $type $fact-kb $prf $tv)))
-         ((CPU $fun $args $res) (CPU $fun $args $res))))))
+         ;; A fold over members the assumptions can change folds them in the
+         ;; context: its arguments name the context instead of the KB.
+         ((CPU $fun $args $res)
+            (if (if (== $fun FoldAllCompiled)
+                   (if (context-world? $ctx)
+                      (let $pattern (car-atom (cdr-atom $args)) (context-pattern-affected? $ctx $pattern))
+                      false)
+                   false)
+               (CPU $fun (cons-atom (make-kb-context (brand KB $kbid) $ctx $vars) (cdr-atom $args)) $res)
+               (CPU $fun $args $res)))))))
 
 (: contextualize-rule-args (-[semidet]-> SkFact (List SkPattern) (List SkPattern)))
 (= (contextualize-rule-args $goal $args)
@@ -1002,8 +1011,13 @@
 ;; permanent backward rules: the member rows outlive the query, and a later
 ;; fold over the same pattern reuses the goal.
 (: sk-fold-member (-[semidet]-> $arguments (List SkPattern)))
+(: sk-scoped-member (-[semidet]-> Atom SkPattern SkPattern))
+(= (sk-scoped-member $scope ($type $_kbctx $proof $tv))
+   (assemble-stored-runtime-fact $type (brand KBContext $scope) $proof $tv))
+
 (= (sk-fold-member $args)
-   (let* (($kb (brand KB (car-atom $args)))
+   (let* (($scope (car-atom $args))
+          ($kb (brand KB (if (is-expr $scope) (car-atom $scope) $scope)))
           ($pattern (brand Statement (car-atom (cdr-atom $args))))
           ($source (quote ($kb $pattern)))
           ($hash (index-hash $source)))
@@ -1015,7 +1029,11 @@
                ((cons (compiled-query $goal $adds) $_rest)
                   (if (if (is-var $goal) true (is-var $adds)) ()
                      (let* (($_rules (once (foreach-flat (kb-add-expr backward) $adds)))
-                            ($compiled (typed-runtime-premise $goal))
+                            ;; A fold scoped to a context reads its members there.
+                            ($compiled
+                               (if (is-expr $scope)
+                                  (sk-scoped-member $scope (typed-runtime-premise $goal))
+                                  (typed-runtime-premise $goal)))
                             ($_row (add-atom &sk_fold_members ($hash $source $compiled))))
                         (cons $compiled ()))))
                ($_none ()))))))))

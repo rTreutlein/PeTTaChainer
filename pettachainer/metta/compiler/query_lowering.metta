@@ -193,10 +193,11 @@
          ;; The facts hold in a fresh context that sees the world: the goal's
          ;; answers there, one per binding of its variables
          ;; (docs/metta/assumption_queries.md).
+         ;; It has no hypothetical individual, so its context names no
+         ;; variables and its keys stay ground.
          (let*
-            (($mvars (query-variables (extract-vars $Type)))
-             (($shape-kb $prf $b $adds)
-                (query-side $kb $mvars false (brand Statement $facts) (brand Statement $goal)))
+            ((($shape-kb $prf $b $adds)
+                (query-side $kb Nil false (brand Statement $facts) (brand Statement $goal)))
              ($_world (context-world! $shape-kb)))
             (compilation-plan
                (: (kbctx $kb) $root-prf $Type $tv)

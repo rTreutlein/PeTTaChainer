@@ -36,3 +36,27 @@
             $tv))))
       (and (> $s 0.5999) (< $s 0.6001)))
    true)
+
+;; A fold over statements the assumptions affect folds them in the context:
+;; the expected value of a repair weights each outcome's amount by its truth.
+!(compileadd valueKb (: l1 (LeakBelief x) (STV 0.3 0.8)))
+!(compileadd valueKb
+   (: (no_inverse protects)
+      (Implication (And (Candidate $s $u) (LeakBelief $u) (OutcomeValue $s (Repair $u) protected $v))
+         (Outcome $s (Repair $u) protected $v))
+      (CTV (STV 1 1) (STV 0 1))))
+!(compileadd valueKb
+   (: (no_inverse expected)
+      (Implication
+         (And (Candidate $s $u)
+              (FoldAllTruth (Outcome $s (Repair $u) $o $v) (STV $p $_c) (Weighted $p $v) 0.0
+                 (|-> ($acc (Weighted $w $x)) (+ $acc (* $w $x))) -> $g))
+         (ExpectedValue $s (Repair $u) $g))
+      (CTV (STV 1 1) (STV 0 1))))
+!(test
+   (let (: $_prf (Assuming $_facts (ExpectedValue $_s $_a $g)) $_tv)
+      (car-atom (collapse (query 200 valueKb
+         (: $prf (Assuming (And (Candidate s1 x) (OutcomeValue s1 (Repair x) protected 120))
+                    (ExpectedValue s1 (Repair x) $g)) $tv))))
+      $g)
+   36.0)

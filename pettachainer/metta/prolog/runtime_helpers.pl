@@ -290,6 +290,14 @@ dormancy_note_head(Type) :-
     statement_head(Type, Head),
     (   ( Heads == all ; Head == '$var' ; memberchk(Head, Heads) ) -> Result = true ; Result = false ).
 
+% Whether a world context's assumptions can change some member a fold over a
+% pattern reads: any conjunct of the pattern is affected.
+'context-pattern-affected?'(Ctx, Pattern, Result) :-
+    (   context_affected_memo(Ctx, Heads) -> true
+    ;   context_affected_heads(Ctx, Heads), assertz(context_affected_memo(Ctx, Heads)) ),
+    (   ( Heads == all ; pattern_head(Pattern, H), ( H == '$var' ; memberchk(H, Heads) ) )
+    ->  Result = true ; Result = false ).
+
 context_affected_heads(Ctx, Heads) :-
     findall(H, ( ( dormancy_row('&kb'(T, [_, C|_], _, _))
                  ; dormancy_row(rules('runtime-rule-row', _, [T, [_, C|_]|_], _)) ),

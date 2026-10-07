@@ -50,19 +50,19 @@
    (if (== $runtime-helper $parent-runtime-helper)
       (import_prolog_functions_from_file
          $runtime-helper
-         (remove-data-rows! remove-variant-row! heap_pop heap-empty? index-hash statement-prefix-hashes link-digest hash-set hash-union deps-key deps-union deps-join deps-has? deps-meet? deps-within? deps-mask-within? deps-size deps-cut! deps-gc! rule-dormant? rule-dormancy-wake! rule-dormancy-reset! context-world! context-world? context-affected? beta_kl proof_dag_expand alpha_unique_keys prune_answer_instances rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
+         (remove-data-rows! remove-variant-row! heap_pop heap-empty? index-hash statement-prefix-hashes link-digest hash-set hash-union deps-key deps-union deps-join deps-has? deps-meet? deps-within? deps-mask-within? deps-size deps-cut! deps-gc! rule-dormant? rule-dormancy-wake! rule-dormancy-reset! context-world! context-world? context-affected? context-pattern-affected? beta_kl proof_dag_expand alpha_unique_keys prune_answer_instances rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
             query_metrics_enabled query_metrics_set_enabled
             query_metric_value query_metric_set query_metric_increment))
       (superpose
          ((import_prolog_functions_from_file
              $runtime-helper
-             (remove-data-rows! remove-variant-row! heap_pop heap-empty? index-hash statement-prefix-hashes link-digest hash-set hash-union deps-key deps-union deps-join deps-has? deps-meet? deps-within? deps-mask-within? deps-size deps-cut! deps-gc! rule-dormant? rule-dormancy-wake! rule-dormancy-reset! context-world! context-world? context-affected? beta_kl proof_dag_expand alpha_unique_keys prune_answer_instances rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
+             (remove-data-rows! remove-variant-row! heap_pop heap-empty? index-hash statement-prefix-hashes link-digest hash-set hash-union deps-key deps-union deps-join deps-has? deps-meet? deps-within? deps-mask-within? deps-size deps-cut! deps-gc! rule-dormant? rule-dormancy-wake! rule-dormancy-reset! context-world! context-world? context-affected? context-pattern-affected? beta_kl proof_dag_expand alpha_unique_keys prune_answer_instances rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
                 query_metrics_enabled query_metrics_set_enabled
                 query_metric_value query_metric_set
                 query_metric_increment))
           (import_prolog_functions_from_file
              $parent-runtime-helper
-             (remove-data-rows! remove-variant-row! heap_pop heap-empty? index-hash statement-prefix-hashes link-digest hash-set hash-union deps-key deps-union deps-join deps-has? deps-meet? deps-within? deps-mask-within? deps-size deps-cut! deps-gc! rule-dormant? rule-dormancy-wake! rule-dormancy-reset! context-world! context-world? context-affected? beta_kl proof_dag_expand alpha_unique_keys prune_answer_instances rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
+             (remove-data-rows! remove-variant-row! heap_pop heap-empty? index-hash statement-prefix-hashes link-digest hash-set hash-union deps-key deps-union deps-join deps-has? deps-meet? deps-within? deps-mask-within? deps-size deps-cut! deps-gc! rule-dormant? rule-dormancy-wake! rule-dormancy-reset! context-world! context-world? context-affected? context-pattern-affected? beta_kl proof_dag_expand alpha_unique_keys prune_answer_instances rule-lookup-needs-occurs-check ccls-index-occurs-matches particle_merge_resample
                 query_metrics_enabled query_metrics_set_enabled
                 query_metric_value query_metric_set
                 query_metric_increment))))))

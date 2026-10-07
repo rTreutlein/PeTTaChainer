@@ -44,6 +44,7 @@
 (: context-world! (-[det]-> KBContext Bool))
 (: context-world? (-[det]-> Atom Bool))
 (: context-affected? (-[det]-> Atom Atom Bool))
+(: context-pattern-affected? (-[det]-> Atom Atom Bool))
 
 ;; KL divergence of Beta(a1, b1) from Beta(a2, b2) (runtime_helpers.pl).
 (: beta_kl (-[det]-> Number Number Number Number Number))
