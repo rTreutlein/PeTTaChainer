@@ -102,7 +102,7 @@
     (match-count &sk_view $_v) (match-count &sk_latest $_l) (match-count &sk_use $_u)
     (match-count &sk_fold_members $_m) (match-count &sk_answer_queue $_q) (match-count &sk_ctx_items $_i)
     (match-count rules $_rule) (match-count &sk_score $_sc) (match-count &sk_support $_su)
-    (match-count &proof $_pr) (match-count &proof_fact $_pf)))
+    (match-count &proof $_pr) (match-count &proof_fact $_pf) (match-count &sk_link $_lk)))
 (: decide-in-world (-[det]-> Atom Atom))
 (= (decide-in-world $s)
    (collapse (query 200 worldKb

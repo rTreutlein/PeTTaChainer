@@ -107,12 +107,29 @@
 
 ;; Child links, answers, use edges and join extensions are each recorded
 ;; once, by a digest of the link: one lookup, and a record of one integer
-;; however large the join it names.
+;; however large the join it names. A link with an end in an Assuming query's
+;; context leaves with that context.
 (: sk-link-new! (-[det]-> SkeletonLink Bool))
 (= (sk-link-new! $link)
    (let $digest (link-digest $link)
       (if (space-row-present? &sk_link ($digest)) false
-         (add-atom &sk_link ($digest)))))
+         (let* (($_row (add-atom &sk_link ($digest)))
+                ($ctx
+                   (case $link (
+                      ((sk-child-link $owner $child)
+                         (let $owner-ctx (sk-pattern-context $owner)
+                            (if (context-world? $owner-ctx) $owner-ctx (sk-pattern-context $child))))
+                      ((sk-answer-link $node $key)
+                         (let $node-ctx (sk-pattern-context $node)
+                            (if (context-world? $node-ctx) $node-ctx (sk-key-context $key))))
+                      ((sk-use-link $key $parent)
+                         (let $key-ctx (sk-key-context $key)
+                            (if (context-world? $key-ctx) $key-ctx (sk-key-context $parent))))
+                      ((sk-join-link (sk-partial $join-owner $_rule $_concl $_premises $_remaining $_keys) $answer)
+                         (let $join-ctx (sk-pattern-context $join-owner)
+                            (if (context-world? $join-ctx) $join-ctx (sk-key-context $answer)))))))
+                ($_noted (sk-note-context! $ctx (ctx-link $digest))))
+            true))))
 
 (: sk-node-score (-[det]-> SkPattern Number))
 (= (sk-node-score $node)
@@ -1359,7 +1376,8 @@
       ((ctx-wait $h $premise $waiter) (let $_r (remove-variant-row! &sk_wait (quote ($h $premise $waiter))) ()))
       ((ctx-answer $h $node $key) (let $_r (remove-variant-row! &sk_answer (quote ($h $node $key))) ()))
       ((ctx-child $h $owner $child) (let $_r (remove-variant-row! &sk_child (quote ($h $owner $child))) ()))
-      ((ctx-use $h $key $parent) (let $_r (remove-variant-row! &sk_use (quote ($h $key $parent))) ())))))
+      ((ctx-use $h $key $parent) (let $_r (remove-variant-row! &sk_use (quote ($h $key $parent))) ()))
+      ((ctx-link $digest) (let $_r (remove-atom &sk_link ($digest)) ())))))
 
 ;; The root's keys are its own key and the answers it registered: statements
 ;; of the query itself, which nothing else reads.
@@ -1369,8 +1387,15 @@
           ($keys (case (copy_term $root) (
                     (($type $kbctx $_proof $_tv) (cons (sk-key $type $kbctx) $answers))
                     ($_cpu $answers))))
-          ($_keys (fold-semidet sk-drop-key-step () (list_to_set $keys))))
+          ($_keys (fold-semidet sk-drop-key-step () (list_to_set $keys)))
+          ($_links (fold-semidet (sk-drop-answer-link-step $root) () $answers)))
       (sk-drop-node-rows! $h $root)))
+
+(: sk-drop-answer-link-step (-[semidet]-> SkPattern Atom SkeletonKey Atom))
+(= (sk-drop-answer-link-step $root $_acc $key)
+   (let* (($digest (link-digest (sk-answer-link $root $key)))
+          ($_link (remove-atom &sk_link ($digest))))
+      ()))
 
 (: sk-drop-key-step (-[semidet]-> Atom SkeletonKey Atom))
 (= (sk-drop-key-step $_acc $key) (sk-drop-key-rows! (index-hash $key) $key))

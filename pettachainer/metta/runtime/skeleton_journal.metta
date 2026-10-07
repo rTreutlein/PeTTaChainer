@@ -141,8 +141,8 @@
 ;; buried key leaves its nodes' answers
 (: &sk_answered (SpaceOf (Number SkeletonKey Number SkPattern)))
 ;; What a query's hypothetical contexts created, by context, removed when the
-;; query ends (sk-clear-contexts!): their nodes and keys, and the links into
-;; them from outside.
+;; query ends (sk-clear-contexts!): their nodes and keys, the links into
+;; them from outside, and the digests of the links touching them.
 (: SkeletonContextItem Type)
 (: ctx-node (-[det]-> Number SkPattern SkeletonContextItem))
 (: ctx-key (-[det]-> Number SkeletonKey SkeletonContextItem))
@@ -151,6 +151,7 @@
 (: ctx-answer (-[det]-> Number SkPattern SkeletonKey SkeletonContextItem))
 (: ctx-child (-[det]-> Number SkPattern SkPattern SkeletonContextItem))
 (: ctx-use (-[det]-> Number SkeletonKey SkeletonKey SkeletonContextItem))
+(: ctx-link (-[det]-> Number SkeletonContextItem))
 (: &sk_ctx_items (SpaceOf (Atom SkeletonContextItem)))
 !(bind! &sk_ctx_items (new-space))
 !(bind! &sk_answered (new-space))

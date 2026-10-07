@@ -90,9 +90,15 @@ was interned since the last collection than that collection kept
 (`deps-gc-due?`, `deps-gc!`, `proofs-gc!`), so collection costs in
 proportion to what queries create.
 
-What stays: the link digests (`&sk_link`, one integer per link, since a
-join's digest names the partial join it extended), and the work done in the
-main context, which is ordinary knowledge any query may reuse.
+The link digests (`&sk_link`) go too. A link with an end in C (a child,
+answer, use or join edge whose owner, child, node, key, parent or join owner
+lies in C) is recorded under C as its digest when `sk-link-new!` creates
+it (`ctx-link`), since a join's digest names the partial join it extended,
+which cannot be rebuilt at drop time. The root lies in the main context, so
+its answer links are recomputed from its answers when it is dropped.
+
+What stays: the work done in the main context, which is ordinary knowledge
+any query may reuse.
 
 Implication queries' contexts stay: they hold the derivation of a
 main-context belief, the implication itself.
