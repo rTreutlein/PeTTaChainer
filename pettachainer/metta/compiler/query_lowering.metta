@@ -174,7 +174,8 @@
           (no-evidence (empty))))))
 
 ;; Compile a public query into one goal rule plus temporary additions.
-;; Implication queries require positive and refuting assumption contexts;
+;; Implication queries require positive and refuting assumption contexts, or
+;; the positive one alone when they ask for an STV;
 ;; bidirectional queries require one context per direction. A concrete
 ;; Inheritance query accepts only the total-implication producer plus the
 ;; Member producer, which the chainer installs as ordinary rules when it
@@ -189,6 +190,22 @@
       (compilation-plan (: (kbctx $kb) $prf $Type $tv) ())
       (if (contains-explicit-exists? $Type) (empty)
       (if (= $Type (Implication $antecedent $consequent))
+         (if (if (is-var $tv) false (= $tv (STV $_s $_c)))
+            ;; An STV asks only how the consequent stands when the antecedent
+            ;; holds: the positive side alone, without the refuting context.
+            (let*
+               (($mvars (query-variables (extract-vars $Type)))
+                (($pos-shape-kb $pos-prf $b $pos-adds)
+                   (query-side $kb $mvars false
+                      (brand Statement $antecedent)
+                      (brand Statement $consequent))))
+               (compilation-plan
+                  (: (kbctx $kb) $root-prf $Type $tv)
+                  (cons
+                     (brand CompiledAddition
+                        ((the (List Goal) ((: $pos-shape-kb $pos-prf $b $tv)))
+                           |- (: (kbctx $kb) (conditional-implication $pos-prf) $Type $tv)))
+                     $pos-adds)))
          (let*
             (($mvars (query-variables (extract-vars $Type)))
              (($pos-shape-kb $neg-shape-kb $b
@@ -223,7 +240,7 @@
                            (brand Statement $Type)
                            (brand Statement $antecedent)
                            (brand Statement $consequent)))
-                     $all-adds))))
+                     $all-adds)))))
          (if (implication-type? $Type) (empty)
          (if (bidirectional-implication-type? $Type)
             (let*
