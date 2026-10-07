@@ -270,6 +270,9 @@ dormancy_note_head(Type) :-
 % own rules are compiled into its contexts before their premises are placed.
 'context-affected-reset!'(true) :- retractall(context_affected_memo(_, _)).
 
+% A context removed with its query leaves no mark.
+'context-forget!'(Ctx, true) :- retractall(world_context(Ctx)), retractall(context_affected_memo(Ctx, _)).
+
 % Contexts of `Assuming` queries see the world: the main context's facts and
 % keys stay readable there, and a premise is placed in the context only when the
 % assumptions can change it (docs/metta/assumption_queries.md).

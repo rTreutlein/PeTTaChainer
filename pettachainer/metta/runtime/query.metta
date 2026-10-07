@@ -77,8 +77,9 @@
 (= (query-plan-runtime-goal ($_key $goal))
    (typed-runtime-premise $goal))
 
-;; Temporary additions stay installed through proof externalization and pretty
-;; printing. Direct chainer entrypoints intentionally do not own this bracket.
+;; Temporary additions and Assuming contexts stay installed through proof
+;; externalization and pretty printing. Direct chainer entrypoints
+;; intentionally do not own this bracket.
 (: run-query-execution-plan
    (-[nondet]-> Number QueryExecutionPlan Bool
        (List (Number AnnotatedStatement))))
@@ -98,7 +99,8 @@
              (chainer-many $steps $goals)))
        ($rows
           (present-query-plan-results $roots $runtime-results))
-       ($_clear-temp-after (clear-temp-query-adds)))
+       ($_clear-temp-after (clear-temp-query-adds))
+       ($_contexts (sk-clear-contexts!)))
       $rows))
 
 (: query-mode

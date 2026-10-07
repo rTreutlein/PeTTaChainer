@@ -89,3 +89,26 @@
                     (ExpectedValue s1 (Repair x) $g)) $tv))))
       $g)
    15.0)
+
+;; The query's context leaves with it: a second decision leaves every store as
+;; the first one did, apart from the work in the main context they share.
+(: store-sizes (-[det]-> Atom))
+(= (store-sizes)
+   ((match-count &kb $_f) (match-count &sk_expanded $_n) (match-count &sk_node_terms $_t)
+    (match-count &sk_node_prefix $_p) (match-count &sk_child $_c) (match-count &sk_wait $_w)
+    (match-count &sk_answer $_a) (match-count &sk_keys $_k) (match-count &sk_key_prefix $_kp)
+    (match-count &sk_row $_r) (match-count &sk_reader $_rd) (match-count &sk_stale_reader $_sr)
+    (match-count &sk_view $_v) (match-count &sk_latest $_l) (match-count &sk_use $_u)
+    (match-count &sk_fold_members $_m) (match-count &sk_answer_queue $_q) (match-count &sk_ctx_items $_i)))
+(: decide-in-world (-[det]-> Atom Atom))
+(= (decide-in-world $s)
+   (collapse (query 200 worldKb
+      (: $prf (Assuming (And (Candidate $s x) (Implication (SealLeak x) (LeakBelief x))
+                             (Amount $s (Repair x) protected 120) (Amount $s (Repair x) unnecessary -30))
+                 (ExpectedValue $s (Repair x) $g)) $tv))))
+!(test
+   (let* (($_first (decide-in-world s2))
+          ($before (store-sizes))
+          ($_second (decide-in-world s3)))
+      (== $before (store-sizes)))
+   true)

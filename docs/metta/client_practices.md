@@ -33,8 +33,8 @@ Ask the decision as `(Assuming (And <decision facts>) <conclusion>)` instead
 link from a stored statement to what the decision reads can be assumed as an
 implication instead of added as a rule. An implication query is not a
 substitute: it judges an implication from its assumption alone and sees no
-stored facts about the statements it relates. Open issue: the context's
-nodes are not yet removed when the query ends.
+stored facts about the statements it relates. The context is removed when
+the query ends.
 
 ## Budgets that scale with the question
 

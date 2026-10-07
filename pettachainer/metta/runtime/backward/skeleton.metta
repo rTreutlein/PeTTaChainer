@@ -195,11 +195,40 @@
             ()))
       ($_cpu ()))))
 
+(: sk-scope-context (-[det]-> Atom Atom))
+(= (sk-scope-context $scope) (if (is-expr $scope) (let $rest (cdr-atom $scope) (car-atom $rest)) MAIN))
+
+;; The hypothetical context a node or key lies in, MAIN for the main context
+;; (or one left open); a fold scoped to a context lies in it. Only an Assuming
+;; query's contexts are query-local: an implication's contexts hold the
+;; derivation of a main-context belief and stay.
+(: sk-pattern-context (-[det]-> SkPattern Atom))
+(= (sk-pattern-context $pattern)
+   (case (copy_term $pattern) (
+      ((CPU $_fun $args $_res) (if (is-expr $args) (let $scope (car-atom $args) (sk-scope-context $scope)) MAIN))
+      (($_type ($_kbid $ctx $_vars) $_proof $_tv) (if (is-var $ctx) MAIN $ctx)))))
+
+(: sk-key-context (-[det]-> SkeletonKey Atom))
+(= (sk-key-context $key)
+   (case (copy_term $key) (
+      ((sk-key $_type ($_kbid $ctx $_vars)) (if (is-var $ctx) MAIN $ctx))
+      ((sk-fold $args) (let $scope (car-atom $args) (sk-scope-context $scope)))
+      ($_group MAIN))))
+
+(: sk-note-context! (-[det]-> Atom SkeletonContextItem Atom))
+(= (sk-note-context! $ctx $item)
+   (if (context-world? $ctx) (let $_row (add-atom &sk_ctx_items ($ctx $item)) ()) ()))
+
 (: sk-add-child! (-[semidet]-> SkPattern SkPattern Number Atom))
 (= (sk-add-child! $owner $child $score)
    (if (let $_scored (sk-raise-score! $child $score) (sk-link-new! (sk-child-link $owner $child)))
       (let* (($hash (sk-node-hash $owner))
              ($_row (add-atom &sk_child ($hash $owner $child)))
+             ($child-ctx (sk-pattern-context $child))
+             ($_node (sk-note-context! $child-ctx (ctx-node (sk-node-hash $child) $child)))
+             ($_link
+                (if (== $child-ctx (sk-pattern-context $owner)) ()
+                   (sk-note-context! $child-ctx (ctx-child $hash $owner $child))))
              ($_fresh (add-atom &sk_fresh (sk-fresh $child))))
          (sk-index-node! $child))
       ()))
@@ -357,6 +386,8 @@
          (let $hash (index-hash $key)
             (if (== (collapse (once (match &sk_keys ($hash $stored) (if (=alpha $stored $key) true (empty))))) ())
                (let* (($_key (add-atom &sk_keys ($hash $key)))
+                      ($ctx (sk-key-context $key))
+                      ($_noted (sk-note-context! $ctx (ctx-key $hash $key)))
                       ($_terms (add-atom &sk_key_terms ($type $kbctx $hash)))
                       ($ground (== (extract-vars $type) ()))
                       ($_prefixes
@@ -417,6 +448,10 @@
       (let* (($_registered (sk-register-key! $key))
              ($hash (sk-node-hash $node))
              ($_row (add-atom &sk_answer ($hash $node $key)))
+             ($_noted
+                (let $key-ctx (sk-key-context $key)
+                   (if (== $key-ctx (sk-pattern-context $node)) ()
+                      (sk-note-context! $key-ctx (ctx-answer $hash $node $key)))))
              ($_indexed
                 (if (<= (search-id-value forgetting_horizon) 0) ()
                    (let* (($khash (index-hash $key))
@@ -452,7 +487,11 @@
 (= (sk-add-use! $key $parent)
    (if (sk-link-new! (sk-use-link $key $parent))
       (let* (($hash (index-hash $key))
-             ($_row (add-atom &sk_use ($hash $key $parent))))
+             ($_row (add-atom &sk_use ($hash $key $parent)))
+             ($_noted
+                (let $parent-ctx (sk-key-context $parent)
+                   (if (== $parent-ctx (sk-key-context $key)) ()
+                      (sk-note-context! $parent-ctx (ctx-use $hash $key $parent))))))
          ())
       ()))
 
@@ -614,6 +653,18 @@
 (= (sk-wait-on! $owner $rule $premise $waiter)
    (let* (($hash (sk-node-hash $premise))
           ($_wait (add-atom &sk_wait ($hash $premise $waiter)))
+          ($_noted
+             (let* (($owner-ctx (sk-pattern-context $owner)) ($premise-ctx (sk-pattern-context $premise)))
+                (if (== $owner-ctx $premise-ctx) ()
+                   (let $_waiting (sk-note-context! $owner-ctx (ctx-wait $hash $premise $waiter))
+                      ;; Only an Assuming query's root reads into its context
+                      ;; from outside, and it leaves with the context.
+                      (case (copy_term $owner) (
+                         (($owner-type $owner-kbctx $_owner-proof $_owner-tv)
+                            (let* (($owner-key (sk-key $owner-type $owner-kbctx))
+                                   ($_node (sk-note-context! $premise-ctx (ctx-node (sk-node-hash $owner) $owner))))
+                               (sk-note-context! $premise-ctx (ctx-key (index-hash $owner-key) $owner-key))))
+                         ($_cpu ())))))))
           ($_leaves
              (if (sk-expanded? $premise) ()
                 (case (copy_term $premise) (
@@ -1061,7 +1112,9 @@
                                (if (is-expr $scope)
                                   (sk-scoped-member $scope (typed-runtime-premise $goal))
                                   (typed-runtime-premise $goal)))
-                            ($_row (add-atom &sk_fold_members ($hash $source $compiled))))
+                            ($_row (add-atom &sk_fold_members ($hash $source $compiled)))
+                            ($ctx (sk-scope-context $scope))
+                            ($_noted (sk-note-context! $ctx (ctx-fold-members $hash))))
                         (cons $compiled ()))))
                ($_none ()))))))))
 
@@ -1268,6 +1321,121 @@
                        ($_views (sk-drop-row-views! $khash $key $rhash)))
                    $key)))))
       (fold-semidet sk-dirty-step () $keys)))
+
+;; --- Query contexts -----------------------------------------------------------
+
+;; An Assuming query's contexts leave with it: everything they created is
+;; removed from the stores, with the links into them from outside, so nothing
+;; a past query assumed is read, updated or walked by a later one
+;; (docs/metta/assumption_queries.md). The stores keyed by a node's or key's
+;; own hash lose that hash's rows.
+(: sk-clear-contexts! (-[semidet]-> Atom))
+(= (sk-clear-contexts!)
+   (let* (($contexts (the (List Atom) (list_to_set (collapse (match &sk_ctx_items ($ctx $_item) $ctx)))))
+          ($_dropped (collapse (match &sk_ctx_items ($_ctx $item) (sk-drop-context-item! $item))))
+          ($_cleared (remove-data-rows! &sk_ctx_items (quote ($_ctx2 $_item2))))
+          ($_queue
+             (collapse (match &sk_answer_queue ($seq (sk-delivery $node $key))
+                (if (let* (($node-ctx (sk-pattern-context $node)) ($key-ctx (sk-key-context $key)))
+                       (if (context-world? $node-ctx) true (context-world? $key-ctx)))
+                   (remove-atom &sk_answer_queue ($seq (sk-delivery $node $key)))
+                   (empty))))))
+      (fold-flat sk-forget-context-step () $contexts)))
+
+(: sk-forget-context-step (-[det]-> Atom Atom Atom))
+(= (sk-forget-context-step $_acc $ctx) (let $_forgot (context-forget! $ctx) ()))
+
+(: sk-drop-context-item! (-[semidet]-> SkeletonContextItem Atom))
+(= (sk-drop-context-item! $item)
+   (case $item (
+      ((ctx-node $h $node) (sk-drop-node-rows! $h $node))
+      ((ctx-key $h $key) (sk-drop-key-rows! $h $key))
+      ((ctx-wait $h $premise $waiter) (let $_r (remove-variant-row! &sk_wait (quote ($h $premise $waiter))) ()))
+      ((ctx-answer $h $node $key) (let $_r (remove-variant-row! &sk_answer (quote ($h $node $key))) ()))
+      ((ctx-child $h $owner $child) (let $_r (remove-variant-row! &sk_child (quote ($h $owner $child))) ()))
+      ((ctx-use $h $key $parent) (let $_r (remove-variant-row! &sk_use (quote ($h $key $parent))) ()))
+      ((ctx-fold-members $h) (let $_r (remove-data-rows! &sk_fold_members (quote ($h $_source $_member))) ())))))
+
+(: sk-drop-node-rows! (-[semidet]-> Number SkPattern Atom))
+(= (sk-drop-node-rows! $h $node)
+   (let* (($_child (remove-data-rows! &sk_child (quote ($h $_owner $_kid))))
+          ($_score (remove-data-rows! &sk_score (quote ($h $_n1 $_score))))
+          ($_expanded (remove-data-rows! &sk_expanded (quote ($h $_n2))))
+          ($_wait (remove-data-rows! &sk_wait (quote ($h $_p1 $_waiter1))))
+          ($_temp-wait (remove-data-rows! &sk_temp_waits (quote ($h $_p2 $_waiter2))))
+          ($_answer (remove-data-rows! &sk_answer (quote ($h $_n3 $_key))))
+          ($_fold (remove-data-rows! &sk_fold (quote ($h $_f1 $_m1))))
+          ($_member-of (remove-data-rows! &sk_member_of (quote ($h $_m2 $_f2))))
+          ($_deferred (remove-data-rows! &sk_deferred (quote ($h $_rh $_d))))
+          ($_deferred-joins (remove-data-rows! &sk_deferred_joins (quote ($h $_jh $_j))))
+          ($_parked (remove-data-rows! &sk_parked (quote ($h $_seq $_delivery))))
+          ($_roots (remove-data-rows! &sk_roots (quote ($h $_n4))))
+          ($_seen (remove-data-rows! &sk_seen (quote ($h $_n5)))))
+      (case (copy_term $node) (
+         ;; A fold node in a context takes its fold's key along.
+         ((CPU FoldAllCompiled $args $_res) (let $fold-key (sk-fold $args) (sk-drop-key-rows! (index-hash $fold-key) $fold-key)))
+         ((CPU $_fun $_args $_res) ())
+         (($type $kbctx $_proof $_tv)
+            (let* (($_terms (remove-data-rows! &sk_node_terms (quote ($type $kbctx $_n6))))
+                   ($prefix
+                      (case (statement-prefix-hashes $type) (
+                         (() (index-hash (car-atom $type)))
+                         ((cons $longest $_shorter) $longest)))))
+               (let $_prefix (remove-data-rows! &sk_node_prefix (quote ($prefix $_t $_k $h $_n7))) ())))))))
+
+(: sk-drop-key-rows! (-[semidet]-> Number SkeletonKey Atom))
+(= (sk-drop-key-rows! $h $key)
+   (let* (($rows (collapse (match &sk_row ($h $stored $rh (sk-row $ident $concl $premises $seq)) ($rh $premises))))
+          ($_rows (fold-semidet (sk-drop-row-links! $h) () $rows))
+          ($_row (remove-data-rows! &sk_row (quote ($h $_k1 $_rh1 $_r1))))
+          ($_keys (remove-data-rows! &sk_keys (quote ($h $_k2))))
+          ($_epoch (remove-data-rows! &sk_key_epoch (quote ($h $_k3 $_e))))
+          ($_latest (remove-data-rows! &sk_latest (quote ($h $_k4 $_v1))))
+          ($_view (remove-data-rows! &sk_view (quote ($h $_k5 $_rh2 $_v2))))
+          ($_merged (remove-data-rows! &sk_merged (quote (sk-merged $h $_k6 $_d $_v3))))
+          ($_reader (remove-data-rows! &sk_reader (quote ($h $_k7 $_kh1 $_rh3))))
+          ($_stale-reader (remove-data-rows! &sk_stale_reader (quote ($h $_k8 $_kh2 $_rh4))))
+          ($_unifiers (remove-data-rows! &sk_unifiers (quote ($h $_k9 $_hs))))
+          ($_use (remove-data-rows! &sk_use (quote ($h $_k10 $_parent))))
+          ($_needed (remove-data-rows! &sk_needed (quote ($h $_k11 $_depth))))
+          ($_dirty (remove-data-rows! &sk_dirty (quote ($h $_k12))))
+          ($_group (remove-data-rows! &sk_group_of (quote ($h $_k13 $_fold))))
+          ($_answered (remove-data-rows! &sk_answered (quote ($h $_k14 $_nh $_node)))))
+      (case $key (
+         ((sk-key $type $kbctx)
+            (let* (($_terms (remove-data-rows! &sk_key_terms (quote ($type $kbctx $h))))
+                   ($_open (remove-data-rows! &sk_key_open (quote ($type $kbctx $h))))
+                   ($_reader-terms (remove-data-rows! &sk_reader_terms (quote ($type $kbctx $h $_k15)))))
+               (fold-flat (sk-drop-key-prefix! $type $kbctx $h) () (statement-prefix-hashes $type))))
+         ($_fold ())))))
+
+(: sk-drop-key-prefix! (-[det]-> Statement KBContext Number Atom Number Atom))
+(= (sk-drop-key-prefix! $type $kbctx $h $_acc $prefix)
+   (let $_r (remove-data-rows! &sk_key_prefix (quote ($prefix $type $kbctx $h))) ()))
+
+;; A row of a removed key leaves the reader lists of the keys it read, which may
+;; lie outside its context, and its per-row marks.
+(: sk-drop-row-links! (-[semidet]-> Number Atom (Number (List SkPattern)) Atom))
+(= (sk-drop-row-links! $h $_acc ($rh $premises))
+   (let* (($_readers (fold-semidet (sk-drop-reader-link! $h $rh) () (fold-semidet sk-direct-key-step () $premises)))
+          ($_stale (remove-data-rows! &sk_stale (quote ($h $rh))))
+          ($_support (remove-data-rows! &sk_support (quote ($h $rh $_deps))))
+          ($_pending (remove-data-rows! &sk_given_pending (quote ($h $rh $_cost))))
+          ($_granted (remove-data-rows! &sk_given_granted (quote ($h $rh))))
+          ($_forced (remove-data-rows! &sk_forced (quote ($h $rh $_cause))))
+          ($_used (remove-data-rows! &sk_forced_used (quote ($h $rh $_cause2))))
+          ($_refresh (remove-data-rows! &sk_refresh (quote ($h $rh))))
+          ($_restale (remove-data-rows! &sk_restale (quote ($h $rh))))
+          ($_restaled (remove-data-rows! &sk_restaled (quote ($h $rh))))
+          ($_temp (remove-data-rows! &sk_temp_rows (quote ($h $_k $rh $_row)))))
+      ()))
+
+(: sk-drop-reader-link! (-[semidet]-> Number Number Atom SkeletonKey Atom))
+(= (sk-drop-reader-link! $h $rh $_acc $premise-key)
+   (let* (($ph (index-hash $premise-key))
+          ($_reader (remove-data-rows! &sk_reader (quote ($ph $_k1 $h $rh))))
+          ($_stale (remove-data-rows! &sk_stale_reader (quote ($ph $_k2 $h $rh)))))
+      ()))
 
 (: sk-dirty-step (-[semidet]-> Atom SkeletonKey Atom))
 (= (sk-dirty-step $_acc $key) (sk-mark-dirty! $key))

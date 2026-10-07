@@ -1,7 +1,6 @@
 # Queries under assumptions
 
-Status: built except cleanup, October 2026. The context is not yet removed at
-the query's end (see Cleanup).
+Status: built, October 2026.
 
 ## Problem
 
@@ -62,13 +61,31 @@ context that sees the world (`context-world!`).
   query's contexts (which name the hypothetical individual's), so its keys
   are ground.
 
-## Cleanup (not built)
+## Cleanup
 
-Every node, key, row, view, answer, wait and deferred item whose context is
-C is recorded under C when created (`&sk_context_items`). When the query
-ends, its contexts' items are removed, as its query-local rules are
-(`sk-clear-temp!`). Main-context keys that read C's keys do not exist: a
-main-context premise never reads C.
+Whatever lies in C is recorded under C when it is created
+(`&sk_ctx_items`): its nodes (`sk-add-child!`), keys (`sk-register-key!`)
+and fold members (`sk-fold-member`). So is each link between C and the rest
+of the store: a wait, answer, child or use edge from a node or key in C to
+one outside it. The query's root lies in the main context and waits on C's
+goal, the only thing outside C that reads it; it is recorded under C as
+well.
+
+After the query's results are externalized (`run-query-execution-plan`),
+`sk-clear-contexts!` removes every recorded node and key from all the stores
+keyed by its hash. A key's rows leave the reader lists of the keys they read,
+which may lie in the main context, together with their per-row marks. A fold
+node in C takes its fold's key along. The answer queue loses deliveries into
+C. The context's marks go (`context-forget!`). So no later query reads,
+updates or walks anything a past decision assumed, and a sequence of
+decisions leaves the stores as one does (`test_assuming_query.metta`).
+
+What stays: the link digests (`&sk_link`, one integer per link, since a
+join's digest names the partial join it extended), and the work done in the
+main context, which is ordinary knowledge any query may reuse.
+
+Implication queries' contexts stay: they hold the derivation of a
+main-context belief, the implication itself.
 
 ## Budget
 
