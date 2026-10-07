@@ -53,6 +53,7 @@
 (: sk-start-rule-step (-[semidet]-> SkPattern Atom SkeletonMatch Atom))
 (: sk-activate-pending! (-[semidet]-> Atom))
 (: sk-expand! (-[semidet]-> SkPattern Number Atom))
+(: sk-rule-match (-[nondet]-> SkFact SkeletonMatch))
 ;; node, depth
 (: SkeletonFrontier Type)
 (: sk-frontier (-[det]-> SkPattern Number SkeletonFrontier))
@@ -586,6 +587,7 @@
 ;; once: looking them up is one indexed read, so only expanding the premise's
 ;; rules costs a step. An open premise waits for its expansion, which bounds
 ;; recursion through its own answers.
+
 (= (sk-wait-on! $owner $rule $premise $waiter)
    (let* (($hash (sk-node-hash $premise))
           ($_wait (add-atom &sk_wait ($hash $premise $waiter)))
@@ -821,7 +823,6 @@
 ;; Preserve the complete conclusion shape during lookup so SWI's deep index can
 ;; discriminate arguments. A goal that repeats a variable unifies under an
 ;; occurs check: an exists witness term embeds the variable it witnesses for.
-(: sk-rule-match (-[nondet]-> SkFact SkeletonMatch))
 (= (sk-rule-match $goal)
    (let $lookup-goal (copy_term $goal)
       (if (rule-lookup-needs-occurs-check $lookup-goal)
@@ -1127,6 +1128,20 @@
             ($fresh (sk-search! (fold-semidet (sk-push 1) $heap $fresh)))))
          (sk-search-pop! (heap_pop $heap)))))
 
+;; A node no rule can conclude is expanded without a step when the walk
+;; reaches it: its expansion only reads its stored facts. Implications and
+;; inheritance links are not, since expanding them installs rules.
+(: sk-extensional? (-[semidet]-> SkPattern Bool))
+(= (sk-extensional? $node)
+   (case $node (
+      ((CPU $_fun $_args $_res) false)
+      (($type $kbctx $_proof $_tv)
+         (if (implication-type? $type) false
+            (case $type (
+               ((Inheritance $_subj $_concept) false)
+               ($_other
+                  (== (collapse (once (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $_rp $_rt)))) ())))))))))
+
 (: sk-search-pop! (-[semidet]-> (Number SkeletonFrontier (Heap SkeletonFrontier)) Atom))
 (= (sk-search-pop! ($_priority (sk-frontier $node $depth) $rest))
    (if (sk-seen! $node)
@@ -1135,7 +1150,7 @@
          (if (sk-take! sk_walk_budget)
             (let $_resumed (sk-resume! $node) (sk-search! (sk-push-children $depth $node $rest)))
             (sk-search! $rest))
-         (if (sk-take! sk_budget)
+         (if (if (sk-extensional? $node) true (sk-take! sk_budget))
             (let $_expand (sk-expand! $node $depth) (sk-search! (sk-push-children $depth $node $rest)))
             (sk-drain!)))))
 

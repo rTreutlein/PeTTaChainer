@@ -287,7 +287,12 @@ prefix. A multi-root query shares one budget and one order.
 
 Stored facts cost no expansion: a join waiting on a ground fact premise reads
 its facts at once, and a root reads its own stored facts. An open premise waits
-for its expansion, which bounds recursion. Before any state is created, a rule
+for its expansion, which bounds recursion. A node no rule can conclude (other
+than an implication or inheritance link, whose expansion installs rules) is
+expanded without a step when the walk reaches it: its expansion only reads
+its stored facts. It keeps its place in the walk, so its facts extend joins
+when its priority says so (reading them at once filled the row budget early:
+StationOps Brier 0.0652 against 0.0607 at the smallest budgets). Before any state is created, a rule
 whose ground fact premise has no fact and no concluding rule is pruned. New
 rows have an allowance of ten per step, except the rows of the query's own
 roots; rows beyond it wait with their node
