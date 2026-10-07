@@ -140,3 +140,22 @@ and collects unreachable dependency nodes each epoch.
 What still grows: one summary fact per buried key and its `&kb` index entries,
 join-link digests, waiters, and the input facts. Stage 3 (dropping summaries
 and absorbed facts nobody can reach) is the remaining lever.
+
+## StationOps, October 2026
+
+Replayed temporal model, 20 shifts, 8 seeds, forward slice 100/150, query
+budget 50/200, horizon off / 2 / 5 shifts (Brier, then compute per seed at
+q 200):
+
+| slice, q | plain | distractor chains |
+|---|---|---|
+| 100, q50 | 0.0599 / 0.0654 / 0.0694 | 0.0618 / 0.0624 / 0.0613 |
+| 100, q200 | 0.0593 / 0.0593 / 0.0593 (12.9 / 15.1 / 14.3 s) | 0.0594 / 0.0593 / 0.0640 (13.7 / 19.1 / 18.9 s) |
+| 150, q50 | 0.0596 / 0.0600 / 0.0610 | 0.0597 / 0.0619 / 0.0613 |
+| 150, q200 | 0.0591 / 0.0591 / 0.0591 (13.2 / 15.2 / 15.5 s) | 0.0592 / 0.0614 / 0.0638 (15.0 / 21.6 / 21.5 s) |
+
+At this length forgetting costs quality and time: frozen keys' summaries
+lose precision and the freezing is work of its own. In live play it flattened
+the action queries' cost (1.4 → 5.7 s per shift without, 1.1–2.0 s with),
+but only because the decision steps' nodes were never read again; queries
+under assumptions remove those exactly (`assumption_queries.md`).
