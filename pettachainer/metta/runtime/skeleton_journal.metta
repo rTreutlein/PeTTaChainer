@@ -300,7 +300,8 @@
 
 (: sk-note-rule! (-[det]-> Number Atom))
 (= (sk-note-rule! $id)
-   (let $woken (rule-dormancy-reset!)
+   (let* (($_contexts (if (< $id 1000000000) (context-affected-reset!) true))
+          ($woken (rule-dormancy-reset!)))
       (if (not (== (collapse (once (match &sk_expanded ($_hash $_pattern) true))) ()))
          (foreach-flat sk-pend-rule! (cons $id $woken))
          ())))

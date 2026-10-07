@@ -261,11 +261,14 @@ dormancy_note_head(Type) :-
     forall(member(Id, Ids), retractall(rule_dormancy(Id, _, _))).
 
 % A new rule can give any premise support: every dormant rule is looked at
-% again, and every verdict is dropped, and so is every context's affected set.
+% again, and every verdict is dropped.
 'rule-dormancy-reset!'(Ids) :-
     findall(Id, rule_dormancy(Id, true, _), Ids0), sort(Ids0, Ids),
-    retractall(rule_dormancy(_, _, _)),
-    retractall(context_affected_memo(_, _)).
+    retractall(rule_dormancy(_, _, _)).
+
+% A permanent rule can change what any context's assumptions affect; a query's
+% own rules are compiled into its contexts before their premises are placed.
+'context-affected-reset!'(true) :- retractall(context_affected_memo(_, _)).
 
 % Contexts of `Assuming` queries see the world: the main context's facts and
 % keys stay readable there, and a premise is placed in the context only when the
