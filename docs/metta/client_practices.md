@@ -28,10 +28,12 @@ decision is made. StationOps' decision steps left about 10,000 nodes after 20
 shifts, and every later query scanned past them (action query time per shift
 1.4 s → 5.7 s over 20 shifts at a fixed budget).
 
-Ask instead `(Implication (And <decision facts>) <conclusion>)`: the facts are
-assumed in a context of the query and are not stored. The query binds the
-conclusion's variables, one answer per binding. Open issue: the contexts'
-nodes are not yet removed when the query ends, so they pile up too.
+Ask the decision as a query under assumptions instead
+(`assumption_queries.md`, designed, not built yet): the facts hold only in
+the query's context and everything built in it leaves with the query. An
+implication query is not a substitute: it reads only premises that share the
+query's variables in its context, computes a refuting branch, and keeps its
+contexts' nodes.
 
 ## Budgets that scale with the question
 
