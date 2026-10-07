@@ -61,6 +61,23 @@
       $g)
    36.0)
 
+;; Folds over one predicate that differ only in constants, such as one per
+;; decision step, share the member's compilation: a later step adds no
+;; member row and still folds its own outcomes.
+(: expected-value (-[semidet]-> Atom Number Atom))
+(= (expected-value $s $amount)
+   (let (: $_prf (Assuming $_facts (ExpectedValue $_s $_a $g)) $_tv)
+      (car-atom (collapse (query 200 valueKb
+         (: $prf (Assuming (And (Candidate $s x) (OutcomeValue $s (Repair x) protected $amount))
+                    (ExpectedValue $s (Repair x) $g)) $tv))))
+      $g))
+!(test
+   (let* (($members (match-count &sk_fold_members $_m))
+          ($g2 (expected-value s2 50))
+          ($g3 (expected-value s3 200)))
+      ($g2 $g3 (== $members (match-count &sk_fold_members $_m))))
+   (15.0 60.0 true))
+
 ;; The world's rules hold in the context, connective adapters included, and a
 ;; rule dormant in the main context runs there: here the leak belief exists
 ;; only through the assumed link, and an expected value folds a conjunction.

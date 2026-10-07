@@ -53,7 +53,8 @@ context that sees the world (`context-world!`).
 - **The goal** is read in C.
 - **Folds.** A fold premise whose member pattern the assumptions affect is
   scoped to C: its arguments name C instead of the KB, and its member node
-  lies in C. The member's rules are compiled once per pattern and KB and
+  lies in C. The member's rules are compiled once per pattern shape (the
+  pattern with its user predicates' constants made variables) and KB and
   are permanent; only where the member is read depends on C.
 - **The world's rules.** A goal in C is also concluded by the rules compiled
   for the main context (connective adapters among them, for `And` and `Not`

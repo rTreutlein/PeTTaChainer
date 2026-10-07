@@ -78,13 +78,14 @@ prefix_hashes(_, _, Hashes, Hashes).
 'evidence-sets-overlap?'(A, B, Result) :-
     sort(B, Set), ( member(E, A), ord_memberchk(E, Set) -> Result = true ; Result = false ).
 
-% The shape a fold's member is compiled for (sk-pattern-members). A
-% connective over user predicates compiles to adapters that only its
-% structure decides, so its predicates' ground arguments become variables:
-% folds that differ only in constants, such as one per decision step, share
-% one compilation. Variables stay shared. Any other pattern is its own shape.
+% The shape a fold's member is compiled for (sk-shape-members). A user
+% predicate compiles to its own lookup goal, and a connective over user
+% predicates to adapters that only its structure decides, so the predicates'
+% ground arguments become variables: folds that differ only in constants,
+% such as one per decision step, share one compilation. Variables stay
+% shared. Any other pattern (chainer vocabulary) is its own shape.
 'pattern-shape'(Pattern, Shape) :-
-    (   connective_shape(Pattern, Shape) -> true ; Shape = Pattern ).
+    (   statement_shape(Pattern, Shape) -> true ; Shape = Pattern ).
 
 connective_shape(Pattern, Shape) :-
     nonvar(Pattern), Pattern = [Connective|Children], Children \== [],
