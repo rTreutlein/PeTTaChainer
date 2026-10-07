@@ -50,6 +50,9 @@
 (: context-affected-reset! (-[det]-> Bool))
 (: context-forget! (-[det]-> Atom Bool))
 (: pattern-shape (-[det]-> Atom Atom))
+(: node-context (-[det]-> Atom Atom))
+(: key-context (-[det]-> Atom Atom))
+(: scope-context (-[det]-> Atom Atom))
 ;; Evidence sets compare entries with ==, through an ordered set of the second
 ;; list, so their cost follows the lists' lengths, not their product. The
 ;; intersection lists the first set's shared entries in reverse; the

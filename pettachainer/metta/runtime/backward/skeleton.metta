@@ -117,17 +117,17 @@
                 ($ctx
                    (case $link (
                       ((sk-child-link $owner $child)
-                         (let $owner-ctx (sk-pattern-context $owner)
-                            (if (context-world? $owner-ctx) $owner-ctx (sk-pattern-context $child))))
+                         (let $owner-ctx (node-context $owner)
+                            (if (context-world? $owner-ctx) $owner-ctx (node-context $child))))
                       ((sk-answer-link $node $key)
-                         (let $node-ctx (sk-pattern-context $node)
-                            (if (context-world? $node-ctx) $node-ctx (sk-key-context $key))))
+                         (let $node-ctx (node-context $node)
+                            (if (context-world? $node-ctx) $node-ctx (key-context $key))))
                       ((sk-use-link $key $parent)
-                         (let $key-ctx (sk-key-context $key)
-                            (if (context-world? $key-ctx) $key-ctx (sk-key-context $parent))))
+                         (let $key-ctx (key-context $key)
+                            (if (context-world? $key-ctx) $key-ctx (key-context $parent))))
                       ((sk-join-link (sk-partial $join-owner $_rule $_concl $_premises $_remaining $_keys) $answer)
-                         (let $join-ctx (sk-pattern-context $join-owner)
-                            (if (context-world? $join-ctx) $join-ctx (sk-key-context $answer)))))))
+                         (let $join-ctx (node-context $join-owner)
+                            (if (context-world? $join-ctx) $join-ctx (key-context $answer)))))))
                 ($_noted (sk-note-context! $ctx (ctx-link $digest))))
             true))))
 
@@ -149,7 +149,7 @@
                       (if (=alpha $stored $node) (remove-atom &sk_score ($hash $stored $old-score)) (empty)))))
                 ($_added (add-atom &sk_score ($hash $node $score))))
             (if (== $removed ())
-               (let $ctx (sk-pattern-context $node) (sk-note-context! $ctx (ctx-node $hash $node)))
+               (let $ctx (node-context $node) (sk-note-context! $ctx (ctx-node $hash $node)))
                ()))
          ())))
 
@@ -214,26 +214,6 @@
             ()))
       ($_cpu ()))))
 
-(: sk-scope-context (-[det]-> Atom Atom))
-(= (sk-scope-context $scope) (if (is-expr $scope) (let $rest (cdr-atom $scope) (car-atom $rest)) MAIN))
-
-;; The hypothetical context a node or key lies in, MAIN for the main context
-;; (or one left open); a fold scoped to a context lies in it. Only an Assuming
-;; query's contexts are query-local: an implication's contexts hold the
-;; derivation of a main-context belief and stay.
-(: sk-pattern-context (-[det]-> SkPattern Atom))
-(= (sk-pattern-context $pattern)
-   (case (copy_term $pattern) (
-      ((CPU $_fun $args $_res) (if (is-expr $args) (let $scope (car-atom $args) (sk-scope-context $scope)) MAIN))
-      (($_type ($_kbid $ctx $_vars) $_proof $_tv) (if (is-var $ctx) MAIN $ctx)))))
-
-(: sk-key-context (-[det]-> SkeletonKey Atom))
-(= (sk-key-context $key)
-   (case (copy_term $key) (
-      ((sk-key $_type ($_kbid $ctx $_vars)) (if (is-var $ctx) MAIN $ctx))
-      ((sk-fold $args) (let $scope (car-atom $args) (sk-scope-context $scope)))
-      ($_group MAIN))))
-
 (: sk-note-context! (-[det]-> Atom SkeletonContextItem Atom))
 (= (sk-note-context! $ctx $item)
    (if (context-world? $ctx) (let $_row (add-atom &sk_ctx_items ($ctx $item)) ()) ()))
@@ -243,10 +223,10 @@
    (if (let $_scored (sk-raise-score! $child $score) (sk-link-new! (sk-child-link $owner $child)))
       (let* (($hash (sk-node-hash $owner))
              ($_row (add-atom &sk_child ($hash $owner $child)))
-             ($child-ctx (sk-pattern-context $child))
+             ($child-ctx (node-context $child))
              ($_node (sk-note-context! $child-ctx (ctx-node (sk-node-hash $child) $child)))
              ($_link
-                (if (== $child-ctx (sk-pattern-context $owner)) ()
+                (if (== $child-ctx (node-context $owner)) ()
                    (sk-note-context! $child-ctx (ctx-child $hash $owner $child))))
              ($_fresh (add-atom &sk_fresh (sk-fresh $child))))
          (sk-index-node! $child))
@@ -405,7 +385,7 @@
          (let $hash (index-hash $key)
             (if (== (collapse (once (match &sk_keys ($hash $stored) (if (=alpha $stored $key) true (empty))))) ())
                (let* (($_key (add-atom &sk_keys ($hash $key)))
-                      ($ctx (sk-key-context $key))
+                      ($ctx (key-context $key))
                       ($_noted (sk-note-context! $ctx (ctx-key $hash $key)))
                       ($_terms (add-atom &sk_key_terms ($type $kbctx $hash)))
                       ($ground (== (extract-vars $type) ()))
@@ -468,8 +448,8 @@
              ($hash (sk-node-hash $node))
              ($_row (add-atom &sk_answer ($hash $node $key)))
              ($_noted
-                (let $key-ctx (sk-key-context $key)
-                   (if (== $key-ctx (sk-pattern-context $node)) ()
+                (let $key-ctx (key-context $key)
+                   (if (== $key-ctx (node-context $node)) ()
                       (sk-note-context! $key-ctx (ctx-answer $hash $node $key)))))
              ($_indexed
                 (if (<= (search-id-value forgetting_horizon) 0) ()
@@ -508,8 +488,8 @@
       (let* (($hash (index-hash $key))
              ($_row (add-atom &sk_use ($hash $key $parent)))
              ($_noted
-                (let $parent-ctx (sk-key-context $parent)
-                   (if (== $parent-ctx (sk-key-context $key)) ()
+                (let $parent-ctx (key-context $parent)
+                   (if (== $parent-ctx (key-context $key)) ()
                       (sk-note-context! $parent-ctx (ctx-use $hash $key $parent))))))
          ())
       ()))
@@ -673,7 +653,7 @@
    (let* (($hash (sk-node-hash $premise))
           ($_wait (add-atom &sk_wait ($hash $premise $waiter)))
           ($_noted
-             (let* (($owner-ctx (sk-pattern-context $owner)) ($premise-ctx (sk-pattern-context $premise)))
+             (let* (($owner-ctx (node-context $owner)) ($premise-ctx (node-context $premise)))
                 (if (== $owner-ctx $premise-ctx) ()
                    (let $_waiting (sk-note-context! $owner-ctx (ctx-wait $hash $premise $waiter))
                       ;; Only an Assuming query's root reads into its context
@@ -1358,7 +1338,7 @@
           ($_cleared (remove-data-rows! &sk_ctx_items (quote ($_ctx2 $_item2))))
           ($_queue
              (collapse (match &sk_answer_queue ($seq (sk-delivery $node $key))
-                (if (let* (($node-ctx (sk-pattern-context $node)) ($key-ctx (sk-key-context $key)))
+                (if (let* (($node-ctx (node-context $node)) ($key-ctx (key-context $key)))
                        (if (context-world? $node-ctx) true (context-world? $key-ctx)))
                    (remove-atom &sk_answer_queue ($seq (sk-delivery $node $key)))
                    (empty))))))

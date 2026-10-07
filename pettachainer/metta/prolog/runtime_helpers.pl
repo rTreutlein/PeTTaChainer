@@ -99,13 +99,34 @@ statement_shape(Statement, Shape) :-
         \+ memberchk(Head, ['Inheritance', 'Member', 'MemberInheritanceSample',
             'ImplicationInstanceSample', 'RuleTruth', 'Implication', 'Equivalence',
             'BiImplication', 'ForAll', 'Exists', 'WithPrior', 'Evaluation', 'Similarity',
-            'Compute', 'CPU', 'FoldAllTruth', 'Assuming', 'LikelierThan']),
+            'Compute', 'CPU', 'FoldAll', 'FoldAllValue', 'FoldAllTruth', 'MapDist', 'Map2Dist',
+            'AverageDist', 'KnownExistential', 'ExistentialResidual', 'GreaterThan', '>',
+            'Assuming', 'LikelierThan']),
         maplist(argument_shape, Args, ArgShapes),
         Shape = [Head|ArgShapes] ).
 
 argument_shape(Arg, Shape) :-
     (   ground(Arg) -> true
     ;   Shape = Arg ).
+
+% The hypothetical context a node or key lies in, 'MAIN' for the main context
+% (or one left open); a fold scoped to a context lies in it. Only an Assuming
+% query's contexts are query-local: an implication's contexts hold the
+% derivation of a main-context belief and stay. Fields are read without
+% binding anything, so a node is not copied.
+'node-context'(Node, Ctx) :-
+    (   nonvar(Node), Node = [Head, _, Args|_], Head == 'CPU'
+    ->  ( nonvar(Args), Args = [Scope|_] -> 'scope-context'(Scope, Ctx) ; Ctx = 'MAIN' )
+    ;   nonvar(Node), Node = [_, KbCtx|_], nonvar(KbCtx), KbCtx = [_, C|_], nonvar(C) -> Ctx = C
+    ;   Ctx = 'MAIN' ).
+
+'key-context'(Key, Ctx) :-
+    (   nonvar(Key), Key = [Head, _, KbCtx|_], Head == 'sk-key', nonvar(KbCtx), KbCtx = [_, C|_], nonvar(C) -> Ctx = C
+    ;   nonvar(Key), Key = [Head, Args|_], Head == 'sk-fold', nonvar(Args), Args = [Scope|_] -> 'scope-context'(Scope, Ctx)
+    ;   Ctx = 'MAIN' ).
+
+'scope-context'(Scope, Ctx) :-
+    (   nonvar(Scope), Scope = [_, C|_], nonvar(C) -> Ctx = C ; Ctx = 'MAIN' ).
 
 'link-digest'(Link, Digest) :-
     copy_term_nat(Link, Copy), variant_sha1(Copy, Hex),
