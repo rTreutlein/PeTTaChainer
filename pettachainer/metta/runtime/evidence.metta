@@ -242,43 +242,6 @@
          (proof-term-evidence-list-mode
             proof-walk-in-kb $prf))))
 
-(: evidence-intersection
-   (-[det]-> (List Evidence) (List Evidence) (List Evidence)))
-(= (evidence-intersection $set-a $set-b)
-   (fold-flat
-      (evidence-intersection-step $set-b)
-      () $set-a))
-
-(: evidence-member?
-   (-[det]-> Evidence (List Evidence) Bool))
-(= (evidence-member? $entry $entries)
-   (case $entries (
-      (() false)
-      ((cons $head $tail)
-         (if (== $entry $head)
-            true
-            (evidence-member? $entry $tail))))))
-
-(: evidence-subtraction
-   (-[det]-> (List Evidence) (List Evidence) (List Evidence)))
-(= (evidence-subtraction () $_removed) ())
-(= (evidence-subtraction (cons $entry $rest) $removed)
-   (if (evidence-member? $entry $removed)
-      (evidence-subtraction $rest $removed)
-      (cons $entry
-         (evidence-subtraction $rest $removed))))
-
-(: evidence-intersection-step
-   (-[det]-> (List Evidence) (List Evidence) Evidence (List Evidence)))
-(= (evidence-intersection-step $set-b $acc $entry)
-   (if (evidence-member? $entry $set-b)
-      (cons $entry $acc)
-      $acc))
-
-(: evidence-sets-overlap?
-   (-[det]-> (List Evidence) (List Evidence) Bool))
-(= (evidence-sets-overlap? $set-a $set-b)
-   (not (== (evidence-intersection $set-a $set-b) ())))
 
 (: fact-evidence-only
    (-[det]-> (List Evidence) (List Evidence)))

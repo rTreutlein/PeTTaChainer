@@ -64,6 +64,20 @@ prefix_hashes(_, _, Hashes, Hashes).
 % term up to variable renaming): a record stays one integer however large the
 % link, and two different links share a digest with probability about
 % n^2 / 2^61.
+% Evidence sets (evidence.metta): entries compared with ==, through an
+% ordered set of the second list.
+'evidence-member?'(Entry, Entries, Result) :-
+    ( member(E, Entries), E == Entry -> Result = true ; Result = false ).
+
+'evidence-intersection'(A, B, Shared) :-
+    sort(B, Set), findall(E, ( member(E, A), ord_memberchk(E, Set) ), InOrder), reverse(InOrder, Shared).
+
+'evidence-subtraction'(A, B, Kept) :-
+    sort(B, Set), findall(E, ( member(E, A), \+ ord_memberchk(E, Set) ), Kept).
+
+'evidence-sets-overlap?'(A, B, Result) :-
+    sort(B, Set), ( member(E, A), ord_memberchk(E, Set) -> Result = true ; Result = false ).
+
 'link-digest'(Link, Digest) :-
     copy_term_nat(Link, Copy), variant_sha1(Copy, Hex),
     sub_atom(Hex, 0, 15, _, Prefix), atom_concat('0x', Prefix, Number), atom_number(Number, Digest).
@@ -271,16 +285,25 @@ dormancy_note_head(Type) :-
 'context-affected-reset!'(true) :- retractall(context_affected_memo(_, _)).
 
 % A context removed with its query leaves no mark.
-'context-forget!'(Ctx, true) :- retractall(world_context(Ctx)), retractall(context_affected_memo(Ctx, _)).
+'context-forget!'(Ctx, true) :- retractall(world_context(Ctx, _)), retractall(context_affected_memo(Ctx, _)).
 
 % Contexts of `Assuming` queries see the world: the main context's facts and
 % keys stay readable there, and a premise is placed in the context only when the
 % assumptions can change it (docs/metta/assumption_queries.md).
-:- dynamic world_context/1, context_affected_memo/2.
+:- dynamic world_context/2, context_affected_memo/2.
 
-'context-world!'([_, Ctx|_], true) :- ( world_context(Ctx) -> true ; assertz(world_context(Ctx)) ).
+% A world context keeps the heads its assumed facts state, so finding what the
+% assumptions affect reads the query's facts, not every stored fact.
+'context-world!'([_, Ctx|_], Facts, true) :-
+    (   world_context(Ctx, _) -> true
+    ;   findall(H, ( fact_conjunct(Facts, F), assumed_head(F, H) ), Heads0),
+        sort(Heads0, Heads), assertz(world_context(Ctx, Heads)) ).
 
-'context-world?'(Ctx, Result) :- ( nonvar(Ctx), world_context(Ctx) -> Result = true ; Result = false ).
+fact_conjunct(Facts, F) :-
+    (   nonvar(Facts), Facts = ['And'|Conjuncts] -> member(C, Conjuncts), fact_conjunct(C, F)
+    ;   F = Facts ).
+
+'context-world?'(Ctx, Result) :- ( nonvar(Ctx), world_context(Ctx, _) -> Result = true ; Result = false ).
 
 % Whether a world context's assumptions can change a statement: its head is
 % stated in the context (an assumption, the statement a negated one negates,
@@ -305,10 +328,10 @@ dormancy_note_head(Type) :-
     ->  Result = true ; Result = false ).
 
 context_affected_heads(Ctx, Heads) :-
-    findall(H, ( ( dormancy_row('&kb'(T, [_, C|_], _, _))
-                 ; dormancy_row(rules('runtime-rule-row', _, [T, [_, C|_]|_], _)) ),
-                 C == Ctx, assumed_head(T, H) ), Seeds0),
-    sort(Seeds0, Seeds),
+    world_context(Ctx, FactHeads),
+    findall(H, ( dormancy_row(rules('runtime-rule-row', _, [T, [_, C|_]|_], _)),
+                 C == Ctx, assumed_head(T, H) ), RuleHeads),
+    append(FactHeads, RuleHeads, Seeds0), sort(Seeds0, Seeds),
     findall(CH-PHs, ( dormancy_row(rules('runtime-rule-row', Id, [CT|_], Ps)),
                       'rule-dormant?'(Id, false), statement_head(CT, CH),
                       findall(PH, ( member(P, Ps), premise_head(P, PH) ), PHs) ), Edges),

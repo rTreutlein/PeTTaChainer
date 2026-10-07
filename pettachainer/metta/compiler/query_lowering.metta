@@ -198,7 +198,7 @@
          (let*
             ((($shape-kb $prf $b $adds)
                 (query-side $kb Nil false (brand Statement $facts) (brand Statement $goal)))
-             ($_world (context-world! $shape-kb)))
+             ($_world (context-world! $shape-kb (brand Statement $facts))))
             (compilation-plan
                (: (kbctx $kb) $root-prf $Type $tv)
                (cons

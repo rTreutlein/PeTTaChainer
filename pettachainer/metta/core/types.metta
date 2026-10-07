@@ -41,12 +41,20 @@
 
 ;; Contexts of Assuming queries, which see the world, and whether their
 ;; assumptions can change a statement (runtime_helpers.pl).
-(: context-world! (-[det]-> KBContext Bool))
+(: context-world! (-[det]-> KBContext Statement Bool))
 (: context-world? (-[det]-> Atom Bool))
 (: context-affected? (-[det]-> Atom Atom Bool))
 (: context-pattern-affected? (-[det]-> Atom Atom Bool))
 (: context-affected-reset! (-[det]-> Bool))
 (: context-forget! (-[det]-> Atom Bool))
+;; Evidence sets compare entries with ==, through an ordered set of the second
+;; list, so their cost follows the lists' lengths, not their product. The
+;; intersection lists the first set's shared entries in reverse; the
+;; subtraction keeps the first set's order.
+(: evidence-member? (-[det]-> Evidence (List Evidence) Bool))
+(: evidence-intersection (-[det]-> (List Evidence) (List Evidence) (List Evidence)))
+(: evidence-subtraction (-[det]-> (List Evidence) (List Evidence) (List Evidence)))
+(: evidence-sets-overlap? (-[det]-> (List Evidence) (List Evidence) Bool))
 
 ;; KL divergence of Beta(a1, b1) from Beta(a2, b2) (runtime_helpers.pl).
 (: beta_kl (-[det]-> Number Number Number Number Number))

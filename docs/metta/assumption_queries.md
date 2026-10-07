@@ -39,7 +39,9 @@ context that sees the world (`context-world!`).
 
 - **What reads C.** A predicate is *affected* when it is an assumed fact's
   predicate, or concluded by a rule with an affected premise (a fixed point
-  over the rules' predicate heads, as dormant rules compute their support).
+  over the rules' predicate heads, as dormant rules compute their support;
+  the assumed facts' heads are recorded when the context is opened, so this
+  reads the query's facts, not the knowledge base).
   A premise of an affected predicate is read in C; any other premise is read
   in the main context. So beliefs the assumptions cannot change are read where
   they are, with the answers, rows and caches the main context already has,
