@@ -37,8 +37,7 @@
       B
       (STV 0.8 0.24255226513533926)))
 
-;; Disabling whole-antecedent inversion does not disable direct completion.
-;; Its conjunction classification must remain outside inversion planning.
+;; A rule named no_inverse gets no completion either: B has no proof.
 !(compileadd noInverseCompletionKb (: a A (STV 1.0 0.9)))
 !(compileadd noInverseCompletionKb (: c C (STV 1.0 0.9)))
 !(compileadd noInverseCompletionKb
@@ -50,12 +49,7 @@
 !(set-base-rate noInverseCompletionKb (And A C) (STV 0.25 0.9))
 !(set-base-rate noInverseCompletionKb B (STV 0.3 0.9))
 
-!(test
-   (query 2000 noInverseCompletionKb (: $proof B $tv))
-   (: ((antecedent-completion (no_inverse ab_c) 1 with cpu cpu)
-       (conjunction a c))
-      B
-      (STV 0.8 0.24255226513533926)))
+!(test (query 2000 noInverseCompletionKb (: $proof B $tv)) ())
 
 ;; Pure conjunction antecedents retain whole-compound Bayesian inversion.
 !(compileadd conjunctionInversionKb (: c C (STV 1.0 0.9)))

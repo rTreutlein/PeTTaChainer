@@ -1205,7 +1205,10 @@
                                  (compile-adapter-chain plain
                                     (: $adapter-kb $pb2 $b $btv2))))))))
                   (no-compute-inverse (empty))))
-               (if $pure-conjunction?
+               ;; No inverse rule of any kind for a rule named no_inverse:
+               ;; completion recovers an antecedent conjunct from the
+               ;; conclusion as inversion recovers the whole antecedent.
+               (if (if $pure-conjunction? (not (= $prf (no_inverse $_))) false)
                   (let $children
                      (statement-children (the (List Atom) (cdr-atom $a)))
                      (compile-antecedent-completion
