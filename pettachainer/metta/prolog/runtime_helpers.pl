@@ -78,6 +78,34 @@ prefix_hashes(_, _, Hashes, Hashes).
 'evidence-sets-overlap?'(A, B, Result) :-
     sort(B, Set), ( member(E, A), ord_memberchk(E, Set) -> Result = true ; Result = false ).
 
+% The shape a fold's member is compiled for (sk-pattern-members). A
+% connective over user predicates compiles to adapters that only its
+% structure decides, so its predicates' ground arguments become variables:
+% folds that differ only in constants, such as one per decision step, share
+% one compilation. Variables stay shared. Any other pattern is its own shape.
+'pattern-shape'(Pattern, Shape) :-
+    (   connective_shape(Pattern, Shape) -> true ; Shape = Pattern ).
+
+connective_shape(Pattern, Shape) :-
+    nonvar(Pattern), Pattern = [Connective|Children], Children \== [],
+    memberchk(Connective, ['And', 'Or', 'Not']),
+    maplist(statement_shape, Children, Shapes),
+    Shape = [Connective|Shapes].
+
+statement_shape(Statement, Shape) :-
+    (   connective_shape(Statement, Shape) -> true
+    ;   nonvar(Statement), Statement = [Head|Args], atom(Head),
+        \+ memberchk(Head, ['Inheritance', 'Member', 'MemberInheritanceSample',
+            'ImplicationInstanceSample', 'RuleTruth', 'Implication', 'Equivalence',
+            'BiImplication', 'ForAll', 'Exists', 'WithPrior', 'Evaluation', 'Similarity',
+            'Compute', 'CPU', 'FoldAllTruth', 'Assuming', 'LikelierThan']),
+        maplist(argument_shape, Args, ArgShapes),
+        Shape = [Head|ArgShapes] ).
+
+argument_shape(Arg, Shape) :-
+    (   ground(Arg) -> true
+    ;   Shape = Arg ).
+
 'link-digest'(Link, Digest) :-
     copy_term_nat(Link, Copy), variant_sha1(Copy, Hex),
     sub_atom(Hex, 0, 15, _, Prefix), atom_concat('0x', Prefix, Number), atom_number(Number, Digest).

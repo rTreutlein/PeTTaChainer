@@ -1084,37 +1084,45 @@
 (= (inject-compiled-query-adds (compiled-query $_goal $adds))
    (if (is-var $adds) (empty) (once (inject-compiled-adds $adds))))
 
-;; The fold's source goal is compiled as an ordinary query once per pattern.
-;; Its additions depend only on the pattern, so they are installed as
-;; permanent backward rules: the member rows outlive the query, and a later
-;; fold over the same pattern reuses the goal.
+;; The fold's source goal is compiled as an ordinary query once per pattern
+;; shape and KB (`pattern-shape`: constants of a connective over user
+;; predicates do not change what it compiles to). Its additions are installed
+;; as permanent backward rules: the member rows outlive the query, and a later
+;; fold over the same shape reuses the goal. The member is the compiled goal
+;; for the fold's own pattern; a fold scoped to a context reads it there.
 (: sk-fold-member (-[semidet]-> $arguments (List SkPattern)))
+(= (sk-fold-member $args)
+   (let* (($scope (car-atom $args))
+          ($kbid (if (is-expr $scope) (car-atom $scope) $scope))
+          ($pattern (car-atom (cdr-atom $args)))
+          ($shape (pattern-shape $pattern))
+          ($compiled (sk-shape-members $kbid $shape))
+          ($members (if (== $shape $pattern) $compiled (map-semidet (sk-narrow-member $pattern) $compiled))))
+      (if (is-expr $scope) (map-semidet (sk-scoped-member $scope) $members) $members)))
+
+;; A member compiled for an abstracted shape is narrowed to the fold's pattern.
+(: sk-narrow-member (-[semidet]-> Atom SkPattern SkPattern))
+(= (sk-narrow-member $pattern ($type $kbctx $proof $tv))
+   (once (let $pattern $type (the SkPattern ($type $kbctx $proof $tv)))))
+
 (: sk-scoped-member (-[semidet]-> Atom SkPattern SkPattern))
 (= (sk-scoped-member $scope ($type $_kbctx $proof $tv))
    (assemble-stored-runtime-fact $type (brand KBContext $scope) $proof $tv))
 
-(= (sk-fold-member $args)
-   (let* (($scope (car-atom $args))
-          ($kb (brand KB (if (is-expr $scope) (car-atom $scope) $scope)))
-          ($pattern (brand Statement (car-atom (cdr-atom $args))))
-          ($source (quote ($scope $pattern)))
+(: sk-shape-members (-[semidet]-> Atom Atom (List SkPattern)))
+(= (sk-shape-members $kbid $shape)
+   (let* (($source (quote ($kbid $shape)))
           ($hash (index-hash $source)))
       (case (collapse (once (match &sk_fold_members ($hash $stored $member)
                (if (=alpha $stored $source) $member (empty))))) (
          ((cons $found $_rest) (cons $found ()))
          (()
-            (case (collapse (once (mm2compileQuery $kb (: $_h $pattern $_i)))) (
+            (case (collapse (once (mm2compileQuery (brand KB $kbid) (: $_h (brand Statement $shape) $_i)))) (
                ((cons (compiled-query $goal $adds) $_rest)
                   (if (if (is-var $goal) true (is-var $adds)) ()
                      (let* (($_rules (once (foreach-flat (kb-add-expr backward) $adds)))
-                            ;; A fold scoped to a context reads its members there.
-                            ($compiled
-                               (if (is-expr $scope)
-                                  (sk-scoped-member $scope (typed-runtime-premise $goal))
-                                  (typed-runtime-premise $goal)))
-                            ($_row (add-atom &sk_fold_members ($hash $source $compiled)))
-                            ($ctx (sk-scope-context $scope))
-                            ($_noted (sk-note-context! $ctx (ctx-fold-members $hash))))
+                            ($compiled (typed-runtime-premise $goal))
+                            ($_row (add-atom &sk_fold_members ($hash $source $compiled))))
                         (cons $compiled ()))))
                ($_none ()))))))))
 
@@ -1353,8 +1361,7 @@
       ((ctx-wait $h $premise $waiter) (let $_r (remove-variant-row! &sk_wait (quote ($h $premise $waiter))) ()))
       ((ctx-answer $h $node $key) (let $_r (remove-variant-row! &sk_answer (quote ($h $node $key))) ()))
       ((ctx-child $h $owner $child) (let $_r (remove-variant-row! &sk_child (quote ($h $owner $child))) ()))
-      ((ctx-use $h $key $parent) (let $_r (remove-variant-row! &sk_use (quote ($h $key $parent))) ()))
-      ((ctx-fold-members $h) (let $_r (remove-data-rows! &sk_fold_members (quote ($h $_source $_member))) ())))))
+      ((ctx-use $h $key $parent) (let $_r (remove-variant-row! &sk_use (quote ($h $key $parent))) ())))))
 
 (: sk-drop-node-rows! (-[semidet]-> Number SkPattern Atom))
 (= (sk-drop-node-rows! $h $node)

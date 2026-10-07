@@ -150,7 +150,6 @@
 (: ctx-answer (-[det]-> Number SkPattern SkeletonKey SkeletonContextItem))
 (: ctx-child (-[det]-> Number SkPattern SkPattern SkeletonContextItem))
 (: ctx-use (-[det]-> Number SkeletonKey SkeletonKey SkeletonContextItem))
-(: ctx-fold-members (-[det]-> Number SkeletonContextItem))
 (: &sk_ctx_items (SpaceOf (Atom SkeletonContextItem)))
 !(bind! &sk_ctx_items (new-space))
 !(bind! &sk_answered (new-space))

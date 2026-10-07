@@ -99,7 +99,8 @@
     (match-count &sk_answer $_a) (match-count &sk_keys $_k) (match-count &sk_key_prefix $_kp)
     (match-count &sk_row $_r) (match-count &sk_reader $_rd) (match-count &sk_stale_reader $_sr)
     (match-count &sk_view $_v) (match-count &sk_latest $_l) (match-count &sk_use $_u)
-    (match-count &sk_fold_members $_m) (match-count &sk_answer_queue $_q) (match-count &sk_ctx_items $_i)))
+    (match-count &sk_fold_members $_m) (match-count &sk_answer_queue $_q) (match-count &sk_ctx_items $_i)
+    (match-count rules $_rule)))
 (: decide-in-world (-[det]-> Atom Atom))
 (= (decide-in-world $s)
    (collapse (query 200 worldKb

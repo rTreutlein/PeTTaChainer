@@ -53,7 +53,8 @@ context that sees the world (`context-world!`).
 - **The goal** is read in C.
 - **Folds.** A fold premise whose member pattern the assumptions affect is
   scoped to C: its arguments name C instead of the KB, and its member node
-  lies in C (members cached per scope).
+  lies in C. The member's rules are compiled once per pattern and KB and
+  are permanent; only where the member is read depends on C.
 - **The world's rules.** A goal in C is also concluded by the rules compiled
   for the main context (connective adapters among them, for `And` and `Not`
   goals), with C as the conclusion's context (`sk-world-rule-match`), and no
@@ -66,9 +67,8 @@ context that sees the world (`context-world!`).
 ## Cleanup
 
 Whatever lies in C is recorded under C when it is created
-(`&sk_ctx_items`): its nodes (`sk-add-child!`), keys (`sk-register-key!`)
-and fold members (`sk-fold-member`). So is each link between C and the rest
-of the store: a wait, answer, child or use edge from a node or key in C to
+(`&sk_ctx_items`): its nodes (`sk-add-child!`) and keys
+(`sk-register-key!`). So is each link between C and the rest of the store: a wait, answer, child or use edge from a node or key in C to
 one outside it. The query's root lies in the main context and waits on C's
 goal, the only thing outside C that reads it; it is recorded under C as
 well.
