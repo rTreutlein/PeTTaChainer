@@ -10,6 +10,12 @@ Bayes' rule (`prior-inverse-implication`, `CTVBayesFormula`, then
 on the same `a` (several sensors of one state), every inversion of an
 instance reads the same prior `p`, and their views must be combined.
 
+A plain implication `(Implication a b)` is inverted the same way with the
+population base rate of `a` as the prior (`inverse-implication`,
+`CTVInversionFormula`, then modus ponens): several such rules on the same `a`
+(several routes blocked by one storm) give several updates of that one base
+rate.
+
 Today `sk-merge-facts` combines views by their evidence. Inversions over the
 same prior share the prior's evidence, so:
 
@@ -115,8 +121,13 @@ precedence over keeping one view and over revising.
   back to today's rule.
 - Strengths are clipped as the formulas do (`ideal-clip`), so the log-odds
   stay finite.
-- An inversion with no prior (`with cpu cpu`) is not factored; nothing about
-  it changes.
+- A plain implication is inverted with its antecedent's base rate as the
+  prior, `((inverted R with cpu (prior <TV>)) O)`, and factors like a
+  `WithPrior` inversion over the population base rate. Its inversion reads
+  only the positive likelihood and recovers the negative one from the two
+  base rates, so it is Bayes' rule over the reconciled base rates
+  (`ConsistentTriple`): an observation as likely with `a` as without leaves
+  the prior's strength.
 
 ## What changes
 

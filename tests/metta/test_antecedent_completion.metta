@@ -64,7 +64,7 @@
 !(test
    (query 2000 conjunctionInversionKb
       (: $proof (And A B) $tv))
-   (: ((inverted ab_c with cpu cpu) c)
+   (: ((inverted ab_c with cpu (prior (STV 0.2 0.9))) c)
       (And A B)
       (STV 0.49999166689814173 0.6205495495952107)))
 

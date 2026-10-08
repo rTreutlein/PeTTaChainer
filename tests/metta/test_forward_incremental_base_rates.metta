@@ -51,7 +51,7 @@
 
 !(test
    (query 200 forwardBackwardDedupKb (: $proof (P alice) $tv))
-   (: ((inverted pToQ with cpu cpu)
+   (: ((inverted pToQ with cpu (prior (STV 0.6999999999999998 0.0009990009990009992)))
        qa)
       (P alice)
       (STV 0.7361612357845151 0.0003604274173100072)))
@@ -107,7 +107,7 @@
 ;; which S a supports through sToQ.
 !(test
    (query 200 forwardFrontierKb (: $prf (P a) $tv))
-   (: (merge/revision frontierP1 ((inverted pToQ with cpu cpu) (by sToQ frontierS1)))
+   (: (merge/revision frontierP1 ((inverted pToQ with cpu (prior (STV 0.2 0.0006246096189881324))) (by sToQ frontierS1)))
       (P a) (STV 0.2000713979305293 0.5002232242766069)))
 
 ;; Adding evidence can raise an antecedent's confidence while moving its
@@ -166,7 +166,7 @@
 ;; P(alice) was derived through the P base rate, which does not count it.
 !(test
    (query 200 forwardBaseRateKb (: $proof (P alice) $tv))
-   (: ((inverted pToQ with cpu cpu) qa)
+   (: ((inverted pToQ with cpu (prior (STV 0.6999999999999998 0.0009990009990009992))) qa)
       (P alice)
       (STV 0.7361612357845151 0.0003604274173100072)))
 
@@ -274,9 +274,9 @@
       (: $proof (Inheritance Raven Penguin) $tv))
    (: (inheritance-implication-fold
           (total-implication
-             ((inverted (inheritance-implication penguinBird) with cpu cpu)
+             ((inverted (inheritance-implication penguinBird) with cpu (prior (STV 0.3333333333333333 0.5)))
                 (by (inheritance-implication ravenBird) (ctx proof 0)))
-             ((inverted (inheritance-implication penguinBird) with cpu cpu)
+             ((inverted (inheritance-implication penguinBird) with cpu (prior (STV 0.3333333333333333 0.5)))
                 (by (inheritance-implication ravenBird) (ctx proof 1)))))
       (Inheritance Raven Penguin)
       (STV 0.9977391124912127 1.0e-06)))
@@ -301,7 +301,7 @@
 
 !(test
    (query 200 computedForwardBaseRateKb (: $proof (P alice) $tv))
-   (: ((inverted pToQ with cpu cpu)
+   (: ((inverted pToQ with cpu (prior (STV 0.6999999999999998 0.0009990009990009992)))
        qa)
       (P alice)
       (STV 0.7361612357845151 0.0003604274173100072)))

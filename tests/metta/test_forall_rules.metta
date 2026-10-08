@@ -30,10 +30,10 @@
 ;; 0.9 * 0.5 / 0.6 and 0.9 * 0.25 / 0.6.
 !(test
    (query 400 forallKb (: $p (Leak old q) $tv))
-   (: ((inverted sensor with cpu cpu) alarm-q) (Leak old q) (STV 0.7499930557484514 8.926091940499342e-05)))
+   (: ((inverted sensor with cpu (prior (STV 0.5 0.004975124378109453))) alarm-q) (Leak old q) (STV 0.7499930557484514 8.926091940499342e-05)))
 !(test
    (query 400 forallKb (: $p (Leak new r) $tv))
-   (: ((inverted sensor with cpu cpu) alarm-r) (Leak new r) (STV 0.3749965278742257 0.001676850775606289)))
+   (: ((inverted sensor with cpu (prior (STV 0.25 0.004975124378109453))) alarm-r) (Leak new r) (STV 0.3749965278742257 0.001676850775606289)))
 
 !(compileadd plainKb (: sensor (Implication (Leak $c $u) (Alarm $c $u)) (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
 !(compileadd plainKb (: leak-o1 (Leak old o1) (STV 1 1)))
@@ -58,10 +58,10 @@
 ;; Pooled: 0.9 * 3/8 / 0.6 for both cohorts.
 !(test
    (query 400 plainKb (: $p (Leak old q) $tv))
-   (: ((inverted sensor with cpu cpu) alarm-q) (Leak old q) (STV 0.5624947918113387 0.002698015857534373)))
+   (: ((inverted sensor with cpu (prior (STV 0.375 0.009900990099009901))) alarm-q) (Leak old q) (STV 0.5624947918113387 0.002698015857534373)))
 !(test
    (query 400 plainKb (: $p (Leak new r) $tv))
-   (: ((inverted sensor with cpu cpu) alarm-r) (Leak new r) (STV 0.5624947918113387 0.002698015857534373)))
+   (: ((inverted sensor with cpu (prior (STV 0.375 0.009900990099009901))) alarm-r) (Leak new r) (STV 0.5624947918113387 0.002698015857534373)))
 
 ;; Refined, the ForAll rule's instances pool across cohorts: every
 ;; (cohort, unit) with a leak is a sample of the one shared truth.

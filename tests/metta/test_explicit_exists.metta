@@ -164,7 +164,7 @@
 !(test
    (query 20 disjointInverseKb
       (: $proof (A (exists a_b 0 (beta))) $tv))
-   (: ((inverted a_b with cpu cpu) observedB)
+   (: ((inverted a_b with cpu (prior (STV 0.5 0.5))) observedB)
       (A (exists a_b 0 (beta)))
       (STV 1.0 1.0e-06)))
 

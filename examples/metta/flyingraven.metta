@@ -32,7 +32,7 @@
                (negated
                   (by penguinsDoNotFly
                      ((inverted (inheritance-implication penguinBird)
-                         with cpu cpu)
+                         with cpu (prior (STV 0.9863569285264406 0.00022594893654011704)))
                         (shared 5)))))
             (merge/revision
                (by (inheritance-implication birdFlies)
@@ -40,7 +40,7 @@
                (negated
                   (by penguinsDoNotFly
                      ((inverted (inheritance-implication penguinBird)
-                         with cpu cpu)
+                         with cpu (prior (STV 0.9863569285264406 0.00022594893654011704)))
                         (shared 15)))))))
       (Inheritance Sam (IntSet flies))
       (STV 0.9786608160272537 0.6432518281069814))))

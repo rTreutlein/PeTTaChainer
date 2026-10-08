@@ -79,7 +79,7 @@
 !(test
    (query 300 computeInverseKb (: $proof (A 2) $tv))
    (: (marginal-proj 0
-         ((inverted addOne with cpu cpu)
+         ((inverted addOne with cpu (prior (STV 0.7 0.0009990009985938653)))
           observed-b-three))
       (A 2)
       (STV 0.736161235779687 0.0002653579270660866)))

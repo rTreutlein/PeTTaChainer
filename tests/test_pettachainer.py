@@ -27,7 +27,8 @@ class TestPeTTaChainer(unittest.TestCase):
             with self.subTest(timeout_sec=timeout_sec):
                 self.assertEqual(
                     handler.query("(: $prf (Leak q) $tv)", steps=400, timeout_sec=timeout_sec),
-                    ["(: ((inverted sensor with cpu cpu) aq) (Leak q) "
+                    ["(: ((inverted sensor with cpu (prior (STV 0.09999999999999998 0.8))) aq) "
+                     "(Leak q) "
                      "(STV 0.21599999999999994 0.43979285736925194))"],
                 )
 

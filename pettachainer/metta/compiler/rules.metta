@@ -514,7 +514,7 @@
                     (append-goals $b-base-rates $formula-goals))))))
       ($premises |-
          (: (make-kb-context $kb $ctx $vars)
-              ((inverted $prf with cpu cpu) $prfb_wit)
+              ((inverted $prf with cpu (prior $atv)) $prfb_wit)
               $a $mp-tv))))
 
 ;; A rule declared `(WithPrior p (Implication a b))` is inverted per

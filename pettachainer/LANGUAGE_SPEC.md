@@ -422,6 +422,14 @@ next state from the current one, this is a filter over time: each state's
 posterior predicts the next, and each observation updates that prediction.
 `WithPrior` may appear inside `ForAll`.
 
+An inversion's proof names its prior,
+`((inverted rule with P (prior TV)) observation)`, with `P` the prior's proof,
+or `cpu` for a base rate, and `TV` its truth. Inversions of different
+observations through different rules over one prior, a base rate or an
+instance's own, combine by Bayes' rule: each multiplies the prior odds by its
+observation's likelihood ratio, so the prior counts once and an uninformative
+observation changes nothing (`docs/metta/prior_factored_merge.md`).
+
 ### Refining rules from their instances
 
 Rule refinement is opt-in per KB and must be set before the rules are added:

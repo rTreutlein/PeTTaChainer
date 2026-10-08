@@ -33,10 +33,12 @@ DEFAULT_PREDICATES = [
 
 
 def parse_stv(raw: str) -> tuple[float, float]:
-    match = STV_RE.search(raw)
-    if match is None:
+    """An answer's own truth value: the last in its text, since a proof may
+    hold others (an inversion's prior)."""
+    matches = STV_RE.findall(raw)
+    if not matches:
         raise ValueError(f"could not parse STV from {raw!r}")
-    return float(match.group(1)), float(match.group(2))
+    return float(matches[-1][0]), float(matches[-1][1])
 
 
 def deterministic_bernoulli_prefix(true_rate: float, sample_count: int) -> List[int]:

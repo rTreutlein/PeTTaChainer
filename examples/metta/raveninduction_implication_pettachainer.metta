@@ -34,14 +34,14 @@
       (total-implication
          (merge/revision
             (by rv1ImpliesBlack
-               ((inverted rv1ImpliesRaven with cpu cpu) (ctx proof 0)))
+               ((inverted rv1ImpliesRaven with cpu (prior (STV 0.25 0.9))) (ctx proof 0)))
             (by rv2ImpliesBlack
-               ((inverted rv2ImpliesRaven with cpu cpu) (ctx proof 0))))
+               ((inverted rv2ImpliesRaven with cpu (prior (STV 0.25 0.9))) (ctx proof 0))))
          (merge/revision
             (by rv1ImpliesBlack
-               ((inverted rv1ImpliesRaven with cpu cpu) (ctx proof 1)))
+               ((inverted rv1ImpliesRaven with cpu (prior (STV 0.25 0.9))) (ctx proof 1)))
             (by rv2ImpliesBlack
-               ((inverted rv2ImpliesRaven with cpu cpu) (ctx proof 1)))))
+               ((inverted rv2ImpliesRaven with cpu (prior (STV 0.25 0.9))) (ctx proof 1)))))
       (Implication (Raven $x) (Black $x))
       (CTV
          (STV 0.4337571767476112 0.5235082592564901)

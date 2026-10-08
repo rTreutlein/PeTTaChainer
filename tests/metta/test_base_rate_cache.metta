@@ -18,7 +18,7 @@
 ; harvests them into the cache afterwards.
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.7361612357845151 0.0003604274173100072)))
+   (: ((inverted r with cpu (prior (STV 0.6999999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.7361612357845151 0.0003604274173100072)))
 
 !(test
    (let $cached (cached-base-rate brKb (P $x))
@@ -30,7 +30,7 @@
 ; and reads the same base rates, with no fold expansion.
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.7361612357845151 0.0003604274173100072)))
+   (: ((inverted r with cpu (prior (STV 0.6999999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.7361612357845151 0.0003604274173100072)))
 
 ; A stored fact counts in the base rates observing it when it is added.
 !(compileadd brKb (: pc (P carol) (STV 0.3 0.8)))
@@ -42,7 +42,7 @@
 
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu)
+   (: ((inverted r with cpu (prior (STV 0.49999999999999994 0.0019960079840319364)))
        qa)
       (P alice)
       (STV 0.6327756330204969 0.00038353389027774137)))
@@ -57,7 +57,7 @@
 
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.5 0.5691658648147646)))
+   (: ((inverted r with cpu (prior (STV 0.5 0.5))) qa) (P alice) (STV 0.5 0.5691658648147646)))
 
 ; Monotonic additions also leave explicit user estimates unchanged.
 !(compileadd brKb (: pd (P dave) (STV 0.6 0.8)))
@@ -122,7 +122,7 @@
 
 !(test
    (query 200 brKb2 (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.7361612357845151 0.0003604274173100072)))
+   (: ((inverted r with cpu (prior (STV 0.6999999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.7361612357845151 0.0003604274173100072)))
 
 !(test
    (let $cached (cached-base-rate brKb2 (P $x))
@@ -163,13 +163,13 @@
 
 !(test
    (query 200 revisedRateKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.7361612357845151 0.0003604274173100072)))
+   (: ((inverted r with cpu (prior (STV 0.6999999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.7361612357845151 0.0003604274173100072)))
 
 !(compileadd revisedRateKb (: pb2 (P bob) (STV 0.1 0.8)))
 
 !(test
    (query 200 revisedRateKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.4206635633054373 0.000882872802661841)))
+   (: ((inverted r with cpu (prior (STV 0.39999999999999997 0.0011098779134295228))) qa) (P alice) (STV 0.4206635633054373 0.000882872802661841)))
 
 !(test
    (cached-base-rate revisedRateKb (Q $x))
@@ -181,7 +181,7 @@
 
 !(test
    (query 200 revisedRateKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.4840518450016611 0.0002891856455941174)))
+   (: ((inverted r with cpu (prior (STV 0.39999999999999997 0.0011098779134295228))) qa) (P alice) (STV 0.4840518450016611 0.0002891856455941174)))
 
 !(test
    (cached-base-rate revisedRateKb (Q $x))
