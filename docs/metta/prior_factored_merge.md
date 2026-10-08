@@ -265,13 +265,36 @@ the forward view now takes the base rate's place under the shipment updates
 0.0805 / 0.0763 / 0.0422 / 0.0608), at the same cost (12.2 / 11.6 / 15.4 /
 8.0 s).
 
-The largest remaining errors come from a shipment whose history base rates
+The largest remaining errors came from a shipment whose history base rates
 are inconsistent with the stated likelihoods: seed 1, s3-1 late in 3 of 30
 periods, its route blocked in 5, so P(late | open) recovered from the base
-rates is below 0 and clipped. Its inversion is near 1 at confidence 10^-6,
+rates is below 0 and clipped. Its inversion was near 1 at confidence 10^-6,
 and a strength near 1 decides a factored merge whatever its confidence:
-Blocked r3 at t3 is 0.99998 against 0.122 by enumeration, Storm north 0.713
+Blocked r3 at t3 was 0.99998 against 0.122 by enumeration, Storm north 0.713
 against 0.133. Revision used to weigh that view away.
+
+### Inversion of rules stating both likelihoods
+
+The shipment rules state both likelihoods (a CTV), so the base rate of the
+consequent is not needed: P(a | b) = u P(a) / (u P(a) + v (1 − P(a))) with
+u = P(b | a), v = P(b | not a). A CTV rule, stated or refined, is now
+inverted by `CTVBayesFormula` over its antecedent's base rate, as a
+`WithPrior` rule over the population base rate is; only an STV rule recovers
+v from the two base rates. For s3-1, P(Blocked) = 1/6 and the stated 0.9 and
+0.05 give 0.783 for one late shipment, whatever P(Late) the history shows
+(`tests/metta/test_implication_inversion.metta`). Every inversion of a CTV
+rule folds one base rate less.
+
+SupplyNet stage 1, budget 100, seeds 1–4:
+
+| | Brier | log loss | posterior error | seconds |
+|---|---|---|---|---|
+| ratio over both base rates | 0.0337 | 0.153 | 0.0186 | 12.2 / 11.6 / 15.4 / 8.0 |
+| Bayes' rule with the stated likelihoods | 0.0285 | 0.109 | 0.0093 | 11.4 / 10.8 / 14.2 / 7.5 |
+
+Per seed, Brier 0.0239 / 0.0436 / 0.0105 / 0.0361 (was 0.0427 / 0.0411 /
+0.0139 / 0.0369); the reference posterior's Brier is 0.0278 over the same
+keys (0.0253 / 0.0401 / 0.0107 / 0.0349).
 
 ## Relation to PLN
 
