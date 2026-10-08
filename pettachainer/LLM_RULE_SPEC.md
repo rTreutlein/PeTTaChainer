@@ -184,16 +184,16 @@ its children are proved by antecedent completion instead.
 A pure top-level `And` antecedent is completed automatically: from
 `(Implication (And O M) C)` the compiler also proves each child `M` from the
 other children `O` and the consequent `C`, with proofs of the form
-`((antecedent-completion rule idx with cpu cpu) witnesses)` (`idx` is the
-zero-based position of `M`). The truth value uses the joint base rates of
-`M`, `(And O M)` and `(And O C)` directly, plus the base rate of `C` for an
-`STV`-valued rule; pin them with `(set-base-rate kb pattern tv)` when the
-knowledge base cannot estimate them, otherwise the completion yields nothing.
+`((antecedent-completion rule idx with cpu (prior <P(M)>)) witnesses)` (`idx`
+is the zero-based position of `M`). The truth value is Bayes' rule over the
+base rate of `M` with the rule's two likelihoods (for an `STV`-valued rule the
+negative one is recovered from the base rates of `(And O M)` and `C`); pin
+base rates with `(set-base-rate kb pattern tv)` when the knowledge base cannot
+estimate them, otherwise the completion yields nothing.
 
 No completion is compiled for `Exists` antecedents, antecedents containing a
 source `Compute`, bare-variable children, or children whose variables do not
-all occur in the rest of the rule. `no_inverse` disables whole-antecedent
-inversion only. Do not write the reverse rule by hand for a pure `And`
+all occur in the rest of the rule, nor for a rule named `no_inverse`. Do not write the reverse rule by hand for a pure `And`
 antecedent; write the forward implication and its base rates.
 
 ### Not

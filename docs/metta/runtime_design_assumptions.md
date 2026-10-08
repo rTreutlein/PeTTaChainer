@@ -156,8 +156,8 @@ A key's value merges its stored facts and one view per row:
 
 - an identical proof pools its evidence; a marginal projection gives way to its
   full proof;
-- inversions over one prior through different observations, and rules that
-  differ or are given, combine by Bayes' rule, and an inversion over a base rate combines the same
+- inversions and antecedent completions over one prior through different
+  observations, and rules that differ or are given, combine by Bayes' rule, and an inversion over a base rate combines the same
   way with a derived, uncertain view sharing none of its evidence, which
   takes the base rate's place (`docs/metta/prior_factored_merge.md`);
 - overlapping evidence keeps the view whose evidence strictly contains the

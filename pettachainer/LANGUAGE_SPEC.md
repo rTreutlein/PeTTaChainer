@@ -565,25 +565,27 @@ the compiler adds, per child `M`, the completion rule `(And O C) -> M`. Its
 proofs have the form
 
 ```metta
-((antecedent-completion rule idx with cpu cpu) witnesses)
+((antecedent-completion rule idx with cpu (prior <P(M)>)) witnesses)
 ```
 
-where `idx` is the zero-based position of `M` in the `And` and `witnesses`
-is the conjunction of the proofs of `O` and `C`. The truth value is computed
-directly from joint base rates rather than by inverting the whole conjunction
-and projecting `M` out of it, which would introduce an independence
-approximation. With `H = (And O M)` and `K = (And O C)`:
+where `idx` is the zero-based position of `M` in the `And`, `witnesses` is
+the conjunction of the proofs of `O` and `C`, and `<P(M)>` is the base rate of
+`M` the completion updates. The completion is Bayes' rule over that base
+rate, with `u = P(C | O and M)` and `v = P(C | not (O and M))` the rule's two
+branches (for an `STV`-valued rule, `v` is recovered from the base rates of
+`(And O M)` and `C`):
 
-- positive branch: `P(M | K) = P(C | H) * P(H) / P(K)`
-- negative branch: `P(M | not K) = (P(M) - P(C | H) * P(H)) / (1 - P(K))`
+- given `O` and `C`: `P(M | O, C) = u P(M) / (u P(M) + v (1 - P(M)))`
+- given `O` and not `C`: the same with `1 - u` and `1 - v`
+- `C`'s value weighs the two by modus ponens, and `O`'s value weighs the
+  result against `P(M)`, since without `O` the rule says nothing about `M`.
 
-When `O` is empty this is ordinary inversion. The rule consumes the base
-rates of `M`, `H` and `K`; an `STV`-valued implication additionally consumes
-the base rate of `C` to form the implication's CTV first. Pin base rates with
-`(set-base-rate kb pattern tv)` when the knowledge base cannot estimate them.
-The completion has no result when a base rate is unavailable, when `P(K)` is
-`0` or `1`, or when `P(C | H) * P(H)` is inconsistent with the marginals of
-`M` and `K` (Fréchet bounds).
+So the completion reads no base rate of `C` or of `(And O C)`: a value as
+likely as the rule makes it leaves `P(M)`, and the view merges with other
+updates of `P(M)`, such as an inversion of another rule on `M`, by Bayes'
+rule (`docs/metta/prior_factored_merge.md`). The completion has no result
+when `P(M)` is unavailable; pin it with `(set-base-rate kb pattern tv)` when
+the knowledge base cannot estimate it.
 
 Completion is compiled only for a plain `And` antecedent (no `Exists`), only
 when the antecedent contains no source `Compute` premise, and only for
@@ -592,25 +594,21 @@ variables of the other children plus the consequent. A child that carries a
 variable absent from the rest of the rule is skipped, and so is a child that
 alone links the others' variables: for `(Implication (And (Next $p $u) (Leak
 $p)) (Pred $u))`, recovering `(Next $p $u)` from `(Leak $p)` and `(Pred $u)`
-would infer a link for every pair of unrelated instances. `no_inverse`
-disables whole-antecedent inversion but not completion.
+would infer a link for every pair of unrelated instances. A rule named
+`no_inverse` gets no completion either.
 
 ```metta
 !(compileadd kb (: a A (STV 1.0 0.9)))
 !(compileadd kb (: c C (STV 1.0 0.9)))
-!(compileadd kb (: ab_c (Implication (And A B) C) (STV 1.0 0.9)))
-!(set-base-rate kb (And A B) (STV 0.2 0.9))
-!(set-base-rate kb C (STV 0.4 0.9))
-!(set-base-rate kb (And A C) (STV 0.25 0.9))
+!(compileadd kb (: ab_c (Implication (And A B) C) (CTV (STV 0.9 1) (STV 0.3 1))))
 !(set-base-rate kb B (STV 0.3 0.9))
 !(query 2000 kb (: $proof B $tv))
 ```
 
 proves `B` through
-`(: ((antecedent-completion ab_c 1 with cpu cpu) (conjunction a c)) B (STV 0.8 0.24255226513533926))`.
-A query constrained to that proof pattern returns the same proof, and a
-completion for a child of a `CTV`-valued implication or of a three-way `And`
-works the same way.
+`(: ((antecedent-completion ab_c 1 with cpu (prior (STV 0.3 0.9))) (conjunction a c)) B (STV 0.5625000000000001 0.8847429725023245))`:
+`0.9 * 0.3 / (0.9 * 0.3 + 0.3 * 0.7) = 0.5625`. A completion for a child of an
+`STV`-valued implication or of a three-way `And` works the same way.
 
 ### 3) FoldAll / FoldAllValue
 

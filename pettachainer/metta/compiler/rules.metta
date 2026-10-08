@@ -571,11 +571,16 @@
             ((inverted $prf with $prior-token (prior $atv)) $prfb_wit)
             $a $mp-tv))))
 
-;; For every child M of a pure conjunction H, compile the direct probabilistic
-;; completion (And O C) -> M, where O contains H's other children and C is the
-;; original consequence. That is the only child-recovery operator for a pure
-;; And: whole-H inversion still proves H itself, but does not also project to
-;; each child.
+;; For every child M of a pure conjunction H, compile the completion
+;; (And O C) -> M, where O contains H's other children and C is the original
+;; consequence. That is the only child-recovery operator for a pure And:
+;; whole-H inversion still proves H itself, but does not also project to each
+;; child. The completion inverts the rule onto M over M's base rate, as a
+;; plain inversion inverts onto its antecedent: given O, C's value weighs
+;; P(M|O,C) and P(M|O,not C) by Bayes' rule with the rule's likelihoods, and
+;; O's value weighs that against the base rate, since without O the rule says
+;; nothing about M. The proof carries the base rate, so the completion merges
+;; with other updates of it by Bayes' rule (sk-factored-merge).
 (: pure-conjunction-antecedent? (-[det]-> Statement Bool))
 (= (pure-conjunction-antecedent? $a)
    (if (head-is? $a And)
@@ -583,28 +588,6 @@
          ((source-computes ()) true)
          ($_other false)))
       false))
-(: antecedent-completion-rule-info
-   (-[det]-> KB Statement Statement TV
-       ((List Goal) $base-truth-value CTVType)))
-(= (antecedent-completion-rule-info
-      $kb $full-pattern $_consequent-pattern (CTV $pos $neg))
-   (data
-      (base-rate-premises $kb $full-pattern $full-base-tv)
-      $full-base-tv
-      (CTV $pos $neg)))
-(= (antecedent-completion-rule-info
-      $kb $full-pattern $consequent-pattern (STV $s $c))
-   (data
-      (append-goals (base-rate-premises $kb $full-pattern $full-base-tv)
-         (append-goals (base-rate-premises $kb $consequent-pattern $consequent-base-tv)
-            (cons (CPU ImplicationCTVFormula
-                     (quote
-                        ($full-base-tv $consequent-base-tv (STV $s $c)))
-                     $rule-ctv)
-               ())))
-      $full-base-tv
-      (the CTVType $rule-ctv)))
-
 (: compile-antecedent-completion
    (-[nondet]-> KB $context $variables KBContext Proof TV (List Variable)
        Statement Statement (List Statement) Number (List Statement)
@@ -615,12 +598,8 @@
    (superpose (
       (if (is-var $missing)
          (empty)
-         (let $known
-            (brand Statement
-               (seq2expr
-                  (append
-                     (remove-index $idx $children)
-                     (cons $consequent ()))))
+         (let* (($others (remove-index $idx $children))
+                ($known (brand Statement (seq2expr (append $others (cons $consequent ()))))))
             ;; A missing conjunct that alone links the others' variables would be
             ;; inferred for every combination of unrelated instances; only a
             ;; conjunct whose variables the rest already connects is completed.
@@ -628,47 +607,39 @@
                    (== (cdr-atom (conjunct-parts (implication-side-conjuncts $known))) ())
                    false)
                (let*
-                  ((($known-execs $known-proofs $known-witness-tv)
+                  ((($others-execs $others-proofs $others-tv)
                       (once
                          (lower-implication-antecedent
-                            $kb $ctx $vars $known)))
-                   ($missing-pattern (rule-base-rate-pattern $params $missing))
-                   ($full-pattern (rule-base-rate-pattern $params $full))
-                   ($known-pattern (rule-base-rate-pattern $params $known))
-                   ($consequent-pattern (rule-base-rate-pattern $params $consequent))
-                   ($missing-base-rates
-                      (base-rate-premises $kb $missing-pattern $missing-base-tv))
-                   ($known-base-rates
-                      (base-rate-premises $kb $known-pattern $known-base-tv))
-                   (($rule-base-execs $full-base-tv $rule-ctv)
-                      (antecedent-completion-rule-info
-                         $kb $full-pattern $consequent-pattern $tv))
+                            $kb $ctx $vars (brand Statement (seq2expr $others)))))
+                   (($consequent-execs $consequent-proofs $consequent-tv)
+                      (once
+                         (lower-implication-antecedent
+                            $kb $ctx $vars $consequent)))
+                   (($rule-execs $rule-ctv)
+                      (compile-implication-ctv-execs $kb $params $full $consequent $tv $tv))
                    ($proof-token
-                      (implication-proof-token $known-proofs))
+                      (implication-proof-token (append $others-proofs $consequent-proofs)))
                    ($premises
-                      (append-goals
-                         $known-execs
-                         (append-goals
-                            $rule-base-execs
-                            (append-goals $known-base-rates
-                               (append-goals $missing-base-rates
+                      (append-goals $others-execs
+                         (append-goals $consequent-execs
+                            (append-goals $rule-execs
+                               (append-goals
+                                  (base-rate-premises $kb
+                                     (rule-base-rate-pattern $params $missing) $missing-base-tv)
                                   (the (List Goal)
                                      ((CPU CTVAntecedentCompletionFormula
-                                         (quote
-                                            ($missing-base-tv
-                                             $full-base-tv
-                                             $known-base-tv
-                                             $rule-ctv))
+                                         (quote ($missing-base-tv $rule-ctv))
                                          $completion-ctv)
                                       (CPU CTVModusPonensFormula
-                                         (quote
-                                            ($known-witness-tv
-                                             $completion-ctv))
+                                         (quote ($consequent-tv $completion-ctv))
+                                         $given-others-tv)
+                                      (CPU CTVModusPonensFormula
+                                         (quote ($others-tv (CTV $given-others-tv $missing-base-tv)))
                                          $out-tv)))))))))
                   (brand CompiledAddition
                      ($premises |-
                         (: $shape-kb
-                           ((antecedent-completion $prf $idx with cpu cpu)
+                           ((antecedent-completion $prf $idx with cpu (prior $missing-base-tv))
                             $proof-token)
                            $missing $out-tv))))
                (empty))))

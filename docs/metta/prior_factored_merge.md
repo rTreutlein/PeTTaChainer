@@ -305,6 +305,137 @@ Per seed, Brier 0.0239 / 0.0436 / 0.0105 / 0.0361 (was 0.0427 / 0.0411 /
 0.0139 / 0.0369); the reference posterior's Brier is 0.0278 over the same
 keys (0.0253 / 0.0401 / 0.0107 / 0.0349).
 
+## Antecedent completions
+
+A rule whose antecedent is a conjunction, `(Implication (And O M) C)`, is
+inverted onto each conjunct by its completion `(And O C) -> M`. With `u =
+P(C | O, M)` and `v = P(C | not (O, M))` the rule's branches, the completion
+is Bayes' rule over the base rate P(M):
+
+    given O and C:      P(M | O, C)     = u P(M) / (u P(M) + v (1 − P(M)))
+    given O and not C:  P(M | O, not C) = (1 − u) P(M) / ((1 − u) P(M) + (1 − v) (1 − P(M)))
+
+C's value weighs the two by modus ponens, and O's value weighs that result
+against P(M), since without O both branches of the rule give v and C says
+nothing about M:
+
+    s = s_O (s_C P(M | O, C) + (1 − s_C) P(M | O, not C)) + (1 − s_O) P(M)
+
+For an STV rule, v is recovered from the base rates of `(And O M)` and C, as
+for a plain inversion. The proof is `((antecedent-completion R idx with cpu
+(prior <P(M)>)) (conjunction <O proofs> <C proof>))`.
+
+What is factored over what. The completion is an update of M's population
+base rate P(M), the same prior a plain inversion of a rule `M -> D` reads (the
+pattern is M's, a fresh copy, so the folds and truth values are the same). An
+observation of C as likely as the rule makes it, s_C = u P(M) + v (1 − P(M)),
+leaves P(M), so the completion's odds over P(M) are the likelihood ratio of
+O's and C's evidence, and it merges with other updates of P(M), or with a
+derived view in the base rate's place, as an inversion does. Factoring needs
+the views' evidence to be independent given M. Given M, C depends on the past
+only through O and M, so evidence about C that reaches no other view (C's own
+observations) is independent of the other views' evidence; O is conditioned
+on, and the rule, when given, carries no evidence. The checks stay those of
+inversions, at the level of the completion's witnesses:
+
+- over a base rate, the views share no evidence (`evidence-sets-overlap?`),
+  so an observation read below the witnesses blocks the factoring;
+- no witness proof of one view is a witness or observation of another, and
+  no rule whose truth is an estimate is shared (`sk-part-sources`): two
+  completions reading the same C through different O are one observation, not
+  two.
+
+The previous formula, P(M | O, C) = u P(O, M) / P(O, C), read the base rate of
+the known conjunction `(And O C)` and never used v. That base rate is folded
+over other members and at other times than P(M) and P(O, M), so an
+uninformative C did not return P(M) and the view was not an update of P(M).
+In the SupplyNet toy below P(O, M) = 0.448 and P(O, C) = 0.324 against
+P(M) = 0.325, so
+P(M | O, C) = 0.7 · 0.448 / 0.324 = 0.969 and the completion of Storm w1 was
+0.103 where Bayes' rule gives 0.204; recognised as an update, it made
+smoothing worse (0.7305). Bayes'
+rule with the stated likelihoods reads no P(C) or P(O, C), as for plain
+inversions of rules stating both likelihoods.
+
+A base rate of 0 or 1 gives no completion: the posterior would be the rate
+itself, and a knowledge base storing only true instances (logic KBs of
+Provable or Path facts) has rate 1, so every conjunct of every stored
+conclusion would be asserted. The previous formula had the same cutoff at
+P(O, C) of 0 or 1.
+
+### Worked example: a certain conjunct
+
+`tests/metta/test_antecedent_completion.metta`: P(Rain) = 0.3 (0.9); rain
+wets an outdoor place, `(Implication (And (Outdoor $x) (Rain $x)) (Wet $x))`
+with (0.9, 0.2), and brings clouds, `(Implication (Rain $x) (Clouds $x))` with
+(0.8, 0.25), all stated with confidence 1; d is outdoor, wet and cloudy, all
+certain.
+
+| view | proof | strength |
+|---|---|---|
+| completion | `((antecedent-completion wet 1 with cpu (prior (STV 0.3 0.9))) (conjunction outdoor-d wet-d))` | 0.27 / (0.27 + 0.14) = 0.6585 |
+| inversion | `((inverted clouds with cpu (prior (STV 0.3 0.9))) clouds-d)` | 0.24 / (0.24 + 0.175) = 0.5783 |
+| factored | `(factored-revision cpu (prior (STV 0.3 0.9)) (completion inversion))` | 0.860558 |
+| Bayes' rule | odds 0.3/0.7 · 0.9/0.2 · 0.8/0.25 = 6.171 | 0.860558 |
+
+With a rule reading rain off the wet ground directly, its inversion of wet-d
+shares the completion's observation; the views are not factored, and the
+completion, whose evidence contains the inversion's, is kept (0.6585, where
+factoring would count wet-d twice: 0.897).
+
+### Worked example: smoothing a persistent storm
+
+`tests/metta/test_certain_merge.metta`, SupplyNet stage 2 in small: a storm
+persists, `(Implication (And (NextPeriod $p $t) (Storm north $p)) (Storm north
+$t))` with (0.7, 0.3); it blocks r1 with (0.8, 0.03), and a blocked route
+delays each of three shipments with (0.9, 0.05). The storm of h3 is resolved
+false, all three shipments of w1 are late and none of w2. The filter view of
+Storm w1, the persistence prediction updated by w1's block inversion, is
+0.91920 (exact 0.91913). The previous period's storm takes w2's evidence
+through the completion `((antecedent-completion persist-north 1 with cpu
+(prior (STV 0.325 0.444))) (conjunction next-w2 <w2's block inversion>))`:
+NextPeriod is certain, P(Storm) = 0.325, so
+
+    P(M | O, C) = 0.7 · 0.325 / (0.7 · 0.325 + 0.3 · 0.675) = 0.52907
+    P(M | O, not C) = 0.3 · 0.325 / (0.3 · 0.325 + 0.7 · 0.675) = 0.17105
+
+and with Storm w2 at 0.0908 from w2's observations alone (the view of Storm
+w2 that does not depend on Storm w1), the completion is 0.20355. The filter
+view's evidence (h3's fact, w1's shipments) and the completion's (next-w2,
+w2's shipments) are disjoint and the rules are given, so the views factor,
+the filter view in the base rate's place:
+
+    logit 0.91920 + logit 0.20355 − logit 0.325 = 2.4320 − 1.3643 + 0.7309 = 1.7986, P = 0.8579
+
+Exact smoothing: P(none late | storm w2) = 0.172275, P(none late | no storm
+w2) = 0.831684, likelihood ratio for Storm w1 (0.7 · 0.172275 + 0.3 ·
+0.831684) / (0.3 · 0.172275 + 0.7 · 0.831684) = 0.58388, P = 0.86905.
+Revising the two views gave 0.7445.
+
+The completion's likelihood ratio is 0.531 against 0.584: modus ponens reads
+s_C = 0.0908 as a posterior under the prior the rule implies for Storm w2,
+0.7 · 0.325 + 0.3 · 0.675 = 0.43, while it was formed under the base rate
+0.325. Read as a likelihood ratio, λ = odds(0.0908) / odds(0.325) = 0.2074
+(exact 0.2071), the message (u λ + 1 − u) / (v λ + 1 − v) = 0.584 is exact.
+This applies to every inversion of a soft observation and is left as it is.
+
+### Result
+
+SupplyNet, budget 100, 30 rounds, seeds 1–4 (four in parallel):
+
+| | Brier | posterior error | previous storm | storm | blocked | seconds |
+|---|---|---|---|---|---|---|
+| stage 2, revised completion | 0.1552 | 0.0100 | 0.0388 | 0.0012 | 0.0007 | 22.3 / 24.0 / 23.8 / 14.1 |
+| stage 2, Bayes completion | 0.1546 | 0.0089 | 0.0341 | 0.0012 | 0.0007 | 21.4 / 23.5 / 22.3 / 13.2 |
+| stage 1, either | 0.0284 | 0.0085 | | | | 12.1 / 11.6 / 16.4 / 8.1 |
+
+The reference posterior's Brier is 0.1540 for stage 2. A previous storm whose
+answer includes the completion is within 0.003 of the posterior (seed 3);
+at budget 100 the search reaches the completion for 7 of 87 previous storms,
+the rest answer with the filter view alone (error 0.045). At budget 2000 it
+reaches 52, the previous-storm error falls to 0.006, and what remains is the
+modus ponens reading of a soft observation above.
+
 ## Relation to PLN
 
 Revision, as the PLN book derives it, combines estimates of the same

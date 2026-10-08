@@ -145,8 +145,9 @@
           ($q (* $s (- 1.0 $s))))
       (STV $s (ideal-conf-from-var $s (* (* $q $q) $v)))))
 
-;; A view as updates of a prior: an inversion, or a factored merge of several,
-;; updates its prior; any other view is its own prior, updated by nothing.
+;; A view as updates of a prior: an inversion or an antecedent completion, or
+;; a factored merge of several, updates its prior; any other view is its own
+;; prior, updated by nothing.
 (: SkeletonPriorUpdate Type)
 (: sk-prior-update (-[det]-> Proof Proof (List Proof) SkeletonPriorUpdate))
 
@@ -155,20 +156,24 @@
    (case (sk-step-proof $proof) (
       (((inverted $_rule with $prior (prior $prior-tv)) $_observation)
          (sk-prior-update $prior (brand Proof (prior $prior-tv)) (cons $proof ())))
+      (((antecedent-completion $_completed $_idx with $completion-prior (prior $completion-prior-tv)) $_known)
+         (sk-prior-update $completion-prior (brand Proof (prior $completion-prior-tv)) (cons $proof ())))
       ((factored-revision $prior $prior-tv $parts) (sk-prior-update $prior $prior-tv $parts))
       ($_other (sk-prior-update $proof (brand Proof (prior $tv)) ())))))
 
-;; The observations of the inversions a view merges and the rules whose truth
-;; is an estimate, the rules carrying evidence (`register-rule-evidence!`), by
-;; hash (defined at the end of the file). Inversions through a rule with given
-;; truth are independent given their prior. A list of proofs is walked by
-;; recursion: the determinism checker rejects a fold over Proof, a newtype of
-;; Atom.
+;; The observations of the updates a view merges (an inversion's observation,
+;; each witness of a completion) and the rules whose truth is an estimate, the
+;; rules carrying evidence (`register-rule-evidence!`), by hash (defined at the
+;; end of the file). Updates through a rule with given truth are independent
+;; given their prior. A list of proofs is walked by recursion: the determinism
+;; checker rejects a fold over Proof, a newtype of Atom.
 (: sk-part-sources (-[det]-> KB (List Proof) (List Number)))
 (: sk-sources-meet? (-[det]-> KB (List Proof) (List Proof) Bool))
 
 ;; Two views updating the same prior with different rules and observations
-;; merge by Bayes' rule. A view updating the population base rate (`cpu`)
+;; merge by Bayes' rule; over a base rate, which carries no evidence, they
+;; must also share no evidence, since an observation may be read below the
+;; witnesses the sources compare. A view updating the population base rate (`cpu`)
 ;; merges the same way into a derived, uncertain view over another prior, or
 ;; updating nothing, that shares none of its evidence: that view takes the
 ;; base rate's place, as the instance's prior given its other evidence. A
@@ -188,7 +193,7 @@
                (sk-factored-merge (data $btype $bkbctx $proof-b $tv-b) $ev-b $deps-b (data $type $kbctx $proof-a $tv-a) $ev-a $deps-a)
                (if (if (if (>= $sa 0.999999) (<= $sb 0.000001) (if (<= $sa 0.000001) (>= $sb 0.999999) false)) false
                       (if (=alpha $base-a $base-b)
-                         (if (== $spa $spb) (if (== $cpa $cpb) (if (== $parts-a ()) false (if (== $parts-b ()) false (not (sk-sources-meet? (brand KB (car-atom $kbctx)) $parts-a $parts-b)))) false) false)
+                         (if (== $spa $spb) (if (== $cpa $cpb) (if (== $parts-a ()) false (if (== $parts-b ()) false (if (if $population-a (evidence-sets-overlap? $ev-a $ev-b) false) false (not (sk-sources-meet? (brand KB (car-atom $kbctx)) $parts-a $parts-b))))) false) false)
                          (if $population-b
                             (if (if (is-expr $base-a) (< $ca 1.0) false) (if (evidence-sets-overlap? $ev-a $ev-b) false true) false)
                             false)))
@@ -2110,11 +2115,13 @@
 
 (= (sk-part-sources $_kb ()) ())
 (= (sk-part-sources $kb (cons $part $rest))
-   (case (sk-step-proof $part) (
-      (((inverted $rule with $_prior $_tv) $observation)
-         (let $sources (cons (index-hash $observation) (sk-part-sources $kb $rest))
-            (if (rule-evidence-registered? $kb (brand Proof $rule)) (cons (index-hash $rule) $sources) $sources)))
-      ($_other (sk-part-sources $kb $rest)))))
+   (let* (($step (sk-step-proof $part))
+          ($rule (rule-evidence-head $step))
+          ($witness (car-atom (cdr-atom $step)))
+          ($sources
+             (append-flat (map-flat index-hash (the (List Atom) (case $witness (((cons conjunction $proofs) $proofs) ($_one (cons $witness ()))))))
+                (sk-part-sources $kb $rest))))
+      (if (rule-evidence-registered? $kb $rule) (cons (index-hash $rule) $sources) $sources)))
 
 (= (sk-sources-meet? $kb $parts-a $parts-b)
    (not (== (/==\ (sk-part-sources $kb $parts-a) (sk-part-sources $kb $parts-b)) ())))
