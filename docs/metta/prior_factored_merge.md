@@ -160,3 +160,32 @@ own truth value, the last in its text, since a proof now holds its prior's):
 
 Three of the eight seeds play the same game as without noise; the rest
 diverge on an inspection or repair, which moves the remaining gap.
+
+### Population-prior inversions
+
+Plain implications factor over their antecedent's base rate since
+`77c62799`. Two routes of one storm region, P(Storm) = 0.3,
+P(Blocked | Storm) = 0.8, P(Blocked | no storm) = 0.03
+(`tests/metta/test_population_prior_factoring.metta`):
+
+| | before | factored | Bayes' rule |
+|---|---|---|---|
+| r1 blocked, r2 open | 0.085 (revision) | 0.7021 | 0.7021 |
+| both blocked | | 0.9967 | 0.9967 |
+
+SupplyNet stage 1, budget 100, seeds 1–4 (the reference posterior's Brier
+is 0.028, history base rates alone 0.136):
+
+| | Brier | log loss | posterior error |
+|---|---|---|---|
+| before | 0.113 | 0.368 | 0.151 |
+| factored | 0.065 | 0.238 | 0.081 |
+
+Both levels factor: a route's shipment inversions over the route's base
+rate, and a storm's block inversions, whose observations are those factored
+route views or inspected facts. A route's belief still revises its
+shipment view with the forward view through the storm inferred from the
+other routes (`(by block-r (factored-revision …))`); both contain a prior of
+the route, so that revision counts it twice. The forward view is the route's
+prior given the other routes and should take the base rate's place under the
+shipment updates.
