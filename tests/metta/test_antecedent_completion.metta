@@ -211,3 +211,15 @@
 !(compileadd sharedKb (: outdoor-d (Outdoor d) (STV 1 1)))
 !(compileadd sharedKb (: wet-d (Wet d) (STV 1 1)))
 !(test (query 2000 sharedKb (: $proof (Rain d) $tv)) (: ((antecedent-completion wet 1 with cpu (prior (STV 0.3 0.9))) (conjunction outdoor-d wet-d)) (Rain d) (STV 0.6585365853658537 0.8935987963307269)))
+
+;; A completion reads its consequence as an observation. A predicate that only
+;; forward rules conclude is predicted, here from the completed conjunct and
+;; from servicing, never observed: the rule start prunes the completion, and
+;; (Pred a) has no proof. Read as an observation, the prediction 0.2 for
+;; (Pred2 b) would have pulled (Pred a) from its base rate 0.3 down to 0.172.
+!(compileadd predictedKb (: persist (Implication (And (Next $p $t) (Pred $p)) (Pred2 $t)) (CTV (STV 0.9 1) (STV 0.2 1))))
+!(compileadd predictedKb (: fresh (Implication (Serv $t) (Pred2 $t)) (CTV (STV 0.2 1) (STV 0.2 1))))
+!(compileadd predictedKb (: n1 (Next a b) (STV 1 1)))
+!(compileadd predictedKb (: s1 (Serv b) (STV 1 1)))
+!(set-base-rate predictedKb (Pred $p) (STV 0.3 0.9))
+!(test (query 100 predictedKb (: $prf (Pred a) $tv)) ())

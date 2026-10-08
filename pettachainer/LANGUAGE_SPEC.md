@@ -595,7 +595,11 @@ variable absent from the rest of the rule is skipped, and so is a child that
 alone links the others' variables: for `(Implication (And (Next $p $u) (Leak
 $p)) (Pred $u))`, recovering `(Next $p $u)` from `(Leak $p)` and `(Pred $u)`
 would infer a link for every pair of unrelated instances. A rule named
-`no_inverse` gets no completion either.
+`no_inverse` gets no completion either. The completion reads `C` as an
+observation, so it applies only when `C`'s predicate can be observed: a
+statement of it is stored, or an inversion or another completion concludes
+it. A consequence that only forward rules predict carries no evidence about
+`M`, and the rule start prunes the completion.
 
 ```metta
 !(compileadd kb (: a A (STV 1.0 0.9)))

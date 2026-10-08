@@ -619,7 +619,11 @@
                       (compile-implication-ctv-execs $kb $params $full $consequent $tv $tv))
                    ($proof-token
                       (implication-proof-token (append $others-proofs $consequent-proofs)))
+                   ($consequent-head (if (is-expr $consequent) (car-atom $consequent) $consequent))
+                   ($consequent-arity (if (is-expr $consequent) (- (length $consequent) 1) -1))
+                   ($observed (CPU observed-predicate? ($kb $consequent-head $consequent-arity) true))
                    ($premises
+                      (cons $observed
                       (append-goals $others-execs
                          (append-goals $consequent-execs
                             (append-goals $rule-execs
@@ -635,7 +639,7 @@
                                          $given-others-tv)
                                       (CPU CTVModusPonensFormula
                                          (quote ($others-tv (CTV $given-others-tv $missing-base-tv)))
-                                         $out-tv)))))))))
+                                         $out-tv))))))))))
                   (brand CompiledAddition
                      ($premises |-
                         (: $shape-kb

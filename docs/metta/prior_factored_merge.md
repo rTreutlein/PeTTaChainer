@@ -363,6 +363,31 @@ Provable or Path facts) has rate 1, so every conjunct of every stored
 conclusion would be asserted. The previous formula had the same cutoff at
 P(O, C) of 0 or 1.
 
+A completion reads C's value as an observation of C, so it is compiled into
+the search only where C can be observed: a statement of C's predicate is
+stored (a forward run's copy of a derived value does not count), or an
+inverse rule, an inversion or a completion, concludes C from observations of
+its consequences. A predicate only forward rules conclude is a prediction,
+from M through the completed rule itself or from other causes, and carries no
+evidence about M. The completion's first premise asks this with C's head and
+arity (`observed-predicate?`), so the rule start prunes the completion before
+any join or base-rate fold exists. In SupplyNet the storm of the next period
+is observed through the block rules' inversions and is completed. StationOps'
+temporal filter (`persist`: `(And (NextState $previous $unit)
+(SealLeakAtShiftEnd … $previous)) -> (LeakPredicted …)`) predicts
+`LeakPredicted` from the previous shift's state and from servicing, and
+nothing observes it: the alarm reads it as its `WithPrior` prior. Its
+completions never produced a view, but each joined `NextState` and read the
+base rate of `SealLeakAtShiftEnd`, a fold over the derived states of every
+shift. That fold took the evaluation allowance the shortfall fold's members
+needed; the shortfall posterior was computed over a part of its candidates
+and stated, with confidence 1, that a leak the shortfall had confirmed was
+absent (StationOps seed 3, shift 8: 0.29 for a confirmed leak, Brier 0.0636
+to 0.0685). With the check the completions are pruned and StationOps plays
+as before. Read as an observation, a prediction would also move M: in
+`tests/metta/test_antecedent_completion.metta`, servicing predicts 0.2 for
+the consequence and would pull the conjunct from its base rate 0.3 to 0.172.
+
 ### Worked example: a certain conjunct
 
 `tests/metta/test_antecedent_completion.metta`: P(Rain) = 0.3 (0.9); rain
@@ -429,7 +454,10 @@ SupplyNet, budget 100, 30 rounds, seeds 1–4 (four in parallel):
 | stage 2, Bayes completion | 0.1546 | 0.0089 | 0.0341 | 0.0012 | 0.0007 | 21.4 / 23.5 / 22.3 / 13.2 |
 | stage 1, either | 0.0284 | 0.0085 | | | | 12.1 / 11.6 / 16.4 / 8.1 |
 
-The reference posterior's Brier is 0.1540 for stage 2. A previous storm whose
+The reference posterior's Brier is 0.1540 for stage 2. StationOps (live
+temporal model, 4 seeds, budget 50) is unchanged by the observation check:
+regret 614.7 / 114.1 → 86.4 / 182.4 / 70.5, Brier 0.0452 / 0.0643 / 0.0652 /
+0.0595 (master 0.0450 / 0.0641 / 0.0652 / 0.0592). A previous storm whose
 answer includes the completion is within 0.003 of the posterior (seed 3);
 at budget 100 the search reaches the completion for 7 of 87 previous storms,
 the rest answer with the filter view alone (error 0.045). At budget 2000 it
