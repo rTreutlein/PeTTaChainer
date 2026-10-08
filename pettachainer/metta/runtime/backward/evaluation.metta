@@ -145,18 +145,18 @@
           ($q (* $s (- 1.0 $s))))
       (STV $s (ideal-conf-from-var $s (* (* $q $q) $v)))))
 
-;; A view updating a prior: one inversion, or a factored merge of several.
+;; A view as updates of a prior: an inversion, or a factored merge of several,
+;; updates its prior; any other view is its own prior, updated by nothing.
 (: SkeletonPriorUpdate Type)
 (: sk-prior-update (-[det]-> Proof Proof (List Proof) SkeletonPriorUpdate))
-(: sk-no-prior-update SkeletonPriorUpdate)
 
-(: sk-prior-update-of (-[det]-> Proof SkeletonPriorUpdate))
-(= (sk-prior-update-of $proof)
+(: sk-prior-update-of (-[det]-> Proof TV SkeletonPriorUpdate))
+(= (sk-prior-update-of $proof $tv)
    (case (sk-step-proof $proof) (
-      (((inverted $_rule with $prior (prior $tv)) $_observation)
-         (sk-prior-update $prior (brand Proof (prior $tv)) (cons $proof ())))
+      (((inverted $_rule with $prior (prior $prior-tv)) $_observation)
+         (sk-prior-update $prior (brand Proof (prior $prior-tv)) (cons $proof ())))
       ((factored-revision $prior $prior-tv $parts) (sk-prior-update $prior $prior-tv $parts))
-      ($_other sk-no-prior-update))))
+      ($_other (sk-prior-update $proof (brand Proof (prior $tv)) ())))))
 
 ;; The rules and observations of the inversions a view merges, by hash
 ;; (defined at the end of the file). A list of proofs is walked by recursion:
@@ -165,26 +165,35 @@
 (: sk-sources-meet? (-[det]-> (List Proof) (List Proof) Bool))
 
 ;; Two views updating the same prior with different rules and observations
-;; merge by Bayes' rule; anything else is left to the rules below. Two certain
-;; views that contradict each other are left too.
+;; merge by Bayes' rule. A view updating the population base rate (`cpu`)
+;; merges the same way into a derived, uncertain view over another prior, or
+;; updating nothing, that shares none of its evidence: that view takes the
+;; base rate's place, as the instance's prior given its other evidence. A
+;; stored fact is counted in the base rate itself, and a certain view stays as
+;; it is. Anything else is left to the rules below, and so are two certain
+;; views that contradict each other.
 (: sk-factored-merge
    (-[det]-> SkFact (List Evidence) Number SkFact (List Evidence) Number SkeletonValue))
-(= (sk-factored-merge ($type $kbctx $proof-a $tv-a) $ev-a $deps-a ($_btype $_bkbctx $proof-b $tv-b) $ev-b $deps-b)
-   (case (sk-prior-update-of $proof-a) (
-      ((sk-prior-update $prior $prior-tv $parts-a)
-         (case (sk-prior-update-of $proof-b) (
-            ((sk-prior-update $prior-b $prior-tv-b $parts-b)
-               (if (if (=alpha $prior $prior-b) (if (=alpha $prior-tv $prior-tv-b) (not (sk-sources-meet? $parts-a $parts-b)) false) false)
-                  (case (data $prior-tv $tv-a $tv-b) (
-                     (((prior (STV $sp $cp)) (STV $sa $ca) (STV $sb $cb))
-                        (if (if (>= $sa 0.999999) (<= $sb 0.000001) (if (<= $sa 0.000001) (>= $sb 0.999999) false)) sk-none
-                           (sk-val ($type $kbctx (brand Proof (factored-revision $prior $prior-tv (append-flat $parts-a $parts-b)))
-                                       (sk-factored-tv (the Number $sp) (the Number $cp) (the Number $sa) (the Number $ca) (the Number $sb) (the Number $cb)))
-                              (sk-union $ev-a $ev-b) (deps-union $deps-a $deps-b))))
-                     ($_other sk-none)))
-                  sk-none))
-            (sk-no-prior-update sk-none))))
-      (sk-no-prior-update sk-none))))
+(= (sk-factored-merge ($type $kbctx $proof-a $tv-a) $ev-a $deps-a ($btype $bkbctx $proof-b $tv-b) $ev-b $deps-b)
+   (case (data (sk-prior-update-of $proof-a $tv-a) (sk-prior-update-of $proof-b $tv-b) $tv-a $tv-b) (
+      (((sk-prior-update $base-a (prior (STV $spa $cpa)) $parts-a)
+        (sk-prior-update $base-b (prior (STV $spb $cpb)) $parts-b)
+        (STV $sa $ca) (STV $sb $cb))
+         (let* (($population-a (== (sk-step-proof $base-a) cpu))
+                ($population-b (== (sk-step-proof $base-b) cpu)))
+            (if (if $population-a (if $population-b false true) false)
+               (sk-factored-merge (data $btype $bkbctx $proof-b $tv-b) $ev-b $deps-b (data $type $kbctx $proof-a $tv-a) $ev-a $deps-a)
+               (if (if (if (>= $sa 0.999999) (<= $sb 0.000001) (if (<= $sa 0.000001) (>= $sb 0.999999) false)) false
+                      (if (=alpha $base-a $base-b)
+                         (if (== $spa $spb) (if (== $cpa $cpb) (if (== $parts-a ()) false (if (== $parts-b ()) false (not (sk-sources-meet? $parts-a $parts-b)))) false) false)
+                         (if $population-b
+                            (if (if (is-expr $base-a) (< $ca 1.0) false) (if (evidence-sets-overlap? $ev-a $ev-b) false true) false)
+                            false)))
+                  (sk-val ($type $kbctx (brand Proof (factored-revision $base-a (prior (STV $spa $cpa)) (append-flat $parts-a $parts-b)))
+                              (sk-factored-tv (the Number $spb) (the Number $cpb) (the Number $sa) (the Number $ca) (the Number $sb) (the Number $cb)))
+                     (sk-union $ev-a $ev-b) (deps-union $deps-a $deps-b))
+                  sk-none))))
+      ($_other sk-none))))
 
 ;; Views merge as proofs do: an identical proof pools its evidence, a
 ;; projection gives way to its full proof, overlapping evidence keeps the view

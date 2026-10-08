@@ -129,6 +129,72 @@ precedence over keeping one view and over revising.
   (`ConsistentTriple`): an observation as likely with `a` as without leaves
   the prior's strength.
 
+## A view in the base rate's place
+
+An inversion over the population base rate updates what is known of the
+population, not of the instance. Another view of the same statement that
+shares none of its evidence, such as a forward conclusion through other
+observations, already is the instance's prior given that evidence. Under the
+model the two bodies of evidence are independent given the statement, so the
+inversion's likelihood ratio applies to that view's odds instead of the base
+rate's:
+
+    logit s = logit s_f + Σ_i (logit s_i − logit s_p)
+
+with s_f the view's strength, s_i each inversion's, and s_p the base rate it
+read. The variance follows the same rule with the view's log-odds variance
+in the prior's place: Var(logit s) = Var(logit s_f) + Σ_i max(0,
+Var(logit s_i) − Var(logit s_p)).
+
+Recognition: every view is read as updates of a prior. An inversion or a
+factored merge updates its prior; any other view is its own prior, updated by
+nothing. A view updating the base rate (`cpu`) merges into a view over any
+other prior when
+
+- the two share no evidence (`evidence-sets-overlap?`): no observation and no
+  rule, so a forward view derived from the inversion's own observation is not
+  taken for an independent prior, and the overlap rule keeps one view as
+  before;
+- the other view is derived, not a stored fact: base rates fold the stored
+  facts of their population, so an instance's own fact is already counted in
+  the base rate the inversion read (a fact read against a base rate estimated
+  from that one fact would count it twice); and
+- the other view is uncertain: a certain view stands for unlimited evidence
+  and stays as it is, as revision leaves it.
+
+Otherwise the views are left to the overlap rule and revision as before.
+
+The result is `(factored-revision F (prior <TV of F>) parts)`, F the view's
+proof, so further inversions over the base rate fold into it the same way,
+and inversions over F itself merge with it over the common prior F. The
+pairwise merge stays associative: a forward view merged with two inversions
+one after the other gives the same value as merged with their factored merge.
+Two forward views still revise; when the views are revised first, the
+inversions apply to the revision.
+
+### Worked example
+
+`tests/metta/test_population_prior_factoring.metta`: P(Storm) = 0.3 (0.9);
+storm blocks routes r1 and r2 with P(Blocked | Storm) = 0.8,
+P(Blocked | no storm) = 0.03, so P(Blocked) = 0.261; a blocked route delays
+its shipment with 0.9, an open one with 0.05, so P(Late) = 0.27185. Route r1
+is inspected blocked, r2's shipment is late. Blocked r2 has two views:
+
+| view | proof | strength | confidence |
+|---|---|---|---|
+| forward | `(by block2 ((inverted block1 …) o1))` | 0.7380 | 0.3993 |
+| shipment inversion | `((inverted late2 with cpu (prior (STV 0.261 0.9))) l2)` | 0.8641 | 0.2034 |
+| revised (before) | `merge/revision` | 0.7730 | 0.4792 |
+| factored, forward in the base rate's place | `(factored-revision (by block2 …) (prior (STV 0.7380 0.3993)) (…))` | 0.980663 | 0.5661 |
+| enumeration | | 0.980663 | |
+
+logit 0.7380 + (logit 0.8641 − logit 0.261) = 1.036 + (1.851 + 1.041) =
+3.927, odds 50.7. Storm north factors its two block inversions over its base
+rate as before (0.991031 against 0.991032 by enumeration). With an
+additional rule reading the storm off the late shipment directly, the forward
+view of r2 contains the shipment's observation, and the views are not
+factored.
+
 ## What changes
 
 - Proof terms of prior-based inversions print `(prior <TV>)` instead of
@@ -180,15 +246,26 @@ is 0.028, history base rates alone 0.136):
 |---|---|---|---|
 | before | 0.113 | 0.368 | 0.151 |
 | factored | 0.065 | 0.238 | 0.081 |
+| forward view in the base rate's place | 0.034 | 0.153 | 0.019 |
 
 Both levels factor: a route's shipment inversions over the route's base
 rate, and a storm's block inversions, whose observations are those factored
-route views or inspected facts. A route's belief still revises its
-shipment view with the forward view through the storm inferred from the
-other routes (`(by block-r (factored-revision …))`); both contain a prior of
-the route, so that revision counts it twice. The forward view is the route's
-prior given the other routes and should take the base rate's place under the
-shipment updates.
+route views or inspected facts. A route's belief revised its shipment view
+with the forward view through the storm inferred from the other routes
+(`(by block-r (factored-revision …))`), counting the route's prior twice;
+the forward view now takes the base rate's place under the shipment updates
+(see "A view in the base rate's place"), and every answer of seed 1 is a
+`factored-revision`. Per seed, Brier 0.0427 / 0.0411 / 0.0139 / 0.0369 (was
+0.0805 / 0.0763 / 0.0422 / 0.0608), at the same cost (12.2 / 11.6 / 15.4 /
+8.0 s).
+
+The largest remaining errors come from a shipment whose history base rates
+are inconsistent with the stated likelihoods: seed 1, s3-1 late in 3 of 30
+periods, its route blocked in 5, so P(late | open) recovered from the base
+rates is below 0 and clipped. Its inversion is near 1 at confidence 10^-6,
+and a strength near 1 decides a factored merge whatever its confidence:
+Blocked r3 at t3 is 0.99998 against 0.122 by enumeration, Storm north 0.713
+against 0.133. Revision used to weigh that view away.
 
 ## Relation to PLN
 

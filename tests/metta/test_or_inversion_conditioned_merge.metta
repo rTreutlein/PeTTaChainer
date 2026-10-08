@@ -41,8 +41,11 @@
 !(compileadd orInversionConditionedMergeKb
    (: h2Alarm (Alarm h2) (STV 0.0 1.0)))
 
-;; The OR follows from the Problem estimate, which revises the definition with
-;; the independent alarm inversion.
+;; The OR follows from the Problem estimate. The alarm is independent of the
+;; two priors given Problem, so its inversion's likelihood ratio moves the
+;; definition's odds instead of the base rate's (prior_factored_merge.md). The
+;; ratio is read from base rates of two historical cases, so the strength moves
+;; as Bayes' rule says and the confidence falls with the ratio's variance.
 !(test
    (query 2000 orInversionConditionedMergeKb
       (: $proof
@@ -50,14 +53,14 @@
             (LocalProblem current)
             (ProblemDependency current))
          $tv))
-   (: (by (bi-backward problemDefinition) (merge/revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) ((inverted problemRaisesAlarm with cpu (prior (STV 0.5062734570069661 0.003629357526433342))) currentAlarm))) (Or (LocalProblem current) (ProblemDependency current)) (STV 0.5200045678777936 0.9140643895638585)))
+   (: (by (bi-backward problemDefinition) (factored-revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) (prior (STV 0.52 0.9140621947055227)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5062734570069661 0.003629357526433342))) currentAlarm)))) (Or (LocalProblem current) (ProblemDependency current)) (STV 0.6952348986464518 0.000329650995104483)))
 
 ;; The general Problem estimate can use both the definition and the alarm.
 ;; The base rates count the whole population, including the derived alarm.
 !(test
    (query 5000 orInversionConditionedMergeKb
       (: $proof (Problem current) $tv))
-   (: (merge/revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) ((inverted problemRaisesAlarm with cpu (prior (STV 0.5062734570069661 0.003629357526433342))) currentAlarm)) (Problem current) (STV 0.5200045678777936 0.9140643897315559)))
+   (: (factored-revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) (prior (STV 0.52 0.9140621947055227)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5062734570069661 0.003629357526433342))) currentAlarm))) (Problem current) (STV 0.6952348986464518 0.0003296509951055559)))
 
 ;; LocalProblem cannot reuse evidence that depends on itself. Its constrained
 ;; view retains the direct prior even though the general Problem estimate changes.

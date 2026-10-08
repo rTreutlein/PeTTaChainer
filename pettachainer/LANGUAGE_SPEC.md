@@ -428,7 +428,14 @@ or `cpu` for a base rate, and `TV` its truth. Inversions of different
 observations through different rules over one prior, a base rate or an
 instance's own, combine by Bayes' rule: each multiplies the prior odds by its
 observation's likelihood ratio, so the prior counts once and an uninformative
-observation changes nothing (`docs/metta/prior_factored_merge.md`).
+observation changes nothing (`docs/metta/prior_factored_merge.md`). An
+inversion over a base rate and a derived view of the statement that shares
+none of its evidence, such as a forward conclusion from other observations,
+combine the same way, with that view in the base rate's place: its odds times
+the inversions' likelihood ratios. Their proof is
+`(factored-revision P (prior TV) (inversion ...))` with `P` the other view's
+proof. A stored fact of the instance, already counted in the base rate, and
+a certain view are not combined this way.
 
 ### Refining rules from their instances
 
