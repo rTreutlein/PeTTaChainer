@@ -618,15 +618,91 @@
    (sk-goal-val (CPU FoldAllCompiled $args (base-rate-entry-tv $entry)) (brand Proof cpu) ()
       (deps-key $hash)))
 
+;; --- Coverage of exact folds (docs/metta/partial_folds.md) -------------------
+
+;; A member without a value is still to come while one of its key's rows is
+;; stale, was never computed, or waits for conditioning; once every row is
+;; computed and current and none derives anything, it is no member.
+(: sk-row-current? (-[det]-> Number Number Bool))
+(= (sk-row-current? $khash $rhash)
+   (if (space-row-present? &sk_stale ($khash $rhash)) false
+      (if (space-row-present? &sk_given_pending ($khash $rhash $_cost)) false
+         (space-row-present? &sk_support ($khash $rhash $_deps)))))
+
+(: sk-member-pending? (-[det]-> SkeletonKey Bool))
+(= (sk-member-pending? $key)
+   (let $khash (index-hash $key)
+      (not (== (collapse (once (match &sk_row ($khash $stored $rhash $_row)
+                  (if (=alpha $stored $key) (if (sk-row-current? $khash $rhash) (empty) true) (empty)))))
+               ()))))
+
+;; covered members, members still to come
+(: SkeletonCover Type)
+(: sk-cover (-[det]-> Number Number SkeletonCover))
+
+(: sk-cover-member-step (-[semidet]-> Number SkeletonFilter SkeletonCover SkeletonKey SkeletonCover))
+(= (sk-cover-member-step $hash $filter (sk-cover $covered $missing) $key)
+   (if (== (sk-value $key $filter (cons $hash ())) sk-none)
+      (if (sk-member-pending? $key) (sk-cover $covered (+ $missing 1)) (sk-cover $covered $missing))
+      (sk-cover (+ $covered 1) $missing)))
+
+;; The premises of the member node's joins that have no answer yet.
+(: sk-unanswered-step (-[det]-> (List SkPattern) SkPattern (List SkPattern)))
+(= (sk-unanswered-step $kept $premise) (if (== (sk-answers $premise) ()) (cons $premise $kept) $kept))
+
+;; An exact fold (FoldAll, FoldAllValue, FoldAllTruth) is a function of all its
+;; members; statistical folds (base rates, implication instances, priors,
+;; averages) estimate from a sample, and an existential disjunction bounds its
+;; witnesses, so neither is read for completeness here. The coverage of an
+;; exact fold is its members with a value against those and the members still
+;; to come: the members found whose value is pending, and one more while a
+;; premise of the member node's joins has no answer and its search can still
+;; give one (rule variants overlap, so premises do not count members). A fold
+;; whose member node no search expanded has covered nothing.
+;; An incomplete fold proves by (partial-fold covered total proof) and is
+;; recorded in &sk_partial; a complete one leaves it. A count of -1 members
+;; still to come stands for a member search not yet started.
+(: sk-cover-fold! (-[semidet]-> Number SkeletonKey SkPattern (List SkPattern) SkeletonValue SkeletonValue))
+(= (sk-cover-fold! $hash $key $node $members $view)
+   (let* (($cover
+             (case $members (
+                (() (if (sk-expanded? $node) (sk-cover 0 0) (sk-cover 0 -1)))
+                ((cons $member $_more)
+                   (if (sk-expanded? $member)
+                      (let* (((sk-cover $found $pending)
+                                (fold-semidet (sk-cover-member-step $hash (sk-member-filter $member)) (sk-cover 0 0)
+                                   (sk-answers $member)))
+                             ((sk-growth $grows $_seen)
+                                (fold-semidet sk-grows (sk-growth false ())
+                                   (fold-flat sk-unanswered-step () (sk-children $member)))))
+                         (sk-cover $found (if $grows (+ $pending 1) $pending)))
+                      (sk-cover 0 -1))))))
+          ((sk-cover $covered $missing) $cover)
+          ($recorded (space-row-present? &sk_partial ($hash $key))))
+      (if (== $missing 0)
+         (let $_left (if $recorded (remove-variant-row! &sk_partial (quote ($hash $key))) ()) $view)
+         (let $_noted (if $recorded () (add-atom &sk_partial ($hash $key)))
+            (case $view (
+               ((sk-goal-val $goal $proof $ev $deps)
+                  (sk-goal-val $goal
+                     (brand Proof (partial-fold $covered (if (< $missing 0) 0 (+ $covered $missing)) $proof))
+                     $ev $deps))))))))
+
 (: sk-computed-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
 (= (sk-computed-fold-view $hash $args)
-   (let* ((($_kb $_pattern $extractor $init $function $finish $_mode) $args))
-      (case (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) (
-         (() (sk-folded-view $hash FoldAllCompiled $args (sk-accumulate $extractor $function) $function $init $finish
-            () sk-any-filter))
-         ((cons $member $_rest)
-            (sk-folded-view $hash FoldAllCompiled $args (sk-accumulate $extractor $function) $function $init
-               $finish (sk-answers $member) (sk-member-filter $member)))))))
+   (let* ((($_kb $_pattern $extractor $init $function $finish $_mode) $args)
+          ($node (CPU FoldAllCompiled $args $_result))
+          ($members (sk-fold-node-member $node))
+          ($view
+             (case $members (
+                (() (sk-folded-view $hash FoldAllCompiled $args (sk-accumulate $extractor $function) $function $init
+                       $finish () sk-any-filter))
+                ((cons $member $_rest)
+                   (sk-folded-view $hash FoldAllCompiled $args (sk-accumulate $extractor $function) $function $init
+                      $finish (sk-answers $member) (sk-member-filter $member)))))))
+      (if (if (== $finish identity) (not (== $function OrFormula)) false)
+         (sk-cover-fold! $hash (sk-fold $args) $node $members $view)
+         $view)))
 
 (: sk-group-node (-[det]-> SkeletonKey (List SkPattern)))
 (= (sk-group-node $key)
@@ -701,6 +777,22 @@
          (if (sk-certain? (brand Statement (car-atom $fact)) (cons $fact ())) (cons $leaf $kept) $kept))
       ($_other $kept))))
 
+;; A value depending on an incomplete fold is provisional: computed from part
+;; of an aggregate that needs all of it (docs/metta/partial_folds.md). A key
+;; merges its provisional values only when it has no other.
+(: sk-complete-step (-[semidet]-> (List Number) (List SkeletonValue) SkeletonValue (List SkeletonValue)))
+(= (sk-complete-step $partial $kept $value)
+   (if (deps-meet? $partial (sk-view-deps-step 0 $value)) $kept (cons $value $kept)))
+
+(: sk-complete-values (-[semidet]-> (List SkeletonValue) (List SkeletonValue)))
+(= (sk-complete-values $values)
+   (case (collapse (match &sk_partial ($fold-hash $_fold) $fold-hash)) (
+      (() $values)
+      ($partial
+         (case (fold-semidet (sk-complete-step $partial) () $values) (
+            (() $values)
+            ($complete (fold-semidet sk-cons-step () $complete))))))))
+
 ;; Leaves first, then one version per row in the order the rows were found.
 ;; A ground statement stored with confidence 1 is its own value, as expansion
 ;; applies no rule to it: no other proof could change it, so its rows' views
@@ -710,7 +802,7 @@
 (= (sk-merge-key $hash $key $filter $exclude $views)
    (let* (($leaves (sk-leaf-views $hash $key $filter $exclude))
           ($certain (fold-semidet sk-certain-leaf-step () $leaves))
-          ($values (if (== $certain ()) (append-flat $leaves $views) $certain)))
+          ($values (sk-complete-values (if (== $certain ()) (append-flat $leaves $views) $certain))))
       (case (sk-lift $values) (
          ((cons $lifted $_rest) $lifted)
          (() (fold-semidet sk-merge-step sk-none $values))))))
@@ -1217,13 +1309,32 @@
       (((RuleTruth $_implication) $_kbctx $_prf $_tv) $types)
       (($type $_kbctx $_prf $_tv) (cons $type $types)))))
 
+;; The share of an incomplete fold's members it covered; a complete fold's is 1.
+(: sk-fold-share-step (-[semidet]-> Number Proof Number))
+(= (sk-fold-share-step $share $proof)
+   (case (sk-step-proof $proof) (
+      ((partial-fold $covered $total $_inner)
+         (let* (($c (the Number $covered)) ($t (the Number $total))) (if (> $t 0) (* $share (/ $c $t)) 0.0)))
+      ($_complete $share))))
+
+;; A conclusion drawn from incomplete folds is no more confident than the share
+;; of their members they covered.
+(: sk-cover-tv (-[det]-> Number TV TV))
+(= (sk-cover-tv $share $tv)
+   (if (>= $share 1) $tv
+      (case $tv (
+         ((STV $s $c) (STV $s (* $c $share)))
+         ((CTV (STV $ps $pc) (STV $ns $nc)) (CTV (STV $ps (* $pc $share)) (STV $ns (* $nc $share))))
+         ($_other $tv)))))
+
 (: sk-row-result (-[semidet]-> SkeletonRow SkeletonRowState SkeletonValue))
 (= (sk-row-result (sk-row $_ident ($type $kbctx $proof $tv) $_premises $_seq) $state)
    (case $state (
       ((sk-acc $fold-proofs $ev $deps $_parts)
          (let* (((token-state $full-proof $_unused)
                    (replace-token $proof (fold-semidet sk-cons-step () $fold-proofs)))
-                ($fact (assemble-runtime-fact $type $kbctx (sk-unwrap-proof $full-proof) $tv)))
+                ($fact (assemble-runtime-fact $type $kbctx (sk-unwrap-proof $full-proof)
+                          (sk-cover-tv (fold-semidet sk-fold-share-step 1 $fold-proofs) $tv))))
             (sk-val $fact (rule-result-evidence $fact $ev) (deps-join $deps))))
       ($_failed sk-none))))
 
@@ -1458,15 +1569,20 @@
          ;; A row forced by an outside change that no longer derives anything
          ;; (a premise fact was removed) drops its views, and its key changed;
          ;; one waiting for conditioning keeps them.
+         ;; A row that derived nothing records empty support: it was computed,
+         ;; so a fold over its key does not wait for it (sk-member-pending?).
          (sk-none
             (if (if $forced
                    (if (== (sk-latest-view $hash $key $rhash) sk-none) false
                       (== (collapse (once (match &sk_given_pending ($hash $rhash $_waits) true))) ()))
                    false)
                (let* (($_views (sk-drop-row-views! $hash $key $rhash))
-                      ($_merged (sk-drop-merged! $key)))
+                      ($_merged (sk-drop-merged! $key))
+                      ($_derived-nothing (add-atom &sk_support ($hash $rhash 0))))
                   (sk-key-changed $pass $seq (sk-outside-change $causes 0) $work $key))
-               $work))
+               (let $_nothing
+                  (if (space-row-present? &sk_support ($hash $rhash $_had)) true (add-atom &sk_support ($hash $rhash 0)))
+                  $work)))
          ($_view
             (let $latest (sk-latest-view $hash $key $rhash)
             (if (if (sk-same-view? $new $latest)
@@ -1762,6 +1878,13 @@
           ($_cleared-forced (remove-data-rows! &sk_forced (quote ($khash $rhash $cause))))
           ($_used (remove-data-rows! &sk_forced_used (quote ($khash $rhash $cause))))
           ($_pending (remove-data-rows! &sk_fold_pending (quote ($fhash $member))))
+          ;; an incomplete fold the query needs is checked again: its members
+          ;; may have been searched, or found to derive nothing, since
+          ($partial
+             (collapse (match &sk_partial ($phash $pfold)
+                (if (sk-needed? $phash $pfold)
+                   (let $_cause (add-atom &sk_fold_pending ($phash $phash)) (sk-fold-check $phash $pfold))
+                   (empty)))))
           ($_granted (remove-data-rows! &sk_given_granted (quote ($khash $rhash))))
           ($_restale (remove-data-rows! &sk_restale (quote ($khash $rhash))))
           ($_restaled (remove-data-rows! &sk_restaled (quote ($khash $rhash))))
@@ -1779,7 +1902,8 @@
                          (let $_forced (sk-force! (cons $khash ()) $item) $item)))))))
           ($seeded
              (fold-semidet sk-dirty-seed
-                (sk-work (fold-semidet sk-seed-new (empty_heap) (append-flat $new $refresh)) (empty_heap))
+                (sk-work (fold-semidet sk-seed-new (empty_heap) (append-flat $new (append-flat $refresh $partial)))
+                   (empty_heap))
                 $dirty)))
       (sk-pay-conditions! (+ (sk-work-off! 0 $seeded) 1))))
 

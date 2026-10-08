@@ -237,6 +237,16 @@ stated truth, but it keeps its members' dependencies. A `FoldAllTruth` fold
 reads its members' truth values as data and is treated the same way, so a rule
 can fold a group's beliefs and read one member of the group again.
 
+An exact fold (`FoldAll`, `FoldAllValue`, `FoldAllTruth`) needs all its
+members. While its search has members still to come (members whose rows are
+stale, uncomputed or waiting for conditioning; premises of its member node
+that can still be answered; a member node not yet expanded), it is partial:
+it proves by `(partial-fold covered total proof)`, a conclusion drawn from it
+has its confidence scaled by the share covered, and a value depending on it is
+provisional, merged only when its key has no other value. A partial fold a
+query needs is checked again at each evaluation
+([partial_folds.md](partial_folds.md)).
+
 A base-rate fold is incremental, since its population grows with everything
 ingested. It keeps its accumulated evidence and each member's contribution. A
 stored fact counts in the base rates observing it when it is added, its

@@ -195,6 +195,10 @@
 ;; fold key hash -> hash of a member key that changed since the fold's check
 (: &sk_fold_pending (SpaceOf (Number Number)))
 !(bind! &sk_fold_pending (new-space))
+;; exact folds whose latest view is incomplete, by fold key hash
+;; (docs/metta/partial_folds.md)
+(: &sk_partial (SpaceOf (Number SkeletonKey)))
+!(bind! &sk_partial (new-space))
 ;; rows waiting for conditioning, by key and row hash, with its cost bound,
 ;; and the rows this evaluation paid it for
 (: &sk_given_pending (SpaceOf (Number Number Number)))
