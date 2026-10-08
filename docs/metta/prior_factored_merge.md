@@ -189,3 +189,19 @@ other routes (`(by block-r (factored-revision …))`); both contain a prior of
 the route, so that revision counts it twice. The forward view is the route's
 prior given the other routes and should take the base rate's place under the
 shipment updates.
+
+## Relation to PLN
+
+Revision, as the PLN book derives it, combines estimates of the same
+frequency from different samples (Goertzel et al., *Probabilistic Logic
+Networks*, draft of 27 June 2008, §5.10.3, pp. 116–120); its dependency
+parameter changes the count, never the strength. The book notes that
+averaging deductive conclusions "can be improved upon considerably" (§9.3,
+p. 194) and points to Bayes-net propagation for static rule bases (§9.4).
+The nearest PLN rule, `opencog/pln/rules/wip/implication-implicant-conjunction.scm`,
+derives P(C|A,B) = P(C|A)·P(C|B)/P(C) and caps the overflow its additional
+marginal-independence assumption causes. The odds form used here,
+O(C|A,B) = O(C|A)·O(C|B)/O(C), needs only conditional independence given C
+and given ¬C, and stays within [0, 1]. Correlated evidence stays guarded as
+the book's inference trails guard it: views that share rules or
+observations are not factored.
