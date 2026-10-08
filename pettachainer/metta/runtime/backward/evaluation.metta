@@ -158,11 +158,14 @@
       ((factored-revision $prior $prior-tv $parts) (sk-prior-update $prior $prior-tv $parts))
       ($_other (sk-prior-update $proof (brand Proof (prior $tv)) ())))))
 
-;; The rules and observations of the inversions a view merges, by hash
-;; (defined at the end of the file). A list of proofs is walked by recursion:
-;; the determinism checker rejects a fold over Proof, a newtype of Atom.
-(: sk-part-sources (-[det]-> (List Proof) (List Number)))
-(: sk-sources-meet? (-[det]-> (List Proof) (List Proof) Bool))
+;; The observations of the inversions a view merges and the rules whose truth
+;; is an estimate, the rules carrying evidence (`register-rule-evidence!`), by
+;; hash (defined at the end of the file). Inversions through a rule with given
+;; truth are independent given their prior. A list of proofs is walked by
+;; recursion: the determinism checker rejects a fold over Proof, a newtype of
+;; Atom.
+(: sk-part-sources (-[det]-> KB (List Proof) (List Number)))
+(: sk-sources-meet? (-[det]-> KB (List Proof) (List Proof) Bool))
 
 ;; Two views updating the same prior with different rules and observations
 ;; merge by Bayes' rule. A view updating the population base rate (`cpu`)
@@ -185,7 +188,7 @@
                (sk-factored-merge (data $btype $bkbctx $proof-b $tv-b) $ev-b $deps-b (data $type $kbctx $proof-a $tv-a) $ev-a $deps-a)
                (if (if (if (>= $sa 0.999999) (<= $sb 0.000001) (if (<= $sa 0.000001) (>= $sb 0.999999) false)) false
                       (if (=alpha $base-a $base-b)
-                         (if (== $spa $spb) (if (== $cpa $cpb) (if (== $parts-a ()) false (if (== $parts-b ()) false (not (sk-sources-meet? $parts-a $parts-b)))) false) false)
+                         (if (== $spa $spb) (if (== $cpa $cpb) (if (== $parts-a ()) false (if (== $parts-b ()) false (not (sk-sources-meet? (brand KB (car-atom $kbctx)) $parts-a $parts-b)))) false) false)
                          (if $population-b
                             (if (if (is-expr $base-a) (< $ca 1.0) false) (if (evidence-sets-overlap? $ev-a $ev-b) false true) false)
                             false)))
@@ -686,10 +689,23 @@
 (= (sk-admitted $hash $key $filter $exclude)
    (map-flat sk-version-view (sk-admitted-versions $hash $key $filter $exclude)))
 
+(: sk-certain-leaf-step (-[det]-> (List SkeletonValue) SkeletonValue (List SkeletonValue)))
+(= (sk-certain-leaf-step $kept $leaf)
+   (case $leaf (
+      ((sk-val $fact $_ev $_deps)
+         (if (sk-certain? (brand Statement (car-atom $fact)) (cons $fact ())) (cons $leaf $kept) $kept))
+      ($_other $kept))))
+
 ;; Leaves first, then one version per row in the order the rows were found.
+;; A ground statement stored with confidence 1 is its own value, as expansion
+;; applies no rule to it: no other proof could change it, so its rows' views
+;; add neither evidence nor dependencies. A derived view of confidence 1 is a
+;; probability known exactly, not the statement's truth, and merges as usual.
 (: sk-merge-key (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonValue) SkeletonValue))
 (= (sk-merge-key $hash $key $filter $exclude $views)
-   (let $values (append-flat (sk-leaf-views $hash $key $filter $exclude) $views)
+   (let* (($leaves (sk-leaf-views $hash $key $filter $exclude))
+          ($certain (fold-semidet sk-certain-leaf-step () $leaves))
+          ($values (if (== $certain ()) (append-flat $leaves $views) $certain)))
       (case (sk-lift $values) (
          ((cons $lifted $_rest) $lifted)
          (() (fold-semidet sk-merge-step sk-none $values))))))
@@ -2092,12 +2108,13 @@
 
 ;; --- Prior-factored merge: sources (declared above) --------------------------
 
-(= (sk-part-sources ()) ())
-(= (sk-part-sources (cons $part $rest))
+(= (sk-part-sources $_kb ()) ())
+(= (sk-part-sources $kb (cons $part $rest))
    (case (sk-step-proof $part) (
       (((inverted $rule with $_prior $_tv) $observation)
-         (cons (index-hash $rule) (cons (index-hash $observation) (sk-part-sources $rest))))
-      ($_other (sk-part-sources $rest)))))
+         (let $sources (cons (index-hash $observation) (sk-part-sources $kb $rest))
+            (if (rule-evidence-registered? $kb (brand Proof $rule)) (cons (index-hash $rule) $sources) $sources)))
+      ($_other (sk-part-sources $kb $rest)))))
 
-(= (sk-sources-meet? $parts-a $parts-b)
-   (not (== (/==\ (sk-part-sources $parts-a) (sk-part-sources $parts-b)) ())))
+(= (sk-sources-meet? $kb $parts-a $parts-b)
+   (not (== (/==\ (sk-part-sources $kb $parts-a) (sk-part-sources $kb $parts-b)) ())))

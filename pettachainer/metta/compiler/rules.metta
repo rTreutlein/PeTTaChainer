@@ -254,20 +254,30 @@
                (match &rule_evidence_names ($name $kbid) true)))
          ())))
 
+;; A rule's applications carry its evidence when its truth is an estimate,
+;; so two proofs through it are not independent. A rule stated with confidence
+;; 1 in every branch is not refined (`refined-rule?`): its truth is given, not
+;; estimated, and proofs that both use it share no uncertain evidence.
 (: register-rule-evidence!
-   (-[det]-> KB Proof (List $no-result)))
-(= (register-rule-evidence! $kb $prf)
+   (-[det]-> KB Proof TV (List $no-result)))
+(= (register-rule-evidence! $kb $prf $tv)
    (let $name (rule-evidence-base-name $prf)
       (if (is-expr $name) ()
          (if (logic-rule? $name) ()
             (if (rule-evidence-registered? $kb $name) ()
-               (let $_added
-                  (collapse
-                     (once
-                        (add-atom
-                           &rule_evidence_names
-                           ($name $kb))))
-                  ()))))))
+               (if (case $tv (
+                      ((STV $_s $c) (if (is-var $c) false (>= $c 1.0)))
+                      ((CTV (STV $_ps $pc) (STV $_ns $nc))
+                         (if (is-var $pc) false (if (is-var $nc) false (if (>= $pc 1.0) (>= $nc 1.0) false))))
+                      ($_other false)))
+                  ()
+                  (let $_added
+                     (collapse
+                        (once
+                           (add-atom
+                              &rule_evidence_names
+                              ($name $kb))))
+                     ())))))))
 
 ;; Estimate the base rate required to reinterpret an STV rule as a CTV. Open
 ;; inheritance antecedents use universe-aware weighted evidence; a concrete
@@ -1136,7 +1146,7 @@
          (specialize-rule-add $kb $triggers
             (compile-specialization (: $prf $Type $tv)))
          (let*
-            (($_evidence-reg (register-rule-evidence! $kb $prf))
+            (($_evidence-reg (register-rule-evidence! $kb $prf $tv))
              (($execs $proofs $atv)
                 (if (explicit-exists-term? $antecedent)
                    (lower-implication-antecedent

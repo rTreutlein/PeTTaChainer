@@ -425,8 +425,9 @@ posterior predicts the next, and each observation updates that prediction.
 An inversion's proof names its prior,
 `((inverted rule with P (prior TV)) observation)`, with `P` the prior's proof,
 or `cpu` for a base rate, and `TV` its truth. Inversions of different
-observations through different rules over one prior, a base rate or an
-instance's own, combine by Bayes' rule: each multiplies the prior odds by its
+observations over one prior, a base rate or an instance's own, through
+different rules or through one rule stated with confidence 1, combine by
+Bayes' rule: each multiplies the prior odds by its
 observation's likelihood ratio, so the prior counts once and an uninformative
 observation changes nothing (`docs/metta/prior_factored_merge.md`). An
 inversion over a base rate and a derived view of the statement that shares
@@ -436,6 +437,13 @@ the inversions' likelihood ratios. Their proof is
 `(factored-revision P (prior TV) (inversion ...))` with `P` the other view's
 proof. A stored fact of the instance, already counted in the base rate, and
 a certain view are not combined this way.
+
+A rule whose truth is an estimate, stated with confidence below 1 or refined
+from its instances, is evidence of every proof through it, so two such proofs
+are not independent. A rule stated with confidence 1 (in both branches of a
+CTV) is given: proofs that both use it share no evidence through it. A ground
+statement stored with confidence 1 is its own value: no rule is applied to it,
+and proofs found for it before it was stored no longer count.
 
 ### Refining rules from their instances
 

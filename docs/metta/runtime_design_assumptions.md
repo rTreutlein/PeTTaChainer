@@ -141,14 +141,23 @@ them until something below them changes.
 
 A certain truth value, confidence 1, stands for unlimited evidence: revision
 leaves it unchanged, and a ground key stored with one applies no rules,
-since no other proof could change its value.
+since no other proof could change its value. For the same reason such a key's
+value is its certain stored facts alone: views its rows got before the fact
+was stored add neither evidence nor dependencies. Only stored facts end the
+merge this way; a derived view of confidence 1 is a probability known
+exactly, not the statement's truth, and merges as below.
+
+A rule stated with confidence 1 in every branch is given, not estimated: its
+applications carry no evidence of it, so proofs that both use it share no
+evidence through it. A rule stated with less, or refined from its instances,
+is evidence of every proof through it.
 
 A key's value merges its stored facts and one view per row:
 
 - an identical proof pools its evidence; a marginal projection gives way to its
   full proof;
-- inversions over one prior through different rules and observations
-  combine by Bayes' rule, and an inversion over a base rate combines the same
+- inversions over one prior through different observations, and rules that
+  differ or are given, combine by Bayes' rule, and an inversion over a base rate combines the same
   way with a derived, uncertain view sharing none of its evidence, which
   takes the base rate's place (`docs/metta/prior_factored_merge.md`);
 - overlapping evidence keeps the view whose evidence strictly contains the

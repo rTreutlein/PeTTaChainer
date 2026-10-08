@@ -109,7 +109,13 @@ merge, over the same prior, and their observations differ.
   same prior merges into it.
 - Their evidence overlaps only in the prior's when the rules and the
   observations differ, which the recognition checks (the same observation
-  under two rules is not an independent observation).
+  under two rules is not an independent observation). A rule stated with
+  confidence 1 in both branches is not compared: its truth is given, not
+  estimated, so two inversions through it share no evidence, and given the
+  prior's statement their observations are independent (two reports of one
+  storm through one report rule; `tests/metta/test_certain_merge.metta`). A
+  rule whose truth is an estimate (confidence below 1, or refined) is shared
+  evidence of both and blocks the factoring.
 
 The merged view's evidence and dependencies are the unions of the views'. It
 is applied in `sk-merge-facts` before the overlap rule, so it takes
@@ -156,9 +162,12 @@ nothing. A view updating the base rate (`cpu`) merges into a view over any
 other prior when
 
 - the two share no evidence (`evidence-sets-overlap?`): no observation and no
-  rule, so a forward view derived from the inversion's own observation is not
-  taken for an independent prior, and the overlap rule keeps one view as
-  before;
+  rule whose truth is an estimate, so a forward view derived from the
+  inversion's own observation is not taken for an independent prior, and the
+  overlap rule keeps one view as before. A rule stated with confidence 1
+  carries no evidence (`register-rule-evidence!`): a persistence prediction
+  through earlier periods' block rules and this period's block inversions are
+  independent given this period's storm;
 - the other view is derived, not a stored fact: base rates fold the stored
   facts of their population, so an instance's own fact is already counted in
   the base rate the inversion read (a fact read against a base rate estimated
