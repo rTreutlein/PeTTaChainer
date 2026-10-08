@@ -336,8 +336,24 @@ dormancy_supported(Type, Ctx, Forbidden, Path, Depth) :-
         ;   dormancy_note_head(Type),
             Depth1 is Depth - 1,
             dormancy_row(rules('runtime-rule-row', _, [Type, Ctx|_], Premises)),
-            forall(( member([PType, PCtx, _, _], Premises), PType \== 'CPU' ),
-                   dormancy_supported(PType, PCtx, Forbidden, [Type-Ctx|Path], Depth1)) ) ).
+            (   memberchk(['CPU', 'SettlesFormula'|_], Premises) -> \+ \+ dormancy_settles(Premises)
+            ;   forall(( member([PType, PCtx, _, _], Premises), PType \== 'CPU' ),
+                       dormancy_supported(PType, PCtx, Forbidden, [Type-Ctx|Path], Depth1)) ) ) ).
+
+% A settled rule reads only a part whose certain stored fact settles its
+% compound (docs/metta/connective_settling.md), so it supports its conclusion
+% only through such a fact: the part's formulas run on the fact up to the
+% settling check. A refined rule's truth goal is supported.
+dormancy_settles([['CPU', 'SettlesFormula', Args, Res]|_]) :- !,
+    append(Args, [Out], CallArgs), G =.. ['SettlesFormula'|CallArgs],
+    catch(G, _, fail), Out = Res.
+dormancy_settles([['CPU', Fun, Args, Res]|Rest]) :- !,
+    append(Args, [Out], CallArgs), G =.. [Fun|CallArgs],
+    catch(G, _, fail), Out = Res, dormancy_settles(Rest).
+dormancy_settles([[['RuleTruth'|_], _, _, _]|Rest]) :- !, dormancy_settles(Rest).
+dormancy_settles([[Type, Ctx, Proof, Tv]|Rest]) :-
+    dormancy_row('&kb'(Type, Ctx, Proof, Tv)), Tv = ['STV', _, C], number(C), C >= 1.0,
+    dormancy_settles(Rest).
 
 % A statement no fact and no rule speaks of yet is an input still to come,
 % not one only the rule's conclusion supports, so it counts as supported.

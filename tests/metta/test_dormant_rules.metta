@@ -26,3 +26,25 @@
 !(compileadd pathKb (: base (Implication (Edge $a $b) (Path $a $b)) (STV 1.0 1.0)))
 !(compileadd pathKb (: step (Implication (And (Path $a $b) (Edge $b $c)) (Path $a $c)) (STV 1.0 1.0)))
 !(test (case (query 100 pathKb (: $p (Path n1 n3) $tv)) (((: $p (Path n1 n3) (STV $s $c)) $s))) 1.0)
+
+;; A settled rule supports its conclusion only through a certain stored fact
+;; that settles its compound (docs/metta/connective_settling.md). Here (L x)
+;; follows from (S x) itself, or from (N x) settling the And false; (N x) is
+;; true, so it settles nothing, and the rule (L x) -> (S x) stays dormant:
+;; neither (L x) nor (N x) is expanded.
+(: expanded? (-[det]-> Atom Atom Bool))
+(= (expanded? $kb $head)
+   (not (== (collapse (match &sk_expanded ($_h (($head $_x) ($kb $_c $_v) $_p $_t)) true)) ())))
+!(compileadd settleSleepKb (: nx (N x) (STV 1 1)))
+!(compileadd settleSleepKb (: nsl (Implication (And (N $u) (S $u)) (L $u)) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(compileadd settleSleepKb (: ls (Implication (L $u) (S $u)) (CTV (STV 0.8 1) (STV 0.3 1))))
+!(test (query 100 settleSleepKb (: $p (S x) $tv)) ())
+!(test (map-flat (expanded? settleSleepKb) (S L N)) (True False False))
+
+;; A false (N x) settles the And: (L x) follows by the negative branch, and
+;; (S x) from it.
+!(compileadd settleWakeKb (: nx (N x) (STV 0 1)))
+!(compileadd settleWakeKb (: nsl (Implication (And (N $u) (S $u)) (L $u)) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(compileadd settleWakeKb (: ls (Implication (L $u) (S $u)) (CTV (STV 0.8 1) (STV 0.3 1))))
+!(test (query 100 settleWakeKb (: $p (S x) $tv))
+   (: (by ls (by nsl (settled nx))) (S x) (STV 0.35000000000000003 0.9999146436596782)))

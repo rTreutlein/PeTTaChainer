@@ -55,6 +55,14 @@ would, but on patterns rather than on facts:
 - A pattern that is the forbidden instance, C with R's own variables (a
   variant of C under the bindings shared with P), is not supported by that
   branch.
+- A settled rule (one part of a compound, `connective_settling.md`)
+  supports its conclusion only through a certain stored fact that settles
+  the compound: its part's formulas are run on such a fact up to the
+  settling check. The settled join reads nothing else, so counting its part
+  as supported by rules would wake rules that can only support themselves
+  (StationOps: the persistence rule's variant settled by `NextState`, whose
+  facts are all true, woke the inverted persistence rules and cost the replay
+  0.02 Brier at budget 25).
 - Computed premises (`CPU`) and fold premises count as supported: a fold
   always has a value, and a computation has no evidence to loop on.
 - Only what the search fully sees is judged: user predicates in the main

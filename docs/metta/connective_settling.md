@@ -89,8 +89,15 @@ settled step agree.
 - Projections. A settled `Or` key projects onto its other disjunct with
   confidence 0 (P(B) is undetermined when A is certain), as a stored
   certain `Or` did before.
-- Dormancy and the prior-factored merge need nothing: a settled variant is an
-  ordinary rule, and a certain view is not an inversion over a prior.
+- Dormancy. The dormancy analysis mirrors the settled join: a settled rule
+  supports its conclusion only through a certain stored fact that settles
+  the compound (`dormancy_settles`, `runtime_helpers.pl`). Counting it as an
+  ordinary rule made `LeakPredicted` look supported by `NextState` alone in
+  StationOps, which woke the inverted persistence rules: their expansions
+  took the small budget from the instance priors (replay Brier at budget 25,
+  seeds 2 and 3: 0.0583 -> 0.0782, 0.0649 -> 0.0862).
+- The prior-factored merge needs nothing: a certain view is not an inversion
+  over a prior.
 
 ## Not built: bounds
 
