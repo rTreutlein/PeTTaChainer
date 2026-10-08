@@ -29,7 +29,7 @@ class TestPeTTaChainer(unittest.TestCase):
                     handler.query("(: $prf (Leak q) $tv)", steps=400, timeout_sec=timeout_sec),
                     ["(: ((inverted sensor with cpu (prior (STV 0.09999999999999998 0.8))) aq) "
                      "(Leak q) "
-                     "(STV 0.21599999999999994 0.43979285736925194))"],
+                     "(STV 0.33333333333333326 0.5060814905208311))"],
                 )
 
     def test_rule_refinement_applies_in_process_and_to_timed_queries(self):

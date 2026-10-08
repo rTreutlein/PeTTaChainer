@@ -18,7 +18,7 @@
 ; harvests them into the cache afterwards.
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu (prior (STV 0.6999999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.7361612357845151 0.0003604274173100072)))
+   (: ((inverted r with cpu (prior (STV 0.6999999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.8883802148701847 0.017951122492168896)))
 
 !(test
    (let $cached (cached-base-rate brKb (P $x))
@@ -30,7 +30,7 @@
 ; and reads the same base rates, with no fold expansion.
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu (prior (STV 0.6999999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.7361612357845151 0.0003604274173100072)))
+   (: ((inverted r with cpu (prior (STV 0.6999999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.8883802148701847 0.017951122492168896)))
 
 ; A stored fact counts in the base rates observing it when it is added.
 !(compileadd brKb (: pc (P carol) (STV 0.3 0.8)))
@@ -45,19 +45,20 @@
    (: ((inverted r with cpu (prior (STV 0.49999999999999994 0.0019960079840319364)))
        qa)
       (P alice)
-      (STV 0.6327756330204969 0.00038353389027774137)))
+      (STV 0.8181729800434837 0.013415650885959139)))
 
 !(test
    (cached-base-rate brKb (P $x))
    ((STV 0.49999999999999994 0.0019960079840319364)))
 
 ; User-provided base rates override the cache and feed inversion directly.
+; The rule states both branches, so the inversion reads only the rate of P.
 !(set-base-rate brKb (P $x) (STV 0.5 0.5))
 !(set-base-rate brKb (Q $x) (STV 0.9 0.5))
 
 !(test
    (query 200 brKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu (prior (STV 0.5 0.5))) qa) (P alice) (STV 0.5 0.5691658648147646)))
+   (: ((inverted r with cpu (prior (STV 0.5 0.5))) qa) (P alice) (STV 0.8181729800434836 0.7411849276254358)))
 
 ; Monotonic additions also leave explicit user estimates unchanged.
 !(compileadd brKb (: pd (P dave) (STV 0.6 0.8)))
@@ -122,7 +123,7 @@
 
 !(test
    (query 200 brKb2 (: $prf (P alice) $tv))
-   (: ((inverted r with cpu (prior (STV 0.6999999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.7361612357845151 0.0003604274173100072)))
+   (: ((inverted r with cpu (prior (STV 0.6999999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.8883802148701847 0.017951122492168896)))
 
 !(test
    (let $cached (cached-base-rate brKb2 (P $x))
@@ -153,23 +154,25 @@
 
 ; A base rate follows its members incrementally and may lag. A second proof of
 ; P(bob) changes Q(bob), but no query needs Q(bob), so the Q base rate keeps its
-; old contribution and the inversion reads the lagging rate. Once a query
-; recomputes Q(bob), the next one replaces its contribution: the rate and the
-; inversion then equal, up to rounding, those of a KB that had both proofs from
-; the start (P(alice) 0.4840541797751332, Q rate 0.6221923233199902).
+; old contribution and the rule s, stated with an STV, reads the lagging rate
+; to derive its negative branch. Once a query recomputes Q(bob), the next one
+; replaces its contribution: the rate and S(alice) then equal, up to rounding,
+; those of a KB that had both proofs from the start.
 !(compileadd revisedRateKb (: r (Implication (P $x) (Q $x)) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
+!(compileadd revisedRateKb (: s (Implication (Q $x) (S $x)) (STV 0.5 0.9)))
 !(compileadd revisedRateKb (: qa (Q alice) (STV 0.9 0.8)))
+!(compileadd revisedRateKb (: sc (S carol) (STV 0.4 0.8)))
 !(compileadd revisedRateKb (: pb (P bob) (STV 0.7 0.8)))
 
 !(test
-   (query 200 revisedRateKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu (prior (STV 0.6999999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.7361612357845151 0.0003604274173100072)))
+   (query 200 revisedRateKb (: $prf (S alice) $tv))
+   (: (by s qa) (S alice) (STV 0.4617916601776897 0.25559483954767565)))
 
 !(compileadd revisedRateKb (: pb2 (P bob) (STV 0.1 0.8)))
 
 !(test
-   (query 200 revisedRateKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu (prior (STV 0.39999999999999997 0.0011098779134295228))) qa) (P alice) (STV 0.4206635633054373 0.000882872802661841)))
+   (query 200 revisedRateKb (: $prf (S alice) $tv))
+   (: (by s qa) (S alice) (STV 0.4617916601776897 0.25559483954767565)))
 
 !(test
    (cached-base-rate revisedRateKb (Q $x))
@@ -180,12 +183,23 @@
    (: (by r (merge/revision pb2 pb)) (Q bob) (STV 0.38 0.9176432113844136)))
 
 !(test
-   (query 200 revisedRateKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu (prior (STV 0.39999999999999997 0.0011098779134295228))) qa) (P alice) (STV 0.4840518450016611 0.0002891856455941174)))
+   (query 200 revisedRateKb (: $prf (S alice) $tv))
+   (: (by s qa) (S alice) (STV 0.4735315065911971 0.1679794416874766)))
 
 !(test
    (cached-base-rate revisedRateKb (Q $x))
    ((STV 0.6221923233199901 0.0021424540496628843)))
+
+!(compileadd startRateKb (: r (Implication (P $x) (Q $x)) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
+!(compileadd startRateKb (: s (Implication (Q $x) (S $x)) (STV 0.5 0.9)))
+!(compileadd startRateKb (: qa (Q alice) (STV 0.9 0.8)))
+!(compileadd startRateKb (: sc (S carol) (STV 0.4 0.8)))
+!(compileadd startRateKb (: pb (P bob) (STV 0.7 0.8)))
+!(compileadd startRateKb (: pb2 (P bob) (STV 0.1 0.8)))
+!(test (query 200 startRateKb (: $prf (S alice) $tv))
+   (: (by s qa) (S alice) (STV 0.4735315065911971 0.1679794416874766)))
+!(test (cached-base-rate startRateKb (Q $x))
+   ((STV 0.6221923233199902 0.0021424540496628843)))
 
 ; An inheritance base rate weights each member by the subject mass, which falls
 ; as the universe gains subjects. New subjects elsewhere rescale the rate kept

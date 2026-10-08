@@ -389,6 +389,9 @@
 (: CTVInversionFormula (-[semidet]-> TV TV TV TV))
 (= (CTVInversionFormula no-evidence $_btv $_itv) (empty))
 (= (CTVInversionFormula (STV $_sa $_ca) no-evidence $_itv) (empty))
+;; Inversion of a rule stated with an STV, whose negative branch is derived
+;; from the base rates (ImplicationCTVFormula); a rule stating both branches is
+;; inverted by CTVBayesFormula, which needs no P(B).
 ;; P(B|A) is read under the Bayes prior centred on P(B) (bayes-shrink).
 ;; Idealized inversion confidence. The inverted strength is a Bayes ratio
 ;; P(A|B) = sb_a*sa/sb (and P(A|not B) = (1-sb_a)*sa/(1-sb)); both depend on the

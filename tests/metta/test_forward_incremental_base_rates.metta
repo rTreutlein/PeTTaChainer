@@ -54,7 +54,7 @@
    (: ((inverted pToQ with cpu (prior (STV 0.6999999999999998 0.0009990009990009992)))
        qa)
       (P alice)
-      (STV 0.7361612357845151 0.0003604274173100072)))
+      (STV 0.8883802148701847 0.017951122492168896)))
 
 ;; Revising an input changes its key's value, so a later run that takes it
 ;; carries the change to the rules downstream.
@@ -103,12 +103,13 @@
 
 !(remove-compiled-statement frontierP2)
 
-;; frontierP2 is gone; P a keeps frontierP1 and the weak inversion from Q a,
-;; which S a supports through sToQ.
+;; frontierP2 is gone; P a revises frontierP1 with the inversion from Q a,
+;; which S a supports through sToQ: Q holds only with P (P(Q | not P) = 0), so
+;; Q a at 0.7 gives P a 0.7, at the confidence of Q a.
 !(test
    (query 200 forwardFrontierKb (: $prf (P a) $tv))
-   (: (merge/revision frontierP1 ((inverted pToQ with cpu (prior (STV 0.2 0.0006246096189881324))) (by sToQ frontierS1)))
-      (P a) (STV 0.2000713979305293 0.5002232242766069)))
+   (: (merge/revision ((inverted pToQ with cpu (prior (STV 0.2 0.0006246096189881324))) (by sToQ frontierS1)) frontierP1)
+      (P a) (STV 0.5000023644178937 0.7142868526350721)))
 
 ;; Adding evidence can raise an antecedent's confidence while moving its
 ;; strength toward an implication branch with much greater uncertainty.  The
@@ -158,9 +159,10 @@
       $source)
    computed)
 
+;; The rule states both branches, so its inversion reads no base rate of Q.
 !(test
    (cached-base-rate forwardBaseRateKb (Q $x))
-   ((STV 0.7382770346341803 0.0020863193128742123)))
+   ())
 
 ;; A query's fold updates the same estimate. The forward run's inverted
 ;; P(alice) was derived through the P base rate, which does not count it.
@@ -168,7 +170,7 @@
    (query 200 forwardBaseRateKb (: $proof (P alice) $tv))
    (: ((inverted pToQ with cpu (prior (STV 0.6999999999999998 0.0009990009990009992))) qa)
       (P alice)
-      (STV 0.7361612357845151 0.0003604274173100072)))
+      (STV 0.8883802148701847 0.017951122492168896)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)
@@ -304,7 +306,7 @@
    (: ((inverted pToQ with cpu (prior (STV 0.6999999999999998 0.0009990009990009992)))
        qa)
       (P alice)
-      (STV 0.7361612357845151 0.0003604274173100072)))
+      (STV 0.8883802148701847 0.017951122492168896)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)

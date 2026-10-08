@@ -525,7 +525,17 @@ multi-premise `And` rules reconstruct no variable bindings unless they contain
 a supported reversible `Compute`; their children are instead proved directly
 by antecedent completion.
 
-Inverting a rule, and reading an `STV` rule's negative branch from base rates,
+A rule is inverted by Bayes' rule with the base rate of its antecedent `A` as
+the prior. A rule stated with a `CTV` gives both likelihoods, `P(B|A)` and
+`P(B|not A)`, so `P(A|B) = P(B|A) P(A) / (P(B|A) P(A) + P(B|not A) (1 - P(A)))`
+and the base rate of `B` is not read: an observed `P(B)` that disagrees with
+`P(A)` and the stated likelihoods, as small histories often do, cannot decide
+the inversion. A refined `CTV` rule is inverted with its learned branches. A
+rule stated with an `STV` gives only `P(B|A)`; its negative branch is read from
+the base rates of both sides, and its inversion is the ratio
+`P(B|A) P(A) / P(B)` over them.
+
+Inverting an `STV` rule, and reading its negative branch from base rates,
 need `P(B|A)` within the Fréchet bounds `P(A)` and `P(B)` allow:
 `max(0, P(A)+P(B)-1)/P(A) <= P(B|A) <= P(B)/P(A)`. When the three estimates
 violate them, the least evidence that restores them is dropped first, either

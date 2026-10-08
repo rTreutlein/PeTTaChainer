@@ -87,13 +87,11 @@
          (NoOutput $machine))
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-;; The inverse is Bayesian and therefore needs base rates. Equal 0.82 rates
-;; express the modeled equivalence between "some modeled failure" and no output.
+;; The inverse is Bayes' rule over the antecedent's base rate. The rule is
+;; deterministic both ways, so the inverted OR is the observation's 0.82
+;; whatever the prior.
 !(set-base-rate machineInverseKb
    (Or (Defective $machine) (UpstreamFailure $machine))
-   (STV 0.82 0.99))
-!(set-base-rate machineInverseKb
-   (NoOutput $machine)
    (STV 0.82 0.99))
 
 ;; Expected strength: (0.82 - 0.4) / (1 - 0.4) = 0.7.
@@ -107,7 +105,7 @@
    (: ((inverted failureStopsOutput with cpu (prior (STV 0.82 0.99)))
           observedPressStopped)
       (Or (Defective press) (UpstreamFailure press))
-      (STV 0.82 0.8970590810311)))
+      (STV 0.82 0.8999999992615493)))
 
 !(test
    (query 300 machineInverseKb
@@ -118,4 +116,4 @@
          (by propagateUpstreamFailure
             (conjunction feederFeedsPress feederDefect)))
       (Defective press)
-      (STV 0.7 0.7962833508893552)))
+      (STV 0.7 0.8008200269880119)))

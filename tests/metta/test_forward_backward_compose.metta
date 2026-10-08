@@ -83,38 +83,26 @@
          (CTV (STV 0.9639 0.5) (STV 0.5 0.0))))
    ())
 
-;; The stored instances support the implication empirically, and copying
-;; alice's predicates to a hypothetical tall individual derives it through
-;; copyPredicate; the two revise.
+;; The stored instances support the implication empirically.
 !(test
    (query 100 openVariableConclusionImplicationKb
       (: $p (Implication (Tall $x) (Female $x)) $tv))
-   (: (merge/revision
-         (implication-instance-fold
-            (foldall-proof
-               (implication-instance-sample tallAlice femaleAlice)
-               (implication-instance-sample tallMary femaleMary)))
-         (total-implication
-            ((antecedent-completion copyPredicate 1 with cpu cpu)
-               (conjunction (conjunction femaleAlice tallAlice) (ctx proof 8)))
-            ((antecedent-completion copyPredicate 1 with cpu cpu)
-               (conjunction (conjunction femaleAlice tallAlice) (ctx proof 9)))))
+   (: (implication-instance-fold
+         (foldall-proof
+            (implication-instance-sample tallAlice femaleAlice)
+            (implication-instance-sample tallMary femaleMary)))
       (Implication (Tall $_x) (Female $_x))
-      (CTV (STV 0.9280082285314655 0.008858675593265147)
-           (STV 0.8980997942345232 0.0001415456618351226))))
+      (CTV (STV 0.9 0.000562183771628459)
+           (STV 0.8999999999999999 0.00014054594290711475))))
 
-;; The open identity holds, and so do the ground instances the search reaches.
+;; The open identity holds.
 !(test
    (collapse
       (query 100 openVariableConclusionImplicationKb
          (: $proof
             (Implication ($p $x) ($p $x))
             (CTV (STV 1.0 1.0) (STV 0.0 1.0)))))
-   ((: (total-implication (ctx proof 10) (ctx proof 11)) (Implication ($_p $_x) ($_p $_x)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
-    (: (total-implication (ctx proof 10) (merge/revision (ctx proof 11) ((antecedent-completion copyPredicate 1 with cpu cpu) (conjunction (conjunction (ctx proof 11) (merge/revision tallAlice ((antecedent-completion copyPredicate 1 with cpu cpu) (conjunction (conjunction tallMary femaleMary) femaleAlice)))) (ctx proof 11))))) (Implication (Tall alice) (Tall alice)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
-    (: (total-implication (ctx proof 10) (merge/revision (ctx proof 11) ((antecedent-completion copyPredicate 1 with cpu cpu) (conjunction (conjunction (ctx proof 11) (merge/revision femaleAlice ((antecedent-completion copyPredicate 1 with cpu cpu) (conjunction (conjunction femaleMary tallMary) tallAlice)))) (ctx proof 11))))) (Implication (Female alice) (Female alice)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
-    (: (total-implication (ctx proof 10) (merge/revision (ctx proof 11) ((antecedent-completion copyPredicate 1 with cpu cpu) (conjunction (conjunction (ctx proof 11) (merge/revision tallMary ((antecedent-completion copyPredicate 1 with cpu cpu) (conjunction (conjunction tallAlice femaleAlice) femaleMary)))) (ctx proof 11))))) (Implication (Tall mary) (Tall mary)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))
-    (: (total-implication (ctx proof 10) (merge/revision (ctx proof 11) ((antecedent-completion copyPredicate 1 with cpu cpu) (conjunction (conjunction (ctx proof 11) (merge/revision femaleMary ((antecedent-completion copyPredicate 1 with cpu cpu) (conjunction (conjunction femaleAlice tallAlice) tallMary)))) (ctx proof 11))))) (Implication (Female mary) (Female mary)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))))
+   ((: (total-implication (ctx proof 10) (ctx proof 11)) (Implication ($_p $_x) ($_p $_x)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))))
 
 !(test
    (query 100 openVariableConclusionImplicationKb

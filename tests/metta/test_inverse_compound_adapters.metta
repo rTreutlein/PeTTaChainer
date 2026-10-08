@@ -7,18 +7,44 @@
          (And (Q $x) (R $x)))
       (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 
-;; Supply observations for the compound antecedent and consequent so inversion
-;; can estimate both base rates.
+;; Supply observations for the compound consequent and for the antecedent's
+;; base rate, the prior the inversion reads.
 !(compileadd inverseCompoundKb (: p-bob (P bob) (STV 0.7 0.8)))
 !(compileadd inverseCompoundKb (: q-alice (Q alice) (STV 0.9 0.8)))
 !(compileadd inverseCompoundKb (: r-alice (R alice) (STV 0.8 0.8)))
 
 ;; The compiler-generated adapter first reconstructs the compound consequent
-;; from its children, allowing inversion to derive P. The base-rate scan keeps
-;; the shared `$x`, so it counts only valid same-entity conjunctions.
+;; from its children, allowing inversion to derive P: the conjunction 0.72
+;; weighs P(P | Q and R) = 0.8 * 0.7 / (0.8 * 0.7 + 0.1 * 0.3) and
+;; P(P | not (Q and R)) = 0.2 * 0.7 / (0.2 * 0.7 + 0.9 * 0.3).
 !(test
    (query 300 inverseCompoundKb (: $prf (P alice) $tv))
    (: ((inverted p_qr with cpu (prior (STV 0.6999999999999998 0.0009990009990009992)))
        (conjunction q-alice r-alice))
       (P alice)
-      (STV 0.730644141009255 0.0020225415592873453)))
+      (STV 0.7789995267440362 0.014233559775434893)))
+
+;; A rule stated with an STV is inverted over the base rates of both sides.
+;; The compound consequent's base-rate scan keeps the shared `$x`, so it
+;; counts only valid same-entity conjunctions: alice's, not carol's Q with
+;; alice's R.
+!(compileadd inverseCompoundStvKb
+   (: p_qr
+      (Implication
+         (P $x)
+         (And (Q $x) (R $x)))
+      (STV 0.8 0.9)))
+!(compileadd inverseCompoundStvKb (: p-bob (P bob) (STV 0.7 0.8)))
+!(compileadd inverseCompoundStvKb (: q-alice (Q alice) (STV 0.9 0.8)))
+!(compileadd inverseCompoundStvKb (: r-alice (R alice) (STV 0.8 0.8)))
+!(compileadd inverseCompoundStvKb (: q-carol (Q carol) (STV 0.9 0.8)))
+
+!(test
+   (query 300 inverseCompoundStvKb (: $prf (P alice) $tv))
+   (: ((inverted p_qr with cpu (prior (STV 0.6999999999999998 0.0009990009990009992)))
+       (conjunction q-alice r-alice))
+      (P alice)
+      (STV 0.6999999999999997 0.0011537786699101166)))
+!(test
+   (cached-base-rate inverseCompoundStvKb (And (Q $x) (R $x)))
+   ((STV 0.7200000000000002 0.0010134642737165396)))

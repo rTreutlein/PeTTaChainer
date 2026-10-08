@@ -167,8 +167,9 @@
 
 ;; --- Inversion reads the refined truth ---------------------------------------
 ;; (P alice) follows from (Q alice) by inverting r. The samples bob and carl
-;; refine r's truth, and the inverted rule applies with it; the stored truth
-;; alone gives (STV 0.9440830137009913 0.0036792980798056596).
+;; refine r's truth, and the inverted rule applies with it, both branches
+;; learned: Bayes' rule over P's base rate with the refined likelihoods; the
+;; stored truth alone gives (STV 0.9393590195886672 0.023622745165936796).
 
 !(set-rule-refinement refineInvKb true)
 !(compileadd refineInvKb (: r (Implication (P $x) (Q $x)) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
@@ -180,7 +181,7 @@
 
 !(test
    (query 400 refineInvKb (: $p (P alice) $tv))
-   (: ((inverted r with cpu (prior (STV 0.8588235294117645 0.0021204939503554946))) qa) (P alice) (STV 0.9440628144837059 0.003672066646012404)))
+   (: ((inverted r with cpu (prior (STV 0.8588235294117645 0.0021204939503554946))) qa) (P alice) (STV 0.9393573065482365 0.023619484634278026)))
 
 ;; --- A certain rule is not refined --------------------------------------------
 ;; Revision leaves a truth stated with confidence 1 unchanged, so the rule

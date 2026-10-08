@@ -105,10 +105,16 @@
          (CTVFormula
             (normalize-expected-evidence-tv $a)
             (normalize-expected-ctv $b)))
+       ;; An open prior read as certain would leave P(A|not B) undefined, so
+       ;; the inversion is expected at its rule's confidence, discounted as
+       ;; CTVInversionFormula's is.
        (CTVBayesFormula
-         (CTVBayesFormula
-            (normalize-expected-evidence-tv $a)
-            (normalize-expected-ctv $b)))
+         (if (is-var $a)
+            (let $confidence (* 0.9 (tv-confidence (expected-tv $b)))
+               (CTV (STV 1.0 $confidence) (STV 1.0 $confidence)))
+            (CTVBayesFormula
+               (normalize-expected-evidence-tv $a)
+               (normalize-expected-ctv $b))))
        (AndFormula
          (AndFormula
             (normalize-expected-stv $a)

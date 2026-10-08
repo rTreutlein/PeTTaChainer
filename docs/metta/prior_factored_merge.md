@@ -11,10 +11,13 @@ on the same `a` (several sensors of one state), every inversion of an
 instance reads the same prior `p`, and their views must be combined.
 
 A plain implication `(Implication a b)` is inverted the same way with the
-population base rate of `a` as the prior (`inverse-implication`,
-`CTVInversionFormula`, then modus ponens): several such rules on the same `a`
-(several routes blocked by one storm) give several updates of that one base
-rate.
+population base rate of `a` as the prior: stated with a CTV, by Bayes' rule
+with its stated likelihoods (`prior-inverse-implication` with `population`,
+`CTVBayesFormula`); stated with an STV, by `inverse-implication`, which
+recovers P(b | not a) from the base rates of both sides
+(`ImplicationCTVFormula`, `CTVInversionFormula`); then modus ponens. Several
+such rules on the same `a` (several routes blocked by one storm) give several
+updates of that one base rate.
 
 Today `sk-merge-facts` combines views by their evidence. Inversions over the
 same prior share the prior's evidence, so:
@@ -123,11 +126,12 @@ precedence over keeping one view and over revising.
   stay finite.
 - A plain implication is inverted with its antecedent's base rate as the
   prior, `((inverted R with cpu (prior <TV>)) O)`, and factors like a
-  `WithPrior` inversion over the population base rate. Its inversion reads
-  only the positive likelihood and recovers the negative one from the two
-  base rates, so it is Bayes' rule over the reconciled base rates
-  (`ConsistentTriple`): an observation as likely with `a` as without leaves
-  the prior's strength.
+  `WithPrior` inversion over the population base rate. A rule stated with a
+  CTV is inverted by Bayes' rule with its stated likelihoods and reads no base
+  rate of `b`; a rule stated with an STV reads only the positive likelihood
+  and recovers the negative one from the two base rates, so it is Bayes' rule
+  over the reconciled base rates (`ConsistentTriple`). Either way an
+  observation as likely with `a` as without leaves the prior's strength.
 
 ## A view in the base rate's place
 
@@ -177,15 +181,17 @@ inversions apply to the revision.
 `tests/metta/test_population_prior_factoring.metta`: P(Storm) = 0.3 (0.9);
 storm blocks routes r1 and r2 with P(Blocked | Storm) = 0.8,
 P(Blocked | no storm) = 0.03, so P(Blocked) = 0.261; a blocked route delays
-its shipment with 0.9, an open one with 0.05, so P(Late) = 0.27185. Route r1
-is inspected blocked, r2's shipment is late. Blocked r2 has two views:
+its shipment with 0.9, an open one with 0.05. Route r1 is inspected blocked,
+r2's shipment is late. Blocked r2 has two views (the confidences are those
+since a CTV rule's inversion reads no consequent base rate; see "Inversion
+of rules stating both likelihoods" below):
 
 | view | proof | strength | confidence |
 |---|---|---|---|
-| forward | `(by block2 ((inverted block1 …) o1))` | 0.7380 | 0.3993 |
-| shipment inversion | `((inverted late2 with cpu (prior (STV 0.261 0.9))) l2)` | 0.8641 | 0.2034 |
-| revised (before) | `merge/revision` | 0.7730 | 0.4792 |
-| factored, forward in the base rate's place | `(factored-revision (by block2 …) (prior (STV 0.7380 0.3993)) (…))` | 0.980663 | 0.5661 |
+| forward | `(by block2 ((inverted block1 …) o1))` | 0.7380 | 0.9790 |
+| shipment inversion | `((inverted late2 with cpu (prior (STV 0.261 0.9))) l2)` | 0.8641 | 0.9172 |
+| revised (before) | `merge/revision` | 0.7623 | 0.9829 |
+| factored, forward in the base rate's place | `(factored-revision (by block2 …) (prior (STV 0.7380 0.9790)) (…))` | 0.980662 | 0.9856 |
 | enumeration | | 0.980663 | |
 
 logit 0.7380 + (logit 0.8641 − logit 0.261) = 1.036 + (1.851 + 1.041) =

@@ -35,7 +35,7 @@
 
 !(test
    (query 400 smoothKb (: $p (Leak q) $tv))
-   (: ((inverted sensor with cpu (prior (STV 0.09999999999999998 0.8))) aq) (Leak q) (STV 0.21599999999999994 0.43979285736925194)))
+   (: ((inverted sensor with cpu (prior (STV 0.09999999999999998 0.8))) aq) (Leak q) (STV 0.33333333333333326 0.5060814905208311)))
 !(test
    (query 400 plainKb (: $p (Leak q) $tv))
    (: ((inverted sensor with cpu (prior (STV 0.0 0.8))) aq) (Leak q) (STV 0.0 1.0e-06)))

@@ -476,11 +476,17 @@
                         ())))))))
       ()))
 
-;; Compile the backward use of an implication by deriving its CTV, applying TV
-;; inversion, and then using the observed consequent as modus-ponens evidence.
-;; This is emitted only when the main compiler has proved the antecedent is
-;; invertible. Reversible Compute goals bind antecedent variables first and
-;; validate the generated binding with the original forward computation.
+;; Compile the backward use of an implication stated with an STV: derive its
+;; negative branch from the base rates of both sides, invert by the ratio
+;; P(A|B) = P(B|A) P(A) / P(B) over the reconciled base rates, and then use the
+;; observed consequent as modus-ponens evidence. A rule stated with a CTV gives
+;; both likelihoods and is inverted by Bayes' rule over the antecedent's base
+;; rate instead (`prior-inverse-implication` with `population`), which needs no
+;; P(B): an empirical P(B) inconsistent with P(A) and the stated likelihoods
+;; would otherwise decide the inversion. This is emitted only when the main
+;; compiler has proved the antecedent is invertible. Reversible Compute goals
+;; bind antecedent variables first and validate the generated binding with the
+;; original forward computation.
 (: inverse-implication
    (-[semidet]-> KB Proof (List Variable) Statement Statement Atom (List Goal) (List Goal)
        CompiledAddition))
@@ -523,7 +529,8 @@
 ;; believed about this instance, never contradicting the rule. The prior is the truth of `p`
 ;; for the observed instance, or, with `population`, a's base rate for an
 ;; instance without one; the first's evidence contains the second's, so it
-;; replaces that answer wherever `p` is provable. The proof carries the prior's
+;; replaces that answer wherever `p` is provable. A plain rule stated with a CTV
+;; is inverted with `population` alone. The proof carries the prior's
 ;; truth value, so inversions of several observations over one prior merge by
 ;; Bayes' rule (sk-factored-merge).
 (: prior-inverse-implication
@@ -1155,6 +1162,7 @@
                    (compile-reversible-compute-plan $a $b)
                    (inverse-compute-plan
                       () (list_to_set (extract-vars $b)))))
+             ($ctv? (if (= $tv (CTV $_pos $_neg)) true false))
              ($refine? (refined-rule? $kb $prf $a $b $tv))
              ($truth-type (RuleTruth (Implication $a $b)))
              ($truth-premises (rule-truth-premises $refine? $kb $truth-type $truth-tv))
@@ -1173,7 +1181,7 @@
                   (let $refinement
                      (cons (brand CompiledAddition
                               (() |- (: (kbctx $kb) (rule-axiom $prf) $truth-type $tv)))
-                        (compile-implication-instance-adds (if (= $tv (CTV $_pos $_neg)) true false)
+                        (compile-implication-instance-adds $ctv?
                            $kb (brand Statement $truth-type) $a $b))
                      (superpose $refinement))
                   (empty))
@@ -1185,16 +1193,16 @@
                            (skolemize-conclusion-vars
                               $prf $inverse-known $a)
                            (superpose (
-                              (if (== $prior no-prior)
+                              (if (== $prior no-prior) (empty)
+                                 (let $instance-prior
+                                    (skolemize-conclusion-vars $prf $inverse-known (brand Statement $prior))
+                                    (prior-inverse-implication $kb $prf $params $instance-prior
+                                       $na $b $tv $value $truth-premises $inverse-execs)))
+                              (if (if $ctv? true (not (== $prior no-prior)))
+                                 (prior-inverse-implication $kb $prf $params population
+                                    $na $b $tv $value $truth-premises $inverse-execs)
                                  (inverse-implication
-                                    $kb $prf $params $na $b $value $truth-premises $inverse-execs)
-                                 (superpose (
-                                    (let $instance-prior
-                                       (skolemize-conclusion-vars $prf $inverse-known (brand Statement $prior))
-                                       (prior-inverse-implication $kb $prf $params $instance-prior
-                                          $na $b $tv $value $truth-premises $inverse-execs))
-                                    (prior-inverse-implication $kb $prf $params population
-                                       $na $b $tv $value $truth-premises $inverse-execs))))
+                                    $kb $prf $params $na $b $value $truth-premises $inverse-execs))
                               (if (is-var $na) (empty)
                                  (if $pure-conjunction?
                                     (empty)
