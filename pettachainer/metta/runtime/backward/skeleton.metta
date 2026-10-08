@@ -31,11 +31,6 @@
 (: sk-cons-step (-[semidet]-> (List $item) $item (List $item)))
 (= (sk-cons-step $items $item) (cons $item $items))
 
-(: stored-list-member? (-[det]-> $item (List $item) Bool))
-(= (stored-list-member? $_needle ()) false)
-(= (stored-list-member? $needle (cons $first $rest))
-   (if (== $needle $first) true (stored-list-member? $needle $rest)))
-
 (: aggregate-fold-function? (-[det]-> $function Bool))
 (= (aggregate-fold-function? $function)
    (or (== $function FoldAllCompiled) (== $function GroupedFoldAllCompiled)))
@@ -722,14 +717,40 @@
                ())
             ()))))
 
+;; A settled join (its rule reads one part of a compound, settling it; see
+;; connective_settling.md) reads a part only when a certain stored fact fixes
+;; its value, as it does for a ground key, and binds that value: the part's
+;; formulas then run when the join is built, and a part that does not settle
+;; builds no row. A derived value never settles (modus ponens leaves its
+;; confidence below 1), so a settled join builds no row it does not need.
+(: sk-settles-step (-[det]-> Bool SkPattern Bool))
+(= (sk-settles-step $seen $premise)
+   (if $seen true (case $premise (((CPU $fun $_args $_res) (== $fun SettlesFormula)) ($_fact false)))))
+
+(: sk-certain-tv-step (-[det]-> (List TV) SkFact (List TV)))
+(= (sk-certain-tv-step $tvs ($_type $_kbctx $_proof $tv))
+   (case $tv (((STV $_s $c) (if (>= $c 1.0) (cons $tv $tvs) $tvs)) ($_other $tvs))))
+
+(: sk-settled-read? (-[det]-> (List SkPattern) Statement KBContext TV Bool))
+(= (sk-settled-read? $premises $type $kbctx $tv)
+   (if (fold-flat sk-settles-step false $premises)
+      (if (== (extract-vars $type) ())
+         (case (fold-flat sk-certain-tv-step () (sk-leaf-facts $type $kbctx sk-any-filter)) (
+            ((cons $certain $_more) (= $tv $certain))
+            (() false)))
+         false)
+      true))
+
 (: sk-extend-now! (-[semidet]-> SkeletonWaiter SkeletonKey Atom))
 (= (sk-extend-now! (sk-partial $owner $rule $concl $premises $remaining $keys) $key)
    (case $remaining (
       ((cons $premise $rest)
          (if (case $premise (
                 ((CPU $_fun $args $_res) (= (sk-group $args) $key))
-                (($type $kbctx $_proof $_tv)
-                   (if (= (sk-key $type $kbctx) $key) (chainer-acyclic-term? $concl) false))))
+                (($type $kbctx $_proof $tv)
+                   (if (= (sk-key $type $kbctx) $key)
+                      (if (chainer-acyclic-term? $concl) (sk-settled-read? $premises $type $kbctx $tv) false)
+                      false))))
             (sk-advance!
                (sk-partial $owner $rule $concl $premises $rest (cons $key $keys)))
             ()))

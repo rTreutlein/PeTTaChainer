@@ -27,7 +27,7 @@
 !(compileadd chainKb (: r2 (Implication (And (A $v) (C $v)) (D $v)) (CTV (STV 0.8 0.9) (STV 0.1 0.9))))
 
 !(test (map-flat conditioning-tv (collapse (query 200 chainKb (: $p (D x) $tv))))
-   ((STV 0.43600000000000005 0.9446591724475807)))
+   ((STV 0.43600000000000005 0.9446591724475808)))
 
 ;; A statement shared only inside two derived premises: A and B both follow
 ;; from X, so C is mixed over X.
@@ -81,9 +81,9 @@
       (forward-chain 50 forwardKb (append-flat (fwd-selected forwardKb (A x)) (fwd-selected forwardKb (B x)))))
    (((conditioned a (by r2 (conjunction (given true) (by r1 (conjunction (given true) b))))
         (by r2 (conjunction (given false) (by r1 (conjunction (given false) b)))))
-     (STV 0.43600000000000005 0.9446591724475807))))
+     (STV 0.43600000000000005 0.9446591724475808))))
 !(test (map-flat conditioning-tv (collapse (query 200 forwardKb (: $p (D x) $tv))))
-   ((STV 0.43600000000000005 0.9446591724475807)))
+   ((STV 0.43600000000000005 0.9446591724475808)))
 
 ;; A certain fact is exact whether its evidence is shared or not, so reusing it
 ;; joins as usual, with no conditioning.

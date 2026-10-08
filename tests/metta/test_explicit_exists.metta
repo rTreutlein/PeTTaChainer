@@ -121,7 +121,7 @@
          $tv))
    (: (by aggregatedGenerate (disjunction observedP))
       (ExistentialClaim (Generated (exists-slot 0)))
-      (STV 1.0 0.999800029971008)))
+      (STV 1.0 0.9998000399670116)))
 
 ;; The same conclusion-only treatment applies to the implicit implication
 ;; syntax, independently of whether an Exists wrapper was written.

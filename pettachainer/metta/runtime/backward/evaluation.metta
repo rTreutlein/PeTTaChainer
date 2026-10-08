@@ -204,10 +204,10 @@
       ($_other sk-none))))
 
 ;; Views merge as proofs do: an identical proof pools its evidence, a
-;; projection gives way to its full proof, overlapping evidence keeps the view
-;; whose evidence strictly contains the other's or else the more confident one, and
-;; disjoint evidence revises. A dominated view contributes neither evidence
-;; nor dependencies.
+;; projection gives way to its full proof and a settled step to its complete
+;; one, overlapping evidence keeps the view whose evidence strictly contains
+;; the other's or else the more confident one, and disjoint evidence revises.
+;; A dominated view contributes neither evidence nor dependencies.
 (: sk-merge-facts
    (-[det]-> SkFact (List Evidence) Number SkFact (List Evidence) Number
        SkeletonValue))
@@ -215,8 +215,8 @@
    (let* (($proof-a (sk-fact-step-proof $a))
           ($proof-b (sk-fact-step-proof $b)))
       (if (== $a $b) (sk-val $a (sk-union $ev-a $ev-b) $deps-a)
-         (if (projection-dominates? $proof-a $proof-b) (sk-val $a $ev-a $deps-a)
-            (if (projection-dominates? $proof-b $proof-a) (sk-val $b $ev-b $deps-b)
+         (if (proof-dominates? $proof-a $proof-b) (sk-val $a $ev-a $deps-a)
+            (if (proof-dominates? $proof-b $proof-a) (sk-val $b $ev-b $deps-b)
                (let $factored (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b)
                (if (not (== $factored sk-none)) $factored
                (if (evidence-sets-overlap? $ev-a $ev-b)

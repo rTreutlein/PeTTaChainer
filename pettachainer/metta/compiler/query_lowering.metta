@@ -344,7 +344,7 @@
             $kbid $shape-kb $shape-kb
             $ctxprf $tv () $tv () $a $consequent
             (list_to_set (extract-vars $a))
-            $execs $proofs $atv))))
+            (cons (data $execs $proofs $atv) ())))))
 
 (: query-context-assumed-implication-rules
    (-[det]-> KB $context $variables Proof Statement TV

@@ -1,0 +1,98 @@
+!(import! &self ../../pettachainer/metta/petta_chainer)
+
+;; A part known with certainty at its connective's absorbing value settles the
+;; compound whatever the other parts are, including parts with no proof: a
+;; certain-true disjunct makes an Or true, a certain-false conjunct makes an
+;; And false.
+
+!(test (OrFormula (STV 1 1) (STV 0.5 0.0)) (STV 1.0 1.0))
+!(test (AndFormula (STV 0.3 0.4) (STV 0 1)) (STV 0.0 1.0))
+!(test (SettlesFormula (STV 1 1) (STV 1.0 1.0)) (STV 1.0 1.0))
+!(test (collapse (SettlesFormula (STV 1 0.9) (STV 1.0 1.0))) ())
+
+;; Or: (B t) has no proof, (A t) is certain.
+!(compileadd orKb (: r (Implication (Or (A $t) (B $t)) (C $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd orKb (: a (A t) (STV 1 1)))
+
+!(test (query 50 orKb (: $p (Or (A t) (B t)) $tv))
+   (: (settled a) (Or (A t) (B t)) (STV 1.0 1.0)))
+;; The settled Or also projects onto (B t) given (A t), which tells nothing
+;; about it (confidence 0); the complete rule application over that value is
+;; the settled one's value, and the settled step gives way to it.
+!(test (query 50 orKb (: $p (C t) $tv))
+   (: (by r (conjunction a ((proj 1 (settled a)) a))) (C t) (STV 1.0 0.9998000399670116)))
+
+;; And: (D t) has no proof, (E t) is certain, so (Not (E t)) is certainly false
+;; and the rule concludes by its negative branch.
+!(compileadd andKb (: r (Implication (And (D $t) (Not (E $t))) (F $t)) (CTV (STV 1 1) (STV 0.2 1))))
+!(compileadd andKb (: e (E t) (STV 1 1)))
+
+!(test (query 50 andKb (: $p (And (E t) (D t)) $tv)) ())
+!(test (query 50 andKb (: $p (F t) $tv))
+   (: (by r (settled (negated e))) (F t) (STV 0.2 0.9999000095990804)))
+
+;; Only certainty settles: an uncertain disjunct, or a certain-false one in an
+;; Or, leaves the compound waiting for its other parts.
+!(compileadd unsettledKb (: r (Implication (Or (A $t) (B $t)) (C $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd unsettledKb (: a (A t) (STV 1 0.9)))
+!(compileadd unsettledKb (: a2 (A u) (STV 0 1)))
+
+!(test (query 50 unsettledKb (: $p (C t) $tv)) ())
+!(test (query 50 unsettledKb (: $p (C u) $tv)) ())
+
+;; A part that leaves a variable of the compound open does not settle it.
+!(compileadd openKb (: r (Implication (Or (A $t) (B $t $u)) (C $t $u)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd openKb (: a (A t) (STV 1 1)))
+
+!(test (query 50 openKb (: $p (C t v) $tv)) ())
+
+;; The untimed SupplyNet cycle: the plant runs when fuelled and not degraded,
+;; fuelled by stock or by the mine's fuel arriving, and the mine runs on the
+;; plant's power. With stock the Or is settled by the stock alone, so the
+;; loop disjunct, which only the cycle could prove, no longer blocks it (the
+;; complete step that wins reads the loop disjunct through the settled Or's
+;; confidence-0 projection, at the settled value).
+!(compileadd stockedKb (: fuelled (Implication (Or (StockedFuel $t) (FuelArrived $t)) (Fuelled power $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd stockedKb (: runs-power (Implication (And (Fuelled power $t) (Not (Degraded power $t))) (Producing power $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd stockedKb (: runs-mine (Implication (And (Producing power $t) (Not (Degraded mine $t))) (Producing mine $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd stockedKb (: fuel-arrives (Implication (And (Producing mine $t) (Not (Blocked fuel $t))) (FuelArrived $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd stockedKb (: dp (Degraded power t) (STV 0 1)))
+!(compileadd stockedKb (: dm (Degraded mine t) (STV 0 1)))
+!(compileadd stockedKb (: bf (Blocked fuel t) (STV 0 1)))
+!(compileadd stockedKb (: s (StockedFuel t) (STV 1 1)))
+
+!(test (query 200 stockedKb (: $p (Producing power t) $tv))
+   (: (by runs-power (conjunction (by fuelled (conjunction s ((proj 1 (settled s)) s))) (negated dp))) (Producing power t) (STV 1.0 0.9996001597861454)))
+!(test (query 200 stockedKb (: $p (Producing mine t) $tv))
+   (: (by runs-mine (conjunction (by runs-power (conjunction (by fuelled (conjunction s ((proj 1 (settled s)) s))) (negated dp))) (negated dm))) (Producing mine t) (STV 1.0 0.9994003594095786)))
+
+;; Without stock nothing but the loop could fuel the plant. The plant is in
+;; fact not running (the least fixed point), but the chainer is open-world:
+;; with no proof outside the cycle it does not conclude false, and the loop must
+;; not prove itself running either. So there is no answer.
+!(compileadd unstockedKb (: fuelled (Implication (Or (StockedFuel $t) (FuelArrived $t)) (Fuelled power $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd unstockedKb (: runs-power (Implication (And (Fuelled power $t) (Not (Degraded power $t))) (Producing power $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd unstockedKb (: runs-mine (Implication (And (Producing power $t) (Not (Degraded mine $t))) (Producing mine $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd unstockedKb (: fuel-arrives (Implication (And (Producing mine $t) (Not (Blocked fuel $t))) (FuelArrived $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd unstockedKb (: dp (Degraded power t) (STV 0 1)))
+!(compileadd unstockedKb (: dm (Degraded mine t) (STV 0 1)))
+!(compileadd unstockedKb (: bf (Blocked fuel t) (STV 0 1)))
+!(compileadd unstockedKb (: s (StockedFuel t) (STV 0 1)))
+
+!(test (query 200 unstockedKb (: $p (Producing power t) $tv)) ())
+!(test (query 200 unstockedKb (: $p (Producing mine t) $tv)) ())
+
+;; Without stock and with the mine degraded, the mine's And is settled false
+;; by its degradation alone, which breaks the loop: no fuel arrives, and the
+;; plant is not running.
+!(compileadd mineDownKb (: fuelled (Implication (Or (StockedFuel $t) (FuelArrived $t)) (Fuelled power $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd mineDownKb (: runs-power (Implication (And (Fuelled power $t) (Not (Degraded power $t))) (Producing power $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd mineDownKb (: runs-mine (Implication (And (Producing power $t) (Not (Degraded mine $t))) (Producing mine $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd mineDownKb (: fuel-arrives (Implication (And (Producing mine $t) (Not (Blocked fuel $t))) (FuelArrived $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd mineDownKb (: dp (Degraded power t) (STV 0 1)))
+!(compileadd mineDownKb (: dm (Degraded mine t) (STV 1 1)))
+!(compileadd mineDownKb (: bf (Blocked fuel t) (STV 0 1)))
+!(compileadd mineDownKb (: s (StockedFuel t) (STV 0 1)))
+
+!(test (query 200 mineDownKb (: $p (Producing power t) $tv))
+   (: (by runs-power (conjunction (by fuelled (conjunction s (by fuel-arrives (conjunction (by runs-mine (settled (negated dm))) (negated bf))))) (negated dp))) (Producing power t) (STV 0.0 0.9994003594095784)))

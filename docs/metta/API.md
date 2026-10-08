@@ -114,6 +114,7 @@ witness moves support from that residual into the enumerated disjunction.
 | `(set-logic-name $logic)` / `(current-logic)` / `(clear-logic-config)` | Set / read / reset the active logic. |
 | `(set-compound-connective $head $premise-mode $output-mode)` | Configure a compound connective's premise and output modes. |
 | `(set-compound-mode $head $mode)` | Convenience: set a connective with `ProjectAll` output. |
+| `(set-compound-settling $head $value)` | A part of an `All`-mode `$head` compound known with certainty at `$value` settles the compound to `$value` without its other parts (PLN: `And` at `(STV 0.0 1.0)`, `Or` at `(STV 1.0 1.0)`; see `connective_settling.md`). |
 | `(set-bidirectional-implication-form $head)` | Mark `$head` as a bidirectional-implication rule form. |
 | `(mark-logic-rule $name)` | Mark `$name` as a logic (structural) rule, excluded from rule-application evidence. |
 | `(set-specializing-predicate $head)` | Resolve premises headed by `$head` at add-time: a rule premise like `(Symmetric $r)` is ground against stored facts, emitting one concrete-headed rule per matching fact instead of a single variable-headed rule. See below. |

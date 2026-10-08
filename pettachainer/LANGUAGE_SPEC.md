@@ -226,6 +226,21 @@ source form for an implication. Multiple conclusions form one explicit joint
 consequent such as `(And conclusion1 conclusion2)` and retain the normal
 compound-output projection semantics.
 
+An `And` or `Or` premise, an antecedent or a queried compound, combines the
+truth values of all its parts with `AndFormula` (`s1 s2`) or `OrFormula`
+(`s1 + s2 - s1 s2`), so it needs a proof of every part. One part known with
+certainty settles the compound without the others: a disjunct of `(STV 1 1)`
+makes an `Or` `(STV 1 1)`, and a conjunct of `(STV 0 1)` makes an `And`
+`(STV 0 1)`, whatever the other parts are, including parts with no proof. So
+with `(A t)` stored as `(STV 1 1)`, `(Implication (Or (A $t) (B $t)) (C $t))`
+concludes `(C t)` by its positive branch although `(B t)` is unknown; its
+proof reads `(settled a)` in place of the conjunction of both parts. A part
+settles only when it binds every variable of the compound and its value is a
+certain stored fact (a derived value never reaches confidence 1), and only
+certainty settles: an uncertain part still waits for the others, since
+P(A or B) >= P(A) is only a bound. The settling value of a connective is configured with
+`(set-compound-settling $head $value)` (`docs/metta/connective_settling.md`).
+
 Variables in an ordinary antecedent are implicitly universally quantified. An
 antecedent may instead request existential aggregation explicitly with:
 

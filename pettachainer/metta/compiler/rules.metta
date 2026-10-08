@@ -43,10 +43,6 @@
             unsupported-source-computes
             (source-compute-goals $rest))))))
 
-(: vars-covered? (-[det]-> Atom (List Variable) Bool))
-(= (vars-covered? $term $known)
-   (== (\== (list_to_set (extract-vars $term)) $known) ()))
-
 (: direct-variable-index-or-negative
    (-[det]-> (List Atom) Variable Number Number))
 (= (direct-variable-index-or-negative () $_variable $_index) -1)
@@ -197,19 +193,22 @@
             $other
             $btv)))))
 
-;; Emit the forward rule plus the adapters needed on both sides. The shape KB is
+;; Emit the forward rules plus the adapters needed on both sides: one forward
+;; rule per lowering of the antecedent, the complete one and those of its
+;; settling parts (see settled-premise-bundle). The shape KB is
 ;; context-sensitive for assumption queries, while adapter-kb controls where
 ;; reusable source-shape adapters are indexed.
 (: compile-implication-forward-rules
    (-[nondet]-> KB KBContext KBContext Proof TV (List Goal) Atom (List Variable)
-       Statement Statement (List Variable) (List Goal)
-       (List Proof) TV  CompiledAddition))
+       Statement Statement (List Variable) (List CompiledPremises)
+       CompiledAddition))
 (= (compile-implication-forward-rules $kb $shape-kb $adapter-kb $prf $tv
-      $truth-premises $value $params $a $b $antecedent-vars $execs $proofs $atv)
+      $truth-premises $value $params $a $b $antecedent-vars $antecedents)
    (let $out-b
       (skolemize-conclusion-vars $prf $antecedent-vars $b)
      (superpose (
-      (once
+      (let ($execs $proofs $atv) (superpose $antecedents)
+       (once
          (let*
             (($proof-token (implication-proof-token $proofs))
               (($ctv-execs $rule-ctv)
@@ -229,14 +228,14 @@
                              $out-execs))))))
             (brand CompiledAddition
                ($allargs |-
-                  (: $shape-kb $out-prf $out-type $out-tv)))))
+                  (: $shape-kb $out-prf $out-type $out-tv))))))
       (if (is-var $out-b)
          (empty)
          (compile-outputs
             (: $adapter-kb (by $prf $prfb) $out-b $btv2)))
       (if (is-var $a) (empty)
          (compile-adapter-chain plain
-            (: $adapter-kb $prfa $a $atv)))))))
+            (: $adapter-kb $prfa $a $adapter-atv)))))))
 
 (: rule-evidence-base-name (-[det]-> Proof Proof))
 (= (rule-evidence-base-name $prf)
@@ -1099,6 +1098,12 @@
                   (if (>= $c 1.0) false
                      (implication-instance-supported? $a $b))))))))
 
+;; collapse copies what it collects: unifying a copy's antecedent, context and
+;; variables with the rule's own relinks the copied lowering to the rule.
+(: relinked-lowering
+   (-[det]-> Atom Atom Atom (Atom Atom Atom CompiledPremises) CompiledPremises))
+(= (relinked-lowering $antecedent $ctx $vars ($antecedent $ctx $vars $lowered)) $lowered)
+
 ;; A rule `(Implication a b)`. `$params` are the variables a surrounding
 ;; `(ForAll $params ...)` binds: the rule holds for each of their values with
 ;; the same truth, so its instances pool across them, while its base rates are
@@ -1122,15 +1127,25 @@
             (compile-specialization (: $prf $Type $tv)))
          (let*
             (($_evidence-reg (register-rule-evidence! $kb $prf $tv))
-             (($execs $proofs $atv)
+             ;; An explicit existential's lowerings are alternative complete
+             ;; antecedents, each a rule of its own; otherwise the complete
+             ;; lowering comes first and its settling parts follow.
+             ($antecedents
                 (if (explicit-exists-term? $antecedent)
-                   (lower-implication-antecedent
-                      $kb $ctx $vars
-                      (brand Statement $antecedent))
-                   (once
+                   (cons
                       (lower-implication-antecedent
                          $kb $ctx $vars
-                         (brand Statement $antecedent)))))
+                         (brand Statement $antecedent))
+                      ())
+                   (map-flat (relinked-lowering $antecedent $ctx $vars)
+                      (the (List (Atom Atom Atom CompiledPremises))
+                         (collapse
+                            (let $lowered
+                               (lower-implication-antecedent
+                                  $kb $ctx $vars
+                                  (brand Statement $antecedent))
+                               (data $antecedent $ctx $vars $lowered)))))))
+             ((cons ($execs $_proofs $_atv) $_settled) $antecedents)
              ($shape-kb (make-kb-context $kb $ctx $vars))
              ($adapter-kb (kbctx $kb))
              ($a
@@ -1159,7 +1174,7 @@
             (superpose (
                (compile-implication-forward-rules
                   $kb $shape-kb $adapter-kb $prf $tv $truth-premises $value $params
-                  $a $b $antecedent-vars $execs $proofs $atv)
+                  $a $b $antecedent-vars $antecedents)
                ;; The stored truth is the goal's axiom, and the rule's
                ;; instances are folded into a second proof of it.
                (if $refine?

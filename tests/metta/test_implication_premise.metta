@@ -58,7 +58,7 @@
 !(test
    (query 60 multiPremiseImplicationQueryKb
       (: $prf (Implication (And (A) (B)) (C)) $tv))
-   (: (total-implication (by ab_c (conjunction (ctx proof 12) (ctx proof 12 1))) (by ab_c (conjunction (ctx proof 13) (ctx proof 13 1)))) (Implication (And (A) (B)) (C)) (CTV (STV 1.0 0.999700089898053) (STV 0.0 0.999800029971008))))
+   (: (total-implication (by ab_c (conjunction (ctx proof 12) (ctx proof 12 1))) (by ab_c (conjunction (ctx proof 13) (ctx proof 13 1)))) (Implication (And (A) (B)) (C)) (CTV (STV 1.0 0.999700089898053) (STV 0.0 0.9998000399670116))))
 
 !(test
    (query 60 implicationPremiseKb

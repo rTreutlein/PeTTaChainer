@@ -11,6 +11,10 @@
 (: ProjectAll CompoundOutputMode)
 (: NoProjection CompoundOutputMode)
 
+(: CompoundSettlingConfig Type)
+(: compound-settling
+   (-[det]-> $head STVType CompoundSettlingConfig))
+
 (: RuleForm Type)
 (: BidirectionalImplication RuleForm)
 
@@ -43,6 +47,13 @@
 (: set-compound-mode (-[det]-> $head CompoundPremiseMode Bool))
 (= (set-compound-mode $head $mode)
    (set-compound-connective $head $mode ProjectAll))
+
+;; A part of an All-mode compound known with certainty at `$value` settles the
+;; compound to `$value` without its other parts: (STV 1.0 1.0) for Or, whose
+;; certain-true disjunct makes it true, (STV 0.0 1.0) for And.
+(: set-compound-settling (-[det]-> $head STVType Bool))
+(= (set-compound-settling $head $value)
+   (add-atom &logic_config (compound-settling $head $value)))
 
 (: set-bidirectional-implication-form (-[det]-> $head Bool))
 (= (set-bidirectional-implication-form $head)
@@ -97,5 +108,7 @@
 !(set-logic-name PLN)
 !(set-compound-connective And All ProjectAll)
 !(set-compound-connective Or All ProjectAll)
+!(set-compound-settling And (STV 0.0 1.0))
+!(set-compound-settling Or (STV 1.0 1.0))
 !(set-compound-connective LikelierThan All NoProjection)
 !(set-bidirectional-implication-form BiImplication)

@@ -347,12 +347,47 @@
             (list_to_set (append-flat $base (cons (rule-ev $typed-kbid $name) ())))
             $base))))
 
-(: projection-dominates? (-[det]-> Proof Proof Bool))
-(= (projection-dominates? $prf-a $prf-b)
+(: stored-list-member? (-[det]-> $item (List $item) Bool))
+(= (stored-list-member? $_needle ()) false)
+(= (stored-list-member? $needle (cons $first $rest))
+   (if (== $needle $first) true (stored-list-member? $needle $rest)))
+
+;; A proof that gives way to another: a marginal projection to the full
+;; projection of the same source, and a settled step to the complete step it
+;; settles, which reads the settling part with the compound's other parts.
+(: proof-dominates? (-[det]-> Proof Proof Bool))
+(= (proof-dominates? $prf-a $prf-b)
    (case $prf-a (
       (((proj $idx $base) $_evidence)
          (== $prf-b (marginal-proj $idx $base)))
-      ($_ false))))
+      ($_ (settled-within? $prf-b $prf-a)))))
+
+;; The settled proof equals the complete one except where it reads one part
+;; `(settled P)` and the complete proof the conjunction of P with the others.
+(: settled-within? (-[det]-> Atom Atom Bool))
+(: settled-args-within? (-[det]-> Atom Atom Bool))
+(= (settled-within? $settled $full)
+   (if (is-expr $settled)
+      (if (is-expr $full)
+         (case $settled (
+            ((settled $part)
+               (case $full (
+                  ((cons conjunction $parts) (stored-list-member? $part (the (List Atom) $parts)))
+                  ($_other false))))
+            ($_other
+               (if (== (car-atom $settled) (car-atom $full))
+                  (let* (($settled-args (cdr-atom $settled))
+                         ($full-args (cdr-atom $full)))
+                     (settled-args-within? $settled-args $full-args))
+                  false))))
+         false)
+      false))
+(= (settled-args-within? $settled-args $full-args)
+   (case (data $settled-args $full-args) (
+      ((() ()) true)
+      (((cons $a $as) (cons $b $bs))
+         (if (if (== $a $b) true (settled-within? $a $b)) (settled-args-within? $as $bs) false))
+      ($_other false))))
 
 (: merge-proof-candidates
    (-[det]-> ((Statement KBContext Proof TV) (List Evidence))
@@ -364,9 +399,9 @@
       (let*
          (($proof-token-a (proof-atom-proof $proof-a))
           ($proof-token-b (proof-atom-proof $proof-b)))
-         (if (projection-dominates? $proof-token-a $proof-token-b)
+         (if (proof-dominates? $proof-token-a $proof-token-b)
             (data $proof-a $ev-a)
-            (if (projection-dominates? $proof-token-b $proof-token-a)
+            (if (proof-dominates? $proof-token-b $proof-token-a)
                (data $proof-b $ev-b)
                (if (evidence-sets-overlap? $ev-a $ev-b)
                   (if (evidence-subset? $ev-a $ev-b)

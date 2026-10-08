@@ -115,15 +115,24 @@
        )
       (ideal-conf-from-var $sB $VarsB)))
 
-;; No evidence about an input means no evidence about the combination: at zero
-;; confidence the propagated variance of a clipped extreme strength is tiny, so
-;; ideal-prod-confidence would otherwise turn a zero count into near-certainty.
+;; One input known with certainty at the connective's absorbing value decides
+;; the connective exactly, whatever the other input: a certain-false conjunct
+;; makes an And certainly false, a certain-true disjunct an Or certainly true.
+;; Otherwise no evidence about an input means no evidence about the combination:
+;; at zero confidence the propagated variance of a clipped extreme strength is
+;; tiny, so ideal-prod-confidence would otherwise turn a zero count into
+;; near-certainty.
+(: certain-at? (-[det]-> Number Number Number Bool))
+(= (certain-at? $value $s $c) (if (>= $c 1.0) (== (* 1.0 $s) $value) false))
+
 (: AndFormula (-[semidet]-> TV TV STVType))
 (= (AndFormula (STV $si $ci) (STV $sa $ca))
-   (STV (* $si $sa)
-      (if (or (<= $ci 0.0) (<= $ca 0.0))
-         0.0
-         (ideal-prod-confidence $si (ideal-var $si $ci) $sa (ideal-var $sa $ca) (* $si $sa)))))
+   (if (or (certain-at? 0.0 $si $ci) (certain-at? 0.0 $sa $ca))
+      (STV 0.0 1.0)
+      (STV (* $si $sa)
+         (if (or (<= $ci 0.0) (<= $ca 0.0))
+            0.0
+            (ideal-prod-confidence $si (ideal-var $si $ci) $sa (ideal-var $sa $ca) (* $si $sa))))))
 
 (: OrFormula (-[det]-> STVType STVType STVType))
 (= (OrFormula (STV $si $ci) (STV $sa $ca))
@@ -132,11 +141,23 @@
 (: or-stv-fields
    (-[det]-> Number Number Number Number STVType))
 (= (or-stv-fields $si $ci $sa $ca)
-   (STV (- (+ $si $sa) (* $si $sa))
-      (if (or (<= $ci 0.0) (<= $ca 0.0))
-         0.0
-         (ideal-prod-confidence (- 1.0 $si) (ideal-var $si $ci) (- 1.0 $sa) (ideal-var $sa $ca)
-            (- (+ $si $sa) (* $si $sa))))))
+   (if (or (certain-at? 1.0 $si $ci) (certain-at? 1.0 $sa $ca))
+      (STV 1.0 1.0)
+      (STV (- (+ $si $sa) (* $si $sa))
+         (if (or (<= $ci 0.0) (<= $ca 0.0))
+            0.0
+            (ideal-prod-confidence (- 1.0 $si) (ideal-var $si $ci) (- 1.0 $sa) (ideal-var $sa $ca)
+               (- (+ $si $sa) (* $si $sa)))))))
+
+;; A part of a compound known with certainty at the connective's absorbing
+;; value `$settling` settles the compound to that value, without its other
+;; parts (compound settling, `set-compound-settling`); any other part value
+;; settles nothing.
+(: SettlesFormula (-[semidet]-> TV STVType STVType))
+(= (SettlesFormula $tv (STV $value $certain))
+   (case $tv (
+      ((STV $s $c) (if (certain-at? $value $s $c) (STV $value $certain) (empty)))
+      ($_other (empty)))))
 
 ;; "A is likelier than B" as P(A and not B) under independence: s_a * (1 - s_b).
 ;; Multilinear (linear in each argument), consistent with And (s1*s2) and

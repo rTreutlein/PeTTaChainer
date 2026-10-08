@@ -311,6 +311,10 @@
 (: seq2expr (-[det]-> (List $element) $element))
 (= (seq2expr (cons $head $tail)) (if (== $tail ()) $head (cons And (cons $head $tail))))
 
+(: vars-covered? (-[det]-> Atom (List Variable) Bool))
+(= (vars-covered? $term $known)
+   (== (\== (list_to_set (extract-vars $term)) $known) ()))
+
 ;; Implication sides are expressions. Callers which need to inspect individual
 ;; conjuncts use this view; singleton sides remain singleton lists.
 (: implication-side-conjuncts (-[det]-> Statement (List Atom)))
@@ -533,19 +537,45 @@
 
 ;; Reconstruct the source shape of a lowered connective without treating its
 ;; own TV-fold CPU goals as additional children. Real CPU children remain in
-;; the shape; only the <Head>Formula bookkeeping inserted by the compound
-;; lowering itself is removed.
+;; the shape; only the <Head>Formula and SettlesFormula bookkeeping inserted by
+;; the compound lowering itself is removed.
 (: compound-exec-source-types
    (-[det]-> Expression (List Goal) (List Atom)))
 (= (compound-exec-source-types $_formula ()) ())
 (= (compound-exec-source-types $formula (cons $goal $rest))
    (if (= $goal (CPU $fun $_args $_result))
-      (if (== $fun $formula)
+      (if (or (== $fun $formula) (== $fun SettlesFormula))
          (compound-exec-source-types $formula $rest)
          (cons (exec-goal-type $goal)
             (compound-exec-source-types $formula $rest)))
       (cons (exec-goal-type $goal)
          (compound-exec-source-types $formula $rest))))
+
+;; Compound settling: a part known with certainty at its connective's settling
+;; value (`set-compound-settling`) decides the compound without the other
+;; parts, so a part with no proof does not block it. The settled bundle reads
+;; the part alone, checks its value (SettlesFormula), and carries the settling
+;; value. A part that already carries a value settles only with that value.
+;; Only a part binding all the compound's variables settles it: one leaving a
+;; variable open would decide a single instance of a variable the other parts
+;; range over.
+(: settled-premise-bundle
+   (-[nondet]-> Atom Atom PremiseBundle PremiseBundle))
+(= (settled-premise-bundle $compound $part (premise-bundle $execs $tv $proof))
+   (let $head (car-atom $compound)
+      (case (collapse (match &logic_config (compound-settling $head $setting) $setting)) (
+         ((cons $value $_none)
+            (if (vars-covered? $compound (list_to_set (extract-vars $part)))
+               (if (is-var $tv)
+                  (premise-bundle
+                     (append-goals $execs
+                        (cons (CPU SettlesFormula (quote ($tv $value)) $value) ()))
+                     $value (settled $proof))
+                  (if (== $tv $value)
+                     (premise-bundle $execs $value (settled $proof))
+                     (empty)))
+               (empty)))
+         (() (empty))))))
 
 ;; Lower a connective whose configured premise mode is All. Every child must
 ;; succeed, child TVs are folded with <Head>Formula, and the proof token records
@@ -568,25 +598,32 @@
             (compound-premise-items $kb $rest))))))
 
 (= (compound-all-premise-bundle $kb $ctx $vars $head $tail)
-   (let*
-      (($prem-kb (source-premise-kb $kb $ctx $vars))
-        ((cons ($fstgoal $fsttv $fstprf) $rst)
-           (compound-premise-items $prem-kb $tail))
-        ($init
-           (data
-              (cons $fstgoal ())
-              (cons $fstprf ())
-              $fsttv))
-        (($reversed-execs $reversed-proofs $ccltv)
-           (fold-flat
-              (in_fold (atom_concat $head Formula))
-              (the CompiledPremises $init)
-              $rst))
-        ($execs (prepend-reversed-goals $reversed-execs ()))
-        ($proof-token
-           (implication-proof-token
-              (prepend-reversed-proofs $reversed-proofs ()))))
-      (premise-bundle $execs $ccltv $proof-token)))
+   (let $prem-kb (source-premise-kb $kb $ctx $vars)
+      (superpose (
+         (let*
+            (((cons ($fstgoal $fsttv $fstprf) $rst)
+                (compound-premise-items $prem-kb $tail))
+             ($init
+                (data
+                   (cons $fstgoal ())
+                   (cons $fstprf ())
+                   $fsttv))
+             (($reversed-execs $reversed-proofs $ccltv)
+                (fold-flat
+                   (in_fold (atom_concat $head Formula))
+                   (the CompiledPremises $init)
+                   $rst))
+             ($execs (prepend-reversed-goals $reversed-execs ()))
+             ($proof-token
+                (implication-proof-token
+                   (prepend-reversed-proofs $reversed-proofs ()))))
+            (premise-bundle $execs $ccltv $proof-token))
+         (let* (($compound (cons-atom $head $tail))
+                ($parts (the (List Atom) $tail))
+                ($part (superpose $parts))
+                (($goal $tv $proof) (in_map $prem-kb (brand Statement $part))))
+            (settled-premise-bundle $compound $part
+               (premise-bundle ($goal) $tv $proof)))))))
 
 (: compound-any-premise-bundle
    (-[nondet]-> KB $context $variables Atom Atom
@@ -812,10 +849,16 @@
                (((cons $head $tail) $type)
                  ((premise-bundle $execs $result-tv $proof-token)
                     (let ($kbid $ctx $vars) $kb
-                       (once
-                          (query-compound-premise-bundle
-                             $kbid $ctx $vars $head
-                             (statement-children $tail))))))
+                       (superpose (
+                          (once
+                             (query-compound-premise-bundle
+                                $kbid $ctx $vars $head
+                                (statement-children $tail)))
+                          (let* (($children (the (List Atom) $tail))
+                                 ($child (superpose $children)))
+                             (settled-premise-bundle $type $child
+                                (query-compound-child-bundle
+                                   $kbid $ctx $vars (brand Statement $child)))))))))
                (brand CompiledAddition
                   ($execs |-
                      (: $kb
@@ -1089,13 +1132,22 @@
       (lower-source-premise
          $kb $ctx $vars (brand Statement $conjunct))))
 
+;; The complete lowering comes first; the bundles of settling conjuncts follow
+;; (see settled-premise-bundle), so `once` reads the complete antecedent.
 (= (lower-implication-antecedent $kb $ctx $vars $antecedent)
    (if (head-is? $antecedent And)
-      (finish-reversed-compiled-premises
-         (fold-flat
-            (lower-implication-conjunct-step $kb $ctx $vars)
-            (data () () (STV 1.0 1.0))
-            (the (List Atom) (cdr-atom $antecedent))))
+      (superpose (
+         (finish-reversed-compiled-premises
+            (fold-flat
+               (lower-implication-conjunct-step $kb $ctx $vars)
+               (data () () (STV 1.0 1.0))
+               (the (List Atom) (cdr-atom $antecedent))))
+         (let* (($conjuncts (the (List Atom) (cdr-atom $antecedent)))
+                ($conjunct (superpose $conjuncts))
+                ((premise-bundle $settled-execs $settled-tv $settled-proof)
+                   (settled-premise-bundle $antecedent $conjunct
+                      (lower-source-premise $kb $ctx $vars (brand Statement $conjunct)))))
+            (data $settled-execs (cons $settled-proof ()) $settled-tv))))
       (let (premise-bundle $execs $tv $proof)
          (lower-source-premise-with-existentials
             $kb $ctx $vars $antecedent)

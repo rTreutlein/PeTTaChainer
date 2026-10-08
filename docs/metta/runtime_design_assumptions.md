@@ -183,7 +183,11 @@ set holds a key is a walk pruned by each node's bitmask of key hashes
 A compound And or Or antecedent is lowered into its parts, so what a rule
 concludes from it depends on the parts' keys and never on the compound's; a
 row inverting such a rule into the compound therefore also excludes views that
-depend on any of its parts.
+depend on any of its parts. A part whose certain stored fact is its
+connective's absorbing value (a true disjunct, a false conjunct) settles the
+compound alone, through a rule variant reading only that part, whose join
+builds a row only for such a part; its view gives way to the complete step's
+when both exist (`connective_settling.md`).
 
 Premises are selected by the consumer. Evidence of a certain fact, strength 0
 or 1 at confidence 1, never counts as shared: a join over it is exact either

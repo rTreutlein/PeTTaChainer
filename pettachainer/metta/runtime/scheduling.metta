@@ -4,13 +4,17 @@
 (= (premises-expected-confidence ()) 1.0)
 (= (premises-expected-confidence (cons $prem $rest))
    (case $prem
+      ;; A formula whose result modus ponens reads next, compared without
+      ;; unifying: a rule's own CTV formula also precedes it.
       (((CPU $fun $args $res)
-          (if (= $rest
-                 (cons
-                    (CPU CTVModusPonensFormula
-                       (quote ($res $rule-tv))
-                       $_mp-tv)
-                    $remaining))
+          (if (if (= $rest
+                     (cons
+                        (CPU CTVModusPonensFormula
+                           (quote ($mp-premise-tv $rule-tv))
+                           $_mp-tv)
+                        $remaining))
+                 (== $mp-premise-tv $res)
+                 false)
              (let $expected (first-cpu-expected-tv $fun $args)
                 (if (== $expected ())
                    (min
@@ -45,7 +49,11 @@
                    ((STV $_strength $_confidence) (tv-confidence $res))
                    ((CTV $_positive $_negative) (tv-confidence $res))
                    ($_other 1.0))))
-             (if (== $fun AndMarginalProjection) (* 0.99 $base) $base)))
+             ;; A settled step adds nothing beyond the complete step it gives
+             ;; way to, so it drives no search of its own: it reads the
+             ;; nodes other joins expand and the facts read at once.
+             (if (== $fun SettlesFormula) 0.0
+                (if (== $fun AndMarginalProjection) (* 0.99 $base) $base))))
        (($_type ($_kbid $_ctx $_vars) $prf $tv)
           ;; Historically the marginal-projection arm of proof-score matched
           ;; an unbound proof token first, applying this optimism discount but

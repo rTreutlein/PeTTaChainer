@@ -15,9 +15,10 @@
 
 !(compileadd plnLogicKb (: a (A) (STV 1.0 1.0)))
 
+;; A certain-true disjunct settles the Or without a proof of the other.
 !(test
    (query 20 plnLogicKb (: $prf (Or (A) (B)) $tv))
-   ())
+   (: (settled a) (Or (A) (B)) (STV 1.0 1.0)))
 
 !(compileadd plnProjectionNeedsEvidenceKb (: ab (And (A) (B)) (STV 1.0 0.9)))
 
@@ -84,7 +85,7 @@
 
 !(test
    (query 20 plnAfterSwitchKb (: $prf (Or (A) (B)) $tv))
-   ())
+   (: (settled a) (Or (A) (B)) (STV 1.0 1.0)))
 
 !(clear-logic-config)
 !(set-logic-name CustomLogic)

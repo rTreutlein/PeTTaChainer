@@ -594,14 +594,21 @@ class TestPeTTaChainer(unittest.TestCase):
             handler.select_facts("(MissingSeed)")
 
     def test_default_logic_keeps_pln_or_semantics(self):
+        # PLN needs every disjunct unless one is certain (settling); predicate
+        # logic would introduce the Or from any proof of one disjunct.
         handler = PeTTaChainer()
-        handler.add_atom("(: a (A) (STV 1.0 1.0))")
+        handler.add_atom("(: a (A) (STV 0.9 0.9))")
+        handler.add_atom("(: c (C) (STV 1.0 1.0))")
 
-        proofs = handler.query(
+        uncertain = handler.query(
             "(: $prf (Or (A) (B)) $tv)", steps=20, timeout_sec=30
         )
+        settled = handler.query(
+            "(: $prf (Or (C) (B)) $tv)", steps=20, timeout_sec=30
+        )
 
-        self.assertEqual(proofs, [])
+        self.assertEqual(uncertain, [])
+        self.assertEqual(settled, ["(: (settled c) (Or (C) (B)) (STV 1.0 1.0))"])
 
     def test_stv_rule_query_patterns_preserve_variable_headed_terms(self):
         rules = [
