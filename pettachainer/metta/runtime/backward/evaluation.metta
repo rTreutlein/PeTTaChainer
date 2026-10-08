@@ -712,8 +712,21 @@
                 ($leaves (sk-leaf-views $hash $key $filter ()))
                 ($deps (fold-semidet sk-view-deps-step 0 (append-flat $leaves $views)))
                 ($value (sk-merge-key $hash $key $filter () $views))
-                ($_cached (add-atom &sk_merged (sk-merged $hash $key $deps $value))))
+                ($_cached (add-atom &sk_merged (sk-merged $hash $key $deps $value)))
+                ($_factor (sk-note-truth-factor! $hash $key $value)))
             (sk-merged $hash $key $deps $value))))))
+
+;; A rule truth's new value rescores the rules that read it.
+(: sk-note-truth-factor! (-[det]-> Number SkeletonKey SkeletonValue Atom))
+(= (sk-note-truth-factor! $hash $key $value)
+   (case $key (
+      ((sk-key $type $_kbctx)
+         (if (if (is-expr $type) (== (car-atom $type) RuleTruth) false)
+            (case $value (
+               ((sk-val ($_vtype $_vkbctx $_proof $tv) $_ev $_deps) (sk-set-truth-factor! $hash (rule-truth-factor $tv)))
+               ($_none ())))
+            ()))
+      ($_fold ()))))
 
 ;; The merged value of a key on behalf of a consumer. A proof or truth-value
 ;; pattern takes the whole merged value when it admits it, and otherwise the

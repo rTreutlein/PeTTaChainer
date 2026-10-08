@@ -134,6 +134,17 @@ argument_shape(Arg, Shape) :-
 'scope-context'(Scope, Ctx) :-
     (   nonvar(Scope), Scope = [_, C|_], nonvar(C) -> Ctx = C ; Ctx = 'MAIN' ).
 
+% What applying a refined rule can add, from its truth: its confidence, and
+% for a CTV how far the consequent's probability moves with the antecedent
+% (docs/metta/hypothesis_rules.md). An STV does not say, so it counts fully.
+% Never 0: a rule that adds nothing is still reached with budget to spare.
+'rule-truth-factor'(Tv, Factor) :-
+    (   Tv = ['CTV', ['STV', S1, C1], ['STV', S0, _]], number(S1), number(C1), number(S0)
+    ->  Raw is C1 * abs(S1 - S0)
+    ;   Tv = ['STV', _, C], number(C) -> Raw = C
+    ;   Raw = 1.0 ),
+    Factor is max(Raw, 0.01).
+
 'link-digest'(Link, Digest) :-
     copy_term_nat(Link, Copy), variant_sha1(Copy, Hex),
     sub_atom(Hex, 0, 15, _, Prefix), atom_concat('0x', Prefix, Number), atom_number(Number, Digest).

@@ -52,6 +52,7 @@
 (: context-forget! (-[det]-> Atom Bool))
 (: remove-hash-rows! (-[det]-> Atom Number Bool))
 (: pattern-shape (-[det]-> Atom Atom))
+(: rule-truth-factor (-[det]-> Atom Number))
 (: node-context (-[det]-> Atom Atom))
 (: key-context (-[det]-> Atom Atom))
 (: scope-context (-[det]-> Atom Atom))

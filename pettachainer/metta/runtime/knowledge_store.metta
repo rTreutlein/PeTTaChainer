@@ -115,6 +115,25 @@
             (kb-add-atom $backend rule_expected
                (make-space-pair $id (car-atom $hits)))))))
 
+;; A refined rule reads its truth goal first (rule-truth-premises); the rule's
+;; search score follows that goal's value.
+(: register-rule-truth! (-[det]-> Number (List (| Goal (Statement KBContext Proof TV))) Atom))
+(= (register-rule-truth! $id $args)
+   (case $args (
+      ((cons $first $_rest) (register-truth-premise! $id $first))
+      (() ()))))
+
+(: register-truth-premise! (-[det]-> Number (| Goal (Statement KBContext Proof TV)) Atom))
+(= (register-truth-premise! $id $premise)
+   (case $premise (
+      ((CPU $_fun $_args $_res) ())
+      (($type $kbctx $_prf $_tv)
+         (if (if (is-expr $type) (== (car-atom $type) RuleTruth) false)
+            (let* (($hash (index-hash (sk-key $type $kbctx)))
+                   ($_row (add-atom &sk_rule_truth ($id $hash $type $kbctx))))
+               ())
+            ())))))
+
 ;; Temp (per-query) rule ids are offset so they can never collide with live
 ;; rule ids: both counters start at 0 and rules/rule_expected/prem_index rows
 ;; from both backends share the same spaces.
@@ -205,6 +224,7 @@
                     (runtime-rule-row
                        $id $typed-ccls $rule-args))))
            ($_expected (store-rule-expected-score! $backend $id $rule-args))
+           ($_truth (register-rule-truth! $id (copy_term $rule-args)))
            ($_name-idx
               (register-rule-name! $backend $id $typed-ccls))
            ($_journal (sk-note-rule! $id $typed-ccls))

@@ -87,4 +87,4 @@
                (implication-instance-sample leak-n1 alarm-n1)
                (implication-instance-sample leak-n2 alarm-n2))))
       (RuleTruth (Implication (Leak $_c $_u) (Alarm $_c $_u)))
-      (CTV (STV 0.8999028182701653 0.9000374859427714) (STV 0.2 0.9))))
+      (CTV (STV 0.8999028182701653 0.9000374859427714) (STV 0.20008309098462818 0.9000093478328608))))

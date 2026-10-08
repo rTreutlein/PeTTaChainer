@@ -153,6 +153,12 @@
 (: ctx-use (-[det]-> Number SkeletonKey SkeletonKey SkeletonContextItem))
 (: ctx-link (-[det]-> Number SkeletonContextItem))
 (: &sk_ctx_items (SpaceOf (Atom SkeletonContextItem)))
+;; A refined rule's truth goal, per rule id, and the score factor of that
+;; goal's current value (docs/metta/hypothesis_rules.md).
+(: &sk_rule_truth (SpaceOf (Number Number Statement KBContext)))
+!(bind! &sk_rule_truth (new-space))
+(: &sk_truth_factor (SpaceOf (Number Number)))
+!(bind! &sk_truth_factor (new-space))
 !(bind! &sk_ctx_items (new-space))
 !(bind! &sk_answered (new-space))
 ;; key -> a stale row that read it, by row key hash and row hash

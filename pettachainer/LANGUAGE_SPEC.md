@@ -443,14 +443,24 @@ so a proof through the axiom and a proof through the rule are dependent and
 never revise twice.
 
 An STV rule's truth merges as an STV and is converted through base rates
-where it is applied; a CTV rule's negative branch comes from its axiom. An
+where it is applied. A CTV rule's fold learns both branches: P(B|A) from the
+instances and P(B|not A) from the base rates of A and B. An
 implication query of a refined rule's shape answers through the goal (proof
 `(rule-truth ...)`) instead of folding the instances again. Rules whose shape
 the instance producer does not sample keep their stored truth, and so do rules
 stated with confidence 1 (for a CTV, in its positive branch): revision leaves
 a certain truth unchanged, so their instances are not folded. Forward
-chaining fires refined rules from the axiom fact, so facts it materializes
-carry the stored truth.
+chaining fires refined rules with the truth goal's current value and never
+folds, so a rule's instances are folded by the queries that read its goal.
+
+A refined rule is searched in proportion to what applying it can add: its
+expected confidence is scaled by its truth's confidence times, for a CTV,
+|P(B|A) − P(B|not A)| (at least 0.01, so it is still reached with budget to
+spare). A weakly held rule, a hypothesis, is therefore searched little until
+the data confirms it, and a rule whose consequent does not move with its
+antecedent falls back to the floor. Reading the goal, for instance
+`(query 50 kb (: $p (RuleTruth (Implication ...)) $tv))`, folds the instances
+and updates the score (docs/metta/hypothesis_rules.md).
 
 ## Built-in Premise Forms
 

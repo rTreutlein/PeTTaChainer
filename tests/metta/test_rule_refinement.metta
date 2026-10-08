@@ -141,7 +141,7 @@
       (Implication (A $_v) (B $_v))
       (CTV (STV 1.0 0.0020209076619844817) (STV 1.0 0.0005052269154961204))))
 
-;; --- Forward chaining fires a refined rule from its axiom fact -------------
+;; --- Forward chaining fires a refined rule with its truth goal's value -----
 
 !(set-rule-refinement refineFwdKb true)
 !(compileadd refineFwdKb
@@ -180,7 +180,7 @@
 
 !(test
    (query 400 refineInvKb (: $p (P alice) $tv))
-   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.9440178790751412 0.0036560742556748)))
+   (: ((inverted r with cpu cpu) qa) (P alice) (STV 0.9440628144837059 0.003672066646012404)))
 
 ;; --- A certain rule is not refined --------------------------------------------
 ;; Revision leaves a truth stated with confidence 1 unchanged, so the rule

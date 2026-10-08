@@ -1,6 +1,6 @@
 # Hypotheses as refined rules
 
-Status: design, October 2026.
+Status: built, October 2026 (see Results).
 
 ## Problem
 
@@ -11,6 +11,11 @@ part and stays outside the chainer; this note covers what happens once a
 candidate is stated:
 
     (: h17 (Implication (Late $s r1) (Late $s r2)) (CTV (STV 0.5 0.02) (STV 0.5 0.02)))
+
+stated as a CTV, so the data decides both P(B|A) and P(B|¬A), in a knowledge
+base with `set-rule-refinement` on and a small evidence parameter
+(`set-evidence-confidence-k`): with the default k = 800, n samples give
+confidence n/(n+800), so a hypothesis would need hundreds of cases.
 
 ## What exists
 
@@ -129,3 +134,38 @@ evidence-overlap check sees that the two applications are dependent.
    - convergence of each one's truth;
    - search share spent on rejected ones;
    - decision gain once the true ones are confirmed.
+
+## Results
+
+Built as designed, with these findings from probing the existing code:
+
+- **Gap 3:** a review needs a small budget, not 0. Budget 0 answers with the
+  axiom only, because the fold node is not expanded.
+- **Gap 4 was already fixed:** since forward and backward chaining were
+  unified, a forward run reads the truth goal's current value. LANGUAGE_SPEC
+  is corrected.
+- **Gap 5 does not appear** in the tested case. Two hypotheses confirmed
+  through perfectly correlated antecedents give confidence 0.671 together and
+  0.669 alone, at the same strength (0.794 against the true 0.8). The
+  evidence tracking sees that they share their samples.
+- **Cross-feeding, open:** a hypothesis's samples read the consequent's
+  merged value, which includes the other hypotheses' derivations (the
+  samples of A→C hold `(merge/revision c1 (by hB b1))`). With certain
+  observations the effect is in the third decimal; with uncertain ones two
+  hypotheses could reinforce each other.
+- **A CTV refined rule now learns its negative branch** from the base rates
+  (`compile-implication-instance-adds` in CTV mode), where before it kept the
+  axiom's. Two tests' values moved in the fifth decimal.
+- **A score of 0 starved reviews.** With a zero factor on every hypothesis,
+  the second review in a knowledge base folded nothing; the factor has a
+  floor of 0.01.
+
+`test_hypothesis_rules.metta`, with B depending on A (0.8 against 0.2) and
+C unrelated, 20 cases, k = 5:
+
+| | learned truth | score |
+|---|---|---|
+| before review, both | prior (0.5, 0.02), both branches | 0.0099 (floor) |
+| A→B, confirmed | P(B\|A) 0.797 (c 0.669), P(B\|¬A) 0.228 (c 0.181) | 0.377 |
+| C→B, rejected | 0.5 on both branches (c 0.669 / 0.181) | 0.0099 |
+

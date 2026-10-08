@@ -153,12 +153,34 @@
                ()))
          ())))
 
-;; A rule's expected confidence, computed when the rule was stored.
+;; A rule's expected confidence, computed when the rule was stored; a refined
+;; rule's is scaled by what its current truth can add, read from the truth
+;; goal's value, or from its axiom until the goal has one.
 (: sk-rule-score (-[det]-> Number Number))
 (= (sk-rule-score $rule)
-   (case (collapse (once (match rule_expected ($rule $score) $score))) (
-      ((cons $score $_rest) $score)
-      (() 1.0))))
+   (* (case (collapse (once (match rule_expected ($rule $score) $score))) (
+         ((cons $score $_rest) $score)
+         (() 1.0)))
+      (case (collapse (once (match &sk_rule_truth ($rule $hash $type $kbctx) (sk-truth-factor $hash $type $kbctx)))) (
+         ((cons $factor $_more) $factor)
+         (() 1.0)))))
+
+(: sk-truth-factor (-[det]-> Number Statement KBContext Number))
+(= (sk-truth-factor $hash $type $kbctx)
+   (case (collapse (once (match &sk_truth_factor ($hash $factor) $factor))) (
+      ((cons $factor $_rest) $factor)
+      (()
+         (let $factor
+            (case (collapse (once (match &kb ($type $kbctx (rule-axiom $_name) $tv) $tv))) (
+               ((cons $tv $_rest) (rule-truth-factor $tv))
+               (() 1.0)))
+            (let $_set (sk-set-truth-factor! $hash $factor) $factor))))))
+
+(: sk-set-truth-factor! (-[det]-> Number Number Atom))
+(= (sk-set-truth-factor! $hash $factor)
+   (let* (($_old (remove-data-rows! &sk_truth_factor (quote ($hash $_was))))
+          ($_new (add-atom &sk_truth_factor ($hash $factor))))
+      ()))
 
 ;; Premises a join still has to prove: facts and folds; formulas are computed.
 (: sk-open-premise-step (-[det]-> Number SkPattern Number))

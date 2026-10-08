@@ -1173,7 +1173,8 @@
                   (let $refinement
                      (cons (brand CompiledAddition
                               (() |- (: (kbctx $kb) (rule-axiom $prf) $truth-type $tv)))
-                        (compile-implication-instance-adds false $kb (brand Statement $truth-type) $a $b))
+                        (compile-implication-instance-adds (if (= $tv (CTV $_pos $_neg)) true false)
+                           $kb (brand Statement $truth-type) $a $b))
                      (superpose $refinement))
                   (empty))
                (case $inverse-plan (
