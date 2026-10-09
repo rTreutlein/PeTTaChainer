@@ -45,7 +45,7 @@ Run from the worktree root.
 | One MeTTa file | `(ulimit -v 16000000; .venv/bin/petta file.metta)` |
 | MeTTa suite (strict det) | `scripts/test_metta.sh` |
 | Python tests | `.venv/bin/python -m unittest discover -s tests` |
-| All gates | `scripts/verify.sh` (MeTTa, Python, import scaling, ConceptNet) |
+| All gates | `scripts/verify.sh` (MeTTa lint, MeTTa, Python, import scaling, ConceptNet) |
 | Benchmarks | `/nexus/Dev/OpenCog/bench/compare.sh master <worktree> --quick` |
 
 `scripts/test_metta.sh` runs `PETTA_JOBS=$(nproc)` (32) files at once; set

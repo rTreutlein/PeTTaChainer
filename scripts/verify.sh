@@ -23,8 +23,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-gate_ids=(metta python import_scaling conceptnet)
+gate_ids=(lint metta python import_scaling conceptnet)
 declare -A gate_names=(
+  [lint]='MeTTa lint'
   [metta]='MeTTa suite'
   [python]='Python unittest'
   [import_scaling]='Import scaling'
@@ -93,6 +94,9 @@ PY
       import_scaling)
         defect_status[$gate_id]='no backward queries'
         ;;
+      lint)
+        defect_status[$gate_id]='no queries'
+        ;;
       *)
         defect_status[$gate_id]='counter unavailable; abort marker scan'
         ;;
@@ -114,6 +118,7 @@ PY
 
 started=$SECONDS
 
+run_gate lint "$repo_root/scripts/lint_metta.sh"
 run_gate metta "$repo_root/scripts/test_metta.sh"
 run_gate python "$python_bin" -m unittest discover -s tests
 run_gate import_scaling "$repo_root/scripts/check_import_scaling.sh"
