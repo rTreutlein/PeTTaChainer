@@ -262,7 +262,8 @@ branches.
 
 Evaluation starts from what changed: new rows, and the readers of keys changed
 outside evaluation (added facts, removed query-local rows, fold members). Rows
-are computed in creation order. A recomputed view is kept only when it brings
+are computed in creation order, except that a query computes the rows it pays
+for from its allowance after the others (see below). A recomputed view is kept only when it brings
 support, a dependency the row never had; the keys a row can depend on are
 finite, so evaluation ends even though inverted rules make real skeletons
 cyclic. A change from outside the rows forces each reader once per evaluation
@@ -396,8 +397,15 @@ Evaluation is bounded too. A needed key records its depth, the fewest rows or
 folds between it and a root. Rows of keys within two such steps are always
 computed; deeper rows spend an allowance of two recomputations per step, and
 what it cannot pay for is left stale, to be recomputed by a later query that
-reads it. Rows are computed in creation order either way, so an allowance that
-covers everything computes what an unbounded evaluation would.
+reads it. Within a pass the rows within two steps come first, by creation, and
+the deeper rows after them, nearest a root first and by creation within a
+depth. The allowance thus goes to the rows nearest a root, whatever order the
+search created them in: when a query builds many rows, the ones it created
+first are often far below its roots, and spending the allowance on them left
+the rows the roots read stale (SupplyNet stage 3, mean posterior error over
+seeds 1–4 and budgets 25–200: 0.00348 by creation, 0.00323 by depth). The
+order does not depend on the allowance, so an allowance that covers everything
+computes what an unbounded evaluation would.
 
 A stale row is brought current only when a need reaches it within those two
 steps, as a query asking for it does. A deeper stale row keeps its value and

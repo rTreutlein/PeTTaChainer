@@ -18,7 +18,7 @@
              ($_other-key (sk-force-cause! -1 $rhash 444))
              ($_other-row (sk-force-cause! $hash -1 555))
              ($before (collapse (match &sk_forced ($hash $rhash $cause) $cause)))
-             ($_computed (sk-compute 0 (sk-work (empty_heap) (empty_heap))
+             ($_computed (sk-compute 0 $seq (sk-work (empty_heap) (empty_heap))
                 (sk-row-item $seq $hash (sk-key (ForceRoot) (forceKb MAIN Nil)) $rhash
                    (sk-row $ident $concl $premises $seq))))
              ($after (collapse (match &sk_forced ($hash $rhash $cause) $cause)))

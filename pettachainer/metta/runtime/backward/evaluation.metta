@@ -1821,10 +1821,11 @@
 ;; evaluated, and the readers of keys whose value changed outside evaluation
 ;; (added facts, removed query-local rows, new fold members). Rows are computed
 ;; in creation order, so a first computation reads only what was derived
-;; earlier, as a proof is built from proofs that already exist. When a row's
-;; view changes, the rows reading its key are scheduled: later rows in the same
-;; pass, earlier rows in the next one. Nothing whose inputs did not change is
-;; visited.
+;; earlier, as a proof is built from proofs that already exist. A query
+;; computes the rows it pays for from its allowance after the others, nearest
+;; a root first (see sk-item-order). When a row's view changes, the rows
+;; reading its key are scheduled: later rows in the same pass, earlier rows in
+;; the next one. Nothing whose inputs did not change is visited.
 ;;
 ;; Inverted rules make most of a real skeleton cyclic, so values need not
 ;; settle. A recomputed view is kept only when it brings support: a dependency
@@ -1846,11 +1847,21 @@
                (sk-row-item $seq $khash $rkey $rhash (sk-row $ident $concl $premises $seq)))
             (empty))))))
 
-(: sk-item-seq (-[det]-> SkeletonItem Number))
-(= (sk-item-seq (sk-row-item $seq $_khash $_key $_rhash $_row)) $seq)
-(= (sk-item-seq (sk-fold-check $_hash $_fold)) (sk-check-seq))
+;; An item's place in its pass. A query computes the rows within the free
+;; depth first, by creation; then the rows that spend its allowance, nearest a
+;; root first and by creation within a depth; then the fold checks. So within
+;; a pass the allowance goes to the rows nearest a root, whatever order the
+;; search created them in. A forward run, whose rows all spend its units,
+;; computes them by creation. Creation numbers stay below 10^12, and the fold
+;; checks come after every row.
+(: sk-item-order (-[det]-> SkeletonItem Number))
+(= (sk-item-order (sk-row-item $seq $khash $key $_rhash $_row))
+   (let $depth (sk-need-depth $khash $key)
+      (if (if (== (search-id-value sk_forward_run) 1) true (<= $depth (sk-evaluation-free-depth))) $seq
+         (+ (* $depth 1000000000000) $seq))))
+(= (sk-item-order (sk-fold-check $_hash $_fold)) (sk-check-seq))
 
-;; this pass's remaining rows and the next pass's rows, by creation number
+;; this pass's remaining items and the next pass's, by their order
 (: SkeletonWork Type)
 (: sk-work (-[det]-> (Heap SkeletonItem) (Heap SkeletonItem) SkeletonWork))
 
@@ -1914,24 +1925,25 @@
             (if (deps-has? $merged-deps $khash) true
                (if (fold-semidet (sk-reads-open? $key) true $premises) false true)))))))
 
-;; A reader created after the row that changed its input is still ahead in
-;; this pass; an earlier one waits for the next.
+;; A reader after the item that changed its input, in the pass's order, is
+;; still ahead in this pass; an earlier one waits for the next.
 (: sk-schedule-reader
    (-[semidet]-> Number Number SkeletonKey SkeletonChange SkeletonWork SkeletonItem SkeletonWork))
-(= (sk-schedule-reader $pass $seq $key $change (sk-work $todo $next) $item)
+(= (sk-schedule-reader $pass $order $key $change (sk-work $todo $next) $item)
    (if (if (sk-item-needed? $item) false (let $_stale (sk-mark-stale! $item) true)) (sk-work $todo $next)
    (if (let $_forced
           (case $change (
              ((sk-outside-change $causes $_deps) (sk-force! $causes $item))
              ($_view ())))
           (sk-reader-affected? $key $change $item))
-      (if (> (sk-item-seq $item) $seq)
-         (if (sk-queue-new? $pass $item)
-            (sk-work (add_to_heap $todo (sk-item-seq $item) $item) $next)
-            (sk-work $todo $next))
-         (if (sk-queue-new? (+ $pass 1) $item)
-            (sk-work $todo (add_to_heap $next (sk-item-seq $item) $item))
-            (sk-work $todo $next)))
+      (let $at (sk-item-order $item)
+         (if (> $at $order)
+            (if (sk-queue-new? $pass $item)
+               (sk-work (add_to_heap $todo $at $item) $next)
+               (sk-work $todo $next))
+            (if (sk-queue-new? (+ $pass 1) $item)
+               (sk-work $todo (add_to_heap $next $at $item))
+               (sk-work $todo $next))))
       (sk-work $todo $next))))
 
 (: sk-drop-fold-view! (-[det]-> SkeletonKey Atom))
@@ -1941,13 +1953,13 @@
 ;; recomputed when next read, and all of its readers are scheduled.
 (: sk-key-changed
    (-[semidet]-> Number Number SkeletonChange SkeletonWork SkeletonKey SkeletonWork))
-(= (sk-key-changed $pass $seq $change $work $key)
+(= (sk-key-changed $pass $order $change $work $key)
    (let* (($hash (index-hash $key))
           ($folds
              (collapse (match &sk_use ($hash $stored $fold)
                 (if (=alpha $stored $key) $fold (empty)))))
-          ($scheduled (fold-semidet (sk-schedule-reader $pass $seq $key $change) $work (sk-readers $key))))
-      (fold-semidet (sk-fold-changed $pass $seq $key $change) $scheduled $folds)))
+          ($scheduled (fold-semidet (sk-schedule-reader $pass $order $key $change) $work (sk-readers $key))))
+      (fold-semidet (sk-fold-changed $pass $order $key $change) $scheduled $folds)))
 
 ;; A member change of a fold that was read queues the fold's check at the end
 ;; of the pass, unless the member's new view depends on the fold, which the fold
@@ -1959,7 +1971,7 @@
 ;; would otherwise be needed and taken again each time. A check queued for this
 ;; pass is also queued for the next, in case this pass's check already ran.
 (: sk-check-seq (-[det]-> Number))
-(= (sk-check-seq) 1000000000000000)
+(= (sk-check-seq) 1000000000000000000000000)
 
 (: sk-fold-changed (-[semidet]-> Number Number SkeletonKey SkeletonChange SkeletonWork SkeletonKey SkeletonWork))
 (= (sk-fold-changed $pass $_seq $member $change (sk-work $todo $next) $fold)
@@ -2048,9 +2060,10 @@
 ;; changes its key, when it is the row's first view, it was forced, or it
 ;; brings new support. A forced row also stores a view that differs only in
 ;; its proof: an outside change such as a completed fold improves provenance.
-(: sk-compute (-[semidet]-> Number SkeletonWork SkeletonItem SkeletonWork))
-(= (sk-compute $pass $work (sk-fold-check $hash $fold)) (sk-check-fold $pass $work $hash $fold))
-(= (sk-compute $pass $work (sk-row-item $seq $hash $key $rhash $row))
+;; The row's order in the pass places the readers it schedules.
+(: sk-compute (-[semidet]-> Number Number SkeletonWork SkeletonItem SkeletonWork))
+(= (sk-compute $pass $_order $work (sk-fold-check $hash $fold)) (sk-check-fold $pass $work $hash $fold))
+(= (sk-compute $pass $order $work (sk-row-item $seq $hash $key $rhash $row))
    (let* (($_computed (query_metric_increment row-computes))
           ($causes (collapse (match &sk_forced ($hash $rhash $cause) $cause)))
           ($_taken (remove-data-rows! &sk_forced (quote ($hash $rhash $cause))))
@@ -2071,7 +2084,7 @@
                (let* (($_views (sk-drop-row-views! $hash $key $rhash))
                       ($_merged (sk-drop-merged! $key))
                       ($_derived-nothing (add-atom &sk_support ($hash $rhash 0))))
-                  (sk-key-changed $pass $seq (sk-outside-change $causes 0) $work $key))
+                  (sk-key-changed $pass $order (sk-outside-change $causes 0) $work $key))
                ;; A closed reader of a complete key evaluates its rows again,
                ;; so a new row that derives nothing, or a forced one, still
                ;; changes the key for it.
@@ -2080,7 +2093,7 @@
                      (if (if (if $first true $forced)
                             (case $key (((sk-key $type $kbctx) (complete-statement? $type $kbctx)) ($_fold false)))
                             false)
-                        (sk-key-changed $pass $seq (if $forced (sk-outside-change $causes 0) (sk-view-change 0)) $work $key)
+                        (sk-key-changed $pass $order (if $forced (sk-outside-change $causes 0) (sk-view-change 0)) $work $key)
                         $work)))))
          ($_view
             (let $latest (sk-latest-view $hash $key $rhash)
@@ -2098,7 +2111,7 @@
                       ($_stored-count (query_metric_increment views-stored))
                       ($_merged (sk-drop-merged! $key))
                       ($deps (sk-view-deps-step 0 $new)))
-                  (sk-key-changed $pass $seq
+                  (sk-key-changed $pass $order
                      (if (if $forced (not (sk-same-view? $new $latest)) false)
                         (sk-outside-change $causes $deps)
                         (sk-value-change $hash $key $deps $before))
@@ -2151,7 +2164,7 @@
                    ($_seen (add-atom &sk_restaled ($khash $rhash)))
                    ($_relinked (sk-relink-row! $khash $rhash $premises))
                    ($_forced (sk-force! (cons $khash ()) $item)))
-               (add_to_heap $todo $seq $item)))
+               (add_to_heap $todo (sk-item-order $item) $item)))
          (() $todo)))
       $todo))
 
@@ -2159,10 +2172,10 @@
    (-[semidet]-> Number (Heap SkeletonItem) (Number SkeletonItem (Heap SkeletonItem)) Number))
 ;; Each row commits to its one result, so the loop leaves no choice points and
 ;; runs in constant stack however many rows it computes.
-(= (sk-work-pop! $pass $next ($_seq $item $rest))
+(= (sk-work-pop! $pass $next ($order $item $rest))
    (if (if (== (search-id-value sk_forward_run) 1) (sk-take! sk_eval_budget)
           (if (<= (sk-item-depth $item) (sk-evaluation-free-depth)) true (sk-take! sk_eval_budget)))
-      (sk-work-off! $pass (once (sk-compute $pass (sk-work $rest $next) $item)))
+      (sk-work-off! $pass (once (sk-compute $pass $order (sk-work $rest $next) $item)))
       (let $_stale (sk-mark-stale! $item) (sk-work-off! $pass (sk-work $rest $next)))))
 
 ;; A query computes the rows near its roots in full and spends an allowance on
@@ -2368,7 +2381,7 @@
 (: sk-seed-new (-[det]-> (Heap SkeletonItem) SkeletonItem (Heap SkeletonItem)))
 (= (sk-seed-new $todo $item)
    (if (sk-item-needed? $item)
-      (if (sk-queue-new? 0 $item) (add_to_heap $todo (sk-item-seq $item) $item) $todo)
+      (if (sk-queue-new? 0 $item) (add_to_heap $todo (sk-item-order $item) $item) $todo)
       (let $_stale (sk-mark-stale! $item) $todo)))
 
 (: sk-evaluate! (-[semidet]-> Atom))
@@ -2448,7 +2461,7 @@
           ($_taken (remove-data-rows! &sk_given_pending (quote ($hash $rhash $_was))))
           ($_granted (add-atom &sk_given_granted ($hash $rhash)))
           ($_forced (sk-force! (cons $hash ()) $item)))
-      (sk-work-off! $pass (sk-work (add_to_heap (empty_heap) $seq $item) (empty_heap)))))
+      (sk-work-off! $pass (sk-work (add_to_heap (empty_heap) (sk-item-order $item) $item) (empty_heap)))))
 ;; A paid key drops its merged value, which its readers then read conditioned.
 (= (sk-pay! $pass (sk-key-waiting $hash $key))
    (let* (($_granted (add-atom &sk_given_granted ($hash -1)))

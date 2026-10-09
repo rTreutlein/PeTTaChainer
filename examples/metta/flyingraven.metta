@@ -28,20 +28,20 @@
          (total-implication
             (merge/revision
                (by (inheritance-implication birdFlies)
-                  (shared 5 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 0)))))
+                  (shared 33 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 0)))))
                (negated
                   (by penguinsDoNotFly
                      ((inverted (inheritance-implication penguinBird)
                          with cpu (prior (STV 0.730917365761377 0.00022594893654011704)))
-                        (shared 5)))))
+                        (shared 33)))))
             (merge/revision
                (by (inheritance-implication birdFlies)
-                  (shared 15 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1)))))
+                  (shared 37 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1)))))
                (negated
                   (by penguinsDoNotFly
                      ((inverted (inheritance-implication penguinBird)
                          with cpu (prior (STV 0.730917365761377 0.00022594893654011704)))
-                        (shared 15)))))))
+                        (shared 37)))))))
       (Inheritance Sam (IntSet flies))
       (STV 0.9786915593831819 0.643251683490094))))
 
