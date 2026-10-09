@@ -128,8 +128,10 @@
 ;; Updates of one prior add up on a link's scale: log-odds for observations
 ;; independent given the statement (Bayes' rule), log-survival for
 ;; independent causes (noisy-OR; docs/metta/combination_modes.md). The result
-;; is the prior's link plus each view's link over it, with the link-scale
-;; variances of the views over the prior's added to the prior's once.
+;; is view a's link plus view b's link over b's prior. Its link-scale variance
+;; is a's, at least a's prior's, plus b's over b's prior: over one prior that
+;; adds each view's update to the prior's variance once, and a view in the
+;; base rate's place keeps its own variance, however uncertain the rate.
 (: sk-link (-[det]-> Atom Number Number))
 (= (sk-link $link $p)
    (let $c (ideal-clip $p)
@@ -144,11 +146,11 @@
 (= (sk-link-var $link $s $c)
    (let $q (sk-link-slope $link $s) (/ (ideal-var $s $c) (* $q $q))))
 
-(: sk-factored-tv (-[det]-> Atom Number Number Number Number Number Number STVType))
-(= (sk-factored-tv $link $sp $cp $sa $ca $sb $cb)
-   (let* (($vp (sk-link-var $link $sp $cp))
-          ($x (- (+ (sk-link $link $sa) (sk-link $link $sb)) (sk-link $link $sp)))
-          ($v (+ $vp (+ (max 0.0 (- (sk-link-var $link $sa $ca) $vp)) (max 0.0 (- (sk-link-var $link $sb $cb) $vp)))))
+(: sk-factored-tv (-[det]-> Atom Number Number Number Number Number Number Number Number STVType))
+(= (sk-factored-tv $link $spa $cpa $spb $cpb $sa $ca $sb $cb)
+   (let* (($x (- (+ (sk-link $link $sa) (sk-link $link $sb)) (sk-link $link $spb)))
+          ($v (+ (max (sk-link-var $link $sa $ca) (sk-link-var $link $spa $cpa))
+                 (max 0.0 (- (sk-link-var $link $sb $cb) (sk-link-var $link $spb $cpb)))))
           ($s (if (== $link odds) (/ 1.0 (+ 1.0 (pow-math 2.718281828459045 (- 0.0 $x))))
                  (max 0.0 (- 1.0 (pow-math 2.718281828459045 $x)))))
           ($q (sk-link-slope $link $s)))
@@ -243,7 +245,7 @@
                             (if (if (is-expr $base-a) (< $ca 1.0) false) (if (evidence-overlap? $ev-a $ev-b) false true) false)
                             false)))
                   (sk-val ($type $kbctx (brand Proof (factored-revision $base-a (prior (STV $spa $cpa)) (append-flat $parts-a $parts-b)))
-                              (sk-factored-tv odds (the Number $spb) (the Number $cpb) (the Number $sa) (the Number $ca) (the Number $sb) (the Number $cb)))
+                              (sk-factored-tv odds (the Number $spa) (the Number $cpa) (the Number $spb) (the Number $cpb) (the Number $sa) (the Number $ca) (the Number $sb) (the Number $cb)))
                      (evidence-union $ev-a $ev-b) (deps-union $deps-a $deps-b))
                   sk-none))))
       ($_other sk-none))))
@@ -294,7 +296,7 @@
       (() ()))))
 
 (: sk-mode-step (-[semidet]-> Atom STVType STVType STVType STVType))
-(= (sk-mode-step $mode (STV $sp $cp) (STV $sa $ca) (STV $sb $cb)) (sk-factored-tv $mode $sp $cp $sa $ca $sb $cb))
+(= (sk-mode-step $mode (STV $sp $cp) (STV $sa $ca) (STV $sb $cb)) (sk-factored-tv $mode $sp $cp $sp $cp $sa $ca $sb $cb))
 
 ;; The log probability a prediction gave an outcome.
 (: sk-log-score (-[det]-> Number STVType Number))
@@ -354,7 +356,7 @@
                   ((($mode (STV $sp $cp)) (STV $sa $ca) (STV $sb $cb))
                      (if (sk-contradict? (the Number $sa) (the Number $sb)) sk-none
                         (sk-val ($type $kbctx (brand Proof (combination $mode (prior (STV $sp $cp)) (append-flat $parts-a $parts-b)))
-                                    (sk-factored-tv $mode (the Number $sp) (the Number $cp) (the Number $sa) (the Number $ca) (the Number $sb) (the Number $cb)))
+                                    (sk-factored-tv $mode (the Number $sp) (the Number $cp) (the Number $sp) (the Number $cp) (the Number $sa) (the Number $ca) (the Number $sb) (the Number $cb)))
                            $ev $deps)))
                   ($_revision sk-none))))
             (() sk-none))))))

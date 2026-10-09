@@ -46,7 +46,7 @@
 !(compileadd softKb (: l1 (Late r1) (STV 1.0 1.0)))
 !(test
    (query 100 softKb (: $prf (Storm r1) $tv))
-   (: ((inverted block with cpu (prior (STV 0.3 0.9))) ((inverted late with cpu (prior (STV 0.2 0.9))) l1)) (Storm r1) (STV 0.8055913187419531 0.9457679734985552)))
+   (: ((inverted block with cpu (prior (STV 0.3 0.9))) ((inverted late with cpu (prior (STV 0.2 0.9))) l1)) (Storm r1) (STV 0.8055913187419531 0.9858465080465943)))
 
 ; A knowledge base storing only true instances has base rate 1 for every
 ; predicate it stores. Inverting over that rate would restate it as the

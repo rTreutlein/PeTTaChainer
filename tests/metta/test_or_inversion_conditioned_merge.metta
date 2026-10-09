@@ -50,14 +50,14 @@
             (LocalProblem current)
             (ProblemDependency current))
          $tv))
-   (: (by (bi-backward problemDefinition) (factored-revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) (prior (STV 0.52 0.9140621947055227)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5062734570069661 0.003629357526433342))) currentAlarm)))) (Or (LocalProblem current) (ProblemDependency current)) (STV 0.9069767441860467 0.013071960017362709)))
+   (: (by (bi-backward problemDefinition) (factored-revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) (prior (STV 0.52 0.9140621947055227)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5062734570069661 0.003629357526433342))) currentAlarm)))) (Or (LocalProblem current) (ProblemDependency current)) (STV 0.9069767441860467 0.9691291286352509)))
 
 ;; The general Problem estimate can use both the definition and the alarm.
 ;; The base rates count the whole population, including the derived alarm.
 !(test
    (query 5000 orInversionConditionedMergeKb
       (: $proof (Problem current) $tv))
-   (: (factored-revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) (prior (STV 0.52 0.9140621947055227)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5062734570069661 0.003629357526433342))) currentAlarm))) (Problem current) (STV 0.9069767441860467 0.013071960017567873)))
+   (: (factored-revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) (prior (STV 0.52 0.9140621947055227)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5062734570069661 0.003629357526433342))) currentAlarm))) (Problem current) (STV 0.9069767441860467 0.969129129560695)))
 
 ;; LocalProblem cannot reuse evidence that depends on itself. Its constrained
 ;; view retains the direct prior even though the general Problem estimate changes.

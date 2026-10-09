@@ -265,7 +265,7 @@
 !(compileadd softKb (: plant-maybe (Producing plant t5) (STV 0.8 1)))
 !(compileadd softKb (: reported (Reported mine t5) (STV 1 1)))
 !(test (query 2000 softKb (: $prf (Degraded mine t5) $tv))
-   (: ((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25 0.9))) (conjunction plant-maybe ((inverted report with cpu (prior (STV 0.5 0.9))) reported))) (Degraded mine t5) (STV 0.08064516197320934 0.964397942695527)))
+   (: ((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25 0.9))) (conjunction plant-maybe ((inverted report with cpu (prior (STV 0.5 0.9))) reported))) (Degraded mine t5) (STV 0.08064516197320934 0.9927122136751992)))
 
 ;; The degradation persists with 0.75 and starts with 0.1. Inspected sound in
 ;; t4, the mine is degraded in t5 with 0.1 by persistence alone; the plant
@@ -280,7 +280,7 @@
 !(compileadd chainKb (: plant-on (Producing plant t5) (STV 1 1)))
 !(compileadd chainKb (: mine-off (Producing mine t5) (STV 0 1)))
 !(test (query 2000 chainKb (: $prf (Degraded mine t6) $tv))
-   (: (by persist (conjunction next-t6 (factored-revision (by persist (conjunction next-t5 degraded-t4)) (prior (STV 0.1 0.99990000952965)) (((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25 0.9))) (conjunction plant-on mine-off)))))) (Degraded mine t6) (STV 0.7499980500039 0.9998999906178188)))
+   (: (by persist (conjunction next-t6 (factored-revision (by persist (conjunction next-t5 degraded-t4)) (prior (STV 0.1 0.99990000952965)) (((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25 0.9))) (conjunction plant-on mine-off)))))) (Degraded mine t6) (STV 0.7499980500039 0.9998999906298097)))
 
 ;; A completion reads its consequence's observations, not a prediction of it.
 ;; The mine's production is reported in t4 (so the predicate is observed),

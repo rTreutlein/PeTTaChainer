@@ -154,7 +154,11 @@ rate's:
 with s_f the view's strength, s_i each inversion's, and s_p the base rate it
 read. The variance follows the same rule with the view's log-odds variance
 in the prior's place: Var(logit s) = Var(logit s_f) + Σ_i max(0,
-Var(logit s_i) − Var(logit s_p)).
+Var(logit s_i) − Var(logit s_p)). (Until October 2026 the merge took the
+larger of Var(logit s_f) and Var(logit s_p) in place of the first term, so
+a confident view over a rate estimated from few members inherited the
+rate's uncertainty: a certain persistence prediction updated by one storm
+came out at confidence 10^-6; `tests/metta/test_base_rate_place_variance.metta`.)
 
 Recognition: every view is read as updates of a prior. An inversion or a
 factored merge updates its prior; any other view is its own prior, updated by
@@ -200,7 +204,7 @@ of rules stating both likelihoods" below):
 | forward | `(by block2 ((inverted block1 …) o1))` | 0.7380 | 0.9790 |
 | shipment inversion | `((inverted late2 with cpu (prior (STV 0.261 0.9))) l2)` | 0.8641 | 0.9172 |
 | revised (before) | `merge/revision` | 0.7623 | 0.9829 |
-| factored, forward in the base rate's place | `(factored-revision (by block2 …) (prior (STV 0.7380 0.9790)) (…))` | 0.980662 | 0.9856 |
+| factored, forward in the base rate's place | `(factored-revision (by block2 …) (prior (STV 0.7380 0.9790)) (…))` | 0.980662 | 0.9943 |
 | enumeration | | 0.980663 | |
 
 logit 0.7380 + (logit 0.8641 − logit 0.261) = 1.036 + (1.851 + 1.041) =
@@ -542,8 +546,12 @@ modus ponens. Modus ponens over s' gives the posterior odds
 
     odds(P(a)) (u λ + 1 − u) / (v λ + 1 − v)
 
-exactly. The log-odds variance of s carries over by the delta method (a
-value stated with confidence 1 keeps it); the uncertainty of p is not added.
+exactly. The log-odds variance of λ is that of s less that of p, which s's
+contains (delta method; a value stated with confidence 1 keeps it), as the
+merge reads an update's variance over its prior. (Until October 2026 the
+whole variance of s carried over, the prior's included, so an observation
+formed over a rate from few members read as nearly uninformative in
+confidence.)
 A certain observation (λ infinite or 0) is unchanged, as is an inversion b
 does not move.
 

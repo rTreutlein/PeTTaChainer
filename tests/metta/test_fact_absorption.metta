@@ -32,7 +32,7 @@
    (collapse (query 0 absorbKb (: $proof (Blocked k1 t1) $tv)))
    ((: ((inverted delayed-d1 with cpu (prior (STV 0.5 0.2857142857142857)))
          ((inverted late-s1 with cpu (prior (STV 0.5 0.2857142857142857))) s1-t1))
-       (Blocked k1 t1) (STV 0.8930635838150288 0.732942705403439))))
+       (Blocked k1 t1) (STV 0.8930635838150288 0.8483958636340054))))
 
 ;; So is the second, through its own rule.
 !(compileadd absorbKb (: s2-t1 (Late s2 t1) (STV 1 1)))
@@ -42,7 +42,7 @@
          (factored-revision cpu (prior (STV 0.5 0.2857142857142857))
             (((inverted late-s1 with cpu (prior (STV 0.5 0.2857142857142857))) s1-t1)
              ((inverted late-s2 with cpu (prior (STV 0.5 0.2857142857142857))) s2-t1))))
-       (Blocked k1 t1) (STV 0.9414075845575675 0.7379853529326867))))
+       (Blocked k1 t1) (STV 0.9414075845575675 0.7387004440842221))))
 
 ;; An expanded node's join waiting on a ground premise reads the premise's
 ;; facts whenever they are stored, though the premise itself was never

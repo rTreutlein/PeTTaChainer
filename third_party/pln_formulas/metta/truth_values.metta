@@ -521,21 +521,27 @@
 ;; P(a|not b) = P(a), so the observation is restated under pi, odds(s') =
 ;; lambda odds(pi), and modus ponens over the inversion gives the posterior
 ;; odds odds(P(a)) (u lambda + 1 - u) / (v lambda + 1 - v) for the likelihoods
-;; u and v. The log-odds variance carries over (delta method); a value stated
+;; u and v. The ratio's log-odds variance is the observation's less its
+;; prior's, which the observation's contains (delta method); a value stated
 ;; with confidence 1 keeps it. A certain observation, an inversion b does not
 ;; move, and a prior of 0 or 1 or none (`no-evidence`: a value formed under no
 ;; known prior) leave the observation as it is.
 (: ObservationRatioFormula (-[semidet]-> TV TV TV TV STVType))
 (= (ObservationRatioFormula (STV $s $c) $base (STV $sa $_ca) (CTV (STV $pos $_cpos) (STV $neg $_cneg)))
    (case $base (
-      ((STV $p $_cp)
+      ((STV $p $cp)
          (if (or (== $pos $neg) (or (<= (* $s (- 1.0 $s)) 0.0) (<= (* $p (- 1.0 $p)) 0.0)))
             (STV $s $c)
             (let* (($pi (ideal-clip (/ (- $sa $neg) (- $pos $neg))))
                    ($x (* $s (* $pi (- 1.0 $p))))
                    ($r (/ $x (+ $x (* (- 1.0 $s) (* $p (- 1.0 $pi))))))
-                   ($q (/ (* $r (- 1.0 $r)) (* $s (- 1.0 $s)))))
-               (STV $r (if (>= $c 1.0) $c (ideal-conf-from-var $r (* (* $q $q) (ideal-var $s $c))))))))
+                   ($ls (* $s (- 1.0 $s)))
+                   ($lp (* $p (- 1.0 $p)))
+                   ($lr (* $r (- 1.0 $r))))
+               (STV $r (if (>= $c 1.0) $c
+                          (ideal-conf-from-var $r
+                             (* (* $lr $lr)
+                                (max 0.0 (- (/ (ideal-var $s $c) (* $ls $ls)) (/ (ideal-var $p $cp) (* $lp $lp)))))))))))
       ($_none (STV $s $c)))))
 
 (: Equal (-[det]-> $a $b Bool))
