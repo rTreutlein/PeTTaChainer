@@ -17,8 +17,13 @@
 (: ideal-clip (-[det]-> Number Number))
 (= (ideal-clip $s) (max 0.000001 (min 0.999999 $s)))
 
+;; The evidence count of a confidence, the inverse of count-confidence, so
+;; revision adds counts at any confidence below 1: views near certainty keep
+;; their weight however many are merged, in any order. A certain value (1) has
+;; no finite count; the formulas read it as 10^4 k pieces of evidence, the
+;; count of the most confident value they derive (ideal-conf-from-var).
 (: confidence-to-count (-[det]-> Number Number))
-(= (confidence-to-count $conf) (/ (* $conf (evidence-confidence-k)) (- 1 (min-atom ($conf 0.9999)))))
+(= (confidence-to-count $conf) (/ (* $conf (evidence-confidence-k)) (- 1 (if (< $conf 1.0) $conf 0.9999))))
 
 ;; PLN's evidence parameter k: n pieces of evidence have confidence n/(n+k).
 ;; It is process-wide and read when a formula runs, so set it before building

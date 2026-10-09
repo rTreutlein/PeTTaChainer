@@ -132,7 +132,7 @@
        (: (merge/revision
              (by duplicate-shared-first duplicate-shared-fact)
              (by duplicate-shared-second duplicate-shared-fact))
-          (DuplicateSharedRoot) (STV 1.0 0.3333172205330562)))
+          (DuplicateSharedRoot) (STV 1.0 0.3333172205330699)))
     (query-result 1
        (: (by duplicate-single duplicate-single-fact)
           (DuplicateSingleRoot) (STV 1.0 0.2999913061574112)))))

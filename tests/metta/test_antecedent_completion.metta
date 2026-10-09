@@ -265,7 +265,7 @@
 !(compileadd softKb (: plant-maybe (Producing plant t5) (STV 0.8 1)))
 !(compileadd softKb (: reported (Reported mine t5) (STV 1 1)))
 !(test (query 2000 softKb (: $prf (Degraded mine t5) $tv))
-   (: ((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25 0.9))) (conjunction plant-maybe ((inverted report with cpu (prior (STV 0.5 0.9))) reported))) (Degraded mine t5) (STV 0.08064516197330747 0.9643979414693271)))
+   (: ((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25 0.9))) (conjunction plant-maybe ((inverted report with cpu (prior (STV 0.5 0.9))) reported))) (Degraded mine t5) (STV 0.08064516197320934 0.964397942695527)))
 
 ;; The degradation persists with 0.75 and starts with 0.1. Inspected sound in
 ;; t4, the mine is degraded in t5 with 0.1 by persistence alone; the plant

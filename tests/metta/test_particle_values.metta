@@ -65,7 +65,7 @@
 !(test
    (let (: $prf (Taller countryA countryB) $tv) (query 40 kb (: $prf (Taller countryA countryB) $tv))
       (let (STV $s $c) $tv $c))
-   0.9998999998010201)
+   0.9999000095990804)
 
 !(compileadd kb (: kidp1 (Kid kidp1) (STV 1.0 1.0)))
 

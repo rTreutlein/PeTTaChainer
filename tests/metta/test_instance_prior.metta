@@ -25,11 +25,11 @@
 ;; 0.1 * 0.1 / (0.1 * 0.1 + 0.8 * 0.9)
 !(test
    (query 400 priorKb (: $p (SealLeak n) $tv))
-   (: ((inverted sensor with pn (prior (STV 0.1 1.0))) an) (SealLeak n) (STV 0.013698630136986297 0.9999000064925436)))
+   (: ((inverted sensor with pn (prior (STV 0.1 1.0))) an) (SealLeak n) (STV 0.013698630136986297 0.999972490151378)))
 ;; 0.9 * 0.6 / (0.9 * 0.6 + 0.2 * 0.4)
 !(test
    (query 400 priorKb (: $p (SealLeak r) $tv))
-   (: ((inverted sensor with pr (prior (STV 0.6 1.0))) ar) (SealLeak r) (STV 0.8709677419354838 0.9999000002456949)))
+   (: ((inverted sensor with pr (prior (STV 0.6 1.0))) ar) (SealLeak r) (STV 0.8709677419354838 0.9999069801061362)))
 ;; A sure prior stays sure whatever is observed, and its posterior stays
 ;; confident: P(alarm) is not a separate uncertain input to Bayes' rule.
 !(compileadd surePriorKb (: sensor (WithPrior (LeakPredicted $u) (Implication (SealLeak $u) (Alarm $u))) (CTV (STV 0.9 1.0) (STV 0.2 1.0))))
@@ -41,7 +41,7 @@
 ;; Without a prior for z, the leak base rate stands in as the prior.
 !(test
    (query 400 priorKb (: $p (SealLeak z) $tv))
-   (: ((inverted sensor with cpu (prior (STV 0.44360744951531733 0.006210515765923721))) az) (SealLeak z) (STV 0.7820313142204182 0.009517399543634257)))
+   (: ((inverted sensor with cpu (prior (STV 0.4436018133084674 0.006210613865370718))) az) (SealLeak z) (STV 0.7820274217224767 0.009517375988814886)))
 
 ;; --- A filter over time --------------------------------------------------------
 ;; A leak persists and a sound seal starts leaking with hazard 0.05. Shift 1's

@@ -105,7 +105,7 @@
    (: ((inverted failureStopsOutput with cpu (prior (STV 0.82 0.99)))
           observedPressStopped)
       (Or (Defective press) (UpstreamFailure press))
-      (STV 0.82 0.8999999992615493)))
+      (STV 0.82 0.8999999996128785)))
 
 !(test
    (query 300 machineInverseKb
@@ -116,4 +116,4 @@
          (by propagateUpstreamFailure
             (conjunction feederFeedsPress feederDefect)))
       (Defective press)
-      (STV 0.7 0.8008200269880119)))
+      (STV 0.7 0.8008200275312785)))

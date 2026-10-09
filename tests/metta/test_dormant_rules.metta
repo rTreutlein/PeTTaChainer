@@ -47,4 +47,4 @@
 !(compileadd settleWakeKb (: nsl (Implication (And (N $u) (S $u)) (L $u)) (CTV (STV 0.9 1) (STV 0.1 1))))
 !(compileadd settleWakeKb (: ls (Implication (L $u) (S $u)) (CTV (STV 0.8 1) (STV 0.3 1))))
 !(test (query 100 settleWakeKb (: $p (S x) $tv))
-   (: (by ls (by nsl (settled nx))) (S x) (STV 0.35000000000000003 0.9999146436596782)))
+   (: (by ls (by nsl (settled nx))) (S x) (STV 0.35000000000000003 0.9999146445782099)))

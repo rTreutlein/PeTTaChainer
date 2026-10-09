@@ -79,4 +79,4 @@
 
 !(test
    (query 100 rtKb (: $prf (D i) $tv))
-   (: (merge/revision (by r1 (conjunction a b)) (by r2 (conjunction a (by bToM b)))) (D i) (STV 0.1539084488434874 0.9939398172053266)))
+   (: (merge/revision (by r1 (conjunction a b)) (by r2 (conjunction a (by bToM b)))) (D i) (STV 0.1539084488434874 0.9939577929751755)))

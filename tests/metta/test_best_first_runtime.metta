@@ -128,7 +128,7 @@
          (by weakRule weakInput)
          (by strongRule strongInput))
       (StrengthPriorityGoal)
-      (STV 0.5000000000000001 0.9999499975003537)))
+      (STV 0.5000000000000001 0.9999500022873964)))
 
 !(compileadd chainedPriorityKb (: weakEvidence (WeakEvidence) (STV 0.2 1.0)))
 
@@ -149,7 +149,7 @@
             (by weakToA weakEvidence)
             (by strongToA strongEvidence)))
       (ChainedPriorityGoal)
-      (STV 0.40998567493086896 0.9999000047863282)))
+      (STV 0.18356377859367617 0.9999790301681647)))
 
 !(compileadd priorityNegKb (: highInput (HighInput) (STV 0.9 1.0)))
 
@@ -166,7 +166,7 @@
          (by highNegRule (negated highInput))
          (by lowNegRule (negated lowInput)))
       (NegPriorityGoal)
-      (STV 0.5 0.9999499975003294)))
+      (STV 0.5 0.9999500020443653)))
 
 !(compileadd incumbentPriorityKb (: directB (IncumbentB) (STV 1.0 0.9)))
 
