@@ -394,6 +394,25 @@ empirical producer applies when every consequent variable occurs in the
 antecedent and both sides are plain predicate conjuncts; conditional,
 computed, negated, or existential sides are answered hypothetically only.
 
+### Rules that conclude an implication
+
+A rule may conclude an implication:
+
+```metta
+!(compileadd kb (: r (Implication (A $x) (Implication (B $x) (C $x))) (STV 0.9 1.0)))
+```
+
+It holds as its exported form `(Implication (And (A $x) (B $x)) (C $x))`: its
+truth is that rule's (an STV's negative branch comes from the base rates of
+`(And (A $x) (B $x))` and `(C $x)`). From `(A x)` it derives the statement
+`(Implication (B x) (C x))`, a CTV whose negative branch is the exported
+rule's, and the statement is applied to `(B x)` by modus ponens like a rule,
+proof `(by (by r a) b)`. The answer has the flat rule's strength for any
+truth of `(A x)` and `(B x)`, at any depth of nesting; its confidence is close
+to the flat rule's but not equal. The derived statement is also an answer of
+an implication query for it. Such a rule is not inverted
+(docs/metta/derived_implications.md).
+
 ### Rules that hold for each value of a parameter
 
 An implication's variables are averaged over: `(Implication (Leak $c $u)

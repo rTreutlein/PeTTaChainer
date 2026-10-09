@@ -52,7 +52,8 @@ the hash of the shape.
 - **A stored implication** is compiled into a rule, as before; that rule is
   modus ponens over the stored truth, so it needs no statement rule. A
   stored implication and a derived one of the same statement are two
-  independent proofs of the consequent, and revise.
+  proofs of the consequent; sharing only the antecedent's fact, they revise
+  through the lifting merge (below).
 - **Inversions** conclude antecedents, not implications. **Learned truths**
   are `RuleTruth` goals, read by their own rule only, so a refined rule is
   not applied twice. Implication queries (the hypothetical judgment and the
@@ -88,10 +89,16 @@ with rule CTV (p, n):
     C = b (a p + (1 − a) n) + (1 − b) n = a b p + (1 − a b) n
 
 which is the flat rule over `AndFormula(a, b)`. The strengths are equal for
-any a and b, and at any depth. The confidences agree to a few units in the
-fourth decimal, not exactly: the idealized variance of the nested form
-counts n's uncertainty in two steps instead of one, and treats A and B as
-two modus ponens steps rather than one conjunction.
+any a and b, and at any depth. The confidences are equal when A and B are
+certain, and otherwise not: the idealized variance of modus ponens treats
+its two branches as independent, and in the nested form n enters both the
+statement's positive branch and the second step's negative branch, so its
+variance is counted as b²(1 − a)² + (1 − b)² instead of (1 − ab)². The nested
+form is therefore more confident when n is weak, as an STV rule's negative
+branch is (a quarter of its inputs' confidence): in the test, 0.0130
+against 0.0080 for a = 0.8, b = 0.6. With an informative n (a CTV rule) the
+two are close (0.9364 against 0.9304). Exact agreement needs the covariance
+of the statement's branches, which a CTV does not carry.
 
 ## Interactions
 
@@ -117,11 +124,20 @@ two modus ponens steps rather than one conjunction.
   applications (`by`), so they count as ways a complete statement becomes
   true.
 - **Combination modes and lifting.** A statement rule's views are rule
-  applications and combine as others do. The lifting merge reads a rule's
-  CTV from its compiled formulas, which a statement rule does not have, so a
-  key with a statement-rule view merges pairwise.
+  applications and combine as others do. The lifting merge evaluates a
+  proof with its shared facts replaced by a probe; for a statement rule's
+  proof the CTV applied is the statement's, evaluated the same way from the
+  nested rule's literal CTV (`sk-lift-ctv`). So a stored `B → C` and a
+  derived one, both applied to a certain `b`, factor `b` out and revise
+  exactly as the stored rule and the flat rule do. As for flat rules, an
+  STV rule's CTV is computed at run time and is not lifted.
 - **Forward chaining.** Upward joins use the same rules: taking A derives
   the statement, and taking the statement (or B) joins the statement rule.
+  A forward run reads the evidence behind an implication's value by its
+  positive branch, as its agenda's Beta already does; by the minimum of
+  both branches, a statement whose negative branch rests on no base rate
+  was never built on. The run stores the statement's value like any derived
+  key's.
 - **Implication queries.** `(query n kb (: $p (Implication (B x) (C x)) $tv))`
   with an open or CTV truth value also reads the rules concluding the
   statement, so r's derived statement is one more answer, merged with the
@@ -138,8 +154,25 @@ two modus ponens steps rather than one conjunction.
   add two statement rules, whose views of `(C x)` have the same proof.
 - A derived statement whose value is an STV is not applied; the sources
   above all give CTVs.
-- Confidence is equal to the flat rule's only approximately (see above).
+- Confidence equals the flat rule's only when the antecedents are certain
+  (see above).
+- Implications assumed by an `Assuming` query are compiled as rules of its
+  context; a nested assumed implication gets no statement rule.
 
 ## Tests
 
-`tests/metta/test_derived_implications.metta`.
+`tests/metta/test_derived_implications.metta`, each case against the flat
+rule in its own knowledge base:
+
+| case | nested | flat |
+|---|---|---|
+| A, B certain, STV 0.9 | 0.9, c 0.99990 | 0.9, c 0.99990 |
+| a 0.8, b 0.6, base rates from (A y) (B y) (C y), STV (0.9, 0.9) | 0.52894, c 0.0130 | 0.52894, c 0.0080 |
+| three levels, a 0.8, b 0.6, c 0.7, STV 0.9 | 0.3024, c 0.93856 | 0.3024, c 0.93767 |
+| CTV (0.9, 0.2), a 0.8, b 0.6 | 0.536, c 0.93636 | 0.536, c 0.93038 |
+| with a stored `(B x) → (C x)` CTV (0.7, 0.1) at c 0.5 | 0.88, c 0.90909 | 0.88, c 0.90909 |
+
+Also: the derived statement answers the implication query; a forward run
+from `(A x)` stores the statement and `(C x)`, which a zero-budget query then
+reads; a knowledge base with no rule concluding an implication gets no
+statement rule.

@@ -62,6 +62,11 @@ needed by the chainers. The runtime should use those compiled relations instead
 of recovering general-purpose PLN rules dynamically. Generic runtime rules
 defeat the purpose of the compiler and add avoidable search branches.
 
+A rule concluding an implication holds as its exported form, `A → (B → C)`
+as `(A ∧ B) → C`, and the statement it derives is applied by modus ponens
+through one compiled statement rule per implication shape, found by its
+consequent like any rule ([derived_implications.md](derived_implications.md)).
+
 `Inheritance` may receive compiler-specific lowering and querying, but its
 ordinary compiled implication reasoning should use the same chainer machinery
 as other relations. A genuinely different semantic operation, such as member
