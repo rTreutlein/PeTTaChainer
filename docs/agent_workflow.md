@@ -98,6 +98,15 @@ coordinator and every agent included.
 
 `compare.sh` follows these rules itself.
 
+## Waiting for your own jobs
+
+Wait on something only your job produces: its PID (`wait`, `kill -0 $pid`),
+its own output file, or the background task's completion notification. Never
+wait on a global condition such as `until ! pgrep -f "compare.sh master"`:
+other agents run the same commands, so the loop may never end, and it keeps
+your worktree locked after you hand back. Stop every loop you started before
+handing back.
+
 ## Git
 
 - Never run a bare `git stash`. Other work in the checkout ends up in it.
