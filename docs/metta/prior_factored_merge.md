@@ -387,8 +387,15 @@ rate of 0 inverted every alarm to no leak
 (`tests/metta/test_implication_inversion.metta`,
 `tests/metta/test_base_rate_smoothing.metta`).
 
-A completion reads C's value as an observation of C, so it is compiled into
-the search only where C can be observed: a statement of C's predicate is
+A completion reads C's value as an observation of C, so it reads no view of
+C that is a forward conclusion or a closed read's unfounded value
+(`sk-consequence-prior`): a forward conclusion predicts C from its causes,
+the completed conjunct among them, and carries no evidence about M
+(`tests/metta/test_antecedent_completion.metta`, the backup feed: read as an
+observation it moved the degradation from its prior 0.25 to 0.6). In
+SupplyNet stage 3 the current period's production is only predicted;
+reading it, the error of unstocked production was 0.021 instead of 0.008. For the same reason it is
+compiled into the search only where C can be observed: a statement of C's predicate is
 stored (a forward run's copy of a derived value does not count), or an
 inverse rule, an inversion or a completion, concludes C from observations of
 its consequences. A predicate only forward rules conclude is a prediction,

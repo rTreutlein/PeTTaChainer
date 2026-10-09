@@ -281,3 +281,17 @@
 !(compileadd chainKb (: mine-off (Producing mine t5) (STV 0 1)))
 !(test (query 2000 chainKb (: $prf (Degraded mine t6) $tv))
    (: (by persist (conjunction next-t6 (factored-revision (by persist (conjunction next-t5 degraded-t4)) (prior (STV 0.1 0.99990000952965)) (((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25 0.9))) (conjunction plant-on mine-off)))))) (Degraded mine t6) (STV 0.7499980500039 0.9998999906178188)))
+
+;; A completion reads its consequence's observations, not a prediction of it.
+;; The mine's production is reported in t4 (so the predicate is observed),
+;; but in t5 a backup feed predicts it and nothing observes it: the
+;; prediction carries no evidence about the degradation, and Degraded mine t5
+;; keeps its population prior 0.25. Read as an observation, the backup's 0.4
+;; would have made it 0.6: the mine off (0.6) means degraded given the plant.
+!(compileadd predictionKb (: runs-mine (Implication (And (Producing plant $t) (Not (Degraded mine $t))) (Producing mine $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd predictionKb (: backup (Implication (Backup $t) (Producing mine $t)) (CTV (STV 0.4 1) (STV 0.4 1))))
+!(set-base-rate predictionKb (Degraded mine $t) (STV 0.25 0.9))
+!(compileadd predictionKb (: mine-t4 (Producing mine t4) (STV 1 1)))
+!(compileadd predictionKb (: plant-on (Producing plant t5) (STV 1 1)))
+!(compileadd predictionKb (: backup-t5 (Backup t5) (STV 1 1)))
+!(test (query 2000 predictionKb (: $prf (Degraded mine t5) $tv)) (: (population-prior (Degraded mine $t)) (Degraded mine t5) (STV 0.25 0.9)))

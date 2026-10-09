@@ -174,6 +174,17 @@
       ((sk-prior-update $_prior $_own ()) no-evidence)
       ((sk-prior-update $_prior (prior $prior-tv) $_parts) (the TV $prior-tv)))))
 
+;; The prior a completion reads its consequence's value under. A forward
+;; conclusion predicts the consequence from its causes, the completed conjunct
+;; among them, and an unfounded value is a closed read's hypothesis: neither
+;; observes the consequence, and the completion reads neither.
+(: sk-consequence-prior (-[semidet]-> Proof TV TV))
+(= (sk-consequence-prior $proof $tv)
+   (let $step (sk-step-proof $proof)
+      (if (if (rule-application-proof? $step) true (== $step unfounded))
+         (empty)
+         (sk-observation-prior $proof $tv))))
+
 ;; The observations of the updates a view merges (an inversion's observation,
 ;; each witness of a completion) and the rules whose truth is an estimate, the
 ;; rules carrying evidence (`register-rule-evidence!`), by hash (defined at the

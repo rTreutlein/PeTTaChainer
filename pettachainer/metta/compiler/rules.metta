@@ -660,7 +660,7 @@
                                       (CPU CTVBayesFormula
                                          (quote ($target-base-tv $likelihood-ctv))
                                          $completion-ctv)
-                                      (CPU sk-observation-prior
+                                      (CPU sk-consequence-prior
                                          (quote ($consequent-proof $consequent-tv))
                                          $consequent-prior)
                                       (CPU ObservationRatioFormula
