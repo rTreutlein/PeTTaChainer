@@ -162,7 +162,10 @@ A key's value merges its stored facts and one view per row:
   takes the base rate's place (`docs/metta/prior_factored_merge.md`);
 - overlapping evidence keeps the view whose evidence strictly contains the
   other's, or else the more confident one;
-- disjoint evidence revises;
+- disjoint evidence revises, except that disjoint forward views (rule
+  applications) of a predicate whose stored outcomes prefer odds or noisy-OR
+  by a Bayes factor of 10 combine by that mode
+  (`docs/metta/combination_modes.md`);
 - when every proof of the key is modus ponens over conjunctions of facts, the
   proofs share fact premises, and their residual evidence is nonempty and
   pairwise disjoint, the lifting merge factors the shared facts out, revises

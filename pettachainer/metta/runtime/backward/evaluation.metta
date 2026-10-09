@@ -128,24 +128,39 @@
 
 ;; --- Prior-factored merge (docs/metta/prior_factored_merge.md) ---------------
 
-;; Inversions of independent observations over one prior combine as Bayes'
-;; rule does: the prior's log-odds plus each view's log-odds over it, with the
-;; log-odds variances of the views over the prior's added to the prior's once.
-(: sk-logit (-[det]-> Number Number))
-(= (sk-logit $p) (let $c (ideal-clip $p) (log-math 2.718281828459045 (/ $c (- 1.0 $c)))))
+;; Updates of one prior add up on a link's scale: log-odds for observations
+;; independent given the statement (Bayes' rule), log-survival for
+;; independent causes (noisy-OR; docs/metta/combination_modes.md). The result
+;; is the prior's link plus each view's link over it, with the link-scale
+;; variances of the views over the prior's added to the prior's once.
+(: sk-link (-[det]-> Atom Number Number))
+(= (sk-link $link $p)
+   (let $c (ideal-clip $p)
+      (log-math 2.718281828459045 (if (== $link odds) (/ $c (- 1.0 $c)) (- 1.0 $c)))))
 
-(: sk-logit-var (-[det]-> Number Number Number))
-(= (sk-logit-var $s $c)
-   (let* (($x (ideal-clip $s)) ($q (* $x (- 1.0 $x)))) (/ (ideal-var $s $c) (* $q $q))))
+;; dx/dg(x), by which the delta method converts variances.
+(: sk-link-slope (-[det]-> Atom Number Number))
+(= (sk-link-slope $link $p)
+   (let $c (ideal-clip $p) (if (== $link odds) (* $c (- 1.0 $c)) (- 1.0 $c))))
 
-(: sk-factored-tv (-[det]-> Number Number Number Number Number Number STVType))
-(= (sk-factored-tv $sp $cp $sa $ca $sb $cb)
-   (let* (($vp (sk-logit-var $sp $cp))
-          ($x (- (+ (sk-logit $sa) (sk-logit $sb)) (sk-logit $sp)))
-          ($v (+ $vp (+ (max 0.0 (- (sk-logit-var $sa $ca) $vp)) (max 0.0 (- (sk-logit-var $sb $cb) $vp)))))
-          ($s (/ 1.0 (+ 1.0 (pow-math 2.718281828459045 (- 0.0 $x)))))
-          ($q (* $s (- 1.0 $s))))
+(: sk-link-var (-[det]-> Atom Number Number Number))
+(= (sk-link-var $link $s $c)
+   (let $q (sk-link-slope $link $s) (/ (ideal-var $s $c) (* $q $q))))
+
+(: sk-factored-tv (-[det]-> Atom Number Number Number Number Number Number STVType))
+(= (sk-factored-tv $link $sp $cp $sa $ca $sb $cb)
+   (let* (($vp (sk-link-var $link $sp $cp))
+          ($x (- (+ (sk-link $link $sa) (sk-link $link $sb)) (sk-link $link $sp)))
+          ($v (+ $vp (+ (max 0.0 (- (sk-link-var $link $sa $ca) $vp)) (max 0.0 (- (sk-link-var $link $sb $cb) $vp)))))
+          ($s (if (== $link odds) (/ 1.0 (+ 1.0 (pow-math 2.718281828459045 (- 0.0 $x))))
+                 (max 0.0 (- 1.0 (pow-math 2.718281828459045 $x)))))
+          ($q (sk-link-slope $link $s)))
       (STV $s (ideal-conf-from-var $s (* (* $q $q) $v)))))
+
+;; Two certain views that contradict each other combine by no product.
+(: sk-contradict? (-[det]-> Number Number Bool))
+(= (sk-contradict? $sa $sb)
+   (if (>= $sa 0.999999) (<= $sb 0.000001) (if (<= $sa 0.000001) (>= $sb 0.999999) false)))
 
 ;; A view as updates of a prior: an inversion or an antecedent completion, or
 ;; a factored merge of several, updates its prior; any other view is its own
@@ -174,16 +189,25 @@
       ((sk-prior-update $_prior $_own ()) no-evidence)
       ((sk-prior-update $_prior (prior $prior-tv) $_parts) (the TV $prior-tv)))))
 
+;; The forward conclusions a view combines: a rule application is one, a
+;; combination of forward views (docs/metta/combination_modes.md) its parts.
+(: sk-forward-parts (-[det]-> Proof (List Proof)))
+(= (sk-forward-parts $proof)
+   (let $step (sk-step-proof $proof)
+      (if (rule-application-proof? $step) (cons $proof ())
+         (case $step (
+            ((combination $_mode $_prior $parts) (proof-children $parts))
+            ($_other ()))))))
+
 ;; The prior a completion reads its consequence's value under. A forward
 ;; conclusion predicts the consequence from its causes, the completed conjunct
 ;; among them, and an unfounded value is a closed read's hypothesis: neither
 ;; observes the consequence, and the completion reads neither.
 (: sk-consequence-prior (-[semidet]-> Proof TV TV))
 (= (sk-consequence-prior $proof $tv)
-   (let $step (sk-step-proof $proof)
-      (if (if (rule-application-proof? $step) true (== $step unfounded))
-         (empty)
-         (sk-observation-prior $proof $tv))))
+   (if (if (== (sk-step-proof $proof) unfounded) true (not (== (sk-forward-parts $proof) ())))
+      (empty)
+      (sk-observation-prior $proof $tv)))
 
 ;; The observations of the updates a view merges (an inversion's observation,
 ;; each witness of a completion) and the rules whose truth is an estimate, the
@@ -215,22 +239,134 @@
                 ($population-b (== (sk-step-proof $base-b) cpu)))
             (if (if $population-a (if $population-b false true) false)
                (sk-factored-merge (data $btype $bkbctx $proof-b $tv-b) $ev-b $deps-b (data $type $kbctx $proof-a $tv-a) $ev-a $deps-a)
-               (if (if (if (>= $sa 0.999999) (<= $sb 0.000001) (if (<= $sa 0.000001) (>= $sb 0.999999) false)) false
+               (if (if (sk-contradict? (the Number $sa) (the Number $sb)) false
                       (if (=alpha $base-a $base-b)
                          (if (== $spa $spb) (if (== $cpa $cpb) (if (== $parts-a ()) false (if (== $parts-b ()) false (if (if $population-a (evidence-sets-overlap? $ev-a $ev-b) false) false (not (sk-sources-meet? (brand KB (car-atom $kbctx)) $parts-a $parts-b))))) false) false)
                          (if $population-b
                             (if (if (is-expr $base-a) (< $ca 1.0) false) (if (evidence-sets-overlap? $ev-a $ev-b) false true) false)
                             false)))
                   (sk-val ($type $kbctx (brand Proof (factored-revision $base-a (prior (STV $spa $cpa)) (append-flat $parts-a $parts-b)))
-                              (sk-factored-tv (the Number $spb) (the Number $cpb) (the Number $sa) (the Number $ca) (the Number $sb) (the Number $cb)))
+                              (sk-factored-tv odds (the Number $spb) (the Number $cpb) (the Number $sa) (the Number $ca) (the Number $sb) (the Number $cb)))
                      (sk-union $ev-a $ev-b) (deps-union $deps-a $deps-b))
                   sk-none))))
       ($_other sk-none))))
 
+;; --- Learned combination modes (docs/metta/combination_modes.md) -------------
+
+;; Per consequent predicate: the outcomes counted, their sum, and the log score
+;; of each mode on the outcomes several disjoint forward views met on.
+(: CombinationTally Type)
+(: combination-tally (-[det]-> Number Number Number Number Number CombinationTally))
+(: &combination_tally (SpaceOf (Number Atom Atom CombinationTally)))
+!(bind! &combination_tally (new-space))
+
+;; A premise of a forward rule applied to stored facts: a ground statement
+;; reads its stored facts merged, adding their evidence; a computation runs.
+;; A fold, an open statement, a missing fact or a settled variant gives no
+;; view.
+(: sk-stored-premise-step (-[semidet]-> (List Evidence) Atom (List Evidence)))
+(= (sk-stored-premise-step $ev $premise)
+   (case $premise (
+      ((CPU $fun $args $res)
+         (if (if (aggregate-fold-function? $fun) true (== $fun SettlesFormula)) (empty)
+            (case (collapse (once (cpu-call 0 $fun $args))) (
+               ((cons $result $_rest) (if (= $res $result) $ev (empty)))))))
+      (($type $kbctx $proof $tv)
+         (if (== (extract-vars $type) ())
+            (case (stored-statement-candidate (brand Statement $type) (brand KBContext $kbctx) false) (
+               ((forward-derived ($_stype $_skbctx $stored-proof $stored-tv) $stored-ev)
+                  (if (= ($proof $tv) ($stored-proof $stored-tv)) (append-flat $stored-ev $ev) (empty)))))
+            (empty))))))
+
+(: sk-disjoint-view-step (-[semidet]-> Atom Atom Atom))
+(= (sk-disjoint-view-step ($tvs $seen) ($tv $ev))
+   (if (evidence-sets-overlap? (the (List Evidence) $ev) (the (List Evidence) $seen)) (empty) (data (cons $tv $tvs) (append-flat $ev $seen))))
+
+;; The views the forward rules concluding a statement give from its
+;; antecedents' stored facts, when there are several and their evidence is
+;; disjoint.
+(: sk-outcome-views (-[det]-> Atom Atom (List STVType)))
+(= (sk-outcome-views $type $kbctx)
+   (case (collapse (once (fold-semidet sk-disjoint-view-step (data () ())
+            (collapse (match ccls_index (($type $kbctx (by $_rule $_premise) $tv) $_id $args)
+               (let $ev (fold-semidet sk-stored-premise-step () $args) (data $tv $ev))))))) (
+      ((cons $found $_none)
+         (case $found (
+            (((cons $_one ()) $_seen) ())
+            (($tvs $_evidence) (the (List STVType) $tvs)))))
+      (() ()))))
+
+(: sk-mode-step (-[semidet]-> Atom STVType STVType STVType STVType))
+(= (sk-mode-step $mode (STV $sp $cp) (STV $sa $ca) (STV $sb $cb)) (sk-factored-tv $mode $sp $cp $sa $ca $sb $cb))
+
+;; The log probability a prediction gave an outcome.
+(: sk-log-score (-[det]-> Number STVType Number))
+(= (sk-log-score $outcome (STV $s $_c))
+   (let $q (ideal-clip $s)
+      (+ (* $outcome (log-math 2.718281828459045 $q)) (* (- 1.0 $outcome) (log-math 2.718281828459045 (- 1.0 $q))))))
+
+;; An outcome is predicted by each mode from its views and the prior before
+;; it, then counted in the prior.
+(: sk-score-outcome (-[semidet]-> CombinationTally Atom CombinationTally))
+(= (sk-score-outcome (combination-tally $n $sum $revision $odds $noisy) ($type $kbctx $_proof (STV $outcome $_c)))
+   (let* (($y (the Number $outcome))
+          ($prior (STV (/ (+ $sum 1.0) (+ $n 2.0)) (count-confidence $n))))
+      (case (sk-outcome-views $type $kbctx) (
+         ((cons $first $rest)
+            (combination-tally (+ $n 1) (+ $sum $y)
+               (+ $revision (sk-log-score $y (fold-semidet mergetvs $first $rest)))
+               (+ $odds (sk-log-score $y (fold-semidet (sk-mode-step odds $prior) $first $rest)))
+               (+ $noisy (sk-log-score $y (fold-semidet (sk-mode-step noisy-or $prior) $first $rest)))))
+         (() (combination-tally (+ $n 1) (+ $sum $y) $revision $odds $noisy))))))
+
+;; The mode a consequent's outcomes prefer, with its prior: the better product
+;; mode once its Bayes factor over revision is at least 10, else revision.
+;; Pending outcomes are scored first.
+(: sk-combination-mode (-[semidet]-> KB Statement Atom))
+(= (sk-combination-mode $kb $type)
+   (let* (($head (if (is-expr $type) (car-atom $type) $type))
+          ($hash (index-hash (quote ($kb $head))))
+          ($stored (case (collapse (match &combination_tally ($hash $kb $head $tally) $tally)) (
+                      ((cons $found $_rest) $found)
+                      (() (combination-tally 0 0.0 0.0 0.0 0.0)))))
+          ($pending (collapse (match &combination_pending ($hash $kb $head $outcome) $outcome)))
+          ($current
+             (if (== $pending ()) $stored
+                (let* (($scored (fold-semidet sk-score-outcome $stored $pending))
+                       ($_drained (remove-data-rows! &combination_pending (quote ($hash $kb $head $_outcome))))
+                       ($_old (remove-data-rows! &combination_tally (quote ($hash $kb $head $_tally))))
+                       ($_new (add-atom &combination_tally ($hash $kb $head $scored))))
+                   $scored))))
+      (case $current (
+         ((combination-tally $n $sum $revision $odds $noisy)
+            (let $prior (STV (/ (+ $sum 1.0) (+ $n 2.0)) (count-confidence $n))
+               (if (>= $odds $noisy)
+                  (if (>= (- $odds $revision) 2.302585092994046) (data odds $prior) revision)
+                  (if (>= (- $noisy $revision) 2.302585092994046) (data noisy-or $prior) revision))))))))
+
+;; Disjoint forward views of a consequent whose outcomes prefer a product mode
+;; combine by it; two certain views that contradict each other revise.
+(: sk-combined-merge (-[det]-> SkFact SkFact (List Evidence) Number SkeletonValue))
+(= (sk-combined-merge ($type $kbctx $proof-a $tv-a) ($_btype $_bkbctx $proof-b $tv-b) $ev $deps)
+   (let* (($parts-a (sk-forward-parts $proof-a))
+          ($parts-b (sk-forward-parts $proof-b)))
+      (if (if (== $parts-a ()) true (== $parts-b ())) sk-none
+         (case (collapse (once (sk-combination-mode (brand KB (car-atom $kbctx)) $type))) (
+            ((cons $choice $_none)
+               (case (data $choice $tv-a $tv-b) (
+                  ((($mode (STV $sp $cp)) (STV $sa $ca) (STV $sb $cb))
+                     (if (sk-contradict? (the Number $sa) (the Number $sb)) sk-none
+                        (sk-val ($type $kbctx (brand Proof (combination $mode (prior (STV $sp $cp)) (append-flat $parts-a $parts-b)))
+                                    (sk-factored-tv $mode (the Number $sp) (the Number $cp) (the Number $sa) (the Number $ca) (the Number $sb) (the Number $cb)))
+                           $ev $deps)))
+                  ($_revision sk-none))))
+            (() sk-none))))))
+
 ;; Views merge as proofs do: an identical proof pools its evidence, a
 ;; projection gives way to its full proof and a settled step to its complete
 ;; one, overlapping evidence keeps the view whose evidence strictly contains
-;; the other's or else the more confident one, and disjoint evidence revises.
+;; the other's or else the more confident one, and disjoint evidence revises,
+;; or combines forward views by the mode their predicate's outcomes prefer.
 ;; A dominated view contributes neither evidence nor dependencies.
 (: sk-merge-facts
    (-[det]-> SkFact (List Evidence) Number SkFact (List Evidence) Number
@@ -252,10 +388,12 @@
                               (sk-val $a $ev-a $deps-a)
                               (sk-val $b $ev-b $deps-b)))))
                   (let* (($pooled (sk-union $ev-a $ev-b))
-                         ($deps (deps-union $deps-a $deps-b)))
-                     (if (>= (term-confidence $a) (term-confidence $b))
-                        (sk-val (RevisionMergeProof $a $b) $pooled $deps)
-                        (sk-val (RevisionMergeProof $b $a) $pooled $deps)))))))))))
+                         ($deps (deps-union $deps-a $deps-b))
+                         ($combined (sk-combined-merge $a $b $pooled $deps)))
+                     (if (not (== $combined sk-none)) $combined
+                        (if (>= (term-confidence $a) (term-confidence $b))
+                           (sk-val (RevisionMergeProof $a $b) $pooled $deps)
+                           (sk-val (RevisionMergeProof $b $a) $pooled $deps))))))))))))
 
 (: sk-merge-step (-[semidet]-> SkeletonValue SkeletonValue SkeletonValue))
 (= (sk-merge-step $acc $view)

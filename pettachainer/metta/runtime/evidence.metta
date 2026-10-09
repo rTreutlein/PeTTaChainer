@@ -220,6 +220,9 @@
          (append-flat
             (proof-term-evidence-list-mode $mode (brand Proof $base))
             (proof-term-evidence-children-mode $mode (proof-children $parts))))
+      ;; Combined forward views: their evidence; the prior's is none.
+      ((combination $_combination $_combination-prior $combined)
+         (proof-term-evidence-children-mode $mode (proof-children $combined)))
       ((@ $_merge (merge/revision $left $right))
          (let*
             (($left-proof (brand Proof $left))

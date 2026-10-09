@@ -202,6 +202,27 @@
                (record-inheritance-nodes! $typed-kb $typed-subj (brand Statement $concept)))))
       ($_other ()))))
 
+;; A certain fact of a ground statement two or more forward rules conclude is
+;; an outcome the combination modes learn from; it waits for the first merge
+;; that needs its predicate's mode (docs/metta/combination_modes.md).
+(: &combination_pending (SpaceOf (Number Atom Atom (Statement KBContext Proof TV))))
+!(bind! &combination_pending (new-space))
+
+(: note-combination-outcome! (-[det]-> (Statement KBContext Proof TV) Atom))
+(= (note-combination-outcome! $fact)
+   (case $fact (
+      (($type ($kb MAIN Nil) $_proof (STV $_s $c))
+         (if (if (>= $c 1.0) (if (is-expr $type) (== (extract-vars $type) ()) false) false)
+            (case (list_to_set (collapse (match ccls_index (($type ($kb MAIN Nil) (by $rule $_premise) $_tv) $_id $_args) $rule))) (
+               ((cons $_first (cons $_second $_more))
+                  (let* (($head (car-atom $type))
+                         ($hash (index-hash (quote ($kb $head))))
+                         ($_row (add-atom &combination_pending ($hash $kb $head $fact))))
+                     ()))
+               ($_fewer ())))
+            ()))
+      ($_other ()))))
+
 (: kb-add-expr
    (-[nondet]-> KbBackend RuntimeAddition  (| Bool (List $none))))
 (= (kb-add-expr $backend $expr)
@@ -241,7 +262,8 @@
                    ($_add (chainer-add-atom &kb $fact))
                    ($_index (kb-index-fact! live $fact))
                    ($_journal (sk-note-fact! $type $kb))
-                   ($_nodes (record-fact-inheritance-nodes! $fact true)))
+                   ($_nodes (record-fact-inheritance-nodes! $fact true))
+                   ($_outcome (note-combination-outcome! $fact)))
                   ;; The aggregates observing the statement count it at once,
                   ;; with its stored facts merged, as a removal recounts it:
                   ;; whether a forward run takes it is not theirs to decide.
