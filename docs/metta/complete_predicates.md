@@ -45,8 +45,9 @@ complete K and finds no view of K it may read (every one depends on G, or K
 has none yet), K is read as the merge of its rows evaluated again with G
 pinned false, proof `unfounded`. Nested reads pin each reading conclusion in
 turn, so the recursion follows the cycle once and ends at the first pinned
-statement. A complete K with no rows at all, whose search is settled, is
-false: `(STV 0.0 1.0)`, proof `unfounded`. A root reads such a K that way too.
+statement. A complete K whose settled search found no rule application (no
+rule concludes it, or every rule's conditions failed) is false:
+`(STV 0.0 1.0)`, proof `unfounded`. A root reads such a K that way too.
 
 So, for the loop above with `(StockedFuel t)` at 0.9 and nothing degraded:
 `Fuelled` reads `FuelArrived` with `Fuelled` pinned false, which is the mine's
@@ -123,8 +124,8 @@ premises in the same cycle multiply that.
 - Assuming and implication queries. Only statements in the main context are
   complete; in a hypothetical context the predicate is open (out of scope).
   Premises an Assuming query reads in the main context are read closed there.
-- Hypothesis and refined rules. A rule concluding a complete predicate is one
-  more way it becomes true, read like any rule.
+- Hypothesis and refined rules. A rule application concluding a complete
+  predicate is one more way it becomes true, read like any rule.
 
 ## Not built
 
@@ -133,3 +134,20 @@ premises in the same cycle multiply that.
 - Re-reading a closed read the search later settles without any row change:
   a reader refused because K was unsettled is computed again when K's rows
   change, as is usual after more search.
+
+## Result
+
+`tests/metta/test_complete_predicates.metta`: the loop above as P and M, with
+P and M complete. No stock: P and M 0. Stock 0.9: P 0.9, M 0.9; with
+P(degraded) 0.3, P 0.9 and M 0.63. Stock: 1. Undeclared, or with the stock
+an open statement with no fact: no answer. A chain whose proof the budget
+has not reached: no answer at budgets 1 and 2, true at 3.
+
+Against master 28473546, run concurrently. SupplyNet stage 3, untimed,
+seeds 1–4, budget 100, 30 rounds, with `Producing`, `Fuelled`, `FuelArrived`
+declared complete (ChainerGame branch supply-complete-predicates): error
+0.062 → 0.017, coverage 0.91 → 1.00, production without stock 0.331 → 0.000
+(answered 34% → 100%), Brier 0.163 → 0.140 (exact posterior 0.135), time
++6%. Timed seed 1 and stage 2 seed 1, which have no loop: identical, time
++1%. StationOps temporal replay, seeds 2 and 3 at budgets 25 and 50, no
+declarations: beliefs identical, time +0–2%.
