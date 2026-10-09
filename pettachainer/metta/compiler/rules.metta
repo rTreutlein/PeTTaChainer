@@ -207,16 +207,18 @@
 
 ;; Emit the forward rules plus the adapters needed on both sides: one forward
 ;; rule per lowering of the antecedent, the complete one and those of its
-;; settling parts (see settled-premise-bundle). The shape KB is
-;; context-sensitive for assumption queries, while adapter-kb controls where
-;; reusable source-shape adapters are indexed. A conclusion that is an
+;; settling parts (see settled-premise-bundle). The rule and its adapters
+;; (the projections of a compound conclusion, the compound antecedent's
+;; connective) share the shape KB: they hold in whatever context the rule
+;; applies in, the hypothetical contexts of an implication query included. A
+;; conclusion that is an
 ;; implication is a CTV: its rule's CTV is the exported rule's, and the
 ;; statement keeps that CTV's negative branch.
 (: compile-implication-forward-rules
-   (-[nondet]-> KB KBContext KBContext Proof TV (List Goal) Atom (List Variable)
+   (-[nondet]-> KB KBContext Proof TV (List Goal) Atom (List Variable)
        Statement Statement (List Variable) (List CompiledPremises)
        CompiledAddition))
-(= (compile-implication-forward-rules $kb $shape-kb $adapter-kb $prf $tv
+(= (compile-implication-forward-rules $kb $shape-kb $prf $tv
       $truth-premises $value $params $a $b $antecedent-vars $antecedents)
    (let* ((($inner $last) (nested-implication-parts $b))
           ($rate-a (if (== $inner ()) $a (brand Statement (cons And (append (implication-side-conjuncts $a) $inner)))))
@@ -248,10 +250,10 @@
       (if (is-var $out-b)
          (empty)
          (compile-outputs
-            (: $adapter-kb (by $prf $prfb) $out-b $btv2)))
+            (: $shape-kb (by $prf $prfb) $out-b $btv2)))
       (if (is-var $a) (empty)
          (compile-adapter-chain plain
-            (: $adapter-kb $prfa $a $adapter-atv)))))))
+            (: $shape-kb $prfa $a $adapter-atv)))))))
 
 (: rule-evidence-base-name (-[det]-> Proof Proof))
 (= (rule-evidence-base-name $prf)
@@ -1177,7 +1179,7 @@
                    ($statement-prf (brand Proof (by $rule $token)))
                    ($ctv (the TV (CTV $pos $neg))))
                (superpose (
-                  (compile-implication-forward-rules $kb $shape-kb (kbctx $kb) $statement-prf $ctv
+                  (compile-implication-forward-rules $kb $shape-kb $statement-prf $ctv
                      (cons (: $shape-kb $statement-prf (Implication $x $y) $ctv) ()) $ctv ()
                      (brand Statement $x) (brand Statement $y)
                      (list_to_set (extract-vars (Implication $x $y)))
@@ -1222,7 +1224,6 @@
                    (antecedent-lowerings $kb $ctx $vars (brand Statement $antecedent))))
              ((cons ($execs $_proofs $_atv) $_settled) $antecedents)
              ($shape-kb (make-kb-context $kb $ctx $vars))
-             ($adapter-kb (kbctx $kb))
              ($a
                 (brand Statement
                    (implication-source-term $antecedent)))
@@ -1248,7 +1249,7 @@
              ($value (if $refine? $truth-tv $tv)))
             (superpose (
                (compile-implication-forward-rules
-                  $kb $shape-kb $adapter-kb $prf $tv $truth-premises $value $params
+                  $kb $shape-kb $prf $tv $truth-premises $value $params
                   $a $b $antecedent-vars $antecedents)
                ;; The stored truth is the goal's axiom, and the rule's
                ;; instances are folded into a second proof of it.
@@ -1282,12 +1283,12 @@
                                  (if $pure-conjunction?
                                     (empty)
                                     (compile-outputs
-                                       (: $adapter-kb
+                                       (: $shape-kb
                                           ((inverted $prf $w $pa1 $pa2) $pb2)
                                           $na $natv))))
                               (if (is-var $b) (empty)
                                  (compile-adapter-chain plain
-                                    (: $adapter-kb $pb2 $b $btv2))))))))
+                                    (: $shape-kb $pb2 $b $btv2))))))))
                   (no-compute-inverse (empty))))
                ;; No inverse rule of any kind for a rule named no_inverse:
                ;; completion recovers an antecedent conjunct from the

@@ -67,6 +67,12 @@ as `(A ∧ B) → C`, and the statement it derives is applied by modus ponens
 through one compiled statement rule per implication shape, found by its
 consequent like any rule ([derived_implications.md](derived_implications.md)).
 
+A rule and the adapters compiled with it (the projections of a compound
+conclusion, the connective of a compound antecedent) share one context
+pattern, so they hold in every context the rule applies in. An implication
+query's hypothetical contexts see none of the main context's facts, but its
+logic holds there: S → (A ∧ B ∧ C) answers S → (A ∧ B).
+
 `Inheritance` may receive compiler-specific lowering and querying, but its
 ordinary compiled implication reasoning should use the same chainer machinery
 as other relations. A genuinely different semantic operation, such as member

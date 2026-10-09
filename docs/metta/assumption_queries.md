@@ -57,8 +57,9 @@ context that sees the world (`context-world!`).
   pattern with its user predicates' constants made variables) and KB and
   are permanent; only where the member is read depends on C.
 - **The world's rules.** A goal in C is also concluded by the rules compiled
-  for the main context (connective adapters among them, for `And` and `Not`
-  goals), with C as the conclusion's context (`sk-world-rule-match`), and no
+  for the main context (the projections of stored compound facts among
+  them), with C as the conclusion's context (`sk-world-rule-match`); a
+  rule's own adapters share its context and apply in C directly. No
   rule is skipped as dormant there: dormancy is judged in the main context,
   and C's assumptions can support what the main context lacks.
 - **No variables.** C names no query variables, unlike an implication

@@ -341,7 +341,7 @@
              (execs-goal-type $execs))))
       (collapse
          (compile-implication-forward-rules
-            $kbid $shape-kb $shape-kb
+            $kbid $shape-kb
             $ctxprf $tv () $tv () $a $consequent
             (list_to_set (extract-vars $a))
             (cons (data $execs $proofs $atv) ())))))
