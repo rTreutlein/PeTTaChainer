@@ -486,6 +486,19 @@
          (ideal-bayes-stv $u $Vu $v $Vv $sa $Va)
          (ideal-bayes-stv (- 1.0 $u) $Vu (- 1.0 $v) $Vv $sa $Va))))
 
+;; The likelihoods of a rule's consequence C for one conjunct M of its
+;; antecedent (And O M), with u = P(C|O,M) and v = P(C|not(O,M)) the rule's
+;; branches and O read at its value s_O: P(C|M) = s_O u + (1 - s_O) v (modus
+;; ponens) and P(C|not M) = v. Bayes' rule over P(M) with these is the joint
+;; posterior of O and M given C, marginalized over O: C's value also updates
+;; O, and given O it decides M as the rule does. O certainly true leaves the
+;; rule's branch as it is. A negated conjunct (Not I) gives I's likelihoods,
+;; the two swapped.
+(: ConjunctLikelihoodFormula (-[semidet]-> Bool TV TV CTVType))
+(= (ConjunctLikelihoodFormula $negated (STV $so $co) (CTV $pos $neg))
+   (let $given (if (certain-at? 1.0 $so $co) $pos (CTVModusPonensFormula (STV $so $co) (CTV $pos $neg)))
+      (if $negated (CTV $neg $given) (CTV $given $neg))))
+
 ;; An inversion reads an observation of b as a likelihood ratio. A soft
 ;; observation's strength s is a posterior under the prior p it was formed
 ;; under (a base rate of b), so its ratio is lambda = odds(s) / odds(p). The

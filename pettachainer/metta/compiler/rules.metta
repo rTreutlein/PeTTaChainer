@@ -589,18 +589,24 @@
 ;; consequence. That is the only child-recovery operator for a pure And:
 ;; whole-H inversion still proves H itself, but does not also project to each
 ;; child. The completion inverts the rule onto M over M's base rate, as a
-;; plain inversion inverts onto its antecedent: given O, C's value weighs
-;; P(M|O,C) and P(M|O,not C) by Bayes' rule with the rule's likelihoods, C's
-;; value entering as its likelihood ratio (ObservationRatioFormula), and
-;; O's value weighs that against the base rate, since without O the rule says
-;; nothing about M. The proof carries the base rate, so the completion merges
-;; with other updates of it by Bayes' rule (sk-factored-merge).
+;; plain inversion inverts onto its antecedent, with C's likelihoods given M
+;; and not M at O's value (ConjunctLikelihoodFormula), so it is the joint
+;; posterior over O and M; C's value enters as its likelihood ratio
+;; (ObservationRatioFormula). A negated child (Not I) completes I, the
+;; statement its observations and base rate are about. The proof carries the
+;; base rate, so the completion merges with other updates of it by Bayes'
+;; rule (sk-factored-merge).
 (: pure-conjunction-antecedent? (-[det]-> Statement Bool))
+;; A conjunction is pure when no child computes, a negated child counting by
+;; the statement it negates.
+(: computing-child? (-[det]-> Bool Atom Bool))
+(= (computing-child? $seen $child)
+   (if $seen true
+      (let $statement (if (head-is? $child Not) (car-atom (cdr-atom $child)) $child)
+         (contains-head? source-computation-head? $statement))))
 (= (pure-conjunction-antecedent? $a)
    (if (head-is? $a And)
-      (case (source-compute-goals (the (List Atom) (cdr-atom $a))) (
-         ((source-computes ()) true)
-         ($_other false)))
+      (if (fold-flat computing-child? false (implication-side-conjuncts $a)) false true)
       false))
 (: compile-antecedent-completion
    (-[nondet]-> KB $context $variables KBContext Proof TV (List Variable)
@@ -634,6 +640,8 @@
                    ($proof-token
                       (implication-proof-token (append $others-proofs $consequent-proofs)))
                    ($consequent-proof (implication-proof-token $consequent-proofs))
+                   ($negated (head-is? $missing Not))
+                   ($target (if $negated (brand Statement (car-atom (cdr-atom $missing))) $missing))
                    ($consequent-head (if (is-expr $consequent) (car-atom $consequent) $consequent))
                    ($consequent-arity (if (is-expr $consequent) (- (length $consequent) 1) -1))
                    ($observed (CPU observed-predicate? ($kb $consequent-head $consequent-arity) true))
@@ -644,29 +652,29 @@
                             (append-goals $rule-execs
                                (append-goals
                                   (prior-base-rate-premises $kb
-                                     (rule-base-rate-pattern $params $missing) $missing-base-tv)
+                                     (rule-base-rate-pattern $params $target) $target-base-tv)
                                   (the (List Goal)
-                                     ((CPU CTVBayesFormula
-                                         (quote ($missing-base-tv $rule-ctv))
+                                     ((CPU ConjunctLikelihoodFormula
+                                         (quote ($negated $others-tv $rule-ctv))
+                                         $likelihood-ctv)
+                                      (CPU CTVBayesFormula
+                                         (quote ($target-base-tv $likelihood-ctv))
                                          $completion-ctv)
                                       (CPU sk-observation-prior
                                          (quote ($consequent-proof $consequent-tv))
                                          $consequent-prior)
                                       (CPU ObservationRatioFormula
-                                         (quote ($consequent-tv $consequent-prior $missing-base-tv $completion-ctv))
+                                         (quote ($consequent-tv $consequent-prior $target-base-tv $completion-ctv))
                                          $consequent-obs-tv)
                                       (CPU CTVModusPonensFormula
                                          (quote ($consequent-obs-tv $completion-ctv))
-                                         $given-others-tv)
-                                      (CPU CTVModusPonensFormula
-                                         (quote ($others-tv (CTV $given-others-tv $missing-base-tv)))
                                          $out-tv))))))))))
                   (brand CompiledAddition
                      ($premises |-
                         (: $shape-kb
-                           ((antecedent-completion $prf $idx with cpu (prior $missing-base-tv))
+                           ((antecedent-completion $prf $idx with cpu (prior $target-base-tv))
                             $proof-token)
-                           $missing $out-tv))))
+                           $target $out-tv))))
                (empty))))
       (compile-antecedent-completion
          $kb $ctx $vars $shape-kb $prf $tv $params

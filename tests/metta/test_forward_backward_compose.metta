@@ -86,16 +86,17 @@
 ;; The stored instances support the implication empirically, and copying a
 ;; tall female's predicates to a hypothetical individual derives it through
 ;; copyPredicate's completion; the two revise. copyPredicate states
-;; P(($p2 $y) | not ...) = 0, so given Tall of the individual, Female follows
-;; (Bayes over the base rate 0.9 of ($p1 $y): 0.9 / (0.9 + 0) = 1), and given
-;; not Tall it does not (P = 0). Alice's and Mary's predicates (0.81 together)
-;; weigh that against the base rate: 0.81 * 1 + 0.19 * 0.9 = 0.981 and
-;; 0.81 * 0 + 0.19 * 0.9 = 0.171. The two completions read the same
-;; hypothetical observation, so they revise rather than multiply.
+;; P(($p2 $y) | not ...) = 0, so given Tall of the individual the antecedent
+;; holds, Female included, whatever Alice's and Mary's predicates: 1. Given
+;; not Tall, their predicates (0.81 together) make P(Tall | Female) 0.81, and
+;; Bayes over the base rate 0.9 of ($p1 $y) gives
+;; 0.19 * 0.9 / (0.19 * 0.9 + 0.1) = 0.631, revised with the instance fold.
+;; The two completions read the same hypothetical observation, so they revise
+;; rather than multiply.
 !(test
    (query 100 openVariableConclusionImplicationKb
       (: $p (Implication (Tall $x) (Female $x)) $tv))
-   (: (merge/revision (total-implication (merge/revision ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.9 0.0024937655860349127))) (conjunction femaleAlice tallAlice (ctx proof 8))) ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.9 0.0024937655860349127))) (conjunction femaleMary tallMary (ctx proof 8)))) (merge/revision ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.9 0.0024937655860349127))) (conjunction femaleAlice tallAlice (ctx proof 9))) ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.9 0.0024937655860349127))) (conjunction femaleMary tallMary (ctx proof 9))))) (implication-instance-fold (foldall-proof (implication-instance-sample tallAlice femaleAlice) (implication-instance-sample tallMary femaleMary)))) (Implication (Tall $_838880) (Female $_838880)) (CTV (STV 0.9798833121865353 0.03920196834723101) (STV 0.17136032229740555 0.2214208508870738))))
+   (: (merge/revision (total-implication (merge/revision ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.9 0.0024937655860349127))) (conjunction femaleAlice tallAlice (ctx proof 8))) ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.9 0.0024937655860349127))) (conjunction femaleMary tallMary (ctx proof 8)))) (merge/revision ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.9 0.0024937655860349127))) (conjunction femaleAlice tallAlice (ctx proof 9))) ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.9 0.0024937655860349127))) (conjunction femaleMary tallMary (ctx proof 9))))) (implication-instance-fold (foldall-proof (implication-instance-sample tallAlice femaleAlice) (implication-instance-sample tallMary femaleMary)))) (Implication (Tall $_838880) (Female $_838880)) (CTV (STV 0.9999999943746243 0.9999000033211949) (STV 0.7050203386067169 0.0005360943169033059))))
 
 ;; The open identity holds. Its instance fold also samples each stored
 ;; statement against its other proofs, the completions copying the other

@@ -309,17 +309,33 @@ keys (0.0253 / 0.0401 / 0.0107 / 0.0349).
 
 A rule whose antecedent is a conjunction, `(Implication (And O M) C)`, is
 inverted onto each conjunct by its completion `(And O C) -> M`. With `u =
-P(C | O, M)` and `v = P(C | not (O, M))` the rule's branches, the completion
-is Bayes' rule over the base rate P(M):
+P(C | O, M)` and `v = P(C | not (O, M))` the rule's branches and s_O the
+value of O (its observations' posterior, O independent of M a priori), C's
+likelihoods given M are O's mixture of the branches, and given not M the
+antecedent fails whatever O:
 
-    given O and C:      P(M | O, C)     = u P(M) / (u P(M) + v (1 − P(M)))
-    given O and not C:  P(M | O, not C) = (1 − u) P(M) / ((1 − u) P(M) + (1 − v) (1 − P(M)))
+    P(C | M) = u' = s_O u + (1 − s_O) v        P(C | not M) = v
 
-C's value weighs the two by modus ponens, and O's value weighs that result
-against P(M), since without O both branches of the rule give v and C says
-nothing about M:
+(`ConjunctLikelihoodFormula`; modus ponens, or u itself when O is certainly
+true). The completion is Bayes' rule over the base rate P(M) with these, C's
+value entering as its likelihood ratio λ (see "Soft observations"):
 
-    s = s_O (s_C P(M | O, C) + (1 − s_C) P(M | O, not C)) + (1 − s_O) P(M)
+    odds(M | C) = odds(P(M)) (u' λ + 1 − u') / (v λ + 1 − v)
+
+This is the joint posterior over O and M given C's evidence, marginalized over
+O: C's value also updates O, and given O it decides M as the rule does. A
+certain rule, O certainly true and C certainly false give P(M) = 0. Before,
+O's value weighed the completion given O against P(M),
+s_O P(M | O, C-evidence) + (1 − s_O) P(M), which weighs the two by O's value
+before C's evidence: with u = 0.9, v = 0.3, P(M) = 0.3, s_O = 0.5 and C
+certain it gave 0.43125 where the joint gives 0.4615.
+
+A negated conjunct `(Not I)` completes I, the statement its observations,
+base rate and queries are about, with the two likelihoods swapped: P(C | I) =
+v, P(C | not I) = u'. Its proof is the completion's, over I's base rate, so it
+merges with other updates of I. A conjunction with negated children is pure
+for completion (`pure-conjunction-antecedent?`): before, the `Not` counted as a
+computation and no conjunct of such a rule was completed.
 
 For an STV rule, v is recovered from the base rates of `(And O M)` and C, as
 for a plain inversion. The proof is `((antecedent-completion R idx with cpu
@@ -328,7 +344,7 @@ for a plain inversion. The proof is `((antecedent-completion R idx with cpu
 What is factored over what. The completion is an update of M's population
 base rate P(M), the same prior a plain inversion of a rule `M -> D` reads (the
 pattern is M's, a fresh copy, so the folds and truth values are the same). An
-observation of C as likely as the rule makes it, s_C = u P(M) + v (1 − P(M)),
+observation of C as likely as the rule makes it, s_C = u' P(M) + v (1 − P(M)),
 leaves P(M), so the completion's odds over P(M) are the likelihood ratio of
 O's and C's evidence, and it merges with other updates of P(M), or with a
 derived view in the base rate's place, as an inversion does. Factoring needs
