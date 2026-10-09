@@ -29,3 +29,36 @@
 !(test
    (query 100 lateKb (: $prf (Blocked r1) $tv))
    (: ((inverted late with cpu (prior (STV 0.16666666666666666 0.9))) l1) (Blocked r1) (STV 0.782608695652174 0.8799444564487994)))
+
+; A soft observation is read as a likelihood ratio over the base rate it was
+; formed under. One late shipment makes the route blocked with
+; 0.9 * 0.2 / (0.9 * 0.2 + 0.05 * 0.8) = 0.8182 over P(Blocked) = 0.2, a ratio
+; of odds(0.8182) / odds(0.2) = 18 = 0.9 / 0.05. Inverting the block rule
+; reads that ratio, so the storm is Bayes' rule over the whole chain, whatever
+; P(Blocked) was: P(Late | Storm) = 0.8 * 0.9 + 0.2 * 0.05 = 0.73,
+; P(Late | no storm) = 0.03 * 0.9 + 0.97 * 0.05 = 0.0755, odds 0.3 / 0.7 *
+; 0.73 / 0.0755 = 4.1438, P = 0.805591. Read as a posterior under the prior
+; the block rule implies for the route (0.261), it gave 0.7671.
+!(compileadd softKb (: block (Implication (Storm $r) (Blocked $r)) (CTV (STV 0.8 1.0) (STV 0.03 1.0))))
+!(compileadd softKb (: late (Implication (Blocked $r) (Late $r)) (CTV (STV 0.9 1.0) (STV 0.05 1.0))))
+!(set-base-rate softKb (Storm $r) (STV 0.3 0.9))
+!(set-base-rate softKb (Blocked $r) (STV 0.2 0.9))
+!(compileadd softKb (: l1 (Late r1) (STV 1.0 1.0)))
+!(test
+   (query 100 softKb (: $prf (Storm r1) $tv))
+   (: ((inverted block with cpu (prior (STV 0.3 0.9))) ((inverted late with cpu (prior (STV 0.2 0.9))) l1)) (Storm r1) (STV 0.8055913187419531 0.9457679734985552)))
+
+; A knowledge base storing only true instances has base rate 1 for every
+; predicate it stores. Inverting over that rate would restate it as the
+; instance's value, so an ancestor would make every pair a parent; neither an
+; STV nor a CTV rule is inverted over it.
+!(compileadd logicKb (: parentAncestor (Implication (Parent $x $y) (Ancestor $x $y)) (STV 1.0 1.0)))
+!(compileadd logicKb (: pab (Parent a b) (STV 1.0 1.0)))
+!(compileadd logicKb (: pbc (Parent b c) (STV 1.0 1.0)))
+!(compileadd logicKb (: acd (Ancestor c d) (STV 1.0 1.0)))
+!(test (collapse (query 100 logicKb (: $p (Parent c d) $tv))) ())
+!(test (query 100 logicKb (: $p (Ancestor a b) $tv)) (: (by parentAncestor pab) (Ancestor a b) (STV 1.0 0.9999000099190012)))
+!(compileadd ctvLogicKb (: parentAncestor (Implication (Parent $x $y) (Ancestor $x $y)) (CTV (STV 1.0 1.0) (STV 0.3 1.0))))
+!(compileadd ctvLogicKb (: pab (Parent a b) (STV 1.0 1.0)))
+!(compileadd ctvLogicKb (: acd (Ancestor c d) (STV 1.0 1.0)))
+!(test (collapse (query 100 ctvLogicKb (: $p (Parent c d) $tv))) ())

@@ -9,8 +9,9 @@
 !(test (finish-aggregate smoothKb base-rate (BaseRateEvidence 0.0 4.0)) (STV 0.09999999999999998 0.8))
 !(test (finish-aggregate plainKb base-rate (BaseRateEvidence 0.0 4.0)) (STV 0.0 0.8))
 
-;; An alarm on a new unit: inverting the sensor rule with a leak rate of 0
-;; rules the leak out, while the smoothed rate leaves it possible.
+;; An alarm on a new unit: a leak rate of 0 gives the sensor rule's inversion
+;; no prior, since the posterior would restate the rate as the unit's value,
+;; and the leak has no answer; the smoothed rate leaves it possible.
 !(compileadd smoothKb (: sensor (Implication (Leak $u) (Alarm $u)) (CTV (STV 0.9 1.0) (STV 0.2 1.0))))
 !(compileadd smoothKb (: l1 (Leak u1) (STV 0 1)))
 !(compileadd smoothKb (: l2 (Leak u2) (STV 0 1)))
@@ -36,6 +37,4 @@
 !(test
    (query 400 smoothKb (: $p (Leak q) $tv))
    (: ((inverted sensor with cpu (prior (STV 0.09999999999999998 0.8))) aq) (Leak q) (STV 0.33333333333333326 0.5060814905208311)))
-!(test
-   (query 400 plainKb (: $p (Leak q) $tv))
-   (: ((inverted sensor with cpu (prior (STV 0.0 0.8))) aq) (Leak q) (STV 0.0 1.0e-06)))
+!(test (collapse (query 400 plainKb (: $p (Leak q) $tv))) ())

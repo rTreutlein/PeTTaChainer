@@ -183,4 +183,7 @@
 !(test (accepted? contractHighVolume) true)
 !(test (accepted? contractFast) true)
 !(test (accepted? contractLocal) true)
-!(test (accepted? contractFragile) false)
+;; Every fragile sample was bad: a rate of 0 gives the signal's inversion no
+;; prior, since the posterior would restate the rate as the contract's value,
+;; so nothing supports accepting the fragile contract.
+!(test (collapse (accept-tv contractFragile)) ())

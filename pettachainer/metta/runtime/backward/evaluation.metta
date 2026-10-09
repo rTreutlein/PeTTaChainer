@@ -163,6 +163,17 @@
       ((factored-revision $prior $prior-tv $parts) (sk-prior-update $prior $prior-tv $parts))
       ($_other (sk-prior-update $proof (brand Proof (prior $tv)) ())))))
 
+;; The prior an observation's value was formed under, for an inversion that
+;; reads the value as a likelihood ratio over it (ObservationRatioFormula):
+;; the prior a view updates. A view updating nothing, a stored fact or a
+;; forward conclusion, is a value of its own, read under the prior the
+;; inversion implies for it, as modus ponens reads it.
+(: sk-observation-prior (-[det]-> Proof TV TV))
+(= (sk-observation-prior $proof $tv)
+   (case (sk-prior-update-of $proof $tv) (
+      ((sk-prior-update $_prior $_own ()) no-evidence)
+      ((sk-prior-update $_prior (prior $prior-tv) $_parts) (the TV $prior-tv)))))
+
 ;; The observations of the updates a view merges (an inversion's observation,
 ;; each witness of a completion) and the rules whose truth is an estimate, the
 ;; rules carrying evidence (`register-rule-evidence!`), by hash (defined at the

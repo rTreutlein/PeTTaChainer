@@ -357,11 +357,19 @@ smoothing worse (0.7305). Bayes'
 rule with the stated likelihoods reads no P(C) or P(O, C), as for plain
 inversions of rules stating both likelihoods.
 
-A base rate of 0 or 1 gives no completion: the posterior would be the rate
-itself, and a knowledge base storing only true instances (logic KBs of
-Provable or Path facts) has rate 1, so every conjunct of every stored
-conclusion would be asserted. The previous formula had the same cutoff at
-P(O, C) of 0 or 1.
+A base rate of 0 or 1 gives no completion and no plain inversion: the
+posterior would be the rate itself, and a knowledge base storing only true
+instances (logic KBs of Provable or Path facts) has rate 1, so every conjunct
+of every stored conclusion, and every antecedent of every rule with a stored
+conclusion, would be asserted. The cutoff sits where the base rate is read as
+the prior (`prior-base-rate-premises`), for completions and for inversions
+of STV and CTV rules over a population base rate alike; an instance prior of
+a `WithPrior` rule is the instance's own belief and keeps its value. Before,
+an STV rule over a rate of 1 inverted to a strength of 0 at confidence
+10^-6 (`CTVInversionFormula` with P(b) = 1) and a CTV rule to 1, and a leak
+rate of 0 inverted every alarm to no leak
+(`tests/metta/test_implication_inversion.metta`,
+`tests/metta/test_base_rate_smoothing.metta`).
 
 A completion reads C's value as an observation of C, so it is compiled into
 the search only where C can be observed: a statement of C's predicate is
@@ -416,7 +424,7 @@ $t))` with (0.7, 0.3); it blocks r1 with (0.8, 0.03), and a blocked route
 delays each of three shipments with (0.9, 0.05). The storm of h3 is resolved
 false, all three shipments of w1 are late and none of w2. The filter view of
 Storm w1, the persistence prediction updated by w1's block inversion, is
-0.91920 (exact 0.91913). The previous period's storm takes w2's evidence
+0.919133, the exact filter. The previous period's storm takes w2's evidence
 through the completion `((antecedent-completion persist-north 1 with cpu
 (prior (STV 0.325 0.444))) (conjunction next-w2 <w2's block inversion>))`:
 NextPeriod is certain, P(Storm) = 0.325, so
@@ -424,25 +432,26 @@ NextPeriod is certain, P(Storm) = 0.325, so
     P(M | O, C) = 0.7 · 0.325 / (0.7 · 0.325 + 0.3 · 0.675) = 0.52907
     P(M | O, not C) = 0.3 · 0.325 / (0.3 · 0.325 + 0.7 · 0.675) = 0.17105
 
-and with Storm w2 at 0.0908 from w2's observations alone (the view of Storm
-w2 that does not depend on Storm w1), the completion is 0.20355. The filter
-view's evidence (h3's fact, w1's shipments) and the completion's (next-w2,
-w2's shipments) are disjoint and the rules are given, so the views factor,
-the filter view in the base rate's place:
+Storm w2 is 0.0907 from w2's observations alone (the view of Storm w2 that
+does not depend on Storm w1), formed under the base rate 0.325, so it enters
+as its likelihood ratio (see "Soft observations" below)
+λ = odds(0.0907) / odds(0.325) = 0.2071, restated under the prior the rule
+implies for Storm w2, 0.7 · 0.325 + 0.3 · 0.675 = 0.43: odds 0.2071 ·
+0.43 / 0.57 = 0.1563, s' = 0.1351, and the completion is 0.1351 · 0.52907 +
+0.8649 · 0.17105 = 0.2194, a likelihood ratio for Storm w1 of
+odds(0.2194) / odds(0.325) = 0.5839 = (0.7 λ + 0.3) / (0.3 λ + 0.7). The
+filter view's evidence (h3's fact, w1's shipments) and the completion's
+(next-w2, w2's shipments) are disjoint and the rules are given, so the views
+factor, the filter view in the base rate's place:
 
-    logit 0.91920 + logit 0.20355 − logit 0.325 = 2.4320 − 1.3643 + 0.7309 = 1.7986, P = 0.8579
+    logit 0.919133 + logit 0.2194 − logit 0.325 = 2.4306 − 1.2690 + 0.7309 = 1.8925, P = 0.86905
 
 Exact smoothing: P(none late | storm w2) = 0.172275, P(none late | no storm
 w2) = 0.831684, likelihood ratio for Storm w1 (0.7 · 0.172275 + 0.3 ·
-0.831684) / (0.3 · 0.172275 + 0.7 · 0.831684) = 0.58388, P = 0.86905.
-Revising the two views gave 0.7445.
-
-The completion's likelihood ratio is 0.531 against 0.584: modus ponens reads
-s_C = 0.0908 as a posterior under the prior the rule implies for Storm w2,
-0.7 · 0.325 + 0.3 · 0.675 = 0.43, while it was formed under the base rate
-0.325. Read as a likelihood ratio, λ = odds(0.0908) / odds(0.325) = 0.2074
-(exact 0.2071), the message (u λ + 1 − u) / (v λ + 1 − v) = 0.584 is exact.
-This applies to every inversion of a soft observation and is left as it is.
+0.831684) / (0.3 · 0.172275 + 0.7 · 0.831684) = 0.58388, P = 0.86905. The
+chainer gives 0.869048. Revising the two views gave 0.7445; reading
+Storm w2's 0.0908 as a posterior under the rule's prior 0.43 gave the
+completion 0.2036, a ratio of 0.531, and 0.8579.
 
 ### Result
 
@@ -461,8 +470,89 @@ regret 614.7 / 114.1 → 86.4 / 182.4 / 70.5, Brier 0.0452 / 0.0643 / 0.0652 /
 answer includes the completion is within 0.003 of the posterior (seed 3);
 at budget 100 the search reaches the completion for 7 of 87 previous storms,
 the rest answer with the filter view alone (error 0.045). At budget 2000 it
-reaches 52, the previous-storm error falls to 0.006, and what remains is the
-modus ponens reading of a soft observation above.
+reaches 52 and the previous-storm error falls to 0.006; with soft
+observations read as likelihood ratios (below) it is 0.
+
+## Soft observations
+
+An inversion applies its observation of b to the inverted rule (P(a|b),
+P(a|not b)) by modus ponens. For a certain observation that is Bayes' rule.
+A soft value s of b is a posterior: an inversion or a factored merge of b's
+own observations over a prior p of b, b's base rate or a view in its place.
+Its evidence is the likelihood ratio λ = odds(s) / odds(p). Modus ponens
+reads s as a posterior under the prior the inversion implies for b, the π
+with π P(a|b) + (1 − π) P(a|not b) = P(a) (for Bayes' rule u P(a) + v (1 −
+P(a))), and so scales that evidence wrongly wherever p ≠ π.
+
+Rule: the observation is restated under π, odds(s') = λ odds(π), before
+modus ponens. Modus ponens over s' gives the posterior odds
+
+    odds(P(a)) (u λ + 1 − u) / (v λ + 1 − v)
+
+exactly. The log-odds variance of s carries over by the delta method (a
+value stated with confidence 1 keeps it); the uncertainty of p is not added.
+A certain observation (λ infinite or 0) is unchanged, as is an inversion b
+does not move.
+
+Where. `ObservationRatioFormula` (pln_formulas `truth_values.metta`) runs
+between the inversion formula and modus ponens in every inverse rule: STV
+rules (`inverse-implication`, after `CTVInversionFormula`), CTV and
+`WithPrior` rules over a population or instance prior
+(`prior-inverse-implication`, after `CTVBayesFormula`), and antecedent
+completions on the consequence C (after `CTVBayesFormula` over P(M)). It
+recovers π from the inversion and its prior by total probability, which
+Bayes' rule satisfies exactly; for an STV rule π is the reconciled P(b),
+exact when `ConsistentTriple` leaves P(a) as it is and clipped into (0, 1)
+otherwise.
+
+Which prior. `sk-observation-prior` reads p off the observation's proof as
+the merge reads it (`sk-prior-update-of`): an inversion or a completion
+updates the `(prior <TV>)` it names, a factored merge its prior, which is a
+base rate or the view in the base rate's place. That view's information is
+then left out of λ: it is C's prediction from other sources, which the
+likelihood ratio of C's own evidence does not contain, as a child's message
+to its parent in belief propagation carries only its diagnostic evidence. A
+view updating nothing (a stored fact, a forward conclusion, a revision) was
+formed under no known prior; it is read as before, as a posterior under π
+(Jeffrey's rule), and so is a value over a prior of 0 or 1. Reading a stored
+soft fact against b's population base rate instead would count the fact in
+the rate it is compared with, and a predicate with a single soft fact would
+carry no evidence at all.
+
+Examples. `tests/metta/test_implication_inversion.metta`: a late shipment
+makes its route blocked with 0.8182 over P(Blocked) = 0.2, a ratio of 18 =
+0.9 / 0.05; the storm read through the block rule is 0.805591, Bayes' rule
+over the chain (P(Late | storm) = 0.73, P(Late | no storm) = 0.0755), where
+modus ponens under the rule's prior 0.261 gave 0.7671.
+`tests/metta/test_certain_merge.metta` becomes exact everywhere: Storm h3
+while open 0.1500 → 0.13636, the filter view of Storm w1 0.91920 → 0.919133,
+Storm w2 0.29405 → 0.293848, the smoothed Storm w1 0.8579 → 0.869048
+(exact 0.86905).
+
+### Result
+
+Against master affb69cf, run concurrently, 30 rounds, seeds 1–4 (SupplyNet
+error is the mean absolute distance from the exact posterior):
+
+| | Brier | error | previous storm | storm | blocked | seconds |
+|---|---|---|---|---|---|---|
+| stage 2, budget 100, master | 0.1546 | 0.0089 | 0.0341 | 0.0012 | 0.0008 | 18.1 / 19.7 / 18.7 / 11.0 |
+| stage 2, budget 100, ratio | 0.1546 | 0.0078 | 0.0319 | 0.0000 | 0.0001 | 16.9 / 18.0 / 17.3 / 10.4 |
+| stage 2, budget 2000, master | 0.1540 | 0.0021 | 0.0064 | 0.0012 | 0.0006 | 20.6 / 22.8 / 23.2 / 12.2 |
+| stage 2, budget 2000, ratio | 0.1540 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 19.1 / 21.2 / 20.3 / 12.3 |
+| stage 1, budget 100, master | 0.0284 | 0.0085 | | | | 9.5 / 8.9 / 11.8 / 6.1 |
+| stage 1, budget 100, ratio | 0.0282 | 0.0077 | | | | 8.6 / 8.2 / 10.8 / 5.6 |
+
+At budget 2000 every answer equals the exact posterior to 10^-16 (the
+reference posterior's Brier is 0.1540; master's mean Brier matches it only
+on average, per seed it is 0.1460 / 0.1396 / 0.1628 / 0.1676 against
+0.1466 / 0.1391 / 0.1625 / 0.1679). At budget 100 the previous storms
+whose answer the search does not extend to the completion keep the filter
+view's error. Stage 2 at budget 50 (seeds 2, 3): previous storm 0.0383 /
+0.0450 → 0.0348 / 0.0452. Stage 3, seed 1: timed error 0.0217 → 0.0212,
+untimed 0.0207 → 0.0201, production unchanged. StationOps temporal replay,
+seeds 1–4 at budgets 25 and 50: beliefs identical, compute time within
+±5%.
 
 ## Relation to PLN
 

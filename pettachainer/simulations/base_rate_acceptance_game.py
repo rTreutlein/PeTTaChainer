@@ -143,9 +143,9 @@ def query_pettachainer_acceptance(
             steps=steps,
             timeout_sec=0,
         )
-        if not proofs:
-            raise RuntimeError(f"PeTTaChainer returned no accept decision for {contract}")
-        decisions[predicate.name] = parse_stv(str(proofs[0]))
+        # No proof is no evidence for accepting: a quality rate of 0 gives the
+        # signal's inversion no prior.
+        decisions[predicate.name] = parse_stv(str(proofs[0])) if proofs else (0.0, 0.0)
     return decisions
 
 

@@ -56,7 +56,7 @@
 !(compileadd routeKb (: o1 (Blocked r1 north) (STV 1.0 1.0)))
 !(compileadd routeKb (: l2 (Late s2 north) (STV 1.0 1.0)))
 !(test (query 100 routeKb (: $p (Blocked r2 north) $tv)) (: (factored-revision (by block2 ((inverted block1 with cpu (prior (STV 0.3 0.9))) o1)) (prior (STV 0.7380440615611523 0.9789669820693663)) (((inverted late2 with cpu (prior (STV 0.261 0.9))) l2))) (Blocked r2 north) (STV 0.9806623893357692 0.9856259002984796)))
-!(test (case (query 100 routeKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.9910309602166919 0.9924300390933462))
+!(test (case (query 100 routeKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.991030971483575 0.9924300484454038))
 
 ;; When the storm is also read off the late shipment, the forward view of r2
 ;; already holds that observation: it is not an independent prior for the

@@ -46,7 +46,14 @@
 ;; The persistence prediction takes the base rate's place under the period's
 ;; block and shipment inversions. Before, the resolved storm of h3 was revised
 ;; with its rows' inversions, the persistence view carried their block rule as
-;; evidence, and the window's own evidence was dropped: 0.3 for w1.
+;; evidence, and the window's own evidence was dropped: 0.3 for w1. The block
+;; inversion reads the route's soft value as a likelihood ratio over the base
+;; rate it was formed under, so the views are exact: while h3 is open, s2 late
+;; alone gives P(L | storm) = 0.8 * 0.009 + 0.2 * 0.045125 = 0.016225 and
+;; P(L | no storm) = 0.03 * 0.009 + 0.97 * 0.045125 = 0.04404, so 0.13636 for
+;; h3 over the persistence prediction 0.3. Read as a posterior under the
+;; prior the block rule implies for the route, it gave 0.1500 for h3, 0.91920
+;; for w1 and 0.29405 for w2.
 !(set-evidence-confidence-k 5.0)
 !(compileadd k (: persist-north (Implication (And (NextPeriod $p $t) (Storm north $p)) (Storm north $t)) (CTV (STV 0.7 1) (STV 0.3 1))))
 !(compileadd k (: block-r1 (Implication (Storm north $p) (Blocked r1 $p)) (CTV (STV 0.8 1) (STV 0.03 1))))
@@ -68,7 +75,7 @@
 !(compileadd k (: late-s1-h3 (Late s1 h3) (STV 0 1)))
 !(compileadd k (: late-s2-h3 (Late s2 h3) (STV 1 1)))
 !(compileadd k (: late-s3-h3 (Late s3 h3) (STV 0 1)))
-!(test (case (query 100 k (: $p (Storm north h3) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.1499714930928475 0.5728224745731084))
+!(test (case (query 100 k (: $p (Storm north h3) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.13635838372944034 0.594825273179311))
 !(compileadd k (: storm-h3 (Storm north h3) (STV 0 1)))
 !(compileadd k (: blocked-h3 (Blocked r1 h3) (STV 0 1)))
 !(compileadd k (: next-w1 (NextPeriod h3 w1) (STV 1 1)))
@@ -76,12 +83,12 @@
 !(compileadd k (: late-s2-w1 (Late s2 w1) (STV 1 1)))
 !(compileadd k (: late-s3-w1 (Late s3 w1) (STV 1 1)))
 !(test (query 100 k (: $p (Storm north h3) $tv)) (: storm-h3 (Storm north h3) (STV 0 1)))
-!(test (query 100 k (: $p (Storm north w1) $tv)) (: (factored-revision (by persist-north (conjunction next-w1 storm-h3)) (prior (STV 0.3 0.9999000099228195)) (((inverted block-r1 with cpu (prior (STV 0.3250006249536047 0.44443827214888376))) (factored-revision cpu (prior (STV 0.3152510770422629 0.4444395424457702)) (((inverted late-s1 with cpu (prior (STV 0.3152510770422629 0.4444395424457702))) late-s1-w1) ((inverted late-s2 with cpu (prior (STV 0.3152510770422629 0.4444395424457702))) late-s2-w1) ((inverted late-s3 with cpu (prior (STV 0.3152510770422629 0.4444395424457702))) late-s3-w1)))))) (Storm north w1) (STV 0.9191961391612157 0.7335827638932078)))
+!(test (query 100 k (: $p (Storm north w1) $tv)) (: (factored-revision (by persist-north (conjunction next-w1 storm-h3)) (prior (STV 0.3 0.9999000099228195)) (((inverted block-r1 with cpu (prior (STV 0.3250006249536047 0.44443827214888376))) (factored-revision cpu (prior (STV 0.3152510770422629 0.4444395424457702)) (((inverted late-s1 with cpu (prior (STV 0.3152510770422629 0.4444395424457702))) late-s1-w1) ((inverted late-s2 with cpu (prior (STV 0.3152510770422629 0.4444395424457702))) late-s2-w1) ((inverted late-s3 with cpu (prior (STV 0.3152510770422629 0.4444395424457702))) late-s3-w1)))))) (Storm north w1) (STV 0.9191334113866322 0.7334343645301062)))
 !(compileadd k (: next-w2 (NextPeriod w1 w2) (STV 1 1)))
 !(compileadd k (: late-s1-w2 (Late s1 w2) (STV 0 1)))
 !(compileadd k (: late-s2-w2 (Late s2 w2) (STV 0 1)))
 !(compileadd k (: late-s3-w2 (Late s3 w2) (STV 0 1)))
-!(test (case (query 100 k (: $p (Storm north w2) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.29404545256813475 0.46143541390156245))
+!(test (case (query 100 k (: $p (Storm north w2) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.29384764276400477 0.4615558074579241))
 
 ;; Smoothing: w2's observations bear on the storm of w1 through the
 ;; persistence rule's completion, which inverts the rule onto Storm w1 over
@@ -93,11 +100,11 @@
 ;;     / (0.3 * 0.172275 + 0.7 * 0.831684) = 0.58388,
 ;;   odds 0.919133/0.080867 * 0.58388 = 6.636, P(Storm w1) = 0.86905.
 ;; The completion reads Storm w2 from w2's block inversion, 0.0908 over its
-;; base rate 0.325, and gives (P(M) = 0.325, u = 0.7, v = 0.3)
-;;   0.0908 * 0.52907 + 0.9092 * 0.17105 = 0.20355,
-;; a likelihood ratio of odds(0.20355)/odds(0.325) = 0.531, and
-;; logit 0.91920 + logit 0.20355 - logit 0.325 = 1.7986, P = 0.8579. The ratio
-;; falls short of 0.584 because modus ponens reads 0.0908 as a posterior under
-;; the prior the rule implies for Storm w2 (0.43), while it was formed under
-;; the base rate 0.325. Revising the two views gave 0.7445.
-!(test (query 100 k (: $p (Storm north w1) $tv)) (: (factored-revision (by persist-north (conjunction next-w1 storm-h3)) (prior (STV 0.3 0.9999000099228195)) (((inverted block-r1 with cpu (prior (STV 0.3250006249536047 0.44443827214888376))) (factored-revision cpu (prior (STV 0.3152510770422629 0.4444395424457702)) (((inverted late-s1 with cpu (prior (STV 0.3152510770422629 0.4444395424457702))) late-s1-w1) ((inverted late-s2 with cpu (prior (STV 0.3152510770422629 0.4444395424457702))) late-s2-w1) ((inverted late-s3 with cpu (prior (STV 0.3152510770422629 0.4444395424457702))) late-s3-w1)))) ((antecedent-completion persist-north 1 with cpu (prior (STV 0.3250006249536047 0.44443827214888376))) (conjunction next-w2 ((inverted block-r1 with cpu (prior (STV 0.3250006249536047 0.44443827214888376))) (factored-revision cpu (prior (STV 0.3152510770422629 0.4444395424457702)) (((inverted late-s1 with cpu (prior (STV 0.3152510770422629 0.4444395424457702))) late-s1-w2) ((inverted late-s2 with cpu (prior (STV 0.3152510770422629 0.4444395424457702))) late-s2-w2) ((inverted late-s3 with cpu (prior (STV 0.3152510770422629 0.4444395424457702))) late-s3-w2)))))))) (Storm north w1) (STV 0.85791551316166 0.6153326167632395)))
+;; base rate 0.325, as the likelihood ratio odds(0.0908) / odds(0.325) =
+;; 0.2071 = P(none late | storm w2) / P(none late | no storm w2), and its
+;; message to Storm w1 is (0.7 * 0.2071 + 0.3) / (0.3 * 0.2071 + 0.7) = 0.5839:
+;; the filter view 0.91913 and the completion factor to 0.86905. Read as a
+;; posterior under the prior the rule implies for Storm w2 (0.43), the
+;; completion's ratio was 0.531 and Storm w1 0.8579. Revising the two views
+;; gave 0.7445.
+!(test (query 100 k (: $p (Storm north w1) $tv)) (: (factored-revision (by persist-north (conjunction next-w1 storm-h3)) (prior (STV 0.3 0.9999000099228195)) (((inverted block-r1 with cpu (prior (STV 0.3250006249536047 0.44443827214888376))) (factored-revision cpu (prior (STV 0.3152510770422629 0.4444395424457702)) (((inverted late-s1 with cpu (prior (STV 0.3152510770422629 0.4444395424457702))) late-s1-w1) ((inverted late-s2 with cpu (prior (STV 0.3152510770422629 0.4444395424457702))) late-s2-w1) ((inverted late-s3 with cpu (prior (STV 0.3152510770422629 0.4444395424457702))) late-s3-w1)))) ((antecedent-completion persist-north 1 with cpu (prior (STV 0.3250006249536047 0.44443827214888376))) (conjunction next-w2 ((inverted block-r1 with cpu (prior (STV 0.3250006249536047 0.44443827214888376))) (factored-revision cpu (prior (STV 0.3152510770422629 0.4444395424457702)) (((inverted late-s1 with cpu (prior (STV 0.3152510770422629 0.4444395424457702))) late-s1-w2) ((inverted late-s2 with cpu (prior (STV 0.3152510770422629 0.4444395424457702))) late-s2-w2) ((inverted late-s3 with cpu (prior (STV 0.3152510770422629 0.4444395424457702))) late-s3-w2)))))))) (Storm north w1) (STV 0.8690479955664682 0.6333809382541356)))

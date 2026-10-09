@@ -381,6 +381,19 @@
          ((base-rate-parts $goals $tvs)
             (append-goals $goals (cons (CPU AndFormula $tvs $brtv) ())))))))
 
+;; The premises reading a pattern's base rate as the prior an inversion or an
+;; antecedent completion updates. A rate of 0 or 1 gives no prior: the
+;; posterior would be the rate itself restated as the instance's value, and a
+;; knowledge base storing only true instances (logic KBs of Provable or Path
+;; facts) has rate 1, so every antecedent of every stored conclusion would be
+;; asserted.
+(: prior-base-rate-premises (-[det]-> KB Statement $truth-value (List Goal)))
+(= (prior-base-rate-premises $kb $pattern $brtv)
+   (append-goals (base-rate-premises $kb $pattern $brtv)
+      (cons (CPU uncertain-rate? ($brtv) true) ())))
+(: uncertain-rate? (-[semidet]-> TV Bool))
+(= (uncertain-rate? (STV $s $_c)) (and (> $s 0.0) (< $s 1.0)))
+
 ;; An implication is also estimated from its instances: one sample per
 ;; antecedent binding whose consequent is provable, both sides resolved through
 ;; the backward chainer so derived instances count. Open world: an antecedent
@@ -488,7 +501,9 @@
 ;; Compile the backward use of an implication stated with an STV: derive its
 ;; negative branch from the base rates of both sides, invert by the ratio
 ;; P(A|B) = P(B|A) P(A) / P(B) over the reconciled base rates, and then use the
-;; observed consequent as modus-ponens evidence. A rule stated with a CTV gives
+;; observed consequent as modus-ponens evidence, a soft value entering as its
+;; likelihood ratio over the prior it was formed under (ObservationRatioFormula,
+;; sk-observation-prior). A rule stated with a CTV gives
 ;; both likelihoods and is inverted by Bayes' rule over the antecedent's base
 ;; rate instead (`prior-inverse-implication` with `population`), which needs no
 ;; P(B): an empirical P(B) inconsistent with P(A) and the stated likelihoods
@@ -503,19 +518,15 @@
    (let*
       (($a1 (rule-base-rate-pattern $params $a))
         ($b1 (rule-base-rate-pattern $params $b))
-        ($a-base-rates (base-rate-premises $kb $a1 $atv))
+        ($a-base-rates (prior-base-rate-premises $kb $a1 $atv))
         ($b-base-rates (base-rate-premises $kb $b1 $btv))
         ($formula-goals
-           (cons
-              (CPU ImplicationCTVFormula
-                 (quote ($atv $btv $itv)) $rule-ctv)
-              (cons
-                 (CPU CTVInversionFormula
-                    (quote ($atv $btv $rule-ctv)) $iitv)
-                 (cons
-                    (CPU CTVModusPonensFormula
-                       (quote ($btv_wit $iitv)) $mp-tv)
-                    ()))))
+           (the (List Goal)
+              ((CPU ImplicationCTVFormula (quote ($atv $btv $itv)) $rule-ctv)
+               (CPU CTVInversionFormula (quote ($atv $btv $rule-ctv)) $iitv)
+               (CPU sk-observation-prior (quote ($prfb_wit $btv_wit)) $obs-prior)
+               (CPU ObservationRatioFormula (quote ($btv_wit $obs-prior $atv $iitv)) $obs-tv)
+               (CPU CTVModusPonensFormula (quote ($obs-tv $iitv)) $mp-tv))))
         ($premises
            (append-goals
               (append-goals $truth-premises
@@ -539,8 +550,9 @@
 ;; for the observed instance, or, with `population`, a's base rate for an
 ;; instance without one; the first's evidence contains the second's, so it
 ;; replaces that answer wherever `p` is provable. A plain rule stated with a CTV
-;; is inverted with `population` alone. The proof carries the prior's
-;; truth value, so inversions of several observations over one prior merge by
+;; is inverted with `population` alone. The observation of b enters as its
+;; likelihood ratio, as for an STV rule. The proof carries the prior's truth
+;; value, so inversions of several observations over one prior merge by
 ;; Bayes' rule (sk-factored-merge).
 (: prior-inverse-implication
    (-[semidet]-> KB Proof (List Variable) Atom Statement Statement TV Atom
@@ -551,7 +563,7 @@
       (($population (== $prior population))
        ($prior-goals
           (if $population
-             (base-rate-premises $kb (rule-base-rate-pattern $params $a) $atv)
+             (prior-base-rate-premises $kb (rule-base-rate-pattern $params $a) $atv)
              (cons (: (make-kb-context $kb $ctx $vars) $prior-prf (brand Statement $prior) $atv) ())))
        ($prior-token (if $population cpu $prior-prf))
        (($ctv-execs $rule-ctv)
@@ -562,9 +574,11 @@
                 (append-goals $inverse-execs
                    (append-goals $prior-goals
                       (append-goals $ctv-execs
-                         (cons (CPU CTVBayesFormula (quote ($atv $rule-ctv)) $iitv)
-                            (cons (CPU CTVModusPonensFormula (quote ($btv_wit $iitv)) $mp-tv)
-                               ())))))))))
+                         (the (List Goal)
+                            ((CPU CTVBayesFormula (quote ($atv $rule-ctv)) $iitv)
+                             (CPU sk-observation-prior (quote ($prfb_wit $btv_wit)) $obs-prior)
+                             (CPU ObservationRatioFormula (quote ($btv_wit $obs-prior $atv $iitv)) $obs-tv)
+                             (CPU CTVModusPonensFormula (quote ($obs-tv $iitv)) $mp-tv))))))))))
       ($premises |-
          (: (make-kb-context $kb $ctx $vars)
             ((inverted $prf with $prior-token (prior $atv)) $prfb_wit)
@@ -576,7 +590,8 @@
 ;; whole-H inversion still proves H itself, but does not also project to each
 ;; child. The completion inverts the rule onto M over M's base rate, as a
 ;; plain inversion inverts onto its antecedent: given O, C's value weighs
-;; P(M|O,C) and P(M|O,not C) by Bayes' rule with the rule's likelihoods, and
+;; P(M|O,C) and P(M|O,not C) by Bayes' rule with the rule's likelihoods, C's
+;; value entering as its likelihood ratio (ObservationRatioFormula), and
 ;; O's value weighs that against the base rate, since without O the rule says
 ;; nothing about M. The proof carries the base rate, so the completion merges
 ;; with other updates of it by Bayes' rule (sk-factored-merge).
@@ -618,6 +633,7 @@
                       (compile-implication-ctv-execs $kb $params $full $consequent $tv $tv))
                    ($proof-token
                       (implication-proof-token (append $others-proofs $consequent-proofs)))
+                   ($consequent-proof (implication-proof-token $consequent-proofs))
                    ($consequent-head (if (is-expr $consequent) (car-atom $consequent) $consequent))
                    ($consequent-arity (if (is-expr $consequent) (- (length $consequent) 1) -1))
                    ($observed (CPU observed-predicate? ($kb $consequent-head $consequent-arity) true))
@@ -627,14 +643,20 @@
                          (append-goals $consequent-execs
                             (append-goals $rule-execs
                                (append-goals
-                                  (base-rate-premises $kb
+                                  (prior-base-rate-premises $kb
                                      (rule-base-rate-pattern $params $missing) $missing-base-tv)
                                   (the (List Goal)
-                                     ((CPU CTVAntecedentCompletionFormula
+                                     ((CPU CTVBayesFormula
                                          (quote ($missing-base-tv $rule-ctv))
                                          $completion-ctv)
+                                      (CPU sk-observation-prior
+                                         (quote ($consequent-proof $consequent-tv))
+                                         $consequent-prior)
+                                      (CPU ObservationRatioFormula
+                                         (quote ($consequent-tv $consequent-prior $missing-base-tv $completion-ctv))
+                                         $consequent-obs-tv)
                                       (CPU CTVModusPonensFormula
-                                         (quote ($consequent-tv $completion-ctv))
+                                         (quote ($consequent-obs-tv $completion-ctv))
                                          $given-others-tv)
                                       (CPU CTVModusPonensFormula
                                          (quote ($others-tv (CTV $given-others-tv $missing-base-tv)))

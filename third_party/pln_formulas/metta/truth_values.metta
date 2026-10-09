@@ -486,17 +486,30 @@
          (ideal-bayes-stv $u $Vu $v $Vv $sa $Va)
          (ideal-bayes-stv (- 1.0 $u) $Vu (- 1.0 $v) $Vv $sa $Va))))
 
-;; Complete one antecedent conjunct M of (Implication (And O M) C): Bayes'
-;; rule over M's base rate with the rule's likelihoods, the branch given O and
-;; C and the branch given O and not C (the compiled completion weighs them by
-;; C's and O's values). A base rate of 0 or 1 gives nothing: the posterior
-;; would be the rate itself restated as the instance's value, and a KB storing
-;; only true instances has rate 1, so every conjunct of every stored
-;; conclusion would be asserted.
-(: CTVAntecedentCompletionFormula (-[semidet]-> TV TV TV))
-(= (CTVAntecedentCompletionFormula no-evidence $_ctv) (empty))
-(= (CTVAntecedentCompletionFormula (STV $sm $cm) $ctv)
-   (if (or (<= $sm 0.0) (>= $sm 1.0)) (empty) (CTVBayesFormula (STV $sm $cm) $ctv)))
+;; An inversion reads an observation of b as a likelihood ratio. A soft
+;; observation's strength s is a posterior under the prior p it was formed
+;; under (a base rate of b), so its ratio is lambda = odds(s) / odds(p). The
+;; inversion (P(a|b), P(a|not b)) of a prior P(a) weighs its branches by b's
+;; value under the prior it implies for b, the pi with pi P(a|b) + (1 - pi)
+;; P(a|not b) = P(a), so the observation is restated under pi, odds(s') =
+;; lambda odds(pi), and modus ponens over the inversion gives the posterior
+;; odds odds(P(a)) (u lambda + 1 - u) / (v lambda + 1 - v) for the likelihoods
+;; u and v. The log-odds variance carries over (delta method); a value stated
+;; with confidence 1 keeps it. A certain observation, an inversion b does not
+;; move, and a prior of 0 or 1 or none (`no-evidence`: a value formed under no
+;; known prior) leave the observation as it is.
+(: ObservationRatioFormula (-[semidet]-> TV TV TV TV STVType))
+(= (ObservationRatioFormula (STV $s $c) $base (STV $sa $_ca) (CTV (STV $pos $_cpos) (STV $neg $_cneg)))
+   (case $base (
+      ((STV $p $_cp)
+         (if (or (== $pos $neg) (or (<= (* $s (- 1.0 $s)) 0.0) (<= (* $p (- 1.0 $p)) 0.0)))
+            (STV $s $c)
+            (let* (($pi (ideal-clip (/ (- $sa $neg) (- $pos $neg))))
+                   ($x (* $s (* $pi (- 1.0 $p))))
+                   ($r (/ $x (+ $x (* (- 1.0 $s) (* $p (- 1.0 $pi))))))
+                   ($q (/ (* $r (- 1.0 $r)) (* $s (- 1.0 $s)))))
+               (STV $r (if (>= $c 1.0) $c (ideal-conf-from-var $r (* (* $q $q) (ideal-var $s $c))))))))
+      ($_none (STV $s $c)))))
 
 (: Equal (-[det]-> $a $b Bool))
 (= (Equal $a $b) (== $a $b))
