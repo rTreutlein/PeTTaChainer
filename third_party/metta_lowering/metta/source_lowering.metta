@@ -94,12 +94,18 @@
                 (car-atom $state-values) 0))))
       (progn (change-state! ctxid (+ $n 1)) $n)))
 
-(: collect-var-step
-   (-[det]-> (List Variable) Atom (List Variable)))
-(= (collect-var-step $accum $arg)
-   (if (is-var $arg)
-      (cons (brand Variable $arg) $accum)
-      $accum))
+;; The variables of an expression's elements, nested ones included, consed
+;; onto the accumulator in the order they occur. A det walk commits to its
+;; clause; the library fold-nested is effect-polymorphic, so each walk through
+;; it left a choice point that kept its caller's frames alive.
+(: collect-vars
+   (-[det]-> (List Variable) Expression (List Variable)))
+(= (collect-vars $accum ()) $accum)
+(= (collect-vars $accum (cons $arg $rest))
+   (collect-vars
+      (if (is-expr $arg) (collect-vars $accum $arg)
+         (if (is-var $arg) (cons (brand Variable $arg) $accum) $accum))
+      $rest))
 
 (: extract-vars (-[det]-> Atom (List Variable)))
 ;; Ground terms need no source walk. An open native closure remains opaque,
@@ -108,7 +114,7 @@
    (if (is-ground $expr) ()
       (if (is-var $expr) (cons (brand Variable $expr) ())
          (if (is-expr $expr)
-            (fold-nested collect-var-step () $expr)
+            (collect-vars () $expr)
             ()))))
 
 ;; Source existential binders use `(Exists ($x $y ...) body)`. Keep the binder

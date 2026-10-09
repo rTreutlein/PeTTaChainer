@@ -729,9 +729,10 @@
 ;; formulas then run when the join is built, and a part that does not settle
 ;; builds no row. A derived value never settles (modus ponens leaves its
 ;; confidence below 1), so a settled join builds no row it does not need.
-(: sk-settles-step (-[det]-> Bool SkPattern Bool))
-(= (sk-settles-step $seen $premise)
-   (if $seen true (case $premise (((CPU $fun $_args $_res) (== $fun SettlesFormula)) ($_fact false)))))
+(: sk-settles? (-[det]-> (List SkPattern) Bool))
+(= (sk-settles? ()) false)
+(= (sk-settles? (cons $premise $rest))
+   (if (case $premise (((CPU $fun $_args $_res) (== $fun SettlesFormula)) ($_fact false))) true (sk-settles? $rest)))
 
 (: sk-certain-tv-step (-[det]-> (List TV) SkFact (List TV)))
 (= (sk-certain-tv-step $tvs ($_type $_kbctx $_proof $tv))
@@ -739,7 +740,7 @@
 
 (: sk-settled-read? (-[det]-> (List SkPattern) (List SkPattern) Statement KBContext TV Bool))
 (= (sk-settled-read? $done $remaining $type $kbctx $tv)
-   (if (fold-flat sk-settles-step (fold-flat sk-settles-step false $done) $remaining)
+   (if (if (sk-settles? $done) true (sk-settles? $remaining))
       (if (== (extract-vars $type) ())
          (case (fold-flat sk-certain-tv-step () (sk-leaf-facts $type $kbctx sk-any-filter)) (
             ((cons $certain $_more) (= $tv $certain))
