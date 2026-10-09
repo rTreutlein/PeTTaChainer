@@ -1384,16 +1384,19 @@
    (collapse (match &sk_fresh (sk-fresh $node)
       (let $_removed (remove-atom &sk_fresh (sk-fresh $node)) $node))))
 
-;; The walk is best-first by score. Expanding a node costs a step, and the walk
-;; ends at the first unexpanded node the budget cannot pay for. Passing through
-;; an expanded node spends a separate walk allowance, so revisiting what is
-;; already built never takes a step from new expansions; once the allowance is
-;; spent, expanded nodes are passed over and the walk goes on to what is left.
-;; Equal scores go shallowest first, then in insertion order.
+;; The walk is best-first by score. Expanding a node costs a step. Passing
+;; through an expanded node spends a separate walk allowance, so revisiting what
+;; is already built never takes a step from new expansions. Once the budget is
+;; spent, unexpanded nodes are passed over, as expanded nodes are once the
+;; allowance is spent, and the walk goes on to what is left: expansions that
+;; cost no step still complete the joins the paid ones started. Equal scores go
+;; first to the work of roots already started, shallowest first, and then to
+;; the roots not started yet, in insertion order: the budget completes the
+;; answers it started before it starts new ones.
 (: sk-push (-[det]-> Number (Heap SkeletonFrontier) SkPattern (Heap SkeletonFrontier)))
 (= (sk-push $depth $heap $node)
    (add_to_heap $heap
-      (+ (- 0 (sk-node-score $node)) (+ (* $depth 0.000001) (* (next-search-id sk_push_seq) 0.000000000001)))
+      (+ (- 0 (sk-node-score $node)) (+ (* (if (== $depth 0) 1000 $depth) 0.000001) (* (next-search-id sk_push_seq) 0.000000000001)))
       (sk-frontier $node $depth)))
 
 (: sk-push-children (-[semidet]-> Number SkPattern (Heap SkeletonFrontier) (Heap SkeletonFrontier)))
@@ -1432,7 +1435,7 @@
             (sk-search! $rest))
          (if (if (sk-extensional? $node) true (sk-take! sk_budget))
             (let $_expand (sk-expand! $node $depth) (sk-search! (sk-push-children $depth $node $rest)))
-            (sk-drain!)))))
+            (sk-search! $rest)))))
 
 ;; A row's latest view and the views it replaced.
 (: sk-drop-row-views! (-[det]-> Number SkeletonKey Number Atom))

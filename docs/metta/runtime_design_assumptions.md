@@ -317,9 +317,13 @@ step from new expansions, and once the allowance is spent expanded nodes are
 passed over while the walk goes on. A node's priority is
 the best value any join waiting on it gives it: the owner's value times the
 rule's expected confidence, shared among the premises still open. Equal scores
-go shallowest first, then in insertion order, and the walk stops at the first
-node the budget cannot pay for, so a larger budget extends the same search
-prefix. A multi-root query shares one budget and one order.
+go first to the work of roots already started, shallowest first, and then to
+the roots not started yet, in insertion order: the budget completes the
+answers it started before it starts new ones. Once the budget is spent, nodes
+it cannot pay for are passed over and the walk goes on, so expansions that
+cost no step (below) still complete the joins the paid ones started; the paid
+expansions of a larger budget extend the same prefix. A multi-root query
+shares one budget and one order.
 
 Stored facts cost no expansion: a join waiting on a ground fact premise reads
 its facts at once, and a root reads its own stored facts. An open premise waits
