@@ -166,3 +166,34 @@ keys, 53% at 50,000), so masks only postpone the growth: past a closure size
 they stop pruning membership and stop deciding dominance. Bounding closures
 by forgetting into decaying summaries (option B) is what keeps a step constant
 for good; the node DAG lets it cut old subtrees off at epoch nodes.
+
+## Mask width: 4,096 bits (October 2026)
+
+65,536 bits was chosen so that masks stay sparse on the largest closures then
+measured, StationOps at 20 modules (up to about 1,700 keys: 2.6% fill), since
+a collision in `deps-mask-within?` drops an older view a consumer could have
+read. The price is 8 KB stored per interned node: 256 MB for 31,476 nodes on
+SupplyNet m at 4 steps per query, the largest store once evidence sets were
+interned ([evidence_sets.md](evidence_sets.md)).
+
+At 4,096 bits the same closure fills 34% of its mask, so dominance can drop an
+older view by collision more often and a membership walk prunes less.
+Measured against 65,536, both with interned evidence:
+
+- `compare.sh master <build> --full`: accuracy identical in all 73 cases and
+  every StationOps replay belief stream identical, for both widths.
+- StationOps live, 20 modules, 20 shifts, seeds 3 and 7, the setting the
+  width was sized for, four runs side by side: game streams identical; peak
+  memory 894 → 709 MB and 815 → 661 MB; forward plus query time 52.5 → 53.6 s
+  and 48.8 → 49.2 s (`query_many` +7–10%, forward unchanged).
+- SupplyNet scale, seed 1: peak memory m/4 1,345 → 1,087 MB, l/4
+  1,651 → 1,354 MB, l/16 5,075 → 4,299 MB; seconds m/4 39.2 → 35.9, l/8
+  82.6 → 66.3.
+
+16,384 bits gave the same StationOps streams. 4,096 is kept: no measured
+answer changes, and memory and time drop everywhere except a 1–2% slower
+StationOps run at 20 modules. A closure ten times larger fills most of a
+4,096-bit mask (1 − e^(−n/4096)); then most newer views look within older
+ones, so dominance drops older views a consumer could read, and membership
+walks most of the closure. Bounding closures (option B) is the remedy, as
+above.

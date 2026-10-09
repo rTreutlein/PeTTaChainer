@@ -217,7 +217,9 @@ deps_mark(Id, Live) :-
 
 deps_children(Id, Children) :-
     (   deps_cut(Id, Replacement) -> Children = [Replacement] ; deps_node(Id, Children, _) ).
-deps_mask_bits(65536).
+% The mask width trades stored bytes per node against collisions in dominance
+% (docs/metta/dependency_tracking_design.md, "Mask width").
+deps_mask_bits(4096).
 
 deps_bit(Hash, Bit) :- deps_mask_bits(W), Bit is 1 << (Hash mod W).
 

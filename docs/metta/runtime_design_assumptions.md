@@ -186,7 +186,9 @@ through inverted rules, longer cycles, and more general or more specific keys.
 A value carries its dependency set as one interned node id, a union of its
 premises' nodes, so it stays one integer however long its history; whether a
 set holds a key is a walk pruned by each node's bitmask of key hashes
-(`dependency_tracking_design.md`).
+(`dependency_tracking_design.md`). Its evidence is one interned set id too,
+the set's entries kept in the order they were added, so equal evidence is an
+equal id and set tests run over integers ([evidence_sets.md](evidence_sets.md)).
 A compound And or Or antecedent is lowered into its parts, so what a rule
 concludes from it depends on the parts' keys and never on the compound's; a
 row inverting such a rule into the compound therefore also excludes views that
