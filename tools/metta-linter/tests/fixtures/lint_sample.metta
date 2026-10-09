@@ -30,3 +30,5 @@
 (= (lint-default-case $x) (case $x (((Value $y) (Wrap $y)) ($other $other))))
 
 (= (lint-clean) (let* (($x 1) ($y 2)) (+ $x $y)))
+
+(= (lint-identity $x) $x)

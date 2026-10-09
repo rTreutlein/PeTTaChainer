@@ -8,18 +8,38 @@ load_metta_source(File, Space, true) :-
     maplist(lint_parse_form, Forms, ParsedForms),
     maplist(add_source_form(Space), ParsedForms), !.
 
+% Source variables are frozen into (lint-source-var Name) markers, so the
+% linter's patterns unify only with the written structure and never bind a
+% variable of the linted code.
+lint_freeze(Source, Term) :-
+    atom_codes(Source, Codes),
+    phrase(sexpr(Term, [], Env), Codes),
+    maplist(freeze_source_var, Env),
+    term_variables(Term, Anonymous),
+    maplist(=(['lint-source-var', '_']), Anonymous).
+
+freeze_source_var(Name-['lint-source-var', Name]).
+
+lint_thaw(Frozen, Term) :- thaw_source_vars(Frozen, Term, [], _).
+
+thaw_source_vars(['lint-source-var', Name], Var, Env0, Env) :- !,
+    ( Name \== '_', memberchk(Name-Var, Env0) -> Env = Env0 ; Env = [Name-Var|Env0] ).
+thaw_source_vars(Items0, Items, Env0, Env) :- is_list(Items0), !,
+    foldl(thaw_source_vars, Items0, Items, Env0, Env).
+thaw_source_vars(Term, Term, Env, Env).
+
 add_source_form(Space, parsed(Kind, Line, Term)) :-
     'add-atom'(Space, ['source-form', Line, Kind, Term], true), !.
 
 lint_parse_form(form(Line, Source), parsed(function, Line, Term)) :-
-    sread(Source, Term),
+    lint_freeze(Source, Term),
     Term = [=, [Fun|Args], _],
     atom(Fun),
     length(Args, _), !.
 lint_parse_form(form(Line, Source), parsed(expression, Line, Term)) :-
-    sread(Source, Term), !.
+    lint_freeze(Source, Term), !.
 lint_parse_form(runnable(Line, Source), parsed(runnable, Line, Term)) :-
-    sread(Source, Term), !.
+    lint_freeze(Source, Term), !.
 
 lint_newlines(C0, C2) --> blanks_to_nl, !, { C1 is C0 + 1 }, lint_newlines(C1, C2).
 lint_newlines(C, C) --> blanks.
@@ -59,7 +79,6 @@ strip_lint_comments([0'"|Rest], 0, [0'"|Out]) :- !, strip_lint_comments(Rest, 1,
 strip_lint_comments([0'"|Rest], 1, [0'"|Out]) :- !, strip_lint_comments(Rest, 0, Out).
 strip_lint_comments([0'\n|Rest], InString, [0'\n|Out]) :- !, strip_lint_comments(Rest, InString, Out).
 strip_lint_comments([0';|Rest], 0, Out) :- !,
-    append(_, [0'\n|Tail], Rest),
-    strip_lint_comments(Tail, 0, Out).
+    ( append(_, [0'\n|Tail], Rest) -> strip_lint_comments([0'\n|Tail], 0, Out) ; Out = [] ).
 strip_lint_comments([C|Rest], InString, [C|Out]) :-
     strip_lint_comments(Rest, InString, Out).
