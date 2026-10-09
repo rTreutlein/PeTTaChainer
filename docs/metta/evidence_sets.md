@@ -52,3 +52,7 @@ references and evidence sets it finds, follows live stored proofs to the
 proofs and evidence they hold, and erases the unmarked proofs, sets and
 memoized unions. It runs when a dependency collection is due (`query.metta`).
 Entries are kept; there is one per fact or rule a proof used.
+
+Where the memory of a run goes, stores against Prolog stacks, and the second
+round of representation changes after this one:
+[memory_census_2026-10-09.md](memory_census_2026-10-09.md).
