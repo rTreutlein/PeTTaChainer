@@ -211,6 +211,15 @@
       ;; A shared subproof counts once, at its first occurrence.
       ((shared $_id $shared-proof) (proof-term-evidence-list-mode $mode (brand Proof $shared-proof)))
       ((shared $_id) ())
+      ;; The population base rate an inversion or completion updates is no
+      ;; evidence about the instance.
+      (cpu ())
+      ;; A factored merge's evidence is its prior view's and its updates';
+      ;; the prior's truth value is none.
+      ((factored-revision $base $_prior $parts)
+         (append-flat
+            (proof-term-evidence-list-mode $mode (brand Proof $base))
+            (proof-term-evidence-children-mode $mode (proof-children $parts))))
       ((@ $_merge (merge/revision $left $right))
          (let*
             (($left-proof (brand Proof $left))
@@ -261,16 +270,23 @@
       ($_other $acc))))
 
 ;; A certain fact, strength 0 or 1 at confidence 1, joins the same whether its
-;; evidence is shared or not: P(K and X) is P(X) or 0 either way.
+;; evidence is shared or not: P(K and X) is P(X) or 0 either way. Evidence read
+;; off a proof term names the fact by its proof alone, negated under a Not.
+(: certain-tvs? (-[det]-> (List TV) Bool))
+(= (certain-tvs? $tvs)
+   (case $tvs (
+      ((cons (STV $s $c) $_rest)
+         (if (>= $c 1.0) (if (>= $s 1.0) true (<= $s 0.0)) false))
+      ($_other false))))
+(: stored-proof-tvs (-[det]-> Atom (List TV)))
+(= (stored-proof-tvs $name) (collapse (once (match &kb ($type $kbctx $name $tv) $tv))))
 (: certain-fact-evidence? (-[det]-> Evidence Bool))
 (= (certain-fact-evidence? $entry)
    (case $entry (
-      ((fact-ev $kbctx $proof $type)
-         (case (collapse (once (match &kb ($type $kbctx $proof $tv) $tv))) (
-            ((cons (STV $s $c) $_rest)
-               (if (>= $c 1.0) (if (>= $s 1.0) true (<= $s 0.0)) false))
-            ($_other false))))
-      ($_other false))))
+      ((not-ev $inner) (certain-fact-evidence? $inner))
+      ((fact-ev $kbctx $proof $type) (certain-tvs? (collapse (once (match &kb ($type $kbctx $proof $tv) $tv)))))
+      ((not-fact-ev $nkbctx $nproof $ntype) (certain-tvs? (collapse (once (match &kb ($ntype $nkbctx $nproof $ntv) $ntv)))))
+      ($name (if (is-expr $name) false (certain-tvs? (stored-proof-tvs $name)))))))
 
 (: uncertain-evidence-step (-[det]-> Bool Evidence Bool))
 (= (uncertain-evidence-step $found $entry)

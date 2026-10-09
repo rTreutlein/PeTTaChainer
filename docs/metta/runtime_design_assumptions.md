@@ -200,7 +200,10 @@ answered, nothing deferred), so a budget cut never concludes false.
 
 Premises are selected by the consumer. Evidence of a certain fact, strength 0
 or 1 at confidence 1, never counts as shared: a join over it is exact either
-way. A premise whose value shares other fact evidence with what the row already used is replaced by the merge of that key's
+way, however the evidence names the fact (a fact proof name read off a proof
+term, negated under a Not, is looked up by that name). A factored merge's
+evidence is its prior view's and its updates'; the population base rate
+(`cpu`) and the prior's truth value it names are not evidence. A premise whose value shares other fact evidence with what the row already used is replaced by the merge of that key's
 facts and views that share none; a shared rule is not a clash, except a rule
 the row excludes: an implication instance sample excludes the rules restating
 its implication, so it reads the consequent's other proofs. Premises are taken greedily in order; when every
