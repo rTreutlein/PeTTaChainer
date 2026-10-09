@@ -170,3 +170,28 @@ ratio of 0.25 / 0.95 for Degraded t1.
 
 The conditioned value is the total probability over the storm's stored value;
 the gap to the posterior is the weight's (see above).
+
+## Result
+
+SupplyNet stage 3 timed, seed 2, 30 rounds, against master 5bbb87ad (posterior
+error is the mean distance from the exact posterior):
+
+| budget | posterior error | Brier | seconds | keys moved |
+|---|---|---|---|---|
+| 50 | 0.00478 → 0.00478 | 0.1446 → 0.1446 | 16.4 → 15.7 | 0 |
+| 100 | 0.00618 → 0.00618 | 0.1459 → 0.1459 | 18.8 → 19.0 | 0 |
+| 200 | 0.00460 → 0.00387 | 0.1448 → 0.1456 | 20.0 → 21.7 | 10, all closer |
+
+At budget 200, Degraded power-plant t4 in round 4 is 0.05 (was 0.127, exact
+0.05), and Producing power-plant t4 0.95 (was 0.873, exact 0.95). At budgets
+50 and 100 the rows recomputed below the free depth spend the whole
+evaluation allowance before any conditioning is claimed: the Degraded t3
+claim (cost 88) met an allowance of 0 at budget 50. Rows waiting for
+conditioning are not paid there either. Moving the case at budget 50 needs
+conditioning near a root to be paid before deeper rows, a change to the
+allowance's order for rows and keys alike, left open.
+
+`bench/compare.sh` full against master dd53deb6: PASS; accuracy changed in
+stage 3 at budget 100 only (timed seed 4 error 0.00399 → 0.00273, degraded
+0.0130 → 0.0097, producing 0.0076 → 0.0040; seed 3 0.00316 → 0.00310);
+StationOps replay beliefs identical; time +3% SupplyNet, +1% scale.
