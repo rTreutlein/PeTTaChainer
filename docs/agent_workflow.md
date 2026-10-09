@@ -79,8 +79,16 @@ See `bench/README.md` for the suites and thresholds.
 ## Memory
 
 WSL has 29 GB. A runaway run has frozen the whole machine before, and other
-agents share it.
+agents share it. Worse, the tmux pane Claude runs in has `OOMPolicy=stop`:
+one OOM kill of any process started from it stops the whole pane, the
+coordinator and every agent included.
 
+- Run every PeTTa, test or benchmark process inside `bench.slice`, whose
+  20 GB cap is shared by all jobs, so an OOM kills only the job:
+  `/nexus/Dev/OpenCog/bench/capped <command>`. `compare.sh`,
+  `scripts/test_metta.sh` and `scripts/verify.sh` put themselves there; run
+  anything else (a `supplynet` sweep, a single `petta` file, a probe) through
+  `capped`. The slice unit is `/nexus/Dev/OpenCog/bench/bench.slice`.
 - Start a job only while `free -g` shows at least 8 GB available.
 - Run at most 4 jobs in parallel unless the coordinator says otherwise.
 - Run every PeTTa or benchmark process under `ulimit -v 16000000`, with

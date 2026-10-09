@@ -66,7 +66,8 @@ Details and the exact commands are in `docs/agent_workflow.md`. Read it first.
 - Work in your own worktree branched from current `master`. Give it its own
   `.venv` (copy, then repoint, as the doc shows). A plain copy tests the
   main checkout's code.
-- Memory is shared by other agents. Start a job only while `free -g` shows
+- Memory is shared, and an OOM in this pane kills everyone: run every PeTTa,
+  test or benchmark process through `/nexus/Dev/OpenCog/bench/capped`. Start a job only while `free -g` shows
   8 GB or more available, run at most 4 jobs, and run every PeTTa or
   benchmark process under `ulimit -v 16000000` with `DISPLAY` unset.
 - Gates: `scripts/test_metta.sh`, `.venv/bin/python -m unittest discover -s tests`,

@@ -2,6 +2,12 @@
 
 set -u
 
+# Where bench.slice exists (see docs/agent_workflow.md), run inside it: its
+# memory cap is shared by all jobs, so an OOM kills a test, not the pane.
+if systemctl --user cat bench.slice >/dev/null 2>&1 && ! grep -q bench.slice /proc/self/cgroup; then
+  exec systemd-run --user --scope --quiet --collect --slice=bench.slice -p OOMPolicy=continue -- "$0" "$@"
+fi
+
 PETTA_STRICT_DET=${PETTA_STRICT_DET:-1}
 PETTA_JOBS=${PETTA_JOBS:-$(nproc)}
 
