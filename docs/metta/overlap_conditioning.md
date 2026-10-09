@@ -43,8 +43,8 @@ statements two views share are the keys in both sets, less
 - statements already given by an enclosing condition;
 - folds, which are not statements (a shared population base rate is the prior
   the factored merge reads, `prior_factored_merge.md`);
-- statements whose value is certain, strength 0 or 1 at confidence 1, or not a
-  simple truth value.
+- statements known: a stored fact of strength 0 or 1 at confidence 1, or
+  rows whose every view is.
 
 Shared uncertain facts are among them: a stored fact depends on its own key.
 
@@ -137,9 +137,15 @@ a root first, then cheapest, then oldest. A paid key drops its merged value
 and forces its readers, which read it conditioned. The roots' merged values
 are read before the payment, so a root conditions in its own query.
 
-Finding the shared statements costs a walk of both dependency sets and one
-read of each shared key's value, only when the evidence overlaps and neither
-view is identical, dominated or factored.
+Finding the shared statements costs a walk of both dependency sets and a
+look at each shared key's stored facts and latest row views, only when the
+evidence overlaps and neither view contains the other's. A shared key is
+never merged for this: its merge may read the key being merged, and the two
+merges would read each other without end (SupplyNet stage 3 untimed, seed 3,
+round 17, before this was so). For the same reason a key read again inside
+its own conditioning, through the weight's value, keeps its fallback there
+(`&sk_conditioning`), and the conditioned value replaces whatever that inner
+read cached.
 
 ## Worked example
 

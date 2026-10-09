@@ -208,6 +208,10 @@
 !(bind! &sk_given_pending (new-space))
 (: &sk_given_granted (SpaceOf (Number Number)))
 !(bind! &sk_given_granted (new-space))
+;; keys whose merge is being conditioned, by key hash: a read of one inside
+;; its own conditioning keeps the fallback
+(: &sk_conditioning (SpaceOf (Number)))
+!(bind! &sk_conditioning (new-space))
 ;; keys whose value changed outside evaluation, once each, by key hash
 (: &sk_dirty (SpaceOf (Number SkeletonKey)))
 !(bind! &sk_dirty (new-space))

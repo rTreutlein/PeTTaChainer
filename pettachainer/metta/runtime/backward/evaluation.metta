@@ -385,18 +385,36 @@
 (: SkeletonShared Type)
 (: sk-shared-key (-[det]-> Number SkeletonKey Number SkeletonShared))
 
-(: sk-shared-candidate (-[semidet]-> (List Number) (List SkeletonShared) SkeletonKey (List SkeletonShared)))
-(= (sk-shared-candidate $ignore $found $key)
-   (case (sk-value $key sk-any-filter $ignore) (
-      ((sk-val ($_type $_kbctx $_proof (STV $s $c)) $_ev $deps)
-         (if (certain-tvs? (cons (STV $s $c) ())) $found
-            (cons (sk-shared-key (- 0 (deps-size $deps)) $key $deps) $found)))
-      ($_other $found))))
+;; A statement is known when a stored fact gives it strength 0 or 1 at
+;; confidence 1, or when every view its rows have does. A shared statement is
+;; read off its stored facts and its rows' latest views, never by merging it:
+;; its merge may read the very key being merged.
+(: sk-known-leaf-step (-[det]-> Bool SkFact Bool))
+(= (sk-known-leaf-step $known ($_type $_kbctx $_proof $tv)) (if $known true (certain-tvs? (cons $tv ()))))
+
+(: sk-known-view-step (-[det]-> Bool SkeletonValue Bool))
+(= (sk-known-view-step $known $view)
+   (if $known
+      (case $view (
+         ((sk-val ($_type $_kbctx $_proof $tv) $_ev $_deps) (certain-tvs? (cons $tv ())))
+         ($_other false)))
+      false))
+
+(: sk-shared-candidate (-[semidet]-> (List SkeletonShared) SkeletonKey (List SkeletonShared)))
+(= (sk-shared-candidate $found $key)
+   (let* (($hash (index-hash $key))
+          ($views (map-flat sk-version-view (sk-latest-versions $hash $key)))
+          ($leaves (sk-key-leaves $key sk-any-filter)))
+      (if (if (fold-semidet sk-known-leaf-step false $leaves) true
+             (if (== $views ()) (== $leaves ()) (fold-semidet sk-known-view-step true $views)))
+         $found
+         (let $deps (fold-semidet sk-view-deps-step (deps-key $hash) $views)
+            (cons (sk-shared-key (- 0 (deps-size $deps)) $key $deps) $found)))))
 
 (: sk-shared-hash-step (-[semidet]-> (List Number) (List SkeletonShared) Number (List SkeletonShared)))
 (= (sk-shared-hash-step $ignore $found $hash)
    (if (stored-list-member? $hash $ignore) $found
-      (fold-semidet (sk-shared-candidate $ignore) $found (collapse (match &sk_keys ($hash $key) $key)))))
+      (fold-semidet sk-shared-candidate $found (collapse (match &sk_keys ($hash $key) $key)))))
 
 (: sk-below-step (-[det]-> Number Bool SkeletonShared Bool))
 (= (sk-below-step $hash $found (sk-shared-key $_size $_key $deps)) (if $found true (deps-has? $deps $hash)))
@@ -1110,6 +1128,7 @@
                 ($leaves (sk-leaf-views $hash $key $filter ()))
                 ($deps (fold-semidet sk-view-deps-step 0 (append-flat $leaves $views)))
                 ($value (sk-merge-key $hash $key $filter () () $views))
+                ($_inner (sk-uncache! $hash $key))
                 ($_cached (add-atom &sk_merged (sk-merged $hash $key $deps $value)))
                 ($_factor (sk-note-truth-factor! $hash $key $value)))
             (sk-merged $hash $key $deps $value))))))
@@ -1145,12 +1164,19 @@
 (: sk-drop-merged! (-[det]-> SkeletonKey Atom))
 (= (sk-drop-merged! $key)
    (let* (($hash (index-hash $key))
-          ($_unpaid (remove-data-rows! &sk_given_pending (quote ($hash -1 $_cost))))
-          ($_dropped
-             (collapse (match &sk_merged (sk-merged $hash $stored $deps $value)
-                (if (=alpha $stored $key)
-                   (remove-atom &sk_merged (sk-merged $hash $stored $deps $value))
-                   (empty))))))
+          ($_unpaid (remove-data-rows! &sk_given_pending (quote ($hash -1 $_cost)))))
+      (sk-uncache! $hash $key)))
+
+;; A merge conditioning a key may read the key again through a shared
+;; statement's value, which caches the key's fallback first; the conditioned
+;; value replaces it.
+(: sk-uncache! (-[det]-> Number SkeletonKey Atom))
+(= (sk-uncache! $hash $key)
+   (let $_dropped
+         (collapse (match &sk_merged (sk-merged $hash $stored $deps $value)
+            (if (=alpha $stored $key)
+               (remove-atom &sk_merged (sk-merged $hash $stored $deps $value))
+               (empty))))
       ()))
 
 ;; --- Row views --------------------------------------------------------------
@@ -1352,18 +1378,34 @@
 ;; it is conditioned only once the evaluation paid for it, and keeps the
 ;; fallback until then (see sk-pay-conditions!), with a cost bound of 2^k
 ;; times one more than the overlapping views' dependency count; inside a
-;; conditioned read it is part of what was paid for.
+;; conditioned read it is part of what was paid for. A key read again inside
+;; its own conditioning, through a shared statement's value, keeps its
+;; fallback there.
 (= (sk-key-condition $given $hash $key $filter $exclude (cons $pin $more) $deps $fallback)
-   (if (if (== $given ()) (not (space-row-present? &sk_given_granted ($hash -1))) false)
-      (let $cost (* (pow-math 2 (+ 1 (list-len $more))) (+ 1 (deps-size $deps)))
-         (if (space-row-present? &sk_given_pending ($hash -1 $_cost)) $fallback
-            (let $_pending (add-atom &sk_given_pending ($hash -1 $cost)) $fallback)))
-      (let* (($phash (index-hash $pin))
-             ($weight (sk-given-value $given $pin sk-any-filter (hash-union $exclude (sk-unifier-hashes $hash $key))))
-             ($true (sk-given-merge (cons (sk-given $phash $pin true) $given) $key $filter $exclude))
-             ($false (sk-given-merge (cons (sk-given $phash $pin false) $given) $key $filter $exclude)))
-         (let $mixed (collapse (once (sk-mix $weight $true $false)))
-            (if (== $mixed ()) $fallback (car-atom $mixed))))))
+   (if (== $given ())
+      (if (space-row-present? &sk_given_granted ($hash -1))
+         (if (space-row-present? &sk_conditioning ($hash)) $fallback
+            (let* (($_entered (add-atom &sk_conditioning ($hash)))
+                   ($mixed (sk-key-mix $given $hash $key $filter $exclude $pin $fallback))
+                   ($_left (remove-atom &sk_conditioning ($hash))))
+               $mixed))
+         (let $cost (* (pow-math 2 (+ 1 (list-len $more))) (+ 1 (deps-size $deps)))
+            (if (space-row-present? &sk_given_pending ($hash -1 $_cost)) $fallback
+               (let $_pending (add-atom &sk_given_pending ($hash -1 $cost)) $fallback))))
+      (sk-key-mix $given $hash $key $filter $exclude $pin $fallback)))
+
+;; The mix itself: the weight read without the key, the key merged again
+;; with the statement known true and known false.
+(: sk-key-mix
+   (-[semidet]-> (List SkeletonGiven) Number SkeletonKey SkeletonFilter (List Number) SkeletonKey SkeletonValue
+       SkeletonValue))
+(= (sk-key-mix $given $hash $key $filter $exclude $pin $fallback)
+   (let* (($phash (index-hash $pin))
+          ($weight (sk-given-value $given $pin sk-any-filter (hash-union $exclude (sk-unifier-hashes $hash $key))))
+          ($true (sk-given-merge (cons (sk-given $phash $pin true) $given) $key $filter $exclude))
+          ($false (sk-given-merge (cons (sk-given $phash $pin false) $given) $key $filter $exclude))
+          ($mixed (collapse (once (sk-mix $weight $true $false)))))
+      (if (== $mixed ()) $fallback (car-atom $mixed))))
 
 ;; A premise value whose evidence overlaps what the row already uses is
 ;; replaced by the merge of the key's leaves and views that do not overlap it:
@@ -2343,6 +2385,7 @@
                    (let $_cause (add-atom &sk_fold_pending ($phash $phash)) (sk-fold-check $phash $pfold))
                    (empty)))))
           ($_granted (remove-data-rows! &sk_given_granted (quote ($khash $rhash))))
+          ($_conditioning (remove-data-rows! &sk_conditioning (quote ($chash))))
           ($_restale (remove-data-rows! &sk_restale (quote ($khash $rhash))))
           ($_restaled (remove-data-rows! &sk_restaled (quote ($khash $rhash))))
           ($new (collapse (match &sk_new (sk-row-item $seq $hash $key $rhash $row)
