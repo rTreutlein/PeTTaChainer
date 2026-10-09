@@ -8,14 +8,6 @@
 ;; versions, conditioning and base rates behave as they do for queries.
 ;; A taken key's value is also stored in &kb (sk-forward-store!).
 
-!(import_prolog_function nth0)
-
-;; nth0/4 removes the indexed element while unifying it with its third
-;; argument. Its relational modes can branch, but every result preserves the
-;; element type of the input list.
-(: nth0
-   (-[nondet]-> $index (List $item) $item (List $item)))
-
 ;; The least evidence, in observations (n = c k / (1 - c)), a derived key's
 ;; value needs for the run to build on it. Process-wide.
 !(change-state! forward_min_evidence 1.0)

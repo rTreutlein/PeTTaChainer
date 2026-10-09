@@ -63,6 +63,23 @@
             (collapse (match &kb_prefix ($hash $type $kbctx $proof $tv) (data $type $kbctx $proof $tv)))
             (collapse (match &kb_open ($type $kbctx $proof $tv) (data $type $kbctx $proof $tv))))))))
 
+;; A rule premise is indexed by its statement's head (prem_index, which a
+;; forward run reads) and, unless its head is a variable, in &prem_prefix by the
+;; longest ground prefix of its statement within its KB, so the rules a ground
+;; key is a premise of are found by hashing the key's prefixes
+;; (statement-prefix-keys) instead of walking every premise with its head.
+(: &prem_prefix (SpaceOf (Number (| Goal (Statement KBContext Proof TV)) Number Number)))
+!(bind! &prem_prefix (new-space))
+
+;; The &prem_prefix keys of a statement's prefixes in a KB, its head alone first.
+(: statement-prefix-keys (-[det]-> Atom Statement (List Number)))
+(= (statement-prefix-keys $kbid $type)
+   (map-flat (prefix-key $kbid)
+      (cons (index-hash (if (is-expr $type) (car-atom $type) $type)) (statement-prefix-hashes $type))))
+
+(: prefix-key (-[det]-> Atom Number Number))
+(= (prefix-key $kbid $hash) (index-hash (quote ($kbid $hash))))
+
 (: kb-add-prem
    (-[det]-> KbBackend Number Number
        (| Goal (Statement KBContext Proof TV))
@@ -71,12 +88,20 @@
    (progn
       (case $prem (
          (($type ($kbid $_ctx $_vars) $_prf $_tv)
-            (once
-               (kb-add-atom $backend prem_index
-                  (make-space-row4
-                     (forward-type-trigger-key
-                        (brand KB $kbid) (brand Statement $type))
-                     $prem $id $idx))))
+            (let $_head
+               (once
+                  (kb-add-atom $backend prem_index
+                     (make-space-row4
+                        (forward-type-trigger-key
+                           (brand KB $kbid) (brand Statement $type))
+                        $prem $id $idx)))
+               (if (if (is-var $type) true (if (is-expr $type) (is-var (car-atom $type)) false)) ()
+                  (let $key
+                     (prefix-key $kbid
+                        (case (statement-prefix-hashes $type) (
+                           (() (index-hash (if (is-expr $type) (car-atom $type) $type)))
+                           ((cons $longest $_shorter) $longest))))
+                     (once (kb-add-atom $backend &prem_prefix (brand SpaceAtom (data $key $prem $id $idx))))))))
          ($_cpu ())))
       (+ $idx 1)))
 
@@ -307,6 +332,8 @@
             (let*
                (($_prems
                    (remove-atom prem_index ($_pkey $_prem $id $_pidx)))
+                ($_prefixes
+                   (remove-atom &prem_prefix ($_prefix $_pprem $id $_ppidx)))
                 ($_ccls-idx
                    (remove-atom ccls_index ($ccls $id $_prems2)))
                 ($_expected

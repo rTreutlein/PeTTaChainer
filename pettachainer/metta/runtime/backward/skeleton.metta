@@ -47,6 +47,8 @@
 (: sk-complete-row! (-[semidet]-> SkPattern Number SkFact (List SkPattern) (List SkeletonKey) Atom))
 (: sk-start-rule-step (-[semidet]-> SkPattern Atom SkeletonMatch Atom))
 (: sk-activate-pending! (-[semidet]-> Atom))
+(: sk-activate-rules! (-[semidet]-> Atom))
+(: sk-activate-facts! (-[semidet]-> Atom))
 (: sk-expand! (-[semidet]-> SkPattern Number Atom))
 (: sk-rule-match (-[nondet]-> SkFact SkeletonMatch))
 (: sk-world-rule-match (-[nondet]-> SkFact SkeletonMatch))
@@ -1285,27 +1287,72 @@
 
 ;; --- Activation of facts and rules added after expansion --------------------
 
-(= (sk-activate-pending!)
-   (let* (($rules
-             (collapse (match &sk_pending_rules (sk-pending-rule $id)
-                (let $_removed (remove-atom &sk_pending_rules (sk-pending-rule $id)) $id))))
-          ($facts
-             (collapse (match &sk_pending_facts (sk-pending-fact $key)
-                (let $_removed (remove-atom &sk_pending_facts (sk-pending-fact $key)) $key))))
-          ($_rules (fold-semidet sk-activate-rule-step () $rules)))
-      (fold-semidet sk-activate-fact-step () $facts)))
+(= (sk-activate-pending!) (let $_rules (sk-activate-rules!) (sk-activate-facts!)))
+
+(= (sk-activate-rules!)
+   (fold-semidet sk-activate-rule-step ()
+      (collapse (match &sk_pending_rules (sk-pending-rule $id)
+         (let $_removed (remove-atom &sk_pending_rules (sk-pending-rule $id)) $id)))))
+
+(= (sk-activate-facts!)
+   (fold-semidet sk-activate-fact-step ()
+      (collapse (match &sk_pending_facts (sk-pending-fact $key)
+         (let $_removed (remove-atom &sk_pending_facts (sk-pending-fact $key)) $key)))))
 
 (: sk-activate-rule-step (-[semidet]-> Atom Number Atom))
 (= (sk-activate-rule-step $_acc $id)
    (fold-semidet (sk-activate-rule-row $id) ()
       (collapse (match rules (runtime-rule-row $id $ccls $args) (sk-rule-def $ccls $args)))))
 
+;; nth0/4 removes the indexed element while unifying it with its third
+;; argument. Its relational modes can branch, but every result preserves the
+;; element type of the input list.
+!(import_prolog_function nth0)
+(: nth0
+   (-[nondet]-> $index (List $item) $item (List $item)))
+
+;; The rules with a premise a ground key matches, that premise bound to it.
+(: sk-premise-rules-step (-[det]-> Statement KBContext Number (List SkeletonMatch) (List SkeletonMatch)))
+(= (sk-premise-rules-step $type $kbctx $prefix $found)
+   (append-flat
+      (collapse
+         (let* ((($_pattern $id $idx) (match &prem_prefix ($prefix $pattern $id $idx) ($pattern $id $idx)))
+                ((runtime-rule-row $id $ccls $prems) (match rules (runtime-rule-row $id $ccls $prems) (runtime-rule-row $id $ccls $prems)))
+                ($_rest (nth0 $idx $prems (assemble-stored-runtime-fact $type $kbctx $_proof $_tv))))
+            (sk-match $id $prems $ccls)))
+      $found))
+
+(: sk-absorb-step (-[semidet]-> Atom SkeletonMatch Atom))
+(= (sk-absorb-step $_acc (sk-match $id $prems $ccls))
+   (let* ((($type $kbctx $_proof $_tv) $ccls)
+          ($key (sk-key $type $kbctx)))
+      (if (== (extract-vars $key) ())
+         (let $hash (index-hash $key)
+            (fold-semidet (sk-activate-rule-on $id $ccls $prems) ()
+               (collapse (match &sk_score ($hash $node $_score) (if (sk-expanded? $node) (empty) $node)))))
+         ())))
+
+;; A fact added after expansion is read at once by every node reading its key:
+;; the expanded nodes it matches and the ground premises joins wait on, expanded
+;; or not. A ground fact is also read by each node the skeleton holds, still
+;; unexpanded, for the conclusion of a rule it is a premise of: that rule alone
+;; is started there, as expanding the node would start it. Stored facts cost no
+;; expansion however late they arrive, so new evidence reaches the keys a search
+;; built without the search returning to them.
 (: sk-activate-fact-step (-[semidet]-> Atom SkeletonKey Atom))
 (= (sk-activate-fact-step $_acc $key)
    (case $key (
       ((sk-key $type $kbctx)
-         (fold-semidet (sk-activate-fact-on $key) ()
-            (collapse (match &sk_node_terms ($type $kbctx $node) $node))))
+         (let* ((($kbid $_ctx $_vars) $kbctx)
+                ($hash (index-hash $key))
+                ($_read
+                   (fold-semidet (sk-activate-fact-on $key) ()
+                      (alpha_unique_keys
+                         (append-flat (collapse (match &sk_node_terms ($type $kbctx $node) $node))
+                            (collapse (match &sk_wait ($hash $premise $_waiter) $premise)))))))
+            (if (== (extract-vars $type) ())
+               (fold-semidet sk-absorb-step () (foldr-flat (sk-premise-rules-step $type $kbctx) () (statement-prefix-keys $kbid $type)))
+               ())))
       ($_fold ()))))
 
 (: sk-activate-rule-row (-[semidet]-> Number Atom SkeletonRuleDef Atom))

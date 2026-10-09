@@ -119,9 +119,13 @@ its row is built from the statement and context alone: a row belongs to its
 key, and each reader applies its own proof and truth-value pattern.
 
 For the backward chainer, ingestion only journals added facts and rules. The
-next query activates them
-against the patterns already expanded, so a fact added between queries reaches
-the rows that use it through ordinary leaf answers.
+next query activates them against the skeleton before its walk: a rule reaches
+the patterns already expanded, and a fact is read by every node that reads its
+key (expanded nodes and the ground premises joins wait on, expanded or not)
+and, through the rule it is a premise of, by each unexpanded node the skeleton
+holds for that rule's conclusion, where that rule alone is started
+([fact_absorption.md](fact_absorption.md)). So evidence that arrives after a
+search reaches the keys it built, without the search returning to them.
 
 Rules compiled for one query (query adapters, implication scaffolds) leave with
 it: their rows, waiters and views are removed and the keys they fed change.
@@ -239,7 +243,9 @@ support, a dependency the row never had; the keys a row can depend on are
 finite, so evaluation ends even though inverted rules make real skeletons
 cyclic. A change from outside the rows forces each reader once per evaluation
 and per causing key, and a forced reader whose value changes passes the change
-on to its own readers the same way, so a refined fold reaches the roots.
+on to its own readers the same way, so a refined fold reaches the roots. A row
+never computed is not forced: its first view changes its key whatever caused
+it.
 
 ### Folds and base rates
 
@@ -332,18 +338,21 @@ expansions of a larger budget extend the same prefix. A multi-root query
 shares one budget and one order.
 
 Stored facts cost no expansion: a join waiting on a ground fact premise reads
-its facts at once, and a root reads its own stored facts. An open premise waits
-for its expansion, which bounds recursion. A node no rule can conclude (other
-than an implication or inheritance link, whose expansion installs rules) is
-expanded without a step when the walk reaches it: its expansion only reads
-its stored facts. It keeps its place in the walk, so its facts extend joins
+its facts at once, and whenever more are stored, and a root reads its own
+stored facts. An open premise waits for its expansion, which bounds recursion.
+A node no rule can conclude (other than an implication or inheritance link,
+whose expansion installs rules) is expanded without a step when the walk
+reaches it: its expansion only reads its stored facts. It keeps its place in the walk, so its facts extend joins
 when its priority says so (reading them at once filled the row budget early:
 StationOps Brier 0.0652 against 0.0607 at the smallest budgets). Before any state is created, a rule
 whose ground fact premise has no fact and no concluding rule is pruned. New
 rows have an allowance of ten per step, except the rows of the query's own
 roots; rows beyond it wait with their node
 and are completed when a later walk reaches that node, so leftover work never
-spends an unrelated query's budget.
+spends an unrelated query's budget. Facts stored since the last query are the
+exception: they are delivered first, before the next query's walk, from an
+allowance of their own (ten rows per new fact and per step), as the deferred
+cost of ingesting them.
 
 Evaluation then brings current only what the roots read: their keys, the
 premise keys of those keys' rows, and the members of folds and groups among
@@ -445,7 +454,9 @@ candidate; facts whose statements have variables sit in `&kb_open`, which every
 such lookup reads too, so no unifying fact is missed. Readers that bind only a
 statement's head read `&kb` directly. The skeleton's registered keys are
 indexed the same way: `&sk_key_prefix` and `&sk_key_open` beside
-`&sk_key_terms`.
+`&sk_key_terms`. Rule premises are indexed the other way round: each in
+`&prem_prefix` under the hash of its statement's longest ground prefix, so the
+rules a ground key is a premise of are found by hashing the key's prefixes.
 
 ### Reasoning work is lazy and budgeted
 

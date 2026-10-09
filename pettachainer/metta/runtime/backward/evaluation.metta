@@ -1778,7 +1778,8 @@
 
 ;; A row is forced once per evaluation by each changed key: a fold's readers
 ;; follow its members as they change, and a fold feeding back into its own
-;; members still ends.
+;; members still ends. A row never computed is not forced: its first view
+;; changes its key whatever caused it.
 (: sk-force-cause! (-[det]-> Number Number Number Atom))
 (= (sk-force-cause! $khash $rhash $cause)
    (if (== (collapse (once (match &sk_forced_used ($khash $rhash $cause) true))) ())
@@ -1789,7 +1790,9 @@
 
 (: sk-force! (-[det]-> (List Number) SkeletonItem Atom))
 (= (sk-force! $causes (sk-row-item $_seq $khash $_key $rhash $_row))
-   (let $_forced (map-flat (sk-force-cause! $khash $rhash) $causes) ()))
+   (if (space-row-present? &sk_support ($khash $rhash $_deps))
+      (let $_forced (map-flat (sk-force-cause! $khash $rhash) $causes) ())
+      ()))
 (= (sk-force! $_causes (sk-fold-check $_hash $_fold)) ())
 
 ;; Whether a view brings a dependency none of the row's views had.
@@ -2526,15 +2529,29 @@
 (= (execute-backward $steps $goals $materialize?)
    (let* (($_seen (remove-data-rows! &sk_seen (quote ($hash $node))))
           ($_fresh (remove-data-rows! &sk_fresh (quote (sk-fresh $node))))
+          ($_parked (sk-park-deliveries!))
+          ($_old-roots (remove-data-rows! &sk_roots (quote ($hash $root))))
+          ;; What was stored since the last query is activated before the
+          ;; walk: facts against the nodes that were there before (so a root
+          ;; new to the skeleton still starts from its population prior),
+          ;; rules once the roots are registered, since a query's own rules
+          ;; build its roots' rows. Their answers are delivered at once, from
+          ;; an allowance of their own, ten rows per new fact and per step:
+          ;; reading new evidence is the deferred cost of storing it, so it
+          ;; neither waits for a walk to come back to it nor takes the rows
+          ;; the search needs, and the allowance bounds what new facts set off
+          ;; through recursive rules. Deliveries beyond it are made from the
+          ;; query's allowance (docs/metta/fact_absorption.md).
+          ($_absorbing (change-state! sk_row_budget (* 10 (+ (length (collapse (match &sk_pending_facts $fact $fact))) $steps))))
+          ($_facts (sk-activate-facts!))
+          ($_scored (fold-semidet sk-root-score-step () $goals))
+          ($_rules (sk-activate-rules!))
+          ($_absorbed (sk-drain!))
           ($_budget (change-state! sk_budget $steps))
           ($_rows (change-state! sk_row_budget (* 10 $steps)))
           ($_evaluation (change-state! sk_eval_budget (* (sk-evaluation-per-step) $steps)))
           ($_walk (change-state! sk_walk_budget (* (sk-walk-per-step) $steps)))
-          ($_activate (sk-activate-pending!))
-          ($_parked (sk-park-deliveries!))
           ($_pushes (change-state! sk_push_seq 0))
-          ($_old-roots (remove-data-rows! &sk_roots (quote ($hash $root))))
-          ($_scored (fold-semidet sk-root-score-step () $goals))
           ($_search (sk-search! (fold-semidet (sk-push 0) (empty_heap) $goals)))
           ($_unneeded (remove-data-rows! &sk_needed (quote ($hash $key $depth))))
           ($_needed (fold-semidet sk-need-root! () $goals))
