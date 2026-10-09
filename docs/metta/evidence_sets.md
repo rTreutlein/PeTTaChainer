@@ -12,12 +12,17 @@ A value holds its evidence as one interned set, `(ev-set Id)`, with
 
 - An **entry** (`fact-ev`, `not-fact-ev`, `rule-ev`, `rule-excluded`,
   `not-ev`, or a proof name read off a proof term) is interned once as an
-  integer (`ev_entry/2`, looked up by `ev_entry_key/3` under its hash).
+  integer (`ev_entry/2`, looked up by `ev_entry_key/2` under its hash).
 - A **set** is the list of its entry ids in the order the entries were first
   added (`ev_set(Id, Ordered, Sorted, Excluded)`), interned by that list, so
   equal evidence has one id and `sk-same-view?` compares ids. `Sorted` holds
   the same ids in order for the set tests; `Excluded` holds the ids of the
   `rule-ev` entries that the set's `rule-excluded` entries name.
+- Both id sequences are packed in strings, one character per id. A clause
+  stores such a string in about a fifth of the space of an integer list
+  (1.2 KB against 5.8 KB for 230 ids), and `string_codes/2` unpacks it in C.
+  A character holds at most 1,114,111, so that many entries can be interned;
+  one more raises a type error.
 - Sets never change. A union is memoized by its operands
   (`ev_union_memo/2`).
 
