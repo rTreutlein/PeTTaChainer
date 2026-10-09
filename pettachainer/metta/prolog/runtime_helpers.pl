@@ -267,12 +267,15 @@ deps_has(Id, Hash, Bit, Seen) :-
     (   ( Set == 0 ; Set == Within ) -> Result = true
     ;   deps_mask(Set, M1), deps_mask(Within, M2), ( M1 /\ \ M2 =:= 0 -> Result = true ; Result = false ) ).
 
-% Whether every key of Set is in Within. A node reachable from Within is
-% covered whole; only the rest is walked down to its keys.
+% Whether every key of Set is in Within. A bit of Set's mask that Within's
+% lacks is a key Within lacks, which decides most calls at once. Otherwise a
+% node reachable from Within is covered whole; only the rest is walked down to
+% its keys.
 'deps-within?'(Set, Within, Result) :-
     (   deps_within(Set, Within) -> Result = true ; Result = false ).
 deps_within(Set, Within) :- ( Set == 0 ; Set == Within ), !.
 deps_within(Set, Within) :-
+    deps_mask(Set, M1), deps_mask(Within, M2), M1 /\ \ M2 =:= 0,
     empty_nb_set(Nodes), empty_nb_set(Keys), deps_collect(Within, Nodes, Keys),
     empty_nb_set(Seen), deps_covered(Set, Nodes, Keys, Seen).
 deps_collect(0, _, _) :- !.
