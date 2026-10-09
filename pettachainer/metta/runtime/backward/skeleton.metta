@@ -1094,15 +1094,57 @@
 (= (prefilter-prunes-walk (cons $prem $rest))
    (if (prefilter-premise-blocks? $prem) true (prefilter-prunes-walk $rest)))
 
+;; --- Complete predicates (docs/metta/complete_predicates.md) ----------------
+
+;; A KB may declare that a predicate's rules and facts are the only ways one of
+;; its statements becomes true. Declared before knowledge is added.
+(: &complete_predicates (SpaceOf (KB Atom)))
+!(bind! &complete_predicates (new-space))
+
+(: set-complete-predicate (-[det]-> KB Atom Bool))
+(= (set-complete-predicate $kb $head)
+   (if (space-row-present? &complete_predicates ($kb $head)) true
+      (let $_row (add-atom &complete_predicates ($kb $head)) true)))
+
+;; A ground statement of a complete predicate in the main context.
+(: complete-statement? (-[det]-> Atom Atom Bool))
+(= (complete-statement? $type ($kbid $ctx $_vars))
+   (if (== $ctx MAIN)
+      (if (== (extract-vars $type) ())
+         (let* (($kb (brand KB $kbid)) ($head (if (is-expr $type) (car-atom $type) $type)))
+            (space-row-present? &complete_predicates ($kb $head)))
+         false)
+      false))
+
+;; A rule applied forward, `(by rule premises)`, negated or not: one of the
+;; ways its conclusion becomes true, unlike inversions, completions and
+;; projections, which are evidence.
+(: rule-application-proof? (-[det]-> Atom Bool))
+(= (rule-application-proof? $proof)
+   (if (is-expr $proof)
+      (let $head (car-atom $proof)
+         (if (is-var $head) false
+            (if (== $head by) true
+               (if (== $head negated) (rule-application-proof? (car-atom (cdr-atom $proof))) false))))
+      false))
+
 ;; A rule applies to a node when its conclusion fits the whole node pattern;
 ;; its row is built from the statement and context alone, since a row belongs
 ;; to its key and each reader applies its own proof and truth-value pattern.
 ;; A dormant rule is not started (docs/metta/dormant_rules.md).
 ;; Dormancy is judged in the main context; in a context that sees the world,
 ;; assumptions can support what the main context lacks, so every rule runs.
+;; A rule application concluding a complete statement is never pruned before
+;; it starts: a premise with no fact and no rule is false or unknown, and the
+;; closed read tells which from the join waiting on it (sk-settled?).
 (= (sk-start-rule-step $owner $_acc (sk-match $rule $premises $goal))
    (if (if (if (sk-world-goal? $goal) false (rule-dormant? $rule)) false (= (copy_term $goal) (copy_term $owner)))
-      (if (prefilter-prunes-walk (copy_term $premises)) ()
+      (if (if (case $goal (
+                (($type $kbctx $proof $_tv)
+                   (if (rule-application-proof? $proof) (complete-statement? $type $kbctx) false))))
+             false
+             (prefilter-prunes-walk (copy_term $premises)))
+         ()
          (sk-advance! (sk-partial $owner $rule $goal $premises $premises ())))
       ()))
 
@@ -1225,6 +1267,10 @@
                 ($_mark (sk-mark-expanded! $node))
                 ($leaf-facts (sk-leaf-facts $type $kbctx (sk-filter $proof $tv)))
                 ($_leaves (fold-semidet (sk-leaf-answer-step $node) () $leaf-facts))
+                ;; A complete statement answers by its own key: the joins
+                ;; reading it build their rows, and a closed read decides its
+                ;; value (docs/metta/complete_predicates.md).
+                ($_complete (if (complete-statement? $type $kbctx) (sk-add-answer! $node (sk-key $type $kbctx)) ()))
                 ($owner (copy_term $node))
                 (($rule-type $rule-kbctx $_node-proof $_node-tv) (copy_term $node)))
             ;; No rule is applied to a certain statement.

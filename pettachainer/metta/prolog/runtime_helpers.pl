@@ -307,7 +307,9 @@ deps_covered(Id, Nodes, Keys, Seen) :-
 % so a useful rule is never put to sleep. Forward copies of derived values
 % are not support. The verdict is memoized per rule with the heads the
 % search found no fact for; a new fact with one of those heads, or any new
-% rule, wakes the rule for another look.
+% rule, wakes the rule for another look. A rule application concluding a
+% complete predicate is never dormant: its join is how a closed read sees
+% that a derivation exists (docs/metta/complete_predicates.md).
 :- dynamic rule_dormancy/3.
 
 'rule-dormant?'(Id, Dormant) :-
@@ -316,7 +318,9 @@ deps_covered(Id, Nodes, Keys, Seen) :-
 
 dormancy_analysis(Id, Dormant, Heads) :-
     nb_setval(dormancy_budget, 2000), nb_setval(dormancy_heads, []),
-    (   dormancy_row(rules('runtime-rule-row', Id, [Type, Ctx|_], Premises)),
+    (   dormancy_row(rules('runtime-rule-row', Id, [Type, Ctx, Proof|_], Premises)),
+        \+ ( ( Proof = [by|_] ; Proof = [negated, [by|_]] ),
+             Ctx = [Kb|_], statement_head(Type, Head), dormancy_row('&complete_predicates'(Kb, Head)) ),
         member([PType, PCtx, _, _], Premises), PType \== 'CPU',
         \+ dormancy_supported(PType, PCtx, Type-Ctx, [], 8)
     ->  Dormant = true

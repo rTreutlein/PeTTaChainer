@@ -80,8 +80,8 @@ settled step agree.
   exclusion applies to it as to any row. Settling to true needs a certain
   part, so a loop disjunct cannot settle its own Or: without stock, nothing
   outside the cycle proves the plant running, and there is no answer (the
-  open-world reading; the closed-world answer, not running, would need
-  negation as failure). A degraded mine settles its `And` false and breaks
+  open-world reading; declaring the cycle's predicates complete gives the
+  closed-world answer, not running: `complete_predicates.md`). A degraded mine settles its `And` false and breaks
   the loop: then production is answered false.
 - Expected confidence. `premises-expected-confidence` matched "a formula whose
   result modus ponens reads next" by unification, which bound the rule's CTV

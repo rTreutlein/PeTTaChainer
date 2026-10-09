@@ -53,6 +53,29 @@ class TestPeTTaChainer(unittest.TestCase):
                     ["(: (by ab a2) (B b) (STV 0.8000224974690348 0.9000097638542305))"],
                 )
 
+    def test_complete_predicate_applies_in_process_and_to_timed_queries(self):
+        handler = PeTTaChainer()
+        handler.set_complete_predicate("P")
+        handler.set_complete_predicate("M")
+        handler.add_atoms_no_check([
+            "(: rp (Implication (Or (S $t) (M $t)) (P $t)) (CTV (STV 1 1) (STV 0 1)))",
+            "(: rm (Implication (And (P $t) (Not (Deg $t))) (M $t)) (CTV (STV 1 1) (STV 0 1)))",
+            "(: s (S t) (STV 0 1))",
+            "(: d (Deg t) (STV 0 1))",
+        ])
+        # Without stock the loop is unfounded and P is false, live and in the
+        # subprocess a timed query spawns.
+        for timeout_sec in (0, 30):
+            with self.subTest(timeout_sec=timeout_sec):
+                result = handler.query(
+                    "(: $prf (P t) $tv)", steps=100, timeout_sec=timeout_sec
+                )
+                self.assertEqual(
+                    result,
+                    ["(: (by rp (conjunction s (by rm (conjunction unfounded (negated d))))) "
+                     "(P t) (STV 0.0 0.9996001597861454))"],
+                )
+
     def test_evidence_confidence_k_applies_in_process_and_to_timed_queries(self):
         handler = PeTTaChainer()
         handler.set_evidence_confidence_k(1)

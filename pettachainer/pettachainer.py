@@ -45,6 +45,7 @@ def _query_worker(
     bayes_prior_count: float,
     rule_refinement: bool,
     base_rate_smoothing: bool,
+    complete_predicates: List[str],
     conn,
 ):
     try:
@@ -54,6 +55,8 @@ def _query_worker(
         handler.kb = kb
         handler.set_rule_refinement(rule_refinement)
         handler.set_base_rate_smoothing(base_rate_smoothing)
+        for head in complete_predicates:
+            handler.set_complete_predicate(head)
         if added_atoms:
             handler.add_atoms_no_check(added_atoms)
         atoms = handler.handler.process_metta_string(f"!({expression})")
@@ -106,6 +109,7 @@ class PeTTaChainer:
         self._bayes_prior_count = 0.2
         self._rule_refinement = False
         self._base_rate_smoothing = False
+        self._complete_predicates: List[str] = []
         self._query_metrics_enabled = False
         self._query_metrics_path = os.environ.get(
             "PETTACHAINER_QUERY_METRICS_PATH"
@@ -316,6 +320,19 @@ class PeTTaChainer:
         self.handler.process_metta_string(f"!(set-base-rate-smoothing {self.kb} {value})")
         self._base_rate_smoothing = enabled
 
+    def set_complete_predicate(self, head: str) -> None:
+        """Declare that the rules and facts of predicate ``head`` are the only
+        ways one of its statements becomes true; declare before adding
+        knowledge.
+
+        A statement of it whose every derivation is circular or blocked is
+        then false (docs/metta/complete_predicates.md). Timed subprocess
+        queries replay the declaration.
+        """
+        self.handler.process_metta_string(f"!(set-complete-predicate {self.kb} {head})")
+        if head not in self._complete_predicates:
+            self._complete_predicates.append(head)
+
     def set_pattern_mining_on_add(self, enabled: bool) -> None:
         value = "true" if enabled else "false"
         self.handler.process_metta_string(f"!(set-pattern-mining-on-add {self.kb} {value})")
@@ -475,6 +492,7 @@ class PeTTaChainer:
                 self._bayes_prior_count,
                 self._rule_refinement,
                 self._base_rate_smoothing,
+                self._complete_predicates,
                 child_conn,
             ),
             daemon=True,

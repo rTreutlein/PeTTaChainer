@@ -30,9 +30,11 @@
 ;; the statements of the shared facts, and a bound on the rows conditioning
 ;; on them evaluates
 (: sk-clash (-[det]-> (List SkeletonKey) Number SkeletonRowState))
-;; a key a conditioned read takes as known true or false
+;; a key a conditioned read takes as known true or false, or a complete
+;; statement a closed read takes as unfounded (docs/metta/complete_predicates.md)
 (: SkeletonGiven Type)
 (: sk-given (-[det]-> Number SkeletonKey Bool SkeletonGiven))
+(: sk-unfounded (-[det]-> Number SkeletonKey SkeletonGiven))
 (: SkeletonFold Type)
 ;; accumulator, member proofs (newest first), evidence, dependency hashes
 (: sk-fold-state (-[det]-> Atom (List Proof) (List (List Evidence)) (List Number) SkeletonFold))
@@ -1017,6 +1019,7 @@
 
 (: sk-given-hash (-[det]-> SkeletonGiven Number))
 (= (sk-given-hash (sk-given $hash $_key $_truth)) $hash)
+(= (sk-given-hash (sk-unfounded $hash $_key)) $hash)
 
 (: sk-given-hashes (-[det]-> (List SkeletonGiven) (List Number)))
 (= (sk-given-hashes $given) (map-flat sk-given-hash $given))
@@ -1028,15 +1031,19 @@
       (deps-meet? (sk-given-hashes $given) (sk-view-deps-step 0 $value))))
 
 (: sk-pinned-step (-[semidet]-> SkeletonKey (List SkeletonValue) SkeletonGiven (List SkeletonValue)))
-(= (sk-pinned-step $key $found (sk-given $hash $given-key $truth))
-   (if (=alpha $given-key $key)
-      (case $key (
-         ((sk-key $type $kbctx)
-            (cons (sk-val (assemble-runtime-fact $type $kbctx (brand Proof (given $truth)) (STV (if $truth 1.0 0.0) 1.0))
-                     () (deps-key $hash))
-               $found))
-         ($_fold $found)))
-      $found))
+(= (sk-pinned-step $key $found $pin)
+   (case $pin (
+      ((sk-given $hash $given-key $truth)
+         (if (=alpha $given-key $key)
+            (case $key (
+               ((sk-key $type $kbctx)
+                  (cons (sk-val (assemble-runtime-fact $type $kbctx (brand Proof (given $truth)) (STV (if $truth 1.0 0.0) 1.0))
+                           () (deps-key $hash))
+                     $found))
+               ($_fold $found)))
+            $found))
+      ((sk-unfounded $hash $unfounded-key)
+         (if (=alpha $unfounded-key $key) (cons (sk-unfounded-value $hash $key) $found) $found)))))
 
 ;; A view that depends on a given statement, read under the condition. The
 ;; view read again is admitted as a stored one is: not when it depends on what
@@ -1144,12 +1151,119 @@
             ($_none sk-fail))))
       ($_failed sk-fail))))
 
+;; --- Closed reads (docs/metta/complete_predicates.md) --------------------------
+;; A complete statement's derivations through the reading rule's own
+;; conclusion are circular and contribute nothing: a rule application of a
+;; complete statement that may read none of a complete premise's views reads
+;; the premise's rows evaluated again with its own conclusion unfounded,
+;; (STV 0 1). A complete statement with no rule application among its rows is
+;; unfounded itself. Both only once the statement's search is settled.
+
+(: sk-unfounded-value (-[det]-> Number SkeletonKey SkeletonValue))
+(= (sk-unfounded-value $hash $key)
+   (case $key (
+      ((sk-key $type $kbctx)
+         (sk-val (assemble-runtime-fact $type $kbctx (brand Proof unfounded) (STV 0.0 1.0)) () (deps-key $hash)))
+      ($_fold sk-none))))
+
+;; Whether a node has answers and its waiting joins took them all: none is
+;; parked or queued for it.
+(: sk-delivered? (-[semidet]-> SkPattern Bool))
+(= (sk-delivered? $node)
+   (if (== (sk-answers $node) ()) false
+      (let $hash (sk-node-hash $node)
+         (== (collapse (once (superpose (
+                 (match &sk_parked ($hash $_seq $_delivery) true)
+                 (match &sk_answer_queue ($qseq (sk-delivery $queued $qkey)) (if (=alpha $queued $node) true (empty)))))))
+             ()))))
+
+(: sk-application-waits? (-[semidet]-> SkPattern Bool SkPattern Bool))
+(= (sk-application-waits? $node $found $child)
+   (if $found true
+      (if (sk-delivered? $child) false
+         (let $hash (sk-node-hash $child)
+            (not (== (collapse (once (match &sk_wait ($hash $stored (sk-partial $owner $_rule ($_t $_k $proof $_v) $_ps $_rest $_keys))
+                        (if (=alpha $stored $child)
+                           (if (=alpha $owner $node) (if (rule-application-proof? $proof) true (empty)) (empty))
+                           (empty)))))
+                     ()))))))
+
+;; A complete statement's search is settled when its general node is
+;; expanded, so every rule concluding it was started, no rule application of
+;; it waits on a premise whose answers it has not all taken, and no join or
+;; row of it was deferred: every way it becomes true was examined.
+(: sk-settled? (-[semidet]-> SkeletonKey Bool))
+(= (sk-settled? $key)
+   (case $key (
+      ((sk-key $type $kbctx)
+         (let* (($node (assemble-stored-runtime-fact $type $kbctx $_proof $_tv))
+                ($hash (sk-node-hash $node)))
+            (if (sk-expanded? $node)
+               (if (== (collapse (once (superpose (
+                         (match &sk_deferred_joins ($hash $_jhash $_join) true)
+                         (match &sk_deferred ($hash $_rhash $_deferred) true)))))
+                       ())
+                  (if (fold-semidet (sk-application-waits? $node) false (sk-children $node)) false true)
+                  false)
+               false)))
+      ($_fold false))))
+
+;; Whether a rule application is among a statement's rows.
+(: sk-founded? (-[det]-> Number SkeletonKey Bool))
+(= (sk-founded? $hash $key)
+   (not (== (collapse (once (match &sk_row ($hash $stored $_rhash (sk-row $_ident ($_t $_k $proof $_v) $_ps $_seq))
+               (if (=alpha $stored $key) (if (rule-application-proof? $proof) true (empty)) (empty)))))
+            ())))
+
+(: sk-closed-row-step
+   (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey (List SkeletonValue) (Number SkeletonRow)
+       (List SkeletonValue)))
+(= (sk-closed-row-step $given $exclude $hash $key $kept ($rhash $row))
+   (case (sk-row-view $given $exclude $hash $key $rhash $row) (
+      (sk-none $kept)
+      ($view (cons $view $kept)))))
+
+;; What a row's closed reads take as unfounded: its own conclusion, when the
+;; row is a rule application of a complete statement; nothing otherwise, and
+;; the row reads no premise closed.
+(: sk-closed-pin (-[det]-> Number Atom Atom Atom (List SkeletonGiven)))
+(= (sk-closed-pin $khash $type $kbctx $proof)
+   (if (if (rule-application-proof? $proof) (complete-statement? $type $kbctx) false)
+      (cons (sk-unfounded $khash (sk-key $type $kbctx)) ())
+      ()))
+
+;; The pin, the reading conclusion as unfounded, joins the given list; the
+;; rows are evaluated again in creation order and merged with the leaves the
+;; reader may read.
+(: sk-closed-read
+   (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) SkeletonKey SkeletonFilter SkeletonValue))
+(= (sk-closed-read $pin $given $exclude $key $filter)
+   (if (== $pin ()) sk-none
+      (case $key (
+         ((sk-key $type $kbctx)
+            (if (if (complete-statement? $type $kbctx) (== (sk-given-value $given $key $filter $exclude) sk-none) false)
+               (if (sk-settled? $key)
+                  (let $hash (index-hash $key)
+                     (if (sk-founded? $hash $key)
+                        (sk-merge-key $hash $key $filter $exclude
+                           (fold-semidet sk-cons-step ()
+                              (fold-semidet (sk-closed-row-step (append-flat $pin $given) $exclude $hash $key) ()
+                                 (collapse (match &sk_row ($hash $stored $rhash $row)
+                                    (if (=alpha $stored $key) ($rhash $row) (empty)))))))
+                        (sk-unfounded-value $hash $key)))
+                  sk-none)
+               sk-none))
+         ($_fold sk-none)))))
+
 ;; Each premise reads its key's value without the views that depend on the
 ;; row's conclusion; reading stored facts first, it takes the facts compatible
-;; with the row so far when there are any. A given statement reads as known.
+;; with the row so far when there are any. A given statement reads as known. A
+;; rule application of a complete statement, whose pin is not empty, reads a
+;; complete premise closed when it may read none of its views.
 (: sk-premise-step
-   (-[semidet]-> (List SkeletonGiven) (List Number) Bool Bool SkeletonRowState SkPattern SkeletonRowState))
-(= (sk-premise-step $given $exclude $shared $facts-first $state $premise)
+   (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) Bool Bool SkeletonRowState SkPattern
+       SkeletonRowState))
+(= (sk-premise-step $pin $given $exclude $shared $facts-first $state $premise)
    (case $state (
       (sk-fail sk-fail)
       ((sk-clash $clash-keys $clash-cost) (sk-clash $clash-keys $clash-cost))
@@ -1173,19 +1287,22 @@
                      ((cons $pinned $_more) (sk-use-premise $shared $state $premise $pinned))
                      (()
                         (let* (($filter (sk-filter $proof $tv))
-                               ($value
-                                  (if $facts-first (sk-compatible-value $given $key $filter $exclude $ev false)
-                                     (sk-given-value $given $key $filter $exclude))))
-                           (case (sk-use-premise $shared $state $premise $value) (
-                              (sk-fail
-                                 (if $shared sk-fail
-                                    (case (sk-use-premise $shared $state $premise
-                                             (sk-compatible-value $given $key $filter $exclude $ev true)) (
-                                       (sk-fail
-                                          (sk-clash-on $given $key $state
-                                             (if $facts-first (sk-given-value $given $key $filter $exclude) $value)))
-                                       ($compatible $compatible)))))
-                              ($taken $taken)))))))))))))))
+                               ($closed (sk-closed-read $pin $given $exclude $key $filter)))
+                           (if (== $closed sk-none)
+                              (let $value
+                                 (if $facts-first (sk-compatible-value $given $key $filter $exclude $ev false)
+                                    (sk-given-value $given $key $filter $exclude))
+                                 (case (sk-use-premise $shared $state $premise $value) (
+                                    (sk-fail
+                                       (if $shared sk-fail
+                                          (case (sk-use-premise $shared $state $premise
+                                                   (sk-compatible-value $given $key $filter $exclude $ev true)) (
+                                             (sk-fail
+                                                (sk-clash-on $given $key $state
+                                                   (if $facts-first (sk-given-value $given $key $filter $exclude) $value)))
+                                             ($compatible $compatible)))))
+                                    ($taken $taken))))
+                              (sk-use-premise $shared $state $premise $closed))))))))))))))
 
 ;; A row reads its premises without the views that depend on its key or on a
 ;; key unifying with it, nor, under a condition, on what the rows conditioned
@@ -1281,7 +1398,8 @@
 (: sk-row-state (-[semidet]-> (List SkeletonGiven) (List Number) Number Bool SkeletonRow SkeletonRowState))
 (= (sk-row-state $given $exclusions $khash $facts-first (sk-row $_ident ($type $kbctx $proof $_tv) $premises $_seq))
    (fold-semidet
-      (sk-premise-step $given $exclusions (shared-evidence-frontier-proof? $proof) $facts-first)
+      (sk-premise-step (sk-closed-pin $khash $type $kbctx $proof) $given $exclusions
+         (shared-evidence-frontier-proof? $proof) $facts-first)
       (sk-acc () (sk-sample-exclusions $type $kbctx) (cons (deps-key $khash) ()) ())
       $premises))
 
@@ -1412,16 +1530,28 @@
          ($_cpu true)))
       false))
 
-;; A reader whose own key the new view depends on does not admit it. When the
-;; key's open merged value did not change, a reader outside its dependencies
-;; that reads it openly gets that same value.
+;; A reader whose own key the new view depends on does not admit it, unless it
+;; reads the key closed: a rule application of a complete statement reading a
+;; complete one evaluates the key's rows again, whatever their views depend
+;; on. When the key's open merged value did not change, a reader outside its
+;; dependencies that reads it openly gets that same value.
+(: sk-reads-closed? (-[det]-> SkeletonKey SkeletonRow Bool))
+(= (sk-reads-closed? $key (sk-row $_ident ($rtype $rkbctx $rproof $_rtv) $_premises $_seq))
+   (case $key (
+      ((sk-key $type $kbctx)
+         (if (complete-statement? $type $kbctx)
+            (if (rule-application-proof? $rproof) (complete-statement? $rtype $rkbctx) false)
+            false))
+      ($_fold false))))
+
 (: sk-reader-affected? (-[semidet]-> SkeletonKey SkeletonChange SkeletonItem Bool))
-(= (sk-reader-affected? $key $change (sk-row-item $_seq $khash $_rkey $_rhash (sk-row $_ident $_concl $premises $_s)))
+(= (sk-reader-affected? $key $change (sk-row-item $_seq $khash $_rkey $_rhash (sk-row $ident $concl $premises $s)))
    (case $change (
       ((sk-outside-change $_causes $_deps) true)
-      ((sk-view-change $deps) (if (deps-has? $deps $khash) false true))
+      ((sk-view-change $deps)
+         (if (deps-has? $deps $khash) (sk-reads-closed? $key (sk-row $ident $concl $premises $s)) true))
       ((sk-value-same $deps $merged-deps)
-         (if (deps-has? $deps $khash) false
+         (if (deps-has? $deps $khash) (sk-reads-closed? $key (sk-row $ident $concl $premises $s))
             (if (deps-has? $merged-deps $khash) true
                (if (fold-semidet (sk-reads-open? $key) true $premises) false true)))))))
 
@@ -1580,9 +1710,16 @@
                       ($_merged (sk-drop-merged! $key))
                       ($_derived-nothing (add-atom &sk_support ($hash $rhash 0))))
                   (sk-key-changed $pass $seq (sk-outside-change $causes 0) $work $key))
-               (let $_nothing
-                  (if (space-row-present? &sk_support ($hash $rhash $_had)) true (add-atom &sk_support ($hash $rhash 0)))
-                  $work)))
+               ;; A closed reader of a complete key evaluates its rows again,
+               ;; so a new row that derives nothing, or a forced one, still
+               ;; changes the key for it.
+               (let $first (not (space-row-present? &sk_support ($hash $rhash $_had)))
+                  (let $_nothing (if $first (add-atom &sk_support ($hash $rhash 0)) true)
+                     (if (if (if $first true $forced)
+                            (case $key (((sk-key $type $kbctx) (complete-statement? $type $kbctx)) ($_fold false)))
+                            false)
+                        (sk-key-changed $pass $seq (if $forced (sk-outside-change $causes 0) (sk-view-change 0)) $work $key)
+                        $work)))))
          ($_view
             (let $latest (sk-latest-view $hash $key $rhash)
             (if (if (sk-same-view? $new $latest)
@@ -2100,6 +2237,8 @@
 
 ;; A root's proof and truth-value pattern may share variables with its
 ;; statement, so each key is read with the pattern instantiated by that key.
+;; A complete statement whose settled search found no rule application is
+;; unfounded (docs/metta/complete_predicates.md).
 (: sk-root-key-value (-[semidet]-> SkPattern SkeletonKey SkeletonValue))
 (= (sk-root-key-value $goal $key)
    (case (copy_term $goal) (
@@ -2109,9 +2248,13 @@
             (let $filter (sk-filter $proof $tv)
                (case (sk-value $key $filter ()) (
                   (sk-none
-                     (case (sk-materialized-views $type $kbctx $filter) (
-                        ((cons $incumbent $_rest) $incumbent)
-                        (() sk-none))))
+                     (if (if (complete-statement? $type $kbctx)
+                            (if (sk-settled? $key) (not (sk-founded? (index-hash $key) $key)) false)
+                            false)
+                        (sk-unfounded-value (index-hash $key) $key)
+                        (case (sk-materialized-views $type $kbctx $filter) (
+                           ((cons $incumbent $_rest) $incumbent)
+                           (() sk-none)))))
                   ($current $current))))
             sk-none)))))
 

@@ -500,6 +500,39 @@ antecedent falls back to the floor. Reading the goal, for instance
 `(query 50 kb (: $p (RuleTruth (Implication ...)) $tv))`, folds the instances
 and updates the score (docs/metta/hypothesis_rules.md).
 
+### Complete predicates
+
+The chainer is open-world: a statement with no proof is unknown. A KB may
+declare that a predicate's rules and facts are the only ways one of its
+statements becomes true, before adding knowledge:
+
+```metta
+!(set-complete-predicate kb Producing)
+!(set-complete-predicate kb Fuelled)
+!(set-complete-predicate kb FuelArrived)
+```
+
+A ground statement of a complete predicate is then false when nothing outside
+a loop supports it. In
+
+```metta
+(: fuelled (Implication (Or (StockedFuel $t) (FuelArrived $t)) (Fuelled power $t)) (CTV (STV 1 1) (STV 0 1)))
+(: arrives (Implication (And (Producing mine $t) (Not (Blocked fuel $t))) (FuelArrived $t)) (CTV (STV 1 1) (STV 0 1)))
+```
+
+with the mine powered by the plant the fuel feeds, `FuelArrived t` is read
+by the `fuelled` rule with `Fuelled power t` itself taken false (proof
+`unfounded`): the loop cannot fuel itself, so the plant is fuelled with the
+stock's strength, 0 without stock and 0.9 with a stock of 0.9. A complete
+statement that no rule concludes and no fact states is false,
+`(: unfounded (Q a) (STV 0.0 1.0))`.
+
+Only complete statements are taken false this way, and only once their search
+has examined every rule application concluding them: a premise not yet
+expanded, or an open statement with no proof, leaves the statement unknown,
+so a small budget never concludes false. Statements in a hypothetical context
+(`Assuming`, implication queries) stay open (docs/metta/complete_predicates.md).
+
 ## Built-in Premise Forms
 
 ### 1) Plain predicates

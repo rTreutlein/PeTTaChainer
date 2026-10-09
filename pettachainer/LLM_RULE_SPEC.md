@@ -241,6 +241,10 @@ antecedent; write the forward implication and its base rates.
 - `STV` is truth uncertainty only.
 - Distribution TVs (`ParticleDist`, `NatDist`, `FloatDist`) are value uncertainty.
 - For uncertain numeric values, use distribution TVs.
+- A statement with no proof is unknown, not false. Do not add rules or facts
+  only to make an underivable statement false: when a predicate's rules are
+  all the ways it becomes true, the application declares the predicate
+  complete, and its statements without a non-circular proof are then false.
 
 Good:
 

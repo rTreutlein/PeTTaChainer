@@ -189,6 +189,15 @@ compound alone, through a rule variant reading only that part, whose join
 builds a row only for such a part; its view gives way to the complete step's
 when both exist (`connective_settling.md`).
 
+The chainer is open-world: a statement with no proof is unknown. A KB may
+declare a predicate complete (`complete_predicates.md`): a rule application
+of a complete statement reads a complete premise none of whose views it may
+read as that premise's rows evaluated again with the reader's conclusion
+unfounded, `(STV 0 1)`, and a complete statement no rule application derives
+is unfounded; both only once the statement's search is settled (its general
+node expanded, no rule application of it waiting on a premise not yet
+answered, nothing deferred), so a budget cut never concludes false.
+
 Premises are selected by the consumer. Evidence of a certain fact, strength 0
 or 1 at confidence 1, never counts as shared: a join over it is exact either
 way. A premise whose value shares other fact evidence with what the row already used is replaced by the merge of that key's
