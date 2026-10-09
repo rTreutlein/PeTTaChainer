@@ -165,11 +165,12 @@
    (case (collapse (once (match &sk_truth_factor ($hash $factor) $factor))) (
       ((cons $factor $_rest) $factor)
       (()
-         (let $factor
-            (case (collapse (once (match &kb ($type $kbctx (rule-axiom $_name) $tv) $tv))) (
-               ((cons $tv $_rest) (rule-truth-factor $tv))
-               (() 1.0)))
-            (let $_set (sk-set-truth-factor! $hash $factor) $factor))))))
+         (let* (($factor
+                   (case (collapse (once (match &kb ($type $kbctx (rule-axiom $_name) $tv) $tv))) (
+                      ((cons $tv $_rest) (rule-truth-factor $tv))
+                      (() 1.0))))
+                ($_set (sk-set-truth-factor! $hash $factor)))
+            $factor)))))
 
 (: sk-set-truth-factor! (-[det]-> Number Number Atom))
 (= (sk-set-truth-factor! $hash $factor)

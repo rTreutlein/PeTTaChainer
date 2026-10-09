@@ -945,10 +945,9 @@
        SpecializationJob))
 (= (ground-triggers $_kb () $body) $body)
 (= (ground-triggers $kb (cons $trigger $rest) $body)
-   (let $candidate
-      (match &kb ($trigger ($kb $_ctx $_vars) $_prf $_tv) $trigger)
-      (let $trigger $candidate
-         (ground-triggers $kb $rest $body))))
+   (let* (($candidate (match &kb ($trigger ($kb $_ctx $_vars) $_prf $_tv) $trigger))
+          ($trigger $candidate))
+      (ground-triggers $kb $rest $body)))
 
 ;; Idempotency is per grounded statement, not merely per rule type: distinct
 ;; proof ids or TVs are independent evidence even when their types coincide.

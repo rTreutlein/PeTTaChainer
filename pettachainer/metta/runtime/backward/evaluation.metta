@@ -2057,8 +2057,9 @@
              (collapse (match &sk_refresh ($khash $rhash)
                 (let $_taken (remove-atom &sk_refresh ($khash $rhash))
                    (match &sk_row ($khash $key $rhash (sk-row $ident $concl $premises $seq))
-                      (let $item (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $seq))
-                         (let $_forced (sk-force! (cons $khash ()) $item) $item)))))))
+                      (let* (($item (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $seq)))
+                             ($_forced (sk-force! (cons $khash ()) $item)))
+                         $item))))))
           ($seeded
              (fold-semidet sk-dirty-seed
                 (sk-work (fold-semidet sk-seed-new (empty_heap) (append-flat $new (append-flat $refresh $partial)))

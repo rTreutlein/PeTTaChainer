@@ -161,17 +161,17 @@
    (-[det]-> $mode Proof (List Proof)))
 (= (proof-term-children-mode $mode $prf)
    (if (is-expr $prf)
-      (let $head (car-atom $prf)
-         (let $children
-            (if (== $head conjunction) (cdr-atom $prf)
-               (if (== $head by)
-                  (cdr-atom (cdr-atom $prf))
-               (if (== $mode proof-walk-in-kb)
-                  (if (proof-term-leaf-head? $head)
-                     ()
-                     (cdr-atom $prf))
-                  ())))
-            (proof-children $children)))
+      (let* (($head (car-atom $prf))
+             ($children
+                (if (== $head conjunction) (cdr-atom $prf)
+                   (if (== $head by)
+                      (cdr-atom (cdr-atom $prf))
+                   (if (== $mode proof-walk-in-kb)
+                      (if (proof-term-leaf-head? $head)
+                         ()
+                         (cdr-atom $prf))
+                      ())))))
+         (proof-children $children))
       ()))
 
 (: proof-term-evidence-children-mode
