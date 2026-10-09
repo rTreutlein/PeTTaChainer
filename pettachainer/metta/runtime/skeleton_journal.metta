@@ -34,7 +34,9 @@
 (: sk-fold (-[det]-> $spec SkeletonKey))
 (: sk-group (-[det]-> $spec SkeletonKey))
 
-;; owner rule-id conclusion premises remaining-premises premise-keys
+;; owner rule-id conclusion done-premises remaining-premises premise-keys.
+;; The premises taken so far are kept most recent first, apart from the ones
+;; left, so a stored join holds each premise once.
 (: SkeletonWaiter Type)
 (: sk-partial
    (-[det]-> SkPattern Number SkFact (List SkPattern) (List SkPattern) (List SkeletonKey)

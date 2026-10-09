@@ -1350,7 +1350,7 @@
    (if $found true
       (if (sk-delivered? $child) false
          (let $hash (sk-node-hash $child)
-            (not (== (collapse (once (match &sk_wait ($hash $stored (sk-partial $owner $_rule ($_t $_k $proof $_v) $_ps $_rest $_keys))
+            (not (== (collapse (once (match &sk_wait ($hash $stored (sk-partial $owner $_rule ($_t $_k $proof $_v) $_done $_rest $_keys))
                         (if (=alpha $stored $child)
                            (if (=alpha $owner $node) (if (rule-application-proof? $proof) true (empty)) (empty))
                            (empty)))))

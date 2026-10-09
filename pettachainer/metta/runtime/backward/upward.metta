@@ -29,7 +29,7 @@
                    (match rules (runtime-rule-row $id $ccls $prems) (runtime-rule-row $id $ccls $prems)))
                 ($_rest (nth0 $idx $prems (assemble-stored-runtime-fact $type $kbctx $_proof $_tv))))
             (if (if (rule-dormant? $id) false (chainer-acyclic-term? $ccls))
-               (sk-advance! (sk-partial $ccls $id $ccls $prems $prems ()))
+               (sk-advance! (sk-partial $ccls $id $ccls () $prems ()))
                (empty))))
       ()))
 

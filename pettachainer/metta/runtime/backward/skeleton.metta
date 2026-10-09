@@ -122,7 +122,7 @@
                       ((sk-use-link $key $parent)
                          (let $key-ctx (key-context $key)
                             (if (context-world? $key-ctx) $key-ctx (key-context $parent))))
-                      ((sk-join-link (sk-partial $join-owner $_rule $_concl $_premises $_remaining $_keys) $answer)
+                      ((sk-join-link (sk-partial $join-owner $_rule $_concl $_done $_remaining $_keys) $answer)
                          (let $join-ctx (node-context $join-owner)
                             (if (context-world? $join-ctx) $join-ctx (key-context $answer)))))))
                 ($_noted (sk-note-context! $ctx (ctx-link $digest))))
@@ -619,9 +619,9 @@
 (: sk-hash-keys-step (-[det]-> Number (List SkeletonKey) (List SkeletonKey)))
 (= (sk-hash-keys-step $hash $keys) (append-flat (collapse (match &sk_keys ($hash $key) $key)) $keys))
 
-(= (sk-advance! (sk-partial $owner $rule $concl $premises $remaining $keys))
+(= (sk-advance! (sk-partial $owner $rule $concl $done $remaining $keys))
    (case $remaining (
-      (() (sk-complete-row! $owner $rule $concl $premises $keys))
+      (() (sk-complete-row! $owner $rule $concl (fold-semidet sk-cons-step () $done) $keys))
       ((cons $premise $rest)
          (case $premise (
             ((CPU $fun $args $_res)
@@ -631,37 +631,40 @@
                         (let $score (sk-fold-child-score $args (sk-join-score $owner $rule $remaining) (sk-rate-entries $args))
                            (if (> $score 0.0) (sk-add-child! $owner (copy_term $premise) $score) ())))
                      (sk-advance!
-                        (sk-partial $owner $rule $concl $premises $rest
+                        (sk-partial $owner $rule $concl (cons $premise $done) $rest
                            (cons (sk-fold $args) $keys))))
                   (if (== $fun GroupedFoldAllCompiled)
                      (sk-wait-on! $owner $rule $premise
-                        (sk-partial $owner $rule $concl $premises $remaining $keys))
+                        (sk-partial $owner $rule $concl $done $remaining $keys))
                      (if (== (extract-vars $args) ())
                         (fold-semidet
                            (sk-cpu-step
-                              (sk-partial $owner $rule $concl $premises $remaining $keys))
+                              (sk-partial $owner $rule $concl $done $remaining $keys))
                            ()
                            (collapse (cpu-call 0 $fun $args)))
                         ;; Truth-value formulas run during evaluation.
                         (sk-advance!
-                           (sk-partial $owner $rule $concl $premises $rest $keys))))))
+                           (sk-partial $owner $rule $concl (cons $premise $done) $rest $keys))))))
             ;; A forward run reads a premise from what exists, never waiting.
             ($_fact
                (if (== (search-id-value sk_forward_run) 1)
-                  (fold-semidet (sk-extend-waiter-step (sk-partial $owner $rule $concl $premises $remaining $keys)) ()
+                  (fold-semidet (sk-extend-waiter-step (sk-partial $owner $rule $concl $done $remaining $keys)) ()
                      (sk-forward-keys (copy_term $premise)))
                   (sk-wait-on! $owner $rule $premise
-                     (sk-partial $owner $rule $concl $premises $remaining $keys))))))))))
+                     (sk-partial $owner $rule $concl $done $remaining $keys))))))))))
 
 ;; A ground computation (for example arithmetic on bound statement terms)
 ;; binds its result before later premises are looked up.
 (= (sk-cpu-step $partial $_acc $result)
-   (let* (((sk-partial $owner $rule $concl $premises $remaining $keys) (copy_term $partial)))
+   (let* (((sk-partial $owner $rule $concl $done $remaining $keys) (copy_term $partial)))
       (case $remaining (
-         ((cons (CPU $_fun $_args $res) $rest)
-            (if (= $res $result)
-               (sk-advance! (sk-partial $owner $rule $concl $premises $rest $keys))
-               ()))
+         ((cons $premise $rest)
+            (case $premise (
+               ((CPU $_fun $_args $res)
+                  (if (= $res $result)
+                     (sk-advance! (sk-partial $owner $rule $concl (cons $premise $done) $rest $keys))
+                     ()))
+               ($_fact ()))))
          ($_other ())))))
 
 ;; A join waiting on a ground fact premise sees that premise's stored facts at
@@ -693,7 +696,7 @@
                 ()))
           ($_child
              (case $waiter (
-                ((sk-partial $_owner $_rule $_concl $_premises $remaining $_keys)
+                ((sk-partial $_owner $_rule $_concl $_done $remaining $_keys)
                    (sk-add-child! $owner (copy_term $premise) (sk-join-score $owner $rule $remaining)))))))
       (fold-semidet (sk-extend-waiter-step $waiter) () (sk-answers $premise))))
 
@@ -706,13 +709,13 @@
 ;; an answer reaches stops there: the pair waits once with the join's owner, so
 ;; a recursive rule cannot keep extending joins whose rows could not be kept
 ;; anyway. Joins of the query's roots always proceed.
-(= (sk-extend! (sk-partial $owner $rule $concl $premises $remaining $keys) $key)
+(= (sk-extend! (sk-partial $owner $rule $concl $done $remaining $keys) $key)
    (if (if (sk-root? $owner) true (> (search-id-value sk_row_budget) 0))
-      (if (sk-link-new! (sk-join-link (sk-partial $owner $rule $concl $premises $remaining $keys) $key))
-         (sk-extend-now! (sk-partial $owner $rule $concl $premises $remaining $keys) $key)
+      (if (sk-link-new! (sk-join-link (sk-partial $owner $rule $concl $done $remaining $keys) $key))
+         (sk-extend-now! (sk-partial $owner $rule $concl $done $remaining $keys) $key)
          ())
       (let* (($hash (sk-node-hash $owner))
-             ($join (sk-join (sk-partial $owner $rule $concl $premises $remaining $keys) $key))
+             ($join (sk-join (sk-partial $owner $rule $concl $done $remaining $keys) $key))
              ($jhash (index-hash $join)))
          (if (== (collapse (once (match &sk_deferred_joins ($hash $jhash $_join) true))) ())
             (let* (($_deferred (add-atom &sk_deferred_joins ($hash $jhash $join)))
@@ -734,9 +737,9 @@
 (= (sk-certain-tv-step $tvs ($_type $_kbctx $_proof $tv))
    (case $tv (((STV $_s $c) (if (>= $c 1.0) (cons $tv $tvs) $tvs)) ($_other $tvs))))
 
-(: sk-settled-read? (-[det]-> (List SkPattern) Statement KBContext TV Bool))
-(= (sk-settled-read? $premises $type $kbctx $tv)
-   (if (fold-flat sk-settles-step false $premises)
+(: sk-settled-read? (-[det]-> (List SkPattern) (List SkPattern) Statement KBContext TV Bool))
+(= (sk-settled-read? $done $remaining $type $kbctx $tv)
+   (if (fold-flat sk-settles-step (fold-flat sk-settles-step false $done) $remaining)
       (if (== (extract-vars $type) ())
          (case (fold-flat sk-certain-tv-step () (sk-leaf-facts $type $kbctx sk-any-filter)) (
             ((cons $certain $_more) (= $tv $certain))
@@ -745,17 +748,17 @@
       true))
 
 (: sk-extend-now! (-[semidet]-> SkeletonWaiter SkeletonKey Atom))
-(= (sk-extend-now! (sk-partial $owner $rule $concl $premises $remaining $keys) $key)
+(= (sk-extend-now! (sk-partial $owner $rule $concl $done $remaining $keys) $key)
    (case $remaining (
       ((cons $premise $rest)
          (if (case $premise (
                 ((CPU $_fun $args $_res) (= (sk-group $args) $key))
                 (($type $kbctx $_proof $tv)
                    (if (= (sk-key $type $kbctx) $key)
-                      (if (chainer-acyclic-term? $concl) (sk-settled-read? $premises $type $kbctx $tv) false)
+                      (if (chainer-acyclic-term? $concl) (sk-settled-read? $done $remaining $type $kbctx $tv) false)
                       false))))
             (sk-advance!
-               (sk-partial $owner $rule $concl $premises $rest (cons $key $keys)))
+               (sk-partial $owner $rule $concl (cons $premise $done) $rest (cons $key $keys)))
             ()))
       ($_other ()))))
 
@@ -909,7 +912,7 @@
             (fold-semidet sk-deferred-step () $deferred)))))
 
 (: sk-waiter-owner (-[det]-> SkeletonWaiter SkPattern))
-(= (sk-waiter-owner (sk-partial $owner $_rule $_concl $_premises $_remaining $_keys)) $owner)
+(= (sk-waiter-owner (sk-partial $owner $_rule $_concl $_done $_remaining $_keys)) $owner)
 
 (: sk-deferred-join-step (-[semidet]-> Atom SkeletonJoin Atom))
 (= (sk-deferred-join-step $_acc (sk-join $waiter $key)) (sk-extend! (copy_term $waiter) $key))
@@ -1148,7 +1151,7 @@
              false
              (prefilter-prunes-walk (copy_term $premises)))
          ()
-         (sk-advance! (sk-partial $owner $rule $goal $premises $premises ())))
+         (sk-advance! (sk-partial $owner $rule $goal () $premises ())))
       ()))
 
 ;; The compiled scaffold of a nested implication subgoal that is not itself a

@@ -4,9 +4,9 @@ Status: parked, October 2026. Built on branch shared-joins (44700af0); with dorm
 
 ## Problem
 
-A partial join today is `(sk-partial owner rule conclusion premises remaining
+A partial join today is `(sk-partial owner rule conclusion done remaining
 keys)`: the computation (a rule applied, the premise keys bound so far, the
-premises left) together with the node it serves. Two nodes that need the
+premises taken and left) together with the node it serves. Two nodes that need the
 same computation each build their own copy, step by step, and only the last
 step notices: `sk-complete-row!` finds the row present and answers the second
 owner.
