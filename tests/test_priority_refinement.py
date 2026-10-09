@@ -59,10 +59,10 @@ class TestPriorityRefinement(unittest.TestCase):
                         # Fixed reference, compared numerically rather
                         # than by string formatting.
                         self.assertAlmostEqual(
-                            float(tv[1]), 0.4997335746440823, delta=1e-10
+                            float(tv[1]), 0.49982848672541863, delta=1e-10
                         )
                         self.assertAlmostEqual(
-                            float(tv[2]), 3.999988000035998e-06, delta=1e-10
+                            float(tv[2]), 4.198674712641071e-06, delta=1e-10
                         )
                     self.assertEqual(proof[0], "inheritance-implication-fold")
                     self.assertEqual(proof[1][0], "total-implication")

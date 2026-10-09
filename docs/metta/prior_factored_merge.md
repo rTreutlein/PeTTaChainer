@@ -377,19 +377,30 @@ smoothing worse (0.7305). Bayes'
 rule with the stated likelihoods reads no P(C) or P(O, C), as for plain
 inversions of rules stating both likelihoods.
 
-A base rate of 0 or 1 gives no completion and no plain inversion: the
-posterior would be the rate itself, and a knowledge base storing only true
-instances (logic KBs of Provable or Path facts) has rate 1, so every conjunct
-of every stored conclusion, and every antecedent of every rule with a stored
-conclusion, would be asserted. The cutoff sits where the base rate is read as
-the prior (`prior-base-rate-premises`), for completions and for inversions
-of STV and CTV rules over a population base rate alike; an instance prior of
-a `WithPrior` rule is the instance's own belief and keeps its value. Before,
-an STV rule over a rate of 1 inverted to a strength of 0 at confidence
-10^-6 (`CTVInversionFormula` with P(b) = 1) and a CTV rule to 1, and a leak
-rate of 0 inverted every alarm to no leak
-(`tests/metta/test_implication_inversion.metta`,
-`tests/metta/test_base_rate_smoothing.metta`).
+A base rate is read as the prior of one more member of its population: its
+mean under the Bayes prior with which Bayes' rule reads a likelihood,
+(s n + a/2) / (n + a) over the n members counted (`set-bayes-prior-count`,
+a = 0.2), at the rate's confidence (`population-prior-tv`, where the base
+rate is read as the prior, `prior-base-rate-premises`, for completions and
+for inversions of STV and CTV rules over a population base rate alike, and
+for a root's population prior). A rate of 0 or 1 from finitely many members
+then leaves an instance either way possible, and its updates keep their
+likelihood ratios for a view in the base rate's place (see "Degenerate
+rates" below). A certain rate, and an instance prior of a `WithPrior` rule
+(the instance's own belief), keep their values.
+
+A knowledge base that stores only the true instances of a predicate (logic
+KBs of Provable, Path or Ancestor facts) declares it positive-only
+(`set-positive-only-predicate`). Its stored instances are then no sample of
+its population: their rate, 1, says nothing of how often a candidate holds,
+and an inversion over it would assert every antecedent of every stored
+conclusion. A positive-only predicate has no prior: no inversion or
+completion is compiled onto a pattern with a conjunct of it, and a root of
+it gets no population prior. The declaration replaces the cut that gave a
+rate of 0 or 1 no prior until October 2026, which also left a front never
+(or always) seen in a SupplyNet history at its persistence prediction
+whatever the window showed (`tests/metta/test_implication_inversion.metta`,
+`tests/metta/test_math.metta`, `tests/metta/test_antecedent_completion.metta`).
 
 A completion reads C's value as an observation of C, so it reads no view of
 C that is a forward conclusion or a closed read's unfounded value
@@ -614,6 +625,58 @@ view's error. Stage 2 at budget 50 (seeds 2, 3): previous storm 0.0383 /
 untimed 0.0207 → 0.0201, production unchanged. StationOps temporal replay,
 seeds 1–4 at budgets 25 and 50: beliefs identical, compute time within
 ±5%.
+
+## Degenerate rates
+
+SupplyNet stage "scale" (ChainerGame `supply-network`): a zone's front
+persists with 0.9 and starts with 0.05. A front never on in the 20 labelled
+history periods has base rate 0, and so has every storm of the zone whose
+history had none. Until the rate was read as a prior under the Bayes prior,
+a rate of 0 gave no prior, so no storm's inversion onto the front existed,
+nor any alarm's inversion onto such a storm: the front stayed at its
+persistence prediction from the last label whatever the window showed. Size
+l, seed 1, 4 steps per query: Front z3 t1 0.050 in all ten rounds (exact
+0.096, then 0.006 down to 0.000); seed 2: Front z3 t3 0.129 against 0.946.
+
+`tests/metta/test_degenerate_rate_update.metta`, at budget 4, where the
+fold counts only the stored periods:
+
+| history of the front | t1 alarms | prior read | exact | chainer | before |
+|---|---|---|---|---|---|
+| off in h1..h3 (rate 0) | both ring | 0.1 / 3.2 | 0.155525 | 0.155525 | 0.05 |
+| on in h1..h3 (rate 1) | neither | 3.1 / 3.2 | 0.823280 | 0.823280 | 0.9 |
+
+Clipping the rate off 0 (10^-6, as the formulas clip) instead was tried: an
+update with a likelihood ratio below 1 then falls under the clip floor, only
+upward evidence survives, and l seed 1 went from 0.032 to 0.152 (Front z3 t1
+0.997).
+
+### Result
+
+Scale sweep, sizes s, m, l, seeds 1 and 2 (`supplynet.sweep`, two runs at a
+time per build), mean error to the exact posterior, master d0be7108 against
+this change:
+
+| steps/query | s | m | l |
+|---|---|---|---|
+| 0.25 | 0.224 → 0.159 | 0.164 → 0.151 | 0.190 → 0.137 |
+| 0.5 | 0.110 → 0.083 | 0.099 → 0.092 | 0.161 → 0.098 |
+| 1 | 0.068 → 0.033 | 0.013 → 0.007 | 0.066 → 0.030 |
+| 2 | 0.068 → 0.033 | 0.013 → 0.006 | 0.060 → 0.020 |
+| 4 | 0.040 → 0.033 | 0.012 → 0.004 | 0.048 → 0.005 |
+| 8 | 0.016 → 0.016 | 0.010 → 0.006 | 0.046 → 0.006 |
+| 16 | 0.029 → 0.029 | 0.006 → 0.005 | 0.015 → 0.008 |
+
+Current-front error, seed 2: s 0.259 → 0.064 (1 step), m 0.047 → 0.016 and
+l 0.180 → 0.018 (4 steps). Coverage is 1 at every budget: a root the budget
+does not reach answers its population prior, which a rate of 0 or 1 now
+gives too. The inversions that now exist cost work where they are reached:
+at l, 2 to 8 steps per query, 25-40% more time per query and 50-70% more
+peak memory (1.4 → 2.2 GB at 4 steps); s, m and l at 16 steps are within a
+few percent. l at 4 steps (48 ms per query, error 0.005) is now better than
+master at 16 steps (147 ms, 0.015). What remains at s seed 2 is evidence the
+search does not reach: Front z1 t8, 0.489 against 0.965, is built from the
+alarms of t1..t8 alone (exact from those alarms: 0.493).
 
 ## Relation to PLN
 

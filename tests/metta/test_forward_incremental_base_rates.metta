@@ -51,10 +51,10 @@
 
 !(test
    (query 200 forwardBackwardDedupKb (: $proof (P alice) $tv))
-   (: ((inverted pToQ with cpu (prior (STV 0.6999999999999998 0.0009990009990009992)))
+   (: ((inverted pToQ with cpu (prior (STV 0.6599999999999998 0.0009990009990009992)))
        qa)
       (P alice)
-      (STV 0.8883802148701847 0.017951122492168896)))
+      (STV 0.875684243726313 0.016392039082253194)))
 
 ;; Revising an input changes its key's value, so a later run that takes it
 ;; carries the change to the rules downstream.
@@ -108,8 +108,8 @@
 ;; Q a at 0.7 gives P a 0.7, at the confidence of Q a.
 !(test
    (query 200 forwardFrontierKb (: $prf (P a) $tv))
-   (: (merge/revision ((inverted pToQ with cpu (prior (STV 0.2 0.0006246096189881324))) (by sToQ frontierS1)) frontierP1)
-      (P a) (STV 0.5000023644178937 0.7142868526350721)))
+   (: (merge/revision ((inverted pToQ with cpu (prior (STV 0.28571428571428575 0.0006246096189881324))) (by sToQ frontierS1)) frontierP1)
+      (P a) (STV 0.5000037925526352 0.7142875453279081)))
 
 ;; Adding evidence can raise an antecedent's confidence while moving its
 ;; strength toward an implication branch with much greater uncertainty.  The
@@ -168,9 +168,9 @@
 ;; P(alice) was derived through the P base rate, which does not count it.
 !(test
    (query 200 forwardBaseRateKb (: $proof (P alice) $tv))
-   (: ((inverted pToQ with cpu (prior (STV 0.6999999999999998 0.0009990009990009992))) qa)
+   (: ((inverted pToQ with cpu (prior (STV 0.6599999999999998 0.0009990009990009992))) qa)
       (P alice)
-      (STV 0.8883802148701847 0.017951122492168896)))
+      (STV 0.875684243726313 0.016392039082253194)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)
@@ -276,12 +276,12 @@
       (: $proof (Inheritance Raven Penguin) $tv))
    (: (inheritance-implication-fold
           (total-implication
-             ((inverted (inheritance-implication penguinBird) with cpu (prior (STV 0.3333333333333333 0.5)))
+             ((inverted (inheritance-implication penguinBird) with cpu (prior (STV 0.3333749895859368 0.5)))
                 (by (inheritance-implication ravenBird) (ctx proof 0)))
-             ((inverted (inheritance-implication penguinBird) with cpu (prior (STV 0.3333333333333333 0.5)))
+             ((inverted (inheritance-implication penguinBird) with cpu (prior (STV 0.3333749895859368 0.5)))
                 (by (inheritance-implication ravenBird) (ctx proof 1)))))
       (Inheritance Raven Penguin)
-      (STV 0.9977391124912127 1.0e-06)))
+      (STV 0.9978637987087198 1.0e-06)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)
@@ -303,10 +303,10 @@
 
 !(test
    (query 200 computedForwardBaseRateKb (: $proof (P alice) $tv))
-   (: ((inverted pToQ with cpu (prior (STV 0.6999999999999998 0.0009990009990009992)))
+   (: ((inverted pToQ with cpu (prior (STV 0.6599999999999998 0.0009990009990009992)))
        qa)
       (P alice)
-      (STV 0.8883802148701847 0.017951122492168896)))
+      (STV 0.875684243726313 0.016392039082253194)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)

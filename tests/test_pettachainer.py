@@ -27,9 +27,9 @@ class TestPeTTaChainer(unittest.TestCase):
             with self.subTest(timeout_sec=timeout_sec):
                 self.assertEqual(
                     handler.query("(: $prf (Leak q) $tv)", steps=400, timeout_sec=timeout_sec),
-                    ["(: ((inverted sensor with cpu (prior (STV 0.09999999999999998 0.8))) aq) "
+                    ["(: ((inverted sensor with cpu (prior (STV 0.11904761904761901 0.8))) aq) "
                      "(Leak q) "
-                     "(STV 0.33333333333333326 0.5060814905208311))"],
+                     "(STV 0.37815126050420156 0.5514604290276861))"],
                 )
 
     def test_rule_refinement_applies_in_process_and_to_timed_queries(self):
@@ -98,6 +98,20 @@ class TestPeTTaChainer(unittest.TestCase):
                 self.assertEqual(len(result), 1)
                 self.assertIn("(STV 0.5 0.6666666666666666)", result[0])
 
+    def test_positive_only_predicate_applies_in_process_and_to_timed_queries(self):
+        handler = PeTTaChainer()
+        handler.set_positive_only_predicate("Parent")
+        handler.add_atoms_no_check([
+            "(: parentAncestor (Implication (Parent $x $y) (Ancestor $x $y)) (CTV (STV 1.0 1.0) (STV 0.3 1.0)))",
+            "(: pab (Parent a b) (STV 1.0 1.0))",
+            "(: acd (Ancestor c d) (STV 1.0 1.0))",
+        ])
+        # Only true parents are stored, so an ancestor is never inverted into
+        # a parent, live and in the subprocess that a timed query spawns.
+        for timeout_sec in (0, 30):
+            with self.subTest(timeout_sec=timeout_sec):
+                self.assertEqual(handler.query("(: $prf (Parent c d) $tv)", steps=100, timeout_sec=timeout_sec), [])
+
     def test_bayes_prior_count_applies_in_process_and_to_timed_queries(self):
         handler = PeTTaChainer()
         handler.set_bayes_prior_count(1e6)
@@ -108,14 +122,15 @@ class TestPeTTaChainer(unittest.TestCase):
             + ["(: aq (Alarm q) (STV 1 1))"]
         )
         # A prior this strong outweighs the weakly supported likelihood, so
-        # the alarm says nothing and the leak rate of one in four stands, live
-        # and in the subprocess that a timed query spawns.
+        # the alarm says nothing, and it reads the leak rate of one in four
+        # as the prior of one more unit at its centre, 0.5, live and in the
+        # subprocess that a timed query spawns.
         for timeout_sec in (0, 30):
             with self.subTest(timeout_sec=timeout_sec):
                 result = handler.query("(: $prf (Leak q) $tv)", steps=400, timeout_sec=timeout_sec)
                 self.assertEqual(len(result), 1)
                 strength = float(re.search(r"\(STV ([^ ]+) [^)]+\)\)$", result[0]).group(1))
-                self.assertAlmostEqual(strength, 0.25, delta=1e-5)
+                self.assertAlmostEqual(strength, 0.5, delta=1e-5)
 
     def test_rule_search_ignores_base_rate_strength(self):
         answers = []

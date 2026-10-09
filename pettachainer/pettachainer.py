@@ -46,6 +46,7 @@ def _query_worker(
     rule_refinement: bool,
     base_rate_smoothing: bool,
     complete_predicates: List[str],
+    positive_only_predicates: List[str],
     conn,
 ):
     try:
@@ -57,6 +58,8 @@ def _query_worker(
         handler.set_base_rate_smoothing(base_rate_smoothing)
         for head in complete_predicates:
             handler.set_complete_predicate(head)
+        for head in positive_only_predicates:
+            handler.set_positive_only_predicate(head)
         if added_atoms:
             handler.add_atoms_no_check(added_atoms)
         atoms = handler.handler.process_metta_string(f"!({expression})")
@@ -110,6 +113,7 @@ class PeTTaChainer:
         self._rule_refinement = False
         self._base_rate_smoothing = False
         self._complete_predicates: List[str] = []
+        self._positive_only_predicates: List[str] = []
         self._query_metrics_enabled = False
         self._query_metrics_path = os.environ.get(
             "PETTACHAINER_QUERY_METRICS_PATH"
@@ -333,6 +337,20 @@ class PeTTaChainer:
         if head not in self._complete_predicates:
             self._complete_predicates.append(head)
 
+    def set_positive_only_predicate(self, head: str) -> None:
+        """Declare that the KB stores only the true instances of predicate
+        ``head``; declare before adding the rules that would be inverted onto
+        it.
+
+        Its stored instances are then no sample of its population: it has no
+        population prior, and nothing is inverted or completed onto it
+        (docs/metta/prior_factored_merge.md). Timed subprocess queries replay
+        the declaration.
+        """
+        self.handler.process_metta_string(f"!(set-positive-only-predicate {self.kb} {head})")
+        if head not in self._positive_only_predicates:
+            self._positive_only_predicates.append(head)
+
     def set_pattern_mining_on_add(self, enabled: bool) -> None:
         value = "true" if enabled else "false"
         self.handler.process_metta_string(f"!(set-pattern-mining-on-add {self.kb} {value})")
@@ -493,6 +511,7 @@ class PeTTaChainer:
                 self._rule_refinement,
                 self._base_rate_smoothing,
                 self._complete_predicates,
+                self._positive_only_predicates,
                 child_conn,
             ),
             daemon=True,

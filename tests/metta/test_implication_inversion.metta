@@ -14,7 +14,7 @@
 ; witness qa via modus ponens: 0.9 * 0.949 + 0.1 * 0.341 = 0.888.
 !(test
    (query 200 invKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu (prior (STV 0.6999999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.8883802148701847 0.017951122492168896)))
+   (: ((inverted r with cpu (prior (STV 0.6599999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.875684243726313 0.016392039082253194)))
 
 ; The consequent's own base rate is not read: here P(Late) = 0.1 contradicts
 ; P(Blocked) = 1/6 and the stated likelihoods, which give P(Late) = 0.1917.
@@ -28,7 +28,7 @@
 !(compileadd lateKb (: l1 (Late r1) (STV 1.0 1.0)))
 !(test
    (query 100 lateKb (: $prf (Blocked r1) $tv))
-   (: ((inverted late with cpu (prior (STV 0.16666666666666666 0.9))) l1) (Blocked r1) (STV 0.782608695652174 0.8799444564487994)))
+   (: ((inverted late with cpu (prior (STV 0.1666759256687314 0.9))) l1) (Blocked r1) (STV 0.7826200370264366 0.8799531219767693)))
 
 ; A soft observation is read as a likelihood ratio over the base rate it was
 ; formed under. One late shipment makes the route blocked with
@@ -46,12 +46,15 @@
 !(compileadd softKb (: l1 (Late r1) (STV 1.0 1.0)))
 !(test
    (query 100 softKb (: $prf (Storm r1) $tv))
-   (: ((inverted block with cpu (prior (STV 0.3 0.9))) ((inverted late with cpu (prior (STV 0.2 0.9))) l1)) (Storm r1) (STV 0.8055913187419531 0.9858465080465943)))
+   (: ((inverted block with cpu (prior (STV 0.30000555540123885 0.9))) ((inverted late with cpu (prior (STV 0.20000833310185828 0.9))) l1)) (Storm r1) (STV 0.8055954617975354 0.985846947644943)))
 
 ; A knowledge base storing only true instances has base rate 1 for every
-; predicate it stores. Inverting over that rate would restate it as the
-; instance's value, so an ancestor would make every pair a parent; neither an
-; STV nor a CTV rule is inverted over it.
+; predicate it stores, which is no sample of how often a pair is a parent:
+; inverting over it would make every ancestor pair a parent. Declared
+; positive-only, Parent has no prior, and neither an STV nor a CTV rule is
+; inverted onto it.
+!(set-positive-only-predicate logicKb Parent)
+!(set-positive-only-predicate ctvLogicKb Parent)
 !(compileadd logicKb (: parentAncestor (Implication (Parent $x $y) (Ancestor $x $y)) (STV 1.0 1.0)))
 !(compileadd logicKb (: pab (Parent a b) (STV 1.0 1.0)))
 !(compileadd logicKb (: pbc (Parent b c) (STV 1.0 1.0)))

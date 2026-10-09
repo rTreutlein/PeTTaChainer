@@ -41,7 +41,7 @@
 ;; Without a prior for z, the leak base rate stands in as the prior.
 !(test
    (query 400 priorKb (: $p (SealLeak z) $tv))
-   (: ((inverted sensor with cpu (prior (STV 0.4436018133084674 0.006210613865370718))) az) (SealLeak z) (STV 0.7820274217224767 0.009517375988814886)))
+   (: ((inverted sensor with cpu (prior (STV 0.4457711656915964 0.006210613865370718))) az) (SealLeak z) (STV 0.7835211962010412 0.00958084160041277)))
 
 ;; --- A filter over time --------------------------------------------------------
 ;; A leak persists and a sound seal starts leaking with hazard 0.05. Shift 1's

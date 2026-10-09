@@ -334,7 +334,13 @@ Bayes' rule and inversion read a likelihood estimated from finite evidence
 under a prior of a pseudo-observations (`set-bayes-prior-count`) centred on
 independence: the pooled P(B) of both branches, or P(B) for P(B|A). Without
 it, a false-alarm rate estimated as 0 from a handful of cases makes every alarm
-certain. A certain likelihood, and the instance prior, are read as they are.
+certain. A base rate read as the prior of an inversion or a completion is the
+prior of one more member, read the same way, centred on 0.5: a rate of 0 or
+1 from finitely many members leaves an instance either way possible, so its
+updates keep their likelihood ratios. A predicate whose stored instances are
+only its true ones is declared positive-only (`set-positive-only-predicate`)
+and has no prior. A certain likelihood, a certain rate, and the instance
+prior are read as they are.
 
 ### Queries read what their roots reach
 
@@ -423,8 +429,8 @@ population prior, `(population-prior <pattern>)`: the base rate that one of
 the rules concluding it reads over a pattern its statement belongs to, the
 prior its inversions update, at the confidence of the members it counted.
 Reading it costs no expansion, so every such root has an estimate at any
-budget, and any view the search finds replaces it. A rate of 0 or 1 gives no
-prior, as it gives inversions none. The prior is the population's value, not
+budget, and any view the search finds replaces it. It is the prior an
+inversion reads, and a positive-only predicate has none. The prior is the population's value, not
 the statement's: no row reads it and it is never materialized.
 
 A materializing query writes back its first answer and, for every statement

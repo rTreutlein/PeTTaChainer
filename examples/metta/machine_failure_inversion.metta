@@ -102,18 +102,18 @@
             (Defective press)
             (UpstreamFailure press))
          $tv))
-   (: ((inverted failureStopsOutput with cpu (prior (STV 0.82 0.99)))
+   (: ((inverted failureStopsOutput with cpu (prior (STV 0.8199991919212325 0.99)))
           observedPressStopped)
       (Or (Defective press) (UpstreamFailure press))
-      (STV 0.82 0.8999999996128785)))
+      (STV 0.82 0.8999999996128824)))
 
 !(test
    (query 300 machineInverseKb
       (: $proof (Defective press) $tv))
    (: ((proj 0
-          ((inverted failureStopsOutput with cpu (prior (STV 0.82 0.99)))
+          ((inverted failureStopsOutput with cpu (prior (STV 0.8199991919212325 0.99)))
              observedPressStopped))
          (by propagateUpstreamFailure
             (conjunction feederFeedsPress feederDefect)))
       (Defective press)
-      (STV 0.7 0.8008200275312785)))
+      (STV 0.7 0.8008200275312845)))

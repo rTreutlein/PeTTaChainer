@@ -19,10 +19,10 @@
 ;; P(P | not (Q and R)) = 0.2 * 0.7 / (0.2 * 0.7 + 0.9 * 0.3).
 !(test
    (query 300 inverseCompoundKb (: $prf (P alice) $tv))
-   (: ((inverted p_qr with cpu (prior (STV 0.6999999999999998 0.0009990009990009992)))
+   (: ((inverted p_qr with cpu (prior (STV 0.6599999999999998 0.0009990009990009992)))
        (conjunction q-alice r-alice))
       (P alice)
-      (STV 0.7789995267440362 0.014233559775434893)))
+      (STV 0.7608238693556758 0.016270221610978627)))
 
 ;; A rule stated with an STV is inverted over the base rates of both sides.
 ;; The compound consequent's base-rate scan keeps the shared `$x`, so it
@@ -41,10 +41,10 @@
 
 !(test
    (query 300 inverseCompoundStvKb (: $prf (P alice) $tv))
-   (: ((inverted p_qr with cpu (prior (STV 0.6999999999999998 0.0009990009990009992)))
+   (: ((inverted p_qr with cpu (prior (STV 0.6599999999999998 0.0009990009990009992)))
        (conjunction q-alice r-alice))
       (P alice)
-      (STV 0.6999999999999997 0.0011537786699101166)))
+      (STV 0.6599999999999998 0.00106999249589568)))
 !(test
    (cached-base-rate inverseCompoundStvKb (And (Q $x) (R $x)))
    ((STV 0.7200000000000002 0.0010134642737165396)))

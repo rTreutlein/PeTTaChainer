@@ -30,7 +30,7 @@
 !(set-base-rate reportKb (Storm $r) (STV 0.3 0.9))
 !(compileadd reportKb (: ra (Report north a) (STV 1 1)))
 !(compileadd reportKb (: rb (Report north b) (STV 1 1)))
-!(test (query 100 reportKb (: $p (Storm north) $tv)) (: (factored-revision cpu (prior (STV 0.3 0.9)) (((inverted report with cpu (prior (STV 0.3 0.9))) ra) ((inverted report with cpu (prior (STV 0.3 0.9))) rb))) (Storm north) (STV 0.9648241206030151 0.9823012918395355)))
+!(test (query 100 reportKb (: $p (Storm north) $tv)) (: (factored-revision cpu (prior (STV 0.30000555540123885 0.9)) (((inverted report with cpu (prior (STV 0.30000555540123885 0.9))) ra) ((inverted report with cpu (prior (STV 0.30000555540123885 0.9))) rb))) (Storm north) (STV 0.9648250184071773 0.9823019027284696)))
 
 ;; Storms persist (SupplyNet stage 2): a storm continues with 0.7 and starts
 ;; with 0.3; it blocks route r1 with 0.8 (0.03 without), and a blocked route
@@ -75,7 +75,7 @@
 !(compileadd k (: late-s1-h3 (Late s1 h3) (STV 0 1)))
 !(compileadd k (: late-s2-h3 (Late s2 h3) (STV 1 1)))
 !(compileadd k (: late-s3-h3 (Late s3 h3) (STV 0 1)))
-!(test (case (query 100 k (: $p (Storm north h3) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.13635838372944034 0.999943925130199))
+!(test (case (query 100 k (: $p (Storm north h3) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.13635838372944026 0.999943925130199))
 !(compileadd k (: storm-h3 (Storm north h3) (STV 0 1)))
 !(compileadd k (: blocked-h3 (Blocked r1 h3) (STV 0 1)))
 !(compileadd k (: next-w1 (NextPeriod h3 w1) (STV 1 1)))
@@ -83,7 +83,7 @@
 !(compileadd k (: late-s2-w1 (Late s2 w1) (STV 1 1)))
 !(compileadd k (: late-s3-w1 (Late s3 w1) (STV 1 1)))
 !(test (query 100 k (: $p (Storm north h3) $tv)) (: storm-h3 (Storm north h3) (STV 0 1)))
-!(test (query 100 k (: $p (Storm north w1) $tv)) (: (factored-revision (by persist-north (conjunction next-w1 storm-h3)) (prior (STV 0.3 0.9999000099228195)) (((inverted block-r1 with cpu (prior (STV 0.3250006249536047 0.44443827214888376))) (factored-revision cpu (prior (STV 0.3152510769553906 0.4444395428411525)) (((inverted late-s1 with cpu (prior (STV 0.3152510769553906 0.4444395428411525))) late-s1-w1) ((inverted late-s2 with cpu (prior (STV 0.3152510769553906 0.4444395428411525))) late-s2-w1) ((inverted late-s3 with cpu (prior (STV 0.3152510769553906 0.4444395428411525))) late-s3-w1)))))) (Storm north w1) (STV 0.9191334113866322 0.9999646077861262)))
+!(test (query 100 k (: $p (Storm north w1) $tv)) (: (factored-revision (by persist-north (conjunction next-w1 storm-h3)) (prior (STV 0.3 0.9999000099228195)) (((inverted block-r1 with cpu (prior (STV 0.3333341269242677 0.44443827214888376))) (factored-revision cpu (prior (STV 0.32404881104953287 0.4444395428411525)) (((inverted late-s1 with cpu (prior (STV 0.32404881104953287 0.4444395428411525))) late-s1-w1) ((inverted late-s2 with cpu (prior (STV 0.32404881104953287 0.4444395428411525))) late-s2-w1) ((inverted late-s3 with cpu (prior (STV 0.32404881104953287 0.4444395428411525))) late-s3-w1)))))) (Storm north w1) (STV 0.9191334113866324 0.9999646077861262)))
 !(compileadd k (: next-w2 (NextPeriod w1 w2) (STV 1 1)))
 !(compileadd k (: late-s1-w2 (Late s1 w2) (STV 0 1)))
 !(compileadd k (: late-s2-w2 (Late s2 w2) (STV 0 1)))
@@ -107,4 +107,4 @@
 ;; posterior under the prior the rule implies for Storm w2 (0.43), the
 ;; completion's ratio was 0.531 and Storm w1 0.8579. Revising the two views
 ;; gave 0.7445.
-!(test (query 100 k (: $p (Storm north w1) $tv)) (: (factored-revision (by persist-north (conjunction next-w1 storm-h3)) (prior (STV 0.3 0.9999000099228195)) (((inverted block-r1 with cpu (prior (STV 0.3250006249536047 0.44443827214888376))) (factored-revision cpu (prior (STV 0.3152510769553906 0.4444395428411525)) (((inverted late-s1 with cpu (prior (STV 0.3152510769553906 0.4444395428411525))) late-s1-w1) ((inverted late-s2 with cpu (prior (STV 0.3152510769553906 0.4444395428411525))) late-s2-w1) ((inverted late-s3 with cpu (prior (STV 0.3152510769553906 0.4444395428411525))) late-s3-w1)))) ((antecedent-completion persist-north 1 with cpu (prior (STV 0.3250006249536047 0.44443827214888376))) (conjunction next-w2 ((inverted block-r1 with cpu (prior (STV 0.3250006249536047 0.44443827214888376))) (factored-revision cpu (prior (STV 0.3152510769553906 0.4444395428411525)) (((inverted late-s1 with cpu (prior (STV 0.3152510769553906 0.4444395428411525))) late-s1-w2) ((inverted late-s2 with cpu (prior (STV 0.3152510769553906 0.4444395428411525))) late-s2-w2) ((inverted late-s3 with cpu (prior (STV 0.3152510769553906 0.4444395428411525))) late-s3-w2)))))))) (Storm north w1) (STV 0.8690479955664682 0.9999458112122642)))
+!(test (query 100 k (: $p (Storm north w1) $tv)) (: (factored-revision (by persist-north (conjunction next-w1 storm-h3)) (prior (STV 0.3 0.9999000099228195)) (((inverted block-r1 with cpu (prior (STV 0.3333341269242677 0.44443827214888376))) (factored-revision cpu (prior (STV 0.32404881104953287 0.4444395428411525)) (((inverted late-s1 with cpu (prior (STV 0.32404881104953287 0.4444395428411525))) late-s1-w1) ((inverted late-s2 with cpu (prior (STV 0.32404881104953287 0.4444395428411525))) late-s2-w1) ((inverted late-s3 with cpu (prior (STV 0.32404881104953287 0.4444395428411525))) late-s3-w1)))) ((antecedent-completion persist-north 1 with cpu (prior (STV 0.3333341269242677 0.44443827214888376))) (conjunction next-w2 ((inverted block-r1 with cpu (prior (STV 0.3333341269242677 0.44443827214888376))) (factored-revision cpu (prior (STV 0.32404881104953287 0.4444395428411525)) (((inverted late-s1 with cpu (prior (STV 0.32404881104953287 0.4444395428411525))) late-s1-w2) ((inverted late-s2 with cpu (prior (STV 0.32404881104953287 0.4444395428411525))) late-s2-w2) ((inverted late-s3 with cpu (prior (STV 0.32404881104953287 0.4444395428411525))) late-s3-w2)))))))) (Storm north w1) (STV 0.8690479955664684 0.9999458112122642)))

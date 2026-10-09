@@ -2466,22 +2466,24 @@
 ;; statement belongs to, the prior its inversions update. It costs no
 ;; expansion, so a root the budget did not reach still has an estimate, with
 ;; the confidence of the members counted; any view the search finds replaces
-;; it. A rate of 0 or 1 gives none, as it gives inversions no prior: a
-;; knowledge base storing only true instances has rate 1 for every predicate
-;; it stores. The prior is the population's value, not the statement's, and
-;; is never materialized.
+;; it. It is the prior an inversion reads (population-prior-tv), and a
+;; positive-only predicate has none. The prior is the population's value, not
+;; the statement's, and is never materialized.
 (: sk-population-prior (-[semidet]-> Statement KBContext SkeletonFilter SkeletonValue))
 (= (sk-population-prior $type $kbctx $filter)
    (case (collapse
             (let* (((sk-match $_rule $premises $_goal) (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $_proof $_tv)))
                    ((CPU FoldAllCompiled $args $_result) (superpose $premises))
-                   ((base-rate-aggregate-key-value $_kbid $pattern $_mode) (base-rate-aggregate-key $args)))
-               (if (= (copy_term $pattern) (copy_term $type)) $args (empty)))) (
+                   ((base-rate-aggregate-key-value $kbid $pattern $_mode) (base-rate-aggregate-key $args)))
+               (if (= (copy_term $pattern) (copy_term $type))
+                  (if (positive-only-pattern? (brand KB $kbid) (brand Statement $pattern)) (empty) $args)
+                  (empty)))) (
       ((cons $args $_more)
          (case (sk-value (sk-fold $args) sk-any-filter ()) (
             ((sk-goal-val (CPU $_fun $_args (STV $s $c)) $_fold-proof $_ev $deps)
-               (let $fact (data $type $kbctx (brand Proof (population-prior (car-atom (cdr-atom $args)))) (STV $s $c))
-                  (if (if (uncertain-rate? (STV $s $c)) (sk-fact-matches? $filter $fact) false) (sk-val $fact (ev-set 0) $deps) sk-none)))
+               (let* (($prior (population-prior-tv (STV $s $c)))
+                      ($fact (data $type $kbctx (brand Proof (population-prior (car-atom (cdr-atom $args)))) $prior)))
+                  (if (sk-fact-matches? $filter $fact) (sk-val $fact (ev-set 0) $deps) sk-none)))
             ($_none sk-none))))
       (() sk-none))))
 

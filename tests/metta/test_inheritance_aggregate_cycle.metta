@@ -17,10 +17,10 @@
       (inheritance-implication-fold
          (total-implication
             ((inverted (inheritance-implication penguinBird)
-                with cpu (prior (STV 0.3333333333333333 0.5)))
+                with cpu (prior (STV 0.3333749895859368 0.5)))
              (by (inheritance-implication ravenBird) (ctx proof 0)))
             ((inverted (inheritance-implication penguinBird)
-                with cpu (prior (STV 0.3333333333333333 0.5)))
+                with cpu (prior (STV 0.3333749895859368 0.5)))
              (by (inheritance-implication ravenBird) (ctx proof 1)))))
       (Inheritance Raven Penguin)
-      (STV 0.9977391124912127 1.0e-06))))
+      (STV 0.9978637987087198 1.0e-06))))

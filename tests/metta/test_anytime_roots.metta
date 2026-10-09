@@ -69,8 +69,8 @@
 !(test
    (any-query 0 (any-kb! b0))
    ((query-result 0 (: (population-prior (Blocked r1 $p1)) (Blocked r1 t1) (STV 0.5 0.4444444444444444)))
-    (query-result 1 (: (population-prior (Blocked r2 $p2)) (Blocked r2 t1) (STV 0.75 0.4444444444444444)))
-    (query-result 2 (: (population-prior (Blocked r3 $p3)) (Blocked r3 t1) (STV 0.25 0.4444444444444444)))
+    (query-result 1 (: (population-prior (Blocked r2 $p2)) (Blocked r2 t1) (STV 0.7380952380952381 0.4444444444444444)))
+    (query-result 2 (: (population-prior (Blocked r3 $p3)) (Blocked r3 t1) (STV 0.2619047619047619 0.4444444444444444)))
     (query-result 3 (: (population-prior (Storm north $p4)) (Storm north t1) (STV 0.5 0.4444444444444444)))))
 
 ;; Every budget answers every root, and the answers approach the posterior as

@@ -79,10 +79,10 @@
 !(test
    (query 300 computeInverseKb (: $proof (A 2) $tv))
    (: (marginal-proj 0
-         ((inverted addOne with cpu (prior (STV 0.7 0.0009990009985938653)))
+         ((inverted addOne with cpu (prior (STV 0.6599999999869455 0.0009990009985938653)))
           observed-b-three))
       (A 2)
-      (STV 0.8883802148701848 0.01597944006473587)))
+      (STV 0.8756842437221121 0.014383561002137045)))
 
 ;; The same reversible computation remains executable when inversion is
 ;; disabled. The observations above demonstrate that its reverse would

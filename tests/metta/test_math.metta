@@ -1,5 +1,10 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
+;; A proof KB stores only what is provable: Provable is positive-only, so its
+;; stored theorems are no sample of how often a formula is provable, and no
+;; rule is inverted or completed onto it.
+!(set-positive-only-predicate mathkb Provable)
+
 !(compileadd mathkb
    (: ax-k (Provable (→ $𝜑 (→ $𝜓 $𝜑))) (STV 1.0 1.0)))
 

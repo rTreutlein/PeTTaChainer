@@ -400,17 +400,50 @@
             (append-goals $goals (cons (CPU AndFormula $tvs $brtv) ())))))))
 
 ;; The premises reading a pattern's base rate as the prior an inversion or an
-;; antecedent completion updates. A rate of 0 or 1 gives no prior: the
-;; posterior would be the rate itself restated as the instance's value, and a
-;; knowledge base storing only true instances (logic KBs of Provable or Path
-;; facts) has rate 1, so every antecedent of every stored conclusion would be
-;; asserted.
-(: prior-base-rate-premises (-[det]-> KB Statement $truth-value (List Goal)))
+;; antecedent completion updates. A rate is the share of true members among
+;; those counted; the prior of one more member is its mean under the Bayes
+;; prior, as Bayes' rule reads a likelihood (bayes-shrink, centred on 0.5).
+;; A rate of 0 or 1 from finitely many members then leaves an instance
+;; either way possible, and its updates keep their likelihood ratios for a
+;; view in the base rate's place. A predicate declared positive-only has no
+;; such prior, and nothing is inverted or completed onto it.
+(: prior-base-rate-premises (-[semidet]-> KB Statement $truth-value (List Goal)))
 (= (prior-base-rate-premises $kb $pattern $brtv)
-   (append-goals (base-rate-premises $kb $pattern $brtv)
-      (cons (CPU uncertain-rate? ($brtv) true) ())))
-(: uncertain-rate? (-[semidet]-> TV Bool))
-(= (uncertain-rate? (STV $s $_c)) (and (> $s 0.0) (< $s 1.0)))
+   (if (positive-only-pattern? $kb $pattern) (empty)
+      (append-goals (base-rate-premises $kb $pattern $rate)
+         (cons (CPU population-prior-tv ($rate) $brtv) ()))))
+(: population-prior-tv (-[det]-> TV TV))
+(= (population-prior-tv (STV $s $c)) (STV (bayes-shrink $s $c 0.5) $c))
+
+;; A KB may declare that it stores only the true instances of a predicate
+;; (logic KBs of Provable, Path or Ancestor facts): its stored instances are
+;; then no sample of the predicate's population, their rate (1) estimates
+;; nothing, and an inversion over it would assert every antecedent of every
+;; stored conclusion. Declared before the rules that would be inverted onto
+;; it are added.
+(: &positive_only_predicates (SpaceOf (KB Atom)))
+!(bind! &positive_only_predicates (new-space))
+
+(: set-positive-only-predicate (-[det]-> KB Atom Bool))
+(= (set-positive-only-predicate $kb $head)
+   (if (== (collapse (once (match &positive_only_predicates ($kb $head) true))) ())
+      (let $_row (add-atom &positive_only_predicates ($kb $head)) true)
+      true))
+
+;; A pattern one of whose conjuncts (or a negated conjunct's statement) has a
+;; positive-only predicate.
+(: positive-only-pattern? (-[det]-> KB Statement Bool))
+(= (positive-only-pattern? $kb $pattern)
+   (positive-only-conjuncts? $kb (implication-side-conjuncts $pattern)))
+(: positive-only-conjuncts? (-[det]-> KB (List Atom) Bool))
+(= (positive-only-conjuncts? $kb $conjuncts)
+   (fold-flat (positive-only-conjunct? $kb) false $conjuncts))
+(: positive-only-conjunct? (-[det]-> KB Bool Atom Bool))
+(= (positive-only-conjunct? $kb $seen $conjunct)
+   (if $seen true
+      (let* (($statement (if (head-is? $conjunct Not) (car-atom (cdr-atom $conjunct)) $conjunct))
+             ($head (if (is-expr $statement) (car-atom $statement) $statement)))
+         (not (== (collapse (once (match &positive_only_predicates ($kb $head) true))) ())))))
 
 ;; An implication is also estimated from its instances: one sample per
 ;; antecedent binding whose consequent is provable, both sides resolved through

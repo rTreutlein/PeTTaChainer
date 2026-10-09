@@ -32,7 +32,7 @@
                (negated
                   (by penguinsDoNotFly
                      ((inverted (inheritance-implication penguinBird)
-                         with cpu (prior (STV 0.9863569285264406 0.00022594893654011704)))
+                         with cpu (prior (STV 0.730917365761377 0.00022594893654011704)))
                         (shared 5)))))
             (merge/revision
                (by (inheritance-implication birdFlies)
@@ -40,10 +40,10 @@
                (negated
                   (by penguinsDoNotFly
                      ((inverted (inheritance-implication penguinBird)
-                         with cpu (prior (STV 0.9863569285264406 0.00022594893654011704)))
+                         with cpu (prior (STV 0.730917365761377 0.00022594893654011704)))
                         (shared 15)))))))
       (Inheritance Sam (IntSet flies))
-      (STV 0.9786608160272537 0.6432518281069814))))
+      (STV 0.9786915593831819 0.643251683490094))))
 
 !(test
    (collapse
@@ -63,7 +63,7 @@
                   (by penguinsDoNotFly
                      (by (inheritance-implication pinguPenguin) (ctx proof 3)))))))
       (Inheritance Pingu (IntSet flies))
-      (STV 0.17169140282260525 0.9152685473562443))))
+      (STV 0.1716914028326078 0.9152685473572054))))
 
 !(test
    (collapse
@@ -83,4 +83,4 @@
                   (by penguinsDoNotFly
                      (by (inheritance-implication pinguPenguin) (ctx proof 5)))))))
       (Inheritance Pingu (IntSet flies))
-      (STV 0.17169140282260525 0.9152685473562443))))
+      (STV 0.1716914028326078 0.9152685473572054))))

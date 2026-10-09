@@ -183,7 +183,7 @@
 !(test (accepted? contractHighVolume) true)
 !(test (accepted? contractFast) true)
 !(test (accepted? contractLocal) true)
-;; Every fragile sample was bad: a rate of 0 gives the signal's inversion no
-;; prior, since the posterior would restate the rate as the contract's value,
-;; so nothing supports accepting the fragile contract.
-!(test (collapse (accept-tv contractFragile)) ())
+;; Every fragile sample was bad: the signal's inversion reads the rate of 0
+;; as the prior of one more contract under the Bayes prior, 0.1 / 10.2, and
+;; the fragile contract stays far below its break-even.
+!(test (accepted? contractFragile) false)
