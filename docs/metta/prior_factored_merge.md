@@ -419,6 +419,36 @@ as before. Read as an observation, a prediction would also move M: in
 `tests/metta/test_antecedent_completion.metta`, servicing predicts 0.2 for
 the consequence and would pull the conjunct from its base rate 0.3 to 0.172.
 
+### Worked example: production reports and degradation
+
+`tests/metta/test_antecedent_completion.metta`, SupplyNet stage 3 in small:
+the mine runs exactly when the power plant runs and the mine is not degraded,
+`(Implication (And (Producing plant $t) (Not (Degraded mine $t))) (Producing
+mine $t))` with (1, 0); P(Degraded) = 0.25. With the plant on and the mine
+off in t5, Degraded mine t5 is 1 (the positive form, `Healthy`, gives 0).
+With the plant on at 0.8 and a report of the mine running (likelihood ratio
+0.9 / 0.2 = 4.5), odds(Degraded) = 1/3 · 1 / (0.8 · 4.5 + 0.2), P = 2.5 / 31
+= 0.080645 (the chainer: 0.0806452). With a persistence rule (0.75, 0.1) and
+the mine inspected sound in t4, Degraded mine t6 is 0.75: the completion
+decides t5, merged with the persistence view in the base rate's place.
+
+SupplyNet stage 3, 30 rounds, against master 0b2f637c, run concurrently
+(timed and untimed, seeds 1–4 at budget 100 and seeds 2–3 at budget 50;
+error is the mean distance from the exact posterior):
+
+| | error | Brier | degraded | producing | producing, no stock | seconds |
+|---|---|---|---|---|---|---|
+| timed, master | 0.0232 | 0.1498 | 0.0665 | 0.0558 | 0.0251 | 89.9 |
+| timed | 0.0101 | 0.1466 | 0.0081 | 0.0117 | 0.0128 | 109.2 |
+| untimed, master | 0.0166 | 0.1433 | 0.0540 | 0.0482 | 0.0000 | 98.9 |
+| untimed | 0.0081 | 0.1408 | 0.0053 | 0.0095 | 0.0039 | 118.5 |
+
+Seed 1, round 6 (the diagnosed gap): Degraded mine t6 0.134 → 0.750 and
+Producing mine t6 0.866 → 0.250, Degraded plant-b t6 0.253 → 0.750, all
+exact. Stages 1 and 2 are identical to master; StationOps temporal replay
+(seeds 1–4, budgets 25 and 50) plays and believes identically, compute
+within ±3%.
+
 ### Worked example: a certain conjunct
 
 `tests/metta/test_antecedent_completion.metta`: P(Rain) = 0.3 (0.9); rain
