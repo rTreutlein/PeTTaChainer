@@ -224,7 +224,10 @@ its implication, so it reads the consequent's other proofs. Premises are taken g
 value of a premise clashes, the row reads again on a fresh copy, taking
 compatible stored facts first. Projections of one stored `(And ...)` source pool
 back into that source instead of multiplying shared evidence, and
-compiler-marked joins may share source evidence deliberately.
+compiler-marked joins may share source evidence deliberately. A projection of
+a compound onto one part reads the other parts as evidence apart from the
+compound, so it reads none of their views that depend on the compound's key:
+P(A) = P(ABC) / P(BC) with P(BC) read off ABC would be 1.
 
 A clash that survives the fresh read is resolved by conditioning, not refused.
 The row is evaluated with the statement of a shared fact known true and again

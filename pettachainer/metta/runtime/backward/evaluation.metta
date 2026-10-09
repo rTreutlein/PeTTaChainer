@@ -1563,13 +1563,35 @@
             ($_fold $own)))
          $own)))
 
+;; A projection of a compound, its first premise, onto one part reads the other
+;; parts as evidence apart from the compound: a part's view derived from the
+;; compound would divide the compound by itself (P(A) = P(ABC) / P(BC) with
+;; P(BC) read off ABC is 1). So the premises after the compound exclude views
+;; depending on it.
 (: sk-row-state (-[semidet]-> (List SkeletonGiven) (List Number) Number Bool SkeletonRow SkeletonRowState))
 (= (sk-row-state $given $exclusions $khash $facts-first (sk-row $_ident ($type $kbctx $proof $_tv) $premises $_seq))
-   (fold-semidet
-      (sk-premise-step (sk-closed-pin $khash $type $kbctx $proof) $given $exclusions
-         (shared-evidence-frontier-proof? $proof) $facts-first)
-      (sk-acc () (evidence-set (sk-sample-exclusions $type $kbctx)) (cons (deps-key $khash) ()) ())
-      $premises))
+   (let* (($pin (sk-closed-pin $khash $type $kbctx $proof))
+          ($shared (shared-evidence-frontier-proof? $proof))
+          ($start (sk-acc () (evidence-set (sk-sample-exclusions $type $kbctx)) (cons (deps-key $khash) ()) ())))
+      (if (if (is-expr $proof)
+             (let $head (car-atom $proof)
+                (if (is-var $head) false
+                   (case (copy_term $head) (((proj $_idx $_source) true) ($_other false)))))
+             false)
+         (sk-projection-state $pin $given $exclusions $shared $facts-first $start $premises)
+         (fold-semidet (sk-premise-step $pin $given $exclusions $shared $facts-first) $start $premises))))
+
+(: sk-projection-state
+   (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) Bool Bool SkeletonRowState (List SkPattern)
+       SkeletonRowState))
+(= (sk-projection-state $pin $given $exclusions $shared $facts-first $start (cons $premise $parts))
+   (let* ((($type $kbctx $_proof $_tv) $premise)
+          ($compound (sk-key $type $kbctx)))
+      (fold-semidet
+         (sk-premise-step $pin $given (hash-union (sk-unifier-hashes (index-hash $compound) $compound) $exclusions)
+            $shared $facts-first)
+         (sk-premise-step $pin $given $exclusions $shared $facts-first $start $premise)
+         $parts)))
 
 ;; An implication instance sample must not restate the implication it
 ;; estimates: its row starts out excluding every rule whose premises and
