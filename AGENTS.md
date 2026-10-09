@@ -58,3 +58,27 @@ Everything not listed is internal and may be inlined or removed once it has no
 caller; a reference from a unit test alone does not make a helper public — rewire
 or drop the test with it. Always grep tests/ before removing a function so you know
 what the change touches.
+
+## Working as a delegated agent
+
+Details and the exact commands are in `docs/agent_workflow.md`. Read it first.
+
+- Work in your own worktree branched from current `master`. Give it its own
+  `.venv` (copy, then repoint, as the doc shows). A plain copy tests the
+  main checkout's code.
+- Memory is shared by other agents. Start a job only while `free -g` shows
+  8 GB or more available, run at most 4 jobs, and run every PeTTa or
+  benchmark process under `ulimit -v 16000000` with `DISPLAY` unset.
+- Gates: `scripts/test_metta.sh`, `.venv/bin/python -m unittest discover -s tests`,
+  and `scripts/verify.sh` before hand-back.
+- Benchmarks: `/nexus/Dev/OpenCog/bench/compare.sh master <worktree> --quick`
+  while iterating, `--full` before hand-back. Do not improvise runners, seeds
+  or frozen builds.
+- Git: never run a bare `git stash`, never `rm -rf` a variable path, and do
+  not push or merge. The coordinator merges. Commit trailers come from the
+  brief.
+- PeTTa traps that fail silently (Atom-typed args, `add-atom`, clause-wide
+  variables, strict `and`, undefined calls as data, and others) are listed in
+  the doc.
+- Hand back commits, diagnosis, design, the `compare.sh` summary, moved test
+  values with reasons, and limits.
