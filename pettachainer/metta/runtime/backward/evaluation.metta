@@ -2255,19 +2255,20 @@
    (case (copy_term $goal) (
       ((CPU $_fun $_args $_res) sk-none)
       (($type $kbctx $proof $tv)
-         (if (= (sk-key $type $kbctx) (copy_term $key))
-            (let $filter (sk-filter $proof $tv)
-               (case (sk-value $key $filter ()) (
-                  (sk-none
-                     (if (if (complete-statement? $type $kbctx)
-                            (if (sk-settled? $key) (not (sk-founded? (index-hash $key) $key)) false)
-                            false)
-                        (sk-unfounded-value (index-hash $key) $key)
-                        (case (sk-materialized-views $type $kbctx $filter) (
-                           ((cons $incumbent $_rest) $incumbent)
-                           (() sk-none)))))
-                  ($current $current))))
-            sk-none)))))
+         (let $ground (== (extract-vars $type) ())
+            (if (= (sk-key $type $kbctx) (copy_term $key))
+               (let $filter (sk-filter $proof $tv)
+                  (case (sk-value $key $filter ()) (
+                     (sk-none
+                        (if (if (complete-statement? $type $kbctx)
+                               (if (sk-settled? $key) (not (sk-founded? (index-hash $key) $key)) false)
+                               false)
+                           (sk-unfounded-value (index-hash $key) $key)
+                           (case (sk-materialized-views $type $kbctx $filter) (
+                              ((cons $incumbent $_rest) $incumbent)
+                              (() (if $ground (sk-population-prior $type $kbctx $filter) sk-none))))))
+                     ($current $current))))
+               sk-none))))))
 
 (: sk-materialized-views (-[det]-> Statement KBContext SkeletonFilter (List SkeletonValue)))
 (= (sk-materialized-views $type $kbctx $filter)
@@ -2277,7 +2278,32 @@
             (if (sk-fact-matches? $filter $fact) (sk-val $fact $ev 0) (empty)))))
       ()))
 
-;; The keys a root reads, in first-answer order.
+;; A ground root the search left without a value answers with the base rate
+;; of its population: a base rate one of its rules reads over a pattern its
+;; statement belongs to, the prior its inversions update. It costs no
+;; expansion, so a root the budget did not reach still has an estimate, with
+;; the confidence of the members counted; any view the search finds replaces
+;; it. A rate of 0 or 1 gives none, as it gives inversions no prior: a
+;; knowledge base storing only true instances has rate 1 for every predicate
+;; it stores. The prior is the population's value, not the statement's, and
+;; is never materialized.
+(: sk-population-prior (-[semidet]-> Statement KBContext SkeletonFilter SkeletonValue))
+(= (sk-population-prior $type $kbctx $filter)
+   (case (collapse
+            (let* (((sk-match $_rule $premises $_goal) (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $_proof $_tv)))
+                   ((CPU FoldAllCompiled $args $_result) (superpose $premises))
+                   ((base-rate-aggregate-key-value $_kbid $pattern $_mode) (base-rate-aggregate-key $args)))
+               (if (= (copy_term $pattern) (copy_term $type)) $args (empty)))) (
+      ((cons $args $_more)
+         (case (sk-value (sk-fold $args) sk-any-filter ()) (
+            ((sk-goal-val (CPU $_fun $_args (STV $s $c)) $_fold-proof $_ev $deps)
+               (let $fact (data $type $kbctx (brand Proof (population-prior (car-atom (cdr-atom $args)))) (STV $s $c))
+                  (if (if (uncertain-rate? (STV $s $c)) (sk-fact-matches? $filter $fact) false) (sk-val $fact () $deps) sk-none)))
+            ($_none sk-none))))
+      (() sk-none))))
+
+;; The keys a root reads, in first-answer order; a ground root reads its own
+;; key, answered or not.
 (: sk-root-keys (-[semidet]-> SkPattern (List SkeletonKey)))
 (= (sk-root-keys $goal)
    (case $goal (
@@ -2287,7 +2313,8 @@
       (($type $kbctx $_proof $_tv)
          (alpha_unique_keys
             (append-flat (sk-statement-answers $type $kbctx)
-               (collapse (match &kb ($type $kbctx $_proof $_tv) (sk-key $type $kbctx)))))))))
+               (if (== (extract-vars $type) ()) (cons (sk-key $type $kbctx) ())
+                  (collapse (match &kb ($type $kbctx $_proof $_tv) (sk-key $type $kbctx))))))))))
 
 (: sk-root-values (-[semidet]-> SkPattern (List SkeletonValue)))
 (= (sk-root-values $goal)
@@ -2314,14 +2341,17 @@
 (: prune_answer_instances (-[det]-> (List RuntimeResult) (List RuntimeResult)))
 
 ;; Proven answers in root order without redundant instances; a materializing
-;; query writes back the first.
+;; query writes back the first that is not a population prior.
 (: sk-root-results (-[semidet]-> Bool SkPattern (List RuntimeResult)))
 (= (sk-root-results $materialize? $goal)
    (let* (($values (sk-root-values $goal))
           ($_materialized
              (if $materialize?
                 (case (collapse (once (let $value (superpose $values)
-                         (if (== $value sk-none) (empty) $value)))) (
+                         (case $value (
+                            (sk-none (empty))
+                            ((sk-val ($_type $_kbctx (population-prior $_pattern) $_tv) $_ev $_deps) (empty))
+                            ($found $found)))))) (
                    ((cons $first $_rest) (sk-materialize-answer! $first))
                    (() ())))
                 ()))

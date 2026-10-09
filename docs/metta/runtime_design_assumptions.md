@@ -384,9 +384,17 @@ extends the same prefix, and the rest wait for a later query that needs them.
 
 A root reads the answers of every node of its statement and context, whatever
 their proof and truth-value patterns, and drops answers that instantiate
-another answer with the same proof. When the search has no value for a key, a
-materialized answer an earlier query left is returned as the incumbent; it is
-never revised with the current value, since it is not independent evidence.
+another answer with the same proof; a ground root also reads its own key. When
+the search has no value for a key, a materialized answer an earlier query left
+is returned as the incumbent; it is never revised with the current value,
+since it is not independent evidence. Without one, a ground root answers its
+population prior, `(population-prior <pattern>)`: the base rate that one of
+the rules concluding it reads over a pattern its statement belongs to, the
+prior its inversions update, at the confidence of the members it counted.
+Reading it costs no expansion, so every such root has an estimate at any
+budget, and any view the search finds replaces it. A rate of 0 or 1 gives no
+prior, as it gives inversions none. The prior is the population's value, not
+the statement's: no row reads it and it is never materialized.
 
 A materializing query writes back its first answer and, for every statement
 that answer's proof uses, that statement's current value. Materialized facts are never leaves of later searches: the

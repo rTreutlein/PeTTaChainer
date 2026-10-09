@@ -215,11 +215,12 @@
 ;; A completion reads its consequence as an observation. A predicate that only
 ;; forward rules conclude is predicted, here from the completed conjunct and
 ;; from servicing, never observed: the rule start prunes the completion, and
-;; (Pred a) has no proof. Read as an observation, the prediction 0.2 for
-;; (Pred2 b) would have pulled (Pred a) from its base rate 0.3 down to 0.172.
+;; (Pred a) has no proof but its population prior, the base rate 0.3. Read as
+;; an observation, the prediction 0.2 for (Pred2 b) would have pulled it down
+;; to 0.172.
 !(compileadd predictedKb (: persist (Implication (And (Next $p $t) (Pred $p)) (Pred2 $t)) (CTV (STV 0.9 1) (STV 0.2 1))))
 !(compileadd predictedKb (: fresh (Implication (Serv $t) (Pred2 $t)) (CTV (STV 0.2 1) (STV 0.2 1))))
 !(compileadd predictedKb (: n1 (Next a b) (STV 1 1)))
 !(compileadd predictedKb (: s1 (Serv b) (STV 1 1)))
 !(set-base-rate predictedKb (Pred $p) (STV 0.3 0.9))
-!(test (query 100 predictedKb (: $prf (Pred a) $tv)) ())
+!(test (query 100 predictedKb (: $prf (Pred a) $tv)) (: (population-prior (Pred $p)) (Pred a) (STV 0.3 0.9)))
