@@ -106,6 +106,8 @@ wait on a global condition such as `until ! pgrep -f "compare.sh master"`:
 other agents run the same commands, so the loop may never end, and it keeps
 your worktree locked after you hand back. Stop every loop you started before
 handing back.
+`pgrep -f "<pattern>"` inside a loop also matches the loop's own command line,
+so such a loop never ends: wait on the PID you started instead.
 
 ## Git
 
