@@ -1,13 +1,13 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
 !(test
-   (evidence-negate (fact-ev (kb MAIN Nil) d (Dog)))
-   (not-fact-ev (kb MAIN Nil) d (Dog)))
+   (evidence-entries (evidence-negated (evidence-set ((fact-ev (kb MAIN Nil) d (Dog)) (not-fact-ev (kb MAIN Nil) e (Cat)) e))))
+   ((not-fact-ev (kb MAIN Nil) d (Dog)) (fact-ev (kb MAIN Nil) e (Cat)) (not-ev e)))
 
 !(test
-   (evidence-sets-overlap?
-      ((fact-ev (kb MAIN Nil) d (Dog)))
-      ((not-fact-ev (kb MAIN Nil) d (Dog))))
+   (evidence-overlap?
+      (evidence-set ((fact-ev (kb MAIN Nil) d (Dog))))
+      (evidence-set ((not-fact-ev (kb MAIN Nil) d (Dog)))))
    false)
 
 !(compileadd negEvidenceMergeKb

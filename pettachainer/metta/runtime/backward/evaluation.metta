@@ -24,7 +24,7 @@
 (: sk-source (-[det]-> Statement TV SkeletonSource))
 (: SkeletonRowState Type)
 ;; fold proofs (newest first), evidence, dependency hashes, conjunction parts
-(: sk-acc (-[det]-> (List Proof) (List Evidence) (List Number) (List SkeletonPart) SkeletonRowState))
+(: sk-acc (-[det]-> (List Proof) EvidenceSet (List Number) (List SkeletonPart) SkeletonRowState))
 (: sk-fail SkeletonRowState)
 ;; a premise had values, all overlapping the evidence the row already used:
 ;; the statements of the shared facts, and a bound on the rows conditioning
@@ -37,7 +37,7 @@
 (: sk-unfounded (-[det]-> Number SkeletonKey SkeletonGiven))
 (: SkeletonFold Type)
 ;; accumulator, member proofs (newest first), evidence, dependency hashes
-(: sk-fold-state (-[det]-> Atom (List Proof) (List (List Evidence)) (List Number) SkeletonFold))
+(: sk-fold-state (-[det]-> Atom (List Proof) (List EvidenceSet) (List Number) SkeletonFold))
 (: SkeletonGroup Type)
 (: sk-group-found (-[det]-> SkPattern (List SkeletonKey) SkeletonGroup))
 (: sk-group-missing SkeletonGroup)
@@ -50,15 +50,12 @@
 (: sk-value (-[semidet]-> SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 (: sk-row-view (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Number SkeletonRow SkeletonValue))
 
-(: sk-union (-[det]-> (List $item) (List $item) (List $item)))
-(= (sk-union $left $right) (list_to_set (append-flat $left $right)))
-
 ;; --- Leaves -----------------------------------------------------------------
 
 ;; Hypothetical assumptions are not evidence.
-(: leaf-evidence-for-result (-[det]-> SkFact (List Evidence)))
+(: leaf-evidence-for-result (-[det]-> SkFact EvidenceSet))
 (= (leaf-evidence-for-result ($type $kb $proof $tv))
-   (if (assumption-proof? $proof) () (cons (fact-evidence-entry $kb $proof $type) ())))
+   (if (assumption-proof? $proof) (ev-set 0) (evidence-set (cons (fact-evidence-entry $kb $proof $type) ()))))
 
 ;; A stored fact is its own evidence and depends on its own key. The fact a
 ;; forward run stored for a key carries its value's evidence and what that value
@@ -229,7 +226,7 @@
 ;; it is. Anything else is left to the rules below, and so are two certain
 ;; views that contradict each other.
 (: sk-factored-merge
-   (-[det]-> SkFact (List Evidence) Number SkFact (List Evidence) Number SkeletonValue))
+   (-[det]-> SkFact EvidenceSet Number SkFact EvidenceSet Number SkeletonValue))
 (= (sk-factored-merge ($type $kbctx $proof-a $tv-a) $ev-a $deps-a ($btype $bkbctx $proof-b $tv-b) $ev-b $deps-b)
    (case (data (sk-prior-update-of $proof-a $tv-a) (sk-prior-update-of $proof-b $tv-b) $tv-a $tv-b) (
       (((sk-prior-update $base-a (prior (STV $spa $cpa)) $parts-a)
@@ -241,13 +238,13 @@
                (sk-factored-merge (data $btype $bkbctx $proof-b $tv-b) $ev-b $deps-b (data $type $kbctx $proof-a $tv-a) $ev-a $deps-a)
                (if (if (sk-contradict? (the Number $sa) (the Number $sb)) false
                       (if (=alpha $base-a $base-b)
-                         (if (== $spa $spb) (if (== $cpa $cpb) (if (== $parts-a ()) false (if (== $parts-b ()) false (if (if $population-a (evidence-sets-overlap? $ev-a $ev-b) false) false (not (sk-sources-meet? (brand KB (car-atom $kbctx)) $parts-a $parts-b))))) false) false)
+                         (if (== $spa $spb) (if (== $cpa $cpb) (if (== $parts-a ()) false (if (== $parts-b ()) false (if (if $population-a (evidence-overlap? $ev-a $ev-b) false) false (not (sk-sources-meet? (brand KB (car-atom $kbctx)) $parts-a $parts-b))))) false) false)
                          (if $population-b
-                            (if (if (is-expr $base-a) (< $ca 1.0) false) (if (evidence-sets-overlap? $ev-a $ev-b) false true) false)
+                            (if (if (is-expr $base-a) (< $ca 1.0) false) (if (evidence-overlap? $ev-a $ev-b) false true) false)
                             false)))
                   (sk-val ($type $kbctx (brand Proof (factored-revision $base-a (prior (STV $spa $cpa)) (append-flat $parts-a $parts-b)))
                               (sk-factored-tv odds (the Number $spb) (the Number $cpb) (the Number $sa) (the Number $ca) (the Number $sb) (the Number $cb)))
-                     (sk-union $ev-a $ev-b) (deps-union $deps-a $deps-b))
+                     (evidence-union $ev-a $ev-b) (deps-union $deps-a $deps-b))
                   sk-none))))
       ($_other sk-none))))
 
@@ -264,7 +261,7 @@
 ;; reads its stored facts merged, adding their evidence; a computation runs.
 ;; A fold, an open statement, a missing fact or a settled variant gives no
 ;; view.
-(: sk-stored-premise-step (-[semidet]-> (List Evidence) Atom (List Evidence)))
+(: sk-stored-premise-step (-[semidet]-> EvidenceSet Atom EvidenceSet))
 (= (sk-stored-premise-step $ev $premise)
    (case $premise (
       ((CPU $fun $args $res)
@@ -275,21 +272,21 @@
          (if (== (extract-vars $type) ())
             (case (stored-statement-candidate (brand Statement $type) (brand KBContext $kbctx) false) (
                ((forward-derived ($_stype $_skbctx $stored-proof $stored-tv) $stored-ev)
-                  (if (= ($proof $tv) ($stored-proof $stored-tv)) (append-flat $stored-ev $ev) (empty)))))
+                  (if (= ($proof $tv) ($stored-proof $stored-tv)) (evidence-union $stored-ev $ev) (empty)))))
             (empty))))))
 
 (: sk-disjoint-view-step (-[semidet]-> Atom Atom Atom))
 (= (sk-disjoint-view-step ($tvs $seen) ($tv $ev))
-   (if (evidence-sets-overlap? (the (List Evidence) $ev) (the (List Evidence) $seen)) (empty) (data (cons $tv $tvs) (append-flat $ev $seen))))
+   (if (evidence-overlap? (the EvidenceSet $ev) (the EvidenceSet $seen)) (empty) (data (cons $tv $tvs) (evidence-union $ev $seen))))
 
 ;; The views the forward rules concluding a statement give from its
 ;; antecedents' stored facts, when there are several and their evidence is
 ;; disjoint.
 (: sk-outcome-views (-[det]-> Atom Atom (List STVType)))
 (= (sk-outcome-views $type $kbctx)
-   (case (collapse (once (fold-semidet sk-disjoint-view-step (data () ())
+   (case (collapse (once (fold-semidet sk-disjoint-view-step (data () (ev-set 0))
             (collapse (match ccls_index (($type $kbctx (by $_rule $_premise) $tv) $_id $args)
-               (let $ev (fold-semidet sk-stored-premise-step () $args) (data $tv $ev))))))) (
+               (let $ev (fold-semidet sk-stored-premise-step (ev-set 0) $args) (data $tv $ev))))))) (
       ((cons $found $_none)
          (case $found (
             (((cons $_one ()) $_seen) ())
@@ -346,7 +343,7 @@
 
 ;; Disjoint forward views of a consequent whose outcomes prefer a product mode
 ;; combine by it; two certain views that contradict each other revise.
-(: sk-combined-merge (-[det]-> SkFact SkFact (List Evidence) Number SkeletonValue))
+(: sk-combined-merge (-[det]-> SkFact SkFact EvidenceSet Number SkeletonValue))
 (= (sk-combined-merge ($type $kbctx $proof-a $tv-a) ($_btype $_bkbctx $proof-b $tv-b) $ev $deps)
    (let* (($parts-a (sk-forward-parts $proof-a))
           ($parts-b (sk-forward-parts $proof-b)))
@@ -369,17 +366,17 @@
 ;; or combines forward views by the mode their predicate's outcomes prefer.
 ;; A dominated view contributes neither evidence nor dependencies.
 (: sk-merge-facts
-   (-[det]-> SkFact (List Evidence) Number SkFact (List Evidence) Number
+   (-[det]-> SkFact EvidenceSet Number SkFact EvidenceSet Number
        SkeletonValue))
 (= (sk-merge-facts $a $ev-a $deps-a $b $ev-b $deps-b)
    (let* (($proof-a (sk-fact-step-proof $a))
           ($proof-b (sk-fact-step-proof $b)))
-      (if (== $a $b) (sk-val $a (sk-union $ev-a $ev-b) $deps-a)
+      (if (== $a $b) (sk-val $a (evidence-union $ev-a $ev-b) $deps-a)
          (if (proof-dominates? $proof-a $proof-b) (sk-val $a $ev-a $deps-a)
             (if (proof-dominates? $proof-b $proof-a) (sk-val $b $ev-b $deps-b)
                (let $factored (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b)
                (if (not (== $factored sk-none)) $factored
-               (if (evidence-sets-overlap? $ev-a $ev-b)
+               (if (evidence-overlap? $ev-a $ev-b)
                   (let* (($a-in-b (evidence-subset? $ev-a $ev-b))
                          ($b-in-a (evidence-subset? $ev-b $ev-a)))
                      (if (if $a-in-b (if $b-in-a false true) false) (sk-val $b $ev-b $deps-b)
@@ -387,7 +384,7 @@
                            (if (>= (term-confidence $a) (term-confidence $b))
                               (sk-val $a $ev-a $deps-a)
                               (sk-val $b $ev-b $deps-b)))))
-                  (let* (($pooled (sk-union $ev-a $ev-b))
+                  (let* (($pooled (evidence-union $ev-a $ev-b))
                          ($deps (deps-union $deps-a $deps-b))
                          ($combined (sk-combined-merge $a $b $pooled $deps)))
                      (if (not (== $combined sk-none)) $combined
@@ -459,7 +456,7 @@
           ($facts (sk-lift-facts $step $ev)))
       (case $facts (
          ((cons $fact $_rest)
-            (if (evidence-member? $fact $shared) $probe (sk-lift-fact-tv $fact)))
+            (if (stored-list-member? $fact $shared) $probe (sk-lift-fact-tv $fact)))
          (()
             (case $step (
                ((by $rule $premise)
@@ -478,9 +475,10 @@
 (= (sk-lift-residual $shared $conj $value)
    (case $value (
       ((sk-val ($_type ($kb $_ctx $_vars) $proof (STV $stored $_confidence)) $ev $_deps)
-         (let* (($residual
-                   (CTV (sk-lift-eval $kb $ev $shared (STV 1.0 1.0) $proof)
-                        (sk-lift-eval $kb $ev $shared (STV 0.0 1.0) $proof)))
+         (let* (($entries (evidence-entries $ev))
+                ($residual
+                   (CTV (sk-lift-eval $kb $entries $shared (STV 1.0 1.0) $proof)
+                        (sk-lift-eval $kb $entries $shared (STV 0.0 1.0) $proof)))
                 ((STV $strength $_strength-confidence) (CTVModusPonensFormula $conj $residual)))
             (if (< (abs-math (- $strength $stored)) 0.000001) $residual (empty)))))))
 
@@ -488,25 +486,25 @@
 (= (sk-lift-revise-step (CTV $pos1 $neg1) (CTV $pos2 $neg2))
    (CTV (mergetvs $pos1 $pos2) (mergetvs $neg1 $neg2)))
 
-(: sk-lift-shared-step (-[det]-> (List Evidence) SkeletonValue (List Evidence)))
-(= (sk-lift-shared-step $shared $value)
+(: sk-value-evidence (-[det]-> SkeletonValue EvidenceSet))
+(= (sk-value-evidence $value)
    (case $value (
-      ((sk-val $_fact $ev $_deps) (evidence-intersection $shared $ev))
-      ($_other ()))))
+      ((sk-val $_fact $ev $_deps) $ev)
+      ($_other (ev-set 0)))))
 
-(: sk-lift-residual-ev-step (-[semidet]-> (List Evidence) (List Evidence) SkeletonValue (List Evidence)))
+(: sk-lift-residual-ev-step (-[semidet]-> EvidenceSet EvidenceSet SkeletonValue EvidenceSet))
 (= (sk-lift-residual-ev-step $shared $seen $value)
    (case $value (
       ((sk-val $_fact $ev $_deps)
          (let $residual (evidence-subtraction $ev $shared)
-            (if (== $residual ()) (empty)
-               (if (evidence-sets-overlap? $residual $seen) (empty) (append-flat $residual $seen))))))))
+            (if (== $residual (ev-set 0)) (empty)
+               (if (evidence-overlap? $residual $seen) (empty) (evidence-union $residual $seen))))))))
 
 (: sk-lift-merge-step (-[semidet]-> SkeletonValue SkeletonValue SkeletonValue))
 (= (sk-lift-merge-step (sk-val ($type $kbctx $proof $tv) $ev $deps)
       (sk-val ($_other-type $_other-kbctx $other $_other-tv) $other-ev $other-deps))
    (sk-val ($type $kbctx (brand Proof (merge/revision $proof $other)) $tv)
-      (sk-union $ev $other-ev) (deps-union $deps $other-deps)))
+      (evidence-union $ev $other-ev) (deps-union $deps $other-deps)))
 
 (: sk-lift-with-tv (-[semidet]-> SkeletonValue TV SkeletonValue))
 (= (sk-lift-with-tv (sk-val ($type $kbctx $proof $_old) $ev $deps) $tv)
@@ -514,7 +512,7 @@
 
 (: sk-lift-group (-[semidet]-> (List Evidence) (List SkeletonValue) SkeletonValue))
 (= (sk-lift-group $shared (cons $first $rest))
-   (let* (($_disjoint (fold-semidet (sk-lift-residual-ev-step $shared) () (cons $first $rest)))
+   (let* (($_disjoint (fold-semidet (sk-lift-residual-ev-step (evidence-set $shared)) (ev-set 0) (cons $first $rest)))
           ((cons $leaf $leaves) (map-semidet sk-lift-fact-tv $shared))
           ($conj (fold-semidet sk-lift-and-step $leaf $leaves))
           ((cons $residual $residuals) (map-semidet (sk-lift-residual $shared $conj) (cons $first $rest)))
@@ -525,8 +523,8 @@
 (: sk-lift (-[semidet]-> (List SkeletonValue) (List SkeletonValue)))
 (= (sk-lift $values)
    (case $values (
-      ((cons (sk-val $_fact $ev $_deps) (cons $_second $_more))
-         (let $shared (fact-evidence-only (fold-flat sk-lift-shared-step $ev $values))
+      ((cons (sk-val $_fact $_ev $_deps) (cons $_second $_more))
+         (let $shared (evidence-common-facts (map-flat sk-value-evidence $values))
             (if (== $shared ()) () (collapse (once (sk-lift-group $shared $values))))))
       ($_other ()))))
 
@@ -584,7 +582,7 @@
 (: sk-store-proof! (-[semidet]-> Proof Proof))
 (= (sk-store-proof! $proof)
    (let* (($pid (next-search-id proof_id))
-          ($leaves (list_to_set (once (proof-term-evidence-list-mode proof-walk-in-kb $proof))))
+          ($leaves (once (proof-term-evidence proof-walk-in-kb $proof)))
           ($negated (proof-term-contains-negated? $proof))
           ($_row (add-atom &proof ($pid $proof $leaves $negated))))
       (proof-ref $pid)))
@@ -677,10 +675,6 @@
                (cons $member-ev $ev) (cons $member-deps $deps))))
       ($_none (sk-fold-state $acc $proofs $ev $deps)))))
 
-;; The distinct evidence of a fold's members.
-(: sk-join-evidence (-[det]-> (List (List Evidence)) (List Evidence)))
-(= (sk-join-evidence $parts) (list_to_set (foldr-flat append-flat () $parts)))
-
 ;; A fold with members proves by its members, in the order they were found.
 (: sk-fold-proof (-[semidet]-> Atom (List Proof) Proof))
 (= (sk-fold-proof $function $proofs)
@@ -706,11 +700,11 @@
          ;; members' truth values as data, like base rates, are not revised
          ;; against their members' evidence; their dependencies still reach
          ;; their readers.
-         (if $base-rate ()
-            (if (stored-list-member? $finish (uniform-prior uniform-prior-known implication-instance)) ()
+         (if $base-rate (ev-set 0)
+            (if (stored-list-member? $finish (uniform-prior uniform-prior-known implication-instance)) (ev-set 0)
                (case $args (
-                  (($_kb $_pattern (extract-with-truth $_p $_t $_v) $_init $_fn $_fin $_mode) ())
-                  ($_other (sk-join-evidence $ev))))))
+                  (($_kb $_pattern (extract-with-truth $_p $_t $_v) $_init $_fn $_fin $_mode) (ev-set 0))
+                  ($_other (evidence-join $ev))))))
          (if $base-rate (deps-key $hash) (deps-join (cons (deps-key $hash) $deps))))))
 
 ;; A base rate is one estimate per pattern, kept by the forward aggregate of the
@@ -739,7 +733,7 @@
                (()
                   (let* ((($_kb $_pattern $_extractor $init $_function $finish $_mode) $args))
                      (sk-goal-val (CPU FoldAllCompiled $args (finish-aggregate (brand KB $kbid) $finish $init))
-                        (brand Proof cpu) () (deps-key $hash))))))))
+                        (brand Proof cpu) (ev-set 0) (deps-key $hash))))))))
       (no-base-rate-aggregate-key (sk-computed-fold-view $hash $args)))))
 
 ;; Takes the members of a base-rate fold that joined or changed into its
@@ -777,7 +771,7 @@
 
 (: sk-cached-fold-view (-[semidet]-> Number ScalarFoldSpec BaseRateEntry SkeletonValue))
 (= (sk-cached-fold-view $hash $args $entry)
-   (sk-goal-val (CPU FoldAllCompiled $args (base-rate-entry-tv $entry)) (brand Proof cpu) ()
+   (sk-goal-val (CPU FoldAllCompiled $args (base-rate-entry-tv $entry)) (brand Proof cpu) (ev-set 0)
       (deps-key $hash)))
 
 ;; --- Coverage of exact folds (docs/metta/partial_folds.md) -------------------
@@ -1090,7 +1084,7 @@
    (case $value (
       ((sk-goal-val (CPU $_fun $_args $result) $proof $fold-ev $fold-deps)
          (if (= $res $result)
-            (sk-acc (cons $proof $fold-proofs) (sk-union $ev $fold-ev) (cons $fold-deps $deps) $parts)
+            (sk-acc (cons $proof $fold-proofs) (evidence-union $ev $fold-ev) (cons $fold-deps $deps) $parts)
             sk-fail))
       ($_none sk-fail))))
 
@@ -1198,7 +1192,7 @@
             (case $key (
                ((sk-key $type $kbctx)
                   (cons (sk-val (assemble-runtime-fact $type $kbctx (brand Proof (given $truth)) (STV (if $truth 1.0 0.0) 1.0))
-                           () (deps-key $hash))
+                           (ev-set 0) (deps-key $hash))
                      $found))
                ($_fold $found)))
             $found))
@@ -1234,7 +1228,7 @@
 ;; A premise value whose evidence overlaps what the row already uses is
 ;; replaced by the merge of the key's leaves and views that do not overlap it:
 ;; the consumer selects the proofs compatible with its other premises.
-(: sk-compatible-step (-[semidet]-> (List Evidence) SkeletonValue SkeletonValue SkeletonValue))
+(: sk-compatible-step (-[semidet]-> EvidenceSet SkeletonValue SkeletonValue SkeletonValue))
 (= (sk-compatible-step $ev $acc $view)
    (case $view (
       ((sk-val $_fact $view-ev $_deps)
@@ -1242,7 +1236,7 @@
       ($_other $acc))))
 
 (: sk-compatible-value
-   (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) (List Evidence) Bool SkeletonValue))
+   (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) EvidenceSet Bool SkeletonValue))
 (= (sk-compatible-value $given $key $filter $exclude $ev $views)
    (let* (($hash (index-hash $key))
           ($leaves (sk-leaf-views $hash $key $filter (hash-union $exclude (hash-set (sk-given-hashes $given))))))
@@ -1264,7 +1258,7 @@
                    (if (premise-evidence-overlap? $ev $premise-ev) (not (sk-joins-pool? $parts $part)) false))
                sk-fail
                (if (= ($type $kbctx $proof $tv) (if (is-var $proof) $fact (sk-full-fact $fact)))
-                  (sk-acc $fold-proofs (sk-union $ev $premise-ev) (cons $premise-deps $deps)
+                  (sk-acc $fold-proofs (evidence-union $ev $premise-ev) (cons $premise-deps $deps)
                      (sk-add-part $parts $part))
                   sk-fail))))
       ($_none sk-fail))))
@@ -1305,7 +1299,7 @@
             ((sk-val $fact $value-ev $value-deps)
                (let $keys
                   (list_to_set (fold-semidet (sk-shared-key-step $given) ()
-                     (evidence-intersection (fact-evidence-only $ev) (fact-evidence-only $value-ev))))
+                     (evidence-shared-facts $ev $value-ev)))
                   (if (if (sk-projection? $fact) true (stored-list-member? $key $keys)) (sk-clash () 0)
                      (sk-clash $keys (* (pow-math 2 (list-len $keys)) (+ 1 (deps-size $value-deps)))))))
             ($_none sk-fail))))
@@ -1323,7 +1317,7 @@
 (= (sk-unfounded-value $hash $key)
    (case $key (
       ((sk-key $type $kbctx)
-         (sk-val (assemble-runtime-fact $type $kbctx (brand Proof unfounded) (STV 0.0 1.0)) () (deps-key $hash)))
+         (sk-val (assemble-runtime-fact $type $kbctx (brand Proof unfounded) (STV 0.0 1.0)) (ev-set 0) (deps-key $hash)))
       ($_fold sk-none))))
 
 ;; Whether a node has answers and its waiting joins took them all: none is
@@ -1512,12 +1506,12 @@
 (= (sk-mix (sk-val ($_wtype $_wkbctx $wproof (STV $ws $wc)) $wev $wdeps)
       (sk-val ($type $kbctx $tproof (STV $ts $tc)) $tev $tdeps)
       (sk-val ($_ftype $_fkbctx $fproof (STV $fs $fc)) $fev $fdeps))
-   (let $branch-ev (sk-union $tev $fev)
+   (let $branch-ev (evidence-union $tev $fev)
       (if (premise-evidence-overlap? $wev $branch-ev) (empty)
          (sk-val
             (assemble-runtime-fact $type $kbctx (brand Proof (conditioned $wproof $tproof $fproof))
                (CTVModusPonensFormula (STV $ws $wc) (CTV (STV $ts $tc) (STV $fs $fc))))
-            (sk-union $wev $branch-ev) (deps-union $wdeps (deps-union $tdeps $fdeps))))))
+            (evidence-union $wev $branch-ev) (deps-union $wdeps (deps-union $tdeps $fdeps))))))
 
 (: sk-compound-parts (-[det]-> Atom (List Atom)))
 (= (sk-compound-parts $term)
@@ -1560,7 +1554,7 @@
    (fold-semidet
       (sk-premise-step (sk-closed-pin $khash $type $kbctx $proof) $given $exclusions
          (shared-evidence-frontier-proof? $proof) $facts-first)
-      (sk-acc () (sk-sample-exclusions $type $kbctx) (cons (deps-key $khash) ()) ())
+      (sk-acc () (evidence-set (sk-sample-exclusions $type $kbctx)) (cons (deps-key $khash) ()) ())
       $premises))
 
 ;; An implication instance sample must not restate the implication it
@@ -2271,7 +2265,7 @@
 
 ;; A re-materialization of an output key replaces the key's earlier
 ;; materialized rows. Marked facts are never leaves of the backward search.
-(: upsert-materialized! (-[semidet]-> SkFact (List Evidence) Atom))
+(: upsert-materialized! (-[semidet]-> SkFact EvidenceSet Atom))
 (= (upsert-materialized! ($type $kb $proof $tv) $ev)
    (let* (($fact (data $type $kb $proof $tv))
           ($hash (forward-output-index-hash (forward-output-key $kb $type)))
@@ -2451,7 +2445,7 @@
          (case (sk-value (sk-fold $args) sk-any-filter ()) (
             ((sk-goal-val (CPU $_fun $_args (STV $s $c)) $_fold-proof $_ev $deps)
                (let $fact (data $type $kbctx (brand Proof (population-prior (car-atom (cdr-atom $args)))) (STV $s $c))
-                  (if (if (uncertain-rate? (STV $s $c)) (sk-fact-matches? $filter $fact) false) (sk-val $fact () $deps) sk-none)))
+                  (if (if (uncertain-rate? (STV $s $c)) (sk-fact-matches? $filter $fact) false) (sk-val $fact (ev-set 0) $deps) sk-none)))
             ($_none sk-none))))
       (() sk-none))))
 
@@ -2479,7 +2473,7 @@
                (map-semidet (sk-root-value sk-any-filter) (sk-root-keys $goal))
                (collapse (let $result (cpu-call 0 $fun $args)
                   (if (= $res $result)
-                     (sk-goal-val (CPU $fun $args $result) (brand Proof cpu) () 0)
+                     (sk-goal-val (CPU $fun $args $result) (brand Proof cpu) (ev-set 0) 0)
                      (empty)))))))
       ($_fact (map-semidet (sk-root-key-value $goal) (sk-root-keys $goal))))))
 

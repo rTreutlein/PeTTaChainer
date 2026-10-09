@@ -51,8 +51,8 @@
 ;; depends on, a computation or fold result with the proof that replaces a `cpu`
 ;; token, or nothing.
 (: SkeletonValue Type)
-(: sk-val (-[det]-> SkFact (List Evidence) Number SkeletonValue))
-(: sk-goal-val (-[det]-> Goal Proof (List Evidence) Number SkeletonValue))
+(: sk-val (-[det]-> SkFact EvidenceSet Number SkeletonValue))
+(: sk-goal-val (-[det]-> Goal Proof EvidenceSet Number SkeletonValue))
 (: sk-none SkeletonValue)
 (: SkeletonVersion Type)
 ;; row creation number, row hash, view
@@ -125,11 +125,11 @@
 !(bind! &sk_reader (new-space))
 ;; key -> the fact a forward run stored for it in &kb, with its value's
 ;; evidence and what that value was derived through
-(: &sk_forward_stored (SpaceOf (Number SkeletonKey SkFact (List Evidence) Number)))
+(: &sk_forward_stored (SpaceOf (Number SkeletonKey SkFact EvidenceSet Number)))
 !(bind! &sk_forward_stored (new-space))
 ;; key -> the summary a frozen key keeps in &kb (see forgetting.metta), with
 ;; its value's evidence and the keys within two steps of it
-(: &sk_summary (SpaceOf (Number SkeletonKey SkFact (List Evidence) Number)))
+(: &sk_summary (SpaceOf (Number SkeletonKey SkFact EvidenceSet Number)))
 !(bind! &sk_summary (new-space))
 ;; key with rows -> the last epoch a row was created for it or it was needed
 (: &sk_key_epoch (SpaceOf (Number SkeletonKey Number)))

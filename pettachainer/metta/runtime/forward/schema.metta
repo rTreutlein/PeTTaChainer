@@ -118,7 +118,7 @@
 (: MaterializedRow Type)
 (: materialized-row
    (-[det]-> Number Statement KBContext (Statement KBContext Proof TV)
-       (List Evidence) MaterializedRow))
+       EvidenceSet MaterializedRow))
 (: materialized-forward-fact? (-[det]-> (Statement KBContext Proof TV) Bool))
 (= (materialized-forward-fact? ($type $kb $proof $tv))
    (let $hash (forward-output-index-hash (forward-output-key $kb $type))
@@ -136,7 +136,7 @@
    (-[det]-> (| ForwardDerived NoForwardOutputCandidate) (Statement KBContext Proof TV) ForwardDerived))
 (= (stored-candidate-step $acc ($type $kb $proof $tv))
    (let* (($fact (data $type $kb $proof $tv))
-          ($ev (cons (fact-evidence-entry $kb $proof $type) ())))
+          ($ev (evidence-set (cons (fact-evidence-entry $kb $proof $type) ()))))
       (case $acc (
          (no-forward-output-candidate (forward-derived $fact $ev))
          ((forward-derived $current $current-ev)

@@ -66,24 +66,6 @@ prefix_hashes([Arg|Args], Reversed, Hashes0, Hashes) :-
     prefix_hashes(Args, Prefix, [Hash|Hashes0], Hashes).
 prefix_hashes(_, _, Hashes, Hashes).
 
-% A link is recorded once, by a 60-bit digest of the link term (SHA-1 of the
-% term up to variable renaming): a record stays one integer however large the
-% link, and two different links share a digest with probability about
-% n^2 / 2^61.
-% Evidence sets (evidence.metta): entries compared with ==, through an
-% ordered set of the second list.
-'evidence-member?'(Entry, Entries, Result) :-
-    ( member(E, Entries), E == Entry -> Result = true ; Result = false ).
-
-'evidence-intersection'(A, B, Shared) :-
-    sort(B, Set), findall(E, ( member(E, A), ord_memberchk(E, Set) ), InOrder), reverse(InOrder, Shared).
-
-'evidence-subtraction'(A, B, Kept) :-
-    sort(B, Set), findall(E, ( member(E, A), \+ ord_memberchk(E, Set) ), Kept).
-
-'evidence-sets-overlap?'(A, B, Result) :-
-    sort(B, Set), ( member(E, A), ord_memberchk(E, Set) -> Result = true ; Result = false ).
-
 % The shape a fold's member is compiled for (sk-shape-members). A user
 % predicate compiles to its own lookup goal, and a connective over user
 % predicates to adapters that only its structure decides, so the predicates'
@@ -145,6 +127,10 @@ argument_shape(Arg, Shape) :-
     ;   Raw = 1.0 ),
     Factor is max(Raw, 0.01).
 
+% A link is recorded once, by a 60-bit digest of the link term (SHA-1 of the
+% term up to variable renaming): a record stays one integer however large the
+% link, and two different links share a digest with probability about
+% n^2 / 2^61.
 'link-digest'(Link, Digest) :-
     copy_term_nat(Link, Copy), variant_sha1(Copy, Hex),
     sub_atom(Hex, 0, 15, _, Prefix), atom_concat('0x', Prefix, Number), atom_number(Number, Digest).
@@ -190,25 +176,35 @@ argument_shape(Arg, Shape) :-
     flag(deps_next_id, Next, Next), flag(deps_gc_next, Last, Last), flag(deps_gc_kept, Kept, Kept),
     (   Next - Last > max(Kept, 4096) -> Result = true ; Result = false ).
 
-% Drops every stored proof no store reaches: roots are the proof references in
-% any space but the proof store itself, and a stored proof keeps the proofs it
-% refers to. A replaced view's proof stays while an older view or a consumer's
-% proof still refers to it.
-'proofs-gc!'(true) :-
-    empty_nb_set(Live),
+% Drops every stored proof and evidence set no store reaches: roots are the
+% proof references and evidence sets in any space but the proof store itself,
+% and a stored proof keeps the proofs it refers to and its evidence. A replaced
+% view's proof stays while an older view or a consumer's proof still refers to
+% it.
+'stored-refs-gc!'(true) :-
+    empty_nb_set(Proofs), empty_nb_set(Sets),
     forall(( current_predicate(user:F/A), sub_atom(F, 0, 1, _, '&'),
              F \== '&proof', F \== '&proof_fact',
              functor(H, F, A), predicate_property(user:H, dynamic),
-             user:H, sub_term(S, H), nonvar(S), S = ['proof-ref', Pid], integer(Pid) ),
-           proof_mark(Pid, Live)),
-    forall(( clause(user:'&proof'(Pid, _, _, _), true, Ref), \+ add_nb_set(Pid, Live, false) ), erase(Ref)),
-    forall(( clause(user:'&proof_fact'(Pid, _, _), true, Ref), \+ add_nb_set(Pid, Live, false) ), erase(Ref)).
+             user:H, sub_term(S, H), nonvar(S), S = [Tag, Id], integer(Id) ),
+           (   Tag == 'proof-ref' -> proof_mark(Id, Proofs, Sets)
+           ;   Tag == 'ev-set' -> add_nb_set(Id, Sets, _)
+           ;   true )),
+    forall(( clause(user:'&proof'(Pid, _, _, _), true, Ref), \+ add_nb_set(Pid, Proofs, false) ), erase(Ref)),
+    forall(( clause(user:'&proof_fact'(Pid, _, _), true, Ref), \+ add_nb_set(Pid, Proofs, false) ), erase(Ref)),
+    forall(( clause(ev_set(Set, _, _, _), true, Ref), \+ add_nb_set(Set, Sets, false) ), erase(Ref)),
+    forall(( clause(ev_set_key(_, Set), true, Ref), \+ add_nb_set(Set, Sets, false) ), erase(Ref)),
+    forall(( clause(ev_union_memo(Key, C), true, Ref),
+             \+ ( Left is Key >> 32, Right is Key /\ 0xffffffff,
+                  add_nb_set(Left, Sets, false), add_nb_set(Right, Sets, false), add_nb_set(C, Sets, false) ) ),
+           erase(Ref)).
 
-proof_mark(Pid, Live) :-
-    (   add_nb_set(Pid, Live, true)
-    ->  forall(( user:'&proof'(Pid, Stored, _, _), sub_term(S, Stored), nonvar(S),
+proof_mark(Pid, Proofs, Sets) :-
+    (   add_nb_set(Pid, Proofs, true)
+    ->  forall(user:'&proof'(Pid, _, ['ev-set', Set], _), add_nb_set(Set, Sets, _)),
+        forall(( user:'&proof'(Pid, Stored, _, _), sub_term(S, Stored), nonvar(S),
                  S = ['proof-ref', Inner], integer(Inner) ),
-               proof_mark(Inner, Live))
+               proof_mark(Inner, Proofs, Sets))
     ;   true ).
 
 deps_mark(0, _) :- !.
@@ -298,6 +294,118 @@ deps_covered(Id, Nodes, Keys, Seen) :-
     ;   deps_size_memo(Id, Size) -> true
     ;   empty_nb_set(Nodes), empty_nb_set(Keys), deps_collect(Id, Nodes, Keys),
         size_nb_set(Keys, Size), assertz(deps_size_memo(Id, Size)) ).
+
+% A value's evidence is an interned set, `ev-set(Id)` with 0 the empty set, so
+% a value stays one small term however much evidence is behind it
+% (docs/metta/evidence_sets.md). An entry, a fact or rule a proof uses, is
+% interned once as an integer. A set is the list of its entry ids in the order
+% they were first added, interned by that list, so two values have the same
+% evidence exactly when their ids are equal. It also keeps its ids sorted, for
+% the set tests, and the ids of the rule entries its excluded-rule entries
+% name. Sets never change; a union is memoized by its operands.
+:- dynamic ev_entry/2, ev_entry_key/3, ev_set/4, ev_set_key/2, ev_union_memo/2.
+
+ev_entry_id(Entry, Id) :-
+    'index-hash'(Entry, Hash),
+    (   ev_entry_key(Hash, Stored, Id), Stored =@= Entry -> true
+    ;   flag(ev_next_entry, Last, Last + 1), Id is Last + 1,
+        assertz(ev_entry_key(Hash, Entry, Id)), assertz(ev_entry(Id, Entry)) ).
+
+ev_ids(0, [], [], []) :- !.
+ev_ids(Set, Ids, Sorted, Excluded) :- ev_set(Set, Ids, Sorted, Excluded).
+
+ev_intern([], _, _, 0) :- !.
+ev_intern(Ids, Sorted, Excluded, Set) :-
+    term_hash(Ids, Hash),
+    (   ev_set_key(Hash, Set), ev_set(Set, Ids, _, _) -> true
+    ;   flag(ev_next_set, Last, Last + 1), Set is Last + 1,
+        assertz(ev_set(Set, Ids, Sorted, Excluded)), assertz(ev_set_key(Hash, Set)) ).
+
+% The set of a list of ids without repeats, in its order.
+ev_of_ids(Ids, Set) :-
+    findall(Rule, ( member(Id, Ids), ev_entry(Id, ['rule-excluded', Kb, Name]), ev_entry_id(['rule-ev', Kb, Name], Rule) ), Rules),
+    sort(Ids, Sorted), sort(Rules, Excluded), ev_intern(Ids, Sorted, Excluded, Set).
+
+ev_in_assoc(Assoc, Id) :- get_assoc(Id, Assoc, _).
+
+% The ids of a list that are in a sorted list, in the list's order.
+ev_keep(Ids, Sorted, Kept) :-
+    pairs_keys_values(Pairs, Sorted, Sorted), ord_list_to_assoc(Pairs, Assoc), include(ev_in_assoc(Assoc), Ids, Kept).
+
+ev_fact_entry(Id, Entry) :-
+    ev_entry(Id, Entry), \+ Entry = ['rule-ev', _, _], \+ Entry = ['rule-excluded', _, _].
+
+'evidence-set'(Entries, ['ev-set', Set]) :-
+    maplist(ev_entry_id, Entries, Repeated), list_to_set(Repeated, Ids), ev_of_ids(Ids, Set).
+
+'evidence-entries'(['ev-set', Set], Entries) :- ev_ids(Set, Ids, _, _), maplist(ev_entry, Ids, Entries).
+
+% A's entries followed by the entries of B that A lacks.
+'evidence-union'(['ev-set', A], ['ev-set', B], ['ev-set', C]) :- ev_union(A, B, C).
+ev_union(A, B, C) :-
+    (   B == 0 -> C = A
+    ;   A == 0 -> C = B
+    ;   A == B -> C = A
+    ;   Key is A << 32 \/ B, ev_union_memo(Key, Memo) -> C = Memo
+    ;   ev_set(A, IdsA, SortedA, ExcludedA), ev_set(B, IdsB, SortedB, ExcludedB),
+        ord_subtract(SortedB, SortedA, New),
+        (   New == [] -> C = A
+        ;   ( New == SortedB -> Added = IdsB ; ev_keep(IdsB, New, Added) ),
+            append(IdsA, Added, Ids), ord_union(SortedA, New, Sorted), ord_union(ExcludedA, ExcludedB, Excluded),
+            ev_intern(Ids, Sorted, Excluded, C) ),
+        Key is A << 32 \/ B, assertz(ev_union_memo(Key, C)) ).
+
+% The union of the sets in order.
+'evidence-join'(Sets, ['ev-set', Set]) :-
+    foldl([['ev-set', S], Acc0, Acc]>>ev_union(Acc0, S, Acc), Sets, 0, Set).
+
+'evidence-overlap?'(['ev-set', A], ['ev-set', B], Result) :-
+    ev_ids(A, _, SortedA, _), ev_ids(B, _, SortedB, _),
+    ( ord_intersect(SortedA, SortedB) -> Result = true ; Result = false ).
+
+'evidence-subset?'(['ev-set', A], ['ev-set', B], Result) :-
+    ev_ids(A, _, SortedA, _), ev_ids(B, _, SortedB, _),
+    ( ord_subset(SortedA, SortedB) -> Result = true ; Result = false ).
+
+% A's entries that B lacks, in A's order.
+'evidence-subtraction'(['ev-set', A], ['ev-set', B], ['ev-set', C]) :-
+    ev_ids(A, IdsA, SortedA, _), ev_ids(B, _, SortedB, _),
+    ord_subtract(SortedA, SortedB, Kept),
+    (   Kept == SortedA -> C = A
+    ;   ev_keep(IdsA, Kept, Ids), ev_of_ids(Ids, C) ).
+
+% Each entry as a Not reads it: a fact's entry names the fact negated, any
+% other entry is wrapped.
+'evidence-negated'(['ev-set', A], ['ev-set', C]) :-
+    ev_ids(A, Ids, _, _), maplist(ev_negated_id, Ids, Negated), ev_of_ids(Negated, C).
+ev_negated_id(Id, Negated) :-
+    ev_entry(Id, Entry),
+    (   Entry = ['fact-ev', Kb, Proof, Type] -> Not = ['not-fact-ev', Kb, Proof, Type]
+    ;   Entry = ['not-fact-ev', Kb, Proof, Type] -> Not = ['fact-ev', Kb, Proof, Type]
+    ;   Not = ['not-ev', Entry] ),
+    ev_entry_id(Not, Negated).
+
+% The entries other than rules that A shares with B, in reverse of A's order.
+'evidence-shared-facts'(['ev-set', A], ['ev-set', B], Entries) :-
+    ev_ids(A, IdsA, SortedA, _), ev_ids(B, _, SortedB, _),
+    ord_intersection(SortedA, SortedB, Shared),
+    (   Shared == [] -> Entries = []
+    ;   ev_keep(IdsA, Shared, Kept), reverse(Kept, Reversed), convlist(ev_fact_entry, Reversed, Entries) ).
+
+% The entries other than rules that every set holds: the first set's entries,
+% kept by each set in turn, each keeping reversing the order.
+'evidence-common-facts'([['ev-set', First]|Sets], Entries) :-
+    ev_ids(First, Ids, Sorted, _),
+    foldl(ev_common_step, [['ev-set', First]|Sets], Ids-Sorted, Common-_),
+    convlist(ev_fact_entry, Common, Entries).
+ev_common_step(['ev-set', Set], Ids-Sorted, Kept-Shared) :-
+    ev_ids(Set, _, SortedSet, _), ord_intersection(Sorted, SortedSet, Shared),
+    (   Shared == [] -> Kept = [] ; ev_keep(Ids, Shared, InOrder), reverse(InOrder, Kept) ).
+
+% Whether B uses a rule that one of A's excluded-rule entries names.
+'evidence-excludes?'(['ev-set', A], ['ev-set', B], Result) :-
+    ev_ids(A, _, _, Excluded),
+    (   Excluded \== [], ev_ids(B, _, SortedB, _), ord_intersect(Excluded, SortedB) -> Result = true ; Result = false ).
 
 % A rule is dormant when one of its statement premises can be proved, apart
 % from a stored fact, only through the rule's own conclusion with the same

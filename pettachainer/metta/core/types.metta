@@ -34,7 +34,7 @@
 (: deps-cut! (-[det]-> (List Number) Number Bool))
 (: deps-gc! (-[det]-> (List Number) Bool))
 (: deps-gc-due? (-[det]-> Bool))
-(: proofs-gc! (-[det]-> Bool))
+(: stored-refs-gc! (-[det]-> Bool))
 
 ;; Rules whose premise only their own conclusion supports (runtime_helpers.pl).
 (: rule-dormant? (-[det]-> Number Bool))
@@ -56,14 +56,22 @@
 (: node-context (-[det]-> Atom Atom))
 (: key-context (-[det]-> Atom Atom))
 (: scope-context (-[det]-> Atom Atom))
-;; Evidence sets compare entries with ==, through an ordered set of the second
-;; list, so their cost follows the lists' lengths, not their product. The
-;; intersection lists the first set's shared entries in reverse; the
-;; subtraction keeps the first set's order.
-(: evidence-member? (-[det]-> Evidence (List Evidence) Bool))
-(: evidence-intersection (-[det]-> (List Evidence) (List Evidence) (List Evidence)))
-(: evidence-subtraction (-[det]-> (List Evidence) (List Evidence) (List Evidence)))
-(: evidence-sets-overlap? (-[det]-> (List Evidence) (List Evidence) Bool))
+;; A value's evidence, an interned set of entries kept in the order they were
+;; first added; (ev-set 0) is the empty set (runtime_helpers.pl,
+;; docs/metta/evidence_sets.md). Equal sets have equal ids.
+(: EvidenceSet Type)
+(: ev-set (-[det]-> Number EvidenceSet))
+(: evidence-set (-[det]-> (List Evidence) EvidenceSet))
+(: evidence-entries (-[det]-> EvidenceSet (List Evidence)))
+(: evidence-union (-[det]-> EvidenceSet EvidenceSet EvidenceSet))
+(: evidence-join (-[det]-> (List EvidenceSet) EvidenceSet))
+(: evidence-overlap? (-[det]-> EvidenceSet EvidenceSet Bool))
+(: evidence-subset? (-[det]-> EvidenceSet EvidenceSet Bool))
+(: evidence-subtraction (-[det]-> EvidenceSet EvidenceSet EvidenceSet))
+(: evidence-negated (-[det]-> EvidenceSet EvidenceSet))
+(: evidence-shared-facts (-[det]-> EvidenceSet EvidenceSet (List Evidence)))
+(: evidence-common-facts (-[det]-> (List EvidenceSet) (List Evidence)))
+(: evidence-excludes? (-[det]-> EvidenceSet EvidenceSet Bool))
 
 ;; KL divergence of Beta(a1, b1) from Beta(a2, b2) (runtime_helpers.pl).
 (: beta_kl (-[det]-> Number Number Number Number Number))
@@ -136,7 +144,7 @@
 ;; conclusion indexing.
 (: ForwardDerived Type)
 (: forward-derived
-   (-[det]-> (Statement KBContext Proof TV) (List Evidence) ForwardDerived))
+   (-[det]-> (Statement KBContext Proof TV) EvidenceSet ForwardDerived))
 
 (: ForwardTriggerKey Type)
 (: fwd_trigger (-[det]-> KB Atom ForwardTriggerKey))
@@ -233,7 +241,7 @@
 ;; contains a negation anywhere. Stored proofs refer only to earlier ids, so
 ;; they form a DAG, and a proof term stays as small as one rule application.
 (: proof-ref (-[det]-> Number Proof))
-(: &proof (SpaceOf (Number Proof (List Evidence) Bool)))
+(: &proof (SpaceOf (Number Proof EvidenceSet Bool)))
 ;; the statement and truth value a stored fact proof proves
 (: &proof_fact (SpaceOf (Number Statement TV)))
 

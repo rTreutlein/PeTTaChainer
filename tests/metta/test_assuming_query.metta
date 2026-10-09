@@ -128,9 +128,9 @@
                  (ExpectedValue $s (Repair x) $g)) $tv))))
 !(test
    (let* (($_first (decide-in-world s2))
-          ($_collected (proofs-gc!))
+          ($_collected (stored-refs-gc!))
           ($before (store-sizes))
           ($_second (decide-in-world s3))
-          ($_recollected (proofs-gc!)))
+          ($_recollected (stored-refs-gc!)))
       (== $before (store-sizes)))
    true)

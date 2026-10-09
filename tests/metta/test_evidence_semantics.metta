@@ -6,19 +6,18 @@
 ; treated as dependent.
 
 !(test
-   (proof-term-evidence-list-mode
-      proof-walk-plain (ctx hypothesis))
+   (evidence-entries (proof-term-evidence proof-walk-plain (ctx hypothesis)))
    ())
 
 ; A factored merge's evidence is its prior view's and its updates': neither
 ; the population base rate (cpu) nor the prior's truth value is evidence.
 !(test
-   (proof-term-evidence-list-mode proof-walk-in-kb
-      (factored-revision cpu (prior (STV 0.3 0.9)) (((inverted r with cpu (prior (STV 0.3 0.9))) obs-a) obs-b)))
+   (evidence-entries (proof-term-evidence proof-walk-in-kb
+      (factored-revision cpu (prior (STV 0.3 0.9)) (((inverted r with cpu (prior (STV 0.3 0.9))) obs-a) obs-b))))
    (obs-a obs-b))
 !(test
-   (proof-term-evidence-list-mode proof-walk-in-kb
-      (factored-revision (by persist (conjunction next-t1 storm-h1)) (prior (STV 0.3 0.9)) (obs-a)))
+   (evidence-entries (proof-term-evidence proof-walk-in-kb
+      (factored-revision (by persist (conjunction next-t1 storm-h1)) (prior (STV 0.3 0.9)) (obs-a))))
    (next-t1 storm-h1 obs-a))
 
 ; Evidence read off a proof term names a fact by its proof alone, negated
@@ -29,8 +28,8 @@
 !(test (certain-fact-evidence? (not-ev certain-storm)) true)
 !(test (certain-fact-evidence? certain-storm) true)
 !(test (certain-fact-evidence? (not-ev soft-storm)) false)
-!(test (premise-evidence-overlap? ((not-ev certain-storm)) ((not-ev certain-storm))) false)
-!(test (premise-evidence-overlap? ((not-ev soft-storm)) ((not-ev soft-storm))) true)
+!(test (let $ev (evidence-set ((not-ev certain-storm))) (premise-evidence-overlap? $ev $ev)) false)
+!(test (let $ev (evidence-set ((not-ev soft-storm))) (premise-evidence-overlap? $ev $ev)) true)
 
 ; --- Two derivation branches under one hypothesis merge ---
 

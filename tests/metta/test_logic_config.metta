@@ -37,8 +37,8 @@
           ($marginal (logic-test-runtime-fact (B) (marginal-proj 1 ab) (STV 1.0 0.9)))
           (($merged $_evidence)
              (merge-proof-candidates
-                (data $full (proof-atom-evidence-set $full))
-                (data $marginal (proof-atom-evidence-set $marginal)))))
+                (data $full (proof-term-evidence proof-walk-in-kb ((proj 1 ab) a)))
+                (data $marginal (proof-term-evidence proof-walk-in-kb (marginal-proj 1 ab))))))
       $merged)
    (logic-test-runtime-fact (B) ((proj 1 ab) a) (STV 1.0 0.9)))
 
