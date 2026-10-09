@@ -14,7 +14,7 @@ fi
 linter_dir="$repo_root/tools/metta-linter"
 if (( $# == 0 )); then
   (cd "$linter_dir" && "$petta_bin" tests/test_metta_linter.metta silent)
-  mapfile -t targets < <(find "$repo_root/pettachainer/metta" -name '*.metta' | sort)
+  mapfile -t targets < <(git -C "$repo_root" ls-files --full-name 'pettachainer/metta/*.metta' | sed "s|^|$repo_root/|")
 else
   targets=()
   for file in "$@"; do
