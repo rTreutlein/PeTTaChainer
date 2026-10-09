@@ -101,6 +101,10 @@
          (CTVModusPonensFormula
             (normalize-expected-evidence-tv $a)
             (normalize-expected-ctv $b)))
+       (ImplicationModusPonensFormula
+         (ImplicationModusPonensFormula
+            (normalize-expected-evidence-tv $a)
+            (normalize-expected-ctv $b)))
        (CTVFormula
          (CTVFormula
             (normalize-expected-evidence-tv $a)

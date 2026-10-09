@@ -1153,6 +1153,9 @@
 
 ;; The compiled scaffold of a nested implication subgoal that is not itself a
 ;; compiled total-implication source; its assumption contexts are the query's.
+;; A subgoal asking for a rule application's proof, as a statement rule's
+;; premise does (docs/metta/derived_implications.md), reads only rules
+;; concluding the implication, and gets no scaffold.
 (: inject-special-subgoal-query-adds (-[semidet]-> Statement KBContext Proof TV Atom))
 (= (inject-special-subgoal-query-adds $type $kbctx $prf $tv)
    (case $kbctx (
@@ -1163,9 +1166,11 @@
             ;; stays an ordinary constraint.
             (if (if (is-expr $prf)
                    (if (== $prf ()) false
-                      (if (== (car-atom $prf) total-implication-frontier)
-                         (let $args (cdr-atom $prf) (if (== $args ()) false (== (cdr-atom $args) ())))
-                         false))
+                      (let $head (car-atom $prf)
+                         (if (== $head by) true
+                            (if (== $head total-implication-frontier)
+                               (let $args (cdr-atom $prf) (if (== $args ()) false (== (cdr-atom $args) ())))
+                               false))))
                    false)
                ()
                (foreach-flat inject-compiled-query-adds

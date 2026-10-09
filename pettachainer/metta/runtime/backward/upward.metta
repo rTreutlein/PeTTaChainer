@@ -74,11 +74,13 @@
 (= (sk-key-value $key) (sk-value $key sk-any-filter ()))
 
 ;; A key whose value rests on less than the minimum evidence is not built on.
+;; An implication's value is read by its positive branch, as its Beta is.
 (: sk-forward-weak? (-[semidet]-> SkeletonKey Bool))
 (= (sk-forward-weak? $key)
    (case (sk-key-value $key) (
       ((sk-val ($_type $_kbctx $_proof $tv) $_ev $_deps)
-         (< (confidence-to-count (tv-confidence $tv)) (forward-min-evidence)))
+         (let $read (case $tv (((CTV $pos $_neg) $pos) ($_stv $tv)))
+            (< (confidence-to-count (tv-confidence $read)) (forward-min-evidence))))
       ($_none true))))
 
 ;; --- The run ----------------------------------------------------------------

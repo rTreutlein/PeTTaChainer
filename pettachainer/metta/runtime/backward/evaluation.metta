@@ -431,13 +431,14 @@
 (: sk-lift-and-step (-[semidet]-> STVType STVType STVType))
 (= (sk-lift-and-step $acc $tv) (AndFormula $acc $tv))
 
-;; The rule's CTV, when its conclusion is modus ponens over a conjunction.
+;; The rule's CTV, when its conclusion is modus ponens over a conjunction (of
+;; a statement, or of an implication, docs/metta/derived_implications.md).
 (: sk-lift-formula-step (-[semidet]-> (List CTVType) Atom (List CTVType)))
 (= (sk-lift-formula-step $found $premise)
    (case $premise (
       ((CPU AndFormula $_and-args $_and-out) $found)
-      ((CPU CTVModusPonensFormula ($_premise-tv $ctv) $_mp-out)
-         (if (is-var $ctv) (empty)
+      ((CPU $mp ($_premise-tv $ctv) $_mp-out)
+         (if (if (if (== $mp CTVModusPonensFormula) true (== $mp ImplicationModusPonensFormula)) (is-var $ctv) true) (empty)
             (case $ctv (((CTV $pos $neg) (cons (CTV $pos $neg) $found))))))
       ((CPU $_formula $_formula-args $_formula-out) (empty))
       ($_goal $found))))
@@ -448,6 +449,17 @@
             (match rules (runtime-rule-row $id ($_type ($kb $_ctx $_vars) (by $rule $_premise) $_tv) $premises)
                (fold-semidet sk-lift-formula-step () $premises))))) (
       ((cons (cons $ctv ()) $_rest) $ctv))))
+
+;; The CTV a proof applies: a rule's, or a derived implication's, its proof
+;; evaluated with the shared facts replaced by the probe.
+(: sk-lift-ctv (-[semidet]-> KB (List Evidence) (List Evidence) STVType Atom CTVType))
+(= (sk-lift-ctv $kb $ev $shared $probe $rule)
+   (if (is-expr $rule)
+      (case (sk-step-proof (brand Proof $rule)) (
+         ((by $inner $premise)
+            (ImplicationModusPonensFormula (sk-lift-eval $kb $ev $shared $probe $premise)
+               (sk-lift-ctv $kb $ev $shared $probe $inner)))))
+      (sk-lift-rule-ctv $kb $rule)))
 
 ;; A proof's strength with the shared facts replaced by the probe.
 (: sk-lift-eval (-[semidet]-> KB (List Evidence) (List Evidence) STVType Atom STVType))
@@ -461,7 +473,7 @@
             (case $step (
                ((by $rule $premise)
                   (CTVModusPonensFormula (sk-lift-eval $kb $ev $shared $probe $premise)
-                     (sk-lift-rule-ctv $kb $rule)))
+                     (sk-lift-ctv $kb $ev $shared $probe $rule)))
                ($_other
                   (if (is-expr $step)
                      (if (== (car-atom $step) conjunction)

@@ -106,6 +106,15 @@
       (+ (* $bs_a $as) (* $bs_na (- 1 $as)))
       (ideal-mp-confidence $as $ac $bs_a $bc_a $bs_na $bc_na)))
 
+;; Modus ponens whose consequent is itself an implication, A → (X → Y), read
+;; as its exported form (A ∧ X) → Y: the derived X → Y keeps the rule's
+;; negative branch, P(Y | not all antecedents), so applying it in turn gives
+;; the exported rule's strength.
+(: ImplicationModusPonensFormula
+   (-[semidet]-> TV TV CTVType))
+(= (ImplicationModusPonensFormula $atv (CTV $pos $neg))
+   (CTV (CTVModusPonensFormula $atv (CTV $pos $neg)) $neg))
+
 (: CTVFormula
    (-[semidet]-> TV TV STVType))
 (= (CTVFormula $tv $ctv) (CTVModusPonensFormula $tv $ctv))
