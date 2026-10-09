@@ -12,9 +12,9 @@ A value holds its evidence as one interned set, `(ev-set Id)`, with
 
 - An **entry** (`fact-ev`, `not-fact-ev`, `rule-ev`, `rule-excluded`,
   `not-ev`, or a proof name read off a proof term) is interned once as an
-  integer (`ev_entry/2`, looked up by `ev_entry_key/2` under its hash).
+  integer (`ev_entry(Id, Hash, Entry)`, found by its id or its hash).
 - A **set** is the list of its entry ids in the order the entries were first
-  added (`ev_set(Id, Ordered, Sorted, Excluded)`), interned by that list, so
+  added (`ev_set(Id, Hash, Ordered, Sorted, Excluded)`), interned by that list, so
   equal evidence has one id and `sk-same-view?` compares ids. `Sorted` holds
   the same ids in order for the set tests; `Excluded` holds the ids of the
   `rule-ev` entries that the set's `rule-excluded` entries name.

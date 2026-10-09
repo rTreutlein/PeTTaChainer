@@ -87,8 +87,9 @@ representation chooses where the cost goes:
 ### A. Exact: interned DAG with summary-pruned membership
 
 A value's set is an integer node id (0 for the empty set). Prolog tables:
-`deps_leaf(Hash, Id)`, `deps_node(Id, Children)` with the children's ids
-sorted, interned by the children list. Each node also stores a fixed-width
+`deps_leaf(Id, Hash)`, `deps_node(Id, Key, Children, Mask)` with the children's
+ids sorted, interned by the children list under its hash `Key` (one clause
+found by id or by key). Each node also stores a fixed-width
 bitmask (bits of its leaves' hashes, OR of its children's masks).
 
 - Membership: a clear bit answers no at once; otherwise walk the children

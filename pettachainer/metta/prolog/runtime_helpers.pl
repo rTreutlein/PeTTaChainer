@@ -147,13 +147,13 @@ argument_shape(Arg, Shape) :-
 % change, so an id names one set forever. Each node keeps a bitmask of its
 % keys' hashes, the OR of its children's, so a membership walk skips every
 % child whose mask lacks the key's bit.
-:- dynamic deps_leaf/2, deps_leaf_hash/2, deps_node/3, deps_interned/3, deps_size_memo/2, deps_cut/2.
+:- dynamic deps_leaf/2, deps_node/4, deps_size_memo/2, deps_cut/2.
 
 % A frozen key's views stand for its summary (forgetting.metta): a node cut
 % to another is walked as that one, so what a value read before the key was
 % frozen depends on the key's window, not its whole past.
 'deps-cut!'(Ids, Replacement, true) :-
-    forall(( member(Id, Ids), deps_node(Id, _, _), \+ deps_cut(Id, _), Id \== Replacement ),
+    forall(( member(Id, Ids), deps_node(Id, _, _, _), \+ deps_cut(Id, _), Id \== Replacement ),
            assertz(deps_cut(Id, Replacement))).
 % Drops every dependency node no live value reaches. Roots are the sets the
 % stores hold; marking follows cuts; a dropped key leaf is interned anew when
@@ -163,12 +163,10 @@ argument_shape(Arg, Shape) :-
     forall(member(Root, Roots), deps_mark(Root, Live)),
     size_nb_set(Live, Kept), flag(deps_gc_kept, _, Kept),
     flag(deps_next_id, Next, Next), flag(deps_gc_next, _, Next),
-    forall(( clause(deps_node(Id, _, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
-    forall(( clause(deps_interned(_, _, Id), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
+    forall(( clause(deps_node(Id, _, _, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
     forall(( clause(deps_cut(Id, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
     forall(( clause(deps_size_memo(Id, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
-    forall(( clause(deps_leaf_hash(Id, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
-    forall(( clause(deps_leaf(_, Id), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)).
+    forall(( clause(deps_leaf(Id, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)).
 % A collection is due once more ids were interned since the last one than it
 % kept (at least 4096), so its cost, a walk of the stores, stays proportional
 % to what was interned.
@@ -192,8 +190,7 @@ argument_shape(Arg, Shape) :-
            ;   true )),
     forall(( clause(user:'&proof'(Pid, _, _, _), true, Ref), \+ add_nb_set(Pid, Proofs, false) ), erase(Ref)),
     forall(( clause(user:'&proof_fact'(Pid, _, _), true, Ref), \+ add_nb_set(Pid, Proofs, false) ), erase(Ref)),
-    forall(( clause(ev_set(Set, _, _, _), true, Ref), \+ add_nb_set(Set, Sets, false) ), erase(Ref)),
-    forall(( clause(ev_set_key(_, Set), true, Ref), \+ add_nb_set(Set, Sets, false) ), erase(Ref)),
+    forall(( clause(ev_set(Set, _, _, _, _), true, Ref), \+ add_nb_set(Set, Sets, false) ), erase(Ref)),
     forall(( clause(ev_union_memo(Key, C), true, Ref),
              \+ ( Left is Key >> 32, Right is Key /\ 0xffffffff,
                   add_nb_set(Left, Sets, false), add_nb_set(Right, Sets, false), add_nb_set(C, Sets, false) ) ),
@@ -211,12 +208,12 @@ deps_mark(0, _) :- !.
 deps_mark(Id, Live) :-
     (   add_nb_set(Id, Live, true)
     ->  (   deps_cut(Id, Replacement) -> deps_mark(Replacement, Live)
-        ;   deps_node(Id, Children, _) -> forall(member(Child, Children), deps_mark(Child, Live))
+        ;   deps_node(Id, _, Children, _) -> forall(member(Child, Children), deps_mark(Child, Live))
         ;   true )
     ;   true ).
 
 deps_children(Id, Children) :-
-    (   deps_cut(Id, Replacement) -> Children = [Replacement] ; deps_node(Id, Children, _) ).
+    (   deps_cut(Id, Replacement) -> Children = [Replacement] ; deps_node(Id, _, Children, _) ).
 % The mask width trades stored bytes per node against collisions in dominance
 % (docs/metta/dependency_tracking_design.md, "Mask width").
 deps_mask_bits(4096).
@@ -224,13 +221,13 @@ deps_mask_bits(4096).
 deps_bit(Hash, Bit) :- deps_mask_bits(W), Bit is 1 << (Hash mod W).
 
 deps_mask(0, 0) :- !.
-deps_mask(Id, Mask) :- deps_leaf_hash(Id, Hash), !, deps_bit(Hash, Mask).
-deps_mask(Id, Mask) :- deps_node(Id, _, Mask).
+deps_mask(Id, Mask) :- deps_leaf(Id, Hash), !, deps_bit(Hash, Mask).
+deps_mask(Id, Mask) :- deps_node(Id, _, _, Mask).
 
 'deps-key'(Hash, Id) :-
-    (   deps_leaf(Hash, Id) -> true
+    (   deps_leaf(Id, Hash) -> true
     ;   flag(deps_next_id, Last, Last + 1), Id is Last + 1,
-        assertz(deps_leaf(Hash, Id)), assertz(deps_leaf_hash(Id, Hash)) ).
+        assertz(deps_leaf(Id, Hash)) ).
 
 'deps-union'(Left, Right, Id) :- 'deps-join'([Left, Right], Id).
 
@@ -239,17 +236,17 @@ deps_mask(Id, Mask) :- deps_node(Id, _, Mask).
     (   Children == [] -> Id = 0
     ;   Children = [Only] -> Id = Only
     ;   term_hash(Children, Key),
-        (   deps_interned(Key, Children, Id) -> true
+        (   deps_node(Id, Key, Children, _) -> true
         ;   flag(deps_next_id, Last, Last + 1), Id is Last + 1,
             foldl([Child, Acc0, Acc]>>(deps_mask(Child, M), Acc is Acc0 \/ M), Children, 0, Mask),
-            assertz(deps_node(Id, Children, Mask)), assertz(deps_interned(Key, Children, Id)) ) ).
+            assertz(deps_node(Id, Key, Children, Mask)) ) ).
 
 % Whether a set holds a key: the walk enters only children whose mask has the
 % key's bit and visits each node once.
 deps_has(Id, Hash) :- deps_bit(Hash, Bit), empty_nb_set(Seen), deps_has(Id, Hash, Bit, Seen).
 deps_has(Id, Hash, Bit, Seen) :-
     deps_mask(Id, Mask), Mask /\ Bit =\= 0,
-    (   deps_leaf_hash(Id, Leaf) -> Leaf =:= Hash
+    (   deps_leaf(Id, Leaf) -> Leaf =:= Hash
     ;   add_nb_set(Id, Seen, true),
         deps_children(Id, Children),
         member(Child, Children), deps_has(Child, Hash, Bit, Seen), ! ).
@@ -281,21 +278,21 @@ deps_within(Set, Within) :-
 deps_collect(0, _, _) :- !.
 deps_collect(Id, Nodes, Keys) :-
     (   add_nb_set(Id, Nodes, true)
-    ->  (   deps_leaf_hash(Id, Hash) -> add_nb_set(Hash, Keys, _)
+    ->  (   deps_leaf(Id, Hash) -> add_nb_set(Hash, Keys, _)
         ;   deps_children(Id, Children), forall(member(Child, Children), deps_collect(Child, Nodes, Keys)) )
     ;   true ).
 deps_covered(Id, Nodes, Keys, Seen) :-
     (   add_nb_set(Id, Nodes, false) -> true
     ;   add_nb_set(Id, Seen, false) -> true
     ;   add_nb_set(Id, Seen, true),
-        (   deps_leaf_hash(Id, Hash) -> add_nb_set(Hash, Keys, false)
+        (   deps_leaf(Id, Hash) -> add_nb_set(Hash, Keys, false)
         ;   deps_children(Id, Children), forall(member(Child, Children), deps_covered(Child, Nodes, Keys, Seen)) ) ).
 
 % The number of keys in a set; a node's count never changes once computed.
 'deps-size'(0, 0) :- !.
 'deps-size'(Id, Size) :-
     (   deps_cut(Id, Replacement) -> 'deps-size'(Replacement, Size)
-    ;   deps_leaf_hash(Id, _) -> Size = 1
+    ;   deps_leaf(Id, _) -> Size = 1
     ;   deps_size_memo(Id, Size) -> true
     ;   empty_nb_set(Nodes), empty_nb_set(Keys), deps_collect(Id, Nodes, Keys),
         size_nb_set(Keys, Size), assertz(deps_size_memo(Id, Size)) ).
@@ -311,31 +308,31 @@ deps_covered(Id, Nodes, Keys, Seen) :-
 % a clause stores in a fifth of the space of an integer list; so at most
 % 1,114,111 entries can be interned. Sets never change; a union is memoized by
 % its operands.
-:- dynamic ev_entry/2, ev_entry_key/2, ev_set/4, ev_set_key/2, ev_union_memo/2.
+:- dynamic ev_entry/3, ev_set/5, ev_union_memo/2.
 
 ev_entry_id(Entry, Id) :-
     'index-hash'(Entry, Hash),
-    (   ev_entry_key(Hash, Id), ev_entry(Id, Stored), Stored =@= Entry -> true
+    (   ev_entry(Id, Hash, Stored), Stored =@= Entry -> true
     ;   flag(ev_next_entry, Last, Last + 1), Id is Last + 1,
-        assertz(ev_entry_key(Hash, Id)), assertz(ev_entry(Id, Entry)) ).
+        assertz(ev_entry(Id, Hash, Entry)) ).
 
 ev_order(0, []) :- !.
-ev_order(Set, Ids) :- ev_set(Set, Order, _, _), string_codes(Order, Ids).
+ev_order(Set, Ids) :- ev_set(Set, _, Order, _, _), string_codes(Order, Ids).
 ev_sorted(0, []) :- !.
-ev_sorted(Set, Ids) :- ev_set(Set, _, Sorted, _), string_codes(Sorted, Ids).
+ev_sorted(Set, Ids) :- ev_set(Set, _, _, Sorted, _), string_codes(Sorted, Ids).
 ev_excluded(0, []) :- !.
-ev_excluded(Set, Excluded) :- ev_set(Set, _, _, Excluded).
+ev_excluded(Set, Excluded) :- ev_set(Set, _, _, _, Excluded).
 
 ev_intern([], _, _, 0) :- !.
 ev_intern(Ids, Sorted, Excluded, Set) :-
     string_codes(Order, Ids), term_hash(Order, Hash),
-    (   ev_set_key(Hash, Set), ev_set(Set, Order, _, _) -> true
+    (   ev_set(Set, Hash, Order, _, _) -> true
     ;   flag(ev_next_set, Last, Last + 1), Set is Last + 1, string_codes(SortedString, Sorted),
-        assertz(ev_set(Set, Order, SortedString, Excluded)), assertz(ev_set_key(Hash, Set)) ).
+        assertz(ev_set(Set, Hash, Order, SortedString, Excluded)) ).
 
 % The set of a list of ids without repeats, in its order.
 ev_of_ids(Ids, Set) :-
-    findall(Rule, ( member(Id, Ids), ev_entry(Id, ['rule-excluded', Kb, Name]), ev_entry_id(['rule-ev', Kb, Name], Rule) ), Rules),
+    findall(Rule, ( member(Id, Ids), ev_entry(Id, _, ['rule-excluded', Kb, Name]), ev_entry_id(['rule-ev', Kb, Name], Rule) ), Rules),
     sort(Ids, Sorted), sort(Rules, Excluded), ev_intern(Ids, Sorted, Excluded, Set).
 
 ev_in_assoc(Assoc, Id) :- get_assoc(Id, Assoc, _).
@@ -345,12 +342,12 @@ ev_keep(Ids, Sorted, Kept) :-
     pairs_keys_values(Pairs, Sorted, Sorted), ord_list_to_assoc(Pairs, Assoc), include(ev_in_assoc(Assoc), Ids, Kept).
 
 ev_fact_entry(Id, Entry) :-
-    ev_entry(Id, Entry), \+ Entry = ['rule-ev', _, _], \+ Entry = ['rule-excluded', _, _].
+    ev_entry(Id, _, Entry), \+ Entry = ['rule-ev', _, _], \+ Entry = ['rule-excluded', _, _].
 
 'evidence-set'(Entries, ['ev-set', Set]) :-
     maplist(ev_entry_id, Entries, Repeated), list_to_set(Repeated, Ids), ev_of_ids(Ids, Set).
 
-'evidence-entries'(['ev-set', Set], Entries) :- ev_order(Set, Ids), maplist(ev_entry, Ids, Entries).
+'evidence-entries'(['ev-set', Set], Entries) :- ev_order(Set, Ids), maplist([Id, Entry]>>ev_entry(Id, _, Entry), Ids, Entries).
 
 % A's entries followed by the entries of B that A lacks.
 'evidence-union'(['ev-set', A], ['ev-set', B], ['ev-set', C]) :- ev_union(A, B, C).
@@ -393,7 +390,7 @@ ev_union(A, B, C) :-
 'evidence-negated'(['ev-set', A], ['ev-set', C]) :-
     ev_order(A, Ids), maplist(ev_negated_id, Ids, Negated), ev_of_ids(Negated, C).
 ev_negated_id(Id, Negated) :-
-    ev_entry(Id, Entry),
+    ev_entry(Id, _, Entry),
     (   Entry = ['fact-ev', Kb, Proof, Type] -> Not = ['not-fact-ev', Kb, Proof, Type]
     ;   Entry = ['not-fact-ev', Kb, Proof, Type] -> Not = ['fact-ev', Kb, Proof, Type]
     ;   Not = ['not-ev', Entry] ),
