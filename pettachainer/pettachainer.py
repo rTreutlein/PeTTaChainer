@@ -122,7 +122,7 @@ class PeTTaChainer:
                 if not LOADEDLIB:
                     metta_path = base_dir / "metta" / "petta_chainer.metta"
                     logger.info("Loading MeTTa library from %s", metta_path)
-                    self.handler.load_metta_file(str(metta_path))
+                    self.handler.load_metta_file_cached(str(metta_path))
                     LOADEDLIB = True
 
         self.load_logic_config(logic_config or "pln")

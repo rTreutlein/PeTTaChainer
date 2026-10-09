@@ -18,6 +18,13 @@ required order. Tests, examples, benchmarks, documentation, and tools live in
 their corresponding top-level directories. See
 `docs/metta/module_dependencies.md` for module ownership and dependency rules.
 
+`PeTTaChainer()` and the MeTTa suite load this runtime through PeTTa's cached
+load: the first process compiles it (about 5 s) and stores a snapshot of the
+result; later processes replay that snapshot (about 1 s). The snapshot is
+replaced whenever a loaded `.metta` or `.pl` file, its directory listing or
+PeTTa itself changes. Snapshots live in `$PETTA_LOAD_CACHE`, or else in
+`~/.cache/petta/loads`.
+
 The MeTTa API can also be loaded directly from a pinned Git checkout when
 running under PeTTa:
 
