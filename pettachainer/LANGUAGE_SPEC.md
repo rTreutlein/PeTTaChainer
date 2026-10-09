@@ -351,6 +351,13 @@ conditioning from its evaluation allowance (see
 `docs/metta/runtime_design_assumptions.md`), so a small one may leave such a
 conclusion for a later one.
 
+Two proofs of one statement that both read an uncertain statement, a stored
+fact or a derived one, are conditioned on it the same way: the answer is
+`(conditioned <weight> <merge given true> <merge given false>)`, each branch
+the statement's proofs merged with the shared one known
+(`docs/metta/overlap_conditioning.md`). Until a query pays for it, the more
+confident of the two proofs is the answer.
+
 A rule that builds terms from its own conclusions, such as
 `(AtTime $x $t) ∧ (AtTime $y $t) → (AtTime (And $x $y) $t)`, derives ever
 larger terms, `(And X (And X Y))` among them: `And` inside a term is data, and

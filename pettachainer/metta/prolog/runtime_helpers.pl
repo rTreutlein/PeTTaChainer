@@ -297,6 +297,13 @@ deps_covered(Id, Nodes, Keys, Seen) :-
     ;   empty_nb_set(Nodes), empty_nb_set(Keys), deps_collect(Id, Nodes, Keys),
         size_nb_set(Keys, Size), assertz(deps_size_memo(Id, Size)) ).
 
+% The keys two sets both hold, in order.
+'deps-shared'(A, B, Hashes) :-
+    empty_nb_set(NodesA), empty_nb_set(KeysA), deps_collect(A, NodesA, KeysA),
+    empty_nb_set(NodesB), empty_nb_set(KeysB), deps_collect(B, NodesB, KeysB),
+    nb_set_to_list(KeysB, InB), include(deps_in(KeysA), InB, Hashes).
+deps_in(Keys, Hash) :- add_nb_set(Hash, Keys, false).
+
 % A value's evidence is an interned set, `ev-set(Id)` with 0 the empty set, so
 % a value stays one small term however much evidence is behind it
 % (docs/metta/evidence_sets.md). An entry, a fact or rule a proof uses, is
@@ -413,6 +420,11 @@ ev_negated_id(Id, Negated) :-
 ev_common_step(['ev-set', Set], Ids-Sorted, Kept-Shared) :-
     ev_sorted(Set, SortedSet), ord_intersection(Sorted, SortedSet, Shared),
     (   Shared == [] -> Kept = [] ; ev_keep(Ids, Shared, InOrder), reverse(InOrder, Kept) ).
+
+% Whether A and B use one rule.
+'evidence-shares-rule?'(['ev-set', A], ['ev-set', B], Result) :-
+    ev_sorted(A, SortedA), ev_sorted(B, SortedB), ord_intersection(SortedA, SortedB, Shared),
+    (   member(Id, Shared), ev_entry(Id, _, ['rule-ev', _, _]) -> Result = true ; Result = false ).
 
 % Whether B uses a rule that one of A's excluded-rule entries names.
 'evidence-excludes?'(['ev-set', A], ['ev-set', B], Result) :-

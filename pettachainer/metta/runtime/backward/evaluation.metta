@@ -46,9 +46,26 @@
 
 (: sort-atom (-[det]-> (List $item) (List $item)))
 
+;; The merge of two views, or, for views that share an uncertain statement
+;; and neither of which contains the other's evidence, the statements to
+;; condition on, the union of their dependencies, and the more confident
+;; view, kept when the merge is not conditioned
+;; (docs/metta/overlap_conditioning.md)
+(: SkeletonPairing Type)
+(: sk-paired (-[det]-> SkeletonValue SkeletonPairing))
+(: sk-overlap (-[det]-> (List SkeletonKey) Number SkeletonValue SkeletonPairing))
+;; a fold over a key's values: the merge so far, and the first overlap's
+;; statements and dependencies
+(: SkeletonMerging Type)
+(: sk-merging (-[det]-> SkeletonValue (List SkeletonKey) Number SkeletonMerging))
+
 ;; Signatures of the mutually recursive functions below.
 (: sk-value (-[semidet]-> SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 (: sk-row-view (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Number SkeletonRow SkeletonValue))
+(: sk-given-value (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) SkeletonValue))
+(: sk-key-condition
+   (-[semidet]-> (List SkeletonGiven) Number SkeletonKey SkeletonFilter (List Number) (List SkeletonKey) Number
+       SkeletonValue SkeletonValue))
 
 ;; --- Leaves -----------------------------------------------------------------
 
@@ -219,17 +236,17 @@
 
 ;; Two views updating the same prior with different rules and observations
 ;; merge by Bayes' rule; over a base rate, which carries no evidence, they
-;; must also share no evidence, since an observation may be read below the
-;; witnesses the sources compare. A view updating the population base rate (`cpu`)
-;; merges the same way into a derived, uncertain view over another prior, or
-;; updating nothing, that shares none of its evidence: that view takes the
-;; base rate's place, as the instance's prior given its other evidence. A
-;; stored fact is counted in the base rate itself, and a certain view stays as
-;; it is. Anything else is left to the rules below, and so are two certain
-;; views that contradict each other.
+;; must also be independent, sharing no uncertain statement, since an
+;; observation may be read below the witnesses the sources compare. A view
+;; updating the population base rate (`cpu`) merges the same way into a
+;; derived, uncertain view over another prior, or updating nothing, that is
+;; independent of it: that view takes the base rate's place, as the instance's
+;; prior given its other evidence. A stored fact is counted in the base rate
+;; itself, and a certain view stays as it is. Anything else is left to the
+;; rules below, and so are two certain views that contradict each other.
 (: sk-factored-merge
-   (-[det]-> SkFact EvidenceSet Number SkFact EvidenceSet Number SkeletonValue))
-(= (sk-factored-merge ($type $kbctx $proof-a $tv-a) $ev-a $deps-a ($btype $bkbctx $proof-b $tv-b) $ev-b $deps-b)
+   (-[det]-> SkFact EvidenceSet Number SkFact EvidenceSet Number Bool SkeletonValue))
+(= (sk-factored-merge ($type $kbctx $proof-a $tv-a) $ev-a $deps-a ($btype $bkbctx $proof-b $tv-b) $ev-b $deps-b $independent)
    (case (data (sk-prior-update-of $proof-a $tv-a) (sk-prior-update-of $proof-b $tv-b) $tv-a $tv-b) (
       (((sk-prior-update $base-a (prior (STV $spa $cpa)) $parts-a)
         (sk-prior-update $base-b (prior (STV $spb $cpb)) $parts-b)
@@ -237,12 +254,12 @@
          (let* (($population-a (== (sk-step-proof $base-a) cpu))
                 ($population-b (== (sk-step-proof $base-b) cpu)))
             (if (if $population-a (if $population-b false true) false)
-               (sk-factored-merge (data $btype $bkbctx $proof-b $tv-b) $ev-b $deps-b (data $type $kbctx $proof-a $tv-a) $ev-a $deps-a)
+               (sk-factored-merge (data $btype $bkbctx $proof-b $tv-b) $ev-b $deps-b (data $type $kbctx $proof-a $tv-a) $ev-a $deps-a $independent)
                (if (if (sk-contradict? (the Number $sa) (the Number $sb)) false
                       (if (=alpha $base-a $base-b)
-                         (if (== $spa $spb) (if (== $cpa $cpb) (if (== $parts-a ()) false (if (== $parts-b ()) false (if (if $population-a (evidence-overlap? $ev-a $ev-b) false) false (not (sk-sources-meet? (brand KB (car-atom $kbctx)) $parts-a $parts-b))))) false) false)
+                         (if (== $spa $spb) (if (== $cpa $cpb) (if (== $parts-a ()) false (if (== $parts-b ()) false (if (if $population-a (if $independent false true) false) false (not (sk-sources-meet? (brand KB (car-atom $kbctx)) $parts-a $parts-b))))) false) false)
                          (if $population-b
-                            (if (if (is-expr $base-a) (< $ca 1.0) false) (if (evidence-overlap? $ev-a $ev-b) false true) false)
+                            (if (if (is-expr $base-a) (< $ca 1.0) false) $independent false)
                             false)))
                   (sk-val ($type $kbctx (brand Proof (factored-revision $base-a (prior (STV $spa $cpa)) (append-flat $parts-a $parts-b)))
                               (sk-factored-tv odds (the Number $spa) (the Number $cpa) (the Number $spb) (the Number $cpb) (the Number $sa) (the Number $ca) (the Number $sb) (the Number $cb)))
@@ -361,49 +378,131 @@
                   ($_revision sk-none))))
             (() sk-none))))))
 
+;; --- Overlapping views (docs/metta/overlap_conditioning.md) ------------------
+
+;; A statement both views depend on, with the size of its dependency set,
+;; negated so the largest sorts first, and that set.
+(: SkeletonShared Type)
+(: sk-shared-key (-[det]-> Number SkeletonKey Number SkeletonShared))
+
+(: sk-shared-candidate (-[semidet]-> (List Number) (List SkeletonShared) SkeletonKey (List SkeletonShared)))
+(= (sk-shared-candidate $ignore $found $key)
+   (case (sk-value $key sk-any-filter $ignore) (
+      ((sk-val ($_type $_kbctx $_proof (STV $s $c)) $_ev $deps)
+         (if (certain-tvs? (cons (STV $s $c) ())) $found
+            (cons (sk-shared-key (- 0 (deps-size $deps)) $key $deps) $found)))
+      ($_other $found))))
+
+(: sk-shared-hash-step (-[semidet]-> (List Number) (List SkeletonShared) Number (List SkeletonShared)))
+(= (sk-shared-hash-step $ignore $found $hash)
+   (if (stored-list-member? $hash $ignore) $found
+      (fold-semidet (sk-shared-candidate $ignore) $found (collapse (match &sk_keys ($hash $key) $key)))))
+
+(: sk-below-step (-[det]-> Number Bool SkeletonShared Bool))
+(= (sk-below-step $hash $found (sk-shared-key $_size $_key $deps)) (if $found true (deps-has? $deps $hash)))
+
+(: sk-frontier-step (-[semidet]-> (List SkeletonShared) SkeletonShared (List SkeletonShared)))
+(= (sk-frontier-step $kept (sk-shared-key $size $key $deps))
+   (if (fold-flat (sk-below-step (index-hash $key)) false $kept) $kept
+      (cons (sk-shared-key $size $key $deps) $kept)))
+
+(: sk-shared-statement (-[det]-> SkeletonShared SkeletonKey))
+(= (sk-shared-statement (sk-shared-key $_size $key $_deps)) $key)
+
+;; The statements two views both depend on, less the ignored keys, whose value
+;; is uncertain; of those, the ones no other one depends on, the largest
+;; dependency set first. A stored fact depends on its own key, and a fold is
+;; no statement.
+(: sk-shared-statements (-[semidet]-> (List Number) Number Number (List SkeletonKey)))
+(= (sk-shared-statements $ignore $deps-a $deps-b)
+   (let* (($hashes (deps-shared $deps-a $deps-b))
+          ($candidates (sort-atom (fold-semidet (sk-shared-hash-step $ignore) () $hashes))))
+      (map-flat sk-shared-statement (fold-semidet sk-cons-step () (fold-semidet sk-frontier-step () $candidates)))))
+
+;; A known fact two views share is evidence twice when some rule concludes
+;; its statement: it may be an observation both update on. A fact no rule
+;; concludes is a premise either reads as given.
+(: sk-concludable-fact? (-[det]-> Statement Atom Bool))
+(= (sk-concludable-fact? $type $kbctx) (let $kbid (car-atom $kbctx) (prefilter-head-concludable? $type $kbid)))
+
+(: sk-observation-step (-[det]-> Bool Evidence Bool))
+(= (sk-observation-step $found $entry)
+   (if $found true
+      (if (certain-fact-evidence? $entry)
+         (case $entry (
+            ((fact-ev $kbctx $_proof $type) (sk-concludable-fact? (the Statement $type) $kbctx))
+            ((not-fact-ev $nkbctx $_nproof $ntype) (sk-concludable-fact? (the Statement $ntype) $nkbctx))
+            ($_name true)))
+         false)))
+
 ;; Views merge as proofs do: an identical proof pools its evidence, a
 ;; projection gives way to its full proof and a settled step to its complete
-;; one, overlapping evidence keeps the view whose evidence strictly contains
-;; the other's or else the more confident one, and disjoint evidence revises,
-;; or combines forward views by the mode their predicate's outcomes prefer.
-;; A dominated view contributes neither evidence nor dependencies.
+;; one. Views whose evidence is disjoint, or overlaps only in facts read as
+;; given premises while each holds evidence of its own, are independent: they
+;; combine by the prior they update, by the mode their predicate's outcomes
+;; prefer, or by revision. Of dependent views, one whose evidence strictly
+;; contains the other's is kept; two that share an uncertain statement are an
+;; overlap, which the key's merge conditions on the shared statements; any
+;; other pair keeps the more confident view, also the overlap's fallback. A
+;; dominated view contributes neither evidence nor dependencies. The ignored
+;; hashes are the merged key's, those of the keys unifying with it, those the
+;; reader excludes and the statements given.
 (: sk-merge-facts
-   (-[det]-> SkFact EvidenceSet Number SkFact EvidenceSet Number
-       SkeletonValue))
-(= (sk-merge-facts $a $ev-a $deps-a $b $ev-b $deps-b)
+   (-[semidet]-> (List Number) SkFact EvidenceSet Number SkFact EvidenceSet Number
+       SkeletonPairing))
+(= (sk-merge-facts $ignore $a $ev-a $deps-a $b $ev-b $deps-b)
    (let* (($proof-a (sk-fact-step-proof $a))
           ($proof-b (sk-fact-step-proof $b)))
-      (if (== $a $b) (sk-val $a (evidence-union $ev-a $ev-b) $deps-a)
-         (if (proof-dominates? $proof-a $proof-b) (sk-val $a $ev-a $deps-a)
-            (if (proof-dominates? $proof-b $proof-a) (sk-val $b $ev-b $deps-b)
-               (let $factored (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b)
-               (if (not (== $factored sk-none)) $factored
-               (if (evidence-overlap? $ev-a $ev-b)
-                  (let* (($a-in-b (evidence-subset? $ev-a $ev-b))
-                         ($b-in-a (evidence-subset? $ev-b $ev-a)))
-                     (if (if $a-in-b (if $b-in-a false true) false) (sk-val $b $ev-b $deps-b)
-                        (if (if $b-in-a (if $a-in-b false true) false) (sk-val $a $ev-a $deps-a)
-                           (if (>= (term-confidence $a) (term-confidence $b))
-                              (sk-val $a $ev-a $deps-a)
-                              (sk-val $b $ev-b $deps-b)))))
-                  (let* (($pooled (evidence-union $ev-a $ev-b))
-                         ($deps (deps-union $deps-a $deps-b))
-                         ($combined (sk-combined-merge $a $b $pooled $deps)))
-                     (if (not (== $combined sk-none)) $combined
-                        (if (>= (term-confidence $a) (term-confidence $b))
-                           (sk-val (RevisionMergeProof $a $b) $pooled $deps)
-                           (sk-val (RevisionMergeProof $b $a) $pooled $deps))))))))))))
+      (if (== $a $b) (sk-paired (sk-val $a (evidence-union $ev-a $ev-b) $deps-a))
+         (if (proof-dominates? $proof-a $proof-b) (sk-paired (sk-val $a $ev-a $deps-a))
+            (if (proof-dominates? $proof-b $proof-a) (sk-paired (sk-val $b $ev-b $deps-b))
+               (let* (($overlap (evidence-overlap? $ev-a $ev-b))
+                      ($a-in-b (if $overlap (evidence-subset? $ev-a $ev-b) false))
+                      ($b-in-a (if $overlap (evidence-subset? $ev-b $ev-a) false))
+                      ($apart (if $overlap (if $a-in-b false (if $b-in-a false (if (evidence-shares-rule? $ev-a $ev-b) false true))) false))
+                      ($shared (if $apart (sk-shared-statements $ignore $deps-a $deps-b) ()))
+                      ($independent
+                         (if $overlap
+                            (if $apart (if (== $shared ()) (if (fold-flat sk-observation-step false (evidence-shared-facts $ev-a $ev-b)) false true) false) false)
+                            true))
+                      ($factored (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b $independent)))
+                  (if (not (== $factored sk-none)) (sk-paired $factored)
+                     (if $independent
+                        (let* (($pooled (evidence-union $ev-a $ev-b))
+                               ($deps (deps-union $deps-a $deps-b))
+                               ($combined (sk-combined-merge $a $b $pooled $deps)))
+                           (sk-paired
+                              (if (not (== $combined sk-none)) $combined
+                                 (if (>= (term-confidence $a) (term-confidence $b))
+                                    (sk-val (RevisionMergeProof $a $b) $pooled $deps)
+                                    (sk-val (RevisionMergeProof $b $a) $pooled $deps)))))
+                        (if (if $a-in-b (if $b-in-a false true) false) (sk-paired (sk-val $b $ev-b $deps-b))
+                           (if (if $b-in-a (if $a-in-b false true) false) (sk-paired (sk-val $a $ev-a $deps-a))
+                              (sk-overlap $shared (deps-union $deps-a $deps-b)
+                                 (if (>= (term-confidence $a) (term-confidence $b))
+                                    (sk-val $a $ev-a $deps-a)
+                                    (sk-val $b $ev-b $deps-b)))))))))))))
 
-(: sk-merge-step (-[semidet]-> SkeletonValue SkeletonValue SkeletonValue))
-(= (sk-merge-step $acc $view)
+;; One step of a key's merge: an overlap continues with its fallback and
+;; records its statements, unless an earlier overlap gave some.
+(: sk-key-merge-step (-[semidet]-> (List Number) SkeletonMerging SkeletonValue SkeletonMerging))
+(= (sk-key-merge-step $ignore (sk-merging $acc $keys $deps) $view)
    (case $acc (
-      (sk-none $view)
-      ((sk-val $fact $ev $deps)
+      (sk-none (sk-merging $view $keys $deps))
+      ((sk-val $fact $ev $fact-deps)
          (case $view (
             ((sk-val $other $other-ev $other-deps)
-               (sk-merge-facts $fact $ev $deps $other $other-ev $other-deps))
-            ($_goal $acc))))
-      ($_goal $acc))))
+               (case (sk-merge-facts $ignore $fact $ev $fact-deps $other $other-ev $other-deps) (
+                  ((sk-paired $merged) (sk-merging $merged $keys $deps))
+                  ((sk-overlap $shared $shared-deps $fallback)
+                     (if (== $keys ()) (sk-merging $fallback $shared $shared-deps) (sk-merging $fallback $keys $deps))))))
+            ($_goal (sk-merging $acc $keys $deps)))))
+      ($_goal (sk-merging $acc $keys $deps)))))
+
+;; A merge outside a key's merge takes an overlap's fallback.
+(: sk-merge-step (-[semidet]-> (List Number) SkeletonValue SkeletonValue SkeletonValue))
+(= (sk-merge-step $ignore $acc $view)
+   (case (sk-key-merge-step $ignore (sk-merging $acc () 0) $view) (((sk-merging $merged $_keys $_deps) $merged))))
 
 ;; --- Lifting merge ------------------------------------------------------------
 ;; Proofs of one statement that share fact premises but are otherwise
@@ -968,14 +1067,21 @@
 ;; applies no rule to it: no other proof could change it, so its rows' views
 ;; add neither evidence nor dependencies. A derived view of confidence 1 is a
 ;; probability known exactly, not the statement's truth, and merges as usual.
-(: sk-merge-key (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonValue) SkeletonValue))
-(= (sk-merge-key $hash $key $filter $exclude $views)
-   (let* (($leaves (sk-leaf-views $hash $key $filter $exclude))
+;; Views read under given statements leave out the leaves that depend on them.
+;; Views that overlap condition the key on what they share.
+(: sk-merge-key
+   (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonGiven) (List SkeletonValue) SkeletonValue))
+(= (sk-merge-key $hash $key $filter $exclude $given $views)
+   (let* (($outside (hash-union $exclude (hash-set (sk-given-hashes $given))))
+          ($leaves (sk-leaf-views $hash $key $filter $outside))
           ($certain (fold-semidet sk-certain-leaf-step () $leaves))
           ($values (sk-complete-values (if (== $certain ()) (append-flat $leaves $views) $certain))))
       (case (sk-lift $values) (
          ((cons $lifted $_rest) $lifted)
-         (() (fold-semidet sk-merge-step sk-none $values))))))
+         (()
+            (case (fold-semidet (sk-key-merge-step (hash-union (sk-unifier-hashes $hash $key) $outside)) (sk-merging sk-none () 0) $values) (
+               ((sk-merging $merged () $_deps) $merged)
+               ((sk-merging $merged $keys $deps) (sk-key-condition $given $hash $key $filter $exclude $keys $deps $merged)))))))))
 
 (: sk-view-deps-step (-[semidet]-> Number SkeletonValue Number))
 (= (sk-view-deps-step $deps $view)
@@ -1003,7 +1109,7 @@
                 ($views (sk-admitted $hash $key $filter ()))
                 ($leaves (sk-leaf-views $hash $key $filter ()))
                 ($deps (fold-semidet sk-view-deps-step 0 (append-flat $leaves $views)))
-                ($value (sk-merge-key $hash $key $filter () $views))
+                ($value (sk-merge-key $hash $key $filter () () $views))
                 ($_cached (add-atom &sk_merged (sk-merged $hash $key $deps $value)))
                 ($_factor (sk-note-truth-factor! $hash $key $value)))
             (sk-merged $hash $key $deps $value))))))
@@ -1030,15 +1136,16 @@
              (case (sk-open-value $hash $key sk-any-filter) (
                 ((sk-merged $_hash $_key $deps $value)
                    (if (deps-meet? $exclude $deps)
-                      (sk-merge-key $hash $key sk-any-filter $exclude (sk-admitted $hash $key sk-any-filter $exclude))
+                      (sk-merge-key $hash $key sk-any-filter $exclude () (sk-admitted $hash $key sk-any-filter $exclude))
                       $value))))))
       (if (sk-open-filter? $filter) $merged
          (if (sk-admits? $filter () $merged) $merged
-            (sk-merge-key $hash $key $filter $exclude (sk-admitted $hash $key $filter $exclude))))))
+            (sk-merge-key $hash $key $filter $exclude () (sk-admitted $hash $key $filter $exclude))))))
 
 (: sk-drop-merged! (-[det]-> SkeletonKey Atom))
 (= (sk-drop-merged! $key)
    (let* (($hash (index-hash $key))
+          ($_unpaid (remove-data-rows! &sk_given_pending (quote ($hash -1 $_cost))))
           ($_dropped
              (collapse (match &sk_merged (sk-merged $hash $stored $deps $value)
                 (if (=alpha $stored $key)
@@ -1229,32 +1336,52 @@
 
 ;; A key's value under a condition: its value, unless that depends on a given
 ;; statement; then the merge of its leaves and its views read under it.
-(: sk-given-value (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 (= (sk-given-value $given $key $filter $exclude)
    (let $value (sk-value $key $filter $exclude)
-      (if (sk-given-meets? $given $value)
-         (let $hash (index-hash $key)
-            (sk-merge-key $hash $key $filter (hash-union $exclude (hash-set (sk-given-hashes $given)))
-               (map-semidet (sk-given-view $given $exclude $hash $key)
-                  (sk-admitted-versions $hash $key $filter $exclude))))
-         $value)))
+      (if (sk-given-meets? $given $value) (sk-given-merge $given $key $filter $exclude) $value)))
+
+(: sk-given-merge (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) SkeletonValue))
+(= (sk-given-merge $given $key $filter $exclude)
+   (let $hash (index-hash $key)
+      (sk-merge-key $hash $key $filter $exclude $given
+         (map-semidet (sk-given-view $given $exclude $hash $key) (sk-admitted-versions $hash $key $filter $exclude)))))
+
+;; A key whose views overlap is the mix of its merge with the first shared
+;; statement known true and known false, by that statement's value read
+;; without the key (docs/metta/overlap_conditioning.md). Outside any condition
+;; it is conditioned only once the evaluation paid for it, and keeps the
+;; fallback until then (see sk-pay-conditions!), with a cost bound of 2^k
+;; times one more than the overlapping views' dependency count; inside a
+;; conditioned read it is part of what was paid for.
+(= (sk-key-condition $given $hash $key $filter $exclude (cons $pin $more) $deps $fallback)
+   (if (if (== $given ()) (not (space-row-present? &sk_given_granted ($hash -1))) false)
+      (let $cost (* (pow-math 2 (+ 1 (list-len $more))) (+ 1 (deps-size $deps)))
+         (if (space-row-present? &sk_given_pending ($hash -1 $_cost)) $fallback
+            (let $_pending (add-atom &sk_given_pending ($hash -1 $cost)) $fallback)))
+      (let* (($phash (index-hash $pin))
+             ($weight (sk-given-value $given $pin sk-any-filter (hash-union $exclude (sk-unifier-hashes $hash $key))))
+             ($true (sk-given-merge (cons (sk-given $phash $pin true) $given) $key $filter $exclude))
+             ($false (sk-given-merge (cons (sk-given $phash $pin false) $given) $key $filter $exclude)))
+         (let $mixed (collapse (once (sk-mix $weight $true $false)))
+            (if (== $mixed ()) $fallback (car-atom $mixed))))))
 
 ;; A premise value whose evidence overlaps what the row already uses is
 ;; replaced by the merge of the key's leaves and views that do not overlap it:
 ;; the consumer selects the proofs compatible with its other premises.
-(: sk-compatible-step (-[semidet]-> EvidenceSet SkeletonValue SkeletonValue SkeletonValue))
-(= (sk-compatible-step $ev $acc $view)
+(: sk-compatible-step (-[semidet]-> (List Number) EvidenceSet SkeletonValue SkeletonValue SkeletonValue))
+(= (sk-compatible-step $ignore $ev $acc $view)
    (case $view (
       ((sk-val $_fact $view-ev $_deps)
-         (if (premise-evidence-overlap? $ev $view-ev) $acc (sk-merge-step $acc $view)))
+         (if (premise-evidence-overlap? $ev $view-ev) $acc (sk-merge-step $ignore $acc $view)))
       ($_other $acc))))
 
 (: sk-compatible-value
    (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) EvidenceSet Bool SkeletonValue))
 (= (sk-compatible-value $given $key $filter $exclude $ev $views)
    (let* (($hash (index-hash $key))
-          ($leaves (sk-leaf-views $hash $key $filter (hash-union $exclude (hash-set (sk-given-hashes $given))))))
-      (fold-semidet (sk-compatible-step $ev) sk-none
+          ($outside (hash-union $exclude (hash-set (sk-given-hashes $given))))
+          ($leaves (sk-leaf-views $hash $key $filter $outside)))
+      (fold-semidet (sk-compatible-step (hash-union (sk-unifier-hashes $hash $key) $outside) $ev) sk-none
          (if $views
             (append-flat $leaves
                (map-semidet (sk-given-view $given $exclude $hash $key) (sk-admitted-versions $hash $key $filter $exclude)))
@@ -1413,7 +1540,7 @@
                (if (sk-settled? $key)
                   (let $hash (index-hash $key)
                      (if (sk-founded? $hash $key)
-                        (sk-merge-key $hash $key $filter $exclude
+                        (sk-merge-key $hash $key $filter $exclude $given
                            (fold-semidet sk-cons-step ()
                               (fold-semidet (sk-closed-row-step (append-flat $pin $given) $exclude $hash $key) ()
                                  (collapse (match &sk_row ($hash $stored $rhash $row)
@@ -2236,36 +2363,66 @@
                 (sk-work (fold-semidet sk-seed-new (empty_heap) (append-flat $new (append-flat $refresh $partial)))
                    (empty_heap))
                 $dirty)))
-      (sk-pay-conditions! (+ (sk-work-off! 0 $seeded) 1))))
+      (let* (($last (sk-work-off! 0 $seeded))
+             ($_roots (sk-read-roots!)))
+         (sk-pay-conditions! (+ $last 1)))))
 
-;; Rows waiting for conditioning are paid for from what the evaluation
-;; allowance has left: nearest a root first, then cheapest, then oldest. The
-;; first one the allowance cannot pay for waits, with the rest, for a later
-;; query that needs it, so a larger allowance extends the same prefix. A paid
-;; row is recomputed, conditioned, with its readers.
+;; Rows and key merges waiting for conditioning are paid for from what the
+;; evaluation allowance has left: nearest a root first, then cheapest, then
+;; oldest. The first one the allowance cannot pay for waits, with the rest,
+;; for a later query that needs it, so a larger allowance extends the same
+;; prefix. A paid row is recomputed, conditioned, with its readers.
+(: SkeletonWaiting Type)
+(: sk-row-waiting (-[det]-> SkeletonItem SkeletonWaiting))
+(: sk-key-waiting (-[det]-> Number SkeletonKey SkeletonWaiting))
 (: SkeletonClaim Type)
-(: sk-claim (-[det]-> Number Number Number SkeletonItem SkeletonClaim))
+(: sk-claim (-[det]-> Number Number Number SkeletonWaiting SkeletonClaim))
 
 (: sk-pay-conditions! (-[semidet]-> Number Atom))
 (= (sk-pay-conditions! $pass)
    (case (sort-atom
-            (collapse (match &sk_given_pending ($khash $rhash $cost)
-               (match &sk_row ($khash $key $rhash (sk-row $ident $concl $premises $seq))
-                  (if (sk-needed? $khash $key)
-                     (sk-claim (sk-need-depth $khash $key) $cost $seq
-                        (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $seq)))
-                     (empty)))))) (
+            (append-flat
+               (collapse (match &sk_given_pending ($khash $rhash $cost)
+                  (match &sk_row ($khash $key $rhash (sk-row $ident $concl $premises $seq))
+                     (if (sk-needed? $khash $key)
+                        (sk-claim (sk-need-depth $khash $key) $cost $seq
+                           (sk-row-waiting (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $seq))))
+                        (empty)))))
+               (collapse (match &sk_given_pending ($khash -1 $cost)
+                  (match &sk_keys ($khash $key)
+                     (if (sk-needed? $khash $key) (sk-claim (sk-need-depth $khash $key) $cost -1 (sk-key-waiting $khash $key)) (empty))))))) (
       (() ())
-      ((cons (sk-claim $_depth $claim-cost $_seq (sk-row-item $item-seq $item-hash $item-key $item-rhash $item-row)) $_rest)
+      ((cons (sk-claim $_depth $claim-cost $_seq $waiting) $_rest)
          (let $left (search-id-value sk_eval_budget)
             (if (> $claim-cost $left) ()
-               (let* (($item (sk-row-item $item-seq $item-hash $item-key $item-rhash $item-row))
-                      ($_paid (change-state! sk_eval_budget (- $left $claim-cost)))
-                      ($_taken (remove-data-rows! &sk_given_pending (quote ($item-hash $item-rhash $_was))))
-                      ($_granted (add-atom &sk_given_granted ($item-hash $item-rhash)))
-                      ($_forced (sk-force! (cons $item-hash ()) $item))
-                      ($last (sk-work-off! $pass (sk-work (add_to_heap (empty_heap) $item-seq $item) (empty_heap)))))
+               (let* (($_paid (change-state! sk_eval_budget (- $left $claim-cost)))
+                      ($last (sk-pay! $pass $waiting)))
                   (sk-pay-conditions! (+ $last 1)))))))))
+
+(: sk-pay! (-[semidet]-> Number SkeletonWaiting Number))
+(= (sk-pay! $pass (sk-row-waiting (sk-row-item $seq $hash $key $rhash $row)))
+   (let* (($item (sk-row-item $seq $hash $key $rhash $row))
+          ($_taken (remove-data-rows! &sk_given_pending (quote ($hash $rhash $_was))))
+          ($_granted (add-atom &sk_given_granted ($hash $rhash)))
+          ($_forced (sk-force! (cons $hash ()) $item)))
+      (sk-work-off! $pass (sk-work (add_to_heap (empty_heap) $seq $item) (empty_heap)))))
+;; A paid key drops its merged value, which its readers then read conditioned.
+(= (sk-pay! $pass (sk-key-waiting $hash $key))
+   (let* (($_granted (add-atom &sk_given_granted ($hash -1)))
+          ($_merged (sk-drop-merged! $key)))
+      (sk-work-off! $pass
+         (sk-key-changed $pass -1 (sk-outside-change (cons $hash ()) 0) (sk-work (empty_heap) (empty_heap)) $key))))
+
+;; The roots' merged values are read before conditions are paid, so a root
+;; whose views overlap is conditioned in its own query.
+(: sk-read-roots! (-[semidet]-> Atom))
+(= (sk-read-roots!)
+   (let $_read
+         (collapse (match &sk_needed ($hash $key 0)
+            (case $key (
+               ((sk-key $_type $_kbctx) (sk-open-value $hash $key sk-any-filter))
+               ($_fold (empty))))))
+      ()))
 
 ;; --- Base-rate API ----------------------------------------------------------
 

@@ -171,16 +171,24 @@ A key's value merges its stored facts and one view per row:
 
 - an identical proof pools its evidence; a marginal projection gives way to its
   full proof;
+- two views are independent when their evidence is disjoint, or when each
+  holds evidence of its own and they share only known facts that no rule
+  concludes (premises either reads as given), no statement whose value is
+  uncertain (by their dependency sets, so a derived statement both read
+  counts, not only shared leaves) and no rule whose truth is an estimate;
 - inversions and antecedent completions over one prior through different
   observations, and rules that differ or are given, combine by Bayes' rule, and an inversion over a base rate combines the same
-  way with a derived, uncertain view sharing none of its evidence, which
+  way with a derived, uncertain view independent of it, which
   takes the base rate's place (`docs/metta/prior_factored_merge.md`);
-- overlapping evidence keeps the view whose evidence strictly contains the
-  other's, or else the more confident one;
-- disjoint evidence revises, except that disjoint forward views (rule
+- independent views otherwise revise, except that forward views (rule
   applications) of a predicate whose stored outcomes prefer odds or noisy-OR
   by a Bayes factor of 10 combine by that mode
   (`docs/metta/combination_modes.md`);
+- of dependent views, the one whose evidence strictly contains the other's
+  is kept; two that share an uncertain statement condition the key's whole
+  merge on it: the merge with the statement known true and known false,
+  mixed by its value (`docs/metta/overlap_conditioning.md`); otherwise, or
+  while the conditioning waits to be paid, the more confident view is kept;
 - when every proof of the key is modus ponens over conjunctions of facts, the
   proofs share fact premises, and their residual evidence is nonempty and
   pairwise disjoint, the lifting merge factors the shared facts out, revises
@@ -413,11 +421,15 @@ which grows with the knowledge base (StationOps at 20 modules: forward time
 Conditioning is paid for from what that allowance has left, never at depth
 zero for free. A row whose clash needs it waits, keeping the views it had, with
 a cost bound of 2^k times one more than the clashing value's dependency count
-for k shared statements. Once the rows are computed, the waiting rows the query
-needs are paid for nearest a root first, then cheapest, then oldest. Each is
-recomputed conditioned, with its readers, which may add waiting rows. The first
-row the allowance cannot pay for stops the payment, so a larger allowance
-extends the same prefix, and the rest wait for a later query that needs them.
+for k shared statements; a key whose views overlap waits the same way,
+keeping its merge with the more confident view, with the overlapping views'
+dependency count. Once the rows are computed and the roots' merged values
+read, the waiting rows and keys the query needs are paid for nearest a root
+first, then cheapest, then oldest. A row is recomputed conditioned, with its
+readers; a key drops its merged value and forces its readers, which read it
+conditioned. Either may add waiting rows or keys. The first one the allowance
+cannot pay for stops the payment, so a larger allowance extends the same
+prefix, and the rest wait for a later query that needs them.
 
 A root reads the answers of every node of its statement and context, whatever
 their proof and truth-value patterns, and drops answers that instantiate

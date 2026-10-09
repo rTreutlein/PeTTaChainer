@@ -165,13 +165,17 @@ factored merge updates its prior; any other view is its own prior, updated by
 nothing. A view updating the base rate (`cpu`) merges into a view over any
 other prior when
 
-- the two share no evidence (`evidence-overlap?`): no observation and no
-  rule whose truth is an estimate, so a forward view derived from the
-  inversion's own observation is not taken for an independent prior, and the
-  overlap rule keeps one view as before. A rule stated with confidence 1
-  carries no evidence (`register-rule-evidence!`): a persistence prediction
-  through earlier periods' block rules and this period's block inversions are
-  independent given this period's storm;
+- the two are independent: they share no observation (no fact some rule
+  concludes, no statement whose value is uncertain) and no rule whose truth
+  is an estimate, so a forward view derived from the inversion's own
+  observation is not taken for an independent prior, and the overlap rule
+  keeps one view or conditions on what they share
+  ([overlap_conditioning.md](overlap_conditioning.md)). A known fact no rule
+  concludes, such as a period link both rules read, is a premise, not an
+  observation. A rule stated with confidence 1 carries no evidence
+  (`register-rule-evidence!`): a persistence prediction through earlier
+  periods' block rules and this period's block inversions are independent
+  given this period's storm;
 - the other view is derived, not a stored fact: base rates fold the stored
   facts of their population, so an instance's own fact is already counted in
   the base rate the inversion read (a fact read against a base rate estimated
@@ -358,8 +362,9 @@ observations) is independent of the other views' evidence; O is conditioned
 on, and the rule, when given, carries no evidence. The checks stay those of
 inversions, at the level of the completion's witnesses:
 
-- over a base rate, the views share no evidence (`evidence-overlap?`),
-  so an observation read below the witnesses blocks the factoring;
+- over a base rate, the views are independent (no shared observation or
+  uncertain statement, as above), so an observation read below the
+  witnesses blocks the factoring;
 - no witness proof of one view is a witness or observation of another, and
   no rule whose truth is an estimate is shared (`sk-part-sources`): two
   completions reading the same C through different O are one observation, not

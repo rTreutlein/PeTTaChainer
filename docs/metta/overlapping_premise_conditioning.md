@@ -5,7 +5,9 @@ premise selection and the evaluation allowance in
 [runtime_design_assumptions.md](runtime_design_assumptions.md), the proof form
 in `pettachainer/LANGUAGE_SPEC.md` ("Premises that reuse evidence"). This note
 keeps the reasoning and the alternatives that were rejected. Tests:
-`tests/metta/test_premise_conditioning.metta`.
+`tests/metta/test_premise_conditioning.metta`. A key's merge conditions the
+same way on the statements two of its views share
+([overlap_conditioning.md](overlap_conditioning.md)).
 
 ## Problem
 

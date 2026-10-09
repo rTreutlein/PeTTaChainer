@@ -50,6 +50,11 @@ ticks, garbage collection 94 to 380, runtime type checks 142 to 380).
    2^k × (1 + |value's set|).
 6. **Equality** (`sk-same-view?`, `sk-value-same`): a view is unchanged when
    its truth value, evidence and set are equal.
+7. **Shared statements** (`sk-shared-statements`, `deps-shared`): two views
+   of a key whose evidence overlaps are dependent through the keys both sets
+   hold ([overlap_conditioning.md](overlap_conditioning.md)); the walk
+   collects both sets, only for views neither identical, dominated nor
+   containing the other's evidence.
 
 Measured over a 20-shift run (20 modules, seed 7):
 

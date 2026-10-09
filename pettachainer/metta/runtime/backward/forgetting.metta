@@ -158,7 +158,7 @@
 ;; off enters with shrinking weight.
 (: sk-freeze! (-[semidet]-> Number Atom SkeletonFrozen Atom))
 (= (sk-freeze! $epoch $_acc (sk-frozen $hash $key))
-   (let* (($value (fold-semidet sk-merge-step sk-none (sk-admitted $hash $key sk-any-filter ())))
+   (let* (($value (fold-semidet (sk-merge-step (sk-unifier-hashes $hash $key)) sk-none (sk-admitted $hash $key sk-any-filter ())))
           ($near (sk-near-hashes-step (cons $hash ()) $hash))
           ($window (fold-semidet sk-near-hashes-step $near $near))
           ($deps (deps-join (map-flat deps-key (hash-set $window))))
