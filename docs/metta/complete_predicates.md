@@ -43,9 +43,14 @@ false, and what a statement gets from outside the set is kept.
 Concretely, when a rule application R concluding a complete G reads a
 complete K and finds no view of K it may read (every one depends on G, or K
 has none yet), K is read as the merge of its rows evaluated again with G
-pinned false, proof `unfounded`. Nested reads pin each reading conclusion in
-turn, so the recursion follows the cycle once and ends at the first pinned
-statement. A complete K whose settled search found no rule application (no
+pinned false, proof `unfounded`. The pin is a hypothesis that cuts the
+circular support, not an observation of G: an inversion or a completion
+that reads G under the pin as the consequence it inverts gives nothing
+(`sk-observation-prior`). Reading it as one had a chain A -> B -> C over
+complete B and C answer 0.054 for C where the exact value is 0.2195, and
+drove loops with soft roots to about 1e-6. Nested reads pin each reading
+conclusion in turn, so the recursion follows the cycle once and ends at the
+first pinned statement. A complete K whose settled search found no rule application (no
 rule concludes it, or every rule's conditions failed) is false:
 `(STV 0.0 1.0)`, proof `unfounded`. A root reads such a K that way too.
 

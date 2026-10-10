@@ -243,7 +243,9 @@ read as that premise's rows evaluated again with the reader's conclusion
 unfounded, `(STV 0 1)`, and a complete statement no rule application derives
 is unfounded; both only once the statement's search is settled (its general
 node expanded, no rule application of it waiting on a premise not yet
-answered, nothing deferred), so a budget cut never concludes false.
+answered, nothing deferred), so a budget cut never concludes false. The pin
+cuts circular support; it is no observation, so an inversion or completion
+reading the pinned statement as its consequence gives nothing.
 
 Premises are selected by the consumer. Evidence of a certain fact, strength 0
 or 1 at confidence 1, never counts as shared: a join over it is exact either

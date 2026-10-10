@@ -195,16 +195,20 @@
       ((factored-revision $prior $prior-tv $parts) (sk-prior-update $prior $prior-tv $parts))
       ($_other (sk-prior-update $proof (brand Proof (prior $tv)) ())))))
 
-;; The prior an observation's value was formed under, for an inversion that
-;; reads the value as a likelihood ratio over it (ObservationRatioFormula):
-;; the prior a view updates. A view updating nothing, a stored fact or a
-;; forward conclusion, is a value of its own, read under the prior the
-;; inversion implies for it, as modus ponens reads it.
-(: sk-observation-prior (-[det]-> Proof TV TV))
+;; The prior an observation's value was formed under, for an inversion or a
+;; completion that reads the value as a likelihood ratio over it
+;; (ObservationRatioFormula): the prior a view updates. A view updating
+;; nothing, a stored fact or a forward conclusion, is a value of its own, read
+;; under the prior the inversion implies for it, as modus ponens reads it. An
+;; unfounded value is a closed read's pin, the reading conclusion taken false
+;; to cut its circular support (docs/metta/complete_predicates.md): a
+;; hypothesis, not an observation, so nothing is inferred from it.
+(: sk-observation-prior (-[semidet]-> Proof TV TV))
 (= (sk-observation-prior $proof $tv)
-   (case (sk-prior-update-of $proof $tv) (
-      ((sk-prior-update $_prior $_own ()) no-evidence)
-      ((sk-prior-update $_prior (prior $prior-tv) $_parts) (the TV $prior-tv)))))
+   (if (== (sk-step-proof $proof) unfounded) (empty)
+      (case (sk-prior-update-of $proof $tv) (
+         ((sk-prior-update $_prior $_own ()) no-evidence)
+         ((sk-prior-update $_prior (prior $prior-tv) $_parts) (the TV $prior-tv))))))
 
 ;; The forward conclusions a view combines: a rule application is one, a
 ;; combination of forward views (docs/metta/combination_modes.md) its parts.
@@ -218,13 +222,11 @@
 
 ;; The prior a completion reads its consequence's value under. A forward
 ;; conclusion predicts the consequence from its causes, the completed conjunct
-;; among them, and an unfounded value is a closed read's hypothesis: neither
-;; observes the consequence, and the completion reads neither.
+;; among them: it does not observe the consequence, and the completion does
+;; not read it.
 (: sk-consequence-prior (-[semidet]-> Proof TV TV))
 (= (sk-consequence-prior $proof $tv)
-   (if (if (== (sk-step-proof $proof) unfounded) true (not (== (sk-forward-parts $proof) ())))
-      (empty)
-      (sk-observation-prior $proof $tv)))
+   (if (== (sk-forward-parts $proof) ()) (sk-observation-prior $proof $tv) (empty)))
 
 ;; The observations of the updates a view merges, by hash: an inversion's
 ;; observation, each witness of a completion. Updates through one rule are
