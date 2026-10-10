@@ -268,13 +268,16 @@
 
 ;; The instances' estimate of P(B | A), and of P(B | not A) beside it as a
 ;; CTV once antecedent-false instances were seen. Without positive instances
-;; there is no estimate.
+;; the positive branch has no evidence (confidence 0, where its strength is
+;; irrelevant) while the negative one still learns; without any there is no
+;; estimate.
 (: ImplicationInstanceTv (-[det]-> InstanceEvidenceState TV))
 (= (ImplicationInstanceTv (InstanceEvidence $pos $neg))
    (case (data (WeightedCountBaseRateTv $pos) (WeightedCountBaseRateTv $neg)) (
       (((STV $ps $pc) (STV $ns $nc)) (CTV (STV $ps $pc) (STV $ns $nc)))
       (((STV $ps $pc) $_none) (STV $ps $pc))
-      ($_no-positive no-evidence))))
+      ((no-evidence (STV $ns $nc)) (CTV (STV 0.5 0.0) (STV $ns $nc)))
+      ($_nothing no-evidence))))
 (: WeightedUniverseBaseRateTv
    (-[det]-> Number BaseRateEvidenceState OptionalSTV))
 (= (WeightedUniverseBaseRateTv $universe-size (BaseRateEvidence $wsum $msum))

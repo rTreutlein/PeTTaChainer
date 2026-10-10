@@ -127,3 +127,20 @@
 !(compileadd stormKb (: blocked-t2 (Blocked r1 t2) (STV 1 1)))
 !(test (let (: $prf $t $tv) (query 100 stormKb (: $prf (Storm t2) $tv)) $tv)
    (STV 0.9253103410624408 0.15493026812803593))
+
+;; A rule whose antecedent never held in the history still learns its
+;; negative branch from the cases where it failed (SupplyNet learned rules,
+;; stage 1 seed 3: late-s10 rules stayed at their prior); its positive branch
+;; has no evidence and keeps the prior.
+!(set-rule-refinement negKb true)
+!(compileadd negKb (: r (Implication (A $x) (B $x)) (CTV (STV 0.5 0.02) (STV 0.5 0.02))))
+!(compileadd negKb (: a1 (A i1) (STV 0 1)))
+!(compileadd negKb (: b1 (B i1) (STV 1 1)))
+!(compileadd negKb (: a2 (A i2) (STV 0 1)))
+!(compileadd negKb (: b2 (B i2) (STV 0 1)))
+!(compileadd negKb (: a3 (A i3) (STV 0 1)))
+!(compileadd negKb (: b3 (B i3) (STV 0 1)))
+!(compileadd negKb (: a4 (A i4) (STV 0 1)))
+!(compileadd negKb (: b4 (B i4) (STV 0 1)))
+!(test (let (: $p $t $tv) (query 50 negKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
+   (CTV (STV 0.5 0.02) (STV 0.2562189054726368 0.4506726457399103)))
