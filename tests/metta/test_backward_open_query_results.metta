@@ -74,3 +74,20 @@
 !(test
    (query 30 openAndFairKb (: $prf (And (Own (i $a)) (Pet $a)) $tv))
    ((: (conjunction (by ownRule haveMax) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by petRule dogMax) (by distractRule1 distract1)) (by distractRule2 distract2)) (by distractRule3 distract3)) (by distractRule4 distract4)) (by distractRule5 distract5)) (by distractRule6 distract6))) (And (Own (i max)) (Pet max)) (STV 0.7400000993747873 0.9999230825234057)) (: (conjunction (by ownRule haveAnn) (by petRule dogAnn)) (And (Own (i ann)) (Pet ann)) (STV 0.5599999999999999 0.9999136435669362))))
+
+;; An open query keeps a stored fact (ONA threelegdog, ChainerGame
+;; benchmarks/ona/repros/open_query_drops_fact.metta). The member rule applied
+;; with x = c = Dog reads (HasLeg Dog 4) to conclude it again; its view's
+;; evidence contained the fact's, so it replaced the fact: 0.20 for the open
+;; query against 0.9 for the ground one. Such an instance builds no row now.
+!(compileadd legKb (: f1 (Member fido Dog) (STV 1.0 0.9)))
+!(compileadd legKb (: f2 (Member snoopy Dog) (STV 1.0 0.9)))
+!(compileadd legKb (: f3 (Inheritance Dog Animal) (STV 1.0 0.9)))
+!(compileadd legKb (: f4 (HasLeg Dog 4) (STV 1.0 0.9)))
+!(compileadd legKb (: f5 (HasLeg fido 3) (STV 1.0 0.9)))
+!(compileadd legKb (: f6 (HasLeg Chicken 2) (STV 1.0 0.9)))
+!(compileadd legKb (: f7 (Inheritance Chicken Animal) (STV 1.0 0.9)))
+!(compileadd legKb (: r1 (Implication (And (Member $x $c) (HasLeg $c $n)) (HasLeg $x $n)) (STV 1.0 0.9)))
+!(test (query 100 legKb (: $p (HasLeg Dog 4) $tv)) (: f4 (HasLeg Dog 4) (STV 1.0 0.9)))
+!(test (let (: $p (HasLeg Dog 4) $tv) (query 100 legKb (: $p (HasLeg Dog $n) $tv)) ($p $tv)) (f4 (STV 1.0 0.9)))
+

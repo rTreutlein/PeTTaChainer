@@ -102,14 +102,16 @@
 ;; The open identity holds. Its instance fold also samples each stored
 ;; statement against its other proofs, the completions copying the other
 ;; individual's predicates; the certain total implication keeps (1, 1) and
-;; (0, 1), and each ground instance answers with it.
+;; (0, 1). A completion that would read a statement to conclude it again
+;; (copying Alice's predicates to Alice) builds no row, so no ground instance
+;; answers apart from the open one.
 !(test
    (collapse
       (query 100 openVariableConclusionImplicationKb
          (: $proof
             (Implication ($p $x) ($p $x))
             (CTV (STV 1.0 1.0) (STV 0.0 1.0)))))
-   ((: (merge/revision (total-implication (ctx proof 10) (ctx proof 11)) (implication-instance-fold (foldall-proof (implication-instance-sample tallAlice ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction tallMary femaleMary femaleAlice))) (implication-instance-sample femaleAlice ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction femaleMary tallMary tallAlice))) (implication-instance-sample tallMary ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction tallAlice femaleAlice femaleMary))) (implication-instance-sample femaleMary ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction femaleAlice tallAlice tallMary)))))) (Implication ($_1082206 $_1082212) ($_1082206 $_1082212)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))) (: (total-implication (ctx proof 10) (ctx proof 11)) (Implication (Tall alice) (Tall alice)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))) (: (total-implication (ctx proof 10) (ctx proof 11)) (Implication (Female alice) (Female alice)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))) (: (total-implication (ctx proof 10) (ctx proof 11)) (Implication (Tall mary) (Tall mary)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))) (: (total-implication (ctx proof 10) (ctx proof 11)) (Implication (Female mary) (Female mary)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))))
+   ((: (merge/revision (total-implication (ctx proof 10) (ctx proof 11)) (implication-instance-fold (foldall-proof (implication-instance-sample tallAlice ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction tallMary femaleMary femaleAlice))) (implication-instance-sample femaleAlice ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction femaleMary tallMary tallAlice))) (implication-instance-sample tallMary ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction tallAlice femaleAlice femaleMary))) (implication-instance-sample femaleMary ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction femaleAlice tallAlice tallMary)))))) (Implication ($_1082206 $_1082212) ($_1082206 $_1082212)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))))
 
 !(test
    (query 100 openVariableConclusionImplicationKb

@@ -782,16 +782,27 @@
             (if (== (extract-vars $args) ()) $kept (cons $premise $kept))))
       ($_fact (cons $premise $kept)))))
 
+(: sk-same-key-step (-[det]-> SkeletonKey Bool SkeletonKey Bool))
+(= (sk-same-key-step $key $found $other) (if $found true (=alpha $other $key)))
+
 (= (sk-complete-row! $owner $rule $concl $premises $keys)
-   (let* ((($type $kbctx $_proof $_tv) $concl)
+   (let* ((($type $kbctx $proof $_tv) $concl)
           ($key (sk-key $type $kbctx))
           ($khash (index-hash $key))
           ($ident (sk-ident $rule $keys $key))
           ($rhash (index-hash $ident))
           ($local (>= $rule 1000000000)))
       ;; Expansion applies no rule to a certain statement; a forward run's
-      ;; upward joins skip it here, where their conclusion is first bound.
-      (if (if (== (search-id-value sk_forward_run) 1) (sk-certain? $type (sk-leaf-facts $type $kbctx sk-any-filter)) false) ()
+      ;; upward joins skip it here, where their conclusion is first bound. An
+      ;; instance that reads its own conclusion, (HasLeg Dog 4) from
+      ;; (Member Dog Dog) and (HasLeg Dog 4) itself, is no derivation of it.
+      ;; An open key stands for several statements, and a query adapter, whose
+      ;; open proof head passes its premise's proof through, derives nothing.
+      (if (if (if (if (is-expr $proof) (is-var (car-atom $proof)) false) false
+                 (if (== (extract-vars $type) ()) (fold-semidet (sk-same-key-step $key) false $keys) false))
+             true
+             (if (== (search-id-value sk_forward_run) 1) (sk-certain? $type (sk-leaf-facts $type $kbctx sk-any-filter)) false))
+         ()
       (if (sk-row-present? $khash $key $rhash $ident)
          (sk-add-answer! $owner $key)
          ;; The rows of the query's roots are its compiled scaffold and always
