@@ -193,7 +193,8 @@ class KB:
     def latent_premise(self, pred: str, ind: str) -> bool:
         """Whether ``(pred ind)`` is derived from a root atom that is neither
         observed nor below an observation: the chainer gives such an atom no
-        value as a premise (a population prior answers roots only)."""
+        value as a premise of a derivation (only a completion reads a population
+        prior)."""
         return any(root in self.roots and self.unobserved_below(root, ind) for root in self.ancestors(pred))
 
     # -- validity ----------------------------------------------------------

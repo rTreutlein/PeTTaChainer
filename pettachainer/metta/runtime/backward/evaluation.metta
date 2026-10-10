@@ -841,6 +841,26 @@
       ((cons $deps $_rest) $deps)
       (() 0))))
 
+;; A population prior (sk-start-prior!) is the population's value, not the
+;; statement's: a key reads it only while nothing else gives it a value.
+(: sk-population-prior? (-[det]-> SkeletonValue Bool))
+(= (sk-population-prior? $value)
+   (case $value (
+      ((sk-val $fact $_ev $_deps) (let $step (sk-fact-step-proof $fact) (population-prior-proof? $step)))
+      ($_other false))))
+
+(: sk-own-value-step (-[det]-> (List SkeletonValue) SkeletonValue (List SkeletonValue)))
+(= (sk-own-value-step $kept $value) (if (sk-population-prior? $value) $kept (cons $value $kept)))
+
+(: sk-own-values (-[semidet]-> (List SkeletonValue) (List SkeletonValue)))
+(= (sk-own-values $values)
+   (case (fold-semidet sk-own-value-step () $values) (
+      (() $values)
+      ($own (fold-semidet sk-cons-step () $own)))))
+
+(: sk-premise-value (-[semidet]-> Bool SkeletonValue SkeletonValue))
+(= (sk-premise-value $priors $value) (if $priors $value (if (sk-population-prior? $value) sk-none $value)))
+
 ;; --- Folds ------------------------------------------------------------------
 
 (: sk-fold-node-member (-[det]-> SkPattern (List SkPattern)))
@@ -881,7 +901,7 @@
    (-[semidet]-> (-[semidet]-> $acc SkFact $acc) SkeletonFilter (List Number) SkeletonFold SkeletonKey
        SkeletonFold))
 (= (sk-fold-step $step $filter $exclude (sk-fold-state $acc $proofs $ev $deps) $key)
-   (case (sk-value $key $filter $exclude) (
+   (case (sk-premise-value false (sk-value $key $filter $exclude)) (
       ((sk-val $fact $member-ev $member-deps)
          (let* ((($_type $_kbctx $proof $_tv) $fact))
             (sk-fold-state ($step $acc $fact) (cons $proof $proofs)
@@ -956,7 +976,7 @@
 (: sk-rate-take-step (-[semidet]-> Number SkeletonKey Number ForwardAggregateDescriptor Atom SkeletonKey Atom))
 (= (sk-rate-take-step $hash $fold $id $descriptor $_acc $member)
    (let $_clean (remove-variant-row! &sk_rate_dirty (quote ($hash $fold $member)))
-      (case (sk-value $member sk-any-filter (cons $hash ())) (
+      (case (sk-premise-value false (sk-value $member sk-any-filter (cons $hash ()))) (
          ((sk-val $fact $_ev $_deps) (let $_updated (collapse (fa-update! $fact $id (copy_term $descriptor))) ()))
          ($_none
             (case $member (
@@ -1174,7 +1194,7 @@
    (let* (($outside (hash-union $exclude (hash-set (sk-given-hashes $given))))
           ($leaves (sk-leaf-views $hash $key $filter $outside))
           ($certain (fold-semidet sk-certain-leaf-step () $leaves))
-          ($values (sk-complete-values (if (== $certain ()) (append-flat $leaves $views) $certain))))
+          ($values (sk-own-values (sk-complete-values (if (== $certain ()) (append-flat $leaves $views) $certain)))))
       (case (sk-lift $values) (
          ((cons $lifted $_rest) $lifted)
          (()
@@ -1505,10 +1525,11 @@
           ($outside (hash-union $exclude (hash-set (sk-given-hashes $given))))
           ($leaves (sk-leaf-views $hash $key $filter $outside)))
       (fold-semidet (sk-compatible-step (hash-union (sk-unifier-hashes $hash $key) $outside) $ev) sk-none
-         (if $views
-            (append-flat $leaves
-               (map-semidet (sk-given-view $given $exclude $hash $key) (sk-admitted-versions $hash $key $filter $exclude)))
-            $leaves))))
+         (sk-own-values
+            (if $views
+               (append-flat $leaves
+                  (map-semidet (sk-given-view $given $exclude $hash $key) (sk-admitted-versions $hash $key $filter $exclude)))
+               $leaves)))))
 
 ;; A fact premise takes a value unless its evidence overlaps the row's own,
 ;; except in joins the compiler marked as sharing their sources and for
@@ -1684,11 +1705,18 @@
 ;; row's conclusion; reading stored facts first, it takes the facts compatible
 ;; with the row so far when there are any. A given statement reads as known. A
 ;; rule application of a complete statement, whose pin is not empty, reads a
-;; complete premise closed when it may read none of its views.
+;; complete premise closed when it may read none of its views. Only an
+;; antecedent completion (`$priors`) reads a population prior: the likelihood
+;; of the consequence it inverts marginalises the parts it does not complete
+;; over their values, and a part nothing tells about is at the prior of one
+;; more member of its population. To any other row the population's value is
+;; no value of the statement: a derivation from it would present the
+;; population's value as this instance's, and an inversion or a sample would
+;; read it as an observation.
 (: sk-premise-step
-   (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) Bool Bool SkeletonRowState SkPattern
+   (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) Bool Bool Bool SkeletonRowState SkPattern
        SkeletonRowState))
-(= (sk-premise-step $pin $given $exclude $shared $facts-first $state $premise)
+(= (sk-premise-step $pin $given $exclude $shared $priors $facts-first $state $premise)
    (case $state (
       (sk-fail sk-fail)
       ((sk-clash $clash-keys $clash-cost) (sk-clash $clash-keys $clash-cost))
@@ -1715,16 +1743,17 @@
                                ($closed (sk-closed-read $pin $given $exclude $key $filter)))
                            (if (== $closed sk-none)
                               (let $value
-                                 (if $facts-first (sk-compatible-value $given $key $filter $exclude $ev false)
-                                    (sk-given-value $given $key $filter $exclude))
+                                 (sk-premise-value $priors
+                                    (if $facts-first (sk-compatible-value $given $key $filter $exclude $ev false)
+                                       (sk-given-value $given $key $filter $exclude)))
                                  (case (sk-use-premise $shared $state $premise $value) (
                                     (sk-fail
                                        (if $shared sk-fail
                                           (case (sk-use-premise $shared $state $premise
-                                                   (sk-compatible-value $given $key $filter $exclude $ev true)) (
+                                                   (sk-premise-value $priors (sk-compatible-value $given $key $filter $exclude $ev true))) (
                                              (sk-fail
                                                 (sk-clash-on $given $key $state
-                                                   (if $facts-first (sk-given-value $given $key $filter $exclude) $value)))
+                                                   (if $facts-first (sk-premise-value $priors (sk-given-value $given $key $filter $exclude)) $value)))
                                              ($compatible $compatible)))))
                                     ($taken $taken))))
                               (sk-use-premise $shared $state $premise $closed))))))))))))))
@@ -1844,7 +1873,7 @@
                    (case (copy_term $head) (((proj $_idx $_source) true) ($_other false)))))
              false)
          (sk-projection-state $pin $given $exclusions $shared $facts-first $start $premises)
-         (fold-semidet (sk-premise-step $pin $given $exclusions $shared $facts-first) $start $premises))))
+         (fold-semidet (sk-premise-step $pin $given $exclusions $shared (sk-completion-proof? $proof) $facts-first) $start $premises))))
 
 (: sk-projection-state
    (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) Bool Bool SkeletonRowState (List SkPattern)
@@ -1854,8 +1883,8 @@
           ($compound (sk-key $type $kbctx)))
       (fold-semidet
          (sk-premise-step $pin $given (hash-union (sk-unifier-hashes (index-hash $compound) $compound) $exclusions)
-            $shared $facts-first)
-         (sk-premise-step $pin $given $exclusions $shared $facts-first $start $premise)
+            $shared false $facts-first)
+         (sk-premise-step $pin $given $exclusions $shared false $facts-first $start $premise)
          $parts)))
 
 ;; An implication instance sample must not restate the implication it
@@ -2777,17 +2806,12 @@
 ;; the confidence of the members counted; any view the search finds replaces
 ;; it. It is the prior an inversion reads (population-prior-tv), and a
 ;; positive-only predicate has none. The prior is the population's value, not
-;; the statement's, and is never materialized.
+;; the statement's, and is never materialized. A statement nothing derives
+;; gets the same prior as a row once expanded (sk-start-prior!).
 (: sk-population-prior (-[semidet]-> Statement KBContext SkeletonFilter SkeletonValue))
 (= (sk-population-prior $type $kbctx $filter)
-   (case (collapse
-            (let* (((sk-match $_rule $premises $_goal) (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $_proof $_tv)))
-                   ((CPU FoldAllCompiled $args $_result) (superpose $premises))
-                   ((base-rate-aggregate-key-value $kbid $pattern $_mode) (base-rate-aggregate-key $args)))
-               (if (= (copy_term $pattern) (copy_term $type))
-                  (if (positive-only-pattern? (brand KB $kbid) (brand Statement $pattern)) (empty) $args)
-                  (empty)))) (
-      ((cons $args $_more)
+   (case (sk-prior-folds $type (collapse (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $_proof $_tv)))) (
+      ((cons (sk-prior-fold $_rule $args) $_more)
          (case (sk-value (sk-fold $args) sk-any-filter ()) (
             ((sk-goal-val (CPU $_fun $_args (STV $s $c)) $_fold-proof $_ev $deps)
                (let* (($prior (population-prior-tv (STV $s $c)))
@@ -2846,8 +2870,7 @@
                 (case (collapse (once (let $value (superpose $values)
                          (case $value (
                             (sk-none (empty))
-                            ((sk-val ($_type $_kbctx (population-prior $_pattern) $_tv) $_ev $_deps) (empty))
-                            ($found $found)))))) (
+                            ($found (if (sk-population-prior? $found) (empty) $found))))))) (
                    ((cons $first $_rest) (sk-materialize-answer! $first))
                    (() ())))
                 ()))

@@ -205,8 +205,10 @@
       ((shared $_id $shared-proof) (proof-term-evidence $mode (brand Proof $shared-proof)))
       ((shared $_id) (ev-set 0))
       ;; The population base rate an inversion or completion updates is no
-      ;; evidence about the instance.
+      ;; evidence about the instance, nor is the prior of one more member read
+      ;; from it.
       (cpu (ev-set 0))
+      ((population-prior $_pattern) (ev-set 0))
       ;; A factored merge's evidence is its prior view's and its updates';
       ;; the prior's truth value is none.
       ((factored-revision $base $_prior $parts)

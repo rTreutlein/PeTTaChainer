@@ -583,6 +583,32 @@
          (let $_row (add-atom &sk_group_of ($hash $group-key $fold)) ())
          ())))
 
+;; A root's population prior, `(population-prior pattern)` (sk-start-prior!).
+(: population-prior-proof? (-[det]-> Atom Bool))
+(= (population-prior-proof? $proof)
+   (if (if (is-expr $proof) (not (== $proof ())) false) (== (car-atom $proof) population-prior) false))
+
+;; An antecedent completion, `((antecedent-completion rule index with cpu
+;; prior) premises)`.
+(: sk-completion-proof? (-[det]-> Atom Bool))
+(= (sk-completion-proof? $proof)
+   (if (if (is-expr $proof) (not (== $proof ())) false)
+      (let $head (car-atom $proof)
+         (if (is-var $head) false
+            (case (copy_term $head) (((antecedent-completion $_rule $_idx with $_prior $_tv) true) ($_other false)))))
+      false))
+
+(: sk-completion-waiter? (-[det]-> SkeletonWaiter Bool))
+(= (sk-completion-waiter? $waiter)
+   (case $waiter (
+      ((sk-partial $_owner $_rule ($_type $_kbctx $proof $_tv) $_done $_remaining $_keys) (sk-completion-proof? $proof))
+      ($_other false))))
+
+(: sk-prior-answers (-[det]-> SkPattern (List SkeletonKey)))
+(= (sk-prior-answers $node)
+   (let $hash (sk-node-hash $node)
+      (collapse (match &sk_prior_answer ($hash $stored $key) (if (=alpha $stored $node) $key (empty))))))
+
 ;; --- Partial joins and rows -------------------------------------------------
 
 ;; A fold a forward join reads that no search has expanded, other than a base
@@ -698,7 +724,8 @@
              (case $waiter (
                 ((sk-partial $_owner $_rule $_concl $_done $remaining $_keys)
                    (sk-add-child! $owner (copy_term $premise) (sk-join-score $owner $rule $remaining)))))))
-      (fold-semidet (sk-extend-waiter-step $waiter) () (sk-answers $premise))))
+      (fold-semidet (sk-extend-waiter-step $waiter) ()
+         (if (sk-completion-waiter? $waiter) (append-flat (sk-answers $premise) (sk-prior-answers $premise)) (sk-answers $premise)))))
 
 (: sk-extend-waiter-step (-[semidet]-> SkeletonWaiter Atom SkeletonKey Atom))
 (= (sk-extend-waiter-step $waiter $_acc $key) (sk-extend! (copy_term $waiter) $key))
@@ -785,6 +812,25 @@
 (: sk-same-key-step (-[det]-> SkeletonKey Bool SkeletonKey Bool))
 (= (sk-same-key-step $key $found $other) (if $found true (=alpha $other $key)))
 
+;; A row answers its owner node with its key, except a root's population
+;; prior, which answers only the antecedent completions waiting on the node:
+;; to any other row the population's value is no value of the statement
+;; (sk-premise-step), and a join it completed would build a row deriving
+;; nothing. Answering them at once and as a completion starts waiting keeps
+;; the node's answers for the rows that do.
+(: sk-row-answer! (-[semidet]-> SkPattern SkeletonKey Atom Atom))
+(= (sk-row-answer! $owner $key $proof)
+   (if (population-prior-proof? $proof) (sk-prior-answer! (sk-node-hash $owner) $owner $key) (sk-add-answer! $owner $key)))
+
+(: sk-prior-answer! (-[semidet]-> Number SkPattern SkeletonKey Atom))
+(= (sk-prior-answer! $hash $owner $key)
+   (if (space-row-present? &sk_prior_answer ($hash $owner $key)) ()
+      (let* (($_row (add-atom &sk_prior_answer ($hash $owner $key)))
+             ($waiters
+                (collapse (match &sk_wait ($hash $stored $waiter)
+                   (if (=alpha $stored $owner) (if (sk-completion-waiter? $waiter) $waiter (empty)) (empty))))))
+         (fold-semidet (sk-extend-step $key) () $waiters))))
+
 (= (sk-complete-row! $owner $rule $concl $premises $keys)
    (let* ((($type $kbctx $proof $_tv) $concl)
           ($key (sk-key $type $kbctx))
@@ -804,7 +850,7 @@
              (if (== (search-id-value sk_forward_run) 1) (sk-certain? $type (sk-leaf-facts $type $kbctx sk-any-filter)) false))
          ()
       (if (sk-row-present? $khash $key $rhash $ident)
-         (sk-add-answer! $owner $key)
+         (sk-row-answer! $owner $key $proof)
          ;; The rows of the query's roots are its compiled scaffold and always
          ;; fit; every other row spends the allowance.
          (if (if (sk-root? $owner) true (sk-take! sk_row_budget))
@@ -825,7 +871,7 @@
                    ($_readers
                       (fold-semidet (sk-add-reader! $khash $rhash) ()
                          (fold-semidet sk-direct-key-step () $premises))))
-               (sk-add-answer! $owner $key))
+               (sk-row-answer! $owner $key $proof))
             ;; A row waits once, however often its join completes meanwhile.
             (let $hash (sk-node-hash $owner)
                (if (== (collapse (once (match &sk_deferred ($hash $rhash $_deferred) true))) ())
@@ -1299,8 +1345,55 @@
             ;; No rule is applied to a certain statement.
             (if (sk-certain? $type $leaf-facts) ()
                (let* (($goal (assemble-stored-runtime-fact $rule-type $rule-kbctx $_rule-proof $_rule-tv))
-                      ($matches (append-flat (collapse (sk-rule-match $goal)) (collapse (sk-world-rule-match $goal)))))
-                  (fold-semidet (sk-start-rule-step $owner) () $matches)))))))))
+                      ($matches (append-flat (collapse (sk-rule-match $goal)) (collapse (sk-world-rule-match $goal))))
+                      ($_rules (fold-semidet (sk-start-rule-step $owner) () $matches)))
+                  (if (== $leaf-facts ()) (sk-start-prior! $owner $type $kbctx $matches) ())))))))))
+
+;; The base-rate folds that rules concluding a statement read over a pattern
+;; the statement belongs to, the priors their inversions and completions
+;; update, with the rules reading them.
+(: SkeletonPriorFold Type)
+(: sk-prior-fold (-[det]-> Number Atom SkeletonPriorFold))
+(: sk-prior-folds (-[semidet]-> Statement (List SkeletonMatch) (List SkeletonPriorFold)))
+(= (sk-prior-folds $type $matches)
+   (collapse
+      (let* (((sk-match $rule $premises $_goal) (superpose $matches))
+             ((CPU FoldAllCompiled $args $_result) (superpose $premises))
+             ((base-rate-aggregate-key-value $kbid $pattern $_mode) (base-rate-aggregate-key $args)))
+         (if (= (copy_term $pattern) (copy_term $type))
+            (if (positive-only-pattern? (brand KB $kbid) (brand Statement $pattern)) (empty) (sk-prior-fold $rule $args))
+            (empty)))))
+
+(: sk-application-match? (-[det]-> Bool SkeletonMatch Bool))
+(= (sk-application-match? $found (sk-match $_rule $_premises ($_type $_kbctx $proof $_tv)))
+   (if $found true (rule-application-proof? $proof)))
+
+;; A ground statement that no rule application concludes and that is not
+;; complete is a root of the model: inversions and completions conclude it
+;; from evidence, but nothing derives it. Without evidence its value is the
+;; prior of one more member of its population, the base rate its inversions
+;; update (population-prior-tv). A row of its key reads it, so the rules
+;; reading the statement apply to it, and the prior follows the base rate;
+;; the key reads the prior only while nothing else gives it a value
+;; (sk-own-values). A positive-only predicate has no prior, and a complete
+;; statement no rule application derives is unfounded instead
+;; (docs/metta/complete_predicates.md).
+(: sk-start-prior! (-[semidet]-> SkPattern Statement KBContext (List SkeletonMatch) Atom))
+(= (sk-start-prior! $owner $type $kbctx $matches)
+   (if (if (if (== (extract-vars $type) ()) (== (key-context (sk-key $type $kbctx)) MAIN) false)
+          (if (complete-statement? $type $kbctx) false (if (fold-semidet sk-application-match? false $matches) false true))
+          false)
+      (case (sk-prior-folds $type $matches) (
+         ((cons (sk-prior-fold $rule $args) $_more)
+            (let $pattern (copy_term (car-atom (cdr-atom $args)))
+               (sk-advance!
+                  (sk-partial $owner $rule
+                     (assemble-stored-runtime-fact $type $kbctx (brand Proof (population-prior $pattern)) $tv)
+                     ()
+                     (quote ((CPU FoldAllCompiled $args $rate) (CPU population-prior-tv ($rate) $tv)))
+                     ()))))
+         (() ())))
+      ()))
 
 (: sk-fold-answer-step (-[semidet]-> SkPattern Atom SkeletonKey Atom))
 (= (sk-fold-answer-step $fold $acc $key) (sk-member-step $key $acc $fold))

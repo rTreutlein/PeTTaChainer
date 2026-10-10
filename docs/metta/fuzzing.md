@@ -135,13 +135,17 @@ Three answers differ by documented design. They are reported as
 `gap_latent_premise`, `gap_root_prior` and `gap_derived_population_prior`
 and are not failures:
 
-- **An unobserved root premise with no observation below it has no value.**
-  A population prior answers a *root query* the search leaves without a
-  value; it is "the population's value, not the statement's", so a rule
-  reading such a premise concludes nothing (`sk-population-prior`).
+- **An unobserved root premise with no observation below it has no value
+  as a premise of a derivation.** A population prior answers a *root query*
+  the search leaves without a value; it is "the population's value, not the
+  statement's", so a rule reading such a premise concludes nothing. Only an
+  antecedent completion reads it: the other parts of an `And` or `Or`
+  antecedent, unobserved, are at their population prior in the likelihood
+  of the consequence (`sk-start-prior!`), so an observation of a compound's
+  consequence updates each part.
 - **A root query has a population prior only when some rule reads its base
-  rate** (an inversion onto it). A root read only through an `Or`, or by no
-  rule, has none, even with a pinned base rate.
+  rate** (an inversion or a completion onto it). A root read by no rule has
+  none, even with a pinned base rate.
 - **A derived atom whose premises are such roots is answered by its
   predicate's population prior**, the rate of its stored facts (another
   individual's observation, or a history), where ProbLog derives its prior

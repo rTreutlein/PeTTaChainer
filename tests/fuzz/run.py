@@ -93,9 +93,10 @@ def best(answers: list) -> tuple[float, str] | None:
 
 SEVERITY = ["crash", "no_answer", "wrong_direction", "error", "budget_regression"]
 # No answer where the chainer documents none (docs/metta/fuzzing.md): through
-# an unobserved root premise with no observation below it, or for such a root
-# itself when no rule reads its base rate (a population prior is the base-rate
-# fold of an inversion, so a root read only through Or, or by no rule, has none).
+# an unobserved root premise with no observation below it (a derivation reads
+# no population prior), or for such a root itself when no rule reads its base
+# rate (a population prior is the base-rate fold of an inversion or a
+# completion, so a root read by no rule has none).
 # A derived atom whose premises are such roots is answered by its predicate's
 # population prior, the rate of its stored facts, where ProbLog derives it from
 # the model: sampling noise of a history, or one observation of another

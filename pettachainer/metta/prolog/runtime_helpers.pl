@@ -436,7 +436,11 @@ ev_common_step(['ev-set', Set], Ids-Sorted, Kept-Shared) :-
 % search found no fact for; a new fact with one of those heads, or any new
 % rule, wakes the rule for another look. A rule application concluding a
 % complete predicate is never dormant: its join is how a closed read sees
-% that a derivation exists (docs/metta/complete_predicates.md).
+% that a derivation exists (docs/metta/complete_predicates.md). An
+% antecedent completion reads the other parts of the antecedent at their
+% population prior when nothing else gives them a value (sk-start-prior!), so
+% a part that no rule application concludes and that is not complete
+% supports it.
 :- dynamic rule_dormancy/3.
 
 'rule-dormant?'(Id, Dormant) :-
@@ -449,7 +453,7 @@ dormancy_analysis(Id, Dormant, Heads) :-
         \+ ( ( Proof = [by|_] ; Proof = [negated, [by|_]] ),
              Ctx = [Kb|_], statement_head(Type, Head), dormancy_row('&complete_predicates'(Kb, Head)) ),
         member([PType, PCtx, _, _], Premises), PType \== 'CPU',
-        \+ dormancy_supported(PType, PCtx, Type-Ctx, [], 8)
+        \+ dormancy_premise_supported(Proof, PType, PCtx, Type-Ctx, [], 8)
     ->  Dormant = true
     ;   Dormant = false ),
     nb_getval(dormancy_heads, Heads0), sort(Heads0, Heads).
@@ -466,10 +470,19 @@ dormancy_supported(Type, Ctx, Forbidden, Path, Depth) :-
         ;   \+ dormancy_row(rules('runtime-rule-row', _, [Type, Ctx|_], _)) -> true
         ;   dormancy_note_head(Type),
             Depth1 is Depth - 1,
-            dormancy_row(rules('runtime-rule-row', _, [Type, Ctx|_], Premises)),
+            dormancy_row(rules('runtime-rule-row', _, [Type, Ctx, Proof|_], Premises)),
             (   memberchk(['CPU', 'SettlesFormula'|_], Premises) -> \+ \+ dormancy_settles(Premises)
             ;   forall(( member([PType, PCtx, _, _], Premises), PType \== 'CPU' ),
-                       dormancy_supported(PType, PCtx, Forbidden, [Type-Ctx|Path], Depth1)) ) ) ).
+                       dormancy_premise_supported(Proof, PType, PCtx, Forbidden, [Type-Ctx|Path], Depth1)) ) ) ).
+
+dormancy_premise_supported(Proof, Type, Ctx, Forbidden, Path, Depth) :-
+    (   Type-Ctx \== Forbidden, Proof = [['antecedent-completion'|_]|_], \+ dormancy_derived(Type, Ctx) -> true
+    ;   dormancy_supported(Type, Ctx, Forbidden, Path, Depth) ).
+
+dormancy_derived(Type, Ctx) :-
+    (   Ctx = [Kb|_], statement_head(Type, Head), dormancy_row('&complete_predicates'(Kb, Head)) -> true
+    ;   \+ \+ ( dormancy_row(rules('runtime-rule-row', _, [Type, Ctx, Proof|_], _)),
+                 ( Proof = [by|_] ; Proof = [negated, [by|_]] ) ) ).
 
 % A settled rule reads only a part whose certain stored fact settles its
 % compound (docs/metta/connective_settling.md), so it supports its conclusion

@@ -103,6 +103,10 @@
 !(bind! &sk_node_prefix (new-space))
 (: &sk_answer (SpaceOf (Number SkPattern SkeletonKey)))
 !(bind! &sk_answer (new-space))
+;; A root's key answering its node with its population prior, for the
+;; antecedent completions waiting on it only (sk-start-prior!).
+(: &sk_prior_answer (SpaceOf (Number SkPattern SkeletonKey)))
+!(bind! &sk_prior_answer (new-space))
 ;; partial joins waiting on a node
 (: &sk_wait (SpaceOf (Number SkPattern SkeletonWaiter)))
 !(bind! &sk_wait (new-space))

@@ -478,8 +478,24 @@ the rules concluding it reads over a pattern its statement belongs to, the
 prior its inversions update, at the confidence of the members it counted.
 Reading it costs no expansion, so every such root has an estimate at any
 budget, and any view the search finds replaces it. It is the prior an
-inversion reads, and a positive-only predicate has none. The prior is the population's value, not
-the statement's: no row reads it and it is never materialized.
+inversion reads, and a positive-only predicate has none. The prior is the
+population's value, not the statement's, and it is never materialized.
+
+A ground statement in the main context that no rule application concludes
+and that is not complete is a root of the model: inversions and completions
+conclude it from evidence, but nothing derives it. When its node is
+expanded, a row of its key reads its population prior from the base-rate
+fold, so the prior follows the rate; the key reads it only while nothing
+else gives it a value. Only an antecedent completion reads it as a premise:
+the likelihood of the consequence it inverts marginalises the parts it does
+not complete over their values, and a part nothing tells about is at the
+prior of one more member of its population. Its row answers only the
+completions waiting on the node. No other row reads a population prior: a
+derivation from it would present the population's value as the instance's,
+and an inversion or a sample would read it as an observation; folds do not
+count it either. So a rule reading an unobserved root premise with nothing
+observed below it still concludes nothing, while an observation of a
+compound's consequence updates each part (`fuzzing.md`).
 
 A materializing query writes back its first answer and, for every statement
 that answer's proof uses, that statement's current value. Materialized facts are never leaves of later searches: the
