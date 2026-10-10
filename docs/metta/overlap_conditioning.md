@@ -187,9 +187,18 @@ At budget 200, Degraded power-plant t4 in round 4 is 0.05 (was 0.127, exact
 50 and 100 the rows recomputed below the free depth spend the whole
 evaluation allowance before any conditioning is claimed: the Degraded t3
 claim (cost 88) met an allowance of 0 at budget 50. Rows waiting for
-conditioning are not paid there either. Moving the case at budget 50 needs
-conditioning near a root to be paid before deeper rows, a change to the
-allowance's order for rows and keys alike, left open.
+conditioning are not paid there either.
+
+The rows beyond the free depth now run nearest a root first
+(`sk-item-order`). Over stage 3 (timed and untimed, seeds 1–4, budgets 50 and
+100) mean posterior error is 0.00304 on master and 0.00247 with the rows
+ordered by depth. Paying a claim nearer a root before a deeper row spends the
+allowance was tried on top (branch `conditioning-order`, b6872723) and not
+merged: 0.00245, no net gain. It moves Degraded power-plant t4 to 0.05 at
+budget 50 and helps the untimed cycle (0.00170 → 0.00145), but costs the timed
+one (0.00323 → 0.00346): a claim of cost 84–90 takes most of a 100–200
+allowance, and the rows it displaces carry storm evidence to the more
+numerous Storm and Blocked keys.
 
 `bench/compare.sh` full against master dd53deb6: PASS; accuracy changed in
 stage 3 at budget 100 only (timed seed 4 error 0.00399 → 0.00273, degraded
