@@ -398,7 +398,16 @@
       (cons (base-rate-fold $kb $pattern $brtv) ())
       (case (foldr-flat (base-rate-part $kb) (base-rate-parts () ()) $parts) (
          ((base-rate-parts $goals $tvs)
-            (append-goals $goals (cons (CPU AndFormula $tvs $brtv) ())))))))
+            (case $tvs (((cons $first $more) (append-goals $goals (and-tv-goals $first $more $brtv ()))))))))))
+
+;; The conjunction of truth values, multiplied left to right as a lowered
+;; antecedent multiplies them (AndFormula is binary).
+;; Followed by the goals `$tail`.
+(: and-tv-goals (-[det]-> Atom (List Atom) Atom (List Goal) (List Goal)))
+(= (and-tv-goals $acc (cons $tv $rest) $result $tail)
+   (if (== $rest ())
+      (cons (CPU AndFormula (quote ($acc $tv)) $result) $tail)
+      (cons (CPU AndFormula (quote ($acc $tv)) $partial) (and-tv-goals $partial $rest $result $tail))))
 
 ;; The premises reading the base rate of an STV rule's antecedent, from which
 ;; its negative branch is derived. A positive-only predicate's stored
@@ -509,10 +518,6 @@
           ;; The antecedent premises come first, then the conjunction of
           ;; their truth values (`$tvs`, bound by the fold below), then the
           ;; consequent; the sample proof lists their proofs in that order.
-          ($consequent-goals
-             (if $single (cons (: (kbctx $kb) $bprf $consequent $btv) ())
-                (cons (CPU AndFormula $tvs $and-tv)
-                   (cons (: (kbctx $kb) $bprf $consequent $btv) ()))))
           ($parts
              (foldr-flat (implication-instance-premise $kb)
                 (instance-sample-parts $consequent-goals (cons $bprf ()) ())
@@ -520,7 +525,12 @@
          (case $parts (
             ((instance-sample-parts $premises $proofs $tvs)
                (let*
-                  (($atv (if $single (car-atom $tvs) $and-tv))
+                  (($consequent-goals
+                      (case $tvs (
+                         ((cons $first $more)
+                            (if $single (cons (: (kbctx $kb) $bprf $consequent $btv) ())
+                               (and-tv-goals $first $more $and-tv (cons (: (kbctx $kb) $bprf $consequent $btv) ())))))))
+                   ($atv (if $single (car-atom $tvs) $and-tv))
                    ($finish (if $ctv? implication-instance-ctv implication-instance))
                    ($sample-pattern
                       (ImplicationInstanceSample $antecedent $consequent $atv $btv))

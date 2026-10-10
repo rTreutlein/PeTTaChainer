@@ -179,3 +179,36 @@
 !(test
    (let (: $prf $type $tv) (query 100 negKb (: $prf (Implication (A $v) (B $v)) $tv)) $tv)
    (CTV (STV 1.0 0.0024937655860349127) (STV 0.25 0.004975124378109453)))
+
+;; --- Three conjuncts --------------------------------------------------------
+;; The conjunction of the antecedent's truth values is multiplied pairwise, as
+;; a lowered antecedent multiplies it (AndFormula is binary): before, three
+;; conjuncts gave no sample and no answer (ChainerGame
+;; benchmarks/ona/repros/three_conjuncts.py).
+!(set-evidence-confidence-k 1)
+!(compileadd threeKb (: p1 (P t1) (STV 1 1)))
+!(compileadd threeKb (: q1 (Q t1) (STV 1 1)))
+!(compileadd threeKb (: r1 (R t1) (STV 1 1)))
+!(compileadd threeKb (: g1 (G t1) (STV 1 1)))
+!(compileadd threeKb (: p2 (P t2) (STV 1 1)))
+!(compileadd threeKb (: q2 (Q t2) (STV 1 1)))
+!(compileadd threeKb (: r2 (R t2) (STV 1 1)))
+!(compileadd threeKb (: g2 (G t2) (STV 1 1)))
+!(test
+   (let (: $prf $type $tv) (query 200 threeKb (: $prf (Implication (And (P $t) (Q $t) (R $t)) (G $t)) $tv)) $tv)
+   (CTV (STV 1.0 0.66659999333266) (STV 1.0 0.166649998333165)))
+!(set-rule-refinement threeRuleKb true)
+;; A refined three-part rule learns from its instances (t2's third conjunct
+;; at 0.9 weighs its negative sample 0.9), instead of keeping its axiom.
+!(compileadd threeRuleKb (: h3 (Implication (And (P $t) (Q $t) (R $t)) (G $t)) (STV 0.5 0.01)))
+!(compileadd threeRuleKb (: p1 (P t1) (STV 1 1)))
+!(compileadd threeRuleKb (: q1 (Q t1) (STV 1 1)))
+!(compileadd threeRuleKb (: r1 (R t1) (STV 1 1)))
+!(compileadd threeRuleKb (: g1 (G t1) (STV 1 1)))
+!(compileadd threeRuleKb (: p2 (P t2) (STV 1 1)))
+!(compileadd threeRuleKb (: q2 (Q t2) (STV 1 1)))
+!(compileadd threeRuleKb (: r2 (R t2) (STV 1 0.9)))
+!(compileadd threeRuleKb (: g2 (G t2) (STV 0 1)))
+!(test
+   (let (: $prf $type $tv) (query 200 threeRuleKb (: $prf (RuleTruth (Implication (And (P $t) (Q $t) (R $t)) (G $t))) $tv)) $tv)
+   (STV 0.5261572985341251 0.6563102709435056))
