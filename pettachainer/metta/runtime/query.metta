@@ -58,18 +58,33 @@
           (prepare-query-many-plan (+ $key 1) $kb $rest)))
       (merge-query-execution-plans $statement-plan $rest-plan)))
 
+;; A chainer result's proof refers to stored proofs (sk-root-results);
+;; expanding it prints each shared subproof once.
+(: expand-result (-[det]-> RuntimeResult RuntimeResult))
+(= (expand-result $result)
+   (case $result (
+      ((CPU $_fun $_args $_res) $result)
+      (($type $kbctx $proof $tv)
+         (brand RuntimeResult (data $type $kbctx (sk-full-proof (brand Proof $proof)) $tv))))))
+
+(: expand-proof (-[nondet]-> Proof Proof))
+(= (expand-proof $proof)
+   (externalize-query-proof (sk-full-proof $proof)))
+
 (: present-query-plan-results
-   (-[nondet]-> (List (Number CompiledQueryGoal))
+   (-[nondet]-> Bool (List (Number CompiledQueryGoal))
        (List (List RuntimeResult))
        (List (Number AnnotatedStatement))))
-(= (present-query-plan-results () ()) ())
-(= (present-query-plan-results
+(= (present-query-plan-results $_expand? () ()) ())
+(= (present-query-plan-results $expand?
       (cons ($key $_goal) $roots)
       (cons $results $rest-results))
    (append-flat
       (map-flat (|-> ($answer) (data $key $answer))
-         (pretty-results (map-flat externalize-proof-structure $results)))
-      (present-query-plan-results $roots $rest-results)))
+         (pretty-results
+            (map-flat externalize-proof-structure
+               (if $expand? (map-flat expand-result $results) $results))))
+      (present-query-plan-results $expand? $roots $rest-results)))
 
 (: query-plan-runtime-goal
    (-[nondet]-> (Number CompiledQueryGoal)
@@ -81,10 +96,10 @@
 ;; externalization and pretty printing. Direct chainer entrypoints
 ;; intentionally do not own this bracket.
 (: run-query-execution-plan
-   (-[nondet]-> Number QueryExecutionPlan Bool
+   (-[nondet]-> Number QueryExecutionPlan Bool Bool
        (List (Number AnnotatedStatement))))
 (= (run-query-execution-plan
-      $steps (query-execution-plan $roots $adds) $materialize?)
+      $steps (query-execution-plan $roots $adds) $materialize? $expand?)
    (let*
       (($_clear-temp-before (clear-temp-query-adds))
        ($_inject
@@ -98,7 +113,7 @@
              (chainer-many-materialize $steps $goals)
              (chainer-many $steps $goals)))
        ($rows
-          (present-query-plan-results $roots $runtime-results))
+          (present-query-plan-results $expand? $roots $runtime-results))
        ($_clear-temp-after (clear-temp-query-adds))
        ($_contexts (sk-clear-contexts!))
        ;; What the contexts' rows interned and stored is reached by nothing now.
@@ -123,14 +138,14 @@
                          $steps
                          (compiled-query-execution-plan
                             0 $compiled-query)
-                         $materialize?)))
+                         $materialize? true)))
                 $compiled-queries))))
       (superpose $answers)))
 
 (: query-many-mode
-   (-[nondet]-> Number KB (List AnnotatedStatement) Bool
+   (-[nondet]-> Number KB (List AnnotatedStatement) Bool Bool
        QueryBatchResult))
-(= (query-many-mode $steps $kb $statements $materialize?)
+(= (query-many-mode $steps $kb $statements $materialize? $expand?)
    (let*
       (((query-execution-plan $roots $adds)
           (prepare-query-many-plan 0 $kb $statements))
@@ -140,7 +155,7 @@
              (run-query-execution-plan
                 $steps
                 (query-execution-plan $roots (list_to_set $adds))
-                $materialize?))))
+                $materialize? $expand?))))
       (superpose $rows)))
 
 (: query
@@ -156,9 +171,16 @@
 (: query-many
    (-[nondet]-> Number KB (List AnnotatedStatement) QueryBatchResult))
 (= (query-many $steps $kb $statements)
-   (query-many-mode $steps $kb $statements false))
+   (query-many-mode $steps $kb $statements false true))
+
+;; As query-many, with each answer's proof left as references into the proof
+;; store (expand-proof prints it in full).
+(: query-many-refs
+   (-[nondet]-> Number KB (List AnnotatedStatement) QueryBatchResult))
+(= (query-many-refs $steps $kb $statements)
+   (query-many-mode $steps $kb $statements false false))
 
 (: query-many-materialize
    (-[nondet]-> Number KB (List AnnotatedStatement) QueryBatchResult))
 (= (query-many-materialize $steps $kb $statements)
-   (query-many-mode $steps $kb $statements true))
+   (query-many-mode $steps $kb $statements true true))

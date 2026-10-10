@@ -161,6 +161,13 @@ results = handler.query_many(
 # results[0] contains answers for A; results[1] contains answers for B.
 # The roots share one search arena and one total step budget.
 
+# Callers that read only truth values or statements use query_many_refs:
+# answers arrive as terms, Answer(proof, statement, tv), with the proof left
+# as references into the proof store, so no proof is expanded or printed.
+answers = handler.query_many_refs(["(: $prf (B) $tv)"], steps=10)
+strength, confidence = answers[0][0].tv[1:]
+full_proof = handler.expand_proof(answers[0][0].proof)
+
 # Use query_many_materialization to retain grounded rule-derived facts from
 # each selected proof tree, including intermediate facts, in the live KB.
 cached_results = handler.query_many_materialization(

@@ -566,6 +566,13 @@ make later queries cheap.
 `forward-chain` returns the values it stored, with each proof printed as a DAG
 (`proof_dag_expand`).
 
+A query's answers keep their proofs as the values hold them, references into
+`&proof`, until the query prints them. `query-many-refs` never prints them:
+callers that read only the truth value or the statement get answers whose size
+does not grow with the derivation behind them, as terms through janus rather
+than text (SupplyNet scale l at 16 steps per query: query time 151 s to 122 s,
+peak RSS 3.5 GB to 1.5 GB, 140 MB of answer text no longer built).
+
 Output proofs print a shared subproof once: a stored subproof referenced more
 than once that itself refers to stored proofs appears in full at its first
 occurrence as `(shared N proof)` and as `(shared N)` after that. Expanding the

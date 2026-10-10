@@ -920,3 +920,12 @@ proof_has_ref(T) :-
     (   T = ['proof-ref', _] -> true
     ;   is_list(T), member(E, T), proof_has_ref(E) -> true
     ).
+
+% The results of a MeTTa string as terms, for Python through janus: an
+% expression arrives as a list, a symbol or string as a str. janus passes no
+% unbound variable, so each is named as MeTTa prints it.
+metta_result_terms(Code, Results) :-
+    process_metta_string(Code, Results),
+    term_variables(Results, Variables),
+    foldl([Variable, N0, N]>>(format(atom(Variable), '$_~d', [N0]), N is N0 + 1),
+          Variables, 0, _).

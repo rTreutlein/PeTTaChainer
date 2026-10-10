@@ -11,7 +11,7 @@ import time
 import traceback
 import uuid
 import warnings
-from typing import Iterator, List, Optional, Sequence, Tuple
+from typing import Iterator, List, NamedTuple, Optional, Sequence, Tuple
 import __main__
 
 from petta import PeTTa
@@ -72,6 +72,28 @@ def _query_worker(
 
 def _as_list(value) -> List[str]:
     return [value] if isinstance(value, str) else value
+
+
+class Answer(NamedTuple):
+    """One answer of ``query_many_refs``, ``(: proof statement tv)`` as terms:
+    an expression is a list, a symbol or string a ``str``, a number an
+    ``int`` or ``float``, and a variable a ``str`` starting with ``$``. The
+    proof holds references into the proof store; ``expand_proof`` prints it
+    in full."""
+
+    proof: object
+    statement: object
+    tv: object
+
+
+def _metta_text(term) -> str:
+    """MeTTa source for a term as ``Answer`` holds it."""
+    if isinstance(term, list):
+        return "(" + " ".join(_metta_text(item) for item in term) + ")"
+    if isinstance(term, float):
+        mantissa, exponent, power = repr(term).partition("e")
+        return mantissa + (".0" if exponent and "." not in mantissa else "") + exponent + power
+    return str(term)
 
 
 def _group_query_many_results(rows: List[str], count: int) -> List[List[str]]:
@@ -579,6 +601,50 @@ class PeTTaChainer:
                 self._run_query_expression(expression, timeout_sec),
                 len(queries),
             )
+
+    def query_many_refs(
+        self,
+        atoms: Sequence[str],
+        steps: int = 100,
+    ) -> List[List[Answer]]:
+        """As ``query_many``, but each answer is an ``Answer`` passed as terms,
+        and its proof is left as references into the proof store, so no proof
+        is expanded or printed; ``expand_proof`` prints one in full.
+
+        It runs in the caller's live process, which holds the proofs the
+        references point to; it has no subprocess timeout.
+        """
+        queries = list(atoms)
+        if not queries:
+            return []
+        for atom in queries:
+            self._validate("query", atom, atom, check_query)
+        expression = (
+            f"query-many-refs {steps} {self.kb} "
+            f"({' '.join(queries)})"
+        )
+        import janus_swi
+
+        with self._query_metrics(
+            kind="query_many",
+            roots=len(queries),
+            steps=steps,
+            timeout_sec=None,
+        ):
+            rows = janus_swi.query_once(
+                "metta_result_terms(Code, Results)", {"Code": f"!({expression})"}
+            )["Results"]
+        grouped: List[List[Answer]] = [[] for _ in queries]
+        for _, index, (_, proof, statement, tv) in rows:
+            grouped[index].append(Answer(proof, statement, tv))
+        return grouped
+
+    def expand_proof(self, proof) -> str:
+        """The full proof of an ``Answer``'s proof, each shared subproof
+        printed once."""
+        return _as_list(
+            self.handler.process_metta_string(f"!(expand-proof {_metta_text(proof)})")
+        )[0]
 
     def query_many_materialization(
         self,

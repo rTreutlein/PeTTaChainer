@@ -8,6 +8,9 @@
    (-[nondet]-> Number KB AnnotatedStatement AnnotatedStatement))
 (: query-many
    (-[nondet]-> Number KB (List AnnotatedStatement) QueryBatchResult))
+(: query-many-refs
+   (-[nondet]-> Number KB (List AnnotatedStatement) QueryBatchResult))
+(: expand-proof (-[nondet]-> Proof Proof))
 (: query-many-materialize
    (-[nondet]-> Number KB (List AnnotatedStatement) QueryBatchResult))
 (: set-backward-query-metrics (-[det]-> Bool Bool))

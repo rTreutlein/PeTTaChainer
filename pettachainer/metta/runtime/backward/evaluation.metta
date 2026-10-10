@@ -2731,7 +2731,7 @@
 (: sk-result-step (-[semidet]-> (List RuntimeResult) SkeletonValue (List RuntimeResult)))
 (= (sk-result-step $kept $value)
    (case $value (
-      ((sk-val $fact $_ev $_deps) (cons (brand RuntimeResult (sk-full-fact $fact)) $kept))
+      ((sk-val $fact $_ev $_deps) (cons (brand RuntimeResult $fact) $kept))
       ((sk-goal-val $goal $_proof $_ev $_deps) (cons (brand RuntimeResult $goal) $kept))
       (sk-none $kept))))
 
@@ -2739,7 +2739,9 @@
 (: prune_answer_instances (-[det]-> (List RuntimeResult) (List RuntimeResult)))
 
 ;; Proven answers in root order without redundant instances; a materializing
-;; query writes back the first that is not a population prior.
+;; query writes back the first that is not a population prior. An answer's
+;; proof is as its value holds it, references into &proof; only output
+;; expands it.
 (: sk-root-results (-[semidet]-> Bool SkPattern (List RuntimeResult)))
 (= (sk-root-results $materialize? $goal)
    (let* (($values (sk-root-values $goal))

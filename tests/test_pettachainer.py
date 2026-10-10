@@ -306,6 +306,36 @@ class TestPeTTaChainer(unittest.TestCase):
         )
         self.assertEqual(handler.query_many([], timeout_sec=0), [])
 
+    def test_query_many_refs_answers_as_terms_with_expandable_proofs(self):
+        handler = PeTTaChainer()
+        handler.add_atoms_no_check([
+            "(: refs_a (RefsA a) (STV 0.9 0.9))",
+            "(: refs_open (RefsOpen $y) (STV 0.5 0.5))",
+            "(: refs_ab (Implication (RefsA $v) (RefsB $v)) (STV 0.8 0.9))",
+            "(: refs_bc (Implication (RefsB $v) (RefsC $v)) (STV 0.7 0.9))",
+        ])
+        roots = [
+            "(: $prf (RefsC a) $tv)",
+            "(: $prf (RefsMissing) $tv)",
+            "(: $prf (RefsOpen $x) $tv)",
+        ]
+
+        answers = handler.query_many_refs(roots, steps=10)
+        printed = handler.query_many(roots, steps=10, timeout_sec=0)
+
+        self.assertEqual([len(group) for group in answers], [1, 0, 1])
+        derived, opened = answers[0][0], answers[2][0]
+        self.assertEqual(derived.proof[0], "proof-ref")
+        self.assertEqual(derived.statement, ["RefsC", "a"])
+        self.assertEqual(derived.tv[0], "STV")
+        self.assertEqual(opened, ("refs_open", ["RefsOpen", "$_0"], ["STV", 0.5, 0.5]))
+        self.assertEqual(handler.expand_proof(derived.proof), "(by refs_bc (by refs_ab refs_a))")
+        self.assertEqual(
+            printed[0],
+            [f"(: {handler.expand_proof(derived.proof)} (RefsC a) (STV {derived.tv[1]!r} {derived.tv[2]!r}))"],
+        )
+        self.assertEqual(handler.query_many_refs([]), [])
+
     def test_query_metrics_are_opt_in_and_reset_per_query(self):
         handler = PeTTaChainer()
         handler.add_atom("(: metric_a (MetricA) (STV 1.0 1.0))")
