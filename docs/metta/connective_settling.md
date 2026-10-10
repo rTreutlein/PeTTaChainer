@@ -86,9 +86,12 @@ settled step agree.
 - Expected confidence. `premises-expected-confidence` matched "a formula whose
   result modus ponens reads next" by unification, which bound the rule's CTV
   to a settled ground value; it now compares by identity.
-- Projections. A settled `Or` key projects onto its other disjunct with
-  confidence 0 (P(B) is undetermined when A is certain), as a stored
-  certain `Or` did before.
+- Projections. A settled `Or` key gives its other disjunct no value: P(B) is
+  undetermined when A is certain, and `OrProjection` (like `AndProjection`
+  for a false conjunct) yields nothing rather than a value of confidence 0,
+  which would have replaced what else is known of B (a fuzzer repro answered
+  0 for a disjunct whose population prior is 0.73). The same holds for a
+  stored certain `Or` with a certain disjunct.
 - Dormancy. The dormancy analysis mirrors the settled join: a settled rule
   supports its conclusion only through a certain stored fact that settles
   the compound (`dormancy_settles`, `runtime_helpers.pl`). Counting it as an

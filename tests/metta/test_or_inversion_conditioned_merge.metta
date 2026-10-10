@@ -59,9 +59,12 @@
       (: $proof (Problem current) $tv))
    (: (factored-revision (by (bi-forward problemDefinition) (conjunction localPrior dependencyPrior)) (prior (STV 0.52 0.9140621947055227)) (((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm))) (Problem current) (STV 0.9069767441860465 0.9691291295624406)))
 
-;; LocalProblem cannot reuse evidence that depends on itself. Its constrained
-;; view retains the direct prior even though the general Problem estimate changes.
+;; LocalProblem cannot reuse evidence that depends on itself: the general
+;; Problem estimate does. The completion of the definition onto it reads the
+;; alarm's inversion over Problem's base rate, which does not, with the other
+;; disjunct at its value; that raises it, though only a little, since its
+;; base rate, the completion's prior, is one stored fact.
 !(test
    (query 20000 orInversionConditionedMergeKb
       (: $proof (LocalProblem current) $tv))
-   (: localPrior (LocalProblem current) (STV 0.4 0.9)))
+   (: (merge/revision localPrior ((antecedent-completion (bi-forward problemDefinition) 0 with cpu (prior (STV 0.4181818181818182 0.0011237357972281184))) (conjunction dependencyPrior ((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm)))) (LocalProblem current) (STV 0.4001269843833966 0.900036481087304)))

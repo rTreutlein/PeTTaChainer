@@ -341,8 +341,18 @@ A negated conjunct `(Not I)` completes I, the statement its observations,
 base rate and queries are about, with the two likelihoods swapped: P(C | I) =
 v, P(C | not I) = u'. Its proof is the completion's, over I's base rate, so it
 merges with other updates of I. A conjunction with negated children is pure
-for completion (`pure-conjunction-antecedent?`): before, the `Not` counted as a
+for completion (`pure-connective-antecedent?`): before, the `Not` counted as a
 computation and no conjunct of such a rule was completed.
+
+A disjunct M of `(Or O M) -> C` is completed the same way with the
+likelihoods of a disjunction (`DisjunctLikelihoodFormula`): P(C | M) = u and
+P(C | not M) = s_O u + (1 − s_O) v. Before, an inverted `Or` was projected
+onto its parts (`OrProjection`) under the disjunction's own prior, so a known
+disjunct did not condition it: with O known false, P(M | C) is Bayes' rule
+over P(M), not the disjunction's posterior (fuzzer repro seed 13000140: 0.0178
+exact, 0.120 projected). A part the completion does not complete with no
+value of its own is read at its population prior (see
+`runtime_design_assumptions.md`, "Queries read what their roots reach").
 
 For an STV rule, v is recovered from the base rates of `(And O M)` and C, as
 for a plain inversion. The proof is `((antecedent-completion R idx with cpu

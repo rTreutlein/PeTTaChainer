@@ -16,11 +16,10 @@
 
 !(test (query 50 orKb (: $p (Or (A t) (B t)) $tv))
    (: (settled a) (Or (A t) (B t)) (STV 1.0 1.0)))
-;; The settled Or also projects onto (B t) given (A t), which tells nothing
-;; about it (confidence 0); the complete rule application over that value is
-;; the settled one's value, and the settled step gives way to it.
+;; (A t) true leaves (B t) undetermined, so nothing gives (B t) a value and
+;; the complete rule application has none: the settled step is the answer.
 !(test (query 50 orKb (: $p (C t) $tv))
-   (: (by r (conjunction a ((proj 1 (settled a)) a))) (C t) (STV 1.0 0.9998000399670116)))
+   (: (by r (settled a)) (C t) (STV 1.0 0.9998000399670116)))
 
 ;; And: (D t) has no proof, (E t) is certain, so (Not (E t)) is certainly false
 ;; and the rule concludes by its negative branch.
@@ -49,9 +48,7 @@
 ;; The untimed SupplyNet cycle: the plant runs when fuelled and not degraded,
 ;; fuelled by stock or by the mine's fuel arriving, and the mine runs on the
 ;; plant's power. With stock the Or is settled by the stock alone, so the
-;; loop disjunct, which only the cycle could prove, no longer blocks it (the
-;; complete step that wins reads the loop disjunct through the settled Or's
-;; confidence-0 projection, at the settled value).
+;; loop disjunct, which only the cycle could prove, no longer blocks it.
 !(compileadd stockedKb (: fuelled (Implication (Or (StockedFuel $t) (FuelArrived $t)) (Fuelled power $t)) (CTV (STV 1 1) (STV 0 1))))
 !(compileadd stockedKb (: runs-power (Implication (And (Fuelled power $t) (Not (Degraded power $t))) (Producing power $t)) (CTV (STV 1 1) (STV 0 1))))
 !(compileadd stockedKb (: runs-mine (Implication (And (Producing power $t) (Not (Degraded mine $t))) (Producing mine $t)) (CTV (STV 1 1) (STV 0 1))))
@@ -62,9 +59,9 @@
 !(compileadd stockedKb (: s (StockedFuel t) (STV 1 1)))
 
 !(test (query 200 stockedKb (: $p (Producing power t) $tv))
-   (: (by runs-power (conjunction (by fuelled (conjunction s ((proj 1 (settled s)) s))) (negated dp))) (Producing power t) (STV 1.0 0.9996001597861454)))
+   (: (by runs-power (conjunction (by fuelled (settled s)) (negated dp))) (Producing power t) (STV 1.0 0.9996001597861454)))
 !(test (query 200 stockedKb (: $p (Producing mine t) $tv))
-   (: (by runs-mine (conjunction (by runs-power (conjunction (by fuelled (conjunction s ((proj 1 (settled s)) s))) (negated dp))) (negated dm))) (Producing mine t) (STV 1.0 0.9994003594095786)))
+   (: (by runs-mine (conjunction (by runs-power (conjunction (by fuelled (settled s)) (negated dp))) (negated dm))) (Producing mine t) (STV 1.0 0.9994003594095786)))
 
 ;; Without stock nothing but the loop could fuel the plant. The plant is in
 ;; fact not running (the least fixed point), but the chainer is open-world:

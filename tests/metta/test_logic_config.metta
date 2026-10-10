@@ -52,9 +52,11 @@
 !(compileadd plnOrProjectionKb (: ab (Or (A) (B)) (STV 1.0 0.9)))
 !(compileadd plnOrProjectionKb (: a (A) (STV 1.0 1.0)))
 
+;; A true disjunct leaves the other undetermined: the projection gives no
+;; value rather than one of confidence 0.
 !(test
    (query 20 plnOrProjectionKb (: $prf (B) $tv))
-   (: ((proj 1 ab) a) (B) (STV 0.0 0.0)))
+   ())
 
 !(import! &self ../../pettachainer/metta/core/logic_configs/predicate_logic)
 

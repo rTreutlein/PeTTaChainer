@@ -179,10 +179,13 @@
 (: LikelierThanFormula (-[det]-> STVType STVType STVType))
 (= (LikelierThanFormula (STV $sa $ca) (STV $sb $cb)) (STV (* $sa (- 1.0 $sb)) (min $ca $cb)))
 
-(: AndProjection (-[det]-> STVType STVType STVType))
+;; Solve AB = A and U for the unknown child U. A known false leaves U
+;; undetermined: no value, not a value of confidence 0, which would replace
+;; what else is known of U.
+(: AndProjection (-[semidet]-> STVType STVType STVType))
 (= (AndProjection (STV $sab $cab) (STV $sa $ca))
    (if (== $sa 0.0)
-      (STV 0.0 0.0)
+      (empty)
       (STV (min 1.0 (/ $sab $sa)) (min $cab $ca))))
 
 (: AndMarginalProjection (-[det]-> STVType STVType))
@@ -193,11 +196,12 @@
 ;; Solve E = D or U for the unknown child U. Strength is the exact noisy-OR
 ;; inverse. Confidence uses first-order variance propagation through
 ;; u = (e-d)/(1-d), so projection cannot inherit the total's confidence while
-;; ignoring uncertainty in the known alternative.
-(: OrProjection (-[det]-> STVType STVType STVType))
+;; ignoring uncertainty in the known alternative. D true leaves U
+;; undetermined: no value, as for AndProjection.
+(: OrProjection (-[semidet]-> STVType STVType STVType))
 (= (OrProjection (STV $se $ce) (STV $sd $cd))
    (if (>= $sd 1.0)
-      (STV 0.0 0.0)
+      (empty)
       (let*
          (($den (- 1.0 $sd))
           ($su (min 1.0 (max 0.0 (/ (- $se $sd) $den))))
@@ -214,7 +218,7 @@
 ;; The unknown-witness residual is the same probabilistic projection as an
 ;; ordinary OR child: E = D or U. Keep the semantic name at the existential
 ;; compiler boundary while sharing the variance-aware implementation.
-(: ExistentialResidualFormula (-[det]-> STVType STVType STVType))
+(: ExistentialResidualFormula (-[semidet]-> STVType STVType STVType))
 (= (ExistentialResidualFormula $existential-tv $known-tv)
    (OrProjection $existential-tv $known-tv))
 
@@ -543,6 +547,15 @@
 (= (ConjunctLikelihoodFormula $negated (STV $so $co) (CTV $pos $neg))
    (let $given (if (certain-at? 1.0 $so $co) $pos (CTVModusPonensFormula (STV $so $co) (CTV $pos $neg)))
       (if $negated (CTV $neg $given) (CTV $given $neg))))
+
+;; The same for one disjunct M of an antecedent (Or O M): M true makes the
+;; disjunction true, P(C|M) = u, and without M the others decide it,
+;; P(C|not M) = s_O u + (1 - s_O) v. O certainly false leaves the rule's
+;; negative branch as it is.
+(: DisjunctLikelihoodFormula (-[semidet]-> Bool TV TV CTVType))
+(= (DisjunctLikelihoodFormula $negated (STV $so $co) (CTV $pos $neg))
+   (let $given (if (certain-at? 0.0 $so $co) $neg (CTVModusPonensFormula (STV $so $co) (CTV $pos $neg)))
+      (if $negated (CTV $given $pos) (CTV $pos $given))))
 
 ;; An inversion reads an observation of b as a likelihood ratio. A soft
 ;; observation's strength s is a posterior under the prior p it was formed

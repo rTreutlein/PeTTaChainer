@@ -262,7 +262,12 @@ back into that source instead of multiplying shared evidence, and
 compiler-marked joins may share source evidence deliberately. A projection of
 a compound onto one part reads the other parts as evidence apart from the
 compound, so it reads none of their views that depend on the compound's key:
-P(A) = P(ABC) / P(BC) with P(BC) read off ABC would be 1.
+P(A) = P(ABC) / P(BC) with P(BC) read off ABC would be 1. A projection that leaves the
+part undetermined (a true disjunct, a false conjunct) gives no value rather
+than one of confidence 0. A child of an inverted pure `And` or `Or`
+antecedent is recovered by completion, not projection: the completion is
+Bayes' rule over the child's base rate with the other parts at their values
+(`prior_factored_merge.md`).
 
 A clash that survives the fresh read is resolved by conditioning, not refused.
 The row is evaluated with the statement of a shared fact known true and again

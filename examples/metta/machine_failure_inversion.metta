@@ -58,8 +58,9 @@
 
 ;; -------------------------------------------------------------------------
 ;; Reverse direction: the local press defect is deliberately absent. Starting
-;; from NoOutput(press), automatic implication inversion reconstructs the OR;
-;; the ordinary Or projection then subtracts the known upstream alternative.
+;; from NoOutput(press), automatic implication inversion reconstructs the OR,
+;; and the completion of the rule onto the local defect conditions on the
+;; known upstream alternative.
 
 !(compileadd machineInverseKb
    (: feederFeedsPress (Feeds feeder press) (STV 1.0 1.0)))
@@ -94,7 +95,6 @@
    (Or (Defective $machine) (UpstreamFailure $machine))
    (STV 0.82 0.99))
 
-;; Expected strength: (0.82 - 0.4) / (1 - 0.4) = 0.7.
 !(test
    (query 300 machineInverseKb
       (: $proof
@@ -107,13 +107,16 @@
       (Or (Defective press) (UpstreamFailure press))
       (STV 0.82 0.8999999996128824)))
 
+;; Bayes' rule over the press's defect rate (0.418, from one stored fact, so
+;; the answer carries little confidence) with P(NoOutput | defect) = 1 and
+;; P(NoOutput | no defect) = P(UpstreamFailure) = 0.4, the observation read as
+;; a likelihood ratio: Jeffrey's rule, 0.82 P(defect | NoOutput) = 0.527.
 !(test
    (query 300 machineInverseKb
       (: $proof (Defective press) $tv))
-   (: ((proj 0
-          ((inverted failureStopsOutput with cpu (prior (STV 0.8199991919212325 0.99)))
+   (: ((antecedent-completion failureStopsOutput 0 with cpu (prior (STV 0.4181818181818182 0.0011237357972281184)))
+          (conjunction
+             (by propagateUpstreamFailure (conjunction feederFeedsPress feederDefect))
              observedPressStopped))
-         (by propagateUpstreamFailure
-            (conjunction feederFeedsPress feederDefect)))
       (Defective press)
-      (STV 0.7 0.8008200275312845)))
+      (STV 0.5268078015719438 0.0028011534019609994)))

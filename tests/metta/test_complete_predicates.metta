@@ -29,9 +29,9 @@
 !(test (query 100 openKb (: $p (P t) $tv)) ())
 !(test (query 100 openKb (: $p (M t) $tv)) ())
 
-;; Stock: both true. The stock settles the Or, whose projection onto (M t)
-;; given the stock says nothing about it (confidence 0); the complete row
-;; reads that, as without a declaration.
+;; Stock: both true. The stock settles the Or; P's complete row reads (M t)
+;; closed, the mine's production with P pinned false, and M reads P's
+;; settled value.
 !(set-complete-predicate onKb P)
 !(set-complete-predicate onKb M)
 !(compileadd onKb (: rp (Implication (Or (S $t) (M $t)) (P $t)) (CTV (STV 1 1) (STV 0 1))))
@@ -40,9 +40,9 @@
 !(compileadd onKb (: d (Deg t) (STV 0 1)))
 
 !(test (query 100 onKb (: $p (P t) $tv))
-   (: (by rp (conjunction s ((proj 1 (settled s)) s))) (P t) (STV 1.0 0.9998000399670116)))
+   (: (by rp (conjunction s (by rm (conjunction unfounded (negated d))))) (P t) (STV 1.0 0.9998000399670116)))
 !(test (query 100 onKb (: $p (M t) $tv))
-   (: (merge/revision (by rm (conjunction (by rp (settled s)) (negated d))) ((proj 1 (settled s)) s)) (M t) (STV 1.0 0.9996001597861454)))
+   (: (by rm (conjunction (by rp (settled s)) (negated d))) (M t) (STV 1.0 0.9996001597861454)))
 
 ;; Uncertain stock: P has the stock's strength, OrFormula(0.9, 0), and M the
 ;; same through P.

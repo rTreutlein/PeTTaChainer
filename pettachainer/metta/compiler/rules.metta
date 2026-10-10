@@ -15,8 +15,7 @@
 ;; complete disjunction and let its ordinary projection adapters recover one
 ;; child. Actual source computations remain restricted to the explicitly
 ;; reversible subset. Pure And and Or antecedents can be inverted as complete
-;; compounds. Child recovery for a pure And is only fused completion; Or still
-;; projects from the inverted disjunction.
+;; compounds; a child of either is recovered only by completion.
 (: SourceComputeGoals Type)
 (: source-computes
    (-[det]-> (List Goal) SourceComputeGoals))
@@ -658,30 +657,37 @@
             ((inverted $prf with $prior-token (prior $atv)) $prfb_wit)
             $a $mp-tv))))
 
-;; For every child M of a pure conjunction H, compile the completion
-;; (And O C) -> M, where O contains H's other children and C is the original
-;; consequence. That is the only child-recovery operator for a pure And:
-;; whole-H inversion still proves H itself, but does not also project to each
-;; child. The completion inverts the rule onto M over M's base rate, as a
-;; plain inversion inverts onto its antecedent, with C's likelihoods given M
-;; and not M at O's value (ConjunctLikelihoodFormula), so it is the joint
+;; For every child M of a pure conjunction or disjunction H, compile the
+;; completion (And O C) -> M, where O is the connective over H's other
+;; children and C is the original consequence. That is the only
+;; child-recovery operator for a pure And or Or: whole-H inversion still
+;; proves H itself, but does not also project to each child. The completion
+;; inverts the rule onto M over M's base rate, as a plain inversion inverts
+;; onto its antecedent, with C's likelihoods given M and not M at O's value
+;; (ConjunctLikelihoodFormula, DisjunctLikelihoodFormula), so it is the joint
 ;; posterior over O and M; C's value enters as its likelihood ratio
-;; (ObservationRatioFormula). A negated child (Not I) completes I, the
-;; statement its observations and base rate are about. The proof carries the
-;; base rate, so the completion merges with other updates of it by Bayes'
-;; rule (sk-factored-merge).
-(: pure-conjunction-antecedent? (-[det]-> Statement Bool))
-;; A conjunction is pure when no child computes, a negated child counting by
-;; the statement it negates.
+;; (ObservationRatioFormula). Projecting the inverted disjunction instead
+;; read O as known and the disjunction under its unconditioned prior, so a
+;; known disjunct did not condition it. A negated child (Not I) completes I,
+;; the statement its observations and base rate are about. The proof carries
+;; the base rate, so the completion merges with other updates of it by
+;; Bayes' rule (sk-factored-merge).
+(: pure-connective-antecedent? (-[det]-> Statement Bool))
+;; A conjunction or disjunction is pure when no child computes, a negated
+;; child counting by the statement it negates.
 (: computing-child? (-[det]-> Bool Atom Bool))
 (= (computing-child? $seen $child)
    (if $seen true
       (let $statement (if (head-is? $child Not) (car-atom (cdr-atom $child)) $child)
          (contains-head? source-computation-head? $statement))))
-(= (pure-conjunction-antecedent? $a)
-   (if (head-is? $a And)
+(= (pure-connective-antecedent? $a)
+   (if (head-is-member? $a (And Or))
       (if (fold-flat computing-child? false (implication-side-conjuncts $a)) false true)
       false))
+;; The connective over a compound's children, or its one child.
+(: connective-statement (-[det]-> Atom (List Statement) Statement))
+(= (connective-statement $connective (cons $head $tail))
+   (if (== $tail ()) $head (brand Statement (cons $connective (cons $head $tail)))))
 (: compile-antecedent-completion
    (-[nondet]-> KB $context $variables KBContext Proof TV (List Variable)
        Statement Statement (List Statement) Number (List Statement)
@@ -693,6 +699,7 @@
       (if (is-var $missing)
          (empty)
          (let* (($others (remove-index $idx $children))
+                ($connective (car-atom $full))
                 ($known (brand Statement (seq2expr (append $others (cons $consequent ()))))))
             ;; A missing conjunct that alone links the others' variables would be
             ;; inferred for every combination of unrelated instances; only a
@@ -704,7 +711,7 @@
                   ((($others-execs $others-proofs $others-tv)
                       (once
                          (lower-implication-antecedent
-                            $kb $ctx $vars (brand Statement (seq2expr $others)))))
+                            $kb $ctx $vars (connective-statement $connective $others))))
                    (($consequent-execs $consequent-proofs $consequent-tv)
                       (once
                          (lower-implication-antecedent
@@ -728,7 +735,7 @@
                                   (prior-base-rate-premises $kb
                                      (rule-base-rate-pattern $params $target) $target-base-tv)
                                   (the (List Goal)
-                                     ((CPU ConjunctLikelihoodFormula
+                                     ((CPU (if (== $connective And) ConjunctLikelihoodFormula DisjunctLikelihoodFormula)
                                          (quote ($negated $others-tv $rule-ctv))
                                          $likelihood-ctv)
                                       (CPU CTVBayesFormula
@@ -1288,7 +1295,7 @@
                    (implication-source-term $consequent)))
              ($antecedent-vars
                 (implication-antecedent-free-vars $antecedent))
-             ($pure-conjunction? (pure-conjunction-antecedent? $a))
+             ($pure-connective? (pure-connective-antecedent? $a))
              ($inverse-plan
                 (if (contains-cpu? (execs-goal-type $execs))
                    (compile-reversible-compute-plan $a $b)
@@ -1336,7 +1343,7 @@
                                  (inverse-implication
                                     $kb $prf $params $na $b $value $truth-premises $inverse-execs))
                               (if (is-var $na) (empty)
-                                 (if $pure-conjunction?
+                                 (if $pure-connective?
                                     (empty)
                                     (compile-outputs
                                        (: $shape-kb
@@ -1351,7 +1358,7 @@
                ;; conclusion as inversion recovers the whole antecedent. Both
                ;; read the conclusion as an observation, and a derived
                ;; implication is not one.
-               (if (if $pure-conjunction? (if (= $prf (no_inverse $_)) false (not (implication-type? $b))) false)
+               (if (if $pure-connective? (if (= $prf (no_inverse $_)) false (not (implication-type? $b))) false)
                   (let $children
                      (statement-children (the (List Atom) (cdr-atom $a)))
                      (compile-antecedent-completion
