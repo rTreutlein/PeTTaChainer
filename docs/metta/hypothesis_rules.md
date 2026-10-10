@@ -298,3 +298,162 @@ What still grows with the history is the first review, which folds every
 instance once (4.4 s and 26 s), and the queries themselves (0.55 s and
 0.66 s per round). Raw runs: `bench/results/forward-folds/learned/`.
 
+
+## Mining hypotheses (October 2026)
+
+Status: built, opt-in (`set-hypothesis-mining`); evaluation below.
+
+Until now a client had to state every hypothesis (the ONA matching-to-sample
+harness creates them in Python). A KB with mining on proposes them itself
+from the facts added to it, keeps the ones that predict and drops the rest,
+as ONA forms, revises and forgets its implications.
+
+### Proposing (`runtime/hypothesis_mining.metta`)
+
+`compileadd` of a ground fact `(P c1 .. cn)` with constant arguments, when its
+KB has mining on:
+
+1. counts the fact in the outcome tally of every consequent pattern it is an
+   instance of that already has a hypothesis (the fact with a nonempty set of
+   its constants made variables; at most 2^n − 1 lookups);
+2. reads its **features**: the facts recorded for each of its constants (the
+   last 24 per constant), newest first, without its own predicate, at most 24;
+3. records the fact under each of its constants;
+4. builds the candidates: the fact concluded from each feature alone and from
+   each pair of features, and, for a pair whose two features share a constant
+   the fact does not have, also the relational form with that constant a
+   variable; and, for each feature, that feature concluded from the fact. A
+   constant a feature shares with its consequent becomes a variable, so
+   `(Sample A1 t5)`, `(LeftStim A1 t5)` and `(Reward left t5)` give
+   `(Sample A1 $t) → (Reward left $t)` and
+   `(And (LeftStim $x $t) (Sample $x $t)) → (Reward left $t)`. A predicate
+   declared positive-only (`set-positive-only-predicate`) is never a
+   consequent: nothing could refute a hypothesis concluding it;
+5. scans at most 8·`max-new` candidates, starting at a different one each
+   time, and proposes each one never proposed before whose consequent pattern
+   has fewer than `max-live` live hypotheses, until `max-new` are proposed.
+
+A hypothesis is a refined rule named `hypothesis-N` with a weak prior,
+strength 0.5 with the evidence of 0.01 observations (confidence 0.01/(0.01 +
+k), so the first samples decide whatever the evidence parameter k): an STV when a conjunct of its antecedent is positive-only (no
+instance where it fails could teach a CTV's negative branch, which would
+stay at its prior), a CTV otherwise. So adding a fact costs a bounded number
+of indexed lookups and at most `max-new` rule compilations, whatever the KB's
+size; off, it costs one lookup of the KB's setting.
+
+### Reviewing and dropping (`runtime/hypothesis_review.metta`)
+
+`review-hypotheses` queries the `RuleTruth` goals of the live hypotheses
+that apply to a goal, in one search with the given steps for each, so their
+truths fold their instances (the review the clients already ran for their
+own hypotheses; until forward chaining folds new instances as they arrive it
+is also what keeps the truths current). Each hypothesis is then judged:
+
+- one whose truth rests on fewer than 4 observations is kept, unless its
+  consequent pattern was observed 32 times since it was proposed (its
+  antecedent hardly ever holds);
+- otherwise it is kept when its strength P(B|A) differs from the
+  consequent's probability without it by more than two standard errors of
+  that probability over its observations: a CTV's negative branch P(B|¬A)
+  once an instance where the antecedent fails taught it, otherwise the
+  consequent pattern's rate (the tally, Laplace; a tally that started late
+  reads near 0.5, so the negative branch is the better reference: with the
+  tally alone, true SupplyNet late rules at P(late | blocked) 0.85 over 7
+  samples were dropped); and from the strength of every more general
+  live hypothesis judged in the same review that rests on enough
+  observations (one whose antecedent conjuncts, under a substitution taking
+  its consequent to this one's, are some of this one's: `(A $x) → (B $x)`
+  screens off `(And (A $x) (C $x)) → (B $x)`, and the relational
+  `(And (L $x $t) (S $x $t))` screens off `(And (L A1 $t) (S A1 $t))`).
+
+A dropped hypothesis leaves the live set, freeing its slot, and its rules
+leave the rule indexes (`withdraw-named-rules!`, what the deprecated
+statement removal uses), so no later search applies it; the skeleton rows it
+built stay, as forgetting leaves summaries. It is never proposed again. A
+general rule is not dropped for its specifics: its view is their prior.
+
+Rejected alternatives:
+
+- **Keep a rejected hypothesis at the search floor** (the graded treatment of
+  the score above). It still applies wherever its premises are stored facts,
+  which cost no expansion, and its near-base-rate view revises with the
+  informative ones: the harness's "all features" space, which states every
+  single and pair hypothesis, scored 0.29 against 0.91 for the pairs alone.
+  Withdrawing it is resource-bounded forgetting of a proposal the miner
+  made, not a retraction of user knowledge.
+- **The newest fact as the only consequent** (ONA's temporal order). Facts
+  of one time step arrive in no causal order (SupplyNet adds a period's
+  inspections before its storms), so each fact is also an antecedent of its
+  features.
+- **A minimum support before proposing.** It needs a store of every
+  co-occurrence seen once; the tried set plus the per-consequent bound keeps
+  the store as large as the proposals.
+- **Mining at query time from the journal of added facts.** The journal is
+  kept only once the skeleton has expanded nodes, and batching changes
+  nothing about the bound per fact.
+
+### Evaluation (October 2026, master 2882ffdb)
+
+Raw runs: `/nexus/Dev/OpenCog/bench/results/hypothesis-mining/`.
+
+**Off.** `bench/compare.sh 2882ffdb <branch> --full`: PASS, accuracy
+identical in all 73 cases, suite times within ±1% (scale 416.2 → 415.0 s,
+SupplyNet 307.7 → 307.2 s, replay 26.4 → 26.0 s). An added fact pays one
+lookup of the KB's setting.
+
+**ONA matching-to-sample** (ChainerGame `onabench.mts`, branch
+`hypothesis-mining`, 10 seeds, k = 1, review budget 200; harness: the
+hypotheses the harness creates, sample-pairs space; mined: `--mined 8 16`,
+the harness creates none and reviews with `review-hypotheses` of
+`(Reward $op t)`):
+
+| task | harness score | mined score | harness ms/trial | mined ms/trial |
+|---|---|---|---|---|
+| conditioning | 1.000 | 0.688 | 55 | 176 |
+| identity matching | 0.956 (novel 0.963) | 0.944 (novel 0.963) | 79 | 176 |
+| reversal | 0.700 | 0.441 | 80 | 199 |
+
+The miner finds what the harness states, the relational identity form
+included (novel stimuli 0.963 either way), and more: single-feature
+hypotheses and pairs over the two comparison stimuli. The singles cost the
+score. A single concluded from one sample, `(Sample A2 $t) → (Reward left $t)`
+at 0.005 after one failure, applies to a context no specific hypothesis
+covers yet, the decision reads it, and the agent stops trying that
+operation there (desire 0.10). An ablation that proposes no single when a
+fact has two or more features scores 0.981 (conditioning), 0.912 (identity,
+novel 0.912) and 0.619 (reversal) at 78, 102 and 83 ms per trial. Once a
+specific hypothesis exists, the single is only its prior (specificity), so
+the harm is in the order evidence arrives, not in the singles as such.
+
+**SupplyNet learned rules** (stage 1, seed 1, 30 history periods, 10
+rounds, budget 100; given: the learned-rules structure stated with weak
+priors; mined: no learned rule stated, `--mine-rules 4 8`):
+
+| | posterior error | Brier | s per round | review s (10 rounds) |
+|---|---|---|---|---|
+| given structure | 0.042 | 0.039 | 1.6 | 12 |
+| mined | 0.132 | 0.094 | 104 | 867 |
+
+After ten rounds 28 of the 31 true rules are live (9 of 10 storm → blocked,
+19 of 21 blocked → late), and so are 24 of their reverses (inspections
+arrive before storms, so `(Blocked r2 $p) → (Storm north $p)` is proposed
+and confirmed too) and about 170 others (220 live, 259 dropped). Applied
+together, the reverses and the spurious survivors count evidence twice: the
+error triples. The cost is the reviews: each live hypothesis's `RuleTruth`
+fold is its own query, 0.1 to 17 s each with hundreds of interacting refined
+rules (a first review of 436 hypotheses after the history took 406 s). With
+`8 16`, the first proposals fill each consequent's slots with whatever
+co-occurred first (inspected routes arrive with the period's late
+shipments, before its storms), so after the history no storm rule was live
+and 15 true late rules had been dropped against a tally that started late
+(fixed: the reference is now the learned P(B|¬A)).
+
+**What the simple miner finds and misses.** It finds one- and two-feature
+rules over facts sharing a constant, in both directions, including the
+relational identity form. It cannot find: direction (correlation is
+symmetric; only positive-only declarations rule a consequent out); rules
+through a link fact, such as persistence `(And (NextPeriod $p $t) (Storm
+north $p)) → (Storm north $t)`, whose two Storm facts share no constant;
+rules over the same predicate (`(Blocked r2 $p) → (Blocked r1 $p)`, the
+predicate's own instances are not features); three or more conjuncts;
+negations; and Inheritance or Member facts.

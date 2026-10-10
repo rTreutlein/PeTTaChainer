@@ -323,29 +323,36 @@
 ;; In contrast, kb-add-expr preserves computed snapshots: added proofs cannot
 ;; invalidate previous evidence and later chaining refines the cached estimate.
 
-(: remove-rule-row! (-[det]-> Number (List $none)))
+;; A rule row and its index rows; returns the KB it belonged to.
+(: remove-rule-row! (-[det]-> Number (List KB)))
 (= (remove-rule-row! $id)
-   (let $_
-      (collapse
-         (match rules
-            (runtime-rule-row $id $ccls $args)
-            (let*
-               (($_prems
-                   (remove-atom prem_index ($_pkey $_prem $id $_pidx)))
-                ($_prefixes
-                   (remove-atom &prem_prefix ($_prefix $_pprem $id $_ppidx)))
-                ($_ccls-idx
-                   (remove-atom ccls_index ($ccls $id $_prems2)))
-                ($_expected
-                   (remove-atom rule_expected ($id $_score)))
-                (($_type ($kbid $_ctx $_vars) $_prf $_tv) $ccls)
-                ($_invalidate
-                   (invalidate-computed-base-rates! (brand KB $kbid)))
-                ($_row
-                   (remove-atom rules
-                      (runtime-rule-row $id $ccls $args))))
-               ())))
-      ()))
+   (collapse
+      (match rules
+         (runtime-rule-row $id $ccls $args)
+         (let*
+            (($_prems
+                (remove-atom prem_index ($_pkey $_prem $id $_pidx)))
+             ($_prefixes
+                (remove-atom &prem_prefix ($_prefix $_pprem $id $_ppidx)))
+             ($_ccls-idx
+                (remove-atom ccls_index ($ccls $id $_prems2)))
+             ($_expected
+                (remove-atom rule_expected ($id $_score)))
+             (($_type ($kbid $_ctx $_vars) $_prf $_tv) $ccls)
+             ($_row
+                (remove-atom rules
+                   (runtime-rule-row $id $ccls $args))))
+            (brand KB $kbid)))))
+
+;; The rule rows registered under a statement name leave the rule indexes, so
+;; no later search applies them; the skeleton rows they built stay. Returns
+;; the KBs they belonged to.
+(: withdraw-named-rules! (-[det]-> Proof (List KB)))
+(= (withdraw-named-rules! $name)
+   (let* (($ids (list_to_set (collapse (match rule_name_index ($name $id) (the Number $id)))))
+          ($kbs (list_to_set (fold-flat (|-> ($acc $id) (append-flat $acc (remove-rule-row! $id))) () $ids)))
+          ($_index (collapse (remove-atom rule_name_index ($name $_any)))))
+      $kbs))
 
 ;; A removed fact's statement is observed by the aggregates as what its
 ;; remaining facts say, or not at all.
@@ -369,11 +376,5 @@
        ($_facts
           (foreach-flat (remove-named-fact! $name)
              (collapse (match &kb ($type $kb $name $tv) (data $type $kb $tv)))))
-       ($ids
-          (list_to_set
-             (collapse
-                (match rule_name_index ($name $id)
-                   (the Number $id)))))
-       ($_rules (foreach-flat remove-rule-row! $ids))
-       ($_index (collapse (remove-atom rule_name_index ($name $_any)))))
+       ($_rules (foreach-flat invalidate-computed-base-rates! (withdraw-named-rules! $name))))
       ()))

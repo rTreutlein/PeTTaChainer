@@ -112,6 +112,27 @@ class TestPeTTaChainer(unittest.TestCase):
             with self.subTest(timeout_sec=timeout_sec):
                 self.assertEqual(handler.query("(: $prf (Parent c d) $tv)", steps=100, timeout_sec=timeout_sec), [])
 
+    def test_hypothesis_mining_proposes_reviews_and_replays(self):
+        handler = PeTTaChainer()
+        handler.set_hypothesis_mining(4, 8)
+        handler.add_atoms_no_check([
+            "(: n1 (Storm north p1) (STV 1 1))",
+            "(: b1 (Blocked r1 p1) (STV 1 1))",
+            "(: n2 (Storm north p2) (STV 1 1))",
+        ])
+        # The KB proposed both directions from the first period; the review
+        # of the second period's blocked route reads the storm rule only.
+        verdicts = handler.review_hypotheses("(Blocked r1 p2)", steps=50)
+        self.assertEqual(len(verdicts), 1)
+        self.assertIn("(Implication (Storm north $", verdicts[0])
+        self.assertTrue(verdicts[0].endswith(" kept)"), verdicts)
+        # A timed query replays the setting, so its subprocess applies the
+        # mined rule too.
+        for timeout_sec in (0, 30):
+            with self.subTest(timeout_sec=timeout_sec):
+                result = handler.query("(: $prf (Blocked r1 p2) $tv)", steps=100, timeout_sec=timeout_sec)
+                self.assertTrue(any("hypothesis-" in answer for answer in result), result)
+
     def test_bayes_prior_count_applies_in_process_and_to_timed_queries(self):
         handler = PeTTaChainer()
         handler.set_bayes_prior_count(1e6)

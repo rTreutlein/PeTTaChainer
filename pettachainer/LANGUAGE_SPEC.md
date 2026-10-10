@@ -519,6 +519,20 @@ instance `(query 50 kb (: $p (RuleTruth (Implication ...)) $tv))`, folds the
 instances; from then on the truth and the score follow new instances without
 one (docs/metta/hypothesis_rules.md).
 
+A KB can also propose its own hypotheses (off by default):
+
+```metta
+!(set-hypothesis-mining kb 8 16)
+```
+
+Each added fact then proposes up to 8 refined rules with a weak prior that
+conclude it from recent facts sharing a constant with it, singly or in pairs
+(or conclude one of those facts from it); a consequent pattern keeps at most
+16 live ones. `!(review-hypotheses 200 kb (Reward left t9))` reviews the live
+hypotheses that apply to a goal (a variable reviews all) and drops those whose
+truth does not differ from the consequent's probability without them, or from
+a more general hypothesis's (docs/metta/hypothesis_rules.md, "Mining hypotheses").
+
 ### Complete predicates
 
 The chainer is open-world: a statement with no proof is unknown. A KB may

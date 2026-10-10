@@ -943,3 +943,93 @@ metta_result_terms(Code, Results) :-
     term_variables(Results, Variables),
     foldl([Variable, N0, N]>>(format(atom(Variable), '$_~d', [N0]), N is N0 + 1),
           Variables, 0, _).
+
+% Hypothesis mining (docs/metta/hypothesis_rules.md, "Mining hypotheses").
+% The candidate implications concluding Fact from Features, facts that share a
+% constant argument with it, as [Antecedent, Consequent]. Each constant a
+% feature shares with Fact becomes a variable. The singles conclude Fact from
+% one feature; the pairs from two (ordered as ground terms, so a pair is one
+% candidate), and a pair whose two features share a constant apart from Fact
+% also gives its relational form, with that constant a variable too:
+% (And (Sample $x $t) (LeftStim $x $t)).
+'hypothesis-singles'(Fact, Features, Singles) :-
+    findall(Rule, ( member(F, Features), hypothesis_rule([F], Fact, [], Rule) ), Singles).
+
+'hypothesis-pairs'(Fact, Features, Pairs) :-
+    findall(Rule, ( append(_, [F1|Rest], Features), member(F2, Rest), msort([F1, F2], Pair),
+                    hypothesis_pair_rule(Pair, Fact, Rule) ), Pairs).
+
+hypothesis_pair_rule(Pair, Fact, Rule) :-
+    hypothesis_rule(Pair, Fact, [], Rule).
+hypothesis_pair_rule([A, B], Fact, Rule) :-
+    shared_constants(A, B, Both), shared_constants(A, Fact, ToA), shared_constants(B, Fact, ToB),
+    subtract(Both, ToA, Own0), subtract(Own0, ToB, Own), Own \== [],
+    hypothesis_rule([A, B], Fact, Own, Rule).
+
+hypothesis_rule(Features, Fact, Own, [Antecedent, Consequent]) :-
+    maplist(shared_constants(Fact), Features, Shared),
+    append([Own|Shared], Joins0), sort(Joins0, Joins),
+    findall(K-_, member(K, Joins), Subst),
+    maplist(generalize_statement(Subst), Features, Conjuncts),
+    generalize_statement(Subst, Fact, Consequent),
+    ( Conjuncts = [Antecedent] -> true ; Antecedent = ['And'|Conjuncts] ).
+
+shared_constants([_|Xs], [_|Ys], Shared) :-
+    include(atomic, Xs, As), include(atomic, Ys, Bs), intersection(As, Bs, Common), sort(Common, Shared).
+
+generalize_statement(Subst, [Head|Args], [Head|General]) :-
+    maplist(generalize_argument(Subst), Args, General).
+generalize_argument(Subst, Arg, General) :-
+    ( atomic(Arg), memberchk(Arg-Var, Subst) -> General = Var ; General = Arg ).
+
+% A statement's distinct constant arguments, the values it can join on.
+'hypothesis-constants'([_|Args], Constants) :-
+    include(atomic, Args, Constants0), sort(Constants0, Constants).
+
+% The patterns a fact is an instance of: the fact with each nonempty set of
+% its distinct constant arguments turned into variables.
+'hypothesis-patterns'([Head|Args], Patterns) :-
+    'hypothesis-constants'([Head|Args], Constants),
+    findall(Pattern, ( subset_of(Constants, Joins), Joins \== [],
+                       findall(K-_, member(K, Joins), Subst),
+                       generalize_statement(Subst, [Head|Args], Pattern) ), Patterns).
+
+subset_of([], []).
+subset_of([X|Xs], [X|Ys]) :- subset_of(Xs, Ys).
+subset_of([_|Xs], Ys) :- subset_of(Xs, Ys).
+
+% A candidate is screened off by a more general one: one whose antecedent
+% conjuncts, under a substitution taking its consequent to the candidate's,
+% are some of the candidate's.
+'hypothesis-generalizes?'(General, Specific, Bool) :-
+    (   General = ['Implication', GA, GC], Specific = ['Implication', SA, SC],
+        \+ General =@= Specific,
+        rule_conjuncts(GA, Gs), rule_conjuncts(SA, Ss),
+        length(Gs, N), length(Selected, N), selected_conjuncts(Selected, Ss),
+        subsumes_term([GC|Gs], [SC|Selected])
+    ->  Bool = true
+    ;   Bool = false ).
+
+rule_conjuncts(['And'|Conjuncts], Conjuncts) :- !.
+rule_conjuncts(Conjunct, [Conjunct]).
+
+selected_conjuncts([], _).
+selected_conjuncts([X|Xs], Ys) :- select(X, Ys, Rest), selected_conjuncts(Xs, Rest).
+
+'hypothesis-name'(N, Name) :- atom_concat('hypothesis-', N, Name).
+
+% A fact's features from the [Seq, Statement] rows recorded for its
+% constants: the newest Max distinct statements of another predicate.
+'hypothesis-features'([Head|_], Rows, Max, Features) :-
+    findall(Key-S, ( member([Seq, S], Rows), S = [H|_], H \== Head, Key is -Seq ), Keyed),
+    keysort(Keyed, Sorted), pairs_values(Sorted, Statements0), list_to_set(Statements0, Statements),
+    length(Statements, N), M is min(Max, N), length(Features, M), append(Features, _, Statements).
+
+% At most Max elements of the list, starting at its Offset-th (modulo its
+% length) and wrapping around, so successive bounded scans start at
+% different places.
+'hypothesis-scan'(Offset, Max, List, Scan) :-
+    length(List, N),
+    (   N =:= 0 -> Scan = []
+    ;   K is Offset mod N, length(Prefix, K), append(Prefix, Suffix, List), append(Suffix, Prefix, Rotated),
+        M is min(Max, N), length(Scan, M), append(Scan, _, Rotated) ).

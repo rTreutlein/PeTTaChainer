@@ -11,7 +11,7 @@ import time
 import traceback
 import uuid
 import warnings
-from typing import Iterator, List, NamedTuple, Optional, Sequence
+from typing import Iterator, List, NamedTuple, Optional, Sequence, Tuple
 import __main__
 
 from petta import PeTTa
@@ -47,6 +47,7 @@ def _query_worker(
     base_rate_smoothing: bool,
     complete_predicates: List[str],
     positive_only_predicates: List[str],
+    hypothesis_mining: Optional[Tuple[int, int]],
     conn,
 ):
     try:
@@ -60,6 +61,8 @@ def _query_worker(
             handler.set_complete_predicate(head)
         for head in positive_only_predicates:
             handler.set_positive_only_predicate(head)
+        if hypothesis_mining:
+            handler.set_hypothesis_mining(*hypothesis_mining)
         if added_atoms:
             handler.add_atoms_no_check(added_atoms)
         atoms = handler.handler.process_metta_string(f"!({expression})")
@@ -128,6 +131,7 @@ class PeTTaChainer:
         self.handler = PeTTa()
         self.kb = f"kb{uuid.uuid4().hex}"
         self._added_atoms: List[str] = []
+        self._hypothesis_mining: Optional[Tuple[int, int]] = None
         self._logic_config_path: Optional[Path] = None
         self._evidence_confidence_k = 800.0
         self._bayes_prior_count = 0.2
@@ -373,6 +377,33 @@ class PeTTaChainer:
         if head not in self._positive_only_predicates:
             self._positive_only_predicates.append(head)
 
+    def set_hypothesis_mining(self, max_new: int, max_live: int) -> None:
+        """Let the KB propose hypotheses from the facts added to it
+        (``max_new`` 0 turns it off; docs/metta/hypothesis_rules.md).
+
+        Each added fact may propose up to ``max_new`` refined rules with a
+        weak prior, concluding it from recent facts that share a constant with
+        it (or concluding one of them from it); a consequent pattern keeps at
+        most ``max_live`` live ones. Turns rule refinement on. Timed
+        subprocess queries replay the setting, not the reviews.
+        """
+        self.handler.process_metta_string(
+            f"!(set-hypothesis-mining {self.kb} {int(max_new)} {int(max_live)})"
+        )
+        self._hypothesis_mining = (int(max_new), int(max_live)) if max_new > 0 else None
+        if max_new > 0:
+            self._rule_refinement = True
+
+    def review_hypotheses(self, goal: str = "$goal", steps: int = 200) -> List[str]:
+        """Review the live mined hypotheses that apply to ``goal`` (all for a
+        variable): fold their instances into their truths and drop the ones
+        that do not predict. Returns one
+        ``(hypothesis name implication truth kept|dropped)`` per hypothesis.
+        """
+        return _as_list(self.handler.process_metta_string(
+            f"!(review-hypotheses {int(steps)} {self.kb} {goal})"
+        ))
+
     def add_atom(self, atom: str) -> str:
         self._validate("statement", atom, atom, check_stmt)
         result = self.handler.process_metta_string(f"!(compileadd {self.kb} {atom})")
@@ -513,6 +544,7 @@ class PeTTaChainer:
                 self._base_rate_smoothing,
                 self._complete_predicates,
                 self._positive_only_predicates,
+                self._hypothesis_mining,
                 child_conn,
             ),
             daemon=True,

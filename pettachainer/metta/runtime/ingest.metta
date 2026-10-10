@@ -49,6 +49,7 @@
         ($_recorded
            (collapse
               (foreach-flat record-compiled-inheritance! $eatoms)))
-        ($_ (collapse (foreach-flat add-to-kb $iatoms))))
+        ($_ (collapse (foreach-flat add-to-kb $iatoms)))
+        ($_mined (map-flat (|-> ($hypothesis) (collapse (compileadd $kb $hypothesis))) (hm-observe! $kb $stmt))))
       (superpose
          $eatoms)))
