@@ -484,9 +484,12 @@ proof. A stored fact of the instance, already counted in the base rate, and
 a certain view are not combined this way.
 
 A rule whose truth is an estimate, stated with confidence below 1 or refined
-from its instances, is evidence of every proof through it, so two such proofs
-are not independent. A rule stated with confidence 1 (in both branches of a
-CTV) is given: proofs that both use it share no evidence through it. A ground
+from its instances, is evidence of every proof through it, so a proof of the
+rule itself and a proof through it are not independent; a rule stated with
+confidence 1 (in both branches of a CTV) is given and carries no evidence.
+Proofs that apply one rule to different premises are independent either way:
+given the rule's truth they share nothing, and its uncertainty is in each
+proof's confidence. A ground
 statement stored with confidence 1 is its own value: no rule is applied to it,
 and proofs found for it before it was stored no longer count.
 

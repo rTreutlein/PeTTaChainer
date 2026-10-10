@@ -107,15 +107,14 @@ merge, over the same prior, and their observations differ.
 - A merged view's proof is `(factored-revision P (prior <TV>) proof-1 proof-2
   …)`, with the views' proofs in a fixed order, so a further view with the
   same prior merges into it.
-- Their evidence overlaps only in the prior's when the rules and the
-  observations differ, which the recognition checks (the same observation
-  under two rules is not an independent observation). A rule stated with
-  confidence 1 in both branches is not compared: its truth is given, not
-  estimated, so two inversions through it share no evidence, and given the
-  prior's statement their observations are independent (two reports of one
-  storm through one report rule; `tests/metta/test_certain_merge.metta`). A
-  rule whose truth is an estimate (confidence below 1, or refined) is shared
-  evidence of both and blocks the factoring.
+- Their evidence overlaps only in the prior's when the observations differ,
+  which the recognition checks (the same observation under two rules is not
+  an independent observation). Rules are not compared: given the rule's truth,
+  whether stated with confidence 1 or an estimate, and the prior's statement,
+  observations through one rule are independent (two reports of one storm
+  through one report rule; `tests/metta/test_certain_merge.metta`). Until
+  October 2026 an estimated rule blocked the factoring, as it blocked any
+  merge (`overlap_conditioning.md`, "Shared rules").
 
 The merged view's evidence and dependencies are the unions of the views'. It
 is applied in `sk-merge-facts` before the overlap rule, so it takes
@@ -365,10 +364,9 @@ inversions, at the level of the completion's witnesses:
 - over a base rate, the views are independent (no shared observation or
   uncertain statement, as above), so an observation read below the
   witnesses blocks the factoring;
-- no witness proof of one view is a witness or observation of another, and
-  no rule whose truth is an estimate is shared (`sk-part-sources`): two
-  completions reading the same C through different O are one observation, not
-  two.
+- no witness proof of one view is a witness or observation of another
+  (`sk-part-sources`): two completions reading the same C through different O
+  are one observation, not two, and C is a witness of both.
 
 The previous formula, P(M | O, C) = u P(O, M) / P(O, C), read the base rate of
 the known conjunction `(And O C)` and never used v. That base rate is folded

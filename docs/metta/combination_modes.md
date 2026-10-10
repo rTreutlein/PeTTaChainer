@@ -105,9 +105,10 @@ it.
 In `sk-merge-facts`, where disjoint views would revise:
 
 - both views are forward views (rule applications, or combinations of them);
-- their evidence is disjoint: views that share an observation, or a rule
-  whose truth is an estimate (refined rules carry their samples), keep the
-  overlap rule, so correlated or redundant evidence is never multiplied;
+- they are independent: views that share an observation keep the overlap
+  rule, so correlated or redundant evidence is never multiplied; a shared
+  rule, given or estimated, is no shared evidence
+  (`overlap_conditioning.md`, "Shared rules");
 - the consequent's tally prefers odds or noisy-OR;
 - two certain views that contradict revise, as in the factored merge.
 

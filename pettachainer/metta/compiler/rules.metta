@@ -271,10 +271,11 @@
                (match &rule_evidence_names ($name $kbid) true)))
          ())))
 
-;; A rule's applications carry its evidence when its truth is an estimate,
-;; so two proofs through it are not independent. A rule stated with confidence
-;; 1 in every branch is not refined (`refined-rule?`): its truth is given, not
-;; estimated, and proofs that both use it share no uncertain evidence.
+;; A rule's applications carry its evidence when its truth is an estimate, so
+;; a proof of the rule (its axiom) and a proof through it are not independent;
+;; two applications to different premises are, given the rule's truth (see
+;; sk-merge-facts). A rule stated with confidence 1 in every branch is not
+;; refined (`refined-rule?`): its truth is given, and carries no evidence.
 (: register-rule-evidence!
    (-[det]-> KB Proof TV (List $no-result)))
 (= (register-rule-evidence! $kb $prf $tv)

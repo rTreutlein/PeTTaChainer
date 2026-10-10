@@ -421,11 +421,6 @@ ev_common_step(['ev-set', Set], Ids-Sorted, Kept-Shared) :-
     ev_sorted(Set, SortedSet), ord_intersection(Sorted, SortedSet, Shared),
     (   Shared == [] -> Kept = [] ; ev_keep(Ids, Shared, InOrder), reverse(InOrder, Kept) ).
 
-% Whether A and B use one rule.
-'evidence-shares-rule?'(['ev-set', A], ['ev-set', B], Result) :-
-    ev_sorted(A, SortedA), ev_sorted(B, SortedB), ord_intersection(SortedA, SortedB, Shared),
-    (   member(Id, Shared), ev_entry(Id, _, ['rule-ev', _, _]) -> Result = true ; Result = false ).
-
 % Whether B uses a rule that one of A's excluded-rule entries names.
 'evidence-excludes?'(['ev-set', A], ['ev-set', B], Result) :-
     ev_excluded(A, Excluded),

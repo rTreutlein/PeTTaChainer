@@ -37,7 +37,6 @@ exactly what `list_to_set(append(A, B))` gave over the former flat lists.
 | union, memoized | O(1); first time O(\|A\| + \|B\|) over integers |
 | overlap, subset | O(\|A\| + \|B\|) merge of sorted integer lists |
 | shared facts (`premise-evidence-overlap?`, `sk-clash-on`) | the merge, then one lookup per shared entry |
-| shared rule (`evidence-shares-rule?`) | the merge, then one lookup per shared entry |
 | excluded rules | O(1) when the set excludes nothing |
 | equality | id comparison |
 

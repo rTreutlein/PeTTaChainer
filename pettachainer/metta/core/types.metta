@@ -73,7 +73,6 @@
 (: evidence-shared-facts (-[det]-> EvidenceSet EvidenceSet (List Evidence)))
 (: evidence-common-facts (-[det]-> (List EvidenceSet) (List Evidence)))
 (: evidence-excludes? (-[det]-> EvidenceSet EvidenceSet Bool))
-(: evidence-shares-rule? (-[det]-> EvidenceSet EvidenceSet Bool))
 
 ;; KL divergence of Beta(a1, b1) from Beta(a2, b2) (runtime_helpers.pl).
 (: beta_kl (-[det]-> Number Number Number Number Number))

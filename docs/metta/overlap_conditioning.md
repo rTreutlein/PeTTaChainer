@@ -43,6 +43,8 @@ statements two views share are the keys in both sets, less
 - statements already given by an enclosing condition;
 - folds, which are not statements (a shared population base rate is the prior
   the factored merge reads, `prior_factored_merge.md`);
+- rule truths (`RuleTruth` keys), which are parameters of the views, not
+  events (see "Shared rules" below);
 - statements known: a stored fact of strength 0 or 1 at confidence 1, or
   rows whose every view is.
 
@@ -58,8 +60,7 @@ and settled steps are handled before, as they were):
    the sets are equal. Such a view holds nothing the other lacks, so neither
    revision nor conditioning has anything to add.
 2. **Independent.** Otherwise the views are independent when they share no
-   statement, no rule whose truth is an estimate, and no known fact that some
-   rule concludes. A known fact no rule concludes, like a period link, is a
+   statement and no known fact that some rule concludes. A known fact no rule concludes, like a period link, is a
    premise either view reads as given; a fact some rule concludes may be an
    observation both views update on, and counted twice by combining them (wet
    ground read by an inversion and by a completion,
@@ -81,8 +82,8 @@ and settled steps are handled before, as they were):
    longer share K or what they read only through it, so they merge by the
    rules above, or condition again on another shared statement. The branches
    mix by `CTVModusPonensFormula` over K's value (`sk-mix`, as for rows).
-4. **Fallback.** The more confident view is kept when the views share only an
-   estimated rule or an observation (neither can be given), when the mix is
+4. **Fallback.** The more confident view is kept when the views share an
+   observation (it cannot be given), when the mix is
    impossible (a branch has no simple truth value, or K's value shares
    uncertain evidence with the branches), and while the conditioning waits for
    its cost to be paid.
@@ -92,6 +93,33 @@ statement's dependency set holds, the largest dependency set first. A
 statement below another is usually read through it, so giving the upper one
 removes both. One read around it is still shared in the branch and is
 conditioned there.
+
+## Shared rules
+
+Two applications of one rule to different premises share the rule's truth and
+nothing else. Given that truth they are independent: P(X | both, θ) factors
+as the generating model does, and to first order the mix over θ is the value
+at θ's estimate. So a shared rule, given or estimated, does not make views
+dependent, in a key's merge as in a row's premises (which never counted a
+shared rule as a clash). Its uncertainty enters each view's confidence, and
+the revision counts it once per view: the merge is more confident than the
+rule's own evidence warrants when many views share one estimated rule. A rule
+and its own axiom (`rule-axiom`, an implication query answered through it)
+still carry the same evidence and are kept by containment.
+
+Until October 2026 a shared estimated rule was a fallback: the merge kept the
+more confident view. ChainerGame's conflicting sources: a node's own claim by
+source s was dropped whenever a system rule's view of the node read another
+claim of s (`test_certain_merge.metta`, `test_hypothesis_rules.metta`: 0.748
+against 0.568 with the claim revised in).
+
+Conditioning on the rule's truth, as on a statement, was considered and not
+built. A two-point (STV) or four-point (CTV) mix over the truth's Beta would
+add its variance once, but given the truth each view's confidence is that of
+its premises alone, often certain, and revision weighs views by confidence:
+two views of certain claims become certain and revision takes the stronger
+one whatever the rule's evidence. Its cost is 2 or 4 evaluations per shared
+rule, and stated rules have no key to pin.
 
 ## Decisions against the proposal
 

@@ -163,9 +163,12 @@ merge this way; a derived view of confidence 1 is a probability known
 exactly, not the statement's truth, and merges as below.
 
 A rule stated with confidence 1 in every branch is given, not estimated: its
-applications carry no evidence of it, so proofs that both use it share no
-evidence through it. A rule stated with less, or refined from its instances,
-is evidence of every proof through it.
+applications carry no evidence of it. A rule stated with less, or refined from
+its instances, is evidence of every proof through it, so a proof of the rule
+itself (its axiom) and a proof through it are one piece of evidence. Proofs
+that both apply a rule to different premises are not: given the rule's truth
+they are independent, whether that truth is given or estimated, and its
+uncertainty enters each proof's confidence.
 
 A key's value merges its stored facts and one view per row:
 
@@ -173,11 +176,13 @@ A key's value merges its stored facts and one view per row:
   full proof;
 - two views are independent when their evidence is disjoint, or when each
   holds evidence of its own and they share only known facts that no rule
-  concludes (premises either reads as given), no statement whose value is
-  uncertain (by their dependency sets, so a derived statement both read
-  counts, not only shared leaves) and no rule whose truth is an estimate;
+  concludes (premises either reads as given), rules (as for rows: a rule's
+  truth, its `RuleTruth` key included, is a parameter of both views, not an
+  event either observes) and no statement whose value is uncertain (by their
+  dependency sets, so a derived statement both read counts, not only shared
+  leaves);
 - inversions and antecedent completions over one prior through different
-  observations, and rules that differ or are given, combine by Bayes' rule, and an inversion over a base rate combines the same
+  observations combine by Bayes' rule, and an inversion over a base rate combines the same
   way with a derived, uncertain view independent of it, which
   takes the base rate's place (`docs/metta/prior_factored_merge.md`);
 - independent views otherwise revise, except that forward views (rule

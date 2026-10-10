@@ -5,10 +5,11 @@
 ;; to it, neither evidence nor dependencies. A rule stated with confidence 1 is
 ;; given, not estimated: proofs that both use it share no uncertain evidence.
 
-;; Two sources raise one alarm through the same rule. Stated with confidence
-;; 1, the rule is not shared evidence: the two proofs are independent and
-;; revise. Stated with confidence 0.99, its truth is an estimate both proofs
-;; read, and the more confident proof is kept.
+;; Two sources raise one alarm through the same rule. Given the rule's truth,
+;; the two proofs are independent, so they revise whether that truth is
+;; stated with confidence 1 or is an estimate (0.99): sharing a rule is not
+;; sharing evidence of the alarm. The estimate's uncertainty lowers each
+;; proof's confidence, and so the revision's.
 !(compileadd givenKb (: alarm (Implication (And (Source $s) (Signal $s)) (Alarm)) (STV 0.9 1)))
 !(compileadd givenKb (: src1 (Source s1) (STV 1 1)))
 !(compileadd givenKb (: src2 (Source s2) (STV 1 1)))
@@ -20,7 +21,7 @@
 !(compileadd estimatedKb (: src2 (Source s2) (STV 1 1)))
 !(compileadd estimatedKb (: sig1 (Signal s1) (STV 0.9 0.5)))
 !(compileadd estimatedKb (: sig2 (Signal s2) (STV 0.6 0.4)))
-!(test (query 100 estimatedKb (: $p (Alarm) $tv)) (: (by alarm (conjunction src1 sig1)) (Alarm) (STV 0.81 0.6764909405625412)))
+!(test (query 100 estimatedKb (: $p (Alarm) $tv)) (: (merge/revision (by alarm (conjunction src1 sig1)) (by alarm (conjunction src2 sig2))) (Alarm) (STV 0.7319116913362645 0.746319571972295)))
 
 ;; Two sources report one storm through the same rule, which states both
 ;; likelihoods with confidence 1. Given the storm the reports are independent,
@@ -108,3 +109,76 @@
 ;; completion's ratio was 0.531 and Storm w1 0.8579. Revising the two views
 ;; gave 0.7445.
 !(test (query 100 k (: $p (Storm north w1) $tv)) (: (factored-revision (by persist-north (conjunction next-w1 storm-h3)) (prior (STV 0.3 0.9999000099228195)) (((inverted block-r1 with cpu (prior (STV 0.3333341269242677 0.44443827214888376))) (factored-revision cpu (prior (STV 0.32404881104953287 0.4444395428411525)) (((inverted late-s1 with cpu (prior (STV 0.32404881104953287 0.4444395428411525))) late-s1-w1) ((inverted late-s2 with cpu (prior (STV 0.32404881104953287 0.4444395428411525))) late-s2-w1) ((inverted late-s3 with cpu (prior (STV 0.32404881104953287 0.4444395428411525))) late-s3-w1)))) ((antecedent-completion persist-north 1 with cpu (prior (STV 0.3333341269242677 0.44443827214888376))) (conjunction next-w2 ((inverted block-r1 with cpu (prior (STV 0.3333341269242677 0.44443827214888376))) (factored-revision cpu (prior (STV 0.32404881104953287 0.4444395428411525)) (((inverted late-s1 with cpu (prior (STV 0.32404881104953287 0.4444395428411525))) late-s1-w2) ((inverted late-s2 with cpu (prior (STV 0.32404881104953287 0.4444395428411525))) late-s2-w2) ((inverted late-s3 with cpu (prior (STV 0.32404881104953287 0.4444395428411525))) late-s3-w2)))))))) (Storm north w1) (STV 0.8690479955664684 0.9999458112122642)))
+
+;; A system w is up when both its parts are; each source has a trust rule
+;; estimated at confidence 0.9 (ChainerGame's conflicting sources, in small).
+;; s says c1 is up, r says c2 is up, and w's own claim says it is down. The
+;; forward view through the system rule reads s's claim about c1 through
+;; trust-s. When s also makes w's claim, its view of w shares trust-s with the
+;; forward view but nothing else: given the rule the two are independent and
+;; revise, exactly as when another source, q, with the same trust makes it.
+;; Treated as overlapping evidence, s's claim was dropped (0.748).
+!(compileadd sharedTrustKb (: sys (Implication (And (Up c1 $t) (Up c2 $t)) (Up w $t)) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(compileadd sharedTrustKb (: trust-s (Implication (Claims s (Up $n $t)) (Up $n $t)) (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
+!(compileadd sharedTrustKb (: trust-r (Implication (Claims r (Up $n $t)) (Up $n $t)) (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
+!(compileadd sharedTrustKb (: trust-q (Implication (Claims q (Up $n $t)) (Up $n $t)) (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
+!(compileadd sharedTrustKb (: l1-0 (Up c1 h0) (STV 1 1)))
+!(compileadd sharedTrustKb (: l2-0 (Up c2 h0) (STV 1 1)))
+!(compileadd sharedTrustKb (: lw-0 (Up w h0) (STV 1 1)))
+!(compileadd sharedTrustKb (: l1-1 (Up c1 h1) (STV 1 1)))
+!(compileadd sharedTrustKb (: l2-1 (Up c2 h1) (STV 1 1)))
+!(compileadd sharedTrustKb (: lw-1 (Up w h1) (STV 1 1)))
+!(compileadd sharedTrustKb (: l1-2 (Up c1 h2) (STV 1 1)))
+!(compileadd sharedTrustKb (: l2-2 (Up c2 h2) (STV 0 1)))
+!(compileadd sharedTrustKb (: lw-2 (Up w h2) (STV 0 1)))
+!(compileadd sharedTrustKb (: l1-3 (Up c1 h3) (STV 0 1)))
+!(compileadd sharedTrustKb (: l2-3 (Up c2 h3) (STV 1 1)))
+!(compileadd sharedTrustKb (: lw-3 (Up w h3) (STV 0 1)))
+!(compileadd sharedTrustKb (: l1-4 (Up c1 h4) (STV 1 1)))
+!(compileadd sharedTrustKb (: l2-4 (Up c2 h4) (STV 1 1)))
+!(compileadd sharedTrustKb (: lw-4 (Up w h4) (STV 0 1)))
+!(compileadd sharedTrustKb (: l1-5 (Up c1 h5) (STV 0 1)))
+!(compileadd sharedTrustKb (: l2-5 (Up c2 h5) (STV 0 1)))
+!(compileadd sharedTrustKb (: lw-5 (Up w h5) (STV 0 1)))
+!(compileadd sharedTrustKb (: l1-6 (Up c1 h6) (STV 1 1)))
+!(compileadd sharedTrustKb (: l2-6 (Up c2 h6) (STV 1 1)))
+!(compileadd sharedTrustKb (: lw-6 (Up w h6) (STV 1 1)))
+!(compileadd sharedTrustKb (: l1-7 (Up c1 h7) (STV 1 1)))
+!(compileadd sharedTrustKb (: l2-7 (Up c2 h7) (STV 0 1)))
+!(compileadd sharedTrustKb (: lw-7 (Up w h7) (STV 1 1)))
+!(compileadd sharedTrustKb (: k1 (Claims s (Up c1 n)) (STV 1 1)))
+!(compileadd sharedTrustKb (: k2 (Claims r (Up c2 n)) (STV 1 1)))
+!(compileadd sharedTrustKb (: kw (Claims s (Up w n)) (STV 0 1)))
+!(test (query 200 sharedTrustKb (: $p (Up w n) $tv)) (: (merge/revision (by sys (conjunction (by trust-s k1) (by trust-r k2))) (by trust-s kw)) (Up w n) (STV 0.5676753183674934 0.9647274589607039)))
+!(compileadd otherTrustKb (: sys (Implication (And (Up c1 $t) (Up c2 $t)) (Up w $t)) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(compileadd otherTrustKb (: trust-s (Implication (Claims s (Up $n $t)) (Up $n $t)) (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
+!(compileadd otherTrustKb (: trust-r (Implication (Claims r (Up $n $t)) (Up $n $t)) (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
+!(compileadd otherTrustKb (: trust-q (Implication (Claims q (Up $n $t)) (Up $n $t)) (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
+!(compileadd otherTrustKb (: l1-0 (Up c1 h0) (STV 1 1)))
+!(compileadd otherTrustKb (: l2-0 (Up c2 h0) (STV 1 1)))
+!(compileadd otherTrustKb (: lw-0 (Up w h0) (STV 1 1)))
+!(compileadd otherTrustKb (: l1-1 (Up c1 h1) (STV 1 1)))
+!(compileadd otherTrustKb (: l2-1 (Up c2 h1) (STV 1 1)))
+!(compileadd otherTrustKb (: lw-1 (Up w h1) (STV 1 1)))
+!(compileadd otherTrustKb (: l1-2 (Up c1 h2) (STV 1 1)))
+!(compileadd otherTrustKb (: l2-2 (Up c2 h2) (STV 0 1)))
+!(compileadd otherTrustKb (: lw-2 (Up w h2) (STV 0 1)))
+!(compileadd otherTrustKb (: l1-3 (Up c1 h3) (STV 0 1)))
+!(compileadd otherTrustKb (: l2-3 (Up c2 h3) (STV 1 1)))
+!(compileadd otherTrustKb (: lw-3 (Up w h3) (STV 0 1)))
+!(compileadd otherTrustKb (: l1-4 (Up c1 h4) (STV 1 1)))
+!(compileadd otherTrustKb (: l2-4 (Up c2 h4) (STV 1 1)))
+!(compileadd otherTrustKb (: lw-4 (Up w h4) (STV 0 1)))
+!(compileadd otherTrustKb (: l1-5 (Up c1 h5) (STV 0 1)))
+!(compileadd otherTrustKb (: l2-5 (Up c2 h5) (STV 0 1)))
+!(compileadd otherTrustKb (: lw-5 (Up w h5) (STV 0 1)))
+!(compileadd otherTrustKb (: l1-6 (Up c1 h6) (STV 1 1)))
+!(compileadd otherTrustKb (: l2-6 (Up c2 h6) (STV 1 1)))
+!(compileadd otherTrustKb (: lw-6 (Up w h6) (STV 1 1)))
+!(compileadd otherTrustKb (: l1-7 (Up c1 h7) (STV 1 1)))
+!(compileadd otherTrustKb (: l2-7 (Up c2 h7) (STV 0 1)))
+!(compileadd otherTrustKb (: lw-7 (Up w h7) (STV 1 1)))
+!(compileadd otherTrustKb (: k1 (Claims s (Up c1 n)) (STV 1 1)))
+!(compileadd otherTrustKb (: k2 (Claims r (Up c2 n)) (STV 1 1)))
+!(compileadd otherTrustKb (: kw (Claims q (Up w n)) (STV 0 1)))
+!(test (query 200 otherTrustKb (: $p (Up w n) $tv)) (: (merge/revision (by sys (conjunction (by trust-s k1) (by trust-r k2))) (by trust-q kw)) (Up w n) (STV 0.5676753183674934 0.9647274589607039)))

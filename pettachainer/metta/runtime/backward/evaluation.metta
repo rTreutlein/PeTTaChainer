@@ -225,14 +225,21 @@
       (empty)
       (sk-observation-prior $proof $tv)))
 
-;; The observations of the updates a view merges (an inversion's observation,
-;; each witness of a completion) and the rules whose truth is an estimate, the
-;; rules carrying evidence (`register-rule-evidence!`), by hash (defined at the
-;; end of the file). Updates through a rule with given truth are independent
-;; given their prior. A list of proofs is walked by recursion: the determinism
-;; checker rejects a fold over Proof, a newtype of Atom.
-(: sk-part-sources (-[det]-> KB (List Proof) (List Number)))
-(: sk-sources-meet? (-[det]-> KB (List Proof) (List Proof) Bool))
+;; The observations of the updates a view merges, by hash: an inversion's
+;; observation, each witness of a completion. Updates through one rule are
+;; independent given their prior and the rule, whether its truth is given or
+;; an estimate (see sk-merge-facts). A list of proofs is walked by recursion:
+;; the determinism checker rejects a fold over Proof, a newtype of Atom.
+(: sk-part-sources (-[det]-> (List Proof) (List Number)))
+(= (sk-part-sources ()) ())
+(= (sk-part-sources (cons $part $rest))
+   (let $witness (car-atom (cdr-atom (sk-step-proof $part)))
+      (append-flat (map-flat index-hash (the (List Atom) (case $witness (((cons conjunction $proofs) $proofs) ($_one (cons $witness ()))))))
+         (sk-part-sources $rest))))
+
+(: sk-sources-meet? (-[det]-> (List Proof) (List Proof) Bool))
+(= (sk-sources-meet? $parts-a $parts-b)
+   (not (== (/==\ (sk-part-sources $parts-a) (sk-part-sources $parts-b)) ())))
 
 ;; Two views updating the same prior with different rules and observations
 ;; merge by Bayes' rule; over a base rate, which carries no evidence, they
@@ -257,7 +264,7 @@
                (sk-factored-merge (data $btype $bkbctx $proof-b $tv-b) $ev-b $deps-b (data $type $kbctx $proof-a $tv-a) $ev-a $deps-a $independent)
                (if (if (sk-contradict? (the Number $sa) (the Number $sb)) false
                       (if (=alpha $base-a $base-b)
-                         (if (== $spa $spb) (if (== $cpa $cpb) (if (== $parts-a ()) false (if (== $parts-b ()) false (if (if $population-a (if $independent false true) false) false (not (sk-sources-meet? (brand KB (car-atom $kbctx)) $parts-a $parts-b))))) false) false)
+                         (if (== $spa $spb) (if (== $cpa $cpb) (if (== $parts-a ()) false (if (== $parts-b ()) false (if (if $population-a (if $independent false true) false) false (not (sk-sources-meet? $parts-a $parts-b))))) false) false)
                          (if $population-b
                             (if (if (is-expr $base-a) (< $ca 1.0) false) $independent false)
                             false)))
@@ -388,7 +395,9 @@
 ;; A statement is known when a stored fact gives it strength 0 or 1 at
 ;; confidence 1, or when every view its rows have does. A shared statement is
 ;; read off its stored facts and its rows' latest views, never by merging it:
-;; its merge may read the very key being merged.
+;; its merge may read the very key being merged. A rule's truth is no
+;; statement: it is a parameter of every view through the rule, and given it
+;; the rule's applications are independent.
 (: sk-known-leaf-step (-[det]-> Bool SkFact Bool))
 (= (sk-known-leaf-step $known ($_type $_kbctx $_proof $tv)) (if $known true (certain-tvs? (cons $tv ()))))
 
@@ -402,6 +411,7 @@
 
 (: sk-shared-candidate (-[semidet]-> (List SkeletonShared) SkeletonKey (List SkeletonShared)))
 (= (sk-shared-candidate $found $key)
+   (if (case $key (((sk-key (RuleTruth $_implication) $_kbctx) true) ($_other false))) $found
    (let* (($hash (index-hash $key))
           ($views (map-flat sk-version-view (sk-latest-versions $hash $key)))
           ($leaves (sk-key-leaves $key sk-any-filter)))
@@ -409,7 +419,7 @@
              (if (== $views ()) (== $leaves ()) (fold-semidet sk-known-view-step true $views)))
          $found
          (let $deps (fold-semidet sk-view-deps-step (deps-key $hash) $views)
-            (cons (sk-shared-key (- 0 (deps-size $deps)) $key $deps) $found)))))
+            (cons (sk-shared-key (- 0 (deps-size $deps)) $key $deps) $found))))))
 
 (: sk-shared-hash-step (-[semidet]-> (List Number) (List SkeletonShared) Number (List SkeletonShared)))
 (= (sk-shared-hash-step $ignore $found $hash)
@@ -455,8 +465,9 @@
 
 ;; Views merge as proofs do: an identical proof pools its evidence, a
 ;; projection gives way to its full proof and a settled step to its complete
-;; one. Views whose evidence is disjoint, or overlaps only in facts read as
-;; given premises while each holds evidence of its own, are independent: they
+;; one. Views whose evidence is disjoint, or overlaps only in rules and in
+;; facts read as given premises while each holds evidence of its own, are
+;; independent (given its truth, a rule's applications are): they
 ;; combine by the prior they update, by the mode their predicate's outcomes
 ;; prefer, or by revision. Of dependent views, one whose evidence strictly
 ;; contains the other's is kept; two that share an uncertain statement are an
@@ -477,7 +488,7 @@
                (let* (($overlap (evidence-overlap? $ev-a $ev-b))
                       ($a-in-b (if $overlap (evidence-subset? $ev-a $ev-b) false))
                       ($b-in-a (if $overlap (evidence-subset? $ev-b $ev-a) false))
-                      ($apart (if $overlap (if $a-in-b false (if $b-in-a false (if (evidence-shares-rule? $ev-a $ev-b) false true))) false))
+                      ($apart (if $overlap (if $a-in-b false (if $b-in-a false true)) false))
                       ($shared (if $apart (sk-shared-statements $ignore $deps-a $deps-b) ()))
                       ($independent
                          (if $overlap
@@ -2832,18 +2843,3 @@
        (List (List RuntimeResult))))
 (= (chainer-many-materialize $steps $goals)
    (execute-backward $steps $goals true))
-
-;; --- Prior-factored merge: sources (declared above) --------------------------
-
-(= (sk-part-sources $_kb ()) ())
-(= (sk-part-sources $kb (cons $part $rest))
-   (let* (($step (sk-step-proof $part))
-          ($rule (rule-evidence-head $step))
-          ($witness (car-atom (cdr-atom $step)))
-          ($sources
-             (append-flat (map-flat index-hash (the (List Atom) (case $witness (((cons conjunction $proofs) $proofs) ($_one (cons $witness ()))))))
-                (sk-part-sources $kb $rest))))
-      (if (rule-evidence-registered? $kb $rule) (cons (index-hash $rule) $sources) $sources)))
-
-(= (sk-sources-meet? $kb $parts-a $parts-b)
-   (not (== (/==\ (sk-part-sources $kb $parts-a) (sk-part-sources $kb $parts-b)) ())))
