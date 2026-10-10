@@ -174,6 +174,8 @@
 (: sk_row_budget CounterKey)
 (: sk_eval_budget CounterKey)
 (: sk_claim_left CounterKey)
+;; computations near a root a query may make once its allowance is spent
+(: sk_near_reserve CounterKey)
 ;; 1 while a forward run grows the skeleton upward
 (: sk_forward_run CounterKey)
 (: sk_walk_budget CounterKey)

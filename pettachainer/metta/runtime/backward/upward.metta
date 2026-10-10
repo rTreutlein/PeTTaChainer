@@ -331,6 +331,7 @@
           ($_walk (change-state! sk_walk_budget (* (sk-walk-per-step) (+ $units 1))))
           ($_rows (change-state! sk_row_budget (* 10 (+ $units 1))))
           ($_evaluation (change-state! sk_eval_budget $units))
+          ($_reserve (change-state! sk_near_reserve 0))
           ($_unneeded (remove-data-rows! &sk_needed (quote ($hash $key $depth))))
           ($_activate (sk-activate-pending!))
           ($carried (collapse (match &sk_forward_agenda ($kb $priority $item) ($priority $item))))

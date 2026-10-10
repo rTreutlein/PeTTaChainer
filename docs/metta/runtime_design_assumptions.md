@@ -433,11 +433,23 @@ readers that are current. Rows built for earlier queries therefore cost nothing
 per query or per change.
 
 Evaluation is bounded too. A needed key records its depth, the fewest rows or
-folds between it and a root. Rows of keys within two such steps are always
-computed; deeper rows spend an allowance of two recomputations per step, and
-what it cannot pay for is left stale, to be recomputed by a later query that
-reads it. Within a pass the rows within two steps come first, by creation, and
-the deeper rows after them, nearest a root first and by creation within a
+folds between it and a root, found breadth first so each key is reached at its
+least depth on its first visit. The rows and folds of keys within two such
+steps are computed at any budget, from a reserve the need fills with eight
+computations for each one it reaches there; what the reserve cannot pay for,
+and every deeper row, spends an allowance of two computations per step, and
+what neither can pay for is left stale, to be recomputed by a later query that
+reads it. The reserve bounds the rows near a root by the size of what the
+roots read, not by the passes their cycles take: rows reading one another
+through inverted rules recompute whenever their support grows. Depths found
+depth first put some keys two steps from a root at depths 13 to 28, whose rows
+then spent the allowance; with correct depths those rows count as near, and
+the reserve keeps them bounded. Evaluations take far fewer than eight per row
+(ONA relationalnetwork, ChainerGame
+`benchmarks/ona/nal_pln/relationalnetwork.metta`: 1,020 computations for 620
+rows in its first query at budget 200; SupplyNet stage 2 up to about four), so
+no benchmark answer changes. Within a pass the rows within two steps come
+first, by creation, and the deeper rows after them, nearest a root first and by creation within a
 depth. The allowance thus goes to the rows nearest a root, whatever order the
 search created them in: when a query builds many rows, the ones it created
 first are often far below its roots, and spending the allowance on them left

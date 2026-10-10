@@ -2521,27 +2521,40 @@
 ;; Each row commits to its one result, so the loop leaves no choice points and
 ;; runs in constant stack however many rows it computes.
 (= (sk-work-pop! $pass $next ($order $item $rest))
-   (if (if (== (search-id-value sk_forward_run) 1) (sk-take! sk_eval_budget)
-          (if (<= (sk-item-depth $item) (sk-evaluation-free-depth)) true (sk-take! sk_eval_budget)))
+   (if (if (sk-near-root-reserve-take! $item) true (sk-take! sk_eval_budget))
       (sk-work-off! $pass (once (sk-compute $pass $order (sk-work $rest $next) $item)))
       (let $_stale (sk-mark-stale! $item) (sk-work-off! $pass (sk-work $rest $next)))))
 
-;; A query computes the rows near its roots in full and spends an allowance on
-;; the rest; what the allowance cannot pay for is left stale, as if no query
-;; needed it, and a later query that reads it recomputes it from its inputs
-;; then. Creation order is kept, so an allowance that covers everything
-;; computes what a query without one would.
-(: sk-item-depth (-[det]-> SkeletonItem Number))
-(= (sk-item-depth (sk-row-item $_seq $khash $key $_rhash $_row)) (sk-need-depth $khash $key))
-(= (sk-item-depth (sk-fold-check $hash $fold)) (sk-need-depth $hash $fold))
+;; A query computes the rows and folds within two steps of a root from a
+;; reserve that its need fills with a fixed number of computations for each
+;; one it reaches there, shared among them: rows read one another through
+;; inverted rules, each change schedules its readers again, and a fold is
+;; checked again when more members change, so near a root an evaluation is
+;; bounded by the size of what its roots read, not by the passes its cycles
+;; take. What the reserve cannot pay for, and every deeper row, spends the
+;; allowance; what neither can pay for is left stale, as if no query needed
+;; it, and a later query that reads it recomputes it from its inputs then.
+;; Creation order is kept, so an allowance that covers everything computes
+;; what a query without one would. A forward run has no reserve.
+(: sk-near-root-reserve-take! (-[det]-> SkeletonItem Bool))
+(= (sk-near-root-reserve-take! (sk-row-item $_seq $khash $key $_rhash $_row))
+   (if (<= (sk-need-depth $khash $key) (sk-evaluation-free-depth)) (sk-take! sk_near_reserve) false))
+(= (sk-near-root-reserve-take! (sk-fold-check $hash $fold))
+   (if (<= (sk-need-depth $hash $fold) (sk-evaluation-free-depth)) (sk-take! sk_near_reserve) false))
 
-;; How near a root a key must be for its rows to be computed in full. A
-;; forward run computes nothing in full: every row it computes costs one of
-;; its units, and its need stops at the readers of the keys it takes.
+;; How near a root a key must be for its rows to draw on the reserve and its
+;; stale rows to be brought current. A forward run's need stops at the readers
+;; of the keys it takes, and every row it computes costs one of its units.
 (: sk-evaluation-free-depth (-[det]-> Number))
 (= (sk-evaluation-free-depth) (if (== (search-id-value sk_forward_run) 1) 0 2))
 
-;; Row recomputations a query may spend per step of its budget beyond that.
+;; Computations each row or fold within two steps of a root adds to a query's
+;; reserve: SupplyNet's evaluations take up to about four, cycles through
+;; inverted rules (ONA relationalnetwork) about two.
+(: sk-evaluation-near-root-reserve (-[det]-> Number))
+(= (sk-evaluation-near-root-reserve) 8)
+
+;; Row computations a query may spend per step of its budget beyond the reserve.
 (: sk-evaluation-per-step (-[det]-> Number))
 (= (sk-evaluation-per-step) 2)
 
@@ -2611,7 +2624,8 @@
 
 (: sk-need-row! (-[semidet]-> Number (List SkeletonKey) SkeletonItem (List SkeletonKey)))
 (= (sk-need-row! $depth $next (sk-row-item $_seq $khash $key $rhash (sk-row $_ident $_concl $premises $_s)))
-   (let* (($unseen (== (sk-latest-view $khash $key $rhash) sk-none))
+   (let* (($_reserve (sk-reserve-near! (- $depth 1)))
+          ($unseen (== (sk-latest-view $khash $key $rhash) sk-none))
           ($refresh
              (if (if $unseen true (<= $depth (+ (sk-evaluation-free-depth) 1)))
                 (not (== (collapse (once (match &sk_stale ($khash $rhash) true))) ()))
@@ -2657,6 +2671,7 @@
                   (sk-row-item $seq $hash $stored $rhash (sk-row $ident $concl $premises $seq))
                   (empty))))))
       ((sk-fold $args)
+         (let $_reserve (sk-reserve-near! $depth)
          (if (sk-rate-fold? $key)
             (let $changed
                (collapse (match &sk_rate_dirty ($hash $_mhash $fold $joined)
@@ -2667,11 +2682,20 @@
                      (fold-semidet sk-cons-step $next $changed))))
             (case (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) (
                ((cons $member $_rest) (fold-semidet sk-cons-step $next (sk-answers $member)))
-               (() $next)))))
+               (() $next))))))
       ((sk-group $group-args)
-         (case (sk-group-members $key $group-args) (
-            ((sk-group-found $_member $members) (fold-semidet sk-cons-step $next $members))
-            (sk-group-missing $next)))))))
+         (let $_reserve (sk-reserve-near! $depth)
+            (case (sk-group-members $key $group-args) (
+               ((sk-group-found $_member $members) (fold-semidet sk-cons-step $next $members))
+               (sk-group-missing $next))))))))
+
+;; A row or fold within two steps of a root adds to a query's reserve (see
+;; sk-work-pop!); a forward run has none.
+(: sk-reserve-near! (-[det]-> Number Atom))
+(= (sk-reserve-near! $depth)
+   (if (if (== (search-id-value sk_forward_run) 1) false (<= $depth (sk-evaluation-free-depth)))
+      (let $_added (change-state! sk_near_reserve (+ (search-id-value sk_near_reserve) (sk-evaluation-near-root-reserve))) ())
+      ()))
 
 (: sk-root-keys-step (-[semidet]-> (List SkeletonKey) SkPattern (List SkeletonKey)))
 (= (sk-root-keys-step $keys $goal) (append-flat $keys (sk-root-keys $goal)))
@@ -3214,6 +3238,7 @@
           ($_pushes (change-state! sk_push_seq 0))
           ($_search (sk-search! (fold-semidet (sk-push 0) (empty_heap) $goals)))
           ($_unneeded (remove-data-rows! &sk_needed (quote ($hash $key $depth))))
+          ($_reserve (change-state! sk_near_reserve 0))
           ($_needed (sk-need-keys! 0 (fold-semidet sk-root-keys-step () $goals)))
           ($_evaluated (sk-evaluate!))
           ($results (map-semidet (sk-root-results $materialize?) $goals))
