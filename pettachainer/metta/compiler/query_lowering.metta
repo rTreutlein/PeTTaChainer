@@ -103,7 +103,7 @@
    (let $premises
       (cons (: (kbctx $kb) $truth-prf (RuleTruth $Type) $truth-tv)
          (append-goals
-            (base-rate-premises $kb (copy_term (rule-query-pattern (brand Statement $antecedent))) $atv)
+            (antecedent-rate-premises $kb (copy_term (rule-query-pattern (brand Statement $antecedent))) $atv)
             (append-goals
                (base-rate-premises $kb (copy_term (rule-query-pattern (brand Statement $consequent))) $btv)
                (cons (CPU ImplicationCTVFormula (quote ($atv $btv $truth-tv)) $ctv) ()))))

@@ -365,9 +365,10 @@ class PeTTaChainer:
         it.
 
         Its stored instances are then no sample of its population: it has no
-        population prior, and nothing is inverted or completed onto it
-        (docs/metta/prior_factored_merge.md). Timed subprocess queries replay
-        the declaration.
+        population prior, nothing is inverted or completed onto it, and an STV
+        rule with it in the antecedent applies as stated rather than
+        reconciled with a rate of 1 (docs/metta/prior_factored_merge.md).
+        Timed subprocess queries replay the declaration.
         """
         self.handler.process_metta_string(f"!(set-positive-only-predicate {self.kb} {head})")
         if head not in self._positive_only_predicates:

@@ -164,7 +164,7 @@
       (($a1 (rule-base-rate-pattern $params $a))
         ($b1 (rule-base-rate-pattern $params $b)))
       (data
-         (append-goals (base-rate-premises $kb $a1 $rule-atv)
+         (append-goals (antecedent-rate-premises $kb $a1 $rule-atv)
             (append-goals (base-rate-premises $kb $b1 $rule-btv)
                (cons (CPU ImplicationCTVFormula
                         (quote ($rule-atv $rule-btv $value))
@@ -399,6 +399,15 @@
          ((base-rate-parts $goals $tvs)
             (append-goals $goals (cons (CPU AndFormula $tvs $brtv) ())))))))
 
+;; The premises reading the base rate of an STV rule's antecedent, from which
+;; its negative branch is derived. A positive-only predicate's stored
+;; instances are no sample of its population and their rate (1) estimates
+;; nothing: reconciled with it, P(B | A) would be pulled to P(B). Such an
+;; antecedent reads as no evidence.
+(: antecedent-rate-premises (-[det]-> KB Statement $truth-value (List Goal)))
+(= (antecedent-rate-premises $kb $pattern $atv)
+   (if (positive-only-pattern? $kb $pattern) (let $atv no-evidence ()) (base-rate-premises $kb $pattern $atv)))
+
 ;; The premises reading a pattern's base rate as the prior an inversion or an
 ;; antecedent completion updates. A rate is the share of true members among
 ;; those counted; the prior of one more member is its mean under the Bayes
@@ -528,7 +537,7 @@
                          (cons $positive
                             (if $ctv?
                                (append-goals
-                                  (base-rate-premises $kb (copy_term (rule-query-pattern $antecedent)) $rule-atv)
+                                  (antecedent-rate-premises $kb (copy_term (rule-query-pattern $antecedent)) $rule-atv)
                                   (append-goals
                                      (base-rate-premises $kb (copy_term (rule-query-pattern $consequent)) $rule-btv)
                                      (cons (CPU ImplicationCTVFormula

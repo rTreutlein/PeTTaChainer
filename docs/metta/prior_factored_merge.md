@@ -401,7 +401,11 @@ its population: their rate, 1, says nothing of how often a candidate holds,
 and an inversion over it would assert every antecedent of every stored
 conclusion. A positive-only predicate has no prior: no inversion or
 completion is compiled onto a pattern with a conjunct of it, and a root of
-it gets no population prior. The declaration replaces the cut that gave a
+it gets no population prior. Nor does an STV rule over it read its rate: its
+negative branch is derived without the antecedent's rate, which would
+otherwise reconcile P(B | A) with P(A) = 1 and so pull it to P(B) (a refined
+`(Asserts s $x) → $x` rule learned at 0.798 applied at 0.666 in ChainerGame's
+conflicting sources). The declaration replaces the cut that gave a
 rate of 0 or 1 no prior until October 2026, which also left a front never
 (or always) seen in a SupplyNet history at its persistence prediction
 whatever the window showed (`tests/metta/test_implication_inversion.metta`,
