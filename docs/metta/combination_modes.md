@@ -74,10 +74,11 @@ The first merge that needs C's mode scores the pending outcomes, in the order
 they were stored, and drops them:
 
 1. Each forward rule concluding the statement is applied to its antecedents'
-   stored facts, the rule's own formulas computing its view. A rule whose
-   antecedent is not ground once the statement binds it, that reads a fold
-   (a base rate, a refined rule's truth), or that settles a compound (a
-   variant of a complete step) gives no view.
+   stored facts, the rule's own formulas computing its view. A refined rule
+   reads its truth key's current value, what it has learned when the outcome
+   is scored (its prior before any review). A rule whose antecedent is not
+   ground once the statement binds it, that reads a fold (a base rate), or
+   that settles a compound (a variant of a complete step) gives no view.
 2. With two or more views whose evidence is disjoint, each mode predicts
    q_m from the views and the prior before this outcome, and its score gains
    y log q_m + (1 − y) log(1 − q_m), q clipped to [10⁻⁶, 1 − 10⁻⁶] as the
@@ -128,10 +129,15 @@ keeps its value until it is merged again, as a base rate lags its members.
   merge them like any rows; an unfounded value is not a forward view.
 - **Partial folds.** Provisional values merge only when a key has nothing
   else, then by the mode like any views; their confidence is already scaled.
-- **Hypothesis rules.** A refined rule's views carry its samples, which
-  include C's outcomes, so two refined rules into C overlap and are never
-  combined; refined rules are not scored (their truth is a fold). The
-  correlated case of `test_hypothesis_rules.metta` stays at 0.794.
+- **Hypothesis rules.** Refined rules are scored with their truth key's
+  value. Their views carry no samples (an implication instance fold carries
+  none), so views of two refined rules into C are independent and combine
+  by the mode (`test_combination_modes.metta`: the signs cases with both
+  rules refined, odds). Until October 2026 they were not scored: the truth
+  premise is an open statement and gave no view, so their outcomes left
+  every mode tied and the views revised (ChainerGame's conflicting sources,
+  pln-sources at size s, seed 1: error 0.322 with revision, 0.164 with odds).
+  The correlated case of `test_hypothesis_rules.metta` stays at 0.794.
 - **Lifting.** Lifting needs shared facts; disjoint views have none.
 - **Forward chaining** merges with the same rule.
 

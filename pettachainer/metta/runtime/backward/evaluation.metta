@@ -284,9 +284,10 @@
 !(bind! &combination_tally (new-space))
 
 ;; A premise of a forward rule applied to stored facts: a ground statement
-;; reads its stored facts merged, adding their evidence; a computation runs.
-;; A fold, an open statement, a missing fact or a settled variant gives no
-;; view.
+;; reads its stored facts merged, adding their evidence; a computation runs; a
+;; refined rule's truth is its key's current value, so its applications are
+;; scored with what it learned, not with its prior. A fold, any other open
+;; statement, a missing fact or a settled variant gives no view.
 (: sk-stored-premise-step (-[semidet]-> EvidenceSet Atom EvidenceSet))
 (= (sk-stored-premise-step $ev $premise)
    (case $premise (
@@ -294,6 +295,11 @@
          (if (if (aggregate-fold-function? $fun) true (== $fun SettlesFormula)) (empty)
             (case (collapse (once (cpu-call 0 $fun $args))) (
                ((cons $result $_rest) (if (= $res $result) $ev (empty)))))))
+      (((RuleTruth $implication) $kbctx $proof $tv)
+         (case (sk-value (sk-key (RuleTruth $implication) $kbctx) sk-any-filter ()) (
+            ((sk-val ($_type $_kbctx $truth-proof $truth) $truth-ev $_deps)
+               (if (= ($proof $tv) ($truth-proof $truth)) (evidence-union $truth-ev $ev) (empty)))
+            ($_none (empty)))))
       (($type $kbctx $proof $tv)
          (if (== (extract-vars $type) ())
             (case (stored-statement-candidate (brand Statement $type) (brand KBContext $kbctx) false) (
