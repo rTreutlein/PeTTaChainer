@@ -184,6 +184,12 @@ Built as designed, with these findings from probing the existing code:
   first built, was biased and stayed at confidence about 0.2 whatever the
   sample (ChainerGame conflicting sources: an expert's "down" claims read
   0.00 against an empirical 0.33, and 47 of an echo's still gave c 0.23).
+  A rule whose antecedent never held learns the negative branch too, its
+  positive branch at confidence 0 (SupplyNet learned rules: late-s10
+  rules with 3 of 59 negative samples late stayed at their prior).
+- **Antecedents of three or more parts** are sampled: their truth values
+  multiply pairwise, as a lowered antecedent does (AndFormula is binary;
+  before, three parts gave no sample).
 - **A score of 0 starved reviews.** With a zero factor on every hypothesis,
   the second review in a knowledge base folded nothing; the factor has a
   floor of 0.01.

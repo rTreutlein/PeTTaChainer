@@ -127,7 +127,9 @@ something below them changes:
 
 A rule applies to a node when its conclusion fits the whole node pattern, but
 its row is built from the statement and context alone: a row belongs to its
-key, and each reader applies its own proof and truth-value pattern.
+key, and each reader applies its own proof and truth-value pattern. A ground
+instance one of whose premise keys is its own conclusion's builds no row: it
+would read the statement, its stored facts included, to conclude it again.
 
 For the backward chainer, ingestion only journals added facts and rules. The
 next query activates them against the skeleton before its walk: a rule reaches
