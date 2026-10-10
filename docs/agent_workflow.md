@@ -33,7 +33,8 @@ Do not run `uv sync` in a worktree: `pyproject.toml` finds PeTTa at
 PeTTa changes go to a branch in `/nexus/Dev/OpenCog/PeTTa`, never into
 `.venv`.
 
-Keep scratch files in your scratchpad or worktree, not in `/tmp`: `/tmp` is
+Keep scratch files in your worktree (or a scratchpad subdirectory named after
+your branch), not in `/tmp`: `/tmp` is
 wiped on reboot.
 
 ## Commands
@@ -108,6 +109,22 @@ your worktree locked after you hand back. Stop every loop you started before
 handing back.
 `pgrep -f "<pattern>"` inside a loop also matches the loop's own command line,
 so such a loop never ends: wait on the PID you started instead.
+
+A waiter that looks for a marker in a log never ends if the job dies or is
+replaced before writing it. Tie every waiter to the job's PID, so it ends
+with the job either way:
+
+```bash
+until grep -q "GRID DONE" "$log" || ! kill -0 "$pid" 2>/dev/null; do sleep 30; done
+```
+
+When you kill or replace a job, kill its waiter in the same command. Keep
+one waiter per job.
+
+All agents of a session share one scratchpad directory, so a generic name
+such as `grid.log` in it can be another agent's file. Put scripts and logs
+under your worktree, or in a scratchpad subdirectory named after your
+branch.
 
 ## Git
 
