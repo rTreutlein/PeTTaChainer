@@ -508,7 +508,10 @@ rule: the stored truth is that goal's axiom fact `(rule-axiom ab)`, the rule's
 instance fold is a second proof, and revision merges them. The rule applies
 with the merged truth forward, backward, and inverted, so an observation of
 the consequent is explained through the refined rule too. A rule's own
-derivations never count as its samples. Facts added later join the fold at
+derivations never count as its samples, nor do values that depend on any
+refined rule's truth: what other hypotheses predict is not an observation.
+Applied to an instance whose own sample is in the fold, the rule reads its
+truth folded without that sample. Facts added later join the fold at
 the next query that reads the goal. The axiom carries the rule's own evidence,
 so a proof through the axiom and a proof through the rule are dependent and
 never revise twice.

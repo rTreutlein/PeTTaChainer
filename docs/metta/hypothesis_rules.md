@@ -144,15 +144,39 @@ Built as designed, with these findings from probing the existing code:
 - **Gap 4 was already fixed:** since forward and backward chaining were
   unified, a forward run reads the truth goal's current value. LANGUAGE_SPEC
   is corrected.
-- **Gap 5 does not appear** in the tested case. Two hypotheses confirmed
-  through perfectly correlated antecedents give confidence 0.671 together and
-  0.669 alone, at the same strength (0.794 against the true 0.8). The
-  evidence tracking sees that they share their samples.
-- **Cross-feeding, open:** a hypothesis's samples read the consequent's
-  merged value, which includes the other hypotheses' derivations (the
-  samples of A→C hold `(merge/revision c1 (by hB b1))`). With certain
-  observations the effect is in the third decimal; with uncertain ones two
-  hypotheses could reinforce each other.
+- **Gap 5 is open.** Two hypotheses confirmed through perfectly correlated
+  antecedents each learn the single hypothesis's truth (0.797, c 0.669), but
+  applied to one case their views revise as independent: c 0.802 against
+  0.669 for one. Their truths are estimated from the same outcomes, which
+  the views do not carry as evidence. The confidence 0.671 first reported
+  here was the stale-truth bug below: one view read its rule's prior.
+- **Cross-feeding (October 2026).** A hypothesis's samples read the
+  consequent's merged value, which included the other hypotheses'
+  derivations (the samples of A→C held `(merge/revision c1 (by hB b1))`).
+  Besides counting the other hypothesis's samples again, this made each
+  truth depend on every instance the other hypotheses predict, and a rule
+  applied to such an instance may not read a truth depending on it: it read
+  an older truth, the prior when the first review came before any
+  observation, for ever (ChainerGame `benchmarks/ona/repros/
+  stale_after_early_review.py`; conflicting sources, problem 6). Now:
+  - a sample reads no value that depends on a refined rule's truth (the
+    sample row excludes every `RuleTruth` key of its KB);
+  - a rule applied to an instance whose own sample is in the fold (an
+    observed but uncertain consequent, or one derived by given rules) reads
+    the truth folded again without the samples depending on it (leave one
+    out, `sk-left-out-view`), instead of an older version;
+  - a rule application depends on its truth's key, not on the samples
+    below it, so views through rules learned from one history are not
+    dependent through that history (SupplyNet learned rules: the storm
+    persistence chain dropped the next period's blocking report, 0.212
+    against 0.925 now, `test_refined_rule_reads.metta`).
+
+  The result no longer depends on when the rules were reviewed, and clients
+  need not review before adding a round's facts. A leave-one-out read folds
+  the rule's instances again, O(instances) for each reader whose instance is
+  a sample; rows reading through a rule's truth no longer see the truth's
+  samples in their dependencies, so a deeper reader is not protected from
+  its own sample through the parameter.
 - **A CTV refined rule now learns its negative branch** from the instances
   whose antecedent is false (`ImplicationInstanceAcc`, finish
   `implication-instance-ctv`), with their count as its confidence; from the

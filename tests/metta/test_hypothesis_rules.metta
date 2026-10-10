@@ -94,7 +94,10 @@
 !(test (let (: $p $t $tv) (query 0 hypKb (: $p (B new) $tv)) $tv) (STV 0.796969696969697 0.6689189187913668))
 
 ;; Two hypotheses confirmed from the same cases, through correlated
-;; antecedents, do not count those cases twice.
+;; antecedents. Each learns the single hypothesis's truth, but applied
+;; together their views revise as independent and count the cases twice
+;; (open, docs/metta/hypothesis_rules.md, gap 5): the truths are estimated
+;; from the same outcomes, which their views do not carry as evidence.
 !(set-rule-refinement ovKb true)
 !(compileadd ovKb (: hA (Implication (A $x) (C $x)) (STV 0.5 0.02)))
 !(compileadd ovKb (: hB (Implication (B $x) (C $x)) (STV 0.5 0.02)))
@@ -160,13 +163,14 @@
 !(compileadd ovKb (: c20 (C i20) (STV 0 1)))
 !(compileadd ovKb (: an (A new) (STV 1 1)))
 !(compileadd ovKb (: bn (B new) (STV 1 1)))
-;; Reviewed, the two give the single hypothesis's answer (0.797, 0.669 alone).
+;; Reviewed, the two give the single hypothesis's answer (0.797, 0.669 alone):
+;; the other hypothesis's view of C new is no sample.
 !(test (let (: $p $t $tv) (query 50 ovKb (: $p (RuleTruth (Implication (A $x) (C $x))) $tv)) $tv)
-   (STV 0.7963829186663325 0.6693567977541333))
+   (STV 0.796969696969697 0.6689189189189189))
 !(test (let (: $p $t $tv) (query 50 ovKb (: $p (RuleTruth (Implication (B $x) (C $x))) $tv)) $tv)
-   (STV 0.7963829186663325 0.6693567977541333))
+   (STV 0.796969696969697 0.6689189189189189))
 !(test (let (: $p $t $tv) (query 200 ovKb (: $p (C new) $tv)) $tv)
-   (STV 0.7939999999992117 0.6711409394398083))
+   (STV 0.796969696969697 0.8016194330844677))
 
 ;; Refined trust rules, one per source, learned from ten labelled claims each
 ;; (ChainerGame's conflicting sources, in small; test_certain_merge.metta has

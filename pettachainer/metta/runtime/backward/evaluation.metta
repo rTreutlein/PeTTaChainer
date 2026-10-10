@@ -62,6 +62,7 @@
 ;; Signatures of the mutually recursive functions below.
 (: sk-value (-[semidet]-> SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 (: sk-row-view (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Number SkeletonRow SkeletonValue))
+(: sk-computed-fold-view (-[semidet]-> Number ScalarFoldSpec (List Number) SkeletonValue))
 (: sk-given-value (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 (: sk-key-condition
    (-[semidet]-> (List SkeletonGiven) Number SkeletonKey SkeletonFilter (List Number) (List SkeletonKey) Number
@@ -721,9 +722,50 @@
        (List SkeletonVersion)))
 (= (sk-admit-step $hash $key $filter $exclude $kept (sk-version $seq $rhash $view))
    (if (sk-admits? $filter $exclude $view) (cons (sk-version $seq $rhash $view) $kept)
-      (case (fold-semidet (sk-admit-older $filter $exclude) sk-none (sk-older-views $hash $key $rhash)) (
-         (sk-none $kept)
-         ($older (cons (sk-version $seq $rhash $older) $kept))))))
+      (case (sk-left-out-view $hash $key $filter $exclude $rhash) (
+         (sk-none
+            (case (fold-semidet (sk-admit-older $filter $exclude) sk-none (sk-older-views $hash $key $rhash)) (
+               (sk-none $kept)
+               ($older (cons (sk-version $seq $rhash $older) $kept)))))
+         ($left-out (cons (sk-version $seq $rhash $left-out) $kept))))))
+
+;; An estimate from a rule's instances is read by a consumer without the
+;; samples that depend on what the consumer excludes, its own key above all:
+;; the instance a refined rule is applied to is no evidence of the rule there
+;; (leave one out). So an implication instance fold whose view the consumer
+;; cannot admit is folded again over the members it admits, and a row reading
+;; such a fold, a refined rule's truth, is evaluated again for it; neither is
+;; stored. Older views, which knew fewer instances, are left to every other
+;; row.
+(: sk-instance-fold? (-[det]-> Atom Bool))
+(= (sk-instance-fold? ($_kb $_pattern $_extractor $_init $_function $finish $_mode))
+   (stored-list-member? $finish (implication-instance implication-instance-ctv)))
+
+(: sk-instance-fold-premise? (-[semidet]-> Bool SkPattern Bool))
+(= (sk-instance-fold-premise? $found $premise)
+   (if $found true
+      (case $premise (
+         ((CPU FoldAllCompiled $args $_res) (sk-instance-fold? $args))
+         ($_other false)))))
+
+(: sk-left-out-view (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) Number SkeletonValue))
+(= (sk-left-out-view $hash $key $filter $exclude $rhash)
+   (let $view
+      (case $key (
+         ((sk-fold $args)
+            (if (sk-instance-fold? $args)
+               (sk-computed-fold-view $hash (the ScalarFoldSpec $args) (cons $hash $exclude))
+               sk-none))
+         ((sk-key $_type $_kbctx)
+            (case (collapse (once (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
+                     (if (=alpha $stored $key) (sk-row $ident $concl $premises $seq) (empty))))) (
+               ((cons (sk-row $ident $concl $premises $seq) $_rest)
+                  (if (fold-semidet sk-instance-fold-premise? false $premises)
+                     (sk-row-view () $exclude $hash $key $rhash (sk-row $ident $concl $premises $seq))
+                     sk-none))
+               (() sk-none))))
+         ($_group sk-none)))
+      (if (sk-admits? $filter $exclude $view) $view sk-none)))
 
 (: sk-older-views (-[det]-> Number SkeletonKey Number (List SkeletonValue)))
 (= (sk-older-views $hash $key $rhash)
@@ -857,10 +899,10 @@
 ;; and carry neither member evidence nor member dependencies.
 (: sk-folded-view
    (-[semidet]-> Number Atom $args (-[semidet]-> $acc SkFact $acc) Atom $acc AggregateFinish
-       (List SkeletonKey) SkeletonFilter SkeletonValue))
-(= (sk-folded-view $hash $kind $args $step $function $init $finish $members $filter)
+       (List SkeletonKey) SkeletonFilter (List Number) SkeletonValue))
+(= (sk-folded-view $hash $kind $args $step $function $init $finish $members $filter $exclude)
    (let* (((sk-fold-state $acc $proofs $ev $deps)
-             (fold-semidet (sk-fold-step $step $filter (cons $hash ()))
+             (fold-semidet (sk-fold-step $step $filter $exclude)
                 (sk-fold-state $init () () ()) $members))
           ($base-rate (base-rate-finish? $finish)))
       (sk-goal-val (CPU $kind $args (finish-aggregate (brand KB (car-atom $args)) $finish $acc))
@@ -903,7 +945,7 @@
                   (let* ((($_kb $_pattern $_extractor $init $_function $finish $_mode) $args))
                      (sk-goal-val (CPU FoldAllCompiled $args (finish-aggregate (brand KB $kbid) $finish $init))
                         (brand Proof cpu) (ev-set 0) (deps-key $hash))))))))
-      (no-base-rate-aggregate-key (sk-computed-fold-view $hash $args)))))
+      (no-base-rate-aggregate-key (sk-computed-fold-view $hash $args (cons $hash ()))))))
 
 ;; Takes the members of a base-rate fold that joined or changed into its
 ;; estimate, each with its current value without the versions derived through
@@ -1013,18 +1055,17 @@
                      (brand Proof (partial-fold $covered (if (< $missing 0) 0 (+ $covered $missing)) $proof))
                      $ev $deps))))))))
 
-(: sk-computed-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
-(= (sk-computed-fold-view $hash $args)
+(= (sk-computed-fold-view $hash $args $exclude)
    (let* ((($_kb $_pattern $extractor $init $function $finish $_mode) $args)
           ($node (CPU FoldAllCompiled $args $_result))
           ($members (sk-fold-node-member $node))
           ($view
              (case $members (
                 (() (sk-folded-view $hash FoldAllCompiled $args (sk-accumulate $extractor $function) $function $init
-                       $finish () sk-any-filter))
+                       $finish () sk-any-filter $exclude))
                 ((cons $member $_rest)
                    (sk-folded-view $hash FoldAllCompiled $args (sk-accumulate $extractor $function) $function $init
-                      $finish (sk-answers $member) (sk-member-filter $member)))))))
+                      $finish (sk-answers $member) (sk-member-filter $member) $exclude))))))
       (if (if (== $finish identity) (not (== $function OrFormula)) false)
          (sk-cover-fold! $hash (sk-fold $args) $node $members $view)
          $view)))
@@ -1064,7 +1105,7 @@
       (case (sk-group-members $key $args) (
          ((sk-group-found $member $members)
             (sk-folded-view $hash GroupedFoldAllCompiled $args (sk-accumulate $extractor $function) $function
-               $init $finish $members (sk-member-filter $member)))
+               $init $finish $members (sk-member-filter $member) (cons $hash ())))
          (sk-group-missing sk-none)))))
 
 ;; A fold or group gets its view when first read, from its members' views at
@@ -1469,7 +1510,9 @@
 
 ;; A fact premise takes a value unless its evidence overlaps the row's own,
 ;; except in joins the compiler marked as sharing their sources and for
-;; projections joining a pool of the same source.
+;; projections joining a pool of the same source. A refined rule's truth is a
+;; parameter of the row: the row depends on the truth's key, not on the
+;; instances the truth was learned from, which the row does not observe.
 (: sk-use-premise (-[semidet]-> Bool SkeletonRowState SkPattern SkeletonValue SkeletonRowState))
 (= (sk-use-premise $shared (sk-acc $fold-proofs $ev $deps $parts) ($type $kbctx $proof $tv) $value)
    (case $value (
@@ -1479,7 +1522,12 @@
                    (if (premise-evidence-overlap? $ev $premise-ev) (not (sk-joins-pool? $parts $part)) false))
                sk-fail
                (if (= ($type $kbctx $proof $tv) (if (is-var $proof) $fact (sk-full-fact $fact)))
-                  (sk-acc $fold-proofs (evidence-union $ev $premise-ev) (cons $premise-deps $deps)
+                  (sk-acc $fold-proofs (evidence-union $ev $premise-ev)
+                     (cons
+                        (if (if (is-expr $type) (== (car-atom $type) RuleTruth) false)
+                           (deps-key (index-hash (sk-key $type $kbctx)))
+                           $premise-deps)
+                        $deps)
                      (sk-add-part $parts $part))
                   sk-fail))))
       ($_none sk-fail))))
@@ -1756,19 +1804,27 @@
 ;; concludes from it depends on the parts' keys, never on the compound's.
 ;; Inverting that rule concludes the compound again, so its row also excludes
 ;; views depending on any part: the premise it inverts was derived from them.
+;; An implication instance sample reads no value a refined rule's truth
+;; estimates: what the other hypotheses predict is no observation, and taking
+;; it as one would count their samples again and feed hypotheses into each
+;; other (docs/metta/hypothesis_rules.md, "Cross-feeding").
 (: sk-row-exclusions (-[det]-> Number SkeletonKey Atom (List Number)))
 (= (sk-row-exclusions $khash $key $proof)
    (let $own (sk-unifier-hashes $khash $key)
-      (if (if (is-expr $proof)
-             (let $head (car-atom $proof)
-                (if (is-var $head) false
-                   (case (copy_term $head) (((inverted $_rule with $_prior $_token) true) ($_other false)))))
-             false)
-         (case $key (
-            ((sk-key $type $kbctx)
-               (hash-set (foldr-flat (sk-part-exclusions $kbctx) $own (sk-statement-parts (cons $type ())))))
-            ($_fold $own)))
-         $own)))
+      (case $key (
+         ((sk-key $type $kbctx)
+            (if (if (is-expr $proof)
+                   (let $head (car-atom $proof)
+                      (if (is-var $head) false
+                         (case (copy_term $head) (((inverted $_rule with $_prior $_token) true) ($_other false)))))
+                   false)
+               (hash-set (foldr-flat (sk-part-exclusions $kbctx) $own (sk-statement-parts (cons $type ()))))
+               (if (if (is-expr $type) (== (car-atom $type) ImplicationInstanceSample) false)
+                  (let $kbid (car-atom $kbctx)
+                     (hash-union $own
+                        (hash-set (collapse (match &sk_rule_truth ($_id $hash $_type ($kbid $_ctx $_vars)) $hash)))))
+                  $own)))
+         ($_fold $own)))))
 
 ;; A projection of a compound, its first premise, onto one part reads the other
 ;; parts as evidence apart from the compound: a part's view derived from the
