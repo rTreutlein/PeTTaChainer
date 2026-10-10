@@ -211,12 +211,14 @@ A key's value merges its stored facts and one view per row:
 No value supports itself. A consumer reads, per row of a premise key, the
 latest view that depends neither on its own key nor on any key unifying with
 it; older views stay available to exactly the consumers a newer one came to
-depend on. An estimate from a rule's instances is the exception: a consumer
-that cannot admit an implication instance fold's view folds it again over the
-members it admits, and a row reading such a fold (a refined rule's truth) is
-evaluated again for it, so a refined rule applied to an instance reads its
-truth without that instance's own sample (leave one out) instead of an older
-truth that knew fewer instances. A rule's truth is a parameter: a rule
+depend on. An estimate from a rule's instances is the exception: an
+implication instance fold carries no member dependencies, and a consumer
+reads it without the samples that read a key it excludes, its tally less
+their contributions, which are found by the keys they read; a row reading
+such a fold (a refined rule's truth) is evaluated again for it. So a refined
+rule applied to an instance reads its truth without that instance's own
+sample (leave one out), at the cost of the samples left out, instead of an
+older truth that knew fewer instances. A rule's truth is a parameter: a rule
 application depends on the truth's key, not on the instances it was learned
 from, so two views through rules learned from one history share no
 observation through them. Because dependency sets are transitive, this rejects self-support
@@ -304,10 +306,12 @@ A fold's or group's view is computed from its member keys when first read and
 recomputed when a member changes; the members changed in one pass recompute it
 once. Members are read without views that depend on the fold itself. Base-rate folds estimate a population: they carry neither member evidence nor member
 dependencies, like a prior, and are proved by `cpu`. An implication instance
-fold carries no member evidence either, so its estimate revises with a rule's
-stated truth, but it keeps its members' dependencies. Its samples read no
-value that depends on a refined rule's truth: another hypothesis's prediction
-is no observation of the consequent. A `FoldAllTruth` fold
+fold is a tally of its samples' contributions too, proved by `cpu`. It carries
+no member evidence either, so its estimate revises with a rule's stated truth,
+and no member dependencies. Its samples read no value that depends on a
+refined rule's truth, since another hypothesis's prediction is no
+observation of the consequent, nor one derived through the implication they
+sample. A `FoldAllTruth` fold
 reads its members' truth values as data and is treated the same way, so a rule
 can fold a group's beliefs and read one member of the group again.
 
@@ -415,8 +419,15 @@ cost of ingesting them.
 
 Evaluation then brings current only what the roots read: their keys, the
 premise keys of those keys' rows, and the members of folds and groups among
-them (for a base-rate fold, the members it has yet to take). Any other row whose input changed is marked stale, once, together with
-everything reading it; a later query that reaches it recomputes it. A stale row
+them (for a base-rate fold, the members it has yet to take). Implication
+instance folds are the exception: every evaluation also brings current each
+instance fold that was read and whose members changed, with the keys reading
+it, a refined rule's truth above all, as it does a root's. So a new instance
+moves its rule's truth, and the search score read from it, at the next
+evaluation, whatever the query or forward run asks, at the cost of the
+members that changed (`hypothesis_rules.md`, "Instance tallies"). Any other
+row whose input changed is marked stale, once, together with everything
+reading it; a later query that reaches it recomputes it. A stale row
 leaves the reader lists of the keys it reads until then, so a change walks only
 readers that are current. Rows built for earlier queries therefore cost nothing
 per query or per change.

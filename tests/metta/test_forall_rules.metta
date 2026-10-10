@@ -80,11 +80,6 @@
    (query 400 forallRefineKb (: $p (RuleTruth (Implication (Leak $c $u) (Alarm $c $u))) $tv))
    (: (merge/revision
          (rule-axiom sensor)
-         (implication-instance-fold
-            (foldall-proof
-               (implication-instance-sample leak-o1 alarm-o1)
-               (implication-instance-sample leak-o2 alarm-o2)
-               (implication-instance-sample leak-n1 alarm-n1)
-               (implication-instance-sample leak-n2 alarm-n2))))
+         (implication-instance-fold cpu))
       (RuleTruth (Implication (Leak $_c $_u) (Alarm $_c $_u)))
       (CTV (STV 0.8999028182701653 0.9000374859427714) (STV 0.2001110956811554 0.9000124984376953))))

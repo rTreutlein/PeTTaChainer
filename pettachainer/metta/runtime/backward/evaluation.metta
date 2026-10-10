@@ -62,7 +62,8 @@
 ;; Signatures of the mutually recursive functions below.
 (: sk-value (-[semidet]-> SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 (: sk-row-view (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Number SkeletonRow SkeletonValue))
-(: sk-computed-fold-view (-[semidet]-> Number ScalarFoldSpec (List Number) SkeletonValue))
+(: sk-computed-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
+(: sk-member-pending? (-[det]-> SkeletonKey Bool))
 (: sk-given-value (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 (: sk-key-condition
    (-[semidet]-> (List SkeletonGiven) Number SkeletonKey SkeletonFilter (List Number) (List SkeletonKey) Number
@@ -719,36 +720,102 @@
 (= (sk-admit-older $filter $exclude $kept $view)
    (if (sk-admits? $filter $exclude $view) $view $kept))
 
+;; An estimate from a rule's instances is read by a consumer without the
+;; samples that read what the consumer excludes, its own key above all: the
+;; instance a refined rule is applied to is no evidence of the rule there
+;; (leave one out). An implication instance fold read so is its tally less
+;; those samples' contributions, found by the keys they read, and a refined
+;; rule's truth is its rows evaluated again for the consumer; neither is
+;; stored. Older views, which knew fewer instances, are left to every other
+;; row.
 (: sk-admit-step
    (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonVersion) SkeletonVersion
        (List SkeletonVersion)))
 (= (sk-admit-step $hash $key $filter $exclude $kept (sk-version $seq $rhash $view))
-   (if (sk-admits? $filter $exclude $view) (cons (sk-version $seq $rhash $view) $kept)
-      (case (sk-left-out-view $hash $key $filter $exclude $rhash) (
-         (sk-none
+   (case (sk-left-out-view $hash $key $filter $exclude $rhash) (
+      (sk-none
+         (if (sk-admits? $filter $exclude $view) (cons (sk-version $seq $rhash $view) $kept)
             (case (fold-semidet (sk-admit-older $filter $exclude) sk-none (sk-older-views $hash $key $rhash)) (
                (sk-none $kept)
-               ($older (cons (sk-version $seq $rhash $older) $kept)))))
-         ($left-out (cons (sk-version $seq $rhash $left-out) $kept))))))
+               ($older (cons (sk-version $seq $rhash $older) $kept))))))
+      ($left-out (cons (sk-version $seq $rhash $left-out) $kept)))))
 
-;; An estimate from a rule's instances is read by a consumer without the
-;; samples that depend on what the consumer excludes, its own key above all:
-;; the instance a refined rule is applied to is no evidence of the rule there
-;; (leave one out). So an implication instance fold whose view the consumer
-;; cannot admit is folded again over the members it admits, and a row reading
-;; such a fold, a refined rule's truth, is evaluated again for it; neither is
-;; stored. Older views, which knew fewer instances, are left to every other
-;; row.
-(: sk-instance-fold? (-[det]-> Atom Bool))
-(= (sk-instance-fold? ($_kb $_pattern $_extractor $_init $_function $finish $_mode))
-   (stored-list-member? $finish (implication-instance implication-instance-ctv)))
+;; The members of an implication instance fold that read one of the excluded
+;; keys directly, each once.
+(: sk-read-members-step (-[det]-> Number (List Number) Number (List Number)))
+(= (sk-read-members-step $hash $found $read)
+   (append-flat (collapse (match &sk_instance_read ($read $hash $mhash $_member) $mhash)) $found))
 
-(: sk-instance-fold-premise? (-[semidet]-> Bool SkPattern Bool))
-(= (sk-instance-fold-premise? $found $premise)
+(: sk-member-contribution-step (-[det]-> Number (List InstanceEvidenceState) Number (List InstanceEvidenceState)))
+(= (sk-member-contribution-step $hash $found $mhash)
+   (append-flat
+      (collapse (match &sk_instance_member ($mhash $hash $_member $contribution)
+         (case $contribution (
+            ((InstanceEvidence (BaseRateEvidence $_pw 0.0) (BaseRateEvidence $_nw 0.0)) (empty))
+            ($_sample $contribution)))))
+      $found))
+
+;; The contributions an instance fold read without the excluded keys leaves
+;; out; a member that is no sample contributes nothing.
+(: sk-left-out (-[det]-> Number (List Number) (List InstanceEvidenceState)))
+(= (sk-left-out $hash $exclude)
+   (if (== $exclude ()) ()
+      (fold-flat (sk-member-contribution-step $hash) ()
+         (list_to_set (fold-flat (sk-read-members-step $hash) () $exclude)))))
+
+;; Whether a row reads an instance fold that leaves out a member for the
+;; excluded keys.
+(: sk-leaves-out-step (-[det]-> (List Number) Bool SkPattern Bool))
+(= (sk-leaves-out-step $exclude $found $premise)
    (if $found true
       (case $premise (
-         ((CPU FoldAllCompiled $args $_res) (sk-instance-fold? $args))
+         ((CPU FoldAllCompiled $args $_res)
+            (if (sk-instance-fold? $args) (not (== (sk-left-out (index-hash (sk-fold $args)) $exclude) ())) false))
          ($_other false)))))
+
+(: sk-row-leaves-out-step (-[det]-> (List Number) Bool (List SkPattern) Bool))
+(= (sk-row-leaves-out-step $exclude $found $premises)
+   (if $found true (fold-flat (sk-leaves-out-step $exclude) false $premises)))
+
+(: sk-rule-truth-key? (-[det]-> SkeletonKey Bool))
+(= (sk-rule-truth-key? $key)
+   (case $key (
+      ((sk-key $type $_kbctx) (if (is-expr $type) (== (car-atom $type) RuleTruth) false))
+      ($_fold false))))
+
+;; Whether a consumer excluding these keys reads the key with a sample left
+;; out: an instance fold, or a refined rule's truth, which reads one.
+(: sk-leaves-out? (-[det]-> Number SkeletonKey (List Number) Bool))
+(= (sk-leaves-out? $hash $key $exclude)
+   (if (== $exclude ()) false
+      (case $key (
+         ((sk-fold $args) (if (sk-instance-fold? $args) (not (== (sk-left-out $hash $exclude) ())) false))
+         ($_statement
+            (if (sk-rule-truth-key? $key)
+               (fold-flat (sk-row-leaves-out-step $exclude) false
+                  (collapse (match &sk_row ($hash $stored $_rhash (sk-row $_ident $_concl $premises $_seq))
+                     (if (=alpha $stored $key) $premises (empty)))))
+               false))))))
+
+;; A tally less a contribution; a mass left by rounding is none.
+(: sk-evidence-shift
+   (-[det]-> BaseRateEvidenceState BaseRateEvidenceState BaseRateEvidenceState BaseRateEvidenceState))
+(= (sk-evidence-shift (BaseRateEvidence $w $m) (BaseRateEvidence $old-w $old-m) (BaseRateEvidence $new-w $new-m))
+   (let $mass (+ (- $m $old-m) $new-m)
+      (if (< $mass 0.000000001) (BaseRateEvidence 0.0 0.0) (BaseRateEvidence (+ (- $w $old-w) $new-w) $mass))))
+
+;; A tally with one contribution replaced by another.
+(: sk-instance-shift
+   (-[det]-> InstanceEvidenceState InstanceEvidenceState InstanceEvidenceState InstanceEvidenceState))
+(= (sk-instance-shift (InstanceEvidence $pos $neg) (InstanceEvidence $old-pos $old-neg) (InstanceEvidence $new-pos $new-neg))
+   (InstanceEvidence (sk-evidence-shift $pos $old-pos $new-pos) (sk-evidence-shift $neg $old-neg $new-neg)))
+
+(: sk-leave-out-step (-[det]-> InstanceEvidenceState InstanceEvidenceState InstanceEvidenceState InstanceEvidenceState))
+(= (sk-leave-out-step $none $acc $contribution) (sk-instance-shift $acc $contribution $none))
+
+(: sk-tally-without
+   (-[det]-> InstanceEvidenceState InstanceEvidenceState (List InstanceEvidenceState) InstanceEvidenceState))
+(= (sk-tally-without $none $tally $left) (fold-flat (sk-leave-out-step $none) $tally $left))
 
 (: sk-left-out-view (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) Number SkeletonValue))
 (= (sk-left-out-view $hash $key $filter $exclude $rhash)
@@ -756,17 +823,23 @@
       (case $key (
          ((sk-fold $args)
             (if (sk-instance-fold? $args)
-               (sk-computed-fold-view $hash (the ScalarFoldSpec $args) (cons $hash $exclude))
+               (case (sk-left-out $hash $exclude) (
+                  (() sk-none)
+                  ($left
+                     (let* ((($_kb $_pattern $_extractor $init $_function $_finish $_mode) $args)
+                            ($none (fa-instance-acc $init)))
+                        (sk-instance-view $hash (the ScalarFoldSpec $args) (sk-tally-without $none (sk-instance-tally $hash $key $none) $left))))))
                sk-none))
-         ((sk-key $_type $_kbctx)
-            (case (collapse (once (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
-                     (if (=alpha $stored $key) (sk-row $ident $concl $premises $seq) (empty))))) (
-               ((cons (sk-row $ident $concl $premises $seq) $_rest)
-                  (if (fold-semidet sk-instance-fold-premise? false $premises)
-                     (sk-row-view () $exclude $hash $key $rhash (sk-row $ident $concl $premises $seq))
-                     sk-none))
-               (() sk-none))))
-         ($_group sk-none)))
+         ($_statement
+            (if (sk-rule-truth-key? $key)
+               (case (collapse (once (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
+                        (if (=alpha $stored $key) (sk-row $ident $concl $premises $seq) (empty))))) (
+                  ((cons (sk-row $row-ident $row-concl $row-premises $row-seq) $_rest)
+                     (if (sk-row-leaves-out-step $exclude false $row-premises)
+                        (sk-row-view () $exclude $hash $key $rhash (sk-row $row-ident $row-concl $row-premises $row-seq))
+                        sk-none))
+                  (() sk-none)))
+               sk-none))))
       (if (sk-admits? $filter $exclude $view) $view sk-none)))
 
 (: sk-older-views (-[det]-> Number SkeletonKey Number (List SkeletonValue)))
@@ -921,20 +994,19 @@
 ;; and carry neither member evidence nor member dependencies.
 (: sk-folded-view
    (-[semidet]-> Number Atom $args (-[semidet]-> $acc SkFact $acc) Atom $acc AggregateFinish
-       (List SkeletonKey) SkeletonFilter (List Number) SkeletonValue))
-(= (sk-folded-view $hash $kind $args $step $function $init $finish $members $filter $exclude)
+       (List SkeletonKey) SkeletonFilter SkeletonValue))
+(= (sk-folded-view $hash $kind $args $step $function $init $finish $members $filter)
    (let* (((sk-fold-state $acc $proofs $ev $deps)
-             (fold-semidet (sk-fold-step $step $filter $exclude)
+             (fold-semidet (sk-fold-step $step $filter (cons $hash ()))
                 (sk-fold-state $init () () ()) $members))
           ($base-rate (base-rate-finish? $finish)))
       (sk-goal-val (CPU $kind $args (finish-aggregate (brand KB (car-atom $args)) $finish $acc))
          (sk-fold-proof $function $proofs)
-         ;; Priors, implication instance estimates and folds that read their
-         ;; members' truth values as data, like base rates, are not revised
-         ;; against their members' evidence; their dependencies still reach
-         ;; their readers.
+         ;; Priors and folds that read their members' truth values as data,
+         ;; like base rates, are not revised against their members' evidence;
+         ;; their dependencies still reach their readers.
          (if $base-rate (ev-set 0)
-            (if (stored-list-member? $finish (uniform-prior uniform-prior-known implication-instance implication-instance-ctv)) (ev-set 0)
+            (if (stored-list-member? $finish (uniform-prior uniform-prior-known)) (ev-set 0)
                (case $args (
                   (($_kb $_pattern (extract-with-truth $_p $_t $_v) $_init $_fn $_fin $_mode) (ev-set 0))
                   ($_other (evidence-join $ev))))))
@@ -947,9 +1019,18 @@
 ;; estimate, each with its current value, and reads the estimate back. A user
 ;; base rate stays authoritative. An estimate a reader finds missing is seeded
 ;; from the facts already stored (sk-rate-entries). The fold key watches the
-;; cache entry. Any other fold is computed from its members.
+;; cache entry. An implication instance fold is a tally too, of its samples'
+;; contributions (&sk_instance_tally); its estimate revises with the rule's
+;; stated truth and, like a base rate, carries neither member evidence nor
+;; member dependencies: a rule's truth is a parameter of the views through the
+;; rule, and its readers leave their own samples out (sk-left-out-view). Any
+;; other fold is computed from its members.
 (: sk-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
 (= (sk-fold-view $hash $args)
+   (if (sk-instance-fold? $args)
+      (let* (($_taken (sk-instance-take! $hash $args))
+             (($_kb $_pattern $_extractor $init $_function $_finish $_mode) $args))
+         (sk-instance-view $hash $args (sk-instance-tally $hash (sk-fold $args) (fa-instance-acc $init))))
    (case (base-rate-aggregate-key $args) (
       ((base-rate-aggregate-key-value $kbid $pattern $mode)
          (let* (($key (sk-fold $args))
@@ -967,7 +1048,83 @@
                   (let* ((($_kb $_pattern $_extractor $init $_function $finish $_mode) $args))
                      (sk-goal-val (CPU FoldAllCompiled $args (finish-aggregate (brand KB $kbid) $finish $init))
                         (brand Proof cpu) (ev-set 0) (deps-key $hash))))))))
-      (no-base-rate-aggregate-key (sk-computed-fold-view $hash $args (cons $hash ()))))))
+      (no-base-rate-aggregate-key (sk-computed-fold-view $hash $args))))))
+
+(: sk-instance-tally (-[det]-> Number SkeletonKey InstanceEvidenceState InstanceEvidenceState))
+(= (sk-instance-tally $hash $fold $none)
+   (case (collapse (once (match &sk_instance_tally ($hash $stored $acc) (if (=alpha $stored $fold) $acc (empty))))) (
+      ((cons $found $_rest) $found)
+      (() $none))))
+
+(: sk-instance-view (-[semidet]-> Number ScalarFoldSpec InstanceEvidenceState SkeletonValue))
+(= (sk-instance-view $hash $args $acc)
+   (let ($kb $_pattern $_extractor $_init $_function $finish $_mode) $args
+      (sk-goal-val (CPU FoldAllCompiled $args (finish-aggregate (brand KB $kb) $finish $acc))
+         (brand Proof cpu) (ev-set 0) (deps-key $hash))))
+
+;; A member's contribution is its sample alone, read without the fold; the
+;; first take of a member records the statements its sample reads.
+(: sk-instance-read! (-[det]-> Number Number SkeletonKey KBContext Atom Atom Atom))
+(= (sk-instance-read! $hash $mhash $member $kbctx $_acc $statement)
+   (let* (($read (index-hash (sk-key $statement $kbctx)))
+          ($_row (add-atom &sk_instance_read ($read $hash $mhash $member))))
+      ()))
+
+(: sk-instance-reads! (-[det]-> Number Number SkeletonKey Atom))
+(= (sk-instance-reads! $hash $mhash $member)
+   (case $member (
+      ((sk-key (ImplicationInstanceSample $a $b $_atv $_btv) $kbctx)
+         (fold-flat (sk-instance-read! $hash $mhash $member $kbctx) ()
+            (cons $b (implication-side-conjuncts (the Statement $a)))))
+      ($_other ()))))
+
+;; A member with no value whose rows are still to be computed is left to take:
+;; the evaluation needs it and checks the fold again (sk-instance-checks!).
+(: sk-instance-take-step (-[semidet]-> Number SkeletonKey ScalarFoldSpec SkeletonFilter Atom SkeletonKey Atom))
+(= (sk-instance-take-step $hash $fold $args $filter $_acc $member)
+   (let $value (sk-value $member $filter (cons $hash ()))
+      (if (if (== $value sk-none) (sk-member-pending? $member) false)
+         (if (space-row-present? &sk_instance_changed ($hash $_stored)) () (add-atom &sk_instance_changed ($hash $fold)))
+         (sk-instance-take-value! $hash $fold $args $member $value))))
+
+(: sk-instance-take-value! (-[semidet]-> Number SkeletonKey ScalarFoldSpec SkeletonKey SkeletonValue Atom))
+(= (sk-instance-take-value! $hash $fold $args $member $value)
+   (let* ((($_kb $_pattern $extractor $start $function $_finish $_mode) $args)
+          ($mhash (index-hash $member))
+          ($_clean (remove-variant-row! &sk_rate_dirty (quote ($hash $mhash $fold $member))))
+          ($new
+             (fa-instance-acc
+                (case $value (
+                   ((sk-val $fact $_ev $_deps) (sk-accumulate $extractor $function $start $fact))
+                   ($_none $start)))))
+          ($found
+             (collapse (once (match &sk_instance_member ($mhash $hash $stored $contribution)
+                (if (=alpha $stored $member) $contribution (empty))))))
+          ($old (fa-instance-acc (case $found (((cons $was $_more) $was) (() $start)))))
+          ($_replaced (remove-variant-row! &sk_instance_member (quote ($mhash $hash $member $old))))
+          ($_reads (if (== $found ()) (sk-instance-reads! $hash $mhash $member) ()))
+          ($tally (sk-instance-tally $hash $fold (fa-instance-acc $start)))
+          ($shifted (sk-instance-shift $tally $old $new))
+          ($_untallied (remove-variant-row! &sk_instance_tally (quote ($hash $fold $tally))))
+          ($_tallied (add-atom &sk_instance_tally ($hash $fold $shifted)))
+          ($_member (add-atom &sk_instance_member ($mhash $hash $member $new))))
+      ()))
+
+;; Takes the members of an instance fold that joined or changed since it last
+;; took them, each at its current value: every take costs the members that
+;; changed, never the instances.
+(: sk-instance-take! (-[semidet]-> Number ScalarFoldSpec Atom))
+(= (sk-instance-take! $hash $args)
+   (let* (($fold (sk-fold $args))
+          ($changed
+             (collapse (match &sk_rate_dirty ($hash $_mhash $stored $member)
+                (if (=alpha $stored $fold) $member (empty))))))
+      (if (== $changed ()) ()
+         (let $filter
+               (case (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) (
+                  ((cons $node $_more) (sk-member-filter $node))
+                  (() sk-any-filter)))
+            (fold-semidet (sk-instance-take-step $hash $fold $args $filter) () $changed)))))
 
 ;; Takes the members of a base-rate fold that joined or changed into its
 ;; estimate, each with its current value without the versions derived through
@@ -989,6 +1146,7 @@
 
 (: sk-rate-take! (-[semidet]-> Number ScalarFoldSpec Atom))
 (= (sk-rate-take! $hash $args)
+   (if (sk-instance-fold? $args) (sk-instance-take! $hash $args)
    (let $key (sk-fold $args)
       (case (fa-premise-subscriptions (CPU FoldAllCompiled $args $_result)) (
          ((cons (fa-subscription $identity $descriptor $trigger $both $second) $_none)
@@ -1001,7 +1159,7 @@
                      (let $_linked (link-aggregate-fold! $id $hash)
                         (fold-semidet (sk-rate-take-step $hash $key $id $descriptor) () $changed)))
                   (() ())))))
-         ($_other ())))))
+         ($_other ()))))))
 
 (: sk-cached-fold-view (-[semidet]-> Number ScalarFoldSpec BaseRateEntry SkeletonValue))
 (= (sk-cached-fold-view $hash $args $entry)
@@ -1019,7 +1177,6 @@
       (if (space-row-present? &sk_given_pending ($khash $rhash $_cost)) false
          (space-row-present? &sk_support ($khash $rhash $_deps)))))
 
-(: sk-member-pending? (-[det]-> SkeletonKey Bool))
 (= (sk-member-pending? $key)
    (let $khash (index-hash $key)
       (not (== (collapse (once (match &sk_row ($khash $stored $rhash $_row)
@@ -1078,17 +1235,17 @@
                      (brand Proof (partial-fold $covered (if (< $missing 0) 0 (+ $covered $missing)) $proof))
                      $ev $deps))))))))
 
-(= (sk-computed-fold-view $hash $args $exclude)
+(= (sk-computed-fold-view $hash $args)
    (let* ((($_kb $_pattern $extractor $init $function $finish $_mode) $args)
           ($node (CPU FoldAllCompiled $args $_result))
           ($members (sk-fold-node-member $node))
           ($view
              (case $members (
                 (() (sk-folded-view $hash FoldAllCompiled $args (sk-accumulate $extractor $function) $function $init
-                       $finish () sk-any-filter $exclude))
+                       $finish () sk-any-filter))
                 ((cons $member $_rest)
                    (sk-folded-view $hash FoldAllCompiled $args (sk-accumulate $extractor $function) $function $init
-                      $finish (sk-answers $member) (sk-member-filter $member) $exclude))))))
+                      $finish (sk-answers $member) (sk-member-filter $member)))))))
       (if (if (== $finish identity) (not (== $function OrFormula)) false)
          (sk-cover-fold! $hash (sk-fold $args) $node $members $view)
          $view)))
@@ -1128,7 +1285,7 @@
       (case (sk-group-members $key $args) (
          ((sk-group-found $member $members)
             (sk-folded-view $hash GroupedFoldAllCompiled $args (sk-accumulate $extractor $function) $function
-               $init $finish $members (sk-member-filter $member) (cons $hash ())))
+               $init $finish $members (sk-member-filter $member)))
          (sk-group-missing sk-none)))))
 
 ;; A fold or group gets its view when first read, from its members' views at
@@ -1249,16 +1406,19 @@
 
 ;; The merged value of a key on behalf of a consumer. A proof or truth-value
 ;; pattern takes the whole merged value when it admits it, and otherwise the
-;; merge of the views it admits.
+;; merge of the views it admits. A consumer that leaves one of its own samples
+;; out of an instance fold reads the views it admits, never the cached value.
 
 (= (sk-value $key $filter $exclude)
    (let* (($hash (index-hash $key))
           ($merged
-             (case (sk-open-value $hash $key sk-any-filter) (
-                ((sk-merged $_hash $_key $deps $value)
-                   (if (deps-meet? $exclude $deps)
-                      (sk-merge-key $hash $key sk-any-filter $exclude () (sk-admitted $hash $key sk-any-filter $exclude))
-                      $value))))))
+             (if (sk-leaves-out? $hash $key $exclude)
+                (sk-merge-key $hash $key sk-any-filter $exclude () (sk-admitted $hash $key sk-any-filter $exclude))
+                (case (sk-open-value $hash $key sk-any-filter) (
+                   ((sk-merged $_hash $_key $deps $value)
+                      (if (deps-meet? $exclude $deps)
+                         (sk-merge-key $hash $key sk-any-filter $exclude () (sk-admitted $hash $key sk-any-filter $exclude))
+                         $value)))))))
       (if (sk-open-filter? $filter) $merged
          (if (sk-admits? $filter () $merged) $merged
             (sk-merge-key $hash $key $filter $exclude () (sk-admitted $hash $key $filter $exclude))))))
@@ -1839,7 +1999,10 @@
 ;; An implication instance sample reads no value a refined rule's truth
 ;; estimates: what the other hypotheses predict is no observation, and taking
 ;; it as one would count their samples again and feed hypotheses into each
-;; other (docs/metta/hypothesis_rules.md, "Cross-feeding").
+;; other (docs/metta/hypothesis_rules.md, "Cross-feeding"). Nor does it read a
+;; value derived through the implication it samples, a derived implication
+;; applied to its own instance: the fold carries no member dependencies, so
+;; the sample is where that support is refused.
 (: sk-row-exclusions (-[det]-> Number SkeletonKey Atom (List Number)))
 (= (sk-row-exclusions $khash $key $proof)
    (let $own (sk-unifier-hashes $khash $key)
@@ -1851,11 +2014,13 @@
                          (case (copy_term $head) (((inverted $_rule with $_prior $_token) true) ($_other false)))))
                    false)
                (hash-set (foldr-flat (sk-part-exclusions $kbctx) $own (sk-statement-parts (cons $type ()))))
-               (if (if (is-expr $type) (== (car-atom $type) ImplicationInstanceSample) false)
-                  (let $kbid (car-atom $kbctx)
-                     (hash-union $own
-                        (hash-set (collapse (match &sk_rule_truth ($_id $hash $_type ($kbid $_ctx $_vars)) $hash)))))
-                  $own)))
+               (case $type (
+                  ((ImplicationInstanceSample $a $b $_atv $_btv)
+                     (let* (($kbid (car-atom $kbctx))
+                            ($implication (sk-key (Implication $a $b) $kbctx)))
+                        (hash-union (hash-union $own (sk-unifier-hashes (index-hash $implication) $implication))
+                           (hash-set (collapse (match &sk_rule_truth ($_id $hash $_type ($kbid $_ctx $_vars)) $hash))))))
+                  ($_statement $own)))))
          ($_fold $own)))))
 
 ;; A projection of a compound, its first premise, onto one part reads the other
@@ -2094,7 +2259,9 @@
 ;; changed is computed when next read. A base-rate fold also records the
 ;; member to take, unless the change came through the rate itself: a past
 ;; belief that reads the rate as its prior changes whenever the rate moves, and
-;; would otherwise be needed and taken again each time. A check queued for this
+;; would otherwise be needed and taken again each time. An implication
+;; instance fold no query needs keeps its view and readers: the evaluation
+;; brings it current at its end (sk-instance-checks!). A check queued for this
 ;; pass is also queued for the next, in case this pass's check already ran.
 (: sk-check-seq (-[det]-> Number))
 (= (sk-check-seq) 1000000000000000000000000)
@@ -2105,7 +2272,9 @@
       (if (deps-has? (sk-change-deps $change) $hash) (sk-work $todo $next)
       (let $_rate (sk-rate-dirty! $fold $member)
       (if (== (sk-latest-view $hash $fold 0) sk-none) (sk-work $todo $next)
-      (if (if (sk-needed? $hash $fold) false (let $_stale (sk-stale-fold! $fold) true)) (sk-work $todo $next)
+      (if (if (sk-needed? $hash $fold) false
+             (let $_stale (if (sk-instance-fold-key? $fold) () (sk-stale-fold! $fold)) true))
+         (sk-work $todo $next)
          (let* (($mhash (index-hash $member))
                 ($_pending (add-atom &sk_fold_pending ($hash $mhash)))
                 ($check (sk-fold-check $hash $fold)))
@@ -2329,14 +2498,14 @@
 
 ;; Keys changed outside evaluation: a fold or group key recomputes when next
 ;; read, and every changed key's readers are scheduled.
-(: sk-dirty-seed (-[semidet]-> SkeletonWork SkeletonKey SkeletonWork))
-(= (sk-dirty-seed $work $key)
+(: sk-dirty-seed (-[semidet]-> Number SkeletonWork SkeletonKey SkeletonWork))
+(= (sk-dirty-seed $pass $work $key)
    (let* (($_view
              (case $key (
                 ((sk-key $_type $_kbctx) ())
                 ($_fold (sk-drop-fold-view! $key)))))
           ($_merged (sk-drop-merged! $key)))
-      (sk-key-changed 0 -1 (sk-outside-change (cons (index-hash $key) ()) 0) $work $key)))
+      (sk-key-changed $pass -1 (sk-outside-change (cons (index-hash $key) ()) 0) $work $key)))
 
 ;; --- Demand -----------------------------------------------------------------
 ;; A query brings current only what its roots read: their keys, the premise
@@ -2492,21 +2661,25 @@
           ($_readers (fold-flat sk-stale-reader-step () (sk-readers $key))))
       (foreach-flat sk-stale-fold!
          (collapse (match &sk_use ($hash $stored $fold)
-            (if (=alpha $stored $key) (if (sk-rate-fold? $fold) (empty) $fold) (empty)))))))
+            (if (=alpha $stored $key)
+               (if (sk-rate-fold? $fold)
+                  (let $_take (if (sk-instance-fold-key? $fold) (sk-rate-dirty! $fold $key) ()) (empty))
+                  $fold)
+               (empty)))))))
 
 (: sk-item-needed? (-[det]-> SkeletonItem Bool))
 (= (sk-item-needed? (sk-row-item $_seq $hash $key $_rhash $_row)) (sk-needed? $hash $key))
 (= (sk-item-needed? (sk-fold-check $hash $fold)) (sk-needed? $hash $fold))
 
-(: sk-seed-new (-[det]-> (Heap SkeletonItem) SkeletonItem (Heap SkeletonItem)))
-(= (sk-seed-new $todo $item)
+(: sk-seed-new (-[det]-> Number (Heap SkeletonItem) SkeletonItem (Heap SkeletonItem)))
+(= (sk-seed-new $pass $todo $item)
    (if (sk-item-needed? $item)
-      (if (sk-queue-new? 0 $item) (add_to_heap $todo (sk-item-order $item) $item) $todo)
+      (if (sk-queue-new? $pass $item) (add_to_heap $todo (sk-item-order $item) $item) $todo)
       (let $_stale (sk-mark-stale! $item) $todo)))
 
 (: sk-evaluate! (-[semidet]-> Atom))
 (= (sk-evaluate!)
-   (let* (($_queued (remove-data-rows! &sk_queued (quote ($pass $khash $rhash))))
+   (let* (($_queued (remove-data-rows! &sk_queued (quote ($qpass $qkhash $qrhash))))
           ($_cleared-forced (remove-data-rows! &sk_forced (quote ($khash $rhash $cause))))
           ($_used (remove-data-rows! &sk_forced_used (quote ($khash $rhash $cause))))
           ($_pending (remove-data-rows! &sk_fold_pending (quote ($fhash $member))))
@@ -2519,29 +2692,98 @@
                    (empty)))))
           ($_granted (remove-data-rows! &sk_given_granted (quote ($khash $rhash))))
           ($_conditioning (remove-data-rows! &sk_conditioning (quote ($chash))))
-          ($_restale (remove-data-rows! &sk_restale (quote ($khash $rhash))))
-          ($_restaled (remove-data-rows! &sk_restaled (quote ($khash $rhash))))
-          ($new (collapse (match &sk_new (sk-row-item $seq $hash $key $rhash $row)
+          ($_restale (remove-data-rows! &sk_restale (quote ($skhash $srhash))))
+          ($_restaled (remove-data-rows! &sk_restaled (quote ($dkhash $drhash))))
+          ($_checked (remove-data-rows! &sk_instance_checked (quote ($ihash))))
+          ($last (sk-evaluate-pass! 0 $partial))
+          ($_roots (sk-read-roots!)))
+      (sk-pay-conditions! (+ $last 1))))
+
+;; A pass works off the rows never evaluated, the readers of the keys changed
+;; outside evaluation, the stale rows a need brought current (forced by their
+;; own keys) and the items given. Then the implication instance folds whose
+;; members changed are brought current, in further passes, and the last pass
+;; is returned.
+(: sk-evaluate-pass! (-[semidet]-> Number (List SkeletonItem) Number))
+(= (sk-evaluate-pass! $pass $items)
+   (let* (($new (collapse (match &sk_new (sk-row-item $seq $hash $key $rhash $row)
              (sk-row-item $seq $hash $key $rhash $row))))
-          ($_new (remove-data-rows! &sk_new (quote (sk-row-item $seq $hash $key $rhash $row))))
-          ($dirty (collapse (match &sk_dirty ($hash $key) $key)))
-          ($_dirty (remove-data-rows! &sk_dirty (quote ($hash $key))))
-          ;; a stale row the query needs is forced by its own key
+          ($_new (remove-data-rows! &sk_new (quote (sk-row-item $nseq $nhash $nkey $nrhash $nrow))))
+          ($dirty (collapse (match &sk_dirty ($dhash $dkey) $dkey)))
+          ($_dirty (remove-data-rows! &sk_dirty (quote ($ddhash $ddkey))))
           ($refresh
              (collapse (match &sk_refresh ($khash $rhash)
                 (let $_taken (remove-atom &sk_refresh ($khash $rhash))
-                   (match &sk_row ($khash $key $rhash (sk-row $ident $concl $premises $seq))
-                      (let* (($item (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $seq)))
+                   (match &sk_row ($khash $rkey $rhash (sk-row $ident $concl $premises $rseq))
+                      (let* (($item (sk-row-item $rseq $khash $rkey $rhash (sk-row $ident $concl $premises $rseq)))
                              ($_forced (sk-force! (cons $khash ()) $item)))
                          $item))))))
           ($seeded
-             (fold-semidet sk-dirty-seed
-                (sk-work (fold-semidet sk-seed-new (empty_heap) (append-flat $new (append-flat $refresh $partial)))
+             (fold-semidet (sk-dirty-seed $pass)
+                (sk-work (fold-semidet (sk-seed-new $pass) (empty_heap) (append-flat $new (append-flat $refresh $items)))
                    (empty_heap))
-                $dirty)))
-      (let* (($last (sk-work-off! 0 $seeded))
-             ($_roots (sk-read-roots!)))
-         (sk-pay-conditions! (+ $last 1)))))
+                $dirty))
+          ($last (sk-work-off! $pass $seeded)))
+      (case (sk-instance-checks!) (
+         (() $last)
+         ($checks (sk-evaluate-pass! (+ $last 1) $checks))))))
+
+;; An evaluation brings current every implication instance fold that rows read,
+;; has a view and has members still to take, with the keys reading it, a refined rule's
+;; truth above all, whoever needs them: those keys are needed as roots are, the
+;; members to take beside them, and the fold is checked once the members are
+;; computed. So a new instance moves its rule's truth, and the search score
+;; read from it, at the evaluation after it is stored, without a query asking
+;; for the truth, at the cost of the members that changed. A fold nobody read
+;; takes all its members when first read. Each fold is brought current once
+;; per evaluation; what changes after that, the fold now needed, is checked as
+;; any needed fold is, and a member whose rows the evaluation could not compute
+;; waits for the next one.
+(: sk-instance-checks! (-[semidet]-> (List SkeletonItem)))
+(= (sk-instance-checks!)
+   (fold-semidet sk-instance-check-step ()
+      (collapse (match &sk_instance_changed ($hash $fold)
+         (if (space-row-present? &sk_instance_checked ($hash)) (empty)
+            (let* (($_taken (remove-atom &sk_instance_changed ($hash $fold)))
+                   ($_checked (add-atom &sk_instance_checked ($hash))))
+               ($hash $fold)))))))
+
+(: sk-fold-reader-key-step (-[det]-> (List SkeletonKey) (Number Number) (List SkeletonKey)))
+(= (sk-fold-reader-key-step $keys ($khash $rhash))
+   (append-flat (collapse (match &sk_row ($khash $key $rhash $_row) $key)) $keys))
+
+(: sk-instance-check-step (-[semidet]-> (List SkeletonItem) (Number SkeletonKey) (List SkeletonItem)))
+(= (sk-instance-check-step $checks ($hash $fold))
+   (let $members
+         (collapse (match &sk_rate_dirty ($hash $_mhash $stored $member) (if (=alpha $stored $fold) $member (empty))))
+      (let $readers
+            (collapse (superpose (
+               (match &sk_reader ($hash $stored-r $khash $rhash) (if (=alpha $stored-r $fold) ($khash $rhash) (empty)))
+               (match &sk_stale_reader ($hash $stored-s $skhash $srhash) (if (=alpha $stored-s $fold) ($skhash $srhash) (empty))))))
+      (if (if (== $members ()) true (if (== $readers ()) true (== (sk-latest-view $hash $fold 0) sk-none))) $checks
+         (let* (($_readers (sk-need-closer! 0 (alpha_unique_keys (fold-flat sk-fold-reader-key-step () $readers))))
+                ($_fold (sk-need-closer! 1 (cons $fold ())))
+                ($_members (sk-need-closer! 2 $members))
+                ($_causes (foreach-flat (sk-fold-pending! $hash) $members)))
+            (cons (sk-fold-check $hash $fold) $checks))))))
+
+;; Keys needed again at a depth closer to a root than they were, so their
+;; rows are computed in full and their stale rows brought current.
+(: sk-unneed-deeper! (-[det]-> Number Atom SkeletonKey Atom))
+(= (sk-unneed-deeper! $depth $_acc $key)
+   (let* (($hash (index-hash $key))
+          ($_dropped
+             (collapse (match &sk_needed ($hash $stored $was)
+                (if (=alpha $stored $key) (if (> $was $depth) (remove-atom &sk_needed ($hash $stored $was)) (empty)) (empty))))))
+      ()))
+
+(: sk-need-closer! (-[semidet]-> Number (List SkeletonKey) Atom))
+(= (sk-need-closer! $depth $keys)
+   (let $_unneeded (fold-flat (sk-unneed-deeper! $depth) () $keys) (sk-need-keys! $depth $keys)))
+
+(: sk-fold-pending! (-[det]-> Number SkeletonKey Atom))
+(= (sk-fold-pending! $hash $member)
+   (let* (($mhash (index-hash $member)) ($_pending (add-atom &sk_fold_pending ($hash $mhash)))) ()))
 
 ;; Rows and key merges waiting for conditioning are paid for from what the
 ;; evaluation allowance has left: nearest a root first, then cheapest, then

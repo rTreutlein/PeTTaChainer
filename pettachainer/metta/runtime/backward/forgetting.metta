@@ -65,7 +65,8 @@
       ()))
 
 ;; A frozen key nothing reads any more, and that is a member of no fold but
-;; base rates (which keep their members' contributions), is buried: it leaves
+;; base rates and implication instance folds (which keep their members'
+;; contributions), is buried: it leaves
 ;; the answers of open nodes, so a join or fold over an open pattern no longer
 ;; meets it, and its key and reader registrations, unifier cache, uses and
 ;; merged value go. Its summary stays a fact, and its own ground node still

@@ -35,8 +35,7 @@
    (query 400 refineKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv))
    (: (merge/revision
          (rule-axiom ab)
-         (implication-instance-fold
-            (foldall-proof (implication-instance-sample a1 b1))))
+         (implication-instance-fold cpu))
       (RuleTruth (Implication (A $_x) (B $_x)))
       (CTV (STV 0.8000224974690348 0.9000101239749476) (STV 0.0 1.0))))
 
@@ -47,8 +46,7 @@
    (: (rule-truth
          (merge/revision
             (rule-axiom ab)
-            (implication-instance-fold
-               (foldall-proof (implication-instance-sample a1 b1)))))
+            (implication-instance-fold cpu)))
       (Implication (A $_v) (B $_v))
       (CTV (STV 0.8000224974690348 0.9000101239749476) (STV 0.0 1.0))))
 
@@ -78,10 +76,7 @@
    (query 400 refreshKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv))
    (: (merge/revision
          (rule-axiom ab)
-         (implication-instance-fold
-            (foldall-proof
-               (implication-instance-sample a1 b1)
-               (implication-instance-sample a3 b3))))
+         (implication-instance-fold cpu))
       (RuleTruth (Implication (A $_x) (B $_x)))
       (CTV (STV 0.8000449898772777 0.9000202459002052) (STV 0.0 1.0))))
 
@@ -115,8 +110,7 @@
    (query 400 refineStvKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv))
    (: (merge/revision
          (rule-axiom ab)
-         (implication-instance-fold
-            (foldall-proof (implication-instance-sample a1 b1))))
+         (implication-instance-fold cpu))
       (RuleTruth (Implication (A $_x) (B $_x)))
       (STV 0.8000224974690348 0.9000101239749476)))
 
@@ -134,10 +128,7 @@
 
 !(test
    (query 400 refineFactsKb (: $p (Implication (A $v) (B $v)) $tv))
-   (: (implication-instance-fold
-         (foldall-proof
-            (implication-instance-sample a1 b1)
-            (implication-instance-sample a2 b2)))
+   (: (implication-instance-fold cpu)
       (Implication (A $_v) (B $_v))
       (CTV (STV 1.0 0.0020209076619844817) (STV 1.0 0.0005052269154961204))))
 

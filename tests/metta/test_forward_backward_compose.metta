@@ -97,7 +97,7 @@
 !(test
    (query 100 openVariableConclusionImplicationKb
       (: $p (Implication (Tall $x) (Female $x)) $tv))
-   (: (merge/revision (total-implication (merge/revision ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction femaleAlice tallAlice (ctx proof 8))) ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction femaleMary tallMary (ctx proof 8)))) (merge/revision ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction femaleAlice tallAlice (ctx proof 9))) ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction femaleMary tallMary (ctx proof 9))))) (implication-instance-fold (foldall-proof (implication-instance-sample tallAlice femaleAlice) (implication-instance-sample tallMary femaleMary)))) (Implication (Tall $_838880) (Female $_838880)) (CTV (STV 0.9999999988245056 0.9999791027594874) (STV 0.5661264536778613 0.0011186553428046272))))
+   (: (merge/revision (total-implication (merge/revision ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction femaleAlice tallAlice (ctx proof 8))) ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction femaleMary tallMary (ctx proof 8)))) (merge/revision ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction femaleAlice tallAlice (ctx proof 9))) ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction femaleMary tallMary (ctx proof 9))))) (implication-instance-fold cpu)) (Implication (Tall $_838880) (Female $_838880)) (CTV (STV 0.9999999988245056 0.9999791027594874) (STV 0.5661264536778613 0.0011186553428046272))))
 
 ;; The open identity holds. Its instance fold also samples each stored
 ;; statement against its other proofs, the completions copying the other
@@ -111,7 +111,7 @@
          (: $proof
             (Implication ($p $x) ($p $x))
             (CTV (STV 1.0 1.0) (STV 0.0 1.0)))))
-   ((: (merge/revision (total-implication (ctx proof 10) (ctx proof 11)) (implication-instance-fold (foldall-proof (implication-instance-sample tallAlice ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction tallMary femaleMary femaleAlice))) (implication-instance-sample femaleAlice ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction femaleMary tallMary tallAlice))) (implication-instance-sample tallMary ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction tallAlice femaleAlice femaleMary))) (implication-instance-sample femaleMary ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction femaleAlice tallAlice tallMary)))))) (Implication ($_1082206 $_1082212) ($_1082206 $_1082212)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))))
+   ((: (merge/revision (total-implication (ctx proof 10) (ctx proof 11)) (implication-instance-fold cpu)) (Implication ($_1082206 $_1082212) ($_1082206 $_1082212)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))))
 
 !(test
    (query 100 openVariableConclusionImplicationKb

@@ -120,10 +120,26 @@
 ;; member key -> a fold or group key over it
 (: &sk_use (SpaceOf (Number SkeletonKey SkeletonKey)))
 !(bind! &sk_use (new-space))
-;; base-rate fold -> a member that joined or changed since the fold last took
-;; it, by fold hash and member hash
+;; tally fold (a base rate or an implication instance fold) -> a member that
+;; joined or changed since the fold last took it, by fold hash and member hash
 (: &sk_rate_dirty (SpaceOf (Number Number SkeletonKey SkeletonKey)))
 !(bind! &sk_rate_dirty (new-space))
+;; An implication instance fold's tally, the sum of its members' contributions
+;; as last taken, by fold hash; each member's contribution, by member hash and
+;; fold hash; the members reading a statement directly, by the statement's key
+;; hash, so a reader's own sample is found by the keys it excludes; and the
+;; folds with members to take, by fold hash.
+(: &sk_instance_tally (SpaceOf (Number SkeletonKey InstanceEvidenceState)))
+!(bind! &sk_instance_tally (new-space))
+(: &sk_instance_member (SpaceOf (Number Number SkeletonKey InstanceEvidenceState)))
+!(bind! &sk_instance_member (new-space))
+(: &sk_instance_read (SpaceOf (Number Number Number SkeletonKey)))
+!(bind! &sk_instance_read (new-space))
+(: &sk_instance_changed (SpaceOf (Number SkeletonKey)))
+!(bind! &sk_instance_changed (new-space))
+;; the instance folds an evaluation already brought current, by fold hash
+(: &sk_instance_checked (SpaceOf (Number)))
+!(bind! &sk_instance_checked (new-space))
 ;; base-rate cache pattern hash -> a fold key reading that pattern's entries
 (: &sk_rate_folds (SpaceOf (Number SkeletonKey)))
 !(bind! &sk_rate_folds (new-space))

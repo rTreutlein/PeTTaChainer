@@ -511,8 +511,9 @@ the consequent is explained through the refined rule too. A rule's own
 derivations never count as its samples, nor do values that depend on any
 refined rule's truth: what other hypotheses predict is not an observation.
 Applied to an instance whose own sample is in the fold, the rule reads its
-truth folded without that sample. Facts added later join the fold at
-the next query that reads the goal. The axiom carries the rule's own evidence,
+truth without that sample. The fold keeps each sample's contribution: facts
+added later are taken at the next query or forward run, whatever it asks,
+at the cost of the samples they change. The axiom carries the rule's own evidence,
 so a proof through the axiom and a proof through the rule are dependent and
 never revise twice.
 
@@ -525,17 +526,17 @@ implication query of a refined rule's shape answers through the goal (proof
 the instance producer does not sample keep their stored truth, and so do rules
 stated with confidence 1 (for a CTV, in its positive branch): revision leaves
 a certain truth unchanged, so their instances are not folded. Forward
-chaining fires refined rules with the truth goal's current value and never
-folds, so a rule's instances are folded by the queries that read its goal.
+chaining fires refined rules with the truth goal's current value.
 
 A refined rule is searched in proportion to what applying it can add: its
 expected confidence is scaled by its truth's confidence times, for a CTV,
 |P(B|A) − P(B|not A)| (at least 0.01, so it is still reached with budget to
 spare). A weakly held rule, a hypothesis, is therefore searched little until
 the data confirms it, and a rule whose consequent does not move with its
-antecedent falls back to the floor. Reading the goal, for instance
-`(query 50 kb (: $p (RuleTruth (Implication ...)) $tv))`, folds the instances
-and updates the score (docs/metta/hypothesis_rules.md).
+antecedent falls back to the floor. The first query that reads the goal, for
+instance `(query 50 kb (: $p (RuleTruth (Implication ...)) $tv))`, folds the
+instances; from then on the truth and the score follow new instances without
+one (docs/metta/hypothesis_rules.md).
 
 ### Complete predicates
 

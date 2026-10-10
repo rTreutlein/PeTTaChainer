@@ -522,15 +522,29 @@
       (sk-dirty! $key)
       ()))
 
-;; Base rates follow their members incrementally, see sk-fold-view.
-(: sk-rate-fold? (-[det]-> SkeletonKey Bool))
-(= (sk-rate-fold? $key)
+;; Base rates and implication instance folds follow their members
+;; incrementally, as a tally of each member's contribution (see sk-fold-view).
+(: sk-instance-fold? (-[det]-> Atom Bool))
+(= (sk-instance-fold? ($_kb $_pattern $_extractor $_init $_function $finish $_mode))
+   (stored-list-member? $finish (implication-instance implication-instance-ctv)))
+
+(: sk-instance-fold-key? (-[det]-> SkeletonKey Bool))
+(= (sk-instance-fold-key? $key)
    (case $key (
-      ((sk-fold ($_kb $_pattern $_extractor $_init $_function $finish $_mode)) (base-rate-finish? $finish))
+      ((sk-fold $args) (sk-instance-fold? $args))
       ($_other false))))
 
-;; A member that joined a base-rate fold, or whose value changed, is taken into
-;; it when a query next needs the fold or it is next read.
+(: sk-rate-fold? (-[det]-> SkeletonKey Bool))
+(= (sk-rate-fold? $key)
+   (if (sk-instance-fold-key? $key) true
+      (case $key (
+         ((sk-fold ($_kb $_pattern $_extractor $_init $_function $finish $_mode)) (base-rate-finish? $finish))
+         ($_other false)))))
+
+;; A member that joined a tally fold, or whose value changed, is taken into it
+;; when a query next needs the fold or it is next read; an implication
+;; instance fold is also brought current by the evaluation (see
+;; sk-instance-checks!).
 (: sk-rate-dirty! (-[det]-> SkeletonKey SkeletonKey Atom))
 (= (sk-rate-dirty! $fold $member)
    (if (sk-rate-fold? $fold)
@@ -538,19 +552,26 @@
          (if (== (collapse (once (match &sk_rate_dirty ($hash $mhash $stored-fold $stored)
                     (if (=alpha $stored $member) (if (=alpha $stored-fold $fold) true (empty)) (empty)))))
                  ())
-            (let $_row (add-atom &sk_rate_dirty ($hash $mhash $fold $member)) ())
+            (let* (($_row (add-atom &sk_rate_dirty ($hash $mhash $fold $member)))
+                   ($_changed
+                      (if (if (sk-instance-fold-key? $fold) (not (space-row-present? &sk_instance_changed ($hash $_stored))) false)
+                         (add-atom &sk_instance_changed ($hash $fold))
+                         ())))
+               ())
             ()))
       ()))
 
 ;; A new member answer changes the value of every fold over its node; a group
-;; fold additionally gains the answer's group as one of its own answers.
+;; fold additionally gains the answer's group as one of its own answers. An
+;; implication instance fold takes the member when the evaluation brings it
+;; current, so its readers are not changed before.
 (= (sk-member-step $key $_acc $fold)
    (case $fold (
       ((CPU FoldAllCompiled $args $_res)
          (let* (($fold-key (sk-fold $args))
                 ($_use (sk-add-use! $key $fold-key))
                 ($_rate (sk-rate-dirty! $fold-key $key)))
-            (sk-mark-dirty! $fold-key)))
+            (if (sk-instance-fold-key? $fold-key) () (sk-mark-dirty! $fold-key))))
       ((CPU GroupedFoldAllCompiled $grouped-args $_res)
          (case (let $unbound (copy_term $grouped-args)
                   (sk-member-group (copy_term $grouped-args) $unbound $unbound $key)) (

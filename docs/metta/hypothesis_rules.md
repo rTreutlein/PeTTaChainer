@@ -172,11 +172,12 @@ Built as designed, with these findings from probing the existing code:
     against 0.925 now, `test_refined_rule_reads.metta`).
 
   The result no longer depends on when the rules were reviewed, and clients
-  need not review before adding a round's facts. A leave-one-out read folds
+  need not review before adding a round's facts. A leave-one-out read folded
   the rule's instances again, O(instances) for each reader whose instance is
-  a sample; rows reading through a rule's truth no longer see the truth's
-  samples in their dependencies, so a deeper reader is not protected from
-  its own sample through the parameter.
+  a sample (now a subtraction, see "Instance tallies"); rows reading through
+  a rule's truth no longer see the truth's samples in their dependencies, so
+  a deeper reader is not protected from its own sample through the
+  parameter.
 - **A CTV refined rule now learns its negative branch** from the instances
   whose antecedent is false (`ImplicationInstanceAcc`, finish
   `implication-instance-ctv`), with their count as its confidence; from the
@@ -219,3 +220,49 @@ general one (`sk-specialized`, proof `(specializes specific general)`): 0.95
 `benchmarks/ona/repros/specificity.py`). A specific rule with little evidence
 stays near the general rate. Only applications to stored facts are compared:
 a derived premise's leaves say nothing about entailment.
+
+
+## Instance tallies (October 2026)
+
+A refined rule's truth was refolded over all its instances whenever a
+member changed, by every review that needed it (the review needed every
+member), and by every leave-one-out read. Each cost O(instances), so review
+time grew with history: SupplyNet learned rules, stage 1 reviews 18 s to
+35 s, and 2 to 2.5 times the time at 120 history periods.
+
+An implication instance fold is now a tally, as a base rate is
+(`sk-fold-view`):
+
+- **Contributions.** Each sample's contribution to the
+  `ImplicationInstanceAcc` sums is kept per member (`&sk_instance_member`)
+  and the sums once per fold (`&sk_instance_tally`). The sums are additive,
+  so a member that joins or changes replaces its contribution: a take costs
+  the members that changed, never the instances.
+- **No member dependencies.** The fold's view carries neither member evidence
+  nor member dependencies, as a base rate's does not, and is proved by `cpu`.
+  Self-support is refused where the samples are read instead: a sample reads
+  no value through a refined rule's truth (as before) nor through the
+  implication it samples (a derived implication applied to its own instance,
+  `test_derived_implications.metta`).
+- **Leave one out.** Each member's first take records the statements its
+  sample reads (`&sk_instance_read`). A consumer excluding a key reads the
+  fold less the contributions of the samples that read that key, a lookup per
+  excluded key; a refined rule's truth leaves the sample out for the rule
+  applied to the instance by evaluating its fold row again for that reader.
+  A sample that depends on the reader's key only through a derived statement
+  it reads is not found this way (no case in the suite).
+- **Kept current.** Every evaluation, of a query or a forward run, brings
+  current each instance fold that was read and whose members changed, with
+  the keys reading it, as it does a root's (`sk-instance-checks!`): a fact
+  absorbed for the next query starts the sample rule's joins, the new or
+  changed sample is computed and taken, and the truth and its search score
+  move, whatever the query asks for. A member whose rows the evaluation could
+  not compute waits for the next one. A fold nobody read yet takes all its
+  members when first read.
+
+So a review is a read: once the first query that reads a rule's truth has
+folded its instances, later reviews compute nothing
+(`test_instance_tally.metta`: a new instance costs three row computations
+after 4 instances as after 16, a budget-0 query about an unrelated fact
+takes it, and the review after it computes no row).
+

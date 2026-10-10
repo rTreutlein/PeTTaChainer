@@ -18,18 +18,14 @@
 
 !(test
    (query 100 instanceFactsKb (: $prf (Implication (A $v) (B $v)) $tv))
-   (: (implication-instance-fold
-         (foldall-proof
-            (implication-instance-sample a1 b1)
-            (implication-instance-sample a2 b2)))
+   (: (implication-instance-fold cpu)
       (Implication (A $_v) (B $_v))
       (CTV (STV 1.0 0.0020209076619844817) (STV 1.0 0.0005052269154961204))))
 
 ;; A ground implication is a one-sample fold.
 !(test
    (query 100 instanceFactsKb (: $prf (Implication (A a) (B a)) $tv))
-   (: (implication-instance-fold
-         (foldall-proof (implication-instance-sample a1 b1)))
+   (: (implication-instance-fold cpu)
       (Implication (A a) (B a))
       (CTV (STV 1.0 0.001011475880670821) (STV 1.0 0.00025286897016770524))))
 
@@ -57,10 +53,7 @@
 
 !(test
    (query 100 instanceNegKb (: $prf (Implication (A $v) (B $v)) $tv))
-   (: (implication-instance-fold
-         (foldall-proof
-            (implication-instance-sample a1 b1)
-            (implication-instance-sample a2 nb2)))
+   (: (implication-instance-fold cpu)
       (Implication (A $_v) (B $_v))
       (CTV (STV 0.5 0.0020209076619844817) (STV 0.5 0.0005052269154961204))))
 
@@ -80,8 +73,7 @@
 !(test
    (let (: (merge/revision
               (total-implication (by ab $_pos) (by ab $_neg))
-              (implication-instance-fold
-                 (foldall-proof (implication-instance-sample a1 b1))))
+              (implication-instance-fold cpu))
            $type $tv)
       (query 200 instanceRuleKb (: $prf (Implication (A $v) (B $v)) $tv))
       $tv)
@@ -109,10 +101,7 @@
 
 !(test
    (query 200 instanceOtherRuleKb (: $prf (Implication (A $v) (B $v)) $tv))
-   (: (implication-instance-fold
-         (foldall-proof
-            (implication-instance-sample a1 b1)
-            (implication-instance-sample a2 (by cb c2))))
+   (: (implication-instance-fold cpu)
       (Implication (A $_v) (B $_v))
       (CTV (STV 0.7500000125034592 0.0020209075611154013)
            (STV 0.7500000125034592 0.0005052268902788503))))
@@ -128,8 +117,7 @@
 !(test
    (query 200 instanceConjKb
       (: $prf (Implication (And (A $v) (C $v)) (B $v)) $tv))
-   (: (implication-instance-fold
-         (foldall-proof (implication-instance-sample a1 c1 b1)))
+   (: (implication-instance-fold cpu)
       (Implication (And (A $_v) (C $_v)) (B $_v))
       (CTV (STV 1.0 0.0009195848842900393) (STV 1.0 0.00022989622107250982))))
 
@@ -139,8 +127,7 @@
 
 !(test
    (query 200 instanceTwoVarKb (: $prf (Implication (P $v $w) (Q $v)) $tv))
-   (: (implication-instance-fold
-         (foldall-proof (implication-instance-sample p1 q1)))
+   (: (implication-instance-fold cpu)
       (Implication (P $_v $_w) (Q $_v))
       (CTV (STV 1.0 0.001011475880670821) (STV 1.0 0.00025286897016770524))))
 
