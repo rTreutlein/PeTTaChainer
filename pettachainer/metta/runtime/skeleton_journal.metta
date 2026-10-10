@@ -120,8 +120,9 @@
 ;; member key -> a fold or group key over it
 (: &sk_use (SpaceOf (Number SkeletonKey SkeletonKey)))
 !(bind! &sk_use (new-space))
-;; base-rate fold -> a member that joined or changed since the fold last took it
-(: &sk_rate_dirty (SpaceOf (Number SkeletonKey SkeletonKey)))
+;; base-rate fold -> a member that joined or changed since the fold last took
+;; it, by fold hash and member hash
+(: &sk_rate_dirty (SpaceOf (Number Number SkeletonKey SkeletonKey)))
 !(bind! &sk_rate_dirty (new-space))
 ;; base-rate cache pattern hash -> a fold key reading that pattern's entries
 (: &sk_rate_folds (SpaceOf (Number SkeletonKey)))

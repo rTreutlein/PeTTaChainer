@@ -196,7 +196,7 @@
                 (let $_removed (remove-atom &sk_forward_folds ($hash $fold)) $fold))))
           ($_searched (if (== $folds ()) () (sk-search! (fold-semidet (sk-push 0) (empty_heap) $folds))))
           ($readers (list_to_set (fold-semidet sk-reader-keys-step () $entries)))
-          ($_needed (fold-semidet (sk-need! 0) () $readers))
+          ($_needed (sk-need-keys! 0 $readers))
           ($_evaluated (sk-evaluate!))
           ($changed (fold-semidet sk-changed-step $agenda $readers)))
       (if (> (search-id-value sk_eval_budget) 0) $changed (fold-semidet sk-rest-step $changed $entries))))

@@ -91,3 +91,12 @@
 !(test (query 100 legKb (: $p (HasLeg Dog 4) $tv)) (: f4 (HasLeg Dog 4) (STV 1.0 0.9)))
 !(test (let (: $p (HasLeg Dog 4) $tv) (query 100 legKb (: $p (HasLeg Dog $n) $tv)) ($p $tv)) (f4 (STV 1.0 0.9)))
 
+;; A rule that grows its terms ((Num $x) -> (Num (succ $x)), ONA
+;; reasoningbench, benchmarks/ona/repros/term_growing_rule.metta) inverts into
+;; an unbounded chain of ever larger statements. Demand walks the keys a query
+;; reaches breadth first, once each; walked depth first, a key reached again
+;; more closely walked everything below it again (budget 100: over 55 s, now
+;; about 4 s).
+!(compileadd numKb (: r9 (Implication (Num $x) (Num (succ $x))) (STV 1.0 0.9)))
+!(compileadd numKb (: f10 (Num 1) (STV 1.0 0.9)))
+!(test (query 100 numKb (: $p (Num (succ 1)) $tv)) (: (by r9 f10) (Num (succ 1)) (STV 1.0 0.8181610802590104)))

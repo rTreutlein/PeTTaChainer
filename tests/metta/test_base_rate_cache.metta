@@ -234,4 +234,4 @@
 !(collapse (query 200 rateEchoKb (: $p (Leak q) $tv)))
 !(compileadd rateEchoKb (: l3 (Leak u3) (STV 0.0 1.0)))
 !(collapse (query 200 rateEchoKb (: $p (Leak q) $tv)))
-!(test (collapse (match &sk_rate_dirty ($_hash $_fold (sk-key (Leak q) $_kbctx)) true)) ())
+!(test (collapse (match &sk_rate_dirty ($_hash $_mhash $_fold (sk-key (Leak q) $_kbctx)) true)) ())

@@ -21,8 +21,14 @@
     Head =.. [Space|Row],
     functor(Head, Name, Arity),
     functor(Stored, Name, Arity),
-    (   Row = [First|_], ground(First) -> arg(1, Stored, First) ; true ),
+    foldl(bind_ground_column(Stored), Row, 1, _),
     (   clause(Stored, true, Ref), Stored =@= Head -> erase(Ref) ; true ).
+
+% Every ground column of the row is bound for the clause lookup, so SWI can
+% index on the most selective one.
+bind_ground_column(Stored, Column, I, J) :-
+    ( ground(Column) -> arg(I, Stored, Column) ; true ),
+    J is I + 1.
 
 % PeTTa arrows have one result position. Package SWI's three relational
 % get_from_heap/4 outputs into one positional product.
