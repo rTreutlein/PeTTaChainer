@@ -1640,34 +1640,44 @@
 ;; it is conditioned only once the evaluation paid for it, and keeps the
 ;; fallback until then (see sk-pay-conditions!), with a cost bound of 2^k
 ;; times one more than the overlapping views' dependency count; inside a
-;; conditioned read it is part of what was paid for. A key read again inside
-;; its own conditioning, through a shared statement's value, keeps its
+;; conditioned read it draws from the claim it is part of. A key read again
+;; inside its own conditioning, through a shared statement's value, keeps its
 ;; fallback there.
 (= (sk-key-condition $given $hash $key $filter $exclude (cons $pin $more) $deps $fallback)
-   (if (== $given ())
-      (if (space-row-present? &sk_given_granted ($hash -1))
-         (if (space-row-present? &sk_conditioning ($hash)) $fallback
-            (let* (($_entered (add-atom &sk_conditioning ($hash)))
-                   ($mixed (sk-key-mix $given $hash $key $filter $exclude $pin $fallback))
-                   ($_left (remove-atom &sk_conditioning ($hash))))
-               $mixed))
-         (let $cost (* (pow-math 2 (+ 1 (list-len $more))) (+ 1 (deps-size $deps)))
+   (let $cost (* (pow-math 2 (+ 1 (list-len $more))) (+ 1 (deps-size $deps)))
+      (if (== $given ())
+         (if (space-row-present? &sk_given_granted ($hash -1))
+            (if (space-row-present? &sk_conditioning ($hash)) $fallback
+               (let* (($_entered (add-atom &sk_conditioning ($hash)))
+                      ($mixed (sk-key-mix $given $hash $key $filter $exclude $pin $cost $fallback))
+                      ($_left (remove-atom &sk_conditioning ($hash))))
+                  $mixed))
             (if (space-row-present? &sk_given_pending ($hash -1 $_cost)) $fallback
-               (let $_pending (add-atom &sk_given_pending ($hash -1 $cost)) $fallback))))
-      (sk-key-mix $given $hash $key $filter $exclude $pin $fallback)))
+               (let $_pending (add-atom &sk_given_pending ($hash -1 $cost)) $fallback)))
+         (sk-key-mix $given $hash $key $filter $exclude $pin $cost $fallback))))
 
 ;; The mix itself: the weight read without the key, the key merged again
-;; with the statement known true and known false.
+;; with the statement known true and known false, within a claim. A paid
+;; claim that overdrew keeps the fallback and waits again.
 (: sk-key-mix
-   (-[semidet]-> (List SkeletonGiven) Number SkeletonKey SkeletonFilter (List Number) SkeletonKey SkeletonValue
-       SkeletonValue))
-(= (sk-key-mix $given $hash $key $filter $exclude $pin $fallback)
+   (-[semidet]-> (List SkeletonGiven) Number SkeletonKey SkeletonFilter (List Number) SkeletonKey Number
+       SkeletonValue SkeletonValue))
+(= (sk-key-mix $given $hash $key $filter $exclude $pin $cost $fallback)
    (let* (($phash (index-hash $pin))
-          ($weight (sk-given-value $given $pin sk-any-filter (hash-union $exclude (sk-unifier-hashes $hash $key))))
-          ($true (sk-given-merge (cons (sk-given $phash $pin true) $given) $key $filter $exclude))
-          ($false (sk-given-merge (cons (sk-given $phash $pin false) $given) $key $filter $exclude))
-          ($mixed (collapse (once (sk-mix $weight $true $false)))))
-      (if (== $mixed ()) $fallback (car-atom $mixed))))
+          ($opened (sk-open-claim! $cost))
+          ($mixed
+             (collapse (once
+                (sk-mix (sk-given-value $given $pin sk-any-filter (hash-union $exclude (sk-unifier-hashes $hash $key)))
+                   (sk-given-merge (cons (sk-given $phash $pin true) $given) $key $filter $exclude)
+                   (sk-given-merge (cons (sk-given $phash $pin false) $given) $key $filter $exclude)))))
+          ($overdrawn (sk-close-claim! $opened)))
+      (if $overdrawn
+         (if (if $opened (if (== $given ()) (not (space-row-present? &sk_given_pending ($hash -1 $_waits))) false) false)
+            (let $_pending (add-atom &sk_given_pending ($hash -1 $cost)) $fallback)
+            $fallback)
+         (case $mixed (
+            ((cons $value $_rest) $value)
+            (() $fallback))))))
 
 ;; A premise value whose evidence overlaps what the row already uses is
 ;; replaced by the merge of the key's leaves and views that do not overlap it:
@@ -1924,26 +1934,30 @@
 ;; around it exclude. Premises take values greedily in order, so a merged value
 ;; may hold evidence a later premise needs: on such a clash the row reads
 ;; again, on a fresh copy, taking stored facts first. A clash over shared facts
-;; that remains is resolved by conditioning on them.
+;; that remains is resolved by conditioning on them. A row read under a
+;; condition is charged to the claim it is part of.
 (= (sk-row-view $given $exclude $khash $key $rhash $row)
-   (let* (((sk-row $_ident ($_type $_kbctx $proof $_tv) $_premises $_seq) $row)
-          ($exclusions (hash-union (sk-row-exclusions $khash $key $proof) $exclude))
-          ($greedy (copy_term $row))
-          ($state (sk-row-state $given $exclusions $khash false $greedy)))
-      (case $state (
-         ((sk-clash $_first-keys $_first-cost)
-            (let* (($retry (copy_term $row))
-                   ($again (sk-row-state $given $exclusions $khash true $retry)))
-               (case $again (
-                  ((sk-clash $keys $cost) (sk-condition $given $exclusions $khash $key $rhash $row $keys $cost))
-                  ($_other (sk-row-result $retry $again))))))
-         ($_other (sk-row-result $greedy $state))))))
+   (if (sk-claim-charge! $given)
+      (let* (((sk-row $_ident ($_type $_kbctx $proof $_tv) $_premises $_seq) $row)
+             ($exclusions (hash-union (sk-row-exclusions $khash $key $proof) $exclude))
+             ($greedy (copy_term $row))
+             ($state (sk-row-state $given $exclusions $khash false $greedy)))
+         (case $state (
+            ((sk-clash $_first-keys $_first-cost)
+               (let* (($retry (copy_term $row))
+                      ($again (sk-row-state $given $exclusions $khash true $retry)))
+                  (case $again (
+                     ((sk-clash $keys $cost) (sk-condition $given $exclusions $khash $key $rhash $row $keys $cost))
+                     ($_other (sk-row-result $retry $again))))))
+            ($_other (sk-row-result $greedy $state)))))
+      sk-none))
 
 ;; Conditioning is paid for from the evaluation allowance: a row outside any
 ;; condition is conditioned only once the evaluation granted it the cost, and
 ;; waits for that otherwise (see sk-pay-conditions!); inside a conditioned read
-;; it is part of what was paid for. The statements are taken one at a time: a
-;; branch still clashing over another conditions on it in turn.
+;; it draws from the claim it is part of. The statements are taken one at a
+;; time: a branch still clashing over another conditions on it in turn. A paid
+;; claim that overdrew derives nothing and waits again.
 (: sk-condition
    (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Number SkeletonRow (List SkeletonKey) Number
        SkeletonValue))
@@ -1954,12 +1968,51 @@
          (if (if (== $given ()) (== (collapse (once (match &sk_given_granted ($khash $rhash) true))) ()) false)
             (let $_pending (add-atom &sk_given_pending ($khash $rhash $cost)) sk-none)
             (let* (($phash (index-hash $pin))
-                   ($weight (sk-given-value $given $pin sk-any-filter $exclusions))
-                   ($true (sk-row-view (cons (sk-given $phash $pin true) $given) $exclusions $khash $key $rhash $row))
-                   ($false (sk-row-view (cons (sk-given $phash $pin false) $given) $exclusions $khash $key $rhash $row)))
-               (case (collapse (once (sk-mix $weight $true $false))) (
-                  ((cons $mixed $_rest) $mixed)
-                  (() sk-none)))))))))
+                   ($opened (sk-open-claim! $cost))
+                   ($mixed
+                      (collapse (once
+                         (sk-mix (sk-given-value $given $pin sk-any-filter $exclusions)
+                            (sk-row-view (cons (sk-given $phash $pin true) $given) $exclusions $khash $key $rhash $row)
+                            (sk-row-view (cons (sk-given $phash $pin false) $given) $exclusions $khash $key $rhash $row)))))
+                   ($overdrawn (sk-close-claim! $opened)))
+               (if $overdrawn
+                  (if (if $opened (== $given ()) false)
+                     (let $_pending (add-atom &sk_given_pending ($khash $rhash $cost)) sk-none)
+                     sk-none)
+                  (case $mixed (
+                     ((cons $value $_rest) $value)
+                     (() sk-none))))))))))
+
+;; A claim is the conditioning one payment covers: a row or key conditioned
+;; outside any condition, with everything its branches condition on in turn.
+;; Each row it evaluates again under a condition takes one of twice its cost
+;; bound (sk-claim-charge!): the bound counts each dependency once per branch,
+;; and a row read through two paths is evaluated twice. Conditioning reached
+;; inside an open claim, a branch's or a paid key's read through a weight,
+;; draws from that claim; a closed read outside any claim that conditions opens
+;; one of its own. A claim that would take more stops evaluating and
+;; overdraws, and its mix falls back as an unpaid one does. So no claim grows
+;; past its bound, however deep its branches condition.
+(: sk-open-claim! (-[det]-> Number Bool))
+(= (sk-open-claim! $cost)
+   (if (== (search-id-value sk_claim_left) -1) (progn (change-state! sk_claim_left (* 2 $cost)) true) false))
+
+;; Whether the open claim overdrew; the mix that opened it closes it.
+(: sk-close-claim! (-[det]-> Bool Bool))
+(= (sk-close-claim! $opened)
+   (let $overdrawn (== (search-id-value sk_claim_left) -2)
+      (if $opened (progn (change-state! sk_claim_left -1) $overdrawn) $overdrawn)))
+
+;; Whether a conditioned evaluation fits the open claim, which it then takes
+;; one from; one that does not fit overdraws the claim.
+(: sk-claim-charge! (-[det]-> (List SkeletonGiven) Bool))
+(= (sk-claim-charge! $given)
+   (if (== $given ()) true
+      (let $left (search-id-value sk_claim_left)
+         (if (> $left 0)
+            (let $_counted (query_metric_increment conditioned-evaluations)
+               (progn (change-state! sk_claim_left (- $left 1)) true))
+            (if (== $left 0) (progn (change-state! sk_claim_left -2) false) (> $left -2))))))
 
 ;; The branches mix by modus ponens over the weight, when all three are simple
 ;; truth values and the weight's evidence is not in the branches.
@@ -2789,7 +2842,9 @@
 ;; evaluation allowance has left: nearest a root first, then cheapest, then
 ;; oldest. The first one the allowance cannot pay for waits, with the rest,
 ;; for a later query that needs it, so a larger allowance extends the same
-;; prefix. A paid row is recomputed, conditioned, with its readers.
+;; prefix. A paid row is recomputed, conditioned, with its readers. Each is
+;; paid at most once per evaluation: one whose claim overdrew its cost waits
+;; again for a later query.
 (: SkeletonWaiting Type)
 (: sk-row-waiting (-[det]-> SkeletonItem SkeletonWaiting))
 (: sk-key-waiting (-[det]-> Number SkeletonKey SkeletonWaiting))
@@ -2802,13 +2857,15 @@
             (append-flat
                (collapse (match &sk_given_pending ($khash $rhash $cost)
                   (match &sk_row ($khash $key $rhash (sk-row $ident $concl $premises $seq))
-                     (if (sk-needed? $khash $key)
+                     (if (if (sk-needed? $khash $key) (not (space-row-present? &sk_given_granted ($khash $rhash))) false)
                         (sk-claim (sk-need-depth $khash $key) $cost $seq
                            (sk-row-waiting (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $seq))))
                         (empty)))))
                (collapse (match &sk_given_pending ($khash -1 $cost)
                   (match &sk_keys ($khash $key)
-                     (if (sk-needed? $khash $key) (sk-claim (sk-need-depth $khash $key) $cost -1 (sk-key-waiting $khash $key)) (empty))))))) (
+                     (if (if (sk-needed? $khash $key) (not (space-row-present? &sk_given_granted ($khash -1))) false)
+                        (sk-claim (sk-need-depth $khash $key) $cost -1 (sk-key-waiting $khash $key))
+                        (empty))))))) (
       (() ())
       ((cons (sk-claim $_depth $claim-cost $_seq $waiting) $_rest)
          (let $left (search-id-value sk_eval_budget)
@@ -2954,7 +3011,7 @@
 (: backward-query-counter-keys (-[det]-> (List Atom)))
 (= (backward-query-counter-keys)
    (expansions rows-created rows-deferred joins-deferred row-computes views-stored
-    views-without-support merged-cache-hits merged-cache-misses))
+    views-without-support merged-cache-hits merged-cache-misses conditioned-evaluations))
 
 (: sk-counter-reset (-[det]-> Atom Atom Atom))
 (= (sk-counter-reset $_acc $key) (let $_zero (query_metric_set $key 0) ()))

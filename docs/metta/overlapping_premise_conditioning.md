@@ -57,7 +57,10 @@ B))`, used in place of `P(C | A, not B)`, which the engine never estimates.
   nearest a root first, then cheapest, then oldest, with no fixed cap:
   - cost bound: 2^k × (1 + dependencies of the clashing value);
   - paid from the evaluation allowance;
-  - the first row that cannot be paid stops the payment.
+  - the first row that cannot be paid stops the payment;
+  - the claim, the row with everything its branches condition on in turn,
+    evaluates at most twice its bound in conditioned rows, or falls back
+    ([overlap_conditioning.md](overlap_conditioning.md), "Cost").
 
   A width of 0 would also have ranked the motivating example, with certain
   facts, as worthless, while without conditioning it has no answer at all.

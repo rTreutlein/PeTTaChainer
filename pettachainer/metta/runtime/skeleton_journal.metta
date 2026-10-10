@@ -233,6 +233,9 @@
 ;; its own conditioning keeps the fallback
 (: &sk_conditioning (SpaceOf (Number)))
 !(bind! &sk_conditioning (new-space))
+;; The conditioned evaluations the open claim may still make: -1 while no
+;; claim is open, -2 once the open one overdrew (see sk-open-claim!).
+!(change-state! sk_claim_left -1)
 ;; keys whose value changed outside evaluation, once each, by key hash
 (: &sk_dirty (SpaceOf (Number SkeletonKey)))
 !(bind! &sk_dirty (new-space))

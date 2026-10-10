@@ -173,6 +173,7 @@
 (: sk_budget CounterKey)
 (: sk_row_budget CounterKey)
 (: sk_eval_budget CounterKey)
+(: sk_claim_left CounterKey)
 ;; 1 while a forward run grows the skeleton upward
 (: sk_forward_run CounterKey)
 (: sk_walk_budget CounterKey)

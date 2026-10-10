@@ -472,7 +472,12 @@ for k shared statements; a key whose views overlap waits the same way,
 keeping its merge with the more confident view, with the overlapping views'
 dependency count. Once the rows are computed and the roots' merged values
 read, the waiting rows and keys the query needs are paid for nearest a root
-first, then cheapest, then oldest. A row is recomputed conditioned, with its
+first, then cheapest, then oldest, each at most once per evaluation. What a
+payment covers, the conditioning with everything its branches condition on in
+turn, evaluates at most twice the cost bound in rows under a condition; a
+claim that would take more falls back as an unpaid one does and waits again,
+so nested conditioning never multiplies past what was paid
+(`overlap_conditioning.md`). A row is recomputed conditioned, with its
 readers; a key drops its merged value and forces its readers, which read it
 conditioned. Either may add waiting rows or keys. The first one the allowance
 cannot pay for stops the payment, so a larger allowance extends the same

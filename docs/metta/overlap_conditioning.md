@@ -158,7 +158,25 @@ it. The same holds for row conditioning.
 As for rows: a merge outside any condition conditions only once the evaluation
 paid for it, and inside a conditioned read it is part of what was paid for.
 Its cost bound is 2^k times one more than the size of the two views'
-dependency sets together, for k first statements. A key waiting for the
+dependency sets together, for k first statements.
+
+The bound is enforced. A claim is what one payment covers: a row or key
+conditioned outside any condition, with everything its branches condition on
+in turn, and everything conditioned that a weight's read reaches. Each row it
+evaluates again under a condition takes one of twice its bound (the bound
+counts each dependency once per branch, and a row read through two paths is
+evaluated twice); a claim that would take more stops and falls back as an
+unpaid one does, the row deriving nothing and the key keeping its more
+confident view, and waits for a later query, paid at most once per
+evaluation. Nesting made a claim's work unbounded before: a branch whose
+views still overlap conditions again, and every level doubles the work
+(ONA identity matching, while rule truths were shared statements: one claim
+ran for 13 minutes). Test_overlap_conditioning's plant over five periods with
+soft reports, where conditioning Degraded plant t5 conditions t4 inside its
+branches, t4 t3 and so on, took 238 s at budget 300 and 509 s at budget 2000;
+it now takes 7 s and 8.5 s for the same answers
+(`test_nested_conditioning.metta`), and twelve periods take 8 s. A closed read outside any claim that conditions opens a claim
+of its own. A key waiting for the
 payment keeps its fallback merged value, and the payment is claimed with the
 rows waiting to be conditioned (`sk_given_pending` with row hash -1): nearest
 a root first, then cheapest, then oldest. A paid key drops its merged value
