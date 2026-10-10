@@ -120,10 +120,9 @@ class KB:
         values = [fact.strength for fact in self.history + self.facts if fact.pred == pred]
         return (sum(values) + BAYES_PRIOR_COUNT / 2) / (len(values) + BAYES_PRIOR_COUNT)
 
-    def rates(self, rule: Rule) -> tuple[float, float]:
-        """A rule's two branches: as stated, or Laplace counts over the history."""
-        if not rule.learned:
-            return rule.p, rule.q
+    def tally(self, rule: Rule) -> dict[bool, list[int]]:
+        """Per branch (antecedent true / false): [consequent true, instances]
+        over the history."""
         worlds: dict[str, dict[str, bool]] = {}
         for fact in self.history:
             worlds.setdefault(fact.ind, {})[fact.pred] = fact.strength == 1.0
@@ -133,6 +132,13 @@ class KB:
                 branch = tally[rule.ant.holds(world)]
                 branch[0] += world[rule.head]
                 branch[1] += 1
+        return tally
+
+    def rates(self, rule: Rule) -> tuple[float, float]:
+        """A rule's two branches: as stated, or Laplace counts over the history."""
+        if not rule.learned:
+            return rule.p, rule.q
+        tally = self.tally(rule)
         return tuple((tally[b][0] + 1) / (tally[b][1] + 2) for b in (True, False))
 
     def model_prior(self, pred: str) -> float:
@@ -203,6 +209,10 @@ class KB:
             for pred in rule.ant.preds:
                 if pred not in self.preds:
                     issues.append(f"{rule.name} reads undefined {pred}")
+            if rule.learned and (rule.ant.op == "or" or any(part.negated for part in rule.ant.parts)):
+                issues.append(f"learned {rule.name} has a shape the instance fold does not sample")
+            if rule.learned and not all(count for _, count in self.tally(rule).values()):
+                issues.append(f"learned {rule.name} has a branch without instances")
             if rule.head in self.complete:
                 if rule.q != 0 or rule.learned:
                     issues.append(f"complete {rule.head} with a negative branch")
@@ -305,7 +315,7 @@ def metta(kb: KB, k: float) -> MettaProgram:
         refinement=kb.learned,
         statements=statements,
         base_rates=[(f"({pred} $x)", f"(STV {_num(rate)} 1.0)") for pred, rate in kb.roots.items() if rate is not None]
-        + [(f"({rule.head} $x)", f"(STV {kb.model_prior(rule.head):.10g} 1.0)") for rule in kb.rules if "derived_rates" in kb.features and not kb.history],
+        + [(f"({rule.head} $x)", f"(STV {kb.model_prior(rule.head):.10g} 1.0)") for rule in kb.rules if "derived_rates" in kb.features],
         queries=[f"(: $prf ({pred} {ind}) $tv)" for pred, ind in kb.queries],
     )
 

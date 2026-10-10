@@ -5,7 +5,7 @@ the KB inside the shared semantics (``KB.problems()``) and is kept when both
 sides still disagree on that atom in that category. Reductions, tried until
 none applies: keep only the failing query, drop an individual, an
 observation, a rule (its head becomes a root with its prior under the model),
-an antecedent part, a negation, a loop declaration, half the history, and
+an antecedent part, a negation, a loop declaration, half the history (down to 8 individuals), and
 unused root predicates.
 """
 
@@ -16,6 +16,9 @@ from typing import Callable, Iterator
 
 from .kb import KB, Antecedent, Literal, Rule
 from .run import Settings, Verdict, chainer, judge, oracle
+
+
+MIN_HISTORY = 8  # the generator's smallest history: a smaller one only amplifies sampling noise
 
 
 def fails(kb: KB, category: str, atom: tuple[str, str], settings: Settings) -> Verdict | None:
@@ -75,7 +78,7 @@ def candidates(kb: KB, atom: tuple[str, str]) -> Iterator[KB]:
     for pred in kb.complete:
         yield _with(kb, complete=[p for p in kb.complete if p != pred])
     people = kb.history_individuals()
-    if len(people) > 2:
+    if len(people) >= 2 * MIN_HISTORY:
         keep = set(people[: len(people) // 2])
         yield _with(kb, history=[f for f in kb.history if f.ind in keep])
     if kb.history and not kb.learned and all(rate is not None for rate in kb.roots.values()):

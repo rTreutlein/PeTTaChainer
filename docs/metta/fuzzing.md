@@ -85,7 +85,7 @@ defects, so it cannot be a stable gate.
 | `evidence` | hard observations of derived statements (explaining away, inversion) |
 | `observe` | hard observations of roots |
 | `latent` | root atoms may stay unobserved. Without it, every root atom of a queried individual is observed (hard or soft). |
-| `derived_rates` | pins each derived predicate's base rate to its prior under the model (exact enumeration, `KB.model_prior`). Only for KBs without a history. Without it, a derived predicate has no base rate an inversion of a rule out of it can read. |
+| `derived_rates` | pins each derived predicate's base rate to its prior under the model (exact enumeration, `KB.model_prior`, with the estimated parameters when there is a history). Without it, a derived predicate's base rate is the rate of its stored facts: none without a history, so no inversion of a rule out of it, and with a history an empirical rate that differs from the model's by sampling noise (see false positives). |
 | `learned` | rules (each with probability 0.7) are refined from a fully observed history (see below) |
 | `history_rates` | root priors are estimated from a fully observed history |
 
@@ -125,12 +125,15 @@ one.
 | two rules into one consequent | PeTTaChainer combines several rules' views by a mode learnt from stored outcomes (`combination_modes.md`), revision until outcomes decide; ProbLog's two clauses are a noisy-OR. The fuzzer states a combination explicitly as one `Or` / `And` rule instead. |
 | STV rules | an STV rule's negative branch is derived from base rates in PeTTaChainer; `p::b :- a` in ProbLog has P(b \| not a) = 0. Only CTV rules are generated. |
 | soft observation with an observation below it, or of a derived atom | a fact of confidence 1 is its own value: no rule is applied to it, so evidence below it does not update it, where ProbLog conditions the prior. |
+| a learned rule with a branch no history individual instantiates | the chainer derives an unsampled branch from the base rates of both sides; Laplace's rule leaves it at 1/2. |
+| a learned rule with an `Or` antecedent or a negated literal | the instance fold samples only plain predicate conjuncts; such a rule keeps its stated prior, where the oracle would learn it. |
 | uncertain confidence below 1 (on facts or stated rules) | confidence is evidence weight, which ProbLog has no reading for. |
 | negation inside a loop, an open predicate in a loop, a loop rule with q > 0 | ProbLog needs stratified negation; the chainer's well-founded reading is defined for complete predicates. |
 | variables beyond the consequent's (joins), binary predicates | an ordinary antecedent variable is universal in PeTTaChainer (views revise) and existential in ProbLog; only `Exists` matches, and is not generated yet. |
 
-Two answers are missing by documented design. They are reported as
-`gap_latent_premise` and `gap_root_prior` and are not failures:
+Three answers differ by documented design. They are reported as
+`gap_latent_premise`, `gap_root_prior` and `gap_derived_population_prior`
+and are not failures:
 
 - **An unobserved root premise with no observation below it has no value.**
   A population prior answers a *root query* the search leaves without a
@@ -139,6 +142,23 @@ Two answers are missing by documented design. They are reported as
 - **A root query has a population prior only when some rule reads its base
   rate** (an inversion onto it). A root read only through an `Or`, or by no
   rule, has none, even with a pinned base rate.
+- **A derived atom whose premises are such roots is answered by its
+  predicate's population prior**, the rate of its stored facts (another
+  individual's observation, or a history), where ProbLog derives its prior
+  from the model.
+
+### False positives to expect
+
+- **Empirical rates of derived predicates.** Without `derived_rates`, an
+  inversion of a rule `D -> E` reads D's base rate from D's stored facts. In
+  a history of 8 to 30 individuals that rate differs from the model's prior
+  by sampling noise, often by more than 0.05, and in a KB without a history
+  the observation of one other individual is the whole sample. Such repros
+  show `(inverted ... (prior (STV r c)))` with r far from the model prior.
+  Run history features with `derived_rates` to exclude them.
+- **Learned rules that the instance fold does not sample** keep their stated
+  prior. The generator learns only literal or `And` antecedents without
+  negation, the shapes `LANGUAGE_SPEC.md` says are sampled.
 
 ## Judging
 
@@ -162,7 +182,8 @@ program fails (impossible evidence) is skipped; none have been.
 flagged on the same atom: keep only that query, drop the other individual,
 an observation, a rule (its head becomes a root at its prior under the
 model, so its readers keep their meaning), an antecedent part, a negation, a
-complete declaration, half the history, unused roots. It repeats until no
+complete declaration, half the history (never below 8 individuals, the
+generator's smallest), unused roots. It repeats until no
 reduction applies, typically in 15 to 60 chainer runs.
 
 ## Reading a report

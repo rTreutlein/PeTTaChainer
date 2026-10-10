@@ -22,7 +22,7 @@ FEATURES = {
     "evidence": "hard observations of derived statements",
     "observe": "hard observations of roots",
     "latent": "root atoms of the queried individuals may stay unobserved (otherwise each is observed)",
-    "derived_rates": "pin each derived predicate's base rate to its prior under the model (no history only)",
+    "derived_rates": "pin each derived predicate's base rate to its prior under the model",
     "learned": "rules refined from a fully observed history (Laplace oracle)",
     "history_rates": "root priors estimated from a fully observed history",
 }
@@ -85,7 +85,8 @@ def _attempt(rng: random.Random, on: set[str], max_statements: int) -> KB | None
             break
         ant = _antecedent(rng, pool, on)
         used.update(ant.preds)
-        rules.append(Rule(f"r{head}", head, ant, _rate(rng), _rate(rng), "learned" in on and rng.random() < 0.7))
+        learnable = ant.op != "or" and not any(part.negated for part in ant.parts)
+        rules.append(Rule(f"r{head}", head, ant, _rate(rng), _rate(rng), "learned" in on and learnable and rng.random() < 0.7))
     if not rules:
         return None
     complete: list[str] = []

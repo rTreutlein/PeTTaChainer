@@ -54,7 +54,7 @@ def _limit() -> None:
     resource.setrlimit(resource.RLIMIT_AS, (ADDRESS_LIMIT, ADDRESS_LIMIT))
 
 
-def chainer(kb: KB, settings: Settings, expand: bool = False) -> dict:
+def chainer(kb: KB, settings: Settings) -> dict:
     """{budget: [[strength, confidence, proof], ...] per query} or {"error": ...}."""
     program = metta(kb, settings.k)
     job = {
@@ -65,7 +65,6 @@ def chainer(kb: KB, settings: Settings, expand: bool = False) -> dict:
         "base_rates": program.base_rates,
         "queries": program.queries,
         "budgets": list(settings.budgets),
-        "expand": expand,
     }
     env = {key: value for key, value in os.environ.items() if key != "DISPLAY"}
     try:
@@ -83,12 +82,13 @@ def chainer(kb: KB, settings: Settings, expand: bool = False) -> dict:
     return {int(budget): rows for budget, rows in json.loads(done.stdout[marker + len("@@RESULT@@"):]).items()}
 
 
-def strength(answers: list) -> float | None:
-    """The strength of the most confident answer (as ChainerGame reads it)."""
+def best(answers: list) -> tuple[float, str] | None:
+    """The strength (clipped to [0, 1]) and proof of the most confident
+    answer, as ChainerGame reads it."""
     if not answers:
         return None
-    best = max(answers, key=lambda answer: answer[1])
-    return min(1.0, max(0.0, best[0]))
+    strength, _confidence, proof = max(answers, key=lambda answer: answer[1])
+    return min(1.0, max(0.0, strength)), proof
 
 
 SEVERITY = ["crash", "no_answer", "wrong_direction", "error", "budget_regression"]
@@ -96,7 +96,11 @@ SEVERITY = ["crash", "no_answer", "wrong_direction", "error", "budget_regression
 # an unobserved root premise with no observation below it, or for such a root
 # itself when no rule reads its base rate (a population prior is the base-rate
 # fold of an inversion, so a root read only through Or, or by no rule, has none).
-EXPECTED = ["gap_latent_premise", "gap_root_prior"]
+# A derived atom whose premises are such roots is answered by its predicate's
+# population prior, the rate of its stored facts, where ProbLog derives it from
+# the model: sampling noise of a history, or one observation of another
+# individual, not a defect.
+EXPECTED = ["gap_latent_premise", "gap_root_prior", "gap_derived_population_prior"]
 
 
 @dataclass
@@ -110,11 +114,6 @@ class Verdict:
         found = {category for category, _ in self.flags}
         return next((c for c in SEVERITY if c in found), None)
 
-    def worst(self, category: str) -> int:
-        """The flagged query of ``category`` with the largest error."""
-        indices = [i for c, i in self.flags if c == category]
-        return max(indices, key=lambda i: self.rows[i]["err"] if self.rows[i]["err"] is not None else 2.0)
-
 
 def judge(kb: KB, exact: dict, answers: dict, settings: Settings) -> Verdict:
     verdict = Verdict()
@@ -125,10 +124,15 @@ def judge(kb: KB, exact: dict, answers: dict, settings: Settings) -> Verdict:
     low, high = settings.budgets[0], settings.budgets[-1]
     for i, (pred, ind) in enumerate(kb.queries):
         p, prior = exact["exact"][i], exact["prior"][i]
-        s_high, s_low = strength(answers[high][i]), strength(answers[low][i])
+        judged, low_answer = best(answers[high][i]), best(answers[low][i])
+        s_high, proof = judged or (None, None)
+        s_low = low_answer[0] if low_answer else None
         err = None if s_high is None else abs(s_high - p)
         err_low = None if s_low is None else abs(s_low - p)
-        verdict.rows.append({"atom": f"({pred} {ind})", "exact": p, "prior": prior, "pln": s_high, "pln_low": s_low, "err": err, "err_low": err_low})
+        verdict.rows.append({"atom": f"({pred} {ind})", "exact": p, "prior": prior, "pln": s_high, "pln_low": s_low, "err": err, "err_low": err_low, "proof": proof})
+        if pred not in kb.roots and kb.latent_premise(pred, ind) and proof and proof.startswith("(population-prior"):
+            verdict.flags.append(("gap_derived_population_prior", i))
+            continue
         if s_high is None:
             root_prior = pred in kb.roots and not kb.latent_premise(pred, ind) and kb.unobserved_below(pred, ind)
             verdict.flags.append(("gap_root_prior" if root_prior else "gap_latent_premise" if kb.latent_premise(pred, ind) else "no_answer", i))
@@ -142,22 +146,18 @@ def judge(kb: KB, exact: dict, answers: dict, settings: Settings) -> Verdict:
     return verdict
 
 
-def evaluate(kbs: list[KB], settings: Settings, jobs: int = 2, expand: bool = False) -> list[tuple[dict, dict, Verdict | None]]:
+def evaluate(kbs: list[KB], settings: Settings, jobs: int = 2) -> list[tuple[dict, dict, Verdict | None]]:
     """Run every KB on both sides; a KB whose ProbLog program fails (impossible
     evidence) gets no verdict."""
     from concurrent.futures import ThreadPoolExecutor
 
     exact = oracle(kbs)
     with ThreadPoolExecutor(max_workers=jobs) as pool:
-        answers = list(pool.map(lambda pair: chainer(pair[0], settings, expand) if "error" not in pair[1] else {}, zip(kbs, exact)))
+        answers = list(pool.map(lambda pair: chainer(pair[0], settings) if "error" not in pair[1] else {}, zip(kbs, exact)))
     return [(e, a, None if "error" in e else judge(kb, e, a, settings)) for kb, e, a in zip(kbs, exact, answers)]
-
-
-def in_bench_slice() -> bool:
-    return "bench.slice" in Path("/proc/self/cgroup").read_text()
 
 
 def reexec_capped() -> None:
     """Run the calling script inside bench.slice (docs/agent_workflow.md)."""
-    if not in_bench_slice() and subprocess.run(["systemctl", "--user", "cat", "bench.slice"], capture_output=True).returncode == 0:
+    if "bench.slice" not in Path("/proc/self/cgroup").read_text() and subprocess.run(["systemctl", "--user", "cat", "bench.slice"], capture_output=True).returncode == 0:
         os.execvp("systemd-run", ["systemd-run", "--user", "--scope", "--quiet", "--collect", "--slice=bench.slice", "-p", "OOMPolicy=continue", "--", sys.executable, *sys.argv])

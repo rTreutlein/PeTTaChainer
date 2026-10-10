@@ -2,8 +2,7 @@
 
 Reads one JSON job on stdin: the chainer settings, statements, base-rate pins,
 queries and budgets. Each budget gets a fresh handler (a fresh KB). Writes,
-per budget, each query's answers as [strength, confidence, proof] (the proof
-expanded only with ``expand``)."""
+per budget, each query's answers as [strength, confidence, expanded proof]."""
 
 import json
 import sys
@@ -23,7 +22,7 @@ def run(job, budget):
         chainer.handler.process_metta_string(f"!(set-base-rate {chainer.kb} {pattern} {tv})")
     rows = chainer.query_many_refs(job["queries"], steps=budget)
     return [
-        [[a.tv[1], a.tv[2], chainer.expand_proof(a.proof) if job["expand"] else None] for a in answers if a.tv[0] == "STV"]
+        [[a.tv[1], a.tv[2], chainer.expand_proof(a.proof)] for a in answers if a.tv[0] == "STV"]
         for answers in rows
     ]
 

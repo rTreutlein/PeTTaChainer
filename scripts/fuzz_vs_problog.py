@@ -140,14 +140,11 @@ def main() -> None:
     batch = 10
     for start in range(0, len(kbs), batch):
         chunk = kbs[start : start + batch]
-        for (kb_seed, kb), (exact, answers, verdict) in zip(chunk, evaluate([kb for _, kb in chunk], settings, args.jobs, expand=True)):
+        for (kb_seed, kb), (exact, answers, verdict) in zip(chunk, evaluate([kb for _, kb in chunk], settings, args.jobs)):
             case = {"seed": kb_seed, "kb": kb.to_json(), "exact": exact}
             if verdict is None:
                 case["skipped"] = exact.get("error")
             else:
-                for i, row in enumerate(verdict.rows):  # the judged answer's proof
-                    found = answers[settings.budgets[-1]][i] if not verdict.error else []
-                    row["proof"] = max(found, key=lambda a: a[1])[2] if found else None
                 case |= {"rows": verdict.rows, "flags": verdict.flags, "category": verdict.category, "error": verdict.error}
             cases.append(case)
         log(f"  {len(cases)}/{len(kbs)} done, {sum(1 for c in cases if c.get('category'))} flagged, {time.time() - started:.0f} s")
@@ -206,7 +203,7 @@ def replay(path: Path, settings: Settings) -> None:
     kb = KB.from_json(data.get("kb", data))
     print(describe(kb))
     print(problog(kb))
-    ((exact, answers, verdict),) = evaluate([kb], settings, 1, expand=True)
+    ((exact, answers, verdict),) = evaluate([kb], settings, 1)
     if verdict is None:
         print("ProbLog:", exact["error"])
         return
@@ -238,7 +235,7 @@ def minimise(case: dict, settings: Settings, args, out: Path, log) -> dict | Non
     if verdict is None:
         log("  did not reproduce")
         return None
-    detail = chainer(small, Settings(settings.budgets[-1:], settings.k, settings.threshold), expand=True)
+    detail = chainer(small, Settings(settings.budgets[-1:], settings.k, settings.threshold))
     row = verdict.rows[small.queries.index(atom)]
     answers = [] if "error" in detail else detail[settings.budgets[-1]][small.queries.index(atom)]
     best = max(answers, key=lambda a: a[1]) if answers else None
