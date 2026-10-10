@@ -350,7 +350,11 @@ P(C | not M) = s_O u + (1 − s_O) v. Before, an inverted `Or` was projected
 onto its parts (`OrProjection`) under the disjunction's own prior, so a known
 disjunct did not condition it: with O known false, P(M | C) is Bayes' rule
 over P(M), not the disjunction's posterior (fuzzer repro seed 13000140: 0.0178
-exact, 0.120 projected). A part the completion does not complete with no
+exact, 0.120 projected). A sibling certain at the connective's absorbing
+value (a true disjunct, a false conjunct) decides the compound alone: the
+consequence then tells nothing about M and the completion gives no view,
+rather than M's base rate as a view that competes in merges. A part the
+completion does not complete with no
 value of its own is read at its population prior (see
 `runtime_design_assumptions.md`, "Queries read what their roots reach").
 

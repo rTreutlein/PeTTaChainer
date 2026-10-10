@@ -541,21 +541,26 @@
 ;; ponens) and P(C|not M) = v. Bayes' rule over P(M) with these is the joint
 ;; posterior of O and M given C, marginalized over O: C's value also updates
 ;; O, and given O it decides M as the rule does. O certainly true leaves the
-;; rule's branch as it is. A negated conjunct (Not I) gives I's likelihoods,
-;; the two swapped.
+;; rule's branch as it is. O certainly false decides the conjunction without
+;; M: C then tells nothing about M, and there are no likelihoods to update it
+;; with, as a projection onto an undetermined part gives no value. A negated
+;; conjunct (Not I) gives I's likelihoods, the two swapped.
 (: ConjunctLikelihoodFormula (-[semidet]-> Bool TV TV CTVType))
 (= (ConjunctLikelihoodFormula $negated (STV $so $co) (CTV $pos $neg))
-   (let $given (if (certain-at? 1.0 $so $co) $pos (CTVModusPonensFormula (STV $so $co) (CTV $pos $neg)))
-      (if $negated (CTV $neg $given) (CTV $given $neg))))
+   (if (certain-at? 0.0 $so $co) (empty)
+      (let $given (if (certain-at? 1.0 $so $co) $pos (CTVModusPonensFormula (STV $so $co) (CTV $pos $neg)))
+         (if $negated (CTV $neg $given) (CTV $given $neg)))))
 
 ;; The same for one disjunct M of an antecedent (Or O M): M true makes the
 ;; disjunction true, P(C|M) = u, and without M the others decide it,
 ;; P(C|not M) = s_O u + (1 - s_O) v. O certainly false leaves the rule's
-;; negative branch as it is.
+;; negative branch as it is; O certainly true decides the disjunction without
+;; M, and there are no likelihoods.
 (: DisjunctLikelihoodFormula (-[semidet]-> Bool TV TV CTVType))
 (= (DisjunctLikelihoodFormula $negated (STV $so $co) (CTV $pos $neg))
-   (let $given (if (certain-at? 0.0 $so $co) $neg (CTVModusPonensFormula (STV $so $co) (CTV $pos $neg)))
-      (if $negated (CTV $given $pos) (CTV $pos $given))))
+   (if (certain-at? 1.0 $so $co) (empty)
+      (let $given (if (certain-at? 0.0 $so $co) $neg (CTVModusPonensFormula (STV $so $co) (CTV $pos $neg)))
+         (if $negated (CTV $given $pos) (CTV $pos $given)))))
 
 ;; An inversion reads an observation of b as a likelihood ratio. A soft
 ;; observation's strength s is a posterior under the prior p it was formed
