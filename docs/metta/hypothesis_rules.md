@@ -153,9 +153,13 @@ Built as designed, with these findings from probing the existing code:
   samples of A→C hold `(merge/revision c1 (by hB b1))`). With certain
   observations the effect is in the third decimal; with uncertain ones two
   hypotheses could reinforce each other.
-- **A CTV refined rule now learns its negative branch** from the base rates
-  (`compile-implication-instance-adds` in CTV mode), where before it kept the
-  axiom's. Two tests' values moved in the fifth decimal.
+- **A CTV refined rule now learns its negative branch** from the instances
+  whose antecedent is false (`ImplicationInstanceAcc`, finish
+  `implication-instance-ctv`), with their count as its confidence; from the
+  base rates only while there are none. Reading it off the base rates, as
+  first built, was biased and stayed at confidence about 0.2 whatever the
+  sample (ChainerGame conflicting sources: an expert's "down" claims read
+  0.00 against an empirical 0.33, and 47 of an echo's still gave c 0.23).
 - **A score of 0 starved reviews.** With a zero factor on every hypothesis,
   the second review in a knowledge base folded nothing; the factor has a
   floor of 0.01.
@@ -166,6 +170,6 @@ C unrelated, 20 cases, k = 5:
 | | learned truth | score |
 |---|---|---|
 | before review, both | prior (0.5, 0.02), both branches | 0.0099 (floor) |
-| A→B, confirmed | P(B\|A) 0.797 (c 0.669), P(B\|¬A) 0.228 (c 0.181) | 0.377 |
-| C→B, rejected | 0.5 on both branches (c 0.669 / 0.181) | 0.0099 |
+| A→B, confirmed | P(B\|A) 0.797 (c 0.669), P(B\|¬A) 0.203 (c 0.669) | 0.393 |
+| C→B, rejected | 0.5 on both branches (c 0.669) | 0.0099 |
 

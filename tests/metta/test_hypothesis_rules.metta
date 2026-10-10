@@ -77,21 +77,21 @@
 ;; it is reached only with budget to spare.
 !(test (hypothesis-scores) ((A 0.0099) (A 0.009000000000000001) (C 0.0099) (C 0.009000000000000001)))
 
-;; A review learns both branches: P(B|A) from the instances, P(B|not A)
-;; from the base rates of A and B.
+;; A review learns both branches from the instances: P(B|A) from those with
+;; A, P(B|not A) from those without (8 and 2 of 10 for A, 5 and 5 for C).
 !(test (let (: $p $t $tv) (query 50 hypKb (: $p (RuleTruth (Implication (C $x) (B $x))) $tv)) $tv)
-   (CTV (STV 0.5 0.6689189189189189) (STV 0.5 0.1806020066889632)))
+   (CTV (STV 0.5 0.6689189189189189) (STV 0.5 0.6689189189189189)))
 !(test (let (: $p $t $tv) (query 50 hypKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
-   (CTV (STV 0.796969696969697 0.6689189189189189) (STV 0.22777777777777772 0.1806020066889632)))
+   (CTV (STV 0.796969696969697 0.6689189189189189) (STV 0.20303030303030306 0.6689189189189189)))
 
 ;; The confirmed hypothesis is scored by what it adds; the rejected one, whose
 ;; consequent does not move with its antecedent, stays at the floor.
-!(test (hypothesis-scores) ((A 0.37693581081081085) (A 0.34266891891891893) (C 0.0099) (C 0.009000000000000001)))
+!(test (hypothesis-scores) ((A 0.3933243243243243) (A 0.3575675675675676) (C 0.0099) (C 0.009000000000000001)))
 
 ;; A forward run applies the learned truth, not the prior.
 !(compileadd hypKb (: anew (A new) (STV 1 1)))
 !(forward-chain 20 hypKb (the (List (Statement KBContext Proof TV)) (((A new) (hypKb MAIN Nil) anew (STV 1 1)))))
-!(test (let (: $p $t $tv) (query 0 hypKb (: $p (B new) $tv)) $tv) (STV 0.796969696969697 0.6689189187697763))
+!(test (let (: $p $t $tv) (query 0 hypKb (: $p (B new) $tv)) $tv) (STV 0.796969696969697 0.6689189187913668))
 
 ;; Two hypotheses confirmed from the same cases, through correlated
 ;; antecedents, do not count those cases twice.

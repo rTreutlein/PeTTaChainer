@@ -832,7 +832,7 @@
          ;; against their members' evidence; their dependencies still reach
          ;; their readers.
          (if $base-rate (ev-set 0)
-            (if (stored-list-member? $finish (uniform-prior uniform-prior-known implication-instance)) (ev-set 0)
+            (if (stored-list-member? $finish (uniform-prior uniform-prior-known implication-instance implication-instance-ctv)) (ev-set 0)
                (case $args (
                   (($_kb $_pattern (extract-with-truth $_p $_t $_v) $_init $_fn $_fin $_mode) (ev-set 0))
                   ($_other (evidence-join $ev))))))

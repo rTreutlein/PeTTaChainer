@@ -485,8 +485,10 @@
       (cons $tv $tvs)))
 
 ;; The sample rule and the fold rule concluding `$Type`. With `$ctv?` the fold
-;; derives the negative branch from both sides' base rates, as a stored STV
-;; rule does; otherwise it concludes the positive branch as an STV.
+;; concludes a CTV: P(B | A) from the instances where the antecedent holds and
+;; P(B | not A) from those where it fails, or, while no antecedent-false
+;; instance was seen, from both sides' base rates, as a stored STV rule does;
+;; otherwise it concludes the positive branch as an STV.
 (: compile-implication-instance-adds
    (-[det]-> Bool KB Statement Statement Statement (List CompiledAddition)))
 (= (compile-implication-instance-adds $ctv? $kb $Type $antecedent $consequent)
@@ -509,6 +511,7 @@
             ((instance-sample-parts $premises $proofs $tvs)
                (let*
                   (($atv (if $single (car-atom $tvs) $and-tv))
+                   ($finish (if $ctv? implication-instance-ctv implication-instance))
                    ($sample-pattern
                       (ImplicationInstanceSample $antecedent $consequent $atv $btv))
                    ($fold
@@ -516,8 +519,8 @@
                          (quote
                             ($kb $sample-pattern
                                (extract-value $sample-pattern (WeightedTv $atv $btv))
-                               (BaseRateEvidence 0.0 0.0)
-                               WeightedBaseRateAcc implication-instance result-tv))
+                               (InstanceEvidence (BaseRateEvidence 0.0 0.0) (BaseRateEvidence 0.0 0.0))
+                               ImplicationInstanceAcc $finish result-tv))
                          $fold-tv))
                    ($positive (CPU MemberInheritanceEvidenceFormula ($fold-tv) $instance-tv))
                    ($fold-premises

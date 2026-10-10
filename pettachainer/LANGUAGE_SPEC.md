@@ -385,10 +385,14 @@ the query above answers strength 1.0 with count-based confidence from two
 samples. `c` contributes nothing: an antecedent instance without a provable
 consequent is not a counterexample, so no universe size is needed. A stored
 `(Not (B c))` is a sample with consequent strength 0 and lowers the strength.
-The fold measures the positive branch. The negative branch is derived from the
-base rates of both sides by the same heuristic that reinterprets a stored STV
-rule as a CTV, so the empirical proof and a stored rule revise on equal terms
-and the answer can serve as a rule premise.
+A binding whose antecedent is false (a stored `(A d)` with strength 0) is a
+sample of the negative branch: each sample counts towards P(B|A) with the
+antecedent's strength as its weight and towards P(B|not A) with the
+complement, so both branches are frequencies with count-based confidence.
+While no sample has a false antecedent, the negative branch is derived from
+the base rates of both sides by the heuristic that reinterprets a stored STV
+rule as a CTV. Either way the empirical proof is a CTV, so it and a stored
+rule revise on equal terms and the answer can serve as a rule premise.
 
 Consequent proofs are resolved through the backward chainer, so instances
 derived by other rules count as samples with their proof identities intact,
@@ -507,8 +511,9 @@ so a proof through the axiom and a proof through the rule are dependent and
 never revise twice.
 
 An STV rule's truth merges as an STV and is converted through base rates
-where it is applied. A CTV rule's fold learns both branches: P(B|A) from the
-instances and P(B|not A) from the base rates of A and B. An
+where it is applied. A CTV rule's fold learns both branches as an implication
+query does: P(B|A) from the instances where A holds and P(B|not A) from those
+where it fails, or from the base rates of A and B while there are none. An
 implication query of a refined rule's shape answers through the goal (proof
 `(rule-truth ...)`) instead of folding the instances again. Rules whose shape
 the instance producer does not sample keep their stored truth, and so do rules

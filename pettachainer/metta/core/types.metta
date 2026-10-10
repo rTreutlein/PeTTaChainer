@@ -280,6 +280,7 @@
 (: member-inheritance (-[det]-> KB MemberInheritanceFinish))
 (: ImplicationInstanceFinish Type)
 (: implication-instance ImplicationInstanceFinish)
+(: implication-instance-ctv ImplicationInstanceFinish)
 (: WeightedBaseRateInUniverseFinish Type)
 (: weighted-base-rate-in-universe
    (-[det]-> KB WeightedBaseRateInUniverseFinish))

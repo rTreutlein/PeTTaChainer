@@ -4,9 +4,10 @@
 ;; also answered empirically: one sample per antecedent binding with a provable
 ;; consequent, folded with the weighted accumulator. Open world: c has no
 ;; provable consequent and is not a sample. Strength is the mass-weighted
-;; consequent strength, confidence is count-based. The negative branch is the
-;; heuristic one a stored STV rule gets, derived from the base rates of both
-;; sides at a quarter of the smallest confidence.
+;; consequent strength, confidence is count-based. While no instance has its
+;; antecedent false, the negative branch is the heuristic one a stored STV rule
+;; gets, derived from the base rates of both sides at a quarter of the smallest
+;; confidence.
 
 !(compileadd instanceFactsKb (: a1 (A a) (STV 1.0 0.9)))
 !(compileadd instanceFactsKb (: a2 (A b) (STV 1.0 0.9)))
@@ -158,3 +159,23 @@
 !(test
    (query 200 instanceCycleKb (: $prf (Implication (A $v) (B $v)) $tv))
    ())
+
+;; --- Antecedent-false instances learn the negative branch -------------------
+;; A binding whose antecedent is known false is a sample of P(B | not A), with
+;; its own count: 1 of 4 here, so (0.25, 4/804), however the base rates of A
+;; and B would put it. P(B | A) is 2 of 2.
+!(compileadd negKb (: n1 (A p) (STV 1 1)))
+!(compileadd negKb (: n2 (A q) (STV 1 1)))
+!(compileadd negKb (: n3 (A r) (STV 0 1)))
+!(compileadd negKb (: n4 (A s) (STV 0 1)))
+!(compileadd negKb (: n5 (A t) (STV 0 1)))
+!(compileadd negKb (: n6 (A u) (STV 0 1)))
+!(compileadd negKb (: m1 (B p) (STV 1 1)))
+!(compileadd negKb (: m2 (B q) (STV 1 1)))
+!(compileadd negKb (: m3 (B r) (STV 1 1)))
+!(compileadd negKb (: m4 (B s) (STV 0 1)))
+!(compileadd negKb (: m5 (B t) (STV 0 1)))
+!(compileadd negKb (: m6 (B u) (STV 0 1)))
+!(test
+   (let (: $prf $type $tv) (query 100 negKb (: $prf (Implication (A $v) (B $v)) $tv)) $tv)
+   (CTV (STV 1.0 0.0024937655860349127) (STV 0.25 0.004975124378109453)))

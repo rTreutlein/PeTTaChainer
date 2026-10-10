@@ -247,6 +247,34 @@
 (= (WeightedCountBaseRateTv (BaseRateEvidence $wsum $msum))
    (if (<= $msum 0.0) no-evidence
       (STV (/ $wsum $msum) (count-confidence $msum))))
+;; An implication's instances, the consequent strengths weighted by the
+;; antecedent's mass where it holds and where it fails: the evidence of
+;; P(B | A) and of P(B | not A). An antecedent known false is a sample of the
+;; negative branch only.
+(: InstanceEvidenceState Type)
+(: InstanceEvidence (-[det]-> BaseRateEvidenceState BaseRateEvidenceState InstanceEvidenceState))
+
+(: ImplicationInstanceAcc
+   (-[semidet]-> InstanceEvidenceState (| WeightedTV NoEvidenceType) InstanceEvidenceState))
+(= (ImplicationInstanceAcc (InstanceEvidence (BaseRateEvidence $pw $pm) (BaseRateEvidence $nw $nm)) (WeightedTv (STV $m $mc) (STV $s $c)))
+   (let* (($mass (* $mc $c))
+          ($pos (* $m $mass))
+          ($neg (* (- 1.0 $m) $mass)))
+      (InstanceEvidence (BaseRateEvidence (+ $pw (* $s $pos)) (+ $pm $pos))
+         (BaseRateEvidence (+ $nw (* $s $neg)) (+ $nm $neg)))))
+(= (ImplicationInstanceAcc $acc (WeightedTv $mass-tv (CTV $pos $_neg)))
+   (ImplicationInstanceAcc $acc (WeightedTv $mass-tv $pos)))
+(= (ImplicationInstanceAcc $acc no-evidence) $acc)
+
+;; The instances' estimate of P(B | A), and of P(B | not A) beside it as a
+;; CTV once antecedent-false instances were seen. Without positive instances
+;; there is no estimate.
+(: ImplicationInstanceTv (-[det]-> InstanceEvidenceState TV))
+(= (ImplicationInstanceTv (InstanceEvidence $pos $neg))
+   (case (data (WeightedCountBaseRateTv $pos) (WeightedCountBaseRateTv $neg)) (
+      (((STV $ps $pc) (STV $ns $nc)) (CTV (STV $ps $pc) (STV $ns $nc)))
+      (((STV $ps $pc) $_none) (STV $ps $pc))
+      ($_no-positive no-evidence))))
 (: WeightedUniverseBaseRateTv
    (-[det]-> Number BaseRateEvidenceState OptionalSTV))
 (= (WeightedUniverseBaseRateTv $universe-size (BaseRateEvidence $wsum $msum))
