@@ -421,8 +421,8 @@ Evaluation then brings current only what the roots read: their keys, the
 premise keys of those keys' rows, and the members of folds and groups among
 them (for a base-rate fold, the members it has yet to take). Implication
 instance folds are the exception: every evaluation also brings current each
-instance fold that was read and whose members changed, with the keys reading
-it, a refined rule's truth above all, as it does a root's. So a new instance
+instance fold that rows read and whose members changed, with the keys
+reading it, a refined rule's truth above all, as it does a root's. So a new instance
 moves its rule's truth, and the search score read from it, at the next
 evaluation, whatever the query or forward run asks, at the cost of the
 members that changed (`hypothesis_rules.md`, "Instance tallies"). Any other

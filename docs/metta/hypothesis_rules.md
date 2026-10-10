@@ -252,17 +252,49 @@ An implication instance fold is now a tally, as a base rate is
   A sample that depends on the reader's key only through a derived statement
   it reads is not found this way (no case in the suite).
 - **Kept current.** Every evaluation, of a query or a forward run, brings
-  current each instance fold that was read and whose members changed, with
+  current each instance fold that rows read and whose members changed, with
   the keys reading it, as it does a root's (`sk-instance-checks!`): a fact
   absorbed for the next query starts the sample rule's joins, the new or
   changed sample is computed and taken, and the truth and its search score
-  move, whatever the query asks for. A member whose rows the evaluation could
-  not compute waits for the next one. A fold nobody read yet takes all its
-  members when first read.
+  move, whatever the query asks for. The members are needed again at the
+  depth of a root's, and the fold's readers as roots, so their rows are
+  computed in full and their stale rows brought current. A member whose rows
+  the evaluation could not compute waits for the next one. A fold nobody read
+  yet takes all its members when first read.
 
 So a review is a read: once the first query that reads a rule's truth has
 folded its instances, later reviews compute nothing
 (`test_instance_tally.metta`: a new instance costs three row computations
 after 4 instances as after 16, a budget-0 query about an unrelated fact
 takes it, and the review after it computes no row).
+
+**Clients.** A review is no longer work, only a read: a client needs one
+review per rule, the first read that folds its instances, and after that
+reads the truths, all in one query of no budget, before the queries that
+should be scored with them (the search reads a rule's score from its truth
+at the walk, before the evaluation that brings the truth current; leaving
+out the read cost SupplyNet stage 2 0.0735 -> 0.0769). ChainerGame
+`forward-folds` makes SupplyNet's learned backend, the conflicting-sources
+backends and the ONA matching-to-sample agent do so.
+
+SupplyNet learned rules, seeds 1-4, 30 rounds, budget 100 (posterior error,
+seconds per round; the supply-network client reviews every rule each round with 200
+steps):
+
+| stage | history | d1aed361 (master and 5846dc43), reviews | tallies, reviews | tallies, one read per round |
+|---|---|---|---|---|
+| 1 | 30 | 0.0244, 1.22 s | 0.0244, 0.90 s | 0.0244, 0.59 s |
+| 2 | 30 | 0.0750, 1.26 s | 0.0756, 1.14 s | 0.0735, 0.80 s |
+| 3 timed | 30 | 0.0688, 1.75 s | 0.0687, 1.66 s | 0.0685, 1.15 s |
+| 3 untimed | 30 | 0.0677, 1.75 s | 0.0684, 1.66 s | 0.0676, 1.16 s |
+| 1 | 120 | 0.0152, 3.07 s | 0.0152, 1.61 s | 0.0152, 1.11 s |
+| 2 | 120 | 0.0494, 2.88 s | 0.0484, 1.83 s | 0.0464, 1.45 s |
+| 3 timed | 120 | 0.0432, 3.79 s | 0.0424, 2.52 s | 0.0421, 2.05 s |
+| 3 untimed | 120 | 0.0406, 3.84 s | 0.0410, 2.49 s | 0.0406, 2.10 s |
+
+The per-round read of all 26 stage 2 truths takes 0.13 s with 30 history
+periods and 0.155 s with 120 (seed 1); d1aed361's reviews 0.76 s and 2.18 s.
+What still grows with the history is the first review, which folds every
+instance once (4.4 s and 26 s), and the queries themselves (0.55 s and
+0.66 s per round). Raw runs: `bench/results/forward-folds/learned/`.
 
