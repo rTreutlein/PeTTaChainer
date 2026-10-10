@@ -174,6 +174,10 @@ A key's value merges its stored facts and one view per row:
 
 - an identical proof pools its evidence; a marginal projection gives way to its
   full proof;
+- a rule application reading a proper superset of the stored facts another
+  rule's application reads is about a narrower reference class: the general
+  view is no further evidence of the case, only the prior the specific
+  strength is read under, with `set-bayes-prior-count` pseudo-observations;
 - two views are independent when their evidence is disjoint, or when each
   holds evidence of its own and they share only known facts that no rule
   concludes (premises either reads as given), rules (as for rows: a rule's

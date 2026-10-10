@@ -491,6 +491,8 @@
       (if (== $a $b) (sk-paired (sk-val $a (evidence-union $ev-a $ev-b) $deps-a))
          (if (proof-dominates? $proof-a $proof-b) (sk-paired (sk-val $a $ev-a $deps-a))
             (if (proof-dominates? $proof-b $proof-a) (sk-paired (sk-val $b $ev-b $deps-b))
+            (if (more-specific-application? $proof-a $proof-b) (sk-paired (sk-specialized $a $ev-a $deps-a $b $ev-b $deps-b))
+            (if (more-specific-application? $proof-b $proof-a) (sk-paired (sk-specialized $b $ev-b $deps-b $a $ev-a $deps-a))
                (let* (($overlap (evidence-overlap? $ev-a $ev-b))
                       ($a-in-b (if $overlap (evidence-subset? $ev-a $ev-b) false))
                       ($b-in-a (if $overlap (evidence-subset? $ev-b $ev-a) false))
@@ -516,7 +518,26 @@
                               (sk-overlap $shared (deps-union $deps-a $deps-b)
                                  (if (>= (term-confidence $a) (term-confidence $b))
                                     (sk-val $a $ev-a $deps-a)
-                                    (sk-val $b $ev-b $deps-b)))))))))))))
+                                    (sk-val $b $ev-b $deps-b)))))))))))))))
+
+;; A rule application reading a proper superset of the facts another rule's
+;; application to the same statement reads (`more-specific-application?`) is
+;; about a narrower reference class: its antecedent entails the other's, whose
+;; rate is a marginal over it and over cases it is not, so the general view is
+;; no further evidence of this case (ChainerGame
+;; benchmarks/ona/repros/specificity.py: a hypothesis about S that wins a
+;; quarter of the time, revised with one about S and L that always wins). It
+;; is the prior the specific rate is read under instead: the specific
+;; strength under bayes-prior-count pseudo-observations at the general one,
+;; as Bayes' rule reads a likelihood (bayes-shrink), so a specific rule with
+;; little evidence stays near the general rate.
+(: sk-specialized (-[det]-> SkFact EvidenceSet Number SkFact EvidenceSet Number SkeletonValue))
+(= (sk-specialized ($type $kbctx $proof $tv) $ev $deps ($_gtype $_gkbctx $general $gtv) $gev $gdeps)
+   (case (data $tv $gtv) (
+      (((STV $s $c) (STV $gs $_gc))
+         (sk-val ($type $kbctx (brand Proof (specializes $proof $general)) (STV (bayes-shrink $s $c $gs) $c))
+            (evidence-union $ev $gev) (deps-union $deps $gdeps)))
+      ($_other (sk-val ($type $kbctx $proof $tv) $ev $deps)))))
 
 ;; One step of a key's merge: an overlap continues with its fallback and
 ;; records its statements, unless an earlier overlap gave some.

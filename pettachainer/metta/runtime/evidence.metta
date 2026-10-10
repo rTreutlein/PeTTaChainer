@@ -329,7 +329,7 @@
    (if (== $needle $first) true (stored-list-member? $needle $rest)))
 
 ;; A proof that gives way to another: a marginal projection to the full
-;; projection of the same source, and a settled step to the complete step it
+;; projection of the same source, a settled step to the complete step it
 ;; settles, which reads the settling part with the compound's other parts.
 (: proof-dominates? (-[det]-> Proof Proof Bool))
 (= (proof-dominates? $prf-a $prf-b)
@@ -337,6 +337,44 @@
       (((proj $idx $base) $_evidence)
          (== $prf-b (marginal-proj $idx $base)))
       ($_ (settled-within? $prf-b $prf-a)))))
+
+;; The stored facts a rule application reads directly, or none when it reads
+;; a derived premise.
+(: application-facts (-[det]-> Atom (List Atom)))
+(= (application-facts $premise)
+   (if (is-expr $premise)
+      (case $premise (
+         ((cons conjunction $names) (if (leaf-names? (the (List Atom) $names)) (the (List Atom) $names) ()))
+         ($_other ())))
+      (cons $premise ())))
+
+;; The folds run over parameters, as the determinism checker requires.
+(: leaf-names? (-[det]-> (List Atom) Bool))
+(= (leaf-names? $names) (fold-flat leaf-name-step true $names))
+
+(: leaf-name-step (-[det]-> Bool Atom Bool))
+(= (leaf-name-step $leaves $name) (if $leaves (not (is-expr $name)) false))
+
+(: all-members? (-[det]-> (List Atom) (List Atom) Bool))
+(= (all-members? $set $items) (fold-flat (member-of-step $set) true $items))
+
+(: member-of-step (-[det]-> (List Atom) Bool Atom Bool))
+(= (member-of-step $set $members $item) (if $members (stored-list-member? $item $set) false))
+
+;; Two rules applied to the same statement, the first to a proper superset of
+;; the stored facts the second reads: the first's antecedent, as
+;; instantiated, entails the second's, whose rate is a marginal over the
+;; first's and over cases this one is not (see sk-specialized).
+(: more-specific-application? (-[det]-> Proof Proof Bool))
+(= (more-specific-application? $prf-a $prf-b)
+   (case (data $prf-a $prf-b) (
+      (((by $rule-a $premise-a) (by $rule-b $premise-b))
+         (if (== $rule-a $rule-b) false
+            (let* (($facts-a (application-facts $premise-a))
+                   ($facts-b (application-facts $premise-b)))
+               (if (== $facts-b ()) false
+                  (if (< (list-len $facts-b) (list-len $facts-a)) (all-members? $facts-a $facts-b) false)))))
+      ($_other false))))
 
 ;; The settled proof equals the complete one except where it reads one part
 ;; `(settled P)` and the complete proof the conjunction of P with the others.

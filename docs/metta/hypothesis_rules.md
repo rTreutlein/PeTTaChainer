@@ -173,3 +173,19 @@ C unrelated, 20 cases, k = 5:
 | A→B, confirmed | P(B\|A) 0.797 (c 0.669), P(B\|¬A) 0.203 (c 0.669) | 0.393 |
 | C→B, rejected | 0.5 on both branches (c 0.669) | 0.0099 |
 
+
+## Specificity (October 2026)
+
+Two refined hypotheses about one consequent where one antecedent refines the
+other, `(S a $t) → Win` and `(And (S a $t) (L b $t)) → Win`, both apply to a
+case with S and L. Their views shared no evidence, so they revised: 0.40 for
+a case the specific rule wins every time (0.25 general, 0.99 specific). The
+specific application reads a proper superset of the general one's stored
+facts, so its antecedent, as instantiated, entails the general one's, whose
+rate is a marginal over this case and cases it is not. The merge now reads
+the specific strength under `bayes-prior-count` pseudo-observations at the
+general one (`sk-specialized`, proof `(specializes specific general)`): 0.95
+(`test_hypothesis_rules.metta`, ChainerGame
+`benchmarks/ona/repros/specificity.py`). A specific rule with little evidence
+stays near the general rate. Only applications to stored facts are compared:
+a derived premise's leaves say nothing about entailment.
