@@ -1,0 +1,185 @@
+# Differential fuzzing against ProbLog
+
+Status: built, October 2026. Code: `scripts/fuzz_vs_problog.py`,
+`tests/fuzz/`. Results: `/nexus/Dev/OpenCog/bench/results/fuzz/`.
+
+## Purpose
+
+Benchmarks find chainer defects late and as aggregate error. The fuzzer finds
+them as minimal repros in minutes. It generates small random knowledge bases,
+answers every query exactly with ProbLog 2.3.0, answers the same queries with
+PeTTaChainer, flags clear disagreements, and shrinks each flagged KB to the
+fewest statements that still fail. Approximation is expected, so the fuzzer
+looks for clear defects: an error above the threshold (0.05), no answer, an
+answer that moves the wrong way from the prior, or an answer that gets worse
+with more budget.
+
+## Usage
+
+```bash
+.venv/bin/python scripts/fuzz_vs_problog.py --seed 1 --n 200 --out /nexus/Dev/OpenCog/bench/results/fuzz/run1
+.venv/bin/python scripts/fuzz_vs_problog.py --seed 1 --n 200 --features all --out ...
+.venv/bin/python scripts/fuzz_vs_problog.py --replay .../repros/seed1000004_error.json
+```
+
+| option | meaning |
+|---|---|
+| `--seed S --n N` | N KBs; KB i uses seed `S * 1000003 + i`. Results are deterministic per seed. |
+| `--features a,b,...` | the features below, `default` or `all`. By default each KB takes a random subset of them (each with probability 0.6); `--no-mix` gives every KB all of them. |
+| `--budgets 100,2000` | ascending query budgets. The last is judged, the first checks that more budget is no worse. |
+| `--k 5` | the evidence confidence k, as SupplyNet runs the chainer. |
+| `--threshold 0.05` | the absolute error that flags a query. |
+| `--jobs 2` | chainer processes at once, for the runs and for the shrinks. |
+| `--shrink 2` | flagged KBs shrunk per group (0: none). `--shrink-limit` caps the chainer runs of one shrink (120). |
+| `--replay FILE` | run one repro (or KB) JSON and print the ProbLog program, both answers and every chainer proof. |
+
+The script re-executes itself inside `bench.slice` and runs each KB's
+chainer in a fresh process (`tests/fuzz/chainer_worker.py`) under
+`ulimit -v 16000000` with `DISPLAY` unset, so a case never sees another
+case's state. ProbLog runs in its own interpreter,
+`/nexus/Dev/OpenCog/ChainerGame-problog/.venv-problog/bin/python`
+(`PROBLOG_PYTHON` overrides it; `tests/fuzz/problog_worker.py`). A KB takes
+about one second; 300 KBs take five minutes plus the shrinks.
+
+`tests/test_fuzz_kb.py` checks the generator (deterministic, every KB valid)
+and the translation (ProbLog's prior marginals equal exact enumeration of the
+same model, and a learned rule's stated prior revises to Laplace's rule). It
+runs no chainer. A fuzz run is not part of the test suite: it finds open
+defects, so it cannot be a stable gate.
+
+## What a KB is
+
+`tests/fuzz/kb.py` holds the abstract KB both translations are written from.
+
+- Unary predicates `A`..`H` over one or two queried individuals `a`, `b`.
+- **Root predicates** have a prior and no rule. The prior is either stated or
+  estimated from a history (below).
+- **Derived predicates** have exactly one CTV rule over one variable,
+  `(Implication ANT (P $x)) (CTV (STV p 1) (STV q 1))`. `ANT` is a literal or
+  an `And` / `Or` of literals, and a literal may be negated.
+- **Observations** of the queried individuals have confidence 1. They are
+  hard (strength 0 or 1, roots or derived) or soft (a strength in between,
+  roots only).
+- **Queries** ask for every unobserved atom of the queried individuals, at
+  most 8.
+
+| PeTTaChainer | ProbLog | why it is the same |
+|---|---|---|
+| CTV rule `ANT -> P` (p, q), confidence 1 | `ant_i(X) :- ind(X), ANT.` (one clause per `Or` part), `p::p(X) :- ind(X), ant_i(X).` and `q::p(X) :- ind(X), \+ant_i(X).` | the two bodies exclude each other, so P(P \| ANT) = p and P(P \| not ANT) = q (no noisy-OR, one rule per head). As in ChainerGame `docs/problog_backend.md`. |
+| `And`, `Or`, `Not` | conjunction, one clause per disjunct, `\+` | stratified: no negation inside a loop |
+| stated root prior r: `(set-base-rate kb (A $x) (STV r 1.0))` | `r::a(a).` per individual | a certain base rate keeps its value as the prior of every member |
+| hard observation `(: obs-A-a (A a) (STV 1 1))` | `evidence(a(a), true).` | a certain fact is its own value; ProbLog conditions on it |
+| soft observation `(STV s 1)` of a root | `s::a(a).` in place of its prior | the fact is the atom's value in both, *only* because nothing is observed below it (see exclusions) |
+| `set-complete-predicate` on a loop | the same clauses, read at their least fixpoint | Clark completion, well-founded on loops (`complete_predicates.md`) |
+| query `(: $prf (A a) $tv)` | `query(a(a)).` | the strength of the most confident STV answer against the marginal |
+
+### Features
+
+| feature | what it adds |
+|---|---|
+| `chain` | antecedents may read derived predicates |
+| `shared` | a predicate may feed several rules (common causes, and correlated premises in one antecedent) |
+| `and`, `or`, `not` | `And` / `Or` antecedents of two or three literals, negated literals |
+| `cycle` | a positive loop: a chain X -> ... -> Y of derived predicates is closed by adding Y as a disjunct of X's antecedent; the loop's predicates are complete, their rules have q = 0 and no negation, and their p is kept or set to 1. Implies `chain`. |
+| `soft` | soft observations of roots |
+| `evidence` | hard observations of derived statements (explaining away, inversion) |
+| `observe` | hard observations of roots |
+| `latent` | root atoms may stay unobserved. Without it, every root atom of a queried individual is observed (hard or soft). |
+| `derived_rates` | pins each derived predicate's base rate to its prior under the model (exact enumeration, `KB.model_prior`). Only for KBs without a history. Without it, a derived predicate has no base rate an inversion of a rule out of it can read. |
+| `learned` | rules (each with probability 0.7) are refined from a fully observed history (see below) |
+| `history_rates` | root priors are estimated from a fully observed history |
+
+`default` is `chain shared and or not evidence observe latent derived_rates`.
+Observations are drawn from one sampled world per individual, so evidence is
+always possible.
+
+### History, learned rules and estimated rates
+
+With `learned` or `history_rates` the KB holds 8 to 30 past individuals
+`h0, h1, ...`, every atom of each observed as a hard fact drawn from the
+model. ProbLog leaves them out: given the parameters they are independent of
+the queried individuals. They enter only through the parameters, estimated
+the way the chainer is specified to estimate them:
+
+- **Learned rule.** PeTTaChainer gets the rule with
+  `(CTV (STV 0.5 c) (STV 0.5 c))`, `c = 2 / (2 + k)`, two pseudo-observations
+  at 0.5 per branch, and `set-rule-refinement`. Revising that with the n
+  history instances of a branch is Laplace's rule, (s + 1) / (n + 2), and the
+  oracle uses exactly that per branch. (ChainerGame's `(STV 0.5 0.02)` prior
+  revises to (s + 0.05) / (n + 0.1), which differs from Laplace by up to 0.09
+  at n = 8; it gave false positives.)
+- **Estimated root prior.** The chainer reads a base rate over n stored facts
+  as the prior of one more member, (s n + a/2) / (n + a) with the Bayes prior
+  count a = 0.2 (`prior_factored_merge.md`). The oracle uses the same
+  estimate over the same facts: the history's and the queried individuals'
+  observations, soft ones at their strength.
+
+## What is excluded, and why
+
+Each exclusion is a place where the two readings differ by design.
+`KB.problems()` rejects a KB that has one, and the shrinker never produces
+one.
+
+| excluded | reason |
+|---|---|
+| two rules into one consequent | PeTTaChainer combines several rules' views by a mode learnt from stored outcomes (`combination_modes.md`), revision until outcomes decide; ProbLog's two clauses are a noisy-OR. The fuzzer states a combination explicitly as one `Or` / `And` rule instead. |
+| STV rules | an STV rule's negative branch is derived from base rates in PeTTaChainer; `p::b :- a` in ProbLog has P(b \| not a) = 0. Only CTV rules are generated. |
+| soft observation with an observation below it, or of a derived atom | a fact of confidence 1 is its own value: no rule is applied to it, so evidence below it does not update it, where ProbLog conditions the prior. |
+| uncertain confidence below 1 (on facts or stated rules) | confidence is evidence weight, which ProbLog has no reading for. |
+| negation inside a loop, an open predicate in a loop, a loop rule with q > 0 | ProbLog needs stratified negation; the chainer's well-founded reading is defined for complete predicates. |
+| variables beyond the consequent's (joins), binary predicates | an ordinary antecedent variable is universal in PeTTaChainer (views revise) and existential in ProbLog; only `Exists` matches, and is not generated yet. |
+
+Two answers are missing by documented design. They are reported as
+`gap_latent_premise` and `gap_root_prior` and are not failures:
+
+- **An unobserved root premise with no observation below it has no value.**
+  A population prior answers a *root query* the search leaves without a
+  value; it is "the population's value, not the statement's", so a rule
+  reading such a premise concludes nothing (`sk-population-prior`).
+- **A root query has a population prior only when some rule reads its base
+  rate** (an inversion onto it). A root read only through an `Or`, or by no
+  rule, has none, even with a pinned base rate.
+
+## Judging
+
+For each query, with s the chainer's strength at the largest budget, p the
+ProbLog marginal and p0 the marginal without observations:
+
+| category | condition |
+|---|---|
+| `crash` | the chainer process failed or timed out (300 s) |
+| `no_answer` | no STV answer, and not one of the two gaps |
+| `wrong_direction` | \|p − p0\| > threshold, s − p0 has the opposite sign and \|s − p0\| > 0.02 |
+| `error` | \|s − p\| > threshold |
+| `budget_regression` | the error at the largest budget exceeds the error at the smallest by more than the threshold |
+
+A KB's category is its worst query's (in that order). A KB whose ProbLog
+program fails (impossible evidence) is skipped; none have been.
+
+## Shrinking
+
+`tests/fuzz/shrink.py` reduces a flagged KB while the same category stays
+flagged on the same atom: keep only that query, drop the other individual,
+an observation, a rule (its head becomes a root at its prior under the
+model, so its readers keep their meaning), an antecedent part, a negation, a
+complete declaration, half the history, unused roots. It repeats until no
+reduction applies, typically in 15 to 60 chainer runs.
+
+## Reading a report
+
+`<out>/` holds `cases.jsonl` (every KB with its rows: atom, exact, prior,
+PeTTaChainer at both budgets, error, the judged proof), `log.txt`,
+`summary.json`, `summary.md` and `repros/`. A repro is three files:
+`seedN_category.metta` (standalone; run it with `.venv/bin/petta`; its
+header describes the KB and the expected value), `.pl` (the ProbLog
+program) and `.json` (the minimal KB, the failing row and the chainer's
+answers with proofs, for `--replay`).
+
+The summary groups flagged KBs by category, error direction and the proof
+constructors of the judged answer (`inverted`, `antecedent-completion`,
+`factored-revision`, `settled`, `proj`, `unfounded`, ...), shrinks up to
+`--shrink` KBs per group, and counts each group under the cluster of its
+first minimal repro (category, direction, the features the repro still uses,
+its proof constructors). Clusters are listed by frequency with their
+smallest repro. Two clusters can share a root cause; the proof in the repro
+usually shows it.
