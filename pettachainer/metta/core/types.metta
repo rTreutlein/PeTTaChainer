@@ -32,6 +32,7 @@
 (: deps-mask-within? (-[det]-> Number Number Bool))
 (: deps-size (-[det]-> Number Number))
 (: deps-shared (-[det]-> Number Number (List Number)))
+(: deps-entangled (-[det]-> (List Number) (List Number)))
 (: deps-cut! (-[det]-> (List Number) Number Bool))
 (: deps-gc! (-[det]-> (List Number) Bool))
 (: deps-gc-due? (-[det]-> Bool))

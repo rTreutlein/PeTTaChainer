@@ -565,58 +565,26 @@
 ;; name: E <- (Or C B) with C <- B multiplies P(C) and P(B) as if they were
 ;; (fuzzer seed 1000004), and so does E <- (And C D) with C and D both derived
 ;; from B. Evidence sets name only the leaves, often certain facts that never
-;; clash, so the statements are found in the premises' dependency sets: of the
-;; premises' keys and the keys their rows read, those two premises' sets
-;; hold, uncertain, not given and outside the row's exclusions, ordered as a
-;; key's shared statements are. The row is conditioned on them as on a clash;
-;; the state read as if the premises were independent is its approximate
-;; value. Looking only that deep keeps the test to a few masked lookups per
-;; row; a statement shared further down is not found (collecting both sets
-;; and testing every shared key doubled SupplyNet scale l's time for no
-;; change). Rows reading a fold read its members as data, compiler-marked
-;; joins share their sources by design, and projections of one source pool
-;; into it.
-(: sk-entangle (-[semidet]-> (List Number) (List SkPattern) SkeletonRowState SkeletonRowState))
-(= (sk-entangle $ignore $premises $state)
+;; clash, so the statements are found in the premises' dependency sets: the
+;; keys near the top of two premises' sets (each premise's key and the keys
+;; its row read, deps-entangled), uncertain, not given and outside the row's
+;; exclusions, ordered as a key's shared statements are. The row is
+;; conditioned on them as on a clash; the state read as if the premises were
+;; independent is its approximate value. Looking only that deep keeps the
+;; test to a few masked lookups per row; a statement shared further down is
+;; not found (collecting both sets and testing every shared key doubled
+;; SupplyNet scale l's time for no change). Rows reading a fold read its
+;; members as data, compiler-marked joins share their sources by design, and
+;; projections of one source pool into it.
+(: sk-entangle (-[semidet]-> (List Number) SkeletonRowState SkeletonRowState))
+(= (sk-entangle $ignore $state)
    (case $state (
       ((sk-acc () $_ev $deps $parts)
          (if (sk-pooled? $parts) $state
-            (case (sk-shared-statements $ignore
-                     (fold-flat (sk-held-twice-step $deps) () (list_to_set (fold-flat sk-near-key-step () $premises)))) (
+            (case (sk-shared-statements $ignore (deps-entangled $deps)) (
                (() $state)
                ($keys (sk-entangled $keys (+ 1 (deps-size (deps-join $deps))) $state))))))
       ($_other $state))))
-
-;; A premise's key and the keys its rows read.
-(: sk-near-key-step (-[det]-> (List Number) SkPattern (List Number)))
-(= (sk-near-key-step $hashes $premise)
-   (case $premise (
-      ((CPU $_fun $_args $_res) $hashes)
-      (((RuleTruth $_implication) $_kbctx $_proof $_tv) $hashes)
-      (($type $kbctx $_proof $_tv)
-         (let $hash (index-hash (sk-key $type $kbctx))
-            (cons $hash
-               (fold-flat sk-row-keys-step $hashes
-                  (collapse (match &sk_row ($hash $_stored $_rhash (sk-row $_ident $_concl $row-premises $_seq)) $row-premises))))))
-      ($_other $hashes))))
-
-(: sk-row-keys-step (-[det]-> (List Number) (List SkPattern) (List Number)))
-(= (sk-row-keys-step $hashes $premises) (fold-flat sk-premise-key-step $hashes $premises))
-
-(: sk-premise-key-step (-[det]-> (List Number) SkPattern (List Number)))
-(= (sk-premise-key-step $hashes $premise)
-   (case $premise (
-      ((CPU $_fun $_args $_res) $hashes)
-      (($type $kbctx $_proof $_tv) (cons (index-hash (sk-key $type $kbctx)) $hashes))
-      ($_other $hashes))))
-
-;; A key two premises' dependency sets hold.
-(: sk-held-twice-step (-[det]-> (List Number) (List Number) Number (List Number)))
-(= (sk-held-twice-step $deps $shared $hash)
-   (if (>= (fold-flat (sk-holds-step $hash) 0 $deps) 2) (cons $hash $shared) $shared))
-
-(: sk-holds-step (-[det]-> Number Number Number Number))
-(= (sk-holds-step $hash $count $deps) (if (deps-has? $deps $hash) (+ $count 1) $count))
 
 ;; A known fact two views share is evidence twice when some rule concludes
 ;; its statement: it may be an observation both update on. A fact no rule
@@ -2576,7 +2544,7 @@
             (sk-completion-state $given $exclusions $khash (sk-key $type $kbctx) $shared $facts-first $start $premises)
             (let $state (fold-semidet (sk-premise-step $pin $given $exclusions $shared false $facts-first) $start $premises)
                (if (if $shared false (if (rule-application-proof? $proof) true (sk-compound-proof? $proof)))
-                  (sk-entangle (hash-union $exclusions (hash-set (sk-given-hashes $given))) $premises $state)
+                  (sk-entangle (hash-union $exclusions (hash-set (sk-given-hashes $given))) $state)
                   $state))))))
 
 ;; A completion marginalises the parts it does not complete over their values

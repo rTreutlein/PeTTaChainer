@@ -201,10 +201,13 @@ name. E <- (Or C B) with C <- B multiplied P(C) and P(B) as if they were:
 fuzzer seed 1000004, 0.342 against the exact 0.274. Evidence sets name only
 the leaves, here the certain fact (A b), and certain facts never clash. The
 statements are found in the premises' dependency sets instead. The
-candidates are the premises' own keys and the keys their rows read; a
-candidate two premises' sets hold, uncertain, not given and outside the
-row's exclusions, is shared, ordered as above. That is a few masked
-membership tests per row. Collecting both sets and testing every key they
+candidates are the keys within two levels of each premise's set node (the
+premise's own key and the keys its row read, `deps-entangled` in
+`runtime_helpers.pl`); a candidate two premises' sets hold, uncertain, not
+given and outside the row's exclusions, is shared, ordered as above. That is
+a few masked membership tests per row, with no space lookups (reading the
+premises' rows from `&sk_row` for the same keys cost SupplyNet stage 3 timed
+seed 3 budget 100 about 15%). Collecting both sets and testing every key they
 share found more (a statement shared further down) but doubled SupplyNet
 scale l's time (26 s to 59 s) for no change in any answer, so a statement
 shared more than one row below the premises is not found. The row is conditioned on them like a clash: under B known, the

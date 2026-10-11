@@ -464,6 +464,25 @@ deps_covered(Id, Nodes, Keys, Seen) :-
     ;   empty_nb_set(Nodes), empty_nb_set(Keys), deps_collect(Id, Nodes, Keys),
         size_nb_set(Keys, Size), assertz(deps_size_memo(Id, Size)) ).
 
+% The keys near the top of at least two of the sets: each set's keys within
+% two levels of its node (a value's own key and the keys of the premises its
+% row read), held by two of the sets. Entangled premises of a row
+% (sk-entangle) are found so by masked lookups, without collecting the sets.
+'deps-entangled'(Ids, Hashes) :-
+    foldl(deps_near_step, Ids, [], Near0), sort(Near0, Near),
+    include(deps_held_twice(Ids), Near, Hashes).
+deps_near_step(Id, Acc0, Acc) :- deps_near(Id, 2, Near), append(Near, Acc0, Acc).
+deps_near(0, _, []) :- !.
+deps_near(Id, _, [Hash]) :- deps_leaf(Id, Hash), !.
+deps_near(Id, Depth, Near) :-
+    Depth > 0, deps_children(Id, Children), !,
+    Next is Depth - 1,
+    foldl(deps_near_child(Next), Children, [], Near).
+deps_near(_, _, []).
+deps_near_child(Depth, Child, Acc0, Acc) :- deps_near(Child, Depth, Found), append(Found, Acc0, Acc).
+deps_held_twice(Ids, Hash) :-
+    aggregate_all(count, (member(Id, Ids), deps_has(Id, Hash)), Count), Count >= 2.
+
 % The keys two sets both hold, in order.
 'deps-shared'(A, B, Hashes) :-
     empty_nb_set(NodesA), empty_nb_set(KeysA), deps_collect(A, NodesA, KeysA),
