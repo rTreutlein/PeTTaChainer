@@ -41,12 +41,13 @@
          (by rc (conjunction (by ra (given false)) (by rb (given false)))))
       (C) (STV 0.7 0.899999998985212)))
 
-;; A premise reading the very statement another premise read gains nothing,
-;; P(K and K) being P(K), and is not conditioned.
+;; A premise reading the very statement another premise read reads it as known
+;; under the condition: P(K and K) is P(K) (before: no answer).
 !(compileadd pairKb (: p (P x) (STV 0.9 0.9)))
 !(compileadd pairKb (: pairRule (Implication (And (P $u) (P $w)) (Pair $u $w)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
-!(test (query 100 pairKb (: $p (Pair x x) $tv)) ())
+!(test (query 100 pairKb (: $p (Pair x x) $tv))
+   (: (conditioned p (by pairRule (conjunction (given true) (given true))) (by pairRule (conjunction (given false) (given false)))) (Pair x x) (STV 0.9 0.8999999977943337)))
 
 ;; Conditioning is paid for from the evaluation allowance. A query whose
 ;; allowance cannot pay leaves the row waiting; a later query that needs it

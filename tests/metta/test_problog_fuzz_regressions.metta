@@ -170,3 +170,32 @@
 !(set-base-rate f5loop (C $x) (STV 0.36707 1.0))
 !(test (query 2000 f5loop (: $prf (C a) $tv))
    (: (factored-revision (by rC (conjunction obs-B-a obs-D-a)) (prior (STV 0.47 0.9999000099103349)) (((inverted rD with cpu (prior (STV 0.36707 1.0))) obs-D-a))) (C a) (STV 0.050519527051236156 0.9999055997327737)))
+
+;; F6. A loop B <- (Or A C), C <- B over a soft A, read by D outside it.
+;; Complete statements always have a value once settled, so rD is not dormant
+;; on C: 0.3 * 0.51 * 0.24 = 0.0367 for C and D = 0.2785, exact (before: rD
+;; was never started and D had no answer).
+!(set-complete-predicate f6or B)
+!(set-complete-predicate f6or C)
+!(compileadd f6or (: rB (Implication (Or (A $x) (C $x)) (B $x)) (CTV (STV 0.51 1) (STV 0 1))))
+!(compileadd f6or (: rC (Implication (B $x) (C $x)) (CTV (STV 0.24 1) (STV 0 1))))
+!(compileadd f6or (: rD (Implication (C $x) (D $x)) (CTV (STV 0.24 1) (STV 0.28 1))))
+!(compileadd f6or (: obs-A-a (A a) (STV 0.3 1)))
+!(set-base-rate f6or (A $x) (STV 0.21 1.0))
+!(test (query 2000 f6or (: $prf (D a) $tv))
+   (: (by rD (by rC (by rB (conjunction obs-A-a unfounded)))) (D a) (STV 0.27853120000000003 0.9999067892043876)))
+
+;; An And loop C <- (And A B), B <- (Or A C) over a soft A: B and C are A.
+;; C's row reads A and B's closed value, which derives from A: the closed
+;; value conditions on A like any other, and D <- (And C A) reads A and C
+;; derived from A, conditioned on A: 0.7 * 0.26 + 0.3 * 0.43 = 0.311, exact
+;; (before: neither conditioned, and nothing had an answer).
+!(set-complete-predicate f6and B)
+!(set-complete-predicate f6and C)
+!(compileadd f6and (: rB (Implication (Or (A $x) (C $x)) (B $x)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd f6and (: rC (Implication (And (A $x) (B $x)) (C $x)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd f6and (: rD (Implication (And (C $x) (A $x)) (D $x)) (CTV (STV 0.26 1) (STV 0.43 1))))
+!(compileadd f6and (: obs-A-a (A a) (STV 0.7 1)))
+!(set-base-rate f6and (A $x) (STV 0.47 1.0))
+!(test (query 2000 f6and (: $prf (D a) $tv))
+   (: (conditioned obs-A-a (by rD (conjunction (by rC (conjunction (given true) (by rB (conjunction (given true) unfounded)))) (given true))) (by rD (conjunction (by rC (conjunction (given false) (by rB (conjunction (given false) unfounded)))) (given false)))) (D a) (STV 0.311 0.9999428792044968)))

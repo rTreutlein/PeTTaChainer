@@ -630,6 +630,7 @@ dormancy_supported(Type, Ctx, Forbidden, Path, Depth) :-
     (   Budget =< 0 -> true
     ;   Budget1 is Budget - 1, nb_setval(dormancy_budget, Budget1),
         (   Type-Ctx == Forbidden -> fail
+        ;   dormancy_complete(Type, Ctx) -> true
         ;   member(Seen, Path), Seen =@= Type-Ctx -> fail
         ;   Depth =< 0 -> true
         ;   \+ dormancy_judged(Type, Ctx) -> true
@@ -647,9 +648,17 @@ dormancy_premise_supported(Proof, Type, Ctx, Forbidden, Path, Depth) :-
     ;   dormancy_supported(Type, Ctx, Forbidden, Path, Depth) ).
 
 dormancy_derived(Type, Ctx) :-
-    (   Ctx = [Kb|_], statement_head(Type, Head), dormancy_row('&complete_predicates'(Kb, Head)) -> true
+    (   dormancy_complete(Type, Ctx) -> true
     ;   \+ \+ ( dormancy_row(rules('runtime-rule-row', _, [Type, Ctx, Proof|_], _)),
                  ( Proof = [by|_] ; Proof = [negated, [by|_]] ) ) ).
+
+% A complete statement always has a value once its search settles: its rule
+% applications read closed, and with none it is unfounded, false
+% (docs/metta/complete_predicates.md). So it supports a reader even when its
+% only derivations run through a loop back to it: a loop disjunct read closed
+% is false, and the rest of its antecedent decides.
+dormancy_complete(Type, [Kb|_]) :-
+    statement_head(Type, Head), dormancy_row('&complete_predicates'(Kb, Head)).
 
 % A settled rule reads only a part whose certain stored fact settles its
 % compound (docs/metta/connective_settling.md), so it supports its conclusion

@@ -285,10 +285,12 @@ value, so the shared evidence counts once. Under a condition:
 - other views, and folds, read as stored.
 
 A branch that still clashes over another shared statement conditions on it in
-turn. There is nothing to condition when a premise reads one of the shared
-statements itself (P(K and K) is P(K)), when the clashing value is a
-projection, or when the conclusion is not a simple truth value; such premises
-are refused as before. The mix needs the weight's evidence to be outside the
+turn. A premise that reads one of the shared statements itself reads it as
+known under the condition, so a row reading K and a value derived from K, or
+K twice, is exact. A complete premise's closed value conditions like any
+other. There is nothing to condition when the clashing value is a projection,
+or when the conclusion is not a simple truth value; such premises are refused
+as before. The mix needs the weight's evidence to be outside the
 branches.
 
 Evaluation starts from what changed: new rows, and the readers of keys changed

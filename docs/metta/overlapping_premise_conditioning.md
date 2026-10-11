@@ -65,8 +65,12 @@ B))`, used in place of `P(C | A, not B)`, which the engine never estimates.
   A width of 0 would also have ranked the motivating example, with certain
   facts, as worthless, while without conditioning it has no answer at all.
 - **Exclusions**:
-  - A premise reading one of the shared statements itself, like `(And X X)`
-    from `X` twice, gains nothing, since P(K and K) = P(K).
+  - (Until October 2026: a premise reading one of the shared statements
+    itself, like `(And X X)` from `X` twice. It is conditioned now: under
+    the condition it reads as known, so `(And X X)` is X, and a row reading
+    X and a value derived from X is exact. Refusing it left loops of
+    complete predicates over a soft root without any answer, fuzzer seed
+    12000289.)
   - A projection of a conjunction pools with its siblings and has no
     conditional value when the conjunction is known false. Allowing it
     replaced the marginal answers in the projection tests with wrong ones.

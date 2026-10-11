@@ -321,12 +321,12 @@ is the chain rule P(A and C) = P(A) P(C | A). The proof records both branches:
 assumptions, not evidence: the evidence of the proof counts `a` once, through
 the weight `a` at the head.
 
-Conditioning is not used in these cases:
-- when a premise reads the same statement again, since P(K and K) is P(K);
+A premise that reads the conditioned statement itself reads it as known, so
+`(And K K)` is K. Conditioning is not used in these cases:
 - for projections of one conjunction, which pool;
 - for rules whose conclusion is not a simple truth value.
 
-In all three cases the premise is refused, as before. Folds read under a
+In both cases the premise is refused, as before. Folds read under a
 condition take their ordinary values. A query or forward run pays for
 conditioning from its evaluation allowance (see
 `docs/metta/runtime_design_assumptions.md`), so a small one may leave such a

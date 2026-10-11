@@ -1810,13 +1810,15 @@
 
 ;; A clash names the statements of the fact evidence the value shares with the
 ;; row, less those already given. Conditioning on them evaluates at most the
-;; value's dependencies once per truth assignment. There is nothing to
-;; condition when the premise reads one of those statements itself, since
-;; P(K and K) is P(K), or reads a projection: projections of one source share
-;; it by construction and pool, and projecting a conjunction known false has no
-;; conditional value.
-(: sk-clash-on (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonRowState SkeletonValue SkeletonRowState))
-(= (sk-clash-on $given $key $state $value)
+;; value's dependencies once per truth assignment. A premise that reads one of
+;; those statements itself reads it as known under the condition, so a row
+;; reading K and a value derived from K is exact: an And loop C <- (And A B),
+;; B <- (Or A C) read by D <- (And C A) with A soft (fuzzer seed 12000289).
+;; There is nothing to condition when the premise reads a projection:
+;; projections of one source share it by construction and pool, and
+;; projecting a conjunction known false has no conditional value.
+(: sk-clash-on (-[semidet]-> (List SkeletonGiven) SkeletonRowState SkeletonValue SkeletonRowState))
+(= (sk-clash-on $given $state $value)
    (case $state (
       ((sk-acc $_fold-proofs $ev $_deps $_parts)
          (case $value (
@@ -1824,7 +1826,7 @@
                (let $keys
                   (list_to_set (fold-semidet (sk-shared-key-step $given) ()
                      (evidence-shared-facts $ev $value-ev)))
-                  (if (if (sk-projection? $fact) true (stored-list-member? $key $keys)) (sk-clash () 0)
+                  (if (sk-projection? $fact) (sk-clash () 0)
                      (sk-clash $keys (* (pow-math 2 (list-len $keys)) (+ 1 (deps-size $value-deps)))))))
             ($_none sk-fail))))
       ($_failed sk-fail))))
@@ -1983,11 +1985,13 @@
                                           (case (sk-use-premise $shared $state $premise
                                                    (sk-premise-value $priors (sk-compatible-value $given $key $filter $exclude $ev true))) (
                                              (sk-fail
-                                                (sk-clash-on $given $key $state
+                                                (sk-clash-on $given $state
                                                    (if $facts-first (sk-premise-value $priors (sk-given-value $given $key $filter $exclude)) $value)))
                                              ($compatible $compatible)))))
                                     ($taken $taken))))
-                              (sk-use-premise $shared $state $premise $closed))))))))))))))
+                              (case (sk-use-premise $shared $state $premise $closed) (
+                                 (sk-fail (if $shared sk-fail (sk-clash-on $given $state $closed)))
+                                 ($taken $taken))))))))))))))))
 
 ;; A row reads its premises without the views that depend on its key or on a
 ;; key unifying with it, nor, under a condition, on what the rows conditioned

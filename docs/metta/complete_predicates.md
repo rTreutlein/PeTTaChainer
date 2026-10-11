@@ -117,7 +117,16 @@ premises in the same cycle multiply that.
 - Dormancy, prefilter. A rule application concluding a complete predicate
   is never dormant and never pruned before it starts: its join is how a
   closed read sees that a derivation exists, or that one waits on an unknown
-  premise. Inversions and projections concluding it are judged as before.
+  premise. Inversions and projections concluding it are judged as before. A
+  complete premise supports any reader in the dormancy analysis: once its
+  search settles it has a value, if only unfounded, even when its only
+  derivations loop back to it. Reading the loop as no support put a rule
+  outside the loop to sleep: `D <- C` over `B <- (Or A C)`, `C <- B` with A
+  soft answered nothing for D (fuzzer seed 14000155).
+- Conditioning. A closed value whose evidence overlaps uncertain evidence the
+  row already read (a soft fact both derive from) conditions on it like any
+  other premise value; before, it was refused and an `And` loop over a soft
+  root had no answer.
 - Merging. A closed value has the evidence of the recomputed rows and depends
   on K and the pinned statements; the reader's view merges as any other.
 - Observations inside a loop. A rule application of a complete G may read a
