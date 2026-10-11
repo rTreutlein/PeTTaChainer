@@ -231,6 +231,21 @@
 !(compileadd sharedKb (: wet-d (Wet d) (STV 1 1)))
 !(test (query 2000 sharedKb (: $proof (Rain d) $tv)) (: ((antecedent-completion wet 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction outdoor-d wet-d)) (Rain d) (STV 0.6585425339841672 0.8936005994767838)))
 
+;; A sibling the completion conditions on is no observation of it. B is
+;; derived from A (0.8, 0.2) and C from A and B (0.9, 0.1); b shows B and C.
+;; The inversion of rB reads B as its observation, the completion of rC onto
+;; A reads B as given: its likelihood ratio is C's given B, 0.9 / 0.1. Bayes'
+;; rule over both is exact, P(A) P(B | A) P(C | A, B):
+;;   odds = 0.3/0.7 * (0.8/0.2) * (0.9/0.1) = 15.43, P(A b) = 0.9391.
+;; Read as containing the inversion's evidence, the completion alone was kept
+;; (0.794) (fuzzer seed 12000059).
+!(compileadd siblingKb (: rB (Implication (A $x) (B $x)) (CTV (STV 0.8 1) (STV 0.2 1))))
+!(compileadd siblingKb (: rC (Implication (And (A $x) (B $x)) (C $x)) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(set-base-rate siblingKb (A $x) (STV 0.3 1.0))
+!(compileadd siblingKb (: b-b (B b) (STV 1 1)))
+!(compileadd siblingKb (: c-b (C b) (STV 1 1)))
+!(test (query 2000 siblingKb (: $proof (A b) $tv)) (: (factored-revision cpu (prior (STV 0.3 1.0)) (((inverted rB with cpu (prior (STV 0.3 1.0))) b-b) ((antecedent-completion rC 0 with cpu (prior (STV 0.3 1.0))) (conjunction b-b c-b)))) (A b) (STV 0.9391304347826086 0.9998964113373382)))
+
 ;; A completion reads its consequence as an observation. A predicate that only
 ;; forward rules conclude is predicted, here from the completed conjunct and
 ;; from servicing, never observed: the rule start prunes the completion, and

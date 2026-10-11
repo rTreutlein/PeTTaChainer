@@ -222,21 +222,52 @@
 (= (sk-consequence-prior $proof $tv)
    (if (== (sk-forward-parts $proof) ()) (sk-observation-prior $proof $tv) (empty)))
 
-;; The observations of the updates a view merges, by hash: an inversion's
-;; observation, each witness of a completion. Updates through one rule are
-;; independent given their prior and the rule, whether its truth is given or
-;; an estimate (see sk-merge-facts). A list of proofs is walked by recursion:
-;; the determinism checker rejects a fold over Proof, a newtype of Atom.
-(: sk-part-sources (-[det]-> (List Proof) (List Number)))
-(= (sk-part-sources ()) ())
-(= (sk-part-sources (cons $part $rest))
-   (let $witness (car-atom (cdr-atom (sk-step-proof $part)))
-      (append-flat (map-flat index-hash (the (List Atom) (case $witness (((cons conjunction $proofs) $proofs) ($_one (cons $witness ()))))))
-         (sk-part-sources $rest))))
+;; The witnesses of the updates a view merges, by hash: with `$siblings`
+;; false their observations, an inversion's observation and a completion's
+;; consequence, its last witness; with `$siblings` true the other witnesses of
+;; a completion, the siblings whose values its likelihood of the consequence
+;; reads as given. Updates through one rule are independent given their prior
+;; and the rule, whether its truth is given or an estimate (see
+;; sk-merge-facts). A list of proofs is walked by recursion: the determinism
+;; checker rejects a fold over Proof, a newtype of Atom.
+(: sk-part-witnesses (-[det]-> Bool (List Proof) (List Number)))
+(= (sk-part-witnesses $_siblings ()) ())
+(= (sk-part-witnesses $siblings (cons $part $rest))
+   (let* (($witness (car-atom (cdr-atom (sk-step-proof $part))))
+          ($last-first (reverse (case $witness (((cons conjunction $proofs) $proofs) ($_one (cons $witness ()))))))
+          ($read (the (List Atom) (if $siblings (cdr-atom $last-first) (cons (car-atom $last-first) ())))))
+      (append-flat (map-flat index-hash $read) (sk-part-witnesses $siblings $rest))))
 
 (: sk-sources-meet? (-[det]-> (List Proof) (List Proof) Bool))
 (= (sk-sources-meet? $parts-a $parts-b)
-   (not (== (/==\ (sk-part-sources $parts-a) (sk-part-sources $parts-b)) ())))
+   (not (== (/==\ (sk-part-witnesses false $parts-a) (sk-part-witnesses false $parts-b)) ())))
+
+;; The evidence a view's updates hold about its statement: its evidence less
+;; the certain facts its completions read as siblings. Given a sibling K, a
+;; completion is the likelihood ratio of its consequence alone, P(C | M, K)
+;; over P(C | not M, K); it holds no evidence of M through K. So a view that
+;; reads K as an observation, an inversion of K's rule P(K | M), or as a
+;; premise, a forward view P(M | K), is independent of it given K, and Bayes'
+;; rule over both is exact: P(M) P(K | M) P(C | M, K). An uncertain sibling's
+;; value is read as independent of M a priori, so it stays evidence.
+(: sk-update-evidence (-[det]-> SkFact EvidenceSet EvidenceSet))
+(= (sk-update-evidence ($_type $_kbctx $proof $tv) $ev)
+   (case (sk-prior-update-of $proof $tv) (
+      ((sk-prior-update $_prior $_own $parts)
+         (case (sk-part-witnesses true $parts) (
+            (() $ev)
+            ($siblings
+               (evidence-subtraction $ev
+                  (evidence-set (fold-flat (sk-sibling-entry-step $siblings) () (evidence-entries $ev)))))))))))
+
+(: sk-sibling-entry-step (-[det]-> (List Number) (List Evidence) Evidence (List Evidence)))
+(= (sk-sibling-entry-step $siblings $kept $entry)
+   (case $entry (
+      ((fact-ev $_kbctx $proof $_type)
+         (if (stored-list-member? (index-hash $proof) $siblings)
+            (if (certain-fact-evidence? $entry) (cons $entry $kept) $kept)
+            $kept))
+      ($_other $kept))))
 
 ;; Two views updating the same prior with different rules and observations
 ;; merge by Bayes' rule; over a base rate, which carries no evidence, they
@@ -476,7 +507,9 @@
 ;; contains the other's is kept; two that share an uncertain statement are an
 ;; overlap, which the key's merge conditions on the shared statements; any
 ;; other pair keeps the more confident view, also the overlap's fallback. A
-;; dominated view contributes neither evidence nor dependencies. The ignored
+;; completion's evidence is compared without the certain siblings it
+;; conditions on (sk-update-evidence). A dominated view contributes neither
+;; evidence nor dependencies. The ignored
 ;; hashes are the merged key's, those of the keys unifying with it, those the
 ;; reader excludes and the statements given.
 (: sk-merge-facts
@@ -490,14 +523,16 @@
             (if (proof-dominates? $proof-b $proof-a) (sk-paired (sk-val $b $ev-b $deps-b))
             (if (more-specific-application? $proof-a $proof-b) (sk-paired (sk-specialized $a $ev-a $deps-a $b $ev-b $deps-b))
             (if (more-specific-application? $proof-b $proof-a) (sk-paired (sk-specialized $b $ev-b $deps-b $a $ev-a $deps-a))
-               (let* (($overlap (evidence-overlap? $ev-a $ev-b))
-                      ($a-in-b (if $overlap (evidence-subset? $ev-a $ev-b) false))
-                      ($b-in-a (if $overlap (evidence-subset? $ev-b $ev-a) false))
+               (let* (($cmp-a (sk-update-evidence $a $ev-a))
+                      ($cmp-b (sk-update-evidence $b $ev-b))
+                      ($overlap (evidence-overlap? $cmp-a $cmp-b))
+                      ($a-in-b (if $overlap (evidence-subset? $cmp-a $cmp-b) false))
+                      ($b-in-a (if $overlap (evidence-subset? $cmp-b $cmp-a) false))
                       ($apart (if $overlap (if $a-in-b false (if $b-in-a false true)) false))
                       ($shared (if $apart (sk-shared-statements $ignore $deps-a $deps-b) ()))
                       ($independent
                          (if $overlap
-                            (if $apart (if (== $shared ()) (if (fold-flat sk-observation-step false (evidence-shared-facts $ev-a $ev-b)) false true) false) false)
+                            (if $apart (if (== $shared ()) (if (fold-flat sk-observation-step false (evidence-shared-facts $cmp-a $cmp-b)) false true) false) false)
                             true))
                       ($factored (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b $independent)))
                   (if (not (== $factored sk-none)) (sk-paired $factored)

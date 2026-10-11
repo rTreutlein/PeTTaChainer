@@ -378,9 +378,25 @@ inversions, at the level of the completion's witnesses:
 - over a base rate, the views are independent (no shared observation or
   uncertain statement, as above), so an observation read below the
   witnesses blocks the factoring;
-- no witness proof of one view is a witness or observation of another
-  (`sk-part-sources`): two completions reading the same C through different O
-  are one observation, not two, and C is a witness of both.
+- no observation of one view is an observation of another
+  (`sk-part-witnesses`): two completions reading the same C through
+  different O are one observation, not two.
+
+A completion's observation is its consequence C alone. A sibling O known
+with certainty is conditioned on, not observed: given O, the completion is
+the likelihood ratio of C, P(C | M, O) over P(C | not M, O), and holds no
+evidence of M through O. So the merge compares a completion's evidence
+without its certain siblings (`sk-update-evidence`): another view that reads
+O, an inversion of O's rule (P(O | M)) or a forward view from O (P(M | O)),
+is independent of it given O, and Bayes' rule over both is exact,
+P(M) P(O | M) P(C | M, O). Compared with the siblings, the completion's
+evidence contained the inversion's, and the completion alone was kept: with
+P(M) = 0.3, P(O | M) = 0.8 against 0.2, P(C | M, O) = 0.9 against 0.1, and
+O and C observed, 0.794 instead of 0.939
+(`tests/metta/test_antecedent_completion.metta`; fuzzer seed 12000059, a
+certain O = 1 that only M explains answered 0.69 instead of 1). An
+uncertain sibling's value is read as independent of M a priori, so it stays
+evidence of the completion.
 
 The previous formula, P(M | O, C) = u P(O, M) / P(O, C), read the base rate of
 the known conjunction `(And O C)` and never used v. That base rate is folded
