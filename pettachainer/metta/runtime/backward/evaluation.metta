@@ -129,15 +129,8 @@
 ;; --- Values -----------------------------------------------------------------
 
 ;; The last rule application of a proof, with its premise proofs still
-;; references.
+;; references (runtime_helpers.pl).
 (: sk-step-proof (-[det]-> Proof Proof))
-(= (sk-step-proof $proof)
-   (case $proof (
-      ((proof-ref $pid)
-         (case (collapse (once (match &proof ($pid $stored $_ev $_negated) $stored))) (
-            ((cons $stored $_rest) $stored)
-            (() $proof))))
-      ($_leaf $proof))))
 
 (: sk-fact-step-proof (-[det]-> SkFact Proof))
 (= (sk-fact-step-proof ($_type $_kbctx $proof $_tv)) (sk-step-proof $proof))

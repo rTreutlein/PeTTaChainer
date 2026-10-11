@@ -149,6 +149,12 @@ argument_shape(Arg, Shape) :-
     copy_term_nat(Link, Copy), variant_sha1(Copy, Hex),
     sub_atom(Hex, 0, 15, _, Prefix), atom_concat('0x', Prefix, Number), atom_number(Number, Digest).
 
+% The last rule application of a proof, its premise proofs still references:
+% a stored proof's own step, any other proof itself. Read by every merge and
+% fold step, so one clause lookup instead of a collected match.
+'sk-step-proof'(Proof, Step) :-
+    (   nonvar(Proof), Proof = ['proof-ref', Pid], user:'&proof'(Pid, Stored, _, _) -> Step = Stored ; Step = Proof ).
+
 % Hash sets (exclusion lists, unifier sets) are SWI ordered sets of key
 % hashes, so union and membership are linear merges over short lists.
 'hash-set'(Hashes, Set) :- sort(Hashes, Set).
