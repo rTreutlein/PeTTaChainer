@@ -68,7 +68,7 @@ own seeds or write runner scripts.
   a frozen build name under `bench/chainers/`, or a worktree path. A worktree
   counts as its HEAD plus its uncommitted diff and its untracked files under
   `pettachainer/`.
-- `--quick` (default) while iterating. Run `--full` before hand-back.
+- `--quick` (default, about 75 s: one point per behaviour) while iterating. Run `--full` (about 3 min: each behaviour as a budget curve, plus the ProbLog fuzzer gate) before hand-back.
   `bench/README.md` lists what each profile runs and how long it takes.
 - **Results are stored by the code that ran.** The store key is the
   `pettachainer/` tree (uncommitted changes included), the PeTTa runtime, the
