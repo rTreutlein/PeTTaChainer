@@ -11,7 +11,7 @@ import time
 import traceback
 import uuid
 import warnings
-from typing import Iterator, List, NamedTuple, Optional, Sequence, Tuple
+from typing import Iterator, List, NamedTuple, Optional, Sequence
 import __main__
 
 from petta import PeTTa
@@ -37,7 +37,7 @@ def get_language_spec(llm_focused: bool = True) -> str:
 
 
 def _query_worker(
-    added_atoms: List[Tuple[str, bool]],
+    added_atoms: List[str],
     kb: str,
     expression: str,
     logic_config_path: Optional[str],
@@ -127,8 +127,7 @@ class PeTTaChainer:
         global LOADEDLIB
         self.handler = PeTTa()
         self.kb = f"kb{uuid.uuid4().hex}"
-        self._added_atoms: List[Tuple[str, bool]] = []
-        self._pattern_mining_on_add = False
+        self._added_atoms: List[str] = []
         self._logic_config_path: Optional[Path] = None
         self._evidence_confidence_k = 800.0
         self._bayes_prior_count = 0.2
@@ -374,26 +373,10 @@ class PeTTaChainer:
         if head not in self._positive_only_predicates:
             self._positive_only_predicates.append(head)
 
-    def set_pattern_mining_on_add(self, enabled: bool) -> None:
-        value = "true" if enabled else "false"
-        self.handler.process_metta_string(f"!(set-pattern-mining-on-add {self.kb} {value})")
-        self._pattern_mining_on_add = enabled
-
-    def enable_pattern_mining_on_add(self) -> None:
-        self.set_pattern_mining_on_add(True)
-
-    def disable_pattern_mining_on_add(self) -> None:
-        self.set_pattern_mining_on_add(False)
-
-    def materialize_mined_implications(self) -> str:
-        return self.handler.process_metta_string(f"!(materialize-mined-implications {self.kb})")
-
-    def add_atom(self, atom: str, mine_patterns: Optional[bool] = None) -> str:
+    def add_atom(self, atom: str) -> str:
         self._validate("statement", atom, atom, check_stmt)
-        effective_mining = self._pattern_mining_on_add if mine_patterns is None else mine_patterns
-        compile_fun = "compileadd-mine" if effective_mining else "compileadd"
-        result = self.handler.process_metta_string(f"!({compile_fun} {self.kb} {atom})")
-        self._added_atoms.append((atom, effective_mining))
+        result = self.handler.process_metta_string(f"!(compileadd {self.kb} {atom})")
+        self._added_atoms.append(atom)
         return result
 
     def remove_statement(self, atom_name: str) -> str:
@@ -414,22 +397,17 @@ class PeTTaChainer:
         result = self.handler.process_metta_string(f"!(remove-compiled-statement {atom_name})")
         prefix = f"(: {atom_name} "
         self._added_atoms = [
-            (atom, mined) for atom, mined in self._added_atoms
+            atom for atom in self._added_atoms
             if not atom.strip().startswith(prefix)
         ]
         return result
 
-    def add_atoms_no_check(self, atoms: List[str] | List[Tuple[str, bool]], mine_patterns: Optional[bool] = None) -> str:
-        if atoms and isinstance(atoms[0], tuple):
-            entries = atoms
-        else:
-            effective_mining = self._pattern_mining_on_add if mine_patterns is None else mine_patterns
-            entries = [(atom, effective_mining) for atom in atoms]
-        adds = [f"({'compileadd-mine' if use_mining else 'compileadd'} {self.kb} {atom})" for atom, use_mining in entries]
+    def add_atoms_no_check(self, atoms: List[str]) -> str:
+        adds = [f"(compileadd {self.kb} {atom})" for atom in atoms]
         result = self.handler.process_metta_string(
             f"!(superpose ({' '.join(adds)}))"
         )
-        self._added_atoms.extend(entries)
+        self._added_atoms.extend(atoms)
         return result
 
     evaluate_statement = _evaluate

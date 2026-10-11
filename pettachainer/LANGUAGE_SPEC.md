@@ -25,25 +25,6 @@ If you need an LLM-oriented helper-first spec, use `pettachainer/LLM_RULE_SPEC.m
 !(compileadd kb (: proof-id type tv))
 ```
 
-- Incremental pattern mining on insert is off by default. To enable it for a KB:
-
-```metta
-!(enable-pattern-mining-on-add kb)
-```
-
-This updates mining statistics during `compileadd` without recompiling mined rules on every insert.
-When you want to emit the current mined implication rules, run:
-
-```metta
-!(materialize-mined-implications kb)
-```
-
-- For a one-shot insert that also mines patterns without changing the KB default:
-
-```metta
-!(compileadd-mine kb (: proof-id type tv))
-```
-
 - Queries use:
 
 ```metta
