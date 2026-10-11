@@ -294,10 +294,9 @@ value, so the shared evidence counts once. Under a condition:
 - a view depending on one is its row evaluated again under the same
   condition, excluding what the enclosing rows exclude, so the recursion
   follows only views that used a shared fact and cannot cycle;
-- a key with no value whose rows read a given statement directly is those
-  rows evaluated under the condition, once along any path (a row that
-  derived nothing because the statement had no value derives under it); a
-  complete key is read closed instead;
+- a compound And or Or with no value whose rows read a given statement
+  directly is those rows evaluated under the condition, once along any path
+  (read off its parts, it had no value because the part had none);
 - other views, and folds, read as stored.
 
 A branch that still clashes over another shared statement conditions on it in

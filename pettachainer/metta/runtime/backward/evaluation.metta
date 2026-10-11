@@ -1989,13 +1989,13 @@
       $view))
 
 ;; A key's value under a condition: its value, unless that depends on a given
-;; statement; then the merge of its leaves and its views read under it. A key
-;; with no value whose rows read a given statement directly is the merge of
-;; those rows evaluated under the condition: a row that derived nothing
-;; because the statement had no value derives under it. A complete key is
-;; read closed instead (sk-closed-read); a key reached again through its own
-;; rows while they are evaluated so has no value there (row hash -2 in
-;; &sk_conditioning).
+;; statement; then the merge of its leaves and its views read under it. A
+;; compound And or Or with no value whose rows read a given statement directly
+;; is the merge of those rows evaluated under the condition: a compound read
+;; off its parts has no value while one part has none, and has one with the
+;; part given. Evaluating every key so cost SupplyNet stage 3 a third more
+;; time for no change. A compound reached again through its own rows while
+;; they are evaluated so has no value there (row hash -2 in &sk_conditioning).
 (= (sk-given-value $given $key $filter $exclude)
    (let $value (sk-value $key $filter $exclude)
       (if (sk-given-meets? $given $value) (sk-given-merge $given $key $filter $exclude)
@@ -2003,7 +2003,7 @@
             (case $key (
                ((sk-key $type $kbctx)
                   (let $hash (index-hash $key)
-                     (if (if (complete-statement? $type $kbctx) true (space-row-present? &sk_conditioning ($hash -2))) sk-none
+                     (if (if (== (sk-compound-parts $type) ()) true (space-row-present? &sk_conditioning ($hash -2))) sk-none
                         (let* (($_entered (add-atom &sk_conditioning ($hash -2)))
                                ($views
                                   (fold-semidet (sk-given-row-step $given $exclude $hash $key) ()
