@@ -50,6 +50,8 @@ def _query_worker(
     complete_predicates: List[str],
     positive_only_predicates: List[str],
     hypothesis_mining: Optional[Tuple[int, int]],
+    predicate_times: List[Tuple[str, int, int]],
+    time_link: Optional[str],
     conn,
 ):
     try:
@@ -65,6 +67,10 @@ def _query_worker(
             handler.set_positive_only_predicate(head)
         if hypothesis_mining:
             handler.set_hypothesis_mining(*hypothesis_mining)
+        for head, position, layer in predicate_times:
+            handler.set_predicate_time(head, position, layer)
+        if time_link:
+            handler.set_time_link(time_link)
         if added_atoms:
             handler.add_atoms_no_check(added_atoms)
         conn.send(("ok", handler._call(fn, [source])))
@@ -152,6 +158,8 @@ class PeTTaChainer:
         self.kb = f"kb{uuid.uuid4().hex}"
         self._added_atoms: List[str] = []
         self._hypothesis_mining: Optional[Tuple[int, int]] = None
+        self._predicate_times: dict[str, Tuple[int, int]] = {}
+        self._time_link: Optional[str] = None
         self._logic_config_path: Optional[Path] = None
         self._evidence_confidence_k = 800.0
         self._bayes_prior_count = 0.2
@@ -437,11 +445,13 @@ class PeTTaChainer:
         """Let the KB propose hypotheses from the facts added to it
         (``max_new`` 0 turns it off; docs/metta/hypothesis_rules.md).
 
-        Each added true fact may propose up to ``max_new`` refined rules
-        with a weak prior, concluding it from pairs of recent true facts that
-        share a constant with it, or from one of them once that one recurs in
-        another context; a consequent pattern keeps at most ``max_live`` live
-        ones. Turns rule refinement on. Timed subprocess queries replay the
+        Each added true fact of a predicate with a declared place in time
+        (``set_predicate_time``) may propose up to ``max_new`` refined rules
+        with a weak prior between it and recent true facts sharing a
+        constant with it, the cause being the fact at the earlier time point
+        or, at one time point, of the lower layer: from pairs at once, from
+        one fact once it recurs in another context; a consequent pattern
+        keeps at most ``max_live`` live ones. Turns rule refinement on. Timed subprocess queries replay the
         setting, not the reviews.
         """
         self.handler.process_metta_string(
@@ -450,6 +460,29 @@ class PeTTaChainer:
         self._hypothesis_mining = (int(max_new), int(max_live)) if max_new > 0 else None
         if max_new > 0:
             self._rule_refinement = True
+
+    def set_predicate_time(self, head: str, position: int, layer: int) -> None:
+        """Declare where predicate ``head`` sits in time for hypothesis
+        mining: its facts refer to the time point at argument ``position``
+        (counted from 1), and within a time point a fact of a lower ``layer``
+        may cause one of a higher layer, never the reverse; equal layers are
+        not related. Only declared predicates are mined
+        (docs/metta/hypothesis_rules.md). Timed subprocess queries replay the
+        declaration.
+        """
+        self.handler.process_metta_string(
+            f"!(set-predicate-time {self.kb} {head} {int(position)} {int(layer)})"
+        )
+        self._predicate_times[head] = (int(position), int(layer))
+
+    def set_time_link(self, head: str) -> None:
+        """Declare that ``(head earlier later)`` facts link a time point to
+        the next one, so hypothesis mining relates facts of adjacent time
+        points, the earlier as the cause (docs/metta/hypothesis_rules.md).
+        Timed subprocess queries replay the declaration.
+        """
+        self.handler.process_metta_string(f"!(set-time-link {self.kb} {head})")
+        self._time_link = head
 
     def review_hypotheses(self, goal: str = "$goal", steps: int = 200) -> List[str]:
         """Review the live mined hypotheses that apply to ``goal`` (all for a
@@ -599,6 +632,8 @@ class PeTTaChainer:
                 self._complete_predicates,
                 self._positive_only_predicates,
                 self._hypothesis_mining,
+                [(head, *place) for head, place in self._predicate_times.items()],
+                self._time_link,
                 child_conn,
             ),
             daemon=True,

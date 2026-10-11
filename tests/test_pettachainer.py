@@ -115,15 +115,21 @@ class TestPeTTaChainer(unittest.TestCase):
     def test_hypothesis_mining_proposes_reviews_and_replays(self):
         handler = PeTTaChainer()
         handler.set_hypothesis_mining(4, 8)
+        handler.set_predicate_time("Storm", 2, 0)
+        handler.set_predicate_time("Blocked", 2, 1)
+        handler.set_time_link("NextPeriod")
         handler.add_atoms_no_check([
-            "(: n1 (Storm north p1) (STV 1 1))",
             "(: b1 (Blocked r1 p1) (STV 1 1))",
-            "(: n2 (Storm north p2) (STV 1 1))",
+            "(: n1 (Storm north p1) (STV 1 1))",
+            "(: x2 (NextPeriod p1 p2) (STV 1 1))",
             "(: b2 (Blocked r1 p2) (STV 1 1))",
+            "(: n2 (Storm north p2) (STV 1 1))",
+            "(: x3 (NextPeriod p2 p3) (STV 1 1))",
             "(: n3 (Storm north p3) (STV 1 1))",
         ])
-        # The storm rule recurred in the second period and was proposed; the
-        # review of the third period's route reads it.
+        # The storm rule recurred in the second period and was proposed,
+        # though each route arrived before its storm; the review of the third
+        # period's route reads it.
         verdicts = handler.review_hypotheses("(Blocked r1 p3)", steps=50)
         self.assertEqual(len(verdicts), 1)
         self.assertIn("(Implication (Storm north $", verdicts[0])

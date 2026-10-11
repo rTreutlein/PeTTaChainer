@@ -21,16 +21,18 @@
 ;; with k = 1, confidence 0.01/1.01.
 !(set-evidence-confidence-k 1)
 
-;; A true fact is concluded from pairs of the recent true facts sharing a
-;; constant with it, at once; a pair whose features share another constant
-;; also gives the relational form. It is concluded from one of them when that
-;; one recurs at another instance where its other features differ, so that
-;; the pairs of its first context do not explain it. Sample and Left store
-;; only their true instances: they are never consequents, and their
-;; hypotheses are STVs.
+;; Within one time point, a fact of a lower layer concludes one of a higher
+;; layer: a pair at once; a pair whose features share another constant also
+;; gives the relational form. A single is proposed when it recurs at another
+;; instance where the other facts below its consequent differ, so that the
+;; pairs of its first sighting do not explain it. Sample and Left store only
+;; their true instances: their hypotheses are STVs.
 !(set-positive-only-predicate mtsKb Sample)
 !(set-positive-only-predicate mtsKb Left)
 !(set-hypothesis-mining mtsKb 8 16)
+!(set-predicate-time mtsKb Sample 2 0)
+!(set-predicate-time mtsKb Left 2 0)
+!(set-predicate-time mtsKb Reward 2 1)
 !(compileadd mtsKb (: s1 (Sample A1 t1) (STV 1 1)))
 !(compileadd mtsKb (: l1 (Left B1 t1) (STV 1 1)))
 !(test (live-hypotheses mtsKb) ())
@@ -69,6 +71,10 @@
 !(set-positive-only-predicate errKb Left)
 !(set-positive-only-predicate errKb Right)
 !(set-hypothesis-mining errKb 8 16)
+!(set-predicate-time errKb Sample 2 0)
+!(set-predicate-time errKb Left 2 0)
+!(set-predicate-time errKb Right 2 0)
+!(set-predicate-time errKb Reward 2 1)
 !(compileadd errKb (: s1 (Sample A1 t1) (STV 1 1)))
 !(compileadd errKb (: l1 (Left B1 t1) (STV 1 1)))
 !(compileadd errKb (: r1 (Reward left t1) (STV 1 1)))
@@ -81,31 +87,55 @@
     (Implication (And (Left B1 $_1) (Right B2 $_1)) (Reward left $_1))
     (Implication (And (Right B2 $_2) (Sample A1 $_2)) (Reward left $_2))))
 
-;; Without a positive-only predicate the newer fact is the consequent, and
-;; the reverse of a proposed hypothesis is never proposed.
+;; The layers order a time point's facts, not the order they arrive in: the
+;; inspected route arrives before its period's storm, and the storm still
+;; concludes it. Facts of one layer are not related.
 !(set-hypothesis-mining stormKb 8 16)
-!(compileadd stormKb (: n1 (Storm north p1) (STV 1 1)))
+!(set-predicate-time stormKb Storm 2 0)
+!(set-predicate-time stormKb Blocked 2 1)
 !(compileadd stormKb (: b1 (Blocked r1 p1) (STV 1 1)))
+!(compileadd stormKb (: c1 (Blocked r2 p1) (STV 1 1)))
+!(compileadd stormKb (: n1 (Storm north p1) (STV 1 1)))
 !(test (live-hypotheses stormKb) ())
 !(compileadd stormKb (: n2 (Storm north p2) (STV 1 1)))
 !(compileadd stormKb (: b2 (Blocked r1 p2) (STV 1 1)))
-!(test (live-hypotheses stormKb) ((Implication (Storm north $_0) (Blocked r1 $_0))))
+!(compileadd stormKb (: c2 (Blocked r2 p2) (STV 1 1)))
+!(test (live-hypotheses stormKb)
+   ((Implication (Storm north $_0) (Blocked r1 $_0))
+    (Implication (Storm north $_1) (Blocked r2 $_1))))
 !(test (hypothesis-tv stormKb (Implication (Storm north $p) (Blocked r1 $p))) ((CTV (STV 0.5 0.009900990099009901) (STV 0.5 0.009900990099009901))))
-!(compileadd stormKb (: b3 (Blocked r1 p3) (STV 1 1)))
-!(compileadd stormKb (: n3 (Storm north p3) (STV 1 1)))
-!(compileadd stormKb (: b4 (Blocked r1 p4) (STV 1 1)))
-!(compileadd stormKb (: n4 (Storm north p4) (STV 1 1)))
-!(test (live-hypotheses stormKb) ((Implication (Storm north $_0) (Blocked r1 $_0))))
 
-;; A statement of the consequent's own predicate is no feature: persistence
-;; through a link fact is not proposed (docs/metta/hypothesis_rules.md).
+;; Across a link, the earlier fact concludes the later one, with the link as
+;; a conjunct and only the time points as variables: persistence of each
+;; entity, whichever arrives first. Facts two time points apart are not
+;; related.
 !(set-hypothesis-mining persistKb 8 16)
-!(compileadd persistKb (: n1 (Storm north p1) (STV 1 1)))
+!(set-predicate-time persistKb Storm 2 0)
+!(set-time-link persistKb NextPeriod)
 !(compileadd persistKb (: x2 (NextPeriod p1 p2) (STV 1 1)))
-!(compileadd persistKb (: n2 (Storm north p2) (STV 1 1)))
+!(compileadd persistKb (: x3 (NextPeriod p2 p3) (STV 1 1)))
+!(compileadd persistKb (: x4 (NextPeriod p3 p4) (STV 1 1)))
+!(compileadd persistKb (: n1 (Storm north p1) (STV 1 1)))
+!(compileadd persistKb (: n3 (Storm north p3) (STV 1 1)))
 !(test (live-hypotheses persistKb) ())
+!(compileadd persistKb (: n4 (Storm north p4) (STV 1 1)))
+!(test (live-hypotheses persistKb) ())
+!(compileadd persistKb (: n2 (Storm north p2) (STV 1 1)))
+!(test (live-hypotheses persistKb)
+   ((Implication (And (NextPeriod $_0 $_1) (Storm north $_0)) (Storm north $_1))))
+
+;; A predicate without a declared place in time is not mined.
+!(set-hypothesis-mining untimedKb 8 16)
+!(set-predicate-time untimedKb Storm 2 0)
+!(compileadd untimedKb (: n1 (Storm north p1) (STV 1 1)))
+!(compileadd untimedKb (: b1 (Blocked r1 p1) (STV 1 1)))
+!(compileadd untimedKb (: n2 (Storm north p2) (STV 1 1)))
+!(compileadd untimedKb (: b2 (Blocked r1 p2) (STV 1 1)))
+!(test (live-hypotheses untimedKb) ())
 
 ;; Off, nothing is proposed.
+!(set-predicate-time offKb Storm 2 0)
+!(set-predicate-time offKb Blocked 2 1)
 !(compileadd offKb (: n1 (Storm north p1) (STV 1 1)))
 !(compileadd offKb (: b1 (Blocked r1 p1) (STV 1 1)))
 !(compileadd offKb (: n2 (Storm north p2) (STV 1 1)))
@@ -117,6 +147,10 @@
 ;; A fact proposes at most max-new hypotheses, and a consequent pattern keeps
 ;; at most max-live. Three features give three pairs.
 !(set-hypothesis-mining budgetKb 2 3)
+!(set-predicate-time budgetKb P1 1 0)
+!(set-predicate-time budgetKb P2 1 0)
+!(set-predicate-time budgetKb P3 1 0)
+!(set-predicate-time budgetKb Q 1 1)
 (: add-budget-case! (-[det]-> (Atom Atom) Atom))
 (= (add-budget-case! ($i $q))
    (let* (($_1 (collapse (compileadd budgetKb (: (f1 $i) (P1 $i) (STV 1 1)))))
@@ -132,11 +166,14 @@
 
 ;; --- Pruning ----------------------------------------------------------------
 
-;; B holds in 16 of 20 cases with A and 4 of 20 without; C is unrelated. A
-;; review keeps A -> B, drops what involves C, and drops A and C -> B, which
-;; A -> B screens off.
+;; B holds in 16 of 20 cases with A and 4 of 20 without; C is unrelated,
+;; and of A's layer. A review keeps A -> B, drops C -> B, and drops A and C
+;; -> B, which A -> B screens off.
 !(set-evidence-confidence-k 5)
 !(set-hypothesis-mining pruneKb 8 16)
+!(set-predicate-time pruneKb A 1 0)
+!(set-predicate-time pruneKb C 1 0)
+!(set-predicate-time pruneKb B 1 1)
 (: add-case! (-[det]-> (Number Number Number Number) Atom))
 (= (add-case! ($i $a $b $c))
    (let* (($_a (collapse (compileadd pruneKb (: (a $i) (A $i) (STV $a 1)))))
@@ -154,8 +191,7 @@
 !(test (collapse (let (hypothesis $_name $implication $_tv $verdict) (review-hypotheses 50 pruneKb $goal) ($implication $verdict)))
    (((Implication (And (A $_0) (C $_0)) (B $_0)) dropped)
     ((Implication (A $_1) (B $_1)) kept)
-    ((Implication (A $_2) (C $_2)) dropped)
-    ((Implication (C $_3) (B $_3)) dropped)))
+    ((Implication (C $_2) (B $_2)) dropped)))
 !(test (live-hypotheses pruneKb) ((Implication (A $_0) (B $_0))))
 
 ;; A dropped hypothesis is not proposed again, and no longer applies.

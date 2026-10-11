@@ -1152,42 +1152,77 @@ metta_call_terms(Fn, Sources, Results) :-
           Variables, 0, _).
 
 % Hypothesis mining (docs/metta/hypothesis_rules.md, "Mining hypotheses").
-% The candidate implications concluding Fact from Features, true facts of
-% other predicates that share a constant argument with it, as [Antecedent,
-% Consequent, Context]: its singles and its pairs. Each constant a feature
-% shares with Fact becomes a variable. A pair concludes Fact from two
-% features (ordered as ground terms, so a pair is one candidate); a pair whose
-% two features share a constant apart from Fact also gives its relational
-% form, with that constant a variable too: (And (Sample $x $t) (LeftStim $x
-% $t)). A pair's Context is none. A single concludes Fact from one feature;
-% its Context is the hash of the other features, generalized alike, so the
-% miner can tell whether it recurs where the pairs of its first context do
-% not explain it (with no other feature, no pair could, and its Context is
-% the hash of Fact, which differs at every instance).
-'hypothesis-singles'(Fact, Features, Singles) :-
-    term_hash(Fact, Instance),
-    findall([A, C, Context],
-            ( select(F, Features, Rest), hypothesis_rule([F], Fact, [], [A, C], Subst),
-              maplist(generalize_statement(Subst), Rest, General0), msort(General0, General),
-              ( General == [] -> Context = Instance ; 'index-hash'(General, Context) ) ),
-            Singles).
-
-'hypothesis-pairs'(Fact, Features, Pairs) :-
+% The candidate implications between Fact, of layer Layer at its time point,
+% and its Features, as [Antecedent, Consequent, Sighting]: its singles, then
+% its pairs. A feature is [Statement, Layer, Relation]: a true fact sharing a
+% constant with Fact at Fact's time point (Relation now), or at the time point
+% a link fact makes the previous or next one ([earlier, Link] or [later,
+% Link]). Causes precede effects: at one time point a fact of a lower layer is
+% an antecedent of one of a higher layer, and across a link the earlier fact
+% is, with the link as a conjunct; equal layers order nothing. At one time
+% point each constant an antecedent shares with the consequent becomes a
+% variable; across a link only the two time points do, so persistence is
+% per entity, (And (NextPeriod $q $p) (Storm north $q)) -> (Storm north $p):
+% the general (Storm $r $q) form is recursive over every entity at once, and
+% its fold took 229 s and 2.5 GB after a SupplyNet stage 2 history where the
+% three regions' rules took 7 s (with Late and Blocked persistence alike it
+% ran out of memory).
+%
+% A pair concludes a fact of the time point from two of a lower layer, one of
+% them Fact (ordered as ground terms, so a pair is one candidate); a pair
+% whose two facts share a constant apart from the consequent also gives its
+% relational form, with that constant a variable too: (And (Sample $x $t)
+% (LeftStim $x $t)). Its Sighting is none. A single concludes one fact from
+% another; its Sighting is the hash of its consequent and the hash of the
+% facts of a lower layer at the consequent's time point it does not read,
+% generalized alike, so the miner can tell whether it recurs where the pairs
+% of its first sighting do not explain it (without one, no pair could, and
+% the hash is the consequent's, which differs at every instance).
+'hypothesis-candidates'(Fact, Layer, Features, Candidates) :-
+    findall(Single, hypothesis_single(Fact, Layer, Features, Single), Singles),
+    findall(F-L, member([F, L, now], Features), Now),
     findall([A, C, none],
-            ( append(_, [F1|Rest], Features), member(F2, Rest), msort([F1, F2], Pair),
-              hypothesis_pair_rule(Pair, Fact, [A, C]) ),
-            Pairs).
+            ( (   pair_below(Now, Layer, Pair), Consequent = Fact
+              ;   select(Consequent-LC, Now, Rest), Layer < LC,
+                  member(B-LB, Rest), LB < LC, msort([Fact, B], Pair) ),
+              hypothesis_pair_rule(Pair, Consequent, [A, C]) ),
+            Pairs),
+    append(Singles, Pairs, Candidates).
+
+hypothesis_single(Fact, Layer, Features, [A, C, [Instance, Context]]) :-
+    member([F, L, Relation], Features),
+    single_order(Relation, Fact, Layer, F, L, Antecedents, Consequent, Above),
+    (   Antecedents = [[_, Earlier, Later], _]
+    ->  generalized_rule(Antecedents, Consequent, [Earlier, Later], [A, C], Subst)
+    ;   hypothesis_rule(Antecedents, Consequent, [], [A, C], Subst) ),
+    term_hash(Consequent, Instance),
+    findall(G, ( Above \== none, member([G, LG, now], Features), LG < Above, G \== Consequent,
+                 \+ memberchk(G, Antecedents) ), Others),
+    maplist(generalize_statement(Subst), Others, General0), msort(General0, General),
+    ( General == [] -> Context = Instance ; 'index-hash'(General, Context) ).
+
+% The antecedents and consequent of a single, and the layer below which the
+% facts at Fact's time point could explain the consequent too (none for a
+% consequent at the next time point, whose own are not read).
+single_order(now, Fact, Layer, F, L, [F], Fact, Layer) :- L < Layer.
+single_order(now, Fact, Layer, F, L, [Fact], F, L) :- Layer < L.
+single_order([earlier, Link], Fact, Layer, F, _, [Link, F], Fact, Layer).
+single_order([later, Link], Fact, _, F, _, [Link, Fact], F, none).
+
+pair_below(Now, Layer, Pair) :-
+    append(_, [F1-L1|Rest], Now), L1 < Layer, member(F2-L2, Rest), L2 < Layer, msort([F1, F2], Pair).
 
 % The pairs that vary a failed prediction: Live holds the [Antecedent,
 % Consequent] of live hypotheses concluding Fact's pattern; one whose
-% antecedent holds of Features predicted Fact, and the pairs that contain
-% one of the features it read can learn where it fails.
-'hypothesis-exception-pairs'(Fact, Features, Live, Pairs) :-
+% antecedent holds of Features predicted Fact, and the pairs concluding Fact
+% that contain one of the features it read can learn where it fails.
+'hypothesis-exception-pairs'(Fact, Layer, Features, Live, Pairs) :-
+    findall(F, member([F|_], Features), Statements),
     findall(F, ( member(Rule, Live), copy_term(Rule, [A, Fact]), rule_conjuncts(A, Conjuncts),
-                 features_read(Conjuncts, Features), member(F, Conjuncts) ), Read0),
+                 features_read(Conjuncts, Statements), member(F, Conjuncts) ), Read0),
     sort(Read0, Read),
-    'hypothesis-pairs'(Fact, Features, All),
-    findall([A, C, none], ( member([A, C, none], All), rule_conjuncts(A, Conjuncts),
+    findall(F-L, member([F, L, now], Features), Now),
+    findall([A, C, none], ( pair_below(Now, Layer, Pair), hypothesis_pair_rule(Pair, Fact, [A, C]), rule_conjuncts(A, Conjuncts),
                             once(( member(Conjunct, Conjuncts), member(F, Read), subsumes_term(Conjunct, F) )) ), Pairs).
 
 features_read([], _).
@@ -1200,9 +1235,12 @@ hypothesis_pair_rule([A, B], Fact, Rule) :-
     subtract(Both, ToA, Own0), subtract(Own0, ToB, Own), Own \== [],
     hypothesis_rule([A, B], Fact, Own, Rule, _).
 
-hypothesis_rule(Features, Fact, Own, [Antecedent, Consequent], Subst) :-
+hypothesis_rule(Features, Fact, Own, Rule, Subst) :-
     maplist(shared_constants(Fact), Features, Shared),
     append([Own|Shared], Joins0), sort(Joins0, Joins),
+    generalized_rule(Features, Fact, Joins, Rule, Subst).
+
+generalized_rule(Features, Fact, Joins, [Antecedent, Consequent], Subst) :-
     findall(K-_, member(K, Joins), Subst),
     maplist(generalize_statement(Subst), Features, Conjuncts),
     generalize_statement(Subst, Fact, Consequent),
@@ -1215,6 +1253,12 @@ generalize_statement(Subst, [Head|Args], [Head|General]) :-
     maplist(generalize_argument(Subst), Args, General).
 generalize_argument(Subst, Arg, General) :-
     ( atomic(Arg), memberchk(Arg-Var, Subst) -> General = Var ; General = Arg ).
+
+% A statement's place in time, [Time, Layer], from its predicate's declared
+% [Position, Layer], where Time is the constant at argument Position; []
+% when there is none.
+'hypothesis-place'(Statement, [Position, Layer], Place) :-
+    ( nth0(Position, Statement, Time), atomic(Time), Time \== [] -> Place = [Time, Layer] ; Place = [] ).
 
 % A statement's distinct constant arguments, the values it can join on.
 'hypothesis-constants'([_|Args], Constants) :-
@@ -1252,12 +1296,19 @@ selected_conjuncts([X|Xs], Ys) :- select(X, Ys, Rest), selected_conjuncts(Xs, Re
 
 'hypothesis-name'(N, Name) :- atom_concat('hypothesis-', N, Name).
 
-% A fact's features from the [Seq, Statement] rows recorded for its
-% constants: the newest Max distinct statements of another predicate.
-'hypothesis-features'([Head|_], Rows, Max, Features) :-
-    findall(Key-S, ( member([Seq, S], Rows), S = [H|_], H \== Head, Key is -Seq ), Keyed),
-    keysort(Keyed, Sorted), pairs_values(Sorted, Statements0), list_to_set(Statements0, Statements),
-    length(Statements, N), M is min(Max, N), length(Features, M), append(Features, _, Statements).
+% A fact's features from the [Seq, Statement, Time, Layer] rows recorded
+% for its constants: the newest Max distinct statements at its time point
+% Time or at one a link fact among Links makes the previous or next one, as
+% [Statement, Layer, Relation] (see hypothesis-candidates).
+'hypothesis-features'(Fact, Time, Rows, Links, Max, Features) :-
+    findall(Key-[S, L, Relation], ( member([Seq, S, T, L], Rows), S \== Fact,
+                                    feature_relation(Time, T, Links, Relation), Key is -Seq ), Keyed),
+    keysort(Keyed, Sorted), pairs_values(Sorted, Features0), list_to_set(Features0, Features1),
+    length(Features1, N), M is min(Max, N), length(Features, M), append(Features, _, Features1).
+
+feature_relation(Time, Time, _, now) :- !.
+feature_relation(Time, T, Links, [earlier, Link]) :- member(Link, Links), Link = [_, T, Time], !.
+feature_relation(Time, T, Links, [later, Link]) :- member(Link, Links), Link = [_, Time, T], !.
 
 % The live hypotheses under review, each ['hm-reviewed', Name, Antecedent,
 % Consequent, Born, _], with the truth the review's query answered for it:

@@ -1,9 +1,13 @@
 ;; Hypothesis mining (docs/metta/hypothesis_rules.md, "Mining hypotheses").
 ;;
-;; An opt-in KB proposes its own hypotheses: each added true fact is
-;; concluded from pairs of the recent true facts that share a constant with
-;; it, and from one of them once that one recurs where no pair explains it.
-;; A hypothesis is a refined rule with a weak prior, which the data then
+;; An opt-in KB proposes its own hypotheses from the true facts added to it
+;; whose predicates have a declared place in time (set-predicate-time): an
+;; added fact is related to the recent true facts sharing a constant with it
+;; at its time point or at the previous or next one (set-time-link), and the
+;; time each refers to orders them, never the order they arrive in: causes
+;; precede effects, and within a time point the declared layers order them.
+;; A pair is proposed at once, a single once it recurs where no pair explains
+;; it. A hypothesis is a refined rule with a weak prior, which the data then
 ;; confirms or rejects. Off, a fact costs one lookup of the KB's setting. On,
 ;; it costs a bounded number of index lookups and at most `max-new` new
 ;; rules, so adding stays constant time. Reviewing and dropping hypotheses is
@@ -14,11 +18,24 @@
 (: &hypothesis_mining (SpaceOf (KB Number Number)))
 !(bind! &hypothesis_mining (new-space))
 
+;; Predicate -> kb, the position of its time argument, its layer within a
+;; time point.
+(: &hm_time (SpaceOf (Atom KB Number Number)))
+!(bind! &hm_time (new-space))
+
+;; kb -> the predicate of its link facts, (link earlier later).
+(: &hm_link (SpaceOf (KB Atom)))
+!(bind! &hm_link (new-space))
+
+;; Time point -> kb, a true link fact it is an end of.
+(: &hm_links (SpaceOf (Atom KB Atom)))
+!(bind! &hm_links (new-space))
+
 ;; A fact's features are read from the last `hm-window` true facts recorded
 ;; for each of its constants, newest first: value hash -> kb, value, the
-;; value's count of recorded facts, global sequence number, statement, with
-;; the value's count beside.
-(: &hm_recent (SpaceOf (Number KB Atom Number Number Atom)))
+;; value's count of recorded facts, global sequence number, statement, its
+;; time point and layer, with the value's count beside.
+(: &hm_recent (SpaceOf (Number KB Atom Number Number Atom Atom Atom)))
 !(bind! &hm_recent (new-space))
 (: &hm_value_count (SpaceOf (Number KB Atom Number)))
 !(bind! &hm_value_count (new-space))
@@ -58,6 +75,22 @@
           ($_set (if $on (let $_row (add-atom &hypothesis_mining ($kb $max-new $max-live)) (set-rule-refinement $kb true)) false)))
       $on))
 
+;; Predicate `$head`'s facts refer to the time point at argument `$position`
+;; (counted from 1) and have layer `$layer` within it.
+(: set-predicate-time (-[det]-> KB Atom Number Number Bool))
+(= (set-predicate-time $kb $head $position $layer)
+   (let* (($_old (remove-data-rows! &hm_time (quote ($head $kb $_position $_layer))))
+          ($_row (add-atom &hm_time ($head $kb $position $layer))))
+      true))
+
+;; `($link $earlier $later)` facts say that time point $earlier immediately
+;; precedes $later.
+(: set-time-link (-[det]-> KB Atom Bool))
+(= (set-time-link $kb $link)
+   (let* (($_old (remove-data-rows! &hm_link (quote ($kb $_link))))
+          ($_row (add-atom &hm_link ($kb $link))))
+      true))
+
 ;; --- Outcomes of consequent patterns ---------------------------------------
 
 (: hm-pattern-hash (-[det]-> KB Atom Number))
@@ -91,18 +124,8 @@
 (: hm-value-hash (-[det]-> KB Atom Number))
 (= (hm-value-hash $kb $value) (index-hash (quote ($kb $value))))
 
-;; The true facts recorded for the statement's constants, newest first,
-;; without the statement's predicate, at most hm-window.
-(: hm-features (-[det]-> KB Atom (List Atom)))
-(= (hm-features $kb $type)
-   (let* (($values (hypothesis-constants $type))
-          ($rows (collapse (let* (($value (superpose $values))
-                                  ($hash (hm-value-hash $kb $value)))
-                              (match &hm_recent ($hash $kb $value $_count $seq $stmt) ($seq $stmt))))))
-      (hypothesis-features $type $rows (hm-window))))
-
-(: hm-record! (-[det]-> KB Atom Number Atom Atom))
-(= (hm-record! $kb $type $seq $value)
+(: hm-record! (-[det]-> KB Atom Number Atom Atom Atom Atom))
+(= (hm-record! $kb $type $seq $time $layer $value)
    (let* (($hash (hm-value-hash $kb $value))
           ($count (case (collapse (once (match &hm_value_count ($hash $kb $value $n) $n))) (
                      ((cons $n $_rest) $n)
@@ -110,9 +133,9 @@
           ($_count (remove-data-rows! &hm_value_count (quote ($hash $kb $value $_old))))
           ($next (+ $count 1))
           ($_new-count (add-atom &hm_value_count ($hash $kb $value $next)))
-          ($_row (add-atom &hm_recent ($hash $kb $value $count $seq $type)))
+          ($_row (add-atom &hm_recent ($hash $kb $value $count $seq $type $time $layer)))
           ($expired (- $count (hm-window))))
-      (remove-data-rows! &hm_recent (quote ($hash $kb $value $expired $_seq $_stmt)))))
+      (remove-data-rows! &hm_recent (quote ($hash $kb $value $expired $_seq $_stmt $_time $_layer)))))
 
 ;; --- Proposing --------------------------------------------------------------
 
@@ -126,23 +149,25 @@
       ((cons $recurs $_more) $recurs)
       (() (let $_seen (add-atom &hm_seen ($hash $kb $rule $instance $context)) false)))))
 
-;; A candidate is proposed unless it or its reverse was proposed before, or
-;; its consequent pattern has no room: a pair at once (the most specific
-;; candidates), a single when it recurs. It is proposed as an STV
+;; A candidate is proposed unless it was proposed before, its consequent's
+;; predicate is positive-only (nothing could refute it), or its consequent
+;; pattern has no room: a pair at once (the most specific candidates), a
+;; single when it recurs. It is proposed as an STV
 ;; when a conjunct of its antecedent stores only true instances (no instance
 ;; where it fails could teach a CTV's negative branch), otherwise as a CTV,
 ;; both at strength 0.5 with the evidence of a hundredth of an observation,
 ;; so the first samples decide whatever k is. Its instance fold reads every
 ;; earlier instance, so a single proposed when it recurs loses none.
-(: hm-consider! (-[det]-> KB Number Number Number (Number (List Atom)) (Atom Atom Atom) (Number (List Atom))))
-(= (hm-consider! $kb $max-new $max-live $instance ($count $picked) ($antecedent $consequent $context))
+(: hm-consider! (-[det]-> KB Number Number (Number (List Atom)) (Atom Atom Atom) (Number (List Atom))))
+(= (hm-consider! $kb $max-new $max-live ($count $picked) ($antecedent $consequent $sighting))
    (let* (($rule (Implication $antecedent $consequent))
           ($hash (index-hash (quote ($kb $rule))))
-          ($reverse (Implication $consequent $antecedent))
           ($phash (hm-pattern-hash $kb $consequent)))
       (if (space-row-present? &hm_tried ($hash $kb $rule)) ($count $picked)
-         (if (space-row-present? &hm_tried ((index-hash (quote ($kb $reverse))) $kb $reverse)) ($count $picked)
-            (if (if (== $context none) true (hm-recurs? $kb $hash $rule $instance $context))
+         (if (positive-only-pattern? $kb (brand Statement $consequent)) ($count $picked)
+            (if (case $sighting (
+                   (none true)
+                   (($instance $context) (hm-recurs? $kb $hash $rule (the Number $instance) $context))))
                (if (>= $count $max-new) ($count $picked)
                   (if (>= (size-atom (collapse (match &hm_live ($phash $kb $live $_name $_antecedent $_born)
                                                 (if (=alpha $live $consequent) true (empty)))))
@@ -165,51 +190,55 @@
                ($count $picked))))))
 
 ;; The candidates proposed from one fact's, at most max-new.
-(: hm-propose! (-[det]-> KB Number Number Number (List (Atom Atom Atom)) (List AnnotatedStatement)))
-(= (hm-propose! $kb $max-new $max-live $instance $candidates)
-   (let ($_count $picked) (fold-flat (hm-consider! $kb $max-new $max-live $instance) (0 ()) $candidates) $picked))
+(: hm-propose! (-[det]-> KB Number Number (List (Atom Atom Atom)) (List AnnotatedStatement)))
+(= (hm-propose! $kb $max-new $max-live $candidates)
+   (let ($_count $picked) (fold-flat (hm-consider! $kb $max-new $max-live) (0 ()) $candidates) $picked))
 
-;; A ground statement of a predicate, with a constant argument to join on.
-(: hm-minable? (-[det]-> Atom Bool))
-(= (hm-minable? $type)
+;; A ground statement's time point and layer, when its predicate's place in
+;; time is declared and the argument there is a constant; () otherwise.
+(: hm-place (-[det]-> KB Atom Atom))
+(= (hm-place $kb $type)
    (if (is-expr $type)
       (if (== (extract-vars $type) ())
-         (if (head-is-member? $type (And Or Not Implication BiImplication Exists Compute RuleTruth Inheritance Member)) false
-            (not (== (hypothesis-constants $type) ())))
-         false)
-      false))
+         (let $head (car-atom $type)
+            (case (collapse (once (match &hm_time ($head $kb $position $layer) ($position $layer)))) (
+               (() ())
+               ((cons $declared $_rest) (hypothesis-place $type $declared)))))
+         ())
+      ()))
 
 ;; The fact is counted in the outcomes of the consequent patterns it is an
-;; instance of. A true fact is read against the recent true facts sharing a
-;; constant with it, recorded, and concluded from them in pairs and singly,
-;; the recurring singles first. A false one is concluded from them only when
-;; a live hypothesis predicted it: in the pairs that contain a fact the
-;; prediction read, which can learn where it fails. Otherwise what co-occurs
-;; with a statement that does not hold says nothing about what makes it
-;; hold. Nothing concludes a
-;; statement whose predicate stores only true instances: nothing could refute
-;; it. At most max-new are proposed.
-(: hm-mine! (-[det]-> KB Atom Number (Number Number) (List AnnotatedStatement)))
-(= (hm-mine! $kb $type $s ($max-new $max-live))
+;; instance of. Its features are the recent true facts sharing a constant
+;; with it at its time point and at the ones its links make the previous and
+;; the next. A true fact is recorded and related to them in singles and
+;; pairs, either way round as time and layer order them, the recurring
+;; singles first. A false one is concluded from them only when a live
+;; hypothesis predicted it: in the pairs that contain a fact the prediction
+;; read, which can learn where it fails. Otherwise what co-occurs with a
+;; statement that does not hold says nothing about what makes it hold. At
+;; most max-new are proposed.
+(: hm-mine! (-[det]-> KB Atom Number Atom Atom (Number Number) (List AnnotatedStatement)))
+(= (hm-mine! $kb $type $s $time $layer ($max-new $max-live))
    (let* (($patterns (hypothesis-patterns $type))
           ($_counted (collapse (let $pattern (superpose $patterns) (hm-count-outcome! $kb $pattern))))
-          ($features (hm-features $kb $type))
-          ($instance (index-hash $type))
-          ($positive-only (positive-only-pattern? $kb (brand Statement $type))))
+          ($constants (hypothesis-constants $type))
+          ($rows (collapse (let* (($value (superpose $constants))
+                                  ($hash (hm-value-hash $kb $value)))
+                              (match &hm_recent ($hash $kb $value $_count $seq $stmt $t $l) ($seq $stmt $t $l)))))
+          ($links (collapse (match &hm_links ($time $kb $link) $link)))
+          ($features (hypothesis-features $type $time $rows $links (hm-window))))
       (if (> $s 0.5)
          (let* (($seq (next-search-id hm_seq))
-                ($constants (hypothesis-constants $type))
-                ($_recorded (collapse (let $value (superpose $constants) (hm-record! $kb $type $seq $value)))))
-            (if $positive-only ()
-               (hm-propose! $kb $max-new $max-live $instance (append-flat (hypothesis-singles $type $features) (hypothesis-pairs $type $features)))))
-         (if $positive-only ()
-            (let $live (collapse (let* (($pattern (superpose $patterns))
-                                        ($phash (hm-pattern-hash $kb $pattern)))
-                                     (match &hm_live ($phash $kb $consequent $_name $antecedent $_born)
-                                        (if (=alpha $consequent $pattern) ($antecedent $consequent) (empty)))))
-               (hm-propose! $kb $max-new $max-live $instance (hypothesis-exception-pairs $type $features $live)))))))
+                ($_recorded (collapse (let $value (superpose $constants) (hm-record! $kb $type $seq $time $layer $value)))))
+            (hm-propose! $kb $max-new $max-live (hypothesis-candidates $type $layer $features)))
+         (let $live (collapse (let* (($pattern (superpose $patterns))
+                                     ($phash (hm-pattern-hash $kb $pattern)))
+                                  (match &hm_live ($phash $kb $consequent $_name $antecedent $_born)
+                                     (if (=alpha $consequent $pattern) ($antecedent $consequent) (empty)))))
+            (hm-propose! $kb $max-new $max-live (hypothesis-exception-pairs $type $layer $features $live))))))
 
 ;; The hypotheses an added statement proposes, to be compiled by compileadd.
+;; A true link fact is recorded under the two time points it links.
 (: hm-observe! (-[det]-> KB AnnotatedStatement (List AnnotatedStatement)))
 (= (hm-observe! $kb $stmt)
    (case (collapse (once (match &hypothesis_mining ($kb $max-new $max-live) ($max-new $max-live)))) (
@@ -217,5 +246,14 @@
       ((cons $setting $_rest)
          (case $stmt (
             ((: $_prf $type (STV $s $_c))
-               (if (hm-minable? $type) (hm-mine! $kb $type $s $setting) ()))
+               (case (hm-place $kb $type) (
+                  (($time $layer) (hm-mine! $kb $type $s $time $layer $setting))
+                  (() (case $type (
+                     (($link $earlier $later)
+                        (if (and (> $s 0.5) (space-row-present? &hm_link ($kb $link)))
+                           (let* (($_e (add-atom &hm_links ($earlier $kb $type)))
+                                  ($_l (add-atom &hm_links ($later $kb $type))))
+                              ())
+                           ()))
+                     ($_other ())))))))
             ($_other ())))))))
