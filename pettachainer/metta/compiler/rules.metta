@@ -689,11 +689,11 @@
 (= (connective-statement $connective (cons $head $tail))
    (if (== $tail ()) $head (brand Statement (cons $connective (cons $head $tail)))))
 (: compile-antecedent-completion
-   (-[nondet]-> KB $context $variables KBContext Proof TV (List Variable)
+   (-[nondet]-> KB $context $variables KBContext Proof TV (List Goal) Atom (List Variable)
        Statement Statement (List Statement) Number (List Statement)
        CompiledAddition))
 (= (compile-antecedent-completion
-      $kb $ctx $vars $shape-kb $prf $tv $params
+      $kb $ctx $vars $shape-kb $prf $tv $truth-premises $value $params
       $full $consequent $children $idx (cons $missing $rest))
    (superpose (
       (if (is-var $missing)
@@ -717,7 +717,7 @@
                          (lower-implication-antecedent
                             $kb $ctx $vars $consequent)))
                    (($rule-execs $rule-ctv)
-                      (compile-implication-ctv-execs $kb $params $full $consequent $tv $tv))
+                      (compile-implication-ctv-execs $kb $params $full $consequent $tv $value))
                    ($proof-token
                       (implication-proof-token (append $others-proofs $consequent-proofs)))
                    ($consequent-proof (implication-proof-token $consequent-proofs))
@@ -728,6 +728,7 @@
                    ($observed (CPU observed-predicate? ($kb $consequent-head $consequent-arity) true))
                    ($premises
                       (cons $observed
+                      (append-goals $truth-premises
                       (append-goals $others-execs
                          (append-goals $consequent-execs
                             (append-goals $rule-execs
@@ -749,7 +750,7 @@
                                          $consequent-obs-tv)
                                       (CPU CTVModusPonensFormula
                                          (quote ($consequent-obs-tv $completion-ctv))
-                                         $out-tv))))))))))
+                                         $out-tv)))))))))))
                   (brand CompiledAddition
                      ($premises |-
                         (: $shape-kb
@@ -758,7 +759,7 @@
                            $target $out-tv))))
                (empty))))
       (compile-antecedent-completion
-         $kb $ctx $vars $shape-kb $prf $tv $params
+         $kb $ctx $vars $shape-kb $prf $tv $truth-premises $value $params
          $full $consequent $children (+ $idx 1) $rest))))
 
 (: concrete-inheritance-link? (-[det]-> Atom Atom Bool))
@@ -1177,8 +1178,8 @@
 ;; Rule refinement is opt-in per KB and set before its rules are added. A
 ;; refined rule's truth is the goal (RuleTruth (Implication a b)): the stored
 ;; truth is its axiom, the rule's instance fold a second proof, and the rule
-;; applies, forward, backward and inverted, with their revision. Only named
-;; user rules whose sides the instance producer samples are refined.
+;; applies, forward, backward, inverted and completed, with their revision.
+;; Only named user rules whose sides the instance producer samples are refined.
 (: set-rule-refinement (-[det]-> KB Bool Bool))
 (= (set-rule-refinement $kb $enabled)
    (let* (($_old
@@ -1362,7 +1363,7 @@
                   (let $children
                      (statement-children (the (List Atom) (cdr-atom $a)))
                      (compile-antecedent-completion
-                        $kb $ctx $vars $shape-kb $prf $tv $params
+                        $kb $ctx $vars $shape-kb $prf $tv $truth-premises $value $params
                         $a $b $children 0 $children))
                   (empty))
                (compile-implication-statement-rules $kb $b)

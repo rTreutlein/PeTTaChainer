@@ -167,5 +167,6 @@
 !(compileadd f5loop (: obs-B-a (B a) (STV 1 1)))
 !(compileadd f5loop (: obs-D-a (D a) (STV 0 1)))
 !(set-base-rate f5loop (B $x) (STV 0.781 1.0))
+!(set-base-rate f5loop (C $x) (STV 0.36707 1.0))
 !(test (query 2000 f5loop (: $prf (C a) $tv))
-   (: (factored-revision (by rC (conjunction obs-B-a obs-D-a)) (prior (STV 0.47 0.9999000099103387)) (((inverted rD with cpu (prior (STV 0.47500041666009185 0.0012483147749431272))) obs-D-a))) (C a) (STV 0.050519527051236156 0.999905602050588)))
+   (: (factored-revision (by rC (conjunction obs-B-a obs-D-a)) (prior (STV 0.47 0.9999000099103349)) (((inverted rD with cpu (prior (STV 0.36707 1.0))) obs-D-a))) (C a) (STV 0.050519527051236156 0.9999055997327737)))

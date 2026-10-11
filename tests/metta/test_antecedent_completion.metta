@@ -325,3 +325,42 @@
 !(compileadd predictionKb (: plant-on (Producing plant t5) (STV 1 1)))
 !(compileadd predictionKb (: backup-t5 (Backup t5) (STV 1 1)))
 !(test (query 2000 predictionKb (: $prf (Degraded mine t5) $tv)) (: (population-prior (Degraded mine $t)) (Degraded mine t5) (STV 0.25000694425154857 0.9)))
+
+;; A completion of a refined rule reads the rule's learned truth, as its
+;; forward and inverted applications do. Of eight past individuals, the four
+;; with A and B show C, the four without do not: Laplace's rule gives
+;; P(C | A, B) = 5/6 and P(C | not (A, B)) = 1/6, so B and C of q raise A from
+;; its base rate 0.744 to about 0.93 (exact with Laplace 0.9355). Reading the
+;; stated (0.5, 0.5) the completion was uninformative: 0.744 (fuzzer seed
+;; 13000041). Last in the file: it sets the evidence confidence k.
+!(set-evidence-confidence-k 5)
+!(set-rule-refinement refKb true)
+!(compileadd refKb (: rC (Implication (And (A $x) (B $x)) (C $x)) (CTV (STV 0.5 0.2857142857) (STV 0.5 0.2857142857))))
+!(compileadd refKb (: a-h1 (A h1) (STV 1 1)))
+!(compileadd refKb (: b-h1 (B h1) (STV 1 1)))
+!(compileadd refKb (: c-h1 (C h1) (STV 1 1)))
+!(compileadd refKb (: a-h2 (A h2) (STV 1 1)))
+!(compileadd refKb (: b-h2 (B h2) (STV 1 1)))
+!(compileadd refKb (: c-h2 (C h2) (STV 1 1)))
+!(compileadd refKb (: a-h3 (A h3) (STV 1 1)))
+!(compileadd refKb (: b-h3 (B h3) (STV 1 1)))
+!(compileadd refKb (: c-h3 (C h3) (STV 1 1)))
+!(compileadd refKb (: a-h4 (A h4) (STV 1 1)))
+!(compileadd refKb (: b-h4 (B h4) (STV 1 1)))
+!(compileadd refKb (: c-h4 (C h4) (STV 1 1)))
+!(compileadd refKb (: a-h5 (A h5) (STV 0 1)))
+!(compileadd refKb (: b-h5 (B h5) (STV 1 1)))
+!(compileadd refKb (: c-h5 (C h5) (STV 0 1)))
+!(compileadd refKb (: a-h6 (A h6) (STV 0 1)))
+!(compileadd refKb (: b-h6 (B h6) (STV 1 1)))
+!(compileadd refKb (: c-h6 (C h6) (STV 0 1)))
+!(compileadd refKb (: a-h7 (A h7) (STV 1 1)))
+!(compileadd refKb (: b-h7 (B h7) (STV 0 1)))
+!(compileadd refKb (: c-h7 (C h7) (STV 0 1)))
+!(compileadd refKb (: a-h8 (A h8) (STV 1 1)))
+!(compileadd refKb (: b-h8 (B h8) (STV 0 1)))
+!(compileadd refKb (: c-h8 (C h8) (STV 0 1)))
+!(compileadd refKb (: b-q (B q) (STV 1 1)))
+!(compileadd refKb (: c-q (C q) (STV 1 1)))
+!(test (query 2000 refKb (: $prf (A q) $tv))
+   (: ((antecedent-completion rC 0 with cpu (prior (STV 0.7439024390243903 0.6153846153846154))) (conjunction b-q c-q)) (A q) (STV 0.9308782279145232 0.6909026642668563)))

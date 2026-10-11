@@ -31,7 +31,9 @@ their instances") already does the statistics:
   count.
 - A weak prior, like the one above, gives way to the first few samples.
 - Facts added later join the fold the next time the goal is read.
-- The rule applies with the merged truth, backward and inverted.
+- The rule applies with the merged truth, backward, inverted and completed
+  onto a conjunct of its antecedent (before October 2026 a completion read
+  the stated truth; fuzzer seed 13000041).
 
 So a hypothesis is an ordinary rule with a weak prior. What is missing is
 what makes many such rules affordable and useful.
