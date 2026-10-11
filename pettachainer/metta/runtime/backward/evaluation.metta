@@ -2228,7 +2228,9 @@
 ;; conditions at any depth in one pass (sk-deepen). A claim that overdrew waits again at
 ;; the next level, twice the cost, and may be paid again once the allowance
 ;; covers it. A paid target read inside another claim, through a weight,
-;; draws from that claim. A target read again inside its own conditioning,
+;; draws from that claim. Under a closed read's pins outside any claim, a
+;; target with an approximate value takes it, unpaid; a clash opens a claim
+;; of its own. A target read again inside its own conditioning,
 ;; through a shared statement's value, keeps its waiting value there.
 (= (sk-conditioned $given $target $khash $rhash $wexclude $keys $base $approx $waiting)
    (case $keys (
@@ -2257,9 +2259,11 @@
             (if (if (== $approx sk-none) false (>= (fold-semidet sk-given-depth-step 0 $given) (search-id-value sk_claim_depth)))
                (progn (change-state! sk_claim_cut 1) $approx)
                (if (== (search-id-value sk_claim_left) -1)
+                  (if (== $approx sk-none)
                   (let* (($_opened (sk-open-claim! (* (pow-math 2 (list-len $keys)) $base)))
                          ($mixed (sk-mix-on $given $target $wexclude $keys)))
                      (if (sk-close-claim!) $approx (sk-mixed $mixed $approx)))
+                  $approx)
                   (case (sk-mix-on $given $target $wexclude $keys) (
                      (() (if (== $approx sk-none) sk-none (progn (change-state! sk_claim_cut 1) $approx)))
                      ((cons $value $_rest) $value))))))))))
