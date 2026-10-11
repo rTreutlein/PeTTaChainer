@@ -11,8 +11,8 @@
 (: clause_ref (-[det]-> ClauseRef TempQueryRef))
 
 (: kb-add-atom (-[det]-> KbBackend $space SpaceAtom Bool))
-(= (kb-add-atom live $space $expr) (add-atom $space $expr))
-(= (kb-add-atom backward $space $expr) (add-atom $space $expr))
+(= (kb-add-atom live $space $expr) (add-space-atom! $space $expr))
+(= (kb-add-atom backward $space $expr) (add-space-atom! $space $expr))
 (= (kb-add-atom temp $space $expr)
    (let*
       (($term (Predicate (cons $space $expr)))

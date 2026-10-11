@@ -9,6 +9,15 @@
     Row =.. [Space|Pattern],
     retractall(Row).
 
+% Add a row that add-atom could not prove against the space's declared type
+% when compiled: the space is named at run time, or a column's type is only
+% known then. add-atom checks such a row on every call, which costs more than
+% the add itself (PeTTa's analysis hooks raise and catch an exception per
+% checked column); the callers build rows of the declared shape.
+'add-space-atom!'(Space, Row, true) :-
+    Term =.. [Space|Row],
+    assertz(Term).
+
 % Remove the rows of each space whose first column is Hash: the stores keyed
 % by a node's or key's own hash, all at once.
 'remove-hash-rows!'(Spaces, Hash, true) :-

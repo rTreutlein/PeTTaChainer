@@ -112,8 +112,6 @@
                (cons $fourth ()))))))
 
 (: add-space-atom! (-[det]-> $space SpaceAtom Bool))
-(= (add-space-atom! $space $row)
-   (add-atom $space $row))
 
 ;; A counter's value, 0 before it is set (runtime_helpers.pl): read on every
 ;; search step, so kept native.

@@ -368,7 +368,7 @@
                 (let* (($scored (fold-semidet sk-score-outcome $stored $pending))
                        ($_drained (remove-data-rows! &combination_pending (quote ($hash $kb $head $_outcome))))
                        ($_old (remove-data-rows! &combination_tally (quote ($hash $kb $head $_tally))))
-                       ($_new (add-atom &combination_tally ($hash $kb $head $scored))))
+                       ($_new (add-space-atom! &combination_tally (make-space-row4 $hash $kb $head $scored))))
                    $scored))))
       (case $current (
          ((combination-tally $n $sum $revision $odds $noisy)

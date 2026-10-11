@@ -1329,7 +1329,7 @@
                   (if (if (is-var $goal) true (is-var $adds)) ()
                      (let* (($_rules (once (foreach-flat (kb-add-expr backward) $adds)))
                             ($compiled (typed-runtime-premise $goal))
-                            ($_row (add-atom &sk_fold_members ($hash $source $compiled))))
+                            ($_row (add-space-atom! &sk_fold_members (make-space-row3 $hash $source $compiled))))
                         (cons $compiled ()))))
                ($_none ()))))))))
 
