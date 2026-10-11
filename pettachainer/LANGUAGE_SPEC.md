@@ -523,11 +523,20 @@ A KB can also propose its own hypotheses (off by default):
 
 ```metta
 !(set-hypothesis-mining kb 8 16)
+!(set-time-link kb NextPeriod)
+!(set-predicate-time kb Storm 2 0)
+!(set-predicate-time kb Blocked 2 1)
 ```
 
+Mining reads only predicates with a declared place in time: the argument
+holding the time point a fact refers to, and its layer within a time point.
 Each added true fact then proposes up to 8 refined rules with a weak prior
-that conclude it from pairs of recent true facts sharing a constant with it,
-or from one of them once that one recurs in another context; a consequent
+between it and recent true facts sharing a constant with it at its time
+point or an adjacent one (linked by `NextPeriod`): the earlier fact, or at
+one time point the lower layer, is the antecedent, whichever arrived first.
+A pair is proposed at once, a single fact once it recurs in another context;
+across a link the link is a conjunct, as in
+`(And (NextPeriod $q $p) (Storm north $q)) → (Storm north $p)`. A consequent
 pattern keeps at most 16 live ones. `!(review-hypotheses 200 kb (Reward left t9))`
 reads the truths of the live hypotheses that apply to a goal (a variable
 reviews all) and drops those whose truth does not differ from the

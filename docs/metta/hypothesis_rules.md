@@ -310,50 +310,82 @@ as ONA forms, revises and forgets its implications.
 
 ### Proposing (`runtime/hypothesis_mining.metta`)
 
-`compileadd` of a ground fact `(P c1 .. cn)` with constant arguments, when its
-KB has mining on:
+**Time.** A fact is grouped and ordered by the time it refers to, never by
+the order it arrives in: a late shipment reported two periods after it
+left, or a storm labelled once its period resolves, still belongs to its
+period. The client declares where each mined predicate sits in time:
+
+    !(set-time-link kb NextPeriod)        ; (NextPeriod earlier later)
+    !(set-predicate-time kb Storm 2 0)    ; time point at argument 2, layer 0
+    !(set-predicate-time kb Blocked 2 1)
+    !(set-predicate-time kb Late 2 2)
+
+Only declared predicates are mined; a link fact is recorded under the two
+time points it links and is not mined itself. Causes precede effects:
+
+- across a link, the fact at the earlier time point is the antecedent, with
+  the link as a conjunct;
+- within a time point, time cannot order a pair, so the declared **layers**
+  do: a fact of a lower layer is an antecedent of one of a higher layer,
+  and facts of one layer are not related (two routes of a region, two late
+  shipments).
+
+`compileadd` of a true or false ground fact of a declared predicate, whose
+time argument is a constant, when its KB has mining on:
 
 1. counts the fact in the tally of every consequent pattern it is an
    instance of that already has a hypothesis (the fact with a nonempty set of
    its constants made variables; at most 2^n − 1 lookups): the
    opportunities a hypothesis had since it was born;
 2. reads its **features**: the true facts recorded for each of its
-   constants (the last 24 per constant), newest first, without its own
-   predicate, at most 24, and, if the fact is true (strength above 0.5),
-   records it under each of its constants;
-3. builds the candidates, unless its predicate is declared positive-only
-   (`set-positive-only-predicate`: nothing could refute a hypothesis
-   concluding it). A constant a feature shares with the fact becomes a
-   variable:
-   - **pairs**: the fact concluded from two features, and, for two
-     features that share a constant the fact does not have, the relational
-     form with that constant a variable too: `(Sample A1 t5)`,
-     `(LeftStim A1 t5)`, `(Reward left t5)` give
-     `(And (LeftStim $x $t) (Sample $x $t)) → (Reward left $t)`;
-   - **singles**: the fact concluded from one feature;
-4. for a true fact, proposes, recurring singles first, each candidate that neither it nor its
-   reverse was proposed before and whose consequent pattern has fewer than
-   `max-live` live hypotheses, until `max-new` are proposed: a pair at once,
-   a single only when it **recurs**: seen at another instance than its first
-   sighting, with other features (generalized alike) than at the first
-   sighting. Where the same features accompany it, the first context's pairs
-   explain it as well, so the most specific candidates are proposed first
-   and a single only once the data show it predicting across contexts. A
-   single without other features recurs at its second instance (no pair
-   could explain it). Its instance fold reads every earlier instance, so a
-   single proposed late loses no evidence;
+   constants (the last 24 per constant), at its own time point or at the one
+   a link makes the previous or the next, newest first, at most 24, and, if
+   the fact is true (strength above 0.5), records it under each of its
+   constants with its time point and layer;
+3. builds the candidates, for a true fact in either direction, as time and
+   layer order the fact and each feature, whichever arrived first:
+   - **pairs**: a fact of the time point concluded from two of a lower
+     layer, one of them the added fact (or the added fact from two
+     features), and, for two antecedents that share a constant the
+     consequent does not have, the relational form with that constant a
+     variable too: `(Sample A1 t5)`, `(LeftStim A1 t5)`, `(Reward left t5)`
+     give `(And (LeftStim $x $t) (Sample $x $t)) → (Reward left $t)`;
+   - **singles**: one fact concluded from one other, at the time point, or
+     across a link, `(And (NextPeriod $q $p) (Storm north $q)) → (Storm
+     north $p)`. A constant an antecedent shares with the consequent becomes
+     a variable, but across a link only the two time points do: persistence
+     is per entity (below);
+4. for a true fact, proposes, singles first, each candidate not proposed
+   before whose consequent's predicate is not positive-only (nothing could
+   refute it) and whose consequent pattern has fewer than `max-live` live
+   hypotheses, until `max-new` are proposed: a pair at once, a single only
+   when it **recurs**: seen at another instance of its consequent than its
+   first sighting, with other facts below the consequent at its time point
+   (generalized alike) than at the first sighting. Where the same facts
+   accompany it, the first sighting's pairs explain it as well, so the most
+   specific candidates are proposed first and a single only once the data
+   show it predicting across contexts. A single with no such facts (or
+   concluding a fact at the next time point, whose own are not read) recurs
+   at its second instance. Its instance fold reads every earlier instance,
+   so a single proposed late loses no evidence. A candidate through a link
+   is not proposed once a live hypothesis concludes its consequent from its
+   own time point: the present's causes first, the past only for what they
+   leave unexplained, as a single only where no pair explains it;
 5. for a false fact, proposes only when a live hypothesis concluding it
    applies to it (its antecedent holds of the features): the prediction
-   failed, and the pairs that contain a fact the prediction read can learn
-   where it fails (a matching-to-sample agent that learned "right" where
-   the right stimulus matches the sample learns that it fails where the
-   left one does, its desire there drops, and it explores "left").
+   failed, and the pairs concluding it that contain a fact the prediction
+   read can learn where it fails (a matching-to-sample agent that learned
+   "right" where the right stimulus matches the sample learns that it fails
+   where the left one does, its desire there drops, and it explores "left").
    Otherwise a false fact proposes nothing: what co-occurs with a statement
    that does not hold says nothing about what makes it hold.
 
-So the newer of two facts is the consequent (ONA's temporal order), and the
-reverse of a proposed hypothesis is never proposed: one direction per pair of
-statements, decided by the order the data arrive in.
+Since the declared order decides the direction, a candidate's reverse is
+never a candidate, and every rule points forward in time, so no set of
+hypotheses forms a cycle: a chain through links reaches back only as far as
+the history goes. The window is the adjacent time points, and a fact joins
+only facts sharing a constant with it, so a fact has at most 24 features
+whatever the history's length.
 
 A hypothesis is a refined rule named `hypothesis-N` with a weak prior,
 strength 0.5 with the evidence of 0.01 observations (confidence 0.01/(0.01 +
@@ -361,18 +393,26 @@ k), so the first samples decide whatever the evidence parameter k): an STV
 when a conjunct of its antecedent is positive-only (no instance where it
 fails could teach a CTV's negative branch, which would stay at its prior), a
 CTV otherwise. So adding a fact costs a bounded number of indexed lookups (24
-features give at most 24 singles and 276 pairs and their relational forms)
-and at most `max-new` rule compilations, whatever the KB's size; off, it
-costs one lookup of the KB's setting.
+features give at most 24 singles and some hundreds of pairs and their
+relational forms) and at most `max-new` rule compilations, whatever the KB's
+size; off, it costs one lookup of the KB's setting.
 
 ### Reviewing and dropping (`runtime/hypothesis_review.metta`)
 
 `review-hypotheses` reads the `RuleTruth` goals of the live hypotheses that
-apply to a goal in one query. The chainer keeps the truths current as
-instances arrive ("Instance tallies"), so the query has budget only for the
-hypotheses no review has read yet: `$steps` for each, which their first read
-spends folding their instances; once every hypothesis was read, it has none.
-Each hypothesis is then judged:
+apply to a goal, a consequent layer at a time, lowest first, each layer in
+one query. The chainer keeps the truths current as instances arrive
+("Instance tallies"), so a query has budget only for the hypotheses no
+review has read yet: `$steps` for each, which their first read spends
+folding their instances; once every hypothesis was read, it has none. The
+layers matter for the first read: a fold resolves its consequent's
+instances through the hypotheses concluding its antecedent, which are then
+read already. In one query, after a SupplyNet stage 1 history (188 live
+hypotheses, all pointing forward), it ran out of memory (16 GB) at 200
+steps per hypothesis and at 50; a layer at a time it took 82 s and 1.3 GB
+(the arrival-ordered miner's 104 hypotheses, whose antecedents were mostly
+late shipments with no rule concluding them, took 177 s and 7.8 GB in one
+query). Each hypothesis is then judged:
 
 - one whose truth rests on fewer than 4 observations is kept, unless its
   consequent pattern was observed 32 times since it was proposed (its
@@ -440,11 +480,58 @@ Rejected alternatives:
   statement of the period: seed 1, 10 rounds, error 0.182 against 0.142
   with the pairs anchored on what the prediction read, and 0.124 with no
   proposal from false facts; 36 s per round over 30 rounds.
-- **Deciding the direction by the data.** For two statements alone,
-  correlation is symmetric and no statistic of the pair tells cause from
-  effect: SupplyNet's storm → blocked (0.8 against 0.03 without a storm)
-  reverses, at a storm rate of 0.25, to 0.90 against 0.06, which is more
-  informative and gains more Brier score. Only a third statement that screens one off says more.
+- **The arrival order decides the direction** (the miner of master
+  f42c380a: the newer of two facts is the consequent, ONA's temporal
+  order). In SupplyNet the inspections and late shipments arrive before
+  their period's storms are labelled, so 24 of the 29 true rules found on
+  seed 1 were reversed (evaluation below).
+- **Deciding the direction within a time point by the data.** For two
+  statements alone, correlation is symmetric and no statistic of the pair
+  tells cause from effect: SupplyNet's storm → blocked (0.8 against 0.03
+  without a storm) reverses, at a storm rate of 0.25, to 0.90 against 0.06,
+  which is more informative and gains more Brier score. With three or more,
+  a v-structure test orients A → C ← B when A and B are independent but
+  dependent given C. SupplyNet's true structure has no such collider (each
+  route has one storm, each shipment one route): it is a forest of forks
+  and chains, Markov equivalent to its reversals, so no test on the data
+  can orient it. A PC skeleton and collider search over the periods'
+  statements (`bench/results/hypothesis-mining-time/probes/vstructure.py`,
+  G-tests at 0.05, seeds 1-4) oriented 1 of 119 true edges correctly and 1
+  reversed with the 60 periods a learner sees, 0 right and 2 reversed with
+  200, and 2 right and 1 reversed with 1000. The layers are operator
+  knowledge of the same kind as the time argument, cost nothing, and hold
+  from the first fact.
+- **Time points from the link facts alone** ("individuals linked by
+  NextPeriod are time points", one declaration and no per-predicate one). A
+  fact's time would then be known only once a link names it: the first
+  period's facts arrive before the link to the second, and a constant that
+  is both a time point and something else is ambiguous. The per-predicate
+  declaration states it once and holds from the first fact.
+- **Undeclared predicates fall back to the arrival order.** It keeps the
+  wrong direction wherever a declaration is missing and mixes two orders in
+  one KB; a predicate without a place in time is not mined.
+- **Persistence in the general form** `(And (NextPeriod $q $p) (Storm $r
+  $q)) → (Storm $r $p)`, as for constants shared at one time point. Its
+  fold is recursive over every entity at once: after a stage 2 history its
+  first read took 229 s and 2.5 GB, against 7 s for the three regions'
+  rules; with the general Late and Blocked persistence rules as well it ran
+  out of memory (16 GB), where the 31 per-entity ones took 22 s
+  (`probes/persist_probe.py`). Per entity is also what the data says: each
+  region has its own rate.
+- **Every predicate's persistence through the link.** In SupplyNet stage 2
+  a route stays blocked and a shipment late because its region's storm
+  persists, so the routes' and shipments' own persistence predicts, the
+  review kept it (`(And (NextPeriod $q $p) (Blocked r7 $q)) → (Blocked r7
+  $p)` and 8 others after the history), it counted the storm's persistence
+  again, and every query recursed through the history per route and
+  shipment: a game's rounds grew from 30 s to 460 s by round 10 (error
+  about 0.13). With the present's causes first, the history proposes
+  exactly the three regions' storm persistence, and its review takes 65 s
+  and 1.3 GB instead of 84 s and 6.4 GB.
+- **Pairs across a link, or a wider window.** A pair with an antecedent at
+  the previous time point, or singles reaching two time points back, would
+  find delayed effects of two causes, but multiply the candidates of every
+  fact by the facts of another time point. Not needed by any task here.
 - **Explaining away and chain reduction in the review**: drop A → C when a
   pair (A and B) → C does not differ from B → C (B screens A off), or when
   the deduction through live A → B and B → C predicts A → C's strength. Both
@@ -453,27 +540,102 @@ Rejected alternatives:
   explaining away dropped 1 more rule at the same error 0.1242 (the pairs
   that would screen are rarely proposed), and chain reduction 15 more
   indirect rules, error 0.1242 → 0.1265, time unchanged. Not kept.
-- **Features of the consequent's own predicate, through a link.** A pair
-  of `(NextPeriod p1 p2)` and `(Storm north p1)` concluding
-  `(Storm north p2)` is the persistence rule
-  `(And (NextPeriod $q $p) (Storm $r $q)) → (Storm $r $p)` (found in a unit
-  test), but the same link gives such a rule for every predicate, each
-  recursive over the whole history: SupplyNet stage 2 with mining ran out
+- **Features of the consequent's own predicate, through a link, in both
+  directions** (the arrival-ordered miner with the link as a feature): the
+  link gave a rule for every predicate, each recursive over the whole
+  history, and with the later fact as the antecedent as often as the
+  earlier, rules in both directions formed cycles: SupplyNet stage 2 ran out
   of memory (16 GB) before its first round with 10 history periods, and
-  held 12.9 GB for 33 minutes without finishing it with 30. Without them,
-  10 history periods run at 30 s per round.
+  held 12.9 GB for 33 minutes without finishing it with 30. Ordered by
+  time, every rule points forward and a stage 2 history's review took 65 s
+  (above).
 - **A consequent pattern seen only once proposes nothing.** It keeps out
   hypotheses such as `(And (Blocked r1 $q) (Storm north $q)) →
   (NextPeriod $q h7)`, whose consequent names a period that never recurs,
   but it delays every first pattern: matching-to-sample 0.797
   (conditioning), 0.555 (identity), 0.586 (reversal) over 4 seeds, against
-  1.000, 1.000 and 0.688 on the same seeds. The client declares such link
-  predicates positive-only instead (below).
+  1.000, 1.000 and 0.688 on the same seeds. A link predicate is now not
+  mined at all (it has no place in time; `set-time-link`).
 - **Mining at query time from the journal of added facts.** The journal is
   kept only once the skeleton has expanded nodes, and batching changes
   nothing about the bound per fact.
 
-### Evaluation (October 2026, master f42c380a)
+### Evaluation with time order (October 2026, branch mined-time-direction)
+
+Raw runs, scripts, probes and frozen builds:
+`/nexus/Dev/OpenCog/bench/results/hypothesis-mining-time/`. ChainerGame
+branch `mined-time-direction` declares the learned-rule predicates' place
+in time (Storm and Degraded layer 0, Blocked 1, Late 2, the period in the
+last argument; `NextPeriod` the link) in place of declaring `NextPeriod`
+positive-only, and each matching-to-sample fact's trial (stimuli layer 0,
+reward 1). Same settings as the evaluation below (`--mine-rules 4 8`,
+`--mined 8 16`).
+
+**Off.** `bench/compare.sh master <branch> --full --jobs 2`: PASS,
+accuracy identical (27 cases on the per-behaviour suites against master
+2b75021b; 73 cases on the former suite against 89a2c02c).
+
+**SupplyNet learned rules, stage 1** (30 history periods, 30 rounds,
+seeds 1-4; before: the arrival-ordered miner, the evaluation below):
+
+| seed | error before | error after | given | true rules live, before (reversed) | after (reversed) | other live, after | s per round before / after |
+|---|---|---|---|---|---|---|---|
+| 1 | 0.173 | 0.065 | 0.027 | 29 of 31 (24) | 31 (0) | 81 + 10 pairs with a true parent | 25.1 / 55.2 |
+| 2 | 0.167 | 0.107 | 0.019 | 22 of 28 (20) | 28 (0) | 64 + 15 | 21.1 / 24.8 |
+| 3 | 0.188 | 0.072 | 0.017 | 25 of 39 (22) | 29 (0) | 64 + 12 | 16.3 / 33.9 |
+| 4 | 0.191 | 0.107 | 0.035 | 18 of 21 (14) | 19 (0) | 36 + 7 | 16.4 / 29.0 |
+| mean | 0.180 | 0.087 | 0.024 | 94 of 119 (80) | 107 (0) | | 19.7 / 35.7 |
+
+Brier 0.114 → 0.068 (given 0.031, base rates 0.134). Both query kinds
+improve (seed 1: blocked 0.177 → 0.061, storm 0.158 → 0.073). The first
+round, which reads every hypothesis proposed during the history, takes
+35-95 s (before 146-191 s, a layer at a time); later rounds take longer
+(the queries apply forward rules whose antecedents are concluded by other
+hypotheses, where the reversed ones mostly ended at observed late
+shipments): side by side on master 2b75021b under the same load, seed 1
+took 104 against 34 s per round and seed 2 40 against 33, with errors
+identical to the runs above. The other live hypotheses are cross-entity
+co-occurrences of a period (another region's storm concluding a route,
+pairs of routes concluding a shipment), now all pointing from cause layer
+to effect layer.
+
+**Stage 2** (storm persistence, transits of 1-3 periods):
+
+| seed | error before | error after | given | rounds | s per round before / after |
+|---|---|---|---|---|---|
+| 1 | 0.147 | 0.145 | 0.058 | 30 | 61 / 374 |
+| 2 (first 17 rounds) | 0.258 | 0.242 | 0.097 | 17 | 48 / 544 |
+
+Seed 1 ends with all 26 true single rules live, none reversed, and 2 of
+the 3 storm persistence rules (the arrival-ordered miner: 24 of 26 in
+either direction, 21 reversed, no persistence, 56 rules through the link
+of other kinds), but the error does not move: the storm queries stay far
+from the given structure's (storm 0.177, previous storm 0.224, against
+0.064 and 0.074). And the rounds grow from 25 s to over 500 s by round 15
+and 1000 s on seed 2 (stopped after 17 rounds): the query time grows with the history while the
+live set stays near 95 (`probes/round_probe.py`: round 9, 210 s of
+queries, 44 s of review), against 0.9 s per round for the given structure.
+
+**Stage 3 timed** (seed 1): stopped after 14 rounds at 1000 s per round,
+error 0.175 over them (given 0.074). Not affordable.
+
+**ONA matching-to-sample** (10 seeds, the same master 2b75021b base on
+both sides): identical, trial by trial: conditioning 1.000, identity
+matching 0.956 (novel 0.963), reversal 0.644 (retest 0.287), at 48, 59 and
+76 ms per trial on both. There the stimuli always arrive before the
+reward, so arrival order and time order agree.
+
+**What the miner finds and misses.** Ordered by time, it finds the
+direction of every rule it finds: SupplyNet's storm → blocked → late
+rules, and per-region storm persistence through the link. It still keeps
+cross-entity co-occurrences that a review does not drop (they predict, if
+weakly), proposes no rule over two cross-period antecedents or across
+more than one time point, only predicates with a declared place in time,
+and needs the operator's layers within a time point: the data cannot
+orient SupplyNet's within-period rules. The cost of the queries that
+apply the mined rules grows with the history in stages 2 and 3.
+
+### Evaluation of the arrival-ordered miner (October 2026, master f42c380a)
 
 Raw runs, scripts and summaries:
 `/nexus/Dev/OpenCog/bench/results/hypothesis-mining-v2/`.
