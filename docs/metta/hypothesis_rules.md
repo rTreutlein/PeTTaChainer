@@ -314,6 +314,139 @@ instance once (4.4 s and 26 s), and the queries themselves (0.55 s and
 0.66 s per round). Raw runs: `bench/results/forward-folds/learned/`.
 
 
+## Change detection (October 2026)
+
+Status: built, opt-in (`set-rule-change-detection`).
+
+**Problem.** A tally weighs every sample alike, so a rule whose world changed
+keeps its old rate until new samples outnumber the old ones. In ONA's
+reversal task (ChainerGame `onabench.mts reversal`: matching-to-sample
+trained for 20 blocks, then the mapping reversed for 20 feedback blocks and
+tested again) the PLN agent kept the trained choice through most of the
+reversal: every failure moved a rule learned from about 20 successes by a
+twentieth, so it scored 0.089 in the reversal blocks and 0.400 in the retest
+(ONA 0.19 and 0.375).
+
+**Model.** Each branch of a rule, P(B|A) and P(B|¬A), has a rate that is
+constant between change points nobody announces. A branch's tally holds the
+samples since the last change it found, and a candidate **run**, its latest
+samples. Each new sample is predicted twice, by the tally's estimate (the run
+continues the tally's rate) and by the run's own (the run has a rate of its
+own), each with one pseudo-observation at 0.5. The log ratio of the two
+predictions adds to the run's log Bayes factor for a rate of its own; a
+weighted sample, of mass m and consequent strength s, scores
+m·(s ln p + (1−s) ln(1−p)). This is Page's CUSUM with a Bayesian alternative:
+
+- a factor at or below 1 says nothing for a change: the next sample starts a
+  new run, and the run's samples stay in the tally;
+- a factor past the setting is a change: the tally keeps the run alone, the
+  earlier samples leave it, and a new run starts.
+
+So the detector calibrates itself. Where the rate holds, the run's own
+estimate, starting from its prior, predicts worse than the tally's, its
+factor sinks below 1 and the run restarts; under the tally's own
+predictive the factor is a nonnegative martingale, so a run passes a factor F
+with probability at most 1/F (Ville's inequality). Where the rate changed, the factor grows with
+every sample: a rule held in 12 of 12 cases passes 100 at its third failure
+(`test_rule_change_detection.metta`), and 10^4 at its sixth.
+
+**Bookkeeping, constant per sample.**
+
+- A fold's detector (`&sk_instance_change`, only in a KB that detects
+  changes) holds the threshold, a run counter, and per branch the run its
+  tally starts at, the run its candidate starts at, the candidate's evidence
+  and its log factor.
+- Each member records the run it was sampled in (`&sk_instance_member`). A
+  member is a new sample when its contribution first has mass: the member of
+  a sample usually joins the fold before the consequent is known (the agent's
+  reward comes after its decision), and it is stamped with the run current
+  then. A starting run moves the counter, so the samples of a run are those
+  stamped from its first run on.
+- A member whose sample changes replaces its contribution in the branch's
+  tally and run if they hold its run, and is not scored again: it corrects a
+  sample, it is no new one.
+- Leave one out subtracts only the samples the tally holds.
+- A change removes nothing: the left samples' members and contributions stay,
+  and the tally no longer counts them. The order samples are scored in is the
+  order their values arrive: one per trial for the agent, and, for the first
+  read of a fold over a history, the order its members joined.
+
+Off, a take looks up the detector and the KB's setting, both empty tables,
+and stores a member's run as 0, so every value is the one without the
+feature (`compare.sh e7c52328 717f5813 --full`: PASS, accuracy identical
+in all 27 cases, suite times within ±4%).
+
+**Results.** ONA matching-to-sample, harness hypotheses (sample-pairs), k = 1,
+budget 200, 10 seeds (42, 1-9), master e7c52328 with the setting off and on
+(ChainerGame `onabench.mts --change-detection`):
+
+| task | off | factor 20 | factor 100 | factor 1000 | factor 10^4 | factor 10^6 |
+|---|---|---|---|---|---|---|
+| reversal, score (test, retest) | 0.700 | 0.800 | 0.800 | 0.800 | 0.800 | 0.800 |
+| reversal, reverse blocks | 0.089 | 0.466 | 0.450 | 0.425 | 0.393 | 0.294 |
+| reversal, retest | 0.400 | 0.600 | 0.600 | 0.600 | 0.600 | 0.600 |
+| conditioning | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 |
+| identity matching (test, novel) | 0.956 (0.950, 0.963) | 0.956 | 0.956 | 0.956 | 0.956 | 0.956 |
+
+(Factors 20 and 1000 were run on baf8365f, the others on e7c52328; off and
+100 gave the same numbers on both.) ONA scores reversal 0.688 (reverse 0.19,
+retest 0.375). At factor 100 and 10^4 every seed's reversal score is at least
+the one without detection; conditioning and identity matching take the same
+decision with the same desire in every trial (the detector never fires
+there), at the same time per trial (27 and 42 ms, reversal 36 ms off, 34 on).
+What still limits the retest is the agent's exploration, not the rule: once
+the trained choice fails, the other one has a few failures from training and
+is tried only when the policy babbles (20% of the trials whose best desire is
+at most 0.55, half of those on the right choice), and a rule tried once each
+way reads 0.5, which the policy does not execute.
+
+SupplyNet learned rules (stages 1-3, seeds 1-4, 30 rounds, budget 100,
+`supplynet run --learned-rules --change-detection`; mean posterior error, s per
+run):
+
+| stage | off | factor 100 | factor 10^4 | factor 10^6 |
+|---|---|---|---|---|
+| 1 | 0.0244, 15.3 s | 0.0254, 15.9 s | 0.0244, 15.4 s | 0.0244, 16.0 s |
+| 2 | 0.0706, 22.1 s | 0.0738, 21.3 s | 0.0706, 21.8 s | 0.0706, 21.6 s |
+| 3 timed | 0.0642, 29.8 s | 0.0659, 30.0 s | 0.0642, 30.3 s | 0.0642, 29.9 s |
+| 3 untimed | 0.0628, 33.5 s | 0.0651, 31.6 s | 0.0628, 33.7 s | 0.0628, 31.5 s |
+
+At factor 100 the detector fired falsely on 1 to 4 of a seed's 19 to 39
+rules in 8 of the 16 runs (seed 2 of stage 1: 0.0177 to 0.0218): a noisy rate
+near 0.5 over a few dozen samples, ordered by period, makes runs of one
+outcome long enough, and with many rules, two branches and dozens of samples
+each, the 1/F bound per run start adds up (CUSUM's mean time to a false alarm
+is about F samples per branch). At 10^4 and 10^6 every rule truth and every
+error is the one without detection, and the time is the same. **10^4 is the
+recommended setting**: it costs nothing on SupplyNet and keeps most of the
+reversal gain (the reversal blocks need about two more failures).
+
+**Rejected alternatives.**
+
+- **Exponential decay** of the tally's sums per new sample (option (a) of the
+  brief). It is constant cost with per-member stamps, but it forgets on
+  stationary data too: a rule's evidence never exceeds 1/(1−λ) samples, so
+  every stationary benchmark loses confidence, and λ is a time scale each
+  task would need tuned. Not built; the detector costs nothing where the rate
+  holds.
+- **A sliding window** forgets at a fixed rate the same way, and must remove
+  the oldest sample at each step, a queue per fold.
+- **Full Bayesian online changepoint detection** (a posterior over every run
+  length) costs a step per run length kept. The two-hypothesis test decides
+  at constant cost, and a run that restarts is the pruning such a posterior
+  needs anyway.
+- **Discounting the old samples by a factor** instead of dropping them. After
+  a change, they are evidence of another rate; a fraction of them pulls the
+  new estimate toward the old rate exactly when it is known wrong. A false
+  alarm costs the tally's evidence instead, which the threshold makes rare.
+- **Scoring against the rule's merged truth** (the axiom revised with the
+  tally). The axiom is the user's or the miner's prior, not observed history;
+  what may be outdated is the tally.
+- **Treating a changed sample as a new one.** In SupplyNet a sample's value
+  moves whenever its consequent's merged value does; scoring every move would
+  count one sample many times.
+
+
 ## Mining hypotheses (October 2026)
 
 Status: built, opt-in (`set-hypothesis-mining`); evaluation below.

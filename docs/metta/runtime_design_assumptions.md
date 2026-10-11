@@ -318,7 +318,12 @@ no member evidence either, so its estimate revises with a rule's stated truth,
 and no member dependencies. Its samples read no value that depends on a
 refined rule's truth, since another hypothesis's prediction is no
 observation of the consequent, nor one derived through the implication they
-sample. A `FoldAllTruth` fold
+sample. A KB may let the tally detect a change of the rule's rate
+(`set-rule-change-detection`): a branch then holds only the samples since the
+last change its detector found, each sample scored once, when it first gets a
+value, and each member records the run it was sampled in, so a changed member
+or a leave-one-out read touches only the samples the tally holds. A
+`FoldAllTruth` fold
 reads its members' truth values as data and is treated the same way, so a rule
 can fold a group's beliefs and read one member of the group again.
 
