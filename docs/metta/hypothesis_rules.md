@@ -220,8 +220,21 @@ the specific strength under `bayes-prior-count` pseudo-observations at the
 general one (`sk-specialized`, proof `(specializes specific general)`): 0.95
 (`test_hypothesis_rules.metta`, ChainerGame
 `benchmarks/ona/repros/specificity.py`). A specific rule with little evidence
-stays near the general rate. Only applications to stored facts are compared:
-a derived premise's leaves say nothing about entailment.
+stays near the general rate.
+
+The same holds when the general rule reads a derived premise whose evidence
+is only facts the specific rule reads directly: its antecedent is then a
+generalization of the specific one's, entailed by it. ONA's penguin.nal
+(ChainerGame `benchmarks/ona/nal_pln/penguin.metta`): `(Member $x Penguin) →
+Fly` (0.0) reads `(Member pingu Penguin)`; `(Member $x Bird) → Fly` (1.0)
+reads `(Member pingu Bird)`, derived from that fact through `(Inheritance
+Penguin Bird)`. Revised under conditioning on the shared fact they gave 0.33;
+read as prior and specific case, 0.00003, where NAL answers 0.0
+(`test_default_exception.metta`). The specific side must read stored facts
+directly: when both read derived premises, nothing tells which antecedent
+entails the other, and they merge as before. The fuzzer is unaffected, since
+its KBs have one rule per head, and so are combination modes, whose
+independent causes read different facts.
 
 
 ## Instance tallies (October 2026)

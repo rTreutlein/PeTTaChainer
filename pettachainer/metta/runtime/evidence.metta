@@ -358,19 +358,26 @@
 (: member-of-step (-[det]-> (List Atom) Bool Atom Bool))
 (= (member-of-step $set $members $item) (if $members (stored-list-member? $item $set) false))
 
-;; Two rules applied to the same statement, the first to a proper superset of
-;; the stored facts the second reads: the first's antecedent, as
-;; instantiated, entails the second's, whose rate is a marginal over the
-;; first's and over cases this one is not (see sk-specialized).
-(: more-specific-application? (-[det]-> Proof Proof Bool))
+;; Two rules applied to the same statement, the first reading stored facts
+;; directly: the first's antecedent, as instantiated, entails the second's,
+;; whose rate is a marginal over the first's and over cases this one is not
+;; (see sk-specialized), when the second reads a proper subset of those facts,
+;; or reads a derived premise resting only on them: a generalization of the
+;; first's antecedent, such as (Member pingu Bird) derived from (Member pingu
+;; Penguin).
+(: more-specific-application? (-[semidet]-> Proof Proof Bool))
 (= (more-specific-application? $prf-a $prf-b)
    (case (data $prf-a $prf-b) (
       (((by $rule-a $premise-a) (by $rule-b $premise-b))
          (if (== $rule-a $rule-b) false
             (let* (($facts-a (application-facts $premise-a))
                    ($facts-b (application-facts $premise-b)))
-               (if (== $facts-b ()) false
-                  (if (< (list-len $facts-b) (list-len $facts-a)) (all-members? $facts-a $facts-b) false)))))
+               (if (== $facts-a ()) false
+                  (if (== $facts-b ())
+                     (let $ev-b (proof-term-evidence proof-walk-in-kb $premise-b)
+                        (if (== $ev-b (ev-set 0)) false
+                           (evidence-subset? $ev-b (proof-term-evidence proof-walk-in-kb $premise-a))))
+                     (if (< (list-len $facts-b) (list-len $facts-a)) (all-members? $facts-a $facts-b) false))))))
       ($_other false))))
 
 ;; The settled proof equals the complete one except where it reads one part
