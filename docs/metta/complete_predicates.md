@@ -120,6 +120,18 @@ premises in the same cycle multiply that.
   premise. Inversions and projections concluding it are judged as before.
 - Merging. A closed value has the evidence of the recomputed rows and depends
   on K and the pinned statements; the reader's view merges as any other.
+- Observations inside a loop. A rule application of a complete G may read a
+  certain fact of a complete K as a premise (a cause of G) that an inversion
+  or completion onto G observes as G's effect: K is both only in a loop
+  through G. The merge compares the rule application's evidence without K
+  (`sk-update-evidence`), so the two combine by Bayes' rule, the forward view
+  in the base rate's place: a false disjunct adds nothing to the rule's other
+  causes, and a true one is explained only through G. In `C <- (Or B D)`,
+  `D <- C` with B = 1 and D = 0, C is 0.47 · 0.06 / (0.47 · 0.06 + 0.53) =
+  0.0505, exact; before, the forward view's evidence contained the
+  inversion's and 0.47 was kept (`test_problog_fuzz_regressions.metta`, F5).
+  Outside complete predicates the premise stays shared: a symmetric rule and
+  its own completion read the same fact twice.
 - Forward chaining. Forward rows are evaluated like any row, so they read
   closed values where a query settled the statement's search; a forward run
   expands no node and settles nothing itself.

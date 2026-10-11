@@ -242,31 +242,63 @@
 (= (sk-sources-meet? $parts-a $parts-b)
    (not (== (/==\ (sk-part-witnesses false $parts-a) (sk-part-witnesses false $parts-b)) ())))
 
-;; The evidence a view's updates hold about its statement: its evidence less
-;; the certain facts its completions read as siblings. Given a sibling K, a
-;; completion is the likelihood ratio of its consequence alone, P(C | M, K)
-;; over P(C | not M, K); it holds no evidence of M through K. So a view that
-;; reads K as an observation, an inversion of K's rule P(K | M), or as a
-;; premise, a forward view P(M | K), is independent of it given K, and Bayes'
-;; rule over both is exact: P(M) P(K | M) P(C | M, K). An uncertain sibling's
-;; value is read as independent of M a priori, so it stays evidence.
-(: sk-update-evidence (-[det]-> SkFact EvidenceSet EvidenceSet))
-(= (sk-update-evidence ($_type $_kbctx $proof $tv) $ev)
-   (case (sk-prior-update-of $proof $tv) (
-      ((sk-prior-update $_prior $_own $parts)
-         (case (sk-part-witnesses true $parts) (
-            (() $ev)
-            ($siblings
-               (evidence-subtraction $ev
-                  (evidence-set (fold-flat (sk-sibling-entry-step $siblings) () (evidence-entries $ev)))))))))))
+;; The evidence a view holds about its statement apart from what it reads as
+;; given: its evidence less the certain facts its completions read as
+;; siblings, and, for a complete statement, less the certain complete facts
+;; its rule application reads as premises that the other view observes.
+;; Given a sibling K, a completion is the likelihood ratio of its consequence
+;; alone, P(C | M, K) over P(C | not M, K); it holds no evidence of M through
+;; K. So a view that reads K as an observation, an inversion of K's rule
+;; P(K | M), or as a premise, a forward view P(M | K), is independent of it
+;; given K, and Bayes' rule over both is exact: P(M) P(K | M) P(C | M, K). An
+;; uncertain sibling's value is read as independent of M a priori, so it stays
+;; evidence. A premise another view observes as M's effect is both M's cause
+;; and its effect, which only a loop through M allows. In a loop of complete
+;; predicates the cause read as given adds nothing the observation does not:
+;; a false disjunct adds nothing to the rule's other causes, and a true one is
+;; explained only through M (fuzzer seed 14000138). Elsewhere the two read K
+;; twice (a symmetric relation's rule and its completion,
+;; test_specializing_rule.metta), so the premise stays shared.
+(: sk-update-evidence (-[det]-> SkFact EvidenceSet SkFact EvidenceSet))
+(= (sk-update-evidence ($type $kbctx $proof $tv) $ev ($_otype $_okbctx $other $otv))
+   (case (data (sk-prior-update-of $proof $tv) (sk-prior-update-of $other $otv)) (
+      (((sk-prior-update $_prior $_own $parts) (sk-prior-update $_oprior $_oown $oparts))
+         (sk-without-given $ev (sk-part-witnesses true $parts)
+            (sk-application-premises $type $kbctx $proof)
+            (sk-part-witnesses false $oparts))))))
 
-(: sk-sibling-entry-step (-[det]-> (List Number) (List Evidence) Evidence (List Evidence)))
-(= (sk-sibling-entry-step $siblings $kept $entry)
+;; The premises a rule application of a complete statement reads directly, by
+;; hash.
+(: sk-application-premises (-[det]-> Atom Atom Proof (List Number)))
+(= (sk-application-premises $type $kbctx $proof)
+   (if (complete-statement? $type $kbctx)
+      (case (sk-step-proof $proof) (
+         ((by $_rule $premise)
+            (map-flat index-hash (the (List Atom) (case $premise (
+               ((cons conjunction $names) $names)
+               ((settled $part) (cons $part ()))
+               ($_one (cons $premise ())))))))
+         ($_update ())))
+      ()))
+
+;; Evidence less its certain facts that are siblings, or premises observed.
+(: sk-without-given (-[det]-> EvidenceSet (List Number) (List Number) (List Number) EvidenceSet))
+(= (sk-without-given $ev $siblings $premises $observed)
+   (if (if (== $siblings ()) (if (== $premises ()) true (== $observed ())) false) $ev
+      (evidence-subtraction $ev
+         (evidence-set (fold-flat (sk-given-entry-step $siblings $premises $observed) () (evidence-entries $ev))))))
+
+(: sk-given-entry-step (-[det]-> (List Number) (List Number) (List Number) (List Evidence) Evidence (List Evidence)))
+(= (sk-given-entry-step $siblings $premises $observed $kept $entry)
    (case $entry (
-      ((fact-ev $_kbctx $proof $_type)
-         (if (stored-list-member? (index-hash $proof) $siblings)
-            (if (certain-fact-evidence? $entry) (cons $entry $kept) $kept)
-            $kept))
+      ((fact-ev $kbctx $proof $type)
+         (let $hash (index-hash $proof)
+            (if (if (stored-list-member? $hash $siblings) true
+                   (if (stored-list-member? $hash $observed)
+                      (if (stored-list-member? $hash $premises) (complete-statement? $type $kbctx) false)
+                      false))
+               (if (certain-fact-evidence? $entry) (cons $entry $kept) $kept)
+               $kept)))
       ($_other $kept))))
 
 ;; Two views updating the same prior with different rules and observations
@@ -507,8 +539,8 @@
 ;; contains the other's is kept; two that share an uncertain statement are an
 ;; overlap, which the key's merge conditions on the shared statements; any
 ;; other pair keeps the more confident view, also the overlap's fallback. A
-;; completion's evidence is compared without the certain siblings it
-;; conditions on (sk-update-evidence). A dominated view contributes neither
+;; view's evidence is compared without the certain facts it reads as given
+;; (sk-update-evidence). A dominated view contributes neither
 ;; evidence nor dependencies. The ignored
 ;; hashes are the merged key's, those of the keys unifying with it, those the
 ;; reader excludes and the statements given.
@@ -523,8 +555,8 @@
             (if (proof-dominates? $proof-b $proof-a) (sk-paired (sk-val $b $ev-b $deps-b))
             (if (more-specific-application? $proof-a $proof-b) (sk-paired (sk-specialized $a $ev-a $deps-a $b $ev-b $deps-b))
             (if (more-specific-application? $proof-b $proof-a) (sk-paired (sk-specialized $b $ev-b $deps-b $a $ev-a $deps-a))
-               (let* (($cmp-a (sk-update-evidence $a $ev-a))
-                      ($cmp-b (sk-update-evidence $b $ev-b))
+               (let* (($cmp-a (sk-update-evidence $a $ev-a $b))
+                      ($cmp-b (sk-update-evidence $b $ev-b $a))
                       ($overlap (evidence-overlap? $cmp-a $cmp-b))
                       ($a-in-b (if $overlap (evidence-subset? $cmp-a $cmp-b) false))
                       ($b-in-a (if $overlap (evidence-subset? $cmp-b $cmp-a) false))

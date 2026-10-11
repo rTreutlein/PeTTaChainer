@@ -153,3 +153,19 @@
 !(set-base-rate f3or (D $x) (STV 0.249372 1.0))
 !(test (query 2000 f3or (: $prf (A a) $tv))
    (: ((antecedent-completion rD 0 with cpu (prior (STV 0.18 1.0))) (conjunction (population-prior (B $_0)) obs-D-a)) (A a) (STV 0.0 0.9999421512249334)))
+
+;; F5. In a loop of complete predicates, C <- (Or B D) and D <- C, the rule
+;; application of C reads the observed D = 0 as a cause and the inversion of
+;; rD observes it as C's effect; a premise is both only in a loop through C.
+;; A false disjunct adds nothing to B's cause, so P(C | B) = 0.47 times D's
+;; likelihood ratio 0.06 / 1 is exact: 0.0505 (before: the forward view's
+;; evidence contained the inversion's, and 0.47 was kept).
+!(set-complete-predicate f5loop C)
+!(set-complete-predicate f5loop D)
+!(compileadd f5loop (: rC (Implication (Or (B $x) (D $x)) (C $x)) (CTV (STV 0.47 1) (STV 0 1))))
+!(compileadd f5loop (: rD (Implication (C $x) (D $x)) (CTV (STV 0.94 1) (STV 0 1))))
+!(compileadd f5loop (: obs-B-a (B a) (STV 1 1)))
+!(compileadd f5loop (: obs-D-a (D a) (STV 0 1)))
+!(set-base-rate f5loop (B $x) (STV 0.781 1.0))
+!(test (query 2000 f5loop (: $prf (C a) $tv))
+   (: (factored-revision (by rC (conjunction obs-B-a obs-D-a)) (prior (STV 0.47 0.9999000099103387)) (((inverted rD with cpu (prior (STV 0.47500041666009185 0.0012483147749431272))) obs-D-a))) (C a) (STV 0.050519527051236156 0.999905602050588)))

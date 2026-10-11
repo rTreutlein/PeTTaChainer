@@ -189,7 +189,9 @@ A key's value merges its stored facts and one view per row:
   leaves);
 - inversions and antecedent completions over one prior through different
   observations combine by Bayes' rule (a completion observes its consequence;
-  a sibling it reads as certain is conditioned on, not evidence it shares), and an inversion over a base rate combines the same
+  a sibling it reads as certain is conditioned on, not evidence it shares; so
+  is, for a complete statement, a certain complete premise of its rule
+  application that the update observes, `complete_predicates.md`), and an inversion over a base rate combines the same
   way with a derived, uncertain view independent of it, which
   takes the base rate's place (`docs/metta/prior_factored_merge.md`);
 - independent views otherwise revise, except that forward views (rule
