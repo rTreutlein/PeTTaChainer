@@ -117,7 +117,8 @@
        ($_clear-temp-after (clear-temp-query-adds))
        ($_contexts (sk-clear-contexts!))
        ;; What the contexts' rows interned and stored is reached by nothing now.
-       ($_collected (if (deps-gc-due?) (let $_deps (deps-gc! (sk-deps-roots)) (stored-refs-gc!)) true)))
+       ($_collected (if (deps-gc-due?) (deps-gc! (sk-deps-roots)) true))
+       ($_refs (stored-refs-gc-step!)))
       $rows))
 
 (: query-mode

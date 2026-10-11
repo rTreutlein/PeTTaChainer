@@ -394,6 +394,50 @@ class TestPeTTaChainer(unittest.TestCase):
         )
         self.assertEqual(handler.query_many_refs([]), [])
 
+    def test_stored_refs_live_in_holders_and_survive_collection(self):
+        import janus_swi
+
+        handler = PeTTaChainer()
+        handler.add_atoms_no_check([
+            "(: gc_a (GcA a) (STV 0.9 0.9))",
+            "(: gc_ab (Implication (GcA $v) (GcB $v)) (STV 0.8 0.9))",
+            "(: gc_bc (Implication (GcB $v) (GcC $v)) (STV 0.7 0.9))",
+            "(: gc_edge_ab (GcEdge A B) (STV 1.0 1.0))",
+            "(: gc_path (Implication (GcEdge $x $y) (GcPath $x $y)) (CTV (STV 0.9 1.0) (STV 0.0 1.0)))",
+        ])
+        handler.forward_chain(handler.select_facts(["(GcEdge A B)"]), steps=20)
+        handler.query_many_materialization(["(: $prf (GcC a) $tv)"], steps=20)
+        for i in range(3):
+            # Each new fact gives (GcC a) a new view; the replaced ones leave garbage.
+            handler.add_atoms_no_check([f"(: gc_a{i} (GcA a) (STV 0.{i + 5} 0.8))"])
+            (answers,) = handler.query_many_refs(["(: $prf (GcC a) $tv)"], steps=20)
+        # Every row holding a proof reference or an evidence set is one the
+        # collector scans (refs_holder in runtime_helpers.pl); a fact in &kb
+        # with a referenced proof is also a forward copy or a materialized fact.
+        stray = janus_swi.query_once(
+            "findall(_F-_N, ( current_predicate(user:_F/_A), sub_atom(_F, 0, 1, _, '&'),"
+            " \\+ memberchk(_F, ['&proof', '&proof_fact', '&self', '&kb', '&kb_prefix', '&kb_open']),"
+            " functor(_H, _F, _A), predicate_property(user:_H, dynamic), user:_H, between(1, _A, _N), arg(_N, _H, _X),"
+            " sub_term(_S, _X), nonvar(_S), _S = [_T, _I], memberchk(_T, ['proof-ref', 'ev-set']), integer(_I),"
+            " \\+ ( refs_holder(_F, _A, _Columns), memberchk(_N, _Columns) ) ), _Found), sort(_Found, Stray)"
+        )["Stray"]
+        self.assertEqual(stray, [])
+        unheld = janus_swi.query_once(
+            "findall(_P, ( (user:'&kb'(_T, _K, _P, _V) ; user:'&kb_prefix'(_, _T, _K, _P, _V) ; user:'&kb_open'(_T, _K, _P, _V)),"
+            " nonvar(_P), _P = ['proof-ref', _],"
+            " \\+ user:'&sk_forward_stored'(_, _, [_, _, _P, _], _, _),"
+            " \\+ user:'&materialized_facts'('materialized-row', _, _, _, [_, _, _P, _], _) ), Unheld)"
+        )["Unheld"]
+        self.assertEqual(unheld, [])
+        before = janus_swi.query_once("aggregate_all(count, user:'&proof'(_, _, _, _), N)")["N"]
+        janus_swi.query_once("'stored-refs-gc!'(_), 'stored-refs-gc!'(_)")
+        after = janus_swi.query_once("aggregate_all(count, user:'&proof'(_, _, _, _), N)")["N"]
+        self.assertLess(after, before)
+        self.assertEqual(
+            handler.expand_proof(answers[0].proof),
+            "(by gc_bc (by gc_ab (merge/revision (merge/revision (merge/revision gc_a2 gc_a1) gc_a0) gc_a)))",
+        )
+
     def test_query_metrics_are_opt_in_and_reset_per_query(self):
         handler = PeTTaChainer()
         handler.add_atom("(: metric_a (MetricA) (STV 1.0 1.0))")

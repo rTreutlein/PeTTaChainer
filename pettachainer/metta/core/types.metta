@@ -36,6 +36,7 @@
 (: deps-gc! (-[det]-> (List Number) Bool))
 (: deps-gc-due? (-[det]-> Bool))
 (: stored-refs-gc! (-[det]-> Bool))
+(: stored-refs-gc-step! (-[det]-> Bool))
 
 ;; Rules whose premise only their own conclusion supports (runtime_helpers.pl).
 (: rule-dormant? (-[det]-> Number Bool))

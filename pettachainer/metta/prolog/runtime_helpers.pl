@@ -188,35 +188,172 @@ argument_shape(Arg, Shape) :-
     flag(deps_next_id, Next, Next), flag(deps_gc_next, Last, Last), flag(deps_gc_kept, Kept, Kept),
     (   Next - Last > max(Kept, 4096) -> Result = true ; Result = false ).
 
-% Drops every stored proof and evidence set no store reaches: roots are the
-% proof references and evidence sets in any space but the proof store itself,
-% and a stored proof keeps the proofs it refers to and its evidence. A replaced
-% view's proof stays while an older view or a consumer's proof still refers to
-% it.
-'stored-refs-gc!'(true) :-
-    empty_nb_set(Proofs), empty_nb_set(Sets),
-    forall(( current_predicate(user:F/A), sub_atom(F, 0, 1, _, '&'),
-             F \== '&proof', F \== '&proof_fact',
-             functor(H, F, A), predicate_property(user:H, dynamic),
-             user:H, sub_term(S, H), nonvar(S), S = [Tag, Id], integer(Id) ),
-           (   Tag == 'proof-ref' -> proof_mark(Id, Proofs, Sets)
-           ;   Tag == 'ev-set' -> add_nb_set(Id, Sets, _)
-           ;   true )),
-    forall(( clause(user:'&proof'(Pid, _, _, _), true, Ref), \+ add_nb_set(Pid, Proofs, false) ), erase(Ref)),
-    forall(( clause(user:'&proof_fact'(Pid, _, _), true, Ref), \+ add_nb_set(Pid, Proofs, false) ), erase(Ref)),
-    forall(( clause(ev_set(Set, _, _, _, _), true, Ref), \+ add_nb_set(Set, Sets, false) ), erase(Ref)),
-    forall(( clause(ev_union_memo(Key, C), true, Ref),
-             \+ ( Left is Key >> 32, Right is Key /\ 0xffffffff,
-                  add_nb_set(Left, Sets, false), add_nb_set(Right, Sets, false), add_nb_set(C, Sets, false) ) ),
-           erase(Ref)).
+% Stored proofs and evidence sets nothing refers to are collected in cycles
+% spread over queries (docs/metta/evidence_sets.md, "Collection"). A cycle
+% keeps what the stores reached when it started and everything created since:
+% it scans the holder columns, follows each marked proof to the proofs and
+% evidence sets it holds, then sweeps the proof store, the memoized unions
+% and the evidence sets, unions first: a union kept while its result is gone
+% would hand the erased set to a later query. A slice does a bounded number
+% of these units, so a
+% query pays for a share of a collection, never for the whole store. Two
+% barriers keep a reachable value from being lost meanwhile: a holder row
+% removed while marking runs is scanned as it goes, and an interned evidence
+% set found again is marked until the cycle ends. Stored proofs are found
+% only through references, so one nothing reached cannot be reached again.
 
-proof_mark(Pid, Proofs, Sets) :-
-    (   add_nb_set(Pid, Proofs, true)
-    ->  forall(user:'&proof'(Pid, _, ['ev-set', Set], _), add_nb_set(Set, Sets, _)),
-        forall(( user:'&proof'(Pid, Stored, _, _), sub_term(S, Stored), nonvar(S),
-                 S = ['proof-ref', Inner], integer(Inner) ),
-               proof_mark(Inner, Proofs, Sets))
+% The spaces whose rows can hold a proof reference or an evidence set, their
+% arity, and the columns that can. A fact stored in &kb with a referenced
+% proof is held by &sk_forward_stored (a forward run's copy) or by
+% &materialized_facts as well.
+refs_holder('&sk_latest', 3, [3]).
+refs_holder('&sk_view', 4, [4]).
+refs_holder('&sk_merged', 5, [5]).
+refs_holder('&sk_forward_taken', 3, [3]).
+refs_holder('&sk_forward_stored', 5, [3, 4]).
+refs_holder('&sk_summary', 5, [3, 4]).
+refs_holder('&materialized_facts', 6, [5, 6]).
+refs_holder('&forward_aggregate_observation', 5, [3]).
+refs_holder('&combination_pending', 4, [4]).
+
+:- dynamic refs_gc_proof/1, refs_gc_set/1, refs_gc_grey/1.
+
+% The cycle's phase is idle, roots(Holders), mark, or sweep(Stores); its
+% limits are the first proof id and the first evidence set id it did not see
+% exist; its work is the clause references of the store being scanned or
+% swept, the next one to take in flag refs_gc_next.
+refs_gc_active :- nb_current(refs_gc_phase, Phase), Phase \== idle.
+
+% A collection is due once more proofs were stored since the last one than it
+% kept (at least 4096), as for dependency nodes.
+refs_gc_due :-
+    (   refs_gc_active -> true
+    ;   'search-id-value'(proof_id, Next), flag(refs_gc_last, Last, Last), flag(refs_gc_kept, Kept, Kept),
+        Next - Last > max(Kept, 4096) ).
+
+% One slice, starting a cycle when one is due. Its units grow with the proofs
+% stored since the last slice, so a cycle ends before as many again are
+% stored, and a query that stores none pays a small constant.
+'stored-refs-gc-step!'(true) :-
+    'search-id-value'(proof_id, Next), flag(refs_gc_seen, Seen, Next),
+    (   refs_gc_due
+    ->  ( refs_gc_active -> true ; refs_gc_start ),
+        Units is 512 + 8 * max(0, Next - Seen),
+        refs_gc_run(Units)
     ;   true ).
+
+% A whole collection now: the running cycle is finished, then one that starts
+% now collects everything nothing reaches.
+'stored-refs-gc!'(true) :-
+    ( refs_gc_active -> refs_gc_run(inf) ; true ),
+    refs_gc_start, refs_gc_run(inf).
+
+refs_gc_start :-
+    'search-id-value'(proof_id, ProofLimit), flag(ev_next_set, Sets, Sets), SetLimit is Sets + 1,
+    nb_setval(refs_gc_limits, limits(ProofLimit, SetLimit)),
+    retractall(refs_gc_proof(_)), retractall(refs_gc_set(_)), retractall(refs_gc_grey(_)),
+    findall(holder(Head, Columns),
+            ( refs_holder(Space, Arity, Columns), current_predicate(user:Space/Arity), functor(Head, Space, Arity) ),
+            Holders),
+    forall(member(holder(Head, Columns), Holders), prolog_listen(user:Head, refs_gc_removed(Columns))),
+    nb_setval(refs_gc_holders, Holders),
+    nb_setval(refs_gc_phase, roots(Holders)),
+    refs_gc_take(none).
+
+refs_gc_removed(Columns, retract, Ref) :- !,
+    (   clause(Head, true, Ref) -> refs_gc_mark_columns(Columns, Head) ; true ).
+refs_gc_removed(_, _, _).
+
+refs_gc_mark_columns(Columns, Row) :-
+    forall(member(Column, Columns), ( arg(Column, Row, Value), refs_gc_mark_term(Value) )).
+
+refs_gc_mark_term(Term) :-
+    forall(( sub_term(Sub, Term), nonvar(Sub), Sub = [Tag, Id], atom(Tag), integer(Id) ), refs_gc_mark(Tag, Id)).
+
+refs_gc_mark('proof-ref', Pid) :- !,
+    nb_getval(refs_gc_limits, limits(ProofLimit, _)),
+    (   Pid < ProofLimit, \+ refs_gc_proof(Pid) -> assertz(refs_gc_proof(Pid)), assertz(refs_gc_grey(Pid)) ; true ).
+refs_gc_mark('ev-set', Set) :- !, refs_gc_mark_set(Set).
+refs_gc_mark(_, _).
+
+refs_gc_mark_set(Set) :-
+    nb_getval(refs_gc_limits, limits(_, SetLimit)),
+    (   Set > 0, Set < SetLimit, \+ refs_gc_set(Set) -> assertz(refs_gc_set(Set)) ; true ).
+
+% An evidence set found again by its entries or a memoized union.
+refs_gc_touch_set(Set) :- ( refs_gc_active -> refs_gc_mark_set(Set) ; true ).
+
+% The work of the next store: its clause references, taken in order.
+refs_gc_take(Refs) :-
+    (   Refs == none -> Work = none ; Work =.. [refs|Refs] ),
+    nb_setval(refs_gc_work, Work), flag(refs_gc_next, _, 1).
+
+refs_gc_run(Units) :-
+    (   ( Units == 0 ; \+ refs_gc_active ) -> true
+    ;   nb_getval(refs_gc_phase, Phase), refs_gc_units(Phase, Units, Left), refs_gc_run(Left) ).
+
+% Units of each phase: a holder row scanned, a marked proof followed, a stored
+% proof, set or memoized union swept.
+refs_gc_units(roots([]), Units, Units) :- nb_setval(refs_gc_phase, mark).
+refs_gc_units(roots([holder(Head, Columns)|Rest]), Units, Left) :-
+    refs_gc_through(roots(Rest), Head, Units, Left, Ref,
+        ( clause(Head, true, Ref) -> refs_gc_mark_columns(Columns, Head) ; true )).
+refs_gc_units(mark, Units, Left) :-
+    (   refs_gc_follow(Units, Left) -> true
+    ;   nb_getval(refs_gc_holders, Holders),
+        forall(member(holder(Head, Columns), Holders), prolog_unlisten(user:Head, refs_gc_removed(Columns))),
+        nb_setval(refs_gc_phase, sweep([proofs, unions, sets])), Left = Units ).
+refs_gc_units(sweep([]), Units, Units) :- refs_gc_finish.
+refs_gc_units(sweep([Store|Stores]), Units, Left) :-
+    nb_getval(refs_gc_limits, limits(ProofLimit, SetLimit)),
+    refs_gc_store(Store, Head),
+    refs_gc_through(sweep(Stores), Head, Units, Left, Ref,
+        ( clause(Head, true, Ref), refs_gc_dead(Store, Head, ProofLimit, SetLimit) -> refs_gc_erase(Store, Head, Ref) ; true )).
+
+% Takes a store's clause references when its turn comes, runs Goal on at most
+% Units of them, and moves on to the phase after once all were taken.
+refs_gc_through(After, Head, Units, Left, Ref, Goal) :-
+    nb_getval(refs_gc_work, Work0),
+    (   Work0 == none -> findall(R, clause(Head, true, R), Refs), refs_gc_take(Refs), nb_getval(refs_gc_work, Work)
+    ;   Work = Work0 ),
+    functor(Work, _, Size), flag(refs_gc_next, First, First),
+    (   Units == inf -> Last = Size ; Last is min(Size, First + Units - 1) ),
+    forall(between(First, Last, I), ( arg(I, Work, Ref), \+ \+ Goal )),
+    Next is Last + 1, flag(refs_gc_next, _, Next),
+    (   Units == inf -> Left = inf ; Left is Units - (Last - First + 1) ),
+    (   Next > Size -> nb_setval(refs_gc_phase, After), refs_gc_take(none) ; true ).
+
+% Follows marked proofs to what they hold; fails when none is left.
+refs_gc_follow(Units, Left) :- refs_gc_grey(_), !, refs_gc_follow_loop(Units, Left).
+refs_gc_follow_loop(Units, Left) :-
+    (   Units == 0 -> Left = 0
+    ;   retract(refs_gc_grey(Pid))
+    ->  (   user:'&proof'(Pid, Stored, Leaves, _) -> refs_gc_mark_term(Stored), refs_gc_mark_term(Leaves) ; true ),
+        (   Units == inf -> Next = inf ; Next is Units - 1 ),
+        refs_gc_follow_loop(Next, Left)
+    ;   Left = Units ).
+
+refs_gc_store(proofs, user:'&proof'(_, _, _, _)).
+refs_gc_store(sets, ev_set(_, _, _, _, _)).
+refs_gc_store(unions, ev_union_memo(_, _)).
+
+refs_gc_dead(proofs, user:'&proof'(Pid, _, _, _), ProofLimit, _) :- Pid < ProofLimit, \+ refs_gc_proof(Pid).
+refs_gc_dead(sets, ev_set(Set, _, _, _, _), _, SetLimit) :- \+ refs_gc_live_set(Set, SetLimit).
+refs_gc_dead(unions, ev_union_memo(Key, Union), _, SetLimit) :-
+    Left is Key >> 32, Right is Key /\ 0xffffffff,
+    \+ ( refs_gc_live_set(Left, SetLimit), refs_gc_live_set(Right, SetLimit), refs_gc_live_set(Union, SetLimit) ).
+
+refs_gc_live_set(Set, SetLimit) :- ( Set =:= 0 ; Set >= SetLimit ; refs_gc_set(Set) ), !.
+
+refs_gc_erase(proofs, user:'&proof'(Pid, _, _, _), Ref) :- !, erase(Ref), retractall(user:'&proof_fact'(Pid, _, _)).
+refs_gc_erase(_, _, Ref) :- erase(Ref).
+
+refs_gc_finish :-
+    aggregate_all(count, refs_gc_proof(_), Marked),
+    nb_getval(refs_gc_limits, limits(ProofLimit, _)), 'search-id-value'(proof_id, Next),
+    Kept is Marked + Next - ProofLimit, flag(refs_gc_kept, _, Kept), flag(refs_gc_last, _, Next),
+    retractall(refs_gc_proof(_)), retractall(refs_gc_set(_)),
+    nb_setval(refs_gc_phase, idle), refs_gc_take(none).
 
 deps_mark(0, _) :- !.
 deps_mark(Id, Live) :-
@@ -357,7 +494,7 @@ ev_excluded(Set, Excluded) :- ev_set(Set, _, _, _, Excluded).
 ev_intern([], _, _, 0) :- !.
 ev_intern(Ids, Sorted, Excluded, Set) :-
     string_codes(Order, Ids), term_hash(Order, Hash),
-    (   ev_set(Set, Hash, Order, _, _) -> true
+    (   ev_set(Set, Hash, Order, _, _) -> refs_gc_touch_set(Set)
     ;   flag(ev_next_set, Last, Last + 1), Set is Last + 1, string_codes(SortedString, Sorted),
         assertz(ev_set(Set, Hash, Order, SortedString, Excluded)) ).
 
@@ -386,7 +523,7 @@ ev_union(A, B, C) :-
     (   B == 0 -> C = A
     ;   A == 0 -> C = B
     ;   A == B -> C = A
-    ;   Key is A << 32 \/ B, ev_union_memo(Key, Memo) -> C = Memo
+    ;   Key is A << 32 \/ B, ev_union_memo(Key, Memo) -> refs_gc_touch_set(Memo), C = Memo
     ;   ev_sorted(A, SortedA), ev_sorted(B, SortedB),
         ord_subtract(SortedB, SortedA, New),
         (   New == [] -> C = A

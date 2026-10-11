@@ -46,12 +46,28 @@ re-evaluates.
 
 ## Collection
 
-Replaced views leave sets nothing refers to. `stored-refs-gc!` collects them
-together with stored proofs: it walks every `&` space once, marks the proof
-references and evidence sets it finds, follows live stored proofs to the
-proofs and evidence they hold, and erases the unmarked proofs, sets and
-memoized unions. It runs when a dependency collection is due (`query.metta`).
-Entries are kept; there is one per fact or rule a proof used.
+Replaced views leave sets nothing refers to. They are collected together
+with stored proofs, in cycles spread over queries (`runtime_helpers.pl`). A
+cycle marks what the stores reached when it started: it scans the columns of
+the spaces that hold proof references or evidence sets (`refs_holder`; a fact
+in `&kb` with a referenced proof is also held by `&sk_forward_stored` or
+`&materialized_facts`), follows each marked proof to the proofs and evidence
+it holds, and then erases the unmarked proofs, memoized unions and sets that
+existed when it started; unions go before sets, since a union kept while its
+result is gone would hand the erased set to a later query. What was created since is kept. While it marks, a
+holder row that is removed is scanned as it goes (`prolog_listen`), and until
+it ends, an interned set found again by its entries or a memoized union is
+marked, so nothing reachable at the start is lost. A stored proof is found
+only through references, so one nothing reached cannot be reached again.
+
+Every query ends with one slice (`stored-refs-gc-step!`), which starts a cycle
+once more proofs were stored since the last one than it kept (at least 4096)
+and does at most 512 units of work plus 8 per proof stored since the previous
+slice: a holder row scanned, a marked proof followed, a stored proof, set or
+union swept. So a query pays a bounded share of a collection, and a cycle
+ends before as many proofs again are stored. `stored-refs-gc!` collects
+everything nothing reaches at once. Entries are kept; there is one per fact
+or rule a proof used.
 
 Where the memory of a run goes, stores against Prolog stacks, and the second
 round of representation changes after this one:
