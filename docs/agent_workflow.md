@@ -256,14 +256,23 @@ passed:
    says `PASS`, printing the summary either way.
 7. Only with `--push`: it fast-forwards `master` (and `supply-network`),
    pushes both to `origin`, then removes each landed branch's worktree
-   (`git worktree remove`, which keeps a worktree with uncommitted or
-   untracked files) and deletes the branch, each only after
-   `git merge-base --is-ancestor` shows the target contains it.
+   (`git worktree remove`, no `--force`) and deletes the branch, each only
+   after `git merge-base --is-ancestor` shows the target contains it. A
+   worktree for which `git status --porcelain --ignored` lists anything
+   (modified, untracked or ignored files, such as `scratch/`, a repointed
+   `.venv` or `__pycache__`) is left untouched with its branch, and the
+   script prints the list: `git worktree remove` would delete ignored files.
+   Remove such a worktree by hand once nothing in it is needed.
 
 Without `--push` it is a dry run: every check runs, and it prints the
 commands it would run instead of landing. Its own worktrees are removed on
 every exit. Logs go to `.claude/land-logs/<branch>-<time>/` in the main
 checkout.
+
+`scripts/test_land.sh` runs the script end to end in throwaway repositories
+under `/tmp`, with stubs for `verify.sh`, `capped`, `compare.sh` and the
+ChainerGame Python (the `LAND_*` variables at the top of `land.sh`). Run it
+after changing `land.sh`; it takes a few seconds.
 
 ## Hand-back report
 

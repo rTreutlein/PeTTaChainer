@@ -31,10 +31,12 @@ done
 [[ -n $branch && $branch != master ]] || usage
 
 main=$(dirname "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --path-format=absolute --git-common-dir)")
-cg_main=/nexus/Dev/OpenCog/ChainerGame-supply
-cg_python=/nexus/Dev/OpenCog/ChainerGame-problog/.venv-problog/bin/python
-capped=/nexus/Dev/OpenCog/bench/capped
-compare=/nexus/Dev/OpenCog/bench/compare.sh
+# The machine's ChainerGame checkout and bench tools; scripts/test_land.sh
+# points them at stubs.
+cg_main=${LAND_CG_MAIN:-/nexus/Dev/OpenCog/ChainerGame-supply}
+cg_python=${LAND_CG_PYTHON:-/nexus/Dev/OpenCog/ChainerGame-problog/.venv-problog/bin/python}
+capped=${LAND_CAPPED:-/nexus/Dev/OpenCog/bench/capped}
+compare=${LAND_COMPARE:-/nexus/Dev/OpenCog/bench/compare.sh}
 
 step() { printf '\n== %s\n' "$*"; }
 die() { printf '\nland: STOP: %s\n' "$*" >&2; exit 1; }
@@ -76,21 +78,26 @@ name=${branch//\//-}
 land_wt=$main/.claude/worktrees/land-$name
 logs=$main/.claude/land-logs/$name-$(date +%Y%m%d-%H%M%S)
 cg_land=
-[[ -z $cg_branch ]] || cg_land=/nexus/Dev/OpenCog/ChainerGame-land-${cg_branch//\//-}
+[[ -z $cg_branch ]] || cg_land=$(dirname "$cg_main")/ChainerGame-land-${cg_branch//\//-}
 for dir in "$land_wt" $cg_land; do
   [[ ! -e $dir ]] || die "$dir exists from an earlier landing; remove it with git worktree remove"
 done
 mkdir -p "$logs"
 
-# The landing worktrees are this script's own; git removes them on any exit.
+# The landing worktrees are this script's own: each is marked once this run
+# has created it, and git removes the marked ones on any exit. A worktree at
+# the same path made by anyone else (a concurrent landing) is never touched.
+land_made=
+cg_made=
 cleanup() {
-  if [[ -d $land_wt ]]; then git -C "$main" worktree remove --force "$land_wt"; fi
-  if [[ -n $cg_land && -d $cg_land ]]; then git -C "$cg_main" worktree remove --force "$cg_land"; fi
+  [[ -z $land_made ]] || git -C "$main" worktree remove --force "$land_wt"
+  [[ -z $cg_made ]] || git -C "$cg_main" worktree remove --force "$cg_land"
 }
 trap cleanup EXIT
 
 step "Rebase $branch onto master ($(git -C "$main" rev-parse --short master))"
 git -C "$main" worktree add --quiet --detach "$land_wt" "$branch"
+land_made=1
 if ! git -C "$land_wt" rebase master; then
   printf '\nConflicted files:\n' >&2
   git -C "$land_wt" diff --name-only --diff-filter=U >&2
@@ -118,6 +125,7 @@ imported=$(cd / && "$land_wt/.venv/bin/python" -c 'import pettachainer; print(pe
 if [[ -n $cg_branch ]]; then
   step "Merge $cg_branch into supply-network ($(git -C "$cg_main" rev-parse --short supply-network))"
   git -C "$cg_main" worktree add --quiet --detach "$cg_land" supply-network
+  cg_made=1
   if ! git -C "$cg_land" merge --no-edit "$cg_branch"; then
     printf '\nConflicted files:\n' >&2
     git -C "$cg_land" diff --name-only --diff-filter=U >&2
@@ -173,14 +181,21 @@ act git -C "$main" push origin master
 
 # Removes a landed branch's worktree, points the branch at the commit that
 # landed (a rebased branch's own commits are not in master) and deletes it,
-# each step only when the previous one held.
+# each step only when the previous one held. A worktree holding anything
+# besides its clean checkout (modified, untracked or ignored files) stays
+# untouched, and so does its branch: git worktree remove deletes ignored
+# files, and on an error it stops halfway through the directory.
 retire() {
-  local repo=$1 br=$2 tip=$3 target=$4 wt
+  local repo=$1 br=$2 tip=$3 target=$4 wt extra
   git -C "$repo" merge-base --is-ancestor "$tip" "$target" || die "$target does not contain $tip"
   wt=$(worktree_of "$repo" "$br")
-  if [[ -n $wt ]] && ! git -C "$repo" worktree remove "$wt"; then
-    printf 'kept %s (uncommitted or untracked files) and branch %s\n' "$wt" "$br"
-    return
+  if [[ -n $wt ]]; then
+    extra=$(git -C "$wt" status --porcelain --ignored)
+    if [[ -n $extra ]]; then
+      printf 'kept %s and branch %s: the worktree holds modified, untracked or ignored files:\n%s\n' "$wt" "$br" "$extra"
+      return
+    fi
+    git -C "$repo" worktree remove "$wt"
   fi
   git -C "$repo" branch -f "$br" "$tip"
   git -C "$repo" merge-base --is-ancestor "$br" "$target"
