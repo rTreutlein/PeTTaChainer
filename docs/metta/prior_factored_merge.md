@@ -398,6 +398,20 @@ certain O = 1 that only M explains answered 0.69 instead of 1). An
 uncertain sibling's value is read as independent of M a priori, so it stays
 evidence of the completion.
 
+The siblings are marginalised before C is observed: s_O is O's probability
+apart from C. So a completion reads no view of a sibling that depends on its
+consequence, which would count C twice, through s_O and through the
+likelihood ratio. In a loop through C a sibling's support through C is
+circular: a complete sibling none of whose views it may read is read closed,
+with a complete C pinned unfounded (`sk-completion-state`,
+`complete_predicates.md`). A consequence stored as known false is what the pin
+would make it, so the siblings then read it as it is, through the rows it
+settles; a closed read could not settle `D <- (And B C)` with C false while B
+has no value. In `B <- (Or A D)`, `D <- B` with B observed true,
+D's value was B's own, D true explained B, and A stayed at its prior; read
+apart from B, D is unfounded and only A explains B, exact 1
+(`test_problog_fuzz_regressions.metta`; fuzzer seeds 12000068, 12000268).
+
 The previous formula, P(M | O, C) = u P(O, M) / P(O, C), read the base rate of
 the known conjunction `(And O C)` and never used v. That base rate is folded
 over other members and at other times than P(M) and P(O, M), so an

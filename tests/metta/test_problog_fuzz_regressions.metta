@@ -171,6 +171,19 @@
 !(test (query 2000 f5loop (: $prf (C a) $tv))
    (: (factored-revision (by rC (conjunction obs-B-a obs-D-a)) (prior (STV 0.47 0.9999000099103349)) (((inverted rD with cpu (prior (STV 0.36707 1.0))) obs-D-a))) (C a) (STV 0.050519527051236156 0.9999055997327737)))
 
+;; F4 in a loop. B <- (Or A D), D <- B, both complete, B observed true. The
+;; completion onto A reads its sibling D apart from B: D's value is B's own,
+;; and read without it D is unfounded, so only A explains B: exact 1 (before:
+;; D true explained B, and A stayed at its prior 0.65).
+!(set-complete-predicate f4loop B)
+!(set-complete-predicate f4loop D)
+!(compileadd f4loop (: rB (Implication (Or (A $x) (D $x)) (B $x)) (CTV (STV 0.8 1) (STV 0 1))))
+!(compileadd f4loop (: rD (Implication (B $x) (D $x)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd f4loop (: obs-B-a (B a) (STV 1 1)))
+!(set-base-rate f4loop (A $x) (STV 0.65 1.0))
+!(test (query 2000 f4loop (: $prf (A a) $tv))
+   (: ((antecedent-completion rB 0 with cpu (prior (STV 0.65 1.0))) (conjunction (by rD unfounded) obs-B-a)) (A a) (STV 0.9999965863327596 0.9998309893087479)))
+
 ;; F6. A loop B <- (Or A C), C <- B over a soft A, read by D outside it.
 ;; Complete statements always have a value once settled, so rD is not dormant
 ;; on C: 0.3 * 0.51 * 0.24 = 0.0367 for C and D = 0.2785, exact (before: rD

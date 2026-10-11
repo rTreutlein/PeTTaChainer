@@ -1902,12 +1902,13 @@
       (sk-none $kept)
       ($view (cons $view $kept)))))
 
-;; What a row's closed reads take as unfounded: its own conclusion, when the
-;; row is a rule application of a complete statement; nothing otherwise, and
-;; the row reads no premise closed.
-(: sk-closed-pin (-[det]-> Number Atom Atom Atom (List SkeletonGiven)))
-(= (sk-closed-pin $khash $type $kbctx $proof)
-   (if (if (rule-application-proof? $proof) (complete-statement? $type $kbctx) false)
+;; What a row's closed reads take as unfounded: a complete statement, the
+;; row's own conclusion when the row is a rule application of it (or a
+;; completion's consequence, sk-completion-state); nothing otherwise, and the
+;; row reads no premise closed.
+(: sk-closed-pin (-[det]-> Number Atom Atom Bool (List SkeletonGiven)))
+(= (sk-closed-pin $khash $type $kbctx $reads)
+   (if (if $reads (complete-statement? $type $kbctx) false)
       (cons (sk-unfounded $khash (sk-key $type $kbctx)) ())
       ()))
 
@@ -2147,7 +2148,7 @@
 ;; depending on it.
 (: sk-row-state (-[semidet]-> (List SkeletonGiven) (List Number) Number Bool SkeletonRow SkeletonRowState))
 (= (sk-row-state $given $exclusions $khash $facts-first (sk-row $_ident ($type $kbctx $proof $_tv) $premises $_seq))
-   (let* (($pin (sk-closed-pin $khash $type $kbctx $proof))
+   (let* (($pin (sk-closed-pin $khash $type $kbctx (rule-application-proof? $proof)))
           ($shared (shared-evidence-frontier-proof? $proof))
           ($start (sk-acc () (evidence-set (sk-sample-exclusions $type $kbctx)) (cons (deps-key $khash) ()) ())))
       (if (if (is-expr $proof)
@@ -2156,7 +2157,58 @@
                    (case (copy_term $head) (((proj $_idx $_source) true) ($_other false)))))
              false)
          (sk-projection-state $pin $given $exclusions $shared $facts-first $start $premises)
-         (fold-semidet (sk-premise-step $pin $given $exclusions $shared (sk-completion-proof? $proof) $facts-first) $start $premises))))
+         (if (sk-completion-proof? $proof)
+            (sk-completion-state $given $exclusions $shared $facts-first $start $premises)
+            (fold-semidet (sk-premise-step $pin $given $exclusions $shared false $facts-first) $start $premises)))))
+
+;; A completion marginalises the parts it does not complete over their values
+;; before its consequence C is observed: the likelihood of C given M is
+;; s_O u + (1 - s_O) v with s_O O's probability apart from C. So the siblings
+;; read no view that depends on C: one derived from C counts C twice, through
+;; s_O and through the likelihood ratio. In a loop through C a sibling's
+;; support through C is circular, as for a closed read: a complete sibling
+;; none of whose views it may read is read closed, with a complete C pinned
+;; unfounded. In B <- (Or A D), D <- B with B observed true, D's value is
+;; B's own; read without it D is false and the completion onto A finds A true,
+;; exact (fuzzer seed 12000268). A consequence stored as known false is
+;; what the pin would make it: the siblings read it as it is, through the rows
+;; it settles (B <- (And A C) with C false is false, which a closed read
+;; cannot settle while A has no value). The consequence is the completion's
+;; last statement premise.
+(: sk-completion-state
+   (-[semidet]-> (List SkeletonGiven) (List Number) Bool Bool SkeletonRowState (List SkPattern) SkeletonRowState))
+(= (sk-completion-state $given $exclusions $shared $facts-first $start $premises)
+   (case (fold-flat sk-last-statement-step () $premises) (
+      ((sk-key $ctype $ckbctx)
+         (let* (($consequence (sk-key $ctype $ckbctx))
+                ($chash (index-hash $consequence)))
+            (if (fold-semidet sk-known-false-step false (sk-key-leaves $consequence sk-any-filter))
+               (fold-semidet (sk-premise-step () $given $exclusions $shared true $facts-first) $start $premises)
+               (fold-semidet
+                  (sk-completion-premise-step (sk-closed-pin $chash $ctype $ckbctx true) $given $exclusions
+                     (hash-union (sk-unifier-hashes $chash $consequence) $exclusions) $consequence $shared $facts-first)
+                  $start $premises)))))))
+
+(: sk-known-false-step (-[det]-> Bool SkFact Bool))
+(= (sk-known-false-step $found ($_type $_kbctx $_proof $tv))
+   (if $found true (case $tv (((STV $s $c) (if (>= $c 1.0) (<= $s 0.0) false)) ($_other false)))))
+
+(: sk-last-statement-step (-[det]-> Atom SkPattern Atom))
+(= (sk-last-statement-step $last $premise)
+   (case $premise (
+      ((CPU $_fun $_args $_res) $last)
+      (($type $kbctx $_proof $_tv) (sk-key $type $kbctx)))))
+
+(: sk-completion-premise-step
+   (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) (List Number) SkeletonKey Bool Bool
+       SkeletonRowState SkPattern SkeletonRowState))
+(= (sk-completion-premise-step $pin $given $exclusions $siblings $consequence $shared $facts-first $state $premise)
+   (case $premise (
+      ((CPU $_fun $_args $_res) (sk-premise-step () $given $exclusions $shared true $facts-first $state $premise))
+      (($type $kbctx $_proof $_tv)
+         (if (=alpha (sk-key $type $kbctx) $consequence)
+            (sk-premise-step () $given $exclusions $shared true $facts-first $state $premise)
+            (sk-premise-step $pin $given $siblings $shared true $facts-first $state $premise))))))
 
 (: sk-projection-state
    (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) Bool Bool SkeletonRowState (List SkPattern)
