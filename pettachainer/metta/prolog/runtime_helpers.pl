@@ -1299,9 +1299,10 @@ hypothesis_confidence(['CTV', ['STV', _, C], _], C).
 %
 % pw_id(NodeHash, Node, Id); pw_up(Id, Parent) for a merged id; for a
 % component Rep: pw_size(Rep, Nodes), pw_work(Rep, Items), pw_pend(Rep,
-% PendingChildren); pw_out(Rep, Child, Links) and pw_in(Child, Rep, Links)
-% for the condensed edges, with the child links each stands for.
-:- dynamic pw_id/3, pw_up/2, pw_size/2, pw_work/2, pw_pend/2, pw_out/3, pw_in/3.
+% PendingChildren), pw_deg(Rep, Children, Parents); pw_out(Rep, Child, Links)
+% and pw_in(Child, Rep, Links) for the condensed edges, with the child links
+% each stands for.
+:- dynamic pw_id/3, pw_up/2, pw_size/2, pw_work/2, pw_pend/2, pw_deg/3, pw_out/3, pw_in/3.
 :- dynamic('&sk_expanded'/2), dynamic('&sk_child'/4), dynamic('&sk_parked'/3),
    dynamic('&sk_deferred_joins'/3), dynamic('&sk_deferred'/3).
 
@@ -1311,7 +1312,7 @@ pw_node(H, N, Id) :-
     ;   flag(pw_next_id, Id, Id + 1),
         assertz(pw_id(H, N, Id)),
         ( '&sk_expanded'(H, S), attribute_free_variant(S, N) -> W = 0 ; W = 1 ),
-        assertz(pw_size(Id, 1)), assertz(pw_work(Id, W)), assertz(pw_pend(Id, 0))
+        assertz(pw_size(Id, 1)), assertz(pw_work(Id, W)), assertz(pw_pend(Id, 0)), assertz(pw_deg(Id, 0, 0))
     ).
 
 pw_known(H, N, Id) :- pw_id(H, S, Id), attribute_free_variant(S, N), !.
@@ -1376,71 +1377,69 @@ pw_add_pend(P, D) :-
     ;   retract(pw_out(RU, RV, M0))
     ->  M is M0 + 1, assertz(pw_out(RU, RV, M)),
         retract(pw_in(RV, RU, M0)), assertz(pw_in(RV, RU, M))
-    ;   pw_reaching(RV, RU, Merge)
+    ;   pw_out(RV, _, _), pw_in(RU, _, _), pw_reaching(RV, RU, Merge)
     ->  pw_merge(Merge)
     ;   assertz(pw_out(RU, RV, 1)), assertz(pw_in(RV, RU, 1)),
+        pw_deg_add(RU, 1, 0), pw_deg_add(RV, 0, 1),
         ( pw_pending_rep(RV) -> pw_add_pend(RU, 1) ; true )
     ).
 
+% A child with no children, or an owner with no parents, closes no cycle,
+% which settles most links (a new node, a new root) without a search.
+%
 % The components on a path from From to To, when there is one: a search
 % forward from From and one backward from To read one link each in turn
-% until one is exhausted; the other direction, restricted to what the
-% exhausted one found, gives the components on the paths. Neither search
-% passes the other's start, since a path from From to To ends at To. So the
-% cost is twice the smaller search's links: linking a new node under a large
-% component never reads that component's links.
+% until one is exhausted. Neither passes the other's start, since a path from
+% From to To ends at To. The exhausted search found every component on such a
+% path; those are the ones whose links within what it found lead back to the
+% other start. So the cost is twice the smaller search's links: linking a new
+% node under a large component never reads that component's links.
 pw_reaching(From, To, Merge) :-
     empty_nb_set(F), add_nb_set(From, F), empty_nb_set(B), add_nb_set(To, B),
-    setup_call_cleanup(true,
-        pw_alternate(s(none, [To]), s(none, [From]), From, To, F, B, Side, Open),
-        forall(member(E, Open), engine_destroy(E))),
+    pw_alternate([To], [From], 0, 0, From, To, F, B, Side),
     (   Side == forward
-    ->  add_nb_set(To, F, false),
-        pw_restricted(To, pw_in, F, From, Merge)
-    ;   add_nb_set(From, B, false),
-        pw_restricted(From, pw_out, B, To, Merge)
+    ->  add_nb_set(To, F, false), pw_on_paths(F, pw_out, To, Merge)
+    ;   add_nb_set(From, B, false), pw_on_paths(B, pw_in, From, Merge)
     ).
 
-% pw_alternate(+Backward, +Forward, ..., -Exhausted, -OpenEngines)
-pw_alternate(Bk, Fw, From, To, F, B, Side, Open) :-
-    (   pw_step(Bk, pw_in, From, B, Bk1)
-    ->  (   pw_step(Fw, pw_out, To, F, Fw1)
-        ->  pw_alternate(Bk1, Fw1, From, To, F, B, Side, Open)
-        ;   Side = forward, pw_open(Bk1, Open)
-        )
-    ;   Side = backward, pw_open(Fw, Open)
+% pw_alternate(+BackwardStack, +ForwardStack, +BackwardLinks, +ForwardLinks,
+% ..., -Exhausted): each turn the search that will have read fewer links
+% after expanding its next component expands it.
+pw_alternate([], _, _, _, _, _, _, _, backward) :- !.
+pw_alternate(_, [], _, _, _, _, _, _, forward) :- !.
+pw_alternate([Z|Bs], [X|Fs], CB, CF, From, To, F, B, Side) :-
+    ( Z == From -> DB = 0 ; pw_deg(Z, _, DB) ),
+    ( X == To -> DF = 0 ; pw_deg(X, DF, _) ),
+    (   CB + DB =< CF + DF
+    ->  ( Z == From -> Bs1 = Bs ; findall(P, pw_in(Z, P, _), Ps), pw_visit(Ps, B, Bs, Bs1) ),
+        CB1 is CB + DB,
+        pw_alternate(Bs1, [X|Fs], CB1, CF, From, To, F, B, Side)
+    ;   ( X == To -> Fs1 = Fs ; findall(Y, pw_out(X, Y, _), Ys), pw_visit(Ys, F, Fs, Fs1) ),
+        CF1 is CF + DF,
+        pw_alternate([Z|Bs], Fs1, CB, CF1, From, To, F, B, Side)
     ).
 
-pw_open(s(E, _), Open) :- ( E == none -> Open = [] ; Open = [E] ).
-
-% One link of a search: s(Engine, Stack) reads the current component's next
-% link, or takes the next component off the stack; fails once exhausted.
-pw_step(s(none, [X|Xs]), Edge, Stop, Seen, Side) :- !,
-    (   X == Stop -> pw_step(s(none, Xs), Edge, Stop, Seen, Side)
-    ;   Goal =.. [Edge, X, Y, _], engine_create(Y, Goal, E), Side = s(E, Xs)
-    ).
-pw_step(s(E, Xs), Edge, Stop, Seen, Side) :-
-    E \== none,
-    (   engine_next(E, Y)
-    ->  ( add_nb_set(Y, Seen, true) -> Side = s(E, [Y|Xs]) ; Side = s(E, Xs) )
-    ;   engine_destroy(E), pw_step(s(none, Xs), Edge, Stop, Seen, Side)
+pw_visit([], _, Stack, Stack).
+pw_visit([Y|Ys], Set, Stack0, Stack) :-
+    (   add_nb_set(Y, Set, true) -> pw_visit(Ys, Set, [Y|Stack0], Stack)
+    ;   pw_visit(Ys, Set, Stack0, Stack)
     ).
 
-% Depth-first from Start along Edge, entering only components in Within and
-% not going past End.
-pw_restricted(Start, Edge, Within, End, Found) :-
+% The components of a search's set from which its Edge links, staying in
+% the set, lead to Start: Start's own links are not read.
+pw_on_paths(Set, Edge, Start, Found) :-
+    nb_set_to_list(Set, Members),
+    findall(Y-Z, ( member(Z, Members), Z \== Start, call(Edge, Z, Y, _), add_nb_set(Y, Set, false) ), Back),
+    keysort(Back, Sorted), group_pairs_by_key(Sorted, Grouped), list_to_assoc(Grouped, Into),
     empty_nb_set(Seen), add_nb_set(Start, Seen),
-    pw_restricted_([Start], Edge, Within, End, Seen),
+    pw_back([Start], Into, Seen),
     nb_set_to_list(Seen, Found).
 
-pw_restricted_([], _, _, _, _).
-pw_restricted_([X|Xs], Edge, Within, End, Seen) :-
-    (   X == End -> Ys = []
-    ;   Goal =.. [Edge, X, Y, _],
-        findall(Y, ( Goal, add_nb_set(Y, Within, false), add_nb_set(Y, Seen, true) ), Ys)
-    ),
-    append(Ys, Xs, Next),
-    pw_restricted_(Next, Edge, Within, End, Seen).
+pw_back([], _, _).
+pw_back([Y|Ys], Into, Seen) :-
+    (   get_assoc(Y, Into, Zs) -> findall(Z, ( member(Z, Zs), add_nb_set(Z, Seen, true) ), New) ; New = [] ),
+    append(New, Ys, Next),
+    pw_back(Next, Into, Seen).
 
 % Merges components into the largest (the lowest id among equals): their
 % links to one another vanish, their other links move to it, and each outside
@@ -1457,7 +1456,8 @@ pw_merge(Members) :-
                    aggregate_all(count, ( member(R, Pending), pw_in(R, P, _) ), K) ),
             ParentCounts),
     forall(( member(Y, Members), Y \== R0, retract(pw_out(R0, Y, _)) ),
-           ( retract(pw_in(Y, R0, _)), ( memberchk(Y, Pending) -> pw_bump(pw_pend, R0, -1) ; true ) )),
+           ( retract(pw_in(Y, R0, _)), pw_deg_add(R0, -1, 0),
+             ( memberchk(Y, Pending) -> pw_bump(pw_pend, R0, -1) ; true ) )),
     forall(( member(X, Members), X \== R0 ), pw_absorb(R0, X, Members)),
     ( pw_pending_rep(R0) -> Now = 1 ; Now = 0 ),
     forall(member(P-K, ParentCounts),
@@ -1467,22 +1467,27 @@ pw_absorb(R0, X, Members) :-
     assertz(pw_up(X, R0)),
     retract(pw_size(X, SX)), pw_bump(pw_size, R0, SX),
     retract(pw_work(X, WX)), pw_bump(pw_work, R0, WX),
-    retract(pw_pend(X, _)),
+    retract(pw_pend(X, _)), retract(pw_deg(X, _, _)),
     forall(retract(pw_out(X, Y, M)),
            (   retract(pw_in(Y, X, M)),
-               (   memberchk(Y, Members) -> true
+               (   memberchk(Y, Members) -> ( Y == R0 -> pw_deg_add(R0, 0, -1) ; true )
                ;   retract(pw_out(R0, Y, M0))
-               ->  M1 is M0 + M, assertz(pw_out(R0, Y, M1)), retract(pw_in(Y, R0, M0)), assertz(pw_in(Y, R0, M1))
-               ;   assertz(pw_out(R0, Y, M)), assertz(pw_in(Y, R0, M)),
+               ->  M1 is M0 + M, assertz(pw_out(R0, Y, M1)), retract(pw_in(Y, R0, M0)), assertz(pw_in(Y, R0, M1)),
+                   pw_deg_add(Y, 0, -1)
+               ;   assertz(pw_out(R0, Y, M)), assertz(pw_in(Y, R0, M)), pw_deg_add(R0, 1, 0),
                    ( pw_pending_rep(Y) -> pw_bump(pw_pend, R0, 1) ; true )
                ) )),
     forall(retract(pw_in(X, P, M)),
            (   retract(pw_out(P, X, M)),
                (   memberchk(P, Members) -> true
                ;   retract(pw_out(P, R0, M0))
-               ->  M1 is M0 + M, assertz(pw_out(P, R0, M1)), retract(pw_in(R0, P, M0)), assertz(pw_in(R0, P, M1))
-               ;   assertz(pw_out(P, R0, M)), assertz(pw_in(R0, P, M))
+               ->  M1 is M0 + M, assertz(pw_out(P, R0, M1)), retract(pw_in(R0, P, M0)), assertz(pw_in(R0, P, M1)),
+                   pw_deg_add(P, -1, 0)
+               ;   assertz(pw_out(P, R0, M)), assertz(pw_in(R0, P, M)), pw_deg_add(R0, 0, 1)
                ) )).
+
+pw_deg_add(R, DO, DI) :-
+    retract(pw_deg(R, O0, I0)), O is O0 + DO, I is I0 + DI, assertz(pw_deg(R, O, I)).
 
 pw_bump(Count, R, D) :-
     Old =.. [Count, R, V0], retract(Old), V is V0 + D, New =.. [Count, R, V], assertz(New).
@@ -1502,8 +1507,8 @@ pw_bump(Count, R, D) :-
 
 pw_drop_rep(R) :-
     ( pw_pending_rep(R) -> D = -1 ; D = 0 ),
-    forall(retract(pw_out(R, Y, _)), retract(pw_in(Y, R, _))),
+    forall(retract(pw_out(R, Y, _)), ( retract(pw_in(Y, R, _)), pw_deg_add(Y, 0, -1) )),
     findall(P, retract(pw_in(R, P, _)), Ps),
-    forall(member(P, Ps), retract(pw_out(P, R, _))),
-    retractall(pw_size(R, _)), retractall(pw_work(R, _)), retractall(pw_pend(R, _)),
+    forall(member(P, Ps), ( retract(pw_out(P, R, _)), pw_deg_add(P, -1, 0) )),
+    retractall(pw_size(R, _)), retractall(pw_work(R, _)), retractall(pw_pend(R, _)), retractall(pw_deg(R, _, _)),
     forall(member(P, Ps), ( D =:= 0 -> true ; pw_add_pend(P, D) )).

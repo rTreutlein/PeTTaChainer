@@ -49,6 +49,11 @@ SCRIPT = textwrap.dedent(
                 n = rng.choice(busy)
                 work[n] -= 1
                 janus.query_once("'sk-work!'(N, N, -1, _)", {"N": n})
+        bad = janus.query_once("findall(_R, ( pw_deg(_R, _O, _I), aggregate_all(count, pw_out(_R, _, _), _O1), "
+                               "aggregate_all(count, pw_in(_R, _, _), _I1), ( _O \\== _O1 ; _I \\== _I1 ) ), Bad)")["Bad"]
+        if bad:
+            print(f"seed {seed} step {step}: link counts of {bad} wrong")
+            sys.exit(1)
         for n in range(nodes):
             got = janus.query_once("'sk-pending?'(N, N, B)", {"N": n})["B"] == "true"
             want = reaches_work(n) if n in linked else False

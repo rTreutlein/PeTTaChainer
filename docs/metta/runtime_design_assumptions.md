@@ -432,25 +432,31 @@ pending work is kept current where work is created and taken, not by walks:
   work of a cycle of any size leaves the whole cycle idle at once
   (`runtime_helpers.pl`, "Pending work").
 - A child link whose child's component reaches the owner's closes a cycle:
-  the components on the paths from child to owner merge. The test searches
-  forward from the child and backward from the owner, one link each in turn,
-  until one side is exhausted, neither passing the other's start; the other
-  direction, restricted to what the exhausted side found, gives the
-  components to merge. It costs twice the smaller side: a new node has no
-  children and a new root no parents, so linking new work under a large
-  component never reads that component's links.
+  the components on the paths from child to owner merge. A child without
+  children or an owner without parents (a new node, a new root) closes
+  none. Otherwise the test searches forward from the child and backward from
+  the owner, each turn expanding the component that keeps the two searches'
+  link counts nearer, until one side is exhausted, neither passing the
+  other's start; the components that side found whose links within it lead
+  back to the other start are the ones to merge. It costs about twice the
+  smaller side, so linking new work under a large component never reads
+  that component's links (SupplyNet scale l: 21,134 links, 5,512 closing
+  cycles, 0.5 s of a 26 s run).
 - Components only merge: child links leave only with an Assuming query's
   context, whose nodes form components of their own, which go once all
   their nodes went.
 
 The index changes which nodes the walk reaches only where the walk allowance
 was spent before: nodes without work no longer spend it, so a walk that ran
-out of allowance on them now reaches work beyond them. Order and answers are
-otherwise the same, apart from equal-score ties broken by push order and
-depth: a node without work is no longer pushed, and new children linked
-during the walk are pushed with the depth of the next node walked (ONA
-matching-to-sample, 10 seeds by 3 tasks: identical scores, desires changed
-in 3 runs; the reasons are in the commit).
+out of allowance on them now reaches work beyond them, and its answers move
+toward those of an unlimited allowance. With the allowance unlimited the
+answers are the same with and without the index (SupplyNet stage 3 untimed
+b100 s4, stage 3 timed learned b50 s1, conflict m spq4 s2), apart from
+equal-score ties broken by push order and depth: a node without work is no
+longer pushed, and children linked during the walk are pushed with the depth
+of the next node walked. ONA matching-to-sample, 10 seeds by 3 tasks:
+identical decisions; desires moved in 3 runs, from trials where the walk had
+run out of allowance with deferred work below.
 
 Stored facts cost no expansion: a join waiting on a ground fact premise reads
 its facts at once, and whenever more are stored, and a root reads its own
