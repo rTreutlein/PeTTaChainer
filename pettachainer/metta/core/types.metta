@@ -55,14 +55,16 @@
 (: pattern-shape (-[det]-> Atom Atom))
 (: rule-truth-factor (-[det]-> Atom Number))
 ;; Hypothesis mining's term helpers (runtime/hypothesis_mining.metta).
-(: hypothesis-singles (-[det]-> Atom Atom (List (Atom Atom))))
-(: hypothesis-pairs (-[det]-> Atom Atom (List (Atom Atom))))
+(: hypothesis-singles (-[det]-> Atom Atom (List (Atom Atom Atom))))
+(: hypothesis-pairs (-[det]-> Atom Atom (List (Atom Atom Atom))))
+(: hypothesis-exception-pairs (-[det]-> Atom Atom Atom (List (Atom Atom Atom))))
 (: hypothesis-constants (-[det]-> Atom (List Atom)))
 (: hypothesis-patterns (-[det]-> Atom (List Atom)))
 (: hypothesis-generalizes? (-[det]-> Atom Atom Bool))
 (: hypothesis-name (-[det]-> Number Atom))
-(: hypothesis-scan (-[det]-> Number Number (List (Atom Atom)) (List (Atom Atom))))
 (: hypothesis-features (-[det]-> Atom Atom Number (List Atom)))
+(: hypothesis-truths (-[det]-> Atom Atom Atom))
+(: hypothesis-read! (-[det]-> KB Atom Number))
 (: node-context (-[det]-> Atom Atom))
 (: key-context (-[det]-> Atom Atom))
 (: scope-context (-[det]-> Atom Atom))
@@ -195,7 +197,7 @@
 (: sk_push_seq CounterKey)
 (: sk_delivery_seq CounterKey)
 (: hm_name CounterKey)
-(: hm_offset CounterKey)
+(: hm_seq CounterKey)
 
 ;; Stored rule rows retain the existing conclusion/premise wire format. The
 ;; premise list contains executable goals and internal runtime fact tuples;

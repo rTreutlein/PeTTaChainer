@@ -1,16 +1,15 @@
 ;; Reviewing mined hypotheses (docs/metta/hypothesis_rules.md, "Mining
-;; hypotheses"). A review folds the live hypotheses' instances into their
-;; truths by querying their RuleTruth goals, and drops the ones that do not
-;; predict. Until forward chaining folds new instances into a refined rule's
-;; truth as they arrive, the review is also what keeps the truths current.
+;; hypotheses"). A review reads the live hypotheses' truths, which the chainer
+;; keeps current as their instances arrive ("Instance tallies"), and drops the
+;; ones that do not predict.
 
 ;; A hypothesis is judged once its truth rests on hm-min-samples
-;; observations; it stays when its strength differs from the consequent's
-;; probability without its antecedent (hm-baseline), and from the strength of
-;; every more general live hypothesis judged in the same review, by more than
-;; hm-z standard errors.
-;; One that had hm-max-opportunities observations of its consequent without
-;; reaching enough samples of its own is dropped too.
+;; observations: it stays when its strength differs, by more than hm-z
+;; standard errors, from the consequent's probability without its antecedent
+;; (hm-informative?) and from the strength of every more general live
+;; hypothesis judged in the same review. One that had hm-max-opportunities
+;; observations of its consequent without reaching enough samples of its own
+;; is dropped too.
 (: hm-min-samples (-[det]-> Number))
 (= (hm-min-samples) 4)
 (: hm-z (-[det]-> Number))
@@ -40,19 +39,10 @@
              (($conjunct $_kbctx $_proof $_tv) (superpose $facts)))
          (hm-holds $kb $rest))))
 
-;; A hypothesis with the most confident answer of its own review query.
-(: hm-review-one (-[semidet]-> Number KB HmReviewed HmReviewed))
-(= (hm-review-one $steps $kb (hm-reviewed $name $antecedent $consequent $born $_none))
-   (let* (($rows (collapse (query-many-refs $steps $kb ((: $prf (RuleTruth (Implication $antecedent $consequent)) $tv)))))
-          ($truth (fold-flat hm-best-answer no-evidence $rows)))
-      (hm-reviewed $name $antecedent $consequent $born $truth)))
-
-(: hm-best-answer (-[det]-> Atom Atom Atom))
-(= (hm-best-answer $best $row)
-   (case $row (
-      ((query-result $_index (: $_prf $_stmt $tv))
-         (if (> (hm-confidence $tv) (hm-confidence $best)) $tv $best))
-      ($_other $best))))
+;; A live hypothesis's truth goal.
+(: hm-truth-goal (-[det]-> HmReviewed AnnotatedStatement))
+(= (hm-truth-goal (hm-reviewed $_name $antecedent $consequent $_born $_truth))
+   (: $prf (RuleTruth (Implication $antecedent $consequent)) $tv))
 
 (: hm-confidence (-[det]-> Atom Number))
 (= (hm-confidence $tv)
@@ -79,22 +69,24 @@
 (= (hm-keep? $kb $reviewed (hm-reviewed $_name $antecedent $consequent $born $truth))
    (let* (($n (confidence-to-count (hm-confidence $truth)))
           ($s (hm-strength $truth))
-          (($count $sum) (hm-outcomes $kb $consequent))
           ($rule (Implication $antecedent $consequent)))
       (if (< $n (hm-min-samples))
-         (< (- $count $born) (hm-max-opportunities))
-         (if (hm-differs? $s (hm-baseline $truth (/ (+ $sum 1) (+ $count 2))) $n)
+         (< (- (hm-outcomes $kb $consequent) $born) (hm-max-opportunities))
+         (if (hm-informative? $truth $s $n)
             (fold-semidet (hm-unscreened $rule $s $n) true $reviewed)
             false))))
 
-;; What the consequent's probability is without the antecedent: a CTV's
-;; negative branch once an instance where the antecedent fails taught it,
-;; otherwise the consequent pattern's rate.
-(: hm-baseline (-[det]-> Atom Number Number))
-(= (hm-baseline $truth $rate)
+;; Whether the strength differs from the consequent's probability without
+;; the antecedent: a CTV's negative branch, once an instance where the
+;; antecedent fails taught it. Without one there is no reference: the
+;; consequent's observed rate is biased by which instances get observed (a
+;; matching-to-sample agent's rewards come mostly from the contexts it
+;; believes in), and a tally that started late reads near 0.5.
+(: hm-informative? (-[det]-> Atom Number Number Bool))
+(= (hm-informative? $truth $s $n)
    (case $truth (
-      ((CTV $_pos (STV $s0 $c0)) (if (>= (confidence-to-count $c0) 1) $s0 $rate))
-      ($_stv $rate))))
+      ((CTV $_pos (STV $s0 $c0)) (if (>= (confidence-to-count $c0) 1) (hm-differs? $s $s0 $n) true))
+      ($_stv true))))
 
 ;; Not screened off by a more general hypothesis judged with it.
 (: hm-unscreened (-[semidet]-> Atom Number Number Bool HmReviewed Bool))
@@ -113,20 +105,24 @@
 (= (hm-drop! $kb $name $consequent)
    (let* (($phash (hm-pattern-hash $kb $consequent))
           ($_live (remove-data-rows! &hm_live (quote ($phash $kb $_stored $name $_antecedent $_born))))
+          ($_unread (remove-data-rows! &hm_unread (quote ($name $kb))))
           ($_rules (withdraw-named-rules! (brand Proof $name))))
       ()))
 
-;; Reviews the live hypotheses that apply to `$goal` (hm-applies?), each by
-;; its own query of `$steps`. Returns
-;; one (hypothesis name implication truth kept|dropped) per hypothesis
-;; reviewed.
+;; Reviews the live hypotheses that apply to `$goal` (hm-applies?): one
+;; query reads all their truths, with `$steps` for each one no review has read
+;; yet, whose first read folds its instances, and none otherwise. Returns one
+;; (hypothesis name implication truth kept|dropped) per hypothesis reviewed.
 (: review-hypotheses (-[nondet]-> Number KB Atom Atom))
 (= (review-hypotheses $steps $kb $goal)
    (let* (($live (collapse (match &hm_live ($_phash $kb $consequent $name $antecedent $born)
                     (if (hm-applies? $kb (Implication $antecedent $consequent) $goal)
                        (hm-reviewed $name $antecedent $consequent $born no-evidence)
                        (empty)))))
-          ($reviewed (map-semidet (hm-review-one $steps $kb) $live))
+          ($unread (hypothesis-read! $kb $live))
+          ($rows (if (== $live ()) ()
+                    (collapse (query-many-refs (* $steps $unread) $kb (map-flat hm-truth-goal $live)))))
+          ($reviewed (the (List HmReviewed) (hypothesis-truths $live $rows)))
           ($verdict (superpose $reviewed))
           ((hm-reviewed $name $antecedent $consequent $born $truth) $verdict)
           ($kept (hm-keep? $kb $reviewed $verdict))

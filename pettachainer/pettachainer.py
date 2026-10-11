@@ -381,11 +381,12 @@ class PeTTaChainer:
         """Let the KB propose hypotheses from the facts added to it
         (``max_new`` 0 turns it off; docs/metta/hypothesis_rules.md).
 
-        Each added fact may propose up to ``max_new`` refined rules with a
-        weak prior, concluding it from recent facts that share a constant with
-        it (or concluding one of them from it); a consequent pattern keeps at
-        most ``max_live`` live ones. Turns rule refinement on. Timed
-        subprocess queries replay the setting, not the reviews.
+        Each added true fact may propose up to ``max_new`` refined rules
+        with a weak prior, concluding it from pairs of recent true facts that
+        share a constant with it, or from one of them once that one recurs in
+        another context; a consequent pattern keeps at most ``max_live`` live
+        ones. Turns rule refinement on. Timed subprocess queries replay the
+        setting, not the reviews.
         """
         self.handler.process_metta_string(
             f"!(set-hypothesis-mining {self.kb} {int(max_new)} {int(max_live)})"
@@ -396,8 +397,8 @@ class PeTTaChainer:
 
     def review_hypotheses(self, goal: str = "$goal", steps: int = 200) -> List[str]:
         """Review the live mined hypotheses that apply to ``goal`` (all for a
-        variable): fold their instances into their truths and drop the ones
-        that do not predict. Returns one
+        variable): read their truths, with ``steps`` for each one never read
+        before, and drop the ones that do not predict. Returns one
         ``(hypothesis name implication truth kept|dropped)`` per hypothesis.
         """
         return _as_list(self.handler.process_metta_string(

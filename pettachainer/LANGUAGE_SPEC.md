@@ -525,13 +525,13 @@ A KB can also propose its own hypotheses (off by default):
 !(set-hypothesis-mining kb 8 16)
 ```
 
-Each added fact then proposes up to 8 refined rules with a weak prior that
-conclude it from recent facts sharing a constant with it, singly or in pairs
-(or conclude one of those facts from it); a consequent pattern keeps at most
-16 live ones. `!(review-hypotheses 200 kb (Reward left t9))` reviews the live
-hypotheses that apply to a goal (a variable reviews all) and drops those whose
-truth does not differ from the consequent's probability without them, or from
-a more general hypothesis's (docs/metta/hypothesis_rules.md, "Mining hypotheses").
+Each added true fact then proposes up to 8 refined rules with a weak prior
+that conclude it from pairs of recent true facts sharing a constant with it,
+or from one of them once that one recurs in another context; a consequent
+pattern keeps at most 16 live ones. `!(review-hypotheses 200 kb (Reward left t9))`
+reads the truths of the live hypotheses that apply to a goal (a variable
+reviews all) and drops those whose truth does not differ from the
+consequent's probability without them, or from a more general hypothesis's (docs/metta/hypothesis_rules.md, "Mining hypotheses").
 
 ### Complete predicates
 

@@ -119,10 +119,12 @@ class TestPeTTaChainer(unittest.TestCase):
             "(: n1 (Storm north p1) (STV 1 1))",
             "(: b1 (Blocked r1 p1) (STV 1 1))",
             "(: n2 (Storm north p2) (STV 1 1))",
+            "(: b2 (Blocked r1 p2) (STV 1 1))",
+            "(: n3 (Storm north p3) (STV 1 1))",
         ])
-        # The KB proposed both directions from the first period; the review
-        # of the second period's blocked route reads the storm rule only.
-        verdicts = handler.review_hypotheses("(Blocked r1 p2)", steps=50)
+        # The storm rule recurred in the second period and was proposed; the
+        # review of the third period's route reads it.
+        verdicts = handler.review_hypotheses("(Blocked r1 p3)", steps=50)
         self.assertEqual(len(verdicts), 1)
         self.assertIn("(Implication (Storm north $", verdicts[0])
         self.assertTrue(verdicts[0].endswith(" kept)"), verdicts)
@@ -130,7 +132,7 @@ class TestPeTTaChainer(unittest.TestCase):
         # mined rule too.
         for timeout_sec in (0, 30):
             with self.subTest(timeout_sec=timeout_sec):
-                result = handler.query("(: $prf (Blocked r1 p2) $tv)", steps=100, timeout_sec=timeout_sec)
+                result = handler.query("(: $prf (Blocked r1 p3) $tv)", steps=100, timeout_sec=timeout_sec)
                 self.assertTrue(any("hypothesis-" in answer for answer in result), result)
 
     def test_bayes_prior_count_applies_in_process_and_to_timed_queries(self):

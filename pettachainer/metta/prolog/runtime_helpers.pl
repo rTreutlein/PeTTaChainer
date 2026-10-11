@@ -945,28 +945,55 @@ metta_result_terms(Code, Results) :-
           Variables, 0, _).
 
 % Hypothesis mining (docs/metta/hypothesis_rules.md, "Mining hypotheses").
-% The candidate implications concluding Fact from Features, facts that share a
-% constant argument with it, as [Antecedent, Consequent]. Each constant a
-% feature shares with Fact becomes a variable. The singles conclude Fact from
-% one feature; the pairs from two (ordered as ground terms, so a pair is one
-% candidate), and a pair whose two features share a constant apart from Fact
-% also gives its relational form, with that constant a variable too:
-% (And (Sample $x $t) (LeftStim $x $t)).
+% The candidate implications concluding Fact from Features, true facts of
+% other predicates that share a constant argument with it, as [Antecedent,
+% Consequent, Context]: its singles and its pairs. Each constant a feature
+% shares with Fact becomes a variable. A pair concludes Fact from two
+% features (ordered as ground terms, so a pair is one candidate); a pair whose
+% two features share a constant apart from Fact also gives its relational
+% form, with that constant a variable too: (And (Sample $x $t) (LeftStim $x
+% $t)). A pair's Context is none. A single concludes Fact from one feature;
+% its Context is the hash of the other features, generalized alike, so the
+% miner can tell whether it recurs where the pairs of its first context do
+% not explain it (with no other feature, no pair could, and its Context is
+% the hash of Fact, which differs at every instance).
 'hypothesis-singles'(Fact, Features, Singles) :-
-    findall(Rule, ( member(F, Features), hypothesis_rule([F], Fact, [], Rule) ), Singles).
+    term_hash(Fact, Instance),
+    findall([A, C, Context],
+            ( select(F, Features, Rest), hypothesis_rule([F], Fact, [], [A, C], Subst),
+              maplist(generalize_statement(Subst), Rest, General0), msort(General0, General),
+              ( General == [] -> Context = Instance ; 'index-hash'(General, Context) ) ),
+            Singles).
 
 'hypothesis-pairs'(Fact, Features, Pairs) :-
-    findall(Rule, ( append(_, [F1|Rest], Features), member(F2, Rest), msort([F1, F2], Pair),
-                    hypothesis_pair_rule(Pair, Fact, Rule) ), Pairs).
+    findall([A, C, none],
+            ( append(_, [F1|Rest], Features), member(F2, Rest), msort([F1, F2], Pair),
+              hypothesis_pair_rule(Pair, Fact, [A, C]) ),
+            Pairs).
+
+% The pairs that vary a failed prediction: Live holds the [Antecedent,
+% Consequent] of live hypotheses concluding Fact's pattern; one whose
+% antecedent holds of Features predicted Fact, and the pairs that contain
+% one of the features it read can learn where it fails.
+'hypothesis-exception-pairs'(Fact, Features, Live, Pairs) :-
+    findall(F, ( member(Rule, Live), copy_term(Rule, [A, Fact]), rule_conjuncts(A, Conjuncts),
+                 features_read(Conjuncts, Features), member(F, Conjuncts) ), Read0),
+    sort(Read0, Read),
+    'hypothesis-pairs'(Fact, Features, All),
+    findall([A, C, none], ( member([A, C, none], All), rule_conjuncts(A, Conjuncts),
+                            once(( member(Conjunct, Conjuncts), member(F, Read), subsumes_term(Conjunct, F) )) ), Pairs).
+
+features_read([], _).
+features_read([Conjunct|Conjuncts], Features) :- memberchk(Conjunct, Features), features_read(Conjuncts, Features).
 
 hypothesis_pair_rule(Pair, Fact, Rule) :-
-    hypothesis_rule(Pair, Fact, [], Rule).
+    hypothesis_rule(Pair, Fact, [], Rule, _).
 hypothesis_pair_rule([A, B], Fact, Rule) :-
     shared_constants(A, B, Both), shared_constants(A, Fact, ToA), shared_constants(B, Fact, ToB),
     subtract(Both, ToA, Own0), subtract(Own0, ToB, Own), Own \== [],
-    hypothesis_rule([A, B], Fact, Own, Rule).
+    hypothesis_rule([A, B], Fact, Own, Rule, _).
 
-hypothesis_rule(Features, Fact, Own, [Antecedent, Consequent]) :-
+hypothesis_rule(Features, Fact, Own, [Antecedent, Consequent], Subst) :-
     maplist(shared_constants(Fact), Features, Shared),
     append([Own|Shared], Joins0), sort(Joins0, Joins),
     findall(K-_, member(K, Joins), Subst),
@@ -1025,11 +1052,21 @@ selected_conjuncts([X|Xs], Ys) :- select(X, Ys, Rest), selected_conjuncts(Xs, Re
     keysort(Keyed, Sorted), pairs_values(Sorted, Statements0), list_to_set(Statements0, Statements),
     length(Statements, N), M is min(Max, N), length(Features, M), append(Features, _, Statements).
 
-% At most Max elements of the list, starting at its Offset-th (modulo its
-% length) and wrapping around, so successive bounded scans start at
-% different places.
-'hypothesis-scan'(Offset, Max, List, Scan) :-
-    length(List, N),
-    (   N =:= 0 -> Scan = []
-    ;   K is Offset mod N, length(Prefix, K), append(Prefix, Suffix, List), append(Suffix, Prefix, Rotated),
-        M is min(Max, N), length(Scan, M), append(Scan, _, Rotated) ).
+% The live hypotheses under review, each ['hm-reviewed', Name, Antecedent,
+% Consequent, Born, _], with the truth the review's query answered for it:
+% its root's most confident answer among the query-result rows, or
+% no-evidence.
+'hypothesis-truths'(Live, Rows, Reviewed) :-
+    findall(['hm-reviewed', Name, A, C, Born, Best],
+            ( nth0(I, Live, ['hm-reviewed', Name, A, C, Born, _]),
+              findall(Conf-TV, ( member(['query-result', I, [':', _, _, TV]], Rows), hypothesis_confidence(TV, Conf) ), Answers),
+              ( Answers == [] -> Best = 'no-evidence' ; max_member(_-Best, Answers) ) ),
+            Reviewed).
+
+hypothesis_confidence(['STV', _, C], C).
+hypothesis_confidence(['CTV', ['STV', _, C], _], C).
+
+% How many of the live hypotheses under review no review had read, which
+% this review reads: their &hm_unread rows are removed.
+'hypothesis-read!'(KB, Live, Count) :-
+    aggregate_all(count, ( member(['hm-reviewed', Name|_], Live), retract('&hm_unread'(Name, KB)) ), Count).
