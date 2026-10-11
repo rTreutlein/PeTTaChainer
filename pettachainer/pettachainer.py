@@ -46,6 +46,7 @@ def _query_worker(
     evidence_confidence_k: float,
     bayes_prior_count: float,
     rule_refinement: bool,
+    rule_change_detection: float,
     base_rate_smoothing: bool,
     complete_predicates: List[str],
     positive_only_predicates: List[str],
@@ -60,6 +61,7 @@ def _query_worker(
         handler.set_bayes_prior_count(bayes_prior_count)
         handler.kb = kb
         handler.set_rule_refinement(rule_refinement)
+        handler.set_rule_change_detection(rule_change_detection)
         handler.set_base_rate_smoothing(base_rate_smoothing)
         for head in complete_predicates:
             handler.set_complete_predicate(head)
@@ -164,6 +166,7 @@ class PeTTaChainer:
         self._evidence_confidence_k = 800.0
         self._bayes_prior_count = 0.2
         self._rule_refinement = False
+        self._rule_change_detection = 0.0
         self._base_rate_smoothing = False
         self._complete_predicates: List[str] = []
         self._positive_only_predicates: List[str] = []
@@ -402,6 +405,21 @@ class PeTTaChainer:
         self.handler.process_metta_string(f"!(set-rule-refinement {self.kb} {value})")
         self._rule_refinement = enabled
 
+    def set_rule_change_detection(self, bayes_factor: float) -> None:
+        """Let this KB's refined rules detect a change of their rate; set
+        before adding rules (``bayes_factor`` at most 1 turns it off).
+
+        Each branch of a refined rule's instance tally keeps its recent
+        samples; once the Bayes factor for their following a rate of their
+        own, against the rate of the tally, passes ``bayes_factor``, the tally
+        keeps them alone (docs/metta/hypothesis_rules.md, "Change
+        detection"). Timed subprocess queries replay the setting.
+        """
+        self.handler.process_metta_string(
+            f"!(set-rule-change-detection {self.kb} {float(bayes_factor)!r})"
+        )
+        self._rule_change_detection = float(bayes_factor)
+
     def set_base_rate_smoothing(self, enabled: bool) -> None:
         """Read this KB's computed base rates as Beta estimates; set before adding.
 
@@ -628,6 +646,7 @@ class PeTTaChainer:
                 self._evidence_confidence_k,
                 self._bayes_prior_count,
                 self._rule_refinement,
+                self._rule_change_detection,
                 self._base_rate_smoothing,
                 self._complete_predicates,
                 self._positive_only_predicates,

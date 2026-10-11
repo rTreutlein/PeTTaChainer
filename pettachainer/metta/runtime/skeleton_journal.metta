@@ -132,14 +132,26 @@
 (: &sk_rate_dirty (SpaceOf (Number Number SkeletonKey SkeletonKey)))
 !(bind! &sk_rate_dirty (new-space))
 ;; An implication instance fold's tally, the sum of its members' contributions
-;; as last taken, by fold hash; each member's contribution, by member hash and
-;; fold hash; the members reading a statement directly, by the statement's key
-;; hash, so a reader's own sample is found by the keys it excludes; and the
+;; as last taken, by fold hash; each member's run and contribution, by member
+;; hash and fold hash; the change detector of a fold whose KB detects changes,
+;; by fold hash; the members reading a statement directly, by the statement's
+;; key hash, so a reader's own sample is found by the keys it excludes; and the
 ;; folds with members to take, by fold hash.
 (: &sk_instance_tally (SpaceOf (Number SkeletonKey InstanceEvidenceState)))
 !(bind! &sk_instance_tally (new-space))
-(: &sk_instance_member (SpaceOf (Number Number SkeletonKey InstanceEvidenceState)))
+(: &sk_instance_member (SpaceOf (Number Number SkeletonKey Number InstanceEvidenceState)))
 !(bind! &sk_instance_member (new-space))
+;; A change detector: the log Bayes factor it declares a change at, the
+;; current run, and per branch the run the tally starts at, the run the recent
+;; samples start at, their evidence and the log Bayes factor for their having
+;; a rate of their own.
+(: ChangeRunState Type)
+(: change-run (-[det]-> Number Number BaseRateEvidenceState Number ChangeRunState))
+(: InstanceChangeState Type)
+(: instance-change (-[det]-> Number Number ChangeRunState ChangeRunState InstanceChangeState))
+(: no-instance-change InstanceChangeState)
+(: &sk_instance_change (SpaceOf (Number SkeletonKey InstanceChangeState)))
+!(bind! &sk_instance_change (new-space))
 (: &sk_instance_read (SpaceOf (Number Number Number SkeletonKey)))
 !(bind! &sk_instance_read (new-space))
 (: &sk_instance_changed (SpaceOf (Number SkeletonKey)))

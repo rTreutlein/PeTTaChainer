@@ -807,21 +807,39 @@
 (= (sk-read-members-step $hash $found $read)
    (append-flat (collapse (match &sk_instance_read ($read $hash $mhash $_member) $mhash)) $found))
 
-(: sk-member-contribution-step (-[det]-> Number (List InstanceEvidenceState) Number (List InstanceEvidenceState)))
-(= (sk-member-contribution-step $hash $found $mhash)
+;; A member's contribution as its fold's tally holds it: a branch whose tally
+;; starts after the member's run, after a change, holds none of it.
+(: sk-kept-contribution (-[det]-> InstanceChangeState Number InstanceEvidenceState InstanceEvidenceState))
+(= (sk-kept-contribution $change $run (InstanceEvidence $pos $neg))
+   (case $change (
+      (no-instance-change (InstanceEvidence $pos $neg))
+      ((instance-change $_threshold $_run (change-run $pos-start $_pr $_pe $_pl) (change-run $neg-start $_nr $_ne $_nl))
+         (InstanceEvidence (if (>= $run $pos-start) $pos (BaseRateEvidence 0.0 0.0))
+            (if (>= $run $neg-start) $neg (BaseRateEvidence 0.0 0.0)))))))
+
+(: sk-member-contribution-step
+   (-[det]-> Number InstanceChangeState (List InstanceEvidenceState) Number (List InstanceEvidenceState)))
+(= (sk-member-contribution-step $hash $change $found $mhash)
    (append-flat
-      (collapse (match &sk_instance_member ($mhash $hash $_member $contribution)
-         (case $contribution (
+      (collapse (match &sk_instance_member ($mhash $hash $_member $run $contribution)
+         (case (sk-kept-contribution $change $run $contribution) (
             ((InstanceEvidence (BaseRateEvidence $_pw 0.0) (BaseRateEvidence $_nw 0.0)) (empty))
-            ($_sample $contribution)))))
+            ($sample $sample)))))
       $found))
 
+(: sk-stored-change (-[det]-> Number InstanceChangeState))
+(= (sk-stored-change $hash)
+   (case (collapse (once (match &sk_instance_change ($hash $_fold $stored) $stored))) (
+      ((cons $stored $_rest) $stored)
+      (() no-instance-change))))
+
 ;; The contributions an instance fold read without the excluded keys leaves
-;; out; a member that is no sample contributes nothing.
+;; out; a member that is no sample, or none its tally holds, contributes
+;; nothing.
 (: sk-left-out (-[det]-> Number (List Number) (List InstanceEvidenceState)))
 (= (sk-left-out $hash $exclude)
    (if (== $exclude ()) ()
-      (fold-flat (sk-member-contribution-step $hash) ()
+      (fold-flat (sk-member-contribution-step $hash (sk-stored-change $hash)) ()
          (list_to_set (fold-flat (sk-read-members-step $hash) () $exclude)))))
 
 ;; Whether a row reads an instance fold that leaves out a member for the
@@ -1148,9 +1166,107 @@
          (if (space-row-present? &sk_instance_changed ($hash $_stored)) () (add-atom &sk_instance_changed ($hash $fold)))
          (sk-instance-take-value! $hash $fold $args $member $value))))
 
+;; Change detection (opt-in per KB): the log of the Bayes factor at which a
+;; refined rule's recent samples are taken to follow a rate of their own.
+(: &rule_change_detection (SpaceOf (KB Number)))
+!(bind! &rule_change_detection (new-space))
+
+(: set-rule-change-detection (-[det]-> KB Number Bool))
+(= (set-rule-change-detection $kb $factor)
+   (let* (($_old
+             (collapse (match &rule_change_detection ($kb $stored)
+                (remove-atom &rule_change_detection ($kb $stored)))))
+          ($on (> $factor 1.0))
+          ($threshold (if $on (log-math 2.718281828459045 $factor) 0.0))
+          ($_new (if $on (add-atom &rule_change_detection ($kb $threshold)) ())))
+      $on))
+
+;; The log probability of a sample's outcomes under the rate an evidence
+;; estimates, with one pseudo-observation at 0.5.
+(: change-log-score (-[det]-> BaseRateEvidenceState BaseRateEvidenceState Number))
+(= (change-log-score (BaseRateEvidence $w $m) (BaseRateEvidence $sw $sm))
+   (let $p (/ (+ $w 0.5) (+ $m 1.0))
+      (+ (* $sw (log-math 2.718281828459045 $p))
+         (* (- $sm $sw) (log-math 2.718281828459045 (- 1.0 $p))))))
+
+;; One branch takes a new sample. The recent samples are scored once as one
+;; more run of the tally's rate and once as a run of a rate of their own (the
+;; predictive of each, so the log Bayes factor of the two). A run whose factor
+;; falls to 1 is no change: the next sample starts a new one. One whose factor
+;; passes the threshold is a change: the tally keeps the run alone.
+(: ChangeStep Type)
+(: change-step (-[det]-> BaseRateEvidenceState ChangeRunState Bool ChangeStep))
+
+(: change-branch-step
+   (-[det]-> Number Number BaseRateEvidenceState ChangeRunState BaseRateEvidenceState ChangeStep))
+(= (change-branch-step $threshold $next $tally (change-run $t-start $r-start $recent $llr) (BaseRateEvidence $sw $sm))
+   (if (<= $sm 0.0) (change-step $tally (change-run $t-start $r-start $recent $llr) false)
+      (let* (($sample (BaseRateEvidence $sw $sm))
+             ($empty (BaseRateEvidence 0.0 0.0))
+             ($score (+ $llr (- (change-log-score $recent $sample) (change-log-score $tally $sample))))
+             ($run (sk-evidence-shift $recent $empty $sample)))
+         (if (> $score $threshold) (change-step $run (change-run $r-start $next $empty 0.0) true)
+            (if (<= $score 0.0) (change-step (sk-evidence-shift $tally $empty $sample) (change-run $t-start $next $empty 0.0) true)
+               (change-step (sk-evidence-shift $tally $empty $sample) (change-run $t-start $r-start $run $score) false))))))
+
+;; A member's contribution taken into a tally, the fold's change detector after
+;; it, and the run the member belongs to.
+(: InstanceTake Type)
+(: instance-take (-[det]-> InstanceEvidenceState InstanceChangeState Number InstanceTake))
+
+;; A first take: each branch's detector takes the sample, and a branch that
+;; started a run starts it at the next run of the fold.
+(: sk-change-first
+   (-[det]-> InstanceEvidenceState InstanceEvidenceState InstanceChangeState InstanceEvidenceState InstanceTake))
+(= (sk-change-first $none $tally no-instance-change $new)
+   (instance-take (sk-instance-shift $tally $none $new) no-instance-change 0))
+(= (sk-change-first $_none (InstanceEvidence $pos $neg) (instance-change $threshold $run $pos-run $neg-run)
+      (InstanceEvidence $new-pos $new-neg))
+   (let $next (+ $run 1)
+      (sk-change-take $threshold $run $next $run
+         (change-branch-step $threshold $next $pos $pos-run $new-pos)
+         (change-branch-step $threshold $next $neg $neg-run $new-neg))))
+
+(: sk-change-take (-[det]-> Number Number Number Number ChangeStep ChangeStep InstanceTake))
+(= (sk-change-take $threshold $run $next $member-run (change-step $pos $pos-run $pos-reset) (change-step $neg $neg-run $neg-reset))
+   (instance-take (InstanceEvidence $pos $neg)
+      (instance-change $threshold (if $pos-reset $next (if $neg-reset $next $run)) $pos-run $neg-run)
+      $member-run))
+
+;; A changed member replaces its contribution in each branch's tally and
+;; recent run that hold its run.
+(: change-replace-branch
+   (-[det]-> Number BaseRateEvidenceState ChangeRunState BaseRateEvidenceState BaseRateEvidenceState ChangeStep))
+(= (change-replace-branch $member-run $tally (change-run $t-start $r-start $recent $llr) $old $new)
+   (change-step (if (>= $member-run $t-start) (sk-evidence-shift $tally $old $new) $tally)
+      (change-run $t-start $r-start (if (>= $member-run $r-start) (sk-evidence-shift $recent $old $new) $recent) $llr)
+      false))
+
+(: sk-change-replace
+   (-[det]-> Number InstanceEvidenceState InstanceChangeState InstanceEvidenceState InstanceEvidenceState InstanceTake))
+(= (sk-change-replace $member-run $tally no-instance-change $old $new)
+   (instance-take (sk-instance-shift $tally $old $new) no-instance-change $member-run))
+(= (sk-change-replace $member-run (InstanceEvidence $pos $neg) (instance-change $threshold $run $pos-run $neg-run)
+      (InstanceEvidence $old-pos $old-neg) (InstanceEvidence $new-pos $new-neg))
+   (sk-change-take $threshold $run $run $member-run
+      (change-replace-branch $member-run $pos $pos-run $old-pos $new-pos)
+      (change-replace-branch $member-run $neg $neg-run $old-neg $new-neg)))
+
+;; A fold's change detector: the stored one, a new one when its KB detects
+;; changes, else none.
+(: sk-instance-change (-[det]-> Number KB InstanceChangeState))
+(= (sk-instance-change $hash $kb)
+   (case (collapse (once (match &sk_instance_change ($hash $_stored $change) $change))) (
+      ((cons $change $_rest) $change)
+      (() (case (collapse (once (match &rule_change_detection ($kb $threshold) $threshold))) (
+             ((cons $threshold $_more)
+                (instance-change $threshold 0 (change-run 0 0 (BaseRateEvidence 0.0 0.0) 0.0)
+                   (change-run 0 0 (BaseRateEvidence 0.0 0.0) 0.0)))
+             (() no-instance-change)))))))
+
 (: sk-instance-take-value! (-[semidet]-> Number SkeletonKey ScalarFoldSpec SkeletonKey SkeletonValue Atom))
 (= (sk-instance-take-value! $hash $fold $args $member $value)
-   (let* ((($_kb $_pattern $extractor $start $function $_finish $_mode) $args)
+   (let* ((($kb $_pattern $extractor $start $function $_finish $_mode) $args)
           ($mhash (index-hash $member))
           ($_clean (remove-variant-row! &sk_rate_dirty (quote ($hash $mhash $fold $member))))
           ($new
@@ -1158,17 +1274,30 @@
                 (case $value (
                    ((sk-val $fact $_ev $_deps) (sk-accumulate $extractor $function $start $fact))
                    ($_none $start)))))
-          ($found
-             (collapse (once (match &sk_instance_member ($mhash $hash $stored $contribution)
-                (if (=alpha $stored $member) $contribution (empty))))))
-          ($old (fa-instance-acc (case $found (((cons $was $_more) $was) (() $start)))))
-          ($_replaced (remove-variant-row! &sk_instance_member (quote ($mhash $hash $member $old))))
-          ($_reads (if (== $found ()) (sk-instance-reads! $hash $mhash $member) ()))
-          ($tally (sk-instance-tally $hash $fold (fa-instance-acc $start)))
-          ($shifted (sk-instance-shift $tally $old $new))
-          ($_untallied (remove-variant-row! &sk_instance_tally (quote ($hash $fold $tally))))
+          ($none (fa-instance-acc $start))
+          ($tally (sk-instance-tally $hash $fold $none))
+          ($change (sk-instance-change $hash $kb)))
+      (sk-instance-store! $hash $fold $mhash $member $tally $change $new
+         (case (collapse (once (match &sk_instance_member ($mhash $hash $stored $was-run $contribution)
+                  (if (=alpha $stored $member) (instance-take $contribution $change $was-run) (empty))))) (
+            ((cons (instance-take $old $_change $was-run) $_more)
+               (let $_replaced (remove-variant-row! &sk_instance_member (quote ($mhash $hash $member $was-run $old)))
+                  (case $old (
+                     ((InstanceEvidence (BaseRateEvidence $_pw 0.0) (BaseRateEvidence $_nw 0.0)) (sk-change-first $old $tally $change $new))
+                     ($_sample (sk-change-replace $was-run $tally $change $old $new))))))
+            (() (let $_reads (sk-instance-reads! $hash $mhash $member) (sk-change-first $none $tally $change $new))))))))
+
+(: sk-instance-store!
+   (-[det]-> Number SkeletonKey Number SkeletonKey InstanceEvidenceState InstanceChangeState InstanceEvidenceState
+       InstanceTake Atom))
+(= (sk-instance-store! $hash $fold $mhash $member $tally $change $new (instance-take $shifted $changed $run))
+   (let* (($_untallied (remove-variant-row! &sk_instance_tally (quote ($hash $fold $tally))))
           ($_tallied (add-atom &sk_instance_tally ($hash $fold $shifted)))
-          ($_member (add-atom &sk_instance_member ($mhash $hash $member $new))))
+          ($_changed
+             (if (== $change no-instance-change) ()
+                (let $_old (remove-variant-row! &sk_instance_change (quote ($hash $fold $change)))
+                   (add-atom &sk_instance_change ($hash $fold $changed)))))
+          ($_member (add-atom &sk_instance_member ($mhash $hash $member $run $new))))
       ()))
 
 ;; Takes the members of an instance fold that joined or changed since it last

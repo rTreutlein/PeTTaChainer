@@ -53,6 +53,29 @@ class TestPeTTaChainer(unittest.TestCase):
                     ["(: (by ab a2) (B b) (STV 0.8000224974690348 0.9000097638542305))"],
                 )
 
+    def test_rule_change_detection_applies_in_process_and_to_timed_queries(self):
+        handler = PeTTaChainer()
+        handler.set_evidence_confidence_k(5)
+        self.addCleanup(handler.set_evidence_confidence_k, 800)
+        handler.set_rule_refinement(True)
+        handler.set_rule_change_detection(100)
+        handler.set_positive_only_predicate("A")
+        handler.add_atoms_no_check(
+            ["(: h (Implication (A $x) (B $x)) (STV 0.5 0.02))"]
+            + [f"(: a{i} (A i{i}) (STV 1 1))" for i in range(15)]
+            + [f"(: b{i} (B i{i}) (STV {1 if i < 12 else 0} 1))" for i in range(15)]
+        )
+        # Twelve instances held and the last three failed: the third failure
+        # is a change, so the truth is learned from the failures alone, live
+        # and in the subprocess a timed query spawns.
+        for timeout_sec in (0, 30):
+            with self.subTest(timeout_sec=timeout_sec):
+                result = handler.query(
+                    "(: $prf (RuleTruth (Implication (A $x) (B $x))) $tv)", steps=50, timeout_sec=timeout_sec
+                )
+                self.assertEqual(len(result), 1)
+                self.assertIn("(STV 0.016447368421052634 0.38287153652392947)", result[0])
+
     def test_complete_predicate_applies_in_process_and_to_timed_queries(self):
         handler = PeTTaChainer()
         handler.set_complete_predicate("P")
