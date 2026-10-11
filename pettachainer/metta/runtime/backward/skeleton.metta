@@ -49,12 +49,15 @@
 (: sk-activate-pending! (-[semidet]-> Atom))
 (: sk-activate-rules! (-[semidet]-> Atom))
 (: sk-activate-facts! (-[semidet]-> Atom))
-(: sk-expand! (-[semidet]-> SkPattern Number Atom))
+(: sk-expand! (-[semidet]-> SkPattern Number Number Atom))
 (: sk-rule-match (-[nondet]-> SkFact SkeletonMatch))
 (: sk-world-rule-match (-[nondet]-> SkFact SkeletonMatch))
-;; node, depth
+;; node, depth, node hash
 (: SkeletonFrontier Type)
-(: sk-frontier (-[det]-> SkPattern Number SkeletonFrontier))
+(: sk-frontier (-[det]-> SkPattern Number Number SkeletonFrontier))
+;; a node with its hash
+(: SkeletonNodeAt Type)
+(: sk-node-at (-[det]-> Number SkPattern SkeletonNodeAt))
 (: sk-search! (-[semidet]-> (Heap SkeletonFrontier) Atom))
 
 ;; --- Node identity ----------------------------------------------------------
@@ -65,17 +68,16 @@
       ((CPU $_fun $args $_res) (index-hash $args))
       (($type $kbctx $_proof $_tv) (index-hash (sk-key $type $kbctx))))))
 
-(: sk-expanded? (-[det]-> SkPattern Bool))
-(= (sk-expanded? $pattern)
-   (let $hash (sk-node-hash $pattern)
-      (not (== (collapse (once (match &sk_expanded ($hash $stored)
-                  (if (=alpha $stored $pattern) true (empty)))))
-               ()))))
+(: sk-expanded? (-[det]-> Number SkPattern Bool))
+(= (sk-expanded? $hash $pattern)
+   (not (== (collapse (once (match &sk_expanded ($hash $stored)
+               (if (=alpha $stored $pattern) true (empty)))))
+            ())))
 
-(: sk-mark-expanded! (-[det]-> SkPattern Atom))
-(= (sk-mark-expanded! $pattern)
-   (let* (($hash (sk-node-hash $pattern))
-          ($_row (add-atom &sk_expanded ($hash $pattern))))
+(: sk-mark-expanded! (-[det]-> Number SkPattern Atom))
+(= (sk-mark-expanded! $hash $pattern)
+   (let* (($_row (add-atom &sk_expanded ($hash $pattern)))
+          ($_taken (sk-work! $hash $pattern -1)))
       (case (copy_term $pattern) (
          ((CPU $_fun $_args $_res) ())
          (($type $kbctx $_proof $_tv)
@@ -128,18 +130,16 @@
                 ($_noted (sk-note-context! $ctx (ctx-link $digest))))
             true))))
 
-(: sk-node-score (-[det]-> SkPattern Number))
-(= (sk-node-score $node)
-   (let $hash (sk-node-hash $node)
-      (case (collapse (once (match &sk_score ($hash $stored $score)
-               (if (=alpha $stored $node) $score (empty))))) (
-         ((cons $score $_rest) $score)
-         (() 0.0)))))
+(: sk-node-score (-[det]-> Number SkPattern Number))
+(= (sk-node-score $hash $node)
+   (case (collapse (once (match &sk_score ($hash $stored $score)
+            (if (=alpha $stored $node) $score (empty))))) (
+      ((cons $score $_rest) $score)
+      (() 0.0))))
 
-(: sk-raise-score! (-[det]-> SkPattern Number Atom))
-(= (sk-raise-score! $node $score)
-   (let* (($hash (sk-node-hash $node))
-          ($old (sk-node-score $node)))
+(: sk-raise-score! (-[det]-> Number SkPattern Number Atom))
+(= (sk-raise-score! $hash $node $score)
+   (let* (($old (sk-node-score $hash $node)))
       (if (> $score $old)
          (let* (($removed
                    (collapse (match &sk_score ($hash $stored $old-score)
@@ -191,7 +191,7 @@
 ;; rule's expected confidence, shared among the premises still open.
 (: sk-join-score (-[semidet]-> SkPattern Number (List SkPattern) Number))
 (= (sk-join-score $owner $rule $remaining)
-   (/ (* (sk-node-score $owner) (sk-rule-score $rule))
+   (/ (* (sk-node-score (sk-node-hash $owner) $owner) (sk-rule-score $rule))
       (max 1 (fold-semidet sk-open-premise-step 0 $remaining))))
 
 ;; A ground node reading any proof and value, or a fold's member node, is
@@ -240,17 +240,38 @@
 
 (: sk-add-child! (-[semidet]-> SkPattern SkPattern Number Atom))
 (= (sk-add-child! $owner $child $score)
-   (if (let $_scored (sk-raise-score! $child $score) (sk-link-new! (sk-child-link $owner $child)))
-      (let* (($hash (sk-node-hash $owner))
-             ($_row (add-atom &sk_child ($hash $owner $child)))
-             ($child-ctx (node-context $child))
-             ($_node (sk-note-context! $child-ctx (ctx-node (sk-node-hash $child) $child)))
-             ($_link
-                (if (== $child-ctx (node-context $owner)) ()
-                   (sk-note-context! $child-ctx (ctx-child $hash $owner $child))))
-             ($_fresh (add-atom &sk_fresh (sk-fresh $child))))
-         (sk-index-node! $child))
-      ()))
+   (let $child-hash (sk-node-hash $child)
+      (if (let $_scored (sk-raise-score! $child-hash $child $score) (sk-link-new! (sk-child-link $owner $child)))
+         (let* (($hash (sk-node-hash $owner))
+                ($_row (add-atom &sk_child ($hash $owner $child $child-hash)))
+                ($_pending (sk-link-pending! $hash $owner $child-hash $child))
+                ($child-ctx (node-context $child))
+                ($_node (sk-note-context! $child-ctx (ctx-node $child-hash $child)))
+                ($_link
+                   (if (== $child-ctx (node-context $owner)) ()
+                      (sk-note-context! $child-ctx (ctx-child $hash $owner $child $child-hash))))
+                ($_fresh (add-atom &sk_fresh ($child-hash $child))))
+            (sk-index-node! $child))
+         ())))
+
+;; --- Pending work -------------------------------------------------------------
+
+;; A walk enters only nodes whose search may still have work: the node or one
+;; below it is unexpanded, or holds parked deliveries, deferred joins or
+;; deferred rows. Every node of a cycle reaches what the others reach, so the
+;; nodes are kept as the components of their cycles, an acyclic graph whose
+;; components count their work items and their pending child components; a
+;; change of state moves the parents' counts. Whether a node is pending is
+;; then one lookup, exact at any time (runtime_helpers.pl, "Pending work").
+;; Work items: being unexpanded, each parked delivery, deferred join and
+;; deferred row; sk-work! adds or takes them.
+(: sk-link-pending! (-[det]-> Number SkPattern Number SkPattern Atom))
+(: sk-work! (-[det]-> Number SkPattern Number Atom))
+(: sk-pending? (-[det]-> Number SkPattern Bool))
+(: sk-pending-children (-[det]-> Number SkPattern (List SkeletonNodeAt)))
+(: sk-drop-pending! (-[det]-> Number SkPattern Atom))
+;; Parked deliveries, deferred joins or deferred rows at a node's hash.
+(: sk-holds-work? (-[det]-> Number Bool))
 
 ;; --- Base rates -------------------------------------------------------------
 
@@ -641,12 +662,13 @@
 (= (sk-forward-note-fold! $premise)
    (case (copy_term $premise) (
       ((CPU $fun $args $res)
-         (if (if (sk-expanded? (CPU $fun $args $res)) true
-                (case (base-rate-aggregate-key $args) (
-                   ((base-rate-aggregate-key-value $_kbid $_pattern $_mode) true)
-                   (no-base-rate-aggregate-key false))))
-            ()
-            (let $_noted (add-atom &sk_forward_folds ((sk-node-hash (CPU $fun $args $res)) (CPU $fun $args $res))) ())))
+         (let $hash (sk-node-hash (CPU $fun $args $res))
+            (if (if (sk-expanded? $hash (CPU $fun $args $res)) true
+                   (case (base-rate-aggregate-key $args) (
+                      ((base-rate-aggregate-key-value $_kbid $_pattern $_mode) true)
+                      (no-base-rate-aggregate-key false))))
+               ()
+               (let $_noted (add-atom &sk_forward_folds ($hash (CPU $fun $args $res))) ()))))
       ($_fact ()))))
 
 ;; The keys a forward join's premise can take: the statements with stored
@@ -730,7 +752,7 @@
                       ;; from outside, and it leaves with the context.
                       (sk-note-context! $premise-ctx (ctx-root (sk-node-hash $owner) $owner))))))
           ($_leaves
-             (if (sk-expanded? $premise) ()
+             (if (sk-expanded? $hash $premise) ()
                 (case (copy_term $premise) (
                    ((CPU $_fun $_args $_res) ())
                    (($type $kbctx $proof $tv)
@@ -767,6 +789,7 @@
              ($jhash (index-hash $join)))
          (if (== (collapse (once (match &sk_deferred_joins ($hash $jhash $_join) true))) ())
             (let* (($_deferred (add-atom &sk_deferred_joins ($hash $jhash $join)))
+                   ($_pending (sk-work! $hash $owner 1))
                    ($_counted (query_metric_increment joins-deferred)))
                ())
             ()))))
@@ -898,6 +921,7 @@
                (if (== (collapse (once (match &sk_deferred ($hash $rhash $_deferred) true))) ())
                   (let* (($_deferred
                             (add-atom &sk_deferred ($hash $rhash (sk-deferred $owner $rule $concl $premises $keys))))
+                         ($_pending (sk-work! $hash $owner 1))
                          ($_counted (query_metric_increment rows-deferred)))
                      ())
                   ())))))))
@@ -964,15 +988,15 @@
 (= (sk-deferred-step $_acc (sk-deferred $owner $rule $concl $premises $keys))
    (sk-complete-row! $owner $rule $concl $premises $keys))
 
-(: sk-resume! (-[semidet]-> SkPattern Atom))
-(= (sk-resume! $node)
-   (let* (($hash (sk-node-hash $node))
-          ($_deliveries
+(: sk-resume! (-[semidet]-> Number SkPattern Atom))
+(= (sk-resume! $hash $node)
+   (let* (($deliveries
              (collapse (match &sk_parked ($hash $seq (sk-delivery $owner $key))
                 (if (=alpha $owner $node)
                    (let $_removed (remove-atom &sk_parked ($hash $seq (sk-delivery $_o $_k)))
                       (add-atom &sk_answer_queue ($seq (sk-delivery $owner $key))))
-                   (empty))))))
+                   (empty)))))
+          ($_delivered (sk-work! $hash $node (- 0 (length $deliveries)))))
       (if (<= (search-id-value sk_row_budget) 0) ()
          (let* (($joins
                    (collapse (match &sk_deferred_joins ($hash $jhash (sk-join $waiter $key))
@@ -980,6 +1004,7 @@
                          (let $_removed (remove-atom &sk_deferred_joins ($hash $jhash (sk-join $waiter $key)))
                             (sk-join $waiter $key))
                          (empty)))))
+                ($_taken (sk-work! $hash $node (- 0 (length $joins))))
                 ($_joined (fold-semidet sk-deferred-join-step () $joins))
                 ($deferred
                    (collapse (match &sk_deferred ($hash $rhash (sk-deferred $owner $rule $concl $premises $keys))
@@ -987,7 +1012,8 @@
                          (let $_removed
                             (remove-atom &sk_deferred ($hash $rhash (sk-deferred $owner $rule $concl $premises $keys)))
                             (sk-deferred $owner $rule $concl $premises $keys))
-                         (empty))))))
+                         (empty)))))
+                ($_completed (sk-work! $hash $node (- 0 (length $deferred)))))
             (fold-semidet sk-deferred-step () $deferred)))))
 
 (: sk-waiter-owner (-[det]-> SkeletonWaiter SkPattern))
@@ -1000,7 +1026,7 @@
 (= (sk-park-step $_acc (sk-queued $seq (sk-delivery $node $key)))
    (let* (($hash (sk-node-hash $node))
           ($_row (add-atom &sk_parked ($hash $seq (sk-delivery $node $key)))))
-      ()))
+      (sk-work! $hash $node 1)))
 
 (: sk-park-deliveries! (-[semidet]-> Atom))
 (= (sk-park-deliveries!)
@@ -1333,28 +1359,27 @@
                         (cons $compiled ()))))
                ($_none ()))))))))
 
-(= (sk-expand! $node $depth)
+(= (sk-expand! $node $depth $hash)
    (let $_counted (query_metric_increment expansions)
    (case $node (
       ((CPU $_fun $args $_res)
-         (let* (($_mark (sk-mark-expanded! $node))
+         (let* (($_mark (sk-mark-expanded! $hash $node))
                 ($members (sk-fold-member $args))
                 ($_activate (sk-activate-pending!)))
             (case $members (
                (() ())
                ((cons $member $_rest)
-                  (let* (($node-hash (sk-node-hash $node))
-                         ($member-hash (sk-node-hash $member))
-                         ($_fold (add-atom &sk_fold ($node-hash $node $member)))
+                  (let* (($member-hash (sk-node-hash $member))
+                         ($_fold (add-atom &sk_fold ($hash $node $member)))
                          ($_member-of (add-atom &sk_member_of ($member-hash $member $node)))
-                         ($_child (sk-add-child! $node $member (sk-node-score $node))))
+                         ($_child (sk-add-child! $node $member (sk-node-score $hash $node))))
                      (fold-semidet (sk-fold-answer-step $node) () (sk-answers $member))))))))
       (($type $kbctx $proof $tv)
          (let* (($_special
                    (if (> $depth 0) (inject-special-subgoal-query-adds $type $kbctx $proof $tv) ()))
                 ($_member (install-member-inheritance-rules! $type $kbctx))
                 ($_activate (sk-activate-pending!))
-                ($_mark (sk-mark-expanded! $node))
+                ($_mark (sk-mark-expanded! $hash $node))
                 ($leaf-facts (sk-leaf-facts $type $kbctx (sk-filter $proof $tv)))
                 ($_leaves (fold-semidet (sk-leaf-answer-step $node) () $leaf-facts))
                 ;; A complete statement answers by its own key: the joins
@@ -1463,7 +1488,7 @@
       (if (== (extract-vars $key) ())
          (let $hash (index-hash $key)
             (fold-semidet (sk-activate-rule-on $id $ccls $prems) ()
-               (collapse (match &sk_score ($hash $node $_score) (if (sk-expanded? $node) (empty) $node)))))
+               (collapse (match &sk_score ($hash $node $_score) (if (sk-expanded? $hash $node) (empty) $node)))))
          ())))
 
 ;; A fact added after expansion is read at once by every node reading its key:
@@ -1519,14 +1544,11 @@
 
 ;; --- Budgeted search walk ---------------------------------------------------
 
-;; Breadth-first from the roots over child links. Expanding a new node costs
-;; one step and walking an expanded node spends the walk allowance. Increasing
-;; the budget extends the same deterministic order.
-(: sk-children (-[det]-> SkPattern (List SkPattern)))
-(= (sk-children $node)
-   (let $hash (sk-node-hash $node)
-      (collapse (match &sk_child ($hash $stored $child)
-         (if (=alpha $stored $node) $child (empty))))))
+;; A node's children, each with its hash.
+(: sk-children (-[det]-> Number SkPattern (List SkeletonNodeAt)))
+(= (sk-children $hash $node)
+   (collapse (match &sk_child ($hash $stored $child $child-hash)
+      (if (=alpha $stored $node) (sk-node-at $child-hash $child) (empty)))))
 
 ;; Whether a node's search can still give it answers: it, or a node below it,
 ;; is unexpanded or has work waiting at it (parked deliveries, deferred joins
@@ -1535,55 +1557,53 @@
 (: SkeletonGrowth Type)
 (: sk-growth (-[det]-> Bool (List Number) SkeletonGrowth))
 
-(: sk-grows (-[semidet]-> SkeletonGrowth SkPattern SkeletonGrowth))
-(= (sk-grows (sk-growth $found $seen) $node)
+(: sk-grows (-[semidet]-> SkeletonGrowth SkeletonNodeAt SkeletonGrowth))
+(= (sk-grows (sk-growth $found $seen) (sk-node-at $hash $node))
    (if $found (sk-growth $found $seen)
-      (let $hash (sk-node-hash $node)
-         (if (stored-list-member? $hash $seen) (sk-growth $found $seen)
-            (if (if (sk-expanded? $node)
-                   (not (== (collapse (once (superpose (
-                              (match &sk_parked ($hash $_seq $_delivery) true)
-                              (match &sk_deferred_joins ($hash $_jhash $_join) true)
-                              (match &sk_deferred ($hash $_rhash $_deferred) true)))))
-                            ()))
-                   true)
-               (sk-growth true $seen)
-               (fold-semidet sk-grows (sk-growth false (cons $hash $seen)) (sk-children $node)))))))
+      (if (stored-list-member? $hash $seen) (sk-growth $found $seen)
+         (if (if (sk-expanded? $hash $node) (sk-holds-work? $hash) true)
+            (sk-growth true $seen)
+            (fold-semidet sk-grows (sk-growth false (cons $hash $seen)) (sk-children $hash $node))))))
 
-(: sk-seen! (-[det]-> SkPattern Bool))
-(= (sk-seen! $node)
-   (let $hash (sk-node-hash $node)
-      (if (== (collapse (once (match &sk_seen ($hash $stored)
-                 (if (=alpha $stored $node) true (empty)))))
-              ())
-         (let $_row (add-atom &sk_seen ($hash $node)) false)
-         true)))
+(: sk-seen? (-[det]-> Number SkPattern Bool))
+(= (sk-seen? $hash $node)
+   (not (== (collapse (once (match &sk_seen ($hash $stored) (if (=alpha $stored $node) true (empty))))) ())))
+
+(: sk-seen! (-[det]-> Number SkPattern Bool))
+(= (sk-seen! $hash $node)
+   (if (sk-seen? $hash $node) true (let $_row (add-atom &sk_seen ($hash $node)) false)))
 
 ;; Joins extended after their owner was walked link new children to it; the
 ;; walk picks those up from &sk_fresh at the next level.
-(: sk-take-fresh! (-[det]-> (List SkPattern)))
+(: sk-take-fresh! (-[det]-> (List SkeletonNodeAt)))
 (= (sk-take-fresh!)
-   (collapse (match &sk_fresh (sk-fresh $node)
-      (let $_removed (remove-atom &sk_fresh (sk-fresh $node)) $node))))
+   (let $fresh (collapse (match &sk_fresh ($hash $node) (sk-node-at $hash $node)))
+      (let $_taken (remove-data-rows! &sk_fresh (quote ($fresh-hash $fresh-node))) $fresh)))
 
 ;; The walk is best-first by score. Expanding a node costs a step. Passing
 ;; through an expanded node spends a separate walk allowance, so revisiting what
-;; is already built never takes a step from new expansions. Once the budget is
+;; is already built never takes a step from new expansions. The walk enters
+;; only nodes whose search may still have work (sk-pending?): below any other
+;; node everything is expanded and nothing waits, so walking it would change
+;; nothing, and it costs neither time nor allowance. Once the budget is
 ;; spent, unexpanded nodes are passed over, as expanded nodes are once the
 ;; allowance is spent, and the walk goes on to what is left: expansions that
 ;; cost no step still complete the joins the paid ones started. Equal scores go
 ;; first to the work of roots already started, shallowest first, and then to
 ;; the roots not started yet, in insertion order: the budget completes the
-;; answers it started before it starts new ones.
-(: sk-push (-[det]-> Number (Heap SkeletonFrontier) SkPattern (Heap SkeletonFrontier)))
-(= (sk-push $depth $heap $node)
+;; answers it started before it starts new ones. A frontier entry carries its
+;; node's hash, so neither its push nor its pop hashes the node again.
+(: sk-push (-[det]-> Number (Heap SkeletonFrontier) SkeletonNodeAt (Heap SkeletonFrontier)))
+(= (sk-push $depth $heap (sk-node-at $hash $node))
    (add_to_heap $heap
-      (+ (- 0 (sk-node-score $node)) (+ (* (if (== $depth 0) 1000 $depth) 0.000001) (* (next-search-id sk_push_seq) 0.000000000001)))
-      (sk-frontier $node $depth)))
+      (+ (- 0 (sk-node-score $hash $node)) (+ (* (if (== $depth 0) 1000 $depth) 0.000001) (* (next-search-id sk_push_seq) 0.000000000001)))
+      (sk-frontier $node $depth $hash)))
 
-(: sk-push-children (-[semidet]-> Number SkPattern (Heap SkeletonFrontier) (Heap SkeletonFrontier)))
-(= (sk-push-children $depth $node $heap)
-   (fold-semidet (sk-push (+ $depth 1)) (fold-semidet (sk-push (+ $depth 1)) $heap (sk-children $node)) (sk-take-fresh!)))
+(: sk-push-children (-[semidet]-> Number Number SkPattern (Heap SkeletonFrontier) (Heap SkeletonFrontier)))
+(= (sk-push-children $depth $hash $node $heap)
+   (fold-semidet (sk-push (+ $depth 1))
+      (fold-semidet (sk-push (+ $depth 1)) $heap (sk-pending-children $hash $node))
+      (sk-take-fresh!)))
 
 (= (sk-search! $heap)
    (let $_drained (sk-drain!)
@@ -1608,16 +1628,27 @@
                   (== (collapse (once (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $_rp $_rt)))) ())))))))))
 
 (: sk-search-pop! (-[semidet]-> (Number SkeletonFrontier (Heap SkeletonFrontier)) Atom))
-(= (sk-search-pop! ($_priority (sk-frontier $node $depth) $rest))
-   (if (sk-seen! $node)
-      (sk-search! $rest)
-      (if (sk-expanded? $node)
+(= (sk-search-pop! ($_priority (sk-frontier $node $depth $hash) $rest))
+   (if (sk-expanded? $hash $node)
+      (if (if (sk-pending? $hash $node) (not (sk-seen! $hash $node)) false)
          (if (sk-take! sk_walk_budget)
-            (let $_resumed (sk-resume! $node) (sk-search! (sk-push-children $depth $node $rest)))
+            (let* (($_counted (query_metric_increment nodes-walked))
+                   ($_resumed (sk-resume! $hash $node)))
+               (sk-search! (sk-push-children $depth $hash $node $rest)))
             (sk-search! $rest))
+         (sk-search! $rest))
+      (if (sk-seen! $hash $node)
+         (sk-search! $rest)
          (if (if (sk-extensional? $node) true (sk-take! sk_budget))
-            (let $_expand (sk-expand! $node $depth) (sk-search! (sk-push-children $depth $node $rest)))
+            (let $_expand (sk-expand! $node $depth $hash) (sk-search! (sk-push-children $depth $hash $node $rest)))
             (sk-search! $rest)))))
+
+;; A walk from its roots.
+(: sk-walk! (-[semidet]-> (List SkPattern) Atom))
+(= (sk-walk! $roots) (sk-search! (fold-semidet sk-push-root (empty_heap) $roots)))
+
+(: sk-push-root (-[det]-> (Heap SkeletonFrontier) SkPattern (Heap SkeletonFrontier)))
+(= (sk-push-root $heap $root) (sk-push 0 $heap (sk-node-at (sk-node-hash $root) $root)))
 
 ;; A row's latest view and the views it replaced.
 (: sk-drop-row-views! (-[det]-> Number SkeletonKey Number Atom))
@@ -1640,7 +1671,8 @@
    (let* (($_deferred
              (collapse (match &sk_deferred ($h $rh (sk-deferred $o $rule $c $p $k))
                 (if (>= $rule 1000000000)
-                   (remove-atom &sk_deferred ($h $rh (sk-deferred $o $rule $c $p $k)))
+                   (let $_taken (sk-work! (sk-node-hash $o) $o -1)
+                      (remove-atom &sk_deferred ($h $rh (sk-deferred $o $rule $c $p $k))))
                    (empty)))))
           ($_waits
              (collapse (match &sk_temp_waits ($hash $pattern $waiter)
@@ -1689,7 +1721,7 @@
       ((ctx-key $h $key) (sk-drop-key-rows! $h $key))
       ((ctx-wait $h $premise $waiter) (let $_r (remove-variant-row! &sk_wait (quote ($h $premise $waiter))) ()))
       ((ctx-answer $h $node $key) (let $_r (remove-variant-row! &sk_answer (quote ($h $node $key))) ()))
-      ((ctx-child $h $owner $child) (let $_r (remove-variant-row! &sk_child (quote ($h $owner $child))) ()))
+      ((ctx-child $h $owner $child $ch) (let $_r (remove-variant-row! &sk_child (quote ($h $owner $child $ch))) ()))
       ((ctx-use $h $key $parent) (let $_r (remove-variant-row! &sk_use (quote ($h $key $parent))) ()))
       ((ctx-link $digest) (let $_r (remove-atom &sk_link ($digest)) ())))))
 
@@ -1716,11 +1748,12 @@
 
 (: sk-drop-node-rows! (-[semidet]-> Number SkPattern Atom))
 (= (sk-drop-node-rows! $h $node)
-   (let $_rows
-         (remove-hash-rows!
-            (&sk_child &sk_score &sk_expanded &sk_wait &sk_temp_waits &sk_answer &sk_fold
-             &sk_member_of &sk_deferred &sk_deferred_joins &sk_parked &sk_roots &sk_seen)
-            $h)
+   (let* (($_pending (sk-drop-pending! $h $node))
+          ($_rows
+             (remove-hash-rows!
+                (&sk_child &sk_score &sk_expanded &sk_wait &sk_temp_waits &sk_answer &sk_fold
+                 &sk_member_of &sk_deferred &sk_deferred_joins &sk_parked &sk_roots &sk_seen)
+                $h)))
       (case (copy_term $node) (
          ;; A fold node in a context takes its fold's key along.
          ((CPU FoldAllCompiled $args $_res) (let $fold-key (sk-fold $args) (sk-drop-key-rows! (index-hash $fold-key) $fold-key)))

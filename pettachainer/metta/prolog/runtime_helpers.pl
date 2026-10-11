@@ -1277,3 +1277,233 @@ hypothesis_confidence(['CTV', ['STV', _, C], _], C).
 % this review reads: their &hm_unread rows are removed.
 'hypothesis-read!'(KB, Live, Count) :-
     aggregate_all(count, ( member(['hm-reviewed', Name|_], Live), retract('&hm_unread'(Name, KB)) ), Count).
+
+% --- Pending work (skeleton.metta, "Pending work") ---------------------------
+%
+% Which nodes' searches may still have work: the node or one below it is
+% unexpanded or holds parked deliveries, deferred joins or deferred rows. A
+% skeleton is cyclic (inverted rules, a rule's truth read through its own
+% instances), and every node of a cycle reaches what any of them reaches, so
+% the nodes are kept as their strongly connected components, condensed into an
+% acyclic graph. A component counts its nodes' work items and its child
+% components that are pending; it is pending while either count is positive.
+% A change in a component's state moves its parents' counts, up to the first
+% parent whose state stays, so the state is always exact and a lookup is a
+% union-find step.
+%
+% A child link joins two components when the child's component reaches the
+% owner's: a search forward from the child and backward from the owner, one
+% component at a time each, until one side is exhausted, so it costs the
+% smaller side (a new node has no children, a new root no parents). The
+% components on the paths from child to owner become one.
+%
+% pw_id(NodeHash, Node, Id); pw_up(Id, Parent) for a merged id; for a
+% component Rep: pw_size(Rep, Nodes), pw_work(Rep, Items), pw_pend(Rep,
+% PendingChildren); pw_out(Rep, Child, Links) and pw_in(Child, Rep, Links)
+% for the condensed edges, with the child links each stands for.
+:- dynamic pw_id/3, pw_up/2, pw_size/2, pw_work/2, pw_pend/2, pw_out/3, pw_in/3.
+:- dynamic('&sk_expanded'/2), dynamic('&sk_child'/4), dynamic('&sk_parked'/3),
+   dynamic('&sk_deferred_joins'/3), dynamic('&sk_deferred'/3).
+
+% A node's id, created with one work item when the node is unexpanded.
+pw_node(H, N, Id) :-
+    (   pw_known(H, N, Id) -> true
+    ;   flag(pw_next_id, Id, Id + 1),
+        assertz(pw_id(H, N, Id)),
+        ( '&sk_expanded'(H, S), attribute_free_variant(S, N) -> W = 0 ; W = 1 ),
+        assertz(pw_size(Id, 1)), assertz(pw_work(Id, W)), assertz(pw_pend(Id, 0))
+    ).
+
+pw_known(H, N, Id) :- pw_id(H, S, Id), attribute_free_variant(S, N), !.
+
+pw_find(Id, Rep) :-
+    (   pw_up(Id, Up)
+    ->  pw_find(Up, Rep),
+        ( Up == Rep -> true ; retract(pw_up(Id, Up)), assertz(pw_up(Id, Rep)) )
+    ;   Rep = Id
+    ).
+
+pw_pending_rep(R) :- ( pw_work(R, W), W > 0 -> true ; pw_pend(R, P), P > 0 ).
+
+'sk-pending?'(H, N, B) :-
+    (   pw_known(H, N, Id), pw_find(Id, R), pw_pending_rep(R) -> B = true ; B = false ).
+
+% A node's pending children, each as (sk-node-at hash child).
+'sk-pending-children'(H, N, Children) :-
+    findall(['sk-node-at', CH, C],
+            ( '&sk_child'(H, O, C, CH), attribute_free_variant(O, N),
+              pw_known(CH, C, Id), pw_find(Id, R), pw_pending_rep(R) ),
+            Children).
+
+'sk-holds-work?'(H, B) :- ( holds_work(H) -> B = true ; B = false ).
+
+holds_work(H) :- ( '&sk_parked'(H, _, _) ; '&sk_deferred_joins'(H, _, _) ; '&sk_deferred'(H, _, _) ), !.
+
+% A node's work items change by Delta: one for being unexpanded (taken when it
+% is expanded), one per parked delivery, deferred join and deferred row. A
+% node without an id has none counted; work added gives it one.
+'sk-work!'(H, N, Delta, []) :-
+    (   Delta > 0 -> pw_node(H, N, Id), pw_add_work(Id, Delta)
+    ;   pw_known(H, N, Id) -> pw_add_work(Id, Delta)
+    ;   true
+    ).
+
+pw_add_work(Id, Delta) :-
+    pw_find(Id, R),
+    ( pw_pending_rep(R) -> Old = true ; Old = false ),
+    retract(pw_work(R, W0)), W is W0 + Delta, assertz(pw_work(R, W)),
+    pw_changed(R, Old).
+
+% After a component's counts changed: when its state flipped, each parent's
+% count of pending children moves with it.
+pw_changed(R, Old) :-
+    ( pw_pending_rep(R) -> New = true ; New = false ),
+    (   Old == New -> true
+    ;   ( New == true -> D = 1 ; D = -1 ),
+        forall(pw_in(R, P, _), pw_add_pend(P, D))
+    ).
+
+pw_add_pend(P, D) :-
+    ( pw_pending_rep(P) -> Old = true ; Old = false ),
+    retract(pw_pend(P, P0)), P1 is P0 + D, assertz(pw_pend(P, P1)),
+    pw_changed(P, Old).
+
+% A new child link from owner to child.
+'sk-link-pending!'(OH, Owner, CH, Child, []) :-
+    pw_node(OH, Owner, U), pw_node(CH, Child, V),
+    pw_find(U, RU), pw_find(V, RV),
+    (   RU == RV -> true
+    ;   retract(pw_out(RU, RV, M0))
+    ->  M is M0 + 1, assertz(pw_out(RU, RV, M)),
+        retract(pw_in(RV, RU, M0)), assertz(pw_in(RV, RU, M))
+    ;   pw_reaching(RV, RU, Merge)
+    ->  pw_merge(Merge)
+    ;   assertz(pw_out(RU, RV, 1)), assertz(pw_in(RV, RU, 1)),
+        ( pw_pending_rep(RV) -> pw_add_pend(RU, 1) ; true )
+    ).
+
+% The components on a path from From to To, when there is one: a search
+% forward from From and one backward from To read one link each in turn
+% until one is exhausted; the other direction, restricted to what the
+% exhausted one found, gives the components on the paths. Neither search
+% passes the other's start, since a path from From to To ends at To. So the
+% cost is twice the smaller search's links: linking a new node under a large
+% component never reads that component's links.
+pw_reaching(From, To, Merge) :-
+    empty_nb_set(F), add_nb_set(From, F), empty_nb_set(B), add_nb_set(To, B),
+    setup_call_cleanup(true,
+        pw_alternate(s(none, [To]), s(none, [From]), From, To, F, B, Side, Open),
+        forall(member(E, Open), engine_destroy(E))),
+    (   Side == forward
+    ->  add_nb_set(To, F, false),
+        pw_restricted(To, pw_in, F, From, Merge)
+    ;   add_nb_set(From, B, false),
+        pw_restricted(From, pw_out, B, To, Merge)
+    ).
+
+% pw_alternate(+Backward, +Forward, ..., -Exhausted, -OpenEngines)
+pw_alternate(Bk, Fw, From, To, F, B, Side, Open) :-
+    (   pw_step(Bk, pw_in, From, B, Bk1)
+    ->  (   pw_step(Fw, pw_out, To, F, Fw1)
+        ->  pw_alternate(Bk1, Fw1, From, To, F, B, Side, Open)
+        ;   Side = forward, pw_open(Bk1, Open)
+        )
+    ;   Side = backward, pw_open(Fw, Open)
+    ).
+
+pw_open(s(E, _), Open) :- ( E == none -> Open = [] ; Open = [E] ).
+
+% One link of a search: s(Engine, Stack) reads the current component's next
+% link, or takes the next component off the stack; fails once exhausted.
+pw_step(s(none, [X|Xs]), Edge, Stop, Seen, Side) :- !,
+    (   X == Stop -> pw_step(s(none, Xs), Edge, Stop, Seen, Side)
+    ;   Goal =.. [Edge, X, Y, _], engine_create(Y, Goal, E), Side = s(E, Xs)
+    ).
+pw_step(s(E, Xs), Edge, Stop, Seen, Side) :-
+    E \== none,
+    (   engine_next(E, Y)
+    ->  ( add_nb_set(Y, Seen, true) -> Side = s(E, [Y|Xs]) ; Side = s(E, Xs) )
+    ;   engine_destroy(E), pw_step(s(none, Xs), Edge, Stop, Seen, Side)
+    ).
+
+% Depth-first from Start along Edge, entering only components in Within and
+% not going past End.
+pw_restricted(Start, Edge, Within, End, Found) :-
+    empty_nb_set(Seen), add_nb_set(Start, Seen),
+    pw_restricted_([Start], Edge, Within, End, Seen),
+    nb_set_to_list(Seen, Found).
+
+pw_restricted_([], _, _, _, _).
+pw_restricted_([X|Xs], Edge, Within, End, Seen) :-
+    (   X == End -> Ys = []
+    ;   Goal =.. [Edge, X, Y, _],
+        findall(Y, ( Goal, add_nb_set(Y, Within, false), add_nb_set(Y, Seen, true) ), Ys)
+    ),
+    append(Ys, Xs, Next),
+    pw_restricted_(Next, Edge, Within, End, Seen).
+
+% Merges components into the largest (the lowest id among equals): their
+% links to one another vanish, their other links move to it, and each outside
+% parent counts the merged component once, by its state after the merge.
+% Each count changes in one step that passes a flipped state on, so every
+% parent always counts its children's current states.
+pw_merge(Members) :-
+    findall(S-R, ( member(R, Members), pw_size(R, S0), S is -S0 ), Sized),
+    keysort(Sized, [_-R0|_]),
+    findall(R, ( member(R, Members), pw_pending_rep(R) ), Pending),
+    findall(P, ( member(R, Members), pw_in(R, P, _), \+ memberchk(P, Members) ), Ps),
+    sort(Ps, Parents),
+    findall(P-K, ( member(P, Parents),
+                   aggregate_all(count, ( member(R, Pending), pw_in(R, P, _) ), K) ),
+            ParentCounts),
+    forall(( member(Y, Members), Y \== R0, retract(pw_out(R0, Y, _)) ),
+           ( retract(pw_in(Y, R0, _)), ( memberchk(Y, Pending) -> pw_bump(pw_pend, R0, -1) ; true ) )),
+    forall(( member(X, Members), X \== R0 ), pw_absorb(R0, X, Members)),
+    ( pw_pending_rep(R0) -> Now = 1 ; Now = 0 ),
+    forall(member(P-K, ParentCounts),
+           ( D is Now - K, ( D =:= 0 -> true ; pw_add_pend(P, D) ) )).
+
+pw_absorb(R0, X, Members) :-
+    assertz(pw_up(X, R0)),
+    retract(pw_size(X, SX)), pw_bump(pw_size, R0, SX),
+    retract(pw_work(X, WX)), pw_bump(pw_work, R0, WX),
+    retract(pw_pend(X, _)),
+    forall(retract(pw_out(X, Y, M)),
+           (   retract(pw_in(Y, X, M)),
+               (   memberchk(Y, Members) -> true
+               ;   retract(pw_out(R0, Y, M0))
+               ->  M1 is M0 + M, assertz(pw_out(R0, Y, M1)), retract(pw_in(Y, R0, M0)), assertz(pw_in(Y, R0, M1))
+               ;   assertz(pw_out(R0, Y, M)), assertz(pw_in(Y, R0, M)),
+                   ( pw_pending_rep(Y) -> pw_bump(pw_pend, R0, 1) ; true )
+               ) )),
+    forall(retract(pw_in(X, P, M)),
+           (   retract(pw_out(P, X, M)),
+               (   memberchk(P, Members) -> true
+               ;   retract(pw_out(P, R0, M0))
+               ->  M1 is M0 + M, assertz(pw_out(P, R0, M1)), retract(pw_in(R0, P, M0)), assertz(pw_in(R0, P, M1))
+               ;   assertz(pw_out(P, R0, M)), assertz(pw_in(R0, P, M))
+               ) )).
+
+pw_bump(Count, R, D) :-
+    Old =.. [Count, R, V0], retract(Old), V is V0 + D, New =.. [Count, R, V], assertz(New).
+
+% A node of a query's hypothetical context leaves with it. Its component goes
+% once all its nodes went, with its links; before, its counts stay as they
+% are, which can only keep a node pending longer.
+'sk-drop-pending!'(H, N, []) :-
+    (   pw_known(H, N, Id)
+    ->  pw_find(Id, R),
+        forall(clause(pw_id(H, S, Id), true, Ref), ( attribute_free_variant(S, N) -> erase(Ref) ; true )),
+        retractall(pw_up(Id, _)),
+        pw_bump(pw_size, R, -1),
+        ( pw_size(R, 0) -> pw_drop_rep(R) ; true )
+    ;   true
+    ).
+
+pw_drop_rep(R) :-
+    ( pw_pending_rep(R) -> D = -1 ; D = 0 ),
+    forall(retract(pw_out(R, Y, _)), retract(pw_in(Y, R, _))),
+    findall(P, retract(pw_in(R, P, _)), Ps),
+    forall(member(P, Ps), retract(pw_out(P, R, _))),
+    retractall(pw_size(R, _)), retractall(pw_work(R, _)), retractall(pw_pend(R, _)),
+    forall(member(P, Ps), ( D =:= 0 -> true ; pw_add_pend(P, D) )).

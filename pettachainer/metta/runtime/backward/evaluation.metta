@@ -1187,8 +1187,9 @@
       (sk-cover (+ $covered 1) $missing)))
 
 ;; The premises of the member node's joins that have no answer yet.
-(: sk-unanswered-step (-[det]-> (List SkPattern) SkPattern (List SkPattern)))
-(= (sk-unanswered-step $kept $premise) (if (== (sk-answers $premise) ()) (cons $premise $kept) $kept))
+(: sk-unanswered-step (-[det]-> (List SkeletonNodeAt) SkeletonNodeAt (List SkeletonNodeAt)))
+(= (sk-unanswered-step $kept (sk-node-at $hash $premise))
+   (if (== (sk-answers $premise) ()) (cons (sk-node-at $hash $premise) $kept) $kept))
 
 ;; An exact fold (FoldAll, FoldAllValue, FoldAllTruth) is a function of all its
 ;; members; statistical folds (base rates, implication instances, priors,
@@ -1206,15 +1207,15 @@
 (= (sk-cover-fold! $hash $key $node $members $view)
    (let* (($cover
              (case $members (
-                (() (if (sk-expanded? $node) (sk-cover 0 0) (sk-cover 0 -1)))
+                (() (if (sk-expanded? (sk-node-hash $node) $node) (sk-cover 0 0) (sk-cover 0 -1)))
                 ((cons $member $_more)
-                   (if (sk-expanded? $member)
+                   (if (sk-expanded? (sk-node-hash $member) $member)
                       (let* (((sk-cover $found $pending)
                                 (fold-semidet (sk-cover-member-step $hash (sk-member-filter $member)) (sk-cover 0 0)
                                    (sk-answers $member)))
                              ((sk-growth $grows $_seen)
                                 (fold-semidet sk-grows (sk-growth false ())
-                                   (fold-flat sk-unanswered-step () (sk-children $member)))))
+                                   (fold-flat sk-unanswered-step () (sk-children (sk-node-hash $member) $member)))))
                          (sk-cover $found (if $grows (+ $pending 1) $pending)))
                       (sk-cover 0 -1))))))
           ((sk-cover $covered $missing) $cover)
@@ -1787,16 +1788,15 @@
                  (match &sk_answer_queue ($qseq (sk-delivery $queued $qkey)) (if (=alpha $queued $node) true (empty)))))))
              ()))))
 
-(: sk-application-waits? (-[semidet]-> SkPattern Bool SkPattern Bool))
-(= (sk-application-waits? $node $found $child)
+(: sk-application-waits? (-[semidet]-> SkPattern Bool SkeletonNodeAt Bool))
+(= (sk-application-waits? $node $found (sk-node-at $hash $child))
    (if $found true
       (if (sk-delivered? $child) false
-         (let $hash (sk-node-hash $child)
-            (not (== (collapse (once (match &sk_wait ($hash $stored (sk-partial $owner $_rule ($_t $_k $proof $_v) $_done $_rest $_keys))
-                        (if (=alpha $stored $child)
-                           (if (=alpha $owner $node) (if (rule-application-proof? $proof) true (empty)) (empty))
-                           (empty)))))
-                     ()))))))
+         (not (== (collapse (once (match &sk_wait ($hash $stored (sk-partial $owner $_rule ($_t $_k $proof $_v) $_done $_rest $_keys))
+                     (if (=alpha $stored $child)
+                        (if (=alpha $owner $node) (if (rule-application-proof? $proof) true (empty)) (empty))
+                        (empty)))))
+                  ())))))
 
 ;; A complete statement's search is settled when its general node is
 ;; expanded, so every rule concluding it was started, no rule application of
@@ -1808,12 +1808,12 @@
       ((sk-key $type $kbctx)
          (let* (($node (assemble-stored-runtime-fact $type $kbctx $_proof $_tv))
                 ($hash (sk-node-hash $node)))
-            (if (sk-expanded? $node)
+            (if (sk-expanded? $hash $node)
                (if (== (collapse (once (superpose (
                          (match &sk_deferred_joins ($hash $_jhash $_join) true)
                          (match &sk_deferred ($hash $_rhash $_deferred) true)))))
                        ())
-                  (if (fold-semidet (sk-application-waits? $node) false (sk-children $node)) false true)
+                  (if (fold-semidet (sk-application-waits? $node) false (sk-children $hash $node)) false true)
                   false)
                false)))
       ($_fold false))))
@@ -3037,7 +3037,7 @@
 
 (: backward-query-counter-keys (-[det]-> (List Atom)))
 (= (backward-query-counter-keys)
-   (expansions rows-created rows-deferred joins-deferred row-computes views-stored
+   (expansions nodes-walked rows-created rows-deferred joins-deferred row-computes views-stored
     views-without-support merged-cache-hits merged-cache-misses conditioned-evaluations))
 
 (: sk-counter-reset (-[det]-> Atom Atom Atom))
@@ -3209,13 +3209,13 @@
              (case (copy_term $goal) (
                 ((CPU $_fun $_args $_res) ())
                 (($type $kbctx $_proof $_tv) (install-member-inheritance-rules! $type $kbctx))))))
-      (sk-raise-score! $goal 1.0)))
+      (sk-raise-score! $hash $goal 1.0)))
 
 (: execute-backward
    (-[nondet]-> Number (List (| Goal (Statement KBContext Proof TV))) Bool (List (List RuntimeResult))))
 (= (execute-backward $steps $goals $materialize?)
    (let* (($_seen (remove-data-rows! &sk_seen (quote ($hash $node))))
-          ($_fresh (remove-data-rows! &sk_fresh (quote (sk-fresh $node))))
+          ($_fresh (remove-data-rows! &sk_fresh (quote ($fhash $node))))
           ($_parked (sk-park-deliveries!))
           ($_old-roots (remove-data-rows! &sk_roots (quote ($hash $root))))
           ;; What was stored since the last query is activated before the
@@ -3240,7 +3240,7 @@
           ($_evaluation (change-state! sk_eval_budget (* (sk-evaluation-per-step) $steps)))
           ($_walk (change-state! sk_walk_budget (* (sk-walk-per-step) $steps)))
           ($_pushes (change-state! sk_push_seq 0))
-          ($_search (sk-search! (fold-semidet (sk-push 0) (empty_heap) $goals)))
+          ($_search (sk-walk! $goals))
           ($_unneeded (remove-data-rows! &sk_needed (quote ($hash $key $depth))))
           ($_reserve (change-state! sk_near_reserve 0))
           ($_needed (sk-need-keys! 0 (fold-semidet sk-root-keys-step () $goals)))

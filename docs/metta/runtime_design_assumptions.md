@@ -396,7 +396,9 @@ A query walks the skeleton best-first from its roots. Expanding a new node costs
 one step of the budget; walking through an expanded node spends a separate walk
 allowance of one per step, so revisiting what is already built never takes a
 step from new expansions, and once the allowance is spent expanded nodes are
-passed over while the walk goes on. A node's priority is
+passed over while the walk goes on. The walk enters only nodes whose search
+may still have work (below), so the allowance is spent only on them. A node's
+priority is
 the best value any join waiting on it gives it: the owner's value times the
 rule's expected confidence, shared among the premises still open. Equal scores
 go first to the work of roots already started, shallowest first, and then to
@@ -406,6 +408,49 @@ it cannot pay for are passed over and the walk goes on, so expansions that
 cost no step (below) still complete the joins the paid ones started; the paid
 expansions of a larger budget extend the same prefix. A multi-root query
 shares one budget and one order.
+
+A node's search may still have work while it, or a node below it, is
+unexpanded or holds parked deliveries, deferred joins or deferred rows: the
+only things walking an expanded node does are resuming that work and pushing
+its children. Below any other node everything is expanded and nothing waits,
+so walking it changes nothing; the walk neither pushes nor enters it, and a
+warm query walks only the paths down to work, whatever the size of the
+skeleton. Work appears outside the walk too (a rule or fact activated on an
+existing node starts joins whose premises are new nodes), so the index of
+pending work is kept current where work is created and taken, not by walks:
+
+- Every child link, and every node with work, belongs to a component of
+  the skeleton's cycles. Skeletons are cyclic (inverted rules; a rule's truth
+  reads its instances, whose samples read the consequent the rule derives),
+  and every node of a cycle reaches what any other reaches, so pending is a
+  property of components. The components form an acyclic graph; each
+  counts its nodes' work items (being unexpanded, each parked delivery,
+  deferred join and deferred row) and its pending child components, and is
+  pending while either count is positive. A change of state moves its
+  parents' counts, up to the first parent whose state stays. So the index is
+  exact at every moment, a lookup is a union-find step, and taking the last
+  work of a cycle of any size leaves the whole cycle idle at once
+  (`runtime_helpers.pl`, "Pending work").
+- A child link whose child's component reaches the owner's closes a cycle:
+  the components on the paths from child to owner merge. The test searches
+  forward from the child and backward from the owner, one link each in turn,
+  until one side is exhausted, neither passing the other's start; the other
+  direction, restricted to what the exhausted side found, gives the
+  components to merge. It costs twice the smaller side: a new node has no
+  children and a new root no parents, so linking new work under a large
+  component never reads that component's links.
+- Components only merge: child links leave only with an Assuming query's
+  context, whose nodes form components of their own, which go once all
+  their nodes went.
+
+The index changes which nodes the walk reaches only where the walk allowance
+was spent before: nodes without work no longer spend it, so a walk that ran
+out of allowance on them now reaches work beyond them. Order and answers are
+otherwise the same, apart from equal-score ties broken by push order and
+depth: a node without work is no longer pushed, and new children linked
+during the walk are pushed with the depth of the next node walked (ONA
+matching-to-sample, 10 seeds by 3 tasks: identical scores, desires changed
+in 3 runs; the reasons are in the commit).
 
 Stored facts cost no expansion: a join waiting on a ground fact premise reads
 its facts at once, and whenever more are stored, and a root reads its own
@@ -705,13 +750,15 @@ nondeterminism from overlapping clauses or unstable iteration order.
   remain quadratic within a proof group when none subsumes another. Distinct
   proofs are never compared. Nonground proofs cannot be identical after the
   independent copies used for subsumption and pass through unchanged.
-- A warm query still walks its reachable skeleton and rebuilds the set of keys
-  it needs; repeating a query is not constant time. On ONA's
-  matching-to-sample agent this re-walk, with the needed-key rebuild, is
-  about half of a decision's inference once the hypotheses are built; new
-  expansions and row computations are the rest. The fixed cost of a call
-  outside inference is about 0.2 ms (`PeTTaChainer.timing()` reports the
-  split).
+- A warm query walks only the paths to pending work, but it still rebuilds
+  the set of keys it needs from its roots. The set is relative to the
+  query's roots, which differ from query to query (each decision of ONA's
+  matching-to-sample agent asks about its own trial), and its depths decide
+  what the evaluation computes from the reserve, so keeping it across
+  queries would compute rows no query needs; the rebuild is bounded by the
+  keys within two steps of the roots and the rows never computed below
+  them. The fixed cost of a call outside inference is about 0.2 ms
+  (`PeTTaChainer.timing()` reports the split).
 - Per-cause forcing can accumulate many temporary records. Evaluation resets
   bulk-remove these data rows; consuming a row's pending causes preserves their
   order and retains its used causes until the next evaluation. Stale propagation

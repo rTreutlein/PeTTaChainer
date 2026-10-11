@@ -71,8 +71,6 @@
 (: sk-row-item (-[det]-> Number Number SkeletonKey Number SkeletonRow SkeletonItem))
 ;; a fold to recompute at the end of a pass: fold key hash, fold key
 (: sk-fold-check (-[det]-> Number SkeletonKey SkeletonItem))
-(: SkeletonFresh Type)
-(: sk-fresh (-[det]-> SkPattern SkeletonFresh))
 (: SkeletonDelivery Type)
 (: sk-delivery (-[det]-> SkPattern SkeletonKey SkeletonDelivery))
 ;; a delivery taken off the queue with its number
@@ -110,7 +108,8 @@
 ;; partial joins waiting on a node
 (: &sk_wait (SpaceOf (Number SkPattern SkeletonWaiter)))
 !(bind! &sk_wait (new-space))
-(: &sk_child (SpaceOf (Number SkPattern SkPattern)))
+;; child links: owner hash, owner, child, child hash
+(: &sk_child (SpaceOf (Number SkPattern SkPattern Number)))
 !(bind! &sk_child (new-space))
 (: &sk_row (SpaceOf (Number SkeletonKey Number SkeletonRow)))
 !(bind! &sk_row (new-space))
@@ -172,7 +171,7 @@
 (: ctx-root (-[det]-> Number SkPattern SkeletonContextItem))
 (: ctx-wait (-[det]-> Number SkPattern SkeletonWaiter SkeletonContextItem))
 (: ctx-answer (-[det]-> Number SkPattern SkeletonKey SkeletonContextItem))
-(: ctx-child (-[det]-> Number SkPattern SkPattern SkeletonContextItem))
+(: ctx-child (-[det]-> Number SkPattern SkPattern Number SkeletonContextItem))
 (: ctx-use (-[det]-> Number SkeletonKey SkeletonKey SkeletonContextItem))
 (: ctx-link (-[det]-> Number SkeletonContextItem))
 (: &sk_ctx_items (SpaceOf (Atom SkeletonContextItem)))
@@ -274,8 +273,8 @@
 !(bind! &sk_temp_rows (new-space))
 (: &sk_temp_waits (SpaceOf (Number SkPattern SkeletonWaiter)))
 !(bind! &sk_temp_waits (new-space))
-;; children linked since the walk last looked
-(: &sk_fresh (SpaceOf (sk-fresh SkPattern)))
+;; children linked since the walk last looked, by node hash
+(: &sk_fresh (SpaceOf (Number SkPattern)))
 !(bind! &sk_fresh (new-space))
 ;; each expanded or linked node's search score: the best value a join
 ;; waiting on it assigned

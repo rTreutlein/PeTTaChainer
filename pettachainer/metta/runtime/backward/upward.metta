@@ -194,7 +194,7 @@
    (let* (($folds
              (collapse (match &sk_forward_folds ($hash $fold)
                 (let $_removed (remove-atom &sk_forward_folds ($hash $fold)) $fold))))
-          ($_searched (if (== $folds ()) () (sk-search! (fold-semidet (sk-push 0) (empty_heap) $folds))))
+          ($_searched (if (== $folds ()) () (sk-walk! $folds)))
           ($readers (list_to_set (fold-semidet sk-reader-keys-step () $entries)))
           ($_needed (sk-need-keys! 0 $readers))
           ($_evaluated (sk-evaluate!))
