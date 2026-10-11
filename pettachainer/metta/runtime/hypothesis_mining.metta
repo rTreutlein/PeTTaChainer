@@ -152,7 +152,11 @@
 ;; A candidate is proposed unless it was proposed before, its consequent's
 ;; predicate is positive-only (nothing could refute it), or its consequent
 ;; pattern has no room: a pair at once (the most specific candidates), a
-;; single when it recurs. It is proposed as an STV
+;; single when it recurs. One through a link is not proposed once a live
+;; hypothesis concludes its consequent from its own time point: the present
+;; causes first, the past only for what they leave unexplained (in SupplyNet
+;; a route stays blocked because its region's storm persists, and the
+;; route's own persistence would count the storm's twice). It is proposed as an STV
 ;; when a conjunct of its antecedent stores only true instances (no instance
 ;; where it fails could teach a CTV's negative branch), otherwise as a CTV,
 ;; both at strength 0.5 with the evidence of a hundredth of an observation,
@@ -169,9 +173,10 @@
                    (none true)
                    (($instance $context) (hm-recurs? $kb $hash $rule (the Number $instance) $context))))
                (if (>= $count $max-new) ($count $picked)
-                  (if (>= (size-atom (collapse (match &hm_live ($phash $kb $live $_name $_antecedent $_born)
-                                                (if (=alpha $live $consequent) true (empty)))))
-                          $max-live)
+                  (if (let $live (collapse (match &hm_live ($phash $kb $stored $_name $live-antecedent $_born)
+                                              (if (=alpha $stored $consequent) $live-antecedent (empty))))
+                         (if (>= (size-atom $live) $max-live) true
+                            (if (hm-across? $kb $antecedent) (fold-flat (hm-explained? $kb) false (the (List Atom) $live)) false)))
                      ($count $picked)
                      (let* (($_unseen (remove-data-rows! &hm_seen (quote ($hash $kb $rule $_first $_seen))))
                             ($_tried (add-atom &hm_tried ($hash $kb $rule)))
@@ -188,6 +193,18 @@
                             ($next (+ $count 1)))
                         ($next (cons (: $name $rule $tv) $picked)))))
                ($count $picked))))))
+
+;; Whether an antecedent reads the previous time point through a link.
+(: hm-across? (-[det]-> KB Atom Bool))
+(= (hm-across? $kb $antecedent)
+   (case $antecedent (
+      ((And ($link $_earlier $_later) $_fact) (space-row-present? &hm_link ($kb $link)))
+      ($_other false))))
+
+;; Whether a live hypothesis concludes a pattern from its own time point.
+(: hm-explained? (-[det]-> KB Bool Atom Bool))
+(= (hm-explained? $kb $explained $antecedent)
+   (if $explained true (not (hm-across? $kb $antecedent))))
 
 ;; The candidates proposed from one fact's, at most max-new.
 (: hm-propose! (-[det]-> KB Number Number (List (Atom Atom Atom)) (List AnnotatedStatement)))

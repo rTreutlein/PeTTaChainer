@@ -124,6 +124,27 @@
 !(test (live-hypotheses persistKb)
    ((Implication (And (NextPeriod $_0 $_1) (Storm north $_0)) (Storm north $_1))))
 
+;; The past concludes only what the present's causes leave unexplained: the
+;; route stays blocked because the storm persists, and once the storm
+;; concludes the route the route's own persistence is not proposed.
+!(set-hypothesis-mining markovKb 8 16)
+!(set-predicate-time markovKb Storm 2 0)
+!(set-predicate-time markovKb Blocked 2 1)
+!(set-time-link markovKb NextPeriod)
+(: add-period! (-[det]-> (Atom Atom) Atom))
+(= (add-period! ($previous $period))
+   (let* (($_x (collapse (compileadd markovKb (: (x $period) (NextPeriod $previous $period) (STV 1 1)))))
+          ($_n (collapse (compileadd markovKb (: (n $period) (Storm north $period) (STV 1 1)))))
+          ($_b (collapse (compileadd markovKb (: (b $period) (Blocked r1 $period) (STV 1 1))))))
+      ()))
+!(add-period! (p0 p1))
+!(add-period! (p1 p2))
+!(add-period! (p2 p3))
+!(add-period! (p3 p4))
+!(test (live-hypotheses markovKb)
+   ((Implication (Storm north $_0) (Blocked r1 $_0))
+    (Implication (And (NextPeriod $_1 $_2) (Storm north $_1)) (Storm north $_2))))
+
 ;; A predicate without a declared place in time is not mined.
 !(set-hypothesis-mining untimedKb 8 16)
 !(set-predicate-time untimedKb Storm 2 0)
