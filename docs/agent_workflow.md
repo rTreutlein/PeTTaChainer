@@ -84,9 +84,10 @@ own seeds or write runner scripts.
   stops once the error flattens, and reports the best error each build
   reaches within t seconds.
 - The report goes to
-  `bench/results/compare/<base>_vs_<candidate>_<profile>/report.md`. Its
-  first line is `PASS` or `REGRESSIONS (n): ...`, and the next line says
-  whether any accuracy number changed at all. The header says how many
+  `bench/results/compare/<base>_vs_<candidate>_<profile>/report.md`. Below
+  its title, the verdict is `**PASS**` or `**REGRESSIONS (n): ...**`, and
+  the next line says whether any accuracy number changed at all
+  (`compare.json` beside it has the verdict as data). The header says how many
   runs executed and how many results were reused.
 - Accuracy numbers are deterministic, so any change in them is real, and a
   result that differs from an earlier run of the same code is reported as
@@ -206,6 +207,48 @@ Each of these has cost a debugging session. Most fail silently.
   atoms `f` and `$x`. Bind the list first.
 - A plain `petta file.metta` run skips the strict checks.
   `scripts/test_metta.sh` runs them (`PETTA_STRICT_DET=1`).
+
+## Landing a branch (coordinator)
+
+The coordinator lands a branch with `scripts/land.sh`, run from any checkout
+of the repository; it always works on the main checkout's `master`:
+
+```bash
+scripts/land.sh <branch> [--chainergame <cg-branch>] [--push]
+```
+
+It stops at the first failure and changes nothing before every check has
+passed:
+
+1. It refuses a main checkout that is not on `master` or has uncommitted
+   changes to tracked files (and the same for `ChainerGame-supply` on
+   `supply-network` with `--chainergame`).
+2. It rebases the branch onto `master` in a detached worktree of its own
+   (`.claude/worktrees/land-<branch>`, with a repointed `.venv`). On a
+   conflict it prints the conflicted files, aborts the rebase and stops: the
+   agent rebases, nobody resolves conflicts by hand here.
+3. With `--chainergame`, it merges the ChainerGame branch into
+   `supply-network` in a detached worktree (`ChainerGame-land-<branch>`;
+   no rebase, fast-forward or merge commit), stopping the same way on a
+   conflict.
+4. It runs `scripts/verify.sh` through `capped --slots 8`.
+5. With `--chainergame`, it runs the ChainerGame tests
+   (`PYTHONPATH=src <ChainerGame-problog>/.venv-problog/bin/python -m pytest
+   -q tests`) and the live SupplyNet tests
+   (`SUPPLYNET_LIVE_PETTACHAINER=1`, the rebased PeTTaChainer's `.venv`
+   running `unittest tests.test_supplynet`).
+6. It runs `compare.sh master <rebased> --full` and stops unless the report
+   says `PASS`, printing the summary either way.
+7. Only with `--push`: it fast-forwards `master` (and `supply-network`),
+   pushes both to `origin`, then removes each landed branch's worktree
+   (`git worktree remove`, which keeps a worktree with uncommitted or
+   untracked files) and deletes the branch, each only after
+   `git merge-base --is-ancestor` shows the target contains it.
+
+Without `--push` it is a dry run: every check runs, and it prints the
+commands it would run instead of landing. Its own worktrees are removed on
+every exit. Logs go to `.claude/land-logs/<branch>-<time>/` in the main
+checkout.
 
 ## Hand-back report
 
