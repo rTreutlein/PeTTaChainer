@@ -94,10 +94,10 @@
 !(test (let (: $p $t $tv) (query 0 hypKb (: $p (B new) $tv)) $tv) (STV 0.796969696969697 0.6689189187913668))
 
 ;; Two hypotheses confirmed from the same cases, through correlated
-;; antecedents. Each learns the single hypothesis's truth, but applied
-;; together their views revise as independent and count the cases twice
-;; (open, docs/metta/hypothesis_rules.md, gap 5): the truths are estimated
-;; from the same outcomes, which their views do not carry as evidence.
+;; antecedents. Each learns the single hypothesis's truth; their samples are
+;; the same observations of the same consequents, so applied together they
+;; are one view, not two that revise (docs/metta/hypothesis_rules.md, gap 5;
+;; before: confidence 0.802, the cases counted twice).
 !(set-rule-refinement ovKb true)
 !(compileadd ovKb (: hA (Implication (A $x) (C $x)) (STV 0.5 0.02)))
 !(compileadd ovKb (: hB (Implication (B $x) (C $x)) (STV 0.5 0.02)))
@@ -170,7 +170,7 @@
 !(test (let (: $p $t $tv) (query 50 ovKb (: $p (RuleTruth (Implication (B $x) (C $x))) $tv)) $tv)
    (STV 0.796969696969697 0.6689189189189189))
 !(test (let (: $p $t $tv) (query 200 ovKb (: $p (C new) $tv)) $tv)
-   (STV 0.796969696969697 0.8016194330844677))
+   (STV 0.796969696969697 0.6689189187602788))
 
 ;; Refined trust rules, one per source, learned from ten labelled claims each
 ;; (ChainerGame's conflicting sources, in small; test_certain_merge.metta has

@@ -141,6 +141,10 @@
 !(bind! &sk_instance_tally (new-space))
 (: &sk_instance_member (SpaceOf (Number Number SkeletonKey Number InstanceEvidenceState)))
 !(bind! &sk_instance_member (new-space))
+;; An implication instance fold's digest of its samples, by fold hash
+;; (sk-instance-digest!).
+(: &sk_instance_digest (SpaceOf (Number Number)))
+!(bind! &sk_instance_digest (new-space))
 ;; A change detector: the log Bayes factor it declares a change at, the
 ;; current run, and per branch the run the tally starts at, the run the recent
 ;; samples start at, their evidence and the log Bayes factor for their having

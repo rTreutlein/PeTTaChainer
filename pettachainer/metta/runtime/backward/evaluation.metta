@@ -644,7 +644,12 @@
                          (if $overlap
                             (if $apart (if (== $shared ()) (if (fold-flat sk-observation-step false (evidence-shared-facts $cmp-a $cmp-b)) false true) false) false)
                             true))
-                      ($factored (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b $independent)))
+                      ($twins
+                         (if $independent
+                            (if (rule-application-proof? $proof-a) (if (rule-application-proof? $proof-b) (sk-sample-twins? $deps-a $deps-b) false) false)
+                            false))
+                      ($factored (if $twins sk-none (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b $independent))))
+                  (if $twins (sk-paired (if (>= (term-confidence $a) (term-confidence $b)) (sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b)))
                   (if (not (== $factored sk-none)) (sk-paired $factored)
                      (if $independent
                         (let* (($pooled (evidence-union $ev-a $ev-b))
@@ -660,7 +665,50 @@
                               (sk-overlap $shared (deps-union $deps-a $deps-b)
                                  (if (>= (term-confidence $a) (term-confidence $b))
                                     (sk-val $a $ev-a $deps-a)
-                                    (sk-val $b $ev-b $deps-b)))))))))))))))
+                                    (sk-val $b $ev-b $deps-b))))))))))))))))
+
+;; Two applications of different refined rules whose truths were folded from
+;; the same samples, each the same observation of the same consequent, are
+;; one estimate from one sample applied twice: the history never told their
+;; antecedents apart, so their views count the same outcomes twice (two
+;; hypotheses confirmed through perfectly correlated antecedents,
+;; docs/metta/hypothesis_rules.md, gap 5). They are one view, the more
+;; confident. The samples are compared by their folds' digests.
+(: sk-sample-twins? (-[semidet]-> Number Number Bool))
+(= (sk-sample-twins? $deps-a $deps-b)
+   (case (sk-truth-digests $deps-a) (
+      ((cons (sk-digest $truth-a $digest-a) ())
+         (case (sk-truth-digests $deps-b) (
+            ((cons (sk-digest $truth-b $digest-b) ()) (if (== $truth-a $truth-b) false (if (== $digest-a 0) false (== $digest-a $digest-b))))
+            ($_other false))))
+      ($_other false))))
+
+;; The refined rule truths a view depends on, each with its instance fold's
+;; digest; a truth registered for a rule and its axiom counts once.
+(: SkeletonDigest Type)
+(: sk-digest (-[det]-> Number Number SkeletonDigest))
+(: sk-truth-digests (-[semidet]-> Number (List SkeletonDigest)))
+(= (sk-truth-digests $deps)
+   (list_to_set (collapse (match &sk_rule_truth ($_id $truth $_type $_kbctx)
+      (if (deps-has? $deps $truth)
+         (sk-digest $truth
+            (fold-semidet sk-fold-digest-step 0
+               (collapse (match &sk_row ($truth $_stored $_rhash (sk-row $_ident $_concl $premises $_seq)) $premises))))
+         (empty))))))
+
+(: sk-fold-digest-step (-[det]-> Number (List SkPattern) Number))
+(= (sk-fold-digest-step $digest $premises) (fold-flat sk-premise-digest-step $digest $premises))
+
+(: sk-premise-digest-step (-[det]-> Number SkPattern Number))
+(= (sk-premise-digest-step $digest $premise)
+   (case $premise (
+      ((CPU FoldAllCompiled $args $_res)
+         (if (sk-instance-fold? $args)
+            (case (collapse (once (match &sk_instance_digest ((index-hash (sk-fold $args)) $stored) $stored))) (
+               ((cons $found $_rest) $found)
+               (() $digest)))
+            $digest))
+      ($_other $digest))))
 
 ;; A rule application reading a proper superset of the facts another rule's
 ;; application to the same statement reads (`more-specific-application?`) is
@@ -1353,16 +1401,36 @@
                    ($_none $start)))))
           ($none (fa-instance-acc $start))
           ($tally (sk-instance-tally $hash $fold $none))
-          ($change (sk-instance-change $hash $kb)))
+          ($change (sk-instance-change $hash $kb))
+          ($found
+             (collapse (once (match &sk_instance_member ($mhash $hash $stored $was-run $contribution)
+                (if (=alpha $stored $member) (instance-take $contribution $change $was-run) (empty))))))
+          ($_digest (sk-instance-digest! $hash $member $found $new)))
       (sk-instance-store! $hash $fold $mhash $member $tally $change $new
-         (case (collapse (once (match &sk_instance_member ($mhash $hash $stored $was-run $contribution)
-                  (if (=alpha $stored $member) (instance-take $contribution $change $was-run) (empty))))) (
+         (case $found (
             ((cons (instance-take $old $_change $was-run) $_more)
                (let $_replaced (remove-variant-row! &sk_instance_member (quote ($mhash $hash $member $was-run $old)))
                   (case $old (
                      ((InstanceEvidence (BaseRateEvidence $_pw 0.0) (BaseRateEvidence $_nw 0.0)) (sk-change-first $old $tally $change $new))
                      ($_sample (sk-change-replace $was-run $tally $change $old $new))))))
             (() (let $_reads (sk-instance-reads! $hash $mhash $member) (sk-change-first $none $tally $change $new))))))))
+
+;; A fold's digest sums a signature of each member's consequent and
+;; contribution, so two folds have equal digests when their samples are the
+;; same observations of the same consequents (sk-sample-twins?).
+(: SkeletonSampleSig Type)
+(: sk-sample-sig (-[det]-> Atom InstanceEvidenceState SkeletonSampleSig))
+(: sk-instance-digest! (-[det]-> Number SkeletonKey (List InstanceTake) InstanceEvidenceState Atom))
+(= (sk-instance-digest! $hash $member $old $new)
+   (case $member (
+      ((sk-key (ImplicationInstanceSample $_a $b $_atv $_btv) $_kbctx)
+         (let* (($was (case (collapse (once (match &sk_instance_digest ($hash $stored) $stored))) (((cons $d $_rest) $d) (() 0))))
+                ($taken (case $old (((cons (instance-take $contribution $_change $_run) $_none) (index-hash (sk-sample-sig $b $contribution))) (() 0))))
+                ($digest (+ (- $was $taken) (index-hash (sk-sample-sig $b $new))))
+                ($_old (remove-data-rows! &sk_instance_digest (quote ($hash $_d))))
+                ($_new (add-atom &sk_instance_digest ($hash $digest))))
+            ()))
+      ($_other ()))))
 
 (: sk-instance-store!
    (-[det]-> Number SkeletonKey Number SkeletonKey InstanceEvidenceState InstanceChangeState InstanceEvidenceState
