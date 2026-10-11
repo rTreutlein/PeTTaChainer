@@ -525,7 +525,16 @@ per query or per change.
 
 Evaluation is bounded too. A needed key records its depth, the fewest rows or
 folds between it and a root, found breadth first so each key is reached at its
-least depth on its first visit. The rows and folds of keys within two such
+least depth on its first visit. The members a base-rate or instance fold has
+yet to take are visited after every key reached otherwise, one level past the
+deepest: such a fold estimates a population, so each member moves its readers
+by one member's share, and a member on a path the roots read through keeps
+that path's depth. Counted one step below the fold, a base rate near a root
+put its whole population, every past observation of the pattern, two steps
+from the root, and the history rows reading the rate took the allowance
+before the periods nearest the present (SupplyNet stage 2 b100 seeds 1 and 2:
+error 0 to 0.00006 and 0.0004; scale m spq16 0.0009 to 0.0011 on seed 1).
+The rows and folds of keys within two such
 steps are computed at any budget, from a reserve the need fills with eight
 computations for each one it reaches there; what the reserve cannot pay for,
 and every deeper row, spends an allowance of two computations per step, and

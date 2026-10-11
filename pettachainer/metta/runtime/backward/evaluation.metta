@@ -2843,7 +2843,7 @@
 ;; earlier queries' rows cost nothing per query or per change.
 
 ;; Signatures of the mutually recursive functions below.
-(: sk-need! (-[semidet]-> Number (List SkeletonKey) SkeletonKey (List SkeletonKey)))
+(: sk-need! (-[semidet]-> Number SkeletonNeed SkeletonKey SkeletonNeed))
 (: sk-stale-key! (-[det]-> SkeletonKey Atom))
 
 (: sk-needed? (-[det]-> Number SkeletonKey Bool))
@@ -2889,8 +2889,8 @@
           ($_linked (fold-semidet (sk-add-reader! $khash $rhash) () $keys)))
       ()))
 
-(: sk-need-row! (-[semidet]-> Number (List SkeletonKey) SkeletonItem (List SkeletonKey)))
-(= (sk-need-row! $depth $next (sk-row-item $_seq $khash $key $rhash (sk-row $_ident $_concl $premises $_s)))
+(: sk-need-row! (-[semidet]-> Number SkeletonNeed SkeletonItem SkeletonNeed))
+(= (sk-need-row! $depth (sk-need-next $next $members) (sk-row-item $_seq $khash $key $rhash (sk-row $_ident $_concl $premises $_s)))
    (let* (($_reserve (sk-reserve-near! (- $depth 1)))
           ($near (<= $depth (+ (sk-evaluation-free-depth) 1)))
           ($unseen
@@ -2911,8 +2911,8 @@
              (if (<= $depth (sk-evaluation-free-depth)) true
                 (if $unseen true
                    (not (== (collapse (once (match &sk_given_pending ($khash $rhash $_cost) true))) ())))))
-         (fold-semidet sk-direct-key-step $next $premises)
-         $next)))
+         (sk-need-next (fold-semidet sk-direct-key-step $next $premises) $members)
+         (sk-need-next $next $members))))
 
 ;; The need from a query's roots, or from the keys a forward wave takes.
 (: sk-need-roots! (-[semidet]-> (List SkeletonKey) Atom))
@@ -2925,25 +2925,44 @@
 ;; deeper visit first, then a closer one passing the smaller depth on, walked
 ;; a chain of inverted rules once per key below it (ChainerGame
 ;; benchmarks/ona/repros/term_growing_rule.metta: 90% of the query).
-(: sk-need-keys! (-[semidet]-> Number (List SkeletonKey) Atom))
-(= (sk-need-keys! $depth $keys)
-   (if (== $keys ()) ()
-      (sk-need-keys! (+ $depth 1) (fold-semidet sk-cons-step () (fold-semidet (sk-need! $depth) () $keys)))))
+;;
+;; The members a base-rate or instance fold has yet to take are visited after
+;; every key reached otherwise, one level past the deepest. Such a fold
+;; estimates a population, so a member moves what its readers read by one
+;; member's share, and a member reached otherwise keeps the depth of that
+;; path: a fold one step from a root otherwise puts its whole population,
+;; every past observation of the pattern, two steps from it, where its rows
+;; take the allowance before the rows of the paths the roots read through
+;; (SupplyNet stage 2 b100 s2: the history rows reading the base rate took the
+;; allowance from the periods nearest the present, error 0 to 0.0004).
+;; keys one level further, members of statistical folds
+(: SkeletonNeed Type)
+(: sk-need-next (-[det]-> (List SkeletonKey) (List SkeletonKey) SkeletonNeed))
 
-(= (sk-need! $depth $next $key)
+(: sk-need-keys! (-[semidet]-> Number (List SkeletonKey) Atom))
+(= (sk-need-keys! $depth $keys) (sk-need-level! $depth $keys ()))
+
+(: sk-need-level! (-[semidet]-> Number (List SkeletonKey) (List SkeletonKey) Atom))
+(= (sk-need-level! $depth $keys $members)
+   (if (== $keys ())
+      (if (== $members ()) () (sk-need-level! $depth $members ()))
+      (case (fold-semidet (sk-need! $depth) (sk-need-next () $members) $keys) (
+         ((sk-need-next $next $later) (sk-need-level! (+ $depth 1) (fold-semidet sk-cons-step () $next) $later))))))
+
+(= (sk-need! $depth $need $key)
    (let $hash (index-hash $key)
-      (if (sk-needed? $hash $key) $next
+      (if (sk-needed? $hash $key) $need
          (let* (($_new (add-atom &sk_needed ($hash $key $depth)))
                 ($_touched (sk-touch-key! $hash $key)))
-            (sk-need-below! $depth $hash $key $next)))))
+            (sk-need-below! $depth $hash $key $need)))))
 
 ;; What a needed key reads: its rows' premise keys, or the members of a fold
 ;; or group; a base-rate fold takes its changed members.
-(: sk-need-below! (-[semidet]-> Number Number SkeletonKey (List SkeletonKey) (List SkeletonKey)))
-(= (sk-need-below! $depth $hash $key $next)
+(: sk-need-below! (-[semidet]-> Number Number SkeletonKey SkeletonNeed SkeletonNeed))
+(= (sk-need-below! $depth $hash $key (sk-need-next $next $members))
    (case $key (
       ((sk-key $_type $_kbctx)
-         (fold-semidet (sk-need-row! (+ $depth 1)) $next
+         (fold-semidet (sk-need-row! (+ $depth 1)) (sk-need-next $next $members)
             (collapse (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
                (if (=alpha $stored $key)
                   (sk-row-item $seq $hash $stored $rhash (sk-row $ident $concl $premises $seq))
@@ -2954,18 +2973,18 @@
             (let $changed
                (collapse (match &sk_rate_dirty ($hash $_mhash $fold $joined)
                   (if (=alpha $fold $key) $joined (empty))))
-               (if (== $changed ()) $next
+               (if (== $changed ()) (sk-need-next $next $members)
                   (let* (($_taken (sk-rate-take! $hash (the ScalarFoldSpec $args)))
                          ($_dirty (sk-mark-dirty! $key)))
-                     (fold-semidet sk-cons-step $next $changed))))
+                     (sk-need-next $next (fold-semidet sk-cons-step $members $changed)))))
             (case (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) (
-               ((cons $member $_rest) (fold-semidet sk-cons-step $next (sk-answers $member)))
-               (() $next))))))
+               ((cons $member $_rest) (sk-need-next (fold-semidet sk-cons-step $next (sk-answers $member)) $members))
+               (() (sk-need-next $next $members)))))))
       ((sk-group $group-args)
          (let $_reserve (sk-reserve-near! $depth)
             (case (sk-group-members $key $group-args) (
-               ((sk-group-found $_member $members) (fold-semidet sk-cons-step $next $members))
-               (sk-group-missing $next))))))))
+               ((sk-group-found $_member $found) (sk-need-next (fold-semidet sk-cons-step $next $found) $members))
+               (sk-group-missing (sk-need-next $next $members)))))))))
 
 ;; A row or fold within two steps of a root adds to a query's reserve (see
 ;; sk-work-pop!); a forward run has none.
