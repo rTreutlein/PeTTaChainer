@@ -56,6 +56,14 @@ changes. See `runtime_design_assumptions.md` for the contracts.
 | `(chainer-many $steps $goals)` / `(chainer-many-materialize $steps $goals)` | Lower-level multi-root variants over compiled goals; return one result list per input goal. Duplicate and common subgoals share their skeleton nodes. |
 | `(compileQuery $kb (: $prf $Type $tv))` / `(mm2compileQuery $kb $stmt)` | Compile a query without running it. `compileQuery` returns `(compilation-plan goal additions)`; `mm2compileQuery` returns the runtime-encoded equivalent. Advanced. |
 
+## Timing
+
+| Function | Meaning |
+|---|---|
+| `PeTTaChainer.timing()` (Python) | Process-wide seconds of the chainer calls made so far (adding, querying, forward chaining, expanding proofs): `wall` as the caller sees them, the `inference` within them (activating what was added, search and evaluation of queries, forward runs) and `overhead`, the rest (the Python layer, reading the call, compiling queries, their temporary additions, reading and printing results, storing statements), with the number of `calls`. Differences of two readings time a span. It costs two clock reads per query and nothing per call to Python; a query run in a timed subprocess counts as overhead. With query metrics on, each record also carries `inference_seconds` and `overhead_seconds`. |
+
+Python's add, query and expand calls pass their arguments to the chainer function directly when they are data; an argument holding a call (`(STV (/ 1 2) 0.9)`) or a lambda is evaluated first, as a MeTTa runnable evaluates it.
+
 ## Existential rules and witness views
 
 An explicit conclusion such as

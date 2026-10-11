@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 import multiprocessing as mp
@@ -39,7 +40,8 @@ def get_language_spec(llm_focused: bool = True) -> str:
 def _query_worker(
     added_atoms: List[str],
     kb: str,
-    expression: str,
+    fn: str,
+    source: str,
     logic_config_path: Optional[str],
     evidence_confidence_k: float,
     bayes_prior_count: float,
@@ -65,8 +67,7 @@ def _query_worker(
             handler.set_hypothesis_mining(*hypothesis_mining)
         if added_atoms:
             handler.add_atoms_no_check(added_atoms)
-        atoms = handler.handler.process_metta_string(f"!({expression})")
-        conn.send(("ok", atoms))
+        conn.send(("ok", handler._call(fn, [source])))
     except Exception as exc:  # pragma: no cover
         conn.send(("err", (exc.__class__.__name__, str(exc), traceback.format_exc())))
     finally:
@@ -75,6 +76,25 @@ def _query_worker(
 
 def _as_list(value) -> List[str]:
     return [value] if isinstance(value, str) else value
+
+
+# Process-wide wall seconds and count of chainer calls (PeTTaChainer.timing).
+_call_wall_seconds = 0.0
+_call_count = 0
+
+
+def _timed(method):
+    """Count a chainer call's wall time towards ``PeTTaChainer.timing``."""
+    @functools.wraps(method)
+    def timed(*args, **kwargs):
+        global _call_wall_seconds, _call_count
+        started = time.perf_counter()
+        try:
+            return method(*args, **kwargs)
+        finally:
+            _call_wall_seconds += time.perf_counter() - started
+            _call_count += 1
+    return timed
 
 
 class Answer(NamedTuple):
@@ -179,6 +199,38 @@ class PeTTaChainer:
         """Load a caller-owned MeTTa module into this runtime."""
         return self.handler.load_metta_file(str(Path(path).expanduser().resolve()))
 
+    @staticmethod
+    def _call(fn: str, sources: Sequence[str]) -> List[str]:
+        """The results, as MeTTa text, of the chainer function ``fn`` applied
+        to the arguments each of ``sources`` reads as, in order: what
+        ``!(fn args)`` returns, without compiling a runnable for it."""
+        import janus_swi
+
+        return janus_swi.query_once(
+            "metta_call_text(Fn, Sources, Results)", {"Fn": fn, "Sources": list(sources)}
+        )["Results"]
+
+    @staticmethod
+    def timing() -> dict[str, float]:
+        """Process-wide seconds of the chainer calls made so far (adding,
+        querying, forward chaining, expanding proofs): ``wall`` as the caller
+        sees them, the ``inference`` within them (activating what was added,
+        search and evaluation of queries, forward runs) and ``overhead``, the
+        rest (the Python layer, reading the call, compiling queries, their
+        temporary additions, reading and printing results, storing
+        statements), with the number of ``calls``. A query run in a timed
+        subprocess counts as overhead. Take differences between two readings
+        to time a span."""
+        import janus_swi
+
+        inference = float(janus_swi.query_once("inference_seconds(S)")["S"])
+        return {
+            "calls": _call_count,
+            "wall": _call_wall_seconds,
+            "inference": inference,
+            "overhead": _call_wall_seconds - inference,
+        }
+
     def _evaluate(self, atom: str) -> str:
         result = self.handler.process_metta_string(f"!(eval {atom})")
         if isinstance(result, list):
@@ -259,17 +311,21 @@ class PeTTaChainer:
             record_metrics = False
         if record_metrics:
             self.handler.process_metta_string("!(begin-backward-query-metrics!)")
+            inference_before = self.timing()["inference"]
         started = time.perf_counter()
         yield
         if not record_metrics:
             return
         wall_seconds = time.perf_counter() - started
+        inference_seconds = self.timing()["inference"] - inference_before
         self.handler.process_metta_string("!(end-backward-query-metrics!)")
         record: dict[str, object] = {
             "kind": kind,
             "roots": roots,
             "steps": steps,
             "wall_seconds": wall_seconds,
+            "inference_seconds": inference_seconds,
+            "overhead_seconds": wall_seconds - inference_seconds,
         }
         record.update(self._read_query_metrics())
         self._last_query_metrics = record
@@ -405,9 +461,10 @@ class PeTTaChainer:
             f"!(review-hypotheses {int(steps)} {self.kb} {goal})"
         ))
 
-    def add_atom(self, atom: str) -> str:
+    @_timed
+    def add_atom(self, atom: str) -> List[str]:
         self._validate("statement", atom, atom, check_stmt)
-        result = self.handler.process_metta_string(f"!(compileadd {self.kb} {atom})")
+        result = self._call("compileadd", [f"{self.kb} {atom}"])
         self._added_atoms.append(atom)
         return result
 
@@ -434,11 +491,9 @@ class PeTTaChainer:
         ]
         return result
 
-    def add_atoms_no_check(self, atoms: List[str]) -> str:
-        adds = [f"(compileadd {self.kb} {atom})" for atom in atoms]
-        result = self.handler.process_metta_string(
-            f"!(superpose ({' '.join(adds)}))"
-        )
+    @_timed
+    def add_atoms_no_check(self, atoms: List[str]) -> List[str]:
+        result = self._call("compileadd", [f"{self.kb} {atom}" for atom in atoms])
         self._added_atoms.extend(atoms)
         return result
 
@@ -494,6 +549,7 @@ class PeTTaChainer:
             )
         ]
 
+    @_timed
     def forward_chain(self, facts: str | Sequence[str], steps: int = 100) -> List[str]:
         """Forward-chain from KB facts and return the derived facts it built on.
 
@@ -511,13 +567,11 @@ class PeTTaChainer:
             "(superpose $changed))"
         )
 
-    def _run_query_expression(
-        self, expression: str, timeout_sec: Optional[float]
+    def _run_query(
+        self, fn: str, source: str, timeout_sec: Optional[float]
     ) -> List[str]:
         if timeout_sec is None or timeout_sec <= 0:
-            return _as_list(
-                self.handler.process_metta_string(f"!({expression})")
-            )
+            return self._call(fn, [source])
 
         main_file = getattr(__main__, "__file__", None)
         if not main_file or main_file == "<stdin>":
@@ -525,9 +579,7 @@ class PeTTaChainer:
                 "Multiprocessing query timeout is unavailable from %s; running query without a timeout",
                 main_file or "interactive __main__",
             )
-            return _as_list(
-                self.handler.process_metta_string(f"!({expression})")
-            )
+            return self._call(fn, [source])
 
         # Use a fresh spawned process so we don't inherit a live SWI/Janus runtime.
         ctx = mp.get_context("spawn")
@@ -537,7 +589,8 @@ class PeTTaChainer:
             args=(
                 self._added_atoms,
                 self.kb,
-                expression,
+                fn,
+                source,
                 str(self._logic_config_path) if self._logic_config_path else None,
                 self._evidence_confidence_k,
                 self._bayes_prior_count,
@@ -565,12 +618,13 @@ class PeTTaChainer:
                 raise RuntimeError("PeTTa query worker exited without returning a result")
             status, payload = parent_conn.recv()
             if status == "ok":
-                return _as_list(payload)
+                return payload
             err_type, err_msg, err_tb = payload
             raise RuntimeError(f"PeTTa query worker failed [{err_type}]: {err_msg}\n{err_tb}")
         finally:
             parent_conn.close()
 
+    @_timed
     def query(self, atom: str, steps: int = 100, timeout_sec: Optional[float] = 10) -> List[str]:
         self._validate("query", atom, atom, check_query)
         with self._query_metrics(
@@ -579,10 +633,9 @@ class PeTTaChainer:
             steps=steps,
             timeout_sec=timeout_sec,
         ):
-            return self._run_query_expression(
-                f"query {steps} {self.kb} {atom}", timeout_sec
-            )
+            return self._run_query("query", f"{steps} {self.kb} {atom}", timeout_sec)
 
+    @_timed
     def query_many(
         self,
         atoms: Sequence[str],
@@ -599,10 +652,6 @@ class PeTTaChainer:
             return []
         for atom in queries:
             self._validate("query", atom, atom, check_query)
-        expression = (
-            f"query-many {steps} {self.kb} "
-            f"({' '.join(queries)})"
-        )
         with self._query_metrics(
             kind="query_many",
             roots=len(queries),
@@ -610,10 +659,11 @@ class PeTTaChainer:
             timeout_sec=timeout_sec,
         ):
             return _group_query_many_results(
-                self._run_query_expression(expression, timeout_sec),
+                self._run_query("query-many", f"{steps} {self.kb} ({' '.join(queries)})", timeout_sec),
                 len(queries),
             )
 
+    @_timed
     def query_many_refs(
         self,
         atoms: Sequence[str],
@@ -631,10 +681,6 @@ class PeTTaChainer:
             return []
         for atom in queries:
             self._validate("query", atom, atom, check_query)
-        expression = (
-            f"query-many-refs {steps} {self.kb} "
-            f"({' '.join(queries)})"
-        )
         import janus_swi
 
         with self._query_metrics(
@@ -644,20 +690,21 @@ class PeTTaChainer:
             timeout_sec=None,
         ):
             rows = janus_swi.query_once(
-                "metta_result_terms(Code, Results)", {"Code": f"!({expression})"}
+                "metta_call_terms(Fn, Sources, Results)",
+                {"Fn": "query-many-refs", "Sources": [f"{steps} {self.kb} ({' '.join(queries)})"]},
             )["Results"]
         grouped: List[List[Answer]] = [[] for _ in queries]
         for _, index, (_, proof, statement, tv) in rows:
             grouped[index].append(Answer(proof, statement, tv))
         return grouped
 
+    @_timed
     def expand_proof(self, proof) -> str:
         """The full proof of an ``Answer``'s proof, each shared subproof
         printed once."""
-        return _as_list(
-            self.handler.process_metta_string(f"!(expand-proof {_metta_text(proof)})")
-        )[0]
+        return self._call("expand-proof", [_metta_text(proof)])[0]
 
+    @_timed
     def query_many_materialization(
         self,
         atoms: Sequence[str],
@@ -677,11 +724,7 @@ class PeTTaChainer:
             return []
         for atom in queries:
             self._validate("query", atom, atom, check_query)
-        expression = (
-            f"query-many-materialize {steps} {self.kb} "
-            f"({' '.join(queries)})"
-        )
-        rows = _as_list(self.handler.process_metta_string(f"!({expression})"))
+        rows = self._call("query-many-materialize", [f"{steps} {self.kb} ({' '.join(queries)})"])
         return _group_query_many_results(rows, len(queries))
 
     language_spec = staticmethod(get_language_spec)

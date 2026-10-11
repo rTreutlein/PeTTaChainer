@@ -3235,6 +3235,7 @@
           ;; the search needs, and the allowance bounds what new facts set off
           ;; through recursive rules. Deliveries beyond it are made from the
           ;; query's allowance (docs/metta/fact_absorption.md).
+          ($started (inference-clock))
           ($_absorbing (change-state! sk_row_budget (* 10 (+ (length (collapse (match &sk_pending_facts $fact $fact))) $steps))))
           ($_facts (sk-activate-facts!))
           ($_scored (fold-semidet sk-root-score-step () $goals))
@@ -3250,6 +3251,7 @@
           ($_reserve (change-state! sk_near_reserve 0))
           ($_needed (sk-need-keys! 0 (fold-semidet sk-root-keys-step () $goals)))
           ($_evaluated (sk-evaluate!))
+          ($_inferred (inference-add! $started))
           ($results (map-semidet (sk-root-results $materialize?) $goals))
           ($_temp (sk-clear-temp!)))
       $results))

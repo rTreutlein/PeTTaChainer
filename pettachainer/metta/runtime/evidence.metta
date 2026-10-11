@@ -115,12 +115,9 @@
 (= (add-space-atom! $space $row)
    (add-atom $space $row))
 
+;; A counter's value, 0 before it is set (runtime_helpers.pl): read on every
+;; search step, so kept native.
 (: search-id-value (-[det]-> CounterKey Number))
-(= (search-id-value $key)
-   (let $state-values (collapse (catch (get-state $key)))
-      (if (== $state-values ())
-         0
-         (if-error-number (car-atom $state-values) 0))))
 
 (: next-search-id (-[det]-> CounterKey Number))
 (= (next-search-id $key)

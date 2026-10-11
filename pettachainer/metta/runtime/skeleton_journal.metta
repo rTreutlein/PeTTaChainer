@@ -336,6 +336,10 @@
 
 ;; --- Query metrics ------------------------------------------------------------
 
+;; Inference time, process-wide (runtime_helpers.pl); reasoning never reads it.
+(: inference-clock (-[det]-> Number))
+(: inference-add! (-[det]-> Number Bool))
+
 ;; Opt-in diagnostic counters kept natively; reasoning never reads them.
 (: query_metrics_enabled (-[det]-> Bool))
 (: query_metrics_set_enabled (-[det]-> Bool Bool))

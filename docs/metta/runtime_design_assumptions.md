@@ -706,7 +706,12 @@ nondeterminism from overlapping clauses or unstable iteration order.
   proofs are never compared. Nonground proofs cannot be identical after the
   independent copies used for subsumption and pass through unchanged.
 - A warm query still walks its reachable skeleton and rebuilds the set of keys
-  it needs; repeating a query is not constant time.
+  it needs; repeating a query is not constant time. On ONA's
+  matching-to-sample agent this re-walk, with the needed-key rebuild, is
+  about half of a decision's inference once the hypotheses are built; new
+  expansions and row computations are the rest. The fixed cost of a call
+  outside inference is about 0.2 ms (`PeTTaChainer.timing()` reports the
+  split).
 - Per-cause forcing can accumulate many temporary records. Evaluation resets
   bulk-remove these data rows; consuming a row's pending causes preserves their
   order and retains its used causes until the next evaluation. Stale propagation

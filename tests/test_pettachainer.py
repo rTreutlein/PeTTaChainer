@@ -265,6 +265,36 @@ class TestPeTTaChainer(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     PeTTaChainer._parse_query_metric_rows(rows)
 
+    def test_timing_splits_call_time_into_inference_and_overhead(self):
+        handler = PeTTaChainer()
+        before = handler.timing()
+        handler.add_atoms_no_check([
+            "(: timing_fact (TimingA a) (STV 0.9 0.9))",
+            "(: timing_rule (Implication (TimingA $x) (TimingB $x)) (STV 0.8 0.9))",
+        ])
+        handler.query_many_refs(["(: $prf (TimingB a) $tv)"], steps=10)
+        after = handler.timing()
+
+        self.assertEqual(after["calls"] - before["calls"], 2)
+        inference = after["inference"] - before["inference"]
+        wall = after["wall"] - before["wall"]
+        self.assertGreater(inference, 0.0)
+        self.assertLess(inference, wall)
+        self.assertAlmostEqual(after["overhead"], after["wall"] - after["inference"])
+
+    def test_arguments_with_calls_are_evaluated_before_the_chainer_runs(self):
+        handler = PeTTaChainer()
+        handler.add_atoms_no_check(["(: evaluated_tv (EvaluatedP (+ 1 2)) (STV (/ 1 2) 0.9))"])
+
+        self.assertEqual(
+            handler.query("(: $prf (EvaluatedP 3) $tv)", steps=0, timeout_sec=0),
+            ["(: evaluated_tv (EvaluatedP 3) (STV 0.5 0.9))"],
+        )
+        self.assertEqual(
+            handler.query("(: $prf (EvaluatedP (- 4 1)) $tv)", steps=0, timeout_sec=0),
+            ["(: evaluated_tv (EvaluatedP 3) (STV 0.5 0.9))"],
+        )
+
     def test_query_and_query_many_record_the_same_metric_schema(self):
         handler = PeTTaChainer()
         handler.add_atom("(: metric_schema (MetricSchema) (STV 1.0 1.0))")
@@ -289,6 +319,11 @@ class TestPeTTaChainer(unittest.TestCase):
         self.assertEqual(batch_metrics["steps"], 3)
         self.assertGreaterEqual(single_metrics["wall_seconds"], 0.0)
         self.assertGreaterEqual(batch_metrics["wall_seconds"], 0.0)
+        self.assertGreater(single_metrics["inference_seconds"], 0.0)
+        self.assertAlmostEqual(
+            single_metrics["overhead_seconds"],
+            single_metrics["wall_seconds"] - single_metrics["inference_seconds"],
+        )
 
     def test_no_check_ingestion_rejects_malformed_tv_loudly(self):
         handler = PeTTaChainer()
