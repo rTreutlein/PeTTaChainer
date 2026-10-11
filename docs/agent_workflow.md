@@ -100,6 +100,21 @@ own seeds or write runner scripts.
 
 See `bench/README.md` for the suites, thresholds and the admission pool.
 
+## Spending time well
+
+Agents have spent about half their wall time waiting on jobs and a sixth on
+benchmark and probe runs. Most of both is avoidable:
+
+- Iterate on the smallest check that shows the effect: a minimal repro file,
+  the unit tests of the code you change, or one fuzzer seed. Each takes
+  seconds.
+- Run `compare.sh --quick` only at checkpoints, when a change works, and
+  `--full` once before hand-back.
+- While a long job runs (the suite, `verify.sh`, `compare.sh`), do other
+  work: the unit tests, the docs, the next change. Start the job in the
+  background, tied to its PID (see "Waiting for your own jobs"), and read
+  its result when you need it instead of blocking on it.
+
 ## Memory and CPU
 
 WSL has 48 GB and 32 hardware threads (16 cores). A runaway run has frozen
