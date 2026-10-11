@@ -109,20 +109,28 @@
           ($_rules (withdraw-named-rules! (brand Proof $name))))
       ()))
 
-;; Reviews the live hypotheses that apply to `$goal` (hm-applies?): one
-;; query reads all their truths, with `$steps` for each one no review has read
-;; yet, whose first read folds its instances, and none otherwise. Returns one
-;; (hypothesis name implication truth kept|dropped) per hypothesis reviewed.
+;; Reads the truths of a group of live hypotheses in one query, with
+;; `$steps` for each one no review has read yet, whose first read folds its
+;; instances, and none otherwise; appended to those read before.
+(: hm-read (-[det]-> Number KB (List HmReviewed) (List HmReviewed) (List HmReviewed)))
+(= (hm-read $steps $kb $reviewed $group)
+   (let* (($unread (hypothesis-read! $kb $group))
+          ($rows (collapse (query-many-refs (* $steps $unread) $kb (map-flat hm-truth-goal $group)))))
+      (append-flat $reviewed (the (List HmReviewed) (hypothesis-truths $group $rows)))))
+
+;; Reviews the live hypotheses that apply to `$goal` (hm-applies?). Their
+;; truths are read a consequent layer at a time, the lowest first: a fold
+;; resolves its consequent's instances through the hypotheses concluding its
+;; antecedent, whose truths are then read already. Returns one (hypothesis
+;; name implication truth kept|dropped) per hypothesis reviewed.
 (: review-hypotheses (-[nondet]-> Number KB Atom Atom))
 (= (review-hypotheses $steps $kb $goal)
    (let* (($live (collapse (match &hm_live ($_phash $kb $consequent $name $antecedent $born)
                     (if (hm-applies? $kb (Implication $antecedent $consequent) $goal)
                        (hm-reviewed $name $antecedent $consequent $born no-evidence)
                        (empty)))))
-          ($unread (hypothesis-read! $kb $live))
-          ($rows (if (== $live ()) ()
-                    (collapse (query-many-refs (* $steps $unread) $kb (map-flat hm-truth-goal $live)))))
-          ($reviewed (the (List HmReviewed) (hypothesis-truths $live $rows)))
+          ($groups (the (List (List HmReviewed)) (hypothesis-layers $kb $live)))
+          ($reviewed (fold-flat (hm-read $steps $kb) () $groups))
           ($verdict (superpose $reviewed))
           ((hm-reviewed $name $antecedent $consequent $born $truth) $verdict)
           ($kept (hm-keep? $kb $reviewed $verdict))

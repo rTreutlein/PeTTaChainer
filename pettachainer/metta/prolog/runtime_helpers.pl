@@ -1324,6 +1324,13 @@ feature_relation(Time, T, Links, [later, Link]) :- member(Link, Links), Link = [
 hypothesis_confidence(['STV', _, C], C).
 hypothesis_confidence(['CTV', ['STV', _, C], _], C).
 
+% The live hypotheses under review grouped by their consequent's layer
+% (set-predicate-time), lowest first.
+'hypothesis-layers'(KB, Live, Groups) :-
+    findall(Layer-Reviewed, ( member(Reviewed, Live), Reviewed = ['hm-reviewed', _, _, [Head|_], _, _],
+                              '&hm_time'(Head, KB, _, Layer) ), Keyed),
+    keysort(Keyed, Sorted), group_pairs_by_key(Sorted, ByLayer), pairs_values(ByLayer, Groups).
+
 % How many of the live hypotheses under review no review had read, which
 % this review reads: their &hm_unread rows are removed.
 'hypothesis-read!'(KB, Live, Count) :-

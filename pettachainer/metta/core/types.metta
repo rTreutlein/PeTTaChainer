@@ -66,6 +66,7 @@
 (: hypothesis-features (-[det]-> Atom Atom Atom Atom Number Atom))
 (: hypothesis-truths (-[det]-> Atom Atom Atom))
 (: hypothesis-read! (-[det]-> KB Atom Number))
+(: hypothesis-layers (-[det]-> KB Atom Atom))
 (: node-context (-[det]-> Atom Atom))
 (: key-context (-[det]-> Atom Atom))
 (: scope-context (-[det]-> Atom Atom))
