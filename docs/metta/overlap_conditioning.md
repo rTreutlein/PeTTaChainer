@@ -1,9 +1,12 @@
 # Conditioning a key's merge on shared statements
 
-Status: built, October 2026. Code: `sk-merge-facts`, `sk-merge-key`,
-`sk-shared-statements`, `sk-key-condition` in
-`runtime/backward/evaluation.metta`. Tests:
-`tests/metta/test_overlap_conditioning.metta`. Row conditioning, which this
+Status: built, October 2026; budgeted cutset conditioning, entangled
+premises and sample twins added October 11. Code: `sk-merge-facts`,
+`sk-merge-key`, `sk-shared-statements`, `sk-entangle`, `sk-conditioned`,
+`sk-deepen`, `sk-sample-twins?` in `runtime/backward/evaluation.metta`.
+Tests: `tests/metta/test_overlap_conditioning.metta`,
+`test_nested_conditioning.metta`, `test_problog_fuzz_regressions.metta`
+(F7), `test_hypothesis_rules.metta` (gap 5). Row conditioning, which this
 extends to a key's merge, is in
 [overlapping_premise_conditioning.md](overlapping_premise_conditioning.md).
 
@@ -88,11 +91,169 @@ and settled steps are handled before, as they were):
    uncertain evidence with the branches), and while the conditioning waits for
    its cost to be paid.
 
-Which statement first: the shared statements whose set no other shared
-statement's dependency set holds, the largest dependency set first. A
-statement below another is usually read through it, so giving the upper one
-removes both. One read around it is still shared in the branch and is
-conditioned there.
+Which statement first: see "Budgeted cutset conditioning" below.
+
+## Budgeted cutset conditioning
+
+Conditioning on one shared statement is the first step of cutset
+conditioning: given a set of statements (a cutset) that breaks every path
+along which the views share something, the views are independent in each of
+the 2^k branches, the merge rules above are exact in each, and the mix over
+the branches is the exact value. The chainer never builds the cutset ahead:
+it conditions on one statement, and a branch whose views still share one
+conditions on it in turn. What bounds this is the claim's budget, and what
+makes it anytime is the depth.
+
+**Order.** The candidates are the shared statements whose value is uncertain.
+They are tried in two groups, each by expected impact:
+
+1. the frontier: the statements no other shared statement depends on (the
+   largest dependency set decides first), since a statement below another
+   is usually read through it, and giving the upper one removes both;
+2. the statements below the frontier.
+
+Expected impact is the statement's spread, the largest variance s (1 - s) of
+its facts' and views' strengths, times one more than its dependency count.
+The mix moves the value by P(K)(1 - P(K)) times the difference of the two
+branches; the spread is the first factor, and the dependency count stands in
+for the second, how much of the views the statement reaches, which is not
+known before the branches are evaluated. A statement whose mix is impossible
+(its value's evidence enters the branches by another path, see "The weight")
+gives way to the next one in order: SupplyNet's derived `Fuelled plant t1`
+ranks first in `test_nested_conditioning` and fails; the stored storm below
+it mixes.
+
+**Depth.** A claim's pass has a depth d: the number of statements conditioned
+on along any path from the target, a cutset of 2^d branches. A conditioning
+nested deeper than d takes its approximate value instead (below), and the
+pass is cut. A claim makes a pass at depth 1, then, while the pass was cut,
+one at depth 2, and so on, each on what the claim has left, and keeps the
+deepest pass that finished. A claim that overdraws keeps that pass (or the
+waiting value when none finished) and waits at twice its cost, so it may be
+paid again in the same evaluation once the allowance covers it, or by a
+later query.
+
+**Approximate values.** Every target has one while its conditioning waits or
+is cut:
+
+| target | approximate value |
+|---|---|
+| a key's merge | the more confident of the overlapping views (the fallback above) |
+| a row whose premises are entangled (below) | the premises read as independent |
+| a row whose premises clash on shared evidence | none |
+
+A clash has no approximate value: without conditioning the row derives
+nothing, as before conditioning existed (a row keeps the views it had while
+it waits). So a clash conditions at any depth in one pass, as before, and its
+pass is taken only if no nested conditioning had to stand an approximation
+in: a branch that stands in the independent product of two completions that
+explain each other away gave the machine-failure example's Or 0.696 against
+the inversion's 0.82, and its evidence held the inversion's, so it replaced
+it (`examples/metta/machine_failure_inversion.metta`).
+
+**Convergence.** Let V_d be the value a pass at depth d computes. For every d
+it is a mix, over the statements conditioned on, of branch values in which
+every conditioning nested deeper than d is replaced by its approximate value.
+Two facts give the argument:
+
+1. *Exactness at the cutset.* If the pass at depth d is not cut, no
+   conditioning stood an approximation in: every branch merged views that
+   share no uncertain statement (or share only what the merge rules handle
+   exactly: containment, given facts, rules), so each branch is exact under
+   the views' own formulas, and the mix of exact branches by the
+   statements' values is the exact total probability (up to the weight, see
+   "The weight"). Once d reaches the size of the cutset the target's views
+   need, V_d is that value and no deeper pass changes it.
+2. *Monotone refinement.* V_{d+1} differs from V_d only inside the branches
+   where V_d stood an approximation in, and there it replaces the
+   approximation by the mix that conditioning on the next statement gives,
+   which is exact given the statements above it whenever it is not cut
+   itself. So each pass replaces approximations by values closer to the
+   exact one, statement by statement, in order of impact.
+
+The shared statements of a finite skeleton are finite, so the depths are
+bounded, and with an allowance that covers 2^k times the base the claim
+finishes uncut and is exact. With less it keeps the deepest pass it could
+pay for, so a larger allowance never conditions on fewer statements: it
+extends the same sequence of passes. That is the anytime property the
+`--curves` profile checks: error per second should fall with the budget.
+It is not monotone in every instance. A partial conditioning can be further
+from the exact value than the approximation when the approximations' errors
+cancelled (two views each overcounting in opposite directions); it is
+monotone in expectation over the uncertainty the approximations leave,
+because each pass removes one source of error and adds none.
+
+**Cost.** A payment at level l costs 2^l times the base, one more than the
+dependency count of what the target conditions (the overlapping views', the
+clashing value's, or the entangled premises' together), and the claim may
+make twice that in conditioned row evaluations. The level starts at 1, so
+the first payment covers a depth-1 pass, and rises by one with every claim
+that overdrew. Each pass costs at most 2^d times the base, so the passes up
+to depth d cost less than twice the last; the deepening costs at most a
+factor 2 over knowing the right depth in advance.
+
+## Entangled premises
+
+Premises of one rule application, or of a compound read off its parts, that
+read one uncertain statement are not independent, whatever evidence they
+name. E <- (Or C B) with C <- B multiplied P(C) and P(B) as if they were:
+fuzzer seed 1000004, 0.342 against the exact 0.274. Evidence sets name only
+the leaves, here the certain fact (A b), and certain facts never clash. The
+statements are found in the premises' dependency sets instead: those two
+premises hold (the keys the first premises read that the next one also
+read), uncertain, not given and outside the row's exclusions, ordered as
+above. The row is conditioned on them like a clash: under B known, the
+premise B reads as known and C is its row evaluated again under B. E <- (And
+C D) with C <- B and D <- B is found the same way, through the common
+ancestor (0.2264, independent 0.1794).
+
+Unlike a clash, an entangled row has an approximate value: the premises read
+as independent, which is what the chainer computed before. A row waiting for
+its payment keeps the views it had, or takes that value if it has none. The
+attempt that conditioned on such premises as soon as they were found
+(branch `backup/fuzz-f4to7-f7`, 7f14a85f) made rows waiting for payment
+derive nothing: fuzzer seed 11000301 lost its answer, and conflicting
+sources (pln-sources) lost coverage.
+
+Under a closed read's pins outside any claim (a complete statement's rows
+evaluated again with the reader unfounded), an entangled row takes its
+approximate value unpaid; a clash there opens a claim of its own, as before.
+Conditioning every entangled row a closed read met, on every statement it
+shared, made 162 claims and 151,538 conditioned evaluations in SupplyNet
+stage 3 untimed (seed 4, budget 50): 59 s against 10 s, for no gain.
+
+Rows reading a fold read its members as data, compiler-marked joins share
+their sources by design, and projections of one source pool into it; none of
+them is checked. Inversions and completions have their own reading of their
+premises and are not checked either. A row whose greedy read finds premises
+entangled reads again on a fresh copy, taking stored facts first, as for a
+clash: a sample (Tall alice) and (Female alice) whose merged value derives
+Female from Tall reads the stored Female fact and is independent.
+
+## Sample twins
+
+Two refined rules learned from the same outcomes, applied to one case,
+revised as independent: `test_hypothesis_rules`, A -> C and B -> C confirmed
+from twenty cases in which A and B always agree, gave (C new) confidence
+0.802 against 0.669 for either rule (hypothesis_rules.md, gap 5). Given the
+truths the two applications are not independent views of C: the history
+never told A and B apart, so the second rule's view adds nothing to the
+first's. No statement is shared (each view depends on its own truth's key,
+"Shared rules"), so this is no conditioning; it is containment on the
+samples. An implication instance fold keeps a digest of its samples, the sum
+of a hash of each member's consequent and contribution, updated with the
+tally at constant cost per take. Two applications of different refined rules
+whose truths' folds have equal digests are one estimate from one sample
+applied twice, and the merge keeps the more confident.
+
+Only equal sample sets count. Overlapping ones (antecedents that mostly but
+not always agree) still revise as independent; their joint estimate, P(C |
+A, B) over the cases where both hold, is a rule the KB does not have, and
+conditioning on a latent common cause needs a statement the KB does not
+mention. A subset (B -> A in the history) would make the narrower rule the
+specific one, as `more-specific-application?` does for facts, but a small
+sample is a subset of a large one by chance (a rare source's three claims
+all co-claimed by a loud one), so it is not used.
 
 ## Shared rules
 
@@ -140,6 +301,14 @@ rule, and stated rules have no key to pin.
   the weight is K's value as the chainer has it.
 - **The allowance as for rows.** The conditioning is gated exactly as row
   conditioning is, with the cost bound the brief asked for.
+- **Iterative deepening, not one deep claim.** Until October 11 a claim
+  conditioned as deep as its budget allowed and, when it overdrew, discarded
+  everything and fell back: a claim either finished or gave nothing, and an
+  overdrawn claim waited at the same cost for ever. Now a claim keeps the
+  deepest pass it finished and waits at twice the cost.
+- **No refusal of the weight's evidence was relaxed.** A mix whose weight
+  shares evidence with its branches is still refused; the next statement is
+  tried instead.
 
 ## The weight
 
@@ -157,25 +326,31 @@ it. The same holds for row conditioning.
 
 As for rows: a merge outside any condition conditions only once the evaluation
 paid for it, and inside a conditioned read it is part of what was paid for.
-Its cost bound is 2^k times one more than the size of the two views'
-dependency sets together, for k first statements.
+Its cost bound is 2^l times one more than the size of the two views'
+dependency sets together, at the claim's level l (see "Budgeted cutset
+conditioning").
 
 The bound is enforced. A claim is what one payment covers: a row or key
 conditioned outside any condition, with everything its branches condition on
 in turn, and everything conditioned that a weight's read reaches. Each row it
 evaluates again under a condition takes one of twice its bound (the bound
 counts each dependency once per branch, and a row read through two paths is
-evaluated twice); a claim that would take more stops and falls back as an
-unpaid one does, the row deriving nothing and the key keeping its more
-confident view, and waits for a later query, paid at most once per
-evaluation. Nesting made a claim's work unbounded before: a branch whose
+evaluated twice); a claim that would take more stops, keeps its deepest
+finished pass (or, with none, falls back as an unpaid one does, the row
+keeping its views and the key its more confident view), and waits at twice
+the cost. Nesting made a claim's work unbounded before: a branch whose
 views still overlap conditions again, and every level doubles the work
 (ONA identity matching, while rule truths were shared statements: one claim
 ran for 13 minutes). Test_overlap_conditioning's plant over five periods with
 soft reports, where conditioning Degraded plant t5 conditions t4 inside its
 branches, t4 t3 and so on, took 238 s at budget 300 and 509 s at budget 2000;
-it now takes 7 s and 8.5 s for the same answers
-(`test_nested_conditioning.metta`), and twelve periods take 8 s. A closed read outside any claim that conditions opens a claim
+bounded claims took 7 s and 8.5 s for the same answers
+(`test_nested_conditioning.metta`), and twelve periods take 8 s. With
+deepening the query at budget 300 makes 728 conditioned evaluations instead
+of 5,648 for the same strength, and a second query at 300 keeps it (bounded
+single claims lost it there: 0.127, the persistence view alone); at 3,000
+it conditions deep enough to read the t5 report, which says the plant runs
+and so is not degraded (0.0). A closed read outside any claim that conditions opens a claim
 of its own. A key waiting for the
 payment keeps its fallback merged value, and the payment is claimed with the
 rows waiting to be conditioned (`sk_given_pending` with row hash -1): nearest

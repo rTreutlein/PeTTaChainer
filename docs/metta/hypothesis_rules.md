@@ -146,12 +146,16 @@ Built as designed, with these findings from probing the existing code:
 - **Gap 4 was already fixed:** since forward and backward chaining were
   unified, a forward run reads the truth goal's current value. LANGUAGE_SPEC
   is corrected.
-- **Gap 5 is open.** Two hypotheses confirmed through perfectly correlated
-  antecedents each learn the single hypothesis's truth (0.797, c 0.669), but
-  applied to one case their views revise as independent: c 0.802 against
-  0.669 for one. Their truths are estimated from the same outcomes, which
-  the views do not carry as evidence. The confidence 0.671 first reported
-  here was the stale-truth bug below: one view read its rule's prior.
+- **Gap 5, equal samples (October 11).** Two hypotheses confirmed through
+  perfectly correlated antecedents each learn the single hypothesis's truth
+  (0.797, c 0.669), but applied to one case their views revised as
+  independent: c 0.802 against 0.669 for one. Their instance folds now keep
+  a digest of their samples, and two applications of refined rules with
+  equal digests are one view (overlap_conditioning.md, "Sample twins"):
+  (C new) is 0.797, c 0.669. Antecedents that agree on most but not all
+  cases still revise as independent; their joint estimate would be a rule
+  over both. The confidence 0.671 first reported here was the stale-truth
+  bug below: one view read its rule's prior.
 - **Cross-feeding (October 2026).** A hypothesis's samples read the
   consequent's merged value, which included the other hypotheses'
   derivations (the samples of A→C held `(merge/revision c1 (by hB b1))`).

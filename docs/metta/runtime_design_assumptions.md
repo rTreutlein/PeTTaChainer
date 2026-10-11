@@ -200,11 +200,18 @@ A key's value merges its stored facts and one view per row:
   applications) of a predicate whose stored outcomes prefer odds or noisy-OR
   by a Bayes factor of 10 combine by that mode
   (`docs/metta/combination_modes.md`);
+- two applications of different refined rules whose truths were folded from
+  the same samples (equal digests of their instance folds) are one view, the
+  more confident: the history never told their antecedents apart
+  (`overlap_conditioning.md`, "Sample twins");
 - of dependent views, the one whose evidence strictly contains the other's
-  is kept; two that share an uncertain statement condition the key's whole
-  merge on it: the merge with the statement known true and known false,
-  mixed by its value (`docs/metta/overlap_conditioning.md`); otherwise, or
-  while the conditioning waits to be paid, the more confident view is kept;
+  is kept; two that share uncertain statements condition the key's whole
+  merge on them, a budgeted cutset: the merge with the statement of most
+  impact known true and known false, mixed by its value, a branch whose views
+  still share one conditioning on it in turn, as deep as the claim reaches
+  (`docs/metta/overlap_conditioning.md`); otherwise, or while the
+  conditioning waits to be paid, or where a pass stops at its depth, the
+  more confident view is kept;
 - when every proof of the key is modus ponens over conjunctions of facts, the
   proofs share fact premises, and their residual evidence is nonempty and
   pairwise disjoint, the lifting merge factors the shared facts out, revises
@@ -293,7 +300,16 @@ K twice, is exact. A complete premise's closed value conditions like any
 other. There is nothing to condition when the clashing value is a projection,
 or when the conclusion is not a simple truth value; such premises are refused
 as before. The mix needs the weight's evidence to be outside the
-branches.
+branches; when it is not, the next shared statement is tried.
+
+Premises can depend on one another without sharing uncertain evidence: E <-
+(Or C B) with C <- B, all from the certain fact (A b), multiplied P(C) and
+P(B) as independent. A rule application's (or a compound's) premises that
+read one uncertain statement, found in their dependency sets, are
+entangled, and the row is conditioned on the statement as on a clash. Such a
+row has an approximate value, the premises read as independent, which it
+keeps while the conditioning waits; a clash has none and derives nothing
+until it is conditioned.
 
 Evaluation starts from what changed: new rows, and the readers of keys changed
 outside evaluation (added facts, removed query-local rows, fold members). Rows
@@ -593,18 +609,22 @@ which grows with the knowledge base (StationOps at 20 modules: forward time
 +106–243%; leaving them to queries: +1–10%).
 
 Conditioning is paid for from what that allowance has left, never at depth
-zero for free. A row whose clash needs it waits, keeping the views it had, with
-a cost bound of 2^k times one more than the clashing value's dependency count
-for k shared statements; a key whose views overlap waits the same way,
-keeping its merge with the more confident view, with the overlapping views'
-dependency count. Once the rows are computed and the roots' merged values
-read, the waiting rows and keys the query needs are paid for nearest a root
-first, then cheapest, then oldest, each at most once per evaluation. What a
-payment covers, the conditioning with everything its branches condition on in
-turn, evaluates at most twice the cost bound in rows under a condition; a
-claim that would take more falls back as an unpaid one does and waits again,
-so nested conditioning never multiplies past what was paid
-(`overlap_conditioning.md`). A row is recomputed conditioned, with its
+zero for free. A row whose clash needs it waits, keeping the views it had; an
+entangled row waits the same way, taking its independent value if it has no
+view; a key whose views overlap waits keeping its merge with the more
+confident view. Each waits with a cost of 2^l times its base, one more than
+the dependency count of what it conditions, at level l, 1 at first. Once the
+rows are computed and the roots' merged values read, the waiting rows and
+keys the query needs are paid for nearest a root first, then cheapest, then
+oldest. What a payment covers, the claim, evaluates at most twice its cost in
+rows under a condition. A target with an approximate value conditions in
+passes of growing depth, the number of statements conditioned on along a
+path, a conditioning nested deeper taking its approximate value, and keeps
+the deepest pass that finished; a clash conditions at any depth in one pass.
+A claim that would take more stops, keeps what it finished, and waits at the
+next level, twice the cost, so a larger allowance conditions on more
+statements and nested conditioning never multiplies past what was paid
+(`overlap_conditioning.md`, "Budgeted cutset conditioning"). A row is recomputed conditioned, with its
 readers; a key drops its merged value and forces its readers, which read it
 conditioned. Either may add waiting rows or keys. The first one the allowance
 cannot pay for stops the payment, so a larger allowance extends the same

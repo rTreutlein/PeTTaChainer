@@ -50,7 +50,10 @@ B))`, used in place of `P(C | A, not B)`, which the engine never estimates.
   Fréchet-interval estimate. Premise truth values feed arbitrary formulas, so
   the interval of the conjunction cannot be put into the row generically. A
   waiting row therefore derives nothing, exactly as the refusal did, and keeps
-  any view an earlier conditioning gave it.
+  any view an earlier conditioning gave it. (Premises entangled through a
+  derived statement, added October 11, do have an estimate: the independent
+  product the row computed before. They keep it while they wait,
+  [overlap_conditioning.md](overlap_conditioning.md), "Entangled premises".)
 - **Priority without a gain estimate.** The Fréchet width was to be the gain.
   Without an estimate the value of conditioning is the value of the row's
   answer, which the need depth already ranks. Waiting rows are paid for
