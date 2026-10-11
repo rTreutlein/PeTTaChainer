@@ -472,9 +472,6 @@
 ;; largest sorts first.
 (: SkeletonRanked Type)
 (: sk-ranked (-[det]-> Number SkeletonKey SkeletonRanked))
-;; The dependencies of the premises read so far and the keys two of them share.
-(: SkeletonMeet Type)
-(: sk-meet (-[det]-> Number (List Number) SkeletonMeet))
 
 ;; A statement is known when a stored fact gives it strength 0 or 1 at
 ;; confidence 1, or when every view its rows have does. A shared statement is
@@ -558,37 +555,68 @@
 (: sk-ranked-statements (-[semidet]-> (List SkeletonShared) (List SkeletonKey)))
 (= (sk-ranked-statements $shared) (map-flat sk-ranked-key (sort-atom (map-flat sk-shared-rank $shared))))
 
-;; The keys some premise read so far shares with the next one.
+;; Whether a row reads a compound off its parts.
 (: sk-compound-proof? (-[det]-> Atom Bool))
 (= (sk-compound-proof? $proof)
    (if (is-expr $proof) (let $head (car-atom $proof) (if (is-var $head) false (== $head conjunction))) false))
 
-(: sk-meet-step (-[det]-> SkeletonMeet Number SkeletonMeet))
-(= (sk-meet-step (sk-meet $joined $hashes) $deps)
-   (sk-meet (deps-union $joined $deps) (hash-union $hashes (hash-set (deps-shared $joined $deps)))))
-
 ;; Premises of a rule application, or of a compound read off its parts, that
 ;; read one uncertain statement are not independent, whatever evidence they
-;; name: E <- (Or C B) with C <- B
-;; multiplies P(C) and P(B) as if they were (fuzzer seed 1000004), and so does
-;; E <- (And C D) with C and D both derived from B. Evidence sets name only
-;; the leaves, often certain facts that never clash, so the statements are
-;; found in the premises' dependency sets: those two premises hold, uncertain,
-;; not given and outside the row's exclusions, of them the ones no other one
-;; depends on. The row is conditioned on them as on a clash; the state read
-;; as if the premises were independent is its approximate value. Rows reading
-;; a fold read its members as data, compiler-marked joins share their sources
-;; by design, and projections of one source pool into it.
-(: sk-entangle (-[semidet]-> (List Number) SkeletonRowState SkeletonRowState))
-(= (sk-entangle $ignore $state)
+;; name: E <- (Or C B) with C <- B multiplies P(C) and P(B) as if they were
+;; (fuzzer seed 1000004), and so does E <- (And C D) with C and D both derived
+;; from B. Evidence sets name only the leaves, often certain facts that never
+;; clash, so the statements are found in the premises' dependency sets: of the
+;; premises' keys and the keys their rows read, those two premises' sets
+;; hold, uncertain, not given and outside the row's exclusions, ordered as a
+;; key's shared statements are. The row is conditioned on them as on a clash;
+;; the state read as if the premises were independent is its approximate
+;; value. Looking only that deep keeps the test to a few masked lookups per
+;; row; a statement shared further down is not found (collecting both sets
+;; and testing every shared key doubled SupplyNet scale l's time for no
+;; change). Rows reading a fold read its members as data, compiler-marked
+;; joins share their sources by design, and projections of one source pool
+;; into it.
+(: sk-entangle (-[semidet]-> (List Number) (List SkPattern) SkeletonRowState SkeletonRowState))
+(= (sk-entangle $ignore $premises $state)
    (case $state (
       ((sk-acc () $_ev $deps $parts)
          (if (sk-pooled? $parts) $state
-         (let (sk-meet $joined $hashes) (fold-semidet sk-meet-step (sk-meet 0 ()) $deps)
-            (case (if (== $hashes ()) () (sk-shared-statements $ignore $hashes)) (
+            (case (sk-shared-statements $ignore
+                     (fold-flat (sk-held-twice-step $deps) () (list_to_set (fold-flat sk-near-key-step () $premises)))) (
                (() $state)
-               ($keys (sk-entangled $keys (+ 1 (deps-size $joined)) $state)))))))
+               ($keys (sk-entangled $keys (+ 1 (deps-size (deps-join $deps))) $state))))))
       ($_other $state))))
+
+;; A premise's key and the keys its rows read.
+(: sk-near-key-step (-[det]-> (List Number) SkPattern (List Number)))
+(= (sk-near-key-step $hashes $premise)
+   (case $premise (
+      ((CPU $_fun $_args $_res) $hashes)
+      (((RuleTruth $_implication) $_kbctx $_proof $_tv) $hashes)
+      (($type $kbctx $_proof $_tv)
+         (let $hash (index-hash (sk-key $type $kbctx))
+            (cons $hash
+               (fold-flat sk-row-keys-step $hashes
+                  (collapse (match &sk_row ($hash $_stored $_rhash (sk-row $_ident $_concl $row-premises $_seq)) $row-premises))))))
+      ($_other $hashes))))
+
+(: sk-row-keys-step (-[det]-> (List Number) (List SkPattern) (List Number)))
+(= (sk-row-keys-step $hashes $premises) (fold-flat sk-premise-key-step $hashes $premises))
+
+(: sk-premise-key-step (-[det]-> (List Number) SkPattern (List Number)))
+(= (sk-premise-key-step $hashes $premise)
+   (case $premise (
+      ((CPU $_fun $_args $_res) $hashes)
+      (($type $kbctx $_proof $_tv) (cons (index-hash (sk-key $type $kbctx)) $hashes))
+      ($_other $hashes))))
+
+;; A key two premises' dependency sets hold.
+(: sk-held-twice-step (-[det]-> (List Number) (List Number) Number (List Number)))
+(= (sk-held-twice-step $deps $shared $hash)
+   (if (>= (fold-flat (sk-holds-step $hash) 0 $deps) 2) (cons $hash $shared) $shared))
+
+(: sk-holds-step (-[det]-> Number Number Number Number))
+(= (sk-holds-step $hash $count $deps) (if (deps-has? $deps $hash) (+ $count 1) $count))
 
 ;; A known fact two views share is evidence twice when some rule concludes
 ;; its statement: it may be an observation both update on. A fact no rule
@@ -2297,8 +2325,9 @@
 ;; the next level, twice the cost, and may be paid again once the allowance
 ;; covers it. A paid target read inside another claim, through a weight,
 ;; draws from that claim. Under a closed read's pins outside any claim, a
-;; target with an approximate value takes it, unpaid; a clash opens a claim
-;; of its own. A target read again inside its own conditioning,
+;; target with an approximate value is conditioned when what the evaluation
+;; allowance has left pays its depth-1 cost, and takes its approximate value
+;; otherwise; a clash opens a claim of its own, as before. A target read again inside its own conditioning,
 ;; through a shared statement's value, keeps its waiting value there.
 (= (sk-conditioned $given $target $khash $rhash $wexclude $keys $base $approx $waiting)
    (case $keys (
@@ -2331,7 +2360,13 @@
                   (let* (($_opened (sk-open-claim! (* (pow-math 2 (list-len $keys)) $base)))
                          ($mixed (sk-mix-on $given $target $wexclude $keys)))
                      (if (sk-close-claim!) $approx (sk-mixed $mixed $approx)))
-                  $approx)
+                  (let $cost (* 2 $base)
+                     (if (> $cost (search-id-value sk_eval_budget)) $approx
+                        (let* (($_paid (change-state! sk_eval_budget (- (search-id-value sk_eval_budget) $cost)))
+                               ($_opened (sk-open-claim! $cost))
+                               ($deepest (sk-deepen $given $target $wexclude $keys false 1 ()))
+                               ($_closed (sk-close-claim!)))
+                           (sk-mixed $deepest $approx)))))
                   (case (sk-mix-on $given $target $wexclude $keys) (
                      (() (if (== $approx sk-none) sk-none (progn (change-state! sk_claim_cut 1) $approx)))
                      ((cons $value $_rest) $value))))))))))
@@ -2504,7 +2539,7 @@
             (sk-completion-state $given $exclusions $shared $facts-first $start $premises)
             (let $state (fold-semidet (sk-premise-step $pin $given $exclusions $shared false $facts-first) $start $premises)
                (if (if $shared false (if (rule-application-proof? $proof) true (sk-compound-proof? $proof)))
-                  (sk-entangle (hash-union $exclusions (hash-set (sk-given-hashes $given))) $state)
+                  (sk-entangle (hash-union $exclusions (hash-set (sk-given-hashes $given))) $premises $state)
                   $state))))))
 
 ;; A completion marginalises the parts it does not complete over their values
