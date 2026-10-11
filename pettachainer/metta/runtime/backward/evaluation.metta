@@ -27,9 +27,13 @@
 (: sk-acc (-[det]-> (List Proof) EvidenceSet (List Number) (List SkeletonPart) SkeletonRowState))
 (: sk-fail SkeletonRowState)
 ;; a premise had values, all overlapping the evidence the row already used:
-;; the statements of the shared facts, and a bound on the rows conditioning
-;; on them evaluates
+;; the statements of the shared facts, and one more than the clashing value's
+;; dependency count, the rows one conditioned branch evaluates at most
 (: sk-clash (-[det]-> (List SkeletonKey) Number SkeletonRowState))
+;; a rule application whose premises read a shared uncertain statement:
+;; the statements, one more than the premises' dependency count, and the
+;; row's state read as if they were independent, its approximate value
+(: sk-entangled (-[det]-> (List SkeletonKey) Number SkeletonRowState SkeletonRowState))
 ;; a key a conditioned read takes as known true or false, or a complete
 ;; statement a closed read takes as unfounded (docs/metta/complete_predicates.md)
 (: SkeletonGiven Type)
@@ -58,6 +62,12 @@
 ;; statements and dependencies
 (: SkeletonMerging Type)
 (: sk-merging (-[det]-> SkeletonValue (List SkeletonKey) Number SkeletonMerging))
+;; What conditioning evaluates under a condition: a row (the exclusions it
+;; reads under, its key's hash, its key, its hash, the row) or a key's merge
+;; (its hash, the key, the reader's filter and exclusions).
+(: SkeletonTarget Type)
+(: sk-row-target (-[det]-> (List Number) Number SkeletonKey Number SkeletonRow SkeletonTarget))
+(: sk-key-target (-[det]-> Number SkeletonKey SkeletonFilter (List Number) SkeletonTarget))
 
 ;; Signatures of the mutually recursive functions below.
 (: sk-value (-[semidet]-> SkeletonKey SkeletonFilter (List Number) SkeletonValue))
@@ -65,9 +75,9 @@
 (: sk-computed-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
 (: sk-member-pending? (-[det]-> SkeletonKey Bool))
 (: sk-given-value (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) SkeletonValue))
-(: sk-key-condition
-   (-[semidet]-> (List SkeletonGiven) Number SkeletonKey SkeletonFilter (List Number) (List SkeletonKey) Number
-       SkeletonValue SkeletonValue))
+(: sk-conditioned
+   (-[semidet]-> (List SkeletonGiven) SkeletonTarget Number Number (List Number) (List SkeletonKey) Number
+       SkeletonValue SkeletonValue SkeletonValue))
 
 ;; --- Leaves -----------------------------------------------------------------
 
@@ -454,9 +464,17 @@
 ;; --- Overlapping views (docs/metta/overlap_conditioning.md) ------------------
 
 ;; A statement both views depend on, with the size of its dependency set,
-;; negated so the largest sorts first, and that set.
+;; negated so the largest sorts first, that set, and its spread: the largest
+;; variance s (1 - s) of its facts' and views' strengths.
 (: SkeletonShared Type)
-(: sk-shared-key (-[det]-> Number SkeletonKey Number SkeletonShared))
+(: sk-shared-key (-[det]-> Number SkeletonKey Number Number SkeletonShared))
+;; A statement to condition on with its expected impact, negated so the
+;; largest sorts first.
+(: SkeletonRanked Type)
+(: sk-ranked (-[det]-> Number SkeletonKey SkeletonRanked))
+;; The dependencies of the premises read so far and the keys two of them share.
+(: SkeletonMeet Type)
+(: sk-meet (-[det]-> Number (List Number) SkeletonMeet))
 
 ;; A statement is known when a stored fact gives it strength 0 or 1 at
 ;; confidence 1, or when every view its rows have does. A shared statement is
@@ -485,7 +503,29 @@
              (if (== $views ()) (== $leaves ()) (fold-semidet sk-known-view-step true $views)))
          $found
          (let $deps (fold-semidet sk-view-deps-step (deps-key $hash) $views)
-            (cons (sk-shared-key (- 0 (deps-size $deps)) $key $deps) $found))))))
+            (cons (sk-shared-key (- 0 (deps-size $deps)) $key $deps
+                     (fold-semidet sk-view-spread-step (fold-semidet sk-leaf-spread-step 0 $leaves) $views))
+               $found))))))
+
+(: sk-spread (-[det]-> Number TV Number))
+(= (sk-spread $spread $tv)
+   (case $tv (((STV $s $_c) (let $v (* $s (- 1 $s)) (if (> $v $spread) $v $spread))) ($_other $spread))))
+
+(: sk-leaf-spread-step (-[det]-> Number SkFact Number))
+(= (sk-leaf-spread-step $spread ($_type $_kbctx $_proof $tv)) (sk-spread $spread $tv))
+
+(: sk-view-spread-step (-[det]-> Number SkeletonValue Number))
+(= (sk-view-spread-step $spread $view)
+   (case $view (((sk-val ($_type $_kbctx $_proof $tv) $_ev $_deps) (sk-spread $spread $tv)) ($_other $spread))))
+
+;; A statement's expected impact on what conditioning on it decides: its
+;; spread, how far its two branches lie apart in weight, times one more than
+;; its dependency count, how much of the views it reaches.
+(: sk-shared-rank (-[det]-> SkeletonShared SkeletonRanked))
+(= (sk-shared-rank (sk-shared-key $size $key $_deps $spread)) (sk-ranked (* $spread (- $size 1)) $key))
+
+(: sk-ranked-key (-[det]-> SkeletonRanked SkeletonKey))
+(= (sk-ranked-key (sk-ranked $_impact $key)) $key)
 
 (: sk-shared-hash-step (-[semidet]-> (List Number) (List SkeletonShared) Number (List SkeletonShared)))
 (= (sk-shared-hash-step $ignore $found $hash)
@@ -493,25 +533,62 @@
       (fold-semidet sk-shared-candidate $found (collapse (match &sk_keys ($hash $key) $key)))))
 
 (: sk-below-step (-[det]-> Number Bool SkeletonShared Bool))
-(= (sk-below-step $hash $found (sk-shared-key $_size $_key $deps)) (if $found true (deps-has? $deps $hash)))
+(= (sk-below-step $hash $found (sk-shared-key $_size $_key $deps $_spread)) (if $found true (deps-has? $deps $hash)))
 
 (: sk-frontier-step (-[semidet]-> (List SkeletonShared) SkeletonShared (List SkeletonShared)))
-(= (sk-frontier-step $kept (sk-shared-key $size $key $deps))
-   (if (fold-flat (sk-below-step (index-hash $key)) false $kept) $kept
-      (cons (sk-shared-key $size $key $deps) $kept)))
+(= (sk-frontier-step $kept $shared)
+   (case $shared (
+      ((sk-shared-key $_size $key $_deps $_spread)
+         (if (fold-flat (sk-below-step (index-hash $key)) false $kept) $kept (cons $shared $kept))))))
 
-(: sk-shared-statement (-[det]-> SkeletonShared SkeletonKey))
-(= (sk-shared-statement (sk-shared-key $_size $key $_deps)) $key)
+;; The shared statements, among the keys of the hashes less the ignored ones,
+;; whose value is uncertain: first the ones no other one depends on (the
+;; largest dependency set decides first), then the others, each the most
+;; impact first. A stored fact depends on its own key, and a fold is no
+;; statement.
+(: sk-shared-statements (-[semidet]-> (List Number) (List Number) (List SkeletonKey)))
+(= (sk-shared-statements $ignore $hashes)
+   (let* (($candidates (sort-atom (fold-semidet (sk-shared-hash-step $ignore) () $hashes)))
+          ($frontier (fold-semidet sk-frontier-step () $candidates)))
+      (append-flat (sk-ranked-statements $frontier) (sk-ranked-statements (fold-semidet (sk-below-frontier-step $frontier) () $candidates)))))
 
-;; The statements two views both depend on, less the ignored keys, whose value
-;; is uncertain; of those, the ones no other one depends on, the largest
-;; dependency set first. A stored fact depends on its own key, and a fold is
-;; no statement.
-(: sk-shared-statements (-[semidet]-> (List Number) Number Number (List SkeletonKey)))
-(= (sk-shared-statements $ignore $deps-a $deps-b)
-   (let* (($hashes (deps-shared $deps-a $deps-b))
-          ($candidates (sort-atom (fold-semidet (sk-shared-hash-step $ignore) () $hashes))))
-      (map-flat sk-shared-statement (fold-semidet sk-cons-step () (fold-semidet sk-frontier-step () $candidates)))))
+(: sk-below-frontier-step (-[det]-> (List SkeletonShared) (List SkeletonShared) SkeletonShared (List SkeletonShared)))
+(= (sk-below-frontier-step $frontier $below $shared) (if (stored-list-member? $shared $frontier) $below (cons $shared $below)))
+
+(: sk-ranked-statements (-[semidet]-> (List SkeletonShared) (List SkeletonKey)))
+(= (sk-ranked-statements $shared) (map-flat sk-ranked-key (sort-atom (map-flat sk-shared-rank $shared))))
+
+;; The keys some premise read so far shares with the next one.
+(: sk-compound-proof? (-[det]-> Atom Bool))
+(= (sk-compound-proof? $proof)
+   (if (is-expr $proof) (let $head (car-atom $proof) (if (is-var $head) false (== $head conjunction))) false))
+
+(: sk-meet-step (-[det]-> SkeletonMeet Number SkeletonMeet))
+(= (sk-meet-step (sk-meet $joined $hashes) $deps)
+   (sk-meet (deps-union $joined $deps) (hash-union $hashes (hash-set (deps-shared $joined $deps)))))
+
+;; Premises of a rule application, or of a compound read off its parts, that
+;; read one uncertain statement are not independent, whatever evidence they
+;; name: E <- (Or C B) with C <- B
+;; multiplies P(C) and P(B) as if they were (fuzzer seed 1000004), and so does
+;; E <- (And C D) with C and D both derived from B. Evidence sets name only
+;; the leaves, often certain facts that never clash, so the statements are
+;; found in the premises' dependency sets: those two premises hold, uncertain,
+;; not given and outside the row's exclusions, of them the ones no other one
+;; depends on. The row is conditioned on them as on a clash; the state read
+;; as if the premises were independent is its approximate value. Rows reading
+;; a fold read its members as data, compiler-marked joins share their sources
+;; by design, and projections of one source pool into it.
+(: sk-entangle (-[semidet]-> (List Number) SkeletonRowState SkeletonRowState))
+(= (sk-entangle $ignore $state)
+   (case $state (
+      ((sk-acc () $_ev $deps $parts)
+         (if (sk-pooled? $parts) $state
+         (let (sk-meet $joined $hashes) (fold-semidet sk-meet-step (sk-meet 0 ()) $deps)
+            (case (if (== $hashes ()) () (sk-shared-statements $ignore $hashes)) (
+               (() $state)
+               ($keys (sk-entangled $keys (+ 1 (deps-size $joined)) $state)))))))
+      ($_other $state))))
 
 ;; A known fact two views share is evidence twice when some rule concludes
 ;; its statement: it may be an observation both update on. A fact no rule
@@ -562,7 +639,7 @@
                       ($a-in-b (if $overlap (evidence-subset? $cmp-a $cmp-b) false))
                       ($b-in-a (if $overlap (evidence-subset? $cmp-b $cmp-a) false))
                       ($apart (if $overlap (if $a-in-b false (if $b-in-a false true)) false))
-                      ($shared (if $apart (sk-shared-statements $ignore $deps-a $deps-b) ()))
+                      ($shared (if $apart (sk-shared-statements $ignore (deps-shared $deps-a $deps-b)) ()))
                       ($independent
                          (if $overlap
                             (if $apart (if (== $shared ()) (if (fold-flat sk-observation-step false (evidence-shared-facts $cmp-a $cmp-b)) false true) false) false)
@@ -1549,7 +1626,9 @@
          (()
             (case (fold-semidet (sk-key-merge-step (hash-union (sk-unifier-hashes $hash $key) $outside)) (sk-merging sk-none () 0) $values) (
                ((sk-merging $merged () $_deps) $merged)
-               ((sk-merging $merged $keys $deps) (sk-key-condition $given $hash $key $filter $exclude $keys $deps $merged)))))))))
+               ((sk-merging $merged $keys $deps)
+                  (sk-conditioned $given (sk-key-target $hash $key $filter $exclude) $hash -1
+                     (hash-union $exclude (sk-unifier-hashes $hash $key)) $keys (+ 1 (deps-size $deps)) $merged $merged)))))))))
 
 (: sk-view-deps-step (-[semidet]-> Number SkeletonValue Number))
 (= (sk-view-deps-step $deps $view)
@@ -1825,51 +1904,6 @@
       (sk-merge-key $hash $key $filter $exclude $given
          (map-semidet (sk-given-view $given $exclude $hash $key) (sk-admitted-versions $hash $key $filter $exclude)))))
 
-;; A key whose views overlap is the mix of its merge with the first shared
-;; statement known true and known false, by that statement's value read
-;; without the key (docs/metta/overlap_conditioning.md). Outside any condition
-;; it is conditioned only once the evaluation paid for it, and keeps the
-;; fallback until then (see sk-pay-conditions!), with a cost bound of 2^k
-;; times one more than the overlapping views' dependency count; inside a
-;; conditioned read it draws from the claim it is part of. A key read again
-;; inside its own conditioning, through a shared statement's value, keeps its
-;; fallback there.
-(= (sk-key-condition $given $hash $key $filter $exclude (cons $pin $more) $deps $fallback)
-   (let $cost (* (pow-math 2 (+ 1 (list-len $more))) (+ 1 (deps-size $deps)))
-      (if (== $given ())
-         (if (space-row-present? &sk_given_granted ($hash -1))
-            (if (space-row-present? &sk_conditioning ($hash)) $fallback
-               (let* (($_entered (add-atom &sk_conditioning ($hash)))
-                      ($mixed (sk-key-mix $given $hash $key $filter $exclude $pin $cost $fallback))
-                      ($_left (remove-atom &sk_conditioning ($hash))))
-                  $mixed))
-            (if (space-row-present? &sk_given_pending ($hash -1 $_cost)) $fallback
-               (let $_pending (add-atom &sk_given_pending ($hash -1 $cost)) $fallback)))
-         (sk-key-mix $given $hash $key $filter $exclude $pin $cost $fallback))))
-
-;; The mix itself: the weight read without the key, the key merged again
-;; with the statement known true and known false, within a claim. A paid
-;; claim that overdrew keeps the fallback and waits again.
-(: sk-key-mix
-   (-[semidet]-> (List SkeletonGiven) Number SkeletonKey SkeletonFilter (List Number) SkeletonKey Number
-       SkeletonValue SkeletonValue))
-(= (sk-key-mix $given $hash $key $filter $exclude $pin $cost $fallback)
-   (let* (($phash (index-hash $pin))
-          ($opened (sk-open-claim! $cost))
-          ($mixed
-             (collapse (once
-                (sk-mix (sk-given-value $given $pin sk-any-filter (hash-union $exclude (sk-unifier-hashes $hash $key)))
-                   (sk-given-merge (cons (sk-given $phash $pin true) $given) $key $filter $exclude)
-                   (sk-given-merge (cons (sk-given $phash $pin false) $given) $key $filter $exclude)))))
-          ($overdrawn (sk-close-claim! $opened)))
-      (if $overdrawn
-         (if (if $opened (if (== $given ()) (not (space-row-present? &sk_given_pending ($hash -1 $_waits))) false) false)
-            (let $_pending (add-atom &sk_given_pending ($hash -1 $cost)) $fallback)
-            $fallback)
-         (case $mixed (
-            ((cons $value $_rest) $value)
-            (() $fallback))))))
-
 ;; A premise value whose evidence overlaps what the row already uses is
 ;; replaced by the merge of the key's leaves and views that do not overlap it:
 ;; the consumer selects the proofs compatible with its other premises.
@@ -1939,8 +1973,8 @@
          false)))
 
 ;; A clash names the statements of the fact evidence the value shares with the
-;; row, less those already given. Conditioning on them evaluates at most the
-;; value's dependencies once per truth assignment. A premise that reads one of
+;; row, less those already given and those known, the most impact first. A
+;; conditioned branch evaluates at most the value's dependencies. A premise that reads one of
 ;; those statements itself reads it as known under the condition, so a row
 ;; reading K and a value derived from K is exact: an And loop C <- (And A B),
 ;; B <- (Or A C) read by D <- (And C A) with A soft (fuzzer seed 12000289).
@@ -1953,11 +1987,12 @@
       ((sk-acc $_fold-proofs $ev $_deps $_parts)
          (case $value (
             ((sk-val $fact $value-ev $value-deps)
-               (let $keys
-                  (list_to_set (fold-semidet (sk-shared-key-step $given) ()
-                     (evidence-shared-facts $ev $value-ev)))
-                  (if (sk-projection? $fact) (sk-clash () 0)
-                     (sk-clash $keys (* (pow-math 2 (list-len $keys)) (+ 1 (deps-size $value-deps)))))))
+               (if (sk-projection? $fact) (sk-clash () 0)
+                  (sk-clash
+                     (sk-ranked-statements
+                        (fold-semidet sk-shared-candidate ()
+                           (list_to_set (fold-semidet (sk-shared-key-step $given) () (evidence-shared-facts $ev $value-ev)))))
+                     (+ 1 (deps-size $value-deps)))))
             ($_none sk-fail))))
       ($_failed sk-fail))))
 
@@ -2083,7 +2118,7 @@
 (= (sk-premise-step $pin $given $exclude $shared $priors $facts-first $state $premise)
    (case $state (
       (sk-fail sk-fail)
-      ((sk-clash $clash-keys $clash-cost) (sk-clash $clash-keys $clash-cost))
+      ((sk-clash $clash-keys $clash-base) (sk-clash $clash-keys $clash-base))
       ((sk-acc $fold-proofs $ev $deps $parts)
          (case $premise (
             ((CPU FoldAllCompiled $fold-args $fold-res)
@@ -2127,76 +2162,182 @@
 ;; A row reads its premises without the views that depend on its key or on a
 ;; key unifying with it, nor, under a condition, on what the rows conditioned
 ;; around it exclude. Premises take values greedily in order, so a merged value
-;; may hold evidence a later premise needs: on such a clash the row reads
-;; again, on a fresh copy, taking stored facts first. A clash over shared facts
-;; that remains is resolved by conditioning on them. A row read under a
-;; condition is charged to the claim it is part of.
+;; may hold evidence a later premise needs, or read a statement another
+;; premise reads: then the row reads again, on a fresh copy, taking stored
+;; facts first. A clash over shared facts
+;; that remains, or premises that read one uncertain statement, are resolved
+;; by conditioning on the shared statements. The approximate value is what
+;; the row derived before it was conditioned: nothing for a clash, which
+;; would count the shared evidence twice; for premises sharing a statement,
+;; the premises read as independent. A row read under a condition is charged
+;; to the claim it is part of.
 (= (sk-row-view $given $exclude $khash $key $rhash $row)
    (if (sk-claim-charge! $given)
       (let* (((sk-row $_ident ($_type $_kbctx $proof $_tv) $_premises $_seq) $row)
              ($exclusions (hash-union (sk-row-exclusions $khash $key $proof) $exclude))
+             ($target (sk-row-target $exclusions $khash $key $rhash $row))
              ($greedy (copy_term $row))
              ($state (sk-row-state $given $exclusions $khash false $greedy)))
-         (case $state (
-            ((sk-clash $_first-keys $_first-cost)
+         (if (case $state (((sk-clash $_k $_b) true) ((sk-entangled $_ek $_eb $_es) true) ($_read false)))
                (let* (($retry (copy_term $row))
                       ($again (sk-row-state $given $exclusions $khash true $retry)))
                   (case $again (
-                     ((sk-clash $keys $cost) (sk-condition $given $exclusions $khash $key $rhash $row $keys $cost))
-                     ($_other (sk-row-result $retry $again))))))
-            ($_other (sk-row-result $greedy $state)))))
+                     ((sk-clash $keys $base) (sk-conditioned $given $target $khash $rhash $exclusions $keys $base sk-none sk-none))
+                     ((sk-entangled $keys $base $independent)
+                        (let $approx (sk-row-result $retry $independent)
+                           (sk-conditioned $given $target $khash $rhash $exclusions $keys $base $approx
+                              (sk-held-or $khash $key $rhash $approx))))
+                     ($_other (sk-row-result $retry $again)))))
+               (sk-row-result $greedy $state)))
       sk-none))
 
-;; Conditioning is paid for from the evaluation allowance: a row outside any
-;; condition is conditioned only once the evaluation granted it the cost, and
-;; waits for that otherwise (see sk-pay-conditions!); inside a conditioned read
-;; it draws from the claim it is part of. The statements are taken one at a
-;; time: a branch still clashing over another conditions on it in turn. A paid
-;; claim that overdrew derives nothing and waits again.
-(: sk-condition
-   (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Number SkeletonRow (List SkeletonKey) Number
-       SkeletonValue))
-(= (sk-condition $given $exclusions $khash $key $rhash $row $keys $cost)
+;; While its conditioning waits, a row keeps the views it had; one that has
+;; none takes its approximate value.
+(: sk-held-or (-[det]-> Number SkeletonKey Number SkeletonValue SkeletonValue))
+(= (sk-held-or $khash $key $rhash $approx)
+   (if (== (sk-latest-view $khash $key $rhash) sk-none) $approx sk-none))
+
+;; What a target is under a condition.
+(: sk-target-value (-[semidet]-> (List SkeletonGiven) SkeletonTarget SkeletonValue))
+(= (sk-target-value $given (sk-row-target $exclusions $khash $key $rhash $row))
+   (sk-row-view $given $exclusions $khash $key $rhash $row))
+(= (sk-target-value $given (sk-key-target $hash $key $filter $exclude)) (sk-given-merge $given $key $filter $exclude))
+
+;; Budgeted cutset conditioning (docs/metta/overlap_conditioning.md). A row
+;; or a key's merge whose views share uncertain statements is the mix of the
+;; target evaluated with the statement of most impact known true and known
+;; false, by that statement's value read without the target. Given it, the
+;; views share neither it nor what they read only through it; a branch whose
+;; views still share a statement conditions on the next one, down to the
+;; depth: the number of statements conditioned on at once, a cutset of
+;; 2^depth branches. A conditioning nested at the depth takes its approximate
+;; value, the merge's more confident view or the row's approximate value,
+;; and the pass is cut; so it is when no shared statement's mix is possible
+;; there and an approximate value stands in. A clash has no approximate
+;; value, so it is conditioned at any depth the claim allows.
+;;
+;; Outside any condition a target is conditioned only once the evaluation paid
+;; for it, and keeps its waiting value until then (see sk-pay-conditions!).
+;; A payment at level l costs 2^l times the base, one more than the
+;; dependency count of what the target conditions, and covers a claim of
+;; twice that in conditioned evaluations. A target with an approximate value
+;; conditions at depth 1, then, while its passes are cut, one statement
+;; deeper, each pass on what the claim has left, and keeps the deepest pass
+;; that finished: so the value only moves towards the conditioning on every
+;; statement met, which is exact under the views' own formulas. A clash
+;; conditions at any depth in one pass (sk-deepen). A claim that overdrew waits again at
+;; the next level, twice the cost, and may be paid again once the allowance
+;; covers it. A paid target read inside another claim, through a weight,
+;; draws from that claim. A target read again inside its own conditioning,
+;; through a shared statement's value, keeps its waiting value there.
+(= (sk-conditioned $given $target $khash $rhash $wexclude $keys $base $approx $waiting)
    (case $keys (
-      (() sk-none)
-      ((cons $pin $_more)
-         (if (if (== $given ()) (== (collapse (once (match &sk_given_granted ($khash $rhash) true))) ()) false)
-            (let $_pending (add-atom &sk_given_pending ($khash $rhash $cost)) sk-none)
-            (let* (($phash (index-hash $pin))
-                   ($opened (sk-open-claim! $cost))
-                   ($mixed
-                      (collapse (once
-                         (sk-mix (sk-given-value $given $pin sk-any-filter $exclusions)
-                            (sk-row-view (cons (sk-given $phash $pin true) $given) $exclusions $khash $key $rhash $row)
-                            (sk-row-view (cons (sk-given $phash $pin false) $given) $exclusions $khash $key $rhash $row)))))
-                   ($overdrawn (sk-close-claim! $opened)))
-               (if $overdrawn
-                  (if (if $opened (== $given ()) false)
-                     (let $_pending (add-atom &sk_given_pending ($khash $rhash $cost)) sk-none)
-                     sk-none)
-                  (case $mixed (
-                     ((cons $value $_rest) $value)
-                     (() sk-none))))))))))
+      (() $approx)
+      ((cons $_first $_more)
+         (if (== $given ())
+            (let* (($level (sk-condition-level $khash $rhash))
+                   ($cost (* (pow-math 2 $level) $base)))
+               (if (space-row-present? &sk_given_granted ($khash $rhash))
+                  (if (space-row-present? &sk_conditioning ($khash $rhash)) $waiting
+                  (if (== (search-id-value sk_claim_left) -1)
+                     (let* (($_entered (add-atom &sk_conditioning ($khash $rhash)))
+                            ($_opened (sk-open-claim! $cost))
+                            ($deepest (sk-deepen $given $target $wexclude $keys (== $approx sk-none) (if (== $approx sk-none) 64 1) ()))
+                            ($overdrawn (sk-close-claim!))
+                            ($_left (remove-atom &sk_conditioning ($khash $rhash))))
+                        (if $overdrawn
+                           (let* (($raised (+ $level 1))
+                                  ($_was (remove-data-rows! &sk_cond_level (quote ($khash $rhash $_level))))
+                                  ($_raised (add-atom &sk_cond_level ($khash $rhash $raised)))
+                                  ($_again (remove-atom &sk_given_granted ($khash $rhash))))
+                              (sk-wait! $khash $rhash (* 2 $cost) (sk-mixed $deepest $waiting)))
+                           (sk-mixed $deepest $waiting)))
+                     (sk-mixed (sk-mix-on $given $target $wexclude $keys) $waiting)))
+                  (sk-wait! $khash $rhash $cost $waiting)))
+            (if (if (== $approx sk-none) false (>= (fold-semidet sk-given-depth-step 0 $given) (search-id-value sk_claim_depth)))
+               (progn (change-state! sk_claim_cut 1) $approx)
+               (if (== (search-id-value sk_claim_left) -1)
+                  (let* (($_opened (sk-open-claim! (* (pow-math 2 (list-len $keys)) $base)))
+                         ($mixed (sk-mix-on $given $target $wexclude $keys)))
+                     (if (sk-close-claim!) $approx (sk-mixed $mixed $approx)))
+                  (case (sk-mix-on $given $target $wexclude $keys) (
+                     (() (if (== $approx sk-none) sk-none (progn (change-state! sk_claim_cut 1) $approx)))
+                     ((cons $value $_rest) $value))))))))))
+
+;; The claim's passes from a depth on: the deepest pass that finished before
+;; the claim overdrew, () if none did. A target without an approximate value
+;; (`$uncut`, a clash, which derived nothing before) makes one pass at
+;; unbounded depth and takes it only if no nested conditioning had to stand
+;; an approximation in, which can leave it worse than the target's other
+;; views.
+(: sk-deepen
+   (-[semidet]-> (List SkeletonGiven) SkeletonTarget (List Number) (List SkeletonKey) Bool Number (List SkeletonValue)
+       (List SkeletonValue)))
+(= (sk-deepen $given $target $wexclude $keys $uncut $depth $deepest)
+   (let* (($_depth (change-state! sk_claim_depth $depth))
+          ($_uncut (change-state! sk_claim_cut 0))
+          ($mixed (sk-mix-on $given $target $wexclude $keys)))
+      (if (== (search-id-value sk_claim_left) -2) $deepest
+         (let $cut (== (search-id-value sk_claim_cut) 1)
+            (let $found (if (== $mixed ()) $deepest (if (if $cut $uncut false) $deepest $mixed))
+               (if (if $cut (< $depth 64) false) (sk-deepen $given $target $wexclude $keys $uncut (+ $depth 1) $found) $found))))))
+
+(: sk-mixed (-[det]-> (List SkeletonValue) SkeletonValue SkeletonValue))
+(= (sk-mixed $mixed $otherwise) (case $mixed (((cons $value $_rest) $value) (() $otherwise))))
+
+;; The level of a target's payment, its cost 2^level times its base: 1 until
+;; a claim overdrew.
+(: sk-condition-level (-[det]-> Number Number Number))
+(= (sk-condition-level $khash $rhash)
+   (case (collapse (once (match &sk_cond_level ($khash $rhash $level) $level))) (((cons $level $_rest) $level) (() 1))))
+
+;; A target waits for a payment of its cost, keeping its waiting value.
+(: sk-wait! (-[det]-> Number Number Number SkeletonValue SkeletonValue))
+(= (sk-wait! $khash $rhash $cost $waiting)
+   (let* (($_was (remove-data-rows! &sk_given_pending (quote ($khash $rhash $_cost))))
+          ($_pending (add-atom &sk_given_pending ($khash $rhash $cost))))
+      $waiting))
+
+;; The statements a condition gives, closed reads' pins aside.
+(: sk-given-depth-step (-[det]-> Number SkeletonGiven Number))
+(= (sk-given-depth-step $depth $given) (case $given (((sk-given $_hash $_key $_truth) (+ $depth 1)) ($_pin $depth))))
+
+;; The target evaluated with a statement known true and known false, mixed
+;; by the statement's value read without the target: the first statement in
+;; order whose mix is possible, its value's evidence outside the branches.
+(: sk-mix-on (-[semidet]-> (List SkeletonGiven) SkeletonTarget (List Number) (List SkeletonKey) (List SkeletonValue)))
+(= (sk-mix-on $given $target $wexclude $keys)
+   (case $keys (
+      (() ())
+      ((cons $pin $more)
+         (let $phash (index-hash $pin)
+            (case (collapse (once
+                     (sk-mix (sk-given-value $given $pin sk-any-filter $wexclude)
+                        (sk-target-value (cons (sk-given $phash $pin true) $given) $target)
+                        (sk-target-value (cons (sk-given $phash $pin false) $given) $target)))) (
+               (() (sk-mix-on $given $target $wexclude $more))
+               ($mixed $mixed))))))))
 
 ;; A claim is the conditioning one payment covers: a row or key conditioned
-;; outside any condition, with everything its branches condition on in turn.
-;; Each row it evaluates again under a condition takes one of twice its cost
-;; bound (sk-claim-charge!): the bound counts each dependency once per branch,
-;; and a row read through two paths is evaluated twice. Conditioning reached
-;; inside an open claim, a branch's or a paid key's read through a weight,
-;; draws from that claim; a closed read outside any claim that conditions opens
-;; one of its own. A claim that would take more stops evaluating and
-;; overdraws, and its mix falls back as an unpaid one does. So no claim grows
-;; past its bound, however deep its branches condition.
-(: sk-open-claim! (-[det]-> Number Bool))
+;; outside any condition, with everything its branches condition on in turn,
+;; down to its passes' depths. Each row it evaluates again under a condition
+;; takes one of twice its cost bound (sk-claim-charge!): the bound counts each
+;; dependency once per branch, and a row read through two paths is evaluated
+;; twice. Conditioning reached inside an open claim, a branch's or a paid
+;; key's read through a weight, draws from that claim; a closed read outside
+;; any claim that conditions opens one of its own, of unbounded depth. A claim
+;; that would take more stops evaluating and overdraws, and its mix falls back
+;; as an unpaid one does. So no claim grows past its bound, however deep its
+;; branches condition.
+(: sk-open-claim! (-[det]-> Number Atom))
 (= (sk-open-claim! $cost)
-   (if (== (search-id-value sk_claim_left) -1) (progn (change-state! sk_claim_left (* 2 $cost)) true) false))
+   (progn (change-state! sk_claim_left (* 2 $cost)) (change-state! sk_claim_depth 64) (change-state! sk_claim_cut 0) ()))
 
-;; Whether the open claim overdrew; the mix that opened it closes it.
-(: sk-close-claim! (-[det]-> Bool Bool))
-(= (sk-close-claim! $opened)
+;; Whether the open claim overdrew; it closes.
+(: sk-close-claim! (-[det]-> Bool))
+(= (sk-close-claim!)
    (let $overdrawn (== (search-id-value sk_claim_left) -2)
-      (if $opened (progn (change-state! sk_claim_left -1) $overdrawn) $overdrawn)))
+      (progn (change-state! sk_claim_left -1) (change-state! sk_claim_depth 64) (change-state! sk_claim_cut 0) $overdrawn)))
 
 ;; Whether a conditioned evaluation fits the open claim, which it then takes
 ;; one from; one that does not fit overdraws the claim.
@@ -2289,7 +2430,10 @@
          (sk-projection-state $pin $given $exclusions $shared $facts-first $start $premises)
          (if (sk-completion-proof? $proof)
             (sk-completion-state $given $exclusions $shared $facts-first $start $premises)
-            (fold-semidet (sk-premise-step $pin $given $exclusions $shared false $facts-first) $start $premises)))))
+            (let $state (fold-semidet (sk-premise-step $pin $given $exclusions $shared false $facts-first) $start $premises)
+               (if (if $shared false (if (rule-application-proof? $proof) true (sk-compound-proof? $proof)))
+                  (sk-entangle (hash-union $exclusions (hash-set (sk-given-hashes $given))) $state)
+                  $state))))))
 
 ;; A completion marginalises the parts it does not complete over their values
 ;; before its consequence C is observed: the likelihood of C given M is
@@ -3065,7 +3209,7 @@
                    (let $_cause (add-atom &sk_fold_pending ($phash $phash)) (sk-fold-check $phash $pfold))
                    (empty)))))
           ($_granted (remove-data-rows! &sk_given_granted (quote ($khash $rhash))))
-          ($_conditioning (remove-data-rows! &sk_conditioning (quote ($chash))))
+          ($_conditioning (remove-data-rows! &sk_conditioning (quote ($chash $crhash))))
           ($_restale (remove-data-rows! &sk_restale (quote ($skhash $srhash))))
           ($_restaled (remove-data-rows! &sk_restaled (quote ($dkhash $drhash))))
           ($_checked (remove-data-rows! &sk_instance_checked (quote ($ihash))))

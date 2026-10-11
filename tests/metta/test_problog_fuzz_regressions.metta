@@ -212,3 +212,35 @@
 !(set-base-rate f6and (A $x) (STV 0.47 1.0))
 !(test (query 2000 f6and (: $prf (D a) $tv))
    (: (conditioned obs-A-a (by rD (conjunction (by rC (conjunction (given true) (by rB (conjunction (given true) unfounded)))) (given true))) (by rD (conjunction (by rC (conjunction (given false) (by rB (conjunction (given false) unfounded)))) (given false)))) (D a) (STV 0.311 0.9999428792044968)))
+
+;; F7. Premises of one rule application that read one uncertain statement
+;; are conditioned on it, though the evidence they name is a certain fact
+;; that never clashes (docs/metta/overlap_conditioning.md, "Entangled
+;; premises"). E <- (Or C B) with C <- B, B <- A and A observed: exact
+;; P(E) = 0.274288 (fuzzer seed 1000004; before: 0.342106, the premises
+;; multiplied as independent).
+!(compileadd f7reuse (: rB (Implication (A $x) (B $x)) (CTV (STV 0.28 1) (STV 0.7 1))))
+!(compileadd f7reuse (: rC (Implication (B $x) (C $x)) (CTV (STV 0.29 1) (STV 0.87 1))))
+!(compileadd f7reuse (: rE (Implication (Or (C $x) (B $x)) (E $x)) (CTV (STV 0.22 1) (STV 0.8 1))))
+!(compileadd f7reuse (: obs-A-b (A b) (STV 1 1)))
+!(set-base-rate f7reuse (A $x) (STV 0.22 1.0))
+!(set-base-rate f7reuse (B $x) (STV 0.6076 1.0))
+!(set-base-rate f7reuse (C $x) (STV 0.517592 1.0))
+!(set-base-rate f7reuse (E $x) (STV 0.24958696 1.0))
+!(test (query 2000 f7reuse (: $prf (E b) $tv))
+   (: (conditioned (by rB obs-A-b) (by rE (conjunction (by rC (given true)) (given true))) (by rE (conjunction (by rC (given false)) (given false))))
+      (E b) (STV 0.274288 0.999948229038266)))
+
+;; Two premises derived from one statement, E <- (And C D) with C <- B and
+;; D <- B: exact P(E) = 0.2264, independent 0.17936.
+!(compileadd f7common (: rB (Implication (A $x) (B $x)) (CTV (STV 0.3 1) (STV 0.7 1))))
+!(compileadd f7common (: rC (Implication (B $x) (C $x)) (CTV (STV 0.8 1) (STV 0.1 1))))
+!(compileadd f7common (: rD (Implication (B $x) (D $x)) (CTV (STV 0.6 1) (STV 0.2 1))))
+!(compileadd f7common (: rE (Implication (And (C $x) (D $x)) (E $x)) (CTV (STV 0.9 1) (STV 0.1 1))))
+!(compileadd f7common (: obs-A-b (A b) (STV 1 1)))
+!(set-base-rate f7common (A $x) (STV 0.5 1.0))
+!(set-base-rate f7common (B $x) (STV 0.5 1.0))
+!(set-base-rate f7common (C $x) (STV 0.45 1.0))
+!(set-base-rate f7common (D $x) (STV 0.4 1.0))
+!(set-base-rate f7common (E $x) (STV 0.3 1.0))
+!(test (let (: $prf $s $tv) (query 2000 f7common (: $prf (E b) $tv)) $tv) (STV 0.2264 0.9999493792805473))

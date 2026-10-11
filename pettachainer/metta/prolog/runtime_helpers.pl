@@ -464,8 +464,13 @@ deps_covered(Id, Nodes, Keys, Seen) :-
     ;   empty_nb_set(Nodes), empty_nb_set(Keys), deps_collect(Id, Nodes, Keys),
         size_nb_set(Keys, Size), assertz(deps_size_memo(Id, Size)) ).
 
-% The keys two sets both hold, in order.
+% The keys two sets both hold, in order. A single key is looked up by the
+% masked walk instead of collecting the other set.
 'deps-shared'(A, B, Hashes) :-
+    (   deps_leaf(A, Hash) -> ( deps_has(B, Hash) -> Hashes = [Hash] ; Hashes = [] )
+    ;   deps_leaf(B, Hash) -> ( deps_has(A, Hash) -> Hashes = [Hash] ; Hashes = [] )
+    ;   deps_shared_walk(A, B, Hashes) ).
+deps_shared_walk(A, B, Hashes) :-
     empty_nb_set(NodesA), empty_nb_set(KeysA), deps_collect(A, NodesA, KeysA),
     empty_nb_set(NodesB), empty_nb_set(KeysB), deps_collect(B, NodesB, KeysB),
     nb_set_to_list(KeysB, InB), include(deps_in(KeysA), InB, Hashes).

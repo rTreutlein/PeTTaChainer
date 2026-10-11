@@ -66,8 +66,10 @@
 
 ;; A nested conclusion, S -> (A and (B and C)). B and C are parts of one
 ;; source and pool; A and B are parts of different sources, (A and (B and C))
-;; and (B and C), and multiply as independent conjuncts: 0.9 * 0.9 and
-;; 0.2 * 0.2 (limit: nested sources are not flattened into one pool).
+;; and (B and C), which both rest on the rule's one conclusion. Conjoined
+;; they are conditioned on it (docs/metta/overlap_conditioning.md,
+;; "Entangled premises"): 0.9 and 0.2, the rule's own branches (before:
+;; 0.9 * 0.9 and 0.2 * 0.2, multiplied as independent).
 !(compileadd nestedKb (: r (Implication S (And A (And B C))) (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
 
 !(test
@@ -76,7 +78,7 @@
 
 !(test
    (let (: $_prf $_type $tv) (query 100 nestedKb (: $prf (Implication S (And A B)) $tv)) $tv)
-   (CTV (STV 0.81 0.8901098896304337) (STV 0.04000000000000001 0.6428571422241105)))
+   (CTV (STV 0.9 0.8999278939280647) (STV 0.2 0.8974146300841128)))
 
 ;; A part's projection that reads the other parts as evidence divides the
 ;; source by them, P(A) = P(ABC) / P(BC). The other parts' marginals read off
