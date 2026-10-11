@@ -82,25 +82,6 @@ Anti-unification must cover the complete residual proof, including:
 Generalizing only the visible premise and conclusion can produce a rule whose
 internal computation is no longer valid.
 
-## Pattern mining
-
-Pattern mining should decide which proof cuts are useful. It can identify
-frequent or valuable proof paths, group compatible instances, and propose their
-joint generalization.
-
-Materialization then performs only the deterministic part:
-
-1. Select boundary proof nodes.
-2. Jointly anti-unify compatible proof instances, when required.
-3. Replace boundary nodes with proof and TV variables.
-4. Inline the proof and computation nodes between the boundary and root.
-5. Insert the result as an ordinary compiled `rules ($args |- $conclusion)`
-   entry through the existing rule indexes.
-
-The runtime should not eagerly compose every adjacent rule pair. Candidate
-selection belongs to pattern mining or runtime demand statistics; proof
-residualization is the common materialization mechanism after that choice.
-
 ## Required invariants
 
 - Applying a materialized rule must produce the same proof and TV as applying
