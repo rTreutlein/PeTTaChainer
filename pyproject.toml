@@ -15,9 +15,9 @@ dependencies = [
     "petta",
 ]
 
-# PeTTa is the sibling checkout. PeTTaChainer needs its branch
-# pettachainer-runtime-fixes (unified-checker pin c33851b plus the runtime
-# fixes) until that branch is merged upstream.
+# PeTTa is the sibling checkout. PeTTaChainer needs its fork branch
+# pettachainer-runtime-main-3 (upstream main plus the #237 proposal and #248)
+# until those changes are merged upstream.
 [tool.uv.sources]
 petta = { path = "../../PeTTa" }
 

@@ -33,6 +33,19 @@ Do not run `uv sync` in a worktree: `pyproject.toml` finds PeTTa at
 PeTTa changes go to a branch in `/nexus/Dev/OpenCog/PeTTa`, never into
 `.venv`.
 
+The shared `.venv` runs PeTTa fork branch `pettachainer-runtime-main-3`
+(worktree `/nexus/Dev/OpenCog/PeTTa-runtime-main-3`): upstream main plus the
+specialized-call-exceptions change (#237 proposal) and `nb_current` global
+reads (#248). To test a PeTTa change, install its tree into your worktree's
+copied `.venv`, never into the shared one:
+
+```bash
+uv pip install --python $W/.venv/bin/python --reinstall --no-deps <PeTTa tree>
+```
+
+`compare.sh` reads the runtime from `$PETTACHAINER_REPO/.venv`, so run it with
+`PETTACHAINER_REPO=$W` to benchmark that runtime.
+
 Keep scratch files in your worktree (or a scratchpad subdirectory named after
 your branch), not in `/tmp`: `/tmp` is
 wiped on reboot.
