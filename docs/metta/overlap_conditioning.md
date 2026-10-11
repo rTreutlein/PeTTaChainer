@@ -458,3 +458,30 @@ numerous Storm and Blocked keys.
 stage 3 at budget 100 only (timed seed 4 error 0.00399 → 0.00273, degraded
 0.0130 → 0.0097, producing 0.0076 → 0.0040; seed 3 0.00316 → 0.00310);
 StationOps replay beliefs identical; time +3% SupplyNet, +1% scale.
+
+## Result of the cutset work (October 12)
+
+Branch `cutset` against master bc9d106b.
+
+- Fuzzer campaign (seeds 11-14, 1,000 KBs, `--shrink 0`): flagged KBs 53 ->
+  46 (default 5 -> 5, all 25 -> 18, learned 4 -> 4, cycle 19 -> 19), none
+  newly flagged. By family: F1 1 -> 0, F5 18 -> 17, F6 2 -> 0, other 3 -> 0
+  (F3 18, F4 10, N 1 unchanged). Mean absolute error of answered queries:
+  all 0.0132 -> 0.0107, default 0.0029 -> 0.0028, learned and cycle
+  unchanged. Results in `/nexus/Dev/OpenCog/bench/results/fuzz/cutset/`.
+- `bench/compare.sh` full: PASS; fuzzer gate 13 -> 8; StationOps belief
+  streams identical; SupplyNet, scale, learned and replay accuracy identical;
+  conflict pln-sources m moves by under 0.004 either way; time +2-7% per
+  suite.
+- `--curves`: SupplyNet stage 3 timed seed 2 at budget 200 0.00356 ->
+  0.00287 (the base's error rises past budget 100, the candidate's less),
+  untimed seed 3 at 25 0.00329 -> 0.00330, the rest identical. Conflict m s1
+  (pln-sources) is slightly worse from budget 4 up (0.2615 -> 0.2654 at 4,
+  0.2759 -> 0.2820 at 16).
+- Conflicting sources size l, 4 steps per query, seeds 1-4 (ProbLog learned
+  0.0197): pln-stated 0.0791 -> 0.0791, pln-sources 0.3585 -> 0.3565,
+  pln-likelihood (400 review steps) 0.0328 -> 0.0342 (seed 3 0.0193 ->
+  0.0256, from the entangled-premise conditioning; seed 1 0.0295 -> 0.0287).
+- StationOps replay, seeds 1-4 (ProbLog Brier 0.0581): Brier 0.0597, log loss
+  0.2065, regret 307.4, unchanged.
+
