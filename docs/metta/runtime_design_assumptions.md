@@ -281,7 +281,10 @@ part undetermined (a true disjunct, a false conjunct) gives no value rather
 than one of confidence 0. A child of an inverted pure `And` or `Or`
 antecedent is recovered by completion, not projection: the completion is
 Bayes' rule over the child's base rate with the other parts at their values
-(`prior_factored_merge.md`).
+(`prior_factored_merge.md`); a part with no value of its own is read where
+the child leaves the compound open, the child given false for an Or and true
+for an And, so a root in a loop of complete predicates observed only through
+the loop is updated by it (`overlap_conditioning.md`, "Completions").
 
 A clash that survives the fresh read is resolved by conditioning, not refused.
 The row is evaluated with the statement of a shared fact known true and again
@@ -291,6 +294,10 @@ value, so the shared evidence counts once. Under a condition:
 - a view depending on one is its row evaluated again under the same
   condition, excluding what the enclosing rows exclude, so the recursion
   follows only views that used a shared fact and cannot cycle;
+- a key with no value whose rows read a given statement directly is those
+  rows evaluated under the condition, once along any path (a row that
+  derived nothing because the statement had no value derives under it); a
+  complete key is read closed instead;
 - other views, and folds, read as stored.
 
 A branch that still clashes over another shared statement conditions on it in

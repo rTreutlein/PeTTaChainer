@@ -1,7 +1,8 @@
 # Conditioning a key's merge on shared statements
 
 Status: built, October 2026; budgeted cutset conditioning, entangled
-premises and sample twins added October 11. Code: `sk-merge-facts`,
+premises, completions read under their part and sample twins added October
+11-12. Code: `sk-merge-facts`,
 `sk-merge-key`, `sk-shared-statements`, `sk-entangle`, `sk-conditioned`,
 `sk-deepen`, `sk-sample-twins?` in `runtime/backward/evaluation.metta`.
 Tests: `tests/metta/test_overlap_conditioning.metta`,
@@ -199,10 +200,14 @@ read one uncertain statement are not independent, whatever evidence they
 name. E <- (Or C B) with C <- B multiplied P(C) and P(B) as if they were:
 fuzzer seed 1000004, 0.342 against the exact 0.274. Evidence sets name only
 the leaves, here the certain fact (A b), and certain facts never clash. The
-statements are found in the premises' dependency sets instead: those two
-premises hold (the keys the first premises read that the next one also
-read), uncertain, not given and outside the row's exclusions, ordered as
-above. The row is conditioned on them like a clash: under B known, the
+statements are found in the premises' dependency sets instead. The
+candidates are the premises' own keys and the keys their rows read; a
+candidate two premises' sets hold, uncertain, not given and outside the
+row's exclusions, is shared, ordered as above. That is a few masked
+membership tests per row. Collecting both sets and testing every key they
+share found more (a statement shared further down) but doubled SupplyNet
+scale l's time (26 s to 59 s) for no change in any answer, so a statement
+shared more than one row below the premises is not found. The row is conditioned on them like a clash: under B known, the
 premise B reads as known and C is its row evaluated again under B. E <- (And
 C D) with C <- B and D <- B is found the same way, through the common
 ancestor (0.2264, independent 0.1794).
@@ -216,11 +221,15 @@ derive nothing: fuzzer seed 11000301 lost its answer, and conflicting
 sources (pln-sources) lost coverage.
 
 Under a closed read's pins outside any claim (a complete statement's rows
-evaluated again with the reader unfounded), an entangled row takes its
-approximate value unpaid; a clash there opens a claim of its own, as before.
-Conditioning every entangled row a closed read met, on every statement it
-shared, made 162 claims and 151,538 conditioned evaluations in SupplyNet
-stage 3 untimed (seed 4, budget 50): 59 s against 10 s, for no gain.
+evaluated again with the reader unfounded), an entangled row is conditioned
+only when what the evaluation allowance has left pays its depth-1 cost, two
+times its base, and takes its approximate value otherwise; a clash there
+opens a claim of its own, as before. Conditioning every entangled row a
+closed read met, on every statement it shared and unpaid, made 162 claims
+and 151,538 conditioned evaluations in SupplyNet stage 3 untimed (seed 4,
+budget 50): 59 s against 10 s, for no gain. Paid from the allowance, fuzzer
+seed 12000203's E <- D over a closed D <- (Or B C E) with C <- B is exact
+at budget 2000 (0.8975) and keeps the independent value at 100 (0.8179).
 
 Rows reading a fold read its members as data, compiler-marked joins share
 their sources by design, and projections of one source pool into it; none of
@@ -229,6 +238,27 @@ premises and are not checked either. A row whose greedy read finds premises
 entangled reads again on a fresh copy, taking stored facts first, as for a
 clash: a sample (Tall alice) and (Female alice) whose merged value derives
 Female from Tall reads the stored Female fact and is independent.
+
+## Completions
+
+An antecedent completion onto a part M of a compound antecedent needs the
+other parts O only where M leaves the compound open: given M false for an
+Or, given M true for an And (`DisjunctLikelihoodFormula`,
+`ConjunctLikelihoodFormula`). It reads O at its value, apart from the
+consequence. When O has no value of its own it is read under that condition
+instead, a one-statement conditioning on the target itself whose branch is
+the only one the formula reads: fuzzer seed 12000044 has B <- (Or A D), D <-
+(Or A B) over complete B and D, A an unobserved root and D observed false. B
+has no value, since a derivation reads no population prior for A, so the
+completion onto A failed and A answered its population prior, 0.18. Given A
+false, B's closed read finds it unfounded, the completion reads s_B = 0, and
+D false says A false: 0, exact. The read under M may depend on M's
+hypothesis, which is no support, so M's own key is not excluded there.
+
+Only a part without a value is read so. A part with a value correlated with
+M through a derived statement is still read unconditioned; reading every
+part under M would recompute the persistence chains behind SupplyNet's
+smoothing completions at every evaluation.
 
 ## Sample twins
 

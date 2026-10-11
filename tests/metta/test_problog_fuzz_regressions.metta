@@ -244,3 +244,19 @@
 !(set-base-rate f7common (D $x) (STV 0.4 1.0))
 !(set-base-rate f7common (E $x) (STV 0.3 1.0))
 !(test (let (: $prf $s $tv) (query 2000 f7common (: $prf (E b) $tv)) $tv) (STV 0.2264 0.9999493792805473))
+
+;; F5. A root in a loop of complete predicates, observed only through the
+;; loop: B <- (Or A D), D <- (Or A B), A an unobserved root, D observed
+;; false. A completion onto A needs B where A leaves the Or open, A false;
+;; B has no value of its own, since A has none, so it is read under A false,
+;; where nothing supports it: D false says A false. Exact 0 (fuzzer seed
+;; 12000044; before: A answered its population prior 0.18).
+!(set-complete-predicate f5root B)
+!(set-complete-predicate f5root D)
+!(compileadd f5root (: rB (Implication (Or (A $x) (D $x)) (B $x)) (CTV (STV 0.47 1) (STV 0 1))))
+!(compileadd f5root (: rD (Implication (Or (A $x) (B $x)) (D $x)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd f5root (: obs-D-a (D a) (STV 0 1)))
+!(set-base-rate f5root (A $x) (STV 0.18 1.0))
+!(set-base-rate f5root (B $x) (STV 0.0846 1.0))
+!(set-base-rate f5root (D $x) (STV 0.18 1.0))
+!(test (let (: $prf $s $tv) (query 2000 f5root (: $prf (A a) $tv)) $tv) (STV 0.0 0.999895197158209))

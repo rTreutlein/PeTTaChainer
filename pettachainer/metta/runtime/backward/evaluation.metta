@@ -1989,10 +1989,47 @@
       $view))
 
 ;; A key's value under a condition: its value, unless that depends on a given
-;; statement; then the merge of its leaves and its views read under it.
+;; statement; then the merge of its leaves and its views read under it. A key
+;; with no value whose rows read a given statement directly is the merge of
+;; those rows evaluated under the condition: a row that derived nothing
+;; because the statement had no value derives under it. A complete key is
+;; read closed instead (sk-closed-read); a key reached again through its own
+;; rows while they are evaluated so has no value there (row hash -2 in
+;; &sk_conditioning).
 (= (sk-given-value $given $key $filter $exclude)
    (let $value (sk-value $key $filter $exclude)
-      (if (sk-given-meets? $given $value) (sk-given-merge $given $key $filter $exclude) $value)))
+      (if (sk-given-meets? $given $value) (sk-given-merge $given $key $filter $exclude)
+         (if (if (== $value sk-none) (not (== $given ())) false)
+            (case $key (
+               ((sk-key $type $kbctx)
+                  (let $hash (index-hash $key)
+                     (if (if (complete-statement? $type $kbctx) true (space-row-present? &sk_conditioning ($hash -2))) sk-none
+                        (let* (($_entered (add-atom &sk_conditioning ($hash -2)))
+                               ($views
+                                  (fold-semidet (sk-given-row-step $given $exclude $hash $key) ()
+                                     (collapse (match &sk_row ($hash $stored $rhash $row) (if (=alpha $stored $key) ($rhash $row) (empty))))))
+                               ($_left (remove-atom &sk_conditioning ($hash -2))))
+                           (if (== $views ()) sk-none (sk-merge-key $hash $key $filter $exclude $given $views))))))
+               ($_fold sk-none)))
+            $value))))
+
+(: sk-given-row-step
+   (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey (List SkeletonValue) (Number SkeletonRow)
+       (List SkeletonValue)))
+(= (sk-given-row-step $given $exclude $hash $key $views ($rhash (sk-row $ident $concl $premises $seq)))
+   (if (fold-semidet (sk-reads-given-step (sk-given-hashes $given)) false $premises)
+      (case (sk-row-view $given $exclude $hash $key $rhash (sk-row $ident $concl $premises $seq)) (
+         (sk-none $views)
+         ($view (cons $view $views))))
+      $views))
+
+(: sk-reads-given-step (-[det]-> (List Number) Bool SkPattern Bool))
+(= (sk-reads-given-step $hashes $found $premise)
+   (if $found true
+      (case $premise (
+         ((CPU $_fun $_args $_res) false)
+         (($type $kbctx $_proof $_tv) (stored-list-member? (index-hash (sk-key $type $kbctx)) $hashes))
+         ($_other false)))))
 
 (: sk-given-merge (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 (= (sk-given-merge $given $key $filter $exclude)
@@ -2536,7 +2573,7 @@
              false)
          (sk-projection-state $pin $given $exclusions $shared $facts-first $start $premises)
          (if (sk-completion-proof? $proof)
-            (sk-completion-state $given $exclusions $shared $facts-first $start $premises)
+            (sk-completion-state $given $exclusions $khash (sk-key $type $kbctx) $shared $facts-first $start $premises)
             (let $state (fold-semidet (sk-premise-step $pin $given $exclusions $shared false $facts-first) $start $premises)
                (if (if $shared false (if (rule-application-proof? $proof) true (sk-compound-proof? $proof)))
                   (sk-entangle (hash-union $exclusions (hash-set (sk-given-hashes $given))) $premises $state)
@@ -2556,19 +2593,48 @@
 ;; it settles (B <- (And A C) with C false is false, which a closed read
 ;; cannot settle while A has no value). The consequence is the completion's
 ;; last statement premise.
+;;
+;; The likelihood needs the siblings only where the completed part M leaves
+;; the antecedent open: M true for And, M false for Or. A sibling with no
+;; value of its own is read under that condition, M given, the rows it
+;; depends on evaluated again with M known: a loop B <- (Or A D), D <- (Or A
+;; B) over complete B and D, with A an unobserved root and D observed false,
+;; gives B no value, since A has none; given A false the closed read finds B
+;; unfounded, so D false says A false (fuzzer seed 12000044; before, A
+;; answered its population prior). The sibling read under M may depend on
+;; M's hypothesis, which is no support: M's own key is not excluded there.
 (: sk-completion-state
-   (-[semidet]-> (List SkeletonGiven) (List Number) Bool Bool SkeletonRowState (List SkPattern) SkeletonRowState))
-(= (sk-completion-state $given $exclusions $shared $facts-first $start $premises)
+   (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Bool Bool SkeletonRowState (List SkPattern)
+       SkeletonRowState))
+(= (sk-completion-state $given $exclusions $khash $key $shared $facts-first $start $premises)
    (case (fold-flat sk-last-statement-step () $premises) (
       ((sk-key $ctype $ckbctx)
          (let* (($consequence (sk-key $ctype $ckbctx))
-                ($chash (index-hash $consequence)))
+                ($chash (index-hash $consequence))
+                ($completed (fold-semidet (sk-completed-given-step $khash $key) () $premises)))
             (if (fold-semidet sk-known-false-step false (sk-key-leaves $consequence sk-any-filter))
-               (fold-semidet (sk-premise-step () $given $exclusions $shared true $facts-first) $start $premises)
+               (fold-semidet
+                  (sk-completion-premise-step () $given $exclusions $exclusions $consequence $completed $shared $facts-first)
+                  $start $premises)
                (fold-semidet
                   (sk-completion-premise-step (sk-closed-pin $chash $ctype $ckbctx true) $given $exclusions
-                     (hash-union (sk-unifier-hashes $chash $consequence) $exclusions) $consequence $shared $facts-first)
+                     (hash-union (sk-unifier-hashes $chash $consequence) $exclusions) $consequence $completed $shared $facts-first)
                   $start $premises)))))))
+
+;; The condition a completion reads an unvalued sibling under: the completed
+;; statement true when its part (negated or not) opens a conjunction, false
+;; when it opens a disjunction.
+(: sk-completed-given-step (-[det]-> Number SkeletonKey (List SkeletonGiven) SkPattern (List SkeletonGiven)))
+(= (sk-completed-given-step $khash $key $found $premise)
+   (case $premise (
+      ((CPU ConjunctLikelihoodFormula ($negated $_others $_rule) $_likelihood)
+         (cons (sk-given $khash $key (if $negated false true)) ()))
+      ((CPU DisjunctLikelihoodFormula ($negated $_others $_rule) $_likelihood)
+         (cons (sk-given $khash $key (if $negated true false)) ()))
+      ($_other $found))))
+
+(: sk-without-hash-step (-[det]-> Number (List Number) Number (List Number)))
+(= (sk-without-hash-step $drop $kept $hash) (if (== $hash $drop) $kept (cons $hash $kept)))
 
 (: sk-known-false-step (-[det]-> Bool SkFact Bool))
 (= (sk-known-false-step $found ($_type $_kbctx $_proof $tv))
@@ -2581,15 +2647,24 @@
       (($type $kbctx $_proof $_tv) (sk-key $type $kbctx)))))
 
 (: sk-completion-premise-step
-   (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) (List Number) SkeletonKey Bool Bool
-       SkeletonRowState SkPattern SkeletonRowState))
-(= (sk-completion-premise-step $pin $given $exclusions $siblings $consequence $shared $facts-first $state $premise)
+   (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) (List Number) SkeletonKey (List SkeletonGiven)
+       Bool Bool SkeletonRowState SkPattern SkeletonRowState))
+(= (sk-completion-premise-step $pin $given $exclusions $siblings $consequence $completed $shared $facts-first $state $premise)
    (case $premise (
       ((CPU $_fun $_args $_res) (sk-premise-step () $given $exclusions $shared true $facts-first $state $premise))
       (($type $kbctx $_proof $_tv)
          (if (=alpha (sk-key $type $kbctx) $consequence)
             (sk-premise-step () $given $exclusions $shared true $facts-first $state $premise)
-            (sk-premise-step $pin $given $siblings $shared true $facts-first $state $premise))))))
+            (case (sk-premise-step $pin $given $siblings $shared true $facts-first $state $premise) (
+               (sk-fail
+                  (case $completed (
+                     ((cons (sk-given $khash $_key $_truth) ())
+                        (if (== $state sk-fail) sk-fail
+                           (sk-premise-step $pin (append-flat $completed $given)
+                              (hash-set (fold-flat (sk-without-hash-step $khash) () $siblings))
+                              $shared true $facts-first $state $premise)))
+                     ($_none sk-fail))))
+               ($read $read))))))))
 
 (: sk-projection-state
    (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) Bool Bool SkeletonRowState (List SkPattern)
