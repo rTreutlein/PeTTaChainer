@@ -99,6 +99,14 @@
 ;; ground prefix, or of its head when it has none, with the node's hash
 (: &sk_node_prefix (SpaceOf (Number Statement KBContext Number SkPattern)))
 !(bind! &sk_node_prefix (new-space))
+;; open nodes whose rules were started, under the hash of the statement's
+;; longest ground prefix, or of its head when it has none, with the node's
+;; hash; and the open nodes each one subsumes, which read its answers instead
+;; of starting rules (sk-subsumers), by the general node's hash
+(: &sk_open_node (SpaceOf (Number Number SkPattern)))
+!(bind! &sk_open_node (new-space))
+(: &sk_subsumed (SpaceOf (Number SkPattern SkPattern)))
+!(bind! &sk_subsumed (new-space))
 (: &sk_answer (SpaceOf (Number SkPattern SkeletonKey)))
 !(bind! &sk_answer (new-space))
 ;; A root's key answering its node with its population prior, for the

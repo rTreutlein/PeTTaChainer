@@ -400,7 +400,7 @@ prior are read as they are.
 ### Queries read what their roots reach
 
 A query walks the skeleton best-first from its roots. Expanding a new node costs
-one step of the budget; walking through an expanded node spends a separate walk
+one step of the budget (one more for each 400 words of the node, see below); walking through an expanded node spends a separate walk
 allowance of one per step, so revisiting what is already built never takes a
 step from new expansions, and once the allowance is spent expanded nodes are
 passed over while the walk goes on. The walk enters only nodes whose search
@@ -468,6 +468,25 @@ run out of allowance with deferred work below.
 Stored facts cost no expansion: a join waiting on a ground fact premise reads
 its facts at once, and whenever more are stored, and a root reads its own
 stored facts. An open premise waits for its expansion, which bounds recursion.
+An open node below the roots whose statement grows a term of an open node
+whose rules were started (binds one of its variables to a compound, as `(Num
+(succ $x))` does `(Num $x)`), other than a root of the current query, starts
+no rules: it
+reads the general node's answers that unify with it, and a child link to the
+general node lets walks through it resume the general search. Every rule
+concluding the instance concludes the general node, whose joins wait on
+premises at least as general, so the general search finds every key the
+instance's would. Without it a recursive rule read through an open node
+unrolls without bound: the base rates of `(Num $x) → (Num (succ $x))` read
+`(Num $x)` and `(Num (succ $x))`, the inverted rule asks `(Num (succ (succ
+$x)))` of the second, and so on, one open node per step, each answered by
+every key below it (ONA reasoningbench_num: the second query of four took
+minutes and the run hit a SWI segfault at 569 s in `sk-row-present?`). A mere
+specialization, such as `(Reward op1 $t)` of `(Reward $op $t)`, keeps its own
+search, which a budget spends on that case first: subsuming those too moved
+SupplyNet stage 3 timed (error 0.0027 to 0.0039 at budget 50) and StationOps
+replay (Brier 0.0446 to 0.0497 at budget 50). A root subsumes nothing, since
+its rows always fit the allowance below.
 A node no rule can conclude (other than an implication or inheritance link,
 whose expansion installs rules) is expanded without a step when the walk
 reaches it: its expansion only reads its stored facts. It keeps its place in the walk, so its facts extend joins
@@ -475,8 +494,10 @@ when its priority says so (reading them at once filled the row budget early:
 StationOps Brier 0.0652 against 0.0607 at the smallest budgets). Before any state is created, a rule
 whose ground fact premise has no fact and no concluding rule is pruned. New
 rows have an allowance of ten per step, except the rows of the query's own
-roots; rows beyond it wait with their node
-and are completed when a later walk reaches that node, so leftover work never
+roots, and a row costs one more for each 400
+words of its statement, what storing, hashing and comparing that much of a
+term takes beyond a row's fixed cost (`term-cost`); rows beyond it wait with
+their node and are completed when a later walk reaches that node, so leftover work never
 spends an unrelated query's budget. Facts stored since the last query are the
 exception: they are delivered first, before the next query's walk, from an
 allowance of their own (ten rows per new fact and per step), as the deferred
@@ -522,6 +543,21 @@ the rows the roots read stale (SupplyNet stage 3, mean posterior error over
 seeds 1–4 and budgets 25–200: 0.00348 by creation, 0.00323 by depth). The
 order does not depend on the allowance, so an allowance that covers everything
 computes what an unbounded evaluation would.
+
+A row's computation from the allowance, like its creation, costs more the
+larger its key (`term-cost`), so a step costs the same however large the terms
+a recursive rule builds; the reserve near the roots is left by count, since it
+covers what the roots read. Below the two steps the need passes through rows
+never computed nearest a root first; a row of a large statement spends what
+its size costs beyond a row's from as much as the allowance can compute, so a
+recursive rule that builds ever larger rows faster than they are computed (a
+base rate's members through `(Num $x) → (Num (succ $x))`) leaves a backlog the
+need does not walk: walking it made each query of ONA reasoningbench_num cost
+0.17 s more than the last; bounded, 32 queries at budget 100 take 1.0 to 2.0 s
+each. Rows of ordinary size pass as before: the need also takes base rates'
+changed members, work the allowance does not count, and capping their count
+left members untaken that SupplyNet scale l reads (spq16: error 0.0015 to
+0.0026) and moved conflict m at 16 steps per query (0.2754 to 0.2937).
 
 A stale row is brought current only when a need reaches it within those two
 steps, as a query asking for it does. A deeper stale row keeps its value and

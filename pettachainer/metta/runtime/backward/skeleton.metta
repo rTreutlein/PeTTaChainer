@@ -59,6 +59,8 @@
 (: SkeletonNodeAt Type)
 (: sk-node-at (-[det]-> Number SkPattern SkeletonNodeAt))
 (: sk-search! (-[semidet]-> (Heap SkeletonFrontier) Atom))
+(: term-cost (-[det]-> $term Number))
+(: grows-from? (-[det]-> SkPattern SkPattern Bool))
 
 ;; --- Node identity ----------------------------------------------------------
 
@@ -193,6 +195,14 @@
 (= (sk-join-score $owner $rule $remaining)
    (/ (* (sk-node-score (sk-node-hash $owner) $owner) (sk-rule-score $rule))
       (max 1 (fold-semidet sk-open-premise-step 0 $remaining))))
+
+;; A node's index column: the hash of its statement's longest ground prefix,
+;; or of its head when it has none.
+(: sk-node-prefix (-[det]-> $statement Number))
+(= (sk-node-prefix $type)
+   (case (statement-prefix-hashes $type) (
+      (() (index-hash (car-atom $type)))
+      ((cons $longest $_shorter) $longest))))
 
 ;; A ground node reading any proof and value, or a fold's member node, is
 ;; indexed once and takes the ground keys already registered that unify with
@@ -501,6 +511,9 @@
                 (collapse (match &sk_member_of ($hash $stored $fold)
                    (if (=alpha $stored $node) $fold (empty)))))
              ($_members (fold-semidet (sk-member-step $key) () $folds))
+             ($_subsumed
+                (collapse (match &sk_subsumed ($hash $stored $specific)
+                   (if (=alpha $stored $node) (sk-unifying-answer! $specific () $key) (empty)))))
              ($seq (next-search-id sk_delivery_seq))
              ($_queued (add-atom &sk_answer_queue ($seq (sk-delivery $node $key)))))
          ())
@@ -897,7 +910,7 @@
          (sk-row-answer! $owner $key $proof)
          ;; The rows of the query's roots are its compiled scaffold and always
          ;; fit; every other row spends the allowance.
-         (if (if (sk-root? $owner) true (sk-take! sk_row_budget))
+         (if (if (sk-root? $owner) true (sk-take! sk_row_budget (term-cost $type)))
             (let* (($seq (next-search-id sk_row_seq))
                    ($row (sk-row $ident $concl
                             (fold-semidet sk-cons-step () (fold-semidet sk-evaluated-premise-step () $premises)) $seq))
@@ -968,17 +981,21 @@
 
 ;; The budget counts expansions. New rows have their own allowance of ten per
 ;; step, so recursive rules cannot grow the skeleton without bound; a row found
-;; after the allowance is spent waits in &sk_deferred for a later walk.
+;; after the allowance is spent waits in &sk_deferred for a later walk. A row
+;; costs more the larger its statement, as expanding a fact node does
+;; (term-cost, runtime_helpers.pl), so a step costs the same however large the
+;; terms a recursive rule builds, such as (Num (succ (succ ...))) from
+;; (Num $x) → (Num (succ $x)). A fold's arguments do not grow that way.
 (: sk-root? (-[det]-> SkPattern Bool))
 (= (sk-root? $node)
    (let $hash (sk-node-hash $node)
       (not (== (collapse (once (match &sk_roots ($hash $root) (if (=alpha $root $node) true (empty))))) ()))))
 
-(: sk-take! (-[det]-> CounterKey Bool))
-(= (sk-take! $counter)
+(: sk-take! (-[det]-> CounterKey Number Bool))
+(= (sk-take! $counter $cost)
    (let $left (search-id-value $counter)
       (if (<= $left 0) false
-         (progn (change-state! $counter (- $left 1)) true))))
+         (progn (change-state! $counter (- $left $cost)) true))))
 
 ;; Work left over by an earlier query waits with its node and resumes when a
 ;; later walk reaches that node, so it never spends an unrelated query's
@@ -1390,10 +1407,59 @@
                 (($rule-type $rule-kbctx $_node-proof $_node-tv) (copy_term $node)))
             ;; No rule is applied to a certain statement.
             (if (sk-certain? $type $leaf-facts) ()
-               (let* (($goal (assemble-stored-runtime-fact $rule-type $rule-kbctx $_rule-proof $_rule-tv))
-                      ($matches (append-flat (collapse (sk-rule-match $goal)) (collapse (sk-world-rule-match $goal))))
-                      ($_rules (fold-semidet (sk-start-rule-step $owner) () $matches)))
-                  (if (== $leaf-facts ()) (sk-start-prior! $owner $type $kbctx $matches) ())))))))))
+               (case (sk-subsumers $depth $node) (
+                  ((cons $general $_more)
+                     (let* (($ghash (sk-node-hash $general))
+                            ($_row (add-atom &sk_subsumed ($ghash $general $owner)))
+                            ($_child (sk-add-child! $owner $general (sk-node-score $hash $owner))))
+                        (fold-semidet (sk-unifying-answer! $owner) () (sk-answers $general))))
+                  (()
+                     (let* (($goal (assemble-stored-runtime-fact $rule-type $rule-kbctx $_rule-proof $_rule-tv))
+                            ($matches (append-flat (collapse (sk-rule-match $goal)) (collapse (sk-world-rule-match $goal))))
+                            ($_rules (fold-semidet (sk-start-rule-step $owner) () $matches))
+                            ($_open
+                               (if (== (extract-vars $type) ()) ()
+                                  (let $prefix (sk-node-prefix $type) (add-atom &sk_open_node ($prefix $hash $owner))))))
+                        (if (== $leaf-facts ()) (sk-start-prior! $owner $type $kbctx $matches) ()))))))))))))
+
+;; Subsumption: an open node below a root whose statement grows a term of an
+;; open node whose rules were already started (grows-from?, as (Num (succ $x))
+;; does (Num $x)) reads that node's answers instead of starting rules of its
+;; own. A mere specialization, such as (Reward op1 $t) of (Reward $op $t),
+;; keeps its own search, which a budget spends on that case first. Every rule concluding the instance concludes the
+;; general node, whose joins wait on premises at least as general, so the
+;; general search finds every key the instance's would; the instance takes
+;; those that unify with it, and a child link to the general node lets walks
+;; through the instance resume the general search. Otherwise a recursive rule
+;; read through an open node (a base rate's members over (Num $x) → (Num (succ
+;; $x))) unrolls one new open node per step, each answered by every key below
+;; it. A candidate's index column is a prefix of the instance's statement, so
+;; one lookup per prefix finds it. Implications and inheritance links are
+;; expanded on their own, since their expansion installs rules. A root of the
+;; current query subsumes nothing: its rows always fit the allowance, so a
+;; recursive rule answering it through an instance would never stop.
+(: sk-subsumers (-[det]-> Number SkPattern (List SkPattern)))
+(= (sk-subsumers $depth $node)
+   (case $node (
+      ((CPU $_fun $_args $_res) ())
+      (($type $_kbctx $_proof $_tv)
+         (if (if (== $depth 0) true
+                (if (== (extract-vars $type) ()) true
+                   (if (implication-type? $type) true (== (car-atom $type) Inheritance))))
+            ()
+            (let $prefixes (append-flat (statement-prefix-hashes $type) (cons (index-hash (car-atom $type)) ()))
+               (collapse (once (let $prefix (superpose $prefixes)
+                  (match &sk_open_node ($prefix $_ghash $general)
+                     (if (grows-from? $general $node) (if (sk-root? $general) (empty) $general) (empty))))))))))))
+
+;; A key reaching a subsumed node through its general node answers it when it
+;; unifies with it.
+(: sk-unifying-answer! (-[semidet]-> SkPattern Atom SkeletonKey Atom))
+(= (sk-unifying-answer! $node $_acc $key)
+   (case (copy_term $node) (
+      (($type $kbctx $_proof $_tv)
+         (if (= (sk-key $type $kbctx) (copy_term $key)) (sk-add-answer! $node $key) ()))
+      ($_cpu ()))))
 
 ;; The base-rate folds that rules concluding a statement read over a pattern
 ;; the statement belongs to, the priors their inversions and completions
@@ -1518,7 +1584,14 @@
 (= (sk-activate-rule-row $id $_acc (sk-rule-def $conclusion $args))
    (let* ((($type $kbctx $_proof $_tv) $conclusion))
       (fold-semidet (sk-activate-rule-on $id $conclusion $args) ()
-         (collapse (match &sk_node_terms ($type $kbctx $node) $node)))))
+         (collapse (match &sk_node_terms ($type $kbctx $node)
+            (let ($node-type $_c $_p $_t) $node
+               ;; A subsumed node reads the rule's conclusions from its general node.
+               (if (== (extract-vars $node-type) ()) $node
+                  (if (let $prefix (sk-node-prefix $node-type)
+                         (== (collapse (once (match &sk_open_node ($prefix $_h $stored)
+                                (if (=alpha $stored $node) true (empty))))) ()))
+                     (empty) $node))))))))
 
 (: sk-activate-rule-on (-[semidet]-> Number SkFact (List SkPattern) Atom SkPattern Atom))
 (= (sk-activate-rule-on $id $ccls $args $_acc $node)
@@ -1631,7 +1704,7 @@
 (= (sk-search-pop! ($_priority (sk-frontier $node $depth $hash) $rest))
    (if (sk-expanded? $hash $node)
       (if (if (sk-pending? $hash $node) (not (sk-seen! $hash $node)) false)
-         (if (sk-take! sk_walk_budget)
+         (if (sk-take! sk_walk_budget 1)
             (let* (($_counted (query_metric_increment nodes-walked))
                    ($_resumed (sk-resume! $hash $node)))
                (sk-search! (sk-push-children $depth $hash $node $rest)))
@@ -1639,7 +1712,7 @@
          (sk-search! $rest))
       (if (sk-seen! $hash $node)
          (sk-search! $rest)
-         (if (if (sk-extensional? $node) true (sk-take! sk_budget))
+         (if (if (sk-extensional? $node) true (sk-take! sk_budget (case $node (((CPU $_f $_a $_r) 1) (($type $_c $_p $_t) (term-cost $type))))))
             (let $_expand (sk-expand! $node $depth $hash) (sk-search! (sk-push-children $depth $hash $node $rest)))
             (sk-search! $rest)))))
 
@@ -1751,7 +1824,7 @@
    (let* (($_pending (sk-drop-pending! $h $node))
           ($_rows
              (remove-hash-rows!
-                (&sk_child &sk_score &sk_expanded &sk_wait &sk_temp_waits &sk_answer &sk_fold
+                (&sk_child &sk_score &sk_expanded &sk_wait &sk_temp_waits &sk_answer &sk_subsumed &sk_fold
                  &sk_member_of &sk_deferred &sk_deferred_joins &sk_parked &sk_roots &sk_seen)
                 $h)))
       (case (copy_term $node) (
@@ -1760,10 +1833,8 @@
          ((CPU $_fun $_args $_res) ())
          (($type $kbctx $_proof $_tv)
             (let* (($_terms (remove-data-rows! &sk_node_terms (quote ($type $kbctx $_n6))))
-                   ($prefix
-                      (case (statement-prefix-hashes $type) (
-                         (() (index-hash (car-atom $type)))
-                         ((cons $longest $_shorter) $longest)))))
+                   ($prefix (sk-node-prefix $type))
+                   ($_open (remove-data-rows! &sk_open_node (quote ($prefix $h $_n8)))))
                (let $_prefix (remove-data-rows! &sk_node_prefix (quote ($prefix $_t $_k $h $_n7))) ())))))))
 
 (: sk-drop-key-rows! (-[semidet]-> Number SkeletonKey Atom))

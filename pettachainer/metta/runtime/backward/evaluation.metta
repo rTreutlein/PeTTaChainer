@@ -2648,7 +2648,9 @@
 ;; Each row commits to its one result, so the loop leaves no choice points and
 ;; runs in constant stack however many rows it computes.
 (= (sk-work-pop! $pass $next ($order $item $rest))
-   (if (if (sk-near-root-reserve-take! $item) true (sk-take! sk_eval_budget))
+   (if (if (sk-near-root-reserve-take! $item) true
+          (sk-take! sk_eval_budget
+             (case $item (((sk-row-item $_seq $_khash (sk-key $type $_kbctx) $_rhash $_row) (term-cost $type)) ($_fold-check 1)))))
       (sk-work-off! $pass (once (sk-compute $pass $order (sk-work $rest $next) $item)))
       (let $_stale (sk-mark-stale! $item) (sk-work-off! $pass (sk-work $rest $next)))))
 
@@ -2660,14 +2662,16 @@
 ;; bounded by the size of what its roots read, not by the passes its cycles
 ;; take. What the reserve cannot pay for, and every deeper row, spends the
 ;; allowance; what neither can pay for is left stale, as if no query needed
-;; it, and a later query that reads it recomputes it from its inputs then.
+;; it, and a later query that reads it recomputes it from its inputs then. A
+;; row of a large key spends more of the allowance (term-cost); a fold, whose
+;; arguments do not grow with recursion, one.
 ;; Creation order is kept, so an allowance that covers everything computes
 ;; what a query without one would. A forward run has no reserve.
 (: sk-near-root-reserve-take! (-[det]-> SkeletonItem Bool))
 (= (sk-near-root-reserve-take! (sk-row-item $_seq $khash $key $_rhash $_row))
-   (if (<= (sk-need-depth $khash $key) (sk-evaluation-free-depth)) (sk-take! sk_near_reserve) false))
+   (if (<= (sk-need-depth $khash $key) (sk-evaluation-free-depth)) (sk-take! sk_near_reserve 1) false))
 (= (sk-near-root-reserve-take! (sk-fold-check $hash $fold))
-   (if (<= (sk-need-depth $hash $fold) (sk-evaluation-free-depth)) (sk-take! sk_near_reserve) false))
+   (if (<= (sk-need-depth $hash $fold) (sk-evaluation-free-depth)) (sk-take! sk_near_reserve 1) false))
 
 ;; How near a root a key must be for its rows to draw on the reserve and its
 ;; stale rows to be brought current. A forward run's need stops at the readers
@@ -2737,7 +2741,14 @@
 ;; Below that depth the need goes on only through rows never computed or
 ;; waiting to be conditioned. A current row's inputs are current, since every
 ;; change reaches the readers of what changed, and a stale one is not brought
-;; current, so there is nothing under either to recompute.
+;; current, so there is nothing under either to recompute. Rows never computed
+;; are taken nearest a root first, as the evaluation computes them; those of
+;; large statements spend what their size costs beyond a row's (term-cost)
+;; from as much as the allowance can compute (sk_need_budget). A recursive rule
+;; that builds ever larger rows faster than they are computed, such as a base
+;; rate's members through (Num $x) → (Num (succ $x)), would otherwise make
+;; every need walk the whole backlog; a need through rows of ordinary size,
+;; whose walk also takes base rates' changed members, is not cut.
 ;;
 ;; A stale row brought current leaves the stale set and rejoins its keys'
 ;; readers.
@@ -2752,9 +2763,15 @@
 (: sk-need-row! (-[semidet]-> Number (List SkeletonKey) SkeletonItem (List SkeletonKey)))
 (= (sk-need-row! $depth $next (sk-row-item $_seq $khash $key $rhash (sk-row $_ident $_concl $premises $_s)))
    (let* (($_reserve (sk-reserve-near! (- $depth 1)))
-          ($unseen (== (sk-latest-view $khash $key $rhash) sk-none))
+          ($near (<= $depth (+ (sk-evaluation-free-depth) 1)))
+          ($unseen
+             (if (== (sk-latest-view $khash $key $rhash) sk-none)
+                (if $near true
+                   (case $key (((sk-key $type $_kbctx)
+                      (let $extra (- (term-cost $type) 1) (if (== $extra 0) true (sk-take! sk_need_budget $extra)))))))
+                false))
           ($refresh
-             (if (if $unseen true (<= $depth (+ (sk-evaluation-free-depth) 1)))
+             (if (if $unseen true $near)
                 (not (== (collapse (once (match &sk_stale ($khash $rhash) true))) ()))
                 false))
           ($_refreshed
@@ -2767,6 +2784,11 @@
                    (not (== (collapse (once (match &sk_given_pending ($khash $rhash $_cost) true))) ())))))
          (fold-semidet sk-direct-key-step $next $premises)
          $next)))
+
+;; The need from a query's roots, or from the keys a forward wave takes.
+(: sk-need-roots! (-[semidet]-> (List SkeletonKey) Atom))
+(= (sk-need-roots! $keys)
+   (let $_budget (change-state! sk_need_budget (search-id-value sk_eval_budget)) (sk-need-keys! 0 $keys)))
 
 ;; A key is needed at the fewest steps from a root it is reached by. The keys
 ;; are visited breadth first, a level of keys one step further than the last
@@ -3367,7 +3389,7 @@
           ($_search (sk-walk! $goals))
           ($_unneeded (remove-data-rows! &sk_needed (quote ($hash $key $depth))))
           ($_reserve (change-state! sk_near_reserve 0))
-          ($_needed (sk-need-keys! 0 (fold-semidet sk-root-keys-step () $goals)))
+          ($_needed (sk-need-roots! (fold-semidet sk-root-keys-step () $goals)))
           ($_evaluated (sk-evaluate!))
           ($_inferred (inference-add! $started))
           ($results (map-semidet (sk-root-results $materialize?) $goals))

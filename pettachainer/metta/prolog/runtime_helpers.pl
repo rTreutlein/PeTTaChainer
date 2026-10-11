@@ -857,6 +857,24 @@ answer_instance(Index, Position, Answer) :-
     ),
     !.
 
+% What building a skeleton row or node of a term costs, in rows of the row
+% allowance or steps of the budget: one, and one more for each 400 words of the
+% term, about what storing, hashing and comparing that much of a term takes
+% beyond a row's fixed cost (ONA reasoningbench_num: a row of a 9,000-word
+% statement took 25 ms, one of a few words about 1 ms).
+'term-cost'(Term, Cost) :- term_size(Term, Size), Cost is 1 + Size // 400.
+
+% Whether node Specific is an instance of node General whose statement binds
+% one of General's variables to a compound term: the term a recursive rule
+% grows, as (Num (succ $x)) grows from (Num $x), and not a mere specialization
+% such as (Reward op1 $t) of (Reward $op $t). Tested on attribute-free copies,
+% so typed variables run no constraints.
+'grows-from?'(General, Specific, Result) :-
+    copy_term_nat(General, G),
+    copy_term_nat(Specific, S),
+    (   subsumes_term(G, S), G = [GT|_], S = [ST|_], term_size(ST, SS), term_size(GT, GS), SS > GS
+    ->  Result = true ; Result = false ).
+
 'rule-lookup-needs-occurs-check'(Term, Result) :-
     term_variables(Term, Variables),
     term_singletons(Term, Singletons),
