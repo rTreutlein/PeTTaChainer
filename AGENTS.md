@@ -66,15 +66,20 @@ Details and the exact commands are in `docs/agent_workflow.md`. Read it first.
 - Work in your own worktree branched from current `master`. Give it its own
   `.venv` (copy, then repoint, as the doc shows). A plain copy tests the
   main checkout's code.
-- Memory is shared, and an OOM in this pane kills everyone: run every PeTTa,
-  test or benchmark process through `/nexus/Dev/OpenCog/bench/capped`. Start a job only while `free -g` shows
-  8 GB or more available, run at most 4 jobs, and run every PeTTa or
-  benchmark process under `ulimit -v 16000000` with `DISPLAY` unset.
+- Memory and CPU are shared, and an OOM in this pane kills everyone: run
+  every PeTTa, test or benchmark process through
+  `/nexus/Dev/OpenCog/bench/capped [--slots N]`. It waits for the
+  machine-wide admission pool, which starts a job only when memory and CPU
+  allow it, then runs the job in the memory-capped slice. Give a parallel job
+  its worker count, e.g. `capped --slots 8 env PETTA_JOBS=8
+  scripts/test_metta.sh`. Run every PeTTa or benchmark process under
+  `ulimit -v 16000000` with `DISPLAY` unset.
 - Gates: `scripts/test_metta.sh`, `.venv/bin/python -m unittest discover -s tests`,
   and `scripts/verify.sh` before hand-back.
 - Benchmarks: `/nexus/Dev/OpenCog/bench/compare.sh master <worktree> --quick`
-  while iterating, `--full` before hand-back. Do not improvise runners, seeds
-  or frozen builds.
+  while iterating, `--full` before hand-back. Results are stored by the code
+  that ran, so a rerun of unchanged code is free. Do not improvise runners,
+  seeds or frozen builds.
 - Git: never run a bare `git stash`, never `rm -rf` a variable path, and do
   not push or merge. The coordinator merges. Commit trailers come from the
   brief.

@@ -49,8 +49,10 @@ Run from the worktree root.
 | All gates | `scripts/verify.sh` (MeTTa lint, MeTTa, Python, import scaling, ConceptNet) |
 | Benchmarks | `/nexus/Dev/OpenCog/bench/compare.sh master <worktree> --quick` |
 
-`scripts/test_metta.sh` runs `PETTA_JOBS=$(nproc)` (32) files at once; set
-`PETTA_JOBS=8` when other agents are benchmarking.
+`scripts/test_metta.sh` runs `PETTA_JOBS=$(nproc)` (32) files at once.
+Run it, and `scripts/verify.sh`, through the admission pool with a matching
+slot count, so it shares the machine with other agents' jobs:
+`/nexus/Dev/OpenCog/bench/capped --slots 8 env PETTA_JOBS=8 scripts/test_metta.sh`.
 
 ### Benchmarks: `bench/compare.sh`
 
@@ -58,44 +60,75 @@ Run from the worktree root.
 own seeds or write runner scripts.
 
 ```bash
-/nexus/Dev/OpenCog/bench/compare.sh <base> <candidate> [--quick|--full] [--jobs N]
+/nexus/Dev/OpenCog/bench/compare.sh <base> <candidate> [--quick|--full] [--timing|--no-timing]
+/nexus/Dev/OpenCog/bench/compare.sh <base> <candidate> --curves [--only <case>]
 ```
 
 - `<base>`, `<candidate>`: a PeTTaChainer ref or commit (`master`, `a1980394`),
   a frozen build name under `bench/chainers/`, or a worktree path. A worktree
-  is frozen as its HEAD plus its uncommitted diff and its untracked files
-  under `pettachainer/`.
-- `--quick` (default) while iterating, about 2.5 min. Run `--full` before
-  hand-back, about 18 min at 4 jobs.
+  counts as its HEAD plus its uncommitted diff and its untracked files under
+  `pettachainer/`.
+- `--quick` (default) while iterating. Run `--full` before hand-back.
+  `bench/README.md` lists what each profile runs and how long it takes.
+- **Results are stored by the code that ran.** The store key is the
+  `pettachainer/` tree (uncommitted changes included), the PeTTa runtime, the
+  ChainerGame source and the case. A run whose key is stored is never
+  repeated: a rebase, an amend, a docs-only commit or a rerun reuses every
+  result, and `master`'s results are shared by all agents. A
+  comparison that needs a result another agent is running waits for it.
+  Accuracy always comes from the store. In `--full` (`--timing`), a case
+  that runs for one build also runs for the other next to it, so the two
+  timings share a load. `--quick` (`--no-timing`) reuses stored results of
+  either build.
+- `--curves` sweeps each curve case up its budget ladder for both builds,
+  stops once the error flattens, and reports the best error each build
+  reaches within t seconds.
 - The report goes to
   `bench/results/compare/<base>_vs_<candidate>_<profile>/report.md`. Its
   first line is `PASS` or `REGRESSIONS (n): ...`, and the next line says
-  whether any accuracy number changed at all.
-- Accuracy numbers are deterministic, so any change in them is real. Time
-  is not. A single seconds flag just over 10% on one run can be noise; rerun
-  before you explain it.
+  whether any accuracy number changed at all. The header says how many
+  runs executed and how many results were reused.
+- Accuracy numbers are deterministic, so any change in them is real, and a
+  result that differs from an earlier run of the same code is reported as
+  `NONDETERMINISTIC`. Time is not deterministic. A timing flag counts only
+  if a paired rerun of both builds repeats it. Timing not taken side by side
+  at comparable load is marked `load differs` and not flagged.
+- Every comparison appends its cost and catches to
+  `bench/results/suite_metrics.jsonl`. `python3 bench/suite_report.py` shows
+  the trends.
 
-See `bench/README.md` for the suites and thresholds.
+See `bench/README.md` for the suites, thresholds and the admission pool.
 
-## Memory
+## Memory and CPU
 
-WSL has 29 GB. A runaway run has frozen the whole machine before, and other
-agents share it. Worse, the tmux pane Claude runs in has `OOMPolicy=stop`:
-one OOM kill of any process started from it stops the whole pane, the
-coordinator and every agent included.
+WSL has 48 GB and 32 hardware threads (16 cores). A runaway run has frozen
+the whole machine before, and other agents share it. Worse, the tmux pane
+Claude runs in has `OOMPolicy=stop`: one OOM kill of any process started
+from it stops the whole pane, the coordinator and every agent included.
 
-- Run every PeTTa, test or benchmark process inside `bench.slice`, whose
-  20 GB cap is shared by all jobs, so an OOM kills only the job:
-  `/nexus/Dev/OpenCog/bench/capped <command>`. `compare.sh`,
-  `scripts/test_metta.sh` and `scripts/verify.sh` put themselves there; run
-  anything else (a `supplynet` sweep, a single `petta` file, a probe) through
-  `capped`. The slice unit is `/nexus/Dev/OpenCog/bench/bench.slice`.
-- Start a job only while `free -g` shows at least 8 GB available.
-- Run at most 4 jobs in parallel unless the coordinator says otherwise.
+- Run every PeTTa, test or benchmark process through
+  `/nexus/Dev/OpenCog/bench/capped [--slots N] [--peak-mb M] <command>`.
+  It waits for a slot in the machine-wide admission pool, then runs the
+  command inside `bench.slice`, whose memory cap (75% of RAM) is shared by
+  all jobs, so an OOM kills only the job. The pool starts a job only when:
+  - the slots in use plus the job's own stay within the CPU target (24, set
+    from a concurrency calibration);
+  - available memory, less what the running jobs may still grow and less an
+    8 GB reserve, covers the job's expected peak.
+
+  Agents share the pool evenly, so nobody needs to throttle by hand. Pass
+  `--slots N` for a job that runs N workers, and `--peak-mb M` for one
+  expected to use much more than 1.5 GB. `python3
+  /nexus/Dev/OpenCog/bench/admission.py status` shows who holds what.
+- `compare.sh` takes one slot per run itself. `scripts/test_metta.sh` and
+  `scripts/verify.sh` put themselves in the slice but not in the pool: run
+  them through `capped --slots N` with `PETTA_JOBS=N`. Run anything else (a
+  `supplynet` sweep, a single `petta` file, a probe, the fuzzer with
+  `--jobs N`) through `capped` too.
 - Run every PeTTa or benchmark process under `ulimit -v 16000000`, with
   `DISPLAY` unset so no profiler GUI opens.
-- Do not run SupplyNet scale size `xl` at 16 steps per query (about 14 GB)
-  while anyone else is benchmarking.
+- Give SupplyNet scale size `xl` at 16 steps per query (about 14 GB)
+  `--peak-mb 15000`, so the pool keeps room for it.
 
 `compare.sh` follows these rules itself.
 
