@@ -75,18 +75,11 @@
 (: bounded-agenda-target-size (-[det]-> Number))
 (= (bounded-agenda-target-size) 1000)
 
+!(change-state! bounded_agenda_pruning true)
 (: set-bounded-agenda-pruning (-[det]-> Bool Bool))
 (= (set-bounded-agenda-pruning $enabled) (change-state! bounded_agenda_pruning $enabled))
 (: bounded-agenda-pruning? (-[det]-> Bool))
-(= (bounded-agenda-pruning?)
-   (let $state-values
-      (collapse
-         (catch
-            (get-state bounded_agenda_pruning)))
-      (if (== $state-values ())
-         true
-         (if-error-bool
-            (car-atom $state-values) true))))
+(= (bounded-agenda-pruning?) (the Bool (car-atom (collapse (get-state bounded_agenda_pruning)))))
 
 (: heap-prune-to-size (-[semidet]-> Number (Heap $item) (Heap $item)))
 (= (heap-prune-to-size $target $agenda)

@@ -83,7 +83,7 @@
    (-[semidet]-> $space $expression  (| Bool (List $no-result))))
 (= (chainer-add-atom $space $expr)
    (if (chainer-acyclic-term? $expr)
-      (add-atom $space $expr)
+      (add-space-atom! $space (brand SpaceAtom $expr))
       (empty)))
 
 ;; Build erased, raw atom-space rows without letting a variable first field be

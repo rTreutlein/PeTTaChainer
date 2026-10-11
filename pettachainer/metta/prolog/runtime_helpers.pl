@@ -52,8 +52,7 @@ heap_pop(Heap, [Priority, Value, Rest]) :-
 % Hash a lookup column with every variable replaced by one marker, so a row
 % keeps an integer SWI can JIT-index; =alpha on the stored key still decides.
 'index-hash'(Term, Hash) :-
-    term_variables(Term, Variables),
-    (   Variables == []
+    (   ground(Term)
     ->  term_hash(Term, Hash)
     ;   % Hash markers must not run attributes on copied typed variables.
         % The original term keeps its constraints for actual matching.
@@ -268,8 +267,18 @@ deps_has(Id, Hash, Bit, Seen) :-
 
 'deps-has?'(Id, Hash, Result) :- ( deps_has(Id, Hash) -> Result = true ; Result = false ).
 
+% Whether a set holds any of the keys: one walk, entering only children whose
+% mask has one of the keys' bits.
 'deps-meet?'(Hashes, Id, Result) :-
-    (   member(Hash, Hashes), deps_has(Id, Hash) -> Result = true ; Result = false ).
+    foldl([Hash, Bits0, Bits]>>(deps_bit(Hash, Bit), Bits is Bits0 \/ Bit), Hashes, 0, Bits),
+    empty_nb_set(Seen),
+    (   deps_meets(Id, Hashes, Bits, Seen) -> Result = true ; Result = false ).
+deps_meets(Id, Hashes, Bits, Seen) :-
+    deps_mask(Id, Mask), Mask /\ Bits =\= 0,
+    (   deps_leaf(Id, Leaf) -> memberchk(Leaf, Hashes)
+    ;   add_nb_set(Id, Seen, true),
+        deps_children(Id, Children),
+        member(Child, Children), deps_meets(Child, Hashes, Bits, Seen), ! ).
 
 % Whether a set's mask lies within another's: exact when it does not (the
 % first set has a key the second lacks); when it does, the keys may still

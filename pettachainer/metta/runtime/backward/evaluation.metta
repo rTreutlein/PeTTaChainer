@@ -2115,10 +2115,11 @@
 (= (sk-sample-exclusions $type $kbctx)
    (if (if (is-expr $type) (== (car-atom $type) ImplicationInstanceSample) false)
       (let* (((ImplicationInstanceSample $a $b $_atv $_btv) (copy_term $type))
-             (($kbid $_ctx $_vars) $kbctx))
+             (($kbid $_ctx $_vars) $kbctx)
+             ($conjuncts (implication-side-conjuncts (the Statement $a))))
          (collapse
             (match ccls_index (($b ($kbid $_rctx $_rvars) $prf $_tv) $_id $prems)
-               (if (= (foldr-flat sk-fact-premise-type () $prems) (implication-side-conjuncts (the Statement $a)))
+               (if (= (foldr-flat sk-fact-premise-type () $prems) $conjuncts)
                   (rule-excluded (brand KB $kbid) (rule-evidence-head $prf))
                   (empty)))))
       ()))
