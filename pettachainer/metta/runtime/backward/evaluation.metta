@@ -2312,7 +2312,10 @@
 ;; changed is computed when next read. A base-rate fold also records the
 ;; member to take, unless the change came through the rate itself: a past
 ;; belief that reads the rate as its prior changes whenever the rate moves, and
-;; would otherwise be needed and taken again each time. An implication
+;; would otherwise be needed and taken again each time. Nor does a base-rate
+;; fold see a member whose open merged value stayed the same outside the
+;; fold's dependencies: it takes that value, so there is nothing new to take
+;; (a labelled past member gaining a derived view under its fact). An implication
 ;; instance fold no query needs keeps its view and readers: the evaluation
 ;; brings it current at its end (sk-instance-checks!). A check queued for this
 ;; pass is also queued for the next, in case this pass's check already ran.
@@ -2322,7 +2325,13 @@
 (: sk-fold-changed (-[semidet]-> Number Number SkeletonKey SkeletonChange SkeletonWork SkeletonKey SkeletonWork))
 (= (sk-fold-changed $pass $_seq $member $change (sk-work $todo $next) $fold)
    (let $hash (index-hash $fold)
-      (if (deps-has? (sk-change-deps $change) $hash) (sk-work $todo $next)
+      (if (if (deps-has? (sk-change-deps $change) $hash) true
+             (case $change (
+                ((sk-value-same $_deps $merged-deps)
+                   (if (deps-has? $merged-deps $hash) false
+                      (if (sk-instance-fold-key? $fold) false (sk-rate-fold? $fold))))
+                ($_other false))))
+         (sk-work $todo $next)
       (let $_rate (sk-rate-dirty! $fold $member)
       (if (== (sk-latest-view $hash $fold 0) sk-none) (sk-work $todo $next)
       (if (if (sk-needed? $hash $fold) false

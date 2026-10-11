@@ -335,7 +335,14 @@ member that joined or whose value changed is taken again, replacing its old
 contribution, when a query needs the fold or it is next read. A member's
 change that came through the rate itself is not taken again: the rate does not
 count that version, and a past belief read through the rate would otherwise
-change, be needed and be recomputed every time the rate moved. Needing the fold
+change, be needed and be recomputed every time the rate moved. Nor is a member
+taken again whose new view left its open merged value the same, outside the
+rate's dependencies: the rate takes that value, so it has nothing new to take.
+A labelled past member gaining its first derived view under its fact is such a
+change; taking it again made the next query reaching the rate need every such
+member and compute its history rows ahead of the current period's, at equal
+depth by creation, until the allowance ran out (SupplyNet scale l at 16 steps
+per query: error 0.0042 against 0.0015 without). Needing the fold
 needs only those members, not the population. A member whose inputs changed
 while no query needed it keeps its last contribution until a query recomputes
 it, so a base rate may lag the members' current values; every step costs the
