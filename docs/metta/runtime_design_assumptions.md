@@ -202,10 +202,10 @@ A key's value merges its stored facts and one view per row:
   applications) of a predicate whose stored outcomes prefer odds or noisy-OR
   by a Bayes factor of 10 combine by that mode
   (`docs/metta/combination_modes.md`);
-- two applications of different refined rules whose truths were folded from
-  the same samples (equal digests of their instance folds) are one view, the
-  more confident: the history never told their antecedents apart
-  (`overlap_conditioning.md`, "Sample twins");
+- two derivations through different refined rules whose truths were folded
+  from samples observing the same outcomes (equal digests of their instance
+  folds) are one view, the more confident: the history never told the rules
+  apart (`overlap_conditioning.md`, "Sample twins");
 - of dependent views, the one whose evidence strictly contains the other's
   is kept; two that share uncertain statements condition the key's whole
   merge on them, a budgeted cutset: the merge with the statement of most

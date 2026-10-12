@@ -653,7 +653,7 @@
                             true))
                       ($twins
                          (if $independent
-                            (if (rule-application-proof? $proof-a) (if (rule-application-proof? $proof-b) (sk-sample-twins? $deps-a $deps-b) false) false)
+                            (if (sk-derivation-proof? $proof-a) (if (sk-derivation-proof? $proof-b) (sk-sample-twins? $deps-a $deps-b) false) false)
                             false))
                       ($factored (if $twins sk-none (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b $independent))))
                   (if $twins (sk-paired (if (>= (term-confidence $a) (term-confidence $b)) (sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b)))
@@ -674,13 +674,19 @@
                                     (sk-val $a $ev-a $deps-a)
                                     (sk-val $b $ev-b $deps-b))))))))))))))))
 
-;; Two applications of different refined rules whose truths were folded from
-;; the same samples, each the same observation of the same consequent, are
-;; one estimate from one sample applied twice: the history never told their
-;; antecedents apart, so their views count the same outcomes twice (two
-;; hypotheses confirmed through perfectly correlated antecedents,
-;; docs/metta/hypothesis_rules.md, gap 5). They are one view, the more
+;; Two derivations through different refined rules whose truths were folded
+;; from the same samples, observing the same outcomes, are one estimate from
+;; one sample applied twice: the history never told the rules apart, so their
+;; views count the same outcomes twice. So it is with two hypotheses confirmed
+;; through perfectly correlated antecedents (docs/metta/hypothesis_rules.md,
+;; gap 5), and with a hypothesis about one outcome and the inversion, through
+;; a deterministic rule, of a hypothesis about its complement, when the
+;; complement is derived from the stored outcome. They are one view, the more
 ;; confident. The samples are compared by their folds' digests.
+(: sk-derivation-proof? (-[det]-> Proof Bool))
+(= (sk-derivation-proof? $proof)
+   (if (rule-application-proof? $proof) true (if (is-expr $proof) (is-expr (car-atom $proof)) false)))
+
 (: sk-sample-twins? (-[semidet]-> Number Number Bool))
 (= (sk-sample-twins? $deps-a $deps-b)
    (case (sk-truth-digests $deps-a) (
@@ -1412,7 +1418,7 @@
           ($found
              (collapse (once (match &sk_instance_member ($mhash $hash $stored $was-run $contribution)
                 (if (=alpha $stored $member) (instance-take $contribution $change $was-run) (empty))))))
-          ($_digest (sk-instance-digest! $hash $member $found $new)))
+          ($_digest (sk-instance-digest! $hash $mhash $member $value $new)))
       (sk-instance-store! $hash $fold $mhash $member $tally $change $new
          (case $found (
             ((cons (instance-take $old $_change $was-run) $_more)
@@ -1422,22 +1428,53 @@
                      ($_sample (sk-change-replace $was-run $tally $change $old $new))))))
             (() (let $_reads (sk-instance-reads! $hash $mhash $member) (sk-change-first $none $tally $change $new))))))))
 
-;; A fold's digest sums a signature of each member's consequent and
-;; contribution, so two folds have equal digests when their samples are the
-;; same observations of the same consequents (sk-sample-twins?).
+;; A fold's digest sums a signature of each member's sample: the observation
+;; of its consequent, the facts of the sample's evidence other than its
+;; antecedent's stored facts, and the antecedent's strength, the share of the
+;; sample's mass in the positive branch (to six places, so the confidence the
+;; consequent is read with does not part samples of one observation). Two
+;; folds have equal digests when their samples weigh the same instances alike
+;; and observe them through the same facts, whatever statement each sample
+;; reads as its consequent: a consequent a deterministic rule derives from a
+;; stored outcome observes that outcome (sk-sample-twins?). A member that is
+;; no sample adds nothing. The signature a member was taken with is kept, so a
+;; changed member replaces its own.
 (: SkeletonSampleSig Type)
-(: sk-sample-sig (-[det]-> Atom InstanceEvidenceState SkeletonSampleSig))
-(: sk-instance-digest! (-[det]-> Number SkeletonKey (List InstanceTake) InstanceEvidenceState Atom))
-(= (sk-instance-digest! $hash $member $old $new)
+(: sk-sample-sig (-[det]-> Number Number SkeletonSampleSig))
+(: sk-instance-digest! (-[det]-> Number Number SkeletonKey SkeletonValue InstanceEvidenceState Atom))
+(= (sk-instance-digest! $hash $mhash $member $value (InstanceEvidence (BaseRateEvidence $_pw $pm) (BaseRateEvidence $_nw $nm)))
    (case $member (
-      ((sk-key (ImplicationInstanceSample $_a $b $_atv $_btv) $_kbctx)
-         (let* (($was (case (collapse (once (match &sk_instance_digest ($hash $stored) $stored))) (((cons $d $_rest) $d) (() 0))))
-                ($taken (case $old (((cons (instance-take $contribution $_change $_run) $_none) (index-hash (sk-sample-sig $b $contribution))) (() 0))))
-                ($digest (+ (- $was $taken) (index-hash (sk-sample-sig $b $new))))
+      ((sk-key (ImplicationInstanceSample $a $_b $_atv $_btv) $kbctx)
+         (let* (($observed
+                  (case $value (
+                     ((sk-val $_fact $ev $_deps)
+                        (let $kept
+                              (evidence-subtraction $ev
+                                 (evidence-set (foldr-flat (sk-antecedent-fact-entries $kbctx) () (implication-side-conjuncts (the Statement $a)))))
+                           (fold-flat sk-entry-hash-step 0 (evidence-shared-facts $kept $kept))))
+                     ($_none 0))))
+                ($mass (+ $pm $nm))
+                ($sig (if (> $mass 0.0) (index-hash (sk-sample-sig $observed (round-math (* 1000000 (/ $pm $mass))))) 0))
+                ($was (case (collapse (once (match &sk_instance_digest ($hash $stored) $stored))) (((cons $d $_rest) $d) (() 0))))
+                ($taken (case (collapse (once (match &sk_instance_sig ($mhash $hash $stored-sig) $stored-sig))) (((cons $t $_more) $t) (() 0))))
+                ($digest (+ (- $was $taken) $sig))
                 ($_old (remove-data-rows! &sk_instance_digest (quote ($hash $_d))))
-                ($_new (add-atom &sk_instance_digest ($hash $digest))))
+                ($_new (add-atom &sk_instance_digest ($hash $digest)))
+                ($_old-sig (remove-data-rows! &sk_instance_sig (quote ($mhash $hash $_s))))
+                ($_new-sig (add-atom &sk_instance_sig ($mhash $hash $sig))))
             ()))
       ($_other ()))))
+
+(: sk-antecedent-fact-entries (-[det]-> KBContext Atom (List Evidence) (List Evidence)))
+(= (sk-antecedent-fact-entries $kbctx $conjunct $entries)
+   (foldr-flat sk-fact-entry-step $entries (kb-facts (the Statement $conjunct) $kbctx)))
+
+(: sk-fact-entry-step (-[det]-> (Statement KBContext Proof TV) (List Evidence) (List Evidence)))
+(= (sk-fact-entry-step ($type $kbctx $proof $_tv) $entries) (cons (fact-evidence-entry $kbctx $proof $type) $entries))
+
+;; A set of entries as the sum of their hashes, whatever their order.
+(: sk-entry-hash-step (-[det]-> Number Evidence Number))
+(= (sk-entry-hash-step $sum $entry) (+ $sum (index-hash $entry)))
 
 (: sk-instance-store!
    (-[det]-> Number SkeletonKey Number SkeletonKey InstanceEvidenceState InstanceChangeState InstanceEvidenceState

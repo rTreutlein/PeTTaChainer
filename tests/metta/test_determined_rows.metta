@@ -45,3 +45,16 @@
 !(test (truth givenKb) (STV 0.7493701514382423 0.8003713528065355))
 !(test (query 0 givenKb (: $p (B other) $tv))
    (: (population-prior (B $_0)) (B other) (STV 0.7380929703163627 0.7999679980798818)))
+
+;; A hypothesis about the complement learns from the same outcomes: (C $x) is
+;; stored where (B $x) is derived, and the other way round. Applied to a new
+;; case, h's view of (C case), through the inverted rule, is the same
+;; estimate as hc's, not more evidence: the two views are sample twins and the
+;; merge keeps one (overlap_conditioning.md, "Sample twins"). Revised as
+;; independent, they gave (STV 0.2397 0.8012) through a factored revision.
+!(compileadd givenKb (: hc (Implication (A $x) (C $x)) (STV 0.5 0.01)))
+!(compileadd givenKb (: acase (A case) (STV 1 1)))
+!(test (let (: $p $t $tv) (query 50 givenKb (: $p (RuleTruth (Implication (A $x) (C $x))) $tv)) $tv)
+   (STV 0.2506297229219143 0.8004032258064516))
+!(test (query 50 givenKb (: $p (C case) $tv))
+   (: (by hc acase) (C case) (STV 0.2506297229219143 0.8004032256866713)))

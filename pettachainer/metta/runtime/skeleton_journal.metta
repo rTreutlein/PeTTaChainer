@@ -145,6 +145,9 @@
 ;; (sk-instance-digest!).
 (: &sk_instance_digest (SpaceOf (Number Number)))
 !(bind! &sk_instance_digest (new-space))
+;; the signature each member was taken with, by member hash and fold hash
+(: &sk_instance_sig (SpaceOf (Number Number Number)))
+!(bind! &sk_instance_sig (new-space))
 ;; A change detector: the log Bayes factor it declares a change at, the
 ;; current run, and per branch the run the tally starts at, the run the recent
 ;; samples start at, their evidence and the log Bayes factor for their having

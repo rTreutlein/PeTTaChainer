@@ -274,10 +274,37 @@ never told A and B apart, so the second rule's view adds nothing to the
 first's. No statement is shared (each view depends on its own truth's key,
 "Shared rules"), so this is no conditioning; it is containment on the
 samples. An implication instance fold keeps a digest of its samples, the sum
-of a hash of each member's consequent and contribution, updated with the
-tally at constant cost per take. Two applications of different refined rules
-whose truths' folds have equal digests are one estimate from one sample
-applied twice, and the merge keeps the more confident.
+of a signature of each sample, updated with the tally at constant cost per
+take. Two derivations through different refined rules (applications, or
+inversions and completions reading one) whose truths' folds have equal
+digests are one estimate from one sample applied twice, and the merge keeps
+the more confident.
+
+A sample's signature is what it observes: the facts of its evidence other
+than its antecedent's stored facts, and the antecedent's strength (the share
+of its mass in the positive branch). It is not the statement the sample reads
+as its consequent. A task rule that makes one outcome the complement of
+another, `(Implication (Reward left $t) (Reward right $t)) (CTV (STV 0 1)
+(STV 1 1))` and its converse, with only the chosen outcome stored, derives
+each unchosen one: `context -> (Reward left $t)` and `context -> (Reward right
+$t)` then learn from the same stored outcomes, each the complement of the
+other. Applied to a new case, the first rule's view of `(Reward left t)` and
+the inversion of the second's view of `(Reward right t)` revised as
+independent, counting every past trial twice (ONA matching-to-sample with the
+rule: confidence 0.98 where the stored complements gave 0.86; in reversal,
+with change detection, the two views came to disagree and their revision
+fell to confidence 1e-6, so the agent stopped acting). With observations
+as signatures the two folds have equal digests and the merge keeps one view
+(`test_determined_rows.metta`). A member that is no sample adds nothing, so
+two folds that have taken the same samples agree whatever members wait.
+
+Counting the trials once makes rule mode answer as facts mode does, where the
+harness stores both outcomes and no rule couples the operations: the desire
+of a trained context falls from 0.9998 to 0.83 to 0.94 as the samples grow.
+Ten seeds: conditioning, identity matching and reversal with change
+detection at 1e4 stay at 1.000; reversal without change detection, where
+the inflated confidence happened to help the retest, falls from 0.709 to
+0.591, against 0.597 in facts mode.
 
 Only equal sample sets count. Overlapping ones (antecedents that mostly but
 not always agree) still revise as independent; their joint estimate, P(C |
