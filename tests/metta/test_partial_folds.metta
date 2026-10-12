@@ -81,3 +81,44 @@
 
 !(test (let (: $proof (Total u1) (STV $s $_c)) (total2 4) (and (== $proof (by prior c1)) (close? $s 0.5))) true)
 !(test (let (: $proof (Total u1) (STV $s $_c)) (total2 200) (and (== (car-atom $proof) by) (close? $s 0.8))) true)
+
+;; A fold reads a member whose row derived nothing while that row waits to be
+;; computed again (here a soft degradation history the antecedent completions
+;; of runs read, in an Assuming context): the fold is complete over no member
+;; for a moment. When the allowance then leaves the row stale, the fold goes
+;; stale and its reader is computed again, so the query answers the partial
+;; fold. Before a8ab91a6 the reader was held stale with the complete view,
+;; (Value t1 0.0) at confidence 0.9997 (SupplyNet stage 4, gap 4).
+!(set-complete-predicate recomputeKb P)
+!(compileadd recomputeKb (: persist (Implication (And (Next $p $t) (D $p)) (D $t)) (CTV (STV 0.75 1) (STV 0.1 1))))
+!(compileadd recomputeKb (: runs (Implication (And (Not (D $t)) (On $t)) (P $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd recomputeKb (: (no_inverse out) (Implication (And (Val $v) (P $t)) (Out $t $v)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd recomputeKb (: (no_inverse value) (Implication (And (Decision $t) (FoldAllTruth (Out $t $v) (STV $s $_c) (Weighted $s $v) 0.0 (|-> ($acc (Weighted $p $x)) (+ $acc (* $p $x))) -> $g)) (Value $t $g)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd recomputeKb (: val (Val 4) (STV 1 1)))
+!(compileadd recomputeKb (: d-h1 (D h1) (STV 0.2 0.9)))
+!(compileadd recomputeKb (: p-h1 (P h1) (STV 0.8 0.9)))
+!(compileadd recomputeKb (: on-h1 (On h1) (STV 1 1)))
+!(compileadd recomputeKb (: next-h2 (Next h1 h2) (STV 1 1)))
+!(compileadd recomputeKb (: d-h2 (D h2) (STV 0.2 0.9)))
+!(compileadd recomputeKb (: p-h2 (P h2) (STV 0.8 0.9)))
+!(compileadd recomputeKb (: on-h2 (On h2) (STV 1 1)))
+!(compileadd recomputeKb (: next-h3 (Next h2 h3) (STV 1 1)))
+!(compileadd recomputeKb (: d-h3 (D h3) (STV 0.8 0.9)))
+!(compileadd recomputeKb (: p-h3 (P h3) (STV 0.2 0.9)))
+!(compileadd recomputeKb (: on-h3 (On h3) (STV 1 1)))
+!(compileadd recomputeKb (: next-h4 (Next h3 h4) (STV 1 1)))
+!(compileadd recomputeKb (: d-h4 (D h4) (STV 0.8 0.9)))
+!(compileadd recomputeKb (: p-h4 (P h4) (STV 0.2 0.9)))
+!(compileadd recomputeKb (: on-h4 (On h4) (STV 1 1)))
+!(compileadd recomputeKb (: next-h5 (Next h4 h5) (STV 1 1)))
+!(compileadd recomputeKb (: d-h5 (D h5) (STV 0.2 0.9)))
+!(compileadd recomputeKb (: p-h5 (P h5) (STV 0.8 0.9)))
+!(compileadd recomputeKb (: on-h5 (On h5) (STV 1 1)))
+!(compileadd recomputeKb (: next-h6 (Next h5 h6) (STV 1 1)))
+!(compileadd recomputeKb (: d-h6 (D h6) (STV 0.2 0.9)))
+!(compileadd recomputeKb (: p-h6 (P h6) (STV 0.8 0.9)))
+!(compileadd recomputeKb (: on-h6 (On h6) (STV 1 1)))
+!(compileadd recomputeKb (: next-t1 (Next h6 t1) (STV 1 1)))
+
+!(test (query 16 recomputeKb (: $p (Assuming (And (Decision t1) (On t1)) (Value t1 $g)) $tv))
+   (: (assuming (by (no_inverse value) (conjunction (ctx proof 0) (partial-fold 0 1 cpu)))) (Assuming (And (Decision t1) (On t1)) (Value t1 0.0)) (STV 1.0 0.0)))
