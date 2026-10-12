@@ -235,7 +235,7 @@
 ;; dependencies of the versions it merged
 (: SkeletonMerged Type)
 (: sk-merged (-[det]-> Number SkeletonKey Number SkeletonValue SkeletonMerged))
-(: &sk_merged (SpaceOf (sk-merged Number SkeletonKey Number SkeletonValue)))
+(: &sk_merged (SpaceOf (Number SkeletonKey Number SkeletonValue)))
 !(bind! &sk_merged (new-space))
 ;; rows not evaluated yet, and the rows one evaluation scheduled per pass
 (: &sk_new (SpaceOf (sk-row-item Number Number SkeletonKey Number SkeletonRow)))

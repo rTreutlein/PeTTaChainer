@@ -1681,7 +1681,7 @@
 ;; latest version, so it reads the same value.
 (: sk-open-value (-[semidet]-> Number SkeletonKey SkeletonFilter SkeletonMerged))
 (= (sk-open-value $hash $key $filter)
-   (case (collapse (once (match &sk_merged (sk-merged $hash $stored $deps $value)
+   (case (collapse (once (match &sk_merged ($hash $stored $deps $value)
             (if (=alpha $stored $key) (sk-merged $hash $stored $deps $value) (empty))))) (
       ((cons $merged $_rest) (let $_counted (query_metric_increment merged-cache-hits) $merged))
       (()
@@ -1691,7 +1691,7 @@
                 ($deps (fold-semidet sk-view-deps-step 0 (append-flat $leaves $views)))
                 ($value (sk-merge-key $hash $key $filter () () $views))
                 ($_inner (sk-uncache! $hash $key))
-                ($_cached (add-atom &sk_merged (sk-merged $hash $key $deps $value)))
+                ($_cached (add-atom &sk_merged ($hash $key $deps $value)))
                 ($_factor (sk-note-truth-factor! $hash $key $value)))
             (sk-merged $hash $key $deps $value))))))
 
@@ -1738,9 +1738,9 @@
 (: sk-uncache! (-[det]-> Number SkeletonKey Atom))
 (= (sk-uncache! $hash $key)
    (let $_dropped
-         (collapse (match &sk_merged (sk-merged $hash $stored $deps $value)
+         (collapse (match &sk_merged ($hash $stored $deps $value)
             (if (=alpha $stored $key)
-               (remove-atom &sk_merged (sk-merged $hash $stored $deps $value))
+               (remove-atom &sk_merged ($hash $stored $deps $value))
                (empty))))
       ()))
 
@@ -2973,7 +2973,7 @@
                             (let $_unsupported (query_metric_increment views-without-support) true)))))
                $work
                (let* (($before
-                         (collapse (once (match &sk_merged (sk-merged $hash $stored $deps $value)
+                         (collapse (once (match &sk_merged ($hash $stored $deps $value)
                             (if (=alpha $stored $key) (sk-merged $hash $stored $deps $value) (empty))))))
                       ($_stored (sk-store-view! $hash $key $seq $rhash $new))
                       ($_stored-count (query_metric_increment views-stored))

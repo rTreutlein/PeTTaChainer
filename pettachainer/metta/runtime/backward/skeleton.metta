@@ -1880,9 +1880,8 @@
                 (&sk_row &sk_stale &sk_support &sk_given_pending &sk_given_granted &sk_cond_level &sk_forced
                  &sk_forced_used &sk_refresh &sk_restale &sk_restaled &sk_temp_rows &sk_keys
                  &sk_key_epoch &sk_latest &sk_view &sk_reader &sk_stale_reader &sk_unifiers
-                 &sk_use &sk_needed &sk_dirty &sk_group_of &sk_answered &sk_partial)
-                $h))
-          ($_merged (remove-data-rows! &sk_merged (quote (sk-merged $h $_k6 $_d $_v3)))))
+                 &sk_use &sk_needed &sk_dirty &sk_group_of &sk_answered &sk_partial &sk_merged)
+                $h)))
       (case $key (
          ((sk-key $type $kbctx) (sk-unindex-key! $type $kbctx $h))
          ($_fold ())))))

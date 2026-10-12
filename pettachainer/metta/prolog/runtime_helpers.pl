@@ -202,17 +202,19 @@ argument_shape(Arg, Shape) :-
     empty_nb_set(Live),
     forall(member(Root, Roots), deps_mark(Root, Live)),
     size_nb_set(Live, Kept), flag(deps_gc_kept, _, Kept),
+    length(Roots, Read), flag(deps_gc_roots, _, Read),
     flag(deps_next_id, Next, Next), flag(deps_gc_next, _, Next),
     forall(( clause(deps_node(Id, _, _, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
     forall(( clause(deps_cut(Id, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
     forall(( clause(deps_size_memo(Id, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)),
     forall(( clause(deps_leaf(Id, _), true, Ref), \+ add_nb_set(Id, Live, false) ), erase(Ref)).
 % A collection is due once more ids were interned since the last one than it
-% kept (at least 4096), so its cost, a walk of the stores, stays proportional
-% to what was interned.
+% kept and roots it read (at least 4096), so its cost, a walk of the stores
+% that hold the roots and of the ids, stays proportional to what was interned.
 'deps-gc-due?'(Result) :-
     flag(deps_next_id, Next, Next), flag(deps_gc_next, Last, Last), flag(deps_gc_kept, Kept, Kept),
-    (   Next - Last > max(Kept, 4096) -> Result = true ; Result = false ).
+    flag(deps_gc_roots, Read, Read),
+    (   Next - Last > max(Kept + Read, 4096) -> Result = true ; Result = false ).
 
 % Stored proofs and evidence sets nothing refers to are collected in cycles
 % spread over queries (docs/metta/evidence_sets.md, "Collection"). A cycle
@@ -234,7 +236,7 @@ argument_shape(Arg, Shape) :-
 % &materialized_facts as well.
 refs_holder('&sk_latest', 3, [3]).
 refs_holder('&sk_view', 4, [4]).
-refs_holder('&sk_merged', 5, [5]).
+refs_holder('&sk_merged', 4, [4]).
 refs_holder('&sk_forward_taken', 3, [3]).
 refs_holder('&sk_forward_stored', 5, [3, 4]).
 refs_holder('&sk_summary', 5, [3, 4]).
@@ -251,11 +253,15 @@ refs_holder('&combination_pending', 4, [4]).
 refs_gc_active :- nb_current(refs_gc_phase, Phase), Phase \== idle.
 
 % A collection is due once more proofs were stored since the last one than it
-% kept (at least 4096), as for dependency nodes.
+% kept and holder rows it scanned (at least 4096), as for dependency nodes. A
+% cycle's work is those rows and proofs, so each stored proof pays a constant
+% share of it however long the history: holder rows grow with the keys, one
+% per decision in Pong, while the proofs kept need not.
 refs_gc_due :-
     (   refs_gc_active -> true
     ;   'search-id-value'(proof_id, Next), flag(refs_gc_last, Last, Last), flag(refs_gc_kept, Kept, Kept),
-        Next - Last > max(Kept, 4096) ).
+        flag(refs_gc_rows, Rows, Rows),
+        Next - Last > max(Kept + Rows, 4096) ).
 
 % One slice, starting a cycle when one is due. Its units grow with the proofs
 % stored since the last slice, so a cycle ends before as many again are
@@ -282,6 +288,8 @@ refs_gc_start :-
             ( refs_holder(Space, Arity, Columns), current_predicate(user:Space/Arity), functor(Head, Space, Arity) ),
             Holders),
     forall(member(holder(Head, Columns), Holders), prolog_listen(user:Head, refs_gc_removed(Columns))),
+    aggregate_all(sum(N), ( member(holder(Head, _), Holders), predicate_property(user:Head, number_of_clauses(N)) ), Rows),
+    flag(refs_gc_rows, _, Rows),
     nb_setval(refs_gc_holders, Holders),
     nb_setval(refs_gc_phase, roots(Holders)),
     refs_gc_take(none).
