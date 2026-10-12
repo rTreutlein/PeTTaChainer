@@ -89,7 +89,7 @@ The root's own key and every answer key it registered go with it
 they belonged to. What the context's rows interned (dependency nodes,
 evidence sets) and stored (proofs) is reached by nothing afterwards: it is
 collected once more was interned or stored since the last collection than
-that collection kept (`deps-gc-due?` and `deps-gc!` for dependency nodes,
+that collection kept and walked (`deps-gc-due?` and `deps-gc!` for dependency nodes,
 `stored-refs-gc-step!` for proofs and evidence sets, a bounded share per
 query; `evidence_sets.md`, "Collection"), so collection costs in proportion
 to what queries create.

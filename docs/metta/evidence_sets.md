@@ -61,8 +61,11 @@ marked, so nothing reachable at the start is lost. A stored proof is found
 only through references, so one nothing reached cannot be reached again.
 
 Every query ends with one slice (`stored-refs-gc-step!`), which starts a cycle
-once more proofs were stored since the last one than it kept (at least 4096)
-and does at most 512 units of work plus 8 per proof stored since the previous
+once more proofs were stored since the last one than it kept plus the holder
+rows it scanned (at least 4096): a cycle's work is those rows and proofs, and
+the holder rows grow with the keys (one per decision in Pong) while the proofs
+kept need not, so pacing by kept proofs alone made each stored proof pay a
+share that grew with the history. A slice does at most 512 units of work plus 8 per proof stored since the previous
 slice: a holder row scanned, a marked proof followed, a stored proof, set or
 union swept. So a query pays a bounded share of a collection, and a cycle
 ends before as many proofs again are stored. `stored-refs-gc!` collects
