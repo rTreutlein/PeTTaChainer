@@ -519,13 +519,16 @@ instance `(query 50 kb (: $p (RuleTruth (Implication ...)) $tv))`, folds the
 instances; from then on the truth and the score follow new instances without
 one (docs/metta/hypothesis_rules.md).
 
-A KB whose world may change can let its refined rules detect it (off by
-default): `!(set-rule-change-detection kb 10000)`. Each branch of a rule's
-instance tally then compares its most recent samples with its rate: once the
-Bayes factor for their having a rate of their own passes 10000, the earlier
-samples leave the tally and the rule's truth is learned from the samples
-since. On samples of one rate the detector stays quiet, so the truth is the
-one without it.
+A refined rule's rate may change while the KB runs. Each branch of its
+instance tally keeps the samples as regimes (an old one, the current one and a
+candidate since a possible change), and the rule's truth is the posterior
+mixture over where the rate changed. The prior probability that a sample
+starts a new regime is the KB's hazard, 0.0001 by default:
+`!(set-rule-change-hazard kb 0.001)` expects changes more often, and
+`!(set-rule-change-hazard kb 0)` keeps one regime. On samples of one rate the
+truth is the one in one regime; after a change the new samples take over as
+their evidence grows, and an earlier regime that returns counts its old samples
+at once.
 
 A KB can also propose its own hypotheses (off by default):
 

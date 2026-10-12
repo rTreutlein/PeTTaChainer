@@ -336,134 +336,181 @@ instance once (4.4 s and 26 s), and the queries themselves (0.55 s and
 0.66 s per round). Raw runs: `bench/results/forward-folds/learned/`.
 
 
-## Change detection (October 2026)
+## Regimes (October 2026)
 
-Status: built, opt-in (`set-rule-change-detection`).
+Status: built, on by default (`set-rule-change-hazard`, default 0.0001).
+It replaced a hard change detector (master 90bddc6e..1d01ad71, opt-in
+`set-rule-change-detection`), described at the end.
 
 **Problem.** A tally weighs every sample alike, so a rule whose world changed
 keeps its old rate until new samples outnumber the old ones. In ONA's
 reversal task (ChainerGame `onabench.mts reversal`: matching-to-sample
 trained for 20 blocks, then the mapping reversed for 20 feedback blocks and
 tested again) the PLN agent kept the trained choice through most of the
-reversal: every failure moved a rule learned from about 20 successes by a
-twentieth, so it scored 0.089 in the reversal blocks and 0.400 in the retest
-(ONA 0.19 and 0.375).
+reversal. The hard detector fixed that by cutting: once the Bayes factor of
+the recent samples' having a rate of their own passed a threshold, the tally
+kept only them. The cut was irreversible, the threshold a knob (100 fired
+falsely on SupplyNet, 10^4 was safe), and the old samples were lost even when
+the old regime came back.
 
 **Model.** Each branch of a rule, P(B|A) and P(B|¬A), has a rate that is
-constant between change points nobody announces. A branch's tally holds the
-samples since the last change it found, and a candidate **run**, its latest
-samples. Each new sample is predicted twice, by the tally's estimate (the run
-continues the tally's rate) and by the run's own (the run has a rate of its
-own), each with one pseudo-observation at 0.5. The log ratio of the two
-predictions adds to the run's log Bayes factor for a rate of its own; a
-weighted sample, of mass m and consequent strength s, scores
-m·(s ln p + (1−s) ln(1−p)). This is Page's CUSUM with a Bayesian alternative:
+constant between change points nobody announces; each sample starts a new
+regime with the prior probability h, the hazard. A branch keeps its samples,
+in arrival order, as at most three segments, each the additive sums
+(Σ strength·mass, Σ mass) of its samples:
 
-- a factor at or below 1 says nothing for a change: the next sample starts a
-  new run, and the run's samples stay in the tally;
-- a factor past the setting is a change: the tally keeps the run alone, the
-  earlier samples leave it, and a new run starts.
+- an **old** regime (once a change was accepted),
+- the **current** one,
+- a **candidate**: the run of samples since a possible change.
 
-So the detector calibrates itself. Where the rate holds, the run's own
-estimate, starting from its prior, predicts worse than the tally's, its
-factor sinks below 1 and the run restarts; under the tally's own
-predictive the factor is a nonnegative martingale, so a run passes a factor F
-with probability at most 1/F (Ville's inequality). Where the rate changed, the factor grows with
-every sample: a rule held in 12 of 12 cases passes 100 at its third failure
-(`test_rule_change_detection.metta`), and 10^4 at its sixth.
+The hypotheses are the assignments of the segments to regimes, as restricted
+growth strings over the segments in order: no change (one regime), one
+change at either boundary, two changes, and a regime that returns (old and
+candidate one regime, the current one between them). A hypothesis's prior is
+1 − h per boundary without a change, and h per change, split evenly between
+a new rate and each earlier regime it may return to; its likelihood is the
+product over its regimes of the Beta(½, ½) marginal likelihood of their sums,
+so it does not depend on the order of samples within a segment. With at most
+three segments there are at most five hypotheses.
 
-**Bookkeeping, constant per sample.**
+**Truth.** The branch's evidence is the posterior mixture over the
+hypotheses of the newest sample's regime: strength the posterior mean of the
+hypotheses' strengths (Σ w / Σ m of the regime), mass the posterior mean of
+their regimes' masses, the evidence the estimate stands on. With one segment
+(no candidate open) it is that segment's sums exactly. On samples of one
+rate the no-change hypothesis takes all but about h times the candidate's
+Bayes factor of the posterior, so the truth is the all-evidence one up to
+that weight; nothing is forgotten, unlike exponential decay.
 
-- A fold's detector (`&sk_instance_change`, only in a KB that detects
-  changes) holds the threshold, a run counter, and per branch the run its
-  tally starts at, the run its candidate starts at, the candidate's evidence
-  and its log factor.
-- Each member records the run it was sampled in (`&sk_instance_member`). A
-  member is a new sample when its contribution first has mass: the member of
-  a sample usually joins the fold before the consequent is known (the agent's
-  reward comes after its decision), and it is stamped with the run current
-  then. A starting run moves the counter, so the samples of a run are those
-  stamped from its first run on.
-- A member whose sample changes replaces its contribution in the branch's
-  tally and run if they hold its run, and is not scored again: it corrects a
-  sample, it is no new one.
-- Leave one out subtracts only the samples the tally holds.
-- A change removes nothing: the left samples' members and contributions stay,
-  and the tally no longer counts them. The order samples are scored in is the
-  order their values arrive: one per trial for the agent, and, for the first
-  read of a fold over a history, the order its members joined.
+A moment-matched mass (the Beta of the mixture's mean and variance) was
+tried first and rejected: a hypothesis of weight 7·10^-4 whose mean is far
+from the others' (two failures at the end of 200 samples at 0.75) cut the
+mass from 200 to 160, so stable worlds lost confidence whenever a candidate
+was open. The mean mass moves by the weight only (199.88).
 
-Off, a take looks up the detector and the KB's setting, both empty tables,
-and stores a member's run as 0, so every value is the one without the
-feature (`compare.sh e7c52328 717f5813 --full`: PASS, accuracy identical
-in all 27 cases, suite times within ±4%).
+**Segments, constant cost per sample.**
 
-**Results.** ONA matching-to-sample, harness hypotheses (sample-pairs), k = 1,
-budget 200, 10 seeds (42, 1-9), master e7c52328 with the setting off and on
-(ChainerGame `onabench.mts --change-detection`):
+- A new sample joins the candidate. The candidate starts where a change is
+  most probable among two points (Page's CUSUM, the maximum over start points,
+  here over two): its first sample, or the new sample alone if that departs
+  further, by Bayes factor, from everything before it. Without this a candidate
+  that started at a few odd samples could never merge or become a regime, and
+  a later change would be appended to it.
+- A candidate whose Bayes factor for a rate of its own is at most 1 merges into
+  the current segment (no change), and a new candidate starts.
+- A candidate that the posterior more probably than not puts in a regime of
+  its own becomes the current segment. If an old segment is already kept, two
+  of the three must merge first: the pair the posterior most probably puts in
+  one regime, adjacent or not, if more probably than not. The old regime and
+  the new one merge when the old one returned (**recurrence**: its evidence
+  counts at once instead of being relearned). If no pair is one regime, the
+  older segment least probably in the newest one's regime is dropped; that is
+  the only loss of evidence, and it needs three distinct regimes.
+- Each member records its segment per branch (`&sk_instance_member`). A
+  merged segment's id leaves an entry in `&sk_instance_regime` pointing to the
+  survivor, which keeps the larger segment's id (union by size), so a member's
+  chain grows only logarithmically and is shortened whenever the member is
+  rewritten. A member whose sample changes replaces its contribution in the
+  segment that holds it, and is not scored again; a leave-one-out read takes
+  the reader's sample out of its segment and computes the mixture again.
+- h = 0 keeps one segment per branch, every sample in it: the values without
+  regimes.
 
-| task | off | factor 20 | factor 100 | factor 1000 | factor 10^4 | factor 10^6 |
+Two drafts were rejected on the same reversal (12 successes, 8 failures, then
+successes):
+
+- Each sample a segment of its own, and at four segments the pair with the
+  largest Bayes factor for one rate merged. One returning success matched the
+  12 successes as well as two failures matched each other, merged with them,
+  and the truth jumped to 0.95, although one success after 8 failures is far
+  more probably noise than a second change (prior h²/2). Merging the pair the
+  posterior most probably puts in one regime fixed that, but then the
+  segments went to the uncertain boundary of the first change (was the 12th
+  success already the new regime?) and the returning successes were merged
+  into the failures: once merged a boundary is gone, so the return was never
+  found. A candidate run keeps the newest boundary, the one that matters for
+  prediction.
+
+**Default hazard.** 0.0001: one change expected in 10^4 samples of a branch.
+A rule in a long-lived KB sees at most thousands of samples, so a change is
+a priori unlikely within its life, and the posterior favours one only at a
+Bayes factor near 1/h = 10^4: the setting at which the hard detector cost
+nothing on SupplyNet and kept most of the reversal gain (on samples of one
+rate a candidate's factor passes 10^4 with probability at most 10^-4, Ville's
+inequality). A KB whose world is known to change more often sets a larger
+hazard; two changes within a few dozen samples (reversal and its return) need
+h near 0.01 to be believed quickly.
+
+**Results.** Branch soft-regimes (272d99ac) against master d395f3a2.
+
+ONA matching-to-sample (ChainerGame `onabench.mts`, harness hypotheses,
+sample-pairs, k = 1, budget 200, seeds 42 and 1-9). Score is the mean of the
+scored test phases; phase columns are mean block scores; criterion is the
+first block of a feedback phase answered all right (21: never in 20 blocks).
+"master 1e4" is the hard detector at its recommended setting.
+
+| outcome evidence | task | h = 0 | default 1e-4 | 1e-3 | 1e-2 | master 1e4 |
 |---|---|---|---|---|---|---|
-| reversal, score (test, retest) | 0.700 | 0.800 | 0.800 | 0.800 | 0.800 | 0.800 |
-| reversal, reverse blocks | 0.089 | 0.466 | 0.450 | 0.425 | 0.393 | 0.294 |
-| reversal, retest | 0.400 | 0.600 | 0.600 | 0.600 | 0.600 | 0.600 |
-| conditioning | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 |
-| identity matching (test, novel) | 0.956 (0.950, 0.963) | 0.956 | 0.956 | 0.956 | 0.956 | 0.956 |
+| none | reversal score | 0.650 | 0.769 | 0.797 | 0.881 | 0.756 |
+| none | reverse blocks | 0.075 | 0.326 | 0.361 | 0.490 | 0.304 |
+| none | retest | 0.300 | 0.537 | 0.594 | 0.762 | 0.512 |
+| rule | reversal score | 0.738 | 1.000 | 1.000 | 1.000 | 1.000 |
+| rule | reverse blocks | 0.044 | 0.798 | 0.847 | 0.900 | 0.778 |
+| rule | blocks to criterion, reverse | 21 | 5.1 | 4.1 | 3.0 | 5.8 |
+| none | conditioning, identity matching | 1.000, 0.956 | same | | | |
+| rule | conditioning, identity matching | 1.000, 1.000 | same | | | |
 
-(Factors 20 and 1000 were run on baf8365f, the others on e7c52328; off and
-100 gave the same numbers on both.) ONA scores reversal 0.688 (reverse 0.19,
-retest 0.375). At factor 100 and 10^4 every seed's reversal score is at least
-the one without detection; conditioning and identity matching take the same
-decision with the same desire in every trial (the detector never fires
-there), at the same time per trial (27 and 42 ms, reversal 36 ms off, 34 on).
-What still limits the retest is the agent's exploration, not the rule: once
-the trained choice fails, the other one has a few failures from training and
-is tried only when the policy babbles (20% of the trials whose best desire is
-at most 0.55, half of those on the right choice), and a rule tried once each
-way reads 0.5, which the policy does not execute.
+h = 0 reproduces master without detection (0.650, 0.738). Conditioning and
+identity matching score the same at h = 0 and at the default. The default
+beats the hard detector in every reversal column, and a larger hazard, the
+prior of a world that changes often, does better still.
 
-SupplyNet learned rules (stages 1-3, seeds 1-4, 30 rounds, budget 100,
-`supplynet run --learned-rules --change-detection`; mean posterior error, s per
-run):
+Recurrence (`rereversal`, a ChainerGame task added for it: the trained
+mapping returns for 20 feedback blocks after the reversal, then a final
+test): with outcome evidence `rule`, blocks to criterion in the return phase
+equal those of the reversal (default 5.0 against 5.1, 1e-3 4.0 against 4.1,
+1e-2 3.0 against 3.0; h = 0 7.3 against never). The agent decides on the
+strength crossing 0.5, and the return is believed when the posterior accepts
+a second change; merging the old regime then raises the rule's confidence at
+once (test_rule_regimes.metta: 15 cases at the third returning sample instead
+of 3) but does not move that crossing. With outcome evidence `none` the
+return is slower than the reversal at every hazard (0.464 against 0.326 block
+score at the default, 0.351 against 0.490 at 1e-2): the agent's exploration,
+not the rule, limits it: an op that failed is tried again only when the
+policy babbles.
 
-| stage | off | factor 100 | factor 10^4 | factor 10^6 |
-|---|---|---|---|---|
-| 1 | 0.0244, 15.3 s | 0.0254, 15.9 s | 0.0244, 15.4 s | 0.0244, 16.0 s |
-| 2 | 0.0706, 22.1 s | 0.0738, 21.3 s | 0.0706, 21.8 s | 0.0706, 21.6 s |
-| 3 timed | 0.0642, 29.8 s | 0.0659, 30.0 s | 0.0642, 30.3 s | 0.0642, 29.9 s |
-| 3 untimed | 0.0628, 33.5 s | 0.0651, 31.6 s | 0.0628, 33.7 s | 0.0628, 31.5 s |
+Stable worlds, default against master:
 
-At factor 100 the detector fired falsely on 1 to 4 of a seed's 19 to 39
-rules in 8 of the 16 runs (seed 2 of stage 1: 0.0177 to 0.0218): a noisy rate
-near 0.5 over a few dozen samples, ordered by period, makes runs of one
-outcome long enough, and with many rules, two branches and dozens of samples
-each, the 1/F bound per run start adds up (CUSUM's mean time to a false alarm
-is about F samples per branch). At 10^4 and 10^6 every rule truth and every
-error is the one without detection, and the time is the same. **10^4 is the
-recommended setting**: it costs nothing on SupplyNet and keeps most of the
-reversal gain (the reversal blocks need about two more failures).
+- SupplyNet learned rules, stages 1-3, seeds 1-4: mean posterior error
+  0.0244, 0.0706, 0.0644, 0.0629 → 0.0244, 0.0706, 0.0644, 0.0630; 218 of
+  489 final rule truths differ, by at most 0.010 in strength and 0.0023 in
+  confidence (a stage 3 rule `(Degraded mine $p)` over NextPeriod: 0.7484 →
+  0.7382, its samples in period order). Each run's error moves by at most
+  1.1·10^-4.
+- Conflicting sources size l, pln-sources and pln-likelihood, seeds 1-4,
+  4 steps per query: posterior error moves by at most 3.4·10^-4 (pln-sources
+  seed 4, 0.35341 → 0.35375).
+- Shuffled stable histories (test_rule_regimes.metta): 200 samples at 0.75
+  in three random orders give strength and mass within 0.1% of all samples;
+  32 shuffled instances through the chainer give exactly the one-regime
+  truth.
+
 
 **Rejected alternatives.**
 
-- **Exponential decay** of the tally's sums per new sample (option (a) of the
-  brief). It is constant cost with per-member stamps, but it forgets on
-  stationary data too: a rule's evidence never exceeds 1/(1−λ) samples, so
-  every stationary benchmark loses confidence, and λ is a time scale each
-  task would need tuned. Not built; the detector costs nothing where the rate
-  holds.
-- **A sliding window** forgets at a fixed rate the same way, and must remove
-  the oldest sample at each step, a queue per fold.
+- **Exponential decay** of the tally's sums per new sample: it forgets on
+  stationary data too, so a rule's evidence never exceeds 1/(1−λ) samples,
+  and λ is a time scale each task would need tuned.
 - **Full Bayesian online changepoint detection** (a posterior over every run
-  length) costs a step per run length kept. The two-hypothesis test decides
-  at constant cost, and a run that restarts is the pruning such a posterior
-  needs anyway.
-- **Discounting the old samples by a factor** instead of dropping them. After
-  a change, they are evidence of another rate; a fraction of them pulls the
-  new estimate toward the old rate exactly when it is known wrong. A false
-  alarm costs the tally's evidence instead, which the threshold makes rare.
-- **Scoring against the rule's merged truth** (the axiom revised with the
-  tally). The axiom is the user's or the miner's prior, not observed history;
-  what may be outdated is the tally.
+  length) costs a step per run length kept; truncated to the last two change
+  points it is this model.
+- **The hard detector** (until October 2026): each branch scored its recent
+  run, as samples arrived, once as more of the tally's rate and once as a rate
+  of its own (Page's CUSUM with a Bayesian alternative); when the log Bayes
+  factor passed the threshold (10^4 recommended) the tally kept the run alone,
+  and the earlier samples never counted again. Reversal 0.650 → 0.756 at 10^4
+  (0.738 → 1.000 with counterfactual outcome evidence); identical on
+  SupplyNet's learned rules at 10^4, false alarms at 100.
 - **Treating a changed sample as a new one.** In SupplyNet a sample's value
   moves whenever its consequent's merged value does; scoring every move would
   count one sample many times.

@@ -342,12 +342,17 @@ no member evidence either, so its estimate revises with a rule's stated truth,
 and no member dependencies. Its samples read no value that depends on a
 refined rule's truth, since another hypothesis's prediction is no
 observation of the consequent, nor one derived through the implication they
-sample. A KB may let the tally detect a change of the rule's rate
-(`set-rule-change-detection`): a branch then holds only the samples since the
-last change its detector found, each sample scored once, when it first gets a
-value, and each member records the run it was sampled in, so a changed member
-or a leave-one-out read touches only the samples the tally holds. A
-`FoldAllTruth` fold
+sample. Each branch of the tally keeps its samples as regimes of the rule's
+rate (`set-rule-change-hazard`, on by default): an old segment, the current one
+and a candidate run since a possible change, each a sum of contributions, and
+the branch's estimate is the posterior mixture over which segments share a
+rate. Each sample is scored once, when it first gets a value, so the order is
+the order values arrive; a segment that merges into another leaves an entry in
+`&sk_instance_regime`, so a changed member or a leave-one-out read reaches the
+segment holding its sample (merges keep the larger segment's id, so the chain
+grows only logarithmically). A branch's work per new sample is constant (at
+most five hypotheses), and nothing is cut while the branch holds at most three
+distinct regimes. A `FoldAllTruth` fold
 reads its members' truth values as data and is treated the same way, so a rule
 can fold a group's beliefs and read one member of the group again.
 
