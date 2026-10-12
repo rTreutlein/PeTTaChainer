@@ -143,7 +143,67 @@ of the statement's branches, which a CTV does not carry.
   statement, so r's derived statement is one more answer, merged with the
   hypothetical judgment and the instance fold. An STV implication query asks
   for the positive side only, and a derived statement (a CTV) does not
-  answer it.
+  answer it. A query of a nested implication is judged as its exported
+  form (below).
+
+## Nested implication queries
+
+A query whose consequent is an implication,
+
+    (query n kb (: $p (Implication A (Implication X Y)) $tv))
+
+is judged as its exported form `(A ∧ X) → Y`, as the rule is: its positive
+context assumes A and X's conjuncts, each as its own statement, and proves
+Y; its refuting context, as for any conjunctive antecedent, assumes the
+first conjunct false and the others true, here not A with X, which is the
+nested reading of the negative branch, P(X → Y | not A) = P(Y | X, not A).
+So the answer has the shape of any implication query's, and the exported
+query's value:
+
+| `$tv` | answer |
+|---|---|
+| open or `(CTV $pos $neg)` | `(: (total-implication <pos proof> <neg proof>) (Implication A (Implication X Y)) (CTV (STV P(Y\|A,X) c) (STV P(Y\|not A,X) c)))`, revised with the instance fold of `(A ∧ X) → Y` |
+| `(STV $s $c)` | `(: (conditional-implication <pos proof>) (Implication A (Implication X Y)) (STV P(Y\|A,X) c))` |
+
+The answer's statement is the stated nested one, and only the
+hypothetical judgment and the instance fold read the exported form:
+derived statements answer the nested query when a rule concludes the
+nested statement itself, and a `RuleTruth` is read for the stated rule.
+Before this, the positive context proved `X → Y`, so its branch was the
+derived statement's CTV: an open query failed on the STV-typed branch, and
+a `(CTV $a $b)` query returned `(CTV (CTV ..) (CTV ..))`, the inner
+statement's CTV under A and under not A. That is not a value of the
+implication: its branches must be probabilities of the consequent.
+
+The judgment does not answer `(Not (Implication ...))`, flat or nested;
+how Y fails under the antecedents is one minus each branch's strength.
+
+**Value equivalence and the gate.** The nested and the exported query give
+the same value on the same knowledge base, at any depth (tested). That does
+not merge an outer condition into the inner antecedent anywhere it is
+visible: the stored rule stays nested, applied through its statement rule;
+the answer names the nested statement; and the proof applies the outer
+condition first, as its own step, `(by (by r <A>) <X>)`. A is assumed only
+in the query's contexts and never stored, so a source gate such as
+`(AcceptSource Report1)` is not accepted by asking about the rule it gates:
+in the main context neither `Y` nor the inner rule `X → Y` holds without it.
+
+Example, the knowledge-extraction report (`gateKb` in the test):
+
+    (: src_rule (Implication (AcceptSource Report1)
+                   (Implication (And (Supplier $x) (ExposedTo $x ClimateRisk))
+                                (LowerPrices $x)))
+       (STV 1 0.9))
+
+| query | answer |
+|---|---|
+| the stated rule, `$tv` open | `(: (total-implication (by (by src_rule (ctx proof 11)) (conjunction (ctx proof 11 1) (ctx proof 11 2))) (by (by src_rule (ctx proof 12)) (conjunction ...))) <the stated rule> (CTV (STV 1.0 0.89976) (STV 0.0 1.0e-06)))` |
+| the same with `Supplier1` for `$x` | the same shape and value, ground |
+| `(Not <the stated rule>)` | none |
+| `(LowerPrices Supplier1)`, `(Implication (And (Supplier $x) (ExposedTo $x ClimateRisk)) (LowerPrices $x))` | none (the gate is not accepted) |
+
+The negative branch (0.0, c 1e-06) is the STV rule's base-rate negative
+branch with no base rates known.
 
 ## Limits
 
@@ -172,7 +232,11 @@ rule in its own knowledge base:
 | CTV (0.9, 0.2), a 0.8, b 0.6 | 0.536, c 0.93636 | 0.536, c 0.93038 |
 | with a stored `(B x) → (C x)` CTV (0.7, 0.1) at c 0.5 | 0.88, c 0.90909 | 0.88, c 0.90909 |
 
-Also: the derived statement answers the implication query; a forward run
+Also: the derived statement answers the implication query; a nested
+implication query answers the exported query's CTV (and STV), under the
+nested statement; the source-gated rule of the report answers its nested
+query, ground and with variables, and neither its negation, its consequent
+nor its inner rule is answered; a forward run
 from `(A x)` stores the statement and `(C x)`, which a zero-budget query then
 reads; a knowledge base with no rule concluding an implication gets no
 statement rule.

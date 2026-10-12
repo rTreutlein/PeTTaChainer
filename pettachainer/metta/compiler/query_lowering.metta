@@ -206,7 +206,15 @@
                      ((the (List Goal) ((: $shape-kb $prf $b $tv)))
                         |- (: (kbctx $kb) (assuming $prf) $Type $tv)))
                   $adds)))
-      (if (= $Type (Implication $antecedent $consequent))
+      (if (= $Type (Implication $stated-antecedent $stated-consequent))
+         ;; A nested implication a → (x → y) is judged as its exported form
+         ;; (a ∧ x) → y (docs/metta/derived_implications.md): its contexts
+         ;; assume a and x and prove y, and the answer keeps the stated form.
+         (let ($antecedent $consequent)
+            (if (implication-type? (brand Statement $stated-consequent))
+               (let ($inner $last) (nested-implication-parts (brand Statement $Type))
+                  (data (cons And $inner) $last))
+               (data $stated-antecedent $stated-consequent))
          (if (if (is-var $tv) false (= $tv (STV $_s $_c)))
             ;; An STV asks only how the consequent stands when the antecedent
             ;; holds: the positive side alone, without the refuting context.
@@ -257,7 +265,7 @@
                            (brand Statement $Type)
                            (brand Statement $antecedent)
                            (brand Statement $consequent)))
-                     $all-adds)))))
+                     $all-adds))))))
          (if (implication-type? $Type) (empty)
          (if (bidirectional-implication-type? $Type)
             (let*
