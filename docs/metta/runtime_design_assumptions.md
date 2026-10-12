@@ -130,6 +130,12 @@ its row is built from the statement and context alone: a row belongs to its
 key, and each reader applies its own proof and truth-value pattern. A ground
 instance one of whose premise keys is its own conclusion's builds no row: it
 would read the statement, its stored facts included, to conclude it again.
+A row reads each premise at the key that extended its join. An open key (a
+fact stored with variables, an implication with its own variables) holds
+for every value of its variables, and later premises that bind them do not
+change the key read: the instance is no key of its own and has no rows. The
+variables the join left open stay linked to the key, so evaluation binds
+them through its value.
 
 For the backward chainer, ingestion only journals added facts and rules. The
 next query activates them against the skeleton before its walk: a rule reaches

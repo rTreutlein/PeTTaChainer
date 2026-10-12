@@ -61,6 +61,7 @@
 (: sk-search! (-[semidet]-> (Heap SkeletonFrontier) Atom))
 (: term-cost (-[det]-> $term Number))
 (: grows-from? (-[det]-> SkPattern SkPattern Bool))
+(: link-open-variables (-[det]-> SkeletonKey SkeletonKey Bool))
 
 ;; --- Node identity ----------------------------------------------------------
 
@@ -735,9 +736,33 @@
 (: sk-hash-keys-step (-[det]-> Number (List SkeletonKey) (List SkeletonKey)))
 (= (sk-hash-keys-step $hash $keys) (append-flat (collapse (match &sk_keys ($hash $key) $key)) $keys))
 
+;; A row's premises, from the premises its join took (most recent first) and
+;; the keys that extended it (in the same order): a statement premise reads
+;; its key as registered. An open key, a statement that holds for every value
+;; of its variables (an implication's own variables, a fact stored with
+;; variables), stays open where later premises bound the variables it shares
+;; with them: that instance is no key of its own and has no rows to read. The
+;; variables the join left open stay linked, so evaluation binds them through
+;; the key's value, as a fold's result binds the conclusion.
+(: SkeletonReading Type)
+(: sk-reading (-[det]-> (List SkeletonKey) (List SkPattern) SkeletonReading))
+(: sk-read-step (-[semidet]-> SkeletonReading SkPattern SkeletonReading))
+(= (sk-read-step (sk-reading $keys $read) $premise)
+   (case $premise (
+      ((CPU $fun $_args $_res)
+         (if (aggregate-fold-function? $fun)
+            (sk-reading (cdr-atom $keys) (cons $premise $read))
+            (sk-reading $keys (cons $premise $read))))
+      (($type $kbctx $proof $tv)
+         (let* (((cons (sk-key $read-type $read-kbctx) $rest) $keys)
+                ($_linked (link-open-variables (sk-key $read-type $read-kbctx) (sk-key $type $kbctx))))
+            (sk-reading $rest (cons (assemble-stored-runtime-fact $read-type $read-kbctx $proof $tv) $read)))))))
+
 (= (sk-advance! (sk-partial $owner $rule $concl $done $remaining $keys))
    (case $remaining (
-      (() (sk-complete-row! $owner $rule $concl (fold-semidet sk-cons-step () $done) $keys))
+      (()
+         (let (sk-reading $_none $premises) (fold-semidet sk-read-step (sk-reading $keys ()) $done)
+            (sk-complete-row! $owner $rule $concl $premises $keys)))
       ((cons $premise $rest)
          (case $premise (
             ((CPU $fun $args $_res)
@@ -870,6 +895,8 @@
 (= (sk-extend-now! (sk-partial $owner $rule $concl $done $remaining $keys) $key)
    (case $remaining (
       ((cons $premise $rest)
+         ;; The key as registered, before later premises bind it (sk-read-step).
+         (let $registered (copy_term $key)
          (if (case $premise (
                 ((CPU $_fun $args $_res) (= (sk-group $args) $key))
                 (($type $kbctx $_proof $tv)
@@ -877,8 +904,8 @@
                       (if (chainer-acyclic-term? $concl) (sk-settled-read? $done $remaining $type $kbctx $tv) false)
                       false))))
             (sk-advance!
-               (sk-partial $owner $rule $concl (cons $premise $done) $rest (cons $key $keys)))
-            ()))
+               (sk-partial $owner $rule $concl (cons $premise $done) $rest (cons $registered $keys)))
+            ())))
       ($_other ()))))
 
 (: sk-row-present? (-[det]-> Number SkeletonKey Number SkeletonIdent Bool))

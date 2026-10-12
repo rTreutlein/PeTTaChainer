@@ -922,6 +922,36 @@ answer_instance(Index, Position, Answer) :-
     (   subsumes_term(G, S), G = [GT|_], S = [ST|_], term_size(ST, SS), term_size(GT, GS), SS > GS
     ->  Result = true ; Result = false ).
 
+% Links the key a join read to the premise the join bound (sk-read-step):
+% each variable of General, at a position where Instance, an instance of it,
+% still has a variable, is unified with that variable, unless the join bound
+% two variables of General to one of Instance. Where the join bound Instance
+% further, General keeps its own variable, so the row reads the key that
+% answered it, and evaluation still binds Instance's open variables through it.
+'link-open-variables'(General, Instance, true) :-
+    (   ground(General)
+    ->  true
+    ;   open_variable_pairs(General, Instance, Pairs, []),
+        include(one_to_one(Pairs), Pairs, Linked),
+        maplist(link_pair, Linked)
+    ).
+
+open_variable_pairs(General, Instance, Pairs, Tail) :-
+    (   var(General)
+    ->  (   var(Instance) -> Pairs = [General-Instance|Tail] ; Pairs = Tail )
+    ;   compound(General), compound(Instance)
+    ->  General =.. [_|GeneralArgs],
+        Instance =.. [_|InstanceArgs],
+        foldl(open_variable_pairs, GeneralArgs, InstanceArgs, Pairs, Tail)
+    ;   Pairs = Tail
+    ).
+
+one_to_one(Pairs, General-Instance) :-
+    \+ ( member(G-I, Pairs),
+          ( G == General, I \== Instance ; I == Instance, G \== General ) ).
+
+link_pair(Variable-Variable).
+
 'rule-lookup-needs-occurs-check'(Term, Result) :-
     term_variables(Term, Variables),
     term_singletons(Term, Singletons),

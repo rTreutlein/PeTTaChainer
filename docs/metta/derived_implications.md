@@ -43,6 +43,20 @@ match per goal otherwise. One statement rule is added per shape (alpha
 equivalence) and knowledge base, in `&implication_statement_rules`, keyed by
 the hash of the shape.
 
+### Open statements
+
+A statement's antecedent may have a variable that neither the rule's outer
+antecedent nor the statement's consequent binds, as `$f` in
+`(Implication (AcceptSource R) (Implication (And (A $a) (Rel $a $f)) (P $a)))`.
+The derived statement is then an open key, `(Implication (And (A a) (Rel a
+$f)) (P a))` for a goal `(P a)`: the implication's own variable, so a
+statement for every `$f`. The statement rule's join reads it first and binds
+`$f` later, through `(Rel a g)`; its row reads the open key it was extended
+with, not the instance `(Implication (And (A a) (Rel a g)) (P a))`, which is
+no key of its own and has no rows (`sk-read-step`, `skeleton.metta`). Before,
+the row read that instance, found no value, and neither `(P a)` nor the
+nested query had an answer unless the instance had been asked for first.
+
 ### Where statements come from
 
 - **A rule concluding an implication** (the nested case): the source this
@@ -209,14 +223,6 @@ branch with no base rates known.
 
 - No inversion or antecedent completion through a nested rule or a derived
   statement.
-- A derived statement whose antecedent has a variable that neither the
-  rule's outer antecedent nor the statement's consequent binds, as `$f` in
-  `(Implication (AcceptSource R) (Implication (Rel a $f) (P a)))`, answers
-  as a statement (an open key) but is not applied: the statement rule's
-  join takes no answer from that open key, so neither `(P a)` nor the
-  nested query has an answer. Once the statement is asked for at its ground
-  instance, `(Implication (Rel a g) (P a))`, it applies. A stored rule of
-  that shape (the flat form) applies.
 - Statement rules are deduplicated by shape, not by subsumption: rules
   concluding `(Implication (B $x) (C $x))` and `(Implication (B x) (C x))`
   add two statement rules, whose views of `(C x)` have the same proof.
@@ -244,7 +250,9 @@ Also: the derived statement answers the implication query; a nested
 implication query answers the exported query's CTV (and STV), under the
 nested statement; the source-gated rule of the report answers its nested
 query, ground and with variables, and neither its negation, its consequent
-nor its inner rule is answered; a forward run
+nor its inner rule is answered; a nested rule whose inner antecedent has a
+variable bound by neither side gives the flat rule's value, and its nested
+query is answered; a forward run
 from `(A x)` stores the statement and `(C x)`, which a zero-budget query then
 reads; a knowledge base with no rule concluding an implication gets no
 statement rule.

@@ -159,3 +159,29 @@
    ())
 !(test (collapse (query 100 gateKb (: $p (Implication (And (Supplier $x) (ExposedTo $x ClimateRisk)) (LowerPrices $x)) $tv)))
    ())
+
+;; An inner antecedent with a variable that neither the outer antecedent nor
+;; the consequent binds, as $f here. The derived statement is an open key, a
+;; statement for every $f; the statement rule's join binds $f through (F y)
+;; and reads the open key, as the knowledge-extraction report's nested rule
+;; (an announcement's firm and county) needs. The flat rule's value.
+!(compileadd openKb (: g (G R) (STV 1.0 1.0)))
+!(compileadd openKb (: a (A x) (STV 0.8 0.9)))
+!(compileadd openKb (: f (F y) (STV 1.0 0.9)))
+!(compileadd openKb (: fr (From x y) (STV 0.9 0.9)))
+!(compileadd openKb (: r (Implication (G R) (Implication (And (A $a) (F $f) (From $a $f)) (C $a))) (STV 0.9 1.0)))
+!(compileadd openFlatKb (: g (G R) (STV 1.0 1.0)))
+!(compileadd openFlatKb (: a (A x) (STV 0.8 0.9)))
+!(compileadd openFlatKb (: f (F y) (STV 1.0 0.9)))
+!(compileadd openFlatKb (: fr (From x y) (STV 0.9 0.9)))
+!(compileadd openFlatKb (: r (Implication (And (G R) (A $a) (F $f) (From $a $f)) (C $a)) (STV 0.9 1.0)))
+!(test (query 30 openKb (: $p (C x) $tv))
+   (: (by (by r g) (conjunction a f fr)) (C x) (STV 0.6480000000000001 0.9309628102246349)))
+!(test (query 30 openFlatKb (: $p (C x) $tv))
+   (: (by r (conjunction g a f fr)) (C x) (STV 0.6480000000000001 0.9309628102246349)))
+;; Its nested query, the gate a condition as above.
+!(compileadd openGateKb (: r (Implication (G R) (Implication (And (A $a) (F $f) (From $a $f)) (C $a))) (STV 1 0.9)))
+!(test (query 100 openGateKb (: $p (Implication (G R) (Implication (And (A $a) (F $f) (From $a $f)) (C $a))) $tv))
+   (: (total-implication (by (by r (ctx proof 19)) (conjunction (ctx proof 19 1) (ctx proof 19 2) (ctx proof 19 3))) (by (by r (ctx proof 20)) (conjunction (ctx proof 20 1) (ctx proof 20 2) (ctx proof 20 3)))) (Implication (G R) (Implication (And (A $_0) (F $_1) (From $_0 $_1)) (C $_0))) (CTV (STV 1.0 0.8996760262111828) (STV 0.0 1.0e-06))))
+!(test (collapse (query 100 openGateKb (: $p (C x) $tv)))
+   ())
