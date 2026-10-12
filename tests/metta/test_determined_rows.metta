@@ -41,7 +41,7 @@
 !(compileadd givenKb (: cnew (C new) (STV 0 1)))
 !(begin-backward-query-metrics!)
 !(test (query 0 givenKb (: $p (A i1) $tv)) (: a1 (A i1) (STV 1 1)))
-!(test (query_metric_value row-computes) 8)
+!(test (query_metric_value row-computes) 7)
 !(test (truth givenKb) (STV 0.7493401927213437 0.8003617909614495))
 !(test (query 0 givenKb (: $p (B other) $tv))
    (: (population-prior (B $_0)) (B other) (STV 0.7380929703163627 0.7999679980798818)))

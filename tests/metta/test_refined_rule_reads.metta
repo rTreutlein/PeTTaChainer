@@ -129,7 +129,7 @@
 !(compileadd stormKb (: next-t2 (NextPeriod t1 t2) (STV 1 1)))
 !(compileadd stormKb (: blocked-t2 (Blocked r1 t2) (STV 1 1)))
 !(test (let (: $prf $t $tv) (query 100 stormKb (: $prf (Storm t2) $tv)) $tv)
-   (STV 0.925268866420926 0.1547756966714534))
+   (STV 0.925268866420926 0.15477569667147947))
 
 ;; A rule whose antecedent never held in the history still learns its
 ;; negative branch from the cases where it failed (SupplyNet learned rules,

@@ -196,6 +196,8 @@
 (: sk_near_reserve CounterKey)
 ;; 1 while a forward run grows the skeleton upward
 (: sk_forward_run CounterKey)
+;; 1 while a query's evaluation holds the needed rows the stale cascade reaches
+(: sk_holding CounterKey)
 (: sk_walk_budget CounterKey)
 (: sk_epoch CounterKey)
 (: forgetting_horizon CounterKey)

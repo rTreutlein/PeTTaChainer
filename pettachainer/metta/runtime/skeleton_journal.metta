@@ -368,11 +368,12 @@
 (: &sk_refresh (SpaceOf (Number Number)))
 !(bind! &sk_refresh (new-space))
 ;; rows the evaluation needs that the stale cascade reached while it ran, by
-;; key and row hash, and those it brought current again already
+;; key and row hash: readers of a fold, computed again, and readers of a key,
+;; staled once the query has read its answers
 (: &sk_restale (SpaceOf (Number Number)))
 !(bind! &sk_restale (new-space))
-(: &sk_restaled (SpaceOf (Number Number)))
-!(bind! &sk_restaled (new-space))
+(: &sk_held (SpaceOf (Number Number)))
+!(bind! &sk_held (new-space))
 
 ;; --- Query metrics ------------------------------------------------------------
 

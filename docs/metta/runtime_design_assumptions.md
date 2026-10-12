@@ -556,9 +556,9 @@ moves its rule's truth, and the search score read from it, at the next
 evaluation, whatever the query or forward run asks, at the cost of the
 members that changed (`hypothesis_rules.md`, "Instance tallies"). Any other
 row whose input changed is marked stale, once, together with everything
-reading it; a later query that reaches it recomputes it. A stale row
-leaves the reader lists of the keys it reads until then, so a change walks only
-readers that are current. Rows built for earlier queries therefore cost nothing
+reading it (the rows the query needs once it has read its answers, below); a
+later query that reaches it recomputes it. A stale row leaves the reader lists of the keys it reads until
+then, so a change walks only readers that are current. Rows built for earlier queries therefore cost nothing
 per query or per change.
 
 **Determined rows.** A row whose rule is deterministic (stated with
@@ -650,14 +650,37 @@ waiting to be conditioned. A current row's inputs are current, because every
 change reaches the readers of what changed, so nothing under it needs
 recomputing.
 
-A change during a query's own evaluation can stale a row the query needs after
-the walk passed it, such as a reader of a fold that a new member moved. The
-query brings each such row current and computes it in a further pass, once per
-evaluation, so it reads no value from before what it needs. A forward run
-leaves those rows stale for the query that next needs them: refreshing them
-there would recompute every needed reader of each fold the new facts move,
-which grows with the knowledge base (StationOps at 20 modules: forward time
-+106–243%; leaving them to queries: +1–10%).
+While a query's evaluation runs, the stale cascade does not stale a row the
+query needs: the row stays linked and keeps following the changes the
+evaluation still makes. A row goes stale keeping its view, so the key it
+concludes keeps its value, and a needed reader of that key is held until the
+query has read its answers and then marked stale with what reads it, so
+between queries a current row's inputs are current. A fold that goes stale
+drops its view and is recomputed when read, so a needed reader of it is
+computed again in a further pass, each time that happens, and reads no value
+from before what it needs. Staling needed readers at once, with one refresh
+per evaluation, froze the rows nearest the roots partway through it: when the
+allowance ran out on a row of an old period's front, the cascade staled the
+front's chain up to the current period, whose storms and blocks then kept
+views of inputs that moved after them (SupplyNet scale m spq4 s2: error
+0.0071, 0.0038 with the rows held; which zone froze depended on where the
+allowance ran out, so an unrelated change of walk order had moved it from
+0.0042). A forward run stales those rows for the query that next needs them:
+refreshing them there would recompute every needed reader of each fold the
+new facts move, which grows with the knowledge base (StationOps at 20
+modules: forward time +106–243%; leaving them to queries: +1–10%).
+
+mm2-chainer marks staleness differently: a changed key adds a dirty record
+(`sk-dirty row cause`) to each direct reader, readers are never unlinked, and
+a query evaluates the dirty rows of its whole needed closure, without a depth
+limit, in creation order within its budget. A dirty row the budget cannot
+reach keeps its record and a later call evaluates it; nothing propagates
+staleness upward, and no row is refreshed once and then frozen. So it does
+not have the flaw above. If it bounds its need by depth, as this chainer
+does, it should hold the rule above: during an evaluation a needed row stays
+linked and keeps being evaluated, and the outdatedness of rows above an
+unpaid row is recorded only once the query has its answers, so a later
+need knows to come back down to it.
 
 Conditioning is paid for from what that allowance has left, never at depth
 zero for free. A row whose clash needs it waits, keeping the views it had; an

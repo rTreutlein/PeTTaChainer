@@ -2998,10 +2998,11 @@
                   (sk-view-change $deps)))))))))
 
 ;; Works off the queued rows and returns the last pass. A row a query needs
-;; that the stale cascade reached meanwhile (a fold it reads went stale over a
-;; member left stale) is brought current and computed in a further pass, forced
-;; by its own key, each such row once per evaluation: the query reads no value
-;; from before what it needs. A forward run leaves such rows stale for the
+;; that reads a fold the stale cascade reached meanwhile (the fold went stale
+;; over a member left stale and dropped its view) is computed again in a
+;; further pass, forced by its own key, whenever that happens: the query reads
+;; no value from before what it needs. One left stale for want of allowance
+;; meanwhile stays stale. A forward run leaves such rows stale for the
 ;; query that next needs them, so its cost does not grow with every reader of
 ;; a fold its new facts change. That includes readers of the keys the run
 ;; takes: a reader computed early in a wave that a later change in the wave
@@ -3024,17 +3025,11 @@
 
 (: sk-restale-step (-[semidet]-> (Heap SkeletonItem) (Number Number) (Heap SkeletonItem)))
 (= (sk-restale-step $todo ($khash $rhash))
-   (if (if (space-row-present? &sk_stale ($khash $rhash)) (not (space-row-present? &sk_restaled ($khash $rhash))) false)
+   (if (space-row-present? &sk_stale ($khash $rhash)) $todo
       (case (collapse (once (match &sk_row ($khash $key $rhash (sk-row $ident $concl $premises $seq))
                (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $seq))))) (
-         ((cons (sk-row-item $seq $khash2 $key $rhash2 (sk-row $ident $concl $premises $seq2)) $_rest)
-            (let* (($item (sk-row-item $seq $khash2 $key $rhash2 (sk-row $ident $concl $premises $seq2)))
-                   ($_seen (add-atom &sk_restaled ($khash $rhash)))
-                   ($_relinked (sk-relink-row! $khash $rhash $premises))
-                   ($_forced (sk-force! (cons $khash ()) $item)))
-               (add_to_heap $todo (sk-item-order $item) $item)))
-         (() $todo)))
-      $todo))
+         ((cons $item $_rest) (let $_forced (sk-force! (cons $khash ()) $item) (add_to_heap $todo (sk-item-order $item) $item)))
+         (() $todo)))))
 
 (: sk-work-pop!
    (-[semidet]-> Number (Heap SkeletonItem) (Number SkeletonItem (Heap SkeletonItem)) Number))
@@ -3124,10 +3119,11 @@
 ;; A query brings current only what its roots read: their keys, the premise
 ;; keys of those keys' rows, and the members of the folds and groups among
 ;; them. A row outside that set whose input changes is marked stale instead of
-;; computed, and so is everything reading it, once; a later query that reads it
-;; again recomputes it. A stale row leaves the reader lists of the keys it
-;; reads until then, so a change walks only readers that are current, and
-;; earlier queries' rows cost nothing per query or per change.
+;; computed, and so is everything reading it, once (what the query needs once
+;; it has read its answers); a later query that reads it again recomputes it. A stale row leaves
+;; the reader lists of the keys it reads until then, so a change walks only
+;; readers that are current, and earlier queries' rows cost nothing per query
+;; or per change.
 
 ;; Signatures of the mutually recursive functions below.
 (: sk-need! (-[semidet]-> Number SkeletonNeed SkeletonKey SkeletonNeed))
@@ -3308,18 +3304,42 @@
              ($_merged (sk-drop-merged! $fold)))
          (sk-stale-key! $fold))))
 
-(: sk-stale-reader-step (-[det]-> Atom SkeletonItem Atom))
-(= (sk-stale-reader-step $_acc (sk-row-item $seq $khash $key $rhash $row))
-   (let $_restale
-      (if (if (== (search-id-value sk_forward_run) 0) (sk-needed? $khash $key) false)
-         (if (space-row-present? &sk_restale ($khash $rhash)) () (let $_row (add-atom &sk_restale ($khash $rhash)) ()))
-         ())
+;; While a query's evaluation runs, the stale cascade does not stale a row the
+;; query needs: the row stays linked and follows the changes the evaluation
+;; still makes. A row goes stale keeping its view, so a needed reader of its
+;; key is held and staled once the query has read its answers (sk-stale-held!),
+;; which keeps a current row's inputs current between queries; a fold that
+;; goes stale drops its view, so a needed reader of it is computed again in a
+;; further pass. Staling needed readers at once unlinked them mid-evaluation,
+;; after one refresh, so the rows nearest the roots kept views of inputs that
+;; moved after them (SupplyNet scale m spq4 s2: the allowance ran out on a row
+;; of (Front z1 t5), the cascade went up the front's chain, and (Blocked k1 t8)
+;; ended at 0.46 under a storm of 0.31).
+(: sk-stale-reader-step (-[det]-> SkeletonKey Atom SkeletonItem Atom))
+(= (sk-stale-reader-step $stale $_acc (sk-row-item $seq $khash $key $rhash $row))
+   (if (if (== (search-id-value sk_holding) 1) (sk-needed? $khash $key) false)
+      (case $stale (
+         ((sk-key $_type $_kbctx)
+            (if (space-row-present? &sk_held ($khash $rhash)) () (let $_row (add-atom &sk_held ($khash $rhash)) ())))
+         ($_fold (if (space-row-present? &sk_restale ($khash $rhash)) () (let $_row (add-atom &sk_restale ($khash $rhash)) ())))))
       (sk-mark-stale! (sk-row-item $seq $khash $key $rhash $row))))
-(= (sk-stale-reader-step $_acc (sk-fold-check $hash $fold)) (sk-mark-stale! (sk-fold-check $hash $fold)))
+(= (sk-stale-reader-step $_stale $_acc (sk-fold-check $hash $fold)) (sk-mark-stale! (sk-fold-check $hash $fold)))
+
+;; The rows a query held from the stale cascade go stale once it has read its
+;; answers, with what reads them.
+(: sk-stale-held! (-[semidet]-> Atom))
+(= (sk-stale-held!)
+   (let* (($_released (change-state! sk_holding 0))
+          ($held
+             (collapse (match &sk_held ($khash $rhash)
+                (match &sk_row ($khash $key $rhash (sk-row $ident $concl $premises $seq))
+                   (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $seq))))))
+          ($_taken (remove-data-rows! &sk_held (quote ($hkhash $hrhash)))))
+      (foreach-flat sk-mark-stale! $held)))
 
 (= (sk-stale-key! $key)
    (let* (($hash (index-hash $key))
-          ($_readers (fold-flat sk-stale-reader-step () (sk-readers $key))))
+          ($_readers (fold-flat (sk-stale-reader-step $key) () (sk-readers $key))))
       (foreach-flat sk-stale-fold!
          (collapse (match &sk_use ($hash $stored $fold)
             (if (=alpha $stored $key)
@@ -3380,7 +3400,6 @@
           ($_granted (remove-data-rows! &sk_given_granted (quote ($khash $rhash))))
           ($_conditioning (remove-data-rows! &sk_conditioning (quote ($chash $crhash))))
           ($_restale (remove-data-rows! &sk_restale (quote ($skhash $srhash))))
-          ($_restaled (remove-data-rows! &sk_restaled (quote ($dkhash $drhash))))
           ($_checked (remove-data-rows! &sk_instance_checked (quote ($ihash))))
           ($last (sk-evaluate-pass! 0 $partial))
           ($_roots (sk-read-roots!)))
@@ -3852,9 +3871,11 @@
           ($_unneeded (remove-data-rows! &sk_needed (quote ($hash $key $depth))))
           ($_reserve (change-state! sk_near_reserve 0))
           ($_needed (sk-need-roots! (fold-semidet sk-root-keys-step () $goals)))
+          ($_holding (change-state! sk_holding 1))
           ($_evaluated (sk-evaluate!))
           ($_inferred (inference-add! $started))
           ($results (map-semidet (sk-root-results $materialize?) $goals))
+          ($_held (sk-stale-held!))
           ($_temp (sk-clear-temp!)))
       $results))
 
