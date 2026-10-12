@@ -209,6 +209,14 @@ branch with no base rates known.
 
 - No inversion or antecedent completion through a nested rule or a derived
   statement.
+- A derived statement whose antecedent has a variable that neither the
+  rule's outer antecedent nor the statement's consequent binds, as `$f` in
+  `(Implication (AcceptSource R) (Implication (Rel a $f) (P a)))`, answers
+  as a statement (an open key) but is not applied: the statement rule's
+  join takes no answer from that open key, so neither `(P a)` nor the
+  nested query has an answer. Once the statement is asked for at its ground
+  instance, `(Implication (Rel a g) (P a))`, it applies. A stored rule of
+  that shape (the flat form) applies.
 - Statement rules are deduplicated by shape, not by subsumption: rules
   concluding `(Implication (B $x) (C $x))` and `(Implication (B x) (C x))`
   add two statement rules, whose views of `(C x)` have the same proof.

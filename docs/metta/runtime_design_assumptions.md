@@ -390,7 +390,10 @@ A conjunction whose conjuncts fall into parts sharing no variables ranges
 over the cross product of the parts' instances, so its base rate is exactly
 the product of the parts' rates: each part is folded on its own and the rates
 are combined, instead of folding over every combination. Ground conjuncts
-stay with a part, since a single instance multiplies nothing.
+stay with a part, since a single instance multiplies nothing. While a part
+has no counted member the product has no evidence, as one fold with no
+member has none (`BaseRateProductFormula`), so an STV rule over such an
+antecedent still applies, with the negative branch of unknown base rates.
 
 A KB may opt into base-rate smoothing, which reads every computed base rate
 as its n observations plus k pseudo-observations at 0.5: the strength of a

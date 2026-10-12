@@ -303,6 +303,15 @@
       (STV $ps $pc) (STV $es $ec))
    (mergetvs (STV $ps $pc) (STV $es $ec)))
 
+;; The base rate of a conjunction whose parts share no variables: the product
+;; of the parts' rates, and no evidence while a part has none.
+(: BaseRateProductFormula
+   (-[semidet]-> OptionalSTV OptionalSTV OptionalSTV))
+(= (BaseRateProductFormula no-evidence $_rate) no-evidence)
+(= (BaseRateProductFormula (STV $_s $_c) no-evidence) no-evidence)
+(= (BaseRateProductFormula (STV $s $c) (STV $rs $rc))
+   (AndFormula (STV $s $c) (STV $rs $rc)))
+
 ;; PLN admits P(B|A) only within the Frechet bounds its marginals set:
 ;; max(0, P(A)+P(B)-1)/P(A) <= P(B|A) <= P(B)/P(A). Estimates of the three that
 ;; violate them are reconciled by dropping the least evidence that satisfies
