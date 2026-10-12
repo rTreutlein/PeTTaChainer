@@ -131,16 +131,28 @@
 ;; joined or changed since the fold last took it, by fold hash and member hash
 (: &sk_rate_dirty (SpaceOf (Number Number SkeletonKey SkeletonKey)))
 !(bind! &sk_rate_dirty (new-space))
-;; An implication instance fold's tally, the sum of its members' contributions
-;; as last taken, by fold hash; each member's run and contribution, by member
-;; hash and fold hash; the change detector of a fold whose KB detects changes,
-;; by fold hash; the members reading a statement directly, by the statement's
+;; An implication instance fold's tally, by fold hash: its KB's hazard, its
+;; sample counter, and per branch (P(B|A), P(B|not A)) the segments of its
+;; samples' regimes, ['regime-segment', Id, W, M] (runtime_helpers.pl,
+;; regime-take!). Each member's segment per branch (0: none) and contribution,
+;; by member hash and fold hash; a segment merged into another, by fold hash
+;; and its id; the members reading a statement directly, by the statement's
 ;; key hash, so a reader's own sample is found by the keys it excludes; and the
 ;; folds with members to take, by fold hash.
-(: &sk_instance_tally (SpaceOf (Number SkeletonKey InstanceEvidenceState)))
+(: RegimeSegment Type)
+(: regime-segment (-[det]-> Number Number Number RegimeSegment))
+(: InstanceRegimeState Type)
+(: instance-regimes (-[det]-> Number Number (List RegimeSegment) (List RegimeSegment) InstanceRegimeState))
+;; A branch's sample taken into its segments, the segments and the member's
+;; segment after it; and the segments' evidence (runtime_helpers.pl).
+(: regime-take! (-[det]-> Number Number Number (List RegimeSegment) Number BaseRateEvidenceState BaseRateEvidenceState ((List RegimeSegment) Number)))
+(: regime-evidence (-[det]-> Number (List RegimeSegment) BaseRateEvidenceState))
+(: &sk_instance_tally (SpaceOf (Number SkeletonKey InstanceRegimeState)))
 !(bind! &sk_instance_tally (new-space))
-(: &sk_instance_member (SpaceOf (Number Number SkeletonKey Number InstanceEvidenceState)))
+(: &sk_instance_member (SpaceOf (Number Number SkeletonKey Number Number InstanceEvidenceState)))
 !(bind! &sk_instance_member (new-space))
+(: &sk_instance_regime (SpaceOf (Number Number Number)))
+!(bind! &sk_instance_regime (new-space))
 ;; An implication instance fold's digest of its samples, by fold hash
 ;; (sk-instance-digest!).
 (: &sk_instance_digest (SpaceOf (Number Number)))
@@ -148,17 +160,6 @@
 ;; the signature each member was taken with, by member hash and fold hash
 (: &sk_instance_sig (SpaceOf (Number Number Number)))
 !(bind! &sk_instance_sig (new-space))
-;; A change detector: the log Bayes factor it declares a change at, the
-;; current run, and per branch the run the tally starts at, the run the recent
-;; samples start at, their evidence and the log Bayes factor for their having
-;; a rate of their own.
-(: ChangeRunState Type)
-(: change-run (-[det]-> Number Number BaseRateEvidenceState Number ChangeRunState))
-(: InstanceChangeState Type)
-(: instance-change (-[det]-> Number Number ChangeRunState ChangeRunState InstanceChangeState))
-(: no-instance-change InstanceChangeState)
-(: &sk_instance_change (SpaceOf (Number SkeletonKey InstanceChangeState)))
-!(bind! &sk_instance_change (new-space))
 (: &sk_instance_read (SpaceOf (Number Number Number SkeletonKey)))
 !(bind! &sk_instance_read (new-space))
 (: &sk_instance_changed (SpaceOf (Number SkeletonKey)))

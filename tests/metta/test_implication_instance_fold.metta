@@ -55,7 +55,7 @@
    (query 100 instanceNegKb (: $prf (Implication (A $v) (B $v)) $tv))
    (: (implication-instance-fold cpu)
       (Implication (A $_v) (B $_v))
-      (CTV (STV 0.5 0.0020209076619844817) (STV 0.5 0.0005052269154961204))))
+      (CTV (STV 0.4999627775704609 0.0020205545927834746) (STV 0.49996277757046104 0.0005051386481958686))))
 
 ;; --- A rule for the same implication ---------------------------------------
 ;; The hypothetical proof through ab and the instance fold revise into one
@@ -165,7 +165,7 @@
 !(compileadd negKb (: m6 (B u) (STV 0 1)))
 !(test
    (let (: $prf $type $tv) (query 100 negKb (: $prf (Implication (A $v) (B $v)) $tv)) $tv)
-   (CTV (STV 1.0 0.0024937655860349127) (STV 0.25 0.004975124378109453)))
+   (CTV (STV 1.0 0.0024937655860349127) (STV 0.24990002999100272 0.004974629489078395)))
 
 ;; --- Three conjuncts --------------------------------------------------------
 ;; The conjunction of the antecedent's truth values is multiplied pairwise, as
@@ -198,4 +198,4 @@
 !(compileadd threeRuleKb (: g2 (G t2) (STV 0 1)))
 !(test
    (let (: $prf $type $tv) (query 200 threeRuleKb (: $prf (RuleTruth (Implication (And (P $t) (Q $t) (R $t)) (G $t))) $tv)) $tv)
-   (STV 0.5261572985341251 0.6563102709435056))
+   (STV 0.5260578505053451 0.6562878403845945))

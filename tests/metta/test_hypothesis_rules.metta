@@ -79,19 +79,23 @@
 
 ;; A review learns both branches from the instances: P(B|A) from those with
 ;; A, P(B|not A) from those without (8 and 2 of 10 for A, 5 and 5 for C).
+;; The cases arrive in order, so the last ones could be a new regime of the
+;; rate (two failures after eight cases of B for P(B|A)); at the default
+;; hazard that hypothesis keeps a small weight (0.793 against 0.797,
+;; docs/metta/hypothesis_rules.md, "Regimes").
 !(test (let (: $p $t $tv) (query 50 hypKb (: $p (RuleTruth (Implication (C $x) (B $x))) $tv)) $tv)
-   (CTV (STV 0.5 0.6689189189189189) (STV 0.5 0.6689189189189189)))
+   (CTV (STV 0.4992318014558537 0.6687146348286057) (STV 0.4992318014558537 0.6687146348286057)))
 !(test (let (: $p $t $tv) (query 50 hypKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
-   (CTV (STV 0.796969696969697 0.6689189189189189) (STV 0.20303030303030306 0.6689189189189189)))
+   (CTV (STV 0.7934110109537581 0.6681312812545516) (STV 0.2021459950865152 0.6687223602108197)))
 
 ;; The confirmed hypothesis is scored by what it adds; the rejected one, whose
 ;; consequent does not move with its antecedent, stays at the floor.
-!(test (hypothesis-scores) ((A 0.3933243243243243) (A 0.3575675675675676) (C 0.0099) (C 0.009000000000000001)))
+!(test (hypothesis-scores) ((A 0.39109222608625) (A 0.3555383873511364) (C 0.0099) (C 0.009000000000000001)))
 
 ;; A forward run applies the learned truth, not the prior.
 !(compileadd hypKb (: anew (A new) (STV 1 1)))
 !(forward-chain 20 hypKb (the (List (Statement KBContext Proof TV)) (((A new) (hypKb MAIN Nil) anew (STV 1 1)))))
-!(test (let (: $p $t $tv) (query 0 hypKb (: $p (B new) $tv)) $tv) (STV 0.796969696969697 0.6689189187913668))
+!(test (let (: $p $t $tv) (query 0 hypKb (: $p (B new) $tv)) $tv) (STV 0.7934110109537581 0.6681312811298272))
 
 ;; Two hypotheses confirmed from the same cases, through correlated
 ;; antecedents. Each learns the single hypothesis's truth; their samples are
@@ -163,14 +167,14 @@
 !(compileadd ovKb (: c20 (C i20) (STV 0 1)))
 !(compileadd ovKb (: an (A new) (STV 1 1)))
 !(compileadd ovKb (: bn (B new) (STV 1 1)))
-;; Reviewed, the two give the single hypothesis's answer (0.797, 0.669 alone):
+;; Reviewed, the two give the single hypothesis's answer (0.793, 0.668 alone):
 ;; the other hypothesis's view of C new is no sample.
 !(test (let (: $p $t $tv) (query 50 ovKb (: $p (RuleTruth (Implication (A $x) (C $x))) $tv)) $tv)
-   (STV 0.796969696969697 0.6689189189189189))
+   (STV 0.7934110109537581 0.6681312812545516))
 !(test (let (: $p $t $tv) (query 50 ovKb (: $p (RuleTruth (Implication (B $x) (C $x))) $tv)) $tv)
-   (STV 0.796969696969697 0.6689189189189189))
+   (STV 0.7934110109537581 0.6681312812545516))
 !(test (let (: $p $t $tv) (query 200 ovKb (: $p (C new) $tv)) $tv)
-   (STV 0.796969696969697 0.6689189187602788))
+   (STV 0.7934110109537581 0.6681312811007503))
 
 ;; Refined trust rules, one per source, learned from ten labelled claims each
 ;; (ChainerGame's conflicting sources, in small; test_certain_merge.metta has
@@ -299,9 +303,9 @@
 !(compileadd specKb (: s12 (S a t12) (STV 1 1)))
 !(compileadd specKb (: l12 (L c t12) (STV 1 1)))
 !(compileadd specKb (: w12 (Win t12) (STV 0 1)))
-!(test (let (: $p $t $tv) (query 50 specKb (: $p (RuleTruth (Implication (S a $t) (Win $t))) $tv)) $tv) (STV 0.25104777870913664 0.7067535545023698))
+!(test (let (: $p $t $tv) (query 50 specKb (: $p (RuleTruth (Implication (S a $t) (Win $t))) $tv)) $tv) (STV 0.24569397197102627 0.7056385432963005))
 !(test (let (: $p $t $tv) (query 50 specKb (: $p (RuleTruth (Implication (And (S a $t) (L b $t)) (Win $t))) $tv)) $tv) (STV 0.9917202260594017 0.37887466975565864))
 !(compileadd specKb (: sx (S a new) (STV 1 1)))
 !(compileadd specKb (: lx (L b new) (STV 1 1)))
 !(test (query 200 specKb (: $p (Win new) $tv))
-   (: (specializes (by spec (conjunction sx lx)) (by gen sx)) (Win new) (STV 0.946139052166669 0.37887466519567625)))
+   (: (specializes (by spec (conjunction sx lx)) (by gen sx)) (Win new) (STV 0.9458095775159095 0.37887466519567625)))

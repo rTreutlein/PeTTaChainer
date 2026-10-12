@@ -82,4 +82,4 @@
          (rule-axiom sensor)
          (implication-instance-fold cpu))
       (RuleTruth (Implication (Leak $_c $_u) (Alarm $_c $_u)))
-      (CTV (STV 0.8999028182701653 0.9000374859427714) (STV 0.2001110956811554 0.9000124984376953))))
+      (CTV (STV 0.8999027544292098 0.9000374784498913) (STV 0.2001110956811554 0.9000124984376953))))

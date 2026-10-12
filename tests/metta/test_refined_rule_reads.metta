@@ -62,7 +62,7 @@
    (: (merge/revision (by hA anew) bnew) (B new) (STV 0.15088161515682574 0.8004032225234178)))
 ;; The truth itself counts every sample.
 !(test (let (: $p $t $tv) (query 200 softKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
-   (STV 0.08690647482014388 0.7782754759238522))
+   (STV 0.08697206540828625 0.7782566475768755))
 !(test (query 200 softKb (: $p (B new) $tv))
    (: (merge/revision (by hA anew) bnew) (B new) (STV 0.15088161515682574 0.8004032225234178)))
 
@@ -119,7 +119,7 @@
 !(compileadd stormKb (: blocked-h10 (Blocked r1 h10) (STV 0 1)))
 !(compileadd stormKb (: late-h10 (Late s1 h10) (STV 0 1)))
 !(test (let (: $prf $t $tv) (query 200 stormKb (: $prf (RuleTruth (Implication (And (NextPeriod $p $t) (Storm $p)) (Storm $t))) $tv)) $tv)
-   (CTV (STV 0.5 0.45062436849986953) (STV 0.206 0.5050505050505051)))
+   (CTV (STV 0.4999350008580249 0.450600230398338) (STV 0.2059026272026664 0.5050260161337391)))
 !(test (let (: $prf $t $tv) (query 200 stormKb (: $prf (RuleTruth (Implication (Storm $p) (Blocked r1 $p))) $tv)) $tv)
    (CTV (STV 0.9875621890547264 0.4506726457399103) (STV 0.008361204013377928 0.5496323529411765)))
 !(test (let (: $prf $t $tv) (query 200 stormKb (: $prf (RuleTruth (Implication (Blocked r1 $p) (Late s1 $p))) $tv)) $tv)
@@ -129,7 +129,7 @@
 !(compileadd stormKb (: next-t2 (NextPeriod t1 t2) (STV 1 1)))
 !(compileadd stormKb (: blocked-t2 (Blocked r1 t2) (STV 1 1)))
 !(test (let (: $prf $t $tv) (query 100 stormKb (: $prf (Storm t2) $tv)) $tv)
-   (STV 0.9253103410624408 0.15493026812803593))
+   (STV 0.925268866420926 0.1547756966714534))
 
 ;; A rule whose antecedent never held in the history still learns its
 ;; negative branch from the cases where it failed (SupplyNet learned rules,
@@ -146,4 +146,4 @@
 !(compileadd negKb (: a4 (A i4) (STV 0 1)))
 !(compileadd negKb (: b4 (B i4) (STV 0 1)))
 !(test (let (: $p $t $tv) (query 50 negKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
-   (CTV (STV 0.5 0.02) (STV 0.2562189054726368 0.4506726457399103)))
+   (CTV (STV 0.5 0.02) (STV 0.25612202882009555 0.4506485110763119)))

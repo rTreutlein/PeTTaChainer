@@ -172,7 +172,7 @@
 
 !(test
    (query 400 refineInvKb (: $p (P alice) $tv))
-   (: ((inverted r with cpu (prior (STV 0.8210526315789474 0.0021204939503554946))) qa) (P alice) (STV 0.9266171891704551 0.026831427688121627)))
+   (: ((inverted r with cpu (prior (STV 0.8210526315789474 0.0021204939503554946))) qa) (P alice) (STV 0.9266171897269565 0.02683142733452151)))
 
 ;; --- A certain rule is not refined --------------------------------------------
 ;; Revision leaves a truth stated with confidence 1 unchanged, so the rule
