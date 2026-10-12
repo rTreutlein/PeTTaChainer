@@ -106,3 +106,17 @@
 !(test (query 2 deepKb (: $p (G t) $tv)) ())
 !(test (query 3 deepKb (: $p (G t) $tv))
    (: (by rg (by rk (by r1 (by r2 (by r3 b))))) (G t) (STV 1 0.9994003594095785)))
+
+;; An Assuming query's context holds the world's facts and rules with its
+;; assumptions, so its complete statements read closed as the main context's
+;; do: a decision that does not assume the stock has none, and P runs on F
+;; alone; assuming the stock runs it.
+!(set-complete-predicate actKb S)
+!(set-complete-predicate actKb P)
+!(compileadd actKb (: rp (Implication (Or (S $t) (F $t)) (P $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd actKb (: f (F t) (STV 0.3 0.9)))
+
+!(test (query 100 actKb (: $p (Assuming (Decide t) (P t)) $tv))
+   (: (assuming (by rp (conjunction unfounded f))) (Assuming (Decide t) (P t)) (STV 0.3 0.8999999995871378)))
+!(test (query 100 actKb (: $p (Assuming (S t) (P t)) $tv))
+   (: (assuming (by rp (conjunction (ctx proof 1) f))) (Assuming (S t) (P t)) (STV 1.0 0.9998000399670116)))

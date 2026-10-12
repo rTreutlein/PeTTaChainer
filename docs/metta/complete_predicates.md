@@ -95,7 +95,8 @@ local, constant in the size of the knowledge base.
 Joins must reach K for its search to settle: a join waits until its premise
 node answers, and a complete statement with no fact would never answer, so
 the loop would build no rows at all. A ground complete statement in the main
-context is therefore answered by its own key when its node is expanded. That
+context, or in an Assuming query's context, is therefore answered by its own
+key when its node is expanded. That
 answer claims no value; it lets the joins reading the statement build their
 rows, whose values the reading above decides.
 
@@ -147,9 +148,12 @@ premises in the same cycle multiply that.
 - Partial folds and base rates. Folds read their members' stored values; a
   closed value is a read-time conclusion of rule applications and roots, and
   folds do not see it (out of scope).
-- Assuming and implication queries. Only statements in the main context are
-  complete; in a hypothetical context the predicate is open (out of scope).
-  Premises an Assuming query reads in the main context are read closed there.
+- Assuming and implication queries. An Assuming query's context holds the
+  world's facts and rules with its assumptions, so its statements are
+  complete as the main context's are: a decision that does not assume a
+  complete statement reads it false once its search there settles. An
+  implication query's hypothetical contexts see none of the world, and the
+  predicate is open there.
 - Hypothesis and refined rules. A rule application concluding a complete
   predicate is one more way it becomes true, read like any rule.
 
