@@ -302,3 +302,8 @@ parameters in a domain constructor to opt into geometric merging.
 
 (: $prf (AreaDist rectA $areaDist) $tv)
 ```
+
+Exact `(PointMass x)` values retain their value-bearing representation in facts
+and queries; they allocate no particle-store rows. General `ParticleDist` handles
+remain opaque identities. Equal distribution contents do not imply independent
+random variables or independent evidence.

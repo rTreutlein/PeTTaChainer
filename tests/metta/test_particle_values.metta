@@ -199,7 +199,7 @@
    ((0.0 0.5) (10.0 0.5)))
 
 !(test (progn (ParticleFromPairs ((1 0.6) (2 0.4))) (ParticleFromPairs ((3 1.0))) (ParticleStoreCount))
-   3)
+   2)
 
 !(test (progn (ParticleStorePruneKB) (ParticleStoreCount)) 0)
 
@@ -207,5 +207,5 @@
    (: keptParticleFact (CountryHeightDist keepCountry (ParticleFromPairs ((170 0.7) (180 0.3)))) (STV 1.0 1.0)))
 
 ;; Pruning keeps the two samples referenced by keptParticleFact and removes
-;; only the unreferenced point mass.
-!(test (progn (ParticleFromPairs ((999 1.0))) (ParticleStorePruneKB)) 2)
+;; unreferenced nondegenerate particles. Point masses allocate no store rows.
+!(test (progn (ParticleFromPairs ((999 0.5) (1000 0.5))) (ParticleStorePruneKB)) 2)

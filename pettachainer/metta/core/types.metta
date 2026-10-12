@@ -111,6 +111,7 @@
 (: OptionalSTV (Alias (| STVType NoEvidenceType)))
 
 (: Distribution Type)
+(: PointMass (-[det]-> $value Distribution))
 (: ParticleDist (-[det]-> Number Number Distribution))
 
 ;; These semantic roles share PeTTaChainer's existing open MeTTa wire

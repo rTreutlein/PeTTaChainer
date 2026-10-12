@@ -80,7 +80,14 @@ Useful constructors:
 (ParticleFromNormal 160.0 2.0)
 ```
 
-- `PointMass` encodes an exact value as a degenerate distribution.
+- `PointMass` encodes an exact value as a degenerate distribution. It remains
+  `(PointMass x)` at runtime, so separately constructed exact values match in
+  facts and queries without allocating particle-store rows. Distribution
+  operations accept it, and normalized unit-scale singleton results reduce to
+  this representation. Clearing/pruning the particle store does not affect it.
+- Nondegenerate `ParticleDist` handles still have identity semantics; separately
+  allocated equal marginals are not interchangeable query constants. Equal
+  values do not establish shared evidence or statistical independence.
 - `ParticleFromNormal` creates a deterministic normal-like particle approximation.
 
 ## Truth vs Value Uncertainty

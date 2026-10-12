@@ -34,11 +34,15 @@
             (if-error-number (car-atom $values) 0))
          (progn (change-state! particleid (+ $n 1)) $n))))
 
-(: particle-dist-id (-[det]-> Distribution Number))
-(= (particle-dist-id $pd) (case $pd (((ParticleDist $pid $_scale) $pid))))
+;; Exact values are immutable terms, not particle-store identities.
+(: particle-dist-pairs (-[det]-> Distribution (List (Atom Number))))
+(= (particle-dist-pairs $pd)
+   (case $pd (
+      ((PointMass $x) (cons (particle-value-weight $x 1.0) ()))
+      ((ParticleDist $pid $_scale) (particle-fetch-pairs $pid)))))
 
 (: particle-dist-scale (-[det]-> Distribution Number))
-(= (particle-dist-scale $pd) (case $pd (((ParticleDist $_pid $scale) $scale))))
+(= (particle-dist-scale $pd) (case $pd (((PointMass $_x) 1.0) ((ParticleDist $_pid $scale) $scale))))
 
 ;; Distribution intentionally erases its sample type. Values recovered from
 ;; the shared particle store therefore cross back into typed code as Atom;
@@ -225,17 +229,17 @@
 
 (: particle-build-dist (-[det]-> Number (List ($value Number)) Distribution))
 (= (particle-build-dist $scale $pairs)
-   (let*
-      (($pid (next-particle-id))
-        ($compressed (compress-pairs $pairs))
-        ($_store (particle-store-pairs $pid $compressed)))
-      (ParticleDist $pid $scale)))
+   (let $compressed (compress-pairs $pairs)
+      (case ($scale $compressed) (
+         ((1.0 (($x 1.0))) (PointMass $x))
+         ($_other
+            (let*
+               (($pid (next-particle-id))
+                ($_store (particle-store-pairs $pid $compressed)))
+               (ParticleDist $pid $scale)))))))
 
 (: ParticleFromPairs (-[det]-> (List ($value Number)) Distribution))
 (= (ParticleFromPairs $pairs) (particle-build-dist 1.0 $pairs))
-
-(: PointMass (-[det]-> $value Distribution))
-(= (PointMass $x) (ParticleFromPairs (quote (($x 1.0)))))
 
 (: normal-kernel-9 (-[det]-> (List (Number Number))))
 (= (normal-kernel-9)
@@ -258,7 +262,7 @@
 
 (: ParticlePairs (-[det]-> Distribution (List (Atom Number))))
 (= (ParticlePairs $pd)
-   (scale-dist-pairs (particle-fetch-pairs (particle-dist-id $pd)) (particle-dist-scale $pd)))
+   (scale-dist-pairs (particle-dist-pairs $pd) (particle-dist-scale $pd)))
 
 (: scale-dist-pairs (-[det]-> (List ($value Number)) Number (List ($value Number))))
 (= (scale-dist-pairs () $w) ())
@@ -308,22 +312,17 @@
 
 (: DistGreaterThanFormula
    (-[det]-> Distribution Number STVType))
-(= (DistGreaterThanFormula (ParticleDist $pid $scale) $threshold)
-   (let $pairs (particle-fetch-pairs $pid)
-      (STV
-         (* $scale (dist-prob-gt $pairs $threshold))
-         1.0)))
+(= (DistGreaterThanFormula $pd $threshold)
+   (STV (dist-prob-gt (ParticlePairs $pd) $threshold) 1.0))
 
 (: DistGreaterThanDistFormula
    (-[det]-> Distribution Distribution STVType))
 (= (DistGreaterThanDistFormula $pda $pdb)
    (let*
-      (($pida (particle-dist-id $pda))
-       ($pidb (particle-dist-id $pdb))
-       ($scalea (particle-dist-scale $pda))
+      (($scalea (particle-dist-scale $pda))
        ($scaleb (particle-dist-scale $pdb))
-       ($pairsa (particle-fetch-pairs $pida))
-       ($pairsb (particle-fetch-pairs $pidb)))
+       ($pairsa (particle-dist-pairs $pda))
+       ($pairsb (particle-dist-pairs $pdb)))
       (STV
          (* (* $scalea $scaleb) (dist-prob-gt2 $pairsa $pairsb))
          1.0)))
@@ -444,30 +443,26 @@
 (: ParticleAddBernoulliFromSTV (-[det]-> Distribution TV Distribution))
 (= (ParticleAddBernoulliFromSTV $pd $tv)
    (let*
-      (($pid (particle-dist-id $pd))
-        ($scale (particle-dist-scale $pd))
+      (($scale (particle-dist-scale $pd))
         ($p (tv-probability $tv))
-        ($pairs (particle-fetch-pairs $pid))
+        ($pairs (particle-dist-pairs $pd))
         ($updated (dist-add-bernoulli-pairs $pairs $p)))
       (particle-build-dist $scale $updated)))
 
 (: ParticleMap (-[det]-> (-[det]-> $input $output) Distribution Distribution))
 (= (ParticleMap $fun $pd)
    (let*
-      (($pid (particle-dist-id $pd))
-        ($scale (particle-dist-scale $pd))
-        ($pairs (particle-fetch-pairs $pid))
+      (($scale (particle-dist-scale $pd))
+        ($pairs (particle-dist-pairs $pd))
         ($mapped (particle-map-pairs $fun $pairs ())))
       (particle-build-dist $scale $mapped)))
 
 (: ParticleMap2 (-[det]-> (-[det]-> $left $right $output) Distribution Distribution Distribution))
 (= (ParticleMap2 $fun $pda $pdb)
    (let*
-      (($pida (particle-dist-id $pda))
-        ($pidb (particle-dist-id $pdb))
-        ($scalea (particle-dist-scale $pda))
+      (($scalea (particle-dist-scale $pda))
         ($scaleb (particle-dist-scale $pdb))
-        ($pairsa (particle-fetch-pairs $pida))
-        ($pairsb (particle-fetch-pairs $pidb))
+        ($pairsa (particle-dist-pairs $pda))
+        ($pairsb (particle-dist-pairs $pdb))
         ($mapped (particle-map2-pairs $fun $pairsa $pairsb ())))
       (particle-build-dist (* $scalea $scaleb) $mapped)))

@@ -878,7 +878,7 @@ class TestPeTTaChainer(unittest.TestCase):
 
         self.assertEqual(len(proofs), 1)
         self.assertIn("(by foot_to_meter measured)", proofs[0])
-        self.assertIn("ParticleDist", proofs[0])
+        self.assertIn("(PointMass 1.8288", proofs[0])
 
     def test_rule_proof_names_are_data_in_by_constructor(self):
         for name in ("ordinary_rule", "flip", "empty", "match"):

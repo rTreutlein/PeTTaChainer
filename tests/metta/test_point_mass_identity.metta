@@ -1,0 +1,25 @@
+!(import! &self ../../pettachainer/metta/petta_chainer)
+
+;; Independent constructions must retain the value in the proposition.
+!(compileadd kb (: price (TargetPrice Apple USD (PointMass 366)) (STV 1.0 1.0)))
+!(test (query 20 kb (: $p (TargetPrice Apple USD (PointMass 366)) $tv))
+   (: price (TargetPrice Apple USD (PointMass 366)) (STV 1.0 1.0)))
+!(test (collapse (query 20 kb (: $p (TargetPrice Apple USD (PointMass 367)) $tv))) ())
+!(test (ParticlePairs (PointMass 366)) ((366 1.0)))
+!(test (ParticleFromPairs ((366 1.0))) (PointMass 366))
+!(test (ParticleMap (dist-divide-by 2) (PointMass 366)) (PointMass 183))
+!(test (ParticleMap2 dist-add-numbers (PointMass 200) (PointMass 166)) (PointMass 366))
+!(test (DistGreaterThanDistFormula (PointMass 366) (PointMass 365)) (STV 1.0 1.0))
+!(test (DistGreaterThanDistFormula (PointMass 366) (PointMass 366)) (STV 0.0 1.0))
+!(test (ParticlePairs (ParticleAddBernoulliFromSTV (PointMass 0) (STV 0.5 1.0)))
+   ((0 0.5) (1 0.5)))
+
+;; Store lifecycle cannot invalidate an exact value or change a later query.
+!(ParticleStoreClear)
+!(test (ParticleStoreCount) 0)
+!(test (ParticlePairs (PointMass 366)) ((366 1.0)))
+!(test (query 20 kb (: $p (TargetPrice Apple USD (PointMass 366)) $tv))
+   (: price (TargetPrice Apple USD (PointMass 366)) (STV 1.0 1.0)))
+!(ParticleStorePruneKB)
+!(test (query 20 kb (: $p (TargetPrice Apple USD (PointMass 366)) $tv))
+   (: price (TargetPrice Apple USD (PointMass 366)) (STV 1.0 1.0)))
