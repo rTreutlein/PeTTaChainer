@@ -52,7 +52,7 @@
              (length (collapse
                 (let $key (superpose $answers)
                    (let $khash (index-hash $key)
-                      (if (== (collapse (once (match &sk_merged (sk-merged $khash $mkey $_deps (sk-val $_fact $_ev $_vdeps))
+                      (if (== (collapse (once (match &sk_merged ($khash $mkey $_deps (sk-val $_fact $_ev $_vdeps))
                                 (if (=alpha $mkey $key) true (empty)))))
                              ())
                          (case $key (
