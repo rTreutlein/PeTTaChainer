@@ -61,6 +61,8 @@
 (: hypothesis-failure-candidates (-[det]-> Atom Atom Atom Atom (List (Atom Atom Atom))))
 (: hypothesis-exception-pairs (-[det]-> Atom Atom Atom Atom (List (Atom Atom Atom))))
 (: hypothesis-place (-[det]-> Atom Atom Atom))
+;; Observed predicates' term helper (runtime/observed_predicates.metta).
+(: closed-world-gaps (-[det]-> KB Atom Number Atom (List AnnotatedStatement)))
 (: hypothesis-constants (-[det]-> Atom (List Atom)))
 (: hypothesis-patterns (-[det]-> Atom (List Atom)))
 (: hypothesis-generalizes? (-[det]-> Atom Atom Bool))

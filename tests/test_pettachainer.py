@@ -165,6 +165,27 @@ class TestPeTTaChainer(unittest.TestCase):
                 result = handler.query("(: $prf (Blocked r1 p3) $tv)", steps=100, timeout_sec=timeout_sec)
                 self.assertTrue(any("hypothesis-" in answer for answer in result), result)
 
+    def test_observed_predicate_closes_reached_time_points_and_replays(self):
+        handler = PeTTaChainer()
+        handler.set_predicate_time("Ball", 2, 0)
+        handler.set_time_link("NextPeriod")
+        handler.set_observed_predicate("Ball")
+        handler.add_atoms_no_check([
+            "(: w (Implication (And (NextPeriod $t $u) (Ball right $t)) (Ball equal $u)) (STV 0.9 0.9))",
+            "(: b1 (Ball right d1) (STV 1 1))",
+            "(: b2 (Ball right d2) (STV 1 1))",
+            "(: n1 (NextPeriod d1 d2) (STV 1 1))",
+        ])
+        # The link reached d2 without equal: (Ball equal d2) is stored false,
+        # live and in the subprocess a timed query spawns, which replays the
+        # declaration.
+        for timeout_sec in (0, 30):
+            with self.subTest(timeout_sec=timeout_sec):
+                result = handler.query("(: $prf (Ball equal d2) $tv)", steps=50, timeout_sec=timeout_sec)
+                self.assertEqual(len(result), 1, result)
+                self.assertIn("unobserved-", result[0])
+                self.assertIn("(STV 0.0 1.0)", result[0])
+
     def test_bayes_prior_count_applies_in_process_and_to_timed_queries(self):
         handler = PeTTaChainer()
         handler.set_bayes_prior_count(1e6)

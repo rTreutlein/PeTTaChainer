@@ -1568,6 +1568,22 @@ generalize_statement(Subst, [Head|Args], [Head|General]) :-
 generalize_argument(Subst, Arg, General) :-
     ( atomic(Arg), memberchk(Arg-Var, Subst) -> General = Var ; General = Arg ).
 
+% Observed predicates (runtime/observed_predicates.metta): the ground
+% statements of Head at time point Time that a rule of KB concludes (its
+% conclusion with the time argument at Position, counted from 1, a variable
+% and every other argument ground) and that KB stores no fact of, each as a
+% false fact named by its hash.
+'closed-world-gaps'(KB, Head, Position, Time, Facts) :-
+    (   current_predicate(ccls_index/3)
+    ->  findall(S, ( ccls_index([T, [KB|_], _, _], _, _), T = [Head|_], copy_term(T, S),
+                     nth0(Position, S, V), var(V), V = Time, ground(S) ), Found),
+        sort(Found, Statements)
+    ;   Statements = [] ),
+    findall([':', Name, S, ['STV', 0.0, 1.0]],
+            ( member(S, Statements), \+ '&kb'(S, [KB|_], _, _),
+              term_hash(S, H), atom_concat('unobserved-', H, Name) ),
+            Facts).
+
 % A statement's place in time, [Time, Layer], from its predicate's declared
 % [Position, Layer], where Time is the constant at argument Position; []
 % when there is none.

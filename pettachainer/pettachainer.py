@@ -53,6 +53,7 @@ def _query_worker(
     hypothesis_mining: Optional[Tuple[int, int]],
     predicate_times: List[Tuple[str, int, int]],
     time_link: Optional[str],
+    observed_predicates: List[str],
     conn,
 ):
     try:
@@ -74,6 +75,8 @@ def _query_worker(
             handler.set_predicate_time(head, position, layer)
         if time_link:
             handler.set_time_link(time_link)
+        for head in observed_predicates:
+            handler.set_observed_predicate(head)
         if added_atoms:
             handler.add_atoms_no_check(added_atoms)
         conn.send(("ok", handler._call(fn, [source])))
@@ -169,6 +172,7 @@ class PeTTaChainer:
         self._rule_refinement = False
         self._rule_change_hazard: Optional[float] = None
         self._base_rate_smoothing = False
+        self._observed_predicates: List[str] = []
         self._complete_predicates: List[str] = []
         self._positive_only_predicates: List[str] = []
         self._query_metrics_enabled = False
@@ -503,6 +507,21 @@ class PeTTaChainer:
         self.handler.process_metta_string(f"!(set-time-link {self.kb} {head})")
         self._time_link = head
 
+    def set_observed_predicate(self, head: str) -> None:
+        """Declare that the statements of predicate ``head`` are observed:
+        once a true ``set_time_link`` fact reaches a time point (state its
+        observations before), each statement of ``head`` at it that a rule
+        concludes and that has no stored fact is stored false, so a rule whose
+        prediction did not come gets a negative sample
+        (docs/metta/observed_predicates.md). Needs
+        ``set_predicate_time`` for ``head`` and ``set_time_link``; declare
+        before adding knowledge. Timed subprocess queries replay the
+        declaration.
+        """
+        self.handler.process_metta_string(f"!(set-observed-predicate {self.kb} {head})")
+        if head not in self._observed_predicates:
+            self._observed_predicates.append(head)
+
     def review_hypotheses(self, goal: str = "$goal", steps: int = 200) -> List[str]:
         """Review the live mined hypotheses that apply to ``goal`` (all for a
         variable): read their truths, with ``steps`` for each one never read
@@ -654,6 +673,7 @@ class PeTTaChainer:
                 self._hypothesis_mining,
                 [(head, *place) for head, place in self._predicate_times.items()],
                 self._time_link,
+                self._observed_predicates,
                 child_conn,
             ),
             daemon=True,
