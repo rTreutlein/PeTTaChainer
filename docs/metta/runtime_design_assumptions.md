@@ -550,6 +550,35 @@ leaves the reader lists of the keys it reads until then, so a change walks only
 readers that are current. Rows built for earlier queries therefore cost nothing
 per query or per change.
 
+**Determined rows.** A row whose rule is deterministic (stated with
+strength 0 or 1 and confidence 1 in every branch) and whose premises are all
+certain statements, reading no fold or group, is determined: its conclusion
+is certain, as a stored fact is. It is computed when it is built and
+whenever its premises change, whoever needs it, at no cost to the allowance;
+a stored fact that makes a stale reader of its key determined brings that row
+back among the key's readers. Its key then changes as a stored fact's would:
+readers no query needs go stale, which brings an implication instance fold
+over a sample reading the key current at the same evaluation, and a base rate
+over the key takes it when next read. So an outcome a deterministic rule
+derives from new facts counts as a sample and as a population member at the
+next query, whatever it asks, without a query reaching it: with
+`(Implication (Reward left $t) (Reward right $t)) (CTV (STV 0 1) (STV 1 1))`,
+a stored `(Reward left t) (STV 1 1)` makes `(Reward right t)` an
+observation, as storing it would (ONA matching-to-sample with the task rule,
+`test_determined_rows.metta`). Before, such a row no query needed was left
+stale, whether it was built after the fact arrived or, as in a trial whose
+outcome both operations' queries had predicted, computed from the prediction
+before it: the derived outcome of a past trial never reached the tallies, and
+the client had to query it. A determined row is computed once per change of
+the certain facts it reads, so the cost per new fact stays bounded, and its
+value does not depend on when it is computed. One step only: a key a
+determined row derives is not a stored fact, so the rows reading it are
+computed when needed, as before. A rule given with an intermediate strength
+determines a probability, not an outcome: its application is evidence to be
+weighed with the rest of its key and waits for a query. Taking those too
+computed 3,620 more rows in SupplyNet stage 1 (b100 s3, 7,105 in all), whose
+rules are given conditional probabilities, for about 15% more time.
+
 Evaluation is bounded too. A needed key records its depth, the fewest rows or
 folds between it and a root, found breadth first so each key is reached at its
 least depth on its first visit. The members a base-rate or instance fold has

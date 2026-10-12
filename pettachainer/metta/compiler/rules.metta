@@ -274,7 +274,9 @@
 ;; a proof of the rule (its axiom) and a proof through it are not independent;
 ;; two applications to different premises are, given the rule's truth (see
 ;; sk-merge-facts). A rule stated with confidence 1 in every branch is not
-;; refined (`refined-rule?`): its truth is given, and carries no evidence.
+;; refined (`refined-rule?`): its truth is given, and carries no evidence. A
+;; given rule whose every branch has strength 0 or 1 is deterministic: applied
+;; to certain premises it determines its conclusion (sk-determined-row?).
 (: register-rule-evidence!
    (-[det]-> KB Proof TV (List $no-result)))
 (= (register-rule-evidence! $kb $prf $tv)
@@ -282,19 +284,40 @@
       (if (is-expr $name) ()
          (if (logic-rule? $name) ()
             (if (rule-evidence-registered? $kb $name) ()
-               (if (case $tv (
-                      ((STV $_s $c) (if (is-var $c) false (>= $c 1.0)))
-                      ((CTV (STV $_ps $pc) (STV $_ns $nc))
-                         (if (is-var $pc) false (if (is-var $nc) false (if (>= $pc 1.0) (>= $nc 1.0) false))))
-                      ($_other false)))
-                  ()
-                  (let $_added
-                     (collapse
-                        (once
-                           (add-atom
-                              &rule_evidence_names
-                              ($name $kb))))
-                     ())))))))
+               (case $tv (
+                  ((STV $s $c) (register-given-branches! $kb $name (cons (STV $s $c) ())))
+                  ((CTV $pos $neg) (register-given-branches! $kb $name (cons $pos (cons $neg ()))))
+                  ($_other (register-rule-evidence-name! $kb $name)))))))))
+
+(: register-given-branches! (-[det]-> KB Proof (List TV) (List $no-result)))
+(= (register-given-branches! $kb $name $branches)
+   (if (fold-flat given-branch-step true $branches)
+      (if (fold-flat deterministic-branch-step true $branches)
+         (if (deterministic-rule? $kb $name) ()
+            (let $_added (add-atom &deterministic_rules ($name $kb)) ()))
+         ())
+      (register-rule-evidence-name! $kb $name)))
+
+(: given-branch-step (-[det]-> Bool TV Bool))
+(= (given-branch-step $given $branch)
+   (if $given (case $branch (((STV $_s $c) (if (is-var $c) false (>= $c 1.0))) ($_other false))) false))
+
+(: deterministic-branch-step (-[det]-> Bool TV Bool))
+(= (deterministic-branch-step $deterministic $branch)
+   (if $deterministic
+      (case $branch (((STV $s $_c) (if (is-var $s) false (if (<= $s 0.0) true (>= $s 1.0)))) ($_other false)))
+      false))
+
+(: register-rule-evidence-name! (-[det]-> KB Proof (List $no-result)))
+(= (register-rule-evidence-name! $kb $name)
+   (let $_added (collapse (once (add-atom &rule_evidence_names ($name $kb)))) ()))
+
+;; given rules whose every branch has strength 0 or 1, by name and KB
+(: &deterministic_rules (SpaceOf (Proof KB)))
+!(bind! &deterministic_rules (new-space))
+
+(: deterministic-rule? (-[det]-> KB Proof Bool))
+(= (deterministic-rule? $kbid $name) (not (== (collapse (once (match &deterministic_rules ($name $kbid) true))) ())))
 
 ;; Estimate the base rate required to reinterpret an STV rule as a CTV. Open
 ;; inheritance antecedents use universe-aware weighted evidence; a concrete

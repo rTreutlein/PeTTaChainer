@@ -292,7 +292,12 @@ An implication instance fold is now a tally, as a base rate is
   depth of a root's, and the fold's readers as roots, so their rows are
   computed in full and their stale rows brought current. A member whose rows
   the evaluation could not compute waits for the next one. A fold nobody read
-  yet takes all its members when first read.
+  yet takes all its members when first read. A sample whose consequent a
+  deterministic rule derives from certain facts, such as the unchosen
+  operation's outcome under `(Implication (Reward left $t) (Reward right
+  $t)) (CTV (STV 0 1) (STV 1 1))`, is taken the same way: the determined row
+  is computed when it is built (runtime_design_assumptions.md, "Determined
+  rows").
 
 So a review is a read: once the first query that reads a rule's truth has
 folded its instances, later reviews compute nothing

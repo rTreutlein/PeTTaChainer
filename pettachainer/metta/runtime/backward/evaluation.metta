@@ -2849,7 +2849,8 @@
 (: sk-schedule-reader
    (-[semidet]-> Number Number SkeletonKey SkeletonChange SkeletonWork SkeletonItem SkeletonWork))
 (= (sk-schedule-reader $pass $order $key $change (sk-work $todo $next) $item)
-   (if (if (sk-item-needed? $item) false (let $_stale (sk-mark-stale! $item) true)) (sk-work $todo $next)
+   (if (if (sk-item-needed? $item) false (if (sk-determined-row? $item) false (let $_stale (sk-mark-stale! $item) true)))
+      (sk-work $todo $next)
    (if (let $_forced
           (case $change (
              ((sk-outside-change $causes $_deps) (sk-force! $causes $item))
@@ -3103,11 +3104,18 @@
 (: sk-work-pop!
    (-[semidet]-> Number (Heap SkeletonItem) (Number SkeletonItem (Heap SkeletonItem)) Number))
 ;; Each row commits to its one result, so the loop leaves no choice points and
-;; runs in constant stack however many rows it computes.
+;; runs in constant stack however many rows it computes. An item no query needs
+;; is in the work only as a determined row (sk-seed-new, sk-schedule-reader),
+;; which costs nothing; a determined row a query needs is computed even when
+;; the allowance cannot pay for it.
 (= (sk-work-pop! $pass $next ($order $item $rest))
-   (if (if (sk-near-root-reserve-take! $item) true
-          (sk-take! sk_eval_budget
-             (case $item (((sk-row-item $_seq $_khash (sk-key $type $_kbctx) $_rhash $_row) (term-cost $type)) ($_fold-check 1)))))
+   (if (if (sk-item-needed? $item)
+          (if (sk-near-root-reserve-take! $item) true
+             (if (sk-take! sk_eval_budget
+                    (case $item (((sk-row-item $_seq $_khash (sk-key $type $_kbctx) $_rhash $_row) (term-cost $type)) ($_fold-check 1))))
+                true
+                (sk-determined-row? $item)))
+          true)
       (sk-work-off! $pass (once (sk-compute $pass $order (sk-work $rest $next) $item)))
       (let $_stale (sk-mark-stale! $item) (sk-work-off! $pass (sk-work $rest $next)))))
 
@@ -3151,15 +3159,29 @@
 (= (sk-walk-per-step) 1)
 
 ;; Keys changed outside evaluation: a fold or group key recomputes when next
-;; read, and every changed key's readers are scheduled.
+;; read, and every changed key's readers are scheduled. A stored fact may make
+;; a stale reader determined: it rejoins the key's readers, so it is computed.
 (: sk-dirty-seed (-[semidet]-> Number SkeletonWork SkeletonKey SkeletonWork))
 (= (sk-dirty-seed $pass $work $key)
-   (let* (($_view
+   (let* (($hash (index-hash $key))
+          ($_view
              (case $key (
-                ((sk-key $_type $_kbctx) ())
+                ((sk-key $_type $_kbctx)
+                   (fold-semidet sk-relink-determined-step ()
+                      (collapse (match &sk_stale_reader ($hash $stored $khash $rhash)
+                         (if (=alpha $stored $key)
+                            (match &sk_row ($khash $rkey $rhash (sk-row $ident $concl $premises $seq))
+                               (sk-row-item $seq $khash $rkey $rhash (sk-row $ident $concl $premises $seq)))
+                            (empty))))))
                 ($_fold (sk-drop-fold-view! $key)))))
           ($_merged (sk-drop-merged! $key)))
-      (sk-key-changed $pass -1 (sk-outside-change (cons (index-hash $key) ()) 0) $work $key)))
+      (sk-key-changed $pass -1 (sk-outside-change (cons $hash ()) 0) $work $key)))
+
+(: sk-relink-determined-step (-[semidet]-> Atom SkeletonItem Atom))
+(= (sk-relink-determined-step $_acc (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $s)))
+   (if (sk-determined-row? (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $s)))
+      (sk-relink-row! $khash $rhash $premises)
+      ()))
 
 ;; --- Demand -----------------------------------------------------------------
 ;; A query brings current only what its roots read: their keys, the premise
@@ -3373,11 +3395,37 @@
 (= (sk-item-needed? (sk-row-item $_seq $hash $key $_rhash $_row)) (sk-needed? $hash $key))
 (= (sk-item-needed? (sk-fold-check $hash $fold)) (sk-needed? $hash $fold))
 
+;; A new row no query needs is left stale, unless it is determined
+;; (sk-determined-row?).
 (: sk-seed-new (-[det]-> Number (Heap SkeletonItem) SkeletonItem (Heap SkeletonItem)))
 (= (sk-seed-new $pass $todo $item)
-   (if (sk-item-needed? $item)
+   (if (if (sk-item-needed? $item) true (sk-determined-row? $item))
       (if (sk-queue-new? $pass $item) (add_to_heap $todo (sk-item-order $item) $item) $todo)
       (let $_stale (sk-mark-stale! $item) $todo)))
+
+;; A row is determined when its rule is deterministic (stated with strength 0
+;; or 1 and confidence 1 in every branch: register-rule-evidence!) and its
+;; premises are all certain statements, reading no fold or group: its
+;; conclusion is certain, as a stored fact is. So it is computed when it is
+;; built or its premises change, whoever needs it, at the cost of reading a
+;; fact: its key then changes as a stored fact's would, and the tallies and
+;; base rates over the key take it (docs/metta/runtime_design_assumptions.md,
+;; "Determined rows").
+(: sk-determined-row? (-[det]-> SkeletonItem Bool))
+(= (sk-determined-row? (sk-row-item $_seq $_khash $_key $_rhash (sk-row $_ident ($_type ($kbid $_ctx $_vars) $proof $_tv) $premises $_s)))
+   (if (deterministic-rule? (brand KB $kbid) (rule-evidence-head $proof))
+      (fold-flat sk-certain-premise-step true (the (List SkPattern) $premises))
+      false))
+(= (sk-determined-row? (sk-fold-check $_hash $_fold)) false)
+
+(: sk-certain-premise-step (-[det]-> Bool SkPattern Bool))
+(= (sk-certain-premise-step $certain $premise)
+   (if $certain
+      (case $premise (
+         ((CPU $fun $_args $_res) (not (if (== $fun FoldAllCompiled) true (== $fun GroupedFoldAllCompiled))))
+         (($type $kbctx $_proof $_tv) (sk-certain? $type (sk-leaf-facts $type $kbctx sk-any-filter)))
+         ($_other false)))
+      false))
 
 (: sk-evaluate! (-[semidet]-> Atom))
 (= (sk-evaluate!)
