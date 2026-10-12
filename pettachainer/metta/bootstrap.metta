@@ -77,3 +77,4 @@
 !(import! &self runtime/backward/forgetting)
 !(import! &self runtime/query)
 !(import! &self runtime/hypothesis_review)
+!(import! &self runtime/backward/diagnostics)

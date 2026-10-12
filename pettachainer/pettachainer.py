@@ -690,6 +690,33 @@ class PeTTaChainer:
         ):
             return self._run_query("query", f"{steps} {self.kb} {atom}", timeout_sec)
 
+    def query_with_diagnostics(
+        self, atom: str, steps: int = 100, *, max_goals: int = 32,
+        max_routes: int = 32, max_bytes: int = 32768,
+    ) -> dict:
+        """Run one query in this live runtime and return its proofs with a
+        bounded snapshot of what its search observed (query_diagnostics).
+
+        No subprocess timeout: callers needing a deadline must bound the owning
+        process. The query metrics setting is restored afterwards.
+        """
+        from .query_diagnostics import snapshot
+
+        for name, value, low, high in (
+            ("steps", steps, 0, 1000000), ("max_goals", max_goals, 1, 512),
+            ("max_routes", max_routes, 0, 512), ("max_bytes", max_bytes, 2048, 1000000),
+        ):
+            if type(value) is not int or not low <= value <= high:
+                raise ValueError(f"{name} must be an integer between {low} and {high}")
+        enabled = self._query_metrics_enabled
+        self.set_query_metrics(True)
+        try:
+            proofs = self.query(atom, steps=steps, timeout_sec=0)
+            diagnostics = snapshot(self, self.last_query_metrics(), max_goals, max_routes, max_bytes)
+            return {"proofs": proofs, "diagnostics": diagnostics}
+        finally:
+            self.set_query_metrics(enabled)
+
     @_timed
     def query_many(
         self,

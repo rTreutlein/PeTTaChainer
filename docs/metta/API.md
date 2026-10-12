@@ -175,3 +175,47 @@ for deep queries, where the per-node rule count compounds with search depth.
 | `(set-bounded-agenda-pruning $enabled)` | Toggle forward-agenda pruning. Skeleton backward search is bounded by its expansion and row budgets. |
 | `(ParticleSetBudget $n)` / `(ParticleGetBudget)` | Set / read the maximum particle support. Over-budget structured numeric samples are condensed as complete vectors; bare numeric or symbolic samples use deterministic systematic resampling. |
 | `(ParticleStoreClear)` / `(ParticleStorePruneKB)` | Clear the particle store / garbage-collect particles no longer referenced by the KB. |
+
+### Python compact query diagnostics
+
+`PeTTaChainer.query_with_diagnostics(atom, steps=100, *, max_goals=32,
+max_routes=32, max_bytes=32768)` runs one query in the owning live process
+and returns its ordinary `proofs` with a bounded `diagnostics` object (schema
+version 1). It turns query metrics on for the query and restores the caller's
+setting. There is no subprocess timeout: bound the owning process when a
+deadline is required. `pettachainer.query_diagnostics.snapshot(chainer,
+metrics, max_goals, max_routes, max_bytes)` reads the same snapshot again,
+with other limits, from the skeleton the last query left and that query's
+`last_query_metrics()`, without inferring anything.
+
+The snapshot walks the last query's roots and their children breadth first,
+reading child links, waiting joins, stored facts, cached merged values and the
+pending-work index; it never evaluates, expands or starts anything. A goal's
+`proof_count` counts its answers that have a cached value or a stored fact; a
+supported goal ends the walk below it. `expanded` says whether its node was
+expanded, and `work_requested` whether the search still has work at or below
+it (it is unexpanded, or the pending-work index holds work below it). A
+route with `origin` `continuation` is a join waiting on the child premise:
+`remaining_premises` are the statements it still needs, and
+`supported_evidence` the stored facts of the premises it has bound. An
+expanded goal with no support also lists, as `candidate` routes, the rules
+concluding it that have no join there (dormant rules, rules pruned because a
+ground premise had no fact and no rule, inverted rules), one per statement
+premise: they are leads, not executable paths or missing facts. Each record
+keeps the variables its terms share. Temporary query scaffolds leave with the
+query and are not represented (an `Assuming` query's context leaves with all
+its nodes, so its snapshot has no goals), nor are fold goals (`CPU`), which
+the walk passes through.
+
+`termination.reason` is `budget_exhausted` when the budget left work this
+query needed: a root whose search has work left, answer deliveries still
+queued for want of rows, rows its evaluation could not pay to compute
+(`rows_unpaid` metric), or conditioning it could not pay for
+(`conditions_unpaid`). `agenda_entries` counts those items and is positive
+exactly then; otherwise the reason is `agenda_exhausted`, which means no
+computational cutoff, not logical completeness or falsity. `pruned_entries`
+is 0: backward search prunes nothing a budget could reach. Limits apply to the
+walk and to the serialized JSON; goal counts are lower bounds when the walk
+stops early, and a truncated snapshot is not complete research feedback.
+Support counts are observations, not counts of independent evidence, and do
+not establish admissibility to every consumer.
