@@ -33,10 +33,10 @@ Do not run `uv sync` in a worktree: `pyproject.toml` finds PeTTa at
 PeTTa changes go to a branch in `/nexus/Dev/OpenCog/PeTTa`, never into
 `.venv`.
 
-The shared `.venv` runs PeTTa fork branch `pettachainer-runtime-main-3`
-(worktree `/nexus/Dev/OpenCog/PeTTa-runtime-main-3`): upstream main plus the
-specialized-call-exceptions change (#237 proposal) and `nb_current` global
-reads (#248). To test a PeTTa change, install its tree into your worktree's
+The shared `.venv` runs PeTTa fork branch `pettachainer-runtime-main-4`
+(worktree `/nexus/Dev/OpenCog/PeTTa-runtime-main-4`): upstream main plus the
+specialized-call-exceptions change (#237 proposal), `nb_current` global
+reads (#248) and chunked load-cache replay (#249). To test a PeTTa change, install its tree into your worktree's
 copied `.venv`, never into the shared one:
 
 ```bash
