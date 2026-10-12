@@ -228,10 +228,12 @@
          (coalesce-pairs-to-budget $norm (particle-budget)))))
 
 (: particle-build-dist (-[det]-> Number (List ($value Number)) Distribution))
+;; One value left after normalizing holds all the mass, whatever rounding left
+;; of its weight (49 normalizes to 0.9999999999999999).
 (= (particle-build-dist $scale $pairs)
    (let $compressed (compress-pairs $pairs)
       (case ($scale $compressed) (
-         ((1.0 (($x 1.0))) (PointMass $x))
+         ((1.0 (($x $_mass))) (PointMass $x))
          ($_other
             (let*
                (($pid (next-particle-id))

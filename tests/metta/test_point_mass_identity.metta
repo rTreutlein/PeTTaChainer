@@ -7,6 +7,7 @@
 !(test (collapse (query 20 kb (: $p (TargetPrice Apple USD (PointMass 367)) $tv))) ())
 !(test (ParticlePairs (PointMass 366)) ((366 1.0)))
 !(test (ParticleFromPairs ((366 1.0))) (PointMass 366))
+!(test (ParticleFromPairs ((366 49))) (PointMass 366))
 !(test (ParticleMap (dist-divide-by 2) (PointMass 366)) (PointMass 183))
 !(test (ParticleMap2 dist-add-numbers (PointMass 200) (PointMass 166)) (PointMass 366))
 !(test (DistGreaterThanDistFormula (PointMass 366) (PointMass 365)) (STV 1.0 1.0))
