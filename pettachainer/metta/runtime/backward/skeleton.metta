@@ -1246,7 +1246,7 @@
                   false)))
          (($type ($kbid $_ctx $_vars) $_prf $_tv)
             (if (== (extract-vars $type) ())
-               (if (== (collapse (once (match &kb ($type ($kbid $_c2 $_v2) $_p2 $_t2) true))) ())
+               (if (== (kb-facts (brand Statement $type) (brand KBContext (data $kbid $_c2 $_v2))) ())
                   (not (prefilter-head-concludable? $type $kbid))
                   false)
                false))))))
