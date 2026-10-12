@@ -3052,7 +3052,9 @@
                 (sk-determined-row? $item)))
           true)
       (sk-work-off! $pass (once (sk-compute $pass $order (sk-work $rest $next) $item)))
-      (let $_stale (sk-mark-stale! $item) (sk-work-off! $pass (sk-work $rest $next)))))
+      (let* (($_unpaid (query_metric_increment rows-unpaid))
+             ($_stale (sk-mark-stale! $item)))
+         (sk-work-off! $pass (sk-work $rest $next)))))
 
 ;; A query computes the rows and folds within two steps of a root from a
 ;; reserve that its need fills with a fixed number of computations for each
@@ -3501,7 +3503,7 @@
       (() ())
       ((cons (sk-claim $_depth $claim-cost $_seq $waiting) $_rest)
          (let $left (search-id-value sk_eval_budget)
-            (if (> $claim-cost $left) ()
+            (if (> $claim-cost $left) (let $_unpaid (query_metric_increment conditions-unpaid) ())
                (let* (($_paid (change-state! sk_eval_budget (- $left $claim-cost)))
                       ($last (sk-pay! $pass $waiting)))
                   (sk-pay-conditions! (+ $last 1)))))))))
@@ -3643,7 +3645,8 @@
 (: backward-query-counter-keys (-[det]-> (List Atom)))
 (= (backward-query-counter-keys)
    (expansions nodes-walked rows-created rows-deferred joins-deferred row-computes views-stored
-    views-without-support merged-cache-hits merged-cache-misses conditioned-evaluations))
+    views-without-support merged-cache-hits merged-cache-misses conditioned-evaluations rows-unpaid
+    conditions-unpaid))
 
 (: sk-counter-reset (-[det]-> Atom Atom Atom))
 (= (sk-counter-reset $_acc $key) (let $_zero (query_metric_set $key 0) ()))
