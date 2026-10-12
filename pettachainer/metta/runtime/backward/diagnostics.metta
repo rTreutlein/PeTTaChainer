@@ -38,10 +38,30 @@
       ((CPU $_fun $_args $_res) $statements)
       (($type $_kbctx $_proof $_tv) (cons $type $statements)))))
 
+;; A candidate rule's premises bound in order by the stored facts that answer
+;; them, as the rule's join would bind them, one binding per fact: the first
+;; statement premise without a stored fact is the gap, with the statements
+;; from it on still to prove and the evidence of the facts bound before it. A
+;; rule whose every premise has a fact has no gap.
+(: DiagnosticGap Type)
+(: gap (-[det]-> SkPattern (List Statement) (List Evidence) DiagnosticGap))
+(: diagnostic-gap (-[nondet]-> (List SkPattern) (List Evidence) DiagnosticGap))
+(= (diagnostic-gap () $_evidence) (empty))
+(= (diagnostic-gap (cons $premise $rest) $evidence)
+   (case $premise (
+      ((CPU $_fun $_args $_res) (diagnostic-gap $rest $evidence))
+      (($type $kbctx $_proof $_tv)
+         (case (sk-leaf-facts $type $kbctx sk-any-filter) (
+            (() (gap $premise (foldr-flat diagnostic-statement-step () (cons $premise $rest)) $evidence))
+            ($facts
+               (let* (($fact (superpose $facts))
+                      (($type $kbctx $_fact-proof $_fact-tv) $fact))
+                  (diagnostic-gap $rest (append-flat (evidence-entries (leaf-evidence-for-result $fact)) $evidence))))))))))
+
 ;; A node's routes are the joins waiting on its children, each child read
 ;; through its own hash. An expanded node no answer supports also lists every
 ;; rule concluding it, dormant and pruned rules included, as candidates: one
-;; per statement premise, with all its statements still to prove.
+;; per binding of its premises by stored facts, its child the gap.
 (: query-diagnostic-node (-[det]-> SkPattern DiagnosticNode))
 (= (query-diagnostic-node $node)
    (let* (($hash (sk-node-hash $node))
@@ -78,12 +98,10 @@
                    (case (copy_term $node) (
                       ((CPU $_fun $_args $_res) (empty))
                       (($type $kbctx $proof $tv)
-                         (let (sk-match $mrule $premises ($mtype $_mkbctx $mproof $_mtv))
-                            (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $proof $tv))
-                            (let $premise (superpose $premises)
-                               (case $premise (
-                                  ((CPU $_pfun $_pargs $_pres) (empty))
-                                  ($_open (candidate $mrule $premise $mtype $mproof (foldr-flat diagnostic-statement-step () $premises) ())))))))))
+                         (let* (((sk-match $mrule $premises ($mtype $_mkbctx $mproof $_mtv))
+                                   (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $proof $tv)))
+                                ((gap $premise $statements $evidence) (diagnostic-gap $premises ())))
+                            (candidate $mrule $premise $mtype $mproof $statements $evidence)))))
                    (empty)))))
       (node $expanded (diagnostic-work? $hash $node) $supported (collapse (let (sk-node-at $_h $linked) (superpose $children) $linked))
          (append-flat $continuations $candidates))))

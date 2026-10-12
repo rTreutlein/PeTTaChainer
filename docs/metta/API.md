@@ -200,8 +200,16 @@ route with `origin` `continuation` is a join waiting on the child premise:
 `supported_evidence` the stored facts of the premises it has bound. An
 expanded goal with no support also lists, as `candidate` routes, the rules
 concluding it that have no join there (dormant rules, rules pruned because a
-ground premise had no fact and no rule, inverted rules), one per statement
-premise: they are leads, not executable paths or missing facts. Each record
+ground premise had no fact and no rule, inverted rules). A candidate binds
+the rule's premises in order by the stored facts that answer them, as its
+join would, one route per binding: the child is the first statement premise
+without a stored fact, `remaining_premises` the statements from it on, and
+`supported_evidence` the facts bound before it (a rule whose every premise
+has a fact gives none). So `(LocatedIn FactoryA Coastvale)` with
+`(LocatedIn $f $r) ∧ (Flooded $r) → (Disrupted $f)` and no `Flooded`
+knowledge gives the gap `(Flooded Coastvale)` with the location as evidence.
+Candidates are leads, not executable paths: a gap premise may still be
+derivable by rules. Each record
 keeps the variables its terms share. Temporary query scaffolds leave with the
 query and are not represented (an `Assuming` query's context leaves with all
 its nodes, so its snapshot has no goals), nor are fold goals (`CPU`), which

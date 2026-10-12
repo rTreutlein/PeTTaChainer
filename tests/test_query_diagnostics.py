@@ -81,6 +81,26 @@ class QueryDiagnosticsTests(unittest.TestCase):
         self.assertTrue(all(r["origin"] == "candidate" for r in d["routes"]))
         self.assertTrue(any("MissingA" in g["expression"] for g in d["goals"]))
 
+    def test_dormant_rule_candidate_binds_premises_through_stored_facts(self):
+        # No Flooded fact or rule: the rule is dormant and never joins, yet its
+        # candidate binds LocatedIn through the stored fact, so the gap is the
+        # ground (Flooded Coastvale), with the location as its evidence.
+        h = PeTTaChainer()
+        h.add_atom("(: location (LocatedIn FactoryA Coastvale) (STV 1 0.9))")
+        h.add_atom(
+            "(: rule (Implication (And (LocatedIn $f $r) (Flooded $r)) (Disrupted $f)) (STV 1 0.9))"
+        )
+        d = h.query_with_diagnostics("(: $p (Disrupted FactoryA) $tv)")["diagnostics"]
+        route = next(r for r in d["routes"] if r["origin"] == "candidate")
+        self.assertEqual(route["remaining_premises"], ["(Flooded Coastvale)"])
+        self.assertEqual(
+            route["supported_evidence"],
+            [{"kind": "fact", "name": "location", "expression": "(LocatedIn FactoryA Coastvale)"}],
+        )
+        gap = next(g for g in d["goals"] if g["id"] == route["child_id"])
+        self.assertEqual(gap["expression"], "(Flooded Coastvale)")
+        self.assertEqual(gap["proof_count"], 0)
+
     def test_no_rule_does_not_invent_route(self):
         r = self.handler(rule=False, flood=True).query_with_diagnostics(
             "(: $p (Disrupted FactoryA) $tv)"
