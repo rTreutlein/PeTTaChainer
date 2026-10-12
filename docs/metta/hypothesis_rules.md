@@ -156,6 +156,19 @@ Built as designed, with these findings from probing the existing code:
   cases still revise as independent; their joint estimate would be a rule
   over both. The confidence 0.671 first reported here was the stale-truth
   bug below: one view read its rule's prior.
+  The ONA reversal task (ChainerGame `onabench.mts`, sample-pairs space)
+  fell from 0.700 to 0.650 with this change, seeds 2 and 7 only. Its
+  hypotheses come in twins ((Sample A1) with (LeftStim B2) or with
+  (RightStim B1)), and an op without a hypothesis for the trial answers its
+  population prior. Seed 2, trial 104: the twins' 14 samples gave right
+  c 0.966 (28 counted) before and 0.933 now, against left's prior from 17
+  stored rewards, (0.994, 0.944); the agent tried left once, and that
+  failure later held the reversed rule at 0.5. The rewards are stored only
+  for the op the agent chose, so the prior is biased by its choices; the
+  chainer's answers are the right ones for the facts it has. With desires
+  read only through hypotheses matching the trial, both versions decide
+  alike: reversal 0.681 (0.778 with change detection at 1e4), conditioning
+  0.938, identity matching 0.956.
 - **Cross-feeding (October 2026).** A hypothesis's samples read the
   consequent's merged value, which included the other hypotheses'
   derivations (the samples of A→C held `(merge/revision c1 (by hB b1))`).
