@@ -175,7 +175,8 @@ uncertainty enters each proof's confidence.
 A key's value merges its stored facts and one view per row:
 
 - an identical proof pools its evidence; a marginal projection gives way to its
-  full proof;
+  full proof, and a settled step to its complete step, before the views merge,
+  so neither stands for its full proof in a merge with a third view;
 - a rule application reading a proper superset of the stored facts another
   rule's application reads, or the facts another rule's derived premise rests
   on, is about a narrower reference class (the other's antecedent is entailed
@@ -191,7 +192,8 @@ A key's value merges its stored facts and one view per row:
   leaves);
 - inversions and antecedent completions over one prior through different
   observations combine by Bayes' rule (a completion observes its consequence;
-  a sibling it reads as certain is conditioned on, not evidence it shares; so
+  a sibling it reads as certain, alone or inside the compound of the other
+  parts, is conditioned on, not evidence it shares; so
   is, for a complete statement, a certain complete premise of its rule
   application that the update observes, `complete_predicates.md`), and an inversion over a base rate combines the same
   way with a derived, uncertain view independent of it, which

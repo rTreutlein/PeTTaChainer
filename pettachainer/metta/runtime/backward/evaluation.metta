@@ -245,8 +245,19 @@
 (= (sk-part-witnesses $siblings (cons $part $rest))
    (let* (($witness (car-atom (cdr-atom (sk-step-proof $part))))
           ($last-first (reverse (case $witness (((cons conjunction $proofs) $proofs) ($_one (cons $witness ()))))))
-          ($read (the (List Atom) (if $siblings (cdr-atom $last-first) (cons (car-atom $last-first) ())))))
+          ($read (the (List Atom) (if $siblings (sk-siblings (cdr-atom $last-first)) (cons (car-atom $last-first) ())))))
       (append-flat (map-flat index-hash $read) (sk-part-witnesses $siblings $rest))))
+
+;; A compound sibling read off its parts, the Or of a completion's other
+;; parts, reads each part as given.
+(: sk-siblings (-[det]-> (List Atom) (List Atom)))
+(= (sk-siblings ()) ())
+(= (sk-siblings (cons $proof $rest))
+   (append-flat
+      (the (List Atom) (case $proof (
+         ((cons conjunction $parts) (sk-siblings (the (List Atom) $parts)))
+         ($_one (cons $proof ())))))
+      (sk-siblings $rest)))
 
 (: sk-sources-meet? (-[det]-> (List Proof) (List Proof) Bool))
 (= (sk-sources-meet? $parts-a $parts-b)
@@ -1671,6 +1682,28 @@
             (() $values)
             ($complete (fold-semidet sk-cons-step () $complete))))))))
 
+;; A view that gives way to another view of the key, a projection to its full
+;; proof or a settled step to the complete step it settles, adds nothing to
+;; it, so it is dropped before the views merge: merged first with a third
+;; view, it would stand for the complete step there (fuzzer seed 4000032: a
+;; settled forward view revised with an inversion, then met the complete step
+;; as an overlap and lost to it).
+(: sk-gives-way-step (-[det]-> Proof Bool SkeletonValue Bool))
+(= (sk-gives-way-step $proof $found $other)
+   (if $found true
+      (case $other (
+         ((sk-val $fact $_ev $_deps)
+            (let $other-proof (sk-fact-step-proof $fact)
+               (if (== $other-proof $proof) false (proof-dominates? $other-proof $proof))))
+         ($_goal false)))))
+
+(: sk-standing-step (-[semidet]-> (List SkeletonValue) (List SkeletonValue) SkeletonValue (List SkeletonValue)))
+(= (sk-standing-step $values $kept $value)
+   (case $value (
+      ((sk-val $fact $_ev $_deps)
+         (if (fold-flat (sk-gives-way-step (sk-fact-step-proof $fact)) false $values) $kept (cons $value $kept)))
+      ($_goal (cons $value $kept)))))
+
 ;; Leaves first, then one version per row in the order the rows were found.
 ;; A ground statement stored with confidence 1 is its own value, as expansion
 ;; applies no rule to it: no other proof could change it, so its rows' views
@@ -1684,7 +1717,8 @@
    (let* (($outside (hash-union $exclude (hash-set (sk-given-hashes $given))))
           ($leaves (sk-leaf-views $hash $key $filter $outside))
           ($certain (fold-semidet sk-certain-leaf-step () $leaves))
-          ($values (sk-own-values (sk-complete-values (if (== $certain ()) (append-flat $leaves $views) $certain)))))
+          ($own (sk-own-values (sk-complete-values (if (== $certain ()) (append-flat $leaves $views) $certain))))
+          ($values (fold-semidet sk-cons-step () (fold-semidet (sk-standing-step $own) () $own))))
       (case (sk-lift $values) (
          ((cons $lifted $_rest) $lifted)
          (()

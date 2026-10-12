@@ -260,3 +260,40 @@
 !(set-base-rate f5root (B $x) (STV 0.0846 1.0))
 !(set-base-rate f5root (D $x) (STV 0.18 1.0))
 !(test (let (: $prf $s $tv) (query 2000 f5root (: $prf (A a) $tv)) $tv) (STV 0.0 0.999895197158209))
+
+;; F8. Two completions onto A through different observations: rC's of C
+;; false, and rD's of D true, which reads C as a sibling. rD's antecedent
+;; (Or B A C) reads A's siblings as one compound, (Or B C), whose proof
+;; nests C's fact; read as given, C leaves rD's completion only D, and the
+;; two updates of A's base rate combine by Bayes' rule: 0.2746, exact
+;; 0.2713 (fuzzer seed 3000031; before: C counted as evidence of both, the
+;; completion through D contained the one through C, and 0.2595 was kept).
+!(compileadd f8sibling (: rC (Implication (Or (A $x) (B $x)) (C $x)) (CTV (STV 0.27 1) (STV 0.54 1))))
+!(compileadd f8sibling (: rD (Implication (Or (B $x) (A $x) (C $x)) (D $x)) (CTV (STV 0.94 1) (STV 0.71 1))))
+!(compileadd f8sibling (: obs-D-a (D a) (STV 1 1)))
+!(compileadd f8sibling (: obs-C-a (C a) (STV 0 1)))
+!(set-base-rate f8sibling (A $x) (STV 0.25 1.0))
+!(set-base-rate f8sibling (B $x) (STV 0.8 1.0))
+!(test (query 2000 f8sibling (: $prf (A a) $tv))
+   (: (factored-revision cpu (prior (STV 0.25 1.0)) (((antecedent-completion rC 0 with cpu (prior (STV 0.25 1.0))) (conjunction (population-prior (B $_0)) obs-C-a)) ((antecedent-completion rD 1 with cpu (prior (STV 0.25 1.0))) (conjunction (conjunction (population-prior (B $_1)) obs-C-a) obs-D-a)))) (A a) (STV 0.2745643207016601 0.9998773921385876)))
+
+;; A settled step gives way to the complete step whatever order the views
+;; merge in. C <- (Or B F) with B true, D <- C certain, D observed false: C
+;; is false, exact 0. The settled forward view (B true) merged first with
+;; the inversion of rD, then met the complete step, which reads F through
+;; E as well, as an overlap, and the more confident complete step was kept:
+;; 0.18 (fuzzer seed 4000032).
+!(set-complete-predicate f8settled C)
+!(set-complete-predicate f8settled D)
+!(set-complete-predicate f8settled E)
+!(set-complete-predicate f8settled F)
+!(compileadd f8settled (: rC (Implication (Or (B $x) (F $x)) (C $x)) (CTV (STV 0.18 1) (STV 0 1))))
+!(compileadd f8settled (: rD (Implication (C $x) (D $x)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd f8settled (: rE (Implication (D $x) (E $x)) (CTV (STV 0.72 1) (STV 0 1))))
+!(compileadd f8settled (: rF (Implication (E $x) (F $x)) (CTV (STV 0.5 1) (STV 0 1))))
+!(compileadd f8settled (: obs-B-a (B a) (STV 1 1)))
+!(compileadd f8settled (: obs-B-b (B b) (STV 0 1)))
+!(compileadd f8settled (: obs-D-a (D a) (STV 0 1)))
+!(compileadd f8settled (: obs-E-a (E a) (STV 0 1)))
+!(test (query 2000 f8settled (: $prf (C a) $tv))
+   (: (factored-revision (by rC (conjunction obs-B-a (by rF obs-E-a))) (prior (STV 0.18 0.9999000099770509)) (((inverted rD with cpu (prior (STV 0.12727658600505792 0.2856930494608916))) obs-D-a))) (C a) (STV 1.5051734303655461e-06 0.9998688832301805)))
