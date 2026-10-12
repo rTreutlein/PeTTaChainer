@@ -112,10 +112,7 @@
                          (if (=alpha $stored $key) (remove-atom &sk_unifiers ($hash $stored $hashes)) (empty)))))
                    ($_merged (sk-drop-merged! $key))
                    ($_keys (remove-variant-row! &sk_keys (quote ($hash $key))))
-                   ($_terms (remove-atom &sk_key_terms ($type $kbctx $hash)))
-                   ($_prefixes (remove-data-rows! &sk_key_prefix (quote ($_p $type $kbctx $hash))))
-                   ($_open (remove-atom &sk_key_open ($type $kbctx $hash)))
-                   ($_reader (remove-atom &sk_reader_terms ($type $kbctx $hash $key))))
+                   ($_terms (sk-unindex-key! $type $kbctx $hash)))
                (remove-variant-row! &sk_frozen (quote ($hash $key)))))
          ($_fold ())))))
 

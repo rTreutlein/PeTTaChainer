@@ -330,17 +330,21 @@
 (: &sk_key_terms (SpaceOf (Statement KBContext Number)))
 !(bind! &sk_key_terms (new-space))
 ;; the same keys by statement prefix, as &kb_prefix and &kb_open index &kb:
-;; ground keys under each prefix hash, keys with variables apart
+;; every key under each ground prefix hash, keys with variables also under
+;; the hash of exactly their longest ground prefix
 (: &sk_key_prefix (SpaceOf (Number Statement KBContext Number)))
 !(bind! &sk_key_prefix (new-space))
-(: &sk_key_open (SpaceOf (Statement KBContext Number)))
+(: &sk_key_open (SpaceOf (Number Statement KBContext Number)))
 !(bind! &sk_key_open (new-space))
 ;; per reading key: the hashes of the keys unifying with it, its own first
 (: &sk_unifiers (SpaceOf (Number SkeletonKey (List Number))))
 !(bind! &sk_unifiers (new-space))
-;; reading keys with a cached set, by a copy of their statement and context
-(: &sk_reader_terms (SpaceOf (Statement KBContext Number SkeletonKey)))
-!(bind! &sk_reader_terms (new-space))
+;; reading keys with a cached set, by a copy of their statement and context,
+;; indexed as keys with variables are in &sk_key_prefix and &sk_key_open
+(: &sk_reader_prefix (SpaceOf (Number Statement KBContext Number SkeletonKey)))
+!(bind! &sk_reader_prefix (new-space))
+(: &sk_reader_open (SpaceOf (Number Statement KBContext Number SkeletonKey)))
+!(bind! &sk_reader_open (new-space))
 ;; (kb pattern) of a fold's compiled member goal, by hash
 (: &sk_fold_members (SpaceOf (Number Atom SkPattern)))
 !(bind! &sk_fold_members (new-space))

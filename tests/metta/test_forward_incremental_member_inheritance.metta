@@ -33,7 +33,7 @@
       (list-count
          (collapse
             (match &forward_aggregate_observation
-               (forward-aggregate-observation ($id $_obj) $_value $_weight $_mass)
+               ($_obs-hash ($id $_obj) $_value $_weight $_mass)
                true)))))
 
 (: materialized-inheritance-facts
@@ -75,7 +75,7 @@
 !(test
    (collapse
       (match &forward_aggregate_observation
-         (forward-aggregate-observation
+         ($_obs-hash
             $_key
             (forward-member-inheritance-observation-value
                $_subject $_concept)
@@ -123,7 +123,7 @@
 !(test
    (collapse
       (match &forward_aggregate_observation
-         (forward-aggregate-observation
+         ($_obs-hash
             $_key
             (forward-member-inheritance-observation-value
                $_subject $_concept)
@@ -175,7 +175,7 @@
    (list-count
       (collapse
          (match &forward_aggregate_observation
-            (forward-aggregate-observation
+            ($_obs-hash
                ($_id a)
                (forward-member-inheritance-observation-value
                   $_subject $_concept)
@@ -199,7 +199,7 @@
    (list-count
       (collapse
          (match &forward_aggregate_observation
-            (forward-aggregate-observation
+            ($_obs-hash
                ($_id $_obj)
                (forward-member-inheritance-observation-value
                   $_subject $_concept)
@@ -218,7 +218,7 @@
    (list-count
       (collapse
          (match &forward_aggregate_observation
-            (forward-aggregate-observation
+            ($_obs-hash
                ($_id $_obj)
                (forward-member-inheritance-observation-value
                   $_subject $_concept)
@@ -258,7 +258,7 @@
    (list-count
       (collapse
          (match &forward_aggregate_observation
-            (forward-aggregate-observation
+            ($_obs-hash
                ($_id $_obj)
                (forward-member-inheritance-observation-value
                   $_subject $_concept)

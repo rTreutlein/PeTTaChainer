@@ -299,7 +299,7 @@
                             ())
                          (empty)))))
                 ($_copy
-                   (if (space-row-present? &kb $fact) ()
+                   (if (kb-fact-present? $fact) ()
                       (let* (($_stored (add-atom &sk_forward_stored ($hash $key $fact $ev $deps)))
                              ($_kb (add-atom &kb $fact)))
                          (kb-index-fact! live $fact)))))

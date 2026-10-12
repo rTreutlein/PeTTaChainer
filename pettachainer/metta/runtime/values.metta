@@ -16,6 +16,11 @@
 ;; arguments, up to the first argument that is not ground, longest first
 ;; (imported Prolog helper statement-prefix-hashes; see &kb_prefix).
 (: statement-prefix-hashes (-[det]-> $statement (List Number)))
+;; The hash a statement with variables is stored under, and the hashes a
+;; pattern with a ground prefix reads such statements by besides its longest
+;; prefix (imported Prolog helpers; see &kb_open).
+(: statement-open-hash (-[det]-> $statement Number))
+(: statement-open-probes (-[det]-> $statement (List Number)))
 
 (: append-flat (-[det]-> (List $a) (List $a) (List $a)))
 (= (append-flat () $right) $right)

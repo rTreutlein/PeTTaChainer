@@ -147,8 +147,9 @@
    (-[det]-> Statement KBContext Bool (| ForwardDerived NoForwardOutputCandidate)))
 (= (stored-statement-candidate $type $kb $copies)
    (fold-flat stored-candidate-step no-forward-output-candidate
-      (collapse (match &kb ($type $kb $proof $tv)
-         (let $fact (data $type $kb $proof $tv)
-            (if (materialized-forward-fact? $fact) (empty)
-               (if $copies $fact
-                  (if (space-row-present? &sk_forward_stored ((index-hash (sk-key $type $kb)) $_key $fact $_ev $_deps)) (empty) $fact))))))))
+      (let $facts (kb-facts $type $kb)
+         (collapse (let ($ftype $fkb $_proof $_tv) (superpose $facts)
+            (let $fact (data $ftype $fkb $_proof $_tv)
+               (if (materialized-forward-fact? $fact) (empty)
+                  (if $copies $fact
+                     (if (space-row-present? &sk_forward_stored ((index-hash (sk-key $ftype $fkb)) $_key $fact $_ev $_deps)) (empty) $fact)))))))))

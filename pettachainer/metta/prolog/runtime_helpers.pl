@@ -80,6 +80,26 @@ prefix_hashes([Arg|Args], Reversed, Hashes0, Hashes) :-
     prefix_hashes(Args, Prefix, [Hash|Hashes0], Hashes).
 prefix_hashes(_, _, Hashes, Hashes).
 
+% A statement with variables is stored under the hash of exactly its longest
+% ground prefix: the head's when it has none, 0 when its head is not an atom.
+% A pattern with a ground prefix finds the entries whose longest prefix is at
+% least as long as its own through its longest prefix in the prefix index, and
+% the others under its shorter prefixes, its head and 0: a bounded number of
+% indexed lookups however many entries share its head.
+'statement-open-hash'(Statement, Hash) :-
+    statement_index_hashes(Statement, [Hash|_]).
+
+'statement-open-probes'(Statement, Hashes) :-
+    statement_index_hashes(Statement, [_|Hashes]).
+
+statement_index_hashes(Statement, Hashes) :-
+    (   nonvar(Statement), Statement = [Head|_], atomic(Head)
+    ->  'statement-prefix-hashes'(Statement, Prefixes),
+        term_hash(Head, HeadHash),
+        append(Prefixes, [HeadHash, 0], Hashes)
+    ;   Hashes = [0]
+    ).
+
 % The shape a fold's member is compiled for (sk-shape-members). A user
 % predicate compiles to its own lookup goal, and a connective over user
 % predicates to adapters that only its structure decides, so the predicates'
@@ -1675,7 +1695,8 @@ pw_add_pend(P, D) :-
     ;   retract(pw_out(RU, RV, M0))
     ->  M is M0 + 1, assertz(pw_out(RU, RV, M)),
         retract(pw_in(RV, RU, M0)), assertz(pw_in(RV, RU, M))
-    ;   pw_out(RV, _, _), pw_in(RU, _, _), pw_reaching(RV, RU, Merge)
+    ;   pw_deg(RV, Children, _), Children > 0, pw_deg(RU, _, Parents), Parents > 0,
+        pw_reaching(RV, RU, Merge)
     ->  pw_merge(Merge)
     ;   assertz(pw_out(RU, RV, 1)), assertz(pw_in(RV, RU, 1)),
         pw_deg_add(RU, 1, 0), pw_deg_add(RV, 0, 1),
@@ -1683,7 +1704,10 @@ pw_add_pend(P, D) :-
     ).
 
 % A child with no children, or an owner with no parents, closes no cycle,
-% which settles most links (a new node, a new root) without a search.
+% which settles most links (a new node, a new root) without a search. The
+% degrees say so: pw_out and pw_in share their first argument with every link
+% of a component with many children, such as a fold over one member per
+% decision, so a lookup by it would read all of them.
 %
 % The components on a path from From to To, when there is one: a search
 % forward from From and one backward from To read one link each in turn

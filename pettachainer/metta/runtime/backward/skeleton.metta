@@ -440,21 +440,21 @@
                       ($_noted (sk-note-context! $ctx (ctx-key $hash $key)))
                       ($_terms (add-atom &sk_key_terms ($type $kbctx $hash)))
                       ($ground (== (extract-vars $type) ()))
+                      ($prefixes (statement-prefix-hashes $type))
                       ($_prefixes
-                         (if $ground
-                            (map-flat (sk-key-prefix-row! $type $kbctx $hash) (statement-prefix-hashes $type))
-                            (add-atom &sk_key_open ($type $kbctx $hash))))
+                         (collapse (let $prefix (superpose $prefixes) (add-atom &sk_key_prefix ($prefix $type $kbctx $hash)))))
+                      ($_open
+                         (if $ground ()
+                            (let $open (statement-open-hash $type) (add-atom &sk_key_open ($open $type $kbctx $hash)))))
+                      ($readers (sk-unifying-readers $type $kbctx))
                       ($_joined
-                         (collapse (match &sk_reader_terms ($type $kbctx $rhash $reader)
-                            (if (== $rhash $hash) (empty) (sk-unifier-add! $hash $rhash $reader))))))
+                         (collapse (let ($rhash $reader) (superpose $readers)
+                            (if (== $rhash $hash) (empty) (sk-unifier-add! $hash (the Number $rhash) (the SkeletonKey $reader)))))))
                   (if $ground
-                     (fold-semidet (sk-member-join-step $type $kbctx $key) () (cons (index-hash (car-atom $type)) (statement-prefix-hashes $type)))
+                     (fold-semidet (sk-member-join-step $type $kbctx $key) () (cons (index-hash (car-atom $type)) $prefixes))
                      ()))
                ())))
       ($_fold ()))))
-
-(: sk-key-prefix-row! (-[det]-> Statement KBContext Number Number Bool))
-(= (sk-key-prefix-row! $type $kbctx $hash $prefix) (add-atom &sk_key_prefix ($prefix $type $kbctx $hash)))
 
 ;; The hashes of the registered keys whose term unifies with a pattern: through
 ;; the longest ground prefix of the pattern when it has one (see kb-facts).
@@ -463,9 +463,38 @@
    (case (statement-prefix-hashes $type) (
       (() (collapse (match &sk_key_terms ($type $kbctx $hash) $hash)))
       ((cons $prefix $_shorter)
-         (append-flat
-            (collapse (match &sk_key_prefix ($prefix $type $kbctx $hash) $hash))
-            (collapse (match &sk_key_open ($type $kbctx $hash) $hash)))))))
+         (let $shorter (statement-open-probes $type)
+            (append-flat
+               (collapse (match &sk_key_prefix ($prefix $type $kbctx $hash) $hash))
+               (collapse (let $open (superpose $shorter) (match &sk_key_open ($open $type $kbctx $hash) $hash)))))))))
+
+;; The reading keys with a cached set that unify with a key, each as its hash
+;; and the reader, found as sk-unifying-key-hashes finds keys.
+(: sk-unifying-readers (-[det]-> Statement KBContext (List Atom)))
+(= (sk-unifying-readers $type $kbctx)
+   (case (statement-prefix-hashes $type) (
+      (() (collapse (match &sk_reader_open ($_any $type $kbctx $rhash $reader) ($rhash $reader))))
+      ((cons $prefix $_shorter)
+         (let $shorter (statement-open-probes $type)
+            (append-flat
+               (collapse (match &sk_reader_prefix ($prefix $type $kbctx $rhash $reader) ($rhash $reader)))
+               (collapse (let $open (superpose $shorter)
+                  (match &sk_reader_open ($open $type $kbctx $rhash $reader) ($rhash $reader))))))))))
+
+;; A dropped key leaves the indexes by term.
+(: sk-unindex-key! (-[det]-> Statement KBContext Number Atom))
+(= (sk-unindex-key! $type $kbctx $h)
+   (let* (($prefixes (statement-prefix-hashes $type))
+          ($open (statement-open-hash $type))
+          ($_terms (remove-data-rows! &sk_key_terms (quote ($type $kbctx $h))))
+          ($_open (remove-data-rows! &sk_key_open (quote ($open $type $kbctx $h))))
+          ($_reader (remove-data-rows! &sk_reader_open (quote ($open $type $kbctx $h $_reader-key))))
+          ($_prefixes
+             (collapse (let $prefix (superpose $prefixes)
+                (progn
+                   (remove-data-rows! &sk_key_prefix (quote ($prefix $type $kbctx $h)))
+                   (remove-data-rows! &sk_reader_prefix (quote ($prefix $type $kbctx $h $_prefix-key))))))))
+      ()))
 
 ;; the key itself and every registered key whose term unifies with it
 (: sk-key-term-hashes (-[det]-> Number Statement KBContext (List Number)))
@@ -487,7 +516,12 @@
                       ;; A ground reader unifies with no other key, so only
                       ;; an open one waits for the keys registered later.
                       ($_reader (if (== (extract-vars $key) ()) ()
-                                   (add-atom &sk_reader_terms ($type $kbctx $khash $key)))))
+                                   (let* (($prefixes (statement-prefix-hashes $type))
+                                          ($open (statement-open-hash $type))
+                                          ($_prefixes
+                                             (collapse (let $prefix (superpose $prefixes)
+                                                (add-atom &sk_reader_prefix ($prefix $type $kbctx $khash $key))))))
+                                      (add-atom &sk_reader_open ($open $type $kbctx $khash $key))))))
                   $computed))
             ($_fold (cons $khash ()))))))))
 
@@ -1850,16 +1884,8 @@
                 $h))
           ($_merged (remove-data-rows! &sk_merged (quote (sk-merged $h $_k6 $_d $_v3)))))
       (case $key (
-         ((sk-key $type $kbctx)
-            (let* (($_terms (remove-data-rows! &sk_key_terms (quote ($type $kbctx $h))))
-                   ($_open (remove-data-rows! &sk_key_open (quote ($type $kbctx $h))))
-                   ($_reader-terms (remove-data-rows! &sk_reader_terms (quote ($type $kbctx $h $_k15)))))
-               (fold-flat (sk-drop-key-prefix! $type $kbctx $h) () (statement-prefix-hashes $type))))
+         ((sk-key $type $kbctx) (sk-unindex-key! $type $kbctx $h))
          ($_fold ())))))
-
-(: sk-drop-key-prefix! (-[det]-> Statement KBContext Number Atom Number Atom))
-(= (sk-drop-key-prefix! $type $kbctx $h $_acc $prefix)
-   (let $_r (remove-data-rows! &sk_key_prefix (quote ($prefix $type $kbctx $h))) ()))
 
 ;; A row of a removed key leaves the reader lists of the keys it read, which may
 ;; lie outside its context.

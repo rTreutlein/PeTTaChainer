@@ -740,17 +740,33 @@ structural or variable-bearing pattern matching.
 
 `&kb` is the exception that shows the limit of SWI's own index: a statement is
 a list, and the JIT indexes it by its head only, so a lookup by head and
-arguments walks every fact with that head, across the whole history. Each
-ground fact is therefore also stored in `&kb_prefix` under the hash of every
-prefix of its statement (its head with its first one, two, ... arguments). A
-lookup hashes the pattern's longest ground prefix and still unifies each
-candidate; facts whose statements have variables sit in `&kb_open`, which every
-such lookup reads too, so no unifying fact is missed. Readers that bind only a
-statement's head read `&kb` directly. The skeleton's registered keys are
-indexed the same way: `&sk_key_prefix` and `&sk_key_open` beside
-`&sk_key_terms`. Rule premises are indexed the other way round: each in
+arguments walks every fact with that head, across the whole history. Each fact
+is therefore also stored in `&kb_prefix` under the hash of every ground prefix
+of its statement (its head with its first one, two, ... arguments, up to the
+first argument with a variable). A fact whose statement has variables is also
+stored in `&kb_open` under the hash of exactly its longest ground prefix (its
+head's when it has none, 0 when its head is not an atom). A lookup reads
+`&kb_prefix` under the pattern's longest ground prefix, which finds the facts
+whose own ground prefix is at least as long, and `&kb_open` under each shorter
+prefix of the pattern, its head and 0, which finds the rest; it still unifies
+each candidate. So a lookup costs a bounded number of indexed reads however
+many facts share its head, even when facts with variables arrive with every
+step (one open `ImplicationInstanceSample` key per Pong decision made the
+truth read and the fact add grow linearly with the history while they read
+one store that held them all). Readers that bind only a statement's head read
+`&kb` directly. The skeleton's registered keys are indexed the same way
+(`&sk_key_prefix` and `&sk_key_open` beside `&sk_key_terms`), and so are the
+open reading keys whose unifier sets a new key joins (`&sk_reader_prefix`,
+`&sk_reader_open`). Rule premises are indexed the other way round: each in
 `&prem_prefix` under the hash of its statement's longest ground prefix, so the
 rules a ground key is a premise of are found by hashing the key's prefixes.
+
+A store's first column must be what tells its rows apart for the lookups that
+run every step. A constant tag (`&forward_aggregate_observation` rows began
+with their constructor name), or an id every row of a large group shares
+(`pw_out` rows of a component with one child per decision), makes each such
+lookup read the whole group: key the rows by a hash of the real lookup key, or
+answer the question from a count kept per key (`pw_deg`).
 
 ### Reasoning work is lazy and budgeted
 

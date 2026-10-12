@@ -201,7 +201,7 @@
    (list-count
       (collapse
          (match &forward_aggregate_observation
-            (forward-aggregate-observation
+            ($_obs-hash
                ($_id
                   (forward-output-key
                      (forwardBudgetBaseRateKb MAIN Nil)
@@ -222,7 +222,7 @@
    (list-count
       (collapse
          (match &forward_aggregate_observation
-            (forward-aggregate-observation
+            ($_obs-hash
                ($_id
                   (forward-output-key
                      (forwardBudgetBaseRateKb MAIN Nil)
@@ -318,7 +318,7 @@
    (list-count
       (collapse
          (match &forward_aggregate_observation
-            (forward-aggregate-observation
+            ($_obs-hash
                ($_id
                   (forward-output-key
                      (computedForwardBaseRateKb MAIN Nil)
@@ -344,7 +344,7 @@
    (list-count
       (collapse
          (match &forward_aggregate_observation
-            (forward-aggregate-observation
+            ($_obs-hash
                ($_id
                   (forward-output-key
                      (computedForwardBaseRateKb MAIN Nil)
@@ -373,7 +373,7 @@
    (list-count
       (collapse
          (match &forward_aggregate_observation
-            (forward-aggregate-observation
+            ($_obs-hash
                ($_id
                   (forward-output-key
                      (computedForwardBaseRateKb MAIN Nil)

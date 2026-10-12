@@ -453,7 +453,7 @@ class TestPeTTaChainer(unittest.TestCase):
         )["Stray"]
         self.assertEqual(stray, [])
         unheld = janus_swi.query_once(
-            "findall(_P, ( (user:'&kb'(_T, _K, _P, _V) ; user:'&kb_prefix'(_, _T, _K, _P, _V) ; user:'&kb_open'(_T, _K, _P, _V)),"
+            "findall(_P, ( (user:'&kb'(_T, _K, _P, _V) ; user:'&kb_prefix'(_, _T, _K, _P, _V) ; user:'&kb_open'(_, _T, _K, _P, _V)),"
             " nonvar(_P), _P = ['proof-ref', _],"
             " \\+ user:'&sk_forward_stored'(_, _, [_, _, _P, _], _, _),"
             " \\+ user:'&materialized_facts'('materialized-row', _, _, _, [_, _, _P, _], _) ), Unheld)"
