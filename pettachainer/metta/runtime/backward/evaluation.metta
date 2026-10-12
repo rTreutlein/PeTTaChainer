@@ -490,9 +490,6 @@
 ;; its merge may read the very key being merged. A rule's truth is no
 ;; statement: it is a parameter of every view through the rule, and given it
 ;; the rule's applications are independent.
-(: sk-known-leaf-step (-[det]-> Bool SkFact Bool))
-(= (sk-known-leaf-step $known ($_type $_kbctx $_proof $tv)) (if $known true (certain-tvs? (cons $tv ()))))
-
 (: sk-known-view-step (-[det]-> Bool SkeletonValue Bool))
 (= (sk-known-view-step $known $view)
    (if $known

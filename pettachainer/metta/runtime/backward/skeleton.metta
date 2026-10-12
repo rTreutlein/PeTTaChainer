@@ -396,6 +396,11 @@
 (= (sk-certain? $type $facts)
    (if (== (extract-vars $type) ()) (fold-flat sk-certain-step false $facts) false))
 
+;; A stored fact of strength 0 or 1 at confidence 1 makes its statement known:
+;; every reader, a conditioned one included, reads it as that fact.
+(: sk-known-leaf-step (-[det]-> Bool SkFact Bool))
+(= (sk-known-leaf-step $known ($_type $_kbctx $_proof $tv)) (if $known true (certain-tvs? (cons $tv ()))))
+
 (: sk-leaf-answer-step (-[semidet]-> SkPattern Atom SkFact Atom))
 (= (sk-leaf-answer-step $node $_acc $fact) (sk-add-answer! $node (sk-fact-key $fact)))
 
@@ -957,15 +962,24 @@
           ($rhash (index-hash $ident))
           ($local (>= $rule 1000000000)))
       ;; Expansion applies no rule to a certain statement; a forward run's
-      ;; upward joins skip it here, where their conclusion is first bound. An
-      ;; instance that reads its own conclusion, (HasLeg Dog 4) from
-      ;; (Member Dog Dog) and (HasLeg Dog 4) itself, is no derivation of it.
-      ;; An open key stands for several statements, and a query adapter, whose
-      ;; open proof head passes its premise's proof through, derives nothing.
-      (if (if (if (if (is-expr $proof) (is-var (car-atom $proof)) false) false
-                 (if (== (extract-vars $type) ()) (fold-semidet (sk-same-key-step $key) false $keys) false))
-             true
-             (if (== (search-id-value sk_forward_run) 1) (sk-certain? $type (sk-leaf-facts $type $kbctx sk-any-filter)) false))
+      ;; upward joins skip it here, where their conclusion is first bound,
+      ;; and so does a query's join of an open node for a known statement: its
+      ;; value is its stored fact to every reader, so the row would only
+      ;; spend the evaluation's allowance, and the need would walk on below
+      ;; it (a history of known periods under an open node, all of it rows
+      ;; of an Assuming context). An instance that reads its own conclusion,
+      ;; (HasLeg Dog 4) from (Member Dog Dog) and (HasLeg Dog 4) itself, is no
+      ;; derivation of it. An open key stands for several statements, and a
+      ;; query adapter, whose open proof head passes its premise's proof
+      ;; through, derives nothing.
+      (if (if (== (extract-vars $type) ())
+             (if (if (if (is-expr $proof) (is-var (car-atom $proof)) false) false
+                    (fold-semidet (sk-same-key-step $key) false $keys))
+                true
+                (let $facts (sk-leaf-facts $type $kbctx sk-any-filter)
+                   (if (== (search-id-value sk_forward_run) 1) (sk-certain? $type $facts)
+                      (fold-semidet sk-known-leaf-step false $facts))))
+             false)
          ()
       (if (sk-row-present? $khash $key $rhash $ident)
          (sk-row-answer! $owner $key $proof)

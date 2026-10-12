@@ -1,0 +1,70 @@
+!(import! &self ../../pettachainer/metta/petta_chainer)
+
+;; A known statement, a stored fact of strength 0 or 1 at confidence 1, is its
+;; fact to every reader, so a join of an open node builds no row for it. Here
+;; an Assuming context reads a degradation history of known periods through an
+;; open node (the base rate the antecedent completions of runs read, scoped to
+;; the context because the assumption affects D). Its rows spent the
+;; evaluation's allowance, and the need walked the whole history below them,
+;; so the fold over the decision's outcomes read its member before P had a
+;; value (found with SupplyNet stage 4's decision contexts).
+!(set-complete-predicate histKb P)
+!(compileadd histKb (: persist (Implication (And (Next $p $t) (D $p)) (D $t)) (CTV (STV 0.75 1) (STV 0.1 1))))
+!(compileadd histKb (: runs (Implication (And (Not (D $t)) (On $t)) (P $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd histKb (: (no_inverse out) (Implication (And (Val $v) (P $t)) (Out $t $v)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd histKb (: (no_inverse value) (Implication (And (Decision $t) (FoldAllTruth (Out $t $v) (STV $s $_c) (Weighted $s $v) 0.0 (|-> ($acc (Weighted $p $x)) (+ $acc (* $p $x))) -> $g)) (Value $t $g)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd histKb (: val (Val 4) (STV 1 1)))
+!(compileadd histKb (: d-h1 (D h1) (STV 0 1)))
+!(compileadd histKb (: on-h1 (On h1) (STV 1 1)))
+!(compileadd histKb (: p-h1 (P h1) (STV 1 1)))
+!(compileadd histKb (: next-h2 (Next h1 h2) (STV 1 1)))
+!(compileadd histKb (: d-h2 (D h2) (STV 0 1)))
+!(compileadd histKb (: on-h2 (On h2) (STV 1 1)))
+!(compileadd histKb (: p-h2 (P h2) (STV 1 1)))
+!(compileadd histKb (: next-h3 (Next h2 h3) (STV 1 1)))
+!(compileadd histKb (: d-h3 (D h3) (STV 1 1)))
+!(compileadd histKb (: on-h3 (On h3) (STV 1 1)))
+!(compileadd histKb (: p-h3 (P h3) (STV 0 1)))
+!(compileadd histKb (: next-h4 (Next h3 h4) (STV 1 1)))
+!(compileadd histKb (: d-h4 (D h4) (STV 1 1)))
+!(compileadd histKb (: on-h4 (On h4) (STV 1 1)))
+!(compileadd histKb (: p-h4 (P h4) (STV 0 1)))
+!(compileadd histKb (: next-h5 (Next h4 h5) (STV 1 1)))
+!(compileadd histKb (: d-h5 (D h5) (STV 0 1)))
+!(compileadd histKb (: on-h5 (On h5) (STV 1 1)))
+!(compileadd histKb (: p-h5 (P h5) (STV 1 1)))
+!(compileadd histKb (: next-h6 (Next h5 h6) (STV 1 1)))
+!(compileadd histKb (: d-h6 (D h6) (STV 0 1)))
+!(compileadd histKb (: on-h6 (On h6) (STV 1 1)))
+!(compileadd histKb (: p-h6 (P h6) (STV 1 1)))
+!(compileadd histKb (: next-h7 (Next h6 h7) (STV 1 1)))
+!(compileadd histKb (: d-h7 (D h7) (STV 1 1)))
+!(compileadd histKb (: on-h7 (On h7) (STV 1 1)))
+!(compileadd histKb (: p-h7 (P h7) (STV 0 1)))
+!(compileadd histKb (: next-h8 (Next h7 h8) (STV 1 1)))
+!(compileadd histKb (: d-h8 (D h8) (STV 1 1)))
+!(compileadd histKb (: on-h8 (On h8) (STV 1 1)))
+!(compileadd histKb (: p-h8 (P h8) (STV 0 1)))
+!(compileadd histKb (: next-h9 (Next h8 h9) (STV 1 1)))
+!(compileadd histKb (: d-h9 (D h9) (STV 0 1)))
+!(compileadd histKb (: on-h9 (On h9) (STV 1 1)))
+!(compileadd histKb (: p-h9 (P h9) (STV 1 1)))
+!(compileadd histKb (: next-h10 (Next h9 h10) (STV 1 1)))
+!(compileadd histKb (: d-h10 (D h10) (STV 0 1)))
+!(compileadd histKb (: on-h10 (On h10) (STV 1 1)))
+!(compileadd histKb (: p-h10 (P h10) (STV 1 1)))
+!(compileadd histKb (: next-h11 (Next h10 h11) (STV 1 1)))
+!(compileadd histKb (: d-h11 (D h11) (STV 1 1)))
+!(compileadd histKb (: on-h11 (On h11) (STV 1 1)))
+!(compileadd histKb (: p-h11 (P h11) (STV 0 1)))
+!(compileadd histKb (: next-h12 (Next h11 h12) (STV 1 1)))
+!(compileadd histKb (: d-h12 (D h12) (STV 1 1)))
+!(compileadd histKb (: on-h12 (On h12) (STV 1 1)))
+!(compileadd histKb (: p-h12 (P h12) (STV 0 1)))
+!(compileadd histKb (: next-t1 (Next h12 t1) (STV 1 1)))
+
+;; P t1 is 0.25 (the degradation persists from h12 with 0.75), so the outcome
+;; is 0.25 of 4. Before, the history's rows took the allowance at this
+;; budget, P t1 got no value, and the fold had none for its member.
+!(test (query 8 histKb (: $p (Assuming (And (Decision t1) (On t1)) (Value t1 $g)) $tv))
+   (: (assuming (by (no_inverse value) (conjunction (ctx proof 0) (foldall-proof (by (no_inverse out) (conjunction val (by runs (conjunction (negated (by persist (conjunction next-t1 d-h12))) (ctx proof 0 1))))))))) (Assuming (And (Decision t1) (On t1)) (Value t1 1.0)) (STV 1.0 0.999700089898053)))

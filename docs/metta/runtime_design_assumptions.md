@@ -168,7 +168,15 @@ since no other proof could change its value. For the same reason such a key's
 value is its certain stored facts alone: views its rows got before the fact
 was stored add neither evidence nor dependencies. Only stored facts end the
 merge this way; a derived view of confidence 1 is a probability known
-exactly, not the statement's truth, and merges as below.
+exactly, not the statement's truth, and merges as below. A statement known
+by a stored fact of strength 0 or 1 is that fact to every reader, conditioned
+ones included, so a join of an open node builds no row for it either: such
+rows only spent the evaluation's allowance, and the need walked on below them
+(test_known_history_rows: an Assuming context reads a known history through
+an open node, the base rate an antecedent completion reads, and its fold
+over the decision's outcomes had no value at budget 8). A statement stored at
+confidence 1 with another strength keeps those rows: conditioning ranks it
+by the dependencies of its rows' views.
 
 A rule stated with confidence 1 in every branch is given, not estimated: its
 applications carry no evidence of it. A rule stated with less, or refined from
