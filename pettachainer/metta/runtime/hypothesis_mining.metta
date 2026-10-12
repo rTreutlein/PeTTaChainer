@@ -166,19 +166,23 @@
 (= (hm-consider! $kb $max-new $max-live ($count $picked) ($antecedent $consequent $sighting))
    (let* (($rule (Implication $antecedent $consequent))
           ($hash (index-hash (quote ($kb $rule))))
-          ($phash (hm-pattern-hash $kb $consequent)))
+          ($phash (hm-pattern-hash $kb $consequent))
+          ;; A failure's sightings recur only with failures' (hm-mine!).
+          ($seen-rule (case $sighting (((failed $_instance $_context) (failed $rule)) ($_other $rule))))
+          ($seen-hash (index-hash (quote ($kb $seen-rule)))))
       (if (space-row-present? &hm_tried ($hash $kb $rule)) ($count $picked)
          (if (positive-only-pattern? $kb (brand Statement $consequent)) ($count $picked)
             (if (case $sighting (
                    (none true)
-                   (($instance $context) (hm-recurs? $kb $hash $rule (the Number $instance) $context))))
+                   ((failed $instance $context) (hm-recurs? $kb $seen-hash $seen-rule (the Number $instance) $context))
+                   (($instance $context) (hm-recurs? $kb $seen-hash $seen-rule (the Number $instance) $context))))
                (if (>= $count $max-new) ($count $picked)
                   (if (let $live (collapse (match &hm_live ($phash $kb $stored $_name $live-antecedent $_born)
                                               (if (=alpha $stored $consequent) $live-antecedent (empty))))
                          (if (>= (size-atom $live) $max-live) true
                             (if (hm-across? $kb $antecedent) (fold-flat (hm-explained? $kb) false (the (List Atom) $live)) false)))
                      ($count $picked)
-                     (let* (($_unseen (remove-data-rows! &hm_seen (quote ($hash $kb $rule $_first $_seen))))
+                     (let* (($_unseen (remove-data-rows! &hm_seen (quote ($seen-hash $kb $seen-rule $_first $_seen))))
                             ($_tried (add-atom &hm_tried ($hash $kb $rule)))
                             ($_outcomes (if (space-row-present? &hm_outcomes ($phash $kb $consequent $_c)) ()
                                            (add-atom &hm_outcomes ($phash $kb $consequent 0))))
@@ -206,10 +210,11 @@
 (= (hm-explained? $kb $explained $antecedent)
    (if $explained true (not (hm-across? $kb $antecedent))))
 
-;; The candidates proposed from one fact's, at most max-new.
-(: hm-propose! (-[det]-> KB Number Number (List (Atom Atom Atom)) (List AnnotatedStatement)))
-(= (hm-propose! $kb $max-new $max-live $candidates)
-   (let ($_count $picked) (fold-flat (hm-consider! $kb $max-new $max-live) (0 ()) $candidates) $picked))
+;; The candidates proposed from one fact's, from the count and picks so far,
+;; at most max-new in all.
+(: hm-propose! (-[det]-> KB Number Number (Number (List Atom)) (List (Atom Atom Atom)) (Number (List Atom))))
+(= (hm-propose! $kb $max-new $max-live $state $candidates)
+   (fold-flat (hm-consider! $kb $max-new $max-live) $state $candidates))
 
 ;; A ground statement's time point and layer, when its predicate's place in
 ;; time is declared and the argument there is a constant; () otherwise.
@@ -229,11 +234,14 @@
 ;; with it at its time point and at the ones its links make the previous and
 ;; the next. A true fact is recorded and related to them in singles and
 ;; pairs, either way round as time and layer order them, the recurring
-;; singles first. A false one is concluded from them only when a live
-;; hypothesis predicted it: in the pairs that contain a fact the prediction
-;; read, which can learn where it fails. Otherwise what co-occurs with a
-;; statement that does not hold says nothing about what makes it hold. At
-;; most max-new are proposed.
+;; singles first. A false one is concluded from them where a live hypothesis
+;; predicted it, in the pairs that contain a fact the prediction read, which
+;; can learn where it fails; and, as a true fact is (a pair at once, a single
+;; when it recurs among failures), where no live hypothesis concluded the
+;; candidate's consequent before, so a statement that never holds (an
+;; operation that never succeeds) gets hypotheses that learn its failure.
+;; Once one concludes it, its other failures say nothing more about what
+;; makes it hold. At most max-new are proposed.
 (: hm-mine! (-[det]-> KB Atom Number Atom Atom (Number Number) (List AnnotatedStatement)))
 (= (hm-mine! $kb $type $s $time $layer ($max-new $max-live))
    (let* (($patterns (hypothesis-patterns $type))
@@ -247,12 +255,14 @@
       (if (> $s 0.5)
          (let* (($seq (next-search-id hm_seq))
                 ($_recorded (collapse (let $value (superpose $constants) (hm-record! $kb $type $seq $time $layer $value)))))
-            (hm-propose! $kb $max-new $max-live (hypothesis-candidates $type $layer $features)))
-         (let $live (collapse (let* (($pattern (superpose $patterns))
-                                     ($phash (hm-pattern-hash $kb $pattern)))
-                                  (match &hm_live ($phash $kb $consequent $_name $antecedent $_born)
-                                     (if (=alpha $consequent $pattern) ($antecedent $consequent) (empty)))))
-            (hm-propose! $kb $max-new $max-live (hypothesis-exception-pairs $type $layer $features $live))))))
+            (let ($_count $picked) (hm-propose! $kb $max-new $max-live (0 ()) (hypothesis-candidates $type $layer $features)) $picked))
+         (let* (($live (collapse (let* (($pattern (superpose $patterns))
+                                        ($phash (hm-pattern-hash $kb $pattern)))
+                                     (match &hm_live ($phash $kb $consequent $_name $antecedent $_born)
+                                        (if (=alpha $consequent $pattern) ($antecedent $consequent) (empty))))))
+                ($exceptions (hm-propose! $kb $max-new $max-live (0 ()) (hypothesis-exception-pairs $type $layer $features $live)))
+                (($_count $picked) (hm-propose! $kb $max-new $max-live $exceptions (hypothesis-failure-candidates $type $layer $features $live))))
+            $picked))))
 
 ;; The hypotheses an added statement proposes, to be compiled by compileadd.
 ;; A true link fact is recorded under the two time points it links.

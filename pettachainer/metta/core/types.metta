@@ -58,6 +58,7 @@
 (: rule-truth-factor (-[det]-> Atom Number))
 ;; Hypothesis mining's term helpers (runtime/hypothesis_mining.metta).
 (: hypothesis-candidates (-[det]-> Atom Atom Atom (List (Atom Atom Atom))))
+(: hypothesis-failure-candidates (-[det]-> Atom Atom Atom Atom (List (Atom Atom Atom))))
 (: hypothesis-exception-pairs (-[det]-> Atom Atom Atom Atom (List (Atom Atom Atom))))
 (: hypothesis-place (-[det]-> Atom Atom Atom))
 (: hypothesis-constants (-[det]-> Atom (List Atom)))

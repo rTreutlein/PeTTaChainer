@@ -1476,20 +1476,36 @@ metta_call_terms(Fn, Sources, Results) :-
 % generalized alike, so the miner can tell whether it recurs where the pairs
 % of its first sighting do not explain it (without one, no pair could, and
 % the hash is the consequent's, which differs at every instance).
+%
+% 'hypothesis-failure-candidates' keeps those that conclude Fact (a false
+% fact is the consequent of its candidates, never an antecedent) and whose
+% consequent no live hypothesis concludes: Live holds the [Antecedent,
+% Consequent] of the live hypotheses concluding Fact's patterns. A single's
+% Sighting is marked failed, so it recurs only among failures.
 'hypothesis-candidates'(Fact, Layer, Features, Candidates) :-
-    findall(Single, hypothesis_single(Fact, Layer, Features, Single), Singles),
+    hypothesis_candidates(any, Fact, Layer, Features, Candidates).
+'hypothesis-failure-candidates'(Fact, Layer, Features, Live, Candidates) :-
+    hypothesis_candidates(concluding, Fact, Layer, Features, All),
+    findall([A, C, Sighting],
+            ( member([A, C, S], All), \+ ( member([_, LC], Live), LC =@= C ),
+              ( S == none -> Sighting = none ; S = [I, X], Sighting = [failed, I, X] ) ),
+            Candidates).
+
+hypothesis_candidates(Role, Fact, Layer, Features, Candidates) :-
+    findall(Single, hypothesis_single(Role, Fact, Layer, Features, Single), Singles),
     findall(F-L, member([F, L, now], Features), Now),
     findall([A, C, none],
             ( (   pair_below(Now, Layer, Pair), Consequent = Fact
-              ;   select(Consequent-LC, Now, Rest), Layer < LC,
+              ;   Role == any, select(Consequent-LC, Now, Rest), Layer < LC,
                   member(B-LB, Rest), LB < LC, msort([Fact, B], Pair) ),
               hypothesis_pair_rule(Pair, Consequent, [A, C]) ),
             Pairs),
     append(Singles, Pairs, Candidates).
 
-hypothesis_single(Fact, Layer, Features, [A, C, [Instance, Context]]) :-
+hypothesis_single(Role, Fact, Layer, Features, [A, C, [Instance, Context]]) :-
     member([F, L, Relation], Features),
     single_order(Relation, Fact, Layer, F, L, Antecedents, Consequent, Above),
+    ( Role == any -> true ; Consequent == Fact ),
     (   Antecedents = [[_, Earlier, Later], _]
     ->  generalized_rule(Antecedents, Consequent, [Earlier, Later], [A, C], Subst)
     ;   hypothesis_rule(Antecedents, Consequent, [], [A, C], Subst) ),

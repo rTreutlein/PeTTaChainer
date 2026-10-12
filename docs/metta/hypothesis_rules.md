@@ -588,14 +588,29 @@ time argument is a constant, when its KB has mining on:
    is not proposed once a live hypothesis concludes its consequent from its
    own time point: the present's causes first, the past only for what they
    leave unexplained, as a single only where no pair explains it;
-5. for a false fact, proposes only when a live hypothesis concluding it
-   applies to it (its antecedent holds of the features): the prediction
-   failed, and the pairs concluding it that contain a fact the prediction
-   read can learn where it fails (a matching-to-sample agent that learned
-   "right" where the right stimulus matches the sample learns that it fails
-   where the left one does, its desire there drops, and it explores "left").
-   Otherwise a false fact proposes nothing: what co-occurs with a statement
-   that does not hold says nothing about what makes it hold.
+5. for a false fact, proposes the candidates that conclude it in two
+   cases:
+   - when a live hypothesis concluding it applies to it (its antecedent
+     holds of the features): the prediction failed, and the pairs
+     concluding it that contain a fact the prediction read can learn where
+     it fails (a matching-to-sample agent that learned "right" where the
+     right stimulus matches the sample learns that it fails where the left
+     one does, its desire there drops, and it explores "left");
+   - as a true fact does (a pair at once, a single when it recurs among
+     failures), when no live hypothesis concluded the candidate's
+     consequent pattern before this fact: a statement that never holds,
+     such as an operation that never succeeds, gets hypotheses that learn
+     its failure. Without it, a Pong agent mining its hypotheses
+     never had one for an operation that never got the ball hit, so its
+     desire stayed at the neutral 0.5, above the learned rate of the
+     operations that sometimes succeed (ChainerGame
+     `benchmarks/ona/repros/mined_never_rewarded.py`).
+
+   Otherwise a false fact proposes nothing: once a hypothesis concludes the
+   pattern, what co-occurs with another of its failures says nothing about
+   what makes it hold. Sightings are kept per polarity, so a failure never
+   counts towards a success's recurrence, nor a success towards a
+   failure's.
 
 Since the declared order decides the direction, a candidate's reverse is
 never a candidate, and every rule points forward in time, so no set of
@@ -613,6 +628,30 @@ CTV otherwise. So adding a fact costs a bounded number of indexed lookups (24
 features give at most 24 singles and some hundreds of pairs and their
 relational forms) and at most `max-new` rule compilations, whatever the KB's
 size; off, it costs one lookup of the KB's setting.
+
+### Failures (October 2026)
+
+Proposing from failures as from successes (item 5, second case) fixes the
+ChainerGame repro (`left`, never rewarded in 6 trials, now has
+`(Ball right $t) -> (Reward left $t)` at 0.0008 instead of answering the
+population prior 0.34). ONA matching-to-sample, mined (`--mined 8 16`),
+10 seeds, master 2307ca50 against the branch: conditioning 1.000 -> 0.981,
+identity matching 0.956 -> 0.912, reversal 0.931 -> 0.922. The hypothesis
+sets end the same (all 18 pairs). The differences are single seeds (9, 4,
+9), where the failure-born pairs exist before the first success and
+evidence arrives in another order. Time per trial is +3%, +24% and +18%.
+A first version proposed one candidate per failure and let a failure's
+sighting count towards a success's recurrence: it proposed uninformative
+pairs and many singles (conditioning 0.963, identity 0.912, reversal
+0.900).
+
+Porting to mm2-chainer: the miner's step for a false fact gets the same
+candidate generation as a true fact, restricted to candidates that conclude
+the fact, and gated per candidate on its consequent pattern having had no
+live hypothesis before this fact (read the live set once, before proposing).
+Sightings for recurrence are keyed by (rule, polarity), so successes and
+failures recur separately. The live cap, max-new, the tried set and
+recurrence stay shared.
 
 ### Reviewing and dropping (`runtime/hypothesis_review.metta`)
 

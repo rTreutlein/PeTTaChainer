@@ -87,6 +87,40 @@
     (Implication (And (Left B1 $_1) (Right B2 $_1)) (Reward left $_1))
     (Implication (And (Right B2 $_2) (Sample A1 $_2)) (Reward left $_2))))
 
+;; A statement that never holds, such as an operation that never succeeds:
+;; its failures propose where no live hypothesis concludes them, as successes
+;; do, a single when it recurs among failures, so a rule can learn that it
+;; fails. Once one concludes the pattern, a failure in another context
+;; proposes nothing more.
+!(set-positive-only-predicate failKb Ball)
+!(set-hypothesis-mining failKb 4 8)
+!(set-predicate-time failKb Ball 2 0)
+!(set-predicate-time failKb Reward 2 1)
+!(compileadd failKb (: b1 (Ball right t1) (STV 1 1)))
+!(compileadd failKb (: r1 (Reward left t1) (STV 0 1)))
+!(test (live-hypotheses failKb) ())
+!(compileadd failKb (: b2 (Ball right t2) (STV 1 1)))
+!(compileadd failKb (: r2 (Reward left t2) (STV 0 1)))
+!(test (live-hypotheses failKb) ((Implication (Ball right $_0) (Reward left $_0))))
+!(test (hypothesis-tv failKb (Implication (Ball right $t) (Reward left $t))) ((STV 0.5 0.009900990099009901)))
+!(compileadd failKb (: b3 (Ball equal t3) (STV 1 1)))
+!(compileadd failKb (: r3 (Reward left t3) (STV 0 1)))
+!(compileadd failKb (: b4 (Ball equal t4) (STV 1 1)))
+!(compileadd failKb (: r4 (Reward left t4) (STV 0 1)))
+!(test (live-hypotheses failKb) ((Implication (Ball right $_0) (Reward left $_0))))
+
+;; A failure's sighting of a single does not count towards a success's
+;; recurrence: the success after it is the single's first true sighting.
+!(set-positive-only-predicate mixKb Ball)
+!(set-hypothesis-mining mixKb 4 8)
+!(set-predicate-time mixKb Ball 2 0)
+!(set-predicate-time mixKb Reward 2 1)
+!(compileadd mixKb (: b1 (Ball right t1) (STV 1 1)))
+!(compileadd mixKb (: r1 (Reward left t1) (STV 0 1)))
+!(compileadd mixKb (: b2 (Ball right t2) (STV 1 1)))
+!(compileadd mixKb (: r2 (Reward left t2) (STV 1 1)))
+!(test (live-hypotheses mixKb) ())
+
 ;; The layers order a time point's facts, not the order they arrive in: the
 ;; inspected route arrives before its period's storm, and the storm still
 ;; concludes it. Facts of one layer are not related.
