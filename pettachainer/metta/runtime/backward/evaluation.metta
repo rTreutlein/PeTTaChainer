@@ -2147,34 +2147,37 @@
       (cons (sk-unfounded $khash (sk-key $type $kbctx)) ())
       ()))
 
-;; The pin, the reading conclusion as unfounded, joins the given list; the
-;; rows are evaluated again in creation order and merged with the leaves the
+;; A complete statement with no value the reader may read, once its search is
+;; settled: unfounded when no rule application derives it, whoever reads it;
+;; otherwise, for a reader with a pin, its rows evaluated again in creation
+;; order with the pin joining the given list, merged with the leaves the
 ;; reader may read.
 (: sk-closed-read
    (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) SkeletonKey SkeletonFilter SkeletonValue))
 (= (sk-closed-read $pin $given $exclude $key $filter)
-   (if (== $pin ()) sk-none
-      (case $key (
-         ((sk-key $type $kbctx)
-            (if (if (complete-statement? $type $kbctx) (== (sk-given-value $given $key $filter $exclude) sk-none) false)
-               (if (sk-settled? $key)
-                  (let $hash (index-hash $key)
-                     (if (sk-founded? $hash $key)
+   (case $key (
+      ((sk-key $type $kbctx)
+         (if (if (complete-statement? $type $kbctx) (== (sk-given-value $given $key $filter $exclude) sk-none) false)
+            (if (sk-settled? $key)
+               (let $hash (index-hash $key)
+                  (if (sk-founded? $hash $key)
+                     (if (== $pin ()) sk-none
                         (sk-merge-key $hash $key $filter $exclude $given
                            (fold-semidet sk-cons-step ()
                               (fold-semidet (sk-closed-row-step (append-flat $pin $given) $exclude $hash $key) ()
                                  (collapse (match &sk_row ($hash $stored $rhash $row)
-                                    (if (=alpha $stored $key) ($rhash $row) (empty)))))))
-                        (sk-unfounded-value $hash $key)))
-                  sk-none)
-               sk-none))
-         ($_fold sk-none)))))
+                                    (if (=alpha $stored $key) ($rhash $row) (empty))))))))
+                     (sk-unfounded-value $hash $key)))
+               sk-none)
+            sk-none))
+      ($_fold sk-none))))
 
 ;; Each premise reads its key's value without the views that depend on the
 ;; row's conclusion; reading stored facts first, it takes the facts compatible
 ;; with the row so far when there are any. A given statement reads as known. A
-;; rule application of a complete statement, whose pin is not empty, reads a
-;; complete premise closed when it may read none of its views. Only an
+;; settled complete premise no rule application derives reads as unfounded;
+;; a rule application of a complete statement, whose pin is not empty, reads
+;; any other complete premise closed when it may read none of its views. Only an
 ;; antecedent completion (`$priors`) reads a population prior: the likelihood
 ;; of the consequence it inverts marginalises the parts it does not complete
 ;; over their values, and a part nothing tells about is at the prior of one
@@ -3718,7 +3721,7 @@
 ;; A root's proof and truth-value pattern may share variables with its
 ;; statement, so each key is read with the pattern instantiated by that key.
 ;; A complete statement whose settled search found no rule application is
-;; unfounded (docs/metta/complete_predicates.md).
+;; unfounded, as to any reader (sk-closed-read).
 (: sk-root-key-value (-[semidet]-> SkPattern SkeletonKey SkeletonValue))
 (= (sk-root-key-value $goal $key)
    (case (copy_term $goal) (
@@ -3729,13 +3732,12 @@
                (let $filter (sk-filter $proof $tv)
                   (case (sk-value $key $filter ()) (
                      (sk-none
-                        (if (if (complete-statement? $type $kbctx)
-                               (if (sk-settled? $key) (not (sk-founded? (index-hash $key) $key)) false)
-                               false)
-                           (sk-unfounded-value (index-hash $key) $key)
-                           (case (sk-materialized-views $type $kbctx $filter) (
-                              ((cons $incumbent $_rest) $incumbent)
-                              (() (if $ground (sk-population-prior $type $kbctx $filter) sk-none))))))
+                        (case (sk-closed-read () () () $key $filter) (
+                           (sk-none
+                              (case (sk-materialized-views $type $kbctx $filter) (
+                                 ((cons $incumbent $_rest) $incumbent)
+                                 (() (if $ground (sk-population-prior $type $kbctx $filter) sk-none)))))
+                           ($unfounded $unfounded))))
                      ($current $current))))
                sk-none))))))
 

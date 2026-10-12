@@ -120,3 +120,17 @@
    (: (assuming (by rp (conjunction unfounded f))) (Assuming (Decide t) (P t)) (STV 0.3 0.8999999995871378)))
 !(test (query 100 actKb (: $p (Assuming (S t) (P t)) $tv))
    (: (assuming (by rp (conjunction (ctx proof 1) f))) (Assuming (S t) (P t)) (STV 1.0 0.9998000399670116)))
+
+;; A complete statement no rule concludes and no fact states is false to
+;; every reader once its search settles, not only to a rule concluding a
+;; complete predicate: its negation is true, and B, an open predicate, reads
+;; it through Not.
+!(set-complete-predicate repairKb R)
+!(compileadd repairKb (: a1 (A t1) (STV 1 1)))
+!(compileadd repairKb (: r9 (R t9) (STV 1 1)))
+!(compileadd repairKb (: rb (Implication (And (A $t) (Not (R $t))) (B $t)) (CTV (STV 0.8 1) (STV 0.1 1))))
+
+!(test (query 100 repairKb (: $p (Not (R t1)) $tv))
+   (: (negated unfounded) (Not (R t1)) (STV 1.0 1.0)))
+!(test (query 100 repairKb (: $p (B t1) $tv))
+   (: (by rb (conjunction a1 (negated unfounded))) (B t1) (STV 0.8 0.999900009386623)))

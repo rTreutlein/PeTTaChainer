@@ -52,7 +52,12 @@ drove loops with soft roots to about 1e-6. Nested reads pin each reading
 conclusion in turn, so the recursion follows the cycle once and ends at the
 first pinned statement. A complete K whose settled search found no rule application (no
 rule concludes it, or every rule's conditions failed) is false:
-`(STV 0.0 1.0)`, proof `unfounded`. A root reads such a K that way too.
+`(STV 0.0 1.0)`, proof `unfounded`. That is no pin but K's completion, so
+every reader reads such a K that way: a root, its negation, and a rule
+concluding an open predicate. Before, only a rule concluding a complete
+predicate and a root did, so `(Not (R t))` of an unstated complete `R` had
+no answer, nor did a rule over `(And (A $t) (Not (R $t)))` concluding an open
+`B`.
 
 So, for the loop above with `(StockedFuel t)` at 0.9 and nothing degraded:
 `Fuelled` reads `FuelArrived` with `Fuelled` pinned false, which is the mine's
