@@ -115,7 +115,14 @@
 (: hm-read (-[det]-> Number KB (List HmReviewed) (List HmReviewed) (List HmReviewed)))
 (= (hm-read $steps $kb $reviewed $group)
    (let* (($unread (hypothesis-read! $kb $group))
-          ($rows (collapse (query-many-refs (* $steps $unread) $kb (map-flat hm-truth-goal $group)))))
+          ($rows (collapse
+             (let (query-result $index (: $proof $type $_positive-tv))
+                (query-many-refs (* $steps $unread) $kb (map-flat hm-truth-goal $group))
+                ;; The review needs both learned storage branches. Public
+                ;; query rows deliberately expose only their positive STV.
+                (let (sk-val ($_type $_kbctx $_prf $truth) $_ev $_deps)
+                   (sk-value (sk-key (brand Statement $type) (kbctx $kb)) sk-any-filter ())
+                   (query-result $index (: $proof (brand Statement $type) $truth)))))))
       (append-flat $reviewed (the (List HmReviewed) (hypothesis-truths $group $rows)))))
 
 ;; Reviews the live hypotheses that apply to `$goal` (hm-applies?). Their

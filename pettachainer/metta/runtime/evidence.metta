@@ -314,7 +314,8 @@
              (once (proof-term-evidence proof-walk-in-kb $prf))
              $ev))
        ($name (rule-evidence-head $prf))
-       ($typed-kbid (brand KB $kbid)))
+       ($storage-kbid (brand KB $kbid))
+       ($typed-kbid (statement-query-kb $storage-kbid)))
       (if (is-expr $name) $base
          (if (rule-evidence-registered? $typed-kbid $name)
             (evidence-union $base (evidence-set (cons (rule-ev $typed-kbid $name) ())))

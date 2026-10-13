@@ -517,7 +517,7 @@
          (the TV $tv) (brand Proof $prf))))
 
 (: in_fold
-   (-[det]-> Expression
+   (-[det]-> Atom
        CompiledPremises
        CompiledPremise
        CompiledPremises))

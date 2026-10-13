@@ -418,7 +418,9 @@
 !(compileadd ctvOffKb (: b22 (B i22) (STV 0 1)))
 !(compileadd ctvOffKb (: a23 (A i23) (STV 0 1)))
 !(compileadd ctvOffKb (: b23 (B i23) (STV 0 1)))
-!(test (let (: $p $t $tv) (query 50 ctvOffKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv) (CTV (STV 0.6652613827993255 0.7076372315035799) (STV 0.5 0.7076372315035799)))
+!(test
+   (let (: $p $t $tv) (query 50 ctvOffKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
+   (STV 0.6652613827993255 0.7076372315035799))
 !(set-rule-refinement ctvOnKb true)
 !(compileadd ctvOnKb (: h (Implication (A $x) (B $x)) (CTV (STV 0.5 0.02) (STV 0.5 0.02))))
 !(compileadd ctvOnKb (: a0 (A i0) (STV 1 1)))
@@ -469,7 +471,9 @@
 !(compileadd ctvOnKb (: b22 (B i22) (STV 0 1)))
 !(compileadd ctvOnKb (: a23 (A i23) (STV 0 1)))
 !(compileadd ctvOnKb (: b23 (B i23) (STV 0 1)))
-!(test (let (: $p $t $tv) (query 50 ctvOnKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv) (CTV (STV 0.6340432945820736 0.7010406593912604) (STV 0.49994591499382773 0.707616716013356)))
+!(test
+   (let (: $p $t $tv) (query 50 ctvOnKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
+   (STV 0.6340432945820736 0.7010406593912604))
 
 ;; --- Leave one out ----------------------------------------------------------
 ;; A reader leaves its own sample out of the segment holding it.

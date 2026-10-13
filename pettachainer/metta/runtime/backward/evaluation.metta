@@ -141,6 +141,7 @@
 ;; The last rule application of a proof, with its premise proofs still
 ;; references (runtime_helpers.pl).
 (: sk-step-proof (-[det]-> Proof Proof))
+(: same-proof? (-[det]-> Proof Proof Bool))
 
 (: sk-fact-step-proof (-[det]-> SkFact Proof))
 (= (sk-fact-step-proof ($_type $_kbctx $proof $_tv)) (sk-step-proof $proof))
@@ -630,8 +631,14 @@
        SkeletonPairing))
 (= (sk-merge-facts $ignore $a $ev-a $deps-a $b $ev-b $deps-b)
    (let* (($proof-a (sk-fact-step-proof $a))
-          ($proof-b (sk-fact-step-proof $b)))
-      (if (== $a $b) (sk-paired (sk-val $a (evidence-union $ev-a $ev-b) $deps-a))
+          ($proof-b (sk-fact-step-proof $b))
+          (($_ta $_ca $_pa $tv-a) $a)
+          (($_tb $_cb $_pb $tv-b) $b))
+      (if (if (== $a $b) true
+             (if (== $tv-a $tv-b)
+                (if (== $ev-a $ev-b) (same-proof? $proof-a $proof-b) false)
+                false))
+         (sk-paired (sk-val $a (evidence-union $ev-a $ev-b) (if (== $a $b) $deps-a (deps-union $deps-a $deps-b))))
          (if (proof-dominates? $proof-a $proof-b) (sk-paired (sk-val $a $ev-a $deps-a))
             (if (proof-dominates? $proof-b $proof-a) (sk-paired (sk-val $b $ev-b $deps-b))
             (if (more-specific-application? $proof-a $proof-b) (sk-paired (sk-specialized $a $ev-a $deps-a $b $ev-b $deps-b))
@@ -1930,6 +1937,9 @@
 ;; part given. Evaluating every key so cost SupplyNet stage 3 a third more
 ;; time for no change. A compound reached again through its own rows while
 ;; they are evaluated so has no value there (row hash -2 in &sk_conditioning).
+;; A conditional implication can lose its unconditioned value for the same
+;; reason. Its row reads a hypothetical context, so follow that row under the
+;; given condition even when no immediate premise is the main-context key.
 (= (sk-given-value $given $key $filter $exclude)
    (let $value (sk-value $key $filter $exclude)
       (if (sk-given-meets? $given $value) (sk-given-merge $given $key $filter $exclude)
@@ -1937,7 +1947,7 @@
             (case $key (
                ((sk-key $type $kbctx)
                   (let $hash (index-hash $key)
-                     (if (if (== (sk-compound-parts $type) ()) true (space-row-present? &sk_conditioning ($hash -2))) sk-none
+                     (if (if (not (head-is-member? $type (And Or Implication))) true (space-row-present? &sk_conditioning ($hash -2))) sk-none
                         (let* (($_entered (add-atom &sk_conditioning ($hash -2)))
                                ($views
                                   (fold-semidet (sk-given-row-step $given $exclude $hash $key) ()
@@ -1951,11 +1961,13 @@
    (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey (List SkeletonValue) (Number SkeletonRow)
        (List SkeletonValue)))
 (= (sk-given-row-step $given $exclude $hash $key $views ($rhash (sk-row $ident $concl $premises $seq)))
-   (if (fold-semidet (sk-reads-given-step (sk-given-hashes $given)) false $premises)
+   (let ($_type $_kbctx $proof $_tv) $concl
+   (if (if (head-is? $proof conditional-implication) true
+           (fold-semidet (sk-reads-given-step (sk-given-hashes $given)) false $premises))
       (case (sk-row-view $given $exclude $hash $key $rhash (sk-row $ident $concl $premises $seq)) (
          (sk-none $views)
          ($view (cons $view $views))))
-      $views))
+      $views)))
 
 (: sk-reads-given-step (-[det]-> (List Number) Bool SkPattern Bool))
 (= (sk-reads-given-step $hashes $found $premise)
@@ -2051,15 +2063,23 @@
 (: sk-clash-on (-[semidet]-> (List SkeletonGiven) SkeletonRowState SkeletonValue SkeletonRowState))
 (= (sk-clash-on $given $state $value)
    (case $state (
-      ((sk-acc $_fold-proofs $ev $_deps $_parts)
+      ((sk-acc $_fold-proofs $ev $deps $_parts)
          (case $value (
             ((sk-val $fact $value-ev $value-deps)
                (if (sk-projection? $fact) (sk-clash () 0)
-                  (sk-clash
-                     (sk-ranked-statements
-                        (fold-semidet sk-shared-candidate ()
-                           (list_to_set (fold-semidet (sk-shared-key-step $given) () (evidence-shared-facts $ev $value-ev)))))
-                     (+ 1 (deps-size $value-deps)))))
+                  (let*
+                     (($shared-facts (evidence-shared-facts $ev $value-ev))
+                      ($keys (list_to_set (fold-semidet (sk-shared-key-step $given) () $shared-facts))))
+                     (sk-clash
+                        ;; A signed proof can name shared evidence without a
+                        ;; scoped fact-ev entry. Its dependency keys retain the
+                        ;; statement and context needed for conditioning.
+                        (if (== $keys ())
+                           (if (== $shared-facts ()) ()
+                              (sk-shared-statements (sk-given-hashes $given)
+                                 (deps-shared (deps-join $deps) $value-deps)))
+                           (sk-ranked-statements (fold-semidet sk-shared-candidate () $keys)))
+                        (+ 1 (deps-size $value-deps))))))
             ($_none sk-fail))))
       ($_failed sk-fail))))
 

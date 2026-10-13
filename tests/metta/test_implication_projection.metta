@@ -1,45 +1,37 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
-;; An implication query proves its consequent in hypothetical contexts where
-;; the antecedent is assumed, true in the positive one and false in the
-;; refuting one. A rule concluding a conjunction, S -> (A and B and C), is
-;; projected onto its parts there as in the main context: its projection
-;; adapters are compiled in the rule's context, not the main one only.
-;;
-;; Values by hand. The rule's CTV is (0.9, 0.2) at confidence 0.9. With S
-;; certain, modus ponens gives the conjunction 0.9 in the positive context
-;; and 0.2 in the refuting one, at confidence 0.9 (0.89999999956 and
-;; 0.89999999975: the idealized variance of modus ponens). A part's marginal
-;; projection keeps the strength and scales the count by it, c' = s c / (s c
-;; + 1 - c): 0.81 / 0.91 = 0.8901098901 and 0.18 / 0.28 = 0.6428571429. Parts
-;; of one source pool back into it, so A and B, two of three parts, read the
-;; first part's marginal: P(A and B | S) = 0.9, P(A and B | not S) = 0.2.
+;; An implication query proves its consequent under the positive assumption
+;; of its antecedent, returning an STV. For a rule S -> (A and B and C),
+;; projection adapters run in that context. The stored positive branch is 0.9
+;; at confidence 0.9; MP propagates its variance, then marginal projection
+;; gives c' = s*c / (s*c + 1 - c) = 0.81/0.91 = 0.8901098901.
+;; Parts of one source pool, so querying (And A B), either part, or reordered
+;; parts returns the same positive strength and confidence. The negative
+;; branch remains in internal rule storage for modus ponens.
 
 !(compileadd ctvKb (: r (Implication S (And A B C)) (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
 
 !(test
    (query 100 ctvKb (: $prf (Implication S (And A B)) $tv))
-   (: (total-implication
-         (conjunction (marginal-proj 0 (by r (ctx proof 0))) (marginal-proj 1 (by r (ctx proof 0))))
-         (conjunction (marginal-proj 0 (by r (ctx proof 1))) (marginal-proj 1 (by r (ctx proof 1)))))
+   (:
+      (conditional-implication
+         (conjunction (marginal-proj 0 (by r (ctx proof 0))) (marginal-proj 1 (by r (ctx proof 0)))))
       (Implication S (And A B))
-      (CTV (STV 0.9 0.8901098896304337) (STV 0.2 0.6428571422241105))))
+      (STV 0.9 0.8901098896304337)))
 
 ;; The query's truth-value pattern, a single part and the parts in another
 ;; order give the same values.
 !(test
-   (let (: $_prf $_type $tv)
-      (query 100 ctvKb (: $prf (Implication S (And A B)) (CTV $pos $neg)))
-      $tv)
-   (CTV (STV 0.9 0.8901098896304337) (STV 0.2 0.6428571422241105)))
+   (let (: $_prf $_type $tv) (query 100 ctvKb (: $prf (Implication S (And A B)) $pos)) $tv)
+   (STV 0.9 0.8901098896304337))
 
 !(test
    (let (: $_prf $_type $tv) (query 100 ctvKb (: $prf (Implication S A) $tv)) $tv)
-   (CTV (STV 0.9 0.8901098896304337) (STV 0.2 0.6428571422241105)))
+   (STV 0.9 0.8901098896304337))
 
 !(test
    (let (: $_prf $_type $tv) (query 100 ctvKb (: $prf (Implication S (And B A)) $tv)) $tv)
-   (CTV (STV 0.9 0.8901098896304337) (STV 0.2 0.6428571422241105)))
+   (STV 0.9 0.8901098896304337))
 
 ;; An STV query asks for the positive side, which equals the Assuming query.
 !(test
@@ -58,11 +50,11 @@
 
 !(test
    (let (: $_prf $_type $tv) (query 100 stvKb (: $prf (Implication (S x) (And (A x) (B x))) $tv)) $tv)
-   (CTV (STV 0.9 0.8901098893173621) (STV 0.0 0.0)))
+   (STV 0.9 0.8901098893173621))
 
 !(test
    (let (: $_prf $_type $tv) (query 100 stvKb (: $prf (Implication (S $y) (And (A $y) (B $y))) $tv)) $tv)
-   (CTV (STV 0.9 0.8901098893173621) (STV 0.0 0.0)))
+   (STV 0.9 0.8901098893173621))
 
 ;; A nested conclusion, S -> (A and (B and C)). B and C are parts of one
 ;; source and pool; A and B are parts of different sources, (A and (B and C))
@@ -74,11 +66,11 @@
 
 !(test
    (let (: $_prf $_type $tv) (query 100 nestedKb (: $prf (Implication S (And B C)) $tv)) $tv)
-   (CTV (STV 0.9 0.8901098896304337) (STV 0.2 0.6428571422241105)))
+   (STV 0.9 0.8901098896304337))
 
 !(test
    (let (: $_prf $_type $tv) (query 100 nestedKb (: $prf (Implication S (And A B)) $tv)) $tv)
-   (CTV (STV 0.9 0.8999278939280647) (STV 0.2 0.8974146300841128)))
+   (STV 0.9 0.8999278939280647))
 
 ;; A part's projection that reads the other parts as evidence divides the
 ;; source by them, P(A) = P(ABC) / P(BC). The other parts' marginals read off

@@ -71,6 +71,18 @@
 (= (expand-proof $proof)
    (externalize-query-proof (sk-full-proof $proof)))
 
+;; The public answer boundary never exposes packed rule storage, including
+;; wildcard and RuleTruth reads. The skeleton and materialization keep the CTV.
+(: public-query-result (-[det]-> RuntimeResult RuntimeResult))
+(= (public-query-result $result)
+   (case $result (
+      ((CPU $_fun $_args $_res) $result)
+      (($type $kbctx $proof $tv)
+         (let $answer-tv
+            (if (head-is? $tv CTV)
+               (case (the TV $tv) (((CTV $pos $_neg) $pos) ($_other $tv))) $tv)
+            (brand RuntimeResult (data $type $kbctx $proof $answer-tv)))))))
+
 (: present-query-plan-results
    (-[nondet]-> Bool (List (Number CompiledQueryGoal))
        (List (List RuntimeResult))
@@ -83,7 +95,8 @@
       (map-flat (|-> ($answer) (data $key $answer))
          (pretty-results
             (map-flat externalize-proof-structure
-               (if $expand? (map-flat expand-result $results) $results))))
+               (map-flat public-query-result
+                  (if $expand? (map-flat expand-result $results) $results)))))
       (present-query-plan-results $expand? $roots $rest-results)))
 
 (: query-plan-runtime-goal

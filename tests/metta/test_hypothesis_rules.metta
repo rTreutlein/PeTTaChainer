@@ -83,10 +83,12 @@
 ;; rate (two failures after eight cases of B for P(B|A)); at the default
 ;; hazard that hypothesis keeps a small weight (0.793 against 0.797,
 ;; docs/metta/hypothesis_rules.md, "Regimes").
-!(test (let (: $p $t $tv) (query 50 hypKb (: $p (RuleTruth (Implication (C $x) (B $x))) $tv)) $tv)
-   (CTV (STV 0.4992318014558537 0.6687146348286057) (STV 0.4992318014558537 0.6687146348286057)))
-!(test (let (: $p $t $tv) (query 50 hypKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
-   (CTV (STV 0.7934110109537581 0.6681312812545516) (STV 0.2021459950865152 0.6687223602108197)))
+!(test
+   (let (: $p $t $tv) (query 50 hypKb (: $p (RuleTruth (Implication (C $x) (B $x))) $tv)) $tv)
+   (STV 0.4992318014558537 0.6687146348286057))
+!(test
+   (let (: $p $t $tv) (query 50 hypKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
+   (STV 0.7934110109537581 0.6681312812545516))
 
 ;; The confirmed hypothesis is scored by what it adds; the rejected one, whose
 ;; consequent does not move with its antecedent, stays at the floor.

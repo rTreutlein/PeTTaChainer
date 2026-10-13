@@ -47,8 +47,11 @@
       (CTV (STV 0.5 0.9) (STV 0.0 1.0))))
 
 !(test
-   (query 100 deductionRevisionImplicationKb
-      (: $prf
-         (Implication (A $x) (D $x))
-         $tv))
-   (: (total-implication (merge/revision (by bImpliesD (by aImpliesB (ctx proof 2))) (by cImpliesD (by aImpliesC (ctx proof 2)))) (merge/revision (by bImpliesD (by aImpliesB (ctx proof 3))) (by cImpliesD (by aImpliesC (ctx proof 3))))) (Implication (A $_1139496) (D $_1139496)) (CTV (STV 0.125 0.9692294378874315) (STV 0.0 0.9999367205825538))))
+   (query 100 deductionRevisionImplicationKb (: $prf (Implication (A $x) (D $x)) $tv))
+   (:
+      (conditional-implication
+         (merge/revision
+            (by bImpliesD (by aImpliesB (ctx proof 2)))
+            (by cImpliesD (by aImpliesC (ctx proof 2)))))
+      (Implication (A $_1139496) (D $_1139496))
+      (STV 0.125 0.9692294378874315)))

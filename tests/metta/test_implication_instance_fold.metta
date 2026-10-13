@@ -4,10 +4,8 @@
 ;; also answered empirically: one sample per antecedent binding with a provable
 ;; consequent, folded with the weighted accumulator. Open world: c has no
 ;; provable consequent and is not a sample. Strength is the mass-weighted
-;; consequent strength, confidence is count-based. While no instance has its
-;; antecedent false, the negative branch is the heuristic one a stored STV rule
-;; gets, derived from the base rates of both sides at a quarter of the smallest
-;; confidence.
+;; consequent strength, confidence is count-based. Public implication queries
+;; return that positive branch as an STV; the negative branch remains internal.
 
 !(compileadd instanceFactsKb (: a1 (A a) (STV 1.0 0.9)))
 !(compileadd instanceFactsKb (: a2 (A b) (STV 1.0 0.9)))
@@ -18,16 +16,12 @@
 
 !(test
    (query 100 instanceFactsKb (: $prf (Implication (A $v) (B $v)) $tv))
-   (: (implication-instance-fold cpu)
-      (Implication (A $_v) (B $_v))
-      (CTV (STV 1.0 0.0020209076619844817) (STV 1.0 0.0005052269154961204))))
+   (: (implication-instance-fold cpu) (Implication (A $_v) (B $_v)) (STV 1.0 0.0020209076619844817)))
 
 ;; A ground implication is a one-sample fold.
 !(test
    (query 100 instanceFactsKb (: $prf (Implication (A a) (B a)) $tv))
-   (: (implication-instance-fold cpu)
-      (Implication (A a) (B a))
-      (CTV (STV 1.0 0.001011475880670821) (STV 1.0 0.00025286897016770524))))
+   (: (implication-instance-fold cpu) (Implication (A a) (B a)) (STV 1.0 0.001011475880670821)))
 
 ;; A consequent added later joins the fold on the next query. The ground
 ;; implication answered above is an instance of the open query and is
@@ -36,11 +30,8 @@
 
 !(test
    (collapse
-      (let (: $prf $type $tv)
-         (query 100 instanceFactsKb (: $prf (Implication (A $v) (B $v)) $tv))
-         $tv))
-   ((CTV (STV 1.0 0.0030283015340902015) (STV 1.0 0.0007570753835225504))
-    (CTV (STV 1.0 0.001011475880670821) (STV 1.0 0.00025286897016770524))))
+      (let (: $prf $type $tv) (query 100 instanceFactsKb (: $prf (Implication (A $v) (B $v)) $tv)) $tv))
+   ((STV 1.0 0.0030283015340902015) (STV 1.0 0.001011475880670821)))
 
 ;; --- An explicit counterexample lowers the strength -------------------------
 ;; (Not (B b)) is stored as (B b) with inverted strength, so it is a sample
@@ -53,9 +44,10 @@
 
 !(test
    (query 100 instanceNegKb (: $prf (Implication (A $v) (B $v)) $tv))
-   (: (implication-instance-fold cpu)
+   (:
+      (implication-instance-fold cpu)
       (Implication (A $_v) (B $_v))
-      (CTV (STV 0.4999627775704609 0.0020205545927834746) (STV 0.49996277757046104 0.0005051386481958686))))
+      (STV 0.4999627775704609 0.0020205545927834746)))
 
 ;; --- A rule for the same implication ---------------------------------------
 ;; The hypothetical proof through ab and the instance fold revise into one
@@ -71,24 +63,22 @@
    (: ab (Implication (A $x) (B $x)) (CTV (STV 0.8 0.9) (STV 0.0 1.0))))
 
 !(test
-   (let (: (merge/revision
-              (total-implication (by ab $_pos) (by ab $_neg))
-              (implication-instance-fold cpu))
-           $type $tv)
+   (let
+      (: (merge/revision (conditional-implication (by ab $_pos)) (implication-instance-fold cpu)) $type $tv)
       (query 200 instanceRuleKb (: $prf (Implication (A $v) (B $v)) $tv))
       $tv)
-   (CTV (STV 0.8000224974691158 0.9000101236509124)
-        (STV 4.148156395837509e-08 0.9998360246640894)))
+   (STV 0.8000224974691158 0.9000101236509124))
 
 ;; A rule-only KB keeps the plain hypothetical answer: nothing to sample.
 !(compileadd instanceRuleOnlyKb
    (: ab (Implication (A $x) (B $x)) (CTV (STV 0.8 0.9) (STV 0.0 1.0))))
 
 !(test
-   (let (: (total-implication (by ab $_pos) (by ab $_neg)) $type $tv)
+   (let
+      (: (conditional-implication (by ab $_pos)) $type $tv)
       (query 100 instanceRuleOnlyKb (: $prf (Implication (A $v) (B $v)) $tv))
       $tv)
-   (CTV (STV 0.8 0.8999999996758992) (STV 0.0 0.9998360246572885)))
+   (STV 0.8 0.8999999996758992))
 
 ;; --- A different rule producing the consequent is independent evidence ------
 
@@ -101,10 +91,10 @@
 
 !(test
    (query 200 instanceOtherRuleKb (: $prf (Implication (A $v) (B $v)) $tv))
-   (: (implication-instance-fold cpu)
+   (:
+      (implication-instance-fold cpu)
       (Implication (A $_v) (B $_v))
-      (CTV (STV 0.7500000125034592 0.0020209075611154013)
-           (STV 0.7500000125034592 0.0005052268902788503))))
+      (STV 0.7500000125034592 0.0020209075611154013)))
 
 ;; --- Conjunctive antecedent and a variable only the antecedent uses ---------
 
@@ -115,11 +105,11 @@
 !(compileadd instanceConjKb (: b1 (B a) (STV 1.0 0.9)))
 
 !(test
-   (query 200 instanceConjKb
-      (: $prf (Implication (And (A $v) (C $v)) (B $v)) $tv))
-   (: (implication-instance-fold cpu)
+   (query 200 instanceConjKb (: $prf (Implication (And (A $v) (C $v)) (B $v)) $tv))
+   (:
+      (implication-instance-fold cpu)
       (Implication (And (A $_v) (C $_v)) (B $_v))
-      (CTV (STV 1.0 0.0009195848842900393) (STV 1.0 0.00022989622107250982))))
+      (STV 1.0 0.0009195848842900393)))
 
 !(compileadd instanceTwoVarKb (: p1 (P a x) (STV 1.0 0.9)))
 !(compileadd instanceTwoVarKb (: p2 (P b y) (STV 1.0 0.9)))
@@ -127,9 +117,7 @@
 
 !(test
    (query 200 instanceTwoVarKb (: $prf (Implication (P $v $w) (Q $v)) $tv))
-   (: (implication-instance-fold cpu)
-      (Implication (P $_v $_w) (Q $_v))
-      (CTV (STV 1.0 0.001011475880670821) (STV 1.0 0.00025286897016770524))))
+   (: (implication-instance-fold cpu) (Implication (P $_v $_w) (Q $_v)) (STV 1.0 0.001011475880670821)))
 
 ;; --- A consequent derivable only through the implication itself ------------
 ;; The sample would depend on the goal being estimated; the dependency checks
@@ -147,7 +135,7 @@
    (query 200 instanceCycleKb (: $prf (Implication (A $v) (B $v)) $tv))
    ())
 
-;; --- Antecedent-false instances learn the negative branch -------------------
+;; --- Antecedent-false samples leave the positive query unchanged ------------
 ;; A binding whose antecedent is known false is a sample of P(B | not A), with
 ;; its own count: 1 of 4 here, so (0.25, 4/804), however the base rates of A
 ;; and B would put it. P(B | A) is 2 of 2.
@@ -165,7 +153,7 @@
 !(compileadd negKb (: m6 (B u) (STV 0 1)))
 !(test
    (let (: $prf $type $tv) (query 100 negKb (: $prf (Implication (A $v) (B $v)) $tv)) $tv)
-   (CTV (STV 1.0 0.0024937655860349127) (STV 0.24990002999100272 0.004974629489078395)))
+   (STV 1.0 0.0024937655860349127))
 
 ;; --- Three conjuncts --------------------------------------------------------
 ;; The conjunction of the antecedent's truth values is multiplied pairwise, as
@@ -182,8 +170,11 @@
 !(compileadd threeKb (: r2 (R t2) (STV 1 1)))
 !(compileadd threeKb (: g2 (G t2) (STV 1 1)))
 !(test
-   (let (: $prf $type $tv) (query 200 threeKb (: $prf (Implication (And (P $t) (Q $t) (R $t)) (G $t)) $tv)) $tv)
-   (CTV (STV 1.0 0.66659999333266) (STV 1.0 0.166649998333165)))
+   (let
+      (: $prf $type $tv)
+      (query 200 threeKb (: $prf (Implication (And (P $t) (Q $t) (R $t)) (G $t)) $tv))
+      $tv)
+   (STV 1.0 0.66659999333266))
 !(set-rule-refinement threeRuleKb true)
 ;; A refined three-part rule learns from its instances (t2's third conjunct
 ;; at 0.9 weighs its negative sample 0.9), instead of keeping its axiom.

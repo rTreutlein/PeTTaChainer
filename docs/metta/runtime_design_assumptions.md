@@ -926,8 +926,13 @@ nondeterminism from overlapping clauses or unstable iteration order.
 ## Known performance work
 
 - Root answer subsumption builds a query-local index by identical ground proof,
-  preserving answer order and copying each survivor independently. Indexing
-  costs O(n log n) for bounded-size proofs; comparisons
+  preserving answer order and copying each survivor independently. Proof
+  identity follows the DAG through references, ignoring their allocated IDs;
+  its hashes are memoized per reference within the query, and hash collisions
+  are checked without binding variables. Opaque `cpu` computations retain
+  reference identity because their printed proof omits their arguments or
+  population. A singleton needs no comparison.
+  Indexing costs O(n log n) plus the distinct proof DAG nodes read; comparisons
   remain quadratic within a proof group when none subsumes another. Distinct
   proofs are never compared. Nonground proofs cannot be identical after the
   independent copies used for subsumption and pass through unchanged.

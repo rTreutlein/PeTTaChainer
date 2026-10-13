@@ -47,15 +47,10 @@
 ; same inference in examples/metta/deductionrevision.metta).
 !(test
    (let
-      (: $prf
-         (Implication (A $x) (D $x))
-         $tv)
-      (query 100 evKb
-         (: $prf
-            (Implication (A $x) (D $x))
-            $tv))
+      (: $prf (Implication (A $x) (D $x)) $tv)
+      (query 100 evKb (: $prf (Implication (A $x) (D $x)) $tv))
       $tv)
-   (CTV (STV 0.125 0.9692294378874315) (STV 0.0 0.9999367205825538)))
+   (STV 0.125 0.9692294378874315))
 
 ; --- Derivations sharing an uncertain implication do not merge ---
 

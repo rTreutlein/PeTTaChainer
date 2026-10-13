@@ -1217,7 +1217,10 @@
                       false)
                    false)
                (CPU $fun (cons-atom (make-kb-context (brand KB $kbid) $ctx $vars) (cdr-atom $args)) $res)
-               (CPU $fun $args $res)))))))
+               (CPU $fun $args $res)))
+         ;; A query judgment reads its explicit source context in another KB
+         ;; namespace; that premise keeps its own context.
+         ($_other-kb $premise)))))
 
 (: contextualize-rule-args (-[semidet]-> SkFact (List SkPattern) (List SkPattern)))
 (= (contextualize-rule-args $goal $args)
@@ -1375,8 +1378,46 @@
                                false))))
                    false)
                ()
-               (foreach-flat inject-compiled-query-adds
-                  (collapse (mm2compileQuery (brand KB $kbid) (: $prf $type $tv)))))
+               ;; A compound root may already have prepared this leaf's
+               ;; scaffold. Require alpha identity before checking constraints:
+               ;; a bound instance needs its own assumption contexts. Copy
+               ;; the lookup so checking constraints cannot bind the caller.
+               (let ($lookup-type $lookup-ctx $lookup-proof $lookup-tv)
+                  (copy_term (data $type $kbctx $prf
+                     (if (head-is? $kbid implication-query)
+                        (statement-query-tv $tv)
+                        (if (is-var $tv) (CTV $positive $negative) $tv))))
+                  (if (== (collapse (once (match ccls_index
+                        (($lookup-type $lookup-ctx
+                           (cons $scaffold-head (cons $inner ())) $scaffold-tv)
+                         $scaffold-id $_args)
+                        (if (if (== $scaffold-head total-implication-frontier) true
+                               (== $scaffold-head conditional-implication))
+                           ;; Indexed lookup unifies its copied pattern. Read
+                           ;; the original shape by id before checking alpha
+                           ;; identity, so a general scaffold stays general.
+                           (match rules (runtime-rule-row $scaffold-id
+                                 ($scaffold-type $_ctx $_proof $_tv) $_premises)
+                              (if (=alpha $scaffold-type $type)
+                                 (if (= $lookup-tv $scaffold-tv)
+                                    (if (= $lookup-proof (cons $scaffold-head (cons $inner ())))
+                                       true (empty))
+                                    (empty))
+                                 (empty)))
+                           (empty))))) ())
+                     (foreach-flat inject-compiled-query-adds
+                        (collapse
+                           (if (if (head-is? $kbid implication-query) false
+                                   (if (is-var $tv) true (head-is? $tv CTV)))
+                              (let (compilation-plan $goal $adds)
+                                 (compile-implication-subgoal-query (brand KB $kbid)
+                                    (: $prf $type (if (is-var $tv) (CTV $positive-tv $negative-tv) $tv)))
+                                 (compiled-query (brand CompiledQueryGoal (internalize-proof-structure $goal))
+                                    (map-flat mm2stmt $adds)))
+                              (let* (($stored-kbid (brand KB $kbid))
+                                     ($source-kbid (statement-query-kb $stored-kbid)))
+                                 (mm2compileQuery $source-kbid (: $prf $type $tv))))))
+                     ())))
             ()))
       ($_other ()))))
 

@@ -29,11 +29,11 @@
 !(test (query 20 flatKb (: $p (C x) $tv))
    (: (by r (conjunction a b)) (C x) (STV 0.9 0.9999000081993594)))
 
-;; The derived statement answers an implication query. Its negative branch is
-;; the exported rule's, from the base rates of (And (A $x) (B $x)) and (C $x):
-;; nothing is known of them here.
-!(test (query 20 nestedKb (: $p (Implication (B x) (C x)) $tv))
-   (: (by r a) (Implication (B x) (C x)) (CTV (STV 0.9 0.9999000090991798) (STV 0.0 0.0))))
+;; Query the derived implication's positive judgment as an STV. Its internal
+;; negative storage branch still participates in modus ponens below.
+!(test
+   (query 20 nestedKb (: $p (Implication (B x) (C x)) $tv))
+   (: (by r a) (Implication (B x) (C x)) (STV 0.9 0.9999000090991798)))
 
 ;; Uncertain antecedents, with base rates from (A y), (B y), (C y): the same
 ;; strength as the flat rule, a b p + (1 - a b) n, for any a and b. The
@@ -58,15 +58,17 @@
    (: (by r (conjunction a b)) (C x) (STV 0.5289398930037214 0.007970898072552928)))
 
 ;; A nested implication query is judged as its exported form: the contexts
-;; assume (A x) and (B x) and prove (C x), so the answer is a CTV of STVs,
-;; the exported query's value, under the nested statement. The positive
+;; assume (A x) and (B x) and prove (C x), returning the exported positive
+;; STV under the nested statement. The positive
 ;; proof applies the nested rule step by step, (by (by r A) B).
-!(test (query 20 nestedRatesKb (: $p (Implication (A x) (Implication (B x) (C x))) $tv))
-   (: (merge/revision (total-implication (by (by r (ctx proof 2)) (ctx proof 2 1)) (by (by r (ctx proof 3)) (ctx proof 3 1))) (implication-instance-fold cpu)) (Implication (A x) (Implication (B x) (C x))) (CTV (STV 0.9 0.9000112453459356) (STV 0.18642287116100267 0.0002849808074353135))))
-!(test (query 20 nestedRatesKb (: $p (Implication (And (A x) (B x)) (C x)) $tv))
-   (: (merge/revision (total-implication (by (by r (ctx proof 4)) (ctx proof 4 1)) (by (by r (ctx proof 5)) (ctx proof 5 1))) (implication-instance-fold cpu)) (Implication (And (A x) (B x)) (C x)) (CTV (STV 0.9 0.9000112453459356) (STV 0.18642287116100267 0.0002849808074353135))))
+!(test
+   (query 20 nestedRatesKb (: $p (Implication (A x) (Implication (B x) (C x))) $tv))
+   (: (merge/revision (conditional-implication (by (by r (ctx proof 1)) (ctx proof 1 1))) (implication-instance-fold cpu)) (Implication (A x) (Implication (B x) (C x))) (STV 0.9 0.9000112453459356)))
+!(test
+   (query 20 nestedRatesKb (: $p (Implication (And (A x) (B x)) (C x)) $tv))
+   (: (merge/revision (conditional-implication (by (by r (ctx proof 2)) (ctx proof 2 1))) (implication-instance-fold cpu)) (Implication (And (A x) (B x)) (C x)) (STV 0.9 0.9000112453459356)))
 !(test (query 20 nestedRatesKb (: $p (Implication (A x) (Implication (B x) (C x))) (STV $s $c)))
-   (: (conditional-implication (by (by r (ctx proof 6)) (ctx proof 6 1))) (Implication (A x) (Implication (B x) (C x))) (STV 0.9 0.8999999988602204)))
+   (: (merge/revision (conditional-implication (by (by r (ctx proof 3)) (ctx proof 3 1))) (implication-instance-fold cpu)) (Implication (A x) (Implication (B x) (C x))) (STV 0.9 0.9000112453459356)))
 
 ;; Three levels, A → (B → (C → D)), against (A ∧ B ∧ C) → D: 0.8 · 0.6 · 0.7
 ;; · 0.9 = 0.3024, the negative branch 0 (no base rates).
@@ -84,10 +86,12 @@
 !(test (query 30 flat3Kb (: $p (D x) $tv))
    (: (by r (conjunction a b c)) (D x) (STV 0.3024 0.9376722270285538)))
 ;; The query of a three-level nested implication is the exported query's.
-!(test (query 30 nested3Kb (: $p (Implication (A x) (Implication (B x) (Implication (C x) (D x)))) $tv))
-   (: (total-implication (by (by (by r (ctx proof 7)) (ctx proof 7 1)) (ctx proof 7 2)) (by (by (by r (ctx proof 8)) (ctx proof 8 1)) (ctx proof 8 2))) (Implication (A x) (Implication (B x) (Implication (C x) (D x)))) (CTV (STV 0.9 0.9999000072995391) (STV 0.0 1.0e-06))))
-!(test (query 30 nested3Kb (: $p (Implication (And (A x) (B x) (C x)) (D x)) $tv))
-   (: (total-implication (by (by (by r (ctx proof 9)) (ctx proof 9 1)) (ctx proof 9 2)) (by (by (by r (ctx proof 10)) (ctx proof 10 1)) (ctx proof 10 2))) (Implication (And (A x) (B x) (C x)) (D x)) (CTV (STV 0.9 0.9999000072995391) (STV 0.0 1.0e-06))))
+!(test
+   (query 30 nested3Kb (: $p (Implication (A x) (Implication (B x) (Implication (C x) (D x)))) $tv))
+   (: (conditional-implication (by (by (by r (ctx proof 4)) (ctx proof 4 1)) (ctx proof 4 2))) (Implication (A x) (Implication (B x) (Implication (C x) (D x)))) (STV 0.9 0.9999000072995391)))
+!(test
+   (query 30 nested3Kb (: $p (Implication (And (A x) (B x) (C x)) (D x)) $tv))
+   (: (conditional-implication (by (by (by r (ctx proof 5)) (ctx proof 5 1)) (ctx proof 5 2))) (Implication (And (A x) (B x) (C x)) (D x)) (STV 0.9 0.9999000072995391)))
 
 ;; A CTV (p, n) on a nested rule is its exported rule's CTV:
 ;; a b p + (1 - a b) n = 0.48 · 0.9 + 0.52 · 0.2 = 0.536.
@@ -149,10 +153,28 @@
 !(compileadd gateKb (: s1 (Supplier Supplier1) (STV 1.0 0.9)))
 !(compileadd gateKb (: e1 (ExposedTo Supplier1 ClimateRisk) (STV 1.0 0.9)))
 !(compileadd gateKb (: src_rule (Implication (AcceptSource Report1) (Implication (And (Supplier $x) (ExposedTo $x ClimateRisk)) (LowerPrices $x))) (STV 1 0.9)))
-!(test (query 100 gateKb (: $p (Implication (AcceptSource Report1) (Implication (And (Supplier $x) (ExposedTo $x ClimateRisk)) (LowerPrices $x))) $tv))
-   (: (total-implication (by (by src_rule (ctx proof 11)) (conjunction (ctx proof 11 1) (ctx proof 11 2))) (by (by src_rule (ctx proof 12)) (conjunction (ctx proof 12 1) (ctx proof 12 2)))) (Implication (AcceptSource Report1) (Implication (And (Supplier $_0) (ExposedTo $_0 ClimateRisk)) (LowerPrices $_0))) (CTV (STV 1.0 0.8997569978203288) (STV 0.0 1.0e-06))))
-!(test (query 100 gateKb (: $p (Implication (AcceptSource Report1) (Implication (And (Supplier Supplier1) (ExposedTo Supplier1 ClimateRisk)) (LowerPrices Supplier1))) $tv))
-   (: (total-implication (by (by src_rule (ctx proof 13)) (conjunction (ctx proof 13 1) (ctx proof 13 2))) (by (by src_rule (ctx proof 14)) (conjunction (ctx proof 14 1) (ctx proof 14 2)))) (Implication (AcceptSource Report1) (Implication (And (Supplier Supplier1) (ExposedTo Supplier1 ClimateRisk)) (LowerPrices Supplier1))) (CTV (STV 1.0 0.8997569978203288) (STV 0.0 1.0e-06))))
+!(test
+   (query
+      100
+      gateKb
+      (:
+         $p
+         (Implication
+            (AcceptSource Report1)
+            (Implication (And (Supplier $x) (ExposedTo $x ClimateRisk)) (LowerPrices $x)))
+         $tv))
+   (: (conditional-implication (by (by src_rule (ctx proof 6)) (conjunction (ctx proof 6 1) (ctx proof 6 2)))) (Implication (AcceptSource Report1) (Implication (And (Supplier $_0) (ExposedTo $_0 ClimateRisk)) (LowerPrices $_0))) (STV 1.0 0.8997569978203288)))
+!(test
+   (query
+      100
+      gateKb
+      (:
+         $p
+         (Implication
+            (AcceptSource Report1)
+            (Implication (And (Supplier Supplier1) (ExposedTo Supplier1 ClimateRisk)) (LowerPrices Supplier1)))
+         $tv))
+   (: (conditional-implication (by (by src_rule (ctx proof 7)) (conjunction (ctx proof 7 1) (ctx proof 7 2)))) (Implication (AcceptSource Report1) (Implication (And (Supplier Supplier1) (ExposedTo Supplier1 ClimateRisk)) (LowerPrices Supplier1))) (STV 1.0 0.8997569978203288)))
 !(test (collapse (query 100 gateKb (: $p (Not (Implication (AcceptSource Report1) (Implication (And (Supplier $x) (ExposedTo $x ClimateRisk)) (LowerPrices $x)))) $tv)))
    ())
 !(test (collapse (query 100 gateKb (: $p (LowerPrices Supplier1) $tv)))
@@ -181,7 +203,8 @@
    (: (by r (conjunction g a f fr)) (C x) (STV 0.6480000000000001 0.9309628102246349)))
 ;; Its nested query, the gate a condition as above.
 !(compileadd openGateKb (: r (Implication (G R) (Implication (And (A $a) (F $f) (From $a $f)) (C $a))) (STV 1 0.9)))
-!(test (query 100 openGateKb (: $p (Implication (G R) (Implication (And (A $a) (F $f) (From $a $f)) (C $a))) $tv))
-   (: (total-implication (by (by r (ctx proof 19)) (conjunction (ctx proof 19 1) (ctx proof 19 2) (ctx proof 19 3))) (by (by r (ctx proof 20)) (conjunction (ctx proof 20 1) (ctx proof 20 2) (ctx proof 20 3)))) (Implication (G R) (Implication (And (A $_0) (F $_1) (From $_0 $_1)) (C $_0))) (CTV (STV 1.0 0.8996760262111828) (STV 0.0 1.0e-06))))
+!(test
+   (query 100 openGateKb (: $p (Implication (G R) (Implication (And (A $a) (F $f) (From $a $f)) (C $a))) $tv))
+   (: (conditional-implication (by (by r (ctx proof 11)) (conjunction (ctx proof 11 1) (ctx proof 11 2) (ctx proof 11 3)))) (Implication (G R) (Implication (And (A $_0) (F $_1) (From $_0 $_1)) (C $_0))) (STV 1.0 0.8996760262111828)))
 !(test (collapse (query 100 openGateKb (: $p (C x) $tv)))
    ())

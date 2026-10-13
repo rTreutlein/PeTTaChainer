@@ -118,12 +118,27 @@
 !(compileadd stormKb (: storm-h10 (Storm h10) (STV 0 1)))
 !(compileadd stormKb (: blocked-h10 (Blocked r1 h10) (STV 0 1)))
 !(compileadd stormKb (: late-h10 (Late s1 h10) (STV 0 1)))
-!(test (let (: $prf $t $tv) (query 200 stormKb (: $prf (RuleTruth (Implication (And (NextPeriod $p $t) (Storm $p)) (Storm $t))) $tv)) $tv)
-   (CTV (STV 0.4999350008580249 0.450600230398338) (STV 0.2059026272026664 0.5050260161337391)))
-!(test (let (: $prf $t $tv) (query 200 stormKb (: $prf (RuleTruth (Implication (Storm $p) (Blocked r1 $p))) $tv)) $tv)
-   (CTV (STV 0.9875621890547264 0.4506726457399103) (STV 0.008361204013377928 0.5496323529411765)))
-!(test (let (: $prf $t $tv) (query 200 stormKb (: $prf (RuleTruth (Implication (Blocked r1 $p) (Late s1 $p))) $tv)) $tv)
-   (CTV (STV 0.9875621890547264 0.4506726457399103) (STV 0.008361204013377928 0.5496323529411765)))
+!(test
+   (let
+      (: $prf $t $tv)
+      (query
+         200
+         stormKb
+         (: $prf (RuleTruth (Implication (And (NextPeriod $p $t) (Storm $p)) (Storm $t))) $tv))
+      $tv)
+   (STV 0.4999350008580249 0.450600230398338))
+!(test
+   (let
+      (: $prf $t $tv)
+      (query 200 stormKb (: $prf (RuleTruth (Implication (Storm $p) (Blocked r1 $p))) $tv))
+      $tv)
+   (STV 0.9875621890547264 0.4506726457399103))
+!(test
+   (let
+      (: $prf $t $tv)
+      (query 200 stormKb (: $prf (RuleTruth (Implication (Blocked r1 $p) (Late s1 $p))) $tv))
+      $tv)
+   (STV 0.9875621890547264 0.4506726457399103))
 !(compileadd stormKb (: next-t1 (NextPeriod h10 t1) (STV 1 1)))
 !(compileadd stormKb (: late-t1 (Late s1 t1) (STV 0 1)))
 !(compileadd stormKb (: next-t2 (NextPeriod t1 t2) (STV 1 1)))
@@ -145,5 +160,6 @@
 !(compileadd negKb (: b3 (B i3) (STV 0 1)))
 !(compileadd negKb (: a4 (A i4) (STV 0 1)))
 !(compileadd negKb (: b4 (B i4) (STV 0 1)))
-!(test (let (: $p $t $tv) (query 50 negKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
-   (CTV (STV 0.5 0.02) (STV 0.25612202882009555 0.4506485110763119)))
+!(test
+   (let (: $p $t $tv) (query 50 negKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
+   (STV 0.5 0.02))

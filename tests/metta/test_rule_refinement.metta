@@ -33,22 +33,19 @@
 ;; The rule-truth goal itself: axiom and fold revised, evidence is the rule's.
 !(test
    (query 400 refineKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv))
-   (: (merge/revision
-         (rule-axiom ab)
-         (implication-instance-fold cpu))
+   (:
+      (merge/revision (rule-axiom ab) (implication-instance-fold cpu))
       (RuleTruth (Implication (A $_x) (B $_x)))
-      (CTV (STV 0.8000224974690348 0.9000101239749476) (STV 0.0 1.0))))
+      (STV 0.8000224974690348 0.9000101239749476)))
 
 ;; The implication query answers through the shared rule-truth goal. The
 ;; hypothetical proof through ab shares the rule's evidence and is dominated.
 !(test
    (query 400 refineKb (: $p (Implication (A $v) (B $v)) $tv))
-   (: (rule-truth
-         (merge/revision
-            (rule-axiom ab)
-            (implication-instance-fold cpu)))
+   (:
+      (rule-truth (merge/revision (rule-axiom ab) (implication-instance-fold cpu)))
       (Implication (A $_v) (B $_v))
-      (CTV (STV 0.8000224974690348 0.9000101239749476) (STV 0.0 1.0))))
+      (STV 0.8000224974690348 0.9000101239749476)))
 
 ;; --- Facts added later join the fold --------------------------------------
 ;; The next query that reads the truth goal refolds it with the new samples.
@@ -74,11 +71,10 @@
 
 !(test
    (query 400 refreshKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv))
-   (: (merge/revision
-         (rule-axiom ab)
-         (implication-instance-fold cpu))
+   (:
+      (merge/revision (rule-axiom ab) (implication-instance-fold cpu))
       (RuleTruth (Implication (A $_x) (B $_x)))
-      (CTV (STV 0.8000449898772777 0.9000202459002052) (STV 0.0 1.0))))
+      (STV 0.8000449898772777 0.9000202459002052)))
 
 !(compileadd refreshKb (: a5 (A e) (STV 1.0 0.9)))
 
@@ -128,9 +124,7 @@
 
 !(test
    (query 400 refineFactsKb (: $p (Implication (A $v) (B $v)) $tv))
-   (: (implication-instance-fold cpu)
-      (Implication (A $_v) (B $_v))
-      (CTV (STV 1.0 0.0020209076619844817) (STV 1.0 0.0005052269154961204))))
+   (: (implication-instance-fold cpu) (Implication (A $_v) (B $_v)) (STV 1.0 0.0020209076619844817)))
 
 ;; --- Forward chaining fires a refined rule with its truth goal's value -----
 

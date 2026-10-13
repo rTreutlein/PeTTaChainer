@@ -175,6 +175,37 @@ argument_shape(Arg, Shape) :-
 'sk-step-proof'(Proof, Step) :-
     (   nonvar(Proof), Proof = ['proof-ref', Pid], user:'&proof'(Pid, Stored, _, _) -> Step = Stored ; Step = Proof ).
 
+% Different result keys can intern the same proof under different ids. Compare
+% the proof DAG without its result metadata or constructing an expanded tree.
+% Repeated reference pairs are visited once; variables are never unified.
+'same-proof?'(A, B, Same) :-
+    empty_nb_set(Seen),
+    ( same_proof_terms(A, B, Seen) -> Same = true ; Same = false ).
+
+same_proof_terms(A, B, Seen) :-
+    (   A == B -> true
+    ;   proof_ref_id(A, I), proof_ref_id(B, J)
+    ->  (   add_nb_set(I-J, Seen, true)
+        ->  user:'&proof'(I, AP, AE, _), user:'&proof'(J, BP, BE, _), AE == BE,
+            \+ opaque_proof_step(AP), \+ opaque_proof_step(BP),
+            same_proof_terms(AP, BP, Seen)
+        ;   true )
+    ;   proof_ref_id(A, I)
+    ->  user:'&proof'(I, AP, _, _), same_proof_terms(AP, B, Seen)
+    ;   proof_ref_id(B, J)
+    ->  user:'&proof'(J, BP, _, _), same_proof_terms(A, BP, Seen)
+    ;   nonvar(A), nonvar(B), A = [AH|AT], B = [BH|BT],
+        same_proof_terms(AH, BH, Seen), same_proof_terms(AT, BT, Seen)
+    ).
+
+proof_ref_id(Proof, Id) :-
+    is_list(Proof), Proof = [Head, Id], Head == 'proof-ref', integer(Id).
+
+% cpu omits the computation's arguments (a fold's population, for example).
+% Distinct stored computations therefore retain their reference identity.
+opaque_proof_step(Step) :-
+    ( Step == cpu -> true ; is_list(Step), member(Cell, Step), Cell == cpu ), !.
+
 % Hash sets (exclusion lists, unifier sets) are SWI ordered sets of key
 % hashes, so union and membership are linear merges over short lists.
 'hash-set'(Hashes, Set) :- sort(Hashes, Set).
@@ -869,11 +900,13 @@ alpha_unique_keys([Key|Keys], Seen, Unique) :-
 % independent copies used for subsumption. The local index shares the inputs;
 % findall retains order and copies each survivor just as MeTTa's collapse does,
 % isolating variables between returned answers.
+prune_answer_instances([], []) :- !.
+prune_answer_instances([Answer], [Kept]) :- !, copy_term(Answer, Kept).
 prune_answer_instances(Answers, Kept) :-
     numbered_answers(Answers, 1, Numbered),
     empty_assoc(Empty),
     reverse(Numbered, Reversed),
-    foldl(index_answer_proof, Reversed, Empty, Index),
+    foldl(index_answer_proof, Reversed, Empty-Empty, Index),
     findall(Answer, (member(Position-Answer, Numbered),
                      \+ answer_instance(Index, Position, Answer)), Kept).
 
@@ -882,26 +915,47 @@ numbered_answers([Answer|Answers], Position, [Position-Answer|Numbered]) :-
     Next is Position + 1,
     numbered_answers(Answers, Next, Numbered).
 
-index_answer_proof(Position-Answer, Before, After) :-
-    (   nonvar(Answer), Answer = [_, _, Proof, _], ground(Proof)
-    ->  (get_assoc(Proof, Before, Previous) -> true ; Previous = []),
-        put_assoc(Proof, Before, [Position-Answer|Previous], After)
-    ;   After = Before
+index_answer_proof(Position-Answer, Before-Memo, After-NextMemo) :-
+    (   nonvar(Answer), Answer = [_, _, Proof, _],
+        proof_identity_hash(Proof, Memo, NextMemo, Hash)
+    ->  (get_assoc(Hash, Before, Previous) -> true ; Previous = []),
+        put_assoc(Hash, Before, [Position-Answer|Previous], After)
+    ;   After = Before, NextMemo = Memo
     ).
 
-answer_instance(Index, Position, Answer) :-
-    nonvar(Answer), Answer = [_, _, Proof, _], ground(Proof),
-    get_assoc(Proof, Index, Candidates),
+% Hash the semantic proof DAG once per reference, without expanding it. An
+% open leaf has no identity hash and passes through; collisions are checked
+% by the same nonbinding proof comparison used by merging.
+proof_identity_hash(Proof, Memo, NextMemo, Hash) :-
+    (   proof_ref_id(Proof, Id)
+    ->  (   get_assoc(Id, Memo, Hash) -> NextMemo = Memo
+        ;   user:'&proof'(Id, Stored, _, _),
+            (   opaque_proof_step(Stored)
+            ->  term_hash(opaque(Id), Hash), ExpandedMemo = Memo
+            ;   proof_identity_hash(Stored, Memo, ExpandedMemo, Hash) ),
+            put_assoc(Id, ExpandedMemo, Hash, NextMemo) )
+    ;   nonvar(Proof), Proof = [Head|Tail]
+    ->  proof_identity_hash(Head, Memo, HeadMemo, HeadHash),
+        proof_identity_hash(Tail, HeadMemo, NextMemo, TailHash),
+        term_hash(node(HeadHash, TailHash), Hash)
+    ;   ground(Proof), term_hash(leaf(Proof), Hash), NextMemo = Memo
+    ).
+
+answer_instance(Index-Memo, Position, Answer) :-
+    nonvar(Answer), Answer = [_, _, Proof, _],
+    proof_identity_hash(Proof, Memo, _, Hash),
+    get_assoc(Hash, Index, Candidates),
     member(Other-General, Candidates),
     Other \== Position,
     '=alpha'(Answer, General, false),
     copy_term(Answer, [SpecificType, _, _, _]),
-    copy_term(General, [GeneralType, _, _, _]),
+    copy_term(General, [GeneralType, _, GeneralProof, _]),
     subsumes_term(GeneralType, SpecificType),
     (   Other < Position
     ->  true
     ;   \+ subsumes_term(SpecificType, GeneralType)
     ),
+    empty_nb_set(Seen), same_proof_terms(Proof, GeneralProof, Seen),
     !.
 
 % What building a skeleton row or node of a term costs, in rows of the row

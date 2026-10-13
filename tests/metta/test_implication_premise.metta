@@ -22,29 +22,15 @@
 
 !(test
    (query 60 implicationPremiseKb (: $prf (C) $tv))
-   (: (by ab_c (total-implication (by a_b (ctx proof 2)) (by a_b (ctx proof 3)))) (C) (STV 1.0 0.999700089898053)))
+   (: (by ab_c (total-implication (by a_b (ctx proof 0)) (by a_b (ctx proof 1)))) (C) (STV 1.0 0.999700089898053)))
 
 !(test
-   (query 60 implicationPremiseKb
-      (: $prf
-         (Implication
-            (Not (Dog))
-            (Dog))
-         $tv))
-   (: (total-implication (ctx proof 8) (ctx proof 9))
-      (Implication (Not (Dog)) (Dog))
-      (CTV (STV 0.0 1.0) (STV 1.0 1.0))))
+   (query 60 implicationPremiseKb (: $prf (Implication (Not (Dog)) (Dog)) $tv))
+   (: (conditional-implication (ctx proof 3)) (Implication (Not (Dog)) (Dog)) (STV 0.0 1.0)))
 
 !(test
-   (query 60 implicationPremiseKb
-      (: $prf
-         (Implication
-            (Not (Dog))
-            (Not (Dog)))
-         (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-   (: (total-implication (negated (ctx proof 10)) (negated (ctx proof 11)))
-      (Implication (Not (Dog)) (Not (Dog)))
-      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+   (query 60 implicationPremiseKb (: $prf (Implication (Not (Dog)) (Not (Dog))) (STV 1.0 1.0)))
+   (: (conditional-implication (negated (ctx proof 4))) (Implication (Not (Dog)) (Not (Dog))) (STV 1.0 1.0)))
 
 !(compileadd multiPremiseImplicationQueryKb
    (: ab_c
@@ -56,32 +42,12 @@
       (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
 !(test
-   (query 60 multiPremiseImplicationQueryKb
-      (: $prf (Implication (And (A) (B)) (C)) $tv))
-   (: (total-implication (by ab_c (conjunction (ctx proof 12) (ctx proof 12 1))) (by ab_c (conjunction (ctx proof 13) (ctx proof 13 1)))) (Implication (And (A) (B)) (C)) (CTV (STV 1.0 0.999700089898053) (STV 0.0 0.9998000399670116))))
+   (query 60 multiPremiseImplicationQueryKb (: $prf (Implication (And (A) (B)) (C)) $tv))
+   (: (conditional-implication (by ab_c (conjunction (ctx proof 5) (ctx proof 5 1)))) (Implication (And (A) (B)) (C)) (STV 1.0 0.999700089898053)))
 
 !(test
-   (query 60 implicationPremiseKb
-      (: $prf
-         (Implication
-            (And
-               (Implication (A) (B))
-               (A))
-            (B))
-         $tv))
-   (: (total-implication
-         (merge/revision
-            (by a_b (ctx proof 14 1))
-            (by (ctx proof 14) (ctx proof 14 1)))
-         (merge/revision
-            (by a_b (ctx proof 15 1))
-            (by (ctx proof 15) (ctx proof 15 1))))
-      (Implication
-         (And (Implication (A) (B)) (A))
-         (B))
-      (CTV
-         (STV 1.0 0.9999000099865026)
-         (STV 0.5000000000036097 0.9999000099865019))))
+   (query 60 implicationPremiseKb (: $prf (Implication (And (Implication (A) (B)) (A)) (B)) $tv))
+   (: (conditional-implication (merge/revision (by a_b (ctx proof 6 1)) (by (ctx proof 6) (ctx proof 6 1)))) (Implication (And (Implication (A) (B)) (A)) (B)) (STV 1.0 0.9999000099865026)))
 
 !(set-context-polymorphic-facts kbRelativeImplicationQueryKb true)
 
@@ -145,7 +111,7 @@
             (A)
             (B))
          $tv))
-   (: (bidirectional (by (bi-forward a_iff_b) (ctx proof 18)) (by (bi-backward a_iff_b) (ctx proof 19))) (BiImplication (A) (B)) (STV 1.0 0.9996001597861455)))
+   (: (bidirectional (by (bi-forward a_iff_b) (ctx proof 7)) (by (bi-backward a_iff_b) (ctx proof 8))) (BiImplication (A) (B)) (STV 1.0 0.9996001597861455)))
 
 !(test
    (query 60 implicationPremiseKb
