@@ -33,7 +33,7 @@ Consequences:
 Explicit rule withdrawal is separate from monotonic addition. Hypothesis
 review and the deprecated statement-removal path both retire compiled rule
 identities. Later reads exclude every derivation using them, including cached
-views. Rule provenance is an interned DAG set id per proof, separate from
+views. Rule provenance is a canonical interned set id per proof, separate from
 statistical evidence. The set id shares the proof record's existing metadata
 word with its negation bit, so provenance allocates no per-proof side table;
 a stale liveness memo checks only identities retired
@@ -47,7 +47,9 @@ removing it thaws the key and queues reconstruction from live rules. Its join
 digests get a new generation so old delivered joins can rebuild the erased
 rows. Retired waiters remove themselves on their first subsequent delivery.
 Withdrawal costs the affected physical copies; it does not scan row or proof
-history. The provenance sets and liveness memos are collected with proofs.
+history. Each distinct sorted rule-id set is stored once; regrouping or
+repeating unions returns the same id instead of retaining another derivation
+shape. The provenance sets and liveness memos are collected with proofs.
 
 ### Strict append-only follow-up
 

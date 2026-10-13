@@ -707,8 +707,9 @@ ev_common_step(['ev-set', Set], Ids-Sorted, Kept-Shared) :-
     ev_excluded(A, Excluded),
     (   Excluded \== [], ev_sorted(B, SortedB), ord_intersect(Excluded, SortedB) -> Result = true ; Result = false ).
 
-% Rule provenance is a shared DAG, independent of statistical evidence and
-% mutable dependency cuts. Proofs keep one set id, never transitive lists.
+% Rule provenance interns canonical sets, independent of statistical evidence
+% and mutable dependency cuts. Proofs keep one set id; each distinct set owns
+% its sorted identities once, regardless of derivation order or repeated joins.
 :- dynamic retired_rule/2, retired_epoch/2, proof_live_memo/3,
            summary_rules/3, rule_set/4, rule_leaf/2, stored_rules/5, stored_rule/2, thaw_generation/3.
 
@@ -721,25 +722,26 @@ ev_common_step(['ev-set', Set], Ids-Sorted, Kept-Shared) :-
 
 rule_set_leaf(Rule, Set) :-
     ( rule_leaf(Rule, Set) -> true
-    ; deps_bit(Rule, Mask), rule_set_new(leaf(Rule), [], Mask, Set), assertz(rule_leaf(Rule, Set)) ).
+    ; deps_bit(Rule, Mask), rule_set_new(leaf(Rule), [Rule], Mask, Set), assertz(rule_leaf(Rule, Set)) ).
 
 rule_sets_join(Sets, Set) :-
     sort(Sets, Sorted), exclude(==(0), Sorted, Children),
     ( Children == [] -> Set = 0
     ; Children = [Set] -> true
-    ; term_hash(Children, Hash),
-      ( rule_set(Set, union(Hash), Children, _) -> true
-      ; foldl([Child, M0, M]>>(rule_set(Child, _, _, CM), M is M0 \/ CM), Children, 0, Mask),
-        rule_set_new(union(Hash), Children, Mask, Set) ) ).
+    ; foldl([Child, R0, R]>>(rule_set(Child, _, Rs, _), ord_union(R0, Rs, R)), Children, [], Rules),
+      ( Rules = [Rule] -> rule_set_leaf(Rule, Set)
+      ; term_hash(Rules, Hash),
+        ( rule_set(Set, union(Hash), Rules, _) -> true
+        ; foldl([Rule, M0, M]>>(deps_bit(Rule, Bit), M is M0 \/ Bit), Rules, 0, Mask),
+          rule_set_new(union(Hash), Rules, Mask, Set) ) ) ).
 
-% A new set inherits current liveness from its immediate children. Starting
-% its memo at zero would make every new derivation reread the retirement log.
-rule_set_new(Kind, Children, Mask, Set) :-
+% Only a distinct set allocates storage. Its first read starts at the current
+% epoch, so new derivations never replay the historical retirement log.
+rule_set_new(Kind, Rules, Mask, Set) :-
     flag(rule_set_next, N, N + 1), Set is N + 1,
-    assertz(rule_set(Set, Kind, Children, Mask)), flag(withdraw_epoch, Epoch, Epoch),
+    assertz(rule_set(Set, Kind, Rules, Mask)), flag(withdraw_epoch, Epoch, Epoch),
     ( Epoch =:= 0 -> true
-    ; ( ( Kind = leaf(Rule) -> \+ retired_rule(Rule, _) ; forall(member(Child, Children), rule_set_live(Child, Epoch)) )
-        -> Live = true ; Live = false ),
+    ; ( forall(member(Rule, Rules), \+ retired_rule(Rule, _)) -> Live = true ; Live = false ),
       assertz(proof_live_memo(Set, Epoch, Live)) ).
 
 proof_rule_set(Proof, Set) :-
@@ -786,11 +788,9 @@ rule_set_live(Set, Epoch) :-
       ( between(First, Epoch, E), retired_epoch(E, Rule), rule_set_has(Set, Rule) -> Next = false ; Next = true ),
       retractall(proof_live_memo(Set, _, _)), assertz(proof_live_memo(Set, Epoch, Next)), Next == true ).
 
-rule_set_has(Set, Rule) :- rule_leaf(Rule, _), deps_bit(Rule, Bit), empty_nb_set(Seen), rule_set_has(Set, Rule, Bit, Seen).
-rule_set_has(Set, Rule, Bit, Seen) :-
-    rule_set(Set, Kind, Children, Mask), Mask /\ Bit =\= 0,
-    ( Kind = leaf(Rule) -> true
-    ; add_nb_set(Set, Seen, true), member(Child, Children), rule_set_has(Child, Rule, Bit, Seen), ! ).
+rule_set_has(Set, Rule) :-
+    rule_leaf(Rule, _), deps_bit(Rule, Bit), rule_set(Set, _, Rules, Mask),
+    Mask /\ Bit =\= 0, ord_memberchk(Rule, Rules).
 
 % Physical KB copies have an inverse index. Expanding a set happens only at
 % copy publication, never for every proof or every read. Replacing/removing a
@@ -799,14 +799,8 @@ rule_set_has(Set, Rule, Bit, Seen) :-
     'forget-stored-rules!'(Kind, Hash, Key, true), proof_rule_set(Proof, Set),
     flag(stored_rules_next, N, N + 1), Token is N + 1,
     assertz(stored_rules(Token, Kind, Hash, Key, Set)),
-    empty_nb_set(Seen), rule_set_register(Set, Token, Seen).
-rule_set_register(0, _, _) :- !.
-rule_set_register(Set, Token, Seen) :-
-    ( add_nb_set(Set, Seen, true)
-    -> rule_set(Set, Kind, Children, _),
-       ( Kind = leaf(Rule) -> assertz(stored_rule(Rule, Token))
-       ; forall(member(Child, Children), rule_set_register(Child, Token, Seen)) )
-    ; true ).
+    ( Set =:= 0 -> true
+    ; rule_set(Set, _, Rules, _), forall(member(Rule, Rules), assertz(stored_rule(Rule, Token))) ).
 
 'forget-stored-rules!'(Kind, Hash, Key, true) :-
     forall(( stored_rules(Token, Kind, Hash, Stored, _), Stored =@= Key ),
@@ -828,9 +822,13 @@ rule_sets_gc :-
     forall(( proof_rules(_, Set) ; summary_rules(_, _, Set) ; stored_rules(_, _, _, _, Set) ), rule_set_mark(Set, Live)),
     forall(( clause(rule_set(Set, _, _, _), true, Ref), \+ add_nb_set(Set, Live, false) ),
            ( erase(Ref), retractall(rule_leaf(_, Set)), retractall(proof_live_memo(Set, _, _)) )).
+
 rule_set_mark(0, _) :- !.
 rule_set_mark(Set, Live) :-
-    ( add_nb_set(Set, Live, true) -> rule_set(Set, _, Children, _), forall(member(Child, Children), rule_set_mark(Child, Live)) ; true ).
+    ( add_nb_set(Set, Live, true)
+    -> rule_set(Set, _, Rules, _),
+       forall(( member(Rule, Rules), rule_leaf(Rule, Leaf) ), add_nb_set(Leaf, Live, _))
+    ; true ).
 
 % A rule is dormant when one of its statement premises can be proved, apart
 % from a stored fact, only through the rule's own conclusion with the same

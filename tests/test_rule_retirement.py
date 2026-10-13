@@ -36,6 +36,27 @@ class TestRuleRetirement(unittest.TestCase):
         self.assertLess(stats["Min"], 100)
         self.assertLess(stats["FirstRead"], 100)
 
+    def test_repeated_and_regrouped_joins_share_one_set(self):
+        import janus_swi
+
+        PeTTaChainer()
+        stats = janus_swi.query_once(
+            "rule_set_leaf(240000001, _A), rule_set_leaf(240000002, _B), "
+            "rule_set_leaf(240000003, _C), rule_sets_join([_A, _B], _AB), "
+            "rule_sets_join([_AB, _C], Set), rule_sets_join([_C, _B], _BC), "
+            "rule_sets_join([_BC, _A], Regrouped), "
+            "aggregate_all(count, rule_set(_, _, _, _), Before), "
+            "forall(between(1, 1000, _), rule_sets_join([Set, _A, _AB, _BC], Set)), "
+            "aggregate_all(count, rule_set(_, _, _, _), After), "
+            "_Flags is Set << 1, assertz(user:'&proof'(2000000070, [], ['ev-set', 0], _Flags)), "
+            "rule_sets_gc, 'withdraw-rule!'(240000001, _), "
+            "'proof-live?'(['proof-ref', 2000000070], Live), "
+            "retractall(user:'&proof'(2000000070, _, _, _)), rule_sets_gc"
+        )
+        self.assertEqual(stats["Set"], stats["Regrouped"])
+        self.assertEqual(stats["Before"], stats["After"])
+        self.assertEqual(stats["Live"], "false")
+
     def test_delivered_retired_waiters_leave_the_index(self):
         import janus_swi
 
