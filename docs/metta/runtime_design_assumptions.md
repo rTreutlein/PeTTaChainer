@@ -226,6 +226,22 @@ over the decision's outcomes had no value at budget 8). A statement stored at
 confidence 1 with another strength keeps those rows: conditioning ranks it
 by the dependencies of its rows' views.
 
+Searches already started for a statement that becomes known are obsolete
+optimization state too. Partial joins are indexed by their bound conclusion,
+as well as by the premise they await. Storing a known fact queues retirement
+by that statement and context; activation and query cleanup erase bounded
+slices of its waiters, deferred work and extension digests. A join whose
+conclusion is already known extends no further. Child links have waiter
+leases, with separate ownership for folds and subsumption, so retiring one
+bound conclusion of an open search leaves its other conclusions searchable.
+Only unowned links leave, with their pending graph edges. Incoming links and
+parked answer deliveries belong to surviving consumers and stay. Per-node work is
+subtracted on retirement; union-find aliases a surviving component still
+uses stay until its last node leaves. Facts, completed rows, views, sample
+contributions, regimes and leave-one-out indexes do not leave with search
+work. A fractional confidence-1 fact retains its backward derivations for
+conditioning, as before.
+
 A rule stated with confidence 1 in every branch is given, not estimated: its
 applications carry no evidence of it. A rule stated with less, or refined from
 its instances, is evidence of every proof through it, so a proof of the rule

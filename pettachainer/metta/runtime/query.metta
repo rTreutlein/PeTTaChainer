@@ -129,6 +129,7 @@
           (present-query-plan-results $expand? $roots $runtime-results))
        ($_clear-temp-after (clear-temp-query-adds))
        ($_contexts (sk-clear-contexts!))
+       ($_retired (sk-retire-searches!))
        ;; What the contexts' rows interned and stored is reached by nothing now.
        ($_collected (if (deps-gc-due?) (deps-gc! (sk-deps-roots)) true))
        ($_refs (stored-refs-gc-step!)))

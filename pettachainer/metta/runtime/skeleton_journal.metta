@@ -422,6 +422,7 @@
 (: sk-note-fact! (-[det]-> Statement KBContext Atom))
 (= (sk-note-fact! $type $kbctx)
    (let* (($key (sk-key $type $kbctx))
+          ($_retired (sk-retire-known! $type $kbctx))
           ($expanded (not (== (collapse (once (match &sk_expanded ($_hash $_pattern) true))) ())))
           ($_pending
              (if $expanded

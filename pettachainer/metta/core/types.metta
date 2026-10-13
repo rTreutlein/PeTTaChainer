@@ -38,6 +38,11 @@
 (: deps-gc-due? (-[det]-> Bool))
 (: stored-refs-gc! (-[det]-> Bool))
 (: stored-refs-gc-step! (-[det]-> Bool))
+(: sk-known-conclusion? (-[det]-> $fact Bool))
+(: sk-store-link! (-[det]-> Number $link Bool))
+(: sk-keep-child! (-[det]-> $owner $child Bool))
+(: sk-retire-known! (-[det]-> Statement KBContext Bool))
+(: sk-retire-searches! (-[det]-> Bool))
 
 ;; Rules whose premise only their own conclusion supports (runtime_helpers.pl).
 (: rule-dormant? (-[det]-> Number Bool))

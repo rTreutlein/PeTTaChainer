@@ -135,12 +135,12 @@
                        (($type $kbctx $_p $_v) (sk-key $type $kbctx)))))
                    ($key-digest (link-digest $conclusion-key)))
                (if (space-row-present? &sk_join_link ($key-digest $digest)) false
-                  (let* (($_row (add-atom &sk_join_link ($key-digest $digest)))
+                  (let* (($_row (sk-store-link! $digest $link))
                          ($_noted (sk-note-context! $ctx (ctx-join-link $key-digest $digest))))
                      true))))
          ($_other
             (if (space-row-present? &sk_link ($digest)) false
-               (let* (($_row (add-atom &sk_link ($digest)))
+               (let* (($_row (sk-store-link! $digest $link))
                       ($_noted (sk-note-context! $ctx (ctx-link $digest))))
                   true)))))))
 
@@ -776,40 +776,42 @@
 
 (= (sk-advance! (sk-partial $owner $rule $concl $done $remaining $keys))
    (if (rule-live? $rule)
-   (case $remaining (
-      (()
-         (let (sk-reading $_none $premises) (fold-semidet sk-read-step (sk-reading $keys ()) $done)
-            (sk-complete-row! $owner $rule $concl $premises $keys)))
-      ((cons $premise $rest)
-         (case $premise (
-            ((CPU $fun $args $_res)
-               (if (== $fun FoldAllCompiled)
-                  (let $_child
-                     (if (== (search-id-value sk_forward_run) 1) (sk-forward-note-fold! $premise)
-                        (let $score (sk-fold-child-score $args (sk-join-score $owner $rule $remaining) (sk-rate-entries $args))
-                           (if (> $score 0.0) (sk-add-child! $owner (copy_term $premise) $score) ())))
-                     (sk-advance!
-                        (sk-partial $owner $rule $concl (cons $premise $done) $rest
-                           (cons (sk-fold $args) $keys))))
-                  (if (== $fun GroupedFoldAllCompiled)
-                     (sk-wait-on! $owner $rule $premise
-                        (sk-partial $owner $rule $concl $done $remaining $keys))
-                     (if (== (extract-vars $args) ())
-                        (fold-semidet
-                           (sk-cpu-step
-                              (sk-partial $owner $rule $concl $done $remaining $keys))
-                           ()
-                           (collapse (cpu-call 0 $fun $args)))
-                        ;; Truth-value formulas run during evaluation.
+   (if (sk-known-conclusion? $concl) ()
+      (case $remaining (
+         (()
+            (let (sk-reading $_none $premises) (fold-semidet sk-read-step (sk-reading $keys ()) $done)
+               (sk-complete-row! $owner $rule $concl $premises $keys)))
+         ((cons $premise $rest)
+            (case $premise (
+               ((CPU $fun $args $_res)
+                  (if (== $fun FoldAllCompiled)
+                     (let $_child
+                        (if (== (search-id-value sk_forward_run) 1) (sk-forward-note-fold! $premise)
+                           (let $score (sk-fold-child-score $args (sk-join-score $owner $rule $remaining) (sk-rate-entries $args))
+                              (if (> $score 0.0)
+                                 (let $_kept (sk-keep-child! $owner $premise) (sk-add-child! $owner (copy_term $premise) $score)) ())))
                         (sk-advance!
-                           (sk-partial $owner $rule $concl (cons $premise $done) $rest $keys))))))
-            ;; A forward run reads a premise from what exists, never waiting.
-            ($_fact
-               (if (== (search-id-value sk_forward_run) 1)
-                  (fold-semidet (sk-extend-waiter-step (sk-partial $owner $rule $concl $done $remaining $keys)) ()
-                     (sk-forward-keys (copy_term $premise)))
-                  (sk-wait-on! $owner $rule $premise
-                     (sk-partial $owner $rule $concl $done $remaining $keys)))))))))
+                           (sk-partial $owner $rule $concl (cons $premise $done) $rest
+                              (cons (sk-fold $args) $keys))))
+                     (if (== $fun GroupedFoldAllCompiled)
+                        (sk-wait-on! $owner $rule $premise
+                           (sk-partial $owner $rule $concl $done $remaining $keys))
+                        (if (== (extract-vars $args) ())
+                           (fold-semidet
+                              (sk-cpu-step
+                                 (sk-partial $owner $rule $concl $done $remaining $keys))
+                              ()
+                              (collapse (cpu-call 0 $fun $args)))
+                           ;; Truth-value formulas run during evaluation.
+                           (sk-advance!
+                              (sk-partial $owner $rule $concl (cons $premise $done) $rest $keys))))))
+               ;; A forward run reads a premise from what exists, never waiting.
+               ($_fact
+                  (if (== (search-id-value sk_forward_run) 1)
+                     (fold-semidet (sk-extend-waiter-step (sk-partial $owner $rule $concl $done $remaining $keys)) ()
+                        (sk-forward-keys (copy_term $premise)))
+                     (sk-wait-on! $owner $rule $premise
+                        (sk-partial $owner $rule $concl $done $remaining $keys)))))))))))
       ()))
 
 ;; A ground computation (for example arithmetic on bound statement terms)
@@ -871,6 +873,7 @@
 ;; anyway. Joins of the query's roots always proceed.
 (= (sk-extend! (sk-partial $owner $rule $concl $done $remaining $keys) $key)
    (if (rule-live? $rule)
+   (if (sk-known-conclusion? $concl) ()
    (if (if (sk-root? $owner) true (> (search-id-value sk_row_budget) 0))
       (sk-extend-now! (sk-partial $owner $rule $concl $done $remaining $keys) $key)
       (let* (($hash (sk-node-hash $owner))
@@ -881,7 +884,7 @@
                    ($_pending (sk-work! $hash $owner 1))
                    ($_counted (query_metric_increment joins-deferred)))
                ())
-            ())))
+            ()))))
       (case $remaining (
          ((cons $premise $_rest)
             (let $hash (sk-node-hash $premise)
@@ -1577,6 +1580,7 @@
                   (let* (($member-hash (sk-node-hash $member))
                          ($_fold (add-atom &sk_fold ($hash $node $member)))
                          ($_member-of (add-atom &sk_member_of ($member-hash $member $node)))
+                         ($_kept (sk-keep-child! $node $member))
                          ($_child (sk-add-child! $node $member (sk-node-score $hash $node))))
                      (fold-semidet (sk-fold-answer-step $node) () (sk-answers $member))))))))
       (($type $kbctx $proof $tv)
@@ -1599,6 +1603,7 @@
                   ((cons $general $_more)
                      (let* (($ghash (sk-node-hash $general))
                             ($_row (add-atom &sk_subsumed ($ghash $general $owner)))
+                            ($_kept (sk-keep-child! $owner $general))
                             ($_child (sk-add-child! $owner $general (sk-node-score $hash $owner))))
                         (fold-semidet (sk-unifying-answer! $owner) () (sk-answers $general))))
                   (()
@@ -1710,7 +1715,8 @@
       ()))
 
 (= (sk-activate-pending!)
-   (let* (($_rules (sk-activate-rules!))
+   (let* (($_retired (sk-retire-searches!))
+          ($_rules (sk-activate-rules!))
           ($_thawed (sk-activate-thawed!)))
       (sk-activate-facts!)))
 

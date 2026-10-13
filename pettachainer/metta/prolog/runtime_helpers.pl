@@ -2053,9 +2053,146 @@ hypothesis_confidence(['CTV', ['STV', _, C], _], C).
 % PendingChildren), pw_deg(Rep, Children, Parents); pw_out(Rep, Child, Links)
 % and pw_in(Child, Rep, Links) for the condensed edges, with the child links
 % each stands for.
-:- dynamic pw_id/3, pw_up/2, pw_size/2, pw_work/2, pw_pend/2, pw_deg/3, pw_out/3, pw_in/3.
-:- dynamic('&sk_expanded'/2), dynamic('&sk_child'/4), dynamic('&sk_parked'/3),
-   dynamic('&sk_deferred_joins'/3), dynamic('&sk_deferred'/3).
+:- dynamic pw_id/3, pw_up/2, pw_size/2, pw_work/2, pw_pend/2, pw_deg/3, pw_out/3, pw_in/3, pw_local/2, pw_retired/2.
+:- dynamic '&sk_expanded'/2, '&sk_wait'/3, '&sk_link'/1, '&sk_child'/4,
+           '&sk_parked'/3, '&sk_deferred_joins'/3, '&sk_deferred'/3.
+
+% Search work is indexed by the ground statement/context it concludes, apart
+% from its awaited premise index. Clause references erase exactly that work;
+% retract listeners keep the index correct for ordinary context cleanup too.
+% None of the values, facts, rows or sample/tally stores belong to this index.
+:- dynamic sk_search_clause/4, sk_search_ref/2, sk_search_node/4, sk_retire_queue/2,
+           sk_child_edge/2, sk_child_users/2, sk_child_fixed/1.
+sk_search_init :-
+    (   nb_current(sk_search_listening, true) -> true
+    ;   forall(member(Space/Arity, ['&sk_wait'/3, '&sk_link'/1, '&sk_child'/4,
+                                   '&sk_deferred_joins'/3, '&sk_deferred'/3]),
+               prolog_listen(user:Space/Arity, sk_search_changed(Space))),
+        nb_setval(sk_search_listening, true)
+    ).
+
+sk_search_key([Type, Context|_], Hash, [Type, Context]) :-
+    nonvar(Context), Context = [_, _, _], ground(Type-Context),
+    term_hash([Type, Context], Hash).
+
+% Use the same fact selection as sk-complete-row!: forward copies, filtered
+% contexts and materialized facts cannot accidentally turn a cache into a
+% reason to retire a search. Only known true/false facts are absorbing under
+% conditioning; a fractional confidence-1 fact keeps its derivations.
+'sk-known-conclusion?'(Conclusion, Known) :-
+    sk_search_init,
+    (   sk_search_key(Conclusion, _, [Type, Context]),
+        'sk-leaf-facts'(Type, Context, 'sk-any-filter', Facts),
+        member([_, _, _, ['STV', S, C]], Facts), C >= 1, (S =:= 0; S =:= 1)
+    ->  Known = true
+    ;   Known = false
+    ).
+
+sk_search_index(Conclusion, Space, Ref) :-
+    (   sk_search_key(Conclusion, H, Key)
+    ->  assertz(sk_search_clause(H, Key, Space, Ref), Index), assertz(sk_search_ref(Ref, Index))
+    ;   true ).
+
+'sk-store-link!'(Digest, Link, true) :-
+    sk_search_init, assertz('&sk_link'(Digest), Ref),
+    (   Link = ['sk-join-link', ['sk-partial', _, _, Concl|_], _]
+    ->  sk_search_index(Concl, '&sk_link', Ref)
+    ;   true ).
+
+% The other uses of sk-add-child! (fold membership, fold premises and
+% subsumption) own their link independently of any waiter.
+'sk-keep-child!'(Owner, Child, true) :-
+    sk_search_init, 'link-digest'(['sk-child-link', Owner, Child], D),
+    ( sk_child_fixed(D) -> true ; assertz(sk_child_fixed(D)) ).
+
+sk_search_conclusion('&sk_wait', '&sk_wait'(_, _, ['sk-partial', _, _, C|_]), C).
+sk_search_conclusion('&sk_child', '&sk_child'(_, O, _, _), O).
+sk_search_conclusion('&sk_deferred_joins', '&sk_deferred_joins'(_, _, ['sk-join', ['sk-partial', _, _, C|_], _]), C).
+sk_search_conclusion('&sk_deferred', '&sk_deferred'(_, _, ['sk-deferred', _, _, C|_]), C).
+
+sk_search_changed(Space, assertz, Ref) :- !,
+    clause(Row, true, Ref),
+    ( sk_search_conclusion(Space, Row, C) -> sk_search_index(C, Space, Ref) ; true ),
+    (   Row = '&sk_wait'(_, N, ['sk-partial', O|_])
+    ->  'link-digest'(['sk-child-link', O, N], D),
+        ( retract(sk_child_users(D, N0)) -> N1 is N0 + 1 ; N1 = 1 ),
+        assertz(sk_child_users(D, N1))
+    ;   Row = '&sk_child'(_, O, N, _)
+    ->  'link-digest'(['sk-child-link', O, N], D),
+        assertz(sk_child_edge(D, Ref))
+    ;   true ).
+sk_search_changed(Space, retract, Ref) :- !,
+    forall(retract(sk_search_ref(Ref, Index)), erase(Index)),
+    (   Space == '&sk_wait', clause('&sk_wait'(_, N, ['sk-partial', O|_]), true, Ref)
+    ->  'link-digest'(['sk-child-link', O, N], D),
+        (   retract(sk_child_users(D, N0))
+        ->  N1 is N0 - 1,
+            (   N1 > 0 -> assertz(sk_child_users(D, N1))
+            ;   sk_child_fixed(D) -> true
+            ;   sk_child_edge(D, Edge) -> erase(Edge)
+            ;   true )
+        ;   true )
+    ;   Space == '&sk_child', clause('&sk_child'(OH, O, N, NH), true, Ref)
+    ->  'link-digest'(['sk-child-link', O, N], D),
+        retractall(sk_child_edge(D, Ref)), retractall(sk_child_fixed(D)),
+        retractall('&sk_link'(D)), pw_unlink(OH, O, NH, N),
+        pw_drop_unused(OH, O), pw_drop_unused(NH, N)
+    ;   true ).
+sk_search_changed(_, _, _).
+
+% Ingestion only records an indexed retirement. A bounded slice runs at query
+% activation and after its answers: even closing a long-deferred outcome does
+% not scan the history or erase all its owned records during the fact add.
+'sk-retire-known!'(Type, Context, true) :-
+    sk_search_init,
+    (   sk_search_key([Type, Context], H, Key),
+        ( sk_search_clause(H, Key, _, _) ; sk_search_node(H, Key, _, _) ),
+        'sk-known-conclusion?'([Type, Context], true)
+    ->  ( sk_retire_queue(H, Key) -> true ; assertz(sk_retire_queue(H, Key)) )
+    ;   true ).
+
+'sk-retire-searches!'(true) :- sk_retire_slice(512).
+
+sk_retire_slice(0) :- !.
+sk_retire_slice(Units) :-
+    (   sk_retire_queue(H, Key)
+    ->  (   sk_search_clause(H, Key, Space, Ref)
+        ->  sk_retire_clause(Space, Ref)
+        ;   sk_search_node(H, Key, NH, N)
+        ->  retract(sk_search_node(H, Key, NH, N)), pw_drop_unused(NH, N)
+        ;   retract(sk_retire_queue(H, Key)) ),
+        Left is Units - 1, sk_retire_slice(Left)
+    ;   true ).
+
+sk_retire_clause(Space, Ref) :-
+    (   memberchk(Space, ['&sk_deferred_joins', '&sk_deferred']), clause(Row, true, Ref)
+    ->  (   Row = '&sk_deferred_joins'(H, _, ['sk-join', ['sk-partial', O|_], _])
+        ;   Row = '&sk_deferred'(H, _, ['sk-deferred', O|_]) ),
+        'sk-work!'(H, O, -1, [])
+    ;   true ),
+    erase(Ref).
+
+% Removing one actual child link removes just its share of a condensed edge.
+% A merged component need not be split: its remaining nodes and work still
+% share the conservative component, as on context retirement, but the retired
+% node's own work and incident links no longer keep any parent pending.
+pw_unlink(OH, O, NH, N) :-
+    (   pw_known(OH, O, U), pw_known(NH, N, V), pw_find(U, RU), pw_find(V, RV), RU \== RV,
+        retract(pw_out(RU, RV, M0))
+    ->  retract(pw_in(RV, RU, M0)),
+        (   M0 > 1 -> M is M0 - 1, assertz(pw_out(RU, RV, M)), assertz(pw_in(RV, RU, M))
+        ;   pw_deg_add(RU, -1, 0), pw_deg_add(RV, 0, -1),
+            ( pw_pending_rep(RV) -> pw_add_pend(RU, -1) ; true ) )
+    ;   true ).
+
+pw_drop_unused(H, N) :-
+    (   pw_known(H, N, Id), pw_find(Id, R), pw_size(R, 1), pw_deg(R, 0, 0),
+        \+ holds_work(H)
+    ->  (   'sk-known-conclusion?'(N, true)
+        ->  forall(clause('&sk_score'(H, S, _), true, Ref), (attribute_free_variant(S, N) -> erase(Ref);true))
+        ;   true ),
+        'sk-drop-pending!'(H, N, [])
+    ;   true ).
 
 % A node's id, created with one work item when the node is unexpanded.
 pw_node(H, N, Id) :-
@@ -2063,6 +2200,8 @@ pw_node(H, N, Id) :-
     ;   flag(pw_next_id, Id, Id + 1),
         assertz(pw_id(H, N, Id)),
         ( '&sk_expanded'(H, S), attribute_free_variant(S, N) -> W = 0 ; W = 1 ),
+        assertz(pw_local(Id, W)),
+        ( sk_search_key(N, KH, Key) -> assertz(sk_search_node(KH, Key, H, N)) ; true ),
         assertz(pw_size(Id, 1)), assertz(pw_work(Id, W)), assertz(pw_pend(Id, 0)), assertz(pw_deg(Id, 0, 0))
     ).
 
@@ -2101,6 +2240,7 @@ holds_work(H) :- ( '&sk_parked'(H, _, _) ; '&sk_deferred_joins'(H, _, _) ; '&sk_
     ).
 
 pw_add_work(Id, Delta) :-
+    retract(pw_local(Id, L0)), L is L0 + Delta, assertz(pw_local(Id, L)),
     pw_find(Id, R),
     ( pw_pending_rep(R) -> Old = true ; Old = false ),
     retract(pw_work(R, W0)), W is W0 + Delta, assertz(pw_work(R, W)),
@@ -2219,6 +2359,7 @@ pw_merge(Members) :-
            ( D is Now - K, ( D =:= 0 -> true ; pw_add_pend(P, D) ) )).
 
 pw_absorb(R0, X, Members) :-
+    forall(retract(pw_retired(X, Id)), assertz(pw_retired(R0, Id))),
     assertz(pw_up(X, R0)),
     retract(pw_size(X, SX)), pw_bump(pw_size, R0, SX),
     retract(pw_work(X, WX)), pw_bump(pw_work, R0, WX),
@@ -2254,13 +2395,24 @@ pw_bump(Count, R, D) :-
     (   pw_known(H, N, Id)
     ->  pw_find(Id, R),
         forall(clause(pw_id(H, S, Id), true, Ref), ( attribute_free_variant(S, N) -> erase(Ref) ; true )),
-        retractall(pw_up(Id, _)),
+        (   sk_search_key(N, KH, _)
+        ->  forall(clause(sk_search_node(KH, _, H, SNode), true, NRef),
+                   ( attribute_free_variant(SNode, N) -> erase(NRef) ; true ))
+        ;   true ),
+        retract(pw_local(Id, Local)), pw_add_work_removed(R, Local),
+        assertz(pw_retired(R, Id)),
         pw_bump(pw_size, R, -1),
         ( pw_size(R, 0) -> pw_drop_rep(R) ; true )
     ;   true
     ).
 
+pw_add_work_removed(_, 0) :- !.
+pw_add_work_removed(R, Local) :-
+    ( pw_pending_rep(R) -> Old = true ; Old = false ),
+    pw_bump(pw_work, R, -Local), pw_changed(R, Old).
+
 pw_drop_rep(R) :-
+    forall(retract(pw_retired(R, Id)), retractall(pw_up(Id, _))),
     ( pw_pending_rep(R) -> D = -1 ; D = 0 ),
     forall(retract(pw_out(R, Y, _)), ( retract(pw_in(Y, R, _)), pw_deg_add(Y, 0, -1) )),
     findall(P, retract(pw_in(R, P, _)), Ps),
