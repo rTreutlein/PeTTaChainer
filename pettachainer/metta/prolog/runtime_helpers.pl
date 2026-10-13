@@ -445,8 +445,7 @@ refs_gc_dead(unions, ev_union_memo(Key, Union), _, SetLimit) :-
 
 refs_gc_live_set(Set, SetLimit) :- ( Set =:= 0 ; Set >= SetLimit ; refs_gc_set(Set) ), !.
 
-refs_gc_erase(proofs, user:'&proof'(Pid, _, _, _), Ref) :- !, erase(Ref), retractall(user:'&proof_fact'(Pid, _, _)),
-    retractall(proof_rules(Pid, _)).
+refs_gc_erase(proofs, user:'&proof'(Pid, _, _, _), Ref) :- !, erase(Ref), retractall(user:'&proof_fact'(Pid, _, _)).
 refs_gc_erase(_, _, Ref) :- erase(Ref).
 
 refs_gc_finish :-
@@ -710,7 +709,7 @@ ev_common_step(['ev-set', Set], Ids-Sorted, Kept-Shared) :-
 
 % Rule provenance is a shared DAG, independent of statistical evidence and
 % mutable dependency cuts. Proofs keep one set id, never transitive lists.
-:- dynamic retired_rule/2, retired_epoch/2, proof_rules/2, proof_live_memo/3,
+:- dynamic retired_rule/2, retired_epoch/2, proof_live_memo/3,
            summary_rules/3, rule_set/4, rule_leaf/2, stored_rules/5, stored_rule/2, thaw_generation/3.
 
 'withdraw-rule!'(Id, true) :-
@@ -747,20 +746,23 @@ proof_rule_set(Proof, Set) :-
     findall(S, ( sub_term(Ref, Proof), nonvar(Ref), proof_source_rules(Ref, S) ), Children),
     rule_sets_join(Children, Set).
 
-'record-proof-rules!'(Pid, Proof, true) :-
-    proof_rule_set(Proof, Set), ( Set =:= 0 -> true ; assertz(proof_rules(Pid, Set)) ).
+% Provenance occupies the proof's existing metadata word, alongside its
+% negation bit. There is no per-proof side table to grow with search scale.
+proof_rules(Pid, Set) :- user:'&proof'(Pid, _, _, Flags), Set is Flags >> 1, Set > 0.
+'proof-ref-negated?'(Pid, Negated) :-
+    ( user:'&proof'(Pid, _, _, Flags), Flags /\ 1 =:= 1 -> Negated = true ; Negated = false ).
 
-% Only permanent row identities can be withdrawn. A fresh proof ref is
-% finalized here before it is published in any view store.
-'record-view-rule!'(Hash, Key, Rhash, View, true) :-
-    ( ( View = ['sk-val', [_, _, ['proof-ref', Pid], _], _, _]
-      ; View = ['sk-goal-val', _, ['proof-ref', Pid], _, _] )
-    -> findall(Set, ( user:'&sk_row'(Hash, Stored, Rhash, ['sk-row', ['sk-ident', Id, _, _], _, _, _]),
-                     Stored =@= Key, Id < 1000000000, rule_set_leaf(Id, Set) ), Own),
-       ( proof_rules(Pid, Children) -> Sets = [Children|Own] ; Sets = Own ),
-       rule_sets_join(Sets, Set), retractall(proof_rules(Pid, _)),
-       ( Set =:= 0 -> true ; assertz(proof_rules(Pid, Set)) )
-    ; true ).
+% Compute the source set and permanent owner identity before the fresh proof
+% is published. Folds have no row identity and temporary query rows cannot
+% be withdrawn as permanent knowledge.
+'record-view-rule!'(Hash, Key, Rhash, View, Set) :-
+    ( ( View = ['sk-val', [_, _, Proof, _], _, _]
+      ; View = ['sk-goal-val', _, Proof, _, _] )
+    -> proof_rule_set(Proof, Children),
+       findall(Own, ( user:'&sk_row'(Hash, Stored, Rhash, ['sk-row', ['sk-ident', Id, _, _], _, _, _]),
+                      Stored =@= Key, Id < 1000000000, rule_set_leaf(Id, Own) ), Owners),
+       rule_sets_join([Children|Owners], Set)
+    ; Set = 0 ).
 
 'record-summary-rules!'(Hash, Epoch, Proof, true) :-
     proof_rule_set(Proof, Set), assertz(summary_rules(Hash, Epoch, Set)).

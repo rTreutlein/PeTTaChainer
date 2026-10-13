@@ -270,7 +270,9 @@
 ;; contains a negation anywhere. Stored proofs refer only to earlier ids, so
 ;; they form a DAG, and a proof term stays as small as one rule application.
 (: proof-ref (-[det]-> Number Proof))
-(: &proof (SpaceOf (Number Proof EvidenceSet Bool)))
+;; The metadata word packs the provenance set id and the negated bit:
+;; (set-id << 1) | negated. This replaces the old Boolean in place.
+(: &proof (SpaceOf (Number Proof EvidenceSet Number)))
 ;; the statement and truth value a stored fact proof proves
 (: &proof_fact (SpaceOf (Number Statement TV)))
 
@@ -343,12 +345,11 @@
 ;; Withdrawal provenance is independent of truth-value evidence.
 (: withdraw-rule! (-[det]-> Number Bool))
 (: rule-live? (-[det]-> Number Bool))
-(: record-proof-rules! (-[det]-> Number Proof Bool))
 (: proof-live? (-[det]-> Proof Bool))
 (: record-summary-rules! (-[det]-> Number Number Proof Bool))
 
 ;; Rule retirement and the physical stores exposing derived facts in &kb.
-(: record-view-rule! (-[det]-> Number SkeletonKey Number SkeletonValue Bool))
+(: record-view-rule! (-[det]-> Number SkeletonKey Number SkeletonValue Number))
 (: record-stored-rules! (-[det]-> Atom Number SkeletonKey Proof Bool))
 (: forget-stored-rules! (-[det]-> Atom Number SkeletonKey Bool))
 (: RetiredStore Type)

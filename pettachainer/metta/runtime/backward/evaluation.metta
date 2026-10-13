@@ -1076,30 +1076,27 @@
 ;; reference to it, so a view stays the size of one rule application however
 ;; deep its derivation is. What the evidence of a proof needs from its whole
 ;; tree, its leaves and whether it negates anything, is summarized with it.
-(: sk-store-proof! (-[semidet]-> Proof Proof))
-(= (sk-store-proof! $proof)
+(: sk-store-proof! (-[semidet]-> Number Proof Proof))
+(= (sk-store-proof! $rules $proof)
    (let* (($pid (next-search-id proof_id))
           ($leaves (once (proof-term-evidence proof-walk-in-kb $proof)))
-          ($negated (proof-term-contains-negated? $proof))
-          ($_row (add-atom &proof ($pid $proof $leaves $negated)))
-          ($_sources (record-proof-rules! $pid $proof)))
+          ($flags (+ (* 2 $rules) (if (proof-term-contains-negated? $proof) 1 0)))
+          ($_row (add-atom &proof ($pid $proof $leaves $flags))))
       (proof-ref $pid)))
-
-(: sk-ref-view! (-[semidet]-> SkeletonValue SkeletonValue))
-(= (sk-ref-view! $view)
-   (case $view (
-      ((sk-val ($type $kbctx $proof $tv) $ev $deps)
-         (let* (($ref (sk-store-proof! $proof))
-                ($_fact (case $ref (((proof-ref $pid) (add-atom &proof_fact ($pid $type $tv)))))))
-            (sk-val (data $type $kbctx $ref $tv) $ev $deps)))
-      ((sk-goal-val $goal $proof $ev $deps) (sk-goal-val $goal (sk-store-proof! $proof) $ev $deps))
-      (sk-none sk-none))))
 
 ;; A new view becomes the row's latest; the one it replaces is kept.
 (: sk-store-view! (-[semidet]-> Number SkeletonKey Number Number SkeletonValue SkeletonValue))
 (= (sk-store-view! $hash $key $seq $rhash $computed)
-   (let* (($view (sk-ref-view! $computed))
-          ($_source (record-view-rule! $hash $key $rhash $view))
+   (let* (($rules (record-view-rule! $hash $key $rhash $computed))
+          ($view
+             (case $computed (
+                ((sk-val ($type $kbctx $proof $tv) $ev $vdeps)
+                   (let* (($ref (sk-store-proof! $rules $proof))
+                          ($_fact (case $ref (((proof-ref $pid) (add-atom &proof_fact ($pid $type $tv)))))))
+                      (sk-val (data $type $kbctx $ref $tv) $ev $vdeps)))
+                ((sk-goal-val $goal $goal-proof $gev $gdeps)
+                   (sk-goal-val $goal (sk-store-proof! $rules $goal-proof) $gev $gdeps))
+                (sk-none sk-none))))
           ($deps (sk-view-deps-step 0 $view))
           ($_moved
              (collapse (match &sk_latest ($hash $stored (sk-version $old-seq $rhash $old))

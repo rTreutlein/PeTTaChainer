@@ -34,7 +34,9 @@ Explicit rule withdrawal is separate from monotonic addition. Hypothesis
 review and the deprecated statement-removal path both retire compiled rule
 identities. Later reads exclude every derivation using them, including cached
 views. Rule provenance is an interned DAG set id per proof, separate from
-statistical evidence; a stale liveness memo checks only identities retired
+statistical evidence. The set id shares the proof record's existing metadata
+word with its negation bit, so provenance allocates no per-proof side table;
+a stale liveness memo checks only identities retired
 since its last checked epoch. Proof ids remain durable and never reusable.
 
 Derived facts exposed in `&kb` (forward copies, materialized answers and

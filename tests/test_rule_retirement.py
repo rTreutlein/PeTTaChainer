@@ -14,7 +14,8 @@ class TestRuleRetirement(unittest.TestCase):
         stats = janus_swi.query_once(
             "findall(_S, (between(200000001, 200004096, _R), rule_set_leaf(_R, _S)), _Leaves), "
             "rule_sets_join(_Leaves, _Set), "
-            "forall(between(2000000000, 2000000063, _P), assertz(proof_rules(_P, _Set))), "
+            "_Flags is _Set << 1, "
+            "forall(between(2000000000, 2000000063, _P), assertz(user:'&proof'(_P, [], ['ev-set', 0], _Flags))), "
             "flag(withdraw_epoch, _Epoch, _Epoch), rule_set_live(_Set, _Epoch), "
             "findall(_Cost, (between(1, 128, _I), _R is 210000000 + _I, 'withdraw-rule!'(_R, _), "
             " flag(withdraw_epoch, _E, _E), statistics(inferences, _Before), rule_set_live(_Set, _E), "
@@ -24,7 +25,7 @@ class TestRuleRetirement(unittest.TestCase):
             "flag(withdraw_epoch, _Current, _Current), statistics(inferences, _Start), "
             "rule_set_live(_Fresh, _Current), statistics(inferences, _End), FirstRead is _End-_Start, "
             "aggregate_all(count, proof_rules(_, _Set), Shared), "
-            "retractall(proof_rules(_P, _Set)), rule_sets_gc, "
+            "retractall(user:'&proof'(_, [], ['ev-set', 0], _Flags)), rule_sets_gc, "
             "(proof_live_memo(_Set, _, _) -> Collected = 0 ; Collected = 1)"
         )
         self.assertEqual(stats["Shared"], 64)

@@ -134,16 +134,11 @@
 
 (: proof-ref-evidence (-[det]-> Number EvidenceSet))
 (= (proof-ref-evidence $pid)
-   (case (collapse (once (match &proof ($pid $_proof $ev $_negated) $ev))) (
+   (case (collapse (once (match &proof ($pid $_proof $ev $_flags) $ev))) (
       ((cons $ev $_rest) $ev)
       (() (ev-set 0)))))
 
 (: proof-ref-negated? (-[det]-> Number Bool))
-(= (proof-ref-negated? $pid)
-   (case (collapse (once (match &proof ($pid $_proof $_ev $negated) $negated))) (
-      ((cons $negated $_rest) $negated)
-      (() false))))
-
 ;; cdr-atom exposes the erased proof representation as an untyped list. This
 ;; is the boundary that restores the semantic Proof brand to each raw child.
 (: proof-children (-[det]-> Expression (List Proof)))
