@@ -722,8 +722,7 @@ ev_common_step(['ev-set', Set], Ids-Sorted, Kept-Shared) :-
 
 rule_set_leaf(Rule, Set) :-
     ( rule_leaf(Rule, Set) -> true
-    ; flag(rule_set_next, N, N + 1), Set is N + 1,
-      deps_bit(Rule, Mask), assertz(rule_leaf(Rule, Set)), assertz(rule_set(Set, leaf(Rule), [], Mask)) ).
+    ; deps_bit(Rule, Mask), rule_set_new(leaf(Rule), [], Mask, Set), assertz(rule_leaf(Rule, Set)) ).
 
 rule_sets_join(Sets, Set) :-
     sort(Sets, Sorted), exclude(==(0), Sorted, Children),
@@ -731,9 +730,18 @@ rule_sets_join(Sets, Set) :-
     ; Children = [Set] -> true
     ; term_hash(Children, Hash),
       ( rule_set(Set, union(Hash), Children, _) -> true
-      ; flag(rule_set_next, N, N + 1), Set is N + 1,
-        foldl([Child, M0, M]>>(rule_set(Child, _, _, CM), M is M0 \/ CM), Children, 0, Mask),
-        assertz(rule_set(Set, union(Hash), Children, Mask)) ) ).
+      ; foldl([Child, M0, M]>>(rule_set(Child, _, _, CM), M is M0 \/ CM), Children, 0, Mask),
+        rule_set_new(union(Hash), Children, Mask, Set) ) ).
+
+% A new set inherits current liveness from its immediate children. Starting
+% its memo at zero would make every new derivation reread the retirement log.
+rule_set_new(Kind, Children, Mask, Set) :-
+    flag(rule_set_next, N, N + 1), Set is N + 1,
+    assertz(rule_set(Set, Kind, Children, Mask)), flag(withdraw_epoch, Epoch, Epoch),
+    ( Epoch =:= 0 -> true
+    ; ( ( Kind = leaf(Rule) -> \+ retired_rule(Rule, _) ; forall(member(Child, Children), rule_set_live(Child, Epoch)) )
+        -> Live = true ; Live = false ),
+      assertz(proof_live_memo(Set, Epoch, Live)) ).
 
 proof_rule_set(Proof, Set) :-
     findall(S, ( sub_term(Ref, Proof), nonvar(Ref), proof_source_rules(Ref, S) ), Children),

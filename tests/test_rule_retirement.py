@@ -20,6 +20,9 @@ class TestRuleRetirement(unittest.TestCase):
             " flag(withdraw_epoch, _E, _E), statistics(inferences, _Before), rule_set_live(_Set, _E), "
             " statistics(inferences, _After), _Cost is _After-_Before), _Costs), "
             "max_list(_Costs, Max), min_list(_Costs, Min), "
+            "rule_set_leaf(230000000, _Leaf), rule_sets_join([_Set, _Leaf], _Fresh), "
+            "flag(withdraw_epoch, _Current, _Current), statistics(inferences, _Start), "
+            "rule_set_live(_Fresh, _Current), statistics(inferences, _End), FirstRead is _End-_Start, "
             "aggregate_all(count, proof_rules(_, _Set), Shared), "
             "retractall(proof_rules(_P, _Set)), rule_sets_gc, "
             "(proof_live_memo(_Set, _, _) -> Collected = 0 ; Collected = 1)"
@@ -30,6 +33,7 @@ class TestRuleRetirement(unittest.TestCase):
         # Mask collisions affect set membership but do not revisit that log.
         self.assertLess(stats["Max"], 500)
         self.assertLess(stats["Min"], 100)
+        self.assertLess(stats["FirstRead"], 100)
 
     def test_delivered_retired_waiters_leave_the_index(self):
         import janus_swi
