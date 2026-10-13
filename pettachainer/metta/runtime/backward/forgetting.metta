@@ -132,7 +132,11 @@
       (if (<= $horizon 0) $epoch
          (let* (($cutoff (- $epoch $horizon))
                 ($idle (collapse (match &sk_key_epoch ($hash $key $last)
-                          (if (<= $last $cutoff) (sk-frozen $hash $key) (empty)))))
+                          (if (<= $last $cutoff)
+                             ;; A model parameter keeps reading its live tally:
+                             ;; freezing the truth disconnects future samples.
+                             (if (sk-rule-truth-key? $key) (empty) (sk-frozen $hash $key))
+                             (empty)))))
                 ($_frozen (fold-semidet (sk-freeze! $epoch) () $idle))
                 ($_buried (fold-semidet sk-bury! () (collapse (match &sk_frozen ($fhash $fkey) (sk-frozen $fhash $fkey)))))
                 ($_collected (deps-gc! (sk-deps-roots))))

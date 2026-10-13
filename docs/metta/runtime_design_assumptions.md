@@ -441,6 +441,12 @@ distinct regimes. A `FoldAllTruth` fold
 reads its members' truth values as data and is treated the same way, so a rule
 can fold a group's beliefs and read one member of the group again.
 
+A refined `RuleTruth` key is a live model parameter, not a historical
+instance eligible for epoch freezing. Its row keeps reading the instance
+fold even while no query asks for the rule; freezing that row made a later
+read return an old summary and stopped later observations refining it.
+Ordinary historical beliefs retain the configured freezing and decay.
+
 An exact fold (`FoldAll`, `FoldAllValue`, `FoldAllTruth`) needs all its
 members. While its search has members still to come (members whose rows are
 stale, uncomputed or waiting for conditioning; premises of its member node
