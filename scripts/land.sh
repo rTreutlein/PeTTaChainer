@@ -6,30 +6,36 @@
 # rebased PeTTaChainer. See docs/agent_workflow.md ("Landing a branch").
 #
 # Without --push this is a dry run: it runs every check and prints what it
-# would change. With --push, and only when every check passed, it
+# would change (except --clean can retire an already landed branch).
+# With --push, and only when every check passed or flags were accepted, it
 # fast-forwards master (and supply-network), pushes both, and removes the
 # landed worktrees and branches.
 
 set -euo pipefail
 
 usage() {
-  printf 'Usage: %s <branch> [--chainergame <branch>] [--push]\n' "${0##*/}" >&2
+  printf 'Usage: %s <branch> [--chainergame <branch>] [--push] [--accept-flags <file>] [--clean]\n' "${0##*/}" >&2
   exit 2
 }
 
 branch=
 cg_branch=
 push=0
+clean=0
+accept_flags=
 while (( $# )); do
   case $1 in
     --chainergame) (( $# >= 2 )) || usage; cg_branch=$2; shift 2 ;;
     --push) push=1; shift ;;
+    --clean) clean=1; shift ;;
+    --accept-flags) (( $# >= 2 )) || usage; accept_flags=$2; shift 2 ;;
     -*) usage ;;
     *) [[ -z $branch ]] || usage; branch=$1; shift ;;
   esac
 done
 [[ -n $branch && $branch != master ]] || usage
 
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 main=$(dirname "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --path-format=absolute --git-common-dir)")
 # The machine's ChainerGame checkout and bench tools; scripts/test_land.sh
 # points them at stubs.
@@ -67,6 +73,55 @@ require_clean() {
   }
 }
 
+trap 'python3 "$script_dir/list_waiters.py" || true' EXIT
+
+# Rebasing changes commit IDs. Check patch equivalence before deleting the
+# original branch; git cherry alone ignores merge commits, so keep those
+# unless the branch itself is already an ancestor.
+retire() {
+  local repo=$1 br=$2 target=$3 wt extra
+  if ! git -C "$repo" merge-base --is-ancestor "$br" "$target"; then
+    if [[ -n $(git -C "$repo" cherry "$target" "$br" | sed -n '/^+/p') ||
+          -n $(git -C "$repo" rev-list --merges "$target..$br") ]]; then
+      printf 'kept branch %s: not fully landed in %s (git cherry or unlanded merge)\n' "$br" "$target"
+      return
+    fi
+  fi
+  wt=$(worktree_of "$repo" "$br")
+  if [[ -n $wt ]]; then
+    extra=$(git -C "$wt" status --porcelain --ignored)
+    if [[ -n $extra ]]; then
+      if (( ! clean )) || ! python3 - "$wt" <<'PY_CHECK'
+import subprocess
+import sys
+
+entries = subprocess.check_output([
+    'git', '-C', sys.argv[1], 'status', '--porcelain', '-z',
+    '--ignored', '--untracked-files=all',
+]).split(b'\0')
+for entry in filter(None, entries):
+    status, path = entry[:2], entry[3:].decode('utf-8', 'surrogateescape')
+    parts = path.rstrip('/').split('/')
+    if status not in (b'??', b'!!') or not (
+        parts[0] in ('.venv', 'scratch') or '__pycache__' in parts
+    ):
+        raise SystemExit(1)
+PY_CHECK
+      then
+        printf 'kept %s and branch %s: the worktree holds files outside the cleanup allowance (or --clean was not given):\n%s\n' "$wt" "$br" "$extra"
+        return
+      fi
+      printf 'cleaning %s: only .venv, __pycache__ or scratch extras:\n%s\n' "$wt" "$extra"
+      git -C "$repo" worktree remove --force "$wt"
+    else
+      git -C "$repo" worktree remove "$wt"
+    fi
+  fi
+  # Original rebased commits may not be ancestors; cherry checked their
+  # patches above. No need to rewrite the branch just to delete it.
+  git -C "$repo" branch -D "$br"
+}
+
 git -C "$main" rev-parse --verify --quiet "refs/heads/$branch" >/dev/null || die "no branch $branch"
 require_clean "$main" master
 if [[ -n $cg_branch ]]; then
@@ -74,15 +129,24 @@ if [[ -n $cg_branch ]]; then
   require_clean "$cg_main" supply-network
 fi
 
+if (( clean && ! push )) && [[ -z $accept_flags ]]; then
+  if [[ -z $(git -C "$main" cherry master "$branch" | sed -n '/^+/p') ]]; then
+    step "Clean previously landed worktrees and branches"
+    retire "$main" "$branch" master
+    [[ -z $cg_branch ]] || retire "$cg_main" "$cg_branch" supply-network
+    exit 0
+  fi
+fi
+
 name=${branch//\//-}
 land_wt=$main/.claude/worktrees/land-$name
-logs=$main/.claude/land-logs/$name-$(date +%Y%m%d-%H%M%S)
 cg_land=
 [[ -z $cg_branch ]] || cg_land=$(dirname "$cg_main")/ChainerGame-land-${cg_branch//\//-}
 for dir in "$land_wt" $cg_land; do
   [[ ! -e $dir ]] || die "$dir exists from an earlier landing; remove it with git worktree remove"
 done
-mkdir -p "$logs"
+mkdir -p "$main/.claude/land-logs"
+logs=$(mktemp -d "$main/.claude/land-logs/$name-$(date +%Y%m%d-%H%M%S).XXXXXX")
 
 # The landing worktrees are this script's own: each is marked once this run
 # has created it, and git removes the marked ones on any exit. A worktree at
@@ -92,6 +156,7 @@ cg_made=
 cleanup() {
   [[ -z $land_made ]] || git -C "$main" worktree remove --force "$land_wt"
   [[ -z $cg_made ]] || git -C "$cg_main" worktree remove --force "$cg_land"
+  python3 "$script_dir/list_waiters.py" || true
 }
 trap cleanup EXIT
 
@@ -170,8 +235,66 @@ step "Benchmarks: compare.sh master ${rebased:0:8} --full (log $logs/compare.log
 report=$(sed -n 's/^report: \(.*\) ([0-9]* s wall)$/\1/p' "$logs/compare.log")
 [[ -f $report ]] || die "compare.sh printed no report"
 sed -n '/^Thresholds:/q;p' "$report"
-verdict=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["verdict"])' "${report%/*}/compare.json")
-[[ $verdict == PASS ]] || die "benchmark $verdict; see $report"
+# compare.json is the authoritative report. Match whole case+metric keys,
+# never substrings or globs, and refuse failure/nondeterminism regardless of
+# the approval file. Save reasons beside the other landing logs.
+if ! python3 - "${report%/*}/compare.json" "$accept_flags" >"$logs/accepted-flags.log" <<'PY_FLAGS'
+import json
+from pathlib import Path
+import re
+import sys
+
+try:
+    data = json.loads(Path(sys.argv[1]).read_text())
+    approved = {}
+    if sys.argv[2]:
+        for number, line in enumerate(Path(sys.argv[2]).read_text().splitlines(), 1):
+            if not line.strip() or line.lstrip().startswith('#'):
+                continue
+            fields = line.split('\t')
+            if len(fields) != 3 or any(not field.strip() for field in fields):
+                raise ValueError(f'approval line {number}: expected case<TAB>metric<TAB>reason')
+            case, metric, reason = (field.strip() for field in fields)
+            key = (case, metric)
+            if key in approved:
+                raise ValueError(f'duplicate approval: {key}')
+            approved[key] = reason
+    verdict = data['verdict']
+    flags = data['regressions']
+    # A failure can exist in records even when compare labels it PASS (for
+    # example when both sides failed). Approvals cannot waive failed runs.
+    for row in data['records']:
+        for side in ('base', 'candidate'):
+            if row[side].get('exit') != 0 or 'unsupported' in row[side]:
+                raise ValueError(f"failed/unsupported run: {row['suite']} {row['case']} {side}")
+    if verdict == 'PASS':
+        if flags:
+            raise ValueError('PASS report contains regressions')
+    elif verdict != f"REGRESSIONS ({len(flags)}): " + '; '.join(flags) or not flags:
+        raise ValueError(f'unrecognized verdict: {verdict}')
+    cases = {f"{row['suite']} {row['case']}" for row in data['records']}
+    accepted = []
+    for flag in flags:
+        # Ordinary accuracy, per-kind error, and confirmed timing flags all
+        # end in numeric before/after values. Failure flags do not.
+        match = re.fullmatch(r'(.+) [-+0-9.eE]+ -> [-+0-9.eE]+(?: \(rerun [-+0-9.eE]+ -> [-+0-9.eE]+\))?', flag)
+        keys = [(case, match[1][len(case) + 1:]) for case in cases
+                if match and match[1].startswith(case + ' ')]
+        if len(keys) != 1 or keys[0] not in approved:
+            raise ValueError(f'unapproved, ambiguous or non-waivable flag: {flag}')
+        accepted.append(f'{flag}\n  Reason: {approved[keys[0]]}')
+    if accepted:
+        print(f'Report: {sys.argv[1]}')
+        print('Accepted flags (explicit coordinator approvals):')
+        print('\n'.join(accepted))
+except (OSError, ValueError, KeyError, TypeError) as error:
+    print(f'land: STOP: {error}', file=sys.stderr)
+    raise SystemExit(1)
+PY_FLAGS
+then
+  die "benchmark report not accepted; see $report"
+fi
+cat "$logs/accepted-flags.log"
 
 step "Land"
 act git -C "$main" merge --ff-only "$rebased"
@@ -179,33 +302,10 @@ act git -C "$main" merge --ff-only "$rebased"
 act git -C "$main" push origin master
 [[ -z $cg_branch ]] || act git -C "$cg_main" push origin supply-network
 
-# Removes a landed branch's worktree, points the branch at the commit that
-# landed (a rebased branch's own commits are not in master) and deletes it,
-# each step only when the previous one held. A worktree holding anything
-# besides its clean checkout (modified, untracked or ignored files) stays
-# untouched, and so does its branch: git worktree remove deletes ignored
-# files, and on an error it stops halfway through the directory.
-retire() {
-  local repo=$1 br=$2 tip=$3 target=$4 wt extra
-  git -C "$repo" merge-base --is-ancestor "$tip" "$target" || die "$target does not contain $tip"
-  wt=$(worktree_of "$repo" "$br")
-  if [[ -n $wt ]]; then
-    extra=$(git -C "$wt" status --porcelain --ignored)
-    if [[ -n $extra ]]; then
-      printf 'kept %s and branch %s: the worktree holds modified, untracked or ignored files:\n%s\n' "$wt" "$br" "$extra"
-      return
-    fi
-    git -C "$repo" worktree remove "$wt"
-  fi
-  git -C "$repo" branch -f "$br" "$tip"
-  git -C "$repo" merge-base --is-ancestor "$br" "$target"
-  git -C "$repo" branch -d "$br"
-}
-
 step "Retire landed worktrees and branches"
 if (( push )); then
-  retire "$main" "$branch" "$rebased" master
-  [[ -z $cg_branch ]] || retire "$cg_main" "$cg_branch" "$cg_branch" supply-network
+  retire "$main" "$branch" master
+  [[ -z $cg_branch ]] || retire "$cg_main" "$cg_branch" supply-network
 else
   printf 'dry run, would remove the worktree of %s and delete it once master contains it\n' "$branch"
   [[ -z $cg_branch ]] || printf 'dry run, would remove the worktree of %s and delete it once supply-network contains it\n' "$cg_branch"

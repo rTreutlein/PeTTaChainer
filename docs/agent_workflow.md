@@ -163,25 +163,44 @@ from it stops the whole pane, the coordinator and every agent included.
 
 ## Waiting for your own jobs
 
-Wait on something only your job produces: its PID (`wait`, `kill -0 $pid`),
-its own output file, or the background task's completion notification. Never
-wait on a global condition such as `until ! pgrep -f "compare.sh master"`:
-other agents run the same commands, so the loop may never end, and it keeps
-your worktree locked after you hand back. Stop every loop you started before
-handing back.
-`pgrep -f "<pattern>"` inside a loop also matches the loop's own command line,
-so such a loop never ends: wait on the PID you started instead.
+Every wait loop must run under `timeout N` and use `while kill -0 <PID>`,
+with the job PID captured from `$!`. Use `wait "$pid"` afterward to collect
+its exit status. A timeout ends the waiter, not the job: if it expires,
+stop the job and reap it before hand-back. Keep one waiter per job and stop
+every process you started before handing back.
 
-A waiter that looks for a marker in a log never ends if the job dies or is
-replaced before writing it. Tie every waiter to the job's PID, so it ends
-with the job either way:
+Never use `pgrep -f` in a wait loop: it matches the waiting shell's own
+command line and can match another agent's job. Never wait for a log
+marker: a job that dies before writing it leaves the waiter running forever.
+Read logs after the PID wait completes.
+
+Copy-pasteable example, run from your worktree root (600 seconds is the
+wait limit; adjust it for the job):
 
 ```bash
-until grep -q "GRID DONE" "$log" || ! kill -0 "$pid" 2>/dev/null; do sleep 30; done
+mkdir -p scratch
+set +m  # Disable shell job control so setsid keeps the PID captured below.
+# A separate process group makes timeout cleanup include the workers.
+setsid bash -c '
+  unset DISPLAY
+  ulimit -v 16000000
+  exec /nexus/Dev/OpenCog/bench/capped --slots 8 env PETTA_JOBS=8 scripts/verify.sh
+' >scratch/verify.log 2>&1 &
+pid=$!
+if timeout 600 bash -c 'while kill -0 "$1" 2>/dev/null; do sleep 1; done' _ "$pid"; then
+  if wait "$pid"; then status=0; else status=$?; fi
+else
+  kill -TERM -- "-$pid" 2>/dev/null || true
+  sleep 2
+  kill -KILL -- "-$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  status=124
+fi
+cat scratch/verify.log
+printf 'verify exit status: %s\n' "$status"
 ```
 
-When you kill or replace a job, kill its waiter in the same command. Keep
-one waiter per job.
+When you kill or replace a job, stop its waiter in the same command.
 
 All agents of a session share one scratchpad directory, so a generic name
 such as `grid.log` in it can be another agent's file. Put scripts and logs
@@ -242,7 +261,7 @@ The coordinator lands a branch with `scripts/land.sh`, run from any checkout
 of the repository; it always works on the main checkout's `master`:
 
 ```bash
-scripts/land.sh <branch> [--chainergame <cg-branch>] [--push]
+scripts/land.sh <branch> [--chainergame <cg-branch>] [--push] [--accept-flags <file>] [--clean]
 ```
 
 It stops at the first failure and changes nothing before every check has
@@ -266,21 +285,53 @@ passed:
    (`SUPPLYNET_LIVE_PETTACHAINER=1`, the rebased PeTTaChainer's `.venv`
    running `unittest tests.test_supplynet`).
 6. It runs `compare.sh master <rebased> --full` and stops unless the report
-   says `PASS`, printing the summary either way.
+   says `PASS`, printing the summary either way. `--accept-flags <file>`
+   allows only the exact case and metric pairs explicitly approved by the
+   user. Every regression must match; any new flag, unapproved accuracy
+   regression, failed/unsupported run or nondeterminism stops the landing.
+   False timing flags that a paired rerun did not repeat are not regressions.
 7. Only with `--push`: it fast-forwards `master` (and `supply-network`),
-   pushes both to `origin`, then removes each landed branch's worktree
-   (`git worktree remove`, no `--force`) and deletes the branch, each only
-   after `git merge-base --is-ancestor` shows the target contains it. A
-   worktree for which `git status --porcelain --ignored` lists anything
-   (modified, untracked or ignored files, such as `scratch/`, a repointed
-   `.venv` or `__pycache__`) is left untouched with its branch, and the
-   script prints the list: `git worktree remove` would delete ignored files.
-   Remove such a worktree by hand once nothing in it is needed.
+   pushes both to `origin`, then retires each landed branch's worktree and
+   branch. It checks ancestry or patch equivalence with `git cherry`
+   (no `+` commits); an unlanded merge commit cannot pass on patch
+   equivalence alone. By default, a worktree holding modified, untracked
+   or ignored files is kept with its branch and its files are listed.
+   `--clean` also removes worktrees holding only `.venv`, `__pycache__`
+   directories (at any depth), and root `scratch/` extras. It uses
+   `git worktree remove --force` only for that explicit allowance; any
+   tracked changes or other extra files keep the worktree and branch.
 
-Without `--push` it is a dry run: every check runs, and it prints the
-commands it would run instead of landing. Its own worktrees are removed on
-every exit. Logs go to `.claude/land-logs/<branch>-<time>/` in the main
-checkout.
+Approval files use three tab-separated columns: the full case name
+(`suite case`, exactly as in `compare.json`), metric, and a one-line reason
+recording the user's approval. No wildcards or partial names; ambiguous
+report names are refused. Blank lines and `#` comments are allowed. A per-kind metric is named, for example,
+`Inheritance error`. Each budget point is a separate case. Example:
+
+```bash
+printf 'supplynet example-case\tseconds\tUser approved known timing cost\n' >approved-flags.tsv
+scripts/land.sh <branch> --accept-flags approved-flags.tsv  # check first
+# Only after authorization to land/push:
+scripts/land.sh <branch> --accept-flags approved-flags.tsv --clean --push
+```
+
+Accepted flags, their measured before/after values and reasons are printed
+and saved in `accepted-flags.log` beside the verify and compare logs under
+`.claude/land-logs/<branch>-<time>.<unique>/` in the main checkout. This is the
+landing audit log; copy it with the landing report when handing back.
+
+Without `--push`, checks run and landing commands are printed. One exception:
+`scripts/land.sh <already-landed-branch> --clean` cleans an earlier landing
+without rerunning gates or pushing, after checking patch equivalence.
+It keeps any unsafe worktree and lists why. An unlanded branch still gets
+only a dry run. Adding `--accept-flags` requests the usual gate run even
+with `--clean`. The script's own temporary worktrees are removed on exit.
+
+On exit it lists suspected leftover shell wait loops; it never kills them.
+It checks literal `pgrep -f` targets against the process snapshot, excluding
+waiting shells, and recognizes numeric PID guards on log waiters. For log
+waiters without a PID, a missing job under the parent shell is only a
+heuristic and is labelled as such. Dynamic shell expressions and jobs
+launched elsewhere cannot reliably be resolved from command lines.
 
 `scripts/test_land.sh` runs the script end to end in throwaway repositories
 under `/tmp`, with stubs for `verify.sh`, `capped`, `compare.sh` and the
