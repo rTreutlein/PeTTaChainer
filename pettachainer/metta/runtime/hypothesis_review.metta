@@ -99,8 +99,9 @@
       false))
 
 ;; A dropped hypothesis leaves the live set and its rules leave the rule
-;; indexes, so no later search applies it; what it derived stays in the
-;; skeleton. It is never proposed again.
+;; indexes. Its durable joins and views are retired by rule identity, so no
+;; later read uses them. The historical proof store stays. It is never
+;; proposed again.
 (: hm-drop! (-[det]-> KB Atom Atom Atom))
 (= (hm-drop! $kb $name $consequent)
    (let* (($phash (hm-pattern-hash $kb $consequent))

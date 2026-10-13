@@ -441,7 +441,8 @@ refs_gc_dead(unions, ev_union_memo(Key, Union), _, SetLimit) :-
 
 refs_gc_live_set(Set, SetLimit) :- ( Set =:= 0 ; Set >= SetLimit ; refs_gc_set(Set) ), !.
 
-refs_gc_erase(proofs, user:'&proof'(Pid, _, _, _), Ref) :- !, erase(Ref), retractall(user:'&proof_fact'(Pid, _, _)).
+refs_gc_erase(proofs, user:'&proof'(Pid, _, _, _), Ref) :- !, erase(Ref), retractall(user:'&proof_fact'(Pid, _, _)),
+    retractall(proof_rules(Pid, _)), retractall(proof_live_memo(Pid, proof, _, _)).
 refs_gc_erase(_, _, Ref) :- erase(Ref).
 
 refs_gc_finish :-
@@ -701,6 +702,55 @@ ev_common_step(['ev-set', Set], Ids-Sorted, Kept-Shared) :-
 'evidence-excludes?'(['ev-set', A], ['ev-set', B], Result) :-
     ev_excluded(A, Excluded),
     (   Excluded \== [], ev_sorted(B, SortedB), ord_intersect(Excluded, SortedB) -> Result = true ; Result = false ).
+
+% Withdrawal retires rule identities without walking the skeleton. Stored
+% proofs keep the distinct permanent rule ids used by their immediate refs;
+% this provenance is separate from evidence (certain rules have no evidence).
+:- dynamic retired_rule/1, proof_rules/2, proof_live_memo/4, summary_rules/3.
+
+'withdraw-rule!'(Id, true) :-
+    ( retired_rule(Id) -> true
+    ; assertz(retired_rule(Id)), flag(withdraw_epoch, E, E + 1) ).
+
+'rule-live?'(Id, Live) :- ( retired_rule(Id) -> Live = false ; Live = true ).
+
+'record-proof-rules!'(Pid, Proof, true) :-
+    findall(Rules, ( sub_term(Ref, Proof), nonvar(Ref), proof_source_rules(Ref, Rules) ), Children),
+    foldl(ord_union, Children, [], Rules), assertz(proof_rules(Pid, Rules)).
+
+% Attach this row's identity at the store boundary, using the same indexed
+% row lookup as evaluation. Folds have no row identity; temporary query rows
+% leave with their query and cannot be withdrawn as permanent knowledge.
+'record-view-rule!'(Hash, Key, Rhash, View, true) :-
+    (   ( View = ['sk-val', [_, _, ['proof-ref', Pid], _], _, _]
+        ; View = ['sk-goal-val', _, ['proof-ref', Pid], _, _] )
+    ->  findall(Id, ( user:'&sk_row'(Hash, Stored, Rhash, ['sk-row', ['sk-ident', Id, _, _], _, _, _]),
+                     Stored =@= Key, Id < 1000000000 ), Own0),
+        sort(Own0, Own), proof_rules(Pid, Children), ord_union(Own, Children, Rules),
+        retractall(proof_rules(Pid, _)), assertz(proof_rules(Pid, Rules))
+    ;   true ).
+
+% Forgetting compresses the proof as well as the key; keep the identities
+% so its summary cannot hide a retired rule after the original refs are GC'd.
+'record-summary-rules!'(Hash, Epoch, Proof, true) :-
+    findall(Rules, ( sub_term(Ref, Proof), nonvar(Ref), proof_source_rules(Ref, Rules) ), Sources),
+    foldl(ord_union, Sources, [], Rules), assertz(summary_rules(Hash, Epoch, Rules)).
+
+proof_source_rules([Tag, Pid], Rules) :- Tag == 'proof-ref', integer(Pid), proof_rules(Pid, Rules).
+proof_source_rules([Tag, Hash, Epoch], Rules) :- Tag == forgotten, integer(Hash), integer(Epoch), summary_rules(Hash, Epoch, Rules).
+
+'proof-live?'(Proof, Live) :-
+    flag(withdraw_epoch, Epoch, Epoch),
+    ( Epoch =:= 0 -> Live = true
+    ; forall(( sub_term(Ref, Proof), nonvar(Ref), proof_source_rules(Ref, Rules) ),
+             proof_source_live(Ref, Rules, Epoch)) -> Live = true
+    ; Live = false ).
+
+proof_source_live(Ref, Rules, Epoch) :-
+    ( Ref = ['proof-ref', Id] -> Kind = proof ; Ref = [forgotten, Id, Kind] ),
+    ( proof_live_memo(Id, Kind, Epoch, Live) -> Live == true
+    ; ( member(RuleId, Rules), retired_rule(RuleId) -> Live = false ; Live = true ),
+      retractall(proof_live_memo(Id, Kind, _, _)), assertz(proof_live_memo(Id, Kind, Epoch, Live)), Live == true ).
 
 % A rule is dormant when one of its statement premises can be proved, apart
 % from a stored fact, only through the rule's own conclusion with the same
@@ -1715,6 +1765,18 @@ selected_conjuncts([X|Xs], Ys) :- select(X, Ys, Rest), selected_conjuncts(Xs, Re
 % for its constants: the newest Max distinct statements at its time point
 % Time or at one a link fact among Links makes the previous or next one, as
 % [Statement, Layer, Relation] (see hypothesis-candidates).
+% A late link considers observations at just its two ends. Keep the same
+% shared-constant and true-feature policy as fact ingestion, and the same
+% feature bound. Replaying a candidate never recounts an outcome.
+'hypothesis-link-observations'(Link, Ends, Max, Observations) :-
+    findall(['hm-observation', Fact, Strength, Layer, Features],
+            ( member([_, Time, Fact, Strength, Layer], Ends),
+              findall([Seq, Other, T, L],
+                      ( member([Seq, T, Other, S, L], Ends), S > 0.5,
+                        shared_constants(Fact, Other, Shared), Shared \== [] ), Rows),
+              'hypothesis-features'(Fact, Time, Rows, [Link], Max, Features) ),
+            Observations).
+
 'hypothesis-features'(Fact, Time, Rows, Links, Max, Features) :-
     findall(Key-[S, L, Relation], ( member([Seq, S, T, L], Rows), S \== Fact,
                                     feature_relation(Time, T, Links, Relation), Key is -Seq ), Keyed),

@@ -174,8 +174,9 @@
           ($_epoch (remove-data-rows! &sk_key_epoch (quote ($hash $key $_last))))
           ($_frozen (add-atom &sk_frozen ($hash $key))))
       (case $value (
-         ((sk-val ($type $kbctx $_proof $tv) $ev $_deps)
+         ((sk-val ($type $kbctx $proof $tv) $ev $_deps)
             (let* (($summary (assemble-runtime-fact $type $kbctx (brand Proof (forgotten $hash $epoch)) (sk-decayed-tv $tv)))
+                   ($_provenance (record-summary-rules! $hash $epoch $proof))
                    ($_stored (add-atom &sk_summary ($hash $key $summary $ev $deps)))
                    ($_kb (add-atom &kb $summary)))
                (kb-index-fact! live $summary)))

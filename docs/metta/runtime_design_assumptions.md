@@ -30,6 +30,12 @@ Consequences:
   revised together; overlapping paths need dominance, refinement, or cycle
   checks before aggregation.
 
+Mined hypothesis withdrawal is a separate proposal lifecycle: a review can
+retire a hypothesis's compiled rule identities. Historical rows and proof IDs
+stay, but later reads exclude derivations using those identities, including
+cached and compressed values. Retirement must be indexed by rule identity,
+with affected live rows refreshed lazily when needed, without scanning history.
+
 Removal is outside this logical model. The deprecated compatibility operation
 may remove current KB and index rows, but it does not delete durable proofs or
 make proof IDs reusable.

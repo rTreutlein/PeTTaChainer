@@ -310,7 +310,8 @@
       (match rules
          (runtime-rule-row $id $ccls $args)
          (let*
-            (($_prems
+            (($_retired (withdraw-rule! $id))
+             ($_prems
                 (remove-atom prem_index ($_pkey $_prem $id $_pidx)))
              ($_prefixes
                 (remove-atom &prem_prefix ($_prefix $_pprem $id $_ppidx)))
@@ -325,7 +326,7 @@
             (brand KB $kbid)))))
 
 ;; The rule rows registered under a statement name leave the rule indexes, so
-;; no later search applies them; the skeleton rows they built stay. Returns
+;; their durable joins and views are retired by identity too. Returns
 ;; the KBs they belonged to.
 (: withdraw-named-rules! (-[det]-> Proof (List KB)))
 (= (withdraw-named-rules! $name)

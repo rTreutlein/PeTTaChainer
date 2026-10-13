@@ -339,3 +339,10 @@
 (: ConceptNodePriorRuntime Type)
 (: ConceptNodePriorRuntime
    (-[det]-> KB Statement ConceptNodePriorRuntime))
+
+;; Withdrawal provenance is independent of truth-value evidence.
+(: withdraw-rule! (-[det]-> Number Bool))
+(: rule-live? (-[det]-> Number Bool))
+(: record-proof-rules! (-[det]-> Number Proof Bool))
+(: proof-live? (-[det]-> Proof Bool))
+(: record-summary-rules! (-[det]-> Number Number Proof Bool))

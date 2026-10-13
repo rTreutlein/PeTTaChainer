@@ -114,9 +114,11 @@
 (: sk-leaf-step (-[semidet]-> Number Bool (List Number) (List SkeletonValue) SkFact (List SkeletonValue)))
 (= (sk-leaf-step $hash $computed $exclude $kept $fact)
    (let $view (sk-leaf-view $hash $fact)
+      (if (sk-live-view? $view)
       (if (== (sk-view-deps-step 0 $view) (deps-key $hash)) (cons $view $kept)
          (if (if $computed (not (sk-summary-fact? $fact)) false) $kept
-            (if (deps-meet? $exclude (sk-view-deps-step 0 $view)) $kept (cons $view $kept))))))
+            (if (deps-meet? $exclude (sk-view-deps-step 0 $view)) $kept (cons $view $kept))))
+      $kept)))
 
 (: sk-leaf-views (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonValue)))
 (= (sk-leaf-views $hash $key $filter $exclude)
@@ -140,7 +142,6 @@
 
 ;; The last rule application of a proof, with its premise proofs still
 ;; references (runtime_helpers.pl).
-(: sk-step-proof (-[det]-> Proof Proof))
 (: same-proof? (-[det]-> Proof Proof Bool))
 
 (: sk-fact-step-proof (-[det]-> SkFact Proof))
@@ -910,14 +911,23 @@
 ;; usable when a newer one came to depend on one of them. An older view whose
 ;; dependencies include all of a newer one's is admitted only where the newer
 ;; one is, so storing a view drops those.
+(: sk-live-view? (-[det]-> SkeletonValue Bool))
+(= (sk-live-view? $view)
+   (case $view (
+      ((sk-val ($_type $_kbctx $proof $_tv) $_ev $_deps) (proof-live? $proof))
+      ((sk-goal-val $_goal $proof $_ev $_deps) (proof-live? $proof))
+      (sk-none true))))
+
 (: sk-admits? (-[det]-> SkeletonFilter (List Number) SkeletonValue Bool))
 (= (sk-admits? $filter $exclude $view)
+   (if (sk-live-view? $view)
    (case $view (
       ((sk-val $fact $_ev $deps)
          (if (deps-meet? $exclude $deps) false (sk-fact-matches? $filter $fact)))
       ((sk-goal-val $_goal $_proof $_ev $deps)
          (if (deps-meet? $exclude $deps) false true))
-      (sk-none false))))
+      (sk-none false)))
+   false))
 
 (: sk-admit-older (-[det]-> SkeletonFilter (List Number) SkeletonValue SkeletonValue SkeletonValue))
 (= (sk-admit-older $filter $exclude $kept $view)
@@ -1055,7 +1065,7 @@
 (: sk-latest-view (-[det]-> Number SkeletonKey Number SkeletonValue))
 (= (sk-latest-view $hash $key $rhash)
    (case (collapse (once (match &sk_latest ($hash $stored (sk-version $seq $rhash $view))
-            (if (=alpha $stored $key) $view (empty))))) (
+            (if (=alpha $stored $key) (if (sk-live-view? $view) $view (empty)) (empty))))) (
       ((cons $view $_rest) $view)
       (() sk-none))))
 
@@ -1068,7 +1078,8 @@
    (let* (($pid (next-search-id proof_id))
           ($leaves (once (proof-term-evidence proof-walk-in-kb $proof)))
           ($negated (proof-term-contains-negated? $proof))
-          ($_row (add-atom &proof ($pid $proof $leaves $negated))))
+          ($_row (add-atom &proof ($pid $proof $leaves $negated)))
+          ($_sources (record-proof-rules! $pid $proof)))
       (proof-ref $pid)))
 
 (: sk-ref-view! (-[semidet]-> SkeletonValue SkeletonValue))
@@ -1085,6 +1096,7 @@
 (: sk-store-view! (-[semidet]-> Number SkeletonKey Number Number SkeletonValue SkeletonValue))
 (= (sk-store-view! $hash $key $seq $rhash $computed)
    (let* (($view (sk-ref-view! $computed))
+          ($_source (record-view-rule! $hash $key $rhash $view))
           ($deps (sk-view-deps-step 0 $view))
           ($_moved
              (collapse (match &sk_latest ($hash $stored (sk-version $old-seq $rhash $old))
@@ -1588,7 +1600,12 @@
 (: sk-admitted-versions (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonVersion)))
 (= (sk-admitted-versions $hash $key $filter $exclude)
    (let* (($stored (sk-latest-versions $hash $key))
-          ($versions (if (== $stored ()) (sk-fold-views $hash $key) $stored)))
+          ($versions (case $key (
+             ((sk-key $_type $_kbctx) $stored)
+             ($_fold (case $stored (
+                ((cons (sk-version $_seq $_rhash $view) $_rest)
+                   (if (sk-live-view? $view) $stored (sk-fold-views $hash $key)))
+                (() (sk-fold-views $hash $key)))))))))
       (fold-semidet sk-cons-step () (fold-semidet (sk-admit-step $hash $key $filter $exclude) () $versions))))
 
 (: sk-version-view (-[det]-> SkeletonVersion SkeletonValue))
@@ -1686,7 +1703,7 @@
 (: sk-open-value (-[semidet]-> Number SkeletonKey SkeletonFilter SkeletonMerged))
 (= (sk-open-value $hash $key $filter)
    (case (collapse (once (match &sk_merged ($hash $stored $deps $value)
-            (if (=alpha $stored $key) (sk-merged $hash $stored $deps $value) (empty))))) (
+            (if (=alpha $stored $key) (if (sk-live-view? $value) (sk-merged $hash $stored $deps $value) (empty)) (empty))))) (
       ((cons $merged $_rest) (let $_counted (query_metric_increment merged-cache-hits) $merged))
       (()
          (let* (($_counted (query_metric_increment merged-cache-misses))
@@ -2108,9 +2125,9 @@
 (= (sk-application-waits? $node $found (sk-node-at $hash $child))
    (if $found true
       (if (sk-delivered? $child) false
-         (not (== (collapse (once (match &sk_wait ($hash $stored (sk-partial $owner $_rule ($_t $_k $proof $_v) $_done $_rest $_keys))
+         (not (== (collapse (once (match &sk_wait ($hash $stored (sk-partial $owner $rule ($_t $_k $proof $_v) $_done $_rest $_keys))
                      (if (=alpha $stored $child)
-                        (if (=alpha $owner $node) (if (rule-application-proof? $proof) true (empty)) (empty))
+                        (if (=alpha $owner $node) (if (rule-live? $rule) (if (rule-application-proof? $proof) true (empty)) (empty)) (empty))
                         (empty)))))
                   ())))))
 
@@ -2126,8 +2143,8 @@
                 ($hash (sk-node-hash $node)))
             (if (sk-expanded? $hash $node)
                (if (== (collapse (once (superpose (
-                         (match &sk_deferred_joins ($hash $_jhash $_join) true)
-                         (match &sk_deferred ($hash $_rhash $_deferred) true)))))
+                         (match &sk_deferred_joins ($hash $_jhash (sk-join (sk-partial $_o $join-rule $_c $_d $_r $_k) $_answer)) (if (rule-live? $join-rule) true (empty)))
+                         (match &sk_deferred ($hash $_rhash (sk-deferred $_owner $row-rule $_concl $_prems $_keys)) (if (rule-live? $row-rule) true (empty)))))))
                        ())
                   (if (fold-semidet (sk-application-waits? $node) false (sk-children $hash $node)) false true)
                   false)
@@ -2137,8 +2154,8 @@
 ;; Whether a rule application is among a statement's rows.
 (: sk-founded? (-[det]-> Number SkeletonKey Bool))
 (= (sk-founded? $hash $key)
-   (not (== (collapse (once (match &sk_row ($hash $stored $_rhash (sk-row $_ident ($_t $_k $proof $_v) $_ps $_seq))
-               (if (=alpha $stored $key) (if (rule-application-proof? $proof) true (empty)) (empty)))))
+   (not (== (collapse (once (match &sk_row ($hash $stored $_rhash (sk-row (sk-ident $rule $_keys $_key) ($_t $_k $proof $_v) $_ps $_seq))
+               (if (=alpha $stored $key) (if (rule-live? $rule) (if (rule-application-proof? $proof) true (empty)) (empty)) (empty)))))
             ())))
 
 (: sk-closed-row-step
@@ -2257,7 +2274,8 @@
 ;; the premises read as independent. A row read under a condition is charged
 ;; to the claim it is part of.
 (= (sk-row-view $given $exclude $khash $key $rhash $row)
-   (if (sk-claim-charge! $given)
+   (if (let (sk-row (sk-ident $rule $_keys $_key) $_concl $_prems $_seq) $row
+          (if (rule-live? $rule) (sk-claim-charge! $given) false))
       (let* (((sk-row $_ident ($_type $_kbctx $proof $_tv) $_premises $_seq) $row)
              ($exclusions (hash-union (sk-row-exclusions $khash $key $proof) $exclude))
              ($target (sk-row-target $exclusions $khash $key $rhash $row))
@@ -3020,7 +3038,7 @@
                $work
                (let* (($before
                          (collapse (once (match &sk_merged ($hash $stored $deps $value)
-                            (if (=alpha $stored $key) (sk-merged $hash $stored $deps $value) (empty))))))
+                            (if (=alpha $stored $key) (if (sk-live-view? $value) (sk-merged $hash $stored $deps $value) (empty)) (empty))))))
                       ($_stored (sk-store-view! $hash $key $seq $rhash $new))
                       ($_stored-count (query_metric_increment views-stored))
                       ($_merged (sk-drop-merged! $key))
@@ -3219,19 +3237,24 @@
       ()))
 
 (: sk-need-row! (-[semidet]-> Number SkeletonNeed SkeletonItem SkeletonNeed))
-(= (sk-need-row! $depth (sk-need-next $next $members) (sk-row-item $_seq $khash $key $rhash (sk-row $_ident $_concl $premises $_s)))
+(= (sk-need-row! $depth (sk-need-next $next $members) (sk-row-item $_seq $khash $key $rhash (sk-row (sk-ident $rule $_keys $_key) $_concl $premises $_s)))
+   (if (rule-live? $rule)
    (let* (($_reserve (sk-reserve-near! (- $depth 1)))
           ($near (<= $depth (+ (sk-evaluation-free-depth) 1)))
+          ($invalid (not (== (collapse (once (match &sk_latest ($khash $key (sk-version $_old-seq $rhash $old))
+                               (if (sk-live-view? $old) (empty) true)))) ())))
           ($unseen
              (if (== (sk-latest-view $khash $key $rhash) sk-none)
                 (if $near true
                    (case $key (((sk-key $type $_kbctx)
-                      (let $extra (- (term-cost $type) 1) (if (== $extra 0) true (sk-take! sk_need_budget $extra)))))))
+                      (let $extra (if $invalid (term-cost $type) (- (term-cost $type) 1))
+                         (if (== $extra 0) true (sk-take! sk_need_budget $extra)))))))
                 false))
           ($refresh
              (if (if $unseen true $near)
-                (not (== (collapse (once (match &sk_stale ($khash $rhash) true))) ()))
+                (if $invalid true (not (== (collapse (once (match &sk_stale ($khash $rhash) true))) ())))
                 false))
+          ($_forced (if (if $refresh $invalid false) (add-atom &sk_forced ($khash $rhash -1)) true))
           ($_refreshed
              (if $refresh
                 (let $_relinked (sk-relink-row! $khash $rhash $premises) (add-atom &sk_refresh ($khash $rhash)))
@@ -3241,7 +3264,8 @@
                 (if $unseen true
                    (not (== (collapse (once (match &sk_given_pending ($khash $rhash $_cost) true))) ())))))
          (sk-need-next (fold-semidet sk-direct-key-step $next $premises) $members)
-         (sk-need-next $next $members))))
+         (sk-need-next $next $members)))
+   (sk-need-next $next $members)))
 
 ;; The need from a query's roots, or from the keys a forward wave takes.
 (: sk-need-roots! (-[semidet]-> (List SkeletonKey) Atom))
@@ -3790,7 +3814,9 @@
    (if (== (extract-vars $type) ())
       (let $hash (forward-output-index-hash (forward-output-key $kbctx $type))
          (collapse (match &materialized_facts (materialized-row $hash $type $kbctx $fact $ev)
-            (if (sk-fact-matches? $filter $fact) (sk-val $fact $ev 0) (empty)))))
+            (if (sk-fact-matches? $filter $fact)
+               (if (proof-live? (proof-atom-proof $fact)) (sk-val $fact $ev 0) (empty))
+               (empty)))))
       ()))
 
 ;; A ground root the search left without a value answers with the base rate

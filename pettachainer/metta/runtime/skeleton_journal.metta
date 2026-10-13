@@ -429,3 +429,5 @@
                 (sk-dirty! $key)
                 ())))
       ()))
+
+(: record-view-rule! (-[det]-> Number SkeletonKey Number SkeletonValue Bool))

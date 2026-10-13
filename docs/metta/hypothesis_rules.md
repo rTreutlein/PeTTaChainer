@@ -239,6 +239,13 @@ general one (`sk-specialized`, proof `(specializes specific general)`): 0.95
 `benchmarks/ona/repros/specificity.py`). A specific rule with little evidence
 stays near the general rate.
 
+A specific application keeps its reference class when its proof is already
+wrapped in `specializes`. With two general rules, the second comparison follows
+the specific proof through that wrapper (and stored references), so it cannot
+replace the specific application simply because it has more confidence. This
+matters for a mined conjunction whose two single-feature generalizations are
+both live (`test_hypothesis_mining.metta`).
+
 The same holds when the general rule reads a derived premise whose evidence
 is only facts the specific rule reads directly: its antecedent is then a
 generalization of the specific one's, entailed by it. ONA's penguin.nal
@@ -538,7 +545,13 @@ period. The client declares where each mined predicate sits in time:
     !(set-predicate-time kb Late 2 2)
 
 Only declared predicates are mined; a link fact is recorded under the two
-time points it links and is not mined itself. Causes precede effects:
+time points it links and is not mined itself. When the link arrives after
+observations, it also joins observations already indexed at its two endpoints,
+including false outcomes, without recounting or recording those observations
+again. Replay uses the same feature builder and observation order as ingestion,
+including the same-period context used to decide whether a temporal candidate
+recurs. The work is bounded by the facts at those endpoints and the feature and
+proposal caps, rather than the history. Causes precede effects:
 
 - across a link, the fact at the earlier time point is the antecedent, with
   the link as a conjunct;
@@ -697,8 +710,13 @@ query). Each hypothesis is then judged:
 
 A dropped hypothesis leaves the live set, freeing its slot, and its rules
 leave the rule indexes (`withdraw-named-rules!`, what the deprecated
-statement removal uses), so no later search applies it; the skeleton rows it
-built stay, as forgetting leaves summaries. It is never proposed again. A
+statement removal uses). Withdrawal marks each compiled rule identity retired;
+its durable joins cannot extend and its views, cached merges, materializations
+and summaries cannot contribute to later reads. Stored proofs keep the distinct
+permanent rule identities they used, separately from statistical evidence, so
+certain rules are covered too. Retirement does not scan the skeleton or history:
+views are checked and affected live rows refreshed when a read needs them. The
+historical proof store stays. A dropped hypothesis is never proposed again. A
 general rule is not dropped for its specifics: its view is their prior.
 
 Rejected alternatives:

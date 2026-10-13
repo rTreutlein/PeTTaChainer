@@ -378,9 +378,17 @@
 ;; or reads a derived premise resting only on them: a generalization of the
 ;; first's antecedent, such as (Member pingu Bird) derived from (Member pingu
 ;; Penguin).
+(: sk-step-proof (-[det]-> Proof Proof))
+
 (: more-specific-application? (-[semidet]-> Proof Proof Bool))
 (= (more-specific-application? $prf-a $prf-b)
-   (case (data $prf-a $prf-b) (
+   (let* (($step-a (sk-step-proof $prf-a))
+          ($step-b (sk-step-proof $prf-b)))
+   (case (data $step-a $step-b) (
+      (((specializes $specific-a $_prior-a) $_other-b)
+         (more-specific-application? (brand Proof $specific-a) $prf-b))
+      (($_other-a (specializes $specific-b $_prior-b))
+         (more-specific-application? $prf-a (brand Proof $specific-b)))
       (((by $rule-a $premise-a) (by $rule-b $premise-b))
          (if (== $rule-a $rule-b) false
             (let* (($facts-a (application-facts $premise-a))
@@ -391,7 +399,7 @@
                         (if (== $ev-b (ev-set 0)) false
                            (evidence-subset? $ev-b (proof-term-evidence proof-walk-in-kb $premise-a))))
                      (if (< (list-len $facts-b) (list-len $facts-a)) (all-members? $facts-a $facts-b) false))))))
-      ($_other false))))
+      ($_other false)))))
 
 ;; The settled proof equals the complete one except where it reads one part
 ;; `(settled P)` and the complete proof the conjunction of P with the others.

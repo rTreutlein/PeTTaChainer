@@ -764,6 +764,7 @@
             (sk-reading $rest (cons (assemble-stored-runtime-fact $read-type $read-kbctx $proof $tv) $read)))))))
 
 (= (sk-advance! (sk-partial $owner $rule $concl $done $remaining $keys))
+   (if (rule-live? $rule)
    (case $remaining (
       (()
          (let (sk-reading $_none $premises) (fold-semidet sk-read-step (sk-reading $keys ()) $done)
@@ -797,7 +798,8 @@
                   (fold-semidet (sk-extend-waiter-step (sk-partial $owner $rule $concl $done $remaining $keys)) ()
                      (sk-forward-keys (copy_term $premise)))
                   (sk-wait-on! $owner $rule $premise
-                     (sk-partial $owner $rule $concl $done $remaining $keys))))))))))
+                     (sk-partial $owner $rule $concl $done $remaining $keys)))))))))
+      ()))
 
 ;; A ground computation (for example arithmetic on bound statement terms)
 ;; binds its result before later premises are looked up.
@@ -857,6 +859,7 @@
 ;; a recursive rule cannot keep extending joins whose rows could not be kept
 ;; anyway. Joins of the query's roots always proceed.
 (= (sk-extend! (sk-partial $owner $rule $concl $done $remaining $keys) $key)
+   (if (rule-live? $rule)
    (if (if (sk-root? $owner) true (> (search-id-value sk_row_budget) 0))
       (if (sk-link-new! (sk-join-link (sk-partial $owner $rule $concl $done $remaining $keys) $key))
          (sk-extend-now! (sk-partial $owner $rule $concl $done $remaining $keys) $key)
@@ -869,7 +872,8 @@
                    ($_pending (sk-work! $hash $owner 1))
                    ($_counted (query_metric_increment joins-deferred)))
                ())
-            ()))))
+            ())))
+      ()))
 
 ;; A settled join (its rule reads one part of a compound, settling it; see
 ;; connective_settling.md) reads a part only when a certain stored fact fixes
@@ -955,6 +959,7 @@
          (fold-semidet (sk-extend-step $key) () $waiters))))
 
 (= (sk-complete-row! $owner $rule $concl $premises $keys)
+   (if (rule-live? $rule)
    (let* ((($type $kbctx $proof $_tv) $concl)
           ($key (sk-key $type $kbctx))
           ($khash (index-hash $key))
@@ -1012,7 +1017,8 @@
                          ($_pending (sk-work! $hash $owner 1))
                          ($_counted (query_metric_increment rows-deferred)))
                      ())
-                  ())))))))
+                  ()))))))
+      ()))
 
 ;; The keys a row reads directly: its fact premises, folds and groups.
 (: sk-direct-key-step (-[det]-> (List SkeletonKey) SkPattern (List SkeletonKey)))
