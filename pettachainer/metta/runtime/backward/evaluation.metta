@@ -114,11 +114,9 @@
 (: sk-leaf-step (-[semidet]-> Number Bool (List Number) (List SkeletonValue) SkFact (List SkeletonValue)))
 (= (sk-leaf-step $hash $computed $exclude $kept $fact)
    (let $view (sk-leaf-view $hash $fact)
-      (if (sk-live-view? $view)
       (if (== (sk-view-deps-step 0 $view) (deps-key $hash)) (cons $view $kept)
          (if (if $computed (not (sk-summary-fact? $fact)) false) $kept
-            (if (deps-meet? $exclude (sk-view-deps-step 0 $view)) $kept (cons $view $kept))))
-      $kept)))
+            (if (deps-meet? $exclude (sk-view-deps-step 0 $view)) $kept (cons $view $kept))))))
 
 (: sk-leaf-views (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonValue)))
 (= (sk-leaf-views $hash $key $filter $exclude)
@@ -642,6 +640,8 @@
          (sk-paired (sk-val $a (evidence-union $ev-a $ev-b) (if (== $a $b) $deps-a (deps-union $deps-a $deps-b))))
          (if (proof-dominates? $proof-a $proof-b) (sk-paired (sk-val $a $ev-a $deps-a))
             (if (proof-dominates? $proof-b $proof-a) (sk-paired (sk-val $b $ev-b $deps-b))
+            (if (specialization-includes? $proof-a $proof-b) (sk-paired (sk-val $a $ev-a $deps-a))
+            (if (specialization-includes? $proof-b $proof-a) (sk-paired (sk-val $b $ev-b $deps-b))
             (if (more-specific-application? $proof-a $proof-b) (sk-paired (sk-specialized $a $ev-a $deps-a $b $ev-b $deps-b))
             (if (more-specific-application? $proof-b $proof-a) (sk-paired (sk-specialized $b $ev-b $deps-b $a $ev-a $deps-a))
                (let* (($touch (evidence-overlap? $ev-a $ev-b))
@@ -677,7 +677,7 @@
                               (sk-overlap $shared (deps-union $deps-a $deps-b)
                                  (if (>= (term-confidence $a) (term-confidence $b))
                                     (sk-val $a $ev-a $deps-a)
-                                    (sk-val $b $ev-b $deps-b))))))))))))))))
+                                    (sk-val $b $ev-b $deps-b))))))))))))))))))
 
 ;; Two derivations through different refined rules whose truths were folded
 ;; from the same samples, observing the same outcomes, are one estimate from
@@ -741,11 +741,16 @@
 ;; little evidence stays near the general rate.
 (: sk-specialized (-[det]-> SkFact EvidenceSet Number SkFact EvidenceSet Number SkeletonValue))
 (= (sk-specialized ($type $kbctx $proof $tv) $ev $deps ($_gtype $_gkbctx $general $gtv) $gev $gdeps)
-   (case (data $tv $gtv) (
-      (((STV $s $c) (STV $gs $_gc))
-         (sk-val ($type $kbctx (brand Proof (specializes $proof $general)) (STV (bayes-shrink $s $c $gs) $c))
-            (evidence-union $ev $gev) (deps-union $deps $gdeps)))
-      ($_other (sk-val ($type $kbctx $proof $tv) $ev $deps)))))
+   (case (sk-step-proof $proof) (
+      ((specializes $original $previous $original-tv $previous-tv)
+         (sk-specialized (assemble-runtime-fact $type $kbctx (brand Proof $original) (the TV $original-tv)) $ev $deps
+            (assemble-runtime-fact $type $kbctx (brand Proof (merge/revision $previous $general)) (revision-merge-tv (the TV $previous-tv) $gtv)) $gev $gdeps))
+      ($_other
+         (case (data $tv $gtv) (
+            (((STV $s $c) (STV $gs $_gc))
+               (sk-val ($type $kbctx (brand Proof (specializes $proof $general $tv $gtv)) (STV (bayes-shrink $s $c $gs) $c))
+                  (evidence-union $ev $gev) (deps-union $deps $gdeps)))
+            ($_tv-other (sk-val ($type $kbctx $proof $tv) $ev $deps))))))))
 
 ;; One step of a key's merge: an overlap continues with its fallback and
 ;; records its statements, unless an earlier overlap gave some.
@@ -920,14 +925,12 @@
 
 (: sk-admits? (-[det]-> SkeletonFilter (List Number) SkeletonValue Bool))
 (= (sk-admits? $filter $exclude $view)
-   (if (sk-live-view? $view)
    (case $view (
       ((sk-val $fact $_ev $deps)
          (if (deps-meet? $exclude $deps) false (sk-fact-matches? $filter $fact)))
       ((sk-goal-val $_goal $_proof $_ev $deps)
          (if (deps-meet? $exclude $deps) false true))
-      (sk-none false)))
-   false))
+      (sk-none false))))
 
 (: sk-admit-older (-[det]-> SkeletonFilter (List Number) SkeletonValue SkeletonValue SkeletonValue))
 (= (sk-admit-older $filter $exclude $kept $view)
@@ -1053,14 +1056,14 @@
 (: sk-older-views (-[det]-> Number SkeletonKey Number (List SkeletonValue)))
 (= (sk-older-views $hash $key $rhash)
    (collapse (match &sk_view ($hash $stored $rhash $view)
-      (if (=alpha $stored $key) $view (empty)))))
+      (if (=alpha $stored $key) (if (sk-live-view? $view) $view (empty)) (empty)))))
 
 ;; The latest versions of a key's rows, in row creation order.
 (: sk-latest-versions (-[det]-> Number SkeletonKey (List SkeletonVersion)))
 (= (sk-latest-versions $hash $key)
    (sort-atom
-      (collapse (match &sk_latest ($hash $stored $version)
-         (if (=alpha $stored $key) $version (empty))))))
+      (collapse (match &sk_latest ($hash $stored (sk-version $seq $rhash $view))
+         (if (=alpha $stored $key) (if (sk-live-view? $view) (sk-version $seq $rhash $view) (empty)) (empty))))))
 
 (: sk-latest-view (-[det]-> Number SkeletonKey Number SkeletonValue))
 (= (sk-latest-view $hash $key $rhash)
@@ -1604,7 +1607,7 @@
              ((sk-key $_type $_kbctx) $stored)
              ($_fold (case $stored (
                 ((cons (sk-version $_seq $_rhash $view) $_rest)
-                   (if (sk-live-view? $view) $stored (sk-fold-views $hash $key)))
+                   $stored)
                 (() (sk-fold-views $hash $key)))))))))
       (fold-semidet sk-cons-step () (fold-semidet (sk-admit-step $hash $key $filter $exclude) () $versions))))
 
@@ -3241,13 +3244,13 @@
    (if (rule-live? $rule)
    (let* (($_reserve (sk-reserve-near! (- $depth 1)))
           ($near (<= $depth (+ (sk-evaluation-free-depth) 1)))
-          ($invalid (not (== (collapse (once (match &sk_latest ($khash $key (sk-version $_old-seq $rhash $old))
-                               (if (sk-live-view? $old) (empty) true)))) ())))
+          ($latest (sk-latest-view $khash $key $rhash))
+          ($invalid (if (== $latest sk-none) (not (== (collapse (once (match &sk_latest ($khash $stored (sk-version $_old-seq $rhash $_old)) (if (=alpha $stored $key) true (empty))))) ())) false))
           ($unseen
-             (if (== (sk-latest-view $khash $key $rhash) sk-none)
+             (if (== $latest sk-none)
                 (if $near true
                    (case $key (((sk-key $type $_kbctx)
-                      (let $extra (if $invalid (term-cost $type) (- (term-cost $type) 1))
+                      (let $extra (- (term-cost $type) 1)
                          (if (== $extra 0) true (sk-take! sk_need_budget $extra)))))))
                 false))
           ($refresh
@@ -3651,13 +3654,14 @@
 (= (remove-materialized! (materialized-row $hash $type $kb ($type $kb $proof $tv) $ev))
    (let* (($_fact (remove-atom &kb ($type $kb $proof $tv)))
           ($_unindex (kb-unindex-fact! ($type $kb $proof $tv)))
+          ($_rules (forget-stored-rules! materialized $hash (sk-key $type $kb)))
           ($_mark (remove-atom &materialized_facts (materialized-row $hash $type $kb ($type $kb $proof $tv) $ev))))
       ()))
 
 ;; A re-materialization of an output key replaces the key's earlier
 ;; materialized rows. Marked facts are never leaves of the backward search.
-(: upsert-materialized! (-[semidet]-> SkFact EvidenceSet Atom))
-(= (upsert-materialized! ($type $kb $proof $tv) $ev)
+(: upsert-materialized! (-[semidet]-> SkFact EvidenceSet Proof Atom))
+(= (upsert-materialized! ($type $kb $proof $tv) $ev $source)
    (let* (($fact (data $type $kb $proof $tv))
           ($hash (forward-output-index-hash (forward-output-key $kb $type)))
           ($row (materialized-row $hash $type $kb $fact $ev)))
@@ -3665,6 +3669,7 @@
          (let* (($_remove (foreach-flat remove-materialized! (materialized-rows (forward-output-key $kb $type))))
                 ($_add (chainer-add-atom &kb $fact))
                 ($_index (kb-index-fact! live $fact))
+                ($_rules (record-stored-rules! materialized $hash (sk-key $type $kb) $source))
                 ($_mark (add-atom &materialized_facts $row))
                 ($_journal (sk-note-fact! $type $kb)))
             (record-fact-inheritance-nodes! $fact false)))))
@@ -3687,7 +3692,7 @@
    (case $value (
       ((sk-val $fact $ev $_deps)
          (if (materializable-result? $fact)
-            (upsert-materialized! (sk-full-fact $fact) $ev)
+            (upsert-materialized! (sk-full-fact $fact) $ev (proof-atom-proof $fact))
             ()))
       ($_other ()))))
 
@@ -3815,7 +3820,7 @@
       (let $hash (forward-output-index-hash (forward-output-key $kbctx $type))
          (collapse (match &materialized_facts (materialized-row $hash $type $kbctx $fact $ev)
             (if (sk-fact-matches? $filter $fact)
-               (if (proof-live? (proof-atom-proof $fact)) (sk-val $fact $ev 0) (empty))
+               (sk-val $fact $ev 0)
                (empty)))))
       ()))
 
@@ -3933,6 +3938,7 @@
           ($_facts (sk-activate-facts!))
           ($_scored (fold-semidet sk-root-score-step () $goals))
           ($_rules (sk-activate-rules!))
+          ($_thawed (sk-activate-thawed!))
           ($_absorbed (sk-drain!))
           ($_budget (change-state! sk_budget $steps))
           ($_rows (change-state! sk_row_budget (* 10 $steps)))

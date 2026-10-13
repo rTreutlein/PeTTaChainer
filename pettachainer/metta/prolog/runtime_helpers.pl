@@ -197,7 +197,11 @@ argument_shape(Arg, Shape) :-
 % link, and two different links share a digest with probability about
 % n^2 / 2^61.
 'link-digest'(Link, Digest) :-
-    copy_term_nat(Link, Copy), variant_sha1(Copy, Hex),
+    ( flag(thaw_epoch, E, E), E > 0,
+      Link = ['sk-join-link', ['sk-partial', _, _, [Type, Ctx, _, _], _, _, _], _],
+      'index-hash'(['sk-key', Type, Ctx], Hash), thaw_generation(Hash, Key, Generation), Key =@= ['sk-key', Type, Ctx]
+    -> Stamped = Generation-Link ; Stamped = Link ),
+    copy_term_nat(Stamped, Copy), variant_sha1(Copy, Hex),
     sub_atom(Hex, 0, 15, _, Prefix), atom_concat('0x', Prefix, Number), atom_number(Number, Digest).
 
 % The last rule application of a proof, its premise proofs still references:
@@ -442,10 +446,11 @@ refs_gc_dead(unions, ev_union_memo(Key, Union), _, SetLimit) :-
 refs_gc_live_set(Set, SetLimit) :- ( Set =:= 0 ; Set >= SetLimit ; refs_gc_set(Set) ), !.
 
 refs_gc_erase(proofs, user:'&proof'(Pid, _, _, _), Ref) :- !, erase(Ref), retractall(user:'&proof_fact'(Pid, _, _)),
-    retractall(proof_rules(Pid, _)), retractall(proof_live_memo(Pid, proof, _, _)).
+    retractall(proof_rules(Pid, _)).
 refs_gc_erase(_, _, Ref) :- erase(Ref).
 
 refs_gc_finish :-
+    rule_sets_gc,
     aggregate_all(count, refs_gc_proof(_), Marked),
     nb_getval(refs_gc_limits, limits(ProofLimit, _)), 'search-id-value'(proof_id, Next),
     Kept is Marked + Next - ProofLimit, flag(refs_gc_kept, _, Kept), flag(refs_gc_last, _, Next),
@@ -703,54 +708,119 @@ ev_common_step(['ev-set', Set], Ids-Sorted, Kept-Shared) :-
     ev_excluded(A, Excluded),
     (   Excluded \== [], ev_sorted(B, SortedB), ord_intersect(Excluded, SortedB) -> Result = true ; Result = false ).
 
-% Withdrawal retires rule identities without walking the skeleton. Stored
-% proofs keep the distinct permanent rule ids used by their immediate refs;
-% this provenance is separate from evidence (certain rules have no evidence).
-:- dynamic retired_rule/1, proof_rules/2, proof_live_memo/4, summary_rules/3.
+% Rule provenance is a shared DAG, independent of statistical evidence and
+% mutable dependency cuts. Proofs keep one set id, never transitive lists.
+:- dynamic retired_rule/2, retired_epoch/2, proof_rules/2, proof_live_memo/3,
+           summary_rules/3, rule_set/4, rule_leaf/2, stored_rules/5, stored_rule/2, thaw_generation/3.
 
 'withdraw-rule!'(Id, true) :-
-    ( retired_rule(Id) -> true
-    ; assertz(retired_rule(Id)), flag(withdraw_epoch, E, E + 1) ).
+    ( retired_rule(Id, _) -> true
+    ; flag(withdraw_epoch, E, E + 1), Epoch is E + 1,
+      assertz(retired_rule(Id, Epoch)), assertz(retired_epoch(Epoch, Id)) ).
 
-'rule-live?'(Id, Live) :- ( retired_rule(Id) -> Live = false ; Live = true ).
+'rule-live?'(Id, Live) :- ( retired_rule(Id, _) -> Live = false ; Live = true ).
+
+rule_set_leaf(Rule, Set) :-
+    ( rule_leaf(Rule, Set) -> true
+    ; flag(rule_set_next, N, N + 1), Set is N + 1,
+      deps_bit(Rule, Mask), assertz(rule_leaf(Rule, Set)), assertz(rule_set(Set, leaf(Rule), [], Mask)) ).
+
+rule_sets_join(Sets, Set) :-
+    sort(Sets, Sorted), exclude(==(0), Sorted, Children),
+    ( Children == [] -> Set = 0
+    ; Children = [Set] -> true
+    ; term_hash(Children, Hash),
+      ( rule_set(Set, union(Hash), Children, _) -> true
+      ; flag(rule_set_next, N, N + 1), Set is N + 1,
+        foldl([Child, M0, M]>>(rule_set(Child, _, _, CM), M is M0 \/ CM), Children, 0, Mask),
+        assertz(rule_set(Set, union(Hash), Children, Mask)) ) ).
+
+proof_rule_set(Proof, Set) :-
+    findall(S, ( sub_term(Ref, Proof), nonvar(Ref), proof_source_rules(Ref, S) ), Children),
+    rule_sets_join(Children, Set).
 
 'record-proof-rules!'(Pid, Proof, true) :-
-    findall(Rules, ( sub_term(Ref, Proof), nonvar(Ref), proof_source_rules(Ref, Rules) ), Children),
-    foldl(ord_union, Children, [], Rules), assertz(proof_rules(Pid, Rules)).
+    proof_rule_set(Proof, Set), ( Set =:= 0 -> true ; assertz(proof_rules(Pid, Set)) ).
 
-% Attach this row's identity at the store boundary, using the same indexed
-% row lookup as evaluation. Folds have no row identity; temporary query rows
-% leave with their query and cannot be withdrawn as permanent knowledge.
+% Only permanent row identities can be withdrawn. A fresh proof ref is
+% finalized here before it is published in any view store.
 'record-view-rule!'(Hash, Key, Rhash, View, true) :-
-    (   ( View = ['sk-val', [_, _, ['proof-ref', Pid], _], _, _]
-        ; View = ['sk-goal-val', _, ['proof-ref', Pid], _, _] )
-    ->  findall(Id, ( user:'&sk_row'(Hash, Stored, Rhash, ['sk-row', ['sk-ident', Id, _, _], _, _, _]),
-                     Stored =@= Key, Id < 1000000000 ), Own0),
-        sort(Own0, Own), proof_rules(Pid, Children), ord_union(Own, Children, Rules),
-        retractall(proof_rules(Pid, _)), assertz(proof_rules(Pid, Rules))
-    ;   true ).
+    ( ( View = ['sk-val', [_, _, ['proof-ref', Pid], _], _, _]
+      ; View = ['sk-goal-val', _, ['proof-ref', Pid], _, _] )
+    -> findall(Set, ( user:'&sk_row'(Hash, Stored, Rhash, ['sk-row', ['sk-ident', Id, _, _], _, _, _]),
+                     Stored =@= Key, Id < 1000000000, rule_set_leaf(Id, Set) ), Own),
+       ( proof_rules(Pid, Children) -> Sets = [Children|Own] ; Sets = Own ),
+       rule_sets_join(Sets, Set), retractall(proof_rules(Pid, _)),
+       ( Set =:= 0 -> true ; assertz(proof_rules(Pid, Set)) )
+    ; true ).
 
-% Forgetting compresses the proof as well as the key; keep the identities
-% so its summary cannot hide a retired rule after the original refs are GC'd.
 'record-summary-rules!'(Hash, Epoch, Proof, true) :-
-    findall(Rules, ( sub_term(Ref, Proof), nonvar(Ref), proof_source_rules(Ref, Rules) ), Sources),
-    foldl(ord_union, Sources, [], Rules), assertz(summary_rules(Hash, Epoch, Rules)).
+    proof_rule_set(Proof, Set), assertz(summary_rules(Hash, Epoch, Set)).
 
-proof_source_rules([Tag, Pid], Rules) :- Tag == 'proof-ref', integer(Pid), proof_rules(Pid, Rules).
-proof_source_rules([Tag, Hash, Epoch], Rules) :- Tag == forgotten, integer(Hash), integer(Epoch), summary_rules(Hash, Epoch, Rules).
+proof_source_rules([Tag, Pid], Set) :- Tag == 'proof-ref', integer(Pid), proof_rules(Pid, Set).
+proof_source_rules([Tag, Hash, Epoch], Set) :- Tag == forgotten, integer(Hash), integer(Epoch), summary_rules(Hash, Epoch, Set).
 
 'proof-live?'(Proof, Live) :-
     flag(withdraw_epoch, Epoch, Epoch),
     ( Epoch =:= 0 -> Live = true
-    ; forall(( sub_term(Ref, Proof), nonvar(Ref), proof_source_rules(Ref, Rules) ),
-             proof_source_live(Ref, Rules, Epoch)) -> Live = true
+    ; forall(( sub_term(Ref, Proof), nonvar(Ref), proof_source_rules(Ref, Set) ),
+             rule_set_live(Set, Epoch)) -> Live = true
     ; Live = false ).
 
-proof_source_live(Ref, Rules, Epoch) :-
-    ( Ref = ['proof-ref', Id] -> Kind = proof ; Ref = [forgotten, Id, Kind] ),
-    ( proof_live_memo(Id, Kind, Epoch, Live) -> Live == true
-    ; ( member(RuleId, Rules), retired_rule(RuleId) -> Live = false ; Live = true ),
-      retractall(proof_live_memo(Id, Kind, _, _)), assertz(proof_live_memo(Id, Kind, Epoch, Live)), Live == true ).
+rule_set_live(0, _) :- !.
+rule_set_live(Set, Epoch) :-
+    ( proof_live_memo(Set, Checked, Live) -> true ; Checked = 0, Live = true ),
+    Live == true,
+    ( Checked =:= Epoch -> true
+    ; First is Checked + 1,
+      ( between(First, Epoch, E), retired_epoch(E, Rule), rule_set_has(Set, Rule) -> Next = false ; Next = true ),
+      retractall(proof_live_memo(Set, _, _)), assertz(proof_live_memo(Set, Epoch, Next)), Next == true ).
+
+rule_set_has(Set, Rule) :- rule_leaf(Rule, _), deps_bit(Rule, Bit), empty_nb_set(Seen), rule_set_has(Set, Rule, Bit, Seen).
+rule_set_has(Set, Rule, Bit, Seen) :-
+    rule_set(Set, Kind, Children, Mask), Mask /\ Bit =\= 0,
+    ( Kind = leaf(Rule) -> true
+    ; add_nb_set(Set, Seen, true), member(Child, Children), rule_set_has(Child, Rule, Bit, Seen), ! ).
+
+% Physical KB copies have an inverse index. Expanding a set happens only at
+% copy publication, never for every proof or every read. Replacing/removing a
+% copy removes its registrations as well.
+'record-stored-rules!'(Kind, Hash, Key, Proof, true) :-
+    'forget-stored-rules!'(Kind, Hash, Key, true), proof_rule_set(Proof, Set),
+    flag(stored_rules_next, N, N + 1), Token is N + 1,
+    assertz(stored_rules(Token, Kind, Hash, Key, Set)),
+    empty_nb_set(Seen), rule_set_register(Set, Token, Seen).
+rule_set_register(0, _, _) :- !.
+rule_set_register(Set, Token, Seen) :-
+    ( add_nb_set(Set, Seen, true)
+    -> rule_set(Set, Kind, Children, _),
+       ( Kind = leaf(Rule) -> assertz(stored_rule(Rule, Token))
+       ; forall(member(Child, Children), rule_set_register(Child, Token, Seen)) )
+    ; true ).
+
+'forget-stored-rules!'(Kind, Hash, Key, true) :-
+    forall(( stored_rules(Token, Kind, Hash, Stored, _), Stored =@= Key ),
+           ( retractall(stored_rule(_, Token)), retractall(stored_rules(Token, _, _, _, _)) )).
+
+'withdrawn-stores!'(Ids, Stores) :-
+    findall(Token, ( member(Id, Ids), stored_rule(Id, Token) ), Tokens0), sort(Tokens0, Tokens),
+    findall(['retired-store', Kind, Hash, Key],
+            ( member(Token, Tokens), stored_rules(Token, Kind, Hash, Key, _),
+              'forget-stored-rules!'(Kind, Hash, Key, true),
+              ( Kind == summary -> flag(thaw_epoch, N, N + 1), Generation is N + 1,
+                retractall(thaw_generation(Hash, Key, _)), assertz(thaw_generation(Hash, Key, Generation)) ; true ) ), Stores).
+
+rule_sets_gc :-
+    forall(( summary_rules(Hash, Epoch, _),
+             \+ user:'&sk_summary'(Hash, _, [_, _, [forgotten, Hash, Epoch], _], _, _) ),
+           retractall(summary_rules(Hash, Epoch, _))),
+    empty_nb_set(Live),
+    forall(( proof_rules(_, Set) ; summary_rules(_, _, Set) ; stored_rules(_, _, _, _, Set) ), rule_set_mark(Set, Live)),
+    forall(( clause(rule_set(Set, _, _, _), true, Ref), \+ add_nb_set(Set, Live, false) ),
+           ( erase(Ref), retractall(rule_leaf(_, Set)), retractall(proof_live_memo(Set, _, _)) )).
+rule_set_mark(0, _) :- !.
+rule_set_mark(Set, Live) :-
+    ( add_nb_set(Set, Live, true) -> rule_set(Set, _, Children, _), forall(member(Child, Children), rule_set_mark(Child, Live)) ; true ).
 
 % A rule is dormant when one of its statement premises can be proved, apart
 % from a stored fact, only through the rule's own conclusion with the same
@@ -1618,17 +1688,20 @@ metta_call_terms(Fn, Sources, Results) :-
 % Consequent] of the live hypotheses concluding Fact's patterns. A single's
 % Sighting is marked failed, so it recurs only among failures.
 'hypothesis-candidates'(Fact, Layer, Features, Candidates) :-
-    hypothesis_candidates(any, Fact, Layer, Features, Candidates).
+    hypothesis_features_role(any, Features, Role, Context), hypothesis_candidates(Role, Fact, Layer, Context, Candidates).
 'hypothesis-failure-candidates'(Fact, Layer, Features, Live, Candidates) :-
-    hypothesis_candidates(concluding, Fact, Layer, Features, All),
+    hypothesis_features_role(concluding, Features, Role, Context), hypothesis_candidates(Role, Fact, Layer, Context, All),
     findall([A, C, Sighting],
             ( member([A, C, S], All), \+ ( member([_, LC], Live), LC =@= C ),
               ( S == none -> Sighting = none ; S = [I, X], Sighting = [failed, I, X] ) ),
             Candidates).
 
+hypothesis_features_role(Role, [link_replay|Features], temporal(Role), Features) :- !.
+hypothesis_features_role(Role, Features, Role, Features).
+
 hypothesis_candidates(Role, Fact, Layer, Features, Candidates) :-
     findall(Single, hypothesis_single(Role, Fact, Layer, Features, Single), Singles),
-    findall(F-L, member([F, L, now], Features), Now),
+    findall(F-L, ( Role \= temporal(_), member([F, L, now], Features) ), Now),
     findall([A, C, none],
             ( (   pair_below(Now, Layer, Pair), Consequent = Fact
               ;   Role == any, select(Consequent-LC, Now, Rest), Layer < LC,
@@ -1639,8 +1712,9 @@ hypothesis_candidates(Role, Fact, Layer, Features, Candidates) :-
 
 hypothesis_single(Role, Fact, Layer, Features, [A, C, [Instance, Context]]) :-
     member([F, L, Relation], Features),
+    ( Role = temporal(_) -> Relation \== now ; true ),
     single_order(Relation, Fact, Layer, F, L, Antecedents, Consequent, Above),
-    ( Role == any -> true ; Consequent == Fact ),
+    ( (Role == any ; Role == temporal(any)) -> true ; Consequent == Fact ),
     (   Antecedents = [[_, Earlier, Later], _]
     ->  generalized_rule(Antecedents, Consequent, [Earlier, Later], [A, C], Subst)
     ;   hypothesis_rule(Antecedents, Consequent, [], [A, C], Subst) ),
@@ -1666,6 +1740,8 @@ pair_below(Now, Layer, Pair) :-
 % antecedent holds of Features predicted Fact, and the pairs concluding Fact
 % that contain one of the features it read can learn where it fails.
 'hypothesis-exception-pairs'(Fact, Layer, Features, Live, Pairs) :-
+    ( Features = [link_replay|_] -> Pairs = [] ; hypothesis_exception_pairs(Fact, Layer, Features, Live, Pairs) ).
+hypothesis_exception_pairs(Fact, Layer, Features, Live, Pairs) :-
     findall(F, member([F|_], Features), Statements),
     findall(F, ( member(Rule, Live), copy_term(Rule, [A, Fact]), rule_conjuncts(A, Conjuncts),
                  features_read(Conjuncts, Statements), member(F, Conjuncts) ), Read0),
@@ -1769,7 +1845,7 @@ selected_conjuncts([X|Xs], Ys) :- select(X, Ys, Rest), selected_conjuncts(Xs, Re
 % shared-constant and true-feature policy as fact ingestion, and the same
 % feature bound. Replaying a candidate never recounts an outcome.
 'hypothesis-link-observations'(Link, Ends, Max, Observations) :-
-    findall(['hm-observation', Fact, Strength, Layer, Features],
+    findall(['hm-observation', Fact, Strength, Layer, [link_replay|Features]],
             ( member([_, Time, Fact, Strength, Layer], Ends),
               findall([Seq, Other, T, L],
                       ( member([Seq, T, Other, S, L], Ends), S > 0.5,

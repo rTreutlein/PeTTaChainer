@@ -1047,3 +1047,18 @@ co-occurred first (inspected routes arrive with the period's late
 shipments, before its storms), so after the history no storm rule was live
 and 15 true late rules had been dropped against a tally that started late
 (fixed: the reference is now the learned P(B|¬A)).
+
+### Late-link replay horizon
+
+A newly added true time link replays the observations already stored at its
+endpoints, including false outcomes. Replay proposes only candidates involving
+that link. Same-period features remain recurrence context; pairs and singles
+refused by an ingestion's `max-new` allowance are not retried by replay. Outcomes
+are not counted again, and repeating a link does not replay it again.
+
+The endpoint observation index retains the last 24 distinct time points per KB
+in first-observed order (the miner's `hm-window`), including all observations at
+those endpoints. Ingestion evicts one expired endpoint by index, at a cost
+bounded by that endpoint's facts. Links delayed beyond this horizon cannot replay
+its old observations; ordinary KB facts remain stored for reasoning. This index
+is separate from the recent true-feature window per constant.

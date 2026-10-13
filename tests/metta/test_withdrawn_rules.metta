@@ -60,3 +60,58 @@
 !(withdraw-named-rules! summary-old)
 !(test (collapse (query 40 summaryRetireKb (: $p (B warm) $tv))) ())
 !(set-forgetting 0 1.0)
+
+;; A mixed compressed summary must reconstruct its live part at either budget.
+!(set-forgetting 1 1.0)
+!(compileadd mixedSummaryKb (: s-old (Implication (A $t) (B $t)) (STV 0.9 1)))
+!(compileadd mixedSummaryKb (: s-live (Implication (C $t) (B $t)) (STV 0.2 1)))
+!(compileadd mixedSummaryKb (: sa (A warm) (STV 1 1)))
+!(compileadd mixedSummaryKb (: sc (C warm) (STV 1 1)))
+!(query 40 mixedSummaryKb (: $p (B warm) $tv))
+!(advance-epoch)
+!(advance-epoch)
+!(test (not (== (collapse (match &sk_summary ($_h (sk-key (B warm) (mixedSummaryKb MAIN Nil)) $_fact $_ev $_deps) true)) ())) true)
+!(withdraw-named-rules! s-old)
+!(test (let (: $proof $_stmt (STV $s $_c)) (query 40 mixedSummaryKb (: $p (B warm) $tv)) (data $proof $s)) ((by s-live sc) 0.2))
+!(test (let (: $proof $_stmt (STV $s $_c)) (query 200 mixedSummaryKb (: $p (B warm) $tv)) (data $proof $s)) ((by s-live sc) 0.2))
+!(test (collapse (let (: $proof $_stmt (STV $s $_c)) (query 40 mixedSummaryKb (: $p (B $t) $tv)) (data $proof $s))) (((by s-live sc) 0.2)))
+!(set-forgetting 0 1.0)
+
+;; Materialization publishes expanded proofs; retirement retains their source
+;; set and removes them from every direct KB reader as well as root fallback.
+!(compileadd materialRetireKb (: m-old (Implication (A $t) (B $t)) (STV 0.9 1)))
+!(compileadd materialRetireKb (: ma (A warm) (STV 1 1)))
+!(query-materialize 40 materialRetireKb (: $p (B warm) $tv))
+!(test (not (== (collapse (match &kb ((B warm) (materialRetireKb MAIN Nil) $_proof $_tv) true)) ())) true)
+!(withdraw-named-rules! m-old)
+!(test (collapse (query 40 materialRetireKb (: $p (B warm) $tv))) ())
+!(test (collapse (match &kb ((B warm) (materialRetireKb MAIN Nil) $_proof $_tv) true)) ())
+!(test (collapse (match &materialized_facts (materialized-row $_h (B warm) (materialRetireKb MAIN Nil) $_fact $_ev) true)) ())
+
+;; General rates form one revised prior. The specific estimate is shrunk once,
+;; independent of whether general views arrive before or after it.
+(: merge-prior-views (-[semidet]-> SkeletonValue SkeletonValue SkeletonValue SkeletonValue))
+(= (merge-prior-views $a $b $c)
+   (let* (($ab (sk-merge-step () $a $b))) (sk-merge-step () $ab $c)))
+(: prior-strength (-[semidet]-> SkeletonValue Number))
+(= (prior-strength (sk-val ($_type $_ctx $_proof (STV $s $_c)) $_ev $_deps)) $s)
+!(test
+   (let* (($s (sk-val ((Win new) (priorKb MAIN Nil) (by specific (conjunction a b)) (STV 1 0.001)) (evidence-set (specific a b)) 0))
+          ($g1 (sk-val ((Win new) (priorKb MAIN Nil) (by general-a a) (STV 0.2 0.5)) (evidence-set (general-a a)) 0))
+          ($g2 (sk-val ((Win new) (priorKb MAIN Nil) (by general-b b) (STV 0.8 0.5)) (evidence-set (general-b b)) 0))
+          ($g1-other (sk-val ((Win new) (priorKb MAIN Nil) (by general-a b) (STV 0.2 0.5)) (evidence-set (general-a b)) 0))
+          ($sg (sk-merge-step () $s $g1)))
+      (data
+         (== (prior-strength (sk-merge-step () $sg $g1-other)) (prior-strength $sg))
+         (== (prior-strength (merge-prior-views $s $g1 $g2)) (prior-strength (merge-prior-views $s $g2 $g1)))
+         (== (prior-strength (merge-prior-views $s $g1 $g2)) (prior-strength (merge-prior-views $g1 $g2 $s)))))
+   (true true true))
+
+;; A retired waiter leaves the index after its first delivery.
+!(compileadd forwardRetireKb (: f-old (Implication (A $t) (B $t)) (STV 0.9 1)))
+!(compileadd forwardRetireKb (: fa (A warm) (STV 1 1)))
+!(forward-chain 40 forwardRetireKb (the (List (Statement KBContext Proof TV)) (((A warm) (forwardRetireKb MAIN Nil) fa (STV 1 1)))))
+!(test (not (== (collapse (match &sk_forward_stored ($_h $_key ((B warm) (forwardRetireKb MAIN Nil) $_p $_tv) $_ev $_deps) true)) ())) true)
+!(withdraw-named-rules! f-old)
+!(test (collapse (match &kb ((B warm) (forwardRetireKb MAIN Nil) $_proof $_tv) true)) ())
+!(test (collapse (query 40 forwardRetireKb (: $p (B warm) $tv))) ())

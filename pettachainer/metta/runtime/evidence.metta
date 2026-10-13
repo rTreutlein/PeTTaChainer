@@ -379,16 +379,36 @@
 ;; first's antecedent, such as (Member pingu Bird) derived from (Member pingu
 ;; Penguin).
 (: sk-step-proof (-[det]-> Proof Proof))
+(: specialization-includes? (-[det]-> Proof Proof Bool))
+(= (specialization-includes? $specific $general)
+   (case (sk-step-proof $specific) (
+      ((specializes $_specific $prior $_raw $_ptv) (specialization-has-rule? (brand Proof $prior) $general))
+      ($_other false))))
+
+(: specialization-has-rule? (-[det]-> Proof Proof Bool))
+(= (specialization-has-rule? $prior $other)
+   (case (data (sk-step-proof $prior) (sk-step-proof $other)) (
+      (((by $rule $_premise) (by $other-rule $_other-premise)) (== $rule $other-rule))
+      (((merge/revision $left $right) $_other)
+         (if (specialization-has-rule? (brand Proof $left) $other) true
+            (specialization-has-rule? (brand Proof $right) $other)))
+      (($_prior (specializes $specific $_general $_raw $_ptv))
+         (specialization-has-rule? $prior (brand Proof $specific)))
+      ($_other false))))
 
 (: more-specific-application? (-[semidet]-> Proof Proof Bool))
 (= (more-specific-application? $prf-a $prf-b)
    (let* (($step-a (sk-step-proof $prf-a))
           ($step-b (sk-step-proof $prf-b)))
    (case (data $step-a $step-b) (
-      (((specializes $specific-a $_prior-a) $_other-b)
-         (more-specific-application? (brand Proof $specific-a) $prf-b))
-      (($_other-a (specializes $specific-b $_prior-b))
+      (((specializes $specific-a $prior-a $_raw-a $_ptv-a) $_other-b)
+         (if (specialization-has-rule? (brand Proof $prior-a) $prf-b) false
+            (more-specific-application? (brand Proof $specific-a) $prf-b)))
+      (($_other-a (specializes $specific-b $_prior-b $_raw-b $_ptv-b))
          (more-specific-application? $prf-a (brand Proof $specific-b)))
+      (($_other-a (merge/revision $left-b $right-b))
+         (if (more-specific-application? $prf-a (brand Proof $left-b))
+            (more-specific-application? $prf-a (brand Proof $right-b)) false))
       (((by $rule-a $premise-a) (by $rule-b $premise-b))
          (if (== $rule-a $rule-b) false
             (let* (($facts-a (application-facts $premise-a))

@@ -313,7 +313,7 @@
 !(compileadd linkLastKb (: ly1 (Y entity t1) (STV 1 1)))
 !(compileadd linkLastKb (: lf2 (F entity t2) (STV 1 1)))
 !(compileadd linkLastKb (: ly3 (Y entity t3) (STV 1 1)))
-!(map-flat (|-> ($i) (collapse (compileadd linkLastKb (: (noise $i) (F entity $i) (STV 1 1)))))
+!(map-flat (|-> ($i) (collapse (compileadd linkLastKb (: (noise $i) (F entity noise) (STV 1 1)))))
    (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26))
 !(compileadd linkLastKb (: lx1 (NextPeriod t0 t1) (STV 1 1)))
 !(test (live-hypotheses linkLastKb) ())
@@ -360,3 +360,19 @@
 !(compileadd andKb (: and-false-c (AndC fresh-false) (STV 0 1)))
 !(compileadd andKb (: and-false-d (AndD fresh-false) (STV 1 1)))
 !(test (collapse (let (: $_proof $_statement (STV $s $_c)) (query 40 andKb (: $p (AndB fresh-false) $tv)) (< $s 0.1))) (true))
+
+;; Replaying a link keeps same-period features only as context. It must not
+;; propose a same-period pair that an earlier ingestion's max-new refused.
+!(test (collapse
+   (let* (($observations (hypothesis-link-observations (NextPeriod r0 r1)
+                         ((1 r0 (F entity r0) 1 0) (2 r1 (G entity r1) 1 0)
+                          (3 r1 (H entity r1) 1 0) (4 r1 (Y entity r1) 1 1)) 24))
+          ((hm-observation (Y entity r1) $_truth $layer $features) (superpose $observations))
+          ($candidates (hypothesis-candidates (Y entity r1) $layer $features))
+          (($antecedent $consequent $_sighting) (superpose $candidates)))
+      (data $antecedent $consequent)))
+   (((And (NextPeriod $_q $_p) (F entity $_q)) (Y entity $_p))))
+!(map-flat (|-> ($i) (collapse (compileadd linkLastKb (: (later-noise $i) (F entity $i) (STV 1 1)))))
+   (101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125))
+!(test (collapse (match &hm_period ($_hash linkLastKb t0 $_seq $_fact $_truth $_layer) true)) ())
+!(test (<= (list-len (collapse (match &hm_period_order ($_n linkLastKb $_time $_hash) true))) 24) true)

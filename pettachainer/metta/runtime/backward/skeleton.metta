@@ -858,6 +858,14 @@
 ;; an answer reaches stops there: the pair waits once with the join's owner, so
 ;; a recursive rule cannot keep extending joins whose rows could not be kept
 ;; anyway. Joins of the query's roots always proceed.
+(: sk-retire-waiter! (-[det]-> SkeletonWaiter Atom))
+(= (sk-retire-waiter! (sk-partial $owner $rule $concl $done $remaining $keys))
+   (case $remaining (
+      ((cons $premise $_rest)
+         (let $hash (sk-node-hash $premise)
+            (remove-variant-row! &sk_wait (quote ($hash $premise (sk-partial $owner $rule $concl $done $remaining $keys))))))
+      (() ()))))
+
 (= (sk-extend! (sk-partial $owner $rule $concl $done $remaining $keys) $key)
    (if (rule-live? $rule)
    (if (if (sk-root? $owner) true (> (search-id-value sk_row_budget) 0))
@@ -873,7 +881,7 @@
                    ($_counted (query_metric_increment joins-deferred)))
                ())
             ())))
-      ()))
+      (sk-retire-waiter! (sk-partial $owner $rule $concl $done $remaining $keys))))
 
 ;; A settled join (its rule reads one part of a compound, settling it; see
 ;; connective_settling.md) reads a part only when a certain stored fact fixes
@@ -1683,7 +1691,19 @@
 
 ;; --- Activation of facts and rules added after expansion --------------------
 
-(= (sk-activate-pending!) (let $_rules (sk-activate-rules!) (sk-activate-facts!)))
+(: sk-activate-thawed! (-[semidet]-> Atom))
+(= (sk-activate-thawed!)
+   (let $_thawed (collapse (match &sk_thawed ($hash (sk-key $type $kbctx))
+      (let* (($_taken (remove-atom &sk_thawed ($hash (sk-key $type $kbctx))))
+             ($_registered (sk-register-key! (sk-key $type $kbctx)))
+             ($goal (assemble-stored-runtime-fact $type $kbctx $_proof $_tv)))
+         (fold-semidet (sk-start-rule-step $goal) () (collapse (sk-rule-match $goal))))))
+      ()))
+
+(= (sk-activate-pending!)
+   (let* (($_rules (sk-activate-rules!))
+          ($_thawed (sk-activate-thawed!)))
+      (sk-activate-facts!)))
 
 (= (sk-activate-rules!)
    (fold-semidet sk-activate-rule-step ()

@@ -30,15 +30,22 @@ Consequences:
   revised together; overlapping paths need dominance, refinement, or cycle
   checks before aggregation.
 
-Mined hypothesis withdrawal is a separate proposal lifecycle: a review can
-retire a hypothesis's compiled rule identities. Historical rows and proof IDs
-stay, but later reads exclude derivations using those identities, including
-cached and compressed values. Retirement must be indexed by rule identity,
-with affected live rows refreshed lazily when needed, without scanning history.
+Explicit rule withdrawal is separate from monotonic addition. Hypothesis
+review and the deprecated statement-removal path both retire compiled rule
+identities. Later reads exclude every derivation using them, including cached
+views. Rule provenance is an interned DAG set id per proof, separate from
+statistical evidence; a stale liveness memo checks only identities retired
+since its last checked epoch. Proof ids remain durable and never reusable.
 
-Removal is outside this logical model. The deprecated compatibility operation
-may remove current KB and index rows, but it does not delete durable proofs or
-make proof IDs reusable.
+Derived facts exposed in `&kb` (forward copies, materialized answers and
+forgetting summaries) have an inverse index by contributing rule. Withdrawal
+removes affected copies and their fact indexes, so direct KB readers obey the
+same semantics. A mixed forgetting summary cannot subtract a contributor:
+removing it thaws the key and queues reconstruction from live rules. Its join
+digests get a new generation so old delivered joins can rebuild the erased
+rows. Retired waiters remove themselves on their first subsequent delivery.
+Withdrawal costs the affected physical copies; it does not scan row or proof
+history. The provenance sets and liveness memos are collected with proofs.
 
 ### Strict append-only follow-up
 
@@ -46,8 +53,9 @@ The public `remove-compiled-statement`, cache `clear-*`, and replace-style
 configuration operations predate the decision that ordinary system history
 should be append-only. Statement removal remains callable only for compatibility
 and is deprecated; normal reasoning and knowledge ingestion must not depend on
-it. In particular, removal does not erase stored proofs or skeleton rows, or
-reset the monotonic proof ID counter.
+it. Removal does not erase durable proofs or reset the monotonic proof ID counter.
+It now retires the removed rules and their derived KB copies as described
+above; historical skeleton rows remain but contribute no later value.
 
 A future API pass should represent corrections, supersession, and configuration
 changes as scoped events instead of retracting prior knowledge. Explicit proof
@@ -202,7 +210,11 @@ A key's value merges its stored facts and one view per row:
   on, is about a narrower reference class (the other's antecedent is entailed
   by its own: (Member pingu Bird) derived from (Member pingu Penguin)): the
   general view is no further evidence of the case, only the prior the specific
-  strength is read under, with `set-bayes-prior-count` pseudo-observations;
+  strength is read under, with `set-bayes-prior-count` pseudo-observations.
+  Multiple general applications are revised into one prior and the original
+  specific estimate is shrunk once. The `specializes` proof keeps that original
+  estimate and the accumulated prior's TV so later merges do not stack shrinkage.
+  A general rule already in that prior contributes no second view;
 - two views are independent when their evidence is disjoint, or when each
   holds evidence of its own and they share only known facts that no rule
   concludes (premises either reads as given), rules (as for rows: a rule's

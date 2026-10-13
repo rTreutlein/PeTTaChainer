@@ -346,3 +346,13 @@
 (: record-proof-rules! (-[det]-> Number Proof Bool))
 (: proof-live? (-[det]-> Proof Bool))
 (: record-summary-rules! (-[det]-> Number Number Proof Bool))
+
+;; Rule retirement and the physical stores exposing derived facts in &kb.
+(: record-view-rule! (-[det]-> Number SkeletonKey Number SkeletonValue Bool))
+(: record-stored-rules! (-[det]-> Atom Number SkeletonKey Proof Bool))
+(: forget-stored-rules! (-[det]-> Atom Number SkeletonKey Bool))
+(: RetiredStore Type)
+(: retired-store (-[det]-> Atom Number SkeletonKey RetiredStore))
+(: withdrawn-stores! (-[det]-> (List Number) (List RetiredStore)))
+
+(: sk-retire-store! (-[det]-> RetiredStore Atom))

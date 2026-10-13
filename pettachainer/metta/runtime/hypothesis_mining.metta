@@ -40,10 +40,15 @@
 (: &hm_value_count (SpaceOf (Number KB Atom Number)))
 !(bind! &hm_value_count (new-space))
 
-;; Observations by time point, retained for a link arriving after either end.
+;; Observations in the last hm-window distinct time points of each KB.
+;; A late link can replay those endpoints; older observations leave this index.
 ;; False observations are outcomes too, but never antecedent features.
 (: &hm_period (SpaceOf (Number KB Atom Number Atom Number Atom)))
 !(bind! &hm_period (new-space))
+(: &hm_period_count (SpaceOf (KB Number)))
+!(bind! &hm_period_count (new-space))
+(: &hm_period_order (SpaceOf (Number KB Atom Number)))
+!(bind! &hm_period_order (new-space))
 
 ;; Pattern hash -> kb, consequent pattern, facts of it seen since its first
 ;; hypothesis: the opportunities a hypothesis had since it was born.
@@ -167,9 +172,9 @@
 ;; both at strength 0.5 with the evidence of a hundredth of an observation,
 ;; so the first samples decide whatever k is. Its instance fold reads every
 ;; earlier instance, so a single proposed when it recurs loses none.
-(: hm-consider! (-[det]-> KB Number Number (Number (List Atom)) (Atom Atom Atom) (Number (List Atom))))
+(: hm-consider! (-[det]-> KB Number Number (Number (List AnnotatedStatement)) (Atom Atom Atom) (Number (List AnnotatedStatement))))
 (= (hm-consider! $kb $max-new $max-live ($count $picked) ($antecedent $consequent $sighting))
-   (let* (($rule (Implication $antecedent $consequent))
+   (let* (($rule (Implication (brand Statement $antecedent) (brand Statement $consequent)))
           ($hash (index-hash (quote ($kb $rule))))
           ($phash (hm-pattern-hash $kb $consequent))
           ;; A failure's sightings recur only with failures' (hm-mine!).
@@ -200,7 +205,7 @@
                                     (STV 0.5 $c)
                                     (CTV (STV 0.5 $c) (STV 0.5 $c))))
                             ($next (+ $count 1)))
-                        ($next (cons (: $name $rule $tv) $picked)))))
+                        ($next (cons (: (brand Proof $name) $rule $tv) $picked)))))
                ($count $picked))))))
 
 ;; Whether an antecedent reads the previous time point through a link.
@@ -217,7 +222,7 @@
 
 ;; The candidates proposed from one fact's, from the count and picks so far,
 ;; at most max-new in all.
-(: hm-propose! (-[det]-> KB Number Number (Number (List Atom)) (List (Atom Atom Atom)) (Number (List Atom))))
+(: hm-propose! (-[det]-> KB Number Number (Number (List AnnotatedStatement)) (List (Atom Atom Atom)) (Number (List AnnotatedStatement))))
 (= (hm-propose! $kb $max-new $max-live $state $candidates)
    (fold-flat (hm-consider! $kb $max-new $max-live) $state $candidates))
 
@@ -249,11 +254,14 @@
 ;; makes it hold. At most max-new are proposed.
 ;; Candidate proposal changes neither observation counts nor the recent window:
 ;; a late link joins existing observations without ingesting them a second time.
+(: HmMiningLimits Type)
+(: hm-limits (-[det]-> Number Number HmMiningLimits))
+
 (: HmObservation Type)
 (: hm-observation (-[det]-> Atom Number Atom Atom HmObservation))
-(: hm-propose-observation! (-[det]-> KB Number Number (Number (List Atom)) HmObservation (Number (List Atom))))
+(: hm-propose-observation! (-[det]-> KB HmMiningLimits (Number (List AnnotatedStatement)) HmObservation (Number (List AnnotatedStatement))))
 
-(= (hm-propose-observation! $kb $max-new $max-live $state (hm-observation $type $s $layer $features))
+(= (hm-propose-observation! $kb (hm-limits $max-new $max-live) $state (hm-observation $type $s $layer $features))
    (if (> $s 0.5)
       (hm-propose! $kb $max-new $max-live $state (hypothesis-candidates $type $layer $features))
          (let* (($patterns (hypothesis-patterns $type))
@@ -265,8 +273,8 @@
                 ($result (hm-propose! $kb $max-new $max-live $exceptions (hypothesis-failure-candidates $type $layer $features $live))))
             $result)))
 
-(: hm-mine! (-[det]-> KB Atom Number Atom Atom (Number Number) (List AnnotatedStatement)))
-(= (hm-mine! $kb $type $s $time $layer ($max-new $max-live))
+(: hm-mine! (-[det]-> KB Atom Number Atom Atom HmMiningLimits (List AnnotatedStatement)))
+(= (hm-mine! $kb $type $s $time $layer $setting)
    (let* (($patterns (hypothesis-patterns $type))
           ($_counted (collapse (let $pattern (superpose $patterns) (hm-count-outcome! $kb $pattern))))
           ($constants (hypothesis-constants $type))
@@ -277,26 +285,33 @@
           ($features (hypothesis-features $type $time $rows $links (hm-window)))
           ($period-hash (hm-value-hash $kb $time))
           ($seq (next-search-id hm_seq))
+          ($_horizon
+             (if (space-row-present? &hm_period ($period-hash $kb $time $_seq $_fact $_truth $_layer)) ()
+                (let* (($count (case (collapse (once (match &hm_period_count ($kb $n) $n))) (((cons $n $_rest) $n) (() 0))))
+                       ($_period-count (remove-data-rows! &hm_period_count (quote ($kb $_old))))
+                       ($next-period (+ $count 1))
+                       ($_next (add-atom &hm_period_count ($kb $next-period)))
+                       ($_new-order (add-atom &hm_period_order ($count $kb $time $period-hash)))
+                       ($expired (- $count (hm-window)))
+                       ($_expired (collapse (match &hm_period_order ($expired $kb $old-time $old-hash)
+                          (let* (($_rows (remove-data-rows! &hm_period (quote ($old-hash $kb $old-time $_seq $_fact $_truth $_layer))))
+                                 ($_old-order (remove-atom &hm_period_order ($expired $kb $old-time $old-hash)))) ())))))
+                   ())))
           ($_old-period (remove-data-rows! &hm_period (quote ($period-hash $kb $time $_seq $type $_s $_l))))
           ($_period (add-atom &hm_period ($period-hash $kb $time $seq $type $s $layer)))
           ($_recorded (if (> $s 0.5)
                          (collapse (let $constant (superpose $constants) (hm-record! $kb $type $seq $time $layer $constant)))
                          ())))
-      (let ($_proposed $picked) (hm-propose-observation! $kb $max-new $max-live (0 ()) (hm-observation $type $s $layer $features))
+      (let ($_proposed $picked) (hm-propose-observation! $kb $setting (0 ()) (hm-observation $type $s $layer $features))
          $picked)))
 
 ;; The hypotheses an added statement proposes, to be compiled by compileadd.
 ;; A true link fact is recorded under the two time points it links.
-(: hm-propose-observations! (-[det]-> KB (Number Number) (List HmObservation) (List AnnotatedStatement)))
-(= (hm-propose-observations! $kb ($max-new $max-live) $observations)
-   (let ($_count $picked) (fold-flat (hm-propose-observation! $kb $max-new $max-live) (0 ()) $observations)
-      $picked))
-
 (: hypothesis-link-observations (-[det]-> Atom Atom Number (List HmObservation)))
 
 (: hm-observe! (-[det]-> KB AnnotatedStatement (List AnnotatedStatement)))
 (= (hm-observe! $kb $stmt)
-   (case (collapse (once (match &hypothesis_mining ($kb $max-new $max-live) ($max-new $max-live)))) (
+   (case (collapse (once (match &hypothesis_mining ($kb $max-new $max-live) (hm-limits $max-new $max-live)))) (
       (() ())
       ((cons $setting $_rest)
          (case $stmt (
@@ -313,7 +328,7 @@
                                                           ($end-hash (hm-value-hash $kb $end)))
                                              (match &hm_period ($end-hash $kb $end $seq $fact $truth $fact-layer) (data $seq $end $fact $truth $fact-layer)))))
                                   ($observations (hypothesis-link-observations $type $ends (hm-window)))
-                                  ($picked (hm-propose-observations! $kb $setting $observations)))
+                                  (($_count $picked) (fold-flat (hm-propose-observation! $kb $setting) (0 ()) (the (List HmObservation) $observations))))
                               $picked))
                            ()))
                      ($_other ())))))))

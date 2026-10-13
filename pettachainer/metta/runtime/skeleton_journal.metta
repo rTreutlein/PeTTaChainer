@@ -430,4 +430,5 @@
                 ())))
       ()))
 
-(: record-view-rule! (-[det]-> Number SkeletonKey Number SkeletonValue Bool))
+(: &sk_thawed (SpaceOf (Number SkeletonKey)))
+!(bind! &sk_thawed (new-space))

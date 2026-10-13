@@ -59,7 +59,8 @@
       (collapse (match &sk_forward_stored ($hash $stored $old $old-ev $old-deps)
          (if (=alpha $stored $key)
             (let* (($_kb (remove-atom &kb $old))
-                   ($_unindex (kb-unindex-fact! $old)))
+                   ($_unindex (kb-unindex-fact! $old))
+                   ($_rules (forget-stored-rules! forward $hash $key)))
                (remove-atom &sk_forward_stored ($hash $stored $old $old-ev $old-deps)))
             (empty))))
       ()))
@@ -177,7 +178,33 @@
          ((sk-val ($type $kbctx $proof $tv) $ev $_deps)
             (let* (($summary (assemble-runtime-fact $type $kbctx (brand Proof (forgotten $hash $epoch)) (sk-decayed-tv $tv)))
                    ($_provenance (record-summary-rules! $hash $epoch $proof))
+                   ($_registered (record-stored-rules! summary $hash $key (brand Proof (forgotten $hash $epoch))))
                    ($_stored (add-atom &sk_summary ($hash $key $summary $ev $deps)))
                    ($_kb (add-atom &kb $summary)))
                (kb-index-fact! live $summary)))
          ($_none ())))))
+
+;; Retirement visits only physical copies registered for a withdrawn identity.
+;; A dead summary cannot preserve only its live contributors: thaw the key and
+;; queue its live rules for reconstruction on the next search.
+(= (sk-retire-store! (retired-store $kind $hash $key))
+   (let* (($_removed
+      (case $kind (
+         (materialized
+            (case $key (((sk-key $type $kbctx)
+               (foreach-flat remove-materialized! (materialized-rows (forward-output-key $kbctx $type))))
+                      ($_fold ()))))
+         (forward (sk-forget-forward-copy! $hash $key))
+         (summary
+            (let* (($_summaries
+                     (collapse (match &sk_summary ($hash $stored $fact $ev $deps)
+                        (if (=alpha $stored $key)
+                           (let* (($_kb (remove-atom &kb $fact))
+                                  ($_index (kb-unindex-fact! $fact)))
+                              (remove-atom &sk_summary ($hash $stored $fact $ev $deps)))
+                           (empty)))))
+                   ($_frozen (remove-variant-row! &sk_frozen (quote ($hash $key))))
+                   ($_queued (add-atom &sk_thawed ($hash $key))))
+               ())))))
+          ($_merged (sk-drop-merged! $key)))
+      (case $key (((sk-key $type $kbctx) (sk-note-fact! $type $kbctx)) ($_fold ())))))
