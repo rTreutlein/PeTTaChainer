@@ -194,8 +194,7 @@
 (: statement-query-kb (-[det]-> KB KB))
 (= (statement-query-kb $kb)
    (if (head-is? $kb implication-query)
-      (case $kb (((implication-query $source-kb) (brand KB $source-kb))
-                 ($_ordinary $kb)))
+      (let $source-kb (car-atom (cdr-atom $kb)) (brand KB $source-kb))
       $kb))
 
 ;; Runtime clause premises are erased tuples; recover their compiler roles.
@@ -231,6 +230,10 @@
          (let $lookup-type (copy_term $type)
             (match ccls_index
                (($lookup-type ($kb MAIN Nil) (by $rule $token) $source-tv) $_id $premises)
+               ;; Only rule-application producers (by rule token) are projected
+               ;; here. Other producer shapes are not collected; stored facts
+               ;; and the dedicated hypothetical/empirical scaffolds below
+               ;; remain separate sources (derived_implications.md, Limits).
                ;; A general producer may prove a bound instance. Project
                ;; its instantiated conclusion, retaining the rule's scope.
                (let*
@@ -256,11 +259,13 @@
 (= (conjunction-query-needs-lowering? $type)
    (if (head-is? $type Implication) true
       (if (head-is? $type And)
-         (let $children (statement-children (cdr-atom $type))
-            (not (== (collapse (once
-               (let $child (superpose $children)
-                  (if (conjunction-query-needs-lowering? $child) true (empty))))) ())))
+         (fold-flat conjunction-query-needs-lowering-step false
+            (statement-children (cdr-atom $type)))
          false)))
+
+(: conjunction-query-needs-lowering-step (-[det]-> Bool Statement Bool))
+(= (conjunction-query-needs-lowering-step $found $child)
+   (if $found true (conjunction-query-needs-lowering? $child)))
 
 (: compile-conjunction-query
    (-[nondet]-> KB Statement TV CompilationPlan))

@@ -241,7 +241,10 @@ clause index; the original clause shape is then checked for alpha identity.
 
 Positive query values use a private KB namespace with the original
 statement shape. They cannot become observations in main-context populations
-or ordinary user-rule premises. Stored rule keys retain their full CTVs.
+or untyped user-rule premises. An explicitly STV-typed main-context
+implication premise reads the private positive judgment; untyped/CTV
+premises and stored rule keys retain their full CTVs. Private judgments
+are excluded from `query-materialize` storage.
 
 Root answers are deduplicated by proof identity. An identical fact term
 retains its existing dependency path; distinct references to the same proof
@@ -256,6 +259,20 @@ nested modus ponens and normal And formulas.
 
 ## Limits
 
+- A hypothetical `Not G` read can incorrectly use a main-world `G` fact
+  instead of the assumed `G`. With `G = (STV 0.5 0.9)` and a stated
+  `Not G -> Y = (STV 0.9 0.9)`, the observed positive query value is 0.45,
+  which is not P(Y|G). Revising it with a stated positive rule also includes
+  this defective proof (0.7994764 in the regression). These are known
+  assumption-context defects, not validated conditional probabilities.
+  Conditioning this defective proof on its shared `G` can also return 0.45;
+  that shared-source regression is not a validation of P(Y|G) either.
+  Shared independent facts, including their negated views, use normal
+  conditioning without a proof-constructor workaround.
+- The positive statement-producer collector projects rule applications
+  shaped `(by rule token)` and stored facts. Other clause proof shapes are
+  not collected there; hypothetical and empirical query scaffolds have
+  their own compilation paths.
 - No inversion or antecedent completion through a nested rule or a derived
   statement.
 - Statement rules are deduplicated by shape, not by subsumption: rules

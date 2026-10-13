@@ -42,9 +42,10 @@
          (total-implication-frontier $_proof) (CTV $_pos $_neg)) $id $_args) $id))) 2)
 !(clear-temp-query-adds)
 
-;; The review's uncertain main-context fact must not suppress the conjunction.
-;; Only the positive implication is requested; the two packed storage branches
-;; are not independent conjuncts.
+;; Known limitation, preserved as an answer-availability regression:
+;; Not G in this hypothetical proof incorrectly reads main-world g instead of
+;; the assumed G. The observed 0.45 is NOT P(Y|G); fixing that assumption read
+;; is a separate task. The conjunction must still return its existing proof.
 !(compileadd reviewerConjKb (: g (G) (STV 0.5 0.9)))
 !(compileadd reviewerConjKb (: rn (Implication (Not (G)) (Y)) (STV 0.9 0.9)))
 !(compileadd reviewerConjKb (: m (M) (STV 1 1)))
@@ -54,28 +55,25 @@
    ((STV 0.45 0.9075903934023652)))
 !(compileadd reviewerConjKb (: r (Implication (G) (Y))
    (CTV (STV 0.8 0.9) (STV 0.2 0.9))))
-;; The existing positive-proof revision combines r and rn; certain M leaves
-;; its strength unchanged. Ordinary And propagates the reported confidence.
+;; Known limitation: 0.7994764 revises r with the same defective rn proof.
+;; This pins current answer availability/provenance, not a correct P(Y|G).
 !(test (collapse (let (: $p (And (M) (Implication (G) (Y))) $tv)
    (query 300 reviewerConjKb (: $q (And (M) (Implication (G) (Y))) $value)) $tv))
    ((STV 0.7994764000559776 0.9001571068984587)))
 
-;; A shared uncertain fact read inside the conditional proof is re-evaluated
-;; under given. These queries need conditioning rather than multiplying the
-;; two marginal proofs that read g.
+;; Known limitation: this shared-g regression also depends on the defective
+;; hypothetical Not G read above. Conditioning must keep an answer available;
+;; its observed 0.45 is not a correctness check for conditional probability.
 !(compileadd sharedGivenConjKb (: g (G) (STV 0.5 0.9)))
 !(compileadd sharedGivenConjKb (: rn (Implication (Not (G)) (Y)) (STV 0.9 0.9)))
 !(compileadd sharedGivenConjKb (: (no_inverse fromNotG)
    (Implication (Not (G)) (M)) (CTV (STV 1 1) (STV 0 1))))
-;; Given g=false, both M and the positive implication proof use Not G:
-;; 1 * 0.9; given g=true they contribute 0. Count the 0.5 source once.
-!(test (collapse (let
-   (: (conditioned g
-         (conjunction (by (no_inverse fromNotG) (negated (given true)))
-            (conditional-implication (by rn (negated (given true)))))
-         (conjunction (by (no_inverse fromNotG) (negated (given false)))
-            (conditional-implication (by rn (negated (given false))))))
-      (And (M) (Implication (G) (Y))) $tv)
+;; The current defective proof uses Not G in both marginals. Its shared
+;; evidence is counted once; the separate assumption fix must move this pin.
+;; Removing the obsolete conditional-proof workaround leaves this observed
+;; answer unchanged. It remains a known assumption-context defect, not a
+;; validation of P(Y|G).
+!(test (collapse (let (: $p $type $tv)
    (query 300 sharedGivenConjKb (: $q (And (M) (Implication (G) (Y))) $value)) $tv))
    ((STV 0.45 0.9082567753373312)))
 

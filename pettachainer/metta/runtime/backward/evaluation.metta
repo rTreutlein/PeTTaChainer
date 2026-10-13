@@ -1937,9 +1937,6 @@
 ;; part given. Evaluating every key so cost SupplyNet stage 3 a third more
 ;; time for no change. A compound reached again through its own rows while
 ;; they are evaluated so has no value there (row hash -2 in &sk_conditioning).
-;; A conditional implication can lose its unconditioned value for the same
-;; reason. Its row reads a hypothetical context, so follow that row under the
-;; given condition even when no immediate premise is the main-context key.
 (= (sk-given-value $given $key $filter $exclude)
    (let $value (sk-value $key $filter $exclude)
       (if (sk-given-meets? $given $value) (sk-given-merge $given $key $filter $exclude)
@@ -1961,13 +1958,11 @@
    (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey (List SkeletonValue) (Number SkeletonRow)
        (List SkeletonValue)))
 (= (sk-given-row-step $given $exclude $hash $key $views ($rhash (sk-row $ident $concl $premises $seq)))
-   (let ($_type $_kbctx $proof $_tv) $concl
-   (if (if (head-is? $proof conditional-implication) true
-           (fold-semidet (sk-reads-given-step (sk-given-hashes $given)) false $premises))
+   (if (fold-semidet (sk-reads-given-step (sk-given-hashes $given)) false $premises)
       (case (sk-row-view $given $exclude $hash $key $rhash (sk-row $ident $concl $premises $seq)) (
          (sk-none $views)
          ($view (cons $view $views))))
-      $views)))
+      $views))
 
 (: sk-reads-given-step (-[det]-> (List Number) Bool SkPattern Bool))
 (= (sk-reads-given-step $hashes $found $premise)
@@ -3620,8 +3615,9 @@
             (record-fact-inheritance-nodes! $fact false)))))
 
 (: materializable-result? (-[det]-> SkFact Bool))
-(= (materializable-result? ($type ($_kbid $ctx $vars) $_prf $tv))
-   (if (== $ctx MAIN)
+;; A positive implication judgment is a query result, never a world fact.
+(= (materializable-result? ($type ($kbid $ctx $vars) $_prf $tv))
+   (if (if (head-is? $kbid implication-query) false (== $ctx MAIN))
       (if (== $vars Nil)
          (if (== (extract-vars $type) ())
             (case $tv (

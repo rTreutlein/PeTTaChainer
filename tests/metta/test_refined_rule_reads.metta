@@ -146,6 +146,8 @@
 !(test (let (: $prf $t $tv) (query 100 stormKb (: $prf (Storm t2) $tv)) $tv)
    (STV 0.925268866420926 0.15477569667147947))
 
+;; Read the full internal CTV after scheduling a public STV query below.
+;; These pins protect learned negative branches used by modus ponens.
 ;; A rule whose antecedent never held in the history still learns its
 ;; negative branch from the cases where it failed (SupplyNet learned rules,
 ;; stage 1 seed 3: late-s10 rules stayed at their prior); its positive branch
@@ -161,5 +163,10 @@
 !(compileadd negKb (: a4 (A i4) (STV 0 1)))
 !(compileadd negKb (: b4 (B i4) (STV 0 1)))
 !(test
-   (let (: $p $t $tv) (query 50 negKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
-   (STV 0.5 0.02))
+   (let*
+      (((: $_public-proof $type (STV $_s $_c))
+          (query 50 negKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)))
+       ((sk-val ($_type $_ctx $_proof $stored-tv) $_ev $_deps)
+          (sk-value (sk-key (brand Statement $type) (kbctx negKb)) sk-any-filter ())))
+      $stored-tv)
+   (CTV (STV 0.5 0.02) (STV 0.25612202882009555 0.4506485110763119)))

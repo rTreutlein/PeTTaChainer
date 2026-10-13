@@ -37,3 +37,15 @@
 !(test
    (query 1 materializeKb (: $p (Goal) $tv))
    (: (by r2 (by r1 a0)) (Goal) (STV 1.0 0.999700089898053)))
+
+;; Positive implication judgments live in a private query context. Even an
+;; explicit materialization request must not persist one as a world fact.
+!(compileadd implicationMaterializeKb (: r (Implication (G) (Y))
+   (CTV (STV 0.8 0.9) (STV 0.2 0.9))))
+!(test (let (: $p $type (STV $s $c))
+   (query-materialize 300 implicationMaterializeKb (: $q (Implication (G) (Y)) $tv)) $s) 0.8)
+!(test (collapse (match &kb
+   ($_type ((implication-query implicationMaterializeKb) MAIN Nil) $_proof $_tv) true)) ())
+!(test (collapse (match &materialized_facts
+   (materialized-row $_hash $_type ((implication-query implicationMaterializeKb) MAIN Nil) $_fact $_ev) true)) ())
+!(test (collapse (query 0 implicationMaterializeKb (: $p (Implication (G) (Y)) $tv))) ())

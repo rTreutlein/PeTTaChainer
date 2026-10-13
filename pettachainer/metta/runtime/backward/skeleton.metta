@@ -1195,19 +1195,34 @@
    (once
       (case $premise (
          (($type ($kbid $prem-ctx $prem-vars) $prf $tv)
-            (let $fact-kb
-               (if (context-world? $ctx)
-                  (if (if (== $prem-ctx MAIN) true (== $prem-ctx $ctx))
-                     (if (context-affected? $ctx $type)
+            (let*
+               (($fact-kb
+                  (if (context-world? $ctx)
+                     (if (if (== $prem-ctx MAIN) true (== $prem-ctx $ctx))
+                        (if (context-affected? $ctx $type)
+                           (make-kb-context (brand KB $kbid) $ctx $vars)
+                           (make-kb-context (brand KB $kbid) MAIN Nil))
+                        (make-kb-context (brand KB $kbid) $prem-ctx $prem-vars))
+                     (if (if (== $prem-ctx MAIN)
+                            (if (== $ctx MAIN) false (context-vars-in-type? $type $vars))
+                            false)
                         (make-kb-context (brand KB $kbid) $ctx $vars)
-                        (make-kb-context (brand KB $kbid) MAIN Nil))
-                     (make-kb-context (brand KB $kbid) $prem-ctx $prem-vars))
-                  (if (if (== $prem-ctx MAIN)
-                         (if (== $ctx MAIN) false (context-vars-in-type? $type $vars))
-                         false)
-                     (make-kb-context (brand KB $kbid) $ctx $vars)
-                     (make-kb-context (brand KB $kbid) $prem-ctx $prem-vars)))
-               (assemble-stored-runtime-fact $type $fact-kb $prf $tv)))
+                        (make-kb-context (brand KB $kbid) $prem-ctx $prem-vars))))
+                ;; An explicitly STV-typed implication premise requests its
+                ;; positive judgment. Keep full CTV rule reads in their source
+                ;; context and route only main-context STV reads privately.
+                ($read-kb
+                   (if (if (head-is? $tv STV) (implication-type? (brand Statement $type)) false)
+                      (case $fact-kb (
+                         (($source-kb $source-ctx $source-vars)
+                            (if (if (== $source-ctx MAIN) (== $source-vars Nil) false)
+                               (let* (($source (statement-query-kb (brand KB $source-kb)))
+                                      ($query-kb (brand KB (implication-query $source))))
+                                  (make-kb-context $query-kb MAIN Nil))
+                               $fact-kb))
+                         ($_other $fact-kb)))
+                      $fact-kb)))
+               (assemble-stored-runtime-fact $type $read-kb $prf $tv)))
          ;; A fold over members the assumptions can change folds them in the
          ;; context: its arguments name the context instead of the KB.
          ((CPU $fun $args $res)
@@ -1270,12 +1285,15 @@
 ;; become checkable.
 (: prefilter-head-concludable? (-[det]-> Statement Atom Bool))
 (= (prefilter-head-concludable? $type $kbid)
+   ;; Private implication judgments get their scaffold when expanded. An
+   ;; explicit STV premise may reach one before that scaffold is installed.
+   (if (head-is? $kbid implication-query) (implication-type? $type)
    (let $lookup-type (copy_term $type)
       (not (== (collapse (once (match ccls_index
                   (($lookup-type ($kbid $_stored-ctx $_stored-vars) $_stored-proof $_stored-tv)
                    $_rule-id $_stored-args)
                   true)))
-               ()))))
+               ())))))
 
 (: prefilter-premise-blocks? (-[det]-> SkPattern Bool))
 (= (prefilter-premise-blocks? $premise)

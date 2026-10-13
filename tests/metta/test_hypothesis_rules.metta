@@ -77,6 +77,8 @@
 ;; it is reached only with budget to spare.
 !(test (hypothesis-scores) ((A 0.0099) (A 0.009000000000000001) (C 0.0099) (C 0.009000000000000001)))
 
+;; Read the full internal CTV after scheduling a public STV query below.
+;; These pins protect learned negative branches used by modus ponens.
 ;; A review learns both branches from the instances: P(B|A) from those with
 ;; A, P(B|not A) from those without (8 and 2 of 10 for A, 5 and 5 for C).
 ;; The cases arrive in order, so the last ones could be a new regime of the
@@ -84,11 +86,21 @@
 ;; hazard that hypothesis keeps a small weight (0.793 against 0.797,
 ;; docs/metta/hypothesis_rules.md, "Regimes").
 !(test
-   (let (: $p $t $tv) (query 50 hypKb (: $p (RuleTruth (Implication (C $x) (B $x))) $tv)) $tv)
-   (STV 0.4992318014558537 0.6687146348286057))
+   (let*
+      (((: $_public-proof $type (STV $_s $_c))
+          (query 50 hypKb (: $p (RuleTruth (Implication (C $x) (B $x))) $tv)))
+       ((sk-val ($_type $_ctx $_proof $stored-tv) $_ev $_deps)
+          (sk-value (sk-key (brand Statement $type) (kbctx hypKb)) sk-any-filter ())))
+      $stored-tv)
+   (CTV (STV 0.4992318014558537 0.6687146348286057) (STV 0.4992318014558537 0.6687146348286057)))
 !(test
-   (let (: $p $t $tv) (query 50 hypKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
-   (STV 0.7934110109537581 0.6681312812545516))
+   (let*
+      (((: $_public-proof $type (STV $_s $_c))
+          (query 50 hypKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)))
+       ((sk-val ($_type $_ctx $_proof $stored-tv) $_ev $_deps)
+          (sk-value (sk-key (brand Statement $type) (kbctx hypKb)) sk-any-filter ())))
+      $stored-tv)
+   (CTV (STV 0.7934110109537581 0.6681312812545516) (STV 0.2021459950865152 0.6687223602108197)))
 
 ;; The confirmed hypothesis is scored by what it adds; the rejected one, whose
 ;; consequent does not move with its antecedent, stays at the floor.

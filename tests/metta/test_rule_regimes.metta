@@ -364,6 +364,8 @@
 !(compileadd shufKb (: b31 (B i31) (STV 1 1)))
 !(test (let (: $p $t $tv) (query 50 shufKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv) (STV 0.7492053401144311 0.8652365236523653))
 
+;; Read the full internal CTV after scheduling a public STV query below.
+;; These pins protect learned negative branches used by modus ponens.
 ;; --- Each branch on its own --------------------------------------------------
 ;; In a CTV rule P(B|A) flips after 8 instances while P(B|not A) stays at
 ;; one half: the negative branch keeps one regime.
@@ -419,8 +421,13 @@
 !(compileadd ctvOffKb (: a23 (A i23) (STV 0 1)))
 !(compileadd ctvOffKb (: b23 (B i23) (STV 0 1)))
 !(test
-   (let (: $p $t $tv) (query 50 ctvOffKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
-   (STV 0.6652613827993255 0.7076372315035799))
+   (let*
+      (((: $_public-proof $type (STV $_s $_c))
+          (query 50 ctvOffKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)))
+       ((sk-val ($_type $_ctx $_proof $stored-tv) $_ev $_deps)
+          (sk-value (sk-key (brand Statement $type) (kbctx ctvOffKb)) sk-any-filter ())))
+      $stored-tv)
+   (CTV (STV 0.6652613827993255 0.7076372315035799) (STV 0.5 0.7076372315035799)))
 !(set-rule-refinement ctvOnKb true)
 !(compileadd ctvOnKb (: h (Implication (A $x) (B $x)) (CTV (STV 0.5 0.02) (STV 0.5 0.02))))
 !(compileadd ctvOnKb (: a0 (A i0) (STV 1 1)))
@@ -472,8 +479,13 @@
 !(compileadd ctvOnKb (: a23 (A i23) (STV 0 1)))
 !(compileadd ctvOnKb (: b23 (B i23) (STV 0 1)))
 !(test
-   (let (: $p $t $tv) (query 50 ctvOnKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
-   (STV 0.6340432945820736 0.7010406593912604))
+   (let*
+      (((: $_public-proof $type (STV $_s $_c))
+          (query 50 ctvOnKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)))
+       ((sk-val ($_type $_ctx $_proof $stored-tv) $_ev $_deps)
+          (sk-value (sk-key (brand Statement $type) (kbctx ctvOnKb)) sk-any-filter ())))
+      $stored-tv)
+   (CTV (STV 0.6340432945820736 0.7010406593912604) (STV 0.49994591499382773 0.707616716013356)))
 
 ;; --- Leave one out ----------------------------------------------------------
 ;; A reader leaves its own sample out of the segment holding it.
