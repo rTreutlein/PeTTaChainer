@@ -290,3 +290,42 @@ class TestRuleRetirement(unittest.TestCase):
         self.assertEqual(stats["Due"], "true")
         self.assertEqual(stats["Finished"], "true")
         self.assertEqual(stats["Kept"], 0)
+
+    def test_published_copies_share_set_registration_and_retirement_walk(self):
+        import janus_swi
+
+        PeTTaChainer()
+        stats = janus_swi.query_once(
+            "findall(_S, (between(1, 128, _I), _R is 298000000+_I, rule_set_leaf(_R, _S)), _Leaves), "
+            "rule_sets_join(_Leaves, _Set), rule_set_leaf(298000001, _First), "
+            "rule_set_leaf(298001000, _Outside), rule_sets_join([_First, _Outside], _Overlap), "
+            "assertz(proof_rules_memo(2000050001, _Set)), "
+            "assertz(proof_rules_memo(2000050002, _Overlap)), "
+            "assertz(proof_rules_memo(2000050003, _Outside)), "
+            "forall(between(1, 32, _I), 'record-stored-rules!'(review3, 2000050000, ['copy', _I], ['proof-ref', 2000050001], true)), "
+            "'record-stored-rules!'(review3, 2000050000, [overlap], ['proof-ref', 2000050002], true), "
+            "'record-stored-rules!'(review3, 2000050000, [live], ['proof-ref', 2000050003], true), "
+            "aggregate_all(count, (stored_rules(2000050000, review3, _, _Token, _S), stored_set(_S, _Token)), Registrations), "
+            "statistics(inferences, _Before), 'forget-stored-rules!'(review3, 2000050000, ['copy', 1], true), "
+            "statistics(inferences, _After), RemovalCost is _After-_Before, "
+            "forall(between(1, 100, _), 'record-stored-rules!'(review3, 2000050000, ['copy', 1], ['proof-ref', 2000050001], true)), "
+            "aggregate_all(count, (stored_rules(2000050000, review3, _, _T, _S), stored_set(_S, _T)), Republished), "
+            "'withdraw-rule!'(298000001, true), 'withdraw-rule!'(298000002, true), "
+            "'withdrawn-stores!'([298000001, 298000002], Stores), length(Stores, Retired), "
+            "stored_rules(2000050000, review3, [live], _LiveToken, _Outside), stored_set(_Outside, _LiveToken), "
+            "aggregate_all(count, stored_rules(2000050000, review3, _, _, _), Remaining), "
+            "'forget-stored-rules!'(review3, 2000050000, [live], true), "
+            "forall(between(2000050001, 2000050003, _P), retractall(proof_rules_memo(_P, _))), "
+            "'stored-refs-gc!'(_), "
+            "(rule_set(_Set, _, _, _, _) -> Collected=false ; Collected=true), "
+            "forall(rule_parent(_Child, _Parent), (rule_set(_Child, _, _, _, _), rule_set(_Parent, _, _, _, _))), "
+            "aggregate_all(count, (stored_set(_, _T), stored_token(_T, _Ref), clause(stored_rules(2000050000, review3, _, _T, _), true, _Ref)), Left)"
+        )
+        self.assertTrue(stats["truth"])
+        self.assertEqual(stats["Registrations"], 34)
+        self.assertEqual(stats["Republished"], 34)
+        self.assertLess(stats["RemovalCost"], 200)
+        self.assertEqual(stats["Retired"], 33)
+        self.assertEqual(stats["Remaining"], 1)
+        self.assertEqual(stats["Collected"], "true")
+        self.assertEqual(stats["Left"], 0)

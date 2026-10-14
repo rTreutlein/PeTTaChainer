@@ -2121,6 +2121,7 @@
                  (match &sk_answer_queue ($qseq (sk-delivery $queued $qkey)) (if (=alpha $queued $node) true (empty)))))))
              ()))))
 
+;; This check also removes retired waiters encountered in the child index.
 (: sk-application-waits? (-[semidet]-> SkPattern Bool SkeletonNodeAt Bool))
 (= (sk-application-waits? $node $found (sk-node-at $hash $child))
    (if $found true
@@ -2159,7 +2160,8 @@
                false)))
       ($_fold false))))
 
-;; Whether a rule application is among a statement's rows.
+;; Whether a rule application is among a statement's rows. This check also
+;; removes encountered retired rows and their optimization registrations.
 (: sk-founded? (-[det]-> Number SkeletonKey Bool))
 (= (sk-founded? $hash $key)
    (not (== (collapse (once (match &sk_row ($hash $stored $_rhash (sk-row (sk-ident $rule $_keys $_key) ($_t $_k $proof $_v) $_ps $_seq))

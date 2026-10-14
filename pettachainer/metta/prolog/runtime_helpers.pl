@@ -477,6 +477,7 @@ rule_gc_dead(retirements, retired_epoch(Epoch, Rule)) :-
     ( nb_getval(refs_gc_retire_floor, Floor), Epoch =< Floor ; \+ rule_leaf(Rule, _) ).
 rule_gc_erase(sets, rule_set(Set, Kind, Children, _, _), Ref) :- !,
     erase(Ref),
+    forall(member(Child, Children), retractall(rule_parent(Child, Set))),
     ( Kind = leaf(Rule) -> retractall(rule_leaf(Rule, Set))
     ; Kind = branch(Bit, _), Children = [Left, Right], term_hash([Bit, Left, Right], Hash),
       retractall(rule_branch(Hash, Bit, Left, Right, Set)) ),
@@ -788,11 +789,11 @@ ev_common_step(['ev-set', Set], Ids-Sorted, Kept-Shared) :-
 % Proof metadata keeps the permanent owner identity, alongside its negation
 % bit. Shared transitive provenance is interned only when a retirement check
 % or an exposed KB copy needs it. Epoch-zero backward reads allocate no sets;
-% publishing a KB copy eagerly indexes its distinct contributing rules.
+% publishing a KB copy registers it once against its shared source set.
 % A canonical Patricia tree shares branches and bounds membership by one path.
 :- dynamic retired_rule/2, retired_epoch/2, proof_live_memo/3,
-           summary_rules/3, rule_set/5, rule_leaf/2, rule_branch/5, rule_union/3,
-           proof_rules_memo/2, summary_user/3, stored_rules/5, stored_rule/2, stored_token/2, summary_ref/3.
+           summary_rules/3, rule_set/5, rule_leaf/2, rule_branch/5, rule_union/3, rule_parent/2,
+           proof_rules_memo/2, summary_user/3, stored_rules/5, stored_set/2, stored_token/2, summary_ref/3.
 
 'withdraw-rule!'(Id, true) :-
     ( retired_rule(Id, _) -> true
@@ -853,6 +854,7 @@ rule_set_new(Kind, Children, Mask, Set) :-
     ( Kind = leaf(_) -> Count = 1
     ; Children = [Left, Right], rule_set(Left, _, _, _, LC), rule_set(Right, _, _, _, RC), Count is LC + RC ),
     assertz(rule_set(Set, Kind, Children, Mask, Count)), flag(withdraw_epoch, Epoch, Epoch),
+    forall(member(Child, Children), assertz(rule_parent(Child, Set))),
     ( Epoch =:= 0 -> true
     ; ( ( Kind = leaf(Rule) -> \+ retired_rule(Rule, _) ; forall(member(Child, Children), rule_set_live(Child, Epoch)) )
         -> Live = true ; Live = false ),
@@ -927,25 +929,37 @@ rule_set_has(Set, Rule, Bit) :-
       Children = [Left, Right],
       ( Rule /\ (1 << Branch) =:= 0 -> rule_set_has(Left, Rule, Bit) ; rule_set_has(Right, Rule, Bit) ) ).
 
-% Physical KB copies have an inverse index. Expanding a set happens only at
-% copy publication, never for every proof or every read. Replacing/removing a
-% copy removes its registrations as well.
+% Each physical KB copy registers once against its canonical set. Shared
+% child-to-parent edges lead from a retired rule's leaf to affected copies;
+% publication/removal never enumerates that set's contributing rules.
 'record-stored-rules!'(Kind, Hash, Key, Proof, true) :-
     'forget-stored-rules!'(Kind, Hash, Key, true), proof_rule_set(Proof, Set),
     flag(stored_rules_next, N, N + 1), Token is N + 1,
     assertz(stored_rules(Hash, Kind, Key, Token, Set), Ref), assertz(stored_token(Token, Ref)),
-    forall(rule_set_rule(Set, Rule), assertz(stored_rule(Rule, Token))).
+    assertz(stored_set(Set, Token)).
 
 'forget-stored-rules!'(Kind, Hash, Key, true) :-
     forall(( stored_rules(Hash, Kind, Stored, Token, Set), Stored =@= Key ),
-           ( forall(rule_set_rule(Set, Rule), retractall(stored_rule(Rule, Token))), retractall(stored_rules(Hash, Kind, Stored, Token, _)), retractall(stored_token(Token, _)) )).
+           ( retractall(stored_set(Set, Token)), stored_token(Token, Ref), erase(Ref), retractall(stored_token(Token, _)) )).
 
 'withdrawn-stores!'(Ids, Stores) :-
-    findall(Token, ( member(Id, Ids), stored_rule(Id, Token) ), Tokens0), sort(Tokens0, Tokens),
+    findall(Leaf, ( member(Id, Ids), rule_leaf(Id, Leaf) ), Leaves), empty_nb_set(Seen),
+    findall(Token, ( rule_set_ancestor(Leaves, Seen, Set), stored_set(Set, Token) ), Tokens0), sort(Tokens0, Tokens),
     findall(['retired-store', Kind, Hash, Key],
             ( member(Token, Tokens), stored_token(Token, Ref),
               clause(stored_rules(Hash, Kind, Key, Token, _), true, Ref),
               'forget-stored-rules!'(Kind, Hash, Key, true) ), Stores).
+
+% The Patricia nodes form a shared DAG across canonical sets. Visit each
+% affected node once, including ancestors without a published copy of their
+% own, so diamonds and multiple retired sources do not repeat subtree work.
+rule_set_ancestor([Set|Rest], Seen, Ancestor) :-
+    add_nb_set(Set, Seen, New),
+    ( New == true
+    -> ( Ancestor = Set
+       ; findall(Parent, rule_parent(Set, Parent), Parents), append(Parents, Rest, Next),
+         rule_set_ancestor(Next, Seen, Ancestor) )
+    ; rule_set_ancestor(Rest, Seen, Ancestor) ).
 
 
 % A rule is dormant when one of its statement premises can be proved, apart

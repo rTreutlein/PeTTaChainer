@@ -40,14 +40,18 @@ need it, then cached as a canonical interned set id. Ordinary backward reads
 at retirement epoch zero
 allocate neither provenance sets nor a per-proof cache. Publishing a derived KB
 copy is a separate operation: even at epoch zero it resolves provenance and
-registers one inverse-index entry per contributing rule per copy. Its cost and
-index storage are proportional to that copy's distinct source-rule count.
+registers each copy once against its canonical rule-set id. Shared Patricia
+nodes record child-to-parent edges. Withdrawal follows those edges from retired
+rule leaves to affected sets and their copies, visiting each node once. Copy
+registration and removal do not enumerate source rules; republishing replaces
+one registration. Provenance resolution still pays for previously uncached
+proof DAG nodes. Index storage is O(set nodes + copies).
 A stale liveness memo checks subsequent retirement events or the set's leaves
 against the retirement index, whichever is smaller. Proof ids remain durable
 and never reusable.
 
 Derived facts exposed in `&kb` (forward copies, materialized answers and
-forgetting summaries) have an inverse index by contributing rule. Withdrawal
+forgetting summaries) are indexed by their canonical source set. Withdrawal
 removes affected copies and their fact indexes, so direct KB readers obey the
 same semantics. A mixed forgetting summary cannot subtract a contributor:
 removing it thaws the key and queues reconstruction from live rules. Its
@@ -56,9 +60,9 @@ the erased rows. Join keys and links use the same 60-bit digest contract.
 Retired waiters remove themselves on their first subsequent delivery. Closed
 reads and needs remove encountered retired waiters, deferred work and rows,
 including their pending counts and optimization registrations.
-Withdrawal costs the affected physical copies; it does not scan row or proof
-history. Rule-id sets use canonical Patricia trees: regrouping or repeating a union
-returns the same id, while shared branches avoid copying transitive lists.
+Withdrawal costs the ancestor set nodes and affected physical copies; it does
+not scan row or proof history. Rule-id sets use canonical Patricia trees:
+regrouping or repeating a union returns the same id, while shared branches avoid copying transitive lists.
 Membership follows one rule-id bit path, even when the retired rule belongs
 to another proof. Union memos, provenance nodes and liveness memos are
 collected in metered phases of the proof/evidence collector; root marking
@@ -69,7 +73,7 @@ are collected too; permanent rule retirement
 identities remain for later cold reads. Retirement growth also triggers a
 collection when no new proofs are being stored. The first provenance read resolves its reachable uncached DAG nodes once; subsequent reads
 reuse those sets and check at most the smaller of the retirement delta and
-their distinct rule count. Withdrawal itself never walks the DAG.
+their distinct rule count. Withdrawal itself never walks the proof DAG.
 The stored owner is encoded as id+1; zero denotes no permanent owner and never
 aliases real rule identity zero.
 Direct references to frozen summaries register when a proof is published. Their
