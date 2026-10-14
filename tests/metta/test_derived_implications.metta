@@ -63,12 +63,12 @@
 ;; proof applies the nested rule step by step, (by (by r A) B).
 !(test
    (query 20 nestedRatesKb (: $p (Implication (A x) (Implication (B x) (C x))) $tv))
-   (: (merge/revision (conditional-implication (by (by r (ctx proof 1)) (ctx proof 1 1))) (implication-instance-fold cpu)) (Implication (A x) (Implication (B x) (C x))) (STV 0.9 0.9000112453459356)))
+   (: (merge/revision r (implication-instance-fold cpu)) (Implication (A x) (Implication (B x) (C x))) (STV 0.9 0.9000112464854588)))
 !(test
    (query 20 nestedRatesKb (: $p (Implication (And (A x) (B x)) (C x)) $tv))
    (: (merge/revision (conditional-implication (by (by r (ctx proof 2)) (ctx proof 2 1))) (implication-instance-fold cpu)) (Implication (And (A x) (B x)) (C x)) (STV 0.9 0.9000112453459356)))
 !(test (query 20 nestedRatesKb (: $p (Implication (A x) (Implication (B x) (C x))) (STV $s $c)))
-   (: (merge/revision (conditional-implication (by (by r (ctx proof 3)) (ctx proof 3 1))) (implication-instance-fold cpu)) (Implication (A x) (Implication (B x) (C x))) (STV 0.9 0.9000112453459356)))
+   (: (merge/revision r (implication-instance-fold cpu)) (Implication (A x) (Implication (B x) (C x))) (STV 0.9 0.9000112464854588)))
 
 ;; Three levels, A → (B → (C → D)), against (A ∧ B ∧ C) → D: 0.8 · 0.6 · 0.7
 ;; · 0.9 = 0.3024, the negative branch 0 (no base rates).
@@ -88,7 +88,7 @@
 ;; The query of a three-level nested implication is the exported query's.
 !(test
    (query 30 nested3Kb (: $p (Implication (A x) (Implication (B x) (Implication (C x) (D x)))) $tv))
-   (: (conditional-implication (by (by (by r (ctx proof 4)) (ctx proof 4 1)) (ctx proof 4 2))) (Implication (A x) (Implication (B x) (Implication (C x) (D x)))) (STV 0.9 0.9999000072995391)))
+   (: r (Implication (A x) (Implication (B x) (Implication (C x) (D x)))) (STV 0.9 1.0)))
 !(test
    (query 30 nested3Kb (: $p (Implication (And (A x) (B x) (C x)) (D x)) $tv))
    (: (conditional-implication (by (by (by r (ctx proof 5)) (ctx proof 5 1)) (ctx proof 5 2))) (Implication (And (A x) (B x) (C x)) (D x)) (STV 0.9 0.9999000072995391)))
@@ -163,7 +163,7 @@
             (AcceptSource Report1)
             (Implication (And (Supplier $x) (ExposedTo $x ClimateRisk)) (LowerPrices $x)))
          $tv))
-   (: (conditional-implication (by (by src_rule (ctx proof 6)) (conjunction (ctx proof 6 1) (ctx proof 6 2)))) (Implication (AcceptSource Report1) (Implication (And (Supplier $_0) (ExposedTo $_0 ClimateRisk)) (LowerPrices $_0))) (STV 1.0 0.8997569978203288)))
+   (: src_rule (Implication (AcceptSource Report1) (Implication (And (Supplier $_0) (ExposedTo $_0 ClimateRisk)) (LowerPrices $_0))) (STV 1 0.9)))
 !(test
    (query
       100
@@ -174,7 +174,7 @@
             (AcceptSource Report1)
             (Implication (And (Supplier Supplier1) (ExposedTo Supplier1 ClimateRisk)) (LowerPrices Supplier1)))
          $tv))
-   (: (conditional-implication (by (by src_rule (ctx proof 7)) (conjunction (ctx proof 7 1) (ctx proof 7 2)))) (Implication (AcceptSource Report1) (Implication (And (Supplier Supplier1) (ExposedTo Supplier1 ClimateRisk)) (LowerPrices Supplier1))) (STV 1.0 0.8997569978203288)))
+   (: src_rule (Implication (AcceptSource Report1) (Implication (And (Supplier Supplier1) (ExposedTo Supplier1 ClimateRisk)) (LowerPrices Supplier1))) (STV 1 0.9)))
 !(test (collapse (query 100 gateKb (: $p (Not (Implication (AcceptSource Report1) (Implication (And (Supplier $x) (ExposedTo $x ClimateRisk)) (LowerPrices $x)))) $tv)))
    ())
 !(test (collapse (query 100 gateKb (: $p (LowerPrices Supplier1) $tv)))
@@ -205,6 +205,6 @@
 !(compileadd openGateKb (: r (Implication (G R) (Implication (And (A $a) (F $f) (From $a $f)) (C $a))) (STV 1 0.9)))
 !(test
    (query 100 openGateKb (: $p (Implication (G R) (Implication (And (A $a) (F $f) (From $a $f)) (C $a))) $tv))
-   (: (conditional-implication (by (by r (ctx proof 11)) (conjunction (ctx proof 11 1) (ctx proof 11 2) (ctx proof 11 3)))) (Implication (G R) (Implication (And (A $_0) (F $_1) (From $_0 $_1)) (C $_0))) (STV 1.0 0.8996760262111828)))
+   (: r (Implication (G R) (Implication (And (A $_0) (F $_1) (From $_0 $_1)) (C $_0))) (STV 1 0.9)))
 !(test (collapse (query 100 openGateKb (: $p (C x) $tv)))
    ())

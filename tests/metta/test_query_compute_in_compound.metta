@@ -26,9 +26,9 @@
 !(compileadd implicationComputeKb (: r (Implication (G) (Y))
    (CTV (STV 0.8 0.9) (STV 0.2 0.9))))
 !(test (collapse (let
-   (: (conjunction p1 cpu p2 (conditional-implication (by r (ctx proof $pos))))
+   (: (conjunction p1 cpu p2 r)
       (And (P 1) (Compute + (1 1) 2) (P 2) (Implication (G) (Y))) $tv)
    (query 300 implicationComputeKb
       (: $p (And (P $x) (Compute + ($x 1) $y) (P $y)
          (Implication (G) (Y))) $value)) $tv))
-   ((STV 0.8 0.8999999988453744)))
+   ((STV 0.8 0.8999999990276973)))

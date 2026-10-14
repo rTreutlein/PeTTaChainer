@@ -27,6 +27,26 @@
       (data
          $shape-kb (brand Proof $prf) $consequent $adds)))
 
+;; Judgment contexts know the whole compound antecedent as well as its
+;; lowered parts. In particular a Not reader of a ground And must read that
+;; conjunction as assumed true, rather than finding no contextual fact and
+;; falling back to MAIN. Assuming queries retain their ordinary fact lowering.
+(: judgment-query-side
+   (-[semidet]-> KB (| NilType (List Variable)) Bool
+       Statement Statement
+       (KBContext Proof Statement (List CompiledAddition))))
+(= (judgment-query-side $kb $mvars $negative? $antecedent $consequent)
+   (let* ((($shape-kb $prf $b $adds)
+              (query-side $kb $mvars $negative? $antecedent $consequent))
+          (($_source-kb $ctx $_vars) $shape-kb)
+          ($whole-tv (if $negative? (STV 0 1) (STV 1 1))))
+      (data $shape-kb $prf $b
+         (if (head-is-member? $antecedent (And Or))
+            (cons (brand CompiledAddition
+               (() |- (: $shape-kb (ctx proof $ctx whole) $antecedent $whole-tv)))
+               $adds)
+            $adds))))
+
 ;; The two sides of a total-implication query share one conclusion $b and differ
 ;; only in polarity. Returns the ground shape-kbs, $b, the fresh pos/neg proof
 ;; vars (used by the caller in its known goals and proof token), and all adds.
@@ -37,9 +57,9 @@
 (= (query-pos-neg-scaffold $kb $mvars $antecedent $consequent)
    (let*
       ((($pos-shape-kb $pos-prf $b $pos-adds)
-          (query-side $kb $mvars false $antecedent $consequent))
+          (judgment-query-side $kb $mvars false $antecedent $consequent))
        (($neg-shape-kb $neg-prf $_b $neg-adds)
-          (query-side $kb $mvars true $antecedent $consequent)))
+          (judgment-query-side $kb $mvars true $antecedent $consequent)))
       (data
          $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf
          (union-compiled-additions $pos-adds $neg-adds))))
@@ -193,7 +213,7 @@
 ;; therefore cannot treat query judgments as new world observations.
 (: statement-query-kb (-[det]-> KB KB))
 (= (statement-query-kb $kb)
-   (if (head-is? $kb implication-query)
+   (if (head-is-member? $kb (implication-query implication-stated))
       (let $source-kb (car-atom (cdr-atom $kb)) (brand KB $source-kb))
       $kb))
 
@@ -317,7 +337,7 @@
              ($query-ctx (make-kb-context $query-kb MAIN Nil))
              ($mvars (query-variables (extract-vars $Type)))
              (($pos-shape-kb $pos-prf $b $pos-adds)
-                (query-side $kb $mvars false
+                (judgment-query-side $kb $mvars false
                    (brand Statement $antecedent)
                    (brand Statement $consequent))))
             (compilation-plan
@@ -344,12 +364,12 @@
                 ($mvars (query-variables (extract-vars $Type)))
                 (($left-shape-kb $left-prf
                       $left-goal-expr $left-adds)
-                    (query-side $kb $mvars false
+                    (judgment-query-side $kb $mvars false
                        (brand Statement $left)
                        (brand Statement $right)))
                  (($right-shape-kb $right-prf
                       $right-goal-expr $right-adds)
-                    (query-side $kb $mvars false
+                    (judgment-query-side $kb $mvars false
                        (brand Statement $right)
                        (brand Statement $left)))
                  ($left-goal (: $left-shape-kb $left-prf $left-goal-expr $left-tv))

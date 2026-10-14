@@ -51,6 +51,8 @@
    (SpaceOf (Number ForwardAggregateIdentityRow)))
 (: &forward_aggregate_interest_by_trigger
    (SpaceOf (Number ForwardAggregateInterest)))
+(: &forward_aggregate_triggers
+   (SpaceOf (Number ForwardTriggerKey)))
 
 (: ForwardAggregateState Type)
 (: forward-aggregate-state

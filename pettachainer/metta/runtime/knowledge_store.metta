@@ -23,9 +23,9 @@
 (: kb-index-fact! (-[det]-> KbBackend Atom Atom))
 (= (kb-index-fact! $backend ($type $kbctx $proof $tv))
    (let* (($fact (data $type $kbctx $proof $tv))
-          ($_rows (map-flat (kb-index-row! $backend &kb_prefix $fact) (statement-prefix-hashes $type))))
+          ($_rows (map-flat (kb-index-row! $backend &kb_prefix $fact) (kb-fact-prefix-hashes $type))))
       (if (== (extract-vars $type) ()) ()
-         (let $_open (kb-index-row! $backend &kb_open $fact (statement-open-hash $type)) ()))))
+         (let $_open (kb-index-row! $backend &kb_open $fact (kb-fact-open-hash $type)) ()))))
 
 (: kb-index-row! (-[det]-> KbBackend $space Atom Number Bool))
 (= (kb-index-row! $backend $space $fact $hash)
@@ -33,9 +33,9 @@
 
 (: kb-unindex-fact! (-[det]-> Atom Atom))
 (= (kb-unindex-fact! ($type $kbctx $proof $tv))
-   (let $_rows (map-flat (kb-remove-prefix-row! (data $type $kbctx $proof $tv)) (statement-prefix-hashes $type))
+   (let $_rows (map-flat (kb-remove-prefix-row! (data $type $kbctx $proof $tv)) (kb-fact-prefix-hashes $type))
       (if (== (extract-vars $type) ()) ()
-         (let* (($hash (statement-open-hash $type))
+         (let* (($hash (kb-fact-open-hash $type))
                 ($_open (remove-atom &kb_open ($hash $type $kbctx $proof $tv))))
             ()))))
 

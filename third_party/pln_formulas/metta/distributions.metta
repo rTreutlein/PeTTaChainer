@@ -97,16 +97,17 @@
 ;; id; the resulting cons is then known statically as (List Number).
 (: particle-ids-in-term (-[det]-> Expression (List Number)))
 (= (particle-ids-in-term $term)
-   (case $term (
-      ((ParticleDist $pid $_scale)
-         (cons $pid ()))
-      ($_other
-         (if (or (is-var $term) (== $term ())) ()
-            (if (is-expr $term)
-               (append
-                  (particle-ids-in-term (car-atom $term))
-                  (particle-ids-in-term (cdr-atom $term)))
-               ()))))))
+   (if (is-var $term) ()
+      (case $term (
+         ((ParticleDist $pid $_scale)
+            (if (is-var $pid) () (cons $pid ())))
+         ($_other
+            (if (== $term ()) ()
+               (if (is-expr $term)
+                  (append
+                     (particle-ids-in-term (car-atom $term))
+                     (particle-ids-in-term (cdr-atom $term)))
+                  ())))))))
 
 (: prune-particle-store-step
    (-[det]-> (List Number) (List $none) ParticleSample

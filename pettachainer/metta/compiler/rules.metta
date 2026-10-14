@@ -1335,6 +1335,42 @@
                    ()))
              ($value (if $refine? $truth-tv $tv)))
             (superpose (
+               ;; Stated positive judgments stay private. A CTV is already
+               ;; executable rule storage in MAIN; an STV's full CTV reads its
+               ;; source and the ordinary base rates through a permanent row.
+               (let* ((($inner $last) (nested-implication-parts $b))
+                      ($source-b (skolemize-conclusion-vars $prf
+                         (append $antecedent-vars (extract-vars $inner)) $b))
+                      ($source-type (brand Statement (Implication $antecedent $source-b)))
+                      ($query-kb (make-kb-context (brand KB (implication-query $kb)) MAIN Nil)))
+                  (case $tv (
+                     ((CTV $source-pos $source-neg)
+                        (let $opposite (if (head-is? $antecedent Not)
+                           (car-atom (cdr-atom $antecedent)) (Not $antecedent))
+                           (superpose (
+                              (brand CompiledAddition
+                                 (() |- (: (kbctx $kb) $prf $source-type $tv)))
+                              (brand CompiledAddition
+                                 (() |- (: (kbctx $kb) $prf (Implication $opposite $source-b)
+                                    (CTV $source-neg $source-pos))))
+                              (brand CompiledAddition
+                                 (() |- (: $query-kb $prf $source-type $source-pos)))
+                              (brand CompiledAddition
+                                 (() |- (: $query-kb $prf (Implication $opposite $source-b) $source-neg)))))))
+                     ((STV $s $c)
+                        (let* (($source-kb (make-kb-context (brand KB (implication-stated $kb)) MAIN $params))
+                               ($rate-a (if (== $inner ()) $a
+                                  (brand Statement (cons And (append (implication-side-conjuncts $a) $inner)))))
+                               (($ctv-execs $source-ctv)
+                                  (compile-implication-ctv-execs $kb $params $rate-a $last $tv $tv)))
+                           (superpose (
+                              (brand CompiledAddition
+                                 (() |- (: $source-kb $prf $source-type $tv)))
+                              (brand CompiledAddition
+                                 (() |- (: $query-kb $prf $source-type $tv)))
+                              (brand CompiledAddition
+                                 ((cons (: $source-kb $prf $source-type $tv) $ctv-execs)
+                                    |- (: (kbctx $kb) $prf $source-type $source-ctv))))))))))
                (compile-implication-forward-rules
                   $kb $shape-kb $prf $tv $truth-premises $value $params
                   $a $b $antecedent-vars $antecedents)

@@ -2,7 +2,7 @@
 
 ;; The implication query always supplies its positive STV. Certain report
 ;; metadata and a certain gated rule therefore give strength 1. Confidence
-;; 0.9995002493256119 propagates through nested MP and ordinary STV And;
+;; 0.9998000399670116 propagates from the stated truth through STV And;
 ;; unsupported negative rule storage does not participate in this query.
 !(compileadd compoundKb (: metadata (SourceDocument Report Study) (STV 1 1)))
 !(compileadd compoundKb (: rule (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x))) (STV 1 1)))
@@ -10,34 +10,34 @@
 !(compileadd groundCompoundKb (: rule (Implication (AcceptSource Report) (Implication (And (Member Supplier1 Supplier) (ExposedTo Supplier1 ClimateRisk)) (ChargesLowerPrices Supplier1))) (STV 1 1)))
 
 ;; Cold general query: full positive provenance.
-!(test (collapse (let (: (conjunction metadata (conditional-implication (by (by rule (ctx proof $ctx)) (conjunction (ctx proof $ctx 1) (ctx proof $ctx 2))))) (And (SourceDocument Report Study) (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x)))) $result-tv)
+!(test (collapse (let (: (conjunction metadata (merge/revision rule (conditional-implication (by (by rule (ctx proof $ctx)) (conjunction (ctx proof $ctx 1) (ctx proof $ctx 2)))))) (And (SourceDocument Report Study) (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x)))) $result-tv)
    (query 300 compoundKb (: $p (And (SourceDocument Report Study) (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x)))) $tv)) $result-tv))
-   ((STV 1.0 0.9995002493256119)))
+   ((STV 1 0.9998000399670116)))
 
 ;; Reversed order.
-!(test (collapse (let (: (conjunction (conditional-implication (by (by rule (ctx proof $ctx)) (conjunction (ctx proof $ctx 1) (ctx proof $ctx 2)))) metadata) (And (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x))) (SourceDocument Report Study)) $result-tv)
+!(test (collapse (let (: (conjunction (merge/revision rule (conditional-implication (by (by rule (ctx proof $ctx)) (conjunction (ctx proof $ctx 1) (ctx proof $ctx 2))))) metadata) (And (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x))) (SourceDocument Report Study)) $result-tv)
    (query 300 compoundKb (: $p (And (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x))) (SourceDocument Report Study)) $tv)) $result-tv))
-   ((STV 1.0 0.9995002493256119)))
+   ((STV 1 0.9998000399670116)))
 
 ;; An open scaffold cannot replace this bound instance.
-!(test (collapse (let (: (conjunction metadata (conditional-implication (by (by rule (ctx proof $ctx)) (conjunction (ctx proof $ctx 1) (ctx proof $ctx 2))))) (And (SourceDocument Report Study) (Implication (AcceptSource Report) (Implication (And (Member Supplier1 Supplier) (ExposedTo Supplier1 ClimateRisk)) (ChargesLowerPrices Supplier1)))) $result-tv)
+!(test (collapse (let (: (conjunction metadata rule) (And (SourceDocument Report Study) (Implication (AcceptSource Report) (Implication (And (Member Supplier1 Supplier) (ExposedTo Supplier1 ClimateRisk)) (ChargesLowerPrices Supplier1)))) $result-tv)
    (query 300 compoundKb (: $p (And (SourceDocument Report Study) (Implication (AcceptSource Report) (Implication (And (Member Supplier1 Supplier) (ExposedTo Supplier1 ClimateRisk)) (ChargesLowerPrices Supplier1)))) $tv)) $result-tv))
-   ((STV 1.0 0.9995002493256119)))
+   ((STV 1 0.9998000399670116)))
 
 ;; Back to general after a bound query.
-!(test (collapse (let (: (conjunction metadata (conditional-implication (by (by rule (ctx proof $ctx)) (conjunction (ctx proof $ctx 1) (ctx proof $ctx 2))))) (And (SourceDocument Report Study) (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x)))) $result-tv)
+!(test (collapse (let (: (conjunction metadata (merge/revision rule (conditional-implication (by (by rule (ctx proof $ctx)) (conjunction (ctx proof $ctx 1) (ctx proof $ctx 2)))))) (And (SourceDocument Report Study) (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x)))) $result-tv)
    (query 300 compoundKb (: $p (And (SourceDocument Report Study) (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x)))) $tv)) $result-tv))
-   ((STV 1.0 0.9995002493256119)))
+   ((STV 1 0.9998000399670116)))
 
 ;; Warm query has the same value and proof shape.
-!(test (collapse (let (: (conjunction metadata (conditional-implication (by (by rule (ctx proof $ctx)) (conjunction (ctx proof $ctx 1) (ctx proof $ctx 2))))) (And (SourceDocument Report Study) (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x)))) $result-tv)
+!(test (collapse (let (: (conjunction metadata (merge/revision rule (conditional-implication (by (by rule (ctx proof $ctx)) (conjunction (ctx proof $ctx 1) (ctx proof $ctx 2)))))) (And (SourceDocument Report Study) (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x)))) $result-tv)
    (query 300 compoundKb (: $p (And (SourceDocument Report Study) (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x)))) $tv)) $result-tv))
-   ((STV 1.0 0.9995002493256119)))
+   ((STV 1 0.9998000399670116)))
 
 ;; Assertion and query both use a constant.
-!(test (collapse (let (: (conjunction metadata (conditional-implication (by (by rule (ctx proof $ctx)) (conjunction (ctx proof $ctx 1) (ctx proof $ctx 2))))) (And (SourceDocument Report Study) (Implication (AcceptSource Report) (Implication (And (Member Supplier1 Supplier) (ExposedTo Supplier1 ClimateRisk)) (ChargesLowerPrices Supplier1)))) $result-tv)
+!(test (collapse (let (: (conjunction metadata rule) (And (SourceDocument Report Study) (Implication (AcceptSource Report) (Implication (And (Member Supplier1 Supplier) (ExposedTo Supplier1 ClimateRisk)) (ChargesLowerPrices Supplier1)))) $result-tv)
    (query 300 groundCompoundKb (: $p (And (SourceDocument Report Study) (Implication (AcceptSource Report) (Implication (And (Member Supplier1 Supplier) (ExposedTo Supplier1 ClimateRisk)) (ChargesLowerPrices Supplier1)))) $tv)) $result-tv))
-   ((STV 1.0 0.9995002493256119)))
+   ((STV 1 0.9998000399670116)))
 
 ;; Missing either assertion is unknown.
 !(compileadd metadataOnlyKb (: metadata (SourceDocument Report Study) (STV 1 1)))
@@ -64,9 +64,9 @@
 
 ;; All conjuncts remain in the answer, in the caller's order.
 !(compileadd compoundKb (: tag (Reviewed Report) (STV 1 1)))
-!(test (collapse (let (: (conjunction metadata tag (conditional-implication (by (by rule (ctx proof $ctx)) (conjunction (ctx proof $ctx 1) (ctx proof $ctx 2))))) (And (SourceDocument Report Study) (Reviewed Report) (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x)))) $result-tv)
+!(test (collapse (let (: (conjunction metadata tag (merge/revision rule (conditional-implication (by (by rule (ctx proof $ctx)) (conjunction (ctx proof $ctx 1) (ctx proof $ctx 2)))))) (And (SourceDocument Report Study) (Reviewed Report) (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x)))) $result-tv)
    (query 300 compoundKb (: $p (And (SourceDocument Report Study) (Reviewed Report) (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x)))) $tv)) $result-tv))
-   ((STV 1.0 0.9994003591099384)))
+   ((STV 1 0.999700089898053)))
 
 ;; Old CTV answer selectors and nested annotated conjuncts are unsupported.
 !(test (collapse (query 300 compoundKb (: $p (Implication (AcceptSource Report) (Implication (And (Member $x Supplier) (ExposedTo $x ClimateRisk)) (ChargesLowerPrices $x))) (CTV $pos $neg)))) ())

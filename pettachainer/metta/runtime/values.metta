@@ -22,6 +22,12 @@
 (: statement-open-hash (-[det]-> $statement Number))
 (: statement-open-probes (-[det]-> $statement (List Number)))
 
+;; Fact lookup extends these prefixes through an implication antecedent's
+;; nested heads, keeping source templates selective without changing node keys.
+(: kb-fact-prefix-hashes (-[det]-> $statement (List Number)))
+(: kb-fact-open-hash (-[det]-> $statement Number))
+(: kb-fact-open-probes (-[det]-> $statement (List Number)))
+
 (: append-flat (-[det]-> (List $a) (List $a) (List $a)))
 (= (append-flat () $right) $right)
 (= (append-flat (cons $head $tail) $right) (cons $head (append-flat $tail $right)))

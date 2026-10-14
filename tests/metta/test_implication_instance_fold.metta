@@ -64,10 +64,10 @@
 
 !(test
    (let
-      (: (merge/revision (conditional-implication (by ab $_pos)) (implication-instance-fold cpu)) $type $tv)
+      (: (merge/revision ab (implication-instance-fold cpu)) $type $tv)
       (query 200 instanceRuleKb (: $prf (Implication (A $v) (B $v)) $tv))
       $tv)
-   (STV 0.8000224974691158 0.9000101236509124))
+   (STV 0.8000224974690348 0.9000101239749476))
 
 ;; A rule-only KB keeps the plain hypothetical answer: nothing to sample.
 !(compileadd instanceRuleOnlyKb
@@ -75,10 +75,10 @@
 
 !(test
    (let
-      (: (conditional-implication (by ab $_pos)) $type $tv)
+      (: ab $type $tv)
       (query 100 instanceRuleOnlyKb (: $prf (Implication (A $v) (B $v)) $tv))
       $tv)
-   (STV 0.8 0.8999999996758992))
+   (STV 0.8 0.9))
 
 ;; --- A different rule producing the consequent is independent evidence ------
 

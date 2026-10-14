@@ -1185,9 +1185,26 @@
 (= (sk-any-member? $type-vars (cons $var $rest))
    (if (stored-list-member? $var $type-vars) true (sk-any-member? $type-vars $rest)))
 
-;; A MAIN premise that mentions the goal's context variables is read in the
-;; goal's hypothetical context. In the context of an Assuming query, which sees
-;; the world, a premise is read in the context when the assumptions can change
+;; Compare the whole key without binding its hypothetical individual to an
+;; unrelated fixed world individual. A contextual assumption is indexed by its
+;; context; type and context must retain the same variable-sharing shape.
+(: judgment-assumed-key? (-[det]-> Atom KBContext Bool))
+(= (judgment-assumed-key? $type $kbctx)
+   (let ($probe-type $probe-ctx) (copy_term (data $type $kbctx))
+      (not (== (collapse (once (match &kb ($assumed $probe-ctx $proof $_tv)
+         (if (assumption-proof? (brand Proof $proof))
+            (if (=alpha (data $probe-type $probe-ctx) (data $assumed $probe-ctx)) true
+               ;; An open reader can consume a ground assumption. Match a
+               ;; copy so this test cannot bind the rule's premise variables;
+               ;; non-ground hypothetical keys still require alpha identity.
+               (if (== (extract-vars $assumed) ())
+                  (if (= (copy_term $probe-type) $assumed) true (empty))
+                  (empty)))
+            (empty))))) ()))))
+
+;; A MAIN premise mentioning the goal's context variables or reading an exact
+;; assumed key is read in the goal's hypothetical context. In the context of
+;; an Assuming query, which sees the world, a premise is read in the context when the assumptions can change
 ;; it, and in the main context otherwise, where its value is the same and its
 ;; work is shared (docs/metta/assumption_queries.md).
 (: contextualize-rule-premise (-[det]-> SkFact SkPattern SkPattern))
@@ -1204,7 +1221,12 @@
                            (make-kb-context (brand KB $kbid) MAIN Nil))
                         (make-kb-context (brand KB $kbid) $prem-ctx $prem-vars))
                      (if (if (== $prem-ctx MAIN)
-                            (if (== $ctx MAIN) false (context-vars-in-type? $type $vars))
+                            (if (== $ctx MAIN) false
+                               (if (context-vars-in-type? $type $vars) true
+                                  ;; Exact assumed keys belong to this judgment
+                                  ;; for every reader, including a lowered Not.
+                                  (judgment-assumed-key? $type
+                                     (make-kb-context (brand KB $kbid) $ctx $vars))))
                             false)
                         (make-kb-context (brand KB $kbid) $ctx $vars)
                         (make-kb-context (brand KB $kbid) $prem-ctx $prem-vars))))

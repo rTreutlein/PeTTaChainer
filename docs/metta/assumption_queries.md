@@ -14,8 +14,9 @@ action query time per shift rose 1.4 s → 5.7 s at a fixed budget
 
 An implication query, `(Implication A B)`, does not serve: it judges how
 strongly A implies B, from the assumption alone. Its contexts see nothing of
-the main context, and a premise is read in them only when it mentions the
-query's variables (the hypothetical individual); world facts about the
+the main context, and a MAIN premise is read in them when it mentions the
+query's variables (the hypothetical individual) or reads an exact assumed
+key, including a ground key read under negation; world facts about the
 statements it relates would make it hold trivially. A decision wants the
 opposite: the world as it is, plus the decision's facts. Placing premises in
 an implication query by what the assumptions affect, or letting its contexts

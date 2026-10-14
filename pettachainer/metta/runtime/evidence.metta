@@ -24,14 +24,21 @@
 (: space-row-present? (-[det]-> $space $row Bool))
 (= (space-row-present? $space $row) (not (== (collapse (once (match $space $row true))) ())))
 
-;; A stored fact is its own evidence, except a refined rule's axiom, which
-;; carries the rule's evidence: a proof through the axiom and a proof through
-;; the rule are dependent and never revise.
+;; A stated implication carries the same rule evidence as its applications,
+;; including when query lowering reads it in a private namespace. Other stored
+;; facts retain their own evidence identity.
 (: fact-evidence-entry (-[det]-> KBContext Proof Statement Evidence))
 (= (fact-evidence-entry $kb $prf $type)
    (case $prf (
-      ((rule-axiom $name) (rule-ev (brand KB (car-atom $kb)) $name))
-      ($_other (fact-ev $kb $prf $type)))))
+      ((rule-axiom $name) (rule-ev (statement-query-kb (brand KB (car-atom $kb))) $name))
+      ($_other
+         (if (implication-type? $type)
+            (let* (($source-kb (statement-query-kb (brand KB (car-atom $kb))))
+                   ($name (rule-evidence-base-name $prf)))
+               (if (rule-evidence-registered? $source-kb $name)
+                  (rule-ev $source-kb $name)
+                  (fact-ev $kb $prf $type)))
+            (fact-ev $kb $prf $type))))))
 
 (: revision-merge-tv (-[det]-> TV TV TV))
 (= (revision-merge-tv $tv1 $tv2)
@@ -307,13 +314,20 @@
 (: rule-result-evidence
    (-[semidet]-> (Statement KBContext Proof TV)
        EvidenceSet EvidenceSet))
-(= (rule-result-evidence ($_type ($kbid $_ctx $_vars) $prf $_tv) $ev)
+(= (rule-result-evidence ($_type ($kbid $ctx $_vars) $prf $_tv) $ev)
    (let*
       (($base
-          (if (proof-term-contains-negated? $prf)
-             (once (proof-term-evidence proof-walk-in-kb $prf))
-             $ev))
-       ($name (rule-evidence-head $prf))
+          ;; A judgment only wraps its premise proof. Negations have already
+          ;; transformed the evidence below it; rewalking the printed proof
+          ;; here loses the applied rule's evidence and revises it twice.
+          (if (head-is-member? $prf (conditional-implication total-implication-frontier)) $ev
+             (if (proof-term-contains-negated? $prf)
+                (once (proof-term-evidence proof-walk-in-kb $prf))
+                $ev)))
+       ($name
+          (let $head (rule-evidence-head $prf)
+             (if (== $ctx MAIN) $head
+                (if (context-world? $ctx) $head (rule-evidence-base-name $head)))))
        ($storage-kbid (brand KB $kbid))
        ($typed-kbid (statement-query-kb $storage-kbid)))
       (if (is-expr $name) $base

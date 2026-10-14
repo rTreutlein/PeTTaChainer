@@ -22,7 +22,7 @@
 
 !(test
    (query 60 implicationPremiseKb (: $prf (C) $tv))
-   (: (by ab_c (total-implication (by a_b (ctx proof 0)) (by a_b (ctx proof 1)))) (C) (STV 1.0 0.999700089898053)))
+   (: (by ab_c (merge/revision a_b (total-implication (by a_b (ctx proof 0)) (by a_b (ctx proof 1))))) (C) (STV 1.0 0.9998000399670116)))
 
 !(test
    (query 60 implicationPremiseKb (: $prf (Implication (Not (Dog)) (Dog)) $tv))
@@ -43,7 +43,7 @@
 
 !(test
    (query 60 multiPremiseImplicationQueryKb (: $prf (Implication (And (A) (B)) (C)) $tv))
-   (: (conditional-implication (by ab_c (conjunction (ctx proof 5) (ctx proof 5 1)))) (Implication (And (A) (B)) (C)) (STV 1.0 0.999700089898053)))
+   (: ab_c (Implication (And (A) (B)) (C)) (STV 1.0 1.0)))
 
 !(test
    (query 60 implicationPremiseKb (: $prf (Implication (And (Implication (A) (B)) (A)) (B)) $tv))
@@ -116,7 +116,7 @@
 !(test
    (query 60 implicationPremiseKb
       (: $prf (Implication (A) (B)) (STV 1.0 1.0)))
-   ())
+   (: a_b (Implication (A) (B)) (STV 1.0 1.0)))
 
 !(compileadd negConclusionKb (: a (A) (STV 1.0 1.0)))
 

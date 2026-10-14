@@ -42,40 +42,35 @@
          (total-implication-frontier $_proof) (CTV $_pos $_neg)) $id $_args) $id))) 2)
 !(clear-temp-query-adds)
 
-;; Known limitation, preserved as an answer-availability regression:
-;; Not G in this hypothetical proof incorrectly reads main-world g instead of
-;; the assumed G. The observed 0.45 is NOT P(Y|G); fixing that assumption read
-;; is a separate task. The conjunction must still return its existing proof.
+;; The explicit negative statement assumes G false. Main-world g never
+;; enters the implication's judgment: its stated 0.9 is available directly.
 !(compileadd reviewerConjKb (: g (G) (STV 0.5 0.9)))
 !(compileadd reviewerConjKb (: rn (Implication (Not (G)) (Y)) (STV 0.9 0.9)))
 !(compileadd reviewerConjKb (: m (M) (STV 1 1)))
-!(test (collapse (let (: (conjunction m (conditional-implication (by rn (negated g))))
-   (And (M) (Implication (G) (Y))) $tv)
-   (query 300 reviewerConjKb (: $p (And (M) (Implication (G) (Y))) $value)) $tv))
-   ((STV 0.45 0.9075903934023652)))
+!(test (let (: $p (And (M) (Implication (Not (G)) (Y))) (STV $s $c))
+   (query 300 reviewerConjKb (: $q (And (M) (Implication (Not (G)) (Y))) $value)) $s)
+   0.9)
 !(compileadd reviewerConjKb (: r (Implication (G) (Y))
    (CTV (STV 0.8 0.9) (STV 0.2 0.9))))
-;; Known limitation: 0.7994764 revises r with the same defective rn proof.
-;; This pins current answer availability/provenance, not a correct P(Y|G).
-!(test (collapse (let (: $p (And (M) (Implication (G) (Y))) $tv)
-   (query 300 reviewerConjKb (: $q (And (M) (Implication (G) (Y))) $value)) $tv))
-   ((STV 0.7994764000559776 0.9001571068984587)))
+;; Under G, r contributes 0.8. The weak inferred complement of rn also
+;; contributes through the existing population base-rate approximation.
+!(test (let (: $p (And (M) (Implication (G) (Y))) (STV $s $c))
+   (query 300 reviewerConjKb (: $q (And (M) (Implication (G) (Y))) $value)) $s)
+   0.7999781441238476)
+;; Under Not G, rn=0.9 and r's negative branch=0.2 revise independently.
+!(test (let (: $p (And (M) (Implication (Not (G)) (Y))) (STV $s $c))
+   (query 300 reviewerConjKb (: $q (And (M) (Implication (Not (G)) (Y))) $value)) $s)
+   0.5499999999999999)
 
-;; Known limitation: this shared-g regression also depends on the defective
-;; hypothetical Not G read above. Conditioning must keep an answer available;
-;; its observed 0.45 is not a correctness check for conditional probability.
+;; M depends on main-world Not G, while the negative implication is judged
+;; under its private assumption. Only M reads g: 0.5 * 0.9 = 0.45.
 !(compileadd sharedGivenConjKb (: g (G) (STV 0.5 0.9)))
 !(compileadd sharedGivenConjKb (: rn (Implication (Not (G)) (Y)) (STV 0.9 0.9)))
 !(compileadd sharedGivenConjKb (: (no_inverse fromNotG)
    (Implication (Not (G)) (M)) (CTV (STV 1 1) (STV 0 1))))
-;; The current defective proof uses Not G in both marginals. Its shared
-;; evidence is counted once; the separate assumption fix must move this pin.
-;; Removing the obsolete conditional-proof workaround leaves this observed
-;; answer unchanged. It remains a known assumption-context defect, not a
-;; validation of P(Y|G).
-!(test (collapse (let (: $p $type $tv)
-   (query 300 sharedGivenConjKb (: $q (And (M) (Implication (G) (Y))) $value)) $tv))
-   ((STV 0.45 0.9082567753373312)))
+!(test (let (: $p $type (STV $s $c))
+   (query 300 sharedGivenConjKb (: $q (And (M) (Implication (Not (G)) (Y))) $value)) $s)
+   0.45)
 
 ;; CTV rule storage stays internal even for an explicit answer selector.
 !(test (collapse (query 300 reviewerConjKb
@@ -86,10 +81,10 @@
 !(compileadd tiedConjKb (: g (G) (STV 0.5 0.9)))
 !(compileadd tiedConjKb (: r (Implication (G) (Y))
    (CTV (STV 0.8 0.9) (STV 0.2 0.9))))
-!(test (collapse (let (: (conjunction g (conditional-implication (by r (ctx proof $ctx))))
+!(test (collapse (let (: (conjunction g r)
    (And (G) (Implication (G) (Y))) $tv)
    (query 300 tiedConjKb (: $q (And (G) (Implication (G) (Y))) $value)) $tv))
-   ((STV 0.4 0.9152538782228096)))
+   ((STV 0.4 0.9152538782542383)))
 !(test (let (: $p (And (Implication (G) (Y)) (G)) (STV $s $c))
    (query 300 tiedConjKb (: $q (And (Implication (G) (Y)) (G)) $tv)) $s) 0.4)
 !(compileadd tiedConjKb (: (no_inverse m) (Implication (G) (M))

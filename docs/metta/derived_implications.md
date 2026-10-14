@@ -156,8 +156,8 @@ of the statement's branches, which a CTV does not carry.
   an STV. CTVs remain internal rule storage; modus ponens still uses both
   branches. Internal implication premises retain their full CTV scaffolds.
   Empirical instance evidence and learned rule truths still contribute to
-  the positive judgment. Reading a stated implication before calculating
-  its judgment is separate work.
+  the positive judgment. Stated truths are read first and merged with the
+  calculated judgment without counting the same rule's evidence twice.
 
 ## Implication queries
 
@@ -168,6 +168,21 @@ An open or STV-pattern query has this answer shape:
 ;; => (: (conditional-implication <proof of Y under G>)
 ;;       (Implication G Y) (STV <P(Y given G)> <confidence>))
 ```
+
+A stated implication is read before calculating its judgment, even at zero
+budget, with its original proof and positive STV. Stated STVs and the two
+branches of a stated CTV are retained in the private `implication-query`
+namespace: the negative branch is a stated truth of `(Implication (Not G) Y)`.
+They cannot become new world observations through a query.
+
+A stated CTV also remains a full statement in main rule storage, in both
+antecedent polarities. An STV
+source is retained in `implication-stated`; a permanent producer reads that
+source and converts it to a full CTV with the ordinary base-rate formula,
+retaining the original `ForAll` parameters. Internal implication premises
+read these stated truths before their calculated scaffolds. Later additions
+reach cached readers through the ordinary fact and rule journals. Source
+statements preserve the compiler's consequent-only witnesses.
 
 A stored or derived implication retains its own statement provenance. The
 positive hypothetical proof may be revised with an empirical instance fold. A CTV answer
@@ -180,15 +195,29 @@ To ask for the negative statement, query it explicitly:
 ;; => (: <proof> (Implication (Not G) Y) (STV <strength> <confidence>))
 ```
 
-This is a separate implication calculation. Giving the negative statement
-as a fact priority over calculating it is not implemented by this change.
+The judgment assumes the stated antecedent in its private context. Under
+`(Not G)`, every reader of G reads `(STV 0 1)`; under G, every reader of G
+reads `(STV 1 1)`. This includes negated premises lowered to a read of G
+followed by `NotFormula`, even when G is ground. The main world's value of G
+never enters this judgment. Independent fixed premises retain their existing
+main-context reads.
+
+Stated and calculated proofs of one rule share its evidence identity and
+are not revised as independent observations. Independent conditional evidence
+still revises normally.
+For an STV rule, an unstated complementary branch still uses the existing
+population base-rate approximation. Its weak inferred evidence can slightly
+revise an independent stated branch; the ground assumption does not replace
+that separate approximation.
 
 ## Nested implication queries
 
 `A -> (X -> Y)` is judged as its exported form `(And A X) -> Y` at any
 depth. The positive context assumes every antecedent conjunct and proves the
-innermost consequent. Nested and exported queries return the same STV;
-the answer retains the queried statement and the proof applies the rule
+innermost consequent. Nested and exported queries have the same conditional strength; an exact
+stated read retains its confidence, while a calculated exported form propagates
+formula variance.
+The answer retains the queried statement and the proof applies the rule
 step by step:
 
 ```metta
@@ -208,7 +237,7 @@ For the source-gated knowledge-extraction rule,
 ```
 
 the query of that nested statement returns an STV with strength 1 and
-confidence about 0.899757, under the same nested statement. The query
+confidence 0.9, read from the stated source, under the same nested statement. The query
 assumes the source gate only in its private context. Asking about the rule
 does not accept the source: `(AcceptSource Report1)`, `(LowerPrices Supplier1)`
 and the inner rule remain unsupported in the main KB. The implication
@@ -253,22 +282,12 @@ DAG retain the union of their dependency paths for cycle exclusions.
 The regression tests cover the original source-gated conjunction, reversed
 order, constants, removal of either assertion, scope, shared uncertain facts,
 computed children, and scaffold reuse. The certain report metadata and rule
-give `(STV 1.0 0.9995002493256119)` in the original two-conjunct query:
-strength 1 from its positive proof, with confidence propagated through the
-nested modus ponens and normal And formulas.
+give `(STV 1 0.9998000399670116)` in the original two-conjunct query:
+strength 1 from the stated positive truth, with confidence propagated through
+the normal And formula.
 
 ## Limits
 
-- A hypothetical `Not G` read can incorrectly use a main-world `G` fact
-  instead of the assumed `G`. With `G = (STV 0.5 0.9)` and a stated
-  `Not G -> Y = (STV 0.9 0.9)`, the observed positive query value is 0.45,
-  which is not P(Y|G). Revising it with a stated positive rule also includes
-  this defective proof (0.7994764 in the regression). These are known
-  assumption-context defects, not validated conditional probabilities.
-  Conditioning this defective proof on its shared `G` can also return 0.45;
-  that shared-source regression is not a validation of P(Y|G) either.
-  Shared independent facts, including their negated views, use normal
-  conditioning without a proof-constructor workaround.
 - The positive statement-producer collector projects rule applications
   shaped `(by rule token)` and stored facts. Other clause proof shapes are
   not collected there; hypothetical and empirical query scaffolds have
@@ -308,3 +327,10 @@ query is answered; a forward run
 from `(A x)` stores the statement and `(C x)`, which a zero-budget query then
 reads; a knowledge base with no rule concluding an implication gets no
 statement rule.
+
+`tests/metta/test_ground_negated_implications.metta` covers stated ground and
+open negated antecedents, bound instances of open rules, both branches of CTV
+sources, conflicting main-world values, derived consequents, positive
+counterparts, zero-budget reads, and STV/CTV implication premises before any
+public judgment query. `test_conjunction_conditioning.metta` includes the
+explicit `Not G -> Y` judgment at 0.9.

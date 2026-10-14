@@ -4,9 +4,10 @@
 ;; SWI indexes &kb by a statement's head only, so a lookup by head and
 ;; arguments walked every fact with that head, across the whole history. Each
 ;; fact is therefore also stored in &kb_prefix under the hash of every ground
-;; prefix of its statement (statement-prefix-hashes), and a fact whose statement
+;; prefix of its statement, including nested antecedent heads for implications
+;; (kb-fact-prefix-hashes), and a fact whose statement
 ;; has variables in &kb_open under the hash of exactly its longest one
-;; (statement-open-hash), so a lookup reads only the open facts that share
+;; (kb-fact-open-hash), so a lookup reads only the open facts that share
 ;; one of its own prefixes (see kb-facts). The rows follow &kb's: added with the
 ;; same backend, removed with the fact.
 (: &kb_prefix (SpaceOf (Number Statement KBContext Proof TV)))
@@ -18,10 +19,10 @@
 ;; ground prefix of the pattern when it has one, otherwise through &kb.
 (: kb-facts (-[det]-> Statement KBContext (List (Statement KBContext Proof TV))))
 (= (kb-facts $type $kbctx)
-   (case (statement-prefix-hashes $type) (
+   (case (kb-fact-prefix-hashes $type) (
       (() (collapse (match &kb ($type $kbctx $proof $tv) (data $type $kbctx $proof $tv))))
       ((cons $hash $_shorter)
-         (let $shorter (statement-open-probes $type)
+         (let $shorter (kb-fact-open-probes $type)
             (append-flat
                (collapse (match &kb_prefix ($hash $type $kbctx $proof $tv) (data $type $kbctx $proof $tv)))
                (collapse (let $open (superpose $shorter)
@@ -31,9 +32,9 @@
 ;; longest prefix is its open hash too.
 (: kb-fact-present? (-[det]-> (Statement KBContext Proof TV) Bool))
 (= (kb-fact-present? ($type $kbctx $proof $tv))
-   (let $hash (statement-open-hash $type)
+   (let $hash (kb-fact-open-hash $type)
       (if (== (extract-vars $type) ())
-         (if (== (statement-prefix-hashes $type) ())
+         (if (== (kb-fact-prefix-hashes $type) ())
             (space-row-present? &kb ($type $kbctx $proof $tv))
             (space-row-present? &kb_prefix ($hash $type $kbctx $proof $tv)))
          (space-row-present? &kb_open ($hash $type $kbctx $proof $tv)))))
