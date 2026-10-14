@@ -38,13 +38,7 @@
 
 (: sk-forget-row! (-[semidet]-> Number SkeletonKey Atom SkeletonRowRef Atom))
 (= (sk-forget-row! $hash $key $_acc (sk-row-ref $stored $rhash $row))
-   (let* (((sk-row $_ident $_concl $premises $_s) $row)
-          ($keys (fold-semidet sk-direct-key-step () $premises))
-          ($_row (remove-atom &sk_row ($hash $stored $rhash $row)))
-          ($_readers (fold-semidet (sk-remove-reader! $hash $rhash) () $keys))
-          ($_stale-readers (fold-semidet (sk-drop-stale-reader! $hash $rhash) () $keys))
-          ($_stale (remove-atom &sk_stale ($hash $rhash))))
-      (sk-drop-row-views! $hash $key $rhash)))
+   (sk-drop-row! $hash $stored $rhash $row))
 
 (: sk-forget-taken! (-[det]-> Number SkeletonKey Atom))
 (= (sk-forget-taken! $hash $key)
@@ -203,6 +197,8 @@
                                   ($_index (kb-unindex-fact! $fact)))
                               (remove-atom &sk_summary ($hash $stored $fact $ev $deps)))
                            (empty)))))
+                   ($key-digest (link-digest $key))
+                   ($_joins (remove-data-rows! &sk_join_link (quote ($key-digest $_digest))))
                    ($_frozen (remove-variant-row! &sk_frozen (quote ($hash $key))))
                    ($_queued (add-atom &sk_thawed ($hash $key))))
                ())))))

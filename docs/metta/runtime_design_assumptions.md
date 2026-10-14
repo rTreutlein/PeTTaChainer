@@ -36,26 +36,40 @@ identities. Later reads exclude every derivation using them, including cached
 views. Each immutable proof records its permanent owner identity in its existing
 metadata word, alongside its negation bit. Transitive rule provenance is resolved
 through the shared proof DAG only when retirement checks or exposed KB copies
-need it, then cached as a canonical interned set id. Ordinary monotonic reads
-allocate neither provenance sets nor a per-proof cache. A stale liveness memo checks only identities retired
-since its last checked epoch. Proof ids remain durable and never reusable.
+need it, then cached as a canonical interned set id. Ordinary backward reads
+at retirement epoch zero
+allocate neither provenance sets nor a per-proof cache. Publishing a derived KB
+copy is a separate operation: even at epoch zero it resolves provenance and
+registers one inverse-index entry per contributing rule per copy. Its cost and
+index storage are proportional to that copy's distinct source-rule count.
+A stale liveness memo checks subsequent retirement events or the set's leaves
+against the retirement index, whichever is smaller. Proof ids remain durable
+and never reusable.
 
 Derived facts exposed in `&kb` (forward copies, materialized answers and
 forgetting summaries) have an inverse index by contributing rule. Withdrawal
 removes affected copies and their fact indexes, so direct KB readers obey the
 same semantics. A mixed forgetting summary cannot subtract a contributor:
-removing it thaws the key and queues reconstruction from live rules. Its join
-digests get a new generation so old delivered joins can rebuild the erased
-rows. Retired waiters remove themselves on their first subsequent delivery.
+removing it thaws the key and queues reconstruction from live rules. Its
+conclusion-indexed join digests are removed so old delivered joins can rebuild
+the erased rows. Join keys and links use the same 60-bit digest contract.
+Retired waiters remove themselves on their first subsequent delivery. Closed
+reads and needs remove encountered retired waiters, deferred work and rows,
+including their pending counts and optimization registrations.
 Withdrawal costs the affected physical copies; it does not scan row or proof
 history. Rule-id sets use canonical Patricia trees: regrouping or repeating a union
 returns the same id, while shared branches avoid copying transitive lists.
 Membership follows one rule-id bit path, even when the retired rule belongs
 to another proof. Union memos, provenance nodes and liveness memos are
-collected with proofs, as is each demand-built proof-to-set cache entry. The first
-provenance read resolves its reachable uncached DAG nodes once; subsequent reads
-reuse those sets and check only new retirement events. Withdrawal itself never
-walks the DAG.
+collected in metered phases of the proof/evidence collector; root marking
+follows each shared tree node once. Each demand-built proof-to-set cache entry
+and summary-user registration leaves with its proof. Retirement-event rows
+older than any live set can need, and events naming no surviving set leaf,
+are collected too; permanent rule retirement
+identities remain for later cold reads. Retirement growth also triggers a
+collection when no new proofs are being stored. The first provenance read resolves its reachable uncached DAG nodes once; subsequent reads
+reuse those sets and check at most the smaller of the retirement delta and
+their distinct rule count. Withdrawal itself never walks the DAG.
 The stored owner is encoded as id+1; zero denotes no permanent owner and never
 aliases real rule identity zero.
 Direct references to frozen summaries register when a proof is published. Their
@@ -70,7 +84,8 @@ should be append-only. Statement removal remains callable only for compatibility
 and is deprecated; normal reasoning and knowledge ingestion must not depend on
 it. Removal does not erase durable proofs or reset the monotonic proof ID counter.
 It now retires the removed rules and their derived KB copies as described
-above; historical skeleton rows remain but contribute no later value.
+above; retired skeleton rows contribute no later value and leave optimization
+stores when encountered.
 
 A future API pass should represent corrections, supersession, and configuration
 changes as scoped events instead of retracting prior knowledge. Explicit proof
@@ -226,10 +241,13 @@ A key's value merges its stored facts and one view per row:
   by its own: (Member pingu Bird) derived from (Member pingu Penguin)): the
   general view is no further evidence of the case, only the prior the specific
   strength is read under, with `set-bayes-prior-count` pseudo-observations.
-  Multiple general applications are revised into one prior and the original
+  Independent general applications are revised into one prior and the original
   specific estimate is shrunk once. The `specializes` proof keeps that original
   estimate and the accumulated prior's TV so later merges do not stack shrinkage.
-  A general rule already in that prior contributes no second view;
+  A general rule name already in that prior contributes no second view. Prior
+  revision is order-independent only for independent general rules; overlapping
+  general views take the overlap path first. specialization-has-rule? compares
+  rule names rather than permanent identities or premise instances;
 - two views are independent when their evidence is disjoint, or when each
   holds evidence of its own and they share only known facts that no rule
   concludes (premises either reads as given), rules (as for rows: a rule's

@@ -2127,7 +2127,9 @@
       (if (sk-delivered? $child) false
          (not (== (collapse (once (match &sk_wait ($hash $stored (sk-partial $owner $rule ($_t $_k $proof $_v) $_done $_rest $_keys))
                      (if (=alpha $stored $child)
-                        (if (=alpha $owner $node) (if (rule-live? $rule) (if (rule-application-proof? $proof) true (empty)) (empty)) (empty))
+                        (if (rule-live? $rule)
+                           (if (=alpha $owner $node) (if (rule-application-proof? $proof) true (empty)) (empty))
+                           (let $_removed (remove-variant-row! &sk_wait (quote ($hash $stored (sk-partial $owner $rule ($_t $_k $proof $_v) $_done $_rest $_keys)))) (empty)))
                         (empty)))))
                   ())))))
 
@@ -2143,8 +2145,14 @@
                 ($hash (sk-node-hash $node)))
             (if (sk-expanded? $hash $node)
                (if (== (collapse (once (superpose (
-                         (match &sk_deferred_joins ($hash $_jhash (sk-join (sk-partial $_o $join-rule $_c $_d $_r $_k) $_answer)) (if (rule-live? $join-rule) true (empty)))
-                         (match &sk_deferred ($hash $_rhash (sk-deferred $_owner $row-rule $_concl $_prems $_keys)) (if (rule-live? $row-rule) true (empty)))))))
+                         (match &sk_deferred_joins ($hash $jhash (sk-join (sk-partial $join-owner $join-rule $jc $jd $jr $jk) $answer))
+                            (if (rule-live? $join-rule) true
+                               (let* (($_removed (remove-variant-row! &sk_deferred_joins (quote ($hash $jhash (sk-join (sk-partial $join-owner $join-rule $jc $jd $jr $jk) $answer)))))
+                                      ($_work (sk-work! $hash $join-owner -1))) (empty))))
+                         (match &sk_deferred ($hash $rhash (sk-deferred $row-owner $row-rule $rc $rp $rk))
+                            (if (rule-live? $row-rule) true
+                               (let* (($_removed (remove-variant-row! &sk_deferred (quote ($hash $rhash (sk-deferred $row-owner $row-rule $rc $rp $rk)))))
+                                      ($_work (sk-work! $hash $row-owner -1))) (empty))))))))
                        ())
                   (if (fold-semidet (sk-application-waits? $node) false (sk-children $hash $node)) false true)
                   false)
@@ -2155,7 +2163,10 @@
 (: sk-founded? (-[det]-> Number SkeletonKey Bool))
 (= (sk-founded? $hash $key)
    (not (== (collapse (once (match &sk_row ($hash $stored $_rhash (sk-row (sk-ident $rule $_keys $_key) ($_t $_k $proof $_v) $_ps $_seq))
-               (if (=alpha $stored $key) (if (rule-live? $rule) (if (rule-application-proof? $proof) true (empty)) (empty)) (empty)))))
+               (if (=alpha $stored $key)
+                  (if (rule-live? $rule) (if (rule-application-proof? $proof) true (empty))
+                     (let $_removed (sk-drop-row! $hash $stored $_rhash (sk-row (sk-ident $rule $_keys $_key) ($_t $_k $proof $_v) $_ps $_seq)) (empty)))
+                  (empty)))))
             ())))
 
 (: sk-closed-row-step
@@ -3243,8 +3254,11 @@
    (if (rule-live? $rule)
    (let* (($_reserve (sk-reserve-near! (- $depth 1)))
           ($near (<= $depth (+ (sk-evaluation-free-depth) 1)))
-          ($latest (sk-latest-view $khash $key $rhash))
-          ($invalid (if (== $latest sk-none) (not (== (collapse (once (match &sk_latest ($khash $stored (sk-version $_old-seq $rhash $_old)) (if (=alpha $stored $key) true (empty))))) ())) false))
+          (($latest $invalid)
+             (case (collapse (once (match &sk_latest ($khash $stored (sk-version $_old-seq $rhash $view))
+                       (if (=alpha $stored $key) (if (sk-live-view? $view) ($view false) (sk-none true)) (empty))))) (
+                ((cons $state $_rest) $state)
+                (() (sk-none false)))))
           ($unseen
              (if (== $latest sk-none)
                 (if $near true
@@ -3267,7 +3281,8 @@
                    (not (== (collapse (once (match &sk_given_pending ($khash $rhash $_cost) true))) ())))))
          (sk-need-next (fold-semidet sk-direct-key-step $next $premises) $members)
          (sk-need-next $next $members)))
-   (sk-need-next $next $members)))
+   (let $_removed (sk-drop-row! $khash $key $rhash (sk-row (sk-ident $rule $_keys $_key) $_concl $premises $_s))
+      (sk-need-next $next $members))))
 
 ;; The need from a query's roots, or from the keys a forward wave takes.
 (: sk-need-roots! (-[semidet]-> (List SkeletonKey) Atom))

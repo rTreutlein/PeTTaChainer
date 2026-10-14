@@ -71,7 +71,9 @@
 !(advance-epoch)
 !(advance-epoch)
 !(test (not (== (collapse (match &sk_summary ($_h (sk-key (B warm) (mixedSummaryKb MAIN Nil)) $_fact $_ev $_deps) true)) ())) true)
+!(test (let $key-digest (link-digest (sk-key (B warm) (mixedSummaryKb MAIN Nil))) (not (== (collapse (match &sk_join_link ($key-digest $_digest) true)) ()))) true)
 !(withdraw-named-rules! s-old)
+!(test (let $key-digest (link-digest (sk-key (B warm) (mixedSummaryKb MAIN Nil))) (collapse (match &sk_join_link ($key-digest $_digest) true))) ())
 !(test (let (: $proof $_stmt (STV $s $_c)) (query 40 mixedSummaryKb (: $p (B warm) $tv)) (data $proof $s)) ((by s-live sc) 0.2))
 !(test (let (: $proof $_stmt (STV $s $_c)) (query 200 mixedSummaryKb (: $p (B warm) $tv)) (data $proof $s)) ((by s-live sc) 0.2))
 !(test (collapse (let (: $proof $_stmt (STV $s $_c)) (query 40 mixedSummaryKb (: $p (B $t) $tv)) (data $proof $s))) (((by s-live sc) 0.2)))
@@ -89,7 +91,7 @@
 !(test (collapse (match &materialized_facts (materialized-row $_h (B warm) (materialRetireKb MAIN Nil) $_fact $_ev) true)) ())
 
 ;; General rates form one revised prior. The specific estimate is shrunk once,
-;; independent of whether general views arrive before or after it.
+;; independent of merge order for independent general rules.
 (: merge-prior-views (-[semidet]-> SkeletonValue SkeletonValue SkeletonValue SkeletonValue))
 (= (merge-prior-views $a $b $c)
    (let* (($ab (sk-merge-step () $a $b))) (sk-merge-step () $ab $c)))
@@ -107,7 +109,7 @@
          (== (prior-strength (merge-prior-views $s $g1 $g2)) (prior-strength (merge-prior-views $g1 $g2 $s)))))
    (true true true))
 
-;; A retired waiter leaves the index after its first delivery.
+;; A forward copy leaves the KB when its supporting rule is withdrawn.
 !(compileadd forwardRetireKb (: f-old (Implication (A $t) (B $t)) (STV 0.9 1)))
 !(compileadd forwardRetireKb (: fa (A warm) (STV 1 1)))
 !(forward-chain 40 forwardRetireKb (the (List (Statement KBContext Proof TV)) (((A warm) (forwardRetireKb MAIN Nil) fa (STV 1 1)))))
@@ -115,3 +117,40 @@
 !(withdraw-named-rules! f-old)
 !(test (collapse (match &kb ((B warm) (forwardRetireKb MAIN Nil) $_proof $_tv) true)) ())
 !(test (collapse (query 40 forwardRetireKb (: $p (B warm) $tv))) ())
+
+;; Closed reads discard encountered retired work and rows, including their
+;; pending-work counts, instead of filtering the same entries on every read.
+!(test
+   (let* (($key (sk-key (CleanupB warm) (cleanupKb MAIN Nil)))
+          ($node (assemble-stored-runtime-fact (CleanupB warm) (cleanupKb MAIN Nil) $p $tv))
+          ($hash (sk-node-hash $node))
+          ($child (assemble-stored-runtime-fact (CleanupA warm) (cleanupKb MAIN Nil) $cp $ctv))
+          ($child-hash (sk-node-hash $child))
+          ($conclusion (the SkFact $node))
+          ($waiter (sk-partial $node 999800 $conclusion () (cons $child ()) ()))
+          ($row (sk-row (sk-ident 999800 () $key) $conclusion () 999804))
+          ($_retired (withdraw-rule! 999800))
+          ($_expanded (add-atom &sk_expanded ($hash $node)))
+          ($_wait (add-atom &sk_wait ($child-hash $child $waiter)))
+          ($_join (add-atom &sk_deferred_joins ($hash 999801 (sk-join $waiter (sk-key (CleanupA warm) (cleanupKb MAIN Nil))))))
+          ($_deferred (add-atom &sk_deferred ($hash 999802 (sk-deferred $node 999800 $conclusion () ()))))
+          ($_added-row (add-atom &sk_row ($hash $key 999803 $row)))
+          ($_work (sk-work! $hash $node 2))
+          ($_waiting (sk-application-waits? $node false (sk-node-at $child-hash $child)))
+          ($_settled (sk-settled? $key))
+          ($_founded (sk-founded? $hash $key)))
+      (data
+         (== (collapse (match &sk_wait ($child-hash $_c $_w) true)) ())
+         (== (collapse (match &sk_deferred_joins ($hash $_jh $_j) true)) ())
+         (== (collapse (match &sk_deferred ($hash $_rh $_r) true)) ())
+         (== (collapse (match &sk_row ($hash $_k $_rr $_stored-row) true)) ())
+         (sk-pending? $hash $node)))
+   (true true true true false))
+
+
+;; Open and ground source facts both contribute to the ground answer after
+;; join deduplication indexes the bound conclusion.
+!(compileadd digestKb (: join-source (Implication (JoinA $t) (JoinB $t)) (CTV (STV 1 1) (STV 0 1))))
+!(compileadd digestKb (: join-open (JoinA $t) (STV 0.2 0.5)))
+!(compileadd digestKb (: join-ground (JoinA warm) (STV 0.8 0.5)))
+!(test (let (: $_p $_statement (STV $s $_c)) (query 40 digestKb (: $p (JoinB warm) $tv)) $s) 0.5)

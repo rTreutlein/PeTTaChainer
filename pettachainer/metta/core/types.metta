@@ -270,8 +270,8 @@
 ;; contains a negation anywhere. Stored proofs refer only to earlier ids, so
 ;; they form a DAG, and a proof term stays as small as one rule application.
 (: proof-ref (-[det]-> Number Proof))
-;; The metadata word packs the provenance set id and the negated bit:
-;; (set-id << 1) | negated. This replaces the old Boolean in place.
+;; The metadata word packs the permanent owner rule id + 1 and negated bit:
+;; ((owner-id + 1) << 1) | negated; owner code zero means no permanent owner.
 (: &proof (SpaceOf (Number Proof EvidenceSet Number)))
 ;; the statement and truth value a stored fact proof proves
 (: &proof_fact (SpaceOf (Number Statement TV)))

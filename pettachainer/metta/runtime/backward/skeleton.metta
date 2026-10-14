@@ -113,25 +113,36 @@
 ;; context leaves with that context.
 (: sk-link-new! (-[det]-> SkeletonLink Bool))
 (= (sk-link-new! $link)
-   (let $digest (link-digest $link)
-      (if (space-row-present? &sk_link ($digest)) false
-         (let* (($_row (add-atom &sk_link ($digest)))
-                ($ctx
-                   (case $link (
-                      ((sk-child-link $owner $child)
-                         (let $owner-ctx (node-context $owner)
-                            (if (context-world? $owner-ctx) $owner-ctx (node-context $child))))
-                      ((sk-answer-link $node $key)
-                         (let $node-ctx (node-context $node)
-                            (if (context-world? $node-ctx) $node-ctx (key-context $key))))
-                      ((sk-use-link $key $parent)
-                         (let $key-ctx (key-context $key)
-                            (if (context-world? $key-ctx) $key-ctx (key-context $parent))))
-                      ((sk-join-link (sk-partial $join-owner $_rule $_concl $_done $_remaining $_keys) $answer)
-                         (let $join-ctx (node-context $join-owner)
-                            (if (context-world? $join-ctx) $join-ctx (key-context $answer)))))))
-                ($_noted (sk-note-context! $ctx (ctx-link $digest))))
-            true))))
+   (let* (($digest (link-digest $link))
+          ($ctx (case $link (
+             ((sk-child-link $owner $child)
+                (let $owner-ctx (node-context $owner)
+                   (if (context-world? $owner-ctx) $owner-ctx (node-context $child))))
+             ((sk-answer-link $node $key)
+                (let $node-ctx (node-context $node)
+                   (if (context-world? $node-ctx) $node-ctx (key-context $key))))
+             ((sk-use-link $used $parent)
+                (let $key-ctx (key-context $used)
+                   (if (context-world? $key-ctx) $key-ctx (key-context $parent))))
+             ((sk-join-link (sk-partial $join-owner $_rule $_concl $_done $_remaining $_keys) $answer)
+                (let $join-ctx (node-context $join-owner)
+                   (if (context-world? $join-ctx) $join-ctx (key-context $answer))))))))
+      (case $link (
+         ((sk-join-link (sk-partial $_owner $_id $conclusion $_d $_r $_k) $_answer)
+            (let* (($conclusion-key (case $conclusion (
+                       ((CPU GroupedFoldAllCompiled $group-args $_gr) (sk-group $group-args))
+                       ((CPU $_fun $fold-args $_fr) (sk-fold $fold-args))
+                       (($type $kbctx $_p $_v) (sk-key $type $kbctx)))))
+                   ($key-digest (link-digest $conclusion-key)))
+               (if (space-row-present? &sk_join_link ($key-digest $digest)) false
+                  (let* (($_row (add-atom &sk_join_link ($key-digest $digest)))
+                         ($_noted (sk-note-context! $ctx (ctx-join-link $key-digest $digest))))
+                     true))))
+         ($_other
+            (if (space-row-present? &sk_link ($digest)) false
+               (let* (($_row (add-atom &sk_link ($digest)))
+                      ($_noted (sk-note-context! $ctx (ctx-link $digest))))
+                  true)))))))
 
 (: sk-node-score (-[det]-> Number SkPattern Number))
 (= (sk-node-score $hash $node)
@@ -858,20 +869,10 @@
 ;; an answer reaches stops there: the pair waits once with the join's owner, so
 ;; a recursive rule cannot keep extending joins whose rows could not be kept
 ;; anyway. Joins of the query's roots always proceed.
-(: sk-retire-waiter! (-[det]-> SkeletonWaiter Atom))
-(= (sk-retire-waiter! (sk-partial $owner $rule $concl $done $remaining $keys))
-   (case $remaining (
-      ((cons $premise $_rest)
-         (let $hash (sk-node-hash $premise)
-            (remove-variant-row! &sk_wait (quote ($hash $premise (sk-partial $owner $rule $concl $done $remaining $keys))))))
-      (() ()))))
-
 (= (sk-extend! (sk-partial $owner $rule $concl $done $remaining $keys) $key)
    (if (rule-live? $rule)
    (if (if (sk-root? $owner) true (> (search-id-value sk_row_budget) 0))
-      (if (sk-link-new! (sk-join-link (sk-partial $owner $rule $concl $done $remaining $keys) $key))
-         (sk-extend-now! (sk-partial $owner $rule $concl $done $remaining $keys) $key)
-         ())
+      (sk-extend-now! (sk-partial $owner $rule $concl $done $remaining $keys) $key)
       (let* (($hash (sk-node-hash $owner))
              ($join (sk-join (sk-partial $owner $rule $concl $done $remaining $keys) $key))
              ($jhash (index-hash $join)))
@@ -881,7 +882,11 @@
                    ($_counted (query_metric_increment joins-deferred)))
                ())
             ())))
-      (sk-retire-waiter! (sk-partial $owner $rule $concl $done $remaining $keys))))
+      (case $remaining (
+         ((cons $premise $_rest)
+            (let $hash (sk-node-hash $premise)
+               (remove-variant-row! &sk_wait (quote ($hash $premise (sk-partial $owner $rule $concl $done $remaining $keys))))))
+         (() ())))))
 
 ;; A settled join (its rule reads one part of a compound, settling it; see
 ;; connective_settling.md) reads a part only when a certain stored fact fixes
@@ -920,8 +925,12 @@
                    (if (= (sk-key $type $kbctx) $key)
                       (if (chainer-acyclic-term? $concl) (sk-settled-read? $done $remaining $type $kbctx $tv) false)
                       false))))
-            (sk-advance!
-               (sk-partial $owner $rule $concl (cons $premise $done) $rest (cons $registered $keys)))
+            ;; Record after this answer binds the conclusion. A thawed ground
+            ;; key can then remove the digest even for an originally open join.
+            (if (sk-link-new! (sk-join-link (sk-partial $owner $rule $concl $done $remaining $keys) $registered))
+               (sk-advance!
+                  (sk-partial $owner $rule $concl (cons $premise $done) $rest (cons $registered $keys)))
+               ())
             ())))
       ($_other ()))))
 
@@ -1928,6 +1937,15 @@
           ($_support (remove-data-rows! &sk_support (quote ($hash $rhash $_deps)))))
       ()))
 
+(: sk-drop-row! (-[semidet]-> Number SkeletonKey Number SkeletonRow Atom))
+(= (sk-drop-row! $hash $key $rhash (sk-row $ident $concl $premises $seq))
+   (let* (($keys (fold-semidet sk-direct-key-step () $premises))
+          ($_row (remove-variant-row! &sk_row (quote ($hash $key $rhash (sk-row $ident $concl $premises $seq)))))
+          ($_readers (fold-semidet (sk-remove-reader! $hash $rhash) () $keys))
+          ($_stale-readers (fold-semidet (sk-drop-stale-reader! $hash $rhash) () $keys))
+          ($_stale (remove-atom &sk_stale ($hash $rhash))))
+      (sk-drop-row-views! $hash $key $rhash)))
+
 ;; Query-local rules leave with their query: their rows, waiters, deferred rows
 ;; and views are removed, and the keys of the removed rows changed.
 (: sk-clear-temp! (-[semidet]-> Atom))
@@ -1945,12 +1963,7 @@
           ($keys
              (collapse (match &sk_temp_rows ($khash $key $rhash $row)
                 (let* (($_temp (remove-atom &sk_temp_rows ($khash $key $rhash $row)))
-                       ($_row (remove-atom &sk_row ($khash $key $rhash $row)))
-                       ((sk-row $_ident $_concl $premises $_seq) $row)
-                       ($_readers
-                          (fold-semidet (sk-remove-reader! $khash $rhash) ()
-                             (fold-semidet sk-direct-key-step () $premises)))
-                       ($_views (sk-drop-row-views! $khash $key $rhash)))
+                       ($_row (sk-drop-row! $khash $key $rhash $row)))
                    $key)))))
       (fold-semidet sk-dirty-step () $keys)))
 
@@ -1987,7 +2000,8 @@
       ((ctx-answer $h $node $key) (let $_r (remove-variant-row! &sk_answer (quote ($h $node $key))) ()))
       ((ctx-child $h $owner $child $ch) (let $_r (remove-variant-row! &sk_child (quote ($h $owner $child $ch))) ()))
       ((ctx-use $h $key $parent) (let $_r (remove-variant-row! &sk_use (quote ($h $key $parent))) ()))
-      ((ctx-link $digest) (let $_r (remove-atom &sk_link ($digest)) ())))))
+      ((ctx-link $digest) (let $_r (remove-atom &sk_link ($digest)) ()))
+      ((ctx-join-link $key-digest $digest) (let $_r (remove-atom &sk_join_link ($key-digest $digest)) ())))))
 
 ;; The root's keys are its own key and the answers it registered: statements
 ;; of the query itself, which nothing else reads.

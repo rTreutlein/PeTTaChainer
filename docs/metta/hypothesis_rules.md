@@ -234,15 +234,22 @@ specific application reads a proper superset of the general one's stored
 facts, so its antecedent, as instantiated, entails the general one's, whose
 rate is a marginal over this case and cases it is not. The merge now reads
 the specific strength under `bayes-prior-count` pseudo-observations at the
-general one (`sk-specialized`, proof `(specializes specific general)`): 0.95
+general one (`sk-specialized`, proof `(specializes specific general raw-tv prior-tv)`): 0.95
 (`test_hypothesis_rules.metta`, ChainerGame
 `benchmarks/ona/repros/specificity.py`). A specific rule with little evidence
 stays near the general rate.
 
-A specific application keeps its reference class when its proof is already
-wrapped in `specializes`. With two general rules, the second comparison follows
-the specific proof through that wrapper (and stored references), so it cannot
-replace the specific application simply because it has more confidence. This
+A specific application keeps its reference class through stored references and
+its `specializes` wrapper. Multiple independent general rules revise into ONE
+prior; the original specific TV is shrunk once against that revised TV, rather
+than shrinking an already shrunk estimate again. The wrapper records the raw
+specific TV and accumulated prior TV. This is order-independent for independent
+general rules. Overlapping general views meet through the overlap path first;
+there is no general order-independence claim for them.
+
+`specialization-has-rule?` compares the rule names in `by` proofs, not permanent
+compiled rule identities or premise instances. A second view with the same name
+already present in the prior does not add another prior contribution. This
 matters for a mined conjunction whose two single-feature generalizations are
 both live (`test_hypothesis_mining.metta`).
 

@@ -380,6 +380,7 @@
       ((specializes $_specific $prior $_raw $_ptv) (specialization-has-rule? (brand Proof $prior) $general))
       ($_other false))))
 
+;; Membership here compares by-proof rule names, not compiled ids or premises.
 (: specialization-has-rule? (-[det]-> Proof Proof Bool))
 (= (specialization-has-rule? $prior $other)
    (case (data (sk-step-proof $prior) (sk-step-proof $other)) (

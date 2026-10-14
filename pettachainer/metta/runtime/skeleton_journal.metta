@@ -121,9 +121,12 @@
 !(bind! &sk_child (new-space))
 (: &sk_row (SpaceOf (Number SkeletonKey Number SkeletonRow)))
 !(bind! &sk_row (new-space))
-;; child links, answers and use edges already recorded, by link hash
+;; Child links, answers and use edges already recorded, by link hash.
 (: &sk_link (SpaceOf (Number)))
 !(bind! &sk_link (new-space))
+;; Join digests belong to their conclusion key and leave when it thaws.
+(: &sk_join_link (SpaceOf (Number Number)))
+!(bind! &sk_join_link (new-space))
 ;; member key -> a fold or group key over it
 (: &sk_use (SpaceOf (Number SkeletonKey SkeletonKey)))
 !(bind! &sk_use (new-space))
@@ -202,6 +205,7 @@
 (: ctx-child (-[det]-> Number SkPattern SkPattern Number SkeletonContextItem))
 (: ctx-use (-[det]-> Number SkeletonKey SkeletonKey SkeletonContextItem))
 (: ctx-link (-[det]-> Number SkeletonContextItem))
+(: ctx-join-link (-[det]-> Number Number SkeletonContextItem))
 (: &sk_ctx_items (SpaceOf (Atom SkeletonContextItem)))
 ;; A refined rule's truth goal, per rule id, and the score factor of that
 ;; goal's current value (docs/metta/hypothesis_rules.md).
