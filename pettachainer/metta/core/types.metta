@@ -349,7 +349,7 @@
 (: record-summary-rules! (-[det]-> Number Number Proof Bool))
 
 ;; Rule retirement and the physical stores exposing derived facts in &kb.
-(: record-view-rule! (-[det]-> Number SkeletonKey Number SkeletonValue Number))
+(: record-view-rule! (-[det]-> Number Number Proof Number))
 (: record-stored-rules! (-[det]-> Atom Number SkeletonKey Proof Bool))
 (: forget-stored-rules! (-[det]-> Atom Number SkeletonKey Bool))
 (: RetiredStore Type)

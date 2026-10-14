@@ -1077,25 +1077,25 @@
 ;; deep its derivation is. What the evidence of a proof needs from its whole
 ;; tree, its leaves and whether it negates anything, is summarized with it.
 (: sk-store-proof! (-[semidet]-> Number Proof Proof))
-(= (sk-store-proof! $rules $proof)
+(= (sk-store-proof! $rule $proof)
    (let* (($pid (next-search-id proof_id))
+          ($owner (record-view-rule! $pid $rule $proof))
           ($leaves (once (proof-term-evidence proof-walk-in-kb $proof)))
-          ($flags (+ (* 2 $rules) (if (proof-term-contains-negated? $proof) 1 0)))
+          ($flags (+ (* 2 $owner) (if (proof-term-contains-negated? $proof) 1 0)))
           ($_row (add-atom &proof ($pid $proof $leaves $flags))))
       (proof-ref $pid)))
 
 ;; A new view becomes the row's latest; the one it replaces is kept.
-(: sk-store-view! (-[semidet]-> Number SkeletonKey Number Number SkeletonValue SkeletonValue))
-(= (sk-store-view! $hash $key $seq $rhash $computed)
-   (let* (($rules (record-view-rule! $hash $key $rhash $computed))
-          ($view
+(: sk-store-view! (-[semidet]-> Number SkeletonKey Number Number Number SkeletonValue SkeletonValue))
+(= (sk-store-view! $hash $key $seq $rhash $rule $computed)
+   (let* (($view
              (case $computed (
                 ((sk-val ($type $kbctx $proof $tv) $ev $vdeps)
-                   (let* (($ref (sk-store-proof! $rules $proof))
+                   (let* (($ref (sk-store-proof! $rule $proof))
                           ($_fact (case $ref (((proof-ref $pid) (add-atom &proof_fact ($pid $type $tv)))))))
                       (sk-val (data $type $kbctx $ref $tv) $ev $vdeps)))
                 ((sk-goal-val $goal $goal-proof $gev $gdeps)
-                   (sk-goal-val $goal (sk-store-proof! $rules $goal-proof) $gev $gdeps))
+                   (sk-goal-val $goal (sk-store-proof! $rule $goal-proof) $gev $gdeps))
                 (sk-none sk-none))))
           ($deps (sk-view-deps-step 0 $view))
           ($_moved
@@ -1594,7 +1594,7 @@
 
 (: sk-keep-view (-[semidet]-> Number SkeletonKey SkeletonValue (List SkeletonVersion)))
 (= (sk-keep-view $hash $key $view)
-   (cons (sk-version 0 0 (sk-store-view! $hash $key 0 0 $view)) ()))
+   (cons (sk-version 0 0 (sk-store-view! $hash $key 0 0 -1 $view)) ()))
 
 ;; The versions a consumer takes: per row, the latest one it admits.
 (: sk-admitted-versions (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonVersion)))
@@ -3039,7 +3039,9 @@
                (let* (($before
                          (collapse (once (match &sk_merged ($hash $stored $deps $value)
                             (if (=alpha $stored $key) (if (sk-live-view? $value) (sk-merged $hash $stored $deps $value) (empty)) (empty))))))
-                      ($_stored (sk-store-view! $hash $key $seq $rhash $new))
+                      ($_stored
+                         (let (sk-row (sk-ident $rule $_keys $_key) $_concl $_premises $_created) $row
+                            (sk-store-view! $hash $key $seq $rhash $rule $new)))
                       ($_stored-count (query_metric_increment views-stored))
                       ($_merged (sk-drop-merged! $key))
                       ($deps (sk-view-deps-step 0 $new)))

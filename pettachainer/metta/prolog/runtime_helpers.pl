@@ -445,7 +445,9 @@ refs_gc_dead(unions, ev_union_memo(Key, Union), _, SetLimit) :-
 
 refs_gc_live_set(Set, SetLimit) :- ( Set =:= 0 ; Set >= SetLimit ; refs_gc_set(Set) ), !.
 
-refs_gc_erase(proofs, user:'&proof'(Pid, _, _, _), Ref) :- !, erase(Ref), retractall(user:'&proof_fact'(Pid, _, _)).
+refs_gc_erase(proofs, user:'&proof'(Pid, _, _, _), Ref) :- !,
+    erase(Ref), retractall(user:'&proof_fact'(Pid, _, _)), retractall(proof_rules_memo(Pid, _)),
+    retractall(summary_user(_, _, Pid)).
 refs_gc_erase(_, _, Ref) :- erase(Ref).
 
 refs_gc_finish :-
@@ -707,12 +709,13 @@ ev_common_step(['ev-set', Set], Ids-Sorted, Kept-Shared) :-
     ev_excluded(A, Excluded),
     (   Excluded \== [], ev_sorted(B, SortedB), ord_intersect(Excluded, SortedB) -> Result = true ; Result = false ).
 
-% Rule provenance interns canonical sets, independent of statistical evidence
-% and mutable dependency cuts. Proofs keep one set id. A canonical Patricia
-% tree shares branches across sets and makes membership follow one bit path.
+% Proof metadata keeps the permanent owner identity, alongside its negation
+% bit. Shared transitive provenance is interned only when a retirement check
+% or an exposed KB copy needs it; ordinary monotonic reads allocate no sets.
+% A canonical Patricia tree shares branches and bounds membership by one path.
 :- dynamic retired_rule/2, retired_epoch/2, proof_live_memo/3,
            summary_rules/3, rule_set/4, rule_leaf/2, rule_branch/5, rule_union/3,
-           stored_rules/5, stored_rule/2, thaw_generation/3.
+           proof_rules_memo/2, summary_user/3, stored_rules/5, stored_rule/2, thaw_generation/3.
 
 'withdraw-rule!'(Id, true) :-
     ( retired_rule(Id, _) -> true
@@ -779,23 +782,27 @@ proof_rule_set(Proof, Set) :-
     findall(S, ( sub_term(Ref, Proof), nonvar(Ref), proof_source_rules(Ref, S) ), Children),
     rule_sets_join(Children, Set).
 
-% Provenance occupies the proof's existing metadata word, alongside its
-% negation bit. There is no per-proof side table to grow with search scale.
-proof_rules(Pid, Set) :- user:'&proof'(Pid, _, _, Flags), Set is Flags >> 1, Set > 0.
+% Resolve each immutable proof DAG node once, sharing the canonical source
+% sets. The cache is absent until provenance is actually read, and collected
+% with its proof. This never enumerates other proofs or the retirement log.
+proof_rules(Pid, Set) :-
+    ( proof_rules_memo(Pid, Set) -> true
+    ; user:'&proof'(Pid, Proof, _, Flags), Code is Flags >> 1,
+      proof_rule_set(Proof, Sources),
+      ( Code > 0 -> Owner is Code - 1, rule_set_leaf(Owner, Own), rule_sets_join([Sources, Own], Set) ; Set = Sources ),
+      assertz(proof_rules_memo(Pid, Set)), retractall(summary_user(_, _, Pid)) ).
 'proof-ref-negated?'(Pid, Negated) :-
     ( user:'&proof'(Pid, _, _, Flags), Flags /\ 1 =:= 1 -> Negated = true ; Negated = false ).
 
-% Compute the source set and permanent owner identity before the fresh proof
-% is published. Folds have no row identity and temporary query rows cannot
-% be withdrawn as permanent knowledge.
-'record-view-rule!'(Hash, Key, Rhash, View, Set) :-
-    ( ( View = ['sk-val', [_, _, Proof, _], _, _]
-      ; View = ['sk-goal-val', _, Proof, _, _] )
-    -> proof_rule_set(Proof, Children),
-       findall(Own, ( user:'&sk_row'(Hash, Stored, Rhash, ['sk-row', ['sk-ident', Id, _, _], _, _, _]),
-                      Stored =@= Key, Id < 1000000000, rule_set_leaf(Id, Own) ), Owners),
-       rule_sets_join([Children|Owners], Set)
-    ; Set = 0 ).
+% Publication receives the identity from the exact row being evaluated.
+% Folds have identity -1; temporary query rows cannot be withdrawn. Encoding
+% the owner as id+1 reserves metadata zero without losing real rule id zero.
+'record-view-rule!'(Pid, Rule, Proof, Owner) :-
+    ( Rule >= 0, Rule < 1000000000 -> Owner is Rule + 1 ; Owner = 0 ),
+    % A frozen summary's rows are gone. Its source identities must survive
+    % physical retirement until this proof has captured its transitive set.
+    forall(( sub_term(Ref, Proof), nonvar(Ref), Ref = [Tag, H, E], Tag == forgotten,
+             integer(H), integer(E) ), assertz(summary_user(H, E, Pid))).
 
 'record-summary-rules!'(Hash, Epoch, Proof, true) :-
     proof_rule_set(Proof, Set), assertz(summary_rules(Hash, Epoch, Set)).
@@ -815,8 +822,10 @@ rule_set_live(Set, Epoch) :-
     ( proof_live_memo(Set, Checked, Live) -> true ; Checked = 0, Live = true ),
     Live == true,
     ( Checked =:= Epoch -> true
-    ; First is Checked + 1,
-      ( between(First, Epoch, E), retired_epoch(E, Rule), rule_set_has(Set, Rule) -> Next = false ; Next = true ),
+    ; ( rule_set(Set, leaf(Owner), _, _)
+      -> ( retired_rule(Owner, _) -> Next = false ; Next = true )
+      ; First is Checked + 1,
+        ( between(First, Epoch, E), retired_epoch(E, Rule), rule_set_has(Set, Rule) -> Next = false ; Next = true ) ),
       retractall(proof_live_memo(Set, _, _)), assertz(proof_live_memo(Set, Epoch, Next)), Next == true ).
 
 rule_set_has(Set, Rule) :- rule_leaf(Rule, _), deps_bit(Rule, Bit), rule_set_has(Set, Rule, Bit).
@@ -854,11 +863,16 @@ rule_set_register(Set, Token) :-
                 retractall(thaw_generation(Hash, Key, _)), assertz(thaw_generation(Hash, Key, Generation)) ; true ) ), Stores).
 
 rule_sets_gc :-
+    forall(( proof_rules_memo(Pid, _), \+ user:'&proof'(Pid, _, _, _) ),
+           retractall(proof_rules_memo(Pid, _))),
+    forall(( summary_user(Hash, Epoch, Pid), \+ user:'&proof'(Pid, _, _, _) ),
+           retractall(summary_user(Hash, Epoch, Pid))),
     forall(( summary_rules(Hash, Epoch, _),
-             \+ user:'&sk_summary'(Hash, _, [_, _, [forgotten, Hash, Epoch], _], _, _) ),
+             \+ user:'&sk_summary'(Hash, _, [_, _, [forgotten, Hash, Epoch], _], _, _),
+             \+ summary_user(Hash, Epoch, _) ),
            retractall(summary_rules(Hash, Epoch, _))),
     empty_nb_set(Live),
-    forall(( proof_rules(_, Set) ; summary_rules(_, _, Set) ; stored_rules(_, _, _, _, Set) ), rule_set_mark(Set, Live)),
+    forall(( proof_rules_memo(_, Set) ; summary_rules(_, _, Set) ; stored_rules(_, _, _, _, Set) ), rule_set_mark(Set, Live)),
     forall(( clause(rule_set(Set, _, _, _), true, Ref), \+ add_nb_set(Set, Live, false) ),
            ( erase(Ref), retractall(rule_leaf(_, Set)), retractall(rule_branch(_, _, _, _, Set)),
              retractall(proof_live_memo(Set, _, _)) )),

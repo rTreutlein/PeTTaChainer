@@ -33,10 +33,11 @@ Consequences:
 Explicit rule withdrawal is separate from monotonic addition. Hypothesis
 review and the deprecated statement-removal path both retire compiled rule
 identities. Later reads exclude every derivation using them, including cached
-views. Rule provenance is a canonical interned set id per proof, separate from
-statistical evidence. The set id shares the proof record's existing metadata
-word with its negation bit, so provenance allocates no per-proof side table;
-a stale liveness memo checks only identities retired
+views. Each immutable proof records its permanent owner identity in its existing
+metadata word, alongside its negation bit. Transitive rule provenance is resolved
+through the shared proof DAG only when retirement checks or exposed KB copies
+need it, then cached as a canonical interned set id. Ordinary monotonic reads
+allocate neither provenance sets nor a per-proof cache. A stale liveness memo checks only identities retired
 since its last checked epoch. Proof ids remain durable and never reusable.
 
 Derived facts exposed in `&kb` (forward copies, materialized answers and
@@ -51,7 +52,15 @@ history. Rule-id sets use canonical Patricia trees: regrouping or repeating a un
 returns the same id, while shared branches avoid copying transitive lists.
 Membership follows one rule-id bit path, even when the retired rule belongs
 to another proof. Union memos, provenance nodes and liveness memos are
-collected with proofs.
+collected with proofs, as is each demand-built proof-to-set cache entry. The first
+provenance read resolves its reachable uncached DAG nodes once; subsequent reads
+reuse those sets and check only new retirement events. Withdrawal itself never
+walks the DAG.
+The stored owner is encoded as id+1; zero denotes no permanent owner and never
+aliases real rule identity zero.
+Direct references to frozen summaries register when a proof is published. Their
+historical source metadata survives physical summary retirement and collection
+until the referencing proof has captured its rule set, or is itself collected.
 
 ### Strict append-only follow-up
 
