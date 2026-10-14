@@ -277,3 +277,19 @@
           ($_cleared (clear-temp-query-adds))
           ($_contexts (sk-clear-contexts!)))
    (test $valid true))
+
+;; Prefix lookup may specialize a variable assumption to a ground reader.
+;; That specialization must not turn its hypothetical individual into Fixed.
+!(let* (($a (quote (A $prototype)))
+          ($b (quote (B $prototype)))
+          ($vars (cons (brand Variable $prototype) ()))
+          (($shape $_proof $_b $adds)
+             (judgment-query-side indexedPrototypeNegCtxKb $vars false
+                (brand Statement $a) (brand Statement $b)))
+          ($_injected (collapse (once (inject-compiled-adds (map-flat mm2stmt $adds)))))
+          ($fixed (quote (A Fixed)))
+          ($valid (and (judgment-assumed-key? $a $shape)
+             (not (judgment-assumed-key? $fixed $shape))))
+          ($_cleared (clear-temp-query-adds))
+          ($_contexts (sk-clear-contexts!)))
+   (test $valid true))

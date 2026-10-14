@@ -1200,7 +1200,11 @@
                ;; copy so this test cannot bind the rule's premise variables;
                ;; non-ground hypothetical keys still require alpha identity.
                (if (== (extract-vars $assumed) ())
-                  (if (= (copy_term $probe-type) $assumed) true (empty))
+                  ;; Indexed unification can ground a hypothetical variable.
+                  ;; Its context must still have the original sharing shape.
+                  (if (=alpha $probe-ctx $assumed-ctx)
+                     (if (= (copy_term $probe-type) $assumed) true (empty))
+                     (empty))
                   (empty)))
             (empty))))) ()))))
 
