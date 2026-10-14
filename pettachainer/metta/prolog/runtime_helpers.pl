@@ -2061,7 +2061,7 @@ hypothesis_confidence(['CTV', ['STV', _, C], _], C).
 % from its awaited premise index. Clause references erase exactly that work;
 % retract listeners keep the index correct for ordinary context cleanup too.
 % None of the values, facts, rows or sample/tally stores belong to this index.
-:- dynamic sk_search_clause/4, sk_search_ref/2, sk_search_node/4, sk_retire_queue/2,
+:- dynamic sk_search_clause/4, sk_search_node/4, sk_retire_queue/2,
            sk_child_edge/2, sk_child_users/2, sk_child_claim/3,
            sk_child_debt/2, sk_retire_component/1.
 sk_search_init :-
@@ -2095,7 +2095,7 @@ sk_search_key([Type, Context|Rest], Hash, [Type, Context]) :-
 
 sk_search_index(Conclusion, Space, Ref) :-
     (   sk_search_key(Conclusion, H, Key)
-    ->  assertz(sk_search_clause(H, Key, Space, Ref), Index), assertz(sk_search_ref(Ref, Index))
+    ->  assertz(sk_search_clause(H, Key, Space, Ref))
     ;   true ).
 
 'sk-store-link!'(Digest, Link, true) :-
@@ -2134,7 +2134,7 @@ sk_search_changed(Space, assertz, Ref) :- !,
     -> sk_unwatch_fact(H, N)
     ; true ).
 sk_search_changed(Space, retract, Ref) :- !,
-    forall(retract(sk_search_ref(Ref, Index)), erase(Index)),
+    retractall(sk_search_clause(_, _, _, Ref)),
     (   Space == '&sk_wait'
     ->  forall(retract(sk_child_users(D, Ref)), sk_release_child(D))
     ;   Space == '&sk_child', clause('&sk_child'(OH, O, N, NH), true, Ref),
@@ -2149,7 +2149,7 @@ sk_search_changed(Space, retract, Ref) :- !,
 sk_search_changed(_, _, _).
 
 sk_erase_claim(Ref) :-
-    forall(retract(sk_search_ref(Ref, Index)), erase(Index)), erase(Ref).
+    retractall(sk_search_clause(_, _, _, Ref)), erase(Ref).
 
 % The node hash is already available at expansion/context cleanup. Only its
 % few compact subscriptions need alpha comparison; no digest is computed.

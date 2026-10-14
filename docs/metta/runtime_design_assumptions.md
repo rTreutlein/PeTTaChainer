@@ -243,8 +243,9 @@ one bound conclusion of an open search leaves its other conclusions searchable.
 A waiter batch computes its child-link digest once and passes it to the
 waiter, child and fixed-claim stores. A waiter lease records that digest and
 the waiter's clause reference; retraction finds the digest by the reference,
-without copying or hashing the partial again. Claim and debt lookups use
-their existing scalar columns, rather than duplicate reverse predicates.
+without copying or hashing the partial again. Ownership, claim and debt cleanup
+uses their existing scalar clause-reference or digest columns, rather than
+duplicate reverse predicates.
 Fact-watch cleanup uses the node hash already available at expansion or
 context cleanup and compares only subscriptions at that hash.
 A known owner can still have a child claimed by another conclusion. Query
