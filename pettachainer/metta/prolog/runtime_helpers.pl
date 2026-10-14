@@ -2054,7 +2054,7 @@ hypothesis_confidence(['CTV', ['STV', _, C], _], C).
 % and pw_in(Child, Rep, Links) for the condensed edges, with the child links
 % each stands for.
 :- dynamic pw_id/3, pw_up/2, pw_size/2, pw_work/2, pw_pend/2, pw_deg/3, pw_out/3, pw_in/3.
-:- dynamic '&sk_expanded'/2, '&sk_wait'/3, '&sk_link'/1, '&sk_child'/4,
+:- dynamic '&sk_expanded'/2, '&sk_wait'/3, '&sk_link'/1, '&sk_join_link'/2, '&sk_child'/4,
            '&sk_parked'/3, '&sk_deferred_joins'/3, '&sk_deferred'/3, '&sk_fact_watch'/3.
 
 % Search work is indexed by the ground statement/context it concludes, apart
@@ -2066,7 +2066,7 @@ hypothesis_confidence(['CTV', ['STV', _, C], _], C).
            sk_child_debt/2, sk_retire_component/1.
 sk_search_init :-
     (   nb_current(sk_search_listening, true) -> true
-    ;   forall(member(Space/Arity, ['&sk_wait'/3, '&sk_link'/1, '&sk_child'/4,
+    ;   forall(member(Space/Arity, ['&sk_wait'/3, '&sk_join_link'/2, '&sk_child'/4,
                                    '&sk_deferred_joins'/3, '&sk_deferred'/3,
                                    '&sk_expanded'/2]),
                prolog_listen(user:Space/Arity, sk_search_changed(Space))),
@@ -2098,12 +2098,11 @@ sk_search_index(Conclusion, Space, Ref) :-
     ->  assertz(sk_search_clause(H, Key, Space, Ref))
     ;   true ).
 
-'sk-store-link!'(Digest, Link, true) :-
-    sk_search_init, assertz('&sk_link'(Digest), Ref),
-    (   Link = ['sk-join-link', ['sk-partial', _, _, Concl|_], _]
-    ->  sk_search_index(Concl, '&sk_link', Ref),
-        ( sk_search_key(Concl, _, [Type, Context]) -> 'sk-retire-known!'(Type, Context, true) ; true )
-    ;   true ).
+% Delivered joins use the conclusion-keyed store shared with thaw cleanup.
+'sk-store-join!'(KeyDigest, Digest, Conclusion, true) :-
+    sk_search_init, assertz('&sk_join_link'(KeyDigest, Digest), Ref),
+    sk_search_index(Conclusion, '&sk_join_link', Ref),
+    ( sk_search_key(Conclusion, _, [Type, Context]) -> 'sk-retire-known!'(Type, Context, true) ; true ).
 
 % A waiter batch already needs this digest for its child link. Retain a
 % lease by clause reference, so retraction never hashes the partial again.
@@ -2150,6 +2149,13 @@ sk_search_changed(_, _, _).
 
 sk_erase_claim(Ref) :-
     retractall(sk_search_clause(_, _, _, Ref)), erase(Ref).
+
+% Withdrawal uses the same lease release as known-conclusion retirement.
+% Context cleanup keeps its own pending-graph transitions instead.
+'sk-retire-wait!'(Hash, Premise, Waiter, true) :-
+    setup_call_cleanup(nb_setval(sk_retiring, true),
+                       'remove-variant-row!'('&sk_wait', [Hash, Premise, Waiter], true),
+                       nb_delete(sk_retiring)).
 
 % The node hash is already available at expansion/context cleanup. Only its
 % few compact subscriptions need alpha comparison; no digest is computed.

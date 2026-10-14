@@ -2130,7 +2130,7 @@
                      (if (=alpha $stored $child)
                         (if (rule-live? $rule)
                            (if (=alpha $owner $node) (if (rule-application-proof? $proof) true (empty)) (empty))
-                           (let $_removed (remove-variant-row! &sk_wait (quote ($hash $stored (sk-partial $owner $rule ($_t $_k $proof $_v) $_done $_rest $_keys)))) (empty)))
+                           (let $_removed (sk-retire-wait! $hash $stored (sk-partial $owner $rule ($_t $_k $proof $_v) $_done $_rest $_keys)) (empty)))
                         (empty)))))
                   ())))))
 

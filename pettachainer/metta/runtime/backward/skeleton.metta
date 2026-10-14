@@ -134,12 +134,12 @@
                        (($type $kbctx $_p $_v) (sk-key $type $kbctx)))))
                    ($key-digest (link-digest $conclusion-key)))
                (if (space-row-present? &sk_join_link ($key-digest $digest)) false
-                  (let* (($_row (sk-store-link! $digest $link))
+                  (let* (($_row (sk-store-join! $key-digest $digest $conclusion))
                          ($_noted (sk-note-context! $ctx (ctx-join-link $key-digest $digest))))
                      true))))
          ($_other
             (if (space-row-present? &sk_link ($digest)) false
-               (let* (($_row (sk-store-link! $digest $link))
+               (let* (($_row (add-atom &sk_link ($digest)))
                       ($_noted (sk-note-context! $ctx (ctx-link $digest))))
                   true)))))))
 
@@ -812,7 +812,7 @@
                   (fold-semidet (sk-extend-waiter-step (sk-partial $owner $rule $concl $done $remaining $keys)) ()
                      (sk-forward-keys (copy_term $premise)))
                   (sk-wait-on! $owner $rule $premise
-                     (sk-partial $owner $rule $concl $done $remaining $keys))))))))))
+                     (sk-partial $owner $rule $concl $done $remaining $keys)))))))))
       ()))
 
 ;; A ground computation (for example arithmetic on bound statement terms)
@@ -886,7 +886,7 @@
       (case $remaining (
          ((cons $premise $_rest)
             (let $hash (sk-node-hash $premise)
-               (remove-variant-row! &sk_wait (quote ($hash $premise (sk-partial $owner $rule $concl $done $remaining $keys))))))
+               (sk-retire-wait! $hash $premise (sk-partial $owner $rule $concl $done $remaining $keys))))
          (() ())))))
 
 (: sk-extend-current! (-[semidet]-> SkeletonWaiter SkeletonKey Atom))

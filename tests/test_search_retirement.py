@@ -110,6 +110,81 @@ class TestSearchRetirement(unittest.TestCase):
         self.assertEqual(answers[0].statement, ['Other', 'found'])
         self.assertGreater(answers[0].tv[1], 0.9)
 
+    def test_withdrawal_and_known_conclusion_retirement_share_join_indexes(self):
+        for withdraw_first in (False, True):
+            with self.subTest(withdraw_first=withdraw_first):
+                h = PeTTaChainer()
+                h.set_positive_only_predicate('Next')
+                h.set_positive_only_predicate('At')
+                h.add_atoms_no_check([
+                    '(: obsolete (Implication (And (Next $p $t) (Next $t $u) (At left $p) (At right $t)) (Ball right $u)) (STV 1 0.9))',
+                    '(: alternative (Implication (Other $t) (Ball right $t)) (CTV (STV 0.2 1) (STV 0 1)))',
+                    '(: n1 (Next d1 d2) (STV 1 1))',
+                    '(: n2 (Next d2 d3) (STV 1 1))',
+                    '(: a1 (At left d1) (STV 1 1))',
+                ])
+                h.query_many_refs(['(: $p (Ball right d3) $tv)'], steps=100)
+                ctx = [h.kb, 'MAIN', 'Nil']
+                before = janus.query_once(
+                    "'link-digest'(['sk-key',['Ball',right,d3],Ctx],D),"
+                    "aggregate_all(count,'&sk_join_link'(D,_),Joins),"
+                    "aggregate_all(count,'&sk_wait'(_,_,['sk-partial',_,_,[['Ball',right,d3],Ctx|_]|_]),Waiters)",
+                    {'Ctx': ctx})
+                self.assertGreater(before['Joins'], 0)
+                self.assertGreater(before['Waiters'], 0)
+                if withdraw_first:
+                    h._call('withdraw-named-rules!', ['obsolete'])
+                    # A late delivery removes the withdrawn waiter before
+                    # known-conclusion retirement encounters the same owner.
+                    h.add_atom('(: a2 (At right d2) (STV 1 1))')
+                    h.query_many_refs(['(: $p (Ball right d3) $tv)'], steps=40)
+                h.add_atom('(: closed (Ball right d3) (STV 0 1))')
+                h.query_many_refs(['(: $p Unrelated $tv)'], steps=0)
+                if not withdraw_first:
+                    h._call('withdraw-named-rules!', ['obsolete'])
+                # Settle the shared premises before checking link retirement.
+                h.query_many_refs(['(: $p (At left d1) $tv)', '(: $p (At right d2) $tv)'], steps=100)
+                h.add_atoms_no_check([
+                    '(: later (Next d2 d4) (STV 1 1))',
+                    '(: other (Other d4) (STV 1 1))',
+                ])
+                answer = h.query_many_refs(['(: $p (Ball right d4) $tv)'], steps=100)[0][0]
+                self.assertEqual(answer.tv[1], 0.2)
+                closed = h.query_many_refs(['(: $p (Ball right d3) $tv)'], steps=0)[0][0]
+                self.assertEqual((closed.proof, closed.tv), ('closed', ['STV', 0, 1]))
+                after = janus.query_once(
+                    "'link-digest'(['sk-key',['Ball',right,d3],Ctx],D),"
+                    "aggregate_all(count,'&sk_join_link'(D,_),Joins),"
+                    "aggregate_all(count,sk_search_clause(_, [['Ball',right,d3],Ctx],_,_),Indexed),"
+                    "aggregate_all(count,(sk_search_clause(_,_,_,_Ref),clause_property(_Ref,erased)),Orphans),"
+                    "aggregate_all(count,(sk_child_users(_,_Ref),clause_property(_Ref,erased)),Leases),"
+                    "aggregate_all(count,(sk_child_edge(_,_Ref),clause_property(_Ref,erased)),Edges),"
+                    "aggregate_all(count,(pw_work(_,_Work),_Work<0),Negative),"
+                    "aggregate_all(count,'&sk_child'(_, [['Ball',right,d3],Ctx|_],_,_),Children)", {'Ctx': ctx})
+                self.assertEqual([after[k] for k in ('Joins', 'Indexed', 'Orphans', 'Leases', 'Edges', 'Negative', 'Children')], [0]*7)
+
+    def test_summary_thaw_removes_retirement_indexes_and_replays_live_joins(self):
+        h = PeTTaChainer()
+        h.set_forgetting(1)
+        h.add_atoms_no_check([
+            '(: old (Implication (A $t) (B $t)) (STV 0.9 1))',
+            '(: live (Implication (C $t) (B $t)) (STV 0.2 1))',
+            '(: a (A warm) (STV 1 1))',
+            '(: c (C warm) (STV 1 1))',
+        ])
+        h.query_many_refs(['(: $p (B warm) $tv)'], steps=40)
+        h.advance_epoch()
+        h.advance_epoch()
+        ctx = [h.kb, 'MAIN', 'Nil']
+        count = ("aggregate_all(count,sk_search_clause(_, [['B',warm],Ctx],'&sk_join_link',_),N)")
+        self.assertGreater(janus.query_once(count, {'Ctx': ctx})['N'], 0)
+        h._call('withdraw-named-rules!', ['old'])
+        self.assertEqual(janus.query_once(count, {'Ctx': ctx})['N'], 0)
+        for budget in (40, 200):
+            answer = h.query_many_refs(['(: $p (B warm) $tv)'], steps=budget)[0][0]
+            self.assertEqual(answer.tv[1], 0.2)
+        self.assertGreater(janus.query_once(count, {'Ctx': ctx})['N'], 0)
+
     def test_atomic_statement_is_known_too(self):
         h = PeTTaChainer()
         h.add_atoms_no_check(['(: a A (STV 1 1))', '(: b B (STV 0 1))'])

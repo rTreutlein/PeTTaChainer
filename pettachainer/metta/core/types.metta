@@ -39,11 +39,12 @@
 (: stored-refs-gc! (-[det]-> Bool))
 (: stored-refs-gc-step! (-[det]-> Bool))
 (: sk-known-conclusion? (-[det]-> $fact Bool))
-(: sk-store-link! (-[det]-> Number $link Bool))
+(: sk-store-join! (-[det]-> Number Number $conclusion Bool))
 (: sk-keep-child! (-[det]-> Number $conclusion Bool))
 (: sk-store-wait! (-[det]-> Number Number $premise $waiter Bool))
 (: sk-store-child! (-[det]-> Number Number $owner $child Number Bool))
 (: sk-retire-known! (-[det]-> Statement KBContext Bool))
+(: sk-retire-wait! (-[det]-> Number $premise $waiter Bool))
 (: sk-retire-searches! (-[det]-> Bool))
 
 ;; Rules whose premise only their own conclusion supports (runtime_helpers.pl).
