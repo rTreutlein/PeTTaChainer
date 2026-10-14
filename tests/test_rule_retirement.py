@@ -9,23 +9,28 @@ class TestRuleRetirement(unittest.TestCase):
         import janus_swi
 
         PeTTaChainer()
-        # A long derivation shares its set among many proof refs. Each stale
-        # memo checks one new retirement, rather than all earlier retirements.
+        # A long derivation shares its set among many proof refs. Retired
+        # identities belong to other stored proofs, so this exercises real
+        # membership misses, including collisions in the coarse bit mask.
         stats = janus_swi.query_once(
             "findall(_S, (between(200000001, 200004096, _R), rule_set_leaf(_R, _S)), _Leaves), "
             "rule_sets_join(_Leaves, _Set), "
             "_Flags is _Set << 1, "
             "forall(between(2000000000, 2000000063, _P), assertz(user:'&proof'(_P, [], ['ev-set', 0], _Flags))), "
             "flag(withdraw_epoch, _Epoch, _Epoch), rule_set_live(_Set, _Epoch), "
-            "findall(_Cost, (between(1, 128, _I), _R is 210000000 + _I, 'withdraw-rule!'(_R, _), "
+            "findall(_Cost, (between(1, 128, _I), _R is 210000000 + _I, rule_set_leaf(_R, _Outside), "
+            " _OF is _Outside << 1, _OP is 2000000100+_I, assertz(user:'&proof'(_OP, [], ['ev-set', 0], _OF)), "
+            " 'withdraw-rule!'(_R, _), "
             " flag(withdraw_epoch, _E, _E), statistics(inferences, _Before), rule_set_live(_Set, _E), "
-            " statistics(inferences, _After), _Cost is _After-_Before), _Costs), "
+            " statistics(inferences, _After), _Cost is _After-_Before, 'proof-live?'(['proof-ref', _OP], false)), _Costs), "
             "max_list(_Costs, Max), min_list(_Costs, Min), "
             "rule_set_leaf(230000000, _Leaf), rule_sets_join([_Set, _Leaf], _Fresh), "
             "flag(withdraw_epoch, _Current, _Current), statistics(inferences, _Start), "
             "rule_set_live(_Fresh, _Current), statistics(inferences, _End), FirstRead is _End-_Start, "
             "aggregate_all(count, proof_rules(_, _Set), Shared), "
-            "retractall(user:'&proof'(_, [], ['ev-set', 0], _Flags)), rule_sets_gc, "
+            "retractall(user:'&proof'(_, [], ['ev-set', 0], _Flags)), "
+            "forall(between(1, 128, _I), (_OP is 2000000100+_I, retractall(user:'&proof'(_OP, _, _, _)))), "
+            "rule_sets_gc, "
             "(proof_live_memo(_Set, _, _) -> Collected = 0 ; Collected = 1)"
         )
         self.assertEqual(stats["Shared"], 64)
@@ -56,6 +61,22 @@ class TestRuleRetirement(unittest.TestCase):
         self.assertEqual(stats["Set"], stats["Regrouped"])
         self.assertEqual(stats["Before"], stats["After"])
         self.assertEqual(stats["Live"], "false")
+
+    def test_sparse_rule_sets_are_canonical_and_exact(self):
+        import janus_swi
+
+        PeTTaChainer()
+        stats = janus_swi.query_once(
+            "_Rules = [250000001, 250000002, 250000007, 250000032, 250000064, 250000512, 250001024, 250004096], "
+            "findall(_S, (member(_R, _Rules), rule_set_leaf(_R, _S)), _Leaves), "
+            "rule_sets_join(_Leaves, Set), reverse(_Leaves, _Reverse), "
+            "foldl(rule_sets_union, _Reverse, 0, Reversed), "
+            "forall(member(_R, _Rules), rule_set_has(Set, _R)), "
+            "forall(member(_R, [250000003, 250000031, 250000513, 250004097]), "
+            " (rule_set_leaf(_R, _), \\+ rule_set_has(Set, _R)))"
+        )
+        self.assertTrue(stats["truth"])
+        self.assertEqual(stats["Set"], stats["Reversed"])
 
     def test_delivered_retired_waiters_leave_the_index(self):
         import janus_swi

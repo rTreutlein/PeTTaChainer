@@ -47,9 +47,11 @@ removing it thaws the key and queues reconstruction from live rules. Its join
 digests get a new generation so old delivered joins can rebuild the erased
 rows. Retired waiters remove themselves on their first subsequent delivery.
 Withdrawal costs the affected physical copies; it does not scan row or proof
-history. Each distinct sorted rule-id set is stored once; regrouping or
-repeating unions returns the same id instead of retaining another derivation
-shape. The provenance sets and liveness memos are collected with proofs.
+history. Rule-id sets use canonical Patricia trees: regrouping or repeating a union
+returns the same id, while shared branches avoid copying transitive lists.
+Membership follows one rule-id bit path, even when the retired rule belongs
+to another proof. Union memos, provenance nodes and liveness memos are
+collected with proofs.
 
 ### Strict append-only follow-up
 

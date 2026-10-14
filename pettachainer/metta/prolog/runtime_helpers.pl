@@ -708,10 +708,11 @@ ev_common_step(['ev-set', Set], Ids-Sorted, Kept-Shared) :-
     (   Excluded \== [], ev_sorted(B, SortedB), ord_intersect(Excluded, SortedB) -> Result = true ; Result = false ).
 
 % Rule provenance interns canonical sets, independent of statistical evidence
-% and mutable dependency cuts. Proofs keep one set id; each distinct set owns
-% its sorted identities once, regardless of derivation order or repeated joins.
+% and mutable dependency cuts. Proofs keep one set id. A canonical Patricia
+% tree shares branches across sets and makes membership follow one bit path.
 :- dynamic retired_rule/2, retired_epoch/2, proof_live_memo/3,
-           summary_rules/3, rule_set/4, rule_leaf/2, stored_rules/5, stored_rule/2, thaw_generation/3.
+           summary_rules/3, rule_set/4, rule_leaf/2, rule_branch/5, rule_union/3,
+           stored_rules/5, stored_rule/2, thaw_generation/3.
 
 'withdraw-rule!'(Id, true) :-
     ( retired_rule(Id, _) -> true
@@ -722,26 +723,56 @@ ev_common_step(['ev-set', Set], Ids-Sorted, Kept-Shared) :-
 
 rule_set_leaf(Rule, Set) :-
     ( rule_leaf(Rule, Set) -> true
-    ; deps_bit(Rule, Mask), rule_set_new(leaf(Rule), [Rule], Mask, Set), assertz(rule_leaf(Rule, Set)) ).
+    ; deps_bit(Rule, Mask), rule_set_new(leaf(Rule), [], Mask, Set), assertz(rule_leaf(Rule, Set)) ).
 
 rule_sets_join(Sets, Set) :-
     sort(Sets, Sorted), exclude(==(0), Sorted, Children),
-    ( Children == [] -> Set = 0
-    ; Children = [Set] -> true
-    ; foldl([Child, R0, R]>>(rule_set(Child, _, Rs, _), ord_union(R0, Rs, R)), Children, [], Rules),
-      ( Rules = [Rule] -> rule_set_leaf(Rule, Set)
-      ; term_hash(Rules, Hash),
-        ( rule_set(Set, union(Hash), Rules, _) -> true
-        ; foldl([Rule, M0, M]>>(deps_bit(Rule, Bit), M is M0 \/ Bit), Rules, 0, Mask),
-          rule_set_new(union(Hash), Rules, Mask, Set) ) ) ).
+    foldl(rule_sets_union, Children, 0, Set).
 
-% Only a distinct set allocates storage. Its first read starts at the current
-% epoch, so new derivations never replay the historical retirement log.
-rule_set_new(Kind, Rules, Mask, Set) :-
+rule_sets_union(0, B, B) :- !.
+rule_sets_union(A, 0, A) :- !.
+rule_sets_union(A, A, A) :- !.
+rule_sets_union(A, B, Set) :-
+    First is min(A, B), Second is max(A, B),
+    ( rule_union(First, Second, Set) -> true
+    ; rule_set(A, AK, AC, _), rule_set(B, BK, BC, _),
+      ( AK = leaf(AR) -> AB = -1 ; AK = branch(AB, AR) ),
+      ( BK = leaf(BR) -> BB = -1 ; BK = branch(BB, BR) ),
+      ( AR =:= BR -> Split = -1 ; Split is msb(AR xor BR) ),
+      Rep is min(AR, BR),
+      ( Split > max(AB, BB)
+      -> ( AR < BR -> Left = A, Right = B ; Left = B, Right = A ),
+         rule_set_branch(Split, Rep, Left, Right, Set)
+      ; AB =:= BB
+      -> AC = [AL, AT], BC = [BL, BT],
+         rule_sets_union(AL, BL, Left), rule_sets_union(AT, BT, Right),
+         rule_set_branch(AB, Rep, Left, Right, Set)
+      ; AB > BB
+      -> AC = [AL, AT],
+         ( BR /\ (1 << AB) =:= 0 -> rule_sets_union(AL, B, Left), Right = AT
+         ; Left = AL, rule_sets_union(AT, B, Right) ),
+         rule_set_branch(AB, Rep, Left, Right, Set)
+      ; BC = [BL, BT],
+        ( AR /\ (1 << BB) =:= 0 -> rule_sets_union(A, BL, Left), Right = BT
+        ; Left = BL, rule_sets_union(A, BT, Right) ),
+        rule_set_branch(BB, Rep, Left, Right, Set) ),
+      assertz(rule_union(First, Second, Set)) ).
+
+rule_set_branch(Bit, Rep, Left, Right, Set) :-
+    term_hash([Bit, Left, Right], Hash),
+    ( rule_branch(Hash, Bit, Left, Right, Set) -> true
+    ; rule_set(Left, _, _, LM), rule_set(Right, _, _, RM), Mask is LM \/ RM,
+      rule_set_new(branch(Bit, Rep), [Left, Right], Mask, Set),
+      assertz(rule_branch(Hash, Bit, Left, Right, Set)) ).
+
+% A distinct node inherits current child liveness; its first read never
+% replays the historical retirement log or copies transitive rule lists.
+rule_set_new(Kind, Children, Mask, Set) :-
     flag(rule_set_next, N, N + 1), Set is N + 1,
-    assertz(rule_set(Set, Kind, Rules, Mask)), flag(withdraw_epoch, Epoch, Epoch),
+    assertz(rule_set(Set, Kind, Children, Mask)), flag(withdraw_epoch, Epoch, Epoch),
     ( Epoch =:= 0 -> true
-    ; ( forall(member(Rule, Rules), \+ retired_rule(Rule, _)) -> Live = true ; Live = false ),
+    ; ( ( Kind = leaf(Rule) -> \+ retired_rule(Rule, _) ; forall(member(Child, Children), rule_set_live(Child, Epoch)) )
+        -> Live = true ; Live = false ),
       assertz(proof_live_memo(Set, Epoch, Live)) ).
 
 proof_rule_set(Proof, Set) :-
@@ -788,9 +819,13 @@ rule_set_live(Set, Epoch) :-
       ( between(First, Epoch, E), retired_epoch(E, Rule), rule_set_has(Set, Rule) -> Next = false ; Next = true ),
       retractall(proof_live_memo(Set, _, _)), assertz(proof_live_memo(Set, Epoch, Next)), Next == true ).
 
-rule_set_has(Set, Rule) :-
-    rule_leaf(Rule, _), deps_bit(Rule, Bit), rule_set(Set, _, Rules, Mask),
-    Mask /\ Bit =\= 0, ord_memberchk(Rule, Rules).
+rule_set_has(Set, Rule) :- rule_leaf(Rule, _), deps_bit(Rule, Bit), rule_set_has(Set, Rule, Bit).
+rule_set_has(Set, Rule, Bit) :-
+    rule_set(Set, Kind, Children, Mask), Mask /\ Bit =\= 0,
+    ( Kind = leaf(Rule) -> true
+    ; Kind = branch(Branch, Rep), Rule >> (Branch + 1) =:= Rep >> (Branch + 1),
+      Children = [Left, Right],
+      ( Rule /\ (1 << Branch) =:= 0 -> rule_set_has(Left, Rule, Bit) ; rule_set_has(Right, Rule, Bit) ) ).
 
 % Physical KB copies have an inverse index. Expanding a set happens only at
 % copy publication, never for every proof or every read. Replacing/removing a
@@ -799,8 +834,12 @@ rule_set_has(Set, Rule) :-
     'forget-stored-rules!'(Kind, Hash, Key, true), proof_rule_set(Proof, Set),
     flag(stored_rules_next, N, N + 1), Token is N + 1,
     assertz(stored_rules(Token, Kind, Hash, Key, Set)),
-    ( Set =:= 0 -> true
-    ; rule_set(Set, _, Rules, _), forall(member(Rule, Rules), assertz(stored_rule(Rule, Token))) ).
+    rule_set_register(Set, Token).
+rule_set_register(0, _) :- !.
+rule_set_register(Set, Token) :-
+    rule_set(Set, Kind, Children, _),
+    ( Kind = leaf(Rule) -> assertz(stored_rule(Rule, Token))
+    ; forall(member(Child, Children), rule_set_register(Child, Token)) ).
 
 'forget-stored-rules!'(Kind, Hash, Key, true) :-
     forall(( stored_rules(Token, Kind, Hash, Stored, _), Stored =@= Key ),
@@ -821,13 +860,15 @@ rule_sets_gc :-
     empty_nb_set(Live),
     forall(( proof_rules(_, Set) ; summary_rules(_, _, Set) ; stored_rules(_, _, _, _, Set) ), rule_set_mark(Set, Live)),
     forall(( clause(rule_set(Set, _, _, _), true, Ref), \+ add_nb_set(Set, Live, false) ),
-           ( erase(Ref), retractall(rule_leaf(_, Set)), retractall(proof_live_memo(Set, _, _)) )).
+           ( erase(Ref), retractall(rule_leaf(_, Set)), retractall(rule_branch(_, _, _, _, Set)),
+             retractall(proof_live_memo(Set, _, _)) )),
+    forall(( clause(rule_union(A, B, Set), true, Ref),
+             \+ ( add_nb_set(A, Live, false), add_nb_set(B, Live, false), add_nb_set(Set, Live, false) ) ), erase(Ref)).
 
 rule_set_mark(0, _) :- !.
 rule_set_mark(Set, Live) :-
     ( add_nb_set(Set, Live, true)
-    -> rule_set(Set, _, Rules, _),
-       forall(( member(Rule, Rules), rule_leaf(Rule, Leaf) ), add_nb_set(Leaf, Live, _))
+    -> rule_set(Set, _, Children, _), forall(member(Child, Children), rule_set_mark(Child, Live))
     ; true ).
 
 % A rule is dormant when one of its statement premises can be proved, apart
