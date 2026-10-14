@@ -205,10 +205,16 @@ main-context reads.
 Stated and calculated proofs of one rule share its evidence identity and
 are not revised as independent observations. Independent conditional evidence
 still revises normally.
-For an STV rule, an unstated complementary branch still uses the existing
-population base-rate approximation. Its weak inferred evidence can slightly
-revise an independent stated branch; the ground assumption does not replace
-that separate approximation.
+For an STV rule, a false antecedent supported only by hypothetical assumptions
+contributes zero confidence and no evidence. Internal two-branch readers
+can still read its value as an unknown branch. Its population-inferred complementary branch
+remains available for world observations; it cannot add evidence to an
+opposite judgment merely because the assumption made its antecedent false.
+An explicit CTV still supplies both stated branches.
+
+The stored statement is the original stated truth, including for a refined
+rule. Learned rule truth supplies the executable applications; empirical
+instance evidence revises the stated query judgment through its normal fold.
 
 ## Nested implication queries
 
@@ -288,6 +294,17 @@ the normal And formula.
 
 ## Limits
 
+- Calculations under nested `Not` antecedents currently return no answer:
+  a judgment of
+  `(Not (Not (A Item)))` does not route a reader of `(A Item)` to its
+  assumption. This is queued separately.
+- `Or` antecedents currently assume each lowered part certain. For example,
+  `(Or A C) -> B` returns 0.3 when `A -> B` has positive strength 0.3.
+  This behavior is unchanged from master and is queued separately.
+- An open premise such as `(A $z)` is routed whole into the private context
+  and can hide world individuals it would otherwise join with. The planned
+  context overlay will address this.
+
 - The positive statement-producer collector projects rule applications
   shaped `(by rule token)` and stored facts. Other clause proof shapes are
   not collected there; hypothetical and empirical query scaffolds have
@@ -333,4 +350,6 @@ open negated antecedents, bound instances of open rules, both branches of CTV
 sources, conflicting main-world values, derived consequents, positive
 counterparts, zero-budget reads, and STV/CTV implication premises before any
 public judgment query. `test_conjunction_conditioning.metta` includes the
-explicit `Not G -> Y` judgment at 0.9.
+explicit `Not G -> Y` judgment at 0.9, an unknown positive `G -> Y` value
+with zero confidence from an opposite-only STV rule at either world g value, and a derived
+implication whose source g is conditioned jointly with its sibling M.

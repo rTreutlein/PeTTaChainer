@@ -36,10 +36,10 @@
                        with cpu (prior (STV 0.25000694425154857 0.9)))
                      (ctx proof 0))))
             (merge/revision
-               (by (inheritance-implication rv1BlackObserved) ((inverted (inheritance-implication rv1RavenObserved)
+               (by (inheritance-implication rv2BlackObserved) ((inverted (inheritance-implication rv2RavenObserved)
                        with cpu (prior (STV 0.25000694425154857 0.9)))
                      (ctx proof 1)))
-               (by (inheritance-implication rv2BlackObserved) ((inverted (inheritance-implication rv2RavenObserved)
+               (by (inheritance-implication rv1BlackObserved) ((inverted (inheritance-implication rv1RavenObserved)
                        with cpu (prior (STV 0.25000694425154857 0.9)))
                      (ctx proof 1))))))
       (Inheritance raven (IntSet black))

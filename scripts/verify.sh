@@ -29,12 +29,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-gate_ids=(lint metta python import_scaling conceptnet)
+gate_ids=(lint metta python import_scaling judgment_scaling conceptnet)
 declare -A gate_names=(
   [lint]='MeTTa lint'
   [metta]='MeTTa suite'
   [python]='Python unittest'
   [import_scaling]='Import scaling'
+  [judgment_scaling]='Judgment scaling'
   [conceptnet]='ConceptNet query'
 )
 declare -A gate_status
@@ -128,6 +129,7 @@ run_gate lint "$repo_root/scripts/lint_metta.sh"
 run_gate metta "$repo_root/scripts/test_metta.sh"
 run_gate python "$python_bin" -m unittest discover -s tests
 run_gate import_scaling "$repo_root/scripts/check_import_scaling.sh"
+run_gate judgment_scaling "$python_bin" "$repo_root/scripts/check_judgment_scaling.py"
 run_gate conceptnet "$repo_root/benchmarks/metta/run_conceptnet_own_pet_query.sh"
 
 conceptnet_log="$run_dir/conceptnet.log"

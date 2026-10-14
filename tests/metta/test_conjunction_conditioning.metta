@@ -42,35 +42,48 @@
          (total-implication-frontier $_proof) (CTV $_pos $_neg)) $id $_args) $id))) 2)
 !(clear-temp-query-adds)
 
-;; The explicit negative statement assumes G false. Main-world g never
-;; enters the implication's judgment: its stated 0.9 is available directly.
+;; An opposite-only rule cannot answer the positive judgment. Changing
+;; main-world g cannot change that result, directly or inside a conjunction.
 !(compileadd reviewerConjKb (: g (G) (STV 0.5 0.9)))
 !(compileadd reviewerConjKb (: rn (Implication (Not (G)) (Y)) (STV 0.9 0.9)))
 !(compileadd reviewerConjKb (: m (M) (STV 1 1)))
-!(test (let (: $p (And (M) (Implication (Not (G)) (Y))) (STV $s $c))
-   (query 300 reviewerConjKb (: $q (And (M) (Implication (Not (G)) (Y))) $value)) $s)
-   0.9)
+!(test (collapse (let (: $p $type $tv)
+   (query 300 reviewerConjKb (: $q (Implication (G) (Y)) $value)) $tv))
+   ((STV 0.0 0.0)))
+!(test (let (: $p $type (STV $s $c))
+   (query 300 reviewerConjKb (: $q (And (M) (Implication (G) (Y))) $tv)) (< $c 1e-3)) true)
+!(compileadd oppositeOnlyLowGKb (: g (G) (STV 0.1 0.9)))
+!(compileadd oppositeOnlyLowGKb (: rn (Implication (Not (G)) (Y)) (STV 0.9 0.9)))
+!(test (collapse (let (: $p $type $tv)
+   (query 300 oppositeOnlyLowGKb (: $q (Implication (G) (Y)) $value)) $tv))
+   ((STV 0.0 0.0)))
+;; The explicit negative statement reads its stated conditional directly.
+!(test (collapse (let (: $p $type $tv)
+   (query 300 reviewerConjKb (: $q (And (M) (Implication (Not (G)) (Y))) $value)) $tv))
+   ((STV 0.9 0.8999999992707871)))
 !(compileadd reviewerConjKb (: r (Implication (G) (Y))
    (CTV (STV 0.8 0.9) (STV 0.2 0.9))))
-;; Under G, r contributes 0.8. The weak inferred complement of rn also
-;; contributes through the existing population base-rate approximation.
-!(test (let (: $p (And (M) (Implication (G) (Y))) (STV $s $c))
-   (query 300 reviewerConjKb (: $q (And (M) (Implication (G) (Y))) $value)) $s)
-   0.7999781441238476)
-;; Under Not G, rn=0.9 and r's negative branch=0.2 revise independently.
-!(test (let (: $p (And (M) (Implication (Not (G)) (Y))) (STV $s $c))
-   (query 300 reviewerConjKb (: $q (And (M) (Implication (Not (G)) (Y))) $value)) $s)
-   0.5499999999999999)
+;; rn contributes nothing under G; the stated r is exactly 0.8.
+!(test (collapse (let (: $p $type $tv)
+   (query 300 reviewerConjKb (: $q (And (M) (Implication (G) (Y))) $value)) $tv))
+   ((STV 0.8 0.8999999996758992)))
+;; Under Not G, independent rn=0.9 and r's negative branch=0.2 revise.
+!(test (collapse (let (: $p $type $tv)
+   (query 300 reviewerConjKb (: $q (And (M) (Implication (Not (G)) (Y))) $value)) $tv))
+   ((STV 0.5499999999999999 0.947368420942915)))
 
-;; M depends on main-world Not G, while the negative implication is judged
-;; under its private assumption. Only M reads g: 0.5 * 0.9 = 0.45.
+;; Both M and the derived Gate -> Y statement depend on world g. Condition
+;; that shared source once: P(Not G)*0.9=0.45, rather than 0.5*0.45=0.225.
+;; Gate is the judgment's assumption; g remains an independent source gate.
 !(compileadd sharedGivenConjKb (: g (G) (STV 0.5 0.9)))
-!(compileadd sharedGivenConjKb (: rn (Implication (Not (G)) (Y)) (STV 0.9 0.9)))
+!(compileadd sharedGivenConjKb (: rn
+   (Implication (G) (Implication (Gate) (Y)))
+   (CTV (STV 0 1) (STV 0.9 1))))
 !(compileadd sharedGivenConjKb (: (no_inverse fromNotG)
    (Implication (Not (G)) (M)) (CTV (STV 1 1) (STV 0 1))))
-!(test (let (: $p $type (STV $s $c))
-   (query 300 sharedGivenConjKb (: $q (And (M) (Implication (Not (G)) (Y))) $value)) $s)
-   0.45)
+!(test (collapse (let (: (conditioned g $positive $negative) $type $tv)
+   (query 300 sharedGivenConjKb (: $q (And (M) (Implication (Gate) (Y))) $value)) $tv))
+   ((STV 0.45 0.9166609536894368)))
 
 ;; CTV rule storage stays internal even for an explicit answer selector.
 !(test (collapse (query 300 reviewerConjKb

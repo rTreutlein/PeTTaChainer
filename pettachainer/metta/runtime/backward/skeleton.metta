@@ -1186,14 +1186,16 @@
    (if (stored-list-member? $var $type-vars) true (sk-any-member? $type-vars $rest)))
 
 ;; Compare the whole key without binding its hypothetical individual to an
-;; unrelated fixed world individual. A contextual assumption is indexed by its
-;; context; type and context must retain the same variable-sharing shape.
+;; unrelated fixed world individual. Use the fact prefix index; type and
+;; context must retain the same variable-sharing shape.
 (: judgment-assumed-key? (-[det]-> Atom KBContext Bool))
 (= (judgment-assumed-key? $type $kbctx)
-   (let ($probe-type $probe-ctx) (copy_term (data $type $kbctx))
-      (not (== (collapse (once (match &kb ($assumed $probe-ctx $proof $_tv)
+   (let* ((($probe-type $probe-ctx) (copy_term (data $type $kbctx)))
+          ($facts (let ($lookup-type $lookup-ctx) (copy_term (data $probe-type $probe-ctx))
+             (kb-facts (brand Statement $lookup-type) (brand KBContext $lookup-ctx)))))
+      (not (== (collapse (once (let ($assumed $assumed-ctx $proof $_tv) (superpose $facts)
          (if (assumption-proof? (brand Proof $proof))
-            (if (=alpha (data $probe-type $probe-ctx) (data $assumed $probe-ctx)) true
+            (if (=alpha (data $probe-type $probe-ctx) (data $assumed $assumed-ctx)) true
                ;; An open reader can consume a ground assumption. Match a
                ;; copy so this test cannot bind the rule's premise variables;
                ;; non-ground hypothetical keys still require alpha identity.
@@ -1204,9 +1206,10 @@
 
 ;; A MAIN premise mentioning the goal's context variables or reading an exact
 ;; assumed key is read in the goal's hypothetical context. In the context of
-;; an Assuming query, which sees the world, a premise is read in the context when the assumptions can change
-;; it, and in the main context otherwise, where its value is the same and its
-;; work is shared (docs/metta/assumption_queries.md).
+;; an Assuming query, which sees the world, a premise is read in the context
+;; when the assumptions can change it, and in the main context otherwise,
+;; where its value is the same and its work is shared
+;; (docs/metta/assumption_queries.md).
 (: contextualize-rule-premise (-[det]-> SkFact SkPattern SkPattern))
 (= (contextualize-rule-premise ($_goal-type ($kbid $ctx $vars) $_goal-prf $_goal-tv) $premise)
    (once

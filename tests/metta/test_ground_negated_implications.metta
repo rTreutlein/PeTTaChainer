@@ -241,3 +241,39 @@
 !(test (let (: $p $type (STV $s $c))
    (query 100 genericPosReadCtx (: $q (Implication (A Item) (Z)) $tv))
    (<= (abs-math (- $s 0.2)) 1e-12)) true)
+
+;; Wrapped rules carry their registered base evidence in MAIN too. A CTV
+;; implication premise must not revise its axiom with its own application.
+!(compileadd wrappedMainNegCtxKb (: (no_inverse wrapped)
+   (Implication (A Item) (B Item)) (CTV (STV 0.8 0.9) (STV 0.2 0.9))))
+!(test (rule-result-evidence
+   (assemble-runtime-fact (brand Statement (quote (B Item)))
+      (kbctx wrappedMainNegCtxKb)
+      (brand Proof (quote (by (no_inverse wrapped) (ctx proof test)))) (STV 0.8 0.9)) (ev-set 0))
+   (evidence-set ((rule-ev wrappedMainNegCtxKb wrapped))))
+!(compileadd wrappedMainNegCtxKb (: consumer
+   (Implication (Implication (A Item) (B Item)) (Checked Item))
+   (CTV (STV 1 1) (STV 0 1))))
+!(test (let (: $p $type (STV $s $c))
+   (query 300 wrappedMainNegCtxKb (: $q (Checked Item) $tv))
+   (and (<= (abs-math (- $s 0.8)) 1e-12) (< $c 0.90001))) true)
+
+;; Even a world consequent rate that suggests a nonzero complement cannot
+;; give a false assumed STV application an informative mean or any evidence.
+!(compileadd unsupportedPopulationNegCtxKb (: g (G) (STV 0.5 0.9)))
+!(compileadd unsupportedPopulationNegCtxKb (: y (Y) (STV 0.95 0.9)))
+!(compileadd unsupportedPopulationNegCtxKb (: rn
+   (Implication (Not (G)) (Y)) (STV 0.9 0.9)))
+;; Read the judgment context itself: a public query also has independent
+;; empirical instance evidence from g and y, which remains valid.
+!(let* ((($shape $_assumption $conclusion $adds)
+            (judgment-query-side unsupportedPopulationNegCtxKb Nil false
+               (brand Statement (quote (G))) (brand Statement (quote (Y)))))
+          ($_injected (collapse (once (inject-compiled-adds (map-flat mm2stmt $adds)))))
+          ($_answers (chainer 300 (internalize-proof-structure (: $shape $q $conclusion $tv))))
+          ((sk-val ($_type $_context $_proof $value) $ev $_deps)
+             (sk-value (sk-key $conclusion $shape) sk-any-filter ()))
+          ($valid (and (=alpha $value (STV 0.0 0.0)) (== $ev (ev-set 0))))
+          ($_cleared (clear-temp-query-adds))
+          ($_contexts (sk-clear-contexts!)))
+   (test $valid true))

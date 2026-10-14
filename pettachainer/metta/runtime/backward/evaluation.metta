@@ -2673,15 +2673,46 @@
          ((CTV (STV $ps $pc) (STV $ns $nc)) (CTV (STV $ps (* $pc $share)) (STV $ns (* $nc $share))))
          ($_other $tv)))))
 
+;; A false assumed antecedent cannot supply evidence through an STV's
+;; population-inferred complement. Keep a zero-confidence value so internal
+;; two-branch scaffolds can still read the unsupported side as unknown.
+;; Explicit CTVs have no ImplicationCTVFormula and retain both stated branches.
+(: sk-assumed-false-application? (-[det]-> (List SkPattern) Proof Bool))
+(= (sk-assumed-false-application? $premises $proof)
+   (if (not (== (collapse (once (let $stv-premise (superpose $premises)
+          (case $stv-premise (((CPU ImplicationCTVFormula $_args $_out) true) ($_other (empty))))))) ()))
+      (if (not (== (collapse (once (let $mp-premise (superpose $premises)
+             (case $mp-premise (
+                ((CPU $mp ((STV $s $c) $_ctv) $_result)
+                   (if (if (if (== $mp CTVModusPonensFormula) true (== $mp ImplicationModusPonensFormula))
+                           (if (<= (the Number $s) 0) (>= (the Number $c) 1) false) false) true (empty)))
+                ($_other (empty))))))) ()))
+         (== (collapse (once (proof-term-evidence proof-walk-in-kb $proof))) ((ev-set 0)))
+         false)
+      false))
+
+;; Keep the TV union at a typed boundary: inlining these two constructors
+;; into sk-row-result leaves a residual runtime TV check in strict mode.
+(: sk-unsupported-tv (-[det]-> TV TV))
+(= (sk-unsupported-tv $tv)
+   (case $tv (
+      ((CTV $_pos $_neg) (CTV (STV 0.0 0.0) (STV 0.0 0.0)))
+      ($_other (STV 0.0 0.0)))))
+
 (: sk-row-result (-[semidet]-> SkeletonRow SkeletonRowState SkeletonValue))
-(= (sk-row-result (sk-row $_ident ($type $kbctx $proof $tv) $_premises $_seq) $state)
+(= (sk-row-result (sk-row $_ident ($type $kbctx $proof $tv) $premises $_seq) $state)
    (case $state (
       ((sk-acc $fold-proofs $ev $deps $_parts)
          (let* (((token-state $full-proof $_unused)
                    (replace-token $proof (fold-semidet sk-cons-step () $fold-proofs)))
-                ($fact (assemble-runtime-fact $type $kbctx (sk-unwrap-proof $full-proof)
-                          (sk-cover-tv (fold-semidet sk-fold-share-step 1 $fold-proofs) $tv))))
-            (sk-val $fact (rule-result-evidence $fact $ev) (deps-join $deps))))
+                ($unsupported (let ($_kb $ctx $_vars) $kbctx
+                   (if (== $ctx MAIN) false
+                      (if (context-world? $ctx) false (sk-assumed-false-application? $premises (brand Proof $full-proof))))))
+                ($value-tv (if $unsupported (sk-unsupported-tv $tv)
+                   (sk-cover-tv (fold-semidet sk-fold-share-step 1 $fold-proofs) $tv)))
+                ($fact (assemble-runtime-fact $type $kbctx
+                   (sk-unwrap-proof $full-proof) $value-tv)))
+            (sk-val $fact (if $unsupported (ev-set 0) (rule-result-evidence $fact $ev)) (deps-join $deps))))
       ($_failed sk-none))))
 
 ;; --- Evaluation -------------------------------------------------------------

@@ -10,35 +10,15 @@
 ;; An added Member fact updates only its subscribed joins.
 (: fa-id (-[semidet]-> ForwardAggregateIdentityKey Number))
 (= (fa-id $a)(let $b (index-hash $a)(once (match &forward_aggregate_identity ($b (forward-aggregate-identity-row $c $d))(if (=alpha $c $a) $d (empty))))))
+;; A typed callback keeps directory insertion from changing the sharing of
+;; the descriptor copied by fa-register! during map specialization.
+(: fa-register-trigger! (-[det]-> ForwardTriggerKey Bool))
+(= (fa-register-trigger! $trigger)
+   (let $hash (term_hash $trigger)
+      (if (space-row-present? &forward_aggregate_triggers ($hash $trigger)) true
+         (let $_added (once (add-atom &forward_aggregate_triggers ($hash $trigger))) true))))
 (: fa-register! (-[det]-> ForwardAggregateIdentityKey ForwardAggregateDescriptor ForwardTriggerKey Bool ForwardTriggerKey (List $a)))
-(= (fa-register! $identity $descriptor $trigger $both $second)
-   (let $existing (collapse (once (fa-id $identity)))
-      (if (== $existing ())
-         (let* (($hash (index-hash $identity))
-                ($trigger-hash (term_hash $trigger))
-                ($id (next-search-id fwd_aggregate_id))
-                (($identity-copy $descriptor-copy) (copy_term (quote ($identity $descriptor))))
-                ($stored-identity (the ForwardAggregateIdentityKey $identity-copy))
-                ($stored-descriptor (the ForwardAggregateDescriptor $descriptor-copy))
-                ($_identity (once (add-atom &forward_aggregate_identity
-                   ($hash (forward-aggregate-identity-row $stored-identity $id)))))
-                ;; One row per trigger bounds absent lookups even if SWI
-                ;; declines an index over thousands of identical hashes.
-                ($_trigger (if (space-row-present? &forward_aggregate_triggers ($trigger-hash $trigger)) ()
-                   (once (add-atom &forward_aggregate_triggers ($trigger-hash $trigger)))))
-                ($_interest (once (add-atom &forward_aggregate_interest_by_trigger
-                   ($trigger-hash (forward-aggregate-interest $trigger $id $stored-descriptor)))))
-                ($_second (if $both
-                   (let* (($second-hash (term_hash $second))
-                          ($_second-trigger (if (space-row-present? &forward_aggregate_triggers ($second-hash $second)) ()
-                             (once (add-atom &forward_aggregate_triggers ($second-hash $second)))))
-                          ($_second-interest (once (add-atom &forward_aggregate_interest_by_trigger
-                             ($second-hash (forward-aggregate-interest $second $id $stored-descriptor))))))
-                      ())
-                   ()))
-                ($_state (once (add-atom &forward_aggregate_state (forward-aggregate-state $id 0.0 0.0)))))
-            ())
-         ())))
+(= (fa-register! $a $b $c $d $e)(let $h (collapse (once (fa-id $a)))(if (== $h ())(let* (($f (index-hash $a))($g (term_hash $c))($k (next-search-id fwd_aggregate_id))(($i $l)(copy_term (quote ($a $b))))($m (the ForwardAggregateIdentityKey $i))($n (the ForwardAggregateDescriptor $l))($o (once (add-atom &forward_aggregate_identity ($f (forward-aggregate-identity-row $m $k)))))($p (once (add-atom &forward_aggregate_interest_by_trigger ($g (forward-aggregate-interest $c $k $n)))))($q (if $d (let* (($r (term_hash $e))($s (once (add-atom &forward_aggregate_interest_by_trigger ($r (forward-aggregate-interest $e $k $n))))))())()))($t (once (add-atom &forward_aggregate_state (forward-aggregate-state $k 0.0 0.0))))($u (if $d (cons $c (cons $e ())) (cons $c ())))($v (map-flat fa-register-trigger! $u)))())())))
 
 ;; What a fold premise asks the forward chainer to maintain: its aggregate
 ;; identity and descriptor, and the trigger keys whose facts update it (a
@@ -198,14 +178,15 @@
 (= (fa-remove! $a $b $c)(let* (($d (copy_term $c))($e (fa-item $a $c))($f (brand ForwardAggregateObservationKey (quote ($b $e))))($g (fa-obs $f)))(if (== $g ())(case $d ( ((forward-member-inheritance-descriptor $h $i $j $k)(let (forward-aggregate-state $l $m $n)(fa-state $b)(if (<= $n 0.0)()(fa-store-cache! aggregate-update $b $d $m $n))))($o ())))(let* (((forward-aggregate-state $l $m $n)(fa-swap! $b $g (forward-aggregate-observation $f no-forward-aggregate-observation-value 0.0 0.0) false))($p (fa-store-cache! aggregate-remove $b $d $m $n)))(case $d ( ((forward-member-inheritance-descriptor $h $i $j $k)(progn (fa-update! $a $b $d)()))($o ())))))))
 (: fa-maintain-key! (-[nondet]-> ForwardAggregateMaintenance (Statement KBContext Proof TV) ForwardTriggerKey (List $a)))
 (= (fa-maintain-key! $action $fact $trigger)
-   (let* (($hash (term_hash $trigger))
-          ($_trigger (match &forward_aggregate_triggers ($hash $trigger) true)))
-      (match &forward_aggregate_interest_by_trigger ($hash (forward-aggregate-interest $stored $id $descriptor))
+   (let $hash (term_hash $trigger)
+      (if (space-row-present? &forward_aggregate_triggers ($hash $trigger))
+         (match &forward_aggregate_interest_by_trigger ($hash (forward-aggregate-interest $stored $id $descriptor))
          (if (== $stored $trigger)
             (case $action (
                (aggregate-update (fa-update! $fact $id (copy_term $descriptor)))
                (aggregate-remove (fa-remove! $fact $id (copy_term $descriptor)))))
-            (empty)))))
+            (empty)))
+         (empty))))
 
 ;; The base-rate folds a fact counts in: those of the aggregates interested in
 ;; its triggers whose pattern the fact's statement matches, as the aggregate's

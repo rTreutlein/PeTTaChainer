@@ -314,7 +314,7 @@
 (: rule-result-evidence
    (-[semidet]-> (Statement KBContext Proof TV)
        EvidenceSet EvidenceSet))
-(= (rule-result-evidence ($_type ($kbid $ctx $_vars) $prf $_tv) $ev)
+(= (rule-result-evidence ($_type ($kbid $_ctx $_vars) $prf $_tv) $ev)
    (let*
       (($base
           ;; A judgment only wraps its premise proof. Negations have already
@@ -325,9 +325,7 @@
                 (once (proof-term-evidence proof-walk-in-kb $prf))
                 $ev)))
        ($name
-          (let $head (rule-evidence-head $prf)
-             (if (== $ctx MAIN) $head
-                (if (context-world? $ctx) $head (rule-evidence-base-name $head)))))
+          (rule-evidence-base-name (rule-evidence-head $prf)))
        ($storage-kbid (brand KB $kbid))
        ($typed-kbid (statement-query-kb $storage-kbid)))
       (if (is-expr $name) $base
