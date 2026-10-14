@@ -23,10 +23,13 @@ it does not add statements to the handler's knowledge base.
 |---|---|
 | `(compileadd $kb $stmt)` | Compile a statement (fact or rule) and add it to KB `$kb`. The primary entry point. |
 | `(add-to-kb $expr)` | Add an already-compiled, internal-form atom to the live KB. Lower-level. |
-| `(remove-compiled-statement $name)` | **Deprecated compatibility operation.** Retracts the current kb facts, rules, index rows, and cached scores for one named statement, but does not reset stored backward proof history or eagerly scan skeleton rows. Derived KB copies are retired and later reads exclude derivations using the removed rules. It is outside the monotonic query contract; rules whose compiled proof carries no extractable name are not covered. Python: deprecated `PeTTaChainer.remove_statement(name)`, which emits `DeprecationWarning`. |
+| `(remove-compiled-statement $name)` | **Deprecated compatibility operation.** Retracts the current kb facts, rules, index rows, and cached scores for one named statement, but does not reset stored backward proof history or eagerly scan skeleton rows. Derived KB copies are retired and later reads exclude derivations using the removed rules. Removing a binary-certain fact leaves its search owner expanded with its retired joins gone, so that search does not restart. This is outside the monotonic query contract; rules whose compiled proof carries no extractable name are not covered. Python: deprecated `PeTTaChainer.remove_statement(name)`, which emits `DeprecationWarning`. |
 
 The live `&kb` keeps every added fact as stored; several facts of one
 statement are merged where they are read, as leaves of the backward search.
+Only stored binary-certain facts, STV strength 0 or 1 at confidence >= 1,
+are absorbing for search retirement. Fractional strength at confidence 1
+and derived certain values retain their backward derivations.
 Materialized results are marked facts in `&kb`: a statement's latest
 materialization replaces its earlier one, and marked facts are never read as
 leaves.

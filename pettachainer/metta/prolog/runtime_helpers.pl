@@ -2062,14 +2062,13 @@ hypothesis_confidence(['CTV', ['STV', _, C], _], C).
 % retract listeners keep the index correct for ordinary context cleanup too.
 % None of the values, facts, rows or sample/tally stores belong to this index.
 :- dynamic sk_search_clause/4, sk_search_ref/2, sk_search_node/4, sk_retire_queue/2,
-           sk_child_edge/2, sk_child_users/2, sk_child_claim/3, sk_child_claim_ref/2,
-           sk_child_debt/2, sk_child_debt_ref/2, sk_retire_component/1, sk_fact_watch_ref/2.
+           sk_child_edge/2, sk_child_users/2, sk_child_claim/3,
+           sk_child_debt/2, sk_retire_component/1.
 sk_search_init :-
     (   nb_current(sk_search_listening, true) -> true
     ;   forall(member(Space/Arity, ['&sk_wait'/3, '&sk_link'/1, '&sk_child'/4,
                                    '&sk_deferred_joins'/3, '&sk_deferred'/3,
-                                   sk_child_claim/3, sk_child_debt/2,
-                                   '&sk_fact_watch'/3, '&sk_expanded'/2]),
+                                   '&sk_expanded'/2]),
                prolog_listen(user:Space/Arity, sk_search_changed(Space))),
         nb_setval(sk_search_listening, true)
     ).
@@ -2106,58 +2105,42 @@ sk_search_index(Conclusion, Space, Ref) :-
         ( sk_search_key(Concl, _, [Type, Context]) -> 'sk-retire-known!'(Type, Context, true) ; true )
     ;   true ).
 
-% Fixed child leases carry the actual conclusion of their join. Fold member
-% and subsumption leases carry their own node; CPU nodes are not statements.
-'sk-keep-child!'(Owner, Child, Conclusion, true) :-
-    sk_search_init, 'link-digest'(['sk-child-link', Owner, Child], D),
-    'link-digest'(['sk-child-claim', D, Conclusion], Claim),
+% A waiter batch already needs this digest for its child link. Retain a
+% lease by clause reference, so retraction never hashes the partial again.
+'sk-store-wait!'(D, H, N, Waiter, true) :-
+    sk_search_init, assertz('&sk_wait'(H, N, Waiter), Ref),
+    assertz(sk_child_users(D, Ref)), Waiter = ['sk-partial', _, _, C|_],
+    sk_search_index(C, '&sk_wait', Ref).
+
+'sk-store-child!'(D, H, Owner, Child, CH, true) :-
+    sk_search_init, assertz('&sk_child'(H, Owner, Child, CH), Ref),
+    assertz(sk_child_edge(D, Ref)).
+
+% Fixed leases carry the actual join conclusion, not just its open owner.
+'sk-keep-child!'(D, Conclusion, true) :-
+    sk_search_init, 'link-digest'(['sk-child-claim', D, Conclusion], Claim),
     ( sk_child_claim(Claim, _, _) -> true
-    ; assertz(sk_child_claim(Claim, D, Conclusion)),
+    ; assertz(sk_child_claim(Claim, D, Conclusion), Ref),
+      sk_search_index(Conclusion, sk_child_claim, Ref),
       ( sk_search_key(Conclusion, _, [Type, Context]) -> 'sk-retire-known!'(Type, Context, true) ; true ) ).
 
-sk_search_conclusion('&sk_wait', '&sk_wait'(_, _, ['sk-partial', _, _, C|_]), C).
-sk_search_conclusion(sk_child_claim, sk_child_claim(_, _, C), C).
 sk_search_conclusion('&sk_deferred_joins', '&sk_deferred_joins'(_, _, ['sk-join', ['sk-partial', _, _, C|_], _]), C).
 sk_search_conclusion('&sk_deferred', '&sk_deferred'(_, _, ['sk-deferred', _, _, C|_]), C).
 
 sk_search_changed(Space, assertz, Ref) :- !,
-    clause(Row, true, Ref),
-    ( sk_search_conclusion(Space, Row, C) -> sk_search_index(C, Space, Ref) ; true ),
-    (   Row = '&sk_wait'(_, N, ['sk-partial', O|_])
-    ->  copy_term_nat(N, Child), 'link-digest'(['sk-child-link', O, Child], D),
-        ( retract(sk_child_users(D, N0)) -> N1 is N0 + 1 ; N1 = 1 ),
-        assertz(sk_child_users(D, N1))
-    ;   Row = '&sk_child'(_, O, N, _)
-    ->  'link-digest'(['sk-child-link', O, N], D),
-        assertz(sk_child_edge(D, Ref))
-    ;   Row = sk_child_claim(_, D, _)
-    ->  assertz(sk_child_claim_ref(D, Ref))
-    ;   Row = sk_child_debt(_, D)
-    ->  assertz(sk_child_debt_ref(D, Ref))
-    ;   Row = '&sk_fact_watch'(_, D, _)
-    ->  assertz(sk_fact_watch_ref(D, Ref))
-    ;   Row = '&sk_expanded'(_, N)
-    ->  sk_unwatch_fact(N)
-    ;   true ).
+    ( sk_search_conclusion(Space, Row, C), clause(Row, true, Ref)
+    -> sk_search_index(C, Space, Ref)
+    ; Space == '&sk_expanded', clause('&sk_expanded'(H, N), true, Ref)
+    -> sk_unwatch_fact(H, N)
+    ; true ).
 sk_search_changed(Space, retract, Ref) :- !,
     forall(retract(sk_search_ref(Ref, Index)), erase(Index)),
-    (   Space == '&sk_wait', clause('&sk_wait'(_, N, ['sk-partial', O|_]), true, Ref)
-    ->  copy_term_nat(N, Child), 'link-digest'(['sk-child-link', O, Child], D),
-        (   retract(sk_child_users(D, N0))
-        ->  N1 is N0 - 1,
-            ( N1 > 0 -> assertz(sk_child_users(D, N1)) ; sk_release_child(D) )
-        ;   true )
-    ;   Space == sk_child_claim, clause(sk_child_claim(_, D, _), true, Ref)
-    ->  retractall(sk_child_claim_ref(D, Ref)), sk_release_child(D)
-    ;   Space == sk_child_debt, clause(sk_child_debt(_, D), true, Ref)
-    ->  retractall(sk_child_debt_ref(D, Ref))
-    ;   Space == '&sk_fact_watch', clause('&sk_fact_watch'(_, D, _), true, Ref)
-    ->  retractall(sk_fact_watch_ref(D, Ref))
-    ;   Space == '&sk_child', clause('&sk_child'(OH, O, N, NH), true, Ref)
-    ->  'link-digest'(['sk-child-link', O, N], D),
-        retractall(sk_child_edge(D, Ref)),
-        forall(retract(sk_child_claim_ref(D, Claim)), erase(Claim)),
-        forall(retract(sk_child_debt_ref(D, Debt)), erase(Debt)),
+    (   Space == '&sk_wait'
+    ->  forall(retract(sk_child_users(D, Ref)), sk_release_child(D))
+    ;   Space == '&sk_child', clause('&sk_child'(OH, O, N, NH), true, Ref),
+        retract(sk_child_edge(D, Ref))
+    ->  forall(clause(sk_child_claim(_, D, _), true, Claim), sk_erase_claim(Claim)),
+        retractall(sk_child_debt(_, D)),
         (   nb_current(sk_retiring, true)
         ->  retractall('&sk_link'(D)), pw_unlink(OH, O, NH, N),
             pw_drop_unused(OH, O), pw_drop_unused(NH, N)
@@ -2165,9 +2148,14 @@ sk_search_changed(Space, retract, Ref) :- !,
     ;   true ).
 sk_search_changed(_, _, _).
 
-sk_unwatch_fact(N) :-
-    'link-digest'(['sk-fact-watch', N], D),
-    ( sk_fact_watch_ref(D, Ref) -> erase(Ref) ; true ).
+sk_erase_claim(Ref) :-
+    forall(retract(sk_search_ref(Ref, Index)), erase(Index)), erase(Ref).
+
+% The node hash is already available at expansion/context cleanup. Only its
+% few compact subscriptions need alpha comparison; no digest is computed.
+sk_unwatch_fact(H, N) :-
+    forall(clause('&sk_fact_watch'(H, _, Stored), true, Ref),
+           ( attribute_free_variant(Stored, N) -> erase(Ref) ; true )).
 
 % The typed native boundary exposes records whose schema is supplied here,
 % rather than by a MeTTa add-atom specialization.
@@ -2179,7 +2167,7 @@ sk_unwatch_fact(N) :-
 % by component index; removing it sooner changes finite-budget answers.
 sk_release_child(D) :-
     (   nb_current(sk_retiring, true),
-        \+ sk_child_users(D, _), \+ sk_child_claim_ref(D, _), sk_child_edge(D, Ref)
+        \+ sk_child_users(D, _), \+ sk_child_claim(_, D, _), sk_child_edge(D, Ref)
     ->  clause('&sk_child'(_, _, N, NH), true, Ref),
         (   pw_known(NH, N, Id), pw_find(Id, R), pw_pending_rep(R)
         ->  ( sk_child_debt(R, D) -> true ; assertz(sk_child_debt(R, D)) )
@@ -2192,7 +2180,7 @@ sk_release_child(D) :-
 'sk-retire-known!'(Type, Context, true) :-
     sk_search_init,
     (   sk_search_key([Type, Context], H, Key),
-        ( sk_search_clause(H, Key, _, _) ; sk_search_node(H, Key, _, _) ),
+        once((sk_search_clause(H, Key, _, _) ; sk_search_node(H, Key, _, _))),
         'sk-known-conclusion?'([Type, Context], true)
     ->  ( sk_retire_queue(H, Key) -> true ; assertz(sk_retire_queue(H, Key)) )
     ;   true ).
@@ -2223,7 +2211,7 @@ sk_retire_clause(Space, Ref) :-
     (   Space == '&sk_wait', clause('&sk_wait'(H, N, _), true, Ref), N = [T, C, _, _],
         sk_search_key([T, C], _, _),
         \+ ( '&sk_expanded'(H, S), attribute_free_variant(S, N) ),
-        'link-digest'(['sk-fact-watch', N], D), \+ sk_fact_watch_ref(D, _)
+        'link-digest'(['sk-fact-watch', N], D), \+ '&sk_fact_watch'(_, D, _)
     ->  assertz('&sk_fact_watch'(H, D, N))
     ;   true ),
     (   memberchk(Space, ['&sk_deferred_joins', '&sk_deferred']), clause(Row, true, Ref)
@@ -2231,7 +2219,9 @@ sk_retire_clause(Space, Ref) :-
         ;   Row = '&sk_deferred'(H, _, ['sk-deferred', O|_]) ),
         'sk-work!'(H, O, -1, [])
     ;   true ),
-    erase(Ref).
+    ( Space == sk_child_claim
+    -> clause(sk_child_claim(_, D, _), true, Ref), sk_erase_claim(Ref), sk_release_child(D)
+    ; erase(Ref) ).
 
 % Removing one actual child link removes just its share of a condensed edge.
 % A merged component need not be split: its remaining nodes and work still
@@ -2456,7 +2446,7 @@ pw_bump(Count, R, D) :-
 % once all its nodes went, with its links; before, its counts stay as they
 % are, which can only keep a node pending longer.
 'sk-drop-pending!'(H, N, []) :-
-    ( nb_current(sk_retiring, true) -> true ; sk_unwatch_fact(N) ),
+    ( nb_current(sk_retiring, true) -> true ; sk_unwatch_fact(H, N) ),
     (   pw_known(H, N, Id)
     ->  pw_find(Id, R),
         forall(clause(pw_id(H, S, Id), true, Ref), ( attribute_free_variant(S, N) -> erase(Ref) ; true )),
@@ -2471,6 +2461,7 @@ pw_bump(Count, R, D) :-
     ).
 
 pw_drop_rep(R) :-
+    retractall(sk_child_debt(R, _)), retractall(sk_retire_component(R)),
     ( pw_pending_rep(R) -> D = -1 ; D = 0 ),
     forall(retract(pw_out(R, Y, _)), ( retract(pw_in(Y, R, _)), pw_deg_add(Y, 0, -1) )),
     findall(P, retract(pw_in(R, P, _)), Ps),

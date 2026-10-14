@@ -6,6 +6,32 @@ from pettachainer import PeTTaChainer
 
 
 class TestSearchRetirement(unittest.TestCase):
+    def test_dropped_component_clears_retirement_debt(self):
+        h = PeTTaChainer()
+        node = [['Dropped', 'x'], [h.kb, 'MAIN', 'Nil'], 'proof', ['STV', 0.5, 0.1]]
+        counts = janus.query_once(
+            "sk_search_init, 'sk-node-hash'(N,H), pw_node(H,N,R),"
+            "assertz(sk_child_debt(R,999999999)), assertz(sk_retire_component(R)),"
+            "'sk-drop-pending!'(H,N,_),"
+            "aggregate_all(count,sk_child_debt(R,_),Debt),"
+            "aggregate_all(count,sk_retire_component(R),Queued)", {'N': node})
+        self.assertEqual([counts[k] for k in ('Debt', 'Queued')], [0, 0])
+
+    def test_uncertain_conclusion_checks_retirement_once(self):
+        h = PeTTaChainer()
+        h.add_atom('(: observed (Uncertain x) (STV 0.5 0.9))')
+        ctx = [h.kb, 'MAIN', 'Nil']
+        owner = [['Uncertain', 'x'], ctx, 'root', ['STV', 0.5, 0.9]]
+        premise = [['Missing', 'x'], ctx, 'premise', ['STV', 0.5, 0.1]]
+        result = janus.query_once(
+            "'sk-node-hash'(N,H),'link-digest'(['sk-child-link',O,N],D),"
+            "forall(between(1,100,_),'sk-store-wait!'(D,H,N,['sk-partial',O,1,O,[],[N],[]],_)),"
+            "use_module(library(prolog_profile)),"
+            "'$profile'('sk-retire-known!'(['Uncertain',x],Ctx,_),cputime,false,500.0),"
+            "findall(_Count,(profile_procedure_data(user:'sk-known-conclusion?'/2,_Stats),"
+            "get_dict(call,_Stats,_Count)),Counts)", {'O': owner, 'N': premise, 'Ctx': ctx})
+        self.assertEqual(result['Counts'], [1])
+
     def test_closed_outcome_stops_history_join_growth(self):
         h = PeTTaChainer()
         h.set_rule_refinement(True)
@@ -100,7 +126,7 @@ class TestSearchRetirement(unittest.TestCase):
         owner = [['Closed', 'x'], ctx, 'owner-proof', ['STV', 0.5, 0.1]]
         child = [['LiveChild', 'x'], ctx, 'child-proof', ['STV', 0.5, 0.1]]
         conclusion = [['LiveConclusion', 'x'], ctx, 'conclusion-proof', ['STV', 0.5, 0.1]]
-        janus.query_once("'sk-keep-child!'(O,N,C,_), 'sk-add-child!'(O,N,1.0,_)",
+        janus.query_once("'link-digest'(['sk-child-link',O,N],D),'sk-keep-child!'(D,C,_),'sk-add-child!'(O,N,1.0,D,_)",
                          {'O': owner, 'N': child, 'C': conclusion})
         h.add_atom('(: observed (Closed x) (STV 1 1))')
         h.query_many_refs(['(: $p Unrelated $tv)'], steps=0)
@@ -129,7 +155,7 @@ class TestSearchRetirement(unittest.TestCase):
         child = [['Child', 'x'], ctx, 'child', ['STV', 0.5, 0.1]]
         peer = [['Peer', 'x'], ctx, 'peer', ['STV', 0.5, 0.1]]
         extra = [['Extra', 'x'], ctx, 'extra', ['STV', 0.5, 0.1]]
-        janus.query_once("'sk-keep-child!'(O,N,O,_), 'sk-add-child!'(O,N,1.0,_)",
+        janus.query_once("'link-digest'(['sk-child-link',O,N],D),'sk-keep-child!'(D,O,_),'sk-add-child!'(O,N,1.0,D,_)",
                          {'O': owner, 'N': child})
         h.add_atom('(: observed (Closed x) (STV 1 1))')
         h.query_many_refs(['(: $p Unrelated $tv)'], steps=0)
@@ -177,9 +203,9 @@ class TestSearchRetirement(unittest.TestCase):
         owner = [['Closed', 'x'], ctx, 'owner', ['STV', 0.5, 0.1]]
         janus.query_once(
             "'sk-known-conclusion?'(O,_),'sk-node-hash'([['Watched',x],Ctx,_,_],H),"
-            "forall(between(1,5,_),assertz('&sk_wait'(H,[['Watched',x],Ctx,_,_],"
-            "['sk-partial',O,1,O,[],[[['Watched',x],Ctx,_,_]],[]]))),"
-            "'sk-add-child!'(O,[['Watched',x],Ctx,_,_],1.0,_)",
+            "_N=[['Watched',x],Ctx,_,_],copy_term_nat(_N,_Child),'link-digest'(['sk-child-link',O,_Child],D),"
+            "forall(between(1,5,_),'sk-store-wait!'(D,H,_N,['sk-partial',O,1,O,[],[_N],[]],_)),"
+            "'sk-add-child!'(O,_Child,1.0,D,_)",
             {'Ctx': ctx, 'O': owner})
         h.add_atom('(: closed (Closed x) (STV 1 1))')
         h.query_many_refs(['(: $p Unrelated $tv)'], steps=0)

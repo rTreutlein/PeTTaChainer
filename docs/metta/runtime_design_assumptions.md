@@ -90,6 +90,9 @@ it. Removal does not erase durable proofs or reset the monotonic proof ID counte
 It now retires the removed rules and their derived KB copies as described
 above; retired skeleton rows contribute no later value and leave optimization
 stores when encountered.
+Removing a binary-certain fact after its joins have been retired leaves its
+owner expanded with those joins gone: the search does not restart. This
+deprecated interaction is outside the monotonic contract.
 
 A future API pass should represent corrections, supersession, and configuration
 changes as scoped events instead of retracting prior knowledge. Explicit proof
@@ -210,10 +213,11 @@ only for output. Stored proofs refer only to earlier ids, so they form a DAG. A
 row keeps its latest view and the views it replaced, and later queries read
 them until something below them changes.
 
-A certain truth value, confidence 1, stands for unlimited evidence: revision
-leaves it unchanged, and a ground key stored with one applies no rules,
-since no other proof could change its value. For the same reason such a key's
-value is its certain stored facts alone: views its rows got before the fact
+A certain truth value, confidence >= 1, stands for unlimited evidence in
+revision. Only a stored binary-certain fact, STV strength 0 or 1 at confidence
+>= 1, is absorbing for search retirement: no other proof can change its value
+even under conditioning. Such a key's value is its certain stored facts
+alone: views its rows got before the fact
 was stored add neither evidence nor dependencies. Only stored facts end the
 merge this way; a derived view of confidence 1 is a probability known
 exactly, not the statement's truth, and merges as below. A statement known
@@ -236,12 +240,21 @@ later answers. Its current keys are still read once, including the aggregate
 registrations before the completed-row check. Child links have waiter
 leases and fixed claims indexed by their actual join conclusion, so retiring
 one bound conclusion of an open search leaves its other conclusions searchable.
+A waiter batch computes its child-link digest once and passes it to the
+waiter, child and fixed-claim stores. A waiter lease records that digest and
+the waiter's clause reference; retraction finds the digest by the reference,
+without copying or hashing the partial again. Claim and debt lookups use
+their existing scalar columns, rather than duplicate reverse predicates.
+Fact-watch cleanup uses the node hash already available at expansion or
+context cleanup and compares only subscriptions at that hash.
 A known owner can still have a child claimed by another conclusion. Query
 adapters reading a known statement retain the same exemption as completed rows.
 An unowned link to a pending premise still provides shared search work to
 later queries; retiring that traversal early changes finite-budget answers.
 It stays indexed by its pending component until that component settles,
 then leaves in the same bounded collection slices, without a graph scan.
+Dropping a pending representative also removes its child-retirement debts
+and queued component retirement, so context cleanup cannot orphan either.
 An unexpanded ground premise also used its waiter as a late-fact subscription.
 Retirement compacts those subscriptions to one node record in `&sk_fact_watch`;
 expansion or context cleanup removes it. Fact activation reads these nodes
@@ -458,6 +471,13 @@ instance eligible for epoch freezing. Its row keeps reading the instance
 fold even while no query asks for the rule; freezing that row made a later
 read return an old summary and stopped later observations refining it.
 Ordinary historical beliefs retain the configured freezing and decay.
+
+Follow-up: other keys whose rows read live aggregates (`FoldAll`,
+`FoldAllValue`, `FoldAllTruth`, or base-rate folds) can still be frozen stale
+by forgetting. Freezing their reader replaces an updating aggregate with a
+snapshot, the same class of bug as the RuleTruth case. Extending the freezing
+policy to these readers needs a separate design decision; it is not part of
+known-search retirement.
 
 An exact fold (`FoldAll`, `FoldAllValue`, `FoldAllTruth`) needs all its
 members. While its search has members still to come (members whose rows are

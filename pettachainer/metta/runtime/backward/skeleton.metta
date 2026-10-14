@@ -111,10 +111,9 @@
 ;; once, by a digest of the link: one lookup, and a record of one integer
 ;; however large the join it names. A link with an end in an Assuming query's
 ;; context leaves with that context.
-(: sk-link-new! (-[det]-> SkeletonLink Bool))
-(= (sk-link-new! $link)
-   (let* (($digest (link-digest $link))
-          ($ctx (case $link (
+(: sk-link-new! (-[det]-> Number SkeletonLink Bool))
+(= (sk-link-new! $digest $link)
+   (let* (($ctx (case $link (
              ((sk-child-link $owner $child)
                 (let $owner-ctx (node-context $owner)
                    (if (context-world? $owner-ctx) $owner-ctx (node-context $child))))
@@ -260,12 +259,12 @@
 (= (sk-note-context! $ctx $item)
    (if (context-world? $ctx) (let $_row (add-atom &sk_ctx_items ($ctx $item)) ()) ()))
 
-(: sk-add-child! (-[semidet]-> SkPattern SkPattern Number Atom))
-(= (sk-add-child! $owner $child $score)
+(: sk-add-child! (-[semidet]-> SkPattern SkPattern Number Number Atom))
+(= (sk-add-child! $owner $child $score $digest)
    (let $child-hash (sk-node-hash $child)
-      (if (let $_scored (sk-raise-score! $child-hash $child $score) (sk-link-new! (sk-child-link $owner $child)))
+      (if (let $_scored (sk-raise-score! $child-hash $child $score) (sk-link-new! $digest (sk-child-link $owner $child)))
          (let* (($hash (sk-node-hash $owner))
-                ($_row (add-atom &sk_child ($hash $owner $child $child-hash)))
+                ($_row (sk-store-child! $digest $hash $owner $child $child-hash))
                 ($_pending (sk-link-pending! $hash $owner $child-hash $child))
                 ($child-ctx (node-context $child))
                 ($_node (sk-note-context! $child-ctx (ctx-node $child-hash $child)))
@@ -545,7 +544,7 @@
 ;; --- Answers and delivery ---------------------------------------------------
 
 (= (sk-add-answer! $node $key)
-   (if (sk-link-new! (sk-answer-link $node $key))
+   (if (let $link (sk-answer-link $node $key) (sk-link-new! (link-digest $link) $link))
       (let* (($_registered (sk-register-key! $key))
              ($hash (sk-node-hash $node))
              ($_row (add-atom &sk_answer ($hash $node $key)))
@@ -589,7 +588,7 @@
 
 (: sk-add-use! (-[det]-> SkeletonKey SkeletonKey Atom))
 (= (sk-add-use! $key $parent)
-   (if (sk-link-new! (sk-use-link $key $parent))
+   (if (let $link (sk-use-link $key $parent) (sk-link-new! (link-digest $link) $link))
       (let* (($hash (index-hash $key))
              ($_row (add-atom &sk_use ($hash $key $parent)))
              ($_noted
@@ -788,7 +787,10 @@
                      (if (== (search-id-value sk_forward_run) 1) (sk-forward-note-fold! $premise)
                         (let $score (sk-fold-child-score $args (sk-join-score $owner $rule $remaining) (sk-rate-entries $args))
                            (if (> $score 0.0)
-                              (let $_kept (sk-keep-child! $owner (copy_term $premise) $concl) (sk-add-child! $owner (copy_term $premise) $score)) ())))
+                              (let* (($child (copy_term $premise))
+                                     ($digest (link-digest (sk-child-link $owner $child)))
+                                     ($_kept (sk-keep-child! $digest $concl)))
+                                 (sk-add-child! $owner $child $score $digest)) ())))
                      (sk-advance!
                         (sk-partial $owner $rule $concl (cons $premise $done) $rest
                            (cons (sk-fold $args) $keys))))
@@ -836,7 +838,9 @@
    (let* (((sk-partial $_owner $_rule $concl $_done $remaining $_keys) $waiter)
           ($known (sk-known-conclusion? $concl))
           ($hash (sk-node-hash $premise))
-          ($_wait (if $known () (add-atom &sk_wait ($hash $premise $waiter))))
+          ($child (copy_term $premise))
+          ($digest (link-digest (sk-child-link $owner $child)))
+          ($_wait (if $known () (sk-store-wait! $digest $hash $premise $waiter)))
           ($_noted
              (if $known ()
                 (let* (($owner-ctx (node-context $owner)) ($premise-ctx (node-context $premise)))
@@ -859,8 +863,8 @@
                    (let $_t (add-atom &sk_temp_waits ($hash $premise $waiter)) ())
                    ())))
           ($_child
-             (let $_kept (if $known (sk-keep-child! $owner (copy_term $premise) $concl) true)
-                (sk-add-child! $owner (copy_term $premise) (sk-join-score $owner $rule $remaining)))))
+             (let $_kept (if $known (sk-keep-child! $digest $concl) true)
+                (sk-add-child! $owner $child (sk-join-score $owner $rule $remaining) $digest))))
       ;; Read existing keys, including aggregate registrations before the
       ;; completed-row check. A known conclusion leaves no future subscriber.
       (fold-semidet (sk-extend-waiter-step $waiter) ()
@@ -940,7 +944,7 @@
                       false))))
             ;; Record after this answer binds the conclusion. A thawed ground
             ;; key can then remove the digest even for an originally open join.
-            (if (sk-link-new! (sk-join-link (sk-partial $owner $rule $concl $done $remaining $keys) $registered))
+            (if (let $link (sk-join-link (sk-partial $owner $rule $concl $done $remaining $keys) $registered) (sk-link-new! (link-digest $link) $link))
                (sk-advance!
                   (sk-partial $owner $rule $concl (cons $premise $done) $rest (cons $registered $keys)))
                ())
@@ -1590,8 +1594,9 @@
                   (let* (($member-hash (sk-node-hash $member))
                          ($_fold (add-atom &sk_fold ($hash $node $member)))
                          ($_member-of (add-atom &sk_member_of ($member-hash $member $node)))
-                         ($_kept (sk-keep-child! $node $member $node))
-                         ($_child (sk-add-child! $node $member (sk-node-score $hash $node))))
+                         ($digest (link-digest (sk-child-link $node $member)))
+                         ($_kept (sk-keep-child! $digest $node))
+                         ($_child (sk-add-child! $node $member (sk-node-score $hash $node) $digest)))
                      (fold-semidet (sk-fold-answer-step $node) () (sk-answers $member))))))))
       (($type $kbctx $proof $tv)
          (let* (($_special
@@ -1613,8 +1618,9 @@
                   ((cons $general $_more)
                      (let* (($ghash (sk-node-hash $general))
                             ($_row (add-atom &sk_subsumed ($ghash $general $owner)))
-                            ($_kept (sk-keep-child! $owner $general $owner))
-                            ($_child (sk-add-child! $owner $general (sk-node-score $hash $owner))))
+                            ($digest (link-digest (sk-child-link $owner $general)))
+                            ($_kept (sk-keep-child! $digest $owner))
+                            ($_child (sk-add-child! $owner $general (sk-node-score $hash $owner) $digest)))
                         (fold-semidet (sk-unifying-answer! $owner) () (sk-answers $general))))
                   (()
                      (let* (($goal (assemble-stored-runtime-fact $rule-type $rule-kbctx $_rule-proof $_rule-tv))

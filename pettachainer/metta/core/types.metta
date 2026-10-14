@@ -40,7 +40,9 @@
 (: stored-refs-gc-step! (-[det]-> Bool))
 (: sk-known-conclusion? (-[det]-> $fact Bool))
 (: sk-store-link! (-[det]-> Number $link Bool))
-(: sk-keep-child! (-[det]-> $owner $child $conclusion Bool))
+(: sk-keep-child! (-[det]-> Number $conclusion Bool))
+(: sk-store-wait! (-[det]-> Number Number $premise $waiter Bool))
+(: sk-store-child! (-[det]-> Number Number $owner $child Number Bool))
 (: sk-retire-known! (-[det]-> Statement KBContext Bool))
 (: sk-retire-searches! (-[det]-> Bool))
 
