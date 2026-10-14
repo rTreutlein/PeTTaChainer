@@ -264,8 +264,8 @@ try:
     # A failure can exist in records even when compare labels it PASS (for
     # example when both sides failed). Approvals cannot waive failed runs.
     for row in data['records']:
-        for side in ('base', 'candidate'):
-            if row[side].get('exit') != 0 or 'unsupported' in row[side]:
+        for side in ('base', 'candidate', 'reference'):
+            if side in row and (row[side].get('exit') != 0 or 'unsupported' in row[side]):
                 raise ValueError(f"failed/unsupported run: {row['suite']} {row['case']} {side}")
     if verdict == 'PASS':
         if flags:

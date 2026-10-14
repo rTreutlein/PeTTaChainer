@@ -289,6 +289,8 @@ passed:
    allows only the exact case and metric pairs explicitly approved by the
    user. Every regression must match; any new flag, unapproved accuracy
    regression, failed/unsupported run or nondeterminism stops the landing.
+   Every present `base`, `candidate` or `reference` run must have exit 0 and
+   no `unsupported` marker, even when the report says `PASS`.
    False timing flags that a paired rerun did not repeat are not regressions.
 7. Only with `--push`: it fast-forwards `master` (and `supply-network`),
    pushes both to `origin`, then retires each landed branch's worktree and
