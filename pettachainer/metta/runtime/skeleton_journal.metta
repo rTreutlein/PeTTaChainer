@@ -116,6 +116,7 @@
 ;; partial joins waiting on a node
 (: &sk_wait (SpaceOf (Number SkPattern SkeletonWaiter)))
 !(bind! &sk_wait (new-space))
+!(bind! &sk_fact_watch (new-space))
 ;; child links: owner hash, owner, child, child hash
 (: &sk_child (SpaceOf (Number SkPattern SkPattern Number)))
 !(bind! &sk_child (new-space))

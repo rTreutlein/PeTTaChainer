@@ -94,18 +94,108 @@ class TestSearchRetirement(unittest.TestCase):
             "'sk-known-conclusion?'([B, [Kb, 'MAIN', 'Nil']], Known)",
             {'Kb': h.kb, 'B': 'B'})['Known'], 'true')
 
-    def test_retiring_one_cycle_node_preserves_remaining_work(self):
+    def test_known_owner_keeps_child_claimed_by_another_conclusion(self):
         h = PeTTaChainer()
         ctx = [h.kb, 'MAIN', 'Nil']
-        p = [['P', 'x'], ctx, 'proof-p', 'tv-p']
-        q = [['Q', 'x'], ctx, 'proof-q', 'tv-q']
-        # The first node is the representative of a two-node cycle. Retiring it
-        # must keep the remaining node's route to its component, and its work.
-        janus.query_once("'sk-link-pending!'(101, P, 102, Q, _), 'sk-link-pending!'(102, Q, 101, P, _)", {'P': p, 'Q': q})
-        janus.query_once("'sk-drop-pending!'(101, P, _)", {'P': p})
-        self.assertEqual(janus.query_once("'sk-pending?'(102, Q, Pending)", {'Q': q})['Pending'], 'true')
-        janus.query_once("'sk-work!'(102, Q, -1, _)", {'Q': q})
-        self.assertEqual(janus.query_once("'sk-pending?'(102, Q, Pending)", {'Q': q})['Pending'], 'false')
-        janus.query_once("'sk-drop-pending!'(102, Q, _)", {'Q': q})
+        owner = [['Closed', 'x'], ctx, 'owner-proof', ['STV', 0.5, 0.1]]
+        child = [['LiveChild', 'x'], ctx, 'child-proof', ['STV', 0.5, 0.1]]
+        conclusion = [['LiveConclusion', 'x'], ctx, 'conclusion-proof', ['STV', 0.5, 0.1]]
+        janus.query_once("'sk-keep-child!'(O,N,C,_), 'sk-add-child!'(O,N,1.0,_)",
+                         {'O': owner, 'N': child, 'C': conclusion})
+        h.add_atom('(: observed (Closed x) (STV 1 1))')
+        h.query_many_refs(['(: $p Unrelated $tv)'], steps=0)
         self.assertEqual(janus.query_once(
-            "aggregate_all(count, pw_id(_, [_, [Kb, 'MAIN', 'Nil']|_], _), N)", {'Kb': h.kb})['N'], 0)
+            "aggregate_all(count, '&sk_child'(_,O,N,_), Count)",
+            {'O': owner, 'N': child})['Count'], 1)
+        # It leaves when its actual conclusion closes, rather than its owner.
+        h.add_atom('(: result (LiveConclusion x) (STV 0 1))')
+        h.query_many_refs(['(: $p Unrelated $tv)'], steps=0)
+        # Its unexpanded premise is still shared search work. Keep the
+        # traversal until that work finishes, even after the join closes.
+        self.assertEqual(janus.query_once(
+            "aggregate_all(count, '&sk_child'(_,O,N,_), Count)",
+            {'O': owner, 'N': child})['Count'], 1)
+        janus.query_once("'sk-work!'(H,N,-1,_)", {'H': janus.query_once(
+            "'sk-node-hash'(N,H)", {'N': child})['H'], 'N': child})
+        h.query_many_refs(['(: $p Unrelated $tv)'], steps=0)
+        self.assertEqual(janus.query_once(
+            "aggregate_all(count, '&sk_child'(_,O,N,_), Count)",
+            {'O': owner, 'N': child})['Count'], 0)
+
+    def test_pending_child_retirement_follows_component_merge(self):
+        h = PeTTaChainer()
+        ctx = [h.kb, 'MAIN', 'Nil']
+        owner = [['Closed', 'x'], ctx, 'owner', ['STV', 0.5, 0.1]]
+        child = [['Child', 'x'], ctx, 'child', ['STV', 0.5, 0.1]]
+        peer = [['Peer', 'x'], ctx, 'peer', ['STV', 0.5, 0.1]]
+        extra = [['Extra', 'x'], ctx, 'extra', ['STV', 0.5, 0.1]]
+        janus.query_once("'sk-keep-child!'(O,N,O,_), 'sk-add-child!'(O,N,1.0,_)",
+                         {'O': owner, 'N': child})
+        h.add_atom('(: observed (Closed x) (STV 1 1))')
+        h.query_many_refs(['(: $p Unrelated $tv)'], steps=0)
+        janus.query_once("'sk-node-hash'(N,NH),'sk-node-hash'(P,PH),'sk-node-hash'(E,EH),"
+                         "'sk-link-pending!'(PH,P,EH,E,_),'sk-link-pending!'(EH,E,PH,P,_),"
+                         "'sk-link-pending!'(NH,N,PH,P,_),'sk-link-pending!'(PH,P,NH,N,_),"
+                         "'sk-work!'(NH,N,-1,_),'sk-work!'(PH,P,-1,_),'sk-work!'(EH,E,-1,_)",
+                         {'N': child, 'P': peer, 'E': extra})
+        h.query_many_refs(['(: $p Unrelated $tv)'], steps=0)
+        self.assertEqual(janus.query_once(
+            "aggregate_all(count, '&sk_child'(_,O,N,_), Count)",
+            {'O': owner, 'N': child})['Count'], 0)
+        self.assertEqual(janus.query_once(
+            "aggregate_all(count, sk_child_debt(_,D), Count)",
+            {'D': janus.query_once("'link-digest'(['sk-child-link',O,N],D)",
+                                  {'O': owner, 'N': child})['D']})['Count'], 0)
+
+    def test_closed_outcome_keeps_shared_premise_search_until_it_finishes(self):
+        h = PeTTaChainer()
+        h.add_atoms_no_check([
+            '(: (no_inverse r) (Implication P0 Closed) (CTV (STV 1 0.9) (STV 0 0.9)))',
+            '(: observed P20 (STV 1 1))',
+        ] + [f'(: (no_inverse r{i}) (Implication P{i+1} P{i}) (CTV (STV 1 0.9) (STV 0 0.9)))'
+             for i in range(20)])
+        h.query_many_refs(['(: $p Closed $tv)'], steps=4)
+        self.assertGreater(janus.query_once(
+            "aggregate_all(count, '&sk_wait'(_,_,['sk-partial',_,_,[Closed,[Kb,'MAIN','Nil']|_]|_]), N)",
+            {'Kb': h.kb, 'Closed': 'Closed'})['N'], 0)
+        h.add_atom('(: closed Closed (STV 1 1))')
+        # This query can still complete the earlier shared premise search.
+        # Its answer is known, but P0's pending work is not obsolete.
+        h.query_many_refs(['(: $p Closed $tv)'], steps=80)
+        self.assertGreater(janus.query_once(
+            "aggregate_all(count, '&sk_expanded'(_, [P0,[Kb,'MAIN','Nil']|_]), N)",
+            {'Kb': h.kb, 'P0': 'P0'})['N'], 0)
+        # Evaluation has its own allowance, even after search finishes.
+        answers = h.query_many_refs(['(: $p P0 $tv)'], steps=40)[0]
+        self.assertTrue(answers)
+        self.assertGreater(answers[0].tv[1], 0.9)
+
+    def test_retired_waiters_keep_one_late_fact_subscription_until_expansion(self):
+        h = PeTTaChainer()
+        h.add_atom('(: (no_inverse r) (Implication Missing (Watched x)) (CTV (STV 1 0.9) (STV 0 0.9)))')
+        ctx = [h.kb, 'MAIN', 'Nil']
+        owner = [['Closed', 'x'], ctx, 'owner', ['STV', 0.5, 0.1]]
+        janus.query_once(
+            "'sk-known-conclusion?'(O,_),'sk-node-hash'([['Watched',x],Ctx,_,_],H),"
+            "forall(between(1,5,_),assertz('&sk_wait'(H,[['Watched',x],Ctx,_,_],"
+            "['sk-partial',O,1,O,[],[[['Watched',x],Ctx,_,_]],[]]))),"
+            "'sk-add-child!'(O,[['Watched',x],Ctx,_,_],1.0,_)",
+            {'Ctx': ctx, 'O': owner})
+        h.add_atom('(: closed (Closed x) (STV 1 1))')
+        h.query_many_refs(['(: $p Unrelated $tv)'], steps=0)
+        count_watch = "aggregate_all(count, '&sk_fact_watch'(_,_,[['Watched',x],Ctx|_]), N)"
+        self.assertEqual(janus.query_once(count_watch, {'Ctx': ctx})['N'], 1)
+        h.add_atom('(: observed (Watched x) (STV 1 1))')
+        h.query_many_refs(['(: $p Unrelated $tv)'], steps=0)
+        self.assertGreater(janus.query_once(
+            "aggregate_all(count, '&sk_answer'(_, [['Watched',x],Ctx|_],_), N)",
+            {'Ctx': ctx})['N'], 0)
+        h.query_many_refs(['(: $p (Watched x) $tv)'], steps=10)
+        self.assertEqual(janus.query_once(count_watch, {'Ctx': ctx})['N'], 0)
+
+    def test_query_adapter_reading_a_known_statement_stays_live(self):
+        h = PeTTaChainer()
+        h.add_atom('(: a A (STV 1 1))')
+        self.assertEqual(janus.query_once(
+            "'sk-known-conclusion?'([A,[Kb,'MAIN','Nil'],[_,token],_],Known)",
+            {'Kb': h.kb, 'A': 'A'})['Known'], 'false')

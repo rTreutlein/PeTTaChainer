@@ -231,13 +231,25 @@ optimization state too. Partial joins are indexed by their bound conclusion,
 as well as by the premise they await. Storing a known fact queues retirement
 by that statement and context; activation and query cleanup erase bounded
 slices of its waiters, deferred work and extension digests. A join whose
-conclusion is already known extends no further. Child links have waiter
-leases, with separate ownership for folds and subsumption, so retiring one
-bound conclusion of an open search leaves its other conclusions searchable.
-Only unowned links leave, with their pending graph edges. Incoming links and
-parked answer deliveries belong to surviving consumers and stay. Per-node work is
-subtracted on retirement; union-find aliases a surviving component still
-uses stay until its last node leaves. Facts, completed rows, views, sample
+conclusion is already known starts no fact waiter and cannot be extended by
+later answers. Its current keys are still read once, including the aggregate
+registrations before the completed-row check. Child links have waiter
+leases and fixed claims indexed by their actual join conclusion, so retiring
+one bound conclusion of an open search leaves its other conclusions searchable.
+A known owner can still have a child claimed by another conclusion. Query
+adapters reading a known statement retain the same exemption as completed rows.
+An unowned link to a pending premise still provides shared search work to
+later queries; retiring that traversal early changes finite-budget answers.
+It stays indexed by its pending component until that component settles,
+then leaves in the same bounded collection slices, without a graph scan.
+An unexpanded ground premise also used its waiter as a late-fact subscription.
+Retirement compacts those subscriptions to one node record in `&sk_fact_watch`;
+expansion or context cleanup removes it. Fact activation reads these nodes
+alongside expanded nodes and live waiters, so retiring a join loses no shared
+key or aggregate input.
+Incoming links and parked answer deliveries belong to surviving consumers and stay. Reclamation unlinks
+only released edges and drops isolated pending nodes; ordinary context
+cleanup retains its existing component accounting. Facts, completed rows, views, sample
 contributions, regimes and leave-one-out indexes do not leave with search
 work. A fractional confidence-1 fact retains its backward derivations for
 conditioning, as before.
