@@ -72,6 +72,11 @@ slot count, so it shares the machine with other agents' jobs:
 `compare.sh` is the benchmark step. Do not freeze builds by hand, pick your
 own seeds or write runner scripts.
 
+Agents' exploratory sweeps should set `BENCH_PRIORITY=sweep`; a sweep
+launching many `capped` children should pass a stable `--label` to each child
+(e.g. per case/kind, without unique output paths) so the pool can learn real
+memory peaks.
+
 ```bash
 /nexus/Dev/OpenCog/bench/compare.sh <base> <candidate> [--quick|--full] [--timing|--no-timing]
 /nexus/Dev/OpenCog/bench/compare.sh <base> <candidate> --curves [--only <case>]
@@ -263,6 +268,8 @@ of the repository; it always works on the main checkout's `master`:
 ```bash
 scripts/land.sh <branch> [--chainergame <cg-branch>] [--push] [--accept-flags <file>] [--clean]
 ```
+
+Landings run at `landing` priority in the shared admission pool.
 
 It stops at the first failure and changes nothing before every check has
 passed:

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export BENCH_PRIORITY=landing # Landings jump the shared pool's queue.
 # Land an agent branch on master: rebase it onto master in a worktree of its
 # own, run every gate and the full benchmark comparison, and only then
 # fast-forward master. With --chainergame, merge a ChainerGame branch into
