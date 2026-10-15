@@ -1,6 +1,13 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 !(set-evidence-confidence-k 1)
 
+;; A variance floor must not move the null mean: large, equally observed
+;; general and specific rules with the same rate are still indistinguishable.
+!(test (hm-differs? 1 1 1000) false)
+!(test (hm-differs? 0 0 1000) false)
+!(test (hm-differs? 0.999 0.999 1000) false)
+!(test (hm-differs? 0.999 0.5 1000) true)
+
 ;; A genuinely screened pair can return after the single's prediction fails.
 ;; Both rules first see only successes; then F1 alone has failures. Every
 ;; F0 AND F1 observation is still true. Positive-only features make these STVs.

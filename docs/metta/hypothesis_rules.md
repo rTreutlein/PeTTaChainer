@@ -696,8 +696,11 @@ query). Each hypothesis is then judged:
 - otherwise it is kept when its strength P(B|A) differs from the
   consequent's probability without it by more than two standard errors of
   that probability over its observations, and from the strength of every
-  more general live hypothesis judged in the same review that rests on
-  at least four observations. A general
+  more general live hypothesis judged in the same review. The variance
+  estimate is clamped to a rate
+  in [0.05, 0.95] to retain a nonzero SE near 0 or 1; the comparison stays
+  centered on the actual general rate, so identical rates stay identical
+  at every count. A general
   rule is one whose antecedent conjuncts, under a substitution taking its
   consequent to this one's, are some of this one's:
   `(A $x) → (B $x)` screens off `(And (A $x) (C $x)) → (B $x)`, and the

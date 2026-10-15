@@ -7,7 +7,7 @@
 ;; observations: it stays when its strength differs, by more than hm-z
 ;; standard errors, from the consequent's probability without its antecedent
 ;; (hm-informative?) and from the strength of every more general live
-;; hypothesis judged in the same review with at least four observations.
+;; hypothesis judged in the same review.
 ;; One that had hm-max-opportunities observations of its consequent without
 ;; reaching enough samples of its own is dropped too.
 (: hm-min-samples (-[det]-> Number))
@@ -58,12 +58,13 @@
       ((CTV (STV $s1 $_c1) $_neg) $s1)
       ($_none 0.5))))
 
-;; |s - p| beyond hm-z standard errors of a rate p over n observations, p
-;; kept within [0.05, 0.95] so a rate of 0 or 1 still has an error.
+;; |s - p| beyond hm-z standard errors of p over n observations. Clamp
+;; only its variance estimate, never the comparison center: identical rates
+;; at 0 or 1 must remain identical even after many observations.
 (: hm-differs? (-[det]-> Number Number Number Bool))
 (= (hm-differs? $s $p $n)
    (let $q (min 0.95 (max 0.05 $p))
-      (> (abs-math (- $s $q)) (* (hm-z) (sqrt-math (/ (* $q (- 1 $q)) $n))))))
+      (> (abs-math (- $s $p)) (* (hm-z) (sqrt-math (/ (* $q (- 1 $q)) $n))))))
 
 (: hm-decision (-[semidet]-> KB (List HmReviewed) HmReviewed Atom))
 (= (hm-decision $kb $reviewed (hm-reviewed $_name $antecedent $consequent $born $truth))
@@ -97,9 +98,8 @@
              ($phash (hm-pattern-hash $kb $consequent)))
          (if (if (hypothesis-generalizes? $general $rule)
                  (space-row-present? &hm_live ($phash $kb $_stored $name $_antecedent $_born)) false)
-            (if (< (confidence-to-count (hm-confidence $truth)) (hm-min-samples)) true
-               (let $p (hm-strength $truth)
-                  (if (hm-differs? $s $p $n) true (screen $general))))
+            (let $p (hm-strength $truth)
+               (if (hm-differs? $s $p $n) true (screen $general)))
             true))
       $decision))
 
