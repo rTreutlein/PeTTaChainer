@@ -1,4 +1,8 @@
 """Known outcomes retire search work without retiring their history or samples."""
+import json
+from pathlib import Path
+import subprocess
+import sys
 import unittest
 
 import janus_swi as janus
@@ -6,6 +10,21 @@ from pettachainer import PeTTaChainer
 
 
 class TestSearchRetirement(unittest.TestCase):
+    def test_numeric_retirement_lookups_index_the_hash_as_history_grows(self):
+        # Index selectivity is global to the Prolog process. Measure only this
+        # workload, without ownership retained by other unittest KBs.
+        probe = subprocess.run(
+            [sys.executable, str(Path(__file__).parent / 'probes/numeric_retirement_index.py')],
+            check=True, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=120)
+        measurements = json.loads(probe.stdout)
+        self.assertEqual(len(measurements), 4)
+        previous = 0
+        for indexed in measurements:
+            self.assertTrue(indexed['truth'], 'retirement must index the scalar hash')
+            self.assertGreater(indexed['Rows'], previous)
+            self.assertGreaterEqual(indexed['Speedup'], indexed['Keys'] / 2)
+            previous = indexed['Rows']
+
     def test_dropped_component_clears_retirement_debt(self):
         h = PeTTaChainer()
         node = [['Dropped', 'x'], [h.kb, 'MAIN', 'Nil'], 'proof', ['STV', 0.5, 0.1]]
