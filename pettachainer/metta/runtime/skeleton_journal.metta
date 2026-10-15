@@ -264,8 +264,10 @@
 !(bind! &sk_reading (new-space))
 !(change-state! sk_branch_unpaid 0)
 ;; Only the current rebuild records cuts; a child propagates its completed
-;; cuts to its parent. Frames leave when the rebuild returns.
-(: &sk_branch_cuts (SpaceOf (Number (List Number))))
+;; cuts to its parent. Keep the original exclusions beside the cuts: closed
+;; reads' local pins must not weaken the enclosing rebuild's exclusions.
+;; Frames leave when the rebuild returns.
+(: &sk_branch_cuts (SpaceOf (Number (List Number) (List Number))))
 !(bind! &sk_branch_cuts (new-space))
 !(change-state! sk_branch_at 0)
 ;; every dependency a row's views ever had, by key hash and row hash

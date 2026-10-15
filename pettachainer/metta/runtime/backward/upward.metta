@@ -371,7 +371,7 @@
 (= (forward-chain $units $kb $facts)
    (once (let* (($started (inference-clock))
           ($_branch-frame (change-state! sk_branch_at 0))
-          ($_branch-cuts (remove-data-rows! &sk_branch_cuts (quote ($_frame $_cuts))))
+          ($_branch-cuts (remove-data-rows! &sk_branch_cuts (quote ($_frame $_exclude $_cuts))))
           ($_branch-reader (remove-data-rows! &sk_reading (quote ($_hash $_key $_row))))
           ($_mode (change-state! sk_forward_run 1))
           ($_seen (remove-data-rows! &sk_seen (quote ($hash $node))))

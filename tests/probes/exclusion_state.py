@@ -9,15 +9,15 @@ class ExclusionStateTests(unittest.TestCase):
     def setUp(self):
         self.h = PeTTaChainer()
         janus.query_once(
-            "retractall('&sk_branch_cuts'(_,_)), retractall('&sk_reading'(_,_,_)), "
+            "retractall('&sk_branch_cuts'(_,_,_)), retractall('&sk_reading'(_,_,_)), "
             "'change-state!'(sk_branch_at,0,_)"
         )
 
     def assert_rejection_restricts_reuse(self, setup, rejection):
         result = janus.query_once(
-            setup + ", assertz('&sk_branch_cuts'(987654,[])), "
+            setup + ", assertz('&sk_branch_cuts'(987654,[Excluded],[])), "
             "'change-state!'(sk_branch_at,987654,_), " + rejection + ", "
-            "'&sk_branch_cuts'(987654,Cuts), 'change-state!'(sk_branch_at,0,_), "
+            "'&sk_branch_cuts'(987654,_,Cuts), 'change-state!'(sk_branch_at,0,_), "
             "_Owner=['sk-key',['Cached'],[Kb,'MAIN','Nil']], 'index-hash'(_Owner,_Hash), "
             "'index-hash'([_Hash,987654],_Slot), "
             "'sk-cache-branch!'(_Slot,_Hash,_Owner,987654,-1,[],Cuts,true,'sk-none',_), "
@@ -35,6 +35,73 @@ class ExclusionStateTests(unittest.TestCase):
             "_View=['sk-val',[['Older'],[Kb,'MAIN','Nil'],mf,['STV',1,0.8]],['ev-set',0],_Deps]",
             "'sk-admit-older'('sk-any-filter',[Excluded],'sk-none',_View,Rejected)",
         )
+
+    def test_excluded_direct_leaf_records_cut(self):
+        self.assert_rejection_restricts_reuse(
+            "Excluded=987608, _Fact=[['Leaf'],[Kb,'MAIN','Nil'],mf,['STV',0,1]]",
+            "'sk-leaf-step'(Excluded,false,[Excluded],[],_Fact,_Leaves), "
+            "(_Leaves=[] -> Rejected='sk-none' ; Rejected=admitted)",
+        )
+
+    def test_excluded_complete_read_records_cut(self):
+        self.h.set_complete_predicate('Closed')
+        self.h.query('(: $p (Closed a) $tv)', steps=200, timeout_sec=0)
+        self.assert_rejection_restricts_reuse(
+            "_Key=['sk-key',['Closed',a],[Kb,'MAIN','Nil']], 'index-hash'(_Key,Excluded)",
+            "'sk-closed-read'([],[],[Excluded],_Key,'sk-any-filter',Rejected)",
+        )
+
+    def test_local_completion_exclusions_do_not_replace_the_original_branch_context(self):
+        self.h.set_complete_predicate('LocallyClosed')
+        self.h.query('(: $p (LocallyClosed a) $tv)', steps=200, timeout_sec=0)
+        result = janus.query_once(
+            "assertz('&sk_branch_cuts'(987654,[987609],[])), "
+            "'change-state!'(sk_branch_at,987654,_), "
+            "_Fact=[['LocalLeaf'],[Kb,'MAIN','Nil'],mf,['STV',0,1]], "
+            "'sk-leaf-step'(987610,false,[987610],[],_Fact,Leaves), "
+            "_Key=['sk-key',['LocallyClosed',a],[Kb,'MAIN','Nil']], 'index-hash'(_Key,_Local), "
+            "'sk-closed-read'([],[],[_Local],_Key,'sk-any-filter',Closed), "
+            "'&sk_branch_cuts'(987654,Original,Cuts), 'change-state!'(sk_branch_at,0,_)",
+            {'Kb': self.h.kb},
+        )
+        self.assertTrue(result['truth'])
+        self.assertEqual(len(result['Leaves']), 1)
+        self.assertNotEqual(result['Closed'], 'sk-none')
+        self.assertEqual((result['Original'], result['Cuts']), ([987609], []))
+
+    def test_impossible_closed_branch_settles_empty_and_next_read_hits(self):
+        for name in ('A', 'K', 'X'):
+            self.h.set_complete_predicate(name)
+        self.h.add_atoms_no_check([
+            '(: xf (X a) (STV 0 1))',
+            '(: (no_inverse xk) (Implication (X a) (K a)) (CTV (STV 1 1) (STV 0 1)))',
+            '(: (no_inverse ka) (Implication (K a) (A a)) (CTV (STV 1 1) (STV 0 1)))',
+        ])
+        self.h.query('(: $p (A a) $tv)', steps=200, timeout_sec=0)
+        self.h.set_query_metrics(True)
+        result = janus.query_once(
+            "_Key=['sk-key',['A',a],[Kb,'MAIN','Nil']], 'index-hash'(_Key,_H), "
+            "_X=['sk-key',['X',a],[Kb,'MAIN','Nil']], 'index-hash'(_X,_Excluded), "
+            "once('&sk_row'(_H,_Key,_R,_)), 'index-hash'([_H,_R],_Slot), "
+            "assertz('&sk_branch_wanted'(_Slot,_H,_Key,_R,[_Excluded])), "
+            "'change-state!'(sk_eval_budget,1000,_), 'change-state!'(sk_branch_budget,100,_), "
+            "'sk-build-wanted!'(true), "
+            "findall(true,'&sk_branch_wanted'(_Slot,_H,_Key,_R,[_Excluded]),Wanted), "
+            "'&sk_branch'(_Slot,_Key,_R,Cuts,true,View), "
+            "'sk-view-deps-step'(0,View,_Deps), 'deps-meet?'([_Excluded],_Deps,ExcludedDependency), "
+            "'begin-backward-query-metrics!'(_), "
+            "'sk-rebuild-view'(_H,_Key,_R,[_Excluded],Next), "
+            "'query_metric_value'('branch-cache-hits',Hits), "
+            "'query_metric_value'('branch-builds',Builds), "
+            "forall(('&sk_row'(_KH,_K,_RH,_Row), _K=['sk-key',_,[Kb,'MAIN','Nil']]), "
+            " 'sk-drop-row!'(_KH,_K,_RH,_Row,_))", {'Kb': self.h.kb}
+        )
+        self.assertTrue(result['truth'])
+        self.assertEqual(result['Wanted'], [])
+        self.assertTrue(result['Cuts'])
+        self.assertEqual((result['View'], result['Next']), ('sk-none', 'sk-none'))
+        self.assertEqual(result['ExcludedDependency'], 'false')
+        self.assertEqual((result['Hits'], result['Builds']), (1, 0))
 
     def test_rejected_conditioned_reread_records_cut(self):
         self.assert_rejection_restricts_reuse(
@@ -69,7 +136,7 @@ class ExclusionStateTests(unittest.TestCase):
             "assertz('&sk_reading'(_Hash,_Key,987603)), 'change-state!'(sk_eval_budget,1,_), "
             # Interrupt the real rebuild when it reads its newly opened cut
             # frame. Erase the injected fault; leave the abandoned data intact.
-            "asserta(('&sk_branch_cuts'(_,_) :- flag(exclusion_probe_interrupt,_,1), "
+            "asserta(('&sk_branch_cuts'(_,_,_) :- flag(exclusion_probe_interrupt,_,1), "
             " throw(interrupted_rebuild)), _Trap), "
             "catch(('sk-rebuild-view'(_Hash,_Key,987603,[-1],_) -> true ; true), "
             " interrupted_rebuild, true), erase(_Trap), flag(exclusion_probe_interrupt,Interrupted,0), "
@@ -82,7 +149,7 @@ class ExclusionStateTests(unittest.TestCase):
         self.h.query('(: $p (Unrelated) $tv)', steps=0, timeout_sec=0)
         cleaned = janus.query_once(
             "'search-id-value'(sk_branch_at,Frame), "
-            "aggregate_all(count,'&sk_branch_cuts'(_,_),Frames), "
+            "aggregate_all(count,'&sk_branch_cuts'(_,_,_),Frames), "
             "aggregate_all(count,'&sk_reading'(_,_,_),Readers)"
         )
         self.assertEqual((cleaned['Frame'], cleaned['Frames'], cleaned['Readers']), (0, 0, 0))

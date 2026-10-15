@@ -72,6 +72,7 @@
 ;; Signatures of the mutually recursive functions below.
 (: sk-note-cuts! (-[det]-> (List Number) Atom))
 (: sk-excludes? (-[det]-> (List Number) Number Bool))
+(: sk-branch-excludes? (-[semidet]-> Number Bool))
 (: sk-hold-branch-reader! (-[det]-> SkeletonKey Atom))
 (: sk-build-wanted! (-[semidet]-> Bool))
 (: sk-branch-ready-step (-[semidet]-> Number (List Number) Atom SkeletonItem Atom))
@@ -124,14 +125,16 @@
 ;; value only while the key has no computed versions; a frozen key's summary
 ;; stands beside them. A reader that must not depend on what either was
 ;; derived through leaves it out.
+;; Direct facts depend on their key too: a closed re-read may reach a fact
+;; whose key an outer reader excluded, even though no ordinary row can use it.
 (: sk-leaf-step (-[semidet]-> Number Bool (List Number) (List SkeletonValue) SkFact (List SkeletonValue)))
 (= (sk-leaf-step $hash $computed $exclude $kept $fact)
-   (let $view (sk-leaf-view $hash $fact)
-      (if (== (sk-view-deps-step 0 $view) (deps-key $hash)) (cons $view $kept)
+   (let* (($view (sk-leaf-view $hash $fact))
+          ($deps (sk-view-deps-step 0 $view)))
+      (if (== $deps (deps-key $hash))
+         (if (sk-branch-excludes? $deps) $kept (cons $view $kept))
          (if (if $computed (not (sk-summary-fact? $fact)) false) $kept
-            (if (sk-excludes? $exclude (sk-view-deps-step 0 $view))
-               $kept
-               (cons $view $kept))))))
+            (if (sk-excludes? $exclude $deps) $kept (cons $view $kept))))))
 
 (: sk-leaf-views (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonValue)))
 (= (sk-leaf-views $hash $key $filter $exclude)
@@ -1456,14 +1459,14 @@
                                      ($unpaid (search-id-value sk_branch_unpaid))
                                      ($parent (search-id-value sk_branch_at))
                                      ($frame (+ 1 (next-search-id sk_branch_frame)))
-                                     ($_cuts (add-atom &sk_branch_cuts ($frame ())))
+                                     ($_cuts (add-atom &sk_branch_cuts ($frame $exclude ())))
                                      ($_enter (change-state! sk_branch_at $frame))
                                      ($view (sk-row-view () $exclude $hash $key $rhash
                                         (sk-row (sk-ident $rule $keys $result) $concl $premises $seq)))
-                                     ((cons $found $_rest) (collapse (once (match &sk_branch_cuts ($frame $recorded) $recorded))))
+                                     ((cons $found $_rest) (collapse (once (match &sk_branch_cuts ($frame $_exclude $recorded) $recorded))))
                                      ($cuts (hash-intersection (the (List Number) $found) $exclude))
                                      ($_leave (change-state! sk_branch_at $parent))
-                                     ($_frame (remove-data-rows! &sk_branch_cuts (quote ($frame $_found))))
+                                     ($_frame (remove-data-rows! &sk_branch_cuts (quote ($frame $_exclude $_found))))
                                      ($_parent (sk-note-cuts! $cuts)))
                                  (if (== $unpaid (search-id-value sk_branch_unpaid))
                                     (sk-cache-branch! $slot $hash $key $rhash $rule $inputs $cuts true $view)
@@ -1493,13 +1496,22 @@
          true)
       false))
 
+;; Closed reads may use their own pins and direct observations, but cannot
+;; cross the exclusions of the branch being rebuilt around them.
+(= (sk-branch-excludes? $deps)
+   (let $frame (search-id-value sk_branch_at)
+      (if (== $frame 0) false
+         (let (cons $exclude $_rest) (collapse (once
+                 (match &sk_branch_cuts ($frame $exclude $_cuts) $exclude)))
+            (sk-excludes? (the (List Number) $exclude) $deps)))))
+
 (= (sk-note-cuts! $cuts)
    (let $frame (search-id-value sk_branch_at)
       (if (if (== $frame 0) true (== $cuts ())) ()
-         (let $_noted (collapse (match &sk_branch_cuts ($frame $old)
+         (let $_noted (collapse (match &sk_branch_cuts ($frame $exclude $old)
                 (let* (($both (hash-union $old $cuts))
-                       ($_old (remove-variant-row! &sk_branch_cuts (quote ($frame $old)))))
-                   (add-atom &sk_branch_cuts ($frame $both)))))
+                       ($_old (remove-variant-row! &sk_branch_cuts (quote ($frame $exclude $old)))))
+                   (add-atom &sk_branch_cuts ($frame $exclude $both)))))
             ()))))
 
 (= (sk-branch-values $slot $key $rhash $exclude $fresh)
@@ -2863,14 +2875,16 @@
 ;; otherwise, for a reader with a pin, its rows evaluated again in creation
 ;; order with the pin joining the given list, merged with the leaves the
 ;; reader may read.
+;; An excluded key cannot become admissible by closing it. Pins already in
+;; the given list are read by sk-premise-step before reaching this operation.
 (: sk-closed-read
    (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) SkeletonKey SkeletonFilter SkeletonValue))
 (= (sk-closed-read $pin $given $exclude $key $filter)
    (case $key (
       ((sk-key $type $kbctx)
          (if (if (complete-statement? $type $kbctx) (== (sk-given-value $given $key $filter $exclude) sk-none) false)
-            (if (sk-settled? $key)
-               (let $hash (index-hash $key)
+            (let $hash (index-hash $key)
+               (if (if (sk-branch-excludes? (deps-key $hash)) false (sk-settled? $key))
                   (if (sk-founded? $hash $key)
                      (if (== $pin ()) sk-none
                         (sk-merge-key $hash $key $filter $exclude $given
@@ -2878,8 +2892,8 @@
                               (fold-semidet (sk-closed-row-step (append-flat $pin $given) $exclude $hash $key) ()
                                  (collapse (match &sk_row ($hash $stored $rhash $row)
                                     (if (=alpha $stored $key) ($rhash $row) (empty))))))))
-                     (sk-unfounded-value $hash $key)))
-               sk-none)
+                     (sk-unfounded-value $hash $key))
+                  sk-none))
             sk-none))
       ($_fold sk-none))))
 
@@ -4721,7 +4735,7 @@
    (-[nondet]-> Number (List (| Goal (Statement KBContext Proof TV))) Bool (List (List RuntimeResult))))
 (= (execute-backward $steps $requested $materialize?)
    (let* (($_branch-frame (change-state! sk_branch_at 0))
-          ($_branch-cuts (remove-data-rows! &sk_branch_cuts (quote ($_frame $_cuts))))
+          ($_branch-cuts (remove-data-rows! &sk_branch_cuts (quote ($_frame $_exclude $_cuts))))
           ($_branch-reader (remove-data-rows! &sk_reading (quote ($_hash $_key $_row))))
           ($goals (map-flat context-search-goal $requested))
           ($_seen (remove-data-rows! &sk_seen (quote ($hash $node))))
