@@ -99,6 +99,12 @@ class TestContextOverlay(unittest.TestCase):
                 self.assertEqual(result["filtered"][1][3], ["STV", .5, .4])
                 self.assertEqual(result["propagate"], "true")
 
+    def test_retiring_shared_main_search_is_deterministic(self):
+        result = janus.query_once(
+            "overlay_probe_retire_shared(Kb,Count,Left)", {"Kb": self.h.kb},
+        )
+        self.assertEqual((result["Count"], result["Left"]), (1, 0))
+
     def test_threshold_is_replayed_by_timed_worker(self):
         self.h.add_atoms_no_check([
             '(: (no_inverse effect) (Implication (Action now) (Effect now)) (STV 1 1))',

@@ -2342,8 +2342,8 @@ sk_retire_slice(Units) :-
                -> sk_retire_clause(Space, Ref)
                ; retractall(sk_search_clause(H, Space, Ref)) )
             ; sk_retire_clause(Space, Ref) )
-        ;   sk_search_node(H, Key, NH, N)
-        ->  retract(sk_search_node(H, Key, NH, N)), pw_drop_unused(NH, N)
+        ;   clause(sk_search_node(H, Key, NH, N), true, NodeRef)
+        ->  erase(NodeRef), pw_drop_unused(NH, N)
         ;   retract(sk_retire_queue(H, Key)) ),
         Left is Units - 1, sk_retire_slice(Left)
     ;   sk_retire_component(R)

@@ -301,7 +301,11 @@ waiter, child and fixed-claim stores. A waiter lease records that digest and
 the waiter's clause reference; retraction finds the digest by the reference,
 without copying or hashing the partial again. Ownership records retain only a hash, store kind and clause reference; reads
 check the actual key on the owned clause (delivered joins check their existing
-60-bit conclusion digest). Functional subscriptions use a distinct store kind
+60-bit conclusion digest). Retiring a search node erases the exact selected
+index clause. Several proof/TV-constrained nodes can share a MAIN key and node
+hash; pattern-based `retract` leaves alternatives that replay the rest of a
+query on backtracking. Retirement and search must remain semideterministic
+when contexts reuse those MAIN nodes. Functional subscriptions use a distinct store kind
 so a hash collision cannot confuse their key with the conclusion key.
 Ownership, claim and debt cleanup
 uses their existing scalar clause-reference or digest columns, rather than

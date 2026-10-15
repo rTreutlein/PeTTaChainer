@@ -80,3 +80,20 @@ overlay_probe_filtered_change(Kb,Result) :-
             'context-propagate?'(Key,Propagate),
             Result=_{merged:Merged,main:Main,filtered:Filtered,propagate:Propagate})),
       (nb_setval(context_overlay,main),erase(Ref),'sk-drop-merged!'(Key,_),'context-clear!'(_))).
+
+% Shared MAIN searches can have open and proof-constrained nodes for one key.
+% Node hashes deliberately omit proof/TV constraints; erase the selected index
+% clause rather than leaving retract/1 alternatives for the other node.
+overlay_probe_retire_shared(Kb,Count,Left) :-
+    sk_search_init,
+    Scope=[Kb,'MAIN','Nil'],Key=[['RetireOverlayProbe',x],Scope],
+    term_hash(Key,H),
+    N1=[['RetireOverlayProbe',x],Scope,_,_],
+    N2=[['RetireOverlayProbe',x],Scope,known,_],
+    'sk-node-hash'(N1,NH),'sk-node-hash'(N2,NH),
+    setup_call_cleanup(
+      (assertz(sk_search_node(H,Key,NH,N1)),assertz(sk_search_node(H,Key,NH,N2)),
+       assertz(sk_retire_queue(H,Key))),
+      (findall(done,'sk-retire-searches!'(true),Results),length(Results,Count),
+       aggregate_all(count,sk_search_node(H,Key,_,_),Left)),
+      (retractall(sk_search_node(H,Key,_,_)),retractall(sk_retire_queue(H,Key)))).
