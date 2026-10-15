@@ -107,8 +107,8 @@
              (collapse
                 (match &ctx_base_rate_cache ($hash (base-rate $kbid $stored $tv $source $mode))
                    (if (=alpha $stored $pattern)
-                      (remove-atom &base_rate_cache
-                         ($hash (base-rate $kbid $stored $tv $source $mode)))
+                      (context-remove! &base_rate_cache
+                         (quote ($hash (base-rate $kbid $stored $tv $source $mode))))
                       (empty))))))
       ()))
 
@@ -166,7 +166,7 @@
                       (foreach-flat
                          base-rate-cache-remove-derived-entry! $entries))
                    ($_new
-                      (add-atom &base_rate_cache
+                      (context-add! &base_rate_cache
                          ($hash (base-rate $kbid $stored $tv computed $mode))))
                    ($_readers (base-rate-readers-changed! $kbid $pattern)))
                ())))))
@@ -182,8 +182,8 @@
 (: invalidate-computed-base-rates! (-[det]-> KB (List $none)))
 (= (invalidate-computed-base-rates! $kbid)
    (let $_computed
-      (remove-atom &base_rate_cache
-         ($_h1 (base-rate $kbid $_s1 $_tv1 computed $_m1)))
+      (context-remove! &base_rate_cache
+         (quote ($_h1 (base-rate $kbid $_s1 $_tv1 computed $_m1))))
       ()))
 
 

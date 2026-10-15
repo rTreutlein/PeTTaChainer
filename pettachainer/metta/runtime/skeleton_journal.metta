@@ -468,7 +468,7 @@
 (: context-addition (-[det]-> RuntimeAddition RuntimeAddition))
 (: context-note-rule! (-[det]-> Number SkFact Bool))
 (: context-leaves (-[det]-> SkeletonKey (List SkFact)))
-(: context-finish! (-[semidet]-> (List SkPattern) (List (List RuntimeResult)) (List (List RuntimeResult))))
+(: context-finish! (-[semidet]-> Number Number (List SkPattern) (List (List RuntimeResult)) (List (List RuntimeResult))))
 (: context-clear! (-[det]-> Bool))
 
 (: context-rule-premises (-[det]-> SkFact (List SkPattern) (List SkPattern)))

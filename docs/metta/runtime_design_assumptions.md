@@ -226,7 +226,14 @@ A local row view replaces that row's borrowed MAIN view in C; no borrowed key
 or evidence item acquires a new identity. Merged caches, conditioned reads,
 aggregate contributions, instance regimes and propagation bookkeeping follow the
 same evaluation scope. None of them may publish an assumption-dependent value
-to MAIN. Cleanup drops C without retracting independent MAIN work.
+to MAIN. Computed base-rate publication, removal and invalidation use the
+same scoped write API as their aggregate observations and states. Raw MeTTa
+mutations of an overlay store are rejected by the write-boundary audit. Cleanup
+drops C without retracting independent MAIN work.
+
+Search expansion is shared across a batch. Evaluation is per input world:
+MAIN and each context receive the query's evaluation allowance and initial
+near-root reserve independently. Earlier contexts cannot exhaust later ones.
 
 Propagation follows the existing readers, including inversion, completion and
 fold membership. A plain STV update propagates beyond a configurable Beta KL

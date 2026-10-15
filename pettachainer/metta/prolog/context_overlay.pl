@@ -227,24 +227,26 @@ context_canonical(Term, Main) :-
        findall([Type,Scope,P,T], (context_seed(H,C,[S,K,P,T]), [S,K]=@=[Type,Scope]), Leaves)
     ; Leaves=[] ).
 
-'context-finish!'(Goals, MainResults, Results) :-
-    context_finish(Goals,MainResults,Results).
-context_finish([],[],[]).
-context_finish([Goal|Goals],[Base|Bases],[Result|Results]) :-
+'context-finish!'(Allowance, Reserve, Goals, MainResults, Results) :-
+    context_finish(Goals,MainResults,Allowance,Reserve,Results).
+context_finish([],[],_,_,[]).
+context_finish([Goal|Goals],[Base|Bases],Allowance,Reserve,[Result|Results]) :-
     ( Goal=['CPU','ContextQuery',[[Kb,C,_],Facts,Inner,WantProof,WantTV],_]
     -> setup_call_cleanup(nb_setval(context_overlay,C),
-           once(context_evaluate(C,Inner,Kb,Facts,WantProof,WantTV,Result)),
+           once(('change-state!'(sk_eval_budget,Allowance,_),
+                 'change-state!'(sk_near_reserve,Reserve,_),
+                 context_evaluate(C,Inner,Kb,Facts,WantProof,WantTV,Result))),
            nb_setval(context_overlay,main))
     ; Result=Base ),
-    context_finish(Goals,Bases,Results).
+    context_finish(Goals,Bases,Allowance,Reserve,Results).
 
 context_evaluate(C,Goal,Kb,Facts,WantProof,WantTV,Results) :-
     'inference-clock'(Started),
     'change-state!'(sk_holding,1,_),
     forall(context_seed(_,C,[Type,Scope,_,_]),
            (Key=['sk-key',Type,Scope], 'sk-drop-merged!'(Key,_), 'sk-dirty!'(Key,_))),
-    % Main's needed closure and reserve are shared; only local dirty readers
-    % consume the remaining allowance. No independent history is reevaluated.
+    % Search and needed closure are shared. Each context evaluates a different
+    % input world with its own allowance; preceding contexts cannot spend it.
     'sk-evaluate!'(_),
     'inference-add!'(Started,_),
     'sk-root-results'(false,Goal,Answers),

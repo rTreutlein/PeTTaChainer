@@ -68,7 +68,10 @@ identities and evidence identities; opening C copies none of them.
   contributions, tallies, compatibility reads and merged views live in C.
   Unchanged aggregates are borrowed. MAIN's explicit user priors remain
   authoritative in C. An assumption-dependent aggregate update cannot alter
-  MAIN's tally or cache.
+  MAIN's tally or cache. All writers of overlay stores use `context-add!`,
+  `context-remove!` or their scoped exact-row helpers, including computed
+  base-rate publication and invalidation. A source audit rejects raw MeTTa
+  writes to these stores.
 - **Implication queries.** The private judgment contexts of an `Implication`
   query retain their existing hypothetical semantics. The Assuming overlay
   does not turn them into world contexts.
@@ -124,9 +127,11 @@ is permitted; promoting an overlay value into MAIN is not.
 ## Budget
 
 MAIN search uses the query's ordinary expansion and row allowances. Independent
-MAIN evaluation runs first. C's changed readers then use the remaining
-computation allowance and near-root reserve. Contexts in a batch share structure
-and the query's total budget, while retaining separate local values. A context
+MAIN evaluation runs first. Each C then receives a fresh evaluation allowance
+scaled by the query's steps and the original near-root reserve. A preceding
+context cannot spend another context's allowance. Contexts in a batch share
+structure and the query's total expansion budget, while evaluating their
+separate input worlds independently. A context
 query leaves no live overlay to continue across calls (persistent contexts are
 outside this implementation).
 

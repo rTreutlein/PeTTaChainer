@@ -260,8 +260,9 @@ class TestRuleRetirement(unittest.TestCase):
             "assertz(user:'&proof'(2000041001, [], ['ev-set', 0], _AF)), "
             "assertz(user:'&proof'(2000041002, ['proof-ref', 2000041001], ['ev-set', 0], _BF)), "
             "refs_gc_start, "
-            "forall(between(1, 5000, _), "
-            " (nb_getval(refs_gc_phase, _Phase), (_Phase=rule_sweep(_) -> true ; refs_gc_run(1)))), "
+            # MAIN warming can leave more than 5000 collector roots.
+            "call_with_time_limit(10, (repeat, nb_getval(refs_gc_phase, _Phase), "
+            " (_Phase=rule_sweep(_) -> ! ; refs_gc_run(1), fail))), "
             "nb_getval(refs_gc_phase, rule_sweep(_)), proof_rules(2000041002, _Set), "
             "refs_gc_run(inf), rule_set_has(_Set, 296000001), rule_set_has(_Set, 296000002), "
             "'withdraw-rule!'(296000001, _), 'proof-live?'(['proof-ref', 2000041002], Dead), "
