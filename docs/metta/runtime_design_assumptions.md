@@ -244,13 +244,19 @@ Waiters store a shared continuation template derived from the immutable compiled
 rule at its premise position, plus bindings and the awaited node. The template
 widens context/proof slots without imposing variable sharing absent from the
 actual join. Delivery reconstructs the original partial; original open keys and
-their sharing survive. The read-only `&sk_wait` relation owns no waiter clauses.
+their sharing survive. The static, read-only `&sk_wait` relation owns no waiter clauses and is not
+created as a mutable space. Making its source clause dynamic prevents the
+pinned runtime from snapshotting the library load.
 Cleanup erases compact payload clause references and removes each template with
 its last subscriber.
 A waiter batch computes its child-link digest once and passes it to the
 waiter, child and fixed-claim stores. A waiter lease records that digest and
 the waiter's clause reference; retraction finds the digest by the reference,
-without copying or hashing the partial again. Ownership, claim and debt cleanup
+without copying or hashing the partial again. Ownership records retain only a hash, store kind and clause reference; reads
+check the actual key on the owned clause (delivered joins check their existing
+60-bit conclusion digest). Functional subscriptions use a distinct store kind
+so a hash collision cannot confuse their key with the conclusion key.
+Ownership, claim and debt cleanup
 uses their existing scalar clause-reference or digest columns, rather than
 duplicate reverse predicates.
 Fact-watch cleanup uses the node hash already available at expansion or

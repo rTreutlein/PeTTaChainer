@@ -2092,7 +2092,7 @@ functional_check_addition(Add, Before, After) :-
     functional_check_fact(Fact, Assignment),
     ( Assignment = [Hash,Key,Type], \+ functional_value(Hash, Key, _)
     -> assertz(functional_value(Hash, Key, Type)),
-       ( sk_search_clause(Hash, Key, _, _) -> sk_queue_retirement(Hash, Key) ; true )
+       ( sk_search_owned(Hash, Key, _, _) -> sk_queue_retirement(Hash, Key) ; true )
     ; true ).
 
 'functional-rule!'([Type, Context|_], true) :-
@@ -2151,14 +2151,14 @@ sk_queue_retirement(H, Key) :-
 % and pw_in(Child, Rep, Links) for the condensed edges, with the child links
 % each stands for.
 :- dynamic pw_id/3, pw_up/2, pw_size/2, pw_work/2, pw_pend/2, pw_deg/3, pw_out/3, pw_in/3.
-:- dynamic '&sk_expanded'/2, '&sk_wait'/3, '&sk_link'/1, '&sk_join_link'/2, '&sk_child'/4,
+:- dynamic '&sk_expanded'/2, '&sk_link'/1, '&sk_join_link'/2, '&sk_child'/4,
            '&sk_parked'/3, '&sk_deferred_joins'/3, '&sk_deferred'/3, '&sk_fact_watch'/3.
 
 % Search work is indexed by the ground statement/context it concludes, apart
 % from its awaited premise index. Clause references erase exactly that work;
 % retract listeners keep the index correct for ordinary context cleanup too.
 % None of the values, facts, rows or sample/tally stores belong to this index.
-:- dynamic sk_search_clause/4, sk_search_node/4, sk_retire_queue/2,
+:- dynamic sk_search_clause/3, sk_search_node/4, sk_retire_queue/2,
            sk_child_edge/2, sk_child_users/2, sk_child_claim/3,
            sk_child_debt/2, sk_retire_component/1.
 sk_search_init :-
@@ -2191,9 +2191,28 @@ sk_search_key([Type, Context|Rest], Hash, [Type, Context]) :-
     ).
 
 sk_search_index(Conclusion, Space, Ref) :-
-    (   sk_search_key(Conclusion, H, Key)
-    ->  assertz(sk_search_clause(H, Key, Space, Ref))
+    (   sk_search_key(Conclusion, H, _)
+    ->  assertz(sk_search_clause(H, Space, Ref))
     ;   true ).
+
+% Ownership rows copy only the hash, store kind and exact clause reference.
+% Validate collisions against the owned clause, where the key already lives.
+% Join digests retain the existing 60-bit identity contract used by thawing.
+sk_search_owned(H, Key, Space, Ref) :-
+    term_hash(Key, H), sk_search_clause(H, Space, Ref),
+    ( Space == sk_functional_wait
+    -> clause(sk_wait_payload(_, [Type,Context|_], _, _), true, Ref),
+       functional_key(Type, Context, Stored), Key = Stored
+    ; Space == '&sk_join_link'
+    -> Key = [Type,Context], ground(Key),
+       'link-digest'(['sk-key',Type,Context], D),
+       clause('&sk_join_link'(D,_), true, Ref)
+    ; ( Space == sk_wait_payload
+      -> clause(sk_wait_payload(_, _, TemplateId, B), true, Ref),
+         sk_wait_template(_, _, TemplateId, ['sk-partial',_,_,C|_], B)
+      ; Space == sk_child_claim -> clause(sk_child_claim(_, _, C), true, Ref)
+      ; sk_search_conclusion(Space, Row, C), clause(Row, true, Ref) ),
+      sk_search_key(C, _, Key) ).
 
 % Delivered joins use the conclusion-keyed store shared with thaw cleanup.
 'sk-store-join!'(KeyDigest, Digest, Conclusion, true) :-
@@ -2220,7 +2239,7 @@ sk_search_index(Conclusion, Space, Ref) :-
     assertz(sk_child_users(D, Ref)), sk_search_index(C, sk_wait_payload, Ref),
     ( N = [Type,Context|_], functional_key(Type, Context, Key), term_hash(Key, Hash),
       \+ functional_value(Hash, Key, _)
-    -> assertz(sk_search_clause(Hash, Key, sk_wait_payload, Ref)) ; true ).
+    -> assertz(sk_search_clause(Hash, sk_functional_wait, Ref)) ; true ).
 
 % A continuation template is the compiled rule split at a premise position.
 % Context routing and query proof patterns widen only the affected slots.
@@ -2272,7 +2291,7 @@ sk_search_changed(Space, assertz, Ref) :- !,
     -> sk_unwatch_fact(H, N)
     ; true ).
 sk_search_changed(Space, retract, Ref) :- !,
-    retractall(sk_search_clause(_, _, _, Ref)),
+    retractall(sk_search_clause(_, _, Ref)),
     (   Space == sk_wait_payload
     ->  clause(sk_wait_payload(_, _, TemplateId, _), true, Ref),
         ( once((clause(sk_wait_payload(_, _, TemplateId, _), true, Other), Other \== Ref)) -> true
@@ -2290,7 +2309,7 @@ sk_search_changed(Space, retract, Ref) :- !,
 sk_search_changed(_, _, _).
 
 sk_erase_claim(Ref) :-
-    retractall(sk_search_clause(_, _, _, Ref)), erase(Ref).
+    retractall(sk_search_clause(_, _, Ref)), erase(Ref).
 
 % Withdrawal uses the same lease release as known-conclusion retirement.
 % Context cleanup keeps its own pending-graph transitions instead.
@@ -2327,7 +2346,7 @@ sk_release_child(D) :-
 'sk-retire-known!'(Type, Context, true) :-
     sk_search_init,
     (   sk_search_key([Type, Context], H, Key),
-        once((sk_search_clause(H, Key, _, _) ; sk_search_node(H, Key, _, _))),
+        once((sk_search_owned(H, Key, _, _) ; sk_search_node(H, Key, _, _))),
         'sk-known-conclusion?'([Type, Context], true)
     ->  sk_queue_retirement(H, Key)
     ;   true ).
@@ -2338,11 +2357,11 @@ sk_release_child(D) :-
 sk_retire_slice(0) :- !.
 sk_retire_slice(Units) :-
     (   sk_retire_queue(H, Key)
-    ->  (   sk_search_clause(H, Key, Space, Ref)
+    ->  (   sk_search_owned(H, Key, Space, Ref)
         ->  ( Key = functional(_,_,_)
             -> ( clause(sk_wait_payload(_, N, _, _), true, Ref), 'sk-functional-conflict?'(N, true)
                -> sk_retire_clause(Space, Ref)
-               ; retractall(sk_search_clause(H, Key, Space, Ref)) )
+               ; retractall(sk_search_clause(H, Space, Ref)) )
             ; sk_retire_clause(Space, Ref) )
         ;   sk_search_node(H, Key, NH, N)
         ->  retract(sk_search_node(H, Key, NH, N)), pw_drop_unused(NH, N)
@@ -2359,7 +2378,7 @@ sk_retire_slice(Units) :-
 sk_retire_clause(Space, Ref) :-
     % A ground unexpanded premise used its waiter as a fact subscription.
     % Preserve that read once per node, without the obsolete join payload.
-    (   Space == sk_wait_payload, clause(sk_wait_payload(H, N, _, _), true, Ref), N = [T, C, _, _],
+    (   memberchk(Space, [sk_wait_payload,sk_functional_wait]), clause(sk_wait_payload(H, N, _, _), true, Ref), N = [T, C, _, _],
         sk_search_key([T, C], _, _), 'sk-functional-conflict?'(N, false),
         \+ ( '&sk_expanded'(H, S), attribute_free_variant(S, N) ),
         'link-digest'(['sk-fact-watch', N], D), \+ '&sk_fact_watch'(_, D, _)

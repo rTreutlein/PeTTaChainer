@@ -156,8 +156,8 @@ class TestSearchRetirement(unittest.TestCase):
                 after = janus.query_once(
                     "'link-digest'(['sk-key',['Ball',right,d3],Ctx],D),"
                     "aggregate_all(count,'&sk_join_link'(D,_),Joins),"
-                    "aggregate_all(count,sk_search_clause(_, [['Ball',right,d3],Ctx],_,_),Indexed),"
-                    "aggregate_all(count,(sk_search_clause(_,_,_,_Ref),clause_property(_Ref,erased)),Orphans),"
+                    "aggregate_all(count,sk_search_owned(_, [['Ball',right,d3],Ctx],_,_),Indexed),"
+                    "aggregate_all(count,(sk_search_clause(_,_,_Ref),clause_property(_Ref,erased)),Orphans),"
                     "aggregate_all(count,(sk_child_users(_,_Ref),clause_property(_Ref,erased)),Leases),"
                     "aggregate_all(count,(sk_child_edge(_,_Ref),clause_property(_Ref,erased)),Edges),"
                     "aggregate_all(count,(pw_work(_,_Work),_Work<0),Negative),"
@@ -177,7 +177,7 @@ class TestSearchRetirement(unittest.TestCase):
         h.advance_epoch()
         h.advance_epoch()
         ctx = [h.kb, 'MAIN', 'Nil']
-        count = ("aggregate_all(count,sk_search_clause(_, [['B',warm],Ctx],'&sk_join_link',_),N)")
+        count = ("aggregate_all(count,sk_search_owned(_, [['B',warm],Ctx],'&sk_join_link',_),N)")
         self.assertGreater(janus.query_once(count, {'Ctx': ctx})['N'], 0)
         h._call('withdraw-named-rules!', ['old'])
         self.assertEqual(janus.query_once(count, {'Ctx': ctx})['N'], 0)

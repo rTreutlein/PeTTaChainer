@@ -116,7 +116,6 @@
 ;; Read-only delivery relation for compact native continuation payloads.
 ;; Write and remove through sk-store-wait! / retirement, never add-atom.
 (: &sk_wait (SpaceOf (Number SkPattern SkeletonWaiter)))
-!(bind! &sk_wait (new-space))
 !(bind! &sk_fact_watch (new-space))
 ;; child links: owner hash, owner, child, child hash
 (: &sk_child (SpaceOf (Number SkPattern SkPattern Number)))

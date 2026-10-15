@@ -82,7 +82,7 @@ class TestFunctionalPredicates(unittest.TestCase):
             "aggregate_all(count,(sk_wait_payload(_,[[At,_Value,_T],[Kb,'MAIN','Nil']|_],_,_),_T==t1),N)",
             {'Kb': h.kb, 'At': 'At'})['N'], 0)
         self.assertEqual(janus.query_once(
-            "aggregate_all(count,(sk_search_clause(_,_,_,_R),clause_property(_R,erased)),N)")['N'], 0)
+            "aggregate_all(count,(sk_search_clause(_,_,_R),clause_property(_R,erased)),N)")['N'], 0)
 
     def test_open_value_waiter_closes_only_after_reading_the_unique_answer(self):
         h = PeTTaChainer()
@@ -120,3 +120,19 @@ class TestFunctionalPredicates(unittest.TestCase):
         self.assertEqual(first['Open'], 10)
         second = janus.query_once("'sk-retire-searches!'(_)," + query, {'Ctx': ctx, 'At': 'At'})
         self.assertEqual((second['Closed'], second['Open']), (0, 10))
+
+    def test_ownership_hash_match_checks_the_waiters_actual_key(self):
+        h = PeTTaChainer()
+        h.set_functional_predicate('At', 2, (2,))
+        result = janus.query_once(
+            "_Ctx=[Kb,'MAIN','Nil'],_O=[outcome,_Ctx,_,_],_N=[['At',left,t2],_Ctx,_,_],"
+            "assertz(rules('runtime-rule-row',9999005,_O,[_N])),"
+            "'sk-node-hash'(_N,_NH),"
+            "'sk-store-wait!'(779,_NH,_N,['sk-partial',_O,9999005,_O,[],[_N],[]],_),"
+            "clause(sk_wait_payload(_NH,_,_,_),true,_Ref),"
+            "_Key=functional(Kb,'At',[t1]),term_hash(_Key,_Hash),"
+            "assertz(sk_search_clause(_Hash,sk_functional_wait,_Ref)),"
+            "aggregate_all(count,sk_search_owned(_Hash,_Key,_,_),Wrong),"
+            "_Right=functional(Kb,'At',[t2]),"
+            "aggregate_all(count,sk_search_owned(_,_Right,_,_),Right)", {'Kb':h.kb})
+        self.assertEqual((result['Wrong'],result['Right']), (0,1))
