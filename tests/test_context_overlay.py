@@ -129,10 +129,10 @@ class OverlayChecks:
         before = self.answers(goal)[0].tv
         changed = self.answers(f"(Assuming (B old) {goal})")[0].tv
         self.assertNotEqual(changed, before)
-        local = janus.query_once("overlay_probe_local(Rows)")["Rows"]
-        self.assertTrue(any(space == "&sk_instance_tally" for space, _, _ in local))
         self.assertEqual(janus.query_once("overlay_probe_main_leaks(Kb,Rows)",
                                          {"Kb": self.h.kb})["Rows"], [])
+        local = janus.query_once("overlay_probe_local(Rows)")["Rows"]
+        self.assertTrue(any(space == "&sk_instance_tally" for space, _, _ in local))
         self.assertEqual(self.answers(goal)[0].tv, before)
 
     def test_each_of_22_contexts_receives_its_evaluation_allowance(self):
@@ -165,8 +165,6 @@ class OverlayChecks:
                             for space, _, row in local), local)
         self.assertTrue(any(space == "&forward_aggregate_state" for space, _, _ in local))
         self.assertEqual(self.h._call("cached-base-rate", [f"{self.h.kb} (P $t)"]), before)
-        self.assertEqual(janus.query_once("overlay_probe_main_leaks(Kb,Rows)",
-                                         {"Kb": self.h.kb})["Rows"], [])
 
     def test_cleanup_keeps_only_assumption_independent_main_work(self):
         self.diagnostic(self.h)

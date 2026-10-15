@@ -8,8 +8,10 @@ overlay_probe_install(Mode) :-
     retractall(overlay_probe_write(_,_)),
     ( current_predicate(overlay_probe_installed/0) -> true
     ; assertz(overlay_probe_installed),
+      % Wrappers can run in a specialization module; audit the physical MAIN
+      % relations explicitly, and inject faults into those same relations.
       forall(context_store(Space,Arity),
-        prolog_listen(Space/Arity,overlay_probe_physical_write(Space))),
+        prolog_listen(user:Space/Arity,user:overlay_probe_physical_write(Space))),
       wrap_predicate('context-finish!'(_Allowance,_Reserve,Goals,Bases,Results), overlay_probe, Wrapped,
         ((overlay_probe_mutation(shared_budget)
           -> overlay_probe_shared_budget(Goals,Bases,Results) ; call(Wrapped)),
@@ -21,7 +23,7 @@ overlay_probe_install(Mode) :-
             ;overlay_probe_mutation(write_main_rate), Space='&base_rate_cache'
             ;overlay_probe_mutation(write_main_tally), Space='&sk_instance_tally'
             ;overlay_probe_mutation(write_main_aggregate), Space='&forward_aggregate_state'),context_active(_))
-          -> Head=..[Space|Row],assertz(Head),Added=true
+          -> Head=..[Space|Row],assertz(user:Head),Added=true
           ; call(Add) )),
       wrap_predicate('sk-value'(ValueKey,_Filter,_Exclude,Value), overlay_probe, Read,
         (( overlay_probe_mutation(independent_main),context_active(C),
