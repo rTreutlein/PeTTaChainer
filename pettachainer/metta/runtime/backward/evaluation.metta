@@ -2949,6 +2949,9 @@
    (-[semidet]-> Number Number SkeletonChange SkeletonWork SkeletonKey SkeletonWork))
 (= (sk-key-changed $pass $order $change $work $key)
    (let* (($hash (index-hash $key))
+          ($_mining (case $change (
+             ((sk-value-same $_deps $_merged-deps) ())
+             ($_changed (hm-screen-changed! $hash $key)))))
           ($folds
              (collapse (match &sk_use ($hash $stored $fold)
                 (if (=alpha $stored $key) $fold (empty)))))
