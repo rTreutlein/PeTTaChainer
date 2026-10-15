@@ -139,7 +139,9 @@ statement_index_hashes(PrefixFunction, Statement, Hashes) :-
 % predicates to adapters that only its structure decides, so the predicates'
 % ground arguments become variables: folds that differ only in constants,
 % such as one per decision step, share one compilation. Variables stay
-% shared. Any other pattern (chainer vocabulary) is its own shape.
+% shared. Any other pattern (chainer vocabulary) is its own shape. A
+% connective with such a child cannot fall through as a user predicate:
+% abstracting its children would change what its member compiler receives.
 'pattern-shape'(Pattern, Shape) :-
     (   statement_shape(Pattern, Shape) -> true ; Shape = Pattern ).
 
@@ -152,7 +154,7 @@ connective_shape(Pattern, Shape) :-
 statement_shape(Statement, Shape) :-
     (   connective_shape(Statement, Shape) -> true
     ;   nonvar(Statement), Statement = [Head|Args], atom(Head),
-        \+ memberchk(Head, ['Inheritance', 'Member', 'MemberInheritanceSample',
+        \+ memberchk(Head, ['And', 'Or', 'Not', 'Inheritance', 'Member', 'MemberInheritanceSample',
             'ImplicationInstanceSample', 'RuleTruth', 'Implication', 'Equivalence',
             'BiImplication', 'ForAll', 'Exists', 'WithPrior', 'Evaluation', 'Similarity',
             'Compute', 'CPU', 'FoldAll', 'FoldAllValue', 'FoldAllTruth', 'MapDist', 'Map2Dist',

@@ -55,6 +55,20 @@ after the search is read before the next query's walk by
    unexpanded; a later expansion starts its other rules, and the join already
    built is found again by its row identity.
 
+A missing ground fact is pending input, not an impossible premise. Even
+when no rule concludes it, expansion retains the ordinary join waiting on
+it. Pruning that join before registration left an And-consequent node
+expanded without its statement rule or its input waiter: later facts could
+not reach the projections reading that node (tracker #44). Only ground
+computations that cannot succeed are prefiltered; missing facts use the
+same indexed delivery path as other premises, without re-expansion.
+A population fold over a mixed connective, such as metadata conjoined with
+an implication, also keeps its exact compilation shape. Treating the whole
+connective as a user predicate can abstract a child into a variable, bind
+it to `CPU` during compilation, and fail the query after marking the fold
+expanded. Its temporary sample waiter then has no rule definition when a
+later fact tries to extend it, interrupting delivery to the projections.
+
 The rules a ground key is a premise of are found by hashing the key's
 statement prefixes (`&prem_prefix`, one row per premise under its longest
 ground prefix, within its KB), so the lookup costs a few hashes per fact,

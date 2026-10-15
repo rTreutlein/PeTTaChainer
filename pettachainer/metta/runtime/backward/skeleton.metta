@@ -1318,10 +1318,6 @@
 (= (contextualize-rule-args $goal $args)
    (map-semidet (contextualize-rule-premise $goal) $args))
 
-;; Walk a copy of a candidate rule's premises before any skeleton state is
-;; created: a ground fact premise with no matching fact that no rule concludes
-;; prunes the rule; ground deterministic computations run so later premises
-;; become checkable.
 (: prefilter-head-concludable? (-[det]-> Statement Atom Bool))
 (= (prefilter-head-concludable? $type $kbid)
    ;; Private implication judgments get their scaffold when expanded. An
@@ -1334,6 +1330,8 @@
                   true)))
                ())))))
 
+;; Only reject ground computations that cannot succeed. A missing fact is
+;; pending input, so its join must wait for later additions.
 (: prefilter-premise-blocks? (-[det]-> SkPattern Bool))
 (= (prefilter-premise-blocks? $premise)
    (once
@@ -1345,12 +1343,9 @@
                      (() true)
                      ((cons $result $_rest) (if (= $res $result) false true))))
                   false)))
-         (($type ($kbid $_ctx $_vars) $_prf $_tv)
-            (if (== (extract-vars $type) ())
-               (if (== (kb-facts (brand Statement $type) (brand KBContext (data $kbid $_c2 $_v2))) ())
-                  (not (prefilter-head-concludable? $type $kbid))
-                  false)
-               false))))))
+         ;; Missing facts can arrive after this node has been expanded. Keep
+         ;; their ordinary join subscriptions instead of caching an empty search.
+         ($_fact false)))))
 
 (: prefilter-prunes-walk (-[det]-> (List SkPattern) Bool))
 (= (prefilter-prunes-walk ()) false)

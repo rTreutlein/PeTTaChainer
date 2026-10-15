@@ -195,7 +195,15 @@ key (expanded nodes and the ground premises joins wait on, expanded or not)
 and, through the rule it is a premise of, by each unexpanded node the skeleton
 holds for that rule's conclusion, where that rule alone is started
 ([fact_absorption.md](fact_absorption.md)). So evidence that arrives after a
-search reaches the keys it built, without the search returning to them.
+search reaches the keys it built, without the search returning to them. A
+missing fact premise must keep its ordinary partial join subscription: an
+expanded node never restarts its rules merely because a fact was added. This
+also holds for rules deriving compound outputs whose projections already
+expanded without an answer. Fold-member compilation may abstract constants
+only in user predicates and connectives entirely over them. A connective
+with an implication or other compiler-specific child keeps its original
+shape; abstracting that child changes how the query compiles and can leave
+expansion unfinished with temporary waiters still installed.
 
 Rules compiled for one query (query adapters, implication scaffolds) leave with
 it: their rows, waiters and views are removed and the keys they fed change.
@@ -686,7 +694,9 @@ whose expansion installs rules) is expanded without a step when the walk
 reaches it: its expansion only reads its stored facts. It keeps its place in the walk, so its facts extend joins
 when its priority says so (reading them at once filled the row budget early:
 StationOps Brier 0.0652 against 0.0607 at the smallest budgets). Before any state is created, a rule
-whose ground fact premise has no fact and no concluding rule is pruned. New
+whose ground computation cannot succeed is pruned. A ground fact premise
+without a fact or concluding rule still keeps its waiter: that input can
+arrive later, and the node will not be expanded again. New
 rows have an allowance of ten per step, except the rows of the query's own
 roots, and a row costs one more for each 400
 words of its statement, what storing, hashing and comparing that much of a

@@ -25,11 +25,12 @@
    (prefilter-head-concludable? (brand Statement (Pair one two)) structuralPrefilterKb)
    false)
 
-;; A ground premise with no fact and no concluding rule is always pruned.
+;; A missing input is not an impossible computation: the durable join must
+;; subscribe to it so a later fact can complete the rule.
 !(test
    (prefilter-prunes-walk
       (cons (structural-prefilter-goal (MissingThing)) ()))
-   true)
+   false)
 
 !(compileadd structuralPrefilterKb (: seed0 (Seed one) (STV 1.0 1.0)))
 !(test
