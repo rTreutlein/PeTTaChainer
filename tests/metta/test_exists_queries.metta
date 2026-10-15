@@ -366,8 +366,8 @@
 ;; derived_rule
 !(compileadd derived_rule (: src_facilityRecordedFloodInspectionPolicyS1 (Implication (Exists ($flood) (And (Member $facility Facility) (Member $flood Flood) (RecordedFlood $facility $flood) (During $flood S1))) (RequiresInspectionDuring $facility S1)) (STV 1.0 1.0)))
 !(compileadd derived_rule (: next (Implication (RequiresInspectionDuring $s S1) (Notify $s)) (CTV (STV 1 1) (STV 0 1))))
-!(test (collapse (query 1000 derived_rule (: $p (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) $tv))) ())
-!(test (collapse (query 1000 derived_rule (: $p (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) $tv))) ())
+!(test (exists-answer-matches (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) 1 0.9997000897981131 true (query 1000 derived_rule (: $p (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) $tv))) true)
+!(test (exists-answer-matches (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) 1 0.9997000897981131 true (query 1000 derived_rule (: $p (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) $tv))) true)
 
 ;; universal_sharing_wrong
 !(compileadd universal_sharing_wrong (: src_facilityRecordedFloodInspectionPolicyS1 (Implication (Exists ($flood) (And (Member $facility Facility) (Member $flood Flood) (RecordedFlood $facility $flood) (During $flood S1))) (RequiresInspectionDuring $facility S1)) (STV 1.0 1.0)))
@@ -405,8 +405,8 @@
    true)
 
 ;; assuming_exists
-!(test (collapse (query 1000 assuming_exists (: $p (Assuming (Exists ($x) (P $x)) (Exists ($z) (P $z))) $tv))) ())
-!(test (collapse (query 1000 assuming_exists (: $p (Assuming (Exists ($x) (P $x)) (Exists ($z) (P $z))) $tv))) ())
+!(test (exists-answer-matches (Assuming (Exists ($x) (P $x)) (Exists ($z) (P $z))) 1 1 true (query 1000 assuming_exists (: $p (Assuming (Exists ($x) (P $x)) (Exists ($z) (P $z))) $tv))) true)
+!(test (exists-answer-matches (Assuming (Exists ($x) (P $x)) (Exists ($z) (P $z))) 1 1 true (query 1000 assuming_exists (: $p (Assuming (Exists ($x) (P $x)) (Exists ($z) (P $z))) $tv))) true)
 
 ;; assuming_no_leak
 !(test (collapse (query 1000 assuming_exists (: $p (Exists ($x) (P $x)) $tv))) ())

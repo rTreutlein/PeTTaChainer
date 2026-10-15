@@ -1162,6 +1162,8 @@
 (: lower-query-assumption-premise
    (-[nondet]-> KB $context $variables Statement  PremiseBundle))
 (= (lower-query-assumption-premise $kb $ctx $vars $premise)
+   (if (contains-explicit-exists? $premise)
+      (leaf-source-bundle $kb $ctx $vars (canonical-existential-side $premise))
    (if (if (is-expr $premise)
           (if (is-var (car-atom $premise)) false true)
           false)
@@ -1172,7 +1174,7 @@
                (let $prem-kb (source-premise-kb $kb $ctx $vars)
                   (premise-bundle ((: $prem-kb $prf (car-atom (cdr-atom $premise)) (STV 0.0 1.0))) (STV 1.0 1.0) $prf))
                (lower-source-premise $kb $ctx $vars $premise))))
-      (lower-source-premise $kb $ctx $vars $premise)))
+      (lower-source-premise $kb $ctx $vars $premise))))
 
 (: lower-query-assumption-premises
    (-[nondet]-> KB $context $variables (List Atom)

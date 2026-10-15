@@ -1317,11 +1317,26 @@
          ;; A fold over members the assumptions can change folds them in the
          ;; context: its arguments name the context instead of the KB.
          ((CPU $fun $args $res)
-            (if (if (== $fun FoldAllCompiled)
-                   (if (context-world? $ctx)
-                      (let $pattern (car-atom (cdr-atom $args)) (context-pattern-affected? $ctx $pattern))
-                      false)
-                   false)
+            (if (if (sk-existential-fold? $premise)
+                   (let $pattern (car-atom (cdr-atom $args))
+                      (if (context-world? $ctx)
+                         (context-pattern-affected? $ctx $pattern)
+                         (if (== $ctx MAIN) false
+                            ;; Ground judgments have no hypothetical individual
+                            ;; to protect. Open ones must preserve its sharing
+                            ;; rather than bind it to an unrelated fixed entity.
+                            (if (== $vars Nil) true
+                               (if (context-vars-in-type? $pattern $vars) true
+                                  (case $pattern (
+                                     ((ExistentialAlternatives $claim $_channel)
+                                        (judgment-assumed-key? $claim
+                                           (make-kb-context (brand KB $kbid) $ctx $vars)))
+                                     ($_other-pattern false))))))))
+                   (if (== $fun FoldAllCompiled)
+                      (if (context-world? $ctx)
+                         (let $pattern (car-atom (cdr-atom $args)) (context-pattern-affected? $ctx $pattern))
+                         false)
+                      false))
                (CPU $fun (cons-atom (make-kb-context (brand KB $kbid) $ctx $vars) (cdr-atom $args)) $res)
                (CPU $fun $args $res)))
          ;; A query judgment reads its explicit source context in another KB
@@ -1528,10 +1543,32 @@
    (let* (($scope (car-atom $args))
           ($kbid (if (is-expr $scope) (car-atom $scope) $scope))
           ($pattern (car-atom (cdr-atom $args)))
+          ($_adapters
+             (if (if (sk-existential-fold? (CPU fold $args unused))
+                     (if (is-expr $scope) (not (== (car-atom (cdr-atom $scope)) MAIN)) false)
+                     false)
+                (install-existential-member-adapters $scope $pattern)
+                ()))
           ($shape (pattern-shape $pattern))
           ($compiled (sk-shape-members $kbid $shape))
-          ($members (if (== $shape $pattern) $compiled (map-semidet (sk-narrow-member $pattern) $compiled))))
+          ;; Existential shapes retain free variables. Relink the cached
+          ;; member to this pattern, including its private context variables;
+          ;; alpha equality alone would leave those variables disconnected.
+          ($members (if (if (sk-existential-fold? (CPU fold $args unused)) false
+                           (== $shape $pattern))
+                        $compiled (map-semidet (sk-narrow-member $pattern) $compiled))))
       (if (is-expr $scope) (map-semidet (sk-scoped-member $scope) $members) $members)))
+
+;; Private witness compounds need scoped adapters just as a compound query
+;; goal does. MAIN dormancy cannot decide their hypothetical support. Keep this
+;; Atom boundary: inlining constrains the fold's KB-or-context scope as KBContext.
+(: install-existential-member-adapters (-[semidet]-> Atom Atom Atom))
+(= (install-existential-member-adapters $scope $pattern)
+   (let* (($adapter-scope (brand KBContext $scope))
+          ($adapter-pattern (brand Statement $pattern))
+          ($adds (collapse (compile-adapter-chain query
+             (: $adapter-scope $_proof $adapter-pattern $_tv)))))
+      (once (inject-compiled-adds (map-flat mm2stmt $adds)))))
 
 ;; A member compiled for an abstracted shape is narrowed to the fold's pattern.
 (: sk-narrow-member (-[semidet]-> Atom SkPattern SkPattern))

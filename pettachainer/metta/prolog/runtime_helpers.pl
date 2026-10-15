@@ -1189,7 +1189,8 @@ context_affected_heads(Ctx, Heads) :-
     affected_fixpoint(Seeds, Edges, Heads).
 
 assumed_head(T, H) :-
-    (   nonvar(T), T = ['Not', Inner] -> ( statement_head(T, H) ; statement_head(Inner, H) )
+    (   nonvar(T), T = ['Exists', _, _] -> H = 'ExistentialClaim'
+    ;   nonvar(T), T = ['Not', Inner] -> ( statement_head(T, H) ; statement_head(Inner, H) )
     ;   statement_head(T, H) ).
 
 statement_head(T, H) :-
@@ -1203,7 +1204,9 @@ premise_head(['CPU', Fun, Args|_], H) :- !,
 premise_head([T|_], H) :- statement_head(T, H).
 
 pattern_head(Pattern, H) :-
-    (   nonvar(Pattern), Pattern = ['And'|Conjuncts] -> member(C, Conjuncts), pattern_head(C, H)
+    (   nonvar(Pattern), Pattern = ['ExistentialAlternatives', ['ExistentialClaim', Body], _]
+    ->  ( H = 'ExistentialClaim' ; pattern_head(Body, H) )
+    ;   nonvar(Pattern), Pattern = ['And'|Conjuncts] -> member(C, Conjuncts), pattern_head(C, H)
     ;   statement_head(Pattern, H) ).
 
 affected_fixpoint(Heads, Edges, Result) :-

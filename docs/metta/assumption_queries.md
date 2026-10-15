@@ -161,3 +161,21 @@ query budget 50, action budget 15 per candidate, forward slice 150.
   reproduce it. Open.
 - **Cost of cleanup.** Recording and removing a context's link digests costs
   3–4% of decision query time (paired 20-shift runs).
+
+## Existential assumptions (tracker #51)
+
+A complete `(Exists ($x ...) body)` assumption, including one among the `And`
+facts, adds a contextual direct `ExistentialClaim` with scoped canonical slots
+and TV (1,1). It does not add the body's facts or a witness. Rules consume it
+through the same existential premise judgment as bare queries; a bare `Exists`
+goal reads that judgment in the context. The ordinary world facts and rules
+remain available as before. Local binder names cannot become free goal
+bindings, and answers freshen binders while preserving free outer sharing.
+
+Affected-head analysis treats the assumption as `ExistentialClaim`. An
+existential population can be affected through either its direct claim or its
+witness-body predicates. Both scalar and grouped existential folds read the
+appropriate context. This is the integration contract for the ctx-overlay
+branch; it introduces no new context store or alternate routing system.
+Quantified implications as Assuming facts or goals, nested binders and `Not Exists` are not
+supported. See [explicit_exists.md](explicit_exists.md).

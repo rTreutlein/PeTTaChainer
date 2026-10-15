@@ -1,8 +1,9 @@
 # Existential queries and premises
 
-Stage 1 of tracker #48 (October 2026) supports bare `Exists` queries and exact
-queries of stored rules with `Exists` on a complete side. Derived quantified
-rule judgments and `Assuming` with existential statements remain deferred.
+Trackers #48 and #51 (October 2026) support bare `Exists` queries, stored and
+derived rule judgments with `Exists` on a complete side, and existential facts
+and goals in `Assuming`. Stage 2 retains stage 1's floor, unknown-on-empty,
+correlated-witness lower bound, and shared premise/query lowering.
 
 ## Judgment
 
@@ -65,9 +66,10 @@ shared with the other side of a rule or identify independent answer groups.
 Multiple variables may denote the same concrete witness; slots do not assert
 inequality. Nested binders and binders with unused variables are rejected.
 
-Stored-rule lookup compares canonical structures with alpha equivalence before
-reading the stated fact in the existing private implication namespace. It works
-at budget zero. This is **syntactic matching up to variable renaming**:
+Stored-rule lookup indexes the canonical structure in the existing private
+implication namespace. Its shape hash and scoped slots preserve alpha matching;
+source binder variables never participate in runtime unification. It works at
+budget zero. This is **syntactic matching up to variable renaming**:
 `(And A B)` differs from `(And B A)`, and `(Exists ($x) (P $x $x))` cannot match
 `(Exists ($f) (P $f $s))`. Lookup never unifies source binder variables.
 
@@ -80,11 +82,40 @@ selected witness's proof for the correlated lower bound. Source IDs remain avail
 through `query-many-refs` and `expand-proof`.
 
 No witness object or categorical body fact is made from a non-constructive
-claim. Exact stored-rule lookup creates no hypothetical context. The internal
-`ExistsJudgment` and `ExistentialAlternatives` adapters are excluded from fact
-materialization. Stage 1 adds no stores, overlay registrations, status pair,
-closure certificate, or diagnostic fields. Applying existential reasoning inside
-hypothetical contexts, including the ctx-overlay branch integration, is stage 2.
+claim. Quantified query compilation prepares a positive judgment context;
+a stated fact still answers at budget zero without expanding that context.
+The internal `ExistsJudgment` and `ExistentialAlternatives` adapters are excluded
+from fact materialization. No stores, overlay registrations, status pair,
+closure certificate, or diagnostic fields are added.
+
+## Private judgments and Assuming
+
+A quantified implication assumes one canonical claim when its antecedent is
+existential, and proves its consequent using ordinary rules. It returns the
+positive-branch STV, with a `conditional-implication` proof containing those
+rules. It never assumes or projects the existential body. Existential
+consequents call the same premise lowering as bare queries. Exact stated rules
+retain their rule-evidence identity, so applying a rule under its own antecedent
+cannot boost its confidence by revising its axiom with itself.
+
+`Assuming` accepts an existential fact directly or among its `And` facts, and
+a bare existential goal. Its usual world-reading behavior is unchanged. It
+freshens local binders before goal bindings can affect the displayed statement.
+No assumed claims or categorical consequences leak to MAIN. Source withdrawal
+invalidates conditional results through the existing rule-provenance machinery.
+
+The context integration is limited to routing existential folds (scalar and
+grouped), preserving free-variable links when reading cached fold members, and
+identifying which heads an existential assumption or population can affect.
+An assumed `Exists` affects `ExistentialClaim`, not its body's predicates.
+The in-flight ctx-overlay branch changes the surrounding Assuming execution;
+its context owner must apply this same claim lowering and binder freshening.
+This change neither registers overlay stores nor replaces context routing.
+
+Nested quantifiers, binders with unused variables, quantified nested implication
+export, quantified implications supplied as Assuming facts or goals, and existential
+terms inside an implication-side connective remain unsupported. Negation,
+completion, and overlap-aware OR remain separate stages.
 
 ## Runtime and cost
 
@@ -121,7 +152,7 @@ variables, local binders, slots, stored-rule scope traps, budget ladders, late
 witnesses, wrong entity/shift, and absence of fabricated witnesses. The original
 `test_explicit_exists.metta` continues to cover residuals and durable groups.
 
-Intentional changes from master:
+Stage-1 changes relative to its pre-implementation master:
 
 | Expectation | Before | Stage 1 |
 |---|---|---|
@@ -156,3 +187,30 @@ Review corrections to the first stage-1 commit (`f71e3d67`):
 
 The grouped-view test now counts witness (`OrFormula`) views specifically;
 public answers still number two, then three after adding a group.
+
+
+Stage-2 changes relative to master `8aee6eea`:
+
+| Expectation | Stage 1 | Stage 2 |
+|---|---|---|
+| `derived_rule` (cold and warm in `test_exists_queries`) | no answer | strength 1, confidence 0.9997000897981131; both source rules in one conditional proof |
+| `assuming_exists` (cold and warm) | no answer | (1,1), through the contextual direct claim |
+| New composed flood-to-pause judgment | no answer | strength 1, confidence 0.999700089598233; both source rules in one conditional proof |
+
+`tests/metta/test_quantified_judgments.metta` checks the issue #51 chain without
+witness facts or a composed rule; alpha renaming and outer sharing; co-reference
+traps; missing rules, shift and facility controls; no leaks before/after warm
+queries; budget rungs 0–15; late rule addition and withdrawal/replacement;
+existential consequents and intermediate claims (general and ground); Assuming;
+private simple and compound witnesses; and actual view evidence for uncertain
+rules and a shared-source diamond. A stored uncertain quantified axiom still
+returns (0.8,0.9) at budgets 0 and 500, rather than revising itself with its own
+conditional application. Canonical source slots and dependency-set cycle
+exclusions are unchanged.
+
+A private compound witness fold installs the same query-local connective
+adapters as a compound goal. They leave through the existing temporary-addition
+cleanup and never assert witnesses. In an open implication context, routing
+preserves the hypothetical individual's sharing; a fixed other entity cannot
+bind it. Ground judgment contexts have no such individual and retain their
+intermediate existential folds in the same context.

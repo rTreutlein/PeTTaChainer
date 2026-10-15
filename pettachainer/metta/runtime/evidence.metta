@@ -32,7 +32,7 @@
    (case $prf (
       ((rule-axiom $name) (rule-ev (statement-query-kb (brand KB (car-atom $kb))) $name))
       ($_other
-         (if (implication-type? $type)
+         (if (if (implication-type? $type) true (head-is? $type QuantifiedRule))
             (let* (($source-kb (statement-query-kb (brand KB (car-atom $kb))))
                    ($name (rule-evidence-base-name $prf)))
                (if (rule-evidence-registered? $source-kb $name)

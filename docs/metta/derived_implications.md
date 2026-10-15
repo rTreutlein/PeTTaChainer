@@ -2,11 +2,51 @@
 
 Status: built, October 2026.
 
-Quantified rules currently have a narrower query path: exact stored rules with
-`Exists` on a complete side return their stated judgment through scoped
-canonical matching. Deriving a new quantified rule judgment by hypothetical
-antecedent introduction or nested export is deferred to existential stage 2;
-see [explicit_exists.md](explicit_exists.md).
+Quantified rule judgments (tracker #51, existential stage 2) use the same
+positive private-context semantics. For example, with just
+
+```metta
+(: flood-inspection
+   (Implication
+      (Exists ($event) (And (Member $site Facility)
+                           (RecordedFlood $site $event) (During $event S1)))
+      (RequiresInspectionDuring $site S1)) (STV 1 1))
+(: inspection-pause
+   (Implication (RequiresInspectionDuring $site S1)
+      (MustPauseProductionDuring $site S1)) (STV 1 1))
+```
+
+querying the composed implication from the existential antecedent to
+`MustPauseProductionDuring` returns strength 1 with propagated confidence
+(approximately 0.99970009), and a proof of the form
+
+```metta
+(conditional-implication
+   (by inspection-pause (by flood-inspection (ctx proof context-id))))
+```
+
+The context assumes **the existential statement**, represented by a direct
+`ExistentialClaim` with canonical local slots and TV (1,1). It does not assume
+`Member`, `RecordedFlood`, or `During` individually and creates no flood event.
+The existing premise judgment reads that claim through the existential floor.
+Free `$site` remains shared between both sides; renamed binders are equivalent,
+but different co-reference and conjunct order are not. Contextual results never
+become unconditional MAIN facts.
+
+A complete existential consequent is proved through the same judgment. Each
+side owns its slots, even when both source binders have the same spelling.
+`Assuming` uses the same claim lowering, with its existing world-reading scope.
+Source rule identities remain in the proof DAG and retirement dependencies;
+uncertain rule evidence is unioned, and shared derivations are not independent.
+In particular a stated quantified rule and its own conditional application use
+the same rule evidence. Partial search yields a supported positive answer or
+no answer, never a fabricated negative from an empty witness population.
+
+Stage 2 supports complete-side quantifiers through ordinary multi-rule chains.
+It does not implement quantified nested implication export, nested binders,
+quantifier distribution across connectives, quantified implications as Assuming facts or goals,
+`Not Exists`, completion, or overlap-aware witness OR. See
+[explicit_exists.md](explicit_exists.md) for the shared judgment and cost.
 
 ## Problem
 

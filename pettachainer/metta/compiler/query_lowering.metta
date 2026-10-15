@@ -10,7 +10,7 @@
        Statement Statement
        (KBContext Proof Statement (List CompiledAddition))))
 (= (query-side $kb $mvars $negative? $antecedent $consequent)
-   (let*
+   (once (let*
       (($ctx (nextctx))
        ($shape-kb (make-kb-context $kb $ctx $mvars))
        ($premises (implication-side-conjuncts $antecedent))
@@ -18,14 +18,21 @@
           (once (if $negative?
                    (lower-query-assumption-premises-negative $kb $ctx $mvars $premises)
                    (lower-query-assumption-premises $kb $ctx $mvars $premises))))
-       ($adds
-          (union-compiled-additions
-             (query-context-premise-adds $kb $ctx $mvars $execs)
-             (collapse
-                (compile-adapter-chain query
-                   (: $shape-kb $prf $consequent $adapter-tv))))))
-      (data
-         $shape-kb (brand Proof $prf) $consequent $adds)))
+       ($goal (if (contains-explicit-exists? $consequent)
+                  (let $claim (canonical-existential-side $consequent)
+                     (brand Statement (ExistsJudgment $claim)))
+                  $consequent))
+       ($goal-adds
+          (if (contains-explicit-exists? $consequent)
+             (let (premise-bundle $goal-execs $goal-tv $goal-proof)
+                (once (lower-source-premise-with-existentials $kb $ctx $mvars $consequent))
+                (cons (brand CompiledAddition
+                   ($goal-execs |- (: $shape-kb $goal-proof $goal $goal-tv))) ()))
+             (collapse (compile-adapter-chain query
+                (: $shape-kb $prf $consequent $adapter-tv)))))
+       ($adds (union-compiled-additions
+          (query-context-premise-adds $kb $ctx $mvars $execs) (the (List CompiledAddition) $goal-adds))))
+      (data $shape-kb (brand Proof $prf) (the Statement $goal) $adds))))
 
 ;; Judgment contexts know the whole compound antecedent as well as its
 ;; lowered parts. In particular a Not reader of a ground And must read that
@@ -316,12 +323,30 @@
                 (canonical-existential-side (brand Statement $b))))
              ($hash (index-hash $canonical))
              ($scope (make-kb-context (brand KB (implication-query $kb)) MAIN Nil))
-             ($query-tv (statement-query-tv $tv)))
-         (once (match &kb ((QuantifiedRule $hash $stored) $scope $proof $value)
-            (if (=alpha $canonical $stored)
-               (compilation-plan
-                  (: $scope $prf (QuantifiedRule $hash $stored) $query-tv) ())
-               (empty)))))))
+             ($query-tv (statement-query-tv $tv))
+             ($mvars (query-variables (extract-vars $canonical)))
+             (($positive $positive-proof $goal $adds)
+                (judgment-query-side $kb $mvars false
+                   (brand Statement $a) (brand Statement $b))))
+         (compilation-plan (: $scope $prf (QuantifiedRule $hash $canonical) $query-tv)
+            (cons (brand CompiledAddition
+               (((: $positive $positive-proof $goal $query-tv))
+                  |- (: $scope (conditional-implication $positive-proof)
+                     (QuantifiedRule $hash $canonical) $query-tv))) $adds)))))
+
+;; Reopen canonical slots with fresh local binders before an Assuming answer
+;; can bind free goal variables. Equal source spellings across scopes must not
+;; turn a binder into a categorical individual in the public answer.
+(: scope-query-existentials (-[nondet]-> Atom Statement))
+(= (scope-query-existentials $statement)
+   (if (head-is? $statement And)
+      (let $children (the (List Atom) (cdr-atom $statement))
+         (brand Statement (cons And
+            (map-flat scope-query-existentials $children))))
+      (if (contains-explicit-exists? $statement)
+         (let $canonical (canonical-existential-side (brand Statement $statement))
+            (existential-source $canonical))
+         (brand Statement $statement))))
 
 (: compileQuery
    (-[nondet]-> KB AnnotatedStatement CompilationPlan))
@@ -330,21 +355,20 @@
       (let* (((ExistentialAlternatives $claim $channel) $Type)
              ((Exists $_binder $body) (existential-source $claim))
              ($groups (list_to_set (extract-vars $claim)))
+             ($alternative-kb (make-kb-context $kb $alternative-ctx $alternative-vars))
              ((premise-bundle $execs $witness-tv $_witness-proof)
                 (fold-existential-premise-bundle $kb MAIN Nil
                    (brand Statement $body) (the (List Variable) $groups) OrFormula (STV 0 0))))
          (compilation-plan (: (kbctx $kb) $prf $Type $tv)
             (the (List CompiledAddition)
-               ((((: (kbctx $kb) $claim-proof $claim $claim-tv)
+               ((((: $alternative-kb $claim-proof $claim $claim-tv)
                   (CPU existential-outer-values? ($groups) true))
-                    |- (: (kbctx $kb) $claim-proof
+                    |- (: $alternative-kb $claim-proof
                        (ExistentialAlternatives $claim direct) $claim-tv))
-                ($execs |- (: (kbctx $kb) cpu
+                ($execs |- (: $alternative-kb cpu
                    (ExistentialAlternatives $claim witnesses) $witness-tv))))))
    (if (is-var $Type)
       (compilation-plan (: (kbctx $kb) $prf $Type $tv) ())
-      (if (contains-explicit-exists? $Type)
-         (compile-existential-query $kb (: $prf $Type $tv))
       (if (= $Type (Assuming $facts $goal))
          ;; The facts hold in a fresh context that sees the world: the goal's
          ;; answers there, one per binding of its variables
@@ -352,16 +376,21 @@
          ;; It has no hypothetical individual, so its context names no
          ;; variables and its keys stay ground.
          (let*
-            ((($shape-kb $prf $b $adds)
-                (query-side $kb Nil false (brand Statement $facts) (brand Statement $goal)))
-             ($_world (context-world! $shape-kb (brand Statement $facts))))
+            (($scoped-facts (scope-query-existentials $facts))
+             ($scoped-goal (scope-query-existentials $goal))
+             ($assuming-type (brand Statement (Assuming $scoped-facts $scoped-goal)))
+             (($shape-kb $prf $b $adds)
+                (query-side $kb Nil false $scoped-facts $scoped-goal))
+             ($_world (context-world! $shape-kb $scoped-facts)))
             (compilation-plan
-               (: (kbctx $kb) $root-prf $Type $tv)
+               (: (kbctx $kb) $root-prf $assuming-type $tv)
                (cons
                   (brand CompiledAddition
                      ((the (List Goal) ((: $shape-kb $prf $b $tv)))
-                        |- (: (kbctx $kb) (assuming $prf) $Type $tv)))
+                        |- (: (kbctx $kb) (assuming $prf) $assuming-type $tv)))
                   $adds)))
+      (if (contains-explicit-exists? $Type)
+         (compile-existential-query $kb (: $prf $Type $tv))
       (if (= $Type (Implication $stated-antecedent $stated-consequent))
          ;; A nested implication a → (x → y) is judged as its exported form
          ;; (a ∧ x) → y (docs/metta/derived_implications.md): its contexts

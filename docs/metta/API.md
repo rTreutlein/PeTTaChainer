@@ -112,8 +112,26 @@ consequent return their stated STV, including at budget zero and with renamed
 binders. Matching uses canonical scoped slots, syntactically up to renaming:
 conjunct order and co-reference must agree. Public expressions reconstruct local
 binders, retaining outer sharing and source proof IDs. A non-constructive claim
-never fabricates a witness. Derived quantified rule judgments, existential
-`Assuming`, and explicit `Not (Exists ...)` are not supported in this stage.
+never fabricates a witness.
+
+A non-stored quantified implication is judged by assuming its antecedent in a
+private context and proving its consequent through the KB's rules. An existential
+antecedent installs one canonical `ExistentialClaim` at (1,1), never its body or a
+witness. The answer is the positive-branch STV; its `conditional-implication`
+proof retains every source rule. Complete-side existential consequents use the
+same direct-claim/witness judgment as bare queries. An axiom and its own
+application share rule evidence and cannot revise one another as independent.
+
+`Assuming` accepts a complete existential fact, or such facts among an `And` of
+assumptions, and a bare existential goal. It uses the same contextual claim and
+retains its ordinary world-reading behavior. Local binders are fresh in public
+answers; free outer variables remain shared. No hypothetical claim, witness,
+body fact, or categorical consequence is published to MAIN.
+
+Nested binders, quantified nested implication export, quantified implications
+as Assuming facts or goals, and `Not (Exists ...)` remain unsupported. Existentials must
+occupy a complete implication side; moving them across connectives is not
+inferred. Existential completion and overlap-aware witness OR are deferred.
 See [Existential queries and premises](explicit_exists.md) for semantics,
 costs, scope, and changed expectations.
 
