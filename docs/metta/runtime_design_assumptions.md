@@ -283,9 +283,9 @@ conditioning, as before.
 
 An optional `set-functional-predicate` declaration gives an input relation
 immutable single-valued keys. It also declares that relation positive-only;
-only ground certain-true main-world inputs may populate it, and no permanent
-rule may derive it. A conflicting tuple is rejected before that fact is
-published. An unassigned key stays open. This deliberately does not infer
+only ground certain-true main-world inputs may populate it, and no rule,
+including a temporary query rule, may derive it. A conflicting tuple is rejected
+before that fact is published. An unassigned key stays open. This deliberately does not infer
 negative facts for every other value: those would invent negative-antecedent
 samples. It is not a declaration about uncertain or derived values.
 Waiters whose key arguments are ground share the existing ownership index and

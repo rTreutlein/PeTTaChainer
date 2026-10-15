@@ -445,7 +445,7 @@ class PeTTaChainer:
 
         Positions count from 1; all remaining arguments form the value. Facts
         must be ground and certain true. Another value, a probabilistic or
-        negative fact, or a permanent rule deriving this predicate raises an
+        negative fact, or any rule deriving this predicate raises an
         error. Unassigned keys remain open. This also declares the predicate
         positive-only. Timed subprocess queries replay the declaration.
         """

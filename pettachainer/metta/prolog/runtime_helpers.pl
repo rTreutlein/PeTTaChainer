@@ -2033,7 +2033,7 @@ hypothesis_confidence(['CTV', ['STV', _, C], _], C).
     aggregate_all(count, ( member(['hm-reviewed', Name|_], Live), retract('&hm_unread'(Name, KB)) ), Count).
 
 % Functional input relations are immutable value tables. Ground certain-true
-% facts assign a key; no other fact or permanent rule may define that relation.
+% facts assign a key; no other fact or rule may define that relation.
 % This is stronger than merely knowing an uncertain most likely value.
 :- dynamic functional_predicate/4, functional_value/3, '&kb'/4, '&sk_answer'/3, rules/4.
 'set-functional-predicate'(Kb, Head, Arity, Positions, true) :-

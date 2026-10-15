@@ -239,7 +239,7 @@
              (if (== $backend temp)
                 (+ 1000000000 (next-search-id bwd_tmp_ruleid))
                 (next-search-id ruleid)))
-           ($_functional (if (== $backend temp) true (functional-rule! $typed-ccls)))
+           ($_functional (functional-rule! $typed-ccls))
            ($_1 (if (== $backend backward) 0 (fold-flat (kb-add-prem $backend $id) 0 $rule-args)))
            ($ccls-row
               (make-space-row3 $typed-ccls $id $rule-args))

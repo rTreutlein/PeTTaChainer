@@ -84,6 +84,27 @@ class TestFunctionalPredicates(unittest.TestCase):
         self.assertEqual(janus.query_once(
             "aggregate_all(count,(sk_search_clause(_,_,_R),clause_property(_R,erased)),N)")['N'], 0)
 
+    def test_temporary_rules_cannot_derive_functional_inputs(self):
+        for assigned in (False, True):
+            with self.subTest(assigned=assigned):
+                h = PeTTaChainer()
+                h.set_functional_predicate('Next', 2, (1,))
+                h.add_atom('(: source (Source a c) (STV 1 1))')
+                if assigned:
+                    h.add_atom('(: observed (Next a b) (STV 1 1))')
+                # Exercise the query-rule insertion path, before any of its
+                # premise, conclusion or rule rows can be published.
+                with self.assertRaisesRegex(janus.PrologError, 'functional_predicate'):
+                    janus.query_once(
+                        "'inject-compiled-adds'([[rules,[[[['Source',a,c],Ctx,source,['STV',1,1]]],"
+                        "'|-',[['Next',a,c],Ctx,temporary,['STV',1,1]]]]],_)",
+                        {'Ctx': [h.kb, 'MAIN', 'Nil']})
+                self.assertEqual(janus.query_once(
+                    "aggregate_all(count,rules('runtime-rule-row',_,[['Next'|_],[Kb,'MAIN','Nil']|_],_),N)",
+                    {'Kb': h.kb})['N'], 0)
+                answers = h.query_many_refs(['(: $p (Next a $value) $tv)'], steps=40)[0]
+                self.assertEqual([a.statement for a in answers], [['Next', 'a', 'b']] if assigned else [])
+
     def test_open_value_waiter_closes_only_after_reading_the_unique_answer(self):
         h = PeTTaChainer()
         h.set_functional_predicate('Next', 2, (1,))
@@ -97,6 +118,40 @@ class TestFunctionalPredicates(unittest.TestCase):
             {'Kb': h.kb, 'Next': 'Next'})['N'], 0)
         # A new reader created after assignment must still expand/read it.
         self.assertTrue(h.query_many_refs(['(: $p (Linked a b) $tv)'], steps=40)[0])
+
+    def test_functional_history_keeps_a_bounded_waiter_frontier(self):
+        h = PeTTaChainer()
+        h.set_functional_predicate('NextPeriod', 2, (1,))
+        h.set_functional_predicate('At', 2, (2,))
+        values = ('left', 'right', 'up', 'down')
+        h.add_atoms_no_check([
+            f'(: r_{value} (Implication (And (NextPeriod $t $u) (NextPeriod $u $v) '
+            f'(At {value} $v)) (Seen {value} $t)) (STV 1 0.9))'
+            for value in values
+        ])
+        queries = [f'(: $p (Seen {value} $t) $tv)' for value in values]
+        counts = []
+        for t in range(28):
+            h.add_atoms_no_check([
+                f'(: n{t} (NextPeriod t{t} t{t + 1}) (STV 1 1))',
+                f'(: a{t} (At left t{t}) (STV 1 1))',
+            ])
+            answers = h.query_many_refs(queries, steps=100)
+            self.assertFalse(any(answers[1:]))
+            if t >= 3:
+                self.assertEqual(len(answers[0]), t - 1)
+            if (t + 1) % 4 == 0:
+                counts.append(janus.query_once(
+                    "aggregate_all(count,'&sk_wait'(_, [_,[Kb,'MAIN','Nil']|_],_),N)",
+                    {'Kb': h.kb})['N'])
+        # c = 0 after four warm-up steps: these four two-link rules have
+        # only a moving frontier (open start, second link, final At).
+        # Each new complete time point closes every older functional key,
+        # including the three incompatible At values. No ordinary input
+        # subscription in this fixture needs to accumulate with history.
+        self.assertGreater(counts[0], 0)  # Still subscribes to future facts.
+        for before, after in zip(counts, counts[1:]):
+            self.assertLessEqual(after - before, 0, counts)
 
     def test_assignment_retirement_is_sliced_and_leaves_other_keys_live(self):
         h = PeTTaChainer()
