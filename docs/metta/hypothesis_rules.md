@@ -697,13 +697,7 @@ query). Each hypothesis is then judged:
   consequent's probability without it by more than two standard errors of
   that probability over its observations, and from the strength of every
   more general live hypothesis judged in the same review that rests on
-  at least four observations and whose own SE fits the existing comparison
-  tolerance. The comparison uses `2*sqrt(q*(1-q)/n_specific)`, with `q`
-  clamped to [0.05, 0.95]. Requiring the general rule's own error
-  `sqrt(q*(1-q)/n_general)` to be no larger than that tolerance is equivalent
-  to `n_general >= n_specific/4` (four is the existing z-score squared).
-  This adds no fitted threshold and does not require a general rule to have
-  more counted evidence than a rebuilt specific rule to screen it. A general
+  at least four observations. A general
   rule is one whose antecedent conjuncts, under a substitution taking its
   consequent to this one's, are some of this one's:
   `(A $x) → (B $x)` screens off `(And (A $x) (C $x)) → (B $x)`, and the
@@ -732,12 +726,16 @@ certain rules are covered too. Retirement does not scan the skeleton or history:
 views are checked and affected live rows refreshed when a read needs them. The
 historical proof store stays. An uninformative or opportunity-expired hypothesis
 is never proposed again. A screened hypothesis instead records one screening
-`RuleTruth` key, its strength, and its own one-standard-error uncertainty at
-that review (`sqrt(q*(1-q)/n_general)`, with the same clamp). Changes to that
-key queue one notification; unchanged keys cause no reconsideration. At the
-next review, after reading live truths, only notified screening keys are read.
-If the screen's strength moved by more than the recorded error, or the screen
-was withdrawn, the candidate's tried marker and screening record are removed.
+`RuleTruth` key and its own implication. Changes to the screening key queue
+one notification; unchanged keys cause no reconsideration. At the next review,
+after reading live truths, only notified keys and the current instance folds
+of their screened candidates are read. Those retained folds recover the
+specific rule's current strength and count even while its executable rule is
+withdrawn. If the specific rule now differs by more than two current standard
+errors from that general rule, or the general rule was withdrawn, the tried
+marker and screening record are removed. There is no stored-strength or
+frozen-SE movement threshold.
+
 It may then be proposed by a later ordinary sighting, with a fresh name and
 prior, folding its historical instances again. Reconsideration itself allocates
 no live hypotheses and bypasses neither `$max-new` nor `$max-live`; a full
