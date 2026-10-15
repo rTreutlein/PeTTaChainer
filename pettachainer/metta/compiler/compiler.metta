@@ -35,5 +35,7 @@
             (let (compilation-plan $goal $adds) (compileQuery $kb $stmt)
                (compiled-query
                   (brand CompiledQueryGoal
-                     (internalize-proof-structure $goal))
+                     (if (head-is? $goal CPU)
+                        (internalize-proof-structure-any $goal)
+                        (internalize-proof-structure $goal)))
                   (map-flat mm2stmt $adds)))))))

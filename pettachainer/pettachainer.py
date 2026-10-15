@@ -1,6 +1,7 @@
 import functools
 import json
 import logging
+import math
 import multiprocessing as mp
 import os
 from contextlib import contextmanager
@@ -45,6 +46,7 @@ def _query_worker(
     logic_config_path: Optional[str],
     evidence_confidence_k: float,
     bayes_prior_count: float,
+    context_reuse_threshold: float,
     rule_refinement: bool,
     rule_change_hazard: Optional[float],
     base_rate_smoothing: bool,
@@ -61,6 +63,7 @@ def _query_worker(
         handler = PeTTaChainer(logic_config=logic_config_path)
         handler.set_evidence_confidence_k(evidence_confidence_k)
         handler.set_bayes_prior_count(bayes_prior_count)
+        handler.set_context_reuse_threshold(context_reuse_threshold)
         handler.kb = kb
         handler.set_rule_refinement(rule_refinement)
         if rule_change_hazard is not None:
@@ -172,6 +175,7 @@ class PeTTaChainer:
         self._logic_config_path: Optional[Path] = None
         self._evidence_confidence_k = 800.0
         self._bayes_prior_count = 0.2
+        self._context_reuse_threshold = 0.000001
         self._rule_refinement = False
         self._rule_change_hazard: Optional[float] = None
         self._base_rate_smoothing = False
@@ -375,6 +379,19 @@ class PeTTaChainer:
             f"!(set-bayes-prior-count {float(a)!r})"
         )
         self._bayes_prior_count = float(a)
+
+    def set_context_reuse_threshold(self, threshold: float) -> None:
+        """Set Assuming's Beta-divergence propagation threshold (default 1e-6).
+
+        Zero preserves exact value and compatibility changes. MAIN's user
+        priors are inherited at every threshold. Timed queries replay this
+        process-wide setting in their worker.
+        """
+        threshold = float(threshold)
+        if not math.isfinite(threshold) or threshold < 0:
+            raise ValueError("context reuse threshold must be finite and nonnegative")
+        self._call("set-context-reuse-threshold", [repr(threshold)])
+        self._context_reuse_threshold = threshold
 
     def set_forward_min_evidence(self, n: float) -> None:
         """Set the least evidence, in observations, a forward-chained result
@@ -699,6 +716,7 @@ class PeTTaChainer:
                 str(self._logic_config_path) if self._logic_config_path else None,
                 self._evidence_confidence_k,
                 self._bayes_prior_count,
+                self._context_reuse_threshold,
                 self._rule_refinement,
                 self._rule_change_hazard,
                 self._base_rate_smoothing,

@@ -274,8 +274,7 @@
           ((sk-val ($_type $_context $_proof $value) $ev $_deps)
              (sk-value (sk-key $conclusion $shape) sk-any-filter ()))
           ($valid (and (=alpha $value (STV 0.0 0.0)) (== $ev (ev-set 0))))
-          ($_cleared (clear-temp-query-adds))
-          ($_contexts (sk-clear-contexts!)))
+          ($_cleared (clear-temp-query-adds)))
    (test $valid true))
 
 ;; Prefix lookup may specialize a variable assumption to a ground reader.
@@ -290,6 +289,5 @@
           ($fixed (quote (A Fixed)))
           ($valid (and (judgment-assumed-key? $a $shape)
              (not (judgment-assumed-key? $fixed $shape))))
-          ($_cleared (clear-temp-query-adds))
-          ($_contexts (sk-clear-contexts!)))
+          ($_cleared (clear-temp-query-adds)))
    (test $valid true))

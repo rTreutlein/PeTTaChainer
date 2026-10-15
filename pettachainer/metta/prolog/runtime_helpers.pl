@@ -2,9 +2,12 @@
 :- use_module(library(assoc)).
 :- use_module(library(nb_set)).
 :- use_module(library(yall)).
+:- ensure_loaded(context_overlay).
 
 % Data-only spaces have no function definitions or compiler metadata. In
 % particular, an open first column must not enter remove-atom's function case.
+'remove-data-rows!'(Space, Pattern, true) :-
+    context_store(Space,_), context_active(_), !, 'context-remove!'(Space,Pattern,true).
 'remove-data-rows!'(Space, Pattern, true) :-
     Row =.. [Space|Pattern],
     retractall(Row).
@@ -15,18 +18,18 @@
 % the add itself (PeTTa's analysis hooks raise and catch an exception per
 % checked column); the callers build rows of the declared shape.
 'add-space-atom!'(Space, Row, true) :-
+    context_store(Space,_), !, 'context-add!'(Space,Row,true).
+'add-space-atom!'(Space, Row, true) :-
     Term =.. [Space|Row],
     assertz(Term).
 
-% Remove the rows of each space whose first column is Hash: the stores keyed
-% by a node's or key's own hash, all at once.
-'remove-hash-rows!'(Spaces, Hash, true) :-
-    ( memberchk('&sk_wait', Spaces) -> retractall(sk_wait_payload(Hash, _, _, _)) ; true ),
-    forall(( member(Space, Spaces), Space \== '&sk_wait', current_predicate(Space/Arity), Arity > 0 ),
-           ( functor(Row, Space, Arity), arg(1, Row, Hash), retractall(Row) )).
-
 % Erase the one stored row that is a variant of Row. A removal by unification
 % could also take a different row with the same coarse hash; a variant cannot.
+'remove-variant-row!'(Space, Row, true) :-
+    context_store(Space,_), context_active(C), !,
+    forall((clause(context_entry(_,C,Space,Stored,_),true,Ref), Stored =@= Row), erase(Ref)),
+    ( Row=[Hash|_], ground(Hash) -> Index=Hash ; Index=all ),
+    assertz(context_hidden(Index,C,Space,Row,variant)).
 'remove-variant-row!'('&sk_wait', [H, N, W], true) :- !,
     sk_remove_wait(H, N, W).
 'remove-variant-row!'(Space, Row, true) :-
@@ -349,6 +352,9 @@ refs_holder('&sk_summary', 5, [3, 4]).
 refs_holder('&materialized_facts', 6, [5, 6]).
 refs_holder('&forward_aggregate_observation', 5, [3]).
 refs_holder('&combination_pending', 4, [4]).
+refs_holder(context_entry, 5, [4]).
+refs_holder(context_hidden, 5, [4]).
+refs_holder(context_propagated, 4, [4]).
 
 :- dynamic refs_gc_proof/1, refs_gc_set/1, refs_gc_grey/1, refs_gc_rule/1, refs_gc_rule_grey/1.
 
@@ -1131,90 +1137,10 @@ dormancy_note_head(Type) :-
     findall(Id, rule_dormancy(Id, true, _), Ids0), sort(Ids0, Ids),
     retractall(rule_dormancy(_, _, _)).
 
-% A permanent rule can change what any context's assumptions affect; a query's
-% own rules are compiled into its contexts before their premises are placed.
-'context-affected-reset!'(true) :- retractall(context_affected_memo(_, _)).
-
-% A context removed with its query leaves no mark.
-'context-forget!'(Ctx, true) :- retractall(world_context(Ctx, _)), retractall(context_affected_memo(Ctx, _)).
-
-% Contexts of `Assuming` queries see the world: the main context's facts and
-% keys stay readable there, and a premise is placed in the context only when the
-% assumptions can change it (docs/metta/assumption_queries.md).
-:- dynamic world_context/2, context_affected_memo/2.
-
-% A world context keeps the heads its assumed facts state, so finding what the
-% assumptions affect reads the query's facts, not every stored fact.
-'context-world!'([_, Ctx|_], Facts, true) :-
-    (   world_context(Ctx, _) -> true
-    ;   findall(H, ( fact_conjunct(Facts, F), assumed_head(F, H) ), Heads0),
-        sort(Heads0, Heads), assertz(world_context(Ctx, Heads)) ).
-
-fact_conjunct(Facts, F) :-
-    (   nonvar(Facts), Facts = ['And'|Conjuncts] -> member(C, Conjuncts), fact_conjunct(C, F)
-    ;   F = Facts ).
-
-'context-world?'(Ctx, Result) :- ( nonvar(Ctx), world_context(Ctx, _) -> Result = true ; Result = false ).
-
-% Whether a world context's assumptions can change a statement: its head is
-% stated in the context (an assumption, the statement a negated one negates,
-% or the conclusion of a rule the query compiled into it), or concluded by a
-% rule that is not dormant and one of whose premises, or the members a fold
-% premise reads, has an affected head. A variable head may be anything, so it
-% counts as affected, and a rule concluding a variable head from an affected
-% premise affects everything. Computed once per context and dropped when a
-% rule is added.
-'context-affected?'(Ctx, Type, Result) :-
-    (   context_affected_memo(Ctx, Heads) -> true
-    ;   context_affected_heads(Ctx, Heads), assertz(context_affected_memo(Ctx, Heads)) ),
-    statement_head(Type, Head),
-    (   ( Heads == all ; Head == '$var' ; memberchk(Head, Heads) ) -> Result = true ; Result = false ).
-
-% Whether a world context's assumptions can change some member a fold over a
-% pattern reads: any conjunct of the pattern is affected.
-'context-pattern-affected?'(Ctx, Pattern, Result) :-
-    (   context_affected_memo(Ctx, Heads) -> true
-    ;   context_affected_heads(Ctx, Heads), assertz(context_affected_memo(Ctx, Heads)) ),
-    (   ( Heads == all ; pattern_head(Pattern, H), ( H == '$var' ; memberchk(H, Heads) ) )
-    ->  Result = true ; Result = false ).
-
-context_affected_heads(Ctx, Heads) :-
-    world_context(Ctx, FactHeads),
-    findall(H, ( dormancy_row(rules('runtime-rule-row', _, [T, [_, C|_]|_], _)),
-                 C == Ctx, assumed_head(T, H) ), RuleHeads),
-    append(FactHeads, RuleHeads, Seeds0), sort(Seeds0, Seeds),
-    findall(CH-PHs, ( dormancy_row(rules('runtime-rule-row', Id, [CT|_], Ps)),
-                      'rule-dormant?'(Id, false), statement_head(CT, CH),
-                      findall(PH, ( member(P, Ps), premise_head(P, PH) ), PHs) ), Edges),
-    affected_fixpoint(Seeds, Edges, Heads).
-
-assumed_head(T, H) :-
-    (   nonvar(T), T = ['Exists', _, _] -> H = 'ExistentialClaim'
-    ;   nonvar(T), T = ['Not', Inner] -> ( statement_head(T, H) ; statement_head(Inner, H) )
-    ;   statement_head(T, H) ).
-
 statement_head(T, H) :-
     (   var(T) -> H = '$var'
     ;   T = [H0|_] -> ( var(H0) -> H = '$var' ; H = H0 )
     ;   H = T ).
-
-premise_head(['CPU', Fun, Args|_], H) :- !,
-    memberchk(Fun, ['FoldAllCompiled', 'GroupedFoldAllCompiled']),
-    nonvar(Args), Args = [_, Pattern|_], pattern_head(Pattern, H).
-premise_head([T|_], H) :- statement_head(T, H).
-
-pattern_head(Pattern, H) :-
-    (   nonvar(Pattern), Pattern = ['ExistentialAlternatives', ['ExistentialClaim', Body], _]
-    ->  ( H = 'ExistentialClaim' ; pattern_head(Body, H) )
-    ;   nonvar(Pattern), Pattern = ['And'|Conjuncts] -> member(C, Conjuncts), pattern_head(C, H)
-    ;   statement_head(Pattern, H) ).
-
-affected_fixpoint(Heads, Edges, Result) :-
-    (   memberchk('$var', Heads) -> Result = all
-    ;   member(CH-PHs, Edges), \+ memberchk(CH, Heads),
-        member(PH, PHs), ( PH == '$var' ; memberchk(PH, Heads) )
-    ->  affected_fixpoint([CH|Heads], Edges, Result)
-    ;   Result = Heads ).
 
 % The trie compares variants exactly, without binding caller variables or
 % confusing hash collisions. Destroy query-local storage even on an exception.
@@ -1638,7 +1564,7 @@ regime_shift(W, M, OW, OM, NW, NM, W1, M1) :-
 
 % The segment a sample's segment was merged into.
 regime_root(Hash, Seg, Root) :-
-    (   catch('&sk_instance_regime'(Hash, Seg, To), error(existence_error(procedure, _), _), fail)
+    (   catch('&ctx_sk_instance_regime'(Hash, Seg, To), error(existence_error(procedure, _), _), fail)
     ->  regime_root(Hash, To, Root)
     ;   Root = Seg
     ).
@@ -1721,7 +1647,7 @@ regime_merge(Hash, Id, ['regime-segment', IdA, WA, MA], ['regime-segment', IdB, 
              ['regime-segment', Keep, W, M], Gone, Keep) :-
     ( MA >= MB -> Keep = IdA, Gone = IdB ; Keep = IdB, Gone = IdA ),
     W is WA + WB, M is MA + MB,
-    ( Gone == Id -> true ; assertz('&sk_instance_regime'(Hash, Gone, Keep)) ).
+    ( Gone == Id -> true ; 'context-add!'('&sk_instance_regime',[Hash,Gone,Keep],true) ).
 
 % A new current segment beside an old and the previous one: the pair the
 % posterior most probably holds in one regime merges, if more probably than

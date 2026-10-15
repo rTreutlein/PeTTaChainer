@@ -211,6 +211,37 @@ Producers that depend only on the pattern (the Member inheritance producer of a
 concrete `Inheritance` link, the compiled source of a fold pattern) are
 installed once as permanent backward rules, so their rows outlive the query.
 
+### Assuming shares MAIN structure and overlays dependent values
+
+An Assuming query builds rows and keys in MAIN, with MAIN premise identities.
+Assumptions may enable a dormant producer, but structural discovery supplies no
+assumed truth value to MAIN evaluation. Independent MAIN search, views and
+aggregate maintenance performed during the query remain reusable. A cold merge
+read executes in MAIN when its indexed rows/member keys have no actual local
+input value; this includes all cache, conditioning and aggregate maintenance
+performed by that read. It is not a possible-reachability test.
+
+C owns only assumption-dependent evaluation entries and its assumed facts.
+A local row view replaces that row's borrowed MAIN view in C; no borrowed key
+or evidence item acquires a new identity. Merged caches, conditioned reads,
+aggregate contributions, instance regimes and propagation bookkeeping follow the
+same evaluation scope. None of them may publish an assumption-dependent value
+to MAIN. Cleanup drops C without retracting independent MAIN work.
+
+Propagation follows the existing readers, including inversion, completion and
+fold membership. A plain STV update propagates beyond a configurable Beta KL
+threshold (`set-context-reuse-threshold`, default 1e-6), with a missing value
+read as Beta(1,1), as in forward chaining. At zero, provenance and
+compatibility changes propagate too. Non-STV values, including utility arguments,
+require value comparison. Two results of an open key are different when their
+statement arguments differ, even if their STVs agree.
+
+MAIN's authoritative user priors are inherited. This intentionally corrects the
+old private-context prior's self-inclusion and can change Assuming answers; the
+Jeffrey update and accepted numerical exception are documented in
+`assumption_queries.md`. It does not correct MAIN's separate stored-target /
+inversion revision confidence overcount.
+
 ### Truth values are views, recomputed from what changed
 
 Evaluation computes each row's **view**: its conclusion from the premises'
@@ -679,9 +710,9 @@ pending work is kept current where work is created and taken, not by walks:
   smaller side, so linking new work under a large component never reads
   that component's links (SupplyNet scale l: 21,134 links, 5,512 closing
   cycles, 0.5 s of a 26 s run).
-- Components only merge: child links leave only with an Assuming query's
-  context, whose nodes form components of their own, which go once all
-  their nodes went.
+- Assuming overlays borrow MAIN's components: cleanup removes no structural
+  child links. Ordinary node retirement releases a component when its last
+  node leaves; context-local value entries have no separate search graph.
 
 The index changes which nodes the walk reaches only where the walk allowance
 was spent before: nodes without work no longer spend it, so a walk that ran

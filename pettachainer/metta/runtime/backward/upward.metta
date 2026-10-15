@@ -43,7 +43,7 @@
                                (empty))))
                       ($_fact
                          (if (= $premise (assemble-stored-runtime-fact $type $kbctx $_proof $_tv)) true (empty)))))))
-            (if (if (rule-dormant? $id) false (chainer-acyclic-term? $ccls))
+            (if (if (if (sk-context-search? $ccls) false (rule-dormant? $id)) false (chainer-acyclic-term? $ccls))
                (sk-advance! (sk-partial $ccls $id $ccls () $prems ()))
                (empty))))
       ()))
@@ -145,7 +145,7 @@
 (: sk-stale-readers (-[det]-> SkeletonKey (List SkeletonKey)))
 (= (sk-stale-readers $key)
    (let $hash (index-hash $key)
-      (collapse (match &sk_stale_reader ($hash $stored $khash $rhash)
+      (collapse (match &ctx_sk_stale_reader ($hash $stored $khash $rhash)
          (if (=alpha $stored $key)
             (match &sk_row ($khash $rkey $rhash (sk-row $ident $concl $premises $seq)) $rkey)
             (empty))))))

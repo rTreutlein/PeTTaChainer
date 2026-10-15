@@ -65,7 +65,13 @@
 ;; Cause/Action from ctx-fix, with a matched completion whose sibling is true.
 ;; An Assuming context contains only Action now as new evidence. Both paths
 ;; consume the consequent predicted there and return the same strength and
-;; confidence, including the context's population-prior shrinkage.
+;; confidence, using MAIN's explicit prior. With P(Cause)=.3 the diagnostic
+;; predicts Effect at .41; the action predicts .40. Jeffrey's update is
+;; .4*.6585 + .6*.0508 = .2939, a slight decrease. Revision currently gives
+;; .2944343613. The old private prior shrank to .34 and moved the answer up;
+;; inheriting MAIN's prior fixes that direction (ctx-overlay prior review).
+;; The confidence overcount in MAIN's revision is a separate issue.
+!(set-context-reuse-threshold 0)
 !(compileadd premiseKb (: diagnostic (Implication (Cause $t) (Effect $t)) (CTV (STV 0.9 1) (STV 0.2 1))))
 !(compileadd premiseKb (: (no_inverse prediction) (Implication (Action $t) (Effect $t)) (CTV (STV 0.4 1) (STV 0.4 1))))
 !(compileadd premiseKb (: observed-old (Effect old) (STV 1 1)))
@@ -87,4 +93,5 @@
           (== $completion-tv $inversion-tv)) true)
 !(test (let (: $_prf $_stmt (STV $s $_c))
           (query 2000 premiseKb (: $p (Assuming (Action now) (Cause now)) $tv))
-          (> $s 0.30001)) true)
+          (< (max (- $s 0.294434361302045) (- 0.294434361302045 $s)) 0.000001)) true)
+!(set-context-reuse-threshold 0.000001)

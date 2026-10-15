@@ -63,13 +63,7 @@
 
 ;; Contexts of Assuming queries, which see the world, and whether their
 ;; assumptions can change a statement (runtime_helpers.pl).
-(: context-world! (-[det]-> KBContext Statement Bool))
-(: context-world? (-[det]-> Atom Bool))
-(: context-affected? (-[det]-> Atom Atom Bool))
-(: context-pattern-affected? (-[det]-> Atom Atom Bool))
-(: context-affected-reset! (-[det]-> Bool))
-(: context-forget! (-[det]-> Atom Bool))
-(: remove-hash-rows! (-[det]-> Atom Number Bool))
+(: context-create! (-[det]-> KBContext Bool))
 (: existential-outer-values? (-[det]-> Atom Bool))
 (: existential-source (-[det]-> Atom Statement))
 (: pattern-shape (-[det]-> Atom Atom))
@@ -312,6 +306,7 @@
    (-[det]-> KB Statement TV BaseRateSource $mode BaseRateEntry))
 ;; entries by a hash of their knowledge base and pattern
 (: &base_rate_cache (SpaceOf (Number BaseRateEntry)))
+(: &ctx_base_rate_cache (SpaceOf (Number BaseRateEntry)))
 
 (: IdentityFinish Type)
 (: identity IdentityFinish)

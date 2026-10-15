@@ -49,9 +49,15 @@
 ;; Prolog argument.  Complete keys remain in the payload to reject collisions.
 (: &forward_aggregate_identity
    (SpaceOf (Number ForwardAggregateIdentityRow)))
+(: &ctx_forward_aggregate_identity
+   (SpaceOf (Number ForwardAggregateIdentityRow)))
 (: &forward_aggregate_interest_by_trigger
    (SpaceOf (Number ForwardAggregateInterest)))
+(: &ctx_forward_aggregate_interest_by_trigger
+   (SpaceOf (Number ForwardAggregateInterest)))
 (: &forward_aggregate_triggers
+   (SpaceOf (Number ForwardTriggerKey)))
+(: &ctx_forward_aggregate_triggers
    (SpaceOf (Number ForwardTriggerKey)))
 
 (: ForwardAggregateState Type)
@@ -109,11 +115,12 @@
 ;; id, fold key hash. A member whose value depends on that key was derived
 ;; through the estimate and does not count in it.
 (: &forward_aggregate_fold (SpaceOf (Number Number)))
+(: &ctx_forward_aggregate_fold (SpaceOf (Number Number)))
 !(bind! &forward_aggregate_fold (new-space))
 (: link-aggregate-fold! (-[det]-> Number Number Atom))
 (= (link-aggregate-fold! $id $hash)
-   (if (space-row-present? &forward_aggregate_fold ($id $hash)) ()
-      (let $_row (add-atom &forward_aggregate_fold ($id $hash)) ())))
+   (if (space-row-present? &ctx_forward_aggregate_fold ($id $hash)) ()
+      (let $_row (context-add! &forward_aggregate_fold ($id $hash)) ())))
 
 ;; Materialized facts are marked in &materialized_facts. They are never leaves:
 ;; the backward chainer re-derives them.

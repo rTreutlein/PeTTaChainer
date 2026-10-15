@@ -40,91 +40,102 @@ to the ones its question reads without adding rules to the knowledge base.
 
 ## Context
 
-The query opens a fresh context C holding the assumed facts, marked as a
-context that sees the world (`context-world!`).
+C is a value overlay on MAIN. It borrows MAIN's keys, rows, views, dependency
+identities and evidence identities; opening C copies none of them.
 
-- **What reads C.** A predicate is *affected* when it is an assumed fact's
-  predicate, or concluded by a rule with an affected premise (a fixed point
-  over the rules' predicate heads, as dormant rules compute their support;
-  the assumed facts' heads are recorded when the context is opened, so this
-  reads the query's facts, not the knowledge base).
-  A premise of an affected predicate is read in C; any other premise is read
-  in the main context. So beliefs the assumptions cannot change are read where
-  they are, with the answers, rows and caches the main context already has,
-  and no work on them is repeated or thrown away.
-- **Reading C.** A premise read in C sees C's facts and the main context's
-  stored facts of the same statement (not forward copies of derived values):
-  an assumption adds to what is known, it does not hide it. What follows from
-  them is derived in C.
-- **The goal** is read in C.
-- **Folds.** A fold premise whose member pattern the assumptions affect is
-  scoped to C: its arguments name C instead of the KB, and its member node
-  lies in C. The member's rules are compiled once per pattern shape (the
-  pattern with its user predicates' constants made variables) and KB and
-  are permanent; only where the member is read depends on C.
-- **The world's rules.** A goal in C is also concluded by the rules compiled
-  for the main context (the projections of stored compound facts among
-  them), with C as the conclusion's context (`sk-world-rule-match`); a
-  rule's own adapters share its context and apply in C directly. No
-  rule is skipped as dormant there: dormancy is judged in the main context,
-  and C's assumptions can support what the main context lacks.
-- **No variables.** C names no query variables, unlike an implication
-  query's contexts (which name the hypothetical individual's), so its keys
-  are ground.
+- **What reads C.** Every rule instance is built once in MAIN and reads MAIN
+  premise identities. C starts with its assumed facts, then reevaluates only
+  the readers of values that actually changed. The existing dependency edges
+  include inverse rules, antecedent completions and aggregate membership.
+  An unchanged key reads MAIN's value. A changed row's local view replaces that
+  row's MAIN view for C; older compatible views remain available to readers.
+- **Cold dependencies.** Ordinary search and evaluation may build independent
+  MAIN work during the context query. That work stays available to later
+  queries. A cold merge read checks its actual local input values and runs in
+  MAIN when none changed, including the read's aggregate/cache maintenance.
+  No assumption-dependent value, merged cache, aggregate contribution
+  or KB fact may be written to MAIN. Search may register an assumed statement's
+  MAIN key and build joins over it, but MAIN has no assumed leaf to evaluate.
+- **New producers.** Assumptions can enable a producer MAIN skipped as dormant.
+  The assumption starts indexed joins structurally, without supplying a truth
+  value. An assumed implication is an explicitly local input to its shared
+  structural row; MAIN never applies it as a rule axiom.
+- **Consistent evidence.** A premise borrowed from MAIN retains its original
+  key, evidence and dependency identity. Conditioning and self-support exclusion
+  use those same identities when it meets a C-derived premise. A borrowed
+  scalar is never turned into independent evidence.
+- **Folds and priors.** Folds share their MAIN member nodes and keys. Changed
+  contributions, tallies, compatibility reads and merged views live in C.
+  Unchanged aggregates are borrowed. MAIN's explicit user priors remain
+  authoritative in C. An assumption-dependent aggregate update cannot alter
+  MAIN's tally or cache.
+- **Implication queries.** The private judgment contexts of an `Implication`
+  query retain their existing hypothetical semantics. The Assuming overlay
+  does not turn them into world contexts.
+
+### Propagation threshold
+
+`(set-context-reuse-threshold threshold)` sets a process-wide nonnegative Beta
+KL divergence threshold, default **0.000001**. Python:
+`handler.set_context_reuse_threshold(threshold)`; timed workers replay it.
+A plain STV's strength and confidence determine its Beta distribution exactly
+as in forward chaining (`forward_units.md`); an absent value is Beta(1,1).
+A change below the threshold does
+not schedule further readers. Utility arguments and other non-STV results are
+compared as values, rather than assigned a meaningless Beta divergence.
+
+At **zero**, compatibility and provenance changes propagate as well, preserving
+exact evidence conditioning. A positive threshold is an approximation; it can
+stop a small numerical update even when its provenance differs. MAIN's user
+priors are inherited at every threshold.
+
+### Accepted prior-inheritance correction
+
+Given `P(Cause)=.3`, diagnostic likelihoods `(.9,.2)` imply `P(Effect)=.41`.
+An assumed action predicting Effect at `.40` is slight evidence against Cause:
+Jeffrey's rule gives `.4*.6585 + .6*.0508 = .2939`. With the current MAIN merge,
+the answer is `.294434361302045`. The former private population prior was
+accidentally based on the target's own `.8`-weighted observation, shrank to `.34`,
+and returned `.3000469674834495`, in the wrong direction. The regression in
+`test_pln_induction.metta` records the inherited result and this derivation.
+Its matched `Hidden` completion has a certain-true `Enabled` sibling, so the
+effective likelihoods, prior and hand computation are identical.
+
+The inherited answer's confidence near `.98` comes from an existing MAIN
+revision overcount. Correcting that merge is a separate issue; context reuse
+preserves the current formula and merge behavior.
 
 ## Cleanup
 
-Whatever lies in C is recorded under C when it is created
-(`&sk_ctx_items`): its nodes (`sk-add-child!`) and keys
-(`sk-register-key!`). So is each link between C and the rest of the store: a wait, answer, child or use edge from a node or key in C to
-one outside it. The query's root lies in the main context and waits on C's
-goal, the only thing outside C that reads it; it is recorded under C as
-well.
+After externalizing results, the query removes C's local evaluation entries,
+its shadow markers and its assumed facts/rules. MAIN's assumption-independent
+search rows, keys, views and aggregate maintenance remain reusable. Temporary
+query adapters still follow the ordinary query lifetime. The overlay's values
+hold references into the append-only proof and evidence stores; their ordinary
+collectors reclaim unreachable entries after cleanup.
 
-After the query's results are externalized (`run-query-execution-plan`),
-`sk-clear-contexts!` removes every recorded node and key from all the stores
-keyed by its hash. A key's rows leave the reader lists of the keys they read,
-which may lie in the main context, together with their per-row marks. A fold
-node in C takes its fold's key along. The answer queue loses deliveries into
-C. The context's marks go (`context-forget!`). So no later query reads,
-updates or walks anything a past decision assumed, and a sequence of
-decisions leaves the stores as one does (`test_assuming_query.metta`).
-
-The root's own key and every answer key it registered go with it
-(`ctx-root`), and a dropped key loses all rows its hash keys, whichever row
-they belonged to. What the context's rows interned (dependency nodes,
-evidence sets) and stored (proofs) is reached by nothing afterwards: it is
-collected once more was interned or stored since the last collection than
-that collection kept and walked (`deps-gc-due?` and `deps-gc!` for dependency nodes,
-`stored-refs-gc-step!` for proofs and evidence sets, a bounded share per
-query; `evidence_sets.md`, "Collection"), so collection costs in proportion
-to what queries create.
-
-The link digests (`&sk_link`) go too. A link with an end in C (a child,
-answer, use or join edge whose owner, child, node, key, parent or join owner
-lies in C) is recorded under C as its digest when `sk-link-new!` creates
-it (`ctx-link`), since a join's digest names the partial join it extended,
-which cannot be rebuilt at drop time. The root lies in the main context, so
-its answer links are recomputed from its answers when it is dropped.
-
-What stays: the work done in the main context, which is ordinary knowledge
-any query may reuse.
-
-Implication queries' contexts stay: they hold the derivation of a
-main-context belief, the implication itself.
+The invariant is **nothing assumption-dependent is written to MAIN**, rather
+than a byte-identical MAIN store census. Test it both by comparing a subsequent
+MAIN query with that query alone on a fresh KB and by auditing MAIN view,
+merged-value, aggregate and fact provenance for assumption tokens. MAIN warming
+is permitted; promoting an overlay value into MAIN is not.
 
 ## Budget
 
-The query's budget is spent as any query's: on the expansions under its
-goal. Main-context premises are expanded in the main context and stay
-expanded for later queries, as any query's work does.
+MAIN search uses the query's ordinary expansion and row allowances. Independent
+MAIN evaluation runs first. C's changed readers then use the remaining
+computation allowance and near-root reserve. Contexts in a batch share structure
+and the query's total budget, while retaining separate local values. A context
+query leaves no live overlay to continue across calls (persistent contexts are
+outside this implementation).
 
 ## Evaluation
 
 1. Unit tests:
    - an assumed fact combines with a main-context belief;
-   - the main context is unchanged after the query: no new facts, nodes or
-     rows outside it, and none in C;
+   - the subsequent MAIN answer equals the same query on a fresh KB; MAIN
+     views, merges, aggregate observations and facts have no assumption
+     provenance or dependency, and C has no surviving entries;
    - an unaffected premise is read in the main context, and its existing
      answer is reused without expansion.
 2. Full suite.
@@ -133,7 +144,10 @@ expanded for later queries, as any query's work does.
    query time per shift stays flat without forgetting, and memory grows as in
    a replay without actions (about 5 MB per shift).
 
-## Results
+## Historical results before the overlay
+
+These measurements describe the earlier private-context implementation. The
+overlay replaces its head reachability and context-link cleanup.
 
 StationOps live temporal-model games (ChainerGame `single-kb-actions`),
 query budget 50, action budget 15 per candidate, forward slice 150.
@@ -145,7 +159,7 @@ query budget 50, action budget 15 per candidate, forward slice 150.
   three decisions, shift 1 to 60), against 0.3 s → 38.6 s for the
   knowledge base per decision, whose forward runs also grew to 14 s per
   shift. A 60-shift game takes about 3 minutes instead of 32.
-- **What made time grow, and was fixed.** Leftover contexts (the census below);
+- **What made time grow, and was fixed.** Leftover contexts;
   each decision's fold compiling its conjunction adapters again as permanent
   rules (one compilation per pattern shape now, `sk-shape-members`); every
   query rule dropping every dormancy verdict (query rules now wake by head);

@@ -134,6 +134,7 @@
 ;; tally fold (a base rate or an implication instance fold) -> a member that
 ;; joined or changed since the fold last took it, by fold hash and member hash
 (: &sk_rate_dirty (SpaceOf (Number Number SkeletonKey SkeletonKey)))
+(: &ctx_sk_rate_dirty (SpaceOf (Number Number SkeletonKey SkeletonKey)))
 !(bind! &sk_rate_dirty (new-space))
 ;; An implication instance fold's tally, by fold hash: its KB's hazard, its
 ;; sample counter, and per branch (P(B|A), P(B|not A)) the segments of its
@@ -152,30 +153,40 @@
 (: regime-take! (-[det]-> Number Number Number (List RegimeSegment) Number BaseRateEvidenceState BaseRateEvidenceState ((List RegimeSegment) Number)))
 (: regime-evidence (-[det]-> Number (List RegimeSegment) BaseRateEvidenceState))
 (: &sk_instance_tally (SpaceOf (Number SkeletonKey InstanceRegimeState)))
+(: &ctx_sk_instance_tally (SpaceOf (Number SkeletonKey InstanceRegimeState)))
 !(bind! &sk_instance_tally (new-space))
 (: &sk_instance_member (SpaceOf (Number Number SkeletonKey Number Number InstanceEvidenceState)))
+(: &ctx_sk_instance_member (SpaceOf (Number Number SkeletonKey Number Number InstanceEvidenceState)))
 !(bind! &sk_instance_member (new-space))
 (: &sk_instance_regime (SpaceOf (Number Number Number)))
+(: &ctx_sk_instance_regime (SpaceOf (Number Number Number)))
 !(bind! &sk_instance_regime (new-space))
 ;; An implication instance fold's digest of its samples, by fold hash
 ;; (sk-instance-digest!).
 (: &sk_instance_digest (SpaceOf (Number Number)))
+(: &ctx_sk_instance_digest (SpaceOf (Number Number)))
 !(bind! &sk_instance_digest (new-space))
 ;; the signature each member was taken with, by member hash and fold hash
 (: &sk_instance_sig (SpaceOf (Number Number Number)))
+(: &ctx_sk_instance_sig (SpaceOf (Number Number Number)))
 !(bind! &sk_instance_sig (new-space))
 (: &sk_instance_read (SpaceOf (Number Number Number SkeletonKey)))
+(: &ctx_sk_instance_read (SpaceOf (Number Number Number SkeletonKey)))
 !(bind! &sk_instance_read (new-space))
 (: &sk_instance_changed (SpaceOf (Number SkeletonKey)))
+(: &ctx_sk_instance_changed (SpaceOf (Number SkeletonKey)))
 !(bind! &sk_instance_changed (new-space))
 ;; the instance folds an evaluation already brought current, by fold hash
 (: &sk_instance_checked (SpaceOf (Number)))
+(: &ctx_sk_instance_checked (SpaceOf (Number)))
 !(bind! &sk_instance_checked (new-space))
 ;; base-rate cache pattern hash -> a fold key reading that pattern's entries
 (: &sk_rate_folds (SpaceOf (Number SkeletonKey)))
+(: &ctx_sk_rate_folds (SpaceOf (Number SkeletonKey)))
 !(bind! &sk_rate_folds (new-space))
 ;; key -> a row reading it directly, by row key hash and row hash
 (: &sk_reader (SpaceOf (Number SkeletonKey Number Number)))
+(: &ctx_sk_reader (SpaceOf (Number SkeletonKey Number Number)))
 !(bind! &sk_reader (new-space))
 ;; key -> the fact a forward run stored for it in &kb, with its value's
 ;; evidence and what that value was derived through
@@ -194,30 +205,17 @@
 ;; key -> a node it answers, by node hash, kept while forgetting is on so a
 ;; buried key leaves its nodes' answers
 (: &sk_answered (SpaceOf (Number SkeletonKey Number SkPattern)))
-;; What a query's hypothetical contexts created, by context, removed when the
-;; query ends (sk-clear-contexts!): their nodes and keys, the links into
-;; them from outside, and the digests of the links touching them.
-(: SkeletonContextItem Type)
-(: ctx-node (-[det]-> Number SkPattern SkeletonContextItem))
-(: ctx-key (-[det]-> Number SkeletonKey SkeletonContextItem))
-(: ctx-root (-[det]-> Number SkPattern SkeletonContextItem))
-(: ctx-wait (-[det]-> Number SkPattern SkeletonWaiter SkeletonContextItem))
-(: ctx-answer (-[det]-> Number SkPattern SkeletonKey SkeletonContextItem))
-(: ctx-child (-[det]-> Number SkPattern SkPattern Number SkeletonContextItem))
-(: ctx-use (-[det]-> Number SkeletonKey SkeletonKey SkeletonContextItem))
-(: ctx-link (-[det]-> Number SkeletonContextItem))
-(: ctx-join-link (-[det]-> Number Number SkeletonContextItem))
-(: &sk_ctx_items (SpaceOf (Atom SkeletonContextItem)))
 ;; A refined rule's truth goal, per rule id, and the score factor of that
 ;; goal's current value (docs/metta/hypothesis_rules.md).
 (: &sk_rule_truth (SpaceOf (Number Number Statement KBContext)))
 !(bind! &sk_rule_truth (new-space))
 (: &sk_truth_factor (SpaceOf (Number Number)))
+(: &ctx_sk_truth_factor (SpaceOf (Number Number)))
 !(bind! &sk_truth_factor (new-space))
-!(bind! &sk_ctx_items (new-space))
 !(bind! &sk_answered (new-space))
 ;; key -> a stale row that read it, by row key hash and row hash
 (: &sk_stale_reader (SpaceOf (Number SkeletonKey Number Number)))
+(: &ctx_sk_stale_reader (SpaceOf (Number SkeletonKey Number Number)))
 !(bind! &sk_stale_reader (new-space))
 ;; fold node -> member node
 (: &sk_fold (SpaceOf (Number SkPattern SkPattern)))
@@ -230,45 +228,57 @@
 !(bind! &sk_group_of (new-space))
 ;; each row's and fold's latest view, and the views it replaced
 (: &sk_latest (SpaceOf (Number SkeletonKey SkeletonVersion)))
+(: &ctx_sk_latest (SpaceOf (Number SkeletonKey SkeletonVersion)))
 !(bind! &sk_latest (new-space))
 (: &sk_view (SpaceOf (Number SkeletonKey Number SkeletonValue)))
+(: &ctx_sk_view (SpaceOf (Number SkeletonKey Number SkeletonValue)))
 !(bind! &sk_view (new-space))
 ;; every dependency a row's views ever had, by key hash and row hash
 (: &sk_support (SpaceOf (Number Number Number)))
+(: &ctx_sk_support (SpaceOf (Number Number Number)))
 !(bind! &sk_support (new-space))
 ;; a key's merged value for an open pattern and no exclusion, with the
 ;; dependencies of the versions it merged
 (: SkeletonMerged Type)
 (: sk-merged (-[det]-> Number SkeletonKey Number SkeletonValue SkeletonMerged))
 (: &sk_merged (SpaceOf (Number SkeletonKey Number SkeletonValue)))
+(: &ctx_sk_merged (SpaceOf (Number SkeletonKey Number SkeletonValue)))
 !(bind! &sk_merged (new-space))
 ;; rows not evaluated yet, and the rows one evaluation scheduled per pass
 (: &sk_new (SpaceOf (sk-row-item Number Number SkeletonKey Number SkeletonRow)))
+(: &ctx_sk_new (SpaceOf (sk-row-item Number Number SkeletonKey Number SkeletonRow)))
 !(bind! &sk_new (new-space))
 (: &sk_queued (SpaceOf (Number Number Number)))
+(: &ctx_sk_queued (SpaceOf (Number Number Number)))
 !(bind! &sk_queued (new-space))
 ;; fold key hash -> hash of a member key that changed since the fold's check
 (: &sk_fold_pending (SpaceOf (Number Number)))
+(: &ctx_sk_fold_pending (SpaceOf (Number Number)))
 !(bind! &sk_fold_pending (new-space))
 ;; exact folds whose latest view is incomplete, by fold key hash
 ;; (docs/metta/partial_folds.md)
 (: &sk_partial (SpaceOf (Number SkeletonKey)))
+(: &ctx_sk_partial (SpaceOf (Number SkeletonKey)))
 !(bind! &sk_partial (new-space))
 ;; rows waiting for conditioning, by key and row hash, with its cost bound,
 ;; and the rows this evaluation paid it for; a key's merge waiting for
 ;; conditioning has row hash -1 (docs/metta/overlap_conditioning.md)
 (: &sk_given_pending (SpaceOf (Number Number Number)))
+(: &ctx_sk_given_pending (SpaceOf (Number Number Number)))
 !(bind! &sk_given_pending (new-space))
 (: &sk_given_granted (SpaceOf (Number Number)))
+(: &ctx_sk_given_granted (SpaceOf (Number Number)))
 !(bind! &sk_given_granted (new-space))
 ;; the level of a row's or key's next conditioning payment, its cost 2^level
 ;; times its base, by key and row hash; 1 when absent
 ;; (docs/metta/overlap_conditioning.md)
 (: &sk_cond_level (SpaceOf (Number Number Number)))
+(: &ctx_sk_cond_level (SpaceOf (Number Number Number)))
 !(bind! &sk_cond_level (new-space))
 ;; rows and keys being conditioned, by key and row hash: a read of one inside
 ;; its own conditioning keeps its approximate value
 (: &sk_conditioning (SpaceOf (Number Number)))
+(: &ctx_sk_conditioning (SpaceOf (Number Number)))
 !(bind! &sk_conditioning (new-space))
 ;; The conditioned evaluations the open claim may still make: -1 while no
 ;; claim is open, -2 once the open one overdrew; the cutset depth its pass
@@ -279,6 +289,7 @@
 !(change-state! sk_claim_cut 0)
 ;; keys whose value changed outside evaluation, once each, by key hash
 (: &sk_dirty (SpaceOf (Number SkeletonKey)))
+(: &ctx_sk_dirty (SpaceOf (Number SkeletonKey)))
 !(bind! &sk_dirty (new-space))
 
 ;; A key changed again before the evaluation took it is recorded once: each
@@ -286,8 +297,8 @@
 (: sk-dirty! (-[det]-> SkeletonKey Atom))
 (= (sk-dirty! $key)
    (let $hash (index-hash $key)
-      (if (== (collapse (once (match &sk_dirty ($hash $stored) (if (=alpha $stored $key) true (empty))))) ())
-         (let $_row (add-atom &sk_dirty ($hash $key)) ())
+      (if (== (collapse (once (match &ctx_sk_dirty ($hash $stored) (if (=alpha $stored $key) true (empty))))) ())
+         (let $_row (context-add! &sk_dirty ($hash $key)) ())
          ())))
 ;; rules and facts added since the last activation
 (: &sk_pending_rules (SpaceOf (sk-pending-rule Number)))
@@ -325,8 +336,10 @@
 ;; rows one evaluation must recompute for a change from outside it, with the
 ;; changed keys that forced them, and which row was already forced by which
 (: &sk_forced (SpaceOf (Number Number Number)))
+(: &ctx_sk_forced (SpaceOf (Number Number Number)))
 !(bind! &sk_forced (new-space))
 (: &sk_forced_used (SpaceOf (Number Number Number)))
+(: &ctx_sk_forced_used (SpaceOf (Number Number Number)))
 !(bind! &sk_forced_used (new-space))
 ;; fact keys that answered a node, by key hash, and by their statement and
 ;; context for structural lookup
@@ -368,16 +381,20 @@
 !(bind! &sk_needed (new-space))
 ;; rows whose inputs changed while no query needed them, by key and row hash
 (: &sk_stale (SpaceOf (Number Number)))
+(: &ctx_sk_stale (SpaceOf (Number Number)))
 !(bind! &sk_stale (new-space))
 ;; stale rows the current query needs, recomputed by its evaluation
 (: &sk_refresh (SpaceOf (Number Number)))
+(: &ctx_sk_refresh (SpaceOf (Number Number)))
 !(bind! &sk_refresh (new-space))
 ;; rows the evaluation needs that the stale cascade reached while it ran, by
 ;; key and row hash: readers of a fold, computed again, and readers of a key,
 ;; staled once the query has read its answers
 (: &sk_restale (SpaceOf (Number Number)))
+(: &ctx_sk_restale (SpaceOf (Number Number)))
 !(bind! &sk_restale (new-space))
 (: &sk_held (SpaceOf (Number Number)))
+(: &ctx_sk_held (SpaceOf (Number Number)))
 !(bind! &sk_held (new-space))
 
 ;; --- Query metrics ------------------------------------------------------------
@@ -409,7 +426,6 @@
 (: sk-note-rule! (-[det]-> Number (Statement KBContext Proof TV) Atom))
 (= (sk-note-rule! $id ($type $_kbctx $_proof $_tv))
    (let* (($permanent (< $id 1000000000))
-          ($_contexts (if $permanent (context-affected-reset!) true))
           ($woken (if $permanent (rule-dormancy-reset!) (rule-dormancy-wake! $type))))
       (if (not (== (collapse (once (match &sk_expanded ($_hash $_pattern) true))) ()))
          (foreach-flat sk-pend-rule! (cons $id $woken))
@@ -431,10 +447,37 @@
                 ()))
           ($_woken (if (== (search-id-value sk_forward_run) 1) () (sk-wake-dormant! $type $expanded)))
           ($_dirty
-             (if (not (== (collapse (once (match &sk_latest ($_hash $_key $_version) true))) ()))
+             (if (not (== (collapse (once (match &ctx_sk_latest ($_hash $_key $_version) true))) ()))
                 (sk-dirty! $key)
                 ())))
       ()))
 
 (: &sk_thawed (SpaceOf (Number SkeletonKey)))
 !(bind! &sk_thawed (new-space))
+
+;; MAIN identity and mutable evaluation scope are separate. These native
+;; operations own Assuming's read-through value overlay.
+(: context-add! (-[det]-> Atom $row Bool))
+(: context-remove! (-[det]-> Atom $row Bool))
+(: set-context-reuse-threshold (-[det]-> Number Bool))
+(: context-searching? (-[det]-> Atom Bool))
+(: context-rule-visible? (-[det]-> Number Bool))
+(: context-search-goal (-[det]-> SkPattern SkPattern))
+(: context-answer-seeds! (-[det]-> SkPattern Bool))
+(: context-seeded? (-[det]-> Statement KBContext Bool))
+(: context-addition (-[det]-> RuntimeAddition RuntimeAddition))
+(: context-note-rule! (-[det]-> Number SkFact Bool))
+(: context-leaves (-[det]-> SkeletonKey (List SkFact)))
+(: context-finish! (-[semidet]-> (List SkPattern) (List (List RuntimeResult)) (List (List RuntimeResult))))
+(: context-clear! (-[det]-> Bool))
+
+(: context-rule-premises (-[det]-> SkFact (List SkPattern) (List SkPattern)))
+
+(: context-propagate? (-[semidet]-> SkeletonKey Bool))
+
+
+(: context-rule-enabled? (-[det]-> Atom Bool))
+
+(: context-start! (-[det]-> Bool))
+
+(: context-cold-merged (-[semidet]-> Number SkeletonKey SkeletonFilter SkeletonMerged))

@@ -65,7 +65,7 @@
 (= (base-rate-cache-entries $kbid $pattern)
    (let $hash (base-rate-cache-hash $kbid $pattern)
       (collapse
-         (match &base_rate_cache ($hash (base-rate $kbid $stored $tv $source $mode))
+         (match &ctx_base_rate_cache ($hash (base-rate $kbid $stored $tv $source $mode))
             (if (=alpha $stored $pattern)
                (base-rate $kbid $stored $tv $source $mode)
                (empty))))))
@@ -76,7 +76,7 @@
    (-[det]-> Number KB Statement $mode (List BaseRateEntry)))
 (= (base-rate-cache-mode-rows $hash $kbid $pattern $mode)
    (collapse
-      (match &base_rate_cache ($hash (base-rate $kbid $stored $tv $source $emode))
+      (match &ctx_base_rate_cache ($hash (base-rate $kbid $stored $tv $source $emode))
          (if (and (=alpha $stored $pattern)
                   (or (== $emode any) (== $emode $mode)))
             (base-rate $kbid $stored $tv $source $emode)
@@ -105,7 +105,7 @@
    (let* (($hash (base-rate-cache-hash $kbid $pattern))
           ($_
              (collapse
-                (match &base_rate_cache ($hash (base-rate $kbid $stored $tv $source $mode))
+                (match &ctx_base_rate_cache ($hash (base-rate $kbid $stored $tv $source $mode))
                    (if (=alpha $stored $pattern)
                       (remove-atom &base_rate_cache
                          ($hash (base-rate $kbid $stored $tv $source $mode)))
@@ -150,7 +150,7 @@
 (= (base-rate-readers-changed! $kbid $pattern)
    (let* (($hash (base-rate-cache-hash $kbid $pattern))
           ($_dirty
-             (collapse (match &sk_rate_folds ($hash $key) (sk-dirty! $key)))))
+             (collapse (match &ctx_sk_rate_folds ($hash $key) (sk-dirty! $key)))))
       ()))
 
 (: store-produced-base-rate!

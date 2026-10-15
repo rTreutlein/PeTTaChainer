@@ -51,7 +51,6 @@
 (: sk-activate-facts! (-[semidet]-> Atom))
 (: sk-expand! (-[semidet]-> SkPattern Number Number Atom))
 (: sk-rule-match (-[nondet]-> SkFact SkeletonMatch))
-(: sk-world-rule-match (-[nondet]-> SkFact SkeletonMatch))
 ;; node, depth, node hash
 (: SkeletonFrontier Type)
 (: sk-frontier (-[det]-> SkPattern Number Number SkeletonFrontier))
@@ -107,41 +106,22 @@
                      (let $_new (add-atom &sk_key_epoch ($hash $key $epoch)) ())))))
          ($_fold ())))))
 
-;; Child links, answers, use edges and join extensions are each recorded
-;; once, by a digest of the link: one lookup, and a record of one integer
-;; however large the join it names. A link with an end in an Assuming query's
-;; context leaves with that context.
+;; Child links, answers, use edges and join extensions are recorded once by
+;; a digest of the link. Overlay evaluation borrows these MAIN identities.
 (: sk-link-new! (-[det]-> Number SkeletonLink Bool))
 (= (sk-link-new! $digest $link)
-   (let* (($ctx (case $link (
-             ((sk-child-link $owner $child)
-                (let $owner-ctx (node-context $owner)
-                   (if (context-world? $owner-ctx) $owner-ctx (node-context $child))))
-             ((sk-answer-link $node $key)
-                (let $node-ctx (node-context $node)
-                   (if (context-world? $node-ctx) $node-ctx (key-context $key))))
-             ((sk-use-link $used $parent)
-                (let $key-ctx (key-context $used)
-                   (if (context-world? $key-ctx) $key-ctx (key-context $parent))))
-             ((sk-join-link (sk-partial $join-owner $_rule $_concl $_done $_remaining $_keys) $answer)
-                (let $join-ctx (node-context $join-owner)
-                   (if (context-world? $join-ctx) $join-ctx (key-context $answer))))))))
-      (case $link (
-         ((sk-join-link (sk-partial $_owner $_id $conclusion $_d $_r $_k) $_answer)
-            (let* (($conclusion-key (case $conclusion (
-                       ((CPU GroupedFoldAllCompiled $group-args $_gr) (sk-group $group-args))
-                       ((CPU $_fun $fold-args $_fr) (sk-fold $fold-args))
-                       (($type $kbctx $_p $_v) (sk-key $type $kbctx)))))
-                   ($key-digest (link-digest $conclusion-key)))
-               (if (space-row-present? &sk_join_link ($key-digest $digest)) false
-                  (let* (($_row (sk-store-join! $key-digest $digest $conclusion))
-                         ($_noted (sk-note-context! $ctx (ctx-join-link $key-digest $digest))))
-                     true))))
-         ($_other
-            (if (space-row-present? &sk_link ($digest)) false
-               (let* (($_row (add-atom &sk_link ($digest)))
-                      ($_noted (sk-note-context! $ctx (ctx-link $digest))))
-                  true)))))))
+   (case $link (
+      ((sk-join-link (sk-partial $_owner $_id $conclusion $_d $_r $_k) $_answer)
+         (let* (($conclusion-key (case $conclusion (
+                    ((CPU GroupedFoldAllCompiled $group-args $_gr) (sk-group $group-args))
+                    ((CPU $_fun $fold-args $_fr) (sk-fold $fold-args))
+                    (($type $kbctx $_p $_v) (sk-key $type $kbctx)))))
+                ($key-digest (link-digest $conclusion-key)))
+            (if (space-row-present? &sk_join_link ($key-digest $digest)) false
+               (let $_row (sk-store-join! $key-digest $digest $conclusion) true))))
+      ($_other
+         (if (space-row-present? &sk_link ($digest)) false
+            (let $_row (add-atom &sk_link ($digest)) true))))))
 
 (: sk-node-score (-[det]-> Number SkPattern Number))
 (= (sk-node-score $hash $node)
@@ -154,13 +134,11 @@
 (= (sk-raise-score! $hash $node $score)
    (let* (($old (sk-node-score $hash $node)))
       (if (> $score $old)
-         (let* (($removed
+         (let* (($_removed
                    (collapse (match &sk_score ($hash $stored $old-score)
                       (if (=alpha $stored $node) (remove-atom &sk_score ($hash $stored $old-score)) (empty)))))
                 ($_added (add-atom &sk_score ($hash $node $score))))
-            (if (== $removed ())
-               (let $ctx (node-context $node) (sk-note-context! $ctx (ctx-node $hash $node)))
-               ()))
+            ())
          ())))
 
 ;; A rule's expected confidence, computed when the rule was stored; a refined
@@ -177,7 +155,7 @@
 
 (: sk-truth-factor (-[det]-> Number Statement KBContext Number))
 (= (sk-truth-factor $hash $type $kbctx)
-   (case (collapse (once (match &sk_truth_factor ($hash $factor) $factor))) (
+   (case (collapse (once (match &ctx_sk_truth_factor ($hash $factor) $factor))) (
       ((cons $factor $_rest) $factor)
       (()
          (let* (($factor
@@ -190,7 +168,7 @@
 (: sk-set-truth-factor! (-[det]-> Number Number Atom))
 (= (sk-set-truth-factor! $hash $factor)
    (let* (($_old (remove-data-rows! &sk_truth_factor (quote ($hash $_was))))
-          ($_new (add-atom &sk_truth_factor ($hash $factor))))
+          ($_new (context-add! &sk_truth_factor ($hash $factor))))
       ()))
 
 ;; Premises a join still has to prove: facts and folds; formulas are computed.
@@ -255,10 +233,6 @@
             ()))
       ($_cpu ()))))
 
-(: sk-note-context! (-[det]-> Atom SkeletonContextItem Atom))
-(= (sk-note-context! $ctx $item)
-   (if (context-world? $ctx) (let $_row (add-atom &sk_ctx_items ($ctx $item)) ()) ()))
-
 (: sk-add-child! (-[semidet]-> SkPattern SkPattern Number Number Atom))
 (= (sk-add-child! $owner $child $score $digest)
    (let $child-hash (sk-node-hash $child)
@@ -266,11 +240,6 @@
          (let* (($hash (sk-node-hash $owner))
                 ($_row (sk-store-child! $digest $hash $owner $child $child-hash))
                 ($_pending (sk-link-pending! $hash $owner $child-hash $child))
-                ($child-ctx (node-context $child))
-                ($_node (sk-note-context! $child-ctx (ctx-node $child-hash $child)))
-                ($_link
-                   (if (== $child-ctx (node-context $owner)) ()
-                      (sk-note-context! $child-ctx (ctx-child $hash $owner $child $child-hash))))
                 ($_fresh (add-atom &sk_fresh ($child-hash $child))))
             (sk-index-node! $child))
          ())))
@@ -362,28 +331,7 @@
 (= (sk-leaf-facts $type $kbctx $filter)
    (let $plain (== (collapse (once (match &materialized_facts (materialized-row $_hash $_type $_kb $_fact $_ev) true))) ())
       (foldr-flat (sk-leaf-fact-step $plain $filter) ()
-         (append-flat (kb-facts $type $kbctx) (sk-world-facts $type $kbctx)))))
-
-;; A context that sees the world reads the main context's stored facts as its
-;; own: an assumption adds to what is known and hides nothing. Forward copies
-;; of derived values are not read; the context derives those itself.
-(: sk-world-facts (-[det]-> Statement KBContext (List SkFact)))
-(= (sk-world-facts $type $kbctx)
-   (case (sk-key $type $kbctx) (
-      ((sk-key $_type ($kbid $ctx $_vars))
-         (if (context-world? $ctx)
-            (foldr-flat (sk-world-fact-step $kbctx) ()
-               (kb-facts $type (make-kb-context (brand KB $kbid) MAIN Nil)))
-            ()))
-      ($_fold ()))))
-
-(: sk-world-fact-step (-[det]-> KBContext SkFact (List SkFact) (List SkFact)))
-(= (sk-world-fact-step $kbctx ($type $main $proof $tv) $facts)
-   (let $hash (index-hash (sk-key $type $main))
-      (if (== (collapse (once (match &sk_forward_stored ($hash $_key $copy $_ev $_deps)
-                 (if (=alpha $copy ($type $main $proof $tv)) true (empty))))) ())
-         (cons (data $type $kbctx $proof $tv) $facts)
-         $facts)))
+         (kb-facts $type $kbctx))))
 
 (: sk-leaf-fact-step (-[det]-> Bool SkeletonFilter SkFact (List SkFact) (List SkFact)))
 (= (sk-leaf-fact-step $plain $filter $fact $facts)
@@ -452,8 +400,6 @@
          (let $hash (index-hash $key)
             (if (== (collapse (once (match &sk_keys ($hash $stored) (if (=alpha $stored $key) true (empty))))) ())
                (let* (($_key (add-atom &sk_keys ($hash $key)))
-                      ($ctx (key-context $key))
-                      ($_noted (sk-note-context! $ctx (ctx-key $hash $key)))
                       ($_terms (add-atom &sk_key_terms ($type $kbctx $hash)))
                       ($ground (== (extract-vars $type) ()))
                       ($prefixes (statement-prefix-hashes $type))
@@ -548,10 +494,6 @@
       (let* (($_registered (sk-register-key! $key))
              ($hash (sk-node-hash $node))
              ($_row (add-atom &sk_answer ($hash $node $key)))
-             ($_noted
-                (let $key-ctx (key-context $key)
-                   (if (== $key-ctx (node-context $node)) ()
-                      (sk-note-context! $key-ctx (ctx-answer $hash $node $key)))))
              ($_indexed
                 (if (<= (search-id-value forgetting_horizon) 0) ()
                    (let* (($khash (index-hash $key))
@@ -591,10 +533,7 @@
    (if (let $link (sk-use-link $key $parent) (sk-link-new! (link-digest $link) $link))
       (let* (($hash (index-hash $key))
              ($_row (add-atom &sk_use ($hash $key $parent)))
-             ($_noted
-                (let $parent-ctx (key-context $parent)
-                   (if (== $parent-ctx (key-context $key)) ()
-                      (sk-note-context! $parent-ctx (ctx-use $hash $key $parent))))))
+             )
          ())
       ()))
 
@@ -602,7 +541,7 @@
 ;; reader to schedule.
 (: sk-mark-dirty! (-[det]-> SkeletonKey Atom))
 (= (sk-mark-dirty! $key)
-   (if (not (== (collapse (once (match &sk_latest ($_hash $_key $_version) true))) ()))
+   (if (not (== (collapse (once (match &ctx_sk_latest ($_hash $_key $_version) true))) ()))
       (sk-dirty! $key)
       ()))
 
@@ -646,13 +585,13 @@
 (= (sk-rate-dirty! $fold $member)
    (if (sk-rate-fold? $fold)
       (let* (($hash (index-hash $fold)) ($mhash (index-hash $member)))
-         (if (== (collapse (once (match &sk_rate_dirty ($hash $mhash $stored-fold $stored)
+         (if (== (collapse (once (match &ctx_sk_rate_dirty ($hash $mhash $stored-fold $stored)
                     (if (=alpha $stored $member) (if (=alpha $stored-fold $fold) true (empty)) (empty)))))
                  ())
-            (let* (($_row (add-atom &sk_rate_dirty ($hash $mhash $fold $member)))
+            (let* (($_row (context-add! &sk_rate_dirty ($hash $mhash $fold $member)))
                    ($_changed
-                      (if (if (sk-instance-fold-key? $fold) (not (space-row-present? &sk_instance_changed ($hash $_stored))) false)
-                         (add-atom &sk_instance_changed ($hash $fold))
+                      (if (if (sk-instance-fold-key? $fold) (not (space-row-present? &ctx_sk_instance_changed ($hash $_stored))) false)
+                         (context-add! &sk_instance_changed ($hash $fold))
                          ())))
                ())
             ()))
@@ -811,7 +750,7 @@
                      (let $_fold (if (== (search-id-value sk_forward_run) 1) (sk-forward-note-fold! $premise) ())
                         (sk-wait-on! $owner $rule $premise
                            (sk-partial $owner $rule $concl $done $remaining $keys)))
-                     (if (== (extract-vars $args) ())
+                     (if (if (== $fun ContextRule) false (== (extract-vars $args) ()))
                         (fold-semidet
                            (sk-cpu-step
                               (sk-partial $owner $rule $concl $done $remaining $keys))
@@ -859,14 +798,6 @@
           ($digest (link-digest (sk-child-link $owner $child)))
           ($_wait (if $known () (sk-store-wait! $digest $hash $premise $waiter)))
           ($subscription (sk-functional-subscription $waiter))
-          ($_noted
-             (if $known ()
-                (let* (($owner-ctx (node-context $owner)) ($premise-ctx (node-context $premise)))
-                   (if (== $owner-ctx $premise-ctx) ()
-                      (let $_waiting (sk-note-context! $owner-ctx (ctx-wait $hash $premise $waiter))
-                         ;; Only an Assuming query's root reads into its context
-                         ;; from outside, and it leaves with the context.
-                         (sk-note-context! $premise-ctx (ctx-root (sk-node-hash $owner) $owner)))))))
           ($_leaves
              (if (sk-expanded? $hash $premise) ()
                 (case (copy_term $premise) (
@@ -948,7 +879,7 @@
       (if (== (extract-vars $type) ())
          (case (fold-flat sk-certain-tv-step () (sk-leaf-facts $type $kbctx sk-any-filter)) (
             ((cons $certain $_more) (= $tv $certain))
-            (() false)))
+            (() (context-seeded? $type $kbctx))))
          false)
       true))
 
@@ -988,7 +919,7 @@
 (= (sk-evaluated-premise-step $kept $premise)
    (case $premise (
       ((CPU $fun $args $_res)
-         (if (aggregate-fold-function? $fun) (cons $premise $kept)
+         (if (if (== $fun ContextRule) true (aggregate-fold-function? $fun)) (cons $premise $kept)
             (if (== (extract-vars $args) ()) $kept (cons $premise $kept))))
       ($_fact (cons $premise $kept)))))
 
@@ -1055,7 +986,7 @@
                          (let* (($_stored (add-atom &sk_row ($khash $key $rhash $row)))
                                 ($_touched (sk-touch-key! $khash $key))
                                 ($_counted (query_metric_increment rows-created)))
-                            (add-atom &sk_new (sk-row-item $seq $khash $key $rhash $row)))
+                            (context-add! &sk_new (sk-row-item $seq $khash $key $rhash $row)))
                          false))
                    ($_temp
                       (if $local
@@ -1080,6 +1011,7 @@
 (: sk-direct-key-step (-[det]-> (List SkeletonKey) SkPattern (List SkeletonKey)))
 (= (sk-direct-key-step $keys $premise)
    (case $premise (
+      ((CPU ContextRule ($assumption $_ctx) $_res) (cons (the SkeletonKey $assumption) $keys))
       ((CPU FoldAllCompiled $fold-args $_fold-res) (cons (sk-fold $fold-args) $keys))
       ((CPU GroupedFoldAllCompiled $group-args $_group-res) (cons (sk-group $group-args) $keys))
       ((CPU $_fun $_args $_res) $keys)
@@ -1088,23 +1020,23 @@
 (: sk-add-reader! (-[det]-> Number Number Atom SkeletonKey Atom))
 (= (sk-add-reader! $khash $rhash $_acc $key)
    (let* (($hash (index-hash $key))
-          ($_row (add-atom &sk_reader ($hash $key $khash $rhash))))
+          ($_row (context-add! &sk_reader ($hash $key $khash $rhash))))
       ()))
 
 (: sk-drop-stale-reader! (-[det]-> Number Number Atom SkeletonKey Atom))
 (= (sk-drop-stale-reader! $khash $rhash $_acc $key)
    (let* (($hash (index-hash $key))
           ($_removed
-             (collapse (match &sk_stale_reader ($hash $stored $khash $rhash)
-                (if (=alpha $stored $key) (remove-atom &sk_stale_reader ($hash $stored $khash $rhash)) (empty))))))
+             (collapse (match &ctx_sk_stale_reader ($hash $stored $khash $rhash)
+                (if (=alpha $stored $key) (context-remove! &sk_stale_reader ($hash $stored $khash $rhash)) (empty))))))
       ()))
 
 (: sk-remove-reader! (-[det]-> Number Number Atom SkeletonKey Atom))
 (= (sk-remove-reader! $khash $rhash $_acc $key)
    (let* (($hash (index-hash $key))
           ($_removed
-             (collapse (match &sk_reader ($hash $stored $khash $rhash)
-                (if (=alpha $stored $key) (remove-atom &sk_reader ($hash $stored $khash $rhash)) (empty))))))
+             (collapse (match &ctx_sk_reader ($hash $stored $khash $rhash)
+                (if (=alpha $stored $key) (context-remove! &sk_reader ($hash $stored $khash $rhash)) (empty))))))
       ()))
 
 ;; A stale row moves from a key's readers to its stale readers (see
@@ -1113,7 +1045,7 @@
 (= (sk-stale-reader! $khash $rhash $_acc $key)
    (let* (($_removed (sk-remove-reader! $khash $rhash () $key))
           ($hash (index-hash $key))
-          ($_row (add-atom &sk_stale_reader ($hash $key $khash $rhash))))
+          ($_row (context-add! &sk_stale_reader ($hash $key $khash $rhash))))
       ()))
 
 ;; The budget counts expansions. New rows have their own allowance of ten per
@@ -1196,29 +1128,9 @@
 (: ccls-index-occurs-matches
    (-[det]-> Atom (List (SkFact Number (List SkPattern)))))
 
-;; Preserve the complete conclusion shape during lookup so SWI's deep index can
-;; discriminate arguments. A goal that repeats a variable unifies under an
-;; occurs check: an exists witness term embeds the variable it witnesses for.
-;; A goal in a context that sees the world is also concluded by the rules
-;; compiled for the main context (connective adapters among them), with the
-;; goal's context: the world's rules hold there too. Rules whose conclusion
-;; follows the goal's context are matched by sk-rule-match already.
-(= (sk-world-rule-match $goal)
-   (case (copy_term $goal) (
-      (($type ($kbid $ctx $_vars) $proof $tv)
-         (if (context-world? $ctx)
-            (let $main (make-kb-context (brand KB $kbid) MAIN Nil)
-               (match ccls_index (($type $rule-kbctx $proof $tv) $rule-id $args)
-                  (if (== $rule-kbctx $main)
-                     (if (= ($type $proof $tv) (sk-goal-parts $goal))
-                        (sk-match $rule-id (contextualize-rule-args $goal $args) $goal)
-                        (empty))
-                     (empty))))
-            (empty)))
-      ($_cpu (empty)))))
-
-(: sk-world-goal? (-[det]-> SkFact Bool))
-(= (sk-world-goal? ($_type ($_kbid $ctx $_vars) $_proof $_tv)) (context-world? $ctx))
+(: sk-context-search? (-[det]-> SkFact Bool))
+(= (sk-context-search? ($_type ($kbid $_ctx $_vars) $_proof $_tv))
+   (context-searching? $kbid))
 
 (: sk-goal-parts (-[det]-> SkFact Atom))
 (= (sk-goal-parts ($type $_kbctx $proof $tv)) ($type $proof $tv))
@@ -1270,58 +1182,40 @@
                   (empty)))
             (empty))))) ()))))
 
-;; A MAIN premise mentioning the goal's context variables or reading an exact
-;; assumed key is read in the goal's hypothetical context. In the context of
-;; an Assuming query, which sees the world, a premise is read in the context
-;; when the assumptions can change it, and in the main context otherwise,
-;; where its value is the same and its work is shared
-;; (docs/metta/assumption_queries.md).
+;; Logical implication judgments keep their hypothetical individuals and exact
+;; assumed keys private. Assuming queries use canonical MAIN keys throughout.
 (: contextualize-rule-premise (-[det]-> SkFact SkPattern SkPattern))
 (= (contextualize-rule-premise ($_goal-type ($kbid $ctx $vars) $_goal-prf $_goal-tv) $premise)
    (once
       (case $premise (
          (($type ($kbid $prem-ctx $prem-vars) $prf $tv)
-            (let*
-               (($fact-kb
-                  (if (context-world? $ctx)
-                     (if (if (== $prem-ctx MAIN) true (== $prem-ctx $ctx))
-                        (if (context-affected? $ctx $type)
-                           (make-kb-context (brand KB $kbid) $ctx $vars)
-                           (make-kb-context (brand KB $kbid) MAIN Nil))
-                        (make-kb-context (brand KB $kbid) $prem-ctx $prem-vars))
-                     (if (if (== $prem-ctx MAIN)
-                            (if (== $ctx MAIN) false
-                               (if (context-vars-in-type? $type $vars) true
-                                  ;; Exact assumed keys belong to this judgment
-                                  ;; for every reader, including a lowered Not.
-                                  (judgment-assumed-key? $type
-                                     (make-kb-context (brand KB $kbid) $ctx $vars))))
-                            false)
-                        (make-kb-context (brand KB $kbid) $ctx $vars)
-                        (make-kb-context (brand KB $kbid) $prem-ctx $prem-vars))))
-                ;; An explicitly STV-typed implication premise requests its
-                ;; positive judgment. Keep full CTV rule reads in their source
-                ;; context and route only main-context STV reads privately.
-                ($read-kb
-                   (if (if (head-is? $tv STV) (implication-type? (brand Statement $type)) false)
-                      (case $fact-kb (
-                         (($source-kb $source-ctx $source-vars)
-                            (if (if (== $source-ctx MAIN) (== $source-vars Nil) false)
-                               (let* (($source (statement-query-kb (brand KB $source-kb)))
-                                      ($query-kb (brand KB (implication-query $source))))
-                                  (make-kb-context $query-kb MAIN Nil))
-                               $fact-kb))
-                         ($_other $fact-kb)))
-                      $fact-kb)))
+            (let* (($fact-kb
+                       (if (if (== $prem-ctx MAIN)
+                              (if (== $ctx MAIN) false
+                                 (if (context-vars-in-type? $type $vars) true
+                                    (judgment-assumed-key? $type (make-kb-context (brand KB $kbid) $ctx $vars))))
+                              false)
+                          (make-kb-context (brand KB $kbid) $ctx $vars)
+                          (make-kb-context (brand KB $kbid) $prem-ctx $prem-vars)))
+                   ($read-kb
+                      (if (if (head-is? $tv STV) (implication-type? (brand Statement $type)) false)
+                         (case $fact-kb (
+                            (($source-kb $source-ctx $source-vars)
+                               (if (if (== $source-ctx MAIN) (== $source-vars Nil) false)
+                                  (let* (($source (statement-query-kb (brand KB $source-kb)))
+                                         ($query-kb (brand KB (implication-query $source))))
+                                     (make-kb-context $query-kb MAIN Nil))
+                                  $fact-kb))
+                            ($_other $fact-kb)))
+                         $fact-kb)))
                (assemble-stored-runtime-fact $type $read-kb $prf $tv)))
-         ;; A fold over members the assumptions can change folds them in the
-         ;; context: its arguments name the context instead of the KB.
+         ;; Private implication judgments scope witness folds to their own
+         ;; hypothetical individuals. Assuming uses MAIN identities and overlays
+         ;; their values, so its folds keep their original MAIN scope.
          ((CPU $fun $args $res)
             (if (if (sk-existential-fold? $premise)
                    (let $pattern (car-atom (cdr-atom $args))
-                      (if (context-world? $ctx)
-                         (context-pattern-affected? $ctx $pattern)
-                         (if (== $ctx MAIN) false
+                      (if (== $ctx MAIN) false
                             ;; Ground judgments have no hypothetical individual
                             ;; to protect. Open ones must preserve its sharing
                             ;; rather than bind it to an unrelated fixed entity.
@@ -1331,12 +1225,8 @@
                                      ((ExistentialAlternatives $claim $_channel)
                                         (judgment-assumed-key? $claim
                                            (make-kb-context (brand KB $kbid) $ctx $vars)))
-                                     ($_other-pattern false))))))))
-                   (if (== $fun FoldAllCompiled)
-                      (if (context-world? $ctx)
-                         (let $pattern (car-atom (cdr-atom $args)) (context-pattern-affected? $ctx $pattern))
-                         false)
-                      false))
+                                     ($_other-pattern false)))))))
+                   false)
                (CPU $fun (cons-atom (make-kb-context (brand KB $kbid) $ctx $vars) (cdr-atom $args)) $res)
                (CPU $fun $args $res)))
          ;; A query judgment reads its explicit source context in another KB
@@ -1366,7 +1256,7 @@
    (once
       (case $premise (
          ((CPU $fun $args $res)
-            (if (aggregate-fold-function? $fun) false
+            (if (if (== $fun ContextRule) true (aggregate-fold-function? $fun)) false
                (if (if (is-var $fun) false (== (extract-vars $args) ()))
                   (case (collapse (cpu-call 0 $fun $args)) (
                      (() true)
@@ -1398,7 +1288,7 @@
 ;; assumptions; an implication query's hypothetical contexts are not complete.
 (: complete-statement? (-[det]-> Atom Atom Bool))
 (= (complete-statement? $type ($kbid $ctx $_vars))
-   (if (if (== $ctx MAIN) true (context-world? $ctx))
+   (if (== $ctx MAIN)
       (if (== (extract-vars $type) ())
          (let* (($kb (brand KB $kbid)) ($head (if (is-expr $type) (car-atom $type) $type)))
             (space-row-present? &complete_predicates ($kb $head)))
@@ -1421,12 +1311,12 @@
 ;; its row is built from the statement and context alone, since a row belongs
 ;; to its key and each reader applies its own proof and truth-value pattern.
 ;; A dormant rule is not started (docs/metta/dormant_rules.md).
-;; Dormancy is judged in the main context; in a context that sees the world,
-;; assumptions can support what the main context lacks, so every rule runs.
+;; Assumptions can enable producers MAIN skipped as dormant; their shared
+;; structural rows are built without supplying any assumed truth value.
 ;; Missing fact premises keep their join subscriptions. Only failing ground
 ;; CPU premises trigger the prefilter.
 (= (sk-start-rule-step $owner $_acc (sk-match $rule $premises $goal))
-   (if (if (if (sk-world-goal? $goal) false (rule-dormant? $rule)) false (= (copy_term $goal) (copy_term $owner)))
+   (if (if (if (sk-context-search? $goal) false (rule-dormant? $rule)) false (= (copy_term $goal) (copy_term $owner)))
       (if (if (case $goal (
                 (($type $kbctx $proof $_tv)
                    (if (rule-application-proof? $proof) (complete-statement? $type $kbctx) false))))
@@ -1619,6 +1509,7 @@
                 ($_member (install-member-inheritance-rules! $type $kbctx))
                 ($_activate (sk-activate-pending!))
                 ($_mark (sk-mark-expanded! $hash $node))
+                ($_seeds (context-answer-seeds! $node))
                 ($leaf-facts (sk-leaf-facts $type $kbctx (sk-filter $proof $tv)))
                 ($_leaves (fold-semidet (sk-leaf-answer-step $node) () $leaf-facts))
                 ;; A complete statement answers by its own key: the joins
@@ -1639,7 +1530,7 @@
                         (fold-semidet (sk-unifying-answer! $owner) () (sk-answers $general))))
                   (()
                      (let* (($goal (assemble-stored-runtime-fact $rule-type $rule-kbctx $_rule-proof $_rule-tv))
-                            ($matches (append-flat (collapse (sk-rule-match $goal)) (collapse (sk-world-rule-match $goal))))
+                            ($matches (collapse (sk-rule-match $goal)))
                             ($_rules (fold-semidet (sk-start-rule-step $owner) () $matches))
                             ($_open
                                (if (== (extract-vars $type) ()) ()
@@ -1966,13 +1857,13 @@
 (: sk-drop-row-views! (-[det]-> Number SkeletonKey Number Atom))
 (= (sk-drop-row-views! $hash $key $rhash)
    (let* (($_latest
-             (collapse (match &sk_latest ($hash $stored (sk-version $seq $rhash $view))
+             (collapse (match &ctx_sk_latest ($hash $stored (sk-version $seq $rhash $view))
                 (if (=alpha $stored $key)
-                   (remove-atom &sk_latest ($hash $stored (sk-version $seq $rhash $view)))
+                   (context-remove! &sk_latest ($hash $stored (sk-version $seq $rhash $view)))
                    (empty)))))
           ($_older
-             (collapse (match &sk_view ($hash $stored $rhash $view)
-                (if (=alpha $stored $key) (remove-atom &sk_view ($hash $stored $rhash $view)) (empty)))))
+             (collapse (match &ctx_sk_view ($hash $stored $rhash $view)
+                (if (=alpha $stored $key) (context-remove! &sk_view ($hash $stored $rhash $view)) (empty)))))
           ($_support (remove-data-rows! &sk_support (quote ($hash $rhash $_deps)))))
       ()))
 
@@ -1982,7 +1873,7 @@
           ($_row (remove-variant-row! &sk_row (quote ($hash $key $rhash (sk-row $ident $concl $premises $seq)))))
           ($_readers (fold-semidet (sk-remove-reader! $hash $rhash) () $keys))
           ($_stale-readers (fold-semidet (sk-drop-stale-reader! $hash $rhash) () $keys))
-          ($_stale (remove-atom &sk_stale ($hash $rhash))))
+          ($_stale (context-remove! &sk_stale ($hash $rhash))))
       (sk-drop-row-views! $hash $key $rhash)))
 
 ;; Query-local rules leave with their query: their rows, waiters, deferred rows
@@ -2005,109 +1896,6 @@
                        ($_row (sk-drop-row! $khash $key $rhash $row)))
                    $key)))))
       (fold-semidet sk-dirty-step () $keys)))
-
-;; --- Query contexts -----------------------------------------------------------
-
-;; An Assuming query's contexts leave with it: everything they created is
-;; removed from the stores, with the links into them from outside, so nothing
-;; a past query assumed is read, updated or walked by a later one
-;; (docs/metta/assumption_queries.md). The stores keyed by a node's or key's
-;; own hash lose that hash's rows.
-(: sk-clear-contexts! (-[semidet]-> Atom))
-(= (sk-clear-contexts!)
-   (let* (($contexts (the (List Atom) (list_to_set (collapse (match &sk_ctx_items ($ctx $_item) $ctx)))))
-          ($_dropped (collapse (match &sk_ctx_items ($_ctx $item) (sk-drop-context-item! $item))))
-          ($_cleared (remove-data-rows! &sk_ctx_items (quote ($_ctx2 $_item2))))
-          ($_queue
-             (collapse (match &sk_answer_queue ($seq (sk-delivery $node $key))
-                (if (let* (($node-ctx (node-context $node)) ($key-ctx (key-context $key)))
-                       (if (context-world? $node-ctx) true (context-world? $key-ctx)))
-                   (remove-atom &sk_answer_queue ($seq (sk-delivery $node $key)))
-                   (empty))))))
-      (fold-flat sk-forget-context-step () $contexts)))
-
-(: sk-forget-context-step (-[det]-> Atom Atom Atom))
-(= (sk-forget-context-step $_acc $ctx) (let $_forgot (context-forget! $ctx) ()))
-
-(: sk-drop-context-item! (-[semidet]-> SkeletonContextItem Atom))
-(= (sk-drop-context-item! $item)
-   (case $item (
-      ((ctx-node $h $node) (sk-drop-node-rows! $h $node))
-      ((ctx-root $h $root) (sk-drop-root! $h $root))
-      ((ctx-key $h $key) (sk-drop-key-rows! $h $key))
-      ((ctx-wait $h $premise $waiter) (let $_r (remove-variant-row! &sk_wait (quote ($h $premise $waiter))) ()))
-      ((ctx-answer $h $node $key) (let $_r (remove-variant-row! &sk_answer (quote ($h $node $key))) ()))
-      ((ctx-child $h $owner $child $ch) (let $_r (remove-variant-row! &sk_child (quote ($h $owner $child $ch))) ()))
-      ((ctx-use $h $key $parent) (let $_r (remove-variant-row! &sk_use (quote ($h $key $parent))) ()))
-      ((ctx-link $digest) (let $_r (remove-atom &sk_link ($digest)) ()))
-      ((ctx-join-link $key-digest $digest) (let $_r (remove-atom &sk_join_link ($key-digest $digest)) ())))))
-
-;; The root's keys are its own key and the answers it registered: statements
-;; of the query itself, which nothing else reads.
-(: sk-drop-root! (-[semidet]-> Number SkPattern Atom))
-(= (sk-drop-root! $h $root)
-   (let* (($answers (collapse (match &sk_answer ($h $stored $key) (if (=alpha $stored $root) $key (empty)))))
-          ($keys (case (copy_term $root) (
-                    (($type $kbctx $_proof $_tv) (cons (sk-key $type $kbctx) $answers))
-                    ($_cpu $answers))))
-          ($_keys (fold-semidet sk-drop-key-step () (list_to_set $keys)))
-          ($_links (fold-semidet (sk-drop-answer-link-step $root) () $answers)))
-      (sk-drop-node-rows! $h $root)))
-
-(: sk-drop-answer-link-step (-[semidet]-> SkPattern Atom SkeletonKey Atom))
-(= (sk-drop-answer-link-step $root $_acc $key)
-   (let* (($digest (link-digest (sk-answer-link $root $key)))
-          ($_link (remove-atom &sk_link ($digest))))
-      ()))
-
-(: sk-drop-key-step (-[semidet]-> Atom SkeletonKey Atom))
-(= (sk-drop-key-step $_acc $key) (sk-drop-key-rows! (index-hash $key) $key))
-
-(: sk-drop-node-rows! (-[semidet]-> Number SkPattern Atom))
-(= (sk-drop-node-rows! $h $node)
-   (let* (($_pending (sk-drop-pending! $h $node))
-          ($_rows
-             (remove-hash-rows!
-                (&sk_child &sk_score &sk_expanded &sk_wait &sk_temp_waits &sk_answer &sk_subsumed &sk_fold
-                 &sk_member_of &sk_deferred &sk_deferred_joins &sk_parked &sk_roots &sk_seen)
-                $h)))
-      (case (copy_term $node) (
-         ;; A fold node in a context takes its fold's key along.
-         ((CPU FoldAllCompiled $args $_res) (let $fold-key (sk-fold $args) (sk-drop-key-rows! (index-hash $fold-key) $fold-key)))
-         ((CPU $_fun $_args $_res) ())
-         (($type $kbctx $_proof $_tv)
-            (let* (($_terms (remove-data-rows! &sk_node_terms (quote ($type $kbctx $_n6))))
-                   ($prefix (sk-node-prefix $type))
-                   ($_open (remove-data-rows! &sk_open_node (quote ($prefix $h $_n8)))))
-               (let $_prefix (remove-data-rows! &sk_node_prefix (quote ($prefix $_t $_k $h $_n7))) ())))))))
-
-(: sk-drop-key-rows! (-[semidet]-> Number SkeletonKey Atom))
-(= (sk-drop-key-rows! $h $key)
-   (let* (($rows (collapse (match &sk_row ($h $stored $rh (sk-row $ident $concl $premises $seq)) ($rh $premises))))
-          ($_rows (fold-semidet (sk-drop-row-readers! $h) () $rows))
-          ($_hashed
-             (remove-hash-rows!
-                (&sk_row &sk_stale &sk_support &sk_given_pending &sk_given_granted &sk_cond_level &sk_forced
-                 &sk_forced_used &sk_refresh &sk_restale &sk_held &sk_temp_rows &sk_keys
-                 &sk_key_epoch &sk_latest &sk_view &sk_reader &sk_stale_reader &sk_unifiers
-                 &sk_use &sk_needed &sk_dirty &sk_group_of &sk_answered &sk_partial &sk_merged)
-                $h)))
-      (case $key (
-         ((sk-key $type $kbctx) (sk-unindex-key! $type $kbctx $h))
-         ($_fold ())))))
-
-;; A row of a removed key leaves the reader lists of the keys it read, which may
-;; lie outside its context.
-(: sk-drop-row-readers! (-[semidet]-> Number Atom (Number (List SkPattern)) Atom))
-(= (sk-drop-row-readers! $h $_acc ($rh $premises))
-   (fold-semidet (sk-drop-reader-link! $h $rh) () (fold-semidet sk-direct-key-step () $premises)))
-
-(: sk-drop-reader-link! (-[semidet]-> Number Number Atom SkeletonKey Atom))
-(= (sk-drop-reader-link! $h $rh $_acc $premise-key)
-   (let* (($ph (index-hash $premise-key))
-          ($_reader (remove-data-rows! &sk_reader (quote ($ph $_k1 $h $rh))))
-          ($_stale (remove-data-rows! &sk_stale_reader (quote ($ph $_k2 $h $rh)))))
-      ()))
 
 (: sk-dirty-step (-[semidet]-> Atom SkeletonKey Atom))
 (= (sk-dirty-step $_acc $key) (sk-mark-dirty! $key))

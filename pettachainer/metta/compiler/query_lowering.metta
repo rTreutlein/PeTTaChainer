@@ -370,25 +370,20 @@
    (if (is-var $Type)
       (compilation-plan (: (kbctx $kb) $prf $Type $tv) ())
       (if (= $Type (Assuming $facts $goal))
-         ;; The facts hold in a fresh context that sees the world: the goal's
-         ;; answers there, one per binding of its variables
-         ;; (docs/metta/assumption_queries.md).
-         ;; It has no hypothetical individual, so its context names no
-         ;; variables and its keys stay ground.
-         (let*
-            (($scoped-facts (scope-query-existentials $facts))
-             ($scoped-goal (scope-query-existentials $goal))
-             ($assuming-type (brand Statement (Assuming $scoped-facts $scoped-goal)))
-             (($shape-kb $prf $b $adds)
-                (query-side $kb Nil false $scoped-facts $scoped-goal))
-             ($_world (context-world! $shape-kb $scoped-facts)))
+         (let* (($scoped-facts (scope-query-existentials $facts))
+                ($scoped-goal (scope-query-existentials $goal))
+                ($ctx (nextctx))
+                ($scope (make-kb-context $kb $ctx Nil))
+                ($premises (implication-side-conjuncts $scoped-facts))
+                (($execs $_proofs $_atv)
+                   (lower-query-assumption-premises $kb $ctx Nil $premises))
+                ($assumed (query-context-premise-adds $kb $ctx Nil $execs))
+                ($_world (context-create! $scope))
+                ((compilation-plan $inner $adapters)
+                   (compileQuery $kb (: $inner-proof $scoped-goal $inner-tv))))
             (compilation-plan
-               (: (kbctx $kb) $root-prf $assuming-type $tv)
-               (cons
-                  (brand CompiledAddition
-                     ((the (List Goal) ((: $shape-kb $prf $b $tv)))
-                        |- (: (kbctx $kb) (assuming $prf) $assuming-type $tv)))
-                  $adds)))
+               (CPU ContextQuery (quote ($scope $scoped-facts $inner $prf $tv)) $result)
+               (append-compiled-additions $assumed $adapters)))
       (if (contains-explicit-exists? $Type)
          (compile-existential-query $kb (: $prf $Type $tv))
       (if (= $Type (Implication $stated-antecedent $stated-consequent))

@@ -68,8 +68,8 @@
 ;; answers with it, so a query for it reads the summary.
 (: sk-read? (-[det]-> Number SkeletonKey Bool))
 (= (sk-read? $hash $key)
-   (if (space-row-present? &sk_reader ($hash $key $_khash $_rhash)) true
-      (if (space-row-present? &sk_stale_reader ($hash $key $_skhash $_srhash)) true
+   (if (space-row-present? &ctx_sk_reader ($hash $key $_khash $_rhash)) true
+      (if (space-row-present? &ctx_sk_stale_reader ($hash $key $_skhash $_srhash)) true
          (not (== (collapse (once (match &sk_use ($hash $stored $fold)
                      (if (=alpha $stored $key) (if (sk-rate-fold? $fold) (empty) true) (empty)))))
                   ())))))
@@ -114,11 +114,11 @@
 ;; The dependency sets the stores hold; every other node can go.
 (: sk-deps-roots (-[det]-> (List Number)))
 (= (sk-deps-roots)
-   (append-flat (collapse (match &sk_latest ($_h $_k (sk-version $_s $_r $view)) (sk-view-deps-step 0 $view)))
-   (append-flat (collapse (match &sk_view ($_vh $_vk $_vr $old) (sk-view-deps-step 0 $old)))
-   (append-flat (collapse (match &sk_merged ($_mh $_mk $mdeps $_mv) $mdeps))
-   (append-flat (collapse (match &sk_merged ($_nh $_nk $_nd $value) (sk-view-deps-step 0 $value)))
-   (append-flat (collapse (match &sk_support ($_sh $_sr $support) $support))
+   (append-flat (collapse (match &ctx_sk_latest ($_h $_k (sk-version $_s $_r $view)) (sk-view-deps-step 0 $view)))
+   (append-flat (collapse (match &ctx_sk_view ($_vh $_vk $_vr $old) (sk-view-deps-step 0 $old)))
+   (append-flat (collapse (match &ctx_sk_merged ($_mh $_mk $mdeps $_mv) $mdeps))
+   (append-flat (collapse (match &ctx_sk_merged ($_nh $_nk $_nd $value) (sk-view-deps-step 0 $value)))
+   (append-flat (collapse (match &ctx_sk_support ($_sh $_sr $support) $support))
    (append-flat (collapse (match &sk_forward_stored ($_fh $_fk $_ff $_fe $fdeps) $fdeps))
    (append-flat (collapse (match &sk_forward_taken ($_th $_tk $taken) (sk-view-deps-step 0 $taken)))
       (collapse (match &sk_summary ($_yh $_yk $_yf $_ye $ydeps) $ydeps))))))))))
@@ -159,9 +159,9 @@
           ($near (sk-near-hashes-step (cons $hash ()) $hash))
           ($window (fold-semidet sk-near-hashes-step $near $near))
           ($deps (deps-join (map-flat deps-key (hash-set $window))))
-          ($views (collapse (match &sk_latest ($hash $stored (sk-version $_seq $_rhash $view))
+          ($views (collapse (match &ctx_sk_latest ($hash $stored (sk-version $_seq $_rhash $view))
                      (if (=alpha $stored $key) (sk-view-deps-step 0 $view) (empty)))))
-          ($older (collapse (match &sk_view ($hash $stored $_rhash $view)
+          ($older (collapse (match &ctx_sk_view ($hash $stored $_rhash $view)
                      (if (=alpha $stored $key) (sk-view-deps-step 0 $view) (empty)))))
           ($_cut (deps-cut! (append-flat $views $older) $deps))
           ($rows (collapse (match &sk_row ($hash $stored $rhash $row)

@@ -9,16 +9,16 @@
 ;; Removal rejoins the surviving Member facts before publishing the cache.
 ;; An added Member fact updates only its subscribed joins.
 (: fa-id (-[semidet]-> ForwardAggregateIdentityKey Number))
-(= (fa-id $a)(let $b (index-hash $a)(once (match &forward_aggregate_identity ($b (forward-aggregate-identity-row $c $d))(if (=alpha $c $a) $d (empty))))))
+(= (fa-id $a)(let $b (index-hash $a)(once (match &ctx_forward_aggregate_identity ($b (forward-aggregate-identity-row $c $d))(if (=alpha $c $a) $d (empty))))))
 ;; A typed callback keeps directory insertion from changing the sharing of
 ;; the descriptor copied by fa-register! during map specialization.
 (: fa-register-trigger! (-[det]-> ForwardTriggerKey Bool))
 (= (fa-register-trigger! $trigger)
    (let $hash (term_hash $trigger)
-      (if (space-row-present? &forward_aggregate_triggers ($hash $trigger)) true
-         (let $_added (once (add-atom &forward_aggregate_triggers ($hash $trigger))) true))))
+      (if (space-row-present? &ctx_forward_aggregate_triggers ($hash $trigger)) true
+         (let $_added (once (context-add! &forward_aggregate_triggers ($hash $trigger))) true))))
 (: fa-register! (-[det]-> ForwardAggregateIdentityKey ForwardAggregateDescriptor ForwardTriggerKey Bool ForwardTriggerKey (List $a)))
-(= (fa-register! $a $b $c $d $e)(let $h (collapse (once (fa-id $a)))(if (== $h ())(let* (($f (index-hash $a))($g (term_hash $c))($k (next-search-id fwd_aggregate_id))(($i $l)(copy_term (quote ($a $b))))($m (the ForwardAggregateIdentityKey $i))($n (the ForwardAggregateDescriptor $l))($o (once (add-atom &forward_aggregate_identity ($f (forward-aggregate-identity-row $m $k)))))($p (once (add-atom &forward_aggregate_interest_by_trigger ($g (forward-aggregate-interest $c $k $n)))))($q (if $d (let* (($r (term_hash $e))($s (once (add-atom &forward_aggregate_interest_by_trigger ($r (forward-aggregate-interest $e $k $n))))))())()))($t (once (add-atom &forward_aggregate_state (forward-aggregate-state $k 0.0 0.0))))($u (if $d (cons $c (cons $e ())) (cons $c ())))($v (map-flat fa-register-trigger! $u)))())())))
+(= (fa-register! $a $b $c $d $e)(let $h (collapse (once (fa-id $a)))(if (== $h ())(let* (($f (index-hash $a))($g (term_hash $c))($k (next-search-id fwd_aggregate_id))(($i $l)(copy_term (quote ($a $b))))($m (the ForwardAggregateIdentityKey $i))($n (the ForwardAggregateDescriptor $l))($o (once (context-add! &forward_aggregate_identity ($f (forward-aggregate-identity-row $m $k)))))($p (once (context-add! &forward_aggregate_interest_by_trigger ($g (forward-aggregate-interest $c $k $n)))))($q (if $d (let* (($r (term_hash $e))($s (once (context-add! &forward_aggregate_interest_by_trigger ($r (forward-aggregate-interest $e $k $n))))))())()))($t (once (context-add! &forward_aggregate_state (forward-aggregate-state $k 0.0 0.0))))($u (if $d (cons $c (cons $e ())) (cons $c ())))($v (map-flat fa-register-trigger! $u)))())())))
 
 ;; What a fold premise asks the forward chainer to maintain: its aggregate
 ;; identity and descriptor, and the trigger keys whose facts update it (a
@@ -112,11 +112,11 @@
 (= (fa-acc $a (extract-inheritance-tv $b $c)(BaseRateEvidence $d $e) WeightedBaseRateAcc $f $g)(let $h (fa-mass-scale $a)(BaseRateEvidence (* $h $f)(* $h $g))))
 (= (fa-acc $a (extract-inheritance-tv $b $c)(BaseRateEvidenceWithPrior $d (BaseRateEvidence $e $f)) WeightedBaseRateWithPriorAcc $g $h)(let $i (fa-mass-scale $a)(BaseRateEvidenceWithPrior $d (BaseRateEvidence (* $i $g)(* $i $h)))))
 (: fa-state (-[semidet]-> Number ForwardAggregateState))
-(= (fa-state $a)(once (match &forward_aggregate_state (forward-aggregate-state $a $b $c)(forward-aggregate-state $a $b $c))))
+(= (fa-state $a)(once (match &ctx_forward_aggregate_state (forward-aggregate-state $a $b $c)(forward-aggregate-state $a $b $c))))
 (: fa-obs (-[det]-> ForwardAggregateObservationKey (List ForwardAggregateObservation)))
-(= (fa-obs $a)(let $h (index-hash $a)(collapse (match &forward_aggregate_observation ($h $a $b $c $d)(forward-aggregate-observation $a $b $c $d)))))
+(= (fa-obs $a)(let $h (index-hash $a)(collapse (match &ctx_forward_aggregate_observation ($h $a $b $c $d)(forward-aggregate-observation $a $b $c $d)))))
 (: fa-swap! (-[semidet]-> Number (List ForwardAggregateObservation) ForwardAggregateObservation Bool ForwardAggregateState))
-(= (fa-swap! $a $b (forward-aggregate-observation $c $d $e $f) $g)(let* ((($h $i)(case $b ( (()(data 0.0 0.0))((cons (forward-aggregate-observation $j $k $l $m) $n)(data $l $m)))))((forward-aggregate-state $o $p $q)(fa-state $a))($r (+ (- $p $h) $e))($s (+ (- $q $i) $f))($t (once (remove-atom &forward_aggregate_state (forward-aggregate-state $a $p $q))))($t2 (once (add-atom &forward_aggregate_state (forward-aggregate-state $a $r $s))))($x (index-hash $c))($u (remove-atom &forward_aggregate_observation ($x $c $_v $_w $_m)))($v (if $g (once (add-atom &forward_aggregate_observation ($x $c $d $e $f)))())))(forward-aggregate-state $a $r $s)))
+(= (fa-swap! $a $b (forward-aggregate-observation $c $d $e $f) $g)(let* ((($h $i)(case $b ( (()(data 0.0 0.0))((cons (forward-aggregate-observation $j $k $l $m) $n)(data $l $m)))))((forward-aggregate-state $o $p $q)(fa-state $a))($r (+ (- $p $h) $e))($s (+ (- $q $i) $f))($t (once (context-remove! &forward_aggregate_state (forward-aggregate-state $a $p $q))))($t2 (once (context-add! &forward_aggregate_state (forward-aggregate-state $a $r $s))))($x (index-hash $c))($u (context-remove! &forward_aggregate_observation ($x $c $_v $_w $_m)))($v (if $g (once (context-add! &forward_aggregate_observation ($x $c $d $e $f)))())))(forward-aggregate-state $a $r $s)))
 (: fa-dist-acc (-[det]-> $a DistributionSumCount))
 (= (fa-dist-acc $a)(the DistributionSumCount $a))
 (: fa-ev-acc (-[det]-> $a BaseRateEvidenceState))
@@ -179,8 +179,8 @@
 (: fa-maintain-key! (-[nondet]-> ForwardAggregateMaintenance (Statement KBContext Proof TV) ForwardTriggerKey (List $a)))
 (= (fa-maintain-key! $action $fact $trigger)
    (let $hash (term_hash $trigger)
-      (if (space-row-present? &forward_aggregate_triggers ($hash $trigger))
-         (match &forward_aggregate_interest_by_trigger ($hash (forward-aggregate-interest $stored $id $descriptor))
+      (if (space-row-present? &ctx_forward_aggregate_triggers ($hash $trigger))
+         (match &ctx_forward_aggregate_interest_by_trigger ($hash (forward-aggregate-interest $stored $id $descriptor))
          (if (== $stored $trigger)
             (case $action (
                (aggregate-update (fa-update! $fact $id (copy_term $descriptor)))
@@ -196,12 +196,12 @@
 (: fa-trigger-folds (-[det]-> Statement ForwardTriggerKey (List Number)))
 (= (fa-trigger-folds $statement $trigger)
    (let $hash (term_hash $trigger)
-      (collapse (match &forward_aggregate_interest_by_trigger ($hash (forward-aggregate-interest $stored $id $descriptor))
+      (collapse (match &ctx_forward_aggregate_interest_by_trigger ($hash (forward-aggregate-interest $stored $id $descriptor))
          (if (== $stored $trigger)
             (case (copy_term $descriptor) (
                ((forward-base-rate-descriptor $_kb $pattern $_extractor $_init $_function $_finish)
-                  (if (= $pattern (copy_term $statement)) (match &forward_aggregate_fold ($id $fold) $fold) (empty)))
-               ($_other (match &forward_aggregate_fold ($id $fold) $fold))))
+                  (if (= $pattern (copy_term $statement)) (match &ctx_forward_aggregate_fold ($id $fold) $fold) (empty)))
+               ($_other (match &ctx_forward_aggregate_fold ($id $fold) $fold))))
             (empty))))))
 
 (: forward-rate-folds (-[det]-> (Statement KBContext Proof TV) (List Number)))
