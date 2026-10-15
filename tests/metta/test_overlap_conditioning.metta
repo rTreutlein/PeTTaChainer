@@ -69,8 +69,8 @@
    ((STV 0.05887282355682909 0.9998816871581414)))
 
 ;; Views that share only a fact no rule concludes, here the link both rules
-;; read, and hold evidence of their own are independent given it: they
-;; revise. A fact some rule concludes may be an observation both update on,
+;; read, and hold evidence of their own are independent given it. These
+;; distinct sibling rule conditions combine by odds over the neutral prior. A fact some rule concludes may be an observation both update on,
 ;; and keeps them dependent (test_antecedent_completion: wet-d read by an
 ;; inversion and a completion).
 !(compileadd premiseKb (: link (Link a b) (STV 1 1)))
@@ -79,4 +79,4 @@
 !(compileadd premiseKb (: ra (Implication (And (Link $x $y) (A $x)) (X $y)) (CTV (STV 0.9 1) (STV 0.2 1))))
 !(compileadd premiseKb (: rb (Implication (And (Link $x $y) (B $y)) (X $y)) (CTV (STV 0.7 1) (STV 0.1 1))))
 !(test (query 100 premiseKb (: $p (X b) $tv))
-   (: (merge/revision (by ra (conjunction link sa)) (by rb (conjunction link sb))) (X b) (STV 0.5036521477040713 0.978217847410911)))
+   (: (combination odds (prior (STV 0.5 0.0)) ((by ra (conjunction link sa)) (by rb (conjunction link sb)))) (X b) (STV 0.5518672199170126 1.35971765734789e-05)))

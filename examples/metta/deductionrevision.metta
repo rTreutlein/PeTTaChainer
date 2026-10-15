@@ -16,11 +16,11 @@
       (inheritance-implication-fold
          (total-implication
             (merge/revision
-               (by (inheritance-implication bInheritsD) (by (inheritance-implication aInheritsB) (ctx proof 0)))
-               (by (inheritance-implication cInheritsD) (by (inheritance-implication aInheritsC) (ctx proof 0))))
+               (by (inheritance-implication cInheritsD) (by (inheritance-implication aInheritsC) (ctx proof 0)))
+               (by (inheritance-implication bInheritsD) (by (inheritance-implication aInheritsB) (ctx proof 0))))
             (merge/revision
-               (by (inheritance-implication bInheritsD) (by (inheritance-implication aInheritsB) (ctx proof 1)))
-               (by (inheritance-implication cInheritsD) (by (inheritance-implication aInheritsC) (ctx proof 1))))))
+               (by (inheritance-implication cInheritsD) (by (inheritance-implication aInheritsC) (ctx proof 1)))
+               (by (inheritance-implication bInheritsD) (by (inheritance-implication aInheritsB) (ctx proof 1))))))
       (Inheritance A D)
       (STV 0.4996671101868611 0.0022730948685900365))))
 
@@ -51,7 +51,7 @@
    (:
       (conditional-implication
          (merge/revision
-            (by bImpliesD (by aImpliesB (ctx proof 2)))
-            (by cImpliesD (by aImpliesC (ctx proof 2)))))
+            (by cImpliesD (by aImpliesC (ctx proof 2)))
+            (by bImpliesD (by aImpliesB (ctx proof 2)))))
       (Implication (A $_1139496) (D $_1139496))
       (STV 0.125 0.9692294378874315)))

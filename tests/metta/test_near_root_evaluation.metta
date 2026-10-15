@@ -35,7 +35,7 @@
 !(compileadd relKb (: f4 (Opposite A1 C2) (STV 1.0 0.9)))
 
 !(begin-backward-query-metrics!)
-!(test (let (: $p $t $tv) (query 25 relKb (: $p (Same C1 B1) $tv)) $tv) (STV 1.0 0.8999999378773833))
+!(test (let (: $p $t $tv) (query 25 relKb (: $p (Same C1 B1) $tv)) $tv) (STV 1.0 0.8999998721576475))
 !(test (<= (query_metric_value row-computes) (+ (* 2 25) (* 8 (near-root-items)))) true)
 
 ;; A query without budget has no allowance and still brings what its root

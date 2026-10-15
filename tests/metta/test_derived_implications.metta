@@ -108,9 +108,9 @@
    (: (by r (conjunction a b)) (C x) (STV 0.536 0.9303813636151533)))
 
 ;; A stored implication is a rule, applied by modus ponens. With a derived
-;; implication of the same statement, the two proofs share the fact b; the
-;; lifting merge factors it out and revises the two implications, as it does
-;; for the flat rule.
+;; implication of the same statement, the latter also conditions on A. Both
+;; the nested form and its flat export therefore specialize the B-only rule
+;; before lifting, retaining the B-only rate as their prior.
 !(compileadd storedKb (: a (A x) (STV 1.0 1.0)))
 !(compileadd storedKb (: b (B x) (STV 1.0 1.0)))
 !(compileadd storedKb (: s (Implication (B x) (C x)) (CTV (STV 0.7 0.5) (STV 0.1 0.5))))
@@ -125,9 +125,9 @@
 !(compileadd storedFlatKb (: r (Implication (And (A $x) (B $x)) (C $x)) (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
 
 !(test (query 20 storedKb (: $p (C x) $tv))
-   (: (merge/revision (by s b) (by (by r a) b)) (C x) (STV 0.8799999998266353 0.9090909079875853)))
+   (: (specializes (by (by r a) b) (by s b) (STV 0.9 0.8999999991176936) (STV 0.7 0.499999999956991)) (C x) (STV 0.8999944445987068 0.8999999991176936)))
 !(test (query 20 storedFlatKb (: $p (C x) $tv))
-   (: (merge/revision (by s b) (by r (conjunction a b))) (C x) (STV 0.8799999998266352 0.9090909079875852)))
+   (: (specializes (by r (conjunction a b)) (by s b) (STV 0.9 0.8999999991176935) (STV 0.7 0.499999999956991)) (C x) (STV 0.8999944445987067 0.8999999991176935)))
 
 ;; Forward chaining: taking a derives the statement, taking it joins b.
 !(compileadd forwardKb (: a (A x) (STV 1.0 1.0)))

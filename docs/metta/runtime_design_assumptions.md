@@ -329,19 +329,17 @@ A key's value merges its stored facts and one view per row:
 - an identical proof pools its evidence; a marginal projection gives way to its
   full proof, and a settled step to its complete step, before the views merge,
   so neither stands for its full proof in a merge with a third view;
-- a rule application reading a proper superset of the stored facts another
-  rule's application reads, or the facts another rule's derived premise rests
-  on, is about a narrower reference class (the other's antecedent is entailed
-  by its own: (Member pingu Bird) derived from (Member pingu Penguin)): the
-  general view is no further evidence of the case, only the prior the specific
-  strength is read under, with `set-bayes-prior-count` pseudo-observations.
-  Independent general applications are revised into one prior and the original
-  specific estimate is shrunk once. The `specializes` proof keeps that original
-  estimate and the accumulated prior's TV so later merges do not stack shrinkage.
-  A general rule name already in that prior contributes no second view. Prior
-  revision is order-independent only for independent general rules; overlapping
-  general views take the overlap path first. specialization-has-rule? compares
-  rule names rather than permanent identities or premise instances;
+- before lifting or other aggregation, original applicable rule views are
+  compared by syntactic containment (reversed for complements), including
+  mined parent/child rules. Counts and confidence do not rank conditions;
+- a containing general view supplies the specific estimate's prior under
+  `set-bayes-prior-count` pseudo-observations. General views revise into one
+  prior and the original specific estimate is shrunk once; `specializes`
+  records both TVs. Derived implication applications include their source
+  conditions. Prior observations do not enter the specific likelihood's
+  evidence; its proof and refresh dependencies retain the general class.
+  The existing semantic generalization path remains where the conditions
+  do not overlap literally, including the penguin/bird example;
 - two views are independent when their evidence is disjoint, or when each
   holds evidence of its own and they share only known facts that no rule
   concludes (premises either reads as given), rules (as for rows: a rule's
@@ -363,7 +361,9 @@ A key's value merges its stored facts and one view per row:
   (`docs/metta/combination_modes.md`);
 - two derivations through different refined rules whose truths were folded
   from samples observing the same outcomes (equal digests of their instance
-  folds) are one view, the more confident: the history never told the rules
+  folds) share one sample: different rule conditions retain both proofs by
+  conservative revision with confidence capped by the smaller input; ordinary
+  proofs retain their representative behavior. The history never told the rules
   apart (`overlap_conditioning.md`, "Sample twins");
 - of dependent views, the one whose evidence strictly contains the other's
   is kept; two that share uncertain statements condition the key's whole
@@ -373,14 +373,19 @@ A key's value merges its stored facts and one view per row:
   (`docs/metta/overlap_conditioning.md`); otherwise, or while the
   conditioning waits to be paid, or where a pass stops at its depth, the
   views are grouped into connected components by shared statements or
-  observations. The most confident view of each component is kept and the
-  independent components merge, preserving evidence outside the overlap;
+  observations. Sibling forward-rule views combine by prior-factored odds;
+  the conservative unpaid result unions evidence and dependencies and caps
+  confidence by the smaller input confidence. Paid conditioning recomputes
+  and combines those views inside its branches. Same-condition and ordinary
+  non-rule proofs retain their existing representative behavior.
+  Independent components merge, preserving evidence outside the overlap;
 - when every proof of the key is modus ponens over conjunctions of facts, the
   proofs share fact premises, and their residual evidence is nonempty and
   pairwise disjoint, the lifting merge factors the shared facts out, revises
   the residual implications, and applies the shared conjunction once. It
   requires a strength linear in the shared conjunction (a two-point round
-  trip); otherwise views merge pairwise. Lifting applies to a key's merged
+  trip); sibling rule conditions instead combine by odds inside the shared
+  conditioning path. Otherwise views merge pairwise. Lifting applies to a key's merged
   value; compatible selection below merges pairwise.
 
 No value supports itself. A consumer reads, per row of a premise key, the

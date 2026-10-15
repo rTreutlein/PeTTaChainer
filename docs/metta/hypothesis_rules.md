@@ -226,46 +226,49 @@ C unrelated, 20 cases, k = 5:
 
 ## Specificity (October 2026)
 
-Two refined hypotheses about one consequent where one antecedent refines the
-other, `(S a $t) → Win` and `(And (S a $t) (L b $t)) → Win`, both apply to a
-case with S and L. Their views shared no evidence, so they revised: 0.40 for
-a case the specific rule wins every time (0.25 general, 0.99 specific). The
-specific application reads a proper superset of the general one's stored
-facts, so its antecedent, as instantiated, entails the general one's, whose
-rate is a marginal over this case and cases it is not. The merge now reads
-the specific strength under `bayes-prior-count` pseudo-observations at the
-general one (`sk-specialized`, proof `(specializes specific general raw-tv prior-tv)`): 0.95
-(`test_hypothesis_rules.metta`, ChainerGame
-`benchmarks/ona/repros/specificity.py`). A specific rule with little evidence
-stays near the general rate.
+A rule predicts its condition's average. Before lifting or combining original
+rule views across classes, equal conditions first pool their estimates. A
+syntactically narrower applicable condition takes precedence over
+a containing condition. Complement containment reverses the ordering. Mined
+parent/child rules use the same relation; applicability counts and confidence
+do not order different conditions. Semantic subsumption is not extended.
 
-A specific application keeps its reference class through stored references and
-its `specializes` wrapper. Multiple independent general rules revise into ONE
-prior; the original specific TV is shrunk once against that revised TV, rather
-than shrinking an already shrunk estimate again. The wrapper records the raw
-specific TV and accumulated prior TV. This is order-independent for independent
-general rules. Overlapping general views meet through the overlap path first;
-there is no general order-independence claim for them.
+The comparison uses the original views, before a learned `combination odds`
+proof can hide the singles. A derived implication's application includes the
+conditions under which that implication was derived, so `A -> (B -> C)` and
+`(A AND B) -> C` have the same class. Compatible premise reads perform the same
+selection after filtering evidence.
 
-`specialization-has-rule?` compares the rule names in `by` proofs, not permanent
-compiled rule identities or premise instances. A second view with the same name
-already present in the prior does not add another prior contribution. This
-matters for a mined conjunction whose two single-feature generalizations are
-both live (`test_hypothesis_mining.metta`).
+A containing general class supplies the specific estimate's prior, with
+`bayes-prior-count` pseudo-observations. Original general views revise into one
+prior; the specific estimate is shrunk once. The proof
+`(specializes specific general raw-tv prior-tv)` records both values. Its
+likelihood evidence remains the specific view's: the general class's current
+instance observations do not become new evidence. Both proofs and refresh
+dependencies remain, so changing a learned prior still refreshes its readers.
+Thus .99
+at confidence .4, specific to .25 at confidence .7, gives .81923 under the
+default .2-observation prior, rather than lifting to .41444. Same-condition
+rules retain revision.
 
-The same holds when the general rule reads a derived premise whose evidence
-is only facts the specific rule reads directly: its antecedent is then a
-generalization of the specific one's, entailed by it. ONA's penguin.nal
-(ChainerGame `benchmarks/ona/nal_pln/penguin.metta`): `(Member $x Penguin) →
-Fly` (0.0) reads `(Member pingu Penguin)`; `(Member $x Bird) → Fly` (1.0)
-reads `(Member pingu Bird)`, derived from that fact through `(Inheritance
-Penguin Bird)`. Revised under conditioning on the shared fact they gave 0.33;
-read as prior and specific case, 0.00003, where NAL answers 0.0
-(`test_default_exception.metta`). The specific side must read stored facts
-directly: when both read derived premises, nothing tells which antecedent
-entails the other, and they merge as before. The fuzzer is unaffected, since
-its KBs have one rule per head, and so are combination modes, whose
-independent causes read different facts.
+Applicable sibling conditions, including a negative branch against a positive
+branch, combine rather than competing for a representative. For overlapping
+forward rule views the combination uses odds relative to the consequent's
+existing outcome tally: `odds(T|A,B) = odds(T|A) * odds(T|B) / odds(T)`.
+With no counted outcomes its Laplace prior is .5. Shared uncertain statements
+still use the existing budgeted conditioning, and sibling views combine inside
+each paid branch. While shared uncertainty is unpaid, sibling estimates revise conservatively
+with evidence/dependency unions and confidence capped by the smaller input
+confidence. Known shared premises need no uncertainty cut and use odds directly. This retains both estimates without claiming new
+independent evidence from the shared part. A proof records both contributing
+rules in `combination odds`; confidence never selects between their conditions.
+This fallback approximates dependence; it is not a newly inferred joint rule.
+
+Disjoint forward views retain learned combination modes. Ordinary non-rule
+proofs retain their existing overlap behavior. The pre-existing derived-premise
+generalization path remains for views without literal condition overlap,
+including the existing penguin/bird example. This change adds no semantic
+subsumption; literal sibling conditions use combination and conditioning.
 
 
 ## Instance tallies (October 2026)

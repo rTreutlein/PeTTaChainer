@@ -74,7 +74,7 @@
 
 !(test
    (query 30 openAndFairKb (: $prf (And (Own (i $a)) (Pet $a)) $tv))
-   ((: (conjunction (by ownRule haveMax) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by petRule dogMax) (by distractRule1 distract1)) (by distractRule2 distract2)) (by distractRule3 distract3)) (by distractRule4 distract4)) (by distractRule5 distract5)) (by distractRule6 distract6))) (And (Own (i max)) (Pet max)) (STV 0.7400000993747873 0.9999230825234057)) (: (conjunction (by ownRule haveAnn) (by petRule dogAnn)) (And (Own (i ann)) (Pet ann)) (STV 0.5599999999999999 0.9999136435669362))))
+   ((: (conjunction (by ownRule haveMax) (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (merge/revision (by petRule dogMax) (by distractRule6 distract6)) (by distractRule5 distract5)) (by distractRule4 distract4)) (by distractRule3 distract3)) (by distractRule2 distract2)) (by distractRule1 distract1))) (And (Own (i max)) (Pet max)) (STV 0.7400000993747873 0.9999230825234057)) (: (conjunction (by ownRule haveAnn) (by petRule dogAnn)) (And (Own (i ann)) (Pet ann)) (STV 0.5599999999999999 0.9999136435669362))))
 
 ;; An open query keeps a stored fact (ONA threelegdog, ChainerGame
 ;; benchmarks/ona/repros/open_query_drops_fact.metta). The member rule applied

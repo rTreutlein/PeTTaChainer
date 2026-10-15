@@ -165,7 +165,7 @@
          ((: $prf (RefreshFirstRoot) $tv)
           (: $prf (RefreshSecondRoot) $tv))))
    ((query-result 0
-       (: (merge/revision (by refresh-fast refresh-fast-fact) (by refresh-slow refresh-slow-fact))
+       (: (merge/revision (by refresh-slow refresh-slow-fact) (by refresh-fast refresh-fast-fact))
           (RefreshFirstRoot) (STV 1.0 0.9999029644052249)))
     (query-result 1
        (: (by refresh-medium refresh-medium-fact)
@@ -192,7 +192,7 @@
       (query-many 20 refreshedDemandKb
          ((: $prf (RefreshFirstRoot) $tv)
           (: $prf (RefreshSecondRoot) $tv))))
-   ((query-result 0 (: (merge/revision (by refresh-fast refresh-fast-fact) (by refresh-slow refresh-slow-fact)) (RefreshFirstRoot) (STV 1.0 0.9999029644052249))) (query-result 1 (: (by refresh-medium refresh-medium-fact) (RefreshSecondRoot) (STV 1.0 0.9998059476404358)))))
+   ((query-result 0 (: (merge/revision (by refresh-slow refresh-slow-fact) (by refresh-fast refresh-fast-fact)) (RefreshFirstRoot) (STV 1.0 0.9999029644052249))) (query-result 1 (: (by refresh-medium refresh-medium-fact) (RefreshSecondRoot) (STV 1.0 0.9998059476404358)))))
 
 !(compileadd materializeBatchKb
    (: materialize-batch-seed

@@ -31,7 +31,7 @@
 !(compileadd chainKb (: c3 (Implication (S $x) (Q $x)) (STV 1.0 0.9)))
 !(compileadd chainKb (: f2 (S a) (STV 1.0 0.9)))
 !(test (let (walk-cost $expanded $walked) (walked-query 50 chainKb (: $p (R a) $tv)) (if (> $expanded 0) (> $walked 0) false)) true)
-!(test (let (: $p $s $tv) (query 50 chainKb (: $p (R a) $tv)) $p) (by c2 (merge/revision (by c1 f1) (by c3 f2))))
+!(test (let (: $p $s $tv) (query 50 chainKb (: $p (R a) $tv)) $p) (by c2 (merge/revision (by c3 f2) (by c1 f1))))
 !(test (walked-query 50 chainKb (: $p (R a) $tv)) (walk-cost 0 0))
 
 ;; Around a cycle every node reaches every other, so new work on it makes the

@@ -94,7 +94,7 @@
 ;; independent of merge order for independent general rules.
 (: merge-prior-views (-[semidet]-> SkeletonValue SkeletonValue SkeletonValue SkeletonValue))
 (= (merge-prior-views $a $b $c)
-   (let* (($ab (sk-merge-step () $a $b))) (sk-merge-step () $ab $c)))
+   (let* (($ab (sk-merge-step true () $a $b))) (sk-merge-step true () $ab $c)))
 (: prior-strength (-[semidet]-> SkeletonValue Number))
 (= (prior-strength (sk-val ($_type $_ctx $_proof (STV $s $_c)) $_ev $_deps)) $s)
 !(test
@@ -102,9 +102,9 @@
           ($g1 (sk-val ((Win new) (priorKb MAIN Nil) (by general-a a) (STV 0.2 0.5)) (evidence-set (general-a a)) 0))
           ($g2 (sk-val ((Win new) (priorKb MAIN Nil) (by general-b b) (STV 0.8 0.5)) (evidence-set (general-b b)) 0))
           ($g1-other (sk-val ((Win new) (priorKb MAIN Nil) (by general-a b) (STV 0.2 0.5)) (evidence-set (general-a b)) 0))
-          ($sg (sk-merge-step () $s $g1)))
+          ($sg (sk-merge-step true () $s $g1)))
       (data
-         (== (prior-strength (sk-merge-step () $sg $g1-other)) (prior-strength $sg))
+         (== (prior-strength (sk-merge-step true () $sg $g1-other)) (prior-strength $sg))
          (== (prior-strength (merge-prior-views $s $g1 $g2)) (prior-strength (merge-prior-views $s $g2 $g1)))
          (== (prior-strength (merge-prior-views $s $g1 $g2)) (prior-strength (merge-prior-views $g1 $g2 $s)))))
    (true true true))

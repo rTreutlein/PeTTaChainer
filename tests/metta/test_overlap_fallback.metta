@@ -25,7 +25,7 @@
 ;; in the result, exactly as merging a, b, d without the overlapping c.
 !(test
    (let* (((cons $a (cons $b (cons $_c (cons $d ())))) (fallback-views))
-          ($expected (sk-merge-step () (sk-merge-step () $a $b) $d)))
+          ($expected (sk-merge-step true () (sk-merge-step true () $a $b) $d)))
       (== $expected (sk-key-fallback () (fallback-views)))) true)
 
 ;; All 24 orders give the identical proof, TV, evidence and dependencies.

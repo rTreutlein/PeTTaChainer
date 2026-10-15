@@ -42,10 +42,11 @@
 !(compileadd kb
    (: ruleStable (Implication (BasePremise) (SwitchGoal)) (CTV (STV 1.0 0.7) (STV 0.0 1.0))))
 
-;; Both proofs use baseFact: lifting factors it out and pools the two rules.
+;; The conjunction is a narrower class. Its strength stays 1, while its
+;; confidence comes from that class; the general rule is only its prior.
 !(test
    (query 10 kb (: $prf (SwitchGoal) $tv))
-   (: (merge/revision (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact)) (SwitchGoal) (STV 1.0 0.7094641445679878)))
+   (: (specializes (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact) (STV 1.0 0.09887551209794267) (STV 1.0 0.699950950923023)) (SwitchGoal) (STV 1.0 0.09887551209794267)))
 
 !(test
    (query 30 kb
@@ -57,16 +58,16 @@
 ;; Completed answers survive the per-query search reset. A zero-budget query
 ;; can therefore read the durable proof without expanding a new frontier.
 !(test (query 0 kb (: $prf (SwitchGoal) $tv))
-   (: (merge/revision (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact)) (SwitchGoal) (STV 1.0 0.7094641445679878)))
+   (: (specializes (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact) (STV 1.0 0.09887551209794267) (STV 1.0 0.699950950923023)) (SwitchGoal) (STV 1.0 0.09887551209794267)))
 
 !(test (query 4 kb (: $prf (SwitchGoal) $tv))
-   (: (merge/revision (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact)) (SwitchGoal) (STV 1.0 0.7094641445679878)))
+   (: (specializes (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact) (STV 1.0 0.09887551209794267) (STV 1.0 0.699950950923023)) (SwitchGoal) (STV 1.0 0.09887551209794267)))
 
 !(test (query 7 kb (: $prf (SwitchGoal) $tv))
-   (: (merge/revision (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact)) (SwitchGoal) (STV 1.0 0.7094641445679878)))
+   (: (specializes (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact) (STV 1.0 0.09887551209794267) (STV 1.0 0.699950950923023)) (SwitchGoal) (STV 1.0 0.09887551209794267)))
 
 !(test (query 100 kb (: $prf (SwitchGoal) $tv))
-   (: (merge/revision (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact)) (SwitchGoal) (STV 1.0 0.7094641445679878)))
+   (: (specializes (by ruleHighThenDrop (conjunction weakFact baseFact)) (by ruleStable baseFact) (STV 1.0 0.09887551209794267) (STV 1.0 0.699950950923023)) (SwitchGoal) (STV 1.0 0.09887551209794267)))
 
 ;; A completed non-root proof is a frontier input for a later bounded search.
 ;; Two steps suffice for the new root plus its new CPU formula because the
@@ -244,10 +245,10 @@
 !(test
    (query 3 refinementValueKb (: $prf (RefinementValueGoal) $tv))
    (: (merge/revision
-         (by expensiveRootRefinement
-            (conjunction expensiveRefinementSeed1 expensiveRefinementSeed2 expensiveRefinementSeed3))
          (merge/revision
-            (by cheapRootRefinement cheapRefinementSeed)
-            incumbentValueRoot))
+            (by expensiveRootRefinement
+               (conjunction expensiveRefinementSeed1 expensiveRefinementSeed2 expensiveRefinementSeed3))
+            (by cheapRootRefinement cheapRefinementSeed))
+         incumbentValueRoot)
       (RefinementValueGoal)
       (STV 1.0 0.9996045810122057)))

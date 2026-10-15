@@ -86,26 +86,35 @@ and settled steps are handled before, as they were):
    longer share K or what they read only through it, so they merge by the
    rules above, or condition again on another shared statement. The branches
    mix by `CTVModusPonensFormula` over K's value (`sk-mix`, as for rows).
-4. **Fallback.** When conditioning is unpaid or cannot finish, group the
-   original views into connected components: views connect through shared
-   uncertain statements or observations, with the exclusions above. Keep the
-   most confident view within each component and merge the components as
-   independent. Keep the dependencies of discarded views for connectivity;
-   a bridge must still join both sides when it is not the representative.
-   Canonical view order resolves confidence ties and fixes floating-point
-   fold order. Connectivity stops at the first shared uncertain statement;
-   it does not rank a conditioning cut for every component comparison.
-   Combine independent values before applying their inverse or
-   completion updates, so an update cannot interrupt the combination of
-   direct source claims. The conditioning cut, cost, and paid branches are
-   unchanged.
+4. **Fallback.** When conditioning is unpaid or cannot finish, group original
+   views into connected components through shared uncertain statements or
+   observations. Sibling forward-rule views also connect through shared
+   condition terms, including known premises. With known shared premises,
+   combine sibling conditions by prior-factored odds using the consequent's
+   existing outcome tally. With unpaid shared uncertainty, conservatively
+   revise their estimates. Both operations union evidence/dependencies and cap
+   confidence by the smaller input: an unpaid overlap cannot manufacture
+   independent evidence.
+   Same-condition estimates and ordinary non-rule proofs retain their existing
+   representative behavior. Independent components then merge as before.
 
-   Comparing a newcomer with the whole accumulated merge was unsound even as
-   a fallback: an overlap could replace that whole merge with one view and
-   discard direct claims independent of the overlap. The component fallback
-   retains those claims. Shared estimated rule truths remain parameters of
-   both views, as in "Shared rules" below; this does not address their
-   confidence covariance.
+   Sibling grouping uses original views, even when all shared premises are
+   known. Otherwise an unrelated view could revise with one sibling first and
+   hide its condition before the other arrived. A combined view carries the
+   union of its conditions for connectivity. Canonical original-view order
+   fixes the fold order; bridge dependencies remain part of the component.
+   Independent values combine before inverse/completion updates, so an update
+   cannot interrupt the direct source claims' combination.
+
+   Same-condition rules pool before sibling grouping, so repeated estimates of
+   one class do not become separate odds updates. Condition order is canonical
+   even when raw proof IDs were allocated in a different order.
+
+   Paid conditioning recomputes the rule views with `(given true/false)`
+   premises and combines siblings within each branch. Shared uncertainty is
+   mixed once by the enclosing conditioning. The unpaid revision is a
+   dependence approximation, not a newly inferred joint rule. Neither branch
+   polarity nor class population nor confidence ranks different conditions.
 
 Which statement first: see "Budgeted cutset conditioning" below.
 
@@ -292,8 +301,18 @@ samples. An implication instance fold keeps a digest of its samples, the sum
 of a signature of each sample, updated with the tally at constant cost per
 take. Two derivations through different refined rules (applications, or
 inversions and completions reading one) whose truths' folds have equal
-digests are one estimate from one sample applied twice, and the merge keeps
-the more confident.
+digests are one estimate from one sample applied twice. Different forward-rule
+conditions retain both proofs in a conservative revision, capped at the smaller
+input confidence. This preserves their common estimate without claiming more
+samples or choosing a condition by confidence. For the same condition or ordinary
+non-rule proofs the existing representative behavior remains.
+
+Compare the original surviving views before combining any of them by odds.
+Otherwise the first copy can disappear inside a combination before another
+copy is visited. Read each rule's own fold, unwrapping specialization priors: a
+containing class's truth dependency is a prior, not another sample history.
+Read these digests once per view during grouping; a conservative group retains
+the distinct truth keys and their common digest for subsequent comparisons.
 
 A sample's signature is what it observes: the facts of its evidence other
 than its antecedent's stored facts, and the antecedent's strength (the share

@@ -79,6 +79,11 @@ they were stored, and drops them:
    is scored (its prior before any review). A rule whose antecedent is not
    ground once the statement binds it, that reads a fold (a base rate), or
    that settles a compound (a variant of a complete step) gives no view.
+   Containing rule conditions are removed before the disjointness check,
+   as in a read. Otherwise a conjunction and its singles share premises and
+   prevent the entire outcome from scoring any mode. This filter reads
+   original conditions only, without prior merging or learning a mode inside
+   its own score.
 2. With two or more views whose evidence is disjoint, each mode predicts
    q_m from the views and the prior before this outcome, and its score gains
    y log q_m + (1 − y) log(1 − q_m), q clipped to [10⁻⁶, 1 − 10⁻⁶] as the
@@ -129,6 +134,13 @@ keeps its value until it is merged again, as a base rate lags its members.
   merge them like any rows; an unfounded value is not a forward view.
 - **Partial folds.** Provisional values merge only when a key has nothing
   else, then by the mode like any views; their confidence is already scaled.
+- **Specificity and siblings.** Containment selection over original views
+  precedes combination (`hypothesis_rules.md`), so combinations cannot hide
+  singles from a specific rule. Overlapping sibling forward views combine by
+  odds, with shared uncertain statements conditioned through the existing
+  machinery and a conservative combined fallback while unpaid. Disjoint signs
+  retain the learned mode. Same-condition rules and containing general views
+  used as a specialization prior revise.
 - **Hypothesis rules.** Refined rules are scored with their truth key's
   value. Their views carry no samples (an implication instance fold carries
   none), so views of two refined rules into C are independent and combine

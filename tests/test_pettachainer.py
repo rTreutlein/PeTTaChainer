@@ -719,10 +719,18 @@ class TestPeTTaChainer(unittest.TestCase):
         materialized = handler.query_many_materialization(query, steps=200)
 
         self.assertTrue(materialized[0])
-        self.assertEqual(
-            handler.query_many(query, steps=0, timeout_sec=0),
-            materialized,
-        )
+        # With no conditioning allowance, the conservative sibling combination
+        # retains both rules and caps shared-evidence confidence. Paying again
+        # below reconstructs exactly the materialized conditioned proof.
+        unpaid = handler.query_many(query, steps=0, timeout_sec=0)
+        self.assertEqual(len(unpaid[0]), 1)
+        self.assertIn("combination revision", unpaid[0][0])
+        for side in ("left", "right"):
+            self.assertIn(f"materialized_{side}_rule", unpaid[0][0])
+        paid_tv = re.search(r"\(STV ([^ ]+) ([^)]+)\)\)$", materialized[0][0])
+        unpaid_tv = re.search(r"\(STV ([^ ]+) ([^)]+)\)\)$", unpaid[0][0])
+        self.assertEqual(float(unpaid_tv[1]), float(paid_tv[1]))
+        self.assertLessEqual(float(unpaid_tv[2]), 0.8)  # shared premise confidence
         self.assertEqual(
             handler.query_many_materialization(query, steps=10),
             materialized,

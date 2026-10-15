@@ -74,6 +74,7 @@
 (: sk-row-view (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Number SkeletonRow SkeletonValue))
 (: sk-computed-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
 (: sk-member-pending? (-[det]-> SkeletonKey Bool))
+(: sk-dependent-merge (-[semidet]-> Bool SkeletonValue SkeletonValue SkeletonValue))
 (: sk-given-value (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 (: sk-conditioned
    (-[semidet]-> (List SkeletonGiven) SkeletonTarget Number Number (List Number) (List SkeletonKey) Number
@@ -221,7 +222,13 @@
    (let $step (sk-step-proof $proof)
       (if (rule-application-proof? $step) (cons $proof ())
          (case $step (
-            ((combination $_mode $_prior $parts) (proof-children $parts))
+            ((combination $mode $_combination-prior $parts)
+               (if (== $mode revision) (cons $proof ()) (proof-children $parts)))
+            ((merge/revision $left $right)
+               (let* (($left-parts (sk-forward-parts (brand Proof $left)))
+                      ($right-parts (sk-forward-parts (brand Proof $right))))
+                  (if (if (== $left-parts ()) true (== $right-parts ())) () (cons $proof ()))))
+            ((specializes $_specific $_general $_raw $_prior-tv) (cons $proof ()))
             ($_other ()))))))
 
 ;; The witnesses of the updates a view merges, by hash: with `$siblings`
@@ -380,8 +387,8 @@
                   (if (= ($proof $tv) ($stored-proof $stored-tv)) (evidence-union $stored-ev $ev) (empty)))))
             (empty))))))
 
-(: sk-disjoint-view-step (-[semidet]-> Atom Atom Atom))
-(= (sk-disjoint-view-step ($tvs $seen) ($tv $ev))
+(: sk-disjoint-view-step (-[semidet]-> Atom SkeletonValue Atom))
+(= (sk-disjoint-view-step ($tvs $seen) (sk-val ($_type $_ctx $_proof $tv) $ev $_deps))
    (if (evidence-overlap? (the EvidenceSet $ev) (the EvidenceSet $seen)) (empty) (data (cons $tv $tvs) (evidence-union $ev $seen))))
 
 ;; The views the forward rules concluding a statement give from its
@@ -389,9 +396,13 @@
 ;; disjoint.
 (: sk-outcome-views (-[det]-> Atom Atom (List STVType)))
 (= (sk-outcome-views $type $kbctx)
-   (case (collapse (once (fold-semidet sk-disjoint-view-step (data () (ev-set 0))
-            (collapse (match ccls_index (($type $kbctx (by $_rule $_premise) $tv) $_id $args)
-               (let $ev (fold-semidet sk-stored-premise-step (ev-set 0) $args) (data $tv $ev))))))) (
+   (case (collapse (once
+         (let* (($views (collapse (match ccls_index (($type $kbctx (by $rule $premise) $tv) $_id $args)
+                          (let $ev (fold-semidet sk-stored-premise-step (ev-set 0) $args)
+                             (sk-val (assemble-runtime-fact $type $kbctx (by $rule $premise) $tv) $ev 0)))))
+                ($references (map-semidet sk-reference-of $views))
+                ($specific (fold-semidet (sk-reference-step false () $references) () $references)))
+            (fold-semidet sk-disjoint-view-step (data () (ev-set 0)) (sk-sample-groups $specific))))) (
       ((cons $found $_none)
          (case $found (
             (((cons $_one ()) $_seen) ())
@@ -443,8 +454,8 @@
          ((combination-tally $n $sum $revision $odds $noisy)
             (let $prior (STV (/ (+ $sum 1.0) (+ $n 2.0)) (count-confidence $n))
                (if (>= $odds $noisy)
-                  (if (>= (- $odds $revision) 2.302585092994046) (data odds $prior) revision)
-                  (if (>= (- $noisy $revision) 2.302585092994046) (data noisy-or $prior) revision))))))))
+                  (if (>= (- $odds $revision) 2.302585092994046) (data odds $prior) (data revision $prior))
+                  (if (>= (- $noisy $revision) 2.302585092994046) (data noisy-or $prior) (data revision $prior)))))))))
 
 ;; Disjoint forward views of a consequent whose outcomes prefer a product mode
 ;; combine by it; two certain views that contradict each other revise.
@@ -457,7 +468,7 @@
             ((cons $choice $_none)
                (case (data $choice $tv-a $tv-b) (
                   ((($mode (STV $sp $cp)) (STV $sa $ca) (STV $sb $cb))
-                     (if (sk-contradict? (the Number $sa) (the Number $sb)) sk-none
+                     (if (if (== $mode revision) true (sk-contradict? (the Number $sa) (the Number $sb))) sk-none
                         (sk-val ($type $kbctx (brand Proof (combination $mode (prior (STV $sp $cp)) (append-flat $parts-a $parts-b)))
                                     (sk-factored-tv $mode (the Number $sp) (the Number $cp) (the Number $sp) (the Number $cp) (the Number $sa) (the Number $ca) (the Number $sb) (the Number $cb)))
                            $ev $deps)))
@@ -618,9 +629,9 @@
 ;; hashes are the merged key's, those of the keys unifying with it, those the
 ;; reader excludes and the statements given.
 (: sk-merge-facts
-   (-[semidet]-> (List Number) SkFact EvidenceSet Number SkFact EvidenceSet Number
+   (-[semidet]-> Bool (List Number) SkFact EvidenceSet Number SkFact EvidenceSet Number
        SkeletonPairing))
-(= (sk-merge-facts $ignore $a $ev-a $deps-a $b $ev-b $deps-b)
+(= (sk-merge-facts $combine $ignore $a $ev-a $deps-a $b $ev-b $deps-b)
    (let* (($proof-a (sk-fact-step-proof $a))
           ($proof-b (sk-fact-step-proof $b))
           (($_ta $_ca $_pa $tv-a) $a)
@@ -634,8 +645,8 @@
             (if (proof-dominates? $proof-b $proof-a) (sk-paired (sk-val $b $ev-b $deps-b))
             (if (specialization-includes? $proof-a $proof-b) (sk-paired (sk-val $a $ev-a $deps-a))
             (if (specialization-includes? $proof-b $proof-a) (sk-paired (sk-val $b $ev-b $deps-b))
-            (if (more-specific-application? $proof-a $proof-b) (sk-paired (sk-specialized $a $ev-a $deps-a $b $ev-b $deps-b))
-            (if (more-specific-application? $proof-b $proof-a) (sk-paired (sk-specialized $b $ev-b $deps-b $a $ev-a $deps-a))
+            (if (if (more-specific-application? $proof-a $proof-b) (if $combine (if (sk-siblings? true (sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b)) false true) true) false) (sk-paired (sk-specialized $a $ev-a $deps-a $b $ev-b $deps-b))
+            (if (if (more-specific-application? $proof-b $proof-a) (if $combine (if (sk-siblings? true (sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b)) false true) true) false) (sk-paired (sk-specialized $b $ev-b $deps-b $a $ev-a $deps-a))
                (let* (($touch (evidence-overlap? $ev-a $ev-b))
                       ($cmp-a (if $touch (sk-update-evidence $a $ev-a $b) $ev-a))
                       ($cmp-b (if $touch (sk-update-evidence $b $ev-b $a) $ev-b))
@@ -650,15 +661,21 @@
                             true))
                       ($twins
                          (if $independent
-                            (if (sk-derivation-proof? $proof-a) (if (sk-derivation-proof? $proof-b) (sk-sample-twins? $deps-a $deps-b) false) false)
+                            (if (sk-derivation-proof? $proof-a) (if (sk-derivation-proof? $proof-b) (sk-sample-twins? (sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b)) false) false)
                             false))
-                      ($factored (if $twins sk-none (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b $independent))))
-                  (if $twins (sk-paired (if (>= (term-confidence $a) (term-confidence $b)) (sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b)))
+                      ($factored (if $twins sk-none
+                                    (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b $independent)))
+                      ($siblings (if (== $factored sk-none)
+                                    (if $combine (if (== $shared ())
+                                       (sk-siblings? true (sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b)) false) false)
+                                    false)))
+                  (if $twins (sk-paired (sk-dependent-merge false (sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b)))
                   (if (not (== $factored sk-none)) (sk-paired $factored)
+                     (if $siblings (sk-paired (sk-sibling-merge true (sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b)))
                      (if $independent
                         (let* (($pooled (evidence-union $ev-a $ev-b))
                                ($deps (deps-union $deps-a $deps-b))
-                               ($combined (sk-combined-merge $a $b $pooled $deps)))
+                               ($combined (if $combine (sk-combined-merge $a $b $pooled $deps) sk-none)))
                            (sk-paired
                               (if (not (== $combined sk-none)) $combined
                                  (if (>= (term-confidence $a) (term-confidence $b))
@@ -667,9 +684,7 @@
                         (if (if $a-in-b (if $b-in-a false true) false) (sk-paired (sk-val $b $ev-b $deps-b))
                            (if (if $b-in-a (if $a-in-b false true) false) (sk-paired (sk-val $a $ev-a $deps-a))
                               (sk-overlap $shared (deps-union $deps-a $deps-b)
-                                 (if (>= (term-confidence $a) (term-confidence $b))
-                                    (sk-val $a $ev-a $deps-a)
-                                    (sk-val $b $ev-b $deps-b))))))))))))))))))
+                                 (sk-dependent-merge false (sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b)))))))))))))))))))
 
 ;; Two derivations through different refined rules whose truths were folded
 ;; from the same samples, observing the same outcomes, are one estimate from
@@ -678,25 +693,86 @@
 ;; through perfectly correlated antecedents (docs/metta/hypothesis_rules.md,
 ;; gap 5), and with a hypothesis about one outcome and the inversion, through
 ;; a deterministic rule, of a hypothesis about its complement, when the
-;; complement is derived from the stored outcome. They are one view, the more
-;; confident. The samples are compared by their folds' digests.
+;; complement is derived from the stored outcome. Sibling views conservatively
+;; pool that estimate once; ordinary proofs keep their existing representative.
+;; The samples are compared by their folds' digests.
 (: sk-derivation-proof? (-[det]-> Proof Bool))
 (= (sk-derivation-proof? $proof)
-   (if (rule-application-proof? $proof) true (if (is-expr $proof) (is-expr (car-atom $proof)) false)))
+   (let $step (sk-step-proof $proof)
+      (if (rule-application-proof? $step) true
+         (case $step (
+            ((specializes $specific $_general $_raw $_prior)
+               (sk-derivation-proof? (brand Proof $specific)))
+            ((combination $_mode $_prior2 $_parts) true)
+            ($_other (if (is-expr $step) (is-expr (car-atom $step)) false)))))))
 
-(: sk-sample-twins? (-[semidet]-> Number Number Bool))
-(= (sk-sample-twins? $deps-a $deps-b)
-   (case (sk-truth-digests $deps-a) (
-      ((cons (sk-digest $truth-a $digest-a) ())
-         (case (sk-truth-digests $deps-b) (
-            ((cons (sk-digest $truth-b $digest-b) ()) (if (== $truth-a $truth-b) false (if (== $digest-a 0) false (== $digest-a $digest-b))))
-            ($_other false))))
-      ($_other false))))
+(: SkeletonDigest Type)
+(: sk-digest (-[det]-> Number Number SkeletonDigest))
+
+;; Read the rule's own instance fold, excluding containing-class priors.
+;; A conservative combination of twins still represents those same samples.
+(: sk-rule-digests (-[semidet]-> Statement KBContext Proof (List SkeletonDigest)))
+(= (sk-rule-digests $type $ctx $proof)
+   (case (sk-step-proof $proof) (
+      ((specializes $specific $_general $_raw $_prior)
+         (sk-rule-digests $type $ctx (brand Proof $specific)))
+      ((by $rule $_premise)
+         (list_to_set (collapse (match rule_name_index ($rule $id)
+            (match rules (runtime-rule-row $id ($type $ctx (by $rule $_body) $_tv) $_args)
+               (match &sk_rule_truth ($id $truth $_statement $_truth-ctx)
+                  (sk-digest $truth (fold-semidet sk-fold-digest-step 0
+                     (collapse (match &sk_row ($truth $_key $_rhash (sk-row $_owner $_concl $premises $_seq)) $premises))))))))))
+      ((combination revision $_prior3 $parts)
+         (let $groups (map-semidet (sk-rule-digests $type $ctx) (proof-children $parts))
+            (case (collapse (once (let () (superpose $groups) true))) (
+               ((cons $_unknown $_rest) ())
+               (() (sk-join-digest-groups $groups))))))
+      ($_other ()))))
+
+;; Keep the fold over a parameter for PeTTa's determinism specialization.
+(: sk-join-digest-groups (-[det]-> (List (List SkeletonDigest)) (List SkeletonDigest)))
+(= (sk-join-digest-groups $groups) (list_to_set (fold-flat append-flat () $groups)))
+
+(: sk-same-digest-step (-[det]-> Number Bool SkeletonDigest Bool))
+(= (sk-same-digest-step $digest $same (sk-digest $_truth $other))
+   (if $same (== $digest $other) false))
+
+(: sk-digests-match (-[det]-> Number Bool (List SkeletonDigest) Bool))
+(= (sk-digests-match $digest $same $digests)
+   (fold-flat (sk-same-digest-step $digest) $same $digests))
+
+(: sk-value-digests (-[semidet]-> SkeletonValue (List SkeletonDigest)))
+(= (sk-value-digests (sk-val ($type $ctx $proof $_tv) $_ev $deps))
+   (let $own (sk-rule-digests $type $ctx $proof)
+      (if (== $own ())
+         (case (sk-truth-digests $deps) (
+            ((cons $one ()) (cons $one ()))
+            ($_many ())))
+         $own)))
+
+(: sk-same-samples? (-[semidet]-> (List SkeletonDigest) (List SkeletonDigest) Bool))
+(= (sk-same-samples? $a $b)
+   (case $a (
+      ((cons (sk-digest $_ta $digest-a) $_rest-a)
+         (case $b (
+            ((cons (sk-digest $_tb $digest-b) $_rest-b)
+               (if (== $digest-a 0) false
+                  (if (sk-digests-match $digest-a
+                         (sk-digests-match $digest-a (== $digest-a $digest-b) $a) $b)
+                     (let $distinct (sk-join-digest-groups (cons $a (cons $b ())))
+                        (== (list-len $distinct) (+ (list-len $a) (list-len $b))))
+                     false)))
+            ($_no-b false))))
+      ($_no-a false))))
+
+(: sk-sample-twins? (-[semidet]-> SkeletonValue SkeletonValue Bool))
+(= (sk-sample-twins? $a $b)
+   (case (collapse (once (match &sk_rule_truth ($_id $_truth $_type $_ctx) true))) (
+      (() false)
+      ((cons $_present $_more) (sk-same-samples? (sk-value-digests $a) (sk-value-digests $b))))))
 
 ;; The refined rule truths a view depends on, each with its instance fold's
 ;; digest; a truth registered for a rule and its axiom counts once.
-(: SkeletonDigest Type)
-(: sk-digest (-[det]-> Number Number SkeletonDigest))
 (: sk-truth-digests (-[semidet]-> Number (List SkeletonDigest)))
 (= (sk-truth-digests $deps)
    (list_to_set (collapse (match &sk_rule_truth ($_id $truth $_type $_kbctx)
@@ -741,20 +817,308 @@
          (case (data $tv $gtv) (
             (((STV $s $c) (STV $gs $_gc))
                (sk-val ($type $kbctx (brand Proof (specializes $proof $general $tv $gtv)) (STV (bayes-shrink $s $c $gs) $c))
-                  (evidence-union $ev $gev) (deps-union $deps $gdeps)))
+                  ;; The general class is a parameter, not another instance
+                  ;; observation. Keep its proof and refresh dependencies.
+                  $ev (deps-union $deps $gdeps)))
             ($_tv-other (sk-val ($type $kbctx $proof $tv) $ev $deps))))))))
+
+;; Reference classes are compared before any views are combined. Otherwise
+;; lifting or a learned combination can hide a contained condition.
+(: ReferenceClass Type)
+(: no-class ReferenceClass)
+(: sk-class (-[det]-> Bool (List Atom) ReferenceClass))
+(: SkeletonReference Type)
+(: sk-reference (-[det]-> ReferenceClass SkeletonValue SkeletonReference))
+(: sk-mixture-class (-[det]-> (List Atom) ReferenceClass))
+(: sk-combined-class (-[det]-> (List Atom) ReferenceClass))
+(: sk-merge-step (-[semidet]-> Bool (List Number) SkeletonValue SkeletonValue SkeletonValue))
+(: sk-antecedent-step (-[semidet]-> EvidenceSet ((List Atom) Number Bool) Proof ((List Atom) Number Bool)))
+
+;; Read the antecedent's already computed value and statements. A settled
+;; connective needs only its settling part to identify the active branch;
+;; the refined rule's truth supplies its full condition below.
+(: sk-antecedent (-[semidet]-> Proof EvidenceSet ((List Atom) Number Bool)))
+(= (sk-antecedent $proof $ev)
+   (case $proof (
+      ((proof-ref $pid)
+         (once (match &proof_fact ($pid $type (STV $s $_c)) (data (implication-side-conjuncts (brand Statement $type)) $s true))))
+      ((cons conjunction $parts)
+         (fold-semidet (sk-antecedent-step $ev) (data () 1.0 true) (proof-children $parts)))
+      ((settled $part)
+         (let ($parts $s $_complete) (sk-antecedent (brand Proof $part) $ev) (data $parts $s false)))
+      ((given $truth) (data () (if (== $truth true) 1.0 0.0) false))
+      ($_leaf
+         (let $entries (evidence-entries $ev)
+            (once (let (fact-ev $ctx $proof $type) (superpose $entries)
+               (match &kb ($type $ctx $proof (STV $s $_c)) (data (implication-side-conjuncts (brand Statement $type)) $s true)))))))))
+
+(= (sk-antecedent-step $ev ($types $s $complete) $part)
+   (let ($more $strength $more-complete) (sk-antecedent $part $ev)
+      (data (append-flat $types $more) (* $s $strength) (if $complete $more-complete false))))
+
+(: sk-condition-class (-[det]-> Number (List Atom) ReferenceClass))
+(= (sk-condition-class $s $parts)
+   (let $condition (sort-atom $parts)
+      (if (>= $s 1.0) (sk-class true $condition)
+         (if (<= $s 0.0) (sk-class false $condition) (sk-mixture-class $condition)))))
+
+(: sk-rule-reference (-[nondet]-> SkeletonValue Number SkeletonReference))
+(= (sk-rule-reference (sk-val ($type $ctx $proof $tv) $ev $deps) $s)
+   (let* (((by $rule $premise) (sk-step-proof $proof))
+          ($antecedent
+             (case (collapse (once (match rule_name_index ($rule $id)
+                       (match rules (runtime-rule-row $id ($type $ctx (by $rule $premise) $_out) $_prems)
+                          (match &sk_rule_truth ($id $_truth-hash $truth $_truth-ctx)
+                             (let (RuleTruth (Implication $condition $type)) (copy_term $truth) $condition)))))) (
+                ((cons $refined $_more) $refined)
+                (() (let $ctv (sk-lift-rule-ctv (brand KB (car-atom $ctx)) $rule)
+                       (once (match &kb ((Implication $declared $type) $ctx $rule $ctv) $declared))))))))
+      (sk-reference (sk-condition-class $s (implication-side-conjuncts (brand Statement $antecedent)))
+         (sk-val ($type $ctx $proof $tv) $ev $deps))))
+
+(: sk-application-antecedent (-[semidet]-> Proof EvidenceSet ((List Atom) Number Bool)))
+(= (sk-application-antecedent $proof $ev)
+   (let* (((by $rule $premise) (sk-step-proof $proof))
+          (($parts $s $complete) (sk-antecedent (brand Proof $premise) $ev))
+          ($source (sk-step-proof (brand Proof $rule))))
+      (if (rule-application-proof? $source)
+         (let ($parents $parent-s $parent-complete) (sk-application-antecedent (brand Proof $rule) $ev)
+            (data (append-flat $parents $parts) (* $parent-s $s) (if $complete $parent-complete false)))
+         (data $parts $s $complete))))
+
+(: sk-reference-for (-[semidet]-> SkeletonValue ((List Atom) Number Bool) SkeletonReference))
+(= (sk-reference-for $view ($parts $s $complete))
+   (if $complete (sk-reference (sk-condition-class $s $parts) $view)
+      (case (collapse (once (sk-rule-reference $view $s))) (
+         ((cons $found $_more)
+            (let* (((sk-reference $class $_original) (the SkeletonReference $found))
+                   ($class-parts (sk-class-parts $class))
+                   ((sk-val $fact $_ev $_deps) $view))
+               (if (== (extract-vars $class-parts) ()) (the SkeletonReference $found)
+                  (case (sk-fact-step-proof $fact) (
+                     ((by $_rule (settled $_part)) (the SkeletonReference $found))
+                     ($_full (sk-reference (sk-condition-class $s $parts) $view)))))))
+         (() (case $view (
+            ((sk-val $fact $_ev $_deps)
+               (case (sk-fact-step-proof $fact) (
+                  ;; A settling part is not the full condition.
+                  ((by $_rule (settled $_part)) (sk-reference no-class $view))
+                  ($_full (sk-reference (sk-condition-class $s $parts) $view)))))
+            ($_goal (sk-reference no-class $view)))))))))
+
+(: sk-reference-of (-[semidet]-> SkeletonValue SkeletonReference))
+(= (sk-reference-of $view)
+   (case $view (
+      ((sk-val ($_type $_ctx $proof $_tv) $ev $_deps)
+         (case (sk-step-proof $proof) (
+            ((by $_rule $premise)
+               (case (collapse (once (sk-application-antecedent $proof $ev))) (
+                  ((cons $antecedent $_rest) (sk-reference-for $view (the ((List Atom) Number Bool) $antecedent)))
+                  (() (case (collapse (once (sk-rule-reference $view 0.5))) (
+                     ((cons $condition $_more) (the SkeletonReference $condition))
+                     (() (sk-reference no-class $view))))))))
+            ((specializes $specific $_general $_raw $_prior)
+               (let (sk-reference $class $_original)
+                     (sk-reference-of (sk-val (assemble-runtime-fact $_type $_ctx (brand Proof $specific) $_tv) $ev $_deps))
+                  (sk-reference $class $view)))
+            ((merge/revision $left $right)
+               (let* (((sk-reference $class-left $_left)
+                          (sk-reference-of (sk-val (assemble-runtime-fact $_type $_ctx (brand Proof $left) $_tv) $ev $_deps)))
+                      ((sk-reference $class-right $_right)
+                          (sk-reference-of (sk-val (assemble-runtime-fact $_type $_ctx (brand Proof $right) $_tv) $ev $_deps))))
+                  (sk-reference (if (=alpha $class-left $class-right) $class-left no-class) $view)))
+            ((combination $_mode $_combination-prior $parts)
+               (sk-reference (sk-combined-class
+                  (list_to_set (fold-semidet (sk-combined-condition-step $view) () (proof-children $parts)))) $view))
+            ($_other (sk-reference no-class $view)))))
+      ($_goal (sk-reference no-class $view)))))
+
+(: sk-contained? (-[det]-> SkeletonReference SkeletonReference Bool))
+(= (sk-contained? $specific $general)
+   (case (data $specific $general) (
+      (((sk-reference (sk-class true $parts-a) $_a)
+        (sk-reference (sk-class true $parts-b) $_b))
+         (if (< (list-len $parts-b) (list-len $parts-a)) (all-members? $parts-a $parts-b) false))
+      (((sk-reference (sk-class false $parts-a) $_a)
+        (sk-reference (sk-class false $parts-b) $_b))
+         (if (< (list-len $parts-a) (list-len $parts-b)) (all-members? $parts-b $parts-a) false))
+      ($_other false))))
+
+(: sk-outranked-step (-[semidet]-> SkeletonReference Bool SkeletonReference Bool))
+(= (sk-outranked-step $view $found $other) (if $found true (sk-contained? $other $view)))
+
+;; Only containing classes supply a prior; sibling rules remain separate views.
+(: sk-class-prior-step (-[semidet]-> (List Number) SkeletonReference SkeletonValue SkeletonReference SkeletonValue))
+(= (sk-class-prior-step $ignore $specific $prior $general)
+   (case (data $specific $general) (
+      (((sk-reference $_class (sk-val $fact $_ev $_deps))
+        (sk-reference $_gclass (sk-val $gfact $gev $gdeps)))
+         (if (sk-contained? $specific $general)
+               (case $prior (
+                  (sk-none (sk-val $gfact $gev $gdeps))
+                  ((sk-val $previous $pev $pdeps)
+                     ;; General class averages revise into the prior; they
+                     ;; are not independent signs to combine by odds.
+                     (case (sk-merge-facts false $ignore $previous $pev $pdeps $gfact $gev $gdeps) (
+                        ((sk-paired $merged) $merged)
+                        ((sk-overlap $_keys $_shared $fallback) $fallback))))))
+            $prior))
+      ($_other $prior))))
+
+(: sk-reference-step (-[semidet]-> Bool (List Number) (List SkeletonReference) (List SkeletonValue) SkeletonReference (List SkeletonValue)))
+(= (sk-reference-step $prior? $ignore $references $kept $reference)
+   (let (sk-reference $class $view) $reference
+      (if (== $class no-class) (cons $view $kept)
+         (if (fold-semidet (sk-outranked-step $reference) false $references) $kept
+            (let $prior (if $prior? (fold-semidet (sk-class-prior-step $ignore $reference) sk-none $references) sk-none)
+               (cons (case (data $view $prior) (
+                  (((sk-val $fact $ev $deps) (sk-val $general $gev $gdeps))
+                     (sk-specialized $fact $ev $deps $general $gev $gdeps))
+                  ($_none $view))) $kept))))))
+
+(: SkeletonClassGroup Type)
+(: sk-class-group (-[det]-> ReferenceClass (List SkeletonValue) SkeletonClassGroup))
+(: sk-same-class-step (-[det]-> (List SkeletonClassGroup) SkeletonReference (List SkeletonClassGroup)))
+(= (sk-same-class-step $groups (sk-reference $class $view))
+   (case $groups (
+      ((cons (sk-class-group $previous $views) $rest)
+         (if (if (== $class no-class) false (=alpha $class $previous))
+            (cons (sk-class-group $class (cons $view $views)) $rest)
+            (cons (sk-class-group $class (cons $view ())) $groups)))
+      (() (cons (sk-class-group $class (cons $view ())) ())))))
+
+(: sk-class-group-value (-[semidet]-> (List Number) SkeletonClassGroup SkeletonReference))
+(= (sk-class-group-value $ignore (sk-class-group $class $views))
+   (case $views (
+      ((cons $view ()) (sk-reference $class $view))
+      ($_many
+         (let $values (fold-semidet sk-cons-step () $views)
+            (sk-reference $class
+               (case (sk-lift false $values) (
+                  ((cons $lifted $_more) $lifted)
+                  (() (fold-semidet (sk-merge-step false $ignore) sk-none $values))))))))))
+
+(: SkeletonSampleView Type)
+(: sk-sample-view (-[det]-> (List SkeletonDigest) SkeletonValue SkeletonSampleView))
+(: SkeletonSampleGrouping Type)
+(: sk-sample-grouping (-[det]-> (List SkeletonDigest) SkeletonValue (List SkeletonSampleView) SkeletonSampleGrouping))
+(: sk-sample-group-step (-[semidet]-> SkeletonSampleGrouping SkeletonSampleView SkeletonSampleGrouping))
+(= (sk-sample-group-step $state (sk-sample-view $other-digests $other))
+   (case $state (
+      ((sk-sample-grouping $digests sk-none $groups)
+         (sk-sample-grouping $digests sk-none (cons (sk-sample-view $other-digests $other) $groups)))
+      ((sk-sample-grouping $digests $view $kept)
+         (if (sk-same-samples? $digests $other-digests)
+            (sk-sample-grouping () sk-none
+               (cons (sk-sample-view (sk-join-digest-groups (cons $digests (cons $other-digests ())))
+                         (sk-sibling-merge false $view $other)) $kept))
+            (sk-sample-grouping $digests $view (cons (sk-sample-view $other-digests $other) $kept)))))))
+
+(: sk-sample-groups-step (-[semidet]-> (List SkeletonSampleView) SkeletonValue (List SkeletonSampleView)))
+(= (sk-sample-groups-step $groups $view)
+   (let (sk-sample-grouping $digests $remaining $pooled)
+         (fold-semidet sk-sample-group-step (sk-sample-grouping (sk-value-digests $view) $view ()) $groups)
+      (if (== $remaining sk-none) $pooled (cons (sk-sample-view $digests $remaining) $pooled))))
+
+(: sk-sample-groups (-[semidet]-> (List SkeletonValue) (List SkeletonValue)))
+(= (sk-sample-groups $views)
+   (case (collapse (once (match &sk_rule_truth ($_id $_truth $_type $_ctx) true))) (
+      (() $views)
+      ((cons $_present $_more)
+         (let $groups (fold-semidet sk-sample-groups-step () $views)
+            (if (== (list-len $groups) (list-len $views)) $views
+               (collapse (let (sk-sample-view $_digests $view) (superpose $groups) $view))))))))
+
+(: sk-reference-values (-[semidet]-> (List Number) (List SkeletonValue) ((List SkeletonValue) Bool)))
+(= (sk-reference-values $ignore $values)
+   (case $values (
+      ((cons $_first (cons $_second $_rest))
+         (let* (($original (map-semidet sk-reference-of $values))
+                ($known (collapse (let (sk-reference $class $_view) (superpose $original)
+                           (if (== $class no-class) (empty) true)))))
+            (case $known (
+               ((cons $_one (cons $_two $_others))
+                  (let* (($references (map-semidet (sk-class-group-value $ignore)
+                              (fold-flat sk-same-class-step () (sort-atom $original))))
+                         ($selected (fold-semidet sk-cons-step ()
+                              (fold-semidet (sk-reference-step true $ignore $references) () $references))))
+                     (data (sk-sample-groups $selected)
+                        (if (< (list-len $selected) 2) false
+                           (fold-semidet (sk-sibling-values-step $references) false $references)))))
+               ($_few (data $values false))))))
+      ($_single (data $values false)))))
+
+;; Different applicable rule conditions combine; confidence ranks only views
+;; of one condition or ordinary proofs that carry no rule condition.
+(: sk-class-parts (-[det]-> ReferenceClass (List Atom)))
+(= (sk-class-parts $class)
+   (case $class (
+      ((sk-class $_positive $parts) $parts)
+      ((sk-mixture-class $mixture) $mixture)
+      ((sk-combined-class $combined) $combined)
+      ($_other ()))))
+
+(: sk-reference-siblings? (-[semidet]-> Bool SkeletonReference SkeletonReference Bool))
+(= (sk-reference-siblings? $overlap-only $a $b)
+   (let* (((sk-reference $class-a $_a) $a)
+          ((sk-reference $class-b $_b) $b))
+      (if (== $class-a no-class) false
+         (if (if (== $class-b no-class) true (=alpha $class-a $class-b)) false
+            (if (sk-contained? $a $b) false
+               (if (sk-contained? $b $a) false
+                  (if $overlap-only
+                     (let* (($parts-a (sk-class-parts $class-a))
+                            ($parts-b (sk-class-parts $class-b)))
+                        (not (== () (collapse (once (let $part (superpose $parts-a)
+                           (if (stored-list-member? $part $parts-b) true (empty))))))))
+                     true)))))))
+
+(: sk-siblings? (-[semidet]-> Bool SkeletonValue SkeletonValue Bool))
+(= (sk-siblings? $overlap-only $a $b)
+   (sk-reference-siblings? $overlap-only (sk-reference-of $a) (sk-reference-of $b)))
+
+(: sk-combined-condition-step (-[semidet]-> SkeletonValue (List Atom) Proof (List Atom)))
+(= (sk-combined-condition-step (sk-val ($type $ctx $_proof $tv) $ev $deps) $parts $proof)
+   (let (sk-reference $class $_view)
+         (sk-reference-of (sk-val ($type $ctx $proof $tv) $ev $deps))
+      (append-flat $parts (sk-class-parts $class))))
+
+(: sk-sibling-merge (-[semidet]-> Bool SkeletonValue SkeletonValue SkeletonValue))
+(= (sk-sibling-merge $product (sk-val ($type $ctx $proof-a (STV $sa $ca)) $ev-a $deps-a)
+                     (sk-val ($_type $_ctx $proof-b (STV $sb $cb)) $ev-b $deps-b))
+   (let* (($odds? (if $product (if (sk-contradict? $sa $sb) false true) false))
+          ($population (if $odds?
+                     (let ($_mode $population) (sk-combination-mode (brand KB (car-atom $ctx)) $type) (the STVType $population))
+                     (STV 0.5 0.0)))
+          ($mode (if $odds? odds revision))
+          ((STV $s $c) (if $odds? (sk-mode-step odds $population (STV $sa $ca) (STV $sb $cb))
+                            (mergetvs (STV $sa $ca) (STV $sb $cb)))))
+      (sk-val ($type $ctx (brand Proof (combination $mode (prior (if $odds? $population no-evidence))
+                  (sort-atom (append-flat (sk-forward-parts $proof-a) (sk-forward-parts $proof-b)))))
+                  (STV (if $odds?
+                          (if (>= $sa 1.0) 1.0 (if (>= $sb 1.0) 1.0
+                             (if (<= $sa 0.0) 0.0 (if (<= $sb 0.0) 0.0 $s)))) $s)
+                       (min $c (min $ca $cb))))
+         (evidence-union $ev-a $ev-b) (deps-union $deps-a $deps-b))))
+
+(= (sk-dependent-merge $product $a $b)
+   (if (sk-siblings? false $a $b) (sk-sibling-merge $product $a $b)
+      (case (data $a $b) (
+         (((sk-val $fact-a $_ea $_da) (sk-val $fact-b $_eb $_db))
+            (if (>= (term-confidence $fact-a) (term-confidence $fact-b)) $a $b))
+         ($_other $a)))))
 
 ;; Pairwise merging also records the first conditioning cut and its cost.
 ;; Its accumulated value is provisional: on overlap the key builds its
 ;; fallback from connected components of the original views below.
-(: sk-pair-merge-step (-[semidet]-> (List Number) SkeletonMerging SkeletonValue SkeletonMerging))
-(= (sk-pair-merge-step $ignore (sk-merging $acc $keys $deps) $view)
+(: sk-pair-merge-step (-[semidet]-> Bool (List Number) SkeletonMerging SkeletonValue SkeletonMerging))
+(= (sk-pair-merge-step $combine $ignore (sk-merging $acc $keys $deps) $view)
    (case $acc (
       (sk-none (sk-merging $view $keys $deps))
       ((sk-val $fact $ev $fact-deps)
          (case $view (
             ((sk-val $other $other-ev $other-deps)
-               (case (sk-merge-facts $ignore $fact $ev $fact-deps $other $other-ev $other-deps) (
+               (case (sk-merge-facts $combine $ignore $fact $ev $fact-deps $other $other-ev $other-deps) (
                   ((sk-paired $merged) (sk-merging $merged $keys $deps))
                   ((sk-overlap $shared $shared-deps $fallback)
                      (if (== $keys ()) (sk-merging $fallback $shared $shared-deps) (sk-merging $fallback $keys $deps))))))
@@ -762,9 +1126,8 @@
       ($_goal (sk-merging $acc $keys $deps)))))
 
 ;; A merge outside a key's merge takes an overlap's fallback.
-(: sk-merge-step (-[semidet]-> (List Number) SkeletonValue SkeletonValue SkeletonValue))
-(= (sk-merge-step $ignore $acc $view)
-   (case (sk-pair-merge-step $ignore (sk-merging $acc () 0) $view) (((sk-merging $merged $_keys $_deps) $merged))))
+(= (sk-merge-step $combine $ignore $acc $view)
+   (case (sk-pair-merge-step $combine $ignore (sk-merging $acc () 0) $view) (((sk-merging $merged $_keys $_deps) $merged))))
 
 ;; An unpaid overlap must not discard evidence independent of it. Keep the
 ;; full dependencies and evidence of each connected component, including its
@@ -785,19 +1148,19 @@
 
 (: sk-component-step (-[semidet]-> (List Number) Number EvidenceSet SkeletonConnecting SkeletonComponent SkeletonConnecting))
 (= (sk-component-step $ignore $view-deps $view-ev (sk-connecting (sk-component $best $deps $ev) $apart) (sk-component $other $other-deps $other-ev))
-   (if (if (fold-flat sk-observation-step false (evidence-shared-facts $view-ev $other-ev)) true
-           (fold-semidet (sk-shared-statement-step $ignore) false (deps-shared $view-deps $other-deps)))
-      (sk-connecting
-         (sk-component
-            (case (data $best $other) (
-               (((sk-val $fact $_e $_d) (sk-val $other-fact $_oe $_od))
-                  (if (>= (term-confidence $fact) (term-confidence $other-fact)) $best $other))))
-            (deps-union $deps $other-deps) (evidence-union $ev $other-ev))
-         $apart)
-      (sk-connecting (sk-component $best $deps $ev) (cons (sk-component $other $other-deps $other-ev) $apart))))
+   (let* (($uncertain (fold-semidet (sk-shared-statement-step $ignore) false (deps-shared $view-deps $other-deps)))
+          ($shared (if $uncertain true (fold-flat sk-observation-step false (evidence-shared-facts $view-ev $other-ev))))
+          ($siblings (sk-siblings? true $best $other)))
+      (if (if $shared true $siblings)
+         (sk-connecting
+            (sk-component (sk-dependent-merge (if $uncertain false
+                  (if $siblings (if (sk-sample-twins? $best $other) false true) false)) $best $other)
+               (deps-union $deps $other-deps) (evidence-union $ev $other-ev))
+            $apart)
+         (sk-connecting (sk-component $best $deps $ev) (cons (sk-component $other $other-deps $other-ev) $apart)))))
 
-(: sk-key-merge-step (-[semidet]-> (List Number) (List SkeletonComponent) SkeletonValue (List SkeletonComponent)))
-(= (sk-key-merge-step $ignore $components $view)
+(: sk-key-merge-step (-[semidet]-> (List Number) (List SkeletonComponent) SkeletonReference (List SkeletonComponent)))
+(= (sk-key-merge-step $ignore $components (sk-reference $_class $view))
    (case $view (
       ((sk-val $_fact $ev $deps)
          (let (sk-connecting $connected $apart)
@@ -818,7 +1181,7 @@
       ($_goal (empty)))))
 
 (: sk-component-merge-step (-[semidet]-> (List Number) SkeletonValue SkeletonComponentOrder SkeletonValue))
-(= (sk-component-merge-step $ignore $acc (sk-component-order $_order $view)) (sk-merge-step $ignore $acc $view))
+(= (sk-component-merge-step $ignore $acc (sk-component-order $_order $view)) (sk-merge-step true $ignore $acc $view))
 
 (: sk-key-fallback (-[semidet]-> (List Number) (List SkeletonValue) SkeletonValue))
 (= (sk-key-fallback $ignore $views)
@@ -827,7 +1190,7 @@
    ;; fold order, regardless of the order the original views were visited.
    (fold-semidet (sk-component-merge-step $ignore) sk-none
       (sort-atom (map-semidet sk-component-order-of
-         (fold-semidet (sk-key-merge-step $ignore) () (sort-atom $views))))))
+         (fold-semidet (sk-key-merge-step $ignore) () (sort-atom (map-semidet sk-reference-of $views)))))))
 
 ;; --- Lifting merge ------------------------------------------------------------
 ;; Proofs of one statement that share fact premises but are otherwise
@@ -957,13 +1320,24 @@
           ($tv (CTVModusPonensFormula $conj (fold-semidet sk-lift-revise-step $residual $residuals))))
       (fold-semidet sk-lift-merge-step (sk-lift-with-tv $first $tv) $rest)))
 
+(: sk-sibling-pair-step (-[semidet]-> SkeletonReference Bool SkeletonReference Bool))
+(= (sk-sibling-pair-step $first $found $other)
+   (if $found true (sk-reference-siblings? true $first $other)))
+
+(: sk-sibling-values-step (-[semidet]-> (List SkeletonReference) Bool SkeletonReference Bool))
+(= (sk-sibling-values-step $values $found $reference)
+   (if $found true
+      (let (sk-reference $class $_original) $reference
+         (if (== $class no-class) false (fold-semidet (sk-sibling-pair-step $reference) false $values)))))
+
 ;; The lifted value of a key's leaves and views, or nothing.
-(: sk-lift (-[semidet]-> (List SkeletonValue) (List SkeletonValue)))
-(= (sk-lift $values)
+(: sk-lift (-[semidet]-> Bool (List SkeletonValue) (List SkeletonValue)))
+(= (sk-lift $siblings $values)
    (case $values (
       ((cons (sk-val $_fact $_ev $_deps) (cons $_second $_more))
-         (let $shared (evidence-common-facts (map-flat sk-value-evidence $values))
-            (if (== $shared ()) () (collapse (once (sk-lift-group $shared $values))))))
+         (if $siblings ()
+            (let $shared (evidence-common-facts (map-flat sk-value-evidence $values))
+               (if (== $shared ()) () (collapse (once (sk-lift-group $shared $values)))))))
       ($_other ()))))
 
 ;; Each row keeps its latest view and the views it replaced, in the order
@@ -1730,16 +2104,17 @@
           ($leaves (sk-leaf-views $hash $key $filter $outside))
           ($certain (fold-semidet sk-certain-leaf-step () $leaves))
           ($own (sk-own-values (sk-complete-values (if (== $certain ()) (append-flat $leaves $views) $certain))))
-          ($values (fold-semidet sk-cons-step () (fold-semidet (sk-standing-step $own) () $own))))
-      (case (sk-lift $values) (
+          ($standing (fold-semidet sk-cons-step () (fold-semidet (sk-standing-step $own) () $own)))
+          (($values $siblings) (sk-reference-values (hash-union (sk-unifier-hashes $hash $key) $outside) $standing)))
+      (case (sk-lift $siblings $values) (
          ((cons $lifted $_rest) $lifted)
          (()
-            (case (fold-semidet (sk-pair-merge-step (hash-union (sk-unifier-hashes $hash $key) $outside)) (sk-merging sk-none () 0) $values) (
+            (case (fold-semidet (sk-pair-merge-step true (hash-union (sk-unifier-hashes $hash $key) $outside)) (sk-merging sk-none () 0) $values) (
                ;; Every fact view depends on its own key. A nonempty
                ;; overlap dependency set also marks an unconditionable
                ;; overlap (shared observations, with no cut statements).
                ((sk-merging $merged () $deps)
-                  (if (== $deps 0) $merged
+                  (if (if (== $deps 0) (if $siblings false true) false) $merged
                      (sk-key-fallback (hash-union (sk-unifier-hashes $hash $key) $outside) $values)))
                ((sk-merging $_provisional $keys $deps)
                   (let $merged (sk-key-fallback (hash-union (sk-unifier-hashes $hash $key) $outside) $values)
@@ -2060,11 +2435,11 @@
 ;; A premise value whose evidence overlaps what the row already uses is
 ;; replaced by the merge of the key's leaves and views that do not overlap it:
 ;; the consumer selects the proofs compatible with its other premises.
-(: sk-compatible-step (-[semidet]-> (List Number) EvidenceSet SkeletonValue SkeletonValue SkeletonValue))
-(= (sk-compatible-step $ignore $ev $acc $view)
+(: sk-compatible-step (-[semidet]-> EvidenceSet (List SkeletonValue) SkeletonValue (List SkeletonValue)))
+(= (sk-compatible-step $ev $acc $view)
    (case $view (
       ((sk-val $_fact $view-ev $_deps)
-         (if (premise-evidence-overlap? $ev $view-ev) $acc (sk-merge-step $ignore $acc $view)))
+         (if (premise-evidence-overlap? $ev $view-ev) $acc (cons $view $acc)))
       ($_other $acc))))
 
 (: sk-compatible-value
@@ -2072,13 +2447,18 @@
 (= (sk-compatible-value $given $key $filter $exclude $ev $views)
    (let* (($hash (index-hash $key))
           ($outside (hash-union $exclude (hash-set (sk-given-hashes $given))))
-          ($leaves (sk-leaf-views $hash $key $filter $outside)))
-      (fold-semidet (sk-compatible-step (hash-union (sk-unifier-hashes $hash $key) $outside) $ev) sk-none
-         (sk-own-values
-            (if $views
-               (append-flat $leaves
-                  (map-semidet (sk-given-view $given $exclude $hash $key) (sk-admitted-versions $hash $key $filter $exclude)))
-               $leaves)))))
+          ($leaves (sk-leaf-views $hash $key $filter $outside))
+          ($ignore (hash-union (sk-unifier-hashes $hash $key) $outside))
+          ($compatible
+             (fold-semidet sk-cons-step ()
+                (fold-semidet (sk-compatible-step $ev) ()
+                (sk-own-values
+                   (if $views
+                      (append-flat $leaves
+                         (map-semidet (sk-given-view $given $exclude $hash $key) (sk-admitted-versions $hash $key $filter $exclude)))
+                      $leaves))))))
+      (let ($selected $_siblings) (sk-reference-values $ignore $compatible)
+         (fold-semidet (sk-merge-step true $ignore) sk-none $selected))))
 
 ;; A fact premise takes a value unless its evidence overlaps the row's own,
 ;; except in joins the compiler marked as sharing their sources and for

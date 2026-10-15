@@ -38,10 +38,10 @@
 !(compileadd earlyKb (: anew (A new) (STV 1 1)))
 !(compileadd earlyKb (: cnew (C new) (STV 1 1)))
 ;; Their samples are the same observations, so applied to one case they are
-;; one view (docs/metta/overlap_conditioning.md, "Sample twins"; before: the
-;; two revised, confidence 0.889).
+;; one sample, with both rule proofs retained and confidence capped by the
+;; smaller input (docs/metta/overlap_conditioning.md, "Sample twins").
 !(test (query 200 earlyKb (: $p (B new) $tv))
-   (: (by hA anew) (B new) (STV 0.0012594458438287151 0.8004032257862883)))
+   (: (combination revision (prior no-evidence) ((by hA anew) (by hC cnew))) (B new) (STV 0.0012594458438287151 0.8004032257862883)))
 
 ;; An observed but uncertain consequent is a sample of the rule, and the rule
 ;; still applies to it: B new's own sample is left out of the truth hA applies

@@ -29,8 +29,8 @@
    (: (merge/revision (by ab1 a) (by ab2 a)) (B i) (STV 0.6499999999812448 0.9473684207998814)))
 
 ;; --- A,X->B / A,Y->B sharing only A. The bare implication query cannot express
-;; this shape, so factoring at the conclusion is the only route to the pooled
-;; value. Residuals {x, r1} and {y, r2} are disjoint, so the group pools. ---
+;; this shape. These distinct sibling conditions combine by odds over the
+;; neutral prior: odds(.6)^2 gives .6923077; same-condition revision above stays. ---
 !(compileadd conjKb (: a (A i) (STV 1.0 1.0)))
 !(compileadd conjKb (: xx (X i) (STV 1.0 1.0)))
 !(compileadd conjKb (: yy (Y i) (STV 1.0 1.0)))
@@ -39,7 +39,7 @@
 
 !(test
    (query 80 conjKb (: $prf (B i) $tv))
-   (: (merge/revision (by r1 (conjunction a xx)) (by r2 (conjunction a yy))) (B i) (STV 0.6 0.947368420783305)))
+   (: (combination odds (prior (STV 0.5 0.0)) ((by r1 (conjunction a xx)) (by r2 (conjunction a yy)))) (B i) (STV 0.6923076923076922 0.0002169668040789757)))
 
 ;; --- Not independent: both paths to D share the uncertain bImpliesD rule, so
 ;; their residuals overlap and the group must NOT pool (dominance instead). ---
@@ -67,16 +67,18 @@
 
 ;; --- Shared b enters through different paths (directly in path 1, via M in
 ;; path 2), but the conclusion is still linear in the shared {a,b} conjunction,
-;; so the 2-point probe is exact (the strength round-trip holds). The residuals
-;; {r1} and {r2, bToM} are disjoint, so the group pools -- bToM lives in r2's
-;; residual and is counted once. The round-trip guard only disables factoring
-;; for genuinely non-linear shapes (a shared leaf used twice within one proof). ---
+;; so a 2-point probe would be linear. These distinct conditions do not use
+;; residual revision. Their shared uncertain facts condition the combination,
+;; including the path deriving M from b, instead of selecting one view. ---
 !(compileadd rtKb (: a (A i) (STV 0.5 1.0)))
 !(compileadd rtKb (: b (Bp i) (STV 0.5 1.0)))
 !(compileadd rtKb (: bToM (Implication (Bp $z) (M $z)) (CTV (STV 0.9 0.9) (STV 0.0 1.0))))
 !(compileadd rtKb (: r1 (Implication (And (A $z) (Bp $z)) (D $z)) (CTV (STV 0.6 0.9) (STV 0.0 1.0))))
 !(compileadd rtKb (: r2 (Implication (And (A $z) (M $z)) (D $z)) (CTV (STV 0.7 0.9) (STV 0.0 1.0))))
 
+;; Shared a and b are mixed once. In the true branch, odds(.6)*odds(.63)
+;; over the neutral prior give .718631; P(a AND b)=.25 gives .179658.
 !(test
-   (query 100 rtKb (: $prf (D i) $tv))
-   (: (merge/revision (by r1 (conjunction a b)) (by r2 (conjunction a (by bToM b)))) (D i) (STV 0.1539084488434874 0.9939577929751755)))
+   (let (: $prf $_type $tv) (query 100 rtKb (: $prf (D i) $tv))
+      ($tv (car-atom $prf)))
+   ((STV 0.17965779467680607 0.016497091681914006) conditioned))
