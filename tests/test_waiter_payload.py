@@ -29,15 +29,15 @@ class TestWaiterPayload(unittest.TestCase):
     def test_query_cleanup_keeps_native_reader_and_collects_templates(self):
         h = PeTTaChainer()
         h.add_atoms_no_check([
-            '(: r (Implication (And (_A $x) (B $x)) (_C $x)) (STV 1 0.9))',
-            '(: a (_A i) (STV 1 1))',
+            '(: r (Implication (And (A $x) (B $x)) (C $x)) (STV 1 0.9))',
+            '(: a (A i) (STV 1 1))',
         ])
         for _ in range(3):
-            h.query_many_refs(['(: $p (Assuming (_A i) (_C i)) $tv)'], steps=40)
+            h.query_many_refs(['(: $p (Assuming (A i) (C i)) $tv)'], steps=40)
         result = janus.query_once(
             "aggregate_all(count,(sk_wait_template(_,_,_Id,_,_),\\+sk_wait_payload(_,_,_Id,_)),Orphans),"
             "aggregate_all(count,clause('&sk_wait'(_,_,_),_),Readers)")
         self.assertEqual(result['Orphans'], 0)
         self.assertEqual(result['Readers'], 1)
         h.add_atom('(: b (B i) (STV 1 1))')
-        self.assertTrue(h.query_many_refs(['(: $p (_C i) $tv)'], steps=40)[0])
+        self.assertTrue(h.query_many_refs(['(: $p (C i) $tv)'], steps=40)[0])

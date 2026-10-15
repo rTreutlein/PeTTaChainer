@@ -2032,6 +2032,100 @@ hypothesis_confidence(['CTV', ['STV', _, C], _], C).
 'hypothesis-read!'(KB, Live, Count) :-
     aggregate_all(count, ( member(['hm-reviewed', Name|_], Live), retract('&hm_unread'(Name, KB)) ), Count).
 
+% Functional input relations are immutable value tables. Ground certain-true
+% facts assign a key; no other fact or permanent rule may define that relation.
+% This is stronger than merely knowing an uncertain most likely value.
+:- dynamic functional_predicate/4, functional_value/3, '&kb'/4, '&sk_answer'/3, rules/4.
+'set-functional-predicate'(Kb, Head, Arity, Positions, true) :-
+    ( atom(Head), integer(Arity), Arity > 1, is_list(Positions),
+      Positions \== [], sort(Positions, Positions), length(Positions, N), N < Arity,
+      forall(member(P, Positions), (integer(P), between(1, Arity, P)))
+    -> true ; throw(error(domain_error(functional_predicate, [Head,Arity,Positions]), _)) ),
+    ( functional_predicate(Head, Kb, Arity, Positions) -> true
+    ; ( functional_predicate(Head, Kb, _, _)
+      ; '&kb'([Head|_], [Kb|_], _, _)
+      ; rules('runtime-rule-row', _, [[Head|_],[Kb|_]|_], _) )
+    -> throw(error(permission_error(declare, functional_predicate, Head), _))
+    ; assertz(functional_predicate(Head, Kb, Arity, Positions)),
+      'set-positive-only-predicate'(Kb, Head, true) ).
+
+functional_key(Type, Context, Key) :-
+    nonvar(Type), Type = [Head|Args], nonvar(Head),
+    ground(Context), Context = [Kb,'MAIN','Nil'], functional_predicate(Head, Kb, Arity, Positions),
+    length(Args, Arity), maplist(functional_arg(Args), Positions, Values),
+    ground(Values), Key = functional(Kb, Head, Values).
+functional_arg(Args, Position, Value) :- nth1(Position, Args, Value).
+
+% Validate before publication, including no-check/bulk ingestion. Declarations
+% are KB-local and apply to main-world inputs; private hypothetical facts do
+% not assign or conflict with the world's immutable value.
+functional_check_fact([Type, Context, _, TV], Assignment) :-
+    ( nonvar(Type), Type = [Head|_], Context = [Kb,'MAIN','Nil'],
+      functional_predicate(Head, Kb, _, _)
+    -> ( ground(Type-TV), TV = ['STV',S,C], S =:= 1, C >= 1 -> true
+       ; throw(error(domain_error(functional_input, Type-TV), _)) ),
+       ( functional_key(Type, Context, Key) -> true
+       ; throw(error(domain_error(functional_arity, Type), _)) ),
+       term_hash(Key, Hash),
+       ( functional_value(Hash, Key, Stored), Stored \== Type
+       -> throw(error(permission_error(assign, functional_key, Key-Type), _)) ; true ),
+       Assignment = [Hash,Key,Type]
+    ; Assignment = [] ).
+
+% Validate a source's complete lowering before publishing any of it. The
+% local map also catches two conflicting conjuncts within that one source.
+'functional-check-additions!'(Kb, Adds, true) :-
+    ( functional_predicate(_, Kb, _, _)
+    -> empty_assoc(Empty), foldl(functional_check_addition, Adds, Empty, _)
+    ; true ).
+functional_check_addition(Add, Before, After) :-
+    ( Add = [rules,[_, '|-', Conclusion]]
+    -> 'functional-rule!'(Conclusion, true), After = Before
+    ; functional_check_fact(Add, Assignment),
+      ( Assignment = [_,Key,Type]
+      -> ( get_assoc(Key, Before, Stored), Stored \== Type
+         -> throw(error(permission_error(assign, functional_key, Key-Type), _)) ; true ),
+         put_assoc(Key, Before, Type, After)
+      ; After = Before ) ).
+
+'functional-fact!'(Fact, true) :-
+    functional_check_fact(Fact, Assignment),
+    ( Assignment = [Hash,Key,Type], \+ functional_value(Hash, Key, _)
+    -> assertz(functional_value(Hash, Key, Type)),
+       ( sk_search_clause(Hash, Key, _, _) -> sk_queue_retirement(Hash, Key) ; true )
+    ; true ).
+
+'functional-rule!'([Type, Context|_], true) :-
+    ( nonvar(Context), Context = [Kb|_], nonvar(Kb),
+      functional_predicate(Head, Kb, _, _),
+      ( var(Type) ; Type = [Candidate|_], (var(Candidate) ; Candidate == Head) )
+    -> throw(error(permission_error(derive, functional_predicate, Head), _))
+    ; true ).
+
+'sk-functional-conflict?'([Type,Context|_], Conflict) :-
+    ( functional_key(Type, Context, Key), term_hash(Key, Hash),
+      functional_value(Hash, Key, Stored), \+ unifiable(Type, Stored, _)
+    -> Conflict = true ; Conflict = false ).
+
+% A delivered value exhausts this subscription. Existing rows and key reads
+% remain live for evidence updates; unassigned functional keys remain open.
+% Snapshot only functional subscriptions, before extension binds their node.
+'sk-functional-subscription'(W, Subscription) :-
+    ( W = ['sk-partial',_,_,_,_,[N|_],_], N = [Type,Context|_],
+      functional_key(Type, Context, Key), term_hash(Key, Hash), functional_value(Hash, Key, _)
+    -> 'sk-node-hash'(N, H),
+       ( sk_wait_ref(H, N, W, Ref) -> copy_term_nat([H,N,Ref], Subscription) ; Subscription = [] )
+    ; Subscription = [] ).
+
+'sk-functional-delivered!'([], true).
+'sk-functional-delivered!'([H,N,Ref], true) :-
+    ( '&sk_answer'(H, Stored, _), attribute_free_variant(Stored, N),
+      clause(sk_wait_payload(_,_,_,_), true, Ref)
+    -> sk_retire_wait_ref(Ref) ; true ).
+
+sk_queue_retirement(H, Key) :-
+    ( sk_retire_queue(H, Key) -> true ; assertz(sk_retire_queue(H, Key)) ).
+
 % --- Pending work (skeleton.metta, "Pending work") ---------------------------
 %
 % Which nodes' searches may still have work: the node or one below it is
@@ -2123,7 +2217,10 @@ sk_search_index(Conclusion, Space, Ref) :-
       assertz(sk_wait_template(Id, Pos, TemplateId, Template, Bindings)),
       Template = Waiter ),
     assertz(sk_wait_payload(H, N, TemplateId, Bindings), Ref),
-    assertz(sk_child_users(D, Ref)), sk_search_index(C, sk_wait_payload, Ref).
+    assertz(sk_child_users(D, Ref)), sk_search_index(C, sk_wait_payload, Ref),
+    ( N = [Type,Context|_], functional_key(Type, Context, Key), term_hash(Key, Hash),
+      \+ functional_value(Hash, Key, _)
+    -> assertz(sk_search_clause(Hash, Key, sk_wait_payload, Ref)) ; true ).
 
 % A continuation template is the compiled rule split at a premise position.
 % Context routing and query proof patterns widen only the affected slots.
@@ -2138,12 +2235,20 @@ sk_search_index(Conclusion, Space, Ref) :-
     sk_wait_payload(H, N, TemplateId, Bindings),
     sk_wait_template(_, _, TemplateId, Waiter, Bindings).
 
+% Select by continuation before comparing bindings: many rules subscribe to
+% the same node, but each rule/position has only a few matching instances.
+sk_wait_ref(H, N, Waiter, Ref) :-
+    Waiter = ['sk-partial',_,Id,_,Done,_,_], length(Done, Pos),
+    sk_wait_template(Id, Pos, TemplateId, Template, Bindings),
+    subsumes_term(Template, Waiter), Template = Waiter,
+    clause(sk_wait_payload(H, Stored, TemplateId, B), true, Ref),
+    attribute_free_variant(Stored-B, N-Bindings), !.
+
 sk_remove_wait(H, N, Waiter) :-
-    ( clause(sk_wait_payload(H, Stored, TemplateId, B), true, Ref),
-      attribute_free_variant(Stored, N),
-      sk_wait_template(_, _, TemplateId, W, B),
-      attribute_free_variant(Stored-W, N-Waiter)
-    -> erase(Ref) ; true ).
+    ( sk_wait_ref(H, N, Waiter, Ref) -> erase(Ref) ; true ).
+
+sk_retire_wait_ref(Ref) :-
+    setup_call_cleanup(nb_setval(sk_retiring, true), erase(Ref), nb_delete(sk_retiring)).
 
 'sk-store-child!'(D, H, Owner, Child, CH, true) :-
     sk_search_init, assertz('&sk_child'(H, Owner, Child, CH), Ref),
@@ -2189,10 +2294,9 @@ sk_erase_claim(Ref) :-
 
 % Withdrawal uses the same lease release as known-conclusion retirement.
 % Context cleanup keeps its own pending-graph transitions instead.
+
 'sk-retire-wait!'(Hash, Premise, Waiter, true) :-
-    setup_call_cleanup(nb_setval(sk_retiring, true),
-                       sk_remove_wait(Hash, Premise, Waiter),
-                       nb_delete(sk_retiring)).
+    ( sk_wait_ref(Hash, Premise, Waiter, Ref) -> sk_retire_wait_ref(Ref) ; true ).
 
 % The node hash is already available at expansion/context cleanup. Only its
 % few compact subscriptions need alpha comparison; no digest is computed.
@@ -2225,7 +2329,7 @@ sk_release_child(D) :-
     (   sk_search_key([Type, Context], H, Key),
         once((sk_search_clause(H, Key, _, _) ; sk_search_node(H, Key, _, _))),
         'sk-known-conclusion?'([Type, Context], true)
-    ->  ( sk_retire_queue(H, Key) -> true ; assertz(sk_retire_queue(H, Key)) )
+    ->  sk_queue_retirement(H, Key)
     ;   true ).
 
 'sk-retire-searches!'(true) :-
@@ -2235,7 +2339,11 @@ sk_retire_slice(0) :- !.
 sk_retire_slice(Units) :-
     (   sk_retire_queue(H, Key)
     ->  (   sk_search_clause(H, Key, Space, Ref)
-        ->  sk_retire_clause(Space, Ref)
+        ->  ( Key = functional(_,_,_)
+            -> ( clause(sk_wait_payload(_, N, _, _), true, Ref), 'sk-functional-conflict?'(N, true)
+               -> sk_retire_clause(Space, Ref)
+               ; retractall(sk_search_clause(H, Key, Space, Ref)) )
+            ; sk_retire_clause(Space, Ref) )
         ;   sk_search_node(H, Key, NH, N)
         ->  retract(sk_search_node(H, Key, NH, N)), pw_drop_unused(NH, N)
         ;   retract(sk_retire_queue(H, Key)) ),
@@ -2252,7 +2360,7 @@ sk_retire_clause(Space, Ref) :-
     % A ground unexpanded premise used its waiter as a fact subscription.
     % Preserve that read once per node, without the obsolete join payload.
     (   Space == sk_wait_payload, clause(sk_wait_payload(H, N, _, _), true, Ref), N = [T, C, _, _],
-        sk_search_key([T, C], _, _),
+        sk_search_key([T, C], _, _), 'sk-functional-conflict?'(N, false),
         \+ ( '&sk_expanded'(H, S), attribute_free_variant(S, N) ),
         'link-digest'(['sk-fact-watch', N], D), \+ '&sk_fact_watch'(_, D, _)
     ->  assertz('&sk_fact_watch'(H, D, N))

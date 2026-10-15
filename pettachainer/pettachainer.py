@@ -49,6 +49,7 @@ def _query_worker(
     rule_change_hazard: Optional[float],
     base_rate_smoothing: bool,
     complete_predicates: List[str],
+    functional_predicates: List[Tuple[str, int, Tuple[int, ...]]],
     positive_only_predicates: List[str],
     hypothesis_mining: Optional[Tuple[int, int]],
     predicate_times: List[Tuple[str, int, int]],
@@ -65,6 +66,8 @@ def _query_worker(
         if rule_change_hazard is not None:
             handler.set_rule_change_hazard(rule_change_hazard)
         handler.set_base_rate_smoothing(base_rate_smoothing)
+        for head, arity, positions in functional_predicates:
+            handler.set_functional_predicate(head, arity, positions)
         for head in complete_predicates:
             handler.set_complete_predicate(head)
         for head in positive_only_predicates:
@@ -174,6 +177,7 @@ class PeTTaChainer:
         self._base_rate_smoothing = False
         self._observed_predicates: List[str] = []
         self._complete_predicates: List[str] = []
+        self._functional_predicates: dict[str, Tuple[int, Tuple[int, ...]]] = {}
         self._positive_only_predicates: List[str] = []
         self._query_metrics_enabled = False
         self._query_metrics_path = os.environ.get(
@@ -436,6 +440,28 @@ class PeTTaChainer:
         self.handler.process_metta_string(f"!(set-base-rate-smoothing {self.kb} {value})")
         self._base_rate_smoothing = enabled
 
+    def set_functional_predicate(self, head: str, arity: int, key_positions: Sequence[int]) -> None:
+        """Declare an immutable, single-valued input relation before its knowledge.
+
+        Positions count from 1; all remaining arguments form the value. Facts
+        must be ground and certain true. Another value, a probabilistic or
+        negative fact, or a permanent rule deriving this predicate raises an
+        error. Unassigned keys remain open. This also declares the predicate
+        positive-only. Timed subprocess queries replay the declaration.
+        """
+        positions = tuple(key_positions)
+        if (not isinstance(arity, int) or isinstance(arity, bool) or arity < 2
+                or not positions or len(positions) >= arity
+                or any(not isinstance(p, int) or isinstance(p, bool) or not 1 <= p <= arity for p in positions)
+                or tuple(sorted(set(positions))) != positions):
+            raise ValueError("key_positions must be sorted, unique argument positions leaving a value")
+        self.handler.process_metta_string(
+            f"!(set-functional-predicate {self.kb} {head} {arity} ({' '.join(map(str, positions))}))"
+        )
+        self._functional_predicates[head] = (arity, positions)
+        if head not in self._positive_only_predicates:
+            self._positive_only_predicates.append(head)
+
     def set_complete_predicate(self, head: str) -> None:
         """Declare that the rules and facts of predicate ``head`` are the only
         ways one of its statements becomes true; declare before adding
@@ -564,6 +590,14 @@ class PeTTaChainer:
 
     @_timed
     def add_atoms_no_check(self, atoms: List[str]) -> List[str]:
+        if self._functional_predicates:
+            # A rejected assignment must leave the replay journal equal to
+            # the successfully ingested prefix of this batch.
+            result = []
+            for atom in atoms:
+                result.extend(self._call("compileadd", [f"{self.kb} {atom}"]))
+                self._added_atoms.append(atom)
+            return result
         result = self._call("compileadd", [f"{self.kb} {atom}" for atom in atoms])
         self._added_atoms.extend(atoms)
         return result
@@ -669,6 +703,7 @@ class PeTTaChainer:
                 self._rule_change_hazard,
                 self._base_rate_smoothing,
                 self._complete_predicates,
+                [(head, arity, positions) for head, (arity, positions) in self._functional_predicates.items()],
                 self._positive_only_predicates,
                 self._hypothesis_mining,
                 [(head, *place) for head, place in self._predicate_times.items()],

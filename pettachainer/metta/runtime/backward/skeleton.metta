@@ -835,12 +835,14 @@
 ;; recursion through its own answers.
 
 (= (sk-wait-on! $owner $rule $premise $waiter)
+   (if (sk-functional-conflict? $premise) ()
    (let* (((sk-partial $_owner $_rule $concl $_done $remaining $_keys) $waiter)
           ($known (sk-known-conclusion? $concl))
           ($hash (sk-node-hash $premise))
           ($child (copy_term $premise))
           ($digest (link-digest (sk-child-link $owner $child)))
           ($_wait (if $known () (sk-store-wait! $digest $hash $premise $waiter)))
+          ($subscription (sk-functional-subscription $waiter))
           ($_noted
              (if $known ()
                 (let* (($owner-ctx (node-context $owner)) ($premise-ctx (node-context $premise)))
@@ -867,8 +869,9 @@
                 (sk-add-child! $owner $child (sk-join-score $owner $rule $remaining) $digest))))
       ;; Read existing keys, including aggregate registrations before the
       ;; completed-row check. A known conclusion leaves no future subscriber.
-      (fold-semidet (sk-extend-waiter-step $waiter) ()
-         (if (sk-completion-waiter? $waiter) (append-flat (sk-answers $premise) (sk-prior-answers $premise)) (sk-answers $premise)))))
+      (let $_read (fold-semidet (sk-extend-waiter-step $waiter) ()
+         (if (sk-completion-waiter? $waiter) (append-flat (sk-answers $premise) (sk-prior-answers $premise)) (sk-answers $premise)))
+         (let $_retired (sk-functional-delivered! $subscription) ())))))
 
 (: sk-extend-waiter-step (-[semidet]-> SkeletonWaiter Atom SkeletonKey Atom))
 (= (sk-extend-waiter-step $waiter $_acc $key) (sk-extend-current! (copy_term $waiter) $key))
@@ -881,8 +884,11 @@
 ;; anyway. Joins of the query's roots always proceed.
 (= (sk-extend! (sk-partial $owner $rule $concl $done $remaining $keys) $key)
    (if (rule-live? $rule)
-   (if (sk-known-conclusion? $concl) ()
-      (sk-extend-current! (sk-partial $owner $rule $concl $done $remaining $keys) $key))
+      (if (sk-known-conclusion? $concl) ()
+         (let* (($subscription (sk-functional-subscription (sk-partial $owner $rule $concl $done $remaining $keys)))
+                ($_extended (sk-extend-current! (sk-partial $owner $rule $concl $done $remaining $keys) $key))
+                ($_retired (sk-functional-delivered! $subscription)))
+            ()))
       (case $remaining (
          ((cons $premise $_rest)
             (let $hash (sk-node-hash $premise)

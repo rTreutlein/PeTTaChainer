@@ -275,6 +275,22 @@ contributions, regimes and leave-one-out indexes do not leave with search
 work. A fractional confidence-1 fact retains its backward derivations for
 conditioning, as before.
 
+An optional `set-functional-predicate` declaration gives an input relation
+immutable single-valued keys. It also declares that relation positive-only;
+only ground certain-true main-world inputs may populate it, and no permanent
+rule may derive it. A conflicting tuple is rejected before that fact is
+published. An unassigned key stays open. This deliberately does not infer
+negative facts for every other value: those would invent negative-antecedent
+samples. It is not a declaration about uncertain or derived values.
+Waiters whose key arguments are ground share the existing ownership index and
+retirement queue under a private functional key. Assignment retires incompatible
+subscriptions in the same bounded slices; compatible ones consume their answer
+before releasing their leases. Delivery keeps the pre-extension subscription:
+extension may bind its variables and change its node hash. An open subscription
+with unbound key arguments remains live. Shared pending premise traversal and
+ordinary context bookkeeping retain their existing rules. Assignment records,
+input history, completed rows, views and learned samples are retained.
+
 A rule stated with confidence 1 in every branch is given, not estimated: its
 applications carry no evidence of it. A rule stated with less, or refined from
 its instances, is evidence of every proof through it, so a proof of the rule

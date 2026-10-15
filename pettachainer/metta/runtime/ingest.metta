@@ -43,6 +43,7 @@
       (($iatoms
           (list_to_set
              (collapse (mm2compile $kb (materialize-stmt-lambdas $stmt)))))
+        ($_functional (functional-check-additions! $kb $iatoms))
         ($eatoms
            (the (List CompiledAddition)
               (map-flat externalize-proof-structure $iatoms)))
