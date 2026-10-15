@@ -3433,7 +3433,7 @@
 (: sk-fold-read? (-[det]-> Number SkeletonKey Bool))
 (= (sk-fold-read? $hash $fold)
    (if (sk-existential-fold? $fold)
-      (not (== (collapse (once (match &sk_latest ($hash $stored (sk-version $_seq 0 $_value))
+      (not (== (collapse (once (match &ctx_sk_latest ($hash $stored (sk-version $_seq 0 $_value))
          (if (=alpha $stored $fold) true (empty))))) ()))
       (not (== (sk-latest-view $hash $fold 0) sk-none))))
 

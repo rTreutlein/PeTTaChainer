@@ -104,13 +104,14 @@ freshens local binders before goal bindings can affect the displayed statement.
 No assumed claims or categorical consequences leak to MAIN. Source withdrawal
 invalidates conditional results through the existing rule-provenance machinery.
 
-The context integration is limited to routing existential folds (scalar and
-grouped), preserving free-variable links when reading cached fold members, and
-identifying which heads an existential assumption or population can affect.
-An assumed `Exists` affects `ExistentialClaim`, not its body's predicates.
-The in-flight ctx-overlay branch changes the surrounding Assuming execution;
-its context owner must apply this same claim lowering and binder freshening.
-This change neither registers overlay stores nor replaces context routing.
+Private judgments route scalar and grouped existential folds into their
+hypothetical scope, preserving free-variable links when reading cached members.
+Assuming instead shares MAIN fold and member identities and overlays dependent
+values. An assumed `Exists` supplies only an `ExistentialClaim`; existing reader
+edges propagate its change to the direct channel and floor. Concrete assumed
+facts propagate through the witness channel. MAIN-scoped existential compilation
+inside ContextQuery therefore reads the overlay during C evaluation. Binder
+freshening and public reconstruction also apply to existential Assuming answers.
 
 Nested quantifiers, binders with unused variables, quantified nested implication
 export, quantified implications supplied as Assuming facts or goals, and existential

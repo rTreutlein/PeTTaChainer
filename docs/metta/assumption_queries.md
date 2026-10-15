@@ -2,10 +2,10 @@
 
 Status: built, October 2026.
 
-`Assuming` with explicit existential statements remains unsupported. Stage 1
-of [existential queries](explicit_exists.md) supplies bare queries and exact
-stored-rule lookup without creating hypothetical contexts; scoped existential
-introduction/elimination and overlay integration belong to stage 2.
+`Assuming` supports explicit existential facts, including among `And` facts,
+and bare existential goals. It preserves local binder scope and never creates
+a categorical witness from a non-constructive claim. Quantified implications
+as Assuming facts or goals remain unsupported; see [existential queries](explicit_exists.md).
 
 ## Problem
 
@@ -72,6 +72,17 @@ identities and evidence identities; opening C copies none of them.
   `context-remove!` or their scoped exact-row helpers, including computed
   base-rate publication and invalidation. A source audit rejects raw MeTTa
   writes to these stores.
+- **Existential queries.** Assumed `Exists` facts lower to canonical
+  `ExistentialClaim` keys. Their bodies are not assumed. `ExistentialAlternatives`
+  readers subscribe to those claim keys and to concrete witness populations;
+  both propagate actual changes through the shared reader/fold edges. This
+  replaces the former `assumed_head` / `pattern_head` affected-head tests.
+  Binder freshening runs before Assuming facts or goals can bind one another.
+  `compile-existential-query` deliberately compiles against MAIN: ContextQuery
+  evaluates that same goal under C, preserving MAIN member and evidence
+  identities. Scalar and grouped existential folds read C-local values when
+  present. Private implication judgments still route witness folds into their
+  hypothetical scope; their individuals are not world witnesses.
 - **Implication queries.** The private judgment contexts of an `Implication`
   query retain their existing hypothetical semantics. The Assuming overlay
   does not turn them into world contexts.

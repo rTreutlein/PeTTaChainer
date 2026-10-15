@@ -1216,16 +1216,15 @@
             (if (if (sk-existential-fold? $premise)
                    (let $pattern (car-atom (cdr-atom $args))
                       (if (== $ctx MAIN) false
-                            ;; Ground judgments have no hypothetical individual
-                            ;; to protect. Open ones must preserve its sharing
-                            ;; rather than bind it to an unrelated fixed entity.
-                            (if (== $vars Nil) true
-                               (if (context-vars-in-type? $pattern $vars) true
-                                  (case $pattern (
-                                     ((ExistentialAlternatives $claim $_channel)
-                                        (judgment-assumed-key? $claim
-                                           (make-kb-context (brand KB $kbid) $ctx $vars)))
-                                     ($_other-pattern false)))))))
+                         ;; Ground judgments have no hypothetical individual
+                         ;; to protect. Open ones must preserve its sharing.
+                         (if (== $vars Nil) true
+                            (if (context-vars-in-type? $pattern $vars) true
+                               (case $pattern (
+                                  ((ExistentialAlternatives $claim $_channel)
+                                     (judgment-assumed-key? $claim
+                                        (make-kb-context (brand KB $kbid) $ctx $vars)))
+                                  ($_other-pattern false)))))))
                    false)
                (CPU $fun (cons-atom (make-kb-context (brand KB $kbid) $ctx $vars) (cdr-atom $args)) $res)
                (CPU $fun $args $res)))

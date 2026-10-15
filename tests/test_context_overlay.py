@@ -47,6 +47,39 @@ class OverlayChecks:
             .294434361302045, delta=1e-6,
         )
 
+    def test_existential_claim_is_local_and_preserves_binder_scope(self):
+        self.h.add_atoms_no_check([
+            '(: (no_inverse named) (Implication (Exists ($x) (P $x)) (Named F1)) (STV 1 1))',
+        ])
+        rows = self.answers('(Assuming (Exists ($x) (P $x)) (Named $x))')
+        self.assertEqual(len(rows), 1, rows)
+        _, (_, binders, (_, body)), goal = rows[0].statement
+        self.assertEqual(goal, ['Named', 'F1'])
+        self.assertEqual(binders, [body])
+        self.assertTrue(body.startswith('$'), rows[0])
+        for _ in range(2):
+            rows = self.answers('(Assuming (Exists ($x) (P $x)) (Exists ($z) (P $z)))')
+            self.assertEqual(len(rows), 1, rows)
+            self.assertEqual(rows[0].statement[2][0], 'Exists')
+            self.assertEqual(rows[0].tv, ['STV', 1.0, 1.0])
+        self.assertEqual(self.answers('(Exists ($x) (P $x))'), [])
+        self.assertEqual(self.answers('(P $x)'), [])
+        self.assertEqual(janus.query_once('overlay_probe_main_leaks(Kb,Rows)', {'Kb': self.h.kb})['Rows'], [])
+
+    def test_existential_population_overlays_warm_main_folds(self):
+        self.h.add_atoms_no_check([
+            '(: p-old (P old a) (STV 0.4 0.8))',
+            '(: (no_inverse p-action) (Implication (Action $g) (P $g b)) (STV 1 1))',
+        ])
+        goal = '(Exists ($x) (P $group $x))'
+        before = self.answers(goal)
+        self.assertEqual([(r.statement[2][1], r.tv) for r in before], [('old', ['STV', .4, .8])])
+        rows = self.answers(f'(Assuming (Action new) {goal})')
+        groups = {r.statement[2][2][1]: r.tv[1] for r in rows}
+        self.assertEqual(groups, {'old': .4, 'new': 1.0})
+        self.assertEqual([(r.statement, r.tv) for r in self.answers(goal)], [(r.statement, r.tv) for r in before])
+        self.assertEqual(janus.query_once('overlay_probe_main_leaks(Kb,Rows)', {'Kb': self.h.kb})['Rows'], [])
+
     def test_independent_history_has_no_local_rows_or_views(self):
         self.h.add_atoms_no_check([
             '(: h0 (History t0) (STV 0.3 0.8))',

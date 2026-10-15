@@ -73,6 +73,14 @@
 
 ;; The public answer boundary never exposes packed rule storage, including
 ;; wildcard and RuleTruth reads. The skeleton and materialization keep the CTV.
+(: public-query-type (-[det]-> Atom Atom))
+(= (public-query-type $type)
+   (case $type (
+      ((QuantifiedRule $_hash $canonical) (existential-source $canonical))
+      ((ExistsJudgment $claim) (existential-source $claim))
+      ((Assuming $facts $goal) (Assuming $facts (public-query-type $goal)))
+      ($_ordinary $type))))
+
 (: public-query-result (-[det]-> RuntimeResult RuntimeResult))
 (= (public-query-result $result)
    (case $result (
@@ -82,7 +90,7 @@
             (if (head-is? $tv CTV)
                (case (the TV $tv) (((CTV $pos $_neg) $pos) ($_other $tv))) $tv)
             (brand RuntimeResult
-               (data (case $type (((QuantifiedRule $_hash $canonical) (existential-source $canonical)) ((ExistsJudgment $claim) (existential-source $claim)) ($_ordinary $type)))
+               (data (public-query-type $type)
                   $kbctx $proof $answer-tv)))))))
 
 (: present-query-plan-results

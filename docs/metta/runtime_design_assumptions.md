@@ -231,6 +231,15 @@ same scoped write API as their aggregate observations and states. Raw MeTTa
 mutations of an overlay store are rejected by the write-boundary audit. Cleanup
 drops C without retracting independent MAIN work.
 
+Existential assumptions lower to canonical claim keys, never categorical
+witnesses. Freshen binders before the Assuming plan shares variables with its
+goal. MAIN-scoped existential compilation is intentional inside ContextQuery:
+scalar and grouped folds keep MAIN member identities and read C-local values.
+The direct-claim and witness channels follow the existing dependency edges;
+no affected-head analysis is needed. Empty existential-fold subscription reads
+must use the overlay facade too. Private implication judgments retain their
+hypothetical fold routing and shared-variable constraints.
+
 Search expansion is shared across a batch. Evaluation is per input world:
 MAIN and each context receive the query's evaluation allowance and initial
 near-root reserve independently. Earlier contexts cannot exhaust later ones.
