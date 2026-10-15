@@ -7,8 +7,8 @@
 ;; observations: it stays when its strength differs, by more than hm-z
 ;; standard errors, from the consequent's probability without its antecedent
 ;; (hm-informative?) and from the strength of every more general live
-;; hypothesis judged in the same review. One that had hm-max-opportunities
-;; observations of its consequent without reaching enough samples of its own
+;; hypothesis judged in the same review whose own SE fits the comparison
+;; tolerance. One that had hm-max-opportunities observations of its consequent without reaching enough samples of its own
 ;; is dropped too.
 (: hm-min-samples (-[det]-> Number))
 (= (hm-min-samples) 4)
@@ -65,15 +65,15 @@
    (let $q (min 0.95 (max 0.05 $p))
       (> (abs-math (- $s $q)) (* (hm-z) (sqrt-math (/ (* $q (- 1 $q)) $n))))))
 
-(: hm-keep? (-[semidet]-> KB (List HmReviewed) HmReviewed Bool))
-(= (hm-keep? $kb $reviewed (hm-reviewed $_name $antecedent $consequent $born $truth))
+(: hm-decision (-[semidet]-> KB (List HmReviewed) HmReviewed Atom))
+(= (hm-decision $kb $reviewed (hm-reviewed $_name $antecedent $consequent $born $truth))
    (let* (($n (confidence-to-count (hm-confidence $truth)))
           ($s (hm-strength $truth))
           ($rule (Implication $antecedent $consequent)))
       (if (< $n (hm-min-samples))
          (< (- (hm-outcomes $kb $consequent) $born) (hm-max-opportunities))
          (if (hm-informative? $truth $s $n)
-            (fold-semidet (hm-unscreened $rule $s $n) true $reviewed)
+            (fold-semidet (hm-screen $kb $rule $s $n) true $reviewed)
             false))))
 
 ;; Whether the strength differs from the consequent's probability without
@@ -88,23 +88,62 @@
       ((CTV $_pos (STV $s0 $c0)) (if (>= (confidence-to-count $c0) 1) (hm-differs? $s $s0 $n) true))
       ($_stv true))))
 
-;; Not screened off by a more general hypothesis judged with it.
-(: hm-unscreened (-[semidet]-> Atom Number Number Bool HmReviewed Bool))
-(= (hm-unscreened $rule $s $n $unscreened (hm-reviewed $_name $antecedent $consequent $_born $truth))
-   (if $unscreened
-      (if (let $general (Implication $antecedent $consequent) (hypothesis-generalizes? $general $rule))
-         (if (< (confidence-to-count (hm-confidence $truth)) (hm-min-samples)) true
-            (hm-differs? $s (hm-strength $truth) $n))
-         true)
-      false))
+;; A general estimate may screen only after four samples and when its own
+;; SE fits the existing hm-z * SE(reference, n_specific) comparison tolerance:
+;; sqrt(q*(1-q)/n_general) <= hm-z * sqrt(q*(1-q)/n_specific), equivalently
+;; hm-z^2 * n_general >= n_specific. No fitted uncertainty bound is added.
+;; Return one screening reason.
+(: hm-screen (-[det]-> KB Atom Number Number Atom HmReviewed Atom))
+(= (hm-screen $kb $rule $s $n $decision (hm-reviewed $name $antecedent $consequent $_born $truth))
+   (if (== $decision true)
+      (let* (($general (Implication $antecedent $consequent))
+             ($ng (confidence-to-count (hm-confidence $truth)))
+             ($phash (hm-pattern-hash $kb $consequent)))
+         (if (if (hypothesis-generalizes? $general $rule)
+                 (space-row-present? &hm_live ($phash $kb $_stored $name $_antecedent $_born)) false)
+            (if (or (< $ng (hm-min-samples)) (< (* (* (hm-z) (hm-z)) $ng) $n)) true
+               (let $p (hm-strength $truth)
+                  (if (hm-differs? $s $p $n) true
+                     (let $q (min 0.95 (max 0.05 $p))
+                        (screen $general $p (sqrt-math (/ (* $q (- 1 $q)) $ng)))))))
+            true))
+      $decision))
+
+;; Consume only truth-change notifications. No inference or proposal runs in
+;; the change hook. A moved (or withdrawn) screen makes a candidate eligible
+;; for ordinary proposal again, with the same max-new/max-live checks.
+(: hm-reconsider! (-[det]-> KB Atom))
+(= (hm-reconsider! $kb)
+   (collapse (match &hm_screen_dirty ($hash $kb $key)
+      (let* (($_dirty (remove-variant-row! &hm_screen_dirty (quote ($hash $kb $key))))
+             ((sk-key (RuleTruth (Implication $antecedent $consequent)) $_context) $key)
+             ($phash (hm-pattern-hash $kb $consequent))
+             ;; Withdrawal is lazy: a cached truth can outlive its rule.
+             ($live (collapse (once (match &hm_live ($phash $kb $live-consequent $_live-name $live-antecedent $_born)
+                (if (=alpha (Implication $live-antecedent $live-consequent) (Implication $antecedent $consequent)) true (empty))))))
+             ($value (if (== $live ()) sk-none (sk-value $key sk-any-filter ()))))
+         (collapse (match &hm_screened ($hash $kb $stored $name $rule $s $se)
+            (if (=alpha $stored $key)
+               (if (case $value (
+                      ((sk-val ($_type $_ctx $_proof $tv) $_ev $_deps) (> (abs-math (- (hm-strength $tv) $s)) $se))
+                      ($_none true)))
+                  (let* (($_watch (remove-data-rows! &hm_screened (quote ($hash $kb $_stored $name $_rule $_s $_se))))
+                         ($rhash (index-hash (quote ($kb $rule)))))
+                     (remove-variant-row! &hm_tried (quote ($rhash $kb $rule))))
+                  ())
+               (empty))))))))
 
 ;; A dropped hypothesis leaves the live set and its rules leave the rule
 ;; indexes. Its durable joins and views are retired by rule identity, so no
-;; later read uses them. The historical proof store stays. It is never
-;; proposed again.
+;; later read uses them. The historical proof store stays. A screening
+;; reason is registered by the review before retirement.
 (: hm-drop! (-[det]-> KB Atom Atom Atom))
 (= (hm-drop! $kb $name $consequent)
    (let* (($phash (hm-pattern-hash $kb $consequent))
+          ($_screen (collapse (match &hm_live ($phash $kb $consequent $name $antecedent $_born)
+             (let* (($key (sk-key (brand Statement (RuleTruth (Implication $antecedent $consequent))) (kbctx $kb)))
+                    ($hash (index-hash $key)))
+                (hm-screen-changed! $hash $key)))))
           ($_live (remove-data-rows! &hm_live (quote ($phash $kb $_stored $name $_antecedent $_born))))
           ($_unread (remove-data-rows! &hm_unread (quote ($name $kb))))
           ($_rules (withdraw-named-rules! (brand Proof $name))))
@@ -139,8 +178,16 @@
                        (empty)))))
           ($groups (the (List (List HmReviewed)) (hypothesis-layers $kb $live)))
           ($reviewed (fold-flat (hm-read $steps $kb) () $groups))
+          ($_reconsidered (hm-reconsider! $kb))
           ($verdict (superpose $reviewed))
           ((hm-reviewed $name $antecedent $consequent $born $truth) $verdict)
-          ($kept (hm-keep? $kb $reviewed $verdict))
+          ($decision (hm-decision $kb $reviewed $verdict))
+          ($kept (== $decision true))
+          ($_screen (case $decision (
+             ((screen $general $s $se)
+                (let* (($key (sk-key (brand Statement (RuleTruth $general)) (kbctx $kb)))
+                       ($hash (index-hash $key)))
+                   (add-atom &hm_screened ($hash $kb $key $name (Implication $antecedent $consequent) $s $se))))
+             ($_other ()))))
           ($_dropped (if $kept () (hm-drop! $kb $name $consequent))))
       (hypothesis $name (Implication $antecedent $consequent) $truth (if $kept kept dropped))))

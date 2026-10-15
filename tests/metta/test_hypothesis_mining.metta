@@ -249,7 +249,7 @@
     ((Implication (C $_2) (B $_2)) dropped)))
 !(test (live-hypotheses pruneKb) ((Implication (A $_0) (B $_0))))
 
-;; A dropped hypothesis is not proposed again, and no longer applies.
+;; A dropped hypothesis stays absent while its screen holds, and no longer applies.
 !(add-case! (41 1 1 1))
 !(test (live-hypotheses pruneKb) ((Implication (A $_0) (B $_0))))
 (: rule-count (-[det]-> KB Atom Atom Number))
