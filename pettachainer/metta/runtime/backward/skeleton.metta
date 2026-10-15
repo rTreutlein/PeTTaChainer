@@ -1867,13 +1867,14 @@
 ;; Erase before cascading, so cycles stop at the first already erased owner.
 ;; The ordinary views remain valid. Only their cached exclusion reads change.
 (= (sk-drop-branch! $_acc $slot)
-   (let $_dropped
-      (collapse (match &ctx_sk_branch_owner ($slot $hash $key $rhash $inputs)
-         (let* (($_owner (remove-variant-row! &sk_branch_owner (quote ($slot $hash $key $rhash $inputs))))
-                ($_views (remove-data-rows! &sk_branch (quote ($slot $_key $_rhash $_cuts $_fresh $_view))))
-                ($_dirty (context-remove! &sk_branch_dirty ($slot)))
-                ($_inputs (fold-semidet (sk-branch-unlink! $slot) () $inputs)))
-            (sk-invalidate-branches! $key))))
+   (let* (($_wanted (remove-data-rows! &sk_branch_wanted (quote ($slot $_hash $_key $_rhash $_exclude))))
+          ($_dropped
+             (collapse (match &ctx_sk_branch_owner ($slot $hash $key $rhash $inputs)
+                (let* (($_owner (remove-variant-row! &sk_branch_owner (quote ($slot $hash $key $rhash $inputs))))
+                       ($_views (remove-data-rows! &sk_branch (quote ($slot $_key $_rhash $_cuts $_fresh $_view))))
+                       ($_dirty (context-remove! &sk_branch_dirty ($slot)))
+                       ($_inputs (fold-semidet (sk-branch-unlink! $slot) () $inputs)))
+                   (sk-invalidate-branches! $key))))))
       ()))
 
 (= (sk-stale-branch! $_acc $slot)

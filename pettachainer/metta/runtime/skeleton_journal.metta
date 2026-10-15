@@ -250,6 +250,14 @@
 (: &sk_branch_reader (SpaceOf (Number SkeletonKey Number)))
 (: &ctx_sk_branch_reader (SpaceOf (Number SkeletonKey Number)))
 !(bind! &sk_branch_reader (new-space))
+;; Deferred exclusion reads, by row digest. MAIN requests survive queries;
+;; an Assuming world keeps only its own requests until that world ends.
+(: SkeletonBranchRequest Type)
+(: sk-wanted (-[det]-> Number Number SkeletonKey Number (List Number) SkeletonBranchRequest))
+(: &sk_branch_wanted (SpaceOf (Number Number SkeletonKey Number (List Number))))
+(: &ctx_sk_branch_wanted (SpaceOf (Number Number SkeletonKey Number (List Number))))
+!(bind! &sk_branch_wanted (new-space))
+!(change-state! sk_branch_budget 0)
 ;; The active ordinary reader. Nested evaluations carry exclusions, so they
 ;; leave this reader in place. Store only its identity, not its whole row.
 (: &sk_reading (SpaceOf (Number SkeletonKey Number)))

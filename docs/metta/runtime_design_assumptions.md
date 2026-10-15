@@ -277,22 +277,38 @@ row keeps its latest view and the views it replaced, and later queries read
 them until something below them changes.
 
 A reader excluding keys cannot assume that a rejected merged row view has
-no admissible proof. It rebuilds that row with the exclusions carried through
-its premises, charging each rebuilt row to the evaluation allowance. A row
+no admissible proof. An ordinary read serves a compatible cached incumbent
+or older view and queues the missing branch; it holds the consuming reader
+through the existing stale-reader path. The deferred tier runs after ordinary
+work and restales, using at most one eighth of the query's evaluation allowance
+within that same allowance. Requests survive queries until settled or their
+row is retired. Nested rebuilds run inside that tier's remaining slice, with
+exclusions carried through their premises and each rebuilt row charged to
+the evaluation allowance. A row
 whose owner or a mandatory direct premise is excluded cannot contribute.
 Rebuilt branches are cached across reads and queries, separately from ordinary
 views, with their exclusion cuts. A settled branch built under E1 serves E2
 only when its dependencies are disjoint from E2 and its cuts are a subset of
 E2. Each rebuild records only the exclusions that rejected branches, including
-cuts propagated by the child branches it reads. Cuts are immutable sets:
+cuts propagated by the child branches it reads. Every exclusion rejection
+uses the same predicate, which records cuts only inside a rebuild frame.
+Cuts are immutable sets:
 forgetting may shorten proof dependencies, but must not shorten exclusion
 cuts.
 
 Each cached row registers its direct input keys. A changed input marks its
 branches stale and follows only those cached readers; ordinary views remain
-valid. Stale rows leave the input reader lists until a settled rebuild
-subscribes them again. Stale compatible branches are incumbents while rebuilding is unpaid,
-never settled cache hits. An unpaid nested rebuild holds the consuming reader
+valid. Stale rows leave the input reader lists until branch publication
+subscribes them again. A positive unfinished rebuild can publish a stale
+incumbent, restricted conservatively by the entire exclusion set; it cannot
+prune settled contexts. Stale compatible branches are incumbents while rebuilding is unpaid,
+never settled cache hits. A semantically changed branch result schedules the
+readers in its request's exclusion context again; each reader excludes its
+own key. An unchanged settled refresh does not force an equivalent proof
+publication. A rebuild outside the ordinary need closure pays its own
+conditioning from the tier slice, without granting payment to the ordinary
+view. Branch settlement follows actual unpaid work inside its frame, not an
+ordinary view's pre-existing conditioning debt. An unpaid nested rebuild holds the consuming reader
 through evaluation and stales that reader after answers are read; it does not
 stale the producer whose ordinary view is still valid. Successful settled
 rebuilds prune dominated contexts, each row retains at most eight contexts,

@@ -1,5 +1,6 @@
 import itertools
 import unittest
+from pathlib import Path
 
 import janus_swi as janus
 
@@ -13,6 +14,9 @@ class HistoryIndependenceTests(unittest.TestCase):
         for warm in (False, True):
             with self.subTest(warm=warm):
                 h = PeTTaChainer()
+                if not warm:
+                    janus.consult(str(Path(__file__).resolve().parents[1] / 'context_overlay_probe.pl'))
+                    janus.query_once('overlay_probe_install(none)')
                 h.add_atoms_no_check([
                     '(: mf (M a) (STV 1 0.8))',
                     '(: xf (X a) (STV 1 0.8))',
@@ -31,10 +35,14 @@ class HistoryIndependenceTests(unittest.TestCase):
                     h.query(f'(: $p ({p} a) $tv)', steps=200, timeout_sec=0)
                 self.assertEqual(h.query('(: $p (X a) $tv)', steps=200, timeout_sec=0), [expected])
                 # An overlay may strengthen M, but must neither consume the
-                # borrowed MAIN cache as current nor mutate its stored branch.
+                # borrowed MAIN cache as current nor mutate it while C is
+                # active. Ordinary MAIN maintenance may republish proof IDs.
                 cache_query = (
                     "findall(_Text, ('&sk_branch'(_S,['sk-key',['B',a],[Kb,'MAIN','Nil']],"
-                    "_R,_C,_F,_V), term_string([_S,_R,_C,_F,_V],_Text)), Rows)"
+                    "_R,_C,_F,_V), "
+                    " (_V=['sk-val',[_Type,_Scope,_P,_TV],_Ev,_D] "
+                    " -> 'sk-full-proof'(_P,_Full), _Stable=['sk-val',[_Type,_Scope,_Full,_TV],_Ev,_D] "
+                    " ; _Stable=_V), term_string([_S,_R,_C,_F,_Stable],_Text)), _Rows), sort(_Rows,Rows)"
                 )
                 before = janus.query_once(cache_query, {"Kb": h.kb})["Rows"]
                 if warm:
@@ -43,6 +51,7 @@ class HistoryIndependenceTests(unittest.TestCase):
                 self.assertEqual(len(assumed), 1)
                 self.assertAlmostEqual(assumed[0].tv[2], 0.9997004492512355)
                 self.assertEqual(janus.query_once(cache_query, {"Kb": h.kb})["Rows"], before)
+                self.assertEqual(janus.query_once('overlay_probe_main_leaks(Kb,Rows)', {'Kb': h.kb})['Rows'], [])
                 self.assertEqual(h.query('(: $p (X a) $tv)', steps=200, timeout_sec=0), [expected])
 
     def test_cycle_family_rule_permutations_with_interleaved_queries(self):

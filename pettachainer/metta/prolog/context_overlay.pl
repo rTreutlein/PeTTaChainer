@@ -69,6 +69,7 @@ context_local_only('&sk_restale').
 context_local_only('&sk_held').
 context_local_only('&sk_instance_changed').
 context_local_only('&sk_instance_checked').
+context_local_only('&sk_branch_wanted').
 
 context_store('&sk_latest',3).
 context_store('&sk_view',4).
@@ -76,6 +77,7 @@ context_store('&sk_branch',6).
 context_store('&sk_branch_owner',5).
 context_store('&sk_branch_dirty',1).
 context_store('&sk_branch_reader',3).
+context_store('&sk_branch_wanted',5).
 context_store('&sk_support',3).
 context_store('&sk_merged',4).
 context_store('&sk_reader',4).
@@ -238,6 +240,8 @@ context_finish([Goal|Goals],[Base|Bases],Allowance,Reserve,[Result|Results]) :-
     ( Goal=['CPU','ContextQuery',[[Kb,C,_],Facts,Inner,WantProof,WantTV],_]
     -> setup_call_cleanup(nb_setval(context_overlay,C),
            once(('change-state!'(sk_eval_budget,Allowance,_),
+                 'sk-branch-share'(BranchShare), BranchBudget is Allowance * BranchShare,
+                 'change-state!'(sk_branch_budget,BranchBudget,_),
                  'change-state!'(sk_near_reserve,Reserve,_),
                  context_evaluate(C,Inner,Kb,Facts,WantProof,WantTV,Result))),
            nb_setval(context_overlay,main))
@@ -247,6 +251,7 @@ context_finish([Goal|Goals],[Base|Bases],Allowance,Reserve,[Result|Results]) :-
 context_evaluate(C,Goal,Kb,Facts,WantProof,WantTV,Results) :-
     'inference-clock'(Started),
     'change-state!'(sk_holding,1,_),
+    'sk-refresh-near!'(_),
     forall(context_seed(_,C,[Type,Scope,_,_]),
            (Key=['sk-key',Type,Scope], 'sk-drop-merged!'(Key,_), 'sk-dirty!'(Key,_))),
     % Search and needed closure are shared. Each context evaluates a different

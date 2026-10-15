@@ -24,9 +24,12 @@
          (space-row-present? &sk_stale ($bh $rhash))))
    false)
 
-;; One paid row suffices: xm necessarily reads X and cannot help, while mb
+;; The miss queued mb without spending the ordinary read's allowance. One
+;; paid tier row suffices: xm necessarily reads X and cannot help, while mb
 ;; reads M's authored mf. Only {M,B} are dependencies and mf is the evidence.
 !(change-state! sk_eval_budget 1)
+!(change-state! sk_branch_budget 1)
+!(test (sk-build-wanted!) true)
 !(test
    (let* (($key (sk-key (B a) (historyKb MAIN Nil)))
           ($mh (index-hash (sk-key (M a) (historyKb MAIN Nil))))
@@ -77,7 +80,7 @@
       (match &sk_row ($bh $key $rhash $_row)
          (let* (($_clear (sk-drop-branch! () (index-hash ($bh $rhash))))
                 ($_first-budget (change-state! sk_eval_budget 1))
-                ($_first (sk-value $key sk-any-filter (hash-union (cons $xh ()) (-1))))
+                ($_first (sk-rebuild-view $bh $key $rhash (hash-union (cons $xh ()) (-1))))
                 ($_second-budget (change-state! sk_eval_budget 0))
                 ((sk-val ($_t $_ctx $proof $_tv) $_ev $_deps)
                    (sk-value $key sk-any-filter (cons $xh ()))))
@@ -136,7 +139,7 @@
                 ($_changed (sk-invalidate-branches! $input))
                 ($unlinked (space-row-present? &sk_branch_reader ($mh $input $slot)))
                 ($_budget (change-state! sk_eval_budget 1))
-                ($_refreshed (sk-value $key sk-any-filter (cons $xh ()))))
+                ($_refreshed (sk-rebuild-view $bh $key $rhash (cons $xh ()))))
             ($unlinked (space-row-present? &sk_branch_reader ($mh $input $slot))))))
    (false true))
 
@@ -144,6 +147,10 @@
 !(compileadd historyKb (: mf2 (M a) (STV 0 0.8)))
 !(collapse (query 200 historyKb (: $p (M a) $tv)))
 !(change-state! sk_eval_budget 20)
+!(change-state! sk_branch_budget 20)
+!(sk-value (sk-key (B a) (historyKb MAIN Nil)) sk-any-filter
+   (cons (index-hash (sk-key (X a) (historyKb MAIN Nil))) ()))
+!(sk-build-wanted!)
 !(test
    (let* (($key (sk-key (B a) (historyKb MAIN Nil)))
           ($xh (index-hash (sk-key (X a) (historyKb MAIN Nil))))
@@ -194,6 +201,8 @@
    (sk-value (sk-key (B a) (emptyBranchKb MAIN Nil)) sk-any-filter
       (cons (index-hash (sk-key (X a) (emptyBranchKb MAIN Nil))) ()))
    sk-none)
+!(change-state! sk_branch_budget 1)
+!(test (sk-build-wanted!) true)
 !(test
    (let* (($before (search-id-value sk_branch_unpaid))
           ($_budget (change-state! sk_eval_budget 0))
@@ -204,6 +213,10 @@
 !(compileadd emptyBranchKb (: mf (M a) (STV 1 0.8)))
 !(collapse (query 200 emptyBranchKb (: $p (M a) $tv)))
 !(change-state! sk_eval_budget 1)
+!(change-state! sk_branch_budget 1)
+!(sk-value (sk-key (B a) (emptyBranchKb MAIN Nil)) sk-any-filter
+   (cons (index-hash (sk-key (X a) (emptyBranchKb MAIN Nil))) ()))
+!(sk-build-wanted!)
 !(test
    (let* (((sk-val ($_t $_ctx $proof $_tv) $_ev $_deps)
              (sk-value (sk-key (B a) (emptyBranchKb MAIN Nil)) sk-any-filter

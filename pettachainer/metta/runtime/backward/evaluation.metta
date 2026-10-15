@@ -72,11 +72,15 @@
 ;; Signatures of the mutually recursive functions below.
 (: sk-note-cuts! (-[det]-> (List Number) Atom))
 (: sk-excludes? (-[det]-> (List Number) Number Bool))
+(: sk-hold-branch-reader! (-[det]-> SkeletonKey Atom))
+(: sk-build-wanted! (-[semidet]-> Bool))
+(: sk-branch-ready-step (-[semidet]-> Number (List Number) Atom SkeletonItem Atom))
+(: sk-finish-branches! (-[semidet]-> Number Atom))
 (: sk-branch-values (-[semidet]-> Number SkeletonKey Number (List Number) Bool (List SkeletonValue)))
 (: sk-mixed (-[det]-> (List SkeletonValue) SkeletonValue SkeletonValue))
 (: sk-reference-view (-[semidet]-> Number SkeletonValue SkeletonValue))
 (: sk-cache-branch!
-   (-[semidet]-> Number Number SkeletonKey Number Number (List SkeletonKey) (List Number) SkeletonValue SkeletonValue))
+   (-[semidet]-> Number Number SkeletonKey Number Number (List SkeletonKey) (List Number) Bool SkeletonValue SkeletonValue))
 (: sk-stale-reader-step (-[det]-> SkeletonKey Atom SkeletonItem Atom))
 (: sk-value (-[semidet]-> SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 (: sk-row-view (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Number SkeletonRow SkeletonValue))
@@ -1391,8 +1395,31 @@
    (case (sk-left-out-view $hash $key $filter $exclude $rhash) (
       (sk-none
          (if (sk-admits? $filter $exclude $view) (cons (sk-version $seq $rhash $view) $kept)
-            (let $rebuilt (if (sk-excludes? $exclude (sk-view-deps-step 0 $view))
-                              (sk-rebuild-view $hash $key $rhash $exclude) sk-none)
+            (let $rebuilt
+               (if (sk-excludes? $exclude (sk-view-deps-step 0 $view))
+                  (if (== (search-id-value sk_branch_at) 0)
+                     (if (sk-excludes? $exclude (deps-key $hash)) sk-none
+                        (let $slot (index-hash ($hash $rhash))
+                           (case (sk-branch-values $slot $key $rhash $exclude true) (
+                              ((cons $cached $_rest)
+                                 (let $_hit (query_metric_increment branch-cache-hits) $cached))
+                              (()
+                                 (let* (($_miss (query_metric_increment branch-cache-misses))
+                                        ($_wanted (collapse (once
+                                           (match &sk_row ($hash $owner $rhash (sk-row $_ident $_concl $premises $_seq))
+                                              (if (=alpha $owner $key)
+                                                 (if (sk-excludes? $exclude (deps-join (map-flat deps-key
+                                                        (map-semidet index-hash (fold-semidet sk-direct-key-step () $premises))))) ()
+                                                 (let* (($_queued
+                                                    (if (== (collapse (once
+                                                           (match &ctx_sk_branch_wanted ($slot $hash $stored $rhash $exclude)
+                                                              (if (=alpha $stored $key) true (empty))))) ())
+                                                       (context-add! &sk_branch_wanted ($slot $hash $key $rhash $exclude)) ()))
+                                                        ($_reader (sk-hold-branch-reader! $key))) ()))
+                                                 (empty)))))))
+                                    (sk-mixed (sk-branch-values $slot $key $rhash $exclude false) sk-none)))))))
+                     (sk-rebuild-view $hash $key $rhash $exclude))
+                  sk-none)
                (case (if (sk-admits? $filter $exclude $rebuilt) $rebuilt
                         (fold-semidet (sk-admit-older $filter $exclude) sk-none (sk-older-views $hash $key $rhash))) (
                   (sk-none $kept)
@@ -1408,16 +1435,24 @@
    (if (sk-excludes? $exclude (deps-key $hash)) sk-none
       (let $slot (index-hash ($hash $rhash))
          (case (sk-branch-values $slot $key $rhash $exclude true) (
-            ((cons $cached $_rest) $cached)
+            ((cons $cached $_rest) (let $_hit (query_metric_increment branch-cache-hits) $cached))
             (()
+               (let $_miss (query_metric_increment branch-cache-misses)
                (case (collapse (once (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
                         (if (=alpha $stored $key) (sk-row $ident $concl $premises $seq) (empty))))) (
                   (() sk-none)
                   ((cons (sk-row (sk-ident $rule $keys $result) $concl $premises $seq) $_rows)
-                     (let $inputs (alpha_unique_keys (fold-semidet sk-direct-key-step () $premises))
-                        (if (sk-excludes? $exclude (deps-join (map-flat deps-key (map-semidet index-hash $inputs)))) sk-none
+                     (let* (($inputs (alpha_unique_keys (fold-semidet sk-direct-key-step () $premises)))
+                            ($mandatory (deps-join (map-flat deps-key (map-semidet index-hash $inputs)))))
+                        (if (sk-excludes? $exclude $mandatory) sk-none
                            (if (sk-take! sk_eval_budget (case $key (((sk-key $type $_kbctx) (term-cost $type)) ($_fold 1))))
                               (let* (($_counted (query_metric_increment row-computes))
+                                     ($_build (query_metric_increment branch-builds))
+                                     ($incumbent (sk-branch-values $slot $key $rhash $exclude false))
+                                     ($_refresh
+                                        (if (query_metrics_enabled)
+                                           (if (space-row-present? &ctx_sk_branch_dirty ($slot))
+                                              (query_metric_increment branch-cache-refreshes) 0) 0))
                                      ($unpaid (search-id-value sk_branch_unpaid))
                                      ($parent (search-id-value sk_branch_at))
                                      ($frame (+ 1 (next-search-id sk_branch_frame)))
@@ -1430,19 +1465,26 @@
                                      ($_leave (change-state! sk_branch_at $parent))
                                      ($_frame (remove-data-rows! &sk_branch_cuts (quote ($frame $_found))))
                                      ($_parent (sk-note-cuts! $cuts)))
-                                 (if (if (== $unpaid (search-id-value sk_branch_unpaid))
-                                        (not (space-row-present? &ctx_sk_given_pending ($hash $rhash $_cost))) false)
-                                    (sk-cache-branch! $slot $hash $key $rhash $rule $inputs $cuts $view)
-                                    (sk-mixed (sk-branch-values $slot $key $rhash $exclude false) $view)))
+                                 (if (== $unpaid (search-id-value sk_branch_unpaid))
+                                    (sk-cache-branch! $slot $hash $key $rhash $rule $inputs $cuts true $view)
+                                    (let $_unfinished (next-search-id sk_branch_unpaid)
+                                       (if (== $view sk-none) (sk-mixed $incumbent sk-none)
+                                          (if (sk-same-view? $view (sk-mixed $incumbent sk-none))
+                                             (sk-mixed $incumbent $view)
+                                             (sk-cache-branch! $slot $hash $key $rhash $rule $inputs $exclude false $view))))))
                               (let* (($_unpaid (query_metric_increment rows-unpaid))
                                      ($_unfinished (next-search-id sk_branch_unpaid))
-                                     ($_reader (fold-semidet (sk-stale-reader-step $key) ()
-                                        (collapse (match &sk_reading ($reader-hash $reader-key $reader-row)
-                                           (match &sk_row ($reader-hash $stored-reader $reader-row (sk-row $ri $rc $rp $rs))
-                                              (if (=alpha $stored-reader $reader-key)
-                                                 (sk-row-item $rs $reader-hash $reader-key $reader-row (sk-row $ri $rc $rp $rs))
-                                                 (empty))))))))
-                                 (sk-mixed (sk-branch-values $slot $key $rhash $exclude false) sk-none))))))))))))))
+                                     ($_reader (sk-hold-branch-reader! $key)))
+                                 (sk-mixed (sk-branch-values $slot $key $rhash $exclude false) sk-none)))))))))))))))
+
+(= (sk-hold-branch-reader! $key)
+   (let $_held (collapse (fold-semidet (sk-stale-reader-step $key) ()
+      (collapse (match &sk_reading ($reader-hash $reader-key $reader-row)
+         (match &sk_row ($reader-hash $stored-reader $reader-row (sk-row $ri $rc $rp $rs))
+            (if (=alpha $stored-reader $reader-key)
+               (sk-row-item $rs $reader-hash $reader-key $reader-row (sk-row $ri $rc $rp $rs))
+               (empty)))))))
+      ()))
 
 (= (sk-excludes? $exclude $deps)
    (if (deps-meet? $exclude $deps)
@@ -1483,15 +1525,15 @@
          (sk-goal-val $goal (sk-store-proof! $rule $goal-proof) $gev $gdeps))
       (sk-none sk-none))))
 
-(= (sk-cache-branch! $slot $hash $key $rhash $rule $inputs $cuts $computed)
+(= (sk-cache-branch! $slot $hash $key $rhash $rule $inputs $cuts $fresh $computed)
    (let* (($view (sk-reference-view $rule $computed))
           ($deps (sk-view-deps-step 0 $view))
-          ($_dominated
+          ($_dominated (if $fresh
              (collapse (match &ctx_sk_branch ($slot $stored $rhash $old-cuts $old-fresh $old)
                 (if (=alpha $stored $key)
                    (if (if (hash-subset? $cuts $old-cuts) (deps-within? $deps (sk-view-deps-step 0 $old)) false)
                       (remove-variant-row! &sk_branch (quote ($slot $stored $rhash $old-cuts $old-fresh $old))) (empty))
-                   (empty)))))
+                   (empty)))) ()))
           ($_owner
              (if (not (== (collapse (once (match &ctx_sk_branch_owner ($slot $hash $stored-owner $rhash $_inputs)
                               (if (=alpha $stored-owner $key) true (empty))))) ()))
@@ -1499,8 +1541,8 @@
                    (fold-semidet (sk-branch-link! $slot) () $inputs) ())
                 (let* (($_registered (context-add! &sk_branch_owner ($slot $hash $key $rhash $inputs)))
                        ($_readers (fold-semidet (sk-branch-link! $slot) () $inputs))) ())))
-          ($_fresh (context-remove! &sk_branch_dirty ($slot)))
-          ($_stored (context-add! &sk_branch ($slot $key $rhash $cuts true $view)))
+          ($_clean (context-remove! &sk_branch_dirty ($slot)))
+          ($_stored (context-add! &sk_branch ($slot $key $rhash $cuts $fresh $view)))
           ($kept (collapse (match &ctx_sk_branch ($slot $kept-key $rhash $kept-cuts $kept-fresh $kept-view)
                     (if (=alpha $kept-key $key) ($kept-key $kept-cuts $kept-fresh $kept-view) (empty)))))
           ($_bounded
@@ -2992,7 +3034,13 @@
          (if (== $given ())
             (let* (($level (sk-condition-level $khash $rhash))
                    ($cost (* (pow-math 2 $level) $base)))
-               (if (space-row-present? &ctx_sk_given_granted ($khash $rhash))
+               ;; A deferred branch may belong to a row outside the ordinary
+               ;; need closure. Pay its conditioning here from the same tier
+               ;; slice; waiting for an ordinary grant could never settle it.
+               (if (if (space-row-present? &ctx_sk_given_granted ($khash $rhash)) true
+                      (if (== (search-id-value sk_branch_at) 0) false
+                         (if (== (search-id-value sk_claim_left) -1)
+                            (sk-take! sk_eval_budget $cost) true)))
                   (if (space-row-present? &ctx_sk_conditioning ($khash $rhash)) $waiting
                   (if (== (search-id-value sk_claim_left) -1)
                      (let* (($_entered (context-add! &sk_conditioning ($khash $rhash)))
@@ -3749,9 +3797,65 @@
          (let* (($restale (collapse (match &ctx_sk_restale ($khash $rhash) ($khash $rhash))))
                 ($_taken (remove-data-rows! &sk_restale (quote ($khash $rhash))))
                 ($again (fold-semidet sk-restale-step (empty_heap) $restale)))
-            (if (heap-empty? $again) $pass (sk-work-off! (+ $pass 1) (sk-work $again (empty_heap)))))
+            (if (heap-empty? $again)
+               (if (sk-build-wanted!) (sk-work-off! (+ $pass 1) (sk-work (empty_heap) (empty_heap))) $pass)
+               (sk-work-off! (+ $pass 1) (sk-work $again (empty_heap)))))
          (sk-work-off! (+ $pass 1) (sk-work $next (empty_heap))))
       (sk-work-pop! $pass $next (heap_pop $todo))))
+
+;; Ordinary reads keep their incumbent. Only this last tier rebuilds a miss;
+;; nested reads may rebuild inline inside its bounded evaluation slice.
+;; Leave a request in place until the build returns, including on exceptions.
+(= (sk-build-wanted!)
+   (let $room (min (search-id-value sk_eval_budget) (search-id-value sk_branch_budget))
+      (if (< $room 1) false
+         (case (collapse (once (match &ctx_sk_branch_wanted ($slot $hash $key $rhash $exclude)
+                  (sk-wanted $slot $hash $key $rhash $exclude)))) (
+            (() false)
+            ((cons (sk-wanted $slot $hash $key $rhash $exclude) $_rest)
+               (let* (($request (data $slot $hash $key $rhash $exclude))
+                      ($before (search-id-value sk_eval_budget))
+                      ($incumbent (sk-mixed (sk-branch-values $slot $key $rhash $exclude false) sk-none))
+                      ($_slice (change-state! sk_eval_budget $room))
+                      ($built (sk-rebuild-view $hash $key $rhash $exclude))
+                      ($spent (- $room (search-id-value sk_eval_budget)))
+                      ($_restore (change-state! sk_eval_budget (- $before $spent)))
+                      ;; Even a cache hit or a structurally impossible read
+                      ;; consumes one tier unit, bounding queue bookkeeping.
+                      ($_share (change-state! sk_branch_budget (- (search-id-value sk_branch_budget) (max 1 $spent))))
+                      ($_taken (remove-variant-row! &sk_branch_wanted (quote ($slot $hash $key $rhash $exclude))))
+                      ($settled (not (== (sk-branch-values $slot $key $rhash $exclude true) ())))
+                      ($_retry (if $settled true (context-add! &sk_branch_wanted $request)))
+                      ($_ready
+                         (if (not (sk-same-view? $built $incumbent))
+                            (let* (($cause (- 0 (+ 2 (next-search-id sk_branch_ready))))
+                                   ($_readers (collapse (fold-semidet (sk-branch-ready-step $cause $exclude) ()
+                               (append-flat (sk-readers $key)
+                                  (collapse (match &ctx_sk_stale_reader ($hash $stored $reader-hash $reader-row)
+                                     (if (=alpha $stored $key)
+                                        (match &sk_row ($reader-hash $reader-key $reader-row (sk-row $ri $rc $rp $rs))
+                                           (sk-row-item $rs $reader-hash $reader-key $reader-row (sk-row $ri $rc $rp $rs)))
+                                        (empty))))))))) ())
+                            ())))
+                  true)))))))
+
+(= (sk-branch-ready-step $cause $exclude $_acc (sk-row-item $seq $hash $key $rhash (sk-row $ident $concl $premises $created)))
+   ;; A row always excludes its own key. Readers in other exclusion contexts
+   ;; keep their own requests; this arrival must not force them as well.
+   (if (stored-list-member? $hash $exclude)
+      (let $_requested
+         (if (== (search-id-value sk_forward_run) 1)
+            (if (sk-needed? $hash $key) () (let $_needed (add-atom &sk_needed ($hash $key 0)) ())) ())
+         (if (sk-needed? $hash $key)
+            (let* (($_forced (sk-force! (cons $cause ()) (sk-row-item $seq $hash $key $rhash (sk-row $ident $concl $premises $created))))
+                   ($_linked (if (space-row-present? &ctx_sk_stale ($hash $rhash))
+                                (sk-relink-row! $hash $rhash $premises) ()))
+                   ($_ready (if (space-row-present? &ctx_sk_restale ($hash $rhash)) ()
+                                (let $_row (context-add! &sk_restale ($hash $rhash)) ()))))
+               ())
+            ()))
+      ()))
+(= (sk-branch-ready-step $_cause $_exclude $_acc (sk-fold-check $_hash $_key)) ())
 
 (: sk-restale-step (-[semidet]-> (Heap SkeletonItem) (Number Number) (Heap SkeletonItem)))
 (= (sk-restale-step $todo ($khash $rhash))
@@ -3815,6 +3919,11 @@
 ;; Row computations a query may spend per step of its budget beyond the reserve.
 (: sk-evaluation-per-step (-[det]-> Number))
 (= (sk-evaluation-per-step) 2)
+
+;; A request cannot crowd out ordinary evaluation, restales or conditioning.
+;; This is a ceiling within the existing allowance, not an extra allowance.
+(: sk-branch-share (-[det]-> Number))
+(= (sk-branch-share) 0.125)
 
 ;; Expanded nodes a query's walk may pass through per step of its budget.
 (: sk-walk-per-step (-[det]-> Number))
@@ -4124,6 +4233,22 @@
          ($_other false)))
       false))
 
+;; MAIN can release held rows before an Assuming world starts. That world
+;; borrows the same need depths, but must relink its stale rows near the roots
+;; locally before seed changes can reach them. Deeper stale history stays put.
+(: sk-refresh-near! (-[det]-> Atom))
+(= (sk-refresh-near!)
+   (let $_refreshed (collapse (match &sk_needed ($hash $key $depth)
+      (if (<= $depth (sk-evaluation-free-depth))
+         (match &ctx_sk_stale ($hash $rhash)
+            (match &sk_row ($hash $stored $rhash (sk-row $_ident $_concl $premises $_seq))
+               (if (=alpha $stored $key)
+                  (let $_linked (sk-relink-row! $hash $rhash $premises)
+                     (context-add! &sk_refresh ($hash $rhash)))
+                  (empty))))
+         (empty))))
+      ()))
+
 (: sk-evaluate! (-[semidet]-> Atom))
 (= (sk-evaluate!)
    (let* (($_queued (remove-data-rows! &sk_queued (quote ($qpass $qkhash $qrhash))))
@@ -4259,13 +4384,23 @@
                      (if (if (sk-needed? $khash $key) (not (space-row-present? &ctx_sk_given_granted ($khash -1))) false)
                         (sk-claim (sk-need-depth $khash $key) $cost -1 (sk-key-waiting $khash $key))
                         (empty))))))) (
-      (() ())
+      (() (sk-finish-branches! $pass))
       ((cons (sk-claim $_depth $claim-cost $_seq $waiting) $_rest)
          (let $left (search-id-value sk_eval_budget)
-            (if (> $claim-cost $left) (let $_unpaid (query_metric_increment conditions-unpaid) ())
+            (if (> $claim-cost $left)
+               (let $_unpaid (query_metric_increment conditions-unpaid) (sk-finish-branches! $pass))
                (let* (($_paid (change-state! sk_eval_budget (- $left $claim-cost)))
                       ($last (sk-pay! $pass $waiting)))
                   (sk-pay-conditions! (+ $last 1)))))))))
+
+;; Root merges and conditioning can discover misses after the row heap ends.
+;; Give those requests the same last tier, within its remaining fixed share.
+(= (sk-finish-branches! $pass)
+   (if (sk-build-wanted!)
+      (let* (($last (sk-work-off! $pass (sk-work (empty_heap) (empty_heap))))
+             ($_roots (sk-read-roots!)))
+         (sk-pay-conditions! (+ $last 1)))
+      ()))
 
 (: sk-pay! (-[semidet]-> Number SkeletonWaiting Number))
 (= (sk-pay! $pass (sk-row-waiting (sk-row-item $seq $hash $key $rhash $row)))
@@ -4408,7 +4543,7 @@
 (= (backward-query-counter-keys)
    (expansions nodes-walked rows-created rows-deferred joins-deferred row-computes views-stored
     views-without-support merged-cache-hits merged-cache-misses conditioned-evaluations rows-unpaid
-    conditions-unpaid))
+    conditions-unpaid branch-cache-hits branch-cache-misses branch-builds branch-cache-refreshes))
 
 (: sk-counter-reset (-[det]-> Atom Atom Atom))
 (= (sk-counter-reset $_acc $key) (let $_zero (query_metric_set $key 0) ()))
@@ -4614,6 +4749,7 @@
           ($_budget (change-state! sk_budget $steps))
           ($_rows (change-state! sk_row_budget (* 10 $steps)))
           ($_evaluation (change-state! sk_eval_budget (* (sk-evaluation-per-step) $steps)))
+          ($_branches (change-state! sk_branch_budget (* (* (sk-evaluation-per-step) $steps) (sk-branch-share))))
           ($_walk (change-state! sk_walk_budget (* (sk-walk-per-step) $steps)))
           ($_pushes (change-state! sk_push_seq 0))
           ($_context-start (context-start!))

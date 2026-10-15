@@ -209,6 +209,8 @@
 (: sk_branch_unpaid CounterKey)
 (: sk_branch_frame CounterKey)
 (: sk_branch_at CounterKey)
+(: sk_branch_budget CounterKey)
+(: sk_branch_ready CounterKey)
 (: sk_need_budget CounterKey)
 (: sk_claim_left CounterKey)
 (: sk_claim_depth CounterKey)
