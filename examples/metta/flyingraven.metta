@@ -42,7 +42,7 @@
                         (shared 44 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1)))))))
                (by (inheritance-implication birdFlies) (shared 44)))))
       (Inheritance Sam (IntSet flies))
-      (STV 0.9786915593831819 0.643251683490094))))
+      (STV 0.978691559383184 0.6432516834961431))))
 
 !(test
    (collapse

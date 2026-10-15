@@ -35,6 +35,6 @@
 !(compileadd nestedKb (: rep-t5 (Producing plant t5) (STV 1 0.9)))
 !(set-backward-query-metrics true)
 !(test (map-flat nested-tv (collapse (query 300 nestedKb (: $p (Degraded plant t5) $tv))))
-   ((STV 0.14626802934111227 0.9999620912647443)))
+   ((STV 0.138655 0.9999359441308396)))
 !(test (< (fold-flat nested-count 0 (backward-query-metrics)) 10000) true)
 !(set-backward-query-metrics false)

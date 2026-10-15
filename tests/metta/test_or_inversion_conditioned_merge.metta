@@ -67,4 +67,4 @@
 !(test
    (query 20000 orInversionConditionedMergeKb
       (: $proof (LocalProblem current) $tv))
-   (: (merge/revision localPrior ((antecedent-completion (bi-forward problemDefinition) 0 with cpu (prior (STV 0.4181818181818182 0.0011237357972281184))) (conjunction dependencyPrior ((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm)))) (LocalProblem current) (STV 0.4001269843833966 0.900036481087304)))
+   (: (merge/revision localPrior ((antecedent-completion (bi-forward problemDefinition) 0 with cpu (prior (STV 0.4185934569191004 0.0011238544987638187))) (conjunction dependencyPrior ((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm)))) (LocalProblem current) (STV 0.4001273433488443 0.9000365438768168)))

@@ -65,7 +65,7 @@
 !(compileadd budgetKb (: on-t2 (Producing plant t2) (STV 1 1)))
 !(test (map-flat overlap-step (collapse (query 10 budgetKb (: $p (Degraded plant t1) $tv)))) (factored-revision))
 !(test (== (collapse (match &sk_given_pending ($_hash -1 $cost) $cost)) ()) false)
-!(test (map-flat overlap-tv (collapse (query 20 budgetKb (: $p (Degraded plant t1) $tv))))
+!(test (map-flat overlap-tv (collapse (query 200 budgetKb (: $p (Degraded plant t1) $tv))))
    ((STV 0.05887282355682909 0.9998816871581414)))
 
 ;; Views that share only a fact no rule concludes, here the link both rules

@@ -276,6 +276,18 @@ only for output. Stored proofs refer only to earlier ids, so they form a DAG. A
 row keeps its latest view and the views it replaced, and later queries read
 them until something below them changes.
 
+A reader excluding keys cannot assume that a rejected merged row view has
+no admissible proof. It rebuilds that row with the exclusions carried through
+its premises, charging each rebuilt row to the evaluation allowance. A row
+whose owner or a mandatory direct premise is excluded cannot contribute.
+When the allowance runs out, the row and its readers remain stale for retry;
+an older compatible view is only the incumbent. Rebuilt values belong to that
+read and are never installed as ordinary historical views: their cuts must
+not disappear into dependency-only reuse. This is compatible with the settled
+branch reuse rule: a branch built under E1 can serve E2 only when its
+dependencies are disjoint from E2 and its cuts are a subset of E2. The reader
+currently rebuilds rather than caching such branches across exclusion sets.
+
 A certain truth value, confidence >= 1, stands for unlimited evidence in
 revision. Only a stored binary-certain fact, STV strength 0 or 1 at confidence
 >= 1, is absorbing for search retirement: no other proof can change its value

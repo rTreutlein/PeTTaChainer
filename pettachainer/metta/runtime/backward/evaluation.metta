@@ -1381,10 +1381,34 @@
    (case (sk-left-out-view $hash $key $filter $exclude $rhash) (
       (sk-none
          (if (sk-admits? $filter $exclude $view) (cons (sk-version $seq $rhash $view) $kept)
-            (case (fold-semidet (sk-admit-older $filter $exclude) sk-none (sk-older-views $hash $key $rhash)) (
-               (sk-none $kept)
-               ($older (cons (sk-version $seq $rhash $older) $kept))))))
+            (let $rebuilt (if (deps-meet? $exclude (sk-view-deps-step 0 $view))
+                                (sk-rebuild-view $hash $key $rhash $exclude) sk-none)
+               (case (if (sk-admits? $filter $exclude $rebuilt) $rebuilt
+                        (fold-semidet (sk-admit-older $filter $exclude) sk-none (sk-older-views $hash $key $rhash))) (
+                  (sk-none $kept)
+                  ($admitted (cons (sk-version $seq $rhash $admitted) $kept)))))))
       ($left-out (cons (sk-version $seq $rhash $left-out) $kept)))))
+
+;; A merged premise can hide independent branches that no earlier query ever
+;; built. Re-evaluate the rejected row under the reader's exclusions. Each row
+;; includes its own key in its dependencies, so an excluded owner cannot help;
+;; otherwise this recursion adds that owner to the exclusions at each level.
+;; Every rebuilt row spends the evaluation allowance. An unpaid row keeps its
+;; old views and goes stale with its readers, so a later query can retry it.
+(: sk-rebuild-view (-[semidet]-> Number SkeletonKey Number (List Number) SkeletonValue))
+(= (sk-rebuild-view $hash $key $rhash $exclude)
+   (if (deps-meet? $exclude (deps-key $hash)) sk-none
+      (case (collapse (once (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
+               (if (=alpha $stored $key) (sk-row $ident $concl $premises $seq) (empty))))) (
+         (() sk-none)
+         ((cons (sk-row $ident $concl $premises $seq) $_rest)
+            (if (deps-meet? $exclude (deps-join (map-semidet deps-key (map-semidet index-hash (fold-semidet sk-direct-key-step () $premises))))) sk-none
+            (if (sk-take! sk_eval_budget (case $key (((sk-key $type $_kbctx) (term-cost $type)) ($_fold 1))))
+               (let $_counted (query_metric_increment row-computes)
+                  (sk-row-view () $exclude $hash $key $rhash (sk-row $ident $concl $premises $seq)))
+               (let* (($_unpaid (query_metric_increment rows-unpaid))
+                      ($_stale (sk-mark-stale! (sk-row-item $seq $hash $key $rhash (sk-row $ident $concl $premises $seq)))))
+                  sk-none))))))))
 
 ;; The members of an implication instance fold that read one of the excluded
 ;; keys directly, each once.
