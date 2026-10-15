@@ -795,8 +795,9 @@
                         (sk-partial $owner $rule $concl (cons $premise $done) $rest
                            (cons (sk-fold $args) $keys))))
                   (if (== $fun GroupedFoldAllCompiled)
-                     (sk-wait-on! $owner $rule $premise
-                        (sk-partial $owner $rule $concl $done $remaining $keys))
+                     (let $_fold (if (== (search-id-value sk_forward_run) 1) (sk-forward-note-fold! $premise) ())
+                        (sk-wait-on! $owner $rule $premise
+                           (sk-partial $owner $rule $concl $done $remaining $keys)))
                      (if (== (extract-vars $args) ())
                         (fold-semidet
                            (sk-cpu-step

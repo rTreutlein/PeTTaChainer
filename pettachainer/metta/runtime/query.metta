@@ -81,7 +81,9 @@
          (let $answer-tv
             (if (head-is? $tv CTV)
                (case (the TV $tv) (((CTV $pos $_neg) $pos) ($_other $tv))) $tv)
-            (brand RuntimeResult (data $type $kbctx $proof $answer-tv)))))))
+            (brand RuntimeResult
+               (data (case $type (((QuantifiedRule $_hash $canonical) (existential-source $canonical)) ((ExistsJudgment $claim) (existential-source $claim)) ($_ordinary $type)))
+                  $kbctx $proof $answer-tv)))))))
 
 (: present-query-plan-results
    (-[nondet]-> Bool (List (Number CompiledQueryGoal))

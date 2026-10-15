@@ -188,7 +188,7 @@
    (contains-head? (== Exists) $term))
 
 ;; Existentials are source forms only around one complete side of a stored
-;; implication. Nested binders and quantified queries need different
+;; implication, or a bare query. Nested binders need further
 ;; introduction/elimination rules and must not silently compile as predicates.
 (: validate-explicit-exists-term
    (-[semidet]-> Atom Atom))
@@ -196,7 +196,8 @@
    (if (explicit-exists-term? $term)
       (let (Exists $binder $body) $term
          (let $bound-vars (explicit-exists-vars $binder)
-            (if (== $bound-vars ())
+            (if (if (== $bound-vars ()) true
+                   (not (== (\== $bound-vars (extract-vars $body)) ())))
                (empty)
                (if (contains-explicit-exists? $body)
                   (empty)
@@ -215,7 +216,7 @@
                    (==
                       (/==\
                          (explicit-exists-vars $binder)
-                         (list_to_set (extract-vars $outside)))
+                         (implication-antecedent-free-vars $outside))
                       ()))
                (empty)
                $validated))
@@ -910,7 +911,7 @@
                        $kb $ctx $vars (brand Statement $body)
                        (\==
                           (list_to_set (extract-vars $body))
-                          $bound-vars)))))
+                          $bound-vars) OrFormula))))
            ((ExistentialResidual $binder $body)
               (existential-residual-premise-bundle
                  $kb $ctx $vars $binder $body))
@@ -1040,48 +1041,48 @@
 (: existential-claim-statement
    (-[semidet]-> Atom Atom Statement))
 (= (existential-claim-statement $binder $body)
-   (let*
-      (($bound-vars (list_to_set (explicit-exists-vars $binder)))
-       ($body-vars (list_to_set (extract-vars $body)))
-       ($free-vars (\== $body-vars $bound-vars)))
-      (skolemize-conclusion-vars
-         existential-claim $free-vars
-         (brand Statement (ExistentialClaim $body)))))
+   (let* (($bound-vars (list_to_set (explicit-exists-vars $binder)))
+          ($state (sealed $bound-vars
+             (fold-flat (existential-slot-step existential-claim ())
+                (brand SkolemizeState (0 (ExistentialClaim $body))) $bound-vars))))
+      (snd $state)))
 
 ;; An explicit existential premise collapses all matching witnesses with
 ;; OrFormula. Free variables form independent groups, while variables named by
 ;; the binder do not escape into the compiled rule.
 (: fold-existential-premise-bundle
-   (-[det]-> KB $context $variables Statement (List Variable) PremiseBundle))
-(= (fold-existential-premise-bundle $kb $ctx $vars $premise $group-vars)
+   (-[det]-> KB $context $variables Statement (List Variable) (-[det]-> STVType STVType STVType) PremiseBundle))
+(= (fold-existential-premise-bundle $kb $ctx $vars $premise $group-vars $function)
    (let $prem-kb (source-premise-kb $kb $ctx $vars)
       (if (== $group-vars ())
          (premise-bundle
             ((CPU FoldAllCompiled
-                 (quote ($prem-kb $premise extract-tv (STV 0.0 1.0) OrFormula identity result-tv))
+                 (quote ($prem-kb $premise extract-tv (STV 0.0 1.0) $function identity result-tv))
                  $fold-tv))
             $fold-tv
             cpu)
          (premise-bundle
             ((CPU GroupedFoldAllCompiled
-                 (quote ($prem-kb $premise $group-vars extract-tv (STV 0.0 1.0) OrFormula identity result-tv))
+                 (quote ($prem-kb $premise $group-vars extract-tv (STV 0.0 1.0) $function identity result-tv))
                  $fold-tv))
             $fold-tv
             cpu))))
 
-;; A direct proposition-level existential is a second proof path for `Exists`,
-;; distinct from the enumerable-witness fold. Compiling both paths lets a
-;; downstream existential premise consume non-constructive existence without
-;; equating its TV with the partial witness disjunction.
-(: direct-existential-premise-bundle
-   (-[semidet]-> KB $context $variables Atom Atom PremiseBundle))
-(= (direct-existential-premise-bundle $kb $ctx $vars $binder $body)
-   (let $prem-kb (source-premise-kb $kb $ctx $vars)
-      (premise-bundle
-         ((: $prem-kb $proof
-              (existential-claim-statement $binder $body) $tv))
-         $tv
-         $proof)))
+;; Existential channels are nested propositions. Keep the stronger TV intact;
+;; confidence never chooses between them, including equal-strength ties.
+(: ExistentialFloor (-[det]-> STVType STVType STVType))
+(= (ExistentialFloor (STV $sa $ca) (STV $sb $cb))
+   (if (> $sb $sa) (STV $sb $cb) (STV $sa $ca)))
+
+;; One normalization for source rules and query lookup. Each complete side's
+;; bound variables become local rigid slots; free variables remain shared.
+(: canonical-existential-side (-[semidet]-> Statement Statement))
+(= (canonical-existential-side $side)
+   (let $valid (validate-explicit-exists-term $side)
+      (if (explicit-exists-term? $valid)
+         (let (Exists $binder $body) $valid
+            (existential-claim-statement $binder $body))
+         (brand Statement $valid))))
 
 ;; Compare the direct existential proposition with the OR of the witnesses
 ;; currently enumerable from the body. The direct proposition uses canonical
@@ -1097,7 +1098,7 @@
        ($claim (existential-claim-statement $binder $body))
        ((premise-bundle $fold-execs $known-tv $_fold-proof)
           (fold-existential-premise-bundle
-             $kb $ctx $vars (brand Statement $body) $group-vars))
+             $kb $ctx $vars (brand Statement $body) $group-vars OrFormula))
        ($prem-kb (source-premise-kb $kb $ctx $vars)))
       (if (== $bound-vars ())
          (empty)
@@ -1115,17 +1116,11 @@
    (-[nondet]-> KB $context $variables Statement  PremiseBundle))
 (= (lower-source-premise-with-existentials $kb $ctx $vars $premise)
    (if (explicit-exists-term? $premise)
-      (let* (((Exists $binder $body) $premise)
-             ($bound-vars
-                (list_to_set (explicit-exists-vars $binder)))
-             ($body-vars
-                (list_to_set (extract-vars $body)))
-             ($group-vars (\== $body-vars $bound-vars)))
-         (superpose
-            ((direct-existential-premise-bundle
-                $kb $ctx $vars $binder $body)
-             (fold-existential-premise-bundle
-                $kb $ctx $vars (brand Statement $body) $group-vars))))
+      (let* (($claim (canonical-existential-side $premise))
+             ($group-vars (implication-antecedent-free-vars $premise)))
+         (fold-existential-premise-bundle $kb $ctx $vars
+            (brand Statement (ExistentialAlternatives $claim $channel))
+            $group-vars ExistentialFloor))
       (lower-source-premise $kb $ctx $vars $premise)))
 
 (: lower-implication-antecedent

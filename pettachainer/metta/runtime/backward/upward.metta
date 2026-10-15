@@ -20,6 +20,10 @@
 
 ;; --- Upward joins --------------------------------------------------------------
 
+;; Keep selection as an output across the FFI: nth0/4 types its third
+;; position as an input under strict checking.
+(: rule-premise (-[semidet]-> Number (List SkPattern) SkPattern))
+
 (: sk-forward-start-step (-[semidet]-> SkeletonKey Atom Atom Atom))
 (= (sk-forward-start-step (sk-key $type $kbctx) $_acc $trigger)
    (let $_started
@@ -27,7 +31,18 @@
          (let* ((($pattern $id $idx) (match prem_index ($trigger $pattern $id $idx) ($pattern $id $idx)))
                 ((runtime-rule-row $id $ccls $prems)
                    (match rules (runtime-rule-row $id $ccls $prems) (runtime-rule-row $id $ccls $prems)))
-                ($_rest (nth0 $idx $prems (assemble-stored-runtime-fact $type $kbctx $_proof $_tv))))
+                ($premise (rule-premise (stored-number $idx) $prems))
+                ($_matched
+                   (case $premise (
+                      ((CPU $_function $_args $_result)
+                         (let* (($source (existential-fold-source $premise))
+                                ($outer-vars (extract-vars $_args))
+                                (($_out-type $kbctx $_out-proof $_out-tv) $ccls))
+                            (if (= $source (assemble-stored-runtime-fact $type $kbctx $_proof $_tv))
+                               (if (existential-outer-values? $outer-vars) true (empty))
+                               (empty))))
+                      ($_fact
+                         (if (= $premise (assemble-stored-runtime-fact $type $kbctx $_proof $_tv)) true (empty)))))))
             (if (if (rule-dormant? $id) false (chainer-acyclic-term? $ccls))
                (sk-advance! (sk-partial $ccls $id $ccls () $prems ()))
                (empty))))
@@ -175,7 +190,11 @@
 ;; The keys of the rows reading a key, current or stale.
 (: sk-reader-keys-step (-[det]-> (List SkeletonKey) SkeletonForwardEntry (List SkeletonKey)))
 (= (sk-reader-keys-step $acc (sk-fwd-at $_priority $_item $key))
-   (append-flat (append-flat (map-flat sk-item-key (sk-readers $key)) (sk-stale-readers $key)) $acc))
+   (append-flat (sk-reader-keys $key) $acc))
+
+(: sk-reader-keys (-[det]-> SkeletonKey (List SkeletonKey)))
+(= (sk-reader-keys $key)
+   (append-flat (map-flat sk-item-key (sk-readers $key)) (sk-stale-readers $key)))
 
 ;; A key whose readers a run left stale goes back on the agenda as a rest item.
 (: sk-rest-step
@@ -188,14 +207,26 @@
 ;; reading them in one evaluation, so a row two of them reach is computed
 ;; once. The readers whose value changed join the agenda, and so do the wave's
 ;; keys whose readers the allowance left stale.
+;; Searching a fold can expose another fold. Drain that work within the same
+;; search allowance, even when no intermediate value can start another wave.
+(: sk-forward-folds! (-[semidet]-> (List SkPattern) (List SkPattern)))
+(= (sk-forward-folds! $searched)
+   (if (if (<= (search-id-value sk_budget) 0) true (<= (search-id-value sk_walk_budget) 0))
+      $searched
+      (let $folds
+            (collapse (match &sk_forward_folds ($hash $fold)
+               (let $_removed (remove-atom &sk_forward_folds ($hash $fold)) $fold)))
+         (if (== $folds ()) $searched
+            (let $_walked (sk-walk! $folds)
+               (sk-forward-folds! (append-flat $searched $folds)))))))
+
 (: sk-forward-wave!
    (-[semidet]-> (Heap SkeletonForwardItem) (List SkeletonForwardEntry) (Heap SkeletonForwardItem)))
 (= (sk-forward-wave! $agenda $entries)
-   (let* (($folds
-             (collapse (match &sk_forward_folds ($hash $fold)
-                (let $_removed (remove-atom &sk_forward_folds ($hash $fold)) $fold))))
-          ($_searched (if (== $folds ()) () (sk-walk! $folds)))
-          ($readers (list_to_set (fold-semidet sk-reader-keys-step () $entries)))
+   (let* (($folds (sk-forward-folds! ()))
+          ($readers (list_to_set
+             (fold-flat append-flat (fold-semidet sk-reader-keys-step () $entries)
+                (map-flat sk-reader-keys (fold-semidet sk-root-keys-step () $folds)))))
           ($_needed (sk-need-roots! $readers))
           ($_evaluated (sk-evaluate!))
           ($changed (fold-semidet sk-changed-step $agenda $readers)))
@@ -311,7 +342,10 @@
 (: sk-key-result (-[semidet]-> (List (Statement KBContext Proof TV)) SkeletonKey (List (Statement KBContext Proof TV))))
 (= (sk-key-result $results $key)
    (case (sk-key-value $key) (
-      ((sk-val $fact $_ev $_deps) (let $_stored (sk-forward-store! $key) (cons $fact $results)))
+      ((sk-val $fact $_ev $_deps)
+         (let $type (car-atom $fact)
+            (if (head-is-member? $type (ExistsJudgment ExistentialAlternatives)) $results
+               (let $_stored (sk-forward-store! $key) (cons $fact $results)))))
       ($_none $results))))
 
 ;; Forward-chains from caller-selected facts within `$units` row

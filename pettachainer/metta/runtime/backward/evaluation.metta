@@ -1621,6 +1621,36 @@
                (cons $member-ev $ev) (cons $member-deps $deps))))
       ($_none (sk-fold-state $acc $proofs $ev $deps)))))
 
+(: SkeletonExistentialFold Type)
+(: sk-exists-state
+   (-[det]-> STVType STVType Bool (List Proof) EvidenceSet (List Number) SkeletonExistentialFold))
+
+;; The ordinary And premise overlap test ignores shared rule parameters and
+;; certain facts. Until correlated OR is available, any overlapping witnesses
+;; conservatively contribute their strongest single value. Keep all supporting
+;; dependencies, so an overlap bridge cannot disappear with a weaker witness.
+(: sk-existential-step
+   (-[semidet]-> Bool SkeletonFilter (List Number) SkeletonExistentialFold SkeletonKey SkeletonExistentialFold))
+(= (sk-existential-step $floor $filter $exclude
+      (sk-exists-state $tv $best $overlap $proofs $ev $deps) $key)
+   (case (sk-premise-value false (sk-value $key $filter $exclude)) (
+      ((sk-val ($_type $_ctx $proof (STV $s $c)) $member-ev $member-deps)
+         (if (if (> $c 0) (if $floor true (> $s 0)) false)
+            (let* (((STV $best-s $_best-c) $best)
+                   ($take (if (== $proofs ()) true (> $s $best-s)))
+                   ($strongest (if $take (STV $s $c) $best)))
+               (sk-exists-state
+                  (if $floor $strongest
+                     (if (== $proofs ()) (STV $s $c) (OrFormula $tv (STV $s $c))))
+                  $strongest
+                  (if $floor false
+                     (if $overlap true (premise-evidence-overlap? $ev $member-ev)))
+                  (if $floor (if $take (cons $proof ()) $proofs) (cons $proof $proofs))
+                  (if $floor (if $take $member-ev $ev) (evidence-union $ev $member-ev))
+                  (cons $member-deps $deps)))
+            (sk-exists-state $tv $best $overlap $proofs $ev $deps)))
+      ($_none (sk-exists-state $tv $best $overlap $proofs $ev $deps)))))
+
 ;; A fold with members proves by its members, in the order they were found.
 (: sk-fold-proof (-[semidet]-> Atom (List Proof) Proof))
 (= (sk-fold-proof $function $proofs)
@@ -1629,13 +1659,22 @@
          (cons (if (== $function OrFormula) disjunction foldall-proof)
             (fold-semidet sk-cons-step () $proofs)))))
 
-;; A fold's or group's view over its member keys; with no members it is the
-;; finished initial value, proved by `cpu`. Base rates estimate the population
-;; and carry neither member evidence nor member dependencies.
+;; A fold's or group's view over its member keys. Existence folds have no
+;; value when empty; other folds finish their initial value, proved by `cpu`.
+;; Base rates carry neither member evidence nor member dependencies.
 (: sk-folded-view
    (-[semidet]-> Number Atom $args (-[semidet]-> $acc SkFact $acc) Atom $acc AggregateFinish
        (List SkeletonKey) SkeletonFilter SkeletonValue))
 (= (sk-folded-view $hash $kind $args $step $function $init $finish $members $filter)
+   (if (if (== $function OrFormula) true (== $function ExistentialFloor))
+      (let* (($floor (== $function ExistentialFloor))
+             ((sk-exists-state $exists-tv $exists-best $exists-overlap $exists-proofs $exists-ev $exists-deps)
+                (fold-semidet (sk-existential-step $floor $filter (cons $hash ()))
+                   (sk-exists-state (STV 0 1) (STV 0 0) false () (ev-set 0) ()) $members)))
+         (if (== $exists-proofs ()) sk-none
+            (sk-goal-val (CPU $kind $args (if $exists-overlap $exists-best $exists-tv))
+               (if $floor (car-atom $exists-proofs) (sk-fold-proof OrFormula $exists-proofs))
+               $exists-ev (deps-join (cons (deps-key $hash) $exists-deps)))))
    (let* (((sk-fold-state $acc $proofs $ev $deps)
              (fold-semidet (sk-fold-step $step $filter (cons $hash ()))
                 (sk-fold-state $init () () ()) $members))
@@ -1650,7 +1689,7 @@
                (case $args (
                   (($_kb $_pattern (extract-with-truth $_p $_t $_v) $_init $_fn $_fin $_mode) (ev-set 0))
                   ($_other (evidence-join $ev))))))
-         (if $base-rate (deps-key $hash) (deps-join (cons (deps-key $hash) $deps))))))
+         (if $base-rate (deps-key $hash) (deps-join (cons (deps-key $hash) $deps)))))))
 
 ;; A base rate is one estimate per pattern, kept by the forward aggregate of the
 ;; fold's premise as each member's contribution (runtime/forward/aggregates.metta).
@@ -1970,7 +2009,7 @@
                 ((cons $member $_rest)
                    (sk-folded-view $hash FoldAllCompiled $args (sk-accumulate $extractor $function) $function $init
                       $finish (sk-answers $member) (sk-member-filter $member)))))))
-      (if (if (== $finish identity) (not (== $function OrFormula)) false)
+      (if (if (== $finish identity) (if (== $function OrFormula) false (if (== $function ExistentialFloor) false true)) false)
          (sk-cover-fold! $hash (sk-fold $args) $node $members $view)
          $view)))
 
@@ -3355,6 +3394,13 @@
 (: sk-check-seq (-[det]-> Number))
 (= (sk-check-seq) 1000000000000000000000000)
 
+;; An empty existential fold has been read but has no value. Its members
+;; must still wake its readers when they obtain evidence.
+(: sk-fold-read? (-[det]-> Number SkeletonKey Bool))
+(= (sk-fold-read? $hash $fold)
+   (not (== (collapse (once (match &sk_latest ($hash $stored (sk-version $_seq 0 $_value))
+      (if (=alpha $stored $fold) true (empty))))) ())))
+
 (: sk-fold-changed (-[semidet]-> Number Number SkeletonKey SkeletonChange SkeletonWork SkeletonKey SkeletonWork))
 (= (sk-fold-changed $pass $_seq $member $change (sk-work $todo $next) $fold)
    (let $hash (index-hash $fold)
@@ -3366,7 +3412,7 @@
                 ($_other false))))
          (sk-work $todo $next)
       (let $_rate (sk-rate-dirty! $fold $member)
-      (if (== (sk-latest-view $hash $fold 0) sk-none) (sk-work $todo $next)
+      (if (not (sk-fold-read? $hash $fold)) (sk-work $todo $next)
       (if (if (sk-needed? $hash $fold) false
              (let $_stale (if (sk-instance-fold-key? $fold) () (sk-stale-fold! $fold)) true))
          (sk-work $todo $next)
@@ -3435,7 +3481,7 @@
    (let* (($causes (list_to_set (collapse (match &sk_fold_pending ($hash $member) $member))))
           ($_taken (remove-data-rows! &sk_fold_pending (quote ($hash $member))))
           ($old (sk-latest-view $hash $fold 0)))
-      (if (if (== $causes ()) true (== $old sk-none)) $work
+      (if (== $causes ()) $work
          (let* (($_view (sk-drop-fold-view! $fold))
                 ($_merged (sk-drop-merged! $fold)))
             (case (sk-fold-views $hash $fold) (
@@ -3833,7 +3879,7 @@
 ;; A fold over a stale key drops its view, so it is recomputed when read.
 (: sk-stale-fold! (-[det]-> SkeletonKey Atom))
 (= (sk-stale-fold! $fold)
-   (if (== (sk-latest-view (index-hash $fold) $fold 0) sk-none) ()
+   (if (not (sk-fold-read? (index-hash $fold) $fold)) ()
       (let* (($_view (sk-drop-fold-view! $fold))
              ($_merged (sk-drop-merged! $fold)))
          (sk-stale-key! $fold))))
@@ -4139,7 +4185,7 @@
 ;; A positive implication judgment is a query result, never a world fact.
 (= (materializable-result? ($type ($kbid $ctx $vars) $_prf $tv))
    (if (if (head-is? $kbid implication-query) false (== $ctx MAIN))
-      (if (== $vars Nil)
+      (if (if (head-is-member? $type (ExistsJudgment ExistentialAlternatives)) false (== $vars Nil))
          (if (== (extract-vars $type) ())
             (case $tv (
                ((STV $_s $_c) (== (extract-vars $tv) ()))

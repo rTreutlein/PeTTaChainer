@@ -127,7 +127,7 @@
 
 !(test
    (query 100 existentialDisjunctionKb (: $prf (T) $tv))
-   (: (by pToT (disjunction pa pb)) (T) (STV 0.9199999999999999 0.7123799943249737)))
+   (: (by pToT (disjunction pa pb)) (T) (STV 0.9199999999999999 0.7123799943294165)))
 
 !(compileadd composeKb (: a0 (A) (STV 1.0 1.0)))
 

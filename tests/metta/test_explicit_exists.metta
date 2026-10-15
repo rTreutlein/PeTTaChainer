@@ -16,7 +16,7 @@
    (query 100 explicitExistsKb (: $prf (T) $tv))
    (: (by pExistsToT (disjunction pa pb))
       (T)
-      (STV 0.9199999999999999 0.7123799943249737)))
+      (STV 0.9199999999999999 0.7123799943294165)))
 
 ;; The binder scopes over the complete And body.  A Parent and Doctor proof
 ;; must therefore agree on one child; evidence about different children does
@@ -85,7 +85,7 @@
 
 ;; A downstream Exists premise consumes the proposition-level claim even when
 ;; no concrete GeneratedBy witness is known. The separately compiled witness
-;; fold remains available as an alternative proof path when components exist.
+;; fold contributes through the same strength floor used by bare queries.
 !(compileadd explicitExistsConclusionKb
    (: consumeGenerated
       (Implication
@@ -171,7 +171,8 @@
 !(test
    (query 10 explicitExistsKb
       (: $prf (Exists ($x) (P $x)) $tv))
-   ())
+   (: (disjunction pa pb) (Exists ($x) (P $x))
+      (STV 0.9199999999999999 0.7123799949180818)))
 
 !(test
    (collapse
@@ -270,12 +271,12 @@
 !(test
    (query 300 existentialResidualKb
       (: $proof (KnownWitnessDisjunction fido) $tv))
-   (: (by exposeKnownWitnesses (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna))) (KnownWitnessDisjunction fido) (STV 0.0494 0.9010944415002473)))
+   (: (by exposeKnownWitnesses (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna))) (KnownWitnessDisjunction fido) (STV 0.0494 0.9010944430631548)))
 
 !(test
    (query 300 existentialResidualKb
       (: $proof (OtherWitnessEstimate fido) $tv))
-   (: (by exposeOtherWitness (conjunction (by dogChasesCat fidoDog) (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna)))) (OtherWitnessEstimate fido) (STV 0.9474016410687987 0.8948358186906257)))
+   (: (by exposeOtherWitness (conjunction (by dogChasesCat fidoDog) (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna)))) (OtherWitnessEstimate fido) (STV 0.9474016410687987 0.8948358186950726)))
 
 ;; Adding a stronger known witness leaves the direct existential proof intact,
 ;; increases D, and refines the residual estimate downward.
@@ -288,14 +289,15 @@
 !(test
    (query 300 existentialResidualKb
       (: $proof (KnownWitnessDisjunction fido) $tv))
-   (: (by exposeKnownWitnesses (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna) (conjunction felixCat fidoOftenChasesFelix))) (KnownWitnessDisjunction fido) (STV 0.61976 0.9043600864574071)))
+   (: (by exposeKnownWitnesses (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna) (conjunction felixCat fidoOftenChasesFelix))) (KnownWitnessDisjunction fido) (STV 0.61976 0.9043600865076092)))
 
 !(test
    (query 300 existentialResidualKb
       (: $proof (OtherWitnessEstimate fido) $tv))
-   (: (by exposeOtherWitness (conjunction (by dogChasesCat fidoDog) (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna) (conjunction felixCat fidoOftenChasesFelix)))) (OtherWitnessEstimate fido) (STV 0.8685041026719965 0.7430346472921185)))
+   (: (by exposeOtherWitness (conjunction (by dogChasesCat fidoDog) (disjunction (conjunction miloCat fidoRarelyChasesMilo) (conjunction lunaCat fidoRarelyChasesLuna) (conjunction felixCat fidoOftenChasesFelix)))) (OtherWitnessEstimate fido) (STV 0.8685041026719965 0.7430346473004866)))
 
-;; A grouped fold keeps one view per grounded output group. A zero-budget
+;; The witness fold keeps one view per grounded output group. The outer
+;; strength floor has a separate view per group. A zero-budget
 ;; repeat reads both groups immediately; adding a third group adds only its
 ;; view while the two unchanged groups keep theirs.
 (: grouped-view-count (-[det]-> KB Number))
@@ -303,7 +305,7 @@
    (list-count
       (collapse
          (match &sk_latest
-            ($_hash (sk-group (($kb $_ctx $_vars) $_pattern $_group $_e $_i $_f $_fi $_m)) $_version)
+            ($_hash (sk-group (($kb $_ctx $_vars) $_pattern $_group $_e $_i OrFormula $_fi $_m)) $_version)
             true))))
 
 !(compileadd durableGroupedKb

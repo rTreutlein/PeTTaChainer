@@ -60,6 +60,26 @@
 (: prefix-key (-[det]-> Atom Number Number))
 (= (prefix-key $kbid $hash) (index-hash (quote ($kbid $hash))))
 
+;; Fold sources wake forward rules without becoming extra evidential premises.
+;; Slots are opened on a fresh local binder: matching a witness binds only the
+;; outer variables shared with the fold and its rule conclusion.
+(: existential-fold-source (-[nondet]-> Atom SkPattern))
+(= (existential-fold-source $premise)
+   (case $premise (
+      ((CPU $fun $args $_res)
+         (if (if (== $fun FoldAllCompiled) true (== $fun GroupedFoldAllCompiled))
+            (let $pattern (car-atom (cdr-atom $args))
+               (if (head-is? $pattern ExistentialAlternatives)
+                  (let* (((ExistentialAlternatives $claim $_channel) $pattern)
+                         ($scope (car-atom $args))
+                         ((Exists $_binder $body) (existential-source $claim))
+                         ($sources (cons $claim (implication-side-conjuncts (brand Statement $body))))
+                         ($source (superpose $sources)))
+                     (assemble-stored-runtime-fact $source $scope $_proof $_tv))
+                  (empty)))
+            (empty)))
+      ($_other (empty)))))
+
 (: kb-add-prem
    (-[det]-> KbBackend Number Number
        (| Goal (Statement KBContext Proof TV))
@@ -82,7 +102,13 @@
                            (() (index-hash (if (is-expr $type) (car-atom $type) $type)))
                            ((cons $longest $_shorter) $longest))))
                      (once (kb-add-atom $backend &prem_prefix (brand SpaceAtom (data $key $prem $id $idx))))))))
-         ($_cpu ())))
+         ($_cpu
+            (collapse (let ($fold-type ($fold-kb $fold-ctx $fold-vars) $fold-prf $fold-tv)
+                  (existential-fold-source $prem)
+               (kb-add-atom $backend prem_index
+                  (make-space-row4
+                     (forward-type-trigger-key (brand KB $fold-kb) (brand Statement $fold-type))
+                     (data $fold-type ($fold-kb $fold-ctx $fold-vars) $fold-prf $fold-tv) $id $idx)))))))
       (+ $idx 1)))
 
 (: observed-inheritance-subject? (-[det]-> KB Statement Bool))

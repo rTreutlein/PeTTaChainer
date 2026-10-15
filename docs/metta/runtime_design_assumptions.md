@@ -499,6 +499,15 @@ it.
 
 ### Folds and base rates
 
+Existential witness folds are open-population judgments, not exact population
+summaries. They return no value when empty and retain subscriptions in that
+state so late evidence can wake their readers. Their disjunction uses the
+ordinary premise fact-overlap test; a shared uncertain rule is not overlap.
+An outer strength floor compares this witness judgment to the direct claim
+without revising the two. Bare queries and premises use the same lowering.
+These folds recompute over their members and need no closure certificate or
+new store. See [explicit_exists.md](explicit_exists.md).
+
 A fold's or group's view is computed from its member keys when first read and
 recomputed when a member changes; the members changed in one pass recompute it
 once. Members are read without views that depend on the fold itself. Base-rate folds estimate a population: they carry neither member evidence nor member

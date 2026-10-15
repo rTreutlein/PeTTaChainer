@@ -134,6 +134,39 @@ statement_index_hashes(PrefixFunction, Statement, Hashes) :-
     ;   Hashes = [0]
     ).
 
+% Outer arguments cannot be filled with a binder's private slots.
+'existential-outer-values?'(Values, Valid) :-
+    ( sub_term(Term, Values), is_list(Term), Term = [Head, _], Head == 'exists-slot'
+    -> Valid = false ; Valid = true ).
+
+'rule-premise'(Index, Premises, Premise) :- nth0(Index, Premises, Premise).
+
+% Open only canonical slots, preserving free outer variables and co-reference.
+% The map belongs to this binder alone; callers never unify source binders.
+'existential-source'(Canonical, Source) :-
+    (   nonvar(Canonical), Canonical = [Head, Body], Head == 'ExistentialClaim'
+    ->  empty_assoc(Empty),
+        existential_source(Body, Open, Empty, Slots),
+        assoc_to_values(Slots, Vars),
+        Source = ['Exists', Vars, Open]
+    ;   nonvar(Canonical), Canonical = [Head, A, B], Head == 'Implication'
+    ->  'existential-source'(A, SA), 'existential-source'(B, SB),
+        Source = ['Implication', SA, SB]
+    ;   Source = Canonical ).
+
+existential_source(Term, Source, Before, After) :-
+    (   nonvar(Term), Term = [Head, I], Head == 'exists-slot', integer(I)
+    ->  ( get_assoc(I, Before, Source) -> After = Before
+        ; put_assoc(I, Before, Source, After) )
+    ;   is_list(Term)
+    ->  existential_source_terms(Term, Source, Before, After)
+    ;   Source = Term, After = Before ).
+
+existential_source_terms([], [], State, State).
+existential_source_terms([Term|Terms], [Source|Sources], Before, After) :-
+    existential_source(Term, Source, Before, Next),
+    existential_source_terms(Terms, Sources, Next, After).
+
 % The shape a fold's member is compiled for (sk-shape-members). A user
 % predicate compiles to its own lookup goal, and a connective over user
 % predicates to adapters that only its structure decides, so the predicates'
@@ -159,7 +192,7 @@ statement_shape(Statement, Shape) :-
             'BiImplication', 'ForAll', 'Exists', 'WithPrior', 'Evaluation', 'Similarity',
             'Compute', 'CPU', 'FoldAll', 'FoldAllValue', 'FoldAllTruth', 'MapDist', 'Map2Dist',
             'AverageDist', 'KnownExistential', 'ExistentialResidual', 'GreaterThan', '>',
-            'Assuming', 'LikelierThan']),
+            'Assuming', 'LikelierThan', 'ExistentialAlternatives']),
         maplist(argument_shape, Args, ArgShapes),
         Shape = [Head|ArgShapes] ).
 

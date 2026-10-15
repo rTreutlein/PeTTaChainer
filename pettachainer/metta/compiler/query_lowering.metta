@@ -299,12 +299,52 @@
 ;; goal.
 ;; A conjunction compiles implication children as ordinary STV statements;
 ;; other ordinary queries need only their source adapters.
+(: compile-existential-query (-[nondet]-> KB AnnotatedStatement CompilationPlan))
+(= (compile-existential-query $kb (: $prf $type $tv))
+   (if (explicit-exists-term? $type)
+      (let* (((premise-bundle $execs $result-tv $proof)
+                 (lower-source-premise-with-existentials $kb MAIN Nil $type))
+             ($query-tv (statement-query-tv $tv))
+             ($canonical (canonical-existential-side $type)))
+         (compilation-plan (: (kbctx $kb) $prf (ExistsJudgment $canonical) $query-tv)
+            (cons (brand CompiledAddition
+               ($execs |- (: (kbctx $kb) $proof (ExistsJudgment $canonical) $result-tv))) ())))
+      (let* (((Implication $a $b) $type)
+             ($_valid (validate-explicit-exists-rule $a $b))
+             ($canonical (Implication
+                (canonical-existential-side (brand Statement $a))
+                (canonical-existential-side (brand Statement $b))))
+             ($hash (index-hash $canonical))
+             ($scope (make-kb-context (brand KB (implication-query $kb)) MAIN Nil))
+             ($query-tv (statement-query-tv $tv)))
+         (once (match &kb ((QuantifiedRule $hash $stored) $scope $proof $value)
+            (if (=alpha $canonical $stored)
+               (compilation-plan
+                  (: $scope $prf (QuantifiedRule $hash $stored) $query-tv) ())
+               (empty)))))))
+
 (: compileQuery
    (-[nondet]-> KB AnnotatedStatement CompilationPlan))
 (= (compileQuery $kb (: $prf $Type $tv))
+   (if (head-is? $Type ExistentialAlternatives)
+      (let* (((ExistentialAlternatives $claim $channel) $Type)
+             ((Exists $_binder $body) (existential-source $claim))
+             ($groups (list_to_set (extract-vars $claim)))
+             ((premise-bundle $execs $witness-tv $_witness-proof)
+                (fold-existential-premise-bundle $kb MAIN Nil
+                   (brand Statement $body) (the (List Variable) $groups) OrFormula)))
+         (compilation-plan (: (kbctx $kb) $prf $Type $tv)
+            (the (List CompiledAddition)
+               ((((: (kbctx $kb) $claim-proof $claim $claim-tv)
+                  (CPU existential-outer-values? ($groups) true))
+                    |- (: (kbctx $kb) $claim-proof
+                       (ExistentialAlternatives $claim direct) $claim-tv))
+                ($execs |- (: (kbctx $kb) cpu
+                   (ExistentialAlternatives $claim witnesses) $witness-tv))))))
    (if (is-var $Type)
       (compilation-plan (: (kbctx $kb) $prf $Type $tv) ())
-      (if (contains-explicit-exists? $Type) (empty)
+      (if (contains-explicit-exists? $Type)
+         (compile-existential-query $kb (: $prf $Type $tv))
       (if (= $Type (Assuming $facts $goal))
          ;; The facts hold in a fresh context that sees the world: the goal's
          ;; answers there, one per binding of its variables
@@ -394,7 +434,7 @@
                      (compilation-plan
                         (: (kbctx $kb) $prf $Type $query-tv)
                         (collapse (compile-adapter-chain query
-                           (: (kbctx $kb) $prf $Type $query-tv))))))))))))))
+                           (: (kbctx $kb) $prf $Type $query-tv)))))))))))))))
 
 (: compile-conjunction-child
    (-[nondet]-> KB Statement

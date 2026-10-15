@@ -53,4 +53,4 @@
                (by fathersMotherGrandfather (conjunction fatherAY motherYC))
                (by fathersFatherGrandfather (conjunction fatherAB fatherBC)))))
       (Old a)
-      (STV 0.2501166485375841 0.9230240245003262)))
+      (STV 0.2501166485375841 0.923024024755821)))

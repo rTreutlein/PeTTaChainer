@@ -1337,25 +1337,16 @@
             (compile-specialization (: $prf $Type $tv)))
          (let*
             (($_evidence-reg (register-rule-evidence! $kb $prf $tv))
-             ;; An explicit existential's lowerings are alternative complete
-             ;; antecedents, each a rule of its own; otherwise the complete
-             ;; lowering comes first and its settling parts follow.
-             ($antecedents
-                (if (explicit-exists-term? $antecedent)
-                   (cons
-                      (lower-implication-antecedent
-                         $kb $ctx $vars
-                         (brand Statement $antecedent))
-                      ())
-                   (antecedent-lowerings $kb $ctx $vars (brand Statement $antecedent))))
+             ($antecedents (antecedent-lowerings $kb $ctx $vars (brand Statement $antecedent)))
              ((cons ($execs $_proofs $_atv) $_settled) $antecedents)
              ($shape-kb (make-kb-context $kb $ctx $vars))
              ($a
                 (brand Statement
                    (implication-source-term $antecedent)))
              ($b
-                (brand Statement
-                   (implication-source-term $consequent)))
+                (if (explicit-exists-term? $consequent)
+                   (canonical-existential-side (brand Statement $consequent))
+                   (brand Statement (implication-source-term $consequent))))
              ($antecedent-vars
                 (implication-antecedent-free-vars $antecedent))
              ($pure-connective? (pure-connective-antecedent? $a))
@@ -1381,6 +1372,13 @@
                       ($source-b (skolemize-conclusion-vars $prf
                          (append $antecedent-vars (extract-vars $inner)) $b))
                       ($source-type (brand Statement (Implication $antecedent $source-b)))
+                      ($query-type
+                         (if (contains-explicit-exists? $Type)
+                            (let $canonical (Implication
+                                   (canonical-existential-side (brand Statement $antecedent))
+                                   (canonical-existential-side (brand Statement $consequent)))
+                               (brand Statement (QuantifiedRule (index-hash $canonical) $canonical)))
+                            $source-type))
                       ($query-kb (make-kb-context (brand KB (implication-query $kb)) MAIN Nil)))
                   (superpose (
                      (case $tv (
@@ -1394,7 +1392,7 @@
                                     (() |- (: (kbctx $kb) $prf (Implication $opposite $source-b)
                                        (CTV $source-neg $source-pos))))
                                  (brand CompiledAddition
-                                    (() |- (: $query-kb $prf $source-type $source-pos)))
+                                    (() |- (: $query-kb $prf $query-type $source-pos)))
                                  (brand CompiledAddition
                                     (() |- (: $query-kb $prf (Implication $opposite $source-b) $source-neg)))))))
                         ((STV $s $c)
@@ -1407,7 +1405,7 @@
                                  (brand CompiledAddition
                                     (() |- (: $source-kb $prf $source-type $tv)))
                                  (brand CompiledAddition
-                                    (() |- (: $query-kb $prf $source-type $tv)))
+                                    (() |- (: $query-kb $prf $query-type $tv)))
                                  (brand CompiledAddition
                                     ((cons (: $source-kb $prf $source-type $tv) $ctv-execs)
                                        |- (: (kbctx $kb) $prf $source-type $source-ctv)))))))))

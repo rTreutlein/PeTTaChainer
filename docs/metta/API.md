@@ -93,10 +93,24 @@ contribute evidence to the same claim. Implicit conclusion-only variables keep
 the older constructive behavior and produce stable `(exists rule index args)`
 Skolem terms.
 
-An ordinary `(Exists ($x ...) $body)` antecedent compiles two alternative proof
-paths: a matching direct `ExistentialClaim`, and the OR fold over currently
-enumerable body instances. A non-constructive existential conclusion can thus
-feed a downstream existential rule even when no concrete witness is known.
+A bare `(Exists ($x ...) $body)` query and an existential rule antecedent use
+one judgment: the maximum **strength** of the direct `ExistentialClaim` and the
+OR of known witness tuples, with the winning judgment's confidence and proof.
+The channels never revise together, and confidence never selects between them.
+Free outer variables produce one answer per binding. Empty or unfinished search
+has no value; `set-complete-predicate` does not close the existential population.
+Shared uncertain fact dependencies conservatively reduce the witness fold to
+its strongest member; a shared uncertain rule alone does not count as overlap.
+
+Exact queries of stored rules with `Exists` on a complete antecedent or
+consequent return their stated STV, including at budget zero and with renamed
+binders. Matching uses canonical scoped slots, syntactically up to renaming:
+conjunct order and co-reference must agree. Public expressions reconstruct local
+binders, retaining outer sharing and source proof IDs. A non-constructive claim
+never fabricates a witness. Derived quantified rule judgments, existential
+`Assuming`, and explicit `Not (Exists ...)` are not supported in this stage.
+See [Existential queries and premises](explicit_exists.md) for semantics,
+costs, scope, and changed expectations.
 
 Two complete-side premise forms expose the relationship between a direct claim
 and the witnesses currently enumerable from the KB:
@@ -106,7 +120,7 @@ and the witnesses currently enumerable from the KB:
 | `(KnownExistential ($x ...) $body)` | Fold the truth values of matching body instances with `OrFormula`. This is the currently enumerated witness disjunction D, not a proof that the population is complete. |
 | `(ExistentialResidual ($x ...) $body)` | Match the corresponding direct `ExistentialClaim`, build D, and calculate U from E = D or U using `ExistentialResidualFormula`. Its confidence is propagated from both E and D. |
 
-Both are lazy, budgeted FoldAll producers. As new witness facts become
+Both are lazy, budgeted FoldAll producers; an empty witness fold has no value. As new witness facts become
 available, their aggregate proofs refine without retracting the direct
 existential proof. See `examples/metta/existential_residual.metta` for a runnable
 example in which two weak known cats leave a strong residual and a later Felix

@@ -2,6 +2,11 @@
 
 Status: built, October 2026.
 
+`Assuming` with explicit existential statements remains unsupported. Stage 1
+of [existential queries](explicit_exists.md) supplies bare queries and exact
+stored-rule lookup without creating hypothetical contexts; scoped existential
+introduction/elimination and overlay integration belong to stage 2.
+
 ## Problem
 
 A client often asks a question that holds only together with some facts: a

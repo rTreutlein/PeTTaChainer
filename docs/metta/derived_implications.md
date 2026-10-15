@@ -2,6 +2,12 @@
 
 Status: built, October 2026.
 
+Quantified rules currently have a narrower query path: exact stored rules with
+`Exists` on a complete side return their stated judgment through scoped
+canonical matching. Deriving a new quantified rule judgment by hypothetical
+antecedent introduction or nested export is deferred to existential stage 2;
+see [explicit_exists.md](explicit_exists.md).
+
 ## Problem
 
 A rule whose conclusion is an implication,

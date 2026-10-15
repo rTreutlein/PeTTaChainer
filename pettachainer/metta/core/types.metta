@@ -70,6 +70,8 @@
 (: context-affected-reset! (-[det]-> Bool))
 (: context-forget! (-[det]-> Atom Bool))
 (: remove-hash-rows! (-[det]-> Atom Number Bool))
+(: existential-outer-values? (-[det]-> Atom Bool))
+(: existential-source (-[det]-> Atom Statement))
 (: pattern-shape (-[det]-> Atom Atom))
 (: rule-truth-factor (-[det]-> Atom Number))
 ;; Hypothesis mining's term helpers (runtime/hypothesis_mining.metta).
