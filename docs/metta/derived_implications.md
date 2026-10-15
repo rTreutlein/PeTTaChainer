@@ -249,6 +249,52 @@ does not accept the source: `(AcceptSource Report1)`, `(LowerPrices Supplier1)`
 and the inner rule remain unsupported in the main KB. The implication
 judgment does not answer `(Not (Implication ...))`.
 
+### Projection through consequent conjunctions
+
+A conjunction between the gate and the nested implication also supports
+projection ([issue #43](https://github.com/rTreutlein/PeTTaChainer/issues/43)):
+
+```metta
+(: rule (Implication (AcceptSource S)
+   (And (Metadata S) (Implication (A $x) (And (B $x) (C $x)))))
+   (STV 1 1))
+(query 300 kb (: $p
+   (Implication (AcceptSource S) (Implication (A $x) (C $x))) $tv))
+;; => (: (conditional-implication ...) <queried statement>
+;;       (STV 1.0 0.999700089698173))
+```
+
+The compiler projects the nested implication from the rule's consequent
+before exporting it. Each intervening `And` applies `AndMarginalProjection`
+to the rule's truth (both branches of a CTV). The projected conditional is
+compiled directly in exported form,
+`(And G A) -> Y`, using the ordinary implication forward compiler. Repeated
+conjunction layers and conjunctions after further nested implications use the
+same path. An inner antecedent's variables remain variables of that
+conditional;
+they are not replaced by consequent-only witnesses on this path.
+
+Previously, `nested-implication-parts` stopped at the outer `And`, ordinary
+output adapters projected an STV implication conjunct, and statement-rule
+compilation never reached that conjunct. An STV projection cannot be applied
+by a statement rule, which reads a CTV. Increasing the budget cannot bridge
+these compilation boundaries.
+
+Projected conditionals retain a `consequent-projection` proof naming the
+source conjunction, selected child and source proof. They read the original
+stated implication as a premise, so every projection carries its source
+evidence. The proof's rule head resolves to the original named rule, so the
+compiled projected row also retains its withdrawal identity. Exporting the
+projected conditional directly keeps that owner on the application, including
+when its answer is materialized. Two paths from one uncertain source share
+its rule evidence and cannot revise as independent observations. No extra projected axiom is stored.
+
+The outer gate still has to hold in the context applying the conditional.
+Querying it assumes that gate and the inner antecedent only in the judgment's
+private context. Wrong-source and gate-free queries remain unsupported;
+neither `(AcceptSource S)` nor `(C a)` becomes a main-context fact. Withdrawing
+the source also retires its projected support.
+
 ## Conjunction queries
 
 Every implication conjunct contributes its positive STV. There is no CTV
@@ -309,6 +355,11 @@ the normal And formula.
   shaped `(by rule token)` and stored facts. Other clause proof shapes are
   not collected there; hypothetical and empirical query scaffolds have
   their own compilation paths.
+- Conditional projection through a consequent conjunction uses the marginal
+  `And` projection; it does not infer a stronger conditional by dividing by
+  independently known sibling truths. This composition does not project
+  through `Or`, `Not`, or arbitrary source wrappers.
+
 - No inversion or antecedent completion through a nested rule or a derived
   statement.
 - Statement rules are deduplicated by shape, not by subsumption: rules
@@ -353,3 +404,9 @@ public judgment query. `test_conjunction_conditioning.metta` includes the
 explicit `Not G -> Y` judgment at 0.9, an unknown positive `G -> Y` value
 with zero confidence from an opposite-only STV rule at either world g value, and a derived
 implication whose source g is conditioned jointly with its sibling M.
+
+`tests/metta/test_nested_consequent_projection.metta` covers issue #43 cold
+and warm at 300 steps, a bound instance, both passing controls, wrong-source
+and gate-free queries, absence of categorical facts and answers, repeated
+conjunction/nested-implication layers, shared uncertain source evidence, both
+CTV branches, and withdrawal after warm queries.

@@ -204,6 +204,49 @@
          (data $inner $last))
       (data () $b)))
 
+;; Project a rule's consequent before exporting a nested implication. These
+;; are conditional projections, not observations of an implication statement.
+;; Keep both CTV branches when the source already supplies them.
+(: consequent-projection-tv (-[det]-> TV TV))
+(= (consequent-projection-tv $tv)
+   (case $tv (
+      ((STV $s $c) (AndMarginalProjection (STV $s $c)))
+      ((CTV $pos $neg)
+         (CTV (AndMarginalProjection $pos) (AndMarginalProjection $neg))))))
+
+(: compile-consequent-implications
+   (-[nondet]-> KB KBContext Proof TV (List Goal) Atom (List Variable)
+       Statement Statement CompiledAddition))
+(= (compile-consequent-implications $kb $shape-kb $prf $tv
+      $truth-premises $value $params $a $b)
+   (if (head-is? $b And)
+      (let* (($children (statement-children (cdr-atom $b)))
+             ($child (superpose $children))
+             ($projected-prf (brand Proof (consequent-projection $b $child $prf)))
+             ($projected-premises
+                (append-goals $truth-premises
+                   ((CPU consequent-projection-tv ($value) $projected-tv)))))
+         (compile-consequent-implications $kb $shape-kb $projected-prf $tv
+            $projected-premises $projected-tv $params $a $child))
+      (if (implication-type? $b)
+         (let* ((($_kbid $ctx $vars) $shape-kb)
+                (($inner $last) (nested-implication-parts $b))
+                ($exported-a (brand Statement
+                   (seq2expr (append (implication-side-conjuncts $a) $inner)))))
+            (superpose (
+               ;; Export the projected conditional directly. A named source
+               ;; owns this row, including after materialization/withdrawal.
+               (if (head-is? $prf consequent-projection)
+                  (compile-implication-forward-rules $kb $shape-kb $prf $tv
+                     $truth-premises $value $params $exported-a $last
+                     (implication-antecedent-free-vars $exported-a)
+                     (antecedent-lowerings $kb $ctx $vars $exported-a))
+                  (empty))
+               ;; Another conjunction can hide a further conditional.
+               (compile-consequent-implications $kb $shape-kb $prf $tv
+                  $truth-premises $value $params $exported-a $last))))
+         (empty))))
+
 ;; Emit the forward rules plus the adapters needed on both sides: one forward
 ;; rule per lowering of the antecedent, the complete one and those of its
 ;; settling parts (see settled-premise-bundle). The rule and its adapters
@@ -1339,34 +1382,41 @@
                          (append $antecedent-vars (extract-vars $inner)) $b))
                       ($source-type (brand Statement (Implication $antecedent $source-b)))
                       ($query-kb (make-kb-context (brand KB (implication-query $kb)) MAIN Nil)))
-                  (case $tv (
-                     ((CTV $source-pos $source-neg)
-                        (let $opposite (if (head-is? $antecedent Not)
-                           (car-atom (cdr-atom $antecedent)) (Not $antecedent))
-                           (superpose (
-                              (brand CompiledAddition
-                                 (() |- (: (kbctx $kb) $prf $source-type $tv)))
-                              (brand CompiledAddition
-                                 (() |- (: (kbctx $kb) $prf (Implication $opposite $source-b)
-                                    (CTV $source-neg $source-pos))))
-                              (brand CompiledAddition
-                                 (() |- (: $query-kb $prf $source-type $source-pos)))
-                              (brand CompiledAddition
-                                 (() |- (: $query-kb $prf (Implication $opposite $source-b) $source-neg)))))))
-                     ((STV $s $c)
-                        (let* (($source-kb (make-kb-context (brand KB (implication-stated $kb)) MAIN $params))
-                               ($rate-a (if (== $inner ()) $a
-                                  (brand Statement (cons And (append (implication-side-conjuncts $a) $inner)))))
-                               (($ctv-execs $source-ctv)
-                                  (compile-implication-ctv-execs $kb $params $rate-a $last $tv $tv)))
-                           (superpose (
-                              (brand CompiledAddition
-                                 (() |- (: $source-kb $prf $source-type $tv)))
-                              (brand CompiledAddition
-                                 (() |- (: $query-kb $prf $source-type $tv)))
-                              (brand CompiledAddition
-                                 ((cons (: $source-kb $prf $source-type $tv) $ctv-execs)
-                                    |- (: (kbctx $kb) $prf $source-type $source-ctv))))))))))
+                  (superpose (
+                     (case $tv (
+                        ((CTV $source-pos $source-neg)
+                           (let $opposite (if (head-is? $antecedent Not)
+                              (car-atom (cdr-atom $antecedent)) (Not $antecedent))
+                              (superpose (
+                                 (brand CompiledAddition
+                                    (() |- (: (kbctx $kb) $prf $source-type $tv)))
+                                 (brand CompiledAddition
+                                    (() |- (: (kbctx $kb) $prf (Implication $opposite $source-b)
+                                       (CTV $source-neg $source-pos))))
+                                 (brand CompiledAddition
+                                    (() |- (: $query-kb $prf $source-type $source-pos)))
+                                 (brand CompiledAddition
+                                    (() |- (: $query-kb $prf (Implication $opposite $source-b) $source-neg)))))))
+                        ((STV $s $c)
+                           (let* (($source-kb (make-kb-context (brand KB (implication-stated $kb)) MAIN $params))
+                                  ($rate-a (if (== $inner ()) $a
+                                     (brand Statement (cons And (append (implication-side-conjuncts $a) $inner)))))
+                                  (($ctv-execs $source-ctv)
+                                     (compile-implication-ctv-execs $kb $params $rate-a $last $tv $tv)))
+                              (superpose (
+                                 (brand CompiledAddition
+                                    (() |- (: $source-kb $prf $source-type $tv)))
+                                 (brand CompiledAddition
+                                    (() |- (: $query-kb $prf $source-type $tv)))
+                                 (brand CompiledAddition
+                                    ((cons (: $source-kb $prf $source-type $tv) $ctv-execs)
+                                       |- (: (kbctx $kb) $prf $source-type $source-ctv)))))))))
+                     (let $source-kb
+                        (if $ctv? (kbctx $kb)
+                           (make-kb-context (brand KB (implication-stated $kb)) MAIN $params))
+                        (compile-consequent-implications $kb $shape-kb $prf $tv
+                           (cons (: $source-kb $prf $source-type $tv) $truth-premises)
+                           $value $params $a $b)))))
                (compile-implication-forward-rules
                   $kb $shape-kb $prf $tv $truth-premises $value $params
                   $a $b $antecedent-vars $antecedents)

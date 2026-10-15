@@ -293,7 +293,14 @@
    (if (is-expr $prf)
       (if (is-var (car-atom $prf)) (brand Proof (car-atom $prf))
          (case $prf (
-            ((cons by (cons $name $_rest)) (brand Proof $name))
+            ;; Conditional consequent projections retain their source rule's
+            ;; evidence and withdrawal identity, including repeated layers.
+            ((consequent-projection $_source $_child $base)
+               (rule-evidence-head (brand Proof $base)))
+            ((cons by (cons $name $_rest))
+               (if (head-is? $name consequent-projection)
+                  (rule-evidence-head (brand Proof $name))
+                  (brand Proof $name)))
             ((cons (antecedent-completion $src $_idx with $_c1 $_c2) $_rest)
                (brand Proof $src))
             ((cons (inverted $inv with $_pa $_pb) $_rest) (brand Proof $inv))
