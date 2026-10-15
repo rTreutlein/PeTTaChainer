@@ -504,7 +504,12 @@ summaries. They return no value when empty and retain subscriptions in that
 state so late evidence can wake their readers. Their disjunction uses the
 ordinary premise fact-overlap test; a shared uncertain rule is not overlap.
 An outer strength floor compares this witness judgment to the direct claim
-without revising the two. Bare queries and premises use the same lowering.
+without revising the two. Exact strength ties prefer more evidence, then a
+canonical statement-key order. Correlated witness bounds carry only the chosen
+witness's proof and evidence, while retaining every member dependency.
+Bare queries and premises use the same lowering. The residual alone uses the
+empty witness identity (0,1). Empty-view invalidation and nested forward-fold
+draining added for existence are restricted to existential folds.
 These folds recompute over their members and need no closure certificate or
 new store. See [explicit_exists.md](explicit_exists.md).
 

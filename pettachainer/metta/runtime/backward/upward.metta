@@ -207,15 +207,17 @@
 ;; reading them in one evaluation, so a row two of them reach is computed
 ;; once. The readers whose value changed join the agenda, and so do the wave's
 ;; keys whose readers the allowance left stale.
-;; Searching a fold can expose another fold. Drain that work within the same
-;; search allowance, even when no intermediate value can start another wave.
+;; Existence judgments nest the witness and floor folds. Drain those within
+;; the same allowance even when no intermediate value can start another wave;
+;; ordinary folds retain their next-wave scheduling.
 (: sk-forward-folds! (-[semidet]-> (List SkPattern) (List SkPattern)))
 (= (sk-forward-folds! $searched)
    (if (if (<= (search-id-value sk_budget) 0) true (<= (search-id-value sk_walk_budget) 0))
       $searched
       (let $folds
             (collapse (match &sk_forward_folds ($hash $fold)
-               (let $_removed (remove-atom &sk_forward_folds ($hash $fold)) $fold)))
+               (if (sk-existential-fold? $fold)
+                  (let $_removed (remove-atom &sk_forward_folds ($hash $fold)) $fold) (empty))))
          (if (== $folds ()) $searched
             (let $_walked (sk-walk! $folds)
                (sk-forward-folds! (append-flat $searched $folds)))))))
@@ -223,7 +225,13 @@
 (: sk-forward-wave!
    (-[semidet]-> (Heap SkeletonForwardItem) (List SkeletonForwardEntry) (Heap SkeletonForwardItem)))
 (= (sk-forward-wave! $agenda $entries)
-   (let* (($folds (sk-forward-folds! ()))
+   (let* (($initial-folds
+             (collapse (match &sk_forward_folds ($hash $fold)
+                (let $_removed (remove-atom &sk_forward_folds ($hash $fold)) $fold))))
+          ($_searched (if (== $initial-folds ()) () (sk-walk! $initial-folds)))
+          ($folds (sk-forward-folds!
+             (collapse (let $fold (superpose $initial-folds)
+                (if (sk-existential-fold? $fold) $fold (empty))))))
           ($readers (list_to_set
              (fold-flat append-flat (fold-semidet sk-reader-keys-step () $entries)
                 (map-flat sk-reader-keys (fold-semidet sk-root-keys-step () $folds)))))

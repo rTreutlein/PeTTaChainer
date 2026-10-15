@@ -1623,32 +1623,44 @@
 
 (: SkeletonExistentialFold Type)
 (: sk-exists-state
-   (-[det]-> STVType STVType Bool (List Proof) EvidenceSet (List Number) SkeletonExistentialFold))
+   (-[det]-> STVType SkeletonValue Bool (List Proof) EvidenceSet (List Number) SkeletonExistentialFold))
 
-;; The ordinary And premise overlap test ignores shared rule parameters and
-;; certain facts. Until correlated OR is available, any overlapping witnesses
-;; conservatively contribute their strongest single value. Keep all supporting
-;; dependencies, so an overlap bridge cannot disappear with a weaker witness.
+;; Compare strength first, evidence confidence only on an exact strength tie.
+;; Equal TVs use the canonical statement key, never discovery order or proof id.
+(: sk-existential-preferred? (-[det]-> SkFact SkFact Bool))
+(= (sk-existential-preferred? ($type $ctx $_proof (STV $s $c))
+      ($old-type $old-ctx $_old-proof (STV $old-s $old-c)))
+   (if (> $s $old-s) true
+      (if (< $s $old-s) false
+         (if (> $c $old-c) true
+            (if (< $c $old-c) false
+               (existential-key-before? (sk-key $type $ctx) (sk-key $old-type $old-ctx)))))))
+
+;; All member evidence detects overlap; only the selected member supports a
+;; correlated lower bound. Dependencies still retain every member so a later
+;; overlap bridge or stronger witness recomputes the judgment.
 (: sk-existential-step
    (-[semidet]-> Bool SkeletonFilter (List Number) SkeletonExistentialFold SkeletonKey SkeletonExistentialFold))
 (= (sk-existential-step $floor $filter $exclude
       (sk-exists-state $tv $best $overlap $proofs $ev $deps) $key)
    (case (sk-premise-value false (sk-value $key $filter $exclude)) (
-      ((sk-val ($_type $_ctx $proof (STV $s $c)) $member-ev $member-deps)
-         (if (if (> $c 0) (if $floor true (> $s 0)) false)
-            (let* (((STV $best-s $_best-c) $best)
-                   ($take (if (== $proofs ()) true (> $s $best-s)))
-                   ($strongest (if $take (STV $s $c) $best)))
-               (sk-exists-state
-                  (if $floor $strongest
-                     (if (== $proofs ()) (STV $s $c) (OrFormula $tv (STV $s $c))))
-                  $strongest
-                  (if $floor false
-                     (if $overlap true (premise-evidence-overlap? $ev $member-ev)))
-                  (if $floor (if $take (cons $proof ()) $proofs) (cons $proof $proofs))
-                  (if $floor (if $take $member-ev $ev) (evidence-union $ev $member-ev))
-                  (cons $member-deps $deps)))
-            (sk-exists-state $tv $best $overlap $proofs $ev $deps)))
+      ((sk-val $fact $member-ev $member-deps)
+         (let ($_type $_ctx $proof (STV $s $c)) $fact
+            (if (if (> $c 0) (if $floor true (> $s 0)) false)
+               (let $take (case $best (
+                       (sk-none true)
+                       ((sk-val $old-fact $_old-ev $_old-deps)
+                          (sk-existential-preferred? $fact $old-fact))))
+                  (sk-exists-state
+                     (if $floor $tv
+                        (if (== $proofs ()) (STV $s $c) (OrFormula $tv (STV $s $c))))
+                     (if $take (sk-val $fact $member-ev $member-deps) $best)
+                     (if $floor false
+                        (if $overlap true (premise-evidence-overlap? $ev $member-ev)))
+                     (cons $proof $proofs)
+                     (evidence-union $ev $member-ev)
+                     (cons $member-deps $deps)))
+               (sk-exists-state $tv $best $overlap $proofs $ev $deps))))
       ($_none (sk-exists-state $tv $best $overlap $proofs $ev $deps)))))
 
 ;; A fold with members proves by its members, in the order they were found.
@@ -1660,7 +1672,8 @@
             (fold-semidet sk-cons-step () $proofs)))))
 
 ;; A fold's or group's view over its member keys. Existence folds have no
-;; value when empty; other folds finish their initial value, proved by `cpu`.
+;; value when empty, except the residual's requested (0,1) identity. Other
+;; folds finish their initial value, proved by `cpu`.
 ;; Base rates carry neither member evidence nor member dependencies.
 (: sk-folded-view
    (-[semidet]-> Number Atom $args (-[semidet]-> $acc SkFact $acc) Atom $acc AggregateFinish
@@ -1670,11 +1683,21 @@
       (let* (($floor (== $function ExistentialFloor))
              ((sk-exists-state $exists-tv $exists-best $exists-overlap $exists-proofs $exists-ev $exists-deps)
                 (fold-semidet (sk-existential-step $floor $filter (cons $hash ()))
-                   (sk-exists-state (STV 0 1) (STV 0 0) false () (ev-set 0) ()) $members)))
-         (if (== $exists-proofs ()) sk-none
-            (sk-goal-val (CPU $kind $args (if $exists-overlap $exists-best $exists-tv))
-               (if $floor (car-atom $exists-proofs) (sk-fold-proof OrFormula $exists-proofs))
-               $exists-ev (deps-join (cons (deps-key $hash) $exists-deps)))))
+                   (sk-exists-state (STV 0 1) sk-none false () (ev-set 0) ()) $members))
+             ($exists-joined-deps (deps-join (cons (deps-key $hash) $exists-deps))))
+         (case $exists-best (
+            (sk-none
+               ;; The residual alone requests the empty disjunction's identity.
+               ;; Exists and KnownExistential use zero-confidence initial TVs.
+               (let (STV $_initial-s $initial-c) $init
+                  (if (> $initial-c 0)
+                     (sk-goal-val (CPU $kind $args $init) cpu (ev-set 0) $exists-joined-deps)
+                     sk-none)))
+            ((sk-val ($_best-type $_best-ctx $best-proof $best-tv) $best-ev $_best-deps)
+               (if (if $floor true $exists-overlap)
+                  (sk-goal-val (CPU $kind $args $best-tv) $best-proof $best-ev $exists-joined-deps)
+                  (sk-goal-val (CPU $kind $args $exists-tv)
+                     (sk-fold-proof OrFormula $exists-proofs) $exists-ev $exists-joined-deps))))))
    (let* (((sk-fold-state $acc $proofs $ev $deps)
              (fold-semidet (sk-fold-step $step $filter (cons $hash ()))
                 (sk-fold-state $init () () ()) $members))
@@ -3398,8 +3421,10 @@
 ;; must still wake its readers when they obtain evidence.
 (: sk-fold-read? (-[det]-> Number SkeletonKey Bool))
 (= (sk-fold-read? $hash $fold)
-   (not (== (collapse (once (match &sk_latest ($hash $stored (sk-version $_seq 0 $_value))
-      (if (=alpha $stored $fold) true (empty))))) ())))
+   (if (sk-existential-fold? $fold)
+      (not (== (collapse (once (match &sk_latest ($hash $stored (sk-version $_seq 0 $_value))
+         (if (=alpha $stored $fold) true (empty))))) ()))
+      (not (== (sk-latest-view $hash $fold 0) sk-none))))
 
 (: sk-fold-changed (-[semidet]-> Number Number SkeletonKey SkeletonChange SkeletonWork SkeletonKey SkeletonWork))
 (= (sk-fold-changed $pass $_seq $member $change (sk-work $todo $next) $fold)
@@ -3481,7 +3506,8 @@
    (let* (($causes (list_to_set (collapse (match &sk_fold_pending ($hash $member) $member))))
           ($_taken (remove-data-rows! &sk_fold_pending (quote ($hash $member))))
           ($old (sk-latest-view $hash $fold 0)))
-      (if (== $causes ()) $work
+      (if (if (== $causes ()) true
+             (if (sk-existential-fold? $fold) false (== $old sk-none))) $work
          (let* (($_view (sk-drop-fold-view! $fold))
                 ($_merged (sk-drop-merged! $fold)))
             (case (sk-fold-views $hash $fold) (

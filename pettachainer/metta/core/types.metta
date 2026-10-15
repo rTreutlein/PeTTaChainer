@@ -375,3 +375,5 @@
 (: withdrawn-stores! (-[det]-> (List Number) (List RetiredStore)))
 
 (: sk-retire-store! (-[det]-> RetiredStore Atom))
+
+(: existential-key-before? (-[det]-> Atom Atom Bool))

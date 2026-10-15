@@ -96,11 +96,16 @@ Skolem terms.
 A bare `(Exists ($x ...) $body)` query and an existential rule antecedent use
 one judgment: the maximum **strength** of the direct `ExistentialClaim` and the
 OR of known witness tuples, with the winning judgment's confidence and proof.
-The channels never revise together, and confidence never selects between them.
+The channels never revise together. Strength decides first; on an exact strength
+tie, higher confidence (more evidence) wins without revision. Equal TVs use the
+alpha-normalized statement-key order, so discovery order does not choose a proof.
 Free outer variables produce one answer per binding. Empty or unfinished search
 has no value; `set-complete-predicate` does not close the existential population.
-Shared uncertain fact dependencies conservatively reduce the witness fold to
-its strongest member; a shared uncertain rule alone does not count as overlap.
+Any shared uncertain fact dependency collapses the **whole witness population**
+to its single strongest member. Two correlated witnesses at 0.5 plus an
+independent witness at 0.4 still give 0.5, not 0.7. The result carries only the
+chosen witness's proof and evidence; all member dependencies remain for
+recomputation. A shared uncertain rule alone does not count as overlap.
 
 Exact queries of stored rules with `Exists` on a complete antecedent or
 consequent return their stated STV, including at budget zero and with renamed
@@ -120,8 +125,11 @@ and the witnesses currently enumerable from the KB:
 | `(KnownExistential ($x ...) $body)` | Fold the truth values of matching body instances with `OrFormula`. This is the currently enumerated witness disjunction D, not a proof that the population is complete. |
 | `(ExistentialResidual ($x ...) $body)` | Match the corresponding direct `ExistentialClaim`, build D, and calculate U from E = D or U using `ExistentialResidualFormula`. Its confidence is propagated from both E and D. |
 
-Both are lazy, budgeted FoldAll producers; an empty witness fold has no value. As new witness facts become
-available, their aggregate proofs refine without retracting the direct
+Both are lazy, budgeted FoldAll producers. An empty `KnownExistential` has no
+value. For `ExistentialResidual` only, empty D is `(STV 0 1)`: no known witness
+contributes zero witness mass, so U retains E's strength. This is an accounting
+identity for the residual, not a false existential judgment or a population
+completion claim. As new witness facts become available, their aggregate proofs refine without retracting the direct
 existential proof. See `examples/metta/existential_residual.metta` for a runnable
 example in which two weak known cats leave a strong residual and a later Felix
 witness moves support from that residual into the enumerated disjunction.

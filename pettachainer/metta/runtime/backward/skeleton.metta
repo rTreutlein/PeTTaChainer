@@ -612,6 +612,19 @@
 (= (sk-instance-fold? ($_kb $_pattern $_extractor $_init $_function $finish $_mode))
    (stored-list-member? $finish (implication-instance implication-instance-ctv)))
 
+(: sk-existential-fold? (-[det]-> Atom Bool))
+(= (sk-existential-fold? $fold)
+   (let* (($args (case $fold (
+                    ((sk-fold $scalar) $scalar)
+                    ((sk-group $grouped) $grouped)
+                    ((CPU $_kind $spec $_result) $spec)
+                    ($_other ()))))
+          ($function (case $args (
+                        (($_kb $_body $_extract $_initial $f $_finish $_mode) $f)
+                        (($_kb2 $_body2 $_group $_extract2 $_initial2 $g $_finish2 $_mode2) $g)
+                        ($_other-args none)))))
+      (if (== $function OrFormula) true (== $function ExistentialFloor))))
+
 (: sk-instance-fold-key? (-[det]-> SkeletonKey Bool))
 (= (sk-instance-fold-key? $key)
    (case $key (

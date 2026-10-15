@@ -332,7 +332,7 @@
              ($groups (list_to_set (extract-vars $claim)))
              ((premise-bundle $execs $witness-tv $_witness-proof)
                 (fold-existential-premise-bundle $kb MAIN Nil
-                   (brand Statement $body) (the (List Variable) $groups) OrFormula)))
+                   (brand Statement $body) (the (List Variable) $groups) OrFormula (STV 0 0))))
          (compilation-plan (: (kbctx $kb) $prf $Type $tv)
             (the (List CompiledAddition)
                ((((: (kbctx $kb) $claim-proof $claim $claim-tv)

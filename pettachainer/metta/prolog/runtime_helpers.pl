@@ -139,6 +139,12 @@ statement_index_hashes(PrefixFunction, Statement, Hashes) :-
     ( sub_term(Term, Values), is_list(Term), Term = [Head, _], Head == 'exists-slot'
     -> Valid = false ; Valid = true ).
 
+% A final tie uses alpha-normalized statement keys, not allocation/proof ids.
+'existential-key-before?'(A, B, Before) :-
+    copy_term(A, CA), numbervars(CA, 0, _),
+    copy_term(B, CB), numbervars(CB, 0, _),
+    ( CA @< CB -> Before = true ; Before = false ).
+
 'rule-premise'(Index, Premises, Premise) :- nth0(Index, Premises, Premise).
 
 % Open only canonical slots, preserving free outer variables and co-reference.

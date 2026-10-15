@@ -911,7 +911,7 @@
                        $kb $ctx $vars (brand Statement $body)
                        (\==
                           (list_to_set (extract-vars $body))
-                          $bound-vars) OrFormula))))
+                          $bound-vars) OrFormula (STV 0 0)))))
            ((ExistentialResidual $binder $body)
               (existential-residual-premise-bundle
                  $kb $ctx $vars $binder $body))
@@ -1051,28 +1051,29 @@
 ;; OrFormula. Free variables form independent groups, while variables named by
 ;; the binder do not escape into the compiled rule.
 (: fold-existential-premise-bundle
-   (-[det]-> KB $context $variables Statement (List Variable) (-[det]-> STVType STVType STVType) PremiseBundle))
-(= (fold-existential-premise-bundle $kb $ctx $vars $premise $group-vars $function)
+   (-[det]-> KB $context $variables Statement (List Variable) (-[det]-> STVType STVType STVType) STVType PremiseBundle))
+(= (fold-existential-premise-bundle $kb $ctx $vars $premise $group-vars $function $empty-tv)
    (let $prem-kb (source-premise-kb $kb $ctx $vars)
       (if (== $group-vars ())
          (premise-bundle
             ((CPU FoldAllCompiled
-                 (quote ($prem-kb $premise extract-tv (STV 0.0 1.0) $function identity result-tv))
+                 (quote ($prem-kb $premise extract-tv $empty-tv $function identity result-tv))
                  $fold-tv))
             $fold-tv
             cpu)
          (premise-bundle
             ((CPU GroupedFoldAllCompiled
-                 (quote ($prem-kb $premise $group-vars extract-tv (STV 0.0 1.0) $function identity result-tv))
+                 (quote ($prem-kb $premise $group-vars extract-tv $empty-tv $function identity result-tv))
                  $fold-tv))
             $fold-tv
             cpu))))
 
 ;; Existential channels are nested propositions. Keep the stronger TV intact;
-;; confidence never chooses between them, including equal-strength ties.
+;; confidence breaks exact strength ties by evidence amount, without revision.
 (: ExistentialFloor (-[det]-> STVType STVType STVType))
 (= (ExistentialFloor (STV $sa $ca) (STV $sb $cb))
-   (if (> $sb $sa) (STV $sb $cb) (STV $sa $ca)))
+   (if (if (> $sb $sa) true (if (< $sb $sa) false (> $cb $ca)))
+      (STV $sb $cb) (STV $sa $ca)))
 
 ;; One normalization for source rules and query lookup. Each complete side's
 ;; bound variables become local rigid slots; free variables remain shared.
@@ -1087,18 +1088,18 @@
 ;; Compare the direct existential proposition with the OR of the witnesses
 ;; currently enumerable from the body. The direct proposition uses canonical
 ;; slots, so matching it cannot bind the witness variable and accidentally
-;; restrict the following fold to one object.
+;; restrict the following fold to one object. The direct premise binds outer
+;; arguments before the scalar fold, including groups without witnesses. Only
+;; the residual requests the empty disjunction identity (0,1).
 (: existential-residual-premise-bundle
    (-[nondet]-> KB $context $variables Atom Atom PremiseBundle))
 (= (existential-residual-premise-bundle $kb $ctx $vars $binder $body)
    (let*
       (($bound-vars (list_to_set (explicit-exists-vars $binder)))
-       ($body-vars (list_to_set (extract-vars $body)))
-       ($group-vars (\== $body-vars $bound-vars))
        ($claim (existential-claim-statement $binder $body))
        ((premise-bundle $fold-execs $known-tv $_fold-proof)
           (fold-existential-premise-bundle
-             $kb $ctx $vars (brand Statement $body) $group-vars OrFormula))
+             $kb $ctx $vars (brand Statement $body) () OrFormula (STV 0 1)))
        ($prem-kb (source-premise-kb $kb $ctx $vars)))
       (if (== $bound-vars ())
          (empty)
@@ -1120,7 +1121,7 @@
              ($group-vars (implication-antecedent-free-vars $premise)))
          (fold-existential-premise-bundle $kb $ctx $vars
             (brand Statement (ExistentialAlternatives $claim $channel))
-            $group-vars ExistentialFloor))
+            $group-vars ExistentialFloor (STV 0 0)))
       (lower-source-premise $kb $ctx $vars $premise)))
 
 (: lower-implication-antecedent
