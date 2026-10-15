@@ -54,6 +54,11 @@ class TestContextOverlay(unittest.TestCase):
             '(: n1 (Next t1 t2) (STV 1 1))',
             '(: (no_inverse persists) (Implication (And (Next $p $t) (History $p)) (History $t)) (CTV (STV 0.7 1) (STV 0.3 1)))',
             '(: (no_inverse outcome) (Implication (And (Action $t) (History $t)) (Outcome $t)) (STV 1 1))',
+            # Action reaches History(trigger) through inversion. The same
+            # predicate's t0..t2 history has no dependency on that assumption.
+            '(: trigger-prior (History trigger) (STV 0.3 0.8))',
+            '(: diagnostic (Implication (History trigger) (Signal trigger)) (CTV (STV 0.9 1) (STV 0.2 1)))',
+            '(: (no_inverse signal) (Implication (Action t2) (Signal trigger)) (CTV (STV 0.4 1) (STV 0.4 1)))',
         ])
         expected = self.strength("(History t2)")
         # Keep MAIN's history rows and views, but force a cold merge read.
