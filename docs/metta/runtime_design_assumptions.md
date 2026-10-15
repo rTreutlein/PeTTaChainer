@@ -307,6 +307,15 @@ with unbound key arguments remains live. Shared pending premise traversal and
 ordinary context bookkeeping retain their existing rules. Assignment records,
 input history, completed rows, views and learned samples are retained.
 
+Retaining missing-input joins costs subscriptions when input-only predicates
+are undeclared and their facts never arrive. The review's nested fixture
+measured about 57% more waiters per step after removing ground-fact pruning.
+For an immutable single-valued input relation, declare
+`(set-functional-predicate $kb $head $arity $key-positions)` before ingestion.
+Once a ground key is assigned, its incompatible subscriptions retire and
+matching subscriptions close after consuming their unique answer, as above.
+Unassigned keys and subscriptions with unbound key arguments stay open.
+
 A rule stated with confidence 1 in every branch is given, not estimated: its
 applications carry no evidence of it. A rule stated with less, or refined from
 its instances, is evidence of every proof through it, so a proof of the rule

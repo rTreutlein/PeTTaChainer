@@ -133,10 +133,10 @@ of the statement's branches, which a CTV does not carry.
   applies with its stated truth.
 - **Dormancy, the prefilter, complete predicates.** The statement rule is an
   ordinary rule with an ordinary premise: the dormancy analysis follows its
-  implication premise to the rules concluding it, the prefilter keeps it
-  when a rule concludes the statement, and its applications are rule
-  applications (`by`), so they count as ways a complete statement becomes
-  true.
+  implication premise to the rules concluding it. Missing fact premises
+  retain their join subscriptions; only failing ground CPU premises trigger
+  the prefilter. Its applications are rule applications (`by`), so they count
+  as ways a complete statement becomes true.
 - **Combination modes and lifting.** A statement rule's views are rule
   applications and combine as others do. The lifting merge evaluates a
   proof with its shared facts replaced by a probe; for a statement rule's
@@ -314,11 +314,13 @@ formula and conditions shared evidence once. An unsupported negative branch
 in internal rule storage does not reduce the confidence of a query that
 only asks the positive statement.
 
-The compiler prepares implication leaf scaffolds for each query before a
-compound can be rejected by the ground-premise prefilter. Scaffold reuse
-requires the same statement up to variable renaming: an open scaffold cannot
-replace a bound instance's contexts. The copied lookup type narrows the
-clause index; the original clause shape is then checked for alpha identity.
+The compiler prepares implication leaf scaffolds for each query before
+search starts. A missing fact premise keeps its subscription rather than
+pruning the compound; only failing ground CPU premises trigger the prefilter.
+Scaffold reuse requires the same statement up to variable renaming: an open
+scaffold cannot replace a bound instance's contexts. The copied lookup type
+narrows the clause index; the original clause shape is then checked for
+alpha identity.
 
 Positive query values use a private KB namespace with the original
 statement shape. They cannot become observations in main-context populations

@@ -1394,9 +1394,8 @@
 ;; A dormant rule is not started (docs/metta/dormant_rules.md).
 ;; Dormancy is judged in the main context; in a context that sees the world,
 ;; assumptions can support what the main context lacks, so every rule runs.
-;; A rule application concluding a complete statement is never pruned before
-;; it starts: a premise with no fact and no rule is false or unknown, and the
-;; closed read tells which from the join waiting on it (sk-settled?).
+;; Missing fact premises keep their join subscriptions. Only failing ground
+;; CPU premises trigger the prefilter.
 (= (sk-start-rule-step $owner $_acc (sk-match $rule $premises $goal))
    (if (if (if (sk-world-goal? $goal) false (rule-dormant? $rule)) false (= (copy_term $goal) (copy_term $owner)))
       (if (if (case $goal (
