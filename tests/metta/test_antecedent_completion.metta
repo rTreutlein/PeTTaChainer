@@ -229,7 +229,9 @@
 !(set-base-rate sharedKb (Rain $x) (STV 0.3 0.9))
 !(compileadd sharedKb (: outdoor-d (Outdoor d) (STV 1 1)))
 !(compileadd sharedKb (: wet-d (Wet d) (STV 1 1)))
-!(test (query 2000 sharedKb (: $proof (Rain d) $tv)) (: ((antecedent-completion wet 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction outdoor-d wet-d)) (Rain d) (STV 0.6585425339841672 0.8936005994767838)))
+;; Equal-confidence views of the same observation share one component.
+;; Canonical tie order selects plain inversion; the TV is unchanged.
+!(test (query 2000 sharedKb (: $proof (Rain d) $tv)) (: ((inverted wet-direct with cpu (prior (STV 0.30000555540123885 0.9))) wet-d) (Rain d) (STV 0.6585425339841672 0.8936005994767838)))
 
 ;; A sibling the completion conditions on is no observation of it. B is
 ;; derived from A (0.8, 0.2) and C from A and B (0.9, 0.1); b shows B and C.
@@ -246,18 +248,15 @@
 !(compileadd siblingKb (: c-b (C b) (STV 1 1)))
 !(test (query 2000 siblingKb (: $proof (A b) $tv)) (: (factored-revision cpu (prior (STV 0.3 1.0)) (((inverted rB with cpu (prior (STV 0.3 1.0))) b-b) ((antecedent-completion rC 0 with cpu (prior (STV 0.3 1.0))) (conjunction b-b c-b)))) (A b) (STV 0.9391304347826086 0.9998964113373382)))
 
-;; A completion reads its consequence as an observation. A predicate that only
-;; forward rules conclude is predicted, here from the completed conjunct and
-;; from servicing, never observed: the rule start prunes the completion, and
-;; (Pred a) has no proof but its population prior, the base rate 0.3. Read as
-;; an observation, the prediction 0.2 for (Pred2 b) would have pulled it down
-;; to 0.172.
+;; A forward consequence from another source supports PLN induction. Servicing
+;; predicts Pred2 b at 0.2; inverting persist gives
+;; 0.2 * (0.9 * 0.3 / 0.41) + 0.8 * (0.1 * 0.3 / 0.59) = 0.1723853.
 !(compileadd predictedKb (: persist (Implication (And (Next $p $t) (Pred $p)) (Pred2 $t)) (CTV (STV 0.9 1) (STV 0.2 1))))
 !(compileadd predictedKb (: fresh (Implication (Serv $t) (Pred2 $t)) (CTV (STV 0.2 1) (STV 0.2 1))))
 !(compileadd predictedKb (: n1 (Next a b) (STV 1 1)))
 !(compileadd predictedKb (: s1 (Serv b) (STV 1 1)))
 !(set-base-rate predictedKb (Pred $p) (STV 0.3 0.9))
-!(test (query 100 predictedKb (: $prf (Pred a) $tv)) (: (population-prior (Pred $p)) (Pred a) (STV 0.30000555540123885 0.9)))
+!(test (query 100 predictedKb (: $prf (Pred a) $tv)) (: ((antecedent-completion persist 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction n1 (by fresh s1))) (Pred a) (STV 0.17238749429474426 0.9870844211399957)))
 
 ;; The mine runs exactly when the power plant runs and the mine is not
 ;; degraded. With the plant running and the mine off, the mine is degraded:
@@ -312,19 +311,18 @@
 !(test (query 2000 chainKb (: $prf (Degraded mine t6) $tv))
    (: (by persist (conjunction next-t6 (factored-revision (by persist (conjunction next-t5 degraded-t4)) (prior (STV 0.1 0.99990000952965)) (((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25000694425154857 0.9))) (conjunction plant-on mine-off)))))) (Degraded mine t6) (STV 0.7499980499316794 0.9998999906297017)))
 
-;; A completion reads its consequence's observations, not a prediction of it.
-;; The mine's production is reported in t4 (so the predicate is observed),
-;; but in t5 a backup feed predicts it and nothing observes it: the
-;; prediction carries no evidence about the degradation, and Degraded mine t5
-;; keeps its population prior 0.25. Read as an observation, the backup's 0.4
-;; would have made it 0.6: the mine off (0.6) means degraded given the plant.
+;; A backup feed's independent production prediction supports PLN induction.
+;; With the plant on, P(Producing mine | Degraded) = 0 and its complement
+;; branch is 1, so both reverse branches are (0, 1). The backup predicts 0.4,
+;; and induction gives P(Degraded) = 0.4 * 0 + 0.6 * 1 = 0.6. The historical
+;; observation must not decide whether this independent source is admissible.
 !(compileadd predictionKb (: runs-mine (Implication (And (Producing plant $t) (Not (Degraded mine $t))) (Producing mine $t)) (CTV (STV 1 1) (STV 0 1))))
 !(compileadd predictionKb (: backup (Implication (Backup $t) (Producing mine $t)) (CTV (STV 0.4 1) (STV 0.4 1))))
 !(set-base-rate predictionKb (Degraded mine $t) (STV 0.25 0.9))
 !(compileadd predictionKb (: mine-t4 (Producing mine t4) (STV 1 1)))
 !(compileadd predictionKb (: plant-on (Producing plant t5) (STV 1 1)))
 !(compileadd predictionKb (: backup-t5 (Backup t5) (STV 1 1)))
-!(test (query 2000 predictionKb (: $prf (Degraded mine t5) $tv)) (: (population-prior (Degraded mine $t)) (Degraded mine t5) (STV 0.25000694425154857 0.9)))
+!(test (query 2000 predictionKb (: $prf (Degraded mine t5) $tv)) (: ((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25000694425154857 0.9))) (conjunction plant-on (by backup backup-t5))) (Degraded mine t5) (STV 0.6 0.9999000086419646)))
 
 ;; A completion of a refined rule reads the rule's learned truth, as its
 ;; forward and inverted applications do. Of eight past individuals, the four

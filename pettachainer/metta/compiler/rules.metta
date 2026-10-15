@@ -746,14 +746,10 @@
                    ($consequent-proof (implication-proof-token $consequent-proofs))
                    ($negated (head-is? $missing Not))
                    ($target (if $negated (brand Statement (car-atom (cdr-atom $missing))) $missing))
-                   ($consequent-head (if (is-expr $consequent) (car-atom $consequent) $consequent))
-                   ($consequent-arity (if (is-expr $consequent) (- (length $consequent) 1) -1))
-                   ($observed (CPU observed-predicate? ($kb $consequent-head $consequent-arity) true))
                    ($premises
-                      (cons $observed
                       (append-goals $truth-premises
-                      (append-goals $others-execs
-                         (append-goals $consequent-execs
+                         (append-goals $others-execs
+                            (append-goals $consequent-execs
                             (append-goals $rule-execs
                                (append-goals
                                   (prior-base-rate-premises $kb
@@ -765,7 +761,7 @@
                                       (CPU CTVBayesFormula
                                          (quote ($target-base-tv $likelihood-ctv))
                                          $completion-ctv)
-                                      (CPU sk-consequence-prior
+                                      (CPU sk-observation-prior
                                          (quote ($consequent-proof $consequent-tv))
                                          $consequent-prior)
                                       (CPU ObservationRatioFormula
@@ -773,7 +769,7 @@
                                          $consequent-obs-tv)
                                       (CPU CTVModusPonensFormula
                                          (quote ($consequent-obs-tv $completion-ctv))
-                                         $out-tv)))))))))))
+                                         $out-tv))))))))))
                   (brand CompiledAddition
                      ($premises |-
                         (: $shape-kb

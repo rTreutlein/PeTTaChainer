@@ -736,7 +736,7 @@ class TestPeTTaChainer(unittest.TestCase):
             "(: edge_to_path (Implication (Edge $x $y) (Path $x $y)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
         )
         handler.add_atom(
-            "(: path_step (Implication (And (Path $x $y) (Edge $y $z)) (Path $x $z)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
+            "(: (no_inverse path_step) (Implication (And (Path $x $y) (Edge $y $z)) (Path $x $z)) (CTV (STV 1.0 1.0) (STV 0.0 1.0)))"
         )
 
         seeds = handler.select_facts(["(Edge A B)", "(Edge B C)"])

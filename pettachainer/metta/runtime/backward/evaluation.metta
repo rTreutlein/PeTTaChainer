@@ -224,14 +224,6 @@
             ((combination $_mode $_prior $parts) (proof-children $parts))
             ($_other ()))))))
 
-;; The prior a completion reads its consequence's value under. A forward
-;; conclusion predicts the consequence from its causes, the completed conjunct
-;; among them: it does not observe the consequence, and the completion does
-;; not read it.
-(: sk-consequence-prior (-[semidet]-> Proof TV TV))
-(= (sk-consequence-prior $proof $tv)
-   (if (== (sk-forward-parts $proof) ()) (sk-observation-prior $proof $tv) (empty)))
-
 ;; The witnesses of the updates a view merges, by hash: with `$siblings`
 ;; false their observations, an inversion's observation and a completion's
 ;; consequence, its last witness; with `$siblings` true the other witnesses of
@@ -752,10 +744,11 @@
                   (evidence-union $ev $gev) (deps-union $deps $gdeps)))
             ($_tv-other (sk-val ($type $kbctx $proof $tv) $ev $deps))))))))
 
-;; One step of a key's merge: an overlap continues with its fallback and
-;; records its statements, unless an earlier overlap gave some.
-(: sk-key-merge-step (-[semidet]-> (List Number) SkeletonMerging SkeletonValue SkeletonMerging))
-(= (sk-key-merge-step $ignore (sk-merging $acc $keys $deps) $view)
+;; Pairwise merging also records the first conditioning cut and its cost.
+;; Its accumulated value is provisional: on overlap the key builds its
+;; fallback from connected components of the original views below.
+(: sk-pair-merge-step (-[semidet]-> (List Number) SkeletonMerging SkeletonValue SkeletonMerging))
+(= (sk-pair-merge-step $ignore (sk-merging $acc $keys $deps) $view)
    (case $acc (
       (sk-none (sk-merging $view $keys $deps))
       ((sk-val $fact $ev $fact-deps)
@@ -771,7 +764,70 @@
 ;; A merge outside a key's merge takes an overlap's fallback.
 (: sk-merge-step (-[semidet]-> (List Number) SkeletonValue SkeletonValue SkeletonValue))
 (= (sk-merge-step $ignore $acc $view)
-   (case (sk-key-merge-step $ignore (sk-merging $acc () 0) $view) (((sk-merging $merged $_keys $_deps) $merged))))
+   (case (sk-pair-merge-step $ignore (sk-merging $acc () 0) $view) (((sk-merging $merged $_keys $_deps) $merged))))
+
+;; An unpaid overlap must not discard evidence independent of it. Keep the
+;; full dependencies and evidence of each connected component, including its
+;; discarded views, and choose one most confident representative inside it.
+;; Shared rule truths, population priors and given premises do not connect
+;; components, just as they do not make the pairwise merge dependent.
+(: SkeletonComponent Type)
+(: sk-component (-[det]-> SkeletonValue Number EvidenceSet SkeletonComponent))
+(: SkeletonConnecting Type)
+(: sk-connecting (-[det]-> SkeletonComponent (List SkeletonComponent) SkeletonConnecting))
+
+
+;; Connectivity needs existence, not a ranked conditioning cut. Stop at the
+;; first uncertain shared statement instead of ranking every shared key.
+(: sk-shared-statement-step (-[semidet]-> (List Number) Bool Number Bool))
+(= (sk-shared-statement-step $ignore $found $hash)
+   (if $found true (not (== (sk-shared-hash-step $ignore () $hash) ()))))
+
+(: sk-component-step (-[semidet]-> (List Number) Number EvidenceSet SkeletonConnecting SkeletonComponent SkeletonConnecting))
+(= (sk-component-step $ignore $view-deps $view-ev (sk-connecting (sk-component $best $deps $ev) $apart) (sk-component $other $other-deps $other-ev))
+   (if (if (fold-flat sk-observation-step false (evidence-shared-facts $view-ev $other-ev)) true
+           (fold-semidet (sk-shared-statement-step $ignore) false (deps-shared $view-deps $other-deps)))
+      (sk-connecting
+         (sk-component
+            (case (data $best $other) (
+               (((sk-val $fact $_e $_d) (sk-val $other-fact $_oe $_od))
+                  (if (>= (term-confidence $fact) (term-confidence $other-fact)) $best $other))))
+            (deps-union $deps $other-deps) (evidence-union $ev $other-ev))
+         $apart)
+      (sk-connecting (sk-component $best $deps $ev) (cons (sk-component $other $other-deps $other-ev) $apart))))
+
+(: sk-key-merge-step (-[semidet]-> (List Number) (List SkeletonComponent) SkeletonValue (List SkeletonComponent)))
+(= (sk-key-merge-step $ignore $components $view)
+   (case $view (
+      ((sk-val $_fact $ev $deps)
+         (let (sk-connecting $connected $apart)
+               (fold-semidet (sk-component-step $ignore $deps $ev)
+                  (sk-connecting (sk-component $view $deps $ev) ()) $components)
+            (cons $connected $apart)))
+      ($_goal $components))))
+
+(: SkeletonComponentOrder Type)
+(: sk-component-order (-[det]-> Number SkeletonValue SkeletonComponentOrder))
+(: sk-component-order-of (-[semidet]-> SkeletonComponent SkeletonComponentOrder))
+(= (sk-component-order-of (sk-component $view $_deps $_ev))
+   (case $view (
+      ((sk-val ($_type $_ctx $proof $tv) $_ev2 $_deps2)
+         (case (sk-prior-update-of $proof $tv) (
+            ((sk-prior-update $_prior $_own ()) (sk-component-order 0 $view))
+            ($_update (sk-component-order 1 $view)))))
+      ($_goal (empty)))))
+
+(: sk-component-merge-step (-[semidet]-> (List Number) SkeletonValue SkeletonComponentOrder SkeletonValue))
+(= (sk-component-merge-step $ignore $acc (sk-component-order $_order $view)) (sk-merge-step $ignore $acc $view))
+
+(: sk-key-fallback (-[semidet]-> (List Number) (List SkeletonValue) SkeletonValue))
+(= (sk-key-fallback $ignore $views)
+   ;; Combine independent values before applying the updates they are priors
+   ;; for. Canonical ordering also fixes confidence ties and floating-point
+   ;; fold order, regardless of the order the original views were visited.
+   (fold-semidet (sk-component-merge-step $ignore) sk-none
+      (sort-atom (map-semidet sk-component-order-of
+         (fold-semidet (sk-key-merge-step $ignore) () (sort-atom $views))))))
 
 ;; --- Lifting merge ------------------------------------------------------------
 ;; Proofs of one statement that share fact premises but are otherwise
@@ -1678,11 +1734,17 @@
       (case (sk-lift $values) (
          ((cons $lifted $_rest) $lifted)
          (()
-            (case (fold-semidet (sk-key-merge-step (hash-union (sk-unifier-hashes $hash $key) $outside)) (sk-merging sk-none () 0) $values) (
-               ((sk-merging $merged () $_deps) $merged)
-               ((sk-merging $merged $keys $deps)
-                  (sk-conditioned $given (sk-key-target $hash $key $filter $exclude) $hash -1
-                     (hash-union $exclude (sk-unifier-hashes $hash $key)) $keys (+ 1 (deps-size $deps)) $merged $merged)))))))))
+            (case (fold-semidet (sk-pair-merge-step (hash-union (sk-unifier-hashes $hash $key) $outside)) (sk-merging sk-none () 0) $values) (
+               ;; Every fact view depends on its own key. A nonempty
+               ;; overlap dependency set also marks an unconditionable
+               ;; overlap (shared observations, with no cut statements).
+               ((sk-merging $merged () $deps)
+                  (if (== $deps 0) $merged
+                     (sk-key-fallback (hash-union (sk-unifier-hashes $hash $key) $outside) $values)))
+               ((sk-merging $_provisional $keys $deps)
+                  (let $merged (sk-key-fallback (hash-union (sk-unifier-hashes $hash $key) $outside) $values)
+                     (sk-conditioned $given (sk-key-target $hash $key $filter $exclude) $hash -1
+                     (hash-union $exclude (sk-unifier-hashes $hash $key)) $keys (+ 1 (deps-size $deps)) $merged $merged))))))))))
 
 (: sk-view-deps-step (-[semidet]-> Number SkeletonValue Number))
 (= (sk-view-deps-step $deps $view)

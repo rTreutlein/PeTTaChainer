@@ -324,7 +324,9 @@ A key's value merges its stored facts and one view per row:
   still share one conditioning on it in turn, as deep as the claim reaches
   (`docs/metta/overlap_conditioning.md`); otherwise, or while the
   conditioning waits to be paid, or where a pass stops at its depth, the
-  more confident view is kept;
+  views are grouped into connected components by shared statements or
+  observations. The most confident view of each component is kept and the
+  independent components merge, preserving evidence outside the overlap;
 - when every proof of the key is modus ponens over conjunctions of facts, the
   proofs share fact premises, and their residual evidence is nonempty and
   pairwise disjoint, the lifting merge factors the shared facts out, revises
@@ -803,8 +805,9 @@ need knows to come back down to it.
 Conditioning is paid for from what that allowance has left, never at depth
 zero for free. A row whose clash needs it waits, keeping the views it had; an
 entangled row waits the same way, taking its independent value if it has no
-view; a key whose views overlap waits keeping its merge with the more
-confident view. Each waits with a cost of 2^l times its base, one more than
+view; a key whose views overlap waits with the independent merge of its
+components' most confident views. The full dependencies of discarded views
+still connect their component, so transitive overlaps cannot split it. Each waits with a cost of 2^l times its base, one more than
 the dependency count of what it conditions, at level l, 1 at first. Once the
 rows are computed and the roots' merged values read, the waiting rows and
 keys the query needs are paid for nearest a root first, then cheapest, then

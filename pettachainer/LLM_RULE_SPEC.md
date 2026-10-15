@@ -193,9 +193,10 @@ estimate them, otherwise the completion yields nothing.
 
 No completion is compiled for `Exists` antecedents, antecedents containing a
 source `Compute`, bare-variable children, or children whose variables do not
-all occur in the rest of the rule, nor for a rule named `no_inverse`, and a
-completion applies only when the consequent's predicate is observed (stored,
-or concluded by an inversion), not merely predicted by forward rules. Do not write the reverse rule by hand for a pure `And`
+all occur in the rest of the rule, nor for a rule named `no_inverse`. Derived consequents support completion
+as they support inversion (PLN induction); dependency sets exclude circular
+self-support, and closed-read unfounded pins are refused. Do not write the
+reverse rule by hand for a pure `And`
 antecedent; write the forward implication and its base rates.
 
 ### Not

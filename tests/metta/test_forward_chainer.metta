@@ -34,7 +34,7 @@
 !(compileadd fwdkb
    (: edgeToPath (Implication (Edge $x $y) (Path $x $y)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 !(compileadd fwdkb
-   (: pathStep (Implication (And (Path $x $y) (Edge $y $z)) (Path $x $z)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
+   (: (no_inverse pathStep) (Implication (And (Path $x $y) (Edge $y $z)) (Path $x $z)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 !(compileadd fwdkb
    (: pathIdempotent (Implication (Path $x $y) (Path $x $y)) (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
 
@@ -42,18 +42,22 @@
 !(test (collapse (forward-chain 20 fwdkb ())) (()))
 !(test (forward-chain 0 fwdkb (test-selected-facts fwdkb (Edge A B))) ())
 
+;; Guard removal permits induction through pathStep, enlarging the closure
+;; with reverse paths and existential joins even when only forward-chain is
+;; called. This fixture tests traversal of a directed graph, so pathStep opts
+;; out of inversion; the induction and stored-dependency tests cover that path.
 ;; A run joins what it derives with the facts already stored: Path A C needs
 ;; Edge B C, which was never a seed.
 !(test
    (result-for (Path A C) (forward-chain 50 fwdkb (test-selected-facts fwdkb (Edge A B))))
-   (((by pathStep (conjunction (by edgeToPath edgeAB) edgeBC)) (STV 1.0 0.9996001597861454))))
+   (((by (no_inverse pathStep) (conjunction (by edgeToPath edgeAB) edgeBC)) (STV 1.0 0.9996001597861454))))
 
 ;; Taking the same seed again changes nothing, so nothing is built.
 !(test (forward-chain 50 fwdkb (test-selected-facts fwdkb (Edge A B))) ())
 
 ;; A forward result is the value a backward query reads for the statement.
 !(test (query-for fwdkb (Path A C))
-   (((by pathStep (conjunction (by edgeToPath edgeAB) edgeBC)) (STV 1.0 0.9996001597861454))))
+   (((by (no_inverse pathStep) (conjunction (by edgeToPath edgeAB) edgeBC)) (STV 1.0 0.9996001597861454))))
 
 ;; A rule concluding its own premise supports itself, and derives nothing.
 !(compileadd loopkb (: seedLoop (Loop Start) (STV 1.0 1.0)))

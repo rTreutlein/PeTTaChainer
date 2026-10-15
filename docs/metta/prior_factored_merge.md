@@ -453,37 +453,26 @@ rate of 0 or 1 no prior until October 2026, which also left a front never
 whatever the window showed (`tests/metta/test_implication_inversion.metta`,
 `tests/metta/test_math.metta`, `tests/metta/test_antecedent_completion.metta`).
 
-A completion reads C's value as an observation of C, so it reads no view of
-C that is a forward conclusion or a closed read's unfounded value
-(`sk-consequence-prior`): a forward conclusion predicts C from its causes,
-the completed conjunct among them, and carries no evidence about M
-(`tests/metta/test_antecedent_completion.metta`, the backup feed: read as an
-observation it moved the degradation from its prior 0.25 to 0.6). In
-SupplyNet stage 3 the current period's production is only predicted;
-reading it, the error of unstocked production was 0.021 instead of 0.008. For the same reason it is
-compiled into the search only where C can be observed: a statement of C's predicate is
-stored (a forward run's copy of a derived value does not count), or an
-inverse rule, an inversion or a completion, concludes C from observations of
-its consequences. A predicate only forward rules conclude is a prediction,
-from M through the completed rule itself or from other causes, and carries no
-evidence about M. The completion's first premise asks this with C's head and
-arity (`observed-predicate?`), so the rule start prunes the completion before
-any join or base-rate fold exists. In SupplyNet the storm of the next period
-is observed through the block rules' inversions and is completed. StationOps'
-temporal filter (`persist`: `(And (NextState $previous $unit)
-(SealLeakAtShiftEnd … $previous)) -> (LeakPredicted …)`) predicts
-`LeakPredicted` from the previous shift's state and from servicing, and
-nothing observes it: the alarm reads it as its `WithPrior` prior. Its
-completions never produced a view, but each joined `NextState` and read the
-base rate of `SealLeakAtShiftEnd`, a fold over the derived states of every
-shift. That fold took the evaluation allowance the shortfall fold's members
-needed; the shortfall posterior was computed over a part of its candidates
-and stated, with confidence 1, that a leak the shortfall had confirmed was
-absent (StationOps seed 3, shift 8: 0.29 for a confirmed leak, Brier 0.0636
-to 0.0685). With the check the completions are pruned and StationOps plays
-as before. Read as an observation, a prediction would also move M: in
-`tests/metta/test_antecedent_completion.metta`, servicing predicts 0.2 for
-the consequence and would pull the conjunct from its base rate 0.3 to 0.172.
+A completion reads its consequent exactly as plain inversion does, through
+`sk-observation-prior`. A stored value or a forward conclusion with no
+identified prior is consumed under the inversion's implied prior (PLN
+induction, Jeffrey's rule). With `A -> B` and `C -> B`, A's prediction of B
+can therefore induce C. A completion with a certain sibling has the same
+value as the matched plain inversion: likelihoods (0.9, 0.1), P(C) = 0.5,
+and B predicted at 0.8 give 0.8 * 0.9 + 0.2 * 0.1 = 0.74
+(`tests/metta/test_pln_induction.metta`). No predicate-level observation
+gate restricts these paths.
+
+Self-support is excluded by the consumer's transitive dependency sets, not
+by the origin of a consequent's value. A completion excludes its target's
+key and unifying keys (`sk-row-exclusions`); a consequent view depending on
+that target fails `sk-admits?`. Thus `(And (InService t) (Not (Degraded t)))
+-> (Produced t)` cannot turn its own Produced prediction back into new
+evidence of Degraded. A prediction from another source remains admissible:
+the backup feed predicting production at 0.4 induces degradation at 0.6,
+since the plant is running and production is the complement of degradation.
+A closed read's unfounded value is still refused by `sk-observation-prior`:
+it is a circular-support hypothesis, not a value.
 
 ### Worked example: production reports and degradation
 

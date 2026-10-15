@@ -62,12 +62,14 @@
 !(compileadd instanceRuleKb
    (: ab (Implication (A $x) (B $x)) (CTV (STV 0.8 0.9) (STV 0.0 1.0))))
 
+;; The axiom and its conditional proof tie in confidence. Canonical fallback
+;; order can select the conditional proof (confidence differs by 3.3e-10);
+;; either still revises the supplied rate with the empirical instance fold.
 !(test
-   (let
-      (: (merge/revision ab (implication-instance-fold cpu)) $type $tv)
-      (query 200 instanceRuleKb (: $prf (Implication (A $v) (B $v)) $tv))
-      $tv)
-   (STV 0.8000224974690348 0.9000101239749476))
+   (let (: (merge/revision $_prior (implication-instance-fold cpu)) $type (STV $s $c))
+        (query 200 instanceRuleKb (: $prf (Implication (A $v) (B $v)) $value))
+      (if (< (abs-math (- $s 0.8000224974690348)) 0.00000001)
+         (< (abs-math (- $c 0.9000101239749476)) 0.00000001) false)) true)
 
 ;; A rule-only KB keeps the plain hypothetical answer: nothing to sample.
 !(compileadd instanceRuleOnlyKb

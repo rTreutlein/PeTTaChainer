@@ -1310,44 +1310,6 @@
 (= (contextualize-rule-args $goal $args)
    (map-semidet (contextualize-rule-premise $goal) $args))
 
-;; An antecedent completion reads its consequence C as an observation of C.
-;; C's predicate is observed when a statement of it is stored (a forward run's
-;; copy of a derived value is not an observation), or when an
-;; inverse rule (an inversion or a completion) concludes it from observations
-;; of its consequences. A predicate only forward rules conclude is predicted,
-;; from the completed conjunct through the rule itself or from other causes,
-;; and tells nothing about the conjunct: the completion's first premise asks
-;; this with the predicate's head and arity (-1 for a bare symbol), so the
-;; rule start prunes it.
-(: open-arguments (-[det]-> Number (List Atom)))
-(= (open-arguments $arity)
-   (if (<= $arity 0) () (cons $_argument (open-arguments (- $arity 1)))))
-
-(: inverse-conclusion-proof? (-[det]-> Atom Bool))
-(= (inverse-conclusion-proof? $proof)
-   (case $proof (
-      ((cons (inverted $_r $_w $_p $_t) $_obs) true)
-      ((cons (antecedent-completion $_c $_i $_w2 $_p2 $_t2) $_known) true)
-      ($_forward false))))
-
-(: forward-copy? (-[det]-> Atom Atom Atom Atom Bool))
-(= (forward-copy? $type $kbctx $proof $tv)
-   (let $hash (index-hash (sk-key $type $kbctx))
-      (not (== (collapse (once (match &sk_forward_stored ($hash $_key $copy $_ev $_deps)
-                  (if (=alpha $copy ($type $kbctx $proof $tv)) true (empty)))))
-               ()))))
-
-(: observed-predicate? (-[det]-> Atom Atom Number Bool))
-(= (observed-predicate? $kbid $head $arity)
-   (let $type (if (< $arity 0) $head (cons-atom $head (open-arguments $arity)))
-      (if (== (collapse (once (match &kb ($type ($kbid $ctx $vars) $proof $tv)
-                  (if (forward-copy? $type ($kbid $ctx $vars) $proof $tv) (empty) true))))
-             ())
-         (not (== (collapse (once (match ccls_index (($type ($kbid $_rctx $_rvars) $rule-proof $_rtv) $_id $_args)
-                  (if (inverse-conclusion-proof? $rule-proof) true (empty)))))
-                  ()))
-         true)))
-
 ;; Walk a copy of a candidate rule's premises before any skeleton state is
 ;; created: a ground fact premise with no matching fact that no rule concludes
 ;; prunes the rule; ground deterministic computations run so later premises

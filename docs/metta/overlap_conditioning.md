@@ -86,11 +86,26 @@ and settled steps are handled before, as they were):
    longer share K or what they read only through it, so they merge by the
    rules above, or condition again on another shared statement. The branches
    mix by `CTVModusPonensFormula` over K's value (`sk-mix`, as for rows).
-4. **Fallback.** The more confident view is kept when the views share an
-   observation (it cannot be given), when the mix is
-   impossible (a branch has no simple truth value, or K's value shares
-   uncertain evidence with the branches), and while the conditioning waits for
-   its cost to be paid.
+4. **Fallback.** When conditioning is unpaid or cannot finish, group the
+   original views into connected components: views connect through shared
+   uncertain statements or observations, with the exclusions above. Keep the
+   most confident view within each component and merge the components as
+   independent. Keep the dependencies of discarded views for connectivity;
+   a bridge must still join both sides when it is not the representative.
+   Canonical view order resolves confidence ties and fixes floating-point
+   fold order. Connectivity stops at the first shared uncertain statement;
+   it does not rank a conditioning cut for every component comparison.
+   Combine independent values before applying their inverse or
+   completion updates, so an update cannot interrupt the combination of
+   direct source claims. The conditioning cut, cost, and paid branches are
+   unchanged.
+
+   Comparing a newcomer with the whole accumulated merge was unsound even as
+   a fallback: an overlap could replace that whole merge with one view and
+   discard direct claims independent of the overlap. The component fallback
+   retains those claims. Shared estimated rule truths remain parameters of
+   both views, as in "Shared rules" below; this does not address their
+   confidence covariance.
 
 Which statement first: see "Budgeted cutset conditioning" below.
 
