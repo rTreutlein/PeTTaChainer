@@ -36,6 +36,8 @@
    (or (== $function FoldAllCompiled) (== $function GroupedFoldAllCompiled)))
 
 ;; Signatures of the mutually recursive functions below.
+(: sk-drop-branch! (-[det]-> Atom Number Atom))
+(: sk-stale-branch! (-[det]-> Atom Number Atom))
 (: sk-add-answer! (-[semidet]-> SkPattern SkeletonKey Atom))
 (: sk-drain! (-[semidet]-> Atom))
 (: sk-extend-step (-[semidet]-> SkeletonKey Atom SkeletonWaiter Atom))
@@ -1852,10 +1854,53 @@
 (: sk-push-root (-[det]-> (Heap SkeletonFrontier) SkPattern (Heap SkeletonFrontier)))
 (= (sk-push-root $heap $root) (sk-push 0 $heap (sk-node-at (sk-node-hash $root) $root)))
 
+(: sk-branch-link! (-[det]-> Number Atom SkeletonKey Atom))
+(: sk-branch-unlink! (-[det]-> Number Atom SkeletonKey Atom))
+(: sk-invalidate-branches! (-[det]-> SkeletonKey Atom))
+(= (sk-branch-link! $slot $_acc $input)
+   (let $ihash (index-hash $input) (context-add! &sk_branch_reader ($ihash $input $slot))))
+
+(= (sk-branch-unlink! $slot $_acc $input)
+   (let $ihash (index-hash $input)
+      (remove-variant-row! &sk_branch_reader (quote ($ihash $input $slot)))))
+
+;; Erase before cascading, so cycles stop at the first already erased owner.
+;; The ordinary views remain valid. Only their cached exclusion reads change.
+(= (sk-drop-branch! $_acc $slot)
+   (let $_dropped
+      (collapse (match &ctx_sk_branch_owner ($slot $hash $key $rhash $inputs)
+         (let* (($_owner (remove-variant-row! &sk_branch_owner (quote ($slot $hash $key $rhash $inputs))))
+                ($_views (remove-data-rows! &sk_branch (quote ($slot $_key $_rhash $_cuts $_fresh $_view))))
+                ($_dirty (context-remove! &sk_branch_dirty ($slot)))
+                ($_inputs (fold-semidet (sk-branch-unlink! $slot) () $inputs)))
+            (sk-invalidate-branches! $key))))
+      ()))
+
+(= (sk-stale-branch! $_acc $slot)
+   (if (space-row-present? &ctx_sk_branch_dirty ($slot)) ()
+      (let $_staled
+         (collapse (match &ctx_sk_branch_owner ($slot $_hash $key $_rhash $inputs)
+            (let* (($_dirty (context-add! &sk_branch_dirty ($slot)))
+                   ($_unlinked (fold-semidet (sk-branch-unlink! $slot) () $inputs))
+                   ($_views
+                      (collapse (match &ctx_sk_branch ($slot $stored $rhash $cuts true $view)
+                         (let $_old (remove-variant-row! &sk_branch (quote ($slot $stored $rhash $cuts true $view)))
+                            (context-add! &sk_branch ($slot $stored $rhash $cuts false $view)))))))
+               (sk-invalidate-branches! $key))))
+         ())))
+
+(= (sk-invalidate-branches! $key)
+   (let* (($hash (index-hash $key))
+          ($_dropped (collapse (fold-semidet sk-stale-branch! ()
+             (collapse (match &ctx_sk_branch_reader ($hash $stored $slot)
+                (if (=alpha $stored $key) $slot (empty))))))))
+      ()))
+
 ;; A row's latest view and the views it replaced.
 (: sk-drop-row-views! (-[det]-> Number SkeletonKey Number Atom))
 (= (sk-drop-row-views! $hash $key $rhash)
-   (let* (($_latest
+   (let* (($_branches (sk-drop-branch! () (index-hash ($hash $rhash))))
+          ($_latest
              (collapse (match &ctx_sk_latest ($hash $stored (sk-version $seq $rhash $view))
                 (if (=alpha $stored $key)
                    (context-remove! &sk_latest ($hash $stored (sk-version $seq $rhash $view)))

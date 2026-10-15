@@ -288,6 +288,8 @@ opaque_proof_step(Step) :-
 % hashes, so union and membership are linear merges over short lists.
 'hash-set'(Hashes, Set) :- sort(Hashes, Set).
 'hash-union'(Left, Right, Set) :- ord_union(Left, Right, Set).
+'hash-subset?'(Left, Right, Result) :- ( ord_subset(Left, Right) -> Result = true ; Result = false ).
+'hash-intersection'(Left, Right, Both) :- ord_intersection(Left, Right, Both).
 
 % A value's dependency set is an interned node id, so a value stays one
 % integer however long the derivation behind it (docs/metta/
@@ -345,6 +347,7 @@ opaque_proof_step(Step) :-
 % &materialized_facts as well.
 refs_holder('&sk_latest', 3, [3]).
 refs_holder('&sk_view', 4, [4]).
+refs_holder('&sk_branch', 6, [6]).
 refs_holder('&sk_merged', 4, [4]).
 refs_holder('&sk_forward_taken', 3, [3]).
 refs_holder('&sk_forward_stored', 5, [3, 4]).
@@ -633,6 +636,7 @@ deps_has(Id, Hash, Bit, Seen) :-
         member(Child, Children), deps_has(Child, Hash, Bit, Seen), ! ).
 
 'deps-has?'(Id, Hash, Result) :- ( deps_has(Id, Hash) -> Result = true ; Result = false ).
+'deps-excluded'(Hashes, Id, Excluded) :- include(deps_has(Id), Hashes, Excluded).
 
 % Whether a set holds any of the keys: one walk, entering only children whose
 % mask has one of the keys' bits.

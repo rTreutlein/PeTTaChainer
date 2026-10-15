@@ -41,7 +41,7 @@
                   ((inheritance-rule-lift friendSmokingRule)
                      (conjunction friendAnnaEdward
                         (merge/revision smokesAnna
-                           (shared 305
+                           (shared 307
                               ((antecedent-completion friendSmokingRule 1 with cpu
                                     (prior (STV 0.7634570208295768 0.0002821703584160559)))
                                  (conjunction friendAnnaFrank
@@ -51,7 +51,7 @@
             (by smokingCancerRule
                (merge/revision
                   ((inheritance-rule-lift friendSmokingRule)
-                     (conjunction friendAnnaEdward (merge/revision smokesAnna (shared 305)))
+                     (conjunction friendAnnaEdward (merge/revision smokesAnna (shared 307)))
                      (ctx proof 1))
                   (by (inheritance-implication smokesEdward) (ctx proof 1))))))
       (Inheritance Edward (IntSet cancerous))

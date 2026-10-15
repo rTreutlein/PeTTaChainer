@@ -1,5 +1,8 @@
 # Issue 54: exclusion-filtered branch rebuilding
 
+Historical first-fix report. The [cache follow-up](cache-followup.md) records
+the review fixes, rebase and current validation results.
+
 Worktree: `.claude/worktrees/history-bug`, branch `history-bug`, based on
 master `cca2b3333c1824d52e6289040db52df2d0bb0ae2`. No changes to the context
 overlay, compiler, or public API.

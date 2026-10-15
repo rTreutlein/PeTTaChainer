@@ -280,13 +280,27 @@ A reader excluding keys cannot assume that a rejected merged row view has
 no admissible proof. It rebuilds that row with the exclusions carried through
 its premises, charging each rebuilt row to the evaluation allowance. A row
 whose owner or a mandatory direct premise is excluded cannot contribute.
-When the allowance runs out, the row and its readers remain stale for retry;
-an older compatible view is only the incumbent. Rebuilt values belong to that
-read and are never installed as ordinary historical views: their cuts must
-not disappear into dependency-only reuse. This is compatible with the settled
-branch reuse rule: a branch built under E1 can serve E2 only when its
-dependencies are disjoint from E2 and its cuts are a subset of E2. The reader
-currently rebuilds rather than caching such branches across exclusion sets.
+Rebuilt branches are cached across reads and queries, separately from ordinary
+views, with their exclusion cuts. A settled branch built under E1 serves E2
+only when its dependencies are disjoint from E2 and its cuts are a subset of
+E2. Each rebuild records only the exclusions that rejected branches, including
+cuts propagated by the child branches it reads. Cuts are immutable sets:
+forgetting may shorten proof dependencies, but must not shorten exclusion
+cuts.
+
+Each cached row registers its direct input keys. A changed input marks its
+branches stale and follows only those cached readers; ordinary views remain
+valid. Stale rows leave the input reader lists until a settled rebuild
+subscribes them again. Stale compatible branches are incumbents while rebuilding is unpaid,
+never settled cache hits. An unpaid nested rebuild holds the consuming reader
+through evaluation and stales that reader after answers are read; it does not
+stale the producer whose ordinary view is still valid. Successful settled
+rebuilds prune dominated contexts, each row retains at most eight contexts,
+and row/key retirement removes its branches and subscriptions. Cached proof
+references are roots of the existing proof collector and cached dependencies
+are roots of the dependency collector. Branch entries, owners, dirty markers
+and input readers use the same scoped store interface as ordinary views, so
+an Assuming overlay can invalidate borrowed branches without changing MAIN.
 
 A certain truth value, confidence >= 1, stands for unlimited evidence in
 revision. Only a stored binary-certain fact, STV strength 0 or 1 at confidence

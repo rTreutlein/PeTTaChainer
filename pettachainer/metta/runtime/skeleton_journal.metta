@@ -233,6 +233,33 @@
 (: &sk_view (SpaceOf (Number SkeletonKey Number SkeletonValue)))
 (: &ctx_sk_view (SpaceOf (Number SkeletonKey Number SkeletonValue)))
 !(bind! &sk_view (new-space))
+(: SkeletonBranch Type)
+(: sk-cut-view (-[det]-> (List Number) SkeletonValue SkeletonBranch))
+;; Exclusion-specific row views: row digest -> owner key, row hash, cuts,
+;; freshness, value. Owner records keep the direct input keys, once per cached row;
+;; input-key-indexed readers invalidate only cached branches that read it.
+(: &sk_branch (SpaceOf (Number SkeletonKey Number (List Number) Bool SkeletonValue)))
+(: &ctx_sk_branch (SpaceOf (Number SkeletonKey Number (List Number) Bool SkeletonValue)))
+!(bind! &sk_branch (new-space))
+(: &sk_branch_owner (SpaceOf (Number Number SkeletonKey Number (List SkeletonKey))))
+(: &ctx_sk_branch_owner (SpaceOf (Number Number SkeletonKey Number (List SkeletonKey))))
+!(bind! &sk_branch_owner (new-space))
+(: &sk_branch_dirty (SpaceOf (Number)))
+(: &ctx_sk_branch_dirty (SpaceOf (Number)))
+!(bind! &sk_branch_dirty (new-space))
+(: &sk_branch_reader (SpaceOf (Number SkeletonKey Number)))
+(: &ctx_sk_branch_reader (SpaceOf (Number SkeletonKey Number)))
+!(bind! &sk_branch_reader (new-space))
+;; The active ordinary reader. Nested evaluations carry exclusions, so they
+;; leave this reader in place. Store only its identity, not its whole row.
+(: &sk_reading (SpaceOf (Number SkeletonKey Number)))
+!(bind! &sk_reading (new-space))
+!(change-state! sk_branch_unpaid 0)
+;; Only the current rebuild records cuts; a child propagates its completed
+;; cuts to its parent. Frames leave when the rebuild returns.
+(: &sk_branch_cuts (SpaceOf (Number (List Number))))
+!(bind! &sk_branch_cuts (new-space))
+!(change-state! sk_branch_at 0)
 ;; every dependency a row's views ever had, by key hash and row hash
 (: &sk_support (SpaceOf (Number Number Number)))
 (: &ctx_sk_support (SpaceOf (Number Number Number)))

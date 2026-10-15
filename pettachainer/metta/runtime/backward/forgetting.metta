@@ -118,10 +118,11 @@
    (append-flat (collapse (match &ctx_sk_view ($_vh $_vk $_vr $old) (sk-view-deps-step 0 $old)))
    (append-flat (collapse (match &ctx_sk_merged ($_mh $_mk $mdeps $_mv) $mdeps))
    (append-flat (collapse (match &ctx_sk_merged ($_nh $_nk $_nd $value) (sk-view-deps-step 0 $value)))
+   (append-flat (collapse (match &ctx_sk_branch ($_slot2 $_bk2 $_br2 $_cuts $_fresh2 $branch) (sk-view-deps-step 0 $branch)))
    (append-flat (collapse (match &ctx_sk_support ($_sh $_sr $support) $support))
    (append-flat (collapse (match &sk_forward_stored ($_fh $_fk $_ff $_fe $fdeps) $fdeps))
    (append-flat (collapse (match &sk_forward_taken ($_th $_tk $taken) (sk-view-deps-step 0 $taken)))
-      (collapse (match &sk_summary ($_yh $_yk $_yf $_ye $ydeps) $ydeps))))))))))
+      (collapse (match &sk_summary ($_yh $_yk $_yf $_ye $ydeps) $ydeps)))))))))))
 
 ;; Ends an epoch and freezes the keys idle for the horizon. Returns the new
 ;; epoch.

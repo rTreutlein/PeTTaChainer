@@ -20,6 +20,8 @@
 ;; Sets of key hashes, kept as SWI ordered sets (runtime_helpers.pl).
 (: hash-set (-[det]-> (List Number) (List Number)))
 (: hash-union (-[det]-> (List Number) (List Number) (List Number)))
+(: hash-subset? (-[det]-> (List Number) (List Number) Bool))
+(: hash-intersection (-[det]-> (List Number) (List Number) (List Number)))
 
 ;; A value's dependency set, an interned node id; 0 is the empty set
 ;; (runtime_helpers.pl).
@@ -28,6 +30,7 @@
 (: deps-join (-[det]-> (List Number) Number))
 (: deps-has? (-[det]-> Number Number Bool))
 (: deps-meet? (-[det]-> (List Number) Number Bool))
+(: deps-excluded (-[det]-> (List Number) Number (List Number)))
 (: deps-within? (-[det]-> Number Number Bool))
 (: deps-mask-within? (-[det]-> Number Number Bool))
 (: deps-size (-[det]-> Number Number))
@@ -203,6 +206,9 @@
 (: sk_budget CounterKey)
 (: sk_row_budget CounterKey)
 (: sk_eval_budget CounterKey)
+(: sk_branch_unpaid CounterKey)
+(: sk_branch_frame CounterKey)
+(: sk_branch_at CounterKey)
 (: sk_need_budget CounterKey)
 (: sk_claim_left CounterKey)
 (: sk_claim_depth CounterKey)

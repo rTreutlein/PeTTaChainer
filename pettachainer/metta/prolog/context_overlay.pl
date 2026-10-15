@@ -72,6 +72,10 @@ context_local_only('&sk_instance_checked').
 
 context_store('&sk_latest',3).
 context_store('&sk_view',4).
+context_store('&sk_branch',6).
+context_store('&sk_branch_owner',5).
+context_store('&sk_branch_dirty',1).
+context_store('&sk_branch_reader',3).
 context_store('&sk_support',3).
 context_store('&sk_merged',4).
 context_store('&sk_reader',4).

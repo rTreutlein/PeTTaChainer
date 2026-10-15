@@ -1,6 +1,8 @@
 import itertools
 import unittest
 
+import janus_swi as janus
+
 from pettachainer import PeTTaChainer
 
 
@@ -27,6 +29,20 @@ class HistoryIndependenceTests(unittest.TestCase):
                     self.assertEqual(h.query('(: $p (X a) $tv)', steps=budget, timeout_sec=0), [expected])
                 for p in ('M', 'B'):
                     h.query(f'(: $p ({p} a) $tv)', steps=200, timeout_sec=0)
+                self.assertEqual(h.query('(: $p (X a) $tv)', steps=200, timeout_sec=0), [expected])
+                # An overlay may strengthen M, but must neither consume the
+                # borrowed MAIN cache as current nor mutate its stored branch.
+                cache_query = (
+                    "findall(_Text, ('&sk_branch'(_S,['sk-key',['B',a],[Kb,'MAIN','Nil']],"
+                    "_R,_C,_F,_V), term_string([_S,_R,_C,_F,_V],_Text)), Rows)"
+                )
+                before = janus.query_once(cache_query, {"Kb": h.kb})["Rows"]
+                if warm:
+                    self.assertTrue(before)
+                assumed = h.query_many_refs(['(: $p (Assuming (M a) (X a)) $tv)'], steps=200)[0]
+                self.assertEqual(len(assumed), 1)
+                self.assertAlmostEqual(assumed[0].tv[2], 0.9997004492512355)
+                self.assertEqual(janus.query_once(cache_query, {"Kb": h.kb})["Rows"], before)
                 self.assertEqual(h.query('(: $p (X a) $tv)', steps=200, timeout_sec=0), [expected])
 
     def test_cycle_family_rule_permutations_with_interleaved_queries(self):
