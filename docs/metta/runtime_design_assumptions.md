@@ -240,6 +240,13 @@ later answers. Its current keys are still read once, including the aggregate
 registrations before the completed-row check. Child links have waiter
 leases and fixed claims indexed by their actual join conclusion, so retiring
 one bound conclusion of an open search leaves its other conclusions searchable.
+Waiters store a shared continuation template derived from the immutable compiled
+rule at its premise position, plus bindings and the awaited node. The template
+widens context/proof slots without imposing variable sharing absent from the
+actual join. Delivery reconstructs the original partial; original open keys and
+their sharing survive. The read-only `&sk_wait` relation owns no waiter clauses.
+Cleanup erases compact payload clause references and removes each template with
+its last subscriber.
 A waiter batch computes its child-link digest once and passes it to the
 waiter, child and fixed-claim stores. A waiter lease records that digest and
 the waiter's clause reference; retraction finds the digest by the reference,

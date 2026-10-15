@@ -21,11 +21,14 @@
 % Remove the rows of each space whose first column is Hash: the stores keyed
 % by a node's or key's own hash, all at once.
 'remove-hash-rows!'(Spaces, Hash, true) :-
-    forall(( member(Space, Spaces), current_predicate(Space/Arity), Arity > 0 ),
+    ( memberchk('&sk_wait', Spaces) -> retractall(sk_wait_payload(Hash, _, _, _)) ; true ),
+    forall(( member(Space, Spaces), Space \== '&sk_wait', current_predicate(Space/Arity), Arity > 0 ),
            ( functor(Row, Space, Arity), arg(1, Row, Hash), retractall(Row) )).
 
 % Erase the one stored row that is a variant of Row. A removal by unification
 % could also take a different row with the same coarse hash; a variant cannot.
+'remove-variant-row!'('&sk_wait', [H, N, W], true) :- !,
+    sk_remove_wait(H, N, W).
 'remove-variant-row!'(Space, Row, true) :-
     Head =.. [Space|Row],
     functor(Head, Name, Arity),
@@ -2066,7 +2069,7 @@ hypothesis_confidence(['CTV', ['STV', _, C], _], C).
            sk_child_debt/2, sk_retire_component/1.
 sk_search_init :-
     (   nb_current(sk_search_listening, true) -> true
-    ;   forall(member(Space/Arity, ['&sk_wait'/3, '&sk_join_link'/2, '&sk_child'/4,
+    ;   forall(member(Space/Arity, [sk_wait_payload/4, '&sk_join_link'/2, '&sk_child'/4,
                                    '&sk_deferred_joins'/3, '&sk_deferred'/3,
                                    '&sk_expanded'/2]),
                prolog_listen(user:Space/Arity, sk_search_changed(Space))),
@@ -2106,10 +2109,41 @@ sk_search_index(Conclusion, Space, Ref) :-
 
 % A waiter batch already needs this digest for its child link. Retain a
 % lease by clause reference, so retraction never hashes the partial again.
+
 'sk-store-wait!'(D, H, N, Waiter, true) :-
-    sk_search_init, assertz('&sk_wait'(H, N, Waiter), Ref),
-    assertz(sk_child_users(D, Ref)), Waiter = ['sk-partial', _, _, C|_],
-    sk_search_index(C, '&sk_wait', Ref).
+    sk_search_init, Waiter = ['sk-partial', _, Id, C, Done, _, _], length(Done, Pos),
+    ( sk_wait_template(Id, Pos, TemplateId, Template, Bindings), subsumes_term(Template, Waiter)
+    -> Template = Waiter
+    ; rules('runtime-rule-row', Id, Conclusion, Premises),
+      copy_term_nat(Conclusion, Owner),
+      length(Prefix, Pos), append(Prefix, Remaining, Premises), reverse(Prefix, Consumed),
+      term_subsumer(['sk-partial', Owner, Id, Conclusion, Consumed, Remaining, _], Waiter, Template),
+      term_variables(Template, Bindings),
+      flag(sk_wait_template_id, TemplateId, TemplateId + 1),
+      assertz(sk_wait_template(Id, Pos, TemplateId, Template, Bindings)),
+      Template = Waiter ),
+    assertz(sk_wait_payload(H, N, TemplateId, Bindings), Ref),
+    assertz(sk_child_users(D, Ref)), sk_search_index(C, sk_wait_payload, Ref).
+
+% A continuation template is the compiled rule split at a premise position.
+% Context routing and query proof patterns widen only the affected slots.
+% Generalization preserves sharing only where both the compiled rule and
+% the contextualized join share it; it never binds the join being encoded.
+% Templates are shared, immutable, and leave with their last subscription.
+:- use_module(library(terms), [term_subsumer/3]).
+:- dynamic sk_wait_payload/4, sk_wait_template/5.
+% The read-only relation exposes the existing transient delivery shape. The
+% only owned clauses are compact payloads, indexed by the awaited node hash.
+'&sk_wait'(H, N, Waiter) :-
+    sk_wait_payload(H, N, TemplateId, Bindings),
+    sk_wait_template(_, _, TemplateId, Waiter, Bindings).
+
+sk_remove_wait(H, N, Waiter) :-
+    ( clause(sk_wait_payload(H, Stored, TemplateId, B), true, Ref),
+      attribute_free_variant(Stored, N),
+      sk_wait_template(_, _, TemplateId, W, B),
+      attribute_free_variant(Stored-W, N-Waiter)
+    -> erase(Ref) ; true ).
 
 'sk-store-child!'(D, H, Owner, Child, CH, true) :-
     sk_search_init, assertz('&sk_child'(H, Owner, Child, CH), Ref),
@@ -2134,8 +2168,11 @@ sk_search_changed(Space, assertz, Ref) :- !,
     ; true ).
 sk_search_changed(Space, retract, Ref) :- !,
     retractall(sk_search_clause(_, _, _, Ref)),
-    (   Space == '&sk_wait'
-    ->  forall(retract(sk_child_users(D, Ref)), sk_release_child(D))
+    (   Space == sk_wait_payload
+    ->  clause(sk_wait_payload(_, _, TemplateId, _), true, Ref),
+        ( once((clause(sk_wait_payload(_, _, TemplateId, _), true, Other), Other \== Ref)) -> true
+        ; retractall(sk_wait_template(_, _, TemplateId, _, _)) ),
+        forall(retract(sk_child_users(D, Ref)), sk_release_child(D))
     ;   Space == '&sk_child', clause('&sk_child'(OH, O, N, NH), true, Ref),
         retract(sk_child_edge(D, Ref))
     ->  forall(clause(sk_child_claim(_, D, _), true, Claim), sk_erase_claim(Claim)),
@@ -2154,7 +2191,7 @@ sk_erase_claim(Ref) :-
 % Context cleanup keeps its own pending-graph transitions instead.
 'sk-retire-wait!'(Hash, Premise, Waiter, true) :-
     setup_call_cleanup(nb_setval(sk_retiring, true),
-                       'remove-variant-row!'('&sk_wait', [Hash, Premise, Waiter], true),
+                       sk_remove_wait(Hash, Premise, Waiter),
                        nb_delete(sk_retiring)).
 
 % The node hash is already available at expansion/context cleanup. Only its
@@ -2214,7 +2251,7 @@ sk_retire_slice(Units) :-
 sk_retire_clause(Space, Ref) :-
     % A ground unexpanded premise used its waiter as a fact subscription.
     % Preserve that read once per node, without the obsolete join payload.
-    (   Space == '&sk_wait', clause('&sk_wait'(H, N, _), true, Ref), N = [T, C, _, _],
+    (   Space == sk_wait_payload, clause(sk_wait_payload(H, N, _, _), true, Ref), N = [T, C, _, _],
         sk_search_key([T, C], _, _),
         \+ ( '&sk_expanded'(H, S), attribute_free_variant(S, N) ),
         'link-digest'(['sk-fact-watch', N], D), \+ '&sk_fact_watch'(_, D, _)

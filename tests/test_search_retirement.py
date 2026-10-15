@@ -25,7 +25,8 @@ class TestSearchRetirement(unittest.TestCase):
         premise = [['Missing', 'x'], ctx, 'premise', ['STV', 0.5, 0.1]]
         result = janus.query_once(
             "'sk-node-hash'(N,H),'link-digest'(['sk-child-link',O,N],D),"
-            "forall(between(1,100,_),'sk-store-wait!'(D,H,N,['sk-partial',O,1,O,[],[N],[]],_)),"
+            "assertz(rules('runtime-rule-row',9999001,O,[N])),"
+            "forall(between(1,100,_),'sk-store-wait!'(D,H,N,['sk-partial',O,9999001,O,[],[N],[]],_)),"
             "use_module(library(prolog_profile)),"
             "'$profile'('sk-retire-known!'(['Uncertain',x],Ctx,_),cputime,false,500.0),"
             "findall(_Count,(profile_procedure_data(user:'sk-known-conclusion?'/2,_Stats),"
@@ -279,7 +280,8 @@ class TestSearchRetirement(unittest.TestCase):
         janus.query_once(
             "'sk-known-conclusion?'(O,_),'sk-node-hash'([['Watched',x],Ctx,_,_],H),"
             "_N=[['Watched',x],Ctx,_,_],copy_term_nat(_N,_Child),'link-digest'(['sk-child-link',O,_Child],D),"
-            "forall(between(1,5,_),'sk-store-wait!'(D,H,_N,['sk-partial',O,1,O,[],[_N],[]],_)),"
+            "assertz(rules('runtime-rule-row',9999002,O,[_N])),"
+            "forall(between(1,5,_),'sk-store-wait!'(D,H,_N,['sk-partial',O,9999002,O,[],[_N],[]],_)),"
             "'sk-add-child!'(O,_Child,1.0,D,_)",
             {'Ctx': ctx, 'O': owner})
         h.add_atom('(: closed (Closed x) (STV 1 1))')

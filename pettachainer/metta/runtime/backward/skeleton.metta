@@ -1945,7 +1945,7 @@
           ($_waits
              (collapse (match &sk_temp_waits ($hash $pattern $waiter)
                 (let $_temp (remove-atom &sk_temp_waits ($hash $pattern $waiter))
-                   (remove-atom &sk_wait ($hash $pattern $waiter))))))
+                   (let $_removed (remove-variant-row! &sk_wait (quote ($hash $pattern $waiter))) ())))))
           ($keys
              (collapse (match &sk_temp_rows ($khash $key $rhash $row)
                 (let* (($_temp (remove-atom &sk_temp_rows ($khash $key $rhash $row)))
