@@ -71,6 +71,7 @@
 
 ;; Signatures of the mutually recursive functions below.
 (: sk-note-cuts! (-[det]-> (List Number) Atom))
+(: sk-excludes? (-[det]-> (List Number) Number Bool))
 (: sk-branch-values (-[semidet]-> Number SkeletonKey Number (List Number) Bool (List SkeletonValue)))
 (: sk-mixed (-[det]-> (List SkeletonValue) SkeletonValue SkeletonValue))
 (: sk-reference-view (-[semidet]-> Number SkeletonValue SkeletonValue))
@@ -124,8 +125,8 @@
    (let $view (sk-leaf-view $hash $fact)
       (if (== (sk-view-deps-step 0 $view) (deps-key $hash)) (cons $view $kept)
          (if (if $computed (not (sk-summary-fact? $fact)) false) $kept
-            (if (deps-meet? $exclude (sk-view-deps-step 0 $view))
-               (let $_cut (sk-note-cuts! (deps-excluded $exclude (sk-view-deps-step 0 $view))) $kept)
+            (if (sk-excludes? $exclude (sk-view-deps-step 0 $view))
+               $kept
                (cons $view $kept))))))
 
 (: sk-leaf-views (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonValue)))
@@ -1366,9 +1367,9 @@
 (= (sk-admits? $filter $exclude $view)
    (case $view (
       ((sk-val $fact $_ev $deps)
-         (if (deps-meet? $exclude $deps) false (sk-fact-matches? $filter $fact)))
+         (if (sk-excludes? $exclude $deps) false (sk-fact-matches? $filter $fact)))
       ((sk-goal-val $_goal $_proof $_ev $deps)
-         (if (deps-meet? $exclude $deps) false true))
+         (if (sk-excludes? $exclude $deps) false true))
       (sk-none false))))
 
 (: sk-admit-older (-[det]-> SkeletonFilter (List Number) SkeletonValue SkeletonValue SkeletonValue))
@@ -1390,10 +1391,8 @@
    (case (sk-left-out-view $hash $key $filter $exclude $rhash) (
       (sk-none
          (if (sk-admits? $filter $exclude $view) (cons (sk-version $seq $rhash $view) $kept)
-            (let* (($rebuilt (if (deps-meet? $exclude (sk-view-deps-step 0 $view))
-                                   (sk-rebuild-view $hash $key $rhash $exclude) sk-none))
-                   ($_cuts (if (== $rebuilt sk-none)
-                              (sk-note-cuts! (deps-excluded $exclude (sk-view-deps-step 0 $view))) ())))
+            (let $rebuilt (if (sk-excludes? $exclude (sk-view-deps-step 0 $view))
+                              (sk-rebuild-view $hash $key $rhash $exclude) sk-none)
                (case (if (sk-admits? $filter $exclude $rebuilt) $rebuilt
                         (fold-semidet (sk-admit-older $filter $exclude) sk-none (sk-older-views $hash $key $rhash))) (
                   (sk-none $kept)
@@ -1406,8 +1405,7 @@
 ;; dropping one changes only how much a later reader must rebuild.
 (: sk-rebuild-view (-[semidet]-> Number SkeletonKey Number (List Number) SkeletonValue))
 (= (sk-rebuild-view $hash $key $rhash $exclude)
-   (if (deps-meet? $exclude (deps-key $hash))
-      (let $_cut (sk-note-cuts! (cons $hash ())) sk-none)
+   (if (sk-excludes? $exclude (deps-key $hash)) sk-none
       (let $slot (index-hash ($hash $rhash))
          (case (sk-branch-values $slot $key $rhash $exclude true) (
             ((cons $cached $_rest) $cached)
@@ -1416,10 +1414,8 @@
                         (if (=alpha $stored $key) (sk-row $ident $concl $premises $seq) (empty))))) (
                   (() sk-none)
                   ((cons (sk-row (sk-ident $rule $keys $result) $concl $premises $seq) $_rows)
-                     (let* (($inputs (alpha_unique_keys (fold-semidet sk-direct-key-step () $premises)))
-                            ($blocked (hash-intersection $exclude (hash-set (map-semidet index-hash $inputs)))))
-                        (if (not (== $blocked ()))
-                           (let $_cut (sk-note-cuts! $blocked) sk-none)
+                     (let $inputs (alpha_unique_keys (fold-semidet sk-direct-key-step () $premises))
+                        (if (sk-excludes? $exclude (deps-join (map-flat deps-key (map-semidet index-hash $inputs)))) sk-none
                            (if (sk-take! sk_eval_budget (case $key (((sk-key $type $_kbctx) (term-cost $type)) ($_fold 1))))
                               (let* (($_counted (query_metric_increment row-computes))
                                      ($unpaid (search-id-value sk_branch_unpaid))
@@ -1448,21 +1444,28 @@
                                                  (empty))))))))
                                  (sk-mixed (sk-branch-values $slot $key $rhash $exclude false) sk-none))))))))))))))
 
+(= (sk-excludes? $exclude $deps)
+   (if (deps-meet? $exclude $deps)
+      (let $_cut (if (== (search-id-value sk_branch_at) 0) ()
+                    (sk-note-cuts! (deps-excluded $exclude $deps)))
+         true)
+      false))
+
 (= (sk-note-cuts! $cuts)
-   (if (== $cuts ()) ()
-      (let* (($frame (search-id-value sk_branch_at))
-             ($_noted (collapse (match &sk_branch_cuts ($frame $old)
+   (let $frame (search-id-value sk_branch_at)
+      (if (if (== $frame 0) true (== $cuts ())) ()
+         (let $_noted (collapse (match &sk_branch_cuts ($frame $old)
                 (let* (($both (hash-union $old $cuts))
                        ($_old (remove-variant-row! &sk_branch_cuts (quote ($frame $old)))))
-                   (add-atom &sk_branch_cuts ($frame $both)))))))
-         ())))
+                   (add-atom &sk_branch_cuts ($frame $both)))))
+            ()))))
 
 (= (sk-branch-values $slot $key $rhash $exclude $fresh)
    (case (fold-semidet sk-cons-step ()
       (collapse (match &ctx_sk_branch ($slot $stored $rhash $cuts $fresh $view)
          (if (=alpha $stored $key)
             (if (hash-subset? $cuts $exclude)
-               (if (deps-meet? $exclude (sk-view-deps-step 0 $view)) (empty)
+               (if (sk-excludes? $exclude (sk-view-deps-step 0 $view)) (empty)
                   (if (sk-live-view? $view)
                      (if (if $fresh true (not (== $view sk-none))) (sk-cut-view $cuts $view) (empty)) (empty)))
                (empty)) (empty))))) (
@@ -2358,7 +2361,7 @@
                 (sk-merge-key $hash $key sk-any-filter $exclude () (sk-admitted $hash $key sk-any-filter $exclude))
                 (case (sk-open-value $hash $key sk-any-filter) (
                    ((sk-merged $_hash $_key $deps $value)
-                      (if (deps-meet? $exclude $deps)
+                      (if (sk-excludes? $exclude $deps)
                          (sk-merge-key $hash $key sk-any-filter $exclude () (sk-admitted $hash $key sk-any-filter $exclude))
                          $value)))))))
       (if (sk-open-filter? $filter) $merged
@@ -2561,7 +2564,7 @@
                (if (=alpha $stored $key) (sk-row $ident $concl $premises $seq) (empty))))) (
          ((cons $row $_rest)
             (let $again (sk-row-view $given $exclude $hash $key $rhash $row)
-               (if (deps-meet? $exclude (sk-view-deps-step 0 $again)) sk-none $again)))
+               (if (sk-excludes? $exclude (sk-view-deps-step 0 $again)) sk-none $again)))
          (() $view)))
       $view))
 
@@ -4582,7 +4585,10 @@
 (: execute-backward
    (-[nondet]-> Number (List (| Goal (Statement KBContext Proof TV))) Bool (List (List RuntimeResult))))
 (= (execute-backward $steps $requested $materialize?)
-   (let* (($goals (map-flat context-search-goal $requested))
+   (let* (($_branch-frame (change-state! sk_branch_at 0))
+          ($_branch-cuts (remove-data-rows! &sk_branch_cuts (quote ($_frame $_cuts))))
+          ($_branch-reader (remove-data-rows! &sk_reading (quote ($_hash $_key $_row))))
+          ($goals (map-flat context-search-goal $requested))
           ($_seen (remove-data-rows! &sk_seen (quote ($hash $node))))
           ($_fresh (remove-data-rows! &sk_fresh (quote ($fhash $node))))
           ($_parked (sk-park-deliveries!))
