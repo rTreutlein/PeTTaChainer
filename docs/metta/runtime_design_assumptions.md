@@ -291,7 +291,9 @@ samples. It is not a declaration about uncertain or derived values.
 Waiters whose key arguments are ground share the existing ownership index and
 retirement queue under a private functional key. Assignment retires incompatible
 subscriptions in the same bounded slices; compatible ones consume their answer
-before releasing their leases. Delivery keeps the pre-extension subscription:
+before releasing their leases. A node that already has its unique functional
+answer reads that key directly without allocating a new subscription or
+producer traversal: the declaration forbids other producers of that relation. Delivery keeps the pre-extension subscription:
 extension may bind its variables and change its node hash. An open subscription
 with unbound key arguments remains live. Shared pending premise traversal and
 ordinary context bookkeeping retain their existing rules. Assignment records,

@@ -836,6 +836,8 @@
 
 (= (sk-wait-on! $owner $rule $premise $waiter)
    (if (sk-functional-conflict? $premise) ()
+   (if (sk-functional-exhausted? $premise)
+      (fold-semidet (sk-extend-waiter-step $waiter) () (sk-answers $premise))
    (let* (((sk-partial $_owner $_rule $concl $_done $remaining $_keys) $waiter)
           ($known (sk-known-conclusion? $concl))
           ($hash (sk-node-hash $premise))
@@ -871,7 +873,7 @@
       ;; completed-row check. A known conclusion leaves no future subscriber.
       (let $_read (fold-semidet (sk-extend-waiter-step $waiter) ()
          (if (sk-completion-waiter? $waiter) (append-flat (sk-answers $premise) (sk-prior-answers $premise)) (sk-answers $premise)))
-         (let $_retired (sk-functional-delivered! $subscription) ())))))
+         (let $_retired (sk-functional-delivered! $subscription) ()))))))
 
 (: sk-extend-waiter-step (-[semidet]-> SkeletonWaiter Atom SkeletonKey Atom))
 (= (sk-extend-waiter-step $waiter $_acc $key) (sk-extend-current! (copy_term $waiter) $key))

@@ -2107,6 +2107,15 @@ functional_check_addition(Add, Before, After) :-
       functional_value(Hash, Key, Stored), \+ unifiable(Type, Stored, _)
     -> Conflict = true ; Conflict = false ).
 
+% An extensional functional node with its unique answer has no remaining
+% producer work. Consume that key directly instead of allocating a lease and
+% immediately retiring it again.
+'sk-functional-exhausted?'(N, Exhausted) :-
+    ( N = [Type,Context|_], functional_key(Type, Context, Key),
+      term_hash(Key, Hash), functional_value(Hash, Key, _),
+      'sk-node-hash'(N, H), '&sk_answer'(H, Stored, _), attribute_free_variant(Stored, N)
+    -> Exhausted = true ; Exhausted = false ).
+
 % A delivered value exhausts this subscription. Existing rows and key reads
 % remain live for evidence updates; unassigned functional keys remain open.
 % Snapshot only functional subscriptions, before extension binds their node.

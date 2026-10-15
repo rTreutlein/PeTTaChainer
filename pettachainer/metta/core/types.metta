@@ -43,6 +43,7 @@
 (: functional-fact! (-[det]-> $fact Bool))
 (: functional-rule! (-[det]-> $conclusion Bool))
 (: sk-functional-conflict? (-[det]-> $premise Bool))
+(: sk-functional-exhausted? (-[det]-> $premise Bool))
 (: sk-functional-subscription (-[det]-> $waiter Atom))
 (: sk-functional-delivered! (-[det]-> Atom Bool))
 (: sk-known-conclusion? (-[det]-> $fact Bool))
