@@ -66,13 +66,13 @@
 !(bind! &hm_unread (new-space))
 
 ;; Implication hash -> kb, implication: tried candidates. Screening can clear
-;; one after its recorded general rule moves; all other drops stay tried.
+;; one when current instance folds no longer support its screen; other drops stay tried.
 (: &hm_tried (SpaceOf (Number KB Atom)))
 !(bind! &hm_tried (new-space))
 
-;; Screening key hash -> kb, key, dropped name, implication, reference strength
-;; and one standard error at drop time. One reason per screened candidate.
-(: &hm_screened (SpaceOf (Number KB SkeletonKey Atom Atom Number Number)))
+;; Screening key hash -> kb, key, dropped name, implication.
+;; One reason per screened candidate; reconsideration reads current folds.
+(: &hm_screened (SpaceOf (Number KB SkeletonKey Atom Atom)))
 !(bind! &hm_screened (new-space))
 ;; Only changed screening keys await the next review; repeated changes coalesce.
 (: &hm_screen_dirty (SpaceOf (Number KB SkeletonKey)))
@@ -80,7 +80,7 @@
 
 (: hm-screen-changed! (-[det]-> Number SkeletonKey Atom))
 (= (hm-screen-changed! $hash $key)
-   (collapse (once (match &hm_screened ($hash $kb $stored $_name $_rule $_s $_se)
+   (collapse (once (match &hm_screened ($hash $kb $stored $_name $_rule)
       (if (=alpha $stored $key)
          (if (space-row-present? &hm_screen_dirty ($hash $kb $key)) ()
             (add-atom &hm_screen_dirty ($hash $kb $key)))
