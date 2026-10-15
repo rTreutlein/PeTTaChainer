@@ -336,6 +336,8 @@
           ($_evaluation (change-state! sk_eval_budget $units))
           ($_reserve (change-state! sk_near_reserve 0))
           ($_unneeded (remove-data-rows! &sk_needed (quote ($hash $key $depth))))
+          ($_priority (remove-data-rows! &sk_need_priority (quote ($hash $key $priority))))
+          ($_completion (remove-data-rows! &sk_completion_work (quote ($khash $rhash))))
           ($_activate (sk-activate-pending!))
           ($carried (collapse (match &sk_forward_agenda ($kb $priority $item) ($priority $item))))
           ($_cleared (remove-data-rows! &sk_forward_agenda (quote ($kb $priority $item))))

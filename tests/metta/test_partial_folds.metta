@@ -83,12 +83,12 @@
 !(test (let (: $proof (Total u1) (STV $s $_c)) (total2 200) (and (== (car-atom $proof) by) (close? $s 0.8))) true)
 
 ;; A fold reads a member whose row derived nothing while that row waits to be
-;; computed again (here a soft degradation history the antecedent completions
-;; of runs read, in an Assuming context): the fold is complete over no member
-;; for a moment. When the allowance then leaves the row stale, the fold goes
-;; stale and its reader is computed again, so the query answers the partial
-;; fold. Before a8ab91a6 the reader was held stale with the complete view,
-;; (Value t1 0.0) at confidence 0.9997 (SupplyNet stage 4, gap 4).
+;; computed again (a soft degradation history read in an Assuming context).
+;; It is complete over no member for a moment, then its reader must refresh.
+;; With completion-only work later in the queue, the exact fold can finish at
+;; this budget. Guard removal alone leaves an empty partial fold here. Before
+;; a8ab91a6 the stale reader instead kept Value 0 at confidence 0.9997
+;; (SupplyNet stage 4, gap 4).
 !(set-complete-predicate recomputeKb P)
 !(compileadd recomputeKb (: persist (Implication (And (Next $p $t) (D $p)) (D $t)) (CTV (STV 0.75 1) (STV 0.1 1))))
 !(compileadd recomputeKb (: runs (Implication (And (Not (D $t)) (On $t)) (P $t)) (CTV (STV 1 1) (STV 0 1))))
@@ -120,5 +120,8 @@
 !(compileadd recomputeKb (: on-h6 (On h6) (STV 1 1)))
 !(compileadd recomputeKb (: next-t1 (Next h6 t1) (STV 1 1)))
 
+;; Gentle completion priority lets the exact decision fold finish at this
+;; budget: D(t1)=0.75*0.2+0.1*0.8=0.23, hence value=4*(1-0.23)=3.08.
+;; The no-priority induction fix alone still returns the empty partial fold.
 !(test (query 16 recomputeKb (: $p (Assuming (And (Decision t1) (On t1)) (Value t1 $g)) $tv))
-   (: (assuming (by (no_inverse value) (conjunction (ctx proof 0) (partial-fold 0 1 cpu)))) (Assuming (And (Decision t1) (On t1)) (Value t1 0.0)) (STV 1.0 0.0)))
+   (: (assuming (by (no_inverse value) (conjunction (ctx proof 0) (foldall-proof (by (no_inverse out) (conjunction val (by runs (conjunction (negated (by persist (conjunction next-t1 d-h6))) (ctx proof 0 1))))))))) (Assuming (And (Decision t1) (On t1)) (Value t1 3.08)) (STV 1.0 0.999700089898053)))

@@ -745,6 +745,14 @@ seeds 1–4 and budgets 25–200: 0.00348 by creation, 0.00323 by depth). The
 order does not depend on the allowance, so an allowance that covers everything
 computes what an unbounded evaluation would.
 
+Completions reading derived consequents remain eligible, but their reads and
+completion-only population work follow ordinary rows and exact fold checks.
+This is queue priority only: need traversal remains breadth first at the same
+depths, stale refreshes keep their prefix, and reserve accounting is unchanged.
+A key also reached through an ordinary path keeps ordinary priority. Forward
+waves keep creation order. The completion induction tests cover eventual
+eligibility; the priority test covers depth, reserve and ordinary-path promotion.
+
 A row's computation from the allowance, like its creation, costs more the
 larger its key (`term-cost`), so a step costs the same however large the terms
 a recursive rule builds; the reserve near the roots is left by count, since it

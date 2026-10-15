@@ -2846,13 +2846,19 @@
 ;; a pass the allowance goes to the rows nearest a root, whatever order the
 ;; search created them in. A forward run, whose rows all spend its units,
 ;; computes them by creation. Creation numbers stay below 10^12, and the fold
-;; checks come after every row.
+;; checks come after every ordinary row. Completion-only derived-consequent
+;; reads and their population work follow these rows and exact checks, with
+;; their original depth/creation order intact. All remain eligible.
 (: sk-item-order (-[det]-> SkeletonItem Number))
-(= (sk-item-order (sk-row-item $seq $khash $key $_rhash $_row))
-   (let $depth (sk-need-depth $khash $key)
-      (if (if (== (search-id-value sk_forward_run) 1) true (<= $depth (sk-evaluation-free-depth))) $seq
-         (+ (* $depth 1000000000000) $seq))))
-(= (sk-item-order (sk-fold-check $_hash $_fold)) (sk-check-seq))
+(= (sk-item-order (sk-row-item $seq $khash $key $rhash $_row))
+   (if (== (search-id-value sk_forward_run) 1) $seq
+      (let* (($depth (sk-need-depth $khash $key))
+             ($order (if (<= $depth (sk-evaluation-free-depth)) $seq (+ (* $depth 1000000000000) $seq))))
+         (if (if (space-row-present? &sk_completion_work ($khash $rhash)) true (sk-completion-needed? $khash $key))
+            (+ (* 2 (sk-check-seq)) $order) $order))))
+(= (sk-item-order (sk-fold-check $hash $fold))
+   (if (== (search-id-value sk_forward_run) 1) (sk-check-seq)
+      (* (if (sk-completion-needed? $hash $fold) 3 1) (sk-check-seq))))
 
 ;; this pass's remaining items and the next pass's, by their order
 (: SkeletonWork Type)
@@ -2990,8 +2996,8 @@
          (let* (($mhash (index-hash $member))
                 ($_pending (add-atom &sk_fold_pending ($hash $mhash)))
                 ($check (sk-fold-check $hash $fold)))
-            (if (sk-queue-new? $pass $check) (sk-work (add_to_heap $todo (sk-check-seq) $check) $next)
-               (if (sk-queue-new? (+ $pass 1) $check) (sk-work $todo (add_to_heap $next (sk-check-seq) $check))
+            (if (sk-queue-new? $pass $check) (sk-work (add_to_heap $todo (sk-item-order $check) $check) $next)
+               (if (sk-queue-new? (+ $pass 1) $check) (sk-work $todo (add_to_heap $next (sk-item-order $check) $check))
                   (sk-work $todo $next))))))))))
 
 ;; A row is forced once per evaluation by each changed key: a fold's readers
@@ -3059,9 +3065,9 @@
                ((cons (sk-version $_seq $_rhash $new) $_rest)
                   (if (if (sk-same-view? $new $old) (== (sk-view-step-proof $new) (sk-view-step-proof $old)) false)
                      $work
-                     (sk-key-changed $pass (sk-check-seq)
+                     (sk-key-changed $pass (sk-item-order (sk-fold-check $hash $fold))
                         (sk-outside-change $causes (sk-view-deps-step 0 $new)) $work $fold)))
-               (() (sk-key-changed $pass (sk-check-seq) (sk-outside-change $causes 0) $work $fold))))))))
+               (() (sk-key-changed $pass (sk-item-order (sk-fold-check $hash $fold)) (sk-outside-change $causes 0) $work $fold))))))))
 
 ;; A row whose view differs from its latest version stores a new version and
 ;; changes its key, when it is the row's first view, it was forced, or it
@@ -3282,6 +3288,59 @@
       (() 1000000))))
 
 
+;; Priority is separate from need depth: the breadth-first walk, stale
+;; refreshes and near-root reserve stay the same. A direct need wins over a
+;; completion-only need, even when the completion was encountered first.
+(: sk-completion-needed? (-[det]-> Number SkeletonKey Bool))
+(= (sk-completion-needed? $hash $key)
+   (if (space-row-present? &sk_need_priority ($hash $key 1))
+      (if (== (sk-need-depth $hash $key) 0) false
+         (== (collapse (once (superpose (
+            (match &sk_reader ($hash $stored $khash $rhash)
+               (if (=alpha $stored $key)
+                  (match &sk_needed ($khash $_reader $_depth)
+                     (if (space-row-present? &sk_completion_work ($khash $rhash)) (empty) true))
+                  (empty)))
+            (match &sk_use ($hash $stored $fold)
+               (if (=alpha $stored $key)
+                  (let $fhash (index-hash $fold)
+                     (if (sk-needed? $fhash $fold)
+                        (if (sk-completion-needed? $fhash $fold) (empty) true) (empty)))
+                  (empty))))))) ()))
+      false))
+
+(: sk-need-priority! (-[det]-> Number Atom SkeletonKey Atom))
+(= (sk-need-priority! $priority $_acc $key)
+   (let $hash (index-hash $key)
+      (if (space-row-present? &sk_need_priority ($hash $key 0)) ()
+         (if (== $priority 0)
+            (let* (($_old (remove-atom &sk_need_priority ($hash $key 1)))
+                   ($_new (add-atom &sk_need_priority ($hash $key 0)))) ())
+            (if (space-row-present? &sk_need_priority ($hash $key 1)) ()
+               (let $_new (add-atom &sk_need_priority ($hash $key 1)) ()))))))
+
+;; Only a completion without a non-forward stored consequent is new work.
+;; This classifies its queue position; it never refuses a value or a row.
+(: sk-completion-work? (-[det]-> Proof (List SkPattern) Bool))
+(= (sk-completion-work? $proof $premises)
+   (if (sk-completion-proof? $proof)
+      (== (collapse (once
+         (let $key (fold-flat sk-last-statement-step () $premises)
+            (let ($_type $_ctx $value-proof $_tv) (superpose (sk-key-leaves (the SkeletonKey $key) sk-any-filter))
+               (if (== (sk-forward-parts (the Proof $value-proof)) ()) true (empty)))))) ())
+      false))
+
+(: sk-need-premise-priority! (-[semidet]-> Atom Atom SkPattern Atom))
+(= (sk-need-premise-priority! $consequence $_acc $premise)
+   (case $premise (
+      ((CPU FoldAllCompiled $args $_result)
+         (let $fold (sk-fold $args)
+            (if (sk-rate-fold? $fold) (sk-need-priority! 1 () $fold) ())))
+      ((CPU $_function $_args $_result) ())
+      (($type $kbctx $_proof $_tv)
+         (let $key (sk-key $type $kbctx)
+            (if (=alpha $key $consequence) (sk-need-priority! 1 () $key) ()))))))
+
 ;; A stale row within the depth computed in full rejoins its keys' readers and
 ;; is recomputed by the evaluation, and so does a stale row at any depth that
 ;; has no value yet: a row a forward run created but could not pay for. A
@@ -3314,7 +3373,7 @@
       ()))
 
 (: sk-need-row! (-[semidet]-> Number SkeletonNeed SkeletonItem SkeletonNeed))
-(= (sk-need-row! $depth (sk-need-next $next $members) (sk-row-item $_seq $khash $key $rhash (sk-row (sk-ident $rule $_keys $_key) $_concl $premises $_s)))
+(= (sk-need-row! $depth (sk-need-next $next $members) (sk-row-item $_seq $khash $key $rhash (sk-row (sk-ident $rule $_keys $_key) ($_type $_ctx $proof $_tv) $premises $_s)))
    (if (rule-live? $rule)
    (let* (($_reserve (sk-reserve-near! (- $depth 1)))
           ($near (<= $depth (+ (sk-evaluation-free-depth) 1)))
@@ -3343,9 +3402,14 @@
              (if (<= $depth (sk-evaluation-free-depth)) true
                 (if $unseen true
                    (not (== (collapse (once (match &sk_given_pending ($khash $rhash $_cost) true))) ())))))
-         (sk-need-next (fold-semidet sk-direct-key-step $next $premises) $members)
+         (let $_priority
+               (if (sk-completion-work? $proof $premises)
+                  (let* (($_row (add-atom &sk_completion_work ($khash $rhash)))
+                         ($consequence (fold-semidet sk-last-statement-step () $premises)))
+                     (fold-semidet (sk-need-premise-priority! $consequence) () $premises)) ())
+            (sk-need-next (fold-semidet sk-direct-key-step $next $premises) $members))
          (sk-need-next $next $members)))
-   (let $_removed (sk-drop-row! $khash $key $rhash (sk-row (sk-ident $rule $_keys $_key) $_concl $premises $_s))
+   (let $_removed (sk-drop-row! $khash $key $rhash (sk-row (sk-ident $rule $_keys $_key) ($_type $_ctx $proof $_tv) $premises $_s))
       (sk-need-next $next $members))))
 
 ;; The need from a query's roots, or from the keys a forward wave takes.
@@ -3374,7 +3438,8 @@
 (: sk-need-next (-[det]-> (List SkeletonKey) (List SkeletonKey) SkeletonNeed))
 
 (: sk-need-keys! (-[semidet]-> Number (List SkeletonKey) Atom))
-(= (sk-need-keys! $depth $keys) (sk-need-level! $depth $keys ()))
+(= (sk-need-keys! $depth $keys)
+   (let $_priority (fold-semidet (sk-need-priority! 0) () $keys) (sk-need-level! $depth $keys ())))
 
 (: sk-need-level! (-[semidet]-> Number (List SkeletonKey) (List SkeletonKey) Atom))
 (= (sk-need-level! $depth $keys $members)
@@ -3409,15 +3474,23 @@
                   (if (=alpha $fold $key) $joined (empty))))
                (if (== $changed ()) (sk-need-next $next $members)
                   (let* (($_taken (sk-rate-take! $hash (the ScalarFoldSpec $args)))
-                         ($_dirty (sk-mark-dirty! $key)))
+                         ($_dirty (sk-mark-dirty! $key))
+                         ($_priority
+                            (if (space-row-present? &sk_need_priority ($hash $key 1))
+                               (fold-semidet (sk-need-priority! 1) () $changed) ())))
                      (sk-need-next $next (fold-semidet sk-cons-step $members $changed)))))
             (case (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) (
-               ((cons $member $_rest) (sk-need-next (fold-semidet sk-cons-step $next (sk-answers $member)) $members))
+               ((cons $member $_rest)
+                  (let* (($found (sk-answers $member))
+                         ($_priority (fold-semidet (sk-need-priority! 0) () $found)))
+                     (sk-need-next (fold-semidet sk-cons-step $next $found) $members)))
                (() (sk-need-next $next $members)))))))
       ((sk-group $group-args)
          (let $_reserve (sk-reserve-near! $depth)
             (case (sk-group-members $key $group-args) (
-               ((sk-group-found $_member $found) (sk-need-next (fold-semidet sk-cons-step $next $found) $members))
+               ((sk-group-found $_member $found)
+                  (let $_priority (fold-semidet (sk-need-priority! 0) () $found)
+                     (sk-need-next (fold-semidet sk-cons-step $next $found) $members)))
                (sk-group-missing (sk-need-next $next $members)))))))))
 
 ;; A row or fold within two steps of a root adds to a query's reserve (see
@@ -4025,6 +4098,8 @@
           ($_pushes (change-state! sk_push_seq 0))
           ($_search (sk-walk! $goals))
           ($_unneeded (remove-data-rows! &sk_needed (quote ($hash $key $depth))))
+          ($_priority (remove-data-rows! &sk_need_priority (quote ($hash $key $priority))))
+          ($_completion (remove-data-rows! &sk_completion_work (quote ($khash $rhash))))
           ($_reserve (change-state! sk_near_reserve 0))
           ($_needed (sk-need-roots! (fold-semidet sk-root-keys-step () $goals)))
           ($_holding (change-state! sk_holding 1))

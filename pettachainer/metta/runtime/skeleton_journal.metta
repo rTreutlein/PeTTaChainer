@@ -366,6 +366,12 @@
 ;; with the fewest such steps from a root
 (: &sk_needed (SpaceOf (Number SkeletonKey Number)))
 !(bind! &sk_needed (new-space))
+;; current evaluation priority: ordinary (0) or completion-only (1), by key
+(: &sk_need_priority (SpaceOf (Number SkeletonKey Number)))
+!(bind! &sk_need_priority (new-space))
+;; newly eligible completion reads, by conclusion hash and row hash
+(: &sk_completion_work (SpaceOf (Number Number)))
+!(bind! &sk_completion_work (new-space))
 ;; rows whose inputs changed while no query needed them, by key and row hash
 (: &sk_stale (SpaceOf (Number Number)))
 !(bind! &sk_stale (new-space))

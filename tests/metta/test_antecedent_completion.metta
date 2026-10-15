@@ -230,8 +230,8 @@
 !(compileadd sharedKb (: outdoor-d (Outdoor d) (STV 1 1)))
 !(compileadd sharedKb (: wet-d (Wet d) (STV 1 1)))
 ;; Equal-confidence views of the same observation share one component.
-;; Canonical tie order selects plain inversion; the TV is unchanged.
-!(test (query 2000 sharedKb (: $proof (Rain d) $tv)) (: ((inverted wet-direct with cpu (prior (STV 0.30000555540123885 0.9))) wet-d) (Rain d) (STV 0.6585425339841672 0.8936005994767838)))
+;; Queue ordering retains the containing completion here; the TV is unchanged.
+!(test (query 2000 sharedKb (: $proof (Rain d) $tv)) (: ((antecedent-completion wet 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction outdoor-d wet-d)) (Rain d) (STV 0.6585425339841672 0.8936005994767838)))
 
 ;; A sibling the completion conditions on is no observation of it. B is
 ;; derived from A (0.8, 0.2) and C from A and B (0.9, 0.1); b shows B and C.
