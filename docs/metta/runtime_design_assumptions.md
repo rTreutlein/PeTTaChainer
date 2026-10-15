@@ -238,6 +238,12 @@ compatibility changes propagate too. Non-STV values, including utility arguments
 require value comparison. Two results of an open key are different when their
 statement arguments differ, even if their STVs agree.
 
+The overlay's native bootstrap must remain compatible with the pinned library
+load cache. Initialize mutable settings as runtime entries, not source-owned
+dynamic facts. The cache prelude can consult a native source twice, so generating
+the static read facades must be idempotent. A cold load and a cached replay must
+both support Assuming and leave MAIN free of the assumed value.
+
 MAIN's authoritative user priors are inherited. This intentionally corrects the
 old private-context prior's self-inclusion and can change Assuming answers; the
 Jeffrey update and accepted numerical exception are documented in

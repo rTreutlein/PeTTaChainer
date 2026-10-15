@@ -4,7 +4,9 @@
 :- dynamic context_root/4, context_rule/2, context_seed/3, context_scope/2, context_threshold/1.
 :- dynamic context_entry/5, context_hidden/5, context_propagated/4.
 :- dynamic '&sk_row'/4.
-context_threshold(0.000001).
+% Mutable settings must be runtime entries: a source-owned dynamic clause
+% prevents PeTTa from recording and replaying the library load snapshot.
+:- (context_threshold(_) -> true ; assertz(context_threshold(0.000001))).
 
 'set-context-reuse-threshold'(Threshold, true) :-
     must_be(number, Threshold),
@@ -112,12 +114,15 @@ context_store('&forward_aggregate_fold',2).
 % by collectors and provenance audits. No runtime predicate is monkey-patched.
 % MAIN is a direct indexed call, not a constructed meta-call. Empty stores
 % are declared here so the direct call also fails cleanly before a first write.
+% The load-cache prelude can consult this source twice; bootstrap each facade
+% once, since compile_predicates makes it static.
 :- forall(context_store(Space, Arity),
           ( dynamic(Space/Arity),
             atom_concat('&', Name, Space), atom_concat('&ctx_', Name, Read),
-            functor(Head,Read,Arity), Head=..[_|Args], Main=..[Space|Args],
-            assertz((Head :- (context_active(C) -> context_overlay_rows(C,Space,Args) ; Main))),
-            compile_predicates([Read/Arity]) )).
+            ( current_predicate(Read/Arity) -> true
+            ; functor(Head,Read,Arity), Head=..[_|Args], Main=..[Space|Args],
+              assertz((Head :- (context_active(C) -> context_overlay_rows(C,Space,Args) ; Main))),
+              compile_predicates([Read/Arity]) ) )).
 
 
 % A cold read of an unchanged key is ordinary MAIN work. Test only actual
