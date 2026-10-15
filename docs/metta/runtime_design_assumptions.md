@@ -286,6 +286,13 @@ row is retired. Nested rebuilds run inside that tier's remaining slice, with
 exclusions carried through their premises and each rebuilt row charged to
 the evaluation allowance. A row
 whose owner or a mandatory direct premise is excluded cannot contribute.
+Direct facts and closed reads also respect the active rebuild frame's
+original exclusions: a direct observation must not bypass that test, and
+closing an excluded key must not recreate its value as unfounded. Closed
+reads may still use their own local pins; those pins do not weaken the
+enclosing rebuild's original exclusions. A branch with no admissible support
+settles empty with its exclusion cut, so its request can finish and later
+reads reuse the empty result.
 Rebuilt branches are cached across reads and queries, separately from ordinary
 views, with their exclusion cuts. A settled branch built under E1 serves E2
 only when its dependencies are disjoint from E2 and its cuts are a subset of
@@ -317,6 +324,22 @@ references are roots of the existing proof collector and cached dependencies
 are roots of the dependency collector. Branch entries, owners, dirty markers
 and input readers use the same scoped store interface as ordinary views, so
 an Assuming overlay can invalidate borrowed branches without changing MAIN.
+
+Branch invalidation follows changes to input truth values, evidence or
+dependencies. Publishing a fresh proof reference for the same view, clearing
+a merged-value memo, or marking an ordinary row stale does not itself change
+that input. New external facts and changed row views still invalidate their
+indexed branch readers. A conditioning grant is scheduling state: a settled
+branch has already paid its own conditioning. A queued request that is
+already settled, or a rebuild identical to its cached incumbent, must not
+stale or reschedule readers.
+
+On an unchanged KB, repeated queries with enough allowance must finish
+pending search, conditioning and branch refreshes, reach a stable answer,
+and then perform zero branch builds and zero row computations. Cache
+maintenance must not restart that work on the next identical query. This
+quiescence contract allows finite-budget transients; a transient cold answer
+is not an oracle for the fixed point.
 
 A certain truth value, confidence >= 1, stands for unlimited evidence in
 revision. Only a stored binary-certain fact, STV strength 0 or 1 at confidence

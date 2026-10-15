@@ -228,6 +228,43 @@ class ExclusionStateTests(unittest.TestCase):
             " 'sk-drop-row!'(_H,_Key,_R,_Row,_))", {'Kb': self.h.kb}
         )
 
+    def test_branch_invalidation_requires_an_input_value_change(self):
+        result = janus.query_once(
+            "_Input=['sk-key',['Input'],[Kb,'MAIN','Nil']], 'index-hash'(_Input,_IH), "
+            "'deps-key'(_IH,_ID), "
+            "_Same=['sk-val',[['Input'],[Kb,'MAIN','Nil'],cpu,['STV',0.5,0.8]],['ev-set',0],_ID], "
+            "_Owner=['sk-key',['Owner'],[Kb,'MAIN','Nil']], 'index-hash'(_Owner,_OH), "
+            "'index-hash'([_OH,987612],_Slot), 'deps-key'(_OH,_OD), "
+            "_Value=['sk-val',[['Owner'],[Kb,'MAIN','Nil'],cpu,['STV',0.7,0.8]],['ev-set',0],_OD], "
+            "'sk-cache-branch!'(_Slot,_OH,_Owner,987612,-1,[_Input],[],true,'sk-none',_), "
+            "'sk-store-view!'(_IH,_Input,987611,987611,-1,_Same,_First), "
+            "findall(true,'&sk_branch_dirty'(_Slot),AfterFirst), "
+            "'sk-cache-branch!'(_Slot,_OH,_Owner,987612,-1,[_Input],[],true,_Value,_), "
+            "'sk-store-view!'(_IH,_Input,987611,987611,-1,_Same,_Second), "
+            "(_First == _Second -> NewProof=false ; NewProof=true), "
+            "findall(true,'&sk_branch_dirty'(_Slot),AfterProof), "
+            "'sk-drop-merged!'(_Input,_), findall(true,'&sk_branch_dirty'(_Slot),AfterMemo), "
+            "'sk-stale-key!'(_Input,_), findall(true,'&sk_branch_dirty'(_Slot),AfterStale), "
+            "'sk-branch-values'(_Slot,_Owner,987612,[],true,BeforeChange), "
+            "_Changed=['sk-val',[['Input'],[Kb,'MAIN','Nil'],cpu,['STV',0.6,0.8]],['ev-set',0],_ID], "
+            "'sk-store-view!'(_IH,_Input,987611,987611,-1,_Changed,_), "
+            "findall(true,'&sk_branch_dirty'(_Slot),AfterChange), "
+            "'sk-branch-values'(_Slot,_Owner,987612,[],true,ChangedReuse), "
+            "'sk-cache-branch!'(_Slot,_OH,_Owner,987612,-1,[_Input],[],true,_Value,_), "
+            "'sk-drop-row-views!'(_IH,_Input,987611,_), "
+            "findall(true,'&sk_branch_dirty'(_Slot),AfterRemoval), "
+            "'sk-drop-branch!'([],_Slot,_)", {'Kb': self.h.kb}
+        )
+        self.assertTrue(result['truth'])
+        self.assertEqual(result['NewProof'], 'true')
+        self.assertEqual(result['AfterFirst'], ['true'])
+        for field in ('AfterProof', 'AfterMemo', 'AfterStale'):
+            self.assertEqual(result[field], [], field)
+        self.assertEqual(result['AfterChange'], ['true'])
+        self.assertEqual(result['AfterRemoval'], ['true'])
+        self.assertEqual(len(result['BeforeChange']), 1)
+        self.assertEqual(result['ChangedReuse'], [])
+
     def test_unfinished_positive_branch_is_retained_without_settled_reuse(self):
         self.h.set_query_metrics(True)
         result = janus.query_once(
@@ -313,6 +350,14 @@ class ExclusionStateTests(unittest.TestCase):
             "'change-state!'(sk_branch_budget,1,_), 'sk-build-wanted!'(true), "
             "findall(_I, (between(1,2,_I), _K=['sk-key',['NotifyReader',_I],[Kb,'MAIN','Nil']], "
             " 'index-hash'(_K,_KH), '&sk_restale'(_KH,_I)), Ready), "
+            # A request can remain queued after a nested rebuild settled it.
+            # Serving that fresh entry must not notify its reader again.
+            "retractall('&sk_restale'(_,_)), 'index-hash'([_H,987607],_Slot), "
+            "assertz('&sk_branch_wanted'(_Slot,_H,_Owner,987607,[_R1])), "
+            "'change-state!'(sk_eval_budget,1,_), 'change-state!'(sk_branch_budget,1,_), "
+            "'sk-build-wanted!'(true), "
+            "findall(_I, (between(1,2,_I), _K=['sk-key',['NotifyReader',_I],[Kb,'MAIN','Nil']], "
+            " 'index-hash'(_K,_KH), '&sk_restale'(_KH,_I)), AlreadySettledReady), "
             # An input-driven refresh with identical value must not generate
             # another forced proof publication and invalidate itself in a cycle.
             "retractall('&sk_restale'(_,_)), 'index-hash'([_H,987607],_Slot), "
@@ -329,6 +374,7 @@ class ExclusionStateTests(unittest.TestCase):
         )
         self.assertTrue(result['truth'])
         self.assertEqual(result['Ready'], [1])
+        self.assertEqual(result['AlreadySettledReady'], [])
         self.assertEqual(result['UnchangedReady'], [])
 
 

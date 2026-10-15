@@ -1904,7 +1904,8 @@
           ($_latest
              (collapse (match &ctx_sk_latest ($hash $stored (sk-version $seq $rhash $view))
                 (if (=alpha $stored $key)
-                   (context-remove! &sk_latest ($hash $stored (sk-version $seq $rhash $view)))
+                   (let $_changed (if (== $view sk-none) () (sk-invalidate-branches! $key))
+                      (context-remove! &sk_latest ($hash $stored (sk-version $seq $rhash $view))))
                    (empty)))))
           ($_older
              (collapse (match &ctx_sk_view ($hash $stored $rhash $view)

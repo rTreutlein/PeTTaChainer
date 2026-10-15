@@ -1696,14 +1696,16 @@
 (: sk-store-view! (-[semidet]-> Number SkeletonKey Number Number Number SkeletonValue SkeletonValue))
 (= (sk-store-view! $hash $key $seq $rhash $rule $computed)
    (let* (($view (sk-reference-view $rule $computed))
-          ($_invalidated (sk-invalidate-branches! $key))
           ($deps (sk-view-deps-step 0 $view))
-          ($_moved
+          ($previous
              (collapse (match &ctx_sk_latest ($hash $stored (sk-version $old-seq $rhash $old))
                 (if (=alpha $stored $key)
-                   (let $_removed (context-remove! &sk_latest ($hash $stored (sk-version $old-seq $rhash $old)))
+                   (let* (($_invalidated (if (sk-same-view? $view (if (sk-live-view? $old) $old sk-none)) ()
+                                            (sk-invalidate-branches! $key)))
+                          ($_removed (context-remove! &sk_latest ($hash $stored (sk-version $old-seq $rhash $old)))))
                       (if (sk-dominated? $deps $old) () (context-add! &sk_view ($hash $stored $rhash $old))))
                    (empty)))))
+          ($_first (if (== $previous ()) (sk-invalidate-branches! $key) ()))
           ($_pruned
              (collapse (match &ctx_sk_view ($hash $stored $rhash $older)
                 (if (=alpha $stored $key)
@@ -2424,8 +2426,7 @@
 
 (: sk-drop-merged! (-[det]-> SkeletonKey Atom))
 (= (sk-drop-merged! $key)
-   (let* (($_branches (sk-invalidate-branches! $key))
-          ($hash (index-hash $key))
+   (let* (($hash (index-hash $key))
           ($_unpaid (remove-data-rows! &sk_given_pending (quote ($hash -1 $_cost)))))
       (sk-uncache! $hash $key)))
 
@@ -3829,7 +3830,8 @@
             ((cons (sk-wanted $slot $hash $key $rhash $exclude) $_rest)
                (let* (($request (data $slot $hash $key $rhash $exclude))
                       ($before (search-id-value sk_eval_budget))
-                      ($incumbent (sk-mixed (sk-branch-values $slot $key $rhash $exclude false) sk-none))
+                      ($incumbent (sk-mixed (sk-branch-values $slot $key $rhash $exclude true)
+                                    (sk-mixed (sk-branch-values $slot $key $rhash $exclude false) sk-none)))
                       ($_slice (change-state! sk_eval_budget $room))
                       ($built (sk-rebuild-view $hash $key $rhash $exclude))
                       ($spent (- $room (search-id-value sk_eval_budget)))
@@ -3949,6 +3951,7 @@
 (: sk-dirty-seed (-[semidet]-> Number SkeletonWork SkeletonKey SkeletonWork))
 (= (sk-dirty-seed $pass $work $key)
    (let* (($hash (index-hash $key))
+          ($_branches (sk-invalidate-branches! $key))
           ($_view
              (case $key (
                 ((sk-key $_type $_kbctx)
@@ -4200,8 +4203,7 @@
       (foreach-flat sk-mark-stale! $held)))
 
 (= (sk-stale-key! $key)
-   (let* (($_branches (sk-invalidate-branches! $key))
-          ($hash (index-hash $key))
+   (let* (($hash (index-hash $key))
           ($_readers (fold-flat (sk-stale-reader-step $key) () (sk-readers $key))))
       (foreach-flat sk-stale-fold!
          (collapse (match &sk_use ($hash $stored $fold)
@@ -4424,6 +4426,7 @@
           ($_forced (sk-force! (cons $hash ()) $item)))
       (sk-work-off! $pass (sk-work (add_to_heap (empty_heap) (sk-item-order $item) $item) (empty_heap)))))
 ;; A paid key drops its merged value, which its readers then read conditioned.
+;; Branches pay their own conditioning; this grant changes no branch input.
 (= (sk-pay! $pass (sk-key-waiting $hash $key))
    (let* (($_granted (context-add! &sk_given_granted ($hash -1)))
           ($_merged (sk-drop-merged! $key)))
