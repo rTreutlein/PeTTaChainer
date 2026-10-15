@@ -231,7 +231,9 @@ to MAIN. Cleanup drops C without retracting independent MAIN work.
 Propagation follows the existing readers, including inversion, completion and
 fold membership. A plain STV update propagates beyond a configurable Beta KL
 threshold (`set-context-reuse-threshold`, default 1e-6), with a missing value
-read as Beta(1,1), as in forward chaining. At zero, provenance and
+read as Beta(1,1), as in forward chaining. Compare individual row views as well
+as the open merge: self-support exclusion can expose a dominated alternative.
+At zero, provenance and
 compatibility changes propagate too. Non-STV values, including utility arguments,
 require value comparison. Two results of an open key are different when their
 statement arguments differ, even if their STVs agree.

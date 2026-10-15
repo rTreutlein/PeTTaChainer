@@ -80,8 +80,9 @@ KL divergence threshold, default **0.000001**. Python:
 `handler.set_context_reuse_threshold(threshold)`; timed workers replay it.
 A plain STV's strength and confidence determine its Beta distribution exactly
 as in forward chaining (`forward_units.md`); an absent value is Beta(1,1).
-A change below the threshold does
-not schedule further readers. Utility arguments and other non-STV results are
+Both the open merge and individual row views are compared: a dominated row
+can become the admissible input when a reader excludes the dominant support.
+A change below the threshold does not schedule further readers. Utility arguments and other non-STV results are
 compared as values, rather than assigned a meaningless Beta divergence.
 
 At **zero**, compatibility and provenance changes propagate as well, preserving

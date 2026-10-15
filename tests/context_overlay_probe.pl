@@ -61,3 +61,22 @@ overlay_probe_main_leaks(Kb,Leaks) :-
         (overlay_probe_has_assumption(P)
         ; nonvar(D),overlay_probe_seeds(Seeds),member(H,Seeds),'deps-has?'(D,H,true)),
         overlay_probe_text([P,D],Text) ),Leaks).
+
+% A dominated alternative matters to a reader excluding the dominant view.
+overlay_probe_filtered_change(Kb,Result) :-
+    Key=['sk-key',['FilteredProbe',x],[Kb,'MAIN','Nil']],
+    'index-hash'(Key,H), 'index-hash'(['sk-key',['Reader',x],[Kb,'MAIN','Nil']],Target),
+    'index-hash'(['sk-key',['Action',x],[Kb,'MAIN','Nil']],Action),
+    'evidence-set'([a,b],EV1),'evidence-set'([a],EV2),
+    'deps-key'(Target,D1),'deps-key'(Action,D2),
+    Main=['sk-val',[['FilteredProbe',x],[Kb,'MAIN','Nil'],dominant,['STV',0.5,0.8]],EV1,D1],
+    Local=['sk-val',[['FilteredProbe',x],[Kb,'MAIN','Nil'],alternative,['STV',0.5,0.4]],EV2,D2],
+    C=filtered_probe,
+    setup_call_cleanup(
+      (assertz('&sk_latest'(H,Key,['sk-version',0,1,Main]),Ref),
+       assertz(context_entry(H,C,'&sk_latest',[H,Key,['sk-version',1,2,Local]],added)),nb_setval(context_overlay,C)),
+      once(('sk-value'(Key,'sk-any-filter',[],Merged),
+            'sk-value'(Key,'sk-any-filter',[Target],Filtered),
+            'context-propagate?'(Key,Propagate),
+            Result=_{merged:Merged,main:Main,filtered:Filtered,propagate:Propagate})),
+      (nb_setval(context_overlay,main),erase(Ref),'sk-drop-merged!'(Key,_),'context-clear!'(_))).

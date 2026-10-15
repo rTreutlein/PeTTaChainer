@@ -247,21 +247,32 @@ context_evaluate(C,Goal,Kb,Facts,WantProof,WantTV,Results) :-
             ( member([Type,_,P,TV],Answers), \+ \+ (WantProof=[assuming,P], WantTV=TV) ), Results),
     'sk-stale-held!'(_).
 
-% Threshold zero also propagates compatibility/provenance changes. Positive
-% thresholds bound numerical STV propagation; non-STV results still use their
-% full value, since a utility or a changed CTV branch has no scalar Beta.
+% Keep the evaluator's reader-specific compatibility checks at threshold zero.
+% At positive thresholds compare row views as well as the open merge: a view
+% dominated in the open merge can be the only admissible input to a reader
+% excluding that merge's self-support. Non-STV values have no scalar Beta.
 'context-propagate?'(Key, Result) :-
     ( context_active(C), Key=['sk-key',_,_]
-    -> 'index-hash'(Key,H),
-       ( context_propagated(H,C,Stored,Old), Stored =@= Key -> true
+    -> context_threshold(T),
+       ( T =:= 0 -> Result=true
+       ; 'index-hash'(Key,H),
+       ( context_propagated(H,C,Stored,state(Old,OldViews)), Stored =@= Key -> true
        ; setup_call_cleanup(nb_setval(context_overlay,main),
                             once('sk-value'(Key,'sk-any-filter',[],Old)),
-                            nb_setval(context_overlay,C)) ),
-       'sk-value'(Key,'sk-any-filter',[],New), context_threshold(T),
-       ( context_numerical_change(T,Old,New) -> Result=true,
+                            nb_setval(context_overlay,C)),
+         findall([R,V],('&sk_latest'(H,K,['sk-version',_,R,V]),K =@= Key),OldViews) ),
+       'sk-value'(Key,'sk-any-filter',[],New),
+       findall([R,V],(context_overlay_rows(C,'&sk_latest',[H,K,['sk-version',_,R,V]]),K =@= Key),NewViews),
+       ( ( context_numerical_change(T,Old,New)
+         ; member([R,V],NewViews),
+           (memberchk([R,Previous],OldViews) -> true ; Previous='sk-none'),
+           context_numerical_change(T,Previous,V)
+         ; member([R,V],OldViews), \+ memberchk([R,_],NewViews),
+           context_numerical_change(T,V,'sk-none') )
+       -> Result=true,
          forall((clause(context_propagated(H,C,K,_),true,Ref), K =@= Key), erase(Ref)),
-         assertz(context_propagated(H,C,Key,New))
-       ; Result=false )
+         assertz(context_propagated(H,C,Key,state(New,NewViews)))
+       ; Result=false ) )
     ; Result=true ).
 context_numerical_change(T,Old,New) :-
     ( T > 0,

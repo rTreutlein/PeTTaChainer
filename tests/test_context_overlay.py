@@ -88,6 +88,17 @@ class TestContextOverlay(unittest.TestCase):
             .3, delta=1e-6,
         )
 
+    def test_dominated_view_reaches_reader_excluding_main_support(self):
+        for threshold in (0, .000001):
+            with self.subTest(threshold=threshold):
+                self.h.set_context_reuse_threshold(threshold)
+                result = janus.query_once(
+                    "overlay_probe_filtered_change(Kb,Result)", {"Kb": self.h.kb},
+                )["Result"]
+                self.assertEqual(result["merged"], result["main"])
+                self.assertEqual(result["filtered"][1][3], ["STV", .5, .4])
+                self.assertEqual(result["propagate"], "true")
+
     def test_threshold_is_replayed_by_timed_worker(self):
         self.h.add_atoms_no_check([
             '(: (no_inverse effect) (Implication (Action now) (Effect now)) (STV 1 1))',
