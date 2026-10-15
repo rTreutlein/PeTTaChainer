@@ -6,14 +6,19 @@
 ;; A hypothesis is judged once its truth rests on hm-min-samples
 ;; observations: it stays when its strength differs, by more than hm-z
 ;; standard errors, from the consequent's probability without its antecedent
-;; (hm-informative?) and from the strength of every more general live
-;; hypothesis judged in the same review.
+;; (hm-informative?). A more general live hypothesis screens it only when
+;; their difference interval fits inside hm-equivalence-margin; inconclusive
+;; comparisons keep it live, as do significant differences.
 ;; One that had hm-max-opportunities observations of its consequent without
 ;; reaching enough samples of its own is dropped too.
 (: hm-min-samples (-[det]-> Number))
 (= (hm-min-samples) 4)
 (: hm-z (-[det]-> Number))
 (= (hm-z) 2)
+;; Five percentage points is the minimum useful predictive difference for
+;; screening; independent of the variance floor (hypothesis_rules.md).
+(: hm-equivalence-margin (-[det]-> Number))
+(= (hm-equivalence-margin) 0.05)
 (: hm-max-opportunities (-[det]-> Number))
 (= (hm-max-opportunities) 32)
 
@@ -58,13 +63,18 @@
       ((CTV (STV $s1 $_c1) $_neg) $s1)
       ($_none 0.5))))
 
-;; |s - p| beyond hm-z standard errors of p over n observations. Clamp
+;; hm-z standard errors of p over n observations. Clamp
 ;; only its variance estimate, never the comparison center: identical rates
 ;; at 0 or 1 must remain identical even after many observations.
+(: hm-error-band (-[det]-> Number Number Number))
+(= (hm-error-band $p $n)
+   (let $q (min 0.95 (max 0.05 $p))
+      (* (hm-z) (sqrt-math (/ (* $q (- 1 $q)) $n)))))
+
+;; Significant difference remains the keep/recover test.
 (: hm-differs? (-[det]-> Number Number Number Bool))
 (= (hm-differs? $s $p $n)
-   (let $q (min 0.95 (max 0.05 $p))
-      (> (abs-math (- $s $p)) (* (hm-z) (sqrt-math (/ (* $q (- 1 $q)) $n))))))
+   (> (abs-math (- $s $p)) (hm-error-band $p $n)))
 
 (: hm-decision (-[semidet]-> KB (List HmReviewed) HmReviewed Atom))
 (= (hm-decision $kb $reviewed (hm-reviewed $_name $antecedent $consequent $born $truth))
@@ -98,8 +108,11 @@
              ($phash (hm-pattern-hash $kb $consequent)))
          (if (if (hypothesis-generalizes? $general $rule)
                  (space-row-present? &hm_live ($phash $kb $_stored $name $_antecedent $_born)) false)
-            (let $p (hm-strength $truth)
-               (if (hm-differs? $s $p $n) true (screen $general)))
+            (let* (($p (hm-strength $truth))
+                   ($difference (abs-math (- $s $p)))
+                   ($band (hm-error-band $p $n)))
+               (if (> $difference $band) true
+                  (if (< (+ $difference $band) (hm-equivalence-margin)) (screen $general) true)))
             true))
       $decision))
 

@@ -695,12 +695,17 @@ query). Each hypothesis is then judged:
   antecedent hardly ever holds);
 - otherwise it is kept when its strength P(B|A) differs from the
   consequent's probability without it by more than two standard errors of
-  that probability over its observations, and from the strength of every
-  more general live hypothesis judged in the same review. The variance
-  estimate is clamped to a rate
-  in [0.05, 0.95] to retain a nonzero SE near 0 or 1; the comparison stays
-  centered on the actual general rate, so identical rates stay identical
-  at every count. A general
+  that probability over its observations. A more general live hypothesis
+  can screen it only after a separate equivalence test: with specific
+  strength s, general strength q, and the specific's current count n,
+  `abs(s-q) + 2*SE(q,n) < hm-equivalence-margin`. A significant difference,
+  `2*SE(q,n) < abs(s-q)`, keeps the specific live (and remains the recovery
+  test); if neither test resolves the comparison it also stays live,
+  subject to the existing live limit. Significant differences take
+  precedence if both inequalities hold. The variance
+  estimate is clamped to a rate in [0.05, 0.95] to retain a nonzero SE near
+  0 or 1; the comparison stays centered on the actual general rate, so
+  identical rates stay identical at every count. A general
   rule is one whose antecedent conjuncts, under a substitution taking its
   consequent to this one's, are some of this one's:
   `(A $x) → (B $x)` screens off `(And (A $x) (C $x)) → (B $x)`, and the
@@ -718,6 +723,21 @@ query). Each hypothesis is then judged:
   hypothesis carried the same prediction); and a tally that started late
   reads near 0.5, against which true SupplyNet late rules at P(late |
   blocked) 0.85 over 7 samples were dropped.
+
+`hm-equivalence-margin = 0.05` is a single internal constant, not an API
+setting. It defines five percentage points as the minimum useful predictive
+change for screening a specialization. This practical margin is independent
+of the variance floor: statistical uncertainty alone cannot define what
+size of change is useful. The equivalence test requires positive evidence
+of redundancy rather than treating a failure to detect a difference as
+redundancy. With identical rates and z = 2 it needs
+`n > z^2*q_variance*(1-q_variance)/0.05^2`: about 400 observations near .5
+(strictly more than 400), or about 76 near 0 or 1 (strictly more than 76,
+using the existing variance floor). At n = 4 even the smallest two-SE band
+is about .218, so no general rule can screen a specific at that count.
+Nonidentical rates need still more evidence. Inconclusive redundant rules
+can therefore occupy live slots longer; proposal still obeys `$max-live`
+and does not reserve extra capacity for a promising specialization.
 
 A dropped hypothesis leaves the live set, freeing its slot, and its rules
 leave the rule indexes (`withdraw-named-rules!`, what the deprecated

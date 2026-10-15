@@ -223,34 +223,41 @@
 
 ;; B holds in 16 of 20 cases with A and 4 of 20 without; C is unrelated,
 ;; and of A's layer. A review keeps A -> B, drops C -> B, and drops A and C
-;; -> B, which A -> B screens off.
+;; -> B, which A -> B screens off once the equivalence test is powered.
 !(set-evidence-confidence-k 5)
+!(set-rule-change-hazard pruneKb 0)
 !(set-hypothesis-mining pruneKb 8 16)
 !(set-predicate-time pruneKb A 1 0)
 !(set-predicate-time pruneKb C 1 0)
 !(set-predicate-time pruneKb B 1 1)
-(: add-case! (-[det]-> (Number Number Number Number) Atom))
-(= (add-case! ($i $a $b $c))
-   (let* (($_a (collapse (compileadd pruneKb (: (a $i) (A $i) (STV $a 1)))))
+(: add-case! (-[det]-> Number (Number Number Number Number) Atom))
+(= (add-case! $offset ($index $a $b $c))
+   (let* (($i (+ $offset $index))
+          ($_a (collapse (compileadd pruneKb (: (a $i) (A $i) (STV $a 1)))))
           ($_c (collapse (compileadd pruneKb (: (c $i) (C $i) (STV $c 1)))))
           ($_b (collapse (compileadd pruneKb (: (b $i) (B $i) (STV $b 1))))))
       ()))
-(: add-cases! (-[det]-> Atom))
-(= (add-cases!)
-   (map-flat add-case!
+(: add-cases! (-[det]-> Number Atom))
+(= (add-cases! $offset)
+   (map-flat (add-case! $offset)
    ((1 1 1 1) (2 1 1 0) (3 1 1 1) (4 1 1 0) (5 1 1 1) (6 1 1 0) (7 1 1 1) (8 1 1 0) (9 1 0 1) (10 1 0 0)
     (11 0 1 1) (12 0 1 0) (13 0 0 1) (14 0 0 0) (15 0 0 1) (16 0 0 0) (17 0 0 1) (18 0 0 0) (19 0 0 1) (20 0 0 0)
     (21 1 1 1) (22 1 1 0) (23 1 1 1) (24 1 1 0) (25 1 1 1) (26 1 1 0) (27 1 1 1) (28 1 1 0) (29 1 0 1) (30 1 0 0)
     (31 0 1 1) (32 0 1 0) (33 0 0 1) (34 0 0 0) (35 0 0 1) (36 0 0 0) (37 0 0 1) (38 0 0 0) (39 0 0 1) (40 0 0 0))))
-!(add-cases!)
-!(test (collapse (let (hypothesis $_name $implication $_tv $verdict) (review-hypotheses 50 pruneKb $goal) ($implication $verdict)))
+;; Repeat the .8-rate case mix until the pair has 300 observations, enough
+;; to resolve the .05 equivalence margin. Its first read gets enough budget
+;; to fold that history; later reviews still need no expansion budget.
+!(map-flat add-cases! (0 100 200 300 400 500 600 700 800 900
+    1000 1100 1200 1300 1400 1500 1600 1700 1800 1900
+    2000 2100 2200 2300 2400 2500 2600 2700 2800 2900))
+!(test (collapse (let (hypothesis $_name $implication $_tv $verdict) (review-hypotheses 500 pruneKb $goal) ($implication $verdict)))
    (((Implication (And (A $_0) (C $_0)) (B $_0)) dropped)
     ((Implication (A $_1) (B $_1)) kept)
     ((Implication (C $_2) (B $_2)) dropped)))
 !(test (live-hypotheses pruneKb) ((Implication (A $_0) (B $_0))))
 
 ;; A dropped hypothesis stays absent while its screen holds, and no longer applies.
-!(add-case! (41 1 1 1))
+!(add-case! 0 (41 1 1 1))
 !(test (live-hypotheses pruneKb) ((Implication (A $_0) (B $_0))))
 (: rule-count (-[det]-> KB Atom Atom Number))
 (= (rule-count $kb $antecedent $consequent)
@@ -266,7 +273,7 @@
 (= (review-truths $steps)
    (collapse (let (hypothesis $_name $_implication $tv $_verdict) (review-hypotheses $steps pruneKb $goal) $tv)))
 !(let* (($before (review-truths 0))
-        ($_cases (map-flat add-case! ((42 1 1 0) (43 1 1 0) (44 1 1 0) (45 1 1 0)))))
+        ($_cases (map-flat (add-case! 0) ((42 1 1 0) (43 1 1 0) (44 1 1 0) (45 1 1 0)))))
    (test (== (review-truths 0) $before) false))
 
 ;; The review built open joins before withdrawal. A fresh time point must
@@ -350,6 +357,14 @@
     (33 0 0 0) (34 0 0 1) (35 0 1 0) (36 0 1 1) (37 1 0 0) (38 1 0 1) (39 1 1 0) (40 1 1 1)
     (41 0 0 0) (42 0 0 1) (43 0 1 0) (44 0 1 1) (45 1 0 0) (46 1 0 1) (47 1 1 0) (48 1 1 1)))
 !(collapse (review-hypotheses 50 andKb $goal))
+;; The two pairs containing unrelated AndD are inconclusive at this count,
+;; so they now stay live alongside the planted pair and its two singles.
+!(test (size-atom (live-hypotheses andKb)) 5)
+;; The merge regression below compares the planted pair with its two singles.
+;; Withdraw the unrelated pairs explicitly: their retention is asserted above,
+;; and selecting among their extra views is a separate specificity-read issue.
+!(collapse (match &hm_live ($_h andKb $c $name (And $_a (AndD $_t)) $_born)
+   (hm-drop! andKb $name $c)))
 !(test (size-atom (live-hypotheses andKb)) 3)
 !(set-hypothesis-mining andKb 0 0)
 !(compileadd andKb (: and-a (AndA fresh) (STV 1 1)))
