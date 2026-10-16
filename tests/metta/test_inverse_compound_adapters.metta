@@ -22,7 +22,7 @@
    (: ((inverted p_qr with cpu (prior (STV 0.6599999999999998 0.0009990009990009992)))
        (conjunction q-alice r-alice))
       (P alice)
-      (STV 0.7608238693556758 0.016270221610978627)))
+      (STV 0.7608238698423264 0.01627022239637397)))
 
 ;; A rule stated with an STV is inverted over the base rates of both sides.
 ;; The compound consequent's base-rate scan keeps the shared `$x`, so it
@@ -44,7 +44,7 @@
    (: ((inverted p_qr with cpu (prior (STV 0.6599999999999998 0.0009990009990009992)))
        (conjunction q-alice r-alice))
       (P alice)
-      (STV 0.6599999999999998 0.00106999249589568)))
+      (STV 0.6599999999999999 0.0010700023797469776)))
 !(test
    (cached-base-rate inverseCompoundStvKb (And (Q $x) (R $x)))
    ((STV 0.7200000000000002 0.0010134642737165396)))

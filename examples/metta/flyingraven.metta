@@ -42,7 +42,7 @@
                         (shared 44 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1)))))))
                (by (inheritance-implication birdFlies) (shared 44)))))
       (Inheritance Sam (IntSet flies))
-      (STV 0.9786915593831819 0.643251683490094))))
+      (STV 0.9786915594444334 0.6432516834702312))))
 
 !(test
    (collapse
@@ -62,7 +62,7 @@
                   (by penguinsDoNotFly
                      (by (inheritance-implication pinguPenguin) (ctx proof 3)))))))
       (Inheritance Pingu (IntSet flies))
-      (STV 0.1716914028326078 0.9152685473572054))))
+      (STV 0.1716914028326094 0.9152685473572055))))
 
 !(test
    (collapse
@@ -82,4 +82,4 @@
                   (by penguinsDoNotFly
                      (by (inheritance-implication pinguPenguin) (ctx proof 5)))))))
       (Inheritance Pingu (IntSet flies))
-      (STV 0.1716914028326078 0.9152685473572054))))
+      (STV 0.1716914028326094 0.9152685473572055))))

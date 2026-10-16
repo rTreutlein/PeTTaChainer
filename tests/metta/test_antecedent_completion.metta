@@ -30,7 +30,7 @@
 ;; inversion still proves (And A B) itself and does not also project to B.
 !(test
    (query 2000 completionKb (: $proof B $tv))
-   (: ((antecedent-completion ab_c 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction a c)) B (STV 0.6310135044310812 0.2841794148242206)))
+   (: ((antecedent-completion ab_c 1 with cpu (prior (STV 0.30000555540123885 0.9))) (conjunction a c)) B (STV 0.6310143532939941 0.284178666310838)))
 
 ;; A rule named no_inverse gets no completion either: B has no proof.
 !(compileadd noInverseCompletionKb (: a A (STV 1.0 0.9)))
@@ -60,7 +60,7 @@
       (: $proof (And A B) $tv))
    (: ((inverted ab_c with cpu (prior (STV 0.20000833310185828 0.9))) c)
       (And A B)
-      (STV 0.5000124993055844 0.620538838666642)))
+      (STV 0.5000125076362568 0.6205388315280194)))
 
 ;; A completion is not generated when the missing premise contains a variable
 ;; which neither the remaining antecedents nor the consequence can bind.
@@ -361,4 +361,4 @@
 !(compileadd refKb (: b-q (B q) (STV 1 1)))
 !(compileadd refKb (: c-q (C q) (STV 1 1)))
 !(test (query 2000 refKb (: $prf (A q) $tv))
-   (: ((antecedent-completion rC 0 with cpu (prior (STV 0.7439024390243903 0.6153846153846154))) (conjunction b-q c-q)) (A q) (STV 0.9308782279145232 0.6909026642668563)))
+   (: ((antecedent-completion rC 0 with cpu (prior (STV 0.7439024390243903 0.6153846153846154))) (conjunction b-q c-q)) (A q) (STV 0.9332337716213122 0.6940410115653394)))

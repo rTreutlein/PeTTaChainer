@@ -144,7 +144,7 @@
 !(compileadd stormKb (: next-t2 (NextPeriod t1 t2) (STV 1 1)))
 !(compileadd stormKb (: blocked-t2 (Blocked r1 t2) (STV 1 1)))
 !(test (let (: $prf $t $tv) (query 100 stormKb (: $prf (Storm t2) $tv)) $tv)
-   (STV 0.925268866420926 0.15477569667147947))
+   (STV 0.9497091054048326 0.15060704708961875))
 
 ;; Read the full internal CTV after scheduling a public STV query below.
 ;; These pins protect learned negative branches used by modus ponens.

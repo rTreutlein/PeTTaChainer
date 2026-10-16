@@ -14,7 +14,7 @@
 ; witness qa via modus ponens: 0.9 * 0.949 + 0.1 * 0.341 = 0.888.
 !(test
    (query 200 invKb (: $prf (P alice) $tv))
-   (: ((inverted r with cpu (prior (STV 0.6599999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.875684243726313 0.016392039082253194)))
+   (: ((inverted r with cpu (prior (STV 0.6599999999999998 0.0009990009990009992))) qa) (P alice) (STV 0.8756842458979404 0.016392040302468155)))
 
 ; The consequent's own base rate is not read: here P(Late) = 0.1 contradicts
 ; P(Blocked) = 1/6 and the stated likelihoods, which give P(Late) = 0.1917.

@@ -31,16 +31,36 @@ class SpecificityTests(unittest.TestCase):
             "(: general (Implication (F0 $t) (T $t)) (CTV (STV 0.25 0.7) (STV 0 0.7)))",
             "(: specific (Implication (And (F0 $t) (F1 $t)) (T $t)) (CTV (STV 0.99 0.4) (STV 0 0.4)))",
         ]
-        for prior, expected in ((0.2, 0.8192307583), (0, 0.99)):
+        for prior, expected in ((0.2, 0.99), (0, 0.99)):
             for order in itertools.permutations(rules):
                 self.h = PeTTaChainer()
                 self.h.set_bayes_prior_count(prior)
                 self.h.add_atoms_no_check(list(order))
                 self.add_case("fresh", 1, 1, 0)
                 answer = self.answer()
-                # Preserve the existing general prior, applied once.
+                # At k=1 the general count is 7/3: the added centre
+                # variance clamps the prior weight to zero (was fixed 0.2).
                 self.assertAlmostEqual(float(answer.tv[1]), expected, places=7)
                 self.assertIn("specializes", self.h.expand_proof(answer.proof))
+
+    def test_weak_general_rule_does_not_overpull_specific(self):
+        # n_g=1/99 is too little evidence for a prior at kappa=0.2.
+        # Fixed weight 0.2 used to pull 0.9 down to 0.15.
+        self.h.add_atoms_no_check([
+            "(: general (Implication (F0 $t) (T $t)) (CTV (STV 0 0.01) (STV 0 0.01)))",
+            "(: specific (Implication (And (F0 $t) (F1 $t)) (T $t)) (CTV (STV 0.9 0.038461538461538464) (STV 0 0.038461538461538464)))",
+        ])
+        self.add_case("fresh", 1, 1, 0)
+        self.assertAlmostEqual(float(self.answer().tv[1]), 0.9, places=7)
+
+    def test_strong_general_rule_supplies_a_positive_prior(self):
+        self.h.add_atoms_no_check([
+            "(: general (Implication (F0 $t) (T $t)) (CTV (STV 0.25 0.99) (STV 0 0.99)))",
+            "(: specific (Implication (And (F0 $t) (F1 $t)) (T $t)) (CTV (STV 0.99 0.4) (STV 0 0.4)))",
+        ])
+        self.add_case("fresh", 1, 1, 0)
+        # n_g=99 gives a=47/253; the specific count remains 2/3.
+        self.assertAlmostEqual(float(self.answer().tv[1]), 0.8287326120556414, places=7)
 
     def test_same_condition_revises(self):
         self.h.add_atoms_no_check([

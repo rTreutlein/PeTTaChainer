@@ -23,4 +23,4 @@
                 with cpu (prior (STV 0.3333749895859368 0.5)))
              (by (inheritance-implication ravenBird) (ctx proof 1)))))
       (Inheritance Raven Penguin)
-      (STV 0.9978637987087198 1.0e-06))))
+      (STV 0.9978639641851278 1.0e-06))))

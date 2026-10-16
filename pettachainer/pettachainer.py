@@ -288,11 +288,13 @@ class PeTTaChainer:
         self._evidence_confidence_k = float(k)
 
     def set_bayes_prior_count(self, a: float) -> None:
-        """Set the pseudo-observations of the prior with which Bayes' rule reads
-        a likelihood estimated from finite evidence. The prior is centred on
-        independence, so a likelihood from few observations moves a belief
-        little instead of making it certain. Process-wide; timed subprocess
-        queries replay it.
+        """Set the heterogeneity count kappa (default 0.2).
+
+        The prior weight also accounts for uncertainty of its centre: it is
+        max(0, 1/(1/(n_g+1) + 1/(kappa+1)) - 1), with n_g from the centre's
+        confidence and the process-wide k. Certain centres give weight kappa;
+        certain likelihoods/rates are unchanged. The method and parameter name
+        are retained; a now denotes kappa. Timed queries replay this setting.
         """
         self.handler.process_metta_string(
             f"!(set-bayes-prior-count {float(a)!r})"

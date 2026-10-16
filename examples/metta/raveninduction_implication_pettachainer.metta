@@ -37,4 +37,4 @@
                rv2ImpliesBlack
                ((inverted rv2ImpliesRaven with cpu (prior (STV 0.25000694425154857 0.9))) (ctx proof 0)))))
       (Implication (Raven $x) (Black $x))
-      (STV 0.4337885433384649 0.5234740322165239)))
+      (STV 0.43378856589971065 0.5234740053136646)))

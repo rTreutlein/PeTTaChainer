@@ -15,4 +15,4 @@
 !(test (query 100 penguinKb (: $p (Fly sam) $tv))
    (: (by r2 (by (no_inverse (member-inheritance-implication f3)) f2)) (Fly sam) (STV 1.0 0.749947780718329)))
 !(test (query 100 penguinKb (: $p (Fly pingu) $tv))
-   (: (specializes (by r1 f1) (by r2 (by (no_inverse (member-inheritance-implication f4)) f1)) (STV 0.0 0.899999909975099) (STV 1.0 0.749947780718329)) (Fly pingu) (STV 2.7777033978194846e-05 0.899999909975099)))
+   (: (specializes (by r1 f1) (by r2 (by (no_inverse (member-inheritance-implication f4)) f1)) (STV 0.0 0.899999909975099) (STV 1.0 0.749947780718329)) (Fly pingu) (STV 2.7693758332360208e-05 0.899999909975099)))

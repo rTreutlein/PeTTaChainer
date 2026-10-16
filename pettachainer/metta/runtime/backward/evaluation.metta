@@ -847,9 +847,9 @@
 ;; benchmarks/ona/repros/specificity.py: a hypothesis about S that wins a
 ;; quarter of the time, revised with one about S and L that always wins). It
 ;; is the prior the specific rate is read under instead: the specific
-;; strength under bayes-prior-count pseudo-observations at the general one,
-;; as Bayes' rule reads a likelihood (bayes-shrink), so a specific rule with
-;; little evidence stays near the general rate.
+;; strength under a prior at the general one (bayes-shrink). Its weight uses
+;; the general estimate's confidence and the configured heterogeneity count
+;; kappa, so an uncertain general rule supplies little or no pull.
 (: sk-specialized (-[det]-> SkFact EvidenceSet Number SkFact EvidenceSet Number SkeletonValue))
 (= (sk-specialized ($type $kbctx $proof $tv) $ev $deps ($_gtype $_gkbctx $general $gtv) $gev $gdeps)
    (case (sk-step-proof $proof) (
@@ -858,8 +858,8 @@
             (assemble-runtime-fact $type $kbctx (brand Proof (merge/revision $previous $general)) (revision-merge-tv (the TV $previous-tv) $gtv)) $gev $gdeps))
       ($_other
          (case (data $tv $gtv) (
-            (((STV $s $c) (STV $gs $_gc))
-               (sk-val ($type $kbctx (brand Proof (specializes $proof $general $tv $gtv)) (STV (bayes-shrink $s $c $gs) $c))
+            (((STV $s $c) (STV $gs $gc))
+               (sk-val ($type $kbctx (brand Proof (specializes $proof $general $tv $gtv)) (STV (bayes-shrink $s $c $gs $gc) $c))
                   ;; The general class is a parameter, not another instance
                   ;; observation. Keep its proof and refresh dependencies.
                   $ev (deps-union $deps $gdeps)))

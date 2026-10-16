@@ -54,7 +54,7 @@
    (: ((inverted pToQ with cpu (prior (STV 0.6599999999999998 0.0009990009990009992)))
        qa)
       (P alice)
-      (STV 0.875684243726313 0.016392039082253194)))
+      (STV 0.8756842458979404 0.016392040302468155)))
 
 ;; Revising an input changes its key's value, so a later run that takes it
 ;; carries the change to the rules downstream.
@@ -170,7 +170,7 @@
    (query 200 forwardBaseRateKb (: $proof (P alice) $tv))
    (: ((inverted pToQ with cpu (prior (STV 0.6599999999999998 0.0009990009990009992))) qa)
       (P alice)
-      (STV 0.875684243726313 0.016392039082253194)))
+      (STV 0.8756842458979404 0.016392040302468155)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)
@@ -281,7 +281,7 @@
              ((inverted (inheritance-implication penguinBird) with cpu (prior (STV 0.3333749895859368 0.5)))
                 (by (inheritance-implication ravenBird) (ctx proof 1)))))
       (Inheritance Raven Penguin)
-      (STV 0.9978637987087198 1.0e-06)))
+      (STV 0.9978639641851278 1.0e-06)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)
@@ -306,7 +306,7 @@
    (: ((inverted pToQ with cpu (prior (STV 0.6599999999999998 0.0009990009990009992)))
        qa)
       (P alice)
-      (STV 0.875684243726313 0.016392039082253194)))
+      (STV 0.8756842458979404 0.016392040302468155)))
 
 !(test
    (let (base-rate $_kb $_pattern $_tv $source $_mode)

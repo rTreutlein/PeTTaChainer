@@ -34,13 +34,13 @@
 ;; Well-supported base rates: variance propagates through P(A|B)=sb_a*sa/sb by the
 ;; delta method (validated against Monte-Carlo).
 !(test (CTVInversionFormula (STV 0.3 0.9) (STV 0.5 0.9) (CTV (STV 0.7 0.9) (STV 0.0 1.0)))
-   (CTV (STV 0.4199966667592567 0.7676062430522665) (STV 0.1800033332407433 0.8785665671366366)))
+   (CTV (STV 0.4199966700913868 0.7676062411488879) (STV 0.1800033299086132 0.8785665683836059)))
 ;; Frechet-inconsistent inputs: P(A)=0.7 and P(B)=0.9 force P(B|A) >= (0.7+0.9-1)/0.7
 ;; = 0.857, but the rule asserts P(B|A)=0.8. The least evidence that restores the
 ;; bound is dropped first; the weakly supported base rates give way, not the rule,
 ;; and the inversion holds at the confidence what remains supports.
 !(test (CTVInversionFormula (STV 0.7 0.001) (STV 0.9 0.001) (CTV (STV 0.8 0.9) (STV 0.1 0.9)))
-   (CTV (STV 0.5991720856552274 0.0007907261407983997) (STV 1.0 1.0e-06)))
+   (CTV (STV 0.5991684764483071 0.0007907267437587532) (STV 1.0 1.0e-06)))
 
 ;; The reconciliation itself. Over the upper bound P(B)/P(A) = 0.5 < 0.99, the
 ;; counts are drained until P(A) P(B|A) = P(B); a base rate of 1.0 from one

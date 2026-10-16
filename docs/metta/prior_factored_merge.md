@@ -91,6 +91,28 @@ shrinkage toward their pooled value); a noise sensor whose likelihoods are
 uncertain leaves the strength and lowers the confidence, since it could have
 been informative.
 
+## Confidence of the shrinkage centre
+
+Since issue #69 (October 16, 2026), `set-bayes-prior-count` and Python
+`set_bayes_prior_count(a)` retain their signatures but configure heterogeneity
+κ, default 0.2. A finite-evidence likelihood is read under weight
+
+    a = max(0, 1/(1/(n_g+1) + 1/(κ+1)) − 1),  n_g = c_g k/(1−c_g)
+
+This adds uncertainty of the prior centre to subclass heterogeneity. STV
+inversion uses P(B)'s confidence; `CTVBayesFormula` uses the confidence of its
+pooled branches, their summed evidence count converted back to confidence
+(certain if either branch is certain).
+The pooled mean remains count-weighted as before. Specificity uses the merged
+general rule's confidence and shrinks the original specific estimate once.
+Certain centres give a = κ; certain likelihoods/rates stay as stated. The
+population prior's centre is the given 0.5, so its weight remains κ. Prior
+observations change the read strength, not the likelihood's evidence count.
+No estimate of κ from sibling spread is implemented.
+
+The historical measured tables in this document predate this centre-confidence
+change; current evidence is in the issue #69 comparison reports.
+
 ## Recognising views to factor
 
 Two views are factored when each is a prior-based inversion, or a factored
@@ -426,8 +448,8 @@ inversions of rules stating both likelihoods.
 
 A base rate is read as the prior of one more member of its population: its
 mean under the Bayes prior with which Bayes' rule reads a likelihood,
-(s n + a/2) / (n + a) over the n members counted (`set-bayes-prior-count`,
-a = 0.2), at the rate's confidence (`population-prior-tv`, where the base
+(s n + κ/2) / (n + κ) over the n members counted (`set-bayes-prior-count`,
+κ = 0.2), at the rate's confidence (`population-prior-tv`, where the base
 rate is read as the prior, `prior-base-rate-premises`, for completions and
 for inversions of STV and CTV rules over a population base rate alike, and
 for a root's population prior). A rate of 0 or 1 from finitely many members

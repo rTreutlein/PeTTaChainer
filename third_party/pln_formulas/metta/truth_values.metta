@@ -36,8 +36,9 @@
 (: set-evidence-confidence-k (-[det]-> Number Bool))
 (= (set-evidence-confidence-k $k) (change-state! evidence_confidence_k $k))
 
-;; The pseudo-observations of the prior with which Bayes' rule reads a
-;; likelihood (see bayes-shrink). Process-wide, like k.
+;; Subclass heterogeneity count kappa (default 0.2). The public setting keeps
+;; its name; bayes-prior-weight also accounts for uncertainty of the centre.
+;; Process-wide, like k.
 !(change-state! bayes_prior_count 0.2)
 
 (: bayes-prior-count (-[det]-> Number))
@@ -46,18 +47,25 @@
 (: set-bayes-prior-count (-[det]-> Number Bool))
 (= (set-bayes-prior-count $a) (change-state! bayes_prior_count $a))
 
-;; A likelihood as Bayes' rule reads it: the mean of its Beta under a prior of
-;; a observations centred on m, (s n + a m) / (n + a) for n = c k / (1 - c)
-;; observations. The centre is independence: the value the likelihood would
-;; have if the evidence told nothing about the hypothesis. So a likelihood
-;; estimated from few observations moves a belief little, instead of making it
-;; certain; a certain likelihood, or one with neither evidence nor prior, is
-;; unchanged.
-(: bayes-shrink (-[det]-> Number Number Number Number))
-(= (bayes-shrink $s $c $m)
+;; Add the centre estimate's variance g(1-g)/(n_g+1) to the heterogeneity
+;; variance g(1-g)/(kappa+1), then convert back to pseudo-observations.
+;; A certain centre has zero estimate variance and gives exactly kappa.
+(: bayes-prior-weight (-[det]-> Number Number))
+(= (bayes-prior-weight $gc)
+   (let $kappa (bayes-prior-count)
+      (if (>= $gc 1.0) (max 0.0 $kappa)
+         (max 0.0 (- (/ 1.0 (+ (/ 1.0 (+ (confidence-to-count $gc) 1.0))
+                                  (/ 1.0 (+ $kappa 1.0)))) 1.0)))))
+
+;; Read an estimate under a prior centred on m with centre confidence gc:
+;; (s n + a m)/(n+a), n = c k/(1-c), a = bayes-prior-weight(gc).
+;; Prior observations do not increase the likelihood's evidence. A certain
+;; estimate, or one with neither evidence nor prior, is read as it is.
+(: bayes-shrink (-[det]-> Number Number Number Number Number))
+(= (bayes-shrink $s $c $m $gc)
    (if (>= $c 1.0) $s
       (let* (($n (confidence-to-count $c))
-             ($a (bayes-prior-count)))
+             ($a (bayes-prior-weight $gc)))
          (if (<= (+ $n $a) 0.0) $s
             (/ (+ (* $s $n) (* $a $m)) (+ $n $a))))))
 
@@ -494,7 +502,7 @@
       ;; The base rates and P(B|A) are reconciled first, so the ratios stay
       ;; within [0, 1] up to rounding and contradictory inputs invert at the
       ;; confidence their consistent part supports.
-      (case (ConsistentTriple (STV $sa0 $ca0) (STV $sb0 $cb0) (STV (bayes-shrink $sb_a0 $cb_a0 $sb0) $cb_a0)) (
+      (case (ConsistentTriple (STV $sa0 $ca0) (STV $sb0 $cb0) (STV (bayes-shrink $sb_a0 $cb_a0 $sb0 $cb0) $cb_a0)) (
          ((stv-triple (STV $sa $ca) (STV $sb $cb) (STV $sb_a $cb_a))
             (let*
                (($Va (ideal-var $sb_a $cb_a))
@@ -535,8 +543,9 @@
    (let* (($nu (confidence-to-count $cu))
           ($nv (confidence-to-count $cv))
           ($m (if (<= (+ $nu $nv) 0.0) 0.5 (/ (+ (* $u0 $nu) (* $v0 $nv)) (+ $nu $nv))))
-          ($u (bayes-shrink $u0 $cu $m))
-          ($v (bayes-shrink $v0 $cv $m))
+          ($cm (if (or (>= $cu 1.0) (>= $cv 1.0)) 1.0 (count-confidence (+ $nu $nv))))
+          ($u (bayes-shrink $u0 $cu $m $cm))
+          ($v (bayes-shrink $v0 $cv $m $cm))
           ($Va (ideal-var $sa $ca))
           ($Vu (ideal-var $u $cu))
           ($Vv (ideal-var $v $cv)))

@@ -427,7 +427,7 @@
       (append-goals (base-rate-premises $kb $pattern $rate)
          (cons (CPU population-prior-tv ($rate) $brtv) ()))))
 (: population-prior-tv (-[det]-> TV TV))
-(= (population-prior-tv (STV $s $c)) (STV (bayes-shrink $s $c 0.5) $c))
+(= (population-prior-tv (STV $s $c)) (STV (bayes-shrink $s $c 0.5 1.0) $c))
 
 ;; A KB may declare that it stores only the true instances of a predicate
 ;; (logic KBs of Provable, Path or Ancestor facts): its stored instances are

@@ -10,7 +10,7 @@
 !(compileadd oneKb (: block1 (Implication (Storm $reg) (Blocked r1 $reg)) (CTV (STV 0.8 0.99) (STV 0.03 0.99))))
 !(set-base-rate oneKb (Storm $reg) (STV 0.3 0.9))
 !(compileadd oneKb (: o1 (Blocked r1 north) (STV 1.0 1.0)))
-!(test (case (query 100 oneKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.9195396995574504 0.9402958253588755))
+!(test (case (query 100 oneKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.9195396996705184 0.940295825398468))
 
 ;; One route blocked and the other open: Bayes' rule gives 0.702, where
 ;; revising the two inversions gave 0.085, dominated by the open route's more
@@ -20,7 +20,7 @@
 !(set-base-rate mixedKb (Storm $reg) (STV 0.3 0.9))
 !(compileadd mixedKb (: o1 (Blocked r1 north) (STV 1.0 1.0)))
 !(compileadd mixedKb (: o2 (Blocked r2 north) (STV 0.0 1.0)))
-!(test (query 100 mixedKb (: $p (Storm north) $tv)) (: (factored-revision cpu (prior (STV 0.30000555540123885 0.9)) (((inverted block1 with cpu (prior (STV 0.30000555540123885 0.9))) o1) ((inverted block2 with cpu (prior (STV 0.30000555540123885 0.9))) o2))) (Storm north) (STV 0.7020620351563192 0.8417105980076366)))
+!(test (query 100 mixedKb (: $p (Storm north) $tv)) (: (factored-revision cpu (prior (STV 0.30000555540123885 0.9)) (((inverted block1 with cpu (prior (STV 0.30000555540123885 0.9))) o1) ((inverted block2 with cpu (prior (STV 0.30000555540123885 0.9))) o2))) (Storm north) (STV 0.7020620354202329 0.8417105980005783)))
 
 ;; Both routes blocked: Bayes' rule gives 0.9967.
 !(compileadd bothKb (: block1 (Implication (Storm $reg) (Blocked r1 $reg)) (CTV (STV 0.8 0.99) (STV 0.03 0.99))))
@@ -28,7 +28,7 @@
 !(set-base-rate bothKb (Storm $reg) (STV 0.3 0.9))
 !(compileadd bothKb (: o1 (Blocked r1 north) (STV 1.0 1.0)))
 !(compileadd bothKb (: o2 (Blocked r2 north) (STV 1.0 1.0)))
-!(test (case (query 100 bothKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.9967293484183447 0.9961445532413079))
+!(test (case (query 100 bothKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.9967293484283085 0.9961445532497656))
 
 ;; Gusts are as likely with a storm as without: observing one leaves the
 ;; blocked route's posterior as it is.
@@ -37,7 +37,7 @@
 !(set-base-rate gustKb (Storm $reg) (STV 0.3 0.9))
 !(compileadd gustKb (: o1 (Blocked r1 north) (STV 1.0 1.0)))
 !(compileadd gustKb (: g1 (Gust north) (STV 1.0 1.0)))
-!(test (case (query 100 gustKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.9195396995574505 0.9383174114935829))
+!(test (case (query 100 gustKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.9195396996705184 0.9383174115355408))
 
 ;; Two levels: a blocked route delays its shipment with 0.9, an open one with
 ;; 0.05. Route r1 is
@@ -55,8 +55,8 @@
 !(set-base-rate routeKb (Blocked r2 $reg) (STV 0.261 0.9))
 !(compileadd routeKb (: o1 (Blocked r1 north) (STV 1.0 1.0)))
 !(compileadd routeKb (: l2 (Late s2 north) (STV 1.0 1.0)))
-!(test (query 100 routeKb (: $p (Blocked r2 north) $tv)) (: (factored-revision (by block2 ((inverted block1 with cpu (prior (STV 0.30000555540123885 0.9))) o1)) (prior (STV 0.7380455686592369 0.9789675802933676)) (((inverted late2 with cpu (prior (STV 0.26100663870448043 0.9))) l2))) (Blocked r2 north) (STV 0.9806625371623355 0.9942651505519067)))
-!(test (case (query 100 routeKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.9910312066204975 0.992430292626925))
+!(test (query 100 routeKb (: $p (Blocked r2 north) $tv)) (: (factored-revision (by block2 ((inverted block1 with cpu (prior (STV 0.30000555540123885 0.9))) o1)) (prior (STV 0.7380455687462992 0.9789675803147546)) (((inverted late2 with cpu (prior (STV 0.26100663870448043 0.9))) l2))) (Blocked r2 north) (STV 0.9806625371904043 0.9942651505580538)))
+!(test (case (query 100 routeKb (: $p (Storm north) $tv)) (((: $_p $_s $tv) $tv))) (STV 0.9910312066447148 0.9924302926426909))
 
 ;; When the storm is also read off the late shipment, the forward view of r2
 ;; already holds that observation: it is not an independent prior for the
@@ -67,4 +67,4 @@
 !(set-base-rate sharedKb (Storm $reg) (STV 0.3 0.9))
 !(set-base-rate sharedKb (Blocked r2 $reg) (STV 0.261 0.9))
 !(compileadd sharedKb (: l2 (Late s2 north) (STV 1.0 1.0)))
-!(test (query 100 sharedKb (: $p (Blocked r2 north) $tv)) (: (by block2 ((inverted lateS with cpu (prior (STV 0.30000555540123885 0.9))) l2)) (Blocked r2 north) (STV 0.6503070491437178 0.9554362809798753)))
+!(test (query 100 sharedKb (: $p (Blocked r2 north) $tv)) (: (by block2 ((inverted lateS with cpu (prior (STV 0.30000555540123885 0.9))) l2)) (Blocked r2 north) (STV 0.6503070492099183 0.955436280997163)))

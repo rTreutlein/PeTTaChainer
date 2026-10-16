@@ -459,9 +459,11 @@ A key's value merges its stored facts and one view per row:
 - before lifting or other aggregation, original applicable rule views are
   compared by syntactic containment (reversed for complements), including
   mined parent/child rules. Counts and confidence do not rank conditions;
-- a containing general view supplies the specific estimate's prior under
-  `set-bayes-prior-count` pseudo-observations. General views revise into one
-  prior and the original specific estimate is shrunk once; `specializes`
+- a containing general view supplies the specific estimate's prior. Its
+  weight accounts for uncertainty of the general estimate and heterogeneity
+  κ (`set-bayes-prior-count`, default 0.2), as described below. General views
+  revise into one prior, whose confidence sets the weight, and the original
+  specific estimate is shrunk once; `specializes`
   records both TVs. Derived implication applications include their source
   conditions. Prior observations do not enter the specific likelihood's
   evidence; its proof and refresh dependencies retain the general class.
@@ -743,12 +745,33 @@ is a member of excluded. Only stored facts count as seeded or remaining
 members: a forward run's copy of a key's value is reported by the run itself.
 
 Bayes' rule and inversion read a likelihood estimated from finite evidence
-under a prior of a pseudo-observations (`set-bayes-prior-count`) centred on
-independence: the pooled P(B) of both branches, or P(B) for P(B|A). Without
-it, a false-alarm rate estimated as 0 from a handful of cases makes every alarm
-certain. A base rate read as the prior of an inversion or a completion is the
-prior of one more member, read the same way, centred on 0.5: a rate of 0 or
-1 from finitely many members leaves an instance either way possible, so its
+under a prior centred on independence: the pooled P(B) of both branches,
+or P(B) for P(B|A). The configured heterogeneity count κ
+(`set-bayes-prior-count`, default 0.2; existing API names retained) is no
+longer a fixed prior weight. Add the centre estimate variance
+`g(1−g)/(n_g+1)` and subclass heterogeneity variance `g(1−g)/(κ+1)`, where
+`n_g = c_g·k/(1−c_g)`, and convert back to pseudo-observations:
+
+    a = max(0, 1/(1/(n_g+1) + 1/(κ+1)) − 1)
+
+A certain centre has no estimate variance and gives `a = κ`. An uncertain
+centre reduces the pull; for finite counts a positive weight requires
+`n_g·κ > 1` (at default κ, counts at most 5 give zero). With κ large relative
+to n_g the weight approaches n_g, and with n_g large it approaches κ.
+Specificity uses the containing general view's confidence; STV inversion
+uses P(B)'s confidence before reconciliation; Bayes' rule pools branch
+counts and converts their sum back to the centre's confidence (certain if
+either branch is certain). This changes only the strength read from the
+likelihood, not its evidence count. At k=1,
+general (0.25, 0.7), specific (0.99, 0.4) now reads 0.99, since a clamps to
+zero, rather than the fixed-weight 0.8192307583. κ is configured, not
+estimated from sibling spread.
+
+Without a prior, a false-alarm rate estimated as 0 from a handful of cases
+can make every alarm certain. A base rate read as the prior of an inversion
+or a completion is the prior of one more member, read the same way, centred
+on the given 0.5 (confidence 1, so a = κ): a rate of 0 or 1 from finitely many
+members leaves an instance either way possible, so its
 updates keep their likelihood ratios. A predicate whose stored instances are
 only its true ones is declared positive-only (`set-positive-only-predicate`)
 and has no prior. A certain likelihood, a certain rate, and the instance

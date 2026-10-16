@@ -125,9 +125,9 @@
 !(compileadd storedFlatKb (: r (Implication (And (A $x) (B $x)) (C $x)) (CTV (STV 0.9 0.9) (STV 0.2 0.9))))
 
 !(test (query 20 storedKb (: $p (C x) $tv))
-   (: (specializes (by (by r a) b) (by s b) (STV 0.9 0.8999999991176936) (STV 0.7 0.499999999956991)) (C x) (STV 0.8999944445987068 0.8999999991176936)))
+   (: (specializes (by (by r a) b) (by s b) (STV 0.9 0.8999999991176936) (STV 0.7 0.499999999956991)) (C x) (STV 0.8999944944588267 0.8999999991176936)))
 !(test (query 20 storedFlatKb (: $p (C x) $tv))
-   (: (specializes (by r (conjunction a b)) (by s b) (STV 0.9 0.8999999991176935) (STV 0.7 0.499999999956991)) (C x) (STV 0.8999944445987067 0.8999999991176935)))
+   (: (specializes (by r (conjunction a b)) (by s b) (STV 0.9 0.8999999991176935) (STV 0.7 0.499999999956991)) (C x) (STV 0.8999944944588266 0.8999999991176935)))
 
 ;; Forward chaining: taking a derives the statement, taking it joins b.
 !(compileadd forwardKb (: a (A x) (STV 1.0 1.0)))
