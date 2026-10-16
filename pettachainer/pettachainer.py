@@ -32,57 +32,36 @@ def get_language_spec(llm_focused: bool = True) -> str:
     return (Path(__file__).resolve().parent / ("LLM_RULE_SPEC.md" if llm_focused else "LANGUAGE_SPEC.md")).read_text(encoding="utf-8")
 
 
-def _query_worker(
-    added_atoms: List[str],
-    kb: str,
-    fn: str,
-    source: str,
-    logic_config_path: str,
-    evidence_confidence_k: float,
-    bayes_prior_count: float,
-    context_reuse_threshold: float,
-    max_term_bytes: int,
-    replay_max_term_bytes: int,
-    rule_refinement: bool,
-    rule_change_hazard: Optional[float],
-    base_rate_smoothing: bool,
-    complete_predicates: List[str],
-    functional_predicates: List[Tuple[str, int, Tuple[int, ...]]],
-    positive_only_predicates: List[str],
-    hypothesis_mining: Optional[Tuple[int, int]],
-    predicate_times: List[Tuple[str, int, int]],
-    time_link: Optional[str],
-    observed_predicates: List[str],
-    conn,
-):
+def _query_worker(state: dict, fn: str, source: str, conn):
+    """Replay a chainer's settings and accepted inputs, as ``state`` (its
+    attributes) holds them, in a fresh process and run one query there."""
     try:
-        handler = PeTTaChainer(logic_config=logic_config_path)
-        handler.set_evidence_confidence_k(evidence_confidence_k)
-        handler.set_bayes_prior_count(bayes_prior_count)
-        handler.set_context_reuse_threshold(context_reuse_threshold)
-        handler.kb = kb
-        handler.set_max_term_bytes(replay_max_term_bytes)
-        handler.set_rule_refinement(rule_refinement)
-        if rule_change_hazard is not None:
-            handler.set_rule_change_hazard(rule_change_hazard)
-        handler.set_base_rate_smoothing(base_rate_smoothing)
-        for head, arity, positions in functional_predicates:
+        handler = PeTTaChainer(logic_config=state["_logic_config_path"])
+        handler.set_evidence_confidence_k(state["_evidence_confidence_k"])
+        handler.set_bayes_prior_count(state["_bayes_prior_count"])
+        handler.set_context_reuse_threshold(state["_context_reuse_threshold"])
+        handler.kb = state["kb"]
+        handler.set_max_term_bytes(state["_replay_max_term_bytes"])
+        handler.set_rule_refinement(state["_rule_refinement"])
+        if state["_rule_change_hazard"] is not None:
+            handler.set_rule_change_hazard(state["_rule_change_hazard"])
+        handler.set_base_rate_smoothing(state["_base_rate_smoothing"])
+        for head, (arity, positions) in state["_functional_predicates"].items():
             handler.set_functional_predicate(head, arity, positions)
-        for head in complete_predicates:
+        for head in state["_complete_predicates"]:
             handler.set_complete_predicate(head)
-        for head in positive_only_predicates:
+        for head in state["_positive_only_predicates"]:
             handler.set_positive_only_predicate(head)
-        if hypothesis_mining:
-            handler.set_hypothesis_mining(*hypothesis_mining)
-        for head, position, layer in predicate_times:
+        if state["_hypothesis_mining"]:
+            handler.set_hypothesis_mining(*state["_hypothesis_mining"])
+        for head, (position, layer) in state["_predicate_times"].items():
             handler.set_predicate_time(head, position, layer)
-        if time_link:
-            handler.set_time_link(time_link)
-        for head in observed_predicates:
+        if state["_time_link"]:
+            handler.set_time_link(state["_time_link"])
+        for head in state["_observed_predicates"]:
             handler.set_observed_predicate(head)
-        if added_atoms:
-            handler.add_atoms_no_check(added_atoms)
-        handler.set_max_term_bytes(max_term_bytes)
+        handler.add_atoms_no_check(state["_added_atoms"])
+        handler.set_max_term_bytes(state["_max_term_bytes"])
         conn.send(("ok", handler._call(fn, [source])))
     except Exception as exc:  # pragma: no cover
         conn.send(("err", (exc.__class__.__name__, str(exc), traceback.format_exc())))
@@ -578,16 +557,15 @@ class PeTTaChainer:
         raw_terms = [terms] if isinstance(terms, str) else list(terms)
         if not raw_terms:
             return []
-        selectors = []
-        for term in raw_terms:
-            selectors.append(
-                "(let* "
-                f"(($type (eval {term})) "
-                "($matches (collapse (once (match &kb "
-                f"($type ({self.kb} MAIN Nil) $prf $tv) "
-                f"($type ({self.kb} MAIN Nil) $prf $tv)))))) "
-                "(if (== $matches ()) missing-selected-fact (car-atom $matches)))"
-            )
+        selectors = [
+            "(let* "
+            f"(($type (eval {term})) "
+            "($matches (collapse (once (match &kb "
+            f"($type ({self.kb} MAIN Nil) $prf $tv) "
+            f"($type ({self.kb} MAIN Nil) $prf $tv)))))) "
+            "(if (== $matches ()) missing-selected-fact (car-atom $matches)))"
+            for term in raw_terms
+        ]
         results = self.handler.process_metta_string(f"!(superpose ({' '.join(selectors)}))")
         if len(results) != len(raw_terms) or "missing-selected-fact" in results:
             raise ValueError(f"No KB fact matches every requested term: {raw_terms}")
@@ -612,10 +590,9 @@ class PeTTaChainer:
         later run. Use ``select_facts`` to choose initial seeds by surface
         term, or ``all_facts`` to request the full-KB saturation special case.
         """
-        selected_facts = [facts] if isinstance(facts, str) else list(facts)
-        facts_expr = f"({' '.join(selected_facts)})"
+        facts_expr = facts if isinstance(facts, str) else " ".join(facts)
         return self.handler.process_metta_string(
-            f"!(let $changed (forward-chain {steps} {self.kb} {facts_expr}) "
+            f"!(let $changed (forward-chain {steps} {self.kb} ({facts_expr})) "
             "(superpose $changed))"
         )
 
@@ -638,29 +615,7 @@ class PeTTaChainer:
         parent_conn, child_conn = ctx.Pipe(duplex=False)
         worker = ctx.Process(
             target=_query_worker,
-            args=(
-                self._added_atoms,
-                self.kb,
-                fn,
-                source,
-                self._logic_config_path,
-                self._evidence_confidence_k,
-                self._bayes_prior_count,
-                self._context_reuse_threshold,
-                self._max_term_bytes,
-                self._replay_max_term_bytes,
-                self._rule_refinement,
-                self._rule_change_hazard,
-                self._base_rate_smoothing,
-                self._complete_predicates,
-                [(head, arity, positions) for head, (arity, positions) in self._functional_predicates.items()],
-                self._positive_only_predicates,
-                self._hypothesis_mining,
-                [(head, *place) for head, place in self._predicate_times.items()],
-                self._time_link,
-                self._observed_predicates,
-                child_conn,
-            ),
+            args=({k: v for k, v in vars(self).items() if k != "handler"}, fn, source, child_conn),
             daemon=True,
         )
         worker.start()
