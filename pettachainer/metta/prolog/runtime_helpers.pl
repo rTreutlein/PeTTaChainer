@@ -4,11 +4,12 @@
 :- use_module(library(yall)).
 :- ensure_loaded(context_overlay).
 :- ensure_loaded(ingestion).
+:- ensure_loaded(context_nodes).
 
 % Data-only spaces have no function definitions or compiler metadata. In
 % particular, an open first column must not enter remove-atom's function case.
 'remove-data-rows!'(Space, Pattern, true) :-
-    context_store(Space,_), context_active(_), !, 'context-remove!'(Space,Pattern,true).
+    context_store(Space,_), context_effective_scope(Space,_), !, 'context-remove!'(Space,Pattern,true).
 'remove-data-rows!'(Space, Pattern, true) :-
     Row =.. [Space|Pattern],
     retractall(Row).
@@ -346,10 +347,8 @@ opaque_proof_step(Step) :-
 % arity, and the columns that can. A fact stored in &kb with a referenced
 % proof is held by &sk_forward_stored (a forward run's copy) or by
 % &materialized_facts as well.
-refs_holder('&sk_latest', 3, [3]).
-refs_holder('&sk_view', 4, [4]).
-refs_holder('&sk_branch', 6, [6]).
-refs_holder('&sk_merged', 4, [4]).
+refs_holder('&sk_context', 11, [10]).
+refs_holder('&sk_context_merge', 11, [10]).
 refs_holder('&sk_forward_taken', 3, [3]).
 refs_holder('&sk_forward_stored', 5, [3, 4]).
 refs_holder('&sk_summary', 5, [3, 4]).

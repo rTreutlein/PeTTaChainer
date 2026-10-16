@@ -71,19 +71,20 @@
 
 ;; A positive instance arrives. A query that does not ask for the truth, with
 ;; no budget, takes it: (3 + 1) / 5 revised with the prior. It costs three
-;; row computations with 4 instances before it as with 16.
+;; row computations plus its two exclusion-class row computations, with
+;; 4 instances before it as with 16.
 !(compileadd shortKb (: anew (A new) (STV 1 1)))
 !(compileadd shortKb (: bnew (B new) (STV 1 1)))
 !(begin-backward-query-metrics!)
 !(test (query 0 shortKb (: $p (A i0) $tv)) (: a0 (A i0) (STV 1 1)))
-!(test (query_metric_value row-computes) 3)
+!(test (query_metric_value row-computes) 5)
 !(test (truth shortKb) (STV 0.7940973727973338 0.5050260161337391))
 
 !(compileadd longKb (: anew (A new) (STV 1 1)))
 !(compileadd longKb (: bnew (B new) (STV 1 1)))
 !(begin-backward-query-metrics!)
 !(test (query 0 longKb (: $p (A i0) $tv)) (: a0 (A i0) (STV 1 1)))
-!(test (query_metric_value row-computes) 3)
+!(test (query_metric_value row-computes) 5)
 !(test (truth longKb) (STV 0.7631380054603719 0.7737740612150117))
 
 ;; A review then computes nothing: it reads the truth.

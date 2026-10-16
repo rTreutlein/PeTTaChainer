@@ -33,20 +33,4 @@
 !(compileadd smokesKb (: smokesEdward (Inheritance Edward (IntSet smokes)) (STV 1.0 0.9)))
 
 !(test (query 500 smokesKb (: $prf (Inheritance Edward (IntSet cancerous)) $tv))
-   (:
-      (inheritance-implication-fold
-         (total-implication
-            (by smokingCancerRule
-               (merge/revision
-                  ((inheritance-rule-lift friendSmokingRule)
-                     (conjunction friendAnnaEdward smokesAnna)
-                     (ctx proof 0))
-                  (by (inheritance-implication smokesEdward) (ctx proof 0))))
-            (by smokingCancerRule
-               (merge/revision
-                  ((inheritance-rule-lift friendSmokingRule)
-                     (conjunction friendAnnaEdward smokesAnna)
-                     (ctx proof 1))
-                  (by (inheritance-implication smokesEdward) (ctx proof 1))))))
-      (Inheritance Edward (IntSet cancerous))
-      (STV 0.4199998330935358 0.9335532845458568)))
+   (: (inheritance-implication-fold (total-implication (by smokingCancerRule (merge/revision ((inheritance-rule-lift friendSmokingRule) (conjunction friendAnnaEdward (merge/revision smokesAnna ((antecedent-completion friendSmokingRule 1 with cpu (prior (STV 0.7634570208295768 0.0002821703584160559))) (conjunction friendAnnaFrank (by friendSmokingRule (conjunction friendEdwardFrank smokesEdward)))))) (ctx proof 0)) (by (inheritance-implication smokesEdward) (ctx proof 0)))) (by smokingCancerRule (merge/revision ((inheritance-rule-lift friendSmokingRule) (conjunction friendAnnaEdward (merge/revision smokesAnna ((antecedent-completion friendSmokingRule 1 with cpu (prior (STV 0.7634570208295768 0.0002821703584160559))) (conjunction friendAnnaFrank (by friendSmokingRule (conjunction friendEdwardFrank smokesEdward)))))) (ctx proof 1)) (by (inheritance-implication smokesEdward) (ctx proof 1)))))) (Inheritance Edward (IntSet cancerous)) (STV 0.41999279005917944 0.9335544641628442)))

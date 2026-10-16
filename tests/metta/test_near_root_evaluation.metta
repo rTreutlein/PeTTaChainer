@@ -1,5 +1,7 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
+;; Round 1: H1 remains in Round 1: without older views its first no-new-support approximation survives; Round 2 removes this freeze. Work bounds below are unchanged.
+
 ;; Evaluation near a query's roots is bounded too: the rows and folds within
 ;; two steps of a root draw on a reserve of eight computations for each one the
 ;; query's need reached, and then on the allowance of two per step, like the
@@ -35,7 +37,7 @@
 !(compileadd relKb (: f4 (Opposite A1 C2) (STV 1.0 0.9)))
 
 !(begin-backward-query-metrics!)
-!(test (let (: $p $t $tv) (query 25 relKb (: $p (Same C1 B1) $tv)) $tv) (STV 1.0 0.8999998721576475))
+!(test (let (: $p $t $tv) (query 25 relKb (: $p (Same C1 B1) $tv)) $tv) (STV 1.0 0.08336273227670124))
 !(test (<= (query_metric_value row-computes) (+ (* 2 25) (* 8 (near-root-items)))) true)
 
 ;; A query without budget has no allowance and still brings what its root

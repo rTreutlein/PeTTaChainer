@@ -28,21 +28,21 @@
          (total-implication
             (merge/revision
                (by (inheritance-implication birdFlies)
-                  (shared 40 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 0)))))
+                  (shared 10 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 0)))))
                (negated
                   (by penguinsDoNotFly
                      ((inverted (inheritance-implication penguinBird)
                          with cpu (prior (STV 0.730917365761377 0.00022594893654011704)))
-                        (shared 40)))))
+                        (shared 10)))))
             (merge/revision
                (negated
                   (by penguinsDoNotFly
                      ((inverted (inheritance-implication penguinBird)
                          with cpu (prior (STV 0.730917365761377 0.00022594893654011704)))
-                        (shared 44 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1)))))))
-               (by (inheritance-implication birdFlies) (shared 44)))))
+                        (shared 21 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1)))))))
+               (by (inheritance-implication birdFlies) (shared 21)))))
       (Inheritance Sam (IntSet flies))
-      (STV 0.9786915593831819 0.643251683490094))))
+      (STV 0.9786915593831778 0.6432516834782457))))
 
 !(test
    (collapse
@@ -62,7 +62,7 @@
                   (by penguinsDoNotFly
                      (by (inheritance-implication pinguPenguin) (ctx proof 3)))))))
       (Inheritance Pingu (IntSet flies))
-      (STV 0.1716914028326078 0.9152685473572054))))
+      (STV 0.17169140286295353 0.9152685473601218))))
 
 !(test
    (collapse
@@ -82,4 +82,4 @@
                   (by penguinsDoNotFly
                      (by (inheritance-implication pinguPenguin) (ctx proof 5)))))))
       (Inheritance Pingu (IntSet flies))
-      (STV 0.1716914028326078 0.9152685473572054))))
+      (STV 0.17169140286295353 0.9152685473601218))))

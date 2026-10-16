@@ -1,51 +1,26 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
-!(compileadd forceKb (: seed (ForceSeed) (STV 1.0 0.8)))
-!(compileadd forceKb
-   (: (no_inverse forceRule) (Implication (ForceSeed) (ForceRoot))
-      (CTV (STV 1.0 1.0) (STV 0.0 1.0))))
-!(test (length (collapse (query 20 forceKb (: $proof (ForceRoot) $tv)))) 1)
+!(compileadd lifecycleKb (: seed (Input a) (STV 1.0 0.8)))
+!(compileadd lifecycleKb (: (no_inverse step) (Implication (Input a) (Output a)) (CTV (STV 1 1) (STV 0 1))))
+!(test (length (collapse (query 200 lifecycleKb (: $p (Output a) $tv)))) 1)
 
-;; Consuming a row's pending causes preserves their first-arrival order and
-;; their evaluation-wide deduplication. Other keys and rows remain pending.
+;; Three unchanged queries reuse the same publications, without computing
+;; rows, allocating class nodes, or allocating fresh proof identifiers.
 !(test
-   (match &sk_row ($hash (sk-key (ForceRoot) (forceKb MAIN Nil)) $rhash
-                     (sk-row $ident $concl $premises $seq))
-      (let* (($_reset (sk-evaluate!))
-             ($_first (sk-force-cause! $hash $rhash 111))
-             ($_second (sk-force-cause! $hash $rhash 222))
-             ($_repeat (sk-force-cause! $hash $rhash 111))
-             ($_other-key (sk-force-cause! -1 $rhash 444))
-             ($_other-row (sk-force-cause! $hash -1 555))
-             ($before (collapse (match &sk_forced ($hash $rhash $cause) $cause)))
-             ($_computed (sk-compute 0 $seq (sk-work (empty_heap) (empty_heap))
-                (sk-row-item $seq $hash (sk-key (ForceRoot) (forceKb MAIN Nil)) $rhash
-                   (sk-row $ident $concl $premises $seq))))
-             ($after (collapse (match &sk_forced ($hash $rhash $cause) $cause)))
-             ($_again (sk-force-cause! $hash $rhash 111))
-             ($_third (sk-force-cause! $hash $rhash 333)))
-         ($before $after
-          (collapse (match &sk_forced ($hash $rhash $cause) $cause))
-          (collapse (match &sk_forced (-1 $rhash $cause) $cause))
-          (collapse (match &sk_forced ($hash -1 $cause) $cause)))))
-   ((111 222) () (333) (444) (555)))
+   (let* (($before (search-id-value proof_id))
+          ($_metrics (begin-backward-query-metrics!))
+          ($_one (query 200 lifecycleKb (: $p (Output a) $tv)))
+          ($_two (query 200 lifecycleKb (: $p (Output a) $tv)))
+          ($_three (query 200 lifecycleKb (: $p (Output a) $tv))))
+      (data (query_metric_value row-computes)
+            (query_metric_value context-nodes-created)
+            (query_metric_value merged-cache-misses)
+            (== (search-id-value proof_id) $before)))
+   (0 0 0 true))
+!(test (collapse (match &sk_context_queued ($_id $_priority) true)) ())
 
-;; The next evaluation clears every temporary tuple, including open first
-;; columns, and allows a previously used cause again. Repeated empty resets
-;; remain deterministic and preserve durable proofs.
-!(add-atom &sk_queued (99 88 77))
-!(add-atom &sk_fold_pending (66 55))
-!(test
-   (let* (($_first (sk-evaluate!))
-          ($_empty (sk-evaluate!))
-          ($cleared
-             ((collapse (match &sk_forced ($key $row $cause) true))
-              (collapse (match &sk_forced_used ($key $row $cause) true))
-              (collapse (match &sk_queued ($pass $key $row) true))
-              (collapse (match &sk_fold_pending ($fold $member) true))))
-          ($_reuse (sk-force-cause! -1 -1 111)))
-      ($cleared (collapse (match &sk_forced (-1 -1 $cause) $cause))))
-   ((() () () ()) (111)))
-!(test
-   (collapse (query 0 forceKb (: $proof (ForceRoot) $tv)))
-   ((: (by (no_inverse forceRule) seed) (ForceRoot) (STV 1.0 0.7999359651197002))))
+;; A changed input publishes through the producer-node subscriptions. The
+;; result has the new strength; no stale result is served in its place.
+!(compileadd lifecycleKb (: observed (Input a) (STV 0 1)))
+!(test (let (: $_proof $_type (STV $s $_c)) (query 200 lifecycleKb (: $p (Output a) $tv)) $s) 0)
+!(test (not (== (collapse (match &sk_context_reader ($_producer $_reader) true)) ())) true)

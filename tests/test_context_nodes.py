@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 
-class ContextNodeRoundZeroTests(unittest.TestCase):
+class ContextNodeRoundOneTests(unittest.TestCase):
     def test_acceptance_probes(self):
         result = subprocess.run(
             [sys.executable, str(Path(__file__).parent / 'probes/context_nodes.py')],

@@ -47,7 +47,7 @@ def run(repository: Path, rounds: int, repeats: int, mode: str) -> dict:
             name: int(handler.handler.process_metta_string(
                 f"!(length (collapse (match &{name} $row true)))"
             )[0])
-            for name in ("sk_expanded", "sk_row", "sk_view", "sk_latest", "sk_needed")
+            for name in ("sk_expanded", "sk_row", "sk_context", "sk_context_merge", "sk_needed")
         }
         return dict(**counts, peak_rss_kib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
 

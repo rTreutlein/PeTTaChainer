@@ -142,13 +142,6 @@
 
 ;; The keys of the stale rows that read a key: needing them brings the rows
 ;; back and recomputes them.
-(: sk-stale-readers (-[det]-> SkeletonKey (List SkeletonKey)))
-(= (sk-stale-readers $key)
-   (let $hash (index-hash $key)
-      (collapse (match &ctx_sk_stale_reader ($hash $stored $khash $rhash)
-         (if (=alpha $stored $key)
-            (match &sk_row ($khash $rkey $rhash (sk-row $ident $concl $premises $seq)) $rkey)
-            (empty))))))
 
 (: sk-item-key (-[det]-> SkeletonItem SkeletonKey))
 (= (sk-item-key (sk-row-item $_seq $_khash $key $_rhash $_row)) $key)
@@ -194,13 +187,15 @@
 
 (: sk-reader-keys (-[det]-> SkeletonKey (List SkeletonKey)))
 (= (sk-reader-keys $key)
-   (append-flat (map-flat sk-item-key (sk-readers $key)) (sk-stale-readers $key)))
+   (map-flat sk-item-key (sk-structural-readers $key)))
 
 ;; A key whose readers a run left stale goes back on the agenda as a rest item.
+(: sk-prime-keys! (-[det]-> (List SkeletonKey) Bool))
+(: sk-readers-pending? (-[det]-> SkeletonKey Bool))
 (: sk-rest-step
    (-[det]-> (Heap SkeletonForwardItem) SkeletonForwardEntry (Heap SkeletonForwardItem)))
 (= (sk-rest-step $agenda (sk-fwd-at $priority $_item $key))
-   (if (== (sk-stale-readers $key) ()) $agenda (add_to_heap $agenda $priority (sk-fwd-rest $key))))
+   (if (sk-readers-pending? $key) (add_to_heap $agenda $priority (sk-fwd-rest $key)) $agenda))
 
 ;; Once a wave's keys are taken, the run searches the folds their joins read
 ;; that no search expanded yet, as a query would, and evaluates every row
@@ -250,6 +245,15 @@
 ;; that fills it is the last. A seed
 ;; is always taken. A derived key is not taken twice in a run, nor when its
 ;; value is the one last built on or rests on less than the minimum evidence.
+(: sk-forward-item-key (-[det]-> SkeletonForwardItem SkeletonKey))
+(= (sk-forward-item-key $item)
+   (case $item (((sk-fwd-seed $k) $k) ((sk-fwd-key $k) $k) ((sk-fwd-rest $k) $k))))
+
+;; A named projection keeps the destructured item local to each map call.
+;; Capturing it in a lambda shares its binding across the carried entries.
+(: sk-forward-entry-key (-[det]-> (Number SkeletonForwardItem) SkeletonKey))
+(= (sk-forward-entry-key ($_priority $item)) (sk-forward-item-key $item))
+
 (: sk-forward-wave
    (-[semidet]-> Number Number (Heap SkeletonForwardItem) (List SkeletonForwardEntry) (List SkeletonKey)
        SkeletonWave))
@@ -259,7 +263,7 @@
       (sk-wave $wave $agenda $taken)
       (case (heap_pop $agenda) (
          (($priority $item $rest)
-            (let* (($key (case $item (((sk-fwd-seed $k) $k) ((sk-fwd-key $k) $k) ((sk-fwd-rest $k) $k))))
+            (let* (($key (sk-forward-item-key $item))
                    ($skip
                       (case $item (
                          ((sk-fwd-key $_k)
@@ -269,7 +273,7 @@
                          ($_other false)))))
                (if $skip (sk-forward-wave $room $stale $rest $wave $taken)
                   (let* (($hash (index-hash $key))
-                         ($more (match-count &sk_stale_reader ($hash $_stored $_khash $_rhash)))
+                         ($more (match-count &ctx_sk_row_input ($hash $_stored $_khash $_rhash)))
                          ($_taken (sk-forward-take! $item $key)))
                      (sk-forward-wave $room (+ $stale $more) $rest (cons (sk-fwd-at $priority $item $key) $wave)
                         (case $item (((sk-fwd-key $_k) (cons $key $taken)) ($_other $taken))))))))))))
@@ -370,21 +374,20 @@
        (List (Statement KBContext Proof TV))))
 (= (forward-chain $units $kb $facts)
    (once (let* (($started (inference-clock))
-          ($_branch-frame (change-state! sk_branch_at 0))
-          ($_branch-cuts (remove-data-rows! &sk_branch_cuts (quote ($_frame $_exclude $_cuts))))
-          ($_branch-reader (remove-data-rows! &sk_reading (quote ($_hash $_key $_row))))
           ($_mode (change-state! sk_forward_run 1))
           ($_seen (remove-data-rows! &sk_seen (quote ($hash $node))))
           ($_budget (change-state! sk_budget (+ $units 1)))
           ($_walk (change-state! sk_walk_budget (* (sk-walk-per-step) (+ $units 1))))
           ($_rows (change-state! sk_row_budget (* 10 (+ $units 1))))
           ($_evaluation (change-state! sk_eval_budget $units))
-          ($_branches (change-state! sk_branch_budget (* $units (sk-branch-share))))
           ($_reserve (change-state! sk_near_reserve 0))
           ($_unneeded (remove-data-rows! &sk_needed (quote ($hash $key $depth))))
           ($_activate (sk-activate-pending!))
           ($carried (collapse (match &sk_forward_agenda ($kb $priority $item) ($priority $item))))
           ($_cleared (remove-data-rows! &sk_forward_agenda (quote ($kb $priority $item))))
+          ($_inputs (sk-prime-keys!
+             (append-flat (map-flat sk-fact-key $facts)
+                (map-flat sk-forward-entry-key $carried))))
           ((sk-run $own $first)
              (sk-forward-loop! (* $units (- 1 (forward-seed-share)))
                 (fold-flat (sk-carried-step true)

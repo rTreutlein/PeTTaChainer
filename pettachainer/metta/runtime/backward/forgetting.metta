@@ -68,11 +68,10 @@
 ;; answers with it, so a query for it reads the summary.
 (: sk-read? (-[det]-> Number SkeletonKey Bool))
 (= (sk-read? $hash $key)
-   (if (space-row-present? &ctx_sk_reader ($hash $key $_khash $_rhash)) true
-      (if (space-row-present? &ctx_sk_stale_reader ($hash $key $_skhash $_srhash)) true
+   (if (space-row-present? &ctx_sk_row_input ($hash $key $_khash $_rhash)) true
          (not (== (collapse (once (match &sk_use ($hash $stored $fold)
                      (if (=alpha $stored $key) (if (sk-rate-fold? $fold) (empty) true) (empty)))))
-                  ())))))
+                  ()))) )
 
 (: sk-open-node? (-[det]-> SkPattern Bool))
 (= (sk-open-node? $node)
@@ -114,15 +113,12 @@
 ;; The dependency sets the stores hold; every other node can go.
 (: sk-deps-roots (-[det]-> (List Number)))
 (= (sk-deps-roots)
-   (append-flat (collapse (match &ctx_sk_latest ($_h $_k (sk-version $_s $_r $view)) (sk-view-deps-step 0 $view)))
-   (append-flat (collapse (match &ctx_sk_view ($_vh $_vk $_vr $old) (sk-view-deps-step 0 $old)))
-   (append-flat (collapse (match &ctx_sk_merged ($_mh $_mk $mdeps $_mv) $mdeps))
-   (append-flat (collapse (match &ctx_sk_merged ($_nh $_nk $_nd $value) (sk-view-deps-step 0 $value)))
-   (append-flat (collapse (match &ctx_sk_branch ($_slot2 $_bk2 $_br2 $_cuts $_fresh2 $branch) (sk-view-deps-step 0 $branch)))
+   (append-flat (collapse (match &ctx_sk_context ($_d $_id $_h $_k $_r $_q $_e $_c $deps $_v $_f) $deps))
+   (append-flat (collapse (match &ctx_sk_context_merge ($_md $_mid $_mh $_mk $_mr $_mq $_me $_mc $mdeps $_mv $_mf) $mdeps))
    (append-flat (collapse (match &ctx_sk_support ($_sh $_sr $support) $support))
    (append-flat (collapse (match &sk_forward_stored ($_fh $_fk $_ff $_fe $fdeps) $fdeps))
    (append-flat (collapse (match &sk_forward_taken ($_th $_tk $taken) (sk-view-deps-step 0 $taken)))
-      (collapse (match &sk_summary ($_yh $_yk $_yf $_ye $ydeps) $ydeps)))))))))))
+      (collapse (match &sk_summary ($_yh $_yk $_yf $_ye $ydeps) $ydeps))))))))
 
 ;; Ends an epoch and freezes the keys idle for the horizon. Returns the new
 ;; epoch.
@@ -160,11 +156,9 @@
           ($near (sk-near-hashes-step (cons $hash ()) $hash))
           ($window (fold-semidet sk-near-hashes-step $near $near))
           ($deps (deps-join (map-flat deps-key (hash-set $window))))
-          ($views (collapse (match &ctx_sk_latest ($hash $stored (sk-version $_seq $_rhash $view))
-                     (if (=alpha $stored $key) (sk-view-deps-step 0 $view) (empty)))))
-          ($older (collapse (match &ctx_sk_view ($hash $stored $_rhash $view)
-                     (if (=alpha $stored $key) (sk-view-deps-step 0 $view) (empty)))))
-          ($_cut (deps-cut! (append-flat $views $older) $deps))
+          ($views (collapse (match &ctx_sk_context ($_d $_id $hash $stored $_r $_q $_e $_c $vdeps $_v $_fresh)
+                     (if (=alpha $stored $key) $vdeps (empty)))))
+          ($_cut (deps-cut! $views $deps))
           ($rows (collapse (match &sk_row ($hash $stored $rhash $row)
                     (if (=alpha $stored $key) (sk-row-ref $stored $rhash $row) (empty)))))
           ($_rows (fold-semidet (sk-forget-row! $hash $key) () $rows))

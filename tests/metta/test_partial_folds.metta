@@ -86,8 +86,9 @@
 ;; computed again (here a soft degradation history the antecedent completions
 ;; of runs read, in an Assuming context): the fold is complete over no member
 ;; for a moment. When the allowance then leaves the row stale, the fold goes
-;; stale and its reader is computed again, so the query answers the partial
-;; fold. Before a8ab91a6 the reader was held stale with the complete view,
+;; stale and its reader must cease reporting a complete empty fold. A missing
+;; context node contributes no answer until the allowance can compute it.
+;; Before a8ab91a6 the reader was held stale with the complete view,
 ;; (Value t1 0.0) at confidence 0.9997 (SupplyNet stage 4, gap 4).
 !(set-complete-predicate recomputeKb P)
 !(compileadd recomputeKb (: persist (Implication (And (Next $p $t) (D $p)) (D $t)) (CTV (STV 0.75 1) (STV 0.1 1))))
@@ -120,5 +121,14 @@
 !(compileadd recomputeKb (: on-h6 (On h6) (STV 1 1)))
 !(compileadd recomputeKb (: next-t1 (Next h6 t1) (STV 1 1)))
 
-!(test (query 16 recomputeKb (: $p (Assuming (And (Decision t1) (On t1)) (Value t1 $g)) $tv))
-   (: (assuming (by (no_inverse value) (conjunction (ctx proof 0) (partial-fold 0 1 cpu)))) (Assuming (And (Decision t1) (On t1)) (Value t1 0.0)) (STV 1.0 0.0)))
+!(test
+   (case (collapse (query 16 recomputeKb (: $p (Assuming (And (Decision t1) (On t1)) (Value t1 $g)) $tv))) (
+      (() true)
+      (((: $_proof (Assuming $_facts (Value t1 $value)) (STV $_s $confidence)))
+         (if (== $value 0.0) (<= (the Number $confidence) 0.0) true))))
+   true)
+!(test
+   (let (: $_proof (Assuming $_facts (Value t1 $value)) (STV $_s $confidence))
+      (query 400 recomputeKb (: $p (Assuming (And (Decision t1) (On t1)) (Value t1 $g)) $tv))
+      (and (> (the Number $value) 0.0) (> (the Number $confidence) 0.0)))
+   true)

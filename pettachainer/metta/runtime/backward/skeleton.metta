@@ -36,8 +36,6 @@
    (or (== $function FoldAllCompiled) (== $function GroupedFoldAllCompiled)))
 
 ;; Signatures of the mutually recursive functions below.
-(: sk-drop-branch! (-[det]-> Atom Number Atom))
-(: sk-stale-branch! (-[det]-> Atom Number Atom))
 (: sk-add-answer! (-[semidet]-> SkPattern SkeletonKey Atom))
 (: sk-drain! (-[semidet]-> Atom))
 (: sk-extend-step (-[semidet]-> SkeletonKey Atom SkeletonWaiter Atom))
@@ -462,13 +460,13 @@
 (: sk-unifying-readers (-[det]-> Statement KBContext (List Atom)))
 (= (sk-unifying-readers $type $kbctx)
    (case (statement-prefix-hashes $type) (
-      (() (collapse (match &sk_reader_open ($_any $type $kbctx $rhash $reader) ($rhash $reader))))
+      (() (collapse (match &sk_row_input_open ($_any $type $kbctx $rhash $reader) ($rhash $reader))))
       ((cons $prefix $_shorter)
          (let $shorter (statement-open-probes $type)
             (append-flat
-               (collapse (match &sk_reader_prefix ($prefix $type $kbctx $rhash $reader) ($rhash $reader)))
+               (collapse (match &sk_row_input_prefix ($prefix $type $kbctx $rhash $reader) ($rhash $reader)))
                (collapse (let $open (superpose $shorter)
-                  (match &sk_reader_open ($open $type $kbctx $rhash $reader) ($rhash $reader))))))))))
+                  (match &sk_row_input_open ($open $type $kbctx $rhash $reader) ($rhash $reader))))))))))
 
 ;; A dropped key leaves the indexes by term.
 (: sk-unindex-key! (-[det]-> Statement KBContext Number Atom))
@@ -477,12 +475,12 @@
           ($open (statement-open-hash $type))
           ($_terms (remove-data-rows! &sk_key_terms (quote ($type $kbctx $h))))
           ($_open (remove-data-rows! &sk_key_open (quote ($open $type $kbctx $h))))
-          ($_reader (remove-data-rows! &sk_reader_open (quote ($open $type $kbctx $h $_reader-key))))
+          ($_reader (remove-data-rows! &sk_row_input_open (quote ($open $type $kbctx $h $_reader-key))))
           ($_prefixes
              (collapse (let $prefix (superpose $prefixes)
                 (progn
                    (remove-data-rows! &sk_key_prefix (quote ($prefix $type $kbctx $h)))
-                   (remove-data-rows! &sk_reader_prefix (quote ($prefix $type $kbctx $h $_prefix-key))))))))
+                   (remove-data-rows! &sk_row_input_prefix (quote ($prefix $type $kbctx $h $_prefix-key))))))))
       ()))
 
 ;; the key itself and every registered key whose term unifies with it
@@ -509,8 +507,8 @@
                                           ($open (statement-open-hash $type))
                                           ($_prefixes
                                              (collapse (let $prefix (superpose $prefixes)
-                                                (add-atom &sk_reader_prefix ($prefix $type $kbctx $khash $key))))))
-                                      (add-atom &sk_reader_open ($open $type $kbctx $khash $key))))))
+                                                (add-atom &sk_row_input_prefix ($prefix $type $kbctx $khash $key))))))
+                                      (add-atom &sk_row_input_open ($open $type $kbctx $khash $key))))))
                   $computed))
             ($_fold (cons $khash ()))))))))
 
@@ -568,7 +566,7 @@
 ;; reader to schedule.
 (: sk-mark-dirty! (-[det]-> SkeletonKey Atom))
 (= (sk-mark-dirty! $key)
-   (if (not (== (collapse (once (match &ctx_sk_latest ($_hash $_key $_version) true))) ()))
+   (if (not (== (collapse (once (match &ctx_sk_context ($_d $_id $_hash $_key $_r $_q $_e $_c $_deps $_v $_fresh) true))) ()))
       (sk-dirty! $key)
       ()))
 
@@ -1020,7 +1018,7 @@
                          (let $_t (add-atom &sk_temp_rows ($khash $key $rhash $row)) ())
                          ()))
                    ($_readers
-                      (fold-semidet (sk-add-reader! $khash $rhash) ()
+                      (fold-semidet (sk-add-row-input! $khash $rhash) ()
                          (fold-semidet sk-direct-key-step () $premises))))
                (sk-row-answer! $owner $key $proof))
             ;; A row waits once, however often its join completes meanwhile.
@@ -1044,36 +1042,23 @@
       ((CPU $_fun $_args $_res) $keys)
       (($type $kbctx $_proof $_tv) (cons (sk-key $type $kbctx) $keys)))))
 
-(: sk-add-reader! (-[det]-> Number Number Atom SkeletonKey Atom))
-(= (sk-add-reader! $khash $rhash $_acc $key)
+(: sk-add-row-input! (-[det]-> Number Number Atom SkeletonKey Atom))
+(= (sk-add-row-input! $khash $rhash $_acc $key)
    (let* (($hash (index-hash $key))
-          ($_row (context-add! &sk_reader ($hash $key $khash $rhash))))
+          ($_row (context-add! &sk_row_input ($hash $key $khash $rhash))))
       ()))
 
-(: sk-drop-stale-reader! (-[det]-> Number Number Atom SkeletonKey Atom))
-(= (sk-drop-stale-reader! $khash $rhash $_acc $key)
-   (let* (($hash (index-hash $key))
-          ($_removed
-             (collapse (match &ctx_sk_stale_reader ($hash $stored $khash $rhash)
-                (if (=alpha $stored $key) (context-remove! &sk_stale_reader ($hash $stored $khash $rhash)) (empty))))))
-      ()))
 
-(: sk-remove-reader! (-[det]-> Number Number Atom SkeletonKey Atom))
-(= (sk-remove-reader! $khash $rhash $_acc $key)
+(: sk-remove-row-input! (-[det]-> Number Number Atom SkeletonKey Atom))
+(= (sk-remove-row-input! $khash $rhash $_acc $key)
    (let* (($hash (index-hash $key))
           ($_removed
-             (collapse (match &ctx_sk_reader ($hash $stored $khash $rhash)
-                (if (=alpha $stored $key) (context-remove! &sk_reader ($hash $stored $khash $rhash)) (empty))))))
+             (collapse (match &ctx_sk_row_input ($hash $stored $khash $rhash)
+                (if (=alpha $stored $key) (context-remove! &sk_row_input ($hash $stored $khash $rhash)) (empty))))))
       ()))
 
 ;; A stale row moves from a key's readers to its stale readers (see
 ;; sk-unlink-reader!).
-(: sk-stale-reader! (-[det]-> Number Number Atom SkeletonKey Atom))
-(= (sk-stale-reader! $khash $rhash $_acc $key)
-   (let* (($_removed (sk-remove-reader! $khash $rhash () $key))
-          ($hash (index-hash $key))
-          ($_row (context-add! &sk_stale_reader ($hash $key $khash $rhash))))
-      ()))
 
 ;; The budget counts expansions. New rows have their own allowance of ten per
 ;; step, so recursive rules cannot grow the skeleton without bound; a row found
@@ -1942,72 +1927,24 @@
 (: sk-push-root (-[det]-> (Heap SkeletonFrontier) SkPattern (Heap SkeletonFrontier)))
 (= (sk-push-root $heap $root) (sk-push 0 $heap (sk-node-at (sk-node-hash $root) $root)))
 
-(: sk-branch-link! (-[det]-> Number Atom SkeletonKey Atom))
-(: sk-branch-unlink! (-[det]-> Number Atom SkeletonKey Atom))
-(: sk-invalidate-branches! (-[det]-> SkeletonKey Atom))
-(= (sk-branch-link! $slot $_acc $input)
-   (let $ihash (index-hash $input) (context-add! &sk_branch_reader ($ihash $input $slot))))
 
-(= (sk-branch-unlink! $slot $_acc $input)
-   (let $ihash (index-hash $input)
-      (remove-variant-row! &sk_branch_reader (quote ($ihash $input $slot)))))
 
 ;; Erase before cascading, so cycles stop at the first already erased owner.
 ;; The ordinary views remain valid. Only their cached exclusion reads change.
-(= (sk-drop-branch! $_acc $slot)
-   (let* (($_wanted (remove-data-rows! &sk_branch_wanted (quote ($slot $_hash $_key $_rhash $_exclude))))
-          ($_dropped
-             (collapse (match &ctx_sk_branch_owner ($slot $hash $key $rhash $inputs)
-                (let* (($_owner (remove-variant-row! &sk_branch_owner (quote ($slot $hash $key $rhash $inputs))))
-                       ($_views (remove-data-rows! &sk_branch (quote ($slot $_key $_rhash $_cuts $_fresh $_view))))
-                       ($_dirty (context-remove! &sk_branch_dirty ($slot)))
-                       ($_inputs (fold-semidet (sk-branch-unlink! $slot) () $inputs)))
-                   (sk-invalidate-branches! $key))))))
-      ()))
 
-(= (sk-stale-branch! $_acc $slot)
-   (if (space-row-present? &ctx_sk_branch_dirty ($slot)) ()
-      (let $_staled
-         (collapse (match &ctx_sk_branch_owner ($slot $_hash $key $_rhash $inputs)
-            (let* (($_dirty (context-add! &sk_branch_dirty ($slot)))
-                   ($_unlinked (fold-semidet (sk-branch-unlink! $slot) () $inputs))
-                   ($_views
-                      (collapse (match &ctx_sk_branch ($slot $stored $rhash $cuts true $view)
-                         (let $_old (remove-variant-row! &sk_branch (quote ($slot $stored $rhash $cuts true $view)))
-                            (context-add! &sk_branch ($slot $stored $rhash $cuts false $view)))))))
-               (sk-invalidate-branches! $key))))
-         ())))
 
-(= (sk-invalidate-branches! $key)
-   (let* (($hash (index-hash $key))
-          ($_dropped (collapse (fold-semidet sk-stale-branch! ()
-             (collapse (match &ctx_sk_branch_reader ($hash $stored $slot)
-                (if (=alpha $stored $key) $slot (empty))))))))
-      ()))
 
-;; A row's latest view and the views it replaced.
 (: sk-drop-row-views! (-[det]-> Number SkeletonKey Number Atom))
 (= (sk-drop-row-views! $hash $key $rhash)
-   (let* (($_branches (sk-drop-branch! () (index-hash ($hash $rhash))))
-          ($_latest
-             (collapse (match &ctx_sk_latest ($hash $stored (sk-version $seq $rhash $view))
-                (if (=alpha $stored $key)
-                   (let $_changed (if (== $view sk-none) () (sk-invalidate-branches! $key))
-                      (context-remove! &sk_latest ($hash $stored (sk-version $seq $rhash $view))))
-                   (empty)))))
-          ($_older
-             (collapse (match &ctx_sk_view ($hash $stored $rhash $view)
-                (if (=alpha $stored $key) (context-remove! &sk_view ($hash $stored $rhash $view)) (empty)))))
-          ($_support (remove-data-rows! &sk_support (quote ($hash $rhash $_deps)))))
-      ()))
+   (let $_nodes (sk-context-drop-row! $hash $key $rhash)
+      (remove-data-rows! &sk_support (quote ($hash $rhash $_deps)))))
 
 (: sk-drop-row! (-[semidet]-> Number SkeletonKey Number SkeletonRow Atom))
 (= (sk-drop-row! $hash $key $rhash (sk-row $ident $concl $premises $seq))
    (let* (($keys (fold-semidet sk-direct-key-step () $premises))
           ($_row (remove-variant-row! &sk_row (quote ($hash $key $rhash (sk-row $ident $concl $premises $seq)))))
-          ($_readers (fold-semidet (sk-remove-reader! $hash $rhash) () $keys))
-          ($_stale-readers (fold-semidet (sk-drop-stale-reader! $hash $rhash) () $keys))
-          ($_stale (context-remove! &sk_stale ($hash $rhash))))
+          ($_readers (fold-semidet (sk-remove-row-input! $hash $rhash) () $keys))
+          )
       (sk-drop-row-views! $hash $key $rhash)))
 
 ;; Query-local rules leave with their query: their rows, waiters, deferred rows

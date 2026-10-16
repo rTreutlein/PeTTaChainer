@@ -1,5 +1,9 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
+;; This numerical reference exercises convergence without the production KL
+;; tolerance stopping a parameter fold early.
+!(set-context-reuse-threshold 0)
+
 ;; Problem is definitionally equivalent to an OR of its two causes.  The
 ;; generated BiImplication directions are already explicit and must not create
 ;; another pair of Bayesian inversions.
@@ -68,3 +72,5 @@
    (query 20000 orInversionConditionedMergeKb
       (: $proof (LocalProblem current) $tv))
    (: (merge/revision localPrior ((antecedent-completion (bi-forward problemDefinition) 0 with cpu (prior (STV 0.4185934569191004 0.0011238544987638187))) (conjunction dependencyPrior ((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm)))) (LocalProblem current) (STV 0.4001273433488443 0.9000365438768168)))
+
+!(set-context-reuse-threshold 0.000001)

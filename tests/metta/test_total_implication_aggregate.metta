@@ -1,5 +1,7 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
+;; Round 1: H2 removal: current cross-predicate aggregate members include admissible derived evidence, rather than historical leaf-only views.
+
 (: TotalEvidenceSentinel Type)
 (: none TotalEvidenceSentinel)
 (: TotalEvidenceTvs Type)
@@ -95,4 +97,4 @@
 
 !(test
    (query 50 kb (: $prf (Female bob) $stv))
-   (: (ii_total tb (foldall-proof (total-pos (conjunction ta fa)) (total-neg (conjunction (negated ta) fa)) (total-pos (conjunction tm fm)) (total-neg (conjunction (negated tm) fm)) (total-pos (conjunction tl fl)) (total-neg (conjunction (negated tl) fl)))) (Female bob) (STV 0.9049050000000001 0.7525704728622737)))
+   (: (ii_total tb (foldall-proof (total-pos (conjunction (merge/revision (ii_total fa (foldall-proof (total-pos (conjunction fm tm)) (total-neg (conjunction (negated fm) tm)) (total-pos (conjunction fl tl)) (total-neg (conjunction (negated fl) tl)))) ta) fa)) (total-neg (conjunction (negated (merge/revision (ii_total fa (foldall-proof (total-pos (conjunction fm tm)) (total-neg (conjunction (negated fm) tm)) (total-pos (conjunction fl tl)) (total-neg (conjunction (negated fl) tl)))) ta)) fa)) (total-pos (conjunction (merge/revision (ii_total fm (foldall-proof (total-pos (conjunction fa ta)) (total-neg (conjunction (negated fa) ta)) (total-pos (conjunction fl tl)) (total-neg (conjunction (negated fl) tl)))) tm) fm)) (total-neg (conjunction (negated tm) fm)) (total-pos (conjunction tl fl)) (total-neg (conjunction (negated tl) fl)))) (Female bob) (STV 0.8961967072948066 0.7857044342286138)))

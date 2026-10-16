@@ -1,5 +1,7 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
+;; Round 1: H2 removal: context-local rule truth uses the current leave-one-out fold, rather than an older admitted view.
+
 ;; A refined rule applied to an instance reads its truth without the samples
 ;; that depend on that instance (leave one out), and an instance sample reads
 ;; no value another refined rule estimates (docs/metta/hypothesis_rules.md,
@@ -144,7 +146,7 @@
 !(compileadd stormKb (: next-t2 (NextPeriod t1 t2) (STV 1 1)))
 !(compileadd stormKb (: blocked-t2 (Blocked r1 t2) (STV 1 1)))
 !(test (let (: $prf $t $tv) (query 100 stormKb (: $prf (Storm t2) $tv)) $tv)
-   (STV 0.925268866420926 0.15477569667147947))
+   (STV 0.925268866420926 0.1547763301588114))
 
 ;; Read the full internal CTV after scheduling a public STV query below.
 ;; These pins protect learned negative branches used by modus ponens.

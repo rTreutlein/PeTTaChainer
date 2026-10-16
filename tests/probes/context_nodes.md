@@ -1,64 +1,65 @@
-# Issue 60, Round 0
+# Issue 60, Round 1
 
-These probes specify the adopted context-node design without changing runtime
-behavior. Run them in the worktree's copied/repointed environment under
+Run these probes in the worktree's copied/repointed environment through
 `bench/capped --priority review`, with `DISPLAY` unset, `ulimit -v 16000000`,
-and a process-group timeout as in `docs/agent_workflow.md`.
+and the process-group timeout/reaping procedure in `docs/agent_workflow.md`.
 
-`test_context_nodes.py` runs `context_nodes.py` in a fresh runtime. Python
-unittest's `expectedFailure` mechanism makes the four outstanding contracts
-visible and treats an unexpected success as a failure. Remove the corresponding
-decorator in the round that implements the contract:
+`test_context_nodes.py` runs the acceptance campaign in a fresh SWI runtime.
+Python unittest's `expectedFailure` retains the contracts that require
+later rounds; an unexpected success fails the suite.
 
-| Test | Current defect | Passing round |
+| Test | Contract | Status in Round 1 |
 |---|---|---|
-| T1, full TV | cold/warm confidence differs by about 5.89e-7 | 3 (after 1-2) |
-| T1, three repeats | warm-all rebuilds/conditions forever | 1 |
-| T2 | four-rule, four-period base-rate/branch loop is non-quiet | 1 |
-| T3 | five-link persistence chain retains deep stale history | 3 |
+| T1, full TV | cold = warm = warm-all within 1e-12 | expected failure until Round 3, after H1 removal in Round 2 |
+| T1, three repeats | unchanged TVs and zero evaluation work | required |
+| T2 | base-rate loop terminates with zero work | required |
+| T3 | deep persistence history has the same cold/warm TV | expected failure until Round 3 |
+| T4 | C1 insertion orders and all 3/4-cycle permutations agree on full TVs within 1e-12 | required |
 
-T1 follows `round6/stronger-regression.patch`: budgets 2,000 and 20,000;
-cold, warm, warm-all; 24 settling queries; full STV equality within 1e-12;
-three unchanged queries with zero row computations, branch builds, conditioned
-evaluations, or unpaid conditions. The existing branch soundness audits remain
-in the suite's original history-replay test. T2's positive fixture check verifies
-that a branch subscribes to a fold. T3 separately verifies quiescence and the existence of deep
-t1 rows, four links from the t5 root; the guard does not require staleness to
-persist once round 3 refreshes them. These positive checks are not expected
-failures. Round 1 must rewire the branch-store audit to the context store when
-it deletes the branch machinery; it must not retain old helpers for this audit. T3 runs unchanged against pre-54 `22bd1a09` too.
+Two additional H1 contracts retain their original assertions as expected
+failures until Round 2: shared-source quantified judgment strength/confidence,
+and the many-root high-budget posterior error bound. Their numeric fixture
+guards run outside expected failures. The main Python suite also retains
+materialization history equality as an expected failure until Round 3;
+replacement and zero-budget read-back checks remain required.
 
-T4 checks all six C1 rule insertion orders and all six/24 three/four-cycle
-permutations, with and without interleaved queries. Every member's full STV is
-compared with the cold graph, after three settling queries. The existing
-proof-term and self-support regressions remain in place. T4 already passes.
+T1 preserves the stronger regression's histories and budgets, 2,000 and
+20,000. Each history has its own process. Its prefix is constructed once,
+then SWI forks independent copies for the final budgets: neither budget warms
+the other. Settling stops after three consecutive identical, zero-work
+queries, with the original 24-query limit. The shared results serve both TV
+and work assertions. This removes duplicate setup, without dropping a history,
+budget, truth-value component, or repeat check.
+
+Work includes row computations, context-node creation, merged-cache misses,
+conditioned evaluations, and unpaid conditions. Fixture checks sit outside
+expected failures. T2 checks actual node subscriptions to a base-rate fold;
+T3 checks quiet repeats and the presence of deep t1 rows. The publication
+audit checks dependency/exclusion disjointness while proof and dependency
+handles are live, and requires a positive publication count.
+
+`exclusion_state.py` checks exact reuse, pending misses without inline row
+evaluation, node-local subscriptions, proof-independent republication,
+dependency-set equality, statistical value/coverage comparison, canonical
+aliasing, row-key collisions, class growth beyond eight entries, H1 forcing,
+and interruption cleanup. These are executable contracts for the new store;
+the deleted branch helpers are not retained as test scaffolding.
 
 ## Census
 
-`context_census.py CASE ABSOLUTE_OUTPUT.json` instruments the runtime only in
-its owning process. `--plain` runs the same workload without Prolog wrappers to
-check observer neutrality. SupplyNet/conflict/replay arguments come from
-`bench/compare.py`, including its standard seeds and workload sizes. Replay is
-`fv_s4`, 20 shifts/10 modules, diagnosis budget 50, action 1, shortfall 25.
-The u4 census covers cold/warm/warm-all at budget 2,000, 12 final repeats each,
-and warm-all's three sweeps of prior snapshots at 20,000.
+`context_census.py CASE ABSOLUTE_OUTPUT.json` instruments only its owning
+process. `--plain` runs the same benchmark without wrappers for an observer
+neutrality check. Its workload arguments and seeds come from `bench/compare.py`.
+The Round-0 census and cap decision are archived in
+`bench/results/codex-logs/ctxnodes.round0.result.md`.
 
-Counts are cumulative for the workload, keyed by owner digest and row digest,
-and include classes later pruned or evicted. They are not an end-state cache
-census. `observed_cuts` counts the empty ordinary class and every freshly
-published branch's canonical recorded cuts. `raw_exclusions` records every
-exclusion set E at a `sk-value` read against its existing latest rows;
-`demand_envelope` unions these with the observed classes. This conservative
-bound retains demand whose exact cut class is still undiscovered, including
-unpaid misses, excluded owners, and reads inside conditioning. It intentionally
-overstimates distinct semantic classes. The observed count alone must not be
-used as a complete census of pending class demand: master's fallbacks can serve
-an older view without ever computing the requested exact context.
+The probe retains cumulative published cut classes and raw exclusion requests,
+including nodes later canonicalized away. The union is a conservative demand
+envelope, not an end-of-run cache count. The JSON also reports per-query
+exclusion merges and conditioned evaluations within those merges.
 
-The JSON includes per-row total/maximum/mean/histogram for all three counts,
-each query's exclusion merges and conditioned evaluations within an exclusion
-merge, query-only totals, and totals including forward calls. A conditioned
-evaluation is counted once when its claim charge succeeds under at least one
-nonempty-exclusion merge; nested merges do not multiply that count. Forward
-calls are excluded from the per-query mean. These are work counts, not timing
-measurements; probe overhead invalidates performance comparisons.
+The production query metrics `context_node_count`, `context_classes_max`, and
+`context_classes_mean` count retained row nodes, including pending/stale nodes,
+at each query boundary. The Round-1 cyclic-fuzzer census uses these metrics
+with the standard `scripts/fuzz_vs_problog.py` generator and worker. These
+retained counts are reported separately from the Round-0 cumulative envelope.

@@ -1088,7 +1088,7 @@
 ;; its public proof. It must exactly equal that of the selected witness.
 !(test
    (let* (($key (sk-fold ((overlapReview MAIN Nil) (P $x) extract-tv (STV 0 0) OrFormula identity result-tv)))
-          ((sk-goal-val $_goal $_proof $ev $_deps) (sk-latest-view (index-hash $key) $key 0))
+          ((sk-goal-val $_goal $_proof $ev $_deps) (sk-ordinary-view (index-hash $key) $key 0))
           ((sk-val $_fact $chosen-ev $_chosen-deps) (sk-key-value (sk-key (P a) (overlapReview MAIN Nil)))))
       (if (evidence-subset? $ev $chosen-ev) (evidence-subset? $chosen-ev $ev) false))
    true)

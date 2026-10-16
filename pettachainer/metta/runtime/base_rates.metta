@@ -147,10 +147,11 @@
 ;; The backward folds reading a pattern's cache entries, in any mode,
 ;; recompute when one changes.
 (: base-rate-readers-changed! (-[det]-> KB Statement (List $none)))
+(: sk-cache-input-changed! (-[det]-> SkeletonKey Bool))
 (= (base-rate-readers-changed! $kbid $pattern)
    (let* (($hash (base-rate-cache-hash $kbid $pattern))
           ($_dirty
-             (collapse (match &ctx_sk_rate_folds ($hash $key) (sk-dirty! $key)))))
+             (collapse (match &ctx_sk_rate_folds ($hash $key) (sk-cache-input-changed! $key)))))
       ()))
 
 (: store-produced-base-rate!

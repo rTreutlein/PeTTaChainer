@@ -44,6 +44,10 @@ class TestPriorityRefinement(unittest.TestCase):
         for order in ("abc", "cba"):
             with self.subTest(order=order):
                 chainer = PeTTaChainer()
+                # This test pins an exact symmetric reference. Statistical
+                # context nodes otherwise compare parameters at KL 1e-6.
+                chainer.set_context_reuse_threshold(0)
+                self.addCleanup(chainer.set_context_reuse_threshold, 0.000001)
                 add_cases(chainer, order)
                 initial = chainer.query_many(roots, steps=80, timeout_sec=0)
                 self.assertEqual([len(batch) for batch in initial], [1, 1])

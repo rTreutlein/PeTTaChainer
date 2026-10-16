@@ -70,28 +70,38 @@
 (: sk-key-target (-[det]-> Number SkeletonKey SkeletonFilter (List Number) SkeletonTarget))
 
 ;; Signatures of the mutually recursive functions below.
-(: sk-note-cuts! (-[det]-> (List Number) Atom))
 (: sk-excludes? (-[det]-> (List Number) Number Bool))
-(: sk-branch-excludes? (-[semidet]-> Number Bool))
-(: sk-hold-branch-reader! (-[det]-> SkeletonKey Atom))
-(: sk-build-wanted! (-[semidet]-> Bool))
-(: sk-branch-ready-step (-[semidet]-> Number (List Number) Atom SkeletonItem Atom))
-(: sk-finish-branches! (-[semidet]-> Number Atom))
-(: sk-branch-values (-[semidet]-> Number SkeletonKey Number (List Number) Bool (List SkeletonValue)))
 (: sk-mixed (-[det]-> (List SkeletonValue) SkeletonValue SkeletonValue))
 (: sk-reference-view (-[semidet]-> Number SkeletonValue SkeletonValue))
-(: sk-cache-branch!
-   (-[semidet]-> Number Number SkeletonKey Number Number (List SkeletonKey) (List Number) Bool SkeletonValue SkeletonValue))
-(: sk-stale-reader-step (-[det]-> SkeletonKey Atom SkeletonItem Atom))
 (: sk-value (-[semidet]-> SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 (: sk-row-view (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Number SkeletonRow SkeletonValue))
 (: sk-computed-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
 (: sk-member-pending? (-[det]-> SkeletonKey Bool))
 (: sk-dependent-merge (-[semidet]-> Bool SkeletonValue SkeletonValue SkeletonValue))
 (: sk-given-value (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) SkeletonValue))
+(: sk-wait! (-[det]-> Number Number Number SkeletonValue SkeletonValue))
+(: sk-answer-roots! (-[det]-> (List SkPattern) Bool (List (List RuntimeResult))))
 (: sk-conditioned
    (-[semidet]-> (List SkeletonGiven) SkeletonTarget Number Number (List Number) (List SkeletonKey) Number
        SkeletonValue SkeletonValue SkeletonValue))
+
+(: sk-ordinary-versions (-[det]-> Number SkeletonKey (List SkeletonVersion)))
+(: sk-ordinary-view (-[det]-> Number SkeletonKey Number SkeletonValue))
+(: sk-admitted-versions (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonVersion)))
+(: sk-drop-merged! (-[det]-> SkeletonKey Atom))
+(: sk-condition-owner (-[det]-> Number Number))
+(: sk-context-pending? (-[det]-> Bool))
+(: sk-fold-exclusions (-[det]-> Number (List Number)))
+(: sk-context-excludes? (-[det]-> Number Bool))
+(: sk-need-roots! (-[det]-> (List SkeletonKey) Atom))
+(: sk-need-keys! (-[det]-> Number (List SkeletonKey) Atom))
+(: sk-need-depth (-[det]-> Number SkeletonKey Number))
+(: sk-needed? (-[det]-> Number SkeletonKey Bool))
+(: sk-evaluate! (-[det]-> Atom))
+(: sk-evaluation-free-depth (-[det]-> Number))
+(: sk-evaluation-per-step (-[det]-> Number))
+(: sk-walk-per-step (-[det]-> Number))
+(: sk-context-metrics! (-[det]-> Atom))
 
 ;; --- Leaves -----------------------------------------------------------------
 
@@ -161,13 +171,15 @@
    (let* (($view (sk-leaf-view $hash $fact))
           ($deps (sk-view-deps-step 0 $view)))
       (if (== $deps (sk-leaf-deps $hash $fact))
-         (if (sk-branch-excludes? $deps) $kept (cons $view $kept))
+         (if (sk-context-excludes? $deps) $kept (cons $view $kept))
          (if (if $computed (not (sk-summary-fact? $fact)) false) $kept
             (if (sk-excludes? $exclude $deps) $kept (cons $view $kept))))))
 
 (: sk-leaf-views (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonValue)))
+(: sk-subscribe-leaves! (-[det]-> SkeletonKey (List Number) Bool))
 (= (sk-leaf-views $hash $key $filter $exclude)
-   (let $computed (if (== (sk-latest-versions $hash $key) ()) false true)
+   (let* (($_subscribed (sk-subscribe-leaves! $key $exclude))
+          ($computed (if (== (sk-ordinary-versions $hash $key) ()) false true)))
       (fold-semidet sk-cons-step ()
          (fold-semidet (sk-leaf-step $hash $computed $exclude) () (sk-key-leaves $key $filter)))))
 
@@ -552,7 +564,7 @@
    (if (case $key (((sk-key $type $_kbctx)
             (if (head-is? $type RuleTruth) (= $type (RuleTruth $_implication)) false)) ($_other false))) $found
    (let* (($hash (index-hash $key))
-          ($views (map-flat sk-version-view (sk-latest-versions $hash $key)))
+          ($views (map-flat sk-version-view (sk-ordinary-versions $hash $key)))
           ($leaves (sk-key-leaves $key sk-any-filter)))
       (if (if (fold-semidet sk-known-leaf-step false $leaves) true
              (if (== $views ()) (== $leaves ()) (fold-semidet sk-known-view-step true $views)))
@@ -1387,12 +1399,8 @@
                (if (== $shared ()) () (collapse (once (sk-lift-group $shared $values)))))))
       ($_other ()))))
 
-;; Each row keeps its latest view and the views it replaced, in the order
-;; they were computed. A consumer takes, per row, the latest view that depends
-;; on none of the excluded keys and matches its pattern; an older one stays
-;; usable when a newer one came to depend on one of them. An older view whose
-;; dependencies include all of a newer one's is admitted only where the newer
-;; one is, so storing a view drops those.
+;; A context node holds one published value. Reuse checks its recorded cuts
+;; and dependencies; proof liveness is independent of that compatibility.
 (: sk-live-view? (-[det]-> SkeletonValue Bool))
 (= (sk-live-view? $view)
    (case $view (
@@ -1409,154 +1417,12 @@
          (if (sk-excludes? $exclude $deps) false true))
       (sk-none false))))
 
-(: sk-admit-older (-[det]-> SkeletonFilter (List Number) SkeletonValue SkeletonValue SkeletonValue))
-(= (sk-admit-older $filter $exclude $kept $view)
-   (if (sk-admits? $filter $exclude $view) $view $kept))
-
 ;; An estimate from a rule's instances is read by a consumer without the
 ;; samples that read what the consumer excludes, its own key above all: the
 ;; instance a refined rule is applied to is no evidence of the rule there
 ;; (leave one out). An implication instance fold read so is its tally less
 ;; those samples' contributions, found by the keys they read, and a refined
-;; rule's truth is its rows evaluated again for the consumer; neither is
-;; stored. Older views, which knew fewer instances, are left to every other
-;; row.
-(: sk-admit-step
-   (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonVersion) SkeletonVersion
-       (List SkeletonVersion)))
-(= (sk-admit-step $hash $key $filter $exclude $kept (sk-version $seq $rhash $view))
-   (case (sk-left-out-view $hash $key $filter $exclude $rhash) (
-      (sk-none
-         (if (sk-admits? $filter $exclude $view) (cons (sk-version $seq $rhash $view) $kept)
-            (let $rebuilt
-               (if (sk-excludes? $exclude (sk-view-deps-step 0 $view))
-                  (if (== (search-id-value sk_branch_at) 0)
-                     (if (sk-excludes? $exclude (deps-key $hash)) sk-none
-                        (let $slot (index-hash ($hash $rhash))
-                           (case (sk-branch-values $slot $key $rhash $exclude true) (
-                              ((cons $cached $_rest)
-                                 (let $_hit (query_metric_increment branch-cache-hits) $cached))
-                              (()
-                                 (let* (($_miss (query_metric_increment branch-cache-misses))
-                                        ($_wanted (collapse (once
-                                           (match &sk_row ($hash $owner $rhash (sk-row $_ident $_concl $premises $_seq))
-                                              (if (=alpha $owner $key)
-                                                 (if (sk-excludes? $exclude (deps-join (map-flat deps-key
-                                                        (map-semidet index-hash (fold-semidet sk-direct-key-step () $premises))))) ()
-                                                 (let* (($_queued
-                                                    (if (== (collapse (once
-                                                           (match &ctx_sk_branch_wanted ($slot $hash $stored $rhash $exclude)
-                                                              (if (=alpha $stored $key) true (empty))))) ())
-                                                       (context-add! &sk_branch_wanted ($slot $hash $key $rhash $exclude)) ()))
-                                                        ($_reader (sk-hold-branch-reader! $key))) ()))
-                                                 (empty)))))))
-                                    (sk-mixed (sk-branch-values $slot $key $rhash $exclude false) sk-none)))))))
-                     (sk-rebuild-view $hash $key $rhash $exclude))
-                  sk-none)
-               (case (if (sk-admits? $filter $exclude $rebuilt) $rebuilt
-                        (fold-semidet (sk-admit-older $filter $exclude) sk-none (sk-older-views $hash $key $rhash))) (
-                  (sk-none $kept)
-                  ($admitted (cons (sk-version $seq $rhash $admitted) $kept)))))))
-      ($left-out (cons (sk-version $seq $rhash $left-out) $kept)))))
-
-;; Rebuilt branches outlive queries. A branch computed under E1 serves E2
-;; exactly when its dependencies miss E2 and its cuts are contained in E2.
-;; Record only exclusions that cut a branch. Keep at most eight contexts per row;
-;; dropping one changes only how much a later reader must rebuild.
-(: sk-rebuild-view (-[semidet]-> Number SkeletonKey Number (List Number) SkeletonValue))
-(= (sk-rebuild-view $hash $key $rhash $exclude)
-   (if (sk-excludes? $exclude (deps-key $hash)) sk-none
-      (let $slot (index-hash ($hash $rhash))
-         (case (sk-branch-values $slot $key $rhash $exclude true) (
-            ((cons $cached $_rest) (let $_hit (query_metric_increment branch-cache-hits) $cached))
-            (()
-               (let $_miss (query_metric_increment branch-cache-misses)
-               (case (collapse (once (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
-                        (if (=alpha $stored $key) (sk-row $ident $concl $premises $seq) (empty))))) (
-                  (() sk-none)
-                  ((cons (sk-row (sk-ident $rule $keys $result) $concl $premises $seq) $_rows)
-                     (let* (($inputs (alpha_unique_keys (fold-semidet sk-direct-key-step () $premises)))
-                            ($mandatory (deps-join (map-flat deps-key (map-semidet index-hash $inputs)))))
-                        (if (sk-excludes? $exclude $mandatory) sk-none
-                           (if (sk-take! sk_eval_budget (case $key (((sk-key $type $_kbctx) (term-cost $type)) ($_fold 1))))
-                              (let* (($_counted (query_metric_increment row-computes))
-                                     ($_build (query_metric_increment branch-builds))
-                                     ($incumbent (sk-branch-values $slot $key $rhash $exclude false))
-                                     ($_refresh
-                                        (if (query_metrics_enabled)
-                                           (if (space-row-present? &ctx_sk_branch_dirty ($slot))
-                                              (query_metric_increment branch-cache-refreshes) 0) 0))
-                                     ($unpaid (search-id-value sk_branch_unpaid))
-                                     ($parent (search-id-value sk_branch_at))
-                                     ($frame (+ 1 (next-search-id sk_branch_frame)))
-                                     ($_cuts (add-atom &sk_branch_cuts ($frame $exclude ())))
-                                     ($_enter (change-state! sk_branch_at $frame))
-                                     ($view (sk-row-view () $exclude $hash $key $rhash
-                                        (sk-row (sk-ident $rule $keys $result) $concl $premises $seq)))
-                                     ((cons $found $_rest) (collapse (once (match &sk_branch_cuts ($frame $_exclude $recorded) $recorded))))
-                                     ($cuts (hash-intersection (the (List Number) $found) $exclude))
-                                     ($_leave (change-state! sk_branch_at $parent))
-                                     ($_frame (remove-data-rows! &sk_branch_cuts (quote ($frame $_exclude $_found))))
-                                     ($_parent (sk-note-cuts! $cuts)))
-                                 (if (== $unpaid (search-id-value sk_branch_unpaid))
-                                    (sk-cache-branch! $slot $hash $key $rhash $rule $inputs $cuts true $view)
-                                    (let $_unfinished (next-search-id sk_branch_unpaid)
-                                       (if (== $view sk-none) (sk-mixed $incumbent sk-none)
-                                          (if (sk-same-view? $view (sk-mixed $incumbent sk-none))
-                                             (sk-mixed $incumbent $view)
-                                             (sk-cache-branch! $slot $hash $key $rhash $rule $inputs $exclude false $view))))))
-                              (let* (($_unpaid (query_metric_increment rows-unpaid))
-                                     ($_unfinished (next-search-id sk_branch_unpaid))
-                                     ($_reader (sk-hold-branch-reader! $key)))
-                                 (sk-mixed (sk-branch-values $slot $key $rhash $exclude false) sk-none)))))))))))))))
-
-(= (sk-hold-branch-reader! $key)
-   (let $_held (collapse (fold-semidet (sk-stale-reader-step $key) ()
-      (collapse (match &sk_reading ($reader-hash $reader-key $reader-row)
-         (match &sk_row ($reader-hash $stored-reader $reader-row (sk-row $ri $rc $rp $rs))
-            (if (=alpha $stored-reader $reader-key)
-               (sk-row-item $rs $reader-hash $reader-key $reader-row (sk-row $ri $rc $rp $rs))
-               (empty)))))))
-      ()))
-
-(= (sk-excludes? $exclude $deps)
-   (if (deps-meet? $exclude $deps)
-      (let $_cut (if (== (search-id-value sk_branch_at) 0) ()
-                    (sk-note-cuts! (deps-excluded $exclude $deps)))
-         true)
-      false))
-
-;; Closed reads may use their own pins and direct observations, but cannot
-;; cross the exclusions of the branch being rebuilt around them.
-(= (sk-branch-excludes? $deps)
-   (let $frame (search-id-value sk_branch_at)
-      (if (== $frame 0) false
-         (let (cons $exclude $_rest) (collapse (once
-                 (match &sk_branch_cuts ($frame $exclude $_cuts) $exclude)))
-            (sk-excludes? (the (List Number) $exclude) $deps)))))
-
-(= (sk-note-cuts! $cuts)
-   (let $frame (search-id-value sk_branch_at)
-      (if (if (== $frame 0) true (== $cuts ())) ()
-         (let $_noted (collapse (match &sk_branch_cuts ($frame $exclude $old)
-                (let* (($both (hash-union $old $cuts))
-                       ($_old (remove-variant-row! &sk_branch_cuts (quote ($frame $exclude $old)))))
-                   (add-atom &sk_branch_cuts ($frame $exclude $both)))))
-            ()))))
-
-(= (sk-branch-values $slot $key $rhash $exclude $fresh)
-   (case (fold-semidet sk-cons-step ()
-      (collapse (match &ctx_sk_branch ($slot $stored $rhash $cuts $fresh $view)
-         (if (=alpha $stored $key)
-            (if (hash-subset? $cuts $exclude)
-               (if (sk-excludes? $exclude (sk-view-deps-step 0 $view)) (empty)
-                  (if (sk-live-view? $view)
-                     (if (if $fresh true (not (== $view sk-none))) (sk-cut-view $cuts $view) (empty)) (empty)))
-               (empty)) (empty))))) (
-      (() ())
-      ((cons (sk-cut-view $used $value) $_rest)
-         (let $_cuts (sk-note-cuts! (the (List Number) $used)) (cons $value ()))))))
-
+;; rule's truth is evaluated in the same exclusion class as its consumer.
 (= (sk-reference-view $rule $computed)
    (case $computed (
       ((sk-val ($type $kbctx $proof $tv) $ev $vdeps)
@@ -1567,31 +1433,6 @@
          (sk-goal-val $goal (sk-store-proof! $rule $goal-proof) $gev $gdeps))
       (sk-none sk-none))))
 
-(= (sk-cache-branch! $slot $hash $key $rhash $rule $inputs $cuts $fresh $computed)
-   (let* (($view (sk-reference-view $rule $computed))
-          ($deps (sk-view-deps-step 0 $view))
-          ($_dominated (if $fresh
-             (collapse (match &ctx_sk_branch ($slot $stored $rhash $old-cuts $old-fresh $old)
-                (if (=alpha $stored $key)
-                   (if (if (hash-subset? $cuts $old-cuts) (deps-within? $deps (sk-view-deps-step 0 $old)) false)
-                      (remove-variant-row! &sk_branch (quote ($slot $stored $rhash $old-cuts $old-fresh $old))) (empty))
-                   (empty)))) ()))
-          ($_owner
-             (if (not (== (collapse (once (match &ctx_sk_branch_owner ($slot $hash $stored-owner $rhash $_inputs)
-                              (if (=alpha $stored-owner $key) true (empty))))) ()))
-                (if (space-row-present? &ctx_sk_branch_dirty ($slot))
-                   (fold-semidet (sk-branch-link! $slot) () $inputs) ())
-                (let* (($_registered (context-add! &sk_branch_owner ($slot $hash $key $rhash $inputs)))
-                       ($_readers (fold-semidet (sk-branch-link! $slot) () $inputs))) ())))
-          ($_clean (context-remove! &sk_branch_dirty ($slot)))
-          ($_stored (context-add! &sk_branch ($slot $key $rhash $cuts $fresh $view)))
-          ($kept (collapse (match &ctx_sk_branch ($slot $kept-key $rhash $kept-cuts $kept-fresh $kept-view)
-                    (if (=alpha $kept-key $key) ($kept-key $kept-cuts $kept-fresh $kept-view) (empty)))))
-          ($_bounded
-             (collapse (let (cons ($oldest-key $oldest-cuts $oldest-fresh $oldest-view) $_rest)
-                              (if (> (length $kept) 8) $kept (empty))
-                (remove-variant-row! &sk_branch (quote ($slot $oldest-key $rhash $oldest-cuts $oldest-fresh $oldest-view)))))))
-      $view))
 
 ;; The members of an implication instance fold that read one of the excluded
 ;; keys directly, each once.
@@ -1620,39 +1461,11 @@
       (fold-flat (sk-member-sample-step $hash) ()
          (list_to_set (fold-flat (sk-read-members-step $hash) () $exclude)))))
 
-;; Whether a row reads an instance fold that leaves out a member for the
-;; excluded keys.
-(: sk-leaves-out-step (-[det]-> (List Number) Bool SkPattern Bool))
-(= (sk-leaves-out-step $exclude $found $premise)
-   (if $found true
-      (case $premise (
-         ((CPU FoldAllCompiled $args $_res)
-            (if (sk-instance-fold? $args) (not (== (sk-left-out (index-hash (sk-fold $args)) $exclude) ())) false))
-         ($_other false)))))
-
-(: sk-row-leaves-out-step (-[det]-> (List Number) Bool (List SkPattern) Bool))
-(= (sk-row-leaves-out-step $exclude $found $premises)
-   (if $found true (fold-flat (sk-leaves-out-step $exclude) false $premises)))
-
 (: sk-rule-truth-key? (-[det]-> SkeletonKey Bool))
 (= (sk-rule-truth-key? $key)
    (case $key (
       ((sk-key $type $_kbctx) (if (is-expr $type) (== (car-atom $type) RuleTruth) false))
       ($_fold false))))
-
-;; Whether a consumer excluding these keys reads the key with a sample left
-;; out: an instance fold, or a refined rule's truth, which reads one.
-(: sk-leaves-out? (-[det]-> Number SkeletonKey (List Number) Bool))
-(= (sk-leaves-out? $hash $key $exclude)
-   (if (== $exclude ()) false
-      (case $key (
-         ((sk-fold $args) (if (sk-instance-fold? $args) (not (== (sk-left-out $hash $exclude) ())) false))
-         ($_statement
-            (if (sk-rule-truth-key? $key)
-               (fold-flat (sk-row-leaves-out-step $exclude) false
-                  (collapse (match &sk_row ($hash $stored $_rhash (sk-row $_ident $_concl $premises $_seq))
-                     (if (=alpha $stored $key) $premises (empty)))))
-               false))))))
 
 ;; A tally less a sample, as if it had no value.
 (: sk-leave-out-step (-[det]-> Number InstanceRegimeState InstanceSample InstanceRegimeState))
@@ -1665,49 +1478,14 @@
 (: sk-tally-without (-[det]-> Number InstanceRegimeState (List InstanceSample) InstanceRegimeState))
 (= (sk-tally-without $hash $tally $left) (fold-flat (sk-leave-out-step $hash) $tally $left))
 
-(: sk-left-out-view (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) Number SkeletonValue))
-(= (sk-left-out-view $hash $key $filter $exclude $rhash)
-   (let $view
-      (case $key (
-         ((sk-fold $args)
-            (if (sk-instance-fold? $args)
-               (case (sk-left-out $hash $exclude) (
-                  (() sk-none)
-                  ($left
-                     (let ($kb $_pattern $_extractor $_init $_function $_finish $_mode) $args
-                        (sk-instance-view $hash (the ScalarFoldSpec $args)
-                           (sk-tally-without $hash (sk-instance-tally $hash $key $kb) $left))))))
-               sk-none))
-         ($_statement
-            (if (sk-rule-truth-key? $key)
-               (case (collapse (once (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
-                        (if (=alpha $stored $key) (sk-row $ident $concl $premises $seq) (empty))))) (
-                  ((cons (sk-row $row-ident $row-concl $row-premises $row-seq) $_rest)
-                     (if (sk-row-leaves-out-step $exclude false $row-premises)
-                        (sk-row-view () $exclude $hash $key $rhash (sk-row $row-ident $row-concl $row-premises $row-seq))
-                        sk-none))
-                  (() sk-none)))
-               sk-none))))
-      (if (sk-admits? $filter $exclude $view) $view sk-none)))
-
-(: sk-older-views (-[det]-> Number SkeletonKey Number (List SkeletonValue)))
-(= (sk-older-views $hash $key $rhash)
-   (collapse (match &ctx_sk_view ($hash $stored $rhash $view)
-      (if (=alpha $stored $key) (if (sk-live-view? $view) $view (empty)) (empty)))))
-
-;; The latest versions of a key's rows, in row creation order.
-(: sk-latest-versions (-[det]-> Number SkeletonKey (List SkeletonVersion)))
-(= (sk-latest-versions $hash $key)
-   (sort-atom
-      (collapse (match &ctx_sk_latest ($hash $stored (sk-version $seq $rhash $view))
-         (if (=alpha $stored $key) (if (sk-live-view? $view) (sk-version $seq $rhash $view) (empty)) (empty))))))
-
-(: sk-latest-view (-[det]-> Number SkeletonKey Number SkeletonValue))
-(= (sk-latest-view $hash $key $rhash)
-   (case (collapse (once (match &ctx_sk_latest ($hash $stored (sk-version $seq $rhash $view))
-            (if (=alpha $stored $key) (if (sk-live-view? $view) $view (empty)) (empty))))) (
-      ((cons $view $_rest) $view)
-      (() sk-none))))
+(: sk-instance-without-view (-[semidet]-> Number ScalarFoldSpec (List Number) SkeletonValue))
+(= (sk-instance-without-view $hash $args $exclude)
+   (case (sk-left-out $hash $exclude) (
+      (() sk-none)
+      ($left
+         (let ($kb $_pattern $_extractor $_init $_function $_finish $_mode) $args
+            (sk-instance-view $hash $args
+               (sk-tally-without $hash (sk-instance-tally $hash (sk-fold $args) $kb) $left)))))))
 
 ;; A stored view's proof moves to &proof under a fresh id and the view keeps a
 ;; reference to it, so a view stays the size of one rule application however
@@ -1721,40 +1499,6 @@
           ($flags (+ (* 2 $owner) (if (proof-term-contains-negated? $proof) 1 0)))
           ($_row (add-atom &proof ($pid $proof $leaves $flags))))
       (proof-ref $pid)))
-
-;; A new view becomes the row's latest; the one it replaces is kept.
-(: sk-store-view! (-[semidet]-> Number SkeletonKey Number Number Number SkeletonValue SkeletonValue))
-(= (sk-store-view! $hash $key $seq $rhash $rule $computed)
-   (let* (($view (sk-reference-view $rule $computed))
-          ($deps (sk-view-deps-step 0 $view))
-          ($previous
-             (collapse (match &ctx_sk_latest ($hash $stored (sk-version $old-seq $rhash $old))
-                (if (=alpha $stored $key)
-                   (let* (($_invalidated (if (sk-same-view? $view (if (sk-live-view? $old) $old sk-none)) ()
-                                            (sk-invalidate-branches! $key)))
-                          ($_removed (context-remove! &sk_latest ($hash $stored (sk-version $old-seq $rhash $old)))))
-                      (if (sk-dominated? $deps $old) () (context-add! &sk_view ($hash $stored $rhash $old))))
-                   (empty)))))
-          ($_first (if (== $previous ()) (sk-invalidate-branches! $key) ()))
-          ($_pruned
-             (collapse (match &ctx_sk_view ($hash $stored $rhash $older)
-                (if (=alpha $stored $key)
-                   (if (sk-dominated? $deps $older) (remove-variant-row! &sk_view (quote ($hash $stored $rhash $older))) (empty))
-                   (empty)))))
-          ($support (deps-union (sk-row-support $hash $rhash) $deps))
-          ($_old-support (remove-data-rows! &sk_support (quote ($hash $rhash $_had))))
-          ($_support (context-add! &sk_support ($hash $rhash $support)))
-          ($_added (context-add! &sk_latest ($hash $key (sk-version $seq $rhash $view)))))
-      $view))
-
-(: sk-dominated? (-[semidet]-> Number SkeletonValue Bool))
-(= (sk-dominated? $deps $older) (deps-mask-within? $deps (sk-view-deps-step 0 $older)))
-
-(: sk-row-support (-[det]-> Number Number Number))
-(= (sk-row-support $hash $rhash)
-   (case (collapse (once (match &ctx_sk_support ($hash $rhash $deps) $deps))) (
-      ((cons $deps $_rest) $deps)
-      (() 0))))
 
 ;; A population prior (sk-start-prior!) is the population's value, not the
 ;; statement's: a key reads it only while nothing else gives it a value.
@@ -1775,6 +1519,30 @@
 
 (: sk-premise-value (-[semidet]-> Bool SkeletonValue SkeletonValue))
 (= (sk-premise-value $priors $value) (if $priors $value (if (sk-population-prior? $value) sk-none $value)))
+
+;; A row is determined when its rule is deterministic (stated with strength 0
+;; or 1 and confidence 1 in every branch: register-rule-evidence!) and its
+;; premises are all certain statements, reading no fold or group: its
+;; conclusion is certain, as a stored fact is. So it is computed when it is
+;; built or its premises change, whoever needs it, at the cost of reading a
+;; fact: its key then changes as a stored fact's would, and the tallies and
+;; base rates over the key take it (docs/metta/runtime_design_assumptions.md,
+;; "Determined rows").
+(: sk-determined-row? (-[det]-> SkeletonItem Bool))
+(= (sk-determined-row? (sk-row-item $_seq $_khash $_key $_rhash (sk-row $_ident ($_type ($kbid $_ctx $_vars) $proof $_tv) $premises $_s)))
+   (if (deterministic-rule? (brand KB $kbid) (rule-evidence-head $proof))
+      (fold-flat sk-certain-premise-step true (the (List SkPattern) $premises))
+      false))
+(= (sk-determined-row? (sk-fold-check $_hash $_fold)) false)
+
+(: sk-certain-premise-step (-[det]-> Bool SkPattern Bool))
+(= (sk-certain-premise-step $certain $premise)
+   (if $certain
+      (case $premise (
+         ((CPU $fun $_args $_res) (not (if (== $fun FoldAllCompiled) true (== $fun GroupedFoldAllCompiled))))
+         (($type $kbctx $_proof $_tv) (sk-certain? $type (sk-leaf-facts $type $kbctx sk-any-filter)))
+         ($_other false)))
+      false))
 
 ;; --- Folds ------------------------------------------------------------------
 
@@ -1884,7 +1652,7 @@
    (if (if (== $function OrFormula) true (== $function ExistentialFloor))
       (let* (($floor (== $function ExistentialFloor))
              ((sk-exists-state $exists-tv $exists-best $exists-overlap $exists-proofs $exists-ev $exists-deps)
-                (fold-semidet (sk-existential-step $floor $filter (cons $hash ()))
+                (fold-semidet (sk-existential-step $floor $filter (sk-fold-exclusions $hash))
                    (sk-exists-state (STV 0 1) sk-none false () (ev-set 0) ()) $members))
              ($exists-joined-deps (deps-join (cons (deps-key $hash) $exists-deps))))
          (case $exists-best (
@@ -1901,9 +1669,12 @@
                   (sk-goal-val (CPU $kind $args $exists-tv)
                      (sk-fold-proof OrFormula $exists-proofs) $exists-ev $exists-joined-deps))))))
    (let* (((sk-fold-state $acc $proofs $ev $deps)
-             (fold-semidet (sk-fold-step $step $filter (cons $hash ()))
+             (fold-semidet (sk-fold-step $step $filter (sk-fold-exclusions $hash))
                 (sk-fold-state $init () () ()) $members))
           ($base-rate (base-rate-finish? $finish)))
+      ;; An average has no empty result. Identity folds do: keep that result
+      ;; and let sk-cover-fold! mark its still-pending members as incomplete.
+      (if (if (== $finish dist-average) (if (== $proofs ()) (sk-context-pending?) false) false) sk-none
       (sk-goal-val (CPU $kind $args (finish-aggregate (brand KB (car-atom $args)) $finish $acc))
          (sk-fold-proof $function $proofs)
          ;; Priors and folds that read their members' truth values as data,
@@ -1914,7 +1685,7 @@
                (case $args (
                   (($_kb $_pattern (extract-with-truth $_p $_t $_v) $_init $_fn $_fin $_mode) (ev-set 0))
                   ($_other (evidence-join $ev))))))
-         (if $base-rate (deps-key $hash) (deps-join (cons (deps-key $hash) $deps)))))))
+         (if $base-rate (deps-key $hash) (deps-join (cons (deps-key $hash) $deps))))))))
 
 ;; A base rate is one estimate per pattern, kept by the forward aggregate of the
 ;; fold's premise as each member's contribution (runtime/forward/aggregates.metta).
@@ -1927,7 +1698,7 @@
 ;; contributions (&sk_instance_tally); its estimate revises with the rule's
 ;; stated truth and, like a base rate, carries neither member evidence nor
 ;; member dependencies: a rule's truth is a parameter of the views through the
-;; rule, and its readers leave their own samples out (sk-left-out-view). Any
+;; rule, and its readers leave their own samples out (sk-instance-without-view). Any
 ;; other fold is computed from its members.
 (: sk-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
 (= (sk-fold-view $hash $args)
@@ -2119,9 +1890,13 @@
 ;; the members that changed, never the population.
 (: sk-rate-take-step (-[semidet]-> Number SkeletonKey Number ForwardAggregateDescriptor Atom SkeletonKey Atom))
 (= (sk-rate-take-step $hash $fold $id $descriptor $_acc $member)
-   (let* (($mhash (index-hash $member))
-          ($_clean (remove-variant-row! &sk_rate_dirty (quote ($hash $mhash $fold $member)))))
-      (case (sk-premise-value false (sk-value $member sk-any-filter (cons $hash ()))) (
+   (let $value (sk-premise-value false (sk-value $member sk-any-filter (cons $hash ())))
+      ;; PENDING is not a retraction. Keep the sample's previous contribution
+      ;; until its context node publishes a value or a settled empty result.
+      (if (if (== $value sk-none) (sk-member-pending? $member) false) ()
+      (let* (($mhash (index-hash $member))
+             ($_clean (remove-variant-row! &sk_rate_dirty (quote ($hash $mhash $fold $member)))))
+      (case $value (
          ((sk-val $fact $_ev $_deps) (let $_updated (collapse (fa-update! $fact $id (copy_term $descriptor))) ()))
          ($_none
             (case $member (
@@ -2129,7 +1904,7 @@
                   (let $_removed
                      (collapse (fa-remove! (assemble-runtime-fact $type $kbctx (brand Proof cpu) (STV 0.0 0.0)) $id (copy_term $descriptor)))
                      ()))
-               ($_fold ()))))))))
+               ($_fold ()))))))))))
 
 (: sk-rate-take! (-[semidet]-> Number ScalarFoldSpec Atom))
 (= (sk-rate-take! $hash $args)
@@ -2158,25 +1933,13 @@
 ;; A member without a value is still to come while one of its key's rows is
 ;; stale, was never computed, or waits for conditioning; once every row is
 ;; computed and current and none derives anything, it is no member.
-(: sk-row-current? (-[det]-> Number Number Bool))
-(= (sk-row-current? $khash $rhash)
-   (if (space-row-present? &ctx_sk_stale ($khash $rhash)) false
-      (if (space-row-present? &ctx_sk_given_pending ($khash $rhash $_cost)) false
-         (space-row-present? &ctx_sk_support ($khash $rhash $_deps)))))
-
-(= (sk-member-pending? $key)
-   (let $khash (index-hash $key)
-      (not (== (collapse (once (match &sk_row ($khash $stored $rhash $_row)
-                  (if (=alpha $stored $key) (if (sk-row-current? $khash $rhash) (empty) true) (empty)))))
-               ()))))
-
 ;; covered members, members still to come
 (: SkeletonCover Type)
 (: sk-cover (-[det]-> Number Number SkeletonCover))
 
 (: sk-cover-member-step (-[semidet]-> Number SkeletonFilter SkeletonCover SkeletonKey SkeletonCover))
 (= (sk-cover-member-step $hash $filter (sk-cover $covered $missing) $key)
-   (if (== (sk-value $key $filter (cons $hash ())) sk-none)
+   (if (== (sk-value $key $filter (sk-fold-exclusions $hash)) sk-none)
       (if (sk-member-pending? $key) (sk-cover $covered (+ $missing 1)) (sk-cover $covered $missing))
       (sk-cover (+ $covered 1) $missing)))
 
@@ -2278,29 +2041,7 @@
 
 ;; A fold or group gets its view when first read, from its members' views at
 ;; that point; it is recomputed once one of them changes.
-(: sk-fold-views (-[semidet]-> Number SkeletonKey (List SkeletonVersion)))
-(= (sk-fold-views $hash $key)
-   (case $key (
-      ((sk-fold $args) (sk-keep-view $hash $key (sk-fold-view $hash (the ScalarFoldSpec $args))))
-      ((sk-group $group-args)
-         (sk-keep-view $hash $key (sk-group-view $hash $key (the GroupedFoldSpec $group-args))))
-      ((sk-key $_type $_kbctx) ()))))
-
-(: sk-keep-view (-[semidet]-> Number SkeletonKey SkeletonValue (List SkeletonVersion)))
-(= (sk-keep-view $hash $key $view)
-   (cons (sk-version 0 0 (sk-store-view! $hash $key 0 0 -1 $view)) ()))
-
 ;; The versions a consumer takes: per row, the latest one it admits.
-(: sk-admitted-versions (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonVersion)))
-(= (sk-admitted-versions $hash $key $filter $exclude)
-   (let* (($stored (sk-latest-versions $hash $key))
-          ($versions (case $key (
-             ((sk-key $_type $_kbctx) $stored)
-             ($_fold (case $stored (
-                ((cons (sk-version $_seq $_rhash $view) $_rest)
-                   $stored)
-                (() (sk-fold-views $hash $key)))))))))
-      (fold-semidet sk-cons-step () (fold-semidet (sk-admit-step $hash $key $filter $exclude) () $versions))))
 
 (: sk-version-view (-[det]-> SkeletonVersion SkeletonValue))
 (= (sk-version-view (sk-version $_seq $_rhash $view)) $view)
@@ -2429,31 +2170,6 @@
       (sk-any-filter true)
       ((sk-filter $proof $tv) (if (is-var $proof) (is-var $tv) false)))))
 
-;; An open read without exclusion is cached per key with the dependencies of
-;; the versions it merged. A consumer outside those dependencies admits every
-;; latest version, so it reads the same value.
-(: sk-open-value (-[semidet]-> Number SkeletonKey SkeletonFilter SkeletonMerged))
-(= (sk-open-value $hash $key $filter)
-   (case (collapse (once (match &ctx_sk_merged ($hash $stored $deps $value)
-            (if (=alpha $stored $key) (if (sk-live-view? $value) (sk-merged $hash $stored $deps $value) (empty)) (empty))))) (
-      ((cons $merged $_rest) (let $_counted (query_metric_increment merged-cache-hits) $merged))
-      (() (context-cold-merged $hash $key $filter)))))
-
-;; The owner of a cold merge controls all maintenance performed by the read.
-;; Independent reads in C execute this operation in MAIN; dependent reads keep
-;; the overlay active, including conditioning and aggregate maintenance.
-(: sk-merge-open! (-[semidet]-> Number SkeletonKey SkeletonFilter SkeletonMerged))
-(= (sk-merge-open! $hash $key $filter)
-   (let* (($_counted (query_metric_increment merged-cache-misses))
-          ($views (sk-admitted $hash $key $filter ()))
-          ($leaves (sk-leaf-views $hash $key $filter ()))
-          ($deps (fold-semidet sk-view-deps-step 0 (append-flat $leaves $views)))
-          ($value (sk-merge-key $hash $key $filter () () $views))
-          ($_inner (sk-uncache! $hash $key))
-          ($_cached (context-add! &sk_merged ($hash $key $deps $value)))
-          ($_factor (sk-note-truth-factor! $hash $key $value)))
-      (sk-merged $hash $key $deps $value)))
-
 ;; A rule truth's new value rescores the rules that read it.
 (: sk-note-truth-factor! (-[det]-> Number SkeletonKey SkeletonValue Atom))
 (= (sk-note-truth-factor! $hash $key $value)
@@ -2466,42 +2182,6 @@
             ()))
       ($_fold ()))))
 
-;; The merged value of a key on behalf of a consumer. A proof or truth-value
-;; pattern takes the whole merged value when it admits it, and otherwise the
-;; merge of the views it admits. A consumer that leaves one of its own samples
-;; out of an instance fold reads the views it admits, never the cached value.
-
-(= (sk-value $key $filter $exclude)
-   (let* (($hash (index-hash $key))
-          ($merged
-             (if (sk-leaves-out? $hash $key $exclude)
-                (sk-merge-key $hash $key sk-any-filter $exclude () (sk-admitted $hash $key sk-any-filter $exclude))
-                (case (sk-open-value $hash $key sk-any-filter) (
-                   ((sk-merged $_hash $_key $deps $value)
-                      (if (sk-excludes? $exclude $deps)
-                         (sk-merge-key $hash $key sk-any-filter $exclude () (sk-admitted $hash $key sk-any-filter $exclude))
-                         $value)))))))
-      (if (sk-open-filter? $filter) $merged
-         (if (sk-admits? $filter () $merged) $merged
-            (sk-merge-key $hash $key $filter $exclude () (sk-admitted $hash $key $filter $exclude))))))
-
-(: sk-drop-merged! (-[det]-> SkeletonKey Atom))
-(= (sk-drop-merged! $key)
-   (let* (($hash (index-hash $key))
-          ($_unpaid (remove-data-rows! &sk_given_pending (quote ($hash -1 $_cost)))))
-      (sk-uncache! $hash $key)))
-
-;; A merge conditioning a key may read the key again through a shared
-;; statement's value, which caches the key's fallback first; the conditioned
-;; value replaces it.
-(: sk-uncache! (-[det]-> Number SkeletonKey Atom))
-(= (sk-uncache! $hash $key)
-   (let $_dropped
-         (collapse (match &ctx_sk_merged ($hash $stored $deps $value)
-            (if (=alpha $stored $key)
-               (context-remove! &sk_merged ($hash $stored $deps $value))
-               (empty))))
-      ()))
 
 ;; --- Row views --------------------------------------------------------------
 
@@ -2586,10 +2266,10 @@
 (: sk-same-pool? (-[det]-> SkeletonPart SkeletonPart Bool))
 (= (sk-same-pool? $part $other)
    (case $part (
-      ((sk-pool-part $base $_tv $_arity $_idxs $_marginal)
+      ((sk-pool-part $base $tv $arity $_idxs $_marginal)
          (case $other (
-            ((sk-pool-part $other-base $_other-tv $_other-arity $_other-idxs $_other-marginal)
-               (=alpha $base $other-base))
+            ((sk-pool-part $other-base $other-tv $other-arity $_other-idxs $_other-marginal)
+               (if (same-proof? $base $other-base) (=alpha (data $tv $arity) (data $other-tv $other-arity)) false))
             ($_indep false))))
       ($_part-indep false))))
 
@@ -2604,8 +2284,8 @@
    (case $head (
       ((sk-pool-part $base $tv $arity $idxs $marginal)
          (case $part (
-            ((sk-pool-part $part-base $_part-tv $_part-arity $new-idxs $_part-marginal)
-               (if (=alpha $base $part-base)
+            ((sk-pool-part $_part-base $_part-tv $_part-arity $new-idxs $_part-marginal)
+               (if (sk-same-pool? $head $part)
                   (cons (sk-pool-part $base $tv $arity (list_to_set (append-flat $idxs $new-idxs)) $marginal) $rest)
                   (cons $head (sk-add-part $rest $part))))
             ($_indep-part (cons $head (sk-add-part $rest $part))))))
@@ -2953,7 +2633,7 @@
       ((sk-key $type $kbctx)
          (if (if (complete-statement? $type $kbctx) (== (sk-given-value $given $key $filter $exclude) sk-none) false)
             (let $hash (index-hash $key)
-               (if (if (sk-branch-excludes? (deps-key $hash)) false (sk-settled? $key))
+               (if (if (sk-context-excludes? (deps-key $hash)) false (sk-settled? $key))
                   (if (sk-founded? $hash $key)
                      (if (== $pin ()) sk-none
                         (sk-merge-key $hash $key $filter $exclude $given
@@ -3046,7 +2726,6 @@
    (if (let (sk-row (sk-ident $rule $_keys $_key) $_concl $_prems $_seq) $row
           (if (rule-live? $rule) (if (context-rule-visible? $rule) (sk-claim-charge! $given) false) false))
       (let* (((sk-row $_ident ($_type $_kbctx $proof $_tv) $_premises $_seq) $row)
-             ($_reader (if (== $exclude ()) (add-atom &sk_reading ($khash $key $rhash)) ()))
              ($exclusions (hash-union (sk-row-exclusions $khash $key $proof) $exclude))
              ($target (sk-row-target $exclusions $khash $key $rhash $row))
              ($greedy (copy_term $row))
@@ -3060,19 +2739,12 @@
                          ((sk-entangled $keys $base $independent)
                             (let $approx (sk-row-result $retry $independent)
                                (sk-conditioned $given $target $khash $rhash $exclusions $keys $base $approx
-                                  (sk-held-or $khash $key $rhash $approx))))
+                                  $approx)))
                          ($_other (sk-row-result $retry $again)))))
                    (sk-row-result $greedy $state)))
-             ($_reader-left (if (== $exclude ())
-                               (remove-variant-row! &sk_reading (quote ($khash $key $rhash))) ())))
+)
          $value)
       sk-none))
-
-;; While its conditioning waits, a row keeps the views it had; one that has
-;; none takes its approximate value.
-(: sk-held-or (-[det]-> Number SkeletonKey Number SkeletonValue SkeletonValue))
-(= (sk-held-or $khash $key $rhash $approx)
-   (if (== (sk-latest-view $khash $key $rhash) sk-none) $approx sk-none))
 
 ;; What a target is under a condition.
 (: sk-target-value (-[semidet]-> (List SkeletonGiven) SkeletonTarget SkeletonValue))
@@ -3111,35 +2783,32 @@
 ;; otherwise; a clash opens a claim of its own, as before. A target read again inside its own conditioning,
 ;; through a shared statement's value, keeps its waiting value there.
 (= (sk-conditioned $given $target $khash $rhash $wexclude $keys $base $approx $waiting)
+   (let $owner (sk-condition-owner $khash)
    (case $keys (
       (() $approx)
       ((cons $_first $_more)
          (if (== $given ())
-            (let* (($level (sk-condition-level $khash $rhash))
+            (let* (($level (sk-condition-level $owner $rhash))
                    ($cost (* (pow-math 2 $level) $base)))
-               ;; A deferred branch may belong to a row outside the ordinary
-               ;; need closure. Pay its conditioning here from the same tier
-               ;; slice; waiting for an ordinary grant could never settle it.
-               (if (if (space-row-present? &ctx_sk_given_granted ($khash $rhash)) true
-                      (if (== (search-id-value sk_branch_at) 0) false
-                         (if (== (search-id-value sk_claim_left) -1)
-                            (sk-take! sk_eval_budget $cost) true)))
-                  (if (space-row-present? &ctx_sk_conditioning ($khash $rhash)) $waiting
+               (if (if (space-row-present? &ctx_sk_given_granted ($owner $rhash)) true
+                      (if (not (== (search-id-value sk_claim_left) -1)) true
+                         (if (== $owner $khash) (sk-take! sk_eval_budget $cost) false)))
+                  (if (space-row-present? &ctx_sk_conditioning ($owner $rhash)) $waiting
                   (if (== (search-id-value sk_claim_left) -1)
-                     (let* (($_entered (context-add! &sk_conditioning ($khash $rhash)))
+                     (let* (($_grant (context-remove! &sk_given_granted ($owner $rhash)))
+                            ($_entered (context-add! &sk_conditioning ($owner $rhash)))
                             ($_opened (sk-open-claim! $cost))
                             ($deepest (sk-deepen $given $target $wexclude $keys (== $approx sk-none) (if (== $approx sk-none) 64 1) ()))
                             ($overdrawn (sk-close-claim!))
-                            ($_left (context-remove! &sk_conditioning ($khash $rhash))))
+                            ($_left (context-remove! &sk_conditioning ($owner $rhash))))
                         (if $overdrawn
                            (let* (($raised (+ $level 1))
-                                  ($_was (remove-data-rows! &sk_cond_level (quote ($khash $rhash $_level))))
-                                  ($_raised (context-add! &sk_cond_level ($khash $rhash $raised)))
-                                  ($_again (context-remove! &sk_given_granted ($khash $rhash))))
-                              (sk-wait! $khash $rhash (* 2 $cost) (sk-mixed $deepest $waiting)))
+                                  ($_was (remove-data-rows! &sk_cond_level (quote ($owner $rhash $_level))))
+                                  ($_raised (context-add! &sk_cond_level ($owner $rhash $raised))))
+                              (sk-wait! $owner $rhash (* 2 $cost) (sk-mixed $deepest $waiting)))
                            (sk-mixed $deepest $waiting)))
                      (sk-mixed (sk-mix-on $given $target $wexclude $keys) $waiting)))
-                  (sk-wait! $khash $rhash $cost $waiting)))
+                  (sk-wait! $owner $rhash $cost $waiting)))
             (if (if (== $approx sk-none) false (>= (fold-semidet sk-given-depth-step 0 $given) (search-id-value sk_claim_depth)))
                (progn (change-state! sk_claim_cut 1) $approx)
                (if (== (search-id-value sk_claim_left) -1)
@@ -3156,7 +2825,7 @@
                            (sk-mixed $deepest $approx)))))
                   (case (sk-mix-on $given $target $wexclude $keys) (
                      (() (if (== $approx sk-none) sk-none (progn (change-state! sk_claim_cut 1) $approx)))
-                     ((cons $value $_rest) $value))))))))))
+                     ((cons $value $_rest) $value)))))))))))
 
 ;; The claim's passes from a depth on: the deepest pass that finished before
 ;; the claim overdrew, () if none did. A target without an approximate value
@@ -3183,14 +2852,6 @@
 (: sk-condition-level (-[det]-> Number Number Number))
 (= (sk-condition-level $khash $rhash)
    (case (collapse (once (match &ctx_sk_cond_level ($khash $rhash $level) $level))) (((cons $level $_rest) $level) (() 1))))
-
-;; A target waits for a payment of its cost, keeping its waiting value.
-(: sk-wait! (-[det]-> Number Number Number SkeletonValue SkeletonValue))
-(= (sk-wait! $khash $rhash $cost $waiting)
-   (let* (($_unfinished (next-search-id sk_branch_unpaid))
-          ($_was (remove-data-rows! &sk_given_pending (quote ($khash $rhash $_cost))))
-          ($_pending (context-add! &sk_given_pending ($khash $rhash $cost))))
-      $waiting))
 
 ;; The statements a condition gives, closed reads' pins aside.
 (: sk-given-depth-step (-[det]-> Number SkeletonGiven Number))
@@ -3374,6 +3035,7 @@
       ((sk-key $ctype $ckbctx)
          (let* (($consequence (sk-key $ctype $ckbctx))
                 ($chash (index-hash $consequence))
+                ($_subscribed (sk-subscribe-leaves! $consequence $exclusions))
                 ($completed (fold-semidet (sk-completed-given-step $khash $key) () $premises)))
             (if (fold-semidet sk-known-false-step false (sk-key-leaves $consequence sk-any-filter))
                (fold-semidet
@@ -3527,231 +3189,9 @@
             (sk-val $fact (if $unsupported (ev-set 0) (rule-result-evidence $fact $ev)) (deps-join $deps))))
       ($_failed sk-none))))
 
-;; --- Evaluation -------------------------------------------------------------
-
-;; Evaluation starts from what changed since the last one: rows never
-;; evaluated, and the readers of keys whose value changed outside evaluation
-;; (added facts, removed query-local rows, new fold members). Rows are computed
-;; in creation order, so a first computation reads only what was derived
-;; earlier, as a proof is built from proofs that already exist. A query
-;; computes the rows it pays for from its allowance after the others, nearest
-;; a root first (see sk-item-order). When a row's view changes, the rows
-;; reading its key are scheduled: later rows in the same pass, earlier rows in
-;; the next one. Nothing whose inputs did not change is visited.
-;;
-;; Inverted rules make most of a real skeleton cyclic, so values need not
-;; settle. A recomputed view is kept only when it brings support: a dependency
-;; the row never had. The keys a row can depend on are finite, so evaluation
-;; ends. A truth value that changes without new support, when a reader switches
-;; to an older admissible version or a merge's dominance flips, keeps the view
-;; it had. A change from outside the rows (a fact, a removed query-local row, a
-;; fold member) makes each reader recompute without that test, once per
-;; evaluation for each key that caused it, and a reader whose value changes
-;; passes it on to its own readers the same way.
-
-;; The rows that read a key directly, as fact premise, fold or group.
-(: sk-readers (-[det]-> SkeletonKey (List SkeletonItem)))
-(= (sk-readers $key)
-   (let $hash (index-hash $key)
-      (collapse (match &ctx_sk_reader ($hash $stored $khash $rhash)
-         (if (=alpha $stored $key)
-            (match &sk_row ($khash $rkey $rhash (sk-row $ident $concl $premises $seq))
-               (sk-row-item $seq $khash $rkey $rhash (sk-row $ident $concl $premises $seq)))
-            (empty))))))
-
-;; An item's place in its pass. A query computes the rows within the free
-;; depth first, by creation; then the rows that spend its allowance, nearest a
-;; root first and by creation within a depth; then the fold checks. So within
-;; a pass the allowance goes to the rows nearest a root, whatever order the
-;; search created them in. A forward run, whose rows all spend its units,
-;; computes them by creation. Creation numbers stay below 10^12, and the fold
-;; checks come after every row.
-(: sk-item-order (-[det]-> SkeletonItem Number))
-(= (sk-item-order (sk-row-item $seq $khash $key $_rhash $_row))
-   (let $depth (sk-need-depth $khash $key)
-      (if (if (== (search-id-value sk_forward_run) 1) true (<= $depth (sk-evaluation-free-depth))) $seq
-         (+ (* $depth 1000000000000) $seq))))
-(= (sk-item-order (sk-fold-check $_hash $_fold)) (sk-check-seq))
-
-;; this pass's remaining items and the next pass's, by their order
-(: SkeletonWork Type)
-(: sk-work (-[det]-> (Heap SkeletonItem) (Heap SkeletonItem) SkeletonWork))
-
-(: sk-queued-new? (-[det]-> Number Number Number Bool))
-(= (sk-queued-new? $pass $khash $rhash)
-   (if (not (== (collapse (once (match &ctx_sk_queued ($pass $khash $rhash) true))) ())) false
-      (let $_queued (context-add! &sk_queued ($pass $khash $rhash)) true)))
-
-;; A row is queued by its key and row hashes, a fold check by its fold's hash.
-(: sk-queue-new? (-[det]-> Number SkeletonItem Bool))
-(= (sk-queue-new? $pass (sk-row-item $_seq $khash $_key $rhash $_row)) (sk-queued-new? $pass $khash $rhash))
-(= (sk-queue-new? $pass (sk-fold-check $hash $_fold)) (sk-queued-new? $pass $hash -1))
-
-;; What changed for a key's readers: a new row view with its dependencies,
-;; the same with the key's open merged value unchanged and the dependencies of
-;; that value before and after, or a change from outside the rows (a fact, a
-;; removed query-local row, fold members) caused by the keys with these hashes,
-;; with the dependencies of the new view.
-(: SkeletonChange Type)
-(: sk-view-change (-[det]-> Number SkeletonChange))
-(: sk-value-same (-[det]-> Number Number SkeletonChange))
-(: sk-outside-change (-[det]-> (List Number) Number SkeletonChange))
-
-(: sk-change-deps (-[det]-> SkeletonChange Number))
-(= (sk-change-deps (sk-view-change $deps)) $deps)
-(= (sk-change-deps (sk-value-same $deps $_merged-deps)) $deps)
-(= (sk-change-deps (sk-outside-change $_causes $deps)) $deps)
-
-;; Every fact premise on the key asks for an open pattern.
-(: sk-reads-open? (-[det]-> SkeletonKey Atom SkPattern Bool))
-(= (sk-reads-open? $key $open $premise)
-   (if $open
-      (case $premise (
-         (($type $kbctx $proof $tv)
-            (if (=alpha (sk-key $type $kbctx) $key) (if (is-var $proof) (is-var $tv) false) true))
-         ($_cpu true)))
-      false))
-
-;; A reader whose own key the new view depends on does not admit it, unless it
-;; reads the key closed: a rule application of a complete statement reading a
-;; complete one evaluates the key's rows again, whatever their views depend
-;; on. When the key's open merged value did not change, a reader outside its
-;; dependencies that reads it openly gets that same value.
-(: sk-reads-closed? (-[det]-> SkeletonKey SkeletonRow Bool))
-(= (sk-reads-closed? $key (sk-row $_ident ($rtype $rkbctx $rproof $_rtv) $_premises $_seq))
-   (case $key (
-      ((sk-key $type $kbctx)
-         (if (complete-statement? $type $kbctx)
-            (if (rule-application-proof? $rproof) (complete-statement? $rtype $rkbctx) false)
-            false))
-      ($_fold false))))
-
-(: sk-reader-affected? (-[semidet]-> SkeletonKey SkeletonChange SkeletonItem Bool))
-(= (sk-reader-affected? $key $change (sk-row-item $_seq $khash $_rkey $_rhash (sk-row $ident $concl $premises $s)))
-   (case $change (
-      ((sk-outside-change $_causes $_deps) true)
-      ((sk-view-change $deps)
-         (if (deps-has? $deps $khash) (sk-reads-closed? $key (sk-row $ident $concl $premises $s)) true))
-      ((sk-value-same $deps $merged-deps)
-         (if (deps-has? $deps $khash) (sk-reads-closed? $key (sk-row $ident $concl $premises $s))
-            (if (deps-has? $merged-deps $khash) true
-               (if (fold-semidet (sk-reads-open? $key) true $premises) false true)))))))
-
-;; A reader after the item that changed its input, in the pass's order, is
-;; still ahead in this pass; an earlier one waits for the next.
-(: sk-schedule-reader
-   (-[semidet]-> Number Number SkeletonKey SkeletonChange SkeletonWork SkeletonItem SkeletonWork))
-(= (sk-schedule-reader $pass $order $key $change (sk-work $todo $next) $item)
-   (if (if (sk-item-needed? $item) false (if (sk-determined-row? $item) false (let $_stale (sk-mark-stale! $item) true)))
-      (sk-work $todo $next)
-   (if (let $_forced
-          (case $change (
-             ((sk-outside-change $causes $_deps) (sk-force! $causes $item))
-             ($_view ())))
-          (sk-reader-affected? $key $change $item))
-      (let $at (sk-item-order $item)
-         (if (> $at $order)
-            (if (sk-queue-new? $pass $item)
-               (sk-work (add_to_heap $todo $at $item) $next)
-               (sk-work $todo $next))
-            (if (sk-queue-new? (+ $pass 1) $item)
-               (sk-work $todo (add_to_heap $next $at $item))
-               (sk-work $todo $next))))
-      (sk-work $todo $next))))
-
-(: sk-drop-fold-view! (-[det]-> SkeletonKey Atom))
-(= (sk-drop-fold-view! $key) (sk-drop-row-views! (index-hash $key) $key 0))
-
-;; A changed key schedules the rows it affects. A fold or group over it is
-;; recomputed when next read, and all of its readers are scheduled.
-(: sk-key-changed
-   (-[semidet]-> Number Number SkeletonChange SkeletonWork SkeletonKey SkeletonWork))
-(= (sk-key-changed $pass $order $change $work $key)
-   (if (context-propagate? $key)
-   (let* (($hash (index-hash $key))
-          ($_mining (case $change (
-             ((sk-value-same $_deps $_merged-deps) ())
-             ($_changed (hm-screen-changed! $hash $key)))))
-          ($folds
-             (collapse (match &sk_use ($hash $stored $fold)
-                (if (=alpha $stored $key) $fold (empty)))))
-          ($scheduled (fold-semidet (sk-schedule-reader $pass $order $key $change) $work (sk-readers $key))))
-      (fold-semidet (sk-fold-changed $pass $order $key $change) $scheduled $folds)) $work))
-
-;; A member change of a fold that was read queues the fold's check at the end
-;; of the pass, unless the member's new view depends on the fold, which the fold
-;; does not admit; so the members changed in one pass recompute it once; until
-;; then its readers read the value it had. A fold nobody read since it last
-;; changed is computed when next read. A base-rate fold also records the
-;; member to take, unless the change came through the rate itself: a past
-;; belief that reads the rate as its prior changes whenever the rate moves, and
-;; would otherwise be needed and taken again each time. Nor does a base-rate
-;; fold see a member whose open merged value stayed the same outside the
-;; fold's dependencies: it takes that value, so there is nothing new to take
-;; (a labelled past member gaining a derived view under its fact). An implication
-;; instance fold no query needs keeps its view and readers: the evaluation
-;; brings it current at its end (sk-instance-checks!). A check queued for this
-;; pass is also queued for the next, in case this pass's check already ran.
-(: sk-check-seq (-[det]-> Number))
-(= (sk-check-seq) 1000000000000000000000000)
-
-;; An empty existential fold has been read but has no value. Its members
-;; must still wake its readers when they obtain evidence.
-(: sk-fold-read? (-[det]-> Number SkeletonKey Bool))
-(= (sk-fold-read? $hash $fold)
-   (if (sk-existential-fold? $fold)
-      (not (== (collapse (once (match &ctx_sk_latest ($hash $stored (sk-version $_seq 0 $_value))
-         (if (=alpha $stored $fold) true (empty))))) ()))
-      (not (== (sk-latest-view $hash $fold 0) sk-none))))
-
-(: sk-fold-changed (-[semidet]-> Number Number SkeletonKey SkeletonChange SkeletonWork SkeletonKey SkeletonWork))
-(= (sk-fold-changed $pass $_seq $member $change (sk-work $todo $next) $fold)
-   (let $hash (index-hash $fold)
-      (if (if (deps-has? (sk-change-deps $change) $hash) true
-             (case $change (
-                ((sk-value-same $_deps $merged-deps)
-                   (if (deps-has? $merged-deps $hash) false
-                      (if (sk-instance-fold-key? $fold) false (sk-rate-fold? $fold))))
-                ($_other false))))
-         (sk-work $todo $next)
-      (let $_rate (sk-rate-dirty! $fold $member)
-      (if (not (sk-fold-read? $hash $fold)) (sk-work $todo $next)
-      (if (if (sk-needed? $hash $fold) false
-             (let $_stale (if (sk-instance-fold-key? $fold) () (sk-stale-fold! $fold)) true))
-         (sk-work $todo $next)
-         (let* (($mhash (index-hash $member))
-                ($_pending (context-add! &sk_fold_pending ($hash $mhash)))
-                ($check (sk-fold-check $hash $fold)))
-            (if (sk-queue-new? $pass $check) (sk-work (add_to_heap $todo (sk-check-seq) $check) $next)
-               (if (sk-queue-new? (+ $pass 1) $check) (sk-work $todo (add_to_heap $next (sk-check-seq) $check))
-                  (sk-work $todo $next))))))))))
-
-;; A row is forced once per evaluation by each changed key: a fold's readers
-;; follow its members as they change, and a fold feeding back into its own
-;; members still ends. A row never computed is not forced: its first view
-;; changes its key whatever caused it.
-(: sk-force-cause! (-[det]-> Number Number Number Atom))
-(= (sk-force-cause! $khash $rhash $cause)
-   (if (== (collapse (once (match &ctx_sk_forced_used ($khash $rhash $cause) true))) ())
-      (let* (($_used (context-add! &sk_forced_used ($khash $rhash $cause)))
-             ($_forced (context-add! &sk_forced ($khash $rhash $cause))))
-         ())
-      ()))
-
-(: sk-force! (-[det]-> (List Number) SkeletonItem Atom))
-(= (sk-force! $causes (sk-row-item $_seq $khash $_key $rhash $_row))
-   (if (space-row-present? &ctx_sk_support ($khash $rhash $_deps))
-      (let $_forced (map-flat (sk-force-cause! $khash $rhash) $causes) ())
-      ()))
-(= (sk-force! $_causes (sk-fold-check $_hash $_fold)) ())
-
-;; Whether a view brings a dependency none of the row's views had.
-(: sk-new-support? (-[semidet]-> Number Number SkeletonValue Bool))
-(= (sk-new-support? $hash $rhash $new)
-   (if (deps-within? (sk-view-deps-step 0 $new) (sk-row-support $hash $rhash)) false true))
-
-;; Two views of a row are the same when they agree on all but the proof: the
-;; stored proof stays a valid derivation of the same value.
+;; --- Context-node scheduling -----------------------------------------------
+;; The native scheduler owns the one heap and producer-node subscriptions.
+;; Row evaluation and PLN formulas remain here; no read computes a missing row.
 (: sk-same-view? (-[det]-> SkeletonValue SkeletonValue Bool))
 (= (sk-same-view? $new $old)
    (case $new (
@@ -3759,772 +3199,27 @@
          (case $old (
             ((sk-val ($old-type $old-kbctx $_old-proof $old-tv) $old-ev $old-deps)
                (if (=alpha (data $type $kbctx $tv) (data $old-type $old-kbctx $old-tv))
-                  (if (=alpha $ev $old-ev) (=alpha $deps $old-deps) false) false))
+                  (if (=alpha $ev $old-ev) (if (deps-within? $deps $old-deps) (deps-within? $old-deps $deps) false) false) false))
             ($_other false))))
       ((sk-goal-val $goal $_proof $ev $deps)
          (case $old (
             ((sk-goal-val $old-goal $_old-proof $old-ev $old-deps)
-               (if (=alpha $goal $old-goal) (if (=alpha $ev $old-ev) (=alpha $deps $old-deps) false) false))
+               (if (=alpha $goal $old-goal) (if (=alpha $ev $old-ev) (if (deps-within? $deps $old-deps) (deps-within? $old-deps $deps) false) false) false))
             ($_other false))))
       (sk-none (== $old sk-none)))))
 
-;; A fold's provenance counts as a change: a complete fold may replace a cached
-;; estimate of the same truth value.
-(: sk-view-step-proof (-[det]-> SkeletonValue Proof))
-(= (sk-view-step-proof $view)
-   (case $view (
-      ((sk-goal-val $_goal $proof $_ev $_deps) (sk-step-proof $proof))
-      ((sk-val $fact $_ev $_deps) (sk-fact-step-proof $fact))
-      (sk-none (brand Proof none)))))
-
-;; A fold check recomputes the fold once for the members that changed since
-;; the last one; when its value changed, every reader is forced by those
-;; members, in the next pass.
-(: sk-check-fold (-[semidet]-> Number SkeletonWork Number SkeletonKey SkeletonWork))
-(= (sk-check-fold $pass $work $hash $fold)
-   (let* (($causes (list_to_set (collapse (match &ctx_sk_fold_pending ($hash $member) $member))))
-          ($_taken (remove-data-rows! &sk_fold_pending (quote ($hash $member))))
-          ($old (sk-latest-view $hash $fold 0)))
-      (if (if (== $causes ()) true
-             (if (sk-existential-fold? $fold) false (== $old sk-none))) $work
-         (let* (($_view (sk-drop-fold-view! $fold))
-                ($_merged (sk-drop-merged! $fold)))
-            (case (sk-fold-views $hash $fold) (
-               ((cons (sk-version $_seq $_rhash $new) $_rest)
-                  (if (if (sk-same-view? $new $old) (== (sk-view-step-proof $new) (sk-view-step-proof $old)) false)
-                     $work
-                     (sk-key-changed $pass (sk-check-seq)
-                        (sk-outside-change $causes (sk-view-deps-step 0 $new)) $work $fold)))
-               (() (sk-key-changed $pass (sk-check-seq) (sk-outside-change $causes 0) $work $fold))))))))
-
-;; A row whose view differs from its latest version stores a new version and
-;; changes its key, when it is the row's first view, it was forced, or it
-;; brings new support. A forced row also stores a view that differs only in
-;; its proof: an outside change such as a completed fold improves provenance.
-;; The row's order in the pass places the readers it schedules.
-(: sk-compute (-[semidet]-> Number Number SkeletonWork SkeletonItem SkeletonWork))
-(= (sk-compute $pass $_order $work (sk-fold-check $hash $fold)) (sk-check-fold $pass $work $hash $fold))
-(= (sk-compute $pass $order $work (sk-row-item $seq $hash $key $rhash $row))
-   (let* (($_computed (query_metric_increment row-computes))
-          ($causes (collapse (match &ctx_sk_forced ($hash $rhash $cause) $cause)))
-          ($_taken (remove-data-rows! &sk_forced (quote ($hash $rhash $cause))))
-          ($forced (not (== $causes ())))
-          ($_unpaid (remove-data-rows! &sk_given_pending (quote ($hash $rhash $_cost))))
-          ($new (sk-row-view () () $hash $key $rhash $row)))
-      (case $new (
-         ;; A row forced by an outside change that no longer derives anything
-         ;; (a premise fact was removed) drops its views, and its key changed;
-         ;; one waiting for conditioning keeps them.
-         ;; A row that derived nothing records empty support: it was computed,
-         ;; so a fold over its key does not wait for it (sk-member-pending?).
-         (sk-none
-            (if (if $forced
-                   (if (== (sk-latest-view $hash $key $rhash) sk-none) false
-                      (== (collapse (once (match &ctx_sk_given_pending ($hash $rhash $_waits) true))) ()))
-                   false)
-               (let* (($_views (sk-drop-row-views! $hash $key $rhash))
-                      ($_merged (sk-drop-merged! $key))
-                      ($_derived-nothing (context-add! &sk_support ($hash $rhash 0))))
-                  (sk-key-changed $pass $order (sk-outside-change $causes 0) $work $key))
-               ;; A closed reader of a complete key evaluates its rows again,
-               ;; so a new row that derives nothing, or a forced one, still
-               ;; changes the key for it.
-               (let $first (not (space-row-present? &ctx_sk_support ($hash $rhash $_had)))
-                  (let $_nothing (if $first (context-add! &sk_support ($hash $rhash 0)) true)
-                     (if (if (if $first true $forced)
-                            (case $key (((sk-key $type $kbctx) (complete-statement? $type $kbctx)) ($_fold false)))
-                            false)
-                        (sk-key-changed $pass $order (if $forced (sk-outside-change $causes 0) (sk-view-change 0)) $work $key)
-                        $work)))))
-         ($_view
-            (let $latest (sk-latest-view $hash $key $rhash)
-            (if (if (sk-same-view? $new $latest)
-                   (if $forced (== (sk-view-step-proof $new) (sk-view-step-proof $latest)) true)
-                   (if $forced false
-                      (if (== $latest sk-none) false
-                         (if (sk-new-support? $hash $rhash $new) false
-                            (let $_unsupported (query_metric_increment views-without-support) true)))))
-               $work
-               (let* (($before
-                         (collapse (once (match &ctx_sk_merged ($hash $stored $deps $value)
-                            (if (=alpha $stored $key) (if (sk-live-view? $value) (sk-merged $hash $stored $deps $value) (empty)) (empty))))))
-                      ($_stored
-                         (let (sk-row (sk-ident $rule $_keys $_key) $_concl $_premises $_created) $row
-                            (sk-store-view! $hash $key $seq $rhash $rule $new)))
-                      ($_stored-count (query_metric_increment views-stored))
-                      ($_merged (sk-drop-merged! $key))
-                      ($deps (sk-view-deps-step 0 $new)))
-                  (sk-key-changed $pass $order
-                     (if (if $forced (not (sk-same-view? $new $latest)) false)
-                        (sk-outside-change $causes $deps)
-                        (sk-value-change $hash $key $deps $before))
-                     $work $key)))))))))
-
-;; An unchanged open merged value is known only when it was cached before.
-(: sk-value-change (-[semidet]-> Number SkeletonKey Number (List SkeletonMerged) SkeletonChange))
-(= (sk-value-change $hash $key $deps $before)
-   (case $before (
-      (() (sk-view-change $deps))
-      ((cons (sk-merged $_h $_k $old-deps $old-value) $_rest)
-         (case (sk-open-value $hash $key sk-any-filter) (
-            ((sk-merged $_h2 $_k2 $new-deps $new-value)
-               (if (=alpha $old-value $new-value)
-                  (sk-value-same $deps (deps-union $old-deps $new-deps))
-                  (sk-view-change $deps)))))))))
-
-;; Works off the queued rows and returns the last pass. A row a query needs
-;; that reads a fold the stale cascade reached meanwhile (the fold went stale
-;; over a member left stale and dropped its view) is computed again in a
-;; further pass, forced by its own key, whenever that happens: the query reads
-;; no value from before what it needs. One left stale for want of allowance
-;; meanwhile stays stale. A forward run leaves such rows stale for the
-;; query that next needs them, so its cost does not grow with every reader of
-;; a fold its new facts change. That includes readers of the keys the run
-;; takes: a reader computed early in a wave that a later change in the wave
-;; reaches stays stale, so the run can return and store its value from before
-;; that change. A query that needs it within the free depth refreshes it
-;; first; deeper, it is read like any other stale row.
-;; Refreshing those readers in the run (tried Oct 2) changed no StationOps
-;; answer and cost forward time growing with the KB (+1% at 10 modules, +9%
-;; at 20).
-(: sk-work-off! (-[semidet]-> Number SkeletonWork Number))
-(= (sk-work-off! $pass (sk-work $todo $next))
-   (if (heap-empty? $todo)
-      (if (heap-empty? $next)
-         (let* (($restale (collapse (match &ctx_sk_restale ($khash $rhash) ($khash $rhash))))
-                ($_taken (remove-data-rows! &sk_restale (quote ($khash $rhash))))
-                ($again (fold-semidet sk-restale-step (empty_heap) $restale)))
-            (if (heap-empty? $again)
-               (if (sk-build-wanted!) (sk-work-off! (+ $pass 1) (sk-work (empty_heap) (empty_heap))) $pass)
-               (sk-work-off! (+ $pass 1) (sk-work $again (empty_heap)))))
-         (sk-work-off! (+ $pass 1) (sk-work $next (empty_heap))))
-      (sk-work-pop! $pass $next (heap_pop $todo))))
-
-;; Ordinary reads keep their incumbent. Only this last tier rebuilds a miss;
-;; nested reads may rebuild inline inside its bounded evaluation slice.
-;; Leave a request in place until the build returns, including on exceptions.
-(= (sk-build-wanted!)
-   (let $room (min (search-id-value sk_eval_budget) (search-id-value sk_branch_budget))
-      (if (< $room 1) false
-         (case (collapse (once (match &ctx_sk_branch_wanted ($slot $hash $key $rhash $exclude)
-                  (sk-wanted $slot $hash $key $rhash $exclude)))) (
-            (() false)
-            ((cons (sk-wanted $slot $hash $key $rhash $exclude) $_rest)
-               (let* (($request (data $slot $hash $key $rhash $exclude))
-                      ($before (search-id-value sk_eval_budget))
-                      ($incumbent (sk-mixed (sk-branch-values $slot $key $rhash $exclude true)
-                                    (sk-mixed (sk-branch-values $slot $key $rhash $exclude false) sk-none)))
-                      ($_slice (change-state! sk_eval_budget $room))
-                      ($built (sk-rebuild-view $hash $key $rhash $exclude))
-                      ($spent (- $room (search-id-value sk_eval_budget)))
-                      ($_restore (change-state! sk_eval_budget (- $before $spent)))
-                      ;; Even a cache hit or a structurally impossible read
-                      ;; consumes one tier unit, bounding queue bookkeeping.
-                      ($_share (change-state! sk_branch_budget (- (search-id-value sk_branch_budget) (max 1 $spent))))
-                      ($_taken (remove-variant-row! &sk_branch_wanted (quote ($slot $hash $key $rhash $exclude))))
-                      ($settled (not (== (sk-branch-values $slot $key $rhash $exclude true) ())))
-                      ($_retry (if $settled true (context-add! &sk_branch_wanted $request)))
-                      ($_ready
-                         (if (not (sk-same-view? $built $incumbent))
-                            (let* (($cause (- 0 (+ 2 (next-search-id sk_branch_ready))))
-                                   ($_readers (collapse (fold-semidet (sk-branch-ready-step $cause $exclude) ()
-                               (append-flat (sk-readers $key)
-                                  (collapse (match &ctx_sk_stale_reader ($hash $stored $reader-hash $reader-row)
-                                     (if (=alpha $stored $key)
-                                        (match &sk_row ($reader-hash $reader-key $reader-row (sk-row $ri $rc $rp $rs))
-                                           (sk-row-item $rs $reader-hash $reader-key $reader-row (sk-row $ri $rc $rp $rs)))
-                                        (empty))))))))) ())
-                            ())))
-                  true)))))))
-
-(= (sk-branch-ready-step $cause $exclude $_acc (sk-row-item $seq $hash $key $rhash (sk-row $ident $concl $premises $created)))
-   ;; A row always excludes its own key. Readers in other exclusion contexts
-   ;; keep their own requests; this arrival must not force them as well.
-   (if (stored-list-member? $hash $exclude)
-      (let $_requested
-         (if (== (search-id-value sk_forward_run) 1)
-            (if (sk-needed? $hash $key) () (let $_needed (add-atom &sk_needed ($hash $key 0)) ())) ())
-         (if (sk-needed? $hash $key)
-            (let* (($_forced (sk-force! (cons $cause ()) (sk-row-item $seq $hash $key $rhash (sk-row $ident $concl $premises $created))))
-                   ($_linked (if (space-row-present? &ctx_sk_stale ($hash $rhash))
-                                (sk-relink-row! $hash $rhash $premises) ()))
-                   ($_ready (if (space-row-present? &ctx_sk_restale ($hash $rhash)) ()
-                                (let $_row (context-add! &sk_restale ($hash $rhash)) ()))))
-               ())
-            ()))
-      ()))
-(= (sk-branch-ready-step $_cause $_exclude $_acc (sk-fold-check $_hash $_key)) ())
-
-(: sk-restale-step (-[semidet]-> (Heap SkeletonItem) (Number Number) (Heap SkeletonItem)))
-(= (sk-restale-step $todo ($khash $rhash))
-   (if (space-row-present? &ctx_sk_stale ($khash $rhash)) $todo
-      (case (collapse (once (match &sk_row ($khash $key $rhash (sk-row $ident $concl $premises $seq))
-               (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $seq))))) (
-         ((cons $item $_rest) (let $_forced (sk-force! (cons $khash ()) $item) (add_to_heap $todo (sk-item-order $item) $item)))
-         (() $todo)))))
-
-(: sk-work-pop!
-   (-[semidet]-> Number (Heap SkeletonItem) (Number SkeletonItem (Heap SkeletonItem)) Number))
-;; Each row commits to its one result, so the loop leaves no choice points and
-;; runs in constant stack however many rows it computes. An item no query needs
-;; is in the work only as a determined row (sk-seed-new, sk-schedule-reader),
-;; which costs nothing; a determined row a query needs is computed even when
-;; the allowance cannot pay for it.
-(= (sk-work-pop! $pass $next ($order $item $rest))
-   (if (if (sk-item-needed? $item)
-          (if (sk-near-root-reserve-take! $item) true
-             (if (sk-take! sk_eval_budget
-                    (case $item (((sk-row-item $_seq $_khash (sk-key $type $_kbctx) $_rhash $_row) (term-cost $type)) ($_fold-check 1))))
-                true
-                (sk-determined-row? $item)))
-          true)
-      (sk-work-off! $pass (once (sk-compute $pass $order (sk-work $rest $next) $item)))
-      (let* (($_unpaid (query_metric_increment rows-unpaid))
-             ($_stale (sk-mark-stale! $item)))
-         (sk-work-off! $pass (sk-work $rest $next)))))
-
-;; A query computes the rows and folds within two steps of a root from a
-;; reserve that its need fills with a fixed number of computations for each
-;; one it reaches there, shared among them: rows read one another through
-;; inverted rules, each change schedules its readers again, and a fold is
-;; checked again when more members change, so near a root an evaluation is
-;; bounded by the size of what its roots read, not by the passes its cycles
-;; take. What the reserve cannot pay for, and every deeper row, spends the
-;; allowance; what neither can pay for is left stale, as if no query needed
-;; it, and a later query that reads it recomputes it from its inputs then. A
-;; row of a large key spends more of the allowance (term-cost); a fold, whose
-;; arguments do not grow with recursion, one.
-;; Creation order is kept, so an allowance that covers everything computes
-;; what a query without one would. A forward run has no reserve.
-(: sk-near-root-reserve-take! (-[det]-> SkeletonItem Bool))
-(= (sk-near-root-reserve-take! (sk-row-item $_seq $khash $key $_rhash $_row))
-   (if (<= (sk-need-depth $khash $key) (sk-evaluation-free-depth)) (sk-take! sk_near_reserve 1) false))
-(= (sk-near-root-reserve-take! (sk-fold-check $hash $fold))
-   (if (<= (sk-need-depth $hash $fold) (sk-evaluation-free-depth)) (sk-take! sk_near_reserve 1) false))
-
-;; How near a root a key must be for its rows to draw on the reserve and its
-;; stale rows to be brought current. A forward run's need stops at the readers
-;; of the keys it takes, and every row it computes costs one of its units.
-(: sk-evaluation-free-depth (-[det]-> Number))
-(= (sk-evaluation-free-depth) (if (== (search-id-value sk_forward_run) 1) 0 2))
-
-;; Computations each row or fold within two steps of a root adds to a query's
-;; reserve: SupplyNet's evaluations take up to about four, cycles through
-;; inverted rules (ONA relationalnetwork) about two.
-(: sk-evaluation-near-root-reserve (-[det]-> Number))
-(= (sk-evaluation-near-root-reserve) 8)
-
-;; Row computations a query may spend per step of its budget beyond the reserve.
-(: sk-evaluation-per-step (-[det]-> Number))
-(= (sk-evaluation-per-step) 2)
-
-;; A request cannot crowd out ordinary evaluation, restales or conditioning.
-;; This is a ceiling within the existing allowance, not an extra allowance.
-(: sk-branch-share (-[det]-> Number))
-(= (sk-branch-share) 0.125)
-
-;; Expanded nodes a query's walk may pass through per step of its budget.
-(: sk-walk-per-step (-[det]-> Number))
-(= (sk-walk-per-step) 1)
-
-;; Keys changed outside evaluation: a fold or group key recomputes when next
-;; read, and every changed key's readers are scheduled. A stored fact may make
-;; a stale reader determined: it rejoins the key's readers, so it is computed.
-(: sk-dirty-seed (-[semidet]-> Number SkeletonWork SkeletonKey SkeletonWork))
-(= (sk-dirty-seed $pass $work $key)
-   (let* (($hash (index-hash $key))
-          ($_branches (sk-invalidate-branches! $key))
-          ($_view
-             (case $key (
-                ((sk-key $_type $_kbctx)
-                   (fold-semidet sk-relink-determined-step ()
-                      (collapse (match &ctx_sk_stale_reader ($hash $stored $khash $rhash)
-                         (if (=alpha $stored $key)
-                            (match &sk_row ($khash $rkey $rhash (sk-row $ident $concl $premises $seq))
-                               (sk-row-item $seq $khash $rkey $rhash (sk-row $ident $concl $premises $seq)))
-                            (empty))))))
-                ($_fold (sk-drop-fold-view! $key)))))
-          ($_merged (sk-drop-merged! $key)))
-      (sk-key-changed $pass -1 (sk-outside-change (cons $hash ()) 0) $work $key)))
-
-(: sk-relink-determined-step (-[semidet]-> Atom SkeletonItem Atom))
-(= (sk-relink-determined-step $_acc (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $s)))
-   (if (sk-determined-row? (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $s)))
-      (sk-relink-row! $khash $rhash $premises)
-      ()))
-
-;; --- Demand -----------------------------------------------------------------
-;; A query brings current only what its roots read: their keys, the premise
-;; keys of those keys' rows, and the members of the folds and groups among
-;; them. A row outside that set whose input changes is marked stale instead of
-;; computed, and so is everything reading it, once (what the query needs once
-;; it has read its answers); a later query that reads it again recomputes it. A stale row leaves
-;; the reader lists of the keys it reads until then, so a change walks only
-;; readers that are current, and earlier queries' rows cost nothing per query
-;; or per change.
-
-;; Signatures of the mutually recursive functions below.
-(: sk-need! (-[semidet]-> Number SkeletonNeed SkeletonKey SkeletonNeed))
-(: sk-stale-key! (-[det]-> SkeletonKey Atom))
-
-(: sk-needed? (-[det]-> Number SkeletonKey Bool))
-(= (sk-needed? $hash $key)
-   (not (== (collapse (once (match &sk_needed ($hash $stored $_depth) (if (=alpha $stored $key) true (empty))))) ())))
-
-;; How many rows or folds lie between a needed key and the nearest root.
-(: sk-need-depth (-[det]-> Number SkeletonKey Number))
-(= (sk-need-depth $hash $key)
-   (case (collapse (once (match &sk_needed ($hash $stored $depth) (if (=alpha $stored $key) $depth (empty))))) (
-      ((cons $depth $_rest) $depth)
-      (() 1000000))))
-
-
-;; A stale row within the depth computed in full rejoins its keys' readers and
-;; is recomputed by the evaluation, and so does a stale row at any depth that
-;; has no value yet: a row a forward run created but could not pay for. A
-;; deeper stale row keeps its value and stays
-;; out of the change path: only a need that reaches it that closely, such as a
-;; query asking for it, brings it current. So a change below a long chain, such
-;; as a base rate every past belief read, costs once per stale row and never
-;; recomputes the history no one asked for.
-;;
-;; Below that depth the need goes on only through rows never computed or
-;; waiting to be conditioned. A current row's inputs are current, since every
-;; change reaches the readers of what changed, and a stale one is not brought
-;; current, so there is nothing under either to recompute. Rows never computed
-;; are taken nearest a root first, as the evaluation computes them; those of
-;; large statements spend what their size costs beyond a row's (term-cost)
-;; from as much as the allowance can compute (sk_need_budget). A recursive rule
-;; that builds ever larger rows faster than they are computed, such as a base
-;; rate's members through (Num $x) → (Num (succ $x)), would otherwise make
-;; every need walk the whole backlog; a need through rows of ordinary size,
-;; whose walk also takes base rates' changed members, is not cut.
-;;
-;; A stale row brought current leaves the stale set and rejoins its keys'
-;; readers.
-(: sk-relink-row! (-[semidet]-> Number Number (List SkPattern) Atom))
-(= (sk-relink-row! $khash $rhash $premises)
-   (let* (($_fresh (context-remove! &sk_stale ($khash $rhash)))
-          ($keys (fold-semidet sk-direct-key-step () $premises))
-          ($_unmarked (fold-semidet (sk-drop-stale-reader! $khash $rhash) () $keys))
-          ($_linked (fold-semidet (sk-add-reader! $khash $rhash) () $keys)))
-      ()))
-
-(: sk-need-row! (-[semidet]-> Number SkeletonNeed SkeletonItem SkeletonNeed))
-(= (sk-need-row! $depth (sk-need-next $next $members) (sk-row-item $_seq $khash $key $rhash (sk-row (sk-ident $rule $_keys $_key) $_concl $premises $_s)))
-   (if (rule-live? $rule)
-   (let* (($_reserve (sk-reserve-near! (- $depth 1)))
-          ($near (<= $depth (+ (sk-evaluation-free-depth) 1)))
-          (($latest $invalid)
-             (case (collapse (once (match &ctx_sk_latest ($khash $stored (sk-version $_old-seq $rhash $view))
-                       (if (=alpha $stored $key) (if (sk-live-view? $view) ($view false) (sk-none true)) (empty))))) (
-                ((cons $state $_rest) $state)
-                (() (sk-none false)))))
-          ($unseen
-             (if (== $latest sk-none)
-                (if $near true
-                   (case $key (((sk-key $type $_kbctx)
-                      (let $extra (- (term-cost $type) 1)
-                         (if (== $extra 0) true (sk-take! sk_need_budget $extra)))))))
-                false))
-          ($refresh
-             (if (if $unseen true $near)
-                (if $invalid true (not (== (collapse (once (match &ctx_sk_stale ($khash $rhash) true))) ())))
-                false))
-          ($_forced (if (if $refresh $invalid false) (context-add! &sk_forced ($khash $rhash -1)) true))
-          ($_refreshed
-             (if $refresh
-                (let $_relinked (sk-relink-row! $khash $rhash $premises) (context-add! &sk_refresh ($khash $rhash)))
-                ())))
-      (if (if $refresh true
-             (if (<= $depth (sk-evaluation-free-depth)) true
-                (if $unseen true
-                   (not (== (collapse (once (match &ctx_sk_given_pending ($khash $rhash $_cost) true))) ())))))
-         (sk-need-next (fold-semidet sk-direct-key-step $next $premises) $members)
-         (sk-need-next $next $members)))
-   (let $_removed (sk-drop-row! $khash $key $rhash (sk-row (sk-ident $rule $_keys $_key) $_concl $premises $_s))
-      (sk-need-next $next $members))))
-
-;; The need from a query's roots, or from the keys a forward wave takes.
-(: sk-need-roots! (-[semidet]-> (List SkeletonKey) Atom))
-(= (sk-need-roots! $keys)
-   (let $_budget (change-state! sk_need_budget (search-id-value sk_eval_budget)) (sk-need-keys! 0 $keys)))
-
-;; A key is needed at the fewest steps from a root it is reached by. The keys
-;; are visited breadth first, a level of keys one step further than the last
-;; at a time, so each is reached first at that depth and visited once: a
-;; deeper visit first, then a closer one passing the smaller depth on, walked
-;; a chain of inverted rules once per key below it (ChainerGame
-;; benchmarks/ona/repros/term_growing_rule.metta: 90% of the query).
-;;
-;; The members a base-rate or instance fold has yet to take are visited after
-;; every key reached otherwise, one level past the deepest. Such a fold
-;; estimates a population, so a member moves what its readers read by one
-;; member's share, and a member reached otherwise keeps the depth of that
-;; path: a fold one step from a root otherwise puts its whole population,
-;; every past observation of the pattern, two steps from it, where its rows
-;; take the allowance before the rows of the paths the roots read through
-;; (SupplyNet stage 2 b100 s2: the history rows reading the base rate took the
-;; allowance from the periods nearest the present, error 0 to 0.0004).
-;; keys one level further, members of statistical folds
-(: SkeletonNeed Type)
-(: sk-need-next (-[det]-> (List SkeletonKey) (List SkeletonKey) SkeletonNeed))
-
-(: sk-need-keys! (-[semidet]-> Number (List SkeletonKey) Atom))
-(= (sk-need-keys! $depth $keys) (sk-need-level! $depth $keys ()))
-
-(: sk-need-level! (-[semidet]-> Number (List SkeletonKey) (List SkeletonKey) Atom))
-(= (sk-need-level! $depth $keys $members)
-   (if (== $keys ())
-      (if (== $members ()) () (sk-need-level! $depth $members ()))
-      (case (fold-semidet (sk-need! $depth) (sk-need-next () $members) $keys) (
-         ((sk-need-next $next $later) (sk-need-level! (+ $depth 1) (fold-semidet sk-cons-step () $next) $later))))))
-
-(= (sk-need! $depth $need $key)
+(: sk-structural-readers (-[det]-> SkeletonKey (List SkeletonItem)))
+(= (sk-structural-readers $key)
    (let $hash (index-hash $key)
-      (if (sk-needed? $hash $key) $need
-         (let* (($_new (add-atom &sk_needed ($hash $key $depth)))
-                ($_touched (sk-touch-key! $hash $key)))
-            (sk-need-below! $depth $hash $key $need)))))
+      (collapse (match &ctx_sk_row_input ($hash $stored $khash $rhash)
+         (if (=alpha $stored $key)
+            (match &sk_row ($khash $rkey $rhash (sk-row $ident $concl $premises $seq))
+               (sk-row-item $seq $khash $rkey $rhash (sk-row $ident $concl $premises $seq)))
+            (empty))))))
 
-;; What a needed key reads: its rows' premise keys, or the members of a fold
-;; or group; a base-rate fold takes its changed members.
-(: sk-need-below! (-[semidet]-> Number Number SkeletonKey SkeletonNeed SkeletonNeed))
-(= (sk-need-below! $depth $hash $key (sk-need-next $next $members))
-   (case $key (
-      ((sk-key $_type $_kbctx)
-         (fold-semidet (sk-need-row! (+ $depth 1)) (sk-need-next $next $members)
-            (collapse (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
-               (if (=alpha $stored $key)
-                  (sk-row-item $seq $hash $stored $rhash (sk-row $ident $concl $premises $seq))
-                  (empty))))))
-      ((sk-fold $args)
-         (let $_reserve (sk-reserve-near! $depth)
-         (if (sk-rate-fold? $key)
-            (let $changed
-               (collapse (match &ctx_sk_rate_dirty ($hash $_mhash $fold $joined)
-                  (if (=alpha $fold $key) $joined (empty))))
-               (if (== $changed ()) (sk-need-next $next $members)
-                  (let* (($_taken (sk-rate-take! $hash (the ScalarFoldSpec $args)))
-                         ($_dirty (sk-mark-dirty! $key)))
-                     (sk-need-next $next (fold-semidet sk-cons-step $members $changed)))))
-            (case (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) (
-               ((cons $member $_rest) (sk-need-next (fold-semidet sk-cons-step $next (sk-answers $member)) $members))
-               (() (sk-need-next $next $members)))))))
-      ((sk-group $group-args)
-         (let $_reserve (sk-reserve-near! $depth)
-            (case (sk-group-members $key $group-args) (
-               ((sk-group-found $_member $found) (sk-need-next (fold-semidet sk-cons-step $next $found) $members))
-               (sk-group-missing (sk-need-next $next $members)))))))))
-
-;; A row or fold within two steps of a root adds to a query's reserve (see
-;; sk-work-pop!); a forward run has none.
-(: sk-reserve-near! (-[det]-> Number Atom))
-(= (sk-reserve-near! $depth)
-   (if (if (== (search-id-value sk_forward_run) 1) false (<= $depth (sk-evaluation-free-depth)))
-      (let $_added (change-state! sk_near_reserve (+ (search-id-value sk_near_reserve) (sk-evaluation-near-root-reserve))) ())
-      ()))
 
 (: sk-root-keys-step (-[semidet]-> (List SkeletonKey) SkPattern (List SkeletonKey)))
 (= (sk-root-keys-step $keys $goal) (append-flat $keys (sk-root-keys $goal)))
-
-;; A stale row leaves the reader lists of the keys it reads, so a change walks
-;; only current readers; it is kept as a stale reader of those keys, which a
-;; forward run taking one of them brings back.
-(: sk-unlink-reader! (-[det]-> Number Number (List SkPattern) Atom))
-(= (sk-unlink-reader! $khash $rhash $premises)
-   (fold-flat (sk-stale-reader! $khash $rhash) () (fold-flat sk-direct-key-step () $premises)))
-
-(: sk-mark-stale! (-[det]-> SkeletonItem Atom))
-(= (sk-mark-stale! (sk-row-item $_seq $khash $key $rhash (sk-row $_ident $_concl $premises $_s)))
-   (if (== (collapse (once (match &ctx_sk_stale ($khash $rhash) true))) ())
-      (let* (($_stale (context-add! &sk_stale ($khash $rhash)))
-             ($_unlinked (sk-unlink-reader! $khash $rhash $premises)))
-         (sk-stale-key! $key))
-      ()))
-(= (sk-mark-stale! (sk-fold-check $_hash $fold)) (sk-stale-fold! $fold))
-
-;; A fold over a stale key drops its view, so it is recomputed when read.
-(: sk-stale-fold! (-[det]-> SkeletonKey Atom))
-(= (sk-stale-fold! $fold)
-   (if (not (sk-fold-read? (index-hash $fold) $fold)) ()
-      (let* (($_view (sk-drop-fold-view! $fold))
-             ($_merged (sk-drop-merged! $fold)))
-         (sk-stale-key! $fold))))
-
-;; While a query's evaluation runs, the stale cascade does not stale a row the
-;; query needs: the row stays linked and follows the changes the evaluation
-;; still makes. A row goes stale keeping its view, so a needed reader of its
-;; key is held and staled once the query has read its answers (sk-stale-held!),
-;; which keeps a current row's inputs current between queries; a fold that
-;; goes stale drops its view, so a needed reader of it is computed again in a
-;; further pass. Staling needed readers at once unlinked them mid-evaluation,
-;; after one refresh, so the rows nearest the roots kept views of inputs that
-;; moved after them (SupplyNet scale m spq4 s2: the allowance ran out on a row
-;; of (Front z1 t5), the cascade went up the front's chain, and (Blocked k1 t8)
-;; ended at 0.46 under a storm of 0.31).
-(= (sk-stale-reader-step $stale $_acc (sk-row-item $seq $khash $key $rhash $row))
-   (if (if (== (search-id-value sk_holding) 1) (sk-needed? $khash $key) false)
-      (case $stale (
-         ((sk-key $_type $_kbctx)
-            (if (space-row-present? &ctx_sk_held ($khash $rhash)) () (let $_row (context-add! &sk_held ($khash $rhash)) ())))
-         ($_fold (if (space-row-present? &ctx_sk_restale ($khash $rhash)) () (let $_row (context-add! &sk_restale ($khash $rhash)) ())))))
-      (sk-mark-stale! (sk-row-item $seq $khash $key $rhash $row))))
-(= (sk-stale-reader-step $_stale $_acc (sk-fold-check $hash $fold)) (sk-mark-stale! (sk-fold-check $hash $fold)))
-
-;; The rows a query held from the stale cascade go stale once it has read its
-;; answers, with what reads them.
-(: sk-stale-held! (-[semidet]-> Atom))
-(= (sk-stale-held!)
-   (let* (($_released (change-state! sk_holding 0))
-          ($held
-             (collapse (match &ctx_sk_held ($khash $rhash)
-                (match &sk_row ($khash $key $rhash (sk-row $ident $concl $premises $seq))
-                   (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $seq))))))
-          ($_taken (remove-data-rows! &sk_held (quote ($hkhash $hrhash)))))
-      (foreach-flat sk-mark-stale! $held)))
-
-(= (sk-stale-key! $key)
-   (let* (($hash (index-hash $key))
-          ($_readers (fold-flat (sk-stale-reader-step $key) () (sk-readers $key))))
-      (foreach-flat sk-stale-fold!
-         (collapse (match &sk_use ($hash $stored $fold)
-            (if (=alpha $stored $key)
-               (if (sk-rate-fold? $fold)
-                  (let $_take (if (sk-instance-fold-key? $fold) (sk-rate-dirty! $fold $key) ()) (empty))
-                  $fold)
-               (empty)))))))
-
-(: sk-item-needed? (-[det]-> SkeletonItem Bool))
-(= (sk-item-needed? (sk-row-item $_seq $hash $key $_rhash $_row)) (sk-needed? $hash $key))
-(= (sk-item-needed? (sk-fold-check $hash $fold)) (sk-needed? $hash $fold))
-
-;; A new row no query needs is left stale, unless it is determined
-;; (sk-determined-row?).
-(: sk-seed-new (-[det]-> Number (Heap SkeletonItem) SkeletonItem (Heap SkeletonItem)))
-(= (sk-seed-new $pass $todo $item)
-   (if (if (sk-item-needed? $item) true (sk-determined-row? $item))
-      (if (sk-queue-new? $pass $item) (add_to_heap $todo (sk-item-order $item) $item) $todo)
-      (let $_stale (sk-mark-stale! $item) $todo)))
-
-;; A row is determined when its rule is deterministic (stated with strength 0
-;; or 1 and confidence 1 in every branch: register-rule-evidence!) and its
-;; premises are all certain statements, reading no fold or group: its
-;; conclusion is certain, as a stored fact is. So it is computed when it is
-;; built or its premises change, whoever needs it, at the cost of reading a
-;; fact: its key then changes as a stored fact's would, and the tallies and
-;; base rates over the key take it (docs/metta/runtime_design_assumptions.md,
-;; "Determined rows").
-(: sk-determined-row? (-[det]-> SkeletonItem Bool))
-(= (sk-determined-row? (sk-row-item $_seq $_khash $_key $_rhash (sk-row $_ident ($_type ($kbid $_ctx $_vars) $proof $_tv) $premises $_s)))
-   (if (deterministic-rule? (brand KB $kbid) (rule-evidence-head $proof))
-      (fold-flat sk-certain-premise-step true (the (List SkPattern) $premises))
-      false))
-(= (sk-determined-row? (sk-fold-check $_hash $_fold)) false)
-
-(: sk-certain-premise-step (-[det]-> Bool SkPattern Bool))
-(= (sk-certain-premise-step $certain $premise)
-   (if $certain
-      (case $premise (
-         ((CPU $fun $_args $_res) (not (if (== $fun FoldAllCompiled) true (== $fun GroupedFoldAllCompiled))))
-         (($type $kbctx $_proof $_tv) (sk-certain? $type (sk-leaf-facts $type $kbctx sk-any-filter)))
-         ($_other false)))
-      false))
-
-;; MAIN can release held rows before an Assuming world starts. That world
-;; borrows the same need depths, but must relink its stale rows near the roots
-;; locally before seed changes can reach them. Deeper stale history stays put.
-(: sk-refresh-near! (-[det]-> Atom))
-(= (sk-refresh-near!)
-   (let $_refreshed (collapse (match &sk_needed ($hash $key $depth)
-      (if (<= $depth (sk-evaluation-free-depth))
-         (match &ctx_sk_stale ($hash $rhash)
-            (match &sk_row ($hash $stored $rhash (sk-row $_ident $_concl $premises $_seq))
-               (if (=alpha $stored $key)
-                  (let $_linked (sk-relink-row! $hash $rhash $premises)
-                     (context-add! &sk_refresh ($hash $rhash)))
-                  (empty))))
-         (empty))))
-      ()))
-
-(: sk-evaluate! (-[semidet]-> Atom))
-(= (sk-evaluate!)
-   (let* (($_queued (remove-data-rows! &sk_queued (quote ($qpass $qkhash $qrhash))))
-          ($_cleared-forced (remove-data-rows! &sk_forced (quote ($khash $rhash $cause))))
-          ($_used (remove-data-rows! &sk_forced_used (quote ($khash $rhash $cause))))
-          ($_pending (remove-data-rows! &sk_fold_pending (quote ($fhash $member))))
-          ;; an incomplete fold the query needs is checked again: its members
-          ;; may have been searched, or found to derive nothing, since
-          ($partial
-             (collapse (match &ctx_sk_partial ($phash $pfold)
-                (if (sk-needed? $phash $pfold)
-                   (let $_cause (context-add! &sk_fold_pending ($phash $phash)) (sk-fold-check $phash $pfold))
-                   (empty)))))
-          ($_granted (remove-data-rows! &sk_given_granted (quote ($khash $rhash))))
-          ($_conditioning (remove-data-rows! &sk_conditioning (quote ($chash $crhash))))
-          ($_restale (remove-data-rows! &sk_restale (quote ($skhash $srhash))))
-          ($_checked (remove-data-rows! &sk_instance_checked (quote ($ihash))))
-          ($last (sk-evaluate-pass! 0 $partial))
-          ($_roots (sk-read-roots!)))
-      (sk-pay-conditions! (+ $last 1))))
-
-;; A pass works off the rows never evaluated, the readers of the keys changed
-;; outside evaluation, the stale rows a need brought current (forced by their
-;; own keys) and the items given. Then the implication instance folds whose
-;; members changed are brought current, in further passes, and the last pass
-;; is returned.
-(: sk-evaluate-pass! (-[semidet]-> Number (List SkeletonItem) Number))
-(= (sk-evaluate-pass! $pass $items)
-   (let* (($new (collapse (match &ctx_sk_new (sk-row-item $seq $hash $key $rhash $row)
-             (sk-row-item $seq $hash $key $rhash $row))))
-          ($_new (remove-data-rows! &sk_new (quote (sk-row-item $nseq $nhash $nkey $nrhash $nrow))))
-          ($dirty (collapse (match &ctx_sk_dirty ($dhash $dkey) $dkey)))
-          ($_dirty (remove-data-rows! &sk_dirty (quote ($ddhash $ddkey))))
-          ($refresh
-             (collapse (match &ctx_sk_refresh ($khash $rhash)
-                (let $_taken (context-remove! &sk_refresh ($khash $rhash))
-                   (match &sk_row ($khash $rkey $rhash (sk-row $ident $concl $premises $rseq))
-                      (let* (($item (sk-row-item $rseq $khash $rkey $rhash (sk-row $ident $concl $premises $rseq)))
-                             ($_forced (sk-force! (cons $khash ()) $item)))
-                         $item))))))
-          ($seeded
-             (fold-semidet (sk-dirty-seed $pass)
-                (sk-work (fold-semidet (sk-seed-new $pass) (empty_heap) (append-flat $new (append-flat $refresh $items)))
-                   (empty_heap))
-                $dirty))
-          ($last (sk-work-off! $pass $seeded)))
-      (case (sk-instance-checks!) (
-         (() $last)
-         ($checks (sk-evaluate-pass! (+ $last 1) $checks))))))
-
-;; An evaluation brings current every implication instance fold that rows read,
-;; has a view and has members still to take, with the keys reading it, a refined rule's
-;; truth above all, whoever needs them: those keys are needed as roots are, the
-;; members to take beside them, and the fold is checked once the members are
-;; computed. So a new instance moves its rule's truth, and the search score
-;; read from it, at the evaluation after it is stored, without a query asking
-;; for the truth, at the cost of the members that changed. A fold nobody read
-;; takes all its members when first read. Each fold is brought current once
-;; per evaluation; what changes after that, the fold now needed, is checked as
-;; any needed fold is, and a member whose rows the evaluation could not compute
-;; waits for the next one.
-(: sk-instance-checks! (-[semidet]-> (List SkeletonItem)))
-(= (sk-instance-checks!)
-   (fold-semidet sk-instance-check-step ()
-      (collapse (match &ctx_sk_instance_changed ($hash $fold)
-         (if (space-row-present? &ctx_sk_instance_checked ($hash)) (empty)
-            (let* (($_taken (context-remove! &sk_instance_changed ($hash $fold)))
-                   ($_checked (context-add! &sk_instance_checked ($hash))))
-               ($hash $fold)))))))
-
-(: sk-fold-reader-key-step (-[det]-> (List SkeletonKey) (Number Number) (List SkeletonKey)))
-(= (sk-fold-reader-key-step $keys ($khash $rhash))
-   (append-flat (collapse (match &sk_row ($khash $key $rhash $_row) $key)) $keys))
-
-(: sk-instance-check-step (-[semidet]-> (List SkeletonItem) (Number SkeletonKey) (List SkeletonItem)))
-(= (sk-instance-check-step $checks ($hash $fold))
-   (let $members
-         (collapse (match &ctx_sk_rate_dirty ($hash $_mhash $stored $member) (if (=alpha $stored $fold) $member (empty))))
-      (let $readers
-            (collapse (superpose (
-               (match &ctx_sk_reader ($hash $stored-r $khash $rhash) (if (=alpha $stored-r $fold) ($khash $rhash) (empty)))
-               (match &ctx_sk_stale_reader ($hash $stored-s $skhash $srhash) (if (=alpha $stored-s $fold) ($skhash $srhash) (empty))))))
-      (if (if (== $members ()) true (if (== $readers ()) true (== (sk-latest-view $hash $fold 0) sk-none))) $checks
-         (let* (($_readers (sk-need-closer! 0 (alpha_unique_keys (fold-flat sk-fold-reader-key-step () $readers))))
-                ($_fold (sk-need-closer! 1 (cons $fold ())))
-                ($_members (sk-need-closer! 2 $members))
-                ($_causes (foreach-flat (sk-fold-pending! $hash) $members)))
-            (cons (sk-fold-check $hash $fold) $checks))))))
-
-;; Keys needed again at a depth closer to a root than they were, so their
-;; rows are computed in full and their stale rows brought current.
-(: sk-unneed-deeper! (-[det]-> Number Atom SkeletonKey Atom))
-(= (sk-unneed-deeper! $depth $_acc $key)
-   (let* (($hash (index-hash $key))
-          ($_dropped
-             (collapse (match &sk_needed ($hash $stored $was)
-                (if (=alpha $stored $key) (if (> $was $depth) (remove-atom &sk_needed ($hash $stored $was)) (empty)) (empty))))))
-      ()))
-
-(: sk-need-closer! (-[semidet]-> Number (List SkeletonKey) Atom))
-(= (sk-need-closer! $depth $keys)
-   (let $_unneeded (fold-flat (sk-unneed-deeper! $depth) () $keys) (sk-need-keys! $depth $keys)))
-
-(: sk-fold-pending! (-[det]-> Number SkeletonKey Atom))
-(= (sk-fold-pending! $hash $member)
-   (let* (($mhash (index-hash $member)) ($_pending (context-add! &sk_fold_pending ($hash $mhash)))) ()))
-
-;; Rows and key merges waiting for conditioning are paid for from what the
-;; evaluation allowance has left: nearest a root first, then cheapest, then
-;; oldest. The first one the allowance cannot pay for waits, with the rest,
-;; for a later query that needs it, so a larger allowance extends the same
-;; prefix. A paid row is recomputed, conditioned, with its readers. Each is
-;; paid at most once per evaluation: one whose claim overdrew its cost waits
-;; again for a later query.
-(: SkeletonWaiting Type)
-(: sk-row-waiting (-[det]-> SkeletonItem SkeletonWaiting))
-(: sk-key-waiting (-[det]-> Number SkeletonKey SkeletonWaiting))
-(: SkeletonClaim Type)
-(: sk-claim (-[det]-> Number Number Number SkeletonWaiting SkeletonClaim))
-
-(: sk-pay-conditions! (-[semidet]-> Number Atom))
-(= (sk-pay-conditions! $pass)
-   (case (sort-atom
-            (append-flat
-               (collapse (match &ctx_sk_given_pending ($khash $rhash $cost)
-                  (match &sk_row ($khash $key $rhash (sk-row $ident $concl $premises $seq))
-                     (if (if (sk-needed? $khash $key) (not (space-row-present? &ctx_sk_given_granted ($khash $rhash))) false)
-                        (sk-claim (sk-need-depth $khash $key) $cost $seq
-                           (sk-row-waiting (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $seq))))
-                        (empty)))))
-               (collapse (match &ctx_sk_given_pending ($khash -1 $cost)
-                  (match &sk_keys ($khash $key)
-                     (if (if (sk-needed? $khash $key) (not (space-row-present? &ctx_sk_given_granted ($khash -1))) false)
-                        (sk-claim (sk-need-depth $khash $key) $cost -1 (sk-key-waiting $khash $key))
-                        (empty))))))) (
-      (() (sk-finish-branches! $pass))
-      ((cons (sk-claim $_depth $claim-cost $_seq $waiting) $_rest)
-         (let $left (search-id-value sk_eval_budget)
-            (if (> $claim-cost $left)
-               (let $_unpaid (query_metric_increment conditions-unpaid) (sk-finish-branches! $pass))
-               (let* (($_paid (change-state! sk_eval_budget (- $left $claim-cost)))
-                      ($last (sk-pay! $pass $waiting)))
-                  (sk-pay-conditions! (+ $last 1)))))))))
-
-;; Root merges and conditioning can discover misses after the row heap ends.
-;; Give those requests the same last tier, within its remaining fixed share.
-(= (sk-finish-branches! $pass)
-   (if (sk-build-wanted!)
-      (let* (($last (sk-work-off! $pass (sk-work (empty_heap) (empty_heap))))
-             ($_roots (sk-read-roots!)))
-         (sk-pay-conditions! (+ $last 1)))
-      ()))
-
-(: sk-pay! (-[semidet]-> Number SkeletonWaiting Number))
-(= (sk-pay! $pass (sk-row-waiting (sk-row-item $seq $hash $key $rhash $row)))
-   (let* (($item (sk-row-item $seq $hash $key $rhash $row))
-          ($_taken (remove-data-rows! &sk_given_pending (quote ($hash $rhash $_was))))
-          ($_granted (context-add! &sk_given_granted ($hash $rhash)))
-          ($_forced (sk-force! (cons $hash ()) $item)))
-      (sk-work-off! $pass (sk-work (add_to_heap (empty_heap) (sk-item-order $item) $item) (empty_heap)))))
-;; A paid key drops its merged value, which its readers then read conditioned.
-;; Branches pay their own conditioning; this grant changes no branch input.
-(= (sk-pay! $pass (sk-key-waiting $hash $key))
-   (let* (($_granted (context-add! &sk_given_granted ($hash -1)))
-          ($_merged (sk-drop-merged! $key)))
-      (sk-work-off! $pass
-         (sk-key-changed $pass -1 (sk-outside-change (cons $hash ()) 0) (sk-work (empty_heap) (empty_heap)) $key))))
-
-;; The roots' merged values are read before conditions are paid, so a root
-;; whose views overlap is conditioned in its own query.
-(: sk-read-roots! (-[semidet]-> Atom))
-(= (sk-read-roots!)
-   (let $_read
-         (collapse (match &sk_needed ($hash $key 0)
-            (case $key (
-               ((sk-key $_type $_kbctx) (sk-open-value $hash $key sk-any-filter))
-               ($_fold (empty))))))
-      ()))
 
 ;; --- Base-rate API ----------------------------------------------------------
 
@@ -4642,7 +3337,7 @@
 (= (backward-query-counter-keys)
    (expansions nodes-walked rows-created rows-deferred joins-deferred row-computes views-stored
     views-without-support merged-cache-hits merged-cache-misses conditioned-evaluations rows-unpaid
-    conditions-unpaid branch-cache-hits branch-cache-misses branch-builds branch-cache-refreshes))
+    conditions-unpaid context-nodes-created context-node-count context-classes-max context-classes-mean))
 
 (: sk-counter-reset (-[det]-> Atom Atom Atom))
 (= (sk-counter-reset $_acc $key) (let $_zero (query_metric_set $key 0) ()))
@@ -4788,10 +3483,9 @@
 ;; query writes back the first that is not a population prior. An answer's
 ;; proof is as its value holds it, references into &proof; only output
 ;; expands it.
-(: sk-root-results (-[semidet]-> Bool SkPattern (List RuntimeResult)))
-(= (sk-root-results $materialize? $goal)
-   (let* (($values (sk-root-values $goal))
-          ($_materialized
+(: sk-publish-results (-[semidet]-> Bool (List SkeletonValue) (List RuntimeResult)))
+(= (sk-publish-results $materialize? $values)
+   (let* (($_materialized
              (if $materialize?
                 (case (collapse (once (let $value (superpose $values)
                          (case $value (
@@ -4819,10 +3513,7 @@
 (: execute-backward
    (-[nondet]-> Number (List (| Goal (Statement KBContext Proof TV))) Bool (List (List RuntimeResult))))
 (= (execute-backward $steps $requested $materialize?)
-   (let* (($_branch-frame (change-state! sk_branch_at 0))
-          ($_branch-cuts (remove-data-rows! &sk_branch_cuts (quote ($_frame $_exclude $_cuts))))
-          ($_branch-reader (remove-data-rows! &sk_reading (quote ($_hash $_key $_row))))
-          ($goals (map-flat context-search-goal $requested))
+   (let* (($goals (map-flat context-search-goal $requested))
           ($_seen (remove-data-rows! &sk_seen (quote ($hash $node))))
           ($_fresh (remove-data-rows! &sk_fresh (quote ($fhash $node))))
           ($_parked (sk-park-deliveries!))
@@ -4848,7 +3539,6 @@
           ($_budget (change-state! sk_budget $steps))
           ($_rows (change-state! sk_row_budget (* 10 $steps)))
           ($_evaluation (change-state! sk_eval_budget (* (sk-evaluation-per-step) $steps)))
-          ($_branches (change-state! sk_branch_budget (* (* (sk-evaluation-per-step) $steps) (sk-branch-share))))
           ($_walk (change-state! sk_walk_budget (* (sk-walk-per-step) $steps)))
           ($_pushes (change-state! sk_push_seq 0))
           ($_context-start (context-start!))
@@ -4857,11 +3547,9 @@
           ($_reserve (change-state! sk_near_reserve 0))
           ($_needed (sk-need-roots! (fold-semidet sk-root-keys-step () $goals)))
           ($context-reserve (search-id-value sk_near_reserve))
-          ($_holding (change-state! sk_holding 1))
           ($_evaluated (sk-evaluate!))
           ($_inferred (inference-add! $started))
-          ($main-results (map-semidet (sk-root-results $materialize?) $goals))
-          ($_held (sk-stale-held!))
+          ($main-results (sk-answer-roots! $goals $materialize?))
           ($results (context-finish! (* (sk-evaluation-per-step) $steps) $context-reserve $requested $main-results))
           ($_temp (sk-clear-temp!)))
       $results))

@@ -304,8 +304,8 @@
 (= (grouped-view-count $kb)
    (list-count
       (collapse
-         (match &sk_latest
-            ($_hash (sk-group (($kb $_ctx $_vars) $_pattern $_group $_e $_i OrFormula $_fi $_m)) $_version)
+         (match &sk_context
+            ($_digest $_node $_hash (sk-group (($kb $_ctx $_vars) $_pattern $_group $_e $_i OrFormula $_fi $_m)) 0 0 () () $_deps $_value true)
             true))))
 
 !(compileadd durableGroupedKb

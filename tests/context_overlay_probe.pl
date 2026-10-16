@@ -19,7 +19,7 @@ overlay_probe_install(Mode) :-
       wrap_predicate('context-propagate?'(_Key,Result), overlay_probe, Propagate,
         ( (overlay_probe_mutation(never_propagate),context_active(_)) -> Result=false ; call(Propagate) )),
       wrap_predicate('context-add!'(Space,Row,Added), overlay_probe, Add,
-        ( ((overlay_probe_mutation(write_main),memberchk(Space,['&sk_latest','&sk_merged'])
+        ( ((overlay_probe_mutation(write_main),memberchk(Space,['&sk_context','&sk_context_merge'])
             ;overlay_probe_mutation(write_main_rate), Space='&base_rate_cache'
             ;overlay_probe_mutation(write_main_tally), Space='&sk_instance_tally'
             ;overlay_probe_mutation(write_main_aggregate), Space='&forward_aggregate_state'),context_active(_))
@@ -62,14 +62,14 @@ overlay_probe_capture(Goals) :-
 overlay_probe_capture_context(Goals) :-
     ( overlay_probe_mutation(copy_history),
       member(['CPU','ContextQuery',[[Kb,C,_]|_],_],Goals),
-      '&sk_latest'(CopyHash,['sk-key',['History'|Args],[Kb,'MAIN','Nil']],Version)
-    -> assertz(context_entry(CopyHash,C,'&sk_latest',[CopyHash,['sk-key',['History'|Args],[Kb,'MAIN','Nil']],Version],added))
+      '&sk_context'(CopyHash,Id,H,['sk-key',['History'|Args],[Kb,'MAIN','Nil']],R,Q,E,Cuts,D,V,F)
+    -> assertz(context_entry(CopyHash,C,'&sk_context',[CopyHash,Id,H,['sk-key',['History'|Args],[Kb,'MAIN','Nil']],R,Q,E,Cuts,D,V,F],added))
     ; true ),
     findall(Hash,context_seed(Hash,_,_),Seeds),
     retractall(overlay_probe_seeds(_)),assertz(overlay_probe_seeds(Seeds)),
     findall([Space,Head,Text],
             (context_entry(_,_,Space,Row,_),
-             (Row=[_,['sk-key',[H|_],_]|_],nonvar(H) -> Head=H ; Head=other),
+             (Row=[_,_,_,['sk-key',[H|_],_]|_],nonvar(H) -> Head=H ; Head=other),
              overlay_probe_text(Row,Text)),Rows),
     retractall(overlay_probe_rows(_)),assertz(overlay_probe_rows(Rows)).
 
@@ -87,38 +87,38 @@ overlay_probe_main_leaks(Kb,Leaks) :-
 % key is legitimate when MAIN already has its own independent fact or value;
 % assumption proof tokens and scoped physical writes remain forbidden.
 overlay_probe_provenance_leak(Kb,Text) :-
-      ( ( '&sk_latest'(_,_,['sk-version',_,_,['sk-val',[_,[Kb,'MAIN','Nil'],P,_],_,D]])
-        ; '&sk_merged'(_,_,_,['sk-val',[_,[Kb,'MAIN','Nil'],P,_],_,D])
-        ; catch('&sk_view'(_,_,_,['sk-val',[_,[Kb,'MAIN','Nil'],P,_],_,D]),
-                error(existence_error(procedure,_),_),fail)
+      ( ( ( '&sk_context'(_,_,_,_,_,_,_,_,_,Value,_)
+            ; '&sk_context_merge'(_,_,_,_,_,_,_,_,_,Value,_) ),
+            Value=['sk-val',[_,[Kb,'MAIN','Nil'],P,_],_,D]
         ; '&kb'(_,[Kb,'MAIN','Nil'],P,_)
         ; catch('&forward_aggregate_observation'(_,_,['forward-base-rate-observation-value',[_,[Kb,'MAIN','Nil'],P,_]],_,_),
                 error(existence_error(procedure,_),_),fail) ),
         (overlay_probe_has_assumption(P)
         ; nonvar(D),overlay_probe_seeds(Seeds),member(H,Seeds),
-          \+ ('&sk_latest'(H,_,['sk-version',_,_,Main]),Main\=='sk-none'),
+          \+ ('&sk_context'(_,_,H,_,_,_,[],_,_,Main,_),Main\=='sk-none'),
           \+ ('&sk_keys'(H,['sk-key',Type,Scope]),'&kb'(Type,Scope,_,_)),
           'deps-has?'(D,H,true)),
         overlay_probe_text([P,D],Text) ).
 
 % A dominated alternative matters to a reader excluding the dominant view.
 overlay_probe_filtered_change(Kb,Result) :-
-    Key=['sk-key',['FilteredProbe',x],[Kb,'MAIN','Nil']],
-    'index-hash'(Key,H), 'index-hash'(['sk-key',['Reader',x],[Kb,'MAIN','Nil']],Target),
-    'index-hash'(['sk-key',['Action',x],[Kb,'MAIN','Nil']],Action),
+    Key=['sk-key',['FilteredProbe',x],[Kb,'MAIN','Nil']], 'index-hash'(Key,H),
+    'index-hash'(['sk-key',['Reader',x],[Kb,'MAIN','Nil']],Target),
+    'deps-key'(Target,D1),'deps-key'(9891,D2),
     'evidence-set'([a,b],EV1),'evidence-set'([a],EV2),
-    'deps-key'(Target,D1),'deps-key'(Action,D2),
     Main=['sk-val',[['FilteredProbe',x],[Kb,'MAIN','Nil'],dominant,['STV',0.5,0.8]],EV1,D1],
     Local=['sk-val',[['FilteredProbe',x],[Kb,'MAIN','Nil'],alternative,['STV',0.5,0.4]],EV2,D2],
+    cn_ensure('&sk_context',H,Key,1,0,[],Id1),cn_ensure('&sk_context',H,Key,2,1,[],Id2),
+    cn_settled(Id1,Main,[]),cn_settled(Id2,Local,[]),
+    cn_ensure('&sk_context_merge',H,Key,-1,-1,[],Merge),cn_settled(Merge,Main,[]),
     C=filtered_probe,
-    setup_call_cleanup(
-      (assertz('&sk_latest'(H,Key,['sk-version',0,1,Main]),Ref),
-       assertz(context_entry(H,C,'&sk_latest',[H,Key,['sk-version',1,2,Local]],added)),nb_setval(context_overlay,C)),
-      once(('sk-value'(Key,'sk-any-filter',[],Merged),
-            'sk-value'(Key,'sk-any-filter',[Target],Filtered),
-            'context-propagate?'(Key,Propagate),
+    setup_call_cleanup(nb_setval(context_overlay,C),
+      once((Changed=['sk-val',[['FilteredProbe',x],[Kb,'MAIN','Nil'],alternative,['STV',0.7,0.4]],EV2,D2],
+            'context-propagate?'([Id2,Key,Local,Changed],Propagate),
+            'sk-value'(Key,'sk-any-filter',[],Merged),
+            cn_digest(Key,2,Digest),cn_reusable('&sk_context',Digest,Key,[Target],_,Filtered),
             Result=_{merged:Merged,main:Main,filtered:Filtered,propagate:Propagate})),
-      (nb_setval(context_overlay,main),erase(Ref),'sk-drop-merged!'(Key,_),'context-clear!'(_))).
+      (nb_setval(context_overlay,main),'context-clear!'(_))).
 
 % Shared MAIN searches can have open and proof-constrained nodes for one key.
 % Node hashes deliberately omit proof/TV constraints; erase the selected index

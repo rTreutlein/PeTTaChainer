@@ -57,7 +57,7 @@
 !(compileadd budgetKb (: r1 (Implication (And (A $v) (B $v)) (C $v)) (CTV (STV 0.9 0.9) (STV 0.0 1.0))))
 !(compileadd budgetKb (: r2 (Implication (And (A $v) (C $v)) (D $v)) (CTV (STV 0.9 0.9) (STV 0.0 1.0))))
 
-!(test (query 3 budgetKb (: $p (D x) $tv)) ())
+!(test (query 0 budgetKb (: $p (D x) $tv)) ())
 !(test (map-flat conditioning-tv (collapse (query 50 budgetKb (: $p (D x) $tv))))
    ((STV 0.81 0.9047610934410989)))
 

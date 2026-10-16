@@ -1,54 +1,149 @@
-"""Issue #60 Round 0: executable acceptance tests for context-node rounds.
+"""Issue #60: executable acceptance tests for context-node rounds.
 
 The expected failures specify the intended behavior, with their landing round.
 Positive fixture checks live outside expectedFailure so a broken reproducer
-cannot silently turn into an expected failure. No runtime implementation edits.
+cannot silently turn into an expected failure. Round 1 uses context-node publications and node subscriptions.
 """
 from functools import lru_cache
 import itertools
 import json
+import os
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+import traceback
 from pathlib import Path
 import unittest
 
 import janus_swi as janus
 from pettachainer import PeTTaChainer
 
-WORK = ('row_computes', 'branch_builds', 'conditioned_evaluations', 'conditions_unpaid')
+WORK = ('row_computes', 'context_nodes_created', 'merged_cache_misses', 'conditioned_evaluations', 'conditions_unpaid')
 
 
-def sample(h, goals, repeats=24, budget=2000):
+def sample(h, goals, repeats=24, budget=2000, label=None):
     rows = []
+    quiet = 0
     for _ in range(repeats):
+        started = time.monotonic()
         answers = h.query_many_refs(goals, steps=budget)
+        if janus.query_once('current_predicate(context_probe_installed/0)')['truth']:
+            invalid = janus.query_once('context_probe_invalid(Rows)')['Rows']
+            if invalid:
+                raise AssertionError(invalid)
         rows.append(dict(tvs=[[a.tv for a in group] for group in answers],
                          work={k: h.last_query_metrics().get(k, 0) for k in WORK}))
+        if label:
+            print(json.dumps(dict(history=label, budget=budget, repeat=len(rows),
+                seconds=time.monotonic() - started, work=rows[-1]['work'])), flush=True)
+        quiet = quiet + 1 if not any(rows[-1]['work'].values()) and (len(rows) < 2 or rows[-1]['tvs'] == rows[-2]['tvs']) else 0
+        if quiet >= 3:
+            break
     return rows
 
 
-@lru_cache(None)
-def replay(budget):
+def history_worker(history, out):
+    """Fork the identical history prefix for each final budget, as the MeTTa runner does."""
     record = json.loads((Path(__file__).resolve().parents[1] / 'data/history_u4_r12.json').read_text())
+    h = PeTTaChainer()
+    h.set_query_metrics(True)
+    started = time.monotonic()
+    janus.consult(str(Path(__file__).resolve().parents[1] / 'context_node_probe.pl'))
+    janus.query_once('context_probe_install')
+    at = 0
+    for snap in record['snaps']:
+        for name, args in record['calls'][at:snap['n']]:
+            getattr(h, name)(*args)
+        at = snap['n']
+        if history != 'cold':
+            h.query_many_refs(snap['goals'], steps=2000)
+            print(f'{history} prefix {at}: {time.monotonic() - started:.2f}s', flush=True)
+    if history == 'warm-all':
+        for _ in range(3):
+            for prior in record['snaps']:
+                h.query_many_refs(prior['goals'], steps=20000)
+            print(f'{history} pass {_ + 1}: {time.monotonic() - started:.2f}s', flush=True)
+    position = snap['goals'].index('(: $prf (Degraded power-plant t13) $tv)')
+    janus.query_once('use_module(library(unix))')
     results = {}
-    for history in ('cold', 'warm', 'warm-all'):
-        h = PeTTaChainer()
-        h.set_query_metrics(True)
-        at = 0
-        for snap in record['snaps']:
-            for name, args in record['calls'][at:snap['n']]:
-                getattr(h, name)(*args)
-            at = snap['n']
-            if history != 'cold':
-                h.query_many_refs(snap['goals'], steps=2000)
-        if history == 'warm-all':
-            for _ in range(3):
-                for prior in record['snaps']:
-                    h.query_many_refs(prior['goals'], steps=20000)
-        position = snap['goals'].index('(: $prf (Degraded power-plant t13) $tv)')
-        rows = sample(h, snap['goals'], budget=budget)
-        results[history] = dict(tv=rows[-1]['tvs'][position][0], rows=rows)
-        print('T1 ' + json.dumps(dict(budget=budget, history=history,
-                                    tv=results[history]['tv'], last_work=[r['work'] for r in rows[-3:]])), flush=True)
+    pidfile = out.with_suffix('.pid')
+    for budget in (2000, 20000):
+        child_out = out.with_suffix(f'.{budget}.json')
+        pid = janus.query_once('fork(Pid)')['Pid']
+        if pid == 'child':
+            try:
+                rows = sample(h, snap['goals'], budget=budget, label=history)
+                child_out.write_text(json.dumps(dict(tv=rows[-1]['tvs'][position][0], rows=rows)))
+            except BaseException:
+                child_out.write_text(json.dumps(dict(error=traceback.format_exc())))
+                os._exit(1)
+            os._exit(0)
+        pidfile.write_text(str(pid))
+        deadline = time.monotonic() + 240
+        while True:
+            os.kill(pid, 0)
+            ended, status = os.waitpid(pid, os.WNOHANG)
+            if ended:
+                break
+            if time.monotonic() >= deadline:
+                os.kill(pid, signal.SIGKILL)
+                os.waitpid(pid, 0)
+                raise TimeoutError(f'T1 {history} budget {budget}')
+            time.sleep(.05)
+        pidfile.unlink()
+        result = json.loads(child_out.read_text())
+        if status:
+            raise AssertionError(result)
+        results[str(budget)] = result
+    out.write_text(json.dumps(results))
+
+
+@lru_cache(None)
+def replays():
+    # A fresh process per history avoids unrelated KBs changing absorption or
+    # aggregate state. Budget forks share only the prefix, never final queries.
+    results = {2000: {}, 20000: {}}
+    with tempfile.TemporaryDirectory(prefix='context-histories-') as directory:
+        for history in ('cold', 'warm', 'warm-all'):
+            out = Path(directory) / f'{history}.json'
+            log = out.with_suffix('.log')
+            with log.open('w') as stream:
+                process = subprocess.Popen([sys.executable, __file__, '--history', history, str(out)],
+                                           stdout=stream, stderr=subprocess.STDOUT)
+                try:
+                    deadline = time.monotonic() + 500
+                    while process.poll() is None:
+                        os.kill(process.pid, 0)
+                        if time.monotonic() >= deadline:
+                            raise TimeoutError(f'T1 {history} setup and budget samples')
+                        time.sleep(.05)
+                finally:
+                    if process.poll() is None:
+                        pidfile = out.with_suffix('.pid')
+                        if pidfile.exists():
+                            child = int(pidfile.read_text())
+                            stat = Path(f'/proc/{child}/stat')
+                            if stat.exists() and int(stat.read_text().split()[3]) == process.pid:
+                                os.kill(child, signal.SIGKILL)
+                        process.kill()
+                        process.wait()
+            if process.returncode:
+                return dict(error=log.read_text())
+            data = json.loads(out.read_text())
+            for budget in results:
+                results[budget][history] = data[str(budget)]
+                print('T1 ' + json.dumps(dict(budget=budget, history=history,
+                    tv=data[str(budget)]['tv'], last_work=[r['work'] for r in data[str(budget)]['rows'][-3:]])), flush=True)
     return results
+
+
+def replay(budget):
+    results = replays()
+    if 'error' in results:
+        raise AssertionError(results['error'])
+    return results[budget]
 
 
 @lru_cache(None)
@@ -108,7 +203,41 @@ def deep_stale():
     return results
 
 
+@lru_cache(None)
+def h1_diamond():
+    h = PeTTaChainer()
+    h.add_atoms_no_check([
+        '(: shared_source (Implication (Exists ($x) (P $site $x)) (Mid $site)) (CTV (STV 0.8 0.9) (STV 0 1)))',
+        '(: left_source (Implication (Mid $site) (Left $site)) (CTV (STV 1 1) (STV 0 1)))',
+        '(: right_source (Implication (Mid $site) (Right $site)) (CTV (STV 1 1) (STV 0 1)))',
+        '(: join_source (Implication (And (Left $site) (Right $site)) (Done $site)) (CTV (STV 1 1) (STV 0 1)))',
+    ])
+    answers = h.query_many_refs([
+        '(: $p (Implication (Exists ($x) (P $site $x)) (Done $site)) $tv)',
+    ], steps=500)[0]
+    return [dict(tv=a.tv, statement=a.statement) for a in answers]
+
+
+@lru_cache(None)
+def h1_many_root_error():
+    h = PeTTaChainer()
+    source = (Path(__file__).resolve().parents[1] / 'metta/test_anytime_roots.metta').read_text()
+    fixture = source[:source.index('!(test')]
+    h.handler.process_metta_string('\n'.join(
+        line for line in fixture.splitlines() if not line.strip().startswith('!(import!')))
+    error = h.handler.process_metta_string(f'!(any-error-at 50 {h.kb})')
+    return float(error[0])
+
+
 class FixtureTests(unittest.TestCase):
+    def test_h1_fixtures_have_valid_numeric_answers(self):
+        answers = h1_diamond()
+        self.assertEqual(len(answers), 1)
+        self.assertEqual(answers[0]['statement'][0], 'Implication')
+        self.assertEqual(answers[0]['tv'][0], 'STV')
+        self.assertTrue(all(0 <= value <= 1 for value in answers[0]['tv'][1:]))
+        self.assertTrue(0 <= h1_many_root_error() <= 4)
+
     def test_t1_fixture_has_full_tvs_and_unchanged_inputs(self):
         for budget in (2000, 20000):
             result = replay(budget)
@@ -117,14 +246,15 @@ class FixtureTests(unittest.TestCase):
                 self.assertEqual(len(item['tv']), 3)
                 self.assertTrue(all(row['tvs'] for row in item['rows']), history)
 
-    def test_t2_fixture_has_fold_subscribed_branches(self):
+    def test_t2_fixture_has_fold_subscribed_nodes(self):
         h, rows = base_rate_loop()
         self.assertTrue(all(row['tvs'][0] for row in rows))
-        # A branch's direct inputs include a base-rate fold. This checks the
-        # aggregate path, independently of the expected quiescence failure.
+        # A row node's direct inputs include a base-rate fold. This checks the
+        # aggregate path, independently of the quiescence assertion.
         result = janus.query_once(
-            "aggregate_all(count, ('&sk_branch_owner'(_S,_H,_K,_R,_Inputs), "
-            "_K=['sk-key',_,[Kb,'MAIN','Nil']], member(_F,_Inputs), _F=['sk-fold',_]), Count)",
+            "aggregate_all(count, ('&sk_context'(_D,_RowId,_H,_K,_R,_Q,_E,_C,_Deps,_V,_Fresh), "
+            "_K=['sk-key',_,[Kb,'MAIN','Nil']], '&sk_context_reader'(_MergeId,_RowId), "
+            "'&sk_context_merge'(_MD,_MergeId,_MH,['sk-fold',_],_MR,_MQ,_ME,_MC,_MDeps,_MV,_MF)), Count)",
             {'Kb': h.kb})
         self.assertGreater(result['Count'], 0)
 
@@ -142,6 +272,18 @@ class FixtureTests(unittest.TestCase):
 
 class ContextNodeAcceptanceTests(unittest.TestCase):
     @unittest.expectedFailure
+    def test_h1_shared_source_judgment_round2(self):
+        """H1 freezes the independent diamond approximation; Round 2 removes H1."""
+        answer = h1_diamond()[0]
+        self.assertAlmostEqual(answer['tv'][1], .8, delta=1e-12)
+        self.assertLessEqual(answer['tv'][2], .9 + 1e-12)
+
+    @unittest.expectedFailure
+    def test_h1_many_root_posterior_round2(self):
+        """H1 picks a different approximation at larger allowance; Round 2."""
+        self.assertLess(h1_many_root_error(), .001)
+
+    @unittest.expectedFailure
     def test_t1_full_tv_history_equality_round3(self):
         """H1-H3 give different full TVs; context-node rounds 1-3 remove them."""
         for budget in (2000, 20000):
@@ -151,7 +293,6 @@ class ContextNodeAcceptanceTests(unittest.TestCase):
                     self.assertAlmostEqual(actual, expected, delta=1e-12,
                                            msg=f'T1 budget={budget} history={history}; round 3')
 
-    @unittest.expectedFailure
     def test_t1_zero_work_three_repeats_round1(self):
         """The #54 aggregate invalidation loop persists; round 1 must be quiet."""
         for budget in (2000, 20000):
@@ -160,7 +301,6 @@ class ContextNodeAcceptanceTests(unittest.TestCase):
                     self.assertFalse(any(row['work'].values()), (budget, history, row['work']))
                     self.assertEqual(row['tvs'], result['rows'][-1]['tvs'])
 
-    @unittest.expectedFailure
     def test_t2_base_rate_loop_quiet_round1(self):
         """Key-level aggregate invalidation rebuilds a branch forever; round 1."""
         for row in base_rate_loop()[1][-3:]:
@@ -204,8 +344,16 @@ class ContextNodeAcceptanceTests(unittest.TestCase):
                             h.query_many_refs([goal], steps=200)
                 for _ in range(3):
                     actual = [[a.tv for a in group] for group in h.query_many_refs(goals, steps=5000)]
-                self.assertEqual(actual, expected, (order, interleaved))
+                self.assertEqual([len(g) for g in actual], [len(g) for g in expected])
+                for got_group, want_group in zip(actual, expected):
+                    for got, want in zip(got_group, want_group):
+                        self.assertEqual(got[0], want[0])
+                        for component, target in zip(got[1:], want[1:]):
+                            self.assertAlmostEqual(component, target, delta=1e-12, msg=str((order, interleaved)))
 
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    if len(sys.argv) > 1 and sys.argv[1] == '--history':
+        history_worker(sys.argv[2], Path(sys.argv[3]))
+    else:
+        unittest.main(verbosity=2)

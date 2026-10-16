@@ -206,11 +206,6 @@
 (: sk_budget CounterKey)
 (: sk_row_budget CounterKey)
 (: sk_eval_budget CounterKey)
-(: sk_branch_unpaid CounterKey)
-(: sk_branch_frame CounterKey)
-(: sk_branch_at CounterKey)
-(: sk_branch_budget CounterKey)
-(: sk_branch_ready CounterKey)
 (: sk_need_budget CounterKey)
 (: sk_claim_left CounterKey)
 (: sk_claim_depth CounterKey)
@@ -219,8 +214,6 @@
 (: sk_near_reserve CounterKey)
 ;; 1 while a forward run grows the skeleton upward
 (: sk_forward_run CounterKey)
-;; 1 while a query's evaluation holds the needed rows the stale cascade reaches
-(: sk_holding CounterKey)
 (: sk_walk_budget CounterKey)
 (: sk_epoch CounterKey)
 (: forgetting_horizon CounterKey)

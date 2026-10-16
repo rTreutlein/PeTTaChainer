@@ -38,8 +38,8 @@ class HistoryIndependenceTests(unittest.TestCase):
                 # borrowed MAIN cache as current nor mutate it while C is
                 # active. Ordinary MAIN maintenance may republish proof IDs.
                 cache_query = (
-                    "findall(_Text, ('&sk_branch'(_S,['sk-key',['B',a],[Kb,'MAIN','Nil']],"
-                    "_R,_C,_F,_V), "
+                    "findall(_Text, ('&sk_context'(_S,_Id,_H,['sk-key',['B',a],[Kb,'MAIN','Nil']],"
+                    "_R,_Q,_E,_C,_Deps,_V,_F), "
                     " (_V=['sk-val',[_Type,_Scope,_P,_TV],_Ev,_D] "
                     " -> 'sk-full-proof'(_P,_Full), _Stable=['sk-val',[_Type,_Scope,_Full,_TV],_Ev,_D] "
                     " ; _Stable=_V), term_string([_S,_R,_C,_F,_Stable],_Text)), _Rows), sort(_Rows,Rows)"

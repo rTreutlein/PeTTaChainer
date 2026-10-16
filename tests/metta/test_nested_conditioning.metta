@@ -1,5 +1,7 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
+;; Round 1: H2 removal changes conditioned current inputs; H1/H3 still make this finite-budget history approximate.
+
 ;; Conditioning nests: a branch whose views still overlap conditions again on
 ;; the next shared statement, so a claim's work can double with every level.
 ;; A claim may make at most twice its cost bound in conditioned row
@@ -35,6 +37,6 @@
 !(compileadd nestedKb (: rep-t5 (Producing plant t5) (STV 1 0.9)))
 !(set-backward-query-metrics true)
 !(test (map-flat nested-tv (collapse (query 300 nestedKb (: $p (Degraded plant t5) $tv))))
-   ((STV 0.14626802934111227 0.9999620912647443)))
+   ((STV 0.23349245547949588 0.9994951194533498)))
 !(test (< (fold-flat nested-count 0 (backward-query-metrics)) 10000) true)
 !(set-backward-query-metrics false)

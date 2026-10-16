@@ -1,5 +1,7 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
+;; Round 1: H2 removal: the current exported implication includes its admissible empirical instance fold.
+
 ;; Derived implications (docs/metta/derived_implications.md): an implication a
 ;; rule concludes is applied by modus ponens like a rule, and a rule
 ;; A → (B → C) holds as its exported form (A ∧ B) → C.
@@ -91,7 +93,7 @@
    (: r (Implication (A x) (Implication (B x) (Implication (C x) (D x)))) (STV 0.9 1.0)))
 !(test
    (query 30 nested3Kb (: $p (Implication (And (A x) (B x) (C x)) (D x)) $tv))
-   (: (conditional-implication (by (by (by r (ctx proof 5)) (ctx proof 5 1)) (ctx proof 5 2))) (Implication (And (A x) (B x) (C x)) (D x)) (STV 0.9 0.9999000072995391)))
+   (: (merge/revision (conditional-implication (by (by (by r (ctx proof 5)) (ctx proof 5 1)) (ctx proof 5 2))) (implication-instance-fold cpu)) (Implication (And (A x) (B x) (C x)) (D x)) (STV 0.9 0.9999000073120323)))
 
 ;; A CTV (p, n) on a nested rule is its exported rule's CTV:
 ;; a b p + (1 - a b) n = 0.48 · 0.9 + 0.52 · 0.2 = 0.536.

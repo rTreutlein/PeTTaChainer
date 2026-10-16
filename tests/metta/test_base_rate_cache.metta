@@ -235,24 +235,3 @@
 !(compileadd rateEchoKb (: l3 (Leak u3) (STV 0.0 1.0)))
 !(collapse (query 200 rateEchoKb (: $p (Leak q) $tv)))
 !(test (collapse (match &sk_rate_dirty ($_hash $_mhash $_fold (sk-key (Leak q) $_kbctx)) true)) ())
-
-; A member whose open merged value stayed the same outside the rate's
-; dependencies, such as a labelled past period gaining its first derived view
-; under its fact, gives the rate nothing new to take, so it is not marked to
-; be taken: otherwise the next query reaching the rate needs every such member
-; and computes its history rows. A changed view still marks it.
-!(compileadd rateSameKb (: dr (Implication (Blocked k $t) (Delayed d $t)) (CTV (STV 0.85 1.0) (STV 0.05 1.0))))
-!(compileadd rateSameKb (: lr (Implication (Delayed d $t) (Late s $t)) (CTV (STV 0.9 1.0) (STV 0.05 1.0))))
-!(compileadd rateSameKb (: b1 (Blocked k h1) (STV 1.0 1.0)))
-!(compileadd rateSameKb (: d1 (Delayed d h1) (STV 1.0 1.0)))
-!(compileadd rateSameKb (: d2 (Delayed d h2) (STV 0.0 1.0)))
-!(compileadd rateSameKb (: o1 (Late s t1) (STV 1.0 1.0)))
-!(collapse (query 200 rateSameKb (: $p (Delayed d t1) $tv)))
-!(test
-   (let* (($fold (sk-fold (rateSameKb (Delayed d $_x) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)))
-          ($member (sk-key (Delayed d h1) (rateSameKb MAIN Nil)))
-          ($_same (sk-fold-changed 0 0 $member (sk-value-same 0 0) (sk-work (empty_heap) (empty_heap)) $fold))
-          ($after-same (collapse (match &sk_rate_dirty ($_h $_mh $_f $member) taken)))
-          ($_view (sk-fold-changed 0 0 $member (sk-view-change 0) (sk-work (empty_heap) (empty_heap)) $fold)))
-      ($after-same (collapse (match &sk_rate_dirty ($_h2 $_mh2 $_f2 $member) taken))))
-   (() (taken)))

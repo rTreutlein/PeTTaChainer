@@ -1,9 +1,9 @@
-"""Read-only runtime census for issue #60 Round 0.
+"""Read-only runtime census for issue #60 context nodes.
 
 Run under bench/capped. No runtime source or benchmark store is changed.
 The observed-cut count includes empty ordinary classes. Raw E demand is
 retained separately as a conservative envelope, including pending reads,
-never silently collapsed to the current eight-entry branch cache.
+never silently collapsed to the end-state cache.
 """
 import argparse
 import collections
