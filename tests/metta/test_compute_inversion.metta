@@ -33,6 +33,28 @@
     (CPU - ($y 1) $x)
     (CPU + ($x 1) $y)))
 
+;; A step that cannot be inverted in the middle of a longer chain rejects the
+;; whole chain: no partially bound plan escapes.
+!(test
+   (compile-reversible-compute-plan
+      (And
+         (A $x)
+         (Compute + ($x 1) -> $y)
+         (Compute * ($y 2) -> $z)
+         (Compute + ($z 1) -> $w))
+      (C $w))
+   no-compute-inverse)
+
+!(test
+   (compile-reversible-compute-plan
+      (And
+         (Pair $x $q)
+         (Compute + ($x $q) -> $y)
+         (Compute + ($y 1) -> $z)
+         (Compute + ($z 1) -> $w))
+      (C $w))
+   no-compute-inverse)
+
 ;; Ambiguous and unsupported computations retain the normal CPU inversion veto.
 !(test
    (compile-reversible-compute-plan
