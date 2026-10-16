@@ -143,10 +143,10 @@
 ;; The pattern a rule's base rate is taken over: a fresh copy of one of its
 ;; sides, except the variables a surrounding ForAll binds, which stay shared
 ;; with the rule application so the rate is taken per parameter value.
-(: rule-base-rate-pattern (-[semidet]-> (List Variable) Statement Statement))
+(: rule-base-rate-pattern (-[det]-> (List Variable) Statement Statement))
 (= (rule-base-rate-pattern $params $side)
-   (case (copy_term ($params (rule-query-pattern $side))) (
-      (($params $pattern) (brand Statement $pattern)))))
+   (let ($params $pattern) (copy_term ($params (rule-query-pattern $side)))
+      (brand Statement $pattern)))
 
 ;; Rules stored with an STV need a CTV derived from antecedent/consequent base
 ;; rates before modus ponens can use them. An explicit CTV already carries both
@@ -159,6 +159,14 @@
 (= (compile-implication-ctv-execs $_kb $_params $_a $_b (CTV $_pos $_neg) $value)
    (data () (the CTVType $value)))
 (= (compile-implication-ctv-execs $kb $params $a $b (STV $_s $_c) $value)
+   (implication-ctv-goals $kb $params $a $b $value))
+
+;; The goals deriving a CTV from the positive branch `$value` and the base
+;; rates of both sides; a rule's instance fold and its refined truth derive
+;; theirs the same way.
+(: implication-ctv-goals
+   (-[det]-> KB (List Variable) Statement Statement Atom ((List Goal) CTVType)))
+(= (implication-ctv-goals $kb $params $a $b $value)
    (let*
       (($a1 (rule-base-rate-pattern $params $a))
         ($b1 (rule-base-rate-pattern $params $b)))
@@ -608,19 +616,12 @@
                                ImplicationInstanceAcc $finish result-tv))
                          $fold-tv))
                    ($positive (CPU MemberInheritanceEvidenceFormula ($fold-tv) $instance-tv))
-                   ($fold-premises
-                      (cons $fold
-                         (cons $positive
-                            (if $ctv?
-                               (append-goals
-                                  (antecedent-rate-premises $kb (copy_term (rule-query-pattern $antecedent)) $rule-atv)
-                                  (append-goals
-                                     (base-rate-premises $kb (copy_term (rule-query-pattern $consequent)) $rule-btv)
-                                     (cons (CPU ImplicationCTVFormula
-                                              (quote ($rule-atv $rule-btv $instance-tv)) $instance-ctv)
-                                        ())))
-                               ()))))
+                   (($ctv-goals $instance-ctv)
+                      (implication-ctv-goals $kb () $antecedent $consequent $instance-tv))
+                   ($fold-premises (cons $fold (cons $positive (if $ctv? $ctv-goals ()))))
                    ($fold-result (if $ctv? $instance-ctv $instance-tv)))
+                  ;; Built with cons: the determinism checker reads a tuple
+                  ;; headed by a variable, ($premises |- ...), as a call.
                   (cons
                      (brand CompiledAddition
                         (cons $premises
