@@ -102,10 +102,11 @@
          ((sk-key $_type $_kbctx)
             (let $epoch (search-id-value sk_epoch)
                (if (space-row-present? &sk_key_epoch ($hash $key $epoch)) ()
-                  (let $_old
-                     (collapse (match &sk_key_epoch ($hash $stored $was)
-                        (if (=alpha $stored $key) (remove-atom &sk_key_epoch ($hash $stored $was)) (empty))))
-                     (let $_new (add-atom &sk_key_epoch ($hash $key $epoch)) ())))))
+                  (let* (($_old
+                            (collapse (match &sk_key_epoch ($hash $stored $was)
+                               (if (=alpha $stored $key) (remove-atom &sk_key_epoch ($hash $stored $was)) (empty)))))
+                         ($_new (add-atom &sk_key_epoch ($hash $key $epoch))))
+                     ()))))
          ($_fold ())))))
 
 ;; Child links, answers, use edges and join extensions are recorded once by
@@ -127,10 +128,7 @@
 
 (: sk-node-score (-[det]-> Number SkPattern Number))
 (= (sk-node-score $hash $node)
-   (case (collapse (once (match &sk_score ($hash $stored $score)
-            (if (=alpha $stored $node) $score (empty))))) (
-      ((cons $score $_rest) $score)
-      (() 0.0))))
+   (chainer-first-or 0.0 (collapse (once (match &sk_score ($hash $stored $score) (if (=alpha $stored $node) $score (empty)))))))
 
 (: sk-raise-score! (-[det]-> Number SkPattern Number Atom))
 (= (sk-raise-score! $hash $node $score)
@@ -148,12 +146,8 @@
 ;; goal's value, or from its axiom until the goal has one.
 (: sk-rule-score (-[det]-> Number Number))
 (= (sk-rule-score $rule)
-   (* (case (collapse (once (match rule_expected ($rule $score) $score))) (
-         ((cons $score $_rest) $score)
-         (() 1.0)))
-      (case (collapse (once (match &sk_rule_truth ($rule $hash $type $kbctx) (sk-truth-factor $hash $type $kbctx)))) (
-         ((cons $factor $_more) $factor)
-         (() 1.0)))))
+   (* (chainer-first-or 1.0 (collapse (once (match rule_expected ($rule $score) $score))))
+      (chainer-first-or 1.0 (collapse (once (match &sk_rule_truth ($rule $hash $type $kbctx) (sk-truth-factor $hash $type $kbctx)))))))
 
 (: sk-truth-factor (-[det]-> Number Statement KBContext Number))
 (= (sk-truth-factor $hash $type $kbctx)
@@ -559,8 +553,7 @@
 (= (sk-add-use! $key $parent)
    (if (let $link (sk-use-link $key $parent) (sk-link-new! (link-digest $link) $link))
       (let* (($hash (index-hash $key))
-             ($_row (add-atom &sk_use ($hash $key $parent)))
-             )
+             ($_row (add-atom &sk_use ($hash $key $parent))))
          ())
       ()))
 
@@ -843,9 +836,10 @@
                 (sk-add-child! $owner $child (sk-join-score $owner $rule $remaining) $digest))))
       ;; Read existing keys, including aggregate registrations before the
       ;; completed-row check. A known conclusion leaves no future subscriber.
-      (let $_read (fold-semidet (sk-extend-waiter-step $waiter) ()
-         (if (sk-completion-waiter? $waiter) (append-flat (sk-answers $premise) (sk-prior-answers $premise)) (sk-answers $premise)))
-         (let $_retired (sk-functional-delivered! $subscription) ()))))))
+      (let* (($_read (fold-semidet (sk-extend-waiter-step $waiter) ()
+                (if (sk-completion-waiter? $waiter) (append-flat (sk-answers $premise) (sk-prior-answers $premise)) (sk-answers $premise))))
+             ($_retired (sk-functional-delivered! $subscription)))
+         ())))))
 
 (: sk-extend-waiter-step (-[semidet]-> SkeletonWaiter Atom SkeletonKey Atom))
 (= (sk-extend-waiter-step $waiter $_acc $key) (sk-extend-current! (copy_term $waiter) $key))
@@ -1524,10 +1518,9 @@
    (let* (($scope (car-atom $args))
           ($kbid (if (is-expr $scope) (car-atom $scope) $scope))
           ($pattern (car-atom (cdr-atom $args)))
+          ($existential (sk-existential-fold? (CPU fold $args unused)))
           ($_adapters
-             (if (if (sk-existential-fold? (CPU fold $args unused))
-                     (if (is-expr $scope) (not (== (car-atom (cdr-atom $scope)) MAIN)) false)
-                     false)
+             (if (if $existential (if (is-expr $scope) (not (== (car-atom (cdr-atom $scope)) MAIN)) false) false)
                 (install-existential-member-adapters $scope $pattern)
                 ()))
           ($shape (pattern-shape $pattern))
@@ -1535,8 +1528,7 @@
           ;; Existential shapes retain free variables. Relink the cached
           ;; member to this pattern, including its private context variables;
           ;; alpha equality alone would leave those variables disconnected.
-          ($members (if (if (sk-existential-fold? (CPU fold $args unused)) false
-                           (== $shape $pattern))
+          ($members (if (if $existential false (== $shape $pattern))
                         $compiled (map-semidet (sk-narrow-member $pattern) $compiled))))
       (if (is-expr $scope) (map-semidet (sk-scoped-member $scope) $members) $members)))
 
@@ -1871,8 +1863,9 @@
 ;; walk picks those up from &sk_fresh at the next level.
 (: sk-take-fresh! (-[det]-> (List SkeletonNodeAt)))
 (= (sk-take-fresh!)
-   (let $fresh (collapse (match &sk_fresh ($hash $node) (sk-node-at $hash $node)))
-      (let $_taken (remove-data-rows! &sk_fresh (quote ($fresh-hash $fresh-node))) $fresh)))
+   (let* (($fresh (collapse (match &sk_fresh ($hash $node) (sk-node-at $hash $node))))
+          ($_taken (remove-data-rows! &sk_fresh (quote ($fresh-hash $fresh-node)))))
+      $fresh))
 
 ;; The walk is best-first by score. Expanding a node costs a step. Passing
 ;; through an expanded node spends a separate walk allowance, so revisiting what
@@ -2022,14 +2015,12 @@
                    (empty)))))
           ($_waits
              (collapse (match &sk_temp_waits ($hash $pattern $waiter)
-                (let $_temp (remove-atom &sk_temp_waits ($hash $pattern $waiter))
-                   (let $_removed (remove-variant-row! &sk_wait (quote ($hash $pattern $waiter))) ())))))
+                (let* (($_temp (remove-atom &sk_temp_waits ($hash $pattern $waiter)))
+                       ($_removed (remove-variant-row! &sk_wait (quote ($hash $pattern $waiter)))))
+                   ()))))
           ($keys
              (collapse (match &sk_temp_rows ($khash $key $rhash $row)
                 (let* (($_temp (remove-atom &sk_temp_rows ($khash $key $rhash $row)))
                        ($_row (sk-drop-row! $khash $key $rhash $row)))
                    $key)))))
-      (fold-semidet sk-dirty-step () $keys)))
-
-(: sk-dirty-step (-[semidet]-> Atom SkeletonKey Atom))
-(= (sk-dirty-step $_acc $key) (sk-mark-dirty! $key))
+      (foreach-flat sk-mark-dirty! $keys)))
