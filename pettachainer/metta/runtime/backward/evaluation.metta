@@ -681,18 +681,20 @@
    (let* (($proof-a (sk-fact-step-proof $a))
           ($proof-b (sk-fact-step-proof $b))
           (($_ta $_ca $_pa $tv-a) $a)
-          (($_tb $_cb $_pb $tv-b) $b))
+          (($_tb $_cb $_pb $tv-b) $b)
+          ($va (sk-val $a $ev-a $deps-a))
+          ($vb (sk-val $b $ev-b $deps-b)))
       (if (if (== $a $b) true
              (if (== $tv-a $tv-b)
                 (if (== $ev-a $ev-b) (same-proof? $proof-a $proof-b) false)
                 false))
          (sk-paired (sk-val $a (evidence-union $ev-a $ev-b) (if (== $a $b) $deps-a (deps-union $deps-a $deps-b))))
-         (if (proof-dominates? $proof-a $proof-b) (sk-paired (sk-val $a $ev-a $deps-a))
-            (if (proof-dominates? $proof-b $proof-a) (sk-paired (sk-val $b $ev-b $deps-b))
-            (if (specialization-includes? $proof-a $proof-b) (sk-paired (sk-val $a $ev-a $deps-a))
-            (if (specialization-includes? $proof-b $proof-a) (sk-paired (sk-val $b $ev-b $deps-b))
-            (if (if (more-specific-application? $proof-a $proof-b) (if $combine (if (sk-siblings? true (sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b)) false true) true) false) (sk-paired (sk-specialized $a $ev-a $deps-a $b $ev-b $deps-b))
-            (if (if (more-specific-application? $proof-b $proof-a) (if $combine (if (sk-siblings? true (sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b)) false true) true) false) (sk-paired (sk-specialized $b $ev-b $deps-b $a $ev-a $deps-a))
+         (if (proof-dominates? $proof-a $proof-b) (sk-paired $va)
+            (if (proof-dominates? $proof-b $proof-a) (sk-paired $vb)
+            (if (specialization-includes? $proof-a $proof-b) (sk-paired $va)
+            (if (specialization-includes? $proof-b $proof-a) (sk-paired $vb)
+            (if (if (more-specific-application? $proof-a $proof-b) (if $combine (if (sk-siblings? true $va $vb) false true) true) false) (sk-paired (sk-specialized $a $ev-a $deps-a $b $ev-b $deps-b))
+            (if (if (more-specific-application? $proof-b $proof-a) (if $combine (if (sk-siblings? true $va $vb) false true) true) false) (sk-paired (sk-specialized $b $ev-b $deps-b $a $ev-a $deps-a))
                (let* (($touch (evidence-overlap? $ev-a $ev-b))
                       ($cmp-a (if $touch (sk-update-evidence $a $ev-a $b) $ev-a))
                       ($cmp-b (if $touch (sk-update-evidence $b $ev-b $a) $ev-b))
@@ -707,17 +709,17 @@
                             true))
                       ($twins
                          (if $independent
-                            (if (sk-derivation-proof? $proof-a) (if (sk-derivation-proof? $proof-b) (sk-sample-twins? (sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b)) false) false)
+                            (if (sk-derivation-proof? $proof-a) (if (sk-derivation-proof? $proof-b) (sk-sample-twins? $va $vb) false) false)
                             false))
                       ($factored (if $twins sk-none
                                     (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b $independent)))
                       ($siblings (if (== $factored sk-none)
                                     (if $combine (if (== $shared ())
-                                       (sk-siblings? true (sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b)) false) false)
+                                       (sk-siblings? true $va $vb) false) false)
                                     false)))
-                  (if $twins (sk-paired (sk-dependent-merge false (sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b)))
+                  (if $twins (sk-paired (sk-dependent-merge false $va $vb))
                   (if (not (== $factored sk-none)) (sk-paired $factored)
-                     (if $siblings (sk-paired (sk-sibling-merge true (sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b)))
+                     (if $siblings (sk-paired (sk-sibling-merge true $va $vb))
                      (if $independent
                         (let* (($pooled (evidence-union $ev-a $ev-b))
                                ($deps (deps-union $deps-a $deps-b))
@@ -727,10 +729,10 @@
                                  (if (>= (term-confidence $a) (term-confidence $b))
                                     (sk-val (RevisionMergeProof $a $b) $pooled $deps)
                                     (sk-val (RevisionMergeProof $b $a) $pooled $deps)))))
-                        (if (if $a-in-b (if $b-in-a false true) false) (sk-paired (sk-val $b $ev-b $deps-b))
-                           (if (if $b-in-a (if $a-in-b false true) false) (sk-paired (sk-val $a $ev-a $deps-a))
+                        (if (if $a-in-b (if $b-in-a false true) false) (sk-paired $vb)
+                           (if (if $b-in-a (if $a-in-b false true) false) (sk-paired $va)
                               (sk-overlap $shared (deps-union $deps-a $deps-b)
-                                 (sk-dependent-merge false (sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b)))))))))))))))))))
+                                 (sk-dependent-merge false $va $vb))))))))))))))))))
 
 ;; Two derivations through different refined rules whose truths were folded
 ;; from the same samples, observing the same outcomes, are one estimate from
@@ -2386,21 +2388,22 @@
           ($certain (fold-semidet (sk-certain-leaf-step $sources) () $leaves))
           ($own (sk-own-values (sk-complete-values (if (== $certain ()) $sources $certain))))
           ($standing (fold-semidet sk-cons-step () (fold-semidet (sk-standing-step $own) () $own)))
-          (($values $siblings) (sk-reference-values (hash-union (sk-unifier-hashes $hash $key) $outside) $standing)))
+          ($unifiers (sk-unifier-hashes $hash $key))
+          ($ignore (hash-union $unifiers $outside))
+          (($values $siblings) (sk-reference-values $ignore $standing)))
       (case (sk-lift $siblings $values) (
          ((cons $lifted $_rest) $lifted)
          (()
-            (case (fold-semidet (sk-pair-merge-step true (hash-union (sk-unifier-hashes $hash $key) $outside)) (sk-merging sk-none () 0) $values) (
+            (case (fold-semidet (sk-pair-merge-step true $ignore) (sk-merging sk-none () 0) $values) (
                ;; Every fact view depends on its own key. A nonempty
                ;; overlap dependency set also marks an unconditionable
                ;; overlap (shared observations, with no cut statements).
                ((sk-merging $merged () $deps)
-                  (if (if (== $deps 0) (if $siblings false true) false) $merged
-                     (sk-key-fallback (hash-union (sk-unifier-hashes $hash $key) $outside) $values)))
+                  (if (if (== $deps 0) (if $siblings false true) false) $merged (sk-key-fallback $ignore $values)))
                ((sk-merging $_provisional $keys $deps)
-                  (let $merged (sk-key-fallback (hash-union (sk-unifier-hashes $hash $key) $outside) $values)
+                  (let $merged (sk-key-fallback $ignore $values)
                      (sk-conditioned $given (sk-key-target $hash $key $filter $exclude) $hash -1
-                     (hash-union $exclude (sk-unifier-hashes $hash $key)) $keys (+ 1 (deps-size $deps)) $merged $merged))))))))))
+                        (hash-union $exclude $unifiers) $keys (+ 1 (deps-size $deps)) $merged $merged))))))))))
 
 (: sk-view-deps-step (-[semidet]-> Number SkeletonValue Number))
 (= (sk-view-deps-step $deps $view)
