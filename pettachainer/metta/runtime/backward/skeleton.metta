@@ -803,6 +803,16 @@
           ($digest (link-digest (sk-child-link $owner $child)))
           ($_wait (if $known () (sk-store-wait! $digest $hash $premise $waiter)))
           ($subscription (sk-functional-subscription $waiter))
+          ;; A durable join cannot depend on a query-local judgment producer.
+          ;; Install its exact scaffold with the join's lifetime, even if a
+          ;; prior query already expanded this premise using temporary rules.
+          ($_scaffold
+             (if (< $rule 1000000000)
+                (case $premise (
+                   ((CPU $_fun $_args $_res) ())
+                   (($type $scope $proof $tv)
+                      (inject-special-subgoal-query-adds backward $type $scope $proof $tv))))
+                ()))
           ($_leaves
              (if (sk-expanded? $hash $premise) ()
                 (case (copy_term $premise) (
@@ -1410,13 +1420,14 @@
          (sk-advance! (sk-partial $owner $rule $goal () $premises ())))
       ()))
 
-;; The compiled scaffold of a nested implication subgoal that is not itself a
-;; compiled total-implication source; its assumption contexts are the query's.
+;; The compiled scaffold of an implication subgoal that is not itself a
+;; compiled total-implication source. Durable consumers need durable private
+;; contexts; a temporary query scaffold cannot satisfy that ownership.
 ;; A subgoal asking for a rule application's proof, as a statement rule's
 ;; premise does (docs/metta/derived_implications.md), reads only rules
 ;; concluding the implication, and gets no scaffold.
-(: inject-special-subgoal-query-adds (-[semidet]-> Statement KBContext Proof TV Atom))
-(= (inject-special-subgoal-query-adds $type $kbctx $prf $tv)
+(: inject-special-subgoal-query-adds (-[semidet]-> KbBackend Statement KBContext Proof TV Atom))
+(= (inject-special-subgoal-query-adds $backend $type $kbctx $prf $tv)
    (case $kbctx (
       (($kbid MAIN Nil)
          (if (implication-type? $type)
@@ -1452,14 +1463,16 @@
                            ;; identity, so a general scaffold stays general.
                            (match rules (runtime-rule-row $scaffold-id
                                  ($scaffold-type $_ctx $_proof $_tv) $_premises)
-                              (if (=alpha $scaffold-type $type)
-                                 (if (= $lookup-tv $scaffold-tv)
-                                    (if (= $lookup-proof (cons $scaffold-head (cons $inner ())))
-                                       true (empty))
+                              (if (if (== $backend backward) (< $scaffold-id 1000000000) true)
+                                 (if (=alpha $scaffold-type $type)
+                                    (if (= $lookup-tv $scaffold-tv)
+                                       (if (= $lookup-proof (cons $scaffold-head (cons $inner ())))
+                                          true (empty))
+                                       (empty))
                                     (empty))
                                  (empty)))
                            (empty))))) ())
-                     (foreach-flat inject-compiled-query-adds
+                     (foreach-flat (inject-compiled-query-adds $backend)
                         (collapse
                            (if (if (head-is? $kbid implication-query) false
                                    (if (is-var $tv) true (head-is? $tv CTV)))
@@ -1502,9 +1515,11 @@
             ()))
       ($_other ()))))
 
-(: inject-compiled-query-adds (-[semidet]-> CompiledQuery Atom))
-(= (inject-compiled-query-adds (compiled-query $_goal $adds))
-   (if (is-var $adds) (empty) (once (inject-compiled-adds $adds))))
+(: inject-compiled-query-adds (-[semidet]-> KbBackend CompiledQuery Atom))
+(= (inject-compiled-query-adds $backend (compiled-query $_goal $adds))
+   (if (is-var $adds) (empty)
+      (let $_added (once (foreach-flat (kb-add-expr $backend) $adds))
+         (if (== $backend backward) (sk-activate-pending!) ()))))
 
 ;; The fold's source goal is compiled as an ordinary query once per pattern
 ;; shape and KB (`pattern-shape`: constants of a user predicate, alone or
@@ -1587,7 +1602,7 @@
                      (fold-semidet (sk-fold-answer-step $node) () (sk-answers $member))))))))
       (($type $kbctx $proof $tv)
          (let* (($_special
-                   (if (> $depth 0) (inject-special-subgoal-query-adds $type $kbctx $proof $tv) ()))
+                   (if (> $depth 0) (inject-special-subgoal-query-adds temp $type $kbctx $proof $tv) ()))
                 ($_member (install-member-inheritance-rules! $type $kbctx))
                 ($_activate (sk-activate-pending!))
                 ($_mark (sk-mark-expanded! $hash $node))

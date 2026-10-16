@@ -448,6 +448,12 @@ Scaffold reuse requires the same statement up to variable renaming: an open
 scaffold cannot replace a bound instance's contexts. The copied lookup type
 narrows the clause index; the original clause shape is then checked for
 alpha identity.
+Permanent joins, including existential witness joins, install permanent
+implication leaf scaffolds before reading their existing answer keys. Reuse
+also requires a permanent producer: a query-local scaffold leaves at cleanup
+and cannot support the durable consumer. This check runs even when an earlier
+ground query already expanded the leaf (tracker #73). Its assumptions and
+consequent metadata retain the same private scope as the consuming judgment.
 
 Positive query values use a private KB namespace with the original
 statement shape. They cannot become observations in main-context populations

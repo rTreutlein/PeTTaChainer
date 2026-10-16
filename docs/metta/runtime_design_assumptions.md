@@ -219,6 +219,12 @@ it: their rows, waiters and views are removed and the keys they fed change.
 Producers that depend only on the pattern (the Member inheritance producer of a
 concrete `Inheritance` link, the compiled source of a fold pattern) are
 installed once as permanent backward rules, so their rows outlive the query.
+An implication premise of a permanent join likewise installs its own permanent
+scaffold, including its private assumptions and consequent metadata. A temporary
+scaffold from an earlier query cannot supply that lifetime, even when the
+premise node is already expanded. Reuse checks the exact statement up to alpha
+renaming, proof/TV constraints and producer lifetime. The private contexts keep
+their existing world-reading restrictions; no assumption becomes a MAIN fact.
 
 ### Assuming shares MAIN structure and overlays dependent values
 

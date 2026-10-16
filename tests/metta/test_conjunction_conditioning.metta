@@ -5,7 +5,7 @@
 !(let (compiled-query $_goal $adds)
    (mm2compileQuery scaffoldConjKb (: $p (Implication (A $x) (B $x)) $tv))
    (collapse (once (inject-compiled-adds $adds))))
-!(inject-special-subgoal-query-adds
+!(inject-special-subgoal-query-adds temp
    (brand Statement (Implication (A a) (B a)))
    (brand KBContext (quote ((implication-query scaffoldConjKb) MAIN Nil))) (brand Proof $p) (the TV (STV $s $c)))
 !(test (not (== (collapse (once
@@ -19,7 +19,7 @@
 !(let (compiled-query $_goal $adds)
    (mm2compileQuery stvScaffoldConjKb (: $p (Implication (A $x) (B $x)) $tv))
    (collapse (once (inject-compiled-adds $adds))))
-!(inject-special-subgoal-query-adds
+!(inject-special-subgoal-query-adds temp
    (brand Statement (Implication (A $renamed) (B $renamed)))
    (brand KBContext (quote ((implication-query stvScaffoldConjKb) MAIN Nil))) (brand Proof $p) (the TV (STV $s $c)))
 !(test (list-len (collapse
@@ -33,7 +33,7 @@
    (compile-implication-subgoal-query ctvScaffoldConjKb
       (: $p (Implication (A $x) (B $x)) (CTV $pos $neg)))
    (collapse (once (inject-compiled-adds (map-flat mm2stmt $adds)))))
-!(inject-special-subgoal-query-adds
+!(inject-special-subgoal-query-adds temp
    (brand Statement (Implication (A a) (B a)))
    (kbctx ctvScaffoldConjKb) (brand Proof $p) (the TV $tv))
 !(test (list-len (collapse

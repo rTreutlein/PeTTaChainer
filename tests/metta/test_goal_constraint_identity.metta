@@ -75,7 +75,7 @@
 ;; for a marker must not bind that head, including its shared statement use.
 !(test
    (let* (($before (nextctx))
-          ($_adds (inject-special-subgoal-query-adds
+          ($_adds (inject-special-subgoal-query-adds temp
              (brand Statement
                    (Implication (MarkerInput $head) (MarkerOutput $head)))
                 (brand KBContext (markerKb MAIN Nil))
@@ -89,7 +89,7 @@
 ;; or instantiating its payload, even when nested variables are shared.
 !(test
    (let* (($before (nextctx))
-          ($_adds (inject-special-subgoal-query-adds
+          ($_adds (inject-special-subgoal-query-adds temp
              (brand Statement
                    (Implication (MarkerInput $shared) (MarkerOutput $shared)))
                 (brand KBContext (markerKb MAIN Nil))
@@ -104,7 +104,7 @@
 ;; constraints. Each compiles its scaffold; none may call car-atom on ().
 !(test
    (let* (($before (nextctx))
-          ($_adds (inject-special-subgoal-query-adds
+          ($_adds (inject-special-subgoal-query-adds temp
              (brand Statement (Implication (MarkerInput) (MarkerOutput)))
                 (brand KBContext (markerKb MAIN Nil))
                 (brand Proof (quote ())) (the TV $tv)))
@@ -114,7 +114,7 @@
 
 !(test
    (let* (($before (nextctx))
-          ($_adds (inject-special-subgoal-query-adds
+          ($_adds (inject-special-subgoal-query-adds temp
              (brand Statement (Implication (MarkerInput) (MarkerOutput)))
                 (brand KBContext (markerKb MAIN Nil))
                 (brand Proof (quote total-implication-frontier)) (the TV $tv)))
@@ -124,7 +124,7 @@
 
 !(test
    (let* (($before (nextctx))
-          ($_adds (inject-special-subgoal-query-adds
+          ($_adds (inject-special-subgoal-query-adds temp
              (brand Statement (Implication (MarkerInput) (MarkerOutput)))
                 (brand KBContext (markerKb MAIN Nil))
                 (brand Proof (quote (total-implication-frontier))) (the TV $tv)))
@@ -134,7 +134,7 @@
 
 !(test
    (let* (($before (nextctx))
-          ($_adds (inject-special-subgoal-query-adds
+          ($_adds (inject-special-subgoal-query-adds temp
              (brand Statement (Implication (MarkerInput) (MarkerOutput)))
                 (brand KBContext (markerKb MAIN Nil))
                 (brand Proof (quote (total-implication-frontier one two))) (the TV $tv)))
