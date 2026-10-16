@@ -2170,7 +2170,11 @@ sk_search_key([Type, Context|Rest], Hash, [Type, Context]) :-
     sk_search_init,
     (   sk_search_key(Conclusion, _, [Type, Context]),
         'sk-leaf-facts'(Type, Context, 'sk-any-filter', Facts),
-        member([_, _, _, ['STV', S, C]], Facts), C >= 1, (S =:= 0; S =:= 1)
+        member([_, [_, FactContext, _], Proof, ['STV', S, C]], Facts),
+        C >= 1, (S =:= 0; S =:= 1),
+        % A borrowed world fact cannot absorb an assumption-dependent path
+        % that a private judgment still needs to discover.
+        ( FactContext == 'MAIN' -> true ; 'assumption-proof?'(Proof, true) )
     ->  Known = true
     ;   Known = false
     ).

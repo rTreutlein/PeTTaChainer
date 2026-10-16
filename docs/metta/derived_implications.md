@@ -266,6 +266,32 @@ that explicitly read MAIN are routed privately for this key too. This keeps
 an actual-world B value out of P(B given A), and prevents revising it with an
 instance fold that already read B.
 
+The assumption must be necessary to the calculated derivation (tracker #65).
+Before merging alternatives for a private key, keep only the alternatives
+whose dependency sets contain an assumption key whenever such alternatives
+exist. A weak assumed `A -> C` path therefore cannot be revised with a strong
+world observation of C to drive `A -> B`. This selection also precedes proof
+dominance and selection of certain leaves. Borrowed world facts, even at
+confidence 1, do not retire private search before it can discover a dependent
+alternative; MAIN facts and private assumptions retain their usual absorption.
+Assumption dependencies retain the stored key identity when a computed
+consequent specializes context variables.
+
+A key with only world support may still supply a co-premise: world
+`StockSplit Split1` and assumed `Implemented Split1` together prove
+`PreservesOwnership Split1`, retaining `src_split` and `src_bridge` and
+`(STV 1.0 0.8180941097204595)`. At the judgment's consequent, however, a value
+without any assumption dependency is rejected. World C and `C -> B` alone
+provide no calculated `A -> B` proof. A stated conditional or an empirical
+instance fold can still answer through its separate producer.
+
+For a ground private conclusion, cycle exclusion also covers the corresponding
+MAIN key. In particular, constructing `(And C A)` from world C and assumed A,
+then projecting C, cannot supply C to a rule deriving B: that projection reads
+C itself. This extends the existing exclusion check and adds no store or
+exclusion-cache representation. Open hypothetical individuals retain their
+existing separation from world individuals.
+
 Stated and calculated proofs of one rule share its evidence identity and
 are not revised as independent observations. Independent conditional evidence
 still revises normally.

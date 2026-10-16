@@ -115,9 +115,19 @@
 (= (sk-leaf-deps $hash $fact)
    (case $fact (
       (($_type ($_kb MAIN $_vars) $_proof $_tv) (deps-key $hash))
-      ($_private
-         (let $source (sk-leaf-source $fact)
-            (deps-union (deps-key $hash) (deps-key (index-hash (sk-fact-key $source)))))))))
+      (($_type ($kbid $ctx $_vars) $proof $_tv)
+         (let $source
+            (if (assumption-proof? $proof)
+               ;; A row can specialize its context variables before reading
+               ;; the assumption. Retain the stored key as well as that read's
+               ;; key, so necessity does not depend on those later bindings.
+               (case (collapse (once (match &kb
+                        ($assumed ($kbid $ctx $stored-vars) $proof $stored-tv)
+                        (data $assumed (data $kbid $ctx $stored-vars) $proof $stored-tv)))) (
+                  ((cons $stored $_rest) $stored)
+                  (() $fact)))
+               (sk-leaf-source $fact))
+            (deps-union (deps-key $hash) (deps-key (index-hash (sk-fact-key (the SkFact $source))))))))))
 
 ;; A stored fact is its own evidence and depends on its own key. The fact a
 ;; forward run stored for a key carries its value's evidence and what that value
@@ -2299,11 +2309,12 @@
 (= (sk-admitted $hash $key $filter $exclude)
    (map-flat sk-version-view (sk-admitted-versions $hash $key $filter $exclude)))
 
-(: sk-certain-leaf-step (-[det]-> (List SkeletonValue) SkeletonValue (List SkeletonValue)))
-(= (sk-certain-leaf-step $kept $leaf)
+(: sk-certain-leaf-step (-[det]-> (List SkeletonValue) (List SkeletonValue) SkeletonValue (List SkeletonValue)))
+(= (sk-certain-leaf-step $sources $kept $leaf)
    (case $leaf (
       ((sk-val $fact $_ev $_deps)
-         (if (sk-certain? (brand Statement (car-atom $fact)) (cons $fact ())) (cons $leaf $kept) $kept))
+         (if (sk-certain? (brand Statement (car-atom $fact)) (cons $fact ()))
+            (if (stored-list-member? $leaf $sources) (cons $leaf $kept) $kept) $kept))
       ($_other $kept))))
 
 ;; A value depending on an incomplete fold is provisional: computed from part
@@ -2344,6 +2355,35 @@
          (if (fold-flat (sk-gives-way-step (sk-fact-step-proof $fact)) false $values) $kept (cons $value $kept)))
       ($_goal (cons $value $kept)))))
 
+;; In a private judgment, an assumption-dependent alternative excludes the
+;; assumption-free alternatives of the same key before revision, dominance or
+;; certainty can select them. A world-only key remains usable as a co-premise,
+;; but cannot itself establish the judgment's consequent. MAIN is unchanged.
+(: sk-judgment-dependent-step
+   (-[semidet]-> (List Number) (List SkeletonValue) SkeletonValue (List SkeletonValue)))
+(= (sk-judgment-dependent-step $assumptions $kept $value)
+   (if (deps-meet? $assumptions (sk-view-deps-step 0 $value)) (cons $value $kept) $kept))
+
+(: sk-judgment-values (-[semidet]-> SkeletonKey (List SkeletonValue) (List SkeletonValue)))
+(= (sk-judgment-values $key $values)
+   (case $key (
+      ((sk-key $type ($kbid $ctx $vars))
+         (if (== $ctx MAIN) $values
+            (let* (($scope (make-kb-context (brand KB $kbid) $ctx $vars))
+                   ;; Keep the stored assumption's variable sharing. A
+                   ;; computed consequent may have bound this reader's vars.
+                   ;; Bind the ctx proof head for the existing fact index;
+                   ;; enumerating arbitrary proofs scans unrelated world facts.
+                   ($assumptions (collapse
+                      (let $proof (superpose ((ctx proof $ctx) (ctx proof $ctx $idx)))
+                         (match &kb ($assumed ($kbid $ctx $assumed-vars) $proof $_tv)
+                            (index-hash (sk-key $assumed ($kbid $ctx $assumed-vars)))))))
+                   ($dependent (fold-semidet (sk-judgment-dependent-step $assumptions) () $values)))
+               (case $dependent (
+                  (() (if (judgment-consequent? true $type $scope) () $values))
+                  ($_found (fold-semidet sk-cons-step () $dependent)))))))
+      ($_fold $values))))
+
 ;; Leaves first, then one version per row in the order the rows were found.
 ;; A ground statement stored with confidence 1 is its own value, as expansion
 ;; applies no rule to it: no other proof could change it, so its rows' views
@@ -2356,8 +2396,9 @@
 (= (sk-merge-key $hash $key $filter $exclude $given $views)
    (let* (($outside (hash-union $exclude (hash-set (sk-given-hashes $given))))
           ($leaves (sk-leaf-views $hash $key $filter $outside))
-          ($certain (fold-semidet sk-certain-leaf-step () $leaves))
-          ($own (sk-own-values (sk-complete-values (if (== $certain ()) (append-flat $leaves $views) $certain))))
+          ($sources (sk-judgment-values $key (append-flat $leaves $views)))
+          ($certain (fold-semidet (sk-certain-leaf-step $sources) () $leaves))
+          ($own (sk-own-values (sk-complete-values (if (== $certain ()) $sources $certain))))
           ($standing (fold-semidet sk-cons-step () (fold-semidet (sk-standing-step $own) () $own)))
           (($values $siblings) (sk-reference-values (hash-union (sk-unifier-hashes $hash $key) $outside) $standing)))
       (case (sk-lift $siblings $values) (
@@ -2719,10 +2760,11 @@
              (fold-semidet sk-cons-step ()
                 (fold-semidet (sk-compatible-step $ev) ()
                 (sk-own-values
-                   (if $views
-                      (append-flat $leaves
-                         (map-semidet (sk-given-view $given $exclude $hash $key) (sk-admitted-versions $hash $key $filter $exclude)))
-                      $leaves))))))
+                   (sk-judgment-values $key
+                      (if $views
+                         (append-flat $leaves
+                            (map-semidet (sk-given-view $given $exclude $hash $key) (sk-admitted-versions $hash $key $filter $exclude)))
+                         $leaves)))))))
       (let ($selected $_siblings) (sk-reference-values $ignore $compatible)
          (fold-semidet (sk-merge-step true $ignore) sk-none $selected))))
 
@@ -3246,7 +3288,18 @@
 ;; the sample is where that support is refused.
 (: sk-row-exclusions (-[det]-> Number SkeletonKey Atom (List Number)))
 (= (sk-row-exclusions $khash $key $proof)
-   (let $own (sk-unifier-hashes $khash $key)
+   (let $own
+      (case $key (
+         ((sk-key $type ($kbid $ctx $_vars))
+            (let $local (sk-unifier-hashes $khash $key)
+               ;; Fixed MAIN adapter premises must not reintroduce the
+               ;; world observation of the private row's own ground key.
+               ;; An open hypothetical individual is not a world individual.
+               (if (if (== $ctx MAIN) false (== (extract-vars $type) ()))
+                  (let $main (sk-key $type (kbctx (brand KB $kbid)))
+                     (hash-union $local (sk-unifier-hashes (index-hash $main) $main)))
+                  $local)))
+         ($_fold-key (sk-unifier-hashes $khash $key))))
       (case $key (
          ((sk-key $type $kbctx)
             (if (if (is-expr $proof)

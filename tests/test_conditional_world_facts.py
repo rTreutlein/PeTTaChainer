@@ -1,4 +1,4 @@
-"""Issue #63: world observations and private implication assumptions join.
+"""Issues #63/#65: world co-premises join; assumptions remain necessary.
 
 The 18 capability scenarios mirror the KE handover without importing its app.
 Each case starts a fresh KB and repeats the query in the same live runtime.
@@ -29,10 +29,15 @@ def scenarios():
         ('ground_bridge_rule', [split_fact, entry('bridge', '(Implication (And (Member Split1 StockSplit) (Implemented Split1)) (Not (Dilutes Split1)))')], conditional, True),
         ('derived_ground_bridge', [identity, bridge], ground, True),
         ('derived_existential_bridge', [identity, bridge], query, True),
-        ('conditional_only_control', [identity, rule], '(Implication (Implemented Split1) (Not (Dilutes Split1)))', True),
-        ('ground_control', [identity, rule], ground, True),
+        # Oct 16 agreement with the KE owner: no assumption-dependent proof,
+        # so this standalone conditional must have no answer (tracker #65).
+        ('conditional_only_control', [identity, rule], '(Implication (Implemented Split1) (Not (Dilutes Split1)))', False),
+        # These wrappers contain the same unsupported conditional. Adding
+        # identity conjuncts or an existential witness cannot supply its
+        # missing assumption dependency; keep the original KE fixtures.
+        ('ground_control', [identity, rule], ground, False),
         ('existential_identity_control', [identity], '(Exists ($e) (And (AnnouncedBy $e Apple) (AnnouncedOn $e Date20200730) (Member $e StockSplit)))', True),
-        ('existential_conditional', [identity, rule], query, True),
+        ('existential_conditional', [identity, rule], query, False),
         ('explicit_conditional', [identity, explicit], query, True),
         ('missing_rule', [identity], query, False),
         ('missing_event', [rule], query, False),
@@ -92,6 +97,77 @@ class TestConditionalWorldFacts(unittest.TestCase):
                         self.assertEqual(h.query_many_refs([
                             '(: $p (Not (Dilutes Split1)) $tv)',
                         ], steps=300), [[]])
+
+    def test_assumption_free_chain_has_no_conditional_proof(self):
+        h = PeTTaChainer()
+        h.add_atoms_no_check([
+            '(: c1 (C x) (STV 1 0.9))',
+            '(: r1 (Implication (C $v) (B $v)) (STV 0.8 0.9))',
+        ])
+        for repeat in range(2):
+            with self.subTest(repeat=repeat):
+                self.assertEqual(h.query_many_refs([
+                    '(: $p (Implication (A x) (B x)) $tv)',
+                ], steps=300)[0], [])
+        self.assertEqual(h.query_many_refs(['(: $p (A x) $tv)'], steps=300), [[]])
+
+    def test_empirical_conditional_survives_without_a_hypothetical_path(self):
+        h = PeTTaChainer()
+        h.add_atoms_no_check([
+            '(: a1 (A x) (STV 1 0.9))',
+            '(: b1 (B x) (STV 0.7 0.9))',
+            '(: c1 (C x) (STV 1 0.9))',
+            '(: (no_inverse r1) (Implication (C $v) (B $v)) (STV 0.8 0.9))',
+        ])
+        for repeat in range(2):
+            with self.subTest(repeat=repeat):
+                rows = h.query_many_refs([
+                    '(: $p (Implication (A x) (B x)) $tv)',
+                ], steps=300)[0]
+                self.assertEqual(len(rows), 1, rows)
+                self.assertEqual(h.expand_proof(rows[0].proof), '(implication-instance-fold cpu)')
+                self.assertGreater(rows[0].tv[2], 0)
+
+    def test_weak_assumption_path_excludes_strong_world_alternative(self):
+        expected = None
+        for world in (None, 0.9, 1.0):
+            h = PeTTaChainer()
+            h.add_atoms_no_check([
+                '(: (no_inverse a_to_c) (Implication (A $v) (C $v)) (STV 0.8 0.05))',
+                '(: (no_inverse c_to_b) (Implication (C $v) (B $v)) (STV 0.8 0.9))',
+            ] + ([f'(: c1 (C x) (STV 1 {world}))'] if world is not None else []))
+            for repeat in range(2):
+                with self.subTest(world=world, repeat=repeat):
+                    rows = h.query_many_refs([
+                        '(: $p (Implication (A x) (B x)) $tv)',
+                    ], steps=300)[0]
+                    self.assertEqual(len(rows), 1, rows)
+                    self.assertLess(rows[0].tv[2], 0.15)
+                    if expected is None:
+                        expected = rows[0].tv
+                    self.assertAlmostEqual(rows[0].tv[1], expected[1])
+                    self.assertAlmostEqual(rows[0].tv[2], expected[2])
+                    proof = h.expand_proof(rows[0].proof)
+                    for token in ('conditional-implication', 'a_to_c', 'c_to_b', '(ctx proof '):
+                        self.assertIn(token, proof)
+                    self.assertNotIn('c1', proof)
+            self.assertEqual(h.query_many_refs(['(: $p (A x) $tv)'], steps=300), [[]])
+
+    def test_conjunction_projection_cannot_launder_world_support(self):
+        h = PeTTaChainer()
+        h.add_atoms_no_check([
+            '(: c1 (C x) (STV 1 0.9))',
+            '(: (no_inverse c_to_b) (Implication (C $v) (B $v)) (STV 0.8 0.9))',
+            # Build (And C A) from its parts, then project C. The projected
+            # value depends on C itself and cannot support the C read by B.
+            '(: (no_inverse join) (Implication (And (C $v) (A $v)) (And (C $v) (A $v))) (STV 1 1))',
+        ])
+        for repeat in range(2):
+            with self.subTest(repeat=repeat):
+                self.assertEqual(h.query_many_refs([
+                    '(: $p (Implication (A x) (B x)) $tv)',
+                ], steps=300)[0], [])
+        self.assertEqual(h.query_many_refs(['(: $p (A x) $tv)'], steps=300), [[]])
 
     def test_world_facts_are_only_premises_in_assumption_dependent_chain(self):
         h = PeTTaChainer()
