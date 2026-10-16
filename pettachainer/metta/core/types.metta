@@ -389,3 +389,6 @@
 
 ;; Immutable input relations cannot be targets of inversion or completion.
 (: functional-pattern? (-[det]-> KB Statement Bool))
+
+;; A disconnected conjunction has no independent joint population parameter.
+(: validate-base-rate! (-[det]-> Statement (List Atom) Bool))

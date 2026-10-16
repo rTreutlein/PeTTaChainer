@@ -716,7 +716,9 @@ growing universe does not leave contributions stale.
 A conjunction whose conjuncts fall into parts sharing no variables ranges
 over the cross product of the parts' instances, so its base rate is exactly
 the product of the parts' rates: each part is folded on its own and the rates
-are combined, instead of folding over every combination. Ground conjuncts
+are combined, instead of folding over every combination. A separate user joint
+override on such a disconnected pattern is rejected before cache mutation;
+component rates remain configurable. Ground conjuncts
 stay with a part, since a single instance multiplies nothing. While a part
 has no counted member the product has no evidence, as one fold with no
 member has none (`BaseRateProductFormula`), so an STV rule over such an

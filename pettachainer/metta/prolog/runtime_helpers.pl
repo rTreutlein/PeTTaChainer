@@ -2640,3 +2640,11 @@ pw_drop_rep(R) :-
       nonvar(Type), Type = [Head|_], functional_predicate(Declared, Kb, _, _),
       ( var(Head) ; Head == Declared )
     -> Result = true ; Result = false ).
+
+% Disconnected parts range over a Cartesian product. A separate joint rate
+% would contradict that model; reject it rather than silently ignoring it.
+'validate-base-rate!'(Pattern, Parts, true) :-
+    ( Parts = [_,_|_]
+    -> throw(error(domain_error(disconnected_base_rate, Pattern),
+                   context('set-base-rate'/3, 'set a rate for each connected part')))
+    ; true ).

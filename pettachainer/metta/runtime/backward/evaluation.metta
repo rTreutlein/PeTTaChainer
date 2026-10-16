@@ -4502,7 +4502,8 @@
 ;; which recompute with their readers at the next evaluation.
 (: set-base-rate (-[det]-> KB Statement TV (List $none)))
 (= (set-base-rate $kbid $pattern $tv)
-   (let* (($stored (copy_term $pattern))
+   (let* (($_valid (validate-base-rate! $pattern (conjunct-parts (implication-side-conjuncts $pattern))))
+          ($stored (copy_term $pattern))
           ($hash (base-rate-cache-hash $kbid $pattern))
           ($_old (base-rate-cache-remove! $kbid $pattern))
           ($_new (context-add! &base_rate_cache ($hash (base-rate $kbid $stored $tv user any)))))

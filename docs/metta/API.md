@@ -214,7 +214,7 @@ witness moves support from that residual into the enumerated disjunction.
 | Function | Meaning |
 |---|---|
 | `(set-base-rate-smoothing $kbid $enabled)` | Opt `$kbid` into reading each computed base rate as a Beta estimate: over n observations its strength is (Σs + k/2)/(n + k), its evidence plus k pseudo-observations at 0.5, and its confidence n/(n+k) is unchanged, so a rate over few observations is not taken as certain. Set it before adding knowledge; user base rates are kept as set. Python: `PeTTaChainer.set_base_rate_smoothing(enabled)`, which timed subprocess queries replay. |
-| `(set-base-rate $kbid $pattern $tv)` | Pin a user-provided base rate for `$pattern` (overrides computed values). The folds over `$pattern` and their readers recompute at the next query. |
+| `(set-base-rate $kbid $pattern $tv)` | Pin a user-provided base rate for `$pattern` (overrides computed values and positive-only sampling). A conjunction with disconnected variable components has a Cartesian-product rate and rejects a separate joint override with `domain_error(disconnected_base_rate, pattern)` before changing the cache; set the component rates instead. Conjunctions sharing variables accept joint rates. The folds over `$pattern` and their readers recompute at the next query. |
 | `(clear-base-rate $kbid $pattern)` | Remove any base-rate cache entry for `$pattern`; its folds recompute at the next query. |
 | `(cached-base-rate $kbid $pattern)` | Read the cached base-rate TV for `$pattern` (or `()`). A value may be a provisional forward estimate until a full backward fold refines it. |
 
