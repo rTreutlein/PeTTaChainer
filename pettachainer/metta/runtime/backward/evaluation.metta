@@ -3597,7 +3597,7 @@
 
 (: sk-queued-new? (-[det]-> Number Number Number Bool))
 (= (sk-queued-new? $pass $khash $rhash)
-   (if (not (== (collapse (once (match &ctx_sk_queued ($pass $khash $rhash) true))) ())) false
+   (if (space-row-present? &ctx_sk_queued ($pass $khash $rhash)) false
       (let $_queued (context-add! &sk_queued ($pass $khash $rhash)) true)))
 
 ;; A row is queued by its key and row hashes, a fold check by its fold's hash.
@@ -3750,11 +3750,10 @@
 ;; changes its key whatever caused it.
 (: sk-force-cause! (-[det]-> Number Number Number Atom))
 (= (sk-force-cause! $khash $rhash $cause)
-   (if (== (collapse (once (match &ctx_sk_forced_used ($khash $rhash $cause) true))) ())
+   (if (space-row-present? &ctx_sk_forced_used ($khash $rhash $cause)) ()
       (let* (($_used (context-add! &sk_forced_used ($khash $rhash $cause)))
              ($_forced (context-add! &sk_forced ($khash $rhash $cause))))
-         ())
-      ()))
+         ())))
 
 (: sk-force! (-[det]-> (List Number) SkeletonItem Atom))
 (= (sk-force! $causes (sk-row-item $_seq $khash $_key $rhash $_row))
@@ -3838,7 +3837,7 @@
          (sk-none
             (if (if $forced
                    (if (== (sk-latest-view $hash $key $rhash) sk-none) false
-                      (== (collapse (once (match &ctx_sk_given_pending ($hash $rhash $_waits) true))) ()))
+                      (not (space-row-present? &ctx_sk_given_pending ($hash $rhash $_waits))))
                    false)
                (let* (($_views (sk-drop-row-views! $hash $key $rhash))
                       ($_merged (sk-drop-merged! $key))
@@ -4147,7 +4146,7 @@
                 false))
           ($refresh
              (if (if $unseen true $near)
-                (if $invalid true (not (== (collapse (once (match &ctx_sk_stale ($khash $rhash) true))) ())))
+                (if $invalid true (space-row-present? &ctx_sk_stale ($khash $rhash)))
                 false))
           ($_forced (if (if $refresh $invalid false) (context-add! &sk_forced ($khash $rhash -1)) true))
           ($_refreshed
@@ -4157,7 +4156,7 @@
       (if (if $refresh true
              (if (<= $depth (sk-evaluation-free-depth)) true
                 (if $unseen true
-                   (not (== (collapse (once (match &ctx_sk_given_pending ($khash $rhash $_cost) true))) ())))))
+                   (space-row-present? &ctx_sk_given_pending ($khash $rhash $_cost)))))
          (sk-need-next (fold-semidet sk-direct-key-step $next $premises) $members)
          (sk-need-next $next $members)))
    (let $_removed (sk-drop-row! $khash $key $rhash (sk-row (sk-ident $rule $_keys $_key) $_concl $premises $_s))
@@ -4255,11 +4254,10 @@
 
 (: sk-mark-stale! (-[det]-> SkeletonItem Atom))
 (= (sk-mark-stale! (sk-row-item $_seq $khash $key $rhash (sk-row $_ident $_concl $premises $_s)))
-   (if (== (collapse (once (match &ctx_sk_stale ($khash $rhash) true))) ())
+   (if (space-row-present? &ctx_sk_stale ($khash $rhash)) ()
       (let* (($_stale (context-add! &sk_stale ($khash $rhash)))
              ($_unlinked (sk-unlink-reader! $khash $rhash $premises)))
-         (sk-stale-key! $key))
-      ()))
+         (sk-stale-key! $key))))
 (= (sk-mark-stale! (sk-fold-check $_hash $fold)) (sk-stale-fold! $fold))
 
 ;; A fold over a stale key drops its view, so it is recomputed when read.
