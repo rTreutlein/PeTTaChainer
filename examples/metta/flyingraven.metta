@@ -35,12 +35,13 @@
                          with cpu (prior (STV 0.730917365761377 0.00022594893654011704)))
                         (shared 40)))))
             (merge/revision
+               (by (inheritance-implication birdFlies)
+                  (shared 44 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1)))))
                (negated
                   (by penguinsDoNotFly
                      ((inverted (inheritance-implication penguinBird)
                          with cpu (prior (STV 0.730917365761377 0.00022594893654011704)))
-                        (shared 44 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1)))))))
-               (by (inheritance-implication birdFlies) (shared 44)))))
+                        (shared 44)))))))
       (Inheritance Sam (IntSet flies))
       (STV 0.9786915594444334 0.6432516834702312))))
 

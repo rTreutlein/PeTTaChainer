@@ -3467,8 +3467,10 @@
          ((CTV (STV $ps $pc) (STV $ns $nc)) (CTV (STV $ps (* $pc $share)) (STV $ns (* $nc $share))))
          ($_other $tv)))))
 
-;; A false assumed antecedent cannot supply evidence through an STV's
-;; population-inferred complement. Keep a zero-confidence value so internal
+;; A ground false assumed antecedent cannot supply evidence through an STV's
+;; population-inferred complement. Open antecedents retain that population
+;; evidence: an assumed individual does not exhaust their population.
+;; Keep a zero-confidence value so internal
 ;; two-branch scaffolds can still read the unsupported side as unknown.
 ;; Explicit CTVs have no ImplicationCTVFormula and retain both stated branches.
 (: sk-assumed-false-application? (-[det]-> (List SkPattern) Proof Bool))
@@ -3481,7 +3483,14 @@
                    (if (if (if (== $mp CTVModusPonensFormula) true (== $mp ImplicationModusPonensFormula))
                            (if (<= (the Number $s) 0) (>= (the Number $c) 1) false) false) true (empty)))
                 ($_other (empty))))))) ()))
-         (== (collapse (once (proof-term-evidence proof-walk-in-kb $proof))) ((ev-set 0)))
+         (if (== (collapse (once (let $input (superpose $premises)
+                (case $input (
+                   ((CPU $_input-fun $_input-args $_input-result) (empty))
+                   (($antecedent $_scope $_input-proof $_input-tv)
+                      (if (head-is? $antecedent RuleTruth) (empty)
+                         (if (== (extract-vars $antecedent) ()) (empty) true)))))))) ())
+            (== (collapse (once (proof-term-evidence proof-walk-in-kb $proof))) ((ev-set 0)))
+            false)
          false)
       false))
 
