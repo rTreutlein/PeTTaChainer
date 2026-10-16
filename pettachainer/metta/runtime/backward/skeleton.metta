@@ -660,11 +660,6 @@
          (let $_row (add-atom &sk_group_of ($hash $group-key $fold)) ())
          ())))
 
-;; A root's population prior, `(population-prior pattern)` (sk-start-prior!).
-(: population-prior-proof? (-[det]-> Atom Bool))
-(= (population-prior-proof? $proof)
-   (if (if (is-expr $proof) (not (== $proof ())) false) (== (car-atom $proof) population-prior) false))
-
 ;; An antecedent completion, `((antecedent-completion rule index with cpu
 ;; prior) premises)`.
 (: sk-completion-proof? (-[det]-> Atom Bool))
@@ -955,7 +950,7 @@
 ;; the node's answers for the rows that do.
 (: sk-row-answer! (-[semidet]-> SkPattern SkeletonKey Atom Atom))
 (= (sk-row-answer! $owner $key $proof)
-   (if (population-prior-proof? $proof) (sk-prior-answer! (sk-node-hash $owner) $owner $key) (sk-add-answer! $owner $key)))
+   (if (head-is? $proof population-prior) (sk-prior-answer! (sk-node-hash $owner) $owner $key) (sk-add-answer! $owner $key)))
 
 (: sk-prior-answer! (-[semidet]-> Number SkPattern SkeletonKey Atom))
 (= (sk-prior-answer! $hash $owner $key)
@@ -1152,9 +1147,6 @@
 (: sk-context-search? (-[det]-> SkFact Bool))
 (= (sk-context-search? ($_type ($kbid $ctx $_vars) $_proof $_tv))
    (if (== $ctx MAIN) (context-searching? $kbid) true))
-
-(: sk-goal-parts (-[det]-> SkFact Atom))
-(= (sk-goal-parts ($type $_kbctx $proof $tv)) ($type $proof $tv))
 
 (= (sk-rule-match $goal)
    (superpose (

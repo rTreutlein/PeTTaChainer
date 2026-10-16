@@ -1735,12 +1735,13 @@
 (= (sk-row-support $hash $rhash)
    (chainer-first-or 0 (collapse (once (match &ctx_sk_support ($hash $rhash $deps) $deps)))))
 
-;; A population prior (sk-start-prior!) is the population's value, not the
-;; statement's: a key reads it only while nothing else gives it a value.
+;; A population prior, `(population-prior pattern)` (sk-start-prior!), is the
+;; population's value, not the statement's: a key reads it only while nothing
+;; else gives it a value.
 (: sk-population-prior? (-[det]-> SkeletonValue Bool))
 (= (sk-population-prior? $value)
    (case $value (
-      ((sk-val $fact $_ev $_deps) (let $step (sk-fact-step-proof $fact) (population-prior-proof? $step)))
+      ((sk-val $fact $_ev $_deps) (let $step (sk-fact-step-proof $fact) (head-is? $step population-prior)))
       ($_other false))))
 
 (: sk-own-value-step (-[det]-> (List SkeletonValue) SkeletonValue (List SkeletonValue)))
