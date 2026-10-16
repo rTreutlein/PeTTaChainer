@@ -1172,13 +1172,15 @@
       (cons (: (kbctx $kb) $truth-prf (copy_term $truth-type) $truth-tv) ())
       ()))
 
-;; A rule stated with confidence 1 (the positive branch of a CTV) is certain:
-;; revision leaves it unchanged, so its instances are not folded.
+;; Only a rule certain in every branch is given. An uncertain CTV branch
+;; still learns from its instances when the other branch is certain.
 (: refined-rule? (-[det]-> KB Proof Statement Statement TV Bool))
 (= (refined-rule? $kb $prf $a $b $tv)
    (if (== (collapse (once (match &rule_refinement ($kb true) true))) ()) false
       (let* (($name (rule-evidence-base-name $prf))
-             ($c (case $tv (((STV $_s $c) $c) ((CTV (STV $_s $c) $_neg) $c)))))
+             ($c (case $tv (((STV $_s $c) $c)
+                ((CTV (STV $_ps $pc) (STV $_ns $nc))
+                   (if (is-var $pc) $pc (if (is-var $nc) $nc (min $pc $nc))))))))
          (if (is-expr $name) false
             (if (logic-rule? $name) false
                (if (is-var $c) false
@@ -1268,7 +1270,11 @@
              ($truth-premises (rule-truth-premises $refine? $kb $truth-type $truth-tv))
              ($_truth-shape
                 (if $refine?
-                   (collapse (once (add-atom &rule_truth_shapes ($kb $truth-type))))
+                   (let* (($_positive (add-atom &rule_truth_shapes ($kb $truth-type)))
+                          ($_negative (if $ctv?
+                             (let $shape-opposite (if (head-is? $a Not) (car-atom (cdr-atom $a)) (Not $a))
+                                (add-atom &rule_truth_shapes ($kb (RuleTruth (Implication $shape-opposite $b)))))
+                             ()))) ())
                    ()))
              ($value (if $refine? $truth-tv $tv)))
             (superpose (
@@ -1332,7 +1338,16 @@
                               (() |- (: (kbctx $kb) (rule-axiom $prf) $truth-type $tv)))
                         (compile-implication-instance-adds $ctv?
                            $kb (brand Statement $truth-type) $a $b))
-                     (superpose $refinement))
+                     (superpose (
+                        (superpose $refinement)
+                        (if $ctv?
+                           (let $refinement-opposite (if (head-is? $a Not) (car-atom (cdr-atom $a)) (Not $a))
+                              (brand CompiledAddition
+                                 (((: (kbctx $kb) $refined-proof $truth-type (CTV $refined-pos $refined-neg)))
+                                    |- (: (kbctx $kb) (rule-opposite $refined-proof)
+                                       (RuleTruth (Implication $refinement-opposite $b))
+                                       (CTV $refined-neg $refined-pos)))))
+                           (empty)))))
                   (empty))
                ;; An antecedent whose computations cannot be inverted has no
                ;; inverse rule.

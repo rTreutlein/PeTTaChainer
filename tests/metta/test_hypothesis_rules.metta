@@ -74,8 +74,9 @@
    (collapse (match &sk_rule_truth ($id $_h (RuleTruth (Implication ($head $_v) $_b)) $_k) ($head (sk-rule-score $id)))))
 
 ;; Before any review a hypothesis that claims no effect scores at the floor:
-;; it is reached only with budget to spare.
-!(test (hypothesis-scores) ((A 0.0099) (A 0.009000000000000001) (C 0.0099) (C 0.009000000000000001)))
+;; it is reached only with budget to spare. The swapped-branch RuleTruth
+;; projection is another reader of the same live parameter.
+!(test (hypothesis-scores) ((A 0.0099) (A 0.0099) (A 0.009000000000000001) (C 0.0099) (C 0.0099) (C 0.009000000000000001)))
 
 ;; Read the full internal CTV after scheduling a public STV query below.
 ;; These pins protect learned negative branches used by modus ponens.
@@ -104,7 +105,7 @@
 
 ;; The confirmed hypothesis is scored by what it adds; the rejected one, whose
 ;; consequent does not move with its antecedent, stays at the floor.
-!(test (hypothesis-scores) ((A 0.39109222608625) (A 0.3555383873511364) (C 0.0099) (C 0.009000000000000001)))
+!(test (hypothesis-scores) ((A 0.39109222608625) (A 0.39109222608625) (A 0.3555383873511364) (C 0.0099) (C 0.0099) (C 0.009000000000000001)))
 
 ;; A forward run applies the learned truth, not the prior.
 !(compileadd hypKb (: anew (A new) (STV 1 1)))

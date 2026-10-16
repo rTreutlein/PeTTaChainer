@@ -1,0 +1,21 @@
+!(import! &self ../../pettachainer/metta/petta_chainer)
+!(set-evidence-confidence-k 1)
+!(set-rule-change-hazard negativeRefineKb 0)
+!(set-rule-refinement negativeRefineKb true)
+!(compileadd negativeRefineKb (: r (Implication (A $x) (B $x))
+   (CTV (STV 0.9 1) (STV 0.5 0.5))))
+!(compileadd negativeRefineKb (: a (A old) (STV 0 1)))
+!(compileadd negativeRefineKb (: b (B old) (STV 1 1)))
+;; One positive outcome under not-A revises the negative branch's one
+;; pseudo-observation at 0.5: strength 0.75, confidence 2/3 at k=1.
+!(test (rule-truth-installed? negativeRefineKb (Implication (A $x) (B $x))) true)
+!(test (collapse (let (: $p $type $value)
+   (query 1000 negativeRefineKb (: $q (Implication (Not (A $x)) (B $x)) $tv)) $value))
+   ((STV 0.75 0.6666666666666666)))
+!(test (collapse (let (: $p $type $value)
+   (query 1000 negativeRefineKb (: $q (Implication (A $x) (B $x)) $tv)) $value))
+   ((STV 0.9 1)))
+;; A rule certain in both branches still has no refinement producer.
+!(compileadd negativeRefineKb (: given (Implication (C $x) (D $x))
+   (CTV (STV 0.9 1) (STV 0.5 1))))
+!(test (rule-truth-installed? negativeRefineKb (Implication (C $x) (D $x))) false)
