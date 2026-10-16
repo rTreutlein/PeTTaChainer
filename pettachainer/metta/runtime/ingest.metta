@@ -17,13 +17,11 @@
          (let*
             (($typed-kbid (brand KB $kbid))
              ($typed-subj (brand Statement $subj))
-             ($_subject (record-inheritance-subject! $typed-kbid $typed-subj)))
+             ($_subject (record-kb-node! &inheritance_subject subject-node $typed-kbid $typed-subj)))
             (record-inheritance-nodes!
                $typed-kbid $typed-subj (brand Statement $concept))))
       ((: ($kbid $_ctx $_vars) $_prf (Member $_obj $class) $_tv)
-         (record-concept-node!
-            (brand KB $kbid)
-            (brand Statement $class)))
+         (record-kb-node! &concept_node concept-node (brand KB $kbid) (brand Statement $class)))
       ($_other ()))))
 
 (: materialize-stmt-lambdas (-[nondet]-> $term  $term))

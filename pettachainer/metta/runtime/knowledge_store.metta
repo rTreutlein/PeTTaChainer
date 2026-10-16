@@ -230,7 +230,7 @@
             (if (is-var $subj) ()
                (let* (($typed-kb (brand KB $kbid))
                       ($typed-subj (brand Statement $subj))
-                      ($_subject (if $record-subject? (record-inheritance-subject! $typed-kb $typed-subj) ())))
+                      ($_subject (if $record-subject? (record-kb-node! &inheritance_subject subject-node $typed-kb $typed-subj) ())))
                   (record-inheritance-nodes! $typed-kb $typed-subj (brand Statement $concept))))
             ()))
       ($_other ()))))
