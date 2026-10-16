@@ -428,3 +428,80 @@
    (collapse (once (match &kb ((Special a) (forwardDerivedMemberKb MAIN Nil) $p $tv)
       (assemble-stored-runtime-fact (Special a) (forwardDerivedMemberKb MAIN Nil) $p $tv)))))
 !(test (member-fold-observation-count forwardDerivedMemberKb A B) 2)
+
+;; Member inheritance of a concept in itself has one trigger: its one Member
+;; fact is a sample once.
+(: member-fold-interest-count (-[det]-> KB Term Term Number))
+(= (member-fold-interest-count $kb $subj $concept)
+   (list-count
+      (collapse
+         (match &forward_aggregate_interest_by_trigger
+            ($_hash
+               (forward-aggregate-interest $_trigger $_id
+                  (forward-member-inheritance-descriptor $kb $subj $concept $_pattern)))
+            true))))
+
+!(compileadd sameConceptKb (: sa (Member a Human) (STV 1.0 1.0)))
+!(compileadd sameConceptKb (: sb (Member b Human) (STV 0.5 1.0)))
+!(query 0 sameConceptKb (: $proof (Inheritance Human Human) $tv))
+!(test (member-fold-interest-count sameConceptKb Human Human) 1)
+!(forward-chain 1 sameConceptKb (member-test-fact sameConceptKb a Human))
+!(test (member-fold-observation-count sameConceptKb Human Human) 1)
+!(test (member-fold-cache sameConceptKb Human Human) ((STV 1.0 0.0012484394506866417)))
+!(test
+   (let $id (fa-id (forward-member-inheritance-identity sameConceptKb Human Human))
+      (collapse (match &forward_aggregate_state (forward-aggregate-state $id $weight $mass) ($weight $mass))))
+   ((1.0 1.0)))
+
+;; Registering the same premises again adds no identity, interest or state, and
+;; seeding the registered aggregate counts nothing twice.
+!(compileadd repeatRegisterKb (: ra (Member a A) (STV 1.0 1.0)))
+!(compileadd repeatRegisterKb (: rab (Member a B) (STV 0.8 1.0)))
+!(register-forward-aggregate-premises! false
+   ((CPU FoldAllCompiled
+       (repeatRegisterKb (MemberInheritanceSample $x A B $s $c)
+          (extract-value (MemberInheritanceSample $x A B $s $c) (WeightedTv $s $c))
+          (BaseRateEvidence 0.0 0.0) WeightedBaseRateAcc (member-inheritance repeatRegisterKb) result-tv)
+       $result)))
+!(register-forward-aggregate-premises! false
+   ((CPU FoldAllCompiled
+       (repeatRegisterKb (MemberInheritanceSample $x A B $s $c)
+          (extract-value (MemberInheritanceSample $x A B $s $c) (WeightedTv $s $c))
+          (BaseRateEvidence 0.0 0.0) WeightedBaseRateAcc (member-inheritance repeatRegisterKb) result-tv)
+       $result)))
+!(test
+   (list-count
+      (collapse
+         (match &forward_aggregate_identity
+            ($_hash (forward-aggregate-identity-row
+               (forward-member-inheritance-identity repeatRegisterKb A B) $_id))
+            true)))
+   1)
+!(test (member-fold-interest-count repeatRegisterKb A B) 2)
+!(test
+   (let $id (fa-id (forward-member-inheritance-identity repeatRegisterKb A B))
+      (list-count (collapse (match &forward_aggregate_state (forward-aggregate-state $id $weight $mass) true))))
+   1)
+!(forward-seed-fold!
+   (CPU FoldAllCompiled
+      (repeatRegisterKb (MemberInheritanceSample $x A B $s $c)
+         (extract-value (MemberInheritanceSample $x A B $s $c) (WeightedTv $s $c))
+         (BaseRateEvidence 0.0 0.0) WeightedBaseRateAcc (member-inheritance repeatRegisterKb) result-tv)
+      $result))
+!(test (member-fold-observation-count repeatRegisterKb A B) 1)
+!(test
+   (let $id (fa-id (forward-member-inheritance-identity repeatRegisterKb A B))
+      (collapse (match &forward_aggregate_state (forward-aggregate-state $id $weight $mass) ($weight $mass))))
+   ((0.8 1.0)))
+!(test (member-fold-cache repeatRegisterKb A B) ((STV 0.8 0.0012484394506866417)))
+!(forward-seed-fold!
+   (CPU FoldAllCompiled
+      (repeatRegisterKb (MemberInheritanceSample $x A B $s $c)
+         (extract-value (MemberInheritanceSample $x A B $s $c) (WeightedTv $s $c))
+         (BaseRateEvidence 0.0 0.0) WeightedBaseRateAcc (member-inheritance repeatRegisterKb) result-tv)
+      $result))
+!(test
+   (let $id (fa-id (forward-member-inheritance-identity repeatRegisterKb A B))
+      (collapse (match &forward_aggregate_state (forward-aggregate-state $id $weight $mass) ($weight $mass))))
+   ((0.8 1.0)))
+!(test (member-fold-interest-count repeatRegisterKb A B) 2)
