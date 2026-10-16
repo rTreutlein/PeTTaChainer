@@ -347,11 +347,12 @@
 (: sk-judgment-main-fact-step
    (-[det]-> KBContext Bool SkeletonFilter SkFact (List SkFact) (List SkFact)))
 (= (sk-judgment-main-fact-step $kbctx $plain $filter ($type $main $proof $tv) $facts)
+   (if (judgment-consequent? true $type $kbctx) $facts
    (if (judgment-assumed-key? $type $kbctx) $facts
       (if (== (sk-leaf-fact-step $plain $filter (data $type $main $proof $tv) ()) ()) $facts
          (let $hash (index-hash (sk-key $type $main))
             (if (space-row-present? &sk_forward_stored ($hash $_key ($type $main $proof $tv) $_ev $_deps)) $facts
-               (cons (data $type $kbctx $proof $tv) $facts))))))
+               (cons (data $type $kbctx $proof $tv) $facts)))))))
 
 (: sk-leaf-fact-step (-[det]-> Bool SkeletonFilter SkFact (List SkFact) (List SkFact)))
 (= (sk-leaf-fact-step $plain $filter $fact $facts)
@@ -1190,7 +1191,10 @@
                      (let* (($scope (make-kb-context (brand KB $kbid) $ctx $vars))
                             ($goal (assemble-stored-runtime-fact $type $scope $proof $tv))
                             ($scoped (map-flat (sk-judgment-main-premise $scope) $args)))
-                        (sk-match $id (contextualize-rule-args $goal $scoped) $goal))
+                        ;; Matching a fixed projection may specialize an open
+                        ;; reader to the target; do not import that instance.
+                        (if (judgment-consequent? true $type $scope) (empty)
+                           (sk-match $id (contextualize-rule-args $goal $scoped) $goal)))
                      (empty))
                   (empty)))))
       (empty)))
@@ -1214,15 +1218,29 @@
 (= (sk-any-member? $type-vars (cons $var $rest))
    (if (stored-list-member? $var $type-vars) true (sk-any-member? $type-vars $rest)))
 
+;; MAIN's observation of B is not evidence of B under the assumed A. Match
+;; query-local target metadata on copies, retaining the original reader shape:
+;; a target's instances are excluded without hiding unrelated open bindings.
+(: judgment-consequent? (-[det]-> Bool Atom KBContext Bool))
+(= (judgment-consequent? $instances? $type ($kbid $ctx $vars))
+   (let* (($base (judgment-consequent-key (brand Statement $type)))
+          ($scope (make-kb-context (brand KB (judgment-consequent $kbid)) $ctx $target-vars))
+          ($targets (kb-facts $base $scope)))
+      (not (== (collapse (once
+         (let ($target ($_metadata-kb $_metadata-ctx $stored-vars) $_proof $_tv) (superpose $targets)
+            (if (if $instances? (=alpha $base $target)
+                    (=alpha (data $base $vars) (data $target $stored-vars))) true (empty))))) ()))))
+
 ;; A query's prototype variables must stay variables. A rule lookup may have
 ;; specialized a copy of its goal; that must not license world observations of
 ;; the specialized prototype. Auxiliary variables do not belong to this list.
 (: judgment-world-premise? (-[det]-> Statement KBContext Bool))
-(= (judgment-world-premise? $type ($_kbid $ctx $vars))
+(= (judgment-world-premise? $type ($kbid $ctx $vars))
    (if (== $ctx MAIN) false
+      (if (judgment-consequent? true $type (make-kb-context (brand KB $kbid) $ctx $vars)) false
       (if (== $vars Nil) true
          (if (== (extract-vars $vars) $vars)
-            (not (context-vars-in-type? $type $vars)) false))))
+            (not (context-vars-in-type? $type $vars)) false)))))
 
 ;; Compare the whole key without binding its hypothetical individual to an
 ;; unrelated fixed world individual. Use the fact prefix index; type and
@@ -1258,7 +1276,9 @@
                        (if (if (== $prem-ctx MAIN)
                               (if (== $ctx MAIN) false
                                  (if (context-vars-in-type? $type $vars) true
-                                    (judgment-assumed-key? $type (make-kb-context (brand KB $kbid) $ctx $vars))))
+                                    (let $scope (make-kb-context (brand KB $kbid) $ctx $vars)
+                                       (if (judgment-assumed-key? $type $scope) true
+                                          (judgment-consequent? false $type $scope)))))
                               false)
                           (make-kb-context (brand KB $kbid) $ctx $vars)
                           (make-kb-context (brand KB $kbid) $prem-ctx $prem-vars)))

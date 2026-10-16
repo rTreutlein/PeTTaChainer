@@ -42,3 +42,27 @@
 ;; A condition in a different knowledge base cannot pin a private leaf.
 !(test (sk-pinned-step (sk-key (StockSplit Split1) (otherKe63Kb 987 Nil)) ()
    (sk-given 42 (sk-key (StockSplit Split1) (ke63Kb MAIN Nil)) true)) ())
+
+;; A ground target does not hide other bindings of an auxiliary open reader.
+;; Its own observation and negation remain unavailable even below another row.
+!(compileadd ke63Targets (: own_target (Target Split1) (STV 0.1 0.9)))
+!(compileadd ke63Targets (: other_target (Target Split2) (STV 0.7 0.9)))
+!(let* ((($scope $_proof $_goal $adds)
+           (judgment-query-side ke63Targets Nil false (brand Statement (Gate)) (brand Statement (Target Split1))))
+        ($_injected (collapse (once (inject-compiled-adds (map-flat mm2stmt $adds)))))
+        ($own (sk-leaf-facts (Target Split1) (the KBContext $scope) sk-any-filter))
+        ($negative (sk-leaf-facts (Not (Target Split1)) (the KBContext $scope) sk-any-filter))
+        ($others (sk-leaf-facts (Target $event) (the KBContext $scope) sk-any-filter))
+        ((($other-type $_other-scope $_other-proof $_other-tv)) $others)
+        ($_cleared (clear-temp-query-adds)))
+   (test (data $own $negative $other-type) (() () (Target Split2))))
+
+;; An open target excludes all its ground instances without binding the query.
+!(let* (($target (brand Statement (Target $event)))
+        (($scope $_proof $_goal $adds)
+           (judgment-query-side ke63Targets Nil false (brand Statement (Gate)) $target))
+        ($_injected (collapse (once (inject-compiled-adds (map-flat mm2stmt $adds)))))
+        ($facts (sk-leaf-facts (Target Split1) (the KBContext $scope) sk-any-filter))
+        ($unbound (is-var $event))
+        ($_cleared (clear-temp-query-adds)))
+   (test (data $facts $unbound) (() true)))

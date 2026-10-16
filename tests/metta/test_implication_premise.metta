@@ -104,7 +104,6 @@
 !(test (query 30 biImplicationKb (: $prf (A2) $tv))
    (: (by (bi-backward a2_iff_b2) b) (A2) (STV 1.0 0.9998000399670116)))
 
-;; The reverse private judgment reads the independently known A directly.
 !(test
    (query 60 biImplicationKb
       (: $prf
@@ -112,7 +111,7 @@
             (A)
             (B))
          $tv))
-   (: (bidirectional (by (bi-forward a_iff_b) (ctx proof 7)) a) (BiImplication (A) (B)) (STV 1.0 0.999700089898053)))
+   (: (bidirectional (by (bi-forward a_iff_b) (ctx proof 7)) (by (bi-backward a_iff_b) (ctx proof 8))) (BiImplication (A) (B)) (STV 1.0 0.9996001597861455)))
 
 !(test
    (query 60 implicationPremiseKb

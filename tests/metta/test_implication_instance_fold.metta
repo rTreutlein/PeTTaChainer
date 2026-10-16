@@ -18,15 +18,14 @@
    (query 100 instanceFactsKb (: $prf (Implication (A $v) (B $v)) $tv))
    (: (implication-instance-fold cpu) (Implication (A $_v) (B $_v)) (STV 1.0 0.0020209076619844817)))
 
-;; A ground implication also reads the independently observed consequent in
-;; its private judgment. The ordinary empirical fold revises that observation.
+;; A ground implication is a one-sample fold.
 !(test
    (query 100 instanceFactsKb (: $prf (Implication (A a) (B a)) $tv))
-   (: (merge/revision (conditional-implication b1) (implication-instance-fold cpu)) (Implication (A a) (B a)) (STV 1.0 0.9000101239749476)))
+   (: (implication-instance-fold cpu) (Implication (A a) (B a)) (STV 1.0 0.001011475880670821)))
 
 ;; A consequent added later joins the fold on the next query. The ground
-;; implication's empirical sample is an instance of the open query and is
-;; returned beside it. Its private observation remains query-local.
+;; implication answered above is an instance of the open query and is
+;; returned beside it.
 !(compileadd instanceFactsKb (: b3 (B c) (STV 1.0 0.9)))
 
 !(test

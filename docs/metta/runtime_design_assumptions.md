@@ -122,8 +122,9 @@ A rule and the adapters compiled with it (the projections of a compound
 conclusion, the connective of a compound antecedent) share one context
 pattern, so they hold in every context the rule applies in. An implication
 query's private contexts borrow MAIN observations for independent fixed
-premises, including their compiled projections. An assumed key overrides its
-world value, and a hypothetical individual cannot bind to a world individual.
+premises, including their compiled projections. They never borrow an observation
+of their own consequent key, its instances, or its negation: P(B) does not
+establish P(B given A). An assumed key overrides its world value, and a hypothetical individual cannot bind to a world individual.
 Rules hold there: S → (A ∧ B ∧ C) answers S → (A ∧ B).
 
 `Inheritance` may receive compiler-specific lowering and querying, but its

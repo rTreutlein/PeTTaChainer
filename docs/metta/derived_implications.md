@@ -247,7 +247,8 @@ reads `(STV 1 1)`. This includes negated premises lowered to a read of G
 followed by `NotFormula`, even when G is ground. The main world's value of G
 never enters this judgment. Independent fixed premises can read MAIN observations and the projections of
 compound observations. Private leaf reads use the fact prefix index, exclude
-assumed keys and forwarded/materialized values, and retain the source fact's
+assumed keys, the judgment's own consequent (including its instances and
+negation), and forwarded/materialized values, and retain the source fact's
 MAIN evidence and dependency identities. Conditioning a MAIN observation
 also conditions its borrowed private leaf, while assumed keys keep their own
 truth. Fixed MAIN projection rules are evaluated with private premises; their derived MAIN views are never imported. This lets a rule join a
@@ -256,6 +257,14 @@ implementation or its consequence in MAIN (tracker #63). A derived implication
 statement dominates its application to the judgment's certain assumption: the
 application restates the same source, including when a certain rule has no
 empirical evidence id.
+
+World observations of the consequent are not conditional evidence. Each private
+context carries temporary target metadata in a separate namespace, removed with
+its scaffold. Both leaf borrowing and fixed MAIN projection matching reject
+that target, including after an open reader is specialized. Negation adapters
+that explicitly read MAIN are routed privately for this key too. This keeps
+an actual-world B value out of P(B given A), and prevents revising it with an
+instance fold that already read B.
 
 Stated and calculated proofs of one rule share its evidence identity and
 are not revised as independent observations. Independent conditional evidence

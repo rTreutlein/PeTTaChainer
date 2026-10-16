@@ -10,6 +10,13 @@
 ;; lowered parts. In particular a Not reader of a ground And must read that
 ;; conjunction as assumed true, rather than finding no contextual fact and
 ;; falling back to MAIN. Assuming queries retain their ordinary fact lowering.
+(: judgment-consequent-key (-[det]-> Statement Statement))
+(= (judgment-consequent-key $type)
+   (if (head-is? $type Not)
+      (let $inner (car-atom (cdr-atom $type))
+         (judgment-consequent-key (brand Statement $inner)))
+      $type))
+
 (: judgment-query-side
    (-[semidet]-> KB (| NilType (List Variable)) Bool
        Statement Statement
@@ -35,8 +42,14 @@
                    ($goal-execs |- (: $shape-kb $goal-proof $goal $goal-tv))) ()))
              (collapse (compile-adapter-chain query
                 (: $shape-kb $prf $consequent $adapter-tv)))))
-       ($adds (union-compiled-additions
-          (query-context-premise-adds $kb $ctx $mvars $execs) (the (List CompiledAddition) $goal-adds)))
+       ;; Query-local metadata uses the existing temporary fact lifecycle in
+       ;; a separate namespace: it is never available as a logical premise.
+       ($target-kb (make-kb-context (brand KB (judgment-consequent $kb)) $ctx $mvars))
+       ($target (judgment-consequent-key $goal))
+       ($adds (cons (brand CompiledAddition
+          (() |- (: $target-kb (ctx consequent $ctx) $target (STV 1 1))))
+          (union-compiled-additions
+             (query-context-premise-adds $kb $ctx $mvars $execs) (the (List CompiledAddition) $goal-adds))))
        ($whole-tv (if $negative? (STV 0 1) (STV 1 1))))
       (data $shape-kb (brand Proof $prf) (the Statement $goal)
          (if (head-is-member? $antecedent (And Or))

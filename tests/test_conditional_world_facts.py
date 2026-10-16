@@ -93,7 +93,7 @@ class TestConditionalWorldFacts(unittest.TestCase):
                             '(: $p (Not (Dilutes Split1)) $tv)',
                         ], steps=300), [[]])
 
-    def test_fixed_world_fact_and_assumption_dependent_chain(self):
+    def test_world_facts_are_only_premises_in_assumption_dependent_chain(self):
         h = PeTTaChainer()
         h.add_atoms_no_check([
             '(: fixed (Recorded R) (STV 0.7 0.8))',
@@ -105,7 +105,7 @@ class TestConditionalWorldFacts(unittest.TestCase):
                 '(: $p (Implication (Gate X) (Recorded R)) $tv)',
                 '(: $p (Implication (Gate X) (Outcome X)) $tv)',
             ], steps=300)
-            self.assertEqual(rows[0][0].tv, ['STV', 0.7, 0.8])
+            self.assertEqual(rows[0], [])
             self.assertEqual(len(rows[1]), 1, rows)
             proof = h.expand_proof(rows[1][0].proof)
             for token in ('first', 'second', 'fixed', '(ctx proof '):
@@ -164,6 +164,39 @@ class TestConditionalWorldFacts(unittest.TestCase):
             self.assertNotIn('world_gate', h.expand_proof(rows[0].proof))
         self.assertEqual(h.query_many_refs(['(: $p (Gate X) $tv)'], steps=300)[0][0].tv,
                          ['STV', 1, 0.9])
+
+    def test_contra_world_consequent_never_revises_the_conditional(self):
+        for negative in (False, True):
+            for compound in (False, True):
+                for world_strength in (0.1, 0.9):
+                    with self.subTest(negative=negative, compound=compound, world=world_strength):
+                        h = PeTTaChainer()
+                        consequent = '(Not (Dilutes Split1))' if negative else '(PreservesOwnership Split1)'
+                        rule_consequent = '(Not (Dilutes $e))' if negative else '(PreservesOwnership $e)'
+                        observed = f'(And {consequent} (Recorded R))' if compound else consequent
+                        h.add_atoms_no_check([
+                            '(: src_split (StockSplit Split1) (STV 1 0.9))',
+                            f'(: src_bridge (Implication (And (StockSplit $e) (Implemented $e)) {rule_consequent}) (STV 1 0.9))',
+                            '(: world_implementation (Implemented Split1) (STV 0 1))',
+                            f'(: world_consequence {observed} (STV {world_strength} 0.9))',
+                        ])
+                        for _ in range(2):
+                            rows = h.query_many_refs([
+                                f'(: $p (Implication (Implemented Split1) {consequent}) $tv)',
+                            ], steps=300)[0]
+                            self.assertEqual(len(rows), 1, rows)
+                            self.assertAlmostEqual(rows[0].tv[1], 1.0)
+                            proof = h.expand_proof(rows[0].proof)
+                            for token in ('src_split', 'src_bridge', '(ctx proof '):
+                                self.assertIn(token, proof)
+                            self.assertNotIn('world_consequence', proof)
+                            self.assertNotIn('world_implementation', proof)
+                        self.assertEqual(h._call('collapse', [
+                            f'(match &kb ($_type ((judgment-consequent {h.kb}) $_ctx $_vars) $_proof $_tv) leaked)',
+                        ]), ['()'])
+                        self.assertEqual(h.query_many_refs([
+                            '(: $p (Implemented Split1) $tv)',
+                        ], steps=300)[0][0].tv, ['STV', 0, 1])
 
 
 if __name__ == '__main__':
