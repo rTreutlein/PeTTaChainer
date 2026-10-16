@@ -3558,15 +3558,18 @@
 ;; evaluation for each key that caused it, and a reader whose value changes
 ;; passes it on to its own readers the same way.
 
+;; The row stored under a key hash and a row hash, as an item of the work.
+(: sk-row-item-at (-[nondet]-> Number Number SkeletonItem))
+(= (sk-row-item-at $khash $rhash)
+   (match &sk_row ($khash $key $rhash (sk-row $ident $concl $premises $seq))
+      (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $seq))))
+
 ;; The rows that read a key directly, as fact premise, fold or group.
 (: sk-readers (-[det]-> SkeletonKey (List SkeletonItem)))
 (= (sk-readers $key)
    (let $hash (index-hash $key)
       (collapse (match &ctx_sk_reader ($hash $stored $khash $rhash)
-         (if (=alpha $stored $key)
-            (match &sk_row ($khash $rkey $rhash (sk-row $ident $concl $premises $seq))
-               (sk-row-item $seq $khash $rkey $rhash (sk-row $ident $concl $premises $seq)))
-            (empty))))))
+         (if (=alpha $stored $key) (sk-row-item-at $khash $rhash) (empty))))))
 
 ;; An item's place in its pass. A query computes the rows within the free
 ;; depth first, by creation; then the rows that spend its allowance, nearest a
@@ -3939,10 +3942,7 @@
                                    ($_readers (collapse (fold-semidet (sk-branch-ready-step $cause $exclude) ()
                                (append-flat (sk-readers $key)
                                   (collapse (match &ctx_sk_stale_reader ($hash $stored $reader-hash $reader-row)
-                                     (if (=alpha $stored $key)
-                                        (match &sk_row ($reader-hash $reader-key $reader-row (sk-row $ri $rc $rp $rs))
-                                           (sk-row-item $rs $reader-hash $reader-key $reader-row (sk-row $ri $rc $rp $rs)))
-                                        (empty))))))))) ())
+                                     (if (=alpha $stored $key) (sk-row-item-at $reader-hash $reader-row) (empty))))))))) ())
                             ())))
                   true)))))))
 
@@ -3967,8 +3967,7 @@
 (: sk-restale-step (-[semidet]-> (Heap SkeletonItem) (Number Number) (Heap SkeletonItem)))
 (= (sk-restale-step $todo ($khash $rhash))
    (if (space-row-present? &ctx_sk_stale ($khash $rhash)) $todo
-      (case (collapse (once (match &sk_row ($khash $key $rhash (sk-row $ident $concl $premises $seq))
-               (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $seq))))) (
+      (case (collapse (once (sk-row-item-at $khash $rhash))) (
          ((cons $item $_rest) (let $_forced (sk-force! (cons $khash ()) $item) (add_to_heap $todo (sk-item-order $item) $item)))
          (() $todo)))))
 
@@ -4048,10 +4047,7 @@
                 ((sk-key $_type $_kbctx)
                    (fold-semidet sk-relink-determined-step ()
                       (collapse (match &ctx_sk_stale_reader ($hash $stored $khash $rhash)
-                         (if (=alpha $stored $key)
-                            (match &sk_row ($khash $rkey $rhash (sk-row $ident $concl $premises $seq))
-                               (sk-row-item $seq $khash $rkey $rhash (sk-row $ident $concl $premises $seq)))
-                            (empty))))))
+                         (if (=alpha $stored $key) (sk-row-item-at $khash $rhash) (empty))))))
                 ($_fold (sk-drop-fold-view! $key)))))
           ($_merged (sk-drop-merged! $key)))
       (sk-key-changed $pass -1 (sk-outside-change (cons $hash ()) 0) $work $key)))
@@ -4284,8 +4280,7 @@
    (let* (($_released (change-state! sk_holding 0))
           ($held
              (collapse (match &ctx_sk_held ($khash $rhash)
-                (match &sk_row ($khash $key $rhash (sk-row $ident $concl $premises $seq))
-                   (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $seq))))))
+                (sk-row-item-at $khash $rhash))))
           ($_taken (remove-data-rows! &sk_held (quote ($hkhash $hrhash)))))
       (foreach-flat sk-mark-stale! $held)))
 
@@ -4388,10 +4383,9 @@
           ($refresh
              (collapse (match &ctx_sk_refresh ($khash $rhash)
                 (let $_taken (context-remove! &sk_refresh ($khash $rhash))
-                   (match &sk_row ($khash $rkey $rhash (sk-row $ident $concl $premises $rseq))
-                      (let* (($item (sk-row-item $rseq $khash $rkey $rhash (sk-row $ident $concl $premises $rseq)))
-                             ($_forced (sk-force! (cons $khash ()) $item)))
-                         $item))))))
+                   (let* (($item (sk-row-item-at $khash $rhash))
+                          ($_forced (sk-force! (cons $khash ()) $item)))
+                      $item)))))
           ($seeded
              (fold-semidet (sk-dirty-seed $pass)
                 (sk-work (fold-semidet (sk-seed-new $pass) (empty_heap) (append-flat $new (append-flat $refresh $items)))
