@@ -190,6 +190,17 @@
    (if (is-var $tv) (STV $strength $confidence)
       (case $tv (((STV $s $c) (STV $s $c)) ($_other (empty))))))
 
+;; A nested implication a → (x → y) is judged as its exported form (a ∧ x) → y
+;; (docs/metta/derived_implications.md): the antecedent its query contexts
+;; assume and the consequent they prove. Answers keep the stated form.
+(: implication-query-sides (-[semidet]-> Statement (Statement Statement)))
+(= (implication-query-sides $type)
+   (let (Implication $a $b) $type
+      (if (implication-type? (brand Statement $b))
+         (let ($parts $last) (nested-implication-parts $type)
+            (data (brand Statement (cons And $parts)) $last))
+         (data (brand Statement $a) (brand Statement $b)))))
+
 ;; Private implication premises read both branches for modus ponens. Public
 ;; compileQuery never calls this CTV plan.
 (: compile-implication-subgoal-query
@@ -197,14 +208,10 @@
 (= (compile-implication-subgoal-query $kb (: $prf (Implication $a $b) (CTV $pos $neg)))
    (let*
       (($type (brand Statement (Implication $a $b)))
-       (($antecedent $consequent)
-          (if (implication-type? (brand Statement $b))
-             (let ($parts $last) (nested-implication-parts $type)
-                (data (cons And $parts) $last))
-             (data $a $b)))
+       (($antecedent $consequent) (implication-query-sides $type))
        ($mvars (query-variables (extract-vars $type)))
        (($pk $nk $concl $pp $np $adds)
-          (query-pos-neg-scaffold $kb $mvars (brand Statement $antecedent) (brand Statement $consequent))))
+          (query-pos-neg-scaffold $kb $mvars $antecedent $consequent)))
       (compilation-plan (: (kbctx $kb) $prf $type (CTV $pos $neg))
          (cons (brand CompiledAddition
             ((the (List Goal) ((: $pk $pp $concl $pos) (: $nk $np $concl $neg)))
@@ -212,7 +219,7 @@
             (append-compiled-additions
                (if (rule-truth-installed? $kb $type)
                   (rule-truth-query-adds $kb $type $antecedent $consequent)
-                  (compile-implication-instance-adds true $kb $type (brand Statement $antecedent) (brand Statement $consequent)))
+                  (compile-implication-instance-adds true $kb $type $antecedent $consequent))
                $adds)))))
 
 ;; Positive query values use a private KB namespace, preserving the public
@@ -386,24 +393,15 @@
                (append-compiled-additions $assumed $adapters)))
       (if (source-exists? $Type)
          (compile-existential-query $kb (: $prf $Type $tv))
-      (if (if (head-is? $Type Implication) (= $Type (Implication $stated-antecedent $stated-consequent)) false)
-         ;; A nested implication a → (x → y) is judged as its exported form
-         ;; (a ∧ x) → y (docs/metta/derived_implications.md): its contexts
-         ;; assume a and x and prove y, and the answer keeps the stated form.
-         (let ($antecedent $consequent)
-            (if (implication-type? (brand Statement $stated-consequent))
-               (let ($inner $last) (nested-implication-parts (brand Statement $Type))
-                  (data (cons And $inner) $last))
-               (data $stated-antecedent $stated-consequent))
+      (if (if (head-is? $Type Implication) (= $Type (Implication $_antecedent $_consequent)) false)
          (let*
-            (($query-tv (statement-query-tv $tv))
+            ((($antecedent $consequent) (implication-query-sides (brand Statement $Type)))
+             ($query-tv (statement-query-tv $tv))
              ($query-kb (brand KB (implication-query $kb)))
              ($query-ctx (make-kb-context $query-kb MAIN Nil))
              ($mvars (query-variables (extract-vars $Type)))
              (($pos-shape-kb $pos-prf $b $pos-adds)
-                (judgment-query-side $kb $mvars false
-                   (brand Statement $antecedent)
-                   (brand Statement $consequent))))
+                (judgment-query-side $kb $mvars false $antecedent $consequent)))
             (compilation-plan
                (: $query-ctx $root-prf $Type $query-tv)
                (cons
@@ -417,10 +415,8 @@
                            (if (rule-truth-installed? $kb $Type)
                               (rule-truth-query-adds $kb $Type $antecedent $consequent)
                               (compile-implication-instance-adds true $kb
-                                 (brand Statement $Type)
-                                 (brand Statement $antecedent)
-                                 (brand Statement $consequent))))
-                        $pos-adds))))))
+                                 (brand Statement $Type) $antecedent $consequent)))
+                        $pos-adds)))))
          (if (implication-type? $Type) (empty)
          (if (bidirectional-implication-type? $Type)
             (let*
