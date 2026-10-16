@@ -191,6 +191,10 @@
 (= (fa-item $a (forward-member-inheritance-descriptor $b $c $d $e))(let ((Member $f $g)($h MAIN Nil) $i $j)(copy_term $a)(brand Term $f)))
 (: fa-remove! (-[semidet]-> (Statement KBContext Proof TV) Number ForwardAggregateDescriptor (List $a)))
 (= (fa-remove! $a $b $c)(let* (($d (copy_term $c))($e (fa-item $a $c))($f (brand ForwardAggregateObservationKey (quote ($b $e))))($g (fa-obs $f)))(if (== $g ())(case $d ( ((forward-member-inheritance-descriptor $h $i $j $k)(let (forward-aggregate-state $l $m $n)(fa-state $b)(if (<= $n 0.0)()(fa-store-cache! aggregate-update $b $d $m $n))))($o ())))(let* (((forward-aggregate-state $l $m $n)(fa-swap! $b $g (forward-aggregate-observation $f no-forward-aggregate-observation-value 0.0 0.0) false))($p (fa-store-cache! aggregate-remove $b $d $m $n)))(case $d ( ((forward-member-inheritance-descriptor $h $i $j $k)(progn (fa-update! $a $b $d)()))($o ())))))))
+;; The trigger directory answers a miss in one row. Reading the interests
+;; directly is a scan once most of them share one trigger, as every rule's
+;; antecedent base rate under one head does: bulk rule import then slows as
+;; it grows (scripts/check_import_scaling.py ratio 1.9-2.1 against 1.0).
 (: fa-maintain-key! (-[nondet]-> ForwardAggregateMaintenance (Statement KBContext Proof TV) ForwardTriggerKey (List $a)))
 (= (fa-maintain-key! $action $fact $trigger)
    (let $hash (term_hash $trigger)
