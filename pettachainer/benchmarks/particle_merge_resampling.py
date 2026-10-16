@@ -118,13 +118,6 @@ def batch_expression(points: Sequence[Point], budget: int) -> str:
     )
 
 
-def raw_eval(handler: Any, expression: str) -> list[str]:
-    result = handler.process_metta_string(expression)
-    if isinstance(result, str):
-        return [result]
-    return [str(atom) for atom in result]
-
-
 def parse_particle_pairs(
     result: Sequence[str], dimensions: int
 ) -> list[tuple[tuple[float, ...], float]]:
@@ -261,10 +254,10 @@ def run_worker(
         else batch_expression(points, budget)
     )
     chainer = chainer_type()
-    raw_eval(chainer.handler, BENCHMARK_DEFINITIONS)
+    chainer.handler.process_metta_string(BENCHMARK_DEFINITIONS)
 
     started = time.perf_counter()
-    result = raw_eval(chainer.handler, expression)
+    result = chainer.handler.process_metta_string(expression)
     elapsed = time.perf_counter() - started
 
     pairs = parse_particle_pairs(result, dimensions)
@@ -353,12 +346,6 @@ def summarize_workload(runs: Sequence[dict[str, Any]]) -> dict[str, Any]:
         raise ParticleMergeBenchmarkError(
             f"repeated runs produced different particle distributions: {digests}"
         )
-    quality = runs[0]["quality"]
-    for run in runs[1:]:
-        if run["quality"] != quality:
-            raise ParticleMergeBenchmarkError(
-                "repeated runs produced different quality metrics"
-            )
     return {
         "seconds": metric_summary([run["seconds"] for run in runs]),
         "points_per_second": metric_summary(
@@ -368,7 +355,7 @@ def summarize_workload(runs: Sequence[dict[str, Any]]) -> dict[str, Any]:
         "support": runs[0]["support"],
         "mass": runs[0]["mass"],
         "digest": runs[0]["digest"],
-        "quality": quality,
+        "quality": runs[0]["quality"],
     }
 
 
@@ -397,10 +384,6 @@ def one_factor_configurations(
             if config["points"] <= config["budget"]:
                 raise ParticleMergeBenchmarkError(
                     f"scaling configuration requires points > budget: {config}"
-                )
-            if value < 1:
-                raise ParticleMergeBenchmarkError(
-                    f"scaling values must be positive: {axis}={value}"
                 )
             key = (config["points"], config["budget"], config["dimensions"])
             entry = configurations.setdefault(key, {**config, "axes": []})

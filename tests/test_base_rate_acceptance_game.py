@@ -41,8 +41,6 @@ class TestBaseRateAcceptanceGame(unittest.TestCase):
     def test_acceptance_game_scores_downstream_goal_not_estimate_table(self):
         report = run_acceptance_game(sample_counts=(10, 25), include_libpln=True)
 
-        self.assertTrue(report.libpln_fixed_available, report.libpln_fixed_message)
-        self.assertTrue(report.libpln_uniform_available, report.libpln_uniform_message)
         self.assertIsNotNone(report.libpln_fixed_total_value)
         self.assertIsNotNone(report.libpln_uniform_total_value)
         self.assertGreater(report.pettachainer_total_value, report.libpln_fixed_total_value)

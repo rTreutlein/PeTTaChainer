@@ -37,39 +37,23 @@ def initial_atoms(initial_facts: int) -> list[str]:
     ]
 
 
-def inversion_query() -> str:
-    return "(: $prf (P alice) $tv)"
+INVERSION_QUERY = "(: $prf (P alice) $tv)"
 
 
-def parse_stv(payload: Any) -> tuple[float, float] | None:
-    match = STV_PATTERN.search(str(payload))
-    if match is None:
-        return None
-    return float(match.group(1)), float(match.group(2))
-
-
-def cached_p_rate(handler: Any) -> tuple[str, tuple[float, float] | None]:
-    rows = handler.handler.process_metta_string(
+def cached_p_rate(handler: Any, prefix: str) -> tuple[dict[str, Any], tuple[float, float] | None]:
+    """The cached ``P($x)`` rate's source and truth value as ``prefix``
+    fields, and the truth value."""
+    text = str(handler.handler.process_metta_string(
         f"!(base-rate-cache-entries {handler.kb} (P $x))"
-    )
-    text = str(rows)
-    source_match = SOURCE_PATTERN.search(text)
-    source = source_match.group(1) if source_match else "missing"
-    return source, parse_stv(text)
-
-
-def stv_close(
-    left: tuple[float, float] | None,
-    right: tuple[float, float] | None,
-    *,
-    tolerance: float = 1e-9,
-) -> bool:
-    if left is None or right is None:
-        return False
-    return (
-        abs(left[0] - right[0]) <= tolerance
-        and abs(left[1] - right[1]) <= tolerance
-    )
+    ))
+    source = SOURCE_PATTERN.search(text)
+    match = STV_PATTERN.search(text)
+    tv = (float(match.group(1)), float(match.group(2))) if match else None
+    return {
+        f"{prefix}_cache_source": source.group(1) if source else "missing",
+        f"{prefix}_cache_strength": tv[0] if tv else 0.0,
+        f"{prefix}_cache_confidence": tv[1] if tv else 0.0,
+    }, tv
 
 
 def run_incremental(
@@ -85,19 +69,17 @@ def run_incremental(
     handler.add_atoms_no_check(initial_atoms(initial_facts))
     setup_seconds = time.perf_counter() - started
 
-    query = inversion_query()
     started = time.perf_counter()
-    warm_answers = handler.query(query, steps=query_steps, timeout_sec=0)
+    warm_answers = handler.query(INVERSION_QUERY, steps=query_steps, timeout_sec=0)
     warm_query_seconds = time.perf_counter() - started
     if not warm_answers:
         raise OrdinaryBaseRateBenchmarkError(
             "warm inversion query returned no answers"
         )
-    warm_source, warm_tv = cached_p_rate(handler)
-    if warm_source != "computed" or warm_tv is None:
+    warm, warm_tv = cached_p_rate(handler, "warm")
+    if warm["warm_cache_source"] != "computed" or warm_tv is None:
         raise OrdinaryBaseRateBenchmarkError(
-            f"warm query did not harvest a computed P($x) rate; "
-            f"source={warm_source!r} tv={warm_tv!r}"
+            f"warm query did not harvest a computed P($x) rate: {warm!r}"
         )
 
     add_seconds = 0.0
@@ -112,15 +94,15 @@ def run_incremental(
         handler.forward_chain(selected, steps=forward_steps)
         forward_seconds += time.perf_counter() - started
 
-    delta_source, delta_tv = cached_p_rate(handler)
+    delta, delta_tv = cached_p_rate(handler, "delta")
     started = time.perf_counter()
-    followup_answers = handler.query(query, steps=query_steps, timeout_sec=0)
+    followup_answers = handler.query(INVERSION_QUERY, steps=query_steps, timeout_sec=0)
     followup_query_seconds = time.perf_counter() - started
     if not followup_answers:
         raise OrdinaryBaseRateBenchmarkError(
             "follow-up inversion query returned no answers"
         )
-    followup_source, followup_tv = cached_p_rate(handler)
+    followup, followup_tv = cached_p_rate(handler, "followup")
     return {
         "setup_seconds": setup_seconds,
         "warm_query_seconds": warm_query_seconds,
@@ -128,19 +110,12 @@ def run_incremental(
         "delta_forward_seconds": forward_seconds,
         "delta_total_seconds": add_seconds + forward_seconds,
         "followup_query_seconds": followup_query_seconds,
-        "warm_cache_source": warm_source,
-        "delta_cache_source": delta_source,
-        "followup_cache_source": followup_source,
+        **warm,
+        **delta,
+        **followup,
         "delta_cache_already_current": float(
-            stv_close(delta_tv, followup_tv)
-        ),
-        "warm_cache_strength": 0.0 if warm_tv is None else warm_tv[0],
-        "warm_cache_confidence": 0.0 if warm_tv is None else warm_tv[1],
-        "delta_cache_strength": 0.0 if delta_tv is None else delta_tv[0],
-        "delta_cache_confidence": 0.0 if delta_tv is None else delta_tv[1],
-        "followup_cache_strength": 0.0 if followup_tv is None else followup_tv[0],
-        "followup_cache_confidence": (
-            0.0 if followup_tv is None else followup_tv[1]
+            delta_tv is not None and followup_tv is not None
+            and all(abs(a - b) <= 1e-9 for a, b in zip(delta_tv, followup_tv))
         ),
         "initial_facts": float(initial_facts),
         "delta_count": float(deltas),
@@ -158,19 +133,16 @@ def run_refold(
     handler.add_atoms_no_check(initial_atoms(total_facts))
     setup_seconds = time.perf_counter() - started
     started = time.perf_counter()
-    answers = handler.query(inversion_query(), steps=query_steps, timeout_sec=0)
+    answers = handler.query(INVERSION_QUERY, steps=query_steps, timeout_sec=0)
     query_seconds = time.perf_counter() - started
     if not answers:
         raise OrdinaryBaseRateBenchmarkError(
             "refold inversion query returned no answers"
         )
-    source, tv = cached_p_rate(handler)
     return {
         "refold_setup_seconds": setup_seconds,
         "refold_query_seconds": query_seconds,
-        "refold_cache_source": source,
-        "refold_cache_strength": 0.0 if tv is None else tv[0],
-        "refold_cache_confidence": 0.0 if tv is None else tv[1],
+        **cached_p_rate(handler, "refold")[0],
         "refold_facts": float(total_facts),
     }
 

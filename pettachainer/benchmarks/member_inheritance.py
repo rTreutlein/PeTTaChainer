@@ -63,12 +63,11 @@ def member_statements(index: int, strength: float) -> tuple[str, str]:
     )
 
 
-def inheritance_query() -> str:
-    return (
-        "(: $memberBenchProof "
-        "(Inheritance MemberBenchSubject MemberBenchConcept) "
-        "$memberBenchTV)"
-    )
+INHERITANCE_QUERY = (
+    "(: $memberBenchProof "
+    "(Inheritance MemberBenchSubject MemberBenchConcept) "
+    "$memberBenchTV)"
+)
 
 
 def run_incremental_benchmark(
@@ -80,13 +79,6 @@ def run_incremental_benchmark(
     query_steps: int,
     forward_steps: int,
 ) -> dict[str, float]:
-    if initial_members < 1 or deltas < 1:
-        raise MemberInheritanceBenchmarkError(
-            "initial-members and deltas must both be positive"
-        )
-    if not 0.0 <= member_strength <= 1.0:
-        raise MemberInheritanceBenchmarkError("member-strength must be in [0, 1]")
-
     chainer_type = load_chainer(repository, MemberInheritanceBenchmarkError)
     started = time.perf_counter()
     handler = chainer_type()
@@ -98,9 +90,8 @@ def run_incremental_benchmark(
     handler.add_atoms_no_check(initial_atoms)
     initial_load_seconds = time.perf_counter() - started
 
-    query = inheritance_query()
     started = time.perf_counter()
-    warm_answers = handler.query(query, steps=query_steps, timeout_sec=0)
+    warm_answers = handler.query(INHERITANCE_QUERY, steps=query_steps, timeout_sec=0)
     warm_query_seconds = time.perf_counter() - started
     validate_truth_value(
         warm_answers,
@@ -132,7 +123,7 @@ def run_incremental_benchmark(
         forward_seconds += time.perf_counter() - started
 
         started = time.perf_counter()
-        answers = handler.query(query, steps=query_steps, timeout_sec=0)
+        answers = handler.query(INHERITANCE_QUERY, steps=query_steps, timeout_sec=0)
         query_seconds += time.perf_counter() - started
         final_strength, final_confidence = validate_truth_value(
             answers,
@@ -166,19 +157,13 @@ def run_forward_population_benchmark(
     query_steps: int,
     forward_steps: int,
 ) -> dict[str, float]:
-    if members < 1:
-        raise MemberInheritanceBenchmarkError("initial-members must be positive")
-    if not 0.0 <= member_strength <= 1.0:
-        raise MemberInheritanceBenchmarkError("member-strength must be in [0, 1]")
-
     chainer_type = load_chainer(repository, MemberInheritanceBenchmarkError)
     started = time.perf_counter()
     handler = chainer_type()
     setup_seconds = time.perf_counter() - started
 
-    query = inheritance_query()
     started = time.perf_counter()
-    registration_answers = handler.query(query, steps=0, timeout_sec=0)
+    registration_answers = handler.query(INHERITANCE_QUERY, steps=0, timeout_sec=0)
     registration_seconds = time.perf_counter() - started
 
     add_seconds = 0.0
@@ -221,7 +206,7 @@ def run_forward_population_benchmark(
     )
 
     started = time.perf_counter()
-    answers = handler.query(query, steps=query_steps, timeout_sec=0)
+    answers = handler.query(INHERITANCE_QUERY, steps=query_steps, timeout_sec=0)
     final_query_seconds = time.perf_counter() - started
     final_strength, final_confidence = validate_truth_value(
         answers,
@@ -276,6 +261,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--json-out", type=Path)
     arguments = parser.parse_args(argv)
+    if arguments.initial_members < 1 or arguments.deltas < 1:
+        parser.error("--initial-members and --deltas must be positive")
+    if not 0.0 <= arguments.member_strength <= 1.0:
+        parser.error("--member-strength must be in [0, 1]")
     try:
         if arguments.population_mode == "forward-populate":
             metrics = run_forward_population_benchmark(

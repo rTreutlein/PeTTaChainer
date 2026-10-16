@@ -56,49 +56,17 @@ def shift_statements(shift: int, evolving_roots: int) -> list[str]:
     ]
 
 
+def goals(stable_roots: int, evolving_roots: int, shift: int) -> list[str]:
+    return [f"(RetainedStableGoal {root})" for root in range(stable_roots)] + [
+        f"(RetainedEvolvingGoal {root} {shift})" for root in range(evolving_roots)
+    ]
+
+
 def queries(stable_roots: int, evolving_roots: int, shift: int) -> list[str]:
-    stable = [
-        f"(: $retainedProof (RetainedStableGoal {root}) $retainedTV)"
-        for root in range(stable_roots)
+    return [
+        f"(: $retainedProof {goal} $retainedTV)"
+        for goal in goals(stable_roots, evolving_roots, shift)
     ]
-    evolving = [
-        f"(: $retainedProof (RetainedEvolvingGoal {root} {shift}) $retainedTV)"
-        for root in range(evolving_roots)
-    ]
-    return stable + evolving
-
-
-def validate_answers(
-    answers: list[list[Any]], expected_terms: list[str], shift: int
-) -> None:
-    if len(answers) != len(expected_terms):
-        raise DurableQueryBenchmarkError(
-            f"shift {shift + 1} returned {len(answers)} root groups, "
-            f"expected {len(expected_terms)}"
-        )
-    missing = [root for root, root_answers in enumerate(answers) if not root_answers]
-    if missing:
-        raise DurableQueryBenchmarkError(
-            f"shift {shift + 1} did not prove roots {missing}"
-        )
-    multiple = [
-        root for root, root_answers in enumerate(answers) if len(root_answers) != 1
-    ]
-    if multiple:
-        raise DurableQueryBenchmarkError(
-            f"shift {shift + 1} returned more than one answer for roots {multiple}"
-        )
-    mismatched = [
-        index
-        for index, (root_answers, expected) in enumerate(
-            zip(answers, expected_terms)
-        )
-        if not any(expected in str(answer) for answer in root_answers)
-    ]
-    if mismatched:
-        raise DurableQueryBenchmarkError(
-            f"shift {shift + 1} returned mismatched answers for roots {mismatched}"
-        )
 
 
 def run_benchmark(
@@ -121,17 +89,22 @@ def run_benchmark(
     shift_answer_counts: list[int] = []
     for shift in range(shifts):
         handler.add_atoms_no_check(shift_statements(shift, evolving_roots))
-        query_batch = queries(stable_roots, evolving_roots, shift)
         started = time.perf_counter()
-        answers = handler.query_many(query_batch, steps=steps, timeout_sec=0)
+        answers = handler.query_many(
+            queries(stable_roots, evolving_roots, shift), steps=steps, timeout_sec=0
+        )
         shift_seconds.append(time.perf_counter() - started)
-        expected_terms = [
-            f"(RetainedStableGoal {root})" for root in range(stable_roots)
-        ] + [
-            f"(RetainedEvolvingGoal {root} {shift})"
-            for root in range(evolving_roots)
+        wrong = [
+            root
+            for root, (root_answers, goal) in enumerate(
+                zip(answers, goals(stable_roots, evolving_roots, shift))
+            )
+            if len(root_answers) != 1 or goal not in root_answers[0]
         ]
-        validate_answers(answers, expected_terms, shift)
+        if wrong:
+            raise DurableQueryBenchmarkError(
+                f"shift {shift + 1} did not prove roots {wrong} with exactly one answer"
+            )
         shift_answer_counts.append(sum(map(len, answers)))
 
     return {

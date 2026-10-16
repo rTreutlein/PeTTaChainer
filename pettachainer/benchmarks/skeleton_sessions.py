@@ -17,7 +17,7 @@ from pathlib import Path
 from _benchmark_support import load_chainer, write_json
 from durable_query_many import initial_statements, queries, shift_statements
 from member_inheritance import (
-    count_confidence, inheritance_query, member_statements, validate_truth_value,
+    INHERITANCE_QUERY, count_confidence, member_statements, validate_truth_value,
 )
 
 
@@ -72,7 +72,7 @@ def run(repository: Path, rounds: int, repeats: int, mode: str) -> dict:
             "(Implication (Inheritance MemberBenchSubject MemberBenchConcept) "
             "(SessionConclusion)) (CTV (STV 1 1) (STV 0 1)))"
         ])
-        goals = [inheritance_query(), "(: $proof (SessionConclusion) $tv)"]
+        goals = [INHERITANCE_QUERY, "(: $proof (SessionConclusion) $tv)"]
         for iteration in range(rounds):
             if iteration:
                 handler.add_atoms_no_check(member_statements(15 + iteration, 0.75))

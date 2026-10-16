@@ -82,10 +82,6 @@ class AcceptanceReport:
     libpln_uniform_total_value: Optional[float]
     value_delta_fixed: Optional[float]
     value_delta_uniform: Optional[float]
-    libpln_fixed_available: bool
-    libpln_fixed_message: str
-    libpln_uniform_available: bool
-    libpln_uniform_message: str
 
 
 def contract_value(predicate: PredicateSpec) -> float:
@@ -181,72 +177,34 @@ def _rows_for_backend(
     return rows
 
 
-def _libpln_modus_ponens_acceptance(estimates: Dict[str, tuple[float, float]]) -> Dict[str, tuple[float, float]]:
-    return {
-        name: (strength + 0.02 * (1.0 - strength), confidence)
-        for name, (strength, confidence) in estimates.items()
-    }
-
-
-def _fixed_libpln_acceptance(
-    predicates: Sequence[PredicateSpec],
-    prior_strength: float = 0.5,
-    prior_confidence: float = 0.01,
-) -> Dict[str, tuple[float, float]]:
-    priors = {predicate.name: (prior_strength, prior_confidence) for predicate in predicates}
-    return _libpln_modus_ponens_acceptance(priors)
-
-
-def _uniform_libpln_acceptance(
-    predicates: Sequence[PredicateSpec],
-    prior_confidence: float = 0.01,
-) -> Dict[str, tuple[float, float]]:
-    if not predicates:
-        return {}
-    prior_strength = 1.0 / len(predicates)
-    priors = {predicate.name: (prior_strength, prior_confidence) for predicate in predicates}
-    return _libpln_modus_ponens_acceptance(priors)
-
-
 def run_acceptance_game(
     sample_counts: Sequence[int] = (10, 25, 50, 100),
     predicates: Sequence[PredicateSpec] = DEFAULT_PREDICATES,
     accept_threshold: Optional[float] = None,
     include_libpln: bool = True,
 ) -> AcceptanceReport:
-    rows: List[AcceptanceRow] = []
-    fixed_available = include_libpln
-    fixed_message = "ok" if include_libpln else "disabled"
-    uniform_available = include_libpln
-    uniform_message = "ok" if include_libpln else "disabled"
-    fixed_decisions: Dict[str, tuple[float, float]] = {}
-    uniform_decisions: Dict[str, tuple[float, float]] = {}
-
+    # libPLN has no base rates: it applies the accept rule's modus ponens to
+    # a weak prior, fixed at 0.5 or uniform over the contracts.
+    libpln_decisions = {}
     if include_libpln:
-        fixed_decisions = _fixed_libpln_acceptance(predicates)
-        uniform_decisions = _uniform_libpln_acceptance(predicates)
+        for backend, prior in (("libpln_fixed", 0.5), ("libpln_uniform", 1.0 / len(predicates))):
+            libpln_decisions[backend] = {
+                predicate.name: (prior + 0.02 * (1.0 - prior), 0.01) for predicate in predicates
+            }
 
+    rows: List[AcceptanceRow] = []
     for sample_count in sample_counts:
-        pettachainer_decisions = query_pettachainer_acceptance(predicates, sample_count)
-        rows.extend(
-            _rows_for_backend(
-                sample_count,
-                "pettachainer",
-                pettachainer_decisions,
-                predicates,
-                accept_threshold,
-            )
-        )
-        if fixed_decisions:
-            rows.extend(_rows_for_backend(sample_count, "libpln_fixed", fixed_decisions, predicates, accept_threshold))
-        if uniform_decisions:
-            rows.extend(_rows_for_backend(sample_count, "libpln_uniform", uniform_decisions, predicates, accept_threshold))
+        decisions = {"pettachainer": query_pettachainer_acceptance(predicates, sample_count), **libpln_decisions}
+        for backend, backend_decisions in decisions.items():
+            rows.extend(_rows_for_backend(sample_count, backend, backend_decisions, predicates, accept_threshold))
 
-    pc_value = sum(row.realized_expected_value for row in rows if row.backend == "pettachainer")
-    fixed_values = [row.realized_expected_value for row in rows if row.backend == "libpln_fixed"]
-    uniform_values = [row.realized_expected_value for row in rows if row.backend == "libpln_uniform"]
-    fixed_value = sum(fixed_values) if fixed_values else None
-    uniform_value = sum(uniform_values) if uniform_values else None
+    def total(backend: str) -> Optional[float]:
+        values = [row.realized_expected_value for row in rows if row.backend == backend]
+        return sum(values) if values else None
+
+    pc_value = total("pettachainer") or 0.0
+    fixed_value = total("libpln_fixed")
+    uniform_value = total("libpln_uniform")
     return AcceptanceReport(
         rows=rows,
         accept_threshold_override=accept_threshold,
@@ -255,10 +213,6 @@ def run_acceptance_game(
         libpln_uniform_total_value=uniform_value,
         value_delta_fixed=(pc_value - fixed_value) if fixed_value is not None else None,
         value_delta_uniform=(pc_value - uniform_value) if uniform_value is not None else None,
-        libpln_fixed_available=fixed_available,
-        libpln_fixed_message=fixed_message,
-        libpln_uniform_available=uniform_available,
-        libpln_uniform_message=uniform_message,
     )
 
 
@@ -311,8 +265,6 @@ def print_report(report: AcceptanceReport) -> None:
         print(f"value_delta_pettachainer_minus_libpln_fixed\t{report.value_delta_fixed:.6f}")
     if report.value_delta_uniform is not None:
         print(f"value_delta_pettachainer_minus_libpln_uniform\t{report.value_delta_uniform:.6f}")
-    print(f"libpln_fixed_available\t{report.libpln_fixed_available}\t{report.libpln_fixed_message}")
-    print(f"libpln_uniform_available\t{report.libpln_uniform_available}\t{report.libpln_uniform_message}")
 
 
 def main() -> None:

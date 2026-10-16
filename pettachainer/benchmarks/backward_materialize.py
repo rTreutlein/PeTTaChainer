@@ -79,29 +79,8 @@ def compile_commands(kb: str, bench: str, depth: int, targets: int, prefix: str)
     return commands
 
 
-def query_bindings(kb: str, bench: str, targets: int, steps: int, prefix: str, query_fun: str) -> List[str]:
-    return [
-        f"($_{prefix}_{target} (collapse ({query_fun} {steps} {kb} {target_query(bench, target)})))"
-        for target in range(targets)
-    ]
-
-
-def query_binding(kb: str, bench: str, target: int, steps: int, prefix: str, query_fun: str) -> str:
-    return f"($_{prefix}_{target} (collapse ({query_fun} {steps} {kb} {target_query(bench, target)})))"
-
-
-def repeated_query_bindings(
-    kb: str,
-    bench: str,
-    query_targets: List[int],
-    steps: int,
-    prefix: str,
-    query_fun: str,
-) -> List[str]:
-    return [
-        f"($_{prefix}_{idx} (collapse ({query_fun} {steps} {kb} {target_query(bench, target)})))"
-        for idx, target in enumerate(query_targets)
-    ]
+def query_binding(kb: str, bench: str, target: int, steps: int, name: str) -> str:
+    return f"(${name} (collapse (query {steps} {kb} {target_query(bench, target)})))"
 
 
 def generated_program(mode: str, depth: int, queries: int, cached_steps: int, repeat: int) -> str:
@@ -119,7 +98,10 @@ def generated_program(mode: str, depth: int, queries: int, cached_steps: int, re
     setup.extend(compile_commands(materialized_kb, materialized_bench, depth, target_count, "m"))
     bindings: List[str] = []
     bindings.append("($plain-start (current-time))")
-    bindings.extend(repeated_query_bindings(plain_kb, plain_bench, plain_targets, steps, "plain_q", "query"))
+    bindings.extend(
+        query_binding(plain_kb, plain_bench, target, steps, f"_plain_q_{idx}")
+        for idx, target in enumerate(plain_targets)
+    )
     bindings.append("($plain-end (current-time))")
     bindings.append("($materialize-start (current-time))")
     bindings.append(
@@ -128,9 +110,7 @@ def generated_program(mode: str, depth: int, queries: int, cached_steps: int, re
     )
     bindings.append("($materialize-first-end (current-time))")
     bindings.extend(
-        query_binding(materialized_kb, materialized_bench, target, steps, "cached_tail", "query")
-        if cached_steps == steps
-        else query_binding(materialized_kb, materialized_bench, target, cached_steps, "cached_tail", "query")
+        query_binding(materialized_kb, materialized_bench, target, cached_steps, f"_cached_tail_{target}")
         for target in cached_tail_targets
     )
     bindings.append("($materialize-end (current-time))")
@@ -183,10 +163,7 @@ def run_petta_benchmark(
                 f"petta failed with exit code {result.returncode} for {script_name}:\n{result.stdout[-4000:]}"
             )
     finally:
-        try:
-            script_path.unlink()
-        except FileNotFoundError:
-            pass
+        script_path.unlink()
 
     output = result.stdout
     plain_s = parse_seconds(output, "plain-seconds")
