@@ -612,11 +612,6 @@
 (: sk-ranked-statements (-[semidet]-> (List SkeletonShared) (List SkeletonKey)))
 (= (sk-ranked-statements $shared) (map-flat sk-ranked-key (sort-atom (map-flat sk-shared-rank $shared))))
 
-;; Whether a row reads a compound off its parts.
-(: sk-compound-proof? (-[det]-> Atom Bool))
-(= (sk-compound-proof? $proof)
-   (if (is-expr $proof) (let $head (car-atom $proof) (if (is-var $head) false (== $head conjunction))) false))
-
 ;; Premises of a rule application, or of a compound read off its parts, that
 ;; read one uncertain statement are not independent, whatever evidence they
 ;; name: E <- (Or C B) with C <- B multiplies P(C) and P(B) as if they were
@@ -1187,7 +1182,6 @@
 (: SkeletonConnecting Type)
 (: sk-connecting (-[det]-> SkeletonComponent (List SkeletonComponent) SkeletonConnecting))
 
-
 ;; Connectivity needs existence, not a ranked conditioning cut. Stop at the
 ;; first uncertain shared statement instead of ranking every shared key.
 (: sk-shared-statement-step (-[semidet]-> (List Number) Bool Number Bool))
@@ -1625,7 +1619,7 @@
 (: sk-rule-truth-key? (-[det]-> SkeletonKey Bool))
 (= (sk-rule-truth-key? $key)
    (case $key (
-      ((sk-key $type $_kbctx) (if (is-expr $type) (== (car-atom $type) RuleTruth) false))
+      ((sk-key $type $_kbctx) (head-is? $type RuleTruth))
       ($_fold false))))
 
 ;; Whether a consumer excluding these keys reads the key with a sample left
@@ -2433,20 +2427,16 @@
 ;; A rule truth's new value rescores the rules that read it.
 (: sk-note-truth-factor! (-[det]-> Number SkeletonKey SkeletonValue Atom))
 (= (sk-note-truth-factor! $hash $key $value)
-   (case $key (
-      ((sk-key $type $_kbctx)
-         (if (if (is-expr $type) (== (car-atom $type) RuleTruth) false)
-            (case $value (
-               ((sk-val ($_vtype $_vkbctx $_proof $tv) $_ev $_deps) (sk-set-truth-factor! $hash (rule-truth-factor $tv)))
-               ($_none ())))
-            ()))
-      ($_fold ()))))
+   (if (sk-rule-truth-key? $key)
+      (case $value (
+         ((sk-val ($_type $_kbctx $_proof $tv) $_ev $_deps) (sk-set-truth-factor! $hash (rule-truth-factor $tv)))
+         ($_none ())))
+      ()))
 
 ;; The merged value of a key on behalf of a consumer. A proof or truth-value
 ;; pattern takes the whole merged value when it admits it, and otherwise the
 ;; merge of the views it admits. A consumer that leaves one of its own samples
 ;; out of an instance fold reads the views it admits, never the cached value.
-
 (= (sk-value $key $filter $exclude)
    (let* (($hash (index-hash $key))
           ($merged
@@ -2553,7 +2543,7 @@
       ((marginal-proj $idx $base)
          (case (sk-proof-source $kbctx (brand Proof $base)) (
             ((cons (sk-source $statement $source-tv) $_rest)
-               (if (if (is-expr $statement) (== (car-atom $statement) And) false)
+               (if (head-is? $statement And)
                   (sk-pool-part (brand Proof $base) $source-tv (list-len (cdr-atom $statement)) (cons $idx ()) $tv)
                   (sk-indep-part $tv)))
             (() (sk-indep-part $tv)))))
@@ -2778,7 +2768,7 @@
                (if (= ($type $kbctx $proof $tv) (if (is-var $proof) $fact (sk-full-fact $fact)))
                   (sk-acc $fold-proofs (evidence-union $ev $premise-ev)
                      (cons
-                        (if (if (is-expr $type) (== (car-atom $type) RuleTruth) false)
+                        (if (head-is? $type RuleTruth)
                            (deps-key (index-hash (sk-key $type $kbctx)))
                            $premise-deps)
                         $deps)
@@ -2800,12 +2790,8 @@
 (: sk-projection? (-[det]-> SkFact Bool))
 (= (sk-projection? $fact)
    (let $step (sk-fact-step-proof $fact)
-      (if (is-expr $step)
-         (let $head (car-atom $step)
-            (if (is-var $head) false
-               (if (== $head marginal-proj) true
-                  (if (is-expr $head) (== (car-atom $head) proj) false))))
-         false)))
+      (if (head-is? $step marginal-proj) true
+         (if (is-expr $step) (let $head (car-atom $step) (head-is? $head proj)) false))))
 
 ;; A clash names the statements of the fact evidence the value shares with the
 ;; row, less those already given and those known, the most impact first. A
@@ -3333,7 +3319,7 @@
          (if (sk-completion-proof? $proof)
             (sk-completion-state $given $exclusions $khash (sk-key $type $kbctx) $shared $facts-first $start $premises)
             (let $state (fold-semidet (sk-premise-step $pin $given $exclusions $shared false $facts-first) $start $premises)
-               (if (if $shared false (if (rule-application-proof? $proof) true (sk-compound-proof? $proof)))
+               (if (if $shared false (if (rule-application-proof? $proof) true (head-is? $proof conjunction)))
                   (sk-entangle (hash-union $exclusions (hash-set (sk-given-hashes $given))) $state)
                   $state))))))
 
@@ -3443,7 +3429,7 @@
 ;; rules are found through the conclusion index, by the consequent.
 (: sk-sample-exclusions (-[semidet]-> Atom KBContext (List Evidence)))
 (= (sk-sample-exclusions $type $kbctx)
-   (if (if (is-expr $type) (== (car-atom $type) ImplicationInstanceSample) false)
+   (if (head-is? $type ImplicationInstanceSample)
       (let* (((ImplicationInstanceSample $a $b $_atv $_btv) (copy_term $type))
              (($kbid $_ctx $_vars) $kbctx)
              ($conjuncts (implication-side-conjuncts (the Statement $a))))
@@ -4067,7 +4053,6 @@
 (= (sk-need-depth $hash $key)
    (chainer-first-or 1000000
       (collapse (once (match &sk_needed ($hash $stored $depth) (if (=alpha $stored $key) $depth (empty)))))))
-
 
 ;; A stale row within the depth computed in full rejoins its keys' readers and
 ;; is recomputed by the evaluation, and so does a stale row at any depth that
