@@ -78,7 +78,6 @@
 (: sk-branch-ready-step (-[semidet]-> Number (List Number) Atom SkeletonItem Atom))
 (: sk-finish-branches! (-[semidet]-> Number Atom))
 (: sk-branch-values (-[semidet]-> Number SkeletonKey Number (List Number) Bool (List SkeletonValue)))
-(: sk-mixed (-[det]-> (List SkeletonValue) SkeletonValue SkeletonValue))
 (: sk-reference-view (-[semidet]-> Number SkeletonValue SkeletonValue))
 (: sk-cache-branch!
    (-[semidet]-> Number Number SkeletonKey Number Number (List SkeletonKey) (List Number) Bool SkeletonValue SkeletonValue))
@@ -837,9 +836,8 @@
    (case $premise (
       ((CPU FoldAllCompiled $args $_res)
          (if (sk-instance-fold? $args)
-            (case (collapse (once (match &ctx_sk_instance_digest ((index-hash (sk-fold $args)) $stored) $stored))) (
-               ((cons $found $_rest) $found)
-               (() $digest)))
+            (chainer-first-or $digest
+               (collapse (once (match &ctx_sk_instance_digest ((index-hash (sk-fold $args)) $stored) $stored))))
             $digest))
       ($_other $digest))))
 
@@ -1450,7 +1448,7 @@
                                                        (context-add! &sk_branch_wanted ($slot $hash $key $rhash $exclude)) ()))
                                                         ($_reader (sk-hold-branch-reader! $key))) ()))
                                                  (empty)))))))
-                                    (sk-mixed (sk-branch-values $slot $key $rhash $exclude false) sk-none)))))))
+                                    (chainer-first-or sk-none (sk-branch-values $slot $key $rhash $exclude false))))))))
                      (sk-rebuild-view $hash $key $rhash $exclude))
                   sk-none)
                (case (if (sk-admits? $filter $exclude $rebuilt) $rebuilt
@@ -1501,14 +1499,14 @@
                                  (if (== $unpaid (search-id-value sk_branch_unpaid))
                                     (sk-cache-branch! $slot $hash $key $rhash $rule $inputs $cuts true $view)
                                     (let $_unfinished (next-search-id sk_branch_unpaid)
-                                       (if (== $view sk-none) (sk-mixed $incumbent sk-none)
-                                          (if (sk-same-view? $view (sk-mixed $incumbent sk-none))
-                                             (sk-mixed $incumbent $view)
+                                       (if (== $view sk-none) (chainer-first-or sk-none $incumbent)
+                                          (if (sk-same-view? $view (chainer-first-or sk-none $incumbent))
+                                             (chainer-first-or $view $incumbent)
                                              (sk-cache-branch! $slot $hash $key $rhash $rule $inputs $exclude false $view))))))
                               (let* (($_unpaid (query_metric_increment rows-unpaid))
                                      ($_unfinished (next-search-id sk_branch_unpaid))
                                      ($_reader (sk-hold-branch-reader! $key)))
-                                 (sk-mixed (sk-branch-values $slot $key $rhash $exclude false) sk-none)))))))))))))))
+                                 (chainer-first-or sk-none (sk-branch-values $slot $key $rhash $exclude false))))))))))))))))
 
 (= (sk-hold-branch-reader! $key)
    (let $_held (collapse (fold-semidet (sk-stale-reader-step $key) ()
@@ -1704,10 +1702,9 @@
 
 (: sk-latest-view (-[det]-> Number SkeletonKey Number SkeletonValue))
 (= (sk-latest-view $hash $key $rhash)
-   (case (collapse (once (match &ctx_sk_latest ($hash $stored (sk-version $seq $rhash $view))
-            (if (=alpha $stored $key) (if (sk-live-view? $view) $view (empty)) (empty))))) (
-      ((cons $view $_rest) $view)
-      (() sk-none))))
+   (chainer-first-or sk-none
+      (collapse (once (match &ctx_sk_latest ($hash $stored (sk-version $seq $rhash $view))
+         (if (=alpha $stored $key) (if (sk-live-view? $view) $view (empty)) (empty)))))))
 
 ;; A stored view's proof moves to &proof under a fresh id and the view keeps a
 ;; reference to it, so a view stays the size of one rule application however
@@ -1752,9 +1749,7 @@
 
 (: sk-row-support (-[det]-> Number Number Number))
 (= (sk-row-support $hash $rhash)
-   (case (collapse (once (match &ctx_sk_support ($hash $rhash $deps) $deps))) (
-      ((cons $deps $_rest) $deps)
-      (() 0))))
+   (chainer-first-or 0 (collapse (once (match &ctx_sk_support ($hash $rhash $deps) $deps)))))
 
 ;; A population prior (sk-start-prior!) is the population's value, not the
 ;; statement's: a key reads it only while nothing else gives it a value.
@@ -2007,9 +2002,7 @@
 
 (: rule-change-hazard (-[det]-> KB Number))
 (= (rule-change-hazard $kb)
-   (case (collapse (once (match &rule_change_hazard ($kb $hazard) $hazard))) (
-      ((cons $hazard $_more) $hazard)
-      (() 0.0001))))
+   (chainer-first-or 0.0001 (collapse (once (match &rule_change_hazard ($kb $hazard) $hazard)))))
 
 (: sk-instance-take-value! (-[semidet]-> Number SkeletonKey ScalarFoldSpec SkeletonKey SkeletonValue Atom))
 (= (sk-instance-take-value! $hash $fold $args $member $value)
@@ -2059,8 +2052,8 @@
                      ($_none 0))))
                 ($mass (+ $pm $nm))
                 ($sig (if (> $mass 0.0) (index-hash (sk-sample-sig $observed (round-math (* 1000000 (/ $pm $mass))))) 0))
-                ($was (case (collapse (once (match &ctx_sk_instance_digest ($hash $stored) $stored))) (((cons $d $_rest) $d) (() 0))))
-                ($taken (case (collapse (once (match &ctx_sk_instance_sig ($mhash $hash $stored-sig) $stored-sig))) (((cons $t $_more) $t) (() 0))))
+                ($was (chainer-first-or 0 (collapse (once (match &ctx_sk_instance_digest ($hash $stored) $stored)))))
+                ($taken (chainer-first-or 0 (collapse (once (match &ctx_sk_instance_sig ($mhash $hash $stored-sig) $stored-sig)))))
                 ($digest (+ (- $was $taken) $sig))
                 ($_old (remove-data-rows! &sk_instance_digest (quote ($hash $_d))))
                 ($_new (context-add! &sk_instance_digest ($hash $digest)))
@@ -3146,7 +3139,9 @@
       (() $approx)
       ((cons $_first $_more)
          (if (== $given ())
-            (let* (($level (sk-condition-level $khash $rhash))
+            ;; The level of the payment, its cost 2^level times its base: 1
+            ;; until a claim overdrew.
+            (let* (($level (chainer-first-or 1 (collapse (once (match &ctx_sk_cond_level ($khash $rhash $paid) $paid)))))
                    ($cost (* (pow-math 2 $level) $base)))
                ;; A deferred branch may belong to a row outside the ordinary
                ;; need closure. Pay its conditioning here from the same tier
@@ -3167,9 +3162,9 @@
                                   ($_was (remove-data-rows! &sk_cond_level (quote ($khash $rhash $_level))))
                                   ($_raised (context-add! &sk_cond_level ($khash $rhash $raised)))
                                   ($_again (context-remove! &sk_given_granted ($khash $rhash))))
-                              (sk-wait! $khash $rhash (* 2 $cost) (sk-mixed $deepest $waiting)))
-                           (sk-mixed $deepest $waiting)))
-                     (sk-mixed (sk-mix-on $given $target $wexclude $keys) $waiting)))
+                              (sk-wait! $khash $rhash (* 2 $cost) (chainer-first-or $waiting $deepest)))
+                           (chainer-first-or $waiting $deepest)))
+                     (chainer-first-or $waiting (sk-mix-on $given $target $wexclude $keys))))
                   (sk-wait! $khash $rhash $cost $waiting)))
             (if (if (== $approx sk-none) false (>= (fold-semidet sk-given-depth-step 0 $given) (search-id-value sk_claim_depth)))
                (progn (change-state! sk_claim_cut 1) $approx)
@@ -3177,14 +3172,14 @@
                   (if (== $approx sk-none)
                   (let* (($_opened (sk-open-claim! (* (pow-math 2 (list-len $keys)) $base)))
                          ($mixed (sk-mix-on $given $target $wexclude $keys)))
-                     (if (sk-close-claim!) $approx (sk-mixed $mixed $approx)))
+                     (if (sk-close-claim!) $approx (chainer-first-or $approx $mixed)))
                   (let $cost (* 2 $base)
                      (if (> $cost (search-id-value sk_eval_budget)) $approx
                         (let* (($_paid (change-state! sk_eval_budget (- (search-id-value sk_eval_budget) $cost)))
                                ($_opened (sk-open-claim! $cost))
                                ($deepest (sk-deepen $given $target $wexclude $keys false 1 ()))
                                ($_closed (sk-close-claim!)))
-                           (sk-mixed $deepest $approx)))))
+                           (chainer-first-or $approx $deepest)))))
                   (case (sk-mix-on $given $target $wexclude $keys) (
                      (() (if (== $approx sk-none) sk-none (progn (change-state! sk_claim_cut 1) $approx)))
                      ((cons $value $_rest) $value))))))))))
@@ -3206,14 +3201,6 @@
          (let $cut (== (search-id-value sk_claim_cut) 1)
             (let $found (if (== $mixed ()) $deepest (if (if $cut $uncut false) $deepest $mixed))
                (if (if $cut (< $depth 64) false) (sk-deepen $given $target $wexclude $keys $uncut (+ $depth 1) $found) $found))))))
-
-(= (sk-mixed $mixed $otherwise) (case $mixed (((cons $value $_rest) $value) (() $otherwise))))
-
-;; The level of a target's payment, its cost 2^level times its base: 1 until
-;; a claim overdrew.
-(: sk-condition-level (-[det]-> Number Number Number))
-(= (sk-condition-level $khash $rhash)
-   (case (collapse (once (match &ctx_sk_cond_level ($khash $rhash $level) $level))) (((cons $level $_rest) $level) (() 1))))
 
 ;; A target waits for a payment of its cost, keeping its waiting value.
 (: sk-wait! (-[det]-> Number Number Number SkeletonValue SkeletonValue))
@@ -3943,8 +3930,9 @@
             ((cons (sk-wanted $slot $hash $key $rhash $exclude) $_rest)
                (let* (($request (data $slot $hash $key $rhash $exclude))
                       ($before (search-id-value sk_eval_budget))
-                      ($incumbent (sk-mixed (sk-branch-values $slot $key $rhash $exclude true)
-                                    (sk-mixed (sk-branch-values $slot $key $rhash $exclude false) sk-none)))
+                      ($incumbent (chainer-first-or
+                                    (chainer-first-or sk-none (sk-branch-values $slot $key $rhash $exclude false))
+                                    (sk-branch-values $slot $key $rhash $exclude true)))
                       ($_slice (change-state! sk_eval_budget $room))
                       ($built (sk-rebuild-view $hash $key $rhash $exclude))
                       ($spent (- $room (search-id-value sk_eval_budget)))
@@ -4105,9 +4093,8 @@
 ;; How many rows or folds lie between a needed key and the nearest root.
 (: sk-need-depth (-[det]-> Number SkeletonKey Number))
 (= (sk-need-depth $hash $key)
-   (case (collapse (once (match &sk_needed ($hash $stored $depth) (if (=alpha $stored $key) $depth (empty))))) (
-      ((cons $depth $_rest) $depth)
-      (() 1000000))))
+   (chainer-first-or 1000000
+      (collapse (once (match &sk_needed ($hash $stored $depth) (if (=alpha $stored $key) $depth (empty)))))))
 
 
 ;; A stale row within the depth computed in full rejoins its keys' readers and
