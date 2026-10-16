@@ -2565,17 +2565,17 @@
 ;; the source's evidence. A conjunction pools them back into the source, whose
 ;; truth value it takes once every member is projected, and the first
 ;; projection's marginal truth value before.
-(: sk-proof-source (-[det]-> Proof (List SkeletonSource)))
-(= (sk-proof-source $base)
+(: sk-proof-source (-[det]-> KBContext Proof (List SkeletonSource)))
+(= (sk-proof-source $scope $base)
    (case $base (
       ((proof-ref $pid) (collapse (once (match &proof_fact ($pid $statement $tv) (sk-source $statement $tv)))))
-      ($_leaf (collapse (once (match &kb ($statement $_kbctx $base $tv) (sk-source $statement $tv))))))))
+      ($_leaf (collapse (once (match &kb ($statement $scope $base $tv) (sk-source $statement $tv))))))))
 
 (: sk-premise-part (-[det]-> SkFact SkeletonPart))
-(= (sk-premise-part ($_type $_kbctx $proof $tv))
+(= (sk-premise-part ($_type $kbctx $proof $tv))
    (case (sk-step-proof $proof) (
       ((marginal-proj $idx $base)
-         (case (sk-proof-source (brand Proof $base)) (
+         (case (sk-proof-source $kbctx (brand Proof $base)) (
             ((cons (sk-source $statement $source-tv) $_rest)
                (if (if (is-expr $statement) (== (car-atom $statement) And) false)
                   (sk-pool-part (brand Proof $base) $source-tv (list-len (cdr-atom $statement)) (cons $idx ()) $tv)
@@ -2611,13 +2611,23 @@
             ($_indep-part (cons $head (sk-add-part $rest $part))))))
       ($_indep-head (cons $head (sk-add-part $rest $part))))))
 
+;; Keep parts in read order until their source computations have run. In
+;; particular, NotFormula transforms the last read before conjunction pooling.
+(: sk-pool-parts (-[det]-> (List SkeletonPart) (List SkeletonPart)))
+(= (sk-pool-parts $parts)
+   (let $ordered (reverse $parts)
+      (fold-flat sk-add-part () (the (List SkeletonPart) $ordered))))
+
 (: sk-pooled? (-[det]-> (List SkeletonPart) Bool))
-(= (sk-pooled? ()) false)
-(= (sk-pooled? (cons $head $rest))
+(= (sk-pooled? $parts) (sk-has-pool? (sk-pool-parts $parts)))
+
+(: sk-has-pool? (-[det]-> (List SkeletonPart) Bool))
+(= (sk-has-pool? ()) false)
+(= (sk-has-pool? (cons $head $rest))
    (case $head (
       ((sk-pool-part $_base $_tv $_arity $idxs $_marginal)
-         (if (> (list-len $idxs) 1) true (sk-pooled? $rest)))
-      ($_indep (sk-pooled? $rest)))))
+         (if (> (list-len $idxs) 1) true (sk-has-pool? $rest)))
+      ($_indep (sk-has-pool? $rest)))))
 
 (: sk-part-tv (-[det]-> SkeletonPart TV))
 (= (sk-part-tv $part)
@@ -2630,7 +2640,9 @@
 (= (sk-parts-tv-step $acc $part) (AndFormula $acc (sk-part-tv $part)))
 
 (: sk-parts-tv (-[semidet]-> (List SkeletonPart) TV))
-(= (sk-parts-tv (cons $first $rest)) (fold-semidet sk-parts-tv-step (sk-part-tv $first) $rest))
+(= (sk-parts-tv $parts)
+   (let (cons $first $rest) (sk-pool-parts $parts)
+      (fold-semidet sk-parts-tv-step (sk-part-tv $first) $rest)))
 
 ;; --- Conditioning -------------------------------------------------------------
 ;; A premise whose every value shares fact evidence with what the row already
@@ -2788,7 +2800,7 @@
                            (deps-key (index-hash (sk-key $type $kbctx)))
                            $premise-deps)
                         $deps)
-                     (sk-add-part $parts $part))
+                     (cons $part $parts))
                   sk-fail))))
       ($_none sk-fail))))
 
@@ -2996,6 +3008,25 @@
                (sk-consume-fold $state $fold-res (sk-value (sk-fold $fold-args) sk-any-filter $exclude)))
             ((CPU GroupedFoldAllCompiled $group-args $group-res)
                (sk-consume-fold $state $group-res (sk-value (sk-group $group-args) sk-any-filter $exclude)))
+            ;; Not is lowered to a fact read followed by its complement. The
+            ;; conjunction must pool the source-level value, not the raw fact's
+            ;; TV. A complemented projection is no longer a positive projection
+            ;; of its source. Output-only NotFormula calls have no later join.
+            ((CPU NotFormula ($input) $res)
+               (case (collapse (once (cpu-call 0 NotFormula (quote ($input))))) (
+                  ((cons $result $_rest)
+                     (if (= $res $result)
+                        (if (head-is? $result STV)
+                           (case $parts (
+                              ((cons $part $rest)
+                                 (if (=alpha (sk-part-tv $part) $input)
+                                    (sk-acc $fold-proofs $ev $deps
+                                       (cons (sk-indep-part (the STVType $result)) $rest))
+                                    $state))
+                              (() $state)))
+                           $state)
+                        sk-fail))
+                  (() sk-fail))))
             ;; A conjunction step over pooled projections takes the pooled
             ;; truth value instead of multiplying shared evidence.
             ((CPU $fun $args $res)

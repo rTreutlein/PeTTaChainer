@@ -210,3 +210,22 @@ appropriate context. This is the integration contract for the ctx-overlay
 branch; it introduces no new context store or alternate routing system.
 Quantified implications as Assuming facts or goals, nested binders and `Not Exists` are not
 supported. See [explicit_exists.md](explicit_exists.md).
+
+## Source-gated existential witnesses (tracker #66)
+
+A single `Assuming` can enable a concrete witness through source-gated rules,
+including a rule deriving a negated property. The existential witness fold
+reads the same conjunction TV as the exactly matched ground query. Its public
+answer retains a lexical binder; the concrete witness stays inside the search.
+Both source proofs survive, and acceptance and derived event values remain local.
+
+Conjunction pooling keeps individual premise parts until their source
+computations have run. A lowered `Not` complements its last fact read before
+pooling, so a later `AndFormula` does not restore the uncomplemented TV. This
+also applies to ordinary conjunction queries, in every conjunct order. Raw
+projection source names are resolved in the premise's own KB context; a source
+with the same name in another KB cannot supply its pooling TV.
+
+Nested `Assuming` inside a conjunction is still unsupported. It needs child
+context-query planning and evaluation that inherits the enclosing world's
+values; a single top-level overlay does not provide that composition.
