@@ -22,6 +22,20 @@
        Statement Statement
        (KBContext Proof Statement (List CompiledAddition))))
 (= (judgment-query-side $kb $mvars $negative? $antecedent $consequent)
+   (let $normalized (query-assumption-normal-form $antecedent)
+      (if (if $negative? false (contains-head? (== Or) $normalized))
+         (disjunction-judgment-query-side $kb $mvars $normalized $consequent)
+         (if (if $negative? (head-is? $normalized Or) false)
+            (let $refuting (brand Statement (cons And
+                   (map-flat (|-> ($child) (brand Statement (Not $child)))
+                      (statement-children (cdr-atom $normalized)))))
+               (judgment-query-side-basic $kb $mvars false $refuting $consequent))
+            (judgment-query-side-basic $kb $mvars $negative? $normalized $consequent)))))
+
+(: judgment-query-side-basic
+   (-[semidet]-> KB (| NilType (List Variable)) Bool Statement Statement
+       (KBContext Proof Statement (List CompiledAddition))))
+(= (judgment-query-side-basic $kb $mvars $negative? $antecedent $consequent)
    (once (let*
       (($ctx (nextctx))
        ($shape-kb (make-kb-context $kb $ctx $mvars))
@@ -58,13 +72,76 @@
                $adds)
             $adds)))))
 
+;; Evaluate P(B and D) in the private prior world, then divide by P(D).
+;; Unlike making every disjunct true, this preserves the alternatives of D.
+;; Ordinary shared-premise conditioning computes the numerator, including
+;; the dependence between B and the disjuncts it reads. No Boolean worlds
+;; are enumerated by the compiler.
+(: disjunction-judgment-prior
+   (-[nondet]-> KB $context $variables Statement CompiledAddition))
+(= (disjunction-judgment-prior $kb $ctx $vars $type)
+   (if (head-is-member? $type (And Or))
+      (let* (($children (statement-children (cdr-atom $type)))
+             ($child (superpose $children)))
+         (disjunction-judgment-prior $kb $ctx $vars $child))
+      (if (head-is? $type Not)
+         (disjunction-judgment-prior $kb $ctx $vars
+            (brand Statement (car-atom (cdr-atom $type))))
+         (let* (($scope (make-kb-context $kb $ctx $vars))
+                ($marker (brand Statement (JudgmentPrior $type)))
+                ($idx (index-hash $type))
+                ($rate-goals (base-rate-premises $kb
+                   (rule-base-rate-pattern () $type) $rate))
+                ($premises (cons (: $scope $assumption $marker (STV 1 1)) $rate-goals)))
+            (superpose (
+               (brand CompiledAddition
+                  (() |- (: $scope (ctx proof $ctx $idx) $marker (STV 1 1))))
+               (brand CompiledAddition
+                  ($premises |- (: $scope (judgment-prior $assumption) $type $rate)))))))))
+
+(: disjunction-judgment-query-side
+   (-[semidet]-> KB (| NilType (List Variable)) Statement Statement
+       (KBContext Proof Statement (List CompiledAddition))))
+(= (disjunction-judgment-query-side $kb $mvars $antecedent $consequent)
+   (once (let* (($parts (implication-side-conjuncts $antecedent))
+          (($alternatives $fixed) (foldr-flat judgment-condition-part (() ()) $parts))
+          ($event (brand Statement (seq2expr (the (List Atom) $alternatives))))
+          ($assumptions (brand Statement (seq2expr
+             (cons (JudgmentPrior $event) (the (List Atom) $fixed)))))
+          (($scope $_proof $_goal $adds)
+             (judgment-query-side-basic $kb $mvars false $assumptions $consequent))
+          (($kbid $ctx $vars) $scope)
+          ($priors (list_to_set (collapse
+             (disjunction-judgment-prior $kb $ctx $mvars $event))))
+          ($joint (brand Statement (And $consequent $event)))
+          ($result (brand Statement (JudgmentConditioned $antecedent $consequent)))
+          ($rates (base-rate-premises $kb (rule-base-rate-pattern () $event) $rate))
+          ($result-premises (cons (: $scope $joint-proof $joint $joint-tv)
+             (append-goals $rates ((CPU AndProjection ($joint-tv $rate) $result-tv)))))
+          ($result-add (brand CompiledAddition
+             ($result-premises |-
+                (: $scope (conditioned-disjunction $joint-proof) $result $result-tv))))
+          ($adapters (collapse (compile-adapter-chain query (: $scope $prf $joint $tv)))))
+      (data $scope (brand Proof $prf) $result
+         (cons $result-add (append-compiled-additions $adds
+            (append-compiled-additions $priors $adapters)))))))
+
+;; A collapse/superpose partition would freshen the hypothetical variables
+;; away from the consequent. Keep the source sharing through this fold.
+(: judgment-condition-part
+   (-[det]-> Atom ((List Atom) (List Atom)) ((List Atom) (List Atom))))
+(= (judgment-condition-part $part ($alternatives $fixed))
+   (if (contains-head? (== Or) $part)
+      (data (cons $part $alternatives) $fixed)
+      (data $alternatives (cons $part $fixed))))
+
 ;; The two sides of a total-implication query share one conclusion $b and differ
 ;; only in polarity. Returns the ground shape-kbs, $b, the fresh pos/neg proof
 ;; vars (used by the caller in its known goals and proof token), and all adds.
 (: query-pos-neg-scaffold
    (-[semidet]-> KB (| NilType (List Variable))
        Statement Statement
-       (KBContext KBContext Statement Proof Proof (List CompiledAddition))))
+       (KBContext KBContext Statement Statement Proof Proof (List CompiledAddition))))
 (= (query-pos-neg-scaffold $kb $mvars $antecedent $consequent)
    (let*
       ((($pos-shape-kb $pos-prf $b $pos-adds)
@@ -72,7 +149,7 @@
        (($neg-shape-kb $neg-prf $_b $neg-adds)
           (judgment-query-side $kb $mvars true $antecedent $consequent)))
       (data
-         $pos-shape-kb $neg-shape-kb $b $pos-prf $neg-prf
+         $pos-shape-kb $neg-shape-kb $b $_b $pos-prf $neg-prf
          (union-compiled-additions $pos-adds $neg-adds))))
 
 ;; Build the empirical Member producer independently from the rest of a root
@@ -157,7 +234,7 @@
        ($antecedent (Inheritance $x $subj))
        ($consequent (Inheritance $x $concept))
        ($mvars (cons (brand Variable $x) ()))
-       (($pos-shape-kb $neg-shape-kb $b
+       (($pos-shape-kb $neg-shape-kb $b $negative-b
             $pos-prf $neg-prf $all-adds)
           (query-pos-neg-scaffold $kb $mvars
              (brand Statement $antecedent)
@@ -169,7 +246,7 @@
           (collect-inheritance-lifts-for-context
              $kb $neg-shape-kb))
        ($known-pos-goal (: $pos-shape-kb $pos-prf $b $induction-tv))
-      ($known-neg-goal (: $neg-shape-kb $neg-prf $b $negative-tv))
+      ($known-neg-goal (: $neg-shape-kb $neg-prf $negative-b $negative-tv))
       ($induction-goal (: (kbctx $kb) (inheritance-query-result
          (total-implication-frontier
             (inheritance-implication-fold (total-implication $pos-prf $neg-prf))))
@@ -210,11 +287,11 @@
       (($type (brand Statement (Implication $a $b)))
        (($antecedent $consequent) (implication-query-sides $type))
        ($mvars (query-variables (extract-vars $type)))
-       (($pk $nk $concl $pp $np $adds)
+       (($pk $nk $concl $negative-concl $pp $np $adds)
           (query-pos-neg-scaffold $kb $mvars $antecedent $consequent)))
       (compilation-plan (: (kbctx $kb) $prf $type (CTV $pos $neg))
          (cons (brand CompiledAddition
-            ((the (List Goal) ((: $pk $pp $concl $pos) (: $nk $np $concl $neg)))
+            ((the (List Goal) ((: $pk $pp $concl $pos) (: $nk $np $negative-concl $neg)))
                |- (: (kbctx $kb) (total-implication-frontier (total-implication $pp $np)) $type (CTV $pos $neg))))
             (append-compiled-additions
                (if (rule-truth-installed? $kb $type)

@@ -309,6 +309,40 @@ The stored statement is the original stated truth, including for a refined
 rule. Learned rule truth supplies the executable applications; empirical
 instance evidence revises the stated query judgment through its normal fold.
 
+### Disjunctive antecedents (tracker #15)
+
+For a disjunction D, the calculated judgment is P(B and D) / P(D).
+Its private world reads each disjunct's leaves at their base rates rather
+than assuming every leaf true. The numerator uses the ordinary conjunction
+and shared-premise conditioning machinery. The denominator reads D's own
+base rate; it is not the probability of one selected disjunct. Zero-probability
+conditioning returns no calculated answer. Stated judgments keep their
+existing independent read path.
+
+For example, independent priors P(A)=0.2 and P(C)=0.4 give P(A or C)=0.52.
+With P(B|A)=0.3 and P(B|not A)=0.1, the answer is
+0.1 + (0.3 - 0.1) * 0.2/0.52 = 0.17692307692307693, not 0.3.
+A rule requiring both A and C instead uses 0.08/0.52; multiplying the two
+conditional marginals would be incorrect. N-ary disjunctions, negated
+disjuncts, and disjunctions inside conjunctions use the same calculation.
+Ordinary conjuncts outside the disjunction remain certain assumptions: a
+source gate needs no population prior of its own.
+
+Temporary `JudgmentPrior` facts identify the private prior inputs; their
+logical keys remain assumption dependencies when conditioning pins a leaf.
+This preserves necessity selection through merges and prevents MAIN values
+from overriding those inputs. Consequent metadata continues to exclude world
+observations of B. All prior rows and markers leave with the query.
+The two internal CTV sides retain separate goal shapes; refuting an Or
+assumes every disjunct false.
+
+As elsewhere in PLN, leaf priors and connective formulas describe the joint
+distribution used by the calculation. Supplying mutually inconsistent
+marginal and compound base rates does not define a coherent joint model;
+this path does not fit a new joint distribution to reconcile them. Ground
+events and open populations have distinct base-rate keys, as in ordinary
+rule compilation.
+
 ## Nested implication queries
 
 `A -> (X -> Y)` is judged as its exported form `(And A X) -> Y` at any
@@ -435,9 +469,6 @@ the normal And formula.
 
 ## Limits
 
-- `Or` antecedents currently assume each lowered part certain. For example,
-  `(Or A C) -> B` returns 0.3 when `A -> B` has positive strength 0.3.
-  This behavior is unchanged from master and is queued separately.
 - A premise sharing the query's hypothetical individual does not import world
   individuals. Fixed premises and open auxiliary variables may read world
   observations; an assumed ground key overrides only that binding.

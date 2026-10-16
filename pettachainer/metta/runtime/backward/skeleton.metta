@@ -1239,6 +1239,11 @@
 ;; context must retain the same variable-sharing shape.
 (: judgment-assumed-key? (-[det]-> Atom KBContext Bool))
 (= (judgment-assumed-key? $type $kbctx)
+   (if (judgment-assumption-fact? $type $kbctx) true
+      (judgment-assumption-fact? (JudgmentPrior $type) $kbctx)))
+
+(: judgment-assumption-fact? (-[det]-> Atom KBContext Bool))
+(= (judgment-assumption-fact? $type $kbctx)
    (let* ((($probe-type $probe-ctx) (copy_term (data $type $kbctx)))
           ($facts (let ($lookup-type $lookup-ctx) (copy_term (data $probe-type $probe-ctx))
              (kb-facts (brand Statement $lookup-type) (brand KBContext $lookup-ctx)))))

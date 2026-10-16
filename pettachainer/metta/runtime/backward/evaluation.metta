@@ -2347,7 +2347,12 @@
                    ($assumptions (collapse
                       (let $proof (superpose ((ctx proof $ctx) (ctx proof $ctx $idx)))
                          (match &kb ($assumed ($kbid $ctx $assumed-vars) $proof $_tv)
-                            (index-hash (sk-key $assumed ($kbid $ctx $assumed-vars)))))))
+                            (if (head-is? $assumed JudgmentPrior)
+                               (let $prior-type (car-atom (cdr-atom $assumed))
+                                  (superpose (
+                                     (index-hash (sk-key $assumed ($kbid $ctx $assumed-vars)))
+                                     (index-hash (sk-key $prior-type ($kbid $ctx $assumed-vars))))))
+                               (index-hash (sk-key $assumed ($kbid $ctx $assumed-vars))))))))
                    ($dependent (fold-semidet (sk-judgment-dependent-step $assumptions) () $values)))
                (case $dependent (
                   (() (if (judgment-consequent? true $type $scope) () $values))
