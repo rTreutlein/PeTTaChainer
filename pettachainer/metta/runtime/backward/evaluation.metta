@@ -2090,15 +2090,18 @@
           ($_member (context-add! &sk_instance_member ($mhash $hash $member $pos-at $neg-at $new))))
       ()))
 
+;; The members of a tally fold that joined or changed since it last took them.
+(: sk-rate-changed (-[det]-> Number SkeletonKey (List SkeletonKey)))
+(= (sk-rate-changed $hash $fold)
+   (collapse (match &ctx_sk_rate_dirty ($hash $_mhash $stored $member) (if (=alpha $stored $fold) $member (empty)))))
+
 ;; Takes the members of an instance fold that joined or changed since it last
 ;; took them, each at its current value: every take costs the members that
 ;; changed, never the instances.
 (: sk-instance-take! (-[semidet]-> Number ScalarFoldSpec Atom))
 (= (sk-instance-take! $hash $args)
    (let* (($fold (sk-fold $args))
-          ($changed
-             (collapse (match &ctx_sk_rate_dirty ($hash $_mhash $stored $member)
-                (if (=alpha $stored $fold) $member (empty))))))
+          ($changed (sk-rate-changed $hash $fold)))
       (if (== $changed ()) ()
          (let $filter
                (case (sk-fold-node-member (CPU FoldAllCompiled $args $_result)) (
@@ -2131,9 +2134,7 @@
       (case (fa-premise-subscriptions (CPU FoldAllCompiled $args $_result)) (
          ((cons (fa-subscription $identity $descriptor $trigger $both $second) $_none)
             (let* (($_registered (fa-register! $identity $descriptor $trigger $both $second))
-                   ($changed
-                      (collapse (match &ctx_sk_rate_dirty ($hash $_mhash $fold $member)
-                         (if (=alpha $fold $key) $member (empty))))))
+                   ($changed (sk-rate-changed $hash $key)))
                (case (collapse (fa-id $identity)) (
                   ((cons $id $_more)
                      (let $_linked (link-aggregate-fold! $id $hash)
@@ -4218,9 +4219,7 @@
       ((sk-fold $args)
          (let $_reserve (sk-reserve-near! $depth)
          (if (sk-rate-fold? $key)
-            (let $changed
-               (collapse (match &ctx_sk_rate_dirty ($hash $_mhash $fold $joined)
-                  (if (=alpha $fold $key) $joined (empty))))
+            (let $changed (sk-rate-changed $hash $key)
                (if (== $changed ()) (sk-need-next $next $members)
                   (let* (($_taken (sk-rate-take! $hash (the ScalarFoldSpec $args)))
                          ($_dirty (sk-mark-dirty! $key)))
@@ -4439,18 +4438,17 @@
 
 (: sk-instance-check-step (-[semidet]-> (List SkeletonItem) (Number SkeletonKey) (List SkeletonItem)))
 (= (sk-instance-check-step $checks ($hash $fold))
-   (let $members
-         (collapse (match &ctx_sk_rate_dirty ($hash $_mhash $stored $member) (if (=alpha $stored $fold) $member (empty))))
-      (let $readers
-            (collapse (superpose (
-               (match &ctx_sk_reader ($hash $stored-r $khash $rhash) (if (=alpha $stored-r $fold) ($khash $rhash) (empty)))
-               (match &ctx_sk_stale_reader ($hash $stored-s $skhash $srhash) (if (=alpha $stored-s $fold) ($skhash $srhash) (empty))))))
+   (let* (($members (sk-rate-changed $hash $fold))
+          ($readers
+             (collapse (superpose (
+                (match &ctx_sk_reader ($hash $stored-r $khash $rhash) (if (=alpha $stored-r $fold) ($khash $rhash) (empty)))
+                (match &ctx_sk_stale_reader ($hash $stored-s $skhash $srhash) (if (=alpha $stored-s $fold) ($skhash $srhash) (empty))))))))
       (if (if (== $members ()) true (if (== $readers ()) true (== (sk-latest-view $hash $fold 0) sk-none))) $checks
          (let* (($_readers (sk-need-closer! 0 (alpha_unique_keys (fold-flat sk-fold-reader-key-step () $readers))))
                 ($_fold (sk-need-closer! 1 (cons $fold ())))
                 ($_members (sk-need-closer! 2 $members))
                 ($_causes (foreach-flat (sk-fold-pending! $hash) $members)))
-            (cons (sk-fold-check $hash $fold) $checks))))))
+            (cons (sk-fold-check $hash $fold) $checks)))))
 
 ;; Keys needed again at a depth closer to a root than they were, so their
 ;; rows are computed in full and their stale rows brought current.
