@@ -455,7 +455,7 @@
 (= (base-rate-part $kb $part (base-rate-parts $goals $tvs))
    (base-rate-parts
       (cons (base-rate-fold $kb
-               (brand Statement (if (== (cdr-atom $part) ()) (car-atom $part) (cons-atom And $part)))
+               (brand Statement (seq2expr (the (List Atom) $part)))
                $tv)
          $goals)
       (cons $tv $tvs)))
@@ -526,10 +526,7 @@
 ;; positive-only predicate.
 (: positive-only-pattern? (-[det]-> KB Statement Bool))
 (= (positive-only-pattern? $kb $pattern)
-   (positive-only-conjuncts? $kb (implication-side-conjuncts $pattern)))
-(: positive-only-conjuncts? (-[det]-> KB (List Atom) Bool))
-(= (positive-only-conjuncts? $kb $conjuncts)
-   (fold-flat (positive-only-conjunct? $kb) false $conjuncts))
+   (fold-flat (positive-only-conjunct? $kb) false (implication-side-conjuncts $pattern)))
 (: positive-only-conjunct? (-[det]-> KB Bool Atom Bool))
 (= (positive-only-conjunct? $kb $seen $conjunct)
    (if $seen true
@@ -739,7 +736,6 @@
 ;; the statement its observations and base rate are about. The proof carries
 ;; the base rate, so the completion merges with other updates of it by
 ;; Bayes' rule (sk-factored-merge).
-(: pure-connective-antecedent? (-[det]-> Statement Bool))
 ;; A conjunction or disjunction is pure when no child computes, a negated
 ;; child counting by the statement it negates.
 (: computing-child? (-[det]-> Bool Atom Bool))
@@ -747,6 +743,7 @@
    (if $seen true
       (let $statement (if (head-is? $child Not) (car-atom (cdr-atom $child)) $child)
          (contains-head? source-computation-head? $statement))))
+(: pure-connective-antecedent? (-[det]-> Statement Bool))
 (= (pure-connective-antecedent? $a)
    (if (head-is-member? $a (And Or))
       (if (fold-flat computing-child? false (implication-side-conjuncts $a)) false true)
@@ -974,16 +971,16 @@
                    ($hash
                       (inheritance-lift-instance-row
                          $kb $candidate $_source))
-                   (if (=alpha $candidate $stmt-copy) true (empty)))))))
-      (let $_instance
-         (if (== $stored ())
-            (let $source-copy (copy_term $source-stmt)
-               (add-atom &inheritance_lift_instance
-                  ($hash
-                     (inheritance-lift-instance-row
-                        $kb $stmt-copy $source-copy))))
-            ())
-         (empty))))
+                   (if (=alpha $candidate $stmt-copy) true (empty))))))
+       ($_instance
+          (if (== $stored ())
+             (let $source-copy (copy_term $source-stmt)
+                (add-atom &inheritance_lift_instance
+                   ($hash
+                      (inheritance-lift-instance-row
+                         $kb $stmt-copy $source-copy))))
+             ())))
+      (empty)))
 
 (: collect-inheritance-lifts-for-context
    (-[det]-> KB KBContext (List CompiledAddition)))
@@ -1043,9 +1040,7 @@
       (let $head (car-atom $premise)
          (if (is-var $head) false
             (if (specializing-predicate? $head)
-               (if (== (extract-vars $premise) ())
-                  false
-                  true)
+               (not (== (extract-vars $premise) ()))
                false)))
       false))
 
@@ -1073,14 +1068,15 @@
                          $kb $head $_triggers $stored-job))
                    (if (=alpha $stored-job $job) true (empty))))))
        ($_register
-          (if (not (== $registered ())) ()
+          (if (== $registered ())
              (let ($triggers-copy $job-copy)
                 (copy_term (quote ($triggers $job)))
                 (once
                    (add-atom &spec_template
                       ($hash
                          (specialization-template-row
-                            $kb $head $triggers-copy $job-copy))))))))
+                            $kb $head $triggers-copy $job-copy)))))
+             ())))
       (register-specialization-templates! $kb $rest $triggers $job)))
 
 ;; Bind the trigger variables by matching each remaining trigger against the
@@ -1110,12 +1106,13 @@
                 (match &spec_done
                    ($hash (specialization-done-row $kb $stored))
                    (if (=alpha $stored $copy) true (empty)))))))
-      (if (not (== $done ())) (empty)
+      (if (== $done ())
          (let $_
             (once
                (add-atom &spec_done
                   ($hash (specialization-done-row $kb $copy))))
-            (compile_ $kb $gstmt)))))
+            (compile_ $kb $gstmt))
+         (empty))))
 
 ;; Rule-add: retain the job for later facts and also ground it against facts
 ;; already in the KB.
@@ -1324,16 +1321,14 @@
 (: compile-rule
    (-[nondet]-> KB (List Variable) Atom Proof Statement Statement TV CompiledAddition))
 (= (compile-rule $kb $params $prior $prf $antecedent $consequent $tv)
-   (let $Type (brand Statement (Implication $antecedent $consequent))
-      (let* (($_exists-valid
-                  (validate-explicit-exists-rule
-                     $antecedent $consequent))
-               ($triggers
-                  (the (List Atom)
-                     (filter-atom
-                        (implication-side-conjuncts (brand Statement $antecedent))
-                        $premise (specialization-trigger? (brand Statement $premise))))))
-        (if (not (== $triggers ()))
+   (let* (($Type (brand Statement (Implication $antecedent $consequent)))
+          ($_exists-valid (validate-explicit-exists-rule $antecedent $consequent))
+          ($triggers
+             (the (List Atom)
+                (filter-atom
+                   (implication-side-conjuncts (brand Statement $antecedent))
+                   $premise (specialization-trigger? (brand Statement $premise))))))
+      (if (not (== $triggers ()))
          (specialize-rule-add $kb $triggers
             (compile-specialization (: $prf $Type $tv)))
          (let*
@@ -1473,7 +1468,7 @@
                (compile-implication-statement-rules $kb $b)
                (compile-inheritance-rule-lifts $kb (: $prf $Type $tv)
                   (brand Statement $antecedent)
-                  (brand Statement $consequent)))))))))
+                  (brand Statement $consequent))))))))
 
 ;; Main statement compiler.
 ;;
