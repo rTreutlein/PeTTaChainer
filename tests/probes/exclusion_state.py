@@ -90,7 +90,7 @@ class ExclusionStateTests(unittest.TestCase):
             "'&sk_branch'(_Slot,_Key,_R,Cuts,true,View), "
             "'sk-view-deps-step'(0,View,_Deps), 'deps-meet?'([_Excluded],_Deps,ExcludedDependency), "
             "'begin-backward-query-metrics!'(_), "
-            "'sk-rebuild-view'(_H,_Key,_R,[_Excluded],Next), "
+            "'sk-rebuild-view'(true,_H,_Key,_R,[_Excluded],Next), "
             "'query_metric_value'('branch-cache-hits',Hits), "
             "'query_metric_value'('branch-builds',Builds), "
             "forall(('&sk_row'(_KH,_K,_RH,_Row), _K=['sk-key',_,[Kb,'MAIN','Nil']]), "
@@ -138,7 +138,7 @@ class ExclusionStateTests(unittest.TestCase):
             # frame. Erase the injected fault; leave the abandoned data intact.
             "asserta(('&sk_branch_cuts'(_,_,_) :- flag(exclusion_probe_interrupt,_,1), "
             " throw(interrupted_rebuild)), _Trap), "
-            "catch(('sk-rebuild-view'(_Hash,_Key,987603,[-1],_) -> true ; true), "
+            "catch(('sk-rebuild-view'(true,_Hash,_Key,987603,[-1],_) -> true ; true), "
             " interrupted_rebuild, true), erase(_Trap), flag(exclusion_probe_interrupt,Interrupted,0), "
             "'search-id-value'(sk_branch_at,Frame), aggregate_all(count,'&sk_reading'(_,_,_),Readers)",
             {'Kb': self.h.kb},
@@ -277,7 +277,7 @@ class ExclusionStateTests(unittest.TestCase):
             "assertz('&sk_row'(_H,_Key,987605,_Row)), "
             "assertz('&sk_given_pending'(_H,987605,1)), "
             "'change-state!'(sk_eval_budget,1,_), "
-            "'sk-rebuild-view'(_H,_Key,987605,[987606],Built), "
+            "'sk-rebuild-view'(true,_H,_Key,987605,[987606],Built), "
             "'&sk_branch'(_Slot,_Key,987605,Cuts,Fresh,Built), "
             "'sk-branch-values'(_Slot,_Key,987605,[987606],false,Stale), "
             "'sk-branch-values'(_Slot,_Key,987605,[987606],true,Settled), "
@@ -312,7 +312,7 @@ class ExclusionStateTests(unittest.TestCase):
             # This debt belongs to the ordinary view, not this exclusion read.
             "assertz('&sk_given_pending'(_H,_R,999)), "
             "'begin-backward-query-metrics!'(_), 'change-state!'(sk_eval_budget,100,_), "
-            "'sk-rebuild-view'(_H,_Key,_R,[-1],Built), "
+            "'sk-rebuild-view'(true,_H,_Key,_R,[-1],Built), "
             "'&sk_branch'(_Slot,_Key,_R,_,Fresh,Built), "
             "'search-id-value'(sk_eval_budget,Left), 'sk-needed?'(_H,_Key,Needed), "
             "'&sk_given_pending'(_H,_R,Debt), "

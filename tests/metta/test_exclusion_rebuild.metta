@@ -60,7 +60,7 @@
 !(test
    (let* (($key (sk-key (B a) (historyKb MAIN Nil))) ($bh (index-hash $key)))
       (match &sk_row ($bh $_stored $rhash $_row)
-         (sk-rebuild-view $bh $key $rhash (-1))))
+         (sk-rebuild-view true $bh $key $rhash (-1))))
    sk-none)
 !(test
    (let* (($key (sk-key (B a) (historyKb MAIN Nil)))
@@ -80,7 +80,7 @@
       (match &sk_row ($bh $key $rhash $_row)
          (let* (($_clear (sk-drop-branch! () (index-hash ($bh $rhash))))
                 ($_first-budget (change-state! sk_eval_budget 1))
-                ($_first (sk-rebuild-view $bh $key $rhash (hash-union (cons $xh ()) (-1))))
+                ($_first (sk-rebuild-view true $bh $key $rhash (hash-union (cons $xh ()) (-1))))
                 ($_second-budget (change-state! sk_eval_budget 0))
                 ((sk-val ($_t $_ctx $proof $_tv) $_ev $_deps)
                    (sk-value $key sk-any-filter (cons $xh ()))))
@@ -139,7 +139,7 @@
                 ($_changed (sk-invalidate-branches! $input))
                 ($unlinked (space-row-present? &sk_branch_reader ($mh $input $slot)))
                 ($_budget (change-state! sk_eval_budget 1))
-                ($_refreshed (sk-rebuild-view $bh $key $rhash (cons $xh ()))))
+                ($_refreshed (sk-rebuild-view true $bh $key $rhash (cons $xh ()))))
             ($unlinked (space-row-present? &sk_branch_reader ($mh $input $slot))))))
    (false true))
 
@@ -184,7 +184,7 @@
                 ($_budget (change-state! sk_eval_budget 10))
                 ($contexts (collapse (match &kb ((Source $i) (boundBranchKb MAIN Nil) $_p $_tv)
                    (cons (index-hash (sk-key (Source $i) (boundBranchKb MAIN Nil))) ()))))
-                ($_built (map-semidet (sk-rebuild-view $bh $key $rhash) $contexts))
+                ($_built (map-semidet (sk-rebuild-view true $bh $key $rhash) $contexts))
                 ($kept (length (collapse (match &sk_branch ($slot $_cached-key $_cached-row $_cuts $_fresh $_view) true))))
                 ($_retired (sk-drop-branch! () $slot)))
             ($kept (length (collapse (match &sk_branch_reader ($_input $_key $slot) true)))))))

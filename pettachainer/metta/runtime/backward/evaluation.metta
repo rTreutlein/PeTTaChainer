@@ -1432,28 +1432,7 @@
          (if (sk-admits? $filter $exclude $view) (cons (sk-version $seq $rhash $view) $kept)
             (let $rebuilt
                (if (sk-excludes? $exclude (sk-view-deps-step 0 $view))
-                  (if (== (search-id-value sk_branch_at) 0)
-                     (if (sk-excludes? $exclude (deps-key $hash)) sk-none
-                        (let $slot (index-hash ($hash $rhash))
-                           (case (sk-branch-values $slot $key $rhash $exclude true) (
-                              ((cons $cached $_rest)
-                                 (let $_hit (query_metric_increment branch-cache-hits) $cached))
-                              (()
-                                 (let* (($_miss (query_metric_increment branch-cache-misses))
-                                        ($_wanted (collapse (once
-                                           (match &sk_row ($hash $owner $rhash (sk-row $_ident $_concl $premises $_seq))
-                                              (if (=alpha $owner $key)
-                                                 (if (sk-excludes? $exclude (deps-join (map-flat deps-key
-                                                        (map-semidet index-hash (fold-semidet sk-direct-key-step () $premises))))) ()
-                                                 (let* (($_queued
-                                                    (if (== (collapse (once
-                                                           (match &ctx_sk_branch_wanted ($slot $hash $stored $rhash $exclude)
-                                                              (if (=alpha $stored $key) true (empty))))) ())
-                                                       (context-add! &sk_branch_wanted ($slot $hash $key $rhash $exclude)) ()))
-                                                        ($_reader (sk-hold-branch-reader! $key))) ()))
-                                                 (empty)))))))
-                                    (chainer-first-or sk-none (sk-branch-values $slot $key $rhash $exclude false))))))))
-                     (sk-rebuild-view $hash $key $rhash $exclude))
+                  (sk-rebuild-view (not (== (search-id-value sk_branch_at) 0)) $hash $key $rhash $exclude)
                   sk-none)
                (case (if (sk-admits? $filter $exclude $rebuilt) $rebuilt
                         (fold-semidet (sk-admit-older $filter $exclude) sk-none (sk-older-views $hash $key $rhash))) (
@@ -1464,9 +1443,11 @@
 ;; Rebuilt branches outlive queries. A branch computed under E1 serves E2
 ;; exactly when its dependencies miss E2 and its cuts are contained in E2.
 ;; Record only exclusions that cut a branch. Keep at most eight contexts per row;
-;; dropping one changes only how much a later reader must rebuild.
-(: sk-rebuild-view (-[semidet]-> Number SkeletonKey Number (List Number) SkeletonValue))
-(= (sk-rebuild-view $hash $key $rhash $exclude)
+;; dropping one changes only how much a later reader must rebuild. A read
+;; outside a rebuild (`$build` false) builds no missed branch: it asks the last
+;; tier of the evaluation for it (sk-build-wanted!) and keeps the incumbent.
+(: sk-rebuild-view (-[semidet]-> Bool Number SkeletonKey Number (List Number) SkeletonValue))
+(= (sk-rebuild-view $build $hash $key $rhash $exclude)
    (if (sk-excludes? $exclude (deps-key $hash)) sk-none
       (let $slot (index-hash ($hash $rhash))
          (case (sk-branch-values $slot $key $rhash $exclude true) (
@@ -1475,12 +1456,13 @@
                (let $_miss (query_metric_increment branch-cache-misses)
                (case (collapse (once (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
                         (if (=alpha $stored $key) (sk-row $ident $concl $premises $seq) (empty))))) (
-                  (() sk-none)
+                  (() (if $build sk-none (chainer-first-or sk-none (sk-branch-values $slot $key $rhash $exclude false))))
                   ((cons (sk-row (sk-ident $rule $keys $result) $concl $premises $seq) $_rows)
                      (let* (($inputs (alpha_unique_keys (fold-semidet sk-direct-key-step () $premises)))
                             ($mandatory (deps-join (map-flat deps-key (map-semidet index-hash $inputs)))))
-                        (if (sk-excludes? $exclude $mandatory) sk-none
-                           (if (sk-take! sk_eval_budget (case $key (((sk-key $type $_kbctx) (term-cost $type)) ($_fold 1))))
+                        (if (sk-excludes? $exclude $mandatory)
+                           (if $build sk-none (chainer-first-or sk-none (sk-branch-values $slot $key $rhash $exclude false)))
+                           (if (if $build (sk-take! sk_eval_budget (case $key (((sk-key $type $_kbctx) (term-cost $type)) ($_fold 1)))) false)
                               (let* (($_counted (query_metric_increment row-computes))
                                      ($_build (query_metric_increment branch-builds))
                                      ($incumbent (sk-branch-values $slot $key $rhash $exclude false))
@@ -1507,8 +1489,12 @@
                                           (if (sk-same-view? $view (chainer-first-or sk-none $incumbent))
                                              (chainer-first-or $view $incumbent)
                                              (sk-cache-branch! $slot $hash $key $rhash $rule $inputs $exclude false $view))))))
-                              (let* (($_unpaid (query_metric_increment rows-unpaid))
-                                     ($_unfinished (next-search-id sk_branch_unpaid))
+                              (let* (($_unpaid
+                                        (if $build
+                                           (let $_counted (query_metric_increment rows-unpaid) (next-search-id sk_branch_unpaid))
+                                           (if (== (collapse (once (match &ctx_sk_branch_wanted ($slot $hash $wanted $rhash $exclude)
+                                                     (if (=alpha $wanted $key) true (empty))))) ())
+                                              (context-add! &sk_branch_wanted ($slot $hash $key $rhash $exclude)) ())))
                                      ($_reader (sk-hold-branch-reader! $key)))
                                  (chainer-first-or sk-none (sk-branch-values $slot $key $rhash $exclude false))))))))))))))))
 
@@ -3927,7 +3913,7 @@
                                     (chainer-first-or sk-none (sk-branch-values $slot $key $rhash $exclude false))
                                     (sk-branch-values $slot $key $rhash $exclude true)))
                       ($_slice (change-state! sk_eval_budget $room))
-                      ($built (sk-rebuild-view $hash $key $rhash $exclude))
+                      ($built (sk-rebuild-view true $hash $key $rhash $exclude))
                       ($spent (- $room (search-id-value sk_eval_budget)))
                       ($_restore (change-state! sk_eval_budget (- $before $spent)))
                       ;; Even a cache hit or a structurally impossible read
