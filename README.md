@@ -43,17 +43,9 @@ Python API still requires installing the `PeTTaChainer` package.
 
 ## Benchmarks
 
-Run the NatDist vs ParticleDist benchmark:
-
-```bash
-python pettachainer/benchmarks/particle_vs_nat.py --sizes 100,500,1000 --particle-budgets 128,256,512 --repeats 2
-```
-
-Run the simple forward vs backward chaining benchmark:
-
-```bash
-.venv/bin/python pettachainer/benchmarks/forward_vs_backward.py --depths 10,25,50 --noise-branching 8 --repeats 3
-```
+Benchmark changes with `/nexus/Dev/OpenCog/bench/compare.sh` (see
+`docs/agent_workflow.md`). The standalone workloads in
+`pettachainer/benchmarks/` are described in its README.
 
 Run the backward materialization benchmark:
 
@@ -61,34 +53,7 @@ Run the backward materialization benchmark:
 .venv/bin/python pettachainer/benchmarks/backward_materialize.py --depths 5,10 --queries 200 --repeats 3
 ```
 
-Run the bounded priority queue benchmark:
-
-```bash
-.venv/bin/python pettachainer/benchmarks/bounded_queue.py --fanouts 2000,8000 --steps 100 --repeats 3
-```
-
-Add `--compare-pruning` to compare pruning enabled and disabled within the same checkout.
-
-Run the core performance checks used for runtime refactoring reviews:
-
-```bash
-.venv/bin/python pettachainer/benchmarks/core_suite.py \
-  --json-out /tmp/pettachainer-baseline.json
-```
-
-The suite covers bounded backward and forward agendas, fixed-budget evolving
-queries with retained durable proofs, incremental Member-to-Inheritance
-maintenance, and a 1000-object forward-populated inheritance query. Each
-repetition runs in a fresh process so native runtime state cannot leak between
-measurements. Compare a later checkout with the saved baseline using:
-
-```bash
-.venv/bin/python pettachainer/benchmarks/core_suite.py \
-  --baseline-json /tmp/pettachainer-baseline.json \
-  --json-out /tmp/pettachainer-current.json
-```
-
-The in-repository durable-query workload is a small proxy for the retained-proof
+`durable_query_many.py` is a small in-repository proxy for the retained-proof
 behavior exercised by StationOps. The complete StationOps benchmark remains an
 external acceptance workload because it depends on the sibling ChainerGame
 repository. Compare its timing only when the per-shift answers and coverage are
@@ -103,12 +68,6 @@ Run the full ConceptNet `Own ∧ Pet` query benchmark:
 The runner discovers a sibling `cnet` checkout automatically. Set `CNET_DIR`
 for a different location. If `dumppln.txt` changed or the expected proof is
 missing, rerun with `CNET_REFRESH=1` to regenerate and compile `rules_dump`.
-
-Optional JSON export:
-
-```bash
-python pettachainer/benchmarks/particle_vs_nat.py --json-out /tmp/particle_bench.json
-```
 
 ## Profiling MeTTa Runs
 
