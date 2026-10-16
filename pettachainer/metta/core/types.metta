@@ -50,7 +50,7 @@
 (: sk-functional-subscription (-[det]-> $waiter Atom))
 (: sk-functional-delivered! (-[det]-> Atom Bool))
 (: sk-known-conclusion? (-[det]-> $fact Bool))
-(: sk-store-join! (-[det]-> Number Number $conclusion Bool))
+(: sk-store-join! (-[det]-> Number $waiter $conclusion Bool))
 (: sk-keep-child! (-[det]-> Number $conclusion Bool))
 (: sk-store-wait! (-[det]-> Number Number $premise $waiter Bool))
 (: sk-store-child! (-[det]-> Number Number $owner $child Number Bool))

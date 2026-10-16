@@ -2149,7 +2149,7 @@ sk_queue_retirement(H, Key) :-
 % None of the values, facts, rows or sample/tally stores belong to this index.
 :- dynamic sk_search_clause/3, sk_search_node/4, sk_retire_queue/2,
            sk_child_edge/2, sk_child_users/2, sk_child_claim/3,
-           sk_child_debt/2, sk_retire_component/1.
+           sk_child_debt/2, sk_retire_component/1, sk_join_wait/2, sk_retire_wait/1.
 sk_search_init :-
     (   nb_current(sk_search_listening, true) -> true
     ;   forall(member(Space/Arity, [sk_wait_payload/4, '&sk_join_link'/2, '&sk_child'/4,
@@ -2207,11 +2207,22 @@ sk_search_owned(H, Key, Space, Ref) :-
       ; sk_search_conclusion(Space, Row, C), clause(Row, true, Ref) ),
       sk_search_key(C, _, Key) ).
 
-% Delivered joins use the conclusion-keyed store shared with thaw cleanup.
-'sk-store-join!'(KeyDigest, Digest, Conclusion, true) :-
-    sk_search_init, assertz('&sk_join_link'(KeyDigest, Digest), Ref),
-    sk_search_index(Conclusion, '&sk_join_link', Ref),
-    ( sk_search_key(Conclusion, _, [Type, Context]) -> 'sk-retire-known!'(Type, Context, true) ; true ).
+% Keep the conclusion index for thaw replay, and the waiter reference for
+% lifetime. Capture the original partial before its answer binds open slots.
+'sk-store-join!'(Digest, Waiter, Conclusion, New) :-
+    sk_search_init,
+    ( Conclusion = [Head|_], Head == 'CPU'
+    -> Conclusion = [_,Fun,Args,_],
+       ( Fun == 'GroupedFoldAllCompiled' -> Key = ['sk-group',Args] ; Key = ['sk-fold',Args] )
+    ; Conclusion = [Type,Context|_], Key = ['sk-key',Type,Context] ),
+    'link-digest'(Key, KeyDigest),
+    ( '&sk_join_link'(KeyDigest, Digest) -> New = false
+    ; assertz('&sk_join_link'(KeyDigest, Digest), Ref),
+      sk_search_index(Conclusion, '&sk_join_link', Ref),
+      Waiter = ['sk-partial',_,_,_,_,[N|_],_], 'sk-node-hash'(N,H),
+      ( sk_wait_ref(H, N, Waiter, WaitRef) -> assertz(sk_join_wait(WaitRef, Ref)) ; true ),
+      ( sk_search_key(Conclusion, _, [T,C]) -> 'sk-retire-known!'(T,C,true) ; true ),
+      New = true ).
 
 % A waiter batch already needs this digest for its child link. Retain a
 % lease by clause reference, so retraction never hashes the partial again.
@@ -2289,7 +2300,10 @@ sk_search_changed(Space, retract, Ref) :- !,
     ->  clause(sk_wait_payload(_, _, TemplateId, _), true, Ref),
         ( once((clause(sk_wait_payload(_, _, TemplateId, _), true, Other), Other \== Ref)) -> true
         ; retractall(sk_wait_template(_, _, TemplateId, _, _)) ),
+        ( sk_join_wait(Ref, _) -> assertz(sk_retire_wait(Ref)) ; true ),
         forall(retract(sk_child_users(D, Ref)), sk_release_child(D))
+    ;   Space == '&sk_join_link'
+    ->  retractall(sk_join_wait(_, Ref))
     ;   Space == '&sk_child', clause('&sk_child'(OH, O, N, NH), true, Ref),
         retract(sk_child_edge(D, Ref))
     ->  forall(clause(sk_child_claim(_, D, _), true, Claim), sk_erase_claim(Claim)),
@@ -2349,7 +2363,11 @@ sk_release_child(D) :-
 
 sk_retire_slice(0) :- !.
 sk_retire_slice(Units) :-
-    (   sk_retire_queue(H, Key)
+    (   sk_retire_wait(WaitRef)
+    ->  ( sk_join_wait(WaitRef, JoinRef) -> erase(JoinRef)
+        ; retract(sk_retire_wait(WaitRef)) ),
+        Left is Units - 1, sk_retire_slice(Left)
+    ;   sk_retire_queue(H, Key)
     ->  (   sk_search_owned(H, Key, Space, Ref)
         ->  ( Key = functional(_,_,_)
             -> ( clause(sk_wait_payload(_, N, _, _), true, Ref), 'sk-functional-conflict?'(N, true)

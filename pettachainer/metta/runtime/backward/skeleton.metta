@@ -111,20 +111,10 @@
 
 ;; Child links, answers, use edges and join extensions are recorded once by
 ;; a digest of the link. Overlay evaluation borrows these MAIN identities.
-(: sk-link-new! (-[det]-> Number SkeletonLink Bool))
-(= (sk-link-new! $digest $link)
-   (case $link (
-      ((sk-join-link (sk-partial $_owner $_id $conclusion $_d $_r $_k) $_answer)
-         (let* (($conclusion-key (case $conclusion (
-                    ((CPU GroupedFoldAllCompiled $group-args $_gr) (sk-group $group-args))
-                    ((CPU $_fun $fold-args $_fr) (sk-fold $fold-args))
-                    (($type $kbctx $_p $_v) (sk-key $type $kbctx)))))
-                ($key-digest (link-digest $conclusion-key)))
-            (if (space-row-present? &sk_join_link ($key-digest $digest)) false
-               (let $_row (sk-store-join! $key-digest $digest $conclusion) true))))
-      ($_other
-         (if (space-row-present? &sk_link ($digest)) false
-            (let $_row (add-atom &sk_link ($digest)) true))))))
+(: sk-link-new! (-[det]-> Number Bool))
+(= (sk-link-new! $digest)
+   (if (space-row-present? &sk_link ($digest)) false
+      (let $_row (add-atom &sk_link ($digest)) true)))
 
 (: sk-node-score (-[det]-> Number SkPattern Number))
 (= (sk-node-score $hash $node)
@@ -232,7 +222,7 @@
 (: sk-add-child! (-[semidet]-> SkPattern SkPattern Number Number Atom))
 (= (sk-add-child! $owner $child $score $digest)
    (let $child-hash (sk-node-hash $child)
-      (if (let $_scored (sk-raise-score! $child-hash $child $score) (sk-link-new! $digest (sk-child-link $owner $child)))
+      (if (let $_scored (sk-raise-score! $child-hash $child $score) (sk-link-new! $digest))
          (let* (($hash (sk-node-hash $owner))
                 ($_row (sk-store-child! $digest $hash $owner $child $child-hash))
                 ($_pending (sk-link-pending! $hash $owner $child-hash $child))
@@ -511,7 +501,7 @@
 ;; --- Answers and delivery ---------------------------------------------------
 
 (= (sk-add-answer! $node $key)
-   (if (let $link (sk-answer-link $node $key) (sk-link-new! (link-digest $link) $link))
+   (if (let $link (sk-answer-link $node $key) (sk-link-new! (link-digest $link)))
       (let* (($_registered (sk-register-key! $key))
              ($hash (sk-node-hash $node))
              ($_row (add-atom &sk_answer ($hash $node $key)))
@@ -551,7 +541,7 @@
 
 (: sk-add-use! (-[det]-> SkeletonKey SkeletonKey Atom))
 (= (sk-add-use! $key $parent)
-   (if (let $link (sk-use-link $key $parent) (sk-link-new! (link-digest $link) $link))
+   (if (let $link (sk-use-link $key $parent) (sk-link-new! (link-digest $link)))
       (let* (($hash (index-hash $key))
              ($_row (add-atom &sk_use ($hash $key $parent))))
          ())
@@ -904,7 +894,8 @@
    (case $remaining (
       ((cons $premise $rest)
          ;; The key as registered, before later premises bind it (sk-read-step).
-         (let $registered (copy_term $key)
+         (let* (($registered (copy_term $key))
+                ($waiter (copy_term (sk-partial $owner $rule $concl $done $remaining $keys))))
          (if (case $premise (
                 ((CPU $_fun $args $_res) (= (sk-group $args) $key))
                 (($type $kbctx $_proof $tv)
@@ -913,7 +904,7 @@
                       false))))
             ;; Record after this answer binds the conclusion. A thawed ground
             ;; key can then remove the digest even for an originally open join.
-            (if (let $link (sk-join-link (sk-partial $owner $rule $concl $done $remaining $keys) $registered) (sk-link-new! (link-digest $link) $link))
+            (if (let $link (sk-join-link (sk-partial $owner $rule $concl $done $remaining $keys) $registered) (sk-store-join! (link-digest $link) $waiter $concl))
                (sk-advance!
                   (sk-partial $owner $rule $concl (cons $premise $done) $rest (cons $registered $keys)))
                ())

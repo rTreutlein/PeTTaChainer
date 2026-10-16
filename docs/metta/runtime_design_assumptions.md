@@ -386,6 +386,12 @@ created as a mutable space. Making its source clause dynamic prevents the
 pinned runtime from snapshotting the library load.
 Cleanup erases compact payload clause references and removes each template with
 its last subscriber.
+Delivered join digests also lease their waiter's exact payload reference,
+selected before the answer binds its open slots. Removing a waiter queues its
+digests for the existing 512-unit retirement slices; each unit erases one digest
+and its conclusion ownership. Thawing a summary still erases digests by
+conclusion, and removes their waiter leases through the same retract listener.
+Transient joins without a stored waiter retain their conclusion ownership.
 A waiter batch computes its child-link digest once and passes it to the
 waiter, child and fixed-claim stores. A waiter lease records that digest and
 the waiter's clause reference; retraction finds the digest by the reference,

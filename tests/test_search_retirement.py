@@ -10,6 +10,66 @@ from pettachainer import PeTTaChainer
 
 
 class TestSearchRetirement(unittest.TestCase):
+    def test_retired_functional_waiters_release_join_digests(self):
+        h = PeTTaChainer()
+        h.set_functional_predicate('Input', 2, (2,))
+        h.add_atom('(: (no_inverse stream) (Implication (Input $v $t) (Output $v $t)) (CTV (STV 0.8 0.9) (STV 0 0.9)))')
+        keys = [['sk-key', ['Output', 'yes', f't{n}'], [h.kb, 'MAIN', 'Nil']] for n in range(100)]
+        census = ("aggregate_all(count,(member(_Key,Keys),'link-digest'(_Key,_D),"
+                  "'&sk_join_link'(_D,_)),N)")
+        # Ground functional subscriptions retire as soon as their input is
+        # delivered. Scope the census to this KB: other unittest KBs can still
+        # have queued cleanup, which these queries may also drain.
+        baseline = janus.query_once(census, {'Keys': keys})['N']
+        for n in range(100):
+            h.query_many_refs([f'(: $p (Output yes t{n}) $tv)'], steps=20)
+            h.add_atom(f'(: in{n} (Input yes t{n}) (STV 1 1))')
+            answer = h.query_many_refs([f'(: $p (Output yes t{n}) $tv)'], steps=20)[0][0]
+            self.assertEqual(answer.tv[1], 0.8)
+        self.assertEqual(janus.query_once(census, {'Keys': keys})['N'], baseline)
+
+    def test_open_waiter_keeps_its_delivered_joins_until_retirement(self):
+        h = PeTTaChainer()
+        h.add_atoms_no_check([
+            '(: stream (Implication (OpenInput $x) (OpenOutput $x)) (CTV (STV 0.8 0.9) (STV 0 0.9)))',
+            '(: first (OpenInput a) (STV 1 1))',
+        ])
+        goal = '(: $p (OpenOutput $x) $tv)'
+        self.assertEqual(len(h.query_many_refs([goal], steps=40)[0]), 1)
+        linked = janus.query_once(
+            "aggregate_all(count,(sk_join_wait(_W,_),"
+            "clause(sk_wait_payload(_,[[OpenInput,_],[Kb,'MAIN','Nil']|_],_,_),true,_W)),N)",
+            {'Kb': h.kb, 'OpenInput': 'OpenInput'})['N']
+        self.assertGreater(linked, 0)
+        h.add_atom('(: second (OpenInput b) (STV 1 1))')
+        self.assertEqual(len(h.query_many_refs([goal], steps=40)[0]), 2)
+        h._call('withdraw-named-rules!', ['stream'])
+        h.add_atom('(: third (OpenInput c) (STV 1 1))')
+        self.assertFalse(h.query_many_refs([goal], steps=40)[0])
+        self.assertEqual(janus.query_once(
+            "aggregate_all(count,(sk_join_wait(_,_J),clause_property(_J,erased)),N)")['N'], 0)
+
+    def test_waiter_join_cleanup_is_metered(self):
+        h = PeTTaChainer()
+        stats = janus.query_once(
+            "_N=[['MeterInput',x],[Kb,'MAIN','Nil'],_,_],"
+            "_C=[['MeterOutput',x],[Kb,'MAIN','Nil'],_,_],"
+            "_W=['sk-partial',_C,9999010,_C,[],[_N],[]],"
+            "assertz(rules('runtime-rule-row',9999010,_C,[_N])),"
+            "'sk-node-hash'(_N,_H),'sk-store-wait!'(9999011,_H,_N,_W,_),"
+            "forall(between(1,2048,_D),'sk-store-join!'(_D,_W,_C,true)),"
+            "sk_wait_ref(_H,_N,_W,_Ref),"
+            "aggregate_all(count,sk_join_wait(_Ref,_),Before),"
+            "sk_retire_wait_ref(_Ref),"
+            "aggregate_all(count,sk_join_wait(_Ref,_),Queued),"
+            "'sk-retire-searches!'(_),"
+            "aggregate_all(count,sk_join_wait(_Ref,_),AfterSlice),"
+            "forall(between(1,5,_),'sk-retire-searches!'(_)),"
+            "aggregate_all(count,sk_join_wait(_Ref,_),AfterDrain),"
+            "aggregate_all(count,sk_retire_wait(_Ref),QueueLeft)", {'Kb': h.kb})
+        self.assertEqual([stats[k] for k in ('Before', 'Queued', 'AfterSlice', 'AfterDrain', 'QueueLeft')],
+                         [2048, 2048, 1536, 0, 0])
+
     def test_numeric_retirement_lookups_index_the_hash_as_history_grows(self):
         # Index selectivity is global to the Prolog process. Measure only this
         # workload, without ownership retained by other unittest KBs.
