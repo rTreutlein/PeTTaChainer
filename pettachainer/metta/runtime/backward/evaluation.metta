@@ -2717,14 +2717,20 @@
                ($_fold sk-none)))
             $value))))
 
+(: sk-row-view-step
+   (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey (List SkeletonValue) (Number SkeletonRow)
+       (List SkeletonValue)))
+(= (sk-row-view-step $given $exclude $hash $key $kept ($rhash $row))
+   (case (sk-row-view $given $exclude $hash $key $rhash $row) (
+      (sk-none $kept)
+      ($view (cons $view $kept)))))
+
 (: sk-given-row-step
    (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey (List SkeletonValue) (Number SkeletonRow)
        (List SkeletonValue)))
 (= (sk-given-row-step $given $exclude $hash $key $views ($rhash (sk-row $ident $concl $premises $seq)))
    (if (fold-semidet (sk-reads-given-step (sk-given-hashes $given)) false $premises)
-      (case (sk-row-view $given $exclude $hash $key $rhash (sk-row $ident $concl $premises $seq)) (
-         (sk-none $views)
-         ($view (cons $view $views))))
+      (sk-row-view-step $given $exclude $hash $key $views ($rhash (sk-row $ident $concl $premises $seq)))
       $views))
 
 (: sk-reads-given-step (-[det]-> (List Number) Bool SkPattern Bool))
@@ -2923,14 +2929,6 @@
                   (empty)))))
             ())))
 
-(: sk-closed-row-step
-   (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey (List SkeletonValue) (Number SkeletonRow)
-       (List SkeletonValue)))
-(= (sk-closed-row-step $given $exclude $hash $key $kept ($rhash $row))
-   (case (sk-row-view $given $exclude $hash $key $rhash $row) (
-      (sk-none $kept)
-      ($view (cons $view $kept)))))
-
 ;; What a row's closed reads take as unfounded: a complete statement, the
 ;; row's own conclusion when the row is a rule application of it (or a
 ;; completion's consequence, sk-completion-state); nothing otherwise, and the
@@ -2960,7 +2958,7 @@
                      (if (== $pin ()) sk-none
                         (sk-merge-key $hash $key $filter $exclude $given
                            (fold-semidet sk-cons-step ()
-                              (fold-semidet (sk-closed-row-step (append-flat $pin $given) $exclude $hash $key) ()
+                              (fold-semidet (sk-row-view-step (append-flat $pin $given) $exclude $hash $key) ()
                                  (collapse (match &sk_row ($hash $stored $rhash $row)
                                     (if (=alpha $stored $key) ($rhash $row) (empty))))))))
                      (sk-unfounded-value $hash $key))
