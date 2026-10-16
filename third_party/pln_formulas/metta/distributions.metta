@@ -22,7 +22,7 @@
 (: tv-probability (-[det]-> TV Number))
 (= (tv-probability $tv)
    (case $tv
-      (((STV $s $c) (clamp01 (* $s $c)))
+      (((STV $s $_c) (clamp01 $s))
        ($_other 1.0))))
 
 (: next-particle-id (-[det]-> Number))
