@@ -125,7 +125,10 @@
 ;; Child links, answers and use edges already recorded, by link hash.
 (: &sk_link (SpaceOf (Number)))
 !(bind! &sk_link (new-space))
-;; Join digests belong to their conclusion key and leave when it thaws.
+;; Direct aggregate readers are replayable on eviction, one mark per row.
+(: &sk_aggregate_row (SpaceOf (Number SkeletonKey Number)))
+!(bind! &sk_aggregate_row (new-space))
+;; Join digests leave with their waiter or when their conclusion thaws.
 (: &sk_join_link (SpaceOf (Number Number)))
 !(bind! &sk_join_link (new-space))
 ;; member key -> a fold or group key over it

@@ -368,8 +368,9 @@ refs_holder(context_propagated, 4, [4]).
 % swept, the next one to take in flag refs_gc_next.
 refs_gc_active :- nb_current(refs_gc_phase, Phase), Phase \== idle.
 
-% A collection is due once more proofs were stored since the last one than it
-% kept and holder rows it scanned (at least 4096), as for dependency nodes. A
+% A collection is due once more proofs, or proof words, were stored than
+% it kept and holder rows it scanned (at least 4096). Exact-fold proofs
+% grow with their members, so counting only proofs retained large histories. A
 % cycle's work is those rows and proofs, so each stored proof pays a constant
 % share of it however long the history: holder rows grow with the keys, one
 % per decision in Pong, while the proofs kept need not.
@@ -378,17 +379,22 @@ refs_gc_due :-
     ;   'search-id-value'(proof_id, Next), flag(refs_gc_last, Last, Last), flag(refs_gc_kept, Kept, Kept),
         flag(refs_gc_rows, Rows, Rows),
         flag(withdraw_epoch, Epoch, Epoch), flag(refs_gc_retired_last, RetiredLast, RetiredLast),
-        ( Next - Last > max(Kept + Rows, 4096) ; Epoch - RetiredLast > 512 ) ).
+        flag(refs_gc_words, Words, Words), flag(refs_gc_words_last, LastWords, LastWords),
+        flag(refs_gc_words_kept, KeptWords, KeptWords),
+        ( Next - Last > max(Kept + Rows, 4096)
+        ; Words - LastWords > max(KeptWords + Rows, 4096)
+        ; Epoch - RetiredLast > 512 ) ).
 
 % One slice, starting a cycle when one is due. Its units grow with the proofs
-% stored and rules retired since the last slice, so a cycle ends before as many again are
+% stored, their size and rules retired since the last slice, so a cycle ends before as many again are
 % stored, and a query that stores none pays a small constant.
 'stored-refs-gc-step!'(true) :-
     'search-id-value'(proof_id, Next), flag(refs_gc_seen, Seen, Next),
     flag(withdraw_epoch, Epoch, Epoch), flag(refs_gc_retire_seen, RetiredSeen, Epoch),
+    flag(refs_gc_words, Words, Words), flag(refs_gc_words_seen, SeenWords, Words),
     (   refs_gc_due
     ->  ( refs_gc_active -> true ; refs_gc_start ),
-        Units is 512 + 8 * (max(0, Next - Seen) + max(0, Epoch - RetiredSeen)),
+        Units is 512 + 8 * (max(0, Next - Seen) + max(0, Epoch - RetiredSeen) + max(0, Words - SeenWords) // 32),
         refs_gc_run(Units)
     ;   true ).
 
@@ -399,6 +405,8 @@ refs_gc_due :-
     refs_gc_start, refs_gc_run(inf).
 
 refs_gc_start :-
+    flag(refs_gc_words, Words, Words), nb_setval(refs_gc_word_limit, Words),
+    flag(refs_gc_marked_words, _, 0),
     'search-id-value'(proof_id, ProofLimit), flag(ev_next_set, Sets, Sets), SetLimit is Sets + 1,
     nb_setval(refs_gc_limits, limits(ProofLimit, SetLimit)),
     retractall(refs_gc_proof(_)), retractall(refs_gc_set(_)), retractall(refs_gc_grey(_)),
@@ -559,7 +567,10 @@ refs_gc_follow(Units, Left) :- refs_gc_grey(_), !, refs_gc_follow_loop(Units, Le
 refs_gc_follow_loop(Units, Left) :-
     (   Units == 0 -> Left = 0
     ;   retract(refs_gc_grey(Pid))
-    ->  (   user:'&proof'(Pid, Stored, Leaves, _) -> refs_gc_mark_term(Stored), refs_gc_mark_term(Leaves) ; true ),
+    ->  (   user:'&proof'(Pid, Stored, Leaves, _)
+        ->  term_size(Stored, Size), flag(refs_gc_marked_words, Marked, Marked + Size),
+            refs_gc_mark_term(Stored), refs_gc_mark_term(Leaves)
+        ;   true ),
         (   Units == inf -> Next = inf ; Next is Units - 1 ),
         refs_gc_follow_loop(Next, Left)
     ;   Left = Units ).
@@ -582,6 +593,9 @@ refs_gc_erase(proofs, user:'&proof'(Pid, _, _, _), Ref) :- !,
 refs_gc_erase(_, _, Ref) :- erase(Ref).
 
 refs_gc_finish :-
+    flag(refs_gc_words, Words, Words), flag(refs_gc_words_last, _, Words),
+    flag(refs_gc_marked_words, MarkedWords, MarkedWords), nb_getval(refs_gc_word_limit, LimitWords),
+    flag(refs_gc_words_kept, _, MarkedWords + Words - LimitWords),
     nb_getval(refs_gc_retire_epoch, Epoch), flag(refs_gc_retired_last, _, Epoch),
     aggregate_all(count, refs_gc_proof(_), Marked),
     nb_getval(refs_gc_limits, limits(ProofLimit, _)), 'search-id-value'(proof_id, Next),
@@ -788,9 +802,11 @@ ev_union(A, B, C) :-
             ev_intern(Ids, Sorted, Excluded, C) ),
         Key is A << 32 \/ B, assertz(ev_union_memo(Key, C)) ).
 
-% The union of the sets in order.
+% The union of the sets in order, interned once. Materializing every prefix
+% retained quadratic evidence history when an exact fold ran repeatedly.
 'evidence-join'(Sets, ['ev-set', Set]) :-
-    foldl([['ev-set', S], Acc0, Acc]>>ev_union(Acc0, S, Acc), Sets, 0, Set).
+    findall(Id, (member(['ev-set', S], Sets), ev_order(S, Ids), member(Id, Ids)), Repeated),
+    list_to_set(Repeated, Ids), ev_of_ids(Ids, Set).
 
 'evidence-overlap?'(['ev-set', A], ['ev-set', B], Result) :-
     ev_sorted(A, SortedA), ev_sorted(B, SortedB),
@@ -939,6 +955,7 @@ proof_rules(Pid, Set) :-
 % Folds have identity -1; temporary query rows cannot be withdrawn. Encoding
 % the owner as id+1 reserves metadata zero without losing real rule id zero.
 'record-view-rule!'(Pid, Rule, Proof, Owner) :-
+    term_size(Proof, Words), flag(refs_gc_words, Before, Before + Words),
     ( Rule >= 0, Rule < 1000000000 -> Owner is Rule + 1 ; Owner = 0 ),
     % A frozen summary's rows are gone. Its source identities must survive
     % physical retirement until this proof has captured its transitive set.
@@ -2226,9 +2243,12 @@ sk_search_owned(H, Key, Space, Ref) :-
 
 % A waiter batch already needs this digest for its child link. Retain a
 % lease by clause reference, so retraction never hashes the partial again.
+% Reopening an evicted cache reuses the subscription and its child lease.
 
 'sk-store-wait!'(D, H, N, Waiter, true) :-
-    sk_search_init, Waiter = ['sk-partial', _, Id, C, Done, _, _], length(Done, Pos),
+    sk_search_init,
+    ( sk_wait_ref(H, N, Waiter, _) -> true
+    ; Waiter = ['sk-partial', _, Id, C, Done, _, _], length(Done, Pos),
     ( sk_wait_template(Id, Pos, TemplateId, Template, Bindings), subsumes_term(Template, Waiter)
     -> Template = Waiter
     ; rules('runtime-rule-row', Id, Conclusion, Premises),
@@ -2243,7 +2263,7 @@ sk_search_owned(H, Key, Space, Ref) :-
     assertz(sk_child_users(D, Ref)), sk_search_index(C, sk_wait_payload, Ref),
     ( N = [Type,Context|_], functional_key(Type, Context, Key), term_hash(Key, Hash),
       \+ functional_value(Hash, Key, _)
-    -> assertz(sk_search_clause(Hash, sk_functional_wait, Ref)) ; true ).
+    -> assertz(sk_search_clause(Hash, sk_functional_wait, Ref)) ; true ) ).
 
 % A continuation template is the compiled rule split at a premise position.
 % Context routing and query proof patterns widen only the affected slots.

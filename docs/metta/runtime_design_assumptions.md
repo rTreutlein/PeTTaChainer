@@ -683,12 +683,32 @@ fold even while no query asks for the rule; freezing that row made a later
 read return an old summary and stopped later observations refining it.
 Ordinary historical beliefs retain the configured freezing and decay.
 
-Follow-up: other keys whose rows read live aggregates (`FoldAll`,
-`FoldAllValue`, `FoldAllTruth`, or base-rate folds) can still be frozen stale
-by forgetting. Freezing their reader replaces an updating aggregate with a
-snapshot, the same class of bug as the RuleTruth case. Extending the freezing
-policy to these readers needs a separate design decision; it is not part of
-known-search retirement.
+Keys with a row directly reading a fold or group are replayable caches,
+including `FoldAll`, `FoldAllValue`, `FoldAllTruth`, base rates and instance
+folds. Each row registers in `&sk_aggregate_row`, indexed by its conclusion
+hash and exact key, even with forgetting disabled. Retirement removes the
+registration. Idle aggregate readers are evicted rather than converted to
+historical summaries: their local join digests leave and their matching
+search nodes become unexpanded, with one pending work item. A later demand
+replays the compiled rules against current inputs; no summary can preserve an
+old aggregate value. Existing subscriptions are reused, so replay creates no
+waiter per query. Active searches and consumers keep the ordinary need/touch
+policy; reading a fold alone grants no permanent liveness.
+
+Population-fold members and incidental keys feeding aggregate rows through
+open searches are replayable too. The latter have no independently expanded
+node of their own. Otherwise an inverse population search left one summary
+of a forward deduction per newly observed member. Classify the idle batch
+before dropping any rows, so classification does not depend on freeze order.
+These tests use key/reader indexes, not a history or dependency-graph walk.
+Authored facts and incremental population contributions remain. Ordinary
+historical summaries retain freezing and decay. When the last current or
+stale reader of a fold leaves during eviction, its cached views and merged
+values leave too. Generic folds still read all their members when demanded.
+Their evidence join interns one final ordered union rather than every prefix.
+Frozen member markers are unique across repeated need/freeze cycles. Proof
+collection is metered by allocated proof words as well as proof count, so
+large exact-fold proof snapshots do not wait for 4096 new proof records.
 
 An exact fold (`FoldAll`, `FoldAllValue`, `FoldAllTruth`) needs all its
 members. While its search has members still to come (members whose rows are

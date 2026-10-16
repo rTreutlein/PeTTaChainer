@@ -36,10 +36,6 @@
 (: SkeletonRowRef Type)
 (: sk-row-ref (-[det]-> SkeletonKey Number SkeletonRow SkeletonRowRef))
 
-(: sk-forget-row! (-[semidet]-> Number SkeletonKey Atom SkeletonRowRef Atom))
-(= (sk-forget-row! $hash $key $_acc (sk-row-ref $stored $rhash $row))
-   (sk-drop-row! $hash $stored $rhash $row))
-
 (: sk-forget-taken! (-[det]-> Number SkeletonKey Atom))
 (= (sk-forget-taken! $hash $key)
    (let $_removed
@@ -73,6 +69,17 @@
          (not (== (collapse (once (match &sk_use ($hash $stored $fold)
                      (if (=alpha $stored $key) (if (sk-rate-fold? $fold) (empty) true) (empty)))))
                   ())))))
+
+(: sk-forget-row! (-[semidet]-> Number SkeletonKey Atom SkeletonRowRef Atom))
+(= (sk-forget-row! $hash $key $_acc (sk-row-ref $stored $rhash $row))
+   (let* (($keys (case $row (((sk-row $_i $_c $premises $_s) (fold-semidet sk-direct-key-step () $premises)))))
+          ($_row (sk-drop-row! $hash $stored $rhash $row))
+          ($_folds (collapse (let $input (superpose $keys)
+             (case $input (
+                ((sk-key $_t $_c) (empty))
+                ($_fold (if (sk-read? (index-hash $input) $input) ()
+                   (let $_dropped (sk-drop-fold-view! $input) (sk-drop-merged! $input))))))))))
+      ()))
 
 (: sk-open-node? (-[det]-> SkPattern Bool))
 (= (sk-open-node? $node)
@@ -124,6 +131,26 @@
    (append-flat (collapse (match &sk_forward_taken ($_th $_tk $taken) (sk-view-deps-step 0 $taken)))
       (collapse (match &sk_summary ($_yh $_yk $_yf $_ye $ydeps) $ydeps)))))))))))
 
+;; Aggregate rows and the incidental keys feeding their population search
+;; are reconstructible cache entries, not historical observations. A key
+;; with its own expanded node retains ordinary historical freezing unless
+;; it reads an aggregate itself or is a statistical-fold member.
+(: sk-replay-key? (-[det]-> Number SkeletonKey Bool))
+(= (sk-replay-key? $hash $key)
+   (if (not (== (collapse (once (match &sk_aggregate_row ($hash $stored $_rh)
+                   (if (=alpha $stored $key) true (empty))))) ())) true
+      (if (not (== (collapse (once (match &sk_use ($hash $member $fold)
+                       (if (=alpha $member $key) (if (sk-rate-fold? $fold) true (empty)) (empty))))) ())) true
+         (if (not (== (collapse (once (match &sk_expanded ($hash ($type $ctx $_p $_v))
+                          (if (=alpha (sk-key $type $ctx) $key) true (empty))))) ())) false
+         (let $readers (append-flat
+                 (collapse (match &ctx_sk_reader ($hash $input $reader $rhash)
+                    (if (=alpha $input $key) ($reader $rhash) (empty))))
+                 (collapse (match &ctx_sk_stale_reader ($hash $stale-input $reader $rhash)
+                    (if (=alpha $stale-input $key) ($reader $rhash) (empty)))))
+            (not (== (collapse (once (let ($rkhash $rrhash) (superpose $readers)
+                       (match &sk_aggregate_row ($rkhash $_rk $rrhash) true)))) ())))))))
+
 ;; Ends an epoch and freezes the keys idle for the horizon. Returns the new
 ;; epoch.
 (: advance-epoch (-[semidet]-> Number))
@@ -134,9 +161,7 @@
          (let* (($cutoff (- $epoch $horizon))
                 ($idle (collapse (match &sk_key_epoch ($hash $key $last)
                           (if (<= $last $cutoff)
-                             ;; A model parameter keeps reading its live tally:
-                             ;; freezing the truth disconnects future samples.
-                             (if (sk-rule-truth-key? $key) (empty) (sk-frozen $hash $key))
+                             (if (sk-rule-truth-key? $key) (empty) ($hash $key (sk-replay-key? $hash $key)))
                              (empty)))))
                 ($_frozen (fold-semidet (sk-freeze! $epoch) () $idle))
                 ($_buried (fold-semidet sk-bury! () (collapse (match &sk_frozen ($fhash $fkey) (sk-frozen $fhash $fkey)))))
@@ -154,8 +179,8 @@
 ;; before: their dependency nodes walk the summary's instead. Its confidence
 ;; is discounted by the decay, so evidence counted twice through what was cut
 ;; off enters with shrinking weight.
-(: sk-freeze! (-[semidet]-> Number Atom SkeletonFrozen Atom))
-(= (sk-freeze! $epoch $_acc (sk-frozen $hash $key))
+(: sk-freeze! (-[semidet]-> Number Atom (Number SkeletonKey Bool) Atom))
+(= (sk-freeze! $epoch $_acc ($hash $key $replay))
    (let* (($value (fold-semidet (sk-merge-step true (sk-unifier-hashes $hash $key)) sk-none (sk-admitted $hash $key sk-any-filter ())))
           ($near (sk-near-hashes-step (cons $hash ()) $hash))
           ($window (fold-semidet sk-near-hashes-step $near $near))
@@ -172,7 +197,25 @@
           ($_taken (sk-forget-taken! $hash $key))
           ($_copy (sk-forget-forward-copy! $hash $key))
           ($_epoch (remove-data-rows! &sk_key_epoch (quote ($hash $key $_last))))
-          ($_frozen (add-atom &sk_frozen ($hash $key))))
+          ;; Exact-fold members remain registered across epochs. A key
+          ;; becomes frozen once, however often the fold needs its fact.
+          ($_frozen (if (== (collapse (once (match &sk_frozen ($hash $frozen-key)
+                               (if (=alpha $frozen-key $key) true (empty))))) ())
+                       (add-atom &sk_frozen ($hash $key)) ())))
+      (if $replay
+         (let* (($digest (link-digest $key))
+                ($_joins (remove-data-rows! &sk_join_link (quote ($digest $_jd))))
+                ($_nodes (collapse (match &sk_expanded ($hash $node)
+                   (case $node (
+                      (($type $ctx $_p $_tv)
+                         (if (=alpha (sk-key $type $ctx) $key)
+                            (let* (($_expanded (remove-atom &sk_expanded ($hash $node)))
+                                   ($_terms (remove-atom &sk_node_terms ($type $ctx $node)))
+                                   ($prefix (sk-node-prefix $type))
+                                   ($_open (remove-variant-row! &sk_open_node (quote ($prefix $hash $node)))))
+                               (sk-work! $hash $node 1)) (empty)))
+                      ($_cpu (empty))))))))
+            ())
       (case $value (
          ((sk-val ($type $kbctx $proof $tv) $ev $_deps)
             (let* (($summary (assemble-runtime-fact $type $kbctx (brand Proof (forgotten $hash $epoch)) (sk-decayed-tv $tv)))
@@ -181,7 +224,7 @@
                    ($_stored (add-atom &sk_summary ($hash $key $summary $ev $deps)))
                    ($_kb (add-atom &kb $summary)))
                (kb-index-fact! live $summary)))
-         ($_none ())))))
+         ($_none ()))))))
 
 ;; Retirement visits only physical copies registered for a withdrawn identity.
 ;; A dead summary cannot preserve only its live contributors: thaw the key and

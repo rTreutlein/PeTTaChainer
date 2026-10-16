@@ -250,9 +250,11 @@ class TestSearchRetirement(unittest.TestCase):
     def test_summary_thaw_removes_retirement_indexes_and_replays_live_joins(self):
         h = PeTTaChainer()
         h.set_forgetting(1)
+        # Fully specified branches keep these historical rows independent of
+        # the live base-rate folds required by a missing negative branch.
         h.add_atoms_no_check([
-            '(: old (Implication (A $t) (B $t)) (STV 0.9 1))',
-            '(: live (Implication (C $t) (B $t)) (STV 0.2 1))',
+            '(: old (Implication (A $t) (B $t)) (CTV (STV 0.9 1) (STV 0 1)))',
+            '(: live (Implication (C $t) (B $t)) (CTV (STV 0.2 1) (STV 0 1)))',
             '(: a (A warm) (STV 1 1))',
             '(: c (C warm) (STV 1 1))',
         ])

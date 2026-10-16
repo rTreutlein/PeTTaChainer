@@ -952,6 +952,15 @@
                    (if (=alpha $stored $owner) (if (sk-completion-waiter? $waiter) $waiter (empty)) (empty))))))
          (fold-semidet (sk-extend-step $key) () $waiters))))
 
+;; Register direct fold/group readers with their rows. Idle eviction can
+;; reopen their search rather than freeze an aggregate snapshot.
+(: sk-aggregate-reader-step (-[det]-> Bool SkPattern Bool))
+(= (sk-aggregate-reader-step $found $premise)
+   (if $found true
+      (case $premise (
+         ((CPU $fun $_args $_res) (aggregate-fold-function? $fun))
+         ($_fact false)))))
+
 (= (sk-complete-row! $owner $rule $concl $premises $keys)
    (if (rule-live? $rule)
    (let* ((($type $kbctx $proof $_tv) $concl)
@@ -991,6 +1000,8 @@
                    ($_add
                       (if (chainer-acyclic-term? $row)
                          (let* (($_stored (add-atom &sk_row ($khash $key $rhash $row)))
+                                ($_aggregate (if (fold-semidet sk-aggregate-reader-step false $premises)
+                                           (add-atom &sk_aggregate_row ($khash $key $rhash)) ()))
                                 ($_touched (sk-touch-key! $khash $key))
                                 ($_counted (query_metric_increment rows-created)))
                             (context-add! &sk_new (sk-row-item $seq $khash $key $rhash $row)))
@@ -1987,6 +1998,7 @@
 (= (sk-drop-row! $hash $key $rhash (sk-row $ident $concl $premises $seq))
    (let* (($keys (fold-semidet sk-direct-key-step () $premises))
           ($_row (remove-variant-row! &sk_row (quote ($hash $key $rhash (sk-row $ident $concl $premises $seq)))))
+          ($_aggregate (remove-variant-row! &sk_aggregate_row (quote ($hash $key $rhash))))
           ($_readers (fold-semidet (sk-remove-reader! $hash $rhash) () $keys))
           ($_stale-readers (fold-semidet (sk-drop-stale-reader! $hash $rhash) () $keys))
           ($_stale (context-remove! &sk_stale ($hash $rhash))))

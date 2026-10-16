@@ -60,17 +60,18 @@ it ends, an interned set found again by its entries or a memoized union is
 marked, so nothing reachable at the start is lost. A stored proof is found
 only through references, so one nothing reached cannot be reached again.
 
-Every query ends with one slice (`stored-refs-gc-step!`), which starts a cycle
-once more proofs were stored since the last one than it kept plus the holder
-rows it scanned (at least 4096): a cycle's work is those rows and proofs, and
-the holder rows grow with the keys (one per decision in Pong) while the proofs
-kept need not, so pacing by kept proofs alone made each stored proof pay a
-share that grew with the history. A slice does at most 512 units of work plus 8 per proof stored since the previous
-slice: a holder row scanned, a marked proof followed, a stored proof, set or
-union swept. So a query pays a bounded share of a collection, and a cycle
-ends before as many proofs again are stored. `stored-refs-gc!` collects
-everything nothing reaches at once. Entries are kept; there is one per fact
-or rule a proof used.
+Every query ends with one slice (`stored-refs-gc-step!`). A cycle starts
+when either new proof count or new proof words exceeds what the previous
+cycle kept plus the holder rows it scanned (at least 4096). Large exact-fold
+proofs therefore pay for collection before thousands of them accumulate.
+Proof size is charged once when the proof is stored and measured for the
+proofs the marker already follows; no store scan is added to the due check.
+A slice allows 512 units plus 8 per new proof, retired rule, and 32 new proof
+words since the preceding slice. Units remain holder rows scanned, marked
+proofs followed, and stored records swept. Kept-size accounting includes
+proofs born during the cycle, preserving the existing birth and removal
+barriers. `stored-refs-gc!` collects everything nothing reaches at once.
+Evidence entries are kept; there is one per fact or rule a proof used.
 
 Where the memory of a run goes, stores against Prolog stacks, and the second
 round of representation changes after this one:

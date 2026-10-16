@@ -437,11 +437,13 @@ class TestPeTTaChainer(unittest.TestCase):
         # Every row holding a proof reference or an evidence set is one the
         # collector scans (refs_holder in runtime_helpers.pl); a fact in &kb
         # with a referenced proof is also a forward copy or a materialized fact.
+        # A live fold's (STV $total 1) has an open [$total, 1] suffix:
+        # classify actual reference tags without binding that variable.
         stray = janus_swi.query_once(
             "findall(_F-_N, ( current_predicate(user:_F/_A), sub_atom(_F, 0, 1, _, '&'),"
             " \\+ memberchk(_F, ['&proof', '&proof_fact', '&self', '&kb', '&kb_prefix', '&kb_open']),"
             " functor(_H, _F, _A), predicate_property(user:_H, dynamic), user:_H, between(1, _A, _N), arg(_N, _H, _X),"
-            " sub_term(_S, _X), nonvar(_S), _S = [_T, _I], memberchk(_T, ['proof-ref', 'ev-set']), integer(_I),"
+            " sub_term(_S, _X), nonvar(_S), _S = [_T, _I], nonvar(_T), memberchk(_T, ['proof-ref', 'ev-set']), integer(_I),"
             " \\+ ( refs_holder(_F, _A, _Columns), memberchk(_N, _Columns) ) ), _Found), sort(_Found, Stray)"
         )["Stray"]
         self.assertEqual(stray, [])

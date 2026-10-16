@@ -62,9 +62,11 @@
 !(set-forgetting 0 1.0)
 
 ;; A mixed compressed summary must reconstruct its live part at either budget.
+;; Explicit branches keep this fixture historical; STV readers of live base
+;; rates are replayable caches and are evicted instead of summarized.
 !(set-forgetting 1 1.0)
-!(compileadd mixedSummaryKb (: s-old (Implication (A $t) (B $t)) (STV 0.9 1)))
-!(compileadd mixedSummaryKb (: s-live (Implication (C $t) (B $t)) (STV 0.2 1)))
+!(compileadd mixedSummaryKb (: s-old (Implication (A $t) (B $t)) (CTV (STV 0.9 1) (STV 0 1))))
+!(compileadd mixedSummaryKb (: s-live (Implication (C $t) (B $t)) (CTV (STV 0.2 1) (STV 0 1))))
 !(compileadd mixedSummaryKb (: sa (A warm) (STV 1 1)))
 !(compileadd mixedSummaryKb (: sc (C warm) (STV 1 1)))
 !(query 40 mixedSummaryKb (: $p (B warm) $tv))
