@@ -26,6 +26,12 @@ Consequences:
 - A previously valid proof remains valid after any addition.
 - Evidence identity must survive materialization so the same evidence is not
   counted twice when forward and backward paths meet.
+- Double negation preserves evidence identity. Negation toggles fact polarity
+  and cancels its own evidence wrapper; applied rule identities and exclusions
+  retain their identity regardless of conclusion polarity. Projection positions
+  are proof metadata, never evidence. A stored proof reference carries its
+  computed evidence set, including applied rules, rather than reconstructed
+  leaves of the printed proof.
 - Overlapping proofs are not independent evidence. Disjoint proofs may be
   revised together; overlapping paths need dominance, refinement, or cycle
   checks before aggregation.

@@ -38,11 +38,13 @@ class ClosedHistoryReplayTests(unittest.TestCase):
                             break
                     else:
                         self.fail(f'Unchanged KB did not become quiet: {metrics}')
-                    # Conditioning the observed production at t11 refines its
-                    # degradation to nearly zero; two persistence steps yield
-                    # 0.05 + 0.7*(0.05 + 0.7*D11), rather than the transient
-                    # 0.12665 propagated forward from the earlier observation.
-                    self.assertAlmostEqual(answer.tv[1], 0.08500012380519378, places=12)
+                    # #68: retaining semantic evidence through negation also
+                    # admits the observed production at t12. Its degradation
+                    # is nearly zero, so one persistence step yields
+                    # D13 = 0.05 + 0.7*D12, rather than skipping that observation
+                    # and taking two steps from the t11 update (about 0.085).
+                    self.assertAlmostEqual(answer.tv[1], 0.050000100205383924, places=12)
+                    self.assertIn('producing-power-plant-t12', h.expand_proof(answer.proof))
                     fixed_points.append(answer.tv[1])
                     for _ in range(3):
                         repeated = h.query_many_refs(goals, steps=budget)[position][0]

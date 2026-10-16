@@ -808,13 +808,17 @@ ev_union(A, B, C) :-
     ;   ev_order(A, IdsA), ev_keep(IdsA, Kept, Ids), ev_of_ids(Ids, C) ).
 
 % Each entry as a Not reads it: a fact's entry names the fact negated, any
-% other entry is wrapped.
+% other entry is wrapped. Negation cancels a previous wrapper; rule source
+% identity and exclusions do not depend on the polarity of the conclusion.
 'evidence-negated'(['ev-set', A], ['ev-set', C]) :-
     ev_order(A, Ids), maplist(ev_negated_id, Ids, Negated), ev_of_ids(Negated, C).
 ev_negated_id(Id, Negated) :-
     ev_entry(Id, _, Entry),
     (   Entry = ['fact-ev', Kb, Proof, Type] -> Not = ['not-fact-ev', Kb, Proof, Type]
     ;   Entry = ['not-fact-ev', Kb, Proof, Type] -> Not = ['fact-ev', Kb, Proof, Type]
+    ;   Entry = ['not-ev', Inner] -> Not = Inner
+    ;   Entry = ['rule-ev', _, _] -> Not = Entry
+    ;   Entry = ['rule-excluded', _, _] -> Not = Entry
     ;   Not = ['not-ev', Entry] ),
     ev_entry_id(Not, Negated).
 

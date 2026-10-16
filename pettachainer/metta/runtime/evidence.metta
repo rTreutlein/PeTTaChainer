@@ -201,6 +201,13 @@
       ;; A shared subproof counts once, at its first occurrence.
       ((shared $_id $shared-proof) (proof-term-evidence $mode (brand Proof $shared-proof)))
       ((shared $_id) (ev-set 0))
+      ;; A projection position is metadata, not a source of evidence.
+      ((marginal-proj $_index $source)
+         (proof-term-evidence $mode (brand Proof $source)))
+      (((proj $_index $source) $siblings)
+         (evidence-union
+            (proof-term-evidence $mode (brand Proof $source))
+            (proof-term-evidence $mode (brand Proof $siblings))))
       ;; The population base rate an inversion or completion updates is no
       ;; evidence about the instance, nor is the prior of one more member read
       ;; from it.
@@ -293,6 +300,7 @@
    (if (is-expr $prf)
       (if (is-var (car-atom $prf)) (brand Proof (car-atom $prf))
          (case $prf (
+            ((negated $inner) (rule-evidence-head (brand Proof $inner)))
             ;; Conditional consequent projections retain their source rule's
             ;; evidence and withdrawal identity, including repeated layers.
             ((consequent-projection $_source $_child $base)
@@ -310,6 +318,15 @@
             ((cons $head $_rest) (brand Proof $head)))))
       $prf))
 
+;; Complement the accumulated premise evidence once per output Not. Do not
+;; rewalk premise proofs: their evidence already includes all earlier negations
+;; and the rule identities their printed terms cannot reconstruct.
+(: proof-output-evidence (-[det]-> Proof EvidenceSet EvidenceSet))
+(= (proof-output-evidence $proof $ev)
+   (if (proof-term-negated? $proof)
+      (evidence-negated (proof-output-evidence (brand Proof (car-atom (cdr-atom $proof))) $ev))
+      $ev))
+
 ;; Forward materialization and backward rule application must attach exactly
 ;; the same provenance.  Otherwise a materialized rule result looks like a new
 ;; independent fact when the backward chainer rediscovers that rule path.
@@ -323,9 +340,11 @@
           ;; transformed the evidence below it; rewalking the printed proof
           ;; here loses the applied rule's evidence and revises it twice.
           (if (head-is-member? $prf (conditional-implication total-implication-frontier)) $ev
-             (if (proof-term-contains-negated? $prf)
-                (once (proof-term-evidence proof-walk-in-kb $prf))
-                $ev)))
+             (if (proof-term-negated? $prf)
+                (proof-output-evidence $prf $ev)
+                (if (proof-term-contains-negated? $prf)
+                   (once (proof-term-evidence proof-walk-in-kb $prf))
+                   $ev))))
        ($name
           (rule-evidence-base-name (rule-evidence-head $prf)))
        ($storage-kbid (brand KB $kbid))
@@ -386,6 +405,16 @@
 (: member-of-step (-[det]-> (List Atom) Bool Atom Bool))
 (= (member-of-step $set $members $item) (if $members (stored-list-member? $item $set) false))
 
+;; Specificity compares the observed premise sources, not the rules used to
+;; derive a generalized premise. Stored references carry semantic fact entries;
+;; direct source proofs still name their facts by proof alone.
+(: evidence-fact-proof (-[det]-> Evidence Atom))
+(= (evidence-fact-proof $entry)
+   (case $entry (
+      ((fact-ev $_scope $proof $_statement) $proof)
+      ((not-fact-ev $_scope $proof $_statement) (not-ev $proof))
+      ($_raw $entry))))
+
 ;; Two rules applied to the same statement, the first reading stored facts
 ;; directly: the first's antecedent, as instantiated, entails the second's,
 ;; whose rate is a marginal over the first's and over cases this one is not
@@ -430,9 +459,9 @@
                    ($facts-b (application-facts $premise-b)))
                (if (== $facts-a ()) false
                   (if (== $facts-b ())
-                     (let $ev-b (proof-term-evidence proof-walk-in-kb $premise-b)
-                        (if (== $ev-b (ev-set 0)) false
-                           (evidence-subset? $ev-b (proof-term-evidence proof-walk-in-kb $premise-a))))
+                     (let* (($ev-b (proof-term-evidence proof-walk-in-kb $premise-b))
+                            ($sources-b (map-flat evidence-fact-proof (evidence-shared-facts $ev-b $ev-b))))
+                        (if (== $sources-b ()) false (all-members? $facts-a $sources-b)))
                      (if (< (list-len $facts-b) (list-len $facts-a)) (all-members? $facts-a $facts-b) false))))))
       ($_other false)))))
 

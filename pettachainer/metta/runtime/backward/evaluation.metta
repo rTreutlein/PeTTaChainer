@@ -1542,11 +1542,11 @@
 (= (sk-reference-view $rule $computed)
    (case $computed (
       ((sk-val ($type $kbctx $proof $tv) $ev $vdeps)
-         (let* (($ref (sk-store-proof! $rule $proof))
+         (let* (($ref (sk-store-proof! $rule $proof $ev))
                 ($_fact (case $ref (((proof-ref $pid) (add-atom &proof_fact ($pid $type $tv)))))))
             (sk-val (data $type $kbctx $ref $tv) $ev $vdeps)))
       ((sk-goal-val $goal $goal-proof $gev $gdeps)
-         (sk-goal-val $goal (sk-store-proof! $rule $goal-proof) $gev $gdeps))
+         (sk-goal-val $goal (sk-store-proof! $rule $goal-proof $gev) $gev $gdeps))
       (sk-none sk-none))))
 
 (= (sk-cache-branch! $slot $hash $key $rhash $rule $inputs $cuts $fresh $computed)
@@ -1693,14 +1693,14 @@
 ;; A stored view's proof moves to &proof under a fresh id and the view keeps a
 ;; reference to it, so a view stays the size of one rule application however
 ;; deep its derivation is. What the evidence of a proof needs from its whole
-;; tree, its leaves and whether it negates anything, is summarized with it.
-(: sk-store-proof! (-[semidet]-> Number Proof Proof))
-(= (sk-store-proof! $rule $proof)
+;; tree, its computed evidence and whether it negates anything, is stored with
+;; it. Rewalking the printed proof loses rule evidence and fact identities.
+(: sk-store-proof! (-[semidet]-> Number Proof EvidenceSet Proof))
+(= (sk-store-proof! $rule $proof $ev)
    (let* (($pid (next-search-id proof_id))
           ($owner (record-view-rule! $pid $rule $proof))
-          ($leaves (once (proof-term-evidence proof-walk-in-kb $proof)))
           ($flags (+ (* 2 $owner) (if (proof-term-contains-negated? $proof) 1 0)))
-          ($_row (add-atom &proof ($pid $proof $leaves $flags))))
+          ($_row (add-atom &proof ($pid $proof $ev $flags))))
       (proof-ref $pid)))
 
 ;; A new view becomes the row's latest; the one it replaces is kept.
