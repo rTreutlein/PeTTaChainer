@@ -502,7 +502,7 @@
    (let $prem-kb (source-premise-kb $kb $ctx $vars)
       (if (is-var $elem)
          (premise-bundle ((: $prem-kb $prf $elem $tv)) $tv $prf)
-         (if (= $elem (CPU $f $args $res))
+         (if (if (head-is? $elem CPU) (= $elem (CPU $f $args $res)) false)
          (premise-bundle ((CPU $f $args $res))
             (cpu-premise-tv $f $args $res) cpu)
          (premise-bundle ((: $prem-kb $prf $elem $tv)) $tv $prf)))))
@@ -510,7 +510,7 @@
 (: in_map
    (-[det]-> KBContext Atom CompiledPremise))
 (= (in_map $kb $elem)
-   (if (= $elem (CPU $f $args $res))
+   (if (if (head-is? $elem CPU) (= $elem (CPU $f $args $res)) false)
       (data (CPU $f $args $res)
          (cpu-premise-tv $f $args $res) cpu)
       (data

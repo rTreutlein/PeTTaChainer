@@ -411,17 +411,17 @@
          (if (if (aggregate-fold-function? $fun) true (== $fun SettlesFormula)) (empty)
             (case (collapse (once (cpu-call 0 $fun $args))) (
                ((cons $result $_rest) (if (= $res $result) $ev (empty)))))))
-      (((RuleTruth $implication) $kbctx $proof $tv)
-         (case (sk-value (sk-key (RuleTruth $implication) $kbctx) sk-any-filter ()) (
-            ((sk-val ($_type $_kbctx $truth-proof $truth) $truth-ev $_deps)
-               (if (= ($proof $tv) ($truth-proof $truth)) (evidence-union $truth-ev $ev) (empty)))
-            ($_none (empty)))))
       (($type $kbctx $proof $tv)
-         (if (== (extract-vars $type) ())
-            (case (stored-statement-candidate (brand Statement $type) (brand KBContext $kbctx) false) (
-               ((forward-derived ($_stype $_skbctx $stored-proof $stored-tv) $stored-ev)
-                  (if (= ($proof $tv) ($stored-proof $stored-tv)) (evidence-union $stored-ev $ev) (empty)))))
-            (empty))))))
+         (if (if (head-is? $type RuleTruth) (= $type (RuleTruth $_implication)) false)
+            (case (sk-value (sk-key $type $kbctx) sk-any-filter ()) (
+               ((sk-val ($_type $_kbctx $truth-proof $truth) $truth-ev $_deps)
+                  (if (= ($proof $tv) ($truth-proof $truth)) (evidence-union $truth-ev $ev) (empty)))
+               ($_none (empty))))
+            (if (== (extract-vars $type) ())
+               (case (stored-statement-candidate (brand Statement $type) (brand KBContext $kbctx) false) (
+                  ((forward-derived ($_stype $_skbctx $stored-proof $stored-tv) $stored-ev)
+                     (if (= ($proof $tv) ($stored-proof $stored-tv)) (evidence-union $stored-ev $ev) (empty)))))
+               (empty)))))))
 
 (: sk-disjoint-view-step (-[semidet]-> Atom SkeletonValue Atom))
 (= (sk-disjoint-view-step ($tvs $seen) (sk-val ($_type $_ctx $_proof $tv) $ev $_deps))
@@ -539,7 +539,8 @@
 
 (: sk-shared-candidate (-[semidet]-> (List SkeletonShared) SkeletonKey (List SkeletonShared)))
 (= (sk-shared-candidate $found $key)
-   (if (case $key (((sk-key (RuleTruth $_implication) $_kbctx) true) ($_other false))) $found
+   (if (case $key (((sk-key $type $_kbctx)
+            (if (head-is? $type RuleTruth) (= $type (RuleTruth $_implication)) false)) ($_other false))) $found
    (let* (($hash (index-hash $key))
           ($views (map-flat sk-version-view (sk-latest-versions $hash $key)))
           ($leaves (sk-key-leaves $key sk-any-filter)))
@@ -3254,13 +3255,15 @@
                          (case (copy_term $head) (((inverted $_rule with $_prior $_token) true) ($_other false)))))
                    false)
                (hash-set (foldr-flat (sk-part-exclusions $kbctx) $own (sk-statement-parts (cons $type ()))))
-               (case $type (
-                  ((ImplicationInstanceSample $a $b $_atv $_btv)
-                     (let* (($kbid (car-atom $kbctx))
-                            ($implication (sk-key (Implication $a $b) $kbctx)))
-                        (hash-union (hash-union $own (sk-unifier-hashes (index-hash $implication) $implication))
-                           (hash-set (collapse (match &sk_rule_truth ($_id $hash $_type ($kbid $_ctx $_vars)) $hash))))))
-                  ($_statement $own)))))
+               (if (head-is? $type ImplicationInstanceSample)
+                  (case $type (
+                     ((ImplicationInstanceSample $a $b $_atv $_btv)
+                        (let* (($kbid (car-atom $kbctx))
+                               ($implication (sk-key (Implication $a $b) $kbctx)))
+                           (hash-union (hash-union $own (sk-unifier-hashes (index-hash $implication) $implication))
+                              (hash-set (collapse (match &sk_rule_truth ($_id $hash $_type ($kbid $_ctx $_vars)) $hash))))))
+                     ($_statement $own)))
+                  $own)))
          ($_fold $own)))))
 
 ;; A projection of a compound, its first premise, onto one part reads the other
@@ -3407,8 +3410,9 @@
 (= (sk-fact-premise-type $premise $types)
    (case $premise (
       ((CPU $_fun $_args $_res) $types)
-      (((RuleTruth $_implication) $_kbctx $_prf $_tv) $types)
-      (($type $_kbctx $_prf $_tv) (cons $type $types)))))
+      (($type $_kbctx $_prf $_tv)
+         (if (if (head-is? $type RuleTruth) (= $type (RuleTruth $_implication)) false)
+            $types (cons $type $types))))))
 
 ;; The share of an incomplete fold's members it covered; a complete fold's is 1.
 (: sk-fold-share-step (-[semidet]-> Number Proof Number))

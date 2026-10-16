@@ -26,21 +26,19 @@
 
 (= (source-compute-goals ()) (source-computes ()))
 (= (source-compute-goals (cons $premise $rest))
-   (case $premise (
-      ((Compute $function $args -> $result)
-         (case (source-compute-goals $rest) (
-            ((source-computes $goals)
-               (source-computes
-                  (cons (CPU $function $args $result) $goals)))
-            (unsupported-source-computes
-               unsupported-source-computes))))
-      ((Compute $function $args $result)
-         (source-compute-goals
-            (cons (Compute $function $args -> $result) $rest)))
-      ($other
-         (if (contains-head? source-computation-head? $other)
-            unsupported-source-computes
-            (source-compute-goals $rest))))))
+   (if (head-is? $premise Compute)
+      (case $premise (
+         ((Compute $function $args -> $result)
+            (case (source-compute-goals $rest) (
+               ((source-computes $goals)
+                  (source-computes (cons (CPU $function $args $result) $goals)))
+               (unsupported-source-computes unsupported-source-computes))))
+         ((Compute $function $args $result)
+            (source-compute-goals (cons (Compute $function $args -> $result) $rest)))
+         ($_malformed unsupported-source-computes)))
+      (if (contains-head? source-computation-head? $premise)
+         unsupported-source-computes
+         (source-compute-goals $rest))))
 
 (: direct-variable-index-or-negative
    (-[det]-> (List Atom) Variable Number Number))
@@ -186,19 +184,16 @@
    (-[det]-> Proof Proof Statement STVType
        ((List Goal) Proof Statement STVType)))
 (= (compile-implication-output $prf $proof-token $b $btv)
-   (case $b (
-      ((Not $inner)
-         (data
-            ((CPU NotFormula ($btv) $out-tv))
-            (brand Proof (negated (quote (by $prf $proof-token))))
-            (brand Statement $inner)
-            (the STVType $out-tv)))
-      ($other
-         (data
-            ()
-            (brand Proof (quote (by $prf $proof-token)))
-            $other
-            $btv)))))
+   (if (head-is? $b Not)
+      (case $b (
+         ((Not $inner)
+            (data
+               ((CPU NotFormula ($btv) $out-tv))
+               (brand Proof (negated (quote (by $prf $proof-token))))
+               (brand Statement $inner)
+               (the STVType $out-tv)))
+         ($_other (data () (brand Proof (quote (by $prf $proof-token))) $b $btv))))
+      (data () (brand Proof (quote (by $prf $proof-token))) $b $btv)))
 
 ;; A rule concluding an implication, a → (x → y), holds as its exported form
 ;; (a ∧ x) → y (docs/metta/derived_implications.md): the conjuncts of its
@@ -378,7 +373,8 @@
 (: base-rate-fold
    (-[det]-> KB Statement $truth-value Goal))
 (= (base-rate-fold $kb $pattern $brtv)
-   (if (if (= $pattern (Inheritance $x $subj)) (is-var $x) false)
+   (if (if (head-is? $pattern Inheritance)
+           (if (= $pattern (Inheritance $x $subj)) (is-var $x) false) false)
       (if (is-var $subj)
          (CPU FoldAllCompiled
             (quote
@@ -831,7 +827,8 @@
 ;;                        `Operation $x opLighter` is auxiliary.
 (: inheritance-context-premise? (-[det]-> $premise $subject Bool))
 (= (inheritance-context-premise? $premise $subj)
-   (if (= $premise (Inheritance $premise-subj $_concept))
+   (if (if (head-is? $premise Inheritance)
+           (= $premise (Inheritance $premise-subj $_concept)) false)
       (== $premise-subj $subj)
       false))
 
@@ -990,7 +987,8 @@
    (-[nondet]-> KB AnnotatedStatement Statement Statement
        CompiledAddition))
 (= (compile-inheritance-rule-lifts $kb $stmt $antecedent $consequent)
-   (if (= $consequent (Inheritance $subj $_concept))
+   (if (if (head-is? $consequent Inheritance)
+           (= $consequent (Inheritance $subj $_concept)) false)
       (let*
          (($ground-copy (copy_term $stmt))
           ($source-copy (copy_term $stmt))
@@ -1467,39 +1465,35 @@
 (: compile_ (-[nondet]-> KB AnnotatedStatement  CompiledAddition))
 (= (compile_ $kb (: $prf $Type $tv))
    (if (is-var $Type) (empty)
-      (if (= $Type (Implication $antecedent $consequent))
-       (compile-rule $kb () no-prior $prf (brand Statement $antecedent) (brand Statement $consequent) $tv)
-      (if (= $Type (ForAll $params (Implication $antecedent $consequent)))
-       (compile-rule $kb (extract-vars $params) no-prior $prf
-          (brand Statement $antecedent) (brand Statement $consequent) $tv)
-      (if (= $Type (WithPrior $prior (Implication $antecedent $consequent)))
-       (compile-rule $kb () $prior $prf
-          (brand Statement $antecedent) (brand Statement $consequent) $tv)
-      (if (= $Type (ForAll $params (WithPrior $prior (Implication $antecedent $consequent))))
-       (compile-rule $kb (extract-vars $params) $prior $prf
-          (brand Statement $antecedent) (brand Statement $consequent) $tv)
-         (if (implication-type? $Type)
-            (empty)
-         (if (contains-explicit-exists? $Type)
-            (empty)
-         (if (bidirectional-implication-type? $Type)
-            (let ($_head $left $right) $Type
-               (superpose (
-                  (compile_ $kb (: (bi-forward $prf)
-                     (Implication $left $right)
-                     $tv))
-                  (compile_ $kb (: (bi-backward $prf)
-                     (Implication $right $left)
-                     $tv)))))
-            ;; Canonicalize asserted negation into the inner fact's strength.
-            ;; Keeping the original proof name makes removal and provenance
-            ;; behave exactly like an ordinary fact; query adapters reconstruct
-            ;; `(Not ...)` and its negated proof token when requested.
-            (if (= $Type (Not $inner))
-               (case $tv (
-                  ((STV $s $c)
-                     (compile_ $kb
-                        (: $prf $inner (STV (- 1.0 $s) $c))))
-                  ($_unsupported-tv
-                     (compile-ordinary-fact $kb $prf $Type $tv))))
-               (compile-ordinary-fact $kb $prf $Type $tv)))))))))))
+      (if (source-rule? $Type)
+         (case $Type (
+            ((Implication $antecedent $consequent)
+               (compile-rule $kb () no-prior $prf
+                  (brand Statement $antecedent) (brand Statement $consequent) $tv))
+            ((ForAll $params (Implication $antecedent $consequent))
+               (compile-rule $kb (extract-vars $params) no-prior $prf
+                  (brand Statement $antecedent) (brand Statement $consequent) $tv))
+            ((WithPrior $prior (Implication $antecedent $consequent))
+               (compile-rule $kb () $prior $prf
+                  (brand Statement $antecedent) (brand Statement $consequent) $tv))
+            ((ForAll $params (WithPrior $prior (Implication $antecedent $consequent)))
+               (compile-rule $kb (extract-vars $params) $prior $prf
+                  (brand Statement $antecedent) (brand Statement $consequent) $tv))
+            ($_unsupported (empty))))
+         (if (implication-type? $Type) (empty)
+            (if (source-exists? $Type) (empty)
+               (if (bidirectional-implication-type? $Type)
+                  (let ($_head $left $right) $Type
+                     (superpose (
+                        (compile_ $kb (: (bi-forward $prf) (Implication $left $right) $tv))
+                        (compile_ $kb (: (bi-backward $prf) (Implication $right $left) $tv)))))
+               ;; Asserted negation keeps the source name and stores its
+               ;; inner statement with complemented strength.
+               (if (head-is? $Type Not)
+                  (let (Not $inner) $Type
+                     (case $tv (
+                        ((STV $s $c)
+                           (compile_ $kb (: $prf $inner (STV (- 1.0 $s) $c))))
+                        ($_unsupported-tv
+                           (compile-ordinary-fact $kb $prf $Type $tv)))))
+                  (compile-ordinary-fact $kb $prf $Type $tv))))))))

@@ -219,7 +219,7 @@ context_canonical(Term, Main) :-
 'context-rule-premises'(Concl, Premises, WithAssumption) :-
     ( Concl=[_,_,Proof,_], sub_term(Token,Proof), ground(Token), Token=[ctx,proof,C|_], context_scope(C,Kb),
       catch('&kb'(Type,[Kb,C,Vars],StoredProof,_TV),error(existence_error(procedure,_),_),fail),
-      StoredProof =@= Token, nonvar(Type), Type=['Implication'|_]
+      StoredProof =@= Token, nonvar(Type), Type=[Head|_], Head == 'Implication'
     -> append(Premises,[['CPU','ContextRule',[['sk-key',Type,[Kb,'MAIN',Vars]],C],[]]],WithAssumption)
     ; WithAssumption=Premises ).
 

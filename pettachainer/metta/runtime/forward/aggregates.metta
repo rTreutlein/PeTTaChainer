@@ -261,6 +261,12 @@
       ((cons $subscription $_none) (let $_seeded (fa-seed! $subscription) true)))))
 
 (: forward-maintain-member-aggregates! (-[det]-> ForwardAggregateMaintenance (Statement KBContext Proof TV)(List $a)))
-(= (forward-maintain-member-aggregates! $a $b)(case $b ( (((Member $c $d)($e MAIN Nil) $f $g)(collapse (fa-maintain-key! $a $b (fwd_member (brand KB $e)(brand Term $d)))))($h ()))))
+(= (forward-maintain-member-aggregates! $maintenance $fact)
+   (case $fact (
+      (($type ($kb MAIN Nil) $_proof $_tv)
+         (if (if (head-is? $type Member) (= $type (Member $_obj $concept)) false)
+            (collapse (fa-maintain-key! $maintenance $fact (fwd_member (brand KB $kb) (brand Term $concept))))
+            ()))
+      ($_other ()))))
 (: forward-maintain-aggregates! (-[det]-> ForwardAggregateMaintenance (Statement KBContext Proof TV)(List $a)))
 (= (forward-maintain-aggregates! $a $b)(let* ((($c $d)(forward-premise-keys $b))($e (collapse (fa-maintain-key! $a $b $c)))($f (if (== $c $d)()(collapse (fa-maintain-key! $a $b $d))))($g (forward-maintain-member-aggregates! $a $b)))()))

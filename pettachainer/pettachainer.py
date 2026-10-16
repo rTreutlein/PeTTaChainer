@@ -47,6 +47,8 @@ def _query_worker(
     evidence_confidence_k: float,
     bayes_prior_count: float,
     context_reuse_threshold: float,
+    max_term_bytes: int,
+    replay_max_term_bytes: int,
     rule_refinement: bool,
     rule_change_hazard: Optional[float],
     base_rate_smoothing: bool,
@@ -65,6 +67,7 @@ def _query_worker(
         handler.set_bayes_prior_count(bayes_prior_count)
         handler.set_context_reuse_threshold(context_reuse_threshold)
         handler.kb = kb
+        handler.set_max_term_bytes(replay_max_term_bytes)
         handler.set_rule_refinement(rule_refinement)
         if rule_change_hazard is not None:
             handler.set_rule_change_hazard(rule_change_hazard)
@@ -85,6 +88,7 @@ def _query_worker(
             handler.set_observed_predicate(head)
         if added_atoms:
             handler.add_atoms_no_check(added_atoms)
+        handler.set_max_term_bytes(max_term_bytes)
         conn.send(("ok", handler._call(fn, [source])))
     except Exception as exc:  # pragma: no cover
         conn.send(("err", (exc.__class__.__name__, str(exc), traceback.format_exc())))
@@ -176,6 +180,8 @@ class PeTTaChainer:
         self._evidence_confidence_k = 800.0
         self._bayes_prior_count = 0.2
         self._context_reuse_threshold = 0.000001
+        self._max_term_bytes = 65536
+        self._replay_max_term_bytes = 65536
         self._rule_refinement = False
         self._rule_change_hazard: Optional[float] = None
         self._base_rate_smoothing = False
@@ -457,6 +463,19 @@ class PeTTaChainer:
         self.handler.process_metta_string(f"!(set-base-rate-smoothing {self.kb} {value})")
         self._base_rate_smoothing = enabled
 
+    def set_max_term_bytes(self, limit: int) -> None:
+        """Set this KB's ingestion limit in canonical MeTTa UTF-8 bytes.
+
+        The default is 65536. The complete evaluated source annotation is
+        measured, including proof and truth value, for facts and rules.
+        Timed query workers replay this setting before loading knowledge.
+        """
+        if not isinstance(limit, int) or isinstance(limit, bool) or limit <= 0:
+            raise ValueError("max_term_bytes must be a positive integer")
+        self._call("set-max-term-bytes", [f"{self.kb} {limit}"])
+        self._max_term_bytes = limit
+        self._replay_max_term_bytes = max(self._replay_max_term_bytes, limit)
+
     def set_functional_predicate(self, head: str, arity: int, key_positions: Sequence[int]) -> None:
         """Declare an immutable, single-valued input relation before its knowledge.
 
@@ -607,16 +626,12 @@ class PeTTaChainer:
 
     @_timed
     def add_atoms_no_check(self, atoms: List[str]) -> List[str]:
-        if self._functional_predicates:
-            # A rejected assignment must leave the replay journal equal to
-            # the successfully ingested prefix of this batch.
-            result = []
-            for atom in atoms:
-                result.extend(self._call("compileadd", [f"{self.kb} {atom}"]))
-                self._added_atoms.append(atom)
-            return result
-        result = self._call("compileadd", [f"{self.kb} {atom}" for atom in atoms])
-        self._added_atoms.extend(atoms)
+        # Journal only successfully ingested inputs: a later rejection must
+        # leave timed workers with the same accepted prefix as the live KB.
+        result = []
+        for atom in atoms:
+            result.extend(self._call("compileadd", [f"{self.kb} {atom}"]))
+            self._added_atoms.append(atom)
         return result
 
     evaluate_statement = _evaluate
@@ -717,6 +732,8 @@ class PeTTaChainer:
                 self._evidence_confidence_k,
                 self._bayes_prior_count,
                 self._context_reuse_threshold,
+                self._max_term_bytes,
+                self._replay_max_term_bytes,
                 self._rule_refinement,
                 self._rule_change_hazard,
                 self._base_rate_smoothing,

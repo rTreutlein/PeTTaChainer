@@ -40,9 +40,11 @@
    (-[nondet]-> KB AnnotatedStatement  CompiledAddition))
 (= (compileadd $kb $stmt)
    (let*
-      (($iatoms
+      (($source (materialize-stmt-lambdas $stmt))
+       ($_valid (validate-ingestion! $kb $source))
+       ($iatoms
           (list_to_set
-             (collapse (mm2compile $kb (materialize-stmt-lambdas $stmt)))))
+             (collapse (mm2compile $kb $source))))
         ($_functional (functional-check-additions! $kb $iatoms))
         ($eatoms
            (the (List CompiledAddition)

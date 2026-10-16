@@ -25,6 +25,56 @@ it does not add statements to the handler's knowledge base.
 | `(add-to-kb $expr)` | Add an already-compiled, internal-form atom to the live KB. Lower-level. |
 | `(remove-compiled-statement $name)` | **Deprecated compatibility operation.** Retracts the current kb facts, rules, index rows, and cached scores for one named statement, but does not reset stored backward proof history or eagerly scan skeleton rows. Derived KB copies are retired and later reads exclude derivations using the removed rules. Removing a binary-certain fact leaves its search owner expanded with its retired joins gone, so that search does not restart. This is outside the monotonic query contract; rules whose compiled proof carries no extractable name are not covered. Python: deprecated `PeTTaChainer.remove_statement(name)`, which emits `DeprecationWarning`. |
 
+`compileadd` checks the complete evaluated source annotation before compiling
+or publishing it. An ordinary fact must have **no free statement variables**.
+`(: f ($predicate a b) (STV 1 1))`, `(Pair $x $x)` and `(P $y)` as facts
+raise `domain_error(fact_without_free_variables, ...)`, with the message
+`fact contains free variables`. Python `add_atom` and `add_atoms_no_check`
+surface this as `janus_swi.PrologError`. Rejection publishes no compiled
+facts, rules or ingestion observations for that input. Bulk Python ingestion
+keeps its successfully added prefix, including its timed-worker replay journal.
+
+Scope is lexical to each occurrence, with actual constant heads and the stated
+arities (a variable head never becomes a binder by unification):
+
+- `Implication antecedent consequent` binds all variables in its two sides.
+  Configured bidirectional implication forms (default `BiImplication`) do too.
+- `ForAll params body` and `Exists params body` bind exactly the variables
+  occurring in `params`, only inside `body`. Other body variables remain free.
+- The supported rule wrappers `WithPrior prior (Implication ...)`,
+  `ForAll params (Implication ...)`, and
+  `ForAll params (WithPrior prior (Implication ...))` carry the complete
+  rule schema, including prior variables. Variables remain allowed in rules.
+- A nested rule or binder in a predicate argument is scoped quoted content.
+  Thus `(ClaimContent Finding (Implication (P $x) (Q $x)))` is a valid fact,
+  as are quoted `ForAll` and `Exists` bodies with no free variables. Storing
+  quoted content does not execute that content or assert its conclusion.
+  An occurrence of `$x` outside that nested scope is still free, even when
+  the same name occurs inside it. `RuleTruth` itself introduces no binder;
+  its nested implication does. `WithPrior` without an implication is not a
+  binder. Strings containing `$` are literal data.
+
+Queries keep their variables, including variable predicate heads. Groundness
+validation does not apply to query compilation or internal rule products.
+Existing restrictions on executable existential syntax still apply.
+
+| Function | Meaning |
+|---|---|
+| `(set-max-term-bytes $kb $limit)` | Set the KB's maximum source annotation size, a positive integer, default **65536 bytes (64 KiB)**. Python: `PeTTaChainer.set_max_term_bytes(limit)`. Existing add/query signatures are unchanged. |
+
+The limit counts UTF-8 bytes in the canonical MeTTa serialization of the
+complete evaluated `(: proof statement tv)` annotation, including parentheses,
+spaces, string escaping, proof and TV. Whitespace/comments in the input do not
+count; variable names are canonicalized by PeTTa's serializer. It applies to
+both facts and rules, including closed quoted content. Oversized input raises
+`resource_error(stored_term_bytes(actual, limit))`, with the message
+`stored term exceeds max-term-bytes`, before compilation publishes anything.
+Invalid native limits raise a Prolog type/domain error; Python rejects invalid
+limits with `ValueError`. Settings are KB-local, affect subsequent additions,
+and are replayed before loading knowledge in timed query workers. The cap is
+an ingestion bound; compiler-generated views and derived proofs are not
+revalidated as authored source annotations.
+
 The live `&kb` keeps every added fact as stored; several facts of one
 statement are merged where they are read, as leaves of the backward search.
 Only stored binary-certain facts, STV strength 0 or 1 at confidence >= 1,

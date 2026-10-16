@@ -419,7 +419,7 @@ class TestPeTTaChainer(unittest.TestCase):
         handler = PeTTaChainer()
         handler.add_atoms_no_check([
             "(: refs_a (RefsA a) (STV 0.9 0.9))",
-            "(: refs_open (RefsOpen $y) (STV 0.5 0.5))",
+            "(: refs_open (RefsOpen sample) (STV 0.5 0.5))",
             "(: refs_ab (Implication (RefsA $v) (RefsB $v)) (STV 0.8 0.9))",
             "(: refs_bc (Implication (RefsB $v) (RefsC $v)) (STV 0.7 0.9))",
         ])
@@ -437,7 +437,7 @@ class TestPeTTaChainer(unittest.TestCase):
         self.assertEqual(derived.proof[0], "proof-ref")
         self.assertEqual(derived.statement, ["RefsC", "a"])
         self.assertEqual(derived.tv[0], "STV")
-        self.assertEqual(opened, ("refs_open", ["RefsOpen", "$_0"], ["STV", 0.5, 0.5]))
+        self.assertEqual(opened, ("refs_open", ["RefsOpen", "sample"], ["STV", 0.5, 0.5]))
         self.assertEqual(handler.expand_proof(derived.proof), "(by refs_bc (by refs_ab refs_a))")
         self.assertEqual(
             printed[0],

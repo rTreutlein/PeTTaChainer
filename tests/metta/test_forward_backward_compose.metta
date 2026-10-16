@@ -84,17 +84,16 @@
          (CTV (STV 0.9639 0.5) (STV 0.5 0.0))))
    ())
 
-;; The stored instances support the implication empirically, and copying a
-;; tall female's predicates to a hypothetical individual derives it through
-;; copyPredicate's completion; the two revise. copyPredicate states
-;; P(($p2 $y) | not ...) = 0, so given Tall of the individual the antecedent
-;; holds, Female included, whatever Alice's and Mary's predicates: 1. The
-;; public query returns that positive judgment, revised with the instance fold.
-;; The two completions read the same hypothetical observation, so they revise
-;; rather than multiply.
+;; The stored instances support the implication empirically. The symbolic
+;; conclusion predicate stays open during compilation: copyPredicate can use
+;; Alice's or Mary's observed Tall/Female conjunction to support Female of
+;; the hypothetical Tall individual. Each observed conjunction has strength
+;; 0.9 * 0.9 = 0.81. The positive judgment revises that direct copy evidence
+;; with its empirical instance fold; no predicate is reclassified as Not or
+;; Inheritance while compiling this rule.
 !(test
    (query 100 openVariableConclusionImplicationKb (: $p (Implication (Tall $x) (Female $x)) $tv))
-   (: (merge/revision (conditional-implication (merge/revision ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction femaleAlice tallAlice (ctx proof 0))) ((antecedent-completion copyPredicate 1 with cpu (prior (STV 0.8636363636363636 0.0024937655860349127))) (conjunction femaleMary tallMary (ctx proof 0))))) (implication-instance-fold cpu)) (Implication (Tall $_0) (Female $_0)) (STV 0.9999999988245056 0.9999791027594874)))
+   (: (merge/revision (conditional-implication (merge/revision (by copyPredicate (conjunction (conjunction tallAlice femaleAlice) (ctx proof 0))) (by copyPredicate (conjunction (conjunction tallMary femaleMary) (ctx proof 0))))) (implication-instance-fold cpu)) (Implication (Tall $_0) (Female $_0)) (STV 0.8100239739628896 0.6786287374397676)))
 
 ;; The open identity holds. Its instance fold also samples each stored
 ;; statement against its other proofs, the completions copying the other

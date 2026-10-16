@@ -12,7 +12,7 @@
 (= (internalize-proof-structure-any $term)
    (if (== $term ()) ()
       (if (is-var $term) $term
-      (if (= $term (: $kb $prf $type $tv)) (quote ($type $kb $prf $tv))
+      (if (if (head-is? $term :) (= $term (: $kb $prf $type $tv)) false) (quote ($type $kb $prf $tv))
          (if (is-expr $term)
             (cons
                (internalize-proof-structure-any (car-atom $term))

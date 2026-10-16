@@ -343,7 +343,7 @@
       (let $children (the (List Atom) (cdr-atom $statement))
          (brand Statement (cons And
             (map-flat scope-query-existentials $children))))
-      (if (contains-explicit-exists? $statement)
+      (if (source-exists? $statement)
          (let $canonical (canonical-existential-side (brand Statement $statement))
             (existential-source $canonical))
          (brand Statement $statement))))
@@ -369,7 +369,7 @@
                    (ExistentialAlternatives $claim witnesses) $witness-tv))))))
    (if (is-var $Type)
       (compilation-plan (: (kbctx $kb) $prf $Type $tv) ())
-      (if (= $Type (Assuming $facts $goal))
+      (if (if (head-is? $Type Assuming) (= $Type (Assuming $facts $goal)) false)
          (let* (($scoped-facts (scope-query-existentials $facts))
                 ($scoped-goal (scope-query-existentials $goal))
                 ($ctx (nextctx))
@@ -384,9 +384,9 @@
             (compilation-plan
                (CPU ContextQuery (quote ($scope $scoped-facts $inner $prf $tv)) $result)
                (append-compiled-additions $assumed $adapters)))
-      (if (contains-explicit-exists? $Type)
+      (if (source-exists? $Type)
          (compile-existential-query $kb (: $prf $Type $tv))
-      (if (= $Type (Implication $stated-antecedent $stated-consequent))
+      (if (if (head-is? $Type Implication) (= $Type (Implication $stated-antecedent $stated-consequent)) false)
          ;; A nested implication a → (x → y) is judged as its exported form
          ;; (a ∧ x) → y (docs/metta/derived_implications.md): its contexts
          ;; assume a and x and prove y, and the answer keeps the stated form.
@@ -450,7 +450,8 @@
                            |- $goal))
                      (union-compiled-additions
                         $left-adds $right-adds))))
-            (if (and (= $Type (Inheritance $subj $concept)) (concrete-inheritance-link? $subj $concept))
+            (if (if (head-is? $Type Inheritance)
+                   (if (= $Type (Inheritance $subj $concept)) (concrete-inheritance-link? $subj $concept) false) false)
                (compile-inheritance-query $kb (brand Term $subj) (brand Term $concept))
                (if (if (head-is? $Type And) (conjunction-query-needs-lowering? $Type) false)
                   (compile-conjunction-query $kb $Type $tv)
@@ -503,10 +504,11 @@
 
 (: query-temp-rule-premise (-[det]-> Atom Statement))
 (= (query-temp-rule-premise $premise)
-   (case $premise (
-      ((Compute $f $args $res)
-         (brand Statement (Compute $f $args -> $res)))
-      ($_other (brand Statement $premise)))))
+   (if (head-is? $premise Compute)
+      (case $premise (
+         ((Compute $f $args $res) (brand Statement (Compute $f $args -> $res)))
+         ($_other (brand Statement $premise))))
+      (brand Statement $premise)))
 
 (: compound-query-temp-stmt
    (-[semidet]-> AnnotatedStatement AnnotatedStatement))
@@ -524,7 +526,8 @@
 (: default-query-assumption-tv (-[det]-> Statement TV TV))
 (= (default-query-assumption-tv $type $tv)
    (if (is-var $tv)
-      (if (= $type (Implication $_antecedent $_consequent))
+      (if (if (head-is? $type Implication)
+              (= $type (Implication $_antecedent $_consequent)) false)
          (CTV (STV 1.0 1.0) (STV 0.0 1.0))
          (STV 1.0 1.0))
       $tv))
@@ -556,7 +559,7 @@
    (-[det]-> KB $context $variables Proof Statement TV
        (List CompiledAddition)))
 (= (query-context-assumed-implication-rules $kbid $ctx $mvars $ctxprf $type $tv)
-   (if (is-var $type) ()
+   (if (not (head-is? $type Implication)) ()
       (case $type (
          ((Implication $antecedent $consequent)
             (let*

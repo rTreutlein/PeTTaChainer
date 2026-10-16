@@ -17,21 +17,21 @@
        (is-var $x) (is-var $y) (is-var $a) (is-var $b)))
    (true true true true true))
 
-;; An open root sees both a general fact and its distinct concrete instance.
+;; An open root sees two ground facts with distinct sharing shapes.
 ;; Duplicate keys arriving from different constrained skeleton nodes must not
 ;; duplicate a public result or change the first-answer order.
-!(compileadd keyKb (: generalKey (Pair $x $x) (STV 1.0 0.8)))
+!(compileadd keyKb (: generalKey (Pair one one) (STV 1.0 0.8)))
 !(compileadd keyKb (: concreteKey (Pair one two) (STV 1.0 0.9)))
 !(test
    (length (collapse (query 10 keyKb (: generalKey (Pair $x $y) $tv))))
    1)
 !(test
    (collapse (query 10 keyKb (: $proof (Pair $x $y) $tv)))
-   ((: generalKey (Pair $x $x) (STV 1.0 0.8))
+   ((: generalKey (Pair one one) (STV 1.0 0.8))
     (: concreteKey (Pair one two) (STV 1.0 0.9))))
 !(test
    (collapse (query 0 keyKb (: $proof (Pair $x $y) $tv)))
-   ((: generalKey (Pair $x $x) (STV 1.0 0.8))
+   ((: generalKey (Pair one one) (STV 1.0 0.8))
     (: concreteKey (Pair one two) (STV 1.0 0.9))))
 
 ;; A key answered after an open reader cached its unifying keys joins that

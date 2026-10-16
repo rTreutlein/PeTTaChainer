@@ -1215,6 +1215,14 @@ MeTTa definitions can produce multiple reductions. Indexed matches, agenda
 priority, proof dominance, and merge order must not acquire accidental
 nondeterminism from overlapping clauses or unstable iteration order.
 
+Syntactic dispatch must inspect an expression's actual head before matching its
+arguments. A variable predicate in a query, rule premise/conclusion, open key,
+or recursively encoded expression must remain a variable: testing whether it
+is `Implication`, `Inheritance`, `RuleTruth`, `CPU` or another reserved form
+must not bind it to that symbol. Unification remains the operation for matching
+knowledge against a query; it is not a syntax classifier. The ingestion rule
+for free variables does not make internal open keys or rule patterns ground.
+
 ## Correctness requirements
 
 - Reject cyclic self-support before it reaches proof merging or aggregation.

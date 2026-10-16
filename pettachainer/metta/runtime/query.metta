@@ -75,11 +75,13 @@
 ;; wildcard and RuleTruth reads. The skeleton and materialization keep the CTV.
 (: public-query-type (-[det]-> Atom Atom))
 (= (public-query-type $type)
-   (case $type (
-      ((QuantifiedRule $_hash $canonical) (existential-source $canonical))
-      ((ExistsJudgment $claim) (existential-source $claim))
-      ((Assuming $facts $goal) (Assuming $facts (public-query-type $goal)))
-      ($_ordinary $type))))
+   (if (head-is-member? $type (QuantifiedRule ExistsJudgment Assuming))
+      (case $type (
+         ((QuantifiedRule $_hash $canonical) (existential-source $canonical))
+         ((ExistsJudgment $claim) (existential-source $claim))
+         ((Assuming $facts $goal) (Assuming $facts (public-query-type $goal)))
+         ($_ordinary $type)))
+      $type))
 
 (: public-query-result (-[det]-> RuntimeResult RuntimeResult))
 (= (public-query-result $result)

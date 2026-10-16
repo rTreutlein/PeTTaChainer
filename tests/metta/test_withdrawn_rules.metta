@@ -150,9 +150,9 @@
    (true true true true false))
 
 
-;; Open and ground source facts both contribute to the ground answer after
+;; Two independent ground source facts contribute to an open query after
 ;; join deduplication indexes the bound conclusion.
 !(compileadd digestKb (: join-source (Implication (JoinA $t) (JoinB $t)) (CTV (STV 1 1) (STV 0 1))))
-!(compileadd digestKb (: join-open (JoinA $t) (STV 0.2 0.5)))
+!(compileadd digestKb (: join-open (JoinA warm) (STV 0.2 0.5)))
 !(compileadd digestKb (: join-ground (JoinA warm) (STV 0.8 0.5)))
-!(test (let (: $_p $_statement (STV $s $_c)) (query 40 digestKb (: $p (JoinB warm) $tv)) $s) 0.5)
+!(test (let (: $_p $_statement (STV $s $_c)) (query 40 digestKb (: $p (JoinB $t) $tv)) $s) 0.5)

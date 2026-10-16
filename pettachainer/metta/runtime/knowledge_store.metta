@@ -225,12 +225,14 @@
 (: record-fact-inheritance-nodes! (-[det]-> (Statement KBContext Proof TV) Bool Atom))
 (= (record-fact-inheritance-nodes! $fact $record-subject?)
    (case $fact (
-      (((Inheritance $subj $concept) ($kbid $_ctx $_vars) $_prf $_tv)
-         (if (is-var $subj) ()
-            (let* (($typed-kb (brand KB $kbid))
-                   ($typed-subj (brand Statement $subj))
-                   ($_subject (if $record-subject? (record-inheritance-subject! $typed-kb $typed-subj) ())))
-               (record-inheritance-nodes! $typed-kb $typed-subj (brand Statement $concept)))))
+      (($type ($kbid $_ctx $_vars) $_prf $_tv)
+         (if (if (head-is? $type Inheritance) (= $type (Inheritance $subj $concept)) false)
+            (if (is-var $subj) ()
+               (let* (($typed-kb (brand KB $kbid))
+                      ($typed-subj (brand Statement $subj))
+                      ($_subject (if $record-subject? (record-inheritance-subject! $typed-kb $typed-subj) ())))
+                  (record-inheritance-nodes! $typed-kb $typed-subj (brand Statement $concept))))
+            ()))
       ($_other ()))))
 
 ;; A certain fact of a ground statement two or more forward rules conclude is

@@ -177,12 +177,12 @@
    true)
 
 ;; A statement's stored facts leave out a forward run's copies also when the
-;; statement is open: the copy of (P a) is found under its own key, so (P $x)
+;; reader is open: the copy of (P a) is found under its own key, so (P $x)
 ;; reads only the stored fact pall, not the derived value that already counts
 ;; pall.
 !(compileadd openKb (: qp (Implication (Q $x) (P $x)) (CTV (STV 0.9 1.0) (STV 0.1 1.0))))
 !(compileadd openKb (: qa (Q a) (STV 1.0 0.9)))
-!(compileadd openKb (: pall (P $y) (STV 0.5 0.9)))
+!(compileadd openKb (: pall (P a) (STV 0.5 0.9)))
 !(forward-chain 20 openKb (test-selected-facts openKb (Q a)))
 !(test
    (case (stored-statement-candidate (P $x) (openKb MAIN Nil) false) (

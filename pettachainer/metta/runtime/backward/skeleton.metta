@@ -1484,8 +1484,8 @@
 (= (install-member-inheritance-rules! $type $kbctx)
    (case $kbctx (
       (($kbid MAIN Nil)
-         (case $type (
-            ((Inheritance $subj $concept)
+         (if (head-is? $type Inheritance)
+            (let (Inheritance $subj $concept) $type
                (if (concrete-inheritance-link? $subj $concept)
                   (let* (($link (quote ($kbid $subj $concept)))
                          ($hash (index-hash $link)))
@@ -1500,7 +1500,7 @@
                            ())
                         ()))
                   ()))
-            ($_other ()))))
+            ()))
       ($_other ()))))
 
 (: inject-compiled-query-adds (-[semidet]-> CompiledQuery Atom))
@@ -1910,10 +1910,8 @@
       ((CPU $_fun $_args $_res) false)
       (($type $kbctx $_proof $_tv)
          (if (implication-type? $type) false
-            (case $type (
-               ((Inheritance $_subj $_concept) false)
-               ($_other
-                  (== (collapse (once (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $_rp $_rt)))) ())))))))))
+            (if (head-is? $type Inheritance) false
+               (== (collapse (once (sk-rule-match (assemble-stored-runtime-fact $type $kbctx $_rp $_rt)))) ())))))))
 
 (: sk-search-pop! (-[semidet]-> (Number SkeletonFrontier (Heap SkeletonFrontier)) Atom))
 (= (sk-search-pop! ($_priority (sk-frontier $node $depth $hash) $rest))

@@ -3,6 +3,7 @@
 :- use_module(library(nb_set)).
 :- use_module(library(yall)).
 :- ensure_loaded(context_overlay).
+:- ensure_loaded(ingestion).
 
 % Data-only spaces have no function definitions or compiler metadata. In
 % particular, an open first column must not enter remove-atom's function case.
@@ -189,7 +190,7 @@ existential_source_terms([Term|Terms], [Source|Sources], Before, After) :-
 
 connective_shape(Pattern, Shape) :-
     nonvar(Pattern), Pattern = [Connective|Children], Children \== [],
-    memberchk(Connective, ['And', 'Or', 'Not']),
+    atom(Connective), memberchk(Connective, ['And', 'Or', 'Not']),
     maplist(statement_shape, Children, Shapes),
     Shape = [Connective|Shapes].
 
@@ -1093,7 +1094,8 @@ dormancy_settles([['CPU', 'SettlesFormula', Args, Res]|_]) :- !,
 dormancy_settles([['CPU', Fun, Args, Res]|Rest]) :- !,
     append(Args, [Out], CallArgs), G =.. [Fun|CallArgs],
     catch(G, _, fail), Out = Res, dormancy_settles(Rest).
-dormancy_settles([[['RuleTruth'|_], _, _, _]|Rest]) :- !, dormancy_settles(Rest).
+dormancy_settles([[Type, _, _, _]|Rest]) :-
+    nonvar(Type), Type = [Head|_], Head == 'RuleTruth', !, dormancy_settles(Rest).
 dormancy_settles([[Type, Ctx, Proof, Tv]|Rest]) :-
     dormancy_row('&kb'(Type, Ctx, Proof, Tv)), Tv = ['STV', _, C], number(C), C >= 1.0,
     dormancy_settles(Rest).
