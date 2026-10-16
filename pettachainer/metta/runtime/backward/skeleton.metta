@@ -1131,8 +1131,8 @@
    (-[det]-> Atom (List (SkFact Number (List SkPattern)))))
 
 (: sk-context-search? (-[det]-> SkFact Bool))
-(= (sk-context-search? ($_type ($kbid $_ctx $_vars) $_proof $_tv))
-   (context-searching? $kbid))
+(= (sk-context-search? ($_type ($kbid $ctx $_vars) $_proof $_tv))
+   (if (== $ctx MAIN) (context-searching? $kbid) true))
 
 (: sk-goal-parts (-[det]-> SkFact Atom))
 (= (sk-goal-parts ($type $_kbctx $proof $tv)) ($type $proof $tv))
@@ -1312,8 +1312,9 @@
 ;; its row is built from the statement and context alone, since a row belongs
 ;; to its key and each reader applies its own proof and truth-value pattern.
 ;; A dormant rule is not started (docs/metta/dormant_rules.md).
-;; Assumptions can enable producers MAIN skipped as dormant; their shared
-;; structural rows are built without supplying any assumed truth value.
+;; Assumptions can enable producers MAIN skipped as dormant. Assuming shares
+;; structural rows without supplying assumed values; private implication
+;; judgments start their own contextual rows, regardless of MAIN's verdict.
 ;; Missing fact premises keep their join subscriptions. Only failing ground
 ;; CPU premises trigger the prefilter.
 (= (sk-start-rule-step $owner $_acc (sk-match $rule $premises $goal))

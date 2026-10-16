@@ -81,9 +81,16 @@ would, but on patterns rather than on facts:
   dormant rule; it never puts a useful one to sleep.
 
 The analysis works on the rule's own patterns, so its answer holds for every
-node the rule is started on. A node that binds the rule's variables can only
+MAIN node the rule is started on. A node that binds the rule's variables can only
 make fewer facts unify, so a rule active in general may be useless for a
 particular node; that is left to self-support exclusion, as today.
+
+Private implication judgment contexts bypass this MAIN verdict, as Assuming
+searches already do. Contextualizing a producer can redirect a MAIN premise to
+an assumed key, supplying support absent from the rule's original patterns.
+Reusing a cached dormant verdict there loses valid hypothetical proofs after
+earlier queries (KE issue 61). These contexts still use ordinary self-support
+exclusion; the fix adds no cache reset or invalidation.
 
 ## Correctness
 

@@ -1,0 +1,92 @@
+{
+  "scope": "Generated PLN retained unchanged from the real-event pilot; no LLM calls required. Target should have a proof regardless of preceding queries over the identical KB.",
+  "runtime_commit": "cca2b3333c1824d52e6289040db52df2d0bb0ae2",
+  "entries": [
+    {
+      "name": "src_d2acc8331d260378be524a14",
+      "atom": "(: src_d2acc8331d260378be524a14 (ReportedBy Witness_96ba0a00ac635d555fde2243_Report Apple) (STV 1.0 1.0))",
+      "original": "(: appleSplitReportedBy (ReportedBy Witness_96ba0a00ac635d555fde2243_Report Apple) (STV 1.0 1.0))",
+      "statement_id": "fc813e1c-0e5c-4415-8ab7-7b119efa7ef0",
+      "version": 1,
+      "source_id": "web:42d556a6c493cb8bca27:a7f21b02893b6bceda598021a12a8f5b616f9c5a588028a5b0c42b2dd4fe5094",
+      "run_id": "0de03338-63a5-445f-aec4-0097798e4675",
+      "ordinal": 0,
+      "text": "Apple's Board of Directors approved a four-for-one stock split to make Apple's stock more accessible to a broader base of investors.",
+      "title": "Apple Reports Third Quarter Results - Apple",
+      "kind": "web",
+      "available_at": "2026-10-16T03:11:10.360197+00:00",
+      "published_at": null,
+      "captured_at": "2026-10-16T01:59:57.870294+00:00"
+    },
+    {
+      "name": "src_acb3faeae7e53c5cf8a75bc7",
+      "atom": "(: src_acb3faeae7e53c5cf8a75bc7 (ReportDate Witness_96ba0a00ac635d555fde2243_Report Date_2020_07_30) (STV 1.0 1.0))",
+      "original": "(: appleSplitReportDate (ReportDate Witness_96ba0a00ac635d555fde2243_Report Date_2020_07_30) (STV 1.0 1.0))",
+      "statement_id": "fc813e1c-0e5c-4415-8ab7-7b119efa7ef0",
+      "version": 1,
+      "source_id": "web:42d556a6c493cb8bca27:a7f21b02893b6bceda598021a12a8f5b616f9c5a588028a5b0c42b2dd4fe5094",
+      "run_id": "0de03338-63a5-445f-aec4-0097798e4675",
+      "ordinal": 0,
+      "text": "Apple's Board of Directors approved a four-for-one stock split to make Apple's stock more accessible to a broader base of investors.",
+      "title": "Apple Reports Third Quarter Results - Apple",
+      "kind": "web",
+      "available_at": "2026-10-16T03:11:10.360197+00:00",
+      "published_at": null,
+      "captured_at": "2026-10-16T01:59:57.870294+00:00"
+    },
+    {
+      "name": "src_6c4b43ffc9cfdd9f6cc82137",
+      "atom": "(: src_6c4b43ffc9cfdd9f6cc82137 (Implication (AcceptSource Witness_96ba0a00ac635d555fde2243_Report) (And (BoardOfDirectorsOf AppleBoardOfDirectors Apple) (Member Witness_96ba0a00ac635d555fde2243_StockSplit StockSplit) (StockOf AppleStock Apple) (SplitStock Witness_96ba0a00ac635d555fde2243_StockSplit AppleStock) (SplitRatio Witness_96ba0a00ac635d555fde2243_StockSplit 4 1) (Approved AppleBoardOfDirectors Witness_96ba0a00ac635d555fde2243_StockSplit) (IntendedPurpose Witness_96ba0a00ac635d555fde2243_StockSplit (MakeStockMoreAccessibleToBroaderInvestorBase AppleStock)))) (STV 1.0 1.0))",
+      "original": "(: appleSplitReportContent (Implication (AcceptSource Witness_96ba0a00ac635d555fde2243_Report) (And (BoardOfDirectorsOf AppleBoardOfDirectors Apple) (Member Witness_96ba0a00ac635d555fde2243_StockSplit StockSplit) (StockOf AppleStock Apple) (SplitStock Witness_96ba0a00ac635d555fde2243_StockSplit AppleStock) (SplitRatio Witness_96ba0a00ac635d555fde2243_StockSplit 4 1) (Approved AppleBoardOfDirectors Witness_96ba0a00ac635d555fde2243_StockSplit) (IntendedPurpose Witness_96ba0a00ac635d555fde2243_StockSplit (MakeStockMoreAccessibleToBroaderInvestorBase AppleStock)))) (STV 1.0 1.0))",
+      "statement_id": "fc813e1c-0e5c-4415-8ab7-7b119efa7ef0",
+      "version": 1,
+      "source_id": "web:42d556a6c493cb8bca27:a7f21b02893b6bceda598021a12a8f5b616f9c5a588028a5b0c42b2dd4fe5094",
+      "run_id": "0de03338-63a5-445f-aec4-0097798e4675",
+      "ordinal": 0,
+      "text": "Apple's Board of Directors approved a four-for-one stock split to make Apple's stock more accessible to a broader base of investors.",
+      "title": "Apple Reports Third Quarter Results - Apple",
+      "kind": "web",
+      "available_at": "2026-10-16T03:11:10.360197+00:00",
+      "published_at": null,
+      "captured_at": "2026-10-16T01:59:57.870294+00:00"
+    },
+    {
+      "name": "src_9f2a3e955a11a51ad0b102a1",
+      "atom": "(: src_9f2a3e955a11a51ad0b102a1 (Implication (Member $event StockSplit) (Not (DilutesExistingShareholdersOwnershipInterests $event))) (STV 1.0 1.0))",
+      "original": "(: stockSplitDoesNotDilute (Implication (Member $event StockSplit) (Not (DilutesExistingShareholdersOwnershipInterests $event))) (STV 1.0 1.0))",
+      "statement_id": "436560d1-43b1-4139-9389-f7f1ae9d7564",
+      "version": 1,
+      "source_id": "web:ecebfd099a9f45754d70:89d536aaf118a889db720689f3ba5d521b8e95e858ccc17283c3ab5ee9e5d40f",
+      "run_id": "5768a4ed-1b4b-48cc-8a09-e015c0600baa",
+      "ordinal": 0,
+      "text": "Unlike issuing new shares, a stock split does not dilute the ownership interests of existing shareholders.",
+      "title": "Stock Split | Investor.gov",
+      "kind": "web",
+      "available_at": "2026-10-16T03:07:38.050927+00:00",
+      "published_at": null,
+      "captured_at": "2026-10-16T01:59:59.448315+00:00"
+    },
+    {
+      "name": "src_51f03bff77b9e80739f1b6fd",
+      "atom": "(: src_51f03bff77b9e80739f1b6fd (Implication (Member $event NewShareIssuance) (DilutesExistingShareholdersOwnershipInterests $event)) (STV 1.0 1.0))",
+      "original": "(: newShareIssuanceDilutes (Implication (Member $event NewShareIssuance) (DilutesExistingShareholdersOwnershipInterests $event)) (STV 1.0 1.0))",
+      "statement_id": "436560d1-43b1-4139-9389-f7f1ae9d7564",
+      "version": 1,
+      "source_id": "web:ecebfd099a9f45754d70:89d536aaf118a889db720689f3ba5d521b8e95e858ccc17283c3ab5ee9e5d40f",
+      "run_id": "5768a4ed-1b4b-48cc-8a09-e015c0600baa",
+      "ordinal": 0,
+      "text": "Unlike issuing new shares, a stock split does not dilute the ownership interests of existing shareholders.",
+      "title": "Stock Split | Investor.gov",
+      "kind": "web",
+      "available_at": "2026-10-16T03:07:38.050927+00:00",
+      "published_at": null,
+      "captured_at": "2026-10-16T01:59:59.448315+00:00"
+    }
+  ],
+  "steps": 300,
+  "prelude_queries": [
+    "(: $prf (Implication (Implemented Witness_96ba0a00ac635d555fde2243_StockSplit) (Not (DilutesExistingShareholdersOwnershipInterests Witness_96ba0a00ac635d555fde2243_StockSplit))) $tv)",
+    "(: $proof (Not (Implication (Implemented Witness_96ba0a00ac635d555fde2243_StockSplit) (Not (DilutesExistingShareholdersOwnershipInterests Witness_96ba0a00ac635d555fde2243_StockSplit)))) $tv)"
+  ],
+  "target_query": "(: $prf (And (ReportedBy Witness_96ba0a00ac635d555fde2243_Report Apple) (ReportDate Witness_96ba0a00ac635d555fde2243_Report Date_2020_07_30) (Implication (AcceptSource Witness_96ba0a00ac635d555fde2243_Report) (And (BoardOfDirectorsOf AppleBoardOfDirectors Apple) (Member Witness_96ba0a00ac635d555fde2243_StockSplit StockSplit) (StockOf AppleStock Apple) (SplitStock Witness_96ba0a00ac635d555fde2243_StockSplit AppleStock) (SplitRatio Witness_96ba0a00ac635d555fde2243_StockSplit 4 1) (Approved AppleBoardOfDirectors Witness_96ba0a00ac635d555fde2243_StockSplit)))) $tv)"
+}
