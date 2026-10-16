@@ -23,20 +23,39 @@ class TestDoubleNegationEvidence(unittest.TestCase):
                     confidences.append(rows[0].tv[2])
         self.assertTrue(all(abs(value - confidences[0]) < 1e-12 for value in confidences))
 
-    def test_overlapping_bridge_matches_positive_control(self):
-        # Restoring src_event exposes the same overlap as the positive form.
-        # Conditioning this compound/judgment join is a separate limitation.
-        for consequent in ('(DoesNotDilute $e)', '(Not (Dilutes $e))'):
-            h = PeTTaChainer()
-            h.add_atoms_no_check([
-                '(: src_event (And (AnnouncedBy Split1 Apple) (AnnouncedOn Split1 Date20200730) (Member Split1 StockSplit)) (STV 1 0.9))',
-                f'(: src_bridge (Implication (And (Member $e StockSplit) (Implemented $e)) {consequent}) (STV 1 0.9))',
+    def test_overlapping_bridge_conditions_on_one_source(self):
+        # The conditional branches have TVs (1, .8995950693970498) and
+        # (0, 0). A separate CTV applied to one source is the control: it
+        # counts the observation once, without the compound/judgment join.
+        for confidence in (0.5, 0.9):
+            control = PeTTaChainer()
+            control.add_atoms_no_check([
+                f'(: observation Gate (STV 1 {confidence}))',
+                '(: (no_inverse control) (Implication Gate Result) (CTV (STV 1 0.8995950693970498) (STV 0 0)))',
             ])
-            conjunction = f'(And (AnnouncedBy $e Apple) (AnnouncedOn $e Date20200730) (Member $e StockSplit) (Implication (Implemented $e) {consequent}))'
-            for statement in (conjunction.replace('$e', 'Split1'), f'(Exists ($e) {conjunction})'):
-                for repeat in range(2):
-                    with self.subTest(consequent=consequent, statement=statement, repeat=repeat):
-                        self.assertEqual(h.query_many_refs([f'(: $p {statement} $tv)'], steps=300), [[]])
+            expected = control.query_many_refs(['(: $p Result $tv)'], steps=300)[0][0].tv
+            for consequent in ('(DoesNotDilute $e)', '(Not (Dilutes $e))'):
+                conjunction = f'(And (AnnouncedBy $e Apple) (AnnouncedOn $e Date20200730) (Member $e StockSplit) (Implication (Implemented $e) {consequent}))'
+                for statement in (conjunction.replace('$e', 'Split1'), f'(Exists ($e) {conjunction})'):
+                    h = PeTTaChainer()
+                    h.add_atoms_no_check([
+                        f'(: src_event (And (AnnouncedBy Split1 Apple) (AnnouncedOn Split1 Date20200730) (Member Split1 StockSplit)) (STV 1 {confidence}))',
+                        f'(: src_bridge (Implication (And (Member $e StockSplit) (Implemented $e)) {consequent}) (STV 1 0.9))',
+                    ])
+                    for repeat in range(2):
+                        with self.subTest(confidence=confidence, consequent=consequent, statement=statement, repeat=repeat):
+                            rows = h.query_many_refs([f'(: $p {statement} $tv)'], steps=300)[0]
+                            self.assertEqual(len(rows), 1, rows)
+                            self.assertAlmostEqual(rows[0].tv[1], expected[1])
+                            self.assertAlmostEqual(rows[0].tv[2], expected[2])
+                            proof = h.expand_proof(rows[0].proof)
+                            self.assertIn('(conditioned src_event ', proof)
+                            self.assertEqual(proof.count('src_event'), 1)
+                            evidence = h._call('evidence-entries', [f'(proof-ref-evidence {rows[0].proof[1]})'])[0]
+                            self.assertEqual(evidence.count('src_event'), 1)
+                            self.assertEqual(evidence.count('(fact-ev '), 1)
+                            self.assertIn('src_bridge)', evidence)
+                            self.assertIn('(rule-ev ', evidence)
 
 
 if __name__ == '__main__':

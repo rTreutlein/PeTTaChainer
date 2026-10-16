@@ -2732,23 +2732,25 @@
 ;; A premise value whose evidence overlaps what the row already uses is
 ;; replaced by the merge of the key's leaves and views that do not overlap it:
 ;; the consumer selects the proofs compatible with its other premises.
-(: sk-compatible-step (-[semidet]-> EvidenceSet (List SkeletonValue) SkeletonValue (List SkeletonValue)))
-(= (sk-compatible-step $ev $acc $view)
+(: sk-compatible-step (-[semidet]-> EvidenceSet (List SkeletonPart) (List SkeletonValue) SkeletonValue (List SkeletonValue)))
+(= (sk-compatible-step $ev $parts $acc $view)
    (case $view (
-      ((sk-val $_fact $view-ev $_deps)
-         (if (premise-evidence-overlap? $ev $view-ev) $acc (cons $view $acc)))
+      ((sk-val $fact $view-ev $_deps)
+         (if (if (premise-evidence-overlap? $ev $view-ev)
+                 (not (sk-joins-pool? $parts (sk-premise-part $fact))) false)
+            $acc (cons $view $acc)))
       ($_other $acc))))
 
 (: sk-compatible-value
-   (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) EvidenceSet Bool SkeletonValue))
-(= (sk-compatible-value $given $key $filter $exclude $ev $views)
+   (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) EvidenceSet (List SkeletonPart) Bool SkeletonValue))
+(= (sk-compatible-value $given $key $filter $exclude $ev $parts $views)
    (let* (($hash (index-hash $key))
           ($outside (hash-union $exclude (hash-set (sk-given-hashes $given))))
           ($leaves (sk-leaf-views $hash $key $filter $outside))
           ($ignore (hash-union (sk-unifier-hashes $hash $key) $outside))
           ($compatible
              (fold-semidet sk-cons-step ()
-                (fold-semidet (sk-compatible-step $ev) ()
+                (fold-semidet (sk-compatible-step $ev $parts) ()
                 (sk-own-values
                    (sk-judgment-values $key
                       (if $views
@@ -3011,13 +3013,13 @@
                            (if (== $closed sk-none)
                               (let $value
                                  (sk-premise-value $priors
-                                    (if $facts-first (sk-compatible-value $given $key $filter $exclude $ev false)
+                                    (if $facts-first (sk-compatible-value $given $key $filter $exclude $ev $parts false)
                                        (sk-given-value $given $key $filter $exclude)))
                                  (case (sk-use-premise $shared $state $premise $value) (
                                     (sk-fail
                                        (if $shared sk-fail
                                           (case (sk-use-premise $shared $state $premise
-                                                   (sk-premise-value $priors (sk-compatible-value $given $key $filter $exclude $ev true))) (
+                                                   (sk-premise-value $priors (sk-compatible-value $given $key $filter $exclude $ev $parts true))) (
                                              (sk-fail
                                                 (sk-clash-on $given $state
                                                    (if $facts-first (sk-premise-value $priors (sk-given-value $given $key $filter $exclude)) $value)))

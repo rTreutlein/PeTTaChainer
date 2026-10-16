@@ -343,7 +343,13 @@
              (if (proof-term-negated? $prf)
                 (proof-output-evidence $prf $ev)
                 (if (proof-term-contains-negated? $prf)
-                   (once (proof-term-evidence proof-walk-in-kb $prf))
+                   ;; Conditioned reads carry inline premise proofs rather
+                   ;; than references. Their printed by-terms omit rule
+                   ;; evidence, which must survive the signed fact walk.
+                   (evidence-union
+                      (once (proof-term-evidence proof-walk-in-kb $prf))
+                      (evidence-subtraction $ev
+                         (evidence-set (evidence-shared-facts $ev $ev))))
                    $ev))))
        ($name
           (rule-evidence-base-name (rule-evidence-head $prf)))

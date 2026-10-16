@@ -27,11 +27,9 @@ def scenarios():
         ('standalone_member_bridge', [split_fact, bridge], conditional, True),
         ('unary_bridge', [entry('split', '(StockSplit Split1)'), simple_bridge], conditional, True),
         ('ground_bridge_rule', [split_fact, entry('bridge', '(Implication (And (Member Split1 StockSplit) (Implemented Split1)) (Not (Dilutes Split1)))')], conditional, True),
-        # #68: the conditional and identity projections share src_event.
-        # Preserving that evidence exposes the unsupported overlapping join,
-        # which also has no answer for the DoesNotDilute positive control.
-        ('derived_ground_bridge', [identity, bridge], ground, False),
-        ('derived_existential_bridge', [identity, bridge], query, False),
+        # #68: condition the join on its shared compound observation.
+        ('derived_ground_bridge', [identity, bridge], ground, True),
+        ('derived_existential_bridge', [identity, bridge], query, True),
         # Oct 16 agreement with the KE owner: no assumption-dependent proof,
         # so this standalone conditional must have no answer (tracker #65).
         ('conditional_only_control', [identity, rule], '(Implication (Implemented Split1) (Not (Dilutes Split1)))', False),
