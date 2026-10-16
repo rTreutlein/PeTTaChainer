@@ -2202,13 +2202,13 @@
    (let* ((($_kb $_pattern $extractor $init $function $finish $_mode) $args)
           ($node (CPU FoldAllCompiled $args $_result))
           ($members (sk-fold-node-member $node))
-          ($view
+          (($keys $filter)
              (case $members (
-                (() (sk-folded-view $hash FoldAllCompiled $args (sk-accumulate $extractor $function) $function $init
-                       $finish () sk-any-filter))
-                ((cons $member $_rest)
-                   (sk-folded-view $hash FoldAllCompiled $args (sk-accumulate $extractor $function) $function $init
-                      $finish (sk-answers $member) (sk-member-filter $member)))))))
+                (() (data () sk-any-filter))
+                ((cons $member $_rest) (data (sk-answers $member) (sk-member-filter $member))))))
+          ($view
+             (sk-folded-view $hash FoldAllCompiled $args (sk-accumulate $extractor $function) $function $init
+                $finish (the (List SkeletonKey) $keys) (the SkeletonFilter $filter))))
       (if (if (== $finish identity) (if (== $function OrFormula) false (if (== $function ExistentialFloor) false true)) false)
          (sk-cover-fold! $hash (sk-fold $args) $node $members $view)
          $view)))
