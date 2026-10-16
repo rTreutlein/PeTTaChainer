@@ -757,6 +757,13 @@
 (: SkeletonDigest Type)
 (: sk-digest (-[det]-> Number Number SkeletonDigest))
 
+;; A refined rule's truth with the digest of the instance folds its rows read.
+(: sk-truth-digest (-[semidet]-> Number SkeletonDigest))
+(= (sk-truth-digest $truth)
+   (sk-digest $truth
+      (fold-semidet sk-fold-digest-step 0
+         (collapse (match &sk_row ($truth $_key $_rhash (sk-row $_ident $_concl $premises $_seq)) $premises)))))
+
 ;; Read the rule's own instance fold, excluding containing-class priors.
 ;; A conservative combination of twins still represents those same samples.
 (: sk-rule-digests (-[semidet]-> Statement KBContext Proof (List SkeletonDigest)))
@@ -767,9 +774,7 @@
       ((by $rule $_premise)
          (list_to_set (collapse (match rule_name_index ($rule $id)
             (match rules (runtime-rule-row $id ($type $ctx (by $rule $_body) $_tv) $_args)
-               (match &sk_rule_truth ($id $truth $_statement $_truth-ctx)
-                  (sk-digest $truth (fold-semidet sk-fold-digest-step 0
-                     (collapse (match &sk_row ($truth $_key $_rhash (sk-row $_owner $_concl $premises $_seq)) $premises))))))))))
+               (match &sk_rule_truth ($id $truth $_statement $_truth-ctx) (sk-truth-digest $truth)))))))
       ((combination revision $_prior3 $parts)
          (let $groups (map-semidet (sk-rule-digests $type $ctx) (proof-children $parts))
             (case (collapse (once (let () (superpose $groups) true))) (
@@ -824,11 +829,7 @@
 (: sk-truth-digests (-[semidet]-> Number (List SkeletonDigest)))
 (= (sk-truth-digests $deps)
    (list_to_set (collapse (match &sk_rule_truth ($_id $truth $_type $_kbctx)
-      (if (deps-has? $deps $truth)
-         (sk-digest $truth
-            (fold-semidet sk-fold-digest-step 0
-               (collapse (match &sk_row ($truth $_stored $_rhash (sk-row $_ident $_concl $premises $_seq)) $premises))))
-         (empty))))))
+      (if (deps-has? $deps $truth) (sk-truth-digest $truth) (empty))))))
 
 (: sk-fold-digest-step (-[det]-> Number (List SkPattern) Number))
 (= (sk-fold-digest-step $digest $premises) (fold-flat sk-premise-digest-step $digest $premises))
