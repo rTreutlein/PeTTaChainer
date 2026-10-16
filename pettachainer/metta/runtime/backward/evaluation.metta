@@ -2762,9 +2762,9 @@
                       (if $views
                          (append-flat $leaves
                             (map-semidet (sk-given-view $given $exclude $hash $key) (sk-admitted-versions $hash $key $filter $exclude)))
-                         $leaves)))))))
-      (let ($selected $_siblings) (sk-reference-values $ignore $compatible)
-         (fold-semidet (sk-merge-step true $ignore) sk-none $selected))))
+                         $leaves))))))
+          (($selected $_siblings) (sk-reference-values $ignore $compatible)))
+      (fold-semidet (sk-merge-step true $ignore) sk-none $selected)))
 
 ;; A fact premise takes a value unless its evidence overlaps the row's own,
 ;; except in joins the compiler marked as sharing their sources and for
@@ -3187,9 +3187,9 @@
           ($_uncut (change-state! sk_claim_cut 0))
           ($mixed (sk-mix-on $given $target $wexclude $keys)))
       (if (== (search-id-value sk_claim_left) -2) $deepest
-         (let $cut (== (search-id-value sk_claim_cut) 1)
-            (let $found (if (== $mixed ()) $deepest (if (if $cut $uncut false) $deepest $mixed))
-               (if (if $cut (< $depth 64) false) (sk-deepen $given $target $wexclude $keys $uncut (+ $depth 1) $found) $found))))))
+         (let* (($cut (== (search-id-value sk_claim_cut) 1))
+                ($found (if (== $mixed ()) $deepest (if (if $cut $uncut false) $deepest $mixed))))
+            (if (if $cut (< $depth 64) false) (sk-deepen $given $target $wexclude $keys $uncut (+ $depth 1) $found) $found)))))
 
 ;; A target waits for a payment of its cost, keeping its waiting value.
 (: sk-wait! (-[det]-> Number Number Number SkeletonValue SkeletonValue))
@@ -3835,13 +3835,13 @@
                ;; A closed reader of a complete key evaluates its rows again,
                ;; so a new row that derives nothing, or a forced one, still
                ;; changes the key for it.
-               (let $first (not (space-row-present? &ctx_sk_support ($hash $rhash $_had)))
-                  (let $_nothing (if $first (context-add! &sk_support ($hash $rhash 0)) true)
-                     (if (if (if $first true $forced)
-                            (case $key (((sk-key $type $kbctx) (complete-statement? $type $kbctx)) ($_fold false)))
-                            false)
-                        (sk-key-changed $pass $order (if $forced (sk-outside-change $causes 0) (sk-view-change 0)) $work $key)
-                        $work)))))
+               (let* (($first (not (space-row-present? &ctx_sk_support ($hash $rhash $_had))))
+                      ($_nothing (if $first (context-add! &sk_support ($hash $rhash 0)) true)))
+                  (if (if (if $first true $forced)
+                         (case $key (((sk-key $type $kbctx) (complete-statement? $type $kbctx)) ($_fold false)))
+                         false)
+                     (sk-key-changed $pass $order (if $forced (sk-outside-change $causes 0) (sk-view-change 0)) $work $key)
+                     $work))))
          ($_view
             (let $latest (sk-latest-view $hash $key $rhash)
             (if (if (sk-same-view? $new $latest)
