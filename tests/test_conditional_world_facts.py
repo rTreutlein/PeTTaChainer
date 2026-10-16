@@ -1,0 +1,170 @@
+"""Issue #63: world observations and private implication assumptions join.
+
+The 18 capability scenarios mirror the KE handover without importing its app.
+Each case starts a fresh KB and repeats the query in the same live runtime.
+"""
+import unittest
+from pettachainer import PeTTaChainer
+
+
+def entry(name, atom):
+    return {'name': 'src_' + name, 'source_id': name, 'atom': f'(: src_{name} {atom} (STV 1 0.9))'}
+
+
+def scenarios():
+    identity = entry('event', '(And (AnnouncedBy Split1 Apple) (AnnouncedOn Split1 Date20200730) (Member Split1 StockSplit))')
+    rule = entry('rule', '(Implication (Member $e StockSplit) (Not (Dilutes $e)))')
+    query = '(Exists ($e) (And (AnnouncedBy $e Apple) (AnnouncedOn $e Date20200730) (Member $e StockSplit) (Implication (Implemented $e) (Not (Dilutes $e)))))'
+    ground = query.removeprefix('(Exists ($e) ')[:-1].replace('$e', 'Split1')
+    explicit = entry('conditional', '(Implication (Implemented Split1) (Not (Dilutes Split1)))')
+    bridge = entry('bridge', '(Implication (And (Member $e StockSplit) (Implemented $e)) (Not (Dilutes $e)))')
+    split_fact = entry('split', '(Member Split1 StockSplit)')
+    simple_bridge = entry('simple_bridge', '(Implication (And (StockSplit $e) (Implemented $e)) (Not (Dilutes $e)))')
+    conditional = '(Implication (Implemented Split1) (Not (Dilutes Split1)))'
+    cases = [
+        ('positive_consequent_control', [entry('split', '(StockSplit Split1)'), entry('bridge', '(Implication (And (StockSplit $e) (Implemented $e)) (PreservesOwnership $e))')], '(Implication (Implemented Split1) (PreservesOwnership Split1))', True),
+        ('direct_modus_ponens_control', [split_fact, rule], '(Not (Dilutes Split1))', True),
+        ('standalone_member_bridge', [split_fact, bridge], conditional, True),
+        ('unary_bridge', [entry('split', '(StockSplit Split1)'), simple_bridge], conditional, True),
+        ('ground_bridge_rule', [split_fact, entry('bridge', '(Implication (And (Member Split1 StockSplit) (Implemented Split1)) (Not (Dilutes Split1)))')], conditional, True),
+        ('derived_ground_bridge', [identity, bridge], ground, True),
+        ('derived_existential_bridge', [identity, bridge], query, True),
+        ('conditional_only_control', [identity, rule], '(Implication (Implemented Split1) (Not (Dilutes Split1)))', True),
+        ('ground_control', [identity, rule], ground, True),
+        ('existential_identity_control', [identity], '(Exists ($e) (And (AnnouncedBy $e Apple) (AnnouncedOn $e Date20200730) (Member $e StockSplit)))', True),
+        ('existential_conditional', [identity, rule], query, True),
+        ('explicit_conditional', [identity, explicit], query, True),
+        ('missing_rule', [identity], query, False),
+        ('missing_event', [rule], query, False),
+        ('wrong_date', [identity, rule], query.replace('Date20200730', 'Date20210730'), False),
+        ('mismatched_witness', [identity, entry('other', '(Implication (Implemented Split2) (Not (Dilutes Split2)))')], query, False),
+        ('unaccepted_source', [identity, entry('gated', '(Implication (AcceptSource Report1) (Implication (Member $e StockSplit) (Not (Dilutes $e))))')], query, False),
+        ('implementation_not_asserted', [identity, explicit], '(Implemented Split1)', False),
+    ]
+    return cases
+
+
+class TestConditionalWorldFacts(unittest.TestCase):
+    def test_ke_capability_scenarios_fresh_and_warm(self):
+        for name, entries, expression, expected in scenarios():
+            h = PeTTaChainer()
+            h.add_atoms_no_check([entry['atom'] for entry in entries])
+            runs = [h.query_many_refs([f'(: $p {expression} $tv)'], steps=300)[0]
+                    for _ in range(2)]
+            for repeat, rows in enumerate(runs):
+                with self.subTest(case=name, repeat=repeat):
+                    self.assertEqual(bool(rows), expected, rows)
+                    for row in rows:
+                        self.assertEqual(row.tv[0], 'STV')
+                        self.assertAlmostEqual(row.tv[1], 1.0)
+                        self.assertGreater(row.tv[2], 0.0)
+                        self.assertLessEqual(row.tv[2], 0.9)
+                        if name == 'positive_consequent_control':
+                            self.assertAlmostEqual(row.tv[2], 0.8180941097204595)
+                        if name in {'derived_existential_bridge', 'existential_conditional'}:
+                            self.assertEqual(row.statement[0], 'Exists')
+                            witness = row.statement[1][0]
+                            self.assertEqual(row.statement[2], ['And',
+                                ['AnnouncedBy', witness, 'Apple'],
+                                ['AnnouncedOn', witness, 'Date20200730'],
+                                ['Member', witness, 'StockSplit'],
+                                ['Implication', ['Implemented', witness], ['Not', ['Dilutes', witness]]],
+                            ])
+                        proof = h.expand_proof(row.proof)
+                        if name in {'positive_consequent_control', 'standalone_member_bridge',
+                                    'unary_bridge', 'ground_bridge_rule', 'derived_ground_bridge',
+                                    'derived_existential_bridge'}:
+                            self.assertIn('conditional-implication', proof)
+                            self.assertIn('(ctx proof ', proof)
+                            self.assertIn('src_bridge' if name != 'unary_bridge' else 'src_simple_bridge', proof)
+                            self.assertIn('src_event' if name.startswith('derived_') else 'src_split', proof)
+                    # All scenarios leave implementation and source acceptance unknown.
+                    self.assertEqual(h.query_many_refs([
+                        '(: $p (Implemented Split1) $tv)',
+                        '(: $p (AcceptSource Report1) $tv)',
+                    ], steps=300), [[], []])
+                    if name == 'positive_consequent_control':
+                        self.assertEqual(h.query_many_refs([
+                            '(: $p (PreservesOwnership Split1) $tv)',
+                        ], steps=300), [[]])
+                    if name in {'standalone_member_bridge', 'unary_bridge', 'ground_bridge_rule',
+                                'derived_ground_bridge', 'derived_existential_bridge'}:
+                        self.assertEqual(h.query_many_refs([
+                            '(: $p (Not (Dilutes Split1)) $tv)',
+                        ], steps=300), [[]])
+
+    def test_fixed_world_fact_and_assumption_dependent_chain(self):
+        h = PeTTaChainer()
+        h.add_atoms_no_check([
+            '(: fixed (Recorded R) (STV 0.7 0.8))',
+            '(: (no_inverse first) (Implication (And (Gate X) (Recorded R)) (Ready X)) (STV 1 0.9))',
+            '(: (no_inverse second) (Implication (Ready X) (Outcome X)) (STV 1 0.9))',
+        ])
+        for _ in range(2):
+            rows = h.query_many_refs([
+                '(: $p (Implication (Gate X) (Recorded R)) $tv)',
+                '(: $p (Implication (Gate X) (Outcome X)) $tv)',
+            ], steps=300)
+            self.assertEqual(rows[0][0].tv, ['STV', 0.7, 0.8])
+            self.assertEqual(len(rows[1]), 1, rows)
+            proof = h.expand_proof(rows[1][0].proof)
+            for token in ('first', 'second', 'fixed', '(ctx proof '):
+                self.assertIn(token, proof)
+        self.assertEqual(h.query_many_refs([
+            '(: $p (Gate X) $tv)', '(: $p (Ready X) $tv)', '(: $p (Outcome X) $tv)',
+        ], steps=300), [[], [], []])
+
+    def test_assumed_key_overrides_main_but_other_bindings_remain_visible(self):
+        h = PeTTaChainer()
+        h.add_atoms_no_check([
+            '(: contradicted (Gate X) (STV 0 1))',
+            '(: other (Gate Y) (STV 1 0.8))',
+            '(: (no_inverse own) (Implication (Gate X) (Own X)) (STV 1 0.9))',
+            '(: (no_inverse pair) (Implication (And (Gate X) (Gate $y)) (Pair X $y)) (STV 1 0.9))',
+        ])
+        for _ in range(2):
+            rows = h.query_many_refs([
+                '(: $p (Implication (Gate X) (Own X)) $tv)',
+                '(: $p (Implication (Gate X) (Pair X Y)) $tv)',
+            ], steps=300)
+            self.assertAlmostEqual(rows[0][0].tv[1], 1)
+            self.assertAlmostEqual(rows[1][0].tv[1], 1)
+            self.assertNotIn('contradicted', h.expand_proof(rows[0][0].proof))
+            self.assertIn('other', h.expand_proof(rows[1][0].proof))
+        self.assertEqual(h.query_many_refs(['(: $p (Gate X) $tv)'], steps=300)[0][0].tv,
+                         ['STV', 0, 1])
+
+    def test_hypothetical_individual_cannot_be_bound_by_world_observation(self):
+        for compound in (False, True):
+            h = PeTTaChainer()
+            fact = '(And (StockSplit Split1) (Recorded R))' if compound else '(StockSplit Split1)'
+            h.add_atoms_no_check([
+                f'(: world {fact} (STV 1 0.9))',
+                '(: (no_inverse bridge) (Implication (And (StockSplit $e) (Implemented $e)) (PreservesOwnership $e)) (STV 1 0.9))',
+            ])
+            for _ in range(2):
+                # This asks for a general individual, not the event witness of Exists.
+                self.assertEqual(h.query_many_refs([
+                    '(: $p (Implication (Implemented $e) (PreservesOwnership $e)) $tv)',
+                ], steps=300)[0], [])
+
+    def test_materialized_main_consequence_does_not_override_assumption(self):
+        h = PeTTaChainer()
+        h.add_atoms_no_check([
+            '(: world_gate (Gate X) (STV 1 0.9))',
+            '(: (no_inverse rule) (Implication (Gate X) (Effect X)) (CTV (STV 0.9 0.9) (STV 0.2 0.9)))',
+        ])
+        self.assertTrue(h.query_many_materialization(['(: $p (Effect X) $tv)'], steps=300)[0])
+        for _ in range(2):
+            rows = h.query_many_refs([
+                '(: $p (Implication (Not (Gate X)) (Effect X)) $tv)',
+            ], steps=300)[0]
+            self.assertEqual(len(rows), 1, rows)
+            self.assertAlmostEqual(rows[0].tv[1], 0.2)
+            self.assertNotIn('world_gate', h.expand_proof(rows[0].proof))
+        self.assertEqual(h.query_many_refs(['(: $p (Gate X) $tv)'], steps=300)[0][0].tv,
+                         ['STV', 1, 0.9])
+
+
+if __name__ == '__main__':
+    unittest.main()

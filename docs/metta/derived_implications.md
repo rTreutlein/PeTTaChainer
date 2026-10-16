@@ -245,8 +245,17 @@ The judgment assumes the stated antecedent in its private context. Under
 `(Not G)`, every reader of G reads `(STV 0 1)`; under G, every reader of G
 reads `(STV 1 1)`. This includes negated premises lowered to a read of G
 followed by `NotFormula`, even when G is ground. The main world's value of G
-never enters this judgment. Independent fixed premises retain their existing
-main-context reads.
+never enters this judgment. Independent fixed premises can read MAIN observations and the projections of
+compound observations. Private leaf reads use the fact prefix index, exclude
+assumed keys and forwarded/materialized values, and retain the source fact's
+MAIN evidence and dependency identities. Conditioning a MAIN observation
+also conditions its borrowed private leaf, while assumed keys keep their own
+truth. Fixed MAIN projection rules are evaluated with private premises; their derived MAIN views are never imported. This lets a rule join a
+world classification with an assumed implementation without asserting either
+implementation or its consequence in MAIN (tracker #63). A derived implication
+statement dominates its application to the judgment's certain assumption: the
+application restates the same source, including when a certain rule has no
+empirical evidence id.
 
 Stated and calculated proofs of one rule share its evidence identity and
 are not revised as independent observations. Independent conditional evidence
@@ -395,9 +404,9 @@ the normal And formula.
 - `Or` antecedents currently assume each lowered part certain. For example,
   `(Or A C) -> B` returns 0.3 when `A -> B` has positive strength 0.3.
   This behavior is unchanged from master and is queued separately.
-- An open premise such as `(A $z)` is routed whole into the private context
-  and can hide world individuals it would otherwise join with. The planned
-  context overlay will address this.
+- A premise sharing the query's hypothetical individual does not import world
+  individuals. Fixed premises and open auxiliary variables may read world
+  observations; an assumed ground key overrides only that binding.
 
 - The positive statement-producer collector projects rule applications
   shaped `(by rule token)` and stored facts. Other clause proof shapes are

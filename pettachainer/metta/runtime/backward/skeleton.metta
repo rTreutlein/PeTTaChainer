@@ -331,9 +331,27 @@
 ;; rows runs only when some materialization happened.
 (: sk-leaf-facts (-[det]-> Statement KBContext SkeletonFilter (List SkFact)))
 (= (sk-leaf-facts $type $kbctx $filter)
-   (let $plain (== (collapse (once (match &materialized_facts (materialized-row $_hash $_type $_kb $_fact $_ev) true))) ())
-      (foldr-flat (sk-leaf-fact-step $plain $filter) ()
-         (kb-facts $type $kbctx))))
+   (let* (($plain (== (collapse (once (match &materialized_facts (materialized-row $_hash $_type $_kb $_fact $_ev) true))) ()))
+          ($local (foldr-flat (sk-leaf-fact-step $plain $filter) ()
+                     (kb-facts $type $kbctx))))
+      (case $kbctx (
+            (($kbid $ctx $vars)
+               (if (judgment-world-premise? $type $kbctx)
+                  (foldr-flat (sk-judgment-main-fact-step $kbctx $plain $filter) $local
+                     (kb-facts $type (kbctx (brand KB $kbid))))
+                  $local))))))
+
+;; Borrow only observations, never MAIN's derived/materialized values. A fixed
+;; premise may use the world, but an assumed key overrides its world value and
+;; a hypothetical individual must never be unified with a world individual.
+(: sk-judgment-main-fact-step
+   (-[det]-> KBContext Bool SkeletonFilter SkFact (List SkFact) (List SkFact)))
+(= (sk-judgment-main-fact-step $kbctx $plain $filter ($type $main $proof $tv) $facts)
+   (if (judgment-assumed-key? $type $kbctx) $facts
+      (if (== (sk-leaf-fact-step $plain $filter (data $type $main $proof $tv) ()) ()) $facts
+         (let $hash (index-hash (sk-key $type $main))
+            (if (space-row-present? &sk_forward_stored ($hash $_key ($type $main $proof $tv) $_ev $_deps)) $facts
+               (cons (data $type $kbctx $proof $tv) $facts))))))
 
 (: sk-leaf-fact-step (-[det]-> Bool SkeletonFilter SkFact (List SkFact) (List SkFact)))
 (= (sk-leaf-fact-step $plain $filter $fact $facts)
@@ -1138,17 +1156,52 @@
 (= (sk-goal-parts ($type $_kbctx $proof $tv)) ($type $proof $tv))
 
 (= (sk-rule-match $goal)
-   (let $lookup-goal (copy_term $goal)
-      (if (rule-lookup-needs-occurs-check $lookup-goal)
-         (let* (($matches (ccls-index-occurs-matches $lookup-goal))
-                (($matched-goal $rule-id $args) (superpose $matches)))
-            (if (= $matched-goal $goal)
-               (sk-match $rule-id (contextualize-rule-args $goal $args) $goal)
-               (empty)))
-         (match ccls_index ($lookup-goal $rule-id $args)
-            (if (= $lookup-goal $goal)
-               (sk-match $rule-id (contextualize-rule-args $goal $args) $goal)
-               (empty))))))
+   (superpose (
+      (let $lookup-goal (copy_term $goal)
+         (if (rule-lookup-needs-occurs-check $lookup-goal)
+            (let* (($matches (ccls-index-occurs-matches $lookup-goal))
+                   (($matched-goal $rule-id $args) (superpose $matches)))
+               (if (= $matched-goal $goal)
+                  (sk-match $rule-id (contextualize-rule-args $goal $args) $goal)
+                  (empty)))
+            (match ccls_index ($lookup-goal $rule-id $args)
+               (if (= $lookup-goal $goal)
+                  (sk-match $rule-id (contextualize-rule-args $goal $args) $goal)
+                  (empty)))))
+      (sk-judgment-main-rule-match $goal))))
+
+;; Fixed source-fact projections are compiled in MAIN. Reuse their logic in
+;; the judgment, with contextual premises, rather than importing a MAIN view
+;; that might depend on the overridden assumption. Polymorphic rules already
+;; match the private goal normally and must not be started a second time.
+(: sk-judgment-main-rule-match (-[nondet]-> SkFact SkeletonMatch))
+(= (sk-judgment-main-rule-match ($type ($kbid $ctx $vars) $proof $tv))
+   (if (judgment-world-premise? $type (make-kb-context (brand KB $kbid) $ctx $vars))
+      (let $lookup (copy_term (data $type (data $kbid MAIN Nil) $proof $tv))
+         (match ccls_index ($lookup $id $args)
+            (match rules (runtime-rule-row $id ($_type ($_kb $stored-ctx $_vars) $_prf $_tv) $_args)
+               (if (if (== $stored-ctx MAIN)
+                        (case $_prf (
+                           ((marginal-proj $_idx $_base) true)
+                           (((proj $_idx $_base) $_siblings) true)
+                           ((proj $_idx $_base) true)
+                           ($_other-proof false))) false)
+                  (if (= $lookup (data $type (data $kbid MAIN Nil) $proof $tv))
+                     (let* (($scope (make-kb-context (brand KB $kbid) $ctx $vars))
+                            ($goal (assemble-stored-runtime-fact $type $scope $proof $tv))
+                            ($scoped (map-flat (sk-judgment-main-premise $scope) $args)))
+                        (sk-match $id (contextualize-rule-args $goal $scoped) $goal))
+                     (empty))
+                  (empty)))))
+      (empty)))
+
+(: sk-judgment-main-premise (-[det]-> KBContext SkPattern SkPattern))
+(= (sk-judgment-main-premise ($kbid $ctx $vars) $premise)
+   (case $premise (
+      (($type ($kbid MAIN Nil) $proof $tv)
+         (let $scope (make-kb-context (brand KB $kbid) $ctx $vars)
+            (assemble-stored-runtime-fact $type $scope $proof $tv)))
+      ($_other $premise))))
 
 ;; Both arguments come from destructuring a premise and its erased KBContext,
 ;; so they arrive as raw terms: a statement and Nil or a variable list.
@@ -1160,6 +1213,16 @@
 (= (sk-any-member? $_type-vars ()) false)
 (= (sk-any-member? $type-vars (cons $var $rest))
    (if (stored-list-member? $var $type-vars) true (sk-any-member? $type-vars $rest)))
+
+;; A query's prototype variables must stay variables. A rule lookup may have
+;; specialized a copy of its goal; that must not license world observations of
+;; the specialized prototype. Auxiliary variables do not belong to this list.
+(: judgment-world-premise? (-[det]-> Statement KBContext Bool))
+(= (judgment-world-premise? $type ($_kbid $ctx $vars))
+   (if (== $ctx MAIN) false
+      (if (== $vars Nil) true
+         (if (== (extract-vars $vars) $vars)
+            (not (context-vars-in-type? $type $vars)) false))))
 
 ;; Compare the whole key without binding its hypothetical individual to an
 ;; unrelated fixed world individual. Use the fact prefix index; type and

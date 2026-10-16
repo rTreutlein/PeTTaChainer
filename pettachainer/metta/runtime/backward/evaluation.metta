@@ -95,10 +95,29 @@
 
 ;; --- Leaves -----------------------------------------------------------------
 
-;; Hypothetical assumptions are not evidence.
+;; A borrowed observation retains its MAIN evidence and dependency identity.
+;; Assumptions themselves remain private and carry no empirical evidence.
+(: sk-leaf-source (-[det]-> SkFact SkFact))
+(= (sk-leaf-source ($type ($kbid $ctx $vars) $proof $tv))
+   (let* (($kb (make-kb-context (brand KB $kbid) $ctx $vars))
+          ($main (kbctx (brand KB $kbid)))
+          ($source (if (if (== $ctx MAIN) true (assumption-proof? $proof)) $kb
+                      (if (kb-fact-present? (data $type $main $proof $tv)) $main $kb))))
+      (data $type $source $proof $tv)))
+
 (: leaf-evidence-for-result (-[det]-> SkFact EvidenceSet))
-(= (leaf-evidence-for-result ($type $kb $proof $tv))
-   (if (assumption-proof? $proof) (ev-set 0) (evidence-set (cons (fact-evidence-entry $kb $proof $type) ()))))
+(= (leaf-evidence-for-result $fact)
+   (let ($type $kb $proof $_tv) (sk-leaf-source $fact)
+      (if (assumption-proof? $proof) (ev-set 0)
+         (evidence-set (cons (fact-evidence-entry $kb $proof $type) ())))))
+
+(: sk-leaf-deps (-[det]-> Number SkFact Number))
+(= (sk-leaf-deps $hash $fact)
+   (case $fact (
+      (($_type ($_kb MAIN $_vars) $_proof $_tv) (deps-key $hash))
+      ($_private
+         (let $source (sk-leaf-source $fact)
+            (deps-union (deps-key $hash) (deps-key (index-hash (sk-fact-key $source)))))))))
 
 ;; A stored fact is its own evidence and depends on its own key. The fact a
 ;; forward run stored for a key carries its value's evidence and what that value
@@ -110,7 +129,7 @@
       ((cons $stored $_rest) $stored)
       (() (case (collapse (once (match &sk_summary ($hash $_skey $fact $sev $sdeps) (sk-val $fact $sev $sdeps)))) (
              ((cons $summary $_more) $summary)
-             (() (sk-val $fact (leaf-evidence-for-result $fact) (deps-key $hash)))))))))
+             (() (sk-val $fact (leaf-evidence-for-result $fact) (sk-leaf-deps $hash $fact)))))))))
 
 ;; A frozen key's summary stands for its past, so it counts as a fact: kept
 ;; beside the rows the key gets later.
@@ -131,7 +150,7 @@
 (= (sk-leaf-step $hash $computed $exclude $kept $fact)
    (let* (($view (sk-leaf-view $hash $fact))
           ($deps (sk-view-deps-step 0 $view)))
-      (if (== $deps (deps-key $hash))
+      (if (== $deps (sk-leaf-deps $hash $fact))
          (if (sk-branch-excludes? $deps) $kept (cons $view $kept))
          (if (if $computed (not (sk-summary-fact? $fact)) false) $kept
             (if (sk-excludes? $exclude $deps) $kept (cons $view $kept))))))
@@ -2598,7 +2617,13 @@
 (= (sk-pinned-step $key $found $pin)
    (case $pin (
       ((sk-given $hash $given-key $truth)
-         (if (=alpha $given-key $key)
+         (if (if (=alpha $given-key $key) true
+                  (case (data $given-key $key) (
+                     (((sk-key $type ($kbid MAIN Nil)) (sk-key $local-type $scope))
+                        (if (if (== (car-atom $scope) $kbid) (=alpha $type $local-type) false)
+                           (if (judgment-world-premise? (brand Statement $local-type) (brand KBContext $scope))
+                              (not (judgment-assumed-key? $local-type (brand KBContext $scope))) false) false))
+                     ($_other false))))
             (case $key (
                ((sk-key $type $kbctx)
                   (cons (sk-val (assemble-runtime-fact $type $kbctx (brand Proof (given $truth)) (STV (if $truth 1.0 0.0) 1.0))

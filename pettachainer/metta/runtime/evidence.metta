@@ -343,12 +343,25 @@
 ;; A proof that gives way to another: a marginal projection to the full
 ;; projection of the same source, a settled step to the complete step it
 ;; settles, which reads the settling part with the compound's other parts.
+(: sk-step-proof (-[det]-> Proof Proof))
 (: proof-dominates? (-[det]-> Proof Proof Bool))
 (= (proof-dominates? $prf-a $prf-b)
    (case $prf-a (
       (((proj $idx $base) $_evidence)
          (== $prf-b (marginal-proj $idx $base)))
-      ($_ (settled-within? $prf-b $prf-a)))))
+      ($_
+         (if (settled-within? $prf-b $prf-a) true
+            ;; Applying an implication statement to its query's certain
+            ;; assumption restates that statement's positive branch. This is
+            ;; the same source even when a certain rule has no evidence id.
+            (case (sk-step-proof $prf-b) (
+               ((conditional-implication $inner)
+                  (case (sk-step-proof (brand Proof $inner)) (
+                     ((by $statement $assumption)
+                        (if (assumption-proof? (sk-step-proof (brand Proof $assumption)))
+                           (== (sk-step-proof $prf-a) (sk-step-proof (brand Proof $statement))) false))
+                     ($_other-inner false))))
+               ($_other-proof false))))))))
 
 ;; The stored facts a rule application reads directly, or none when it reads
 ;; a derived premise.
@@ -380,7 +393,6 @@
 ;; or reads a derived premise resting only on them: a generalization of the
 ;; first's antecedent, such as (Member pingu Bird) derived from (Member pingu
 ;; Penguin).
-(: sk-step-proof (-[det]-> Proof Proof))
 (: specialization-includes? (-[det]-> Proof Proof Bool))
 (= (specialization-includes? $specific $general)
    (case (sk-step-proof $specific) (

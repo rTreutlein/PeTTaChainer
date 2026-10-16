@@ -157,8 +157,8 @@ premises in the same cycle multiply that.
   world's facts and rules with its assumptions, so its statements are
   complete as the main context's are: a decision that does not assume a
   complete statement reads it false once its search there settles. An
-  implication query's hypothetical contexts see none of the world, and the
-  predicate is open there.
+  implication query's private contexts override assumed keys and may read
+  independent world observations, but the predicate is open there.
 - Hypothesis and refined rules. A rule application concluding a complete
   predicate is one more way it becomes true, read like any rule.
 

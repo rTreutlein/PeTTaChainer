@@ -258,8 +258,8 @@
    (query 300 wrappedMainNegCtxKb (: $q (Checked Item) $tv))
    (and (<= (abs-math (- $s 0.8)) 1e-12) (< $c 0.90001))) true)
 
-;; Even a world consequent rate that suggests a nonzero complement cannot
-;; give a false assumed STV application an informative mean or any evidence.
+;; An independently observed consequent remains visible in the judgment.
+;; The false assumed STV application still contributes no extra evidence.
 !(compileadd unsupportedPopulationNegCtxKb (: g (G) (STV 0.5 0.9)))
 !(compileadd unsupportedPopulationNegCtxKb (: y (Y) (STV 0.95 0.9)))
 !(compileadd unsupportedPopulationNegCtxKb (: rn
@@ -273,7 +273,8 @@
           ($_answers (chainer 300 (internalize-proof-structure (: $shape $q $conclusion $tv))))
           ((sk-val ($_type $_context $_proof $value) $ev $_deps)
              (sk-value (sk-key $conclusion $shape) sk-any-filter ()))
-          ($valid (and (=alpha $value (STV 0.0 0.0)) (== $ev (ev-set 0))))
+          ($valid (and (=alpha $value (STV 0.9500000000000001 0.9))
+             (== $ev (evidence-set ((fact-ev (unsupportedPopulationNegCtxKb MAIN Nil) y (Y)))))))
           ($_cleared (clear-temp-query-adds)))
    (test $valid true))
 
