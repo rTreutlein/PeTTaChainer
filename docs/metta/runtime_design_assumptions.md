@@ -500,8 +500,8 @@ A key's value merges its stored facts and one view per row:
   parts, is conditioned on, not evidence it shares; so
   is, for a complete statement, a certain complete premise of its rule
   application that the update observes, `complete_predicates.md`), and an inversion over a base rate combines the same
-  way with a derived, uncertain view independent of it, which
-  takes the base rate's place (`docs/metta/prior_factored_merge.md`);
+  way with an uncertain view independent of it, including a stored target
+  belief, which takes the base rate's place (`docs/metta/prior_factored_merge.md`);
 - independent views otherwise revise, except that forward views (rule
   applications) of a predicate whose stored outcomes prefer odds or noisy-OR
   by a Bayes factor of 10 combine by that mode

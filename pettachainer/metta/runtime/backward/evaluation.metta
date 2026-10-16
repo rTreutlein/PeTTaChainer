@@ -371,10 +371,11 @@
 ;; must also be independent, sharing no uncertain statement, since an
 ;; observation may be read below the witnesses the sources compare. A view
 ;; updating the population base rate (`cpu`) merges the same way into a
-;; derived, uncertain view over another prior, or updating nothing, that is
-;; independent of it: that view takes the base rate's place, as the instance's
-;; prior given its other evidence. A stored fact is counted in the base rate
-;; itself, and a certain view stays as it is. Anything else is left to the
+;; uncertain view over another prior, or updating nothing, that is independent
+;; of it: that view, including a stored target belief, takes the base rate's
+;; place as the instance's prior. The update contributes its likelihood ratio,
+;; not another estimate to revise with the prior. A certain view stays as it
+;; is. Anything else is left to the
 ;; rules below, and so are two certain views that contradict each other.
 (: sk-factored-merge
    (-[det]-> SkFact EvidenceSet Number SkFact EvidenceSet Number Bool SkeletonValue))
@@ -391,7 +392,7 @@
                       (if (=alpha $base-a $base-b)
                          (if (== $spa $spb) (if (== $cpa $cpb) (if (== $parts-a ()) false (if (== $parts-b ()) false (if (if $population-a (if $independent false true) false) false (not (sk-sources-meet? $parts-a $parts-b))))) false) false)
                          (if $population-b
-                            (if (if (is-expr $base-a) (< $ca 1.0) false) $independent false)
+                            (if (< $ca 1.0) $independent false)
                             false)))
                   (sk-val ($type $kbctx (brand Proof (factored-revision $base-a (prior (STV $spa $cpa)) (append-flat $parts-a $parts-b)))
                               (sk-factored-tv odds (the Number $spa) (the Number $cpa) (the Number $spb) (the Number $cpb) (the Number $sa) (the Number $ca) (the Number $sb) (the Number $cb)))

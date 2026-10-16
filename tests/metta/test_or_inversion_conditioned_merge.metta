@@ -62,9 +62,11 @@
 ;; LocalProblem cannot reuse evidence that depends on itself: the general
 ;; Problem estimate does. The completion of the definition onto it reads the
 ;; alarm's inversion over Problem's base rate, which does not, with the other
-;; disjunct at its value; that raises it, though only a little, since its
-;; base rate, the completion's prior, is one stored fact.
+;; disjunct at its value. The completion updates the stored localPrior in
+;; its population prior's place (#42): odds(.4)*odds(completion)/
+;; odds(.4185934569) gives .6976600101. Revision formerly drowned out
+;; this diagnostic update in the stored belief's evidence count.
 !(test
    (query 20000 orInversionConditionedMergeKb
       (: $proof (LocalProblem current) $tv))
-   (: (merge/revision localPrior ((antecedent-completion (bi-forward problemDefinition) 0 with cpu (prior (STV 0.4185934569191004 0.0011238544987638187))) (conjunction dependencyPrior ((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm)))) (LocalProblem current) (STV 0.4001273433488443 0.9000365438768168)))
+   (: (factored-revision localPrior (prior (STV 0.4 0.9)) (((antecedent-completion (bi-forward problemDefinition) 0 with cpu (prior (STV 0.4185934569191004 0.0011238544987638187))) (conjunction dependencyPrior ((inverted problemRaisesAlarm with cpu (prior (STV 0.5058705455289852 0.003629357526433342))) currentAlarm))))) (LocalProblem current) (STV 0.6976600100605307 0.9110360738380232)))

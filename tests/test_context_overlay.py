@@ -40,12 +40,20 @@ class OverlayChecks:
     def test_assumption_reaches_cause_through_induction(self):
         self.diagnostic(self.h)
         self.assertAlmostEqual(self.strength("(Cause now)"), .3)
-        # Jeffrey update is .2939; the existing MAIN revision yields .294434.
-        # Its confidence overcount is intentionally outside this change.
-        self.assertAlmostEqual(
-            self.strength("(Assuming (Action now) (Cause now))"),
-            .294434361302045, delta=1e-6,
-        )
+        # The inversion is an update of the population prior, and the stored
+        # belief takes that prior's place (#42). At default kappa the rate
+        # read is p=(.3*7200+.1)/7200.2, rather than exactly .3.
+        p = (.3 * 7200 + .1) / 7200.2
+        q = .4 * (.9 * p / (.9 * p + .2 * (1 - p))) + .6 * (.1 * p / (.1 * p + .8 * (1 - p)))
+        odds = (.3 / .7) * (q / (1 - q)) / (p / (1 - p))
+        rows = self.answers("(Assuming (Action now) (Cause now))")
+        self.assertEqual(len(rows), 1, rows)
+        self.assertAlmostEqual(float(rows[0].tv[1]), odds / (1 + odds), delta=1e-6)
+        self.assertAlmostEqual(float(rows[0].tv[2]), .8, delta=.01)
+        self.assertIn("factored-revision cause-prior", self.h.expand_proof(rows[0].proof))
+        self.assertAlmostEqual(self.strength("(Cause now)"), .3)
+        self.h.add_atoms_no_check(['(: action (Action now) (STV 1 1))'])
+        self.assertAlmostEqual(self.strength("(Cause now)"), odds / (1 + odds), delta=1e-6)
 
     def test_existential_claim_is_local_and_preserves_binder_scope(self):
         self.h.add_atoms_no_check([
@@ -179,7 +187,7 @@ class OverlayChecks:
         )
         self.assertEqual([len(group) for group in rows], [1] * 22)
         for group in rows:
-            self.assertAlmostEqual(group[0].tv[1], .294434361302045, delta=1e-6)
+            self.assertAlmostEqual(group[0].tv[1], .29392076412140383, delta=1e-6)
 
     def test_assumed_member_updates_only_local_base_rate(self):
         self.h.add_atoms_no_check([

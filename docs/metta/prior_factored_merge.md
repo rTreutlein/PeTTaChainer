@@ -165,8 +165,9 @@ precedence over keeping one view and over revising.
 An inversion over the population base rate updates what is known of the
 population, not of the instance. Another view of the same statement that
 shares none of its evidence, such as a forward conclusion through other
-observations, already is the instance's prior given that evidence. Under the
-model the two bodies of evidence are independent given the statement, so the
+observations or a stored uncertain target belief, already is the instance's
+prior given that evidence. Under the model the two bodies of evidence are
+independent given the statement, so the
 inversion's likelihood ratio applies to that view's odds instead of the base
 rate's:
 
@@ -197,12 +198,14 @@ other prior when
   (`register-rule-evidence!`): a persistence prediction through earlier
   periods' block rules and this period's block inversions are independent
   given this period's storm;
-- the other view is derived, not a stored fact: base rates fold the stored
-  facts of their population, so an instance's own fact is already counted in
-  the base rate the inversion read (a fact read against a base rate estimated
-  from that one fact would count it twice); and
 - the other view is uncertain: a certain view stands for unlimited evidence
   and stays as it is, as revision leaves it.
+
+A stored target belief is the instance prior the update applies to (#42).
+The population estimate is removed from the inversion by its likelihood ratio;
+the stored belief is not revised with the posterior of that population prior.
+The evidence and dependency independence checks still apply. This does not
+change how a stored soft *observation* is consumed (see "Soft observations").
 
 Otherwise the views are left to the overlap rule and revision as before.
 
