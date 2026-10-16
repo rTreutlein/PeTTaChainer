@@ -69,7 +69,8 @@
 !(compileadd toothbrushKb (: xUnscrew (Operation X opUnscrew) (STV 0.99 0.99)))
 
 !(test
-   (collapse (query 200 toothbrushKb (: $prf (Inheritance X removed) $tv)))
+   ;; Exclusion classes share the evaluation allowance with ordinary rows.
+   (collapse (query 2000 toothbrushKb (: $prf (Inheritance X removed) $tv)))
    ((:
       (inheritance-implication-fold
          (total-implication

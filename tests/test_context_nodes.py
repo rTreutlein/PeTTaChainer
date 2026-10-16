@@ -1,4 +1,4 @@
-"""Keep the issue #60 history/permutation campaign in a fresh SWI runtime."""
+"""Issue #60 in fresh runtimes; reserve two capped slots for history workers."""
 import subprocess
 import sys
 import unittest

@@ -20,29 +20,32 @@
 ;; Inheritance queries use one chainer execution.  These budgets preserve the
 ;; total search work that was previously split across two equal executions.
 !(test
-   (collapse
-      (query 200 flyingRavenKb
-         (: $prf (Inheritance Sam (IntSet flies)) $tv)))
-   ((:
+   ;; Check shared-reference identity, independent of allocated handle numbers.
+   (let ((:
       (inheritance-implication-fold
          (total-implication
             (merge/revision
                (by (inheritance-implication birdFlies)
-                  (shared 10 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 0)))))
+                  (shared $sam0 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 0)))))
                (negated
                   (by penguinsDoNotFly
                      ((inverted (inheritance-implication penguinBird)
                          with cpu (prior (STV 0.730917365761377 0.00022594893654011704)))
-                        (shared 10)))))
+                        (shared $sam0)))))
             (merge/revision
                (negated
                   (by penguinsDoNotFly
                      ((inverted (inheritance-implication penguinBird)
                          with cpu (prior (STV 0.730917365761377 0.00022594893654011704)))
-                        (shared 21 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1)))))))
-               (by (inheritance-implication birdFlies) (shared 21)))))
+                        (shared $sam1 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1)))))))
+               (by (inheritance-implication birdFlies) (shared $sam1)))))
       (Inheritance Sam (IntSet flies))
-      (STV 0.9786915593831778 0.6432516834782457))))
+      $tv))
+      (collapse
+      (query 200 flyingRavenKb
+         (: $prf (Inheritance Sam (IntSet flies)) $tv)))
+      $tv)
+   (STV 0.9786915593831778 0.6432516834782457))
 
 !(test
    (collapse

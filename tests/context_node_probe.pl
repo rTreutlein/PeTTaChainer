@@ -8,7 +8,7 @@ context_probe_install :-
     ;assertz(context_probe_installed),assertz(context_probe_count(0)),
      wrap_predicate(cn_settled(Id,_Computed,_Cuts),context_probe,Publish,
        (cn_node(Id,_,[_,_,_,K,_,_,E,_,_,_,_]),call(Publish),
-        cn_node(Id,_,[_,_,_,_,_,_,_,Cuts,D,V,true]),
+        cn_node(Id,_,[_,_,_,_,_,_,_,Cuts,D,V,_State]),
         retract(context_probe_count(N)),Next is N+1,assertz(context_probe_count(Next)),
         ('deps-meet?'(E,D,true)->term_string([K,E,Cuts,V],Text),assertz(context_probe_bad(Text));true)))).
 

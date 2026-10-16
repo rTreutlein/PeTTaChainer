@@ -243,7 +243,8 @@
     (21 1 1 1) (22 1 1 0) (23 1 1 1) (24 1 1 0) (25 1 1 1) (26 1 1 0) (27 1 1 1) (28 1 1 0) (29 1 0 1) (30 1 0 0)
     (31 0 1 1) (32 0 1 0) (33 0 0 1) (34 0 0 0) (35 0 0 1) (36 0 0 0) (37 0 0 1) (38 0 0 0) (39 0 0 1) (40 0 0 0))))
 !(add-cases!)
-!(test (collapse (let (hypothesis $_name $implication $_tv $verdict) (review-hypotheses 50 pruneKb $goal) ($implication $verdict)))
+;; Context-class evaluations share the allowance; retain the original keeper contract.
+!(test (collapse (let (hypothesis $_name $implication $_tv $verdict) (review-hypotheses 500 pruneKb $goal) ($implication $verdict)))
    (((Implication (And (A $_0) (C $_0)) (B $_0)) dropped)
     ((Implication (A $_1) (B $_1)) kept)
     ((Implication (C $_2) (B $_2)) dropped)))

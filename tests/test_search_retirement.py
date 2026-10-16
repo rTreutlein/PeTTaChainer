@@ -282,7 +282,9 @@ class TestSearchRetirement(unittest.TestCase):
         h.add_atom('(: closed Closed (STV 1 1))')
         # This query can still complete the earlier shared premise search.
         # Its answer is known, but P0's pending work is not obsolete.
-        h.query_many_refs(['(: $p Closed $tv)'], steps=80)
+        closed = h.query_many_refs(['(: $p Closed $tv)'], steps=80)[0]
+        self.assertTrue(closed)
+        self.assertEqual(closed[0].tv, ['STV', 1, 1])
         self.assertGreater(janus.query_once(
             "aggregate_all(count, '&sk_expanded'(_, [P0,[Kb,'MAIN','Nil']|_]), N)",
             {'Kb': h.kb, 'P0': 'P0'})['N'], 0)

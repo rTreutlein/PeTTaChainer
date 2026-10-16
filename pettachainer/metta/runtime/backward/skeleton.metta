@@ -566,7 +566,8 @@
 ;; reader to schedule.
 (: sk-mark-dirty! (-[det]-> SkeletonKey Atom))
 (= (sk-mark-dirty! $key)
-   (if (not (== (collapse (once (match &ctx_sk_context ($_d $_id $_hash $_key $_r $_q $_e $_c $_deps $_v $_fresh) true))) ()))
+   (if (if (not (== (collapse (once (match &ctx_sk_context ($_d $_id $_hash $_key $_r $_q $_e $_c $_deps $_v $_fresh) true))) ())) true
+           (not (== (collapse (once (match &ctx_sk_context_merge ($_md $_mid $_mh $_mk $_mr $_mq $_me $_mc $_mdeps $_mv $_mf) true))) ())))
       (sk-dirty! $key)
       ()))
 

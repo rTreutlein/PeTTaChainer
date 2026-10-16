@@ -75,7 +75,9 @@ context_local_only('&sk_context_need').
 
 context_store('&sk_context',11).
 context_store('&sk_context_merge',11).
-context_store('&sk_context_id',3).
+context_store('&sk_context_id',4).
+context_store('&sk_context_index',4).
+context_store('&sk_ordinary_support',2).
 context_store('&sk_context_need',2).
 context_store('&sk_context_reader',2).
 context_store('&sk_context_queued',2).

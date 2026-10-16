@@ -83,9 +83,7 @@
 !(test (< (any-error-at 2 e2) (any-error-at 1 e1b)) true)
 !(test (< (any-error-at 4 e4) (any-error-at 2 e2b)) true)
 !(test (< (any-error-at 4 e4b) 0.001) true)
-;; H1 can retain a worse approximation at larger allowance. The original
-;; high-budget posterior contract is retained as an expected failure for
-;; Round 2 in context_nodes.py, rather than loosening its error bound.
+!(test (< (any-error-at 50 e50) 0.001) true)
 
 ;; The prior is the population's value, not the statement's: a materializing
 ;; query writes back no prior.

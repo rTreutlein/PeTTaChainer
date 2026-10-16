@@ -4,6 +4,7 @@ The expected failures specify the intended behavior, with their landing round.
 Positive fixture checks live outside expectedFailure so a broken reproducer
 cannot silently turn into an expected failure. Round 1 uses context-node publications and node subscriptions.
 """
+from contextlib import ExitStack
 from functools import lru_cache
 import itertools
 import json
@@ -60,83 +61,94 @@ def history_worker(history, out):
         if history != 'cold':
             h.query_many_refs(snap['goals'], steps=2000)
             print(f'{history} prefix {at}: {time.monotonic() - started:.2f}s', flush=True)
-    if history == 'warm-all':
-        for _ in range(3):
-            for prior in record['snaps']:
-                h.query_many_refs(prior['goals'], steps=20000)
-            print(f'{history} pass {_ + 1}: {time.monotonic() - started:.2f}s', flush=True)
     position = snap['goals'].index('(: $prf (Degraded power-plant t13) $tv)')
     janus.query_once('use_module(library(unix))')
-    results = {}
-    pidfile = out.with_suffix('.pid')
-    for budget in (2000, 20000):
-        child_out = out.with_suffix(f'.{budget}.json')
-        pid = janus.query_once('fork(Pid)')['Pid']
-        if pid == 'child':
-            try:
-                rows = sample(h, snap['goals'], budget=budget, label=history)
-                child_out.write_text(json.dumps(dict(tv=rows[-1]['tvs'][position][0], rows=rows)))
-            except BaseException:
-                child_out.write_text(json.dumps(dict(error=traceback.format_exc())))
-                os._exit(1)
-            os._exit(0)
-        pidfile.write_text(str(pid))
-        deadline = time.monotonic() + 240
-        while True:
-            os.kill(pid, 0)
-            ended, status = os.waitpid(pid, os.WNOHANG)
-            if ended:
-                break
-            if time.monotonic() >= deadline:
-                os.kill(pid, signal.SIGKILL)
-                os.waitpid(pid, 0)
-                raise TimeoutError(f'T1 {history} budget {budget}')
-            time.sleep(.05)
-        pidfile.unlink()
-        result = json.loads(child_out.read_text())
-        if status:
-            raise AssertionError(result)
-        results[str(budget)] = result
-    out.write_text(json.dumps(results))
+    # Warm-all extends the same unchanged warm prefix. Forking the final
+    # samples leaves that prefix untouched and avoids rebuilding it twice.
+    for mode in (('warm', 'warm-all') if history == 'warm' else (history,)):
+        if mode == 'warm-all':
+            for _ in range(3):
+                for prior in record['snaps']:
+                    h.query_many_refs(prior['goals'], steps=20000)
+                print(f'{mode} pass {_ + 1}: {time.monotonic() - started:.2f}s', flush=True)
+        target = out.with_name(f'{mode}.json')
+        results = {}
+        pidfile = out.with_suffix('.pid')
+        for budget in (2000, 20000):
+            child_out = target.with_suffix(f'.{budget}.json')
+            pid = janus.query_once('fork(Pid)')['Pid']
+            if pid == 'child':
+                try:
+                    rows = sample(h, snap['goals'], budget=budget, label=mode)
+                    child_out.write_text(json.dumps(dict(tv=rows[-1]['tvs'][position][0], rows=rows)))
+                except BaseException:
+                    child_out.write_text(json.dumps(dict(error=traceback.format_exc())))
+                    os._exit(1)
+                os._exit(0)
+            pidfile.write_text(str(pid))
+            deadline = time.monotonic() + 240
+            while True:
+                os.kill(pid, 0)
+                ended, status = os.waitpid(pid, os.WNOHANG)
+                if ended:
+                    break
+                if time.monotonic() >= deadline:
+                    os.kill(pid, signal.SIGKILL)
+                    os.waitpid(pid, 0)
+                    raise TimeoutError(f'T1 {mode} budget {budget}')
+                time.sleep(.05)
+            pidfile.unlink()
+            result = json.loads(child_out.read_text())
+            if status:
+                raise AssertionError(result)
+            results[str(budget)] = result
+        target.write_text(json.dumps(results))
 
 
 @lru_cache(None)
 def replays():
     # A fresh process per history avoids unrelated KBs changing absorption or
-    # aggregate state. Budget forks share only the prefix, never final queries.
+    # aggregate state. Run the independent histories together (two CPU slots).
+    # Budget forks share only the prefix, never final queries.
     results = {2000: {}, 20000: {}}
-    with tempfile.TemporaryDirectory(prefix='context-histories-') as directory:
-        for history in ('cold', 'warm', 'warm-all'):
-            out = Path(directory) / f'{history}.json'
-            log = out.with_suffix('.log')
-            with log.open('w') as stream:
+    errors = []
+    with tempfile.TemporaryDirectory(prefix='context-histories-') as directory, ExitStack() as streams:
+        jobs = []
+        try:
+            for history in ('cold', 'warm'):
+                out = Path(directory) / f'{history}.json'
+                log = out.with_suffix('.log')
+                stream = streams.enter_context(log.open('w'))
                 process = subprocess.Popen([sys.executable, __file__, '--history', history, str(out)],
                                            stdout=stream, stderr=subprocess.STDOUT)
-                try:
-                    deadline = time.monotonic() + 500
-                    while process.poll() is None:
-                        os.kill(process.pid, 0)
-                        if time.monotonic() >= deadline:
-                            raise TimeoutError(f'T1 {history} setup and budget samples')
-                        time.sleep(.05)
-                finally:
-                    if process.poll() is None:
-                        pidfile = out.with_suffix('.pid')
-                        if pidfile.exists():
-                            child = int(pidfile.read_text())
-                            stat = Path(f'/proc/{child}/stat')
-                            if stat.exists() and int(stat.read_text().split()[3]) == process.pid:
-                                os.kill(child, signal.SIGKILL)
-                        process.kill()
-                        process.wait()
-            if process.returncode:
-                return dict(error=log.read_text())
-            data = json.loads(out.read_text())
-            for budget in results:
-                results[budget][history] = data[str(budget)]
-                print('T1 ' + json.dumps(dict(budget=budget, history=history,
-                    tv=data[str(budget)]['tv'], last_work=[r['work'] for r in data[str(budget)]['rows'][-3:]])), flush=True)
-    return results
+                jobs.append((history, out, log, process, time.monotonic() + 500))
+            for history, out, log, process, deadline in jobs:
+                while process.poll() is None:
+                    os.kill(process.pid, 0)
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError(f'T1 {history} setup and budget samples')
+                    time.sleep(.05)
+                if process.returncode:
+                    errors.append(log.read_text())
+                    continue
+                for mode in (('warm', 'warm-all') if history == 'warm' else (history,)):
+                    data = json.loads(out.with_name(f'{mode}.json').read_text())
+                    for budget in results:
+                        results[budget][mode] = data[str(budget)]
+                        print('T1 ' + json.dumps(dict(budget=budget, history=mode,
+                            tv=data[str(budget)]['tv'], last_work=[r['work'] for r in data[str(budget)]['rows'][-3:]])), flush=True)
+        finally:
+            for _history, out, _log, process, _deadline in jobs:
+                if process.poll() is None:
+                    pidfile = out.with_suffix('.pid')
+                    if pidfile.exists():
+                        child = int(pidfile.read_text())
+                        stat = Path(f'/proc/{child}/stat')
+                        if stat.exists() and int(stat.read_text().split()[3]) == process.pid:
+                            os.kill(child, signal.SIGKILL)
+                    process.kill()
+                process.wait()
+    return dict(error='\n'.join(errors)) if errors else results
 
 
 def replay(budget):
@@ -273,14 +285,13 @@ class FixtureTests(unittest.TestCase):
 class ContextNodeAcceptanceTests(unittest.TestCase):
     @unittest.expectedFailure
     def test_h1_shared_source_judgment_round2(self):
-        """H1 freezes the independent diamond approximation; Round 2 removes H1."""
+        """H1 still freezes the shared-source diamond; Round 2 removes H1."""
         answer = h1_diamond()[0]
         self.assertAlmostEqual(answer['tv'][1], .8, delta=1e-12)
         self.assertLessEqual(answer['tv'][2], .9 + 1e-12)
 
-    @unittest.expectedFailure
     def test_h1_many_root_posterior_round2(self):
-        """H1 picks a different approximation at larger allowance; Round 2."""
+        """Larger allowance preserves the many-root posterior bound, restored in Round 1b."""
         self.assertLess(h1_many_root_error(), .001)
 
     @unittest.expectedFailure
@@ -308,7 +319,7 @@ class ContextNodeAcceptanceTests(unittest.TestCase):
 
     @unittest.expectedFailure
     def test_t3_deep_refresh_history_equality_round3(self):
-        """H3 keeps stale t1 below free depth; round 3 spends leftover allowance."""
+        """H3 keeps the deep stale snapshot; Round 3 spends leftover allowance."""
         cold, warm = deep_stale()
         for actual, expected in zip(warm['tv'][1:], cold['tv'][1:]):
             self.assertAlmostEqual(actual, expected, delta=1e-12)
