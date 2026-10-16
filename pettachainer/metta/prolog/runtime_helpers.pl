@@ -2627,3 +2627,7 @@ pw_drop_rep(R) :-
     forall(member(P, Ps), ( retract(pw_out(P, R, _)), pw_deg_add(P, -1, 0) )),
     retractall(pw_size(R, _)), retractall(pw_work(R, _)), retractall(pw_pend(R, _)), retractall(pw_deg(R, _, _)),
     forall(member(P, Ps), ( D =:= 0 -> true ; pw_add_pend(P, D) )).
+
+% A producer must cover the entire query, without specializing either term.
+'term-covers?'(General, Specific, Result) :-
+    ( subsumes_term(General, Specific) -> Result = true ; Result = false ).

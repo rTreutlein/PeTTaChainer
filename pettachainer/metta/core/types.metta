@@ -380,3 +380,6 @@
 (: sk-retire-store! (-[det]-> RetiredStore Atom))
 
 (: existential-key-before? (-[det]-> Atom Atom Bool))
+
+;; Nonbinding syntactic coverage, including variable sharing.
+(: term-covers? (-[det]-> Atom Atom Bool))

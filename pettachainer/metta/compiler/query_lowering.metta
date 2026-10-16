@@ -125,8 +125,8 @@
 ;; goal's positive branch instead of folding the instances again.
 (: rule-truth-installed? (-[det]-> KB Atom Bool))
 (= (rule-truth-installed? $kb $Type)
-   (let $truth (copy_term (RuleTruth $Type))
-      (not (== (collapse (once (match &rule_truth_shapes ($kb $truth) true))) ()))))
+   (not (== (collapse (once (match &rule_truth_shapes ($kb $stored)
+      (if (term-covers? $stored (RuleTruth $Type)) true (empty))))) ())))
 
 (: rule-truth-query-adds (-[det]-> KB Atom Atom Atom (List CompiledAddition)))
 (= (rule-truth-query-adds $kb $Type $antecedent $consequent)
