@@ -1159,9 +1159,20 @@
 ;; `(Not A)` assumption is represented by an A-shaped contextual fact with
 ;; strength zero, allowing ordinary fact matching while preserving its logical
 ;; truth through the bundle TV.
+(: query-assumption-normal-form (-[det]-> Statement Statement))
+(= (query-assumption-normal-form $type)
+   (if (head-is? $type Not)
+      (let $inner (brand Statement (car-atom (cdr-atom $type)))
+         (if (head-is? $inner Not)
+            (query-assumption-normal-form
+               (brand Statement (car-atom (cdr-atom $inner))))
+            $type))
+      $type))
+
 (: lower-query-assumption-premise
    (-[nondet]-> KB $context $variables Statement  PremiseBundle))
-(= (lower-query-assumption-premise $kb $ctx $vars $premise)
+(= (lower-query-assumption-premise $kb $ctx $vars $source)
+   (let $premise (query-assumption-normal-form $source)
    (if (contains-explicit-exists? $premise)
       (leaf-source-bundle $kb $ctx $vars (canonical-existential-side $premise))
    (if (if (is-expr $premise)
@@ -1174,7 +1185,7 @@
                (let $prem-kb (source-premise-kb $kb $ctx $vars)
                   (premise-bundle ((: $prem-kb $prf (car-atom (cdr-atom $premise)) (STV 0.0 1.0))) (STV 1.0 1.0) $prf))
                (lower-source-premise $kb $ctx $vars $premise))))
-      (lower-source-premise $kb $ctx $vars $premise))))
+      (lower-source-premise $kb $ctx $vars $premise)))))
 
 (: lower-query-assumption-premises
    (-[nondet]-> KB $context $variables (List Atom)
@@ -1203,7 +1214,8 @@
 ;; condition used to compute the negative component of the implication CTV.
 (: lower-query-assumption-premise-false
    (-[det]-> KB $context $variables Statement PremiseBundle))
-(= (lower-query-assumption-premise-false $kb $ctx $vars $premise)
+(= (lower-query-assumption-premise-false $kb $ctx $vars $source)
+   (let $premise (query-assumption-normal-form $source)
    (if (if (is-expr $premise)
           (if (is-var (car-atom $premise)) false true)
           false)
@@ -1225,7 +1237,7 @@
       (premise-bundle
          ((: (make-kb-context $kb $ctx $vars)
               $prf $premise (STV 0.0 1.0)))
-         (STV 0.0 1.0) $prf)))
+         (STV 0.0 1.0) $prf))))
 
 (: lower-query-assumption-premises-negative
    (-[nondet]-> KB $context $variables (List Atom)

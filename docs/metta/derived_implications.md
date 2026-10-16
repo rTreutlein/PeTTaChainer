@@ -245,7 +245,10 @@ The judgment assumes the stated antecedent in its private context. Under
 `(Not G)`, every reader of G reads `(STV 0 1)`; under G, every reader of G
 reads `(STV 1 1)`. This includes negated premises lowered to a read of G
 followed by `NotFormula`, even when G is ground. The main world's value of G
-never enters this judgment. Independent fixed premises can read MAIN observations and the projections of
+never enters this judgment. Leading pairs of `Not` are eliminated before
+lowering either assumption polarity: `Not Not G` assumes G true, and
+`Not Not Not G` assumes G false. The answer retains the original statement.
+Independent fixed premises can read MAIN observations and the projections of
 compound observations. Private leaf reads use the fact prefix index, exclude
 assumed keys, the judgment's own consequent (including its instances and
 negation), and forwarded/materialized values, and retain the source fact's
@@ -432,10 +435,6 @@ the normal And formula.
 
 ## Limits
 
-- Calculations under nested `Not` antecedents currently return no answer:
-  a judgment of
-  `(Not (Not (A Item)))` does not route a reader of `(A Item)` to its
-  assumption. This is queued separately.
 - `Or` antecedents currently assume each lowered part certain. For example,
   `(Or A C) -> B` returns 0.3 when `A -> B` has positive strength 0.3.
   This behavior is unchanged from master and is queued separately.
