@@ -288,34 +288,6 @@ class TestPeTTaChainer(unittest.TestCase):
             )
             self.assertFalse(metrics_path.exists())
 
-    def test_query_metric_rows_are_parsed_exactly(self):
-        self.assertEqual(
-            PeTTaChainer._parse_query_metric_rows(
-                [
-                    "(query-metric agenda-pops 7)",
-                    "(query-metric candidate-comparisons 2.5e1)",
-                ]
-            ),
-            {"agenda_pops": 7, "candidate_comparisons": 25},
-        )
-
-        malformed_results = [
-            [],
-            "(query-metric agenda-pops 1)",
-            ["(query-metric agenda-pops nan)"],
-            ["(query-metric Agenda-pops 1)"],
-            ["(query-metric agenda-pops 1) trailing"],
-            ["(query-metric agenda-pops 1)", 2],
-            [
-                "(query-metric agenda-pops 1)",
-                "(query-metric agenda-pops 2)",
-            ],
-        ]
-        for rows in malformed_results:
-            with self.subTest(rows=rows):
-                with self.assertRaises(RuntimeError):
-                    PeTTaChainer._parse_query_metric_rows(rows)
-
     def test_timing_splits_call_time_into_inference_and_overhead(self):
         handler = PeTTaChainer()
         before = handler.timing()

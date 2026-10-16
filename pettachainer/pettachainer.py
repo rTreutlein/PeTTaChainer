@@ -6,8 +6,6 @@ import multiprocessing as mp
 import os
 from contextlib import contextmanager
 from pathlib import Path
-import re
-import sys
 import threading
 import time
 import traceback
@@ -18,11 +16,7 @@ import __main__
 
 from petta import PeTTa
 
-if __package__:
-    from .pln_validator import check_query, check_stmt
-else:  # Allow direct script execution: python pettachainer/pettachainer.py
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from pettachainer.pln_validator import check_query, check_stmt
+from .pln_validator import check_query, check_stmt
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -43,7 +37,7 @@ def _query_worker(
     kb: str,
     fn: str,
     source: str,
-    logic_config_path: Optional[str],
+    logic_config_path: str,
     evidence_confidence_k: float,
     bayes_prior_count: float,
     context_reuse_threshold: float,
@@ -96,10 +90,6 @@ def _query_worker(
         conn.close()
 
 
-def _as_list(value) -> List[str]:
-    return [value] if isinstance(value, str) else value
-
-
 # Process-wide wall seconds and count of chainer calls (PeTTaChainer.timing).
 _call_wall_seconds = 0.0
 _call_count = 0
@@ -142,33 +132,17 @@ def _metta_text(term) -> str:
 
 
 def _group_query_many_results(rows: List[str], count: int) -> List[List[str]]:
+    """Group ``(query-result index answer)`` rows by root, dropping ``()``."""
     grouped: List[List[str]] = [[] for _ in range(count)]
-    prefix = "(query-result "
     for row in rows:
-        if not row.startswith(prefix) or not row.endswith(")"):
-            raise RuntimeError(f"Unexpected PeTTa query-many result: {row}")
-        index_end = row.find(" ", len(prefix))
-        if index_end < 0:
-            raise RuntimeError(f"Missing query index in PeTTa result: {row}")
-        try:
-            index = int(row[len(prefix):index_end])
-        except ValueError as exc:
-            raise RuntimeError(f"Invalid query index in PeTTa result: {row}") from exc
-        if index < 0 or index >= count:
-            raise RuntimeError(f"Out-of-range query index in PeTTa result: {row}")
-        answer = row[index_end + 1:-1]
+        index, answer = row[len("(query-result "):-1].split(" ", 1)
         if answer != "()":
-            grouped[index].append(answer)
+            grouped[int(index)].append(answer)
     return grouped
 
 
 class PeTTaChainer:
-    _query_metric_row_re = re.compile(
-        r"\(query-metric\s+([a-z][a-z0-9-]*)\s+"
-        r"([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)\)"
-    )
-
-    def __init__(self, logic_config: Optional[str] = None):
+    def __init__(self, logic_config: str = "pln"):
         global LOADEDLIB
         self.handler = PeTTa()
         self.kb = f"kb{uuid.uuid4().hex}"
@@ -176,7 +150,6 @@ class PeTTaChainer:
         self._hypothesis_mining: Optional[Tuple[int, int]] = None
         self._predicate_times: dict[str, Tuple[int, int]] = {}
         self._time_link: Optional[str] = None
-        self._logic_config_path: Optional[Path] = None
         self._evidence_confidence_k = 800.0
         self._bayes_prior_count = 0.2
         self._context_reuse_threshold = 0.000001
@@ -204,26 +177,13 @@ class PeTTaChainer:
                     self.handler.load_metta_file_cached(str(metta_path))
                     LOADEDLIB = True
 
-        self.load_logic_config(logic_config or "pln")
-        if self._query_metrics_path:
-            self.set_query_metrics(True)
-
-    def load_logic_config(self, logic_config: str) -> str:
         path = Path(logic_config)
         if not path.suffix and len(path.parts) == 1:
-            path = (
-                Path(__file__).resolve().parent
-                / "metta"
-                / "core"
-                / "logic_configs"
-                / f"{logic_config}.metta"
-            )
-        else:
-            path = path.expanduser()
-            if not path.is_absolute():
-                path = path.resolve()
-        self._logic_config_path = path
-        return self.handler.load_metta_file(str(path))
+            path = base_dir / "metta" / "core" / "logic_configs" / f"{logic_config}.metta"
+        self._logic_config_path = str(path.expanduser().resolve())
+        self.handler.load_metta_file(self._logic_config_path)
+        if self._query_metrics_path:
+            self.set_query_metrics(True)
 
     def load_metta_file(self, path: str | Path) -> str:
         """Load a caller-owned MeTTa module into this runtime."""
@@ -261,20 +221,18 @@ class PeTTaChainer:
             "overhead": _call_wall_seconds - inference,
         }
 
-    def _evaluate(self, atom: str) -> str:
+    def evaluate_statement(self, atom: str) -> str:
         result = self.handler.process_metta_string(f"!(eval {atom})")
-        if isinstance(result, list):
-            if not result:
-                raise ValueError("PeTTa returned no results")
-            result = result[0]
-        return str(result).strip()
+        if not result:
+            raise ValueError("PeTTa returned no results")
+        return result[0]
+
+    evaluate_query = evaluate_statement
 
     @staticmethod
-    def _validate(kind: str, raw_atom: str, evaluated_atom: str, checker) -> None:
-        if checker(evaluated_atom) == 0.0:
-            raise ValueError(
-                f"Invalid evaluated PLN {kind}. input={raw_atom} evaluated={evaluated_atom}"
-            )
+    def _validate(kind: str, atom: str, checker) -> None:
+        if checker(atom) == 0.0:
+            raise ValueError(f"Invalid PLN {kind}: {atom}")
 
     def set_query_metrics(self, enabled: bool) -> None:
         """Enable backward-query diagnostic counters.
@@ -291,35 +249,6 @@ class PeTTaChainer:
     def last_query_metrics(self) -> dict[str, object]:
         """Return a copy of the most recently recorded query metrics."""
         return dict(self._last_query_metrics)
-
-    @classmethod
-    def _parse_query_metric_rows(
-        cls, rows: object
-    ) -> dict[str, int | float]:
-        if not isinstance(rows, list) or not rows:
-            raise RuntimeError(f"Unexpected PeTTa query metrics: {rows!r}")
-        metrics: dict[str, int | float] = {}
-        for row in rows:
-            if not isinstance(row, str):
-                raise RuntimeError(f"Unexpected PeTTa query metric row: {row!r}")
-            match = cls._query_metric_row_re.fullmatch(row.strip())
-            if match is None:
-                raise RuntimeError(f"Malformed PeTTa query metric row: {row}")
-            key, raw_value = match.groups()
-            normalized_key = key.replace("-", "_")
-            if normalized_key in metrics:
-                raise RuntimeError(f"Duplicate PeTTa query metric row: {key}")
-            value = float(raw_value)
-            metrics[normalized_key] = (
-                int(value) if value.is_integer() else value
-            )
-        return metrics
-
-    def _read_query_metrics(self) -> dict[str, int | float]:
-        rows = self.handler.process_metta_string(
-            "!(let $rows (backward-query-metrics) (superpose $rows))"
-        )
-        return self._parse_query_metric_rows(rows)
 
     @contextmanager
     def _query_metrics(
@@ -357,7 +286,12 @@ class PeTTaChainer:
             "inference_seconds": inference_seconds,
             "overhead_seconds": wall_seconds - inference_seconds,
         }
-        record.update(self._read_query_metrics())
+        for row in self.handler.process_metta_string(
+            "!(let $rows (backward-query-metrics) (superpose $rows))"
+        ):
+            _, key, raw_value = row[1:-1].split()
+            value = float(raw_value)
+            record[key.replace("-", "_")] = int(value) if value.is_integer() else value
         self._last_query_metrics = record
         if self._query_metrics_path:
             with Path(self._query_metrics_path).open("a", encoding="utf-8") as stream:
@@ -590,13 +524,13 @@ class PeTTaChainer:
         before, and drop the ones that do not predict. Returns one
         ``(hypothesis name implication truth kept|dropped)`` per hypothesis.
         """
-        return _as_list(self.handler.process_metta_string(
+        return self.handler.process_metta_string(
             f"!(review-hypotheses {int(steps)} {self.kb} {goal})"
-        ))
+        )
 
     @_timed
     def add_atom(self, atom: str) -> List[str]:
-        self._validate("statement", atom, atom, check_stmt)
+        self._validate("statement", atom, check_stmt)
         result = self._call("compileadd", [f"{self.kb} {atom}"])
         self._added_atoms.append(atom)
         return result
@@ -634,13 +568,6 @@ class PeTTaChainer:
             self._added_atoms.append(atom)
         return result
 
-    evaluate_statement = _evaluate
-    evaluate_query = _evaluate
-
-    def print_kb(self):
-        for atom in _as_list(self.handler.process_metta_string(f"!(match &kb $a (pretty $a))")):
-            print(atom)
-
     def select_facts(self, terms: str | Sequence[str]) -> List[str]:
         """Return the KB facts matching one or more surface terms.
 
@@ -661,30 +588,18 @@ class PeTTaChainer:
                 f"($type ({self.kb} MAIN Nil) $prf $tv)))))) "
                 "(if (== $matches ()) missing-selected-fact (car-atom $matches)))"
             )
-        results = [
-            str(atom).strip()
-            for atom in _as_list(
-                self.handler.process_metta_string(
-                    f"!(superpose ({' '.join(selectors)}))"
-                )
-            )
-        ]
+        results = self.handler.process_metta_string(f"!(superpose ({' '.join(selectors)}))")
         if len(results) != len(raw_terms) or "missing-selected-fact" in results:
             raise ValueError(f"No KB fact matches every requested term: {raw_terms}")
         return results
 
     def all_facts(self) -> List[str]:
         """Return every current KB fact for caller-directed saturation."""
-        return [
-            str(atom).strip()
-            for atom in _as_list(
-                self.handler.process_metta_string(
-                    "!(match &kb "
-                    f"($type ({self.kb} MAIN Nil) $prf $tv) "
-                    f"($type ({self.kb} MAIN Nil) $prf $tv))"
-                )
-            )
-        ]
+        return self.handler.process_metta_string(
+            "!(match &kb "
+            f"($type ({self.kb} MAIN Nil) $prf $tv) "
+            f"($type ({self.kb} MAIN Nil) $prf $tv))"
+        )
 
     @_timed
     def forward_chain(self, facts: str | Sequence[str], steps: int = 100) -> List[str]:
@@ -728,7 +643,7 @@ class PeTTaChainer:
                 self.kb,
                 fn,
                 source,
-                str(self._logic_config_path) if self._logic_config_path else None,
+                self._logic_config_path,
                 self._evidence_confidence_k,
                 self._bayes_prior_count,
                 self._context_reuse_threshold,
@@ -771,7 +686,7 @@ class PeTTaChainer:
 
     @_timed
     def query(self, atom: str, steps: int = 100, timeout_sec: Optional[float] = 10) -> List[str]:
-        self._validate("query", atom, atom, check_query)
+        self._validate("query", atom, check_query)
         with self._query_metrics(
             kind="query",
             roots=1,
@@ -807,6 +722,12 @@ class PeTTaChainer:
         finally:
             self.set_query_metrics(enabled)
 
+    def _batch_source(self, queries: List[str], steps: int) -> str:
+        """The arguments of a batch query function, each root validated."""
+        for atom in queries:
+            self._validate("query", atom, check_query)
+        return f"{steps} {self.kb} ({' '.join(queries)})"
+
     @_timed
     def query_many(
         self,
@@ -822,8 +743,7 @@ class PeTTaChainer:
         queries = list(atoms)
         if not queries:
             return []
-        for atom in queries:
-            self._validate("query", atom, atom, check_query)
+        source = self._batch_source(queries, steps)
         with self._query_metrics(
             kind="query_many",
             roots=len(queries),
@@ -831,7 +751,7 @@ class PeTTaChainer:
             timeout_sec=timeout_sec,
         ):
             return _group_query_many_results(
-                self._run_query("query-many", f"{steps} {self.kb} ({' '.join(queries)})", timeout_sec),
+                self._run_query("query-many", source, timeout_sec),
                 len(queries),
             )
 
@@ -851,10 +771,8 @@ class PeTTaChainer:
         queries = list(atoms)
         if not queries:
             return []
-        for atom in queries:
-            self._validate("query", atom, atom, check_query)
+        source = self._batch_source(queries, steps)
         import janus_swi
-
         with self._query_metrics(
             kind="query_many",
             roots=len(queries),
@@ -863,7 +781,7 @@ class PeTTaChainer:
         ):
             rows = janus_swi.query_once(
                 "metta_call_terms(Fn, Sources, Results)",
-                {"Fn": "query-many-refs", "Sources": [f"{steps} {self.kb} ({' '.join(queries)})"]},
+                {"Fn": "query-many-refs", "Sources": [source]},
             )["Results"]
         grouped: List[List[Answer]] = [[] for _ in queries]
         for _, index, (_, proof, statement, tv) in rows:
@@ -894,18 +812,5 @@ class PeTTaChainer:
         queries = list(atoms)
         if not queries:
             return []
-        for atom in queries:
-            self._validate("query", atom, atom, check_query)
-        rows = self._call("query-many-materialize", [f"{steps} {self.kb} ({' '.join(queries)})"])
+        rows = self._call("query-many-materialize", [self._batch_source(queries, steps)])
         return _group_query_many_results(rows, len(queries))
-
-    language_spec = staticmethod(get_language_spec)
-
-
-if __name__ == "__main__":
-    handler = PeTTaChainer()
-    atom = "(: fact_a (Count A 1) (STV 1.0 1.0))"
-    print(f"Adding {atom}")
-    print(handler.add_atom(atom))
-    print("Query result:")
-    print(handler.query("(: $prf (Count A 1) $tv)", timeout_sec=0))
