@@ -1254,6 +1254,7 @@
       ((fact-ev $_kbctx $fact-proof $_type) (if (== $fact-proof $proof) (cons $entry $found) $found))
       ($_rule $found))))
 
+;; The determinism checker proves a fold over a parameter list.
 (: sk-lift-facts (-[det]-> Proof (List Evidence) (List Evidence)))
 (= (sk-lift-facts $proof $ev) (fold-flat (sk-lift-fact-step $proof) () $ev))
 
@@ -1942,7 +1943,8 @@
                 ($entries (sk-rate-entries $args))
                 ($_taken (sk-rate-take! $hash $args)))
             (case (base-rate-cache-entries-for-mode $kbid $pattern $mode) (
-               ((cons $entry $_rest) (sk-cached-fold-view $hash $args $entry))
+               ((cons $entry $_rest)
+                  (sk-goal-val (CPU FoldAllCompiled $args (base-rate-entry-tv $entry)) (brand Proof cpu) (ev-set 0) (deps-key $hash)))
                (()
                   (let* ((($_kb $_pattern $_extractor $init $_function $finish $_mode) $args))
                      (sk-goal-val (CPU FoldAllCompiled $args (finish-aggregate (brand KB $kbid) $finish $init))
@@ -2142,11 +2144,6 @@
                   (() ())))))
          ($_other ()))))))
 
-(: sk-cached-fold-view (-[semidet]-> Number ScalarFoldSpec BaseRateEntry SkeletonValue))
-(= (sk-cached-fold-view $hash $args $entry)
-   (sk-goal-val (CPU FoldAllCompiled $args (base-rate-entry-tv $entry)) (brand Proof cpu) (ev-set 0)
-      (deps-key $hash)))
-
 ;; --- Coverage of exact folds (docs/metta/partial_folds.md) -------------------
 
 ;; A member without a value is still to come while one of its key's rows is
@@ -2232,12 +2229,6 @@
          (sk-cover-fold! $hash (sk-fold $args) $node $members $view)
          $view)))
 
-(: sk-group-node (-[det]-> SkeletonKey (List SkPattern)))
-(= (sk-group-node $key)
-   (let $hash (index-hash $key)
-      (collapse (once (match &sk_group_of ($hash $stored $node)
-         (if (=alpha $stored $key) $node (empty)))))))
-
 ;; Takes fresh copies of the group's arguments and of the key.
 (: sk-group-member? (-[det]-> $spec SkeletonKey Bool))
 (= (sk-group-member? ($kbctx $pattern $_group $_e $_i $_f $_fi $_m) $key)
@@ -2251,7 +2242,8 @@
 ;; The group's member node and the member keys belonging to this group.
 (: sk-group-members (-[semidet]-> SkeletonKey $spec SkeletonGroup))
 (= (sk-group-members $key $args)
-   (case (sk-group-node $key) (
+   (case (let $hash (index-hash $key)
+            (collapse (once (match &sk_group_of ($hash $stored $group-node) (if (=alpha $stored $key) $group-node (empty)))))) (
       ((cons $node $_rest)
          (case (sk-fold-node-member $node) (
             ((cons $member $_more)
@@ -3082,22 +3074,18 @@
                           ($again (sk-row-state $given $exclusions $khash true $retry)))
                       (case $again (
                          ((sk-clash $keys $base) (sk-conditioned $given $target $khash $rhash $exclusions $keys $base sk-none sk-none))
+                         ;; While its conditioning waits, a row keeps the views
+                         ;; it had; one that has none takes its approximate value.
                          ((sk-entangled $keys $base $independent)
                             (let $approx (sk-row-result $retry $independent)
                                (sk-conditioned $given $target $khash $rhash $exclusions $keys $base $approx
-                                  (sk-held-or $khash $key $rhash $approx))))
+                                  (if (== (sk-latest-view $khash $key $rhash) sk-none) $approx sk-none))))
                          ($_other (sk-row-result $retry $again)))))
                    (sk-row-result $greedy $state)))
              ($_reader-left (if (== $exclude ())
                                (remove-variant-row! &sk_reading (quote ($khash $key $rhash))) ())))
          $value)
       sk-none))
-
-;; While its conditioning waits, a row keeps the views it had; one that has
-;; none takes its approximate value.
-(: sk-held-or (-[det]-> Number SkeletonKey Number SkeletonValue SkeletonValue))
-(= (sk-held-or $khash $key $rhash $approx)
-   (if (== (sk-latest-view $khash $key $rhash) sk-none) $approx sk-none))
 
 ;; What a target is under a condition.
 (: sk-target-value (-[semidet]-> (List SkeletonGiven) SkeletonTarget SkeletonValue))
