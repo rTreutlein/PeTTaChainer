@@ -888,16 +888,10 @@
          $_source-tv))
    (let*
       ((($kbid $ctx $vars) $lift-kb)
-       ($ground-premises
-          (implication-side-conjuncts
-             (brand Statement $ground-antecedent)))
-       ($source-premises
-          (implication-side-conjuncts
-             (brand Statement $source-antecedent)))
        (($contextual-premises $auxiliary-premises)
           (inheritance-lift-parts
-             (the (List Atom) $ground-premises)
-             (the (List Atom) $source-premises)
+             (implication-side-conjuncts (brand Statement $ground-antecedent))
+             (implication-side-conjuncts (brand Statement $source-antecedent))
              $source-subj $instance))
        ($lift-premises
           (if (== $contextual-premises ())
@@ -1005,12 +999,10 @@
                  (Inheritance $ground-subj $_ground-concept))
               $_tv)
              $ground-copy)
-          ($ground-premises
-             (implication-side-conjuncts
-                (brand Statement $ground-antecedent)))
           ($ground-auxiliary
              (inheritance-lift-auxiliary-premises
-                $ground-premises $ground-subj))
+                (implication-side-conjuncts (brand Statement $ground-antecedent))
+                $ground-subj))
           ($job
              (inheritance-lift-specialization
                 $ground-copy $source-copy)))
