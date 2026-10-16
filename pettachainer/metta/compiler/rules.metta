@@ -325,40 +325,19 @@
 (: base-rate-fold
    (-[det]-> KB Statement $truth-value Goal))
 (= (base-rate-fold $kb $pattern $brtv)
-   (if (if (head-is? $pattern Inheritance)
-           (if (= $pattern (Inheritance $x $subj)) (is-var $x) false) false)
-      (if (is-var $subj)
-         (CPU FoldAllCompiled
-            (quote
-               ($kb $pattern
-                  (extract-inheritance-tv $kb $pattern)
-                  (BaseRateEvidence 0.0 0.0)
-                  WeightedBaseRateAcc
-                  (weighted-base-rate-in-universe $kb)
-                  result-tv))
-            $brtv)
-         (let*
-            (($prior-runtime
-                (ConceptNodePriorRuntime $kb $subj))
-             ($prior
-                (brand BaseRatePrior $prior-runtime)))
-            (CPU FoldAllCompiled
-               (quote
-                  ($kb $pattern
-                     (extract-inheritance-tv $kb $pattern)
-                     (BaseRateEvidenceWithPrior
-                        $prior
-                        (BaseRateEvidence 0.0 0.0))
-                     WeightedBaseRateWithPriorAcc
-                     (weighted-base-rate-with-prior-in-universe
-                        $kb)
-                     result-tv))
-               $brtv)))
+   (let ($extractor $initial $accumulator $finish)
+      (if (if (head-is? $pattern Inheritance)
+              (if (= $pattern (Inheritance $x $subj)) (is-var $x) false) false)
+         (if (is-var $subj)
+            (data (extract-inheritance-tv $kb $pattern) (BaseRateEvidence 0.0 0.0)
+               WeightedBaseRateAcc (weighted-base-rate-in-universe $kb))
+            (data (extract-inheritance-tv $kb $pattern)
+               (BaseRateEvidenceWithPrior (brand BaseRatePrior (ConceptNodePriorRuntime $kb $subj))
+                  (BaseRateEvidence 0.0 0.0))
+               WeightedBaseRateWithPriorAcc (weighted-base-rate-with-prior-in-universe $kb)))
+         (data extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate))
       (CPU FoldAllCompiled
-         (quote
-            ($kb $pattern extract-tv
-               (BaseRateEvidence 0.0 0.0)
-               BaseRateAcc base-rate result-tv))
+         (quote ($kb $pattern $extractor $initial $accumulator $finish result-tv))
          $brtv)))
 
 ;; A conjunction's conjuncts grouped into parts that share no variables;
