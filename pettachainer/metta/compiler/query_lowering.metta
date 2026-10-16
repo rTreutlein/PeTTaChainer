@@ -5,11 +5,16 @@
 ;; atoms the chainer needs to resolve this side's conclusion. Returns the ground
 ;; shape-kb, the fresh proof var (shared with the caller's goal and proof
 ;; token), the conclusion expression, and the side's adds.
-(: query-side
+;;
+;; Judgment contexts know the whole compound antecedent as well as its
+;; lowered parts. In particular a Not reader of a ground And must read that
+;; conjunction as assumed true, rather than finding no contextual fact and
+;; falling back to MAIN. Assuming queries retain their ordinary fact lowering.
+(: judgment-query-side
    (-[semidet]-> KB (| NilType (List Variable)) Bool
        Statement Statement
        (KBContext Proof Statement (List CompiledAddition))))
-(= (query-side $kb $mvars $negative? $antecedent $consequent)
+(= (judgment-query-side $kb $mvars $negative? $antecedent $consequent)
    (once (let*
       (($ctx (nextctx))
        ($shape-kb (make-kb-context $kb $ctx $mvars))
@@ -31,28 +36,14 @@
              (collapse (compile-adapter-chain query
                 (: $shape-kb $prf $consequent $adapter-tv)))))
        ($adds (union-compiled-additions
-          (query-context-premise-adds $kb $ctx $mvars $execs) (the (List CompiledAddition) $goal-adds))))
-      (data $shape-kb (brand Proof $prf) (the Statement $goal) $adds))))
-
-;; Judgment contexts know the whole compound antecedent as well as its
-;; lowered parts. In particular a Not reader of a ground And must read that
-;; conjunction as assumed true, rather than finding no contextual fact and
-;; falling back to MAIN. Assuming queries retain their ordinary fact lowering.
-(: judgment-query-side
-   (-[semidet]-> KB (| NilType (List Variable)) Bool
-       Statement Statement
-       (KBContext Proof Statement (List CompiledAddition))))
-(= (judgment-query-side $kb $mvars $negative? $antecedent $consequent)
-   (let* ((($shape-kb $prf $b $adds)
-              (query-side $kb $mvars $negative? $antecedent $consequent))
-          (($_source-kb $ctx $_vars) $shape-kb)
-          ($whole-tv (if $negative? (STV 0 1) (STV 1 1))))
-      (data $shape-kb $prf $b
+          (query-context-premise-adds $kb $ctx $mvars $execs) (the (List CompiledAddition) $goal-adds)))
+       ($whole-tv (if $negative? (STV 0 1) (STV 1 1))))
+      (data $shape-kb (brand Proof $prf) (the Statement $goal)
          (if (head-is-member? $antecedent (And Or))
             (cons (brand CompiledAddition
                (() |- (: $shape-kb (ctx proof $ctx whole) $antecedent $whole-tv)))
                $adds)
-            $adds))))
+            $adds)))))
 
 ;; The two sides of a total-implication query share one conclusion $b and differ
 ;; only in polarity. Returns the ground shape-kbs, $b, the fresh pos/neg proof
@@ -571,17 +562,6 @@
                         $compiled-premises))))))
          ($_other ())))))
 
-(: query-context-premise-assumption-adds
-   (-[det]-> KB $context $variables Proof Statement TV
-       (List CompiledAddition)))
-(= (query-context-premise-assumption-adds $kbid $ctx $mvars $ctxprf $type $tv)
-   (cons
-      (brand CompiledAddition
-         (() |- (: (make-kb-context $kbid $ctx $mvars)
-                    $ctxprf $type $tv)))
-      (query-context-assumed-implication-rules
-         $kbid $ctx $mvars $ctxprf $type $tv)))
-
 (: query-context-premise-adds-step
    (-[det]-> KB $context $variables
        (Number (List CompiledAddition))
@@ -596,12 +576,16 @@
       (case $premise
          (((CPU $_fun $_args $_res) ($idx $adds))
              ((: $_kb $_prf $type $tv)
-                ((+ $idx 1)
-                 (prepend-reversed-compiled-additions
-                    (query-context-premise-assumption-adds
-                       $kbid $ctx $mvars $ctxprf $type
-                       (default-query-assumption-tv $type $tv))
-                    $adds)))
+                (let $assumed-tv (default-query-assumption-tv $type $tv)
+                   ((+ $idx 1)
+                    (prepend-reversed-compiled-additions
+                       (cons
+                          (brand CompiledAddition
+                             (() |- (: (make-kb-context $kbid $ctx $mvars)
+                                        $ctxprf $type $assumed-tv)))
+                          (query-context-assumed-implication-rules
+                             $kbid $ctx $mvars $ctxprf $type $assumed-tv))
+                       $adds))))
           ($_other ($idx $adds))))))
 
 (: query-context-premise-adds
