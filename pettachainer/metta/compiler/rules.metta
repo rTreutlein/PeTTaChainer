@@ -261,9 +261,8 @@
 ;; (the projections of a compound conclusion, the compound antecedent's
 ;; connective) share the shape KB: they hold in whatever context the rule
 ;; applies in, the hypothetical contexts of an implication query included. A
-;; conclusion that is an
-;; implication is a CTV: its rule's CTV is the exported rule's, and the
-;; statement keeps that CTV's negative branch.
+;; conclusion that is an implication is a CTV: its rule's CTV is the exported
+;; rule's, and the statement keeps that CTV's negative branch.
 (: compile-implication-forward-rules
    (-[nondet]-> KB KBContext Proof TV (List Goal) Atom (List Variable)
        Statement Statement (List Variable) (List CompiledPremises)
@@ -379,44 +378,40 @@
 (: base-rate-fold
    (-[det]-> KB Statement $truth-value Goal))
 (= (base-rate-fold $kb $pattern $brtv)
-   (let $generic
+   (if (if (= $pattern (Inheritance $x $subj)) (is-var $x) false)
+      (if (is-var $subj)
+         (CPU FoldAllCompiled
+            (quote
+               ($kb $pattern
+                  (extract-inheritance-tv $kb $pattern)
+                  (BaseRateEvidence 0.0 0.0)
+                  WeightedBaseRateAcc
+                  (weighted-base-rate-in-universe $kb)
+                  result-tv))
+            $brtv)
+         (let*
+            (($prior-runtime
+                (ConceptNodePriorRuntime $kb $subj))
+             ($prior
+                (brand BaseRatePrior $prior-runtime)))
+            (CPU FoldAllCompiled
+               (quote
+                  ($kb $pattern
+                     (extract-inheritance-tv $kb $pattern)
+                     (BaseRateEvidenceWithPrior
+                        $prior
+                        (BaseRateEvidence 0.0 0.0))
+                     WeightedBaseRateWithPriorAcc
+                     (weighted-base-rate-with-prior-in-universe
+                        $kb)
+                     result-tv))
+               $brtv)))
       (CPU FoldAllCompiled
          (quote
             ($kb $pattern extract-tv
                (BaseRateEvidence 0.0 0.0)
                BaseRateAcc base-rate result-tv))
-         $brtv)
-      (if (= $pattern (Inheritance $x $subj))
-         (if (is-var $x)
-            (if (is-var $subj)
-               (CPU FoldAllCompiled
-                  (quote
-                     ($kb $pattern
-                        (extract-inheritance-tv $kb $pattern)
-                        (BaseRateEvidence 0.0 0.0)
-                        WeightedBaseRateAcc
-                        (weighted-base-rate-in-universe $kb)
-                        result-tv))
-                  $brtv)
-               (let*
-                  (($prior-runtime
-                      (ConceptNodePriorRuntime $kb $subj))
-                   ($prior
-                      (brand BaseRatePrior $prior-runtime)))
-                  (CPU FoldAllCompiled
-                     (quote
-                        ($kb $pattern
-                           (extract-inheritance-tv $kb $pattern)
-                           (BaseRateEvidenceWithPrior
-                              $prior
-                              (BaseRateEvidence 0.0 0.0))
-                           WeightedBaseRateWithPriorAcc
-                           (weighted-base-rate-with-prior-in-universe
-                              $kb)
-                           result-tv))
-                     $brtv)))
-            $generic)
-         $generic)))
+         $brtv)))
 
 ;; A conjunction's conjuncts grouped into parts that share no variables;
 ;; ground conjuncts join the first part that has variables, since a single
@@ -1375,7 +1370,10 @@
                                    (canonical-existential-side (brand Statement $consequent)))
                                (brand Statement (QuantifiedRule (index-hash $canonical) $canonical)))
                             $source-type))
-                      ($query-kb (make-kb-context (brand KB (implication-query $kb)) MAIN Nil)))
+                      ($query-kb (make-kb-context (brand KB (implication-query $kb)) MAIN Nil))
+                      ($source-kb
+                         (if $ctv? (kbctx $kb)
+                            (make-kb-context (brand KB (implication-stated $kb)) MAIN $params))))
                   (superpose (
                      (case $tv (
                         ((CTV $source-pos $source-neg)
@@ -1392,8 +1390,7 @@
                                  (brand CompiledAddition
                                     (() |- (: $query-kb $prf (Implication $opposite $source-b) $source-neg)))))))
                         ((STV $s $c)
-                           (let* (($source-kb (make-kb-context (brand KB (implication-stated $kb)) MAIN $params))
-                                  ($rate-a (if (== $inner ()) $a
+                           (let* (($rate-a (if (== $inner ()) $a
                                      (brand Statement (cons And (append (implication-side-conjuncts $a) $inner)))))
                                   (($ctv-execs $source-ctv)
                                      (compile-implication-ctv-execs $kb $params $rate-a $last $tv $tv)))
@@ -1405,12 +1402,9 @@
                                  (brand CompiledAddition
                                     ((cons (: $source-kb $prf $source-type $tv) $ctv-execs)
                                        |- (: (kbctx $kb) $prf $source-type $source-ctv)))))))))
-                     (let $source-kb
-                        (if $ctv? (kbctx $kb)
-                           (make-kb-context (brand KB (implication-stated $kb)) MAIN $params))
-                        (compile-consequent-implications $kb $shape-kb $prf $tv
-                           (cons (: $source-kb $prf $source-type $tv) $truth-premises)
-                           $value $params $a $b)))))
+                     (compile-consequent-implications $kb $shape-kb $prf $tv
+                        (cons (: $source-kb $prf $source-type $tv) $truth-premises)
+                        $value $params $a $b))))
                (compile-implication-forward-rules
                   $kb $shape-kb $prf $tv $truth-premises $value $params
                   $a $b $antecedent-vars $antecedents)
@@ -1494,19 +1488,17 @@
           (brand Statement $antecedent) (brand Statement $consequent) $tv)
          (if (implication-type? $Type)
             (empty)
+         (if (contains-explicit-exists? $Type)
+            (empty)
          (if (bidirectional-implication-type? $Type)
-            (if (contains-explicit-exists? $Type)
-               (empty)
-               (let ($_head $left $right) $Type
-                  (superpose (
-                     (compile_ $kb (: (bi-forward $prf)
-                        (Implication $left $right)
-                        $tv))
-                     (compile_ $kb (: (bi-backward $prf)
-                        (Implication $right $left)
-                        $tv))))))
-            (if (contains-explicit-exists? $Type)
-               (empty)
+            (let ($_head $left $right) $Type
+               (superpose (
+                  (compile_ $kb (: (bi-forward $prf)
+                     (Implication $left $right)
+                     $tv))
+                  (compile_ $kb (: (bi-backward $prf)
+                     (Implication $right $left)
+                     $tv)))))
             ;; Canonicalize asserted negation into the inner fact's strength.
             ;; Keeping the original proof name makes removal and provenance
             ;; behave exactly like an ordinary fact; query adapters reconstruct
