@@ -36,50 +36,50 @@
 ;; A step that cannot be inverted in the middle of a longer chain rejects the
 ;; whole chain: no partially bound plan escapes.
 !(test
-   (compile-reversible-compute-plan
+   (collapse (compile-reversible-compute-plan
       (And
          (A $x)
          (Compute + ($x 1) -> $y)
          (Compute * ($y 2) -> $z)
          (Compute + ($z 1) -> $w))
-      (C $w))
-   no-compute-inverse)
+      (C $w)))
+   ())
 
 !(test
-   (compile-reversible-compute-plan
+   (collapse (compile-reversible-compute-plan
       (And
          (Pair $x $q)
          (Compute + ($x $q) -> $y)
          (Compute + ($y 1) -> $z)
          (Compute + ($z 1) -> $w))
-      (C $w))
-   no-compute-inverse)
+      (C $w)))
+   ())
 
 ;; Ambiguous and unsupported computations retain the normal CPU inversion veto.
 !(test
-   (compile-reversible-compute-plan
+   (collapse (compile-reversible-compute-plan
       (And
          (Pair $x $z)
          (Compute + ($x $z) -> $total))
-      (Total $total))
-   no-compute-inverse)
+      (Total $total)))
+   ())
 
 !(test
-   (compile-reversible-compute-plan
+   (collapse (compile-reversible-compute-plan
       (And
          (A $x)
          (Compute * ($x 2) -> $product))
-      (Product $product))
-   no-compute-inverse)
+      (Product $product)))
+   ())
 
 !(test
-   (compile-reversible-compute-plan
+   (collapse (compile-reversible-compute-plan
       (And
          (A $x)
          (Compute + ($x 1) -> $y)
          (FoldAll (Score $_name $n) $n 0 + -> $total))
-      (Result $y $total))
-   no-compute-inverse)
+      (Result $y $total)))
+   ())
 
 !(compileadd computeInverseKb
    (: addOne
