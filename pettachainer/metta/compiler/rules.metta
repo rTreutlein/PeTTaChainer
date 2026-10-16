@@ -411,7 +411,23 @@
 ;; antecedent reads as no evidence.
 (: antecedent-rate-premises (-[det]-> KB Statement $truth-value (List Goal)))
 (= (antecedent-rate-premises $kb $pattern $atv)
-   (if (positive-only-pattern? $kb $pattern) (let $atv no-evidence ()) (base-rate-premises $kb $pattern $atv)))
+   (if (positive-only-pattern? $kb $pattern)
+      (append-goals (base-rate-premises $kb $pattern $rate)
+         (cons (CPU explicit-antecedent-rate-tv (quote ($kb $pattern $rate)) $atv) ()))
+      (base-rate-premises $kb $pattern $atv)))
+
+;; The declaration describes biased samples, never an explicit user estimate.
+;; Read the setting at evaluation so setting or clearing a rate also updates
+;; rows compiled before it. Keep the fold as a premise to track those changes.
+(: user-base-rate? (-[det]-> KB Statement Bool))
+(= (user-base-rate? $kb $pattern)
+   (let $hash (index-hash (quote ($kb $pattern)))
+      (not (== (collapse (once (match &ctx_base_rate_cache
+         ($hash (base-rate $kb $stored $_tv user any))
+         (if (=alpha $stored $pattern) true (empty))))) ()))))
+(: explicit-antecedent-rate-tv (-[det]-> KB Statement TV TV))
+(= (explicit-antecedent-rate-tv $kb $pattern $rate)
+   (if (user-base-rate? $kb $pattern) $rate no-evidence))
 
 ;; The premises reading a pattern's base rate as the prior an inversion or an
 ;; antecedent completion updates. A rate is the share of true members among
@@ -420,12 +436,17 @@
 ;; A rate of 0 or 1 from finitely many members then leaves an instance
 ;; either way possible, and its updates keep their likelihood ratios for a
 ;; view in the base rate's place. A predicate declared positive-only has no
-;; such prior, and nothing is inverted or completed onto it.
+;; such empirical prior; an explicit user rate still permits an update.
+;; Functional inputs remain non-derivable regardless of population settings.
 (: prior-base-rate-premises (-[semidet]-> KB Statement $truth-value (List Goal)))
 (= (prior-base-rate-premises $kb $pattern $brtv)
-   (if (positive-only-pattern? $kb $pattern) (empty)
+   (if (functional-pattern? $kb $pattern) (empty)
       (append-goals (base-rate-premises $kb $pattern $rate)
-         (cons (CPU population-prior-tv ($rate) $brtv) ()))))
+         (cons (CPU configured-population-prior-tv (quote ($kb $pattern $rate)) $brtv) ()))))
+(: configured-population-prior-tv (-[semidet]-> KB Statement TV TV))
+(= (configured-population-prior-tv $kb $pattern $rate)
+   (if (if (positive-only-pattern? $kb $pattern) (user-base-rate? $kb $pattern) true)
+      (population-prior-tv $rate) (empty)))
 (: population-prior-tv (-[det]-> TV TV))
 (= (population-prior-tv (STV $s $c)) (STV (bayes-shrink $s $c 0.5 1.0) $c))
 

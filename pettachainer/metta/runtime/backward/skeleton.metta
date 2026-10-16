@@ -1663,7 +1663,7 @@
              ((CPU FoldAllCompiled $args $_result) (superpose $premises))
              ((base-rate-aggregate-key-value $kbid $pattern $_mode) (base-rate-aggregate-key $args)))
          (if (= (copy_term $pattern) (copy_term $type))
-            (if (positive-only-pattern? (brand KB $kbid) (brand Statement $pattern)) (empty) (sk-prior-fold $rule $args))
+            (sk-prior-fold $rule $args)
             (empty)))))
 
 (: sk-application-match? (-[det]-> Bool SkeletonMatch Bool))
@@ -1687,12 +1687,13 @@
           false)
       (case (sk-prior-folds $type $matches) (
          ((cons (sk-prior-fold $rule $args) $_more)
-            (let $pattern (copy_term (car-atom (cdr-atom $args)))
+            (let* (($pattern (copy_term (car-atom (cdr-atom $args))))
+                   ($kbid (car-atom $args)))
                (sk-advance!
                   (sk-partial $owner $rule
                      (assemble-stored-runtime-fact $type $kbctx (brand Proof (population-prior $pattern)) $tv)
                      ()
-                     (quote ((CPU FoldAllCompiled $args $rate) (CPU population-prior-tv ($rate) $tv)))
+                     (quote ((CPU FoldAllCompiled $args $rate) (CPU configured-population-prior-tv ($kbid $pattern $rate) $tv)))
                      ()))))
          (() ())))
       ()))

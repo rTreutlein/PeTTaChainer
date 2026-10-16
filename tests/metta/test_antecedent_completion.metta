@@ -101,8 +101,8 @@
 
 ;; A base rate of 1 stated with confidence 0.9 is read as the prior of one
 ;; more instance under the Bayes prior, (7200 + 0.1) / (7200 + 0.2) at k =
-;; 800, and the completion barely moves it. Declared positive-only, B has no
-;; prior and there is no completion.
+;; 800, and the completion barely moves it. The explicit rate also overrides
+;; a positive-only declaration: both KBs must give the same completion.
 !(compileadd saturatedKb (: a A (STV 1.0 0.9)))
 !(compileadd saturatedKb (: c C (STV 1.0 0.9)))
 !(compileadd saturatedKb
@@ -124,7 +124,8 @@
       (CTV (STV 0.9 1) (STV 0.3 1))))
 !(set-base-rate positiveKb B (STV 1.0 0.9))
 
-!(test (query 2000 positiveKb (: $proof B $tv)) ())
+!(test (query 2000 positiveKb (: $proof B $tv))
+   (: ((antecedent-completion ab_c 1 with cpu (prior (STV 0.999986111496903 0.9))) (conjunction a c)) B (STV 0.9999953704560639 0.964288261409941)))
 
 ;; An uncertain other conjunct enters C's likelihood given B: P(C|B) =
 ;; 0.5 * 0.9 + 0.5 * 0.3 = 0.6 and P(C|not B) = 0.3, so C doubles B's odds:

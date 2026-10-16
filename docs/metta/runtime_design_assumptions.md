@@ -774,7 +774,8 @@ on the given 0.5 (confidence 1, so a = κ): a rate of 0 or 1 from finitely many
 members leaves an instance either way possible, so its
 updates keep their likelihood ratios. A predicate whose stored instances are
 only its true ones is declared positive-only (`set-positive-only-predicate`)
-and has no prior. A certain likelihood, a certain rate, and the instance
+and has no empirical prior. An explicit user base rate overrides that sampling
+restriction; setting or clearing it updates existing readers. A certain likelihood, a certain rate, and the instance
 prior are read as they are.
 
 ### Queries read what their roots reach

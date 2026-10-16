@@ -11,7 +11,6 @@
 ;; (imported Prolog helper index-hash): the integer lets SWI build a JIT hash
 ;; index on the space, while the complete key stored beside it lets =alpha
 ;; reject collisions and distinguish variable-sharing patterns.
-(: index-hash (-[det]-> $term Number))
 ;; The hashes of a statement's prefixes, its head with its first one, two, ...
 ;; arguments, up to the first argument that is not ground, longest first
 ;; (imported Prolog helper statement-prefix-hashes; see &kb_prefix).

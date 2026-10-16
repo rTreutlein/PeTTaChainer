@@ -2631,3 +2631,12 @@ pw_drop_rep(R) :-
 % A producer must cover the entire query, without specializing either term.
 'term-covers?'(General, Specific, Result) :-
     ( subsumes_term(General, Specific) -> Result = true ; Result = false ).
+
+% Unlike a sampling declaration, immutable inputs forbid every derived value.
+'functional-pattern?'(Kb, Pattern, Result) :-
+    'implication-side-conjuncts'(Pattern, Parts),
+    ( member(Part, Parts),
+      ( nonvar(Part), Part = [Tag, Inner], Tag == 'Not' -> Type = Inner ; Type = Part ),
+      nonvar(Type), Type = [Head|_], functional_predicate(Declared, Kb, _, _),
+      ( var(Head) ; Head == Declared )
+    -> Result = true ; Result = false ).

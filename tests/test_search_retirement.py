@@ -134,8 +134,12 @@ class TestSearchRetirement(unittest.TestCase):
         for withdraw_first in (False, True):
             with self.subTest(withdraw_first=withdraw_first):
                 h = PeTTaChainer()
-                h.set_positive_only_predicate('Next')
-                h.set_positive_only_predicate('At')
+                # Immutable input declarations keep this fixture's missing
+                # input waiters independent of inversions enabled by a
+                # later explicit population rate. Each time has one incoming
+                # Next link and one observed At value in this fixture.
+                h.set_functional_predicate('Next', 2, (2,))
+                h.set_functional_predicate('At', 2, (2,))
                 h.add_atoms_no_check([
                     '(: obsolete (Implication (And (Next $p $t) (Next $t $u) (At left $p) (At right $t)) (Ball right $u)) (STV 1 0.9))',
                     '(: alternative (Implication (Other $t) (Ball right $t)) (CTV (STV 0.2 1) (STV 0 1)))',

@@ -4710,7 +4710,7 @@
       ((cons (sk-prior-fold $_rule $args) $_more)
          (case (sk-value (sk-fold $args) sk-any-filter ()) (
             ((sk-goal-val (CPU $_fun $_args (STV $s $c)) $_fold-proof $_ev $deps)
-               (let* (($prior (population-prior-tv (STV $s $c)))
+               (let* (($prior (configured-population-prior-tv (brand KB (car-atom $args)) (brand Statement (car-atom (cdr-atom $args))) (STV $s $c)))
                       ($fact (data $type $kbctx (brand Proof (population-prior (car-atom (cdr-atom $args)))) $prior)))
                   (if (sk-fact-matches? $filter $fact) (sk-val $fact (ev-set 0) $deps) sk-none)))
             ($_none sk-none))))

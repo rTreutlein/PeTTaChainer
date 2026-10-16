@@ -383,3 +383,9 @@
 
 ;; Nonbinding syntactic coverage, including variable sharing.
 (: term-covers? (-[det]-> Atom Atom Bool))
+
+;; Shared compiler/runtime lookup hash (native, variable-safe).
+(: index-hash (-[det]-> $term Number))
+
+;; Immutable input relations cannot be targets of inversion or completion.
+(: functional-pattern? (-[det]-> KB Statement Bool))
