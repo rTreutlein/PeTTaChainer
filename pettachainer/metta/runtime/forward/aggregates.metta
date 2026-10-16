@@ -10,23 +10,38 @@
 ;; An added Member fact updates only its subscribed joins.
 (: fa-id (-[semidet]-> ForwardAggregateIdentityKey Number))
 (= (fa-id $a)(let $b (index-hash $a)(once (match &ctx_forward_aggregate_identity ($b (forward-aggregate-identity-row $c $d))(if (=alpha $c $a) $d (empty))))))
-;; A typed callback keeps directory insertion from changing the sharing of
-;; the descriptor copied by fa-register! during map specialization.
-(: fa-register-trigger! (-[det]-> ForwardTriggerKey Bool))
-(= (fa-register-trigger! $trigger)
-   (let $hash (term_hash $trigger)
-      (if (space-row-present? &ctx_forward_aggregate_triggers ($hash $trigger)) true
-         (let $_added (once (context-add! &forward_aggregate_triggers ($hash $trigger))) true))))
-(: fa-register! (-[det]-> ForwardAggregateIdentityKey ForwardAggregateDescriptor ForwardTriggerKey Bool ForwardTriggerKey (List $a)))
-(= (fa-register! $a $b $c $d $e)(let $h (collapse (once (fa-id $a)))(if (== $h ())(let* (($f (index-hash $a))($g (term_hash $c))($k (next-search-id fwd_aggregate_id))(($i $l)(copy_term (quote ($a $b))))($m (the ForwardAggregateIdentityKey $i))($n (the ForwardAggregateDescriptor $l))($o (once (context-add! &forward_aggregate_identity ($f (forward-aggregate-identity-row $m $k)))))($p (once (context-add! &forward_aggregate_interest_by_trigger ($g (forward-aggregate-interest $c $k $n)))))($q (if $d (let* (($r (term_hash $e))($s (once (context-add! &forward_aggregate_interest_by_trigger ($r (forward-aggregate-interest $e $k $n))))))())()))($t (once (context-add! &forward_aggregate_state (forward-aggregate-state $k 0.0 0.0))))($u (if $d (cons $c (cons $e ())) (cons $c ())))($v (map-flat fa-register-trigger! $u)))())())))
+;; A typed callback keeps interest insertion from changing the sharing of
+;; the descriptor copied by fa-register! during fold specialization.
+(: fa-add-interest! (-[det]-> Number ForwardAggregateDescriptor Atom ForwardTriggerKey Atom))
+(= (fa-add-interest! $id $descriptor $_acc $trigger)
+   (let* (($hash (term_hash $trigger))
+          ($_interest (once (context-add! &forward_aggregate_interest_by_trigger
+             ($hash (forward-aggregate-interest $trigger $id $descriptor))))))
+      (if (space-row-present? &ctx_forward_aggregate_triggers ($hash $trigger)) ()
+         (let $_added (once (context-add! &forward_aggregate_triggers ($hash $trigger))) ()))))
+;; Identity and descriptor are copied together, so they keep sharing variables.
+(: fa-register! (-[det]-> ForwardAggregateIdentityKey ForwardAggregateDescriptor (List ForwardTriggerKey) (List $a)))
+(= (fa-register! $identity $descriptor $triggers)
+   (if (== (collapse (once (fa-id $identity))) ())
+      (let* (($hash (index-hash $identity))
+             ($id (next-search-id fwd_aggregate_id))
+             (($i $d) (copy_term (quote ($identity $descriptor))))
+             ($stored-identity (the ForwardAggregateIdentityKey $i))
+             ($stored-descriptor (the ForwardAggregateDescriptor $d))
+             ($_identity (once (context-add! &forward_aggregate_identity
+                ($hash (forward-aggregate-identity-row $stored-identity $id)))))
+             ($_state (once (context-add! &forward_aggregate_state (forward-aggregate-state $id 0.0 0.0))))
+             ($_interests (fold-flat (fa-add-interest! $id $stored-descriptor) () (the (List ForwardTriggerKey) $triggers))))
+         ())
+      ()))
 
 ;; What a fold premise asks the forward chainer to maintain: its aggregate
-;; identity and descriptor, and the trigger keys whose facts update it (a
-;; second trigger only for member inheritance between two concepts).
+;; identity and descriptor, and the trigger keys whose facts update it, in
+;; order (two only for member inheritance between two distinct concepts).
 (: ForwardAggregateSubscription Type)
 (: fa-subscription
-   (-[det]-> ForwardAggregateIdentityKey ForwardAggregateDescriptor ForwardTriggerKey Bool
-       ForwardTriggerKey ForwardAggregateSubscription))
+   (-[det]-> ForwardAggregateIdentityKey ForwardAggregateDescriptor (List ForwardTriggerKey)
+       ForwardAggregateSubscription))
 
 (: fa-rate-subscription
    (-[det]-> KB Statement (| ExtractTV ExtractInheritanceTV)
@@ -37,7 +52,7 @@
    (fa-subscription
       (forward-base-rate-identity $kb $pattern $extractor $init $step $finish result-tv)
       (forward-base-rate-descriptor $kb $pattern $extractor $init $step $finish)
-      (forward-type-trigger-key $kb $pattern) false fwd_trigger_any))
+      (cons (forward-type-trigger-key $kb $pattern) ())))
 
 ;; The fold premises the forward chainer can maintain: plain and inheritance
 ;; base rates, and member inheritance between two ground concepts.
@@ -76,7 +91,7 @@
                   (cons (fa-subscription (forward-member-inheritance-identity $k $j $i)
                            (forward-member-inheritance-descriptor $k $j $i
                               (brand Statement (MemberInheritanceSample $x $sub $super $s $c)))
-                           (fwd_member $k $j) (not (== $j $i)) (fwd_member $k $i))
+                           (cons (fwd_member $k $j) (if (== $j $i) () (cons (fwd_member $k $i) ()))))
                      ()))
                ())
             ()))
@@ -85,12 +100,12 @@
 ;; A rule's fold premises register when the rule is stored. Query-local rules
 ;; register only member inheritance; their base rates wait for a reader.
 (: fa-register-subscription! (-[det]-> Bool (List $a) ForwardAggregateSubscription (List $a)))
-(= (fa-register-subscription! $live $acc (fa-subscription $identity $descriptor $trigger $both $second))
+(= (fa-register-subscription! $live $acc (fa-subscription $identity $descriptor $triggers))
    (if (if $live true
           (case $descriptor (
              ((forward-member-inheritance-descriptor $_kb $_sub $_super $_stmt) true)
              ($_rate false))))
-      (fa-register! $identity $descriptor $trigger $both $second)
+      (fa-register! $identity $descriptor $triggers)
       $acc))
 
 (: fa-register-premise-step! (-[det]-> Bool (List $a) (| Goal (Statement KBContext Proof TV)) (List $a)))
@@ -241,17 +256,18 @@
             (collapse (match &kb ($member $kbctx $proof $tv) (data $member $kbctx $proof $tv)))))
       ($_other ()))))
 
-(: fa-seed-step (-[det]-> Number ForwardAggregateDescriptor Atom (Statement KBContext Proof TV) Atom))
-(= (fa-seed-step $id $descriptor $_acc $fact)
-   (let $_counted (collapse (fa-update! $fact $id (copy_term $descriptor))) ()))
+(: fa-seed-trigger! (-[det]-> Number ForwardAggregateDescriptor Atom ForwardTriggerKey Atom))
+(= (fa-seed-trigger! $id $descriptor $_acc $trigger)
+   (let* (($facts (fa-seed-facts $descriptor $trigger))
+          ($_counted (collapse (let $fact (superpose $facts) (fa-update! $fact $id (copy_term $descriptor))))))
+      ()))
 
 (: fa-seed! (-[det]-> ForwardAggregateSubscription Atom))
-(= (fa-seed! (fa-subscription $identity $descriptor $trigger $both $second))
-   (let $_registered (fa-register! $identity $descriptor $trigger $both $second)
+(= (fa-seed! (fa-subscription $identity $descriptor $triggers))
+   (let $_registered (fa-register! $identity $descriptor $triggers)
       (case (collapse (fa-id $identity)) (
          ((cons $id $_rest)
-            (let $_first (fold-flat (fa-seed-step $id $descriptor) () (fa-seed-facts $descriptor $trigger))
-               (if $both (fold-flat (fa-seed-step $id $descriptor) () (fa-seed-facts $descriptor $second)) ())))
+            (fold-flat (fa-seed-trigger! $id $descriptor) () (the (List ForwardTriggerKey) $triggers)))
          (() ())))))
 
 (: forward-seed-fold! (-[semidet]-> (| Goal (Statement KBContext Proof TV)) Bool))

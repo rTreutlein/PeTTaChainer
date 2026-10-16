@@ -2118,8 +2118,8 @@
    (if (sk-instance-fold? $args) (sk-instance-take! $hash $args)
    (let $key (sk-fold $args)
       (case (fa-premise-subscriptions (CPU FoldAllCompiled $args $_result)) (
-         ((cons (fa-subscription $identity $descriptor $trigger $both $second) $_none)
-            (let* (($_registered (fa-register! $identity $descriptor $trigger $both $second))
+         ((cons (fa-subscription $identity $descriptor $triggers) $_none)
+            (let* (($_registered (fa-register! $identity $descriptor $triggers))
                    ($changed (sk-rate-changed $hash $key)))
                (case (collapse (fa-id $identity)) (
                   ((cons $id $_more)
