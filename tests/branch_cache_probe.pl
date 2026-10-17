@@ -13,7 +13,7 @@ branch_probe_install :-
             once('&sk_branch_cuts'(Frame,E,_)) ->
                 retractall(branch_probe_exclusions(_)), assertz(branch_probe_exclusions(E))
           ; true ), call(Erase) )),
-    wrap_predicate('sk-cache-branch!'(S,_H,K,R,_Rule,_Inputs,_Cuts,Fresh,_V,Stored),
+    wrap_predicate('sk-cache-branch!'(S,_H,K,R,_Inputs,_Cuts,Fresh,_V,Stored),
         branch_probe_publish, Publish,
         ( call(Publish),
           ( Fresh == true, branch_probe_exclusions(E) ->

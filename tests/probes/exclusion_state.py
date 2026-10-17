@@ -20,7 +20,7 @@ class ExclusionStateTests(unittest.TestCase):
             "'&sk_branch_cuts'(987654,_,Cuts), 'change-state!'(sk_branch_at,0,_), "
             "_Owner=['sk-key',['Cached'],[Kb,'MAIN','Nil']], 'index-hash'(_Owner,_Hash), "
             "'index-hash'([_Hash,987654],_Slot), "
-            "'sk-cache-branch!'(_Slot,_Hash,_Owner,987654,-1,[],Cuts,true,'sk-none',_), "
+            "'sk-cache-branch!'(_Slot,_Hash,_Owner,987654,[],Cuts,true,'sk-none',_), "
             "'sk-branch-values'(_Slot,_Owner,987654,[],true,Weaker)",
             {"Kb": self.h.kb},
         )
@@ -229,6 +229,8 @@ class ExclusionStateTests(unittest.TestCase):
         )
 
     def test_branch_invalidation_requires_an_input_value_change(self):
+        # Row evaluation captures proof identity before view publication.
+        # Publish distinct references to the same value to test that boundary.
         result = janus.query_once(
             "_Input=['sk-key',['Input'],[Kb,'MAIN','Nil']], 'index-hash'(_Input,_IH), "
             "'deps-key'(_IH,_ID), "
@@ -236,21 +238,21 @@ class ExclusionStateTests(unittest.TestCase):
             "_Owner=['sk-key',['Owner'],[Kb,'MAIN','Nil']], 'index-hash'(_Owner,_OH), "
             "'index-hash'([_OH,987612],_Slot), 'deps-key'(_OH,_OD), "
             "_Value=['sk-val',[['Owner'],[Kb,'MAIN','Nil'],cpu,['STV',0.7,0.8]],['ev-set',0],_OD], "
-            "'sk-cache-branch!'(_Slot,_OH,_Owner,987612,-1,[_Input],[],true,'sk-none',_), "
-            "'sk-store-view!'(_IH,_Input,987611,987611,-1,_Same,_First), "
+            "'sk-cache-branch!'(_Slot,_OH,_Owner,987612,[_Input],[],true,'sk-none',_), "
+            "'sk-reference-view'(-1,_Same,_First), 'sk-store-view!'(_IH,_Input,987611,987611,_First,_), "
             "findall(true,'&sk_branch_dirty'(_Slot),AfterFirst), "
-            "'sk-cache-branch!'(_Slot,_OH,_Owner,987612,-1,[_Input],[],true,_Value,_), "
-            "'sk-store-view!'(_IH,_Input,987611,987611,-1,_Same,_Second), "
+            "'sk-cache-branch!'(_Slot,_OH,_Owner,987612,[_Input],[],true,_Value,_), "
+            "'sk-reference-view'(-1,_Same,_Second), 'sk-store-view!'(_IH,_Input,987611,987611,_Second,_), "
             "(_First == _Second -> NewProof=false ; NewProof=true), "
             "findall(true,'&sk_branch_dirty'(_Slot),AfterProof), "
             "'sk-drop-merged!'(_Input,_), findall(true,'&sk_branch_dirty'(_Slot),AfterMemo), "
             "'sk-stale-key!'(_Input,_), findall(true,'&sk_branch_dirty'(_Slot),AfterStale), "
             "'sk-branch-values'(_Slot,_Owner,987612,[],true,BeforeChange), "
             "_Changed=['sk-val',[['Input'],[Kb,'MAIN','Nil'],cpu,['STV',0.6,0.8]],['ev-set',0],_ID], "
-            "'sk-store-view!'(_IH,_Input,987611,987611,-1,_Changed,_), "
+            "'sk-reference-view'(-1,_Changed,_ChangedRef), 'sk-store-view!'(_IH,_Input,987611,987611,_ChangedRef,_), "
             "findall(true,'&sk_branch_dirty'(_Slot),AfterChange), "
             "'sk-branch-values'(_Slot,_Owner,987612,[],true,ChangedReuse), "
-            "'sk-cache-branch!'(_Slot,_OH,_Owner,987612,-1,[_Input],[],true,_Value,_), "
+            "'sk-cache-branch!'(_Slot,_OH,_Owner,987612,[_Input],[],true,_Value,_), "
             "'sk-drop-row-views!'(_IH,_Input,987611,_), "
             "findall(true,'&sk_branch_dirty'(_Slot),AfterRemoval), "
             "'sk-drop-branch!'([],_Slot,_)", {'Kb': self.h.kb}

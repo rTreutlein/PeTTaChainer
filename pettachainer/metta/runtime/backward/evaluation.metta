@@ -80,7 +80,7 @@
 (: sk-branch-values (-[semidet]-> Number SkeletonKey Number (List Number) Bool (List SkeletonValue)))
 (: sk-reference-view (-[semidet]-> Number SkeletonValue SkeletonValue))
 (: sk-cache-branch!
-   (-[semidet]-> Number Number SkeletonKey Number Number (List SkeletonKey) (List Number) Bool SkeletonValue SkeletonValue))
+   (-[semidet]-> Number Number SkeletonKey Number (List SkeletonKey) (List Number) Bool SkeletonValue SkeletonValue))
 (: sk-stale-reader-step (-[det]-> SkeletonKey Atom SkeletonItem Atom))
 (: sk-value (-[semidet]-> SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 (: sk-row-view (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Number SkeletonRow SkeletonValue))
@@ -1602,12 +1602,12 @@
                                      ($_frame (remove-data-rows! &sk_branch_cuts (quote ($frame $_exclude $_found))))
                                      ($_parent (sk-note-cuts! $cuts)))
                                  (if (== $unpaid (search-id-value sk_branch_unpaid))
-                                    (sk-cache-branch! $slot $hash $key $rhash $rule $inputs $cuts true $view)
+                                    (sk-cache-branch! $slot $hash $key $rhash $inputs $cuts true $view)
                                     (let $_unfinished (next-search-id sk_branch_unpaid)
                                        (if (== $view sk-none) (chainer-first-or sk-none $incumbent)
                                           (if (sk-same-view? $view (chainer-first-or sk-none $incumbent))
                                              (chainer-first-or $view $incumbent)
-                                             (sk-cache-branch! $slot $hash $key $rhash $rule $inputs $exclude false $view))))))
+                                             (sk-cache-branch! $slot $hash $key $rhash $inputs $exclude false $view))))))
                               (let* (($_unpaid
                                         (if $build
                                            (let $_counted (query_metric_increment rows-unpaid) (next-search-id sk_branch_unpaid))
@@ -1674,9 +1674,8 @@
          (sk-goal-val $goal (sk-store-proof! $rule $goal-proof $gev) $gev $gdeps))
       (sk-none sk-none))))
 
-(= (sk-cache-branch! $slot $hash $key $rhash $rule $inputs $cuts $fresh $computed)
-   (let* (($view (sk-reference-view $rule $computed))
-          ($deps (sk-view-deps-step 0 $view))
+(= (sk-cache-branch! $slot $hash $key $rhash $inputs $cuts $fresh $view)
+   (let* (($deps (sk-view-deps-step 0 $view))
           ($_dominated (if $fresh
              (collapse (match &ctx_sk_branch ($slot $stored $rhash $old-cuts $old-fresh $old)
                 (if (=alpha $stored $key)
@@ -1829,10 +1828,9 @@
       (proof-ref $pid)))
 
 ;; A new view becomes the row's latest; the one it replaces is kept.
-(: sk-store-view! (-[semidet]-> Number SkeletonKey Number Number Number SkeletonValue SkeletonValue))
-(= (sk-store-view! $hash $key $seq $rhash $rule $computed)
-   (let* (($view (sk-reference-view $rule $computed))
-          ($deps (sk-view-deps-step 0 $view))
+(: sk-store-view! (-[semidet]-> Number SkeletonKey Number Number SkeletonValue SkeletonValue))
+(= (sk-store-view! $hash $key $seq $rhash $view)
+   (let* (($deps (sk-view-deps-step 0 $view))
           ($previous
              (collapse (match &ctx_sk_latest ($hash $stored (sk-version $old-seq $rhash $old))
                 (if (=alpha $stored $key)
@@ -2391,7 +2389,7 @@
 
 (: sk-keep-view (-[semidet]-> Number SkeletonKey SkeletonValue (List SkeletonVersion)))
 (= (sk-keep-view $hash $key $view)
-   (cons (sk-version 0 0 (sk-store-view! $hash $key 0 0 -1 $view)) ()))
+   (cons (sk-version 0 0 (sk-store-view! $hash $key 0 0 (sk-reference-view -1 $view))) ()))
 
 ;; The versions a consumer takes: per row, the latest one it admits.
 (: sk-admitted-versions (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) (List SkeletonVersion)))
@@ -3179,7 +3177,7 @@
    (if (let (sk-row (sk-ident $rule $_keys $_key) $_concl $_prems $_seq) $row
           (if (rule-live? $rule) (context-rule-visible? $rule) false))
       (if (sk-claim-charge! $given)
-         (let* (((sk-row $_ident ($_type $_kbctx $proof $_tv) $_premises $_seq) $row)
+         (let* (((sk-row (sk-ident $owner $_owner-keys $_owner-key) ($_type $_kbctx $proof $_tv) $_premises $_seq) $row)
                 ($_reader (if (== $exclude ()) (add-atom &sk_reading ($khash $key $rhash)) ()))
                 ($exclusions (hash-union (sk-row-exclusions $khash $key $proof) $exclude))
                 ($target (sk-row-target $exclusions $khash $key $rhash $row))
@@ -3201,7 +3199,10 @@
                       (sk-row-result $greedy $state)))
                 ($_reader-left (if (== $exclude ())
                                   (remove-variant-row! &sk_reading (quote ($khash $key $rhash))) ())))
-            $value)
+            ;; Conditioned and closed reads consume this value without
+            ;; publishing an ordinary view. Preserve the permanent owner now,
+            ;; before a caller wraps it in a judgment, merge or fold.
+            (sk-reference-view $owner $value))
          sk-none)
       sk-none))
 
@@ -3968,9 +3969,7 @@
                (let* (($before
                          (collapse (once (match &ctx_sk_merged ($hash $stored $deps $value)
                             (if (=alpha $stored $key) (if (sk-live-view? $value) (sk-merged $hash $stored $deps $value) (empty)) (empty))))))
-                      ($_stored
-                         (let (sk-row (sk-ident $rule $_keys $_key) $_concl $_premises $_created) $row
-                            (sk-store-view! $hash $key $seq $rhash $rule $new)))
+                      ($_stored (sk-store-view! $hash $key $seq $rhash $new))
                       ($_stored-count (query_metric_increment views-stored))
                       ($_merged (sk-drop-merged! $key))
                       ($deps (sk-view-deps-step 0 $new)))

@@ -54,7 +54,11 @@ one registration. Provenance resolution still pays for previously uncached
 proof DAG nodes. Index storage is O(set nodes + copies).
 A stale liveness memo checks subsequent retirement events or the set's leaves
 against the retirement index, whichever is smaller. Proof ids remain durable
-and never reusable.
+and never reusable. Every evaluated row captures its permanent owner in a proof
+reference before returning, including conditioned and closed reads that do not
+publish an ordinary view. Judgments, merges and aggregates retain those
+references; an inline printed rule name cannot preserve withdrawal identity.
+View and branch publication reuse the already referenced row value.
 
 Derived facts exposed in `&kb` (forward copies, materialized answers and
 forgetting summaries) are indexed by their canonical source set. Withdrawal
