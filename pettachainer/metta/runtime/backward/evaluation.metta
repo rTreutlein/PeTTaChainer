@@ -4322,6 +4322,10 @@
    (if (rule-live? $rule)
    (let* (($_reserve (sk-reserve-near! (- $depth 1)))
           ($near (<= $depth (+ (sk-evaluation-free-depth) 1)))
+          ($world (space-row-present? &sk_world_stale ($khash $rhash)))
+          ($_world-needed (if $world
+             (if (space-row-present? &sk_world_done ($khash $rhash)) ()
+                (let $_needed (add-atom &sk_world_done ($khash $rhash)) ())) ()))
           (($latest $invalid)
              (case (collapse (once (match &ctx_sk_latest ($khash $stored (sk-version $_old-seq $rhash $view))
                        (if (=alpha $stored $key) (if (sk-live-view? $view) ($view false) (sk-none true)) (empty))))) (
@@ -4335,7 +4339,7 @@
                          (if (== $extra 0) true (sk-take! sk_need_budget $extra)))))))
                 false))
           ($refresh
-             (if (if $unseen true $near)
+             (if (if $unseen true (if $near true $world))
                 (if $invalid true (space-row-present? &ctx_sk_stale ($khash $rhash)))
                 false))
           ($_forced (if (if $refresh $invalid false) (context-add! &sk_forced ($khash $rhash -1)) true))
@@ -4343,10 +4347,10 @@
              (if $refresh
                 (let $_relinked (sk-relink-row! $khash $rhash $premises) (context-add! &sk_refresh ($khash $rhash)))
                 ())))
-      (if (if $refresh true
+      (if (if $world true (if $refresh true
              (if (<= $depth (sk-evaluation-free-depth)) true
                 (if $unseen true
-                   (space-row-present? &ctx_sk_given_pending ($khash $rhash $_cost)))))
+                   (space-row-present? &ctx_sk_given_pending ($khash $rhash $_cost))))))
          (sk-need-next (fold-semidet sk-direct-key-step $next $premises) $members)
          (sk-need-next $next $members)))
    (let $_removed (sk-drop-row! $khash $key $rhash (sk-row (sk-ident $rule $_keys $_key) $_concl $premises $_s))
@@ -4504,6 +4508,41 @@
                   (let $_take (if (sk-instance-fold-key? $fold) (sk-rate-dirty! $fold $key) ()) (empty))
                   $fold)
                (empty)))))))
+
+(: sk-stale-world-row-step (-[det]-> (List SkeletonKey) SkeletonItem (List SkeletonKey)))
+(= (sk-stale-world-row-step $keys (sk-row-item $seq $hash $key $rhash $row))
+   (let* (($_marked (if (space-row-present? &sk_world_stale ($hash $rhash)) ()
+                      (let $_mark (add-atom &sk_world_stale ($hash $rhash)) ())))
+          ($_stale (sk-mark-stale! (sk-row-item $seq $hash $key $rhash $row))))
+      (cons $key $keys)))
+(= (sk-stale-world-row-step $keys (sk-fold-check $_hash $_fold)) $keys)
+
+;; Follow both current and released reader links. The key set bounds cycles;
+;; the work list avoids retaining a recursive frame per downstream row.
+(: sk-stale-world-keys! (-[semidet]-> (List SkeletonKey) Atom))
+(= (sk-stale-world-keys! ()) ())
+(= (sk-stale-world-keys! (cons $key $rest))
+   (let $hash (index-hash $key)
+      (if (not (== (collapse (once (match &sk_world_seen ($hash $stored)
+                  (if (=alpha $stored $key) true (empty))))) ()))
+         (sk-stale-world-keys! $rest)
+         (let* (($_seen (add-atom &sk_world_seen ($hash $key)))
+                ($readers (append-flat (sk-readers $key)
+                   (collapse (match &ctx_sk_stale_reader ($hash $input $khash $rhash)
+                      (if (=alpha $input $key) (sk-row-item-at $khash $rhash) (empty))))))
+                ($owners (fold-semidet sk-stale-world-row-step () $readers))
+                ($folds (collapse (match &sk_use ($hash $member $fold)
+                   (if (=alpha $member $key) (if (sk-rate-fold? $fold) (empty) $fold) (empty)))))
+                ($_folds (foreach-flat sk-stale-fold! $folds)))
+            (sk-stale-world-keys! (append-flat $owners (append-flat $folds $rest)))))))
+
+(: sk-invalidate-world! (-[semidet]-> Atom))
+(= (sk-invalidate-world!)
+   (let* (($changed (collapse (match &sk_world_changed ($hash $key) $key)))
+          ($_taken (remove-data-rows! &sk_world_changed (quote ($_hash $_key))))
+          ($_stale (sk-stale-world-keys! $changed))
+          ($_seen (remove-data-rows! &sk_world_seen (quote ($_shash $_skey)))))
+      ()))
 
 (: sk-item-needed? (-[det]-> SkeletonItem Bool))
 (= (sk-item-needed? (sk-row-item $_seq $hash $key $_rhash $_row)) (sk-needed? $hash $key))
@@ -5057,6 +5096,7 @@
           ($_pushes (change-state! sk_push_seq 0))
           ($_context-start (context-start!))
           ($_search (sk-walk! $goals))
+          ($_world-invalidated (sk-invalidate-world!))
           ($_unneeded (remove-data-rows! &sk_needed (quote ($hash $key $depth))))
           ($_reserve (change-state! sk_near_reserve 0))
           ($_needed (sk-need-roots! (fold-semidet sk-root-keys-step () $goals)))
@@ -5066,6 +5106,15 @@
           ($_inferred (inference-add! $started))
           ($main-results (map-semidet (sk-root-results $materialize?) $goals))
           ($_held (sk-stale-held!))
+          ;; Keep the entire visited path while any of its world refreshes
+          ;; remains unpaid. Current ancestors must still lead the next need
+          ;; to deeper debt; they do not need another computation themselves.
+          ($world-unpaid (not (== (collapse (once (match &sk_world_done ($wh $wr)
+             (if (if (space-row-present? &ctx_sk_stale ($wh $wr)) true
+                     (space-row-present? &ctx_sk_given_pending ($wh $wr $_cost))) true (empty))))) ())))
+          ($_world-done (collapse (match &sk_world_done ($wkhash $wrhash)
+             (let $_taken (remove-atom &sk_world_done ($wkhash $wrhash))
+                (if $world-unpaid () (remove-atom &sk_world_stale ($wkhash $wrhash)))))))
           ($results (context-finish! (* (sk-evaluation-per-step) $steps) $context-reserve $requested $main-results))
           ($_temp (sk-clear-temp!)))
       $results))

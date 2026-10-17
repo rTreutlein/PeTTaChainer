@@ -321,9 +321,43 @@
       (case $kbctx (
             (($kbid $ctx $vars)
                (if (judgment-world-premise? $type $kbctx)
-                  (foldr-flat (sk-judgment-main-fact-step $kbctx $plain $filter) $local
-                     (kb-facts $type (kbctx (brand KB $kbid))))
+                  (let $_watch (sk-watch-world! $type $kbctx (brand KB $kbid))
+                     (foldr-flat (sk-judgment-main-fact-step $kbctx $plain $filter) $local
+                        (kb-facts $type (kbctx (brand KB $kbid)))))
                   $local))))))
+
+;; Subscribe before looking for facts: a missing world premise is still a
+;; live input of a durable judgment. Deduplicate by the private reader key.
+(: sk-watch-world! (-[det]-> Statement KBContext KB Atom))
+(= (sk-watch-world! $type $kbctx $kbid)
+   (let* (($key (sk-key $type $kbctx))
+          ($hash (index-hash $key)))
+      (if (== (collapse (once (match &sk_world_reader ($hash $stored)
+                  (if (=alpha $stored $key) true (empty))))) ())
+         (let* (($_reader (add-atom &sk_world_reader ($hash $key)))
+                ($lookup (copy_term $type))
+                ($prefixes (cons (statement-open-hash $type) (statement-open-probes $type)))
+                ($_prefixes (collapse (let $prefix (superpose $prefixes)
+                   (let $slot (index-hash (data $kbid $prefix))
+                      (add-atom &sk_world_prefix ($slot $lookup $kbid $key))))))
+                ($_open (if (== (extract-vars $type) ()) ()
+                   (let $slot (index-hash (data $kbid (statement-open-hash $type)))
+                      (add-atom &sk_world_open ($slot $lookup $kbid $key))))))
+            ())
+         ())))
+
+;; As with fact lookup, probe the longest prefix and shorter open prefixes.
+;; An open added fact can reach more-specific private readers as well.
+(: sk-world-readers (-[det]-> Statement KB (List SkeletonKey)))
+(= (sk-world-readers $type $kbid)
+   (let* (($prefix (statement-open-hash $type))
+          ($slot (index-hash (data $kbid $prefix)))
+          ($shorter (statement-open-probes $type)))
+      (append-flat
+         (collapse (match &sk_world_prefix ($slot $type $kbid $key) $key))
+         (collapse (let $open (superpose $shorter)
+            (let $open-slot (index-hash (data $kbid $open))
+               (match &sk_world_open ($open-slot $type $kbid $key) $key)))))))
 
 ;; Borrow only observations, never MAIN's derived/materialized values. A fixed
 ;; premise may use the world, but an assumed key overrides its world value and
@@ -459,6 +493,21 @@
 (= (sk-unindex-key! $type $kbctx $h)
    (let* (($prefixes (statement-prefix-hashes $type))
           ($open (statement-open-hash $type))
+          ($_world
+             (if (== (collapse (once (match &sk_world_reader ($h $stored)
+                        (if (=alpha $stored (sk-key $type $kbctx)) true (empty))))) ()) ()
+                (case $kbctx (
+                   (($kbid $_ctx $_vars)
+                      (let* (($kb (brand KB $kbid))
+                             ($key (sk-key $type $kbctx))
+                             ($lookup (copy_term $type))
+                             ($_seen (remove-variant-row! &sk_world_reader (quote ($h $key))))
+                             ($world-prefixes (cons $open (statement-open-probes $type)))
+                             ($_world-prefixes (collapse (let $world-prefix (superpose $world-prefixes)
+                                (let $prefix-slot (index-hash (data $kb $world-prefix))
+                                   (remove-variant-row! &sk_world_prefix (quote ($prefix-slot $lookup $kb $key)))))))
+                             ($open-slot (index-hash (data $kb $open))))
+                         (remove-variant-row! &sk_world_open (quote ($open-slot $lookup $kb $key)))))))))
           ($_terms (remove-data-rows! &sk_key_terms (quote ($type $kbctx $h))))
           ($_open (remove-data-rows! &sk_key_open (quote ($open $type $kbctx $h))))
           ($_reader (remove-data-rows! &sk_reader_open (quote ($open $type $kbctx $h $_reader-key))))
@@ -1790,36 +1839,81 @@
 ;; is started there, as expanding the node would start it. Stored facts cost no
 ;; expansion however late they arrive, so new evidence reaches the keys a search
 ;; built without the search returning to them.
+(: sk-activate-world-reader (-[semidet]-> Statement Atom SkeletonKey Atom))
 (: sk-activate-fact-step (-[semidet]-> Atom SkeletonKey Atom))
 (: sk-fact-watches (-[det]-> Number (List SkPattern)))
 (= (sk-activate-fact-step $_acc $key)
    (case $key (
       ((sk-key $type $kbctx)
-         (let* ((($kbid $_ctx $_vars) $kbctx)
+         (let* ((($kbid $ctx $_vars) $kbctx)
                 ($hash (index-hash $key))
                 ($_read
                    (fold-semidet (sk-activate-fact-on $key) ()
                       (alpha_unique_keys
                          (append-flat (collapse (match &sk_node_terms ($type $kbctx $node) $node))
                             (append-flat (sk-fact-watches $hash)
-                               (collapse (match &sk_wait ($hash $premise $_waiter) $premise))))))))
-            (if (== (extract-vars $type) ())
-               (fold-semidet sk-absorb-step () (foldr-flat (sk-premise-rules-step $type $kbctx) () (statement-prefix-keys $kbid $type)))
+                               (collapse (match &sk_wait ($hash $premise $_waiter) $premise)))))))
+                ($_absorbed
+                   (if (== (extract-vars $type) ())
+                      (fold-semidet sk-absorb-step () (foldr-flat (sk-premise-rules-step $type $kbctx) () (statement-prefix-keys $kbid $type)))
+                      ())))
+            (if (== $ctx MAIN)
+               (fold-semidet (sk-activate-world-reader $type) () (sk-world-readers $type (brand KB $kbid)))
                ())))
       ($_fold ()))))
 
+(= (sk-activate-world-reader $type $_acc (sk-key $reader $scope))
+   (let* (($key (sk-key $reader $scope))
+          ($hash (index-hash $key))
+          ($_dirty (sk-dirty! $key))
+          ($_changed
+             (if (not (== (collapse (once (match &sk_world_changed ($hash $stored)
+                        (if (=alpha $stored $key) true (empty))))) ())) ()
+                (let $_pending (add-atom &sk_world_changed ($hash $key)) ()))))
+      (sk-activate-fact-step () (sk-key $type $scope))))
+
+(: sk-activate-world-rule-on (-[semidet]-> Number Atom SkPattern Atom))
+(: sk-activate-world-rule (-[semidet]-> Number Atom SkeletonKey Atom))
+(= (sk-activate-world-rule $id $_acc (sk-key $type $scope))
+   (let* (($hash (index-hash (sk-key $type $scope)))
+          ($nodes (alpha_unique_keys
+             (append-flat (collapse (match &sk_node_terms ($type $scope $node) $node))
+                (append-flat (sk-fact-watches $hash)
+                   (collapse (match &sk_wait ($hash $premise $_waiter) $premise)))))))
+      (fold-semidet (sk-activate-world-rule-on $id) () $nodes)))
+
+(= (sk-activate-world-rule-on $id $_acc $node)
+   (case (copy_term $node) (
+      ((CPU $_fun $_args $_res) ())
+      (($type $scope $proof $tv)
+         (let $matches (collapse (let $matched
+            (sk-judgment-main-rule-match (data $type $scope $proof $tv))
+            (case $matched (((sk-match $id $args $conclusion) (sk-match $id $args $conclusion))
+                            ($_other (empty))))))
+            (if (== $matches ()) ()
+               (let $_changed (sk-activate-world-reader $type () (sk-key $type $scope))
+                  (fold-semidet (sk-start-rule-step $node) () $matches))))))))
+
 (: sk-activate-rule-row (-[semidet]-> Number Atom SkeletonRuleDef Atom))
 (= (sk-activate-rule-row $id $_acc (sk-rule-def $conclusion $args))
-   (let* ((($type $kbctx $_proof $_tv) $conclusion))
-      (fold-semidet (sk-activate-rule-on $id $conclusion $args) ()
-         (collapse (match &sk_node_terms ($type $kbctx $node)
-            (let ($node-type $_c $_p $_t) $node
-               ;; A subsumed node reads the rule's conclusions from its general node.
-               (if (== (extract-vars $node-type) ()) $node
-                  (if (let $prefix (sk-node-prefix $node-type)
-                         (== (collapse (once (match &sk_open_node ($prefix $_h $stored)
-                                (if (=alpha $stored $node) true (empty))))) ()))
-                     (empty) $node))))))))
+   (let* ((($type $kbctx $_proof $_tv) $conclusion)
+          ($_ordinary
+             (fold-semidet (sk-activate-rule-on $id $conclusion $args) ()
+                (collapse (match &sk_node_terms ($type $kbctx $node)
+                   (let ($node-type $_c $_p $_t) $node
+                      ;; A subsumed node reads the general node's conclusions.
+                      (if (== (extract-vars $node-type) ()) $node
+                         (if (let $prefix (sk-node-prefix $node-type)
+                                (== (collapse (once (match &sk_open_node ($prefix $_h $stored)
+                                       (if (=alpha $stored $node) true (empty))))) ()))
+                            (empty) $node))))))))
+      ;; A late compound fact brings new MAIN projection rules. They must
+      ;; reach existing private readers just as they do on cold expansion.
+      (case $kbctx (
+         (($kbid $ctx $_vars)
+            (if (== $ctx MAIN)
+               (fold-semidet (sk-activate-world-rule $id) () (sk-world-readers $type (brand KB $kbid)))
+               ()))))))
 
 (: sk-activate-rule-on (-[semidet]-> Number SkFact (List SkPattern) Atom SkPattern Atom))
 (= (sk-activate-rule-on $id $ccls $args $_acc $node)
@@ -2011,7 +2105,9 @@
 
 (: sk-drop-row! (-[semidet]-> Number SkeletonKey Number SkeletonRow Atom))
 (= (sk-drop-row! $hash $key $rhash (sk-row $ident $concl $premises $seq))
-   (let* (($keys (fold-semidet sk-direct-key-step () $premises))
+   (let* (($_world-stale (remove-data-rows! &sk_world_stale (quote ($hash $rhash))))
+          ($_world-done (remove-data-rows! &sk_world_done (quote ($hash $rhash))))
+          ($keys (fold-semidet sk-direct-key-step () $premises))
           ($_row (remove-variant-row! &sk_row (quote ($hash $key $rhash (sk-row $ident $concl $premises $seq)))))
           ($_aggregate (remove-variant-row! &sk_aggregate_row (quote ($hash $key $rhash))))
           ($_readers (fold-semidet (sk-remove-reader! $hash $rhash) () $keys))

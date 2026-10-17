@@ -387,6 +387,25 @@
 !(bind! &sk_key_prefix (new-space))
 (: &sk_key_open (SpaceOf (Number Statement KBContext Number)))
 !(bind! &sk_key_open (new-space))
+;; Private observation readers, including empty reads, subscribe to MAIN.
+;; Prefix indexes select only readers of the added statement; lookup columns
+;; are copied apart from the original private key, which must stay open.
+(: &sk_world_reader (SpaceOf (Number SkeletonKey)))
+!(bind! &sk_world_reader (new-space))
+(: &sk_world_prefix (SpaceOf (Number Statement KB SkeletonKey)))
+!(bind! &sk_world_prefix (new-space))
+(: &sk_world_open (SpaceOf (Number Statement KB SkeletonKey)))
+!(bind! &sk_world_open (new-space))
+;; A borrowed late input can sit beyond the normal shallow stale refresh.
+;; Its indexed stale cascade remains demand-visible until recomputation pays.
+(: &sk_world_changed (SpaceOf (Number SkeletonKey)))
+!(bind! &sk_world_changed (new-space))
+(: &sk_world_stale (SpaceOf (Number Number)))
+!(bind! &sk_world_stale (new-space))
+(: &sk_world_done (SpaceOf (Number Number)))
+!(bind! &sk_world_done (new-space))
+(: &sk_world_seen (SpaceOf (Number SkeletonKey)))
+!(bind! &sk_world_seen (new-space))
 ;; per reading key: the hashes of the keys unifying with it, its own first
 (: &sk_unifiers (SpaceOf (Number SkeletonKey (List Number))))
 !(bind! &sk_unifiers (new-space))

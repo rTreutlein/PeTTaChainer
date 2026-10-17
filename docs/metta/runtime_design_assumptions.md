@@ -242,6 +242,20 @@ premise node is already expanded. Reuse checks the exact statement up to alpha
 renaming, proof/TV constraints and producer lifetime. The private contexts keep
 their existing world-reading restrictions; no assumption becomes a MAIN fact.
 
+Private observation reads subscribe to MAIN before looking for a fact, including
+empty reads. The subscriptions retain the private key separately from the
+lookup pattern and use KB/statement prefix indexes, so a later MAIN fact reaches
+only matching borrowers. Ingestion still only journals the fact; activation at
+the next query delivers its private answers and dirties its private merges.
+New MAIN source projections use that same index to reach private searches that
+already expanded. The stale cascade of a borrowed change retains a demand marker
+on affected rows, so a durable wrapper cannot hide its deeper private input
+behind the ordinary shallow refresh limit. These rows still spend the existing
+evaluation allowance. If any visited refresh remains stale or awaits
+conditioning, the visited path keeps its markers for a later query; once current,
+it releases them. No context scan or additional evaluation reserve is needed.
+
+
 ### Assuming shares MAIN structure and overlays dependent values
 
 An Assuming query builds rows and keys in MAIN, with MAIN premise identities.
