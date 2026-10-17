@@ -22,28 +22,33 @@
        Statement Statement
        (KBContext Proof Statement (List CompiledAddition))))
 (= (judgment-query-side $kb $mvars $negative? $antecedent $consequent)
-   (let $normalized (query-assumption-normal-form $antecedent)
-      (if (if $negative? false (contains-head? (== Or) $normalized))
+   (let* (($normalized (query-assumption-normal-form $antecedent))
+          ($nnf (query-assumption-nnf $normalized)))
+      (if (if $negative? false
+              (if (contains-head? (== Or) $normalized) true
+                 (contains-head? (== Or) $nnf)))
          (disjunction-judgment-query-side $kb $mvars $normalized $consequent)
          (if (if $negative? (head-is? $normalized Or) false)
             (let $refuting (brand Statement (cons And
                    (map-flat (|-> ($child) (brand Statement (Not $child)))
                       (statement-children (cdr-atom $normalized)))))
-               (judgment-query-side-basic $kb $mvars false $refuting $consequent))
-            (judgment-query-side-basic $kb $mvars $negative? $normalized $consequent)))))
+               (judgment-query-side-basic $kb $mvars false false $refuting $consequent))
+            (judgment-query-side-basic $kb $mvars $negative? false $normalized $consequent)))))
 
 (: judgment-query-side-basic
-   (-[semidet]-> KB (| NilType (List Variable)) Bool Statement Statement
+   (-[semidet]-> KB (| NilType (List Variable)) Bool Bool Statement Statement
        (KBContext Proof Statement (List CompiledAddition))))
-(= (judgment-query-side-basic $kb $mvars $negative? $antecedent $consequent)
+(= (judgment-query-side-basic $kb $mvars $negative? $whole-only? $antecedent $consequent)
    (once (let*
       (($ctx (nextctx))
        ($shape-kb (make-kb-context $kb $ctx $mvars))
        ($premises (implication-side-conjuncts $antecedent))
        (($execs $_proofs $_atv)
-          (once (if $negative?
-                   (lower-query-assumption-premises-negative $kb $ctx $mvars $premises)
-                   (lower-query-assumption-premises $kb $ctx $mvars $premises))))
+          (if $whole-only?
+             (data (map-flat (judgment-whole-premise $shape-kb) $premises) () (STV 1 1))
+             (once (if $negative?
+                      (lower-query-assumption-premises-negative $kb $ctx $mvars $premises)
+                      (lower-query-assumption-premises $kb $ctx $mvars $premises)))))
        ($goal (if (contains-explicit-exists? $consequent)
                   (let $claim (canonical-existential-side $consequent)
                      (brand Statement (ExistsJudgment $claim)))
@@ -63,7 +68,7 @@
        ($adds (cons (brand CompiledAddition
           (() |- (: $target-kb (ctx consequent $ctx) $target (STV 1 1))))
           (union-compiled-additions
-             (query-context-premise-adds $kb $ctx $mvars $execs) (the (List CompiledAddition) $goal-adds))))
+             (query-context-premise-adds $kb $ctx $mvars (the (List Goal) $execs)) (the (List CompiledAddition) $goal-adds))))
        ($whole-tv (if $negative? (STV 0 1) (STV 1 1))))
       (data $shape-kb (brand Proof $prf) (the Statement $goal)
          (if (head-is-member? $antecedent (And Or))
@@ -71,6 +76,16 @@
                (() |- (: $shape-kb (ctx proof $ctx whole) $antecedent $whole-tv)))
                $adds)
             $adds)))))
+
+;; A rule reading a whole event already knows its conditional, even when
+;; the event's population probability is unknown. This separate context never
+;; makes the prior world's event certain or selects any of its alternatives.
+(: judgment-whole-premise (-[det]-> KBContext Atom Goal))
+(= (judgment-whole-premise $scope $source)
+   (let $type (query-assumption-normal-form (brand Statement $source))
+      (if (head-is? $type Not)
+         (: $scope $proof (brand Statement (car-atom (cdr-atom $type))) (STV 0 1))
+         (: $scope $proof $type (STV 1 1)))))
 
 ;; Evaluate P(B and D) in the private prior world, then divide by P(D).
 ;; Unlike making every disjunct true, this preserves the alternatives of D.
@@ -109,11 +124,14 @@
           ($assumptions (brand Statement (seq2expr
              (cons (JudgmentPrior $event) (the (List Atom) $fixed)))))
           (($scope $_proof $_goal $adds)
-             (judgment-query-side-basic $kb $mvars false $assumptions $consequent))
+             (judgment-query-side-basic $kb $mvars false false $assumptions $consequent))
           (($kbid $ctx $vars) $scope)
           ($priors (list_to_set (collapse
              (disjunction-judgment-prior $kb $ctx $mvars $event))))
-          ($joint (brand Statement (And $consequent $event)))
+          ;; The probability read retains the source event's key. Its joint
+          ;; uses Boolean normal form, including negated compounds.
+          ($normal-event (query-assumption-nnf $event))
+          ($joint (brand Statement (And $consequent $normal-event)))
           ($result (brand Statement (JudgmentConditioned $antecedent $consequent)))
           ($rates (base-rate-premises $kb (rule-base-rate-pattern () $event) $rate))
           ($result-premises (cons (: $scope $joint-proof $joint $joint-tv)
@@ -121,19 +139,26 @@
           ($result-add (brand CompiledAddition
              ($result-premises |-
                 (: $scope (conditioned-disjunction $joint-proof) $result $result-tv))))
-          ($adapters (collapse (compile-adapter-chain query (: $scope $prf $joint $tv)))))
+          ($adapters (collapse (compile-adapter-chain query (: $scope $prf $joint $tv))))
+          (($direct-scope $direct-proof $direct-goal $direct-adds)
+             (judgment-query-side-basic $kb $mvars false true $antecedent $consequent))
+          ($direct-add (brand CompiledAddition
+             (((: $direct-scope $direct-proof $direct-goal $direct-tv)) |-
+                (: $scope (conditioned-disjunction $direct-proof) $result $direct-tv)))))
       (data $scope (brand Proof $prf) $result
-         (cons $result-add (append-compiled-additions $adds
-            (append-compiled-additions $priors $adapters)))))))
+         (cons $direct-add (cons $result-add (append-compiled-additions $direct-adds
+            (append-compiled-additions $adds
+               (append-compiled-additions $priors $adapters)))))))))
 
 ;; A collapse/superpose partition would freshen the hypothetical variables
 ;; away from the consequent. Keep the source sharing through this fold.
 (: judgment-condition-part
    (-[det]-> Atom ((List Atom) (List Atom)) ((List Atom) (List Atom))))
 (= (judgment-condition-part $part ($alternatives $fixed))
-   (if (contains-head? (== Or) $part)
-      (data (cons $part $alternatives) $fixed)
-      (data $alternatives (cons $part $fixed))))
+   (let $nnf (query-assumption-nnf (brand Statement $part))
+      (if (if (contains-head? (== Or) $part) true (contains-head? (== Or) $nnf))
+         (data (cons $part $alternatives) $fixed)
+         (data $alternatives (cons $part $fixed)))))
 
 ;; The two sides of a total-implication query share one conclusion $b and differ
 ;; only in polarity. Returns the ground shape-kbs, $b, the fresh pos/neg proof

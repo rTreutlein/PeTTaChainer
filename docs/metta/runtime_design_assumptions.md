@@ -137,6 +137,14 @@ of their own consequent key, its instances, or its negation: P(B) does not
 establish P(B given A). An assumed key overrides its world value, and a hypothetical individual cannot bind to a world individual.
 Rules hold there: S → (A ∧ B ∧ C) answers S → (A ∧ B).
 
+Boolean judgment conditions, including Not over And/Or, use negation normal
+form for their joint calculation, P(B and D) / P(D). The denominator retains
+the written event's base-rate key (after leading double-negation cancellation).
+Ordinary conjuncts outside the probabilistic event remain certain assumptions.
+A separate whole-event context can establish the conditional through a rule
+reading that event directly, without selecting its alternatives or requiring
+leaf population rates. Its certain event never enters the prior-world joint.
+
 `Inheritance` may receive compiler-specific lowering and querying, but its
 ordinary compiled implication reasoning should use the same chainer machinery
 as other relations. A genuinely different semantic operation, such as member

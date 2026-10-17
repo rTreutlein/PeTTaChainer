@@ -1169,6 +1169,25 @@
             $type))
       $type))
 
+;; Probability reads retain the written event's key; connective evaluation
+;; uses De Morgan expansion. Do not descend into predicate arguments
+;; or binders, which are terms rather than Boolean statement children.
+(: query-assumption-nnf (-[det]-> Statement Statement))
+(= (query-assumption-nnf $source)
+   (let $type (query-assumption-normal-form $source)
+      (if (head-is? $type Not)
+         (let $inner (brand Statement (car-atom (cdr-atom $type)))
+            (if (head-is-member? $inner (And Or))
+               (brand Statement (cons (if (head-is? $inner And) Or And)
+                  (map-flat (|-> ($child)
+                     (query-assumption-nnf (brand Statement (Not $child))))
+                     (statement-children (cdr-atom $inner)))))
+               $type))
+         (if (head-is-member? $type (And Or))
+            (brand Statement (cons (car-atom $type)
+               (map-flat query-assumption-nnf (statement-children (cdr-atom $type)))))
+            $type))))
+
 (: lower-query-assumption-premise
    (-[nondet]-> KB $context $variables Statement  PremiseBundle))
 (= (lower-query-assumption-premise $kb $ctx $vars $source)
