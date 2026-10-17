@@ -66,11 +66,11 @@
 
 !(test
    (query 100 kb3 (: $prf (Related alice bob) $tv))
-   (: (by main_rel (conjunction tag3 r1)) (Related alice bob) (STV 0.9 0.8999999999819708)))
+   (: (by main_rel (conjunction tag3 r1)) (Related alice bob) (STV 0.9 0.8999999992617733)))
 
 !(test
    (query 100 kb3 (: (by alt_rel $prf) (Related alice bob) $tv))
-   (: (by alt_rel (conjunction tag3 r1)) (Related alice bob) (STV 0.6 0.7999999999145729)))
+   (: (by alt_rel (conjunction tag3 r1)) (Related alice bob) (STV 0.6 0.7999999998612068)))
 
 ;; Removing a specializing rule also removes its deferred template. A later
 ;; structural fact must not resurrect it, and re-adding it must work normally.
@@ -93,4 +93,4 @@
       (STV 0.9 0.9)))
 !(test (query 100 kb4 (: $prf (Knows alice bob) $tv))
    (: (by removable_rel (conjunction tag4 k1))
-      (Knows alice bob) (STV 0.9 0.8999999999819708)))
+      (Knows alice bob) (STV 0.9 0.8999999992617733)))

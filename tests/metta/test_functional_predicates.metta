@@ -8,7 +8,7 @@
 !(compileadd functionalKb (: at2 (At bat right a) (STV 1.0 1.0)))
 !(compileadd functionalKb (: r (Implication (And (Next $p $t) (At ball left $p)) (Found $t)) (STV 1.0 0.9)))
 !(test (collapse (query 40 functionalKb (: $p (Found b) $tv)))
-       ((: (by r (conjunction n1 at1)) (Found b) (STV 1.0 0.8998379839855631))))
+       ((: (by r (conjunction n1 at1)) (Found b) (STV 1.0 0.8999189847918079))))
 !(test (sk-functional-conflict? ((Next a c) (functionalKb MAIN Nil) $p $tv)) true)
 !(test (sk-functional-conflict? ((Next a $t) (functionalKb MAIN Nil) $p $tv)) false)
 !(test (sk-functional-conflict? ((Next unassigned c) (functionalKb MAIN Nil) $p $tv)) false)

@@ -17,8 +17,8 @@ positive private-context semantics. For example, with just
 ```
 
 querying the composed implication from the existential antecedent to
-`MustPauseProductionDuring` returns strength 1 with propagated confidence
-(approximately 0.99970009), and a proof of the form
+`MustPauseProductionDuring` returns strength 1 with propagated confidence,
+and a proof of the form
 
 ```metta
 (conditional-implication
@@ -125,6 +125,13 @@ nested query had an answer unless the instance had been asked for first.
   contexts per application.
 
 ## Truth values
+
+An STV's missing negative branch is unknown, `(STV 0.5 0)`, when the
+reconciled base rates cannot determine it (tracker #83). An uncertain
+antecedent then mixes its positive estimate with that neutral branch, with
+the unknown variance included in confidence. For example, the three-level
+STV .9 case below now gives .6344 with confidence .0053284 nested and
+.0013782 flat; the historical table's .3024 implicitly used a zero complement.
 
 A rule `A → (X → Y)` holds as its exported form `(A ∧ X) → Y`: under that
 reading P(X → Y | A) is P(Y | A, X), and P(X → Y | not A) is P(Y | X, not A),

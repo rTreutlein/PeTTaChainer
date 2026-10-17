@@ -19,7 +19,7 @@ class KEQueryOrderTests(unittest.TestCase):
                 result = json.loads(run.stdout.splitlines()[-1])
                 proofs = result["proofs"]
                 self.assertEqual(len(proofs), 1, result)
-                self.assertTrue(proofs[0].endswith("(STV 1.0 0.9996001596862254))"), proofs)
+                self.assertTrue(proofs[0].endswith("(STV 1.0 0.9996501223478415))"), proofs)
                 self.assertEqual(set(re.findall(r"src_[0-9a-f]+", proofs[0])), {
                     "src_d2acc8331d260378be524a14", "src_acb3faeae7e53c5cf8a75bc7",
                     "src_6c4b43ffc9cfdd9f6cc82137",

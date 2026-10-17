@@ -27,7 +27,7 @@ class EmpiricalConditionalHistoryTests(unittest.TestCase):
             print(f'{warm_b=} {repeat=}:',
                   [(row.tv, h.expand_proof(row.proof)) for row in rows], flush=True)
             self.assertEqual(len(rows), 1)
-            self.assertEqual(rows[0].tv, ['STV', 0.7499999790336381, 0.0010646547524217342])
+            self.assertEqual(rows[0].tv, ['STV', 0.7499999467945044, 0.0010646547163301533])
             self.assertEqual(h.expand_proof(rows[0].proof), '(implication-instance-fold cpu)')
 
     def test_cold_repeat_and_warm_at_both_budgets(self):

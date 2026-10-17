@@ -366,8 +366,8 @@
 ;; derived_rule
 !(compileadd derived_rule (: src_facilityRecordedFloodInspectionPolicyS1 (Implication (Exists ($flood) (And (Member $facility Facility) (Member $flood Flood) (RecordedFlood $facility $flood) (During $flood S1))) (RequiresInspectionDuring $facility S1)) (STV 1.0 1.0)))
 !(compileadd derived_rule (: next (Implication (RequiresInspectionDuring $s S1) (Notify $s)) (CTV (STV 1 1) (STV 0 1))))
-!(test (exists-answer-matches (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) 1 0.9997000897981131 true (query 1000 derived_rule (: $p (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) $tv))) true)
-!(test (exists-answer-matches (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) 1 0.9997000897981131 true (query 1000 derived_rule (: $p (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) $tv))) true)
+!(test (exists-answer-matches (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) 1 0.9997500624375273 true (query 1000 derived_rule (: $p (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) $tv))) true)
+!(test (exists-answer-matches (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) 1 0.9997500624375273 true (query 1000 derived_rule (: $p (Implication (Exists ($f) (And (Member $s Facility) (Member $f Flood) (RecordedFlood $s $f) (During $f S1))) (Notify $s)) $tv))) true)
 
 ;; universal_sharing_wrong
 !(compileadd universal_sharing_wrong (: src_facilityRecordedFloodInspectionPolicyS1 (Implication (Exists ($flood) (And (Member $facility Facility) (Member $flood Flood) (RecordedFlood $facility $flood) (During $flood S1))) (RequiresInspectionDuring $facility S1)) (STV 1.0 1.0)))

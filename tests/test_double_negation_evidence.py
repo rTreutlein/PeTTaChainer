@@ -24,14 +24,14 @@ class TestDoubleNegationEvidence(unittest.TestCase):
         self.assertTrue(all(abs(value - confidences[0]) < 1e-12 for value in confidences))
 
     def test_overlapping_bridge_conditions_on_one_source(self):
-        # The conditional branches have TVs (1, .8995950693970498) and
+        # The conditional branches have TVs (1, .8996760265350283) and
         # (0, 0). A separate CTV applied to one source is the control: it
         # counts the observation once, without the compound/judgment join.
         for confidence in (0.5, 0.9):
             control = PeTTaChainer()
             control.add_atoms_no_check([
                 f'(: observation Gate (STV 1 {confidence}))',
-                '(: (no_inverse control) (Implication Gate Result) (CTV (STV 1 0.8995950693970498) (STV 0 0)))',
+                '(: (no_inverse control) (Implication Gate Result) (CTV (STV 1 0.8996760265350283) (STV 0 0)))',
             ])
             expected = control.query_many_refs(['(: $p Result $tv)'], steps=300)[0][0].tv
             for consequent in ('(DoesNotDilute $e)', '(Not (Dilutes $e))'):

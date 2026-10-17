@@ -41,7 +41,7 @@
 ;; one sample, with both rule proofs retained and confidence capped by the
 ;; smaller input (docs/metta/overlap_conditioning.md, "Sample twins").
 !(test (query 200 earlyKb (: $p (B new) $tv))
-   (: (combination revision (prior no-evidence) ((by hA anew) (by hC cnew))) (B new) (STV 0.0012594458438287151 0.8004032257862883)))
+   (: (combination revision (prior no-evidence) ((by hA anew) (by hC cnew))) (B new) (STV 0.0012594458438287151 0.8004031861404352)))
 
 ;; An observed but uncertain consequent is a sample of the rule, and the rule
 ;; still applies to it: B new's own sample is left out of the truth hA applies
@@ -59,12 +59,12 @@
 !(compileadd softKb (: anew (A new) (STV 1 1)))
 !(compileadd softKb (: bnew (B new) (STV 0.6 0.5)))
 !(test (query 200 softKb (: $p (B new) $tv))
-   (: (merge/revision (by hA anew) bnew) (B new) (STV 0.15088161515682574 0.8004032225234178)))
+   (: (merge/revision (by hA anew) bnew) (B new) (STV 0.15088162990393558 0.8004032067331504)))
 ;; The truth itself counts every sample.
 !(test (let (: $p $t $tv) (query 200 softKb (: $p (RuleTruth (Implication (A $x) (B $x))) $tv)) $tv)
    (STV 0.08697206540828625 0.7782566475768755))
 !(test (query 200 softKb (: $p (B new) $tv))
-   (: (merge/revision (by hA anew) bnew) (B new) (STV 0.15088161515682574 0.8004032225234178)))
+   (: (merge/revision (by hA anew) bnew) (B new) (STV 0.15088162990393558 0.8004032067331504)))
 
 ;; A rule's truth is a parameter: a value through the rule depends on its
 ;; truth's key, not on the instances it was learned from. Learned storm

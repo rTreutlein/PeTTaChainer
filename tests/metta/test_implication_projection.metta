@@ -50,11 +50,11 @@
 
 !(test
    (let (: $_prf $_type $tv) (query 100 stvKb (: $prf (Implication (S x) (And (A x) (B x))) $tv)) $tv)
-   (STV 0.9 0.8901098893173621))
+   (STV 0.9 0.8901098897087285))
 
 !(test
    (let (: $_prf $_type $tv) (query 100 stvKb (: $prf (Implication (S $y) (And (A $y) (B $y))) $tv)) $tv)
-   (STV 0.9 0.8901098893173621))
+   (STV 0.9 0.8901098897087285))
 
 ;; A nested conclusion, S -> (A and (B and C)). B and C are parts of one
 ;; source and pool; A and B are parts of different sources, (A and (B and C))

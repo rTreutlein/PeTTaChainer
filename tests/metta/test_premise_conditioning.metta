@@ -15,7 +15,7 @@
 !(test (query 200 reuseKb (: $p (D x) $tv))
    (: (conditioned a (by r2 (conjunction (given true) (by r1 (conjunction (given true) b))))
          (by r2 (conjunction (given false) (by r1 (conjunction (given false) b)))))
-      (D x) (STV 0.81 0.9047184791728005)))
+      (D x) (STV 0.8600000000000001 0.055342791051553444)))
 
 ;; With uncertain facts and both branches of each rule, the result is the
 ;; chain rule: P(C | A) = 0.5 * 0.9 + 0.5 * 0.3 = 0.6, P(A and C) = 0.48, and

@@ -469,7 +469,8 @@ and an inversion over it would assert every antecedent of every stored
 conclusion. A positive-only predicate has no prior: no inversion or
 completion is compiled onto a pattern with a conjunct of it, and a root of
 it gets no population prior. Nor does an STV rule over it read its rate: its
-negative branch is derived without the antecedent's rate, which would
+negative branch remains unknown, `(STV 0.5 0)`, unless explicit user rates
+permit its estimation. Reading the sampled antecedent rate would
 otherwise reconcile P(B | A) with P(A) = 1 and so pull it to P(B) (a refined
 `(Asserts s $x) → $x` rule learned at 0.798 applied at 0.666 in ChainerGame's
 conflicting sources). The declaration replaces the cut that gave a

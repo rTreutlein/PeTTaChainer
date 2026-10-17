@@ -1898,11 +1898,23 @@
 (: sk-own-value-step (-[det]-> (List SkeletonValue) SkeletonValue (List SkeletonValue)))
 (= (sk-own-value-step $kept $value) (if (sk-population-prior? $value) $kept (cons $value $kept)))
 
+;; Zero-confidence STVs are unknown placeholders, not competing estimates.
+;; Retain them only when nothing informative exists, so judgment scaffolds can
+;; still read an unsupported branch. A CTV may have one informative branch.
+(: sk-informed-step (-[det]-> (List SkeletonValue) SkeletonValue (List SkeletonValue)))
+(= (sk-informed-step $kept $value)
+   (case $value (
+      ((sk-val ($_type $_ctx $_proof (STV $_s $c)) $_ev $_deps)
+         (if (> $c 0.0) (cons $value $kept) $kept))
+      ($_other (cons $value $kept)))))
+
 (: sk-own-values (-[semidet]-> (List SkeletonValue) (List SkeletonValue)))
 (= (sk-own-values $values)
-   (case (fold-semidet sk-own-value-step () $values) (
-      (() $values)
-      ($own (fold-semidet sk-cons-step () $own)))))
+   (let* (($own (case (fold-semidet sk-own-value-step () $values) (
+                   (() $values)
+                   ($found (fold-semidet sk-cons-step () $found)))))
+          ($informed (fold-flat sk-informed-step () $own)))
+      (if (== $informed ()) $own (fold-semidet sk-cons-step () $informed))))
 
 (: sk-premise-value (-[semidet]-> Bool SkeletonValue SkeletonValue))
 (= (sk-premise-value $priors $value) (if $priors $value (if (sk-population-prior? $value) sk-none $value)))

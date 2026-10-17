@@ -487,6 +487,13 @@ uncertainty enters each proof's confidence.
 
 A key's value merges its stored facts and one view per row:
 
+- zero-confidence STVs are unknown placeholders. When an informative view
+  exists, they take no part in containment, prior selection, or combination;
+  when none exists, internal judgment scaffolds can still read them. An STV
+  implication supplies only its positive branch. Its negative branch needs
+  informative reconciled base rates and a possible negative antecedent;
+  otherwise it is `(STV 0.5 0)`. Modus ponens must preserve zero confidence
+  when selecting an unknown branch, without its numerical confidence floor;
 - an identical proof pools its evidence; a marginal projection gives way to its
   full proof, and a settled step to its complete step, before the views merge,
   so neither stands for its full proof in a merge with a third view;

@@ -108,7 +108,10 @@ class OverlayChecks:
             "'remove-data-rows!'('&sk_merged',[_H,['sk-key',['History',_T],[Kb,'MAIN','Nil']],_D,_V],_)",
             {"Kb": self.h.kb},
         )
-        self.assertAlmostEqual(self.strength("(Assuming (Action t2) (Outcome t2))"), expected)
+        # The positive-only outcome rule has an unknown negative branch:
+        # P(Outcome) = P(History) + (1-P(History))/2 under the action.
+        self.assertAlmostEqual(self.strength("(Assuming (Action t2) (Outcome t2))"),
+                               expected + (1 - expected) * .5)
         local = janus.query_once("overlay_probe_local(Rows)")["Rows"]
         history = [row for space, head, row in local if space in ("&sk_latest", "&sk_view", "&sk_merged") and head == "History"]
         self.assertEqual(history, [])

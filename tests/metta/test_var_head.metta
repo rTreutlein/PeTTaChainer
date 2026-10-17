@@ -6,11 +6,12 @@
 
 ;; The STV rule states P(Friend(y,x) | Symmetric(Friend) and Friend(x,y)).
 ;; Its open predicate population stays generic instead of being bound to
-;; Inheritance while computing base rates; the conditional strength is 0.9.
+;; Inheritance while computing base rates; its positive conditional is 0.9.
+;; With no complementary evidence the ground view is .81*.9 + .19*.5=.824.
 ;; Ground and open queries retain their distinct population/evidence confidence.
 !(test
    (query 100 kb (: $prf (Friend alice bob) $tv))
-   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.9 0.032198327769805836)))
+   (: (by sum_rel (conjunction tag f1)) (Friend alice bob) (STV 0.8240000000000001 0.018452857158991698)))
 
 !(test
    (query 100 kb (: $prf (Friend alice $x) $tv))

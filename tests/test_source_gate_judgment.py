@@ -37,9 +37,9 @@ class TestSourceGateJudgment(unittest.TestCase):
     def test_observed_gate_fresh_and_warm(self):
         for wrapped in (False, True):
             for tv, strength, confidence in (
-                ('(STV 1 1)', 1, 0.999700089698173),
+                ('(STV 1 1)', 1, 0.9998000399670116),
                 ('(STV 0.8 0.6)', 0.8,
-                 0.48979591812688417 if wrapped else 0.5454545451564665),
+                 0.4897959182395719 if wrapped else 0.5454545452961622),
             ):
                 for individual in ('$x', 'a'):
                     with self.subTest(wrapped=wrapped, tv=tv, individual=individual):
@@ -62,7 +62,7 @@ class TestSourceGateJudgment(unittest.TestCase):
                     h.add_atoms_no_check([self.source(wrapped, '(STV 0.8 0.6)')])
                     statement = f'(Implication (A {individual}) (C {individual}))'
                     gated = f'(Implication (AcceptSource S) {statement})'
-                    confidence = 0.48979591812688417 if wrapped else 0.5454545451564665
+                    confidence = 0.4897959182395719 if wrapped else 0.5454545452961622
                     for repeat in range(2):
                         with self.subTest(repeat=repeat):
                             self.assertEqual(self.answers(h, statement), [])

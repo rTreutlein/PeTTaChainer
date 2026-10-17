@@ -16,7 +16,9 @@
       ($_other false))))
 
 !(compileadd quantifiedKb (: src_flood_inspection (Implication (Exists ($event) (And (Member $site Facility) (RecordedFlood $site $event) (During $event S1))) (RequiresInspectionDuring $site S1)) (STV 1 1)))
-!(compileadd quantifiedKb (: src_inspection_pause (Implication (RequiresInspectionDuring $site S1) (MustPauseProductionDuring $site S1)) (STV 1 1)))
+;; State the negative branch too: the retirement/re-addition control below
+;; propagates an uncertain inspection probability through this identity rule.
+!(compileadd quantifiedKb (: src_inspection_pause (Implication (RequiresInspectionDuring $site S1) (MustPauseProductionDuring $site S1)) (CTV (STV 1 1) (STV 0 1))))
 !(test (collapse (query 500 quantifiedKb (: $p (RecordedFlood $site $event) $tv))) ())
 !(test (collapse (query 500 quantifiedKb (: $p (During $event S1) $tv))) ())
 !(test (collapse (query 500 quantifiedKb (: $p (Member $event Flood) $tv))) ())

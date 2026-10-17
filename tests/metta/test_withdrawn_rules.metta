@@ -16,7 +16,7 @@
 !(test (let (: $proof $_statement (STV $strength $_confidence))
                (query 40 retireKb (: $p (D warm) $tv))
             (data $proof $strength))
-   ((by downstream (by alternative c)) 0.2))
+   ((by downstream (by alternative c)) 0.6000000000000001))
 ;; The old open waiter must never build a row for a new ground time point.
 !(compileadd retireKb (: a-fresh (A fresh) (STV 1 1)))
 !(compileadd retireKb (: c-fresh (C fresh) (STV 1 1)))

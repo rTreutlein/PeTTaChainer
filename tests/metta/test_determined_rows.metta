@@ -57,4 +57,4 @@
 !(test (let (: $p $t $tv) (query 50 givenKb (: $p (RuleTruth (Implication (A $x) (C $x))) $tv)) $tv)
    (STV 0.25065968444186937 0.8003936642103078))
 !(test (query 50 givenKb (: $p (C case) $tv))
-   (: (by hc acase) (C case) (STV 0.25065968444186937 0.8003936640905344)))
+   (: (by hc acase) (C case) (STV 0.25065968444186937 0.8003936640241669)))

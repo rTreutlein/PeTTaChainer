@@ -33,7 +33,7 @@ class TestAssumingExists(unittest.TestCase):
                     row = rows[0]
                     values.append(row.tv)
                     self.assertEqual(row.tv[:2], ['STV', 1.0])
-                    self.assertAlmostEqual(row.tv[2], 0.7497790137970917)
+                    self.assertAlmostEqual(row.tv[2], 0.782496647317536)
                     proof = h.expand_proof(row.proof)
                     for token in ('assuming', 'src_event', 'src_rule'):
                         self.assertIn(token, proof)

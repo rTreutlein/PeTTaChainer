@@ -15,13 +15,13 @@
 !(compileadd givenKb (: src2 (Source s2) (STV 1 1)))
 !(compileadd givenKb (: sig1 (Signal s1) (STV 0.9 0.5)))
 !(compileadd givenKb (: sig2 (Signal s2) (STV 0.6 0.4)))
-!(test (query 100 givenKb (: $p (Alarm) $tv)) (: (merge/revision (by alarm (conjunction src1 sig1)) (by alarm (conjunction src2 sig2))) (Alarm) (STV 0.7324021821071247 0.7477210962591324)))
+!(test (query 100 givenKb (: $p (Alarm) $tv)) (: (merge/revision (by alarm (conjunction src1 sig1)) (by alarm (conjunction src2 sig2))) (Alarm) (STV 0.8509227749064925 0.058908118539918355)))
 !(compileadd estimatedKb (: alarm (Implication (And (Source $s) (Signal $s)) (Alarm)) (STV 0.9 0.99)))
 !(compileadd estimatedKb (: src1 (Source s1) (STV 1 1)))
 !(compileadd estimatedKb (: src2 (Source s2) (STV 1 1)))
 !(compileadd estimatedKb (: sig1 (Signal s1) (STV 0.9 0.5)))
 !(compileadd estimatedKb (: sig2 (Signal s2) (STV 0.6 0.4)))
-!(test (query 100 estimatedKb (: $p (Alarm) $tv)) (: (merge/revision (by alarm (conjunction src1 sig1)) (by alarm (conjunction src2 sig2))) (Alarm) (STV 0.7319116913362645 0.746319571972295)))
+!(test (query 100 estimatedKb (: $p (Alarm) $tv)) (: (merge/revision (by alarm (conjunction src1 sig1)) (by alarm (conjunction src2 sig2))) (Alarm) (STV 0.850919813437148 0.05888933033515643)))
 
 ;; Two sources report one storm through the same rule, which states both
 ;; likelihoods with confidence 1. Given the storm the reports are independent,

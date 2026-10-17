@@ -12,19 +12,19 @@
    (query 300 projectedKb (: $p
       (Implication (AcceptSource S) (Implication (A $x) (C $x))) $value))
    $tv)
-   (STV 1.0 0.999700089698173))
+   (STV 1.0 0.9998000399670116))
 !(test (let (: (conditional-implication
       (marginal-proj 1 (by
          (consequent-projection $source $child rule) (conjunction $gate $a)))) $type $tv)
    (query 300 projectedKb (: $p
       (Implication (AcceptSource S) (Implication (A $x) (C $x))) $value))
    $tv)
-   (STV 1.0 0.999700089698173))
+   (STV 1.0 0.9998000399670116))
 ;; A bound instance also works; $x remains the inner rule's variable.
 !(test (let (: (conditional-implication $proof) $type $tv)
    (query 300 projectedKb (: $p
       (Implication (AcceptSource S) (Implication (A a) (C a))) $value)) $tv)
-   (STV 1.0 0.999700089698173))
+   (STV 1.0 0.9998000399670116))
 
 ;; Both controls from the report still compose with ordinary And elimination.
 !(compileadd unwrappedKb (: rule

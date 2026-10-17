@@ -35,12 +35,12 @@
 !(compileadd relKb (: f4 (Opposite A1 C2) (STV 1.0 0.9)))
 
 !(begin-backward-query-metrics!)
-!(test (let (: $p $t $tv) (query 25 relKb (: $p (Same C1 B1) $tv)) $tv) (STV 1.0 0.8999998721576475))
+!(test (let (: $p $t $tv) (query 25 relKb (: $p (Same C1 B1) $tv)) $tv) (STV 1.0 0.7999722183266144))
 !(test (<= (query_metric_value row-computes) (+ (* 2 25) (* 8 (near-root-items)))) true)
 
 ;; A query without budget has no allowance and still brings what its root
 ;; reads current: a new fact reaches it from the reserve alone.
 !(compileadd relKb (: f5 (Same C1 D1) (STV 1.0 0.9)))
 !(begin-backward-query-metrics!)
-!(test (let (: $p $t $tv) (query 0 relKb (: $p (Same D1 C1) $tv)) $tv) (STV 1.0 0.8999999461940172))
+!(test (let (: $p $t $tv) (query 0 relKb (: $p (Same D1 C1) $tv)) $tv) (STV 1.0 0.8571343532239725))
 !(test (<= (query_metric_value row-computes) (* 8 (near-root-items))) true)

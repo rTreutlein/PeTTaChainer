@@ -110,9 +110,14 @@
 (= (CTVModusPonensFormula (CTV $pos $_neg) $ctv) (CTVModusPonensFormula $pos $ctv))
 
 (= (CTVModusPonensFormula (STV $as $ac) (CTV (STV $bs_a $bc_a) (STV $bs_na $bc_na)))
-   (STV
-      (+ (* $bs_a $as) (* $bs_na (- 1 $as)))
-      (ideal-mp-confidence $as $ac $bs_a $bc_a $bs_na $bc_na)))
+   ;; Selecting an unknown branch cannot manufacture evidence through the
+   ;; numerical floor in ideal-conf-from-var. Keep it neutral for later merges.
+   (if (if (<= $as 0.0) (<= $bc_na 0.0)
+           (if (>= $as 1.0) (<= $bc_a 0.0) false))
+      (STV 0.5 0.0)
+      (STV
+         (+ (* $bs_a $as) (* $bs_na (- 1 $as)))
+         (ideal-mp-confidence $as $ac $bs_a $bc_a $bs_na $bc_na))))
 
 ;; Modus ponens whose consequent is itself an implication, A → (X → Y), read
 ;; as its exported form (A ∧ X) → Y: the derived X → Y keeps the rule's
@@ -423,7 +428,7 @@
 
 (: normalize-stv
    (-[det]-> (| STVType NoEvidenceType) STVType))
-(= (normalize-stv no-evidence) (STV 0.0 0.0))
+(= (normalize-stv no-evidence) (STV 0.5 0.0))
 (= (normalize-stv (STV $s $c)) (STV $s $c))
 
 ; TV is the nominal domain shared by STV, CTV, and no-evidence. The result is a
@@ -442,10 +447,14 @@
              ((stv-triple (STV $sa $ca) (STV $sb $cb) (STV $sab $cab))
                 (CTV
                    (STV $sab $cab)
-                   (STV
-                      (if (>= $sa 1.0) $sb
-                         (max 0.0 (min 1.0 (/ (- $sb (* $sa $sab)) (- 1.0 $sa)))))
-                      (* 0.25 (min $ca (min $cb $cab))))))))))))
+                   ;; Total probability determines the missing branch only
+                   ;; while all reconciled estimates have evidence and not A
+                   ;; is possible. An absent/drained rate supplies no update.
+                   (if (if (>= $sa 1.0) true (<= (min $ca (min $cb $cab)) 0.0))
+                      (STV 0.5 0.0)
+                      (STV
+                         (max 0.0 (min 1.0 (/ (- $sb (* $sa $sab)) (- 1.0 $sa))))
+                         (* 0.25 (min $ca (min $cb $cab)))))))))))))
 
 ; Uniform 1/N node prior for individuals, where N is the number of distinct
 ; subjects observed. The fold collects each matched subject; UniformPriorTv

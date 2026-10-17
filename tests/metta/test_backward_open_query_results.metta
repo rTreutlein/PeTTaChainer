@@ -104,4 +104,4 @@
 ;; about 4 s).
 !(compileadd numKb (: r9 (Implication (Num $x) (Num (succ $x))) (STV 1.0 0.9)))
 !(compileadd numKb (: f10 (Num 1) (STV 1.0 0.9)))
-!(test (query 100 numKb (: $p (Num (succ 1)) $tv)) (: (by r9 f10) (Num (succ 1)) (STV 1.0 0.8181610802590104)))
+!(test (query 100 numKb (: $p (Num (succ 1)) $tv)) (: (by r9 f10) (Num (succ 1)) (STV 1.0 0.8571343532239725)))
