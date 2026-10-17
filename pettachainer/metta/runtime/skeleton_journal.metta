@@ -291,7 +291,7 @@
 (: &sk_queued (SpaceOf (Number Number Number)))
 (: &ctx_sk_queued (SpaceOf (Number Number Number)))
 !(bind! &sk_queued (new-space))
-;; fold key hash -> hash of a member key that changed since the fold's check
+;; fold key hash -> pending change cause (preserved through forced propagation)
 (: &sk_fold_pending (SpaceOf (Number Number)))
 (: &ctx_sk_fold_pending (SpaceOf (Number Number)))
 !(bind! &sk_fold_pending (new-space))
@@ -374,7 +374,7 @@
 (: &sk_score (SpaceOf (Number SkPattern Number)))
 !(bind! &sk_score (new-space))
 ;; rows one evaluation must recompute for a change from outside it, with the
-;; changed keys that forced them, and which row was already forced by which
+;; causes that forced them, and which row was already forced by which cause
 (: &sk_forced (SpaceOf (Number Number Number)))
 (: &ctx_sk_forced (SpaceOf (Number Number Number)))
 !(bind! &sk_forced (new-space))

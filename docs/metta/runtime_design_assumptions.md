@@ -653,10 +653,16 @@ for from its allowance after the others (see below). A recomputed view is kept o
 support, a dependency the row never had; the keys a row can depend on are
 finite, so evaluation ends even though inverted rules make real skeletons
 cyclic. A change from outside the rows forces each reader once per evaluation
-and per causing key, and a forced reader whose value changes passes the change
-on to its own readers the same way, so a refined fold reaches the roots. A row
-never computed is not forced: its first view changes its key whatever caused
-it.
+and per cause, and a forced reader whose value changes passes that same cause
+on to its own readers, including through folds. A member change admitted for
+new support starts a distinct cause when it reaches a fold, so a later
+refinement of the same member can reach the roots in the same evaluation.
+Forced propagation never renews the cause at a fold: finite support growth
+therefore still bounds forcing around feedback cycles. Causes are scalar
+tokens, and creating and forwarding one needs no history scan or reevaluation.
+Provenance-only refreshes retain their causes for later folds while ordinary
+row readers keep the view-change admission test. A row never computed is not
+forced: its first view changes its key whatever caused it.
 
 ### Folds and base rates
 

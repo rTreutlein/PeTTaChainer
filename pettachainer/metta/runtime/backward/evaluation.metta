@@ -3678,8 +3678,9 @@
 ;; to an older admissible version or a merge's dominance flips, keeps the view
 ;; it had. A change from outside the rows (a fact, a removed query-local row, a
 ;; fold member) makes each reader recompute without that test, once per
-;; evaluation for each key that caused it, and a reader whose value changes
-;; passes it on to its own readers the same way.
+;; evaluation for each cause, and a reader whose value changes passes the
+;; same cause on through rows and folds. A newly supported member change
+;; starts a distinct cause, so later refinements can reach the same readers.
 
 ;; The row stored under a key hash and a row hash, as an item of the work.
 (: sk-row-item-at (-[nondet]-> Number Number SkeletonItem))
@@ -3725,16 +3726,18 @@
 ;; What changed for a key's readers: a new row view with its dependencies,
 ;; the same with the key's open merged value unchanged and the dependencies of
 ;; that value before and after, or a change from outside the rows (a fact, a
-;; removed query-local row, fold members) caused by the keys with these hashes,
-;; with the dependencies of the new view.
+;; removed query-local row, fold members), with the dependencies of the new
+;; view. View-only notifications retain incoming causes too: a proof-only
+;; refresh does not force ordinary readers, but must not start a fresh cause
+;; if it reaches a fold. Empty causes identify an unforced supported change.
 (: SkeletonChange Type)
-(: sk-view-change (-[det]-> Number SkeletonChange))
-(: sk-value-same (-[det]-> Number Number SkeletonChange))
+(: sk-view-change (-[det]-> Number (List Number) SkeletonChange))
+(: sk-value-same (-[det]-> Number Number (List Number) SkeletonChange))
 (: sk-outside-change (-[det]-> (List Number) Number SkeletonChange))
 
 (: sk-change-deps (-[det]-> SkeletonChange Number))
-(= (sk-change-deps (sk-view-change $deps)) $deps)
-(= (sk-change-deps (sk-value-same $deps $_merged-deps)) $deps)
+(= (sk-change-deps (sk-view-change $deps $_causes)) $deps)
+(= (sk-change-deps (sk-value-same $deps $_merged-deps $_causes)) $deps)
 (= (sk-change-deps (sk-outside-change $_causes $deps)) $deps)
 
 ;; Every fact premise on the key asks for an open pattern.
@@ -3765,9 +3768,9 @@
 (= (sk-reader-affected? $key $change (sk-row-item $_seq $khash $_rkey $_rhash (sk-row $ident $concl $premises $s)))
    (case $change (
       ((sk-outside-change $_causes $_deps) true)
-      ((sk-view-change $deps)
+      ((sk-view-change $deps $_causes)
          (if (deps-has? $deps $khash) (sk-reads-closed? $key (sk-row $ident $concl $premises $s)) true))
-      ((sk-value-same $deps $merged-deps)
+      ((sk-value-same $deps $merged-deps $_causes)
          (if (deps-has? $deps $khash) (sk-reads-closed? $key (sk-row $ident $concl $premises $s))
             (if (deps-has? $merged-deps $khash) true
                (if (fold-semidet (sk-reads-open? $key) true $premises) false true)))))))
@@ -3805,7 +3808,7 @@
    (if (context-propagate? $key)
    (let* (($hash (index-hash $key))
           ($_mining (case $change (
-             ((sk-value-same $_deps $_merged-deps) ())
+             ((sk-value-same $_deps $_merged-deps $_causes) ())
              ($_changed (hm-screen-changed! $hash $key)))))
           ($folds
              (collapse (match &sk_use ($hash $stored $fold)
@@ -3827,6 +3830,9 @@
 ;; instance fold no query needs keeps its view and readers: the evaluation
 ;; brings it current at its end (sk-instance-checks!). A check queued for this
 ;; pass is also queued for the next, in case this pass's check already ran.
+;; Supported changes start fresh causes; forced changes retain their incoming
+;; causes across the fold. Retagging a forced change by the immediate member
+;; would either suppress a later refinement or renew feedback around a cycle.
 (: sk-check-seq (-[det]-> Number))
 (= (sk-check-seq) 1000000000000000000000000)
 
@@ -3844,7 +3850,7 @@
    (let $hash (index-hash $fold)
       (if (if (deps-has? (sk-change-deps $change) $hash) true
              (case $change (
-                ((sk-value-same $_deps $merged-deps)
+                ((sk-value-same $_deps $merged-deps $_causes)
                    (if (deps-has? $merged-deps $hash) false
                       (if (sk-instance-fold-key? $fold) false (sk-rate-fold? $fold))))
                 ($_other false))))
@@ -3854,17 +3860,22 @@
       (if (if (sk-needed? $hash $fold) false
              (let $_stale (if (sk-instance-fold-key? $fold) () (sk-stale-fold! $fold)) true))
          (sk-work $todo $next)
-         (let* (($mhash (index-hash $member))
-                ($_pending (context-add! &sk_fold_pending ($hash $mhash)))
+         (let* (($incoming (case $change (
+                   ((sk-outside-change $propagated $_deps) $propagated)
+                   ((sk-view-change $_deps $propagated) $propagated)
+                   ((sk-value-same $_deps $_merged $propagated) $propagated))))
+                ($causes (if (== $incoming ())
+                   (cons (- 0 (+ 2 (next-search-id sk_change_cause))) ()) $incoming))
+                ($_pending (foreach-flat (sk-fold-pending! $hash) $causes))
                 ($check (sk-fold-check $hash $fold)))
             (if (sk-queue-new? $pass $check) (sk-work (add_to_heap $todo (sk-check-seq) $check) $next)
                (if (sk-queue-new? (+ $pass 1) $check) (sk-work $todo (add_to_heap $next (sk-check-seq) $check))
                   (sk-work $todo $next))))))))))
 
-;; A row is forced once per evaluation by each changed key: a fold's readers
-;; follow its members as they change, and a fold feeding back into its own
-;; members still ends. A row never computed is not forced: its first view
-;; changes its key whatever caused it.
+;; A row is forced once per evaluation by each cause. Supported changes are
+;; finite, and forced propagation never creates a new cause, even through a
+;; fold, so feedback still ends. A row never computed is not forced: its first
+;; view changes its key whatever caused it.
 (: sk-force-cause! (-[det]-> Number Number Number Atom))
 (= (sk-force-cause! $khash $rhash $cause)
    (if (space-row-present? &ctx_sk_forced_used ($khash $rhash $cause)) ()
@@ -3968,7 +3979,7 @@
                   (if (if (if $first true $forced)
                          (case $key (((sk-key $type $kbctx) (complete-statement? $type $kbctx)) ($_fold false)))
                          false)
-                     (sk-key-changed $pass $order (if $forced (sk-outside-change $causes 0) (sk-view-change 0)) $work $key)
+                     (sk-key-changed $pass $order (if $forced (sk-outside-change $causes 0) (sk-view-change 0 ())) $work $key)
                      $work))))
          ($_view
             (let $latest (sk-latest-view $hash $key $rhash)
@@ -3991,20 +4002,21 @@
                   (sk-key-changed $pass $order
                      (if (if $forced (not (sk-same-view? $new $latest)) false)
                         (sk-outside-change $causes $deps)
-                        (sk-value-change $hash $key $deps $before))
+                        (sk-value-change $hash $key $deps $causes $before))
                      $work $key)))))))))
 
 ;; An unchanged open merged value is known only when it was cached before.
-(: sk-value-change (-[semidet]-> Number SkeletonKey Number (List SkeletonMerged) SkeletonChange))
-(= (sk-value-change $hash $key $deps $before)
+;; Keep a provenance-only refresh's causes without forcing its row readers.
+(: sk-value-change (-[semidet]-> Number SkeletonKey Number (List Number) (List SkeletonMerged) SkeletonChange))
+(= (sk-value-change $hash $key $deps $causes $before)
    (case $before (
-      (() (sk-view-change $deps))
+      (() (sk-view-change $deps $causes))
       ((cons (sk-merged $_h $_k $old-deps $old-value) $_rest)
          (case (sk-open-value $hash $key sk-any-filter) (
             ((sk-merged $_h2 $_k2 $new-deps $new-value)
                (if (=alpha $old-value $new-value)
-                  (sk-value-same $deps (deps-union $old-deps $new-deps))
-                  (sk-view-change $deps)))))))))
+                  (sk-value-same $deps (deps-union $old-deps $new-deps) $causes)
+                  (sk-view-change $deps $causes)))))))))
 
 ;; Works off the queued rows and returns the last pass. A row a query needs
 ;; that reads a fold the stale cascade reached meanwhile (the fold went stale
@@ -4061,7 +4073,7 @@
                       ($_retry (if $settled true (context-add! &sk_branch_wanted $request)))
                       ($_ready
                          (if (not (sk-same-view? $built $incumbent))
-                            (let* (($cause (- 0 (+ 2 (next-search-id sk_branch_ready))))
+                            (let* (($cause (- 0 (+ 2 (next-search-id sk_change_cause))))
                                    ($_readers (collapse (fold-semidet (sk-branch-ready-step $cause $exclude) ()
                                (append-flat (sk-readers $key)
                                   (collapse (match &ctx_sk_stale_reader ($hash $stored $reader-hash $reader-row)
@@ -4553,7 +4565,7 @@
          (let* (($_readers (sk-need-closer! 0 (alpha_unique_keys (fold-flat sk-fold-reader-key-step () $readers))))
                 ($_fold (sk-need-closer! 1 (cons $fold ())))
                 ($_members (sk-need-closer! 2 $members))
-                ($_causes (foreach-flat (sk-fold-pending! $hash) $members)))
+                ($_causes (foreach-flat (sk-fold-pending! $hash) (map-flat index-hash $members))))
             (cons (sk-fold-check $hash $fold) $checks)))))
 
 ;; Keys needed again at a depth closer to a root than they were, so their
@@ -4570,9 +4582,8 @@
 (= (sk-need-closer! $depth $keys)
    (let $_unneeded (fold-flat (sk-unneed-deeper! $depth) () $keys) (sk-need-keys! $depth $keys)))
 
-(: sk-fold-pending! (-[det]-> Number SkeletonKey Atom))
-(= (sk-fold-pending! $hash $member)
-   (let* (($mhash (index-hash $member)) ($_pending (context-add! &sk_fold_pending ($hash $mhash)))) ()))
+(: sk-fold-pending! (-[det]-> Number Number Atom))
+(= (sk-fold-pending! $hash $cause) (context-add! &sk_fold_pending ($hash $cause)))
 
 ;; Rows and key merges waiting for conditioning are paid for from what the
 ;; evaluation allowance has left: nearest a root first, then cheapest, then

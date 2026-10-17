@@ -251,8 +251,8 @@
 !(test
    (let* (($fold (sk-fold (rateSameKb (Delayed d $_x) extract-tv (BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv)))
           ($member (sk-key (Delayed d h1) (rateSameKb MAIN Nil)))
-          ($_same (sk-fold-changed 0 0 $member (sk-value-same 0 0) (sk-work (empty_heap) (empty_heap)) $fold))
+          ($_same (sk-fold-changed 0 0 $member (sk-value-same 0 0 ()) (sk-work (empty_heap) (empty_heap)) $fold))
           ($after-same (collapse (match &sk_rate_dirty ($_h $_mh $_f $member) taken)))
-          ($_view (sk-fold-changed 0 0 $member (sk-view-change 0) (sk-work (empty_heap) (empty_heap)) $fold)))
+          ($_view (sk-fold-changed 0 0 $member (sk-view-change 0 ()) (sk-work (empty_heap) (empty_heap)) $fold)))
       ($after-same (collapse (match &sk_rate_dirty ($_h2 $_mh2 $_f2 $member) taken))))
    (() (taken)))

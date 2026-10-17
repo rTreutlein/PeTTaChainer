@@ -8,6 +8,20 @@ from pettachainer import PeTTaChainer
 
 
 class HistoryIndependenceTests(unittest.TestCase):
+    def assert_quiet_repeats(self, h, goal, expected):
+        h.set_query_metrics(True)
+        counters = ('branch_builds', 'row_computes', 'conditioned_evaluations', 'conditions_unpaid')
+        for _ in range(16):
+            self.assertEqual(h.query(goal, steps=5000, timeout_sec=0), expected)
+            if all(h.last_query_metrics()[counter] == 0 for counter in counters):
+                break
+        else:
+            self.fail(f'Cycle did not become quiet: {h.last_query_metrics()}')
+        for _ in range(3):
+            self.assertEqual(h.query(goal, steps=5000, timeout_sec=0), expected)
+            for counter in counters:
+                self.assertEqual(h.last_query_metrics()[counter], 0, (counter, h.last_query_metrics()))
+
     def test_c1_cold_and_warm_have_both_independent_leaves(self):
         expected = ('(: (merge/revision xf (by (no_inverse bx) (by (no_inverse mb) mf))) '
                     '(X a) (STV 1.0 0.888849375588311))')
@@ -74,6 +88,7 @@ class HistoryIndependenceTests(unittest.TestCase):
                         for i in range(size):
                             h.query(f'(: $p (P{i} a) $tv)', steps=200, timeout_sec=0)
                     self.assertEqual(h.query('(: $p (P0 a) $tv)', steps=1000, timeout_sec=0), expected)
+                    self.assert_quiet_repeats(h, '(: $p (P0 a) $tv)', expected)
 
     def test_cycle_without_independent_support_does_not_revise_itself(self):
         for has_leaf in (False, True):
@@ -90,6 +105,7 @@ class HistoryIndependenceTests(unittest.TestCase):
             for budget in (200, 5000):
                 answer = h.query('(: $p (X a) $tv)', steps=budget, timeout_sec=0)
                 self.assertEqual(answer, ['(: xf (X a) (STV 1 0.8))'] if has_leaf else [])
+            self.assert_quiet_repeats(h, '(: $p (X a) $tv)', answer)
 
 
 if __name__ == '__main__':
