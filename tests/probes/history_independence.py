@@ -107,6 +107,43 @@ class HistoryIndependenceTests(unittest.TestCase):
                 self.assertEqual(answer, ['(: xf (X a) (STV 1 0.8))'] if has_leaf else [])
             self.assert_quiet_repeats(h, '(: $p (X a) $tv)', answer)
 
+    def test_truth_fold_feedback_keeps_its_cause_and_becomes_quiet(self):
+        # A truth fold reads beliefs as data. Reissuing a fresh cause on
+        # every trip through it would let this
+        # numerical feedback keep bypassing the finite-support guard.
+        rules = [
+            '(: (no_inverse total) (Implication '
+            '(And (FoldAllTruth (P $x) (STV $s $_c) $s 0.0 '
+            '(|-> ($acc $elem) (+ $acc $elem)) -> $sum) '
+            '(Compute / ($sum 2.0) -> $mean)) (Total)) '
+            '(CTV (STV $mean 1) (STV $mean 1)))',
+            '(: (no_inverse feedback) (Implication (Total) (P a)) '
+            '(CTV (STV 0.8 0.9) (STV 0.1 0.9)))',
+        ]
+        for order in itertools.permutations(rules):
+            with self.subTest(order=order):
+                h = PeTTaChainer()
+                h.add_atoms_no_check([
+                    '(: pa (P a) (STV 0.2 0.8))',
+                    '(: pb (P b) (STV 0.6 0.8))',
+                    *order,
+                ])
+                goal = '(: $p (Total) $tv)'
+                expected = ['(: (by (no_inverse total) (conjunction (foldall-proof pa pb) cpu)) '
+                            '(Total) (STV 0.4 0.9999000099990001))']
+                self.assertEqual(h.query(goal, steps=5000, timeout_sec=0), expected)
+                self.assert_quiet_repeats(h, goal, expected)
+
+                # Quiescence must not freeze the fold. A new independent
+                # member changes the total, then the feedback settles again.
+                h.add_atoms_no_check(['(: pc (P c) (STV 0.4 0.8))'])
+                answer = h.query_many_refs([goal], steps=5000)[0]
+                self.assertEqual(len(answer), 1)
+                self.assertAlmostEqual(answer[0].tv[1], 0.6)
+                updated = h.query(goal, steps=5000, timeout_sec=0)
+                self.assertIn('(foldall-proof pa pb pc)', updated[0])
+                self.assert_quiet_repeats(h, goal, updated)
+
 
 if __name__ == '__main__':
     unittest.main()

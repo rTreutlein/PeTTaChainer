@@ -95,7 +95,7 @@ context_store('&sk_given_granted',2).
 context_store('&sk_conditioning',2).
 context_store('&sk_refresh',2).
 context_store('&sk_restale',2).
-context_store('&sk_held',2).
+context_store('&sk_held',3).
 context_store('&sk_instance_changed',2).
 context_store('&sk_instance_checked',1).
 context_store('&sk_instance_tally',3).

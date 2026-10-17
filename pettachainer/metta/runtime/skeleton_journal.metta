@@ -426,8 +426,14 @@
 (: &sk_restale (SpaceOf (Number Number)))
 (: &ctx_sk_restale (SpaceOf (Number Number)))
 !(bind! &sk_restale (new-space))
-(: &sk_held (SpaceOf (Number Number)))
-(: &ctx_sk_held (SpaceOf (Number Number)))
+;; A deferred branch read holds its consumer only until that exact read is
+;; settled. Keep ordinary stale-input debt separate: branch settlement cannot
+;; discharge it.
+(: SkeletonHold Type)
+(: sk-stale-input SkeletonHold)
+(: sk-branch-hold (-[det]-> Number SkeletonKey Number (List Number) SkeletonHold))
+(: &sk_held (SpaceOf (Number Number SkeletonHold)))
+(: &ctx_sk_held (SpaceOf (Number Number SkeletonHold)))
 !(bind! &sk_held (new-space))
 
 ;; --- Query metrics ------------------------------------------------------------

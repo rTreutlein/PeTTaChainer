@@ -114,6 +114,49 @@ class ExclusionStateTests(unittest.TestCase):
             "[Excluded],Excluded,_Key,['sk-version',0,987602,_View],Rejected)",
         )
 
+    def test_branch_holds_require_compatible_settlement_and_preserve_stale_input_debt(self):
+        # An empty branch is a settled answer. It releases only its own hold;
+        # another exclusion context, unfinished work, or a stale input still
+        # needs a later computation. Invalidation after settlement also counts.
+        for fresh, compatible, stale_input, invalidate, expected in (
+            (True, True, False, False, []),
+            (True, False, False, False, ['true']),
+            (False, True, False, False, ['true']),
+            (True, True, True, False, ['true']),
+            (True, True, False, True, ['true']),
+        ):
+            with self.subTest(fresh=fresh, compatible=compatible, stale_input=stale_input, invalidate=invalidate):
+                result = janus.query_once(
+                    "_Reader=['sk-key',['HeldReader',Fresh,Compatible,StaleInput,Invalidate],[Kb,'MAIN','Nil']], "
+                    "'index-hash'(_Reader,_RH), _ReaderRow=987620, "
+                    "_Row=['sk-row',['sk-ident',-1,[],_Reader], "
+                    " [['HeldReader'],[Kb,'MAIN','Nil'],cpu,['STV',0.5,0.8]],[],_ReaderRow], "
+                    "assertz('&sk_row'(_RH,_Reader,_ReaderRow,_Row)), "
+                    "assertz('&sk_needed'(_RH,_Reader,0)), "
+                    "_Owner=['sk-key',['HoldOwner',Fresh,Compatible,StaleInput,Invalidate],[Kb,'MAIN','Nil']], "
+                    "'index-hash'(_Owner,_OH), 'index-hash'([_OH,987621],_Slot), "
+                    "_Input=['sk-key',['HoldInput',Fresh,Compatible,StaleInput,Invalidate],[Kb,'MAIN','Nil']], "
+                    "'sk-cache-branch!'(_Slot,_OH,_Owner,987621,[_Input],[987622],Fresh,'sk-none',_), "
+                    "(Compatible=true -> _Exclude=[987622] ; _Exclude=[]), "
+                    "'change-state!'(sk_holding,1,_), "
+                    "assertz('&sk_reading'(_RH,_Reader,_ReaderRow)), "
+                    "'sk-hold-branch-reader!'(_Slot,_Owner,987621,_Exclude,_), "
+                    "retractall('&sk_reading'(_RH,_Reader,_ReaderRow)), "
+                    "(StaleInput=true -> 'sk-stale-reader-step'(_Input,[], "
+                    " ['sk-row-item',_ReaderRow,_RH,_Reader,_ReaderRow,_Row],_) ; true), "
+                    "(Invalidate=true -> 'sk-invalidate-branches!'(_Input,_) ; true), "
+                    "'sk-stale-held!'(_), findall(true,'&sk_stale'(_RH,_ReaderRow),Stale), "
+                    "findall(true,'&sk_held'(_RH,_ReaderRow,_),Held), "
+                    "'sk-drop-row!'(_RH,_Reader,_ReaderRow,_Row,_)",
+                    {'Kb': self.h.kb, 'Fresh': 'true' if fresh else 'false',
+                     'Compatible': 'true' if compatible else 'false',
+                     'StaleInput': 'true' if stale_input else 'false',
+                     'Invalidate': 'true' if invalidate else 'false'},
+                )
+                self.assertTrue(result['truth'])
+                self.assertEqual(result['Stale'], expected)
+                self.assertEqual(result['Held'], [])
+
     def test_rejected_left_out_view_records_cut(self):
         self.h._call('set-rule-refinement', [f'{self.h.kb} true'])
         self.h.add_atoms_no_check([

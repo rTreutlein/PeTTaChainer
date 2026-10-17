@@ -364,6 +364,12 @@ indexed branch readers. A conditioning grant is scheduling state: a settled
 branch has already paid its own conditioning. A queued request that is
 already settled, or a rebuild identical to its cached incumbent, must not
 stale or reschedule readers.
+Deferred-read holds record the row and exact exclusion context they await.
+After evaluation, a compatible settled branch, including an empty one,
+discharges that hold. An unfinished or invalidated branch still holds its
+consumer. Ordinary stale-input holds are separate and cannot be discharged
+by branch settlement. Holds are checked before cleanup propagates staleness,
+so cleanup does not invalidate the very settlement that discharged them.
 
 On an unchanged KB, repeated queries with enough allowance must finish
 pending search, conditioning and branch refreshes, reach a stable answer,

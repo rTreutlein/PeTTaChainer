@@ -73,7 +73,7 @@
 (: sk-note-cuts! (-[det]-> (List Number) Atom))
 (: sk-excludes? (-[det]-> (List Number) Number Bool))
 (: sk-branch-excludes? (-[semidet]-> Number Bool))
-(: sk-hold-branch-reader! (-[det]-> SkeletonKey Atom))
+(: sk-hold-branch-reader! (-[det]-> Number SkeletonKey Number (List Number) Atom))
 (: sk-build-wanted! (-[semidet]-> Bool))
 (: sk-branch-ready-step (-[semidet]-> Number (List Number) Atom SkeletonItem Atom))
 (: sk-finish-branches! (-[semidet]-> Number Atom))
@@ -1642,16 +1642,17 @@
                                            (if (== (collapse (once (match &ctx_sk_branch_wanted ($slot $hash $wanted $rhash $exclude)
                                                      (if (=alpha $wanted $key) true (empty))))) ())
                                               (context-add! &sk_branch_wanted ($slot $hash $key $rhash $exclude)) ())))
-                                     ($_reader (sk-hold-branch-reader! $key)))
+                                     ($_reader (sk-hold-branch-reader! $slot $key $rhash $exclude)))
                                  (chainer-first-or sk-none (sk-branch-values $slot $key $rhash $exclude false))))))))))))))))
 
-(= (sk-hold-branch-reader! $key)
-   (let $_held (collapse (fold-semidet (sk-stale-reader-step $key) ()
-      (collapse (match &sk_reading ($reader-hash $reader-key $reader-row)
+(= (sk-hold-branch-reader! $slot $key $rhash $exclude)
+   (let $_held (collapse (match &sk_reading ($reader-hash $reader-key $reader-row)
          (match &sk_row ($reader-hash $stored-reader $reader-row (sk-row $ri $rc $rp $rs))
             (if (=alpha $stored-reader $reader-key)
-               (sk-row-item $rs $reader-hash $reader-key $reader-row (sk-row $ri $rc $rp $rs))
-               (empty)))))))
+               (if (if (== (search-id-value sk_holding) 1) (sk-needed? $reader-hash $reader-key) false)
+                  (context-add! &sk_held ($reader-hash $reader-row (sk-branch-hold $slot $key $rhash $exclude)))
+                  (sk-mark-stale! (sk-row-item $rs $reader-hash $reader-key $reader-row (sk-row $ri $rc $rp $rs))))
+               (empty)))))
       ()))
 
 (= (sk-excludes? $exclude $deps)
@@ -4470,20 +4471,27 @@
    (if (if (== (search-id-value sk_holding) 1) (sk-needed? $khash $key) false)
       (case $stale (
          ((sk-key $_type $_kbctx)
-            (if (space-row-present? &ctx_sk_held ($khash $rhash)) () (let $_row (context-add! &sk_held ($khash $rhash)) ())))
+            (if (space-row-present? &ctx_sk_held ($khash $rhash sk-stale-input)) ()
+               (let $_row (context-add! &sk_held ($khash $rhash sk-stale-input)) ())))
          ($_fold (if (space-row-present? &ctx_sk_restale ($khash $rhash)) () (let $_row (context-add! &sk_restale ($khash $rhash)) ())))))
       (sk-mark-stale! (sk-row-item $seq $khash $key $rhash $row))))
 (= (sk-stale-reader-step $_stale $_acc (sk-fold-check $hash $fold)) (sk-mark-stale! (sk-fold-check $hash $fold)))
 
-;; The rows a query held from the stale cascade go stale once it has read its
-;; answers, with what reads them.
+;; Release branch-only holds whose exact exclusion read settled. An empty
+;; branch settles too; an invalidated or unfinished branch still holds its
+;; consumer. Ordinary stale-input debt always survives branch settlement.
+;; Decide before the stale cascade invalidates other settled branches.
 (: sk-stale-held! (-[semidet]-> Atom))
 (= (sk-stale-held!)
    (let* (($_released (change-state! sk_holding 0))
           ($held
-             (collapse (match &ctx_sk_held ($khash $rhash)
-                (sk-row-item-at $khash $rhash))))
-          ($_taken (remove-data-rows! &sk_held (quote ($hkhash $hrhash)))))
+             (collapse (match &ctx_sk_held ($khash $rhash $reason)
+                (if (case $reason (
+                       (sk-stale-input true)
+                       ((sk-branch-hold $slot $key $row $exclude)
+                          (== (sk-branch-values $slot $key $row $exclude true) ()))))
+                   (sk-row-item-at $khash $rhash) (empty)))))
+          ($_taken (remove-data-rows! &sk_held (quote ($hkhash $hrhash $_reason)))))
       (foreach-flat sk-mark-stale! $held)))
 
 (= (sk-stale-key! $key)

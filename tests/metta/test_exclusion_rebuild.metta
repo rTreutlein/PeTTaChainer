@@ -104,7 +104,7 @@
           ($_budget (change-state! sk_eval_budget 0)))
       (match &sk_row ($xh $xkey $xr $row)
          (let* (($_unpaid (sk-row-view () () $xh $xkey $xr $row))
-                ($held (space-row-present? &sk_held ($xh $xr)))
+                ($held (space-row-present? &sk_held ($xh $xr $_reason)))
                 ($before (space-row-present? &sk_stale ($xh $xr)))
                 ($owner (match &sk_row ($bh $bkey $br $_brow)
                            (space-row-present? &sk_stale ($bh $br))))
