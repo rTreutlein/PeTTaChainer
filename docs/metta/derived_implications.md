@@ -418,9 +418,15 @@ its rule evidence and cannot revise as independent observations. No extra projec
 
 The outer gate still has to hold in the context applying the conditional.
 Querying it assumes that gate and the inner antecedent only in the judgment's
-private context. Wrong-source and gate-free queries remain unsupported;
-neither `(AcceptSource S)` nor `(C a)` becomes a main-context fact. Withdrawing
-the source also retires its projected support.
+private context. Without a stored gate, wrong-source and gate-free queries
+remain unsupported; neither `(AcceptSource S)` nor `(C a)` becomes a
+main-context fact. If `(AcceptSource S)` is stored as a fact, the gate-free
+judgment `(Implication (A $x) (C $x))` can borrow it as a world co-premise
+(tracker #45, supported by the #63 world-premise path). This holds for both
+the wrapped rule above and an unwrapped nested rule with an `And` consequent.
+The assumed A must still be necessary: a world-only derivation of C cannot
+establish this calculated judgment (#65). Querying it does not assert A or C
+in MAIN. Withdrawing the source also retires its projected support.
 
 ## Conjunction queries
 
@@ -538,3 +544,9 @@ and warm at 300 steps, a bound instance, both passing controls, wrong-source
 and gate-free queries, absence of categorical facts and answers, repeated
 conjunction/nested-implication layers, shared uncertain source evidence, both
 CTV branches, and withdrawal after warm queries.
+
+`tests/metta/test_source_gate_judgment.metta` and
+`tests/test_source_gate_judgment.py` cover #45: wrapped and unwrapped
+consequents, observed/absent/assumed gates, open and bound judgments, cold and
+warm reads, late gate addition, assumption necessity, MAIN isolation, and
+borrowed evidence identity.
