@@ -139,6 +139,7 @@
       (() (ev-set 0)))))
 
 (: proof-ref-negated? (-[det]-> Number Bool))
+(: proof-zero-likelihood? (-[det]-> Proof Bool))
 ;; cdr-atom exposes the erased proof representation as an untyped list. This
 ;; is the boundary that restores the semantic Proof brand to each raw child.
 (: proof-children (-[det]-> Expression (List Proof)))
@@ -152,7 +153,7 @@
       ($_other ()))))
 
 (: proof-term-leaf-head? (-[det]-> $head Bool))
-(= (proof-term-leaf-head? $head) (is-member $head (() fact-ev CPU STV CTV)))
+(= (proof-term-leaf-head? $head) (is-member $head (() fact-ev fact-source CPU STV CTV)))
 
 (: proof-term-children-mode
    (-[det]-> $mode Proof (List Proof)))
@@ -197,6 +198,8 @@
    (-[semidet]-> $mode Atom EvidenceSet))
 (= (proof-term-evidence $mode $prf)
    (case $prf (
+      ((zero-likelihood $source) (proof-term-evidence $mode $source))
+      ((fact-source $source-ev $_source) $source-ev)
       ((proof-ref $pid) (proof-ref-evidence $pid))
       ;; A shared subproof counts once, at its first occurrence.
       ((shared $_id $shared-proof) (proof-term-evidence $mode (brand Proof $shared-proof)))
@@ -301,6 +304,7 @@
       (if (is-var (car-atom $prf)) (brand Proof (car-atom $prf))
          (case $prf (
             ((negated $inner) (rule-evidence-head (brand Proof $inner)))
+            ((zero-likelihood $inner) (rule-evidence-head $inner))
             ;; Conditional consequent projections retain their source rule's
             ;; evidence and withdrawal identity, including repeated layers.
             ((consequent-projection $_source $_child $base)
@@ -392,11 +396,14 @@
 ;; a derived premise.
 (: application-facts (-[det]-> Atom (List Atom)))
 (= (application-facts $premise)
-   (if (is-expr $premise)
-      (case $premise (
-         ((cons conjunction $names) (if (leaf-names? (the (List Atom) $names)) (the (List Atom) $names) ()))
-         ($_other ())))
-      (cons $premise ())))
+   (let $source (sk-step-proof (brand Proof $premise))
+      (if (is-expr $source)
+         (case $source (
+            ((cons conjunction $names)
+               (let $sources (map-flat sk-step-proof (proof-children $names))
+                  (if (leaf-names? (the (List Atom) $sources)) (the (List Atom) $sources) ())))
+            ($_other ())))
+         (cons $source ()))))
 
 ;; The folds run over parameters, as the determinism checker requires.
 (: leaf-names? (-[det]-> (List Atom) Bool))

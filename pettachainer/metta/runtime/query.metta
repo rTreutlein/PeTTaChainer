@@ -83,6 +83,21 @@
          ($_ordinary $type)))
       $type))
 
+;; Fact provenance is internal. Reference answers keep their DAG references,
+;; while inline sources retain the same public proof names as expanded answers.
+(: public-query-proof (-[det]-> Proof Proof))
+(= (public-query-proof $proof)
+   (if (is-var $proof) $proof
+      (case $proof (
+         ((fact-source $_ev $source) (public-query-proof $source))
+         ((zero-likelihood $source) (public-query-proof $source))
+         ((proof-ref $_id) $proof)
+         ($_other
+            (if (is-expr $proof)
+               (brand Proof (cons (car-atom $proof)
+                  (map-flat public-query-proof (proof-children (cdr-atom $proof)))))
+               $proof))))))
+
 (: public-query-result (-[det]-> RuntimeResult RuntimeResult))
 (= (public-query-result $result)
    (case $result (
@@ -93,7 +108,7 @@
                (case (the TV $tv) (((CTV $pos $_neg) $pos) ($_other $tv))) $tv)
             (brand RuntimeResult
                (data (public-query-type $type)
-                  $kbctx $proof $answer-tv)))))))
+                  $kbctx (public-query-proof (brand Proof $proof)) $answer-tv)))))))
 
 (: present-query-plan-results
    (-[nondet]-> Bool (List (Number CompiledQueryGoal))

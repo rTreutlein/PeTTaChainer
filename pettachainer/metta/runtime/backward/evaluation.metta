@@ -132,14 +132,23 @@
 ;; A stored fact is its own evidence and depends on its own key. The fact a
 ;; forward run stored for a key carries its value's evidence and what that value
 ;; was derived through (see sk-forward-store!), and a frozen key's summary its
-;; value's evidence and the keys near it (forgetting.metta).
+;; value's evidence and the keys near it (forgetting.metta). Ordinary fact
+;; leaves keep their exact source evidence beside the inline proof: a later
+;; signed proof walk must never rebuild a scoped fact from its name alone.
 (: sk-leaf-view (-[det]-> Number SkFact SkeletonValue))
-(= (sk-leaf-view $hash $fact)
+(= (sk-leaf-view $hash ($type $scope $proof $tv))
+   (let $fact (data $type $scope $proof $tv)
    (case (collapse (once (match &sk_forward_stored ($hash $_key $fact $ev $deps) (sk-val $fact $ev $deps)))) (
       ((cons $stored $_rest) $stored)
       (() (case (collapse (once (match &sk_summary ($hash $_skey $fact $sev $sdeps) (sk-val $fact $sev $sdeps)))) (
              ((cons $summary $_more) $summary)
-             (() (sk-val $fact (leaf-evidence-for-result $fact) (sk-leaf-deps $hash $fact)))))))))
+             (() (let* (($ev (leaf-evidence-for-result $fact))
+                         ($scoped (case (evidence-entries $ev) (
+                            (((fact-ev $_source-scope $source-proof $_source-type))
+                               (assemble-runtime-fact $type $scope
+                                  (fact-source $ev $source-proof) $tv))
+                            ($_other $fact)))))
+                      (sk-val $scoped $ev (sk-leaf-deps $hash $fact)))))))))))
 
 ;; A frozen key's summary stands for its past, so it counts as a fact: kept
 ;; beside the rows the key gets later.
@@ -250,6 +259,14 @@
       ((factored-revision $prior $prior-tv $parts) (sk-prior-update $prior $prior-tv $parts))
       ($_other (sk-prior-update $proof (brand Proof (prior $tv)) ())))))
 
+;; An impossible likelihood rules the target out even if the remaining
+;; estimate shares evidence. Keep its confidence; shared evidence buys none.
+(: sk-zero-update? (-[det]-> SkFact SkFact Bool))
+(= (sk-zero-update? ($_type $_scope $proof $_tv) ($_ot $_os $_op $other-tv))
+   (if (proof-zero-likelihood? $proof)
+      (case $other-tv (((STV $s $_c) (not (sk-contradict? 0 (the Number $s)))) ($_other false)))
+      false))
+
 ;; The prior an observation's value was formed under, for an inversion or a
 ;; completion that reads the value as a likelihood ratio over it
 ;; (ObservationRatioFormula): the prior a view updates. A view updating
@@ -289,13 +306,17 @@
 ;; and the rule, whether its truth is given or an estimate (see
 ;; sk-merge-facts). A list of proofs is walked by recursion: the determinism
 ;; checker rejects a fold over Proof, a newtype of Atom.
+(: sk-witness-hash (-[det]-> Atom Number))
+(= (sk-witness-hash $proof)
+   (index-hash (case $proof (((fact-source $_ev $source) $source) ($_other $proof)))))
+
 (: sk-part-witnesses (-[det]-> Bool (List Proof) (List Number)))
 (= (sk-part-witnesses $_siblings ()) ())
 (= (sk-part-witnesses $siblings (cons $part $rest))
    (let* (($witness (car-atom (cdr-atom (sk-step-proof $part))))
           ($last-first (reverse (case $witness (((cons conjunction $proofs) $proofs) ($_one (cons $witness ()))))))
           ($read (the (List Atom) (if $siblings (sk-siblings (cdr-atom $last-first)) (cons (car-atom $last-first) ())))))
-      (append-flat (map-flat index-hash $read) (sk-part-witnesses $siblings $rest))))
+      (append-flat (map-flat sk-witness-hash $read) (sk-part-witnesses $siblings $rest))))
 
 ;; A compound sibling read off its parts, the Or of a completion's other
 ;; parts, reads each part as given.
@@ -344,7 +365,7 @@
    (if (complete-statement? $type $kbctx)
       (case (sk-step-proof $proof) (
          ((by $_rule $premise)
-            (map-flat index-hash (the (List Atom) (case $premise (
+            (map-flat sk-witness-hash (the (List Atom) (case $premise (
                ((cons conjunction $names) $names)
                ((settled $part) (cons $part ()))
                ($_one (cons $premise ())))))))
@@ -394,7 +415,7 @@
             (if (if $population-a (if $population-b false true) false)
                (sk-factored-merge (data $btype $bkbctx $proof-b $tv-b) $ev-b $deps-b (data $type $kbctx $proof-a $tv-a) $ev-a $deps-a $independent)
                (if (if (sk-contradict? (the Number $sa) (the Number $sb)) false
-                      (if (=alpha $base-a $base-b)
+                      (if (same-proof? $base-a $base-b)
                          (if (== $spa $spb) (if (== $cpa $cpb) (if (== $parts-a ()) false (if (== $parts-b ()) false (if (if $population-a (if $independent false true) false) false (not (sk-sources-meet? $parts-a $parts-b))))) false) false)
                          (if $population-b
                             (if (< $ca 1.0) $independent false)
@@ -721,6 +742,8 @@
                   (if $twins (sk-paired (sk-dependent-merge false $va $vb))
                   (if (not (== $factored sk-none)) (sk-paired $factored)
                      (if $siblings (sk-paired (sk-sibling-merge true $va $vb))
+                     (if (if $independent false (sk-zero-update? $a $b)) (sk-paired $va)
+                     (if (if $independent false (sk-zero-update? $b $a)) (sk-paired $vb)
                      (if $independent
                         (let* (($pooled (evidence-union $ev-a $ev-b))
                                ($deps (deps-union $deps-a $deps-b))
@@ -733,7 +756,7 @@
                         (if (if $a-in-b (if $b-in-a false true) false) (sk-paired $vb)
                            (if (if $b-in-a (if $a-in-b false true) false) (sk-paired $va)
                               (sk-overlap $shared (deps-union $deps-a $deps-b)
-                                 (sk-dependent-merge false $va $vb))))))))))))))))))
+                                 (sk-dependent-merge false $va $vb))))))))))))))))))))
 
 ;; Two derivations through different refined rules whose truths were folded
 ;; from the same samples, observing the same outcomes, are one estimate from
@@ -889,6 +912,11 @@
 (: sk-antecedent (-[semidet]-> Proof EvidenceSet ((List Atom) Number Bool)))
 (= (sk-antecedent $proof $ev)
    (case $proof (
+      ((fact-source $source-ev $_source)
+         (once (let* (($entries (evidence-entries $source-ev))
+                      ((fact-ev $ctx $source $type) (superpose $entries)))
+            (match &kb ($type $ctx $source (STV $s $_c))
+               (data (implication-side-conjuncts $type) $s true)))))
       ((proof-ref $pid)
          (once (match &proof_fact ($pid $type (STV $s $_c)) (data (implication-side-conjuncts (brand Statement $type)) $s true))))
       ((cons conjunction $parts)
@@ -1378,7 +1406,7 @@
 (: sk-lift-fact-step (-[det]-> Proof (List Evidence) Evidence (List Evidence)))
 (= (sk-lift-fact-step $proof $found $entry)
    (case $entry (
-      ((fact-ev $_kbctx $fact-proof $_type) (if (== $fact-proof $proof) (cons $entry $found) $found))
+      ((fact-ev $_kbctx $fact-proof $_type) (if (== $fact-proof (sk-step-proof $proof)) (cons $entry $found) $found))
       ($_rule $found))))
 
 ;; The determinism checker proves a fold over a parameter list.
@@ -2676,6 +2704,10 @@
 (: sk-proof-source (-[det]-> KBContext Proof (List SkeletonSource)))
 (= (sk-proof-source $scope $base)
    (case $base (
+      ((fact-source $source-ev $_source-proof)
+         (collapse (once (let* (($entries (evidence-entries $source-ev))
+                               ((fact-ev $source-scope $source $source-type) (superpose $entries)))
+            (match &kb ($source-type $source-scope $source $source-tv) (sk-source $source-type $source-tv))))))
       ((proof-ref $pid) (collapse (once (match &proof_fact ($pid $statement $tv) (sk-source $statement $tv)))))
       ($_leaf (collapse (once (match &kb ($statement $scope $base $tv) (sk-source $statement $tv))))))))
 
@@ -2697,7 +2729,7 @@
       ((sk-pool-part $base $_tv $_arity $_idxs $_marginal)
          (case $other (
             ((sk-pool-part $other-base $_other-tv $_other-arity $_other-idxs $_other-marginal)
-               (=alpha $base $other-base))
+               (same-proof? $base $other-base))
             ($_indep false))))
       ($_part-indep false))))
 
@@ -2713,7 +2745,7 @@
       ((sk-pool-part $base $tv $arity $idxs $marginal)
          (case $part (
             ((sk-pool-part $part-base $_part-tv $_part-arity $new-idxs $_part-marginal)
-               (if (=alpha $base $part-base)
+               (if (same-proof? $base $part-base)
                   (cons (sk-pool-part $base $tv $arity (list_to_set (append-flat $idxs $new-idxs)) $marginal) $rest)
                   (cons $head (sk-add-part $rest $part))))
             ($_indep-part (cons $head (sk-add-part $rest $part))))))
@@ -3648,6 +3680,21 @@
       ((CTV $_pos $_neg) (CTV (STV 0.0 0.0) (STV 0.0 0.0)))
       ($_other (STV 0.0 0.0)))))
 
+;; Only a likelihood with a certain zero branch can certify impossibility.
+;; The opposite branch must allow the observation; a zero prior, a rounded
+;; posterior endpoint, and an ordinary zero-strength fact certify nothing.
+(: sk-zero-likelihood-step (-[det]-> Bool SkPattern Bool))
+(= (sk-zero-likelihood-step $found $premise)
+   (if $found true
+      (case $premise (
+         ((CPU CTVBayesFormula ((STV $p $_pc) (CTV (STV $s $c) (STV $n $nc))) $_out)
+            (if (if (> (the Number $p) 0) (< (the Number $p) 1) false)
+               (if (if (<= (the Number $s) 0) (>= (the Number $c) 1) false)
+                  (> (the Number $n) 0)
+                  (if (if (<= (the Number $n) 0) (>= (the Number $nc) 1) false)
+                     (> (the Number $s) 0) false)) false))
+         ($_other false)))))
+
 (: sk-row-result (-[semidet]-> SkeletonRow SkeletonRowState SkeletonValue))
 (= (sk-row-result (sk-row $_ident ($type $kbctx $proof $tv) $premises $_seq) $state)
    (case $state (
@@ -3659,8 +3706,17 @@
                       (sk-assumed-false-application? $premises (brand Proof $full-proof)))))
                 ($value-tv (if $unsupported (sk-unsupported-tv $tv)
                    (sk-cover-tv (fold-semidet sk-fold-share-step 1 $fold-proofs) $tv)))
+                ($applied (sk-unwrap-proof $full-proof))
+                ($zero (if $unsupported false
+                   (case $value-tv (
+                      ((STV $s $_c)
+                         (if (<= $s 0)
+                            (case (sk-prior-update-of $applied $value-tv) (
+                               ((sk-prior-update $_base $_prior ()) false)
+                               ($_update (fold-semidet sk-zero-likelihood-step false $premises)))) false))
+                      ($_other false)))))
                 ($fact (assemble-runtime-fact $type $kbctx
-                   (sk-unwrap-proof $full-proof) $value-tv)))
+                   (if $zero (zero-likelihood $applied) $applied) $value-tv)))
             (sk-val $fact (if $unsupported (ev-set 0) (rule-result-evidence $fact $ev)) (deps-join $deps))))
       ($_failed sk-none))))
 

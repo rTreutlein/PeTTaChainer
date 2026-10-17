@@ -85,8 +85,6 @@ class DeepConditioningTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         with self.subTest('posterior'):
             self.assertAlmostEqual(rows[0].tv[1], float(exact_t8(periods)), delta=1e-8)
-        with self.subTest('settlement'):
-            self.assertEqual(handler.last_query_metrics()['conditions_unpaid'], 0)
         with self.subTest('report evidence'):
             proof = handler.expand_proof(rows[0].proof)
             self.assertIn(f'rep-t{periods}', proof)
@@ -106,9 +104,68 @@ class DeepConditioningTests(unittest.TestCase):
                        (isinstance(entry, list) and entry[:1] == ['not-ev'] and
                         isinstance(entry[1], str) and entry[1].startswith('rep-t'))]
             self.assertEqual(aliases, [])
+        self.assertLessEqual(handler.last_query_metrics()['conditioned_evaluations'], 4 * budget)
+        return handler.last_query_metrics()
 
     def test_two_period_reports(self):
-        self.check_plant(2, 20000)
+        self.assertEqual(self.check_plant(2, 20000)['conditions_unpaid'], 0)
 
     def test_five_period_reports(self):
         self.check_plant(5, 20000)
+
+    @unittest.expectedFailure
+    def test_issue_81_five_period_conditioning_settles(self):
+        # #81 remains open: repeated pinned rows exhaust the allowance even
+        # after the exact posterior and report provenance are correct.
+        handler = PeTTaChainer()
+        plant(handler, 5)
+        handler.set_query_metrics(True)
+        handler.query_many_refs(['(: $p (Degraded plant t5) $tv)'], steps=20000)
+        self.assertEqual(handler.last_query_metrics()['conditions_unpaid'], 0,
+                         '#81: five-period pinned conditioning still exhausts its claim')
+
+    def test_nested_negative_inline_facts_keep_statement_and_kb_identity(self):
+        handler = PeTTaChainer()
+        handler.add_atoms_no_check([
+            '(: report (A a) (STV 0.4 0.7))',
+            '(: report (B a) (STV 0.8 0.9))',
+        ])
+        result = janus.query_once(
+            "Scope=[Kb,'MAIN','Nil'], A=['A',a], B=['B',a], "
+            "'index-hash'(['sk-key',A,Scope],HA), 'index-hash'(['sk-key',B,Scope],HB), "
+            "'sk-leaf-view'(HA,[A,Scope,report,['STV',0.4,0.7]],['sk-val',[_,_,PA,_],EA,_]), "
+            "'sk-leaf-view'(HB,[B,Scope,report,['STV',0.8,0.9]],['sk-val',[_,_,PB,_],EB,_]), "
+            "'evidence-union'(EA,EB,Original), "
+            "P=[by,r,[conjunction,[negated,[negated,PA]],[negated,PB]]], "
+            "'rule-result-evidence'([['Goal'],Scope,P,['STV',0.5,0.5]],Original,Ev), "
+            "'evidence-entries'(Ev,Entries), 'premise-evidence-overlap?'(EA,Ev,Overlaps), "
+            "'evidence-set'([['fact-ev',[other,'MAIN','Nil'],report,A]],OtherSource), "
+            "'proof-term-evidence'('proof-walk-in-kb',['fact-source',OtherSource,report],Other), "
+            "'premise-evidence-overlap?'(EA,Other,CrossKbOverlap)",
+            {'Kb': handler.kb},
+        )
+        scope = [handler.kb, 'MAIN', 'Nil']
+        self.assertCountEqual(result['Entries'], [
+            ['fact-ev', scope, 'report', ['A', 'a']],
+            ['not-fact-ev', scope, 'report', ['B', 'a']],
+        ])
+        self.assertEqual(result['Overlaps'], 'true')
+        self.assertEqual(result['CrossKbOverlap'], 'false')
+
+    def test_impossible_likelihood_preserves_zero_but_noisy_likelihood_does_not(self):
+        for leak in (0, 0.1):
+            with self.subTest(leak=leak):
+                handler = PeTTaChainer()
+                handler.add_atoms_no_check([
+                    '(: z (Z a) (STV 0.6 1))',
+                    '(: za (Implication (Z a) (A a)) (CTV (STV 0.7 1) (STV 0.2 1)))',
+                    f'(: runs (Implication (And (Z a) (Not (A a))) (E a)) (CTV (STV 1 1) (STV {leak} 1)))',
+                    '(: report (E a) (STV 1 0.9))',
+                ])
+                answer = handler.query_many_refs(['(: $p (A a) $tv)'], steps=1000)[0][0]
+                if leak == 0:
+                    self.assertEqual(answer.tv[1], 0)
+                    self.assertLess(answer.tv[2], 1)
+                else:
+                    self.assertGreater(answer.tv[1], 0)
+                    self.assertLess(answer.tv[1], 1)

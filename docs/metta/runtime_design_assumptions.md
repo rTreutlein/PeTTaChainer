@@ -31,7 +31,11 @@ Consequences:
   retain their identity regardless of conclusion polarity. Projection positions
   are proof metadata, never evidence. A stored proof reference carries its
   computed evidence set, including applied rules, rather than reconstructed
-  leaves of the printed proof.
+  leaves of the printed proof. Inline stored-fact leaves carry
+  `(fact-source evidence-set source-proof)`: the canonical evidence handle
+  retains the statement and KB identity through nested negative proofs. It is
+  opaque provenance, not a new proof source. Its handle is traced by the
+  existing proof/evidence collector; public proof output omits the wrapper.
 - Overlapping proofs are not independent evidence. Disjoint proofs may be
   revised together; overlapping paths need dominance, refinement, or cycle
   checks before aggregation.
@@ -1115,6 +1119,17 @@ bounded tier slice; closed reads that start conditioning open a claim against
 that same allowance. An exhausted closed-read claim marks its rebuild frame
 unfinished, so an unpaid approximation cannot settle a branch cache. No claim
 can borrow from another query or exceed the remaining allowance.
+
+A completed inversion or antecedent completion can certify an impossible
+outcome: its prior is interior, its evaluated likelihood has a strength-zero,
+confidence-one branch and a possible opposite branch, and the resulting
+posterior is exactly zero. The proof retains this certificate as
+`(zero-likelihood proof)`. When an overlapping compatible estimate cannot be
+combined independently, the certified update keeps its zero and its own
+confidence. Correlated evidence adds no confidence. Ordinary zero-strength
+facts, zero priors, rounded endpoints and conflicting endpoint estimates do
+not receive this treatment. The certificate does not erase pending
+conditioning or mark an unfinished branch cache complete.
 
 A target with an approximate value conditions in passes of increasing cutset
 depth, keeping the deepest completed pass if the allowance is exhausted.

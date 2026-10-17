@@ -252,7 +252,14 @@ argument_shape(Arg, Shape) :-
 % a stored proof's own step, any other proof itself. Read by every merge and
 % fold step, so one clause lookup instead of a collected match.
 'sk-step-proof'(Proof, Step) :-
-    (   nonvar(Proof), Proof = ['proof-ref', Pid], user:'&proof'(Pid, Stored, _, _) -> Step = Stored ; Step = Proof ).
+    ( nonvar(Proof), Proof = ['proof-ref', Pid], user:'&proof'(Pid, Value, _, _) -> Stored = Value ; Stored = Proof ),
+    ( nonvar(Stored), Stored = ['fact-source',_,Source] -> Step = Source
+    ; nonvar(Stored), Stored = ['zero-likelihood',Source] -> Step = Source
+    ; Step = Stored ).
+
+'proof-zero-likelihood?'(Proof, Zero) :-
+    ( proof_ref_id(Proof,Pid), user:'&proof'(Pid,Value,_,_) -> Stored=Value ; Stored=Proof ),
+    ( nonvar(Stored), Stored=['zero-likelihood',_] -> Zero=true ; Zero=false ).
 
 % Different result keys can intern the same proof under different ids. Compare
 % the proof DAG without its result metadata or constructing an expanded tree.
@@ -1720,6 +1727,7 @@ proof_ref_counts(T, C0, C) :-
         ;   put_assoc(Pid, C0, 1, C1),
             (   '&proof'(Pid, Stored, _, _) -> proof_ref_counts(Stored, C1, C) ; C = C1 )
         )
+    ;   T = ['fact-source',_,Source] -> proof_ref_counts(Source,C0,C)
     ;   is_list(T) -> foldl(proof_ref_counts, T, C0, C)
     ;   C = C0
     ).
@@ -1736,6 +1744,8 @@ proof_dag_term(T, Counts, D0, D, Out) :-
             )
         ;   proof_dag_term(Stored, Counts, D0, D, Out)
         )
+    ;   T = ['zero-likelihood',Source] -> proof_dag_term(Source,Counts,D0,D,Out)
+    ;   T = ['fact-source',_,Source] -> proof_dag_term(Source,Counts,D0,D,Out)
     ;   is_list(T) -> proof_dag_list(T, Counts, D0, D, Out)
     ;   Out = T, D = D0
     ).
