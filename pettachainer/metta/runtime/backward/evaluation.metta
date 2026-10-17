@@ -88,6 +88,7 @@
 (: sk-member-pending? (-[det]-> SkeletonKey Bool))
 (: sk-dependent-merge (-[semidet]-> Bool SkeletonValue SkeletonValue SkeletonValue))
 (: sk-given-value (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) SkeletonValue))
+(: sk-given-depth-step (-[det]-> Number SkeletonGiven Number))
 (: sk-conditioned
    (-[semidet]-> (List SkeletonGiven) SkeletonTarget Number Number (List Number) (List SkeletonKey) Number
        SkeletonValue SkeletonValue SkeletonValue))
@@ -219,7 +220,11 @@
    (let* (($x (- (+ (sk-link $link $sa) (sk-link $link $sb)) (sk-link $link $spb)))
           ($v (+ (max (sk-link-var $link $sa $ca) (sk-link-var $link $spa $cpa))
                  (max 0.0 (- (sk-link-var $link $sb $cb) (sk-link-var $link $spb $cpb)))))
-          ($s (if (== $link odds) (/ 1.0 (+ 1.0 (pow-math 2.718281828459045 (- 0.0 $x))))
+          ;; Clip the log/variance calculation, not an exact posterior mean.
+          ($s (if (== $link odds)
+                 (if (or (<= $sa 0.0) (<= $sb 0.0)) 0.0
+                    (if (or (>= $sa 1.0) (>= $sb 1.0)) 1.0
+                       (/ 1.0 (+ 1.0 (pow-math 2.718281828459045 (- 0.0 $x))))))
                  (max 0.0 (- 1.0 (pow-math 2.718281828459045 $x)))))
           ($q (sk-link-slope $link $s)))
       (STV $s (ideal-conf-from-var $s (* (* $q $q) $v)))))
@@ -2791,11 +2796,13 @@
       ((sk-unfounded $hash $unfounded-key)
          (if (=alpha $unfounded-key $key) (cons (sk-unfounded-value $hash $key) $found) $found)))))
 
-;; A view that depends on a given statement, read under the condition. The
-;; view read again is admitted as a stored one is: not when it depends on what
-;; the reading rows exclude.
+;; Condition the latest view before testing its dependencies against the
+;; reader's exclusions: a pin may cut an excluded ancestor. Selecting an older
+;; MAIN view first can hide the very dependency the pin must replace. Without
+;; such a dependency, ordinary historical-version admission still applies.
 (: sk-given-view (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey SkeletonVersion SkeletonValue))
 (= (sk-given-view $given $exclude $hash $key (sk-version $_seq $rhash $view))
+   (if (sk-excludes? $exclude (deps-key $hash)) sk-none
    (if (sk-given-meets? $given $view)
       (case (collapse (once (match &sk_row ($hash $stored $rhash (sk-row $ident $concl $premises $seq))
                (if (=alpha $stored $key) (sk-row $ident $concl $premises $seq) (empty))))) (
@@ -2803,19 +2810,25 @@
             (let $again (sk-row-view $given $exclude $hash $key $rhash $row)
                (if (sk-excludes? $exclude (sk-view-deps-step 0 $again)) sk-none $again)))
          (() $view)))
-      $view))
+      (case (sk-admit-step $hash $key sk-any-filter $exclude () (sk-version $_seq $rhash $view)) (
+         (() sk-none)
+         ((cons (sk-version $seq $row $admitted) $_rest)
+            (if (sk-given-meets? $given $admitted)
+               (sk-given-view $given $exclude $hash $key (sk-version $seq $row $admitted)) $admitted)))))))
 
-;; A key's value under a condition: its value, unless that depends on a given
-;; statement; then the merge of its leaves and its views read under it. A
-;; compound And or Or with no value whose rows read a given statement directly
-;; is the merge of those rows evaluated under the condition: a compound read
-;; off its parts has no value while one part has none, and has one with the
-;; part given. Evaluating every key so cost SupplyNet stage 3 a third more
-;; time for no change. A compound reached again through its own rows while
-;; they are evaluated so has no value there (row hash -2 in &sk_conditioning).
+;; A paid branch merges in its own context before any ordinary MAIN merge or
+;; exclusion-based selection. An older admissible MAIN view can omit a pin
+;; dependency, so checking only that view would silently reuse it unchanged.
+;; Folds and closed unfounded reads keep their ordinary admission behavior.
+;; A compound whose rows read a given statement can acquire a value even when
+;; it had none in MAIN; row hash -2 prevents re-entry through those rows.
 (= (sk-given-value $given $key $filter $exclude)
-   (let $value (sk-value $key $filter $exclude)
-      (if (sk-given-meets? $given $value) (sk-given-merge $given $key $filter $exclude)
+   (let* (($branch (case $key (
+                     ((sk-key $_type $_ctx)
+                        (if (>= (search-id-value sk_claim_state) 0) (> (fold-flat sk-given-depth-step 0 $given) 0) false))
+                     ($_fold false))))
+          ($value (if $branch (sk-given-merge $given $key $filter $exclude) (sk-value $key $filter $exclude))))
+      (if (if $branch false (sk-given-meets? $given $value)) (sk-given-merge $given $key $filter $exclude)
          (if (if (== $value sk-none) (not (== $given ())) false)
             (case $key (
                ((sk-key $type $kbctx)
@@ -2854,11 +2867,18 @@
          (($type $kbctx $_proof $_tv) (stored-list-member? (index-hash (sk-key $type $kbctx)) $hashes))
          ($_other false)))))
 
+;; Actual pins can make a latest MAIN view admissible; apply exclusions only
+;; after rebuilding it. Closed unfounded reads are not cutset branches.
+(: sk-admission-exclusions (-[det]-> (List SkeletonGiven) (List Number) (List Number)))
+(= (sk-admission-exclusions $given $exclude)
+   (if (if (>= (search-id-value sk_claim_state) 0) (> (fold-flat sk-given-depth-step 0 $given) 0) false) () $exclude))
+
 (: sk-given-merge (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) SkeletonValue))
 (= (sk-given-merge $given $key $filter $exclude)
    (let $hash (index-hash $key)
       (sk-merge-key $hash $key $filter $exclude $given
-         (map-semidet (sk-given-view $given $exclude $hash $key) (sk-admitted-versions $hash $key $filter $exclude)))))
+         (map-semidet (sk-given-view $given $exclude $hash $key)
+            (sk-admitted-versions $hash $key $filter (sk-admission-exclusions $given $exclude))))))
 
 ;; A premise value whose evidence overlaps what the row already uses is
 ;; replaced by the merge of the key's leaves and views that do not overlap it:
@@ -2886,7 +2906,8 @@
                    (sk-judgment-values $key
                       (if $views
                          (append-flat $leaves
-                            (map-semidet (sk-given-view $given $exclude $hash $key) (sk-admitted-versions $hash $key $filter $exclude)))
+                            (map-semidet (sk-given-view $given $exclude $hash $key)
+                               (sk-admitted-versions $hash $key $filter (sk-admission-exclusions $given $exclude))))
                          $leaves))))))
           (($selected $siblings $references) (sk-reference-values $ignore $compatible)))
       (if $siblings (sk-key-fallback $ignore $references $selected)
@@ -3256,7 +3277,7 @@
                               (chainer-first-or $waiting $deepest)))
                         (chainer-first-or $waiting (sk-mix-on $given $target $wexclude $keys))))
                   (sk-wait! $khash $rhash $cost $waiting)))
-            (if (if (== $approx sk-none) false (>= (fold-semidet sk-given-depth-step 0 $given) (search-id-value sk_claim_depth)))
+            (if (if (== $approx sk-none) false (>= (fold-flat sk-given-depth-step 0 $given) (search-id-value sk_claim_depth)))
                (progn (change-state! sk_claim_cut 1) $approx)
                (if (== (search-id-value sk_claim_state) -1)
                   (if (< (search-id-value sk_eval_budget) 1) $approx
@@ -3295,7 +3316,6 @@
       $waiting))
 
 ;; The statements a condition gives, closed reads' pins aside.
-(: sk-given-depth-step (-[det]-> Number SkeletonGiven Number))
 (= (sk-given-depth-step $depth $given) (case $given (((sk-given $_hash $_key $_truth) (+ $depth 1)) ($_pin $depth))))
 
 ;; The target evaluated with a statement known true and known false, mixed
@@ -3306,12 +3326,21 @@
    (case $keys (
       (() ())
       ((cons $pin $more)
-         (let $phash (index-hash $pin)
+         (let* (($phash (index-hash $pin))
+                ($before (search-id-value sk_claim_cut)))
             (case (collapse (once
                      (sk-mix (sk-given-value $given $pin sk-any-filter $wexclude)
                         (sk-target-value (cons (sk-given $phash $pin true) $given) $target)
                         (sk-target-value (cons (sk-given $phash $pin false) $given) $target)))) (
-               (() (sk-mix-on $given $target $wexclude $more))
+               (()
+                  ;; A discarded candidate's truncated branches do not make a
+                  ;; successful alternative incomplete. Preserve all failures
+                  ;; only if no candidate mixes.
+                  (let* (($failed-cut (search-id-value sk_claim_cut))
+                         ($_restored (change-state! sk_claim_cut $before))
+                         ($next (sk-mix-on $given $target $wexclude $more))
+                         ($_cut (if (== $next ()) (change-state! sk_claim_cut (max $failed-cut (search-id-value sk_claim_cut))) ())))
+                     $next))
                ($mixed $mixed))))))))
 
 ;; A claim buys conditioned rows in pairs: one evaluation unit pays for

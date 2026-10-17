@@ -42,9 +42,9 @@
 ;; storm too; the running plant settles it in either branch (exact: 0), and t3
 ;; is the persistence's start rate 0.05 (exact: 0.05).
 !(test (map-flat overlap-tv (collapse (query 2000 stage3Kb (: $p (Degraded plant t2) $tv))))
-   ((STV 6.784293260625639e-07 0.9999596483266605)))
+   ((STV 0.0 0.9999637874905744)))
 !(test (map-flat overlap-tv (collapse (query 2000 stage3Kb (: $p (Degraded plant t3) $tv))))
-   ((STV 0.050000474900528245 0.9999000106180916)))
+   ((STV 0.05 0.999900009625501)))
 
 ;; Conditioning a key is paid for from the evaluation allowance. A query that
 ;; cannot pay keeps the more confident view and leaves the key waiting; a

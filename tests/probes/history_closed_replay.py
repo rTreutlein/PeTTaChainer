@@ -40,10 +40,10 @@ class ClosedHistoryReplayTests(unittest.TestCase):
                         self.fail(f'Unchanged KB did not become quiet: {metrics}')
                     # #68: retaining semantic evidence through negation also
                     # admits the observed production at t12. Its degradation
-                    # is nearly zero, so one persistence step yields
+                    # is exactly zero (odds updates preserve endpoints), so one step yields
                     # D13 = 0.05 + 0.7*D12, rather than skipping that observation
                     # and taking two steps from the t11 update (about 0.085).
-                    self.assertAlmostEqual(answer.tv[1], 0.050000100205383924, places=12)
+                    self.assertAlmostEqual(answer.tv[1], 0.05, places=12)
                     self.assertIn('producing-power-plant-t12', h.expand_proof(answer.proof))
                     fixed_points.append(answer.tv[1])
                     for _ in range(3):

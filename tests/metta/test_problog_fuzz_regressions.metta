@@ -296,4 +296,4 @@
 !(compileadd f8settled (: obs-D-a (D a) (STV 0 1)))
 !(compileadd f8settled (: obs-E-a (E a) (STV 0 1)))
 !(test (query 2000 f8settled (: $prf (C a) $tv))
-   (: (factored-revision (by rC (conjunction obs-B-a (by rF obs-E-a))) (prior (STV 0.18 0.9999000099770509)) (((inverted rD with cpu (prior (STV 0.12727658600505792 0.2856930494608916))) obs-D-a))) (C a) (STV 1.5051734303655461e-06 0.9998688832301805)))
+   (: (factored-revision (by rC (conjunction obs-B-a (by rF obs-E-a))) (prior (STV 0.18 0.9999000099770509)) (((inverted rD with cpu (prior (STV 0.12727658600505792 0.2856930494608916))) obs-D-a))) (C a) (STV 0.0 0.9999128861501843)))

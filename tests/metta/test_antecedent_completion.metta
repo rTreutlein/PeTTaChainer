@@ -310,7 +310,7 @@
 !(compileadd chainKb (: plant-on (Producing plant t5) (STV 1 1)))
 !(compileadd chainKb (: mine-off (Producing mine t5) (STV 0 1)))
 !(test (query 2000 chainKb (: $prf (Degraded mine t6) $tv))
-   (: (by persist (conjunction next-t6 (factored-revision (by persist (conjunction next-t5 degraded-t4)) (prior (STV 0.1 0.99990000952965)) (((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25000694425154857 0.9))) (conjunction plant-on mine-off)))))) (Degraded mine t6) (STV 0.7499980499316794 0.9998999906297017)))
+   (: (by persist (conjunction next-t6 (factored-revision (by persist (conjunction next-t5 degraded-t4)) (prior (STV 0.1 0.99990000952965)) (((antecedent-completion runs-mine 1 with cpu (prior (STV 0.25000694425154857 0.9))) (conjunction plant-on mine-off)))))) (Degraded mine t6) (STV 0.75 0.9999000075223136)))
 
 ;; A backup feed's independent production prediction supports PLN induction.
 ;; With the plant on, P(Producing mine | Degraded) = 0 and its complement
