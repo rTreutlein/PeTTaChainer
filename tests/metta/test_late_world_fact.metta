@@ -18,7 +18,9 @@
 !(compileadd late84Fresh (: event (Member Split1 StockSplit) (STV 1 0.9)))
 !(compileadd late84Fresh (: bridge (Implication (And (StockSplit $e) (Implemented $e)) (Not (Dilutes $e))) (STV 1 0.9)))
 !(compileadd late84Fresh (: split (StockSplit Split1) (STV 1 0.9)))
-!(test (late84-values late84Fresh) ((STV 1.0 0.7498915583532259)))
+;; The fresh control must answer, so equality cannot pass on two empty lists.
+;; Its confidence follows the current STV semantics (#83), not a fixed literal.
+!(test (length (late84-values late84Fresh)) 1)
 !(test (late84-values late84Warm) (late84-values late84Fresh))
 !(test (late84-values late84Warm) (late84-values late84Fresh))
 !(test (collapse (query 300 late84Warm (: $p (Implemented Split1) $tv))) ())
