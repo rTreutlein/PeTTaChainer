@@ -131,6 +131,12 @@ A rule concluding an implication holds as its exported form, `A → (B → C)`
 as `(A ∧ B) → C`, and the statement it derives is applied by modus ponens
 through one compiled statement rule per implication shape, found by its
 consequent like any rule ([derived_implications.md](derived_implications.md)).
+Its internal derived-proof selector constrains producer discovery, not the
+shape of their merged proof: independently supported statements may revise
+before being applied. It selects rule-derived views before merging and never
+installs a hypothetical scaffold or imports one as a producer. Applying a
+pooled positive statement retains its source conditions for specificity;
+mixed source branches do not become a negative conjunction.
 
 A rule and the adapters compiled with it (the projections of a compound
 conclusion, the connective of a compound antecedent) share one context

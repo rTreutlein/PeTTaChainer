@@ -1239,11 +1239,11 @@
             (let* (($_row (add-atom &implication_statement_rules ($hash $shape)))
                    ((Implication $x $y) (copy_term $statement))
                    ($shape-kb (make-kb-context $kb $ctx $vars))
-                   ($statement-prf (brand Proof (by $rule $token)))
+                   ($source-prf (brand Proof (derived-implication $statement-prf)))
                    ($ctv (the TV (CTV $pos $neg))))
                (superpose (
-                  (compile-implication-forward-rules $kb $shape-kb $statement-prf $ctv
-                     (cons (: $shape-kb $statement-prf (Implication $x $y) $ctv) ()) $ctv ()
+                  (compile-implication-forward-rules $kb $shape-kb (brand Proof $statement-prf) $ctv
+                     (cons (: $shape-kb $source-prf (Implication $x $y) $ctv) ()) $ctv ()
                      (brand Statement $x) (brand Statement $y)
                      (list_to_set (extract-vars (Implication $x $y)))
                      (antecedent-lowerings $kb $ctx $vars (brand Statement $x)))

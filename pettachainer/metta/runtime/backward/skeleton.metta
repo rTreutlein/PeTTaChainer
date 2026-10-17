@@ -306,7 +306,10 @@
 
 (: sk-pattern-matches? (-[det]-> Proof TV SkFact Bool))
 (= (sk-pattern-matches? $want-proof $want-tv ($_type $_kbctx $got-proof $got-tv))
-   (if (if (is-var $want-proof) true (= (sk-full-proof $got-proof) $want-proof))
+   (if (if (is-var $want-proof) true
+           (if (head-is? $want-proof derived-implication)
+              (let $step (sk-step-proof $got-proof) (head-is? $step by))
+              (= (sk-full-proof $got-proof) $want-proof)))
       (if (is-var $want-tv) true (= $got-tv $want-tv))
       false))
 
@@ -1209,7 +1212,19 @@
 (= (sk-context-search? ($_type ($kbid $ctx $_vars) $_proof $_tv))
    (if (== $ctx MAIN) (context-searching? $kbid) true))
 
-(= (sk-rule-match $goal)
+;; A statement consumer selects rule applications, then binds their merged
+;; proof as a value. Its selector is not a literal constraint on that value.
+(: sk-rule-goal (-[det]-> SkPattern SkPattern))
+(= (sk-rule-goal $pattern)
+   (case $pattern (
+      ((CPU $_fun $_args $_result) $pattern)
+      (($type $ctx $proof $tv)
+         (if (head-is? $proof derived-implication)
+            (assemble-stored-runtime-fact $type $ctx (brand Proof (by $rule $premise)) $tv)
+            $pattern)))))
+
+(= (sk-rule-match $pattern)
+   (let $goal (the SkFact (sk-rule-goal $pattern))
    (superpose (
       (let $lookup-goal (copy_term $goal)
          (if (rule-lookup-needs-occurs-check $lookup-goal)
@@ -1222,7 +1237,7 @@
                (if (= $lookup-goal $goal)
                   (sk-match $rule-id (contextualize-rule-args $goal $args) $goal)
                   (empty)))))
-      (sk-judgment-main-rule-match $goal))))
+      (sk-judgment-main-rule-match $goal)))))
 
 ;; Fixed source-fact projections are compiled in MAIN. Reuse their logic in
 ;; the judgment, with contextual premises, rather than importing a MAIN view
@@ -1459,7 +1474,7 @@
 ;; Missing fact premises keep their join subscriptions. Only failing ground
 ;; CPU premises trigger the prefilter.
 (= (sk-start-rule-step $owner $_acc (sk-match $rule $premises $goal))
-   (if (if (if (sk-context-search? $goal) false (rule-dormant? $rule)) false (= (copy_term $goal) (copy_term $owner)))
+   (if (if (if (sk-context-search? $goal) false (rule-dormant? $rule)) false (= (copy_term $goal) (sk-rule-goal (copy_term $owner))))
       (if (if (case $goal (
                 (($type $kbctx $proof $_tv)
                    (if (rule-application-proof? $proof) (complete-statement? $type $kbctx) false))))
@@ -1486,7 +1501,7 @@
             (if (if (is-expr $prf)
                    (if (== $prf ()) false
                       (let $head (car-atom $prf)
-                         (if (== $head by) true
+                         (if (if (== $head by) true (== $head derived-implication)) true
                             (if (== $head total-implication-frontier)
                                (let $args (cdr-atom $prf) (if (== $args ()) false (== (cdr-atom $args) ())))
                                false))))

@@ -71,9 +71,9 @@ An implication statement the chainer derives is applied by modus ponens
 like a rule. For each implication shape a rule concludes, the compiler adds
 one **statement rule**:
 
-    (: ctx (by $r $t) (Implication X Y) (CTV $pos $neg))
+    (: ctx (derived-implication $proof) (Implication X Y) (CTV $pos $neg))
     X ...                                  ; X lowered as a rule antecedent
-    |- (: ctx (by (by $r $t) <X proof>) Y <modus ponens>)
+    |- (: ctx (by $proof <X proof>) Y <modus ponens>)
 
 Its first premise reads the statement's key, its proof is the implication's
 proof applied to the antecedent's, `(by <implication proof> <antecedent
@@ -88,6 +88,28 @@ So it costs nothing when no rule concludes an implication, and one rule
 match per goal otherwise. One statement rule is added per shape (alpha
 equivalence) and knowledge base, in `&implication_statement_rules`, keyed by
 the hash of the shape.
+
+### Merged statement values (tracker #92)
+
+The statement premise uses the internal proof selector
+`(derived-implication $proof)`. Search interprets it as a rule-application
+producer, `(by $rule $premises)`, and installs no hypothetical scaffold.
+Evaluation selects those producers before merging, then binds `$proof` to
+their resulting proof, which may be a revision rather than a single `by`.
+The selector is never part of the output proof. Ordinary user proof patterns
+retain their literal matching semantics.
+
+Previously the same `(by $rule $premises)` pattern did both jobs. Two
+independent sources produced a valid merged CTV, but the statement consumer
+could not bind the revision proof to that pattern and lost the answer.
+Corroborating accepted sources now revise their rule evidence before applying
+the shared inner antecedent once. Shared uncertain gates retain the existing
+conservative overlap behavior, without adding independent evidence counts.
+A pooled positive source proof retains all its source conditions for
+specificity; a general rule supplies its prior rather than another likelihood.
+Mixed source branches remain mixtures for containment comparisons.
+This changes neither sibling separator odds (#49) nor the unresolved family
+approximation (#77).
 
 ### Open statements
 
@@ -117,9 +139,9 @@ nested query had an answer unless the instance had been asked for first.
 - **Inversions** conclude antecedents, not implications. **Learned truths**
   are `RuleTruth` goals, read by their own rule only, so a refined rule is
   not applied twice. Implication queries (the hypothetical judgment and the
-  instance fold) are not read by statement rules: their premise asks for a
-  rule application's proof, `(by $r $t)`, and an implication premise asking
-  for one does not install the hypothetical scaffold. Assuming B and proving
+  instance fold) are not read by statement rules: their internal premise
+  selector admits rule-application producers, and installs no hypothetical
+  scaffold. Assuming B and proving
   C to apply `B → C` to B would re-prove C by the same rules that prove it
   directly and count their evidence twice, at the cost of two hypothetical
   contexts per application.

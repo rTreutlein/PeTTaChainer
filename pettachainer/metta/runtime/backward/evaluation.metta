@@ -950,13 +950,23 @@
 
 (: sk-application-antecedent (-[semidet]-> Proof EvidenceSet ((List Atom) Number Bool)))
 (= (sk-application-antecedent $proof $ev)
-   (let* (((by $rule $premise) (sk-step-proof $proof))
-          (($parts $s $complete) (sk-antecedent (brand Proof $premise) $ev))
-          ($source (sk-step-proof (brand Proof $rule))))
-      (if (rule-application-proof? $source)
-         (let ($parents $parent-s $parent-complete) (sk-application-antecedent (brand Proof $rule) $ev)
-            (data (append-flat $parents $parts) (* $parent-s $s) (if $complete $parent-complete false)))
-         (data $parts $s $complete))))
+   (case (sk-step-proof $proof) (
+      ((by $rule $premise)
+         (let* ((($parts $s $complete) (sk-antecedent (brand Proof $premise) $ev))
+                ($source (sk-step-proof (brand Proof $rule))))
+            (if (head-is-member? $source (by merge/revision))
+               (let ($parents $parent-s $parent-complete) (sk-application-antecedent (brand Proof $rule) $ev)
+                  (data (append-flat $parents $parts) (* $parent-s $s) (if $complete $parent-complete false)))
+               (data $parts $s $complete))))
+      ;; A pooled implication still depends on its source conditions. When
+      ;; all hold positively, its application specializes their shared general
+      ;; class too. Mixed branches remain mixtures, never a false conjunction.
+      ((merge/revision $left $right)
+         (let* ((($left-parts $left-s $left-complete) (sk-application-antecedent (brand Proof $left) $ev))
+                (($right-parts $right-s $right-complete) (sk-application-antecedent (brand Proof $right) $ev)))
+            (data (list_to_set (append-flat $left-parts $right-parts))
+               (if (>= $left-s 1.0) (if (>= $right-s 1.0) 1.0 0.5) 0.5)
+               (if $left-complete $right-complete false)))))))
 
 (: sk-reference-for (-[semidet]-> SkeletonValue ((List Atom) Number Bool) SkeletonReference))
 (= (sk-reference-for $view ($parts $s $complete))
@@ -2617,15 +2627,20 @@
 ;; out of an instance fold reads the views it admits, never the cached value.
 (= (sk-value $key $filter $exclude)
    (let* (($hash (index-hash $key))
+          ($derived (case $filter (
+             ((sk-filter $proof $_tv) (head-is? $proof derived-implication))
+             ($_any false))))
           ($merged
+             (if $derived
+                (sk-merge-key $hash $key $filter $exclude () (sk-admitted $hash $key $filter $exclude))
              (if (sk-leaves-out? $hash $key $exclude)
                 (sk-merge-key $hash $key sk-any-filter $exclude () (sk-admitted $hash $key sk-any-filter $exclude))
                 (case (sk-open-value $hash $key sk-any-filter) (
                    ((sk-merged $_hash $_key $deps $value)
                       (if (sk-excludes? $exclude $deps)
                          (sk-merge-key $hash $key sk-any-filter $exclude () (sk-admitted $hash $key sk-any-filter $exclude))
-                         $value)))))))
-      (if (sk-open-filter? $filter) $merged
+                         $value))))))))
+      (if (if $derived true (sk-open-filter? $filter)) $merged
          (if (sk-admits? $filter () $merged) $merged
             (sk-merge-key $hash $key $filter $exclude () (sk-admitted $hash $key $filter $exclude))))))
 
@@ -2966,7 +2981,10 @@
             (if (if $shared false
                    (if (premise-evidence-overlap? $ev $premise-ev) (not (sk-joins-pool? $parts $part)) false))
                sk-fail
-               (if (= ($type $kbctx $proof $tv) (if (is-var $proof) $fact (sk-full-fact $fact)))
+               (if (if (head-is? $proof derived-implication)
+                      (let (derived-implication $value-proof) $proof
+                         (= ($type $kbctx $value-proof $tv) $fact))
+                      (= ($type $kbctx $proof $tv) (if (is-var $proof) $fact (sk-full-fact $fact))))
                   (sk-acc $fold-proofs (evidence-union $ev $premise-ev)
                      (cons
                         (if (head-is? $type RuleTruth)

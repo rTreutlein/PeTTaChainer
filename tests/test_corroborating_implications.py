@@ -1,0 +1,182 @@
+"""Tracker #92: merged derived implications remain executable rule values."""
+import itertools
+import unittest
+
+from pettachainer import PeTTaChainer
+
+
+# Independent replay of the documented Beta variance and evidence-count rules.
+# No expected TV is copied from a query result. All cases use the default k=800.
+K = 800
+
+
+def count(confidence):
+    return K * confidence / (1 - (confidence if confidence < 1 else .9999))
+
+
+def variance(strength, confidence):
+    s = min(.999999, max(.000001, strength))
+    return s * (1 - s) / (count(confidence) + 1)
+
+
+def modus_ponens(antecedent, positive, negative=(.5, 0)):
+    a, ac = antecedent
+    p, pc = positive
+    n, nc = negative
+    s = a * p + (1 - a) * n
+    va, vp, vn = variance(a, ac), variance(p, pc), variance(n, nc)
+    v = a*a*vp + (1-a)**2*vn + (p-n)**2*va + va*(vp+vn)
+    clipped = min(.999999, max(.000001, s))
+    maxvar = clipped * (1 - clipped)
+    observations = maxvar / min(v, maxvar) - 1
+    return s, max(.000001, observations / (observations + K))
+
+
+def revise(values):
+    weights = [count(c) for _, c in values]
+    total = sum(weights)
+    return sum(s*n for (s, _), n in zip(values, weights)) / total, total / (total + K)
+
+
+class CorroboratingImplicationTests(unittest.TestCase):
+    def answer(self, h, statement, expected, sources, steps=600):
+        rows = h.query_many_refs([f'(: $p {statement} $tv)'], steps=steps)[0]
+        self.assertEqual(len(rows), 1, rows)
+        self.assertEqual(rows[0].tv[0], 'STV')
+        for actual, wanted in zip(rows[0].tv[1:], expected):
+            self.assertAlmostEqual(actual, wanted, places=10)
+        proof = h.expand_proof(rows[0].proof)
+        for source in sources:
+            self.assertIn(source, proof)
+        self.assertNotIn('derived-implication', proof)
+        return rows[0]
+
+    def test_source_counts_polarities_and_worlds(self):
+        # Includes both one-source baselines, two corroborating sources, a
+        # three-source family, and both reproducer budgets. A gated compound
+        # event is projected without counting its source three times.
+        for sources in (('R3',), ('R1',), ('R3', 'R1'), ('R3', 'R1', 'R2')):
+            for negative, world, compound in itertools.product((False, True), repeat=3):
+                with self.subTest(sources=sources, negative=negative, world=world, compound=compound):
+                    h = PeTTaChainer()
+                    h.set_evidence_confidence_k(K)
+                    consequent = '(Not (Dilutes $e))' if negative else '(KeepsOwnership $e)'
+                    target = consequent.replace('$e', 'Event3')
+                    event_tv = (1, .9)
+                    if compound:
+                        h.add_atom('(: ev3 (Implication (AcceptSource R3) '
+                                   '(And (AnnouncedBy Event3 C3) (AnnouncedIn Event3 R3) '
+                                   '(Member Event3 StockSplit))) (STV 1 0.9))')
+                        event_tv = modus_ponens((1, 1), event_tv)
+                    else:
+                        h.add_atom('(: event (Member Event3 StockSplit) (STV 1 0.9))')
+                    accepted = tuple(dict.fromkeys(('R3', 'R1', *sources)))
+                    if world:
+                        h.add_atoms_no_check([f'(: accept-{s} (AcceptSource {s}) (STV 1 1))' for s in accepted])
+                        statement = target
+                    else:
+                        gates = ' '.join(f'(AcceptSource {s})' for s in accepted)
+                        statement = f'(Assuming (And {gates}) {target})'
+                    h.add_atoms_no_check([
+                        f'(: rule-{s} (Implication (AcceptSource {s}) '
+                        f'(Implication (Member $e StockSplit) {consequent})) (STV 1 0.9))'
+                        for s in sources
+                    ])
+                    rule_tv = revise([modus_ponens((1, 1), (1, .9)) for _ in sources])
+                    expected = modus_ponens(event_tv, rule_tv)
+                    self.answer(h, statement, expected, [f'rule-{s}' for s in sources])
+                    # Reusing the skeleton must preserve the same evidence.
+                    self.answer(h, statement, expected, [f'rule-{s}' for s in sources], steps=5000)
+                    if not world:
+                        self.assertEqual(h.query_many_refs([f'(: $p {target} $tv)'], steps=600)[0], [])
+
+    def test_ungated_duplicates(self):
+        for size in (1, 2, 3):
+            with self.subTest(size=size):
+                h = PeTTaChainer()
+                h.add_atom('(: event (Member Event3 StockSplit) (STV 1 0.9))')
+                h.add_atoms_no_check([
+                    f'(: rule-{i} (Implication (Member $e StockSplit) (KeepsOwnership $e)) '
+                    '(CTV (STV 1 0.9) (STV 0.5 0)))' for i in range(size)
+                ])
+                # Lifting revises the independent residual rules, then reads
+                # the shared Member observation once.
+                residual = (1, .9) if size == 1 else modus_ponens((1, 1), (1, .9))
+                expected = modus_ponens((1, .9), revise([residual] * size))
+                self.answer(h, '(KeepsOwnership Event3)', expected, [f'rule-{i}' for i in range(size)])
+
+    def test_ungated_stv_reproducer(self):
+        # These dynamic-CTV rules cannot use literal-CTV lifting. Their
+        # overlapping Member evidence retains the one-rule representative.
+        expected = modus_ponens((1, .9), (1, .9))
+        for size in (1, 2, 3):
+            with self.subTest(size=size):
+                h = PeTTaChainer()
+                h.add_atom('(: event (Member Event3 StockSplit) (STV 1 0.9))')
+                h.add_atoms_no_check([
+                    f'(: rule-{i} (Implication (Member $e StockSplit) (KeepsOwnership $e)) '
+                    '(STV 1 0.9))' for i in range(size)
+                ])
+                self.answer(h, '(KeepsOwnership Event3)', expected, ['rule-'])
+
+    def test_late_corroboration_and_only_one_accepted_source(self):
+        h = PeTTaChainer()
+        h.add_atoms_no_check([
+            '(: event (Member Event3 StockSplit) (STV 1 0.9))',
+            '(: accept-R3 (AcceptSource R3) (STV 1 1))',
+            '(: rule-R3 (Implication (AcceptSource R3) '
+            '(Implication (Member $e StockSplit) (KeepsOwnership $e))) (STV 1 0.9))',
+        ])
+        one = modus_ponens((1, 1), (1, .9))
+        self.answer(h, '(KeepsOwnership Event3)', modus_ponens((1, .9), one), ['rule-R3'])
+        h.add_atom('(: rule-R1 (Implication (AcceptSource R1) '
+                   '(Implication (Member $e StockSplit) (KeepsOwnership $e))) (STV 1 0.9))')
+        self.answer(h, '(KeepsOwnership Event3)', modus_ponens((1, .9), one), ['rule-R3'])
+        h.add_atom('(: accept-R1 (AcceptSource R1) (STV 1 1))')
+        self.answer(h, '(KeepsOwnership Event3)', modus_ponens((1, .9), revise([one, one])), ['rule-R3', 'rule-R1'])
+
+    def test_shared_uncertain_gate_is_not_independent_evidence(self):
+        # One uncertain source gate is shared by every application. The CTV
+        # overlap path retains its representative rather than adding counts.
+        gate, positive, negative = (1, .8), (.8, .9), (.1, .9)
+        expected = modus_ponens((1, .9), modus_ponens(gate, positive, negative), negative)
+        for size in (1, 2, 3):
+            with self.subTest(size=size):
+                h = PeTTaChainer()
+                h.add_atoms_no_check([
+                    '(: event (B x) (STV 1 0.9))',
+                    '(: gate (A x) (STV 1 0.8))',
+                ] + [
+                    f'(: rule-{i} (Implication (A $x) (Implication (B $x) (T $x))) '
+                    '(CTV (STV 0.8 0.9) (STV 0.1 0.9)))' for i in range(size)
+                ])
+                self.answer(h, '(T x)', expected, ['rule-'])
+
+    def test_pooled_source_conditions_keep_general_rule_as_prior(self):
+        h = PeTTaChainer()
+        h.set_bayes_prior_count(.2)
+        h.add_atoms_no_check([
+            '(: a (A x) (STV 1 1))',
+            '(: b (B x) (STV 1 1))',
+            '(: c (C x) (STV 1 1))',
+            '(: general (Implication (B $x) (T $x)) '
+            '(CTV (STV 0.2 0.8) (STV 0.1 0.8)))',
+            '(: source-a (Implication (A $x) (Implication (B $x) (T $x))) '
+            '(CTV (STV 0.8 0.8) (STV 0.1 0.8)))',
+            '(: source-c (Implication (C $x) (Implication (B $x) (T $x))) '
+            '(CTV (STV 0.6 0.8) (STV 0.1 0.8)))',
+        ])
+        negative = (.1, .8)
+        pooled = revise([modus_ponens((1, 1), p, negative) for p in ((.8, .8), (.6, .8))])
+        # Both source statements carry the same finite negative branch. Its
+        # independent stated evidence revises, like their positive branches.
+        raw = modus_ponens((1, 1), pooled, revise([negative, negative]))
+        general = modus_ponens((1, 1), (.2, .8), negative)
+        weight = max(0, 1 / (1 / (count(general[1]) + 1) + 1 / 1.2) - 1)
+        expected = ((raw[0]*count(raw[1]) + weight*general[0]) / (count(raw[1]) + weight), raw[1])
+        answer = self.answer(h, '(T x)', expected, ['source-a', 'source-c', 'general'])
+        self.assertIn('specializes', h.expand_proof(answer.proof))
+
+
+if __name__ == '__main__':
+    unittest.main()
