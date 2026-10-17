@@ -1327,6 +1327,14 @@ callers that read only the truth value or the statement get answers whose size
 does not grow with the derivation behind them, as terms through janus rather
 than text (SupplyNet scale l at 16 steps per query: query time 151 s to 122 s,
 peak RSS 3.5 GB to 1.5 GB, 140 MB of answer text no longer built).
+The latest public query batch's reference proofs are collector roots, installed
+before temporary contexts and rules are removed. Those contexts can be their
+only other holders. The next public query replaces the batch, including with
+an empty batch or expanded answers; retention is bounded by the current
+answers, not the query history. Expand a borrowed proof before another query
+if its text must outlive that batch. Collection follows its stored computed
+evidence and owner metadata as usual; returning an answer does not publish a
+hypothetical fact in MAIN.
 
 Output proofs print a shared subproof once: a stored subproof referenced more
 than once that itself refers to stored proofs appears in full at its first

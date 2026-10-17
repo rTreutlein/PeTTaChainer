@@ -397,6 +397,7 @@ refs_holder('&sk_summary', 5, [3, 4]).
 refs_holder('&materialized_facts', 6, [5, 6]).
 refs_holder('&forward_aggregate_observation', 5, [3]).
 refs_holder('&combination_pending', 4, [4]).
+refs_holder('&query_proofs', 1, [1]).
 refs_holder(context_entry, 5, [4]).
 refs_holder(context_hidden, 5, [4]).
 refs_holder(context_propagated, 4, [4]).

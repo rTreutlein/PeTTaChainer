@@ -73,6 +73,13 @@ proofs born during the cycle, preserving the existing birth and removal
 barriers. `stored-refs-gc!` collects everything nothing reaches at once.
 Evidence entries are kept; there is one per fact or rule a proof used.
 
+The latest public query's reference proofs are held in `&query_proofs` before
+context cleanup and the collector slice. They keep hypothetical answers and
+their computed evidence alive after the overlay is gone. The next public query
+replaces these roots, so obsolete answer batches do not accumulate. Reference
+answers borrow this batch's lifetime; expand a proof before the next query to
+save its text beyond that lifetime.
+
 Where the memory of a run goes, stores against Prolog stacks, and the second
 round of representation changes after this one:
 [memory_census_2026-10-09.md](memory_census_2026-10-09.md).

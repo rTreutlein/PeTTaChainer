@@ -65,6 +65,36 @@ class TestAssumingExistsJoin(unittest.TestCase):
                 h.add_atoms_no_check(['(: src_meta (Meta Report) (STV 1 1))'])
                 self.answer(h, '(Exists ($x) (And (A $x) (Meta Report)))')
 
+    def test_reference_answer_survives_collection_after_context_cleanup(self):
+        import janus_swi
+
+        h = self.handler('(And (A Obj) (A Other))', strength=.6, confidence=.8)
+        row = self.answer(h, '(Exists ($x) (And (A $x) (Meta Report)))')
+        proof = h.expand_proof(row.proof)
+        evidence = self.evidence(h, row)
+        self.assertEqual(proof.count('src_rule'), 1, proof)
+        self.assertEqual(proof.count('src_meta'), 1, proof)
+        self.assertEqual(evidence.count('src_rule'), 1, evidence)
+        self.assertEqual(evidence.count('src_meta'), 1, evidence)
+        # The overlay is already gone. The returned batch must hold both the
+        # stored proof DAG and its computed evidence through collection.
+        self.assertFalse(janus_swi.query_once('context_entry(_,_,_,_,_)')['truth'])
+        janus_swi.query_once("'stored-refs-gc!'(_), 'stored-refs-gc!'(_)")
+        self.assertEqual(h.expand_proof(row.proof), proof)
+        self.assertEqual(self.evidence(h, row), evidence)
+        h._call('withdraw-named-rules!', ['src_rule'])
+        self.assertEqual(h._call('proof-live?', [
+            f'(proof-ref {row.proof[1][1]})',
+        ]), ['false'])
+        # Replacing the batch releases its context-only derivations, so this
+        # root does not accumulate all earlier hypothetical query histories.
+        self.assertEqual(h.query_many_refs(['(: $p Missing $tv)'], steps=0), [[]])
+        janus_swi.query_once("'stored-refs-gc!'(_), 'stored-refs-gc!'(_)")
+        self.assertFalse(janus_swi.query_once(
+            "user:'&proof'(Pid, _, _, _)", {'Pid': row.proof[1][1]},
+        )['truth'])
+        self.assertFalse(janus_swi.query_once("user:'&query_proofs'(_)")['truth'])
+
     def test_one_compound_source_counts_once(self):
         # A second projection of the same ground compound is no new trial.
         # The different-predicate control has exactly one matching witness.

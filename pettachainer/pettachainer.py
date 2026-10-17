@@ -723,7 +723,9 @@ class PeTTaChainer:
         is expanded or printed; ``expand_proof`` prints one in full.
 
         It runs in the caller's live process, which holds the proofs the
-        references point to; it has no subprocess timeout.
+        references point to; it has no subprocess timeout. Reference proofs
+        are retained for the latest public query batch. Expand a proof before
+        another query if its text must outlive that batch.
         """
         queries = list(atoms)
         if not queries:

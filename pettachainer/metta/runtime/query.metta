@@ -2,6 +2,18 @@
 ;; boundary out of knowledge_store lets compilation/storage remain a
 ;; foundational dependency of both chainers.
 
+;; Reference answers borrow the latest query batch's proofs. Context cleanup
+;; may remove every other holder; keep the batch rooted until the next query
+;; replaces it, without retaining an unbounded history of returned answers.
+(: &query_proofs (SpaceOf (Proof)))
+!(bind! &query_proofs (new-space))
+
+;; A function call gives each answer fresh destructuring variables; placing
+;; this let inside a lambda would capture the fields across the whole batch.
+(: retain-query-proof! (-[det]-> (Number AnnotatedStatement) Bool))
+(= (retain-query-proof! ($_index (: $proof $_type $_tv)))
+   (add-atom &query_proofs ($proof)))
+
 ;; pretty is semidet, so each collapse contains at most one value.
 (: pretty-results
    (-[det]-> (List Atom) (List AnnotatedStatement)))
@@ -154,6 +166,9 @@
              (chainer-many $steps $goals)))
        ($rows
           (present-query-plan-results $expand? $roots $runtime-results))
+       ($_old-proofs (remove-data-rows! &query_proofs (quote ($_proof))))
+       ($_answer-proofs
+          (if $expand? () (map-flat retain-query-proof! $rows)))
        ($_clear-overlay (context-clear!))
        ($_clear-temp-after (clear-temp-query-adds))
        ($_retired (sk-retire-searches!))
