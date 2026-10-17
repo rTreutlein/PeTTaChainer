@@ -4336,6 +4336,32 @@
           ($_linked (fold-semidet (sk-add-reader! $khash $rhash) () $keys)))
       ()))
 
+;; A row cannot contribute when every structural reader excludes one of its
+;; mandatory statement inputs. Keep the pending claim: a new reader or root
+;; revokes this proof of unreadability on the next need/payment round.
+(: sk-readable-row? (-[semidet]-> Number SkeletonKey (List SkPattern) Bool))
+;; A forward run exposes taken values too, beyond its depth-zero reader keys.
+;; Conservatively keep all its claims live instead of pruning a public value.
+(= (sk-readable-row? $hash $key $premises)
+   (if (if (== (search-id-value sk_forward_run) 1) true (== (sk-need-depth $hash $key) 0)) true
+      (if (not (== (collapse (once (match &sk_use ($hash $member $_fold)
+                    (if (=alpha $member $key) true (empty))))) ())) true
+         (let* (($inputs (fold-semidet sk-direct-key-step (cons $key ()) $premises))
+                ($mandatory (deps-join (collapse
+                   (let (sk-key $type $scope) (superpose $inputs)
+                      (deps-key (index-hash (sk-key $type $scope)))))))
+                ($readers (append-flat
+                   (collapse (match &ctx_sk_reader ($hash $read $kh $rh)
+                      (if (=alpha $read $key) ($kh $rh) (empty))))
+                   (collapse (match &ctx_sk_stale_reader ($hash $stale $sh $sr)
+                      (if (=alpha $stale $key) ($sh $sr) (empty)))))))
+            (not (== (collapse (once
+               (let ($reader-hash $reader-row) (superpose $readers)
+                  (match &sk_row ($reader-hash $reader-key $reader-row
+                           (sk-row $_ident ($_type $_ctx $proof $_tv) $_premises $_seq))
+                     (if (deps-meet? (sk-row-exclusions $reader-hash $reader-key $proof) $mandatory)
+                        (empty) true))))) ()))))))
+
 (: sk-need-row! (-[semidet]-> Number SkeletonNeed SkeletonItem SkeletonNeed))
 (= (sk-need-row! $depth (sk-need-next $next $members) (sk-row-item $_seq $khash $key $rhash (sk-row (sk-ident $rule $_keys $_key) $_concl $premises $_s)))
    (if (rule-live? $rule)
@@ -4366,10 +4392,10 @@
              (if $refresh
                 (let $_relinked (sk-relink-row! $khash $rhash $premises) (context-add! &sk_refresh ($khash $rhash)))
                 ())))
-      (if (if $world true (if $refresh true
-             (if (<= $depth (sk-evaluation-free-depth)) true
-                (if $unseen true
-                   (space-row-present? &ctx_sk_given_pending ($khash $rhash $_cost))))))
+      (if (if (space-row-present? &ctx_sk_given_pending ($khash $rhash $_cost))
+                (sk-readable-row? $khash $key $premises)
+                (if $world true (if $refresh true
+                   (if (<= $depth (sk-evaluation-free-depth)) true $unseen))))
          (sk-need-next (fold-semidet sk-direct-key-step $next $premises) $members)
          (sk-need-next $next $members)))
    (let $_removed (sk-drop-row! $khash $key $rhash (sk-row (sk-ident $rule $_keys $_key) $_concl $premises $_s))
@@ -4729,13 +4755,17 @@
 (: SkeletonClaim Type)
 (: sk-claim (-[det]-> Number Number Number SkeletonWaiting SkeletonClaim))
 
+(: sk-order-claims (-[det]-> (List SkeletonClaim) (List SkeletonClaim)))
+
 (: sk-pay-conditions! (-[semidet]-> Number Atom))
 (= (sk-pay-conditions! $pass)
-   (case (sort-atom
+   (case (sk-order-claims
             (append-flat
                (collapse (match &ctx_sk_given_pending ($khash $rhash $cost)
                   (match &sk_row ($khash $key $rhash (sk-row $ident $concl $premises $seq))
-                     (if (if (sk-needed? $khash $key) (not (space-row-present? &ctx_sk_given_granted ($khash $rhash))) false)
+                     (if (if (sk-needed? $khash $key)
+                              (if (sk-readable-row? $khash $key $premises)
+                                 (not (space-row-present? &ctx_sk_given_granted ($khash $rhash))) false) false)
                         (sk-claim (sk-need-depth $khash $key) $cost $seq
                            (sk-row-waiting (sk-row-item $seq $khash $key $rhash (sk-row $ident $concl $premises $seq))))
                         (empty)))))

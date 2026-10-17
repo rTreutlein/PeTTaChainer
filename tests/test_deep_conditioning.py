@@ -1,6 +1,10 @@
 """T8 report conditioning against independent finite-state enumeration (#81)."""
 from fractions import Fraction as F
 import itertools
+import json
+from pathlib import Path
+import subprocess
+import sys
 import unittest
 
 import janus_swi as janus
@@ -109,6 +113,73 @@ class DeepConditioningTests(unittest.TestCase):
 
     def test_two_period_reports(self):
         self.assertEqual(self.check_plant(2, 20000)['conditions_unpaid'], 0)
+
+    def test_dead_claim_pruning_costs_52_rows_and_requery_zero(self):
+        handler = PeTTaChainer()
+        plant(handler, 2)
+        handler.set_query_metrics(True)
+        query = ['(: $p (Degraded plant t2) $tv)']
+        first = handler.query_many_refs(query, steps=20000)[0][0].tv
+        self.assertEqual(first, ['STV', 0.10719520036917493, 0.9998941423648195])
+        self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 52)
+        second = handler.query_many_refs(query, steps=20000)[0][0].tv
+        self.assertEqual(first, second)
+        self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 0)
+        self.assertEqual(handler.last_query_metrics()['conditions_unpaid'], 0)
+
+    def test_three_period_work_is_deterministic_across_processes(self):
+        # Separate processes give the KB different random identities. Work
+        # ordering must not fall back to their exclusion-key hashes.
+        program = """
+import json
+from test_deep_conditioning import plant
+from pettachainer import PeTTaChainer
+handler = PeTTaChainer()
+plant(handler, 3)
+handler.set_query_metrics(True)
+rows = handler.query_many_refs(['(: $p (Degraded plant t3) $tv)'], steps=3000)[0]
+metrics = {k: v for k, v in handler.last_query_metrics().items() if not k.endswith('_seconds')}
+print(json.dumps({'tv': [r.tv for r in rows], 'metrics': metrics}, sort_keys=True))
+"""
+        samples = []
+        for _ in range(4):
+            result = subprocess.run(
+                [sys.executable, '-c', program], cwd=Path(__file__).parent,
+                capture_output=True, text=True, timeout=180, check=True,
+            )
+            samples.append(json.loads(result.stdout.splitlines()[-1]))
+        self.assertTrue(all(sample == samples[0] for sample in samples[1:]), samples)
+
+    def test_added_reader_revives_a_structurally_dead_claim(self):
+        handler = PeTTaChainer()
+        plant(handler, 2)
+        handler.query_many_refs(['(: $p (Degraded plant t2) $tv)'], steps=20000)
+        inspect = (
+            "_Key=['sk-key',['Producing',plant,t2],[Kb,'MAIN','Nil']], "
+            "'index-hash'(_Key,_H), "
+            "once(('&sk_row'(_H,_Key,_R,['sk-row',_,_,_Prem,_]), "
+            " member([['Fuelled',plant,t2]|_],_Prem))), "
+            "'sk-readable-row?'(_H,_Key,_Prem,Readable)"
+        )
+        self.assertEqual(janus.query_once(inspect, {'Kb': handler.kb})['Readable'], 'false')
+        # Forward runs may expose a taken key even when it has no depth-zero
+        # reader. Treat their claims as live, then restore ordinary query D2.
+        forward = janus.query_once(
+            "'search-id-value'(sk_forward_run,_Was), "
+            "setup_call_cleanup('change-state!'(sk_forward_run,1,_), (" + inspect +
+            "), 'change-state!'(sk_forward_run,_Was,_))", {'Kb': handler.kb},
+        )
+        self.assertEqual(forward['Readable'], 'true')
+        self.assertEqual(janus.query_once(inspect, {'Kb': handler.kb})['Readable'], 'false')
+        handler.add_atoms_no_check([
+            '(: revenue (Implication (Producing plant $t) (Revenue plant $t)) (CTV (STV 1 1) (STV 0 1)))',
+        ])
+        handler.set_query_metrics(True)
+        handler.query_many_refs(['(: $p (Revenue plant t2) $tv)'], steps=20000)
+        self.assertEqual(janus.query_once(inspect, {'Kb': handler.kb})['Readable'], 'true')
+        self.assertGreater(handler.last_query_metrics()['conditioned_evaluations'], 0)
+        handler.query_many_refs(['(: $p (Producing plant t2) $tv)'], steps=20000)
+        self.assertEqual(janus.query_once(inspect, {'Kb': handler.kb})['Readable'], 'true')
 
     def test_five_period_reports(self):
         self.check_plant(5, 20000)

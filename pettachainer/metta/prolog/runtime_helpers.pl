@@ -5,6 +5,13 @@
 :- ensure_loaded(context_overlay).
 :- ensure_loaded(ingestion).
 
+% Rank claims by depth, cost and age, then their pending enumeration sequence.
+% Never compare the payload: its hashes include the process's random KB id.
+'sk-order-claims'(Claims, Sorted) :-
+    findall([Depth,Cost,Age,Sequence]-Claim,
+        ( nth0(Sequence,Claims,Claim), Claim=['sk-claim',Depth,Cost,Age,_] ), Pairs),
+    keysort(Pairs, Ranked), pairs_values(Ranked, Sorted).
+
 % Data-only spaces have no function definitions or compiler metadata. In
 % particular, an open first column must not enter remove-atom's function case.
 'remove-data-rows!'(Space, Pattern, true) :-
