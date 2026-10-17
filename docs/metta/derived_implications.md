@@ -99,18 +99,6 @@ their resulting proof, which may be a revision rather than a single `by`.
 The selector is never part of the output proof. Ordinary user proof patterns
 retain their literal matching semantics.
 
-Previously the same `(by $rule $premises)` pattern did both jobs. Two
-independent sources produced a valid merged CTV, but the statement consumer
-could not bind the revision proof to that pattern and lost the answer.
-Corroborating accepted sources now revise their rule evidence before applying
-the shared inner antecedent once. Shared uncertain gates retain the existing
-conservative overlap behavior, without adding independent evidence counts.
-A pooled positive source proof retains all its source conditions for
-specificity; a general rule supplies its prior rather than another likelihood.
-Mixed source branches remain mixtures for containment comparisons.
-This changes neither sibling separator odds (#49) nor the unresolved family
-approximation (#77).
-
 ### Open statements
 
 A statement's antecedent may have a variable that neither the rule's outer

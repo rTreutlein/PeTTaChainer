@@ -954,7 +954,7 @@
       ((by $rule $premise)
          (let* ((($parts $s $complete) (sk-antecedent (brand Proof $premise) $ev))
                 ($source (sk-step-proof (brand Proof $rule))))
-            (if (head-is-member? $source (by merge/revision))
+            (if (if (rule-application-proof? $source) true (head-is? $source merge/revision))
                (let ($parents $parent-s $parent-complete) (sk-application-antecedent (brand Proof $rule) $ev)
                   (data (append-flat $parents $parts) (* $parent-s $s) (if $complete $parent-complete false)))
                (data $parts $s $complete))))
@@ -2626,23 +2626,24 @@
 ;; merge of the views it admits. A consumer that leaves one of its own samples
 ;; out of an instance fold reads the views it admits, never the cached value.
 (= (sk-value $key $filter $exclude)
-   (let* (($hash (index-hash $key))
-          ($derived (case $filter (
-             ((sk-filter $proof $_tv) (head-is? $proof derived-implication))
-             ($_any false))))
-          ($merged
-             (if $derived
-                (sk-merge-key $hash $key $filter $exclude () (sk-admitted $hash $key $filter $exclude))
-             (if (sk-leaves-out? $hash $key $exclude)
-                (sk-merge-key $hash $key sk-any-filter $exclude () (sk-admitted $hash $key sk-any-filter $exclude))
-                (case (sk-open-value $hash $key sk-any-filter) (
-                   ((sk-merged $_hash $_key $deps $value)
-                      (if (sk-excludes? $exclude $deps)
-                         (sk-merge-key $hash $key sk-any-filter $exclude () (sk-admitted $hash $key sk-any-filter $exclude))
-                         $value))))))))
-      (if (if $derived true (sk-open-filter? $filter)) $merged
-         (if (sk-admits? $filter () $merged) $merged
-            (sk-merge-key $hash $key $filter $exclude () (sk-admitted $hash $key $filter $exclude))))))
+   (let $derived (case $filter (
+           ((sk-filter $proof $_tv) (head-is? $proof derived-implication))
+           ($_any false)))
+      (if $derived
+         (let $hash (index-hash $key)
+            (sk-merge-key $hash $key $filter $exclude () (sk-admitted $hash $key $filter $exclude)))
+         (let* (($hash (index-hash $key))
+                ($merged
+                   (if (sk-leaves-out? $hash $key $exclude)
+                      (sk-merge-key $hash $key sk-any-filter $exclude () (sk-admitted $hash $key sk-any-filter $exclude))
+                      (case (sk-open-value $hash $key sk-any-filter) (
+                         ((sk-merged $_hash $_key $deps $value)
+                            (if (sk-excludes? $exclude $deps)
+                               (sk-merge-key $hash $key sk-any-filter $exclude () (sk-admitted $hash $key sk-any-filter $exclude))
+                               $value)))))))
+            (if (sk-open-filter? $filter) $merged
+               (if (sk-admits? $filter () $merged) $merged
+                  (sk-merge-key $hash $key $filter $exclude () (sk-admitted $hash $key $filter $exclude))))))))
 
 (: sk-drop-merged! (-[det]-> SkeletonKey Atom))
 (= (sk-drop-merged! $key)
