@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import resource
 import subprocess
 import sys
@@ -55,7 +56,7 @@ def _limit() -> None:
 
 
 def chainer(kb: KB, settings: Settings) -> dict:
-    """{budget: [[strength, confidence, proof], ...] per query} or {"error": ...}."""
+    """Budget/query answers, {"unsupported": feature/stage label}, or {"error": ...}."""
     program = metta(kb, settings.k)
     job = {
         "k": settings.k,
@@ -77,9 +78,18 @@ def chainer(kb: KB, settings: Settings) -> dict:
         return {"error": f"timeout after {settings.timeout:.0f} s"}
     marker = done.stdout.rfind("@@RESULT@@")
     if done.returncode != 0 or marker < 0:
+        # Workers can be supplied by another backend via CHAINER_PYTHON.
+        # Read the terminal exception, not an earlier chained exception or
+        # a mention of an unsupported feature in an ordinary crash message.
+        lines = (done.stderr or done.stdout).strip().splitlines()
+        if done.returncode > 0 and lines:
+            missing = re.fullmatch(r"(?:\w+\.)*(NotImplementedError|UnsupportedCompilation)(?::\s*(.*))?", lines[-1])
+            if missing:
+                return {"unsupported": missing[2] or missing[1]}
         tail = (done.stderr or done.stdout).strip().splitlines()[-3:]
         return {"error": f"exit {done.returncode}: {' | '.join(tail)[:400]}"}
-    return {int(budget): rows for budget, rows in json.loads(done.stdout[marker + len("@@RESULT@@"):]).items()}
+    result = json.loads(done.stdout[marker + len("@@RESULT@@"):])
+    return result if "unsupported" in result else {int(budget): rows for budget, rows in result.items()}
 
 
 def best(answers: list) -> tuple[float, str] | None:
@@ -109,15 +119,21 @@ class Verdict:
     rows: list[dict] = field(default_factory=list)  # per query
     flags: list[tuple[str, int]] = field(default_factory=list)  # (category, query index)
     error: str | None = None
+    unsupported: str | None = None
 
     @property
     def category(self) -> str | None:
+        if self.unsupported is not None:
+            return "unsupported"
         found = {category for category, _ in self.flags}
         return next((c for c in SEVERITY if c in found), None)
 
 
 def judge(kb: KB, exact: dict, answers: dict, settings: Settings) -> Verdict:
     verdict = Verdict()
+    if "unsupported" in answers:
+        verdict.unsupported = answers["unsupported"]
+        return verdict
     if "error" in answers:
         verdict.error = answers["error"]
         verdict.flags.append(("crash", 0))

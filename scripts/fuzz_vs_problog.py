@@ -145,17 +145,24 @@ def main() -> None:
             if verdict is None:
                 case["skipped"] = exact.get("error")
             else:
-                case |= {"rows": verdict.rows, "flags": verdict.flags, "category": verdict.category, "error": verdict.error}
+                case |= {"rows": verdict.rows, "flags": verdict.flags, "category": verdict.category, "error": verdict.error,
+                         "unsupported": verdict.unsupported}
             cases.append(case)
-        log(f"  {len(cases)}/{len(kbs)} done, {sum(1 for c in cases if c.get('category'))} flagged, {time.time() - started:.0f} s")
+        log(f"  {len(cases)}/{len(kbs)} done, {sum(1 for c in cases if c.get('category') in SEVERITY)} flagged, "
+            f"{sum(1 for c in cases if c.get('category') == 'unsupported')} unsupported, {time.time() - started:.0f} s")
     with open(out / "cases.jsonl", "w") as handle:
         for case in cases:
             handle.write(json.dumps(case) + "\n")
 
-    judged = [c for c in cases if "rows" in c]
+    evaluated = [c for c in cases if "rows" in c]
+    judged = [c for c in evaluated if c["rows"]]
+    unsupported = defaultdict(int)
+    for c in evaluated:
+        if c["unsupported"] is not None:
+            unsupported[c["unsupported"]] += 1
     queries = sum(len(c["rows"]) for c in judged)
     counts = defaultdict(int)
-    for c in judged:
+    for c in evaluated:
         for category, _ in c["flags"]:
             counts[category] += 1
     errors = [r["err"] for c in judged for r in c["rows"] if r["err"] is not None]
@@ -188,8 +195,9 @@ def main() -> None:
         home["cases"] += [case["seed"] for case in members]
     summary = {
         "seed": args.seed, "n": args.n, "features": chosen, "mix": not args.no_mix, "budgets": settings.budgets, "k": settings.k,
-        "threshold": settings.threshold, "kbs_judged": len(judged), "kbs_skipped": len(cases) - len(judged), "queries": queries,
-        "flag_counts": dict(counts), "flagged_kbs": {c: sum(1 for x in judged if x["category"] == c) for c in SEVERITY},
+        "threshold": settings.threshold, "kbs_judged": len(judged), "kbs_skipped": len(cases) - len(evaluated), "queries": queries,
+        "kbs_unsupported": sum(unsupported.values()), "unsupported_reasons": dict(unsupported),
+        "flag_counts": dict(counts), "flagged_kbs": {c: sum(1 for x in evaluated if x["category"] == c) for c in SEVERITY},
         "mean_abs_error": sum(errors) / len(errors) if errors else None, "answered": len(errors), "seconds": round(time.time() - started),
         "clusters": sorted(clusters.values(), key=lambda c: -len(c["cases"])),
     }
@@ -206,6 +214,9 @@ def replay(path: Path, settings: Settings) -> None:
     ((exact, answers, verdict),) = evaluate([kb], settings, 1)
     if verdict is None:
         print("ProbLog:", exact["error"])
+        return
+    if verdict.unsupported is not None:
+        print("unsupported:", verdict.unsupported)
         return
     for i, row in enumerate(verdict.rows):
         print(f"{row['atom']}: exact {row['exact']:.6f} (prior {row['prior']:.6f}), PeTTaChainer {row['pln']} (budget {settings.budgets[0]}: {row['pln_low']})")
@@ -237,7 +248,7 @@ def minimise(case: dict, settings: Settings, args, out: Path, log) -> dict | Non
         return None
     detail = chainer(small, Settings(settings.budgets[-1:], settings.k, settings.threshold))
     row = verdict.rows[small.queries.index(atom)]
-    answers = [] if "error" in detail else detail[settings.budgets[-1]][small.queries.index(atom)]
+    answers = [] if "error" in detail or "unsupported" in detail else detail[settings.budgets[-1]][small.queries.index(atom)]
     best = max(answers, key=lambda a: a[1]) if answers else None
     name = f"seed{case['seed']}_{category}"
     header = f";; fuzz_vs_problog seed {case['seed']}: {category} on ({atom[0]} {atom[1]})\n;; exact {row['exact']:.6f}, PeTTaChainer {row['pln']}\n"
@@ -255,12 +266,15 @@ def report(s: dict) -> str:
         f"Features {', '.join(s['features'])} (mix: {s['mix']}); budgets {s['budgets']}; k {s['k']}; threshold {s['threshold']}; {s['seconds']} s.",
         "",
         f"KBs judged {s['kbs_judged']} (skipped {s['kbs_skipped']}: impossible evidence), queries {s['queries']}, answered {s['answered']}, mean |PLN - exact| {s['mean_abs_error'] if s['mean_abs_error'] is None else round(s['mean_abs_error'], 4)}.",
+        f"Unsupported KBs {s['kbs_unsupported']} (separate from crashes and query errors).",
         "",
         "| category | flagged queries | KBs (worst category) |",
         "|---|---|---|",
     ]
     for category in SEVERITY + EXPECTED:
         lines.append(f"| {category} | {s['flag_counts'].get(category, 0)} | {s['flagged_kbs'].get(category, '-')} |")
+    lines += ["", "Unsupported feature/stage labels:"]
+    lines += [f"- {label}: {count} KBs" for label, count in sorted(s["unsupported_reasons"].items())] or ["- none"]
     lines += ["", "## Clusters (by frequency)", ""]
     for i, cluster in enumerate(s["clusters"], 1):
         lines.append(f"### {i}. {cluster['category']} ({len(cluster['cases'])} cases), PLN {cluster.get('direction', '?')}")

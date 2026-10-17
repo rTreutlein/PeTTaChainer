@@ -47,6 +47,17 @@ same model, and a learned rule's stated prior revises to Laplace's rule). It
 runs no chainer. A fuzz run is not part of the test suite: it finds open
 defects, so it cannot be a stable gate.
 
+`tests/test_fuzz_outcomes.py` checks supported answers, unsupported features,
+and crashes through the worker protocol and summary. A worker's terminal
+`NotImplementedError` or `UnsupportedCompilation` is an `unsupported` outcome;
+its message (including the backend's feature and stage label) is preserved in
+`cases.jsonl` and counted under `kbs_unsupported` / `unsupported_reasons` in
+`summary.json`. It is separate from crash and numerical-error counts. Workers
+may also return `@@RESULT@@{"unsupported": "feature/stage label"}`. Other
+worker failures and timeouts remain crashes. Unsupported and crashed KBs have
+no query rows and are excluded from query clustering and shrinking; even a run
+with zero supported KBs writes a complete summary with a null mean error.
+
 ## What a KB is
 
 `tests/fuzz/kb.py` holds the abstract KB both translations are written from.
