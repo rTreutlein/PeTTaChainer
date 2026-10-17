@@ -1115,6 +1115,11 @@ budget, and any view the search finds replaces it. It is the prior an
 inversion reads, and a positive-only predicate has none. The prior is the
 population's value, not the statement's, and it is never materialized.
 
+An added fact refreshes its root's cached merge even if that merge was empty
+and no row version exists anywhere. Fact ingestion journals dirty keys once
+either merged values or row versions exist; evaluation refreshes the key
+itself as well as its readers, without restarting expanded search.
+
 A ground statement in the main context that no rule application concludes
 and that is not complete is a root of the model: inversions and completions
 conclude it from evidence, but nothing derives it. When its node is

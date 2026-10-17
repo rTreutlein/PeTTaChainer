@@ -487,7 +487,12 @@
                 ()))
           ($_woken (if (== (search-id-value sk_forward_run) 1) () (sk-wake-dormant! $type $expanded)))
           ($_dirty
-             (if (not (== (collapse (once (match &ctx_sk_latest ($_hash $_key $_version) true))) ()))
+             ;; A root caches its merged value even when no row has ever
+             ;; produced a version. Empty and fact-only merges need the same
+             ;; dirty-key refresh as row readers; both existence probes stop
+             ;; at their first entry, so ingestion stays constant cost.
+             (if (if (not (== (collapse (once (match &ctx_sk_latest ($_hash $_key $_version) true))) ())) true
+                     (not (== (collapse (once (match &ctx_sk_merged ($_mhash $_mkey $_deps $_value) true))) ())))
                 (sk-dirty! $key)
                 ())))
       ()))
