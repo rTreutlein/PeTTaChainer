@@ -263,6 +263,13 @@
       ((not-fact-ev $nkbctx $nproof $ntype) (certain-tvs? (collapse (once (match &kb ($ntype $nkbctx $nproof $ntv) $ntv)))))
       ($name (if (is-expr $name) false (certain-tvs? (stored-proof-tvs $name)))))))
 
+;; Stored binary-certain facts are givens, including observations of statements
+;; with forward rules. Keep their provenance in results, but compare views and
+;; choose conditioning cuts without them, in either evidence polarity.
+(: evidence-certainty-step (-[det]-> Bool (List Evidence) Evidence (List Evidence)))
+(= (evidence-certainty-step $certain $kept $entry)
+   (if (== (certain-fact-evidence? $entry) $certain) (cons $entry $kept) $kept))
+
 (: uncertain-evidence-step (-[det]-> Bool Evidence Bool))
 (= (uncertain-evidence-step $found $entry)
    (if $found true (not (certain-fact-evidence? $entry))))

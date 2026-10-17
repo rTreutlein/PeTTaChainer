@@ -261,6 +261,40 @@ argument_shape(Arg, Shape) :-
     ( proof_ref_id(Proof,Pid), user:'&proof'(Pid,Value,_,_) -> Stored=Value ; Stored=Proof ),
     ( nonvar(Stored), Stored=['zero-likelihood',_] -> Zero=true ; Zero=false ).
 
+% A hard fact read as a completion's given sibling carries no dependence
+% between that context and another update. Keep the full signed source set;
+% the MeTTa consumer checks the facts' current certainty in their exact scope.
+% Each immutable reference's context is computed once from its immediate
+% children. The memo follows the proof store's collector, like its rule memo.
+:- dynamic proof_given_memo/2.
+
+'proof-given-evidence'(Proof, ['ev-set', Set]) :-
+    proof_given_evidence(Proof, Set).
+
+proof_given_evidence(Proof, Set) :-
+    (   proof_ref_id(Proof, Pid)
+    ->  (   proof_given_memo(Pid, Known) -> Set = Known
+        ;   user:'&proof'(Pid, Stored, _, _), proof_given_evidence(Stored, Set),
+            assertz(proof_given_memo(Pid, Set)) )
+    ;   nonvar(Proof), Proof = [FactTag, _, _], FactTag == 'fact-source' -> Set = 0
+    ;   nonvar(Proof), Proof = [NegTag, Inner], NegTag == negated
+    ->  proof_given_evidence(Inner, InnerSet),
+        'evidence-negated'(['ev-set', InnerSet], ['ev-set', Set])
+    ;   nonvar(Proof), Proof = [Head, Compound], nonvar(Head), Head = [Completion | _],
+        Completion == 'antecedent-completion', nonvar(Compound), Compound = [Conjunction | Witnesses],
+        Conjunction == conjunction
+    ->  append(Siblings, [_Observation], Witnesses),
+        'proof-term-evidence'('proof-walk-in-kb', [conjunction | Siblings], ['ev-set', Given]),
+        proof_given_children(Proof, Nested), ev_union(Given, Nested, Set)
+    ;   is_list(Proof) -> proof_given_children(Proof, Set)
+    ;   Set = 0 ),
+    refs_gc_touch_set(Set).
+
+proof_given_children([], 0).
+proof_given_children([Child | Rest], Set) :-
+    proof_given_evidence(Child, ChildSet), proof_given_children(Rest, RestSet),
+    ev_union(ChildSet, RestSet, Set).
+
 % Different result keys can intern the same proof under different ids. Compare
 % the proof DAG without its result metadata or constructing an expanded tree.
 % Repeated reference pairs are visited once; variables are never unified.
@@ -576,7 +610,8 @@ refs_gc_follow_loop(Units, Left) :-
     ;   retract(refs_gc_grey(Pid))
     ->  (   user:'&proof'(Pid, Stored, Leaves, _)
         ->  term_size(Stored, Size), flag(refs_gc_marked_words, Marked, Marked + Size),
-            refs_gc_mark_term(Stored), refs_gc_mark_term(Leaves)
+            refs_gc_mark_term(Stored), refs_gc_mark_term(Leaves),
+            ( proof_given_memo(Pid, Given) -> refs_gc_mark_set(Given) ; true )
         ;   true ),
         (   Units == inf -> Next = inf ; Next is Units - 1 ),
         refs_gc_follow_loop(Next, Left)
@@ -596,6 +631,7 @@ refs_gc_live_set(Set, SetLimit) :- ( Set =:= 0 ; Set >= SetLimit ; refs_gc_set(S
 
 refs_gc_erase(proofs, user:'&proof'(Pid, _, _, _), Ref) :- !,
     erase(Ref), retractall(user:'&proof_fact'(Pid, _, _)), retractall(proof_rules_memo(Pid, _)),
+    retractall(proof_given_memo(Pid, _)),
     forget_summary_user(Pid).
 refs_gc_erase(_, _, Ref) :- erase(Ref).
 

@@ -504,8 +504,9 @@ A key's value merges its stored facts and one view per row:
   The existing semantic generalization path remains where the conditions
   do not overlap literally, including the penguin/bird example;
 - two views are independent when their evidence is disjoint, or when each
-  holds evidence of its own and they share only known facts that no rule
-  concludes (premises either reads as given), rules (as for rows: a rule's
+  holds evidence of its own and they share only known facts read as given
+  (including stored observations nested in completion siblings, even when a
+  rule concludes their statements), rules (as for rows: a rule's
   truth, its `RuleTruth` key included, is a parameter of both views, not an
   event either observes) and no statement whose value is uncertain (by their
   dependency sets, so a derived statement both read counts, not only shared
@@ -608,9 +609,22 @@ reading the pinned statement as its consequence gives nothing.
 
 Premises are selected by the consumer. Evidence of a certain fact, strength 0
 or 1 at confidence 1, never counts as shared: a join over it is exact either
-way, however the evidence names the fact (a fact proof name read off a proof
-term, negated under a Not, is looked up by that name). A factored merge's
-evidence is its prior view's and its updates'; the population base rate
+way, however the evidence names the fact or whether a rule can conclude its
+statement. Scoped fact entries, including negative ones, are checked against
+their exact stored KB/statement/proof; inline proofs retain that scope. A
+completion's given siblings contribute their full signed source evidence,
+including contexts nested inside its prior and other inline or referenced
+proofs, before only their binary-certain facts are removed from the independence
+comparison. Context source sets are pure immutable proof metadata, memoized
+once per stored proof reference; their certainty is checked against the live
+KB at the consumer. The reference collector marks those cached sets with their
+proofs and deletes the memo when its proof is collected, so retaining context
+information does not rewalk history on every merge or retain dead histories.
+The actual consequence observation stays evidence: two likelihood updates reading the same report still count it
+once. Clash detection removes binary-certain shared facts before choosing keys
+or falling back to dependency cuts. Soft reports and nonbinary strength
+estimates remain shared evidence even if their confidence is 1. A factored
+merge's evidence is its prior view's and its updates'; the population base rate
 (`cpu`) and the prior's truth value it names are not evidence. A premise whose value shares other fact evidence with what the row already used is replaced by the merge of that key's
 facts and views that share none; a shared rule is not a clash, except a rule
 the row excludes: an implication instance sample excludes the rules restating

@@ -298,11 +298,9 @@
             ((specializes $_specific $_general $_raw $_prior-tv) (cons $proof ()))
             ($_other ()))))))
 
-;; The witnesses of the updates a view merges, by hash: with `$siblings`
-;; false their observations, an inversion's observation and a completion's
-;; consequence, its last witness; with `$siblings` true the other witnesses of
-;; a completion, the siblings whose values its likelihood of the consequence
-;; reads as given. Updates through one rule are independent given their prior
+;; The observations of the updates a view merges, by hash: an inversion's
+;; observation or a completion's consequence, its last witness.
+;; Updates through one rule are independent given their prior
 ;; and the rule, whether its truth is given or an estimate (see
 ;; sk-merge-facts). A list of proofs is walked by recursion: the determinism
 ;; checker rejects a fold over Proof, a newtype of Atom.
@@ -310,28 +308,22 @@
 (= (sk-witness-hash $proof)
    (index-hash (case $proof (((fact-source $_ev $source) $source) ($_other $proof)))))
 
-(: sk-part-witnesses (-[det]-> Bool (List Proof) (List Number)))
-(= (sk-part-witnesses $_siblings ()) ())
-(= (sk-part-witnesses $siblings (cons $part $rest))
+(: sk-part-witnesses (-[det]-> (List Proof) (List Number)))
+(= (sk-part-witnesses ()) ())
+(= (sk-part-witnesses (cons $part $rest))
    (let* (($witness (car-atom (cdr-atom (sk-step-proof $part))))
           ($last-first (reverse (case $witness (((cons conjunction $proofs) $proofs) ($_one (cons $witness ()))))))
-          ($read (the (List Atom) (if $siblings (sk-siblings (cdr-atom $last-first)) (cons (car-atom $last-first) ())))))
-      (append-flat (map-flat sk-witness-hash $read) (sk-part-witnesses $siblings $rest))))
-
-;; A compound sibling read off its parts, the Or of a completion's other
-;; parts, reads each part as given.
-(: sk-siblings (-[det]-> (List Atom) (List Atom)))
-(= (sk-siblings ()) ())
-(= (sk-siblings (cons $proof $rest))
-   (append-flat
-      (the (List Atom) (case $proof (
-         ((cons conjunction $parts) (sk-siblings (the (List Atom) $parts)))
-         ($_one (cons $proof ())))))
-      (sk-siblings $rest)))
+          ($read (the (List Atom) (cons (car-atom $last-first) ()))))
+      (append-flat (map-flat sk-witness-hash $read) (sk-part-witnesses $rest))))
 
 (: sk-sources-meet? (-[det]-> (List Proof) (List Proof) Bool))
 (= (sk-sources-meet? $parts-a $parts-b)
-   (not (== (/==\ (sk-part-witnesses false $parts-a) (sk-part-witnesses false $parts-b)) ())))
+   (not (== (/==\ (sk-part-witnesses $parts-a) (sk-part-witnesses $parts-b)) ())))
+
+;; Context evidence is cached by immutable proof reference, including the given
+;; siblings of nested completions. Certainty is checked against the live KB
+;; below, rather than cached with the proof's structural context.
+(: proof-given-evidence (-[det]-> Proof EvidenceSet))
 
 ;; The evidence a view holds about its statement apart from what it reads as
 ;; given: its evidence less the certain facts its completions read as
@@ -353,10 +345,13 @@
 (: sk-update-evidence (-[det]-> SkFact EvidenceSet SkFact EvidenceSet))
 (= (sk-update-evidence ($type $kbctx $proof $tv) $ev ($_otype $_okbctx $other $otv))
    (case (data (sk-prior-update-of $proof $tv) (sk-prior-update-of $other $otv)) (
-      (((sk-prior-update $_prior $_own $parts) (sk-prior-update $_oprior $_oown $oparts))
-         (sk-without-given $ev (sk-part-witnesses true $parts)
-            (sk-application-premises $type $kbctx $proof)
-            (sk-part-witnesses false $oparts))))))
+      (((sk-prior-update $_prior $_own $_parts) (sk-prior-update $_oprior $_oown $oparts))
+         (let $without-siblings
+               (evidence-subtraction $ev
+                  (evidence-set (fold-flat (evidence-certainty-step true) () (evidence-entries (proof-given-evidence $proof)))))
+            (sk-without-given $without-siblings
+               (sk-application-premises $type $kbctx $proof)
+               (sk-part-witnesses $oparts)))))))
 
 ;; The premises a rule application of a complete statement reads directly, by
 ;; hash.
@@ -372,22 +367,21 @@
          ($_update ())))
       ()))
 
-;; Evidence less its certain facts that are siblings, or premises observed.
-(: sk-without-given (-[det]-> EvidenceSet (List Number) (List Number) (List Number) EvidenceSet))
-(= (sk-without-given $ev $siblings $premises $observed)
-   (if (if (== $siblings ()) (if (== $premises ()) true (== $observed ())) false) $ev
+;; Evidence less the certain complete premises the other view observes.
+(: sk-without-given (-[det]-> EvidenceSet (List Number) (List Number) EvidenceSet))
+(= (sk-without-given $ev $premises $observed)
+   (if (if (== $premises ()) true (== $observed ())) $ev
       (evidence-subtraction $ev
-         (evidence-set (fold-flat (sk-given-entry-step $siblings $premises $observed) () (evidence-entries $ev))))))
+         (evidence-set (fold-flat (sk-given-entry-step $premises $observed) () (evidence-entries $ev))))))
 
-(: sk-given-entry-step (-[det]-> (List Number) (List Number) (List Number) (List Evidence) Evidence (List Evidence)))
-(= (sk-given-entry-step $siblings $premises $observed $kept $entry)
+(: sk-given-entry-step (-[det]-> (List Number) (List Number) (List Evidence) Evidence (List Evidence)))
+(= (sk-given-entry-step $premises $observed $kept $entry)
    (case $entry (
       ((fact-ev $kbctx $proof $type)
          (let $hash (index-hash $proof)
-            (if (if (stored-list-member? $hash $siblings) true
-                   (if (stored-list-member? $hash $observed)
-                      (if (stored-list-member? $hash $premises) (complete-statement? $type $kbctx) false)
-                      false))
+            (if (if (stored-list-member? $hash $observed)
+                   (if (stored-list-member? $hash $premises) (complete-statement? $type $kbctx) false)
+                   false)
                (if (certain-fact-evidence? $entry) (cons $entry $kept) $kept)
                $kept)))
       ($_other $kept))))
@@ -665,9 +659,10 @@
                ($keys (sk-entangled $keys (+ 1 (deps-size (deps-join $deps))) $state))))))
       ($_other $state))))
 
-;; A known fact two views share is evidence twice when some rule concludes
-;; its statement: it may be an observation both update on. A fact no rule
-;; concludes is a premise either reads as given.
+;; After sk-update-evidence removes hard facts read as given, a remaining
+;; concludable fact may be the same consequence observation in both updates.
+;; Retain that protection even for hard reports: a likelihood counts once.
+;; A fact no rule concludes is a premise either reads as given.
 (: sk-concludable-fact? (-[det]-> Statement Atom Bool))
 (= (sk-concludable-fact? $type $kbctx) (let $kbid (car-atom $kbctx) (prefilter-head-concludable? $type $kbid)))
 
@@ -2977,6 +2972,8 @@
             (if (if (certain-fact-evidence? $entry) false (== (fold-semidet (sk-pinned-step $key) () $given) ()))
                (cons $key $keys)
                $keys)))
+      ((not-fact-ev $nkbctx $nproof $ntype)
+         (sk-shared-key-step $given $keys (fact-ev $nkbctx $nproof $ntype)))
       ($_other $keys))))
 
 ;; Whether a fact is a projection of a stored or derived conjunction.
@@ -3003,7 +3000,7 @@
             ((sk-val $fact $value-ev $value-deps)
                (if (sk-projection? $fact) (sk-clash () 0)
                   (let*
-                     (($shared-facts (evidence-shared-facts $ev $value-ev))
+                     (($shared-facts (fold-flat (evidence-certainty-step false) () (evidence-shared-facts $ev $value-ev)))
                       ($keys (list_to_set (fold-semidet (sk-shared-key-step $given) () $shared-facts))))
                      (sk-clash
                         ;; A signed proof can name shared evidence without a
