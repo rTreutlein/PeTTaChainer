@@ -30,9 +30,15 @@ keeps its TV unchanged; it is not combined with a synthetic zero observation.
 Sharing an uncertain rule parameter does not correlate two instances: two
 certain Birds through a 0.9 rule yield existential strength 0.99, consistent
 with conjunction strength 0.81. Shared uncertain **fact** dependencies use the
-same overlap test as `And`. If any such overlap occurs, stage 1 conservatively
-uses the strongest individual witness TV across the **whole population**. Two
-correlated witnesses at 0.5 plus an independent P(c)=0.4 still give 0.5, not
+same overlap test as `And`. Shared uncertain derived statements also correlate
+witnesses, even when their fact evidence is empty: two projections of one
+rule-derived conjunction are one source, not independent rule trials. The
+witness fold compares full dependency sets, since a joined body can place that
+common source below the ordinary premise entanglement frontier. `RuleTruth`
+parameters and known statements remain exempt. If any such overlap occurs,
+stage 1 conservatively uses the strongest individual witness TV across the
+**whole population**. Two correlated witnesses at 0.5 plus an independent
+P(c)=0.4 still give 0.5, not
 0.7. The result carries only the selected witness's proof and evidence. The
 scan unions all evidence only to detect overlap; all member dependencies remain
 to invalidate the result when any member changes. This is a lower bound, not
@@ -136,8 +142,11 @@ previous first-wave search and reader scheduling. The wave grounds its conclusio
 context to the taken fact. Internal channel adapters remain in the skeleton and
 are excluded from forward results and stored facts.
 
-A changed population recomputes D in O(m) member reads plus the existing cost of
-merging values and evidence sets. The floor adds at most two reads per group.
+A changed population recomputes D in O(m) member reads plus the cost of
+merging values and evidence sets and checking shared dependency sets. Until an
+overlap is found, each new member compares its dependencies with the union of
+earlier members' dependencies; this can cost more than linear time in the
+population and dependency sizes. The floor adds at most two reads per group.
 There is no update tree and no claim of constant cost in population size.
 Compilation and canonicalization also traverse the source term. Search and
 recomputation use the existing budgets; unfinished work returns no answer or an

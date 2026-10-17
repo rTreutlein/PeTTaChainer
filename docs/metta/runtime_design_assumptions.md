@@ -648,8 +648,10 @@ it.
 
 Existential witness folds are open-population judgments, not exact population
 summaries. They return no value when empty and retain subscriptions in that
-state so late evidence can wake their readers. Their disjunction uses the
-ordinary premise fact-overlap test; a shared uncertain rule is not overlap.
+state so late evidence can wake their readers. Their disjunction checks
+ordinary premise fact overlap and shared uncertain derived statements across
+the full member dependency sets. Projections of one derived compound are
+correlated witnesses; a shared uncertain rule parameter alone is not overlap.
 An outer strength floor compares this witness judgment to the direct claim
 without revising the two. Exact strength ties prefer more evidence, then a
 canonical statement-key order. Correlated witness bounds carry only the chosen

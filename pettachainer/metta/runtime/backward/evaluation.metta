@@ -1819,9 +1819,13 @@
             (if (< $c $old-c) false
                (existential-key-before? (sk-key $type $ctx) (sk-key $old-type $old-ctx)))))))
 
-;; All member evidence detects overlap; only the selected member supports a
-;; correlated lower bound. Dependencies still retain every member so a later
-;; overlap bridge or stronger witness recomputes the judgment.
+;; Fact evidence and shared uncertain statements detect overlap: distinct
+;; witnesses can project the same derived compound without sharing a fact
+;; leaf. A shared RuleTruth parameter alone still leaves trials independent.
+;; Only the selected member supports a correlated lower bound. Dependencies
+;; retain every member so a later overlap bridge or stronger witness refreshes
+;; the judgment. Inspect the full dependency sets: a witness join can put its
+;; common source deeper than an ordinary premise's entanglement frontier.
 (: sk-existential-step
    (-[semidet]-> Bool SkeletonFilter (List Number) SkeletonExistentialFold SkeletonKey SkeletonExistentialFold))
 (= (sk-existential-step $floor $filter $exclude
@@ -1839,7 +1843,11 @@
                         (if (== $proofs ()) (STV $s $c) (OrFormula $tv (STV $s $c))))
                      (if $take (sk-val $fact $member-ev $member-deps) $best)
                      (if $floor false
-                        (if $overlap true (premise-evidence-overlap? $ev $member-ev)))
+                        (if $overlap true
+                           (if (premise-evidence-overlap? $ev $member-ev) true
+                              (if (== $deps ()) false
+                                 (not (== (sk-shared-statements $exclude
+                                    (deps-shared (deps-join $deps) $member-deps)) ()))))))
                      (cons $proof $proofs)
                      (evidence-union $ev $member-ev)
                      (cons $member-deps $deps)))
