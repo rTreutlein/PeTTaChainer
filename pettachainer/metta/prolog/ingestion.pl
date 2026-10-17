@@ -16,9 +16,20 @@
     ; throw(error(resource_error(stored_term_bytes(Size, Limit)),
                   context(compileadd/2, 'stored term exceeds max-term-bytes'))) ),
     Statement = [':', _, Type, _],
+    ingestion_negation(Type),
     ( ingestion_closed([], Type) -> true
     ; throw(error(domain_error(fact_without_free_variables, Type),
                   context(compileadd/2, 'fact contains free variables'))) ).
+
+% Asserted negations are unwrapped by compile_. Validate the entire leading
+% chain before compilation: exact destructuring would silently fail on Not/0
+% or Not/2, and an outer Not must not hide an invalid inner negation.
+ingestion_negation(Type) :-
+    ( nonvar(Type), Type = [Head|Args], Head == 'Not'
+    -> ( Args = [Inner] -> ingestion_negation(Inner)
+       ; throw(error(domain_error(unary_negation, Type),
+                     context(compileadd/2, 'negation requires exactly one argument'))) )
+    ; true ).
 
 % Heads must be inspected without unification: a variable predicate is data,
 % never an Implication, a wrapper, or a binder merely because it could fit one.

@@ -221,6 +221,49 @@ class TestIngestion(unittest.TestCase):
             answers = self.h.query('(: $proof (P $x) $tv)', steps=0, timeout_sec=timeout)
             self.assertEqual(answers, ['(: accepted (P a) (STV 1 1))'])
 
+    def test_malformed_asserted_negation_rejects_before_publication(self):
+        for statement in ('(Not)', '(Not a b)', '(Not (Not a b))'):
+            atom = f'(: malformed {statement} (STV 0.8 0.9))'
+            for add in (self.h.add_atom,
+                        lambda a: self.h.add_atoms_no_check([a]),
+                        lambda a: self.h._call('compileadd', [f'{self.h.kb} {a}'])):
+                with self.subTest(statement=statement, add=add), self.assertRaisesRegex(
+                        janus.PrologError, 'negation.*one.*argument'):
+                    add(atom)
+            self.assertNotIn(atom, self.h._added_atoms)
+            self.assertEqual(janus.query_once(
+                "aggregate_all(count,'&kb'(_, [Kb,'MAIN','Nil'], malformed, _),N)",
+                {'Kb': self.h.kb})['N'], 0)
+
+    def test_variable_head_query_order_and_population_refinement(self):
+        # The generic population needs more search than the Friend-only one.
+        # Compare independent KBs, then reverse the query order: the apparent
+        # ground/open difference in test_var_head was cold/warm refinement.
+        for head in ('variable', 'concrete'):
+            rule = ('(Implication (And (Symmetric $r) ($r $x $y)) ($r $y $x))'
+                    if head == 'variable' else
+                    '(Implication (And (Symmetric Friend) (Friend $x $y)) (Friend $y $x))')
+            for goal in ('(Friend alice bob)', '(Friend alice $x)'):
+                with self.subTest(head=head, goal=goal):
+                    h = PeTTaChainer()
+                    h.add_atoms_no_check([
+                        f'(: symmetric {rule} (STV 0.9 0.9))',
+                        '(: tag (Symmetric Friend) (STV 0.9 0.9))',
+                        '(: edge (Friend bob alice) (STV 0.9 0.9))',
+                    ])
+                    other = '(Friend alice $x)' if goal == '(Friend alice bob)' else '(Friend alice bob)'
+                    # #83 leaves the unsupported negative branch at (0.5, 0)
+                    # until the population join supplies complementary evidence.
+                    cold_tv = ((0.8240000000000001, 0.018452857158991698)
+                               if head == 'variable' else (0.9, 0.03939074332138302))
+                    for query, (strength, confidence) in ((goal, cold_tv),
+                                                         (other, (0.9, 0.03939074332138302)),
+                                                         (goal, (0.9, 0.03939074332138302))):
+                        answer = h.query_many_refs([f'(: $p {query} $tv)'], steps=100)[0]
+                        self.assertEqual([a.statement for a in answer], [['Friend', 'alice', 'bob']])
+                        self.assertAlmostEqual(answer[0].tv[1], strength)
+                        self.assertAlmostEqual(answer[0].tv[2], confidence)
+
     def test_size_limit_replays_before_timed_worker_loads_large_knowledge(self):
         atom = '(: large (Payload ' + 'x' * 65536 + ') (STV 1 1))'
         self.h.set_max_term_bytes(len(atom))

@@ -1427,36 +1427,34 @@
 ;; never leak into the broad `any` index.
 (: compile_ (-[nondet]-> KB AnnotatedStatement  CompiledAddition))
 (= (compile_ $kb (: $prf $Type $tv))
-   (if (is-var $Type) (empty)
-      (if (source-rule? $Type)
-         (case $Type (
-            ((Implication $antecedent $consequent)
-               (compile-rule $kb () no-prior $prf
-                  (brand Statement $antecedent) (brand Statement $consequent) $tv))
-            ((ForAll $params (Implication $antecedent $consequent))
-               (compile-rule $kb (extract-vars $params) no-prior $prf
-                  (brand Statement $antecedent) (brand Statement $consequent) $tv))
-            ((WithPrior $prior (Implication $antecedent $consequent))
-               (compile-rule $kb () $prior $prf
-                  (brand Statement $antecedent) (brand Statement $consequent) $tv))
-            ((ForAll $params (WithPrior $prior (Implication $antecedent $consequent)))
-               (compile-rule $kb (extract-vars $params) $prior $prf
-                  (brand Statement $antecedent) (brand Statement $consequent) $tv))
-            ($_unsupported (empty))))
-         (if (implication-type? $Type) (empty)
-            (if (source-exists? $Type) (empty)
-               (if (bidirectional-implication-type? $Type)
-                  (let ($_head $left $right) $Type
-                     (superpose (
-                        (compile_ $kb (: (bi-forward $prf) (Implication $left $right) $tv))
-                        (compile_ $kb (: (bi-backward $prf) (Implication $right $left) $tv)))))
-               ;; Asserted negation keeps the source name and stores its
-               ;; inner statement with complemented strength.
-               (if (head-is? $Type Not)
-                  (let (Not $inner) $Type
-                     (case $tv (
-                        ((STV $s $c)
-                           (compile_ $kb (: $prf $inner (STV (- 1.0 $s) $c))))
-                        ($_unsupported-tv
-                           (compile-ordinary-fact $kb $prf $Type $tv)))))
-                  (compile-ordinary-fact $kb $prf $Type $tv))))))))
+   (if (source-rule? $Type)
+      (case $Type (
+         ((Implication $antecedent $consequent)
+            (compile-rule $kb () no-prior $prf
+               (brand Statement $antecedent) (brand Statement $consequent) $tv))
+         ((ForAll $params (Implication $antecedent $consequent))
+            (compile-rule $kb (extract-vars $params) no-prior $prf
+               (brand Statement $antecedent) (brand Statement $consequent) $tv))
+         ((WithPrior $prior (Implication $antecedent $consequent))
+            (compile-rule $kb () $prior $prf
+               (brand Statement $antecedent) (brand Statement $consequent) $tv))
+         ((ForAll $params (WithPrior $prior (Implication $antecedent $consequent)))
+            (compile-rule $kb (extract-vars $params) $prior $prf
+               (brand Statement $antecedent) (brand Statement $consequent) $tv))))
+      (if (implication-type? $Type) (empty)
+         (if (source-exists? $Type) (empty)
+            (if (bidirectional-implication-type? $Type)
+               (let ($_head $left $right) $Type
+                  (superpose (
+                     (compile_ $kb (: (bi-forward $prf) (Implication $left $right) $tv))
+                     (compile_ $kb (: (bi-backward $prf) (Implication $right $left) $tv)))))
+            ;; Asserted negation keeps the source name and stores its
+            ;; inner statement with complemented strength.
+            (if (head-is? $Type Not)
+               (let (Not $inner) $Type
+                  (case $tv (
+                     ((STV $s $c)
+                        (compile_ $kb (: $prf $inner (STV (- 1.0 $s) $c))))
+                     ($_unsupported-tv
+                        (compile-ordinary-fact $kb $prf $Type $tv)))))
+               (compile-ordinary-fact $kb $prf $Type $tv)))))))
