@@ -1073,7 +1073,7 @@
             (if (== (list-len $groups) (list-len $views)) $views
                (collapse (let (sk-sample-view $_digests $view) (superpose $groups) $view))))))))
 
-(: sk-reference-values (-[semidet]-> (List Number) (List SkeletonValue) ((List SkeletonValue) Bool)))
+(: sk-reference-values (-[semidet]-> (List Number) (List SkeletonValue) ((List SkeletonValue) Bool (List SkeletonReference))))
 (= (sk-reference-values $ignore $values)
    (case $values (
       ((cons $_first (cons $_second $_rest))
@@ -1088,9 +1088,9 @@
                               (fold-semidet (sk-reference-step true $ignore $references) () $references))))
                      (data (sk-sample-groups $selected)
                         (if (< (list-len $selected) 2) false
-                           (fold-semidet (sk-sibling-values-step $references) false $references)))))
-               ($_few (data $values false))))))
-      ($_single (data $values false)))))
+                           (fold-semidet (sk-sibling-values-step $references) false $references)) $references)))
+               ($_few (data $values false ()))))))
+      ($_single (data $values false ())))))
 
 ;; Different applicable rule conditions combine; confidence ranks only views
 ;; of one condition or ordinary proofs that carry no rule condition.
@@ -1179,7 +1179,7 @@
 ;; Shared rule truths, population priors and given premises do not connect
 ;; components, just as they do not make the pairwise merge dependent.
 (: SkeletonComponent Type)
-(: sk-component (-[det]-> SkeletonValue Number EvidenceSet SkeletonComponent))
+(: sk-component (-[det]-> SkeletonValue Number EvidenceSet (List SkeletonValue) SkeletonComponent))
 (: SkeletonConnecting Type)
 (: sk-connecting (-[det]-> SkeletonComponent (List SkeletonComponent) SkeletonConnecting))
 
@@ -1190,7 +1190,7 @@
    (if $found true (not (== (sk-shared-hash-step $ignore () $hash) ()))))
 
 (: sk-component-step (-[semidet]-> (List Number) Number EvidenceSet SkeletonConnecting SkeletonComponent SkeletonConnecting))
-(= (sk-component-step $ignore $view-deps $view-ev (sk-connecting (sk-component $best $deps $ev) $apart) (sk-component $other $other-deps $other-ev))
+(= (sk-component-step $ignore $view-deps $view-ev (sk-connecting (sk-component $best $deps $ev $members) $apart) (sk-component $other $other-deps $other-ev $other-members))
    (let* (($uncertain (fold-semidet (sk-shared-statement-step $ignore) false (deps-shared $view-deps $other-deps)))
           ($shared (if $uncertain true (fold-flat sk-observation-step false (evidence-shared-facts $view-ev $other-ev))))
           ($siblings (sk-siblings? true $best $other)))
@@ -1198,9 +1198,9 @@
          (sk-connecting
             (sk-component (sk-dependent-merge (if $uncertain false
                   (if $siblings (if (sk-sample-twins? $best $other) false true) false)) $best $other)
-               (deps-union $deps $other-deps) (evidence-union $ev $other-ev))
+               (deps-union $deps $other-deps) (evidence-union $ev $other-ev) (append-flat $members $other-members))
             $apart)
-         (sk-connecting (sk-component $best $deps $ev) (cons (sk-component $other $other-deps $other-ev) $apart)))))
+         (sk-connecting (sk-component $best $deps $ev $members) (cons (sk-component $other $other-deps $other-ev $other-members) $apart)))))
 
 (: sk-key-merge-step (-[semidet]-> (List Number) (List SkeletonComponent) SkeletonReference (List SkeletonComponent)))
 (= (sk-key-merge-step $ignore $components (sk-reference $_class $view))
@@ -1208,31 +1208,155 @@
       ((sk-val $_fact $ev $deps)
          (let (sk-connecting $connected $apart)
                (fold-semidet (sk-component-step $ignore $deps $ev)
-                  (sk-connecting (sk-component $view $deps $ev) ()) $components)
+                  (sk-connecting (sk-component $view $deps $ev (cons $view ())) ()) $components)
             (cons $connected $apart)))
       ($_goal $components))))
 
+;; Resolve overlap from the original sibling family, before an intermediate
+;; combination can hide its classes. Pair intersections must all be the same
+;; positive class; no confidence or condition-size ranking chooses a separator.
+(: sk-separators-step (-[det]-> SkeletonReference (List ReferenceClass) SkeletonReference (List ReferenceClass)))
+(= (sk-separators-step (sk-reference $a $_va) $found (sk-reference $b $_vb))
+   (if (=alpha $a $b) $found
+      (let $parts (sort-atom (/==\ (sk-class-parts $a) (sk-class-parts $b)))
+         (cons (case (data $a $b) (
+                  (((sk-class true $_pa) (sk-class true $_pb)) (sk-class true $parts))
+                  ($_other (sk-mixture-class $parts)))) $found))))
+
+(: sk-family-separators-step (-[det]-> (List SkeletonReference) (List ReferenceClass) SkeletonReference (List ReferenceClass)))
+(= (sk-family-separators-step $family $found $one)
+   (fold-flat (sk-separators-step $one) $found $family))
+
+(: sk-separator-value (-[semidet]-> (List SkeletonReference) ReferenceClass SkeletonValue))
+(= (sk-separator-value $references $separator)
+   (once (let (sk-reference $class $value) (superpose $references)
+      (if (=alpha $class $separator) $value (empty)))))
+
+;; Each distinct syntactic separator contributes one candidate log odds.
+;; Negative/mixture branches cannot use its positive TV as a denominator, but
+;; it still measures disagreement of the unresolved population approximation.
+(: sk-separator-link (-[semidet]-> (List SkeletonReference) ReferenceClass Number))
+(= (sk-separator-link $references $separator)
+   (let* (($parts (sk-class-parts $separator))
+          ((sk-val ($_type $_ctx $_proof (STV $s $_c)) $_ev $_deps)
+             (sk-separator-value $references (sk-class true $parts))))
+      (sk-link odds $s)))
+
+(: sk-sibling-tv-step (-[semidet]-> STVType STVType SkeletonValue STVType))
+(= (sk-sibling-tv-step $prior $acc (sk-val $_fact $_ev $_deps))
+   (let ($_type $_ctx $_proof (STV $s $c)) $_fact
+      (sk-mode-step odds $prior $acc (STV $s $c))))
+
+;; The envelope includes population, every homogeneous separator correction,
+;; and inclusion-exclusion of the known distinct separators. It bounds all
+;; choices of m-1 of those separators without enumerating merge trees. A unit
+;; log-odds range is the minimum allowance for an unresolved/missing model.
+(: sk-separator-range-step (-[det]-> Number (Number Number Number) Number (Number Number Number)))
+(= (sk-separator-range-step $count ($sum $low $high) $link)
+   (let $correction (* $count $link)
+      (data (+ $sum $link) (min $low $correction) (max $high $correction))))
+
+(: sk-overlap-range (-[semidet]-> Number Number (List Number) Number))
+(= (sk-overlap-range $count $population $links)
+   (let* (($base (* $count $population))
+          (($sum $low $high) (the (Number Number Number) (fold-semidet (sk-separator-range-step $count) (data 0.0 $base $base) $links)))
+          ($ie (- $sum (* (- (list-len $links) $count) $population))))
+      (max 1.0 (- (max $high $ie) (min $low $ie)))))
+
+(: sk-sibling-confidence-step (-[semidet]-> Number SkeletonValue Number))
+(= (sk-sibling-confidence-step $confidence (sk-val $fact $_ev $_deps))
+   (min $confidence (term-confidence $fact)))
+
+(: sk-overlap-confidence (-[semidet]-> (List SkeletonReference) (List ReferenceClass) KB Statement Number Number Number))
+(= (sk-overlap-confidence $references $separators $kb $type $count $confidence)
+   (let* ((($_mode (STV $population $_pc)) (sk-combination-mode $kb $type))
+          ($classes (list_to_set (map-semidet sk-class-parts $separators)))
+          ($links (collapse (let $parts (superpose $classes)
+                     (if (== $parts ()) (empty)
+                        (sk-separator-link $references (sk-class true $parts))))))
+          ($range (sk-overlap-range $count (sk-link odds (the Number $population)) $links)))
+      (/ $confidence (+ 1.0 (* $range $range)))))
+
+(: sk-sibling-product (-[semidet]-> SkeletonValue SkeletonValue (List SkeletonValue) SkeletonValue))
+(= (sk-sibling-product (sk-val ($_gt $_gctx $_general (STV $gs $gc)) $_gev $gdeps)
+                      (sk-val ($type $ctx $proof (STV $s $_c)) $ev $deps) $members)
+   (let* (($prior (STV $gs $gc))
+          ((STV $strength $confidence) (fold-semidet (sk-sibling-tv-step $prior) $prior $members))
+          ((combination odds $_old-prior $proofs) (sk-step-proof $proof)))
+      (sk-val ($type $ctx (brand Proof (combination odds (prior $prior) (proof-children $proofs)))
+                  (STV (if (if (<= $s 0.0) true (>= $s 1.0)) $s $strength)
+                     (min (fold-semidet sk-sibling-confidence-step 1.0 $members) $confidence)))
+         $ev (deps-union $deps $gdeps))))
+
+;; This boundary keeps folds over typed list parameters in the strict compiler.
+(: sk-sibling-family-value (-[semidet]-> (List SkeletonReference) SkeletonValue (List SkeletonValue) (List ReferenceClass) SkeletonValue))
+(= (sk-sibling-family-value $references (sk-val ($type $ctx $proof (STV $s $c)) $ev $deps) $members $separators)
+   (let $shared
+         ;; A product is safe only after #68's shared uncertain inputs have
+         ;; been conditioned. Unpaid revisions stay provisional.
+         (case (sk-step-proof $proof) (
+            ((combination odds $_prior $_parts)
+               (case $separators (
+                  ((cons (sk-class true (cons $part $rest)) ())
+                     (collapse (sk-separator-value $references (sk-class true (cons $part $rest)))))
+                  ($_unresolved ()))))
+            ($_not-product ())))
+      (case $shared (
+         ((cons $general ())
+            (sk-sibling-product (the SkeletonValue $general) (sk-val ($type $ctx $proof (STV $s $c)) $ev $deps) $members))
+         (()
+            (sk-val ($type $ctx $proof (STV $s (sk-overlap-confidence $references $separators
+                        (brand KB (car-atom $ctx)) $type (- (list-len $members) 1) $c))) $ev $deps))))))
+
+(: sk-family-references (-[semidet]-> SkeletonValue (List SkeletonReference)))
+(: sk-family-reference-step (-[semidet]-> SkeletonValue (List SkeletonReference) Proof (List SkeletonReference)))
+(= (sk-family-reference-step (sk-val ($type $ctx $_proof $tv) $ev $deps) $family $part)
+   (append-flat $family (sk-family-references (sk-val ($type $ctx $part $tv) $ev $deps))))
+
+;; Sample twins are one estimate, but every condition they represent must
+;; participate in separator recognition. Their probabilities stay pooled.
+(= (sk-family-references $view)
+   (case $view (
+      ((sk-val ($_type $_ctx $proof $_tv) $_ev $_deps)
+         (case (sk-step-proof $proof) (
+            ((combination revision $_prior $parts)
+               (fold-semidet (sk-family-reference-step $view) () (proof-children $parts)))
+            ($_single (cons (sk-reference-of $view) ())))))
+      ($_other (cons (sk-reference no-class $view) ())))))
+
+(: sk-sibling-family (-[semidet]-> (List SkeletonReference) SkeletonValue (List SkeletonValue) SkeletonValue))
+(= (sk-sibling-family $references $best $members)
+   (case $members (
+      ((cons $_only ()) $best)
+      ($_multiple
+         (let $family (fold-semidet append-flat () (map-semidet sk-family-references $members))
+            (if (fold-semidet (sk-sibling-values-step $family) false $family)
+               (let $separators (list_to_set (fold-semidet (sk-family-separators-step $family) () $family))
+                  (sk-sibling-family-value $references $best $members $separators))
+               $best))))))
+
 (: SkeletonComponentOrder Type)
 (: sk-component-order (-[det]-> Number SkeletonValue SkeletonComponentOrder))
-(: sk-component-order-of (-[semidet]-> SkeletonComponent SkeletonComponentOrder))
-(= (sk-component-order-of (sk-component $view $_deps $_ev))
-   (case $view (
-      ((sk-val ($_type $_ctx $proof $tv) $_ev2 $_deps2)
-         (case (sk-prior-update-of $proof $tv) (
-            ((sk-prior-update $_prior $_own ()) (sk-component-order 0 $view))
-            ($_update (sk-component-order 1 $view)))))
-      ($_goal (empty)))))
+(: sk-component-order-of (-[semidet]-> (List SkeletonReference) SkeletonComponent SkeletonComponentOrder))
+(= (sk-component-order-of $references (sk-component $best $_deps $_ev $members))
+   (let $view (sk-sibling-family $references $best $members)
+      (case $view (
+         ((sk-val ($_type $_ctx $proof $tv) $_ev2 $_deps2)
+            (case (sk-prior-update-of $proof $tv) (
+               ((sk-prior-update $_prior $_own ()) (sk-component-order 0 $view))
+               ($_update (sk-component-order 1 $view)))))
+         ($_goal (empty))))))
 
 (: sk-component-merge-step (-[semidet]-> (List Number) SkeletonValue SkeletonComponentOrder SkeletonValue))
 (= (sk-component-merge-step $ignore $acc (sk-component-order $_order $view)) (sk-merge-step true $ignore $acc $view))
 
-(: sk-key-fallback (-[semidet]-> (List Number) (List SkeletonValue) SkeletonValue))
-(= (sk-key-fallback $ignore $views)
+(: sk-key-fallback (-[semidet]-> (List Number) (List SkeletonReference) (List SkeletonValue) SkeletonValue))
+(= (sk-key-fallback $ignore $references $views)
    ;; Combine independent values before applying the updates they are priors
    ;; for. Canonical ordering also fixes confidence ties and floating-point
    ;; fold order, regardless of the order the original views were visited.
    (fold-semidet (sk-component-merge-step $ignore) sk-none
-      (sort-atom (map-semidet sk-component-order-of
+      (sort-atom (map-semidet (sk-component-order-of $references)
          (fold-semidet (sk-key-merge-step $ignore) () (sort-atom (map-semidet sk-reference-of $views)))))))
 
 ;; --- Lifting merge ------------------------------------------------------------
@@ -2386,7 +2510,7 @@
           ($standing (fold-semidet sk-cons-step () (fold-semidet (sk-standing-step $own) () $own)))
           ($unifiers (sk-unifier-hashes $hash $key))
           ($ignore (hash-union $unifiers $outside))
-          (($values $siblings) (sk-reference-values $ignore $standing)))
+          (($values $siblings $references) (sk-reference-values $ignore $standing)))
       (case (sk-lift $siblings $values) (
          ((cons $lifted $_rest) $lifted)
          (()
@@ -2395,9 +2519,9 @@
                ;; overlap dependency set also marks an unconditionable
                ;; overlap (shared observations, with no cut statements).
                ((sk-merging $merged () $deps)
-                  (if (if (== $deps 0) (if $siblings false true) false) $merged (sk-key-fallback $ignore $values)))
+                  (if (if (== $deps 0) (if $siblings false true) false) $merged (sk-key-fallback $ignore $references $values)))
                ((sk-merging $_provisional $keys $deps)
-                  (let $merged (sk-key-fallback $ignore $values)
+                  (let $merged (sk-key-fallback $ignore $references $values)
                      (sk-conditioned $given (sk-key-target $hash $key $filter $exclude) $hash -1
                         (hash-union $exclude $unifiers) $keys (+ 1 (deps-size $deps)) $merged $merged))))))))))
 
@@ -2766,8 +2890,9 @@
                          (append-flat $leaves
                             (map-semidet (sk-given-view $given $exclude $hash $key) (sk-admitted-versions $hash $key $filter $exclude)))
                          $leaves))))))
-          (($selected $_siblings) (sk-reference-values $ignore $compatible)))
-      (fold-semidet (sk-merge-step true $ignore) sk-none $selected)))
+          (($selected $siblings $references) (sk-reference-values $ignore $compatible)))
+      (if $siblings (sk-key-fallback $ignore $references $selected)
+         (fold-semidet (sk-merge-step true $ignore) sk-none $selected))))
 
 ;; A fact premise takes a value unless its evidence overlaps the row's own,
 ;; except in joins the compiler marked as sharing their sources and for

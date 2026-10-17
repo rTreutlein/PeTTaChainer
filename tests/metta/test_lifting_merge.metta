@@ -37,9 +37,11 @@
 !(compileadd conjKb (: r1 (Implication (And (A $z) (X $z)) (B $z)) (CTV (STV 0.6 0.9) (STV 0.0 1.0))))
 !(compileadd conjKb (: r2 (Implication (And (A $z) (Y $z)) (B $z)) (CTV (STV 0.6 0.9) (STV 0.0 1.0))))
 
+;; #49/#77: no live shared-class estimate resolves this overlap. Keep the
+;; population strength and halve confidence for the minimum R=1 allowance.
 !(test
    (query 80 conjKb (: $prf (B i) $tv))
-   (: (combination odds (prior (STV 0.5 0.0)) ((by r1 (conjunction a xx)) (by r2 (conjunction a yy)))) (B i) (STV 0.6923076923076922 0.0002169668040789757)))
+   (: (combination odds (prior (STV 0.5 0.0)) ((by r1 (conjunction a xx)) (by r2 (conjunction a yy)))) (B i) (STV 0.6923076923076922 0.00010848340203948785)))
 
 ;; --- Not independent: both paths to D share the uncertain bImpliesD rule, so
 ;; their residuals overlap and the group must NOT pool (dominance instead). ---
@@ -78,7 +80,9 @@
 
 ;; Shared a and b are mixed once. In the true branch, odds(.6)*odds(.63)
 ;; over the neutral prior give .718631; P(a AND b)=.25 gives .179658.
+;; #49/#77: the branch lacks a live shared-class estimate. Its unresolved
+;; confidence discount propagates through the unchanged conditioning mixture.
 !(test
    (let (: $prf $_type $tv) (query 100 rtKb (: $prf (D i) $tv))
       ($tv (car-atom $prf)))
-   ((STV 0.17965779467680607 0.016497091681914006) conditioned))
+   ((STV 0.17965779467680607 0.014827336747463922) conditioned))

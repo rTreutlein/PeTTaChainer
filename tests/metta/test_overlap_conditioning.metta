@@ -78,5 +78,7 @@
 !(compileadd premiseKb (: sb (B b) (STV 0.3 0.9)))
 !(compileadd premiseKb (: ra (Implication (And (Link $x $y) (A $x)) (X $y)) (CTV (STV 0.9 1) (STV 0.2 1))))
 !(compileadd premiseKb (: rb (Implication (And (Link $x $y) (B $y)) (X $y)) (CTV (STV 0.7 1) (STV 0.1 1))))
+;; #49/#77: no live shared-class estimate resolves this overlap. Keep the
+;; population strength and halve confidence for the minimum R=1 allowance.
 !(test (query 100 premiseKb (: $p (X b) $tv))
-   (: (combination odds (prior (STV 0.5 0.0)) ((by ra (conjunction link sa)) (by rb (conjunction link sb)))) (X b) (STV 0.5518672199170126 1.35971765734789e-05)))
+   (: (combination odds (prior (STV 0.5 0.0)) ((by ra (conjunction link sa)) (by rb (conjunction link sb)))) (X b) (STV 0.5518672199170126 6.79858828673945e-06)))

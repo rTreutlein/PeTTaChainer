@@ -26,7 +26,7 @@
 !(test
    (let* (((cons $a (cons $b (cons $_c (cons $d ())))) (fallback-views))
           ($expected (sk-merge-step true () (sk-merge-step true () $a $b) $d)))
-      (== $expected (sk-key-fallback () (fallback-views)))) true)
+      (== $expected (sk-key-fallback () () (fallback-views)))) true)
 
 ;; All 24 orders give the identical proof, TV, evidence and dependencies.
 (: fallback-permutations (-[det]-> (List SkeletonValue) (List (List SkeletonValue))))
@@ -62,9 +62,9 @@
    (if $ok
       (let* (($key (sk-key (Target q) (fallbackKb MAIN Nil)))
              ($actual (sk-merge-key (index-hash $key) $key sk-any-filter () () $order)))
-         (if (== $expected (sk-key-fallback () $order)) (== $expected $actual) false))
+         (if (== $expected (sk-key-fallback () () $order)) (== $expected $actual) false))
       false))
-!(test (fold-semidet (fallback-order-step (sk-key-fallback () (fallback-views))) true
+!(test (fold-semidet (fallback-order-step (sk-key-fallback () () (fallback-views))) true
          (fallback-permutations (fallback-views))) true)
 
 ;; A low-confidence bridge still joins both components after it loses the
@@ -79,5 +79,5 @@
           ($c (fallback-view (brand Proof c) 0.4 0.2 (deps-union $q $r)))
           ($d (fallback-view (brand Proof d) 0.3 0.8 0))
           ($values (cons $a (cons $b (cons $c (cons $d ())))))
-          ($expected (sk-key-fallback () (cons $b (cons $d ())))))
+          ($expected (sk-key-fallback () () (cons $b (cons $d ())))))
       (fold-semidet (fallback-order-step $expected) true (fallback-permutations $values))) true)

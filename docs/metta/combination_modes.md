@@ -153,6 +153,72 @@ keeps its value until it is merged again, as a base rate lags its members.
 - **Lifting.** Lifting needs shared facts; disjoint views have none.
 - **Forward chaining** merges with the same rule.
 
+### Shared-class siblings (tracker #49)
+
+Sibling odds are resolved over the whole original family, after same-condition
+estimates revise and the existing confidence-dependent specificity shrinkage
+(#69) reads each original specific estimate once. A supported family has
+positive applicable conditions whose every pair intersects in exactly the same
+nonempty class, with a live general view for that exact class. There is no
+selection by confidence, condition size, or merge order. The shared class may
+itself be a conjunction. Its same-condition estimates revise into one TV g.
+For m siblings:
+
+    logit s = sum_i logit s_i - (m-1) logit g
+    V = V_g + sum_i max(0, V_i - V_g)
+
+Here V is variance on the log-odds scale, converted back by the existing delta
+method; confidence is capped by the least confident sibling. Sample twins
+remain one estimate while every original condition participates in separator
+recognition. All contributing proofs and dependencies survive; the shared general view remains a parameter,
+not an additional instance observation. Shared uncertain evidence still uses
+#68's budgeted conditioning. The supported correction runs inside the positive
+conditioned branch; unpaid revisions stay provisional.
+
+With AB->T=.8, BC->T=.6, B->T=.5 and population=.25 (shrinkage disabled to
+isolate arithmetic), the answer is 6/7=.8571428571, replacing 18/19=.9473684211.
+A family AB, BC, BD similarly divides by the shared B odds twice.
+
+### Unresolved overlap approximation (tracker #77)
+
+Cyclic/mixed families, mixed polarity, negative branches, and absent live
+separator estimates retain the population approximation for strength. Their
+confidence includes model uncertainty. It is a conservative heuristic rather
+than a calibrated joint posterior; general overlap inference is tracked in
+[#77](https://github.com/rTreutlein/PeTTaChainer/issues/77).
+
+Let d=m-1, p be the population rate and g_j the live positive TVs of distinct
+nonempty pair intersections. Consider denominator corrections on the log-odds
+scale: d*logit(p), each d*logit(g_j), and
+sum_j logit(g_j) - (number_of_g_j-d)*logit(p). The homogeneous separator bounds
+include every choice of d available separators without enumerating trees; the
+last candidate is an inclusion-exclusion approximation. Missing estimates are
+omitted, with a minimum unresolved range of one natural log-odds unit:
+
+    R = max(1, max(corrections)-min(corrections))
+    c_reported = c_population_merge / (1 + R*R)
+
+The minimum allowance also covers unknown interactions and complements, for
+which a positive separator TV does not define the branch's conditional class.
+It limits confidence to at most half the previous conservative confidence even
+when available candidates agree. Larger disagreement lowers confidence further.
+No candidate is selected as the strength, and this discount does not change
+kappa or specificity shrinkage. Ordinary disjoint learned modes and
+same-condition revision do not receive this model discount.
+
+For AB, BC, AC strengths .7/.8/.9, live A=.4, B=.5, C=.6 and population=.25,
+the population answer remains 756/757=.9986789960. The candidate corrections
+A+B, A+C, B+C, population twice, and inclusion-exclusion give respectively
+.9921259843, .9882352941, .9824561404, .9986789960, and .9655172414. The
+implemented homogeneous bounds include all five: the extreme odds are 756
+and 28, so R=ln(27)=3.2958368660. The confidence multiplier is
+1/(1+ln(27)^2)=.0842989735; a population merge capped at .99 reports
+.0834559838. In the regression at k=800 with 98 population observations
+and rule confidence .99, the existing population variance and intermediate
+confidence cap give .6011680080; the discount reports .0506778460. These
+candidate values illustrate unresolved modeling choices; the marginal rule TVs
+do not determine the joint answer.
+
 ### Cost
 
 - Adding a certain fact: one indexed lookup of the forward rules concluding
@@ -163,6 +229,9 @@ keeps its value until it is merged again, as a base rate lags its members.
   and a few arithmetic operations per mode; constant per outcome.
 - State: one tally row per consequent predicate, and pending outcomes until a
   merge reads them.
+- Sibling correction compares original condition pairs and searches retained
+  general references for that key. It starts no new inference and adds no
+  persistent store; its work is bounded by the key's contributing views.
 
 ### Limits
 

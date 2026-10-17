@@ -209,7 +209,7 @@ class SpecificityTests(unittest.TestCase):
         views = _parse(self.h._call("sk-admitted", [f"{key_hash} {key} sk-any-filter ()"])[0])
         expected = None
         for order in itertools.permutations(views):
-            result = _parse(self.h._call("sk-key-fallback", [f"() {_render(list(order))}"])[0])
+            result = _parse(self.h._call("sk-key-fallback", [f"() () {_render(list(order))}"])[0])
             strength = float(result[1][3][1])
             if expected is None:
                 expected = strength

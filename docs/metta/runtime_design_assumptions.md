@@ -525,6 +525,20 @@ A key's value merges its stored facts and one view per row:
   confidence by the smaller input confidence. Paid conditioning recomputes
   and combines those views inside its branches. Same-condition and ordinary
   non-rule proofs retain their existing representative behavior.
+  Shared-class sibling odds (#49) use the live same-condition-revised general
+  TV as both odds and variance denominator when every positive sibling pair
+  has the same nonempty intersection. Specificity shrinkage (#69) still applies
+  once before this whole-family correction; #68 conditions uncertain shared
+  evidence first. Cyclic/mixed overlap, mixed polarity, negative branches and
+  missing separators retain the population strength approximation. Their
+  confidence is discounted by 1/(1+R^2), where R is the candidate correction
+  range on the log-odds scale, at least 1. The range includes population,
+  homogeneous live separators and their inclusion-exclusion correction; no
+  confidence/size ranking selects a strength. This is a known approximation,
+  pending general overlap modeling in tracker
+  [#77](https://github.com/rTreutlein/PeTTaChainer/issues/77), not a calibrated
+  posterior confidence. Definitions and triangle numbers are in
+  [combination_modes.md](combination_modes.md#unresolved-overlap-approximation-tracker-77).
   Independent components merge, preserving evidence outside the overlap;
 - when every proof of the key is modus ponens over conjunctions of facts, the
   proofs share fact premises, and their residual evidence is nonempty and
