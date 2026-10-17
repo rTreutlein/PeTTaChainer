@@ -747,7 +747,16 @@ new store. See [explicit_exists.md](explicit_exists.md).
 
 A fold's or group's view is computed from its member keys when first read and
 recomputed when a member changes; the members changed in one pass recompute it
-once. Members are read without views that depend on the fold itself. Base-rate folds estimate a population: they carry neither member evidence nor member
+once. A member-driven check keeps the previous view while recomputing and
+changes readers only when the truth value, evidence, dependencies or step proof
+changes. Completing an exact fold can change its readers' confidence even
+when the fold's truth value is unchanged. An outside-dirtied fold drops its
+view and recomputes lazily when read, never at seed time. Eager seeding moved
+SupplyNet scale l at 16 steps per query from error 0.0009 to 0.0053 and left
+2–3 times as many rows unpaid by taking unread members early.
+
+Members are read without views that depend on the fold itself. Base-rate folds
+estimate a population: they carry neither member evidence nor member
 dependencies, like a prior, and are proved by `cpu`. An implication instance
 fold is a tally of its samples' contributions too, proved by `cpu`. It carries
 no member evidence either, so its estimate revises with a rule's stated truth,

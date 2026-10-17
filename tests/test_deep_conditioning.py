@@ -127,6 +127,20 @@ class DeepConditioningTests(unittest.TestCase):
         self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 0)
         self.assertEqual(handler.last_query_metrics()['conditions_unpaid'], 0)
 
+    def test_three_period_third_query_is_quiescent(self):
+        handler = PeTTaChainer()
+        plant(handler, 3)
+        handler.set_query_metrics(True)
+        query = ['(: $p (Degraded plant t3) $tv)']
+        answers = [handler.query_many_refs(query, steps=20000)[0][0].tv
+                   for _ in range(3)]
+        self.assertEqual(answers, [answers[0]] * 3)
+        metrics = handler.last_query_metrics()
+        for name in ('conditioned_evaluations', 'row_computes', 'branch_builds',
+                     'conditions_unpaid'):
+            with self.subTest(metric=name):
+                self.assertEqual(metrics[name], 0)
+
     def test_three_period_work_is_deterministic_across_processes(self):
         # Separate processes give the KB different random identities. Work
         # ordering must not fall back to their exclusion-key hashes.

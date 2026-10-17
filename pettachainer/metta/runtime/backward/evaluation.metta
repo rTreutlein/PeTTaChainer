@@ -4022,8 +4022,7 @@
           ($old (sk-latest-view $hash $fold 0)))
       (if (if (== $causes ()) true
              (if (sk-existential-fold? $fold) false (== $old sk-none))) $work
-         (let* (($_view (sk-drop-fold-view! $fold))
-                ($_merged (sk-drop-merged! $fold)))
+         (let* (($_merged (sk-drop-merged! $fold)))
             (case (sk-fold-views $hash $fold) (
                ((cons (sk-version $_seq $_rhash $new) $_rest)
                   (if (if (sk-same-view? $new $old) (== (sk-view-step-proof $new) (sk-view-step-proof $old)) false)
