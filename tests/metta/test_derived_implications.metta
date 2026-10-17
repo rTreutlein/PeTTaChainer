@@ -86,12 +86,14 @@
 !(test (query 30 flat3Kb (: $p (D x) $tv))
    (: (by r (conjunction a b c)) (D x) (STV 0.3024 0.9376722270285538)))
 ;; The query of a three-level nested implication is the exported query's.
+;; Actual-work conditioning (#74) lets the exported fold settle at budget 30;
+;; master reaches this same complete proof at budget 2000.
 !(test
    (query 30 nested3Kb (: $p (Implication (A x) (Implication (B x) (Implication (C x) (D x)))) $tv))
    (: r (Implication (A x) (Implication (B x) (Implication (C x) (D x)))) (STV 0.9 1.0)))
 !(test
    (query 30 nested3Kb (: $p (Implication (And (A x) (B x) (C x)) (D x)) $tv))
-   (: (conditional-implication (by (by (by r (ctx proof 5)) (ctx proof 5 1)) (ctx proof 5 2))) (Implication (And (A x) (B x) (C x)) (D x)) (STV 0.9 0.9999000072995391)))
+   (: (merge/revision (conditional-implication (by (by (by r (ctx proof 5)) (ctx proof 5 1)) (ctx proof 5 2))) (implication-instance-fold cpu)) (Implication (And (A x) (B x) (C x)) (D x)) (STV 0.9 0.9999000073120323)))
 
 ;; A CTV (p, n) on a nested rule is its exported rule's CTV:
 ;; a b p + (1 - a b) n = 0.48 · 0.9 + 0.52 · 0.2 = 0.536.

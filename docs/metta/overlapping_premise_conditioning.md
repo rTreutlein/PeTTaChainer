@@ -58,11 +58,10 @@ B))`, used in place of `P(C | A, not B)`, which the engine never estimates.
   Without an estimate the value of conditioning is the value of the row's
   answer, which the need depth already ranks. Waiting rows are paid for
   nearest a root first, then cheapest, then oldest, with no fixed cap:
-  - cost bound: 2^k × (1 + dependencies of the clashing value);
-  - paid from the evaluation allowance;
-  - the first row that cannot be paid stops the payment;
-  - the claim, the row with everything its branches condition on in turn,
-    evaluates at most twice its bound in conditioned rows, or falls back
+  - estimated cost: twice (1 + dependencies of the clashing value), for ordering;
+  - actual work: one unit per pair of conditioned rows from the evaluation allowance;
+  - an exhausted claim keeps its deepest completed pass;
+  - nested conditioning draws from that same allowance
     ([overlap_conditioning.md](overlap_conditioning.md), "Cost").
 
   A width of 0 would also have ranked the motivating example, with certain

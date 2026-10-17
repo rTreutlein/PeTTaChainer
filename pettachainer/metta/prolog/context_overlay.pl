@@ -93,7 +93,6 @@ context_store('&sk_partial',2).
 context_store('&sk_given_pending',3).
 context_store('&sk_given_granted',2).
 context_store('&sk_conditioning',2).
-context_store('&sk_cond_level',3).
 context_store('&sk_refresh',2).
 context_store('&sk_restale',2).
 context_store('&sk_held',2).

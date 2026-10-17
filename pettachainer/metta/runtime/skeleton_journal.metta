@@ -300,7 +300,7 @@
 (: &sk_partial (SpaceOf (Number SkeletonKey)))
 (: &ctx_sk_partial (SpaceOf (Number SkeletonKey)))
 !(bind! &sk_partial (new-space))
-;; rows waiting for conditioning, by key and row hash, with its cost bound,
+;; rows waiting for conditioning, by key and row hash, with estimated cost,
 ;; and the rows this evaluation paid it for; a key's merge waiting for
 ;; conditioning has row hash -1 (docs/metta/overlap_conditioning.md)
 (: &sk_given_pending (SpaceOf (Number Number Number)))
@@ -309,22 +309,18 @@
 (: &sk_given_granted (SpaceOf (Number Number)))
 (: &ctx_sk_given_granted (SpaceOf (Number Number)))
 !(bind! &sk_given_granted (new-space))
-;; the level of a row's or key's next conditioning payment, its cost 2^level
-;; times its base, by key and row hash; 1 when absent
-;; (docs/metta/overlap_conditioning.md)
-(: &sk_cond_level (SpaceOf (Number Number Number)))
-(: &ctx_sk_cond_level (SpaceOf (Number Number Number)))
-!(bind! &sk_cond_level (new-space))
 ;; rows and keys being conditioned, by key and row hash: a read of one inside
 ;; its own conditioning keeps its approximate value
 (: &sk_conditioning (SpaceOf (Number Number)))
 (: &ctx_sk_conditioning (SpaceOf (Number Number)))
 !(bind! &sk_conditioning (new-space))
-;; The conditioned evaluations the open claim may still make: -1 while no
-;; claim is open, -2 once the open one overdrew; the cutset depth its pass
-;; conditions to (64 outside a paid pass); 1 once a conditioning nested at
-;; that depth took its approximate value (see sk-deepen).
-!(change-state! sk_claim_left -1)
+;; Claim state: -1 outside a claim, 0/1 prepaid row credits, -2 exhausted,
+;; -3 exhausted with approximate frontier values. Only key merge claims
+;; permit unread STV row views to stand in as ignorance (sk_claim_approx).
+;; The pass's cutset depth is 64 outside a paid pass; sk_claim_cut is 1 once
+;; a nested conditioning used its approximation (see sk-deepen).
+!(change-state! sk_claim_state -1)
+!(change-state! sk_claim_approx 0)
 !(change-state! sk_claim_depth 64)
 !(change-state! sk_claim_cut 0)
 ;; keys whose value changed outside evaluation, once each, by key hash

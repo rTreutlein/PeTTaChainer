@@ -49,15 +49,16 @@
 !(test (query 100 pairKb (: $p (Pair x x) $tv))
    (: (conditioned p (by pairRule (conjunction (given true) (given true))) (by pairRule (conjunction (given false) (given false)))) (Pair x x) (STV 0.9 0.8999999977943337)))
 
-;; Conditioning is paid for from the evaluation allowance. A query whose
-;; allowance cannot pay leaves the row waiting; a later query that needs it
-;; and can pay conditions it.
+;; #74: the remaining allowance pays for the actual conditioned rows, even
+;; when it cannot prepay the dependency estimate. The small query now gets
+;; the same conditioned answer as a later query with a large allowance.
 !(compileadd budgetKb (: a (A x) (STV 1.0 0.9)))
 !(compileadd budgetKb (: b (B x) (STV 1.0 0.9)))
 !(compileadd budgetKb (: r1 (Implication (And (A $v) (B $v)) (C $v)) (CTV (STV 0.9 0.9) (STV 0.0 1.0))))
 !(compileadd budgetKb (: r2 (Implication (And (A $v) (C $v)) (D $v)) (CTV (STV 0.9 0.9) (STV 0.0 1.0))))
 
-!(test (query 3 budgetKb (: $p (D x) $tv)) ())
+!(test (map-flat conditioning-tv (collapse (query 3 budgetKb (: $p (D x) $tv))))
+   ((STV 0.81 0.9047610934410989)))
 !(test (map-flat conditioning-tv (collapse (query 50 budgetKb (: $p (D x) $tv))))
    ((STV 0.81 0.9047610934410989)))
 

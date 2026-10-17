@@ -343,8 +343,12 @@ Two proofs of one statement that both read an uncertain statement, a stored
 fact or a derived one, are conditioned on it the same way: the answer is
 `(conditioned <weight> <merge given true> <merge given false>)`, each branch
 the statement's proofs merged with the shared one known
-(`docs/metta/overlap_conditioning.md`). Until a query pays for it, the more
-confident of the two proofs is the answer.
+(`docs/metta/overlap_conditioning.md`). Before conditioning starts, its
+conservative component fallback is the answer. A finite allowance can also
+return `(partial-conditioned weight positive negative)`: unread STV rows
+stand for `(STV 0.5 0)`, with proof `(uncomputed)` and no evidence. The mixture
+formula carries their uncertainty, while the shared observation still enters
+only through the weight. More work can complete the same conditioning.
 
 A rule that builds terms from its own conclusions, such as
 `(AtTime $x $t) ∧ (AtTime $y $t) → (AtTime (And $x $y) $t)`, derives ever

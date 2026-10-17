@@ -1084,28 +1084,44 @@ linked and keeps being evaluated, and the outdatedness of rows above an
 unpaid row is recorded only once the query has its answers, so a later
 need knows to come back down to it.
 
-Conditioning is paid for from what that allowance has left, never at depth
-zero for free. A row whose clash needs it waits, keeping the views it had; an
-entangled row waits the same way, taking its independent value if it has no
-view; a key whose views overlap waits with the independent merge of its
-components' most confident views. The full dependencies of discarded views
-still connect their component, so transitive overlaps cannot split it. Each waits with a cost of 2^l times its base, one more than
-the dependency count of what it conditions, at level l, 1 at first. Once the
-rows are computed and the roots' merged values read, the waiting rows and
-keys the query needs are paid for nearest a root first, then cheapest, then
-oldest. What a payment covers, the claim, evaluates at most twice its cost in
-rows under a condition. A target with an approximate value conditions in
-passes of growing depth, the number of statements conditioned on along a
-path, a conditioning nested deeper taking its approximate value, and keeps
-the deepest pass that finished; a clash conditions at any depth in one pass.
-A claim that would take more stops, keeps what it finished, and waits at the
-next level, twice the cost, so a larger allowance conditions on more
-statements and nested conditioning never multiplies past what was paid
-(`overlap_conditioning.md`, "Budgeted cutset conditioning"). A row is recomputed conditioned, with its
-readers; a key drops its merged value and forces its readers, which read it
-conditioned. Either may add waiting rows or keys. The first one the allowance
-cannot pay for stops the payment, so a larger allowance extends the same
-prefix, and the rest wait for a later query that needs them.
+Conditioning spends what that allowance has left, never the near-root
+reserve. A row whose clash needs it waits, keeping its views; an entangled
+row takes its independent value if it has no view; a key keeps its conservative
+component merge. Dependencies of discarded views still connect their component.
+After ordinary rows and root reads, waiting targets get turns nearest a root
+first, then by estimated cost, then oldest. Twice (one plus the dependency
+count) estimates cost for ordering only: a large history must not prevent a
+cheap cut from being attempted (#74).
+
+A claim charges **one evaluation unit per pair of conditioned rows actually run**,
+including nested conditioning and weight reads. This preserves the previous
+maximum of two conditioned row evaluations per allowance unit, without
+prepaying unused dependency estimates. Independent and cached reads cost
+nothing. Unused prepaid row credit expires when the claim closes; ordinary
+work always sees an integer allowance. Deferred rebuilds use their existing
+bounded tier slice; closed reads that start conditioning open a claim against
+that same allowance. An exhausted closed-read claim marks its rebuild frame
+unfinished, so an unpaid approximation cannot settle a branch cache. No claim
+can borrow from another query or exceed the remaining allowance.
+
+A target with an approximate value conditions in passes of increasing cutset
+depth, keeping the deepest completed pass if the allowance is exhausted.
+A key merge without a completed pass may retain a partial one. Each unread
+STV row uses `(STV 0.5 0)`, ignorance, with no evidence and its original refresh
+dependencies. The more probable branch is evaluated first. Values already
+computed in either branch are retained; only unread work becomes unknown.
+The ordinary mixture formula propagates this uncertainty. Its proof is
+`(partial-conditioned weight positive negative)`, with `(uncomputed)` at an
+unread frontier. Neither marker is an observation. A partial value cannot
+replace a completed shallower pass. A clash and an entangled row's own claim
+still require a completed pass; they do not enable these frontier values.
+
+Exhausted targets remain pending for a later query that needs them. Their
+views and skeleton persist, but execution stacks do not: repeated allowances
+too small for a complete pass need not finish it. A sufficiently large
+allowance still finishes the same exact conditioned calculation under the existing view formulas and weight.
+A granted row recomputes with its readers; a granted key drops its merge and
+forces its readers. Each target gets at most one ordinary turn per evaluation.
 
 A root reads the answers of every node of its statement and context, whatever
 their proof and truth-value patterns, and drops answers that instantiate

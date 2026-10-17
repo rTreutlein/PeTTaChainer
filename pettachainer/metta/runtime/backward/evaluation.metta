@@ -83,6 +83,7 @@
    (-[semidet]-> Number Number SkeletonKey Number Number (List SkeletonKey) (List Number) Bool SkeletonValue SkeletonValue))
 (: sk-stale-reader-step (-[det]-> SkeletonKey Atom SkeletonItem Atom))
 (: sk-value (-[semidet]-> SkeletonKey SkeletonFilter (List Number) SkeletonValue))
+(: sk-unknown-view (-[semidet]-> SkeletonValue SkeletonValue))
 (: sk-row-view (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Number SkeletonRow SkeletonValue))
 (: sk-computed-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
 (: sk-member-pending? (-[det]-> SkeletonKey Bool))
@@ -3177,31 +3178,37 @@
 ;; to the claim it is part of.
 (= (sk-row-view $given $exclude $khash $key $rhash $row)
    (if (let (sk-row (sk-ident $rule $_keys $_key) $_concl $_prems $_seq) $row
-          (if (rule-live? $rule) (if (context-rule-visible? $rule) (sk-claim-charge! $given) false) false))
-      (let* (((sk-row $_ident ($_type $_kbctx $proof $_tv) $_premises $_seq) $row)
-             ($_reader (if (== $exclude ()) (add-atom &sk_reading ($khash $key $rhash)) ()))
-             ($exclusions (hash-union (sk-row-exclusions $khash $key $proof) $exclude))
-             ($target (sk-row-target $exclusions $khash $key $rhash $row))
-             ($greedy (copy_term $row))
-             ($state (sk-row-state $given $exclusions $khash false $greedy))
-             ($value
-                (if (case $state (((sk-clash $_k $_b) true) ((sk-entangled $_ek $_eb $_es) true) ($_read false)))
-                   (let* (($retry (copy_term $row))
-                          ($again (sk-row-state $given $exclusions $khash true $retry)))
-                      (case $again (
-                         ((sk-clash $keys $base) (sk-conditioned $given $target $khash $rhash $exclusions $keys $base sk-none sk-none))
-                         ;; While its conditioning waits, a row keeps the views
-                         ;; it had; one that has none takes its approximate value.
-                         ((sk-entangled $keys $base $independent)
-                            (let $approx (sk-row-result $retry $independent)
-                               (sk-conditioned $given $target $khash $rhash $exclusions $keys $base $approx
-                                  (if (== (sk-latest-view $khash $key $rhash) sk-none) $approx sk-none))))
-                         ($_other (sk-row-result $retry $again)))))
-                   (sk-row-result $greedy $state)))
-             ($_reader-left (if (== $exclude ())
-                               (remove-variant-row! &sk_reading (quote ($khash $key $rhash))) ())))
-         $value)
+          (if (rule-live? $rule) (context-rule-visible? $rule) false))
+      (if (sk-claim-charge! $given)
+         (let* (((sk-row $_ident ($_type $_kbctx $proof $_tv) $_premises $_seq) $row)
+                ($_reader (if (== $exclude ()) (add-atom &sk_reading ($khash $key $rhash)) ()))
+                ($exclusions (hash-union (sk-row-exclusions $khash $key $proof) $exclude))
+                ($target (sk-row-target $exclusions $khash $key $rhash $row))
+                ($greedy (copy_term $row))
+                ($state (sk-row-state $given $exclusions $khash false $greedy))
+                ($value
+                   (if (case $state (((sk-clash $_k $_b) true) ((sk-entangled $_ek $_eb $_es) true) ($_read false)))
+                      (let* (($retry (copy_term $row))
+                             ($again (sk-row-state $given $exclusions $khash true $retry)))
+                         (case $again (
+                            ((sk-clash $keys $base) (sk-conditioned $given $target $khash $rhash $exclusions $keys $base sk-none sk-none))
+                            ;; While its conditioning waits, a row keeps the views
+                            ;; it had; one that has none takes its approximate value.
+                            ((sk-entangled $keys $base $independent)
+                               (let $approx (sk-row-result $retry $independent)
+                                  (sk-conditioned $given $target $khash $rhash $exclusions $keys $base $approx
+                                     (if (== (sk-latest-view $khash $key $rhash) sk-none) $approx sk-none))))
+                            ($_other (sk-row-result $retry $again)))))
+                      (sk-row-result $greedy $state)))
+                ($_reader-left (if (== $exclude ())
+                                  (remove-variant-row! &sk_reading (quote ($khash $key $rhash))) ())))
+            $value)
+         (if (== (search-id-value sk_claim_approx) 1)
+            (let $unknown (chainer-first-or sk-none (collapse (sk-unknown-view (sk-latest-view $khash $key $rhash))))
+               (progn (change-state! sk_claim_state -3) (change-state! sk_claim_cut 1) $unknown))
+            sk-none))
       sk-none))
+
 
 ;; What a target is under a condition.
 (: sk-target-value (-[semidet]-> (List SkeletonGiven) SkeletonTarget SkeletonValue))
@@ -3222,75 +3229,51 @@
 ;; there and an approximate value stands in. A clash has no approximate
 ;; value, so it is conditioned at any depth the claim allows.
 ;;
-;; Outside any condition a target is conditioned only once the evaluation paid
-;; for it, and keeps its waiting value until then (see sk-pay-conditions!).
-;; A payment at level l costs 2^l times the base, one more than the
-;; dependency count of what the target conditions, and covers a claim of
-;; twice that in conditioned evaluations. A target with an approximate value
-;; conditions at depth 1, then, while its passes are cut, one statement
-;; deeper, each pass on what the claim has left, and keeps the deepest pass
-;; that finished: so the value only moves towards the conditioning on every
-;; statement met, which is exact under the views' own formulas. A clash
-;; conditions at any depth in one pass (sk-deepen). A claim that overdrew waits again at
-;; the next level, twice the cost, and may be paid again once the allowance
-;; covers it. A paid target read inside another claim, through a weight,
-;; draws from that claim. Under a closed read's pins outside any claim, a
-;; target with an approximate value is conditioned when what the evaluation
-;; allowance has left pays its depth-1 cost, and takes its approximate value
-;; otherwise; a clash opens a claim of its own, as before. A target read again inside its own conditioning,
-;; through a shared statement's value, keeps its waiting value there.
+;; Outside a condition, ordinary evaluation queues the target; the last
+;; tier grants it a turn. Conditioned rows pay as they run, including nested
+;; conditioning and weight reads. The dependency-count estimate orders turns
+;; but is never an admission threshold. A claim keeps its deepest completed
+;; pass if the shared evaluation allowance runs out. With no completed pass,
+;; a key merge can retain a partial pass: unread rows use ignorance, not an
+;; independent reuse of their shared evidence. Other targets keep waiting.
 (= (sk-conditioned $given $target $khash $rhash $wexclude $keys $base $approx $waiting)
    (case $keys (
       (() $approx)
       ((cons $_first $_more)
          (if (== $given ())
-            ;; The level of the payment, its cost 2^level times its base: 1
-            ;; until a claim overdrew.
-            (let* (($level (chainer-first-or 1 (collapse (once (match &ctx_sk_cond_level ($khash $rhash $paid) $paid)))))
-                   ($cost (* (pow-math 2 $level) $base)))
-               ;; A deferred branch may belong to a row outside the ordinary
-               ;; need closure. Pay its conditioning here from the same tier
-               ;; slice; waiting for an ordinary grant could never settle it.
+            (let $cost (* 2 $base)
+               ;; Deferred rebuilds may lie outside the ordinary need closure;
+               ;; their conditioning uses the same bounded tier slice.
                (if (if (space-row-present? &ctx_sk_given_granted ($khash $rhash)) true
                       (if (== (search-id-value sk_branch_at) 0) false
-                         (if (== (search-id-value sk_claim_left) -1)
-                            (sk-take! sk_eval_budget $cost) true)))
+                         (if (== (search-id-value sk_claim_state) -1)
+                            (>= (search-id-value sk_eval_budget) 1) true)))
                   (if (space-row-present? &ctx_sk_conditioning ($khash $rhash)) $waiting
-                  (if (== (search-id-value sk_claim_left) -1)
-                     (let* (($_entered (context-add! &sk_conditioning ($khash $rhash)))
-                            ($_opened (sk-open-claim! $cost))
-                            ($deepest (sk-deepen $given $target $wexclude $keys (== $approx sk-none) (if (== $approx sk-none) 64 1) ()))
-                            ($overdrawn (sk-close-claim!))
-                            ($_left (context-remove! &sk_conditioning ($khash $rhash))))
-                        (if $overdrawn
-                           (let* (($raised (+ $level 1))
-                                  ($_was (remove-data-rows! &sk_cond_level (quote ($khash $rhash $_level))))
-                                  ($_raised (context-add! &sk_cond_level ($khash $rhash $raised)))
-                                  ($_again (context-remove! &sk_given_granted ($khash $rhash))))
-                              (sk-wait! $khash $rhash (* 2 $cost) (chainer-first-or $waiting $deepest)))
-                           (chainer-first-or $waiting $deepest)))
-                     (chainer-first-or $waiting (sk-mix-on $given $target $wexclude $keys))))
+                     (if (== (search-id-value sk_claim_state) -1)
+                        (let* (($_entered (context-add! &sk_conditioning ($khash $rhash)))
+                               ($_opened (sk-open-claim! (case $target (((sk-key-target $_hash $_key $_filter $_exclude) true) ($_row false)))))
+                               ($deepest (sk-deepen $given $target $wexclude $keys (== $approx sk-none) (if (== $approx sk-none) 64 1) ()))
+                               ($exhausted (sk-close-claim!))
+                               ($_left (context-remove! &sk_conditioning ($khash $rhash))))
+                           (if $exhausted
+                              (sk-wait! $khash $rhash $cost (chainer-first-or $waiting $deepest))
+                              (chainer-first-or $waiting $deepest)))
+                        (chainer-first-or $waiting (sk-mix-on $given $target $wexclude $keys))))
                   (sk-wait! $khash $rhash $cost $waiting)))
             (if (if (== $approx sk-none) false (>= (fold-semidet sk-given-depth-step 0 $given) (search-id-value sk_claim_depth)))
                (progn (change-state! sk_claim_cut 1) $approx)
-               (if (== (search-id-value sk_claim_left) -1)
-                  (if (== $approx sk-none)
-                  (let* (($_opened (sk-open-claim! (* (pow-math 2 (list-len $keys)) $base)))
-                         ($mixed (sk-mix-on $given $target $wexclude $keys)))
-                     (if (sk-close-claim!) $approx (chainer-first-or $approx $mixed)))
-                  (let $cost (* 2 $base)
-                     (if (> $cost (search-id-value sk_eval_budget)) $approx
-                        (let* (($_paid (change-state! sk_eval_budget (- (search-id-value sk_eval_budget) $cost)))
-                               ($_opened (sk-open-claim! $cost))
-                               ($deepest (sk-deepen $given $target $wexclude $keys false 1 ()))
-                               ($_closed (sk-close-claim!)))
-                           (chainer-first-or $approx $deepest)))))
+               (if (== (search-id-value sk_claim_state) -1)
+                  (if (< (search-id-value sk_eval_budget) 1) $approx
+                     (let* (($_opened (sk-open-claim! (case $target (((sk-key-target $_hash $_key $_filter $_exclude) true) ($_row false)))))
+                            ($deepest (sk-deepen $given $target $wexclude $keys (== $approx sk-none) (if (== $approx sk-none) 64 1) ()))
+                            ($_closed (if (sk-close-claim!) (next-search-id sk_branch_unpaid) 0)))
+                        (chainer-first-or $approx $deepest)))
                   (case (sk-mix-on $given $target $wexclude $keys) (
                      (() (if (== $approx sk-none) sk-none (progn (change-state! sk_claim_cut 1) $approx)))
                      ((cons $value $_rest) $value))))))))))
 
 ;; The claim's passes from a depth on: the deepest pass that finished before
-;; the claim overdrew, () if none did. A target without an approximate value
+;; the claim exhausted its allowance, () if none did. A target without an approximate value
 ;; (`$uncut`, a clash, which derived nothing before) makes one pass at
 ;; unbounded depth and takes it only if no nested conditioning had to stand
 ;; an approximation in, which can leave it worse than the target's other
@@ -3302,12 +3285,13 @@
    (let* (($_depth (change-state! sk_claim_depth $depth))
           ($_uncut (change-state! sk_claim_cut 0))
           ($mixed (sk-mix-on $given $target $wexclude $keys)))
-      (if (== (search-id-value sk_claim_left) -2) $deepest
+      (if (< (search-id-value sk_claim_state) -1)
+         (if (if (== (search-id-value sk_claim_state) -3) (if $uncut false (== $deepest ())) false) $mixed $deepest)
          (let* (($cut (== (search-id-value sk_claim_cut) 1))
                 ($found (if (== $mixed ()) $deepest (if (if $cut $uncut false) $deepest $mixed))))
             (if (if $cut (< $depth 64) false) (sk-deepen $given $target $wexclude $keys $uncut (+ $depth 1) $found) $found)))))
 
-;; A target waits for a payment of its cost, keeping its waiting value.
+;; A target waits for a turn, with its estimated cost and waiting value.
 (: sk-wait! (-[det]-> Number Number Number SkeletonValue SkeletonValue))
 (= (sk-wait! $khash $rhash $cost $waiting)
    (let* (($_unfinished (next-search-id sk_branch_unpaid))
@@ -3327,45 +3311,72 @@
    (case $keys (
       (() ())
       ((cons $pin $more)
-         (let $phash (index-hash $pin)
-            (case (collapse (once
-                     (sk-mix (sk-given-value $given $pin sk-any-filter $wexclude)
-                        (sk-target-value (cons (sk-given $phash $pin true) $given) $target)
-                        (sk-target-value (cons (sk-given $phash $pin false) $given) $target)))) (
-               (() (sk-mix-on $given $target $wexclude $more))
-               ($mixed $mixed))))))))
+         (case (collapse (once (sk-mix-cut $given $target $pin
+                   (sk-given-value $given $pin sk-any-filter $wexclude)))) (
+            (() (sk-mix-on $given $target $wexclude $more))
+            ($mixed $mixed)))))))
 
-;; A claim is the conditioning one payment covers: a row or key conditioned
-;; outside any condition, with everything its branches condition on in turn,
-;; down to its passes' depths. Each row it evaluates again under a condition
-;; takes one of twice its cost bound (sk-claim-charge!): the bound counts each
-;; dependency once per branch, and a row read through two paths is evaluated
-;; twice. Conditioning reached inside an open claim, a branch's or a paid
-;; key's read through a weight, draws from that claim; a closed read outside
-;; any claim that conditions opens one of its own, of unbounded depth. A claim
-;; that would take more stops evaluating and overdraws, and its mix falls back
-;; as an unpaid one does. So no claim grows past its bound, however deep its
-;; branches condition.
-(: sk-open-claim! (-[det]-> Number Atom))
-(= (sk-open-claim! $cost)
-   (progn (change-state! sk_claim_left (* 2 $cost)) (change-state! sk_claim_depth 64) (change-state! sk_claim_cut 0) ()))
+;; Start with the more probable branch. A merge claim may return its
+;; evaluated prefix with unread rows represented as ignorance (STV 0.5 0).
+;; Their empty evidence cannot duplicate the mixing weight's observations.
+;; A clash still needs a complete pass; it never enables frontier values.
+(: sk-mix-cut (-[semidet]-> (List SkeletonGiven) SkeletonTarget SkeletonKey SkeletonValue SkeletonValue))
+(= (sk-mix-cut $given $target $pin (sk-val ($_wt $_wc $wp (STV $ws $wc)) $wev $wdeps))
+   (let* (($weight (sk-val ($_wt $_wc $wp (STV $ws $wc)) $wev $wdeps))
+          ($phash (index-hash $pin))
+          ($first (>= $ws 0.5))
+          ($known (chainer-first-or sk-none (collapse (once
+             (sk-target-value (cons (sk-given $phash $pin $first) $given) $target)))))
+          ($completed (not (== (search-id-value sk_claim_state) -2)))
+          ($other (chainer-first-or sk-none (collapse (once
+             (sk-target-value (cons (sk-given $phash $pin (not $first)) $given) $target))))))
+      (if (< (search-id-value sk_claim_state) -1)
+         (if $completed
+            (let $partial (sk-partial-mix $weight $known $other $first)
+               (progn (change-state! sk_claim_cut 1) (change-state! sk_claim_state -3) $partial))
+            (empty))
+         (sk-mix $weight (if $first $known $other) (if $first $other $known)))))
 
-;; Whether the open claim overdrew; it closes.
+(= (sk-unknown-view (sk-val ($type $ctx $_proof (STV $_s $_c)) $_ev $deps))
+   (sk-val ($type $ctx (brand Proof (uncomputed)) (STV 0.5 0)) (ev-set 0) $deps))
+
+(: sk-partial-mix (-[semidet]-> SkeletonValue SkeletonValue SkeletonValue Bool SkeletonValue))
+(= (sk-partial-mix $weight (sk-val ($type $ctx $proof (STV $s $c)) $ev $deps) $other $positive)
+   (if (== $proof (uncomputed)) (empty)
+   (let* (($known (sk-val ($type $ctx $proof (STV $s $c)) $ev $deps))
+          ($unknown (if (== $other sk-none) (sk-unknown-view $known) $other))
+          ((sk-val ($_type $_ctx (conditioned $weight-proof $true-proof $false-proof) $tv) $mixed-ev $mixed-deps)
+             (sk-mix $weight (if $positive $known $unknown) (if $positive $unknown $known))))
+      (sk-val ($type $ctx (brand Proof (partial-conditioned $weight-proof $true-proof $false-proof)) $tv) $mixed-ev $mixed-deps))))
+
+;; A claim buys conditioned rows in pairs: one evaluation unit pays for
+;; the next row and leaves one credit for a later row in this claim. This
+;; preserves the existing two-rows-per-unit bound and integer allowances.
+;; Nested conditioning shares the credit; unused credit expires at close.
+(: sk-open-claim! (-[det]-> Bool Atom))
+(= (sk-open-claim! $approximate)
+   (progn (change-state! sk_claim_state 0) (change-state! sk_claim_approx (if $approximate 1 0))
+          (change-state! sk_claim_depth 64) (change-state! sk_claim_cut 0) ()))
+
 (: sk-close-claim! (-[det]-> Bool))
 (= (sk-close-claim!)
-   (let $overdrawn (== (search-id-value sk_claim_left) -2)
-      (progn (change-state! sk_claim_left -1) (change-state! sk_claim_depth 64) (change-state! sk_claim_cut 0) $overdrawn)))
+   (let $exhausted (< (search-id-value sk_claim_state) -1)
+      (progn (change-state! sk_claim_state -1) (change-state! sk_claim_approx 0) (change-state! sk_claim_depth 64) (change-state! sk_claim_cut 0) $exhausted)))
 
-;; Whether a conditioned evaluation fits the open claim, which it then takes
-;; one from; one that does not fit overdraws the claim.
 (: sk-claim-charge! (-[det]-> (List SkeletonGiven) Bool))
 (= (sk-claim-charge! $given)
-   (if (== $given ()) true
-      (let $left (search-id-value sk_claim_left)
-         (if (> $left 0)
-            (let $_counted (query_metric_increment conditioned-evaluations)
-               (progn (change-state! sk_claim_left (- $left 1)) true))
-            (if (== $left 0) (progn (change-state! sk_claim_left -2) false) (> $left -2))))))
+   (if (if (== $given ()) true (== (search-id-value sk_claim_state) -1)) true
+      (if (< (search-id-value sk_claim_state) -1) false
+         (let $paid
+               (if (== (search-id-value sk_claim_state) 1)
+                  (progn (change-state! sk_claim_state 0) true)
+                  (if (>= (search-id-value sk_eval_budget) 1)
+                     (progn (change-state! sk_eval_budget (- (search-id-value sk_eval_budget) 1))
+                            (change-state! sk_claim_state 1) true)
+                     false))
+            (if $paid
+               (let $_counted (query_metric_increment conditioned-evaluations) true)
+               (progn (change-state! sk_claim_state -2) false))))))
 
 ;; The branches mix by modus ponens over the weight, when all three are simple
 ;; truth values and the weight's evidence is not in the branches.
@@ -4585,13 +4596,10 @@
 (: sk-fold-pending! (-[det]-> Number Number Atom))
 (= (sk-fold-pending! $hash $cause) (context-add! &sk_fold_pending ($hash $cause)))
 
-;; Rows and key merges waiting for conditioning are paid for from what the
-;; evaluation allowance has left: nearest a root first, then cheapest, then
-;; oldest. The first one the allowance cannot pay for waits, with the rest,
-;; for a later query that needs it, so a larger allowance extends the same
-;; prefix. A paid row is recomputed, conditioned, with its readers. Each is
-;; paid at most once per evaluation: one whose claim overdrew its cost waits
-;; again for a later query.
+;; Waiting targets get turns nearest a root first, then by estimated cost,
+;; then oldest. Actual conditioned rows spend the remaining allowance as
+;; they run; no estimate gates admission. Each target gets at most one
+;; ordinary turn per evaluation, and an exhausted target stays pending.
 (: SkeletonWaiting Type)
 (: sk-row-waiting (-[det]-> SkeletonItem SkeletonWaiting))
 (: sk-key-waiting (-[det]-> Number SkeletonKey SkeletonWaiting))
@@ -4614,12 +4622,11 @@
                         (sk-claim (sk-need-depth $khash $key) $cost -1 (sk-key-waiting $khash $key))
                         (empty))))))) (
       (() (sk-finish-branches! $pass))
-      ((cons (sk-claim $_depth $claim-cost $_seq $waiting) $_rest)
+      ((cons (sk-claim $_depth $_claim-cost $_seq $waiting) $_rest)
          (let $left (search-id-value sk_eval_budget)
-            (if (> $claim-cost $left)
+            (if (< $left 1)
                (let $_unpaid (query_metric_increment conditions-unpaid) (sk-finish-branches! $pass))
-               (let* (($_paid (change-state! sk_eval_budget (- $left $claim-cost)))
-                      ($last (sk-pay! $pass $waiting)))
+               (let $last (sk-pay! $pass $waiting)
                   (sk-pay-conditions! (+ $last 1)))))))))
 
 ;; Root merges and conditioning can discover misses after the row heap ends.

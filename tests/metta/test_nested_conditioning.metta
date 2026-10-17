@@ -2,8 +2,8 @@
 
 ;; Conditioning nests: a branch whose views still overlap conditions again on
 ;; the next shared statement, so a claim's work can double with every level.
-;; A claim may make at most twice its cost bound in conditioned row
-;; evaluations; one that would make more falls back as an unpaid one does
+;; Claims share the query's remaining evaluation allowance, buying at most
+;; two conditioned rows per unit; exhaustion retains the last complete pass
 ;; (docs/metta/overlap_conditioning.md, "Cost").
 
 (= (nested-tv (: $_proof $_type $tv)) $tv)

@@ -2,7 +2,7 @@
 
 Status: built, October 2026; budgeted cutset conditioning, entangled
 premises, completions read under their part and sample twins added October
-11-12. Code: `sk-merge-facts`,
+11-12; actual-work payment (#74), October 17. Code: `sk-merge-facts`,
 `sk-merge-key`, `sk-shared-statements`, `sk-entangle`, `sk-conditioned`,
 `sk-deepen`, `sk-sample-twins?` in `runtime/backward/evaluation.metta`.
 Tests: `tests/metta/test_overlap_conditioning.metta`,
@@ -154,16 +154,16 @@ nested deeper than d takes its approximate value instead (below), and the
 pass is cut. A claim makes a pass at depth 1, then, while the pass was cut,
 one at depth 2, and so on, each on what the claim has left, and keeps the
 deepest pass that finished. A claim that overdraws keeps that pass (or the
-waiting value when none finished) and waits at twice its cost, so it may be
-paid again in the same evaluation once the allowance covers it, or by a
-later query.
+waiting value when none finished) and remains pending for a later query.
+Every conditioned row actually evaluated spends the shared allowance; the
+whole dependency estimate is no longer prepaid.
 
 **Approximate values.** Every target has one while its conditioning waits or
 is cut:
 
 | target | approximate value |
 |---|---|
-| a key's merge | the more confident of the overlapping views (the fallback above) |
+| a key's merge | the conservative component merge (the fallback above) |
 | a row whose premises are entangled (below) | the premises read as independent |
 | a row whose premises clash on shared evidence | none |
 
@@ -189,33 +189,59 @@ Two facts give the argument:
    statements' values is the exact total probability (up to the weight, see
    "The weight"). Once d reaches the size of the cutset the target's views
    need, V_d is that value and no deeper pass changes it.
-2. *Monotone refinement.* V_{d+1} differs from V_d only inside the branches
+2. *Refinement.* V_{d+1} differs from V_d only inside the branches
    where V_d stood an approximation in, and there it replaces the
    approximation by the mix that conditioning on the next statement gives,
    which is exact given the statements above it whenever it is not cut
-   itself. So each pass replaces approximations by values closer to the
-   exact one, statement by statement, in order of impact.
+   itself. Each completed pass resolves more of the remaining approximation;
+   this is progress in the computation, not a guarantee of smaller numeric
+   error for each intermediate value.
 
 The shared statements of a finite skeleton are finite, so the depths are
-bounded, and with an allowance that covers 2^k times the base the claim
-finishes uncut and is exact. With less it keeps the deepest pass it could
+bounded, and an allowance covering all conditioned rows in the passes lets
+the claim finish uncut and exact. With less it keeps the deepest pass it could
 pay for, so a larger allowance never conditions on fewer statements: it
 extends the same sequence of passes. That is the anytime property the
 `--curves` profile checks: error per second should fall with the budget.
 It is not monotone in every instance. A partial conditioning can be further
 from the exact value than the approximation when the approximations' errors
-cancelled (two views each overcounting in opposite directions); it is
-monotone in expectation over the uncertainty the approximations leave,
-because each pass removes one source of error and adds none.
+cancelled (two views each overcounting in opposite directions). The runtime
+does not establish a calibration model that would prove monotone expected
+error either; convergence and the measured curves are the supported claims.
 
-**Cost.** A payment at level l costs 2^l times the base, one more than the
-dependency count of what the target conditions (the overlapping views', the
-clashing value's, or the entangled premises' together), and the claim may
-make twice that in conditioned row evaluations. The level starts at 1, so
-the first payment covers a depth-1 pass, and rises by one with every claim
-that overdrew. Each pass costs at most 2^d times the base, so the passes up
-to depth d cost less than twice the last; the deepening costs at most a
-factor 2 over knowing the right depth in advance.
+**Cost (#74).** Charge one evaluation unit for each pair of conditioned rows
+actually run. The factor preserves the existing maximum of two conditioned
+row evaluations per unit. All branches, deeper passes and nested claims draw
+from the same remaining evaluation allowance, so exponential branching cannot
+exceed that allowance. Reads of independent stored views cost nothing.
+
+The dependency estimate (twice one plus the dependency count) orders waiting
+targets after depth; it does not gate admission. A cut can replace a large
+history by a known statement and recompute only a short suffix. Prepaying the
+whole history blocked such a cut even when the remaining allowance covered
+its actual work (SupplyNet timed stage 3 seed 3, #74).
+
+An exhausted claim retains its deepest completed pass. If a key merge has
+none, it can retain its evaluated prefix as a partial pass: an unread STV row
+stands for `(STV 0.5 0)`, ignorance, with empty evidence and the original row's
+dependencies. Evaluate the more probable branch first. Preserve values already
+obtained in both branches, including a cached value requiring no further row
+computation after the meter stops. Only missing work is unknown.
+
+The same `CTVModusPonensFormula` mixes these branches and propagates their
+uncertainty. `(partial-conditioned weight positive negative)` labels the
+approximation and `(uncomputed)` labels an unread frontier. The weight still
+must share no evidence with either branch. No independent merge of overlapping
+observations is introduced. A clash or an entangled row's own claim cannot use
+this prefix approximation; a key merge with a completed shallower pass keeps it.
+
+The ordinary pending request remains for later queries. Row views and the
+skeleton survive; no execution stack is saved. Repeated allowances smaller
+than one complete pass need not finish it, but larger allowances can replace
+the unread frontier and finish the same conditioned calculation exactly under
+the existing formulas. As with cutset depth, a finite prefix is not guaranteed
+to improve every individual strength: uncertainty in the unread branches can
+move its estimate either way.
 
 ## Entangled premises
 
@@ -249,9 +275,9 @@ sources (pln-sources) lost coverage.
 
 Under a closed read's pins outside any claim (a complete statement's rows
 evaluated again with the reader unfounded), an entangled row is conditioned
-only when what the evaluation allowance has left pays its depth-1 cost, two
-times its base, and takes its approximate value otherwise; a clash there
-opens a claim of its own, as before. Conditioning every entangled row a
+only while the evaluation allowance can pay for actual conditioned rows,
+and takes its approximate value otherwise; a clash there opens a claim of its
+own against the same allowance. Conditioning every entangled row a
 closed read met, on every statement it shared and unpaid, made 162 claims
 and 151,538 conditioned evaluations in SupplyNet stage 3 untimed (seed 4,
 budget 50): 59 s against 10 s, for no gain. Paid from the allowance, fuzzer
@@ -418,39 +444,27 @@ it. The same holds for row conditioning.
 
 ## Cost
 
-As for rows: a merge outside any condition conditions only once the evaluation
-paid for it, and inside a conditioned read it is part of what was paid for.
-Its cost bound is 2^l times one more than the size of the two views'
-dependency sets together, at the claim's level l (see "Budgeted cutset
-conditioning").
+Conditioning uses the remaining evaluation allowance, with no up-front
+payment. A claim covers its target, branches, nested conditioning, and weight
+reads. Each pair of conditioned rows takes one unit before its first row runs,
+so the conditioned row count is at most twice the allowance available to
+claims.
+The exhausted marker prevents a partial result from claiming completion.
+Iterative deepening retains the deepest completed pass, or, for a key merge
+with none, the partial prefix described above.
+Closed reads use this same meter; deferred rebuilds stay within their existing
+tier slice. The near-root reserve never pays for conditioning.
 
-The bound is enforced. A claim is what one payment covers: a row or key
-conditioned outside any condition, with everything its branches condition on
-in turn, and everything conditioned that a weight's read reaches. Each row it
-evaluates again under a condition takes one of twice its bound (the bound
-counts each dependency once per branch, and a row read through two paths is
-evaluated twice); a claim that would take more stops, keeps its deepest
-finished pass (or, with none, falls back as an unpaid one does, the row
-keeping its views and the key its more confident view), and waits at twice
-the cost. Nesting made a claim's work unbounded before: a branch whose
-views still overlap conditions again, and every level doubles the work
-(ONA identity matching, while rule truths were shared statements: one claim
-ran for 13 minutes). Test_overlap_conditioning's plant over five periods with
-soft reports, where conditioning Degraded plant t5 conditions t4 inside its
-branches, t4 t3 and so on, took 238 s at budget 300 and 509 s at budget 2000;
-bounded claims took 7 s and 8.5 s for the same answers
-(`test_nested_conditioning.metta`), and twelve periods take 8 s. With
-deepening the query at budget 300 makes 728 conditioned evaluations instead
-of 5,648 for the same strength, and a second query at 300 keeps it (bounded
-single claims lost it there: 0.127, the persistence view alone); at 3,000
-it conditions deep enough to read the t5 report, which says the plant runs
-and so is not degraded (0.0). A closed read outside any claim that conditions opens a claim
-of its own. A key waiting for the
-payment keeps its fallback merged value, and the payment is claimed with the
-rows waiting to be conditioned (`sk_given_pending` with row hash -1): nearest
-a root first, then cheapest, then oldest. A paid key drops its merged value
-and forces its readers, which read it conditioned. The roots' merged values
-are read before the payment, so a root conditions in its own query.
+A pending target records a dependency-based estimate for ordering, with row
+hash -1 denoting a key merge. Targets get ordinary turns nearest a root first,
+then cheapest estimated, then oldest. A granted key drops its cached merge and
+forces its readers; roots are read before these turns, so a root can condition
+in its own query. The payment-level store and exponential retry prices have
+been removed: the work meter itself enforces the query bound.
+
+Earlier dependency-bound claims prevented runaway nesting (for example, the
+five-period plant once took 238 s at budget 300). That cap is preserved as a
+bound on actual work, rather than a conservative reservation per claim.
 
 Finding the shared statements costs a walk of both dependency sets and a
 look at each shared key's stored facts and latest row views, only when the
