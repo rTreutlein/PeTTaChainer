@@ -221,27 +221,15 @@ history by a known statement and recompute only a short suffix. Prepaying the
 whole history blocked such a cut even when the remaining allowance covered
 its actual work (SupplyNet timed stage 3 seed 3, #74).
 
-An exhausted claim retains its deepest completed pass. If a key merge has
-none, it can retain its evaluated prefix as a partial pass: an unread STV row
-stands for `(STV 0.5 0)`, ignorance, with empty evidence and the original row's
-dependencies. Evaluate the more probable branch first. Preserve values already
-obtained in both branches, including a cached value requiring no further row
-computation after the meter stops. Only missing work is unknown.
-
-The same `CTVModusPonensFormula` mixes these branches and propagates their
-uncertainty. `(partial-conditioned weight positive negative)` labels the
-approximation and `(uncomputed)` labels an unread frontier. The weight still
-must share no evidence with either branch. No independent merge of overlapping
-observations is introduced. A clash or an entangled row's own claim cannot use
-this prefix approximation; a key merge with a completed shallower pass keeps it.
+An exhausted claim retains its deepest completed pass, or its waiting value
+when none finished. Both branches must finish before a pass is eligible.
 
 The ordinary pending request remains for later queries. Row views and the
 skeleton survive; no execution stack is saved. Repeated allowances smaller
 than one complete pass need not finish it, but larger allowances can replace
-the unread frontier and finish the same conditioned calculation exactly under
-the existing formulas. As with cutset depth, a finite prefix is not guaranteed
-to improve every individual strength: uncertainty in the unread branches can
-move its estimate either way.
+the waiting value and finish the same conditioned calculation exactly under
+the existing formulas. Resolving more nested conditioning does not guarantee
+lower numerical error for every intermediate estimate.
 
 ## Entangled premises
 
@@ -449,9 +437,9 @@ payment. A claim covers its target, branches, nested conditioning, and weight
 reads. Each pair of conditioned rows takes one unit before its first row runs,
 so the conditioned row count is at most twice the allowance available to
 claims.
-The exhausted marker prevents a partial result from claiming completion.
-Iterative deepening retains the deepest completed pass, or, for a key merge
-with none, the partial prefix described above.
+The exhausted marker prevents an unfinished pass from claiming completion.
+Iterative deepening retains the deepest completed pass, or the waiting value
+when none completed.
 Closed reads use this same meter; deferred rebuilds stay within their existing
 tier slice. The near-root reserve never pays for conditioning.
 

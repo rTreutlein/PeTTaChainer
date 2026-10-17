@@ -1106,15 +1106,8 @@ can borrow from another query or exceed the remaining allowance.
 
 A target with an approximate value conditions in passes of increasing cutset
 depth, keeping the deepest completed pass if the allowance is exhausted.
-A key merge without a completed pass may retain a partial one. Each unread
-STV row uses `(STV 0.5 0)`, ignorance, with no evidence and its original refresh
-dependencies. The more probable branch is evaluated first. Values already
-computed in either branch are retained; only unread work becomes unknown.
-The ordinary mixture formula propagates this uncertainty. Its proof is
-`(partial-conditioned weight positive negative)`, with `(uncomputed)` at an
-unread frontier. Neither marker is an observation. A partial value cannot
-replace a completed shallower pass. A clash and an entangled row's own claim
-still require a completed pass; they do not enable these frontier values.
+With no completed pass, it retains its waiting value. Incomplete branches
+cannot contribute.
 
 Exhausted targets remain pending for a later query that needs them. Their
 views and skeleton persist, but execution stacks do not: repeated allowances

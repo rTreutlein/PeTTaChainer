@@ -212,7 +212,6 @@
       ;; evidence about the instance, nor is the prior of one more member read
       ;; from it.
       (cpu (ev-set 0))
-      ((uncomputed) (ev-set 0))
       ((population-prior $_pattern) (ev-set 0))
       ;; A factored merge's evidence is its prior view's and its updates';
       ;; the prior's truth value is none.

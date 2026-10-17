@@ -213,7 +213,6 @@
 (: sk_change_cause CounterKey)
 (: sk_need_budget CounterKey)
 (: sk_claim_state CounterKey)
-(: sk_claim_approx CounterKey)
 (: sk_claim_depth CounterKey)
 (: sk_claim_cut CounterKey)
 ;; computations near a root a query may make once its allowance is spent

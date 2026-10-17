@@ -83,7 +83,6 @@
    (-[semidet]-> Number Number SkeletonKey Number Number (List SkeletonKey) (List Number) Bool SkeletonValue SkeletonValue))
 (: sk-stale-reader-step (-[det]-> SkeletonKey Atom SkeletonItem Atom))
 (: sk-value (-[semidet]-> SkeletonKey SkeletonFilter (List Number) SkeletonValue))
-(: sk-unknown-view (-[semidet]-> SkeletonValue SkeletonValue))
 (: sk-row-view (-[semidet]-> (List SkeletonGiven) (List Number) Number SkeletonKey Number SkeletonRow SkeletonValue))
 (: sk-computed-fold-view (-[semidet]-> Number ScalarFoldSpec SkeletonValue))
 (: sk-member-pending? (-[det]-> SkeletonKey Bool))
@@ -3203,10 +3202,7 @@
                 ($_reader-left (if (== $exclude ())
                                   (remove-variant-row! &sk_reading (quote ($khash $key $rhash))) ())))
             $value)
-         (if (== (search-id-value sk_claim_approx) 1)
-            (let $unknown (chainer-first-or sk-none (collapse (sk-unknown-view (sk-latest-view $khash $key $rhash))))
-               (progn (change-state! sk_claim_state -3) (change-state! sk_claim_cut 1) $unknown))
-            sk-none))
+         sk-none)
       sk-none))
 
 
@@ -3234,8 +3230,7 @@
 ;; conditioning and weight reads. The dependency-count estimate orders turns
 ;; but is never an admission threshold. A claim keeps its deepest completed
 ;; pass if the shared evaluation allowance runs out. With no completed pass,
-;; a key merge can retain a partial pass: unread rows use ignorance, not an
-;; independent reuse of their shared evidence. Other targets keep waiting.
+;; it keeps its waiting value; incomplete branches cannot contribute.
 (= (sk-conditioned $given $target $khash $rhash $wexclude $keys $base $approx $waiting)
    (case $keys (
       (() $approx)
@@ -3251,7 +3246,7 @@
                   (if (space-row-present? &ctx_sk_conditioning ($khash $rhash)) $waiting
                      (if (== (search-id-value sk_claim_state) -1)
                         (let* (($_entered (context-add! &sk_conditioning ($khash $rhash)))
-                               ($_opened (sk-open-claim! (case $target (((sk-key-target $_hash $_key $_filter $_exclude) true) ($_row false)))))
+                               ($_opened (sk-open-claim!))
                                ($deepest (sk-deepen $given $target $wexclude $keys (== $approx sk-none) (if (== $approx sk-none) 64 1) ()))
                                ($exhausted (sk-close-claim!))
                                ($_left (context-remove! &sk_conditioning ($khash $rhash))))
@@ -3264,7 +3259,7 @@
                (progn (change-state! sk_claim_cut 1) $approx)
                (if (== (search-id-value sk_claim_state) -1)
                   (if (< (search-id-value sk_eval_budget) 1) $approx
-                     (let* (($_opened (sk-open-claim! (case $target (((sk-key-target $_hash $_key $_filter $_exclude) true) ($_row false)))))
+                     (let* (($_opened (sk-open-claim!))
                             ($deepest (sk-deepen $given $target $wexclude $keys (== $approx sk-none) (if (== $approx sk-none) 64 1) ()))
                             ($_closed (if (sk-close-claim!) (next-search-id sk_branch_unpaid) 0)))
                         (chainer-first-or $approx $deepest)))
@@ -3285,8 +3280,7 @@
    (let* (($_depth (change-state! sk_claim_depth $depth))
           ($_uncut (change-state! sk_claim_cut 0))
           ($mixed (sk-mix-on $given $target $wexclude $keys)))
-      (if (< (search-id-value sk_claim_state) -1)
-         (if (if (== (search-id-value sk_claim_state) -3) (if $uncut false (== $deepest ())) false) $mixed $deepest)
+      (if (== (search-id-value sk_claim_state) -2) $deepest
          (let* (($cut (== (search-id-value sk_claim_cut) 1))
                 ($found (if (== $mixed ()) $deepest (if (if $cut $uncut false) $deepest $mixed))))
             (if (if $cut (< $depth 64) false) (sk-deepen $given $target $wexclude $keys $uncut (+ $depth 1) $found) $found)))))
@@ -3311,62 +3305,32 @@
    (case $keys (
       (() ())
       ((cons $pin $more)
-         (case (collapse (once (sk-mix-cut $given $target $pin
-                   (sk-given-value $given $pin sk-any-filter $wexclude)))) (
-            (() (sk-mix-on $given $target $wexclude $more))
-            ($mixed $mixed)))))))
-
-;; Start with the more probable branch. A merge claim may return its
-;; evaluated prefix with unread rows represented as ignorance (STV 0.5 0).
-;; Their empty evidence cannot duplicate the mixing weight's observations.
-;; A clash still needs a complete pass; it never enables frontier values.
-(: sk-mix-cut (-[semidet]-> (List SkeletonGiven) SkeletonTarget SkeletonKey SkeletonValue SkeletonValue))
-(= (sk-mix-cut $given $target $pin (sk-val ($_wt $_wc $wp (STV $ws $wc)) $wev $wdeps))
-   (let* (($weight (sk-val ($_wt $_wc $wp (STV $ws $wc)) $wev $wdeps))
-          ($phash (index-hash $pin))
-          ($first (>= $ws 0.5))
-          ($known (chainer-first-or sk-none (collapse (once
-             (sk-target-value (cons (sk-given $phash $pin $first) $given) $target)))))
-          ($completed (not (== (search-id-value sk_claim_state) -2)))
-          ($other (chainer-first-or sk-none (collapse (once
-             (sk-target-value (cons (sk-given $phash $pin (not $first)) $given) $target))))))
-      (if (< (search-id-value sk_claim_state) -1)
-         (if $completed
-            (let $partial (sk-partial-mix $weight $known $other $first)
-               (progn (change-state! sk_claim_cut 1) (change-state! sk_claim_state -3) $partial))
-            (empty))
-         (sk-mix $weight (if $first $known $other) (if $first $other $known)))))
-
-(= (sk-unknown-view (sk-val ($type $ctx $_proof (STV $_s $_c)) $_ev $deps))
-   (sk-val ($type $ctx (brand Proof (uncomputed)) (STV 0.5 0)) (ev-set 0) $deps))
-
-(: sk-partial-mix (-[semidet]-> SkeletonValue SkeletonValue SkeletonValue Bool SkeletonValue))
-(= (sk-partial-mix $weight (sk-val ($type $ctx $proof (STV $s $c)) $ev $deps) $other $positive)
-   (if (== $proof (uncomputed)) (empty)
-   (let* (($known (sk-val ($type $ctx $proof (STV $s $c)) $ev $deps))
-          ($unknown (if (== $other sk-none) (sk-unknown-view $known) $other))
-          ((sk-val ($_type $_ctx (conditioned $weight-proof $true-proof $false-proof) $tv) $mixed-ev $mixed-deps)
-             (sk-mix $weight (if $positive $known $unknown) (if $positive $unknown $known))))
-      (sk-val ($type $ctx (brand Proof (partial-conditioned $weight-proof $true-proof $false-proof)) $tv) $mixed-ev $mixed-deps))))
+         (let $phash (index-hash $pin)
+            (case (collapse (once
+                     (sk-mix (sk-given-value $given $pin sk-any-filter $wexclude)
+                        (sk-target-value (cons (sk-given $phash $pin true) $given) $target)
+                        (sk-target-value (cons (sk-given $phash $pin false) $given) $target)))) (
+               (() (sk-mix-on $given $target $wexclude $more))
+               ($mixed $mixed))))))))
 
 ;; A claim buys conditioned rows in pairs: one evaluation unit pays for
 ;; the next row and leaves one credit for a later row in this claim. This
 ;; preserves the existing two-rows-per-unit bound and integer allowances.
 ;; Nested conditioning shares the credit; unused credit expires at close.
-(: sk-open-claim! (-[det]-> Bool Atom))
-(= (sk-open-claim! $approximate)
-   (progn (change-state! sk_claim_state 0) (change-state! sk_claim_approx (if $approximate 1 0))
+(: sk-open-claim! (-[det]-> Atom))
+(= (sk-open-claim!)
+   (progn (change-state! sk_claim_state 0)
           (change-state! sk_claim_depth 64) (change-state! sk_claim_cut 0) ()))
 
 (: sk-close-claim! (-[det]-> Bool))
 (= (sk-close-claim!)
-   (let $exhausted (< (search-id-value sk_claim_state) -1)
-      (progn (change-state! sk_claim_state -1) (change-state! sk_claim_approx 0) (change-state! sk_claim_depth 64) (change-state! sk_claim_cut 0) $exhausted)))
+   (let $exhausted (== (search-id-value sk_claim_state) -2)
+      (progn (change-state! sk_claim_state -1) (change-state! sk_claim_depth 64) (change-state! sk_claim_cut 0) $exhausted)))
 
 (: sk-claim-charge! (-[det]-> (List SkeletonGiven) Bool))
 (= (sk-claim-charge! $given)
    (if (if (== $given ()) true (== (search-id-value sk_claim_state) -1)) true
-      (if (< (search-id-value sk_claim_state) -1) false
+      (if (== (search-id-value sk_claim_state) -2) false
          (let $paid
                (if (== (search-id-value sk_claim_state) 1)
                   (progn (change-state! sk_claim_state 0) true)
