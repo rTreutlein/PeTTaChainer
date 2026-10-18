@@ -583,7 +583,8 @@ A key's value merges its stored facts and one view per row:
   proofs retain their representative behavior. The history never told the rules
   apart (`overlap_conditioning.md`, "Sample twins");
 - of dependent views, the one whose evidence strictly contains the other's
-  is kept; two that share uncertain statements condition the key's whole
+  is kept only if it also used every given the other used; two that share
+  uncertain statements condition the key's whole
   merge on them, a budgeted cutset: the merge with the statement of most
   impact known true and known false, mixed by its value, a branch whose views
   still share one conditioning on it in turn, as deep as the claim reaches

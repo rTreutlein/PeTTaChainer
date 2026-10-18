@@ -805,7 +805,8 @@
 ;; independent (given its truth, a rule's applications are): they
 ;; combine by the prior they update, by the mode their predicate's outcomes
 ;; prefer, or by revision. Of dependent views, one whose evidence strictly
-;; contains the other's is kept; two that share an uncertain statement are an
+;; contains the other's is kept only if it also used every given the other
+;; used; two that share an uncertain statement are an
 ;; overlap, which the key's merge conditions on the shared statements; any
 ;; other pair keeps the more confident view, also the overlap's fallback. A
 ;; view's evidence is compared without the certain facts it reads as given
@@ -838,8 +839,8 @@
                       ($cmp-a (if $touch (sk-update-evidence $a $ev-a $b) $ev-a))
                       ($cmp-b (if $touch (sk-update-evidence $b $ev-b $a) $ev-b))
                       ($overlap (if $touch (evidence-overlap? $cmp-a $cmp-b) false))
-                      ($a-in-b (if $overlap (evidence-subset? $cmp-a $cmp-b) false))
-                      ($b-in-a (if $overlap (evidence-subset? $cmp-b $cmp-a) false))
+                      ($a-in-b (if $overlap (if (evidence-subset? $cmp-a $cmp-b) (hash-subset? (deps-excluded $ignore $deps-a) (deps-excluded $ignore $deps-b)) false) false))
+                      ($b-in-a (if $overlap (if (evidence-subset? $cmp-b $cmp-a) (hash-subset? (deps-excluded $ignore $deps-b) (deps-excluded $ignore $deps-a)) false) false))
                       ($apart (if $overlap (if $a-in-b false (if $b-in-a false true)) false))
                       ($shared (if $apart (sk-shared-statements $ignore (deps-shared $deps-a $deps-b)) ()))
                       ($independent

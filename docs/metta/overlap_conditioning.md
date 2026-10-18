@@ -59,10 +59,11 @@ Shared uncertain facts are among them: a stored fact depends on its own key.
 For two views of a key whose evidence overlaps (identical proofs, projections
 and settled steps are handled before, as they were):
 
-1. **Containment.** A view whose evidence contains the other's is kept, the
-   larger one when the containment is strict and the more confident one when
-   the sets are equal. Such a view holds nothing the other lacks, so neither
-   revision nor conditioning has anything to add.
+1. **Containment.** A view is contained only when both its evidence and the
+   given statements it used are subsets of the other's. Keep the containing
+   view for strict containment and the more confident one when both sets are
+   equal. A pinned observation has no evidence, but an inversion using it can
+   still add information to a predictive view that did not use that given.
 2. **Independent.** Otherwise the views are independent when they share no
    statement and no known fact that some rule concludes. A known fact no rule concludes, like a period link, is a
    premise either view reads as given; a fact some rule concludes may be an
