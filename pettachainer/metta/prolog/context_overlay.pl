@@ -307,6 +307,7 @@ context_numerical_change(T,Old,New) :-
     ; 'sk-same-view?'(New,Old,false) ).
 
 'context-clear!'(true) :-
+    forall(retract(support_identity_owner(Id)),retractall(support_identity(Id,_,_))),
     forall(retract(sk_forced_seen(_,Trie)),trie_destroy(Trie)),
     retractall(context_propagated(_,_,_,_)),
     retractall(context_entry(_,_,_,_,_)), retractall(context_hidden(_,_,_,_,_)),

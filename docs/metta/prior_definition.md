@@ -122,3 +122,16 @@ confidence; certainty remains a separate logical case.
 The inferred-branch quarter-minimum confidence and log-odds delta method remain
 heuristics. This definition removes self-evidence and endpoint discontinuities;
 it does not claim calibrated uncertainty or solve general overlap (#77).
+
+Physical source lists contain collision-checked scalar `sk-key` identities.
+Member, per-source counter and forward-observation records share these identities;
+no growing population evidence set or serialized term is allocated. The stored
+hash provides the reverse-read key, with full term variant equality checking
+collisions during interning.
+
+Support handles use a separate identity namespace from proof/evidence entries,
+so interning an optimization key cannot perturb evidence IDs or deterministic
+traversal. MAIN identities persist without reuse; identities first created in an
+assumption world are owned by that query and removed at context cleanup. A MAIN
+lookup promotes a borrowed identity before a MAIN holder can retain it. Cleanup
+visits only query-owned IDs, never the global identity history.

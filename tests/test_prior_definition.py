@@ -410,6 +410,60 @@ class PriorDefinitionTests(unittest.TestCase):
         update(4, '(ev-set 0)', 0, 0)
         self.assertEqual(centres(), ['CTV', ['STV', '0.2', '0.9'], ['STV', '0.9', '0.9']])
 
+    def test_physical_sources_share_identity_and_survive_collection(self):
+        result = janus.query_once(
+            "flag(ev_next_entry,EvidenceBefore,EvidenceBefore),"
+            "'observation-sources'(['fact-ev',[Kb,'MAIN','Nil'],one,[report,a]],A),"
+            "'observation-sources'(['not-fact-ev',[Kb,'MAIN','Nil'],renamed,[report,a]],B),"
+            "'update-likelihood-support!'([source_identity,Kb],1,A,1,0,_),"
+            "'update-likelihood-support!'([source_identity,Kb],2,B,1,0,_),"
+            "'stored-refs-gc!'(_),garbage_collect_atoms,"
+            "'observation-sources'(['fact-ev',[Kb,'MAIN','Nil'],third,[report,a]],C),"
+            "(A==B,B==C -> Shared=true;Shared=false),"
+            "'likelihood-support-counts'([source_identity,Kb],Counts),"
+            "aggregate_all(count,support_identity(_,_,['sk-key',[report,a],[Kb,'MAIN','Nil']]),Entries),"
+            "flag(ev_next_entry,EvidenceAfter,EvidenceAfter)",
+            {'Kb': self.h.kb})
+        self.assertEqual(result['Shared'], 'true')
+        self.assertEqual(result['Counts'], ['support-counts', 1, 1, 0, 1, 0])
+        self.assertEqual(result['Entries'], 1)
+        self.assertEqual(result['EvidenceBefore'], result['EvidenceAfter'])
+
+    def test_physical_source_interning_checks_hash_collisions(self):
+        result = janus.query_once(
+            "_Key=['sk-key',[report,a],[Kb,'MAIN','Nil']], 'index-hash'(_Key,_Hash),"
+            "flag(support_next_identity,_Before,_Before+1),Fake is _Before+1,"
+            "setup_call_cleanup(assertz(support_identity(Fake,_Hash,['sk-key',[report,b],[Kb,'MAIN','Nil']]),_Ref),"
+            "('observation-sources'(['fact-ev',[Kb,'MAIN','Nil'],one,[report,a]],A),"
+            " 'observation-sources'(['not-fact-ev',[Kb,'MAIN','Nil'],two,[report,a]],B),"
+            " A=['source-list',[Actual]],(A==B -> Stable=true;Stable=false),"
+            " 'observation-keys'(A,Keys),Hash=_Hash),erase(_Ref))", {'Kb': self.h.kb})
+        self.assertNotEqual(result['Actual'], result['Fake'])
+        self.assertEqual(result['Stable'], 'true')
+        self.assertEqual(result['Keys'], [result['Hash']])
+
+    def test_support_identities_follow_context_lifetime_and_main_promotion(self):
+        result = janus.query_once(
+            "support_identity_id(['sk-key',[main,Kb],[Kb,'MAIN','Nil']],Main),"
+            "setup_call_cleanup(nb_setval(context_overlay,identity_fixture),"
+            "(support_identity_id(['sk-key',[main,Kb],[Kb,'MAIN','Nil']],Borrowed),"
+            " support_identity_id(['sk-key',[local,Kb],[Kb,identity_fixture,'Nil']],Local),"
+            " support_identity_id(['aggregate-reader',-9002,[reader,Kb]],Promoted)),"
+            "nb_setval(context_overlay,main)),"
+            "support_identity_id(['aggregate-reader',-9002,[reader,Kb]],MainReader),"
+            "'context-clear!'(_),"
+            "(support_identity(Main,_,_),support_identity(Promoted,_,_) -> Kept=true;Kept=false),"
+            "(support_identity(Local,_,_)->Leaked=true;Leaked=false),"
+            "aggregate_all(count,support_identity_owner(_),Owners),"
+            "support_identity_id(['sk-key',[local,Kb],[Kb,identity_fixture,'Nil']],Replacement)",
+            {'Kb': self.h.kb})
+        self.assertEqual(result['Borrowed'], result['Main'])
+        self.assertEqual(result['MainReader'], result['Promoted'])
+        self.assertEqual(result['Kept'], 'true')
+        self.assertEqual(result['Leaked'], 'false')
+        self.assertEqual(result['Owners'], 0)
+        self.assertNotEqual(result['Replacement'], result['Local'])
+
     def test_support_updates_never_intern_population_evidence(self):
         # The old summary interned every growing prefix, retaining O(N²)
         # evidence payload. Source deltas and exclusion reads must intern none.
@@ -417,13 +471,14 @@ class PriorDefinitionTests(unittest.TestCase):
             "_Fold=[support_cost,Kb],"
             "aggregate_all(count,ev_set(_,_,_,_,_),_Before),"
             "forall(between(1,100,_I),"
-            "'update-likelihood-support!'(_Fold,_I,"
-            "['source-list',[['observation-source',[Kb,'MAIN','Nil'],[report,_I]]]],1,0,_)),"
+            "('observation-sources'(['observation-source',[Kb,'MAIN','Nil'],[report,_I]],_Sources),"
+            "'update-likelihood-support!'(_Fold,_I,_Sources,1,0,_))),"
             "'likelihood-support-counts'(_Fold,Counts),"
-            "findall(['observation-source',[Kb,'MAIN','Nil'],[report,_I]],between(1,99,_I),_Excluded),"
+            "findall(_Source,(between(1,99,_I),"
+            "'observation-sources'(['observation-source',[Kb,'MAIN','Nil'],[report,_I]],['source-list',[_Source]])),_Excluded),"
             "'likelihood-support-admissible?'(_Fold,['source-list',_Excluded],OneRemains),"
-            "'likelihood-support-admissible?'(_Fold,['source-list',"
-            "[['observation-source',[Kb,'MAIN','Nil'],[report,100]]|_Excluded]],Drained),"
+            "'observation-sources'(['observation-source',[Kb,'MAIN','Nil'],[report,100]],['source-list',[_Last]]),"
+            "'likelihood-support-admissible?'(_Fold,['source-list',[_Last|_Excluded]],Drained),"
             "aggregate_all(count,ev_set(_,_,_,_,_),_After),Delta is _After-_Before",
             {'Kb': self.h.kb})
         self.assertEqual(result['Delta'], 0)
@@ -436,7 +491,7 @@ class PriorDefinitionTests(unittest.TestCase):
             "'observation-keys'(['source-list',['unverified-observation']],Keys),"
             "'update-aggregate-sources!'(-89,[fixture,Kb],['source-list',[]],0,"
             "['source-list',['unverified-observation']],1,_),"
-            "aggregate_all(count,'&forward_aggregate_read'(_,-89,[fixture,Kb]),Edges),"
+            "aggregate_all(count,'&forward_aggregate_read'(_,-89,_),Edges),"
             "'likelihood-support-counts'(['aggregate-support',-89],Counts)", {'Kb': self.h.kb})
         self.assertEqual(result['Keys'], [])
         self.assertEqual(result['Edges'], 0)

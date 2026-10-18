@@ -2,6 +2,7 @@
 :- use_module(library(assoc)).
 :- use_module(library(nb_set)).
 :- use_module(library(yall)).
+:- dynamic support_identity/3, support_identity_owner/1.
 :- ensure_loaded(context_overlay).
 :- ensure_loaded(ingestion).
 
@@ -920,8 +921,19 @@ ev_negated_id(Id, Negated) :-
 % Physical source lists are local to one sample. Fold summaries are counters,
 % never evidence sets: changing one member costs one indexed delta per source.
 % A physical outcome has one lookup key regardless of proof name or polarity.
-likelihood_source_key(['observation-source',Scope,Type], Key) :-
-    'index-hash'(['sk-key',Type,Scope],Key).
+% Support handles have their own namespace: bookkeeping must not change
+% evidence-entry allocation and deterministic proof traversal. MAIN identities
+% persist; query-local identities leave with their worlds unless MAIN uses them.
+support_identity_id(Term,Id) :-
+    'index-hash'(Term,Hash),
+    ( support_identity(Id,Hash,Stored), Stored =@= Term
+    -> ( context_active(_) -> true ; retractall(support_identity_owner(Id)) )
+    ; flag(support_next_identity,Last,Last+1), Id is Last+1,
+      assertz(support_identity(Id,Hash,Term)),
+      ( context_active(_) -> assertz(support_identity_owner(Id)) ; true ) ).
+
+likelihood_source_key(Source, Key) :-
+    support_identity(Source,Key,['sk-key',_,_]).
 
 'source-list-union'(['source-list',A],['source-list',B],['source-list',Sources]) :-
     append(A,B,All), sort(All,Sources).
@@ -1018,9 +1030,10 @@ likelihood_observation_source(['not-ev',Entry], Source) :- !,
     likelihood_observation_source(Entry,Source).
 likelihood_observation_source([Tag,Scope,_Proof,Type], Source) :-
     memberchk(Tag,['fact-ev','not-fact-ev']), !,
-    ( ground(Scope-Type) -> Source=['observation-source',Scope,Type]
+    ( ground(Scope-Type) -> support_identity_id(['sk-key',Type,Scope],Source)
     ; Source='unverified-observation' ).
-likelihood_observation_source(['observation-source',Scope,Type], ['observation-source',Scope,Type]) :- !.
+likelihood_observation_source(['observation-source',Scope,Type], Source) :- !,
+    support_identity_id(['sk-key',Type,Scope],Source).
 likelihood_observation_source(_, 'unverified-observation').
 
 % The entries other than rules that every set holds: the first set's entries,
