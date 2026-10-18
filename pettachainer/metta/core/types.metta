@@ -211,6 +211,7 @@
 (: sk_branch_frame CounterKey)
 (: sk_branch_at CounterKey)
 (: sk_branch_budget CounterKey)
+(: sk_root_claim_budget CounterKey)
 (: sk_change_cause CounterKey)
 (: sk_need_budget CounterKey)
 (: sk_claim_state CounterKey)

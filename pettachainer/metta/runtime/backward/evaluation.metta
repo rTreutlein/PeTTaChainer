@@ -2845,10 +2845,17 @@
                ((sk-merging $_provisional $keys $deps)
                   (let* (($merged (sk-key-fallback $ignore $references $values))
                          ($near (sk-shared-statements $ignore (deps-near-shared (map-semidet (sk-view-deps-step 0) $values))))
-                         ($cut (fold-semidet (sk-near-key-step $near) () $keys)))
+                         ($cut (if (sk-root-claim? $given $hash $key) $keys
+                            (fold-semidet (sk-near-key-step $near) () $keys))))
                      (if (== $cut ()) $merged
                         (sk-conditioned $given (sk-key-target $hash $key $filter $exclude) $hash -1
                            (hash-union $exclude $unifiers) $cut (+ 1 (deps-size $deps)) $merged $merged)))))))))))
+
+(: sk-root-claim? (-[det]-> (List SkeletonGiven) Number SkeletonKey Bool))
+(= (sk-root-claim? $given $hash $key)
+   (if (== $given ())
+      (if (== (search-id-value sk_forward_run) 0) (== (sk-need-depth $hash $key) 0) false)
+      false))
 
 ;; Preserve the cut candidate order when restricting it to near statements.
 (: sk-near-key-step (-[det]-> (List SkeletonKey) (List SkeletonKey) SkeletonKey (List SkeletonKey)))
@@ -2872,8 +2879,11 @@
 ;; latest version, so it reads the same value.
 (: sk-open-value (-[semidet]-> Number SkeletonKey SkeletonFilter SkeletonMerged))
 (= (sk-open-value $hash $key $filter)
-   (case (collapse (once (match &ctx_sk_merged ($hash $stored $deps $value)
-            (if (=alpha $stored $key) (if (sk-live-view? $value) (sk-merged $hash $stored $deps $value) (empty)) (empty))))) (
+   (case (collapse (once (match &ctx_sk_merged ($hash $stored $deps $value $cached-root)
+            (if (=alpha $stored $key)
+               (if (== $cached-root (sk-root-claim? () $hash $key))
+                  (if (sk-live-view? $value) (sk-merged $hash $stored $deps $value) (empty))
+                  (empty)) (empty))))) (
       ((cons $merged $_rest) (let $_counted (query_metric_increment merged-cache-hits) $merged))
       (() (context-cold-merged $hash $key $filter)))))
 
@@ -2883,12 +2893,17 @@
 (: sk-merge-open! (-[semidet]-> Number SkeletonKey SkeletonFilter SkeletonMerged))
 (= (sk-merge-open! $hash $key $filter)
    (let* (($_counted (query_metric_increment merged-cache-misses))
+          ($root (sk-root-claim? () $hash $key))
+          ;; Changing roots changes which overlaps may be claimed. Clear old
+          ;; requests before recomputing; a fresh request survives publication.
+          ($_policy (collapse (once (match &ctx_sk_merged ($hash $stored $_deps $_value $cached-root)
+             (if (=alpha $stored $key) (if (== $root $cached-root) () (sk-drop-merged! $key)) (empty))))))
           ($views (sk-admitted $hash $key $filter ()))
           ($leaves (sk-leaf-views $hash $key $filter ()))
           ($deps (fold-semidet sk-view-deps-step 0 (append-flat $leaves $views)))
           ($value (sk-merge-key $hash $key $filter () () $views))
           ($_inner (sk-uncache! $hash $key))
-          ($_cached (context-add! &sk_merged ($hash $key $deps $value)))
+          ($_cached (context-add! &sk_merged ($hash $key $deps $value $root)))
           ($_factor (sk-note-truth-factor! $hash $key $value)))
       (sk-merged $hash $key $deps $value)))
 
@@ -2937,9 +2952,9 @@
 (: sk-uncache! (-[det]-> Number SkeletonKey Atom))
 (= (sk-uncache! $hash $key)
    (let $_dropped
-         (collapse (match &ctx_sk_merged ($hash $stored $deps $value)
+         (collapse (match &ctx_sk_merged ($hash $stored $deps $value $cached-root)
             (if (=alpha $stored $key)
-               (context-remove! &sk_merged ($hash $stored $deps $value))
+               (context-remove! &sk_merged ($hash $stored $deps $value $cached-root))
                (empty))))
       ()))
 
@@ -3624,9 +3639,21 @@
                   (if (space-row-present? &ctx_sk_conditioning ($khash $rhash)) $waiting
                      (if (== (search-id-value sk_claim_state) -1)
                         (let* (($_entered (context-add! &sk_conditioning ($khash $rhash)))
+                               ;; Slice only an outer root-key claim. Nested row and
+                               ;; weight work spends this same slice, never the reserve.
+                               ($before (search-id-value sk_eval_budget))
+                               ($root (if (== $rhash -1)
+                                  (case $target (((sk-key-target $_h $key $_f $_e)
+                                     (sk-root-claim? $given $khash $key)) ($_row false))) false))
+                               ($room (if $root (min $before (search-id-value sk_root_claim_budget)) $before))
+                               ($_slice (change-state! sk_eval_budget $room))
                                ($_opened (sk-open-claim!))
                                ($deepest (sk-deepen $given $target $wexclude $keys (== $approx sk-none) (if (== $approx sk-none) 64 1) ()))
                                ($exhausted (sk-close-claim!))
+                               ($spent (- $room (search-id-value sk_eval_budget)))
+                               ($_restore (change-state! sk_eval_budget (- $before $spent)))
+                               ($_root-spent (if $root
+                                  (change-state! sk_root_claim_budget (- (search-id-value sk_root_claim_budget) $spent)) ()))
                                ($_left (context-remove! &sk_conditioning ($khash $rhash))))
                            (if $exhausted
                               (sk-wait! $khash $rhash $cost (chainer-first-or $waiting $deepest))
@@ -4379,7 +4406,7 @@
                             (let $_unsupported (query_metric_increment views-without-support) true)))))
                $work
                (let* (($before
-                         (collapse (once (match &ctx_sk_merged ($hash $stored $deps $value)
+                         (collapse (once (match &ctx_sk_merged ($hash $stored $deps $value $cached-root)
                             (if (=alpha $stored $key) (if (sk-live-view? $value) (sk-merged $hash $stored $deps $value) (empty)) (empty))))))
                       ($_stored (sk-store-view! $hash $key $seq $rhash $new))
                       ($_stored-count (query_metric_increment views-stored))
@@ -4559,6 +4586,14 @@
 
 ;; A request cannot crowd out ordinary evaluation, restales or conditioning.
 ;; This is a ceiling within the existing allowance, not an extra allowance.
+;; Root refinement gets one eighth of evaluation, at most 256 units
+;; (512 conditioned rows). The fixed ceiling retains cheap 2p/4p cuts without
+;; making long-history root retries consume the whole query. All roots share it.
+(: sk-root-claim-share (-[det]-> Number))
+(= (sk-root-claim-share) 0.125)
+(: sk-root-claim-limit (-[det]-> Number))
+(= (sk-root-claim-limit) 256)
+
 (: sk-branch-share (-[det]-> Number))
 (= (sk-branch-share) 0.125)
 
@@ -5455,6 +5490,8 @@
           ($_budget (change-state! sk_budget $steps))
           ($_rows (change-state! sk_row_budget (* 10 $steps)))
           ($_evaluation (change-state! sk_eval_budget (* (sk-evaluation-per-step) $steps)))
+          ($_root-claims (change-state! sk_root_claim_budget
+             (min (sk-root-claim-limit) (floor-math (* (* (sk-evaluation-per-step) $steps) (sk-root-claim-share))))))
           ($_branches (change-state! sk_branch_budget (* (* (sk-evaluation-per-step) $steps) (sk-branch-share))))
           ($_walk (change-state! sk_walk_budget (* (sk-walk-per-step) $steps)))
           ($_pushes (change-state! sk_push_seq 0))

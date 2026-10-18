@@ -86,9 +86,9 @@ class CertainObservationOverlapTests(unittest.TestCase):
             # Root the proof, but not its cached context union. The collector
             # must follow the memo for both Root and its child reference.
             "'index-hash'(['sk-key',['CacheProbe'],Scope],H), "
-            "setup_call_cleanup(assertz(user:'&sk_merged'(H,['CacheProbe'],probe,Root)), "
+            "setup_call_cleanup(assertz(user:'&sk_merged'(H,['CacheProbe'],probe,Root,false)), "
             " ('stored-refs-gc!'(_), 'stored-refs-gc!'(_), "
-            "  'proof-given-evidence'(Root,Given), 'evidence-entries'(Given,After)), retractall(user:'&sk_merged'(H,['CacheProbe'],probe,Root))), "
+            "  'proof-given-evidence'(Root,Given), 'evidence-entries'(Given,After)), retractall(user:'&sk_merged'(H,['CacheProbe'],probe,Root,false))), "
             "Root=['proof-ref',Pid], Inner=['proof-ref',Child], "
             "'stored-refs-gc!'(_), 'stored-refs-gc!'(_), "
             "(proof_given_memo(Pid,_)->RootMemo=true;RootMemo=false), "

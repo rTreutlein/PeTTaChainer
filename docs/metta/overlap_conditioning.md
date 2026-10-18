@@ -182,6 +182,21 @@ explain each other away gave the machine-failure example's Or 0.696 against
 the inversion's 0.82, and its evidence held the inversion's, so it replaced
 it (`examples/metta/machine_failure_inversion.metta`).
 
+**Capped root refinement.** Only a queried key at need depth zero, outside
+any condition and outside forward evaluation, may also claim deep overlaps.
+Nested keys retain the one-step rule. Root claims share one eighth of the
+query's evaluation allowance, capped at 256 units (512 conditioned rows),
+and also spend the ordinary remaining allowance. These internal settings are
+`sk-root-claim-share` and `sk-root-claim-limit`. The share leaves room for
+ordinary work and other claims; the fixed ceiling covers the cheap two-period
+(26 rows) and four-period (510 rows) T8 cuts while bounding longer-history
+retries independently of history length. Each input world receives its own
+slice, as it receives its own evaluation allowance. Exhaustion retains the
+last completed pass, or the factored summary, with pending debt. It grants no
+extra work to the next query. Merge caches record root eligibility so a key
+first read as a summary can be promoted when queried; a root result cannot
+silently serve a later nested merge under a different policy.
+
 **Approximation.** A completed claim resolves its retained cutset under the
 views' formulas and existing weight, while deeper shared history stays
 factored. Increasing the budget does not recover the omitted joint slices.

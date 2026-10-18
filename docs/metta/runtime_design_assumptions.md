@@ -411,11 +411,14 @@ Capture answers before releasing holds. Cleanup spends no further evaluation
 allowance and does not depend on the identity of preceding query batches.
 
 On an unchanged KB, repeated queries with enough allowance must finish
-pending search, conditioning and branch refreshes, reach a stable answer,
-and then perform zero branch builds and zero row computations. Cache
+pending search, near-shared conditioning and branch refreshes, reach a stable
+answer, and then perform zero branch builds and zero row computations. Cache
 maintenance must not restart that work on the next identical query. This
 quiescence contract allows finite-budget transients; a transient cold answer
-is not an oracle for the fixed point.
+is not an oracle for the fixed point. The optional deep root claim is the
+bounded exception: if its fixed ceiling cannot cover one pass, it retains the
+marginal summary and pending debt and can repeat that bounded attempt on each
+query.
 
 A certain truth value, confidence >= 1, stands for unlimited evidence in
 revision. Only a stored binary-certain fact, STV strength 0 or 1 at confidence
@@ -1184,15 +1187,33 @@ that same allowance. An exhausted closed-read claim marks its rebuild frame
 unfinished, so an unpaid approximation cannot settle a branch cache. No claim
 can borrow from another query or exceed the remaining allowance.
 
+**Capped root refinement.** Only a queried key at need depth zero, outside
+any condition and outside forward evaluation, may also claim deep overlaps.
+Nested keys retain the one-step rule. Root claims share one eighth of the
+query's evaluation allowance, capped at 256 units (512 conditioned rows),
+and also spend the ordinary remaining allowance. These internal settings are
+`sk-root-claim-share` and `sk-root-claim-limit`. The share leaves room for
+ordinary work and other claims; the fixed ceiling covers the cheap two-period
+(26 rows) and four-period (510 rows) T8 cuts while bounding longer-history
+retries independently of history length. Each input world receives its own
+slice, as it receives its own evaluation allowance. Exhaustion retains the
+last completed pass, or the factored summary, with pending debt. It grants no
+extra work to the next query. Merge caches record root eligibility so a key
+first read as a summary can be promoted when queried; a root result cannot
+silently serve a later nested merge under a different policy.
+
 **One-step filtering (#81).** Nested key merges summarize shared history
 beyond two dependency levels instead of opening mutually dependent historical
 claims. This is a product-of-marginals (Boyen–Koller) approximation, not exact
 joint-slice filtering. On T8, exact versus the branched product filter is
-0.11853298 versus 0.11925473 at four periods, 0.1194664 versus 0.1204811
+0.11853298 versus 0.11925470 at four periods, 0.1194664 versus 0.1204811
 at six, and 0.1195407 versus 0.1205924 at eight. Error approaches +0.00106
 at 10–12 periods; this measured bound is specific to T8, not a general error
 guarantee. A joint (Storm, Degraded) slice would be exact for T8 but needs a
-representation the current per-key marginal store does not hold.
+representation the current per-key marginal store does not hold. The bound
+assumes established input marginals. Finite search and deferred-read budgets
+can leave incomplete or stale summaries and substantially larger errors;
+the root cap bounds work, not posterior error.
 Near-shared key claims and row clash/entanglement claims retain the existing
 settlement limits: repeated insufficient allowances can repeat work.
 `conditions_unpaid` counts needed, readable pending requests. Historical

@@ -35,7 +35,7 @@ ctx = [warm.kb, "MAIN", "Nil"]
 key = ["sk-key", ["A", "a"], ctx]
 before = janus.query_once(
     "'index-hash'(Key,H),"
-    "aggregate_all(count,'&sk_merged'(H,Key,_, 'sk-none'),Empty),"
+    "aggregate_all(count,'&sk_merged'(H,Key,_, 'sk-none',_),Empty),"
     "aggregate_all(count,'&sk_latest'(_,_,_),Versions),"
     "aggregate_all(count,'&sk_expanded'(_, _),Expanded)", {"Key": key})
 facts = [f"(: seed (A a) (STV 1 {confidence}))",

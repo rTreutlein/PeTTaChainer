@@ -107,7 +107,7 @@ class OverlayChecks:
         # Keep MAIN's history rows and views, but force a cold merge read.
         # Independent work performed while C reads must warm MAIN, not C.
         janus.query_once(
-            "'remove-data-rows!'('&sk_merged',[_H,['sk-key',['History',_T],[Kb,'MAIN','Nil']],_D,_V],_)",
+            "'remove-data-rows!'('&sk_merged',[_H,['sk-key',['History',_T],[Kb,'MAIN','Nil']],_D,_V,_Root],_)",
             {"Kb": self.h.kb},
         )
         # The positive-only outcome rule has an unknown negative branch:
@@ -118,7 +118,7 @@ class OverlayChecks:
         history = [row for space, head, row in local if space in ("&sk_latest", "&sk_view", "&sk_merged") and head == "History"]
         self.assertEqual(history, [])
         self.assertTrue(janus.query_once(
-            "once('&sk_merged'(_,['sk-key',['History',t2],[Kb,'MAIN','Nil']],_,_))",
+            "once('&sk_merged'(_,['sk-key',['History',t2],[Kb,'MAIN','Nil']],_,_,_))",
             {"Kb": self.h.kb},
         )["truth"])
         self.assertFalse(janus.query_once("context_entry(_,_, '&sk_row',_,_)")["truth"])

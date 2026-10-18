@@ -88,7 +88,7 @@ overlay_probe_main_leaks(Kb,Leaks) :-
 % assumption proof tokens and scoped physical writes remain forbidden.
 overlay_probe_provenance_leak(Kb,Text) :-
       ( ( '&sk_latest'(_,_,['sk-version',_,_,['sk-val',[_,[Kb,'MAIN','Nil'],P,_],_,D]])
-        ; '&sk_merged'(_,_,_,['sk-val',[_,[Kb,'MAIN','Nil'],P,_],_,D])
+        ; '&sk_merged'(_,_,_,['sk-val',[_,[Kb,'MAIN','Nil'],P,_],_,D],_)
         ; catch('&sk_view'(_,_,_,['sk-val',[_,[Kb,'MAIN','Nil'],P,_],_,D]),
                 error(existence_error(procedure,_),_),fail)
         ; '&kb'(_,[Kb,'MAIN','Nil'],P,_)

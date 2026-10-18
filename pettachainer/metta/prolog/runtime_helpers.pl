@@ -410,7 +410,7 @@ opaque_proof_step(Step) :-
 refs_holder('&sk_latest', 3, [3]).
 refs_holder('&sk_view', 4, [4]).
 refs_holder('&sk_branch', 6, [6]).
-refs_holder('&sk_merged', 4, [4]).
+refs_holder('&sk_merged', 5, [4]).
 refs_holder('&sk_forward_taken', 3, [3]).
 refs_holder('&sk_forward_stored', 5, [3, 4]).
 refs_holder('&sk_summary', 5, [3, 4]).

@@ -173,9 +173,12 @@ class DeepConditioningTests(unittest.TestCase):
 
     def test_claim_debt_metric_counts_needed_readable_requests(self):
         handler = PeTTaChainer()
-        plant(handler, 3)
+        # Two root cuts share the capped refinement slice. Both remain readable
+        # when it runs out, unlike the now claim-free odd-period fixture.
+        plant(handler, 8)
         handler.set_query_metrics(True)
-        handler.query_many_refs(['(: $p (Degraded plant t3) $tv)'], steps=300)
+        handler.query_many_refs(['(: $p (Degraded plant t6) $tv)',
+                                 '(: $p (Degraded plant t8) $tv)'], steps=3000)
         # Inspect the request relation without depending on its payload layout.
         debt = janus.query_once(
             "current_predicate('&sk_given_pending'/_Arity), "
@@ -239,10 +242,23 @@ class DeepConditioningTests(unittest.TestCase):
         self.assertEqual(len(answers[0]), 1)
         self.assertEqual(answers[0], answers[1])
 
-    def test_rate_takes_completed_fold_independent_members_in_first_query(self):
+    def test_rate_takes_completed_fold_independent_members_when_demanded(self):
         handler = PeTTaChainer()
         plant(handler, 3)
         handler.query_many_refs(['(: $p (Degraded plant t3) $tv)'], steps=20000)
+        # Deep conditioning used to discover these takes incidentally. One-step
+        # filtering no longer requests them. Demand the fold's changed members
+        # explicitly, then check it consumes their completed excluded branches
+        # within this query, without a cleanup-time extra evaluation.
+        janus.query_once(
+            "_Args=[Kb,['Fuelled',plant,_],'extract-tv',['BaseRateEvidence',0.0,0.0],"
+            " 'BaseRateAcc','base-rate','result-tv'], _Fold=['sk-fold',_Args], "
+            "forall(member(_T,[t2,t3]),'sk-rate-dirty!'(_Fold,"
+            " ['sk-key',['Fuelled',plant,_T],[Kb,'MAIN','Nil']],_)), "
+            "'chainer-many'(20000,[['CPU','FoldAllCompiled',_Args,_]],_)",
+            {'Kb': handler.kb},
+        )
+        # Storm predictions: .3+.4*.6=.54, then .516; fuel is .9-.7*s.
         members = janus.query_once(
             "findall([_T,_S], '&ctx_forward_aggregate_observation'(_,_,"
             " ['forward-base-rate-observation-value',"
@@ -312,16 +328,60 @@ print(json.dumps({'tv': [r.tv for r in rows], 'metrics': metrics}, sort_keys=Tru
     def test_five_period_reports(self):
         self.check_plant(5, 20000)
 
-    @unittest.expectedFailure
     def test_issue_81_five_period_conditioning_settles(self):
-        # #81 remains open: repeated pinned rows exhaust the allowance even
-        # after the exact posterior and report provenance are correct.
+        # Producing at t5 certifies zero degradation. Summarizing deep history
+        # removes the cross-period conditioning cycle as well as its debt.
         handler = PeTTaChainer()
         plant(handler, 5)
         handler.set_query_metrics(True)
         handler.query_many_refs(['(: $p (Degraded plant t5) $tv)'], steps=20000)
         self.assertEqual(handler.last_query_metrics()['conditions_unpaid'], 0,
-                         '#81: five-period pinned conditioning still exhausts its claim')
+                         '#81: five-period filtering should have no conditioning debt')
+
+    def test_four_period_root_matches_branched_product_filter(self):
+        handler = PeTTaChainer()
+        handler.set_bayes_prior_count(0)
+        self.addCleanup(handler.set_bayes_prior_count, .2)
+        plant(handler, 4)
+        handler.set_query_metrics(True)
+        query = ['(: $p (Degraded plant t4) $tv)']
+        for repeat in range(3):
+            answer = handler.query_many_refs(query, steps=3000)[0][0]
+            self.assertAlmostEqual(answer.tv[1], float(bk_t8(4)), delta=1e-8)
+            self.assertLess(abs(answer.tv[1]-float(exact_t8(4))), .0011)
+            metrics = handler.last_query_metrics()
+            self.assertEqual(metrics['conditions_unpaid'], 0)
+            self.assertEqual(metrics['conditioned_evaluations'], 510 if repeat == 0 else 0)
+
+    def test_cached_summary_can_be_promoted_to_a_root_claim(self):
+        handler = PeTTaChainer()
+        handler.set_bayes_prior_count(0)
+        self.addCleanup(handler.set_bayes_prior_count, .2)
+        plant(handler, 2)
+        handler.add_atom('(: wrapper (Implication (Degraded plant $t) (Wrapped plant $t)) (CTV (STV 1 1) (STV 0 1)))')
+        handler.set_query_metrics(True)
+        wrapped = handler.query_many_refs(['(: $p (Wrapped plant t2) $tv)'], steps=3000)[0][0]
+        self.assertAlmostEqual(wrapped.tv[1], float(bk_t8(2, branched=False)), delta=1e-8)
+        self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 0)
+        for repeat in range(2):
+            root = handler.query_many_refs(['(: $p (Degraded plant t2) $tv)'], steps=3000)[0][0]
+            self.assertAlmostEqual(root.tv[1], float(exact_t8(2)), delta=1e-8)
+            self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 26 if repeat == 0 else 0)
+
+    def test_root_refinement_work_is_bounded_with_growing_history(self):
+        for periods, budget in ((6, 3000), (8, 20000)):
+            handler = PeTTaChainer()
+            plant(handler, periods)
+            handler.set_query_metrics(True)
+            for repeat in range(3):
+                answer = handler.query_many_refs(
+                    [f'(: $p (Degraded plant t{periods}) $tv)'], steps=budget)[0][0]
+                metrics = handler.last_query_metrics()
+                with self.subTest(periods=periods, repeat=repeat):
+                    self.assertLessEqual(metrics['conditioned_evaluations'], 512)
+                    self.assertGreater(metrics['conditions_unpaid'], 0)
+                    self.assertLess(abs(answer.tv[1]-float(exact_t8(periods))), .0011)
+                    self.assertIn(f'rep-t{periods}', handler.expand_proof(answer.proof))
 
     def test_nested_negative_inline_facts_keep_statement_and_kb_identity(self):
         handler = PeTTaChainer()

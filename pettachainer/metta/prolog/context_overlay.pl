@@ -29,7 +29,7 @@ context_overlay_rows(C, Space, Row) :-
 
 context_borrowable(C,'&sk_latest',[H,Key,['sk-version',_,Rhash,_]]) :- !,
     \+ (context_entry(H,C,'&sk_latest',[H,Stored,['sk-version',_,Rhash,_]],_), Stored =@= Key).
-context_borrowable(C,'&sk_merged',[H,Key,_,_]) :- !,
+context_borrowable(C,'&sk_merged',[H,Key,_,_,_]) :- !,
     \+ context_key_local(C,H,Key).
 context_borrowable(_,_,_).
 context_key_local(C,H,Key) :-
@@ -81,7 +81,7 @@ context_store('&sk_branch_dirty',1).
 context_store('&sk_branch_reader',3).
 context_store('&sk_branch_wanted',5).
 context_store('&sk_support',3).
-context_store('&sk_merged',4).
+context_store('&sk_merged',5).
 context_store('&sk_reader',4).
 context_store('&sk_stale_reader',4).
 context_store('&sk_stale',2).
@@ -248,6 +248,9 @@ context_finish([Goal|Goals],[Base|Bases],Allowance,Reserve,[Result|Results]) :-
            once(('change-state!'(sk_eval_budget,Allowance,_),
                  'sk-branch-share'(BranchShare), BranchBudget is Allowance * BranchShare,
                  'change-state!'(sk_branch_budget,BranchBudget,_),
+                 'sk-root-claim-share'(RootShare), 'sk-root-claim-limit'(RootLimit),
+                 RootBudget is min(RootLimit,floor(Allowance*RootShare)),
+                 'change-state!'(sk_root_claim_budget,RootBudget,_),
                  'change-state!'(sk_near_reserve,Reserve,_),
                  context_evaluate(C,Inner,Kb,Facts,WantProof,WantTV,Result))),
            nb_setval(context_overlay,main))

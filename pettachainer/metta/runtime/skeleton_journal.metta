@@ -284,6 +284,7 @@
 (: &ctx_sk_branch_wanted (SpaceOf (Number Number SkeletonKey Number (List Number))))
 !(bind! &sk_branch_wanted (new-space))
 !(change-state! sk_branch_budget 0)
+!(change-state! sk_root_claim_budget 0)
 ;; The active ordinary reader. Nested evaluations carry exclusions, so they
 ;; leave this reader in place. Store only its identity, not its whole row.
 (: &sk_reading (SpaceOf (Number SkeletonKey Number)))
@@ -304,8 +305,8 @@
 ;; dependencies of the versions it merged
 (: SkeletonMerged Type)
 (: sk-merged (-[det]-> Number SkeletonKey Number SkeletonValue SkeletonMerged))
-(: &sk_merged (SpaceOf (Number SkeletonKey Number SkeletonValue)))
-(: &ctx_sk_merged (SpaceOf (Number SkeletonKey Number SkeletonValue)))
+(: &sk_merged (SpaceOf (Number SkeletonKey Number SkeletonValue Bool)))
+(: &ctx_sk_merged (SpaceOf (Number SkeletonKey Number SkeletonValue Bool)))
 !(bind! &sk_merged (new-space))
 ;; rows not evaluated yet, and the rows one evaluation scheduled per pass
 (: &sk_new (SpaceOf (sk-row-item Number Number SkeletonKey Number SkeletonRow)))
@@ -534,7 +535,7 @@
              ;; dirty-key refresh as row readers; both existence probes stop
              ;; at their first entry, so ingestion stays constant cost.
              (if (if (not (== (collapse (once (match &ctx_sk_latest ($_hash $_key $_version) true))) ())) true
-                     (not (== (collapse (once (match &ctx_sk_merged ($_mhash $_mkey $_deps $_value) true))) ())))
+                     (not (== (collapse (once (match &ctx_sk_merged ($_mhash $_mkey $_deps $_value $_root) true))) ())))
                 (sk-dirty! $key)
                 ())))
       ()))

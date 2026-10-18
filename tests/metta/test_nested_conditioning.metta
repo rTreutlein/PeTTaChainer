@@ -1,20 +1,15 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
-;; Conditioning nests: a branch whose views still overlap conditions again on
-;; the next shared statement, so a claim's work can double with every level.
-;; Claims share the query's remaining evaluation allowance, buying at most
-;; two conditioned rows per unit; exhaustion retains the last complete pass
-;; (docs/metta/overlap_conditioning.md, "Cost").
+;; #81 one-step filtering summarizes deep shared history instead of opening
+;; cross-period key claims. Root refinement is capped separately; a producing
+;; observation certifies zero degradation without any conditioning work.
 
 (= (nested-tv (: $_proof $_type $tv)) $tv)
 (: nested-count (-[det]-> Number BackwardQueryMetric Number))
 (= (nested-count $found (query-metric $key $n)) (if (== $key conditioned-evaluations) $n $found))
 
-;; test_overlap_conditioning's plant over five periods, every report soft:
-;; each Degraded key's persistence view and report view share the storms, and
-;; conditioning Degraded plant t5 conditions t4 inside its branches, t4 t3,
-;; and so on. Before claims were bounded this query took 238 s for the same
-;; answer; it now makes 5642 conditioned row evaluations, in a few seconds.
+;; Five periods of alternating soft reports. The last report implies no
+;; degradation; older periods enter as consumer-admitted marginal summaries.
 !(compileadd nestedKb (: storm-t1 (Storm t1) (STV 0.6 1)))
 !(compileadd nestedKb (: persist-storm (Implication (And (NextPeriod $p $t) (Storm $p)) (Storm $t)) (CTV (STV 0.7 1) (STV 0.3 1))))
 !(compileadd nestedKb (: fuel (Implication (Storm $t) (Fuelled plant $t)) (CTV (STV 0.2 1) (STV 0.9 1))))
@@ -39,5 +34,5 @@
 ;; propagated through modus ponens but cannot weaken that zero likelihood.
 !(test (map-flat nested-tv (collapse (query 300 nestedKb (: $p (Degraded plant t5) $tv))))
    ((STV 0.0 0.9830070597502478)))
-!(test (< (fold-flat nested-count 0 (backward-query-metrics)) 10000) true)
+!(test (fold-flat nested-count 0 (backward-query-metrics)) 0)
 !(set-backward-query-metrics false)
