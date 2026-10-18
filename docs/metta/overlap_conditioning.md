@@ -74,8 +74,12 @@ and settled steps are handled before, as they were):
    Independent views merge as views with disjoint evidence: factored over a
    prior, combined by the mode their predicate prefers, or revised. The
    factored merge's own independence tests read the same way.
-3. **Conditioning.** Otherwise, when they share statements, the whole key is
-   conditioned on them:
+3. **One-step conditioning (#81).** A key conditions on shared statements
+   within two dependency levels of at least two original views. The
+   `deps-near-shared` horizon is near in both views, unlike row entanglement.
+   Deeper history stays at the marginals admitted by the consumer; transitive
+   self-support exclusion prevents later evidence re-entering its past summary.
+   For eligible statements the whole key is conditioned:
 
    ```
    P(X) = P(K) P(X | K) + (1 - P(K)) P(X | not K)
@@ -92,10 +96,11 @@ and settled steps are handled before, as they were):
    observations. Sibling forward-rule views also connect through shared
    condition terms, including known premises. With known shared premises,
    combine sibling conditions by prior-factored odds using the consequent's
-   existing outcome tally. With unpaid shared uncertainty, conservatively
-   revise their estimates. Both operations union evidence/dependencies and cap
-   confidence by the smaller input: an unpaid overlap cannot manufacture
-   independent evidence.
+   existing outcome tally. Near-shared pairs keep their representative until paid. Pairs sharing only
+   deeper statements combine a prior and likelihood by factored odds, never
+   revision, with confidence min(c_a,c_b)/(1+R²), where
+   R=max(1,abs(logit(s_factored)-logit(s_representative))). Without a factored
+   form they keep the representative. Evidence and dependencies are retained.
    Same-condition estimates and ordinary non-rule proofs retain their existing
    representative behavior. Independent components then merge as before.
 
@@ -164,7 +169,7 @@ is cut:
 
 | target | approximate value |
 |---|---|
-| a key's merge | the conservative component merge (the fallback above) |
+| a key's merge | the one-step component merge (the fallback above) |
 | a row whose premises are entangled (below) | the premises read as independent |
 | a row whose premises clash on shared evidence | none |
 
@@ -177,38 +182,13 @@ explain each other away gave the machine-failure example's Or 0.696 against
 the inversion's 0.82, and its evidence held the inversion's, so it replaced
 it (`examples/metta/machine_failure_inversion.metta`).
 
-**Convergence.** Let V_d be the value a pass at depth d computes. For every d
-it is a mix, over the statements conditioned on, of branch values in which
-every conditioning nested deeper than d is replaced by its approximate value.
-Two facts give the argument:
-
-1. *Exactness at the cutset.* If the pass at depth d is not cut, no
-   conditioning stood an approximation in: every branch merged views that
-   share no uncertain statement (or share only what the merge rules handle
-   exactly: containment, given facts, rules), so each branch is exact under
-   the views' own formulas, and the mix of exact branches by the
-   statements' values is the exact total probability (up to the weight, see
-   "The weight"). Once d reaches the size of the cutset the target's views
-   need, V_d is that value and no deeper pass changes it.
-2. *Refinement.* V_{d+1} differs from V_d only inside the branches
-   where V_d stood an approximation in, and there it replaces the
-   approximation by the mix that conditioning on the next statement gives,
-   which is exact given the statements above it whenever it is not cut
-   itself. Each completed pass resolves more of the remaining approximation;
-   this is progress in the computation, not a guarantee of smaller numeric
-   error for each intermediate value.
-
-The shared statements of a finite skeleton are finite, so the depths are
-bounded, and an allowance covering all conditioned rows in the passes lets
-the claim finish uncut and exact. With less it keeps the deepest pass it could
-pay for, so a larger allowance never conditions on fewer statements: it
-extends the same sequence of passes. That is the anytime property the
-`--curves` profile checks: error per second should fall with the budget.
-It is not monotone in every instance. A partial conditioning can be further
-from the exact value than the approximation when the approximations' errors
-cancelled (two views each overcounting in opposite directions). The runtime
-does not establish a calibration model that would prove monotone expected
-error either; convergence and the measured curves are the supported claims.
+**Approximation.** A completed claim resolves its retained cutset under the
+views' formulas and existing weight, while deeper shared history stays
+factored. Increasing the budget does not recover the omitted joint slices.
+On T8 the branched product filter differs from exact by +0.00072 at four
+periods and about +0.001 at six through twelve periods. This is a measured
+model-specific bound, not calibrated posterior confidence. Partial passes
+need not improve numerical error monotonically.
 
 **Cost (#74).** Charge one evaluation unit for each pair of conditioned rows
 actually run. The factor preserves the existing maximum of two conditioned
@@ -228,8 +208,8 @@ when none finished. Both branches must finish before a pass is eligible.
 The ordinary pending request remains for later queries. Row views and the
 skeleton survive; no execution stack is saved. Repeated allowances smaller
 than one complete pass need not finish it, but larger allowances can replace
-the waiting value and finish the same conditioned calculation exactly under
-the existing formulas. Resolving more nested conditioning does not guarantee
+the waiting value and finish the retained conditioned calculation under
+the existing formulas; nested deep overlaps remain approximations. Resolving more nested conditioning does not guarantee
 lower numerical error for every intermediate estimate.
 
 ## Entangled premises

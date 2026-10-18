@@ -1,7 +1,9 @@
 !(import! &self ../../pettachainer/metta/petta_chainer)
 
 ;; #74: an unaffordable pass retains the waiting value; a later large query
-;; completes the original conditioned calculation. The small affordable-cut
+;; completes the retained conditioned calculation.
+;; The waiting strength is the factored update: odds(.05) times
+;; (.25/.95)/(1-.48), giving .02594438; it retains the report evidence. The small affordable-cut
 ;; regression is in test_premise_conditioning.metta (budget 3). The cheaper
 ;; certain-likelihood reads now reach this waiting stage at budget 10.
 (= (finite-tv (: $_proof $_type $tv)) $tv)
@@ -21,7 +23,7 @@
 !(compileadd finiteKb (: on-t2 (Producing plant t2) (STV 1 1)))
 
 !(test (map-flat finite-tv (collapse (query 10 finiteKb (: $p (Degraded plant t1) $tv))))
-   ((STV 0.013661205377171628 0.9999675198689901)))
+   ((STV 0.025944381244804894 0.8018751981786723)))
 !(test (map-flat finite-tv (collapse (query 2000 finiteKb (: $p (Degraded plant t1) $tv))))
    ((STV 0.0588728408972088 0.9998816871399366)))
 !(test (search-id-value sk_claim_state) -1)

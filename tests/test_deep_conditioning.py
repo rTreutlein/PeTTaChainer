@@ -37,6 +37,37 @@ def exact_t8(periods):
     return result
 
 
+def bk_t8(periods, *, branched=True):
+    """Enumerate one slice, then project its joint onto independent marginals.
+
+    Branched holds each supplied Storm-t1 outcome fixed until the final
+    Jeffrey mix (FR). Pinned holds only its marginal at .6 after slice one.
+    Neither calculation calls the chainer or copies its merge formulas.
+    """
+    result = F(0)
+    for initial, weight in (((1, F(3, 5)), (0, F(2, 5))) if branched else ((None, F(1)),)):
+        storm_rate, degraded_rate = F(3, 5), F(0)
+        for t in range(1, periods + 1):
+            following = {}
+            for ps, pd, storm, degraded, fuelled in itertools.product((0, 1), repeat=5):
+                if t == 1 and initial is not None and storm != initial:
+                    continue
+                if (fuelled and not degraded) != bool(t % 2):
+                    continue
+                mass = (storm_rate if ps else 1-storm_rate) * (degraded_rate if pd else 1-degraded_rate)
+                qs = (F(initial) if initial is not None else F(3, 5)) if t == 1 else (F(7, 10) if ps else F(3, 10))
+                qd, qf = (F(3, 4) if pd else F(1, 20)), (F(1, 5) if storm else F(9, 10))
+                p = mass * (qs if storm else 1-qs) * (qd if degraded else 1-qd) * (qf if fuelled else 1-qf)
+                following[storm, degraded] = following.get((storm, degraded), F(0)) + p
+            total = sum(following.values())
+            storm_rate = sum(p for (storm, _), p in following.items() if storm) / total
+            degraded_rate = sum(p for (_, degraded), p in following.items() if degraded) / total
+            if t == 1 and not branched:
+                storm_rate = F(3, 5)
+        result += weight * degraded_rate
+    return result
+
+
 def plant(handler, periods):
     handler.add_atoms_no_check([
         '(: storm-t1 (Storm t1) (STV 0.6 1))',
@@ -54,6 +85,31 @@ def plant(handler, periods):
 
 
 class DeepConditioningTests(unittest.TestCase):
+    def test_product_filter_error_bound(self):
+        for periods in range(2, 13):
+            with self.subTest(periods=periods):
+                self.assertLessEqual(abs(bk_t8(periods)-exact_t8(periods)), F(11, 10000))
+        self.assertEqual(bk_t8(2), exact_t8(2))
+        self.assertAlmostEqual(float(bk_t8(4)), .11925470162726076, delta=1e-12)
+        self.assertAlmostEqual(float(bk_t8(2, branched=False)), .09918666931164452, delta=1e-12)
+
+    def test_near_shared_requires_two_near_views(self):
+        PeTTaChainer()
+        result = janus.query_once(
+            "'deps-key'(11,A), 'deps-key'(22,B), 'deps-key'(33,C), "
+            "'deps-key'(44,D), 'deps-key'(55,E), "
+            "'deps-join'([A,B],AB), 'deps-join'([AB,C],ABC), "
+            "'deps-join'([ABC,D],Deep), 'deps-join'([A,E],Near), "
+            "'deps-near-shared'([Deep,Near],Filtered), "
+            "'deps-entangled'([Deep,Near],Entangled), "
+            "'deps-near-shared'([AB,Near],Shared), "
+            "'deps-near-shared'([AB],Single)"
+        )
+        self.assertEqual(result['Filtered'], [])
+        self.assertEqual(result['Entangled'], [11])
+        self.assertEqual(result['Shared'], [11])
+        self.assertEqual(result['Single'], [])
+
     def test_pin_rebuilds_latest_view_before_selecting_an_older_compatible_view(self):
         handler = PeTTaChainer()
         handler.add_atoms_no_check([
@@ -167,7 +223,7 @@ class DeepConditioningTests(unittest.TestCase):
                     with self.subTest(query=len(answers), metric=name):
                         self.assertEqual(metrics[name], 0)
         self.assertEqual(answers, [answers[0]] * 3)
-        self.assertEqual(work, [21362, 0, 0])
+        self.assertEqual(work, [0, 0, 0])
 
     def test_repeated_query_preserves_later_different_root_answer(self):
         answers = []

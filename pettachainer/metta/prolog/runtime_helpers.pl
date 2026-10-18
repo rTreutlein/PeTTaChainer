@@ -790,6 +790,17 @@ deps_near_child(Depth, Child, Acc0, Acc) :- deps_near(Child, Depth, Found), appe
 deps_held_twice(Ids, Hash) :-
     aggregate_all(count, (member(Id, Ids), deps_has(Id, Hash)), Count), Count >= 2.
 
+% One-step filtering: the keys within two levels of at least two of the sets
+% (near in both), the one-step horizon of a key merge's views.
+'deps-near-shared'(Ids, Hashes) :-
+    maplist([Id, Near]>>(deps_near(Id, 2, Near0), sort(Near0, Near)), Ids, Nears),
+    append(Nears, All), msort(All, Sorted), deps_dupes(Sorted, Hashes).
+deps_dupes([A, A | Rest], [A | Out]) :- !, deps_skip(A, Rest, Rest1), deps_dupes(Rest1, Out).
+deps_dupes([_ | Rest], Out) :- !, deps_dupes(Rest, Out).
+deps_dupes([], []).
+deps_skip(A, [A | Rest], Out) :- !, deps_skip(A, Rest, Out).
+deps_skip(_, Rest, Rest).
+
 % The keys two sets both hold, in order.
 'deps-shared'(A, B, Hashes) :-
     empty_nb_set(NodesA), empty_nb_set(KeysA), deps_collect(A, NodesA, KeysA),

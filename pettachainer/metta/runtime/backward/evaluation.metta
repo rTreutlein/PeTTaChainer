@@ -1392,6 +1392,23 @@
             (if (>= (term-confidence $fact-a) (term-confidence $fact-b)) $a $b))
          ($_other $a)))))
 
+;; Deep shared history enters a prior update as fixed marginal inputs, with confidence discounted by the log-odds range between that
+;; merge and the conservative representative (#49: c/(1+R^2), R >= 1).
+(: sk-unpaid-pair (-[semidet]-> SkeletonValue SkeletonValue SkeletonValue))
+(= (sk-unpaid-pair $va $vb)
+   (case (data $va $vb) (
+      (((sk-val $a $ev-a $deps-a) (sk-val $b $ev-b $deps-b))
+         (let* (($rep (sk-dependent-merge false $va $vb))
+                ($factored (sk-factored-merge $a $ev-a $deps-a $b $ev-b $deps-b true)))
+            (if (== $factored sk-none) $rep
+               (sk-discounted $factored $rep (min (term-confidence $a) (term-confidence $b))))))
+      ($_other (sk-dependent-merge false $va $vb)))))
+
+(: sk-discounted (-[semidet]-> SkeletonValue SkeletonValue Number SkeletonValue))
+(= (sk-discounted (sk-val ($type $kbctx $proof (STV $s $_c)) $ev $deps) (sk-val ($_rt $_rk $_rp (STV $r $_rc)) $_rev $_rdeps) $cmin)
+   (let $range (max 1.0 (abs-math (- (sk-link odds $s) (sk-link odds $r))))
+      (sk-val ($type $kbctx $proof (STV $s (/ $cmin (+ 1.0 (* $range $range))))) $ev $deps)))
+
 ;; Pairwise merging also records the first conditioning cut and its cost.
 ;; Its accumulated value is provisional: on overlap the key builds its
 ;; fallback from connected components of the original views below.
@@ -1433,11 +1450,16 @@
 (= (sk-component-step $ignore $view-deps $view-ev (sk-connecting (sk-component $best $deps $ev $members) $apart) (sk-component $other $other-deps $other-ev $other-members))
    (let* (($uncertain (fold-semidet (sk-shared-statement-step $ignore) false (deps-shared $view-deps $other-deps)))
           ($shared (if $uncertain true (fold-flat sk-observation-step false (evidence-shared-facts $view-ev $other-ev))))
-          ($siblings (sk-siblings? true $best $other)))
+          ($siblings (sk-siblings? true $best $other))
+          ($filtered (if $uncertain
+             (if $siblings false
+                (== (sk-shared-statements $ignore (deps-near-shared (cons $view-deps (cons $other-deps ())))) ()))
+             false)))
       (if (if $shared true $siblings)
          (sk-connecting
-            (sk-component (sk-dependent-merge (if $uncertain false
-                  (if $siblings (if (sk-sample-twins? $best $other) false true) false)) $best $other)
+            (sk-component (if $filtered (sk-unpaid-pair $best $other)
+                  (sk-dependent-merge (if $uncertain false
+                  (if $siblings (if (sk-sample-twins? $best $other) false true) false)) $best $other))
                (deps-union $deps $other-deps) (evidence-union $ev $other-ev) (append-flat $members $other-members))
             $apart)
          (sk-connecting (sk-component $best $deps $ev $members) (cons (sk-component $other $other-deps $other-ev $other-members) $apart)))))
@@ -2821,9 +2843,16 @@
                ((sk-merging $merged () $deps)
                   (if (if (== $deps 0) (if $siblings false true) false) $merged (sk-key-fallback $ignore $references $values)))
                ((sk-merging $_provisional $keys $deps)
-                  (let $merged (sk-key-fallback $ignore $references $values)
-                     (sk-conditioned $given (sk-key-target $hash $key $filter $exclude) $hash -1
-                        (hash-union $exclude $unifiers) $keys (+ 1 (deps-size $deps)) $merged $merged))))))))))
+                  (let* (($merged (sk-key-fallback $ignore $references $values))
+                         ($near (sk-shared-statements $ignore (deps-near-shared (map-semidet (sk-view-deps-step 0) $values))))
+                         ($cut (fold-semidet (sk-near-key-step $near) () $keys)))
+                     (if (== $cut ()) $merged
+                        (sk-conditioned $given (sk-key-target $hash $key $filter $exclude) $hash -1
+                           (hash-union $exclude $unifiers) $cut (+ 1 (deps-size $deps)) $merged $merged)))))))))))
+
+;; Preserve the cut candidate order when restricting it to near statements.
+(: sk-near-key-step (-[det]-> (List SkeletonKey) (List SkeletonKey) SkeletonKey (List SkeletonKey)))
+(= (sk-near-key-step $near $kept $k) (if (stored-list-member? $k $near) (append-flat $kept (cons $k ())) $kept))
 
 (: sk-view-deps-step (-[semidet]-> Number SkeletonValue Number))
 (= (sk-view-deps-step $deps $view)

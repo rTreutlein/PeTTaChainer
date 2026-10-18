@@ -582,20 +582,20 @@ A key's value merges its stored facts and one view per row:
   conservative revision with confidence capped by the smaller input; ordinary
   proofs retain their representative behavior. The history never told the rules
   apart (`overlap_conditioning.md`, "Sample twins");
-- of dependent views, the one whose evidence strictly contains the other's
-  is kept only if it also used every given the other used; two that share
-  uncertain statements condition the key's whole
-  merge on them, a budgeted cutset: the merge with the statement of most
-  impact known true and known false, mixed by its value, a branch whose views
-  still share one conditioning on it in turn, as deep as the claim reaches
-  (`docs/metta/overlap_conditioning.md`); otherwise, or while the
-  conditioning waits to be paid, or where a pass stops at its depth, the
-  views are grouped into connected components by shared statements or
-  observations. Sibling forward-rule views combine by prior-factored odds;
-  the conservative unpaid result unions evidence and dependencies and caps
-  confidence by the smaller input confidence. Paid conditioning recomputes
-  and combines those views inside its branches. Same-condition and ordinary
-  non-rule proofs retain their existing representative behavior.
+- of dependent views, containment requires both the evidence and used givens
+  to be contained. A key conditions only on uncertain shared statements
+  within two dependency levels of at least two original views
+  (`deps-near-shared`, unlike row `deps-entangled`, which permits a statement
+  near only one premise). Near-shared pairs retain their representative while
+  their claim waits. Deeper shared history is read as fixed marginal inputs:
+  a prior and likelihood update combine by factored odds, never revision,
+  with confidence min(c_a,c_b)/(1+R²), where
+  R=max(1,abs(logit(s_factored)-logit(s_representative))) (#49).
+  Without a factored form the representative remains. Sibling forward-rule
+  views retain their existing conservative combination. Components retain all
+  evidence and dependencies, including discarded views; independent components
+  merge normally. Summaries contain only views the consumer admits: transitive
+  self-support exclusion keeps period-t evidence out of its t−1 summary.
   Shared-class sibling odds (#49) use the live same-condition-revised general
   TV as both odds and variance denominator when every positive sibling pair
   has the same nonempty intersection. Specificity shrinkage (#69) still applies
@@ -1166,7 +1166,7 @@ need knows to come back down to it.
 
 Conditioning spends what that allowance has left, never the near-root
 reserve. A row whose clash needs it waits, keeping its views; an entangled
-row takes its independent value if it has no view; a key keeps its conservative
+row takes its independent value if it has no view; a key keeps its one-step
 component merge. Dependencies of discarded views still connect their component.
 After ordinary rows and root reads, waiting targets get turns nearest a root
 first, then by estimated cost, then oldest. Twice (one plus the dependency
@@ -1184,27 +1184,21 @@ that same allowance. An exhausted closed-read claim marks its rebuild frame
 unfinished, so an unpaid approximation cannot settle a branch cache. No claim
 can borrow from another query or exceed the remaining allowance.
 
-**Known limit: coupled conditioning periods do not settle (#81, parked).**
-Conditioning requests have no single owner of their status: requests and grants
-are keyed by owner and row, rather than by exclusion context. Invalidation can
-drop an owner's request while branch incumbents in other contexts remain, and a
-repaid target can wait again on inputs that are themselves waiting. Up to three
-coupled conditioning periods in the T8 plant KB settle with enough allowance.
-On master after #89, at 20k steps, conditioned-row counts for q0/q1/q2 are
-26/0/0 for two periods and 21,362/0/0 for three: the first repeated query does
-no conditioning work. Smaller allowances can leave requests unpaid after three
-queries. Four periods can require a much larger budget. In archived B1 runs
-before #89, 4p reached strength 0.11849421725848162 after 3,724,683 conditioned
-rows at 1M steps; the same-process re-query exhausted its allowance after
-3,999,462 rows and fell back to 0.05. These historical 1M figures have not been
-remeasured after #89. Five periods remain unsettled at the tested budgets,
-including the expected failure in tests/test_deep_conditioning.py.
-`conditions_unpaid` counts the needed, readable pending conditioning requests.
-The settlement designs tried so far (request-as-status stores, one-shot payment
-licences, invalidation that keeps incumbents) and why they failed are archived
-in /nexus/Dev/OpenCog/bench/results/history-bug/ (settle81-design.md,
-settle81e-design.md, settle81f-design.md, settle81f-implementation/,
-fix91-design.md). Read #81 and those designs before reopening this.
+**One-step filtering (#81).** Nested key merges summarize shared history
+beyond two dependency levels instead of opening mutually dependent historical
+claims. This is a product-of-marginals (Boyen–Koller) approximation, not exact
+joint-slice filtering. On T8, exact versus the branched product filter is
+0.11853298 versus 0.11925473 at four periods, 0.1194664 versus 0.1204811
+at six, and 0.1195407 versus 0.1205924 at eight. Error approaches +0.00106
+at 10–12 periods; this measured bound is specific to T8, not a general error
+guarantee. A joint (Storm, Degraded) slice would be exact for T8 but needs a
+representation the current per-key marginal store does not hold.
+Near-shared key claims and row clash/entanglement claims retain the existing
+settlement limits: repeated insufficient allowances can repeat work.
+`conditions_unpaid` counts needed, readable pending requests. Historical
+settlement experiments are archived in
+/nexus/Dev/OpenCog/bench/results/history-bug/; their four-period 0.05 waiting
+value and five-period expected failure no longer describe one-step filtering.
 
 A completed inversion or antecedent completion can certify an impossible
 outcome: its prior is interior, its evaluated likelihood has a strength-zero,
@@ -1225,7 +1219,8 @@ cannot contribute.
 Exhausted targets remain pending for a later query that needs them. Their
 views and skeleton persist, but execution stacks do not: repeated allowances
 too small for a complete pass need not finish it. A sufficiently large
-allowance still finishes the same exact conditioned calculation under the existing view formulas and weight.
+allowance can finish the retained near-shared calculation under the existing
+view formulas and weight; nested deep history remains a marginal approximation.
 A granted row recomputes with its readers; a granted key drops its merge and
 forces its readers. Each target gets at most one ordinary turn per evaluation.
 
