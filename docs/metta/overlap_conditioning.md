@@ -171,11 +171,18 @@ is cut:
 |---|---|
 | a key's merge | the one-step component merge (the fallback above) |
 | a row whose premises are entangled (below) | the premises read as independent |
-| a row whose premises clash on shared evidence | none |
+| a row whose premises clash on shared evidence | none inside conditioning; facts-disjoint representative at an otherwise unanswered public root |
 
-A clash has no approximate value: without conditioning the row derives
-nothing, as before conditioning existed (a row keeps the views it had while
-it waits). So a clash conditions at any depth in one pass, as before, and its
+A clash has no approximate value inside a conditioning pass: multiplying
+its shared facts would count evidence twice. If paid evaluation leaves a public
+root unanswered, a pending row can instead read a facts-disjoint representative
+lazily from compatible retained versions or bounded row replay, discounted against the independent row read
+by c/(1+R²), with R the absolute logit difference, at least one. This waiting
+answer is neither an ordinary view nor materializable, including through a
+materializing query. Rates still exclude the row's own observations. No second
+representative read runs on ordinary rows; paid conditioning replaces this answer.
+A row also keeps views it had while it waits. A clash conditions at any depth
+in one pass, and its
 pass is taken only if no nested conditioning had to stand an approximation
 in: a branch that stands in the independent product of two completions that
 explain each other away gave the machine-failure example's Or 0.696 against

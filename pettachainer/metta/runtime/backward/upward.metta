@@ -85,9 +85,6 @@
           (($a2 $b2) (sk-value-beta $old)))
       (beta_kl $a1 $b1 $a2 $b2)))
 
-(: sk-key-value (-[semidet]-> SkeletonKey SkeletonValue))
-(= (sk-key-value $key) (sk-value $key sk-any-filter ()))
-
 ;; A key whose value rests on less than the minimum evidence is not built on.
 ;; An implication's value is read by its positive branch, as its Beta is.
 (: sk-forward-weak? (-[semidet]-> SkeletonKey Bool))

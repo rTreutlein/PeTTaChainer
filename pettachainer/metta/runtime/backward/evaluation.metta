@@ -25,6 +25,8 @@
 (: SkeletonReadPolicy Type)
 (: sk-greedy-read SkeletonReadPolicy)
 (: sk-facts-read SkeletonReadPolicy)
+(: sk-representative-read SkeletonReadPolicy)
+(: sk-independent-read SkeletonReadPolicy)
 (: sk-reference-read SkeletonReadPolicy)
 (: SkeletonRowState Type)
 ;; fold proofs (newest first), evidence, dependency hashes, conjunction parts
@@ -3387,6 +3389,92 @@
                      (fold-semidet (sk-merge-step true $ignore) sk-none $selected))
          (sk-calibrated-value $given $key $filter $outside $value))))
 
+(: proof-representative? (-[det]-> Proof Bool))
+
+(: sk-representative-best (-[det]-> SkeletonValue SkeletonValue SkeletonValue))
+(= (sk-representative-best $kept $view)
+   (case $view (
+      ((sk-val $fact $_ev $_deps)
+         (case $kept (
+            ((sk-val $old $_old-ev $_old-deps)
+               (if (>= (term-confidence $old) (term-confidence $fact)) $kept $view))
+            ($_missing $view))))
+      ($_other $kept))))
+
+;; Reconstruct one proof per existing row only for an unanswered public root
+;; after paid evaluation. Never expand or condition history here.
+;; Exact cuts are part of the query-local memo; no MAIN value crosses worlds.
+(: sk-representative-row
+   (-[semidet]-> (List SkeletonGiven) Number SkeletonKey Number (List Number) SkeletonRow SkeletonValue))
+(= (sk-representative-row $givens $hash $key $rhash $exclusions $row)
+   (let* (($given (sort-atom (alpha_unique_keys $givens)))
+          ($exclude (sort-atom (alpha_unique_keys $exclusions))))
+   (let (sk-row (sk-ident $rule $_row-keys $_row-key) $_concl $_row-premises $_row-seq) $row
+      (if (if (rule-live? $rule) (context-rule-visible? $rule) false)
+         (case (collapse (once (match &ctx_sk_representative ($hash $stored $rhash $given $exclude $cached)
+                  (if (=alpha $stored $key) $cached (empty))))) (
+            ((cons $cached $_rest) $cached)
+            (()
+               (if (sk-take! sk_representative_budget 1)
+                  (let* (($_entered (context-add! &sk_representative ($hash $key $rhash $given $exclude sk-none)))
+                         ($_counted (query_metric_increment representative-reads))
+                         ($copy (copy_term $row))
+                         ((sk-row (sk-ident $owner $_keys $_key) ($_type $_scope $proof $_tv) $_premises $_seq) $copy)
+                         ($cuts (hash-union $exclude (sk-row-exclusions $hash $key $proof)))
+                         ($state (sk-row-state $given $cuts $hash sk-representative-read $copy))
+                         ($read (case $state (
+                            ((sk-entangled $_shared $_base $independent) $independent)
+                            ($_other $state))))
+                         ($value (sk-reference-view $owner (sk-row-result $copy $read)))
+                         ($_left (context-remove! &sk_representative ($hash $key $rhash $given $exclude sk-none)))
+                         ($_memo (if (if (== $value sk-none) (== (search-id-value sk_representative_budget) 0) false) ()
+                            (context-add! &sk_representative ($hash $key $rhash $given $exclude $value)))))
+                     $value)
+            sk-none))))
+         sk-none))))
+
+(: sk-representative-value
+   (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) EvidenceSet (List SkeletonPart) SkeletonValue))
+(= (sk-representative-value $given $key $filter $exclude $ev $parts)
+   (let* (($hash (index-hash $key))
+          ($pins (sk-given-hashes $given))
+          ($outside (collapse (let $cut (superpose $exclude)
+             (if (stored-list-member? $cut $pins) (empty) $cut))))
+          ($leaf-views (sk-leaf-views $hash $key $filter $exclude))
+          ($leaves (collapse (let $leaf (superpose $leaf-views)
+             (case $leaf (
+                ((sk-val ($_lt $_ls $leaf-proof $_ltv) $_le $_ld)
+                   (if (sk-given-meets? $given $leaf) (empty)
+                      (if (proof-representative? $leaf-proof) $leaf (empty))))
+                ($_none (empty)))))))
+          ($stored-views (collapse (match &ctx_sk_latest ($hash $stored-key (sk-version $_seq $rhash $latest))
+             (if (=alpha $stored-key $key)
+                (let* (($versions (append-flat (sk-older-views $hash $key $rhash) (cons $latest ())))
+                       ($pure (collapse (let $view (superpose $versions)
+                          (case $view (
+                             ((sk-val ($_t $_scope $proof $_tv) $_ev $_deps)
+                                (if (sk-live-view? $view)
+                                   (if (sk-given-meets? $given $view) (empty)
+                                      (if (proof-representative? $proof) $view (empty))) (empty)))
+                             ($_none (empty)))))))
+                       ($compatible (fold-semidet sk-cons-step ()
+                          (fold-semidet (sk-compatible-step $ev $parts) () $pure))))
+                   (fold-semidet (sk-admit-older $filter $exclude) sk-none $compatible)) (empty)))))
+          ($compatible-stored (fold-semidet sk-cons-step ()
+             (fold-semidet (sk-compatible-step $ev $parts) () (append-flat $leaves $stored-views))))
+          ($best (fold-semidet sk-representative-best sk-none $compatible-stored)))
+      (if (== $best sk-none)
+         (let* (($views (collapse (match &sk_row ($hash $stored $rhash $row)
+                   (if (=alpha $stored $key)
+                      (if (sk-excludes? $exclude (deps-key $hash)) (empty)
+                         (let $view (sk-representative-row $given $hash $key $rhash $exclude $row)
+                            (if (sk-admits? $filter $outside $view) $view (empty))))
+                      (empty)))))
+                ($compatible (fold-semidet sk-cons-step ()
+                   (fold-semidet (sk-compatible-step $ev $parts) () $views))))
+            (fold-semidet sk-representative-best $best $compatible))
+         $best)))
+
 ;; A fact premise takes a value unless its evidence overlaps the row's own,
 ;; except in joins the compiler marked as sharing their sources and for
 ;; projections joining a pool of the same source. A refined rule's truth is a
@@ -3559,15 +3647,20 @@
 ;; An excluded key cannot become admissible by closing it. Pins already in
 ;; the given list are read by sk-premise-step before reaching this operation.
 (: sk-closed-read
-   (-[semidet]-> (List SkeletonGiven) (List SkeletonGiven) (List Number) SkeletonKey SkeletonFilter SkeletonValue))
-(= (sk-closed-read $pin $given $exclude $key $filter)
+   (-[semidet]-> SkeletonReadPolicy (List SkeletonGiven) (List SkeletonGiven) (List Number) SkeletonKey SkeletonFilter SkeletonValue))
+(= (sk-closed-read $policy $pin $given $exclude $key $filter)
    (case $key (
       ((sk-key $type $kbctx)
-         (if (if (complete-statement? $type $kbctx) (== (sk-pinned-value $given $key $filter $exclude) sk-none) false)
+         (if (if (complete-statement? $type $kbctx)
+                 (if (== $policy sk-representative-read)
+                    (== (sk-key-leaves $key $filter) ())
+                    (== (sk-pinned-value $given $key $filter $exclude) sk-none)) false)
             (let $hash (index-hash $key)
-               (if (if (sk-branch-excludes? (deps-key $hash)) false (sk-settled? $key))
+               (if (if (if (== $policy sk-representative-read)
+                           (deps-meet? $exclude (deps-key $hash))
+                           (sk-branch-excludes? (deps-key $hash))) false (sk-settled? $key))
                   (if (sk-founded? $hash $key)
-                     (if (== $pin ()) sk-none
+                     (if (if (== $policy sk-representative-read) true (== $pin ())) sk-none
                         (sk-merge-key $hash $key $filter $exclude $given
                            (fold-semidet sk-cons-step ()
                               (fold-semidet (sk-row-view-step (append-flat $pin $given) $exclude $hash $key) ()
@@ -3664,12 +3757,13 @@
                      (()
                         (let* (($filter (sk-filter $proof $tv))
                                ($closed (if (== $policy sk-reference-read) sk-none
-                                  (sk-closed-read $pin $given $exclude $key $filter))))
+                                  (sk-closed-read $policy $pin $given $exclude $key $filter))))
                            (if (== $closed sk-none)
                               (let $value
                                  (sk-premise-value $priors
                                     (case $policy (
                                        (sk-facts-read (sk-compatible-value $given $key $filter $exclude $ev $parts false))
+                                       (sk-representative-read (sk-representative-value (append-flat $pin $given) $key $filter $exclude $ev $parts))
                                        (sk-reference-read
                                           (if (deps-meet? $exclude (deps-key (index-hash $key))) sk-none
                                              (let* (($facts (sk-key-leaves $key $filter))
@@ -3681,9 +3775,9 @@
                                                       (ev-set 0) (deps-key (index-hash $key)))
                                                    $local))))
                                        ($_ordinary (sk-given-value $given $key $filter $exclude)))))
-                                 (case (sk-use-premise $shared $state $premise $value) (
+                                 (case (sk-use-premise (if (== $policy sk-independent-read) true $shared) $state $premise $value) (
                                     (sk-fail
-                                       (if (if $shared true (== $policy sk-reference-read)) sk-fail
+                                       (if (if $shared true (if (== $policy sk-representative-read) true (== $policy sk-reference-read))) sk-fail
                                           (case (sk-use-premise $shared $state $premise
                                                    (sk-premise-value $priors (sk-compatible-value $given $key $filter $exclude $ev $parts true))) (
                                              (sk-fail
@@ -3691,7 +3785,7 @@
                                                    (if (== $policy sk-facts-read) (sk-premise-value $priors (sk-given-value $given $key $filter $exclude)) $value)))
                                              ($compatible $compatible)))))
                                     ($taken $taken))))
-                              (case (sk-use-premise $shared $state $premise $closed) (
+                              (case (sk-use-premise (if (== $policy sk-independent-read) true $shared) $state $premise $closed) (
                                  (sk-fail (if $shared sk-fail (sk-clash-on $given $state $closed)))
                                  ($taken $taken))))))))))))))))
 
@@ -3766,6 +3860,9 @@
 ;; but is never an admission threshold. A claim keeps its deepest completed
 ;; pass if the shared evaluation allowance runs out. With no completed pass,
 ;; it keeps its waiting value; incomplete branches cannot contribute.
+
+
+
 (= (sk-conditioned $given $target $khash $rhash $wexclude $keys $base $approx $waiting)
    (case $keys (
       (() $approx)
@@ -3977,7 +4074,6 @@
 ;; compound would divide the compound by itself (P(A) = P(ABC) / P(BC) with
 ;; P(BC) read off ABC is 1). So the premises after the compound exclude views
 ;; depending on it.
-
 (= (sk-row-state $given $exclusions $khash $policy (sk-row $_ident ($type $kbctx $proof $_tv) $premises $_seq))
    (let* (($pin (sk-closed-pin $khash $type $kbctx (rule-application-proof? $proof)))
           ($shared (shared-evidence-frontier-proof? $proof))
@@ -3991,7 +4087,8 @@
          (if (sk-completion-proof? $proof)
             (sk-completion-state $given $exclusions $khash (sk-key $type $kbctx) $shared $policy $start $premises)
             (let $state (fold-semidet (sk-premise-step $pin $given $exclusions $shared false $policy) $start $premises)
-               (if (if $shared false (if (rule-application-proof? $proof) true (head-is? $proof conjunction)))
+               (if (if (== $policy sk-independent-read) false
+                       (if $shared false (if (rule-application-proof? $proof) true (head-is? $proof conjunction))))
                   (sk-entangle (hash-union $exclusions (hash-set (sk-given-hashes $given))) $state)
                   $state))))))
 
@@ -4176,7 +4273,6 @@
 ;; Only a likelihood with a certain zero branch can certify impossibility.
 ;; The opposite branch must allow the observation; a zero prior, a rounded
 ;; posterior endpoint, and an ordinary zero-strength fact certify nothing.
-
 (= (sk-zero-likelihood-step $found $premise)
    (if $found true
       (case $premise (
@@ -4190,7 +4286,6 @@
                      (if (<= (the Number $n) 0) (> (the Number $s) 0)
                         (if (>= (the Number $n) 1) (< (the Number $s) 1) false)) false)) false))
          ($_other false)))))
-
 
 (= (sk-row-result (sk-row $_ident ($type $kbctx $proof $tv) $premises $_seq) $state)
    (case $state (
@@ -4453,6 +4548,9 @@
 (= (sk-new-support? $hash $rhash $new)
    (if (deps-within? (sk-view-deps-step 0 $new) (sk-row-support $hash $rhash)) false true))
 
+;; Confidence can weaken when a filtered premise loses a view even though
+;; it adds no logical dependency. Retain that correction just as new support;
+;; its strength, evidence and dependency support must be identical.
 (: sk-weaker-view? (-[det]-> SkeletonValue SkeletonValue Bool))
 (= (sk-weaker-view? $new $old)
    (case (data $new $old) (
@@ -4571,7 +4669,6 @@
                         (sk-outside-change $causes $deps)
                         (sk-value-change $hash $key $deps $causes $before))
                      $work $key)))))))))
-
 
 ;; An unchanged open merged value is known only when it was cached before.
 ;; Keep a provenance-only refresh's causes without forcing its row readers.
@@ -5439,7 +5536,7 @@
 (= (backward-query-counter-keys)
    (expansions nodes-walked rows-created rows-deferred joins-deferred row-computes views-stored
     views-without-support merged-cache-hits merged-cache-misses conditioned-evaluations rows-unpaid
-    conditions-unpaid branch-cache-hits branch-cache-misses branch-builds branch-cache-refreshes))
+    conditions-unpaid representative-reads branch-cache-hits branch-cache-misses branch-builds branch-cache-refreshes))
 
 (: sk-counter-reset (-[det]-> Atom Atom Atom))
 (= (sk-counter-reset $_acc $key) (let $_zero (query_metric_set $key 0) ()))
@@ -5473,8 +5570,34 @@
 
 ;; --- Entry points -----------------------------------------------------------
 
-(: sk-root-value (-[semidet]-> SkeletonFilter SkeletonKey SkeletonValue))
-(= (sk-root-value $filter $key) (sk-value $key $filter ()))
+(: sk-clash-waiting (-[semidet]-> Number SkeletonKey Number SkeletonFilter SkeletonRow SkeletonValue))
+(= (sk-clash-waiting $hash $key $rhash $filter $row)
+   (let* (((sk-row $_ident ($_type $_scope $proof $_tv) $_premises $_seq) $row)
+          ($exclude (sk-row-exclusions $hash $key $proof))
+          ($representative (sk-representative-row () $hash $key $rhash () $row))
+          ((sk-val $fact $_ev $_deps) $representative))
+      (if (sk-fact-matches? $filter $fact)
+         (let $independent (sk-row-result $row (sk-row-state () $exclude $hash sk-independent-read $row))
+            (sk-discounted $representative $independent (term-confidence $fact))) sk-none)))
+
+(: sk-waiting-root-value (-[semidet]-> SkeletonFilter SkeletonKey (| SkeletonValue SkeletonWaitingAnswer)))
+(= (sk-waiting-root-value $filter $key)
+   (case (sk-value $key $filter ()) (
+      (sk-none
+         (let* (($hash (index-hash $key))
+                ($ignore (sk-unifier-hashes $hash $key))
+                ($before (search-id-value sk_representative_budget))
+                ($room (min 128 $before))
+                ($_slice (change-state! sk_representative_budget $room)))
+            (let $waiting (fold-semidet (sk-merge-step true $ignore) sk-none
+               (collapse (match &ctx_sk_given_pending ($hash $rhash $_cost)
+                  (match &sk_row ($hash $stored $rhash $row)
+                     (if (=alpha $stored $key)
+                        (sk-clash-waiting $hash $key $rhash $filter (copy_term $row)) (empty))))))
+               (let $_restored (change-state! sk_representative_budget
+                        (- $before (- $room (search-id-value sk_representative_budget))))
+                  (if (== $waiting sk-none) sk-none (sk-waiting $waiting))))))
+      ($value $value))))
 
 ;; A root reads the answers of every node of its statement and context,
 ;; whatever their proof and truth-value patterns: a root whose pattern is new
@@ -5493,7 +5616,7 @@
 ;; statement, so each key is read with the pattern instantiated by that key.
 ;; A complete statement whose settled search found no rule application is
 ;; unfounded, as to any reader (sk-closed-read).
-(: sk-root-key-value (-[semidet]-> SkPattern SkeletonKey SkeletonValue))
+(: sk-root-key-value (-[semidet]-> SkPattern SkeletonKey (| SkeletonValue SkeletonWaitingAnswer)))
 (= (sk-root-key-value $goal $key)
    (case (copy_term $goal) (
       ((CPU $_fun $_args $_res) sk-none)
@@ -5501,9 +5624,9 @@
          (let $ground (== (extract-vars $type) ())
             (if (= (sk-key $type $kbctx) (copy_term $key))
                (let $filter (sk-filter $proof $tv)
-                  (case (sk-value $key $filter ()) (
+                  (case (sk-waiting-root-value $filter $key) (
                      (sk-none
-                        (case (sk-closed-read () () () $key $filter) (
+                        (case (sk-closed-read sk-greedy-read () () () $key $filter) (
                            (sk-none
                               (case (sk-materialized-views $type $kbctx $filter) (
                                  ((cons $incumbent $_rest) $incumbent)
@@ -5557,25 +5680,30 @@
                (if (== (extract-vars $type) ()) (cons (sk-key $type $kbctx) ())
                   (collapse (match &kb ($type $kbctx $_proof $_tv) (sk-key $type $kbctx))))))))))
 
-(: sk-root-values (-[semidet]-> SkPattern (List SkeletonValue)))
+;; A typed boundary shared by grouped roots and forward evaluation.
+(: sk-key-value (-[semidet]-> SkeletonKey SkeletonValue))
+(= (sk-key-value $key) (sk-value $key sk-any-filter ()))
+
+(: sk-root-values (-[semidet]-> SkPattern (List (| SkeletonValue SkeletonWaitingAnswer))))
 (= (sk-root-values $goal)
    (case $goal (
       ((CPU $fun $args $res)
          (if (== $fun FoldAllCompiled)
             (cons (sk-value (sk-fold $args) sk-any-filter ()) ())
             (if (== $fun GroupedFoldAllCompiled)
-               (map-semidet (sk-root-value sk-any-filter) (sk-root-keys $goal))
+               (map-semidet sk-key-value (sk-root-keys $goal))
                (collapse (let $result (cpu-call 0 $fun $args)
                   (if (= $res $result)
                      (sk-goal-val (CPU $fun $args $result) (brand Proof cpu) (ev-set 0) 0)
                      (empty)))))))
       ($_fact (map-semidet (sk-root-key-value $goal) (sk-root-keys $goal))))))
 
-(: sk-result-step (-[semidet]-> (List RuntimeResult) SkeletonValue (List RuntimeResult)))
+(: sk-result-step (-[semidet]-> (List RuntimeResult) (| SkeletonValue SkeletonWaitingAnswer) (List RuntimeResult)))
 (= (sk-result-step $kept $value)
    (case $value (
       ((sk-val $fact $_ev $_deps) (cons (brand RuntimeResult $fact) $kept))
       ((sk-goal-val $goal $_proof $_ev $_deps) (cons (brand RuntimeResult $goal) $kept))
+      ((sk-waiting $waiting) (sk-result-step $kept $waiting))
       (sk-none $kept))))
 
 ;; Proof-indexed subsumption preserves root order (runtime_helpers.pl).
@@ -5593,6 +5721,7 @@
                 (case (collapse (once (let $value (superpose $values)
                          (case $value (
                             (sk-none (empty))
+                            ((sk-waiting $_waiting) (empty))
                             ($found (if (sk-population-prior? $found) (empty) $found))))))) (
                    ((cons $first $_rest) (sk-materialize-answer! $first))
                    (() ())))
@@ -5617,6 +5746,8 @@
    (-[nondet]-> Number (List (| Goal (Statement KBContext Proof TV))) Bool (List (List RuntimeResult))))
 (= (execute-backward $steps $requested $materialize?)
    (let* (($_references (context-remove! &sk_summary_reference ($_hash $_key $_row $_given $_exclude $_filter $_value)))
+          ($_representatives (context-remove! &sk_representative ($_hash $_key $_row $_given $_exclude $_value)))
+          ($_representative-budget (change-state! sk_representative_budget 256))
           ($_branch-frame (change-state! sk_branch_at 0))
           ($_branch-cuts (remove-data-rows! &sk_branch_cuts (quote ($_frame $_exclude $_cuts))))
           ($_branch-reader (remove-data-rows! &sk_reading (quote ($_hash $_key $_row))))

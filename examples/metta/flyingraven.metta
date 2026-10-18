@@ -19,31 +19,36 @@
 
 ;; Inheritance queries use one chainer execution.  These budgets preserve the
 ;; total search work that was previously split across two equal executions.
+;; Representative caches allocate their own proof references. Check the full
+;; proof and its sharing relationships while leaving allocation IDs free.
 !(test
-   (collapse
+   (let $actual (collapse
       (query 200 flyingRavenKb
          (: $prf (Inheritance Sam (IntSet flies)) $tv)))
-   ((:
+      (if (= $actual ((:
       (inheritance-implication-fold
          (total-implication
             (merge/revision
                (by (inheritance-implication birdFlies)
-                  (shared 40 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 0)))))
+                  (shared $sam0 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 0)))))
                (negated
                   (by penguinsDoNotFly
                      ((inverted (inheritance-implication penguinBird)
                          with cpu (prior (STV 0.730917365761377 0.00022594893654011704)))
-                        (shared 40)))))
+                        (shared $sam0)))))
             (merge/revision
                (by (inheritance-implication birdFlies)
-                  (shared 44 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1)))))
+                  (shared $sam1 (by (inheritance-implication ravenBird) (by (inheritance-implication samRaven) (ctx proof 1)))))
                (negated
                   (by penguinsDoNotFly
                      ((inverted (inheritance-implication penguinBird)
                          with cpu (prior (STV 0.730917365761377 0.00022594893654011704)))
-                        (shared 44)))))))
+                        (shared $sam1)))))))
       (Inheritance Sam (IntSet flies))
       (STV 0.9812452856741397 0.2634386832520395))))
+         (if (== $sam0 $sam1) false true)
+         false))
+   true)
 
 !(test
    (collapse

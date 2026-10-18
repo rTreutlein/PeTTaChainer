@@ -57,6 +57,7 @@ context_removed(C, Space, Row) :-
 
 % Transient scheduling state starts empty. Durable values, aggregate tallies
 % and per-reader compatibility history fall through to MAIN.
+context_local_only('&sk_representative').
 context_local_only('&sk_summary_reference').
 context_local_only('&sk_new').
 context_local_only('&sk_dirty').
@@ -77,6 +78,7 @@ context_local_only('&sk_branch_wanted').
 context_store('&sk_summary_reference',7).
 context_store('&sk_latest',3).
 context_store('&sk_view',4).
+context_store('&sk_representative',6).
 context_store('&sk_branch',6).
 context_store('&sk_branch_owner',5).
 context_store('&sk_branch_dirty',1).
@@ -253,6 +255,7 @@ context_finish([Goal|Goals],[Base|Bases],Allowance,Reserve,[Result|Results]) :-
                  'sk-root-claim-share'(RootShare), 'sk-root-claim-limit'(RootLimit),
                  RootBudget is min(RootLimit,floor(Allowance*RootShare)),
                  'change-state!'(sk_root_claim_budget,RootBudget,_),
+                 'change-state!'(sk_root_claim_cap,RootBudget,_),
                  'change-state!'(sk_near_reserve,Reserve,_),
                  context_evaluate(C,Inner,Kb,Facts,WantProof,WantTV,Result))),
            nb_setval(context_overlay,main))

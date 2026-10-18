@@ -207,6 +207,7 @@
 (: sk_budget CounterKey)
 (: sk_row_budget CounterKey)
 (: sk_eval_budget CounterKey)
+(: sk_representative_budget CounterKey)
 (: sk_branch_unpaid CounterKey)
 (: sk_branch_frame CounterKey)
 (: sk_branch_at CounterKey)

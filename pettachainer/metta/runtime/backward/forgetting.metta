@@ -122,6 +122,7 @@
 (: sk-deps-roots (-[det]-> (List Number)))
 (= (sk-deps-roots)
    (append-flat (collapse (match &ctx_sk_latest ($_h $_k (sk-version $_s $_r $view)) (sk-view-deps-step 0 $view)))
+   (append-flat (collapse (match &ctx_sk_representative ($_rh $_rk $_rr $_rep-given $_rep-exclude $rep) (sk-view-deps-step 0 $rep)))
    (append-flat (collapse (match &ctx_sk_summary_reference ($_ref-h $_ref-k $_ref-r $_pins $_cuts $_filter $reference) (sk-view-deps-step 0 $reference)))
    (append-flat (collapse (match &ctx_sk_view ($_vh $_vk $_vr $old) (sk-view-deps-step 0 $old)))
    (append-flat (collapse (match &ctx_sk_merged ($_mh $_mk $mdeps $_mv $_mroot) $mdeps))
@@ -130,7 +131,7 @@
    (append-flat (collapse (match &ctx_sk_support ($_sh $_sr $support) $support))
    (append-flat (collapse (match &sk_forward_stored ($_fh $_fk $_ff $_fe $fdeps) $fdeps))
    (append-flat (collapse (match &sk_forward_taken ($_th $_tk $taken) (sk-view-deps-step 0 $taken)))
-      (collapse (match &sk_summary ($_yh $_yk $_yf $_ye $ydeps) $ydeps))))))))))))
+      (collapse (match &sk_summary ($_yh $_yk $_yf $_ye $ydeps) $ydeps)))))))))))))
 
 ;; Aggregate rows and the incidental keys feeding their population search
 ;; are reconstructible cache entries, not historical observations. A key

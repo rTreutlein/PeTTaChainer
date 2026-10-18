@@ -759,8 +759,37 @@ P(B) as independent. A rule application's (or a compound's) premises that
 read one uncertain statement, found in their dependency sets, are
 entangled, and the row is conditioned on the statement as on a clash. Such a
 row has an approximate value, the premises read as independent, which it
-keeps while the conditioning waits; a clash has none and derives nothing
-until it is conditioned.
+keeps while the conditioning waits. A clash has no approximation inside a
+conditioning pass: that would count its shared facts twice. If paid evaluation
+leaves a queried key unanswered, its pending rows may supply a waiting answer
+from facts-disjoint representatives, discounted against the independent row
+read by #49's c/(1+R²), R at least one. Paid conditioning replaces this answer.
+The waiting answer is read only after paid evaluation at an otherwise
+unanswered public root. It is neither an ordinary view nor a materializable
+answer, including through the materializing APIs. Paid conditioning replaces it.
+
+The lazy representative read first takes the latest compatible retained version
+of each row whose proof did not combine several key views. It selects one proof
+per premise by confidence after fact-overlap checks; independent alternatives
+remain separate. A union-bearing factored proof cannot be relabelled as its
+representative. If retained versions supply no proof, it replays existing rows
+with representative premises, without expanding or conditioning history.
+Actual closed-read pins join the query-local memo key. A rebuilt proof may
+carry those hypothetical dependencies; admitting it removes only the given
+pin hashes from the output exclusions. Its premise reads still apply the full
+cuts, and an in-progress memo breaks recursive cycles. The representative
+channel never invokes ordinary merge conditioning to rebuild a closed read.
+Each otherwise unanswered root may replay at most 128 formulas, within a total
+allowance of 256 per query (`sk_representative_budget`),
+reported as `representative_reads`; they are a bounded output fallback, not
+additional conditioning allowance. Ordinary answered rows perform none of them.
+Every real rate read uses the ordinary leave-one-out evaluator, including the
+representative channel. The memo is query-local and keyed by owner key, row and
+canonical exclusions and closed-read pins, private to its Assuming overlay. Closed
+reads replay the same bounded representative formulas under their actual pins;
+a settled complete key with no producer may still be read as unfounded.
+Proof, evidence and dependency collection retain it until the next query or row retirement. This avoids the
+second formula evaluation formerly performed on every ordinary row.
 
 Evaluation starts from what changed: new rows, and the readers of keys changed
 outside evaluation (added facts, removed query-local rows, fold members). Rows

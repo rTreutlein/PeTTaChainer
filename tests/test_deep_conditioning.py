@@ -363,6 +363,95 @@ print(json.dumps({'tv': [r.tv for r in rows], 'metrics': metrics}, sort_keys=Tru
             self.assertAlmostEqual(root.tv[1], float(exact_t8(2)), delta=1e-8)
             self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 26 if repeat == 0 else 0)
 
+    def test_unpaid_clash_keeps_a_facts_disjoint_waiting_answer(self):
+        handler = PeTTaChainer()
+        plant(handler, 3)
+        handler.query_many_refs(['(: $p (Degraded plant t3) $tv)'], steps=20000)
+        handler.add_atom('(: wait-rule (Implication (And (Fuelled plant t3) '
+                         '(Not (Degraded plant t3))) (Waiting plant)) '
+                         '(CTV (STV 1 1) (STV 0 1)))')
+        handler.set_query_metrics(True)
+        # One step cannot settle the shared-report clash. The lazy read can
+        # reuse the already computed completion Producing3 => Fuelled3=1.
+        # Its other premise must omit rep-t3, so D3 is the predictive kernel
+        # .05+.7*(.05+.7*.05)=.1095. Thus this waiting proof gives .8905.
+        # The old eager channel held an earlier Fuelled3 prediction instead.
+        predictive = 1 - .1095
+        # A waiting proof is output only, including through the materializing
+        # API. It must never become another stored observation or fallback.
+        materialized = handler.query_many_materialization(['(: $p (Waiting plant) $tv)'], steps=1)
+        self.assertTrue(materialized[0])
+        stored = janus.query_once(
+            "findall(_F,'&materialized_facts'('materialized-row',_,['Waiting',plant],[Kb,'MAIN','Nil'],_F,_),Rows)",
+            {'Kb': handler.kb})['Rows']
+        self.assertEqual(stored, [])
+        for changed in (False, True):
+            if changed:
+                handler._call('stored-refs-gc!', [])
+                handler._call('deps-gc!', ['(sk-deps-roots)'])
+                handler.add_atom('(: extra-report (Producing plant t3) (STV 1 0.8))')
+            answer = handler.query_many_refs(['(: $p (Waiting plant) $tv)'], steps=1)[0][0]
+            self.assertAlmostEqual(answer.tv[1], predictive, places=12)
+            self.assertGreater(answer.tv[2], 0)
+            self.assertLessEqual(answer.tv[2], .5)
+            self.assertGreater(handler.last_query_metrics()['conditions_unpaid'], 0)
+            proof = handler.expand_proof(answer.proof)
+            self.assertIn('sound-t0', proof)
+            self.assertEqual(proof.count('rep-t3'), 1)
+            self.assertNotIn('rep-t1', proof)
+            self.assertNotIn('rep-t2', proof)
+            self.assertNotIn('extra-report', proof)
+
+    def test_waiting_rate_read_leaves_out_its_own_observation(self):
+        handler = PeTTaChainer()
+        handler.add_atoms_no_check([
+            '(: one (P one) (STV 1 0.9))',
+            '(: two (P two) (STV 0 0.9))',
+            '(: three (P three) (STV 1 0.9))',
+        ])
+        # Demand the population fold so its ordinary observation index exists.
+        goal = (f'(CPU FoldAllCompiled ({handler.kb} (P $t) extract-tv '
+                '(BaseRateEvidence 0.0 0.0) BaseRateAcc base-rate result-tv) $tv)')
+        handler._call('chainer', [f'1000 {goal}'])
+        result = janus.query_once("""
+            'base-rate-premises'(Kb,['P',_T],_Result,_Goals),
+            _Goals=[['CPU','FoldAllCompiled',_Args,_]],
+            'sk-value'(['sk-fold',_Args],'sk-any-filter',[],
+                ['sk-goal-val',['CPU',_,_,Raw],_,_,_]),
+            'evidence-set'([['fact-ev',[Kb,'MAIN','Nil'],three,['P',three]]],_Ev),
+            copy_term([_Goals,_Result],[_ReadGoals,_Rate]),
+            'sk-premise-step'([],[],[],false,false,'sk-representative-read',
+                ['sk-acc',[],_Ev,[],[]],
+                ['CPU','ReadRate',[Kb,['P',_T],Raw,
+                    ['rate-plan',_ReadGoals,_Rate],false],
+                    ['rate-read',Admissible,Read]],_State)
+        """, {'Kb': handler.kb})
+        # Equal-weight observations 1,0,1 give 2/3; excluding the row's own
+        # final 1 leaves the Bernoulli mean (1+0)/2, with less evidence.
+        self.assertAlmostEqual(result['Raw'][1], 2/3)
+        self.assertAlmostEqual(result['Admissible'][1], .5)
+        self.assertLess(result['Admissible'][2], result['Raw'][2])
+        self.assertEqual(result['Read'], result['Admissible'])
+
+    def test_lazy_representatives_are_cut_and_context_local_and_retire_with_row(self):
+        handler = PeTTaChainer()
+        result = janus.query_once(
+            "K=['sk-key',['A',a],[Kb,'MAIN','Nil']], 'index-hash'(K,H), "
+            "Main=['sk-val',[['A',a],[Kb,'MAIN','Nil'],main,['STV',0.2,0.7]],['ev-set',0],0], "
+            "Local=['sk-val',[['A',a],[Kb,'MAIN','Nil'],local,['STV',0.8,0.7]],['ev-set',0],0], "
+            "'context-add!'('&sk_representative',[H,K,7,[],[],Main],_), "
+            "setup_call_cleanup(nb_setval(context_overlay,fr81_test), "
+            " ('context-add!'('&sk_representative',[H,K,7,[],[],Local],_), "
+            "  once('&ctx_sk_representative'(H,K,7,[],[],InContext))), "
+            " nb_setval(context_overlay,main)), "
+            "once('&ctx_sk_representative'(H,K,7,[],[],InMain)), "
+            "findall(_V,'&ctx_sk_representative'(H,K,7,[],[123],_V),OtherCuts), 'context-clear!'(_), 'sk-drop-row-views!'(H,K,7,_), "
+            "findall(_V,'&sk_representative'(H,K,7,_,_,_V),After)", {'Kb': handler.kb})
+        self.assertEqual(result['InContext'][1][3], ['STV', .8, .7])
+        self.assertEqual(result['InMain'][1][3], ['STV', .2, .7])
+        self.assertEqual(result['OtherCuts'], [])
+        self.assertEqual(result['After'], [])
+
     def test_unsettled_filtered_summaries_report_uncertainty(self):
         # Exact finite-state enumeration is independent of the chainer. These
         # allowances cannot yet rebuild the t-1 report without t self-support.

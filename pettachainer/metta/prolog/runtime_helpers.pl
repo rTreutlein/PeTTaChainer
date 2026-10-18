@@ -297,6 +297,21 @@ argument_shape(Arg, Shape) :-
           ; proof_ref_id(Child, Id), 'proof-unsettled-sources'(['proof-ref',Id],Nested), member(Source,Nested) ) ),
         All), sort(All, Sources) ).
 
+% A retained ordinary view can seed the lazy representative channel only
+% when none of its premise keys combined several views. Otherwise replay that
+% row with representative premises rather than relabelling the union proof.
+:- dynamic proof_representative_memo/2.
+'proof-representative?'(Proof, Single) :-
+    ( proof_ref_id(Proof, Pid)
+    -> ( proof_representative_memo(Pid, Known) -> Single=Known
+       ; user:'&proof'(Pid, Stored, _, _), 'proof-representative?'(Stored, Single),
+         assertz(proof_representative_memo(Pid, Single)) )
+    ; ( sub_term(Child,Proof), nonvar(Child),
+        ( Child=[Tag|_], nonvar(Tag), memberchk(Tag,['factored-revision','merge/revision',combination,'class-mixture'])
+        ; proof_ref_id(Child,Id), 'proof-representative?'(['proof-ref',Id],false) ) )
+    -> Single=false
+    ; Single=true ).
+
 % Pure row classification stays opaque to PeTTa's CPU argument specialization.
 % A reference cannot certify an endpoint without a Bayes update. Unknown goal
 % heads/functions remain eligible; this test never binds the stored template.
@@ -436,6 +451,7 @@ opaque_proof_step(Step) :-
 refs_holder('&sk_summary_reference', 7, [6, 7]).
 refs_holder('&sk_latest', 3, [3]).
 refs_holder('&sk_view', 4, [4]).
+refs_holder('&sk_representative', 6, [6]).
 refs_holder('&sk_branch', 6, [6]).
 refs_holder('&sk_merged', 5, [4]).
 refs_holder('&sk_forward_taken', 3, [3]).
@@ -681,6 +697,7 @@ refs_gc_erase(proofs, user:'&proof'(Pid, _, _, _), Ref) :- !,
     erase(Ref), retractall(user:'&proof_fact'(Pid, _, _)), retractall(proof_rules_memo(Pid, _)),
     retractall(proof_given_memo(Pid, _)),
     retractall(proof_unsettled_memo(Pid, _)),
+    retractall(proof_representative_memo(Pid, _)),
     forget_summary_user(Pid).
 refs_gc_erase(_, _, Ref) :- erase(Ref).
 

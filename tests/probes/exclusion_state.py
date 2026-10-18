@@ -48,7 +48,7 @@ class ExclusionStateTests(unittest.TestCase):
         self.h.query('(: $p (Closed a) $tv)', steps=200, timeout_sec=0)
         self.assert_rejection_restricts_reuse(
             "_Key=['sk-key',['Closed',a],[Kb,'MAIN','Nil']], 'index-hash'(_Key,Excluded)",
-            "'sk-closed-read'([],[],[Excluded],_Key,'sk-any-filter',Rejected)",
+            "'sk-closed-read'('sk-greedy-read',[],[],[Excluded],_Key,'sk-any-filter',Rejected)",
         )
 
     def test_local_completion_exclusions_do_not_replace_the_original_branch_context(self):
@@ -60,7 +60,7 @@ class ExclusionStateTests(unittest.TestCase):
             "_Fact=[['LocalLeaf'],[Kb,'MAIN','Nil'],mf,['STV',0,1]], "
             "'sk-leaf-step'(987610,false,[987610],[],_Fact,Leaves), "
             "_Key=['sk-key',['LocallyClosed',a],[Kb,'MAIN','Nil']], 'index-hash'(_Key,_Local), "
-            "'sk-closed-read'([],[],[_Local],_Key,'sk-any-filter',Closed), "
+            "'sk-closed-read'('sk-greedy-read',[],[],[_Local],_Key,'sk-any-filter',Closed), "
             "'&sk_branch_cuts'(987654,Original,Cuts), 'change-state!'(sk_branch_at,0,_)",
             {'Kb': self.h.kb},
         )

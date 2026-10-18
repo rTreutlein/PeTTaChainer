@@ -67,6 +67,9 @@
 (: sk-val (-[det]-> SkFact EvidenceSet Number SkeletonValue))
 (: sk-goal-val (-[det]-> Goal Proof EvidenceSet Number SkeletonValue))
 (: sk-none SkeletonValue)
+;; Public output only; never an ordinary view or a materializable proof.
+(: SkeletonWaitingAnswer Type)
+(: sk-waiting (-[det]-> SkeletonValue SkeletonWaitingAnswer))
 (: SkeletonVersion Type)
 ;; row creation number, row hash, view
 (: sk-version (-[det]-> Number Number SkeletonValue SkeletonVersion))
@@ -272,6 +275,9 @@
 !(bind! &sk_view (new-space))
 (: SkeletonBranch Type)
 (: sk-cut-view (-[det]-> (List Number) SkeletonValue SkeletonBranch))
+(: &sk_representative (SpaceOf (Number SkeletonKey Number (List SkeletonGiven) (List Number) SkeletonValue)))
+(: &ctx_sk_representative (SpaceOf (Number SkeletonKey Number (List SkeletonGiven) (List Number) SkeletonValue)))
+!(bind! &sk_representative (new-space))
 ;; Exclusion-specific row views: row digest -> owner key, row hash, cuts,
 ;; freshness, value. Owner records keep the direct input keys, once per cached row;
 ;; input-key-indexed readers invalidate only cached branches that read it.
@@ -299,6 +305,7 @@
 !(bind! &sk_branch_wanted (new-space))
 !(change-state! sk_branch_budget 0)
 !(change-state! sk_root_claim_budget 0)
+!(change-state! sk_representative_budget 0)
 ;; The active ordinary reader. Nested evaluations carry exclusions, so they
 ;; leave this reader in place. Store only its identity, not its whole row.
 (: &sk_reading (SpaceOf (Number SkeletonKey Number)))

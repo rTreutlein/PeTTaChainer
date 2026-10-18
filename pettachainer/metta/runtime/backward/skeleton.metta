@@ -2140,6 +2140,10 @@
           ($_older
              (collapse (match &ctx_sk_view ($hash $stored $rhash $view)
                 (if (=alpha $stored $key) (context-remove! &sk_view ($hash $stored $rhash $view)) (empty)))))
+          ($_representatives
+             (collapse (match &ctx_sk_representative ($hash $rep-key $rhash $rep-given $rep-exclude $rep-value)
+                (if (=alpha $rep-key $key)
+                   (context-remove! &sk_representative ($hash $rep-key $rhash $rep-given $rep-exclude $rep-value)) (empty)))))
           ($_references
              (collapse (match &ctx_sk_summary_reference ($hash $rep-key $rhash $rep-given $rep-exclude $rep-filter $rep-value)
                 (if (=alpha $rep-key $key)
