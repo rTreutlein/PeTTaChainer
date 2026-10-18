@@ -321,7 +321,13 @@ the walk passes through.
 query needed: a root whose search has work left, answer deliveries still
 queued for want of rows, rows its evaluation could not pay to compute
 (`rows_unpaid` metric), or conditioning it could not pay for
-(`conditions_unpaid`). `agenda_entries` counts those items and is positive
+(`conditions_unpaid`). This includes a queried root whose deep conditioning
+claim exhausted its structural slice (one eighth of evaluation, capped at 256
+units / 512 conditioned rows). Such a claim sleeps on identical inputs to avoid
+repeating the attempt; it remains unpaid and reports `budget_exhausted`.
+A new KB input generation (facts, permanent rules or user base rates) or a larger
+slice can re-enable it; further refinement of the same inputs does not. This does not enlarge the
+query's ordinary budget. `agenda_entries` counts those items and is positive
 exactly then; otherwise the reason is `agenda_exhausted`, which means no
 computational cutoff, not logical completeness or falsity. `pruned_entries`
 is 0: backward search prunes nothing a budget could reach. Limits apply to the

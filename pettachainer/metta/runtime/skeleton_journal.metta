@@ -275,15 +275,15 @@
 !(bind! &sk_view (new-space))
 (: SkeletonBranch Type)
 (: sk-cut-view (-[det]-> (List Number) SkeletonValue SkeletonBranch))
+(: &sk_summary_reference (SpaceOf (Number SkeletonKey Number (List SkeletonGiven) (List Number) SkeletonFilter SkeletonValue)))
+(: &ctx_sk_summary_reference (SpaceOf (Number SkeletonKey Number (List SkeletonGiven) (List Number) SkeletonFilter SkeletonValue)))
+!(bind! &sk_summary_reference (new-space))
 (: &sk_representative (SpaceOf (Number SkeletonKey Number (List SkeletonGiven) (List Number) SkeletonValue)))
 (: &ctx_sk_representative (SpaceOf (Number SkeletonKey Number (List SkeletonGiven) (List Number) SkeletonValue)))
 !(bind! &sk_representative (new-space))
 ;; Exclusion-specific row views: row digest -> owner key, row hash, cuts,
 ;; freshness, value. Owner records keep the direct input keys, once per cached row;
 ;; input-key-indexed readers invalidate only cached branches that read it.
-(: &sk_summary_reference (SpaceOf (Number SkeletonKey Number (List SkeletonGiven) (List Number) SkeletonFilter SkeletonValue)))
-(: &ctx_sk_summary_reference (SpaceOf (Number SkeletonKey Number (List SkeletonGiven) (List Number) SkeletonFilter SkeletonValue)))
-!(bind! &sk_summary_reference (new-space))
 (: &sk_branch (SpaceOf (Number SkeletonKey Number (List Number) Bool SkeletonValue)))
 (: &ctx_sk_branch (SpaceOf (Number SkeletonKey Number (List Number) Bool SkeletonValue)))
 !(bind! &sk_branch (new-space))
@@ -305,12 +305,13 @@
 !(bind! &sk_branch_wanted (new-space))
 !(change-state! sk_branch_budget 0)
 !(change-state! sk_root_claim_budget 0)
-!(change-state! sk_representative_budget 0)
+!(change-state! sk_root_claim_cap 0)
 ;; The active ordinary reader. Nested evaluations carry exclusions, so they
 ;; leave this reader in place. Store only its identity, not its whole row.
 (: &sk_reading (SpaceOf (Number SkeletonKey Number)))
 !(bind! &sk_reading (new-space))
 !(change-state! sk_branch_unpaid 0)
+!(change-state! sk_representative_budget 0)
 ;; Only the current rebuild records cuts; a child propagates its completed
 ;; cuts to its parent. Keep the original exclusions beside the cuts: closed
 ;; reads' local pins must not weaken the enclosing rebuild's exclusions.
@@ -348,6 +349,43 @@
 ;; rows waiting for conditioning, by key and row hash, with estimated cost,
 ;; and the rows this evaluation paid it for; a key's merge waiting for
 ;; conditioning has row hash -1 (docs/metta/overlap_conditioning.md)
+(: SkeletonRootLimit Type)
+(: sk-root-limit (-[det]-> Number Number SkeletonRootLimit))
+;; Fixed input generation and the allowance already attempted.
+(: &sk_input_epoch (SpaceOf (KB Number)))
+(: &ctx_sk_input_epoch (SpaceOf (KB Number)))
+!(bind! &sk_input_epoch (new-space))
+!(change-state! sk_input_id 0)
+
+(: sk-input-changed! (-[det]-> KB Atom))
+(= (sk-input-changed! $kb)
+   (let* (($epoch (next-search-id sk_input_id))
+          ($_old (context-remove! &sk_input_epoch ($kb $_epoch)))
+          ($_new (context-add! &sk_input_epoch ($kb $epoch)))) ()))
+
+(: sk-input-epoch (-[det]-> SkeletonKey Number))
+(= (sk-input-epoch $key)
+   (let $kb (case $key (
+           ((sk-key $_type ($kbid $_ctx $_vars)) $kbid)
+           ((sk-fold $args) (brand KB (car-atom $args)))
+           ((sk-group $group-args) (brand KB (car-atom $group-args)))))
+      (chainer-first-or 0 (collapse (once (match &ctx_sk_input_epoch ($kb $epoch) $epoch))))))
+
+(: &sk_root_exhausted (SpaceOf (Number SkeletonKey SkeletonRootLimit)))
+(: &ctx_sk_root_exhausted (SpaceOf (Number SkeletonKey SkeletonRootLimit)))
+!(bind! &sk_root_exhausted (new-space))
+;; Work is shared across all exclusion reads of a queried key in one evaluation.
+(: &sk_root_spent (SpaceOf (Number SkeletonKey Number)))
+(: &ctx_sk_root_spent (SpaceOf (Number SkeletonKey Number)))
+!(bind! &sk_root_spent (new-space))
+
+(: sk-clear-root-cap! (-[det]-> Number SkeletonKey Atom))
+(= (sk-clear-root-cap! $hash $key)
+   (let $_cleared (collapse (match &ctx_sk_root_exhausted ($hash $stored $cap)
+            (if (=alpha $stored $key)
+               (context-remove! &sk_root_exhausted ($hash $stored $cap)) (empty))))
+      ()))
+
 (: &sk_given_pending (SpaceOf (Number Number Number)))
 (: &ctx_sk_given_pending (SpaceOf (Number Number Number)))
 !(bind! &sk_given_pending (new-space))
@@ -528,8 +566,9 @@
 (= (sk-pend-rule! $id) (let $_row (add-atom &sk_pending_rules (sk-pending-rule $id)) ()))
 
 (: sk-note-rule! (-[det]-> Number (Statement KBContext Proof TV) Atom))
-(= (sk-note-rule! $id ($type $_kbctx $_proof $_tv))
+(= (sk-note-rule! $id ($type $kbctx $_proof $_tv))
    (let* (($permanent (< $id 1000000000))
+          ($_input (if $permanent (sk-input-changed! (brand KB (car-atom $kbctx))) ()))
           ($woken (if $permanent (rule-dormancy-reset!) (rule-dormancy-wake! $type))))
       (if (not (== (collapse (once (match &sk_expanded ($_hash $_pattern) true))) ()))
          (foreach-flat sk-pend-rule! (cons $id $woken))
@@ -543,6 +582,8 @@
 (: sk-note-fact! (-[det]-> Statement KBContext Atom))
 (= (sk-note-fact! $type $kbctx)
    (let* (($key (sk-key $type $kbctx))
+          ($_input (sk-input-changed! (brand KB (car-atom $kbctx))))
+          ($_cap-cleared (sk-clear-root-cap! (index-hash $key) $key))
           ($_retired (sk-retire-known! $type $kbctx))
           ($expanded (not (== (collapse (once (match &sk_expanded ($_hash $_pattern) true))) ())))
           ($_pending

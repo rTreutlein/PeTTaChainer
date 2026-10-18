@@ -286,10 +286,6 @@
 
 ;; --- Leaves -----------------------------------------------------------------
 
-
-
-
-
 ;; A view's proof is one rule application whose premise proofs are references
 ;; to stored proofs; the full proof expands them, printing each shared
 ;; subproof once (proof_dag_expand in runtime_helpers.pl).
@@ -1900,6 +1896,7 @@
 (= (sk-activate-world-reader $type $_acc (sk-key $reader $scope))
    (let* (($key (sk-key $reader $scope))
           ($hash (index-hash $key))
+          ($_root (sk-clear-root-cap! $hash $key))
           ($_dirty (sk-dirty! $key))
           ($_changed
              (if (not (== (collapse (once (match &sk_world_changed ($hash $stored)
@@ -2130,7 +2127,8 @@
 ;; A row's latest view and the views it replaced.
 (: sk-drop-row-views! (-[det]-> Number SkeletonKey Number Atom))
 (= (sk-drop-row-views! $hash $key $rhash)
-   (let* (($_branches (sk-drop-branch! () (index-hash ($hash $rhash))))
+   (let* (($_root (sk-clear-root-cap! $hash $key))
+          ($_branches (sk-drop-branch! () (index-hash ($hash $rhash))))
           ($_latest
              (collapse (match &ctx_sk_latest ($hash $stored (sk-version $seq $rhash $view))
                 (if (=alpha $stored $key)

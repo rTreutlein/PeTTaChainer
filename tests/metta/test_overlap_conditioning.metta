@@ -49,8 +49,8 @@
    ((STV 0.05 0.9999000094042628)))
 
 ;; Conditioning a key is paid for from the evaluation allowance. A query that
-;; cannot pay keeps the more confident view and leaves the key waiting; a
-;; later query that needs it and can pay conditions it. The same knowledge
+;; cannot pay keeps its one-step waiting value. A root that spends its whole
+;; slice sleeps; a later query with a larger slice can condition it. The same knowledge
 ;; base as above.
 !(compileadd budgetKb (: storm-t1 (Storm t1) (STV 0.6 1)))
 !(compileadd budgetKb (: persist-storm (Implication (And (NextPeriod $p $t) (Storm $p)) (Storm $t)) (CTV (STV 0.7 1) (STV 0.3 1))))
@@ -66,7 +66,10 @@
 !(compileadd budgetKb (: off-t1 (Producing plant t1) (STV 0 1)))
 !(compileadd budgetKb (: on-t2 (Producing plant t2) (STV 1 1)))
 !(test (map-flat overlap-step (collapse (query 10 budgetKb (: $p (Degraded plant t1) $tv)))) (factored-revision))
-!(test (== (collapse (match &sk_given_pending ($_hash -1 $cost) $cost)) ()) false)
+;; Ten steps supply floor((2*10)/8)=2 units to the root claim. It is
+;; dormant after exhausting those units, rather than queued to repeat them.
+!(test (collapse (match &sk_root_exhausted
+   ($_hash (sk-key (Degraded plant t1) (budgetKb MAIN Nil)) (sk-root-limit $cap $_epoch)) $cap)) (2))
 !(test (map-flat overlap-tv (collapse (query 200 budgetKb (: $p (Degraded plant t1) $tv))))
    ((STV 0.0588728408972088 0.9998816871399366)))
 

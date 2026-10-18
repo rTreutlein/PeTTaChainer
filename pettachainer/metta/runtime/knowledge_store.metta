@@ -364,7 +364,8 @@
    (let* (($ids (list_to_set (collapse (match rule_name_index ($name $id) (the Number $id)))))
           ($kbs (list_to_set (fold-flat (|-> ($acc $id) (append-flat $acc (remove-rule-row! $id))) () $ids)))
           ($_index (collapse (remove-atom rule_name_index ($name $_any))))
-          ($_copies (foreach-flat sk-retire-store! (withdrawn-stores! $ids))))
+          ($_copies (foreach-flat sk-retire-store! (withdrawn-stores! $ids)))
+          ($_inputs (foreach-flat sk-input-changed! $kbs)))
       $kbs))
 
 ;; A removed fact's statement is observed by the aggregates as what its

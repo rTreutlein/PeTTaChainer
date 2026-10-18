@@ -67,6 +67,8 @@ context_local_only('&sk_fold_pending').
 context_local_only('&sk_refresh').
 context_local_only('&sk_given_granted').
 context_local_only('&sk_given_pending').
+context_local_only('&sk_root_exhausted').
+context_local_only('&sk_root_spent').
 context_local_only('&sk_conditioning').
 context_local_only('&sk_restale').
 context_local_only('&sk_held').
@@ -75,10 +77,10 @@ context_local_only('&sk_instance_changed').
 context_local_only('&sk_instance_checked').
 context_local_only('&sk_branch_wanted').
 
-context_store('&sk_summary_reference',7).
 context_store('&sk_latest',3).
 context_store('&sk_view',4).
 context_store('&sk_representative',6).
+context_store('&sk_summary_reference',7).
 context_store('&sk_branch',6).
 context_store('&sk_branch_owner',5).
 context_store('&sk_branch_dirty',1).
@@ -96,6 +98,9 @@ context_store('&sk_forced',3).
 context_store('&sk_fold_pending',2).
 context_store('&sk_partial',2).
 context_store('&sk_given_pending',3).
+context_store('&sk_root_exhausted',3).
+context_store('&sk_input_epoch',2).
+context_store('&sk_root_spent',3).
 context_store('&sk_given_granted',2).
 context_store('&sk_conditioning',2).
 context_store('&sk_refresh',2).

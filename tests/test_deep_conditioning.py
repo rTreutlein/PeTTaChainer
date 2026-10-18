@@ -173,8 +173,8 @@ class DeepConditioningTests(unittest.TestCase):
 
     def test_claim_debt_metric_counts_needed_readable_requests(self):
         handler = PeTTaChainer()
-        # Two root cuts share the capped refinement slice. Both remain readable
-        # when it runs out, unlike the now claim-free odd-period fixture.
+        # The original exhausted-turn regression: two needed root cuts share
+        # one slice. A sleeping cut is still debt, even when it is not queued.
         plant(handler, 8)
         handler.set_query_metrics(True)
         handler.query_many_refs(['(: $p (Degraded plant t6) $tv)',
@@ -188,10 +188,20 @@ class DeepConditioningTests(unittest.TestCase):
             " ; '&sk_row'(_H,_K,_R,['sk-row',_,_,_Premises,_]), "
             "   'sk-readable-row?'(_H,_K,_Premises,_Readable)), "
             " _Readable == true, 'sk-needed?'(_H,_K,true)), _Needed), "
-            "length(_Needed,Count)"
+            "findall(true, ('&ctx_sk_root_exhausted'(_DH,_DK,_), "
+            " 'sk-root-claim?'([],_DH,_DK,true), "
+            " \\+ '&ctx_sk_given_pending'(_DH,-1,_)), _Dormant), "
+            "append(_Needed,_Dormant,_Debt),length(_Debt,Count)"
         )['Count']
         self.assertGreater(debt, 1)  # The exhausted-turn metric reported only one.
         self.assertEqual(handler.last_query_metrics()['conditions_unpaid'], debt)
+        # This fixture deliberately leaves unfinished reads. Release its
+        # branch requests so they cannot spend another KB's deferred tier.
+        janus.query_once(
+            "forall(('&ctx_sk_branch_owner'(_Slot,_,['sk-key',_,[Kb,'MAIN','Nil']],_,_)), "
+            " 'sk-drop-branch!'([],_Slot,_)), "
+            "retractall('&sk_branch_wanted'(_,_,['sk-key',_,[Kb,'MAIN','Nil']],_,_)), "
+            "retractall('&sk_branch_hold'(_,_,['sk-key',_,[Kb,'MAIN','Nil']],_,_))", {'Kb': handler.kb})
 
     def test_two_period_reports(self):
         self.assertEqual(self.check_plant(2, 20000)['conditions_unpaid'], 0)
@@ -494,15 +504,51 @@ print(json.dumps({'tv': [r.tv for r in rows], 'metrics': metrics}, sort_keys=Tru
             handler = PeTTaChainer()
             plant(handler, periods)
             handler.set_query_metrics(True)
-            for repeat in range(3):
-                answer = handler.query_many_refs(
-                    [f'(: $p (Degraded plant t{periods}) $tv)'], steps=budget)[0][0]
+            query = [f'(: $p (Degraded plant t{periods}) $tv)']
+            for repeat in range(2):
+                answer = handler.query_many_refs(query, steps=budget)[0][0]
                 metrics = handler.last_query_metrics()
                 with self.subTest(periods=periods, repeat=repeat):
-                    self.assertLessEqual(metrics['conditioned_evaluations'], 512)
+                    self.assertEqual(metrics['conditioned_evaluations'], 512 if repeat == 0 else 0)
                     self.assertGreater(metrics['conditions_unpaid'], 0)
-                    self.assertLess(abs(answer.tv[1]-float(exact_t8(periods))), .0011)
+                    self.assertLess(abs(answer.tv[1] - float(exact_t8(periods))), .0011)
                     self.assertIn(f'rep-t{periods}', handler.expand_proof(answer.proof))
+            # Another independent report changes the likelihood input while
+            # leaving the root uncertain. The capped attempt becomes eligible.
+            handler.add_atom(f'(: extra-report (Producing plant t{periods}) (STV 0 0.7))')
+            handler.query_many_refs(query, steps=budget)
+            self.assertGreater(handler.last_query_metrics()['conditioned_evaluations'], 0)
+            self.assertLessEqual(handler.last_query_metrics()['conditioned_evaluations'], 512)
+            handler.query_many_refs(query, steps=budget)
+            self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 0)
+
+    def test_dormant_root_is_a_computational_cutoff(self):
+        for periods, budget in ((4, 300), (6, 20000)):
+            handler = PeTTaChainer()
+            plant(handler, periods)
+            for repeat in range(2):
+                result = handler.query_with_diagnostics(
+                    f'(: $p (Degraded plant t{periods}) $tv)', steps=budget)
+                self.assertEqual(result['diagnostics']['termination']['reason'], 'budget_exhausted')
+                self.assertGreater(result['diagnostics']['termination']['agenda_entries'], 0)
+                self.assertGreater(handler.last_query_metrics()['conditions_unpaid'], 0)
+                if repeat:
+                    self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 0)
+
+    def test_larger_root_slice_can_retry_an_exhausted_smaller_slice(self):
+        handler = PeTTaChainer()
+        plant(handler, 4)
+        handler.set_query_metrics(True)
+        query = ['(: $p (Degraded plant t4) $tv)']
+        handler.query_many_refs(query, steps=300)
+        self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 150)
+        handler.query_many_refs(query, steps=300)
+        self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 0)
+        answer = handler.query_many_refs(query, steps=3000)[0][0]
+        self.assertGreater(handler.last_query_metrics()['conditioned_evaluations'], 0)
+        self.assertAlmostEqual(answer.tv[1], float(bk_t8(4)), delta=1e-7)
+        handler.query_many_refs(query, steps=3000)
+        self.assertEqual(handler.last_query_metrics()['conditioned_evaluations'], 0)
 
     def test_nested_negative_inline_facts_keep_statement_and_kb_identity(self):
         handler = PeTTaChainer()

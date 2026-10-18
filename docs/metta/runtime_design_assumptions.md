@@ -415,10 +415,9 @@ pending search, near-shared conditioning and branch refreshes, reach a stable
 answer, and then perform zero branch builds and zero row computations. Cache
 maintenance must not restart that work on the next identical query. This
 quiescence contract allows finite-budget transients; a transient cold answer
-is not an oracle for the fixed point. The optional deep root claim is the
-bounded exception: if its fixed ceiling cannot cover one pass, it retains the
-marginal summary and pending debt and can repeat that bounded attempt on each
-query.
+is not an oracle for the fixed point. A capped root claim that cannot finish a
+pass retains its marginal summary and sleeps until its inputs change or a
+larger slice is available. An identical query does not repeat that attempt.
 
 A certain truth value, confidence >= 1, stands for unlimited evidence in
 revision. Only a stored binary-certain fact, STV strength 0 or 1 at confidence
@@ -1255,9 +1254,25 @@ ordinary work and other claims; the fixed ceiling covers the cheap two-period
 (26 rows) and four-period (510 rows) T8 cuts while bounding longer-history
 retries independently of history length. Each input world receives its own
 slice, as it receives its own evaluation allowance. Exhaustion retains the
-last completed pass, or the factored summary, with pending debt. It grants no
-extra work to the next query. Merge caches record root eligibility so a key
-first read as a summary can be promoted when queried; a root result cannot
+last completed pass, or the factored summary. Once a root key has spent its
+whole slice without completing its claim, it leaves the pending queue and
+sleeps. Spending is accumulated across every exclusion read of that key in
+one evaluation. A root that only received a partial slice shared with other
+roots remains pending. A larger query slice can wake a sleeping root.
+
+A new or removed fact, permanent rule or user base rate changes the input
+generation of its KB (scoped through the active overlay). Sleeping root claims
+record that generation and the allowance already attempted. A new generation or
+larger slice re-enables them; ordinary refinements of the same input world do not,
+even when a later view discovers more of the existing evidence. This prevents an
+unpaid pin rebuild from buying another doomed root attempt on the next identical
+query. A root merge that no longer requires conditioning clears its marker.
+Only the current roots probe markers, by their indexed key; historical sleeping
+roots are not scanned for each query. These markers are scheduling state, not
+evidence or proof settlement. `conditions_unpaid` counts needed queued requests
+and sleeping queried-root claims. Sleeping avoids repeating work; it does not
+settle the claim. No extra work is granted to the next query.
+Merge caches record root eligibility so a key first read as a summary can be promoted when queried; a root result cannot
 silently serve a later nested merge under a different policy.
 
 **One-step filtering (#81).** Nested key merges summarize shared history
@@ -1272,8 +1287,8 @@ representation the current per-key marginal store does not hold. The bound
 assumes established input marginals. Finite search and deferred-read budgets
 can leave incomplete or stale summaries and substantially larger errors;
 the root cap bounds work, not posterior error.
-Near-shared key claims and row clash/entanglement claims retain the existing
-settlement limits: repeated insufficient allowances can repeat work.
+Nested near-shared key claims and row clash/entanglement claims retain the
+existing settlement limits: repeated insufficient allowances can repeat work.
 `conditions_unpaid` counts needed, readable pending requests. Historical
 settlement experiments are archived in
 /nexus/Dev/OpenCog/bench/results/history-bug/; their four-period 0.05 waiting
@@ -1295,8 +1310,8 @@ depth, keeping the deepest completed pass if the allowance is exhausted.
 With no completed pass, it retains its waiting value. Incomplete branches
 cannot contribute.
 
-Exhausted targets remain pending for a later query that needs them. Their
-views and skeleton persist, but execution stacks do not: repeated allowances
+Except for dormant capped roots, exhausted targets remain pending for a later
+query that needs them. Their views and skeleton persist, but execution stacks do not: repeated allowances
 too small for a complete pass need not finish it. A sufficiently large
 allowance can finish the retained near-shared calculation under the existing
 view formulas and weight; nested deep history remains a marginal approximation.

@@ -199,8 +199,17 @@ ordinary work and other claims; the fixed ceiling covers the cheap two-period
 (26 rows) and four-period (510 rows) T8 cuts while bounding longer-history
 retries independently of history length. Each input world receives its own
 slice, as it receives its own evaluation allowance. Exhaustion retains the
-last completed pass, or the factored summary, with pending debt. It grants no
-extra work to the next query. Merge caches record root eligibility so a key
+last completed pass, or the factored summary. A root that spends its whole
+slice without completing leaves the pending queue and sleeps until its live
+sources or dependency support change, or a larger slice becomes available.
+Numeric re-estimation over unchanged support updates its summary without
+retrying the structurally oversized claim. Spending is accumulated across
+exclusion reads of that key; roots receiving only part of a shared slice stay
+pending. Dormant markers are scoped scheduling state and are excluded from
+`conditions_unpaid` only while that key is not a queried root. A dormant
+queried-root claim remains unpaid and makes diagnostics report
+`budget_exhausted`. No extra work is granted to the next query.
+Merge caches record root eligibility so a key
 first read as a summary can be promoted when queried; a root result cannot
 silently serve a later nested merge under a different policy.
 
@@ -227,7 +236,8 @@ its actual work (SupplyNet timed stage 3 seed 3, #74).
 An exhausted claim retains its deepest completed pass, or its waiting value
 when none finished. Both branches must finish before a pass is eligible.
 
-The ordinary pending request remains for later queries. Row views and the
+Except for dormant capped roots, the ordinary pending request remains for
+later queries. Row views and the
 skeleton survive; no execution stack is saved. Repeated allowances smaller
 than one complete pass need not finish it, but larger allowances can replace
 the waiting value and finish the retained conditioned calculation under

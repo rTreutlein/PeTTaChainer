@@ -2842,23 +2842,24 @@
           ($unifiers (sk-unifier-hashes $hash $key))
           ($ignore (hash-union $unifiers $outside))
           (($values $siblings $references) (sk-reference-values $ignore $standing)))
-      (case (sk-lift $siblings $values) (
-         ((cons $lifted $_rest) $lifted)
-         (()
-            (case (fold-semidet (sk-pair-merge-step true $ignore) (sk-merging sk-none () 0) $values) (
-               ;; Every fact view depends on its own key. A nonempty
-               ;; overlap dependency set also marks an unconditionable
-               ;; overlap (shared observations, with no cut statements).
-               ((sk-merging $merged () $deps)
-                  (if (if (== $deps 0) (if $siblings false true) false) $merged (sk-key-fallback $ignore $references $values)))
-               ((sk-merging $_provisional $keys $deps)
-                  (let* (($merged (sk-key-fallback $ignore $references $values))
-                         ($near (sk-shared-statements $ignore (deps-near-shared (map-semidet (sk-view-deps-step 0) $values))))
-                         ($cut (if (sk-root-claim? $given $hash $key) $keys
-                            (fold-semidet (sk-near-key-step $near) () $keys))))
-                     (if (== $cut ()) $merged
-                        (sk-conditioned $given (sk-key-target $hash $key $filter $exclude) $hash -1
-                           (hash-union $exclude $unifiers) $cut (+ 1 (deps-size $deps)) $merged $merged)))))))))))
+      (let $state (case (sk-lift $siblings $values) (
+              ((cons $lifted $_rest) (sk-merging $lifted () 0))
+              (() (fold-semidet (sk-pair-merge-step true $ignore) (sk-merging sk-none () 0) $values))))
+         (case $state (
+            ((sk-merging $merged () $deps)
+               (let $_settled
+                  (if (if (== $outside ()) (== $filter sk-any-filter) false)
+                     (if (sk-root-claim? $given $hash $key) (sk-clear-root-cap! $hash $key) ()) ())
+                  (if (if (== $deps 0) (if $siblings false true) false) $merged
+                     (sk-key-fallback $ignore $references $values))))
+            ((sk-merging $_provisional $keys $deps)
+               (let* (($merged (sk-key-fallback $ignore $references $values))
+                      ($near (sk-shared-statements $ignore (deps-near-shared (map-semidet (sk-view-deps-step 0) $values))))
+                      ($cut (if (sk-root-claim? $given $hash $key) $keys
+                         (fold-semidet (sk-near-key-step $near) () $keys))))
+                  (if (== $cut ()) $merged
+                     (sk-conditioned $given (sk-key-target $hash $key $filter $exclude) $hash -1
+                        (hash-union $exclude $unifiers) $cut (+ 1 (deps-size $deps)) $merged $merged)))))))))
 
 (: sk-root-claim? (-[det]-> (List SkeletonGiven) Number SkeletonKey Bool))
 (= (sk-root-claim? $given $hash $key)
@@ -2963,17 +2964,9 @@
       ((cons $reference $_rest) (cons $reference $kept))
       (() $kept))))
 
-;; Only this key's rejected rows can leave this read unfinished. Re-evaluate
-;; their formulas once against already admitted inputs under the same cuts.
-;; The reference never imports the legitimately excluded smoothing evidence,
-;; opens conditioning, rebuilds history or discounts its own inputs again.
-(: sk-admitted-merge (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) SkeletonValue))
-(= (sk-admitted-merge $hash $key $filter $exclude)
-   (sk-merge-key $hash $key $filter $exclude () (sk-admitted $hash $key $filter $exclude)))
-
-;; Calibrate the value after the consumer's pins have been applied. Reading an
-;; unconditional reference while a completion pins its consequence unfounded
-;; would confuse a legitimate counterfactual exclusion with missing evidence.
+;; Keep the reference kernel in its fold boundary: PeTTa specializes its
+;; writable row variables there. Only the immutable diagnostic is memoized;
+;; current drop/rebuild status is checked again before every use.
 (: sk-row-has-bayes? (-[det]-> Number SkeletonKey Number Bool))
 
 (: sk-cached-summary-version
@@ -3017,6 +3010,10 @@
                   (append-flat $references $kept)))))
          $kept)
       $kept))
+
+(: sk-admitted-merge (-[semidet]-> Number SkeletonKey SkeletonFilter (List Number) SkeletonValue))
+(= (sk-admitted-merge $hash $key $filter $exclude)
+   (sk-merge-key $hash $key $filter $exclude () (sk-admitted $hash $key $filter $exclude)))
 
 (: sk-calibrated-value
    (-[semidet]-> (List SkeletonGiven) SkeletonKey SkeletonFilter (List Number) SkeletonValue SkeletonValue))
@@ -3860,15 +3857,22 @@
 ;; but is never an admission threshold. A claim keeps its deepest completed
 ;; pass if the shared evaluation allowance runs out. With no completed pass,
 ;; it keeps its waiting value; incomplete branches cannot contribute.
-
-
-
 (= (sk-conditioned $given $target $khash $rhash $wexclude $keys $base $approx $waiting)
    (case $keys (
       (() $approx)
       ((cons $_first $_more)
          (if (== $given ())
-            (let $cost (* 2 $base)
+            (let* (($cost (* 2 $base))
+                   ($owner (case $target (
+                      ((sk-key-target $_h $target-key $_f $_e) $target-key)
+                      ((sk-row-target $_ex $_rh $row-key $_row-hash $_row) $row-key))))
+                   ($root (if (== $rhash -1) (sk-root-claim? $given $khash $owner) false))
+                   ($cap (search-id-value sk_root_claim_cap))
+                   ($blocked (if $root
+                      (not (== (collapse (once (match &ctx_sk_root_exhausted ($khash $stored (sk-root-limit $tried $epoch))
+                         (if (=alpha $stored $owner)
+                            (if (== $epoch (sk-input-epoch $owner)) (if (>= $tried $cap) true (empty)) (empty)) (empty))))) ())) false)))
+               (if $blocked (progn (next-search-id sk_branch_unpaid) $waiting)
                ;; Deferred rebuilds may lie outside the ordinary need closure;
                ;; their conditioning uses the same bounded tier slice.
                (if (if (space-row-present? &ctx_sk_given_granted ($khash $rhash)) true
@@ -3881,9 +3885,6 @@
                                ;; Slice only an outer root-key claim. Nested row and
                                ;; weight work spends this same slice, never the reserve.
                                ($before (search-id-value sk_eval_budget))
-                               ($root (if (== $rhash -1)
-                                  (case $target (((sk-key-target $_h $key $_f $_e)
-                                     (sk-root-claim? $given $khash $key)) ($_row false))) false))
                                ($room (if $root (min $before (search-id-value sk_root_claim_budget)) $before))
                                ($_slice (change-state! sk_eval_budget $room))
                                ($_opened (sk-open-claim!))
@@ -3893,12 +3894,27 @@
                                ($_restore (change-state! sk_eval_budget (- $before $spent)))
                                ($_root-spent (if $root
                                   (change-state! sk_root_claim_budget (- (search-id-value sk_root_claim_budget) $spent)) ()))
+                               ($key-spent (if $root
+                                  (let* (($root-was (chainer-first-or 0
+                                            (collapse (once (match &ctx_sk_root_spent ($khash $spent-owner $root-units)
+                                               (if (=alpha $spent-owner $owner) $root-units (empty)))))))
+                                         ($_spent-old (remove-variant-row! &sk_root_spent (quote ($khash $owner $root-was))))
+                                         ($root-total (+ $root-was $spent))
+                                         ($_spent-new (context-add! &sk_root_spent ($khash $owner $root-total))))
+                                     $root-total) 0))
                                ($_left (context-remove! &sk_conditioning ($khash $rhash))))
                            (if $exhausted
-                              (sk-wait! $khash $rhash $cost (chainer-first-or $waiting $deepest))
-                              (chainer-first-or $waiting $deepest)))
+                              (if (if $root (if (> $spent 0) (>= $key-spent $cap) false) false)
+                                 (let* (($_unfinished (next-search-id sk_branch_unpaid))
+                                        ($_old (sk-clear-root-cap! $khash $owner))
+                                        ($_capped (context-add! &sk_root_exhausted ($khash $owner (sk-root-limit $cap (sk-input-epoch $owner)))))
+                                        ($_pending (remove-data-rows! &sk_given_pending (quote ($khash $rhash $_cost)))))
+                                    (chainer-first-or $waiting $deepest))
+                                 (sk-wait! $khash $rhash $cost (chainer-first-or $waiting $deepest)))
+                              (let $_settled (if $root (sk-clear-root-cap! $khash $owner) ())
+                                 (chainer-first-or $waiting $deepest))))
                         (chainer-first-or $waiting (sk-mix-on $given $target $wexclude $keys))))
-                  (sk-wait! $khash $rhash $cost $waiting)))
+                  (sk-wait! $khash $rhash $cost $waiting))))
             (if (if (== $approx sk-none) false (>= (fold-flat sk-given-depth-step 0 $given) (search-id-value sk_claim_depth)))
                (progn (change-state! sk_claim_cut 1) $approx)
                (if (== (search-id-value sk_claim_state) -1)
@@ -5254,15 +5270,29 @@
           ($_conditioning (remove-data-rows! &sk_conditioning (quote ($chash $crhash))))
           ($_restale (remove-data-rows! &sk_restale (quote ($skhash $srhash))))
           ($_checked (remove-data-rows! &sk_instance_checked (quote ($ihash))))
+          ($_root-spent (remove-data-rows! &sk_root_spent (quote ($_hash $_key $_units))))
+          ($root-room (search-id-value sk_root_claim_cap))
+          ($_wake (collapse (match &sk_needed ($root-hash $root-key 0)
+             (match &ctx_sk_root_exhausted ($root-hash $stored-root (sk-root-limit $tried $epoch))
+                (if (=alpha $stored-root $root-key)
+                   (if (if (< $tried $root-room) true (not (== $epoch (sk-input-epoch $root-key))))
+                      (if (sk-root-claim? () $root-hash $root-key) (sk-uncache! $root-hash $root-key) (empty)) (empty))
+                   (empty))))))
           ($last (sk-evaluate-pass! 0 $partial))
           ($_roots (sk-read-roots!)))
       (let $_paid (sk-pay-conditions! (+ $last 1))
          (query_metric_set conditions-unpaid
-            (length (collapse (match &ctx_sk_given_pending ($ph $pr $_cost)
+            (+ (length (collapse (match &sk_needed ($dh $dk 0)
+                  (match &ctx_sk_root_exhausted ($dh $stored-debt $_cap)
+                     (if (=alpha $stored-debt $dk)
+                        (if (sk-root-claim? () $dh $dk)
+                           (if (space-row-present? &ctx_sk_given_pending ($dh -1 $_pending-cost)) (empty) true)
+                           (empty)) (empty))))))
+               (length (collapse (match &ctx_sk_given_pending ($ph $pr $_cost)
                (if (== $pr -1)
                   (match &sk_keys ($ph $pk) (if (sk-needed? $ph $pk) true (empty)))
                   (match &sk_row ($ph $pk $pr (sk-row $_pi $_pc $pp $_ps))
-                     (if (sk-needed? $ph $pk) (if (sk-readable-row? $ph $pk $pp) true (empty)) (empty)))))))))))
+                     (if (sk-needed? $ph $pk) (if (sk-readable-row? $ph $pk $pp) true (empty)) (empty))))))))))))
 
 ;; A pass works off the rows never evaluated, the readers of the keys changed
 ;; outside evaluation, the stale rows a need brought current (forced by their
@@ -5426,6 +5456,7 @@
 (: set-base-rate (-[det]-> KB Statement TV (List $none)))
 (= (set-base-rate $kbid $pattern $tv)
    (let* (($_valid (validate-base-rate! $pattern (conjunct-parts (implication-side-conjuncts $pattern))))
+          ($_input (sk-input-changed! $kbid))
           ($stored (copy_term $pattern))
           ($hash (base-rate-cache-hash $kbid $pattern))
           ($_old (base-rate-cache-remove! $kbid $pattern))
@@ -5434,7 +5465,8 @@
 
 (: clear-base-rate (-[det]-> KB Statement (List $none)))
 (= (clear-base-rate $kbid $pattern)
-   (let $_old (base-rate-cache-remove! $kbid $pattern)
+   (let* (($_old (base-rate-cache-remove! $kbid $pattern))
+          ($_input (sk-input-changed! $kbid)))
       (base-rate-readers-changed! $kbid $pattern)))
 
 ;; --- Materialization --------------------------------------------------------
@@ -5779,6 +5811,7 @@
           ($_evaluation (change-state! sk_eval_budget (* (sk-evaluation-per-step) $steps)))
           ($_root-claims (change-state! sk_root_claim_budget
              (min (sk-root-claim-limit) (floor-math (* (* (sk-evaluation-per-step) $steps) (sk-root-claim-share))))))
+          ($_root-cap (change-state! sk_root_claim_cap (search-id-value sk_root_claim_budget)))
           ($_branches (change-state! sk_branch_budget (* (* (sk-evaluation-per-step) $steps) (sk-branch-share))))
           ($_walk (change-state! sk_walk_budget (* (sk-walk-per-step) $steps)))
           ($_pushes (change-state! sk_push_seq 0))

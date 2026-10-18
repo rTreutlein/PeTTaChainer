@@ -448,10 +448,10 @@ opaque_proof_step(Step) :-
 % arity, and the columns that can. A fact stored in &kb with a referenced
 % proof is held by &sk_forward_stored (a forward run's copy) or by
 % &materialized_facts as well.
-refs_holder('&sk_summary_reference', 7, [6, 7]).
 refs_holder('&sk_latest', 3, [3]).
 refs_holder('&sk_view', 4, [4]).
 refs_holder('&sk_representative', 6, [6]).
+refs_holder('&sk_summary_reference', 7, [6, 7]).
 refs_holder('&sk_branch', 6, [6]).
 refs_holder('&sk_merged', 5, [4]).
 refs_holder('&sk_forward_taken', 3, [3]).
