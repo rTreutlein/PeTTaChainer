@@ -464,6 +464,22 @@ class PriorDefinitionTests(unittest.TestCase):
         self.assertEqual(result['Owners'], 0)
         self.assertNotEqual(result['Replacement'], result['Local'])
 
+    def test_main_support_write_promotes_a_context_created_source(self):
+        result = janus.query_once(
+            "setup_call_cleanup(nb_setval(context_overlay,source_fixture),"
+            "'observation-sources'(['fact-ev',[Kb,'MAIN','Nil'],one,[retained,a]],Sources),"
+            "nb_setval(context_overlay,main)),"
+            "'observation-keys'(Sources,Before),"
+            "'update-likelihood-support!'([retained_source,Kb],1,Sources,1,0,_),"
+            "'context-clear!'(_),'observation-keys'(Sources,After),"
+            "'observation-sources'(['fact-ev',[Kb,'MAIN','Nil'],two,[retained,a]],Again),"
+            "(Sources==Again -> Stable=true;Stable=false),"
+            "'likelihood-support-counts'([retained_source,Kb],Counts)",
+            {'Kb': self.h.kb})
+        self.assertEqual(result['After'], result['Before'])
+        self.assertEqual(result['Stable'], 'true')
+        self.assertEqual(result['Counts'], ['support-counts', 1, 1, 0, 0, 0])
+
     def test_forward_reverse_edges_keep_unchanged_clause_identity(self):
         result = janus.query_once(
             "_Key=[reader,Kb],"
@@ -497,13 +513,13 @@ class PriorDefinitionTests(unittest.TestCase):
             "_Fold=[support_cost,Kb],"
             "aggregate_all(count,ev_set(_,_,_,_,_),_Before),"
             "forall(between(1,100,_I),"
-            "('observation-sources'(['observation-source',[Kb,'MAIN','Nil'],[report,_I]],_Sources),"
+            "('observation-sources'(['fact-ev',[Kb,'MAIN','Nil'],sample,[report,_I]],_Sources),"
             "'update-likelihood-support!'(_Fold,_I,_Sources,1,0,_))),"
             "'likelihood-support-counts'(_Fold,Counts),"
             "findall(_Source,(between(1,99,_I),"
-            "'observation-sources'(['observation-source',[Kb,'MAIN','Nil'],[report,_I]],['source-list',[_Source]])),_Excluded),"
+            "'observation-sources'(['fact-ev',[Kb,'MAIN','Nil'],sample,[report,_I]],['source-list',[_Source]])),_Excluded),"
             "'likelihood-support-admissible?'(_Fold,['source-list',_Excluded],OneRemains),"
-            "'observation-sources'(['observation-source',[Kb,'MAIN','Nil'],[report,100]],['source-list',[_Last]]),"
+            "'observation-sources'(['fact-ev',[Kb,'MAIN','Nil'],sample,[report,100]],['source-list',[_Last]]),"
             "'likelihood-support-admissible?'(_Fold,['source-list',[_Last|_Excluded]],Drained),"
             "aggregate_all(count,ev_set(_,_,_,_,_),_After),Delta is _After-_Before",
             {'Kb': self.h.kb})

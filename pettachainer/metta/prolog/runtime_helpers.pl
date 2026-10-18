@@ -1003,7 +1003,9 @@ likelihood_source_delta(Fold,H,DP,DN,Entry,['support-counts'|Before],['support-c
     P is OP+DP, N is ON+DN,
     'remove-variant-row!'('&sk_sample_source',[Key,H,Stored,Entry,OP,ON],_),
     ( P=:=0, N=:=0 -> true
-    ; 'context-add!'('&sk_sample_source',[Key,H,Fold,Entry,P,N],_) ),
+    ; % MAIN can retain a source list computed while an assumption was active.
+      ( context_active(_) -> true ; retractall(support_identity_owner(Entry)) ),
+      'context-add!'('&sk_sample_source',[Key,H,Fold,Entry,P,N],_) ),
     likelihood_counts(Entry,OP,ON,Was), likelihood_counts(Entry,P,N,Now),
     maplist(likelihood_count_delta,Before,Was,Now,After).
 likelihood_count_delta(T,Old,New,Result) :- Result is T+New-Old.
@@ -1031,8 +1033,6 @@ likelihood_observation_source([Tag,Scope,_Proof,Type], Source) :-
     memberchk(Tag,['fact-ev','not-fact-ev']), !,
     ( ground(Scope-Type) -> support_identity_id(['sk-key',Type,Scope],Source)
     ; Source='unverified-observation' ).
-likelihood_observation_source(['observation-source',Scope,Type], Source) :- !,
-    support_identity_id(['sk-key',Type,Scope],Source).
 likelihood_observation_source(_, 'unverified-observation').
 
 % The entries other than rules that every set holds: the first set's entries,
