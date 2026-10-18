@@ -27,4 +27,14 @@
 
 !(test
    (query 100 ravenInductionImplicationKb (: $prf (Implication (Raven $x) (Black $x)) $tv))
-   (: (conditional-implication (merge/revision (by rv1ImpliesBlack ((inverted rv1ImpliesRaven with cpu (prior (STV 0.25000694425154857 0.9))) (ctx proof 0))) (by rv2ImpliesBlack ((inverted rv2ImpliesRaven with cpu (prior (STV 0.25000694425154857 0.9))) (ctx proof 0))))) (Implication (Raven $_0) (Black $_0)) (STV 0.4340210632752559 0.5235562706373931)))
+   (:
+      (conditional-implication
+         (merge/revision
+            (by
+               rv1ImpliesBlack
+               ((inverted rv1ImpliesRaven with cpu (prior (STV 0.25000694425154857 0.9))) (ctx proof 0)))
+            (by
+               rv2ImpliesBlack
+               ((inverted rv2ImpliesRaven with cpu (prior (STV 0.25000694425154857 0.9))) (ctx proof 0)))))
+      (Implication (Raven $_0) (Black $_0))
+      (STV 0.4340210632752559 0.5235562706373931)))

@@ -192,6 +192,9 @@
       (if (if (is-var $kb) true (if (is-var $rule) true
                    (not (== (extract-vars $context) ()))))
          (normalize-expected-likelihoods $candidate)
+         ;; This module loads before the operator's definition. The inner
+         ;; reduction builds its call (cons/quote); the outer executes it.
+         ;; One reduction leaves call data instead of the closed read record.
          (let $record (normalize-expected-likelihoods $candidate)
             (the LikelihoodRead (reduce (reduce
                (cons rule-likelihood-read

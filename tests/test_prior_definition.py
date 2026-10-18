@@ -205,6 +205,51 @@ class PriorDefinitionTests(unittest.TestCase):
         self.assertEqual(float(centre[1]), 0)
         self.assertAlmostEqual(float(centre[2]), 6/806)
 
+    def test_excluding_one_membership_removes_the_whole_centre_member(self):
+        # A two-membership sample has two sources but only one contribution.
+        # With no remaining member, a synthetic concept prior cannot certify
+        # an empirical centre even though distinct sources minus hits is one.
+        self.h.add_atom('(: node (Inheritance seed concept) (STV 1 1))')
+        result = janus.query_once("""
+            _Ctx=[Kb,'MAIN','Nil'],
+            _Left=[['Member',only,left],_Ctx,left,['STV',1,1]],
+            _Right=[['Member',only,right],_Ctx,right,['STV',1,1]],
+            _Value=['forward-member-inheritance-observation-value',
+                ['forward-derived',_Left,['ev-set',0]],
+                ['forward-derived',_Right,['ev-set',0]]],
+            'fa-observation-sources'(_Left,_Value,_Sources),
+            'base-rate-premises'(Kb,['Inheritance',_X,concept],_,[_Goal]),
+            'fa-premise-subscriptions'(_Goal,
+                [['fa-subscription',_Identity,_Descriptor,_Triggers]]),
+            'fa-register!'(_Identity,_Descriptor,_Triggers,_),
+            'fa-id'(_Identity,_Id),
+            'fa-swap!'(_Id,[],
+                ['forward-aggregate-observation',[_Id,only],_Value,1,1],true,_Sources,_),
+            'likelihood-support-counts'(['aggregate-support',_Id],Counts),
+            findall(_TV,'sk-computed-centre'(Kb,['Inheritance',_X,concept],
+                ['source-list',[]],[],_TV),Before),
+            _Sources=['source-list',_List],
+            findall(_After,(member(_Source,_List),
+                findall(_TV2,'sk-computed-centre'(Kb,['Inheritance',_X,concept],
+                    ['source-list',[_Source]],[],_TV2),_After)),After)
+        """, {'Kb': self.h.kb})
+        self.assertEqual(result['Counts'], ['support-counts', 2, 2, 0, 0, 0])
+        self.assertEqual(len(result['Before']), 1)
+        self.assertEqual(result['After'], [[], []])
+
+    def test_closed_likelihood_priority_uses_the_runtime_read(self):
+        self.h.set_evidence_confidence_k(1)
+        self.h._call('set-base-rate', [f'{self.h.kb} (B $x) (STV 0.1 0.9)'])
+        raw = '(CTV (STV 0.9 0.9) (STV 0.2 0.9))'
+        candidate = f'(likelihood-read {raw} {raw} (stated {raw}))'
+        context = '(likelihood-context () (ev-set 0))'
+        args = f'{self.h.kb} authored (A $x) (B $x) {candidate} {context}'
+        runtime = self.formula('rule-likelihood-read', args)
+        expected = self.formula('cpu-expected-tv', f'rule-likelihood-read ({args})')
+        self.assertEqual(expected, runtime)
+        weight = 1 / (1/10 + 1/1.2) - 1
+        self.assertAlmostEqual(float(expected[2][1][1]), (9*.9 + weight*.1)/(9+weight))
+
     def test_timed_worker_replays_the_same_prior_settings(self):
         self.h.set_evidence_confidence_k(1)
         self.h.set_bayes_prior_count(.7)

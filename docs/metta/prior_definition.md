@@ -91,12 +91,14 @@ counters: distinct sources, positive/negative presence, duplicate or unverified
 sources, and cross-branch overlap. Each source delta changes those counters in
 constant time. No population-sized evidence set is interned. For an empirical
 centre, indexed hits for the excluded sources are subtracted from its distinct
-count; a positive remainder and no duplicate/unverified sources certify that
-independent observations remain. Subtract their numeric contributions through
-the reverse index. Cost is proportional to the sources explicitly excluded,
-not the marginal population size. Numeric tallies also keep an exact live
-contribution count, so a drained population becomes exactly zero rather than
-a floating-point subtraction residual. Branch pooling requires positive support in
+count; a positive remainder and no duplicate/unverified sources are necessary.
+Subtract their numeric contributions through the reverse index and require a
+positive remaining member count: removing one source can remove an entire
+multi-source member. A drained tally cannot supply an empirical centre, even
+if a synthetic concept prior remains. Cost is proportional to the sources
+explicitly excluded, not the marginal population size.
+Numeric tallies keep an exact live contribution count, so a drained population
+becomes exactly zero rather than a floating-point subtraction residual. Branch pooling requires positive support in
 both branches and zero duplicate/unverified and overlap counts.
 
 Specificity chooses the nearest containing classes before excluding samples.

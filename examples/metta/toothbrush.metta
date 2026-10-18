@@ -70,4 +70,30 @@
 
 !(test
    (collapse (query 200 toothbrushKb (: $prf (Inheritance X removed) $tv)))
-   ((: (inheritance-implication-fold (total-implication ((inheritance-rule-lift unscrewRemovesHardened) xUnscrew ((inheritance-rule-lift waitHardensScrewlike) xWait ((inheritance-rule-lift reshapePliableScrewlike) xReshape (by meltedPliable (by heatedMelts ((inheritance-rule-lift lighterHeatsPlastic) xLighter (by (inheritance-implication xPlastic) (ctx proof 0)))))))) ((inheritance-rule-lift unscrewRemovesHardened) xUnscrew ((inheritance-rule-lift waitHardensScrewlike) xWait ((inheritance-rule-lift reshapePliableScrewlike) xReshape (by meltedPliable (by heatedMelts ((inheritance-rule-lift lighterHeatsPlastic) xLighter (by (inheritance-implication xPlastic) (ctx proof 1)))))))))) (Inheritance X removed) (STV 0.8960103413108825 0.989769492533671))))
+   ((:
+      (inheritance-implication-fold
+         (total-implication
+            ((inheritance-rule-lift unscrewRemovesHardened)
+               xUnscrew
+               ((inheritance-rule-lift waitHardensScrewlike)
+                  xWait
+                  ((inheritance-rule-lift reshapePliableScrewlike)
+                     xReshape
+                     (by meltedPliable
+                        (by heatedMelts
+                           ((inheritance-rule-lift lighterHeatsPlastic)
+                              xLighter
+                              (by (inheritance-implication xPlastic) (ctx proof 0))))))))
+            ((inheritance-rule-lift unscrewRemovesHardened)
+               xUnscrew
+               ((inheritance-rule-lift waitHardensScrewlike)
+                  xWait
+                  ((inheritance-rule-lift reshapePliableScrewlike)
+                     xReshape
+                     (by meltedPliable
+                        (by heatedMelts
+                           ((inheritance-rule-lift lighterHeatsPlastic)
+                              xLighter
+                              (by (inheritance-implication xPlastic) (ctx proof 1))))))))))
+      (Inheritance X removed)
+      (STV 0.8960103413108825 0.989769492533671))))

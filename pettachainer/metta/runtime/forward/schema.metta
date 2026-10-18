@@ -116,7 +116,7 @@
    (term_hash (quote ($kb $type))))
 
 
- ;; Per-observation support and its reverse lookup. Query exclusions touch
+;; Per-observation support and its reverse lookup. Query exclusions touch
 ;; only observations reached by excluded keys, never the whole population.
 (: &forward_aggregate_observation
    (SpaceOf (Number ForwardAggregateObservationKey ForwardAggregateObservationValue Number Number SourceList)))

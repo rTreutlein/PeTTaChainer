@@ -102,7 +102,10 @@
             (Defective press)
             (UpstreamFailure press))
          $tv))
-   (: ((inverted failureStopsOutput with cpu (prior (STV 0.8199991919212325 0.99))) observedPressStopped) (Or (Defective press) (UpstreamFailure press)) (STV 0.82 0.8999999996128824)))
+   (: ((inverted failureStopsOutput with cpu (prior (STV 0.8199991919212325 0.99)))
+          observedPressStopped)
+      (Or (Defective press) (UpstreamFailure press))
+      (STV 0.82 0.8999999996128824)))
 
 ;; Bayes' rule over the press's defect rate (0.418, from one stored fact, so
 ;; the answer carries little confidence) with P(NoOutput | defect) = 1 and
@@ -111,4 +114,9 @@
 !(test
    (query 300 machineInverseKb
       (: $proof (Defective press) $tv))
-   (: ((antecedent-completion failureStopsOutput 0 with cpu (prior (STV 0.5 0.0))) (conjunction (by propagateUpstreamFailure (conjunction feederFeedsPress feederDefect)) observedPressStopped)) (Defective press) (STV 0.5857142857142857 0.0014551015180091081)))
+   (: ((antecedent-completion failureStopsOutput 0 with cpu (prior (STV 0.5 0.0)))
+          (conjunction
+             (by propagateUpstreamFailure (conjunction feederFeedsPress feederDefect))
+             observedPressStopped))
+      (Defective press)
+      (STV 0.5857142857142857 0.0014551015180091081)))

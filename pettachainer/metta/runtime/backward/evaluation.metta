@@ -324,10 +324,12 @@
           ($id (fa-id $identity))
           ($group (quote (aggregate-support $id))))
       (if (likelihood-support-admissible? $group $sources)
-         (let (STV $g $gc) (fa-result $descriptor
-                  (fold-flat fa-subtract-step (fa-state $id)
-                     (fa-left-out $id (hash-union $exclude (hash-set (observation-keys $sources))))))
-            (STV $g $gc))
+         (let* (($state (fold-flat fa-subtract-step (fa-state $id)
+                            (fa-left-out $id (hash-union $exclude (hash-set (observation-keys $sources))))))
+                ((forward-aggregate-state $_id $_sum $_mass $members) $state))
+            (if (> $members 0)
+               (let (STV $g $gc) (fa-result $descriptor $state) (STV $g $gc))
+               (empty)))
          (empty))))
 
 ;; The watch already applied the row's cuts. Additional observation cuts
@@ -1195,7 +1197,7 @@
 (: sk-outranked-step (-[semidet]-> SkeletonReference Bool SkeletonReference Bool))
 (= (sk-outranked-step $view $found $other) (if $found true (sk-contained? $other $view)))
 
- ;; Only nearest strictly containing classes supply centres. Same-class
+;; Only nearest strictly containing classes supply centres. Same-class
 ;; estimates have already been grouped; incomparable classes are a mixture.
 (: sk-class-prior-step (-[semidet]-> SkeletonReference (List SkeletonReference) SkeletonReference (List SkeletonReference)))
 (= (sk-class-prior-step $specific $prior $general)
