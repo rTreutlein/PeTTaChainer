@@ -980,12 +980,19 @@ likelihood_replace_sources(Fold,Old,OP,ON,Sources,Pos,Neg) :-
 % remain conservative even when one of two colliding physical sources leaves.
 'update-aggregate-sources!'(Id,Key,['source-list',Old],OP,['source-list',Sources],Pos,true) :-
     ( Sources==Old, Pos=:=OP -> true
-    ; convlist(likelihood_source_key,Old,OldKeys0), sort(OldKeys0,OldKeys),
+    ; support_identity_id(['aggregate-reader',Id,Key],Reader),
+      convlist(likelihood_source_key,Old,OldKeys0), sort(OldKeys0,OldKeys),
       convlist(likelihood_source_key,Sources,NewKeys0), sort(NewKeys0,NewKeys),
       ord_subtract(OldKeys,NewKeys,Removed), ord_subtract(NewKeys,OldKeys,Added),
-      forall(member(K,Removed),'context-remove!'('&forward_aggregate_read',[K,Id,Key],_)),
-      forall(member(K,Added),'context-add!'('&forward_aggregate_read',[K,Id,Key],_)),
+      forall(member(K,Removed),'context-remove!'('&forward_aggregate_read',[K,Id,Reader],_)),
+      forall(member(K,Added),'context-add!'('&forward_aggregate_read',[K,Id,Reader],_)),
       likelihood_replace_sources(['aggregate-support',Id],Old,OP,0,Sources,Pos,0) ).
+
+% Keep the full reader once; reverse edges retain only scalar identities.
+% Edge enumeration preserves arrival order and keeps the aggregate indexed.
+'aggregate-readers'(Id,Read,Keys) :-
+    findall(Key,('&ctx_forward_aggregate_read'(Read,Id,Reader),
+                 support_identity(Reader,_,['aggregate-reader',Id,Key])),Keys).
 
 'likelihood-support-counts'(Fold,Counts) :-
     'index-hash'(Fold,H),

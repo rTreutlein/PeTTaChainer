@@ -464,6 +464,32 @@ class PriorDefinitionTests(unittest.TestCase):
         self.assertEqual(result['Owners'], 0)
         self.assertNotEqual(result['Replacement'], result['Local'])
 
+    def test_forward_reverse_edges_keep_unchanged_clause_identity(self):
+        result = janus.query_once(
+            "_Key=[reader,Kb],"
+            "'observation-sources'(['fact-ev',[Kb,'MAIN','Nil'],a,[report,a]],A),"
+            "'observation-sources'(['fact-ev',[Kb,'MAIN','Nil'],b,[report,b]],B),"
+            "'source-list-union'(A,B,AB),"
+            "'observation-keys'(A,[_HA]),'observation-keys'(B,[_HB]),"
+            "'update-aggregate-sources!'(-9001,_Key,['source-list',[]],0,A,1,_),"
+            "clause('&forward_aggregate_read'(_HA,-9001,_Reader),true,_RefA),"
+            "'update-aggregate-sources!'(-9001,_Key,A,1,A,0,_),"
+            "'update-aggregate-sources!'(-9001,_Key,A,0,AB,1,_),"
+            "clause('&forward_aggregate_read'(_HA,-9001,_Reader),true,_StillA),"
+            "(_RefA==_StillA -> KeptA=true;KeptA=false),"
+            "clause('&forward_aggregate_read'(_HB,-9001,_Reader),true,_RefB),"
+            "'update-aggregate-sources!'(-9001,_Key,AB,1,B,1,_),"
+            "clause('&forward_aggregate_read'(_HB,-9001,_Reader),true,_StillB),"
+            "(_RefB==_StillB -> KeptB=true;KeptB=false),"
+            "'aggregate-readers'(-9001,_HA,Removed),"
+            "'aggregate-readers'(-9001,_HB,Remaining),"
+            "'update-aggregate-sources!'(-9001,_Key,B,1,['source-list',[]],0,_),"
+            "'aggregate-readers'(-9001,_HB,Drained)", {'Kb': self.h.kb})
+        self.assertEqual((result['KeptA'], result['KeptB']), ('true', 'true'))
+        self.assertEqual(result['Removed'], [])
+        self.assertEqual(result['Remaining'], [['reader', self.h.kb]])
+        self.assertEqual(result['Drained'], [])
+
     def test_support_updates_never_intern_population_evidence(self):
         # The old summary interned every growing prefix, retaining O(N²)
         # evidence payload. Source deltas and exclusion reads must intern none.

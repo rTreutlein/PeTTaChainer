@@ -129,6 +129,11 @@ no growing population evidence set or serialized term is allocated. The stored
 hash provides the reverse-read key, with full term variant equality checking
 collisions during interning.
 
+Forward reverse-read edges retain `(source hash, aggregate id, reader id)`. The
+full reader key is interned once. Updates subtract sorted source-key sets and
+add only new edges; unchanged edges keep their clauses and enumeration position,
+including when only class counts change.
+
 Support handles use a separate identity namespace from proof/evidence entries,
 so interning an optimization key cannot perturb evidence IDs or deterministic
 traversal. MAIN identities persist without reuse; identities first created in an

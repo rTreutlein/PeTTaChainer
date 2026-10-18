@@ -148,7 +148,7 @@
 
 (: fa-read-step (-[det]-> Number (List ForwardAggregateObservationKey) Number (List ForwardAggregateObservationKey)))
 (= (fa-read-step $id $keys $read)
-   (append-flat (collapse (match &ctx_forward_aggregate_read ($read $id $key) $key)) $keys))
+   (append-flat (aggregate-readers $id $read) $keys))
 
 (: fa-left-out (-[det]-> Number (List Number) (List ForwardAggregateObservation)))
 (= (fa-left-out $id $exclude)

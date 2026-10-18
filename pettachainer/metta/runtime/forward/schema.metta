@@ -123,8 +123,8 @@
 (: &ctx_forward_aggregate_observation
    (SpaceOf (Number ForwardAggregateObservationKey ForwardAggregateObservationValue Number Number SourceList)))
 !(bind! &forward_aggregate_observation (new-space))
-(: &forward_aggregate_read (SpaceOf (Number Number ForwardAggregateObservationKey)))
-(: &ctx_forward_aggregate_read (SpaceOf (Number Number ForwardAggregateObservationKey)))
+(: &forward_aggregate_read (SpaceOf (Number Number Number)))
+(: &ctx_forward_aggregate_read (SpaceOf (Number Number Number)))
 !(bind! &forward_aggregate_read (new-space))
 
 ;; The skeleton fold key each base-rate aggregate is the estimate of: aggregate
@@ -181,3 +181,5 @@
 
 (: update-aggregate-sources!
    (-[det]-> Number ForwardAggregateObservationKey SourceList Number SourceList Number Bool))
+
+(: aggregate-readers (-[det]-> Number Number (List ForwardAggregateObservationKey)))
